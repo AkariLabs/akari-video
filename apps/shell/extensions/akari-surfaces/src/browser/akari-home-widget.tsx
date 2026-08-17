@@ -44,6 +44,7 @@ import {
 import {
     applyShellUpdaterEvent,
     formatDownloadedBannerText,
+    formatDownloadingBannerText,
     INITIAL_SHELL_UPDATER_UI_STATE,
     ShellUpdaterUiState
 } from '../common/shell-update-applier';
@@ -1356,19 +1357,39 @@ export class AkariHomeWidget extends ReactWidget {
     };
 
     /**
-     * 「更新する」（F7-v1・task 2026-08-03-home-v5-terms）: 自プラットフォームの配布物
-     * URL（無ければ notes_url。`evaluateUpdateStatus`/`resolveUpdateDownloadUrl` が
-     * 解決済み）を外部ブラウザで開いてダウンロードを開始する。`{ external: true }` を
-     * 明示しないと Electron 版 `WindowService`（`electron-main-window-service-impl.js`）は
-     * 新規 Electron ウィンドウで URL を内部的に開くだけになり（`shell.openExternal` が
-     * 呼ばれない）、バイナリ配布物のダウンロードが実ブラウザのダウンロードマネージャ
-     * を経由しない — task.md の「外部ブラウザで開いて DL 開始」を満たすにはこのフラグが必須。
+     * 「更新する」: electron-updater が使える環境（パッケージ済み Electron）では
+     * main プロセスへ即時チェックを発火する — autoDownload で裏 DL が始まり、イベントが
+     * バナーを「ダウンロード中」→「DL 済み・再起動で適用」へ進める（アプリ内で完結）。
+     * updater が使えない（非 Electron・開発ビルド）か直近で error になっている場合は
+     * 従来の F7-v1 挙動（外部ブラウザで配布物 DL）へ縮退する。
      */
     protected downloadUpdate = (): void => {
+        const api = this.resolveElectronUpdaterApi();
+        if (api && !this.updaterUiState.failed) {
+            this.updateCheckRequested = true;
+            void api.checkForUpdatesNow().catch(() => {
+                // IPC 自体の失敗は沈黙（契約 §11）。次クリックは failed 経由でブラウザ DL に落とす。
+                this.updateCheckRequested = false;
+                this.applyUpdaterEvent({ kind: 'error' });
+            });
+            return;
+        }
+        this.openUpdateDownloadInBrowser();
+    };
+
+    /**
+     * F7-v1（task 2026-08-03-home-v5-terms）: 自プラットフォームの配布物 URL（無ければ
+     * notes_url。`evaluateUpdateStatus`/`resolveUpdateDownloadUrl` が解決済み）を外部
+     * ブラウザで開いてダウンロードを開始する。`{ external: true }` を明示しないと
+     * Electron 版 `WindowService`（`electron-main-window-service-impl.js`）は新規 Electron
+     * ウィンドウで URL を内部的に開くだけになり（`shell.openExternal` が呼ばれない）、
+     * バイナリ配布物のダウンロードが実ブラウザのダウンロードマネージャを経由しない。
+     */
+    protected openUpdateDownloadInBrowser(): void {
         if (this.updateStatus.downloadUrl) {
             this.windowService.openNewWindow(this.updateStatus.downloadUrl, { external: true });
         }
-    };
+    }
 
     // --- U3 electron-updater（内部リポ契約 update-and-versioning §11）: main プロセス
     // イベントの購読と「今すぐ再起動して適用」アクション ---
@@ -1405,8 +1426,19 @@ export class AkariHomeWidget extends ReactWidget {
         this.toDispose.push({ dispose: () => this.updaterUnsubscribe?.() });
     }
 
+    /** 「更新する」クリック起点のチェックが進行中か（error 時にブラウザ DL へ一度だけ自動フォールバックするための印）。 */
+    protected updateCheckRequested = false;
+
     protected applyUpdaterEvent(event: ShellUpdaterEvent): void {
         this.updaterUiState = applyShellUpdaterEvent(this.updaterUiState, event);
+        if (event.kind === 'update-downloaded' || event.kind === 'update-not-available') {
+            this.updateCheckRequested = false;
+        } else if (event.kind === 'error' && this.updateCheckRequested) {
+            // ユーザーが明示的に「更新する」を押した直後の失敗だけは黙って終わらせず、
+            // 従来の手動 DL（外部ブラウザ）へ引き継ぐ。バックグラウンドチェックの失敗では開かない。
+            this.updateCheckRequested = false;
+            this.openUpdateDownloadInBrowser();
+        }
         this.update();
     }
 
@@ -1828,7 +1860,7 @@ export class AkariHomeWidget extends ReactWidget {
                 style={{ height: '100%', overflow: 'auto', padding: '18px 22px', boxSizing: 'border-box', position: 'relative' }}
             >
                 {this.renderDashboardHeader()}
-                {(this.updateStatus.available || this.updaterUiState.downloaded) && this.renderUpdateBanner()}
+                {(this.updateStatus.available || this.updaterUiState.downloaded || this.updaterUiState.downloading) && this.renderUpdateBanner()}
                 {this.importedNotice && this.renderImportedNotice()}
                 {this.renderExplanation()}
                 {this.renderProjectList()}
@@ -1860,7 +1892,7 @@ export class AkariHomeWidget extends ReactWidget {
                 style={homeFlowStyles.welcomeSurface}
             >
                 <div style={homeFlowStyles.welcomeStack}>
-                    {(this.updateStatus.available || this.updaterUiState.downloaded) && this.renderUpdateBanner()}
+                    {(this.updateStatus.available || this.updaterUiState.downloaded || this.updaterUiState.downloading) && this.renderUpdateBanner()}
                     {this.renderWelcomeCard()}
                 </div>
             </div>
@@ -1977,14 +2009,14 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     /**
-     * 更新ホームバナー（D5 裁定・F7-v1 更新 — task 2026-08-03-home-v5-terms）。
+     * 更新ホームバナー（D5 裁定・F7-v1 — task 2026-08-03-home-v5-terms）。
      * 新版がある時だけ出す。常時領域を専有しない。アクション 2 つ:
-     * 更新する（自プラットフォーム配布物 DL を外部ブラウザで開始） /
-     * 今回はスキップ（dismissed 記録・不変）。文言・ボタン構成はモック準拠（U7・U8）。
+     * 更新する（electron-updater の即時チェック発火。使えない環境ではブラウザ DL に縮退
+     * — downloadUpdate 参照） / 今回はスキップ（dismissed 記録・不変）。
      *
-     * U3（electron-updater・契約 §11）: `updaterUiState.downloaded` が true の間は
-     * 上記の DL 前バナーの代わりに「DL 済み・再起動で適用されます」バナーへ切り替える
-     * （task.md §4「DL 前は従来どおり」= 逆に言えば DL 後はここで表示が変わる）。
+     * U3（electron-updater・契約 §11）の 3 段階:
+     * DL 前 = U2 フィード比較バナー → `downloading` の間 = 「ダウンロード中」表示
+     * （ボタンなし） → `downloaded` = 「DL 済み・今すぐ再起動して適用」バナー。
      */
     protected renderUpdateBanner(): React.ReactNode {
         if (this.updaterUiState.downloaded) {
@@ -2003,6 +2035,14 @@ export class AkariHomeWidget extends ReactWidget {
                             今すぐ再起動して適用
                         </button>
                     </div>
+                </div>
+            );
+        }
+        if (this.updaterUiState.downloading && this.updaterUiState.downloadingVersion) {
+            return (
+                <div role='status' style={homeFlowStyles.updateBanner} data-akari-update-downloading='true'>
+                    <span className='codicon codicon-arrow-circle-up' aria-hidden='true' style={homeFlowStyles.updateBannerIcon} />
+                    <span style={homeFlowStyles.updateBannerText}>{formatDownloadingBannerText(this.updaterUiState)}</span>
                 </div>
             );
         }

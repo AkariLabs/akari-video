@@ -27,20 +27,42 @@ export interface ShellUpdaterUiState {
     /** electron-updater が新版を DL 済みで、再起動すれば適用できる状態か。 */
     downloaded: boolean;
     downloadedVersion?: string;
+    /** `update-available` 受信〜DL 完了まで true（「ダウンロード中」バナー）。 */
+    downloading?: boolean;
+    downloadingVersion?: string;
+    /** 直近の check/DL が error で終わった印。「更新する」ボタンをブラウザ手動 DL へ縮退させる。 */
+    failed?: boolean;
 }
 
 export const INITIAL_SHELL_UPDATER_UI_STATE: ShellUpdaterUiState = { downloaded: false };
 
 /**
- * イベント → 次のバナー状態（同期・純粋関数）。`update-downloaded`（version 付き）だけが
- * 状態を変える。`error` / `update-not-available` / `checking-for-update` / `update-available`
- * は既存状態をそのまま返し沈黙する（契約 §11「エラー/オフラインで例外がユーザーに
- * 露出しない（沈黙 + 既存バナー縮退）」— `update-available` の「新版があります」表示は
- * U2 のリモートフィード比較バナーが既に担っているため、ここで別の表示を足さない）。
+ * イベント → 次のバナー状態（同期・純粋関数）。
+ *
+ * - `update-available`（version 付き）: 自動 DL が始まった合図なので「ダウンロード中」
+ *   バナーへ（DL 済みなら既存バナーを維持）。かつては U2 バナーとの二重表示を避けて
+ *   沈黙していたが、「更新する」ボタンが electron-updater 直結になった（適用まで
+ *   アプリ内で完結する）ため、進行が見えないほうが不安になる — 表示に切り替えた
+ * - `update-downloaded`（version 付き）: 「DL 済み・再起動で適用」バナーへ
+ * - `error`: 例外をユーザーに露出しない（契約 §11 の沈黙原則）。DL 済みならそのまま、
+ *   そうでなければ `failed` を立てて「更新する」を手動 DL へ縮退させるだけ
+ * - `update-not-available` / `checking-for-update`: DL 中表示だけ畳み、他は変えない
  */
 export function applyShellUpdaterEvent(state: ShellUpdaterUiState, event: ShellUpdaterEvent): ShellUpdaterUiState {
     if (event.kind === 'update-downloaded' && typeof event.version === 'string' && event.version.length > 0) {
         return { downloaded: true, downloadedVersion: event.version };
+    }
+    if (state.downloaded) {
+        return state;
+    }
+    if (event.kind === 'update-available' && typeof event.version === 'string' && event.version.length > 0) {
+        return { downloaded: false, downloading: true, downloadingVersion: event.version };
+    }
+    if (event.kind === 'error') {
+        return { downloaded: false, failed: true };
+    }
+    if (event.kind === 'update-not-available' && state.downloading) {
+        return { downloaded: false };
     }
     return state;
 }
@@ -61,4 +83,12 @@ export function formatDownloadedBannerText(state: ShellUpdaterUiState): string {
         return '';
     }
     return `AKARI Video v${state.downloadedVersion} をダウンロード済みです。再起動すると適用されます。`;
+}
+
+/** 「ダウンロード中」バナー本文。DL 中でなければ空文字（バナー非表示の合図）。 */
+export function formatDownloadingBannerText(state: ShellUpdaterUiState): string {
+    if (state.downloaded || !state.downloading || !state.downloadingVersion) {
+        return '';
+    }
+    return `AKARI Video v${state.downloadingVersion} をダウンロードしています。完了すると再起動ボタンが表示されます。`;
 }

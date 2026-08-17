@@ -3,6 +3,7 @@ import { ShellUpdaterEvent } from '../common/shell-update-applier';
 export const CHANNEL_UPDATER_EVENT = 'AkariShellUpdaterEvent';
 export const CHANNEL_UPDATER_GET_STATE = 'AkariShellUpdaterGetState';
 export const CHANNEL_UPDATER_RESTART = 'AkariShellUpdaterRestartAndInstall';
+export const CHANNEL_UPDATER_CHECK = 'AkariShellUpdaterCheckNow';
 
 export type { ShellUpdaterEvent } from '../common/shell-update-applier';
 
@@ -13,6 +14,8 @@ export interface ElectronAkariUpdaterApi {
     onEvent(listener: (event: ShellUpdaterEvent) => void): () => void;
     /** 「今すぐ再起動して適用」ボタン: electron-updater の quitAndInstall を main プロセスへ委ねる。 */
     restartAndInstall(): Promise<void>;
+    /** 「更新する」ボタン: electron-updater のチェック（→ autoDownload で自動 DL）を即時発火する。結果はイベント購読側に流れる。 */
+    checkForUpdatesNow(): Promise<void>;
 }
 
 declare global {
