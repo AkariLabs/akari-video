@@ -20,6 +20,31 @@ sha256 checksums before use (`packages/media-bin/scripts/fetch-binaries.mjs`).
 FFmpeg is a trademark of Fabrice Bellard, originator of the FFmpeg project.
 Full FFmpeg license information: https://ffmpeg.org/legal.html
 
+## whisper.cpp (whisper-cli)
+
+This product downloads and bundles whisper-cli (whisper.cpp), used as a
+separate command-line process (not linked into this application's binary),
+for local speech-to-text transcription. whisper.cpp is MIT licensed
+(Copyright (c) 2023-2026 The ggml authors). Source:
+https://github.com/ggml-org/whisper.cpp
+
+Supply differs by platform (no official macOS binary distribution exists):
+
+- **macOS (arm64)**: source-built at release time from the pinned tag
+  `v1.9.2` (`packages/media-bin/src/binary-manifest.mjs`'s
+  `WHISPER_CPP_SOURCE`, verified against a pinned sha256), using cmake
+  (`packages/media-bin/scripts/build-whisper.mjs`, `-DBUILD_SHARED_LIBS=OFF`
+  for a self-contained binary — no acceleration defaults are overridden).
+  macOS x64 is not built at this time (arm64-only dmg distribution).
+- **Windows (x64)**: whisper.cpp v1.9.2 official GitHub Release build
+  (`whisper-bin-x64.zip`, the plain non-BLAS/non-CUDA build), fetched and
+  verified against a pinned sha256
+  (`packages/media-bin/src/binary-manifest.mjs`'s `win32-x64` manifest
+  entry, `packages/media-bin/scripts/fetch-binaries.mjs`). Its runtime DLL
+  dependencies (`whisper.dll`, `ggml.dll`, `ggml-base.dll`, and the
+  per-CPU-microarchitecture `ggml-cpu-*.dll` backend variants ggml
+  dynamically dispatches between) are bundled alongside it.
+
 ## Electron shell (desktop app)
 
 Additional third-party notices for the desktop shell are generated at build

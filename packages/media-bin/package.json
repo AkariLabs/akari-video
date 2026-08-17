@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ffmpeg / ffprobe バイナリ解決の一元化。探索順: AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN（明示指定） → FFMPEG_PATH（ffmpeg の既存互換） → PATH → 同梱バイナリ（vendor/ 配下。binary-manifest.mjs でピン留めした GPL-only・真ネイティブビルド）。",
+  "description": "ffmpeg / ffprobe / whisper-cli バイナリ解決の一元化。ffmpeg/ffprobe の探索順: AKARI_FFMPEG_BIN / AKARI_FFPROBE_BIN（明示指定） → FFMPEG_PATH（ffmpeg の既存互換） → PATH → 同梱バイナリ（vendor/ 配下。binary-manifest.mjs でピン留めした GPL-only・真ネイティブビルド）。whisper-cli の探索順は AKARI_WHISPER_BIN → 同梱バイナリ → PATH（win32 は公式リリース zip、macOS は release CI のソースビルド）。",
   "main": "src/index.mjs",
   "exports": {
     ".": "./src/index.mjs"
   },
   "scripts": {
     "postinstall": "node scripts/fetch-binaries.mjs",
+    "build:whisper": "node scripts/build-whisper.mjs",
     "test": "node --test \"test/*.test.mjs\""
   },
   "engines": {

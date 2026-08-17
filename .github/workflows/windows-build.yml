@@ -110,6 +110,19 @@ jobs:
           npm_config_enable_thin_lto: 'false'
         run: npm run package
 
+      # task/2026-08-17-media-bin-whisper: whisper-cli.exe は win32-x64 の manifest エントリ
+      # 経由で `npm run package` の暗黙の prepackage フック（bundle-media-binaries.mjs）が
+      # 自動取得・同梱する（既存の ffmpeg/ffprobe 同梱と同じ経路・同じステップ位置）。この
+      # 新規追加ステップは「実際に同梱されたか」を確認するだけの検収で、既存の
+      # package/verify-asar ステップ自体には手を入れていない。
+      - name: whisper-cli 同梱確認
+        working-directory: apps/shell/electron-builder-out/win-unpacked/resources/media-bin
+        run: |
+          if (-not (Test-Path "whisper-cli.exe")) { Write-Error "whisper-cli.exe が同梱されていません"; exit 1 }
+          if (-not (Test-Path "whisper.dll")) { Write-Error "whisper.dll（依存 DLL）が同梱されていません"; exit 1 }
+          if (-not (Test-Path "ggml-base.dll")) { Write-Error "ggml-base.dll（依存 DLL）が同梱されていません"; exit 1 }
+          Get-ChildItem "whisper-cli.exe","whisper.dll","ggml-base.dll" | Select-Object Name, Length
+
       # upload-artifact は多数の小ファイルに弱いため 7z で単一 zip に固めてから上げる
       - name: Zip win-unpacked
         working-directory: apps/shell/electron-builder-out
