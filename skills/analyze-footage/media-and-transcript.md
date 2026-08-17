@@ -42,31 +42,36 @@ ffmpeg -hide_banner -nostdin -y -i "$SOURCE" \
 
 #### whisper.cpp の実行ファイルを探す
 
-ネットワークから自動導入せず、次の順で読み取り・実行可能なものを探す。
+ネットワークから自動導入せず、次の順で読み取り・実行可能なものを探す。[setup-library/tools-check.md](../setup-library/tools-check.md) の whisper-cli 実行ファイル探索順と揃えてある。
 
 1. `WHISPER_CPP_BIN` で明示されたパス
-2. `PATH` 上の `whisper-cli`（Homebrew の `whisper-cpp` フォーミュラを導入した開発機では `/opt/homebrew/bin/whisper-cli` が `Cellar/whisper-cpp/<version>/bin/whisper-cli` へのシンボリックリンクとしてここに乗り、この順位で見つかる。2026-07-14 時点で実在・動作確認済み）
-3. リポジトリ内または隣接する whisper.cpp checkout の `build/bin/whisper-cli`
+2. パッケージ版アプリの同梱 `Resources/media-bin/whisper-cli`（macOS 既定インストール: `/Applications/AKARI Video.app/Contents/Resources/media-bin/whisper-cli`。Windows は `.exe`）。同梱されていれば検出される — whisper-cli の media-bin 供給は並走タスクが追加中で、本節はその存在を断定しない
+3. リポ開発時 `packages/media-bin/vendor/<platform>-<arch>/whisper-cli`
+4. `$HOME/.akari/tools/bin/whisper-cli`（アプリの導入代行・setup-library の承認付き導入代行が brew 不在時に配置する置き場）
+5. `PATH` 上の `whisper-cli`（Homebrew の `whisper-cpp` フォーミュラを導入した開発機では `/opt/homebrew/bin/whisper-cli` が `Cellar/whisper-cpp/<version>/bin/whisper-cli` へのシンボリックリンクとしてここに乗り、この順位で見つかる。2026-07-14 時点で実在・動作確認済み。2026-08-17 時点でも同じ経路で解決することを再確認済み）
+6. リポジトリ内または隣接する whisper.cpp checkout の `build/bin/whisper-cli`
 
 候補を見つけたら `-h` を実行し、`-m`、`-f`、`-l auto`、`-oj`、`-ojf`、`-of` を受け付ける版か確認する（`whisper-cpp 1.8.4` の `-h` 出力で全オプションの存在を確認済み）。名前が一般的すぎる `main` を由来確認なしで使わない。
 
 #### モデルを探す
 
-次の順に `ggml-*.bin` を探索する。
+次の順に `ggml-*.bin` を探索する。[setup-library/tools-check.md](../setup-library/tools-check.md) のモデル探索順と揃えてある。
 
 1. `WHISPER_CPP_MODEL` で明示された読み取り可能なファイル
-2. リポジトリ内の `models/`、`whisper.cpp/models/`
-3. `$HOME/.cache/whisper.cpp/`
-4. `$HOME/Library/Caches/whisper.cpp/`
-5. Homebrew の `whisper-cpp` が導入済みなら、その share ディレクトリ
-6. VoiceInk（`com.prakashjoshipax.VoiceInk`）が保存した whisper.cpp モデル: `$HOME/Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels/`
+2. `$HOME/.akari/tools/models/`（アプリの初回セットアップ・setup-library の承認付き導入代行が公式配布から取得する既定置き場。既定モデルは `ggml-large-v3-turbo-q5_0.bin` 約 574MB）
+3. リポジトリ内の `models/`、`whisper.cpp/models/`
+4. `$HOME/.cache/whisper.cpp/`
+5. `$HOME/Library/Caches/whisper.cpp/`
+6. Homebrew の `whisper-cpp` が導入済みなら、その share ディレクトリ
+7. VoiceInk（`com.prakashjoshipax.VoiceInk`）が保存した whisper.cpp モデル: `$HOME/Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels/`
 
-6 は姉妹スキル `whisper-transcribe` が既定で再利用するモデル置き場と同じである。1〜5 のいずれかで見つかればそちらを優先し、6 はそれらが全て空のときだけ評価する。1〜5 が典型的な開発機ではどれも存在せず `transcript: []` へ不要に劣化していたため、この開発機で実際にモデルが手に入る場所を探索順の最後に加えた。実在確認: 2026-07-14 時点でこのパスに `ggml-large-v3-turbo-q5_0.bin`（約 574 MB）が存在することを確認済み。
+7 は姉妹スキル `whisper-transcribe` が既定で再利用するモデル置き場と同じである。1〜6 のいずれかで見つかればそちらを優先し、7 はそれらが全て空のときだけ評価する。1〜6 が典型的な開発機ではどれも存在せず `transcript: []` へ不要に劣化していたため、この開発機で実際にモデルが手に入る場所を探索順の最後に加えた。実在確認: 2026-07-14 時点でこのパスに `ggml-large-v3-turbo-q5_0.bin`（約 574 MB）が存在することを確認済み。2026-08-17 時点で新設した `$HOME/.akari/tools/models/` はこの開発機では未生成（アプリ側の導入代行がまだ供給していない）ことを再確認した — 見つからなければ 3〜6 を経て 7 の VoiceInk 置き場へフォールバックする、という経路は変わらない。
 
 存在するルートだけを対象に、例えば zsh では次のように列挙する。
 
 ```zsh
 MODEL_ROOTS=(
+  "$HOME/.akari/tools/models"
   "$REPO_ROOT/models"
   "$REPO_ROOT/whisper.cpp/models"
   "$HOME/.cache/whisper.cpp"
