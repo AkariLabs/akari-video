@@ -61,7 +61,9 @@ import {
 } from '../common/akari-new-project-protocol';
 import { FirstRunSetupOpenMode } from '../common/first-run-onboarding';
 import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-display-name';
+import { shouldAutoOpenProjectLauncher } from '../common/launcher-visibility';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
+import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
 import {
     StoreConnectionFlowController,
@@ -103,7 +105,6 @@ const STORE_SITE_FALLBACK = 'https://akari-oss.app/lab/';
 // 「AI パートナー接続」のプロジェクト単位 SSOT は connections.json の akari-cloud
 // provider の doctor.status（partner pane が「akari-cloud・接続済み」と表示する対象と同一）。
 const CLOUD_PROVIDER_ID = 'akari-cloud';
-const BEGIN_ONBOARDING_COMMAND = 'akari.partner.beginOnboarding';
 const SEND_TO_PARTNER_COMMAND = 'akari.partner.send';
 // akari-project の akari-reveal-commands.ts とミラー（拡張間 npm 依存を作らない —
 // akari-project-contribution.ts 冒頭コメントと同じ「薄いコマンド境界」流儀。
@@ -175,8 +176,12 @@ interface StandaloneProjectEntry {
     title: string | null;
 }
 
-/** U3: プロジェクト一覧（唯一のスイッチャー）1 行分。past/current/standalone を統合した表示用の形。 */
-interface ProjectListRow {
+/**
+ * U3: プロジェクト一覧（唯一のスイッチャー）1 行分。past/current/standalone を統合した表示用の形。
+ * ランチャー（`akari-project-launcher-dialog.ts`）が列挙結果をそのまま受け取れるよう export する
+ * （型だけの参照 — 列挙ロジック自体は `buildProjectRows` に残したまま複製しない）。
+ */
+export interface ProjectListRow {
     key: string;
     name: string;
     uri: URI;
@@ -268,6 +273,13 @@ export class AkariHomeWidget extends ReactWidget {
     // セットアップ完了直後はワークスペース root がまだ無くても dashboard へ抜ける。
     protected showDashboardWithoutProject = false;
 
+    // --- プロジェクト・ランチャー（task 2026-08-17-home-launcher-popup・裁定 D + §3.2）。
+    // 中身（列挙・開く・新規作成）は一切複製せず、home widget 側の既存実装を props 経由で
+    // 渡すだけ。ここは開閉のライフサイクルと「同一セッションで再ポップしない」の状態だけを持つ。
+    protected projectLauncherDialog: AkariProjectLauncherDialog | undefined;
+    protected projectLauncherDialogClosed: Promise<void> | undefined;
+    protected launcherDismissedThisSession = false;
+
     // --- AKARI Store 接続（オーナー要望 2026-08-03「アプリ側でも欲しい」） ---
     protected storeEmail: string | null = null;
     protected storeEntitlementsStatus: AssetEntitlementsStatus = 'no_credentials';
@@ -301,13 +313,14 @@ export class AkariHomeWidget extends ReactWidget {
     // U5「チャンネルに入れる」実行中フラグ。
     protected joiningChannel = false;
 
-    // --- ホーム v3 由来: 接続案内カード / 進め方フォーム ---
+    // --- ホーム v3 由来: 接続状態の判定 / 進め方フォーム ---
+    // 接続案内カード自体は裁定 C4 により撤去済み（task 2026-08-17-home-launcher-popup）。
+    // `connected` の判定（readConnected 系）は接続状態の SSOT として他用途のために維持する。
     protected connectionsUri: URI | undefined;
     protected intakeUri: URI | undefined;
     protected connected = false;
     protected intakeStatus: 'absent' | 'draft' | 'submitted' = 'absent';
     protected intakeSnapshot: IntakeSnapshot | undefined;
-    protected connecting = false;
 
     // 進め方フォームを dashboard 内の展開セクションとして開いているか。
     // v4 ではホーム上のカードから開く経路が無くなったため、
@@ -371,7 +384,10 @@ export class AkariHomeWidget extends ReactWidget {
         await this.loadCreatorRootProjects();
         // U3: 履歴由来の「単体」プロジェクトは creatorRootProjects（重複除外に使う）の後に読む。
         await this.loadStandaloneProjects();
-        await this.initializeFirstRunSetup();
+        const firstRunWillAutoOpen = await this.initializeFirstRunSetup();
+        // ランチャー（正本 §3.2）: 完全初回はセットアップが優先するため、その場合はここでは
+        // 開かない — セットアップの onFinished からの明示 open に続きを委ねる。
+        await this.initializeProjectLauncher(firstRunWillAutoOpen);
         // U2: 状態バッジの解決（creatorRootUri）の後に読む — 現在地がチャンネルの
         // 内側かどうかの判定に使うため。
         await this.refreshCurrentLocation();
@@ -424,19 +440,72 @@ export class AkariHomeWidget extends ReactWidget {
         this.update();
     }
 
-    /** 完全初回だけ、ウェルカム面の上へ専用モーダルを自動表示する。 */
-    protected async initializeFirstRunSetup(): Promise<void> {
+    /**
+     * 完全初回だけ、ウェルカム面の上へ専用モーダルを自動表示する。戻り値は自動表示したか
+     * どうか — ランチャーの自動表示判定（`initializeProjectLauncher`）が「今回はセットアップが
+     * 優先された」ことを知るために使う（正本 §3.2「完全初回はセットアップダイアログが優先」）。
+     */
+    protected async initializeFirstRunSetup(): Promise<boolean> {
         const roots = await this.workspaceService.roots;
         const hasProjectHistory = this.creatorRootProjects.length > 0 || this.standaloneProjects.length > 0;
         const dialog = this.createFirstRunSetupDialog();
-        if (!await dialog.shouldAutoOpen({
+        const willAutoOpen = await dialog.shouldAutoOpen({
             hasOpenProject: roots.length > 0,
             hasProjectHistory
+        });
+        if (!willAutoOpen) {
+            return false;
+        }
+        void this.openFirstRunSetupDialog('automatic', dialog);
+        return true;
+    }
+
+    /**
+     * ランチャーの自動表示判定（正本 §3.2）。純ロジックは `launcher-visibility.ts` に
+     * 分離してあり、ここは状態集めと呼び出しだけを行う。
+     */
+    protected async initializeProjectLauncher(firstRunWillAutoOpen: boolean): Promise<void> {
+        const roots = await this.workspaceService.roots;
+        if (!shouldAutoOpenProjectLauncher({
+            hasOpenProject: roots.length > 0,
+            firstRunWillAutoOpen,
+            dismissedThisSession: this.launcherDismissedThisSession
         })) {
             return;
         }
-        void this.openFirstRunSetupDialog('automatic', dialog);
+        void this.openProjectLauncher();
     }
+
+    /**
+     * ランチャーを開く（自動表示・初回セットアップ onFinished からの継続・コマンド/ボタンからの
+     * 手動再表示の共通入口）。既に開いていればそれを前面に出すだけで新しいダイアログは作らない
+     * （`openFirstRunSetupDialog` と同じ流儀）。一覧・新規作成・開くの実処理はすべて props 経由で
+     * 既存実装（`buildProjectRows` / `startNewProject` / `openCreatorRootProject`）へ委ねる。
+     */
+    openProjectLauncher = async (): Promise<void> => {
+        if (this.projectLauncherDialog && this.projectLauncherDialogClosed) {
+            this.projectLauncherDialog.activate();
+            return this.projectLauncherDialogClosed;
+        }
+        const dialog = new AkariProjectLauncherDialog({
+            title: 'プロジェクトを選ぶ',
+            rows: this.buildProjectRows(),
+            onStartNewProject: this.startNewProject,
+            onOpenProject: this.openCreatorRootProject,
+            onDismissed: () => {
+                this.launcherDismissedThisSession = true;
+            }
+        });
+        this.projectLauncherDialog = dialog;
+        const closed = dialog.openLauncher().finally(() => {
+            if (this.projectLauncherDialog === dialog) {
+                this.projectLauncherDialog = undefined;
+                this.projectLauncherDialogClosed = undefined;
+            }
+        });
+        this.projectLauncherDialogClosed = closed;
+        return closed;
+    };
 
     /** コマンドパレット／ホームの導線から何度でも明示再表示できる。 */
     openFirstRunSetup = async (): Promise<void> => {
@@ -456,6 +525,9 @@ export class AkariHomeWidget extends ReactWidget {
                     this.showDashboardWithoutProject = true;
                     this.update();
                     void this.refreshHomeFlow();
+                    // D3（正本）: オンボーディング 1→2→3 の完了後はランチャーへ続く。
+                    // 完了直後は `launcherDismissedThisSession` がまだ false なので無条件に開いてよい。
+                    void this.openProjectLauncher();
                 }
             },
             this.fileService,
@@ -600,8 +672,9 @@ export class AkariHomeWidget extends ReactWidget {
      * FileService 経路）。無い/壊れている/status が ok でなければ未接続扱い。
      *
      * v0 ではこのファイルの watch は張らない（マーカーは「次回起動時に効く」で
-     * 足りる契約）。同一セッション内の反映は connectPartner の完了時と
-     * ホーム再表示時の読み直しで担保する。
+     * 足りる契約）。同一セッション内の反映はホーム再表示時の読み直しで担保する
+     * （接続案内カード撤去〔裁定 C4〕前は接続フロー完了時の読み直しもあったが、
+     * その呼び出し元自体が無くなったため今はここだけが反映経路）。
      */
     protected async readAppConnected(): Promise<boolean> {
         try {
@@ -1452,24 +1525,8 @@ export class AkariHomeWidget extends ReactWidget {
     };
 
     // --- ホーム v2: アクション ---
-
-    protected connectPartner = async (): Promise<void> => {
-        if (this.connecting) {
-            return;
-        }
-        this.connecting = true;
-        this.update();
-        try {
-            await this.commands.executeCommand(BEGIN_ONBOARDING_COMMAND);
-        } finally {
-            this.connecting = false;
-            // アプリ単位マーカーは watch していない（v0）。接続フローが終わった
-            // この時点で読み直すことで、connections.json を持たないプロジェクト
-            // でも同一セッション内でゲートが消える。connections.json 側の修復は
-            // watch でも拾われるが、二重に読んでも害はない。
-            await this.refreshHomeFlow();
-        }
-    };
+    // 接続案内カード（旧 connectPartner・BEGIN_ONBOARDING_COMMAND）は裁定 C4 により撤去済み
+    // （task 2026-08-17-home-launcher-popup）。接続は右側「パートナーを追加」パネルが正。
 
     protected connectStore = async (): Promise<void> => {
         await this.storeConnectionFlow.start();
@@ -1864,7 +1921,6 @@ export class AkariHomeWidget extends ReactWidget {
                 {this.importedNotice && this.renderImportedNotice()}
                 {this.renderExplanation()}
                 {this.renderProjectList()}
-                {!this.connected && this.renderConnectCard()}
                 {this.renderStoreCard()}
                 {this.intakeFormOpen && this.renderIntakeForm()}
                 {this.dragActive && this.renderDropOverlay()}
@@ -1957,6 +2013,16 @@ export class AkariHomeWidget extends ReactWidget {
                     onClick={this.openFolderAdvanced}
                 >
                     フォルダを開く…（上級者向け）
+                </button>
+                <button
+                    type='button'
+                    className='theia-button secondary'
+                    style={homeFlowStyles.welcomeSetupButton}
+                    data-akari-open-project-launcher='true'
+                    onClick={() => void this.openProjectLauncher()}
+                >
+                    <span className='codicon codicon-layout' aria-hidden='true' />
+                    プロジェクト・ランチャーを開く
                 </button>
                 <button
                     type='button'
@@ -2073,15 +2139,26 @@ export class AkariHomeWidget extends ReactWidget {
             <header style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                     <h1 style={{ margin: 0, fontSize: 21 }}>ホーム</h1>
-                    <button
-                        type='button'
-                        className='theia-button secondary'
-                        data-akari-open-first-run-setup='true'
-                        style={homeFlowStyles.setupReopenButton}
-                        onClick={() => void this.openFirstRunSetup()}
-                    >
-                        セットアップを開く
-                    </button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                            type='button'
+                            className='theia-button secondary'
+                            data-akari-open-project-launcher='true'
+                            style={homeFlowStyles.setupReopenButton}
+                            onClick={() => void this.openProjectLauncher()}
+                        >
+                            プロジェクト・ランチャー
+                        </button>
+                        <button
+                            type='button'
+                            className='theia-button secondary'
+                            data-akari-open-first-run-setup='true'
+                            style={homeFlowStyles.setupReopenButton}
+                            onClick={() => void this.openFirstRunSetup()}
+                        >
+                            セットアップを開く
+                        </button>
+                    </div>
                 </div>
                 {this.renderStatusBadge()}
             </header>
@@ -2305,36 +2382,6 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     /**
-     * 接続案内カード（裁定 R6）。未接続のときだけ dashboard に出る**案内**で、
-     * ゲートではない — 上にある説明・過去プロジェクトを開く操作は未接続のまま行える。
-     */
-    protected renderConnectCard(): React.ReactNode {
-        return (
-            <section style={{ ...homeFlowStyles.card, ...homeFlowStyles.cardAccent }}>
-                <div style={homeFlowStyles.cardMark} aria-hidden='true'>
-                    <span className='codicon codicon-comment-discussion' style={{ fontSize: 20, color: 'var(--theia-button-foreground)' }} />
-                </div>
-                <div style={homeFlowStyles.cardBody}>
-                    <strong style={homeFlowStyles.cardTitle}>パートナーとつなぐ</strong>
-                    <p style={homeFlowStyles.cardLead}>
-                        過去プロジェクトを開くなど、ここまでの操作は接続前でも使えます。
-                    </p>
-                    <p style={homeFlowStyles.cardFine}>初回のみ · 完了すると次からは自動接続</p>
-                </div>
-                <button
-                    type='button'
-                    className='theia-button main'
-                    style={homeFlowStyles.cardCta}
-                    disabled={this.connecting}
-                    onClick={() => void this.connectPartner()}
-                >
-                    {this.connecting ? '接続しています…' : 'パートナーに接続する'}
-                </button>
-            </section>
-        );
-    }
-
-    /**
      * AKARI Store カード（ホーム v4 の 3 要素へのオーナー承認済み追加・2026-08-03）。
      * 未接続 = 内蔵デバイスフローの進行表示と接続ボタン。
      * 接続済み = メール表示 + マイページを外部ブラウザで開く。
@@ -2545,7 +2592,6 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
         borderRadius: 12, border: '1px solid var(--theia-widget-border)',
         background: 'var(--theia-editorWidget-background)'
     },
-    cardAccent: { borderColor: 'var(--theia-focusBorder)' },
     cardMark: {
         width: 38, height: 38, flex: '0 0 auto', borderRadius: 11,
         background: 'var(--theia-button-background)', display: 'flex', alignItems: 'center', justifyContent: 'center'

@@ -11,6 +11,7 @@ import { WindowTitleContribution } from '@theia/core/lib/browser/window/window-t
 import { AkariHomeCommandContribution } from './akari-home-command-contribution';
 import { AkariHomeContribution } from './akari-home-contribution';
 import { AkariHomeWidget } from './akari-home-widget';
+import { AkariProjectLauncherCommandContribution } from './akari-project-launcher-dialog';
 import { AkariPreferenceContribution } from './akari-preferences';
 import { AkariSettingsWidget } from './akari-settings-widget';
 import { AkariSurfaceOpenHandler } from './akari-surface-open-handler';
@@ -48,6 +49,11 @@ export default new ContainerModule(bind => {
     bind(AkariHomeCommandContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariHomeCommandContribution);
     bind(MenuContribution).toService(AkariHomeCommandContribution);
+
+    // プロジェクト・ランチャーの手動再表示コマンド（task 2026-08-17-home-launcher-popup・
+    // 正本 §3.2「手動再表示」）。ダイアログ自体は akari-project-launcher-dialog.ts が持つ。
+    bind(AkariProjectLauncherCommandContribution).toSelf().inSingletonScope();
+    bind(CommandContribution).toService(AkariProjectLauncherCommandContribution);
 
     // F11（task 2026-08-05-welcome-screen）: 未選択時のウィンドウタイトルを
     // 「AKARI Video」だけにする（実測: Theia 既定の macOS テンプレートのままだと
