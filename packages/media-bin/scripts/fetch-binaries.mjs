@@ -98,8 +98,19 @@ export async function ensureVendorBinaries({ target = currentTarget(), force = f
     byUrl.get(entry.url).push([name, entry]);
   }
 
+  // entry.extraMembers（例: whisper-cli.exe が実行時に必要とする ggml/whisper の DLL 群）は
+  // vendorBinaryPath の隣に basename でコピーされる、名前解決されないコンパニオンファイル。
+  // 「揃っているか」の判定にも含める（DLL だけ欠けた中途半端な vendor 状態を「取得済み」と
+  // 誤判定しないため）。
+  const extraDestPath = (name, extraMember, targetName) =>
+    path.join(path.dirname(vendorBinaryPath(name, targetName)), path.basename(extraMember));
+
   for (const [url, entries] of byUrl) {
-    const alreadyPresent = entries.every(([name]) => existsSync(vendorBinaryPath(name, target)));
+    const alreadyPresent = entries.every(
+      ([name, entry]) =>
+        existsSync(vendorBinaryPath(name, target)) &&
+        (entry.extraMembers ?? []).every((extraMember) => existsSync(extraDestPath(name, extraMember, target))),
+    );
     if (alreadyPresent && !force) continue;
 
     const expectedSha = entries[0][1].sha256;
@@ -138,6 +149,16 @@ export async function ensureVendorBinaries({ target = currentTarget(), force = f
           await chmod(dest, 0o755);
         }
         log(`media-bin: ${name} -> ${path.relative(VENDOR_ROOT, dest)}`);
+
+        for (const extraMember of entry.extraMembers ?? []) {
+          const extraSrc = path.join(extractDir, extraMember);
+          if (!existsSync(extraSrc)) {
+            throw new Error(`展開後に想定した同梱ファイルがありません: ${extraMember}（アーカイブ: ${url}）`);
+          }
+          const extraDest = extraDestPath(name, extraMember, target);
+          await copyFile(extraSrc, extraDest);
+          log(`media-bin: ${name} (companion) -> ${path.relative(VENDOR_ROOT, extraDest)}`);
+        }
       }
     } finally {
       await rm(tmpDir, { recursive: true, force: true });

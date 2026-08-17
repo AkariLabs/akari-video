@@ -165,6 +165,18 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
         run: npm run build
 
+      # task/2026-08-17-media-bin-whisper: whisper-cli は公式バイナリ配布が macOS 向けに無いため
+      # ここで版固定ソース（binary-manifest.mjs の WHISPER_CPP_SOURCE）を cmake ビルドし、
+      # packages/media-bin/vendor/darwin-arm64/ に置く（macos-14 ランナーは arm64。x64 は
+      # 当面スコープ外）。prepackage（bundle-media-binaries.mjs）はこの vendor 配置を
+      # best-effort で拾って resources/vendor-ffmpeg/ へ同梱するため、必ず prepackage より
+      # 前に実行する。cmake は macos-14 イメージに既定同梱（ビルド不能ならスキップし、
+      # 文字起こし機能なしで先へ進む — ffmpeg 取得と同じベストエフォート精神。詳細は
+      # packages/media-bin/scripts/build-whisper.mjs 冒頭コメント）。
+      - name: build-whisper (whisper.cpp ソースビルド, cmake)
+        working-directory: packages/media-bin
+        run: npm run build:whisper
+
       - name: prepackage (copy native helpers)
         working-directory: apps/shell
         run: npm run prepackage
@@ -399,6 +411,20 @@ jobs:
           npm_config_enable_lto: 'false'
           npm_config_enable_thin_lto: 'false'
         run: npm run package
+
+      # task/2026-08-17-media-bin-whisper: whisper-cli.exe は win32-x64 の manifest エントリ
+      # 経由で `npm run package` の暗黙の prepackage フック（bundle-media-binaries.mjs）が
+      # 自動取得・同梱する（ffmpeg/ffprobe と同じ経路 — windows-build.yml に既存の明示的な
+      # ffmpeg 同梱ステップが無いのと同じ理由で、ここにも別ステップは要らない）。この新規
+      # 追加ステップは「実際に同梱されたか」を電子的に確認するだけの検収で、既存の
+      # package/verify-asar ステップ自体には手を入れていない。
+      - name: whisper-cli 同梱確認 (win)
+        working-directory: apps/shell/electron-builder-out/win-unpacked/resources/media-bin
+        run: |
+          if (-not (Test-Path "whisper-cli.exe")) { Write-Error "whisper-cli.exe が同梱されていません"; exit 1 }
+          if (-not (Test-Path "whisper.dll")) { Write-Error "whisper.dll（依存 DLL）が同梱されていません"; exit 1 }
+          if (-not (Test-Path "ggml-base.dll")) { Write-Error "ggml-base.dll（依存 DLL）が同梱されていません"; exit 1 }
+          Get-ChildItem "whisper-cli.exe","whisper.dll","ggml-base.dll" | Select-Object Name, Length
 
       # Windows は D2 の対象外・当面未署名（契約 §5 D2）。SmartScreen 警告は許容。
       - name: Zip win-unpacked
