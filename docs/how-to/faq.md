@@ -58,6 +58,12 @@ Ask to "run doctor" for a connectivity diagnosis. The key itself should live at
 `~/.config/akari-video/credentials.env`, with only a reference inside the
 project — that's the correct layout.
 
+**Q. After building `apps/shell` from source, `npm start` exits silently with no window (Apple Silicon)**
+Building `apps/shell` can break Electron.app's code signature while it swaps in Electron's bundled
+ffmpeg library. `npm run build` re-signs it automatically afterward (`postbuild`), so this normally
+doesn't surface, but if it recurs, run this by hand:
+`codesign --force --deep --sign - node_modules/electron/dist/Electron.app`.
+
 ## Still stuck?
 
 Open a [GitHub Issue](https://github.com/AkariLabs/akari-video/issues) with
