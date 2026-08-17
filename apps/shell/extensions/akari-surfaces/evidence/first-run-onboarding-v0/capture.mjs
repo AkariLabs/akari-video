@@ -3,12 +3,19 @@ import { createWriteStream } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const here = dirname(scriptPath);
 const shellRoot = resolve(here, '../../../..');
-const electron = join(shellRoot, 'node_modules/electron/dist/Electron.app/Contents/MacOS/Electron');
+// `electron` パッケージの実体は npm workspaces のホイスティング次第で
+// `apps/shell/node_modules/electron` に無いことがある（ワークスペース root へ
+// 一本化される場合がある）。固定相対パスではなく、パッケージ自身の解決結果
+// （`node_modules/electron/index.js` が返すインストール済みバイナリの絶対パス）を
+// 使うことで、ホイスティングの違いに関わらず動く（2026-08-17 修正: 固定パスだと
+// バイナリが見つからず spawn が即座に失敗し、行き止まりになっていた）。
+const electron = createRequire(scriptPath)('electron');
 const options = parseOptions(process.argv.slice(2));
 
 if (options.worker) {
@@ -86,27 +93,36 @@ async function captureFirstLaunch(config) {
         await waitForSetupDialog(page);
         await page.locator('[data-akari-setup-tools="true"]').waitFor();
         await page.waitForFunction(() => document.querySelectorAll('[data-akari-tool-id]').length >= 7);
+        // v2: チェックボックス + 容量目安 + 導入済みグレーアウトの面（裁定 A）。
+        // 実インストールはここでは行わない（検知結果の表示だけを証跡にする — task.md 手順9）。
         const tools = await page.locator('[data-akari-tool-id]').evaluateAll(nodes => nodes.map(node => ({
             id: node.getAttribute('data-akari-tool-id'),
-            available: node.getAttribute('data-akari-tool-available')
+            available: node.getAttribute('data-akari-tool-available'),
+            availabilityLabel: node.querySelector('[data-akari-tool-availability-label]')?.textContent ?? null,
+            sizeLabel: node.querySelector('[data-akari-tool-size]')?.textContent ?? null,
+            checkboxChecked: node.querySelector('[data-akari-tool-checkbox]')?.checked ?? null
         })));
         await page.screenshot({ path: join(config.outputDir, '01-tools-check.png') });
 
         await page.locator('[data-akari-setup-next-workspace="true"]').click();
         await page.locator('[data-akari-setup-workspace="true"]').waitFor();
+        // v2: 作成先パスの表示が解決するまで待つ（「確認しています…」のままだと撮れ高が薄い — 裁定 B）。
+        await page.waitForFunction(() => {
+            const el = document.querySelector('[data-akari-setup-workspace-path] code');
+            return Boolean(el && el.textContent && el.textContent !== '作成先を確認しています…');
+        }, { timeout: 30_000 });
+        const workspacePathDisplay = await page.locator('[data-akari-setup-workspace-path] code').textContent();
         await page.screenshot({ path: join(config.outputDir, '02-workspace-create.png') });
 
         await page.locator('[data-akari-setup-create-workspace="true"]').click();
         await page.locator('[data-akari-setup-connection="true"]').waitFor({ timeout: 30_000 });
+        // v2: 接続プロセスを持たず、右パネルを指す図解だけ（裁定 C1〜C3）。
+        await page.locator('[data-akari-setup-partner-diagram="true"]').waitFor();
         await page.screenshot({ path: join(config.outputDir, '03-connection-guide.png') });
 
-        await page.locator('[data-akari-setup-connect="true"]').click();
-        const cancel = page.getByText('キャンセル', { exact: true });
-        await cancel.waitFor({ timeout: 15_000 });
-        await page.screenshot({ path: join(config.outputDir, '04-existing-01-gate.png') });
-        await cancel.click();
+        await page.locator('[data-akari-setup-finish="true"]').click();
         await waitForStage(page, 'dashboard');
-        await page.screenshot({ path: join(config.outputDir, '05-dashboard.png') });
+        await page.screenshot({ path: join(config.outputDir, '04-dashboard.png') });
 
         const marker = JSON.parse(await readFile(join(config.akariHome, 'first-run-onboarding-v0.json'), 'utf8'));
         const pointer = JSON.parse(await readFile(join(config.akariHome, 'creator-root.json'), 'utf8'));
@@ -115,6 +131,7 @@ async function captureFirstLaunch(config) {
             launch: 1,
             stages: ['welcome+setup-dialog', 'workspace-dialog', 'connection-dialog', 'dashboard'],
             tools,
+            workspacePathDisplay,
             marker,
             pointer,
             manifestSchema: manifest.schema
@@ -133,7 +150,7 @@ async function captureSecondLaunch(config) {
         const reopenButton = page.locator('[data-akari-open-first-run-setup="true"]');
         await reopenButton.waitFor({ timeout: 10_000 });
         const reopenButtonCount = await reopenButton.count();
-        await page.screenshot({ path: join(config.outputDir, '06-second-launch-no-auto-setup.png') });
+        await page.screenshot({ path: join(config.outputDir, '05-second-launch-no-auto-setup.png') });
 
         await reopenButton.first().click();
         await waitForSetupDialog(page);
@@ -149,7 +166,7 @@ async function captureSecondLaunch(config) {
         await commandOption.waitFor({ timeout: 10_000 });
         await commandOption.click();
         await waitForSetupDialog(page);
-        await page.screenshot({ path: join(config.outputDir, '07-command-reopen.png') });
+        await page.screenshot({ path: join(config.outputDir, '06-command-reopen.png') });
         await page.locator('[data-akari-first-run-dialog="true"] .dialogTitle .closeButton').click();
         await page.locator('[data-akari-first-run-dialog="true"]').waitFor({ state: 'detached', timeout: 10_000 });
         return {

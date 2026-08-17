@@ -7,7 +7,9 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import {
     AkariNewProjectService,
     AkariToolCheckResponse,
-    AkariToolCheckResult
+    AkariToolCheckResult,
+    AkariToolId,
+    AkariToolInstallResult
 } from '../common/akari-new-project-protocol';
 import {
     FirstRunSetupOpenMode,
@@ -16,12 +18,21 @@ import {
     shouldAutoOpenFirstRunSetup,
     shouldRecordFirstRunMarker
 } from '../common/first-run-onboarding';
+import {
+    deriveToolSelection,
+    describeToolInstallOutcome,
+    formatInstallProgressLabel,
+    shortenHomePath,
+    ToolSelectionSnapshot
+} from '../common/tool-install-ui';
 import { TOOL_UI } from '../common/tool-guidance';
 
 const AKARI_HOME_SUBDIR = '.akari';
 const CREATOR_ROOT_POINTER_FILENAME = 'creator-root.json';
 const FIRST_RUN_ONBOARDING_MARKER_FILENAME = 'first-run-onboarding-v0.json';
-const BEGIN_ONBOARDING_COMMAND = 'akari.partner.beginOnboarding';
+/** 本文で使う中立トーン色。`descriptionForeground` はテーマによって背景と同化するため、
+ *  説明文・注記など読ませたい本文には使わない（裁定 A6・コントラスト改善）。 */
+const BODY_TEXT_COLOR = 'var(--theia-editorWidget-foreground)';
 
 export interface AkariFirstRunSetupDialogProps extends DialogProps {
     onWorkspaceCreated: () => Promise<void>;
@@ -36,7 +47,7 @@ export interface FirstRunSetupAutoOpenContext {
 const STEPS: ReadonlyArray<{ id: FirstRunSetupStep; label: string }> = [
     { id: 'tools', label: '1. 道具' },
     { id: 'workspace', label: '2. 作業場' },
-    { id: 'connection', label: '3. 接続・会話' }
+    { id: 'connection', label: '3. パートナー' }
 ];
 
 /**
@@ -58,14 +69,26 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
     protected toolCheck: AkariToolCheckResponse | undefined;
     protected checkingTools = false;
     protected creatingWorkspace = false;
-    protected connecting = false;
     protected setupError: string | undefined;
+
+    // --- 道具ステップ v2（裁定 A） ------------------------------------------
+    protected selectedToolIds = new Set<AkariToolId>();
+    protected installingTools = false;
+    protected installProgress: { id: AkariToolId; index: number; total: number } | undefined;
+    protected readonly toolInstallResults = new Map<AkariToolId, AkariToolInstallResult>();
+
+    // --- 作業場ステップ v2（裁定 B） -----------------------------------------
+    protected creatorRootPathDisplay: string | undefined;
+    protected creatorRootPathError: string | undefined;
+
     constructor(
         protected readonly props: AkariFirstRunSetupDialogProps,
         protected readonly fileService: FileService,
         protected readonly envVariables: EnvVariablesServer,
         protected readonly newProjectService: AkariNewProjectService,
-        protected readonly commands: CommandService
+        // v2 では接続ゲートのコマンドをもう起動しないため未使用だが、呼び出し元
+        // （akari-home-widget.tsx、並走タスクの所有）の位置引数を崩さないため残す。
+        protected readonly _commands: CommandService
     ) {
         super(props);
         this.buildDom();
@@ -93,6 +116,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             void this.recordFirstRunMarker();
         }
         void this.recheckTools();
+        void this.loadCreatorRootPath();
         return closed.finally(async () => {
             if (shouldRecordFirstRunMarker(mode)) {
                 await this.recordFirstRunMarker();
@@ -166,7 +190,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         });
         Object.assign(this.panel.style, {
             padding: '20px', borderRadius: '14px', border: '1px solid var(--theia-widget-border)',
-            background: 'var(--theia-editorWidget-background)'
+            background: 'var(--theia-editorWidget-background)', position: 'relative'
         });
         this.body.append(header, this.errorNotice, this.panel);
         this.contentNode.appendChild(this.body);
@@ -192,6 +216,8 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         }
     }
 
+    // === ステップ 1: 道具（裁定 A） ==========================================
+
     protected renderToolsStep(): void {
         this.panel.setAttribute('data-akari-setup-tools', 'true');
         this.panel.removeAttribute('data-akari-setup-workspace');
@@ -204,11 +230,11 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         const copy = document.createElement('div');
         copy.append(
             createTitle('道具チェック'),
-            createLead('見つからない道具は案内だけ表示します。ここから自動インストールはしません。')
+            createLead('必要な道具にチェックが入っています。「インストール」を押すだけで導入できます。')
         );
         const recheck = createButton(this.checkingTools ? '確認中…' : '再チェック', 'secondary');
         recheck.setAttribute('data-akari-tool-recheck', 'true');
-        recheck.disabled = this.checkingTools;
+        recheck.disabled = this.checkingTools || this.installingTools;
         recheck.addEventListener('click', () => void this.recheckTools());
         titleRow.append(copy, recheck);
         this.panel.appendChild(titleRow);
@@ -219,6 +245,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             { title: 'アドバンス', items: tools.filter(tool => tool.tier === 'advanced') },
             { title: '推奨', items: tools.filter(tool => tool.tier === 'recommended') }
         ].filter(group => group.items.length > 0);
+        const listWrap = document.createElement('div');
         for (const group of groups) {
             const groupNode = document.createElement('div');
             groupNode.style.marginTop = '18px';
@@ -232,23 +259,49 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             for (const tool of group.items) {
                 groupNode.appendChild(this.createToolRow(tool));
             }
-            this.panel.appendChild(groupNode);
+            listWrap.appendChild(groupNode);
         }
+        this.panel.appendChild(listWrap);
         if (!this.toolCheck && this.checkingTools) {
             const status = document.createElement('p');
             status.setAttribute('role', 'status');
             status.textContent = '道具を確認しています…';
+            applyLeadStyle(status);
             this.panel.appendChild(status);
         }
-        const actions = createActions();
-        const next = createButton('作業場の準備へ', 'main');
+        if (this.installProgress) {
+            const progress = document.createElement('p');
+            progress.setAttribute('role', 'status');
+            progress.setAttribute('data-akari-tool-install-progress', 'true');
+            progress.textContent = formatInstallProgressLabel(
+                TOOL_UI[this.installProgress.id].name,
+                this.installProgress.index,
+                this.installProgress.total
+            );
+            Object.assign(progress.style, { margin: '16px 0 0', color: BODY_TEXT_COLOR, fontSize: '12.5px', fontWeight: '600' });
+            this.panel.appendChild(progress);
+        }
+
+        const actions = createActions(true);
+        const next = createButton('作業場の準備へ', 'secondary');
         next.setAttribute('data-akari-setup-next-workspace', 'true');
         next.addEventListener('click', () => {
             this.step = nextFirstRunSetupStep(this.step, 'next');
             this.setupError = undefined;
             this.renderState();
         });
-        actions.appendChild(next);
+        const hasUninstalled = tools.some(tool => !tool.available);
+        const install = createButton(
+            this.installingTools ? 'インストール中…' : `選んだ道具をインストール（${this.selectedToolIds.size}）`,
+            'main'
+        );
+        install.setAttribute('data-akari-tool-install-selected', 'true');
+        install.disabled = this.installingTools || this.selectedToolIds.size === 0;
+        install.addEventListener('click', () => void this.installSelectedTools());
+        actions.append(next);
+        if (hasUninstalled || this.toolCheck === undefined) {
+            actions.append(install);
+        }
         this.panel.appendChild(actions);
     }
 
@@ -259,30 +312,69 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         row.setAttribute('data-akari-tool-available', String(tool.available));
         Object.assign(row.style, {
             display: 'flex', alignItems: 'flex-start', gap: '11px', padding: '11px 0',
-            borderTop: '1px solid var(--theia-widget-border)'
+            borderTop: '1px solid var(--theia-widget-border)',
+            opacity: tool.available ? '0.55' : '1'
         });
-        const status = document.createElement('span');
-        status.textContent = tool.available ? '✓' : '−';
-        status.setAttribute('aria-label', tool.available ? '検出済み' : '未検出');
-        Object.assign(status.style, {
+
+        const leading = document.createElement('span');
+        Object.assign(leading.style, {
             width: '24px', height: '24px', flex: '0 0 auto', display: 'inline-flex',
-            alignItems: 'center', justifyContent: 'center', borderRadius: '999px',
-            border: `1px solid ${tool.available ? 'var(--theia-focusBorder)' : 'var(--theia-widget-border)'}`,
-            color: tool.available ? 'var(--theia-focusBorder)' : 'var(--theia-descriptionForeground)', fontWeight: '800'
+            alignItems: 'center', justifyContent: 'center', marginTop: '1px'
         });
+        if (tool.available) {
+            leading.textContent = '✓';
+            leading.setAttribute('aria-hidden', 'true');
+            Object.assign(leading.style, {
+                borderRadius: '999px', border: '1px solid var(--theia-widget-border)',
+                color: 'var(--theia-descriptionForeground)', fontWeight: '800'
+            });
+        } else {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.setAttribute('data-akari-tool-checkbox', tool.id);
+            checkbox.setAttribute('aria-label', `${info.name} をインストール対象にする`);
+            checkbox.checked = this.selectedToolIds.has(tool.id);
+            checkbox.disabled = this.installingTools;
+            Object.assign(checkbox.style, { width: '18px', height: '18px', cursor: this.installingTools ? 'default' : 'pointer' });
+            checkbox.addEventListener('change', () => {
+                if (checkbox.checked) {
+                    this.selectedToolIds.add(tool.id);
+                } else {
+                    this.selectedToolIds.delete(tool.id);
+                }
+                this.renderState();
+            });
+            leading.appendChild(checkbox);
+        }
+
         const body = document.createElement('div');
         Object.assign(body.style, { minWidth: '0', flex: '1 1 auto' });
         const nameRow = document.createElement('div');
         Object.assign(nameRow.style, { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '7px' });
         const name = document.createElement('strong');
         name.textContent = info.name;
+        Object.assign(name.style, { color: BODY_TEXT_COLOR });
         const badge = document.createElement('span');
         badge.textContent = info.badge;
         Object.assign(badge.style, {
             padding: '2px 7px', borderRadius: '999px', border: '1px solid var(--theia-widget-border)',
             color: 'var(--theia-descriptionForeground)', fontSize: '10.5px'
         });
-        nameRow.append(name, badge);
+        const size = document.createElement('span');
+        size.textContent = info.sizeLabel;
+        size.setAttribute('data-akari-tool-size', 'true');
+        Object.assign(size.style, {
+            color: 'var(--theia-descriptionForeground)', fontSize: '10.5px', fontFamily: 'monospace'
+        });
+        const availability = document.createElement('span');
+        availability.textContent = tool.available ? 'インストール済み' : '未インストール';
+        availability.setAttribute('data-akari-tool-availability-label', 'true');
+        Object.assign(availability.style, {
+            padding: '2px 7px', borderRadius: '999px', fontSize: '10.5px', fontWeight: '700',
+            border: `1px solid ${tool.available ? 'var(--theia-widget-border)' : 'var(--theia-focusBorder)'}`,
+            color: tool.available ? 'var(--theia-descriptionForeground)' : 'var(--theia-focusBorder)'
+        });
+        nameRow.append(name, availability, badge, size);
         if (tool.version) {
             const version = document.createElement('span');
             version.textContent = tool.version;
@@ -294,30 +386,100 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         const purpose = document.createElement('p');
         purpose.textContent = info.purpose;
         Object.assign(purpose.style, {
-            color: 'var(--theia-descriptionForeground)', fontSize: '12px', lineHeight: '1.6', margin: '5px 0 0'
+            color: BODY_TEXT_COLOR, fontSize: '12px', lineHeight: '1.6', margin: '5px 0 0'
         });
         body.append(nameRow, purpose);
-        if (!tool.available) {
-            const install = document.createElement('code');
-            install.textContent = info.install;
-            Object.assign(install.style, {
-                display: 'block', marginTop: '7px', padding: '6px 8px', borderRadius: '6px',
-                background: 'var(--theia-textCodeBlock-background)', whiteSpace: 'normal',
-                overflowWrap: 'anywhere', fontSize: '11px'
-            });
-            body.appendChild(install);
-        }
         if (info.note && (tool.id !== 'xcode-clt' || !tool.available)) {
             const note = document.createElement('p');
             note.textContent = info.note;
             Object.assign(note.style, {
-                margin: '7px 0 0', color: 'var(--theia-warningForeground)', fontSize: '11.5px', lineHeight: '1.55'
+                margin: '7px 0 0', color: BODY_TEXT_COLOR, fontSize: '11.5px', lineHeight: '1.55', fontWeight: '600'
             });
             body.appendChild(note);
         }
-        row.append(status, body);
+        const installResult = this.toolInstallResults.get(tool.id);
+        if (installResult && !tool.available) {
+            const resultLine = document.createElement('p');
+            resultLine.setAttribute('data-akari-tool-install-result', installResult.outcome);
+            resultLine.textContent = describeToolInstallOutcome(installResult, info.name);
+            Object.assign(resultLine.style, {
+                margin: '7px 0 0', fontSize: '11.5px', lineHeight: '1.55', fontWeight: '600',
+                color: installResult.outcome === 'failed' ? 'var(--theia-errorForeground)' : 'var(--theia-focusBorder)'
+            });
+            body.appendChild(resultLine);
+        }
+        row.append(leading, body);
         return row;
     }
+
+    protected async recheckTools(): Promise<void> {
+        if (this.checkingTools) {
+            return;
+        }
+        this.checkingTools = true;
+        this.setupError = undefined;
+        this.renderState();
+        try {
+            const previous: ToolSelectionSnapshot | undefined = this.toolCheck
+                ? {
+                    selectedIds: this.selectedToolIds,
+                    unavailableIds: new Set(this.toolCheck.tools.filter(tool => !tool.available).map(tool => tool.id))
+                }
+                : undefined;
+            const response = await this.newProjectService.checkTools();
+            this.toolCheck = response;
+            this.selectedToolIds = deriveToolSelection(response.tools, previous);
+            for (const tool of response.tools) {
+                if (tool.available) {
+                    this.toolInstallResults.delete(tool.id);
+                }
+            }
+        } catch (error) {
+            console.error('[akari-surfaces] tool check failed:', error);
+            this.setupError = '道具を確認できませんでした。再チェックしてください。';
+        } finally {
+            this.checkingTools = false;
+            this.renderState();
+        }
+    }
+
+    /** 選んだ道具を逐次インストールし、完了後に自動で再チェックする（裁定 A2・A7）。 */
+    protected async installSelectedTools(): Promise<void> {
+        if (this.installingTools) {
+            return;
+        }
+        const ids = [...this.selectedToolIds];
+        if (ids.length === 0) {
+            return;
+        }
+        this.installingTools = true;
+        this.setupError = undefined;
+        for (const id of ids) {
+            this.toolInstallResults.delete(id);
+        }
+        this.renderState();
+        for (let index = 0; index < ids.length; index++) {
+            const id = ids[index];
+            this.installProgress = { id, index: index + 1, total: ids.length };
+            this.renderState();
+            try {
+                const result = await this.newProjectService.installTool(id);
+                this.toolInstallResults.set(id, result);
+            } catch (error) {
+                console.error('[akari-surfaces] installTool failed:', error);
+                this.toolInstallResults.set(id, {
+                    id, outcome: 'failed',
+                    message: 'インストール処理でエラーが発生しました。もう一度お試しください。'
+                });
+            }
+            this.renderState();
+        }
+        this.installProgress = undefined;
+        this.installingTools = false;
+        await this.recheckTools();
+    }
+
+    // === ステップ 2: 作業場（裁定 B） ========================================
 
     protected renderWorkspaceStep(): void {
         this.panel.removeAttribute('data-akari-setup-tools');
@@ -325,9 +487,29 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         this.panel.removeAttribute('data-akari-setup-connection');
         this.panel.append(
             createTitle('作業場を作成'),
-            createLead('チャンネルと動画プロジェクトをまとめる既定の作業場を自動生成します。場所はあとから設定で変更できます。'),
-            createCallout('codicon-folder', '既存の F9 作成経路を使い、雛形とマシンポインタを安全に用意します。')
+            createLead('チャンネルと動画プロジェクトをまとめる場所を、ここに作成します。')
         );
+        const pathRow = document.createElement('div');
+        pathRow.setAttribute('data-akari-setup-workspace-path', 'true');
+        Object.assign(pathRow.style, {
+            display: 'flex', alignItems: 'center', gap: '10px', marginTop: '18px', padding: '12px 14px',
+            borderRadius: '9px', border: '1px solid var(--theia-widget-border)'
+        });
+        const icon = document.createElement('span');
+        icon.className = 'codicon codicon-folder';
+        icon.setAttribute('aria-hidden', 'true');
+        Object.assign(icon.style, { color: BODY_TEXT_COLOR });
+        const pathText = document.createElement('code');
+        pathText.textContent = this.creatorRootPathError
+            ?? this.creatorRootPathDisplay
+            ?? '作成先を確認しています…';
+        Object.assign(pathText.style, {
+            color: this.creatorRootPathError ? 'var(--theia-errorForeground)' : BODY_TEXT_COLOR,
+            fontFamily: 'monospace', fontSize: '12.5px', overflowWrap: 'anywhere'
+        });
+        pathRow.append(icon, pathText);
+        this.panel.appendChild(pathRow);
+
         const actions = createActions();
         const back = createButton('戻る', 'secondary');
         back.addEventListener('click', () => {
@@ -342,43 +524,52 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         this.panel.appendChild(actions);
     }
 
+    protected async loadCreatorRootPath(): Promise<void> {
+        try {
+            const [path, homeDirUri] = await Promise.all([
+                this.newProjectService.defaultCreatorRootPath(),
+                this.envVariables.getHomeDirUri()
+            ]);
+            const homeDir = new URI(homeDirUri).path.fsPath();
+            this.creatorRootPathDisplay = shortenHomePath(path, homeDir);
+            this.creatorRootPathError = undefined;
+        } catch (error) {
+            console.error('[akari-surfaces] failed to resolve default creator root path:', error);
+            this.creatorRootPathError = '作成先を確認できませんでした。「作業場を作成」を押すと既定の場所に作成します。';
+        } finally {
+            if (this.step === 'workspace') {
+                this.renderState();
+            }
+        }
+    }
+
+    // === ステップ 3: パートナー（裁定 C1〜C3） ================================
+
     protected renderConnectionStep(): void {
         this.panel.removeAttribute('data-akari-setup-tools');
         this.panel.removeAttribute('data-akari-setup-workspace');
         this.panel.setAttribute('data-akari-setup-connection', 'true');
         this.panel.append(
-            createTitle('AI パートナーにつないで会話を始める'),
-            createLead('既存の接続ゲートを開きます。API キーの登録は任意です。ローカル機能だけでも動画制作を始められます。'),
-            createCallout('codicon-comment-discussion', '接続すると、ホームから「こんな動画を作りたい」とそのまま相談できます。')
+            createTitle('AI パートナーと会話を始める'),
+            createLead('接続すると、ホームから「こんな動画を作りたい」とそのまま相談できます。接続は後からでも構いません。')
         );
-        const actions = createActions();
-        const skip = createButton('今は接続せずホームへ', 'secondary');
-        skip.setAttribute('data-akari-setup-skip-connection', 'true');
-        skip.addEventListener('click', () => this.finish());
-        const connect = createButton(this.connecting ? '接続を開いています…' : 'パートナーに接続してホームへ', 'main');
-        connect.setAttribute('data-akari-setup-connect', 'true');
-        connect.disabled = this.connecting;
-        connect.addEventListener('click', () => void this.connectPartner());
-        actions.append(skip, connect);
-        this.panel.appendChild(actions);
-    }
+        this.panel.appendChild(createPartnerLayoutDiagram());
+        const guide = document.createElement('p');
+        guide.textContent = '画面の右側の「パートナーを追加」から、好きな AI パートナーを選んでつなげます。';
+        Object.assign(guide.style, { margin: '14px 0 0', color: BODY_TEXT_COLOR, fontSize: '12.5px', lineHeight: '1.7', fontWeight: '600' });
+        this.panel.appendChild(guide);
 
-    protected async recheckTools(): Promise<void> {
-        if (this.checkingTools) {
-            return;
-        }
-        this.checkingTools = true;
-        this.setupError = undefined;
-        this.renderState();
-        try {
-            this.toolCheck = await this.newProjectService.checkTools();
-        } catch (error) {
-            console.error('[akari-surfaces] tool check failed:', error);
-            this.setupError = '道具を確認できませんでした。再チェックしてください。';
-        } finally {
-            this.checkingTools = false;
+        const actions = createActions();
+        const back = createButton('戻る', 'secondary');
+        back.addEventListener('click', () => {
+            this.step = nextFirstRunSetupStep(this.step, 'back');
             this.renderState();
-        }
+        });
+        const finish = createButton('はじめる', 'main');
+        finish.setAttribute('data-akari-setup-finish', 'true');
+        finish.addEventListener('click', () => this.finish());
+        actions.append(back, finish);
+        this.panel.appendChild(actions);
     }
 
     protected async createWorkspace(): Promise<void> {
@@ -397,21 +588,6 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             this.setupError = error instanceof Error ? error.message : '作業場を作成できませんでした。';
         } finally {
             this.creatingWorkspace = false;
-            this.renderState();
-        }
-    }
-
-    protected async connectPartner(): Promise<void> {
-        if (this.connecting) {
-            return;
-        }
-        this.connecting = true;
-        this.renderState();
-        try {
-            await this.commands.executeCommand(BEGIN_ONBOARDING_COMMAND);
-            this.finish();
-        } finally {
-            this.connecting = false;
             this.renderState();
         }
     }
@@ -489,27 +665,20 @@ function applyLeadStyle(lead: HTMLElement): void {
     });
 }
 
-function createCallout(iconClass: string, text: string): HTMLElement {
-    const callout = document.createElement('div');
-    Object.assign(callout.style, {
-        display: 'flex', alignItems: 'center', gap: '10px', marginTop: '18px', padding: '12px 14px',
-        borderRadius: '9px', border: '1px solid var(--theia-widget-border)',
-        color: 'var(--theia-descriptionForeground)', fontSize: '12.5px'
-    });
-    const icon = document.createElement('span');
-    icon.className = `codicon ${iconClass}`;
-    icon.setAttribute('aria-hidden', 'true');
-    const copy = document.createElement('span');
-    copy.textContent = text;
-    callout.append(icon, copy);
-    return callout;
-}
-
-function createActions(): HTMLElement {
+function createActions(sticky = false): HTMLElement {
     const actions = document.createElement('div');
     Object.assign(actions.style, {
         display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: '9px', marginTop: '20px'
     });
+    if (sticky) {
+        // リストが長くてもボタンに到達できるよう panel 下部へ sticky（裁定 A7）。
+        Object.assign(actions.style, {
+            position: 'sticky', bottom: '0', zIndex: '2',
+            margin: '20px -20px -20px', padding: '14px 20px 20px',
+            background: 'var(--theia-editorWidget-background)',
+            borderTop: '1px solid var(--theia-widget-border)'
+        });
+    }
     return actions;
 }
 
@@ -519,4 +688,83 @@ function createButton(text: string, kind: 'main' | 'secondary'): HTMLButtonEleme
     button.className = `theia-button ${kind}`;
     button.textContent = text;
     return button;
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function svgEl<K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] {
+    return document.createElementNS(SVG_NS, tag) as SVGElementTagNameMap[K];
+}
+
+/**
+ * アプリ画面構成の図解（DOM/SVG で内製・スクリーンショット画像は使わない）。
+ * 中央 = プレビュー / 編集、右側 = 「パートナーを追加」パネルを枠で強調する（裁定 C2）。
+ */
+function createPartnerLayoutDiagram(): SVGSVGElement {
+    const svg = svgEl('svg');
+    svg.setAttribute('viewBox', '0 0 400 210');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'アプリ画面の構成図。中央がプレビュー・編集、右側がパートナーを追加するパネル。');
+    svg.setAttribute('data-akari-setup-partner-diagram', 'true');
+    Object.assign(svg.style, { width: '100%', height: 'auto', marginTop: '18px' });
+
+    const frame = svgEl('rect');
+    frame.setAttribute('x', '4'); frame.setAttribute('y', '4');
+    frame.setAttribute('width', '392'); frame.setAttribute('height', '202');
+    frame.setAttribute('rx', '10');
+    Object.assign(frame.style, { fill: 'var(--theia-editor-background)', stroke: 'var(--theia-widget-border)' });
+    frame.setAttribute('stroke-width', '1.5');
+
+    const header = svgEl('rect');
+    header.setAttribute('x', '4'); header.setAttribute('y', '4');
+    header.setAttribute('width', '392'); header.setAttribute('height', '22');
+    header.setAttribute('rx', '10');
+    Object.assign(header.style, { fill: 'var(--theia-titleBar-activeBackground)' });
+
+    const center = svgEl('rect');
+    center.setAttribute('x', '18'); center.setAttribute('y', '38');
+    center.setAttribute('width', '236'); center.setAttribute('height', '158');
+    center.setAttribute('rx', '8');
+    Object.assign(center.style, { fill: 'var(--theia-editorWidget-background)', stroke: 'var(--theia-widget-border)' });
+    center.setAttribute('stroke-width', '1');
+
+    const centerLabel = svgEl('text');
+    centerLabel.setAttribute('x', '136'); centerLabel.setAttribute('y', '121');
+    centerLabel.setAttribute('text-anchor', 'middle');
+    centerLabel.textContent = 'プレビュー / 編集';
+    Object.assign(centerLabel.style, { fill: 'var(--theia-descriptionForeground)', fontSize: '13px' });
+
+    const partnerHighlight = svgEl('rect');
+    partnerHighlight.setAttribute('x', '260'); partnerHighlight.setAttribute('y', '34');
+    partnerHighlight.setAttribute('width', '128'); partnerHighlight.setAttribute('height', '166');
+    partnerHighlight.setAttribute('rx', '9');
+    Object.assign(partnerHighlight.style, { fill: 'none', stroke: 'var(--theia-focusBorder)' });
+    partnerHighlight.setAttribute('stroke-width', '3');
+
+    const partner = svgEl('rect');
+    partner.setAttribute('x', '264'); partner.setAttribute('y', '38');
+    partner.setAttribute('width', '120'); partner.setAttribute('height', '158');
+    partner.setAttribute('rx', '7');
+    Object.assign(partner.style, { fill: 'var(--theia-editorWidget-background)' });
+
+    const partnerLabelBg = svgEl('rect');
+    partnerLabelBg.setAttribute('x', '268'); partnerLabelBg.setAttribute('y', '46');
+    partnerLabelBg.setAttribute('width', '112'); partnerLabelBg.setAttribute('height', '20');
+    partnerLabelBg.setAttribute('rx', '10');
+    Object.assign(partnerLabelBg.style, { fill: 'var(--theia-focusBorder)' });
+
+    const partnerLabel = svgEl('text');
+    partnerLabel.setAttribute('x', '324'); partnerLabel.setAttribute('y', '60');
+    partnerLabel.setAttribute('text-anchor', 'middle');
+    partnerLabel.textContent = 'パートナーを追加';
+    Object.assign(partnerLabel.style, { fill: 'var(--theia-editor-background)', fontSize: '10.5px', fontWeight: '700' });
+
+    const partnerHint = svgEl('text');
+    partnerHint.setAttribute('x', '324'); partnerHint.setAttribute('y', '120');
+    partnerHint.setAttribute('text-anchor', 'middle');
+    partnerHint.textContent = 'ここから接続';
+    Object.assign(partnerHint.style, { fill: 'var(--theia-descriptionForeground)', fontSize: '11px' });
+
+    svg.append(frame, header, center, centerLabel, partnerHighlight, partner, partnerLabelBg, partnerLabel, partnerHint);
+    return svg;
 }

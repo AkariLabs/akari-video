@@ -12,40 +12,62 @@
       "tools": [
         {
           "id": "ffmpeg",
-          "available": "true"
+          "available": "true",
+          "availabilityLabel": "インストール済み",
+          "sizeLabel": "約 300MB",
+          "checkboxChecked": null
         },
         {
           "id": "whisper",
-          "available": "true"
+          "available": "true",
+          "availabilityLabel": "インストール済み",
+          "sizeLabel": "約 20MB（+ モデル別途）",
+          "checkboxChecked": null
         },
         {
           "id": "chrome",
-          "available": "true"
+          "available": "true",
+          "availabilityLabel": "インストール済み",
+          "sizeLabel": "約 400MB",
+          "checkboxChecked": null
         },
         {
           "id": "yt-dlp",
-          "available": "false"
+          "available": "true",
+          "availabilityLabel": "インストール済み",
+          "sizeLabel": "約 35MB",
+          "checkboxChecked": null
         },
         {
           "id": "voicevox",
-          "available": "true"
+          "available": "true",
+          "availabilityLabel": "インストール済み",
+          "sizeLabel": "約 1.5GB",
+          "checkboxChecked": null
         },
         {
           "id": "blender",
-          "available": "false"
+          "available": "true",
+          "availabilityLabel": "インストール済み",
+          "sizeLabel": "約 700MB",
+          "checkboxChecked": null
         },
         {
           "id": "xcode-clt",
-          "available": "true"
+          "available": "true",
+          "availabilityLabel": "インストール済み",
+          "sizeLabel": "約 2GB",
+          "checkboxChecked": null
         }
       ],
+      "workspacePathDisplay": "~/Akari",
       "marker": {
         "schema": 1,
-        "shownAt": "2026-08-11T22:16:05.396Z"
+        "shownAt": "2026-08-17T05:23:51.861Z"
       },
       "pointer": {
-        "lastRoot": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-first-run-l1-TqlMng/home/Akari",
-        "updatedAt": "2026-08-11T22:16:02.043Z"
+        "lastRoot": "/var/folders/j1/hl65g8x91mv4hl8rm7q04j440000gn/T/akari-first-run-l1-Ph7B5g/home/Akari",
+        "updatedAt": "2026-08-17T05:23:50.543Z"
       },
       "manifestSchema": "creator-root/v1"
     },
