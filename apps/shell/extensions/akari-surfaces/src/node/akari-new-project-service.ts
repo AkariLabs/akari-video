@@ -3,8 +3,9 @@ import { promises as fs } from 'fs';
 import { dirname, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import URI from '@theia/core/lib/common/uri';
-import { AkariNewProjectService } from '../common/akari-new-project-protocol';
+import { AkariNewProjectService, AkariToolId, AkariToolInstallResult } from '../common/akari-new-project-protocol';
 import { detectTools } from './tool-detection';
+import { installTool } from './tool-install';
 
 /** `packages/project-scaffold/src/index.mjs` が export する部分のうち、このサービスが使う範囲だけの型。 */
 interface ProjectScaffoldModule {
@@ -144,6 +145,24 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
 
     async checkTools() {
         return detectTools();
+    }
+
+    /**
+     * 初回セットアップ v2（裁定 A）。1 道具ずつ導入するインストールエンジン
+     * （`tool-install.ts`）をそのまま呼ぶだけ。ロジックは複製しない。
+     */
+    async installTool(id: AkariToolId): Promise<AkariToolInstallResult> {
+        return installTool(id);
+    }
+
+    /**
+     * 作業場ステップ v2（裁定 B）。`packages/creator-root` の `defaultRootPath()`
+     * を読み取り専用で呼ぶだけ（作成はしない）。動的 import の流儀は
+     * `loadCreatorRootModule()` と同じ。
+     */
+    async defaultCreatorRootPath(): Promise<string> {
+        const creatorRoot = await this.loadCreatorRootModule();
+        return creatorRoot.defaultRootPath();
     }
 
     /**

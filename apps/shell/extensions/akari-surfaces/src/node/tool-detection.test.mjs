@@ -59,6 +59,21 @@ test('macOS CLT は xcode-select -p の非0終了で推奨・未検出となり 
     assert.equal(calls.some(([command]) => command === 'git'), false);
 });
 
+test('~/.akari/tools/bin に配置された道具は再チェックで検出される（brew 不在時 DL 配置の受け皿）', async t => {
+    const scratch = await mkdtemp(join(tmpdir(), 'akari-tools-akaribin-'));
+    t.after(() => rm(scratch, { recursive: true, force: true }));
+    const binDir = join(scratch, '.akari', 'tools', 'bin');
+    await mkdir(binDir, { recursive: true });
+    const fakeYtDlp = join(binDir, 'yt-dlp');
+    await writeFile(fakeYtDlp, '#!/bin/sh\necho "2026.08.17"\n');
+    await chmod(fakeYtDlp, 0o755);
+
+    const result = await detectTools({ platform: 'linux', env: { PATH: '/empty' }, homeDir: scratch });
+    const ytDlp = tool(result, 'yt-dlp');
+    assert.equal(ytDlp.available, true);
+    assert.equal(ytDlp.executable, fakeYtDlp);
+});
+
 test('macOS 以外では CLT 項目自体を返さない', async () => {
     const result = await detectTools({
         platform: 'linux', env: { PATH: '/empty' }, homeDir: '/nonexistent',

@@ -44,6 +44,15 @@ export interface AkariToolCheckResponse {
     tools: AkariToolCheckResult[];
 }
 
+export type AkariToolInstallOutcome = 'installed' | 'external-installer-opened' | 'failed';
+
+export interface AkariToolInstallResult {
+    id: AkariToolId;
+    outcome: AkariToolInstallOutcome;
+    /** そのまま表示できる平易な日本語 1 行。失敗時も再試行できる次の一手を含める（行き止まり禁止）。 */
+    message?: string;
+}
+
 export interface AkariNewProjectService {
     /**
      * 空のフォルダーへプロジェクト雛形を作成する
@@ -80,4 +89,19 @@ export interface AkariNewProjectService {
      * macOS の Command Line Tools は `git` shim を叩かず `xcode-select -p` だけで判定する。
      */
     checkTools(): Promise<AkariToolCheckResponse>;
+
+    /**
+     * 道具を 1 つ自動導入する（初回セットアップ v2・裁定 A）。フロント側で選択した道具 ID
+     * ごとに逐次呼び、進捗表示は呼び出し側（ダイアログ）が組み立てる。取得元は公式配布
+     * チャネルのみ（Homebrew / 各公式サイト / 公式 GitHub releases）。実処理は
+     * `src/node/tool-install.ts` のインストールエンジンをそのまま呼ぶだけで、
+     * ロジックは複製しない。
+     */
+    installTool(id: AkariToolId): Promise<AkariToolInstallResult>;
+
+    /**
+     * 作業場の既定の作成先パスを読み取り専用で返す（作成はしない）。
+     * `packages/creator-root` の `defaultRootPath()` をそのまま呼ぶだけ。
+     */
+    defaultCreatorRootPath(): Promise<string>;
 }

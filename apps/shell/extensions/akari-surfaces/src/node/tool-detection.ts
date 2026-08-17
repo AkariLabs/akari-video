@@ -109,10 +109,15 @@ async function detectExecutable(
     env: NodeJS.ProcessEnv,
     runCommand: (command: string, args: string[], env: NodeJS.ProcessEnv) => Promise<CommandResult>
 ): Promise<AkariToolCheckResult> {
+    // 初回セットアップ v2 のインストールエンジン（tool-install.ts）が brew 不在時に
+    // DL 配置する置き場。導入直後の再チェックで検出できるよう、全道具の探索候補へ
+    // 一律で足す（実在しない候補は単に見つからないだけで無害）。
+    const primaryCommand = spec.commands(platform)[0];
     const candidates = unique([
         ...spec.envNames.map(name => env[name]),
         ...spec.commands(platform),
-        ...spec.paths(platform, homeDir, env)
+        ...spec.paths(platform, homeDir, env),
+        primaryCommand ? akariToolsBinPath(homeDir, primaryCommand) : undefined
     ].filter((value): value is string => Boolean(value)));
     for (const candidate of candidates) {
         const result = await runCommand(candidate, spec.versionArgs, env);
@@ -194,6 +199,11 @@ function blenderPaths(platform: NodeJS.Platform): string[] {
         return ['/Applications/Blender.app/Contents/MacOS/Blender'];
     }
     return [];
+}
+
+/** `tool-install.ts` の `akariToolsBinDir()` と同じ場所（依存を増やさないためパス組み立てのみ複製）。 */
+function akariToolsBinPath(homeDir: string, commandName: string): string {
+    return join(homeDir, '.akari', 'tools', 'bin', commandName);
 }
 
 function voicevoxPaths(platform: NodeJS.Platform, homeDir: string, env: NodeJS.ProcessEnv): string[] {
