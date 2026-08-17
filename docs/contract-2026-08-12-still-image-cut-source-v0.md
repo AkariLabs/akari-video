@@ -157,6 +157,14 @@ Electron シェル本体（`apps/shell`）のプレビュー対応は本タス�
 image-layer-parity ではシェル側 webview も同時対応していたが、本タスクの司令塔裁定でシェルは
 別タスクへ切り出されている。§3 の適合状況表にシェル列は `❌`（未対応）として記録する。
 
+**追記（2026-08-17）**: 切り出されていたシェル対応を task/2026-08-17-shell-still-image-cut-preview
+で実装した。方式は Web UI（§5.2）と同型 — `#preview-still`（`<img>`）を `#preview-video` に重ね、
+静止画セグメントのクロックは gap セグメントと同じ壁時計原点を共用する。カットの
+transform / framing / 選択ドラッグは video 要素のインラインスタイルを毎フレーム鏡写しにする
+ことで既存レールをそのまま流用。タイムライン（akari-annotations）の静止画フィルムストリップも
+同タスクで是正（`probeForFilmstrip` の duration>0 必須ガードが、ffprobe が duration を報告しない
+静止画〔§2.3〕で既存の isImage 分岐を dead code 化していた）。適合状況はパリティ契約 §3 を参照。
+
 ## 6. 適合状況の更新
 
 `contract-2026-08-02-preview-parity.md` §3 の適合状況表に `cuts[].static-image-source` 行を
