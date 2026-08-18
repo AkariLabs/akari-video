@@ -40,6 +40,7 @@ import {
 import {
     computeTrackAutoNames as computeTrackKindAutoNames,
     deriveDefaultTimelineTracks,
+    withAudioDisplaySupplement,
     withCaptionsDisplaySupplement
 } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
@@ -2320,7 +2321,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (selection.id === 'bgm' && this.audioBgm) {
             return {
                 kind: 'audio', id: this.audioBgm.id, audioKind: 'bgm', label: this.pathBaseName(this.audioBgm.path),
-                outputStart: 0, duration: this.totalDuration(),
+                outputStart: 0, duration: this.contentEndDuration(),
                 ...(this.audioBgm.gainDb !== undefined ? { gainDb: this.audioBgm.gainDb } : {}),
                 ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
                 ...(this.audioBgm.fadeOut !== undefined ? { fadeOut: this.audioBgm.fadeOut } : {}),
@@ -3522,6 +3523,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     protected calculateLaneLayout(topOffset = 0): number {
         this.computeAudioDisplayTracks();
+        this.computeBgmDisplayTrack();
         this.computeCaptionsDisplayTrack();
         this.captionRows = assignSubRows(this.captions.map(caption => ({ start: caption.start, end: caption.end })));
         const captionRowCount = this.captionRows.length ? Math.max(...this.captionRows) + 1 : 0;
@@ -3567,7 +3569,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // 振り分け済みのため、ここで残る重なりは「bgm（全区間）× sfx」のみ。
                 const intervals = [
                     ...(this.audioBgm && ref === 0
-                        ? [{ start: 0, end: this.totalDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
+                        // BGM バーの終端はコンテンツ終端（実際に音が使われる範囲）。totalDuration() は
+                        // スクロール余白込みの表示全長（contentEnd の約 2 倍）なので使わない
+                        // （実機報告 2026-08-18: mp3 実尺相当までバーが伸びて見えていた）。
+                        ? [{ start: 0, end: this.contentEndDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
                     // narration は track を持たないため常に ref 0 帯へ乗せる（Phase 2-5 逆輸入）。
                     ...(ref === 0 ? this.audioNarration.map(narration => ({
                         start: narration.t,
@@ -3672,6 +3677,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected computeCaptionsDisplayTrack(): void {
         this.displayTimelineTracks = withCaptionsDisplaySupplement(
             this.displayTimelineTracks, this.captions.length > 0
+        );
+    }
+
+    /**
+     * 表示専用の音声レーン補完（2026-08-18 実機報告「BGM が鳴るのにタイムラインに出ない」）:
+     * 明示 timeline.tracks に audio 種別が 1 つも無くても、audio.bgm が宣言されていれば
+     * 表示上のみ最下段へ補う（中核は withAudioDisplaySupplement、字幕補完〔裁定 2026-08-12・
+     * 裁定 2〕と同型の純関数として単体テスト済み）。BGM バー自体の描画は calculateLaneLayout の
+     * 既存 bgm 区間処理（ref 0 帯）がそのまま拾う。edit.json への書き戻しは一切行わない。
+     */
+    protected computeBgmDisplayTrack(): void {
+        this.displayTimelineTracks = withAudioDisplaySupplement(
+            this.displayTimelineTracks, Boolean(this.audioBgm)
         );
     }
 
@@ -3878,10 +3896,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         });
         const bgmLayout = this.trackLayout('audio', 0);
-        if (this.audioBgm && bgmLayout && this.isRangeVisible(0, this.totalDuration())) {
+        if (this.audioBgm && bgmLayout && this.isRangeVisible(0, this.contentEndDuration())) {
             const bgm = this.audioBgm;
             const label = this.pathBaseName(bgm.path);
-            const end = this.totalDuration();
+            // バーはコンテンツ終端でトリムして描く（BGM は全編ベッドだが、書き出しで使われるのは
+            // 動画尺ぶんだけ。ソース mp3 の実尺やスクロール余白までバーを伸ばさない）
+            const end = this.contentEndDuration();
             const bgmSubrowCount = this.audioTrackSubrowCounts.get(bgmLayout.id) ?? 1;
             const bgmItemHeight = bgmSubrowCount <= 1 ? bgmLayout.height : SUBROW_HEIGHT;
             const element = this.stripSegment(

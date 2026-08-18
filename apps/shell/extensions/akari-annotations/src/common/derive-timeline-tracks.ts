@@ -46,10 +46,32 @@ export function deriveTracks(edit: unknown, hasCaptions = false): EditTimelineTr
     if (Array.isArray(audio?.narration) && audio.narration.length > 0) {
         audioTracks.add(0);
     }
+    // 意図的分岐 5（2026-08-18 実機報告: BGM が鳴るのにタイムラインに出ない）: bgm も track を
+    // 持たず常に ref 0 帯へ表示するため（calculateLaneLayout の既存 bgm 区間描画）、bgm だけの
+    // プロジェクトでも audio トラックを導出する（narration の分岐 3 と同型・表示専用）。
+    if (isRecord(audio?.bgm)) {
+        audioTracks.add(0);
+    }
     for (const track of [...audioTracks].sort((left, right) => left - right)) {
         append('audio', track);
     }
     return derived;
+}
+
+/**
+ * 表示専用の音声レーン補完（2026-08-18、字幕補完〔司令塔裁定 2026-08-12・裁定 2〕と同型）:
+ * 明示 timeline.tracks に audio 種別が 1 つも無くても、audio.bgm が宣言されていれば表示上のみ
+ * 最下段（配列先頭 = widget の「配列先頭 = 画面最下段」規約。音源グループは最下段固定〔R6 契約
+ * §1 裁定 1〕）へ補う。既に audio 種別が（hidden: true でも）存在する場合は補わない — それが
+ * ユーザーの「意図的に隠す」口だから。edit.json への書き戻しは行わない純関数。
+ */
+export function withAudioDisplaySupplement(
+    tracks: readonly EditTimelineTrack[], hasBgm: boolean
+): EditTimelineTrack[] {
+    if (!hasBgm || tracks.some(track => track.kind === 'audio')) {
+        return [...tracks];
+    }
+    return [{ id: 't-audio-implied', kind: 'audio', ref: 0 }, ...tracks];
 }
 
 export function deriveDefaultTimelineTracks(value: unknown, hasCaptions = false): EditTimelineTrack[] {
