@@ -1,0 +1,14 @@
+{
+  "capturedAt": "2026-08-18T01:49:23.836Z",
+  "bundledFfmpeg": {
+    "available": "true",
+    "availabilityLabel": "インストール済み",
+    "versionText": "FFmpegインストール済み基本 · ほぼ必須約 300MBffmpeg version 8.1.2-bundled-evidence-fake"
+  },
+  "progressMock": {
+    "ok": true,
+    "overallLabel": "インストール中: yt-dlp (1/2)…",
+    "rowLabel": "12MB / 35MB",
+    "rowPercent": "34%"
+  }
+}

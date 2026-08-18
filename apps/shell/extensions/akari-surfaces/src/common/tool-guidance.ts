@@ -9,6 +9,9 @@ export interface ToolUiInfo {
     note?: string;
 }
 
+/** whisper 行のモデルサブ行の表示用サイズ（`tool-install.ts` の `WHISPER_MODEL_FILENAME` 実測サイズ）。 */
+export const WHISPER_MODEL_SIZE_LABEL = '約574MB';
+
 /**
  * 検知結果と分離した、UI に表示する案内の正本。
  * コマンド文字列（brew install ... / URL のベタ書き）は持たない — 導入手段は
