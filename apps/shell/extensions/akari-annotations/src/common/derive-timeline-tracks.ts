@@ -74,14 +74,23 @@ export function withAudioDisplaySupplement(
     return [{ id: 't-audio-implied', kind: 'audio', ref: 0 }, ...tracks];
 }
 
-export function deriveDefaultTimelineTracks(value: unknown, hasCaptions = false): EditTimelineTrack[] {
+/**
+ * 導出トラック列を既定のグループ順（音源グループが最下段 = 配列先頭）へ並べ替える。
+ * 導出そのもの（どの行が生えるか）は読み込み層（packages/edit-store の internal-model）が持ち、
+ * ここは**表示順の規約だけ**を担う。
+ */
+export function sortDefaultTimelineTracks(tracks: readonly EditTimelineTrack[]): EditTimelineTrack[] {
     const priority = new Map(DEFAULT_GROUP_ORDER.map((kind, index) => [kind, index]));
-    return deriveTracks(value, hasCaptions)
+    return tracks
         .map((track, index) => ({ track, index }))
         .sort((left, right) =>
             (priority.get(left.track.kind) ?? 0) - (priority.get(right.track.kind) ?? 0)
             || left.index - right.index)
         .map(entry => entry.track);
+}
+
+export function deriveDefaultTimelineTracks(value: unknown, hasCaptions = false): EditTimelineTrack[] {
+    return sortDefaultTimelineTracks(deriveTracks(value, hasCaptions));
 }
 
 /**

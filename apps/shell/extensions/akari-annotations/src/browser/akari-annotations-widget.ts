@@ -27,19 +27,21 @@ import {
     EditAudioSfx,
     EditBeat,
     EditCut,
-    EditDefaultSource,
     EditLayer,
     EditOverlay,
-    EditSource,
     EditTimelineTrack,
+    InternalEdit,
+    InternalSource,
     TimelineTrackKind,
     computeCutTrackSegments,
-    parseEdit,
+    derivedLegacyTracks,
+    projectLegacyEdit,
+    readInternalEdit,
     writeTimelineTracksInSource
 } from '../common/edit-store';
 import {
     computeTrackAutoNames as computeTrackKindAutoNames,
-    deriveDefaultTimelineTracks,
+    sortDefaultTimelineTracks,
     withAudioDisplaySupplement,
     withCaptionsDisplaySupplement
 } from '../common/derive-timeline-tracks';
@@ -451,10 +453,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected defaultTextStyle: CaptionTextStyle | undefined;
     protected cuts: EditCut[] = [];
     /** undefined は v0、配列（空を含む）は v1。 */
-    protected sources: EditSource[] | undefined;
+    /**
+     * 読み込み層が正規化した素材表（版を問わず同じ形。単一 source 宣言も鍵 1 個の表になる）。
+     * sidecar 非依存の一次情報で、`sourceMap` / `defaultSource` はこれから組み立てる。
+     */
+    protected editSources: InternalSource[] = [];
     protected sourceMap = new Map<string, ResolvedEditSource>();
-    /** v0 edit.json 直下の `source`（sidecar 非依存の一次情報。生の path/proxy）。 */
-    protected defaultSourceRaw: EditDefaultSource | undefined;
     /** 上記を videoUri へ解決した結果。Out クランプの実尺取得専用に使う。 */
     protected defaultSource: ResolvedEditSource | undefined;
     protected overlays: EditOverlay[] = [];
@@ -2411,7 +2415,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 kind: 'cut', index: selection.index, label: `C${selection.index + 1}`,
                 sourceName: this.cutSourceName(cut), sourceIn: cut.in, sourceOut: cut.out,
                 outputStart: segment.tlStart, outputEnd: segment.tlEnd,
-                ...(this.sources !== undefined && cut.src !== undefined ? {
+                ...(cut.src !== undefined ? {
                     src: cut.src,
                     sourcePath: this.sourceMap.get(cut.src)?.path
                 } : {}),
@@ -2502,7 +2506,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected cutSourceName(cut: EditCut): string {
-        if (this.sources !== undefined && cut.src !== undefined) {
+        if (cut.src !== undefined) {
             const source = this.sourceMap.get(cut.src);
             return source ? this.pathBaseName(source.path) : '';
         }
@@ -2990,10 +2994,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 正規化して返す（2026-08-10-dnd-ghost-and-insert-fix の呼び出しをそのまま関数化）。
      */
     protected snapshotTimelineTracks(editBefore: string): EditTimelineTrack[] {
-        return this.pinAudioGroupToBottom(
-            parseEdit(editBefore).timeline?.tracks
-                ?? deriveDefaultTimelineTracks(JSON.parse(editBefore), this.captions.length > 0)
-        );
+        return this.baseTimelineTracks(this.readEdit(editBefore));
     }
 
     /**
@@ -3471,36 +3472,52 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * parsed.audioSfx（正本 packages/edit-store の EditAudioSfx）は fade_in/fade_out を運ばない
-     * （EditAudioSfxWithFade の header comment 参照）。rawValue（edit.json の生 JSON）から直接
-     * 読み、各 sfx の id（"sfx-N" -- parseEdit が付ける元インデックス。parsed.audioSfx は不正な
-     * 要素を skip するため配列位置とは一致しないことがあるので、id の N を使う）で
-     * rawValue.audio.sfx[N] と対応付けて拡張フィールドとして足し込む。
+     * 種別別ビュー（正本 packages/edit-store の EditAudioSfx）は fade_in/fade_out を運ばない
+     * （EditAudioSfxWithFade の header comment 参照）。内部表現のアイテムが持つ宣言レコード
+     * （`item.declaration` — 読み込み層が版差を吸収済み）から直接読んで足し込む。
+     * 生 JSON も id の索引計算も要らない（アイテムが宣言と 1 対 1 で結び付いているため）。
      */
-    protected withSfxFade(items: readonly EditAudioSfx[], rawValue: unknown): EditAudioSfxWithFade[] {
-        const rawSfx = (rawValue as { audio?: { sfx?: unknown } } | null)?.audio?.sfx;
-        const rawSfxArray = Array.isArray(rawSfx) ? rawSfx : [];
-        return items.map(item => {
-            const index = Number(item.id.slice(4));
-            const raw = Number.isInteger(index)
-                ? rawSfxArray[index] as { fade_in?: unknown; fade_out?: unknown } | undefined
-                : undefined;
-            const fadeIn = typeof raw?.fade_in === 'number' && Number.isFinite(raw.fade_in) && raw.fade_in >= 0
-                ? raw.fade_in : undefined;
-            const fadeOut = typeof raw?.fade_out === 'number' && Number.isFinite(raw.fade_out) && raw.fade_out >= 0
-                ? raw.fade_out : undefined;
-            return {
-                ...item,
-                ...(fadeIn !== undefined ? { fadeIn } : {}),
-                ...(fadeOut !== undefined ? { fadeOut } : {})
-            };
-        });
+    protected withSfxFade(internal: InternalEdit): EditAudioSfxWithFade[] {
+        const items: EditAudioSfxWithFade[] = [];
+        for (const track of internal.tracks) {
+            for (const item of track.items) {
+                if (item.legacy.collection !== 'sfx' || item.legacy.value === undefined) {
+                    continue;
+                }
+                const declaration = item.declaration as { fade_in?: unknown; fade_out?: unknown };
+                const fadeIn = typeof declaration.fade_in === 'number' && Number.isFinite(declaration.fade_in)
+                    && declaration.fade_in >= 0 ? declaration.fade_in : undefined;
+                const fadeOut = typeof declaration.fade_out === 'number' && Number.isFinite(declaration.fade_out)
+                    && declaration.fade_out >= 0 ? declaration.fade_out : undefined;
+                items.push({
+                    ...(item.legacy.value as EditAudioSfx),
+                    ...(fadeIn !== undefined ? { fadeIn } : {}),
+                    ...(fadeOut !== undefined ? { fadeOut } : {})
+                });
+            }
+        }
+        return items.sort((left, right) => Number(left.id.slice(4)) - Number(right.id.slice(4)));
+    }
+
+    /** edit.json（版を問わない）を内部表現へ読む。版を知る呼び出しはこの 1 メソッドに閉じる。 */
+    protected readEdit(source: string): InternalEdit {
+        return readInternalEdit(source, { hasCaptions: this.captions.length > 0 });
+    }
+
+    /**
+     * 表示・編集の基準になるトラック列。宣言があればそれを、無ければ読み込み層が導出した
+     * 行を既定のグループ順へ並べ替えて使う。いずれも pinAudioGroupToBottom で正規化する。
+     */
+    protected baseTimelineTracks(internal: InternalEdit): EditTimelineTrack[] {
+        return this.pinAudioGroupToBottom(
+            projectLegacyEdit(internal).timeline?.tracks
+                ?? sortDefaultTimelineTracks(derivedLegacyTracks(internal))
+        );
     }
 
     protected async reloadEdit(): Promise<void> {
         this.cuts = [];
-        this.sources = undefined;
-        this.defaultSourceRaw = undefined;
+        this.editSources = [];
         this.sourceMap.clear();
         this.overlays = [];
         this.beats = [];
@@ -3513,24 +3530,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (this.location?.editUri) {
             try {
                 const source = (await this.fileService.readFile(this.location.editUri)).value.toString();
-                const parsed = parseEdit(source);
-                const rawValue = JSON.parse(source) as unknown;
-                this.cuts = parsed.cuts;
-                this.sources = parsed.sources;
-                this.defaultSourceRaw = parsed.source;
+                // 版を知るのはここ（読み込み層）だけ。以降は内部表現（tracks[].items[]）と
+                // その射影しか見ない。
+                const internal = this.readEdit(source);
+                const view = projectLegacyEdit(internal);
+                this.cuts = view.cuts;
+                this.editSources = internal.sources;
                 this.rebuildSourceMap();
-                this.overlays = parsed.overlays;
-                this.beats = parsed.beats ?? [];
-                this.layers = parsed.layers;
-                this.audioSfx = this.withSfxFade(parsed.audioSfx, rawValue);
-                this.audioNarration = parsed.audioNarration;
-                this.audioBgm = parsed.audioBgm;
-                this.timelineTracks = this.pinAudioGroupToBottom(
-                    parsed.timeline?.tracks ?? deriveDefaultTimelineTracks(rawValue, this.captions.length > 0)
-                );
-                this.fps = parsed.fps;
-                if (parsed.warnings.length > 0) {
-                    this.showWarnings(parsed.warnings);
+                this.overlays = view.overlays;
+                this.beats = view.beats ?? [];
+                this.layers = view.layers;
+                this.audioSfx = this.withSfxFade(internal);
+                this.audioNarration = view.audioNarration;
+                this.audioBgm = view.audioBgm;
+                this.timelineTracks = this.baseTimelineTracks(internal);
+                this.fps = view.fps;
+                if (view.warnings.length > 0) {
+                    this.showWarnings(view.warnings);
                 }
             } catch {
                 // A missing or unreadable edit.json means no clips or overlays are drawn.
@@ -3657,21 +3673,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!editUri) {
             return;
         }
-        if (this.sources !== undefined) {
-            for (const source of this.sources) {
-                const mediaPath = source.proxy ?? source.path;
-                this.sourceMap.set(source.id, {
-                    path: source.path,
-                    videoUri: this.resolveEditMediaUri(mediaPath, editUri).toString()
-                });
+        for (const source of this.editSources) {
+            if (source.path === undefined) {
+                continue;
             }
-        }
-        if (this.defaultSourceRaw) {
-            const mediaPath = this.defaultSourceRaw.proxy ?? this.defaultSourceRaw.path;
-            this.defaultSource = {
-                path: this.defaultSourceRaw.path,
+            const mediaPath = source.proxy ?? source.path;
+            const resolved: ResolvedEditSource = {
+                path: source.path,
                 videoUri: this.resolveEditMediaUri(mediaPath, editUri).toString()
             };
+            this.sourceMap.set(source.id, resolved);
+            if (source.isDefault) {
+                this.defaultSource = resolved;
+            }
         }
     }
 
@@ -4475,7 +4489,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } else {
                 this.renderClipMedia(element, cut, clipWidth, segment, cutLayout.height);
                 element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
-                if (this.sources !== undefined && cut.src !== undefined) {
+                if (cut.src !== undefined) {
                     const source = this.sourceMap.get(cut.src);
                     if (source) {
                         const badge = document.createElement('span');
@@ -5058,9 +5072,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         try {
             const before = (await this.fileService.readFile(editUri)).value.toString();
-            const parsed = parseEdit(before);
-            const base = this.pinAudioGroupToBottom(parsed.timeline?.tracks
-                ?? deriveDefaultTimelineTracks(JSON.parse(before) as unknown, this.captions.length > 0));
+            const base = this.baseTimelineTracks(this.readEdit(before));
             const tracks = mutate(base.map(track => ({ ...track })));
             const after = writeTimelineTracksInSource(before, tracks);
             if (after === before) {
@@ -5103,9 +5115,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         kind: Extract<TimelineTrackKind, 'cuts' | 'layers' | 'overlays'>,
         insertTrack: number
     ): EditTimelineTrack[] {
-        const parsed = parseEdit(source);
-        const tracks = this.pinAudioGroupToBottom(parsed.timeline?.tracks
-            ?? deriveDefaultTimelineTracks(JSON.parse(source) as unknown, this.captions.length > 0)).map(track => ({
+        const tracks = this.baseTimelineTracks(this.readEdit(source)).map(track => ({
             ...track,
             ...(track.kind === kind && (track.ref ?? 0) >= insertTrack
                 ? { ref: (track.ref ?? 0) + 1 } : {})
@@ -5291,7 +5301,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return undefined;
         }
         const source = (await this.fileService.readFile(editUri)).value.toString();
-        const declared = parseEdit(source).timeline?.tracks;
+        const declared = projectLegacyEdit(this.readEdit(source)).timeline?.tracks;
         if (!declared) {
             return undefined;
         }
@@ -6211,7 +6221,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * （旧 `cutDurationProbeUri` と同一の解決順に統一・一本化）。
      */
     protected cutVideoUri(cut: EditCut): string {
-        if (cut.src !== undefined && this.sources !== undefined) {
+        if (cut.src !== undefined) {
             return this.sourceMap.get(cut.src)?.videoUri ?? '';
         }
         if (this.defaultSource) {

@@ -112,6 +112,19 @@ export interface EditTimelineTrack {
     locked?: boolean;
 }
 
+/**
+ * parseEdit が採用した要素の、元配列における添字。読み飛ばした要素があるぶん
+ * 出力配列の位置とはずれるため、内部表現（internal-model.ts）が生要素と突き合わせるのに使う。
+ */
+export interface EditParseOrigins {
+    cuts: number[];
+    overlays: number[];
+    beats: number[];
+    layers: number[];
+    audioSfx: number[];
+    audioNarration: number[];
+}
+
 export interface SourceElement {
     text: string;
     start: number;
@@ -1062,6 +1075,7 @@ export function parseEdit(source: string): {
     timeline?: { tracks: EditTimelineTrack[] };
     fps: number;
     warnings: string[];
+    origins: EditParseOrigins;
 } {
     const value = JSON.parse(source);
     if (!value || typeof value !== 'object') {
@@ -1074,6 +1088,11 @@ export function parseEdit(source: string): {
     const layers: EditLayer[] = [];
     const audioSfx: EditAudioSfx[] = [];
     const audioNarration: EditAudioNarration[] = [];
+    // 採用した要素が元配列の何番目だったか（不正な要素は読み飛ばすので配列位置は一致しない）。
+    // internal-model.ts が「宣言の生要素」と「型付きビュー」を突き合わせるために使う。
+    const origins: EditParseOrigins = {
+        cuts: [], overlays: [], beats: [], layers: [], audioSfx: [], audioNarration: []
+    };
     let timeline: { tracks: EditTimelineTrack[] } | undefined;
     let audioBgm: EditAudioBgm | undefined;
     const sources: EditSource[] = [];
@@ -1190,6 +1209,7 @@ export function parseEdit(source: string): {
                         warnings.push(`${index + 1} 番目のクリップの opacity が不正なため無視します。`);
                     }
                 }
+                origins.cuts.push(index);
                 cuts.push({
                     in: input,
                     out: output,
@@ -1220,6 +1240,7 @@ export function parseEdit(source: string): {
                     continue;
                 }
                 seenIds.add(overlay.id);
+                origins.overlays.push(index);
                 overlays.push({
                     id: overlay.id,
                     start: overlay.start,
@@ -1260,6 +1281,7 @@ export function parseEdit(source: string): {
                 continue;
             }
             seenIds.add(beat.id);
+            origins.beats.push(index);
             beats.push({
                 id: beat.id,
                 ...(hasSrc ? { src: beat.src } : {}),
@@ -1367,6 +1389,7 @@ export function parseEdit(source: string): {
                     warnings.push(`素材 ${layer.id} の chroma_key が不正なため無視します。`);
                 }
             }
+            origins.layers.push(index);
             layers.push({
                 id: layer.id,
                 t: layer.t,
@@ -1422,6 +1445,7 @@ export function parseEdit(source: string): {
                         warnings.push(`${index + 1} 番目の SE の out が不正なため無視します。`);
                     }
                 }
+                origins.audioSfx.push(index);
                 audioSfx.push({
                     id: `sfx-${index}`,
                     t: sfx.t,
@@ -1464,6 +1488,7 @@ export function parseEdit(source: string): {
                         warnings.push(`ナレーション ${narration.id} の gain_db が不正なため無視します。`);
                     }
                 }
+                origins.audioNarration.push(index);
                 audioNarration.push({
                     id: narration.id,
                     t: narration.t,
@@ -1572,7 +1597,8 @@ export function parseEdit(source: string): {
         ...(audioBgm ? { audioBgm } : {}),
         ...(timeline ? { timeline } : {}),
         fps,
-        warnings
+        warnings,
+        origins
     };
 }
 
