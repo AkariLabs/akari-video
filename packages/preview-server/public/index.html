@@ -29,6 +29,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #layer-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 #layer-container video { position: absolute; object-fit: contain; }
 /* .layer-selected は選択状態のマーカー。枠は #layer-select-box（アルファ実測でコンテンツにフィット）が描く */
+/* 舞台と全画面オーバーレイルートは素通し。app.js が描画実体だけ pointer-events:auto へ戻す。 */
 #overlay-stage { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
 #pen-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2147483645; }
 #transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; background: #000; }

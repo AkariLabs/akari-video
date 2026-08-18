@@ -24,6 +24,7 @@ import { computeLayerKeyframesVisual } from '/layer-keyframes-visual.js';
 import { createCutFxController } from '/cut-fx.js';
 import { markLayerUnplayable, syncLayerLazyLoad } from '/layer-lazy-load.js';
 import { ensureMediaPlaying } from '/media-playback-resume.js';
+import { syncMediaCurrentTime } from '/media-time-sync.js';
 import {
   createAudioDeClickController,
   transitionApproximationGain,
@@ -2792,6 +2793,7 @@ function setEditMode(next) {
   // 断片ぶんをここで 1 回そろえておく
   if (editMode) {
     for (const el of stage.querySelectorAll('[data-overlay-id][data-akari-active]')) {
+      window.akari.interaction?.applyOverlayHitPolicy?.(el);
       window.akari.interaction?.syncOverlayHitRegion?.(el);
     }
   }
@@ -2923,7 +2925,7 @@ function createOverlayRuntime() {
       c.dataset.start = String(o.start);
       c.dataset.duration = String(o.duration);
       if (o.role !== undefined && o.role !== null) c.dataset.role = String(o.role);
-      c.style.cssText = 'position:absolute;inset:0;pointer-events:auto;visibility:hidden;touch-action:none;';
+      c.style.cssText = 'position:absolute;inset:0;pointer-events:none;visibility:hidden;touch-action:none;';
       // 2026-08-07 オーナー裁定: role==="background" は
       // ずらせない・必ずフレームを埋める種別。--x/--y/--scale/--rotate を無条件で恒等値へ
       // ロックする（transform も vars 経由の抜け道も無視する。overlay-runtime.js の mount・
@@ -2948,12 +2950,17 @@ function createOverlayRuntime() {
       }
       // html は「< で始まればインライン、それ以外はファイルパス参照」（shell と同一解釈。lint 契約はパス参照が正）
       const rawHtml = typeof o.html === 'string' ? o.html : '';
-      const rec = { el: c, start: o.start, duration: o.duration, visible: false, is3d: false };
+      const rec = { el: c, start: o.start, duration: o.duration, visible: false, is3d: false, hitPolicyPending: false };
       if (rawHtml && !rawHtml.trimStart().startsWith('<')) {
         c.innerHTML = '';
         fetch(resolveMediaUrl(rawHtml))
           .then(r => (r.ok ? r.text() : ''))
-          .then(html => { c.innerHTML = html || ''; markThreeOverlay(rec); })
+          .then(html => {
+            c.innerHTML = html || '';
+            markThreeOverlay(rec);
+            window.akari.interaction?.invalidateOverlayHitPolicy?.(c);
+            rec.hitPolicyPending = rec.visible;
+          })
           .catch(() => {});
       } else {
         c.innerHTML = rawHtml;
@@ -2980,6 +2987,7 @@ function createOverlayRuntime() {
         // Web UI は visibility しか切り替えておらず、規約どおりに書かれた断片は
         // base opacity:0 のまま一切アニメせず「何も出ない」状態になっていた。
         o.el.toggleAttribute('data-akari-active', v);
+        o.hitPolicyPending = v;
         // ゲート属性の付け外しでアニメの顔ぶれが変わるのでキャッシュを捨てる
         o._anims = null;
         // 見えなくなったら GPU リソースを返す（shell の overlay-runtime と同じ）
@@ -2995,6 +3003,10 @@ function createOverlayRuntime() {
           syncVideos: true,
           maxRenderSize: PREVIEW_3D_MAX_RENDER_SIZE,
         });
+        if (o.hitPolicyPending) {
+          window.akari.interaction?.applyOverlayHitPolicy?.(o.el);
+          o.hitPolicyPending = false;
+        }
         continue;
       }
       // getAnimations({subtree:true}) のコストは「ドキュメント全体に現存する CSS animation の
@@ -3007,6 +3019,10 @@ function createOverlayRuntime() {
         o._animsAt = nowMs;
       }
       for (const a of o._anims) { a.pause(); a.currentTime = ms; }
+      if (o.hitPolicyPending) {
+        window.akari.interaction?.applyOverlayHitPolicy?.(o.el);
+        o.hitPolicyPending = false;
+      }
       // ㉑ 当たり判定（clip-path）は断片の実寸に合わせる。ただし可視化時に 1 回だけ測ると、
       // その後アニメで拡大した分がはみ出して**見た目まで切り取られる**（実測: pop 断片が
       // 1.13 倍に育った瞬間、円が角丸四角に切れた）。アニメを進めた後に測り直す。
@@ -3046,6 +3062,8 @@ function createOverlayRuntime() {
         entry.el.style.setProperty('--scale', '1');
         entry.el.style.setProperty('--rotate', '0deg');
       }
+      window.akari.interaction?.invalidateOverlayHitPolicy?.(entry.el);
+      if (entry.visible) window.akari.interaction?.applyOverlayHitPolicy?.(entry.el);
       if (o.role !== undefined && o.role !== null) entry.el.dataset.role = String(o.role);
       else delete entry.el.dataset.role;
       entry.start = o.start;
