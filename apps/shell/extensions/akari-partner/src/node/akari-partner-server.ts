@@ -8,6 +8,7 @@ import {
     BinaryVerificationRequest,
     BinaryVerificationResult,
     BootstrapResult,
+    EnsureCliResult,
     PartnerAgentId,
     PartnerConnectionMarker,
     PartnerLaunchPlan,
@@ -15,7 +16,8 @@ import {
 } from '../common/akari-partner-protocol';
 import { buildPartnerConnectionMarker } from '../common/partner-connection-marker';
 import { bootstrapRunner } from './bootstrap-runner';
-import { resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
+import { buildCliPathEnv, ensureCli as provisionCli } from './cli-provisioner';
+import { resolveAkariHomeDir, resolvePartnerConnectionMarkerPath, writePartnerConnectionMarker } from './partner-connection-writer';
 
 const BOOTSTRAP_TIMEOUT_MS = 10 * 60 * 1000;
 const MAX_VERIFY_DEPTH = 8;
@@ -92,8 +94,36 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
             agent,
             args: [],
             log: [],
-            env: this.resolveMediaBinEnv()
+            env: {
+                ...this.resolveMediaBinEnv(),
+                ...this.resolveCliPathEnv()
+            }
         };
+    }
+
+    /**
+     * task/2026-08-17-shell-managed-cli: `ensureCli()` が配備したシム dir を PATH の先頭に
+     * 加えるための env 差分。`ensureCli()` の呼び出し結果を受け渡すのではなく、ここで
+     * 改めてシムの存在を確認する（`ensureCli()` と `prepareLaunch()` は別々の RPC 呼び出しで
+     * あり、状態を跨いで信頼しない — 未配備 / failed 時は PATH を一切触らない）。
+     */
+    protected resolveCliPathEnv(): Record<string, string> {
+        return buildCliPathEnv({
+            akariHome: resolveAkariHomeDir(),
+            platform: process.platform,
+            existingPath: process.env.PATH
+        });
+    }
+
+    /**
+     * task/2026-08-17-shell-managed-cli: `akari` CLI のアプリ管理配備の RPC 実装。
+     * ロジックはすべて `cli-provisioner.ts` に集約し、ここは env 由来の実行体パスを渡すだけの
+     * 薄いラッパー（`resourcesPath` は packaged 時のみ Electron が設定する）。
+     */
+    async ensureCli(): Promise<EnsureCliResult> {
+        return provisionCli({
+            resourcesPath: (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+        });
     }
 
     /**

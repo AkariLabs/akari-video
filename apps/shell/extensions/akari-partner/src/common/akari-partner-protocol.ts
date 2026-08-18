@@ -64,6 +64,22 @@ export interface RenderPins {
     pins: Record<string, string>;
 }
 
+/**
+ * task/2026-08-17-shell-managed-cli: アプリ管理の `akari` CLI 自動配備の結果。
+ * `ready` はシムが使える状態（`version` はパッケージ実行時のみ入る — dev 実行では
+ * リポの `akari.mjs` を直接シムへ焼き込むため版の概念がない）。`skipped`/`failed` は
+ * どちらも「今回は配備できなかった」を表し、接続フロー自体は止めない（fail-soft）。
+ * `log` は日本語 1 行ずつの進捗/失敗理由（末尾がユーザー向けの最終メッセージ）。
+ */
+export type EnsureCliStatus = 'ready' | 'skipped' | 'failed';
+
+export interface EnsureCliResult {
+    status: EnsureCliStatus;
+    version?: string;
+    shimDir?: string;
+    log: string[];
+}
+
 export const AkariPartnerServer = Symbol('AkariPartnerServer');
 
 export interface AkariPartnerServer {
@@ -77,6 +93,17 @@ export interface AkariPartnerServer {
      */
     bootstrap(agent: PartnerAgentId, workspaceRootUri?: string): Promise<BootstrapResult>;
     verifyExtensionBinary(request: BinaryVerificationRequest): Promise<BinaryVerificationResult>;
+    /**
+     * task/2026-08-17-shell-managed-cli: `akari` CLI をアプリ管理でユーザー領域へ
+     * 自動配備する（npm も sudo も使わない）。パッケージ実行時は自アプリと同じ版の
+     * `akari-video` を公式レジストリから取得・integrity 検証の上 `<AKARI_HOME>/cli/<version>/`
+     * へ展開し `<AKARI_HOME>/cli/bin/akari` シムを生成する。dev 実行時はダウンロードせず、
+     * リポ内 `packages/akari-launcher/bin/akari.mjs` を直接シムへ焼き込む。ネットワーク不通・
+     * registry 404（未公開版）等は `failed`/`skipped` を返すだけで例外を投げない
+     * （呼び出し側の接続フローを止めない）。`prepareLaunch()` はこのシムが存在する場合に
+     * のみ PATH へ前置する（このメソッドとは別に、そこで再度冪等にシムの有無を見る）。
+     */
+    ensureCli(): Promise<EnsureCliResult>;
     prepareLaunch(agent: PartnerAgentId): Promise<PartnerLaunchPlan>;
     getRenderPins(): Promise<RenderPins>;
     /**

@@ -382,6 +382,7 @@ export class AkariPartnerWidget extends ReactWidget {
                     this.setProgress(entry, 'スキル配線を確認しています…', wiringLog);
                 }
             }
+            await this.ensureCliProvisioned(entry);
             const launch = await this.partnerServer.prepareLaunch(entry.agent);
             this.setProgress(entry, 'パートナー PTY を起動しています…', `${bootstrap.runtimeMode}: ${bootstrap.runtimePath}`);
             const terminal = await this.terminalService.newTerminal({
@@ -409,6 +410,30 @@ export class AkariPartnerWidget extends ReactWidget {
         } catch (error) {
             this.setFailure(entry, `${entry.name} のセットアップに失敗しました`, this.errorMessage(error));
             console.error('[akari-partner] onboarding failed:', error);
+        }
+    }
+
+    /**
+     * task/2026-08-17-shell-managed-cli: `akari` CLI のアプリ管理配備。`bootstrap()` の後・
+     * `prepareLaunch()` の前に呼び、配備済みシム dir が次の `prepareLaunch()` の PATH へ
+     * 前置されるようにする。fail-soft — 失敗/未配備でも例外を投げず、ステータスカードに
+     * 「未配備（接続は続行）」を出すだけで PTY 起動フロー自体は必ず続行する。
+     */
+    protected async ensureCliProvisioned(entry: PartnerCliCatalogEntry): Promise<void> {
+        this.setProgress(entry, 'AKARI CLI を準備しています…（約 46MB・初回のみ）', '同梱ランタイムで確認中');
+        try {
+            const cli = await this.partnerServer.ensureCli();
+            const lastLog = cli.log[cli.log.length - 1] ?? '';
+            if (cli.status === 'ready') {
+                this.setProgress(entry, `AKARI CLI: ${cli.version ? `v${cli.version}` : 'dev'} 利用可能`, cli.shimDir ?? lastLog);
+            } else {
+                this.setProgress(entry, 'AKARI CLI は未配備（接続は続行）', lastLog);
+            }
+        } catch (error) {
+            // ensureCli() 自体は fail-soft（'failed'/'skipped' を返すだけ）だが、RPC 経路自体の
+            // 想定外エラー（トランスポート断等）も同じ規律で握りつぶす — 接続フローは止めない。
+            this.setProgress(entry, 'AKARI CLI は未配備（接続は続行）', this.errorMessage(error));
+            console.warn('[akari-partner] ensureCli failed:', error);
         }
     }
 
