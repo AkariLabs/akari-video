@@ -4,8 +4,8 @@
 // @theia/ffmpeg（theia build 内部の prepareElectron()）は node_modules/electron/dist/
 // Electron.app 内の libffmpeg.dylib を非プロプライエタリ版へ差し替える。署名済みバンドルの
 // 中身を書き換えるためコード署名が壊れ、Apple Silicon では署名不正の .app が起動時に
-// 無言で kill される（"Electron main: loading modules..." の直後に exit 0。実測ログは
-// 内部リポ planning/notes-2026-08-17-mac-fresh-install-bug-reports.md #03）。
+// 無言で kill される（"Electron main: loading modules..." の直後に exit 0 —
+// 2026-08-17 の実機バグ報告で実測）。
 // `npm rebuild electron` 後に theia build を再実行した場合も同じ壊れ方が再発する。
 //
 // この開発ビルド専用（node_modules/electron/dist）のアドホック再署名は無害・冪等なので、
