@@ -24,21 +24,25 @@ description: "AKARI Video（現行 Theia スタック）のタスク契約が要
 
 ```sh
 cd apps/shell
-PYTHON=/usr/bin/python3 npm install --no-workspaces   # 初回・依存更新時のみ
-npm run build:ext                                      # tsc -b（6 拡張の型検査 + コンパイル）
-npm run lint                                            # eslint "extensions/*/src/**/*.{ts,tsx}"
+PYTHON=/usr/bin/python3 npm ci --no-workspaces   # 初回・依存更新時のみ
+npm run build:ext                                 # tsc -b（9 拡張の型検査 + コンパイル）
+npm run lint                                       # eslint "extensions/*/src/**/*.{ts,tsx}"
 ```
 
-- `build:ext` と `lint` が exit 0 = L0 合格の最低ライン。CI（`.github/workflows/ci.yml`）はこの 2 つを push/PR で自動実行する
-- `npm run build`（= `build:ext && theia build --mode production`）は、フロントエンド/バックエンド/electron のバンドル生成まで含むより厳密な L0 として個々のタスク契約が課すことがある（例: `shell-sb-surfaces` / `shell-sc-project` / `shell-sd-partner` / `governance-sanitize`）。ただし **CI には載せていない**（後述「地雷」参照）。タスクで `build` まで求められたら手元で `PYTHON=/usr/bin/python3 npm install --no-workspaces` 後、electron の postinstall が npm 11 の allow-scripts ゲートでスキップされて `theia build` が `ENOENT .../electron/dist/version` で落ちる点に注意し、`echo "<electron のバージョン>" > apps/shell/node_modules/electron/dist/version` で回避すること（`npm run package`/実機起動が要る L1 では、この回避では不十分 — 下記参照）
+- **`npm install` ではなく `npm ci`**。`apps/shell/package-lock.json` は 2026-08-19 から**追跡されている**（旧方針は `.gitignore`）。`npm install` は lock をその日のレジストリで書き換える＝ドリフトの入り口なので、検証では使わない。依存を意図的に上げたときだけ `npm install` して lock の差分をコミットする
+- **`--no-workspaces`** は apps/shell を単体プロジェクトとして扱わせる指定（`apps/shell/package-lock.json` + `apps/shell/node_modules` を使う）。付けないとリポ root の workspace 側（root の `package-lock.json`）へ寄り、`packages/*` まで巻き込んで実行時間が約 2 倍になる
+- install の postinstall で **`npm run preflight`** が走る（`scripts/ensure-no-nested-extension-deps.mjs` → `scripts/ensure-electron-dist.mjs`）。`npm run build` の prebuild と `npm start` の prestart も同じ preflight を通る。おかげで **electron の展開も入れ子 `node_modules` の掃除も手作業では要らない**（どちらも下の「地雷」の自動修復）
+- `build:ext` と `lint` が exit 0 = L0 合格の最低ライン。CI（`.github/workflows/ci.yml`）はこの 2 つを push/PR で自動実行する（CI 側はまだ `npm install --no-workspaces --ignore-scripts` のまま。lock 追跡に合わせて `npm ci` へ寄せるのは別タスク）
+- `npm run build`（= `build:ext && theia build --mode production`）は、フロントエンド/バックエンド/electron のバンドル生成まで含むより厳密な L0 として個々のタスク契約が課すことがある（例: `shell-sb-surfaces` / `shell-sc-project` / `shell-sd-partner` / `governance-sanitize`）。ただし **CI には載せていない**（後述「地雷」参照）。バンドラは webpack ではなく **esbuild**（Theia 1.73 の既定。`apps/shell/webpack.config.js` が無いので `theia build` は必ず esbuild 経路を通る）
 - `packages/*` 配下に触るタスクは各 package.json の build/test スクリプトが L0 の実体になる（`waveplan-2026-07-15-sbcd-e5.md` §検収ゲート）
 
 ### 既知の地雷（L0）
 
-1. **npm 11 の allow-scripts ゲート**: `npm install` は electron / `@theia/ffmpeg` / drivelist / keytar / node-pty 等 11 パッケージの install script を既定でスキップする（`npm warn allow-scripts ...`）。`build:ext` / `lint` は素の TypeScript / eslint 実行であり、これらのネイティブモジュールを必要としないため**スキップされたままで問題なく通る**（実測済み）。実機を起動する L1 以降で初めて効いてくる
-2. **Homebrew Python 3.14 と node-gyp**: macOS で `PYTHON=` を指定せず `npm install` すると、`drivelist` の `node-gyp rebuild` が Homebrew Python 3.14 の `pyexpat` ABI 不整合（`Symbol not found: _XML_SetAllocTrackerActivationThreshold`）で失敗し、install 自体が止まる。`PYTHON=/usr/bin/python3`（Apple 純正 Python）を必ず指定すること
-3. **`apps/shell/package-lock.json` は意図的に `.gitignore` 済み**（`apps/shell/.gitignore` 内 `package-lock.json`）。`npm ci` は使えない。再現性は Node バージョン固定 + `--no-workspaces` で確保する（後者が無いとリポ root へ依存が hoist され、実行時間が約 2 倍・依存解決範囲が変わることを実測済み）
-4. **grep マッチ 0 件は exit 1**。検証スクリプト内で grep を使うときは `|| true` を付ける
+1. **npm 11 の allow-scripts ゲートは `apps/shell/package.json` の `allowScripts` で開けてある**（許可リストであって拒否リストではない）。2026-08-19 実測: `npm ci --no-workspaces` 後のツリーで install 系スクリプト（preinstall / install / postinstall + `binding.gyp` による暗黙の `node-gyp rebuild`）を持つ依存は **11 個ちょうどで、その全部が `allowScripts` に列挙済み＝実行される**（`npm rebuild electron --foreground-scripts` で electron の postinstall が実際に走ることを確認）。**旧記述「11 パッケージの install script を既定でスキップする」は誤り**。ただし列挙は `名前@完全一致バージョン` なので、**版が 1 つずれるとその行はマッチせず、その依存の install script が黙って走らなくなる** — lock 追跡でこのずれは止まる。依存を上げるときは `allowScripts` も一緒に直すこと。`build:ext` / `lint` はネイティブモジュールを要さないので、走っても走らなくても通る。CI の L0 レーンは `--ignore-scripts` で全部止めている
+2. **Homebrew Python 3.14 と node-gyp**: macOS で `PYTHON=` を指定せず install すると、`drivelist` の `node-gyp rebuild` が Homebrew Python 3.14 の `pyexpat` ABI 不整合（`Symbol not found: _XML_SetAllocTrackerActivationThreshold`）で失敗し、install 自体が止まる。`PYTHON=/usr/bin/python3`（Apple 純正 Python）を必ず指定すること
+3. **electron の postinstall は Node 26 で黙って途中終了する**（2026-08-19 実測）。`node_modules/electron/install.js` は zip 展開に extract-zip 2.0.1 → yauzl 2.10 → fd-slicer 1.1 を使うが、**Node v26.3.0 ではこの pipe 経路が 1,900,544 B（64KiB × 29 チャンク）で停止し、`end` も `error` も出ないままイベントループが空になって exit 0 で終わる**。結果 `dist/` には `LICENSE` と切り詰められた `LICENSES.chromium.html` だけが残り、`Electron.app` も `dist/version` も `path.txt` も無い状態が「install 成功」として通る（Node 22.23.1 では同じ zip が完走。zlib 単体も fd-slicer 単体も Node 26 で正常なので、バックプレッシャー解除後に読み出しが再開されないのが実体）。**`scripts/ensure-electron-dist.mjs`（preflight）が結果だけを見て検出し、`ditto` / `tar` / `unzip` で展開し直して `path.txt` まで書く**ので、以前ここに書いていた「`ditto -x -k` で手展開し `echo <version> > dist/version` する」手順はもう不要
+4. **`apps/shell/package-lock.json` は追跡対象**（2026-08-19 に方針転換、`apps/shell/.gitignore` から除外）。旧記述「`npm ci` は使えない／再現性は Node 固定 + `--no-workspaces` だけで担保する」は**無効**。実測: 追跡前は 1 か月で 1400 パッケージ中 63 パッケージが動いていた（`@babel/*` / acorn / postcss / react / terser / webpack 5.108.4→5.109.2 等）
+5. **grep マッチ 0 件は exit 1**。検証スクリプト内で grep を使うときは `|| true` を付ける
 
 ## L1 — 実機観測（Electron を CDP/Playwright で観測する）
 
@@ -52,14 +56,13 @@ npm run lint                                            # eslint "extensions/*/s
 1. **ビルド**（L0 に加え electron 実体が要る）:
    ```sh
    cd apps/shell
-   PYTHON=/usr/bin/python3 npm install --no-workspaces
-   # electron の postinstall は allow-scripts ゲートでスキップされているため、
-   # 既存キャッシュから手動展開する（既にダウンロード済みの環境が前提）:
-   ditto -x -k ~/Library/Caches/electron/<hash>/electron-v<version>-darwin-<arch>.zip \
-     node_modules/electron/dist
-   echo "<version>" > node_modules/electron/dist/version
+   PYTHON=/usr/bin/python3 npm ci --no-workspaces
    npm run build
    ```
+   electron の実体（`node_modules/electron/dist` + `path.txt`）は postinstall / prebuild の
+   `npm run preflight` が用意する（キャッシュに zip が無ければ `@electron/get` で取りに行く）。
+   **手で `ditto` する手順・`echo <version> > dist/version` する回避策はもう要らない**
+   — 要る状況になったら preflight が exit 1 で止まって理由を出す（L0 §地雷 3）
 2. **隔離ワークスペースを用意**: `templates/project-default/` を作業用一時ディレクトリへコピー（元ファイルは無改変）。検証対象の素材（動画等）が要るタスクは、この中に `ffmpeg` 等で実素材を生成する（例: `preview-streaming` は 4K/120 秒/836MB の MP4 を `ffmpeg -f lavfi ...` で生成し実測に使用。検証後は `rm -rf` で完全削除しコミットしない）
 3. **Electron を直接起動**（`theia start` CLI や Playwright の `_electron.launch()` は不使用 — 後者は argv 解釈に既知不具合があるため）:
    ```sh
@@ -79,7 +82,14 @@ npm run lint                                            # eslint "extensions/*/s
 
 ### 既知の地雷（L1）
 
-1. **拡張ディレクトリ内のネスト `node_modules`**: `apps/shell/extensions/<ext>/node_modules/` に `@theia/*` 等が残っていると、`apps/shell/node_modules/@theia/core` との二重解決で `FrontendApplicationConfigProvider` のようなモジュール単位シングルトンが分裂し、フロントエンドがプリロード画面のまま無限に止まる（dual-package hazard）。実機起動前に `find apps/shell/extensions/*/node_modules -maxdepth 0` を確認し、あれば削除してから `apps/shell/` 直下でクリーンリビルドする
+1. **拡張ディレクトリ内のネスト `node_modules`（この層で最も踏まれている地雷）**: `apps/shell/extensions/<ext>/node_modules/` に `@theia/core` の 2 つ目の実体が入ると、esbuild は realpath 単位でモジュールを束ねるため 1 つの `bundle.js` に `frontend-application-config-provider` が 2 本入る。`src-gen/frontend/index.js` は片方に `set()` し、拡張側はもう片方から `get()` するので、フロントエンドが
+   ```
+   Failed to start the frontend application.
+   Error: The configuration is not set. Did you call FrontendApplicationConfigProvider#set?
+   ```
+   でプリロードのスピナーのまま止まる（dual-package hazard）。**2026-08-19 に実機で再現・確定**: 同一ツリーで `extensions/akari-preview/node_modules/@theia/core` を作った状態だけがこのエラーを出し、消せば起動する。原因は拡張ディレクトリ単体での `npm install`（1 回打つと 643 パッケージが入る）。
+   **拡張ディレクトリで `npm install` を打たないこと**。打ってしまっても preflight（postinstall / prebuild / prestart）が入れ子を削除して直すが、`bundle.js` は作り直しが要るので `npm run build` からやり直す。
+   なお **この症状を「webpack の版のせい」と読み違えた前例がある**（2026-08-18 timeline-z-order-unification §申し送り 2）。`theia build` は esbuild 経路であって webpack を一切呼ばない — webpack 5.109.2 が入ったままでも起動することを実測済みなので、この症状を見たらまず入れ子 `node_modules` を疑う
 2. **Electron の起動エントリ**: `package.json` の `main` フィールドどおり `lib/backend/electron-main.js` を使う。`lib/backend/main.js` を直接指定すると `BrowserWindow` が生成されず `/json/list` が空のままになる
 3. **パッケージ版でのパス解決**: バンドル後の `__dirname` は開発時と異なる（`app.asar/lib/backend` 等）。`apps/shell` 外への相対パス探索を持つ機能は、`electron-builder --dir` 出力を `ELECTRON_RUN_AS_NODE=1` + `cwd=/` で実行して検証すること（`package-runtime-assets` task.md 参照）。開発時 (`npm start`) だけでの確認は不十分
 
