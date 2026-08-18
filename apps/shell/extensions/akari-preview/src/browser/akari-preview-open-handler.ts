@@ -24,7 +24,8 @@ import {
     bgmLoopOffsetSeconds,
     resolveBgmSourceOffset,
     resolveSfxTrimWindow,
-    resolveTimedScheduleWindow
+    resolveTimedScheduleWindow,
+    sfxFadeGainSchedule
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
 import {
@@ -164,6 +165,12 @@ interface EditSummaryTimedAudio extends EditSummaryAudioSource {
     // buffer's real duration in the injected preview script (createPreviewAudio's decodeOne).
     in?: number;
     out?: number;
+    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum (audio-clip-fades,
+    // 2026-08-18; sfx only). edit.json spells these audio.sfx[].fade_in/fade_out (snake_case,
+    // distinct from bgm's camelCase fadeIn/fadeOut) -- normalized to camelCase here to match this
+    // file's own TS field-naming convention for every other JSON-sourced audio field.
+    fadeIn?: number;
+    fadeOut?: number;
 }
 
 interface EditSummaryAudio {
@@ -2668,6 +2675,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     track?: unknown;
                     in?: unknown;
                     out?: unknown;
+                    fade_in?: unknown;
+                    fade_out?: unknown;
                 } | undefined;
                 const label = kind === 'narration' && typeof item?.id === 'string' && item.id
                     ? `audio.narration ${item.id}`
@@ -2715,6 +2724,28 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         }
                     }
                 }
+                // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
+                // (audio-clip-fades, 2026-08-18; sfx only): fade_in/fade_out. Same
+                // warned-and-ignored tolerance as bgm's fadeIn/fadeOut parsing above (this
+                // function's own `fades` block further down).
+                let fadeIn: number | undefined;
+                let fadeOut: number | undefined;
+                if (kind === 'sfx') {
+                    if (item.fade_in !== undefined) {
+                        if (typeof item.fade_in === 'number' && Number.isFinite(item.fade_in) && item.fade_in >= 0) {
+                            fadeIn = item.fade_in;
+                        } else {
+                            console.warn(`[akari-preview] ${label}.fade_in を無視しました（0以上の有限 number ではありません）`, item.fade_in);
+                        }
+                    }
+                    if (item.fade_out !== undefined) {
+                        if (typeof item.fade_out === 'number' && Number.isFinite(item.fade_out) && item.fade_out >= 0) {
+                            fadeOut = item.fade_out;
+                        } else {
+                            console.warn(`[akari-preview] ${label}.fade_out を無視しました（0以上の有限 number ではありません）`, item.fade_out);
+                        }
+                    }
+                }
                 resolved.push({
                     id: kind === 'narration' ? String(item.id) : `sfx-${index + 1}`,
                     src,
@@ -2724,7 +2755,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         ? {
                             track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0,
                             ...(trimIn !== undefined ? { in: trimIn } : {}),
-                            ...(trimOut !== undefined ? { out: trimOut } : {})
+                            ...(trimOut !== undefined ? { out: trimOut } : {}),
+                            ...(fadeIn !== undefined ? { fadeIn } : {}),
+                            ...(fadeOut !== undefined ? { fadeOut } : {})
                         }
                         : {})
                 });
@@ -3862,6 +3895,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const resolveBgmSourceOffsetFn = (${resolveBgmSourceOffset.toString()});
                 const bgmLoopOffsetSecondsFn = (${bgmLoopOffsetSeconds.toString()});
                 const resolveTimedScheduleWindowFn = (${resolveTimedScheduleWindow.toString()});
+                const sfxFadeGainScheduleFn = (${sfxFadeGainSchedule.toString()});
                 const decoded = { bgm: null, sfx: [], narration: [] };
                 let timelineDuration = 0;
                 let loadPromise = null;
@@ -3971,8 +4005,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         try { item.gain.disconnect(); } catch (_error) { /* already detached */ }
                     }
                 };
-                const registerSource = (source, gain, kind, id, track, baseGainLinear) => {
-                    const item = { source, gain, kind, id, track, baseGainLinear };
+                const registerSource = (source, gain, kind, id, track, baseGainLinear, hasFade = false) => {
+                    const item = { source, gain, kind, id, track, baseGainLinear, hasFade };
                     active.push(item);
                     source.onended = () => detachActive(item);
                     return item;
@@ -4071,7 +4105,30 @@ body { display: grid; place-items: center; padding: 32px; }
                             gain.gain.value = baseGainLinear;
                             source.connect(gain);
                             gain.connect(masterGain);
-                            registerSource(source, gain, kind, item.id, item.track, baseGainLinear);
+                            // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
+                            // (audio-clip-fades, 2026-08-18; sfx only): fade_in/fade_out, applied as
+                            // AudioParam automation over the clip's own scheduled window (not a
+                            // per-tick poll like bgm's fadeMultiplierAt -- this source is a one-shot
+                            // BufferSourceNode, not a continuously re-evaluated loop). hasFade tells
+                            // tick()'s mute-sync loop to leave gain.value alone so it doesn't clobber
+                            // the in-flight ramp on its next 30Hz pass.
+                            let hasFade = false;
+                            if (kind === 'sfx' && (item.fadeIn !== undefined || item.fadeOut !== undefined)) {
+                                const fadeSchedule = sfxFadeGainScheduleFn(item.fadeIn, item.fadeOut, item.durationSec, scheduleWindow.elapsedIntoItemSec, available);
+                                if (fadeSchedule.length > 0) {
+                                    hasFade = true;
+                                    const startTime = contextStart + delay;
+                                    gain.gain.cancelScheduledValues(startTime);
+                                    gain.gain.setValueAtTime(baseGainLinear * fadeSchedule[0].gainMultiplier, startTime);
+                                    for (let i = 1; i < fadeSchedule.length; i += 1) {
+                                        gain.gain.linearRampToValueAtTime(
+                                            baseGainLinear * fadeSchedule[i].gainMultiplier,
+                                            startTime + fadeSchedule[i].offsetSec
+                                        );
+                                    }
+                                }
+                            }
+                            registerSource(source, gain, kind, item.id, item.track, baseGainLinear, hasFade);
                             source.start(contextStart + delay, offset, available);
                             return true;
                         } catch (error) {
@@ -4109,8 +4166,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     tick: (timelineTime, playing) => {
                         syncMasterGain();
                         for (const item of active.filter(candidate => candidate.kind === 'sfx')) {
-                            item.gain.gain.value = allSfxMuted || mutedSfxTracks.has(item.track)
-                                ? 0 : item.baseGainLinear;
+                            const muted = allSfxMuted || mutedSfxTracks.has(item.track);
+                            if (muted) {
+                                item.gain.gain.value = 0;
+                            } else if (!item.hasFade) {
+                                item.gain.gain.value = item.baseGainLinear;
+                            }
+                            // else: fade_in/fade_out already drives gain.gain via the scheduled
+                            // AudioParam ramp (audio-clip-fades) -- writing item.gain.gain.value here
+                            // (even to its own current value) would insert a new automation event
+                            // and cut the ramp short, so this 30Hz poll leaves it alone while unmuted.
                         }
                         if (playing) applyBgmDuck(timelineTime);
                     },

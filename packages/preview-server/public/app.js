@@ -1653,7 +1653,11 @@ function setupAudioGraph() {
       const gain = audioCtx.createGain();
       gain.gain.value = dbToGain(s.gainDb ?? 0);
       gain.connect(audioCtx.destination);
-      const node = { gain, src: sUrl, t: s.t ?? 0 };
+      // fade_in/fade_out (audio-clip-fades, 2026-08-18): edit.json spells these snake_case
+      // (distinct from audio.bgm.fadeIn/fadeOut's camelCase) -- see docs/contract-2026-07-25-r6-
+      // audio-tracks-and-trim.md §2 addendum. Read straight off the raw `s` item, matching how
+      // this function reads every other raw sfx field.
+      const node = { gain, src: sUrl, t: s.t ?? 0, gainDb: s.gainDb, fadeIn: s.fade_in, fadeOut: s.fade_out };
       sfxNodes.push(node);
       loadAudioBuffer(sUrl).then((buf) => { node._buffer = buf; });
     }
@@ -1847,6 +1851,21 @@ function syncAudio(t) {
       src.start(0, Math.max(0, t - s.t));
       src._ended = false; src.onended = () => { src._ended = true; };
       s._source = src;
+    }
+    if (should) {
+      // sfx fade_in/fade_out (audio-clip-fades, 2026-08-18): same per-tick multiplier shape as
+      // BGM's fadeIn/fadeOut below, computed against this clip's own [t, t+clipDuration) window.
+      // clipDuration is the full decoded buffer -- this preview engine doesn't apply audio.sfx[].
+      // in/out trim yet (a pre-existing gap, not this task's scope), so it matches what's actually
+      // played here rather than a possibly-untrimmed edit.json in/out window.
+      const clipDuration = s._buffer.duration;
+      const sfxFadeIn = Number.isFinite(s.fadeIn) && s.fadeIn > 0 ? Math.min(s.fadeIn, clipDuration / 2) : 0;
+      const sfxFadeOut = Number.isFinite(s.fadeOut) && s.fadeOut > 0 ? Math.min(s.fadeOut, clipDuration / 2) : 0;
+      const localT = t - s.t;
+      let sfxFadeMul = 1;
+      if (sfxFadeIn > 0 && localT < sfxFadeIn) sfxFadeMul = Math.min(sfxFadeMul, localT / sfxFadeIn);
+      if (sfxFadeOut > 0 && localT > clipDuration - sfxFadeOut) sfxFadeMul = Math.min(sfxFadeMul, (clipDuration - localT) / sfxFadeOut);
+      s.gain.gain.value = dbToGain(s.gainDb ?? 0) * sfxFadeMul;
     }
   }
   // BGM ducking + fade in/out

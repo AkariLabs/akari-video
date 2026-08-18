@@ -5,6 +5,6 @@
   "cuts": [{ "in": 0.0, "out": 20.0 }],
   "overlays": [],
   "audio": {
-    "sfx": [{ "path": "audio/pop.wav", "t": 1.0, "in": 0.5, "out": 1.5, "fade_in": 0.1, "fade_out": 0.1 }]
+    "sfx": [{ "path": "audio/pop.wav", "t": 1.0, "fade_in": -1 }]
   }
 }

@@ -904,6 +904,59 @@ test("sfx in/out: out === in fails with audio.sfx.in-out (out must be strictly g
   });
 });
 
+test("audio.sfx[].fade_in exceeding half the clip's effective duration warns without failing (audio-clip-fades)", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "sfx-fade-exceeds-clip");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      result.findings.some(
+        (finding) =>
+          finding.check === "audio.sfx.fade-total" &&
+          finding.severity === "warning" &&
+          /fade_in \+ fade_out 1\.6s exceeds the clip's effective duration 1s/.test(finding.message),
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("audio.sfx[].fade_in negative value fails (audio-clip-fades)", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "sfx-fade-invalid");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    assert.ok(
+      result.findings.some(
+        (finding) => finding.check === "audio.sfx.fade_in" && finding.severity === "error",
+      ),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+// sfx-in-out-valid's first item now also carries fade_in=0.2/fade_out=0.2 (audio-clip-fades
+// extension) against an effective duration of 1s (in=0.5, out=1.5) -- well within the clamp
+// ceiling, so no audio.sfx.fade-total warning should fire.
+test("audio.sfx[].fade_in/fade_out well-formed (in/out present, fade within effective duration) pass with no fade-total warning", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "sfx-in-out-valid");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.equal(
+      result.findings.filter((finding) => finding.check === "audio.sfx.fade-total").length,
+      0,
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("bgm.in (R6a trim offset, contract §2) passes without disturbing existing bgm checks", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "bgm-in-valid");

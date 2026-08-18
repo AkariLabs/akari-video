@@ -588,8 +588,19 @@ export function buildAudioMixCommand({
     if (trim.skip) continue;
     args.push("-i", sfxSourcePath);
     const delay = Math.max(0, Math.round((sfx.t ?? 0) * 1000));
+    let fadeSuffix = "";
+    if (trim.effectiveDuration !== null) {
+      const fade = resolveSfxFadeSeconds(sfx, trim.effectiveDuration, `audio.sfx[${index}]`);
+      warnings.push(...fade.warnings);
+      fadeSuffix = buildSfxFadeSuffix(fade, trim.effectiveDuration);
+    }
+    // fade is chained directly onto volume -- i.e. before adelay -- for the same reason as
+    // trim's atrim/asetpts: afade's st=0 must land on the clip's own content start, not on
+    // adelay's leading silence padding. Appending it after adelay would fade the silence, not
+    // the sound (mirrors buildBgmFadeSuffix's placement rationale, just one filter stage earlier
+    // in this chain since sfx additionally has adelay).
     filters.push(
-      `[${inputIndex}:a]${trim.trimFilter}volume=${formatNumber(sfx.gain_db ?? 0)}dB,adelay=${delay}:all=1[sfx${index}]`,
+      `[${inputIndex}:a]${trim.trimFilter}volume=${formatNumber(sfx.gain_db ?? 0)}dB${fadeSuffix},adelay=${delay}:all=1[sfx${index}]`,
     );
     labels.push(`[sfx${index}]`);
     inputIndex += 1;
@@ -871,13 +882,19 @@ function resolveBgmInSeconds(bgm, ffprobeCommand, resolvedPath) {
 
 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 (sfx): playback window = material's
 // [in, out). in defaults to 0, out defaults to the material's own end. Only probes the material's
-// real duration (an extra ffprobe call) when in/out is actually present on this item -- the
-// in/out-free path (the vast majority of existing sfx) returns immediately with no trim filter,
-// keeping its output byte-identical to pre-R6b.
+// real duration (an extra ffprobe call) when in/out or fade_in/fade_out is actually present on
+// this item -- the fully-bare path (the vast majority of existing sfx) returns immediately with
+// no trim filter and no known effectiveDuration, keeping its output byte-identical to pre-R6b.
+// effectiveDuration (the [in,out) window's own length, once knowable) is what audio-clip-fades'
+// resolveSfxFadeSeconds clamps fade_in/fade_out against -- null means "not knowable without a
+// probe that didn't happen" and the caller skips fade application rather than guessing.
 function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index) {
   const hasIn = sfx.in !== undefined;
   const hasOut = sfx.out !== undefined;
-  if (!hasIn && !hasOut) return { skip: false, trimFilter: "", warnings: [] };
+  const hasFade = sfx.fade_in !== undefined || sfx.fade_out !== undefined;
+  if (!hasIn && !hasOut && !hasFade) {
+    return { skip: false, trimFilter: "", effectiveDuration: null, warnings: [] };
+  }
 
   const label = `audio.sfx[${index}]`;
   const warnings = [];
@@ -890,7 +907,7 @@ function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index) {
       warnings.push(
         `${label}: in ${formatNumber(inSeconds)}s is at or beyond the material duration (${formatNumber(actualDuration)}s); skipped (silent)`,
       );
-      return { skip: true, warnings };
+      return { skip: true, trimFilter: "", effectiveDuration: null, warnings };
     }
     if (outSeconds === null || outSeconds > actualDuration) {
       if (outSeconds !== null) {
@@ -909,13 +926,14 @@ function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index) {
     warnings.push(
       `${label}: out <= in after clamping (in=${formatNumber(inSeconds)}s, out=${formatNumber(outSeconds)}s); skipped (silent)`,
     );
-    return { skip: true, warnings };
+    return { skip: true, trimFilter: "", effectiveDuration: null, warnings };
   }
 
   const end = outSeconds === null ? "" : `:end=${formatNumber(outSeconds)}`;
   const trimFilter =
     inSeconds > 0 || end !== "" ? `atrim=start=${formatNumber(inSeconds)}${end},asetpts=PTS-STARTPTS,` : "";
-  return { skip: false, trimFilter, warnings };
+  const effectiveDuration = outSeconds === null ? null : outSeconds - inSeconds;
+  return { skip: false, trimFilter, effectiveDuration, warnings };
 }
 
 // audio.bgm.fadeIn/fadeOut clamp rule: the "clip" bgm occupies is the full timeline (it is
@@ -945,6 +963,41 @@ function buildBgmFadeSuffix({ fadeIn, fadeOut }, duration) {
   if (fadeIn > 0) parts.push(`afade=t=in:st=0:d=${formatNumber(fadeIn)}`);
   if (fadeOut > 0) {
     const start = Math.max(0, duration - fadeOut);
+    parts.push(`afade=t=out:st=${formatNumber(start)}:d=${formatNumber(fadeOut)}`);
+  }
+  return parts.length > 0 ? `,${parts.join(",")}` : "";
+}
+
+// docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum (audio-clip-fades,
+// 2026-08-18 — owner ruling "クリップ主義" T2): audio.sfx[].fade_in/fade_out clamp rule mirrors
+// bgm's fadeIn/fadeOut (resolveBgmFadeSeconds above) but against the sfx clip's own effective
+// playback window [t, t + effectiveDuration) instead of the full timeline -- effectiveDuration is
+// resolveSfxTrim's [in,out) window length (or the full material duration when in/out are
+// omitted), so each of fade_in/fade_out is independently capped at effectiveDuration/2. Only
+// called once effectiveDuration is known (non-null); the caller skips fade entirely otherwise.
+function resolveSfxFadeSeconds(sfx, effectiveDuration, label) {
+  const warnings = [];
+  const ceiling = isFiniteNumber(effectiveDuration) && effectiveDuration > 0 ? effectiveDuration / 2 : 0;
+  const resolveField = (field) => {
+    const raw = sfx[field];
+    if (raw === undefined) return 0;
+    if (!isFiniteNumber(raw) || raw < 0) return 0; // schema/edit-lint reject this; render tolerates it as "no fade".
+    if (ceiling > 0 && raw > ceiling) {
+      warnings.push(
+        `${label}.${field} ${formatNumber(raw)}s exceeds half the clip's effective duration (${formatNumber(effectiveDuration)}s); clamped to ${formatNumber(ceiling)}s`,
+      );
+      return ceiling;
+    }
+    return raw;
+  };
+  return { fadeIn: resolveField("fade_in"), fadeOut: resolveField("fade_out"), warnings };
+}
+
+function buildSfxFadeSuffix({ fadeIn, fadeOut }, effectiveDuration) {
+  const parts = [];
+  if (fadeIn > 0) parts.push(`afade=t=in:st=0:d=${formatNumber(fadeIn)}`);
+  if (fadeOut > 0) {
+    const start = Math.max(0, effectiveDuration - fadeOut);
     parts.push(`afade=t=out:st=${formatNumber(start)}:d=${formatNumber(fadeOut)}`);
   }
   return parts.length > 0 ? `,${parts.join(",")}` : "";

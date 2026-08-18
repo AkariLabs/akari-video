@@ -6,9 +6,7 @@
   "overlays": [],
   "audio": {
     "sfx": [
-      { "path": "audio/pop.wav", "t": 1.0, "in": 0.5, "out": 1.5, "fade_in": 0.2, "fade_out": 0.2 },
-      { "path": "audio/pop.wav", "t": 5.0, "out": 0.8 },
-      { "path": "audio/pop.wav", "t": 8.0, "in": 0.2 }
+      { "path": "audio/pop.wav", "t": 1.0, "in": 0.5, "out": 1.5, "fade_in": 0.8, "fade_out": 0.8 }
     ]
   }
 }

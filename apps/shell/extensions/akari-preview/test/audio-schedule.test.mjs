@@ -5,7 +5,8 @@ import {
     bgmLoopOffsetSeconds,
     resolveBgmSourceOffset,
     resolveSfxTrimWindow,
-    resolveTimedScheduleWindow
+    resolveTimedScheduleWindow,
+    sfxFadeGainSchedule
 } from '../lib/common/audio-schedule.js';
 
 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 (R6b lane): unit-level coverage of the
@@ -136,6 +137,7 @@ test('resolveTimedScheduleWindow: resuming mid-item composes the material source
     assert.equal(result.delaySec, 0);
     assert.ok(Math.abs(result.sourceOffsetSec - 1.6) < 1e-9, `expected sourceOffsetSec ~1.6, got ${result.sourceOffsetSec}`);
     assert.ok(Math.abs(result.availableSec - 0.9) < 1e-9, `expected availableSec ~0.9, got ${result.availableSec}`);
+    assert.ok(Math.abs(result.elapsedIntoItemSec - 0.6) < 1e-9, `expected elapsedIntoItemSec ~0.6, got ${result.elapsedIntoItemSec}`);
 });
 
 test('resolveTimedScheduleWindow: no sourceOffset (narration / sfx without in-out) matches the original mid-resume formula (regression baseline)', () => {
@@ -161,4 +163,67 @@ test('resolveTimedScheduleWindow: an item that has already fully ended by startA
 test('resolveTimedScheduleWindow: an item starting at/after the timeline duration is not scheduled', () => {
     const result = resolveTimedScheduleWindow(10, 1, 0, 0, 10, 10);
     assert.equal(result.shouldSchedule, false);
+});
+
+// docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum (audio-clip-fades,
+// 2026-08-18): sfxFadeGainSchedule's pure breakpoint math. Real AudioParam automation
+// (does the scheduled ramp actually change the decoded output's level) is covered at L2 via
+// packages/render-cut's real-ffmpeg fade tests and this extension's own CDP/previewAudioDebug
+// L1 path per the task brief; this file locks down the envelope math only.
+
+test('sfxFadeGainSchedule: fade_in only, playing from the start, produces a rise-then-flat envelope', () => {
+    // itemDurationSec=4, fade_in=1: envelope is 0->1 over [0,1), flat 1 over [1,4).
+    const result = sfxFadeGainSchedule(1, undefined, 4, 0, 4);
+    assert.deepEqual(result, [
+        { offsetSec: 0, gainMultiplier: 0 },
+        { offsetSec: 1, gainMultiplier: 1 }
+    ]);
+});
+
+test('sfxFadeGainSchedule: fade_in + fade_out with no overlap produces four breakpoints (rise, plateau, fall)', () => {
+    // itemDurationSec=4, fade_in=1, fade_out=1: 0->1 over [0,1), flat over [1,3), 1->0 over [3,4).
+    const result = sfxFadeGainSchedule(1, 1, 4, 0, 4);
+    assert.deepEqual(result, [
+        { offsetSec: 0, gainMultiplier: 0 },
+        { offsetSec: 1, gainMultiplier: 1 },
+        { offsetSec: 3, gainMultiplier: 1 },
+        { offsetSec: 4, gainMultiplier: 0 }
+    ]);
+});
+
+test('sfxFadeGainSchedule: fade_in/fade_out are each clamped to half the item duration (mirrors render-cut)', () => {
+    // itemDurationSec=4, ceiling=2: requesting fade_in=10 clamps to 2, so the rise spans [0,2).
+    const result = sfxFadeGainSchedule(10, undefined, 4, 0, 4);
+    assert.deepEqual(result, [
+        { offsetSec: 0, gainMultiplier: 0 },
+        { offsetSec: 2, gainMultiplier: 1 }
+    ]);
+});
+
+test('sfxFadeGainSchedule: resuming mid-fade (elapsedIntoItemSec > 0) starts already at the in-progress gain, not at 1', () => {
+    // fade_in=2 over [0,2); resuming from 1s into the item should start at multiplier 0.5, not
+    // restart the ramp from 0.
+    const result = sfxFadeGainSchedule(2, undefined, 4, 1, 3);
+    assert.equal(result[0].offsetSec, 0);
+    assert.ok(Math.abs(result[0].gainMultiplier - 0.5) < 1e-9, `expected the resumed start multiplier to be ~0.5, got ${result[0].gainMultiplier}`);
+    assert.equal(result[1].offsetSec, 1); // the fade_in=2 breakpoint, 1s further from the 1s-elapsed start
+    assert.equal(result[1].gainMultiplier, 1);
+});
+
+test('sfxFadeGainSchedule: fade breakpoints outside the scheduled window are not emitted', () => {
+    // fade_out=1 over [3,4); scheduling only [0,2) of a 4s item (e.g. a seek that leaves before
+    // the tail fade begins) should produce a flat envelope with no fade-out breakpoint at all.
+    const result = sfxFadeGainSchedule(undefined, 1, 4, 0, 2);
+    assert.deepEqual(result, [{ offsetSec: 0, gainMultiplier: 1 }]);
+});
+
+test('sfxFadeGainSchedule: fade_in/fade_out both omitted (or non-positive) returns no breakpoints (regression invariant)', () => {
+    assert.deepEqual(sfxFadeGainSchedule(undefined, undefined, 4, 0, 4), []);
+    assert.deepEqual(sfxFadeGainSchedule(0, 0, 4, 0, 4), []);
+    assert.deepEqual(sfxFadeGainSchedule(-1, -1, 4, 0, 4), []);
+});
+
+test('sfxFadeGainSchedule: an unknown item duration (itemDurationSec <= 0) returns no breakpoints (safe skip)', () => {
+    assert.deepEqual(sfxFadeGainSchedule(1, 1, 0, 0, 4), []);
+    assert.deepEqual(sfxFadeGainSchedule(1, 1, -1, 0, 4), []);
 });
