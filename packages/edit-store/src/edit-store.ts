@@ -625,6 +625,42 @@ export function moveCutInSource(
     return updated;
 }
 
+/**
+ * クリップ移動と、移動で空になった宣言済み cuts トラックの除去を同じ候補全文へ畳む。
+ * trackIds は UI が移動前の件数から特定したものだけを受け取り、他種別・使用中トラックは守る。
+ */
+export function moveCutAndPruneTracksInSource(
+    source: string,
+    cutIndex: number,
+    nextAt: number,
+    nextTrack?: number | null,
+    trackState?: Record<string, number | null>,
+    trackIds: readonly string[] = []
+): { source: string; prunedTracks?: { before: EditTimelineTrack[]; after: EditTimelineTrack[] } } {
+    let updated = moveCutInSource(source, cutIndex, nextAt, nextTrack, trackState);
+    if (trackIds.length === 0) {
+        return { source: updated };
+    }
+    const value = JSON.parse(updated) as {
+        cuts?: Array<{ track?: number }>;
+        timeline?: { tracks?: EditTimelineTrack[] };
+    };
+    const declared = value.timeline?.tracks;
+    if (!Array.isArray(declared)) {
+        return { source: updated };
+    }
+    const requested = new Set(trackIds);
+    const occupied = new Set((Array.isArray(value.cuts) ? value.cuts : []).map(cut => normalizeTrack(cut?.track)));
+    const before = declared.map(track => ({ ...track }));
+    const after = before.filter(track =>
+        !requested.has(track.id) || track.kind !== 'cuts' || occupied.has(track.ref ?? 0));
+    if (after.length === before.length) {
+        return { source: updated };
+    }
+    updated = writeTimelineTracksInSource(updated, after);
+    return { source: updated, prunedTracks: { before, after } };
+}
+
 export function setCutAtValuesInSource(
     source: string, entries: Array<{ cutIndex: number; at: number | null }>
 ): string {

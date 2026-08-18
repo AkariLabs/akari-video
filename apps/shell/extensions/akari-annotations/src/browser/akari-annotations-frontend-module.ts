@@ -13,10 +13,16 @@ import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ReviewModel } from './review-model';
 import { TimelineSelectionModel } from './timeline-selection-model';
+import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 
 export default new ContainerModule(bind => {
+    bind(AkariAnnotationsClientImpl).toSelf().inSingletonScope();
     bind(AkariAnnotationsService).toDynamicValue(context =>
-        WebSocketConnectionProvider.createProxy(context.container, AKARI_ANNOTATIONS_SERVICE_PATH)
+        WebSocketConnectionProvider.createProxy(
+            context.container,
+            AKARI_ANNOTATIONS_SERVICE_PATH,
+            context.container.get(AkariAnnotationsClientImpl)
+        )
     ).inSingletonScope();
 
     bind(ReviewModel).toSelf().inSingletonScope();

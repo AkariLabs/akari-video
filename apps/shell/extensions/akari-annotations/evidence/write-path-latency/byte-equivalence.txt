@@ -1,0 +1,10 @@
+OK   fieldtest moveCut at=13.5 track=undefined (old 19849B / new 19849B, sha eq=true)
+OK   fieldtest moveCut at=0 track=undefined (old 19846B / new 19846B, sha eq=true)
+OK   fieldtest moveCut at=2.25 track=1 (old 19867B / new 19867B, sha eq=true)
+OK   fieldtest moveCut at=7 track=0 (old 19846B / new 19846B, sha eq=true)
+OK   fieldtest moveCut with trackState (old 19864B / new 19864B, sha eq=true)
+OK   declared-tracks moveCut + prune (old 2 writes vs new 1 write) (old 384B / new 384B, sha eq=true)
+prunedTracks.after ids = ["cuts-1"]
+OK   declared-tracks: 使用中トラックは prune しない (old 550B / new 550B, sha eq=true)
+  (case4) prunedTracks = null
+BYTE-EQUIVALENCE: PASS

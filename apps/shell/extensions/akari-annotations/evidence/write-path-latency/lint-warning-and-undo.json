@@ -1,0 +1,56 @@
+{
+  "result": {
+    "warningShown": true,
+    "undoAffordanceShown": true,
+    "moveApplied": true,
+    "undoRestored": true,
+    "atBeforeEdit": 0,
+    "atAfterMove": 13.5,
+    "atAfterUndo": 0,
+    "footer": {
+      "text": "保存後の検証で問題が見つかりました: [references.files] source.path does not resolve to a regular file 直前の編集を元に戻す",
+      "hasButton": true,
+      "buttonLabel": "直前の編集を元に戻す",
+      "buttonDisabled": false
+    },
+    "verdict": "PASS"
+  },
+  "log": [
+    {
+      "step": "timeline-open",
+      "opened": true
+    },
+    {
+      "step": "injected-lint-error",
+      "check": "references.files（source.path が実ファイルへ解決しない = severity error）",
+      "originalSourcePath": "media/missing-source.mov",
+      "atBeforeEdit": 0
+    },
+    {
+      "step": "clip-before",
+      "x": 422.1640625,
+      "y": 579.7265625,
+      "styleLeft": "0%"
+    },
+    {
+      "step": "at-after-move",
+      "atAfterMove": 13.5
+    },
+    {
+      "step": "footer-after-lint",
+      "text": "保存後の検証で問題が見つかりました: [references.files] source.path does not resolve to a regular file 直前の編集を元に戻す",
+      "hasButton": true,
+      "buttonLabel": "直前の編集を元に戻す",
+      "buttonDisabled": false
+    },
+    {
+      "step": "after-undo",
+      "clicked": true,
+      "atAfterUndo": 0
+    },
+    {
+      "step": "verdict",
+      "verdict": "PASS"
+    }
+  ]
+}

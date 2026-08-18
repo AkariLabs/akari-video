@@ -7,6 +7,7 @@ import { promises as fs } from 'fs';
 import { basename, dirname, join, relative, sep } from 'path';
 import { promisify } from 'util';
 import {
+    AkariAnnotationsClient,
     AkariAnnotationsService,
     Annotation,
     CreateAnnotationRequest,
@@ -27,6 +28,7 @@ import {
     InsertOverlayRequest,
     InsertSfxRequest,
     MoveCutRequest,
+    MoveCutResult,
     MoveLayerRequest,
     MoveOverlayRequest,
     MoveSfxRequest,
@@ -93,7 +95,7 @@ import {
     insertLayerInSource,
     insertOverlayInSource,
     insertSfxInSource,
-    moveCutInSource,
+    moveCutAndPruneTracksInSource,
     moveLayerInSource,
     moveOverlayInSource,
     moveSfxInSource,
@@ -129,6 +131,11 @@ interface CanvasStrokeRecord {
 
 @injectable()
 export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
+    protected client: AkariAnnotationsClient | undefined;
+
+    setClient(client: AkariAnnotationsClient | undefined): void {
+        this.client = client;
+    }
 
     async getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult> {
         if (!request?.projectRootUri || !request?.videoUri) {
@@ -236,8 +243,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
         let committed = false;
         try {
-            await this.recordGateEvent(root, reviewPath, annotation.id);
-            committed = await this.commitIfOwnRoot(root, 'レビューコメントを追加');
+            const eventPath = await this.recordGateEvent(root, reviewPath, annotation.id);
+            committed = await this.commitIfOwnRoot(root, 'レビューコメントを追加', [reviewPath, eventPath]);
         } catch (error) {
             console.warn('[akari-annotations] event/commit skipped:', error);
         }
@@ -321,7 +328,10 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         );
 
         try {
-            await this.commitIfOwnRoot(root, 'キャンバスを記録');
+            await this.commitIfOwnRoot(root, 'キャンバスを記録', [
+                join(canvasDirectory, 'canvas.json'),
+                join(canvasDirectory, 'strokes.json')
+            ]);
         } catch (error) {
             console.warn('[akari-annotations] canvas commit skipped:', error);
         }
@@ -389,8 +399,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     /**
      * ソーストリマーの slip（R6c-2）: out−in（尺）と t を固定したまま in/out を同量シフトする。
-     * trimSfx と同型で lint ゲートを通す（cuts の他の書き込み経路〔trimCut 等〕はゲート無しだが、
-     * slip は新設 RPC のため sfx 系の慎重な作法に倣う）。
+     * trimSfx と同型で atomic 保存し、保存後 debounce lint の対象にする。
      */
     async slipCut(request: SlipCutRequest): Promise<WriteBackResult> {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
@@ -606,13 +615,18 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップの順序を入れ替え') };
     }
 
-    async moveCut(request: MoveCutRequest): Promise<WriteBackResult> {
+    async moveCut(request: MoveCutRequest): Promise<MoveCutResult> {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
         const source = await fs.readFile(editPath, 'utf8');
-        const updated = moveCutInSource(source, request.cutIndex, request.at, request.track, request.trackState);
-        await this.writeProjectFileGuarded(editPath, updated);
-        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを移動') };
+        const moved = moveCutAndPruneTracksInSource(
+            source, request.cutIndex, request.at, request.track, request.trackState, request.pruneTrackIds
+        );
+        await this.writeProjectFileGuarded(editPath, moved.source);
+        return {
+            committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを移動'),
+            ...(moved.prunedTracks ? { prunedTracks: moved.prunedTracks } : {})
+        };
     }
 
     async setCutAtValues(request: SetCutAtValuesRequest): Promise<WriteBackResult> {
@@ -783,10 +797,10 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     /**
-     * edit.json（と必要なら captions.json）全文スナップショットの lint ゲート付き書き戻し。
+     * edit.json（と必要なら captions.json）全文スナップショットの atomic 書き戻し。
      * widget の FileService 直書き経路（タイムライントラック操作・undo/redo）の置き換え先
-     * （パリティ契約 §2.7）。両ファイル同時変更は同じ一時ディレクトリで 1 回の lint にかけ、
-     * 整合した組として検証する。従来の FileService 直書きは git commit していなかったため、
+     * 両ファイル同時変更は連続 atomic 保存し、末尾 debounce 後に最新の組を 1 回 lint する。
+     * 従来の FileService 直書きは git commit していなかったため、
      * この RPC も commit しない（committed は常に false）。
      */
     async writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult> {
@@ -804,7 +818,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             const captionsPath = request.captionsUri ? this.fsPath(request.captionsUri) : join(projectDir, 'captions.json');
             candidates[basename(captionsPath)] = request.captionsSource;
         }
-        await writeProjectFilesGuarded(projectDir, candidates);
+        for (const name of Object.keys(candidates)) {
+            this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
+        }
+        await writeProjectFilesGuarded(projectDir, candidates, {
+            onLintResult: result => this.client?.onLintResult({
+                projectRootUri: URI.fromFilePath(projectDir).toString(),
+                pass: result.pass,
+                errors: result.errors
+            })
+        });
         return { committed: false };
     }
 
@@ -815,25 +838,32 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     }
 
     /**
-     * edit.json / captions.json への唯一の正規書き込み経路。lint ゲート（一時ディレクトリで
-     * edit-lint --json・fail-open）→ atomic 書き込みを packages/edit-store の共有カーネルで行う
-     * （パリティ契約 §2.7「すべての書き込み経路は edit-lint を通す」— Phase 2 で全 RPC に適用）。
-     * 不正なら書き込まずに例外を投げる（呼び出し側の catch → UI が巻き戻る）。
+     * edit.json / captions.json への唯一の正規書き込み経路。atomic 保存を先に完了し、
+     * packages/edit-store の末尾 debounce でプロセス内 lint を走らせる。lint の失敗は
+     * client 通知からフッター警告 + undo 導線として扱い、保存自体は fail-open で維持する。
      */
     protected async writeProjectFileGuarded(filePath: string, content: string): Promise<void> {
-        await writeProjectFilesGuarded(dirname(filePath), { [basename(filePath)]: content });
+        const projectDir = dirname(filePath);
+        this.client?.onWillWrite(URI.fromFilePath(filePath).toString());
+        await writeProjectFilesGuarded(projectDir, { [basename(filePath)]: content }, {
+            onLintResult: result => this.client?.onLintResult({
+                projectRootUri: URI.fromFilePath(projectDir).toString(),
+                pass: result.pass,
+                errors: result.errors
+            })
+        });
     }
 
-    protected async commitWrite(root: string, message: string): Promise<boolean> {
-        try {
-            return await this.commitIfOwnRoot(root, message);
-        } catch (error) {
-            console.warn('[akari-annotations] commit skipped:', error);
-            return false;
-        }
+    /**
+     * 編集 RPC は保存の臨界経路で commit しないため常に false を返す。
+     * この所有範囲で残す節目 commit は createAnnotation の承認ゲート記録と saveCanvas の記録。
+     * 書き出し経路の commit は本タスクのファイル境界外にあり、本タスクでは未実装。
+     */
+    protected commitWrite(_root: string, _message: string): boolean {
+        return false;
     }
 
-    protected async recordGateEvent(root: string, reviewPath: string, annotationId: string): Promise<void> {
+    protected async recordGateEvent(root: string, reviewPath: string, annotationId: string): Promise<string> {
         const eventsDirectory = join(root, '.akari', 'events');
         await fs.mkdir(eventsDirectory, { recursive: true });
         const occurredAt = new Date().toISOString();
@@ -846,22 +876,25 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             path: relative(root, reviewPath).split(sep).join('/'),
             annotationId
         };
-        await this.writeAtomic(join(eventsDirectory, `${id}.json`), `${JSON.stringify(event, null, 2)}\n`);
+        const eventPath = join(eventsDirectory, `${id}.json`);
+        await this.writeAtomic(eventPath, `${JSON.stringify(event, null, 2)}\n`);
+        return eventPath;
     }
 
-    protected async commitIfOwnRoot(root: string, message: string): Promise<boolean> {
+    protected async commitIfOwnRoot(root: string, message: string, contractPaths: string[]): Promise<boolean> {
         if (!(await this.isOwnRoot(root))) {
             return false;
         }
-        await this.runGit(root, ['add', '-A', '--', '.']);
-        const { stdout } = await this.runGit(root, ['status', '--porcelain']);
+        const relativePaths = contractPaths.map(filePath => relative(root, filePath).split(sep).join('/'));
+        await this.runGit(root, ['add', '--', ...relativePaths]);
+        const { stdout } = await this.runGit(root, ['status', '--porcelain', '--', ...relativePaths]);
         if (!stdout.trim()) {
             return false;
         }
         await this.runGit(root, [
             '-c', 'user.name=AKARI Video',
             '-c', 'user.email=local@akari.video',
-            'commit', '-m', message
+            'commit', '-m', message, '--', ...relativePaths
         ]);
         return true;
     }

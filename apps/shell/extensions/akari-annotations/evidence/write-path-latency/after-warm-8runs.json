@@ -1,0 +1,430 @@
+{
+  "summary": {
+    "runsRequested": 8,
+    "runsValid": 8,
+    "paintMs": {
+      "min": 48,
+      "median": 51.3,
+      "max": 114.9
+    },
+    "settleMs": {
+      "min": 25.1,
+      "median": 30.7,
+      "max": 101.3
+    }
+  },
+  "runs": [
+    {
+      "run": 0,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "38.9908%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 42.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 33.5,
+      "paintMs": 52.700000047683716,
+      "settleMs": 26.300000071525574,
+      "stripMutations": 5
+    },
+    {
+      "run": 1,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "38.9908%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 42.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 34.09999990463257,
+      "paintMs": 48.799999952316284,
+      "settleMs": 30.699999928474426,
+      "stripMutations": 7
+    },
+    {
+      "run": 2,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 39,
+      "paintMs": 58.199999928474426,
+      "settleMs": 37.60000002384186,
+      "stripMutations": 5
+    },
+    {
+      "run": 3,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 35.5,
+      "paintMs": 51.299999952316284,
+      "settleMs": 34.299999952316284,
+      "stripMutations": 7
+    },
+    {
+      "run": 4,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 32.199999928474426,
+      "paintMs": 48,
+      "settleMs": 25.100000023841858,
+      "stripMutations": 5
+    },
+    {
+      "run": 5,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 102.39999997615814,
+      "paintMs": 114.89999997615814,
+      "settleMs": 101.29999995231628,
+      "stripMutations": 7
+    },
+    {
+      "run": 6,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 34.10000002384186,
+      "paintMs": 50,
+      "settleMs": 26.799999952316284,
+      "stripMutations": 5
+    },
+    {
+      "run": 7,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 33.09999990463257,
+      "paintMs": 51,
+      "settleMs": 26.59999990463257,
+      "stripMutations": 7
+    }
+  ],
+  "log": [
+    {
+      "t": "2026-08-18T17:42:18.573Z",
+      "step": "connected",
+      "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/write-path-latency/apps/shell/lib/frontend/index.html?port=57233#/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-write-path-latency/3a968a1f-a624-4eeb-a13f-4a6b80f42834/scratchpad/ws-after"
+    },
+    {
+      "t": "2026-08-18T17:42:18.576Z",
+      "step": "timeline-open",
+      "found": true
+    },
+    {
+      "t": "2026-08-18T17:42:21.645Z",
+      "step": "run",
+      "run": 0,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "38.9908%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 42.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 33.5,
+      "paintMs": 52.700000047683716,
+      "settleMs": 26.300000071525574,
+      "stripMutations": 5
+    },
+    {
+      "t": "2026-08-18T17:42:24.400Z",
+      "step": "run",
+      "run": 1,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "38.9908%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 42.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 34.09999990463257,
+      "paintMs": 48.799999952316284,
+      "settleMs": 30.699999928474426,
+      "stripMutations": 7
+    },
+    {
+      "t": "2026-08-18T17:42:27.286Z",
+      "step": "run",
+      "run": 2,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 39,
+      "paintMs": 58.199999928474426,
+      "settleMs": 37.60000002384186,
+      "stripMutations": 5
+    },
+    {
+      "t": "2026-08-18T17:42:30.053Z",
+      "step": "run",
+      "run": 3,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 35.5,
+      "paintMs": 51.299999952316284,
+      "settleMs": 34.299999952316284,
+      "stripMutations": 7
+    },
+    {
+      "t": "2026-08-18T17:42:32.800Z",
+      "step": "run",
+      "run": 4,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 32.199999928474426,
+      "paintMs": 48,
+      "settleMs": 25.100000023841858,
+      "stripMutations": 5
+    },
+    {
+      "t": "2026-08-18T17:42:35.682Z",
+      "step": "run",
+      "run": 5,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 102.39999997615814,
+      "paintMs": 114.89999997615814,
+      "settleMs": 101.29999995231628,
+      "stripMutations": 7
+    },
+    {
+      "t": "2026-08-18T17:42:38.447Z",
+      "step": "run",
+      "run": 6,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 34.10000002384186,
+      "paintMs": 50,
+      "settleMs": 26.799999952316284,
+      "stripMutations": 5
+    },
+    {
+      "t": "2026-08-18T17:42:41.273Z",
+      "step": "run",
+      "run": 7,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 33.09999990463257,
+      "paintMs": 51,
+      "settleMs": 26.59999990463257,
+      "stripMutations": 7
+    },
+    {
+      "t": "2026-08-18T17:42:42.476Z",
+      "step": "summary",
+      "runsRequested": 8,
+      "runsValid": 8,
+      "paintMs": {
+        "min": 48,
+        "median": 51.3,
+        "max": 114.9
+      },
+      "settleMs": {
+        "min": 25.1,
+        "median": 30.7,
+        "max": 101.3
+      }
+    }
+  ]
+}
