@@ -40,6 +40,14 @@ export type LintCandidates = Record<string, string | null>;
 export interface DeferredLintOptions {
     debounceMs?: number;
     onLintResult?: (result: EditLintGateResult) => void | Promise<void>;
+    /**
+     * atomic rename が完了した「直後」に、書けた全文を同期で渡す。
+     * onWillWrite（rename 直前・自己書き込み由来 watcher の抑止用）の対になる通知で、
+     * 用途は「書き込みの発生を watcher より先に知らせる」こと。
+     * 購読側（プレビュー拡張）は file watcher の通知を待たずに差分判定へ入れる。
+     * ここで例外を投げても保存は完了済みなので、呼び出し側は握りつぶして保存を維持する。
+     */
+    onDidWrite?: (filePath: string, content: string) => void;
 }
 
 interface EditLintModule {
@@ -84,7 +92,17 @@ export async function writeProjectFilesGuarded(
         if (text === null) {
             continue;
         }
-        await writeAtomic(join(projectRoot, name), text);
+        const destination = join(projectRoot, name);
+        await writeAtomic(destination, text);
+        // rename 完了直後に同期で通知する。lint スケジュールより前に出すことで、
+        // 購読側が watcher（実測 42〜1183ms のばらつき）を待たずに済む。
+        if (options.onDidWrite) {
+            try {
+                options.onDidWrite(destination, text);
+            } catch (error) {
+                console.warn('[edit-store] onDidWrite の通知に失敗しました（保存は完了しています）。', error);
+            }
+        }
     }
     scheduleProjectLint(projectRoot, options);
 }

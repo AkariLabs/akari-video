@@ -32,6 +32,14 @@ export type LintCandidates = Record<string, string | null>;
 export interface DeferredLintOptions {
     debounceMs?: number;
     onLintResult?: (result: EditLintGateResult) => void | Promise<void>;
+    /**
+     * atomic rename が完了した「直後」に、書けた全文を同期で渡す。
+     * onWillWrite（rename 直前・自己書き込み由来 watcher の抑止用）の対になる通知で、
+     * 用途は「書き込みの発生を watcher より先に知らせる」こと。
+     * 購読側（プレビュー拡張）は file watcher の通知を待たずに差分判定へ入れる。
+     * ここで例外を投げても保存は完了済みなので、呼び出し側は握りつぶして保存を維持する。
+     */
+    onDidWrite?: (filePath: string, content: string) => void;
 }
 /**
  * 実ファイルは変更せず、候補全文だけを options.inputOverrides で差し替えて検証する。

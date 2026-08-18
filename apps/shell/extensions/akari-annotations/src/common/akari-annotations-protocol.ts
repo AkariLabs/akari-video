@@ -505,6 +505,12 @@ export interface DeferredLintNotification {
 export interface AkariAnnotationsClient {
     /** backend の atomic rename より前に通知し、自己書き込み由来 watcher を抑止する。 */
     onWillWrite(uri: string): void;
+    /**
+     * backend の atomic rename が完了した「直後」に、書けた全文つきで通知する。
+     * onWillWrite の対。プレビュー拡張が file watcher の通知を待たずに差分判定へ入るための口で、
+     * content が載っているぶん受け側は edit.json の再読込 I/O も省ける。
+     */
+    onDidWrite(uri: string, content: string): void;
     /** 保存後 debounce lint の最新結果。 */
     onLintResult(notification: DeferredLintNotification): void;
 }

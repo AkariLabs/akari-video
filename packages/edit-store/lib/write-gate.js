@@ -53,7 +53,18 @@ async function writeProjectFilesGuarded(projectRoot, candidates, options = {}) {
         if (text === null) {
             continue;
         }
-        await writeAtomic((0, path_1.join)(projectRoot, name), text);
+        const destination = (0, path_1.join)(projectRoot, name);
+        await writeAtomic(destination, text);
+        // rename 完了直後に同期で通知する。lint スケジュールより前に出すことで、
+        // 購読側が watcher（実測 42〜1183ms のばらつき）を待たずに済む。
+        if (options.onDidWrite) {
+            try {
+                options.onDidWrite(destination, text);
+            }
+            catch (error) {
+                console.warn('[edit-store] onDidWrite の通知に失敗しました（保存は完了しています）。', error);
+            }
+        }
     }
     scheduleProjectLint(projectRoot, options);
 }
