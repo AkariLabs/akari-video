@@ -43,7 +43,11 @@ are two conventions:
    Dragging on the timeline lands as a rewrite of these values
 2. **Adjustable values are CSS variables** — colors, sizes, positions, and anything else you
    want as a knob are declared as CSS variables. The viewer discovers these variables and
-   auto-generates sliders / color pickers
+   auto-generates sliders / color pickers. `--x` / `--y` / `--scale` / `--rotate` are
+   runtime-reserved on every overlay (not just `role: "background"` ones) — the runtime always
+   sets them inline on the container, so referencing or redefining them for a custom knob
+   silently loses the fallback; use a non-reserved name instead (`edit-lint` warns via
+   `overlays.reserved-css-var-reference`)
 
 In other words, even something "the AI drew freely" can be fine-tuned by humans through a GUI
 without reading the HTML. Text can be edited directly with a double-click, and the change is

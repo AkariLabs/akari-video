@@ -9,7 +9,8 @@ description: AKARI Video のオーバーレイ HTML、字幕、表・グラフ�
 
 次のいずれかに違反する動画オーバーレイを作成・採用しない。詳細リーフより常に優先する。
 
-1. **調整値を直書きしない。** 位置、拡縮、文字サイズ、色、余白、内容など、人が調整しうる値を CSS 変数として公開する。`--x`、`--y`、`--scale`、`--font-size`、`--color` などを使い、`edit.json.overlays[].vars` から継承できるよう `var(--name, fallback)` で参照する。断片ルートで同名変数を再定義して上書きを遮らない。
+1. **調整値を直書きしない。** 位置、拡縮、文字サイズ、色、余白、内容など、人が調整しうる値を CSS 変数として公開する。`--font-size`、`--color`、`--block-left` のような非予約名を使い、`edit.json.overlays[].vars` から継承できるよう `var(--name, fallback)` で参照する。断片ルートで同名変数を再定義して上書きを遮らない。
+   **`--x` / `--y` / `--scale` / `--rotate` はランタイム予約変数**（`packages/render-cut/src/rasterize.mjs` の `renderOverlayNode` が `.akari-overlay-container` へ必ずインライン設定する。値は `overlays[].transform` 由来、`role==="background"` なら恒等値に固定）。断片内でこの 4 変数を**参照（`var(--x, ...)`）することも自前用途で再定義することも禁止**する。継承によりフォールバックが効かず、指定値が無視されて全オーバーレイが原点（0,0・scale 1・rotate 0）へ寄る（実機バグ報告 `overlay-css-var-collision`、2026-08-17。edit-lint は PASS・レンダーも成功するため目視まで気づけない）。位置・拡縮・回転のノブは `--block-left` / `--block-scale` のような非予約名を自分で定義する。
 2. **時刻を別の仕組みに持たせない。** タイミングは `data-start` / `data-duration` とする。AKARI Video v0 では `edit.json.overlays[].start/duration` が SSOT で、ランタイムが外側コンテナの data 属性へ反映する。断片内の独立した時刻源を作らない。
 3. **layout を毎フレーム動かさない。** アニメーションは `transform` / `opacity` 中心にする。4K 映像上の `filter: blur()` と `backdrop-filter` は禁止する。
 4. **wall-clock で絵を決めない。** `Date.now()`、`performance.now()` の経過差、`setTimeout`、`setInterval`、rAF の delta 積算、未 seed の乱数に表示状態を依存させない。シーク時に WAAPI の `currentTime` を設定すれば同じ時刻の絵が再現される決定的設計にする。

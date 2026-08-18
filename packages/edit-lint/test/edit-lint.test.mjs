@@ -236,6 +236,94 @@ test("overlays-background-valid passes with no overlays.role findings", async ()
   });
 });
 
+test("fragment referencing var(--x, ...) / var(--y, ...) inline on the root style attribute warns overlays.reserved-css-var-reference but stays pass", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    // overlays[].html is always a file reference (validateReferences requires it to resolve to a
+    // regular file); the reserved-var check is exercised by rewriting the referenced fragment's
+    // content, not by stuffing markup into edit.json directly.
+    const capAPath = join(project, "overlays", "cap-a.html");
+    await writeFile(
+      capAPath,
+      '<div class="knob" style="left: var(--x, 80px); top: var(--y, 1248px);"><span>t</span></div>\n',
+      "utf8",
+    );
+
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    const findings = result.findings.filter((f) => f.check === "overlays.reserved-css-var-reference");
+    assert.equal(findings.length, 2, JSON.stringify(result.findings, null, 2));
+    assert.ok(findings.every((f) => f.severity === "warning"));
+    assert.ok(findings.some((f) => f.message.includes("--x")));
+    assert.ok(findings.some((f) => f.message.includes("--y")));
+    assert.ok(findings.every((f) => /reserved/i.test(f.message)));
+  });
+});
+
+test("fragment using only non-reserved custom vars (e.g. --block-left) does not warn overlays.reserved-css-var-reference", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    const capAPath = join(project, "overlays", "cap-a.html");
+    await writeFile(
+      capAPath,
+      '<div class="knob" style="left: var(--block-left, 80px); top: var(--block-top, 1248px);"><span>t</span></div>\n',
+      "utf8",
+    );
+
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((f) => f.check === "overlays.reserved-css-var-reference"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("reserved-var-like names (--xanadu, --yellow, --scaleFactor, --rotateSpeed) do not false-positive as prefix matches", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    const capAPath = join(project, "overlays", "cap-a.html");
+    await writeFile(
+      capAPath,
+      [
+        '<div class="knob" style="',
+        "color: var(--xanadu, red);",
+        "border-color: var(--yellow, blue);",
+        "transform: scale(var(--scaleFactor, 1)) rotate(var(--rotateSpeed, 0deg));",
+        '"><span>t</span></div>\n',
+      ].join(" "),
+      "utf8",
+    );
+
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((f) => f.check === "overlays.reserved-css-var-reference"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("overlays-reserved-css-var-file: file-referenced fragment referencing var(--rotate, ...) warns overlays.reserved-css-var-reference", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "overlays-reserved-css-var-file"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    const finding = result.findings.find((f) => f.check === "overlays.reserved-css-var-reference");
+    assert.ok(finding, JSON.stringify(result.findings, null, 2));
+    assert.equal(finding.severity, "warning");
+    assert.match(finding.path, /reserved-rotate\.html$/);
+    assert.ok(finding.message.includes("--rotate"));
+  });
+});
+
 test("missing analysis and captions are skipped while ffprobe supplies duration", async () => {
   await withFixtures(async (fixtures, root) => {
     const ffprobe = join(root, "ffprobe-stub");

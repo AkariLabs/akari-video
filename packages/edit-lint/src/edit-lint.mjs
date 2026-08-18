@@ -1459,9 +1459,18 @@ async function validateOverlays(overlays, timeline, findings, paths) {
     }
     if (!isNonEmptyString(overlay.html)) continue;
     const htmlPath = resolveReference(paths.editPath, overlay.html);
-    if (!(await isRegularFile(htmlPath))) continue;
+    const isHtmlFile = await isRegularFile(htmlPath);
+    // overlay.html は file 参照（相対パス）とインライン HTML の両方をとりうる。参照でなければ
+    // フィールドの値そのものを断片本文として扱う（inspectHtmlFragment 以降のルート要素検証は
+    // 既存どおり file 参照限定のまま — 挙動変更を避ける）。
+    const html = isHtmlFile ? await readRequiredText(htmlPath, overlay.html) : overlay.html;
+    validateOverlayReservedCssVarReferences(
+      html,
+      isHtmlFile ? relativePath(paths.projectRoot, htmlPath) : `${itemPath}.html`,
+      findings,
+    );
+    if (!isHtmlFile) continue;
 
-    const html = await readRequiredText(htmlPath, overlay.html);
     const fragment = inspectHtmlFragment(html);
     if (fragment.rootCount !== 1 || fragment.hasTopLevelText || fragment.unbalanced) {
       addFinding(findings, {
@@ -1488,6 +1497,41 @@ async function validateOverlays(overlays, timeline, findings, paths) {
         });
       }
     }
+  }
+}
+
+// --x/--y/--scale/--rotate はランタイム予約変数（renderOverlayNode が
+// .akari-overlay-container へ必ずインライン設定する。packages/render-cut/src/rasterize.mjs）。
+// 断片が var(--x, 80px) のように参照すると、フォールバックではなくランタイムが設定した
+// 継承値へ解決される（実機バグ報告 overlay-css-var-collision、2026-08-17）。エラーにはしない —
+// ランタイムが設定した値を意図的に読む正当用途があり得るため警告に留める。
+const RESERVED_OVERLAY_VARS = ["--x", "--y", "--scale", "--rotate"];
+
+// 前方一致誤検知（--xanadu 等）を避けるため、予約名の直後が CSS カスタムプロパティ名の
+// 継続文字（英数字・アンダースコア・ハイフン）でないことを確認する。
+function findReservedOverlayVarReferences(html) {
+  const found = [];
+  for (const name of RESERVED_OVERLAY_VARS) {
+    const pattern = new RegExp(`var\\(\\s*${name}(?![A-Za-z0-9_-])`);
+    if (pattern.test(html)) found.push(name);
+  }
+  return found;
+}
+
+function validateOverlayReservedCssVarReferences(html, path, findings) {
+  if (!isNonEmptyString(html)) return;
+  for (const name of findReservedOverlayVarReferences(html)) {
+    addFinding(findings, {
+      severity: "warning",
+      check: "overlays.reserved-css-var-reference",
+      message:
+        `overlay fragment references var(${name}, ...) -- ${name} is a runtime-reserved variable that `
+          + "renderOverlayNode always sets inline on the container (packages/render-cut/src/rasterize.mjs), "
+          + "so the fallback never applies and it resolves to the runtime's inherited value instead "
+          + `(bug report: overlay-css-var-collision, 2026-08-17). Use a non-reserved name for custom knobs `
+          + "(e.g. --block-left).",
+      path,
+    });
   }
 }
 
