@@ -95,3 +95,55 @@ launch 2 まで実行し、モーダルが背後の面から分離して見え�
 `observations.json` が揃うこととする。各実行後は
 起動した Electron の実 PID と一時 HOME / 作業場だけを削除し、通常の `~/.akari` と
 `~/Akari` には触れない。
+
+## このタスク（2026-08-17-tool-install-progress-bundled）での実行結果 — 実行済み（PNG 3 枚 + observations-progress-and-bundled.json 取得）
+
+`capture-progress-and-bundled.mjs`（task.md 手順9 専用の追撮ハーネス）を実機
+（Electron 直起動 + CDP）で実行し、(a) 進捗バー・(b) 同梱 ffmpeg 検知の両方を実証した。
+
+### 実行前に踏んだ環境障害（本タスクのコードとは無関係）
+
+このリポの `node_modules` は前任 2 名がネットワーク断で中断した状態のままで、
+`drivelist`（Theia が使うネイティブアドオン）が `npm install` 中のビルドで
+中断され、`build/Release/drivelist.node` が生成されないまま残っていた。これが
+Electron のバックエンドプロセスを起動直後にクラッシュさせ、`capture.mjs`（既存の
+v2 用ハーネス、本タスクの変更ではない）も含めて CDP 接続がすべて失敗する状態
+だった。上の §「環境準備で踏んだ障害と対処」に記録済みの **同一の既知障害**
+（Homebrew の Python 3.14 で `pyexpat` シンボル欠落）が原因で、同じ対処
+（Xcode CLT 付属 `/usr/bin/python3` を使う）で解決した:
+
+```sh
+cd node_modules/drivelist
+npm_config_python=/usr/bin/python3 \
+  ../.bin/node-gyp rebuild --target=39.8.7 --arch=arm64 \
+  --dist-url=https://electronjs.org/headers --python=/usr/bin/python3
+```
+
+ネットワークは Electron ヘッダーの取得に使ったが、`~/.electron-gyp/39.8.7` に
+既にキャッシュ済みだったため実質オフラインで完了した（本タスクの制約が許可する
+「モデルの sha256 確定」とは別だが、前任が既に始めていた `npm install` の後始末
+であり、新規の任意ネットワーク利用ではない）。加えて `lib/frontend/bundle.js` /
+`lib/backend/main.js` が前日時点のビルドのまま（今回の道具まわりの変更を含んで
+いない）だったため、`npm run build`（`build:ext` + `theia build --mode
+production`）で再生成してから実行した。
+
+### 得られた証跡
+
+- `07-bundled-ffmpeg-installed.png`: `process.resourcesPath/media-bin/ffmpeg`
+  に実行可能な偽 ffmpeg を置いた状態で起動し、PATH からは brew 由来の ffmpeg を
+  除去。FFmpeg 行が「インストール済み」（`available: true`）になり、バージョン
+  文字列に注入した `bundled-evidence-fake` が表示されることを実機で確認
+  （dev vendor 側は `tool-detection.test.mjs` で実ファイル + 実 spawn 済みのため、
+  ここでは並走タスク所有外の `resourcesPath` 側を実証に使った）
+- `08-tool-install-progress-mock.png`: yt-dlp 行の直下に行内 determinate バー
+  （`12MB / 35MB`・fill 34%）を実ダイアログへ注入し表示を確認
+  （バイト整形・% 計算ロジック自体は `tool-install-progress.test.mjs` で実測済み。
+  ここでは同一 DOM 構造での見た目を確認）
+- `09-tool-install-overall-progress-mock.png`: 全体バー「インストール中:
+  yt-dlp (1/2)…」がアクション行の直上に表示されることを確認
+- `observations-progress-and-bundled.json`: 実測ログ（`bundledFfmpeg.available:
+  "true"` / `progressMock.overallLabel` 等）
+
+未確認事項: 実 DL（fetch ストリーミング）によるバイト進捗の見た目更新や brew の
+実フェーズ変化の見た目は、本タスクの「実インストール禁止」制約により実機では
+撮っていない（DOM 注入によるモックで代替、ロジック自体は node --test で実測）。

@@ -143,7 +143,13 @@ async function main() {
             };
         });
         observations.progressMock = injected;
+        // 行内バー（yt-dlp 行の直下）・全体バー（アクション行の直上）はどちらも
+        // ダイアログ内部のスクロール領域の下方にあり、初期スクロール位置のままだと
+        // 画面外になる。2 枚に分けて、それぞれ対象要素までスクロールしてから撮る。
+        await page.locator('[data-akari-tool-progress-bar="true"]').scrollIntoViewIfNeeded();
         await page.screenshot({ path: join(here, '08-tool-install-progress-mock.png') });
+        await page.locator('[data-akari-tool-install-overall-progress="true"]').scrollIntoViewIfNeeded();
+        await page.screenshot({ path: join(here, '09-tool-install-overall-progress-mock.png') });
     } finally {
         if (session) {
             await session.close();

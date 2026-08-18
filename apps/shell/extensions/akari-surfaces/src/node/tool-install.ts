@@ -268,11 +268,10 @@ async function downloadAndOpenInstaller(
 }
 
 /**
- * VOICEVOX / Blender は配布パッケージがバージョンごとにファイル名が変わり、brew
- * 不在時に安定した直リンクを定数として確定できない（実ネットワークで検証すること
- * 自体が本タスクの制約で禁止されている）。そのため brew 不在時は公式サイトを開いて
- * 導線を渡す（**契約逸脱**: 正本は「公式 dmg を DL して自動で開く」を期待している。
- * report.md に記録）。
+ * VOICEVOX / Blender は brew 不在時、公式サイトを開いて導線を渡す（正本 task.md §6
+ * 「VOICEVOX: 公式サイトを開く現行 mac 挙動と同じでよい」どおりの既存動作 — この
+ * タスクでは変更していない。Chrome のような「公式 dmg を DL して自動で開く」対象では
+ * ない）。
  */
 async function openOfficialDownloadPage(ctx: InstallContext, url: string, label: string): Promise<AkariToolInstallResult> {
     try {
