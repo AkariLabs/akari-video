@@ -134,6 +134,23 @@ test("sfx[].in/out (R6a trim) both present and well-formed pass", () => {
   assert.match(executed.stdout, /^OK: /);
 });
 
+test("sfx[].fade_in/fade_out (audio-clip-fades) pass validation", () => {
+  // edit-sfx-in-out-valid also carries fade_in/fade_out (extended for this task), so the above
+  // test already exercises the happy path end-to-end; this test documents that coverage
+  // explicitly under its own name.
+  const executed = run("edit-sfx-in-out-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  const value = JSON.parse(readFileSync(join(exampleRoot, "edit-sfx-in-out-valid", "edit.json"), "utf8"));
+  assert.ok(Object.hasOwn(value.audio.sfx[0], "fade_in"), "expected the fixture to carry fade_in");
+  assert.ok(Object.hasOwn(value.audio.sfx[0], "fade_out"), "expected the fixture to carry fade_out");
+});
+
+test("sfx[].fade_in must be a non-negative finite number", () => {
+  const executed = run("edit-sfx-fade-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /audio\.sfx\[0\]\.fade_in は 0 以上の有限数である必要があります/);
+});
+
 test("sfx[].in must be a non-negative finite number", () => {
   const executed = run("edit-sfx-in-invalid");
   assert.equal(executed.status, 1, executed.stdout);

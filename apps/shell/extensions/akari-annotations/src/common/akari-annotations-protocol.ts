@@ -413,6 +413,16 @@ export interface SetSfxGainRequest {
     gainDb: number | null;
 }
 
+// docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum (audio-clip-fades,
+// 2026-08-18). edit.json spells these audio.sfx[].fade_in/fade_out (snake_case).
+export interface SetSfxFadeRequest {
+    editUri: string;
+    projectRootUri: string;
+    sfxIndex: number;
+    fadeIn?: number | null;
+    fadeOut?: number | null;
+}
+
 export interface SetBgmFieldsRequest {
     editUri: string;
     projectRootUri: string;
@@ -531,6 +541,7 @@ export interface AkariAnnotationsService {
     setLayerOpacity(request: SetLayerOpacityRequest): Promise<WriteBackResult>;
     setLayerBlend(request: SetLayerBlendRequest): Promise<WriteBackResult>;
     setSfxGain(request: SetSfxGainRequest): Promise<WriteBackResult>;
+    setSfxFade(request: SetSfxFadeRequest): Promise<WriteBackResult>;
     setBgmFields(request: SetBgmFieldsRequest): Promise<WriteBackResult>;
     setOverlayVar(request: SetOverlayVarRequest): Promise<WriteBackResult>;
     setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult>;

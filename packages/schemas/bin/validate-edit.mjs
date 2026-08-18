@@ -656,6 +656,13 @@ function validateSfx(value) {
         fail(`${label}.track は 0 以上の整数である必要があります`);
       }
     }
+    for (const field of ["fade_in", "fade_out"]) {
+      if (hasOwn(item, field)) {
+        if (!isFiniteNumber(item[field]) || item[field] < 0) {
+          fail(`${label}.${field} は 0 以上の有限数である必要があります`);
+        }
+      }
+    }
   }
 }
 

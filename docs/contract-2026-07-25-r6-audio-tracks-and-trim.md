@@ -63,3 +63,44 @@
 - UI: 実機で (a) 配置原則どおりの表示 (b) 音声トラック追加とアイテム移動が edit.json に
   書き戻る (c) 音源バー端ドラッグで in/out 書き戻り・リロード後保持 (d) トリマーの
   表示・調整が機能 (e) 既存トラック UI・z 順の無退行
+
+## 5. §2 追記 — sfx フェード（audio-clip-fades, 2026-08-18・オーナー裁定「クリップ主義」T2）
+
+BGM をクリップ化する裁定（内部リポ `tasks/2026-08-18-bgm-clip-placement-ruling`）に伴い、
+「音楽をクリップ（audio.sfx[]）として置いても BGM ベッドと同じフェード表現ができる」を
+満たすため、`sfxItem` に optional の `fade_in` / `fade_out`（秒・0 以上）を追加のみ拡張する
+（`version` 不変・`contract-2026-07-17-data-contract-versioning.md` の原則に従う）。
+
+### schema
+
+- `sfxItem.fade_in` / `fade_out`: 秒・省略時 0（フェードなし）。`audio.bgm.fadeIn` /
+  `fadeOut`（camelCase）とは異なり **snake_case**（既存の `gain_db` と同じ命名系列）
+- フェード対象はこのクリップの実効再生窓 `[t, t + 実効尺)`。実効尺は §2 の `[in, out)` が
+  既知なら `out − in`、`in`/`out` 省略時は素材尺（消費側が実尺を解決できた場合のみ）
+- クランプ規則は `audio.bgm.fadeIn`/`fadeOut` と同型: `fade_in`/`fade_out` それぞれ独立に
+  実効尺の半分までクランプ（render-cut が実装、edit-lint は `in`/`out` が両方既知のときだけ
+  警告できる — lint は ffprobe を持たないため実尺越えの検知は消費側の責務、という §2 本文の
+  既存原則をフェードにもそのまま適用）
+
+### 消費（render-cut + preview 3 面）
+
+- render-cut: sfx の afade を volume の直後・adelay の直前に挿入する（adelay 後だと
+  `st=0` が delay 由来の無音区間を指してしまうため）。`in`/`out` 併用時は atrim/asetpts で
+  尺をリセットした後の実効尺基準で afade を計算する
+- シェルプレビュー（akari-preview）: sfx は 1 回きりの `BufferSourceNode` 再生のため、
+  bgm の毎 tick 再計算（fadeMultiplier）ではなく、schedule 時点で
+  `gain.gain.setValueAtTime`/`linearRampToValueAtTime` によるブレークポイント列を組む
+  （`sfxFadeGainSchedule`、シーク再開時は経過秒からブレークポイントを再構成）
+- Web UI（preview-server）: bgm と同じ毎 tick 再計算方式。ただしこの層は現状 sfx の
+  `in`/`out` トリム自体を未実装のため、フェードの実効尺は常にデコード済み素材全長を使う
+  （トリム実装時に合わせて見直す）
+
+### インスペクター
+
+- akari-annotations: sfx 選択時に bgm と同じ「フェード」タブ（`fadeIn`/`fadeOut` ノブ）を出す。
+  ducking は bgm 概念のため sfx には出さない
+- 正本は `packages/edit-store`（edit.json テキスト手術）だが、本追記の実装レーン
+  （task 2026-08-18-audio-clip-fades）のファイル境界が `packages/edit-store` を含まないため、
+  書き戻りは `apps/shell/extensions/akari-annotations/src/common/sfx-fade-store.ts` に
+  境界内で完結する独立実装として置いた（`updateArrayElementByIndex` 等 edit-store の
+  export 済みユーティリティは再利用）。将来 edit-store 側の担当タスクが正本へ統合してよい

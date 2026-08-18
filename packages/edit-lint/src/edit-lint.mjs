@@ -2155,6 +2155,51 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
         range: { start: item.in, end: item.out },
       });
     }
+    // audio.sfx[].fade_in/fade_out (docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2
+    // addendum, audio-clip-fades task): type/sign validation always runs; the "fade total exceeds
+    // the clip's effective duration" warning only fires when both in and out are present, because
+    // that is the only case edit-lint can compute the effective duration (out - in) from sibling
+    // values alone -- it has no ffprobe (contract's own "lint は ffprobe を持たない" rule, already
+    // applied to sfx.out real-duration overrun above). When in/out are absent, render-cut/preview
+    // still clamp fade_in/fade_out against the material's real duration at their own layer; this
+    // just can't be linted ahead of time without probing the file.
+    let fadeInValue;
+    let fadeOutValue;
+    for (const field of ["fade_in", "fade_out"]) {
+      if (!Object.hasOwn(item, field)) continue;
+      if (!isFiniteNumber(item[field]) || item[field] < 0) {
+        addFinding(findings, {
+          severity: "error",
+          check: `audio.sfx.${field}`,
+          message: `${field} must be a non-negative finite number`,
+          path: itemPath,
+        });
+      } else if (field === "fade_in") {
+        fadeInValue = item[field];
+      } else {
+        fadeOutValue = item[field];
+      }
+    }
+    if (
+      (fadeInValue !== undefined || fadeOutValue !== undefined) &&
+      Object.hasOwn(item, "in") &&
+      Object.hasOwn(item, "out") &&
+      isFiniteNumber(item.in) &&
+      isFiniteNumber(item.out) &&
+      item.out > item.in
+    ) {
+      const effectiveDuration = item.out - item.in;
+      const fadeTotal = (fadeInValue ?? 0) + (fadeOutValue ?? 0);
+      if (fadeTotal > effectiveDuration + EPSILON) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "audio.sfx.fade-total",
+          message: `fade_in + fade_out ${formatNumber(fadeTotal)}s exceeds the clip's effective duration ${formatNumber(effectiveDuration)}s (in=${formatNumber(item.in)}s, out=${formatNumber(item.out)}s); each will be clamped to half the effective duration at render time`,
+          path: itemPath,
+          range: { start: item.in, end: item.out },
+        });
+      }
+    }
   }
 }
 

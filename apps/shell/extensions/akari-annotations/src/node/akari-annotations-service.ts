@@ -55,6 +55,7 @@ import {
     SetLayerOpacityRequest,
     SetLayerTransformRequest,
     SetOverlayVarRequest,
+    SetSfxFadeRequest,
     SetSfxGainRequest,
     SplitCutRequest,
     TrimCutRequest,
@@ -63,6 +64,7 @@ import {
     WriteEditSnapshotRequest
 } from '../common/akari-annotations-protocol';
 import * as mediaCache from './media-cache';
+import { setSfxFadeInSource } from '../common/sfx-fade-store';
 import {
     appendAnnotationLine,
     emptyReviewSource,
@@ -537,6 +539,18 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = setSfxGainDbInSource(source, request.sfxIndex, request.gainDb);
         await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE の音量を変更') };
+    }
+
+    async setSfxFade(request: SetSfxFadeRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = setSfxFadeInSource(source, request.sfxIndex, {
+            fadeIn: request.fadeIn,
+            fadeOut: request.fadeOut
+        });
+        await this.writeProjectFileGuarded(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'SE のフェードを変更') };
     }
 
     async setBgmFields(request: SetBgmFieldsRequest): Promise<WriteBackResult> {

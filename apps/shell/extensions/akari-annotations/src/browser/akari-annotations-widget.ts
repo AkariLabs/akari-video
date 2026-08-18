@@ -185,6 +185,18 @@ interface ResolvedEditSource {
     videoUri: string;
 }
 
+/**
+ * EditAudioSfx（正本 packages/edit-store）は audio.sfx[].fade_in/fade_out を運ばない
+ * （task 2026-08-18-audio-clip-fades のファイル境界が packages/edit-store を含まないため、
+ * parseEdit() 側は拡張しない）。reloadEdit() が rawValue（edit.json の生 JSON）から
+ * fade_in/fade_out を直接読み、id の "sfx-N" インデックスで対応する parsed.audioSfx へこの
+ * 拡張フィールドとして足し込む。
+ */
+type EditAudioSfxWithFade = EditAudioSfx & {
+    fadeIn?: number;
+    fadeOut?: number;
+};
+
 type ToolMode = 'select' | 'razor';
 
 type TimelineSelection =
@@ -430,7 +442,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected overlays: EditOverlay[] = [];
     protected beats: EditBeat[] = [];
     protected layers: EditLayer[] = [];
-    protected audioSfx: EditAudioSfx[] = [];
+    protected audioSfx: EditAudioSfxWithFade[] = [];
     protected audioNarration: EditAudioNarration[] = [];
     protected audioBgm: EditAudioBgm | undefined;
     protected timelineTracks: EditTimelineTrack[] = [];
@@ -2045,6 +2057,58 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.footer.textContent = 'SE の音量を変更しました。';
                     return { ok: true };
                 }
+                case 'sfx-fade-in':
+                case 'sfx-fade-out': {
+                    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
+                    // (audio-clip-fades, 2026-08-18) -- same shape as bgm-fade-in/bgm-fade-out
+                    // below, but per-sfx-item via sfxIndex (sfx-gain's id-to-index convention).
+                    if (!location.editUri) {
+                        throw new Error('edit.json がありません。');
+                    }
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const sfx = this.audioSfx.find(candidate => candidate.id === request.id);
+                    const sfxIndex = Number(request.id.slice(4));
+                    if (!sfx || !Number.isInteger(sfxIndex)) {
+                        throw new Error('SE が見つかりません。');
+                    }
+                    const originalFadeIn = sfx.fadeIn ?? null;
+                    const originalFadeOut = sfx.fadeOut ?? null;
+                    const nextFields = {
+                        fadeIn: request.kind === 'sfx-fade-in' ? request.value : undefined,
+                        fadeOut: request.kind === 'sfx-fade-out' ? request.value : undefined
+                    };
+                    const originalFields = {
+                        fadeIn: request.kind === 'sfx-fade-in' ? originalFadeIn : undefined,
+                        fadeOut: request.kind === 'sfx-fade-out' ? originalFadeOut : undefined
+                    };
+                    await this.annotationsService.setSfxFade({ editUri, projectRootUri, sfxIndex, ...nextFields });
+                    this.pushHistory({
+                        label: 'SE のフェードを変更',
+                        undo: async () => {
+                            await this.annotationsService.setSfxFade({
+                                editUri,
+                                projectRootUri,
+                                sfxIndex,
+                                ...originalFields
+                            });
+                            await this.reloadEdit();
+                        },
+                        redo: async () => {
+                            await this.annotationsService.setSfxFade({
+                                editUri,
+                                projectRootUri,
+                                sfxIndex,
+                                ...nextFields
+                            });
+                            await this.reloadEdit();
+                        }
+                    });
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = 'SE のフェードを変更しました。';
+                    return { ok: true };
+                }
                 case 'bgm-gain':
                 case 'bgm-fade-in':
                 case 'bgm-fade-out':
@@ -2314,7 +2378,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return {
                 kind: 'audio', id: sfx.id, audioKind: 'sfx', label: this.pathBaseName(sfx.path),
                 outputStart: sfx.t, duration: sfx.duration,
-                ...(sfx.gainDb !== undefined ? { gainDb: sfx.gainDb } : {})
+                ...(sfx.gainDb !== undefined ? { gainDb: sfx.gainDb } : {}),
+                ...(sfx.fadeIn !== undefined ? { fadeIn: sfx.fadeIn } : {}),
+                ...(sfx.fadeOut !== undefined ? { fadeOut: sfx.fadeOut } : {})
             };
         }
         if (selection.id === 'bgm' && this.audioBgm) {
@@ -3159,6 +3225,33 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.renderStrip();
     }
 
+    /**
+     * parsed.audioSfx（正本 packages/edit-store の EditAudioSfx）は fade_in/fade_out を運ばない
+     * （EditAudioSfxWithFade の header comment 参照）。rawValue（edit.json の生 JSON）から直接
+     * 読み、各 sfx の id（"sfx-N" -- parseEdit が付ける元インデックス。parsed.audioSfx は不正な
+     * 要素を skip するため配列位置とは一致しないことがあるので、id の N を使う）で
+     * rawValue.audio.sfx[N] と対応付けて拡張フィールドとして足し込む。
+     */
+    protected withSfxFade(items: readonly EditAudioSfx[], rawValue: unknown): EditAudioSfxWithFade[] {
+        const rawSfx = (rawValue as { audio?: { sfx?: unknown } } | null)?.audio?.sfx;
+        const rawSfxArray = Array.isArray(rawSfx) ? rawSfx : [];
+        return items.map(item => {
+            const index = Number(item.id.slice(4));
+            const raw = Number.isInteger(index)
+                ? rawSfxArray[index] as { fade_in?: unknown; fade_out?: unknown } | undefined
+                : undefined;
+            const fadeIn = typeof raw?.fade_in === 'number' && Number.isFinite(raw.fade_in) && raw.fade_in >= 0
+                ? raw.fade_in : undefined;
+            const fadeOut = typeof raw?.fade_out === 'number' && Number.isFinite(raw.fade_out) && raw.fade_out >= 0
+                ? raw.fade_out : undefined;
+            return {
+                ...item,
+                ...(fadeIn !== undefined ? { fadeIn } : {}),
+                ...(fadeOut !== undefined ? { fadeOut } : {})
+            };
+        });
+    }
+
     protected async reloadEdit(): Promise<void> {
         this.cuts = [];
         this.sources = undefined;
@@ -3184,7 +3277,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.overlays = parsed.overlays;
                 this.beats = parsed.beats ?? [];
                 this.layers = parsed.layers;
-                this.audioSfx = parsed.audioSfx;
+                this.audioSfx = this.withSfxFade(parsed.audioSfx, rawValue);
                 this.audioNarration = parsed.audioNarration;
                 this.audioBgm = parsed.audioBgm;
                 this.timelineTracks = this.pinAudioGroupToBottom(

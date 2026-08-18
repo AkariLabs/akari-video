@@ -125,6 +125,8 @@ type InspectorWriteOperation =
     | { kind: 'caption-style-bg-mode'; id: string; value: CaptionBackgroundMode }
     | { kind: 'caption-style-zone'; id: string; value: CaptionZone }
     | { kind: 'sfx-gain'; id: string; value: number | null }
+    | { kind: 'sfx-fade-in'; id: string; value: number | null }
+    | { kind: 'sfx-fade-out'; id: string; value: number | null }
     | { kind: 'bgm-gain'; value: number | null }
     | { kind: 'bgm-fade-in'; value: number | null }
     | { kind: 'bgm-fade-out'; value: number | null }
