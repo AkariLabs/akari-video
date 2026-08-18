@@ -51,6 +51,8 @@ import {
 } from '../common/edit-summary-fields';
 import { PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
+import { classifyPreviewModelUpdate } from '../common/preview-model-diff';
+import type { PreviewModelDiffInput } from '../common/preview-model-diff';
 import { createRafThrottle } from '../common/raf-throttle';
 import { normalizeRectFromPoints } from '../common/rect-tool-visual';
 import { editReferencesRawMedia } from '../common/related-edit-source';
@@ -230,6 +232,8 @@ interface PreviewModel {
     overlayUris: URI[];
     assetUris: URI[];
     assetStreamIds: string[];
+    /** asset URI → この loadPreviewModel 呼び出しで開いた stream URL。差分更新時の URL 引継ぎ用。 */
+    assetUrlByUri?: Map<string, string>;
     captionsUri?: URI;
     captions: PreviewCaption[];
     /**
@@ -386,6 +390,8 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewConfiguration?: Promise<void>;
     akariPreviewRefresh?: Promise<void>;
     akariPreviewCaptionsUpdate?: Promise<void>;
+    akariPreviewModelSnapshot?: PreviewModelDiffInput;
+    akariPreviewAssetUrlByUri?: Map<string, string>;
     akariPreviewEditUri?: URI;
     akariPreviewRelatedEditUri?: URI;
     akariPreviewVideoUri?: URI;
@@ -628,6 +634,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected cutWriteTail = Promise.resolve();
     protected captionWriteTail = Promise.resolve();
     protected readonly lifecycleDisposables = new DisposableCollection();
+    /** バックエンドでプロセス寿命中不変の約 13MB ランタイム資産を、frontend でも RPC 1 回に畳む。 */
+    protected overlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssets> | undefined;
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
     protected readonly reviewSessionStateByEdit = new Map<string, ReviewSessionUiState>();
@@ -1634,6 +1642,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const captionsSuffix = captionsUri ? this.resourceSuffix(captionsUri) : undefined;
             let captionsChanged = false;
             let previewChanged = false;
+            let nonModelResourceChanged = false;
+            const editKey = widget.akariPreviewEditUri?.toString();
+            const editSuffix = widget.akariPreviewEditUri
+                ? this.resourceSuffix(widget.akariPreviewEditUri) : undefined;
             for (const change of event.changes) {
                 const key = change.resource.toString();
                 // ワークスペースルートの watcher は登録時に realpath() で解決される
@@ -1648,7 +1660,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     continue;
                 }
                 if (tracked.has(key) || trackedSuffixes.has(suffix)) {
-                    previewChanged ||= Date.now() - writtenAt > 1000;
+                    const externalChange = Date.now() - writtenAt > 1000;
+                    previewChanged ||= externalChange;
+                    if (externalChange && key !== editKey && suffix !== editSuffix) {
+                        nonModelResourceChanged = true;
+                    }
                     continue;
                 }
                 previewChanged ||= !widget.akariPreviewEditUri && change.resource.path.base === 'edit.json';
@@ -1657,7 +1673,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueCaptionsUpdate(widget);
             }
             if (previewChanged) {
-                this.queueRefresh(widget, identityUri, kind);
+                this.queueRefresh(widget, identityUri, kind, undefined, nonModelResourceChanged);
             }
         };
         for (const root of await this.workspaceService.roots) {
@@ -1968,7 +1984,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget: PreviewWidgetMarker,
         identityUri: URI,
         kind: 'raw' | 'output',
-        seekTimeOverride?: number
+        seekTimeOverride?: number,
+        forceRebuild = false
     ): void {
         const previous = widget.akariPreviewRefresh ?? Promise.resolve();
         const refresh = (): Promise<void> => {
@@ -1976,13 +1993,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const transport = editUri
                 ? this.reviewTransportByEdit.get(editUri.normalizePath().toString())
                 : undefined;
-            // 裁定（第13報）: edit.json 起因のリロードは直前の再生状態に関わらず必ず
-            // 一時停止で復元する。位置（timelineT）だけは保持する
+            // 裁定（第13報）は webview を再構築する場合だけ適用する: 直前の再生状態に関わらず
+            // 一時停止、位置（timelineT）のみ復元する。差分更新は既存 DOM に message を送り、
+            // シークも play/pause の変更も行わないため、再生位置と再生状態をそのまま保持する。
             return this.refreshPreview(
                 widget,
                 identityUri,
                 kind,
-                seekTimeOverride ?? transport?.timelineT
+                seekTimeOverride ?? transport?.timelineT,
+                forceRebuild
             );
         };
         widget.akariPreviewRefresh = previous.then(
@@ -2006,19 +2025,100 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
 
+    protected previewModelSnapshot(model: PreviewModel, assets: OverlayRuntimeAssets): PreviewModelDiffInput {
+        const assetUrlByUri = model.assetUrlByUri ?? new Map<string, string>();
+        const replacements = [...assetUrlByUri.entries()].map(([uri, url]) => [url, `akari-asset:${uri}`] as const);
+        return {
+            sourceUris: [...(model.sourcesById ?? new Map<string, { uri: URI; proxyUri?: URI }>())].map(([id, value]) =>
+                `${id}=${value.uri.toString()}|proxy=${value.proxyUri?.toString() ?? ''}`),
+            assetUris: model.assetUris.map(uri => uri.toString()),
+            overlayUris: model.overlayUris.map(uri => uri.toString()),
+            output: { ...model.summary.output },
+            overlayRuntimeAssets: [
+                assets.threeJavaScript,
+                assets.threeRuntimeJavaScript,
+                assets.runtimeJavaScript,
+                assets.interactionJavaScript,
+                assets.interactionCss,
+                assets.webviewKernelJavaScript,
+                assets.captionFontDataUri
+            ],
+            captions: model.captions,
+            emphasisWords: model.emphasisWords ?? [],
+            summary: this.replacePreviewAssetUrls(model.summary, replacements) as PreviewModelDiffInput['summary']
+        };
+    }
+
+    protected replacePreviewAssetUrls(value: unknown, replacements: ReadonlyArray<readonly [string, string]>): unknown {
+        if (typeof value === 'string') {
+            let result = value;
+            for (const [from, to] of replacements) {
+                if (from) result = result.split(from).join(to);
+            }
+            return result;
+        }
+        if (Array.isArray(value)) {
+            return value.map(item => this.replacePreviewAssetUrls(item, replacements));
+        }
+        if (value && typeof value === 'object') {
+            return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+                .map(([key, item]) => [key, this.replacePreviewAssetUrls(item, replacements)]));
+        }
+        return value;
+    }
+
+    protected summaryWithPreviousAssetUrls(widget: PreviewWidgetMarker, model: PreviewModel): EditSummary {
+        const previous = widget.akariPreviewAssetUrlByUri ?? new Map<string, string>();
+        const replacements: Array<readonly [string, string]> = [];
+        for (const [uri, nextUrl] of model.assetUrlByUri ? [...model.assetUrlByUri] : []) {
+            const previousUrl = previous.get(uri);
+            if (previousUrl && previousUrl !== nextUrl) replacements.push([nextUrl, previousUrl]);
+        }
+        return this.replacePreviewAssetUrls(model.summary, replacements) as EditSummary;
+    }
+
+    protected getOverlayRuntimeAssets(): Promise<OverlayRuntimeAssets> {
+        if (!this.overlayRuntimeAssetsPromise) {
+            const cached = this.previewService.getOverlayRuntimeAssets().catch(error => {
+                if (this.overlayRuntimeAssetsPromise === cached) {
+                    this.overlayRuntimeAssetsPromise = undefined;
+                }
+                throw error;
+            });
+            this.overlayRuntimeAssetsPromise = cached;
+        }
+        return this.overlayRuntimeAssetsPromise;
+    }
+
     protected async refreshPreview(
         widget: PreviewWidgetMarker,
         identityUri: URI,
         kind: 'raw' | 'output',
-        initialSeekTime?: number
+        initialSeekTime?: number,
+        forceRebuild = false
     ): Promise<void> {
         if (widget.isDisposed) {
             return;
         }
         const [model, assets] = await Promise.all([
             kind === 'output' ? this.loadPreviewModel(identityUri) : this.loadRawPreviewModel(identityUri),
-            this.previewService.getOverlayRuntimeAssets()
+            this.getOverlayRuntimeAssets()
         ]);
+        const nextSnapshot = this.previewModelSnapshot(model, assets);
+        if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
+            const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
+            if (updateKind === 'none') {
+                await this.disposeAssetStreams(model.assetStreamIds);
+                return;
+            }
+            if (updateKind === 'incremental') {
+                const summary = this.summaryWithPreviousAssetUrls(widget, model);
+                widget.akariPreviewModelSnapshot = nextSnapshot;
+                widget.sendMessage({ type: 'akari-preview-model-update', summary });
+                await this.disposeAssetStreams(model.assetStreamIds);
+                return;
+            }
+        }
         const videoUri = kind === 'output' ? model.sourceUri : identityUri;
         if (!videoUri) {
             await this.disposeAssetStreams(model.assetStreamIds);
@@ -2251,6 +2351,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             imageSourceUrlById,
             primaryIsStillImage
         ));
+        widget.akariPreviewModelSnapshot = nextSnapshot;
+        widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
     }
 
     // Picks the URI that actually gets streamed to <video>. task/2026-08-09-drop-hevc-proxy:
@@ -2278,6 +2380,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         identityUri: URI,
         kind: 'raw' | 'output'
     ): void {
+        widget.akariPreviewModelSnapshot = undefined;
+        widget.akariPreviewAssetUrlByUri = undefined;
         widget.akariPreviewSeekable = false;
         void this.disposePreviewStreams(widget);
         widget.akariPreviewEditUri = kind === 'output' ? identityUri : undefined;
@@ -2573,6 +2677,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 overlayUris,
                 assetUris,
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
+                assetUrlByUri: new Map([...assetStreams].map(([uri, stream]) => [uri, stream.url])),
                 captionsUri,
                 captions,
                 emphasisWords,
@@ -3489,7 +3594,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         respond(true);
-        this.queueRefresh(widget, identityUri, kind, widget.akariPreviewLastKnownTime);
+        this.queueRefresh(widget, identityUri, kind, widget.akariPreviewLastKnownTime, true);
     }
 
     protected isOpenOutputRequest(message: any): message is OpenOutputRequest {
@@ -3870,7 +3975,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 })
             };
             const createPreviewAudio = () => {
-                const config = initial.summary && initial.summary.audio;
+                let config = initial.summary && initial.summary.audio;
                 const hasAudio = config && (config.bgm
                     || (Array.isArray(config.sfx) && config.sfx.length > 0)
                     || (Array.isArray(config.narration) && config.narration.length > 0));
@@ -4162,6 +4267,17 @@ body { display: grid; place-items: center; padding: 32px; }
                     pause: () => {
                         generation += 1;
                         stopSources();
+                    },
+                    updateConfig: async (nextConfig, timelineTime, playing) => {
+                        generation += 1;
+                        stopSources();
+                        config = nextConfig || { sfx: [], narration: [] };
+                        decoded.bgm = null;
+                        decoded.sfx = [];
+                        decoded.narration = [];
+                        loadPromise = null;
+                        await load(timelineDuration);
+                        if (playing) await scheduleFrom(timelineTime);
                     },
                     tick: (timelineTime, playing) => {
                         syncMasterGain();
@@ -4458,7 +4574,7 @@ body { display: grid; place-items: center; padding: 32px; }
     protected previewBootstrapScript(): string {
         return `(() => {
             const initial = window.__akariPreview;
-            const summary = initial.summary;
+            let summary = initial.summary;
             const video = document.getElementById('preview-video');
             const stillImage = document.getElementById('preview-still');
             const playToggle = document.getElementById('play-toggle');
@@ -5086,16 +5202,21 @@ body { display: grid; place-items: center; padding: 32px; }
                     && summary.audio.sfx.length > 0) append('audio', 0);
                 return derived;
             };
-            const resolvedTracks = Array.isArray(summary.timelineTracks)
-                ? summary.timelineTracks : deriveTracks();
+            let resolvedTracks = [];
             const visualTrackZ = new Map();
-            resolvedTracks.forEach((track, index) => {
-                if ((track.kind === 'cuts' || track.kind === 'layers') && Number.isInteger(track.ref)) {
-                    // Keep every cuts/layers element below #overlay-stage (z-index: 1) while
-                    // retaining timeline.tracks' bottom-to-top relative order.
-                    visualTrackZ.set(track.kind + ':' + track.ref, index - resolvedTracks.length);
-                }
-            });
+            const rebuildVisualTrackZ = () => {
+                resolvedTracks = Array.isArray(summary.timelineTracks)
+                    ? summary.timelineTracks : deriveTracks();
+                visualTrackZ.clear();
+                resolvedTracks.forEach((track, index) => {
+                    if ((track.kind === 'cuts' || track.kind === 'layers') && Number.isInteger(track.ref)) {
+                        // Keep every cuts/layers element below #overlay-stage (z-index: 1) while
+                        // retaining timeline.tracks' bottom-to-top relative order.
+                        visualTrackZ.set(track.kind + ':' + track.ref, index - resolvedTracks.length);
+                    }
+                });
+            };
+            rebuildVisualTrackZ();
             const zForTrack = (kind, track) => {
                 const declared = visualTrackZ.get(kind + ':' + track);
                 return declared === undefined ? -resolvedTracks.length - track - 1 : declared;
@@ -5222,6 +5343,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 layersStage.appendChild(layerVideo);
                 return { spec: layer, video: layerVideo };
             });
+            const applyIncrementalLayerSpec = (entry, layer) => {
+                entry.spec = layer;
+                const layerVideo = entry.video;
+                layerVideo.style.opacity = String(layer.opacity);
+                layerVideo.style.mixBlendMode = layer.blend || 'normal';
+                layerVideo.style.zIndex = String(zForTrack('layers', layer.track));
+                const transform = layer.transform || {};
+                layerVideo.dataset.akariTransformX = String(Number.isFinite(transform.x) ? transform.x : 0);
+                layerVideo.dataset.akariTransformY = String(Number.isFinite(transform.y) ? transform.y : 0);
+                layerVideo.dataset.akariTransformScale = String(
+                    Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1
+                );
+                layerVideo.dataset.akariTransformRotate = String(Number.isFinite(transform.rotate) ? transform.rotate : 0);
+                const crop = layer.crop;
+                layerVideo.dataset.akariCropX = String(crop && Number.isFinite(crop.x) ? crop.x : 0);
+                layerVideo.dataset.akariCropY = String(crop && Number.isFinite(crop.y) ? crop.y : 0);
+                layerVideo.dataset.akariCropW = String(crop && Number.isFinite(crop.w) && crop.w > 0 ? crop.w : 1);
+                layerVideo.dataset.akariCropH = String(crop && Number.isFinite(crop.h) && crop.h > 0 ? crop.h : 1);
+                const corners = layer.perspective && Array.isArray(layer.perspective.corners)
+                    ? layer.perspective.corners : null;
+                if (corners) layerVideo.dataset.akariPerspectiveCorners = JSON.stringify(corners);
+                else delete layerVideo.dataset.akariPerspectiveCorners;
+            };
             // CF-select + transform ハンドル: レイヤー実体のクリック選択・タイムラインとの双方向同期・
             // プレビュー内ドラッグ移動/リサイズ(=scale)/回転。確定(pointerup)時のみ layerWrite で
             // 書き戻す（既存 overlay ドラッグ編集と同じ確定タイミング）。
@@ -8096,6 +8240,63 @@ body { display: grid; place-items: center; padding: 32px; }
             audioNoticeDismiss.addEventListener('click', () => {
                 audioNotice.hidden = true;
             });
+            const syncDeclaredTrackStates = () => {
+                const tracks = summary.tracks || {};
+                const syncScope = (scope, entries) => {
+                    hiddenTracksByScope[scope].clear();
+                    mutedTracksByScope[scope].clear();
+                    for (const [index, entry] of (Array.isArray(entries) ? entries : []).entries()) {
+                        if (entry && entry.hidden === true) hiddenTracksByScope[scope].add(index);
+                        if (entry && entry.muted === true) mutedTracksByScope[scope].add(index);
+                    }
+                };
+                syncScope('cuts', tracks.cuts);
+                syncScope('layers', tracks.layers);
+                syncScope('audio', tracks.audio);
+            };
+            const applyIncrementalModel = nextSummary => {
+                if (!nextSummary || typeof nextSummary !== 'object') return;
+                const previousAudioJson = JSON.stringify(summary.audio || null);
+                const previousTracksJson = JSON.stringify(summary.tracks || null);
+                const activeCutIndex = segments[activeSegmentIndex]
+                    && Number.isInteger(segments[activeSegmentIndex].cutIndex)
+                    ? segments[activeSegmentIndex].cutIndex : null;
+                summary = nextSummary;
+                window.akari.state.summary = summary;
+                rebuildVisualTrackZ();
+                for (let index = 0; index < layerEntries.length; index += 1) {
+                    applyIncrementalLayerSpec(layerEntries[index], summary.layers[index]);
+                }
+                if (previousTracksJson !== JSON.stringify(summary.tracks || null)) syncDeclaredTrackStates();
+                rebuildSegments();
+                if (activeCutIndex !== null) {
+                    const matchingIndex = segments.findIndex(segment => segment.kind === 'src'
+                        && segment.cutIndex === activeCutIndex);
+                    if (matchingIndex >= 0) activeSegmentIndex = matchingIndex;
+                } else {
+                    const containingIndex = segments.findIndex(segment => outputTime >= segment.outStart
+                        && outputTime < segment.outEnd);
+                    if (containingIndex >= 0) activeSegmentIndex = containingIndex;
+                }
+                const activeSegment = segments[activeSegmentIndex];
+                syncSegmentPlaybackRate();
+                applyCutVisual(activeSegment);
+                applyCutsZIndex(activeSegment);
+                for (const entry of layerEntries) {
+                    entry.video.style.zIndex = String(zForTrack('layers', entry.spec.track));
+                }
+                applyOverlayTracks();
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                const nextAudioJson = JSON.stringify(summary.audio || null);
+                if (previousAudioJson !== nextAudioJson && window.akari.previewAudio?.updateConfig) {
+                    void window.akari.previewAudio.updateConfig(summary.audio, outputTime, isPlaying);
+                    void probeSfxDurations().then(() => {
+                        rebuildSegments();
+                        tick(true);
+                    });
+                }
+                tick(true);
+            };
             window.addEventListener('message', event => {
                 const message = event.data;
                 if (message && message.type === 'akari-preview-set-review-recording'
@@ -8121,6 +8322,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message && message.type === 'akari-preview-captions-update') {
                     captions = Array.isArray(message.captions) ? message.captions : [];
                     renderCaption();
+                    return;
+                }
+                if (message && message.type === 'akari-preview-model-update') {
+                    applyIncrementalModel(message.summary);
                     return;
                 }
                 if (message && message.type === 'akari-preview-set-muted' && typeof message.muted === 'boolean') {
