@@ -78,7 +78,10 @@ you quit and relaunch the app normally. It never force-restarts you mid-session.
 
 **Prefer a lightweight CLI-only install?** `npm i -g akari-video` installs just the `akari`
 command (agent workflow bundled; the browser preview server is not included — use the
-installer above for the full setup).
+installer above for the full setup). This never uses sudo; if it fails with `EACCES`
+(permission error), prefer `install.sh` above (user-space, no admin password needed) or
+configure an npm user prefix instead. The desktop app provisions its own `akari` CLI
+automatically — no separate install needed there.
 
 **For manual installation**, see below:
 
