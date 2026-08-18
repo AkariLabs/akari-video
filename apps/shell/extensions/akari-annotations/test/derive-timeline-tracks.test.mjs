@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   computeTrackAutoNames,
   deriveDefaultTimelineTracks,
+  withAudioDisplaySupplement,
   withCaptionsDisplaySupplement,
 } from "../lib/common/derive-timeline-tracks.js";
 
@@ -111,4 +112,54 @@ test("computeTrackAutoNames numbers multiple captions tracks independently of th
   assert.equal(names.get("t-captions-1"), "T1");
   assert.equal(names.get("t-cuts-0"), "V1");
   assert.equal(names.get("t-captions-2"), "T2");
+});
+
+// --- 2026-08-18 実機報告「BGM が鳴るのにタイムラインに出ない」 ---
+
+// 意図的分岐 5: bgm だけのプロジェクト（sfx/narration 無し）でも audio トラックを導出する
+test("deriveDefaultTimelineTracks derives an audio ref-0 track from audio.bgm alone", () => {
+  const edit = {
+    cuts: [{ track: 0 }],
+    audio: { bgm: { path: "assets/audio/bgm.mp3", gain_db: -6 } },
+  };
+  const derived = deriveDefaultTimelineTracks(edit);
+  const audioTracks = derived.filter((track) => track.kind === "audio");
+  assert.equal(audioTracks.length, 1);
+  assert.equal(audioTracks[0].ref, 0);
+  // 音源グループは最下段固定（R6 契約 §1 裁定 1）= 既定順序で先頭
+  assert.equal(derived[0].kind, "audio");
+});
+
+test("deriveDefaultTimelineTracks derives no audio track when audio is absent (non-regression)", () => {
+  const derived = deriveDefaultTimelineTracks({ cuts: [{ track: 0 }] });
+  assert.equal(derived.some((track) => track.kind === "audio"), false);
+});
+
+// 表示専用の音声レーン補完（字幕補完・裁定 2 と同型）
+test("withAudioDisplaySupplement prepends an implied bottom-most audio row when bgm exists and no audio kind is declared", () => {
+  const explicit = [
+    { id: "t1", kind: "cuts", ref: 0 },
+    { id: "t2", kind: "cuts", ref: 1 },
+  ];
+  const supplemented = withAudioDisplaySupplement(explicit, true);
+  assert.equal(supplemented.length, 3);
+  // 配列先頭 = 画面最下段（widget の displayTimelineTracks 規約）
+  assert.deepEqual(supplemented[0], { id: "t-audio-implied", kind: "audio", ref: 0 });
+  assert.deepEqual(supplemented.slice(1), explicit);
+});
+
+test("withAudioDisplaySupplement does not supplement when an audio kind exists (even hidden) — the declared row is the user's intent", () => {
+  const withHiddenAudio = [
+    { id: "a1", kind: "audio", ref: 0, hidden: true },
+    { id: "t1", kind: "cuts", ref: 0 },
+  ];
+  const result = withAudioDisplaySupplement(withHiddenAudio, true);
+  assert.deepEqual(result, withHiddenAudio);
+});
+
+test("withAudioDisplaySupplement is a no-op without bgm and never mutates its input", () => {
+  const explicit = [{ id: "t1", kind: "cuts", ref: 0 }];
+  const frozen = Object.freeze([...explicit]);
+  assert.deepEqual(withAudioDisplaySupplement(frozen, false), explicit);
+  assert.deepEqual(withAudioDisplaySupplement(frozen, true)[0].id, "t-audio-implied");
 });

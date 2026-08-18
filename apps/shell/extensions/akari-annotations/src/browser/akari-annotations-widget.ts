@@ -40,6 +40,7 @@ import {
 import {
     computeTrackAutoNames as computeTrackKindAutoNames,
     deriveDefaultTimelineTracks,
+    withAudioDisplaySupplement,
     withCaptionsDisplaySupplement
 } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
@@ -3522,6 +3523,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     protected calculateLaneLayout(topOffset = 0): number {
         this.computeAudioDisplayTracks();
+        this.computeBgmDisplayTrack();
         this.computeCaptionsDisplayTrack();
         this.captionRows = assignSubRows(this.captions.map(caption => ({ start: caption.start, end: caption.end })));
         const captionRowCount = this.captionRows.length ? Math.max(...this.captionRows) + 1 : 0;
@@ -3672,6 +3674,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected computeCaptionsDisplayTrack(): void {
         this.displayTimelineTracks = withCaptionsDisplaySupplement(
             this.displayTimelineTracks, this.captions.length > 0
+        );
+    }
+
+    /**
+     * 表示専用の音声レーン補完（2026-08-18 実機報告「BGM が鳴るのにタイムラインに出ない」）:
+     * 明示 timeline.tracks に audio 種別が 1 つも無くても、audio.bgm が宣言されていれば
+     * 表示上のみ最下段へ補う（中核は withAudioDisplaySupplement、字幕補完〔裁定 2026-08-12・
+     * 裁定 2〕と同型の純関数として単体テスト済み）。BGM バー自体の描画は calculateLaneLayout の
+     * 既存 bgm 区間処理（ref 0 帯）がそのまま拾う。edit.json への書き戻しは一切行わない。
+     */
+    protected computeBgmDisplayTrack(): void {
+        this.displayTimelineTracks = withAudioDisplaySupplement(
+            this.displayTimelineTracks, Boolean(this.audioBgm)
         );
     }
 
