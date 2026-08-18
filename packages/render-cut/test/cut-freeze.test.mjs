@@ -13,7 +13,7 @@ import test from "node:test";
 // just asserted from the command plan.
 
 import { freezeDurationSeconds, hasCutFreeze } from "../src/cut-freeze.mjs";
-import { buildCutCommand, buildMultiSourceCutCommand } from "../src/plan.mjs";
+import { buildCutCommand, buildGapAwareMultiSourceCutCommand, buildMultiSourceCutCommand } from "../src/plan.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");
@@ -223,6 +223,28 @@ test("cuts[].freeze is rejected (not silently dropped) when combined with a gap-
       height: 180,
       fps: 10,
       hasAudio: false,
+      duration: 8,
+      projectRoot: "/tmp",
+    }),
+    /freeze is not supported together with a gap-aware cut timeline/,
+  );
+});
+
+// docs/contract-2026-08-18-v1-render-parity.md: v1's counterpart of the above -- same restriction,
+// enforced by buildGapAwareMultiSourceCutCommand (the function buildPlan's v1 dispatch now routes
+// to whenever needsGapAwareCutTimeline(edit.cuts) is true).
+test("cuts[].freeze on a v1 (multi-source) cut is rejected the same way when combined with a gap-aware timeline", () => {
+  assert.throws(
+    () => buildGapAwareMultiSourceCutCommand({
+      sourceInputs: [{ id: "s1", path: "/dev/null", hasAudio: false }],
+      cutPath: "/dev/null",
+      cuts: [
+        { src: "s1", in: 0, out: 2, track: 0 },
+        { src: "s1", at: 5, in: 0, out: 2, track: 0, freeze: { at_sec: 1, duration_sec: 1 } },
+      ],
+      width: 320,
+      height: 180,
+      fps: 10,
       duration: 8,
       projectRoot: "/tmp",
     }),

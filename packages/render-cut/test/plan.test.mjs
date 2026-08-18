@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildAudioMixCommand, buildPlan, selectDefaultOutput } from "../src/plan.mjs";
+import { buildAudioMixCommand, buildPlan, predictedDuration, selectDefaultOutput } from "../src/plan.mjs";
 
 const edit = {
   version: 0,
@@ -356,4 +356,118 @@ test("content within the cuts skips tail padding and preserves every existing co
   assert.equal(withinCuts.commands.tail_pad, null);
   assert.deepEqual(withinCuts.commands, baseline.commands);
   assert.deepEqual(withinCuts.intermediates, baseline.intermediates);
+});
+
+// docs/contract-2026-08-18-v1-render-parity.md: v1's counterpart to the v0 gap-aware tests above
+// (buildPlan's v1 branch now dispatches on needsGapAwareCutTimeline exactly like v0's buildCutCommand).
+const v1Edit = {
+  version: 1,
+  output: { width: 1280, height: 720, fps: 30 },
+  sources: [
+    { id: "a", path: "a.mp4", proxy: null },
+    { id: "b", path: "b.mp4", proxy: null },
+  ],
+  cuts: [
+    { src: "a", in: 5, out: 10 },
+    { src: "b", in: 0, out: 5 },
+  ],
+  overlays: [],
+};
+
+const v1Capabilities = {
+  sourceInputs: [
+    { id: "a", path: "/project/a.mp4", hasAudio: true },
+    { id: "b", path: "/project/b.mp4", hasAudio: true },
+  ],
+  ffmpegCommand: "ffmpeg",
+  ffprobeCommand: "ffprobe",
+  chromePath: "chrome",
+  hyperframesAvailable: true,
+  puppeteerAvailable: true,
+};
+
+test("v1: cuts without at or track keep the exact legacy multi-source concat command (non-regression)", () => {
+  const plan = buildPlan({
+    edit: v1Edit,
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: v1Capabilities,
+    hasSourceAudio: true,
+  });
+  const filterComplex = plan.commands.cut.args[plan.commands.cut.args.indexOf("-filter_complex") + 1];
+  assert.match(filterComplex, /concat=n=2:v=1:a=1\[joinedv\]\[joineda\]/);
+  assert.ok(!filterComplex.includes("color=c=black"));
+  assert.ok(!filterComplex.includes("[gv1_"));
+});
+
+test("v1: cuts with an output-axis gap render black video for the gap", () => {
+  const plan = buildPlan({
+    edit: {
+      ...v1Edit,
+      cuts: [
+        { src: "a", in: 0, out: 2, track: 0 },
+        { src: "b", at: 5, in: 0, out: 2, track: 0 },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: v1Capabilities,
+    hasSourceAudio: true,
+  });
+  const filterComplex = plan.commands.cut.args[plan.commands.cut.args.indexOf("-filter_complex") + 1];
+  assert.equal(plan.predicted_duration_seconds, 7);
+  assert.match(filterComplex, /color=c=black/);
+  assert.match(filterComplex, /color=c=black[^;]*:d=3\[gv1_1\]/);
+});
+
+test("v1: overlapping tracks show the higher track and mix every cut's audio", () => {
+  const plan = buildPlan({
+    edit: {
+      ...v1Edit,
+      cuts: [
+        { src: "a", in: 0, out: 5, track: 0 },
+        { src: "b", at: 2, in: 20, out: 25, track: 1 },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: v1Capabilities,
+    hasSourceAudio: true,
+  });
+  const filterComplex = plan.commands.cut.args[plan.commands.cut.args.indexOf("-filter_complex") + 1];
+  assert.match(filterComplex, /trim=start=20:end=25/);
+  assert.match(filterComplex, /adelay=0:all=1/);
+  assert.match(filterComplex, /adelay=2000:all=1/);
+  assert.match(filterComplex, /amix=inputs=2/);
+});
+
+test("v1: a custom timeline.tracks order still routes through buildTrackStackPlan, unaffected by the new gap-aware dispatch", () => {
+  const plan = buildPlan({
+    edit: {
+      ...v1Edit,
+      cuts: [
+        { src: "a", in: 0, out: 2, track: 0 },
+        { src: "b", at: 0.5, in: 0, out: 1, track: 1 },
+      ],
+      timeline: { tracks: [{ id: "c1", kind: "cuts", ref: 1 }, { id: "c0", kind: "cuts", ref: 0 }] },
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: v1Capabilities,
+    hasSourceAudio: true,
+  });
+  assert.ok(plan.commands.track_stack, "expected the track-stack path, not the top-level gap-aware dispatch");
+  assert.equal(plan.commands.track_stack.cutTracks.length, 2);
+});
+
+test("predictedDuration accounts for at/track gaps for both v0 and v1 instead of a plain segment sum", () => {
+  const cuts = [
+    { in: 0, out: 2, track: 0 },
+    { at: 5, in: 0, out: 2, track: 0 },
+  ];
+  assert.equal(predictedDuration(cuts, null, 0), 7);
+  assert.equal(predictedDuration(cuts, null, 1), 7);
+  // Non-gap-aware v1 (no at/track) keeps its own existing transition-overlap-aware formula.
+  const sequential = [{ in: 0, out: 2 }, { in: 0, out: 3 }];
+  assert.equal(predictedDuration(sequential, null, 1), 5);
 });
