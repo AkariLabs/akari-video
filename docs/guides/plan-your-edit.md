@@ -45,6 +45,12 @@ be traced afterward.
 This file is the canonical record of the editing state. The exact schema is defined in each
 contract under [Reference](../README.md#reference), but day to day, what matters is:
 
+- **New projects always start as edit v1** — every freshly created `edit.json` uses `sources[]`
+  (a list of clip entries, even when there's only one clip) and `cuts[].src` pointing at one of
+  them. If you're hand-editing an older project whose `edit.json` is still `version: 0` (a
+  single `source`), leave it as v0 — nobody force-migrates an existing file. Converting one on
+  request follows the mechanical steps in the [multi-source contract §5](../contract-2026-07-18-edit-json-v1-sources.md)
+  (present the diff, get explicit approval, then convert — never silently).
 - **cuts[]** — which part of which clip (`src`), from what second to what second. Times are
   always persisted in **the clip's original seconds**, so reordering cuts doesn't break
   references

@@ -54,7 +54,11 @@ test("bare template: scaffold generates a draft .akari/intake.json and a CLAUDE.
 
     assert.ok(report.fallback.writtenFiles.includes(".akari/intake.json"));
     assert.ok(report.fallback.writtenFiles.includes("CLAUDE.md"));
-    assert.equal(await readFile(join(destination, "edit.json"), "utf8"), "{}\n");
+    const editJson = JSON.parse(await readFile(join(destination, "edit.json"), "utf8"));
+    assert.equal(editJson.version, 1);
+    assert.deepEqual(editJson.output, { width: 1920, height: 1080, fps: 30 });
+    assert.deepEqual(editJson.sources, []);
+    assert.deepEqual(editJson.cuts, []);
     assert.ok(report.fallback.writtenFiles.includes("edit.json"));
   });
 });
@@ -73,7 +77,11 @@ test("real templates/project-default/: .akari/intake.json is generated via the f
     assert.equal(validated.status, 0, validated.stderr);
 
     assert.ok(report.fallback.writtenFiles.includes(".akari/intake.json"));
-    assert.equal(await readFile(join(destination, "edit.json"), "utf8"), "{}\n");
+    const editJson = JSON.parse(await readFile(join(destination, "edit.json"), "utf8"));
+    assert.equal(editJson.version, 1);
+    assert.deepEqual(editJson.output, { width: 1920, height: 1080, fps: 30 });
+    assert.deepEqual(editJson.sources, []);
+    assert.deepEqual(editJson.cuts, []);
     assert.ok(report.fallback.writtenFiles.includes("edit.json"));
 
     const claudeMd = await readFile(join(destination, "CLAUDE.md"), "utf8");
