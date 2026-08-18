@@ -822,6 +822,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             this.client?.onWillWrite(URI.fromFilePath(join(projectDir, name)).toString());
         }
         await writeProjectFilesGuarded(projectDir, candidates, {
+            onDidWrite: (filePath, text) => this.notifyDidWrite(filePath, text),
             onLintResult: result => this.client?.onLintResult({
                 projectRootUri: URI.fromFilePath(projectDir).toString(),
                 pass: result.pass,
@@ -846,12 +847,26 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const projectDir = dirname(filePath);
         this.client?.onWillWrite(URI.fromFilePath(filePath).toString());
         await writeProjectFilesGuarded(projectDir, { [basename(filePath)]: content }, {
+            onDidWrite: (written, text) => this.notifyDidWrite(written, text),
             onLintResult: result => this.client?.onLintResult({
                 projectRootUri: URI.fromFilePath(projectDir).toString(),
                 pass: result.pass,
                 errors: result.errors
             })
         });
+    }
+
+    /**
+     * atomic rename 完了の直後にフロントエンドへ全文つきで知らせる（onWillWrite の対）。
+     * プレビュー拡張はこれを受けて file watcher を待たずに差分判定へ入る。
+     * ここで投げても保存は完了済みなので、握りつぶして保存を維持する。
+     */
+    protected notifyDidWrite(filePath: string, content: string): void {
+        try {
+            this.client?.onDidWrite(URI.fromFilePath(filePath).toString(), content);
+        } catch (error) {
+            console.warn('[akari-annotations] onDidWrite の通知に失敗しました（保存は完了しています）。', error);
+        }
     }
 
     /**

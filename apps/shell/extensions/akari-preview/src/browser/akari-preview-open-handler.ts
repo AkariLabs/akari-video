@@ -428,6 +428,16 @@ const RAW_PREVIEW_ANNOTATION_STATE_EVENT = 'akari.preview.rawAnnotationState';
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
 // CF-select: overlay 選択同期チャンネルの layers 版（akari-annotations 側と文字列のみミラー）。
 const TIMELINE_LAYER_SELECTED_EVENT = 'akari.timeline.layerSelected';
+// 書き込み完了の直接通知。edit-store の atomic rename 完了 → akari-annotations backend →
+// AkariAnnotationsClientImpl（frontend）が撒く window イベントで、**file watcher より先に**着く。
+// akari-preview は akari-annotations を import できない（annotations → preview の一方向依存で
+// 逆は循環）ため、他の拡張間チャンネルと同じく文字列のみミラーする。
+// **ミラー元は `akari-annotations/src/browser/akari-annotations-client.ts` の
+// EDIT_STORE_DID_WRITE_EVENT。片方だけ変えると通知が届かなくなる。**
+const EDIT_STORE_DID_WRITE_EVENT = 'akari.editStore.didWrite';
+// 直接通知で処理した書き込みを、後から来る watcher イベントで二重に処理しないための窓。
+// akari-annotations 側の recentWrites（1 秒窓）と同型。
+const RECENT_WRITE_WINDOW_MS = 1000;
 const TIMELINE_SET_MUTED_EVENT = 'akari.timeline.setMuted';
 const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
@@ -619,6 +629,9 @@ const LAYER_BLEND_TO_CSS = new Map<string, string>([
 @injectable()
 export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplicationContribution {
     readonly id = 'akari-preview-open-handler';
+    // 「最近この URI へ書いた」台帳。URI 文字列キーと resourceSuffix キーの両方を入れる
+    // （ワークスペース watcher は realpath 済みの URI で通知してくるため、シンボリックリンクを
+    // 跨ぐワークスペースでは URI 文字列が食い違う。suffix なら一致する）。
     protected readonly recentWrites = new Map<string, number>();
     protected readonly openPreviews = new Map<string, PreviewWidgetMarker>();
     protected readonly openOutputPreviews = new Map<string, PreviewWidgetMarker>();
@@ -1656,13 +1669,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // URI の先頭が videoUri/editUri 生成時と食い違う。basename + 直上ディレクトリ名の
                 // suffix 一致もフォールバックとして見る。
                 const suffix = this.resourceSuffix(change.resource);
-                const writtenAt = this.recentWrites.get(key) ?? 0;
+                const writtenAt = this.recentWriteAt(change.resource);
                 if (key === captionsKey || (captionsSuffix !== undefined && suffix === captionsSuffix)) {
-                    captionsChanged ||= Date.now() - writtenAt > 1000;
+                    captionsChanged ||= Date.now() - writtenAt > RECENT_WRITE_WINDOW_MS;
                     continue;
                 }
                 if (tracked.has(key) || trackedSuffixes.has(suffix)) {
-                    const externalChange = Date.now() - writtenAt > 1000;
+                    const externalChange = Date.now() - writtenAt > RECENT_WRITE_WINDOW_MS;
                     previewChanged ||= externalChange;
                     if (externalChange && key !== editKey && suffix !== editSuffix) {
                         nonModelResourceChanged = true;
@@ -1678,6 +1691,44 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 this.queueRefresh(widget, identityUri, kind, undefined, nonModelResourceChanged);
             }
         };
+        // 書き込み完了の直接通知（watcher を待たない速い経路）。
+        // watcher 経路は残したまま並走させ、こちらで処理した書き込みは recentWrites の窓で
+        // 後から来る watcher イベントを落とす（= 同じ 1 回の編集で差分メッセージは 1 通だけ）。
+        // 外部（CLI / 外部エディタ / AI パートナー）からの書き込みはこの通知が来ないので、
+        // 従来どおり watcher 経路だけで更新される。
+        const onEditStoreDidWrite = (event: Event): void => {
+            if (kind !== 'output' || widget.isDisposed) {
+                return;
+            }
+            const detail = (event as CustomEvent<{ uri?: unknown; content?: unknown }>).detail;
+            if (typeof detail?.uri !== 'string' || typeof detail.content !== 'string') {
+                return;
+            }
+            const editUri = widget.akariPreviewEditUri;
+            if (!editUri) {
+                return;
+            }
+            let written: URI;
+            try {
+                written = new URI(detail.uri);
+            } catch {
+                return;
+            }
+            // captions.json など edit.json 以外の直接通知は握らない（watcher 経路のまま）。
+            // ここで recentWrites に印を付けてしまうと watcher 側まで落ちて更新が消えるため、
+            // **一致した URI にだけ印を付ける**のが二重発火抑止と非回帰の両立点。
+            if (written.toString() !== editUri.toString()
+                && this.resourceSuffix(written) !== this.resourceSuffix(editUri)) {
+                return;
+            }
+            this.markRecentWrite(written);
+            this.markRecentWrite(editUri);
+            this.queueRefresh(widget, identityUri, kind, undefined, false, detail.content);
+        };
+        window.addEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditStoreDidWrite);
+        disposables.push({
+            dispose: () => window.removeEventListener(EDIT_STORE_DID_WRITE_EVENT, onEditStoreDidWrite)
+        });
         for (const root of await this.workspaceService.roots) {
             disposables.push(await this.fileService.watch(root.resource, { recursive: true, excludes: [] }));
         }
@@ -1987,7 +2038,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         identityUri: URI,
         kind: 'raw' | 'output',
         seekTimeOverride?: number,
-        forceRebuild = false
+        forceRebuild = false,
+        editSource?: string
     ): void {
         const previous = widget.akariPreviewRefresh ?? Promise.resolve();
         const refresh = (): Promise<void> => {
@@ -2003,7 +2055,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 identityUri,
                 kind,
                 seekTimeOverride ?? transport?.timelineT,
-                forceRebuild
+                forceRebuild,
+                editSource
             );
         };
         widget.akariPreviewRefresh = previous.then(
@@ -2017,6 +2070,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // 末尾は一致するため、tracked リソースの判定をこの suffix でも突き合わせられる。
     protected resourceSuffix(uri: URI): string {
         return `${uri.path.dir.base}/${uri.path.base}`;
+    }
+
+    /** 「今この URI へ書いた」印。URI キーと suffix キーの両方へ入れる（realpath 差の吸収）。 */
+    protected markRecentWrite(uri: URI): void {
+        const now = Date.now();
+        this.recentWrites.set(uri.toString(), now);
+        this.recentWrites.set(this.resourceSuffix(uri), now);
+    }
+
+    /** 直近の自己書き込み時刻。URI キーと suffix キーの新しい方を採る。 */
+    protected recentWriteAt(uri: URI): number {
+        return Math.max(
+            this.recentWrites.get(uri.toString()) ?? 0,
+            this.recentWrites.get(this.resourceSuffix(uri)) ?? 0
+        );
     }
 
     protected queueCaptionsUpdate(widget: PreviewWidgetMarker): void {
@@ -2097,13 +2165,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         identityUri: URI,
         kind: 'raw' | 'output',
         initialSeekTime?: number,
-        forceRebuild = false
+        forceRebuild = false,
+        editSource?: string
     ): Promise<void> {
         if (widget.isDisposed) {
             return;
         }
         const [model, assets] = await Promise.all([
-            kind === 'output' ? this.loadPreviewModel(identityUri) : this.loadRawPreviewModel(identityUri),
+            kind === 'output' ? this.loadPreviewModel(identityUri, editSource) : this.loadRawPreviewModel(identityUri),
             this.getOverlayRuntimeAssets()
         ]);
         const nextSnapshot = this.previewModelSnapshot(model, assets);
@@ -2412,17 +2481,32 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         };
     }
 
-    protected async loadPreviewModel(editUri: URI): Promise<PreviewModel> {
+    /**
+     * editSource は「書き込み完了の直接通知（EDIT_STORE_DID_WRITE_EVENT）に載ってきた
+     * edit.json の全文」。渡された場合は edit.json の再読込（readText = backend への
+     * ファイル読み出し）を丸ごと省く。
+     *
+     * 省けないもの（通知に載っていないので省略の根拠が無い）:
+     *   - captions.json の読み出し（loadPreviewCaptions）— 別ファイルで、内容は通知に含まれない
+     *   - overlay 断片 HTML の読み出し / 資産ストリームの生成（createAssetStream）—
+     *     いずれも edit.json が参照する「別の実体」の解決であり、edit.json の全文からは導けない
+     */
+    protected async loadPreviewModel(editUri: URI, editSource?: string): Promise<PreviewModel> {
         const [workspaceRoot] = await this.workspaceService.roots;
         const captionsUri = locatePreviewCaptions(editUri, workspaceRoot?.resource);
-        const captions = await this.loadPreviewCaptions(captionsUri, editUri);
+        // 字幕の解決（resolveCaptionDisplay = backend RPC）は edit.json の内容にも依存するので
+        // 通知に全文が載っていても省けない（captions.json は別ファイルで通知に含まれない）。
+        // ただし**直列に待つ必要は無い**ので、資産解決と並走させて待ち時間を重ねる。
+        // 実測（一時計装・n=6）: この解決だけで 12.7〜40.7ms を占め、loadPreviewModel 全体は
+        // 42〜82ms だった。loadPreviewCaptions は内部で catch して [] を返すので reject しない。
+        const captionsPromise = this.loadPreviewCaptions(captionsUri, editUri);
         const assetStreams = new Map<string, { id: string; url: string }>();
         const assetUris: URI[] = [];
         let sourceUri: URI | undefined;
         let sourceProxyUri: URI | undefined;
         const sourcesById = new Map<string, { uri: URI; proxyUri?: URI }>();
         try {
-            const edit = JSON.parse(await this.readText(editUri));
+            const edit = JSON.parse(editSource ?? await this.readText(editUri));
             // edit.json は v0（単一 source）と v1（sources[] + cuts[].src）の両方が公開契約
             // （packages/schemas/edit.schema.json）。どちらも「id → URI」の表に正規化し、
             // 以降は表引きで扱う。v0 は既定 id 一つだけの表になる。
@@ -2449,7 +2533,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetUris: [],
                     assetStreamIds: [],
                     captionsUri,
-                    captions,
+                    captions: await captionsPromise,
                     emptyProject: true
                 };
             }
@@ -2671,6 +2755,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 indicators.push('ディゾルブ切り替え');
             }
             indicators.push(...unsupportedGltfWarnings);
+            // ここで初めて字幕解決を待つ（上の資産解決と並走済み）。
+            const captions = await captionsPromise;
             return {
                 editUri,
                 sourceUri,
@@ -2714,7 +2800,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 assetUris: [],
                 assetStreamIds: [],
                 captionsUri,
-                captions
+                captions: await captionsPromise
             };
         }
     }

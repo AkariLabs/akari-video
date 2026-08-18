@@ -50,6 +50,51 @@ test('writeProjectFilesGuarded は lint を待たず候補全文を atomic 保�
   }
 });
 
+test('writeProjectFilesGuarded は rename 完了直後に onDidWrite を全文つきで呼ぶ', async () => {
+  const root = makeProject({ version: 0 });
+  try {
+    const candidate = JSON.stringify({ version: 0, cuts: [{ in: 5, out: 1 }] });
+    const captions = JSON.stringify({ captions: [] });
+    const seen = [];
+    await writeProjectFilesGuarded(
+      root,
+      { 'edit.json': candidate, 'captions.json': captions, 'absent.json': null },
+      {
+        debounceMs: 10,
+        // 通知が飛んだ時点で実ファイルが既に新内容へ差し替わっていること（= rename 後）も見る。
+        onDidWrite: (filePath, content) => seen.push({
+          filePath,
+          content,
+          onDisk: fs.readFileSync(filePath, 'utf8')
+        })
+      }
+    );
+    assert.deepEqual(seen.map(entry => path.basename(entry.filePath)), ['edit.json', 'captions.json']);
+    assert.equal(seen[0].content, candidate);
+    assert.equal(seen[0].onDisk, candidate);
+    assert.equal(seen[1].content, captions);
+    assert.equal(seen[1].onDisk, captions);
+  } finally {
+    await new Promise(resolve => setTimeout(resolve, 30));
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('onDidWrite が投げても保存は完了したままになる（fail-open）', async () => {
+  const root = makeProject({ version: 0 });
+  try {
+    const candidate = JSON.stringify({ version: 0, cuts: [{ in: 5, out: 1 }] });
+    await writeProjectFilesGuarded(root, { 'edit.json': candidate }, {
+      debounceMs: 10,
+      onDidWrite: () => { throw new Error('購読側の失敗'); }
+    });
+    assert.equal(fs.readFileSync(path.join(root, 'edit.json'), 'utf8'), candidate);
+  } finally {
+    await new Promise(resolve => setTimeout(resolve, 30));
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('lintProjectCandidates は候補を実ファイルへ書かずメモリ上書きで検証する', async () => {
   const before = { version: 0 };
   const root = makeProject(before);
