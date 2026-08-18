@@ -15,6 +15,7 @@ import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
+import { deriveVisualTrackOrder, resolveVisualTrackZ } from '@akari-video/edit-store';
 import {
     AkariPreviewService,
     OverlayRuntimeAssets,
@@ -215,6 +216,7 @@ interface EditSummary {
     audio?: EditSummaryAudio;
     tracks?: EditSummaryTracks;
     timelineTracks?: EditSummaryTimelineTrack[];
+    hasCaptions?: boolean;
     hasInlineCaptions?: boolean;
     indicators: string[];
 }
@@ -2690,6 +2692,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(audio ? { audio } : {}),
                     ...(tracks ? { tracks } : {}),
                     ...(timelineTracks ? { timelineTracks } : {}),
+                    ...(captions.length > 0 || (Array.isArray(edit?.captions) && edit.captions.length > 0)
+                        ? { hasCaptions: true } : {}),
                     ...(Array.isArray(edit?.captions) && edit.captions.length > 0
                         ? { hasInlineCaptions: true } : {})
                 }
@@ -3682,7 +3686,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
    （配置・transform は毎フレーム video のインラインスタイルを鏡写し — syncStillImageVisual）。 */
 #preview-still { position: absolute; top: 0; left: 0; object-fit: contain; display: none; user-select: none; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
-#preview-layers > video, #preview-layers > img { position: absolute; display: none; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
+#preview-layers > video, #preview-layers > img { position: absolute; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
+#preview-layers > [data-akari-layer-id] { display: none; }
 #layer-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #layer-select-box.is-active { display: block; }
 #layer-select-box .akari-layer-handle { position: absolute; width: 12px; height: 12px; margin: -6px; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
@@ -3742,13 +3747,13 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #cut-select-box .akari-cut-handle-se { top: 100%; left: 100%; cursor: nwse-resize; }
 #caption-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px dashed #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #caption-select-box.is-active { display: block; }
-#overlay-stage { position: absolute; top: 0; left: 0; z-index: 1; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; }
+#overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; overflow: hidden; pointer-events: none; }
 #pen-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 #pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
-#transition-plate { position: absolute; inset: 0; z-index: 2147483646; opacity: 0; pointer-events: none; }
+#transition-plate { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
 /* プレーン字幕 host の見た目は焼き込み既定（captions.mjs）とパリティ: 透明座布団 + 実ストローク縁取り。
    shrink-to-fit の形状と cursor: move はドラッグ当たり判定のため維持する。 */
-#caption-plate { position: absolute; left: 50%; bottom: 7%; z-index: 2147483647; max-width: 92%; transform: translateX(-50%); padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
+#caption-plate { position: absolute; left: 50%; bottom: 7%; max-width: 92%; transform: translateX(-50%); padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
 #caption-plate:empty { display: none; }
 #caption-plate.akari-caption-host--styled { inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
@@ -3797,10 +3802,11 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
       <div id="zoom-layer">
-        <video id="preview-video"${primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="auto"></video>
-        <img id="preview-still" alt="" draggable="false">
-        <div id="preview-layers"></div>
-        <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
+        <div id="preview-layers">
+          <video id="preview-video"${primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="auto"></video>
+          <img id="preview-still" alt="" draggable="false">
+          <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
+        </div>
         <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div></div>
         <div id="layer-crop-box"><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
         <div id="layer-crop-toggle" title="クロップモード切替 (Esc で終了)">⛶</div>
@@ -4462,16 +4468,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 const nextFrameScale = frameRect.width / outputWidth;
                 frameScale = Number.isFinite(nextFrameScale) && nextFrameScale > 0 ? nextFrameScale : 1;
                 const stageTransform = 'translate(0px, 0px) scale(' + frameScale + ')';
-                video.style.left = frameRect.x + 'px';
-                video.style.top = frameRect.y + 'px';
-                video.style.width = frameRect.width + 'px';
-                video.style.height = frameRect.height + 'px';
+                video.style.left = '0px';
+                video.style.top = '0px';
+                video.style.width = outputWidth + 'px';
+                video.style.height = outputHeight + 'px';
                 layersStage.style.left = frameRect.x + 'px';
                 layersStage.style.top = frameRect.y + 'px';
                 layersStage.style.width = outputWidth + 'px';
                 layersStage.style.height = outputHeight + 'px';
                 layersStage.style.transform = stageTransform;
-                for (const layerVideo of layersStage.querySelectorAll('video, img')) {
+                for (const layerVideo of layersStage.querySelectorAll('[data-akari-layer-id]')) {
                     if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) continue;
                     const x = Number(layerVideo.dataset.akariTransformX) || 0;
                     const y = Number(layerVideo.dataset.akariTransformY) || 0;
@@ -4544,8 +4550,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         const y = Number(video.dataset.akariTransformY) || 0;
                         const scale = Number(video.dataset.akariTransformScale) || 1;
                         const rotate = Number(video.dataset.akariTransformRotate) || 0;
-                        return 'translate(' + (x * frameScale) + 'px, '
-                            + (y * frameScale) + 'px) scale(' + scale + ') rotate(' + rotate + 'deg)';
+                        return 'translate(' + x + 'px, '
+                            + y + 'px) scale(' + scale + ') rotate(' + rotate + 'deg)';
                     })()
                     : '';
                 video.dataset.akariBaseTransform = baseTransform;
@@ -4554,9 +4560,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 } else {
                     video.style.transform = baseTransform;
                 }
-                stage.style.left = frameRect.x + 'px';
-                stage.style.top = frameRect.y + 'px';
-                stage.style.transform = stageTransform;
+                stage.style.left = '0px';
+                stage.style.top = '0px';
                 penLayer.style.left = rect.x + 'px';
                 penLayer.style.top = rect.y + 'px';
                 penLayer.style.width = rect.width + 'px';
@@ -5173,57 +5178,25 @@ body { display: grid; place-items: center; padding: 32px; }
                 finishPenStroke(event);
                 finishRect(event);
             });
-            // Browser webviews cannot import packages/edit-lint/src/derive-tracks.mjs. Keep this
-            // copy behavior-identical to that shared function: kind groups in fixed order, each
-            // ref sorted ascending, followed by singleton captions/audio tracks.
-            const collectTrackNumbers = items => {
-                const tracks = new Set();
-                for (const item of Array.isArray(items) ? items : []) {
-                    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
-                    if (!Object.prototype.hasOwnProperty.call(item, 'track')) {
-                        tracks.add(0);
-                    } else if (Number.isInteger(item.track) && item.track >= 0) {
-                        tracks.add(item.track);
-                    }
-                }
-                return Array.from(tracks).sort((left, right) => left - right);
-            };
-            const deriveTracks = () => {
-                const derived = [];
-                const append = (kind, ref) => derived.push({
-                    kind,
-                    ...(ref === undefined ? {} : { ref })
-                });
-                for (const kind of ['cuts', 'layers', 'overlays']) {
-                    for (const track of collectTrackNumbers(summary[kind])) append(kind, track);
-                }
-                if (summary.hasInlineCaptions) append('captions');
-                if (Array.isArray(summary.audio && summary.audio.sfx)
-                    && summary.audio.sfx.length > 0) append('audio', 0);
-                return derived;
-            };
+            // timeline.tracks → z の純関数は preview / render-cut 共通の edit-store 正本。
+            // webview sandbox では package import ができないため、関数本体そのものを注入する。
+            const deriveVisualTrackOrderFn = (${deriveVisualTrackOrder.toString()});
+            const resolveVisualTrackZFn = (${resolveVisualTrackZ.toString()});
             let resolvedTracks = [];
-            const visualTrackZ = new Map();
             const rebuildVisualTrackZ = () => {
                 resolvedTracks = Array.isArray(summary.timelineTracks)
-                    ? summary.timelineTracks : deriveTracks();
-                visualTrackZ.clear();
-                resolvedTracks.forEach((track, index) => {
-                    if ((track.kind === 'cuts' || track.kind === 'layers') && Number.isInteger(track.ref)) {
-                        // Keep every cuts/layers element below #overlay-stage (z-index: 1) while
-                        // retaining timeline.tracks' bottom-to-top relative order.
-                        visualTrackZ.set(track.kind + ':' + track.ref, index - resolvedTracks.length);
-                    }
-                });
+                    ? summary.timelineTracks : deriveVisualTrackOrderFn(summary);
             };
             rebuildVisualTrackZ();
             const zForTrack = (kind, track) => {
-                const declared = visualTrackZ.get(kind + ':' + track);
-                return declared === undefined ? -resolvedTracks.length - track - 1 : declared;
+                return resolveVisualTrackZFn(resolvedTracks, kind, track);
             };
             const applyCutsZIndex = segment => {
                 if (segment && segment.kind === 'src') {
-                    video.style.zIndex = String(zForTrack('cuts', segment.track));
+                    const z = zForTrack('cuts', segment.track);
+                    video.style.zIndex = String(z);
+                    stillImage.style.zIndex = String(z);
+                    transitionPlate.style.zIndex = String(z);
                 }
             };
             const applyCutVisual = segment => {
@@ -5975,21 +5948,19 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.addEventListener('pointercancel', onUp);
                 window.addEventListener('keydown', onKeyDown, true);
             };
-            // #overlay-stage covers the whole frame with pointer-events:auto (needed so overlays'
-            // own interaction chrome stays clickable) and paints above #preview-layers, so it is
-            // always the real hit-test target within the frame. A plain per-video pointerdown
-            // listener would therefore never fire. Delegate from the stage instead: when the
-            // click's direct target is the stage element itself (not an actual overlay or its
-            // interaction chrome, which would make the target a descendant), look for a layer
-            // video underneath via elementsFromPoint.
-            stage.addEventListener('pointerdown', event => {
+            // cuts / layers / overlays / captions は同じ #preview-layers 内で z を競う。
+            // 箱は pointer-events:none、実体だけ auto なので、共通祖先から委譲しつつ
+            // 全面透明 mov のアルファ実測だけは elementsFromPoint で下へ素通しする。
+            layersStage.addEventListener('pointerdown', event => {
                 // ㉔ クロップモード中は移動/選択切り替えと操作が衝突しないよう、選択中レイヤーの
                 // ボディドラッグを含め本編ステージの通常操作を止める（ハンドルは別要素なので
                 // このガードの影響を受けない）。
-                if (event.button !== 0 || zoom > 1.05 || event.target !== stage || cropModeActive) return;
-                // ㉓ #preview-video も #overlay-stage の裏に隠れる同じ事情のため、layer video と
-                // 同じ elementsFromPoint 委譲に相乗りする（実際の z-order は zForTrack() 経由で
-                // cuts/layers が混在し得るため、ヒットテスト順=画面上の重なり順をそのまま使う）。
+                const target = event.target;
+                const targetIsVisualMedia = target === video || target === stillImage
+                    || Boolean(target?.dataset?.akariLayerId);
+                // オーバーレイ / 字幕の実体をクリックした場合は各ランタイムの操作を優先する。
+                if (event.button !== 0 || zoom > 1.05 || cropModeActive
+                    || (!targetIsVisualMedia && target !== layersStage && target !== stage)) return;
                 const hit = document.elementsFromPoint(event.clientX, event.clientY)
                     .find(candidate => {
                         if (candidate === video) return true;
@@ -6043,9 +6014,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 const entry = findLayerEntry(hit.dataset.akariLayerId);
                 if (!entry) return;
                 selectLayer(entry.spec.id);
-                // stageLocalPoint() は #overlay-stage の getBoundingClientRect() 由来のため、
-                // #zoom-layer のプレビューズーム(scale(zoom))と #overlay-stage 自身の
-                // frameScale の両方を含む倍率で client px → 出力px を変換する（旧実装の
+                // #overlay-stage は統合後の #preview-layers と同じ出力px寸法を持ち、その
+                // getBoundingClientRect() は親の frameScale と #zoom-layer の scale(zoom) を
+                // 両方継承する。stageLocalPoint() はその実測倍率で client px → 出力px を変換する（旧実装の
                 // window.akari.stageScale()単独＝frameScaleのみだと zoom 抜け漏れでズーム下の
                 // ドラッグ量が不正確になっていた）。
                 const startPoint = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
@@ -6240,9 +6211,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         || event.target.closest('#layer-perspective-toggle') || event.target.closest('#layer-perspective-panel'))) {
                     return;
                 }
-                // A click that lands on the stage over a layer video/preview-video reports
-                // event.target as the stage itself (see the delegated pointerdown handler above),
-                // so re-check via elementsFromPoint rather than event.target.closest here.
+                // 全面透明 mov の可視画素判定を含め、実際の z 順を elementsFromPoint で再確認する。
                 const hitSelectable = document.elementsFromPoint(event.clientX, event.clientY)
                     .some(candidate => {
                         if (candidate === video) return true;
@@ -6609,9 +6578,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     const overlay = summary.overlays.find(candidate => String(candidate.id) === id);
                     const track = Number.isInteger(overlay?.track) && overlay.track >= 0 ? overlay.track : 0;
                     container.setAttribute('data-akari-track', String(track));
-                    container.style.zIndex = String(10 + track);
+                    container.style.zIndex = String(zForTrack('overlays', track));
                     container.style.display = hiddenTracks.has(track) ? 'none' : '';
                 }
+                captionPlate.style.zIndex = String(zForTrack('captions'));
             };
             // source↔output 写像の正本は packages/edit-store/src/timeline-map.ts。webview は
             // sandbox 制約で import できないため、共有カーネル webview-kernel.js（IIFE バンドル、

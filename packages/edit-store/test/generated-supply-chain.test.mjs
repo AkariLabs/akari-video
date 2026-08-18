@@ -17,6 +17,7 @@ const expectedSources = [
   'edit-v2.ts',
   'index.ts',
   'timeline-map.ts',
+  'track-order.ts',
   'webview-kernel.ts',
   'write-gate.ts',
 ];

@@ -9,3 +9,4 @@ export * from './caption-window';
 export * from './timeline-map';
 export * from './caption-display';
 export * from './edit-v2';
+export * from './track-order';

@@ -24,7 +24,7 @@ import {
   buildTrackBaseCommand,
   resolveCutTrackRanges,
 } from "./track-compose.mjs";
-import { resolveTrackOrder, usesDefaultTrackOrder } from "./track-order.mjs";
+import { resolveTrackOrder, resolveVisualTrackZ, usesDefaultTrackOrder } from "./track-order.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { enableWindowExpr } from "./enable-window.mjs";
 import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
@@ -180,7 +180,8 @@ export function buildPlan({
   // layers[] is additive-only (contract-2026-07-22-prerender-rail-and-assets.md §1.2): an edit.json
   // without it produces no `layers` command and render-cut.mjs skips this stage entirely, so
   // existing projects keep their byte-identical cut.mp4 -> composite pipeline (zero regression).
-  const defaultTrackOrder = usesDefaultTrackOrder(edit);
+  const trackOrderOptions = { hasCaptions: captionOverlays.length > 0 };
+  const defaultTrackOrder = usesDefaultTrackOrder(edit, trackOrderOptions);
   const layers = defaultTrackOrder && hasLayers(edit)
     ? buildLayersCompositeCommand({
         layers: edit.layers,
@@ -211,6 +212,8 @@ export function buildPlan({
         fps,
         hasSourceAudio,
         videoEncodeArgs,
+        captionOverlays,
+        trackOrderOptions,
       });
   const baseVideoPath = trackStack ? trackStack.outputPath : (layers ? layeredPath : cutOutputPath);
 
@@ -353,19 +356,33 @@ function buildTrackStackPlan({
   fps,
   hasSourceAudio,
   videoEncodeArgs,
+  captionOverlays,
+  trackOrderOptions,
 }) {
   const cutVideoEncodeArgs = tuneCutVideoEncodeArgs(videoEncodeArgs);
-  const ordered = resolveTrackOrder(edit)
-    .map((track, orderIndex) => {
+  const resolvedTracks = resolveTrackOrder(edit, trackOrderOptions);
+  const ordered = resolvedTracks
+    .map(track => {
       const ref = Number.isInteger(track?.ref) ? track.ref : null;
+      const orderIndex = resolveVisualTrackZ(resolvedTracks, track?.kind, ref ?? undefined);
       const items = track?.kind === "cuts"
         ? edit.cuts.filter(cut => (cut.track ?? 0) === ref)
         : track?.kind === "layers"
           ? (edit.layers ?? []).filter(layer => (layer.track ?? 0) === ref)
-          : [];
+          : track?.kind === "overlays"
+            ? edit.overlays.filter(overlay => (overlay.track ?? 0) === ref)
+            : track?.kind === "captions"
+              ? captionOverlays
+              : [];
       return { kind: track?.kind, ref, orderIndex, items };
     })
-    .filter(track => (track.kind === "cuts" || track.kind === "layers") && track.items.length > 0);
+    .filter(track => (
+      track.kind === "cuts"
+      || track.kind === "layers"
+      || track.kind === "overlays"
+      || track.kind === "captions"
+    ) && track.items.length > 0)
+    .sort((left, right) => left.orderIndex - right.orderIndex);
 
   // task 2026-08-07-track-transition-lint-guard (edit-lint's cuts.track-transition-unsupported
   // check is the primary guard; this is the defensive backstop for direct render-cut invocations
@@ -409,6 +426,13 @@ function buildTrackStackPlan({
   ordered.forEach((track, stageIndex) => {
     const isLast = stageIndex === ordered.length - 1;
     const outputPath = isLast ? layeredPath : join(temporary, `track-stage-${stageIndex}.mp4`);
+    const stageBase = {
+      kind: track.kind,
+      ref: track.ref,
+      orderIndex: track.orderIndex,
+      inputPath: previousPath,
+      outputPath,
+    };
     if (track.kind === "cuts") {
       const trackPath = join(temporary, `cut-track-${track.ref}-${track.orderIndex}.mp4`);
       const command = edit.version === 1
@@ -441,8 +465,7 @@ function buildTrackStackPlan({
           });
       cutTracks.push({ ref: track.ref, path: trackPath, command });
       stages.push({
-        kind: "cuts",
-        ref: track.ref,
+        ...stageBase,
         command: buildCutTrackCompositeCommand({
           ffmpegCommand: capabilities.ffmpegCommand,
           inputPath: previousPath,
@@ -457,10 +480,9 @@ function buildTrackStackPlan({
           videoEncodeArgs,
         }),
       });
-    } else {
+    } else if (track.kind === "layers") {
       stages.push({
-        kind: "layers",
-        ref: track.ref,
+        ...stageBase,
         command: buildLayersCompositeCommand({
           layers: track.items,
           projectRoot,
@@ -474,6 +496,12 @@ function buildTrackStackPlan({
           videoEncodeArgs,
         }),
       });
+    } else {
+      stages.push({
+        ...stageBase,
+        command: null,
+        overlayIds: track.items.map(item => String(item.id)),
+      });
     }
     previousPath = outputPath;
   });
@@ -486,10 +514,7 @@ function buildTrackStackPlan({
     intermediates: [
       basePath,
       ...cutTracks.map(track => track.path),
-      ...stages
-        .slice(0, -1)
-        .map((_, index) => join(temporary, `track-stage-${index}.mp4`)),
-      ...(ordered.length > 0 ? [layeredPath] : []),
+      ...stages.map(stage => stage.outputPath),
     ],
   };
 }

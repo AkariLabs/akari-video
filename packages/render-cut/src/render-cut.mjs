@@ -270,14 +270,45 @@ export async function renderProject(input, options = {}, io = console) {
     }
 
     const trackStack = plan.commands.track_stack;
+    const overlays = loadedOverlays;
+    const captions = captionOverlays;
+    const allOverlays = [...overlays, ...captions];
     if (trackStack) {
       runChecked(trackStack.base.command, trackStack.base.args, { cwd: projectRoot });
       for (const track of trackStack.cutTracks) {
         runChecked(track.command.command, track.command.args, { cwd: projectRoot });
       }
       for (const stage of trackStack.stages) {
-        for (const warning of stage.command.warnings ?? []) addWarning(state, warning);
-        runChecked(stage.command.command, stage.command.args, { cwd: projectRoot });
+        if (stage.command) {
+          for (const warning of stage.command.warnings ?? []) addWarning(state, warning);
+          runChecked(stage.command.command, stage.command.args, { cwd: projectRoot });
+          continue;
+        }
+        const ids = new Set(stage.overlayIds);
+        const stageOverlays = (stage.kind === "captions" ? captions : overlays)
+          .filter(overlay => ids.has(String(overlay.id)));
+        if (stageOverlays.length === 0) {
+          await copyFile(stage.inputPath, stage.outputPath);
+          continue;
+        }
+        const stageTemporaryDirectory = join(temporaryDirectory, `track-overlay-${stage.orderIndex}`);
+        await mkdir(stageTemporaryDirectory, { recursive: true });
+        await rasterizeAndComposite({
+          state,
+          allOverlays: stageOverlays,
+          edit,
+          projectRoot,
+          temporaryDirectory: stageTemporaryDirectory,
+          cutPath: stage.inputPath,
+          compositePath: stage.outputPath,
+          capabilities,
+          duration: plan.predicted_duration_seconds,
+          // Keep one rasterizer contract for the whole render. If any declared overlay is 3D,
+          // every split track stage stays on puppeteer-core just like the legacy single sheet.
+          hasThreeDimensionalOverlay,
+          fps: plan.preset.fps,
+          videoEncodeArgs: encodingPolicy?.video_encode_args ?? null,
+        });
       }
     }
 
@@ -296,11 +327,19 @@ export async function renderProject(input, options = {}, io = console) {
     const cutOutputPath = tailPadCommand ? tailPaddedPath : cutPath;
     const baseVideoPath = trackStack?.outputPath ?? (layersCommand ? layeredPath : cutOutputPath);
 
-    const overlays = loadedOverlays;
-    const captions = captionOverlays;
-    const allOverlays = [...overlays, ...captions];
     const compositePath = join(temporaryDirectory, "composite.mp4");
-    if (allOverlays.length === 0) {
+    if (trackStack) {
+      await copyFile(trackStack.outputPath, compositePath);
+      if (allOverlays.length === 0) {
+        state.provenance.rasterizer.adopted = "skip";
+        state.provenance.rasterizer.attempts.push({
+          method: "skip",
+          status: "adopted",
+          reason: "no overlay HTML or captions.json",
+        });
+      }
+      emitProgress("composite", plan.predicted_duration_seconds);
+    } else if (allOverlays.length === 0) {
       await copyFile(baseVideoPath, compositePath);
       state.provenance.rasterizer.adopted = "skip";
       state.provenance.rasterizer.attempts.push({
