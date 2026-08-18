@@ -2023,7 +2023,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const sfx = this.audioSfx.find(candidate => candidate.id === request.id);
                     const sfxIndex = Number(request.id.slice(4));
                     if (!sfx || !Number.isInteger(sfxIndex)) {
-                        throw new Error('SE が見つかりません。');
+                        throw new Error('音声クリップが見つかりません。');
                     }
                     const original = sfx.gainDb ?? null;
                     await this.annotationsService.setSfxGain({
@@ -2033,7 +2033,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         gainDb: request.value
                     });
                     this.pushHistory({
-                        label: 'SE の音量を変更',
+                        label: '音声クリップの音量を変更',
                         undo: async () => {
                             await this.annotationsService.setSfxGain({
                                 editUri,
@@ -2055,7 +2055,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     await this.reloadEdit();
                     this.hideNotice();
-                    this.footer.textContent = 'SE の音量を変更しました。';
+                    this.footer.textContent = '音声クリップの音量を変更しました。';
                     return { ok: true };
                 }
                 case 'sfx-fade-in':
@@ -2071,7 +2071,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     const sfx = this.audioSfx.find(candidate => candidate.id === request.id);
                     const sfxIndex = Number(request.id.slice(4));
                     if (!sfx || !Number.isInteger(sfxIndex)) {
-                        throw new Error('SE が見つかりません。');
+                        throw new Error('音声クリップが見つかりません。');
                     }
                     const originalFadeIn = sfx.fadeIn ?? null;
                     const originalFadeOut = sfx.fadeOut ?? null;
@@ -2085,7 +2085,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     };
                     await this.annotationsService.setSfxFade({ editUri, projectRootUri, sfxIndex, ...nextFields });
                     this.pushHistory({
-                        label: 'SE のフェードを変更',
+                        label: '音声クリップのフェードを変更',
                         undo: async () => {
                             await this.annotationsService.setSfxFade({
                                 editUri,
@@ -2107,7 +2107,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     });
                     await this.reloadEdit();
                     this.hideNotice();
-                    this.footer.textContent = 'SE のフェードを変更しました。';
+                    this.footer.textContent = '音声クリップのフェードを変更しました。';
                     return { ok: true };
                 }
                 case 'bgm-gain':
@@ -2616,7 +2616,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const sfx = this.audioSfx.find(candidate => candidate.id === selection.id);
                 const sfxIndex = Number(selection.id.slice(4));
                 if (!sfx || !Number.isInteger(sfxIndex) || !this.validTimelinePosition(sfx.t, sfx.track ?? 0)) {
-                    this.showNotice('SE の時刻またはトラックが不正です。');
+                    this.showNotice('音声クリップの時刻またはトラックが不正です。');
                     return;
                 }
                 const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
@@ -2628,7 +2628,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 await this.pruneEmptyDeclaredTracks();
                 const editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
                 this.pushHistory({
-                    label: 'SE の削除',
+                    label: '音声クリップの削除',
                     undo: async () => {
                         await this.writeTimelineSnapshots(editBefore);
                         await this.reloadEdit();
@@ -2638,7 +2638,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         await this.reloadEdit();
                     }
                 });
-                this.footer.textContent = this.writeResultMessage('SE を削除しました。', result);
+                this.footer.textContent = this.writeResultMessage('音声クリップを削除しました。', result);
             }
             this.applySelection(undefined);
             this.hideNotice();
@@ -7202,13 +7202,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
                 if (!Number.isFinite(preview.t) || preview.t < 0 || !Number.isInteger(preview.track) || preview.track < 0) {
-                    this.showNotice('SE の移動先が不正です。');
+                    this.showNotice('音声クリップの移動先が不正です。');
                     return;
                 }
                 const original = this.audioSfx.find(sfx => sfx.id === preview.id);
                 const sfxIndex = Number(preview.id.slice(4));
                 if (!original || !Number.isInteger(sfxIndex)) {
-                    throw new Error(`SE ${preview.id} が見つかりません`);
+                    throw new Error(`音声クリップ ${preview.id} が見つかりません`);
                 }
                 const originalTrackState = await this.readIndexedTrackState('sfx');
                 result = await this.annotationsService.moveSfx({
@@ -7220,7 +7220,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const pruneResult = await this.pruneEmptyDeclaredTracks();
                 const movedTrackState = await this.readIndexedTrackState('sfx');
                 this.pushHistory({
-                    label: 'SE の移動',
+                    label: '音声クリップの移動',
                     undo: async () => {
                         await this.annotationsService.moveSfx({
                             editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
@@ -7242,7 +7242,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }
                     }
                 });
-                this.footer.textContent = this.writeResultMessage('SE を移動しました。', result);
+                this.footer.textContent = this.writeResultMessage('音声クリップを移動しました。', result);
             } else if (preview.kind === 'audio-trim') {
                 if (!location.editUri) {
                     return;
@@ -7250,7 +7250,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const original = this.audioSfx.find(sfx => sfx.id === preview.id);
                 const sfxIndex = Number(preview.id.slice(4));
                 if (!original || !Number.isInteger(sfxIndex)) {
-                    throw new Error(`SE ${preview.id} が見つかりません`);
+                    throw new Error(`音声クリップ ${preview.id} が見つかりません`);
                 }
                 let maxOutSeconds: number | undefined;
                 if (preview.edge === 'right') {
@@ -7262,7 +7262,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
                 const finalOut = maxOutSeconds !== undefined ? Math.min(preview.out, maxOutSeconds) : preview.out;
                 if (finalOut - preview.in < MINIMUM_SFX_TRIM_DURATION) {
-                    this.showNotice('SE が短すぎます（0.1 秒未満にはできません）');
+                    this.showNotice('音声クリップが短すぎます（0.1 秒未満にはできません）');
                     return;
                 }
                 const originalIn = original.in ?? null;
@@ -7273,7 +7273,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ...(preview.edge === 'left' ? { t: preview.t } : {})
                 });
                 this.pushHistory({
-                    label: 'SE のトリム',
+                    label: '音声クリップのトリム',
                     undo: async () => {
                         await this.annotationsService.trimSfx({
                             editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
@@ -7292,7 +7292,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }
                 });
                 await this.reloadEdit();
-                this.footer.textContent = this.writeResultMessage('SE をトリムしました。', result);
+                this.footer.textContent = this.writeResultMessage('音声クリップをトリムしました。', result);
             } else if (preview.kind === 'overlay-move') {
                 if (!location.editUri) {
                     return;
