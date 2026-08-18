@@ -72,6 +72,8 @@
     "prebuild": "node resources/scripts/ensure-file-deps-linked.mjs",
     "build:ext": "tsc -b extensions/akari-shell-strip extensions/akari-project extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-preview extensions/akari-annotations extensions/akari-transcript extensions/akari-theme",
     "build": "npm run build:ext && theia build --mode production",
+    "postbuild": "node scripts/resign-electron.mjs",
+    "postinstall": "node scripts/resign-electron.mjs",
     "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",
     "start": "theia start --plugins=local-dir:plugins",
     "prepackage": "node resources/scripts/copy-native-helpers.mjs && node resources/scripts/patch-ripgrep-asar-path.mjs && node resources/scripts/bundle-media-binaries.mjs && node resources/scripts/generate-third-party-notices.mjs",

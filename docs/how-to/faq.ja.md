@@ -51,6 +51,11 @@ Windows（WSL2 含む）に対応しています。詳細は [dev/windows-build.
 「doctor かけて」で疎通診断を。キーの実体は `~/.config/akari-video/credentials.env`、
 プロジェクト内には参照だけ、が正しい配置です。
 
+**Q. `apps/shell` を自前ビルドした後、`npm start` がウィンドウを出さずに無言終了する（Apple Silicon）**
+`apps/shell` のビルドが Electron.app 内蔵の ffmpeg ライブラリを差し替える際にコード署名を壊すことがあります。
+`npm run build` は完了後に自動でアドホック再署名（`postbuild`）するため通常は発生しませんが、
+再発した場合は手動で次を実行してください: `codesign --force --deep --sign - node_modules/electron/dist/Electron.app`。
+
 ## 困ったら
 
 再現手順とともに [GitHub Issues](https://github.com/AkariLabs/akari-video/issues) へ。
