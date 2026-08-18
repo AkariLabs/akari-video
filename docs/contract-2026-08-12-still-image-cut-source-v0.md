@@ -6,6 +6,11 @@ updated: 2026-08-12
 
 # 静止画 cut ソース契約 v0
 
+> **読み替え注記**: 表題の `-v0` は本契約文書自身のリビジョンであり、edit.json の
+> スキーマ版（`version`）とは別物。本契約が対象とするのは edit v0 の `source.path` と
+> edit v1 の `sources[].path` の両方（語彙の区別は
+> [contract-2026-07-17-data-contract-versioning.md](./contract-2026-07-17-data-contract-versioning.md) §5）。
+
 - 日付: 2026-08-12
 - 状態: **ドラフト**（v0 実装と同時に確定させる。実装で判明した齟齬は追記で解消）
 - 前提:

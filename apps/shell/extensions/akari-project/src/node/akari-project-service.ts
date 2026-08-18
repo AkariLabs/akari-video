@@ -1370,6 +1370,7 @@ try {
             }, null, 2) + '\n',
             '.claude/skills/README.md': FALLBACK_SKILLS_GUIDANCE,
             '.akari/workflow.json': JSON.stringify(FALLBACK_WORKFLOW, null, 2) + '\n',
+            'edit.json': JSON.stringify(FALLBACK_EDIT_JSON, null, 2) + '\n',
             'assets/.gitkeep': '',
             'planning/.gitkeep': '',
             'exports/.gitkeep': '',
@@ -1486,4 +1487,15 @@ const FALLBACK_WORKFLOW = {
         directory: '.akari/events',
         gateTypes: ['report-generated', 'report-approved', 'edit-completed', 'export-completed']
     }
+};
+// 新規プロジェクトの edit.json 雛形（オーナー決定 2026-08-18: 新規作成は常に v1 —
+// docs/contract-2026-07-18-edit-json-v1-sources.md §1）。`packages/project-scaffold`
+// 側の同名定数と同じ内容（このファイルはその「単一実装」に寄せる前の独立経路 —
+// akari-surfaces/src/common/akari-new-project-protocol.ts 冒頭のコメント参照。
+// `NEW_AKARI_PROJECT`「場所を選んで新規作成…」用の副導線として現役のためここでも直す）。
+const FALLBACK_EDIT_JSON = {
+    version: 1,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [],
+    cuts: []
 };

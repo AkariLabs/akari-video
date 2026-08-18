@@ -101,6 +101,19 @@ const FALLBACK_WORKFLOW = {
     }
 };
 
+// 新規プロジェクトの edit.json 雛形（オーナー決定 2026-08-18: 新規作成は常に v1 —
+// docs/contract-2026-07-18-edit-json-v1-sources.md §1）。`sources` は空のまま置く。
+// 素材が 0 件のこの時点では `edit.schema.json` の editV1（`sources` に `minItems: 1`）を
+// まだ満たさない — 旧 `{}` フォールバックも同様に未検証の下書きだったため後退ではない。
+// 最初の素材投入は edit-plan（またはシェルの素材取り込み）が `sources[]` に 1 件追加した
+// 時点で行われ、その時点から schema 検証対象になる。
+const FALLBACK_EDIT_JSON = {
+    version: 1,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [],
+    cuts: []
+};
+
 function portablePath(value) {
     return value.split(path.sep).join('/');
 }
@@ -185,7 +198,7 @@ export async function writeFallbackTemplate(destinationDir) {
         }, null, 2) + '\n',
         '.akari/workflow.json': JSON.stringify(FALLBACK_WORKFLOW, null, 2) + '\n',
         '.akari/intake.json': JSON.stringify(FALLBACK_INTAKE, null, 2) + '\n',
-        'edit.json': '{}\n',
+        'edit.json': JSON.stringify(FALLBACK_EDIT_JSON, null, 2) + '\n',
         'assets/.gitkeep': '',
         'planning/.gitkeep': '',
         'exports/.gitkeep': '',
