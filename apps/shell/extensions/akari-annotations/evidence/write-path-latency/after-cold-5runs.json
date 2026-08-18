@@ -1,0 +1,286 @@
+{
+  "summary": {
+    "runsRequested": 5,
+    "runsValid": 5,
+    "paintMs": {
+      "min": 35,
+      "median": 64.8,
+      "max": 216.7
+    },
+    "settleMs": {
+      "min": 14.8,
+      "median": 40.8,
+      "max": 196.4
+    }
+  },
+  "runs": [
+    {
+      "run": 0,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": null,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 201.30000007152557,
+      "paintMs": 216.70000004768372,
+      "settleMs": 196.39999997615814,
+      "stripMutations": 5
+    },
+    {
+      "run": 1,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 54.700000047683716,
+      "paintMs": 75.39999997615814,
+      "settleMs": 53.5,
+      "stripMutations": 7
+    },
+    {
+      "run": 2,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 17.5,
+      "paintMs": 35,
+      "settleMs": 14.799999952316284,
+      "stripMutations": 5
+    },
+    {
+      "run": 3,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 54.10000002384186,
+      "paintMs": 64.79999995231628,
+      "settleMs": 40.799999952316284,
+      "stripMutations": 7
+    },
+    {
+      "run": 4,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 22.100000023841858,
+      "paintMs": 36.60000002384186,
+      "settleMs": 21.100000023841858,
+      "stripMutations": 12
+    }
+  ],
+  "log": [
+    {
+      "t": "2026-08-18T17:41:45.209Z",
+      "step": "connected",
+      "url": "file:///Users/ryoma/_edit/30_products/akari-video-wt/write-path-latency/apps/shell/lib/frontend/index.html?port=57233#/private/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-write-path-latency/3a968a1f-a624-4eeb-a13f-4a6b80f42834/scratchpad/ws-after"
+    },
+    {
+      "t": "2026-08-18T17:41:46.497Z",
+      "step": "timeline-open",
+      "found": true
+    },
+    {
+      "t": "2026-08-18T17:41:49.991Z",
+      "step": "run",
+      "run": 0,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": null,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 201.30000007152557,
+      "paintMs": 216.70000004768372,
+      "settleMs": 196.39999997615814,
+      "stripMutations": 5
+    },
+    {
+      "t": "2026-08-18T17:41:52.945Z",
+      "step": "run",
+      "run": 1,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 54.700000047683716,
+      "paintMs": 75.39999997615814,
+      "settleMs": 53.5,
+      "stripMutations": 7
+    },
+    {
+      "t": "2026-08-18T17:41:55.850Z",
+      "step": "run",
+      "run": 2,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 17.5,
+      "paintMs": 35,
+      "settleMs": 14.799999952316284,
+      "stripMutations": 5
+    },
+    {
+      "t": "2026-08-18T17:41:58.814Z",
+      "step": "run",
+      "run": 3,
+      "direction": -1,
+      "dx": 140,
+      "leftBefore": "26.4706%",
+      "leftAfter": "0%",
+      "moved": true,
+      "editBefore": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 54.10000002384186,
+      "paintMs": 64.79999995231628,
+      "settleMs": 40.799999952316284,
+      "stripMutations": 7
+    },
+    {
+      "t": "2026-08-18T17:42:01.616Z",
+      "step": "run",
+      "run": 4,
+      "direction": 1,
+      "dx": 140,
+      "leftBefore": "0%",
+      "leftAfter": "26.4706%",
+      "moved": true,
+      "editBefore": {
+        "at": 0,
+        "in": 29,
+        "out": 41
+      },
+      "editAfter": {
+        "at": 13.5,
+        "in": 29,
+        "out": 41
+      },
+      "t0Seen": true,
+      "domMs": 22.100000023841858,
+      "paintMs": 36.60000002384186,
+      "settleMs": 21.100000023841858,
+      "stripMutations": 12
+    },
+    {
+      "t": "2026-08-18T17:42:02.820Z",
+      "step": "summary",
+      "runsRequested": 5,
+      "runsValid": 5,
+      "paintMs": {
+        "min": 35,
+        "median": 64.8,
+        "max": 216.7
+      },
+      "settleMs": {
+        "min": 14.8,
+        "median": 40.8,
+        "max": 196.4
+      }
+    }
+  ]
+}

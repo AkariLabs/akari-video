@@ -200,6 +200,15 @@ export interface MoveCutRequest {
     at: number;
     track?: number | null;
     trackState?: Record<string, number | null>;
+    /** 移動で空になると UI が判定した宣言済み cuts トラック。moveCut の同一書き込みで除去する。 */
+    pruneTrackIds?: string[];
+}
+
+export interface MoveCutResult extends WriteBackResult {
+    prunedTracks?: {
+        before: Array<{ id: string; kind: string; ref?: number; label?: string }>;
+        after: Array<{ id: string; kind: string; ref?: number; label?: string }>;
+    };
 }
 
 export interface SetCutAtValuesRequest {
@@ -474,10 +483,9 @@ export interface WriteBackResult {
 }
 
 /**
- * edit.json（と必要なら captions.json）全文スナップショットの lint ゲート付き書き戻し
- * （パリティ契約 §2.7 — widget の FileService 直書き経路の置き換え先）。
- * editSource / captionsSource の少なくとも一方は必須。両方渡すと同じ一時ディレクトリで
- * 1 回の lint にかけ、整合した組として検証する。この RPC は git commit しない
+ * edit.json（と必要なら captions.json）全文スナップショットの atomic 書き戻し。
+ * editSource / captionsSource の少なくとも一方は必須。両方渡すと連続保存した最新の組を
+ * 保存後 debounce で 1 回 lint する。この RPC は git commit しない
  * （置き換え元の FileService 直書きが commit していなかった挙動を維持）。
  */
 export interface WriteEditSnapshotRequest {
@@ -486,6 +494,19 @@ export interface WriteEditSnapshotRequest {
     editSource?: string;
     captionsUri?: string;
     captionsSource?: string;
+}
+
+export interface DeferredLintNotification {
+    projectRootUri: string;
+    pass: boolean;
+    errors: string[];
+}
+
+export interface AkariAnnotationsClient {
+    /** backend の atomic rename より前に通知し、自己書き込み由来 watcher を抑止する。 */
+    onWillWrite(uri: string): void;
+    /** 保存後 debounce lint の最新結果。 */
+    onLintResult(notification: DeferredLintNotification): void;
 }
 
 export interface DeleteArrayItemResult extends WriteBackResult {
@@ -504,6 +525,7 @@ export interface RemoveSfxResult extends DeleteArrayItemResult {
 }
 
 export interface AkariAnnotationsService {
+    setClient(client: AkariAnnotationsClient | undefined): void;
     getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult>;
     getClipFilmstripChunk(request: GetClipFilmstripChunkRequest): Promise<GetClipFilmstripChunkResult>;
     getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult>;
@@ -514,7 +536,7 @@ export interface AkariAnnotationsService {
     trimCut(request: TrimCutRequest): Promise<WriteBackResult>;
     slipCut(request: SlipCutRequest): Promise<WriteBackResult>;
     reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult>;
-    moveCut(request: MoveCutRequest): Promise<WriteBackResult>;
+    moveCut(request: MoveCutRequest): Promise<MoveCutResult>;
     setCutAtValues(request: SetCutAtValuesRequest): Promise<WriteBackResult>;
     shiftCaption(request: ShiftCaptionRequest): Promise<WriteBackResult>;
     insertCaption(request: InsertCaptionRequest): Promise<WriteBackResult>;

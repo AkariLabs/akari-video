@@ -91,7 +91,11 @@ export async function lintProject(input, options = {}) {
   const findings = [];
   const skipped = [];
   const inputs = {};
-  const editText = await readRequiredText(paths.editPath, "edit.json");
+  const editText = await readRequiredText(
+    paths.editPath,
+    "edit.json",
+    inputOverride(options, paths.projectRoot, paths.editPath),
+  );
   inputs.edit_json_sha256 = sha256(editText);
 
   let edit;
@@ -116,7 +120,11 @@ export async function lintProject(input, options = {}) {
     return writeResult(findings, skipped, inputs, paths, options);
   }
 
-  const analysisState = await readOptionalJson(paths.analysisPath, "analysis.json");
+  const analysisState = await readOptionalJson(
+    paths.analysisPath,
+    "analysis.json",
+    inputOverride(options, paths.projectRoot, paths.analysisPath),
+  );
   if (analysisState.exists) {
     inputs.analysis_json_sha256 = sha256(analysisState.text);
     if (analysisState.error) {
@@ -137,7 +145,11 @@ export async function lintProject(input, options = {}) {
     );
   }
 
-  const captionsState = await readOptionalJson(paths.captionsPath, "captions.json");
+  const captionsState = await readOptionalJson(
+    paths.captionsPath,
+    "captions.json",
+    inputOverride(options, paths.projectRoot, paths.captionsPath),
+  );
   if (captionsState.exists) {
     inputs.captions_json_sha256 = sha256(captionsState.text);
     if (captionsState.error) {
@@ -152,7 +164,11 @@ export async function lintProject(input, options = {}) {
     addSkipped(skipped, "captions", "captions.json is absent");
   }
 
-  const reviewState = await readOptionalJson(paths.reviewPath, "review.json");
+  const reviewState = await readOptionalJson(
+    paths.reviewPath,
+    "review.json",
+    inputOverride(options, paths.projectRoot, paths.reviewPath),
+  );
   if (reviewState.exists) {
     inputs.review_json_sha256 = sha256(reviewState.text);
     if (reviewState.error) {
@@ -167,7 +183,11 @@ export async function lintProject(input, options = {}) {
     addSkipped(skipped, "review", "review.json is absent");
   }
 
-  const intakeState = await readOptionalJson(paths.intakePath, "intake.json");
+  const intakeState = await readOptionalJson(
+    paths.intakePath,
+    "intake.json",
+    inputOverride(options, paths.projectRoot, paths.intakePath),
+  );
   if (intakeState.exists) {
     inputs.intake_json_sha256 = sha256(intakeState.text);
     if (intakeState.error) {
@@ -312,6 +332,10 @@ async function writeResult(findings, skipped, inputs, paths, options) {
     findings: normalizedFindings,
     skipped: normalizedSkipped,
   };
+
+  if (options.writeReports === false) {
+    return result;
+  }
 
   const lintDirectory = join(paths.projectRoot, ".akari");
   const reportsDirectory = join(lintDirectory, "reports");
@@ -4139,7 +4163,20 @@ function sourceSegmentIndex(sourceRef) {
   return null;
 }
 
-async function readRequiredText(filePath, label) {
+function inputOverride(options, projectRoot, filePath) {
+  const overrides = options.inputOverrides;
+  if (!overrides || typeof overrides !== "object") return undefined;
+  const key = relative(projectRoot, filePath).split("\\").join("/");
+  return Object.hasOwn(overrides, key) ? { present: true, text: overrides[key] } : undefined;
+}
+
+async function readRequiredText(filePath, label, override) {
+  if (override?.present) {
+    if (typeof override.text !== "string") {
+      throw new ExecutionError(`${label} cannot be read: in-memory override is absent`);
+    }
+    return override.text;
+  }
   try {
     await access(filePath, fsConstants.R_OK);
     return await readFile(filePath, "utf8");
@@ -4148,7 +4185,18 @@ async function readRequiredText(filePath, label) {
   }
 }
 
-async function readOptionalJson(filePath, label) {
+async function readOptionalJson(filePath, label, override) {
+  if (override?.present) {
+    if (override.text === null) return { exists: false };
+    if (typeof override.text !== "string") {
+      throw new ExecutionError(`${label} cannot be read: invalid in-memory override`);
+    }
+    try {
+      return { exists: true, text: override.text, value: JSON.parse(override.text) };
+    } catch (error) {
+      return { exists: true, text: override.text, error: messageOf(error) };
+    }
+  }
   try {
     const text = await readFile(filePath, "utf8");
     try {

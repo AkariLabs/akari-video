@@ -36,18 +36,28 @@ test('lintProjectCandidates は不正な候補を pass:false で返す（finding
   }
 });
 
-test('writeProjectFilesGuarded は lint 拒否時に書き込まない', async () => {
+test('writeProjectFilesGuarded は lint を待たず候補全文を atomic 保存する', async () => {
   const before = { version: 0 };
   const root = makeProject(before);
   try {
-    await assert.rejects(
-      writeProjectFilesGuarded(root, {
-        'edit.json': JSON.stringify({ version: 0, cuts: [{ in: 5, out: 1 }] })
-      }),
-      /\[/
-    );
+    const candidate = JSON.stringify({ version: 0, cuts: [{ in: 5, out: 1 }] });
+    await writeProjectFilesGuarded(root, { 'edit.json': candidate }, { debounceMs: 10 });
     const after = JSON.parse(fs.readFileSync(path.join(root, 'edit.json'), 'utf8'));
-    assert.deepEqual(after, before);
+    assert.deepEqual(after, JSON.parse(candidate));
+  } finally {
+    await new Promise(resolve => setTimeout(resolve, 30));
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('lintProjectCandidates は候補を実ファイルへ書かずメモリ上書きで検証する', async () => {
+  const before = { version: 0 };
+  const root = makeProject(before);
+  try {
+    await lintProjectCandidates(root, {
+      'edit.json': JSON.stringify({ version: 0, cuts: [{ in: 5, out: 1 }] })
+    });
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'edit.json'), 'utf8')), before);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

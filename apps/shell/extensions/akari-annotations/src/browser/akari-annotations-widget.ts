@@ -68,6 +68,7 @@ import {
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { openTimelineContextMenu } from './akari-timeline-context-menu';
 import { ProjectLocation } from './project-location';
+import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { ReviewModel } from './review-model';
 import {
     InspectorWriteRequest,
@@ -440,7 +441,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(TimelineSelectionModel)
     protected readonly selectionModel!: TimelineSelectionModel;
 
+    @inject(AkariAnnotationsClientImpl)
+    protected readonly annotationsClient!: AkariAnnotationsClientImpl;
+
     protected location: ProjectLocation | undefined;
+    /** backend の atomic rename 前通知。自己書き込み由来 watcher reload を 1 秒だけ抑止する。 */
+    protected readonly recentWrites = new Map<string, number>();
     protected captions: CaptionRecord[] = [];
     protected defaultTextStyle: CaptionTextStyle | undefined;
     protected cuts: EditCut[] = [];
@@ -3379,6 +3385,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.title.caption = `タイムライン — ${location.reviewUri.toString()}`;
         await this.reloadAll();
         requestAnimationFrame(() => this.renderStrip());
+        this.toDispose.push(this.annotationsClient.onWillWriteEvent(uri => {
+            this.recentWrites.set(uri, Date.now());
+        }));
+        this.toDispose.push(this.annotationsClient.onLintResultEvent(notification => {
+            if (notification.projectRootUri === this.location?.root.toString()) {
+                this.showDeferredLintResult(notification.pass, notification.errors);
+            }
+        }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
             if (!this.location) {
                 return;
@@ -3386,10 +3400,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (event.contains(this.location.reviewUri)) {
                 void this.reloadReview();
             }
-            if (this.location.editUri && event.contains(this.location.editUri)) {
+            if (this.location.editUri && event.contains(this.location.editUri)
+                && !this.isRecentWrite(this.location.editUri)) {
                 void this.reloadEdit();
             }
-            if (event.contains(this.location.captionsUri)) {
+            if (event.contains(this.location.captionsUri) && !this.isRecentWrite(this.location.captionsUri)) {
                 void this.reloadCaptions();
             }
             if (this.location.analysisUri && event.contains(this.location.analysisUri)) {
@@ -3401,6 +3416,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } catch (error) {
             console.warn('[akari-annotations] file watching is unavailable', error);
         }
+    }
+
+    protected isRecentWrite(uri: URI): boolean {
+        const key = uri.toString();
+        const writtenAt = this.recentWrites.get(key) ?? 0;
+        if (Date.now() - writtenAt <= 1000) {
+            return true;
+        }
+        this.recentWrites.delete(key);
+        return false;
+    }
+
+    protected showDeferredLintResult(pass: boolean, errors: readonly string[]): void {
+        if (pass) {
+            return;
+        }
+        this.footer.replaceChildren();
+        const message = document.createElement('span');
+        message.textContent = `保存後の検証で問題が見つかりました: ${errors[0] ?? 'edit-lint error'}`;
+        const undo = document.createElement('button');
+        undo.type = 'button';
+        undo.textContent = '直前の編集を元に戻す';
+        undo.disabled = this.past.length === 0;
+        undo.addEventListener('click', () => void this.performUndo());
+        this.footer.append(message, document.createTextNode(' '), undo);
+        this.messages.warn(message.textContent);
     }
 
     protected async reloadAll(): Promise<void> {
@@ -5329,14 +5370,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!this.location?.editUri) {
             return;
         }
-        // edit.json と captions.json の同時変更は 1 回の lint で整合した組として検証される。
+        // edit.json と captions.json の同時変更は保存後 debounce で最新の組だけ検証される。
         await this.writeEditSnapshotGuarded(editSource, captionsSource);
     }
 
     /**
-     * FileService 直書きの置き換え（パリティ契約 §2.7）: 全文スナップショットの書き戻しも
-     * RPC（writeEditSnapshot）経由で lint ゲートを通す。lint 拒否時は例外が飛び、
-     * 呼び出し側の catch で UI が巻き戻る。
+     * FileService 直書きの置き換え: 全文スナップショットも RPC 経由で atomic 保存し、
+     * lint は保存後 debounce で実行する。失敗時は client 通知が undo 導線を表示する。
      */
     protected async writeEditSnapshotGuarded(editSource?: string, captionsSource?: string): Promise<void> {
         const location = this.location;
@@ -7508,9 +7548,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const insertSnapshotBefore = preview.insertTrack !== undefined
                     ? (await this.fileService.readFile(location.editUri)).value.toString()
                     : undefined;
-                result = await this.annotationsService.moveCut({
+                const pruneTrackIds = preview.insertTrack === undefined && preview.track !== original.track
+                    ? this.timelineTracks
+                        .filter(track => track.kind === 'cuts'
+                            && (track.ref ?? 0) === original.track
+                            && this.timelineTrackItemCount(track) === 1)
+                        .map(track => track.id)
+                    : [];
+                const moveResult = await this.annotationsService.moveCut({
                     editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
                     cutIndex: preview.index, at: preview.at,
+                    pruneTrackIds,
                     ...(preview.insertTrack !== undefined
                         ? {
                             trackState: this.shiftTrackStateForInsert(
@@ -7519,6 +7567,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         }
                         : { track: preview.track === original.track ? undefined : preview.track })
                 });
+                result = moveResult;
                 if (preview.insertTrack !== undefined && insertSnapshotBefore !== undefined) {
                     const afterItemMove = (await this.fileService.readFile(location.editUri)).value.toString();
                     await this.finishInsertedTrackDrag(
@@ -7530,7 +7579,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
                 await this.reloadEdit();
-                const pruneResult = await this.pruneEmptyDeclaredTracks();
+                const pruneResult = moveResult.prunedTracks as {
+                    before: EditTimelineTrack[];
+                    after: EditTimelineTrack[];
+                } | undefined;
                 const movedTrackState = await this.readIndexedTrackState('cuts');
                 this.pushHistory({
                     label: 'クリップの移動',

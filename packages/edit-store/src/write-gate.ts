@@ -1,28 +1,25 @@
 /**
- * edit.json / captions.json の lint ゲート付き書き込み層（Node 専用）。
+ * edit.json / captions.json の atomic 書き込みと保存後 lint（Node 専用）。
  *
  * 由来: apps/shell の akari-annotations-service.ts / akari-preview-service.ts に
  * 複製されていた assertLintPasses / runEditLint / findEditLintBinPath / writeAtomic を
  * ここへ一本化した（プレビュー・パリティ契約 §2.7「すべての書き込み経路は edit-lint を通す」）。
- * preview-server の PUT ハンドラも同じゲートを使う。
+ * preview-server の PUT ハンドラも同じ共有層を使う。保存前ゲートだった lint は
+ * task 2026-08-18-shell-write-path-latency で保存後 debounce lint へ移した。
  *
- * ゲートの作法（CF-write と同一）: 候補全文を実ファイルへは一切書かず、兄弟ファイル
- * （source 動画・captions.json 等）をシンボリックリンクで写した一時ディレクトリに候補だけを
- * 置いて packages/edit-lint/bin/edit-lint.mjs --json を叩く（edit-lint は「呼び出しのみ」— 改変しない）。
+ * 保存の臨界経路は tmp + rename だけに限定する。edit-lint は保存後 400ms の末尾
+ * debounce で同じプロジェクトにつき最新 1 本だけをプロセス内実行する。lint が
+ * 利用できない場合は従来どおり fail-open とし、編集不能にはしない。
  *
  * fail-open（オーナー裁定 2026-08-02、初出 2026-07-26 editlint-packaged-resolve）:
- * lint 実行系（bin）が見つからない場合は書き込みを全面ブロックせず検証スキップで続行する。
+ * lint 実行系が見つからない場合は書き込みを全面ブロックせず検証スキップで続行する。
  * 編集不能より lint なし保存の方が被害が小さいという判断（型不正は各書き込みの
  * ローカル検証が別途残るため安全側は保たれる）。
  */
 
-import { execFile } from 'child_process';
 import { promises as fs, statSync } from 'fs';
-import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
+import { pathToFileURL } from 'url';
 
 export interface EditLintFinding {
     severity?: string;
@@ -37,51 +34,39 @@ export interface EditLintGateResult {
     findings: EditLintFinding[];
 }
 
-/** 候補ファイル名（プロジェクト直下の basename）→ 書き込み予定の全文。 */
-export type LintCandidates = Record<string, string>;
+/** 候補ファイル名（プロジェクト直下からの相対パス）→ 書き込み予定の全文。null は不在扱い。 */
+export type LintCandidates = Record<string, string | null>;
+
+export interface DeferredLintOptions {
+    debounceMs?: number;
+    onLintResult?: (result: EditLintGateResult) => void | Promise<void>;
+}
+
+interface EditLintModule {
+    lintProject(input: string, options?: Record<string, unknown>): Promise<{
+        verdict?: string;
+        findings?: EditLintFinding[];
+    }>;
+}
+
+const DEFAULT_LINT_DEBOUNCE_MS = 400;
+const lintTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const lintRevisions = new Map<string, number>();
+const dynamicImport = new Function('specifier', 'return import(specifier)') as
+    (specifier: string) => Promise<EditLintModule>;
 
 /**
- * プロジェクト直下の候補ファイル群（edit.json / captions.json）を、実ファイルへ書く前に
- * edit-lint へかける。複数候補（edit.json + captions.json の同時書き換え）は同じ一時
- * ディレクトリに置いて 1 回で整合検証する。
+ * 実ファイルは変更せず、候補全文だけを options.inputOverrides で差し替えて検証する。
+ * 既存 export のシグネチャは維持し、preview-server の保存前検査にも使える。
  */
 export async function lintProjectCandidates(
     projectRoot: string,
     candidates: LintCandidates
 ): Promise<EditLintGateResult> {
-    const candidateNames = new Set(Object.keys(candidates));
-    const tempRoot = await fs.mkdtemp(resolve(tmpdir(), 'akari-lint-'));
-    try {
-        let siblingNames: string[] = [];
-        try {
-            siblingNames = await fs.readdir(projectRoot);
-        } catch {
-            siblingNames = [];
-        }
-        await Promise.all(siblingNames.map(async name => {
-            if (candidateNames.has(name)) {
-                return;
-            }
-            try {
-                const targetStat = await fs.stat(join(projectRoot, name));
-                await fs.symlink(
-                    join(projectRoot, name), join(tempRoot, name), targetStat.isDirectory() ? 'dir' : 'file'
-                );
-            } catch {
-                // Reference is unreadable or a broken symlink; edit-lint will report it as a
-                // missing-file finding on its own, same as it would against the real project.
-            }
-        }));
-        await Promise.all(Object.entries(candidates).map(([name, text]) =>
-            fs.writeFile(join(tempRoot, name), text, 'utf8')
-        ));
-        return await runEditLint(tempRoot);
-    } finally {
-        await fs.rm(tempRoot, { recursive: true, force: true });
-    }
+    return runEditLint(projectRoot, candidates, false);
 }
 
-/** lint に落ちたら書き込まずに例外を投げる（呼び出し側の catch で UI が巻き戻る）。 */
+/** 互換 API。保存後 lint への移行後も、明示的に検証したい呼び出し側向けに残す。 */
 export async function assertLintPasses(projectRoot: string, candidates: LintCandidates): Promise<void> {
     const result = await lintProjectCandidates(projectRoot, candidates);
     if (!result.pass) {
@@ -89,12 +74,45 @@ export async function assertLintPasses(projectRoot: string, candidates: LintCand
     }
 }
 
-/** lint ゲート → atomic 書き込み（tmp + rename）を一括で行う唯一の正規経路。 */
-export async function writeProjectFilesGuarded(projectRoot: string, candidates: LintCandidates): Promise<void> {
-    await assertLintPasses(projectRoot, candidates);
+/** atomic 保存を即時完了し、lint は末尾 debounce で非同期に実行する。 */
+export async function writeProjectFilesGuarded(
+    projectRoot: string,
+    candidates: LintCandidates,
+    options: DeferredLintOptions = {}
+): Promise<void> {
     for (const [name, text] of Object.entries(candidates)) {
+        if (text === null) {
+            continue;
+        }
         await writeAtomic(join(projectRoot, name), text);
     }
+    scheduleProjectLint(projectRoot, options);
+}
+
+/**
+ * 同じプロジェクト宛ての連続保存をまとめ、最後の状態だけを lint する。
+ * 保存後 lint は実 projectRoot に対して writeReports=true で走るため、結果は
+ * `.akari/lint.json` と `.akari/reports/edit-lint-report.html` へ書かれる。
+ * これは render-cut が読む PASS ゲートを常に最新に保つ、意図した保存後 lint の副作用。
+ */
+export function scheduleProjectLint(projectRoot: string, options: DeferredLintOptions = {}): void {
+    const key = resolve(projectRoot);
+    const revision = (lintRevisions.get(key) ?? 0) + 1;
+    lintRevisions.set(key, revision);
+    const previous = lintTimers.get(key);
+    if (previous) {
+        clearTimeout(previous);
+    }
+    const timer = setTimeout(() => {
+        lintTimers.delete(key);
+        void runEditLint(key).then(
+            result => lintRevisions.get(key) === revision ? options.onLintResult?.(result) : undefined,
+            error => {
+                console.warn('[edit-store] 保存後 edit-lint の実行に失敗しました（保存は維持します）。', error);
+            }
+        );
+    }, options.debounceMs ?? DEFAULT_LINT_DEBOUNCE_MS);
+    lintTimers.set(key, timer);
 }
 
 // 同じ宛先への書き込みは 1 本ずつ直列化する。
@@ -125,47 +143,60 @@ export async function writeAtomic(destination: string, content: string): Promise
     return next;
 }
 
-export async function runEditLint(projectRoot: string): Promise<EditLintGateResult> {
-    let binPath: string;
+/**
+ * edit-lint をプロセス内実行する。inputOverrides は候補全文のメモリ差し替え。
+ * writeReports=false は保存前候補検査用で実プロジェクトへレポートを書かない。
+ * 既定の true は保存後 lint 用で、projectRoot の `.akari/lint.json` と HTML レポートを更新する。
+ */
+export async function runEditLint(
+    projectRoot: string,
+    inputOverrides?: LintCandidates,
+    writeReports = true
+): Promise<EditLintGateResult> {
+    let modulePath: string;
     try {
-        binPath = findEditLintBinPath();
+        modulePath = findEditLintModulePath();
     } catch (error) {
         warnEditLintUnavailableOnce(error);
         return { pass: true, errors: [], findings: [] };
     }
-    // ELECTRON_RUN_AS_NODE: パッケージ版 shell で process.execPath が Electron 実行体を指すため、
-    // 付与しないと node スクリプトではなく Electron アプリとして再起動してしまう
-    // （素の node で実行される preview-server では無害な no-op）。
-    const stdout = await execFileAsync(process.execPath, [binPath, projectRoot, '--json'], {
-        encoding: 'utf8', maxBuffer: 10 * 1024 * 1024,
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
-    }).then(
-        result => result.stdout,
-        (error: NodeJS.ErrnoException & { stdout?: string }) => typeof error.stdout === 'string' ? error.stdout : '{}'
-    );
-    let parsed: { findings?: EditLintFinding[] };
     try {
-        parsed = JSON.parse(stdout);
+        const lintModule = await dynamicImport(pathToFileURL(modulePath).href);
+        const parsed = await lintModule.lintProject(projectRoot, { inputOverrides, writeReports });
+        const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
+        const errorFindings = findings.filter(finding => finding.severity === 'error');
+        return {
+            pass: parsed.verdict === 'pass' && errorFindings.length === 0,
+            errors: errorFindings.map(
+                finding => `[${finding.check ?? 'edit-lint'}] ${finding.message ?? '不明なエラー'}`
+            ),
+            findings
+        };
     } catch (error) {
         return {
             pass: false,
-            errors: [`edit-lint の出力を解析できませんでした: ${error instanceof Error ? error.message : String(error)}`],
-            findings: []
+            errors: [`edit-lint を実行できませんでした: ${error instanceof Error ? error.message : String(error)}`],
+            findings: [{
+                severity: 'error',
+                check: 'edit-lint.execution',
+                message: error instanceof Error ? error.message : String(error)
+            }]
         };
     }
-    const findings = Array.isArray(parsed.findings) ? parsed.findings : [];
-    const errorFindings = findings.filter(finding => finding.severity === 'error');
-    return {
-        pass: errorFindings.length === 0,
-        errors: errorFindings.map(finding => `[${finding.check ?? 'edit-lint'}] ${finding.message ?? '不明なエラー'}`),
-        findings
-    };
 }
 
+export function findEditLintModulePath(): string {
+    const binPath = findEditLintBinPath();
+    const modulePath = resolve(dirname(binPath), '../src/edit-lint.mjs');
+    if (isFile(modulePath)) {
+        return modulePath;
+    }
+    throw new Error(`edit-lint module was not found next to ${binPath}`);
+}
+
+/** 既存の複数候補探索を維持する。 */
 export function findEditLintBinPath(): string {
     const candidates: string[] = [];
-
-    // パッケージ版 shell: バンドル済みバックエンドの隣に edit-lint が同梱される配置。
     const packagedCandidate = resolve(__dirname, '../edit-lint/bin/edit-lint.mjs');
     candidates.push(packagedCandidate);
     if (isFile(packagedCandidate)) {
@@ -211,7 +242,7 @@ function warnEditLintUnavailableOnce(error: unknown): void {
     }
     editLintUnavailableWarned = true;
     console.warn(
-        '[edit-store] edit-lint bin が見つからないため、検証なしで保存しています。',
+        '[edit-store] edit-lint が見つからないため、検証なしで保存しています。',
         error instanceof Error ? error.message : error
     );
 }

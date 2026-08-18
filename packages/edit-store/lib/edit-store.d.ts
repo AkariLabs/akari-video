@@ -162,6 +162,17 @@ export declare function deleteSfxInSource(source: string, sfxIndex: number): {
 };
 export declare function insertSfxInSource(source: string, sfxIndex: number, elementText: string): string;
 export declare function moveCutInSource(source: string, cutIndex: number, nextAt: number, nextTrack?: number | null, trackState?: Record<string, number | null>): string;
+/**
+ * クリップ移動と、移動で空になった宣言済み cuts トラックの除去を同じ候補全文へ畳む。
+ * trackIds は UI が移動前の件数から特定したものだけを受け取り、他種別・使用中トラックは守る。
+ */
+export declare function moveCutAndPruneTracksInSource(source: string, cutIndex: number, nextAt: number, nextTrack?: number | null, trackState?: Record<string, number | null>, trackIds?: readonly string[]): {
+    source: string;
+    prunedTracks?: {
+        before: EditTimelineTrack[];
+        after: EditTimelineTrack[];
+    };
+};
 export declare function setCutAtValuesInSource(source: string, entries: Array<{
     cutIndex: number;
     at: number | null;

@@ -19,6 +19,7 @@ exports.insertLayerInSource = insertLayerInSource;
 exports.deleteSfxInSource = deleteSfxInSource;
 exports.insertSfxInSource = insertSfxInSource;
 exports.moveCutInSource = moveCutInSource;
+exports.moveCutAndPruneTracksInSource = moveCutAndPruneTracksInSource;
 exports.setCutAtValuesInSource = setCutAtValuesInSource;
 exports.updateLayerInSource = updateLayerInSource;
 exports.updateLayerTransformInSource = updateLayerTransformInSource;
@@ -500,6 +501,30 @@ function moveCutInSource(source, cutIndex, nextAt, nextTrack, trackState) {
     }
     assertMovedCutDoesNotOverlap(updated, cutIndex);
     return updated;
+}
+/**
+ * クリップ移動と、移動で空になった宣言済み cuts トラックの除去を同じ候補全文へ畳む。
+ * trackIds は UI が移動前の件数から特定したものだけを受け取り、他種別・使用中トラックは守る。
+ */
+function moveCutAndPruneTracksInSource(source, cutIndex, nextAt, nextTrack, trackState, trackIds = []) {
+    let updated = moveCutInSource(source, cutIndex, nextAt, nextTrack, trackState);
+    if (trackIds.length === 0) {
+        return { source: updated };
+    }
+    const value = JSON.parse(updated);
+    const declared = value.timeline?.tracks;
+    if (!Array.isArray(declared)) {
+        return { source: updated };
+    }
+    const requested = new Set(trackIds);
+    const occupied = new Set((Array.isArray(value.cuts) ? value.cuts : []).map(cut => normalizeTrack(cut?.track)));
+    const before = declared.map(track => ({ ...track }));
+    const after = before.filter(track => !requested.has(track.id) || track.kind !== 'cuts' || occupied.has(track.ref ?? 0));
+    if (after.length === before.length) {
+        return { source: updated };
+    }
+    updated = writeTimelineTracksInSource(updated, after);
+    return { source: updated, prunedTracks: { before, after } };
 }
 function setCutAtValuesInSource(source, entries) {
     const updates = new Map(entries.map(entry => [entry.cutIndex, entry.at]));
