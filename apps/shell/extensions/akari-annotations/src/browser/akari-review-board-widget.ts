@@ -7,6 +7,7 @@ import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webvie
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { AkariAnnotationsService, Annotation } from '../common/akari-annotations-protocol';
 import { AnnotationStroke, parseReview } from '../common/annotation-store';
+import { readInternalSources } from '../common/edit-store';
 import { collectBlockIds, extractBlocksManifest, parseCanvasTarget, parseDocTarget, parseImageTarget } from '../common/doc-target';
 import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
@@ -632,22 +633,26 @@ export class AkariReviewBoardWidget extends BaseWidget {
         }
     }
 
-    /** edit.json の source(s) からサムネイル用の動画パスを解決する（cuts 等の複雑な写像には踏み込まない）。 */
+    /**
+     * edit.json の素材表からサムネイル用の動画パスを解決する（cuts 等の複雑な写像には踏み込まない）。
+     * 版の違いは読み込み層（readInternalSources）が吸収済み。
+     */
     protected async refreshVideoSources(): Promise<void> {
         const location = this.model.location;
         const next: VideoSourceCache = { single: location?.videoUri ?? '', bySrcId: new Map() };
         if (location?.editUri) {
             try {
                 const source = (await this.fileService.readFile(location.editUri)).value.toString();
-                const value = JSON.parse(source) as { source?: { path?: string }; sources?: Array<{ id?: string; path?: string }> };
-                if (Array.isArray(value.sources)) {
-                    for (const entry of value.sources) {
-                        if (typeof entry?.id === 'string' && typeof entry?.path === 'string') {
-                            next.bySrcId.set(entry.id, location.editUri.parent.resolve(entry.path).toString());
-                        }
+                for (const entry of readInternalSources(source)) {
+                    if (typeof entry.declaredPath !== 'string') {
+                        continue;
                     }
-                } else if (typeof value.source?.path === 'string') {
-                    next.single = location.editUri.parent.resolve(value.source.path).toString();
+                    const resolved = location.editUri.parent.resolve(entry.declaredPath).toString();
+                    if (entry.isDefault) {
+                        next.single = resolved;
+                    } else if (entry.id) {
+                        next.bySrcId.set(entry.id, resolved);
+                    }
                 }
             } catch {
                 // edit.json が読めない/壊れている場合は location.videoUri のフォールバックのまま進める

@@ -9,4 +9,5 @@ export * from './caption-window';
 export * from './timeline-map';
 export * from './caption-display';
 export * from './edit-v2';
+export * from './internal-model';
 export * from './track-order';

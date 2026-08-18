@@ -875,6 +875,11 @@ function parseEdit(source) {
     const layers = [];
     const audioSfx = [];
     const audioNarration = [];
+    // 採用した要素が元配列の何番目だったか（不正な要素は読み飛ばすので配列位置は一致しない）。
+    // internal-model.ts が「宣言の生要素」と「型付きビュー」を突き合わせるために使う。
+    const origins = {
+        cuts: [], overlays: [], beats: [], layers: [], audioSfx: [], audioNarration: []
+    };
     let timeline;
     let audioBgm;
     const sources = [];
@@ -994,6 +999,7 @@ function parseEdit(source) {
                         warnings.push(`${index + 1} 番目のクリップの opacity が不正なため無視します。`);
                     }
                 }
+                origins.cuts.push(index);
                 cuts.push({
                     in: input,
                     out: output,
@@ -1026,6 +1032,7 @@ function parseEdit(source) {
                     continue;
                 }
                 seenIds.add(overlay.id);
+                origins.overlays.push(index);
                 overlays.push({
                     id: overlay.id,
                     start: overlay.start,
@@ -1067,6 +1074,7 @@ function parseEdit(source) {
                 continue;
             }
             seenIds.add(beat.id);
+            origins.beats.push(index);
             beats.push({
                 id: beat.id,
                 ...(hasSrc ? { src: beat.src } : {}),
@@ -1179,6 +1187,7 @@ function parseEdit(source) {
                     warnings.push(`素材 ${layer.id} の chroma_key が不正なため無視します。`);
                 }
             }
+            origins.layers.push(index);
             layers.push({
                 id: layer.id,
                 t: layer.t,
@@ -1238,6 +1247,7 @@ function parseEdit(source) {
                         warnings.push(`${index + 1} 番目の SE の out が不正なため無視します。`);
                     }
                 }
+                origins.audioSfx.push(index);
                 audioSfx.push({
                     id: `sfx-${index}`,
                     t: sfx.t,
@@ -1281,6 +1291,7 @@ function parseEdit(source) {
                         warnings.push(`ナレーション ${narration.id} の gain_db が不正なため無視します。`);
                     }
                 }
+                origins.audioNarration.push(index);
                 audioNarration.push({
                     id: narration.id,
                     t: narration.t,
@@ -1390,7 +1401,8 @@ function parseEdit(source) {
         ...(audioBgm ? { audioBgm } : {}),
         ...(timeline ? { timeline } : {}),
         fps,
-        warnings
+        warnings,
+        origins
     };
 }
 function writeTimelineTracksInSource(source, tracks) {

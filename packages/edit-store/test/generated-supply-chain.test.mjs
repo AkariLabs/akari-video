@@ -16,6 +16,7 @@ const expectedSources = [
   'edit-store.ts',
   'edit-v2.ts',
   'index.ts',
+  'internal-model.ts',
   'timeline-map.ts',
   'track-order.ts',
   'webview-kernel.ts',

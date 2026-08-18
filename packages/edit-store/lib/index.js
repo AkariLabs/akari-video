@@ -25,4 +25,5 @@ __exportStar(require("./caption-window"), exports);
 __exportStar(require("./timeline-map"), exports);
 __exportStar(require("./caption-display"), exports);
 __exportStar(require("./edit-v2"), exports);
+__exportStar(require("./internal-model"), exports);
 __exportStar(require("./track-order"), exports);

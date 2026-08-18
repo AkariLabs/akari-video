@@ -6,3 +6,5 @@
  * 温存するためだけに残している。移動 + 空トラック整理も正本側の単一手術を再 export する。
  */
 export * from '@akari-video/edit-store/lib/edit-store';
+// 内部表現（tracks[].items[]）と版を知る唯一の読み込み層。同じ import 経路から使えるようにする。
+export * from '@akari-video/edit-store/lib/internal-model';

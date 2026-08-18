@@ -111,6 +111,18 @@ export interface EditTimelineTrack {
     hidden?: boolean;
     locked?: boolean;
 }
+/**
+ * parseEdit が採用した要素の、元配列における添字。読み飛ばした要素があるぶん
+ * 出力配列の位置とはずれるため、内部表現（internal-model.ts）が生要素と突き合わせるのに使う。
+ */
+export interface EditParseOrigins {
+    cuts: number[];
+    overlays: number[];
+    beats: number[];
+    layers: number[];
+    audioSfx: number[];
+    audioNarration: number[];
+}
 export interface SourceElement {
     text: string;
     start: number;
@@ -224,6 +236,7 @@ export declare function parseEdit(source: string): {
     };
     fps: number;
     warnings: string[];
+    origins: EditParseOrigins;
 };
 export declare function writeTimelineTracksInSource(source: string, tracks: EditTimelineTrack[]): string;
 export declare function updateArrayElementByIndex(source: string, key: string, index: number, label: string, update: (element: string) => string): string;

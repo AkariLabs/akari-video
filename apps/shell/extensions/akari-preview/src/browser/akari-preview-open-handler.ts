@@ -15,7 +15,12 @@ import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { deriveVisualTrackOrder, resolveVisualTrackZ } from '@akari-video/edit-store';
+import {
+    deriveVisualTrackOrder,
+    projectLegacyEdit,
+    readInternalEdit,
+    resolveVisualTrackZ
+} from '@akari-video/edit-store';
 import {
     AkariPreviewService,
     OverlayRuntimeAssets,
@@ -29,6 +34,7 @@ import {
     sfxFadeGainSchedule
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
+import { collectItems, hasInlineCaptions } from '../common/preview-items';
 import {
     CAPTION_FONT_FAMILY,
     CAPTION_FONT_LOAD_DESCRIPTOR,
@@ -581,7 +587,7 @@ const EMPTY_SUMMARY: EditSummary = {
 };
 // v0（単一 source）を v1 と同じ「id → ソース」表で扱うための既定 id。
 // cuts[].src を持たない v0 のカットは全てこの id を指す。
-const DEFAULT_SOURCE_ID = '__default__';
+
 // ドットディレクトリ（.git/.akari/.claude 等）と node_modules は名前探索の対象外。
 // スキル同梱の開発用フィクスチャ（.claude/skills/**/dev-fixtures/）を拾わないための除外。
 const isSkippedSearchDirectory = (name: string): boolean => name.startsWith('.') || name === 'node_modules';
@@ -2506,25 +2512,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         let sourceProxyUri: URI | undefined;
         const sourcesById = new Map<string, { uri: URI; proxyUri?: URI }>();
         try {
-            const edit = JSON.parse(editSource ?? await this.readText(editUri));
-            // edit.json は v0（単一 source）と v1（sources[] + cuts[].src）の両方が公開契約
-            // （packages/schemas/edit.schema.json）。どちらも「id → URI」の表に正規化し、
-            // 以降は表引きで扱う。v0 は既定 id 一つだけの表になる。
-            const declaredSources: Array<{ id: string; path: unknown; proxy?: unknown }> =
-                Array.isArray(edit?.sources)
-                    ? edit.sources.map((value: any) => ({
-                        id: typeof value?.id === 'string' ? value.id : '',
-                        path: value?.path,
-                        proxy: value?.proxy
-                    }))
-                    : [{ id: DEFAULT_SOURCE_ID, path: edit?.source?.path, proxy: edit?.source?.proxy }];
-            // ソースの宣言が 1 つも無い = 素材投入前の新規プロジェクト。`source` キー自体が
-            // 無い（`{}`）か `sources: []` の 2 形。壊れた宣言（path が非文字列など）とは区別し、
-            // ここでは投げずに空プロジェクトとして返す（呼び出し側が案内カードを出す）。
-            const hasNoDeclaredSource = Array.isArray(edit?.sources)
-                ? edit.sources.length === 0
-                : edit?.source === undefined || edit?.source === null;
-            if (hasNoDeclaredSource) {
+            // 版を知るのは読み込み層（readInternalEdit）だけ。v0（単一 source）も v1（sources[]）も
+            // v2（tracks[].items[]）も、ここから先は同じ内部表現として扱う。
+            const internal = readInternalEdit(editSource ?? await this.readText(editUri));
+            const declaredSources = internal.sources;
+            // ソースの宣言が 1 つも無い = 素材投入前の新規プロジェクト。壊れた宣言（path が
+            // 非文字列など）とは区別し、ここでは投げずに空プロジェクトとして返す
+            // （呼び出し側が案内カードを出す）。
+            if (internal.emptyProject) {
                 return {
                     editUri,
                     summary: EMPTY_SUMMARY,
@@ -2538,41 +2533,43 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 };
             }
             for (const declared of declaredSources) {
-                if (typeof declared.path !== 'string' || !declared.path.trim()) {
-                    throw new TypeError(Array.isArray(edit?.sources)
-                        ? `edit.json の sources[${declared.id || '?'}].path が不正です。`
-                        : 'edit.json の source.path が不正です。');
+                const declaredPath = declared.declaredPath;
+                if (typeof declaredPath !== 'string' || !declaredPath.trim()) {
+                    // 宣言位置（`sources[hero]` / `source`）は読み込み層が付ける。版名は出さない。
+                    throw new TypeError(`edit.json の ${declared.declarationPath}.path が不正です。`);
                 }
                 if (!declared.id) {
                     throw new TypeError('edit.json の sources[].id が不正です。');
                 }
-                const uri = this.resolveEditAssetUri(declared.path, editUri);
+                const uri = this.resolveEditAssetUri(declaredPath, editUri);
                 let proxyUri: URI | undefined;
-                if (typeof declared.proxy === 'string' && declared.proxy.trim()) {
-                    const candidate = this.resolveEditAssetUri(declared.proxy, editUri);
+                const declaredProxy = declared.declaredProxy;
+                if (typeof declaredProxy === 'string' && declaredProxy.trim()) {
+                    const candidate = this.resolveEditAssetUri(declaredProxy, editUri);
                     proxyUri = await this.fileService.exists(candidate) ? candidate : undefined;
                 }
                 sourcesById.set(declared.id, { uri, ...(proxyUri ? { proxyUri } : {}) });
             }
-            const emphasisWords = this.normalizeEmphasisWords(edit?.emphasis_words);
+            const emphasisWords = this.normalizeEmphasisWords(internal.declaration.emphasisWords);
             // 代表ソース（字幕の探索・ファイル監視・タイトル・単一ソース時の従来経路）は
             // 先頭カットが参照するソース。無ければ宣言順の先頭。
-            const firstCutSourceId = Array.isArray(edit?.cuts)
-                ? edit.cuts.map((cut: any) => cut?.src).find((id: unknown) => typeof id === 'string' && sourcesById.has(id))
-                : undefined;
+            const cutItems = collectItems(internal, 'cuts');
+            const firstCutSourceId = cutItems
+                .map(item => item.declaration.src)
+                .find((id: unknown) => typeof id === 'string' && sourcesById.has(id)) as string | undefined;
             const primaryId = firstCutSourceId ?? [...sourcesById.keys()][0];
             sourceUri = sourcesById.get(primaryId)?.uri;
-            // 宣言済み proxy（v0 sourceV0 / v1 sourceV1 の source.proxy）は上のソース表構築時に
+            // 宣言済み proxy（素材表の proxy）は上のソース表構築時に
             // 解決済み。存在するときだけ HEVC 検出（refreshPreview）より優先される（読み取り専用・
             // 書き戻さない）。ファイルが無ければ HEVC 検出へ落ちる（baked レイヤーの preview
             // サイドカーが無いときと同じ扱い）。
             sourceProxyUri = sourcesById.get(primaryId)?.proxyUri;
             const isTruthyObject = (value: unknown): boolean => Boolean(value)
                 && typeof value === 'object' && !Array.isArray(value);
-            const width = this.positiveNumber(edit?.output?.width, EMPTY_SUMMARY.output.width);
-            const height = this.positiveNumber(edit?.output?.height, EMPTY_SUMMARY.output.height);
+            const width = this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width);
+            const height = this.positiveNumber(internal.output.height, EMPTY_SUMMARY.output.height);
             const cuts: EditSummaryCut[] = [];
-            for (const value of Array.isArray(edit?.cuts) ? edit.cuts : []) {
+            for (const value of cutItems.map(item => item.declaration as any)) {
                 // buildCutSummaryFields は akari-preview-open-handler.ts の外に出した純関数
                 // （common/edit-summary-fields.ts）。crop/perspective 欠落バグ（2026-08-06）の
                 // 再発防止として、この呼び出し自体を配線検査テストの対象にしている
@@ -2591,7 +2588,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
             const unsupportedGltfWarnings: string[] = [];
-            for (const value of Array.isArray(edit?.overlays) ? edit.overlays : []) {
+            // 宣言レコードは読み込み層が版差を吸収済み。フィールドの検証は従来どおりここで行う。
+            for (const value of collectItems(internal, 'overlays').map(item => item.declaration as any)) {
                 if (value?.track !== undefined && (!Number.isInteger(value.track) || value.track < 0)) {
                     console.warn('[akari-preview] overlay track が不正なため track 0 として表示します', value?.id);
                 }
@@ -2620,9 +2618,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             const layers: EditSummaryLayer[] = [];
             let unsupportedBlendCount = 0;
-            for (let index = 0; index < (Array.isArray(edit?.layers) ? edit.layers.length : 0); index += 1) {
-                const value = edit.layers[index];
-                const label = `layers[${index}]`;
+            const layerItems = collectItems(internal, 'layers');
+            for (const item of layerItems) {
+                const value = item.declaration as any;
+                const label = `layers[${item.legacy.index}]`;
                 // buildLayerSummaryBase は akari-preview-open-handler.ts の外に出した純関数
                 // （common/edit-summary-fields.ts）。crop/perspective 欠落バグ（2026-08-06
                 // shell-summary-field-gap）の再発防止として、この呼び出し自体を配線検査テストの
@@ -2704,8 +2703,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     };
                 });
             };
-            const rawTracks = edit?.tracks && typeof edit.tracks === 'object' && !Array.isArray(edit.tracks)
-                ? edit.tracks : undefined;
+            const declaredTrackStates = internal.declaration.trackStates;
+            const rawTracks = declaredTrackStates && typeof declaredTrackStates === 'object'
+                && !Array.isArray(declaredTrackStates)
+                ? declaredTrackStates as { cuts?: unknown; layers?: unknown; audio?: unknown } : undefined;
             const cutTracks = normalizeTrackStates(rawTracks?.cuts);
             const layerTracks = normalizeTrackStates(rawTracks?.layers);
             const audioTracks = normalizeTrackStates(rawTracks?.audio);
@@ -2714,32 +2715,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ...(layerTracks ? { layers: layerTracks } : {}),
                 ...(audioTracks ? { audio: audioTracks } : {})
             } : undefined;
-            const timelineTracks: EditSummaryTimelineTrack[] | undefined = Array.isArray(edit?.timeline?.tracks)
-                ? edit.timeline.tracks.flatMap((value: unknown) => {
-                    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-                        return [];
-                    }
-                    const track = value as { kind?: unknown; ref?: unknown };
-                    const validKind = track.kind === 'cuts' || track.kind === 'layers'
-                        || track.kind === 'overlays' || track.kind === 'captions' || track.kind === 'audio';
-                    if (!validKind) {
-                        return [];
-                    }
-                    return [{
-                        kind: track.kind,
-                        ...(Number.isInteger(track.ref) && Number(track.ref) >= 0
-                            ? { ref: Number(track.ref) } : {})
-                    }];
-                })
+            // 宣言トラック（z の権威 = 配列順）。読み込み層が正規化した並びをそのまま使う。
+            const declaredTracks = projectLegacyEdit(internal).timeline?.tracks;
+            const timelineTracks: EditSummaryTimelineTrack[] | undefined = declaredTracks
+                ? declaredTracks.map(track => ({
+                    kind: track.kind,
+                    ...(track.ref !== undefined ? { ref: track.ref } : {})
+                }))
                 : undefined;
-            const audio = await this.resolveAudioAssets(edit?.audio, editUri, assetStreams, assetUris);
+            const audio = await this.resolveAudioAssets(internal.declaration.audio, editUri, assetStreams, assetUris);
             const indicators: string[] = [];
-            if (isTruthyObject(edit?.output?.look)) indicators.push('LUT');
-            if (isTruthyObject(edit?.source?.chroma_key)
-                || (Array.isArray(edit?.sources) && edit.sources.some((source: unknown) =>
-                    isTruthyObject((source as { chroma_key?: unknown } | null)?.chroma_key)))
-                || (Array.isArray(edit?.layers) && edit.layers.some((layer: unknown) =>
-                    isTruthyObject((layer as { chroma_key?: unknown } | null)?.chroma_key)))) {
+            if (isTruthyObject(internal.output.look)) indicators.push('LUT');
+            if (internal.sources.some(source => isTruthyObject(source.chromaKey))
+                || layerItems.some(item =>
+                    isTruthyObject((item.declaration as { chroma_key?: unknown }).chroma_key))) {
                 indicators.push('クロマキー');
             }
             const missingProxyCount = layers.filter(layer => layer.kind === 'baked' && layer.proxyMissing).length;
@@ -2749,9 +2738,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (unsupportedBlendCount > 0) {
                 indicators.push(`素材合成モードが未対応（${unsupportedBlendCount}件、normal で近似）`);
             }
-            if (isTruthyObject(edit?.audio?.master)) indicators.push('音声マスター処理');
-            if (Array.isArray(edit?.cuts) && edit.cuts.some((cut: unknown) =>
-                (cut as { transition_out?: { type?: unknown } } | null)?.transition_out?.type === 'dissolve')) {
+            if (isTruthyObject((internal.declaration.audio as { master?: unknown } | undefined)?.master)) {
+                indicators.push('音声マスター処理');
+            }
+            if (cutItems.some(item =>
+                (item.declaration as { transition_out?: { type?: unknown } }).transition_out?.type === 'dissolve')) {
                 indicators.push('ディゾルブ切り替え');
             }
             indicators.push(...unsupportedGltfWarnings);
@@ -2770,7 +2761,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 captions,
                 emphasisWords,
                 summary: {
-                    output: { width, height, fps: this.positiveNumber(edit?.output?.fps, 30) },
+                    output: { width, height, fps: this.positiveNumber(internal.output.fps, 30) },
                     overlays,
                     layers,
                     cuts,
@@ -2778,10 +2769,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(audio ? { audio } : {}),
                     ...(tracks ? { tracks } : {}),
                     ...(timelineTracks ? { timelineTracks } : {}),
-                    ...(captions.length > 0 || (Array.isArray(edit?.captions) && edit.captions.length > 0)
-                        ? { hasCaptions: true } : {}),
-                    ...(Array.isArray(edit?.captions) && edit.captions.length > 0
-                        ? { hasInlineCaptions: true } : {})
+                    ...(captions.length > 0 || hasInlineCaptions(internal) ? { hasCaptions: true } : {}),
+                    ...(hasInlineCaptions(internal) ? { hasInlineCaptions: true } : {})
                 }
             };
         } catch (error) {

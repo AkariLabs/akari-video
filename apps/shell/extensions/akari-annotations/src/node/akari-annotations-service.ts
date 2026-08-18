@@ -1,6 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
+import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
@@ -432,22 +433,16 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         if (!value || typeof value !== 'object') {
             return undefined;
         }
-        const document = value as { cuts?: unknown; sources?: unknown; source?: unknown };
+        const document = value as { cuts?: unknown };
         const cuts = Array.isArray(document.cuts) ? document.cuts : [];
         const cut = cuts[cutIndex] as { src?: unknown } | undefined;
+        // 版の違いは読み込み層が吸収済み。src の指す素材、無ければ単一素材宣言を使う。
+        const table = readInternalSources(value);
+        const entry = table.find(source => source.id === cut?.src)
+            ?? table.find(source => source.isDefault);
         let mediaPath: string | undefined;
-        if (cut && typeof cut.src === 'string' && Array.isArray(document.sources)) {
-            const match = (document.sources as unknown[]).find(
-                entry => entry !== null && typeof entry === 'object' && (entry as { id?: unknown }).id === cut.src
-            ) as { path?: unknown; proxy?: unknown } | undefined;
-            if (match && typeof match.path === 'string') {
-                mediaPath = typeof match.proxy === 'string' ? match.proxy : match.path;
-            }
-        } else if (document.source && typeof document.source === 'object') {
-            const defaultSource = document.source as { path?: unknown; proxy?: unknown };
-            if (typeof defaultSource.path === 'string') {
-                mediaPath = typeof defaultSource.proxy === 'string' ? defaultSource.proxy : defaultSource.path;
-            }
+        if (entry && typeof entry.declaredPath === 'string') {
+            mediaPath = typeof entry.declaredProxy === 'string' ? entry.declaredProxy : entry.declaredPath;
         }
         if (!mediaPath) {
             return undefined;
