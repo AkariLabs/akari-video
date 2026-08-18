@@ -345,7 +345,11 @@ function showStillImageForSegment(seg) {
   video.style.display = 'none';
   const src = getVideoSource(seg.index);
   setVideoSourceIfChanged(img, src);
-  img.style.display = '';
+  // '' の代入はインライン宣言を消すだけで、index.html のスタイルシート既定
+  // `#preview-image { display: none; }` を打ち消さない（#preview-video 側は CSS に
+  // display 指定が無いため '' で戻せる、という非対称に注意）。実機バグ報告
+  // preview-server-still-image-never-shown（2026-08-17）の是正。
+  img.style.display = 'block';
 }
 function showVideoBase() {
   img.style.display = 'none';

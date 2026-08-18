@@ -131,8 +131,13 @@ export async function getClipThumbnail(
         }
         const temporary = `${destination}.${process.pid}.tmp`;
         try {
+            // 静止画ソース（cuts[].src の画像対応）は尺 0 のため -ss を付けると
+            // 「先頭より後ろへのシーク」になり 1 フレームも出力されない。時刻指定なしで
+            // その 1 フレームをそのまま使う。
             await execFileAsync(await ffmpegPath() ?? 'ffmpeg', [
-                '-y', '-ss', String(atSeconds), '-i', videoPath,
+                '-y',
+                ...(isFilmstripImageSource(videoPath) ? [] : ['-ss', String(atSeconds)]),
+                '-i', videoPath,
                 '-frames:v', '1', '-vf', `scale=${THUMBNAIL_WIDTH_PX}:-1`, '-q:v', '4',
                 '-f', 'image2', temporary
             ]);
@@ -194,7 +199,7 @@ interface FilmstripProbe {
     height: number;
 }
 
-async function probeForFilmstrip(videoPath: string): Promise<FilmstripProbe | undefined> {
+async function probeForFilmstrip(videoPath: string, isImage: boolean): Promise<FilmstripProbe | undefined> {
     try {
         const { stdout } = await execFileAsync(await ffprobePath() ?? 'ffprobe', [
             '-v', 'error',
@@ -211,8 +216,15 @@ async function probeForFilmstrip(videoPath: string): Promise<FilmstripProbe | un
         const width = stream?.width;
         const height = stream?.height;
         const durationSeconds = Number(parsed.format?.duration);
-        if (!width || !height || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+        if (!width || !height) {
             return undefined;
+        }
+        // 静止画は ffprobe が format.duration を報告しない（契約
+        // docs/contract-2026-08-12-still-image-cut-source-v0.md §2.3 と同じ実測）。ここで
+        // duration を必須にすると下流の isImage 分岐（1 フレーム atlas）が永遠に届かない
+        // dead code になる — 静止画クリップがタイムラインで灰色のままだった原因。
+        if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+            return isImage ? { durationSeconds: 0, width, height } : undefined;
         }
         return { durationSeconds, width, height };
     } catch {
@@ -283,7 +295,7 @@ export async function getClipFilmstripChunk(
             return { status: 'ready', chunk: { ...cached, chunkIndex } };
         }
 
-        const probe = await probeForFilmstrip(videoPath);
+        const probe = await probeForFilmstrip(videoPath, isImage);
         if (!probe) {
             return { status: 'unavailable', reason: 'extraction-failed' };
         }

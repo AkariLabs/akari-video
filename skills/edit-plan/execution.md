@@ -43,7 +43,7 @@ BGM と SFX は [音声契約](../../docs/contract-2026-07-14-edit-json-v1-audio
 
 - **静止画はタイムラインへ直接置ける — 連結して動画へ焼き込まない**。画像（png / jpg / webp / bmp / gif）は `layers[]` の `src` にそのまま書ける。`kind` は `"video"` のままでよく、拡張子で静止画と判定されてレンダー時に `-loop 1` でループ化される（v0.1.7+。シェルプレビュー / preview-server も画像を表示する）。`t` / `duration` / `track` / `transform` / `crop` / `perspective` / `keyframes` は動画レイヤーと同じに使える。
 - スライドショーのように静止画を順に見せる構成も、画像 1 枚につき `layers[]` 1 項目（`track` 付き）で表す。**静止画群を ffmpeg で 1 本の動画へ連結してから source にしない** — 個々の画像の差し替え・タイミング調整の編集性が失われ、`edit.json` の SSOT が壊れる。これは上記「承認を得ずに黙って concat しない」の具体例である。
-- **cuts のソース（v1 `sources[].path` / v0 `source.path`）にも静止画を直接書ける**（2026-08-12〜。正本: `docs/contract-2026-08-12-still-image-cut-source-v0.md`）。判定は `layers[]` と同じ拡張子のみで、新フィールドは無い。ただし静止画には尺が無いため **`cuts` の明示が必須** — v0 の「`cuts` 空 = source 全体」は適用できず edit-lint がエラーにする（`cuts.still-image-cuts-required`）。`in` は 0 推奨で表示尺は `out - in`。`freeze` / `speed` は動作するが静止画には視覚効果が無く edit-lint が警告する。対応面はレンダーと preview-server（Web UI）であり、**シェルプレビューは未対応**（別タスク切り出し。適合状況は `docs/contract-2026-08-02-preview-parity.md` §3） — シェルでの確認が必要な構成では連結動画で回避せず停止して報告する。
+- **cuts のソース（v1 `sources[].path` / v0 `source.path`）にも静止画を直接書ける**（2026-08-12〜。正本: `docs/contract-2026-08-12-still-image-cut-source-v0.md`）。判定は `layers[]` と同じ拡張子のみで、新フィールドは無い。ただし静止画には尺が無いため **`cuts` の明示が必須** — v0 の「`cuts` 空 = source 全体」は適用できず edit-lint がエラーにする（`cuts.still-image-cuts-required`）。`in` は 0 推奨で表示尺は `out - in`。`freeze` / `speed` は動作するが静止画には視覚効果が無く edit-lint が警告する。対応面はレンダー・preview-server（Web UI）・シェルプレビュー（2026-08-17〜。タイムラインの静止画フィルムストリップ含む）の 3 面（適合状況は `docs/contract-2026-08-02-preview-parity.md` §3）。
 
 ### レイヤー素材の時間基準（2026-08-14・実害から追記）
 
