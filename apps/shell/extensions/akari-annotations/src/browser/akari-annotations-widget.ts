@@ -52,11 +52,16 @@ import {
     buildLayerElement,
     buildSfxElement,
     computeMaterialGhostRange,
+    CutDropPlan,
+    ensuredAudioTimelineTracks,
+    planCutDrop,
     IMAGE_LAYER_DEFAULT_DURATION_SECONDS,
+    insertCutIntoEdit,
     insertedLayerTimelineTracks,
-    materialDropAcceptance,
+    materialDropDecision,
     materialGhostVisibility,
     MaterialDragKind,
+    MaterialDropZone,
     shiftLayerTracksForInsert
 } from '../common/timeline-material-insert';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
@@ -2740,25 +2745,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * 素材追加の共通実装（task 2026-08-10-material-dnd-timeline 指示6）。再生ヘッド追加
-     * （addMaterialAtPlayhead）と D&D ドロップ（handleMaterialDrop）の両方がここへ委譲する。
-     * video は layers[]、audio は audio.sfx[] へ {t, track} で挿入する。書き込みは全文
-     * スナップショット方式（performDeleteMultiSelected と同型）。widget から未使用の
-     * insertLayer/insertSfx RPC は使わない。引数検証・拒否はここで完結し、例外は投げない。
+     * 素材追加の共通実装（task 2026-08-10-material-dnd-timeline 指示6、
+     * task 2026-08-18-timeline-dnd-p0p1 で本編カット・音源行生成・尺の非クランプへ拡張）。
+     * 再生ヘッド追加（addMaterialAtPlayhead）と D&D ドロップ（handleMaterialDrop）の両方が
+     * ここへ委譲する。書き込みは全文スナップショット方式（performDeleteMultiSelected と同型）。
+     * 引数検証はここで完結し、例外は投げない。
+     *
+     * options.zone が行き先を決める:
+     * - `layers`（既定。video / image）: `layers[]` へ挿入。行間ドロップ（insertTrack）なら
+     *   既存 track の繰り上げ + 宣言トラックの新規挿入を 1 スナップショットに畳む。
+     * - `cuts`（video / image）: `cuts[]` へ挿入（P1-a）。v0 で別ソースを落とした場合は
+     *   v1（マルチソース）へ移行する — insertCutIntoEdit の責務。
+     * - `audio`: `audio.sfx[]` へ挿入。options.createAudioTrack のとき、明示 timeline.tracks に
+     *   audio 行が無ければ 1 本足す（P0-a。宣言していないプロジェクトは派生で自動的に生える）。
+     *
      * options.durationSeconds が渡されていれば実尺プローブ済みとして扱い、video の実尺 RPC を
-     * 再度叩かない（司令塔裁定6「ドロップ時の実挿入も同じ優先順」）。image は常に
-     * IMAGE_LAYER_DEFAULT_DURATION_SECONDS（司令塔裁定3）。
-     * options.insertTrack が渡されていれば行間ドロップ（task 2026-08-10-dnd-ghost-and-insert-fix
-     * 司令塔裁定3）: 既存 layers[].track の繰り上げ + 宣言トラックの繰り上げ・新規挿入を、この
-     * メソッド内の 1 回の全文スナップショット書き込みに畳み込む（undo/redo 1 エントリで
-     * アイテムと新トラックの両方が可逆になる）。audio には insertTrack は来ない（裁定4）。
+     * 再度叩かない。image は常に IMAGE_LAYER_DEFAULT_DURATION_SECONDS。
      */
     async addMaterialAt(
         relativePath: string,
         kind: string,
         t: number,
         track: number,
-        options?: { durationSeconds?: number; insertTrack?: number }
+        options?: {
+            durationSeconds?: number; insertTrack?: number;
+            zone?: MaterialDropZone; createAudioTrack?: boolean;
+        }
     ): Promise<void> {
         if (kind !== 'video' && kind !== 'audio' && kind !== 'image') {
             this.messages.warn('素材を追加できません（種別が不正です）。');
@@ -2773,6 +2785,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.messages.warn('edit.json が見つからないため素材を追加できません。');
             return;
         }
+        const zone: MaterialDropZone = options?.zone ?? (kind === 'audio' ? 'audio' : 'layers');
         let durationSeconds = 0;
         let fallbackNote = '';
         if (kind === 'image') {
@@ -2801,44 +2814,61 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         try {
             const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
-            const value = JSON.parse(editBefore) as Record<string, any>;
-            const contentDuration = this.contentEndDuration();
-            if (kind === 'video' || kind === 'image') {
+            let value = JSON.parse(editBefore) as Record<string, any>;
+            let successNote = 'タイムラインに素材を追加しました。';
+            let warningNote = '';
+            let beyondNote = '';
+            if (zone === 'cuts') {
+                const plan = planCutDrop(
+                    Array.isArray(value.cuts) ? value.cuts : [], track, t, durationSeconds
+                );
+                const inserted = insertCutIntoEdit(value, relativePath, plan, durationSeconds, track);
+                value = inserted.value as Record<string, any>;
+                successNote = inserted.migratedToV1
+                    ? '本編に素材を追加しました（複数ソースを扱えるよう v1 形式へ変換しました）。'
+                    : '本編に素材を追加しました。';
+                warningNote = inserted.warnings.join(' ');
+            } else if (zone === 'layers') {
                 const existingIds: string[] = Array.isArray(value.layers)
                     ? value.layers
                         .map((layer: any) => (layer && typeof layer.id === 'string' ? layer.id : ''))
                         .filter((id: string) => id.length > 0)
                     : [];
-                const built = buildLayerElement(existingIds, relativePath, t, durationSeconds, contentDuration, track);
-                if (!built.ok) {
-                    this.footer.textContent = '指定位置が総尺以上のため素材を追加できません。';
-                    return;
-                }
+                const element = buildLayerElement(existingIds, relativePath, t, durationSeconds, track);
                 if (!Array.isArray(value.layers)) {
                     value.layers = [];
                 }
                 if (options?.insertTrack !== undefined) {
                     value.layers = shiftLayerTracksForInsert(value.layers, options.insertTrack);
-                    const baseTracks = this.pinAudioGroupToBottom(
-                        parseEdit(editBefore).timeline?.tracks
-                            ?? deriveDefaultTimelineTracks(JSON.parse(editBefore), this.captions.length > 0)
-                    );
-                    value.timeline = { tracks: insertedLayerTimelineTracks(baseTracks, options.insertTrack) };
+                    // timeline は丸ごと置換せず spread で保全する（2026-08-10-dnd-ghost-and-insert-fix
+                    // の P3 申し送り: 未知フィールドを落とさない）。
+                    value.timeline = {
+                        ...(value.timeline && typeof value.timeline === 'object' ? value.timeline : {}),
+                        tracks: insertedLayerTimelineTracks(
+                            this.snapshotTimelineTracks(editBefore), options.insertTrack
+                        )
+                    };
                 }
-                value.layers.push(built.element);
+                value.layers.push(element);
+                beyondNote = this.beyondCutsEndNote(t);
             } else {
-                const built = buildSfxElement(relativePath, t, contentDuration, track);
-                if (!built.ok) {
-                    this.footer.textContent = '指定位置が総尺以上のため素材を追加できません。';
-                    return;
-                }
+                const element = buildSfxElement(relativePath, t, track);
                 if (!value.audio || typeof value.audio !== 'object') {
                     value.audio = {};
                 }
                 if (!Array.isArray(value.audio.sfx)) {
                     value.audio.sfx = [];
                 }
-                value.audio.sfx.push(built.element);
+                value.audio.sfx.push(element);
+                beyondNote = this.beyondCutsEndNote(t);
+                // P0-a: 明示 timeline.tracks に audio 行が無いと、sfx を足しても帯が出ない。
+                // 宣言していないプロジェクトは deriveTracks が sfx から自動で生やすので触らない。
+                if (Array.isArray(value.timeline?.tracks)) {
+                    value.timeline = {
+                        ...value.timeline,
+                        tracks: ensuredAudioTimelineTracks(value.timeline.tracks)
+                    };
+                }
             }
             let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
             await this.writeTimelineSnapshots(editAfter);
@@ -2855,14 +2885,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadEdit();
                 }
             });
-            this.hideNotice();
-            this.footer.textContent = fallbackNote || 'タイムラインに素材を追加しました。';
+            if (warningNote) {
+                this.showNotice(warningNote);
+            } else {
+                this.hideNotice();
+            }
+            this.footer.textContent = `${successNote}${beyondNote}${fallbackNote}`;
             this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
             this.showNotice(`素材を追加できません: ${detail}`);
             this.messages.error(`素材を追加できません: ${detail}`);
         }
+    }
+
+    /**
+     * 行間ドロップで宣言トラックを組み替えるときの基準列。明示 timeline.tracks があればそれ、
+     * 無ければ派生ベースラインを、いずれも pinAudioGroupToBottom（audio 先頭 = 画面最下段）で
+     * 正規化して返す（2026-08-10-dnd-ghost-and-insert-fix の呼び出しをそのまま関数化）。
+     */
+    protected snapshotTimelineTracks(editBefore: string): EditTimelineTrack[] {
+        return this.pinAudioGroupToBottom(
+            parseEdit(editBefore).timeline?.tracks
+                ?? deriveDefaultTimelineTracks(JSON.parse(editBefore), this.captions.length > 0)
+        );
     }
 
     /**
@@ -2920,9 +2966,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         event.preventDefault();
         event.stopPropagation();
         const payload = this.materialDragPayload;
-        const rejected = !!payload && this.resolveMaterialDropTarget(payload.kind, event.clientY).rejected;
+        const target = payload ? this.resolveMaterialDropTarget(payload.kind, event.clientY) : undefined;
+        const rejected = !!target?.rejected;
         if (event.dataTransfer) {
             event.dataTransfer.dropEffect = rejected ? 'none' : 'copy';
+        }
+        // P0-b: 拒否は無言にしない。なぜ置けないのかをドラッグ中からフッターに出す。
+        if (rejected && target?.reason) {
+            this.footer.textContent = target.reason;
         }
         this.updateMaterialGhost(event.clientX, event.clientY);
     }
@@ -2958,17 +3009,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const target = this.resolveMaterialDropTarget(payload.kind, clientY);
         if (target.rejected) {
+            this.footer.textContent = target.reason || '素材をここには置けません。';
             return;
         }
-        const t = Math.min(Math.max(this.timeAtClientX(clientX), 0), this.contentEndDuration());
         const durationSeconds = payload.kind === 'image'
             ? IMAGE_LAYER_DEFAULT_DURATION_SECONDS
             : this.materialDurationCache.get(payload.relativePath) ?? payload.durationSeconds;
+        const resolvedDuration = durationSeconds ?? this.materialGhostDurationSeconds(payload);
+        const t = this.materialDropTime(clientX, target.zone, target.track, resolvedDuration);
         void this.addMaterialAt(
             payload.relativePath, payload.kind, t, target.track,
             {
+                zone: target.zone,
                 ...(typeof durationSeconds === 'number' ? { durationSeconds } : {}),
-                ...(target.insertTrack !== undefined ? { insertTrack: target.insertTrack } : {})
+                ...(target.insertTrack !== undefined ? { insertTrack: target.insertTrack } : {}),
+                ...(target.createAudioTrack ? { createAudioTrack: true } : {})
             }
         );
     }
@@ -2989,33 +3044,94 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     /**
-     * ドロップ先トラック行の解決（司令塔裁定2）。video/image は layerTracks、audio は
-     * audioTracks を対象にする。既存 trackAtClientY（そのまま使う — 指示3）に、layers が
-     * 1 本も無いプロジェクトでも新トラック扱いで受理する特例を足す。
+     * ドロップ先トラック行の解決（task 2026-08-10-material-dnd-timeline 司令塔裁定2 を
+     * task 2026-08-18-timeline-dnd-p0p1 で拡張）。
+     *
+     * - audio: 音源帯を狙う。**音源トラック行が 1 本も無いときも受理する**（P0-a）。この場合は
+     *   ref 0 の音源トラックを新規に作る（`createAudioTrack`）。従来はここが reject だったため、
+     *   BGM しか持たない通常のプロジェクトでは音源をどこにも落とせなかった。
+     * - video / image: レイヤー帯 → 本編帯の順に当てる。どちらの行にも当たらなければ拒否し、
+     *   **理由**を返す（P0-b。無言 no-op は「壊れている」と区別が付かない）。
+     *   layers / cuts が両方 0 本のプロジェクトは、従来どおり新レイヤー行として受理する。
      */
     protected resolveMaterialDropTarget(
         kind: MaterialDragKind, clientY: number
-    ): { track: number; top: number; height: number; rejected: boolean; insertTrack?: number } {
+    ): {
+        zone: MaterialDropZone; track: number; top: number; height: number; rejected: boolean;
+        insertTrack?: number; createAudioTrack?: boolean; reason?: string;
+    } {
         if (kind === 'audio') {
             const layouts = this.laneLayout.audioTracks;
-            if (materialDropAcceptance('audio', layouts.length ? 'audio' : undefined) === 'reject') {
-                return { track: 0, top: 0, height: SUBROW_STRIDE, rejected: true };
+            if (layouts.length === 0) {
+                // P0-a: 音源帯がまだ無い。落とした位置の行にゴーストを出し、書き込み時に音源行を作る。
+                const localY = clientY - this.strip.getBoundingClientRect().top;
+                return {
+                    zone: 'audio', track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2),
+                    height: SUBROW_STRIDE, rejected: false, createAudioTrack: true
+                };
             }
             const hit = this.trackAtClientY('audio', layouts, clientY, layouts[0].track);
             const matched = layouts.find(layout => layout.track === hit.track);
-            return { track: hit.track, top: hit.top, height: matched?.height ?? SUBROW_STRIDE, rejected: hit.rejected };
+            return {
+                zone: 'audio', track: hit.track, top: hit.top,
+                height: matched?.height ?? SUBROW_STRIDE, rejected: hit.rejected,
+                ...(hit.rejected ? { reason: this.materialDropRejectReason('audio', 'cuts') } : {})
+            };
         }
-        const layouts = this.laneLayout.layerTracks;
-        if (layouts.length === 0) {
-            // layers 行が 1 本も無いプロジェクトでも挿入できること（司令塔裁定2 の明示要求）。
-            return { track: 0, top: 0, height: SUBROW_STRIDE, rejected: false, insertTrack: 0 };
+        const layerLayouts = this.laneLayout.layerTracks;
+        const cutLayouts = this.laneLayout.cutTracks;
+        const localY = clientY - this.strip.getBoundingClientRect().top;
+        if (layerLayouts.length === 0 && cutLayouts.length === 0) {
+            // レイヤー行も本編行も無いプロジェクトでも挿入できること（2026-08-10 司令塔裁定2）。
+            return {
+                zone: 'layers', track: 0, top: 0, height: SUBROW_STRIDE, rejected: false, insertTrack: 0
+            };
         }
-        const hit = this.trackAtClientY('layer', layouts, clientY, layouts[0].track);
-        const matched = layouts.find(layout => layout.track === hit.track);
+        // 1) レイヤー帯を先に当てる（行間ゾーンの取り合いで既存挙動を変えないため）。
+        if (layerLayouts.length > 0) {
+            const hit = this.trackAtClientY('layer', layerLayouts, clientY, layerLayouts[0].track);
+            if (!hit.rejected) {
+                const matched = layerLayouts.find(layout => layout.track === hit.track);
+                return {
+                    zone: 'layers', track: hit.track, top: hit.top,
+                    height: matched?.height ?? SUBROW_STRIDE, rejected: false,
+                    ...(hit.insertTrack !== undefined ? { insertTrack: hit.insertTrack } : {})
+                };
+            }
+        }
+        // 2) 本編帯は「行の上にカーソルがある」ときだけ。行間・余白は本編に取らせない
+        //    （cuts[].track >= 1 は v1 の描画経路が無視する = 画面に出ないクリップになるため、
+        //    本編には新トラックを作らない。重ねたいならレイヤー帯を使う）。
+        if (cutLayouts.length > 0 && this.laneKindAtLocalY(localY) === 'cut') {
+            const hit = this.trackAtClientY('cut', cutLayouts, clientY, cutLayouts[0].track);
+            const track = hit.insertTrack !== undefined
+                ? (cutLayouts.find(layout => layout.track === hit.track - 1) ?? cutLayouts[0]).track
+                : hit.track;
+            const matched = cutLayouts.find(layout => layout.track === track);
+            return {
+                zone: 'cuts', track, top: matched?.top ?? hit.top,
+                height: matched?.height ?? SUBROW_STRIDE, rejected: false
+            };
+        }
+        // 3) レイヤー行が 1 本も無いプロジェクトの余白は「新しいレイヤー行」として受け付ける
+        //    （2026-08-10 司令塔裁定2 の救済。本編行しか無いプロジェクトでも PinP を D&D で作れる）。
+        if (layerLayouts.length === 0 && this.laneKindAtLocalY(localY) === 'none') {
+            return {
+                zone: 'layers', track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2),
+                height: SUBROW_STRIDE, rejected: false, insertTrack: 0
+            };
+        }
+        // 4) 字幕 / オーバーレイ / ビート帯。理由を添えて拒否する。
         return {
-            track: hit.track, top: hit.top, height: matched?.height ?? SUBROW_STRIDE,
-            rejected: hit.rejected, insertTrack: hit.insertTrack
+            zone: 'layers', track: 0, top: 0, height: SUBROW_STRIDE, rejected: true,
+            reason: this.materialDropRejectReason(kind, 'overlays')
         };
+    }
+
+    /** 拒否理由の文言（純関数 materialDropDecision の reason をそのまま使う）。 */
+    protected materialDropRejectReason(kind: MaterialDragKind, trackKind: 'cuts' | 'overlays'): string {
+        const decision = materialDropDecision(kind, trackKind);
+        return decision.accept === true ? '' : decision.reason;
     }
 
     protected materialGhostDurationSeconds(payload: MaterialDragPayload): number {
@@ -3050,11 +3166,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         const durationSeconds = this.materialGhostDurationSeconds(payload);
-        const contentDuration = this.contentEndDuration();
-        const t = Math.min(Math.max(this.timeAtClientX(clientX), 0), contentDuration);
-        const range = computeMaterialGhostRange(t, durationSeconds, contentDuration);
-        this.setGhostRange(this.materialGhost, range.ok ? range.range.start : t, range.ok ? range.range.end : t);
-        this.setGhostRejected(this.materialGhost, !range.ok);
+        // task 2026-08-18-timeline-dnd-p0p1 / P1-b: 総尺でのクランプをやめる。総尺より後ろに
+        // 置けるし、素材が黙って短く切られることもない（置けば総尺のほうが伸びる）。
+        // 本編帯だけは重なりが許されない（cuts.track-overlap は error）ので、着地位置を
+        // 空きへ寄せた結果をそのままゴーストに出す（見えている場所 = 入る場所）。
+        const range = computeMaterialGhostRange(
+            this.materialDropTime(clientX, target.zone, target.track, durationSeconds),
+            durationSeconds
+        );
+        this.setGhostRange(this.materialGhost, range.start, range.end);
+        this.setGhostRejected(this.materialGhost, false);
         const viewportTop = RULER_BAND_HEIGHT_PX + target.top - this.stripScroll.scrollTop;
         this.materialGhost.style.top = `${viewportTop}px`;
         this.materialGhost.style.height = `${target.height}px`;
@@ -7854,6 +7975,54 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const rect = this.strip.getBoundingClientRect();
         const ratio = rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0;
         return this.viewStart + ratio * this.visibleDuration();
+    }
+
+    /**
+     * 素材 D&D のドロップ時刻（task 2026-08-18-timeline-dnd-p0p1 / P1-b）。0 で下限を切るだけで
+     * **総尺で上限を切らない** — タイムラインは総尺の先にも余白を描いており、そこに落として
+     * 尺を伸ばせることが「自由に配置」の要件だから。フレームグリッドへの丸めもしない（v0 と同じ）。
+     */
+    protected materialDropTimeAtClientX(clientX: number): number {
+        return Math.max(0, this.timeAtClientX(clientX));
+    }
+
+    /**
+     * 書き出しの尺を決めるのは `cuts[]` なので、その終端より後ろへ置いたレイヤー / 音源は
+     * タイムライン上には見えても書き出しには入らない（edit-lint の `audio.sfx.timeline` /
+     * `overlays.timeline` と同じ事情。layers には対応する lint がまだ無い）。
+     * P1-b で「総尺より後ろに置ける」ようにした以上、この一言は必ず添える。
+     * cuts が 0 本のプロジェクトは「ソース全体が本編」なので何も言わない。
+     */
+    protected beyondCutsEndNote(t: number): string {
+        if (this.cuts.length === 0) {
+            return '';
+        }
+        const cutsEnd = this.segments.reduce((max, segment) => Math.max(max, segment.tlEnd), 0);
+        if (!(t >= cutsEnd)) {
+            return '';
+        }
+        return '（本編の終わりより後ろです。本編を伸ばさないと書き出しには入りません）';
+    }
+
+    /**
+     * 本編（cuts）へのドロップ計画。`planCutDrop` の入力を widget 状態から組み立てるだけの薄い層。
+     * ゴースト（dragover 毎）と実挿入（drop）が同じ計画を見るので、見えている位置に必ず入る。
+     */
+    protected materialCutDropPlan(clientX: number, track: number, durationSeconds: number): CutDropPlan {
+        return planCutDrop(this.cuts, track, this.materialDropTimeAtClientX(clientX), durationSeconds);
+    }
+
+    /**
+     * 行き先を織り込んだドロップ時刻。レイヤー・音源は重ねてよいので落とした位置のまま
+     * （P1-b: 総尺より後ろも可）。本編だけは planCutDrop が決めた着地時刻を使う。
+     */
+    protected materialDropTime(
+        clientX: number, zone: MaterialDropZone, track: number, durationSeconds: number
+    ): number {
+        if (zone !== 'cuts') {
+            return this.materialDropTimeAtClientX(clientX);
+        }
+        return this.materialCutDropPlan(clientX, track, durationSeconds).at;
     }
 
     protected selectTimeAtClientX(clientX: number): void {
