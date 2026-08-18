@@ -14,6 +14,7 @@ const expectedSources = [
   'caption-store.ts',
   'caption-window.ts',
   'edit-store.ts',
+  'edit-v2.ts',
   'index.ts',
   'timeline-map.ts',
   'webview-kernel.ts',

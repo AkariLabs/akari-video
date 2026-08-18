@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "telop-1",
+          "at": 0,
+          "duration": 30,
+          "source": { "kind": "telop", "preset": "name", "in": 0, "out": 1 }
+        }
+      ]
+    }
+  ]
+}

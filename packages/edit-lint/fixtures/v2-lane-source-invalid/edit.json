@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "a1",
+      "lane": "audio",
+      "items": [
+        { "id": "html-1", "at": 0, "duration": 30, "source": { "kind": "html", "path": "title.html" } }
+      ]
+    }
+  ]
+}

@@ -105,7 +105,7 @@ export async function lintProject(input, options = {}) {
     throw new ExecutionError(`edit.json is not valid JSON: ${messageOf(error)}`);
   }
 
-  if (isRecord(edit) && Number.isInteger(edit.version) && edit.version >= 2) {
+  if (isRecord(edit) && Number.isInteger(edit.version) && edit.version > 2) {
     addFinding(findings, {
       severity: "error",
       check: "edit.version",
@@ -116,6 +116,16 @@ export async function lintProject(input, options = {}) {
       skipped,
       "edit.validation",
       "a newer edit.json version was detected; no format assumptions were made",
+    );
+    return writeResult(findings, skipped, inputs, paths, options);
+  }
+
+  if (isRecord(edit) && edit.version === 2) {
+    validateEditV2(edit, findings);
+    addSkipped(
+      skipped,
+      "edit.v2.extended-validation",
+      "Phase 0 validates v2 ids, track shape, same-track overlap, and lane/source compatibility only",
     );
     return writeResult(findings, skipped, inputs, paths, options);
   }
@@ -574,6 +584,126 @@ function validateEditStructure(edit, findings, paths) {
     structureFinding(findings, editRelative, "overlays must be an array");
   }
   return { sourcePath, sourceIds };
+}
+
+// notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。
+// v2 Phase 0 は既存 v0/v1 の検証パイプラインへ混ぜず、トラック正本の最小不変条件だけを検査する。
+function validateEditV2(edit, findings) {
+  if (!Array.isArray(edit.tracks)) {
+    addFinding(findings, {
+      severity: "error",
+      check: "v2.track-content-exclusive",
+      message: "version 2 tracks must be an array",
+      path: "edit.json#tracks",
+    });
+    return;
+  }
+
+  const sourceIds = new Map();
+  const trackIds = new Map();
+  const itemIds = new Map();
+  const registerId = (ids, id, path, label) => {
+    if (!isNonEmptyString(id)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "v2.id-unique",
+        message: `${label} id must be a non-empty string`,
+        path,
+      });
+      return;
+    }
+    const first = ids.get(id);
+    if (first) {
+      addFinding(findings, {
+        severity: "error",
+        check: "v2.id-unique",
+        message: `${label} id is duplicated: ${id} (first declared at ${first})`,
+        path,
+      });
+      return;
+    }
+    ids.set(id, path);
+  };
+
+  if (Array.isArray(edit.sources)) {
+    for (const [index, source] of edit.sources.entries()) {
+      if (isRecord(source)) registerId(sourceIds, source.id, `edit.json#sources[${index}].id`, "source");
+    }
+  }
+
+  for (const [trackIndex, track] of edit.tracks.entries()) {
+    const trackPath = `edit.json#tracks[${trackIndex}]`;
+    if (!isRecord(track)) {
+      addFinding(findings, {
+        severity: "error",
+        check: "v2.track-content-exclusive",
+        message: "track must be an object",
+        path: trackPath,
+      });
+      continue;
+    }
+    registerId(trackIds, track.id, `${trackPath}.id`, "track");
+
+    const hasItems = Object.hasOwn(track, "items");
+    const hasContent = Object.hasOwn(track, "content");
+    if (hasItems === hasContent) {
+      addFinding(findings, {
+        severity: "error",
+        check: "v2.track-content-exclusive",
+        message: "track must contain exactly one of items or content",
+        path: trackPath,
+      });
+    }
+
+    if (hasContent && track.lane !== "visual") {
+      addFinding(findings, {
+        severity: "error",
+        check: "v2.lane-source",
+        message: "captions content is only compatible with the visual lane",
+        path: `${trackPath}.lane`,
+      });
+    }
+
+    if (!Array.isArray(track.items)) continue;
+    const intervals = [];
+    for (const [itemIndex, item] of track.items.entries()) {
+      const itemPath = `${trackPath}.items[${itemIndex}]`;
+      if (!isRecord(item)) continue;
+      registerId(itemIds, item.id, `${itemPath}.id`, "item");
+
+      const kind = isRecord(item.source) ? item.source.kind : undefined;
+      const compatible = track.lane === "audio"
+        ? kind === "media"
+        : track.lane === "visual" && ["media", "html", "telop", "filter"].includes(kind);
+      if (!compatible) {
+        addFinding(findings, {
+          severity: "error",
+          check: "v2.lane-source",
+          message: `source kind ${String(kind)} is not compatible with lane ${String(track.lane)}`,
+          path: `${itemPath}.source.kind`,
+        });
+      }
+
+      if (Number.isInteger(item.at) && item.at >= 0 && Number.isInteger(item.duration) && item.duration >= 0) {
+        intervals.push({ index: itemIndex, start: item.at, end: item.at + item.duration });
+      }
+    }
+
+    intervals.sort((left, right) => left.start - right.start || left.index - right.index);
+    let furthest = null;
+    for (const interval of intervals) {
+      if (furthest && interval.start < furthest.end && interval.end > interval.start) {
+        addFinding(findings, {
+          severity: "error",
+          check: "v2.track-overlap",
+          message: `item overlaps ${furthest.index} on the same track`,
+          path: `${trackPath}.items[${interval.index}]`,
+          range: { start: interval.start, end: interval.end },
+        });
+      }
+      if (!furthest || interval.end > furthest.end) furthest = interval;
+    }
+  }
 }
 
 // docs/contract-2026-07-22-render-basics.md #4/#2。output.look / source.chroma_key の構造検証は
