@@ -1504,6 +1504,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             if (action === 'open-inspector') {
                 await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID);
+            } else if (action === 'attach-inspector') {
+                // 焦点は奪わずタブとして常駐だけさせる（reveal しない）
+                await this.commands.executeCommand(OPEN_AKARI_INSPECTOR_ID, { attachOnly: true });
             } else if (action === 'show-partner') {
                 await this.shell.activateWidget(PARTNER_WIDGET_ID);
             }
