@@ -11,7 +11,11 @@ import { renderProject } from "../src/render-cut.mjs";
 import { buildTailPadCommand } from "../src/content-duration.mjs";
 import { buildVideoEncodeArgs } from "../src/encode-preset.mjs";
 import { compositeAnimatedOverlay, compositeStaticOverlays, runChecked } from "../src/rasterize.mjs";
-import { resolveCutTrackRanges } from "../src/track-compose.mjs";
+import {
+  buildCutTrackCompositeCommand,
+  buildTrackBaseCommand,
+  resolveCutTrackRanges,
+} from "../src/track-compose.mjs";
 import { usesDefaultTrackOrder } from "../src/track-order.mjs";
 
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -102,6 +106,54 @@ test("an interleaved declaration plans per-track cuts and ordered cuts/layers st
   ]);
   assert.equal(plan.commands.track_stack.cutTracks.length, 2);
   assert.match(plan.commands.track_stack.outputPath, /layered\.mp4$/u);
+});
+
+test("custom track order includes overlays and captions in the same bottom-to-top stage plan", () => {
+  const plan = buildPlan({
+    edit: {
+      ...edit,
+      overlays: [{ id: "title", html: "title.html", start: 0, duration: 1, track: 2 }],
+      timeline: {
+        tracks: [
+          { id: "captions", kind: "captions" },
+          { id: "c0", kind: "cuts", ref: 0 },
+          { id: "overlay2", kind: "overlays", ref: 2 },
+          { id: "l0", kind: "layers", ref: 0 },
+          { id: "c1", kind: "cuts", ref: 1 },
+        ],
+      },
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: {
+      sourceInputs: [
+        { id: "green", path: "/project/green.mp4", hasAudio: true },
+        { id: "blue", path: "/project/blue.mp4", hasAudio: true },
+      ],
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: "ffprobe",
+      chromePath: "chrome",
+      hyperframesAvailable: false,
+      puppeteerAvailable: false,
+    },
+    hasSourceAudio: true,
+    captionOverlays: [{ id: "caption-01", start: 0, duration: 1 }],
+  });
+  assert.deepEqual(plan.commands.track_stack.stages.map(({ kind, ref }) => ({ kind, ref })), [
+    { kind: "captions", ref: null },
+    { kind: "cuts", ref: 0 },
+    { kind: "overlays", ref: 2 },
+    { kind: "layers", ref: 0 },
+    { kind: "cuts", ref: 1 },
+  ]);
+  assert.deepEqual(
+    plan.commands.track_stack.stages.filter(stage => stage.command === null)
+      .map(({ kind, overlayIds }) => ({ kind, overlayIds })),
+    [
+      { kind: "captions", overlayIds: ["caption-01"] },
+      { kind: "overlays", overlayIds: ["title"] },
+    ],
+  );
 });
 
 // task 2026-08-07-track-transition-lint-guard: defensive backstop for direct render-cut
@@ -394,6 +446,72 @@ test("real render follows interleaved cuts/layers z order in both directions", a
   }
 });
 
+test("default and explicitly-derived track orders remain byte-equivalent", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0 || !existsSync(chromePath)) {
+    return t.skip("ffmpeg or Chrome unavailable");
+  }
+  const implicit = await renderDefaultOrderFixture(false);
+  const explicit = await renderDefaultOrderFixture(true);
+  try {
+    assert.deepEqual(await readFile(explicit.outputPath), await readFile(implicit.outputPath));
+    assert.equal(implicit.state.plan.commands.track_stack, null);
+    assert.equal(explicit.state.plan.commands.track_stack, null);
+  } finally {
+    await rm(implicit.project, { recursive: true, force: true });
+    await rm(explicit.project, { recursive: true, force: true });
+  }
+});
+
+test("real FFmpeg frames hide caption alpha when its track stage is below an opaque cut", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await mkdtemp(join(tmpdir(), "render-cut-caption-z-frame-test-"));
+  try {
+    const sourcePath = join(project, "green.mp4");
+    const basePath = join(project, "base.mp4");
+    const captionPath = join(project, "caption.mov");
+    const belowCaptionPath = join(project, "caption-below.mp4");
+    const belowOutputPath = join(project, "below.mp4");
+    const aboveCutPath = join(project, "cut-below.mp4");
+    const aboveOutputPath = join(project, "above.mp4");
+    makeColorSource(sourcePath, "green", 220, 1.5);
+    makeCaptionAlpha(captionPath);
+    const base = buildTrackBaseCommand({
+      ffmpegCommand: "ffmpeg", inputPath: sourcePath, outputPath: basePath,
+      duration: 1.5, width: 96, height: 54, fps: 10,
+    });
+    runChecked(base.command, base.args);
+    const cutRanges = [{ outputStart: 0, outputEnd: 1.5, inputStart: 0 }];
+    await compositeAnimatedOverlay({
+      ffmpegCommand: "ffmpeg", cutPath: basePath, overlayPath: captionPath,
+      outputPath: belowCaptionPath, hasAudio: true,
+    });
+    const coverCaption = buildCutTrackCompositeCommand({
+      ffmpegCommand: "ffmpeg", inputPath: belowCaptionPath, trackPath: sourcePath,
+      outputPath: belowOutputPath, ranges: cutRanges, duration: 1.5,
+    });
+    runChecked(coverCaption.command, coverCaption.args);
+    const cutBelow = buildCutTrackCompositeCommand({
+      ffmpegCommand: "ffmpeg", inputPath: basePath, trackPath: sourcePath,
+      outputPath: aboveCutPath, ranges: cutRanges, duration: 1.5,
+    });
+    runChecked(cutBelow.command, cutBelow.args);
+    await compositeAnimatedOverlay({
+      ffmpegCommand: "ffmpeg", cutPath: aboveCutPath, overlayPath: captionPath,
+      outputPath: aboveOutputPath, hasAudio: true,
+    });
+
+    const belowWhitePixels = countNearWhitePixels(belowOutputPath, 0.8);
+    const aboveWhitePixels = countNearWhitePixels(aboveOutputPath, 0.8);
+    assert.ok(aboveWhitePixels > 10, `expected visible caption pixels, got ${aboveWhitePixels}`);
+    assert.ok(
+      belowWhitePixels < aboveWhitePixels / 4,
+      `caption below cut must be occluded: below=${belowWhitePixels}, above=${aboveWhitePixels}`,
+    );
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
 async function renderFixture(order) {
   const project = await mkdtemp(join(tmpdir(), "render-cut-track-compose-test-"));
   await mkdir(join(project, ".akari"));
@@ -416,12 +534,51 @@ async function renderFixture(order) {
   return { project, outputPath: join(project, state.plan.output) };
 }
 
+async function renderDefaultOrderFixture(explicitTimeline) {
+  const project = await mkdtemp(join(tmpdir(), "render-cut-default-z-byte-test-"));
+  await mkdir(join(project, ".akari"));
+  await writeFile(join(project, ".akari", "lint.json"), '{"version":1,"verdict":"pass"}\n');
+  makeColorSource(join(project, "green.mp4"), "green", 220, 1.5);
+  await writeFile(join(project, "edit.json"), `${JSON.stringify({
+    version: 1,
+    output: { width: 96, height: 54, fps: 10 },
+    sources: [{ id: "green", path: "green.mp4", proxy: null }],
+    cuts: [{ src: "green", in: 0, out: 1.5, at: 0, track: 0 }],
+    layers: [],
+    overlays: [],
+    ...(explicitTimeline ? { timeline: { tracks: [{ id: "c0", kind: "cuts", ref: 0 }] } } : {}),
+  }, null, 2)}\n`);
+  const previousChrome = process.env.CHROME_PATH;
+  process.env.CHROME_PATH = chromePath;
+  try {
+    const state = await renderProject(project);
+    assert.equal(state.verify.verdict, "pass", JSON.stringify(state.verify.findings));
+    return { project, state, outputPath: join(project, state.plan.output) };
+  } catch (error) {
+    await rm(project, { recursive: true, force: true });
+    throw error;
+  } finally {
+    if (previousChrome === undefined) delete process.env.CHROME_PATH;
+    else process.env.CHROME_PATH = previousChrome;
+  }
+}
+
 function makeColorSource(path, color, frequency, duration) {
   const result = spawnSync("ffmpeg", [
     "-hide_banner", "-loglevel", "error", "-y",
     "-f", "lavfi", "-i", `color=c=${color}:s=96x54:r=10:d=${duration}`,
     "-f", "lavfi", "-i", `sine=frequency=${frequency}:sample_rate=48000:duration=${duration}`,
     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", path,
+  ], { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+}
+
+function makeCaptionAlpha(path) {
+  const result = spawnSync("ffmpeg", [
+    "-hide_banner", "-loglevel", "error", "-y",
+    "-f", "lavfi", "-i", "nullsrc=s=96x54:r=10:d=1.5,format=rgba",
+    "-vf", "geq=r=255:g=255:b=255:a='if(between(X,10,85)*between(Y,35,46),255,0)'",
+    "-c:v", "qtrle", "-pix_fmt", "argb", path,
   ], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
 }
@@ -443,6 +600,21 @@ function sampleCenter(path, time) {
   ]);
   assert.equal(result.status, 0, result.stderr?.toString());
   return { r: result.stdout[0], g: result.stdout[1], b: result.stdout[2] };
+}
+
+function countNearWhitePixels(path, time) {
+  const result = spawnSync("ffmpeg", [
+    "-hide_banner", "-loglevel", "error", "-ss", String(time), "-i", path,
+    "-vf", "format=rgb24", "-frames:v", "1", "-f", "rawvideo", "pipe:1",
+  ]);
+  assert.equal(result.status, 0, result.stderr?.toString());
+  let count = 0;
+  for (let offset = 0; offset + 2 < result.stdout.length; offset += 3) {
+    if (result.stdout[offset] > 210 && result.stdout[offset + 1] > 210 && result.stdout[offset + 2] > 210) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 function assertColor({ r, g, b }, expected) {

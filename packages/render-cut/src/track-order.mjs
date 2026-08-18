@@ -1,15 +1,25 @@
-import { deriveTracks } from "../../edit-lint/src/derive-tracks.mjs";
+import { createRequire } from "node:module";
 
-export function resolveTrackOrder(edit) {
-  return Array.isArray(edit?.timeline?.tracks) ? edit.timeline.tracks : deriveTracks(edit);
+const require = createRequire(import.meta.url);
+const {
+  deriveVisualTrackOrder,
+  resolveVisualTrackZ,
+} = require("../../edit-store/lib/index.js");
+
+export function resolveTrackOrder(edit, { hasCaptions = false } = {}) {
+  return Array.isArray(edit?.timeline?.tracks)
+    ? edit.timeline.tracks
+    : deriveVisualTrackOrder({ ...edit, hasCaptions });
 }
 
-export function usesDefaultTrackOrder(edit) {
-  const resolved = resolveTrackOrder(edit).map(trackKey);
-  const derived = deriveTracks(edit).map(trackKey);
+export function usesDefaultTrackOrder(edit, { hasCaptions = false } = {}) {
+  const resolved = resolveTrackOrder(edit, { hasCaptions }).map(trackKey);
+  const derived = deriveVisualTrackOrder({ ...edit, hasCaptions }).map(trackKey);
   return resolved.length === derived.length
     && resolved.every((value, index) => value === derived[index]);
 }
+
+export { resolveVisualTrackZ };
 
 function trackKey(track) {
   return `${track?.kind ?? ""}:${Number.isInteger(track?.ref) ? track.ref : ""}`;

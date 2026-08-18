@@ -8,3 +8,4 @@ export * from './caption-store';
 export * from './caption-window';
 export * from './timeline-map';
 export * from './caption-display';
+export * from './track-order';
