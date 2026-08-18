@@ -196,7 +196,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
             execute: () => this.openReviewPanel()
         });
         commands.registerCommand(OPEN_AKARI_INSPECTOR, {
-            execute: () => this.openInspectorPanel()
+            execute: (options?: { attachOnly?: boolean }) => this.openInspectorPanel(options)
         });
         commands.registerCommand(OPEN_AKARI_REVIEW_BOARD, {
             execute: () => this.openBoard()
@@ -589,7 +589,7 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
      * インスペクターを右サイドへ開く。選択のたびタイムライン側から呼ばれる想定のため、
      * フォーカスは奪わず reveal のみに留める（一度開けば常駐し、内容だけが更新される）。
      */
-    async openInspectorPanel(): Promise<AkariInspectorWidget | undefined> {
+    async openInspectorPanel(options?: { attachOnly?: boolean }): Promise<AkariInspectorWidget | undefined> {
         const timeline = this.timelineWidget?.isAttached ? this.timelineWidget : await this.attach();
         if (!timeline) {
             return undefined;
@@ -598,7 +598,11 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         if (!widget.isAttached) {
             this.shell.addWidget(widget, { area: 'right', rank: INSPECTOR_PANEL_RANK });
         }
-        await this.shell.revealWidget(widget.id);
+        // attachOnly: パートナー AI 等の別タブ作業中に呼ばれる経路。タブとして常駐させるだけで
+        // reveal（タブ切替 = 焦点強奪）はしない（right-pane-sync の 'attach-inspector'）。
+        if (!options?.attachOnly) {
+            await this.shell.revealWidget(widget.id);
+        }
         return widget;
     }
 
