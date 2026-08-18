@@ -60,6 +60,7 @@ import {
 } from '../common/review-preview-state';
 import { ReviewToolMode } from '../common/review-tool-mode';
 import { locatePreviewCaptions, parsePreviewCaptions, parseResolvedPreviewCaptions, PreviewCaption } from './akari-preview-captions';
+import { resolveOutputOpenFocusMode } from './open-focus-mode';
 import {
     ReviewSessionRecorder,
     ReviewSessionUiState,
@@ -1263,16 +1264,29 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
+    // task 2026-08-17-shell-right-panel-order-and-focus 指示3: edit.json は「開く」を全て
+    // AkariOutputPreviewOpenHandler.canHandle(1200) が横取りするため、既にプレビューが出ている
+    // 状態で再 open（別経路からの open を含む）しても表示中タブの焦点を奪わないことが必要。
+    // 新規作成時（プレビューがまだ無い状態からの open）だけ activate し、既存 widget への
+    // 再 open は revealWidget に留める。options.mode（Theia の WidgetOpenMode 相当）の明示指定が
+    // あれば常にそれを優先する（resolveOutputOpenFocusMode 参照）。
     async openOutput(uri: URI, options?: any): Promise<WebviewWidget> {
         const editUri = uri.normalizePath();
         try {
+            const existing = this.openOutputPreviews.get(editUri.toString());
+            const wasAlreadyOpen = Boolean(existing?.akariPreviewConfigured && !existing.isDisposed);
             const widget = await this.getOrOpenPreview(
                 editUri,
                 options?.widgetOptions ?? { area: 'main' },
                 'output'
             );
             this.attachTimelinePassively();
-            await this.shell.activateWidget(widget.id);
+            const mode = resolveOutputOpenFocusMode(options?.mode, wasAlreadyOpen);
+            if (mode === 'activate') {
+                await this.shell.activateWidget(widget.id);
+            } else if (mode === 'reveal') {
+                this.shell.revealWidget(widget.id);
+            }
             return widget;
         } catch (error) {
             this.reportOpenFailure(editUri, error);

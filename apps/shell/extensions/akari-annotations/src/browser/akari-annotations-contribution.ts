@@ -40,6 +40,7 @@ import { AkariInspectorWidget } from './akari-inspector-widget';
 import { AkariReviewBoardWidget } from './akari-review-board-widget';
 import { AkariReviewPanelWidget } from './akari-review-panel-widget';
 import { ProjectLocation } from './project-location';
+import { computeRightPanelOrder } from './right-panel-order';
 import { installRightPanelTabStyle } from './right-panel-tab-style';
 import { ReviewModel } from './review-model';
 
@@ -284,21 +285,27 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
     }
 
     /**
-     * 縦アイコンバーの並び順を [AI, 注釈, インスペクター] に固定する（RIGHT_PANEL_FIXED_ORDER
-     * の JSDoc 参照）。`TabBar.insertTab()`（@lumino/widgets 実装を実測確認）は対象の title が
-     * 既にバーにあれば移動するだけで複製しないため、安全に何度でも呼べる冪等な操作。
+     * 縦アイコンバーの並び順を「エージェント端末群（現在の相対順を保持）→ AI・注釈・インスペクター
+     * の固定 3 枚」に揃える（RIGHT_PANEL_FIXED_ORDER の JSDoc 参照）。固定 3 枚を絶対 index 0..2 へ
+     * insertTab すると、既存のエージェント端末タブ（owner.id が RIGHT_PANEL_FIXED_ORDER に含まれない
+     * もの — 右パネルには他に住人がいない）がその下へ押し出されてしまう不具合があったため
+     * （task 2026-08-17-shell-right-panel-order-and-focus 指示1）、固定 3 枚は先頭を奪わず「末尾」へ
+     * 寄せる方式に変えた。並び計算そのものは computeRightPanelOrder（純関数・right-panel-order.ts）
+     * に切り出してあり、ここでは計算結果を `TabBar.insertTab()`（@lumino/widgets 実装を実測確認 —
+     * 対象の title が既にバーにあれば移動するだけで複製しないため、安全に何度でも呼べる冪等な操作）
+     * で反映するだけ。
      */
     protected reconcileRightPanelOrder(): void {
         const tabBar = this.shell.rightPanelHandler.tabBar;
-        let insertAt = 0;
-        for (const id of RIGHT_PANEL_FIXED_ORDER) {
-            const title = Array.from(tabBar.titles).find(candidate => candidate.owner.id === id && !candidate.owner.isDisposed);
-            if (!title) {
-                continue;
+        const titles = Array.from(tabBar.titles).filter(title => !title.owner.isDisposed);
+        const titlesById = new Map(titles.map(title => [title.owner.id, title]));
+        const targetOrder = computeRightPanelOrder(titles.map(title => title.owner.id), RIGHT_PANEL_FIXED_ORDER);
+        targetOrder.forEach((id, index) => {
+            const title = titlesById.get(id);
+            if (title) {
+                tabBar.insertTab(index, title);
             }
-            tabBar.insertTab(insertAt, title);
-            insertAt++;
-        }
+        });
     }
 
     protected async watchForReview(root: URI): Promise<void> {
