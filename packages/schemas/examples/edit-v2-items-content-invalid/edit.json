@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "captions",
+      "lane": "visual",
+      "items": [],
+      "content": { "from": "captions.json" }
+    }
+  ]
+}

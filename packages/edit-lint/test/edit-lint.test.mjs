@@ -146,9 +146,9 @@ test("overlay track accepts missing/zero/integer and rejects negative, fractiona
   });
 });
 
-test("version 2 stops with an honest too-new message", async () => {
+test("version 3 stops with an honest too-new message", async () => {
   await withFixtures(async (fixtures) => {
-    const executed = run(join(fixtures, "version-2"));
+    const executed = run(join(fixtures, "version-3"));
     assert.equal(executed.status, 1, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.findings.length, 1);
@@ -157,6 +157,38 @@ test("version 2 stops with an honest too-new message", async () => {
     assert.ok(result.skipped.some((item) => item.check === "edit.validation"));
   });
 });
+
+test("valid v2 fixture passes the Phase 0 track checks", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "v2-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(!result.findings.some((finding) => finding.check.startsWith("v2.")));
+    assert.ok(result.skipped.some((item) => item.check === "edit.v2.extended-validation"));
+  });
+});
+
+for (const [fixture, expectedCheck] of [
+  ["v2-id-duplicate-invalid", "v2.id-unique"],
+  ["v2-items-content-invalid", "v2.track-content-exclusive"],
+  ["v2-track-overlap-invalid", "v2.track-overlap"],
+  ["v2-lane-source-invalid", "v2.lane-source"],
+]) {
+  test(`${fixture} reports ${expectedCheck}`, async () => {
+    await withFixtures(async (fixtures) => {
+      const executed = run(join(fixtures, fixture));
+      assert.equal(executed.status, 1, executed.stderr);
+      const result = parseResult(executed);
+      assert.ok(
+        result.findings.some(
+          (finding) => finding.check === expectedCheck && finding.severity === "error",
+        ),
+        JSON.stringify(result.findings, null, 2),
+      );
+    });
+  });
+}
 
 test("v1 rejects duplicate ids, missing src, invalid ranges, and missing source paths", async () => {
   await withFixtures(async (fixtures) => {

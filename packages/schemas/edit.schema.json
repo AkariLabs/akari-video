@@ -5,7 +5,8 @@
   "description": "単一ソースの v0 と、sources[] と cuts[].src を使うマルチソース v1 の公開契約。",
   "oneOf": [
     { "$ref": "#/$defs/editV0" },
-    { "$ref": "#/$defs/editV1" }
+    { "$ref": "#/$defs/editV1" },
+    { "$ref": "#/$defs/editV2" }
   ],
   "$defs": {
     "positiveNumber": {
@@ -15,6 +16,15 @@
     "seconds": {
       "type": "number",
       "minimum": 0
+    },
+    "frames": {
+      "type": "integer",
+      "minimum": 0,
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §10 / §10-1。出力側の位置と尺は映像・音声とも 0 以上の整数フレームで宣言する。"
+    },
+    "itemAtV2": {
+      "$ref": "#/$defs/frames",
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §10。v2 Phase 0 では絶対フレーム整数だけを受け付ける。将来はこの $def を oneOf: [frames, string] に拡張し、明示的な相対参照を追加する。"
     },
     "nonNegativeInteger": {
       "type": "integer",
@@ -48,6 +58,26 @@
           }
         }
       }
+    },
+    "outputV2": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["width", "height", "fps"],
+      "properties": {
+        "width": { "$ref": "#/$defs/positiveNumber" },
+        "height": { "$ref": "#/$defs/positiveNumber" },
+        "fps": { "type": "integer", "minimum": 1 },
+        "look": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/look" }] },
+        "encoding": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "quality": { "enum": ["master", "high", "standard", "light"] },
+            "encoder": { "enum": ["auto", "videotoolbox", "x264"] }
+          }
+        }
+      },
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §10-1。v2 の出力 fps は 1 以上の整数に固定する。29.97 / 23.976 が必要になった時点で有理数 {num, den} へ拡張する。既存 output は v0/v1 の互換契約として変更しない。"
     },
     "chromaKey": {
       "type": "object",
@@ -93,6 +123,22 @@
         "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
       },
       "$comment": "docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定1: path が静止画拡張子（sourceV0 と同一集合）のとき、cuts[].src でこの source を参照するカットは静止画として扱われる（video/image のソース混在が v1 の主眼）。cuts[].in は 0 推奨・out - in が表示尺（cuts[].freeze/speed は動作はするが無意味なため edit-lint が警告する）。"
+    },
+    "sourceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "proxy": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1, "pattern": "\\S" }
+          ]
+        },
+        "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
+      }
     },
     "narrationProvenance": {
       "type": "object",
@@ -562,6 +608,159 @@
         }
       }
     },
+    "itemSourceMediaV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "src", "in", "out"],
+      "properties": {
+        "kind": { "const": "media" },
+        "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "in": { "$ref": "#/$defs/seconds" },
+        "out": { "$ref": "#/$defs/seconds" }
+      },
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。src は editV2.sources[].id を参照し、in/out は素材内の秒。参照整合と out > in は兄弟値比較のため reader / edit-lint が検証する。"
+    },
+    "itemSourceHtmlV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "const": "html" },
+        "path": { "type": "string", "minLength": 1, "pattern": "\\S" }
+      },
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9。HTML はその場で描画する絵の出どころであり、素材トリムの in/out を持たない。"
+    },
+    "itemSourceTelopV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "preset"],
+      "properties": {
+        "kind": { "const": "telop" },
+        "preset": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "params": { "type": "object" },
+        "baked": { "type": "string", "minLength": 1, "pattern": "\\S" }
+      },
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9。baked は別種別ではなく、同じテロップを速く描くための任意キャッシュ。"
+    },
+    "itemSourceFilterV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "filter"],
+      "properties": {
+        "kind": { "const": "filter" },
+        "filter": { "$ref": "#/$defs/layerFilter" }
+      },
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9。既存 layerFilter の閉じた invert/lut/saturation 直和を v2 の filter source でも共有する。"
+    },
+    "itemV2Media": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "duration", "source"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "at": { "$ref": "#/$defs/itemAtV2" },
+        "duration": { "$ref": "#/$defs/frames" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "$ref": "#/$defs/layerBlendMode" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
+        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/layerKeyframe" } },
+        "source": { "$ref": "#/$defs/itemSourceMediaV2" }
+      }
+    },
+    "itemV2Html": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "duration", "source"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "at": { "$ref": "#/$defs/itemAtV2" },
+        "duration": { "$ref": "#/$defs/frames" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "$ref": "#/$defs/layerBlendMode" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
+        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/layerKeyframe" } },
+        "source": { "$ref": "#/$defs/itemSourceHtmlV2" }
+      }
+    },
+    "itemV2Telop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "duration", "source"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "at": { "$ref": "#/$defs/itemAtV2" },
+        "duration": { "$ref": "#/$defs/frames" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "$ref": "#/$defs/layerBlendMode" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
+        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/layerKeyframe" } },
+        "source": { "$ref": "#/$defs/itemSourceTelopV2" }
+      }
+    },
+    "itemV2Filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "duration", "source"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "at": { "$ref": "#/$defs/itemAtV2" },
+        "duration": { "$ref": "#/$defs/frames" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "$ref": "#/$defs/layerBlendMode" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
+        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/layerKeyframe" } },
+        "source": { "$ref": "#/$defs/itemSourceFilterV2" }
+      }
+    },
+    "itemV2": {
+      "oneOf": [
+        { "$ref": "#/$defs/itemV2Media" },
+        { "$ref": "#/$defs/itemV2Html" },
+        { "$ref": "#/$defs/itemV2Telop" },
+        { "$ref": "#/$defs/itemV2Filter" }
+      ],
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。共通キーだけを item 直下に置き、絵の出どころ固有のキーは source.kind ごとの閉じた oneOf に隔離する。at/duration は整数フレーム、media の in/out は素材秒。将来の入れ子は itemSourceSequenceV2 を追加してこの oneOf へ足す（kind=sequence は Phase 0 では未実装）。"
+    },
+    "captionTrackContentV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from"],
+      "properties": {
+        "from": { "const": "captions.json" }
+      },
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §8 / §10-1。字幕の正本は captions.json のソース秒のまま保ち、track には射影済み item を焼かず参照の器だけを置く。"
+    },
+    "trackV2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "lane", "items"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+            "lane": { "enum": ["visual", "audio"] },
+            "name": { "type": "string" },
+            "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "lane", "content"],
+          "properties": {
+            "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+            "lane": { "enum": ["visual", "audio"] },
+            "name": { "type": "string" },
+            "content": { "$ref": "#/$defs/captionTrackContentV2" }
+          }
+        }
+      ],
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §8 / §9。lane は visual/audio の 2 値だけで、種別は source に持たせる。items と字幕 content は閉じた oneOf により必ず排他。"
+    },
     "editV0": {
       "type": "object",
       "additionalProperties": true,
@@ -635,6 +834,24 @@
         "direction": { "$ref": "#/$defs/direction" }
       },
       "not": { "required": ["source"] }
+    },
+    "editV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "output", "sources", "tracks"],
+      "properties": {
+        "version": { "const": 2 },
+        "output": { "$ref": "#/$defs/outputV2" },
+        "sources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sourceV2" }
+        },
+        "tracks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/trackV2" }
+        }
+      },
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10 / §10-1。tracks の配列順が画面の下から上、すなわち合成 z 順の唯一の正本。出力軸は整数フレーム、素材軸は秒、字幕は captions.json のソース秒を維持する。"
     }
   }
 }

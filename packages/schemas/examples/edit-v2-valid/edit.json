@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "assets/talk.mp4" },
+    { "id": "music", "path": "assets/music.wav" }
+  ],
+  "tracks": [
+    {
+      "id": "a1",
+      "lane": "audio",
+      "name": "音",
+      "items": [
+        {
+          "id": "music-1",
+          "at": 0,
+          "duration": 300,
+          "source": { "kind": "media", "src": "music", "in": 0, "out": 10 }
+        }
+      ]
+    },
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "name": "本編",
+      "items": [
+        {
+          "id": "clip-1",
+          "at": 0,
+          "duration": 300,
+          "source": { "kind": "media", "src": "main", "in": 12, "out": 22 }
+        }
+      ]
+    },
+    {
+      "id": "captions",
+      "lane": "visual",
+      "name": "字幕",
+      "content": { "from": "captions.json" }
+    },
+    {
+      "id": "v-filter",
+      "lane": "visual",
+      "name": "色補正",
+      "items": [
+        {
+          "id": "filter-1",
+          "at": 0,
+          "duration": 300,
+          "source": { "kind": "filter", "filter": { "type": "saturation", "value": 1.1 } }
+        }
+      ]
+    },
+    {
+      "id": "v-html",
+      "lane": "visual",
+      "name": "HTML",
+      "items": [
+        {
+          "id": "html-1",
+          "at": 30,
+          "duration": 60,
+          "source": { "kind": "html", "path": "overlays/title.html" }
+        }
+      ]
+    },
+    {
+      "id": "v-telop",
+      "lane": "visual",
+      "name": "テロップ（最前面へ入れ替え済み）",
+      "items": [
+        {
+          "id": "telop-1",
+          "at": 45,
+          "duration": 75,
+          "source": {
+            "kind": "telop",
+            "preset": "ref3_name_rounded",
+            "params": { "name": "AKARI" },
+            "baked": "assets/layers/name-rounded.mov"
+          }
+        }
+      ]
+    }
+  ]
+}

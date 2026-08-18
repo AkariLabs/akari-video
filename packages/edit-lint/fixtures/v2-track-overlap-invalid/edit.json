@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        { "id": "a", "at": 0, "duration": 20, "source": { "kind": "html", "path": "a.html" } },
+        { "id": "b", "at": 10, "duration": 20, "source": { "kind": "html", "path": "b.html" } }
+      ]
+    }
+  ]
+}
