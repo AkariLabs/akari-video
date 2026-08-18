@@ -9,6 +9,7 @@ import {
     AkariToolCheckResponse,
     AkariToolCheckResult,
     AkariToolId,
+    AkariToolInstallProgress,
     AkariToolInstallResult
 } from '../common/akari-new-project-protocol';
 import {
@@ -25,7 +26,14 @@ import {
     shortenHomePath,
     ToolSelectionSnapshot
 } from '../common/tool-install-ui';
-import { TOOL_UI } from '../common/tool-guidance';
+import {
+    computeDownloadPercent,
+    formatDownloadProgressLabel
+} from '../common/tool-install-progress';
+import { TOOL_UI, WHISPER_MODEL_SIZE_LABEL } from '../common/tool-guidance';
+
+const INSTALL_PROGRESS_POLL_INTERVAL_MS = 500;
+const INDETERMINATE_PROGRESS_STYLE_ID = 'akari-tool-install-indeterminate-style';
 
 const AKARI_HOME_SUBDIR = '.akari';
 const CREATOR_ROOT_POINTER_FILENAME = 'creator-root.json';
@@ -76,6 +84,9 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
     protected installingTools = false;
     protected installProgress: { id: AkariToolId; index: number; total: number } | undefined;
     protected readonly toolInstallResults = new Map<AkariToolId, AkariToolInstallResult>();
+    // --- 進捗バー（裁定 E1） -------------------------------------------------
+    protected currentToolProgress: AkariToolInstallProgress | undefined;
+    protected installProgressPollHandle: number | undefined;
 
     // --- 作業場ステップ v2（裁定 B） -----------------------------------------
     protected creatorRootPathDisplay: string | undefined;
@@ -91,8 +102,14 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         protected readonly _commands: CommandService
     ) {
         super(props);
+        ensureIndeterminateProgressStyleInjected();
         this.buildDom();
         this.renderState();
+    }
+
+    override close(): void {
+        this.stopProgressPolling();
+        super.close();
     }
 
     /** marker と creator-root pointer の I/O もダイアログ側で行い、完全初回だけ true にする。 */
@@ -270,16 +287,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             this.panel.appendChild(status);
         }
         if (this.installProgress) {
-            const progress = document.createElement('p');
-            progress.setAttribute('role', 'status');
-            progress.setAttribute('data-akari-tool-install-progress', 'true');
-            progress.textContent = formatInstallProgressLabel(
-                TOOL_UI[this.installProgress.id].name,
-                this.installProgress.index,
-                this.installProgress.total
-            );
-            Object.assign(progress.style, { margin: '16px 0 0', color: BODY_TEXT_COLOR, fontSize: '12.5px', fontWeight: '600' });
-            this.panel.appendChild(progress);
+            this.panel.appendChild(this.renderOverallInstallProgress(this.installProgress));
         }
 
         const actions = createActions(true);
@@ -397,6 +405,15 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             });
             body.appendChild(note);
         }
+        if (tool.id === 'whisper' && tool.model) {
+            const modelRow = document.createElement('p');
+            modelRow.setAttribute('data-akari-tool-model-state', String(tool.model.available));
+            modelRow.textContent = `認識モデル · ${WHISPER_MODEL_SIZE_LABEL} · ${tool.model.available ? '取得済み' : '未取得'}`;
+            Object.assign(modelRow.style, {
+                margin: '7px 0 0', color: 'var(--theia-descriptionForeground)', fontSize: '11px', fontFamily: 'monospace'
+            });
+            body.appendChild(modelRow);
+        }
         const installResult = this.toolInstallResults.get(tool.id);
         if (installResult && !tool.available) {
             const resultLine = document.createElement('p');
@@ -408,8 +425,42 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             });
             body.appendChild(resultLine);
         }
+        if (this.installingTools && this.installProgress?.id === tool.id) {
+            body.appendChild(createProgressBarElement(
+                this.currentToolProgress?.toolId === tool.id
+                    ? this.currentToolProgress
+                    : { toolId: tool.id, kind: 'command', phase: '準備しています…' }
+            ));
+        }
         row.append(leading, body);
         return row;
+    }
+
+    /** 全体バー「k / n」（裁定 E1）。既存の「インストール中: 名前 (i/total)…」文言を吸収する。 */
+    protected renderOverallInstallProgress(progress: { id: AkariToolId; index: number; total: number }): HTMLElement {
+        const wrap = document.createElement('div');
+        wrap.setAttribute('data-akari-tool-install-overall-progress', 'true');
+        Object.assign(wrap.style, { margin: '16px 0 0' });
+
+        const label = document.createElement('p');
+        label.setAttribute('role', 'status');
+        label.textContent = formatInstallProgressLabel(TOOL_UI[progress.id].name, progress.index, progress.total);
+        Object.assign(label.style, { margin: '0 0 6px', color: BODY_TEXT_COLOR, fontSize: '12.5px', fontWeight: '600' });
+
+        const track = document.createElement('div');
+        Object.assign(track.style, {
+            height: '6px', borderRadius: '999px', overflow: 'hidden', background: 'var(--theia-widget-border)'
+        });
+        const fill = document.createElement('div');
+        const percent = Math.round(((progress.index - 1) / progress.total) * 100);
+        fill.setAttribute('data-akari-tool-install-overall-percent', String(percent));
+        Object.assign(fill.style, {
+            height: '100%', width: `${percent}%`, background: 'var(--theia-focusBorder)', transition: 'width 0.3s ease'
+        });
+        track.appendChild(fill);
+
+        wrap.append(label, track);
+        return wrap;
     }
 
     protected async recheckTools(): Promise<void> {
@@ -458,9 +509,11 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
             this.toolInstallResults.delete(id);
         }
         this.renderState();
+        this.startProgressPolling();
         for (let index = 0; index < ids.length; index++) {
             const id = ids[index];
             this.installProgress = { id, index: index + 1, total: ids.length };
+            this.currentToolProgress = undefined;
             this.renderState();
             try {
                 const result = await this.newProjectService.installTool(id);
@@ -472,11 +525,39 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
                     message: 'インストール処理でエラーが発生しました。もう一度お試しください。'
                 });
             }
+            this.currentToolProgress = undefined;
             this.renderState();
         }
+        this.stopProgressPolling();
         this.installProgress = undefined;
         this.installingTools = false;
         await this.recheckTools();
+    }
+
+    /** 500ms 間隔で `getToolInstallProgress()` をポーリングする（裁定 E1）。完了・失敗で止める。 */
+    protected startProgressPolling(): void {
+        this.stopProgressPolling();
+        this.installProgressPollHandle = window.setInterval(() => { void this.pollInstallProgress(); }, INSTALL_PROGRESS_POLL_INTERVAL_MS);
+    }
+
+    protected stopProgressPolling(): void {
+        if (this.installProgressPollHandle !== undefined) {
+            window.clearInterval(this.installProgressPollHandle);
+            this.installProgressPollHandle = undefined;
+        }
+        this.currentToolProgress = undefined;
+    }
+
+    protected async pollInstallProgress(): Promise<void> {
+        if (!this.installingTools) {
+            return;
+        }
+        try {
+            this.currentToolProgress = await this.newProjectService.getToolInstallProgress();
+        } catch (error) {
+            console.error('[akari-surfaces] getToolInstallProgress failed:', error);
+        }
+        this.renderState();
     }
 
     // === ステップ 2: 作業場（裁定 B） ========================================
@@ -688,6 +769,67 @@ function createButton(text: string, kind: 'main' | 'secondary'): HTMLButtonEleme
     button.className = `theia-button ${kind}`;
     button.textContent = text;
     return button;
+}
+
+/**
+ * 不定形バー（brew / winget 実行中）の走査アニメーション用 `@keyframes` を 1 回だけ
+ * `document.head` へ注入する。このダイアログはインラインスタイルのみで組んでいるため
+ * （拡張に .css 資産が無い）、キーフレームだけはこの経路が要る。
+ */
+function ensureIndeterminateProgressStyleInjected(): void {
+    if (document.getElementById(INDETERMINATE_PROGRESS_STYLE_ID)) {
+        return;
+    }
+    const style = document.createElement('style');
+    style.id = INDETERMINATE_PROGRESS_STYLE_ID;
+    style.textContent = '@keyframes akariToolInstallIndeterminate { 0% { transform: translateX(-60%); } 100% { transform: translateX(220%); } }';
+    document.head.appendChild(style);
+}
+
+/**
+ * 進捗バー 1 個分の DOM（裁定 E1）。download は determinate（バイト表記付き） /
+ * totalBytes 不明なら不定形、command（brew/winget）は常に不定形 + フェーズ 1 行。
+ */
+function createProgressBarElement(progress: AkariToolInstallProgress): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.setAttribute('data-akari-tool-progress-bar', 'true');
+    wrap.setAttribute('data-akari-tool-progress-kind', progress.kind);
+    Object.assign(wrap.style, { marginTop: '8px' });
+
+    const track = document.createElement('div');
+    Object.assign(track.style, {
+        position: 'relative', height: '5px', borderRadius: '999px', overflow: 'hidden',
+        background: 'var(--theia-widget-border)'
+    });
+    const fill = document.createElement('div');
+    Object.assign(fill.style, {
+        position: 'absolute', top: '0', bottom: '0', left: '0', borderRadius: '999px',
+        background: 'var(--theia-focusBorder)'
+    });
+
+    const percent = progress.kind === 'download'
+        ? computeDownloadPercent(progress.downloadedBytes ?? 0, progress.totalBytes)
+        : undefined;
+    if (percent !== undefined) {
+        fill.setAttribute('data-akari-tool-progress-mode', 'determinate');
+        fill.style.width = `${percent}%`;
+    } else {
+        fill.setAttribute('data-akari-tool-progress-mode', 'indeterminate');
+        Object.assign(fill.style, { width: '35%', animation: 'akariToolInstallIndeterminate 1.1s ease-in-out infinite' });
+    }
+    track.appendChild(fill);
+
+    const label = document.createElement('div');
+    label.setAttribute('data-akari-tool-progress-label', 'true');
+    label.textContent = progress.kind === 'download'
+        ? formatDownloadProgressLabel(progress.downloadedBytes ?? 0, progress.totalBytes)
+        : progress.phase;
+    Object.assign(label.style, {
+        marginTop: '4px', fontSize: '10.5px', color: 'var(--theia-descriptionForeground)', fontFamily: 'monospace'
+    });
+
+    wrap.append(track, label);
+    return wrap;
 }
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

@@ -3,7 +3,7 @@ import { promises as fs } from 'fs';
 import { dirname, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import URI from '@theia/core/lib/common/uri';
-import { AkariNewProjectService, AkariToolId, AkariToolInstallResult } from '../common/akari-new-project-protocol';
+import { AkariNewProjectService, AkariToolId, AkariToolInstallProgress, AkariToolInstallResult } from '../common/akari-new-project-protocol';
 import { detectTools } from './tool-detection';
 import { installTool } from './tool-install';
 
@@ -143,16 +143,36 @@ export class AkariNewProjectServiceImpl implements AkariNewProjectService {
         }
     }
 
+    /**
+     * 進捗バー（裁定 E1）の単一カレント状態。`installTool` の実行中だけ値を持つ
+     * （同時実行は無い前提 — フロントは逐次呼ぶ）。
+     */
+    protected currentInstallProgress: AkariToolInstallProgress | undefined;
+
     async checkTools() {
         return detectTools();
     }
 
     /**
      * 初回セットアップ v2（裁定 A）。1 道具ずつ導入するインストールエンジン
-     * （`tool-install.ts`）をそのまま呼ぶだけ。ロジックは複製しない。
+     * （`tool-install.ts`）をそのまま呼ぶだけ。ロジックは複製しない。進捗（裁定 E1）は
+     * `onProgress` フックで `currentInstallProgress` を更新し、`getToolInstallProgress()`
+     * のポーリングから読めるようにする。実行前後で確実にクリアする（前回の値が次回の
+     * 一瞬だけ古い値として見えないように）。
      */
     async installTool(id: AkariToolId): Promise<AkariToolInstallResult> {
-        return installTool(id);
+        this.currentInstallProgress = undefined;
+        try {
+            return await installTool(id, {
+                onProgress: progress => { this.currentInstallProgress = progress; }
+            });
+        } finally {
+            this.currentInstallProgress = undefined;
+        }
+    }
+
+    async getToolInstallProgress(): Promise<AkariToolInstallProgress | undefined> {
+        return this.currentInstallProgress;
     }
 
     /**
