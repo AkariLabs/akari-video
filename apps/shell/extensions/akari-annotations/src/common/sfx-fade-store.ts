@@ -22,7 +22,7 @@ const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
 function appendNumberProperty(source: string, property: string, value: number): string {
     const closeIndex = source.lastIndexOf('}');
     if (closeIndex < 0) {
-        throw new Error('SE のオブジェクトを特定できません。');
+        throw new Error('音声クリップのオブジェクトを特定できません。');
     }
     const beforeClose = source.slice(0, closeIndex);
     const trailingWhitespace = beforeClose.match(/\s*$/)?.[0] ?? '';
@@ -51,7 +51,7 @@ function removeObjectProperty(source: string, property: string): string {
     const openIndex = source.indexOf('{');
     const closeIndex = openIndex >= 0 ? findMatchingBracket(source, openIndex) : -1;
     if (openIndex < 0 || closeIndex < 0) {
-        throw new Error('SE のオブジェクトを特定できません。');
+        throw new Error('音声クリップのオブジェクトを特定できません。');
     }
     const inner = source.slice(openIndex + 1, closeIndex);
     const elements = splitTopLevelElements(inner);
@@ -90,8 +90,8 @@ export function setSfxFadeInSource(
         && (!Number.isFinite(updates.fadeOut) || updates.fadeOut < 0)) {
         throw new Error('fade_out は 0 以上で指定してください。');
     }
-    const label = `SE ${sfxIndex + 1}`;
-    return updateArrayElementByIndex(source, 'sfx', sfxIndex, 'SE', element => {
+    const label = `音声クリップ ${sfxIndex + 1}`;
+    return updateArrayElementByIndex(source, 'sfx', sfxIndex, '音声クリップ', element => {
         let next = element;
         const apply = (property: string, value: number | null | undefined): void => {
             if (value === undefined) {

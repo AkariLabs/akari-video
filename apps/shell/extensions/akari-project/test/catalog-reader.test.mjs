@@ -149,14 +149,14 @@ test('filterCatalogItems: カテゴリチップで絞る', () => {
     assert.ok(result.every(item => item.category === '3d'));
 });
 
-test('classifyCatalogAudioItem: sfx だけを効果音、bgm / jingle / タグ無しを BGM に分ける', () => {
+test('classifyCatalogAudioItem: sfx だけを音声クリップ、bgm / jingle / タグ無しを BGM に分ける', () => {
     assert.equal(classifyCatalogAudioItem({ tags: ['sfx', 'camera'] }), 'sfx');
     assert.equal(classifyCatalogAudioItem({ tags: ['bgm', 'upbeat'] }), 'bgm');
     assert.equal(classifyCatalogAudioItem({ tags: ['jingle'] }), 'bgm');
     assert.equal(classifyCatalogAudioItem({}), 'bgm');
 });
 
-test('filterCatalogItems: BGM / 効果音チップは audio を tags で分ける', () => {
+test('filterCatalogItems: BGM / 音声クリップチップは audio を tags で分ける', () => {
     assert.deepEqual(
         filterCatalogItems(CATEGORY_ITEMS, '', CATALOG_AUDIO_BGM_CATEGORY).map(item => item.id),
         ['corporate-upbeat-bgm']
@@ -195,7 +195,7 @@ test('filterCatalogItems: 一致なしは 0 件（例外なし）', () => {
     assert.equal(filterCatalogItems(CATEGORY_ITEMS, 'no-such-term', 'all').length, 0);
 });
 
-test('deriveCatalogCategoryChips: 音声の位置を BGM → 効果音に分け、0件も常時表示する', () => {
+test('deriveCatalogCategoryChips: 音声の位置を BGM → 音声クリップに分け、0件も常時表示する', () => {
     const chips = deriveCatalogCategoryChips([
         { category: 'audio', tags: ['bgm'] },
         { category: 'audio', tags: ['sfx'] },
@@ -206,7 +206,7 @@ test('deriveCatalogCategoryChips: 音声の位置を BGM → 効果音に分け�
     assert.deepEqual(chips.map(chip => chip.category), [
         'overlay', 'still', 'scene3d', CATALOG_AUDIO_BGM_CATEGORY, CATALOG_AUDIO_SFX_CATEGORY, 'broll', 'font'
     ]);
-    assert.deepEqual(chips.map(chip => chip.label), ['オーバーレイ', '静止画', '3D', 'BGM', '効果音', 'Bロール', 'フォント']);
+    assert.deepEqual(chips.map(chip => chip.label), ['オーバーレイ', '静止画', '3D', 'BGM', '音声クリップ', 'Bロール', 'フォント']);
     assert.deepEqual(chips.map(chip => chip.count), [0, 0, 1, 3, 1, 0, 0]);
 });
 

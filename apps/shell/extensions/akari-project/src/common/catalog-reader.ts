@@ -44,7 +44,7 @@ export const CATALOG_CATEGORIES = ['overlay', 'still', 'scene3d', 'audio', 'brol
 export type CatalogAudioClassification = 'bgm' | 'sfx';
 
 /**
- * audio 項目を表示上の BGM / 効果音に分ける。`sfx` タグだけを効果音とし、
+ * audio 項目を表示上の BGM / 音声クリップに分ける。`sfx` タグだけを音声クリップとし、
  * bgm / jingle / タグ無しは BGM へ安全にフォールドする。I/O を持たない分類の正本。
  */
 export function classifyCatalogAudioItem(item: { readonly tags?: readonly string[] }): CatalogAudioClassification {
@@ -69,13 +69,13 @@ interface CatalogCategoryChipDefinition {
     label: string;
 }
 
-/** raw category の audio だけを、元の位置で BGM → 効果音の 2 チップへ展開する。 */
+/** raw category の audio だけを、元の位置で BGM → 音声クリップの 2 チップへ展開する。 */
 const CATALOG_CATEGORY_CHIP_DEFINITIONS: readonly CatalogCategoryChipDefinition[] = [
     { category: 'overlay', label: 'オーバーレイ' },
     { category: 'still', label: '静止画' },
     { category: 'scene3d', label: '3D' },
     { category: CATALOG_AUDIO_BGM_CATEGORY, label: 'BGM' },
-    { category: CATALOG_AUDIO_SFX_CATEGORY, label: '効果音' },
+    { category: CATALOG_AUDIO_SFX_CATEGORY, label: '音声クリップ' },
     { category: 'broll', label: 'Bロール' },
     { category: 'font', label: 'フォント' }
 ];
@@ -88,7 +88,7 @@ export interface CatalogCategoryChip {
 
 /**
  * 固定チップを 0 件でも先に返し、データに現れた未知カテゴリだけを末尾へ加える。
- * audio は tags で BGM / 効果音の 2 チップへ分割するが、元の item.category は変更しない。
+ * audio は tags で BGM / 音声クリップの 2 チップへ分割するが、元の item.category は変更しない。
  */
 export function deriveCatalogCategoryChips(
     items: readonly { readonly category: string; readonly tags?: readonly string[] }[]
