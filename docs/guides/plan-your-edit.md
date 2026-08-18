@@ -49,7 +49,11 @@ contract under [Reference](../README.md#reference), but day to day, what matters
   always persisted in **the clip's original seconds**, so reordering cuts doesn't break
   references
 - **overlays[]** — references to overlay HTML and their timing
-- **audio** — BGM / SFX / narration
+- **audio** — sound effects and music as clips (`audio.sfx[]`: same `t`/`in`/`out` model as
+  `cuts[]`, trim by dragging the ends on the timeline bar), plus narration
+  (`audio.narration[]`). `audio.bgm` still exists as a shorthand "bed" for looping one track
+  under the whole video — reach for it only when you don't need to trim or place it partway
+  through; everything else (music over just part of the video, switching tracks) is a clip
 
 You're free to edit it by hand (git diff will track the changes). Just remember to run
 [edit-lint](./review-and-fix.md) afterward.
