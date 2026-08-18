@@ -18,7 +18,13 @@
 /node_modules/
 /extensions/*/node_modules/
 /extensions/*/lib/
-package-lock.json
+
+# apps/shell/package-lock.json は **追跡する**（2026-08-19 / task shell-webpack-pin）。
+# 開発・L1 の導線は `npm ci --no-workspaces` で、この lock が唯一の再現性の担保。
+# （以前はここで ignore していたが、その結果 `npm install` した日のレジストリ次第で
+#   1400 パッケージが漂い、1 か月で 63 パッケージがずれることを実測した）
+# 拡張ディレクトリ側の lock は入れ子 install の副産物なので引き続き無視する
+/extensions/*/package-lock.json
 
 # downloaded / unpacked plugins (large, reproducible via ovsx)
 /plugins/
