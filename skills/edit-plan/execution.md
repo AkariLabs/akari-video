@@ -29,7 +29,25 @@ Checkpoint 3 まで `edit.json` を変更しない。
 
 素材別に独立した `edit.json` を作る案が要件を満たす場合は併記してよい。承認を得ずに黙って concat したり、公開契約に無い `source_id` や独自 track を発明したりしない。
 
-BGM と SFX は [音声契約](../../docs/contract-2026-07-14-edit-json-v1-audio.md) の `audio`（version を問わない任意フィールド）で書き、ナレーションは [narration 契約](../../docs/contract-2026-07-20-edit-json-v1-narration.md) の `audio.narration[]` で書く。動画 B ロールは v1 の `sources[]` + `cuts[].src` で表す。いずれの契約でも表せない計画は、中間マスターへ焼き込むか、計画のみとして未実行にするかを manifest で区別する。
+音声クリップ（効果音・音楽）と BGM は [音声契約](../../docs/contract-2026-07-14-edit-json-v1-audio.md) の `audio`（version を問わない任意フィールド）で書き、ナレーションは [narration 契約](../../docs/contract-2026-07-20-edit-json-v1-narration.md) の `audio.narration[]` で書く。動画 B ロールは v1 の `sources[]` + `cuts[].src` で表す。いずれの契約でも表せない計画は、中間マスターへ焼き込むか、計画のみとして未実行にするかを manifest で区別する。
+
+### 音楽の配置はクリップが標準（2026-08-18 決定）
+
+**動画の一部区間だけに音楽を敷きたいときは、動画カット・画像と同じ「置く・トリムする・人間が直す」モデルで `audio.sfx[]` へクリップとして書くのが標準**である（オーナー裁定「クリップ主義」）。`in` / `out` は `cuts[]` と同じ意味論（**素材秒**の再生区間 `[in, out)`。`in` 省略時 0、`out` 省略時 素材末尾）、`t` は `overlays[].start` と同じ**タイムライン秒**、`track` は重ならせたい音声を分けるレーン番号である（[R6 契約](../../docs/contract-2026-07-25-r6-audio-tracks-and-trim.md) §2）。タイムライン上でも動画クリップと同じバー表示になり、端をドラッグして `in`/`out` をトリムできる。
+
+```json
+{
+  "audio": {
+    "sfx": [
+      { "path": "assets/audio/theme-song.m4a", "t": 12.0, "in": 48.0, "out": 64.0, "track": 1, "gain_db": -6 }
+    ]
+  }
+}
+```
+
+上の例は `theme-song.m4a` の 48.0〜64.0 秒（曲のサビ 16 秒分）を、タイムライン 12.0 秒の地点から鳴らす。書き方は効果音クリップと同じであり、`audio.sfx[]` は「効果音の配列」ではなく「音声クリップ（効果音・音楽どちらも）の配列」として読む。
+
+`audio.bgm` は**全編に敷くだけの最短表現（ベッド）として後方互換で残る**（新規プロジェクトの既定はクリップ）。曲を頭から流し、動画尺に合わせて自動ループ・自動追従させたいだけなら `bgm`（`t`/`out` を書かず尺を気にしなくてよい）を使う。部分区間だけに敷きたい・複数曲を切り替えたい・任意の位置で明示的にトリムしたい場合は、音楽であっても `sfx[]` のクリップで書く。
 
 ### v1 で書くときの注意
 
@@ -208,6 +226,7 @@ node packages/render-cut/bin/akari-apply-textstyle.mjs <project-dir> <preset-id>
 - `source` と `sources[]` を併存させる（排他。lint エラー）。
 - 複数素材を理由に、公開契約に無い `source_id` や独自 track を追加する。
 - 素材計画にある BGM / SFX / ナレーションを、契約フィールド（`audio` / `audio.narration[]`）ではなく独自 field で書く。
+- **部分区間だけに敷く音楽を `audio.bgm` に無理に押し込む**（`bgm` は全編ベッド用で `t`/`out` を持たない。区間指定が要る音楽は §1 の音楽の配置のとおり `audio.sfx[]` へクリップとして書く）。
 - 字幕・注釈・解析結果を timeline 秒へ変換して永続化する（正本は (`src`, source 秒)）。
 - **caption の表示区間を segment 境界で敷き詰め（`end = 次の caption の start`）、無発話区間にも字幕を残す**（実発話が終われば字幕も終わる。§4）。
 - 按分 fallback を「区間の拡張」に使い、末尾語の推定 end を越えて次 caption まで字幕を伸ばす（§4）。
