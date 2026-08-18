@@ -247,7 +247,8 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         const copy = document.createElement('div');
         copy.append(
             createTitle('道具チェック'),
-            createLead('必要な道具にチェックが入っています。「インストール」を押すだけで導入できます。')
+            createLead('必要な道具にチェックが入っています。「インストール」を押すだけで導入できます。'),
+            createLead('あとから AI パートナーとの会話で「道具をそろえて」と頼んでも、同じ道具を導入できます。')
         );
         const recheck = createButton(this.checkingTools ? '確認中…' : '再チェック', 'secondary');
         recheck.setAttribute('data-akari-tool-recheck', 'true');
@@ -632,7 +633,7 @@ export class AkariFirstRunSetupDialog extends AbstractDialog<void> {
         this.panel.setAttribute('data-akari-setup-connection', 'true');
         this.panel.append(
             createTitle('AI パートナーと会話を始める'),
-            createLead('接続すると、ホームから「こんな動画を作りたい」とそのまま相談できます。接続は後からでも構いません。')
+            createLead('接続すると、ホームから「こんな動画を作りたい」とそのまま相談できます。接続は後からでも構いません。道具の導入も、この会話に頼めます。')
         );
         this.panel.appendChild(createPartnerLayoutDiagram());
         const guide = document.createElement('p');
