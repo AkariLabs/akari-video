@@ -116,18 +116,38 @@ export function buildPlan({
   const rasterizer = selectRasterizer(capabilities, hasThreeDimensionalOverlay);
   let cut;
   if (edit.version === 1) {
-    cut = buildMultiSourceCutCommand({
-      sourceInputs: capabilities.sourceInputs,
-      cutPath,
-      cuts: edit.cuts,
-      width,
-      height,
-      fps,
-      ffmpegCommand: capabilities.ffmpegCommand,
-      projectRoot,
-      look: edit.output.look,
-      videoEncodeArgs: cutVideoEncodeArgs,
-    });
+    // docs/contract-2026-08-18-v1-render-parity.md §2: cuts[].at / cuts[].track only get a
+    // compositing effect when usesDefaultTrackOrder is false (a custom timeline.tracks declaration
+    // routes through buildTrackStackPlan below). Under the default order -- which is what a plain
+    // UI drag onto an explicit position or a PiP track actually writes -- this is the only dispatch
+    // that ever sees the declaration, so it must itself be gap-aware or the declaration silently
+    // renders as a same-length concat instead (the exact bug this contract fixes).
+    cut = needsGapAwareCutTimeline(edit.cuts)
+      ? buildGapAwareMultiSourceCutCommand({
+          sourceInputs: capabilities.sourceInputs,
+          cutPath,
+          cuts: edit.cuts,
+          width,
+          height,
+          fps,
+          duration: cutsEndSeconds,
+          ffmpegCommand: capabilities.ffmpegCommand,
+          projectRoot,
+          look: edit.output.look,
+          videoEncodeArgs: cutVideoEncodeArgs,
+        })
+      : buildMultiSourceCutCommand({
+          sourceInputs: capabilities.sourceInputs,
+          cutPath,
+          cuts: edit.cuts,
+          width,
+          height,
+          fps,
+          ffmpegCommand: capabilities.ffmpegCommand,
+          projectRoot,
+          look: edit.output.look,
+          videoEncodeArgs: cutVideoEncodeArgs,
+        });
   } else {
     const sourcePath = resolve(projectRoot, edit.source.path);
     cut = buildCutCommand({
@@ -194,14 +214,7 @@ export function buildPlan({
       });
   const baseVideoPath = trackStack ? trackStack.outputPath : (layers ? layeredPath : cutOutputPath);
 
-  // v1（sources[]）の書き出しは cuts[] を連結するだけで track / at を合成しない。
-  // 宣言だけ通って絵が消える事故を検証メッセージで名指しするための旗（verifyArtifact が読む）。
-  const cutTrackDeclarationUnrendered = edit.version === 1
-    && Array.isArray(edit.cuts)
-    && needsGapAwareCutTimeline(edit.cuts);
-
   return {
-    cut_track_declaration_unrendered: cutTrackDeclarationUnrendered,
     predicted_duration_seconds: finalDurationSeconds,
     duration_tolerance_seconds: Math.max(0.1, 2 / fps),
     output: relativeOrAbsolute(projectRoot, outputPath),
@@ -1445,7 +1458,15 @@ export function buildMultiSourceCutCommand({
     }
   }
 
-  let videoLabel = "[joinedv]";
+  appendMultiSourceLookFilters(filters, "[joinedv]", { look, projectRoot });
+
+  return buildMultiSourceCommandResult({ ffmpegCommand, sourceInputs, filters, videoEncodeArgs, cutPath });
+}
+
+// docs/contract-2026-08-18-v1-render-parity.md §2: shared tail for both v1 cut-command builders
+// (the plain concat path above and buildGapAwareMultiSourceCutCommand below) -- identical LUT/look
+// blend + tv-range clamp logic, factored out once instead of duplicated a second time.
+function appendMultiSourceLookFilters(filters, videoLabel, { look, projectRoot }) {
   if (look) {
     const lutPath = resolveLutPath(projectRoot, look.lut);
     const intensity = isFiniteNumber(look.intensity) ? Math.max(0, Math.min(1, look.intensity)) : 1;
@@ -1462,7 +1483,9 @@ export function buildMultiSourceCutCommand({
     filters.push(`${videoLabel}null[outv]`);
   }
   filters.push("[outv]scale=out_range=tv[outv_tv]");
+}
 
+function buildMultiSourceCommandResult({ ffmpegCommand, sourceInputs, filters, videoEncodeArgs, cutPath }) {
   return {
     command: ffmpegCommand,
     args: [
@@ -1493,6 +1516,147 @@ export function buildMultiSourceCutCommand({
       cutPath,
     ],
   };
+}
+
+// docs/contract-2026-08-18-v1-render-parity.md §2: v1's counterpart to buildGapAwareCutCommand
+// below -- dispatched only from buildPlan's top-level v1 branch (NOT from buildTrackStackPlan's
+// per-track v1 call in this file, which deliberately keeps calling the plain buildMultiSourceCutCommand
+// above unchanged; see the contract for why: resolveCutTrackRanges's v1 branch already gets correct
+// at/track placement out of a plain sequential per-track clip via its own offset math, verified by a
+// real render in track-compose.test.mjs, and switching that clip to this gap-aware/output-aligned
+// shape would silently break that existing, working math). This function instead fixes the actually
+// broken path: a v1 project with cuts[].at / cuts[].track and NO custom timeline.tracks declaration
+// (the common case -- this is what the UI writes when a user drags a clip to an explicit position or
+// a PiP track), which today skips buildTrackStackPlan entirely (usesDefaultTrackOrder) and falls
+// straight into the plain concat above, silently ignoring at/track.
+//
+// Multi-track "compositing" here is v0's own winner-take-all switch (computeVideoRuns picks the
+// highest-track cut active at each instant), not a simultaneous alpha overlay -- same semantics v0
+// itself uses by default, so this is v0 parity, not a new richer model. Video runs with no active cut
+// render as plain black (matches buildGapAwareCutCommand's gap filler). Audio is NOT winner-take-all:
+// every cut's own [in,out) audio plays at its own `at` position and mixes together (amix), so a PiP
+// cut's audio and the base track's audio both stay audible through the overlap even though only one
+// track's picture shows at a time -- again mirroring buildGapAwareCutCommand exactly, just resolving
+// each segment's source via cut.src instead of a single implicit v0 source.
+export function buildGapAwareMultiSourceCutCommand({
+  sourceInputs,
+  cutPath,
+  cuts,
+  width,
+  height,
+  fps,
+  duration,
+  ffmpegCommand = resolveFfmpeg(),
+  projectRoot,
+  look,
+  videoEncodeArgs = null,
+}) {
+  // Same restriction as v0's buildCutCommand dispatch (see its own comment): computeVideoRuns maps
+  // output time back to source time with a single linear speed factor per run, which cannot represent
+  // a freeze hold's non-linear pause. Reject loudly rather than silently render the wrong frames.
+  if (hasCutFreeze(cuts)) {
+    throw new Error(
+      "cuts[].freeze is not supported together with a gap-aware cut timeline (explicit at/track placement) in "
+        + "v1 (sources[]) either -- same restriction as v0 (docs/contract-2026-07-22-render-basics.md #7). Remove "
+        + "freeze from this cut, or drop its at/track placement so the whole cuts[] array renders through the "
+        + "default sequential path instead.",
+    );
+  }
+
+  const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
+  const segments = resolveCutSegments(cuts);
+  const runs = computeVideoRuns(segments, duration);
+  const filters = [];
+  const videoLabels = [];
+  const transformCuts = hasCutVisualTransform(cuts) || hasCutFraming(cuts);
+  const fxCuts = hasCutFx(cuts);
+
+  for (const [index, run] of runs.entries()) {
+    const label = `[gv1_${index}]`;
+    if (run.kind === "gap") {
+      filters.push(
+        `color=c=black:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(run.outEnd - run.outStart)}${label}`,
+      );
+    } else {
+      const cut = run.cut;
+      const source = inputsById.get(cut.src);
+      const speed = cutSpeed(cut);
+      const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
+      const rawLabel = `[gv1raw${index}]`;
+      const shapedLabel = fxCuts ? `[gv1shaped${index}]` : label;
+      filters.push(
+        `[${source.inputIndex}:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${rawLabel}`,
+      );
+      if (transformCuts) {
+        appendCutVisualTransform({
+          filters,
+          inputLabel: rawLabel,
+          outputLabel: shapedLabel,
+          cut,
+          id: `gap1_${index}`,
+          width,
+          height,
+          fps,
+          duration: run.outEnd - run.outStart,
+        });
+      } else {
+        filters.push(
+          `${rawLabel}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${shapedLabel}`,
+        );
+      }
+      if (fxCuts) {
+        appendCutFxChain({
+          filters,
+          inputLabel: shapedLabel,
+          outputLabel: label,
+          fx: cut.fx,
+          id: `gap1_${index}`,
+          width,
+          height,
+          fps,
+          duration: run.outEnd - run.outStart,
+        });
+      }
+    }
+    videoLabels.push(label);
+  }
+  filters.push(`${videoLabels.join("")}concat=n=${runs.length}:v=1:a=0[joinedv]`);
+
+  // Audio is per-cut (not per-run): every cut's own [in,out) plays at its own `at` position and
+  // mixes with every other cut's audio, regardless of which track wins the picture at that moment.
+  // Mirrors buildGapAwareCutCommand's own audio loop exactly (iterates segments, not runs).
+  const audioLabels = [];
+  for (const segment of segments) {
+    const { index, cut } = segment;
+    const source = inputsById.get(cut.src);
+    const speed = cutSpeed(cut);
+    if (source.hasAudio) {
+      const atempoSuffix = buildAtempoChain(speed)
+        .map((factor) => `,atempo=${formatNumber(factor)}`)
+        .join("");
+      filters.push(
+        `[${source.inputIndex}:a]atrim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},asetpts=PTS-STARTPTS${atempoSuffix}[araw1_${index}]`,
+      );
+    } else {
+      filters.push(
+        `anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(segmentDuration(cut))},asetpts=PTS-STARTPTS[araw1_${index}]`,
+      );
+    }
+    const delayMs = Math.max(0, Math.round(segment.start * 1000));
+    filters.push(`[araw1_${index}]adelay=${delayMs}:all=1[adelay1_${index}]`);
+    audioLabels.push(`[adelay1_${index}]`);
+  }
+  if (audioLabels.length === 1) {
+    filters.push(`${audioLabels[0]}apad=whole_dur=${formatNumber(duration)}[joineda]`);
+  } else {
+    filters.push(
+      `${audioLabels.join("")}amix=inputs=${audioLabels.length}:duration=longest:normalize=0,apad=whole_dur=${formatNumber(duration)}[joineda]`,
+    );
+  }
+
+  appendMultiSourceLookFilters(filters, "[joinedv]", { look, projectRoot });
+
+  return buildMultiSourceCommandResult({ ffmpegCommand, sourceInputs, filters, videoEncodeArgs, cutPath });
 }
 
 function buildGapAwareCutCommand({
@@ -1708,19 +1872,26 @@ function buildGapAwareCutCommand({
 }
 
 export function predictedDuration(cuts, sourceDuration, version = 0) {
-  if (version === 1) {
-    // task 2026-08-07-v1-transition-out: v1 never takes the gap-aware path (the version check
-    // above runs before needsGapAwareCutTimeline is ever consulted), so it always uses this same
-    // sequential-with-overlap math as v0's own non-gap-aware branch below -- now that
-    // buildMultiSourceCutCommand actually renders the xfade overlap instead of silently ignoring
-    // transition_out, predicted_duration_seconds must account for it too or verify.duration /
-    // verify.frame-count / verify.fps would all expect a timeline 1x transition_out.duration too
-    // long for the real (now correctly shortened) output.
-    return sequentialDurationWithTransitionOverlap(cuts);
-  }
+  // docs/contract-2026-08-18-v1-render-parity.md §2: gap-awareness (explicit at/track) is checked
+  // before the version branch now, for both v0 and v1 -- an at-gap or a track>=1 cut shifts the
+  // real end of the timeline (buildGapAwareCutCommand / buildGapAwareMultiSourceCutCommand both
+  // pad/position to this same segment-end-max), so a plain sum-of-segments duration undercounts
+  // trailing gaps and overcounts a PiP cut nested entirely inside its base track's span. v1 used to
+  // short-circuit to sequentialDurationWithTransitionOverlap before this check ever ran, so an at/
+  // track v1 project got the wrong predicted_duration_seconds even after the render itself became
+  // gap-aware -- verify.duration would then reject a now-correctly-rendered file.
   if (Array.isArray(cuts) && cuts.length > 0 && needsGapAwareCutTimeline(cuts)) {
     const segments = resolveCutSegments(cuts);
     return Math.max(0, ...segments.map((segment) => segment.end));
+  }
+  if (version === 1) {
+    // task 2026-08-07-v1-transition-out: non-gap-aware v1 always uses this same
+    // sequential-with-overlap math as v0's own non-gap-aware branch below -- buildMultiSourceCutCommand
+    // actually renders the xfade overlap instead of silently ignoring transition_out, so
+    // predicted_duration_seconds must account for it too or verify.duration / verify.frame-count /
+    // verify.fps would all expect a timeline 1x transition_out.duration too long for the real
+    // (correctly shortened) output.
+    return sequentialDurationWithTransitionOverlap(cuts);
   }
   if (Array.isArray(cuts) && cuts.length > 0) {
     return sequentialDurationWithTransitionOverlap(cuts);

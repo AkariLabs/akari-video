@@ -79,6 +79,8 @@
 - **`tpad` の `start_mode=clone` は使わない**: カット先頭（`at_sec=0`）での静止を素直に `tpad=start_mode=clone:start_duration=X` で実装すると、後続に（本機能の他パスも含め）`fps` フィルタが一つでも挟まると出力の**最終フレームが 1 枚欠落する**バグをこの ffmpeg ビルドで実機検証した（`stop_mode=clone` には同じ問題が無いことも確認済み）。代わりに、`split` で複製した全区間トリムの一方を `trim=start_frame=0:end_frame=1`（フレーム番号ベース・fps に依存しない）で 1 フレームへ切り、`stop_mode=clone` + `stop=<フレーム数-1>`（時間指定の `stop_duration` ではなく整数フレーム数）で伸ばしてから元の全区間へ concat する
 - **フリーズ中の音声は無音挿入**（direct 音の継続やループはしない）: 直前音をループさせるとループ境目でクリックノイズが乗る（PCM の非ゼロ交差での接続）のに対し、無音挿入は決定論的でグリッチが無い。narration/BGM/SFX は出力タイムライン上の絶対秒で独立に配置される既存契約（`cuts[].speed` と同じ前提）のため、freeze による尺の伸びに合わせて自動シフトはしない
 - **v0 は gap-aware タイムライン（明示 `at`/`track`）との併用不可**: gap-aware パス（`computeVideoRuns`）の出力秒→ソース秒写像は速度係数のみを前提にした線形式で、フリーズによる非線形な静止区間があると破綻する。`cuts[].freeze` が宣言された状態で gap-aware 判定（`needsGapAwareCutTimeline`）が真になる場合、render-cut は明示的に例外を投げて止まる（silent drop を許さない契約の原則どおり、機能を無言で無視しない）。デフォルトの逐次タイムラインでのみ有効
+- **v1（2026-08-18 追記）も同じ制約**: `contract-2026-08-18-v1-render-parity.md` で v1
+  （`sources[]`）の `buildMultiSourceCutCommand` にも gap-aware タイムライン（`buildGapAwareMultiSourceCutCommand`）が入った。理由は v0 と全く同じ（`computeVideoRuns` の線形写像がフリーズを表現できない）ため、`cuts[].freeze` + 明示 `at`/`track` の組み合わせは v1 でも同じ例外で止まる
 
 ### 4-3. プレビュー乖離
 

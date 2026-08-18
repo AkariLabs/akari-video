@@ -1015,17 +1015,14 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
   const actualFps = parseRate(video?.avg_frame_rate ?? video?.r_frame_rate);
   const expected = plan.preset;
   const findings = [];
-  // 尺だけ告げても原因に辿り着けないので、v1 の track/at 宣言が効いていない典型ケース
-  // （上のトラックが合成されず出力尺へ連結される）は失敗時にその場で名指しする。
-  // 2026-08-04 の実測: track 1 のカットが一度も画面に出ないまま尺だけ伸びた mp4 が焼けた。
+  // docs/contract-2026-08-18-v1-render-parity.md §2: v1's cuts[].track / at declarations now
+  // reach a real gap-aware or track-stack render path under both the default and custom
+  // timeline.tracks orders (see buildPlan's v1 dispatch and buildTrackStackPlan in plan.mjs), so the
+  // 2026-08-04 "declared but never rendered" hint this comparison used to append on a mismatch no
+  // longer has a live cause to point at -- removed rather than left stale/misleading.
   const durationOk = Number.isFinite(actualDuration)
     && Math.abs(actualDuration - plan.predicted_duration_seconds) <= plan.duration_tolerance_seconds;
-  const trackHint = !durationOk && plan.cut_track_declaration_unrendered
-    ? " — cuts[].track / at are declared but the v1 (sources[]) render path concatenates cuts instead of compositing them,"
-      + " so upper-track clips never appear and their length is appended instead."
-      + " Pre-composite the upper track into one source, or move it to overlays[] / layers[]."
-    : "";
-  compare(findings, "verify.duration", durationOk, `duration ${actualDuration}s; expected ${plan.predicted_duration_seconds}s ±${plan.duration_tolerance_seconds}s${trackHint}`);
+  compare(findings, "verify.duration", durationOk, `duration ${actualDuration}s; expected ${plan.predicted_duration_seconds}s ±${plan.duration_tolerance_seconds}s`);
 
   // 検査 1 + 2（task 2026-08-04-render-verify-media-checks）: 1 パスの全デコードで
   // (a) 実フレーム数と (b) デコードエラーの有無を同時に測る。ffprobe -count_frames も同じだけ
