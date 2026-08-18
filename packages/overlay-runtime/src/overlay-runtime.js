@@ -63,7 +63,9 @@ window.akari.runtime = (() => {
       }
       container.style.position = "absolute";
       container.style.inset = "0";
-      container.style.pointerEvents = "auto";
+      // 外側コンテナは出力全体を覆うため、自身ではポインタを受けない。断片内で実際に
+      // 描画している要素だけ、可視化時に interaction.applyOverlayHitPolicy() が auto へ戻す。
+      container.style.pointerEvents = "none";
       container.style.visibility = "hidden";
 
       for (const [name, value] of Object.entries(overlay.vars ?? {})) {
@@ -97,6 +99,7 @@ window.akari.runtime = (() => {
         start,
         duration,
         visible: false,
+        hitPolicyPending: false,
         isThreeDimensional: Boolean(
           container.querySelector(
             'script[type="application/json"][data-akari-3d-scene]'
@@ -129,6 +132,7 @@ window.akari.runtime = (() => {
         // することで、実際に存在する CSS Animation を「今可視のオーバーレイ分だけ」に
         // 抑え、この地雷を踏まない。
         overlay.container.toggleAttribute("data-akari-active", visible);
+        overlay.hitPolicyPending = visible;
         if (!visible && overlay.isThreeDimensional) {
           window.akari.threeRuntime?.dispose(overlay.container);
         }
@@ -158,12 +162,22 @@ window.akari.runtime = (() => {
         window.akari.threeRuntime?.render(overlay.container, localTimeMs / 1000, {
           syncVideos: true,
         });
+        if (overlay.hitPolicyPending) {
+          window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
+          overlay.hitPolicyPending = false;
+        }
         continue;
       }
       const animations = overlay.container.getAnimations({ subtree: true });
       for (const animation of animations) {
         animation.pause();
         animation.currentTime = localTimeMs;
+      }
+      // opacity を含む出入りアニメを現在時刻へ合わせた後の computed style で一度だけ判定する。
+      // 可視化より先に判定すると、途中へシークしても 0% キーフレームを見てしまう。
+      if (overlay.hitPolicyPending) {
+        window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
+        overlay.hitPolicyPending = false;
       }
     }
   }

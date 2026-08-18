@@ -9,6 +9,27 @@
     const SAFE_MARGIN_RATIO = 0.05;
     const DEFAULT_OUTPUT_WIDTH = 1280;
     const DEFAULT_OUTPUT_HEIGHT = 720;
+    const NON_RENDERED_HIT_ELEMENTS = /* @__PURE__ */ new Set([
+      "BASE",
+      "HEAD",
+      "LINK",
+      "META",
+      "NOSCRIPT",
+      "SCRIPT",
+      "STYLE",
+      "TEMPLATE",
+      "TITLE"
+    ]);
+    const REPLACED_HIT_ELEMENTS = /* @__PURE__ */ new Set([
+      "AUDIO",
+      "CANVAS",
+      "EMBED",
+      "IFRAME",
+      "IMG",
+      "OBJECT",
+      "SVG",
+      "VIDEO"
+    ]);
     function stageScaleFactor() {
       const scale = window.akari.stageScale?.();
       return Number.isFinite(scale) && scale > 0 ? scale : 1;
@@ -25,6 +46,8 @@
     let selftestOverlayOverride = null;
     let verticalSnapGuide = null;
     let horizontalSnapGuide = null;
+    const hitPolicyOriginalPointerEvents = /* @__PURE__ */ new WeakMap();
+    const hitPolicyAppliedContainers = /* @__PURE__ */ new WeakSet();
     let writeTail = Promise.resolve();
     let writeGeneration = 0;
     let lastTransformWrite = null;
@@ -134,6 +157,89 @@
         return null;
       }
       return { left, top, right, bottom, width: right - left, height: bottom - top };
+    }
+    function transparentColor(value) {
+      const color = String(value ?? "").trim().toLowerCase();
+      if (!color || color === "transparent") return true;
+      const legacyAlpha = color.match(/^(?:rgba|hsla)\([^)]*,\s*([\d.]+)\)$/);
+      if (legacyAlpha) return Number(legacyAlpha[1]) <= 0;
+      const modernAlpha = color.match(/\/\s*([\d.]+)%?\s*\)$/);
+      return Boolean(modernAlpha && Number(modernAlpha[1]) <= 0);
+    }
+    function visibleShadow(value) {
+      const shadow = String(value ?? "").trim().toLowerCase();
+      if (!shadow || shadow === "none") return false;
+      const colors = shadow.match(/(?:rgba?|hsla?|color)\([^)]*\)|transparent/g) ?? [];
+      return colors.length === 0 || colors.some((color) => !transparentColor(color));
+    }
+    function hasDirectText(element) {
+      return Array.from(element.childNodes).some(
+        (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== ""
+      );
+    }
+    function drawsOwnContent(element, style) {
+      if (NON_RENDERED_HIT_ELEMENTS.has(element.tagName)) return false;
+      if (REPLACED_HIT_ELEMENTS.has(element.tagName)) return true;
+      if (hasDirectText(element)) return true;
+      if (!transparentColor(style.backgroundColor)) return true;
+      if (style.backgroundImage && style.backgroundImage !== "none") return true;
+      if (visibleShadow(style.boxShadow)) return true;
+      for (const side of ["Top", "Right", "Bottom", "Left"]) {
+        if (parseFloat(style[`border${side}Width`]) > 0 && !["none", "hidden"].includes(style[`border${side}Style`]) && !transparentColor(style[`border${side}Color`])) {
+          return true;
+        }
+      }
+      return parseFloat(style.outlineWidth) > 0 && !["none", "hidden"].includes(style.outlineStyle) && !transparentColor(style.outlineColor);
+    }
+    function setHitPointerEvents(element, value) {
+      if (!hitPolicyOriginalPointerEvents.has(element)) {
+        hitPolicyOriginalPointerEvents.set(element, {
+          value: element.style.getPropertyValue("pointer-events"),
+          priority: element.style.getPropertyPriority("pointer-events")
+        });
+      }
+      element.style.setProperty("pointer-events", value, "important");
+    }
+    function applyOverlayHitPolicy(container) {
+      if (!container || hitPolicyAppliedContainers.has(container)) return;
+      setHitPointerEvents(container, "none");
+      function visit(element, inheritedDirective, ancestorPainted, isFragmentRoot) {
+        const declared = element.getAttribute("data-akari-hit");
+        const directive = ["pass", "catch"].includes(declared) ? declared : inheritedDirective;
+        const style = getComputedStyle(element);
+        const participatesInPaint = ancestorPainted && style.display !== "none" && Number(style.opacity) > 0;
+        const isVisible = participatesInPaint && !["hidden", "collapse"].includes(style.visibility);
+        let pointerEvents = "none";
+        if (isVisible && directive === "catch") {
+          pointerEvents = "auto";
+        } else if (isVisible && directive !== "pass" && !isFragmentRoot && drawsOwnContent(element, style)) {
+          pointerEvents = "auto";
+        }
+        setHitPointerEvents(element, pointerEvents);
+        for (const child of element.children) {
+          visit(child, directive, participatesInPaint, false);
+        }
+      }
+      for (const root of container.children) visit(root, null, true, true);
+      hitPolicyAppliedContainers.add(container);
+    }
+    function invalidateOverlayHitPolicy(container) {
+      if (container) hitPolicyAppliedContainers.delete(container);
+    }
+    function restoreHitPolicyStyles(cloneRoot, liveRoot) {
+      const clones = [cloneRoot, ...cloneRoot.querySelectorAll("*")];
+      const liveElements = [liveRoot, ...liveRoot.querySelectorAll("*")];
+      for (let index = 0; index < liveElements.length; index += 1) {
+        const original = hitPolicyOriginalPointerEvents.get(liveElements[index]);
+        const clone = clones[index];
+        if (!original || !clone) continue;
+        if (original.value) {
+          clone.style.setProperty("pointer-events", original.value, original.priority);
+        } else {
+          clone.style.removeProperty("pointer-events");
+          if (!clone.getAttribute("style")) clone.removeAttribute("style");
+        }
+      }
     }
     function computeHitClipPath(container) {
       const transform = readTransform(container);
@@ -925,6 +1031,7 @@
       const root = fragmentRoot(container);
       if (!root) throw new Error("\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4\u65AD\u7247\u306E\u30EB\u30FC\u30C8\u8981\u7D20\u304C\u3042\u308A\u307E\u305B\u3093");
       const clone = root.cloneNode(true);
+      restoreHitPolicyStyles(clone, root);
       clone.removeAttribute("data-akari-interaction");
       clone.removeAttribute("data-akari-interaction-editing");
       for (const element of clone.querySelectorAll("[data-akari-interaction]")) {
@@ -970,6 +1077,8 @@
         failure.catch(() => void 0);
         return failure;
       }
+      invalidateOverlayHitPolicy(edit.container);
+      applyOverlayHitPolicy(edit.container);
       syncOverlayHitRegion(edit.container);
       const record = enqueueWrite(
         edit.writeContext,
@@ -1317,6 +1426,8 @@
       outputSize,
       currentDisplayScale,
       // ㉑ 素通し: overlay-runtime.js の tick() が可視化タイミングで呼ぶ。
+      applyOverlayHitPolicy,
+      invalidateOverlayHitPolicy,
       syncOverlayHitRegion,
       // Web UI（preview-server）が編集モードを抜けるときに選択枠を畳むための公開口
       // （Phase 2-4 一本化。shell では未使用の追加 export で挙動不変）。

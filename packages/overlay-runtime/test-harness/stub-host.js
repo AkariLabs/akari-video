@@ -19,7 +19,7 @@ const STUB_SUMMARY = {
       transform: { x: 0, y: 0, scale: 1, rotate: 0 },
       vars: { "--font-size": "40px", "--color": "#ffffff" },
       html: [
-        '<div class="cap-a-root" style="position:absolute;left:50%;bottom:15%;transform:translateX(-50%);">',
+        '<div class="cap-a-root" data-akari-hit="catch" style="position:absolute;left:50%;bottom:15%;transform:translateX(-50%);">',
         "  <style>",
         "    .cap-a-root .box {",
         "      display: inline-block; padding: 12px 28px; border-radius: 10px;",
@@ -46,7 +46,7 @@ const STUB_SUMMARY = {
         '      font-size: var(--font-size); font-weight: 700; font-family: "Hiragino Sans", sans-serif;',
         "    }",
         "  </style>",
-        '  <span class="box">テストハーネス字幕B</span>',
+        '  <span class="box" data-akari-hit="pass">テストハーネス字幕B</span>',
         "</div>",
       ].join("\n"),
     },

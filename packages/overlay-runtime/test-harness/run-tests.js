@@ -62,6 +62,25 @@
       getComputedStyle(capB).visibility === "hidden",
       "tick(5, true): cap-b（start=25, duration=20）は区間外で hidden"
     );
+    assert(
+      capB.querySelector(".box").style.pointerEvents === "",
+      "区間外の断片は子孫の当たり判定を未走査（見えている分だけ適用）"
+    );
+    const capARoot = capA.querySelector(".cap-a-root");
+    const capABox = capA.querySelector(".box");
+    assert(
+      capARoot.style.pointerEvents === "auto" && capABox.style.pointerEvents === "auto",
+      'data-akari-hit="catch" の祖先配下は、機械判定で pass の断片ルートでも拾う'
+    );
+    const capABoxRect = capABox.getBoundingClientRect();
+    const capAHit = document.elementFromPoint(
+      capABoxRect.left + capABoxRect.width / 2,
+      capABoxRect.top + capABoxRect.height / 2
+    );
+    assert(
+      capAHit?.closest?.('[data-akari-hit="catch"]') === capARoot,
+      'data-akari-hit="catch": elementFromPoint() が明示範囲の配下を実際に返す'
+    );
 
     window.akari.runtime.tick(30, true); // cap-b の可視区間内（25〜45s）
     assert(
@@ -71,6 +90,20 @@
     assert(
       getComputedStyle(capB).visibility === "visible",
       "tick(30, true): cap-b が visible"
+    );
+    const capBBox = capB.querySelector(".box");
+    assert(
+      capBBox.style.pointerEvents === "none",
+      'data-akari-hit="pass" は、機械判定で auto の背景・文字要素を素通しにする'
+    );
+    const capBBoxRect = capBBox.getBoundingClientRect();
+    const capBHit = document.elementFromPoint(
+      capBBoxRect.left + capBBoxRect.width / 2,
+      capBBoxRect.top + capBBoxRect.height / 2
+    );
+    assert(
+      !capBHit?.closest?.("[data-overlay-id]"),
+      'data-akari-hit="pass": elementFromPoint() が下のプレビュー面まで素通しする'
     );
 
     // selftest() を走らせるため、選択可能な状態（cap-a 可視）へ戻す
@@ -158,6 +191,15 @@
     assert(
       capFull.style.clipPath !== "" && capFull.style.clipPath !== "none",
       `cap-full-wrapper のヒット領域が clip-path で実寸に絞られている（実測: ${capFull.style.clipPath}）`
+    );
+    assert(
+      capFull.style.pointerEvents === "none" &&
+        capFull.querySelector(".cap-full-root").style.pointerEvents === "none",
+      "ランタイムコンテナと断片の全画面ルートは pointer-events:none"
+    );
+    assert(
+      capFull.querySelector(".plate").style.pointerEvents === "auto",
+      "機械判定: 背景と文字を描く plate だけ pointer-events:auto"
     );
 
     // ---- 3c) ㉒ スナップ統一で追加公開した共有 API の型・基本動作確認 ----
@@ -284,8 +326,10 @@
       "保存 DOM: ミラー層の aria-hidden=\"true\" が書き出し内容にも残っている"
     );
     assert(
-      !savedHtml.includes("contenteditable") && !savedHtml.includes("data-akari-interaction"),
-      "保存 DOM: contenteditable / data-akari-interaction* 等の編集用一時属性は書き出し前に剥がされている"
+      !savedHtml.includes("contenteditable") &&
+        !savedHtml.includes("data-akari-interaction") &&
+        !savedHtml.includes("pointer-events"),
+      "保存 DOM: contenteditable / data-akari-interaction* / ランタイム注入 pointer-events は書き出し前に剥がされている"
     );
     assert(
       fillEl.getAttribute("contenteditable") !== "true",

@@ -10,6 +10,27 @@ window.akari.interaction = (() => {
   const SAFE_MARGIN_RATIO = 0.05;
   const DEFAULT_OUTPUT_WIDTH = 1280;
   const DEFAULT_OUTPUT_HEIGHT = 720;
+  const NON_RENDERED_HIT_ELEMENTS = new Set([
+    "BASE",
+    "HEAD",
+    "LINK",
+    "META",
+    "NOSCRIPT",
+    "SCRIPT",
+    "STYLE",
+    "TEMPLATE",
+    "TITLE",
+  ]);
+  const REPLACED_HIT_ELEMENTS = new Set([
+    "AUDIO",
+    "CANVAS",
+    "EMBED",
+    "IFRAME",
+    "IMG",
+    "OBJECT",
+    "SVG",
+    "VIDEO",
+  ]);
 
   // 舞台は出力動画ピクセルの論理サイズを scale() でペイン内の動画矩形へ貼り付ける。
   // 通常の座標変換は stageLocalPoint() を使い、この倍率は異常系の退避と selftest に使う。
@@ -35,6 +56,11 @@ window.akari.interaction = (() => {
   let selftestOverlayOverride = null;
   let verticalSnapGuide = null;
   let horizontalSnapGuide = null;
+
+  // 当たり判定規約は断片の inline style へ一時的に pointer-events を置く。
+  // テキスト編集で断片 HTML を保存するときに作者の元指定へ戻せるよう、初回値だけ保持する。
+  const hitPolicyOriginalPointerEvents = new WeakMap();
+  const hitPolicyAppliedContainers = new WeakSet();
 
   // overlay_write は操作順を保存する。selftest は今回の書き込みをこの記録から待つ。
   let writeTail = Promise.resolve();
@@ -202,9 +228,130 @@ window.akari.interaction = (() => {
     return { left, top, right, bottom, width: right - left, height: bottom - top };
   }
 
+  function transparentColor(value) {
+    const color = String(value ?? "").trim().toLowerCase();
+    if (!color || color === "transparent") return true;
+    const legacyAlpha = color.match(/^(?:rgba|hsla)\([^)]*,\s*([\d.]+)\)$/);
+    if (legacyAlpha) return Number(legacyAlpha[1]) <= 0;
+    const modernAlpha = color.match(/\/\s*([\d.]+)%?\s*\)$/);
+    return Boolean(modernAlpha && Number(modernAlpha[1]) <= 0);
+  }
+
+  function visibleShadow(value) {
+    const shadow = String(value ?? "").trim().toLowerCase();
+    if (!shadow || shadow === "none") return false;
+    const colors =
+      shadow.match(/(?:rgba?|hsla?|color)\([^)]*\)|transparent/g) ?? [];
+    return colors.length === 0 || colors.some((color) => !transparentColor(color));
+  }
+
+  function hasDirectText(element) {
+    return Array.from(element.childNodes).some(
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== ""
+    );
+  }
+
+  function drawsOwnContent(element, style) {
+    if (NON_RENDERED_HIT_ELEMENTS.has(element.tagName)) return false;
+    if (REPLACED_HIT_ELEMENTS.has(element.tagName)) return true;
+    if (hasDirectText(element)) return true;
+    if (!transparentColor(style.backgroundColor)) return true;
+    if (style.backgroundImage && style.backgroundImage !== "none") return true;
+    if (visibleShadow(style.boxShadow)) return true;
+
+    for (const side of ["Top", "Right", "Bottom", "Left"]) {
+      if (
+        parseFloat(style[`border${side}Width`]) > 0 &&
+        !["none", "hidden"].includes(style[`border${side}Style`]) &&
+        !transparentColor(style[`border${side}Color`])
+      ) {
+        return true;
+      }
+    }
+
+    return (
+      parseFloat(style.outlineWidth) > 0 &&
+      !["none", "hidden"].includes(style.outlineStyle) &&
+      !transparentColor(style.outlineColor)
+    );
+  }
+
+  function setHitPointerEvents(element, value) {
+    if (!hitPolicyOriginalPointerEvents.has(element)) {
+      hitPolicyOriginalPointerEvents.set(element, {
+        value: element.style.getPropertyValue("pointer-events"),
+        priority: element.style.getPropertyPriority("pointer-events"),
+      });
+    }
+    // 作者 CSS に旧来の pointer-events 指定が残っていても、逃げ道を data-akari-hit へ
+    // 一本化するためランタイム規約を優先する。保存時は上の記録から元指定へ戻す。
+    element.style.setProperty("pointer-events", value, "important");
+  }
+
+  // 全画面の外側コンテナと断片ルートは素通しにし、実際に背景・枠・影・文字・置換要素を
+  // 描く可視の子孫だけを拾う。data-akari-hit は最寄りの指定を配下へ継承し、機械判定より
+  // 優先する。字幕が 1,000 件級でも全件を走査しないよう、runtime の可視化時に一度だけ呼ぶ。
+  function applyOverlayHitPolicy(container) {
+    if (!container || hitPolicyAppliedContainers.has(container)) return;
+
+    setHitPointerEvents(container, "none");
+
+    function visit(element, inheritedDirective, ancestorPainted, isFragmentRoot) {
+      const declared = element.getAttribute("data-akari-hit");
+      const directive = ["pass", "catch"].includes(declared)
+        ? declared
+        : inheritedDirective;
+      const style = getComputedStyle(element);
+      const participatesInPaint =
+        ancestorPainted && style.display !== "none" && Number(style.opacity) > 0;
+      const isVisible =
+        participatesInPaint && !["hidden", "collapse"].includes(style.visibility);
+
+      let pointerEvents = "none";
+      if (isVisible && directive === "catch") {
+        pointerEvents = "auto";
+      } else if (
+        isVisible &&
+        directive !== "pass" &&
+        !isFragmentRoot &&
+        drawsOwnContent(element, style)
+      ) {
+        pointerEvents = "auto";
+      }
+      setHitPointerEvents(element, pointerEvents);
+
+      for (const child of element.children) {
+        visit(child, directive, participatesInPaint, false);
+      }
+    }
+
+    for (const root of container.children) visit(root, null, true, true);
+    hitPolicyAppliedContainers.add(container);
+  }
+
+  function invalidateOverlayHitPolicy(container) {
+    if (container) hitPolicyAppliedContainers.delete(container);
+  }
+
+  function restoreHitPolicyStyles(cloneRoot, liveRoot) {
+    const clones = [cloneRoot, ...cloneRoot.querySelectorAll("*")];
+    const liveElements = [liveRoot, ...liveRoot.querySelectorAll("*")];
+    for (let index = 0; index < liveElements.length; index += 1) {
+      const original = hitPolicyOriginalPointerEvents.get(liveElements[index]);
+      const clone = clones[index];
+      if (!original || !clone) continue;
+      if (original.value) {
+        clone.style.setProperty("pointer-events", original.value, original.priority);
+      } else {
+        clone.style.removeProperty("pointer-events");
+        if (!clone.getAttribute("style")) clone.removeAttribute("style");
+      }
+    }
+  }
+
   // ㉑ 素通し: コンテナ（[data-overlay-id]、mount() が inset:0 で全画面付与）は
-  // pointer-events:auto のまま、clip-path で「可視コンテンツの実寸 bbox」だけに
-  // ネイティブな当たり判定を絞る。clip-path の inset() はコンテナ自身の
+  // pointer-events:none としつつ、clip-path で「可視コンテンツの実寸 bbox」へ
+  // 視覚クリップも合わせる。clip-path の inset() はコンテナ自身の
   // ローカル（transform 適用前）ボックスに対する割合として解決されるため、コンテナに
   // 掛かる translate/scale/rotate（ここでは非回転のみ対応）は clip 領域にも均一に
   // 適用される。したがって「現在（transform 適用後）のクライアント矩形」同士の比で
@@ -1353,6 +1500,7 @@ window.akari.interaction = (() => {
     if (!root) throw new Error("オーバーレイ断片のルート要素がありません");
 
     const clone = root.cloneNode(true);
+    restoreHitPolicyStyles(clone, root);
     clone.removeAttribute("data-akari-interaction");
     clone.removeAttribute("data-akari-interaction-editing");
     for (const element of clone.querySelectorAll("[data-akari-interaction]")) {
@@ -1411,6 +1559,8 @@ window.akari.interaction = (() => {
     // テキスト編集で断片内容の実寸が変わり得るため、当たり判定（clip-path）を
     // 最新の bbox に合わせ直す（refreshSelectionFrame は毎フレーム再計算されるが、
     // clip-path は内容変化時のみの明示同期が必要）。
+    invalidateOverlayHitPolicy(edit.container);
+    applyOverlayHitPolicy(edit.container);
     syncOverlayHitRegion(edit.container);
 
     const record = enqueueWrite(
@@ -1862,6 +2012,8 @@ window.akari.interaction = (() => {
     outputSize,
     currentDisplayScale,
     // ㉑ 素通し: overlay-runtime.js の tick() が可視化タイミングで呼ぶ。
+    applyOverlayHitPolicy,
+    invalidateOverlayHitPolicy,
     syncOverlayHitRegion,
     // Web UI（preview-server）が編集モードを抜けるときに選択枠を畳むための公開口
     // （Phase 2-4 一本化。shell では未使用の追加 export で挙動不変）。
