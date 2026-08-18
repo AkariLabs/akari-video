@@ -2321,7 +2321,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (selection.id === 'bgm' && this.audioBgm) {
             return {
                 kind: 'audio', id: this.audioBgm.id, audioKind: 'bgm', label: this.pathBaseName(this.audioBgm.path),
-                outputStart: 0, duration: this.totalDuration(),
+                outputStart: 0, duration: this.contentEndDuration(),
                 ...(this.audioBgm.gainDb !== undefined ? { gainDb: this.audioBgm.gainDb } : {}),
                 ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
                 ...(this.audioBgm.fadeOut !== undefined ? { fadeOut: this.audioBgm.fadeOut } : {}),
@@ -3569,7 +3569,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // 振り分け済みのため、ここで残る重なりは「bgm（全区間）× sfx」のみ。
                 const intervals = [
                     ...(this.audioBgm && ref === 0
-                        ? [{ start: 0, end: this.totalDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
+                        // BGM バーの終端はコンテンツ終端（実際に音が使われる範囲）。totalDuration() は
+                        // スクロール余白込みの表示全長（contentEnd の約 2 倍）なので使わない
+                        // （実機報告 2026-08-18: mp3 実尺相当までバーが伸びて見えていた）。
+                        ? [{ start: 0, end: this.contentEndDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
                     // narration は track を持たないため常に ref 0 帯へ乗せる（Phase 2-5 逆輸入）。
                     ...(ref === 0 ? this.audioNarration.map(narration => ({
                         start: narration.t,
@@ -3893,10 +3896,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         });
         const bgmLayout = this.trackLayout('audio', 0);
-        if (this.audioBgm && bgmLayout && this.isRangeVisible(0, this.totalDuration())) {
+        if (this.audioBgm && bgmLayout && this.isRangeVisible(0, this.contentEndDuration())) {
             const bgm = this.audioBgm;
             const label = this.pathBaseName(bgm.path);
-            const end = this.totalDuration();
+            // バーはコンテンツ終端でトリムして描く（BGM は全編ベッドだが、書き出しで使われるのは
+            // 動画尺ぶんだけ。ソース mp3 の実尺やスクロール余白までバーを伸ばさない）
+            const end = this.contentEndDuration();
             const bgmSubrowCount = this.audioTrackSubrowCounts.get(bgmLayout.id) ?? 1;
             const bgmItemHeight = bgmSubrowCount <= 1 ? bgmLayout.height : SUBROW_HEIGHT;
             const element = this.stripSegment(
