@@ -81,7 +81,7 @@ silence を提示する。候補は自動採用しない。特に `UI_WAIT_UNRES
 
 各行に素材 ID、source の `start/end`、`keep` または `drop`、根拠 event、根拠 anchor、理由を書く。keep range は source ごとに昇順・非重複にする。カット後 timeline 時刻と source 時刻を混ぜない。ここに並ぶのは決定レベルの keep/drop であり、word 単位の採否はアプリ側で操作する。
 
-この一覧はチャットでの提示に使うと同時に、`edit.json.cuts` を組み立てる直接の一次証拠になる。`decision-log.md` の `cut` category にまとめて記録する（1 行 1 区間、または要約 + 詳細は生成物として別途保存してもよい）。トレーラー・オープニングフックなど本編と別に切り出す**切り出し・先出しクリップの `in/out` は、見せ場スコア位置の機械窓のままにせず、クリップ内発話へスナップして呼吸 0.5s を残す**（発話スナップの規則は [execution.md](execution.md) §2）。
+この一覧はチャットでの提示に使うと同時に、v2 の visual media item を組み立てる直接の一次証拠になる。`decision-log.md` の `cut` category にまとめて記録する（1 行 1 区間、または要約 + 詳細は生成物として別途保存してもよい）。トレーラー・オープニングフックなどの**切り出し・先出しクリップの `source.in/out` は、見せ場スコア位置の機械窓のままにせず、クリップ内発話へスナップして呼吸 0.5s を残す**（発話スナップの規則は [execution.md](execution.md) §2）。
 
 ## 素材計画
 
@@ -147,7 +147,7 @@ node packages/audio-library-setup/bin/suggest-sfx.mjs --meaning 場面転換 [--
 - 出力の `duration_sec` は発火タイミング設計（[beat-sync.md](beat-sync.md)）の入力である。
   採用は同じく Checkpoint 2 の承認で決める
 
-候補が見つからないことを「あれば提案」と記録しない。BGM と SFX は `audio`、ナレーションは `audio.narration[]`、動画 B ロールは v1 の `sources[]` + `cuts[].src` へ格納できる（[execution.md](execution.md) §1）。公開契約のどのフィールドでも表せない演出だけ、計画上の採用と `edit.json` への格納可否を分けて提示する。単一中間マスターへ焼き込む場合は実行承認の対象にする。
+候補が見つからないことを「あれば提案」と記録しない。BGM / SFX / B ロールは v2 の `sources[]` + `tracks[].items[]` へ格納できる（[execution.md](execution.md) §1）。公開契約のどのフィールドでも表せない演出だけ、計画上の採用と `edit.json` への格納可否を分けて提示する。単一中間マスターへ焼き込む場合は実行承認の対象にする。
 
 ナレーションの話者がアバターのときは、原稿を書く前に [avatar-resolution.md](avatar-resolution.md#台本生成への接続persona-注入s2-具体化) の persona 注入手順（ペルソナ要約の反映・NG 遵守）に従う。
 

@@ -1,5 +1,9 @@
 # 見せ場マーカーを演出へ連動させる（beats → SE 発火）
 
+> **v2 注記**: edit.json v2 のトップレベルは exact で `beats` / `direction` を受け付けない。
+> 見せ場候補と強度は判断記録から読み、v2 の `edit.json` へこれらのキーを書かない。
+> `tracks[].items[]` に置く演出だけを出力し、再受け入れは別タスクとする。
+
 承認済みの `beats[]`（見せ場マーカー）から、既存の `edit.json` 語彙だけで「見せ場で鳴って画が動く」を
 組むための翻訳規約である。[beats.md](beats.md) が「見せ場をどう**書くか**」（導出規約）を定めるのに対し、
 本リーフは「書かれた見せ場をどう**使うか**」（消費規約）を定める。
@@ -26,16 +30,16 @@
   本リーフの責務**であり、§評価順の「密度ガードレール」で射影後の timeline 秒に対して適用する。
 - 承認の記録は `decision-log.md`（[report-guide.md](report-guide.md#decision_log)）に残っている
   ものを指す。無操作・タイムアウト・過去の包括承認を今回の承認に読み替えない。
-- **演出の強さの入力は `edit.json` の `direction { preset, intensity }`**（演出宣言）である。
+- **演出の強さの入力は `decision-log.md` の `preset` / `intensity` 判断**である。
   本リーフの演出数値はすべてここから導く（§演出プリセットと `intensity` 写像）。`direction` が
   無ければ既定動作（`youtube-long-standard` + `intensity` 50）で従来どおりに振る舞う。
 
 ## 射影 — source 秒から timeline 秒へ
 
 `beats[].t` は **source 秒**である（[beats.md](beats.md) §座標 / beats 契約 §3）。発火位置は毎回
-`cuts[]` から計算し、計算結果を `beats[]` へ書き戻さない。
+visual 段の media item から計算し、計算結果を見せ場候補へ書き戻さない。
 
-- `beats[].t`（source 秒）を `cuts[]` で timeline 秒へ射影して**発火位置**とする。
+- 見せ場候補の source 秒を media item の `source.in/out` と `at` で出力フレームへ射影し、**発火位置**とする。
 - 射影式は [execution.md](execution.md) §2 と同じ:
   source 時刻 `s` が keep-range `[in, out)` にあるとき、
   `timeline = （それ以前の keep-range 長の合計） + (s - in)`。
@@ -47,10 +51,8 @@
 ## 演出プリセットと `intensity` 写像
 
 本リーフの演出数値（強度ゲート・密度・`gain_db` の目安・儀式スナップ窓）は固定値ではなく、
-`edit.json` の `direction { preset, intensity }`
-（[演出宣言契約](../../docs/contract-2026-07-23-edit-json-v1-direction.md)）から**決定的に**導く。
-契約は器と意味論だけを定め、「どの規則のどの数値をどうスケールするかの写像表は消費側が持つ」と
-明記している（同 §4 / §7）。**本節がその写像の正である。**
+`decision-log.md` に承認済みの `preset` / `intensity` から**決定的に**導く。
+v2 の `edit.json` へ `direction` は書かない。**本節が写像の正である。**
 
 ### プリセット実パラメータ表（`intensity` = 50 のときの値）
 
@@ -68,7 +70,7 @@
 
 ### `intensity` 写像（全プリセット共通・決定的）
 
-`i` = `direction.intensity`（整数 `[0, 100]`。50 が基準）。上表の値を `base` として次で決まる。
+`i` = 判断記録の `intensity`（整数 `[0, 100]`。50 が基準）。上表の値を `base` として次で決まる。
 
 | パラメータ | 写像式 | 備考 |
 |---|---|---|
@@ -82,7 +84,7 @@
 - 途中式は丸めずに計算し、レポートへ書くときだけ表示桁を落とす。
 - 写像は**単調**である。`i` を上げると強度ゲートは下がり・件数上限は増え・同 kind 間隔は縮み・
   `gain_db` は上がる。どれも「発火を減らす方向へは動かない」ため、**同一入力（同じ `beats[]` と
-  `cuts[]`）に対する SE 件数は `i` について単調非減少**になる（減ることはない。増えるとは限らない）。
+  visual media item）に対する SE 件数は `i` について単調非減少**になる（減ることはない。増えるとは限らない）。
 
 ### `direction` 欠落時・不正時の既定動作
 
@@ -103,7 +105,7 @@
 
 ## 評価順（決定的に処理する）
 
-同じ `beats[]` と `cuts[]` からは常に同じ `audio.sfx[]` が出るように、次の順で処理する。
+同じ見せ場候補と visual media item からは常に同じ audio item が出るように、次の順で処理する。
 
 1. **射影**: 全 beat を timeline 秒へ射影する（0 件の beat はここで脱落）。
 2. **章転換の儀式**: `turn` の射影先がカット境界の**儀式スナップ窓**以内なら、その境界時刻へ
@@ -168,7 +170,7 @@ node packages/audio-library-setup/bin/beat-grid.mjs --edit <edit.json> --timelin
 スライドショー系（`beatslide` 等）で「写真が拍で入れ替わる」を作るときは、同じ CLI の
 `cut_candidates` を**素材計画の提案**として使う（既定は 1 小節 = 4 拍ごと）。
 
-- 採用は Checkpoint 2 / 3 の承認を通す。**候補をそのまま `cuts[]` に流し込まない**
+- 採用は Checkpoint 2 / 3 の承認を通す。**候補をそのまま visual item に流し込まない**
 - カットの尺は素材の実尺で決まる。拍候補に合わせて素材を切り詰める場合は、
   [execution.md](execution.md) のカット規約に従う（拍のために存在しない素材を作らない）
 
@@ -353,7 +355,7 @@ SE を付けずに無音の見せ場として残すか、素材計画として�
   素材計画（Checkpoint 2）としてチャットで提案・承認を得る。
 - **部品の新設・トランジション語彙の発明をしない。** `edit.json` に `transition` 系の未契約
   フィールドを足さない。囲い・ラメ等の専用視覚部品を新設しない。
-- overlay を置く場合の `overlays[].start` は SE と同じ timeline 秒であり、SE の `t` と揃える
+- HTML item を置く場合の `at` は SE と同じ出力フレームで揃える
   （儀式でスナップした `turn` では、スナップ後の境界時刻へ揃える）。
 
 ## worked example
@@ -368,25 +370,30 @@ SE を付けずに無音の見せ場として残すか、素材計画として�
 | `b-0004` | `punchline` | 132.0 | 0.8 |
 | `b-0005` | `emotion` | 12.4 | 0.6 |
 
-### 入力 2 — `cuts[]`（keep-range 3 件）
+### 入力 2 — visual media item（keep-range 3 件）
 
 ```json
 {
-  "cuts": [
-    { "in": 8.0, "out": 30.0 },
-    { "in": 47.2, "out": 60.0 },
-    { "in": 94.0, "out": 100.0 }
-  ]
+  "tracks": [{
+    "id": "v1", "lane": "visual", "items": [
+      { "id": "clip-1", "at": 0, "duration": 660,
+        "source": { "kind": "media", "src": "s1", "in": 8.0, "out": 30.0 } },
+      { "id": "clip-2", "at": 660, "duration": 384,
+        "source": { "kind": "media", "src": "s1", "in": 47.2, "out": 60.0 } },
+      { "id": "clip-3", "at": 1044, "duration": 180,
+        "source": { "kind": "media", "src": "s1", "in": 94.0, "out": 100.0 } }
+    ]
+  }]
 }
 ```
 
 keep-range 長は 22.0 / 12.8 / 6.0 秒。timeline 上の区間と境界は次のとおり。
 
-| cut | source `[in, out)` | timeline `[開始, 終了)` |
+| item | source `[in, out)` | timeline `[開始, 終了)` |
 |---|---|---|
-| `cuts[0]` | `[8.0, 30.0)` | `[0.0, 22.0)` |
-| `cuts[1]` | `[47.2, 60.0)` | `[22.0, 34.8)` |
-| `cuts[2]` | `[94.0, 100.0)` | `[34.8, 40.8)` |
+| `clip-1` | `[8.0, 30.0)` | `[0.0, 22.0)` |
+| `clip-2` | `[47.2, 60.0)` | `[22.0, 34.8)` |
+| `clip-3` | `[94.0, 100.0)` | `[34.8, 40.8)` |
 
 カット境界の集合 = `{ 0.0, 22.0, 34.8, 40.8 }`（タイムライン長 40.8 秒）。
 
@@ -448,98 +455,39 @@ keep-range 長は 22.0 / 12.8 / 6.0 秒。timeline 上の区間と境界は次�
 `hook` の 4.4 秒は儀式スナップではないため -4 の行の条件に当たらない）。SE はいずれも既定表の
 1 点目であり、文脈による選び分けを行っていないため選択根拠の追記も発生しない。
 
-### 出力 — `edit.json`（`i=50` の完全 JSON）
+### 出力 — v2 `edit.json`（`i=50` の要点）
+
+`preset` / `intensity` と見せ場候補は `decision-log.md` に残し、v2 のトップレベルへは書かない。
+演出結果だけを audio 段の item として書く。30fps の例:
 
 ```json
 {
-  "version": 0,
+  "version": 2,
   "output": { "width": 1280, "height": 720, "fps": 30 },
-  "source": { "path": "source.mp4", "proxy": null },
-  "direction": { "preset": "youtube-long-standard", "intensity": 50 },
-  "cuts": [
-    { "in": 8.0, "out": 30.0 },
-    { "in": 47.2, "out": 60.0 },
-    { "in": 94.0, "out": 100.0 }
+  "sources": [
+    { "id": "s1", "path": "source.mp4" },
+    { "id": "se1", "path": "assets/audio/和太鼓でドン.mp3" }
   ],
-  "overlays": [],
-  "audio": {
-    "sfx": [
-      { "path": "assets/audio/soundeffect-lab-ambient-life-pack/和太鼓でドン.mp3", "t": 4.4, "gain_db": -6 },
-      { "path": "assets/audio/soundeffect-lab-anime-direction-pack/シュッ！.mp3", "t": 22.0, "gain_db": -6 }
-    ]
-  },
-  "beats": [
+  "tracks": [
     {
-      "id": "b-0001",
-      "t": 12.4,
-      "kind": "hook",
-      "strength": 0.8,
-      "basis": "hook event 12.4–24.0s / 5 軸合計 21/25 → 0.8。発話『ついに来ました、今日はこれを全部お見せします。』"
+      "id": "a1", "lane": "audio",
+      "items": [
+        { "id": "se-hook", "at": 132, "duration": 30,
+          "source": { "kind": "media", "src": "se1", "in": 0, "out": 1 } }
+      ]
     },
     {
-      "id": "b-0002",
-      "t": 48.0,
-      "kind": "turn",
-      "strength": 0.7,
-      "basis": "chapter event『セットアップ手順』@ 48.0s。本編の入口として既定 0.5 から +0.2"
-    },
-    {
-      "id": "b-0003",
-      "t": 96.2,
-      "kind": "emotion",
-      "strength": 0.7,
-      "basis": "発話『正直、ここまで変わるとは思っていませんでした。』@ 96.2s"
-    },
-    {
-      "id": "b-0004",
-      "t": 132.0,
-      "kind": "punchline",
-      "strength": 0.8,
-      "basis": "highlight event importance 4『処理時間は 12 分から 90 秒になりました。』@ 132.0s"
-    },
-    {
-      "id": "b-0005",
-      "t": 12.4,
-      "kind": "emotion",
-      "strength": 0.6,
-      "basis": "発話『ついに来ました、今日はこれを全部お見せします。』@ 12.4s。冒頭の高揚を hook とは別に感情の山として記録"
+      "id": "v1", "lane": "visual",
+      "items": [
+        { "id": "clip-1", "at": 0, "duration": 660,
+          "source": { "kind": "media", "src": "s1", "in": 8, "out": 30 } }
+      ]
     }
   ]
 }
 ```
 
-`beats[].t` は射影後も source 秒のまま（12.4 / 48.0 / 96.2 / 132.0 / 12.4）であり、スナップした `turn` も
-書き換えていない。SE の 2 件はいずれも既定表 `hook` / `turn` の 1 点目であり、どちらも
-`attribution_required: false` のためクレジット文は発生しない。BGM は `audio` に一切書いていない
-（ビート連動の BGM 操作をしない）。`direction` は演出の入力宣言であり、`beats[]` と同じく
-書き出し成否を左右しない（[演出宣言契約](../../docs/contract-2026-07-23-edit-json-v1-direction.md) §5）。
-
-### 出力の差分 — `i=30` / `i=80`
-
-`i=30` / `i=80` は上の完全 JSON のうち **`direction.intensity` と `audio.sfx[]` だけ**が差し替わり、
-`version` / `output` / `source` / `cuts` / `overlays` / `beats` は同一である
-（`beats[]` は素材の事実であり `intensity` で変わらない）。
-
-```jsonc
-// i = 30 — 強度ゲート 0.84 で hook 0.8 が落ち、儀式スナップした turn だけが残る
-"direction": { "preset": "youtube-long-standard", "intensity": 30 },
-"audio": {
-  "sfx": [
-    { "path": "assets/audio/soundeffect-lab-anime-direction-pack/シュッ！.mp3", "t": 22.0, "gain_db": -6.8 }
-  ]
-}
-```
-
-```jsonc
-// i = 80 — 強度ゲート 0.74。発火は i=50 と同じ 2 件で、gain_db だけが +1.2 dB される
-"direction": { "preset": "youtube-long-standard", "intensity": 80 },
-"audio": {
-  "sfx": [
-    { "path": "assets/audio/soundeffect-lab-ambient-life-pack/和太鼓でドン.mp3", "t": 4.4, "gain_db": -4.8 },
-    { "path": "assets/audio/soundeffect-lab-anime-direction-pack/シュッ！.mp3", "t": 22.0, "gain_db": -4.8 }
-  ]
-}
-```
+`i=30` / `i=80` でも判断記録だけが変わり、採用された演出 item の数・位置・音量だけを v2 語彙で更新する。
 
 ### 検証（2026-07-23 実測 / `intensity` 3 通り）
 
@@ -590,8 +538,8 @@ PASS で機械的に確認されている。参照解決が実際に効いてい
   （カットで落とした見せ場が鳴らないのは正常）。
 - 強度ゲート未満の `strength` の beat に SE を付けて演出過多にする（既定 preset・`i=50` なら
   0.8 未満）。無音の見せ場を残すのが既定である。
-- `edit.json` の `direction` を見ずに、強度ゲート 0.8 / 密度 2 件・20 秒 / スナップ窓 ±1.0 秒を
-  固定値として使う。これらは `direction { preset, intensity }` から導く値であり、既定 preset・
+- `decision-log.md` の `preset` / `intensity` を見ずに、強度ゲート 0.8 / 密度 2 件・20 秒 / スナップ窓 ±1.0 秒を
+  固定値として使う。これらは承認済み判断から導く値であり、既定 preset・
   `i=50` のときだけ従来の固定値と一致する。
 - `intensity` を「なんとなく強め・弱め」と定性的に解釈する。写像式（§`intensity` 写像）で
   数値へ落とし、途中式をレポートに残す。
@@ -605,7 +553,7 @@ PASS で機械的に確認されている。参照解決が実際に効いてい
   （動かすのは `audio.sfx[].t` だけ。BGM 操作は v0 スコープ外）。
 - `intensity` で儀式スナップ窓を伸縮させる、または `intensity` を下げて儀式スナップ済みの `turn`
   を消す。儀式は `intensity` 非依存であり、`intensity` = 0 でも残る。
-- `direction` が壊れているのを理由に書き出しを止める。宣言ごと捨てて既定動作
+- 判断記録の値が壊れているのを理由に書き出しを止める。値を捨てて既定動作
   （`youtube-long-standard` + `intensity` 50）へ倒すのが劣化規約である。
 - 同一時刻 ±0.5 秒に SE を重ねる（複数の beat が近接したら `strength` の高い 1 件だけを残す）。
 - `turn` のスナップで `beats[].t` を境界へ動かす（動かすのは `audio.sfx[].t` だけ）。

@@ -1,5 +1,9 @@
 # 語レベル演出（emphasis_words）を導出する
 
+> **v2 注記**: edit.json v2 のトップレベルは exact で `emphasis_words` を受け付けない。
+> 以下の導出知識は候補と根拠を判断記録へ残すために使い、v2 の `edit.json` には書かない。
+> `emphasis_words` の再受け入れは別タスクとする。
+
 ## 原則
 
 `emphasis_words[]`（人間向けの呼称は **語レベル演出**）は、素材のどの語を演出の対象にするかを
@@ -207,7 +211,7 @@ word-level タイムスタンプから emphasis_words を導出する規約を�
 この素材は SpeechAnalyzer tier で、6 セグメントとも `words[].text` の連結が `segment.text` と
 一致することを確認済みとする（§入力と対象 tier のゲートを通過）。
 
-### 同じ `edit.json` に既にある `beats`（[beats.md](beats.md) で導出済み）
+### 判断記録にある見せ場候補（[beats.md](beats.md) で導出済み）
 
 | id | `t` | `kind` | 由来 |
 |---|---|---|---|
@@ -217,7 +221,7 @@ word-level タイムスタンプから emphasis_words を導出する規約を�
 | `b-0004` | 132.60 | `punchline` | 数値実績の提示『処理時間は、12 分から 90 秒になりました。』 |
 | `b-0005` | 158.40 | `emotion` | 発話『終わってみると、ほんとうに、しんどかった。』 |
 
-### 出力（`edit.json` の `emphasis_words`）
+### 判断記録へ残す語レベル演出候補（旧 `emphasis_words` 形は根拠の構造例としてのみ使用）
 
 ```json
 {
@@ -291,52 +295,15 @@ word-level タイムスタンプから emphasis_words を導出する規約を�
 2026-07-23T10:12+09:00 | material | 語レベル演出 不採用「想定外」 | 不採用 | 同一文内 1 語で e-0001「やばい」を採用済み。b-0002 からの距離も +1.65 秒で「やばい」より遠い | エージェント | Checkpoint 2
 ```
 
-### v0 / v1
+### v2 での保存先
 
-上の `emphasis_words` を v0 サンプル（`version: 0` + 単一 `source`）へ足したファイルは
-`validate-edit.mjs` / `edit-lint` の双方を PASS する（§検証に実測ログ）。v1（`sources[]`）で同じ
-語を書く場合は各要素へ `"src": "s1"` のように `sources[].id` を足すだけでよく、`t_start` / `t_end` の
-値は変えない。v0 では `src` の存在自体が検証エラーになるため書かない。
+上の JSON 片は v2 の `edit.json` へ貼り付けない。採用・不採用、実測の `t_start` / `t_end`、
+語の表記、根拠を `decision-log.md` へ残す。
 
 ## 検証
 
-書いた `emphasis_words` は既存の検証手順（[execution.md](execution.md) §4 の
-[edit-lint](../edit-lint/SKILL.md) 実行）で `edit.json` ごと検証する。edit-lint は
-`emphasis_words[]` の構造・`id` の一意性と形式・`t_end > t_start`・`src` の参照整合をエラーとして
-弾き、`emphasis_words` の不在はエラーにしない。
-
-上の worked example を v0 の `edit.json`（`beats` 込み）へ入れて実測した結果は次のとおり
-（2026-07-23、一時ファイルで実行）。
-
-```
-$ node packages/schemas/bin/validate-edit.mjs <tmp>/edit.json
-OK: <tmp>/edit.json
-$ node packages/edit-lint/bin/edit-lint.mjs <tmp>/edit.json
-PASS: <tmp>/edit.json (0 findings, 5 skipped)
-
-# 同じ語へ "src": "s1" を足しただけの v1 版（sources[] / cuts[].src / beats[].src も v1 化）
-$ node packages/schemas/bin/validate-edit.mjs <tmp>/v1/edit.json
-OK: <tmp>/v1/edit.json
-$ node packages/edit-lint/bin/edit-lint.mjs <tmp>/v1/edit.json
-PASS: <tmp>/v1/edit.json (0 findings, 5 skipped)
-```
-
-同じ例で `e-0001.id` を `"e-1"` に、`e-0002.t_end` を `t_start` と同値に壊すと両者ともエラーで落ちる
-（PASS が素通しでないことの確認）。
-
-```
-$ node packages/schemas/bin/validate-edit.mjs <tmp>/bad/edit.json
-NG: <tmp>/bad/edit.json
-- emphasis_words[0].id は e- に続く 4 桁の数字である必要があります
-- emphasis_words[1].t_end は t_start より大きい必要があります
-$ node packages/edit-lint/bin/edit-lint.mjs <tmp>/bad/edit.json
-FAIL: <tmp>/bad/edit.json (2 findings, 5 skipped)
-- [error] emphasis_words.id: id must match e- followed by four digits (edit.json#emphasis_words[0])
-- [error] emphasis_words.range: t_end must be greater than t_start (edit.json#emphasis_words[1])
-```
-
-`edit-lint` は入力ファイル名が `edit.json` であることを要求する（別名だと `exit 2`）。一時検証でも
-ファイル名は `edit.json` のままディレクトリを分ける。
+語レベル演出候補は `analysis.json` の `words` へ戻れるか、`t_end > t_start` かを検証し、
+採用判断を `decision-log.md` で確認する。v2 の `edit.json` へは書かない。
 
 **検証がしないこと**（契約 §7）。ここを検証に頼らない。
 

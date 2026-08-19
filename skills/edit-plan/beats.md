@@ -1,5 +1,9 @@
 # 見せ場マーカー（beats）を導出する
 
+> **v2 注記**: edit.json v2 のトップレベルは exact で `beats` を受け付けない。
+> 以下の導出知識は見せ場候補と根拠を判断記録へ残すために使い、v2 の `edit.json` には書かない。
+> `beats` の再受け入れは別タスクとする。
+
 ## 原則
 
 `beats[]`（人間向けの呼称は **見せ場マーカー**）は、素材のどこに見せ場があるかという
@@ -46,7 +50,7 @@ highlight 由来の strength は従来どおり正規化表に従う。
   区間を持つ event（`hook` / `highlight`）は `start` を `t` にする。
 - マルチソース（v1）では `src` に該当素材の `sources[].id` を入れる。v0（単一 `source`）では
   `src` の存在自体が検証エラーになるため書かない。
-- `overlays[].start` / `audio.bgm` / `audio.sfx` / `audio.narration[].t` が timeline 秒であることと
+- item の `at` が出力フレームであることと
   対照的である。beats だけは source 秒であることを取り違えない。
 
 ## basis
@@ -114,7 +118,7 @@ highlight 由来の strength は従来どおり正規化表に従う。
 }
 ```
 
-### 出力（`edit.json` の `beats`）
+### 判断記録へ残す見せ場候補（旧 `beats` 形は根拠の構造例としてのみ使用）
 
 ```json
 {
@@ -131,7 +135,7 @@ highlight 由来の strength は従来どおり正規化表に従う。
       "t": 48.0,
       "kind": "turn",
       "strength": 0.7,
-      "basis": "chapter event『セットアップ手順』@ 48.0s。本編の入口として既定 0.5 から +0.2"
+      "basis": "chapter event『セットアップ手順』@ 48.0s。章の入口として既定 0.5 から +0.2"
     },
     {
       "id": "b-0003",
@@ -158,9 +162,8 @@ highlight 由来の strength は従来どおり正規化表に従う。
 }
 ```
 
-この `beats` を v0 サンプル（`version: 0` + 単一 `source`）へ足したファイルは
-`validate-edit.mjs` / `edit-lint` の双方を PASS する。v1（`sources[]`）で同じ beats を書く場合は
-各要素へ `"src": "s1"` のように `sources[].id` を足すだけでよく、`t` の値は変えない。
+この JSON 片は v2 の `edit.json` へ貼り付けない。採用・不採用と `basis` を
+`decision-log.md` へ残し、演出を作るときの入力として使う。
 
 ### この例で働いたガードレール
 
@@ -177,9 +180,8 @@ highlight 由来の strength は従来どおり正規化表に従う。
 
 ## 検証
 
-書いた beats は既存の検証手順（[execution.md](execution.md) §4 の
-[edit-lint](../edit-lint/SKILL.md) 実行）で `edit.json` ごと検証する。edit-lint は `beats[]` の
-構造・`id` の一意性・`src` の参照整合をエラーとして弾き、`beats` の不在はエラーにしない。
+見せ場候補は `analysis.json` の event / transcript へ戻れるかを検証し、採用判断を
+`decision-log.md` で確認する。v2 の `edit.json` へは書かない。
 
 ## よくある間違い
 

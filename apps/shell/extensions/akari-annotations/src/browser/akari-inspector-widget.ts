@@ -277,8 +277,8 @@ function CUT_TABS(
         {
             label: '情報',
             fields: [
-                { label: 'track', getValue: () => withDefaultNumber(snapshot.track, 0, value => String(value)) },
-                { label: 'インデックス', getValue: () => String(snapshot.index + 1) }
+                { label: 'トラック', getValue: () => snapshot.trackName },
+                { label: 'クリップ', getValue: () => snapshot.clipName }
             ]
         }
     ];
@@ -405,8 +405,8 @@ function LAYER_TABS(
         {
             label: '情報',
             fields: [
-                { label: 'id', getValue: () => snapshot.id },
-                { label: 'track', getValue: () => withDefaultNumber(snapshot.track, 0, value => String(value)) }
+                { label: 'トラック', getValue: () => snapshot.trackName },
+                { label: 'クリップ', getValue: () => snapshot.clipName }
             ]
         }
     ];
@@ -901,9 +901,9 @@ function OVERLAY_TABS(
         {
             label: '基本',
             fields: [
-                { label: 'id', getValue: () => snapshot.id },
                 { label: '種別', getValue: () => deriveOverlayType(snapshot.payload) },
-                { label: 'track', getValue: () => withDefaultNumber(snapshot.track, 0, value => String(value)) },
+                { label: 'トラック', getValue: () => snapshot.trackName },
+                { label: 'クリップ', getValue: () => snapshot.clipName },
                 { label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
                 { label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
             ]

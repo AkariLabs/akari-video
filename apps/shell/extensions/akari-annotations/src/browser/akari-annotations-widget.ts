@@ -9,7 +9,6 @@ import {
     CaptionWritePayload,
     EditMigrationProposal,
     ClipFilmstripChunk,
-    OverlayWritePayload,
     WriteBackResult
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
@@ -37,9 +36,28 @@ import {
     computeCutTrackSegments,
     derivedLegacyTracks,
     projectLegacyEdit,
-    readInternalEdit,
-    writeTimelineTracksInSource
+    readInternalEdit
 } from '../common/edit-store';
+import {
+    EditV2Document,
+    ItemLocation,
+    indexEditV2Items,
+    insertAudioSfx,
+    insertItem as insertV2Item,
+    insertTrack as insertV2Track,
+    moveItem as moveV2Item,
+    moveAudioSfx,
+    moveItemToNewTrack as moveV2ItemToNewTrack,
+    removeItem as removeV2Item,
+    removeAudioSfx,
+    removeTrack as removeV2Track,
+    renameTrack as renameV2Track,
+    reorderTracks as reorderV2Tracks,
+    splitItem as splitV2Item,
+    stringifyEditV2,
+    updateAudioSfx,
+    updateItem as updateV2Item
+} from '../common/edit-v2-mutations';
 import {
     computeTrackAutoNames as computeTrackKindAutoNames,
     sortDefaultTimelineTracks,
@@ -53,14 +71,10 @@ import { computeCutBoundaries } from '../common/cut-boundaries';
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
 import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
 import {
-    buildSfxElement,
     computeMaterialGhostRange,
     CutDropPlan,
     planCutDrop,
     IMAGE_LAYER_DEFAULT_DURATION_SECONDS,
-    insertCutIntoEdit,
-    insertLayerIntoV2,
-    ensureV2AudioTrack,
     materialDropDecision,
     materialGhostVisibility,
     MaterialDragKind,
@@ -138,6 +152,7 @@ const MAX_TRACK_HEIGHT_PX = 240;
 const DEFAULT_AUDIO_TRACK_HEIGHT_PX = 56;
 /** per-track 高さの永続化キー接頭辞（StorageService＝ワークスペース状態。edit.json には書かない）。 */
 const TRACK_HEIGHT_STORAGE_PREFIX = 'akari.annotations.trackHeight';
+const TRACK_FLAG_STORAGE_PREFIX = 'akari.annotations.trackFlag';
 /**
  * cuts トラックの高さがこの値未満ならフィルムストリップ・波形の描画をスキップする。
  * 幅側の MIN_CLIP_WIDTH_FOR_MEDIA_PX ゲートと同列の高さゲート。
@@ -242,7 +257,7 @@ interface HistoryEntry {
 
 type TimelineClipboard =
     | { kind: 'caption'; payload: Pick<CaptionWritePayload, 'text' | 'start' | 'end'> }
-    | { kind: 'overlay'; payload: OverlayWritePayload };
+    | { kind: 'item'; trackId: string; item: Record<string, unknown> };
 
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
 // akari-preview 側の TIMELINE_LAYER_SELECTED_EVENT とミラー（CF-select）。
@@ -368,12 +383,16 @@ type DragPreview =
         rejected: boolean;
         maxOutSeconds?: number;
     }
-    | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean; insertTrack?: number }
+    | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean;
+        insertTrack?: number; targetTrackId?: string; insertIndex?: number }
     | { kind: 'caption'; id: string; deltaStart: number; deltaEnd: number; start: number; end: number }
-    | { kind: 'overlay-move'; id: string; start: number; track: number; insertTrack?: number }
+    | { kind: 'overlay-move'; id: string; start: number; track: number; insertTrack?: number;
+        targetTrackId?: string; insertIndex?: number }
     | { kind: 'overlay-resize'; id: string; duration: number }
-    | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean; insertTrack?: number }
-    | { kind: 'audio'; id: string; t: number; track: number; rejected: boolean; insertTrack?: number }
+    | { kind: 'layer'; id: string; t: number; duration: number; track: number; rejected: boolean;
+        insertTrack?: number; targetTrackId?: string; insertIndex?: number }
+    | { kind: 'audio'; id: string; t: number; track: number; rejected: boolean; insertTrack?: number;
+        targetTrackId?: string; insertIndex?: number }
     | { kind: 'audio-trim'; id: string; edge: 'left' | 'right'; t: number; in: number; out: number }
     | { kind: 'cut-slip'; index: number; in: number; out: number }
     | { kind: 'audio-slip'; id: string; in: number; out: number };
@@ -467,6 +486,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected audioNarration: EditAudioNarration[] = [];
     protected audioBgm: EditAudioBgm | undefined;
     protected timelineTracks: EditTimelineTrack[] = [];
+    /** reloadEdit で読んだ v2 全文。書き込みは item id / track id の索引からだけ行う。 */
+    protected editDocument: EditV2Document | undefined;
+    protected itemLocations = new Map<string, ItemLocation>();
+    /** 旧表示ビューの cuts[index] を v2 item id へ結ぶ読み取り専用の橋。 */
+    protected cutItemIds: string[] = [];
     /**
      * 表示専用のトラック一覧（R7-3・読み込み時の重なり自動配置）。this.timelineTracks（実体・
      * 書き込み経路の基準）に、重なりを解消するための「表示上」追加トラック行を足したもの。
@@ -1616,330 +1640,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!location) {
             return { ok: false, message: 'プロジェクトの場所を特定できません。' };
         }
+        const v2Result = await this.handleInspectorWriteV2(request);
+        if (v2Result) return v2Result;
         try {
             switch (request.kind) {
-                case 'cut-speed': {
-                    if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
-                    }
-                    const editUri = location.editUri.toString();
-                    const projectRootUri = location.root.toString();
-                    const original = this.cuts[request.index]?.speed ?? null;
-                    await this.annotationsService.setCutSpeed({
-                        editUri,
-                        projectRootUri,
-                        cutIndex: request.index,
-                        speed: request.value
-                    });
-                    this.pushHistory({
-                        label: 'クリップの速度を変更',
-                        undo: async () => {
-                            await this.annotationsService.setCutSpeed({
-                                editUri,
-                                projectRootUri,
-                                cutIndex: request.index,
-                                speed: original
-                            });
-                            await this.reloadEdit();
-                        },
-                        redo: async () => {
-                            await this.annotationsService.setCutSpeed({
-                                editUri,
-                                projectRootUri,
-                                cutIndex: request.index,
-                                speed: request.value
-                            });
-                            await this.reloadEdit();
-                        }
-                    });
-                    await this.reloadEdit();
-                    this.hideNotice();
-                    this.footer.textContent = 'クリップの速度を変更しました。';
-                    return { ok: true };
-                }
-                case 'cut-transform-x':
-                case 'cut-transform-y':
-                case 'cut-scale':
-                case 'cut-rotate': {
-                    if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
-                    }
-                    const editUri = location.editUri.toString();
-                    const projectRootUri = location.root.toString();
-                    const cut = this.cuts[request.index];
-                    if (!cut) {
-                        throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
-                    }
-                    const property = request.kind === 'cut-transform-x' ? 'x'
-                        : request.kind === 'cut-transform-y' ? 'y'
-                            : request.kind === 'cut-scale' ? 'scale' : 'rotate';
-                    const original = cut.transform?.[property] ?? null;
-                    const nextFields = { [property]: request.value };
-                    const originalFields = { [property]: original };
-                    await this.annotationsService.setCutTransform({
-                        editUri,
-                        projectRootUri,
-                        cutIndex: request.index,
-                        ...nextFields
-                    });
-                    this.pushHistory({
-                        label: 'クリップの変形を変更',
-                        undo: async () => {
-                            await this.annotationsService.setCutTransform({
-                                editUri,
-                                projectRootUri,
-                                cutIndex: request.index,
-                                ...originalFields
-                            });
-                            await this.reloadEdit();
-                        },
-                        redo: async () => {
-                            await this.annotationsService.setCutTransform({
-                                editUri,
-                                projectRootUri,
-                                cutIndex: request.index,
-                                ...nextFields
-                            });
-                            await this.reloadEdit();
-                        }
-                    });
-                    await this.reloadEdit();
-                    this.hideNotice();
-                    this.footer.textContent = 'クリップの変形を変更しました。';
-                    return { ok: true };
-                }
-                case 'cut-opacity': {
-                    if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
-                    }
-                    const editUri = location.editUri.toString();
-                    const projectRootUri = location.root.toString();
-                    const cut = this.cuts[request.index];
-                    if (!cut) {
-                        throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
-                    }
-                    const original = cut.opacity ?? null;
-                    await this.annotationsService.setCutOpacity({
-                        editUri,
-                        projectRootUri,
-                        cutIndex: request.index,
-                        opacity: request.value
-                    });
-                    this.pushHistory({
-                        label: 'クリップの不透明度を変更',
-                        undo: async () => {
-                            await this.annotationsService.setCutOpacity({
-                                editUri,
-                                projectRootUri,
-                                cutIndex: request.index,
-                                opacity: original
-                            });
-                            await this.reloadEdit();
-                        },
-                        redo: async () => {
-                            await this.annotationsService.setCutOpacity({
-                                editUri,
-                                projectRootUri,
-                                cutIndex: request.index,
-                                opacity: request.value
-                            });
-                            await this.reloadEdit();
-                        }
-                    });
-                    await this.reloadEdit();
-                    this.hideNotice();
-                    this.footer.textContent = 'クリップの不透明度を変更しました。';
-                    return { ok: true };
-                }
-                case 'cut-source-in':
-                case 'cut-source-out': {
-                    if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
-                    }
-                    const editUri = location.editUri.toString();
-                    const projectRootUri = location.root.toString();
-                    const cut = this.cuts[request.index];
-                    if (!cut) {
-                        throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
-                    }
-                    const originalIn = cut.in;
-                    const originalOut = cut.out;
-                    const nextIn = request.kind === 'cut-source-in' ? request.value : originalIn;
-                    const nextOut = request.kind === 'cut-source-out' ? request.value : originalOut;
-                    await this.annotationsService.trimCut({
-                        editUri,
-                        projectRootUri,
-                        cutIndex: request.index,
-                        in: nextIn,
-                        out: nextOut
-                    });
-                    this.pushHistory({
-                        label: request.kind === 'cut-source-in'
-                            ? 'クリップの素材 in を変更'
-                            : 'クリップの素材 out を変更',
-                        undo: async () => {
-                            await this.annotationsService.trimCut({
-                                editUri,
-                                projectRootUri,
-                                cutIndex: request.index,
-                                in: originalIn,
-                                out: originalOut
-                            });
-                            await this.reloadEdit();
-                        },
-                        redo: async () => {
-                            await this.annotationsService.trimCut({
-                                editUri,
-                                projectRootUri,
-                                cutIndex: request.index,
-                                in: nextIn,
-                                out: nextOut
-                            });
-                            await this.reloadEdit();
-                        }
-                    });
-                    await this.reloadEdit();
-                    this.hideNotice();
-                    this.footer.textContent = '素材の範囲を変更しました。';
-                    return { ok: true };
-                }
-                case 'layer-transform-x':
-                case 'layer-transform-y':
-                case 'layer-scale':
-                case 'layer-rotate': {
-                    if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
-                    }
-                    const editUri = location.editUri.toString();
-                    const projectRootUri = location.root.toString();
-                    const layer = this.layers.find(candidate => candidate.id === request.id);
-                    if (!layer) {
-                        throw new Error(`素材 ${request.id} が見つかりません。`);
-                    }
-                    const property = request.kind === 'layer-transform-x' ? 'x'
-                        : request.kind === 'layer-transform-y' ? 'y'
-                            : request.kind === 'layer-scale' ? 'scale' : 'rotate';
-                    const original = layer.transform?.[property] ?? null;
-                    const nextFields = { [property]: request.value };
-                    const originalFields = { [property]: original };
-                    await this.annotationsService.setLayerTransform({
-                        editUri,
-                        projectRootUri,
-                        layerId: request.id,
-                        ...nextFields
-                    });
-                    this.pushHistory({
-                        label: '素材の変形を変更',
-                        undo: async () => {
-                            await this.annotationsService.setLayerTransform({
-                                editUri,
-                                projectRootUri,
-                                layerId: request.id,
-                                ...originalFields
-                            });
-                            await this.reloadEdit();
-                        },
-                        redo: async () => {
-                            await this.annotationsService.setLayerTransform({
-                                editUri,
-                                projectRootUri,
-                                layerId: request.id,
-                                ...nextFields
-                            });
-                            await this.reloadEdit();
-                        }
-                    });
-                    await this.reloadEdit();
-                    this.hideNotice();
-                    this.footer.textContent = '素材の変形を変更しました。';
-                    return { ok: true };
-                }
-                case 'layer-opacity': {
-                    if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
-                    }
-                    const editUri = location.editUri.toString();
-                    const projectRootUri = location.root.toString();
-                    const layer = this.layers.find(candidate => candidate.id === request.id);
-                    if (!layer) {
-                        throw new Error(`素材 ${request.id} が見つかりません。`);
-                    }
-                    const original = layer.opacity ?? null;
-                    await this.annotationsService.setLayerOpacity({
-                        editUri,
-                        projectRootUri,
-                        layerId: request.id,
-                        opacity: request.value
-                    });
-                    this.pushHistory({
-                        label: '素材の不透明度を変更',
-                        undo: async () => {
-                            await this.annotationsService.setLayerOpacity({
-                                editUri,
-                                projectRootUri,
-                                layerId: request.id,
-                                opacity: original
-                            });
-                            await this.reloadEdit();
-                        },
-                        redo: async () => {
-                            await this.annotationsService.setLayerOpacity({
-                                editUri,
-                                projectRootUri,
-                                layerId: request.id,
-                                opacity: request.value
-                            });
-                            await this.reloadEdit();
-                        }
-                    });
-                    await this.reloadEdit();
-                    this.hideNotice();
-                    this.footer.textContent = '素材の不透明度を変更しました。';
-                    return { ok: true };
-                }
-                case 'layer-blend': {
-                    if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
-                    }
-                    const editUri = location.editUri.toString();
-                    const projectRootUri = location.root.toString();
-                    const layer = this.layers.find(candidate => candidate.id === request.id);
-                    if (!layer) {
-                        throw new Error(`素材 ${request.id} が見つかりません。`);
-                    }
-                    const original = layer.blend ?? null;
-                    await this.annotationsService.setLayerBlend({
-                        editUri,
-                        projectRootUri,
-                        layerId: request.id,
-                        blend: request.value
-                    });
-                    this.pushHistory({
-                        label: '素材の合成を変更',
-                        undo: async () => {
-                            await this.annotationsService.setLayerBlend({
-                                editUri,
-                                projectRootUri,
-                                layerId: request.id,
-                                blend: original
-                            });
-                            await this.reloadEdit();
-                        },
-                        redo: async () => {
-                            await this.annotationsService.setLayerBlend({
-                                editUri,
-                                projectRootUri,
-                                layerId: request.id,
-                                blend: request.value
-                            });
-                            await this.reloadEdit();
-                        }
-                    });
-                    await this.reloadEdit();
-                    this.hideNotice();
-                    this.footer.textContent = '素材の合成を変更しました。';
-                    return { ok: true };
-                }
                 case 'caption-text':
                 case 'caption-speaker': {
                     const captionsUri = location.captionsUri.toString();
@@ -2113,102 +1817,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.footer.textContent = '字幕のスタイルを更新しました。';
                     return { ok: true };
                 }
-                case 'sfx-gain': {
-                    if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
-                    }
-                    const editUri = location.editUri.toString();
-                    const projectRootUri = location.root.toString();
-                    const sfx = this.audioSfx.find(candidate => candidate.id === request.id);
-                    const sfxIndex = Number(request.id.slice(4));
-                    if (!sfx || !Number.isInteger(sfxIndex)) {
-                        throw new Error('音声クリップが見つかりません。');
-                    }
-                    const original = sfx.gainDb ?? null;
-                    await this.annotationsService.setSfxGain({
-                        editUri,
-                        projectRootUri,
-                        sfxIndex,
-                        gainDb: request.value
-                    });
-                    this.pushHistory({
-                        label: '音声クリップの音量を変更',
-                        undo: async () => {
-                            await this.annotationsService.setSfxGain({
-                                editUri,
-                                projectRootUri,
-                                sfxIndex,
-                                gainDb: original
-                            });
-                            await this.reloadEdit();
-                        },
-                        redo: async () => {
-                            await this.annotationsService.setSfxGain({
-                                editUri,
-                                projectRootUri,
-                                sfxIndex,
-                                gainDb: request.value
-                            });
-                            await this.reloadEdit();
-                        }
-                    });
-                    await this.reloadEdit();
-                    this.hideNotice();
-                    this.footer.textContent = '音声クリップの音量を変更しました。';
-                    return { ok: true };
-                }
-                case 'sfx-fade-in':
-                case 'sfx-fade-out': {
-                    // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
-                    // (audio-clip-fades, 2026-08-18) -- same shape as bgm-fade-in/bgm-fade-out
-                    // below, but per-sfx-item via sfxIndex (sfx-gain's id-to-index convention).
-                    if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
-                    }
-                    const editUri = location.editUri.toString();
-                    const projectRootUri = location.root.toString();
-                    const sfx = this.audioSfx.find(candidate => candidate.id === request.id);
-                    const sfxIndex = Number(request.id.slice(4));
-                    if (!sfx || !Number.isInteger(sfxIndex)) {
-                        throw new Error('音声クリップが見つかりません。');
-                    }
-                    const originalFadeIn = sfx.fadeIn ?? null;
-                    const originalFadeOut = sfx.fadeOut ?? null;
-                    const nextFields = {
-                        fadeIn: request.kind === 'sfx-fade-in' ? request.value : undefined,
-                        fadeOut: request.kind === 'sfx-fade-out' ? request.value : undefined
-                    };
-                    const originalFields = {
-                        fadeIn: request.kind === 'sfx-fade-in' ? originalFadeIn : undefined,
-                        fadeOut: request.kind === 'sfx-fade-out' ? originalFadeOut : undefined
-                    };
-                    await this.annotationsService.setSfxFade({ editUri, projectRootUri, sfxIndex, ...nextFields });
-                    this.pushHistory({
-                        label: '音声クリップのフェードを変更',
-                        undo: async () => {
-                            await this.annotationsService.setSfxFade({
-                                editUri,
-                                projectRootUri,
-                                sfxIndex,
-                                ...originalFields
-                            });
-                            await this.reloadEdit();
-                        },
-                        redo: async () => {
-                            await this.annotationsService.setSfxFade({
-                                editUri,
-                                projectRootUri,
-                                sfxIndex,
-                                ...nextFields
-                            });
-                            await this.reloadEdit();
-                        }
-                    });
-                    await this.reloadEdit();
-                    this.hideNotice();
-                    this.footer.textContent = '音声クリップのフェードを変更しました。';
-                    return { ok: true };
-                }
                 case 'bgm-gain':
                 case 'bgm-fade-in':
                 case 'bgm-fade-out':
@@ -2263,60 +1871,121 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.footer.textContent = 'BGM の設定を変更しました。';
                     return { ok: true };
                 }
-                case 'overlay-var': {
-                    if (!location.editUri) {
-                        throw new Error('edit.json がありません。');
-                    }
-                    const editUri = location.editUri.toString();
-                    const projectRootUri = location.root.toString();
-                    const overlay = this.overlays.find(candidate => candidate.id === request.id);
-                    if (!overlay) {
-                        throw new Error('オーバーレイが見つかりません。');
-                    }
-                    const rawVars = (overlay.payload as Record<string, unknown>).vars;
-                    const original = rawVars && typeof rawVars === 'object'
-                        ? String((rawVars as Record<string, unknown>)[request.name] ?? '')
-                        : '';
-                    await this.annotationsService.setOverlayVar({
-                        editUri,
-                        projectRootUri,
-                        overlayId: request.id,
-                        name: request.name,
-                        value: request.value
-                    });
-                    this.pushHistory({
-                        label: 'オーバーレイのパラメータを変更',
-                        undo: async () => {
-                            await this.annotationsService.setOverlayVar({
-                                editUri,
-                                projectRootUri,
-                                overlayId: request.id,
-                                name: request.name,
-                                value: original
-                            });
-                            await this.reloadEdit();
-                        },
-                        redo: async () => {
-                            await this.annotationsService.setOverlayVar({
-                                editUri,
-                                projectRootUri,
-                                overlayId: request.id,
-                                name: request.name,
-                                value: request.value
-                            });
-                            await this.reloadEdit();
-                        }
-                    });
-                    await this.reloadEdit();
-                    this.hideNotice();
-                    this.footer.textContent = 'オーバーレイのパラメータを変更しました。';
-                    return { ok: true };
-                }
                 default:
                     return { ok: false, message: '未対応の編集要求です。' };
             }
         } catch (error) {
             return { ok: false, message: this.errorMessage(error) };
+        }
+    }
+
+    protected rawV2Item(itemId: string): Record<string, any> | undefined {
+        if (!Array.isArray(this.editDocument?.tracks)) return undefined;
+        for (const track of this.editDocument!.tracks as Array<Record<string, any>>) {
+            const item = Array.isArray(track.items)
+                ? track.items.find((candidate: Record<string, unknown>) => candidate?.id === itemId)
+                : undefined;
+            if (item) return item;
+        }
+        return undefined;
+    }
+
+    protected async handleInspectorWriteV2(
+        request: InspectorWriteRequest
+    ): Promise<InspectorWriteResult | undefined> {
+        const cutKinds = new Set([
+            'cut-speed', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
+            'cut-opacity', 'cut-source-in', 'cut-source-out'
+        ]);
+        const layerKinds = new Set([
+            'layer-transform-x', 'layer-transform-y', 'layer-scale', 'layer-rotate',
+            'layer-opacity', 'layer-blend'
+        ]);
+        if (!cutKinds.has(request.kind) && !layerKinds.has(request.kind)
+            && request.kind !== 'sfx-gain' && request.kind !== 'sfx-fade-in'
+            && request.kind !== 'sfx-fade-out' && request.kind !== 'overlay-var') {
+            return undefined;
+        }
+        try {
+            let label = 'クリップを変更';
+            let itemId: string;
+            let patch: Record<string, unknown>;
+            let audioPatch = false;
+            if (cutKinds.has(request.kind)) {
+                const indexed = request as Extract<InspectorWriteRequest, { index: number }>;
+                itemId = this.cutItemId(indexed.index);
+                const cut = this.cuts[indexed.index];
+                if (!cut) throw new Error('クリップが見つかりません。');
+                if (request.kind === 'cut-speed') {
+                    const speed = request.value ?? 1;
+                    patch = {
+                        duration: Math.max(1, this.frameAt((cut.out - cut.in) / speed)),
+                        source: { speed: request.value }
+                    };
+                    label = 'クリップの速度を変更';
+                } else if (request.kind === 'cut-opacity') {
+                    patch = { opacity: request.value };
+                    label = 'クリップの不透明度を変更';
+                } else if (request.kind === 'cut-source-in' || request.kind === 'cut-source-out') {
+                    const input = request.kind === 'cut-source-in' ? request.value : cut.in;
+                    const output = request.kind === 'cut-source-out' ? request.value : cut.out;
+                    patch = {
+                        duration: Math.max(1, this.frameAt((output - input) / (cut.speed ?? 1))),
+                        source: { in: input, out: output }
+                    };
+                    label = '素材の範囲を変更';
+                } else {
+                    const field = request.kind === 'cut-transform-x' ? 'x'
+                        : request.kind === 'cut-transform-y' ? 'y'
+                            : request.kind === 'cut-scale' ? 'scale' : 'rotate';
+                    patch = { transform: { ...(cut.transform ?? {}), [field]: request.value } };
+                    if (request.value === null) delete (patch.transform as Record<string, unknown>)[field];
+                    label = 'クリップの変形を変更';
+                }
+            } else if (layerKinds.has(request.kind)) {
+                const identified = request as Extract<InspectorWriteRequest, { id: string }>;
+                itemId = identified.id;
+                const layer = this.layers.find(candidate => candidate.id === itemId);
+                if (!layer) throw new Error('クリップが見つかりません。');
+                if (request.kind === 'layer-opacity') {
+                    patch = { opacity: request.value };
+                    label = 'クリップの不透明度を変更';
+                } else if (request.kind === 'layer-blend') {
+                    patch = { blend: request.value };
+                    label = 'クリップの合成を変更';
+                } else {
+                    const field = request.kind === 'layer-transform-x' ? 'x'
+                        : request.kind === 'layer-transform-y' ? 'y'
+                            : request.kind === 'layer-scale' ? 'scale' : 'rotate';
+                    patch = { transform: { ...(layer.transform ?? {}), [field]: request.value } };
+                    if (request.value === null) delete (patch.transform as Record<string, unknown>)[field];
+                    label = 'クリップの変形を変更';
+                }
+            } else if (request.kind === 'overlay-var') {
+                itemId = (request as Extract<InspectorWriteRequest, { id: string }>).id;
+                const raw = this.rawV2Item(itemId);
+                patch = {
+                    source: { vars: { ...(raw?.source?.vars ?? {}), [request.name]: request.value } }
+                };
+                label = 'クリップのパラメータを変更';
+            } else {
+                itemId = (request as Extract<InspectorWriteRequest, { id: string }>).id;
+                patch = request.kind === 'sfx-gain'
+                    ? { gain_db: request.value }
+                    : { [request.kind === 'sfx-fade-in' ? 'fade_in' : 'fade_out']: request.value };
+                audioPatch = true;
+                label = '音声クリップの設定を変更';
+            }
+            await this.commitEditMutation(label, doc => audioPatch
+                ? updateAudioSfx(doc, { sfxId: itemId, patch })
+                : updateV2Item(doc, { itemId, patch }));
+            this.hideNotice();
+            this.footer.textContent = `${label}しました。`;
+            return { ok: true };
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`変更できません: ${detail}`);
+            return { ok: false, message: detail };
         }
     }
 
@@ -2415,6 +2084,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             return {
                 kind: 'cut', index: selection.index, label: `C${selection.index + 1}`,
+                trackName: this.trackDisplayNameForItem(this.cutItemId(selection.index)),
+                clipName: this.cutSourceName(cut) || this.cutItemId(selection.index),
                 sourceName: this.cutSourceName(cut), sourceIn: cut.in, sourceOut: cut.out,
                 outputStart: segment.tlStart, outputEnd: segment.tlEnd,
                 ...(cut.src !== undefined ? {
@@ -2436,6 +2107,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const track = Object.prototype.hasOwnProperty.call(overlay.payload, 'track') ? overlay.track : undefined;
             return {
                 kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration,
+                trackName: this.trackDisplayNameForItem(overlay.id), clipName: overlay.id,
                 ...(track !== undefined ? { track } : {}),
                 payload: overlay.payload
             };
@@ -2464,6 +2136,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             return {
                 kind: 'layer', id: layer.id, layerKind: layer.kind,
+                trackName: this.trackDisplayNameForItem(layer.id),
+                clipName: this.pathBaseName(layer.src) || layer.id,
                 outputStart: layer.t, duration: layer.duration, src: layer.src,
                 ...(layer.preset !== undefined ? { preset: layer.preset } : {}),
                 ...(layer.transform !== undefined ? { transform: layer.transform } : {}),
@@ -2477,6 +2151,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (sfx) {
             return {
                 kind: 'audio', id: sfx.id, audioKind: 'sfx', label: this.pathBaseName(sfx.path),
+                trackName: this.trackDisplayNameForItem(sfx.id), clipName: this.pathBaseName(sfx.path) || sfx.id,
                 outputStart: sfx.t, duration: sfx.duration,
                 ...(sfx.gainDb !== undefined ? { gainDb: sfx.gainDb } : {}),
                 ...(sfx.fadeIn !== undefined ? { fadeIn: sfx.fadeIn } : {}),
@@ -2486,6 +2161,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (selection.id === 'bgm' && this.audioBgm) {
             return {
                 kind: 'audio', id: this.audioBgm.id, audioKind: 'bgm', label: this.pathBaseName(this.audioBgm.path),
+                trackName: 'A1', clipName: this.pathBaseName(this.audioBgm.path) || this.audioBgm.id,
                 outputStart: 0, duration: this.contentEndDuration(),
                 ...(this.audioBgm.gainDb !== undefined ? { gainDb: this.audioBgm.gainDb } : {}),
                 ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
@@ -2494,6 +2170,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             };
         }
         return undefined;
+    }
+
+    protected trackDisplayNameForItem(itemId: string): string {
+        const trackId = this.itemLocations.get(itemId)?.trackId;
+        if (!trackId) return '—';
+        const track = this.timelineTracks.find(candidate => candidate.id === trackId);
+        return track?.label || this.computeTrackAutoNames().get(trackId) || trackId;
     }
 
     protected sourceBaseName(): string {
@@ -2532,36 +2215,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         const index = segment.index;
-        const originalIn = segment.in;
-        const originalOut = segment.out;
         try {
-            const result = await this.annotationsService.splitCut({
-                editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                cutIndex: index, atSeconds: sourceT
-            });
-            this.pushHistory({
-                label: 'クリップの分割',
-                undo: async () => {
-                    await this.annotationsService.deleteCut({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), cutIndex: index + 1
-                    });
-                    await this.annotationsService.trimCut({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                        cutIndex: index, in: originalIn, out: originalOut
-                    });
-                    await this.reloadEdit();
-                },
-                redo: async () => {
-                    await this.annotationsService.splitCut({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                        cutIndex: index, atSeconds: sourceT
-                    });
-                    await this.reloadEdit();
-                }
-            });
-            await this.reloadEdit();
+            await this.commitEditMutation('クリップの分割', doc => splitV2Item(doc, {
+                itemId: this.cutItemId(index), atFrames: this.frameAt(outputT)
+            }));
             this.hideNotice();
-            this.footer.textContent = this.writeResultMessage('クリップを分割しました。', result);
+            this.footer.textContent = 'クリップを分割しました。';
             this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
@@ -2581,27 +2240,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         try {
-            const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
-            const result = await this.annotationsService.deleteCut({
-                editUri: location.editUri.toString(), projectRootUri: location.root.toString(), cutIndex: index
-            });
-            await this.reloadEdit();
-            await this.pruneEmptyDeclaredTracks();
-            const editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
-            this.pushHistory({
-                label: 'クリップの削除',
-                undo: async () => {
-                    await this.writeTimelineSnapshots(editBefore);
-                    await this.reloadEdit();
-                },
-                redo: async () => {
-                    await this.writeTimelineSnapshots(editAfter);
-                    await this.reloadEdit();
-                }
-            });
+            await this.commitEditMutation('クリップの削除', doc => removeV2Item(doc, this.cutItemId(index)));
             this.applySelection(undefined);
             this.hideNotice();
-            this.footer.textContent = this.writeResultMessage('クリップを削除しました。', result);
+            this.footer.textContent = 'クリップを削除しました。';
             this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
@@ -2613,139 +2255,59 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected async performDeleteSelected(): Promise<void> {
         const selection = this.selection;
         const location = this.location;
-        if (!selection || !location) {
-            return;
-        }
-        if (selection.kind === 'cut') {
+        if (!selection || !location) return;
+        if (selection.kind === "cut") {
             await this.performDeleteSelectedCut();
             return;
         }
         try {
-            let result: WriteBackResult;
-            if (selection.kind === 'caption') {
+            if (selection.kind === "caption") {
                 const caption = this.captions.find(candidate => candidate.id === selection.id);
-                if (!caption) {
-                    throw new Error(`字幕 ${selection.id} が見つかりません`);
-                }
+                if (!caption) throw new Error("字幕が見つかりません。");
                 const payload: CaptionWritePayload = {
                     id: caption.id, start: caption.start, end: caption.end, text: caption.text,
                     speaker: caption.speaker, sourceRef: caption.sourceRef, edited: caption.edited
                 };
-                result = await this.annotationsService.removeCaption({
-                    captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(), captionId: caption.id
+                const result = await this.annotationsService.removeCaption({
+                    captionsUri: location.captionsUri.toString(),
+                    projectRootUri: location.root.toString(), captionId: caption.id
                 });
                 this.pushHistory({
-                    label: '字幕の削除',
+                    label: "字幕の削除",
                     undo: async () => {
                         await this.annotationsService.insertCaption({
-                            captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(), caption: payload
+                            captionsUri: location.captionsUri.toString(),
+                            projectRootUri: location.root.toString(), caption: payload
                         });
                         await this.reloadCaptions();
                     },
                     redo: async () => {
                         await this.annotationsService.removeCaption({
-                            captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(), captionId: caption.id
+                            captionsUri: location.captionsUri.toString(),
+                            projectRootUri: location.root.toString(), captionId: caption.id
                         });
                         await this.reloadCaptions();
                     }
                 });
                 await this.reloadCaptions();
-                this.footer.textContent = this.writeResultMessage('字幕を削除しました。', result);
-            } else if (selection.kind === 'overlay') {
-                if (!location.editUri) {
-                    return;
-                }
-                const overlay = this.overlays.find(candidate => candidate.id === selection.id);
-                if (!overlay) {
-                    throw new Error(`オーバーレイ ${selection.id} が見つかりません`);
-                }
-                const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
-                result = await this.annotationsService.removeOverlay({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(), overlayId: overlay.id
-                });
-                await this.reloadEdit();
-                await this.pruneEmptyDeclaredTracks();
-                const editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
-                this.pushHistory({
-                    label: 'オーバーレイの削除',
-                    undo: async () => {
-                        await this.writeTimelineSnapshots(editBefore);
-                        await this.reloadEdit();
-                    },
-                    redo: async () => {
-                        await this.writeTimelineSnapshots(editAfter);
-                        await this.reloadEdit();
-                    }
-                });
-                this.footer.textContent = this.writeResultMessage('オーバーレイを削除しました。', result);
-            } else if (selection.kind === 'layer') {
-                if (!location.editUri) {
-                    return;
-                }
-                const layer = this.layers.find(candidate => candidate.id === selection.id);
-                if (!layer || !this.validTimelinePosition(layer.t, layer.track ?? 0)) {
-                    this.showNotice('素材の時刻またはトラックが不正です。');
-                    return;
-                }
-                const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
-                const removed = await this.annotationsService.removeLayer({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(), layerId: layer.id
-                });
-                result = removed;
-                await this.reloadEdit();
-                await this.pruneEmptyDeclaredTracks();
-                const editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
-                this.pushHistory({
-                    label: '素材の削除',
-                    undo: async () => {
-                        await this.writeTimelineSnapshots(editBefore);
-                        await this.reloadEdit();
-                    },
-                    redo: async () => {
-                        await this.writeTimelineSnapshots(editAfter);
-                        await this.reloadEdit();
-                    }
-                });
-                this.footer.textContent = this.writeResultMessage('素材を削除しました。', result);
+                this.footer.textContent = this.writeResultMessage("字幕を削除しました。", result);
             } else {
-                if (!location.editUri || selection.id === 'bgm') {
-                    this.footer.textContent = 'BGM は削除できません。';
+                if (selection.id === "bgm") {
+                    this.footer.textContent = "BGM は削除できません。";
                     return;
                 }
-                const sfx = this.audioSfx.find(candidate => candidate.id === selection.id);
-                const sfxIndex = Number(selection.id.slice(4));
-                if (!sfx || !Number.isInteger(sfxIndex) || !this.validTimelinePosition(sfx.t, sfx.track ?? 0)) {
-                    this.showNotice('音声クリップの時刻またはトラックが不正です。');
-                    return;
-                }
-                const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
-                const removed = await this.annotationsService.removeSfx({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(), sfxIndex
-                });
-                result = removed;
-                await this.reloadEdit();
-                await this.pruneEmptyDeclaredTracks();
-                const editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
-                this.pushHistory({
-                    label: '音声クリップの削除',
-                    undo: async () => {
-                        await this.writeTimelineSnapshots(editBefore);
-                        await this.reloadEdit();
-                    },
-                    redo: async () => {
-                        await this.writeTimelineSnapshots(editAfter);
-                        await this.reloadEdit();
-                    }
-                });
-                this.footer.textContent = this.writeResultMessage('音声クリップを削除しました。', result);
+                await this.commitEditMutation("クリップの削除", doc => selection.kind === "audio"
+                    ? removeAudioSfx(doc, selection.id)
+                    : removeV2Item(doc, selection.id));
+                this.footer.textContent = "クリップを削除しました。";
             }
             this.applySelection(undefined);
             this.hideNotice();
             this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`選択項目を削除できません: ${detail}`);
-            this.messages.error(`選択項目を削除できません: ${detail}`);
+            this.showNotice("選択項目を削除できません: " + detail);
+            this.messages.error("選択項目を削除できません: " + detail);
         }
     }
 
@@ -2773,6 +2335,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ids.add(item.id);
                 idsByKind.set(item.kind, ids);
             }
+            if (value.version === 2 && Array.isArray(value.tracks)) {
+                const itemIds = new Set<string>([
+                    ...[...cutIndexes].map(index => this.cutItemId(index)),
+                    ...[...idsByKind.entries()]
+                        .filter(([kind]) => kind !== 'caption' && kind !== 'audio')
+                        .flatMap(([, ids]) => [...ids].filter(id => id !== 'bgm'))
+                ]);
+                value.tracks = value.tracks.map((track: any) => Array.isArray(track?.items)
+                    ? { ...track, items: track.items.filter((item: any) => !itemIds.has(item?.id)) }
+                    : track);
+            }
             if (Array.isArray(value.cuts) && cutIndexes.size > 0) {
                 value.cuts = value.cuts.filter((_item: unknown, index: number) => !cutIndexes.has(index));
             }
@@ -2785,8 +2358,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (value.audio && typeof value.audio === 'object') {
                 const audioIds = idsByKind.get('audio');
                 if (Array.isArray(value.audio.sfx) && audioIds) {
-                    value.audio.sfx = value.audio.sfx.filter((_item: unknown, index: number) =>
-                        !audioIds.has(`sfx-${index}`));
+                    value.audio.sfx = value.audio.sfx.filter((item: any, index: number) =>
+                        !audioIds.has(typeof item?.id === 'string' ? item.id : `sfx-${index}`));
                 }
                 if (audioIds?.has('bgm')) {
                     delete value.audio.bgm;
@@ -2801,7 +2374,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             await this.writeTimelineSnapshots(editAfter, captionsAfter);
             await this.reloadAll();
-            await this.pruneEmptyDeclaredTracks();
             editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
             this.pushHistory({
                 label: '複数アイテムを削除',
@@ -2859,8 +2431,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         t: number,
         track: number,
         options?: {
-            durationSeconds?: number; insertTrack?: number;
-            zone?: MaterialDropZone; createAudioTrack?: boolean;
+            durationSeconds?: number; insertTrack?: number; insertIndex?: number;
+            zone?: MaterialDropZone; createAudioTrack?: boolean; targetTrackId?: string;
         }
     ): Promise<void> {
         if (kind !== 'video' && kind !== 'audio' && kind !== 'image') {
@@ -2876,12 +2448,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.messages.warn('edit.json が見つからないため素材を追加できません。');
             return;
         }
-        const zone: MaterialDropZone = options?.zone ?? (kind === 'audio' ? 'audio' : 'layers');
         let durationSeconds = 0;
         let fallbackNote = '';
         if (kind === 'image') {
             durationSeconds = options?.durationSeconds ?? IMAGE_LAYER_DEFAULT_DURATION_SECONDS;
-        } else if (kind === 'video') {
+        } else if (kind === 'video' || kind === 'audio') {
             if (typeof options?.durationSeconds === 'number' && options.durationSeconds > 0) {
                 durationSeconds = options.durationSeconds;
             } else {
@@ -2905,36 +2476,82 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         try {
             const editBefore = (await this.fileService.readFile(location.editUri)).value.toString();
-            let value = JSON.parse(editBefore) as Record<string, any>;
-            let successNote = 'タイムラインに素材を追加しました。';
-            let warningNote = '';
+            let value = JSON.parse(editBefore) as EditV2Document;
+            const successNote = 'タイムラインに素材を追加しました。';
             let beyondNote = '';
-            if (zone === 'cuts') {
-                const plan = planCutDrop(
-                    this.cuts, track, t, durationSeconds
-                );
-                const inserted = insertCutIntoEdit(value, relativePath, plan, durationSeconds, track);
-                value = inserted.value as Record<string, any>;
-                successNote = '本編に素材を追加しました。';
-                warningNote = inserted.warnings.join(' ');
-            } else if (zone === 'layers') {
-                value = insertLayerIntoV2(value, relativePath, t, durationSeconds, track, options?.insertTrack);
-                beyondNote = this.beyondCutsEndNote(t);
-            } else {
-                const element = buildSfxElement(relativePath, t, track);
-                if (!value.audio || typeof value.audio !== 'object') {
-                    value.audio = {};
-                }
-                if (!Array.isArray(value.audio.sfx)) {
-                    value.audio.sfx = [];
-                }
-                value.audio.sfx.push(element);
-                value = ensureV2AudioTrack(value, track) as Record<string, any>;
-                beyondNote = this.beyondCutsEndNote(t);
-                // P0-a: 明示 timeline.tracks に audio 行が無いと、sfx を足しても帯が出ない。
-                // 宣言していないプロジェクトは deriveTracks が sfx から自動で生やすので触らない。
+            if (kind === 'audio') {
+                const audio = value.audio && typeof value.audio === 'object' && !Array.isArray(value.audio)
+                    ? value.audio as Record<string, unknown> : {};
+                const sfx = Array.isArray(audio.sfx) ? audio.sfx as Array<Record<string, unknown>> : [];
+                const ids = new Set(sfx.map((entry, index) =>
+                    typeof entry.id === 'string' ? entry.id : `sfx-${index}`));
+                let serial = 1;
+                while (ids.has(`audio-${serial}`)) serial++;
+                value = insertAudioSfx(value, {
+                    id: `audio-${serial}`, path: relativePath, t: Math.max(0, t), track
+                });
+                const editAfter = stringifyEditV2(value);
+                await this.writeTimelineSnapshots(editAfter);
+                await this.reloadEdit();
+                this.pushHistory({
+                    label: '音声素材を追加',
+                    undo: async () => {
+                        await this.writeTimelineSnapshots(editBefore);
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.writeTimelineSnapshots(editAfter);
+                        await this.reloadEdit();
+                    }
+                });
+                this.hideNotice();
+                this.footer.textContent = `${successNote}${fallbackNote}`;
+                this.revealOutputPreview();
+                return;
             }
-            let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
+            const sources = Array.isArray(value.sources) ? [...value.sources] as Array<Record<string, unknown>> : [];
+            let source = sources.find(candidate => candidate.path === relativePath);
+            if (!source) {
+                const ids = new Set(sources.map(candidate => String(candidate.id ?? '')));
+                let serial = 1;
+                while (ids.has(`src-${serial}`)) serial++;
+                source = { id: `src-${serial}`, path: relativePath };
+                sources.push(source);
+            }
+            value = { ...value, sources };
+            const itemIds = new Set(indexEditV2Items(value).keys());
+            const baseId = kind === 'image' ? 'image' : 'clip';
+            let serial = 1;
+            while (itemIds.has(`${baseId}-${serial}`)) serial++;
+            const duration = Math.max(1, this.frameAt(durationSeconds));
+            const item: Record<string, unknown> = {
+                id: `${baseId}-${serial}`,
+                at: this.frameAt(t),
+                duration,
+                source: { kind: 'media', src: source.id, in: 0, out: Math.max(1 / this.fps, durationSeconds) }
+            };
+            const lane = 'visual';
+            if (options?.insertIndex !== undefined) {
+                value = insertV2Track(value, { index: options.insertIndex, lane });
+                const created = (value.tracks as Array<Record<string, unknown>>)[options.insertIndex];
+                value = insertV2Item(value, String(created.id), item);
+            } else {
+                let targetTrackId = options?.targetTrackId;
+                if (!targetTrackId) {
+                    const tracks = value.tracks as Array<Record<string, unknown>>;
+                    const target = tracks.find(candidate => candidate.lane === lane && Array.isArray(candidate.items));
+                    if (!target) {
+                        const insertIndex = tracks.length;
+                        value = insertV2Track(value, { index: insertIndex, lane });
+                        targetTrackId = String((value.tracks as Array<Record<string, unknown>>)[insertIndex].id);
+                    } else {
+                        targetTrackId = String(target.id);
+                    }
+                }
+                value = insertV2Item(value, targetTrackId, item);
+            }
+            beyondNote = this.beyondCutsEndNote(t);
+            let editAfter = stringifyEditV2(value);
             await this.writeTimelineSnapshots(editAfter);
             await this.reloadEdit();
             editAfter = (await this.fileService.readFile(location.editUri)).value.toString();
@@ -2949,11 +2566,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     await this.reloadEdit();
                 }
             });
-            if (warningNote) {
-                this.showNotice(warningNote);
-            } else {
-                this.hideNotice();
-            }
+            this.hideNotice();
             this.footer.textContent = `${successNote}${beyondNote}${fallbackNote}`;
             this.revealOutputPreview();
         } catch (error) {
@@ -3084,6 +2697,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 zone: target.zone,
                 ...(typeof durationSeconds === 'number' ? { durationSeconds } : {}),
                 ...(target.insertTrack !== undefined ? { insertTrack: target.insertTrack } : {}),
+                ...(target.insertIndex !== undefined ? { insertIndex: target.insertIndex } : {}),
+                ...(target.targetTrackId !== undefined ? { targetTrackId: target.targetTrackId } : {}),
                 ...(target.createAudioTrack ? { createAudioTrack: true } : {})
             }
         );
@@ -3119,73 +2734,71 @@ export class AkariAnnotationsWidget extends BaseWidget {
         kind: MaterialDragKind, clientY: number
     ): {
         zone: MaterialDropZone; track: number; top: number; height: number; rejected: boolean;
-        insertTrack?: number; createAudioTrack?: boolean; reason?: string;
+        insertTrack?: number; insertIndex?: number; targetTrackId?: string;
+        createAudioTrack?: boolean; reason?: string;
     } {
+        const localY = clientY - this.strip.getBoundingClientRect().top;
         if (kind === 'audio') {
             const layouts = this.laneLayout.audioTracks;
             if (layouts.length === 0) {
-                // P0-a: 音源帯がまだ無い。落とした位置の行にゴーストを出し、書き込み時に音源行を作る。
-                const localY = clientY - this.strip.getBoundingClientRect().top;
                 return {
                     zone: 'audio', track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2),
                     height: SUBROW_STRIDE, rejected: false, createAudioTrack: true
                 };
             }
-            const hit = this.trackAtClientY('audio', layouts, clientY, layouts[0].track);
-            const matched = layouts.find(layout => layout.track === hit.track);
-            return {
-                zone: 'audio', track: hit.track, top: hit.top,
-                height: matched?.height ?? SUBROW_STRIDE, rejected: hit.rejected,
-                ...(hit.rejected ? { reason: this.materialDropRejectReason('audio', 'cuts') } : {})
-            };
-        }
-        const layerLayouts = this.laneLayout.layerTracks;
-        const cutLayouts = this.laneLayout.cutTracks;
-        const localY = clientY - this.strip.getBoundingClientRect().top;
-        if (layerLayouts.length === 0 && cutLayouts.length === 0) {
-            // レイヤー行も本編行も無いプロジェクトでも挿入できること（2026-08-10 司令塔裁定2）。
-            return {
-                zone: 'layers', track: 0, top: 0, height: SUBROW_STRIDE, rejected: false, insertTrack: 0
-            };
-        }
-        // 1) レイヤー帯を先に当てる（行間ゾーンの取り合いで既存挙動を変えないため）。
-        if (layerLayouts.length > 0) {
-            const hit = this.trackAtClientY('layer', layerLayouts, clientY, layerLayouts[0].track);
-            if (!hit.rejected) {
-                const matched = layerLayouts.find(layout => layout.track === hit.track);
+            const hit = layouts.find(layout =>
+                localY >= layout.top && localY < layout.top + layout.height + LANE_GAP);
+            if (hit) {
                 return {
-                    zone: 'layers', track: hit.track, top: hit.top,
-                    height: matched?.height ?? SUBROW_STRIDE, rejected: false,
-                    ...(hit.insertTrack !== undefined ? { insertTrack: hit.insertTrack } : {})
+                    zone: 'audio', track: hit.track, top: hit.top, height: hit.height,
+                    rejected: false, targetTrackId: hit.id
+                };
+            }
+            return {
+                zone: 'audio', track: 0, top: 0, height: SUBROW_STRIDE, rejected: true,
+                reason: '映像のレーンには音を置けません。'
+            };
+        }
+        const lane = 'visual';
+        const zone: MaterialDropZone = 'layers';
+        const rawTracks = Array.isArray(this.editDocument?.tracks)
+            ? this.editDocument!.tracks as Array<Record<string, unknown>> : [];
+        const eligible = this.laneLayout.tracks.filter(layout => {
+            const raw = rawTracks.find(track => track.id === layout.id);
+            return raw?.lane === lane && Array.isArray(raw.items);
+        });
+        if (eligible.length === 0) {
+            return {
+                zone, track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2), height: SUBROW_STRIDE,
+                rejected: false, insertIndex: rawTracks.length
+            };
+        }
+        for (const layout of eligible) {
+            const rawIndex = rawTracks.findIndex(track => track.id === layout.id);
+            const nearTop = Math.abs(localY - layout.top) <= TRACK_INSERT_ZONE_PX;
+            const nearBottom = Math.abs(localY - (layout.top + layout.height)) <= TRACK_INSERT_ZONE_PX;
+            if (nearTop || nearBottom) {
+                const insertIndex = nearTop ? rawIndex + 1 : rawIndex;
+                const audioCount = rawTracks.filter(track => track.lane === 'audio').length;
+                const laneSafe = insertIndex >= audioCount;
+                if (laneSafe) {
+                    return {
+                        zone, track: layout.track, top: nearTop ? layout.top : layout.top + layout.height,
+                        height: layout.height, rejected: false, insertIndex, insertTrack: insertIndex
+                    };
+                }
+            }
+            if (localY >= layout.top && localY <= layout.top + layout.height) {
+                return {
+                    zone, track: layout.track, top: layout.top, height: layout.height,
+                    rejected: false, targetTrackId: layout.id
                 };
             }
         }
-        // 2) 本編帯は「行の上にカーソルがある」ときだけ。行間・余白は本編に取らせない
-        //    （cuts[].track >= 1 は v1 の描画経路が無視する = 画面に出ないクリップになるため、
-        //    本編には新トラックを作らない。重ねたいならレイヤー帯を使う）。
-        if (cutLayouts.length > 0 && this.laneKindAtLocalY(localY) === 'cut') {
-            const hit = this.trackAtClientY('cut', cutLayouts, clientY, cutLayouts[0].track);
-            const track = hit.insertTrack !== undefined
-                ? (cutLayouts.find(layout => layout.track === hit.track - 1) ?? cutLayouts[0]).track
-                : hit.track;
-            const matched = cutLayouts.find(layout => layout.track === track);
-            return {
-                zone: 'cuts', track, top: matched?.top ?? hit.top,
-                height: matched?.height ?? SUBROW_STRIDE, rejected: false
-            };
-        }
-        // 3) レイヤー行が 1 本も無いプロジェクトの余白は「新しいレイヤー行」として受け付ける
-        //    （2026-08-10 司令塔裁定2 の救済。本編行しか無いプロジェクトでも PinP を D&D で作れる）。
-        if (layerLayouts.length === 0 && this.laneKindAtLocalY(localY) === 'none') {
-            return {
-                zone: 'layers', track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2),
-                height: SUBROW_STRIDE, rejected: false, insertTrack: 0
-            };
-        }
-        // 4) 字幕 / オーバーレイ / ビート帯。理由を添えて拒否する。
         return {
-            zone: 'layers', track: 0, top: 0, height: SUBROW_STRIDE, rejected: true,
-            reason: this.materialDropRejectReason(kind, 'overlays')
+            zone, track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2), height: SUBROW_STRIDE,
+            rejected: true,
+            reason: '音のレーンには映像を置けません。'
         };
     }
 
@@ -3254,77 +2867,39 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async performCompactCuts(): Promise<void> {
-        const location = this.location;
-        if (!location?.editUri) {
-            return;
-        }
+        if (!this.location?.editUri) return;
         try {
-            const value = await this.readEditValue();
-            if (!Array.isArray(value.cuts)) {
-                throw new Error('cuts 配列が見つかりません。');
-            }
-            const selected = this.selection?.kind === 'cut' ? this.selection : undefined;
-            const selectedTrack = selected ? this.segments[selected.index]?.track : undefined;
-            const seenTracks = new Set<number>();
-            const entries: Array<{ cutIndex: number; at: number | null }> = [];
-            const originalEntries: Array<{ cutIndex: number; at: number | null }> = [];
-            value.cuts.forEach((cut: unknown, index: number) => {
-                if (!cut || typeof cut !== 'object') {
-                    return;
-                }
-                const raw = cut as Record<string, unknown>;
-                const track = typeof raw.track === 'number' && Number.isInteger(raw.track) && raw.track >= 0 ? raw.track : 0;
-                const firstOnTrack = !seenTracks.has(track);
-                seenTracks.add(track);
-                const inSelectedRange = selected
-                    ? index > selected.index && track === selectedTrack
-                    : !firstOnTrack;
-                if (inSelectedRange && Object.prototype.hasOwnProperty.call(raw, 'at')) {
-                    const at = raw.at;
-                    if (typeof at !== 'number' || !Number.isFinite(at) || at < 0) {
-                        throw new Error(`クリップ ${index + 1} の at が不正です。`);
+            const selectedId = this.selection?.kind === "cut" ? this.cutItemId(this.selection.index) : undefined;
+            await this.commitEditMutation("クリップ間の空白詰め", doc => {
+                const cutIds = new Set(this.cutItemIds);
+                let next = doc;
+                for (const track of doc.tracks as Array<Record<string, any>>) {
+                    if (!Array.isArray(track.items)) continue;
+                    let cursor = 0;
+                    let selectedReached = selectedId === undefined;
+                    for (const item of track.items as Array<Record<string, any>>) {
+                        if (!cutIds.has(item.id)) continue;
+                        if (item.id === selectedId) {
+                            selectedReached = true;
+                            cursor = item.at + item.duration;
+                            continue;
+                        }
+                        if (!selectedReached) {
+                            cursor = Math.max(cursor, item.at + item.duration);
+                            continue;
+                        }
+                        next = updateV2Item(next, { itemId: item.id, patch: { at: cursor } });
+                        cursor += item.duration;
                     }
-                    entries.push({ cutIndex: index, at: null });
-                    originalEntries.push({ cutIndex: index, at });
                 }
+                return next;
             });
-            if (entries.length === 0) {
-                this.footer.textContent = '詰める対象がありません。';
-                return;
-            }
-            const proposed = this.cuts.map(cut => ({ ...cut }));
-            for (const entry of entries) {
-                delete proposed[entry.cutIndex].at;
-            }
-            if (this.cutSegmentsOverlap(computeCutTrackSegments(proposed))) {
-                this.showNotice('同じクリップトラック内で区間が重なるため詰められません。');
-                return;
-            }
-            const result = await this.annotationsService.setCutAtValues({
-                editUri: location.editUri.toString(), projectRootUri: location.root.toString(), entries
-            });
-            this.pushHistory({
-                label: 'クリップ間の空白詰め',
-                undo: async () => {
-                    await this.annotationsService.setCutAtValues({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), entries: originalEntries
-                    });
-                    await this.reloadEdit();
-                },
-                redo: async () => {
-                    await this.annotationsService.setCutAtValues({
-                        editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), entries
-                    });
-                    await this.reloadEdit();
-                }
-            });
-            await this.reloadEdit();
             this.hideNotice();
-            this.footer.textContent = this.writeResultMessage('クリップ間の空白を詰めました。', result);
+            this.footer.textContent = "クリップ間の空白を詰めました。";
         } catch (error) {
             const detail = this.errorMessage(error);
-            this.showNotice(`クリップ間の空白を詰められません: ${detail}`);
-            this.messages.error(`クリップ間の空白を詰められません: ${detail}`);
+            this.showNotice("クリップ間の空白を詰められません: " + detail);
+            this.messages.error("クリップ間の空白を詰められません: " + detail);
         }
     }
 
@@ -3460,10 +3035,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     continue;
                 }
                 const declaration = item.declaration as { fade_in?: unknown; fade_out?: unknown };
-                const fadeIn = typeof declaration.fade_in === 'number' && Number.isFinite(declaration.fade_in)
-                    && declaration.fade_in >= 0 ? declaration.fade_in : undefined;
-                const fadeOut = typeof declaration.fade_out === 'number' && Number.isFinite(declaration.fade_out)
-                    && declaration.fade_out >= 0 ? declaration.fade_out : undefined;
+                const rawFadeIn = declaration.fade_in;
+                const rawFadeOut = declaration.fade_out;
+                const fadeIn = typeof rawFadeIn === 'number' && Number.isFinite(rawFadeIn)
+                    && rawFadeIn >= 0 ? rawFadeIn : undefined;
+                const fadeOut = typeof rawFadeOut === 'number' && Number.isFinite(rawFadeOut)
+                    && rawFadeOut >= 0 ? rawFadeOut : undefined;
                 items.push({
                     ...(item.legacy.value as EditAudioSfx),
                     ...(fadeIn !== undefined ? { fadeIn } : {}),
@@ -3491,6 +3068,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async reloadEdit(): Promise<void> {
+        this.editDocument = undefined;
+        this.itemLocations.clear();
+        this.cutItemIds = [];
         this.cuts = [];
         this.editSources = [];
         this.sourceMap.clear();
@@ -3512,6 +3092,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // 版を知るのはここ（読み込み層）だけ。以降は内部表現（tracks[].items[]）と
                 // その射影しか見ない。
                 const internal = this.readEdit(source);
+                const document = JSON.parse(source) as EditV2Document;
+                this.editDocument = document;
+                this.itemLocations = indexEditV2Items(document);
+                for (const track of internal.tracks) {
+                    for (const item of track.items) {
+                        if (item.legacy.collection === 'cuts') {
+                            this.cutItemIds[item.legacy.index] = item.id;
+                        }
+                    }
+                }
                 const view = projectLegacyEdit(internal);
                 this.cuts = view.cuts;
                 this.editSources = internal.sources;
@@ -3534,6 +3124,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.rebuildSegments();
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
+        await this.applyStoredTrackFlags();
         this.syncTimelineTrackTogglesToPreview();
         await this.loadTrackHeights();
         this.renderStrip();
@@ -3635,6 +3226,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected trackHeightStorageKey(editUri: URI, trackId: string): string {
         return `${TRACK_HEIGHT_STORAGE_PREFIX}:${editUri.toString()}:${trackId}`;
+    }
+
+    protected trackFlagStorageKey(editUri: URI, trackId: string, field: 'hidden' | 'muted'): string {
+        return `${TRACK_FLAG_STORAGE_PREFIX}:${editUri.toString()}:${trackId}:${field}`;
+    }
+
+    protected async applyStoredTrackFlags(): Promise<void> {
+        const editUri = this.location?.editUri;
+        if (!editUri) return;
+        this.timelineTracks = await Promise.all(this.timelineTracks.map(async track => {
+            const [hidden, muted] = await Promise.all([
+                this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, track.id, 'hidden'), false),
+                this.storage.getData<boolean>(this.trackFlagStorageKey(editUri, track.id, 'muted'), false)
+            ]);
+            return { ...track, ...(hidden ? { hidden: true } : {}), ...(muted ? { muted: true } : {}) };
+        }));
     }
 
     /**
@@ -4773,26 +4380,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!location?.editUri) {
             return;
         }
-        const editUri = location.editUri.toString();
-        const projectRootUri = location.root.toString();
-        const original = this.cuts[cutIndex]?.transitionOut ?? null;
-        await this.annotationsService.setCutTransitionOut({ editUri, projectRootUri, cutIndex, transitionOut: next });
-        this.pushHistory({
-            label: 'トランジションを変更',
-            undo: async () => {
-                await this.annotationsService.setCutTransitionOut({
-                    editUri, projectRootUri, cutIndex, transitionOut: original
-                });
-                await this.reloadEdit();
-            },
-            redo: async () => {
-                await this.annotationsService.setCutTransitionOut({
-                    editUri, projectRootUri, cutIndex, transitionOut: next
-                });
-                await this.reloadEdit();
-            }
-        });
-        await this.reloadEdit();
+        await this.commitEditMutation('トランジションを変更', doc => updateV2Item(doc, {
+            itemId: this.cutItemId(cutIndex), patch: { source: { transition_out: next } }
+        }));
         this.hideNotice();
         this.footer.textContent = next ? 'トランジションを変更しました。' : 'トランジションを削除しました。';
     }
@@ -4946,7 +4536,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         icon.innerHTML = this.trackKindSvg(kind);
         const nameElement = document.createElement('span');
         nameElement.className = 'akari-track-header-name';
-        nameElement.textContent = name;
+        nameElement.textContent = timelineTrack && this.timelineTrackItemCount(timelineTrack) === 0
+            ? `${name} (空)` : name;
         row.append(icon, nameElement);
         if (timelineTrack?.kind === 'audio') {
             row.appendChild(this.trackHeaderButton(
@@ -4979,8 +4570,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     ): 'video' | 'overlay' | 'layer' | 'audio' | 'caption' {
         return {
             cuts: 'video',
-            layers: 'layer',
-            overlays: 'overlay',
+            layers: 'video',
+            overlays: 'video',
             captions: 'caption',
             audio: 'audio'
         }[kind] as 'video' | 'overlay' | 'layer' | 'audio' | 'caption';
@@ -5003,12 +4594,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             committed = true;
             const label = input.value.trim();
-            void this.mutateTimelineTracks('トラック名を変更', tracks => tracks.map(candidate =>
-                candidate.id === track.id
-                    ? { ...candidate, ...(label ? { label } : {}) }
-                    : candidate
-            ).map(candidate => candidate.id === track.id && !label
-                ? this.withoutTrackLabel(candidate) : candidate));
+            void this.commitEditMutation('トラック名を変更', doc =>
+                renameV2Track(doc, { trackId: track.id, name: label })
+            ).then(() => { this.footer.textContent = 'トラック名を変更しました。'; }).catch(error => {
+                this.showNotice(`トラック名を変更できません: ${this.errorMessage(error)}`);
+            });
         };
         input.addEventListener('pointerdown', event => event.stopPropagation());
         input.addEventListener('blur', commit);
@@ -5024,12 +4614,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         input.focus();
         input.select();
-    }
-
-    protected withoutTrackLabel(track: EditTimelineTrack): EditTimelineTrack {
-        const result = { ...track };
-        delete result.label;
-        return result;
     }
 
     protected onTrackHeaderPointerDown(event: PointerEvent, track: EditTimelineTrack): void {
@@ -5078,16 +4662,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!dragged || targetId === track.id) {
                 return;
             }
-            void this.mutateTimelineTracks('トラックを並べ替え', tracks => {
-                const displayed = [...tracks].reverse();
-                const sourceIndex = displayed.findIndex(candidate => candidate.id === track.id);
-                const targetIndex = displayed.findIndex(candidate => candidate.id === targetId);
-                if (sourceIndex < 0 || targetIndex < 0) {
-                    return tracks;
-                }
-                const [moved] = displayed.splice(sourceIndex, 1);
-                displayed.splice(targetIndex, 0, moved);
-                return displayed.reverse();
+            void this.commitEditMutation('トラックを並べ替え', doc => {
+                const tracks = Array.isArray(doc.tracks) ? doc.tracks as Array<Record<string, unknown>> : [];
+                const sourceIndex = tracks.findIndex(candidate => candidate.id === track.id);
+                const targetIndex = tracks.findIndex(candidate => candidate.id === targetId);
+                if (sourceIndex < 0 || targetIndex < 0) throw new Error('トラックを特定できません。');
+                return reorderV2Tracks(doc, { fromIndex: sourceIndex, toIndex: targetIndex });
+            }).then(() => { this.footer.textContent = 'トラックを並べ替えました。'; }).catch(error => {
+                this.showNotice(`トラックを並べ替えできません: ${this.errorMessage(error)}`);
             });
         };
         row.addEventListener('pointermove', onMove);
@@ -5107,43 +4689,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return [...audio, ...rest];
     }
 
-    protected async mutateTimelineTracks(
-        label: string,
-        mutate: (tracks: EditTimelineTrack[]) => EditTimelineTrack[]
-    ): Promise<void> {
-        const editUri = this.location?.editUri;
-        if (!editUri) {
-            return;
-        }
-        try {
-            const before = (await this.fileService.readFile(editUri)).value.toString();
-            const base = this.baseTimelineTracks(this.readEdit(before));
-            const tracks = mutate(base.map(track => ({ ...track })));
-            const after = writeTimelineTracksInSource(before, tracks);
-            if (after === before) {
-                return;
-            }
-            await this.writeEditSnapshotGuarded(after);
-            this.pushHistory({
-                label,
-                undo: async () => {
-                    await this.writeEditSnapshotGuarded(before);
-                    await this.reloadEdit();
-                },
-                redo: async () => {
-                    await this.writeEditSnapshotGuarded(after);
-                    await this.reloadEdit();
-                }
-            });
-            await this.reloadEdit();
-            this.footer.textContent = `${label}しました。`;
-        } catch (error) {
-            const detail = this.errorMessage(error);
-            this.showNotice(`${label}できません: ${detail}`);
-            this.messages.error(`${label}できません: ${detail}`);
-        }
-    }
-
     protected async toggleTimelineTrackFlag(
         track: EditTimelineTrack, field: 'hidden' | 'muted'
     ): Promise<void> {
@@ -5151,70 +4696,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const label = field === 'hidden'
             ? (next ? 'トラックを非表示に' : 'トラックを表示に')
             : (next ? 'トラックの音声をオフに' : 'トラックの音声をオンに');
-        await this.mutateTimelineTracks(label, tracks => tracks.map(candidate =>
-            candidate.id === track.id ? { ...candidate, [field]: next } : candidate));
-    }
-
-    protected insertedTimelineTracks(
-        source: string,
-        kind: Extract<TimelineTrackKind, 'cuts' | 'layers' | 'overlays'>,
-        insertTrack: number
-    ): EditTimelineTrack[] {
-        const tracks = this.baseTimelineTracks(this.readEdit(source)).map(track => ({
-            ...track,
-            ...(track.kind === kind && (track.ref ?? 0) >= insertTrack
-                ? { ref: (track.ref ?? 0) + 1 } : {})
-        }));
-        const ids = new Set(tracks.map(track => track.id));
-        let serial = tracks.length + 1;
-        while (ids.has(`t${serial}`)) {
-            serial++;
-        }
-        const entry: EditTimelineTrack = { id: `t${serial}`, kind, ref: insertTrack };
-        const lowerIndex = tracks.reduce(
-            (found, track, index) =>
-                track.kind === kind && (track.ref ?? 0) === insertTrack - 1 ? index : found,
-            -1
-        );
-        if (lowerIndex >= 0) {
-            tracks.splice(lowerIndex + 1, 0, entry);
-        } else {
-            const higherIndex = tracks.findIndex(
-                track => track.kind === kind && (track.ref ?? 0) > insertTrack
-            );
-            tracks.splice(higherIndex >= 0 ? higherIndex : tracks.length, 0, entry);
-        }
-        return tracks;
-    }
-
-    protected async finishInsertedTrackDrag(
-        label: string,
-        before: string,
-        afterItemMove: string,
-        kind: Extract<TimelineTrackKind, 'cuts' | 'layers' | 'overlays'>,
-        insertTrack: number
-    ): Promise<void> {
         const editUri = this.location?.editUri;
-        if (!editUri) {
-            return;
-        }
-        const after = writeTimelineTracksInSource(
-            afterItemMove,
-            this.insertedTimelineTracks(before, kind, insertTrack)
-        );
-        await this.writeEditSnapshotGuarded(after);
-        this.pushHistory({
-            label,
-            undo: async () => {
-                await this.writeEditSnapshotGuarded(before);
-                await this.reloadEdit();
-            },
-            redo: async () => {
-                await this.writeEditSnapshotGuarded(after);
-                await this.reloadEdit();
-            }
-        });
-        await this.reloadEdit();
+        if (!editUri) return;
+        await this.storage.setData(this.trackFlagStorageKey(editUri, track.id, field), next);
+        this.timelineTracks = this.timelineTracks.map(candidate =>
+            candidate.id === track.id ? { ...candidate, [field]: next } : candidate);
+        this.syncTimelineTrackTogglesToPreview();
+        this.renderStrip();
+        this.footer.textContent = `${label}しました。`;
     }
 
     protected openTrackContextMenu(event: MouseEvent): void {
@@ -5244,8 +4733,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             popup.replaceChildren();
             const kinds: Array<{ kind: TimelineTrackKind; label: string }> = [
                 { kind: 'cuts', label: '映像' },
-                { kind: 'layers', label: 'テロップ/PinP' },
-                { kind: 'overlays', label: 'オーバーレイ' },
                 { kind: 'captions', label: '字幕' },
                 { kind: 'audio', label: 'オーディオ' }
             ];
@@ -5279,86 +4766,36 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async addTimelineTrack(kind: TimelineTrackKind): Promise<void> {
-        await this.mutateTimelineTracks('トラックを追加', tracks => {
-            if (kind === 'captions' && tracks.some(track => track.kind === kind)) {
-                return tracks;
-            }
-            const ids = new Set(tracks.map(track => track.id));
-            let serial = tracks.length + 1;
-            while (ids.has(`t${serial}`)) {
-                serial++;
-            }
-            const refs = tracks.filter(track => track.kind === kind && track.ref !== undefined)
-                .map(track => track.ref!);
-            const ref = kind === 'captions' ? undefined : refs.length > 0 ? Math.max(...refs) + 1 : 0;
-            const entry: EditTimelineTrack = { id: `t${serial}`, kind, ...(ref !== undefined ? { ref } : {}) };
-            if (kind !== 'audio') {
-                return [...tracks, entry];
-            }
-            // audio は最下段固定グループのため配列末尾（画面最上段）へは追加しない。
-            // 既存 audio 宣言群の直後（無ければ配列先頭 = 画面最下段）へ挿入し、グループ内に留める。
-            const lastAudioIndex = tracks.reduce(
-                (found, track, index) => track.kind === 'audio' ? index : found, -1
-            );
-            const insertAt = lastAudioIndex >= 0 ? lastAudioIndex + 1 : 0;
-            const next = [...tracks];
-            next.splice(insertAt, 0, entry);
-            return next;
-        });
+        try {
+            await this.commitEditMutation('トラックを追加', doc => {
+                const tracks = Array.isArray(doc.tracks) ? doc.tracks as Array<Record<string, unknown>> : [];
+                if (kind === 'captions') {
+                    if (tracks.some(track => 'content' in track)) return doc;
+                    const ids = new Set(tracks.map(track => String(track.id ?? '')));
+                    let serial = 1;
+                    while (ids.has(`captions-${serial}`)) serial++;
+                    return { ...doc, tracks: [...tracks, {
+                        id: `captions-${serial}`, lane: 'visual', content: { from: 'captions.json' }
+                    }] };
+                }
+                const lane = kind === 'audio' ? 'audio' : 'visual';
+                const audioCount = tracks.filter(track => track.lane === 'audio').length;
+                return insertV2Track(doc, {
+                    index: lane === 'audio' ? audioCount : tracks.length,
+                    lane
+                });
+            });
+            this.footer.textContent = 'トラックを追加しました。';
+        } catch (error) {
+            this.showNotice(`トラックを追加できません: ${this.errorMessage(error)}`);
+        }
     }
 
     protected timelineTrackItemCount(track: EditTimelineTrack): number {
-        const ref = track.ref ?? 0;
-        if (track.kind === 'cuts') {
-            return this.cuts.filter(cut => (cut.track ?? 0) === ref).length;
-        }
-        if (track.kind === 'layers') {
-            return this.layers.filter(layer => (layer.track ?? 0) === ref).length;
-        }
-        if (track.kind === 'overlays') {
-            return this.overlays.filter(overlay => overlay.track === ref).length;
-        }
-        if (track.kind === 'captions') {
-            return this.captions.length;
-        }
-        return this.audioSfx.filter(sfx => (sfx.track ?? 0) === ref).length
-            + (this.audioBgm && ref === 0 ? 1 : 0)
-            + (ref === 0 ? this.audioNarration.length : 0);
-    }
-
-    protected async writeDeclaredTimelineTracks(tracks: readonly EditTimelineTrack[]): Promise<void> {
-        const editUri = this.location?.editUri;
-        if (!editUri) {
-            return;
-        }
-        const source = (await this.fileService.readFile(editUri)).value.toString();
-        const updated = writeTimelineTracksInSource(source, [...tracks]);
-        await this.writeEditSnapshotGuarded(updated);
-        await this.reloadEdit();
-    }
-
-    protected async pruneEmptyDeclaredTracks(): Promise<{
-        before: EditTimelineTrack[];
-        after: EditTimelineTrack[];
-    } | undefined> {
-        const editUri = this.location?.editUri;
-        if (!editUri) {
-            return undefined;
-        }
-        const source = (await this.fileService.readFile(editUri)).value.toString();
-        const declared = projectLegacyEdit(this.readEdit(source)).timeline?.tracks;
-        if (!declared) {
-            return undefined;
-        }
-        const before = declared.map(track => ({ ...track }));
-        const after = before.filter(track => this.timelineTrackItemCount(track) > 0);
-        if (after.length === before.length) {
-            return undefined;
-        }
-        const updated = writeTimelineTracksInSource(source, after);
-        await this.writeEditSnapshotGuarded(updated);
-        await this.reloadEdit();
-        return { before, after };
+        const raw = Array.isArray(this.editDocument?.tracks)
+            ? (this.editDocument!.tracks as Array<Record<string, unknown>>).find(candidate => candidate.id === track.id)
+            : undefined;
+        return Array.isArray(raw?.items) ? raw.items.length : track.kind === 'captions' ? this.captions.length : 0;
     }
 
     protected async deleteTimelineTrack(trackId: string): Promise<void> {
@@ -5369,8 +4806,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const count = this.timelineTrackItemCount(track);
         if (count === 0) {
-            await this.mutateTimelineTracks('トラックを削除', tracks =>
-                tracks.filter(candidate => candidate.id !== trackId));
+            await this.commitEditMutation('トラックを削除', doc => removeV2Track(doc, trackId));
             return;
         }
         if (!window.confirm(`このトラックには ${count} 件のアイテムがあります。削除しますか？`)) {
@@ -5381,24 +4817,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const captionsBefore = track.kind === 'captions'
                 ? (await this.fileService.readFile(this.location!.captionsUri)).value.toString()
                 : undefined;
-            const value = JSON.parse(editBefore) as Record<string, any>;
-            const ref = track.ref ?? 0;
-            if (track.kind === 'cuts' || track.kind === 'layers' || track.kind === 'overlays') {
-                const items = value[track.kind];
-                if (Array.isArray(items)) {
-                    value[track.kind] = items.filter(item => {
-                        const itemTrack = Number.isInteger(item?.track) && item.track >= 0 ? item.track : 0;
-                        return itemTrack !== ref;
-                    });
-                }
-            } else if (track.kind === 'audio' && value.audio && typeof value.audio === 'object') {
-                value.audio.sfx = [];
-                delete value.audio.bgm;
-                delete value.audio.narration;
-            }
-            const tracks = this.timelineTracks.filter(candidate => candidate.id !== trackId);
-            let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
-            editAfter = writeTimelineTracksInSource(editAfter, tracks);
+            const editAfter = stringifyEditV2(removeV2Track(JSON.parse(editBefore) as EditV2Document, trackId));
             const captionsAfter = track.kind === 'captions' ? '[]\n' : undefined;
             await this.writeTimelineSnapshots(editAfter, captionsAfter);
             this.pushHistory({
@@ -5427,6 +4846,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         // edit.json と captions.json の同時変更は保存後 debounce で最新の組だけ検証される。
         await this.writeEditSnapshotGuarded(editSource, captionsSource);
+    }
+
+    protected cutItemId(index: number): string {
+        const itemId = this.cutItemIds[index];
+        if (!itemId) throw new Error(`クリップ ${index + 1} の id を特定できません。`);
+        return itemId;
+    }
+
+    protected frameAt(seconds: number): number {
+        return Math.max(0, Math.round(seconds * this.fps));
+    }
+
+    /** v2 全文を 1 回だけ parse/mutate/stringify し、undo/redo も全文で積む。 */
+    protected async commitEditMutation(
+        label: string,
+        mutate: (doc: EditV2Document) => EditV2Document,
+        options?: { reload?: boolean; history?: boolean }
+    ): Promise<{ before: string; after: string; result: WriteBackResult }> {
+        const editUri = this.location?.editUri;
+        if (!editUri) throw new Error('edit.json がありません。');
+        const before = (await this.fileService.readFile(editUri)).value.toString();
+        const raw = JSON.parse(before) as EditV2Document;
+        if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        const after = stringifyEditV2(mutate(raw));
+        if (after === before) return { before, after, result: { committed: false } };
+        await this.writeEditSnapshotGuarded(after);
+        if (options?.history !== false) {
+            this.pushHistory({
+                label,
+                undo: async () => {
+                    await this.writeEditSnapshotGuarded(before);
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.writeEditSnapshotGuarded(after);
+                    await this.reloadEdit();
+                }
+            });
+        }
+        if (options?.reload !== false) await this.reloadEdit();
+        return { before, after, result: { committed: false } };
     }
 
     /**
@@ -6889,23 +6349,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             const at = Math.max(0, snap.time);
             const hit = this.trackAtClientY('cut', this.laneLayout.cutTracks, clientY, state.originalTrack);
-            const isNewTrackSpot = !this.laneLayout.cutTracks.some(layout => layout.track === hit.track);
-            if ((hit.insertTrack !== undefined || isNewTrackSpot) && !hit.rejected) {
+            if (hit.insertIndex !== undefined && !hit.rejected) {
                 this.showTrackInsertIndicatorAt(hit.top);
             } else {
                 this.hideTrackInsertIndicator();
             }
-            const rejected = hit.rejected || this.cutWouldOverlap(state.index, at, state.duration, hit.track);
+            const rejected = hit.rejected || (hit.targetTrackId !== undefined
+                && this.v2WouldOverlap(
+                    this.cutItemId(state.index), hit.targetTrackId,
+                    this.frameAt(at), Math.max(1, this.frameAt(state.duration))
+                ));
             this.setGhostRange(state.ghost, at, at + state.duration);
             state.ghost.style.top = `${hit.top}px`;
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snap.snapped && !rejected);
             this.updateDragFeedback(state, rejected
-                ? '⚠ 移動できません（種別が異なる／重なります）'
+                ? '⚠ 同じ段の中で区間が重なるか、レーンが異なります'
                 : `${this.formatTimestamp(at)} / 行 ${hit.track + 1}`);
             return {
                 kind: 'cut-move', index: state.index, at, track: hit.track, rejected,
-                insertTrack: hit.insertTrack
+                insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
             };
         }
         if (state.kind === 'caption') {
@@ -6952,6 +6415,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let track = state.originalTrack;
             let rejected = false;
             let insertTrack: number | undefined;
+            let targetTrackId: string | undefined;
+            let insertIndex: number | undefined;
             let snapped = false;
             const originalEdges = [
                 { time: state.originalT },
@@ -6988,15 +6453,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 track = hit.track;
                 rejected = hit.rejected;
                 insertTrack = hit.insertTrack;
+                targetTrackId = hit.targetTrackId;
+                insertIndex = hit.insertIndex;
                 state.ghost.style.top = `${hit.top}px`;
             }
             this.setGhostRange(state.ghost, t, t + Math.max(0, itemDuration));
             this.setGhostRejected(state.ghost, rejected);
             this.setGhostSnapped(state.ghost, snapped && !rejected);
             this.updateDragFeedback(state, rejected
-                ? '⚠ 移動できません（種別が異なります）'
+                ? '⚠ レーンが異なるため移動できません'
                 : `${this.formatTimestamp(t)} / 尺 ${itemDuration.toFixed(2)} 秒 / 行 ${track + 1}`);
-            return { kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected, insertTrack };
+            return {
+                kind: 'layer', id: state.id, t, duration: itemDuration, track, rejected, insertTrack,
+                targetTrackId, insertIndex
+            };
         }
         if (state.kind === 'audio') {
             const snap = this.snapMovingRangeInOutputSpace(
@@ -7016,10 +6486,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.setGhostRejected(state.ghost, hit.rejected);
             this.setGhostSnapped(state.ghost, snap.snapped && !hit.rejected);
             this.updateDragFeedback(state, hit.rejected
-                ? '⚠ 移動できません（種別が異なります）'
+                ? '⚠ 映像のレーンには音を置けません'
                 : `${this.formatTimestamp(t)} / 行 ${hit.track + 1}`);
             return {
-                kind: 'audio', id: state.id, t, track: hit.track, rejected: hit.rejected
+                kind: 'audio', id: state.id, t, track: hit.track, rejected: hit.rejected,
+                targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
             };
         }
         if (state.kind === 'audio-trim') {
@@ -7128,7 +6599,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.updateDragFeedback(state, `${this.formatTimestamp(start)} / 尺 ${state.originalDuration.toFixed(2)} 秒`);
             return {
                 kind: 'overlay-move', id: state.id, start, track: hit.track,
-                insertTrack: hit.insertTrack
+                insertTrack: hit.insertTrack, targetTrackId: hit.targetTrackId, insertIndex: hit.insertIndex
             };
         }
         const snap = this.snapTimeInOutputSpaceWithResult(
@@ -7197,59 +6668,51 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected trackAtClientY(
         kind: 'cut' | 'layer' | 'overlay' | 'audio',
-        layouts: readonly TrackGroupLayout[],
+        _layouts: readonly TrackGroupLayout[],
         clientY: number,
         originalTrack: number
-    ): { track: number; top: number; rejected: boolean; insertTrack?: number } {
-        if (layouts.length === 0) {
-            return { track: 0, top: 0, rejected: true };
-        }
+    ): { track: number; top: number; rejected: boolean; insertTrack?: number;
+        targetTrackId?: string; insertIndex?: number } {
+        const localY = clientY - this.strip.getBoundingClientRect().top;
         if (kind === 'audio') {
-            // audio は既存の宣言済みトラック行の間のみを移動先とする（cuts/layers と異なり
-            // ドラッグでの新規トラック自動挿入はサポートしない。追加は「トラックを追加」UI 経由）。
-            const localY = clientY - this.strip.getBoundingClientRect().top;
-            for (const layout of layouts) {
-                if (localY >= layout.top && localY < layout.top + layout.height + LANE_GAP) {
-                    return { track: layout.track, top: layout.top, rejected: false };
+            const layouts = this.laneLayout.audioTracks;
+            if (layouts.length === 0) return { track: originalTrack, top: 0, rejected: true };
+            const hit = layouts.find(layout =>
+                localY >= layout.top && localY < layout.top + layout.height + LANE_GAP);
+            const target = hit ?? layouts.find(layout => layout.track === originalTrack) ?? layouts[0];
+            return { track: target.track, top: target.top, rejected: false };
+        }
+        const lane = 'visual';
+        const rawTracks = Array.isArray(this.editDocument?.tracks)
+            ? this.editDocument!.tracks as Array<Record<string, unknown>> : [];
+        const layouts = this.laneLayout.tracks.filter(layout => {
+            const raw = rawTracks.find(track => track.id === layout.id);
+            return raw?.lane === lane && Array.isArray(raw.items);
+        });
+        if (layouts.length === 0) return { track: originalTrack, top: 0, rejected: true };
+        for (const layout of layouts) {
+            const rawIndex = rawTracks.findIndex(track => track.id === layout.id);
+            const nearTop = Math.abs(localY - layout.top) <= TRACK_INSERT_ZONE_PX;
+            const nearBottom = Math.abs(localY - (layout.top + layout.height)) <= TRACK_INSERT_ZONE_PX;
+            if (nearTop || nearBottom) {
+                const insertIndex = nearTop ? rawIndex + 1 : rawIndex;
+                const audioCount = rawTracks.filter(track => track.lane === 'audio').length;
+                const laneSafe = insertIndex >= audioCount;
+                if (laneSafe) {
+                    return {
+                        track: layout.track, top: nearTop ? layout.top : layout.top + layout.height,
+                        rejected: false, insertTrack: insertIndex, insertIndex
+                    };
                 }
             }
-            const current = layouts.find(layout => layout.track === originalTrack) ?? layouts[0];
-            return { track: current.track, top: current.top, rejected: false };
-        }
-        const localY = clientY - this.strip.getBoundingClientRect().top;
-        for (let i = 0; i < layouts.length - 1; i++) {
-            const lower = layouts[i + 1];
-            const boundaryY = lower.top;
-            if (Math.abs(localY - boundaryY) <= TRACK_INSERT_ZONE_PX) {
-                const newTrack = lower.track + 1;
-                return { track: newTrack, top: boundaryY, rejected: false, insertTrack: newTrack };
-            }
-        }
-        const highest = layouts[0];
-        if (localY < highest.top) {
-            if (localY >= highest.top - LANE_GAP) {
+            if (localY >= layout.top && localY < layout.top + layout.height) {
                 return {
-                    track: highest.track + 1, top: highest.top, rejected: false,
-                    insertTrack: highest.track + 1
+                    track: layout.track, top: layout.top, rejected: false, targetTrackId: layout.id
                 };
             }
-            const laneKind = this.laneKindAtLocalY(localY);
-            if (laneKind === kind || laneKind === 'none') {
-                return {
-                    track: highest.track + 1, top: highest.top, rejected: false,
-                    insertTrack: highest.track + 1
-                };
-            }
-            const current = layouts.find(layout => layout.track === originalTrack) ?? highest;
-            return { track: originalTrack, top: current.top, rejected: true };
         }
-        for (const layout of layouts) {
-            if (localY >= layout.top && localY < layout.top + layout.height + LANE_GAP) {
-                return { track: layout.track, top: layout.top, rejected: false };
-            }
-        }
-        const current = layouts.find(layout => layout.track === originalTrack) ?? highest;
-        return { track: originalTrack, top: current.top, rejected: this.laneKindAtLocalY(localY) !== kind };
+        const current = layouts.find(layout => layout.track === originalTrack) ?? layouts[0];
+        return { track: current.track, top: current.top, rejected: true, targetTrackId: current.id };
     }
 
     protected laneKindAtLocalY(localY: number): 'cut' | 'layer' | 'overlay' | 'audio' | 'foreign' | 'none' {
@@ -7287,6 +6750,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return false;
             }
             return overlap > this.allowedTransitionOverlap(index, segment.index, track) + 1e-4;
+        });
+    }
+
+    protected v2WouldOverlap(
+        itemId: string, targetTrackId: string, atFrames: number, durationFrames: number
+    ): boolean {
+        if (!Array.isArray(this.editDocument?.tracks)) return false;
+        const target = (this.editDocument!.tracks as Array<Record<string, unknown>>)
+            .find(track => track.id === targetTrackId);
+        if (!Array.isArray(target?.items)) return false;
+        const end = atFrames + durationFrames;
+        return target.items.some(candidate => {
+            if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false;
+            const item = candidate as Record<string, unknown>;
+            if (item.id === itemId || !Number.isInteger(item.at) || !Number.isInteger(item.duration)) return false;
+            const otherAt = item.at as number;
+            return atFrames < otherAt + (item.duration as number) && otherAt < end;
         });
     }
 
@@ -7518,527 +6998,179 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async commitDrag(preview: DragPreview): Promise<void> {
         const location = this.location;
-        if (!location) {
+        if (!location) return;
+        if ("rejected" in preview && preview.rejected) {
+            this.footer.textContent = "移動できません（レーンが異なるか、同じ段の中で区間が重なります）。";
             return;
         }
-        if ('rejected' in preview && preview.rejected) {
-            this.footer.textContent = '移動できません（種別が異なるか、同じトラック内で重なります）。';
+        if (preview.kind !== "caption") {
+            await this.commitEditV2Drag(preview);
+            return;
+        }
+        if (preview.start < 0 || preview.end - preview.start < MINIMUM_ITEM_DURATION) {
+            this.showNotice("字幕が短すぎます（0.15 秒未満にはできません）");
             return;
         }
         try {
-            let result: WriteBackResult;
-            if (preview.kind === 'cut-trim') {
-                if (!location.editUri) {
-                    return;
+            const result = await this.annotationsService.shiftCaption({
+                captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
+                captionId: preview.id, deltaStart: preview.deltaStart, deltaEnd: preview.deltaEnd
+            });
+            this.pushHistory({
+                label: "字幕タイミングの調整",
+                undo: async () => {
+                    await this.annotationsService.shiftCaption({
+                        captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
+                        captionId: preview.id, deltaStart: -preview.deltaStart, deltaEnd: -preview.deltaEnd
+                    });
+                    await this.reloadCaptions();
+                },
+                redo: async () => {
+                    await this.annotationsService.shiftCaption({
+                        captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
+                        captionId: preview.id, deltaStart: preview.deltaStart, deltaEnd: preview.deltaEnd
+                    });
+                    await this.reloadCaptions();
                 }
-                let maxOutSeconds = preview.maxOutSeconds;
-                if (preview.edge === 'right' && maxOutSeconds === undefined) {
-                    // ドラッグ中に実尺フェッチが間に合わなかった（初回ドラッグ等）場合、
-                    // ここで確定を保留し実尺の解決を待ってからクランプする。
-                    // 「初回だけ素通し」を絶対に許さないための最終防波堤。
-                    const cut = this.cuts[preview.index];
-                    const videoUri = cut ? this.cutVideoUri(cut) : '';
-                    if (videoUri) {
-                        const resolved = await this.ensureVideoDurationFetch(videoUri);
-                        if (typeof resolved === 'number') {
-                            maxOutSeconds = resolved;
-                        }
+            });
+            await this.reloadCaptions();
+            this.footer.textContent = this.writeResultMessage("字幕のタイミングを調整しました。", result);
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice("字幕のタイミングを更新できません: " + detail);
+            this.messages.error("字幕のタイミングを更新できません: " + detail);
+        }
+    }
+
+    protected currentTrackId(itemId: string): string {
+        const location = this.itemLocations.get(itemId);
+        if (!location) throw new Error(`クリップ ${itemId} のトラックを特定できません。`);
+        return location.trackId;
+    }
+
+    protected moveV2PreviewItem(
+        doc: EditV2Document,
+        itemId: string,
+        atFrames: number,
+        targetTrackId?: string,
+        insertIndex?: number
+    ): EditV2Document {
+        if (insertIndex !== undefined) {
+            return moveV2ItemToNewTrack(doc, { itemId, insertIndex, atFrames });
+        }
+        return moveV2Item(doc, {
+            itemId,
+            toTrackId: targetTrackId ?? this.currentTrackId(itemId),
+            atFrames
+        });
+    }
+
+    protected async commitEditV2Drag(preview: DragPreview): Promise<void> {
+        try {
+            let label = 'タイムラインを更新';
+            let message = 'タイムラインを更新しました。';
+            let mutate: (doc: EditV2Document) => EditV2Document;
+            switch (preview.kind) {
+                case 'cut-trim': {
+                    const original = this.cuts[preview.index];
+                    const segment = this.segments[preview.index];
+                    if (!original || !segment) throw new Error('クリップが見つかりません。');
+                    const speed = typeof original.speed === 'number' && original.speed > 0 ? original.speed : 1;
+                    const out = preview.maxOutSeconds === undefined
+                        ? preview.output : Math.min(preview.output, preview.maxOutSeconds);
+                    if (out - preview.input < MINIMUM_ITEM_DURATION) {
+                        throw new Error('クリップが短すぎます（0.15 秒未満にはできません）。');
                     }
-                }
-                const finalOut = maxOutSeconds !== undefined
-                    ? Math.min(preview.output, maxOutSeconds) : preview.output;
-                if (finalOut - preview.input < MINIMUM_ITEM_DURATION) {
-                    this.showNotice('クリップが短すぎます（0.15 秒未満にはできません）');
-                    return;
-                }
-                const original = this.cuts[preview.index];
-                const frozenIndex = this.findFrozenNextIndex(this.cuts, preview.index);
-                result = await this.annotationsService.trimCut({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    cutIndex: preview.index, in: preview.input, out: finalOut,
-                    maxOutSeconds
-                });
-                this.pushHistory({
-                    label: 'クリップのトリム',
-                    undo: async () => {
-                        await this.annotationsService.trimCut({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            cutIndex: preview.index, in: original.in, out: original.out
-                        });
-                        if (frozenIndex !== undefined) {
-                            await this.annotationsService.setCutAtValues({
-                                editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                                entries: [{ cutIndex: frozenIndex, at: null }]
-                            });
+                    const itemId = this.cutItemId(preview.index);
+                    const at = segment.tlStart + (preview.input - original.in) / speed;
+                    mutate = doc => updateV2Item(doc, {
+                        itemId,
+                        patch: {
+                            at: this.frameAt(at),
+                            duration: Math.max(1, this.frameAt((out - preview.input) / speed)),
+                            source: { in: preview.input, out }
                         }
-                        await this.reloadEdit();
-                    },
-                    redo: async () => {
-                        await this.annotationsService.trimCut({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            cutIndex: preview.index, in: preview.input, out: finalOut,
-                            maxOutSeconds
-                        });
-                        await this.reloadEdit();
-                    }
-                });
-                await this.reloadEdit();
-                this.footer.textContent = this.writeResultMessage('クリップをトリムしました。', result);
-            } else if (preview.kind === 'cut-move') {
-                if (!location.editUri) {
-                    return;
+                    });
+                    label = 'クリップのトリム';
+                    message = 'クリップをトリムしました。';
+                    break;
                 }
-                if (!Number.isFinite(preview.at) || preview.at < 0
-                    || !Number.isInteger(preview.track) || preview.track < 0) {
-                    this.showNotice('クリップの移動先が不正です。');
-                    return;
-                }
-                const original = this.segments[preview.index];
-                if (!original || this.cutWouldOverlap(preview.index, preview.at, original.tlEnd - original.tlStart, preview.track)) {
-                    this.showNotice('同じクリップトラック内で区間が重なるため移動できません。');
-                    return;
-                }
-                const frozenIndex = this.findFrozenNextIndex(this.cuts, preview.index);
-                const originalTrackState = await this.readIndexedTrackState('cuts');
-                const insertSnapshotBefore = preview.insertTrack !== undefined
-                    ? (await this.fileService.readFile(location.editUri)).value.toString()
-                    : undefined;
-                const pruneTrackIds = preview.insertTrack === undefined && preview.track !== original.track
-                    ? this.timelineTracks
-                        .filter(track => track.kind === 'cuts'
-                            && (track.ref ?? 0) === original.track
-                            && this.timelineTrackItemCount(track) === 1)
-                        .map(track => track.id)
-                    : [];
-                const moveResult = await this.annotationsService.moveCut({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    cutIndex: preview.index, at: preview.at,
-                    pruneTrackIds,
-                    ...(preview.insertTrack !== undefined
-                        ? {
-                            trackState: this.shiftTrackStateForInsert(
-                                originalTrackState, String(preview.index), preview.insertTrack
-                            )
-                        }
-                        : { track: preview.track === original.track ? undefined : preview.track })
-                });
-                result = moveResult;
-                if (preview.insertTrack !== undefined && insertSnapshotBefore !== undefined) {
-                    const afterItemMove = (await this.fileService.readFile(location.editUri)).value.toString();
-                    await this.finishInsertedTrackDrag(
-                        'クリップの移動', insertSnapshotBefore, afterItemMove, 'cuts', preview.insertTrack
+                case 'cut-move': {
+                    const itemId = this.cutItemId(preview.index);
+                    mutate = doc => this.moveV2PreviewItem(
+                        doc, itemId, this.frameAt(preview.at), preview.targetTrackId, preview.insertIndex
                     );
-                    this.footer.textContent = this.writeResultMessage('クリップを移動しました。', result);
-                    this.hideNotice();
-                    this.revealOutputPreview();
-                    return;
+                    label = 'クリップの移動';
+                    message = 'クリップを移動しました。';
+                    break;
                 }
-                await this.reloadEdit();
-                const pruneResult = moveResult.prunedTracks as {
-                    before: EditTimelineTrack[];
-                    after: EditTimelineTrack[];
-                } | undefined;
-                const movedTrackState = await this.readIndexedTrackState('cuts');
-                this.pushHistory({
-                    label: 'クリップの移動',
-                    undo: async () => {
-                        await this.annotationsService.moveCut({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            cutIndex: preview.index, at: original.tlStart, trackState: originalTrackState
-                        });
-                        if (frozenIndex !== undefined) {
-                            await this.annotationsService.setCutAtValues({
-                                editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                                entries: [{ cutIndex: frozenIndex, at: null }]
-                            });
-                        }
-                        await this.reloadEdit();
-                        if (pruneResult) {
-                            await this.writeDeclaredTimelineTracks(pruneResult.before);
-                        }
-                    },
-                    redo: async () => {
-                        await this.annotationsService.moveCut({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            cutIndex: preview.index, at: preview.at, trackState: movedTrackState
-                        });
-                        await this.reloadEdit();
-                        if (pruneResult) {
-                            await this.writeDeclaredTimelineTracks(pruneResult.after);
-                        }
-                    }
-                });
-                this.footer.textContent = this.writeResultMessage('クリップを移動しました。', result);
-            } else if (preview.kind === 'caption') {
-                if (preview.start < 0 || preview.end - preview.start < MINIMUM_ITEM_DURATION) {
-                    this.showNotice('字幕が短すぎます（0.15 秒未満にはできません）');
-                    return;
-                }
-                result = await this.annotationsService.shiftCaption({
-                    captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                    captionId: preview.id, deltaStart: preview.deltaStart, deltaEnd: preview.deltaEnd
-                });
-                this.pushHistory({
-                    label: '字幕タイミングの調整',
-                    undo: async () => {
-                        await this.annotationsService.shiftCaption({
-                            captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                            captionId: preview.id, deltaStart: -preview.deltaStart, deltaEnd: -preview.deltaEnd
-                        });
-                        await this.reloadCaptions();
-                    },
-                    redo: async () => {
-                        await this.annotationsService.shiftCaption({
-                            captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                            captionId: preview.id, deltaStart: preview.deltaStart, deltaEnd: preview.deltaEnd
-                        });
-                        await this.reloadCaptions();
-                    }
-                });
-                await this.reloadCaptions();
-                this.footer.textContent = this.writeResultMessage('字幕のタイミングを調整しました。', result);
-            } else if (preview.kind === 'layer') {
-                if (!location.editUri) {
-                    return;
-                }
-                if (!Number.isFinite(preview.t) || preview.t < 0 || !Number.isFinite(preview.duration)
-                    || preview.duration < MINIMUM_ITEM_DURATION || !Number.isInteger(preview.track) || preview.track < 0) {
-                    this.showNotice('素材が短すぎるか、移動先が不正です（0.15 秒以上必要です）。');
-                    return;
-                }
-                const original = this.layers.find(layer => layer.id === preview.id);
-                if (!original) {
-                    throw new Error(`素材 ${preview.id} が見つかりません`);
-                }
-                const originalTrackState = await this.readIdTrackState('layers');
-                const insertSnapshotBefore = preview.insertTrack !== undefined
-                    ? (await this.fileService.readFile(location.editUri)).value.toString()
-                    : undefined;
-                result = await this.annotationsService.moveLayer({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    layerId: preview.id, t: preview.t, duration: preview.duration,
-                    ...(preview.insertTrack !== undefined
-                        ? {
-                            trackState: this.shiftTrackStateForInsert(
-                                originalTrackState, preview.id, preview.insertTrack
+                case 'layer': {
+                    mutate = doc => {
+                        const moved = preview.targetTrackId !== undefined || preview.insertIndex !== undefined
+                            ? this.moveV2PreviewItem(
+                                doc, preview.id, this.frameAt(preview.t), preview.targetTrackId, preview.insertIndex
                             )
-                        }
-                        : { track: preview.track })
-                });
-                if (preview.insertTrack !== undefined && insertSnapshotBefore !== undefined) {
-                    const afterItemMove = (await this.fileService.readFile(location.editUri)).value.toString();
-                    await this.finishInsertedTrackDrag(
-                        '素材の調整', insertSnapshotBefore, afterItemMove, 'layers', preview.insertTrack
+                            : doc;
+                        return updateV2Item(moved, {
+                            itemId: preview.id,
+                            patch: { at: this.frameAt(preview.t), duration: Math.max(1, this.frameAt(preview.duration)) }
+                        });
+                    };
+                    label = 'クリップの調整';
+                    message = 'クリップを調整しました。';
+                    break;
+                }
+                case 'audio':
+                    mutate = doc => moveAudioSfx(doc, {
+                        sfxId: preview.id, t: preview.t, track: preview.track
+                    });
+                    label = '音声クリップの移動';
+                    message = '音声クリップを移動しました。';
+                    break;
+                case 'audio-trim':
+                    mutate = doc => updateAudioSfx(doc, {
+                        sfxId: preview.id,
+                        patch: { t: preview.t, in: preview.in, out: preview.out }
+                    });
+                    label = '音声クリップのトリム';
+                    message = '音声クリップをトリムしました。';
+                    break;
+                case 'audio-slip':
+                    mutate = doc => updateAudioSfx(doc, {
+                        sfxId: preview.id, patch: { in: preview.in, out: preview.out }
+                    });
+                    label = '音声クリップのスリップ';
+                    message = '音声クリップをスリップしました。';
+                    break;
+                case 'overlay-move':
+                    mutate = doc => this.moveV2PreviewItem(
+                        doc, preview.id, this.frameAt(preview.start), preview.targetTrackId, preview.insertIndex
                     );
-                    this.footer.textContent = this.writeResultMessage('素材を調整しました。', result);
-                    this.hideNotice();
-                    this.revealOutputPreview();
+                    label = 'クリップの移動';
+                    message = 'クリップを移動しました。';
+                    break;
+                case 'cut-slip':
+                    mutate = doc => updateV2Item(doc, {
+                        itemId: this.cutItemId(preview.index),
+                        patch: { source: { in: preview.in, out: preview.out } }
+                    });
+                    label = 'クリップのスリップ';
+                    message = 'クリップをスリップしました。';
+                    break;
+                case 'overlay-resize':
+                    if (preview.duration <= 0) throw new Error('クリップの尺は正の値にしてください。');
+                    mutate = doc => updateV2Item(doc, {
+                        itemId: preview.id, patch: { duration: Math.max(1, this.frameAt(preview.duration)) }
+                    });
+                    label = 'クリップの尺変更';
+                    message = 'クリップの尺を変更しました。';
+                    break;
+                default:
                     return;
-                }
-                await this.reloadEdit();
-                const pruneResult = await this.pruneEmptyDeclaredTracks();
-                const movedTrackState = await this.readIdTrackState('layers');
-                this.pushHistory({
-                    label: '素材の調整',
-                    undo: async () => {
-                        await this.annotationsService.moveLayer({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            layerId: preview.id, t: original.t, duration: original.duration, trackState: originalTrackState
-                        });
-                        await this.reloadEdit();
-                        if (pruneResult) {
-                            await this.writeDeclaredTimelineTracks(pruneResult.before);
-                        }
-                    },
-                    redo: async () => {
-                        await this.annotationsService.moveLayer({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            layerId: preview.id, t: preview.t, duration: preview.duration, trackState: movedTrackState
-                        });
-                        await this.reloadEdit();
-                        if (pruneResult) {
-                            await this.writeDeclaredTimelineTracks(pruneResult.after);
-                        }
-                    }
-                });
-                this.footer.textContent = this.writeResultMessage('素材を調整しました。', result);
-            } else if (preview.kind === 'audio') {
-                if (!location.editUri) {
-                    return;
-                }
-                if (!Number.isFinite(preview.t) || preview.t < 0 || !Number.isInteger(preview.track) || preview.track < 0) {
-                    this.showNotice('音声クリップの移動先が不正です。');
-                    return;
-                }
-                const original = this.audioSfx.find(sfx => sfx.id === preview.id);
-                const sfxIndex = Number(preview.id.slice(4));
-                if (!original || !Number.isInteger(sfxIndex)) {
-                    throw new Error(`音声クリップ ${preview.id} が見つかりません`);
-                }
-                const originalTrackState = await this.readIndexedTrackState('sfx');
-                result = await this.annotationsService.moveSfx({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    sfxIndex, t: preview.t,
-                    track: preview.track === (original.track ?? 0) ? undefined : preview.track
-                });
-                await this.reloadEdit();
-                const pruneResult = await this.pruneEmptyDeclaredTracks();
-                const movedTrackState = await this.readIndexedTrackState('sfx');
-                this.pushHistory({
-                    label: '音声クリップの移動',
-                    undo: async () => {
-                        await this.annotationsService.moveSfx({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            sfxIndex, t: original.t, trackState: originalTrackState
-                        });
-                        await this.reloadEdit();
-                        if (pruneResult) {
-                            await this.writeDeclaredTimelineTracks(pruneResult.before);
-                        }
-                    },
-                    redo: async () => {
-                        await this.annotationsService.moveSfx({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            sfxIndex, t: preview.t, trackState: movedTrackState
-                        });
-                        await this.reloadEdit();
-                        if (pruneResult) {
-                            await this.writeDeclaredTimelineTracks(pruneResult.after);
-                        }
-                    }
-                });
-                this.footer.textContent = this.writeResultMessage('音声クリップを移動しました。', result);
-            } else if (preview.kind === 'audio-trim') {
-                if (!location.editUri) {
-                    return;
-                }
-                const original = this.audioSfx.find(sfx => sfx.id === preview.id);
-                const sfxIndex = Number(preview.id.slice(4));
-                if (!original || !Number.isInteger(sfxIndex)) {
-                    throw new Error(`音声クリップ ${preview.id} が見つかりません`);
-                }
-                let maxOutSeconds: number | undefined;
-                if (preview.edge === 'right') {
-                    const audioUri = this.resolveEditMediaUri(original.path, location.editUri).toString();
-                    const resolved = await this.ensureAudioDurationFetch(original.path, audioUri);
-                    if (typeof resolved === 'number') {
-                        maxOutSeconds = resolved;
-                    }
-                }
-                const finalOut = maxOutSeconds !== undefined ? Math.min(preview.out, maxOutSeconds) : preview.out;
-                if (finalOut - preview.in < MINIMUM_SFX_TRIM_DURATION) {
-                    this.showNotice('音声クリップが短すぎます（0.1 秒未満にはできません）');
-                    return;
-                }
-                const originalIn = original.in ?? null;
-                const originalOut = original.out ?? null;
-                result = await this.annotationsService.trimSfx({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    sfxIndex, in: preview.in, out: finalOut,
-                    ...(preview.edge === 'left' ? { t: preview.t } : {})
-                });
-                this.pushHistory({
-                    label: '音声クリップのトリム',
-                    undo: async () => {
-                        await this.annotationsService.trimSfx({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            sfxIndex, in: originalIn, out: originalOut,
-                            ...(preview.edge === 'left' ? { t: original.t } : {})
-                        });
-                        await this.reloadEdit();
-                    },
-                    redo: async () => {
-                        await this.annotationsService.trimSfx({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            sfxIndex, in: preview.in, out: finalOut,
-                            ...(preview.edge === 'left' ? { t: preview.t } : {})
-                        });
-                        await this.reloadEdit();
-                    }
-                });
-                await this.reloadEdit();
-                this.footer.textContent = this.writeResultMessage('音声クリップをトリムしました。', result);
-            } else if (preview.kind === 'audio-slip') {
-                // 音声クリップ版 cut-slip の確定書き戻し。既存の audio-trim 経路（trimSfx/trimSfxInSource）
-                // をそのまま再利用する — t を省略すれば trimSfxInSource は in/out だけを書き換え、
-                // t（タイムライン位置）には触れない（slip の「t 不変」要件と合致する。cut 側が
-                // slipCutInSource を別途新設したのは trimCutInSource が in 変更時に at を連動させて
-                // しまうためで、trimSfxInSource にはその副作用がないため新規 RPC は不要）。
-                if (!location.editUri) {
-                    return;
-                }
-                const original = this.audioSfx.find(sfx => sfx.id === preview.id);
-                const sfxIndex = Number(preview.id.slice(4));
-                if (!original || !Number.isInteger(sfxIndex)) {
-                    throw new Error(`音声クリップ ${preview.id} が見つかりません`);
-                }
-                // 素材実尺（audioDurationCache）を上限に再クランプする（ドラッグ中に使った
-                // sourceDuration が未解決値のフォールバックだった場合の最終防波堤。
-                // audio-trim の右端ドラッグ確定と同じ「初回だけ素通し」対策）。
-                const audioUri = this.resolveEditMediaUri(original.path, location.editUri).toString();
-                const resolvedDuration = await this.ensureAudioDurationFetch(original.path, audioUri);
-                const winDuration = preview.out - preview.in;
-                let finalIn = preview.in;
-                let finalOut = preview.out;
-                if (typeof resolvedDuration === 'number' && finalOut > resolvedDuration) {
-                    finalOut = resolvedDuration;
-                    finalIn = Math.max(0, resolvedDuration - winDuration);
-                }
-                const originalIn = original.in ?? null;
-                const originalOut = original.out ?? null;
-                result = await this.annotationsService.trimSfx({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    sfxIndex, in: finalIn, out: finalOut
-                });
-                this.pushHistory({
-                    label: '音声クリップのスリップ',
-                    undo: async () => {
-                        await this.annotationsService.trimSfx({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            sfxIndex, in: originalIn, out: originalOut
-                        });
-                        await this.reloadEdit();
-                    },
-                    redo: async () => {
-                        await this.annotationsService.trimSfx({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            sfxIndex, in: finalIn, out: finalOut
-                        });
-                        await this.reloadEdit();
-                    }
-                });
-                await this.reloadEdit();
-                this.footer.textContent = this.writeResultMessage('音声クリップをスリップしました。', result);
-            } else if (preview.kind === 'overlay-move') {
-                if (!location.editUri) {
-                    return;
-                }
-                const original = this.overlays.find(overlay => overlay.id === preview.id);
-                if (!original) {
-                    throw new Error(`オーバーレイ ${preview.id} が見つかりません`);
-                }
-                const originalTrackState = this.overlayTrackState();
-                const insertSnapshotBefore = preview.insertTrack !== undefined
-                    ? (await this.fileService.readFile(location.editUri)).value.toString()
-                    : undefined;
-                result = await this.annotationsService.moveOverlay({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    overlayId: preview.id, start: preview.start,
-                    ...(preview.insertTrack !== undefined
-                        ? {
-                            trackState: this.shiftTrackStateForInsert(
-                                originalTrackState, preview.id, preview.insertTrack
-                            )
-                        }
-                        : { track: preview.track === original.track ? undefined : preview.track })
-                });
-                if (preview.insertTrack !== undefined && insertSnapshotBefore !== undefined) {
-                    const afterItemMove = (await this.fileService.readFile(location.editUri)).value.toString();
-                    await this.finishInsertedTrackDrag(
-                        'オーバーレイの移動', insertSnapshotBefore, afterItemMove, 'overlays', preview.insertTrack
-                    );
-                    this.footer.textContent = this.writeResultMessage('オーバーレイを移動しました。', result);
-                    this.hideNotice();
-                    this.revealOutputPreview();
-                    return;
-                }
-                await this.reloadEdit();
-                const pruneResult = await this.pruneEmptyDeclaredTracks();
-                const movedTrackState = this.overlayTrackState();
-                this.pushHistory({
-                    label: 'オーバーレイの移動',
-                    undo: async () => {
-                        await this.annotationsService.moveOverlay({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            overlayId: preview.id, start: original.start,
-                            trackState: originalTrackState
-                        });
-                        await this.reloadEdit();
-                        if (pruneResult) {
-                            await this.writeDeclaredTimelineTracks(pruneResult.before);
-                        }
-                    },
-                    redo: async () => {
-                        await this.annotationsService.moveOverlay({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            overlayId: preview.id, start: preview.start,
-                            trackState: movedTrackState
-                        });
-                        await this.reloadEdit();
-                        if (pruneResult) {
-                            await this.writeDeclaredTimelineTracks(pruneResult.after);
-                        }
-                    }
-                });
-                this.footer.textContent = this.writeResultMessage('オーバーレイを移動しました。', result);
-            } else if (preview.kind === 'cut-slip') {
-                if (!location.editUri) {
-                    return;
-                }
-                const original = this.cuts[preview.index];
-                if (!original) {
-                    throw new Error(`クリップ ${preview.index + 1} が見つかりません`);
-                }
-                result = await this.annotationsService.slipCut({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    cutIndex: preview.index, in: preview.in, out: preview.out
-                });
-                this.pushHistory({
-                    label: 'クリップのスリップ',
-                    undo: async () => {
-                        await this.annotationsService.slipCut({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            cutIndex: preview.index, in: original.in, out: original.out
-                        });
-                        await this.reloadEdit();
-                    },
-                    redo: async () => {
-                        await this.annotationsService.slipCut({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            cutIndex: preview.index, in: preview.in, out: preview.out
-                        });
-                        await this.reloadEdit();
-                    }
-                });
-                await this.reloadEdit();
-                this.footer.textContent = this.writeResultMessage('クリップをスリップしました。', result);
-            } else {
-                if (!location.editUri) {
-                    return;
-                }
-                if (preview.duration <= 0) {
-                    this.showNotice('オーバーレイの尺は正の値にしてください。');
-                    return;
-                }
-                const original = this.overlays.find(overlay => overlay.id === preview.id);
-                if (!original) {
-                    throw new Error(`オーバーレイ ${preview.id} が見つかりません`);
-                }
-                result = await this.annotationsService.resizeOverlay({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(),
-                    overlayId: preview.id, duration: preview.duration
-                });
-                this.pushHistory({
-                    label: 'オーバーレイの尺変更',
-                    undo: async () => {
-                        await this.annotationsService.resizeOverlay({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            overlayId: preview.id, duration: original.duration
-                        });
-                        await this.reloadEdit();
-                    },
-                    redo: async () => {
-                        await this.annotationsService.resizeOverlay({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            overlayId: preview.id, duration: preview.duration
-                        });
-                        await this.reloadEdit();
-                    }
-                });
-                await this.reloadEdit();
-                this.footer.textContent = this.writeResultMessage('オーバーレイの尺を変更しました。', result);
             }
+            await this.commitEditMutation(label, mutate);
             this.hideNotice();
+            this.footer.textContent = message;
             this.revealOutputPreview();
         } catch (error) {
             const detail = this.errorMessage(error);
@@ -8166,8 +7298,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected copySelectedItem(): boolean {
         const selection = this.selection;
-        if (!selection || selection.kind === 'cut' || selection.kind === 'layer' || selection.kind === 'audio') {
-            this.footer.textContent = 'コピーする字幕またはオーバーレイが選択されていません。';
+        if (!selection || selection.kind === 'audio') {
+            this.footer.textContent = 'コピーできるクリップまたは字幕が選択されていません。';
             return false;
         }
         if (selection.kind === 'caption') {
@@ -8184,17 +7316,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.footer.textContent = '字幕をコピーしました。';
             return true;
         }
-        const overlay = this.overlays.find(candidate => candidate.id === selection.id);
-        if (!overlay) {
+        const itemId = selection.kind === 'cut' ? this.cutItemId(selection.index) : selection.id;
+        const item = this.rawV2Item(itemId);
+        const trackId = this.itemLocations.get(itemId)?.trackId;
+        if (!item || !trackId) {
             this.applySelection(undefined);
-            this.footer.textContent = 'コピー対象のオーバーレイが見つかりません。';
+            this.footer.textContent = 'コピー対象のクリップが見つかりません。';
             return false;
         }
         this.clipboard = {
-            kind: 'overlay',
-            payload: this.deepCopy(overlay.payload) as OverlayWritePayload
+            kind: 'item',
+            trackId,
+            item: this.deepCopy(item)
         };
-        this.footer.textContent = 'オーバーレイをコピーしました。';
+        this.footer.textContent = 'クリップをコピーしました。';
         return true;
     }
 
@@ -8202,13 +7337,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const clipboard = this.clipboard;
         const location = this.location;
         if (!clipboard || !location) {
-            this.footer.textContent = 'ペーストする字幕またはオーバーレイがありません。';
+            this.footer.textContent = 'ペーストするクリップまたは字幕がありません。';
             return;
         }
         const start = Number.isFinite(this.playheadT) ? this.playheadT : this.selectedSourceT;
         const duration = clipboard.kind === 'caption'
             ? clipboard.payload.end - clipboard.payload.start
-            : clipboard.payload.duration;
+            : Number(clipboard.item.duration) / this.fps;
         const contentDuration = this.contentEndDuration();
         if (!Number.isFinite(start) || start < 0 || start + duration > contentDuration + Number.EPSILON) {
             this.footer.textContent = '総尺を超える位置にはペーストできません。';
@@ -8252,36 +7387,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.footer.textContent = this.writeResultMessage('字幕をペーストしました。', result);
             } else {
                 if (!location.editUri) {
-                    this.footer.textContent = 'edit.json がないためオーバーレイをペーストできません。';
+                    this.footer.textContent = 'edit.json がないためクリップをペーストできません。';
                     return;
                 }
-                const originalId = String(clipboard.payload.id);
-                const overlay = this.deepCopy(clipboard.payload) as OverlayWritePayload;
-                overlay.id = this.nextCopyId(`${originalId}-copy`, this.overlays.map(candidate => candidate.id));
-                overlay.start = start;
-                const result = await this.annotationsService.insertOverlay({
-                    editUri: location.editUri.toString(), projectRootUri: location.root.toString(), overlay
-                });
-                this.pushHistory({
-                    label: 'オーバーレイのペースト',
-                    undo: async () => {
-                        await this.annotationsService.removeOverlay({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(),
-                            overlayId: overlay.id
-                        });
-                        await this.reloadEdit();
-                    },
-                    redo: async () => {
-                        await this.annotationsService.insertOverlay({
-                            editUri: location.editUri!.toString(), projectRootUri: location.root.toString(), overlay
-                        });
-                        await this.reloadEdit();
-                        this.applySelection({ kind: 'overlay', id: overlay.id });
-                    }
-                });
-                await this.reloadEdit();
-                this.applySelection({ kind: 'overlay', id: overlay.id });
-                this.footer.textContent = this.writeResultMessage('オーバーレイをペーストしました。', result);
+                const originalId = String(clipboard.item.id);
+                const item = this.deepCopy(clipboard.item);
+                item.id = this.nextCopyId(`${originalId}-copy`, [...this.itemLocations.keys()]);
+                item.at = this.frameAt(start);
+                await this.commitEditMutation('クリップのペースト', doc =>
+                    insertV2Item(doc, clipboard.trackId, item));
+                const cutIndex = this.cutItemIds.indexOf(String(item.id));
+                if (cutIndex >= 0) {
+                    this.applySelection({ kind: 'cut', index: cutIndex });
+                } else if (this.layers.some(layer => layer.id === item.id)) {
+                    this.applySelection({ kind: 'layer', id: String(item.id) });
+                } else if (this.overlays.some(overlay => overlay.id === item.id)) {
+                    this.applySelection({ kind: 'overlay', id: String(item.id) });
+                }
+                this.footer.textContent = 'クリップをペーストしました。';
             }
             this.hideNotice();
         } catch (error) {
@@ -8493,7 +7616,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!(t >= cutsEnd)) {
             return '';
         }
-        return '（本編の終わりより後ろです。本編を伸ばさないと書き出しには入りません）';
+        return '（いちばん下の映像段の終わりより後ろです。段の尺を伸ばさないと書き出しには入りません）';
     }
 
     /**

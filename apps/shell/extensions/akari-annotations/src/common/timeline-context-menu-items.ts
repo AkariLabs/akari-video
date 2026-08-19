@@ -3,11 +3,8 @@
  * (task 2026-08-10-timeline-clip-menu 指示2)。DOM に一切依存しないため node --test で検証できる。
  * 呼び出し側 (akari-annotations-widget.ts) が id ごとに既存ハンドラへディスパッチする。
  *
- * 司令塔裁定1: メニューは既存ハンドラのメニュー化に徹する。ハンドラが対応しない種別には
- * 項目を出さない — コピーは caption/overlay のみ（既存 copySelectedItem の対応範囲）、
- * ペーストは clipboard に中身があるときだけ全種別、分割は cut のみ（既存 razor
- * performRazorSplitAt）、削除は全種別。cuts/layers/audio へのコピー&ペースト拡張は次段
- * （本タスクでは実装しない）。
+ * v2 の visual item は source.kind に関係なく同じコピー経路を使う。字幕は sidecar の既存経路、
+ * audio はトップレベル audio ブロックのためコピー対象外。分割は cut、削除は全種別。
  */
 export type TimelineClipMenuItemKind = 'cut' | 'overlay' | 'caption' | 'layer' | 'audio';
 
@@ -17,8 +14,8 @@ export interface TimelineClipMenuItem {
     readonly danger?: boolean;
 }
 
-/** コピー対応種別（既存 copySelectedItem の対応範囲）。 */
-const COPY_CAPABLE_KINDS: ReadonlySet<TimelineClipMenuItemKind> = new Set(['caption', 'overlay']);
+/** コピー対応種別（v2 visual item + 字幕）。 */
+const COPY_CAPABLE_KINDS: ReadonlySet<TimelineClipMenuItemKind> = new Set(['cut', 'caption', 'overlay', 'layer']);
 
 /** 分割対応種別（既存 razor performRazorSplitAt の対応範囲）。 */
 const SPLIT_CAPABLE_KINDS: ReadonlySet<TimelineClipMenuItemKind> = new Set(['cut']);

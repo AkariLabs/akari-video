@@ -35,8 +35,8 @@ be traced afterward.
 
 | File | Contents |
 |---|---|
-| `edit.json` | The SSOT for the edit: cut sequence, overlay references, audio (BGM/SFX/narration), beats, direction |
-| Overlay HTML fragments | Captions, subtitles, shapes, etc. (referenced from `edit.json`'s `overlays[]`) |
+| `edit.json` | The SSOT for the edit: sources, ordered tracks, clips, audio, captions, and thumbnail |
+| Overlay HTML fragments | Titles, figures, and shapes (referenced by HTML clips in `tracks[].items[]`) |
 | `captions.json` | Caption data |
 | `decision-log.md` | A record of decisions |
 
@@ -45,21 +45,15 @@ be traced afterward.
 This file is the canonical record of the editing state. The exact schema is defined in each
 contract under [Reference](../README.md#reference), but day to day, what matters is:
 
-- **New projects always start as edit v1** — every freshly created `edit.json` uses `sources[]`
-  (a list of clip entries, even when there's only one clip) and `cuts[].src` pointing at one of
-  them. If you're hand-editing an older project whose `edit.json` is still `version: 0` (a
-  single `source`), leave it as v0 — nobody force-migrates an existing file. Converting one on
-  request follows the mechanical steps in the [multi-source contract §5](../contract-2026-07-18-edit-json-v1-sources.md)
-  (present the diff, get explicit approval, then convert — never silently).
-- **cuts[]** — which part of which clip (`src`), from what second to what second. Times are
-  always persisted in **the clip's original seconds**, so reordering cuts doesn't break
-  references
-- **overlays[]** — references to overlay HTML and their timing
-- **audio** — sound effects and music as clips (`audio.sfx[]`: same `t`/`in`/`out` model as
-  `cuts[]`, trim by dragging the ends on the timeline bar), plus narration
-  (`audio.narration[]`). `audio.bgm` still exists as a shorthand "bed" for looping one track
-  under the whole video — reach for it only when you don't need to trim or place it partway
-  through; everything else (music over just part of the video, switching tracks) is a clip
+- **New projects use edit v2** — `sources[]` declares media and `tracks[].items[]` holds every
+  visual or audio clip. A clip points to its source with `source.kind` and `source.src`.
+- **Tracks are just ordered rows** — `lane` separates visual from audio; old “main” and
+  “layer” categories are not part of the format. Visual stacking follows the order of
+  `tracks[]`, from back to front.
+- **Clips use frames on the output timeline** — `at` and `duration` are integer frames.
+  Media trim points `source.in` and `source.out` remain seconds in the original source.
+- **Empty rows are preserved** — a declared track remains visible when `items[]` is empty.
+  Moving its last clip does not delete it; only the explicit “Delete track” action does.
 
 You're free to edit it by hand (git diff will track the changes). Just remember to run
 [edit-lint](./review-and-fix.md) afterward.
