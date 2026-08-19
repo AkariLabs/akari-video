@@ -552,10 +552,8 @@ function buildV2Item(item, index, fps, ref, lane, pathOf) {
                 preset: item.source.preset, params: item.source.params, track: ref, ...common
             };
             if (item.source.baked === undefined) {
-                // 焼き済みキャッシュが無い telop は旧種別別配列で表せない（overlays[] は HTML 断片を要求する）。
                 return {
-                    item: { id: item.id, at, duration, source, declaration, legacy: { collection: 'layers', index } },
-                    warning: `テロップ ${item.id} は未焼成のため旧経路では表示しません。`
+                    item: { id: item.id, at, duration, source, declaration, legacy: { collection: 'layers', index } }
                 };
             }
             const value = {
@@ -581,8 +579,7 @@ function buildV2Item(item, index, fps, ref, lane, pathOf) {
                     id: item.id, at, duration, source,
                     declaration: { id: item.id, t: at, duration, kind: 'filter', filter: item.source.filter, track: ref },
                     legacy: { collection: 'layers', index }
-                },
-                warning: `フィルター ${item.id} は旧経路では表示しません。`
+                }
             };
         }
     }

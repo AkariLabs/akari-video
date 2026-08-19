@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { readInternalEdit } from '@akari-video/edit-store';
-import { collectItems, hasInlineCaptions } from '../lib/common/preview-items.js';
+import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../lib/common/preview-items.js';
 
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = join(extensionRoot, '../../../..');
@@ -68,6 +68,27 @@ test('内部表現から集めた宣言列が、旧実装の生 cuts[] / overlay
         checked += 1;
     }
     assert.ok(checked > 100, `検査できた v0/v1 が少なすぎます: ${checked}`);
+});
+
+test('timeline.tracks 未宣言では外部字幕または埋め込み字幕から captions 段を導出する', () => {
+    const base = {
+        version: 1,
+        output: { width: 1280, height: 720, fps: 30 },
+        sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+        cuts: [{ src: 'main', in: 0, out: 1 }],
+        overlays: []
+    };
+    const external = readPreviewInternalEdit(JSON.stringify(base), true);
+    assert.equal(external.tracks.at(-1).legacy.kind, 'captions');
+
+    const inline = readPreviewInternalEdit(JSON.stringify({
+        ...base,
+        captions: [{ id: 'c1', start: 0, end: 1, text: 'inline' }]
+    }), false);
+    assert.equal(inline.tracks.at(-1).legacy.kind, 'captions');
+
+    const none = readPreviewInternalEdit(JSON.stringify(base), false);
+    assert.equal(none.tracks.some(track => track.legacy.kind === 'captions'), false);
 });
 
 test('種別ごとの分岐は source.kind 1 箇所（v2 の 4 種別が同じ 3 バケットへ落ちる）', () => {

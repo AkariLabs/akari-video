@@ -178,6 +178,22 @@ test('v2 でも baked の有無は同じアイテムの二態（id も種別も�
     assert.equal(baked.source.baked, 'out/layers/telop.mov');
 });
 
+test('v2 の未焼成 telop と filter は描画消費者へ警告なしで残る', () => {
+    const internal = readInternalEdit(JSON.stringify({
+        version: 2,
+        output: { width: 1280, height: 720, fps: 30 },
+        sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+        tracks: [{
+            id: 'visual', lane: 'visual', items: [
+                { id: 'telop', at: 0, duration: 30, source: { kind: 'telop', preset: 'ref3_name_rounded' } },
+                { id: 'filter', at: 0, duration: 30, source: { kind: 'filter', filter: { type: 'invert' } } }
+            ]
+        }]
+    }));
+    assert.deepEqual(internal.warnings, []);
+    assert.deepEqual(items(internal).map(item => item.source.kind), ['telop', 'filter']);
+});
+
 test('トラックの配列順が z（0 = 最背面）で、配列添字と常に一致する', () => {
     const internal = readInternalEdit(JSON.stringify({
         version: 1,

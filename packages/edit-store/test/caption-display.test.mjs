@@ -61,6 +61,23 @@ test('projects repeated/crossing/speed/multi-source occurrences before splitting
   assert.equal(result.display_cues.at(-1).end, 5.5);
 });
 
+test('source reference validation is driven by normalized sources, not edit.version', () => {
+  const root = {
+    display_policy: policy,
+    captions: [caption('c-0001', 0, 1, '正常です', { src: 'a' })],
+  };
+  const normalized = {
+    output: { width: 1920, height: 1080 },
+    sources: [{ id: 'a' }],
+    cuts: [{ src: 'a', in: 0, out: 1 }],
+  };
+  assert.equal(resolveCaptionDisplay(root, normalized).occurrence_count, 1);
+  assert.throws(
+    () => resolveCaptionDisplay(root, { ...normalized, sources: [] }),
+    /non-empty sources/u
+  );
+});
+
 test('fails closed for timeline overrides, normalization, style, overlap, and impossible split', () => {
   const base = { display_policy: policy, captions: [caption('c-0001', 0, 1, '正常です')] };
   assert.throws(() => resolveCaptionDisplay(base, { cuts: [{ in: 0, out: 1, at: 0 }] }), /does not support/);

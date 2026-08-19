@@ -45,6 +45,10 @@ import { createImmutableRenderReceipt, prepareContainedReportDirectory } from ".
 import { buildAudioQc, measurementErrorAudioQc, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { resolveCanonicalCaptionFontAsset } from "./caption-font.mjs";
+import {
+  projectRendererCompatibilityEdit,
+  readRenderEdit,
+} from "./internal-render.mjs";
 
 const VERSION = 1;
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -108,7 +112,11 @@ export async function renderProject(input, options = {}, io = console) {
   const projectRoot = resolve(input);
   const editPath = join(projectRoot, "edit.json");
   const editText = await readRequired(editPath, "edit.json");
-  const edit = parseJson(editText, "edit.json");
+  const parsedEdit = parseJson(editText, "edit.json");
+  const renderTmpRoot = join(projectRoot, ".akari", "render-tmp");
+  const renderRead = readRenderEdit(editText, renderTmpRoot);
+  let edit = renderRead.edit;
+  const internalEdit = renderRead.internal;
   validateEditShape(edit);
 
   const lint = await validateLint(projectRoot, options.force === true);
@@ -125,7 +133,7 @@ export async function renderProject(input, options = {}, io = console) {
     ? resolveCanonicalCaptionFontAsset()
     : null;
   const declaredInputs = await enumerateDeclaredRenderInputs({
-    projectRoot, edit, editText, captionFontAsset,
+    projectRoot, edit, editText, captionFontAsset, internalEdit,
   });
   const inputSnapshot = await hashDeclaredRenderInputs(declaredInputs, { useConsumedText: true });
   const inputs = Object.fromEntries(
@@ -151,13 +159,15 @@ export async function renderProject(input, options = {}, io = console) {
   // across repeated --plan-only calls). An actual render claims its own uniquely-named
   // subdirectory so two processes racing on the same project never clobber each other's
   // intermediates; only the owning process ever writes into it.
-  const renderTmpRoot = join(projectRoot, ".akari", "render-tmp");
   const temporaryDirectory = options.planOnly
     ? renderTmpRoot
     : await createRunTemporaryDirectory(renderTmpRoot);
+  edit = projectRendererCompatibilityEdit(parsedEdit, internalEdit, temporaryDirectory);
 
   const plan = buildPlan({
     edit,
+    internalEdit,
+    sourceVersion: parsedEdit.version,
     projectRoot,
     outputPath,
     capabilities,
@@ -252,6 +262,9 @@ export async function renderProject(input, options = {}, io = console) {
   };
 
   try {
+    for (const command of plan.commands.telops ?? []) {
+      runChecked(command.command, command.args, { cwd: projectRoot });
+    }
     const cutPath = join(temporaryDirectory, "cut.mp4");
     const cutCommand = plan.commands.cut;
     if (progressEnabled) {
@@ -291,7 +304,10 @@ export async function renderProject(input, options = {}, io = console) {
           await copyFile(stage.inputPath, stage.outputPath);
           continue;
         }
-        const stageTemporaryDirectory = join(temporaryDirectory, `track-overlay-${stage.orderIndex}`);
+        const stageTemporaryDirectory = join(
+          temporaryDirectory,
+          `track-overlay-${stage.orderIndex}-${stage.stageIndex}`,
+        );
         await mkdir(stageTemporaryDirectory, { recursive: true });
         await rasterizeAndComposite({
           state,

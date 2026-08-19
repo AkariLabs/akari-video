@@ -491,9 +491,11 @@ function validateShadowLike(value: unknown, allowed: Set<string>, label: string)
 }
 
 function validateSourceReferences(captions: UnknownRecord[], cuts: UnknownRecord[], edit: UnknownRecord): number {
-    if (edit?.version !== 1) return 1;
+    // 単一 source 宣言を持つ旧入力は素材表を持たない。正規化後の v1/v2 はどちらも
+    // sources[] を持つため、版番号ではなく入力の性質だけで同じ参照検証を行う。
+    if (!Object.prototype.hasOwnProperty.call(edit, 'sources')) return 1;
     if (!Array.isArray(edit.sources) || edit.sources.length === 0) {
-        fail('INVALID_SOURCES', 'edit.json version 1 requires a non-empty sources[] array');
+        fail('INVALID_SOURCES', 'edit.json requires a non-empty sources[] array');
     }
     const sourceIds = new Set<string>();
     edit.sources.forEach((source: unknown, index: number) => {

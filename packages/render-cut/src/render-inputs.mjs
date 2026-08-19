@@ -13,7 +13,13 @@ export const ABSENT_DECLARED_INPUT_SENTINEL = "AKARI_DECLARED_INPUT_ABSENT/v1";
 
 export class RenderInputError extends Error {}
 
-export async function enumerateDeclaredRenderInputs({ projectRoot, edit, editText = null, captionFontAsset = null }) {
+export async function enumerateDeclaredRenderInputs({
+  projectRoot,
+  edit,
+  editText = null,
+  captionFontAsset = null,
+  internalEdit = null,
+}) {
   const root = realpathSync(resolve(projectRoot));
   const inputs = [];
   addProjectInput(inputs, root, "edit", "edit.json", { text: editText });
@@ -51,7 +57,20 @@ export async function enumerateDeclaredRenderInputs({ projectRoot, edit, editTex
     const path = audioPath(narration);
     if (path) addOptionalProjectInput(inputs, root, `audio:narration:${narration?.id ?? index}`, path);
   }
+  const generatedTelopIds = new Set();
+  for (const track of internalEdit?.tracks ?? []) {
+    for (const item of track.items ?? []) {
+      if (item.source?.kind !== "telop" || item.source.baked !== undefined) continue;
+      generatedTelopIds.add(String(item.id));
+      addAkariInput(
+        inputs,
+        `telop-preset:${item.id}`,
+        join(dirname(PRESETS_LUTS_ROOT), "telop", item.source.preset, "template.json"),
+      );
+    }
+  }
   for (const [index, layer] of (edit.layers ?? []).entries()) {
+    if (generatedTelopIds.has(String(layer?.id))) continue;
     if (typeof layer?.src !== "string" || layer.src === "") continue;
     addProjectInput(inputs, root, `layer:${layer?.id ?? index}`, layer?.src);
   }

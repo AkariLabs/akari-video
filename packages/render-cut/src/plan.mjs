@@ -24,10 +24,17 @@ import {
   buildTrackBaseCommand,
   resolveCutTrackRanges,
 } from "./track-compose.mjs";
-import { resolveTrackOrder, resolveVisualTrackZ, usesDefaultTrackOrder } from "./track-order.mjs";
+import { usesDefaultTrackOrder } from "./track-order.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { enableWindowExpr } from "./enable-window.mjs";
 import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
+import {
+  buildTelopRasterCommands,
+  internalTrackZ,
+  readRenderEdit,
+  renderItemDeclaration,
+  renderItemKind,
+} from "./internal-render.mjs";
 
 // docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
 const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
@@ -51,6 +58,8 @@ function tuneCutVideoEncodeArgs(videoEncodeArgs) {
 
 export function buildPlan({
   edit,
+  internalEdit,
+  sourceVersion = edit.version,
   projectRoot,
   outputPath,
   capabilities,
@@ -71,6 +80,7 @@ export function buildPlan({
   encodingPolicy,
   fpsOverride,
 }) {
+  const normalizedInternalEdit = internalEdit ?? readRenderEdit(edit, temporaryDirectory).internal;
   // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定5: a still image has no intrinsic
   // duration, so v0's "cuts[] empty = whole source" shortcut (predictedDuration's sourceDuration
   // fallback) cannot apply to it. edit-lint's cuts.still-image-cuts-required check rejects this
@@ -114,6 +124,7 @@ export function buildPlan({
   const finalPath = join(temporary, "final.mp4");
   const sheetPath = join(temporary, "overlay-sheet.html");
   const rasterizer = selectRasterizer(capabilities, hasThreeDimensionalOverlay);
+  const telopRasterCommands = buildTelopRasterCommands(normalizedInternalEdit, temporary);
   let cut;
   if (edit.version === 1) {
     // docs/contract-2026-08-18-v1-render-parity.md §2: cuts[].at / cuts[].track only get a
@@ -181,7 +192,7 @@ export function buildPlan({
   // without it produces no `layers` command and render-cut.mjs skips this stage entirely, so
   // existing projects keep their byte-identical cut.mp4 -> composite pipeline (zero regression).
   const trackOrderOptions = { hasCaptions: captionOverlays.length > 0 };
-  const defaultTrackOrder = usesDefaultTrackOrder(edit, trackOrderOptions);
+  const defaultTrackOrder = sourceVersion !== 2 && usesDefaultTrackOrder(edit, trackOrderOptions);
   const layers = defaultTrackOrder && hasLayers(edit)
     ? buildLayersCompositeCommand({
         layers: edit.layers,
@@ -200,6 +211,7 @@ export function buildPlan({
     ? null
     : buildTrackStackPlan({
         edit,
+        internalEdit: normalizedInternalEdit,
         projectRoot,
         capabilities,
         cutPath: cutOutputPath,
@@ -213,7 +225,6 @@ export function buildPlan({
         hasSourceAudio,
         videoEncodeArgs,
         captionOverlays,
-        trackOrderOptions,
       });
   const baseVideoPath = trackStack ? trackStack.outputPath : (layers ? layeredPath : cutOutputPath);
 
@@ -245,6 +256,7 @@ export function buildPlan({
       ...(tailPad ? [tailPaddedPath] : []),
       ...(layers ? [layeredPath] : []),
       ...(trackStack ? trackStack.intermediates : []),
+      ...telopRasterCommands.map(command => command.output),
       sheetPath,
       overlayMovPath,
       join(temporary, "frames", "frame-%08d.png"),
@@ -257,6 +269,7 @@ export function buildPlan({
     ].map((value) => relative(projectRoot, value)),
     commands: {
       cut,
+      telops: telopRasterCommands,
       tail_pad: tailPad,
       rasterize: {
         hyperframes: {
@@ -344,6 +357,7 @@ export function buildPlan({
 
 function buildTrackStackPlan({
   edit,
+  internalEdit,
   projectRoot,
   capabilities,
   cutPath,
@@ -357,32 +371,37 @@ function buildTrackStackPlan({
   hasSourceAudio,
   videoEncodeArgs,
   captionOverlays,
-  trackOrderOptions,
 }) {
   const cutVideoEncodeArgs = tuneCutVideoEncodeArgs(videoEncodeArgs);
-  const resolvedTracks = resolveTrackOrder(edit, trackOrderOptions);
-  const ordered = resolvedTracks
-    .map(track => {
-      const ref = Number.isInteger(track?.ref) ? track.ref : null;
-      const orderIndex = resolveVisualTrackZ(resolvedTracks, track?.kind, ref ?? undefined);
-      const items = track?.kind === "cuts"
-        ? edit.cuts.filter(cut => (cut.track ?? 0) === ref)
-        : track?.kind === "layers"
-          ? (edit.layers ?? []).filter(layer => (layer.track ?? 0) === ref)
-          : track?.kind === "overlays"
-            ? edit.overlays.filter(overlay => (overlay.track ?? 0) === ref)
-            : track?.kind === "captions"
-              ? captionOverlays
-              : [];
-      return { kind: track?.kind, ref, orderIndex, items };
-    })
-    .filter(track => (
-      track.kind === "cuts"
-      || track.kind === "layers"
-      || track.kind === "overlays"
-      || track.kind === "captions"
-    ) && track.items.length > 0)
-    .sort((left, right) => left.orderIndex - right.orderIndex);
+  const ordered = [];
+  for (const track of internalEdit.tracks) {
+    const orderIndex = internalTrackZ(internalEdit, track);
+    if (track.content?.from === "captions.json") {
+      if (captionOverlays.length > 0) {
+        ordered.push({ kind: "captions", ref: null, orderIndex, items: captionOverlays });
+      }
+      continue;
+    }
+    let current = null;
+    for (const item of track.items) {
+      const route = renderItemKind(item);
+      const kind = route === "cut" ? "cuts"
+        : route === "layer" ? "layers"
+          : route === "html" ? "overlays" : null;
+      if (!kind) continue;
+      if (!current || current.kind !== kind) {
+        current = {
+          kind,
+          ref: track.legacy.ref ?? null,
+          orderIndex,
+          items: [],
+          sequence: ordered.length,
+        };
+        ordered.push(current);
+      }
+      current.items.push(renderItemDeclaration(item, temporary));
+    }
+  }
 
   // task 2026-08-07-track-transition-lint-guard (edit-lint's cuts.track-transition-unsupported
   // check is the primary guard; this is the defensive backstop for direct render-cut invocations
@@ -430,11 +449,17 @@ function buildTrackStackPlan({
       kind: track.kind,
       ref: track.ref,
       orderIndex: track.orderIndex,
+      stageIndex,
       inputPath: previousPath,
       outputPath,
     };
     if (track.kind === "cuts") {
-      const trackPath = join(temporary, `cut-track-${track.ref}-${track.orderIndex}.mp4`);
+      const duplicateCutGroup = ordered.filter(candidate => candidate.kind === "cuts"
+        && candidate.ref === track.ref && candidate.orderIndex === track.orderIndex).length > 1;
+      const trackPath = join(
+        temporary,
+        `cut-track-${track.ref}-${track.orderIndex}${duplicateCutGroup ? `-${stageIndex}` : ""}.mp4`,
+      );
       const command = edit.version === 1
         ? buildMultiSourceCutCommand({
             sourceInputs: capabilities.sourceInputs,
@@ -493,6 +518,7 @@ function buildTrackStackPlan({
           duration,
           width,
           height,
+          fps,
           videoEncodeArgs,
         }),
       });

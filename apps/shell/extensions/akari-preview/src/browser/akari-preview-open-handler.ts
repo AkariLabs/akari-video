@@ -15,15 +15,11 @@ import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import {
-    deriveVisualTrackOrder,
-    projectLegacyEdit,
-    readInternalEdit,
-    resolveVisualTrackZ
-} from '@akari-video/edit-store';
+import { resolveInternalTrackZ } from '@akari-video/edit-store';
 import {
     AkariPreviewService,
     OverlayRuntimeAssets,
+    RasterizeTelopPreviewRequest,
     ReviewStrokeFrame
 } from '../common/akari-preview-protocol';
 import {
@@ -34,7 +30,7 @@ import {
     sfxFadeGainSchedule
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
-import { collectItems, hasInlineCaptions } from '../common/preview-items';
+import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import {
     CAPTION_FONT_FAMILY,
     CAPTION_FONT_LOAD_DESCRIPTOR,
@@ -92,6 +88,7 @@ interface EditSummaryOverlay {
     start: number;
     duration: number;
     track: number;
+    trackId: string;
     transform: OverlayTransform;
     vars: Record<string, string>;
 }
@@ -112,12 +109,22 @@ interface EditSummaryLayer {
     chromaKey: boolean;
     proxyMissing: boolean;
     track: number;
+    trackId: string;
     /** edit.schema.json #/$defs/layerCrop（0..1 正規化・ソースフレーム相対・静的）。
      * common/edit-summary-fields.ts の normalizeLayerCropForSummary が担う。 */
     crop?: LayerCropSummary;
     /** edit.schema.json #/$defs/layerPerspective（corner-pin パース変形・v0 静的）。
      * common/edit-summary-fields.ts の normalizeLayerPerspectiveForSummary が担う。 */
     perspective?: LayerPerspectiveSummary;
+}
+
+interface EditSummaryFilter {
+    id: string;
+    t: number;
+    duration: number;
+    trackId: string;
+    track: number;
+    filter: { type?: string; value?: number; id?: string };
 }
 
 // task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで静止画判定する
@@ -143,6 +150,8 @@ interface EditSummaryCut {
     };
     at?: number;
     track: number;
+    trackId: string;
+    renderTrack: number;
     /** contract-2026-07-22-render-basics.md #6 (静的クロップ / ズームキーフレーム）。
      * 深いバリデーションは common/cut-framing-visual.ts の computeCutFramingVisual が担う
      * ため、ここでは「非配列オブジェクト」であることだけ確認して素通しする。 */
@@ -210,18 +219,20 @@ interface EditSummaryTracks {
 }
 
 interface EditSummaryTimelineTrack {
-    kind: 'cuts' | 'layers' | 'overlays' | 'captions' | 'audio';
-    ref?: number;
+    id: string;
+    z: number;
 }
 
 interface EditSummary {
     output: { width: number; height: number; fps?: number };
     overlays: EditSummaryOverlay[];
     layers: EditSummaryLayer[];
+    filters: EditSummaryFilter[];
     cuts: EditSummaryCut[];
     audio?: EditSummaryAudio;
     tracks?: EditSummaryTracks;
     timelineTracks?: EditSummaryTimelineTrack[];
+    captionTrackId?: string;
     hasCaptions?: boolean;
     hasInlineCaptions?: boolean;
     indicators: string[];
@@ -240,6 +251,7 @@ interface PreviewModel {
     overlayUris: URI[];
     assetUris: URI[];
     assetStreamIds: string[];
+    deferredTelops?: DeferredTelopPreview[];
     /** asset URI → この loadPreviewModel 呼び出しで開いた stream URL。差分更新時の URL 引継ぎ用。 */
     assetUrlByUri?: Map<string, string>;
     captionsUri?: URI;
@@ -260,6 +272,12 @@ interface PreviewModel {
         allTracksHiddenScopes: string[];
         allTracksMutedScopes: string[];
     };
+}
+
+interface DeferredTelopPreview {
+    key: string;
+    layerId: string;
+    request: RasterizeTelopPreviewRequest;
 }
 
 interface OverlayWriteRequest {
@@ -410,6 +428,10 @@ interface PreviewWidgetMarker extends WebviewWidget {
     /** v1 マルチソースで代表ソース以外に開いた動画ストリーム id（代表は akariPreviewStreamId） */
     akariPreviewExtraStreamIds?: string[];
     akariPreviewAssetStreamIds?: string[];
+    akariPreviewSummary?: EditSummary;
+    akariPreviewDeferredTelopPending?: Set<string>;
+    akariPreviewDeferredTelopExpected?: Map<string, string>;
+    akariPreviewDeferredTelopReady?: Map<string, { key: string; stream: { id: string; url: string } }>;
     akariPreviewSeekable?: boolean;
     akariPreviewMuted?: boolean;
     akariPreviewCaptionsVisible?: boolean;
@@ -582,6 +604,7 @@ const EMPTY_SUMMARY: EditSummary = {
     output: { width: 1280, height: 720, fps: 30 },
     overlays: [],
     layers: [],
+    filters: [],
     cuts: [],
     indicators: []
 };
@@ -2101,6 +2124,73 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
 
+    /**
+     * 未焼成 telop をプレビューの open 臨界経路から外す。初期 DOM は proxyMissing の
+     * video 要素を持ち、完了時だけ既存 model-update チャンネルでその要素へ src を差す。
+     */
+    protected startDeferredTelopRasters(widget: PreviewWidgetMarker, model: PreviewModel): void {
+        const tasks = model.deferredTelops ?? [];
+        widget.akariPreviewDeferredTelopExpected = new Map(tasks.map(task => [task.layerId, task.key]));
+        if (tasks.length === 0) return;
+        const pending = widget.akariPreviewDeferredTelopPending ?? new Set<string>();
+        const ready = widget.akariPreviewDeferredTelopReady
+            ?? new Map<string, { key: string; stream: { id: string; url: string } }>();
+        widget.akariPreviewDeferredTelopPending = pending;
+        widget.akariPreviewDeferredTelopReady = ready;
+
+        for (const task of tasks) {
+            const cached = ready.get(task.layerId);
+            if (cached?.key === task.key) {
+                if (!this.applyDeferredTelopStream(widget, task, cached.stream)) {
+                    ready.delete(task.layerId);
+                    void this.disposeAssetStreams([cached.stream.id]);
+                }
+                continue;
+            }
+            if (pending.has(task.key)) continue;
+            pending.add(task.key);
+            void this.previewService.rasterizeTelopPreview(task.request).then(stream => {
+                pending.delete(task.key);
+                if (widget.isDisposed
+                    || widget.akariPreviewDeferredTelopExpected?.get(task.layerId) !== task.key) {
+                    return this.disposeAssetStreams([stream.id]);
+                }
+                if (!this.applyDeferredTelopStream(widget, task, stream)) {
+                    return this.disposeAssetStreams([stream.id]);
+                }
+                ready.set(task.layerId, { key: task.key, stream });
+                return undefined;
+            }).catch(error => {
+                pending.delete(task.key);
+                if (widget.akariPreviewDeferredTelopExpected?.get(task.layerId) === task.key) {
+                    console.warn(`[akari-preview] telop ${task.layerId} の非同期描画に失敗しました`, error);
+                }
+            });
+        }
+    }
+
+    protected applyDeferredTelopStream(
+        widget: PreviewWidgetMarker,
+        task: DeferredTelopPreview,
+        stream: { id: string; url: string }
+    ): boolean {
+        const summary = widget.akariPreviewSummary;
+        if (!summary || widget.isDisposed
+            || widget.akariPreviewDeferredTelopExpected?.get(task.layerId) !== task.key) return false;
+        const index = summary.layers.findIndex(layer => layer.id === task.layerId);
+        if (index < 0) return false;
+        const layers = [...summary.layers];
+        layers[index] = { ...layers[index], src: stream.url, proxyMissing: false };
+        const nextSummary = { ...summary, layers };
+        widget.akariPreviewSummary = nextSummary;
+        widget.akariPreviewAssetStreamIds ??= [];
+        if (!widget.akariPreviewAssetStreamIds.includes(stream.id)) {
+            widget.akariPreviewAssetStreamIds.push(stream.id);
+        }
+        widget.sendMessage({ type: 'akari-preview-model-update', summary: nextSummary });
+        return true;
+    }
+
     protected previewModelSnapshot(model: PreviewModel, assets: OverlayRuntimeAssets): PreviewModelDiffInput {
         const assetUrlByUri = model.assetUrlByUri ?? new Map<string, string>();
         const replacements = [...assetUrlByUri.entries()].map(([uri, url]) => [url, `akari-asset:${uri}`] as const);
@@ -2185,13 +2275,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
             const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
             if (updateKind === 'none') {
+                this.startDeferredTelopRasters(widget, model);
                 await this.disposeAssetStreams(model.assetStreamIds);
                 return;
             }
             if (updateKind === 'incremental') {
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 widget.akariPreviewModelSnapshot = nextSnapshot;
+                widget.akariPreviewSummary = summary;
                 widget.sendMessage({ type: 'akari-preview-model-update', summary });
+                this.startDeferredTelopRasters(widget, model);
                 await this.disposeAssetStreams(model.assetStreamIds);
                 return;
             }
@@ -2430,6 +2523,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         ));
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
+        widget.akariPreviewSummary = model.summary;
+        this.startDeferredTelopRasters(widget, model);
     }
 
     // Picks the URI that actually gets streamed to <video>. task/2026-08-09-drop-hevc-proxy:
@@ -2459,6 +2554,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     ): void {
         widget.akariPreviewModelSnapshot = undefined;
         widget.akariPreviewAssetUrlByUri = undefined;
+        widget.akariPreviewSummary = undefined;
+        widget.akariPreviewDeferredTelopExpected = new Map();
         widget.akariPreviewSeekable = false;
         void this.disposePreviewStreams(widget);
         widget.akariPreviewEditUri = kind === 'output' ? identityUri : undefined;
@@ -2502,9 +2599,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const captionsUri = locatePreviewCaptions(editUri, workspaceRoot?.resource);
         // 字幕の解決（resolveCaptionDisplay = backend RPC）は edit.json の内容にも依存するので
         // 通知に全文が載っていても省けない（captions.json は別ファイルで通知に含まれない）。
-        // ただし**直列に待つ必要は無い**ので、資産解決と並走させて待ち時間を重ねる。
-        // 実測（一時計装・n=6）: この解決だけで 12.7〜40.7ms を占め、loadPreviewModel 全体は
-        // 42〜82ms だった。loadPreviewCaptions は内部で catch して [] を返すので reject しない。
+        // edit.json 読み出しとは先に並走させる。正規化時には captions 段の導出へ必要なので
+        // await する（loadPreviewCaptions は内部で catch して [] を返すため reject しない）。
         const captionsPromise = this.loadPreviewCaptions(captionsUri, editUri);
         const assetStreams = new Map<string, { id: string; url: string }>();
         const assetUris: URI[] = [];
@@ -2514,7 +2610,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         try {
             // 版を知るのは読み込み層（readInternalEdit）だけ。v0（単一 source）も v1（sources[]）も
             // v2（tracks[].items[]）も、ここから先は同じ内部表現として扱う。
-            const internal = readInternalEdit(editSource ?? await this.readText(editUri));
+            const editText = editSource ?? await this.readText(editUri);
+            // timeline.tracks 未宣言時の captions 段は captions.json の実在に依存する。
+            // 先に字幕解決を確定し、埋め込み字幕と合わせて正規化読込へ渡す。
+            const captions = await captionsPromise;
+            const internal = readPreviewInternalEdit(editText, captions.length > 0);
+            const trackIdByItem = new Map(internal.tracks.flatMap(track =>
+                track.items.map(item => [item, track.id] as const)));
             const declaredSources = internal.sources;
             // ソースの宣言が 1 つも無い = 素材投入前の新規プロジェクト。壊れた宣言（path が
             // 非文字列など）とは区別し、ここでは投げずに空プロジェクトとして返す
@@ -2528,7 +2630,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetUris: [],
                     assetStreamIds: [],
                     captionsUri,
-                    captions: await captionsPromise,
+                    captions,
                     emptyProject: true
                 };
             }
@@ -2569,7 +2671,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const width = this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width);
             const height = this.positiveNumber(internal.output.height, EMPTY_SUMMARY.output.height);
             const cuts: EditSummaryCut[] = [];
-            for (const value of cutItems.map(item => item.declaration as any)) {
+            for (const item of cutItems) {
+                const value = item.declaration as any;
+                const trackId = String(trackIdByItem.get(item) ?? '');
                 // buildCutSummaryFields は akari-preview-open-handler.ts の外に出した純関数
                 // （common/edit-summary-fields.ts）。crop/perspective 欠落バグ（2026-08-06）の
                 // 再発防止として、この呼び出し自体を配線検査テストの対象にしている
@@ -2582,14 +2686,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     (message, detail) => console.warn(message, detail)
                 );
                 if (result.ok && result.fields) {
-                    cuts.push(result.fields as EditSummaryCut);
+                    cuts.push({
+                        ...result.fields,
+                        trackId,
+                        renderTrack: resolveInternalTrackZ(
+                            internal.tracks,
+                            trackId
+                        )
+                    } as EditSummaryCut);
                 }
             }
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
             const unsupportedGltfWarnings: string[] = [];
             // 宣言レコードは読み込み層が版差を吸収済み。フィールドの検証は従来どおりここで行う。
-            for (const value of collectItems(internal, 'overlays').map(item => item.declaration as any)) {
+            for (const item of collectItems(internal, 'overlays')) {
+                const value = item.declaration as any;
                 if (value?.track !== undefined && (!Number.isInteger(value.track) || value.track < 0)) {
                     console.warn('[akari-preview] overlay track が不正なため track 0 として表示します', value?.id);
                 }
@@ -2612,16 +2724,53 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     start: this.finiteNumber(value?.start, 0),
                     duration: this.finiteNumber(value?.duration, 0),
                     track: Number.isInteger(value?.track) && value.track >= 0 ? value.track : 0,
+                    trackId: String(trackIdByItem.get(item) ?? ''),
                     transform: this.transform(value?.transform),
                     vars: this.stringRecord(value?.vars)
                 });
             }
             const layers: EditSummaryLayer[] = [];
+            const filters: EditSummaryFilter[] = [];
+            const deferredTelops: DeferredTelopPreview[] = [];
             let unsupportedBlendCount = 0;
             const layerItems = collectItems(internal, 'layers');
+            const deferTelop = (item: typeof layerItems[number]): void => {
+                if (item.source.kind !== 'telop') return;
+                const request: RasterizeTelopPreviewRequest = {
+                    preset: item.source.preset ?? '',
+                    params: item.source.params,
+                    duration: item.duration,
+                    width,
+                    height,
+                    fps: internal.output.fps
+                };
+                deferredTelops.push({
+                    layerId: item.id,
+                    key: JSON.stringify({ layerId: item.id, request }),
+                    request
+                });
+            };
             for (const item of layerItems) {
-                const value = item.declaration as any;
+                if (item.source.kind === 'filter') {
+                    filters.push({
+                        id: item.id,
+                        t: item.at,
+                        duration: item.duration,
+                        trackId: String(trackIdByItem.get(item) ?? ''),
+                        track: Number.isInteger(item.declaration.track) && Number(item.declaration.track) >= 0
+                            ? Number(item.declaration.track) : 0,
+                        filter: item.source.filter as EditSummaryFilter['filter']
+                    });
+                    continue;
+                }
+                let value = item.declaration as any;
                 const label = `layers[${item.legacy.index}]`;
+                let deferredTelop = false;
+                if (item.source.kind === 'telop' && item.source.baked === undefined) {
+                    deferTelop(item);
+                    deferredTelop = true;
+                    value = { ...value, kind: 'baked', src: `deferred-telop:${item.id}` };
+                }
                 // buildLayerSummaryBase は akari-preview-open-handler.ts の外に出した純関数
                 // （common/edit-summary-fields.ts）。crop/perspective 欠落バグ（2026-08-06
                 // shell-summary-field-gap）の再発防止として、この呼び出し自体を配線検査テストの
@@ -2639,7 +2788,18 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (result.unsupportedBlend) {
                     unsupportedBlendCount += 1;
                 }
-                const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing' | 'isImage'> = result.base;
+                const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing' | 'isImage'> = {
+                    ...result.base,
+                    trackId: String(trackIdByItem.get(item) ?? '')
+                };
+                if (deferredTelop) {
+                    layers.push({
+                        ...base,
+                        proxyMissing: true,
+                        isImage: false
+                    });
+                    continue;
+                }
                 let sourceUri: URI;
                 try {
                     sourceUri = this.resolveEditAssetUri(value.src, editUri);
@@ -2668,6 +2828,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         }
                     } catch (error) {
                         console.warn(`[akari-preview] ${label} の preview proxy を配信できません`, error);
+                    }
+                    // baked はキャッシュ。Chromium sidecar が無い場合は、初期モデルを待たせず
+                    // 同じ preset/params の一時 rasterize をバックグラウンドへ回す。
+                    if (!src && item.source.kind === 'telop') {
+                        deferTelop(item);
                     }
                     layers.push({ ...base, ...(src ? { src } : {}), proxyMissing: !src, isImage: false });
                     continue;
@@ -2716,13 +2881,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ...(audioTracks ? { audio: audioTracks } : {})
             } : undefined;
             // 宣言トラック（z の権威 = 配列順）。読み込み層が正規化した並びをそのまま使う。
-            const declaredTracks = projectLegacyEdit(internal).timeline?.tracks;
-            const timelineTracks: EditSummaryTimelineTrack[] | undefined = declaredTracks
-                ? declaredTracks.map(track => ({
-                    kind: track.kind,
-                    ...(track.ref !== undefined ? { ref: track.ref } : {})
-                }))
-                : undefined;
+            const timelineTracks: EditSummaryTimelineTrack[] = internal.tracks.map(track => ({
+                id: track.id,
+                z: resolveInternalTrackZ(internal.tracks, track.id)
+            }));
+            const captionTrackId = internal.tracks.find(track => track.content?.from === 'captions.json')?.id;
             const audio = await this.resolveAudioAssets(internal.declaration.audio, editUri, assetStreams, assetUris);
             const indicators: string[] = [];
             if (isTruthyObject(internal.output.look)) indicators.push('LUT');
@@ -2746,8 +2909,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 indicators.push('ディゾルブ切り替え');
             }
             indicators.push(...unsupportedGltfWarnings);
-            // ここで初めて字幕解決を待つ（上の資産解決と並走済み）。
-            const captions = await captionsPromise;
             return {
                 editUri,
                 sourceUri,
@@ -2756,6 +2917,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 overlayUris,
                 assetUris,
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
+                ...(deferredTelops.length > 0 ? { deferredTelops } : {}),
                 assetUrlByUri: new Map([...assetStreams].map(([uri, stream]) => [uri, stream.url])),
                 captionsUri,
                 captions,
@@ -2764,11 +2926,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     output: { width, height, fps: this.positiveNumber(internal.output.fps, 30) },
                     overlays,
                     layers,
+                    filters,
                     cuts,
                     indicators,
                     ...(audio ? { audio } : {}),
                     ...(tracks ? { tracks } : {}),
-                    ...(timelineTracks ? { timelineTracks } : {}),
+                    timelineTracks,
+                    ...(captionTrackId ? { captionTrackId } : {}),
                     ...(captions.length > 0 || hasInlineCaptions(internal) ? { hasCaptions: true } : {}),
                     ...(hasInlineCaptions(internal) ? { hasInlineCaptions: true } : {})
                 }
@@ -3763,6 +3927,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
 #preview-layers > video, #preview-layers > img { position: absolute; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
 #preview-layers > [data-akari-layer-id] { display: none; }
+#preview-layers > [data-akari-filter-id] { position: absolute; inset: 0; display: none; pointer-events: none; }
 #layer-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #layer-select-box.is-active { display: block; }
 #layer-select-box .akari-layer-handle { position: absolute; width: 12px; height: 12px; margin: -6px; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
@@ -5255,20 +5420,18 @@ body { display: grid; place-items: center; padding: 32px; }
             });
             // timeline.tracks → z の純関数は preview / render-cut 共通の edit-store 正本。
             // webview sandbox では package import ができないため、関数本体そのものを注入する。
-            const deriveVisualTrackOrderFn = (${deriveVisualTrackOrder.toString()});
-            const resolveVisualTrackZFn = (${resolveVisualTrackZ.toString()});
+            const resolveInternalTrackZFn = (${resolveInternalTrackZ.toString()});
             let resolvedTracks = [];
             const rebuildVisualTrackZ = () => {
-                resolvedTracks = Array.isArray(summary.timelineTracks)
-                    ? summary.timelineTracks : deriveVisualTrackOrderFn(summary);
+                resolvedTracks = Array.isArray(summary.timelineTracks) ? summary.timelineTracks : [];
             };
             rebuildVisualTrackZ();
-            const zForTrack = (kind, track) => {
-                return resolveVisualTrackZFn(resolvedTracks, kind, track);
+            const zForTrack = trackId => {
+                return resolveInternalTrackZFn(resolvedTracks, trackId);
             };
             const applyCutsZIndex = segment => {
                 if (segment && segment.kind === 'src') {
-                    const z = zForTrack('cuts', segment.track);
+                    const z = zForTrack(segment.trackId);
                     video.style.zIndex = String(z);
                     stillImage.style.zIndex = String(z);
                     transitionPlate.style.zIndex = String(z);
@@ -5349,7 +5512,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariLayerKind = String(layer.kind);
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
-                layerVideo.style.zIndex = String(zForTrack('layers', layer.track));
+                layerVideo.style.zIndex = String(zForTrack(layer.trackId));
                 const transform = layer.transform || {};
                 const x = Number.isFinite(transform.x) ? transform.x : 0;
                 const y = Number.isFinite(transform.y) ? transform.y : 0;
@@ -5391,12 +5554,38 @@ body { display: grid; place-items: center; padding: 32px; }
                 layersStage.appendChild(layerVideo);
                 return { spec: layer, video: layerVideo };
             });
+            const cssFilterFor = spec => {
+                if (spec && spec.type === 'invert') return 'invert(1)';
+                if (spec && spec.type === 'saturation' && Number.isFinite(spec.value)) {
+                    return 'saturate(' + Math.max(0, Number(spec.value)) + ')';
+                }
+                return 'none';
+            };
+            const filterEntries = (Array.isArray(summary.filters) ? summary.filters : []).map(filter => {
+                const element = document.createElement('div');
+                element.dataset.akariFilterId = String(filter.id);
+                element.style.zIndex = String(zForTrack(filter.trackId));
+                element.style.backdropFilter = cssFilterFor(filter.filter);
+                element.style.webkitBackdropFilter = cssFilterFor(filter.filter);
+                layersStage.appendChild(element);
+                return { spec: filter, element };
+            });
             const applyIncrementalLayerSpec = (entry, layer) => {
+                // 非同期 telop の ready 後に通常のファイル更新が来ても、次の bake 待ちを示す
+                // proxyMissing モデルで既に表示中の src を巻き戻さない。
+                if (layer.proxyMissing && !layer.src && entry.spec.src && !entry.spec.proxyMissing) {
+                    layer = { ...layer, src: entry.spec.src, proxyMissing: false };
+                }
                 entry.spec = layer;
                 const layerVideo = entry.video;
+                if (typeof layer.src === 'string' && layer.src
+                    && layerVideo.getAttribute('src') !== layer.src) {
+                    layerVideo.src = layer.src;
+                    entry.opaqueBox = undefined;
+                }
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
-                layerVideo.style.zIndex = String(zForTrack('layers', layer.track));
+                layerVideo.style.zIndex = String(zForTrack(layer.trackId));
                 const transform = layer.transform || {};
                 layerVideo.dataset.akariTransformX = String(Number.isFinite(transform.x) ? transform.x : 0);
                 layerVideo.dataset.akariTransformY = String(Number.isFinite(transform.y) ? transform.y : 0);
@@ -6653,10 +6842,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     const overlay = summary.overlays.find(candidate => String(candidate.id) === id);
                     const track = Number.isInteger(overlay?.track) && overlay.track >= 0 ? overlay.track : 0;
                     container.setAttribute('data-akari-track', String(track));
-                    container.style.zIndex = String(zForTrack('overlays', track));
+                    container.style.zIndex = String(zForTrack(overlay?.trackId));
                     container.style.display = hiddenTracks.has(track) ? 'none' : '';
                 }
-                captionPlate.style.zIndex = String(zForTrack('captions'));
+                captionPlate.style.zIndex = String(zForTrack(summary.captionTrackId));
             };
             // source↔output 写像の正本は packages/edit-store/src/timeline-map.ts。webview は
             // sandbox 制約で import できないため、共有カーネル webview-kernel.js（IIFE バンドル、
@@ -6666,8 +6855,9 @@ body { display: grid; place-items: center; padding: 32px; }
             // computeCutTrackSegments と同じ = 正本挙動へ収斂）。
             const rebuildSegments = () => {
                 const rawCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
-                const map = window.AkariEditKernel.buildTimelineMap(rawCuts, {
-                    trackZ: track => zForTrack('cuts', track)
+                const timelineCuts = rawCuts.map(cut => ({ ...cut, track: cut.renderTrack }));
+                const map = window.AkariEditKernel.buildTimelineMap(timelineCuts, {
+                    trackZ: track => track
                 });
                 if (map.segments.length > 0) {
                     // transform / opacity は再生時の見た目情報で写像には関与しないため、
@@ -6679,6 +6869,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const cut = rawCuts[segment.cutIndex];
                         return {
                             ...segment,
+                            trackId: cut ? cut.trackId : undefined,
                             transform: cut ? cut.transform : undefined,
                             opacity: cut ? cut.opacity : undefined,
                             // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md）:
@@ -7688,6 +7879,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 }
                 if (anyKeyframeApplied && window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                for (const entry of filterEntries) {
+                    const filter = entry.spec;
+                    entry.element.style.display = !allTracksHiddenByScope.layers
+                        && !hiddenTracksByScope.layers.has(filter.track)
+                        && timelineTime >= filter.t
+                        && timelineTime < filter.t + filter.duration ? 'block' : 'none';
+                }
             };
             const applyCutsMuteState = () => {
                 const segment = segments[activeSegmentIndex];
@@ -8328,7 +8526,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 applyCutVisual(activeSegment);
                 applyCutsZIndex(activeSegment);
                 for (const entry of layerEntries) {
-                    entry.video.style.zIndex = String(zForTrack('layers', entry.spec.track));
+                    entry.video.style.zIndex = String(zForTrack(entry.spec.trackId));
+                }
+                for (const entry of filterEntries) {
+                    entry.element.style.zIndex = String(zForTrack(entry.spec.trackId));
                 }
                 applyOverlayTracks();
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
@@ -8570,6 +8771,7 @@ body { display: grid; place-items: center; padding: 32px; }
             ...extraIds.map(id => this.disposeVideoStreamId(id)),
             this.disposeAssetStreams(assetIds)
         ]);
+        widget.akariPreviewDeferredTelopReady = undefined;
     }
 
     protected readText(uri: URI): Promise<string> {
