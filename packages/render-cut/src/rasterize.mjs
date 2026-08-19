@@ -334,7 +334,7 @@ export async function captureWithPuppeteer({
   const imported = puppeteerModule ?? await import("puppeteer-core");
   const puppeteer = imported.default ?? imported;
   await mkdir(framesDirectory, { recursive: true });
-  const frameCount = Math.ceil(duration * fps);
+  const frameCount = overlayFrameCount(duration, fps);
   const captureStarted = performance.now();
   let browserLaunched = captureStarted;
   let pageReady = captureStarted;
@@ -484,6 +484,11 @@ export async function captureWithPuppeteer({
     total_ms: roundMilliseconds(captureFinished - captureStarted),
   });
   return overlayMovPath;
+}
+
+/** 格子上の出力秒からフレーム数を復元し、浮動小数誤差による +1 を防ぐ。 */
+export function overlayFrameCount(duration, fps) {
+  return Math.max(0, Math.ceil(duration * fps - 1e-6));
 }
 
 export async function captureStaticOverlays({

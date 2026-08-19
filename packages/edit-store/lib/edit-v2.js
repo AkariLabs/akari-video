@@ -211,7 +211,7 @@ function validateKeyframes(value, path) {
     value.forEach((entry, index) => {
         const itemPath = `${path}[${index}]`;
         requireRecord(entry, itemPath);
-        requireNonNegativeNumber(entry.t, `${itemPath}.t`);
+        requireInteger(entry.t, 0, `${itemPath}.t`);
         if (hasOwn(entry, 'transform'))
             validateTransform(entry.transform, `${itemPath}.transform`);
         if (hasOwn(entry, 'crop'))

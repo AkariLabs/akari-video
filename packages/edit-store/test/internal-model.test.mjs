@@ -36,10 +36,10 @@ const items = (internal) => internal.tracks.flatMap(track => track.items);
 const itemById = (internal, id) => items(internal).find(item => item.id === id);
 
 // ---------------------------------------------------------------------------
-// 版を問わない読み込み: v0/v1 は種別別配列へ 1 ビットも変えずに戻せる
+// 版を問わない読み込み: 生 JSON を壊さず、対応する整数フレームを付記する
 // ---------------------------------------------------------------------------
 
-test('v0/v1 の全 fixture が内部表現を往復しても種別別配列と完全一致する', () => {
+test('v0/v1 の全 fixture は生 JSON と秒宣言を破壊せず、整数フレームを付記する', () => {
     const files = [
         ...findEditJson(join(repositoryRoot, 'packages/schemas/examples')),
         ...findEditJson(join(repositoryRoot, 'packages/edit-lint/fixtures')),
@@ -57,10 +57,16 @@ test('v0/v1 の全 fixture が内部表現を往復しても種別別配列と�
             continue;
         }
         if (raw?.version === 2) continue;
+        const before = JSON.stringify(raw);
+        const internal = readInternalEdit(raw);
+        assert.equal(JSON.stringify(raw), before, `${file} の入力オブジェクトを破壊しています`);
         const expected = parseEdit(text);
         delete expected.origins;
-        const actual = projectLegacyEdit(readInternalEdit(text));
-        assert.deepEqual(actual, expected, `${file} の射影が旧読み取り器と一致しません`);
+        assert.deepEqual(projectLegacyEdit(internal), expected, `${file} の旧宣言ビューを動かしています`);
+        for (const item of items(internal)) {
+            assert.equal(Number.isInteger(item.atFrames), true, `${file}: atFrames`);
+            assert.equal(Number.isInteger(item.durationFrames), true, `${file}: durationFrames`);
+        }
         checked += 1;
     }
     assert.ok(checked > 100, `検査できた v0/v1 が少なすぎます: ${checked}`);
@@ -240,12 +246,152 @@ test('v2 は整数フレームを出力秒へ写して読む（消費者は版�
     const cut = itemById(internal, 'c1');
     assert.equal(cut.at, 1);
     assert.equal(cut.duration, 2);
+    assert.equal(cut.atFrames, 30);
+    assert.equal(cut.durationFrames, 60);
     assert.equal(cut.source.path, 'footage/hero.mp4');
     // 旧経路の種別別ビューも合成するので、v2 でも同じ描画コードが動く。
     const view = projectLegacyEdit(internal);
     assert.deepEqual(view.cuts, [{ in: 2, out: 4, src: 'hero', at: 1, track: 0 }]);
     assert.deepEqual(view.timeline.tracks.map(track => track.kind), ['cuts', 'captions']);
     assert.equal(view.fps, 30);
+});
+
+test('v0/v1/v2 は整数フレームを持ち、v2 だけはフレームを出力時刻の正本にする', () => {
+    const documents = [
+        { output: { fps: 30 }, source: { path: 'a.mp4' }, cuts: [{ in: 0, out: 2.98 }] },
+        {
+            version: 1, output: { width: 1920, height: 1080, fps: 24 },
+            sources: [{ id: 'a', path: 'a.mp4', proxy: null }],
+            cuts: [{ src: 'a', in: 0, out: 1.013 }],
+            overlays: [{ id: 'o', html: '<b>x</b>', start: 0.42, duration: 0.51 }],
+        },
+        {
+            version: 2, output: { width: 1920, height: 1080, fps: 30 }, sources: [],
+            tracks: [{ id: 'v', lane: 'visual', items: [
+                { id: 'x', at: 13, duration: 17, source: { kind: 'html', path: 'o.html' } },
+            ] }],
+        },
+    ];
+    for (const document of documents) {
+        const internal = readInternalEdit(document);
+        for (const item of items(internal)) {
+            assert.equal(Number.isInteger(item.atFrames), true);
+            assert.equal(Number.isInteger(item.durationFrames), true);
+            if (document.version === 2) {
+                assert.equal(item.at, item.atFrames / internal.output.fps);
+                assert.equal(item.duration, item.durationFrames / internal.output.fps);
+            }
+        }
+    }
+});
+
+test('model C は 20 本の境界を絶対位置で丸め、誤差を累積させない', () => {
+    const fps = 30;
+    const duration = 0.049;
+    const cutCount = 20;
+    const internal = readInternalEdit({
+        version: 1,
+        output: { width: 1920, height: 1080, fps },
+        sources: [{ id: 'a', path: 'a.mp4', proxy: null }],
+        cuts: Array.from({ length: cutCount }, (_, index) => ({
+            src: 'a', in: index, out: index + duration,
+        })),
+    });
+    const last = items(internal).at(-1);
+    const actualEnd = last.atFrames + last.durationFrames;
+    const declaredEndFrames = cutCount * duration * fps;
+    assert.ok(Math.abs(actualEnd - declaredEndFrames) <= 0.5);
+});
+
+test('v2 の −0.42s 相当シフトも整数フレームのまま格子に乗る', () => {
+    const fps = 30;
+    const shiftFrames = Math.round(0.42 * fps);
+    const internal = readInternalEdit({
+        version: 2,
+        output: { width: 1920, height: 1080, fps }, sources: [],
+        tracks: [{ id: 'v', lane: 'visual', items: [
+            { id: 'x', at: 60 - shiftFrames, duration: 30, source: { kind: 'html', path: 'o.html' } },
+        ] }],
+    });
+    const item = items(internal)[0];
+    assert.equal(item.atFrames, 47);
+    assert.equal(item.at * fps, 47);
+});
+
+test('格子外の v0/v1 は at・duration・declaration・legacy.value を宣言どおり保持する', () => {
+    for (const source of [
+        {
+            output: { fps: 30 }, source: { path: 'a.mp4' },
+            cuts: [{ in: 0, out: 2.58 }, { in: 3, out: 5.58, at: 2.58 }],
+        },
+        {
+            version: 1,
+            output: { width: 1920, height: 1080, fps: 30 },
+            sources: [{ id: 'a', path: 'a.mp4', proxy: null }],
+            cuts: [{ src: 'a', in: 0, out: 2.58 }, { src: 'a', in: 3, out: 5.58, at: 2.58 }],
+        },
+    ]) {
+        const internal = readInternalEdit(source);
+        const [first, second] = items(internal).filter(item => item.legacy.collection === 'cuts');
+        assert.equal(first.at, 0);
+        assert.equal(first.duration, 2.58);
+        assert.deepEqual(first.declaration, source.cuts[0]);
+        assert.deepEqual(first.legacy.value, source.cuts[0]);
+        assert.equal(second.at, 2.58);
+        assert.equal(second.duration, 2.58);
+        assert.deepEqual(second.declaration, source.cuts[1]);
+        assert.deepEqual(second.legacy.value, source.cuts[1]);
+        assert.notEqual(second.at, second.atFrames / 30);
+    }
+});
+
+test('v2 cut は 1 フレーム以内の尺差を speed ではなく trim の out で合わせる', () => {
+    const internal = readInternalEdit({
+        version: 2,
+        output: { width: 1920, height: 1080, fps: 30 },
+        sources: [{ id: 'a', path: 'a.mp4' }],
+        tracks: [{ id: 'v', lane: 'visual', items: [{
+            id: 'c', at: 0, duration: 60,
+            source: { kind: 'media', src: 'a', in: 2, out: 4.02 },
+        }] }],
+    });
+    const cut = items(internal)[0];
+    assert.equal(cut.source.out, 4.02, '内部素材表は宣言値を保持する');
+    assert.equal(cut.declaration.out, 4);
+    assert.equal(Object.hasOwn(cut.declaration, 'speed'), false);
+    assert.equal(cut.legacy.value.out, 4);
+    assert.equal(Object.hasOwn(cut.legacy.value, 'speed'), false);
+});
+
+test('v2 cut は 1 フレームを超える本物の速度変更だけ speed へ写す', () => {
+    const internal = readInternalEdit({
+        version: 2,
+        output: { width: 1920, height: 1080, fps: 30 },
+        sources: [{ id: 'a', path: 'a.mp4' }],
+        tracks: [{ id: 'v', lane: 'visual', items: [{
+            id: 'c', at: 0, duration: 60,
+            source: { kind: 'media', src: 'a', in: 2, out: 6 },
+        }] }],
+    });
+    const cut = items(internal)[0];
+    assert.equal(cut.source.out, 6);
+    assert.equal(cut.declaration.out, 6);
+    assert.equal(cut.declaration.speed, 2);
+    assert.equal(cut.legacy.value.out, 6);
+    assert.equal(cut.legacy.value.speed, 2);
+});
+
+test('v2 keyframes は整数フレーム宣言をアイテム内秒へ一度だけ射影する', () => {
+    const internal = readInternalEdit({
+        version: 2,
+        output: { width: 1920, height: 1080, fps: 30 }, sources: [],
+        tracks: [{ id: 'v', lane: 'visual', items: [{
+            id: 'x', at: 0, duration: 60,
+            keyframes: [{ t: 0, transform: { x: 0 } }, { t: 15, transform: { x: 10 } }],
+            source: { kind: 'html', path: 'o.html' },
+        }] }],
+    });
+    assert.deepEqual(items(internal)[0].declaration.keyframes.map(keyframe => keyframe.t), [0, 0.5]);
 });
 
 test('読み込み層の外から版を判定しなくて済むよう、v0/v1/v2 が同じ形で返る', () => {

@@ -12,6 +12,7 @@ import {
   renderItemKind,
 } from "../src/internal-render.mjs";
 import { renderProject } from "../src/render-cut.mjs";
+import { buildPlan } from "../src/plan.mjs";
 import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
 
 const fixture = {
@@ -55,6 +56,53 @@ test("unbaked telop produces a deterministic rasterize command while baked is re
   assert.equal(baked.edit.layers.find(layer => layer.id === "name").src, "cached.mov");
 });
 
+test("v2 の 77-frame cut 境界と同フレーム layer は同じ enable 開始秒になる", () => {
+  const editV2 = {
+    version: 2,
+    output: { width: 320, height: 180, fps: 30 },
+    sources: [{ id: "main", path: "main.mp4", proxy: null }],
+    tracks: [
+      { id: "cuts", lane: "visual", items: [0, 77, 154].map((at, index) => ({
+        id: `c${index}`,
+        at,
+        duration: 77,
+        source: { kind: "media", src: "main", in: index * 3, out: index * 3 + 2.58 },
+      })) },
+      { id: "layer", lane: "visual", items: [{
+        id: "synced-layer", at: 154, duration: 30,
+        source: { kind: "telop", preset: "test", baked: "layer.mov" },
+      }] },
+    ],
+  };
+  const renderEdit = readRenderEdit(editV2, "/project/.akari/render-tmp");
+  const plan = buildPlan({
+    edit: renderEdit.edit,
+    internalEdit: renderEdit.internal,
+    sourceVersion: 2,
+    projectRoot: "/project",
+    outputPath: "/project/out.mp4",
+    capabilities: {
+      sourceDuration: 9,
+      sourceInputs: [{ id: "main", path: "/project/main.mp4", hasAudio: true }],
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: "ffprobe",
+      chromePath: "chrome",
+      hyperframesAvailable: true,
+      puppeteerAvailable: true,
+    },
+    hasSourceAudio: true,
+  });
+
+  assert.ok(renderEdit.edit.cuts.every(cut => !Object.hasOwn(cut, "speed")));
+  assert.ok(renderEdit.edit.cuts.every(cut => Math.abs((cut.out - cut.in) - 77 / 30) < 1e-12));
+  const boundary = String(154 / 30);
+  const [cutStage, layerStage] = plan.commands.track_stack.stages;
+  const cutFilter = cutStage.command.args[cutStage.command.args.indexOf("-filter_complex") + 1];
+  const layerFilter = layerStage.command.args[layerStage.command.args.indexOf("-filter_complex") + 1];
+  assert.match(cutFilter, new RegExp(`enable='gte\\(t,${boundary.replaceAll(".", "\\.")}\\)`));
+  assert.match(layerFilter, new RegExp(`enable='gte\\(t,${boundary.replaceAll(".", "\\.")}\\)`));
+});
+
 test("renderProject plans v2 mixed source.kind tracks in normalized bottom-to-top order", async (t) => {
   const project = mkdtempSync(join(tmpdir(), "akari-v2-render-plan-"));
   t.after(() => rmSync(project, { recursive: true, force: true }));
@@ -93,4 +141,8 @@ test("renderProject plans v2 mixed source.kind tracks in normalized bottom-to-to
   );
   assert.equal(state.plan.commands.telops.length, 1);
   assert.equal(state.plan.commands.telops[0].id, "name");
+  await assert.rejects(
+    () => renderProject(project, { planOnly: true, force: true, fps: 24 }),
+    /retime（全体再スケール）/,
+  );
 });

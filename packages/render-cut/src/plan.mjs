@@ -81,6 +81,15 @@ export function buildPlan({
   fpsOverride,
 }) {
   const normalizedInternalEdit = internalEdit ?? readRenderEdit(edit, temporaryDirectory).internal;
+  if (
+    sourceVersion === 2
+    && isPositiveNumber(fpsOverride)
+    && fpsOverride !== edit.output.fps
+  ) {
+    throw new Error(
+      "v2 の出力 fps は宣言が正本です。fps を変えるときは retime（全体再スケール）を通してください。",
+    );
+  }
   // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定5: a still image has no intrinsic
   // duration, so v0's "cuts[] empty = whole source" shortcut (predictedDuration's sourceDuration
   // fallback) cannot apply to it. edit-lint's cuts.still-image-cuts-required check rejects this

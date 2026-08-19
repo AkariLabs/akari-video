@@ -7,9 +7,16 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import vm from "node:vm";
 
-import { renderOverlaySheet } from "../src/rasterize.mjs";
+import { overlayFrameCount, renderOverlaySheet } from "../src/rasterize.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+test("grid-aligned overlay duration resolves to the exact frame count", () => {
+  assert.equal(overlayFrameCount(29 / 30, 30), 29);
+  assert.equal(overlayFrameCount(102 / 24, 24), 102);
+  assert.equal(overlayFrameCount(2 + 1e-8, 30), 60, "floating error must not add one frame");
+  assert.equal(overlayFrameCount(2.58, 30), 78, "legacy ceil semantics stay intact");
+});
 
 test("non-3D overlay sheets remain byte-identical", () => {
   const sheet = renderOverlaySheet({

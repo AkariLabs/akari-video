@@ -43,3 +43,13 @@ test("readEditV2 reports closed source and item violations with a path", async (
   topLevel.tracks[5].items[0].textStyle = {};
   assert.throws(() => readEditV2(topLevel), /tracks\[5\]\.items\[0\].*textStyle/);
 });
+
+test("readEditV2 rejects fractional or negative v2 keyframe frames", async () => {
+  const fractional = JSON.parse(await readFile(fixturePath, "utf8"));
+  fractional.tracks[1].items[0].keyframes = [{ t: 0 }, { t: 1.5 }];
+  assert.throws(() => readEditV2(fractional), /keyframes\[1\]\.t.*整数/);
+
+  const negative = JSON.parse(await readFile(fixturePath, "utf8"));
+  negative.tracks[1].items[0].keyframes = [{ t: 0 }, { t: -1 }];
+  assert.throws(() => readEditV2(negative), /keyframes\[1\]\.t.*0 以上の整数/);
+});

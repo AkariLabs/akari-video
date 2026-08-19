@@ -16,6 +16,9 @@ function fixture(name) {
 }
 
 test("editV2 is the third root branch and keeps v2 timing/output definitions separate", () => {
+  assert.equal(schema.$id, "urn:akari-video:schema:edit:v1");
+  assert.match(schema.title, /v0\/v1\/v2/);
+  assert.match(schema.description, /整数フレーム/);
   assert.deepEqual(schema.oneOf, [
     { $ref: "#/$defs/editV0" },
     { $ref: "#/$defs/editV1" },
@@ -46,6 +49,19 @@ test("hand-written v2 fixture accepts four source kinds, captions content, audio
 
 test("minimum v2 fixture is valid", () => {
   assert.equal(validate(fixture("edit-v2-minimal-valid")), true, JSON.stringify(validate.errors, null, 2));
+});
+
+test("v2 keyframe t is an integer frame while legacy layerKeyframe stays in seconds", () => {
+  assert.deepEqual(schema.$defs.layerKeyframe.properties.t, { $ref: "#/$defs/seconds" });
+  assert.deepEqual(schema.$defs.keyframeV2.properties.t, { $ref: "#/$defs/frames" });
+  for (const definition of ["itemV2Media", "itemV2Html", "itemV2Telop", "itemV2Filter"]) {
+    assert.deepEqual(schema.$defs[definition].properties.keyframes.items, { $ref: "#/$defs/keyframeV2" });
+  }
+
+  const value = fixture("edit-v2-valid");
+  value.tracks[1].items[0].keyframes = [{ t: 0 }, { t: 1.5 }];
+  assert.equal(validate(value), false);
+  assert.ok(validate.errors?.some(error => error.instancePath.endsWith("/keyframes/1/t")));
 });
 
 for (const name of [

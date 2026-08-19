@@ -10,4 +10,5 @@ export * from './timeline-map';
 export * from './caption-display';
 export * from './edit-v2';
 export * from './internal-model';
+export * from './retime';
 export * from './track-order';

@@ -32,6 +32,7 @@ export interface CropV2 {
 }
 
 export interface KeyframeV2 {
+    /** アイテム内のローカル時間（整数フレーム、item.at を 0 とする）。 */
     t: number;
     transform?: TransformV2;
     crop?: CropV2;
@@ -351,7 +352,7 @@ function validateKeyframes(value: unknown, path: string): asserts value is Keyfr
     value.forEach((entry, index) => {
         const itemPath = `${path}[${index}]`;
         requireRecord(entry, itemPath);
-        requireNonNegativeNumber(entry.t, `${itemPath}.t`);
+        requireInteger(entry.t, 0, `${itemPath}.t`);
         if (hasOwn(entry, 'transform')) validateTransform(entry.transform, `${itemPath}.transform`);
         if (hasOwn(entry, 'crop')) validateCrop(entry.crop, `${itemPath}.crop`);
         if (hasOwn(entry, 'perspective')) requireRecord(entry.perspective, `${itemPath}.perspective`);
