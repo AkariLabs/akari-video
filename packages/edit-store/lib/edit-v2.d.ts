@@ -27,6 +27,7 @@ export interface CropV2 {
     [key: string]: unknown;
 }
 export interface KeyframeV2 {
+    /** アイテム内のローカル時間（整数フレーム、item.at を 0 とする）。 */
     t: number;
     transform?: TransformV2;
     crop?: CropV2;

@@ -14,12 +14,11 @@
  *   - 相対参照は読み込み層で解決する。`item.at` は常に絶対値（v0/v1 の「前のカットの終端に詰まる」
  *     暗黙 at は `computeCutTrackSegments` で解決済み）
  *
- * 時間の単位（Phase 1 時点の確定事項）:
- *   内部表現の `at` / `duration` は**出力秒**。v2 ファイルの整数フレームは本ファイルが
- *   `output.fps` で秒へ写す。単位そのものを整数フレームへ寄せるのは別タスク
- *   （`2026-08-18-timeline-frame-units`）で、そのときの変更点はこの読み込み層 1 箇所に閉じる。
- *   本タスクの受け入れ条件（既存プロジェクトの画面表示が変わらない・出力バイト等価）は
- *   丸めを一切入れないことを要求するため、ここでフレーム格子へ寄せてはいけない。
+ * 時間の単位:
+ *   v2 は `atFrames` / `durationFrames` が出力時間の正本で、`at` / `duration` はこの読み込み層だけで
+ *   `frames / output.fps` へ射影する。v0/v1 は移行前の秒宣言を 1 ビットも動かさず、対応する出力
+ *   フレーム番号を `atFrames` / `durationFrames` に付記するだけなので、秒とフレームの射影が一致
+ *   しない場合がある。レガシー宣言の格子化は v2 変換器の責務とする。
  */
 import { EditAudioBgm, EditAudioNarration, EditAudioSfx, EditBeat, EditCut, EditDefaultSource, EditLayer, EditOverlay, EditSource, EditTimelineTrack, TimelineTrackKind } from './edit-store';
 /** v0（単一 source 宣言）へ読み込み層が割り当てる素材表の鍵。 */
@@ -72,9 +71,13 @@ export interface InternalItemLegacy {
 export interface InternalItem {
     /** 宣言の id。焼く前後・版をまたいでも同じ 1 個のクリップは同じ id を保つ。 */
     id: string;
-    /** 出力タイムライン上の絶対位置（出力秒・暗黙 at は解決済み）。 */
+    /** 出力タイムライン上の絶対位置（整数フレーム）。v2 では正本、v0/v1 では宣言秒が乗るフレーム。 */
+    atFrames: number;
+    /** 出力尺（整数フレーム）。v2 では正本、v0/v1 では丸めた境界差。実尺未解決時は 0。 */
+    durationFrames: number;
+    /** 出力秒。v2 は `atFrames / output.fps`。v0/v1 は宣言どおりで、暗黙 at だけ解決済み。 */
     at: number;
-    /** 出力タイムライン上の尺（出力秒）。実尺未解決（narration / bgm）は 0。 */
+    /** 出力秒。v2 は `durationFrames / output.fps`。v0/v1 は宣言どおり。 */
     duration: number;
     source: InternalItemSource;
     /**

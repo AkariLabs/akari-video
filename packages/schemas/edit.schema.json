@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:akari-video:schema:edit:v1",
-  "title": "AKARI Video edit.json v0/v1",
-  "description": "単一ソースの v0 と、sources[] と cuts[].src を使うマルチソース v1 の公開契約。",
+  "title": "AKARI Video edit.json v0/v1/v2",
+  "description": "単一ソースの v0、sources[] と cuts[].src を使うマルチソース v1、および tracks[].items[] を持つ v2 の公開契約。v2 の出力側の位置と尺は整数フレーム、素材側の in/out は秒で宣言する。",
   "oneOf": [
     { "$ref": "#/$defs/editV0" },
     { "$ref": "#/$defs/editV1" },
@@ -481,6 +481,19 @@
       },
       "$comment": "契約 contract-2026-08-09-transform-keyframes-v0.md（layerItem.keyframes の要素）。t はレイヤー内秒（layerItem.t を 0 とするローカル時間、既存 cuts[].framing.keyframes[].t と同じ規約）。transform/crop/perspective はそれぞれ独立の任意プロパティ（プロパティ毎の別トラックにはしない — 1 点で複数プロパティを同時に動かせる。詳細は $comment 続き）。ある区間の両端点が同じプロパティ（例 transform）を持てばその間は線形補間、片方の端点にしか無ければ直近の宣言値を保持（hold）する。どの点にも一度も宣言されないプロパティは layerItem 直下の静的値（例 layerItem.transform、省略時は各 $def の既定値）を全区間で保持する。easing は点ごとに設定し、その点へ入る区間（1つ前の点からこの点まで）の補間カーブを決める（先頭点の easing は無視される）。省略時は linear。"
     },
+    "keyframeV2": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["t"],
+      "properties": {
+        "t": { "$ref": "#/$defs/frames" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
+        "perspective": { "$ref": "#/$defs/layerPerspective" },
+        "easing": { "enum": ["linear", "ease-in-out"] }
+      },
+      "$comment": "v2 item.keyframes の要素。t は item.at を 0 とするアイテム内の整数フレーム。transform/crop/perspective の補間・hold と easing の意味は layerKeyframe と同じ。"
+    },
     "layerFilter": {
       "type": "object",
       "required": ["type"],
@@ -664,7 +677,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/layerKeyframe" } },
+        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
         "source": { "$ref": "#/$defs/itemSourceMediaV2" }
       }
     },
@@ -680,7 +693,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/layerKeyframe" } },
+        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
         "source": { "$ref": "#/$defs/itemSourceHtmlV2" }
       }
     },
@@ -696,7 +709,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/layerKeyframe" } },
+        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
         "source": { "$ref": "#/$defs/itemSourceTelopV2" }
       }
     },
@@ -712,7 +725,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
-        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/layerKeyframe" } },
+        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
         "source": { "$ref": "#/$defs/itemSourceFilterV2" }
       }
     },

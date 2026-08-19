@@ -15,12 +15,11 @@
  *   - 相対参照は読み込み層で解決する。`item.at` は常に絶対値（v0/v1 の「前のカットの終端に詰まる」
  *     暗黙 at は `computeCutTrackSegments` で解決済み）
  *
- * 時間の単位（Phase 1 時点の確定事項）:
- *   内部表現の `at` / `duration` は**出力秒**。v2 ファイルの整数フレームは本ファイルが
- *   `output.fps` で秒へ写す。単位そのものを整数フレームへ寄せるのは別タスク
- *   （`2026-08-18-timeline-frame-units`）で、そのときの変更点はこの読み込み層 1 箇所に閉じる。
- *   本タスクの受け入れ条件（既存プロジェクトの画面表示が変わらない・出力バイト等価）は
- *   丸めを一切入れないことを要求するため、ここでフレーム格子へ寄せてはいけない。
+ * 時間の単位:
+ *   v2 は `atFrames` / `durationFrames` が出力時間の正本で、`at` / `duration` はこの読み込み層だけで
+ *   `frames / output.fps` へ射影する。v0/v1 は移行前の秒宣言を 1 ビットも動かさず、対応する出力
+ *   フレーム番号を `atFrames` / `durationFrames` に付記するだけなので、秒とフレームの射影が一致
+ *   しない場合がある。レガシー宣言の格子化は v2 変換器の責務とする。
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEFAULT_SOURCE_ID = void 0;
@@ -61,14 +60,27 @@ function readLegacyInternal(raw, text, hasCaptions) {
     const sources = readLegacySources(raw);
     const trackDefs = parsed.timeline?.tracks ?? deriveLegacyTrackDefs(raw, hasCaptions);
     const tracksDeclared = parsed.timeline?.tracks !== undefined;
-    const builder = new TrackBuilder(trackDefs, tracksDeclared ? 'declared' : 'derived');
+    const builder = new TrackBuilder(trackDefs, tracksDeclared ? 'declared' : 'derived', parsed.fps);
     const pathOf = (id) => sources.find(entry => entry.id === (id ?? exports.DEFAULT_SOURCE_ID))?.path;
     // cuts — 暗黙 at（前のカットの終端に詰まる）をここで解決し、以降は絶対値だけを見せる。
     const rawCuts = Array.isArray(raw.cuts) ? raw.cuts : [];
     const segments = (0, edit_store_1.computeCutTrackSegments)(parsed.cuts);
     const segmentByIndex = new Map();
+    const cursorByTrack = new Map();
+    const previousIndexByTrack = new Map();
     for (const segment of segments) {
-        segmentByIndex.set(segment.index, { at: segment.at, duration: segment.duration });
+        const cut = parsed.cuts[segment.index];
+        const rawCut = declarationOf(rawCuts[parsed.origins.cuts[segment.index]]);
+        const freezeSec = freezeDurationSeconds(rawCut.freeze);
+        const hasExplicitAt = typeof cut.at === 'number' && Number.isFinite(cut.at) && cut.at >= 0;
+        const previousIndex = previousIndexByTrack.get(segment.track);
+        const transitionOverlap = !hasExplicitAt && previousIndex !== undefined
+            ? parsed.cuts[previousIndex].transitionOut?.duration ?? 0 : 0;
+        const at = hasExplicitAt ? segment.at : (cursorByTrack.get(segment.track) ?? 0) - transitionOverlap;
+        const duration = segment.duration + freezeSec;
+        segmentByIndex.set(segment.index, { at, duration });
+        cursorByTrack.set(segment.track, at + duration);
+        previousIndexByTrack.set(segment.track, segment.index);
     }
     for (let position = 0; position < parsed.cuts.length; position++) {
         const cut = parsed.cuts[position];
@@ -385,6 +397,23 @@ function textOr(value, key, fallback) {
 function declarationOf(value) {
     return isRecord(value) ? value : {};
 }
+/** v0/v1 の秒宣言は保持し、対応する出力フレーム番号だけを付記する。 */
+function materializeLegacyFrames(item, fps) {
+    const atFrames = Math.round(item.at * fps);
+    const endFrames = Math.round((item.at + item.duration) * fps);
+    const durationFrames = item.duration === 0 ? 0 : Math.max(0, endFrames - atFrames);
+    return {
+        ...item,
+        atFrames,
+        durationFrames
+    };
+}
+function freezeDurationSeconds(value) {
+    const freeze = isRecord(value) ? value : undefined;
+    return typeof freeze?.duration_sec === 'number'
+        && Number.isFinite(freeze.duration_sec) && freeze.duration_sec > 0
+        ? freeze.duration_sec : 0;
+}
 // ---------------------------------------------------------------------------
 // v2
 // ---------------------------------------------------------------------------
@@ -464,14 +493,17 @@ function nextRef(counters, kind) {
     return ref;
 }
 function buildV2Item(item, index, fps, ref, lane, pathOf) {
-    const at = item.at / fps;
-    const duration = item.duration / fps;
+    const atFrames = item.at;
+    const durationFrames = item.duration;
+    const at = atFrames / fps;
+    const duration = durationFrames / fps;
+    const keyframes = item.keyframes?.map(keyframe => ({ ...keyframe, t: keyframe.t / fps }));
     const common = {
         ...(item.transform !== undefined ? { transform: item.transform } : {}),
         ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
         ...(item.blend !== undefined ? { blend: item.blend } : {}),
         ...(item.crop !== undefined ? { crop: item.crop } : {}),
-        ...(item.keyframes !== undefined ? { keyframes: item.keyframes } : {})
+        ...(keyframes !== undefined ? { keyframes } : {})
     };
     switch (item.source.kind) {
         case 'media': {
@@ -495,18 +527,21 @@ function buildV2Item(item, index, fps, ref, lane, pathOf) {
                 };
                 return {
                     item: {
-                        id: item.id, at, duration, source,
+                        id: item.id, atFrames, durationFrames, at, duration, source,
                         declaration: { id: item.id, t: at, duration, path: value.path, track: ref, in: value.in, out: value.out },
                         legacy: { collection: 'sfx', index, value }
                     }
                 };
             }
-            // 尺が素材区間と違うぶんは速度で表す（旧 cuts[] は尺を持たないため）。
+            // 1 フレーム以内の差は速度変更ではなく尺合わせなので、trim の素材窓を詰める。
+            // それを超える差だけを本物の速度変更として旧 cuts[].speed へ写す。
             const span = item.source.out - item.source.in;
-            const speed = duration > 0 && Math.abs(span - duration) > 1e-9 ? span / duration : undefined;
+            const alignsDuration = Math.abs(span - duration) <= 1 / fps + 1e-9;
+            const cutOut = alignsDuration ? item.source.in + duration : item.source.out;
+            const speed = !alignsDuration && duration > 0 ? span / duration : undefined;
             const value = {
                 in: item.source.in,
-                out: item.source.out,
+                out: cutOut,
                 src: item.source.src,
                 at,
                 track: ref,
@@ -516,8 +551,8 @@ function buildV2Item(item, index, fps, ref, lane, pathOf) {
             };
             return {
                 item: {
-                    id: item.id, at, duration, source,
-                    declaration: { id: item.id, src: item.source.src, in: item.source.in, out: item.source.out, at, track: ref, ...common, ...(speed !== undefined ? { speed } : {}) },
+                    id: item.id, atFrames, durationFrames, at, duration, source,
+                    declaration: { id: item.id, src: item.source.src, in: item.source.in, out: cutOut, at, track: ref, ...common, ...(speed !== undefined ? { speed } : {}) },
                     legacy: { collection: 'cuts', index, value }
                 }
             };
@@ -533,7 +568,7 @@ function buildV2Item(item, index, fps, ref, lane, pathOf) {
             };
             return {
                 item: {
-                    id: item.id, at, duration,
+                    id: item.id, atFrames, durationFrames, at, duration,
                     source: { kind: 'html', html: item.source.path },
                     declaration,
                     legacy: { collection: 'overlays', index, value }
@@ -553,7 +588,7 @@ function buildV2Item(item, index, fps, ref, lane, pathOf) {
             };
             if (item.source.baked === undefined) {
                 return {
-                    item: { id: item.id, at, duration, source, declaration, legacy: { collection: 'layers', index } }
+                    item: { id: item.id, atFrames, durationFrames, at, duration, source, declaration, legacy: { collection: 'layers', index } }
                 };
             }
             const value = {
@@ -569,15 +604,18 @@ function buildV2Item(item, index, fps, ref, lane, pathOf) {
                 ...(item.blend !== undefined ? { blend: item.blend } : {})
             };
             return {
-                item: { id: item.id, at, duration, source, declaration, legacy: { collection: 'layers', index, value } }
+                item: { id: item.id, atFrames, durationFrames, at, duration, source, declaration, legacy: { collection: 'layers', index, value } }
             };
         }
         default: {
             const source = { kind: 'filter', filter: item.source.filter };
             return {
                 item: {
-                    id: item.id, at, duration, source,
-                    declaration: { id: item.id, t: at, duration, kind: 'filter', filter: item.source.filter, track: ref },
+                    id: item.id, atFrames, durationFrames, at, duration, source,
+                    declaration: {
+                        id: item.id, t: at, duration, kind: 'filter',
+                        filter: item.source.filter, track: ref, ...common
+                    },
                     legacy: { collection: 'layers', index }
                 }
             };
@@ -588,7 +626,8 @@ function buildV2Item(item, index, fps, ref, lane, pathOf) {
 // トラック組み立て
 // ---------------------------------------------------------------------------
 class TrackBuilder {
-    constructor(defs, origin) {
+    constructor(defs, origin, fps) {
+        this.fps = fps;
         this.tracks = [];
         this.byKey = new Map();
         defs.forEach((def, index) => {
@@ -629,7 +668,7 @@ class TrackBuilder {
             this.tracks.push(track);
             this.byKey.set(key, track);
         }
-        track.items.push(item);
+        track.items.push(materializeLegacyFrames(item, this.fps));
     }
     finish() {
         return this.tracks.map((track, index) => ({ ...track, z: index }));

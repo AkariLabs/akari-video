@@ -10,6 +10,7 @@ import { INTAKE_ROOT_FIELDS } from "../src/edit-lint.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "edit-lint.mjs");
+const lintSourcePath = join(packageRoot, "src", "edit-lint.mjs");
 const fixtureRoot = join(packageRoot, "fixtures");
 const styleParity = JSON.parse(await readFile(join(
   packageRoot, "../edit-store/test/fixtures/caption-style-validation-parity.json"
@@ -1233,7 +1234,7 @@ test("cuts[].freeze extends the timeline used by overlays", async () => {
   });
 });
 
-test("frame-aligned cut boundaries produce no cuts.frame-grid findings", async () => {
+test("frame-aligned legacy cuts no longer produce the removed frame-grid check", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "cuts-frame-grid-valid"));
     assert.equal(executed.status, 0, executed.stderr);
@@ -1247,17 +1248,23 @@ test("frame-aligned cut boundaries produce no cuts.frame-grid findings", async (
   });
 });
 
-test("a 2.98s cut at 30fps warns about its off-grid boundary without failing", async () => {
+test("off-grid legacy cuts no longer produce the removed frame-grid check", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "cuts-frame-grid-shift-warning"));
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    const findings = result.findings.filter((finding) => finding.check === "cuts.frame-grid");
-    assert.equal(findings.length, 1, JSON.stringify(result.findings, null, 2));
-    assert.equal(findings[0].severity, "warning");
-    assert.match(findings[0].message, /2\.9800s.*30fps.*89\.4 frames/);
+    assert.equal(
+      result.findings.filter((finding) => finding.check === "cuts.frame-grid").length,
+      0,
+      JSON.stringify(result.findings, null, 2),
+    );
   });
+});
+
+test("edit-lint source cannot emit the removed cuts.frame-grid check", async () => {
+  const source = await readFile(lintSourcePath, "utf8");
+  assert.equal(source.includes("cuts.frame-grid"), false);
 });
 
 for (const [expectedCheck] of [

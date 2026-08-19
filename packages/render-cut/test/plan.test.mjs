@@ -339,6 +339,32 @@ test("quality/encoder/fpsOverride: passing them explicitly is a new command line
   assert.equal(fpsOverridden.predicted_duration_seconds, baseline.predicted_duration_seconds);
 });
 
+test("v2 rejects an fps override that bypasses retime, while the declared fps is accepted", () => {
+  const internalEdit = { output: { fps: 30 }, sources: [], tracks: [], sourceTableDeclared: true };
+  assert.throws(() => buildPlan({
+    edit,
+    internalEdit,
+    sourceVersion: 2,
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+    fpsOverride: 24,
+  }), /retime（全体再スケール）/);
+
+  const plan = buildPlan({
+    edit,
+    internalEdit,
+    sourceVersion: 2,
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+    fpsOverride: 30,
+  });
+  assert.equal(plan.preset.fps, 30);
+});
+
 test("content within the cuts skips tail padding and preserves every existing command", () => {
   const input = {
     edit,
