@@ -26,12 +26,11 @@ test('all visual media share one stacking context and full-frame boxes pass hit 
 });
 
 test('preview injects edit-store track order functions and reapplies every visual z incrementally', () => {
-    assert.match(compiled, /deriveVisualTrackOrderFn/);
-    assert.match(compiled, /resolveVisualTrackZFn/);
-    assert.match(compiled, /zForTrack\('cuts'/);
-    assert.match(compiled, /zForTrack\('layers'/);
-    assert.match(compiled, /zForTrack\('overlays'/);
-    assert.match(compiled, /zForTrack\('captions'/);
+    assert.match(compiled, /resolveInternalTrackZFn/);
+    assert.match(compiled, /zForTrack\(segment\.trackId\)/);
+    assert.match(compiled, /zForTrack\(layer\.trackId\)/);
+    assert.match(compiled, /zForTrack\(overlay\?\.trackId\)/);
+    assert.match(compiled, /zForTrack\(summary\.captionTrackId\)/);
     const incremental = compiled.slice(compiled.indexOf('const applyIncrementalModel'));
     assert.match(incremental, /rebuildVisualTrackZ\(\)/);
     assert.match(incremental, /applyCutsZIndex\(activeSegment\)/);

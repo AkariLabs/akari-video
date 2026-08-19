@@ -1,10 +1,10 @@
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { WorkspaceServer } from '@theia/workspace/lib/common';
 import { lintProjectCandidates } from '@akari-video/edit-store/lib/write-gate';
-import { resolveCaptionDisplay } from '@akari-video/edit-store';
+import { projectLegacyEdit, readInternalEdit, resolveCaptionDisplay } from '@akari-video/edit-store';
 import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
-import { constants as fsConstants, createReadStream, readFileSync, rmdirSync, statSync, unlinkSync } from 'fs';
+import { constants as fsConstants, createReadStream, readFileSync, rmdirSync, rmSync, statSync, unlinkSync } from 'fs';
 import { FileHandle, lstat, mkdtemp, open, readdir, readFile, realpath, rm, rmdir, stat, symlink, unlink, writeFile } from 'fs/promises';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { tmpdir } from 'os';
@@ -29,6 +29,7 @@ import {
     ReviewSessionSummary,
     ResolveCaptionDisplayRequest,
     ResolvedCaptionDisplayPayload,
+    RasterizeTelopPreviewRequest,
     StartReviewSessionRequest,
     StartReviewSessionResult,
     TranscodeAudioErrorKind,
@@ -110,6 +111,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected serverStartup: Promise<number> | undefined;
     protected readonly videoStreams = new Map<string, StreamTarget>();
     protected readonly assetStreams = new Map<string, StreamTarget>();
+    protected readonly temporaryAssetDirectories = new Map<string, string>();
     protected readonly transcodedAudioStreams = new Map<string, TranscodedAudioStreamTarget>();
     protected readonly temporaryAudioFiles = new Map<string, string>();
     protected readonly reviewSessionWriter = new ReviewSessionWriter(() => this.resolveWorkspaceRoots());
@@ -124,6 +126,13 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 }
                 try {
                     rmdirSync(temporaryDirectory);
+                } catch {
+                    // Best-effort synchronous cleanup during process shutdown.
+                }
+            }
+            for (const temporaryDirectory of this.temporaryAssetDirectories.values()) {
+                try {
+                    rmSync(temporaryDirectory, { recursive: true, force: true });
                 } catch {
                     // Best-effort synchronous cleanup during process shutdown.
                 }
@@ -266,6 +275,48 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     async disposeAssetStream(id: string): Promise<void> {
         this.assetStreams.delete(id);
+        const temporaryDirectory = this.temporaryAssetDirectories.get(id);
+        if (temporaryDirectory) {
+            this.temporaryAssetDirectories.delete(id);
+            await rm(temporaryDirectory, { recursive: true, force: true });
+        }
+    }
+
+    async rasterizeTelopPreview(request: RasterizeTelopPreviewRequest): Promise<VideoStreamReference> {
+        if (!request || typeof request.preset !== 'string' || !request.preset.trim()
+            || !Number.isFinite(request.duration) || request.duration <= 0
+            || !Number.isFinite(request.width) || request.width <= 0
+            || !Number.isFinite(request.height) || request.height <= 0
+            || !Number.isFinite(request.fps) || request.fps <= 0) {
+            throw new Error('Invalid telop rasterize request');
+        }
+        const temporaryDirectory = await mkdtemp(join(tmpdir(), 'akari-telop-preview-'));
+        const output = join(temporaryDirectory, 'telop.mov');
+        const proxy = join(temporaryDirectory, 'telop.preview.webm');
+        try {
+            await this.runProcess(this.nodeCliCommand(), [
+                this.findBakeLayerEntry(),
+                '--kind', 'telop',
+                '--preset', request.preset,
+                '--params', JSON.stringify(request.params ?? {}),
+                '--duration', String(request.duration),
+                '--size', `${request.width}x${request.height}`,
+                '--fps', String(request.fps),
+                '--out', output
+            ], 120_000);
+            const port = await this.ensureServer();
+            const id = randomBytes(32).toString('hex');
+            this.assetStreams.set(id, {
+                path: proxy,
+                mimeType: 'video/webm',
+                workspaceRoots: [await realpath(temporaryDirectory)]
+            });
+            this.temporaryAssetDirectories.set(id, temporaryDirectory);
+            return { id, url: `http://127.0.0.1:${port}/asset/${id}` };
+        } catch (error) {
+            await rm(temporaryDirectory, { recursive: true, force: true });
+            throw error;
+        }
     }
 
     async transcodeAudioToWav(request: TranscodeAudioRequest): Promise<TranscodeAudioResult> {
@@ -385,8 +436,22 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             || captionsRoot.display_policy === undefined) {
             return null;
         }
-        const edit = JSON.parse(await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json'));
-        const resolved = resolveCaptionDisplay(captionsRoot, edit, { output: edit.output });
+        const editText = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
+        const rawEdit = JSON.parse(editText);
+        const internal = readInternalEdit(rawEdit);
+        const legacy = projectLegacyEdit(internal);
+        const edit = {
+            output: internal.output,
+            cuts: legacy.cuts,
+            ...(internal.sourceTableDeclared ? {
+                sources: internal.sources.map(source => ({ id: source.id, path: source.path }))
+            } : {}),
+            ...(internal.declaration.emphasisWords !== undefined
+                ? { emphasis_words: internal.declaration.emphasisWords } : {})
+        };
+        // 出力サイズは旧経路と同じく生 edit.json の宣言をそのまま渡す。InternalOutput の
+        // optional width/height を既定値で埋めると、未宣言時の字幕レイアウト挙動が変わる。
+        const resolved = resolveCaptionDisplay(captionsRoot, edit, { output: rawEdit.output });
         if (!resolved) return null;
         return { schema: resolved.schema, captions: resolved.display_cues };
     }
@@ -512,6 +577,43 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             child.once('error', () => finish('ffmpeg-not-found'));
             child.once('close', code => finish(code === 0 ? undefined : 'transcode-failed'));
         });
+    }
+
+    protected runProcess(command: string, args: string[], timeoutMs: number): Promise<void> {
+        return new Promise((resolveRun, rejectRun) => {
+            let settled = false;
+            let stderr = '';
+            // 通常は nodeCliCommand() が素の Node を選ぶ。明示 override が Electron 実体を
+            // 指した場合にも CLI として動くよう、Node 互換モードを防御的に付ける。
+            const child = spawn(command, args, {
+                stdio: ['ignore', 'ignore', 'pipe'],
+                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+            });
+            const finish = (error?: Error): void => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeout);
+                if (error) rejectRun(error);
+                else resolveRun();
+            };
+            child.stderr.on('data', chunk => {
+                stderr = `${stderr}${String(chunk)}`.slice(-8000);
+            });
+            const timeout = setTimeout(() => {
+                child.kill('SIGKILL');
+                finish(new Error('Telop rasterize timed out'));
+            }, timeoutMs);
+            child.once('error', error => finish(error));
+            child.once('close', code => finish(code === 0
+                ? undefined
+                : new Error(`Telop rasterize failed (${code}): ${stderr.trim()}`)));
+        });
+    }
+
+    protected nodeCliCommand(): string {
+        // npm start / Electron 開発起動では、実際に npm を動かした素の Node がここに入る。
+        // 未設定時も AKARI Video の動作要件である PATH 上の node を使い、子 Electron 起動を避ける。
+        return process.env.npm_node_execpath || 'node';
     }
 
     protected async cleanupTemporaryAudio(filePath: string, temporaryDirectory: string): Promise<void> {
@@ -783,6 +885,20 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             }
         }
         throw new Error(`overlay-runtime assets were not found (tried: ${candidates.join(', ')})`);
+    }
+
+    protected findBakeLayerEntry(): string {
+        const candidates: string[] = [];
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth++) {
+            const candidate = resolve(ancestor, 'packages/bake-layer/bin/bake-layer.mjs');
+            candidates.push(candidate);
+            if (this.isFile(candidate)) return candidate;
+            const parent = dirname(ancestor);
+            if (parent === ancestor) break;
+            ancestor = parent;
+        }
+        throw new Error(`bake-layer entry was not found (tried: ${candidates.join(', ')})`);
     }
 
     // 共有カーネルの webview 用 IIFE バンドル（generated — 正本は packages/edit-store/src/

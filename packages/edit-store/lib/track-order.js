@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deriveVisualTrackOrder = deriveVisualTrackOrder;
 exports.resolveVisualTrackZ = resolveVisualTrackZ;
+exports.resolveInternalTrackZ = resolveInternalTrackZ;
 /**
  * timeline.tracks が省略されたときの下→上の既定順を、実データだけから決定的に導出する。
  * webview へ Function#toString() で注入できるよう、外部ヘルパに依存しない純関数に保つ。
@@ -49,4 +50,14 @@ function resolveVisualTrackZ(tracks, kind, ref) {
         return Number.isInteger(track.ref) && Number(track.ref) === ref;
     });
     return index;
+}
+/**
+ * 正規化後の tracks（先頭 = 最下段）における z-index を返す。
+ *
+ * `InternalTrack.z` は読み込み層が配列添字へ正規化しているが、消費側がその値を別の
+ * 並びへ持ち越さないよう、ここでも配列順を唯一の権威として解決する。preview と
+ * render-cut はこの関数を共有する。
+ */
+function resolveInternalTrackZ(tracks, trackId) {
+    return (Array.isArray(tracks) ? tracks : []).findIndex(track => track?.id === trackId);
 }

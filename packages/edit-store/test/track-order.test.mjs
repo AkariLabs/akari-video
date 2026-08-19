@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { deriveVisualTrackOrder, resolveVisualTrackZ } from '../lib/index.js';
+import { deriveVisualTrackOrder, resolveInternalTrackZ, resolveVisualTrackZ } from '../lib/index.js';
 
 test('visual track order is derived bottom-to-top with captions after overlays', () => {
   const tracks = deriveVisualTrackOrder({
@@ -21,6 +21,18 @@ test('visual track order is derived bottom-to-top with captions after overlays',
     { kind: 'captions' },
     { kind: 'audio', ref: 0 },
   ]);
+});
+
+test('resolveInternalTrackZ は正規化後 tracks の配列順だけを権威にする', () => {
+    const tracks = [
+        { id: 'video', z: 99 },
+        { id: 'captions', z: -1 },
+        { id: 'telop', z: 0 }
+    ];
+    assert.equal(resolveInternalTrackZ(tracks, 'video'), 0);
+    assert.equal(resolveInternalTrackZ(tracks, 'captions'), 1);
+    assert.equal(resolveInternalTrackZ(tracks, 'telop'), 2);
+    assert.equal(resolveInternalTrackZ(tracks, 'missing'), -1);
 });
 
 test('the shared z resolver uses timeline.tracks array order as its only authority', () => {

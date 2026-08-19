@@ -34,6 +34,15 @@ export interface AssetStreamRequest {
     assetUri: string;
 }
 
+export interface RasterizeTelopPreviewRequest {
+    preset: string;
+    params?: Record<string, unknown>;
+    duration: number;
+    width: number;
+    height: number;
+    fps: number;
+}
+
 export interface TranscodeAudioRequest {
     audioUri: string;
 }
@@ -226,6 +235,7 @@ export interface AkariPreviewService {
     createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference>;
     disposeVideoStream(id: string): Promise<void>;
     createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference>;
+    rasterizeTelopPreview(request: RasterizeTelopPreviewRequest): Promise<VideoStreamReference>;
     disposeAssetStream(id: string): Promise<void>;
     transcodeAudioToWav(request: TranscodeAudioRequest): Promise<TranscodeAudioResult>;
     disposeTranscodedAudioStream(id: string): Promise<void>;
