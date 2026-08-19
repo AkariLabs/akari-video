@@ -77,7 +77,7 @@ Checkpoint 3 後に候補を反映した版も、[execution.md](execution.md) �
 採用した根拠・台本の版をチャットで提示し、`decision-log.md` に記録する（analyze-project は
 素材の analysis.json を前提とするスキルであり、素材ゼロのこの分岐では使わない）。静止コンセプト
 も同様にチャットで提示し、動画生成は承認工程まで保留する。生成後に複数クリップとなる場合も、
-実行時には [execution.md](execution.md) §1 の source 構成規則を適用する（複数クリップは v1 の `sources[]` + `cuts[].src` が第一選択肢）。
+実行時には [execution.md](execution.md) §1 の source 構成規則を適用する（複数クリップは v2 の `sources[]` + `tracks[].items[]` が第一選択肢）。
 
 方針決めは [plan-json.md](plan-json.md) の手順で行う: 選択肢式の質問対話で深掘り、確定した構成ビートと制約を `<plan-dir>/plan.json`（仮枠タイムライン。[contract-2026-07-20-plan-json-v0.md](../../docs/contract-2026-07-20-plan-json-v0.md)）へ落としてからチャットでの方針提示に入る（[report-guide.md](report-guide.md) 参照）。以降の提示は plan.json の slot id を根拠として参照する。
 

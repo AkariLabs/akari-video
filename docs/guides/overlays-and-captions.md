@@ -36,7 +36,7 @@ Caption `style` accepts four values:
 
 ## How it works — touchable overlays
 
-What gets generated is an HTML fragment, referenced from `edit.json`'s `overlays[]`. There
+What gets generated is an HTML fragment, referenced by an HTML clip in `tracks[].items[]`. There
 are two conventions:
 
 1. **Timing lives in data attributes** — declared via `data-start` / `data-duration`.
@@ -55,7 +55,7 @@ written back into the data.
 
 ## Background overlays (`role: "background"`)
 
-An overlay declared with `"role": "background"` in `overlays[]` becomes a background board:
+An HTML clip whose variables declare `"role": "background"` becomes a background board:
 it always fills the frame, cannot be moved, and is meant to be swapped per section. The
 position and scale knobs (`--x` / `--y` / `--scale` / `--rotate`) are locked — the runtime
 pins the fragment to the output frame — and a background overlay cannot carry a `transform`.

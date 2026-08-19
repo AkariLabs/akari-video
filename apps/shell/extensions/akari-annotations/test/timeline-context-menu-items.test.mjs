@@ -6,12 +6,12 @@ function ids(kind, hasClipboard) {
     return buildTimelineClipMenuItems(kind, hasClipboard).map(item => item.id);
 }
 
-test('cut・clipboard 無し: 分割/削除のみ（コピー/ペースト無し）', () => {
-    assert.deepEqual(ids('cut', false), ['split', 'delete']);
+test('cut・clipboard 無し: コピー → 分割 → 削除', () => {
+    assert.deepEqual(ids('cut', false), ['copy', 'split', 'delete']);
 });
 
-test('cut・clipboard 有り: ペースト → 分割 → 削除', () => {
-    assert.deepEqual(ids('cut', true), ['paste', 'split', 'delete']);
+test('cut・clipboard 有り: コピー → ペースト → 分割 → 削除', () => {
+    assert.deepEqual(ids('cut', true), ['copy', 'paste', 'split', 'delete']);
 });
 
 test('overlay・clipboard 無し: コピー → 削除', () => {
@@ -30,12 +30,12 @@ test('caption・clipboard 有り: コピー → ペースト → 削除', () => 
     assert.deepEqual(ids('caption', true), ['copy', 'paste', 'delete']);
 });
 
-test('layer・clipboard 無し: 削除のみ（コピー/ペースト/分割は既存ハンドラ非対応）', () => {
-    assert.deepEqual(ids('layer', false), ['delete']);
+test('layer・clipboard 無し: コピー → 削除', () => {
+    assert.deepEqual(ids('layer', false), ['copy', 'delete']);
 });
 
-test('layer・clipboard 有り: ペースト → 削除', () => {
-    assert.deepEqual(ids('layer', true), ['paste', 'delete']);
+test('layer・clipboard 有り: コピー → ペースト → 削除', () => {
+    assert.deepEqual(ids('layer', true), ['copy', 'paste', 'delete']);
 });
 
 test('audio・clipboard 無し: 削除のみ', () => {

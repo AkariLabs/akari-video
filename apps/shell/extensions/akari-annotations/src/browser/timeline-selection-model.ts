@@ -18,6 +18,8 @@ export interface TimelineCutSelection {
     speed?: number;
     transitionOut?: { type: 'dissolve' | 'fade-black' | 'fade-white'; duration: number };
     track?: number;
+    trackName: string;
+    clipName: string;
 }
 
 export interface TimelineOverlaySelection {
@@ -27,6 +29,8 @@ export interface TimelineOverlaySelection {
     duration: number;
     track?: number;
     payload: Record<string, unknown>;
+    trackName: string;
+    clipName: string;
 }
 
 export interface TimelineCaptionSelection {
@@ -59,6 +63,8 @@ export interface TimelineLayerSelection {
         | 'overlay' | 'hardlight' | 'softlight';
     chromaKey?: { color: string; similarity?: number; blend?: number };
     track?: number;
+    trackName: string;
+    clipName: string;
 }
 
 export interface TimelineAudioSelection {
@@ -73,6 +79,8 @@ export interface TimelineAudioSelection {
     fadeIn?: number;
     fadeOut?: number;
     ducking?: boolean;
+    trackName: string;
+    clipName: string;
 }
 
 export type TimelineItemSelectionSnapshot =

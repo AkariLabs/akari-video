@@ -1,0 +1,486 @@
+/**
+ * edit.json v2 の全文スナップショット用ミューテーション。
+ *
+ * すべての関数は入力を変更せず、tracks[].items[] の id を鍵にした新しい文書を返す。
+ * JSON Schema の検証は保存境界に任せ、この層では操作に必要な形と値だけを検査する。
+ */
+
+export type EditV2Document = Record<string, unknown>;
+export type EditV2Lane = 'visual' | 'audio';
+export type EditV2TrackFlag = 'hidden' | 'muted' | 'locked';
+
+type UnknownRecord = Record<string, unknown>;
+
+export interface ItemLocation {
+    trackId: string;
+    trackIndex: number;
+    itemIndex: number;
+}
+
+export function moveAudioSfx(
+    doc: EditV2Document,
+    options: { sfxId: string; t: number; track?: number }
+): EditV2Document {
+    return updateAudioSfx(doc, {
+        sfxId: options.sfxId,
+        patch: { t: options.t, ...(options.track === undefined ? {} : { track: options.track }) }
+    });
+}
+
+export function updateAudioSfx(
+    doc: EditV2Document,
+    options: { sfxId: string; patch: UnknownRecord }
+): EditV2Document {
+    const value = cloneDocument(doc);
+    const sfx = audioSfxOf(value);
+    const index = findAudioSfxIndex(sfx, options.sfxId);
+    const patch = { ...options.patch };
+    if (Object.prototype.hasOwnProperty.call(patch, 't')) requireSeconds(patch.t, 'audio.sfx[].t');
+    for (const field of ['in', 'out', 'fade_in', 'fade_out'] as const) {
+        if (Object.prototype.hasOwnProperty.call(patch, field) && patch[field] !== null) {
+            requireSeconds(patch[field], `audio.sfx[].${field}`);
+        }
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'track')
+        && (!Number.isInteger(patch.track) || (patch.track as number) < 0)) {
+        throw new Error('audio.sfx[].track は 0 以上の整数で指定してください。');
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'gain_db') && patch.gain_db !== null
+        && (typeof patch.gain_db !== 'number' || !Number.isFinite(patch.gain_db))) {
+        throw new Error('audio.sfx[].gain_db は有限数で指定してください。');
+    }
+    sfx[index] = mergeNullable(sfx[index], patch);
+    return value;
+}
+
+export function removeAudioSfx(doc: EditV2Document, sfxId: string): EditV2Document {
+    const value = cloneDocument(doc);
+    const sfx = audioSfxOf(value);
+    sfx.splice(findAudioSfxIndex(sfx, sfxId), 1);
+    return value;
+}
+
+export function insertAudioSfx(
+    doc: EditV2Document,
+    item: UnknownRecord,
+    index?: number
+): EditV2Document {
+    const value = cloneDocument(doc);
+    const sfx = audioSfxOf(value, true);
+    const id = stringId(item, '音声クリップ');
+    if (sfx.some((entry, entryIndex) => audioSfxId(entry, entryIndex) === id)) {
+        throw new Error(`音声クリップ id が重複しています: ${id}`);
+    }
+    requireSeconds(item.t, 'audio.sfx[].t');
+    if (typeof item.path !== 'string' || item.path.trim() === '') {
+        throw new Error('音声クリップの path がありません。');
+    }
+    const insertAt = index === undefined ? sfx.length : index;
+    if (!Number.isInteger(insertAt) || insertAt < 0 || insertAt > sfx.length) {
+        throw new Error('音声クリップの挿入位置が範囲外です。');
+    }
+    sfx.splice(insertAt, 0, cloneValue(item));
+    return value;
+}
+
+export function stringifyEditV2(value: EditV2Document): string {
+    return `${JSON.stringify(value, undefined, 2)}\n`;
+}
+
+export function indexEditV2Items(doc: EditV2Document): Map<string, ItemLocation> {
+    const result = new Map<string, ItemLocation>();
+    tracksOf(doc).forEach((track, trackIndex) => {
+        if (!Array.isArray(track.items)) return;
+        track.items.forEach((item, itemIndex) => {
+            if (!isRecord(item) || typeof item.id !== 'string') return;
+            if (result.has(item.id)) throw new Error(`クリップ id が重複しています: ${item.id}`);
+            result.set(item.id, { trackId: stringId(track, 'トラック'), trackIndex, itemIndex });
+        });
+    });
+    return result;
+}
+
+export function moveItem(
+    doc: EditV2Document,
+    options: { itemId: string; toTrackId: string; atFrames: number }
+): EditV2Document {
+    requireFrame(options.atFrames, '移動先の時刻');
+    const audioIndex = findAudioSfxIndexOptional(doc, options.itemId);
+    if (audioIndex >= 0) {
+        const match = /^implicit-audio-(\d+)$/.exec(options.toTrackId);
+        if (!match) throw new Error('音声クリップの移動先トラックを特定できません。');
+        return moveAudioSfx(doc, {
+            sfxId: options.itemId,
+            t: options.atFrames / fpsOf(doc),
+            track: Number(match[1])
+        });
+    }
+    const value = cloneDocument(doc);
+    const tracks = tracksOf(value);
+    const found = findItem(tracks, options.itemId);
+    const targetIndex = tracks.findIndex(track => track.id === options.toTrackId);
+    if (targetIndex < 0) throw new Error(`移動先のトラックが見つかりません: ${options.toTrackId}`);
+    const target = tracks[targetIndex];
+    requireItemsTrack(target, `移動先のトラック ${options.toTrackId}`);
+    if (target.lane !== found.track.lane) {
+        throw new Error(found.track.lane === 'visual'
+            ? '音のレーンには映像を置けません。'
+            : '映像のレーンには音を置けません。');
+    }
+    const [item] = found.track.items.splice(found.itemIndex, 1);
+    target.items.push({ ...item, at: options.atFrames });
+    return value;
+}
+
+export function moveItemToNewTrack(
+    doc: EditV2Document,
+    options: { itemId: string; insertIndex: number; atFrames: number }
+): EditV2Document {
+    requireFrame(options.atFrames, '移動先の時刻');
+    const value = cloneDocument(doc);
+    const tracks = tracksOf(value);
+    const found = findItem(tracks, options.itemId);
+    requireInsertIndex(tracks, options.insertIndex, found.track.lane as EditV2Lane);
+    const [item] = found.track.items.splice(found.itemIndex, 1);
+    const created: UnknownRecord = {
+        id: nextTrackId(tracks, found.track.lane as EditV2Lane),
+        lane: found.track.lane,
+        items: [{ ...item, at: options.atFrames }]
+    };
+    tracks.splice(options.insertIndex, 0, created);
+    return value;
+}
+
+export function updateItem(
+    doc: EditV2Document,
+    options: { itemId: string; patch: UnknownRecord }
+): EditV2Document {
+    const audioIndex = findAudioSfxIndexOptional(doc, options.itemId);
+    if (audioIndex >= 0) {
+        const patch: UnknownRecord = {};
+        if (Object.prototype.hasOwnProperty.call(options.patch, 'at')) {
+            requireFrame(options.patch.at, 'at');
+            patch.t = (options.patch.at as number) / fpsOf(doc);
+        }
+        if (isRecord(options.patch.source)) {
+            for (const key of ['in', 'out'] as const) {
+                if (Object.prototype.hasOwnProperty.call(options.patch.source, key)) {
+                    patch[key] = options.patch.source[key];
+                }
+            }
+        }
+        for (const key of ['gain_db', 'fade_in', 'fade_out', 'track'] as const) {
+            if (Object.prototype.hasOwnProperty.call(options.patch, key)) patch[key] = options.patch[key];
+        }
+        return updateAudioSfx(doc, { sfxId: options.itemId, patch });
+    }
+    const value = cloneDocument(doc);
+    const found = findItem(tracksOf(value), options.itemId);
+    const patch = { ...options.patch };
+    if (Object.prototype.hasOwnProperty.call(patch, 'at')) requireFrame(patch.at, 'at');
+    if (Object.prototype.hasOwnProperty.call(patch, 'duration')) requireFrame(patch.duration, 'duration');
+    const sourcePatch = patch.source;
+    delete patch.source;
+    const next = mergeNullable(found.item, patch);
+    if (sourcePatch !== undefined) {
+        if (!isRecord(sourcePatch)) throw new Error('source の更新値は object で指定してください。');
+        const source = recordOf(found.item.source, 'クリップの source');
+        if (Object.prototype.hasOwnProperty.call(sourcePatch, 'in')) requireSeconds(sourcePatch.in, 'source.in');
+        if (Object.prototype.hasOwnProperty.call(sourcePatch, 'out')) requireSeconds(sourcePatch.out, 'source.out');
+        next.source = mergeNullable(source, sourcePatch);
+    }
+    found.track.items[found.itemIndex] = next;
+    return value;
+}
+
+export function removeItem(doc: EditV2Document, itemId: string): EditV2Document {
+    const value = cloneDocument(doc);
+    const found = findItem(tracksOf(value), itemId);
+    found.track.items.splice(found.itemIndex, 1);
+    return value;
+}
+
+export function insertItem(
+    doc: EditV2Document,
+    trackId: string,
+    item: UnknownRecord,
+    index?: number
+): EditV2Document {
+    const value = cloneDocument(doc);
+    const tracks = tracksOf(value);
+    const target = tracks.find(track => track.id === trackId);
+    if (!target) throw new Error(`挿入先のトラックが見つかりません: ${trackId}`);
+    requireItemsTrack(target, `挿入先のトラック ${trackId}`);
+    const itemId = stringId(item, 'クリップ');
+    if (indexEditV2Items(value).has(itemId)) throw new Error(`クリップ id が重複しています: ${itemId}`);
+    requireFrame(item.at, 'at');
+    requireFrame(item.duration, 'duration');
+    const insertAt = index === undefined ? target.items.length : index;
+    if (!Number.isInteger(insertAt) || insertAt < 0 || insertAt > target.items.length) {
+        throw new Error('クリップの挿入位置が範囲外です。');
+    }
+    target.items.splice(insertAt, 0, cloneValue(item));
+    return value;
+}
+
+export function splitItem(
+    doc: EditV2Document,
+    options: { itemId: string; atFrames: number }
+): EditV2Document {
+    requireFrame(options.atFrames, '分割位置');
+    const value = cloneDocument(doc);
+    const tracks = tracksOf(value);
+    const found = findItem(tracks, options.itemId);
+    const at = numberOf(found.item.at, 'クリップの at');
+    const duration = numberOf(found.item.duration, 'クリップの duration');
+    const offset = options.atFrames - at;
+    if (offset <= 0 || offset >= duration) throw new Error('分割位置はクリップの内側に置いてください。');
+
+    const first = cloneValue(found.item);
+    const second = cloneValue(found.item);
+    first.duration = offset;
+    second.id = nextItemId(tracks, `${options.itemId}-split`);
+    second.at = options.atFrames;
+    second.duration = duration - offset;
+    if (isRecord(first.source) && isRecord(second.source)
+        && first.source.kind === 'media' && second.source.kind === 'media') {
+        const sourceIn = numberOf(first.source.in, 'source.in');
+        const sourceOut = numberOf(first.source.out, 'source.out');
+        const boundary = sourceIn + (sourceOut - sourceIn) * offset / duration;
+        first.source = { ...first.source, out: boundary };
+        second.source = { ...second.source, in: boundary };
+    }
+    found.track.items.splice(found.itemIndex, 1, first, second);
+    return value;
+}
+
+export function reorderTracks(
+    doc: EditV2Document,
+    options: { fromIndex: number; toIndex: number }
+): EditV2Document {
+    const value = cloneDocument(doc);
+    const tracks = tracksOf(value);
+    for (const index of [options.fromIndex, options.toIndex]) {
+        if (!Number.isInteger(index) || index < 0 || index >= tracks.length) {
+            throw new Error('トラックの並べ替え位置が範囲外です。');
+        }
+    }
+    if (tracks[options.fromIndex].lane !== tracks[options.toIndex].lane) {
+        throw new Error('音と映像のレーンをまたいでトラックを並べ替えることはできません。');
+    }
+    const [moved] = tracks.splice(options.fromIndex, 1);
+    tracks.splice(options.toIndex, 0, moved);
+    return value;
+}
+
+export function insertTrack(
+    doc: EditV2Document,
+    options: { index: number; lane: EditV2Lane; name?: string }
+): EditV2Document {
+    const value = cloneDocument(doc);
+    const tracks = tracksOf(value);
+    requireInsertIndex(tracks, options.index, options.lane);
+    const track: UnknownRecord = {
+        id: nextTrackId(tracks, options.lane),
+        lane: options.lane,
+        ...(options.name === undefined || options.name.trim() === '' ? {} : { name: options.name }),
+        items: []
+    };
+    tracks.splice(options.index, 0, track);
+    return value;
+}
+
+export function removeTrack(doc: EditV2Document, trackId: string): EditV2Document {
+    const value = cloneDocument(doc);
+    const tracks = tracksOf(value);
+    const index = tracks.findIndex(track => track.id === trackId);
+    if (index < 0) throw new Error(`トラックが見つかりません: ${trackId}`);
+    tracks.splice(index, 1);
+    return value;
+}
+
+export function renameTrack(
+    doc: EditV2Document,
+    options: { trackId: string; name: string }
+): EditV2Document {
+    const value = cloneDocument(doc);
+    const track = trackById(value, options.trackId);
+    if (options.name.trim() === '') delete track.name;
+    else track.name = options.name;
+    return value;
+}
+
+/**
+ * hidden / muted / locked は現行 v2 の exact な track 語彙に含まれない。
+ * そのため edit.json を壊すキーは書かず、呼び出し側が StorageService に保持する。
+ * schema へ再導入された時点で、この関数を通常のフィールド更新へ切り替える。
+ */
+export function setTrackFlag(
+    doc: EditV2Document,
+    options: { trackId: string; field: EditV2TrackFlag; value: boolean }
+): EditV2Document {
+    const value = cloneDocument(doc);
+    trackById(value, options.trackId);
+    return value;
+}
+
+function cloneDocument(doc: EditV2Document): EditV2Document {
+    if (!isRecord(doc)) throw new Error('edit.json は object である必要があります。');
+    const value = cloneValue(doc);
+    tracksOf(value);
+    return value;
+}
+
+function cloneValue<T>(value: T): T {
+    if (Array.isArray(value)) return value.map(entry => cloneValue(entry)) as T;
+    if (isRecord(value)) {
+        return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, cloneValue(entry)])) as T;
+    }
+    return value;
+}
+
+function tracksOf(doc: EditV2Document): UnknownRecord[] {
+    if (!Array.isArray(doc.tracks) || !doc.tracks.every(isRecord)) {
+        throw new Error('edit.json.tracks は object の配列である必要があります。');
+    }
+    return doc.tracks;
+}
+
+function audioSfxOf(doc: EditV2Document, create = false): UnknownRecord[] {
+    let audio: UnknownRecord;
+    if (isRecord(doc.audio)) {
+        audio = doc.audio;
+    } else {
+        if (!create) throw new Error('edit.json.audio が見つかりません。');
+        audio = {};
+        doc.audio = audio;
+    }
+    if (Array.isArray(audio.sfx)) {
+        if (!audio.sfx.every(isRecord)) {
+            throw new Error('edit.json.audio.sfx は object の配列である必要があります。');
+        }
+        return audio.sfx;
+    }
+    if (!create) throw new Error('edit.json.audio.sfx が見つかりません。');
+    const sfx: UnknownRecord[] = [];
+    audio.sfx = sfx;
+    return sfx;
+}
+
+function audioSfxId(entry: UnknownRecord, index: number): string {
+    return typeof entry.id === 'string' && entry.id.trim() ? entry.id : `sfx-${index}`;
+}
+
+function findAudioSfxIndex(sfx: UnknownRecord[], sfxId: string): number {
+    const index = sfx.findIndex((entry, entryIndex) => audioSfxId(entry, entryIndex) === sfxId);
+    if (index < 0) throw new Error(`音声クリップが見つかりません: ${sfxId}`);
+    return index;
+}
+
+function findAudioSfxIndexOptional(doc: EditV2Document, sfxId: string): number {
+    if (!isRecord(doc.audio) || !Array.isArray(doc.audio.sfx)) return -1;
+    return doc.audio.sfx.findIndex((entry, index) => isRecord(entry) && audioSfxId(entry, index) === sfxId);
+}
+
+function fpsOf(doc: EditV2Document): number {
+    if (!isRecord(doc.output) || !Number.isInteger(doc.output.fps) || (doc.output.fps as number) <= 0) {
+        throw new Error('edit.json.output.fps が不正です。');
+    }
+    return doc.output.fps as number;
+}
+
+function trackById(doc: EditV2Document, trackId: string): UnknownRecord {
+    const track = tracksOf(doc).find(candidate => candidate.id === trackId);
+    if (!track) throw new Error(`トラックが見つかりません: ${trackId}`);
+    return track;
+}
+
+function findItem(tracks: UnknownRecord[], itemId: string): {
+    track: UnknownRecord & { items: UnknownRecord[] };
+    trackIndex: number;
+    item: UnknownRecord;
+    itemIndex: number;
+} {
+    for (let trackIndex = 0; trackIndex < tracks.length; trackIndex++) {
+        const track = tracks[trackIndex];
+        if (!Array.isArray(track.items)) continue;
+        const itemIndex = track.items.findIndex(item => isRecord(item) && item.id === itemId);
+        if (itemIndex >= 0) {
+            requireItemsTrack(track, `トラック ${String(track.id ?? trackIndex)}`);
+            return { track, trackIndex, item: track.items[itemIndex], itemIndex };
+        }
+    }
+    throw new Error(`クリップが見つかりません: ${itemId}`);
+}
+
+function requireItemsTrack(
+    track: UnknownRecord,
+    label: string
+): asserts track is UnknownRecord & { items: UnknownRecord[] } {
+    if (!Array.isArray(track.items) || !track.items.every(isRecord)) {
+        throw new Error(`${label} はクリップを置けるトラックではありません。`);
+    }
+}
+
+function requireInsertIndex(tracks: UnknownRecord[], index: number, lane: EditV2Lane): void {
+    if (!Number.isInteger(index) || index < 0 || index > tracks.length) {
+        throw new Error('トラックの挿入位置が範囲外です。');
+    }
+    const audioCount = tracks.filter(track => track.lane === 'audio').length;
+    const valid = lane === 'audio' ? index <= audioCount : index >= audioCount;
+    if (!valid) throw new Error('音のレーンは最下段から動かせません。');
+}
+
+function nextTrackId(tracks: UnknownRecord[], lane: EditV2Lane): string {
+    const ids = new Set(tracks.map(track => typeof track.id === 'string' ? track.id : ''));
+    const prefix = lane === 'audio' ? 'a' : 'v';
+    let serial = 1;
+    while (ids.has(`${prefix}${serial}`)) serial++;
+    return `${prefix}${serial}`;
+}
+
+function nextItemId(tracks: UnknownRecord[], base: string): string {
+    const ids = new Set(indexEditV2Items({ tracks }).keys());
+    if (!ids.has(base)) return base;
+    let serial = 2;
+    while (ids.has(`${base}-${serial}`)) serial++;
+    return `${base}-${serial}`;
+}
+
+function mergeNullable(base: UnknownRecord, patch: UnknownRecord): UnknownRecord {
+    const result = { ...base };
+    for (const [key, value] of Object.entries(patch)) {
+        if (value === null || value === undefined) delete result[key];
+        else result[key] = cloneValue(value);
+    }
+    return result;
+}
+
+function recordOf(value: unknown, label: string): UnknownRecord {
+    if (!isRecord(value)) throw new Error(`${label} は object である必要があります。`);
+    return value;
+}
+
+function numberOf(value: unknown, label: string): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) throw new Error(`${label} は有限数である必要があります。`);
+    return value;
+}
+
+function stringId(value: UnknownRecord, label: string): string {
+    if (typeof value.id !== 'string' || value.id.trim() === '') throw new Error(`${label} id がありません。`);
+    return value.id;
+}
+
+function requireFrame(value: unknown, label: string): asserts value is number {
+    if (!Number.isInteger(value) || (value as number) < 0) throw new Error(`${label}は 0 以上の整数フレームで指定してください。`);
+}
+
+function requireSeconds(value: unknown, label: string): asserts value is number {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+        throw new Error(`${label} は 0 以上の秒で指定してください。`);
+    }
+}
+
+function isRecord(value: unknown): value is UnknownRecord {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}

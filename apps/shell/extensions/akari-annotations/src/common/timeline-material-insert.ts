@@ -1,4 +1,4 @@
-import { computeCutTrackSegments, EditCut, EditLayer, EditTimelineTrack, TimelineTrackKind } from './edit-store';
+import { computeCutTrackSegments, EditCut, TimelineTrackKind } from './edit-store';
 
 /**
  * 素材追加コマンド（akari.timeline.addMaterialAtPlayhead / D&D ドロップ）の挿入要素を組み立てる
@@ -50,7 +50,7 @@ export function materialDropDecision(
         if (trackKind === 'audio' || trackKind === undefined) {
             return { accept: true, zone: 'audio' };
         }
-        return { accept: false, reason: '音源は音源トラック（一番下の帯）にドロップしてください。' };
+        return { accept: false, reason: '音は音の段へドロップしてください。' };
     }
     if (trackKind === 'layers' || trackKind === undefined) {
         return { accept: true, zone: 'layers' };
@@ -58,10 +58,9 @@ export function materialDropDecision(
     if (trackKind === 'cuts') {
         return { accept: true, zone: 'cuts' };
     }
-    const label = materialKind === 'image' ? '画像' : '動画';
     return {
         accept: false,
-        reason: `${label}は本編トラックかレイヤートラックにドロップしてください（字幕・オーバーレイの帯には置けません）。`
+        reason: '映像は映像の段へ、音は音の段へドロップしてください。'
     };
 }
 
@@ -112,168 +111,6 @@ export function materialGhostVisibility(
         return { showGhost: false, showInsertIndicator: false };
     }
     return { showGhost: true, showInsertIndicator: kind !== 'audio' && target.insertTrack !== undefined };
-}
-
-/** audio.sfx[] の最小形（sfxItem スキーマ必須: path, t。track は既定 0 を明示する）。 */
-export interface TimelineSfxElement {
-    readonly path: string;
-    readonly t: number;
-    readonly track: number;
-}
-
-/** 素材パスのファイル名から layer id の基底文字列を作る（英数字以外は '-' に畳む）。 */
-function materialIdBase(relativePath: string): string {
-    const fileName = relativePath.split('/').pop() || relativePath;
-    const withoutExt = fileName.replace(/\.[^./]+$/u, '');
-    const slug = withoutExt.toLowerCase().replace(/[^a-z0-9]+/gu, '-').replace(/^-+|-+$/gu, '');
-    return `layer-${slug || 'material'}`;
-}
-
-/** 既存 id 集合と衝突しない id を返す（既存 nextCopyId と同じ「未衝突ならそのまま・以降は -2, -3...」の流儀）。 */
-function nextAvailableId(base: string, existingIds: readonly string[]): string {
-    const used = new Set(existingIds);
-    if (!used.has(base)) {
-        return base;
-    }
-    let sequence = 2;
-    while (used.has(`${base}-${sequence}`)) {
-        sequence++;
-    }
-    return `${base}-${sequence}`;
-}
-
-/**
- * video/image 素材を layers[] へ挿入する要素を組み立てる。
- * track は省略時 0（既存呼び出し = 再生ヘッド追加コマンドとの後方互換、task
- * 2026-08-10-material-dnd-timeline 指示6）。kind は常に 'video' 固定 — image は schema が src の
- * 拡張子を制限しないため、image 素材もこのまま流用してよい。
- *
- * task 2026-08-18-timeline-dnd-p0p1: 総尺による拒否とクランプを撤廃した
- * （理由は computeMaterialGhostRange のコメントを参照）。素材は落とした尺のまま入り、
- * 総尺のほうが伸びる。
- */
-export function buildLayerElement(
-    existingIds: readonly string[],
-    relativePath: string,
-    t: number,
-    durationSeconds: number,
-    track = 0
-): EditLayer {
-    return {
-        id: nextAvailableId(materialIdBase(relativePath), existingIds),
-        t: Math.max(0, t),
-        duration: Math.max(0, durationSeconds),
-        kind: 'video',
-        src: relativePath,
-        track
-    };
-}
-
-/**
- * audio 素材を audio.sfx[] へ挿入する要素を組み立てる。in/out は省略し素材全長の
- * 既存意味に任せる（司令塔裁定4）。track は省略時 0（後方互換）。
- * task 2026-08-18-timeline-dnd-p0p1: 総尺による拒否を撤廃した。
- */
-export function buildSfxElement(
-    relativePath: string,
-    t: number,
-    track = 0
-): TimelineSfxElement {
-    return { path: relativePath, t: Math.max(0, t), track };
-}
-
-// --- task 2026-08-10-dnd-ghost-and-insert-fix: 行間ドロップ(insertTrack)の繰り上げ ---
-
-/**
- * insertTrack 以上の layers[].track を +1 する（widget shiftTrackStateForInsert
- * `apps/shell/extensions/akari-annotations/src/browser/akari-annotations-widget.ts:7307` と同じ
- * 「挿入先以上を1つ上へずらす」規則の layers[] 版・司令塔裁定3）。track 省略時は 0 として扱う。
- * 繰り上げが不要な要素は参照をそのまま返す（track フィールドを新規に生やさない — 元データの
- * 忠実性を保つ）。
- */
-export function shiftLayerTracksForInsert(
-    layers: readonly EditLayer[],
-    insertTrack: number
-): EditLayer[] {
-    return layers.map(layer => {
-        const current = layer.track ?? 0;
-        return current >= insertTrack ? { ...layer, track: current + 1 } : layer;
-    });
-}
-
-/**
- * layers 系の宣言トラック（timeline.tracks の kind: 'layers'）へ、insertTrack の位置へ新規行を
- * 挿入する純関数（司令塔裁定3）。widget 側 `insertedTimelineTracks`
- * (`apps/shell/extensions/akari-annotations/src/browser/akari-annotations-widget.ts:4651-4684`、
- * アイテムドラッグの行間挿入と共用・タスク契約上の編集禁止)の kind='layers' 相当を写した純関数。
- * 同メソッドは Theia DI に依存する widget クラスの protected メソッドで node --test から
- * 直接検証できないため、D&D 新規追加フロー（既存アイテムの移動を伴わない新規挿入）向けにここへ
- * 複製する（derive-timeline-tracks.ts と同型の契約上の複製 — アルゴリズムを変更する場合は
- * 両ファイルを同期させること）。呼び出し側は pinAudioGroupToBottom 相当の並び（audio 先頭）を
- * 適用済みの tracks を渡すこと。
- */
-export function insertedLayerTimelineTracks(
-    tracks: readonly EditTimelineTrack[],
-    insertTrack: number
-): EditTimelineTrack[] {
-    return insertedTimelineTracksOfKind(tracks, 'layers', insertTrack);
-}
-
-/**
- * `insertedLayerTimelineTracks` の kind 一般化（task 2026-08-18-timeline-dnd-p0p1）。
- * 本編（cuts）への行間ドロップでも同じ「挿入先以上を 1 つ上へずらして新規行を差し込む」規則を
- * 使うため、kind を引数に取れる形へ切り出した。挙動は kind='layers' のとき従来と完全に同じ。
- */
-export function insertedTimelineTracksOfKind(
-    tracks: readonly EditTimelineTrack[],
-    kind: TimelineTrackKind,
-    insertTrack: number
-): EditTimelineTrack[] {
-    const shifted = tracks.map(track => ({
-        ...track,
-        ...(track.kind === kind && (track.ref ?? 0) >= insertTrack ? { ref: (track.ref ?? 0) + 1 } : {})
-    }));
-    const ids = new Set(shifted.map(track => track.id));
-    let serial = shifted.length + 1;
-    while (ids.has(`t${serial}`)) {
-        serial++;
-    }
-    const entry: EditTimelineTrack = { id: `t${serial}`, kind, ref: insertTrack };
-    const lowerIndex = shifted.reduce(
-        (found, track, index) =>
-            track.kind === kind && (track.ref ?? 0) === insertTrack - 1 ? index : found,
-        -1
-    );
-    if (lowerIndex >= 0) {
-        shifted.splice(lowerIndex + 1, 0, entry);
-    } else {
-        const higherIndex = shifted.findIndex(
-            track => track.kind === kind && (track.ref ?? 0) > insertTrack
-        );
-        shifted.splice(higherIndex >= 0 ? higherIndex : shifted.length, 0, entry);
-    }
-    return shifted;
-}
-
-/**
- * 明示 `timeline.tracks` に audio 種別が 1 本も無いとき、ref 0 の音源トラックを 1 本足す
- * （task 2026-08-18-timeline-dnd-p0p1 / P0-a）。音源帯は `audio.sfx[]` / `audio.narration[]` から
- * 派生するため、`timeline.tracks` を明示していないプロジェクトでは sfx を足すだけで行が生える。
- * 明示している場合だけこの補完が要る。並びは pinAudioGroupToBottom の流儀（audio は配列先頭 =
- * 画面最下段）に合わせて先頭へ入れる。既に audio があれば参照をそのまま複製して返す。
- */
-export function ensuredAudioTimelineTracks(
-    tracks: readonly EditTimelineTrack[]
-): EditTimelineTrack[] {
-    if (tracks.some(track => track.kind === 'audio')) {
-        return [...tracks];
-    }
-    const ids = new Set(tracks.map(track => track.id));
-    let serial = tracks.length + 1;
-    while (ids.has(`t${serial}`)) {
-        serial++;
-    }
-    return [{ id: `t${serial}`, kind: 'audio', ref: 0 }, ...tracks];
 }
 
 /** cuts[] の out - in が 0 になると validate-edit の `out > in` に落ちるため、最小尺を敷く。 */
@@ -336,7 +173,7 @@ export function insertCutIntoEdit(
         const ids = new Set(tracks.filter(isRecord).map(trackValue => String(trackValue.id ?? '')));
         let serial = 1;
         while (ids.has(`v${serial}`)) serial++;
-        tracks.unshift({ id: `v${serial}`, lane: 'visual', name: '本編', items: [] });
+        tracks.unshift({ id: `v${serial}`, lane: 'visual', items: [] });
         mainIndex = 0;
     }
     const main = tracks[mainIndex] as Record<string, any>;
@@ -362,72 +199,6 @@ export function insertCutIntoEdit(
     return { value, warnings: [] };
 }
 
-export function insertLayerIntoV2(
-    input: Readonly<Record<string, unknown>>,
-    relativePath: string,
-    t: number,
-    durationSeconds: number,
-    trackRef: number,
-    insertTrack?: number
-): Record<string, unknown> {
-    const value: Record<string, unknown> = { ...input };
-    const sources = Array.isArray(input.sources) ? [...input.sources] : [];
-    const existing = sources.find(source => isRecord(source) && source.path === relativePath);
-    const srcId = isRecord(existing) && typeof existing.id === 'string' ? existing.id : nextSourceId(sources);
-    if (!existing) sources.push({ id: srcId, path: relativePath, proxy: null });
-    value.sources = sources;
-    const tracks = Array.isArray(input.tracks)
-        ? input.tracks.map(trackValue => isRecord(trackValue)
-            ? { ...trackValue, ...(Array.isArray(trackValue.items) ? { items: [...trackValue.items] } : {}) }
-            : trackValue)
-        : [];
-    const visualIndexes = tracks.flatMap((trackValue, index) => isRecord(trackValue)
-        && trackValue.lane === 'visual' && Array.isArray(trackValue.items) ? [index] : []);
-    const layerIndexes = visualIndexes.slice(1);
-    let targetIndex = layerIndexes[trackRef];
-    if (targetIndex === undefined || insertTrack !== undefined) {
-        const ids = new Set(tracks.filter(isRecord).map(trackValue => String(trackValue.id ?? '')));
-        let serial = 1;
-        while (ids.has(`v-layer-${serial}`)) serial++;
-        const created = { id: `v-layer-${serial}`, lane: 'visual', name: `レイヤー ${trackRef + 1}`, items: [] };
-        const insertAt = insertTrack === undefined
-            ? tracks.length
-            : Math.min(tracks.length, Math.max(visualIndexes[0] === undefined ? 0 : visualIndexes[0] + 1, insertTrack));
-        tracks.splice(insertAt, 0, created);
-        targetIndex = insertAt;
-    }
-    const target = tracks[targetIndex] as Record<string, any>;
-    const allIds = new Set(tracks.filter(isRecord).flatMap(trackValue => Array.isArray(trackValue.items)
-        ? trackValue.items.filter(isRecord).map(item => String(item.id ?? '')) : []));
-    let serial = 1;
-    while (allIds.has(`layer-${serial}`)) serial++;
-    const fps = isRecord(input.output) && Number.isInteger(input.output.fps) && input.output.fps > 0
-        ? input.output.fps : 30;
-    const at = Math.round(Math.max(0, t) * fps);
-    const end = Math.round((Math.max(0, t) + Math.max(0.001, durationSeconds)) * fps);
-    target.items.push({
-        id: `layer-${serial}`, at, duration: Math.max(1, end - at),
-        source: { kind: 'media', src: srcId, in: 0, out: Math.max(0.001, durationSeconds) }
-    });
-    tracks[targetIndex] = target;
-    value.tracks = tracks;
-    return value;
-}
-
-export function ensureV2AudioTrack(input: Readonly<Record<string, unknown>>, ref: number): Record<string, unknown> {
-    const value = { ...input };
-    const tracks = Array.isArray(input.tracks) ? [...input.tracks] : [];
-    const audioTracks = tracks.filter(trackValue => isRecord(trackValue) && trackValue.lane === 'audio');
-    if (!audioTracks[ref]) {
-        const ids = new Set(tracks.filter(isRecord).map(trackValue => String(trackValue.id ?? '')));
-        let serial = 1;
-        while (ids.has(`a${serial}`)) serial++;
-        tracks.push({ id: `a${serial}`, lane: 'audio', name: `オーディオ ${ref + 1}`, items: [] });
-    }
-    value.tracks = tracks;
-    return value;
-}
-
 /**
  * 本編（cuts）トラック上で、素材を丸ごと置ける最初の位置を返す純関数
  * （task 2026-08-18-timeline-dnd-p0p1 / P1-a）。
@@ -441,7 +212,7 @@ export function ensureV2AudioTrack(input: Readonly<Record<string, unknown>>, ref
  *
  * occupied は同一トラックの占有区間（出力秒）。順不同でよい。
  */
-export function firstFreeCutStart(
+function firstFreeCutStart(
     occupied: ReadonlyArray<{ readonly start: number; readonly end: number }>,
     t: number,
     durationSeconds: number
