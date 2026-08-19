@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 // edit.json v0/v1 の構造と、JSON Schema 単体では表せない参照・範囲制約を検証する。
+// v2 の詳細は edit.schema.json + v2 reader が正本なので、ここは版だけ受理する。
 
 import fs from "node:fs";
 import path from "node:path";
@@ -71,8 +72,11 @@ function validateEdit(value) {
     fail("edit.json のルートは object である必要があります");
     return;
   }
+  if (value.version === 2) {
+    return;
+  }
   if (value.version !== 0 && value.version !== 1) {
-    fail("version は 0 または 1 である必要があります");
+    fail("version は 0 / 1 / 2 のいずれかである必要があります");
     return;
   }
   validateOutput(value.output);

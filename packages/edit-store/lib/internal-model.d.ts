@@ -1,28 +1,8 @@
 /**
- * 内部表現（edit.json v2 の形 = `tracks[].items[]`）と、**版を知る唯一の場所**。
- *
- * 契約: 内部リポ `planning/notes-2026-08-18-timeline-latency-and-track-model.md` §9〜§11
- * （タスク `2026-08-18-edit-json-v2-internal-model` / Phase 1）。
- *
- * 方針:
- *   - `readInternalEdit()` より下流は「edit.json の版」を知らない。v0 / v1 / v2 のどれを渡しても
- *     同じ `InternalEdit` が返る。版で分岐してよいのは本ファイル（と `parseEdit` / `readEditV2`）だけ
- *   - トラックが正本。`tracks` の配列順が下→上の合成順で、`z` は配列添字と常に一致する
- *     （z の権威は `timeline.tracks` の配列順ただ一つ — タスク 5 の不変条件をそのまま引き継ぐ）
- *   - アイテムの種別は `source.kind`（`media` / `html` / `telop` / `filter`）1 軸。
- *     焼いたテロップは別種別ではなく `telop` の `baked`（= キャッシュ）で、**焼く前後で id は変わらない**
- *   - 相対参照は読み込み層で解決する。`item.at` は常に絶対値（v0/v1 の「前のカットの終端に詰まる」
- *     暗黙 at は `computeCutTrackSegments` で解決済み）
- *
- * 時間の単位:
- *   v2 は `atFrames` / `durationFrames` が出力時間の正本で、`at` / `duration` はこの読み込み層だけで
- *   `frames / output.fps` へ射影する。v0/v1 は移行前の秒宣言を 1 ビットも動かさず、対応する出力
- *   フレーム番号を `atFrames` / `durationFrames` に付記するだけなので、秒とフレームの射影が一致
- *   しない場合がある。レガシー宣言の格子化は v2 変換器の責務とする。
+ * edit.json v2 を tracks-first の内部表現へ読む。
+ * トラック配列順が下→上の合成順で、時刻は整数フレーム宣言を正本とする。
  */
-import { EditAudioBgm, EditAudioNarration, EditAudioSfx, EditBeat, EditCut, EditDefaultSource, EditLayer, EditOverlay, EditSource, EditTimelineTrack, TimelineTrackKind } from './edit-store';
-/** v0（単一 source 宣言）へ読み込み層が割り当てる素材表の鍵。 */
-export declare const DEFAULT_SOURCE_ID = "__default__";
+import { EditAudioBgm, EditAudioNarration, EditAudioSfx, EditBeat, EditCut, EditLayer, EditOverlay, EditSource, EditTimelineTrack, TimelineTrackKind } from './edit-store';
 export type InternalLane = 'visual' | 'audio';
 /** 素材の出どころ。1 アイテム = 1 種別で、種別ごとの分岐はここ 1 軸に集約する。 */
 export interface InternalMediaSource {
@@ -58,12 +38,11 @@ export type InternalItemSource = InternalMediaSource | InternalHtmlSource | Inte
 /** 旧 edit.json の種別別配列の名前。v2 の `tracks[].items[]` は 'items'。 */
 export type LegacyCollection = 'cuts' | 'overlays' | 'layers' | 'sfx' | 'narration' | 'bgm' | 'items';
 /**
- * 旧宣言（種別別配列）との対応。Phase 3（write-and-migrate）で書き込み経路が内部表現へ
- * 移るまで残る橋。v2 入力でも同じ型付きビューを合成するので、消費者は版を知らずに描ける。
+ * renderer 互換ビューとの対応。
  */
 export interface InternalItemLegacy {
     collection: LegacyCollection;
-    /** 宣言配列内の添字（v0/v1 では edit.json の配列添字 = テキスト手術の宛先）。 */
+    /** 宣言配列内の添字。 */
     index: number;
     /** 種別別の型付きビュー。旧読み取り器が受け付けなかった宣言では undefined。 */
     value?: EditCut | EditOverlay | EditLayer | EditAudioSfx | EditAudioNarration | EditAudioBgm;
@@ -71,18 +50,17 @@ export interface InternalItemLegacy {
 export interface InternalItem {
     /** 宣言の id。焼く前後・版をまたいでも同じ 1 個のクリップは同じ id を保つ。 */
     id: string;
-    /** 出力タイムライン上の絶対位置（整数フレーム）。v2 では正本、v0/v1 では宣言秒が乗るフレーム。 */
+    /** 出力タイムライン上の絶対位置（整数フレーム、正本）。 */
     atFrames: number;
-    /** 出力尺（整数フレーム）。v2 では正本、v0/v1 では丸めた境界差。実尺未解決時は 0。 */
+    /** 出力尺（整数フレーム、正本）。実尺未解決時は 0。 */
     durationFrames: number;
-    /** 出力秒。v2 は `atFrames / output.fps`。v0/v1 は宣言どおりで、暗黙 at だけ解決済み。 */
+    /** 出力秒（`atFrames / output.fps`）。 */
     at: number;
-    /** 出力秒。v2 は `durationFrames / output.fps`。v0/v1 は宣言どおり。 */
+    /** 出力秒（`durationFrames / output.fps`）。 */
     duration: number;
     source: InternalItemSource;
     /**
-     * 内部表現の宣言レコード。キー語彙は内部表現が固定し、v0 / v1 / v2 のどれから来ても
-     * 同じキーで載る。深い視覚プロパティ（crop / perspective / keyframes / framing / freeze /
+     * 内部表現の宣言レコード。深い視覚プロパティ（crop / perspective / keyframes / framing / freeze /
      * vars）の値検証は各消費者の既存検証器がそのまま行う（パリティ契約 §2.2.1 の
      * 「独立に導出した検証を共有バグで隠さない」を保つため、ここでは検証しない）。
      */
@@ -115,12 +93,12 @@ export interface InternalTrack {
 export interface InternalOutput {
     width?: number;
     height?: number;
-    /** 出力の格子。v2 は integer 限定、v0/v1 は宣言どおり（既定 30）。 */
+    /** 出力の格子（integer 限定）。 */
     fps: number;
     look?: unknown;
 }
 export interface InternalSource {
-    /** 素材表の鍵。v0 の単一 source 宣言には読み込み層が `DEFAULT_SOURCE_ID` を割り当てる。 */
+    /** 素材表の鍵。 */
     id: string;
     /** 宣言どおりのパス（未検証。消費者の既存検証がそのまま読む）。 */
     declaredPath: unknown;
@@ -132,8 +110,7 @@ export interface InternalSource {
     /** 診断メッセージ用の宣言位置（例 `sources[hero]` / `source`）。版名は含めない。 */
     declarationPath: string;
     /**
-     * 単一素材宣言（旧 v0 の `source`）か。**basename 照合の後方互換はこの表記にだけ効く**
-     * — 消費者は版ではなくこの性質を見る。
+     * 既定素材として扱うかを示す意味フラグ。
      */
     isDefault: boolean;
 }
@@ -149,11 +126,10 @@ export interface InternalEditDeclaration {
 }
 export interface InternalEdit {
     output: InternalOutput;
-    /** 素材表。v0 の単一 source 宣言も鍵 1 個の表に正規化する。 */
+    /** 素材表。 */
     sources: InternalSource[];
     /**
-     * 素材表として宣言されていたか（旧 v1 の `sources[]`）。単一宣言・宣言なしとの差を
-     * 旧経路が要求するあいだだけ残す（Phase 3 で消える）。
+     * 素材表として宣言されていたか。
      */
     sourceTableDeclared: boolean;
     /** 素材宣言が 1 つも無い = 素材投入前の新規プロジェクト。 */
@@ -172,7 +148,7 @@ export interface InternalReadOptions {
     hasCaptions?: boolean;
 }
 /**
- * edit.json（v0 / v1 / v2）を内部表現へ読む。**版で分岐してよい唯一の入口**。
+ * edit.json v2 を内部表現へ読む。v0/v1 は凍結変換ユニットのみが読む。
  * 文字列でもパース済みオブジェクトでも受け取る。
  */
 export declare function readInternalEdit(source: string | unknown, options?: InternalReadOptions): InternalEdit;
@@ -184,7 +160,6 @@ export declare function readInternalSources(source: string | unknown): InternalS
 export interface LegacyEditView {
     cuts: EditCut[];
     sources?: EditSource[];
-    source?: EditDefaultSource;
     overlays: EditOverlay[];
     beats?: EditBeat[];
     layers: EditLayer[];

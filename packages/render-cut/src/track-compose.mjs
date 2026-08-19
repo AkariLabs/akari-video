@@ -111,29 +111,8 @@ export function buildCutTrackCompositeCommand({
   };
 }
 
-export function resolveCutTrackRanges(cuts, {
-  version,
-  sourceDuration,
-  outputDuration,
-} = {}) {
+export function resolveCutTrackRanges(cuts) {
   if (!Array.isArray(cuts) || cuts.length === 0) return [];
-
-  if (version === 0) {
-    if (needsGapAwareCutTimeline(cuts)) {
-      return computeVideoRuns(resolveCutSegments(cuts), outputDuration)
-        .filter(run => run.kind === "src")
-        .map(run => ({
-          outputStart: run.outStart,
-          outputEnd: run.outEnd,
-          inputStart: run.outStart,
-        }));
-    }
-    return [{
-      outputStart: 0,
-      outputEnd: legacySequentialDuration(cuts, sourceDuration),
-      inputStart: 0,
-    }];
-  }
 
   const offsets = [];
   let cursor = 0;
@@ -157,21 +136,6 @@ export function resolveCutTrackRanges(cuts, {
         inputStart: offsets[segment.index] + (run.outStart - segment.start),
       };
     });
-}
-
-function legacySequentialDuration(cuts, sourceDuration) {
-  if (cuts.length === 0) return sourceDuration;
-  const segmentsTotal = cuts.reduce((sum, cut) => sum + segmentDuration(cut), 0);
-  const transitionOverlap = cuts
-    .slice(0, -1)
-    .reduce((sum, cut) => sum + (
-      typeof cut.transition_out?.duration === "number"
-      && Number.isFinite(cut.transition_out.duration)
-      && cut.transition_out.duration > 0
-        ? cut.transition_out.duration
-        : 0
-    ), 0);
-  return segmentsTotal - transitionOverlap;
 }
 
 function formatNumber(value) {

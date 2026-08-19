@@ -43,7 +43,7 @@ import {
 } from '../common/caption-visual-contract';
 import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visual';
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
-import { LayerPerspective, computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
+import { computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
 import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import {
@@ -2610,7 +2610,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         try {
             // 版を知るのは読み込み層（readInternalEdit）だけ。v0（単一 source）も v1（sources[]）も
             // v2（tracks[].items[]）も、ここから先は同じ内部表現として扱う。
-            const editText = editSource ?? await this.readText(editUri);
+            let editText = editSource ?? await this.readText(editUri);
+            const rawVersion = (() => {
+                try { return (JSON.parse(editText) as { version?: unknown }).version; } catch { return undefined; }
+            })();
+            if (rawVersion !== 2) {
+                const prepared = await this.previewService.prepareLegacyEdit({ editUri: editUri.toString() });
+                if ('blockers' in prepared) {
+                    throw new TypeError(`このプロジェクトは変換できません: ${prepared.blockers.join(' / ')}`);
+                }
+                editText = prepared.nextText;
+                this.messages.warn(
+                    `edit.json version ${prepared.version} を読み取り専用でプレビュしています。`
+                    + '元ファイルは変更されていません。タイムラインか `akari migrate` で変換できます。'
+                );
+            }
             // timeline.tracks 未宣言時の captions 段は captions.json の実在に依存する。
             // 先に字幕解決を確定し、埋め込み字幕と合わせて正規化読込へ渡す。
             const captions = await captionsPromise;

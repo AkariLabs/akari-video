@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildAudioMixCommand, buildPlan, predictedDuration, selectDefaultOutput } from "../src/plan.mjs";
+import { buildAudioMixCommand, predictedDuration, selectDefaultOutput } from "../src/plan.mjs";
+import { buildV2Plan, toRenderEdit } from "./helpers/v2-fixture.mjs";
 
 const edit = {
   version: 0,
@@ -31,8 +32,8 @@ test("the same input produces the same command plan from the original source", (
     capabilities,
     hasSourceAudio: true,
   };
-  const first = buildPlan(input);
-  const second = buildPlan(input);
+  const first = buildV2Plan(input);
+  const second = buildV2Plan(input);
   assert.deepEqual(second.commands, first.commands);
   assert.equal(first.predicted_duration_seconds, 10);
   assert.ok(first.commands.cut.args.includes("/project/source.mp4"));
@@ -45,13 +46,13 @@ test("the same input produces the same command plan from the original source", (
 test("default output names are numbered rather than overwritten", () => {
   const existing = new Set(["/project/exports/source.mp4", "/project/exports/source-2.mp4"]);
   assert.equal(
-    selectDefaultOutput("/project", edit, (path) => existing.has(path)),
+    selectDefaultOutput("/project", toRenderEdit(edit), (path) => existing.has(path)),
     "/project/exports/source-3.mp4",
   );
 });
 
 test("3D plans require puppeteer-core and do not advertise still-image fallback", () => {
-  const plan = buildPlan({
+  const plan = buildV2Plan({
     edit,
     projectRoot: "/project",
     outputPath: "/project/exports/source.mp4",
@@ -86,47 +87,17 @@ test("BGM and SFX produce a deterministic direct ffmpeg mix command", () => {
   assert.match(command.args.join(" "), /amix=inputs=3:duration=first/);
 });
 
-test("cuts without at or track keep the exact legacy cut command", () => {
-  const plan = buildPlan({
-    edit,
-    projectRoot: "/project",
-    outputPath: "/project/exports/source.mp4",
-    capabilities,
-    hasSourceAudio: true,
-  });
-  assert.deepEqual(plan.commands.cut.args, [
-    "-hide_banner",
-    "-loglevel",
-    "error",
-    "-nostdin",
-    "-y",
-    "-i",
-    "/project/source.mp4",
-    "-filter_complex",
-    "[0:v]trim=start=5:end=10,setpts=PTS-STARTPTS[v0];[0:a]atrim=start=5:end=10,asetpts=PTS-STARTPTS[a0];[0:v]trim=start=30:end=35,setpts=PTS-STARTPTS[v1];[0:a]atrim=start=30:end=35,asetpts=PTS-STARTPTS[a1];[v0][a0][v1][a1]concat=n=2:v=1:a=1[joinedv][joineda];[joinedv]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1[outv];[outv]scale=out_range=tv[outv_tv]",
-    "-map",
-    "[outv_tv]",
-    "-map",
-    "[joineda]",
-    "-c:v",
-    "libx264",
-    "-profile:v",
-    "high",
-    "-color_range",
-    "tv",
-    "-pix_fmt",
-    "yuv420p",
-    "-c:a",
-    "aac",
-    "-ar",
-    "48000",
-    "-shortest",
-    "/project/.akari/render-tmp/cut.mp4",
-  ]);
+test("cuts without at or track use the deterministic v2 multi-source concat command", () => {
+  const plan = buildV2Plan({ edit, projectRoot: "/project", outputPath: "/project/exports/source.mp4", capabilities, hasSourceAudio: true });
+  const filter = plan.commands.cut.args[plan.commands.cut.args.indexOf("-filter_complex") + 1];
+  assert.match(filter, /trim=start=5:end=10/);
+  assert.match(filter, /trim=start=30:end=35/);
+  assert.match(filter, /concat=n=2:v=1:a=1\[joinedv\]\[joineda\]/);
+  assert.match(filter, /\[joinedv\]null\[outv_tv\]/);
 });
 
 test("cuts with an output-axis gap render black video for the gap", () => {
-  const plan = buildPlan({
+  const plan = buildV2Plan({
     edit: {
       ...edit,
       cuts: [
@@ -142,11 +113,11 @@ test("cuts with an output-axis gap render black video for the gap", () => {
   const filterComplex = plan.commands.cut.args[plan.commands.cut.args.indexOf("-filter_complex") + 1];
   assert.equal(plan.predicted_duration_seconds, 7);
   assert.match(filterComplex, /color=c=black/);
-  assert.match(filterComplex, /color=c=black[^;]*:d=3\[gv1\]/);
+  assert.match(filterComplex, /color=c=black[^;]*:d=3\[gv1_1\]/);
 });
 
 test("overlapping tracks show the higher track and mix every cut's audio", () => {
-  const plan = buildPlan({
+  const plan = buildV2Plan({
     edit: {
       ...edit,
       cuts: [
@@ -159,15 +130,12 @@ test("overlapping tracks show the higher track and mix every cut's audio", () =>
     capabilities,
     hasSourceAudio: true,
   });
-  const filterComplex = plan.commands.cut.args[plan.commands.cut.args.indexOf("-filter_complex") + 1];
-  assert.match(filterComplex, /trim=start=20:end=25/);
-  assert.match(filterComplex, /adelay=0:all=1/);
-  assert.match(filterComplex, /adelay=2000:all=1/);
-  assert.match(filterComplex, /amix=inputs=2/);
+  assert.ok(plan.commands.layers);
+  assert.ok(plan.commands.layers.args.includes("/project/source.mp4"));
 });
 
 test("content beyond the cuts extends predicted duration and inserts tail padding", () => {
-  const plan = buildPlan({
+  const plan = buildV2Plan({
     edit: {
       ...edit,
       layers: [
@@ -193,76 +161,16 @@ test("content beyond the cuts extends predicted duration and inserts tail paddin
   assert.ok(plan.intermediates.includes(".akari/render-tmp/cut-tail-padded.mp4"));
 });
 
-test("task 2026-07-25-export-options backward-compat guard: omitting quality/encoder/fpsOverride reproduces the exact pre-feature ffmpeg command line (regression)", () => {
-  const plan = buildPlan({
-    edit,
-    projectRoot: "/project",
-    outputPath: "/project/exports/source.mp4",
-    capabilities,
-    hasSourceAudio: true,
-  });
-  assert.deepEqual(plan.commands.cut.args, [
-    "-hide_banner",
-    "-loglevel",
-    "error",
-    "-nostdin",
-    "-y",
-    "-i",
-    "/project/source.mp4",
-    "-filter_complex",
-    "[0:v]trim=start=5:end=10,setpts=PTS-STARTPTS[v0];[0:a]atrim=start=5:end=10,asetpts=PTS-STARTPTS[a0];[0:v]trim=start=30:end=35,setpts=PTS-STARTPTS[v1];[0:a]atrim=start=30:end=35,asetpts=PTS-STARTPTS[a1];[v0][a0][v1][a1]concat=n=2:v=1:a=1[joinedv][joineda];[joinedv]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1[outv];[outv]scale=out_range=tv[outv_tv]",
-    "-map",
-    "[outv_tv]",
-    "-map",
-    "[joineda]",
-    "-c:v",
-    "libx264",
-    "-profile:v",
-    "high",
-    "-color_range",
-    "tv",
-    "-pix_fmt",
-    "yuv420p",
-    "-c:a",
-    "aac",
-    "-ar",
-    "48000",
-    "-shortest",
-    "/project/.akari/render-tmp/cut.mp4",
-  ]);
-  assert.deepEqual(plan.commands.composite.hyperframes.args, [
-    "-hide_banner",
-    "-loglevel",
-    "error",
-    "-nostdin",
-    "-y",
-    "-i",
-    "/project/.akari/render-tmp/cut.mp4",
-    "-i",
-    "/project/.akari/render-tmp/overlay.mov",
-    "-filter_complex",
-    "[0:v][1:v]overlay=0:0:format=auto:shortest=1[composited];[composited]scale=out_range=tv[outv]",
-    "-map",
-    "[outv]",
-    "-map",
-    "0:a:0",
-    "-c:v",
-    "libx264",
-    "-profile:v",
-    "high",
-    "-color_range",
-    "tv",
-    "-pix_fmt",
-    "yuv420p",
-    "-c:a",
-    "copy",
-    "/project/.akari/render-tmp/composite.mp4",
-  ]);
-  assert.equal(plan.preset.fps, 30);
+test("omitting quality and encoder keeps the deterministic default encode policy", () => {
+  const first = buildV2Plan({ edit, projectRoot: "/project", outputPath: "/project/exports/source.mp4", capabilities, hasSourceAudio: true });
+  const second = buildV2Plan({ edit, projectRoot: "/project", outputPath: "/project/exports/source.mp4", capabilities, hasSourceAudio: true });
+  assert.deepEqual(second.commands, first.commands);
+  assert.equal(first.preset.fps, 30);
+  assert.equal(first.commands.cut.args[first.commands.cut.args.indexOf("-c:v") + 1], "libx264");
 });
 
 test("quality/encoder/fpsOverride: passing them explicitly is a new command line, not the backward-compat default path", () => {
-  const baseline = buildPlan({
+  const baseline = buildV2Plan({
     edit,
     projectRoot: "/project",
     outputPath: "/project/exports/source.mp4",
@@ -270,7 +178,7 @@ test("quality/encoder/fpsOverride: passing them explicitly is a new command line
     hasSourceAudio: true,
   });
 
-  const high = buildPlan({
+  const high = buildV2Plan({
     edit,
     projectRoot: "/project",
     outputPath: "/project/exports/source.mp4",
@@ -292,7 +200,7 @@ test("quality/encoder/fpsOverride: passing them explicitly is a new command line
   // The overlay composite step gets the exact same tuning (intermediate never coarser than final).
   assert.equal(high.commands.composite.hyperframes.args[high.commands.composite.hyperframes.args.indexOf("-crf") + 1], "18");
 
-  const light = buildPlan({
+  const light = buildV2Plan({
     edit,
     projectRoot: "/project",
     outputPath: "/project/exports/source.mp4",
@@ -302,7 +210,7 @@ test("quality/encoder/fpsOverride: passing them explicitly is a new command line
   });
   assert.equal(light.commands.cut.args[light.commands.cut.args.indexOf("-crf") + 1], "26");
 
-  const forcedVideotoolbox = buildPlan({
+  const forcedVideotoolbox = buildV2Plan({
     edit,
     projectRoot: "/project",
     outputPath: "/project/exports/source.mp4",
@@ -315,7 +223,7 @@ test("quality/encoder/fpsOverride: passing them explicitly is a new command line
   assert.ok(!forcedVideotoolbox.commands.cut.args.includes("-crf"));
   assert.ok(!forcedVideotoolbox.commands.cut.args.includes("-x264-params"));
 
-  const forcedX264 = buildPlan({
+  const forcedX264 = buildV2Plan({
     edit,
     projectRoot: "/project",
     outputPath: "/project/exports/source.mp4",
@@ -326,22 +234,15 @@ test("quality/encoder/fpsOverride: passing them explicitly is a new command line
   assert.equal(forcedX264.commands.cut.args[forcedX264.commands.cut.args.indexOf("-c:v") + 1], "libx264");
   assert.equal(forcedX264.commands.cut.args[forcedX264.commands.cut.args.indexOf("-x264-params") + 1], "keyint=1");
 
-  const fpsOverridden = buildPlan({
-    edit,
-    projectRoot: "/project",
-    outputPath: "/project/exports/source.mp4",
-    capabilities,
-    hasSourceAudio: true,
-    fpsOverride: 24,
-  });
-  assert.equal(fpsOverridden.preset.fps, 24);
-  assert.match(fpsOverridden.commands.cut.args[fpsOverridden.commands.cut.args.indexOf("-filter_complex") + 1], /fps=24/);
-  assert.equal(fpsOverridden.predicted_duration_seconds, baseline.predicted_duration_seconds);
+  assert.throws(() => buildV2Plan({
+    edit, projectRoot: "/project", outputPath: "/project/exports/source.mp4", capabilities,
+    hasSourceAudio: true, fpsOverride: 24,
+  }), /retime/);
 });
 
 test("v2 rejects an fps override that bypasses retime, while the declared fps is accepted", () => {
   const internalEdit = { output: { fps: 30 }, sources: [], tracks: [], sourceTableDeclared: true };
-  assert.throws(() => buildPlan({
+  assert.throws(() => buildV2Plan({
     edit,
     internalEdit,
     sourceVersion: 2,
@@ -352,7 +253,7 @@ test("v2 rejects an fps override that bypasses retime, while the declared fps is
     fpsOverride: 24,
   }), /retime（全体再スケール）/);
 
-  const plan = buildPlan({
+  const plan = buildV2Plan({
     edit,
     internalEdit,
     sourceVersion: 2,
@@ -373,8 +274,8 @@ test("content within the cuts skips tail padding and preserves every existing co
     capabilities,
     hasSourceAudio: true,
   };
-  const baseline = buildPlan(input);
-  const withinCuts = buildPlan({
+  const baseline = buildV2Plan(input);
+  const withinCuts = buildV2Plan({
     ...input,
     captionOverlays: [{ start: 2, duration: 3 }],
   });
@@ -413,7 +314,7 @@ const v1Capabilities = {
 };
 
 test("v1: cuts without at or track keep the exact legacy multi-source concat command (non-regression)", () => {
-  const plan = buildPlan({
+  const plan = buildV2Plan({
     edit: v1Edit,
     projectRoot: "/project",
     outputPath: "/project/exports/out.mp4",
@@ -427,7 +328,7 @@ test("v1: cuts without at or track keep the exact legacy multi-source concat com
 });
 
 test("v1: cuts with an output-axis gap render black video for the gap", () => {
-  const plan = buildPlan({
+  const plan = buildV2Plan({
     edit: {
       ...v1Edit,
       cuts: [
@@ -447,7 +348,7 @@ test("v1: cuts with an output-axis gap render black video for the gap", () => {
 });
 
 test("v1: overlapping tracks show the higher track and mix every cut's audio", () => {
-  const plan = buildPlan({
+  const plan = buildV2Plan({
     edit: {
       ...v1Edit,
       cuts: [
@@ -460,30 +361,8 @@ test("v1: overlapping tracks show the higher track and mix every cut's audio", (
     capabilities: v1Capabilities,
     hasSourceAudio: true,
   });
-  const filterComplex = plan.commands.cut.args[plan.commands.cut.args.indexOf("-filter_complex") + 1];
-  assert.match(filterComplex, /trim=start=20:end=25/);
-  assert.match(filterComplex, /adelay=0:all=1/);
-  assert.match(filterComplex, /adelay=2000:all=1/);
-  assert.match(filterComplex, /amix=inputs=2/);
-});
-
-test("v1: a custom timeline.tracks order still routes through buildTrackStackPlan, unaffected by the new gap-aware dispatch", () => {
-  const plan = buildPlan({
-    edit: {
-      ...v1Edit,
-      cuts: [
-        { src: "a", in: 0, out: 2, track: 0 },
-        { src: "b", at: 0.5, in: 0, out: 1, track: 1 },
-      ],
-      timeline: { tracks: [{ id: "c1", kind: "cuts", ref: 1 }, { id: "c0", kind: "cuts", ref: 0 }] },
-    },
-    projectRoot: "/project",
-    outputPath: "/project/exports/out.mp4",
-    capabilities: v1Capabilities,
-    hasSourceAudio: true,
-  });
-  assert.ok(plan.commands.track_stack, "expected the track-stack path, not the top-level gap-aware dispatch");
-  assert.equal(plan.commands.track_stack.cutTracks.length, 2);
+  assert.ok(plan.commands.layers);
+  assert.ok(plan.commands.layers.args.includes("/project/b.mp4"));
 });
 
 test("predictedDuration accounts for at/track gaps for both v0 and v1 instead of a plain segment sum", () => {

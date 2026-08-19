@@ -36,12 +36,17 @@ export function resolveCutSegments(cuts) {
 
 export function needsGapAwareCutTimeline(cuts) {
   if (!Array.isArray(cuts) || cuts.length === 0) return false;
-  const segments = resolveCutSegments(cuts);
   let cursor = 0;
-  for (const segment of segments) {
-    if (segment.track !== 0) return true;
-    if (Math.abs(segment.start - cursor) > EPSILON) return true;
-    cursor = segment.end;
+  for (const cut of cuts) {
+    const track = Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0;
+    if (track !== 0) return true;
+    const explicitAt = typeof cut.at === "number" && Number.isFinite(cut.at) && cut.at >= 0;
+    const start = explicitAt ? cut.at : cursor;
+    if (Math.abs(start - cursor) > EPSILON) return true;
+    const transitionDuration = typeof cut.transition_out?.duration === "number"
+      && Number.isFinite(cut.transition_out.duration) && cut.transition_out.duration > 0
+      ? cut.transition_out.duration : 0;
+    cursor = start + segmentDuration(cut) - transitionDuration;
   }
   return false;
 }

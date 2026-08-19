@@ -54,27 +54,15 @@ export function projectRendererCompatibilityEdit(raw, internal, temporaryDirecto
       proxy: source.proxy,
       ...(source.chromaKey !== undefined ? { chroma_key: source.chromaKey } : {}),
     }));
-  const defaultSource = internal.sources.find(source => source.isDefault && typeof source.path === "string");
-
   return {
     ...(isRecord(raw) ? raw : {}),
-    // Phase 2 keeps the two established cut builders. This compatibility bit selects between
-    // their single-source and source-table contracts; visual composition itself uses `internal`.
-    version: internal.sourceTableDeclared ? 1 : 0,
+    // v2 is projected into the sole multi-source compatibility shape consumed below.
+    version: 1,
     output,
     cuts,
     overlays,
     layers,
-    ...(internal.sourceTableDeclared ? { sources } : {}),
-    ...(!internal.sourceTableDeclared && defaultSource
-      ? {
-          source: {
-            path: defaultSource.path,
-            proxy: defaultSource.proxy,
-            ...(defaultSource.chromaKey !== undefined ? { chroma_key: defaultSource.chromaKey } : {}),
-          },
-        }
-      : {}),
+    sources,
   };
 }
 

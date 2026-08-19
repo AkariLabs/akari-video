@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs, RenderInputError } from "../src/render-inputs.mjs";
 import { createImmutableRenderReceipt } from "../src/render-receipt.mjs";
+import { readRenderEdit } from "../src/internal-render.mjs";
 import {
   CAPTION_FONT_FILE_URL,
   CAPTION_FONT_REPOSITORY_RELATIVE_PATH,
@@ -40,7 +44,7 @@ function fixtureEdit() {
     },
     cuts: [{ in: 0, out: 1 }],
     overlays: [{ id: "hero", html: "overlays/hero.html", start: 0, duration: 1 }],
-    layers: [{ id: "layer", src: "assets/layer.mov", t: 0, duration: 1 }],
+    layers: [{ id: "layer", kind: "baked", src: "assets/layer.mov", t: 0, duration: 1 }],
     audio: {
       bgm: { path: "audio/bgm.wav" },
       sfx: [{ path: "audio/sfx.wav", t: 0 }],
@@ -67,11 +71,12 @@ async function prepareInputs(root, edit) {
     `<div>hero</div><script type="application/json" data-akari-3d-scene>${JSON.stringify(descriptor)}</script>`,
   );
   await file(root, "edit.json", `${JSON.stringify(edit, null, 2)}\n`);
+  const raw = JSON.parse(await readFile(join(root, "edit.json"), "utf8"));
+  return readRenderEdit(raw, join(root, ".akari", "render-tmp")).edit;
 }
 
 async function prepareReceiptOptions(root, { captionFontAsset = null } = {}) {
-  const edit = fixtureEdit();
-  await prepareInputs(root, edit);
+  const edit = await prepareInputs(root, fixtureEdit());
   const editText = await readFile(join(root, "edit.json"), "utf8");
   const declaredInputs = await enumerateDeclaredRenderInputs({ projectRoot: root, edit, editText, captionFontAsset });
   const inputSnapshot = await hashDeclaredRenderInputs(declaredInputs, { useConsumedText: true });
@@ -100,15 +105,14 @@ async function fakeCaptionFontRepository(root, contents = "font-v1") {
 
 test("declared-input enumerator covers every path-backed render input", async () => {
   await withProject(async (root) => {
-    const edit = fixtureEdit();
-    await prepareInputs(root, edit);
+    const edit = await prepareInputs(root, fixtureEdit());
     const inputs = await enumerateDeclaredRenderInputs({ projectRoot: root, edit });
     assert.deepEqual(inputs.map((input) => input.role), [
       "audio:bgm",
       "audio:narration:n-1",
       "audio:sfx:0",
       "caption",
-      "chroma-background",
+      "chroma-background:main",
       "edit",
       "layer:layer",
       "lut",
@@ -116,7 +120,7 @@ test("declared-input enumerator covers every path-backed render input", async ()
       "overlay:hero:environment",
       "overlay:hero:model",
       "overlay:hero:texture:Screen",
-      "source",
+      "source:main",
       "thumbnail",
     ]);
   });
@@ -124,8 +128,7 @@ test("declared-input enumerator covers every path-backed render input", async ()
 
 test("caption renderer and receipt enumerator share one canonical font binding only when used", async () => {
   await withProject(async (root) => {
-    const edit = fixtureEdit();
-    await prepareInputs(root, edit);
+    const edit = await prepareInputs(root, fixtureEdit());
     const defaultAsset = resolveCanonicalCaptionFontAsset();
     assert.equal(defaultAsset.file_url, CAPTION_FONT_FILE_URL);
     assert.match(renderResolvedSingleLineCaption("字幕"), new RegExp(escapeRegex(defaultAsset.file_url), "u"));
@@ -164,18 +167,17 @@ test("caption font resolver rejects missing, escaping, and unsupported topologie
 
 test("undeclared HTML assets, path escape, and symlink escape are refused", async () => {
   await withProject(async (root) => {
-    const edit = fixtureEdit();
-    await prepareInputs(root, edit);
+    const edit = await prepareInputs(root, fixtureEdit());
     await file(root, "overlays/hero.html", '<img src="https://example.com/a.png">');
     await assert.rejects(
       enumerateDeclaredRenderInputs({ projectRoot: root, edit }),
       (error) => error instanceof RenderInputError && /undeclared local\/network/u.test(error.message),
     );
 
-    edit.source.path = "../outside.mp4";
+    edit.sources[0].path = "../outside.mp4";
     await assert.rejects(enumerateDeclaredRenderInputs({ projectRoot: root, edit }), /escapes the project root/u);
 
-    edit.source.path = "assets/escape.mp4";
+    edit.sources[0].path = "assets/escape.mp4";
     await symlink("/etc/hosts", join(root, "assets", "escape.mp4"));
     await assert.rejects(enumerateDeclaredRenderInputs({ projectRoot: root, edit }), /not a regular project file/u);
   });
@@ -183,8 +185,7 @@ test("undeclared HTML assets, path escape, and symlink escape are refused", asyn
 
 test("a missing optional narration is recorded as an absence sentinel", async () => {
   await withProject(async (root) => {
-    const edit = fixtureEdit();
-    await prepareInputs(root, edit);
+    const edit = await prepareInputs(root, fixtureEdit());
     await rm(join(root, "audio", "narration.wav"));
     const inputs = await enumerateDeclaredRenderInputs({ projectRoot: root, edit });
     const narration = inputs.find((input) => input.role === "audio:narration:n-1");
@@ -262,8 +263,10 @@ test("retargeting a project input parent symlink cannot bind the receipt to the 
     await symlink("real-a", join(root, "assets"));
     const editText = `${JSON.stringify(edit, null, 2)}\n`;
     await file(root, "edit.json", editText);
-    const declaredInputs = await enumerateDeclaredRenderInputs({ projectRoot: root, edit, editText });
-    const sourceInput = declaredInputs.find((input) => input.role === "source");
+    const currentEditText = await readFile(join(root, "edit.json"), "utf8");
+    const currentEdit = readRenderEdit(currentEditText, join(root, ".akari", "render-tmp")).edit;
+    const declaredInputs = await enumerateDeclaredRenderInputs({ projectRoot: root, edit: currentEdit, editText: currentEditText });
+    const sourceInput = declaredInputs.find((input) => input.role === "source:main");
     assert.equal(sourceInput.path, "assets/source.mp4");
     assert.match(sourceInput.absolute_path, /\/real-a\/source\.mp4$/u);
     const inputSnapshot = await hashDeclaredRenderInputs(declaredInputs, { useConsumedText: true });

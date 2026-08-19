@@ -101,17 +101,13 @@ const FALLBACK_WORKFLOW = {
     }
 };
 
-// 新規プロジェクトの edit.json 雛形（オーナー決定 2026-08-18: 新規作成は常に v1 —
-// docs/contract-2026-07-18-edit-json-v1-sources.md §1）。`sources` は空のまま置く。
-// 素材が 0 件のこの時点では `edit.schema.json` の editV1（`sources` に `minItems: 1`）を
-// まだ満たさない — 旧 `{}` フォールバックも同様に未検証の下書きだったため後退ではない。
-// 最初の素材投入は edit-plan（またはシェルの素材取り込み）が `sources[]` に 1 件追加した
-// 時点で行われ、その時点から schema 検証対象になる。
+// 新規プロジェクトの edit.json 雛形。新規作成は常に v2 で、
+// 素材投入前の空 sources / tracks も editV2 schema をそのまま満たす。
 const FALLBACK_EDIT_JSON = {
-    version: 1,
+    version: 2,
     output: { width: 1920, height: 1080, fps: 30 },
     sources: [],
-    cuts: []
+    tracks: []
 };
 
 function portablePath(value) {

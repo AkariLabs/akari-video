@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 // docs/contract-2026-07-22-render-basics.md #7 (cuts[].freeze). L1 requires a real render +
 // ffprobe/frame measurement: output duration = original + duration_sec, 2 frames inside the
@@ -13,7 +16,8 @@ import test from "node:test";
 // just asserted from the command plan.
 
 import { freezeDurationSeconds, hasCutFreeze } from "../src/cut-freeze.mjs";
-import { buildCutCommand, buildGapAwareMultiSourceCutCommand, buildMultiSourceCutCommand } from "../src/plan.mjs";
+import { buildGapAwareMultiSourceCutCommand, buildMultiSourceCutCommand } from "../src/plan.mjs";
+import { buildCutCommand } from "./helpers/v2-fixture.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");

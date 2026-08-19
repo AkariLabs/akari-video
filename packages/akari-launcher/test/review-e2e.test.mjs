@@ -11,6 +11,9 @@ import { runAcceptCommand } from "../src/accept-command.mjs";
 import { inspectFullIntegrity } from "../src/status-core/integrity.mjs";
 import { resolveFullProjectStatus } from "../src/status-core/status.mjs";
 import { writeJson } from "./helpers/integrity-fixture.mjs";
+import migrate from "../../edit-store/lib/migrate/index.js";
+
+const { migrateEditToV2 } = migrate;
 
 const REPO_ROOT = resolve(import.meta.dirname, "../../..");
 
@@ -25,7 +28,9 @@ test("compile -> address -> lint -> human resolve -> full acceptance uses the re
     await mkdir(join(root, "review", "sessions"), { recursive: true });
     await cp(sourceSession, sessionDirectory, { recursive: true });
     const edit = JSON.parse(await readFile(join(sessionDirectory, "edit.snapshot.json"), "utf8"));
-    await writeJson(join(root, "edit.json"), edit);
+    const migrated = migrateEditToV2(edit);
+    assert.equal(migrated.ok, true);
+    await writeJson(join(root, "edit.json"), migrated.doc);
     await writeFile(join(root, "review.json"), '{\n  "version": 0,\n  "annotations": [\n  ]\n}\n', "utf8");
     await writeFile(join(root, "source.mp4"), "review-e2e-source\n", "utf8");
     await writeJson(join(root, "analysis.json"), { version: 0, source: "source.mp4", duration: 200 });

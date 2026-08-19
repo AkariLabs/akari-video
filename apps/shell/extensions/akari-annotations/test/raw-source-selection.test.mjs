@@ -4,13 +4,15 @@ import test from 'node:test';
 import { resolveRawSourceId } from '../lib/common/raw-source-selection.js';
 
 const edit = {
-    version: 1,
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
     sources: [
         { id: 'camera-a', path: 'media/camera-a.mp4', proxy: null },
         { id: 'final-render', path: 'exports/render.mp4', proxy: null },
         { id: 'voice-over', path: 'audio/voice-over.wav', proxy: null },
         { id: 'music-bed', path: 'audio/music.m4a', proxy: null }
-    ]
+    ],
+    tracks: []
 };
 
 test('raw preview の URI を project-relative sources[].path から id へ逆引きする', () => {
@@ -36,5 +38,5 @@ test('sources[] に一致しない raw preview は通常注釈へフォールバ
         resolveRawSourceId(edit, 'file:///tmp/akari-project', 'file:///tmp/akari-project/exports/other.mp4'),
         undefined
     );
-    assert.equal(resolveRawSourceId({ version: 0 }, 'file:///tmp/akari-project', 'file:///tmp/a.mp4'), undefined);
+    assert.equal(resolveRawSourceId({ ...edit, sources: [] }, 'file:///tmp/akari-project', 'file:///tmp/a.mp4'), undefined);
 });

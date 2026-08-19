@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { trimSfxInSource, parseEdit } from "../lib/common/edit-store.js";
+import { trimSfxInSource } from "../lib/common/edit-store.js";
 import { deriveTracks, deriveDefaultTimelineTracks } from "../lib/common/derive-timeline-tracks.js";
+import { readLegacyView } from './helpers/v2-fixture.mjs';
 
 const sfxSource = `{
   "cuts": [{ "in": 0, "out": 2 }],
@@ -48,6 +49,7 @@ test("trimSfxInSource rejects invalid or too-short ranges", () => {
 const multiTrackAudioSource = JSON.stringify({
   version: 1,
   output: { width: 1920, height: 1080, fps: 30 },
+  sources: [{ id: "s1", path: "source.mp4", proxy: null }],
   cuts: [{ src: "s1", in: 0, out: 2, track: 0 }],
   overlays: [],
   audio: {
@@ -65,8 +67,8 @@ const multiTrackAudioSource = JSON.stringify({
   }
 });
 
-test("parseEdit keeps multiple declared audio timeline tracks (R6c 複数音声トラック化)", () => {
-  const parsed = parseEdit(multiTrackAudioSource);
+test("v2 reader keeps multiple declared audio timeline tracks (R6c 複数音声トラック化)", () => {
+  const parsed = readLegacyView(JSON.parse(multiTrackAudioSource));
   const audioTracks = parsed.timeline.tracks.filter(track => track.kind === "audio");
   assert.equal(audioTracks.length, 2);
   assert.deepEqual(audioTracks.map(track => track.ref), [0, 1]);

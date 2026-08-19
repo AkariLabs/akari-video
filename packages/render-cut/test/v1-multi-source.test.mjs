@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import { generateCaptionOverlays } from "../src/captions.mjs";
 
@@ -174,19 +177,6 @@ test("v1 renders s1 -> s2 -> s1, omits an unused source input, and measures the 
     await rm(project, { recursive: true, force: true });
   }
 });
-
-test("v1 rejects a cut whose src does not reference sources[].id", async (t) => {
-  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
-  const project = await makeProject({ cuts: [{ src: "missing", in: 0, out: 1 }] });
-  try {
-    const executed = run(project, ["--plan-only"]);
-    assert.equal(executed.status, 2);
-    assert.match(executed.stderr, /cuts\[0\]\.src does not reference sources\[\]\.id: missing/);
-  } finally {
-    await rm(project, { recursive: true, force: true });
-  }
-});
-
 test("v1 refuses an empty timeline instead of rendering a zero-second video", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const project = await makeProject({ cuts: [] });

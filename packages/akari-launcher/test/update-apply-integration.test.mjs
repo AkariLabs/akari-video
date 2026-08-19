@@ -9,6 +9,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
+const LOCAL_SERVER_AVAILABLE = await new Promise(resolveAvailable => {
+  const probe = createServer();
+  probe.once('error', () => resolveAvailable(false));
+  probe.listen(0, '127.0.0.1', () => probe.close(() => resolveAvailable(true)));
+});
+const serverTest = LOCAL_SERVER_AVAILABLE
+  ? test
+  : (name, fn) => test(name, { skip: 'sandbox cannot bind a localhost fixture server' }, fn);
+
 import { runUpdateCommand } from '../src/cli.mjs';
 import { resolveAppDir, resolveAppPreviousDir } from '../src/self-update.mjs';
 
@@ -102,7 +111,7 @@ function collectLogs() {
   return { log: (line) => lines.push(line), lines };
 }
 
-test('akari update: app 経由インストール + 新版フィードなら実適用し、akari --version が新版を返す。--rollback で旧版に戻る', async () => {
+serverTest('akari update: app 経由インストール + 新版フィードなら実適用し、akari --version が新版を返す。--rollback で旧版に戻る', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, '0.1.0');
     assert.equal(akariVersionOf(appDir), 'v0.1.0');
@@ -150,7 +159,7 @@ test('akari update: app 経由インストール + 新版フィードなら実�
   });
 });
 
-test('akari update: app 外（モノレポ checkout 相当）から実行すると適用せず従来の案内表示に縮退する', async () => {
+serverTest('akari update: app 外（モノレポ checkout 相当）から実行すると適用せず従来の案内表示に縮退する', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, '0.1.0');
     const feed = {
@@ -181,7 +190,7 @@ test('akari update: app 外（モノレポ checkout 相当）から実行する�
   });
 });
 
-test('akari update: フィードに components.app が無い（旧フィード）場合も案内表示に縮退する', async () => {
+serverTest('akari update: フィードに components.app が無い（旧フィード）場合も案内表示に縮退する', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, '0.1.0');
     const feed = {

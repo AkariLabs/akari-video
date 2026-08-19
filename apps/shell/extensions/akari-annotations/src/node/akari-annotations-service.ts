@@ -2,6 +2,7 @@ import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
+import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
@@ -15,6 +16,9 @@ import {
     CreateAnnotationResult,
     DeleteCutRequest,
     DeleteCutResult,
+    EditMigrationPlanResult,
+    EditMigrationProposal,
+    EditMigrationRequest,
     GetAudioDurationRequest,
     GetAudioDurationResult,
     GetClipFilmstripChunkRequest,
@@ -136,6 +140,26 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     setClient(client: AkariAnnotationsClient | undefined): void {
         this.client = client;
+    }
+
+    async planEditMigration(request: EditMigrationRequest): Promise<EditMigrationPlanResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const projectRoot = this.fsPath(request.projectRootUri);
+        const text = await fs.readFile(editPath, 'utf8');
+        return planMigration(projectRoot, editPath, text);
+    }
+
+    async applyEditMigration(proposal: EditMigrationProposal): Promise<void> {
+        this.client?.onWillWrite(URI.fromFilePath(proposal.filePath).toString());
+        await applyMigration(proposal);
+        this.notifyDidWrite(proposal.filePath, proposal.nextText);
+    }
+
+    async revertEditMigration(proposal: EditMigrationProposal): Promise<void> {
+        this.client?.onWillWrite(URI.fromFilePath(proposal.filePath).toString());
+        await revertMigration(proposal);
+        this.notifyDidWrite(proposal.filePath, proposal.previousText);
     }
 
     async getClipThumbnail(request: GetClipThumbnailRequest): Promise<GetClipThumbnailResult> {

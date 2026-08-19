@@ -53,3 +53,26 @@ test("readEditV2 rejects fractional or negative v2 keyframe frames", async () =>
   negative.tracks[1].items[0].keyframes = [{ t: 0 }, { t: -1 }];
   assert.throws(() => readEditV2(negative), /keyframes\[1\]\.t.*0 以上の整数/);
 });
+
+test("readEditV2 accepts migration-only visual/audio vocabulary without relaxing frame integers", () => {
+  const edit = readEditV2({
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: "main", path: "main.mp4" }],
+    tracks: [{ id: "v1", lane: "visual", items: [{
+      id: "c1", at: 0, duration: 30,
+      perspective: { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] },
+      source: {
+        kind: "media", src: "main", in: 0, out: 1, speed: 1,
+        framing: {}, transition_out: null, freeze: null, fx: [], chroma_key: null,
+      },
+    }, {
+      id: "h1", at: 30, duration: 30,
+      source: { kind: "html", path: "overlay.html", vars: { title: "A" } },
+    }] }],
+    audio: { sfx: [{ path: "hit.wav", t: 0.5 }] },
+    captions: [{ id: "c-1", text: "A" }],
+  });
+  assert.equal(edit.audio.sfx[0].t, 0.5);
+  assert.deepEqual(edit.tracks[0].items[1].source.vars, { title: "A" });
+});

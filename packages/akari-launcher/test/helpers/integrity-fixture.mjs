@@ -5,6 +5,10 @@ import { join } from "node:path";
 import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs } from "../../../render-cut/src/render-inputs.mjs";
 import { resolveCanonicalCaptionFontAsset } from "../../../render-cut/src/caption-font.mjs";
 import { createImmutableRenderReceipt } from "../../../render-cut/src/render-receipt.mjs";
+import { readRenderEdit } from "../../../render-cut/src/internal-render.mjs";
+import migrate from "../../../edit-store/lib/migrate/index.js";
+
+const { migrateEditToV2 } = migrate;
 
 export async function createIntegrityFixture(root, {
   reviewStatus = "resolved",
@@ -40,12 +44,12 @@ export async function createIntegrityFixture(root, {
     await writeFile(join(root, "looks", "custom.cube"), "TITLE fixture\nLUT_3D_SIZE 2\n", "utf8");
     await writeFile(join(root, "overlays", "caption.html"), "<div>fixture overlay</div>\n", "utf8");
   }
-  const edit = {
+  const legacyEdit = {
     version: 1,
-    sources: [{ id: "source-1", path: "assets/source.mp4" }],
+    sources: [{ id: "source-1", path: "assets/source.mp4", proxy: null }],
     cuts: [{ src: "source-1", in: 0, out: 1 }],
     overlays: fullRoleInputs
-      ? [{ id: "overlay-1", html: "overlays/caption.html", start: 0, end: 1 }]
+      ? [{ id: "overlay-1", html: "overlays/caption.html", start: 0, duration: 1 }]
       : [],
     ...((audioQc || fullRoleInputs) ? { audio: {
       ...(audioQc ? { master: { loudnorm: -14, true_peak_dbtp: -1.7 } } : {}),
@@ -56,13 +60,19 @@ export async function createIntegrityFixture(root, {
       } : {}),
     } } : {}),
     output: {
+      width: 1920,
+      height: 1080,
+      fps: 30,
       path: "exports/final.mp4",
       ...(fullRoleInputs
         ? { look: { lut: "looks/custom.cube", intensity: 1 } }
         : usePresetLut ? { look: { lut: "natural", intensity: 1 } } : {}),
     },
   };
-  await writeJson(join(root, "edit.json"), edit);
+  const migrated = migrateEditToV2(legacyEdit);
+  if (!migrated.ok) throw new Error(migrated.blockers.join(" / "));
+  await writeJson(join(root, "edit.json"), migrated.doc);
+  const edit = readRenderEdit(migrated.doc, join(root, ".akari", "render-tmp")).edit;
   await writeJson(join(root, "review.json"), {
     version: 0,
     annotations: [{

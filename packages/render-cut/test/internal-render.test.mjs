@@ -68,6 +68,7 @@ test("v2 の 77-frame cut 境界と同フレーム layer は同じ enable 開始
         duration: 77,
         source: { kind: "media", src: "main", in: index * 3, out: index * 3 + 2.58 },
       })) },
+      { id: "captions-between", lane: "visual", content: { from: "captions.json" } },
       { id: "layer", lane: "visual", items: [{
         id: "synced-layer", at: 154, duration: 30,
         source: { kind: "telop", preset: "test", baked: "layer.mov" },
@@ -78,7 +79,6 @@ test("v2 の 77-frame cut 境界と同フレーム layer は同じ enable 開始
   const plan = buildPlan({
     edit: renderEdit.edit,
     internalEdit: renderEdit.internal,
-    sourceVersion: 2,
     projectRoot: "/project",
     outputPath: "/project/out.mp4",
     capabilities: {
@@ -114,6 +114,10 @@ test("renderProject plans v2 mixed source.kind tracks in normalized bottom-to-to
     join(project, "main.mp4"),
   ]);
   writeFileSync(join(project, "overlay.html"), "<div style=\"color:white\">overlay</div>");
+  writeFileSync(join(project, "captions.json"), `${JSON.stringify({ captions: [{
+    id: "c-0001", start: 0, end: 0.8, text: "caption", speaker: null,
+    sourceRef: "main", edited: false,
+  }] }, null, 2)}\n`);
   const edit = {
     version: 2,
     output: { width: 320, height: 180, fps: 30 },
@@ -128,6 +132,7 @@ test("renderProject plans v2 mixed source.kind tracks in normalized bottom-to-to
       { id: "html", lane: "visual", items: [
         { id: "html", at: 0, duration: 30, source: { kind: "html", path: "overlay.html" } },
       ] },
+      { id: "captions", lane: "visual", content: { from: "captions.json" } },
       { id: "telop", lane: "visual", items: [
         { id: "name", at: 0, duration: 30, source: { kind: "telop", preset: "ref3_name_rounded" } },
       ] },
@@ -137,7 +142,7 @@ test("renderProject plans v2 mixed source.kind tracks in normalized bottom-to-to
   const state = await renderProject(project, { planOnly: true, force: true });
   assert.deepEqual(
     state.plan.commands.track_stack.stages.map(stage => stage.kind),
-    ["cuts", "layers", "overlays", "layers"],
+    ["cuts", "layers", "overlays", "captions", "layers"],
   );
   assert.equal(state.plan.commands.telops.length, 1);
   assert.equal(state.plan.commands.telops[0].id, "name");

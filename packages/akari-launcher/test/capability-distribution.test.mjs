@@ -147,7 +147,7 @@ function run(executable, argumentsList, cwd) {
   return spawnSync(executable, argumentsList, {
     cwd,
     encoding: "utf8",
-    env: { ...process.env, NO_COLOR: "1" },
+    env: { ...process.env, NO_COLOR: "1", npm_config_cache: join(tmpdir(), "akari-launcher-npm-cache") },
   });
 }
 

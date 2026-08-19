@@ -22,7 +22,6 @@ var AkariEditKernel = (() => {
   __export(webview_kernel_exports, {
     buildTimelineMap: () => buildTimelineMap,
     captionWindowSeconds: () => captionWindowSeconds,
-    cutsUseGapsOrTracks: () => cutsUseGapsOrTracks,
     findActiveCaption: () => findActiveCaption,
     findActiveResolvedCaption: () => findActiveResolvedCaption,
     outputToSource: () => outputToSource
@@ -51,9 +50,6 @@ var AkariEditKernel = (() => {
   }
 
   // src/timeline-map.ts
-  function cutsUseGapsOrTracks(cuts) {
-    return cuts.some((cut) => cut.at !== void 0 || typeof cut.track === "number" && Number.isInteger(cut.track) && cut.track !== 0);
-  }
   function buildTimelineMap(cuts, options) {
     const usable = [];
     cuts.forEach((cut, index) => {
@@ -63,39 +59,6 @@ var AkariEditKernel = (() => {
     });
     const usableCuts = usable.map((entry) => entry.cut);
     const trackSegments = computeCutTrackSegments(usableCuts);
-    const gapsOrTracks = cutsUseGapsOrTracks(usableCuts);
-    if (!gapsOrTracks) {
-      const segments2 = [];
-      const transitionPlates = [];
-      for (let index = 0; index < trackSegments.length; index++) {
-        const segment = trackSegments[index];
-        const cut = usableCuts[segment.index];
-        const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
-        segments2.push({
-          kind: "src",
-          outStart: segment.at,
-          outEnd: segment.end,
-          cutIndex: usable[segment.index].index,
-          ...cut.src !== void 0 ? { src: cut.src } : {},
-          in: cut.in,
-          out: cut.out,
-          speed,
-          track: 0,
-          transitionOut: cut.transitionOut ?? null
-        });
-        if (cut.transitionOut && index < trackSegments.length - 1 && (cut.transitionOut.type === "fade-black" || cut.transitionOut.type === "fade-white")) {
-          const duration = cut.transitionOut.duration;
-          transitionPlates.push({
-            start: segment.end - duration / 2,
-            end: segment.end + duration / 2,
-            mid: segment.end,
-            color: cut.transitionOut.type === "fade-black" ? "#000000" : "#ffffff"
-          });
-        }
-      }
-      const totalDuration = segments2.reduce((max, segment) => Math.max(max, segment.outEnd), 0);
-      return { segments: segments2, totalDuration, transitionPlates, usesGapsOrTracks: false };
-    }
     const trackZ = options?.trackZ ?? ((track) => -track);
     const resolved = trackSegments.map((segment) => ({
       start: segment.at,

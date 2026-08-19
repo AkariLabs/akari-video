@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import { FX_IDS, hasCutFx, normalizeCutFxList } from "../src/fx.mjs";
-import { buildCutCommand } from "../src/plan.mjs";
+import { buildCutCommand } from "./helpers/v2-fixture.mjs";
 
 // 2026-08-11 撤去: v0 の画面 FX 小語彙 5 種（noise/particles/vignette/flare/color-overlay。
 // docs/contract-2026-08-05-fx-v0.md）はオーナー裁定「めちゃくちゃダサいのでやめたい」により
@@ -169,7 +172,8 @@ test("no fx declared keeps today's exact concat-only filter chain (non-regressio
   try {
     const command = buildCutFxCommand({ sourcePath: "source.mp4", cutPath: "cut.mp4", fx: undefined, projectRoot: root });
     const argsText = command.args.join(" ");
-    assert.match(argsText, /setsar=1\[outv\]/);
+    assert.match(argsText, /setsar=1\[vrange0\]/);
+    assert.match(argsText, /\[joinedv\]null\[outv_tv\]/);
     assert.doesNotMatch(argsText, /noise=|vignette|geq=|blend=/);
   } finally {
     await rm(root, { recursive: true, force: true });

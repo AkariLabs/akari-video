@@ -8,6 +8,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+const LOCAL_SERVER_AVAILABLE = await new Promise(resolveAvailable => {
+  const probe = createServer();
+  probe.once('error', () => resolveAvailable(false));
+  probe.listen(0, '127.0.0.1', () => probe.close(() => resolveAvailable(true)));
+});
+const serverTest = LOCAL_SERVER_AVAILABLE
+  ? test
+  : (name, fn) => test(name, { skip: 'sandbox cannot bind a localhost fixture server' }, fn);
+
 import {
   applySelfUpdate,
   isRunningFromAppDir,
@@ -113,14 +122,14 @@ async function packageVersionAt(appDir) {
   return JSON.parse(raw).version;
 }
 
-test('isRunningFromAppDir: launcherRoot が AKARI_HOME/app と一致すれば true、それ以外は false', async () => {
+serverTest('isRunningFromAppDir: launcherRoot が AKARI_HOME/app と一致すれば true、それ以外は false', async () => {
   await withScratchHome(async (env) => {
     assert.equal(isRunningFromAppDir({ env, launcherRoot: resolveAppDir(env) }), true);
     assert.equal(isRunningFromAppDir({ env, launcherRoot: '/some/other/checkout' }), false);
   });
 });
 
-test('applySelfUpdate: 正常系 — DL・sha256 検証・展開・スワップ・node_modules 引き継ぎ・.akari-install-ref 更新まで一気通貫', async () => {
+serverTest('applySelfUpdate: 正常系 — DL・sha256 検証・展開・スワップ・node_modules 引き継ぎ・.akari-install-ref 更新まで一気通貫', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0', ref: 'v0.1.0' });
     const tarball = await buildAppTarball({ version: '0.2.0', extraFiles: { 'new-only-file.txt': 'brand new content' } });
@@ -167,8 +176,7 @@ test('applySelfUpdate: 正常系 — DL・sha256 検証・展開・スワップ�
     );
   });
 });
-
-test('applySelfUpdate: sha256 不一致（1 バイト改竄）なら適用を拒否し、app は変更前と完全同一のまま', async () => {
+serverTest('applySelfUpdate: sha256 不一致（1 バイト改竄）なら適用を拒否し、app は変更前と完全同一のまま', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0' });
     const tarball = await buildAppTarball({ version: '0.2.0' });
@@ -206,7 +214,7 @@ test('applySelfUpdate: sha256 不一致（1 バイト改竄）なら適用を拒
   });
 });
 
-test('applySelfUpdate: ダウンロード途中失敗（接続不可）でも app は変更前と同一のまま', async () => {
+serverTest('applySelfUpdate: ダウンロード途中失敗（接続不可）でも app は変更前と同一のまま', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0' });
     const feed = {
@@ -229,7 +237,7 @@ test('applySelfUpdate: ダウンロード途中失敗（接続不可）でも ap
   });
 });
 
-test('applySelfUpdate: フィードに components.app が無ければ適用せず失敗を返す（呼び出し側の縮退判定と二重化した安全網）', async () => {
+serverTest('applySelfUpdate: フィードに components.app が無ければ適用せず失敗を返す（呼び出し側の縮退判定と二重化した安全網）', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0' });
     const feed = { schema: 1, product: '0.2.0', components: { cli: { version: '0.2.0' } } };
@@ -241,7 +249,7 @@ test('applySelfUpdate: フィードに components.app が無ければ適用せ�
   });
 });
 
-test('rollbackSelfUpdate: app-previous を app へ戻す（往復可能）', async () => {
+serverTest('rollbackSelfUpdate: app-previous を app へ戻す（往復可能）', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0', ref: 'v0.1.0' });
     const tarball = await buildAppTarball({ version: '0.2.0' });
@@ -277,7 +285,7 @@ test('rollbackSelfUpdate: app-previous を app へ戻す（往復可能）', asy
   });
 });
 
-test('rollbackSelfUpdate: app-previous が無ければロールバック対象なしとして失敗を返す', async () => {
+serverTest('rollbackSelfUpdate: app-previous が無ければロールバック対象なしとして失敗を返す', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0' });
     const { log, lines } = collectLogs();
@@ -290,7 +298,7 @@ test('rollbackSelfUpdate: app-previous が無ければロールバック対象�
 
 // --- U5: stageSelfUpdate / swapStagedApp（applySelfUpdate の分割）+ 同時実行ガード ---
 
-test('stageSelfUpdate: DL・sha256 検証・展開だけを行い、app には一切触れない（スワップしない）', async () => {
+serverTest('stageSelfUpdate: DL・sha256 検証・展開だけを行い、app には一切触れない（スワップしない）', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0', ref: 'v0.1.0' });
     const tarball = await buildAppTarball({ version: '0.2.0' });
@@ -319,7 +327,7 @@ test('stageSelfUpdate: DL・sha256 検証・展開だけを行い、app には�
   });
 });
 
-test('stageSelfUpdate → swapStagedApp: 2 段に分けて呼んでも applySelfUpdate 一発と同じ結果になる', async () => {
+serverTest('stageSelfUpdate → swapStagedApp: 2 段に分けて呼んでも applySelfUpdate 一発と同じ結果になる', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0', ref: 'v0.1.0' });
     const tarball = await buildAppTarball({ version: '0.2.0', extraFiles: { 'new-only-file.txt': 'brand new content' } });
@@ -357,7 +365,7 @@ test('stageSelfUpdate → swapStagedApp: 2 段に分けて呼んでも applySelf
   });
 });
 
-test('swapStagedApp: ロック取得に失敗したら静かに見送り、app は変更されない（同時実行ガード）', async () => {
+serverTest('swapStagedApp: ロック取得に失敗したら静かに見送り、app は変更されない（同時実行ガード）', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0' });
     const tarball = await buildAppTarball({ version: '0.2.0' });
@@ -394,7 +402,7 @@ test('swapStagedApp: ロック取得に失敗したら静かに見送り、app �
   });
 });
 
-test('swapStagedApp: ロック取得に成功したら通常どおりスワップし、ロックは解放される', async () => {
+serverTest('swapStagedApp: ロック取得に成功したら通常どおりスワップし、ロックは解放される', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0' });
     const tarball = await buildAppTarball({ version: '0.2.0' });

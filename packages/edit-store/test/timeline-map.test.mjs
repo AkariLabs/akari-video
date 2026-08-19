@@ -1,17 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTimelineMap, outputToSource, cutsUseGapsOrTracks } from '../lib/timeline-map.js';
+import { buildTimelineMap, outputToSource } from '../lib/timeline-map.js';
 
 function approx(actual, expected, eps = 1e-9) {
   assert.ok(Math.abs(actual - expected) <= eps, `${actual} !~ ${expected}`);
 }
 
-test('シーケンシャル: speed 込みの出力区間と総尺', () => {
+test('v2 単一モード: speed 込みの出力区間と総尺', () => {
   const map = buildTimelineMap([
     { in: 0, out: 5 },
     { in: 5, out: 10, speed: 2 }
   ]);
-  assert.equal(map.usesGapsOrTracks, false);
+  assert.equal(map.usesGapsOrTracks, true);
   assert.equal(map.segments.length, 2);
   approx(map.segments[0].outStart, 0);
   approx(map.segments[0].outEnd, 5);
@@ -21,31 +21,26 @@ test('シーケンシャル: speed 込みの出力区間と総尺', () => {
   assert.equal(map.transitionPlates.length, 0);
 });
 
-test('トランジション重なり: 後続 at の前倒しとプレート（fade のみ）', () => {
+test('トランジション重なりは絶対配置の平坦化で先行カットを優先する', () => {
   const map = buildTimelineMap([
     { in: 0, out: 4, transitionOut: { type: 'fade-black', duration: 1 } },
     { in: 10, out: 14 }
   ]);
-  approx(map.segments[1].outStart, 3);
+  approx(map.segments[1].outStart, 4);
   approx(map.segments[1].outEnd, 7);
   approx(map.totalDuration, 7);
-  assert.equal(map.transitionPlates.length, 1);
-  approx(map.transitionPlates[0].mid, 4);
-  approx(map.transitionPlates[0].start, 3.5);
-  approx(map.transitionPlates[0].end, 4.5);
-  assert.equal(map.transitionPlates[0].color, '#000000');
+  assert.equal(map.transitionPlates.length, 0);
 
   // dissolve は尺計算のみ（プレートなし）— §2.6
   const dissolve = buildTimelineMap([
     { in: 0, out: 4, transitionOut: { type: 'dissolve', duration: 1 } },
     { in: 10, out: 14 }
   ]);
-  approx(dissolve.segments[1].outStart, 3);
+  approx(dissolve.segments[1].outStart, 4);
   assert.equal(dissolve.transitionPlates.length, 0);
 });
 
 test('at 指定でギャップが出力セグメントとして現れる', () => {
-  assert.equal(cutsUseGapsOrTracks([{ in: 0, out: 5, at: 2 }]), true);
   const map = buildTimelineMap([{ in: 0, out: 5, at: 2 }]);
   assert.equal(map.usesGapsOrTracks, true);
   assert.deepEqual(map.segments.map(s => s.kind), ['gap', 'src']);

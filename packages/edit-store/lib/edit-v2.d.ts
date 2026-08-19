@@ -41,10 +41,17 @@ export interface MediaSourceV2 {
     src: string;
     in: number;
     out: number;
+    framing?: Record<string, unknown>;
+    transition_out?: Record<string, unknown> | null;
+    freeze?: Record<string, unknown> | null;
+    fx?: unknown[];
+    speed?: number;
+    chroma_key?: Record<string, unknown> | null;
 }
 export interface HtmlSourceV2 {
     kind: 'html';
     path: string;
+    vars?: Record<string, unknown>;
 }
 export interface TelopSourceV2 {
     kind: 'telop';
@@ -77,6 +84,7 @@ export interface ItemV2Base {
     opacity?: number;
     blend?: BlendModeV2;
     crop?: CropV2;
+    perspective?: Record<string, unknown>;
     keyframes?: KeyframeV2[];
 }
 export type ItemV2 = (ItemV2Base & {
@@ -110,6 +118,13 @@ export interface EditV2 {
     sources: EditSourceV2[];
     /** 配列順が下から上の合成 z 順。 */
     tracks: TrackV2[];
+    /**
+     * 移行では v0/v1 の音声秒宣言をそのまま保持する。音を整数フレーム化すると
+     * SFX/BGM の位置・尺が動くため、本タスクでは変換せず、トラック化は後続へ送る。
+     */
+    audio?: unknown;
+    captions?: unknown[];
+    thumbnail?: Record<string, unknown>;
 }
 export type InternalTrackV2 = TrackV2 & {
     /** 0 が最背面。tracks の配列添字と常に一致する。 */
@@ -121,6 +136,9 @@ export interface InternalEditV2 {
     sources: EditSourceV2[];
     /** 入力順を保持した下→上のトラック列。 */
     tracks: InternalTrackV2[];
+    audio?: unknown;
+    captions?: unknown[];
+    thumbnail?: Record<string, unknown>;
 }
 /**
  * edit.json v2 だけを検証して内部表現へ読む。v0/v1 の変換は意図的に扱わない。

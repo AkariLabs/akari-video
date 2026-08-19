@@ -226,6 +226,14 @@
         "master": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/audioMaster" }] }
       }
     },
+    "inlineCaptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "$comment": "v0/v1 の edit.json に埋め込まれた字幕宣言を v2 移行時にそのまま保持するための器。字幕の正本は captions.json であり、この定義は既存宣言の語彙を拡張しない。"
+    },
     "beatItem": {
       "type": "object",
       "additionalProperties": true,
@@ -629,7 +637,13 @@
         "kind": { "const": "media" },
         "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "in": { "$ref": "#/$defs/seconds" },
-        "out": { "$ref": "#/$defs/seconds" }
+        "out": { "$ref": "#/$defs/seconds" },
+        "framing": { "$ref": "#/$defs/cutFraming" },
+        "transition_out": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/transitionOut" }] },
+        "freeze": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cutFreeze" }] },
+        "fx": { "type": "array", "items": { "$ref": "#/$defs/cutFx" } },
+        "speed": { "$ref": "#/$defs/positiveNumber" },
+        "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
       },
       "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。src は editV2.sources[].id を参照し、in/out は素材内の秒。参照整合と out > in は兄弟値比較のため reader / edit-lint が検証する。"
     },
@@ -639,7 +653,8 @@
       "required": ["kind", "path"],
       "properties": {
         "kind": { "const": "html" },
-        "path": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "vars": { "type": "object" }
       },
       "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9。HTML はその場で描画する絵の出どころであり、素材トリムの in/out を持たない。"
     },
@@ -677,6 +692,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
         "source": { "$ref": "#/$defs/itemSourceMediaV2" }
       }
@@ -693,6 +709,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
         "source": { "$ref": "#/$defs/itemSourceHtmlV2" }
       }
@@ -709,6 +726,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
         "source": { "$ref": "#/$defs/itemSourceTelopV2" }
       }
@@ -725,6 +743,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
         "source": { "$ref": "#/$defs/itemSourceFilterV2" }
       }
@@ -862,9 +881,17 @@
         "tracks": {
           "type": "array",
           "items": { "$ref": "#/$defs/trackV2" }
+        },
+        "audio": { "$ref": "#/$defs/audio" },
+        "captions": { "$ref": "#/$defs/inlineCaptions" },
+        "thumbnail": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["path"],
+          "properties": { "path": { "type": "string", "minLength": 1, "pattern": "\\S" } }
         }
       },
-      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10 / §10-1。tracks の配列順が画面の下から上、すなわち合成 z 順の唯一の正本。出力軸は整数フレーム、素材軸は秒、字幕は captions.json のソース秒を維持する。"
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10 / §10-1。tracks の配列順が画面の下から上、すなわち合成 z 順の唯一の正本。出力軸は整数フレーム、素材軸は秒、字幕は captions.json のソース秒を維持する。音声の整数フレーム化は本移行では行わない。v0/v1 の audio を秒のまま持ち越し、変換前後の SFX/BGM の位置と尺を保つ。音声のトラック化は後続タスクの責務。"
     }
   }
 }

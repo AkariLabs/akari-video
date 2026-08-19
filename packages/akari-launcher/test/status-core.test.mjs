@@ -62,11 +62,13 @@ async function addPlan(root) {
 
 async function addEdit(root, sources) {
   await writeJson(join(root, "edit.json"), {
-    version: 1,
+    version: 2,
     output: { width: 1920, height: 1080, fps: 30 },
     sources: sources.map((path, index) => ({ id: `s${index + 1}`, path, proxy: null })),
-    cuts: sources.map((_path, index) => ({ src: `s${index + 1}`, in: 0, out: 1 })),
-    overlays: [],
+    tracks: [{ id: "base", lane: "visual", items: sources.map((_path, index) => ({
+      id: `cut-${index + 1}`, at: index * 30, duration: 30,
+      source: { kind: "media", src: `s${index + 1}`, in: 0, out: 1 },
+    })) }],
   });
 }
 
@@ -205,9 +207,9 @@ test("malformed and unknown authoritative state fails closed", async () => {
     await writeJson(join(root, "edit.json"), { version: 2 });
     status = resolveProjectStatus(root);
     assert.equal(status.workflow_stage, "state_inconclusive");
-    assert.ok(status.problems.includes("edit.json has unsupported version 2"));
+    assert.ok(status.problems.includes("edit.json v2 has an invalid output/sources/tracks shape"));
     summary = formatStatusOutput(status);
-    assert.match(summary, /edit\.json has unsupported version 2/u);
+    assert.match(summary, /edit\.json v2 has an invalid output\/sources\/tracks shape/u);
     assert.match(summary, /akari status --json/u);
   });
 });

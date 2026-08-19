@@ -50,11 +50,18 @@ export interface MediaSourceV2 {
     src: string;
     in: number;
     out: number;
+    framing?: Record<string, unknown>;
+    transition_out?: Record<string, unknown> | null;
+    freeze?: Record<string, unknown> | null;
+    fx?: unknown[];
+    speed?: number;
+    chroma_key?: Record<string, unknown> | null;
 }
 
 export interface HtmlSourceV2 {
     kind: 'html';
     path: string;
+    vars?: Record<string, unknown>;
 }
 
 export interface TelopSourceV2 {
@@ -86,6 +93,7 @@ export interface ItemV2Base {
     opacity?: number;
     blend?: BlendModeV2;
     crop?: CropV2;
+    perspective?: Record<string, unknown>;
     keyframes?: KeyframeV2[];
 }
 
@@ -121,6 +129,13 @@ export interface EditV2 {
     sources: EditSourceV2[];
     /** 配列順が下から上の合成 z 順。 */
     tracks: TrackV2[];
+    /**
+     * 移行では v0/v1 の音声秒宣言をそのまま保持する。音を整数フレーム化すると
+     * SFX/BGM の位置・尺が動くため、本タスクでは変換せず、トラック化は後続へ送る。
+     */
+    audio?: unknown;
+    captions?: unknown[];
+    thumbnail?: Record<string, unknown>;
 }
 
 export type InternalTrackV2 = TrackV2 & {
@@ -134,6 +149,9 @@ export interface InternalEditV2 {
     sources: EditSourceV2[];
     /** 入力順を保持した下→上のトラック列。 */
     tracks: InternalTrackV2[];
+    audio?: unknown;
+    captions?: unknown[];
+    thumbnail?: Record<string, unknown>;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -143,7 +161,7 @@ const BLEND_MODES = new Set<BlendModeV2>([
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ]);
 const ITEM_KEYS = new Set([
-    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'keyframes', 'source'
+    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'source'
 ]);
 
 /**
@@ -153,7 +171,7 @@ const ITEM_KEYS = new Set([
 export function readEditV2(json: unknown): InternalEditV2 {
     const parsed = parseInput(json);
     requireRecord(parsed, 'edit.json');
-    requireExactKeys(parsed, new Set(['version', 'output', 'sources', 'tracks']), 'edit.json');
+    requireExactKeys(parsed, new Set(['version', 'output', 'sources', 'tracks', 'audio', 'captions', 'thumbnail']), 'edit.json');
     if (parsed.version !== 2) {
         throw invalid('edit.json.version', '2 である必要があります（v0/v1 はこの reader の対象外です）');
     }
@@ -165,6 +183,11 @@ export function readEditV2(json: unknown): InternalEditV2 {
     if (!Array.isArray(parsed.tracks)) {
         throw invalid('edit.json.tracks', '配列である必要があります');
     }
+    if (hasOwn(parsed, 'audio')) requireRecord(parsed.audio, 'edit.json.audio');
+    if (hasOwn(parsed, 'captions') && !Array.isArray(parsed.captions)) {
+        throw invalid('edit.json.captions', '配列である必要があります');
+    }
+    if (hasOwn(parsed, 'thumbnail')) requireRecord(parsed.thumbnail, 'edit.json.thumbnail');
 
     const sourceIds = new Set<string>();
     parsed.sources.forEach((source, index) => validateEditSource(source, index, sourceIds));
@@ -177,6 +200,9 @@ export function readEditV2(json: unknown): InternalEditV2 {
         version: 2,
         output: { ...edit.output },
         sources: edit.sources.map(source => ({ ...source })),
+        ...(edit.audio !== undefined ? { audio: edit.audio } : {}),
+        ...(edit.captions !== undefined ? { captions: edit.captions } : {}),
+        ...(edit.thumbnail !== undefined ? { thumbnail: { ...edit.thumbnail } } : {}),
         tracks: edit.tracks.map((track, z) => {
             if ('items' in track) {
                 return {
@@ -275,6 +301,7 @@ function validateItem(
         throw invalid(`${path}.blend`, '未対応の blend mode です');
     }
     if (hasOwn(value, 'crop')) validateCrop(value.crop, `${path}.crop`);
+    if (hasOwn(value, 'perspective')) requireRecord(value.perspective, `${path}.perspective`);
     if (hasOwn(value, 'keyframes')) validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
 }
@@ -283,16 +310,24 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
     requireRecord(value, path);
     switch (value.kind) {
         case 'media':
-            requireExactKeys(value, new Set(['kind', 'src', 'in', 'out']), path);
+            requireExactKeys(value, new Set([
+                'kind', 'src', 'in', 'out', 'framing', 'transition_out', 'freeze', 'fx', 'speed', 'chroma_key'
+            ]), path);
             requireText(value.src, `${path}.src`);
             if (!sourceIds.has(value.src)) throw invalid(`${path}.src`, `sources[].id に存在しません: ${value.src}`);
             requireNonNegativeNumber(value.in, `${path}.in`);
             requireNonNegativeNumber(value.out, `${path}.out`);
             if (value.out <= value.in) throw invalid(path, 'media source は out > in である必要があります');
+            for (const key of ['framing', 'transition_out', 'freeze', 'chroma_key']) {
+                if (hasOwn(value, key) && value[key] !== null) requireRecord(value[key], `${path}.${key}`);
+            }
+            if (hasOwn(value, 'fx') && !Array.isArray(value.fx)) throw invalid(`${path}.fx`, '配列である必要があります');
+            if (hasOwn(value, 'speed')) requirePositiveNumber(value.speed, `${path}.speed`);
             return;
         case 'html':
-            requireExactKeys(value, new Set(['kind', 'path']), path);
+            requireExactKeys(value, new Set(['kind', 'path', 'vars']), path);
             requireText(value.path, `${path}.path`);
+            if (hasOwn(value, 'vars')) requireRecord(value.vars, `${path}.vars`);
             return;
         case 'telop':
             requireExactKeys(value, new Set(['kind', 'preset', 'params', 'baked']), path);

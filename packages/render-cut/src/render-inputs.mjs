@@ -24,12 +24,12 @@ export async function enumerateDeclaredRenderInputs({
   const inputs = [];
   addProjectInput(inputs, root, "edit", "edit.json", { text: editText });
 
-  if (edit.version === 0) {
-    addProjectInput(inputs, root, "source", edit.source.path);
-  } else {
-    const used = new Set((edit.cuts ?? []).map((cut) => cut?.src));
-    for (const source of (edit.sources ?? []).filter((value) => used.has(value.id))) {
-      addProjectInput(inputs, root, `source:${source.id}`, source.path);
+  const used = new Set((edit.cuts ?? []).map((cut) => cut?.src));
+  for (const source of (edit.sources ?? []).filter((value) => used.has(value.id))) {
+    addProjectInput(inputs, root, `source:${source.id}`, source.path);
+    const chromaBackground = source?.chroma_key?.background;
+    if (isPathBackedChromaBackground(chromaBackground)) {
+      addProjectInput(inputs, root, `chroma-background:${source.id}`, chromaBackground);
     }
   }
 
@@ -75,11 +75,6 @@ export async function enumerateDeclaredRenderInputs({
     addProjectInput(inputs, root, `layer:${layer?.id ?? index}`, layer?.src);
   }
   if (edit.thumbnail?.path) addProjectInput(inputs, root, "thumbnail", edit.thumbnail.path);
-
-  const chromaBackground = edit.version === 0 ? edit.source?.chroma_key?.background : null;
-  if (isPathBackedChromaBackground(chromaBackground)) {
-    addProjectInput(inputs, root, "chroma-background", chromaBackground);
-  }
 
   const lut = edit.output?.look?.lut;
   if (typeof lut === "string" && lut !== "") {

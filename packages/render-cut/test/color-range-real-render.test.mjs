@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import { generateColorRangeFixtures } from "../scripts/generate-color-range-fixtures.mjs";
 
@@ -93,15 +96,15 @@ test("full-range fixture renders to measured yuv420p/tv with limited white while
     assert.equal(full.state.verify.measured.pixel_format, "yuv420p");
     assert.equal(full.state.verify.measured.color_range, "tv");
     assert.equal(full.state.plan.preset.color_range, "tv");
-    assert.equal(full.state.provenance.source_pix_fmt, "yuvj420p");
-    assert.equal(full.state.provenance.source_color_range, "pc");
+    assert.equal(full.state.provenance.sources[0].pix_fmt, "yuvj420p");
+    assert.equal(full.state.provenance.sources[0].color_range, "pc");
 
     const tvProject = await makeProject(root, fixtures.tvRangePath, "tv-project");
     const tv = await renderAndRead(tvProject);
     assert.deepEqual(probeVideo(tv.outputPath), { pix_fmt: "yuv420p", color_range: "tv" });
     assert.ok(Math.abs(sampleCenterLuma(tv.outputPath) - sampleCenterLuma(fixtures.tvRangePath)) <= 1);
-    assert.equal(tv.state.provenance.source_pix_fmt, "yuv420p");
-    assert.equal(tv.state.provenance.source_color_range, "tv");
+    assert.equal(tv.state.provenance.sources[0].pix_fmt, "yuv420p");
+    assert.equal(tv.state.provenance.sources[0].color_range, "tv");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -9,6 +9,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
+const LOCAL_SERVER_AVAILABLE = await new Promise(resolveAvailable => {
+  const probe = createServer();
+  probe.once('error', () => resolveAvailable(false));
+  probe.listen(0, '127.0.0.1', () => probe.close(() => resolveAvailable(true)));
+});
+const serverTest = LOCAL_SERVER_AVAILABLE
+  ? test
+  : (name, fn) => test(name, { skip: 'sandbox cannot bind a localhost fixture server' }, fn);
+
 import { resolveAppDir, resolveAppPreviousDir, resolveStagingDir } from '../src/self-update.mjs';
 import { maybeStageInBackground, resolveCachePath } from '../src/update-check.mjs';
 
@@ -153,7 +162,7 @@ async function stageForNextLaunch(env, appDir, feed) {
   return staged;
 }
 
-test('U5 一気通貫: 1 回目の起動で裏 staging が完了し、2 回目の起動（akari --version）で新版に切り替わる。成功通知も出る', async () => {
+serverTest('U5 一気通貫: 1 回目の起動で裏 staging が完了し、2 回目の起動（akari --version）で新版に切り替わる。成功通知も出る', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, '0.1.0');
     assert.equal(akariVersionOf(appDir, env).trim(), 'v0.1.0');
@@ -210,8 +219,7 @@ test('U5 一気通貫: 1 回目の起動で裏 staging が完了し、2 回目�
     });
   });
 });
-
-test('U5: AKARI_NO_AUTO_UPDATE=1 では 1 回目の起動で staging が作られず、2 回目の起動でも適用されない', async () => {
+serverTest('U5: AKARI_NO_AUTO_UPDATE=1 では 1 回目の起動で staging が作られず、2 回目の起動でも適用されない', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, '0.1.0');
     const tarball = await buildAppTarball({ version: '0.2.0' });
@@ -243,7 +251,7 @@ test('U5: AKARI_NO_AUTO_UPDATE=1 では 1 回目の起動で staging が作ら�
   });
 });
 
-test('U5: staging の tarball が改竄されていれば staged が記録されず、2 回目の起動でも app は不変', async () => {
+serverTest('U5: staging の tarball が改竄されていれば staged が記録されず、2 回目の起動でも app は不変', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, '0.1.0');
     const tarball = await buildAppTarball({ version: '0.2.0' });

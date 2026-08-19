@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
-import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import { buildTailPadCommand } from "../src/content-duration.mjs";
 import { buildLayersCompositeCommand } from "../src/layers.mjs";
-import { buildPlan } from "../src/plan.mjs";
+import { buildV2Plan } from "./helpers/v2-fixture.mjs";
 import { compositeAnimatedOverlay, compositeStaticOverlays } from "../src/rasterize.mjs";
 import { buildCutTrackCompositeCommand, buildTrackBaseCommand } from "../src/track-compose.mjs";
 
@@ -32,7 +35,7 @@ test("cut builders and planned composite twins normalize values and tag every H.
     source: { path: "source.mp4", proxy: null },
     overlays: [],
   };
-  const single = buildPlan({
+  const single = buildV2Plan({
     edit: { ...common, cuts: [{ in: 0, out: 1 }] },
     projectRoot: "/project",
     outputPath: "/project/exports/single.mp4",
@@ -44,7 +47,7 @@ test("cut builders and planned composite twins normalize values and tag every H.
   assertTvEncode(single.commands.composite.hyperframes, "buildAnimatedCompositeCommand");
   assertTvEncode(single.commands.composite["static-screenshot"], "buildStaticCompositeCommand");
 
-  const gapAware = buildPlan({
+  const gapAware = buildV2Plan({
     edit: {
       ...common,
       cuts: [
@@ -59,7 +62,7 @@ test("cut builders and planned composite twins normalize values and tag every H.
   });
   assertTvEncode(gapAware.commands.cut, "buildGapAwareCutCommand");
 
-  const multi = buildPlan({
+  const multi = buildV2Plan({
     edit: {
       version: 1,
       output: { width: 320, height: 180, fps: 10 },

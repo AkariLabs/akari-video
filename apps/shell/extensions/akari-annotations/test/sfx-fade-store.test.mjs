@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { setSfxFadeInSource } from "../lib/common/sfx-fade-store.js";
-import { parseEdit } from "../lib/common/edit-store.js";
+import { readLegacyView } from './helpers/v2-fixture.mjs';
 
 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum (audio-clip-fades,
 // 2026-08-18): audio.sfx[].fade_in/fade_out write-back. setSfxFadeInSource is a
@@ -68,8 +68,9 @@ test("setSfxFadeInSource only touches the targeted sfx index (sibling items unto
 // widget's withSfxFade() merges rawValue.audio.sfx[N].fade_in/fade_out into parsed.audioSfx by
 // the "sfx-N" id index (parsed.audioSfx can skip invalid raw entries, so array position alone
 // is not reliable -- see akari-annotations-widget.ts's EditAudioSfxWithFade header comment).
-// This test locks down the id numbering parseEdit produces, which withSfxFade depends on.
-test("parseEdit's audioSfx[].id numbering matches the raw array index even when an earlier item is skipped (regression guard for withSfxFade's id-based lookup)", () => {
+// This test locks down the id numbering the v2 reader's compatibility view produces,
+// which withSfxFade depends on.
+test("v2 reader's audioSfx[].id numbering matches the raw array index even when an earlier item is skipped (regression guard for withSfxFade's id-based lookup)", () => {
   const source = JSON.stringify({
     version: 0,
     output: { width: 1280, height: 720, fps: 30 },
@@ -79,12 +80,12 @@ test("parseEdit's audioSfx[].id numbering matches the raw array index even when 
     audio: {
       sfx: [
         { path: "ok0.mp3", t: 1 },
-        { path: "", t: 2 }, // invalid (empty path) -- parseEdit skips this one
+        { path: "", t: 2 }, // invalid (empty path) -- the v2 compatibility reader skips this one
         { path: "ok2.mp3", t: 3, fade_in: 0.2 }
       ]
     }
   });
-  const parsed = parseEdit(source);
+  const parsed = readLegacyView(JSON.parse(source));
   assert.equal(parsed.audioSfx.length, 2);
   assert.deepEqual(parsed.audioSfx.map(item => item.id), ["sfx-0", "sfx-2"]);
 });

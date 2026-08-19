@@ -10,6 +10,7 @@ import { runAcceptCommand } from '../src/accept-command.mjs';
 import { runCapabilityCommand } from '../src/capability-command.mjs';
 import { runStoreCommand } from '../src/store-command.mjs';
 import { runAssetsCommand } from '../src/assets-command.mjs';
+import { runMigrateCommand } from '../src/migrate-command.mjs';
 import { maybeApplyPendingUpdateOnLaunch, readOwnVersion } from '../src/update-check.mjs';
 import { describeCliHelp } from '../src/messages.mjs';
 
@@ -67,6 +68,7 @@ const invoke = (argv[0] === '--version' || argv[0] === '-v') ? printVersion()
   : argv[0] === 'capability' ? runCapabilityCommand(argv.slice(1))
   : argv[0] === 'store' ? runStoreCommand(argv.slice(1))
   : argv[0] === 'assets' ? runAssetsCommand(argv.slice(1))
+  : argv[0] === 'migrate' ? runMigrateCommand(argv.slice(1))
   : run(argv);
 
 const result = await invoke.catch((error) => {

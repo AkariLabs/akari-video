@@ -18,7 +18,11 @@ import { segmentDuration } from "./cut-timeline.mjs";
 import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
-const { resolveCaptionDisplay } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
+const {
+  projectLegacyEdit,
+  readInternalEdit,
+  resolveCaptionDisplay,
+} = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 
 const VERSION = 1;
 const EPSILON = 1e-6;
@@ -120,15 +124,30 @@ export async function lintProject(input, options = {}) {
     return writeResult(findings, skipped, inputs, paths, options);
   }
 
-  if (isRecord(edit) && edit.version === 2) {
-    validateEditV2(edit, findings);
-    addSkipped(
-      skipped,
-      "edit.v2.extended-validation",
-      "Phase 0 validates v2 ids, track shape, same-track overlap, and lane/source compatibility only",
-    );
+  if (isRecord(edit) && edit.version !== 2) readInternalEdit(edit);
+  validateEditV2(edit, findings);
+  if (findings.some(finding => finding.severity === "error")) {
     return writeResult(findings, skipped, inputs, paths, options);
   }
+  const rawEdit = edit;
+  const internalEdit = readInternalEdit(rawEdit);
+  const legacyEdit = projectLegacyEdit(internalEdit);
+  const rawAudio = isRecord(rawEdit.audio) ? rawEdit.audio : {};
+  const rawSfx = Array.isArray(rawAudio.sfx) ? rawAudio.sfx : [];
+  edit = {
+    ...rawEdit,
+    ...legacyEdit,
+    overlays: internalEdit.tracks.flatMap(track => track.items)
+      .filter(item => item.source.kind === "html")
+      .map(item => item.declaration),
+    version: 1,
+    output: rawEdit.output,
+    audio: {
+      ...rawAudio,
+      ...(rawSfx.length > 0 ? { sfx: rawSfx }
+        : legacyEdit.audioSfx.length > 0 ? { sfx: legacyEdit.audioSfx } : {}),
+    },
+  };
 
   const analysisState = await readOptionalJson(
     paths.analysisPath,
@@ -149,9 +168,7 @@ export async function lintProject(input, options = {}) {
     addSkipped(
       skipped,
       "analysis.json",
-      edit.version === 0
-        ? "analysis.json is absent; ffprobe is used for source duration"
-        : "analysis.json is absent",
+      "analysis.json is absent",
     );
   }
 
@@ -215,42 +232,13 @@ export async function lintProject(input, options = {}) {
   const structure = validateEditStructure(edit, findings, paths);
   const sourcePath = structure.sourcePath;
   const referenceState = await validateReferences(edit, findings, paths);
-  // docs/contract-2026-08-12-still-image-cut-source-v0.md: ffprobe never reports format.duration
-  // for a bare still image, so probeDuration() below would throw ExecutionError (a positive-
-  // duration assertion) and crash the whole lint run with exit code 2 instead of a normal
-  // PASS/FAIL verdict. Skip the probe for a still-image source entirely; sourceDuration staying
-  // null is exactly what validateCuts already treats as "no source-duration bound to check".
-  const sourceIsStillImage = edit?.version === 0 && isImageCutSourcePath(edit?.source?.path);
-  let sourceDuration =
-    edit?.version === 0 ? extractAnalysisDuration(analysisState.value) : null;
-
-  if (
-    edit?.version === 0 &&
-    sourceDuration === null &&
-    sourcePath &&
-    referenceState.sourceExists &&
-    !sourceIsStillImage
-  ) {
-    sourceDuration = probeDuration(sourcePath, options.ffprobeCommand);
-  }
-  if (edit?.version === 0 && sourceDuration === null) {
-    addSkipped(
-      skipped,
-      "cuts.source-duration",
-      sourceIsStillImage
-        ? "source duration is unavailable because source.path is a still image (no intrinsic duration; declare the display duration via cuts)"
-        : sourcePath
-        ? "source duration is unavailable because the source reference cannot be read"
-        : "source duration is unavailable because source.path is invalid",
-    );
-  }
+  const sourceDuration = null;
 
   const timeline = validateCuts(
     edit.cuts,
     sourceDuration,
     findings,
     paths,
-    edit.version,
     structure.sourceIds,
   );
   validateCutTrackFields(edit.cuts, findings);
@@ -258,6 +246,7 @@ export async function lintProject(input, options = {}) {
   validateStillImageCuts(edit, findings);
   const cutTrackSegments = computeCutTrackSegments(edit.cuts);
   for (const segment of findTrackOverlaps(cutTrackSegments)) {
+    if (isDeclaredTransitionOverlap(edit.cuts, cutTrackSegments, segment)) continue;
     addFinding(findings, {
       severity: "error",
       check: "cuts.track-overlap",
@@ -285,8 +274,8 @@ export async function lintProject(input, options = {}) {
   validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
   validateOutputEncoding(edit?.output?.encoding, findings, "edit.json#output.encoding");
   validateLayerTracks(edit.layers, findings);
-  validateBeats(edit.beats, edit.version, structure.sourceIds, findings);
-  validateEmphasisWords(edit.emphasis_words, edit.version, structure.sourceIds, findings);
+  validateBeats(edit.beats, structure.sourceIds, findings);
+  validateEmphasisWords(edit.emphasis_words, structure.sourceIds, findings);
   validateDirection(edit.direction, findings);
   validateTimelineTracks(edit, findings);
   validateTrackTransitionOutCompatibility(edit, findings);
@@ -310,17 +299,7 @@ export async function lintProject(input, options = {}) {
   }
 
   if (options.media) {
-    if (edit?.version === 1) {
-      addSkipped(
-        skipped,
-        "media",
-        "media checks currently apply to version 0 source.path only",
-      );
-    } else if (!sourcePath || !referenceState.sourceExists) {
-      addSkipped(skipped, "media", "media checks require a readable source.path");
-    } else {
-      runMediaChecks(sourcePath, findings, skipped, paths, options, captionsState.value);
-    }
+    addSkipped(skipped, "media", "media checks do not run against the multi-source compatibility view");
   } else {
     addSkipped(skipped, "media", "media checks require --media");
   }
@@ -474,71 +453,21 @@ async function resolveInput(input, options = {}) {
 function validateEditStructure(edit, findings, paths) {
   const editRelative = relativePath(paths.projectRoot, paths.editPath);
   if (!isRecord(edit)) {
-    addFinding(findings, {
-      severity: "error",
-      check: "edit.structure",
-      message: "edit.json root must be an object",
-      path: editRelative,
-    });
+    addFinding(findings, { severity: "error", check: "edit.structure", message: "edit.json root must be an object", path: editRelative });
     return { sourcePath: null, sourceIds: new Set() };
-  }
-  if (!Number.isInteger(edit.version) || edit.version < 0) {
-    structureFinding(findings, editRelative, "version must be a non-negative integer");
   }
   if (!isRecord(edit.output)) {
     structureFinding(findings, editRelative, "output must be an object");
   } else {
     for (const field of ["width", "height", "fps"]) {
-      if (!isPositiveNumber(edit.output[field])) {
-        structureFinding(findings, editRelative, `output.${field} must be a positive number`);
-      }
+      if (!isPositiveNumber(edit.output[field])) structureFinding(findings, editRelative, `output.${field} must be a positive number`);
     }
     validateLook(edit.output.look, findings, "edit.json#output.look");
   }
-  const hasSource = Object.hasOwn(edit, "source");
-  const hasSources = Object.hasOwn(edit, "sources");
-  if (hasSource && hasSources) {
-    addFinding(findings, {
-      severity: "error",
-      check: "edit.sources-exclusive",
-      message: "source and sources must not coexist",
-      path: editRelative,
-    });
-  }
-
-  let sourcePath = null;
   const sourceIds = new Set();
-  if (edit.version === 0 && !isRecord(edit.source)) {
-    structureFinding(findings, editRelative, "version 0 requires source to be an object");
-  } else if (isRecord(edit.source)) {
-    if (!isNonEmptyString(edit.source.path)) {
-      structureFinding(findings, editRelative, "source.path must be a non-empty string");
-    } else {
-      sourcePath = resolveReference(paths.editPath, edit.source.path);
-    }
-    if (
-      Object.hasOwn(edit.source, "proxy") &&
-      edit.source.proxy !== null &&
-      !isNonEmptyString(edit.source.proxy)
-    ) {
-      structureFinding(
-        findings,
-        editRelative,
-        "source.proxy must be null or a non-empty string",
-      );
-    }
-    validateChromaKey(edit.source.chroma_key, findings, "edit.json#source.chroma_key");
-  }
-  if (edit.version === 0 && hasSources && !hasSource) {
-    structureFinding(findings, editRelative, "version 0 does not support sources");
-  }
-
-  if (edit.version === 1 && !Array.isArray(edit.sources)) {
-    structureFinding(findings, editRelative, "version 1 requires sources to be an array");
-  } else if (Array.isArray(edit.sources)) {
-    if (edit.sources.length === 0) {
-      structureFinding(findings, editRelative, "sources must contain at least one source");
-    }
+  if (!Array.isArray(edit.sources)) {
+    structureFinding(findings, editRelative, "sources must be an array");
+  } else {
     for (const [index, source] of edit.sources.entries()) {
       const sourceRelative = `edit.json#sources[${index}]`;
       if (!isRecord(source)) {
@@ -548,41 +477,20 @@ function validateEditStructure(edit, findings, paths) {
       if (!isNonEmptyString(source.id)) {
         structureFinding(findings, sourceRelative, "source id must be a non-empty string");
       } else if (sourceIds.has(source.id)) {
-        addFinding(findings, {
-          severity: "error",
-          check: "sources.id",
-          message: `duplicate source id: ${source.id}`,
-          path: sourceRelative,
-        });
+        addFinding(findings, { severity: "error", check: "sources.id", message: `duplicate source id: ${source.id}`, path: sourceRelative });
       } else {
         sourceIds.add(source.id);
       }
-      if (!isNonEmptyString(source.path)) {
-        structureFinding(findings, sourceRelative, "source path must be a non-empty string");
-      }
-      if (
-        !Object.hasOwn(source, "proxy") ||
-        (source.proxy !== null && !isNonEmptyString(source.proxy))
-      ) {
-        structureFinding(
-          findings,
-          sourceRelative,
-          "source proxy must be null or a non-empty string",
-        );
+      if (!isNonEmptyString(source.path)) structureFinding(findings, sourceRelative, "source path must be a non-empty string");
+      if (source.proxy !== null && source.proxy !== undefined && !isNonEmptyString(source.proxy)) {
+        structureFinding(findings, sourceRelative, "source proxy must be null or a non-empty string");
       }
       validateChromaKey(source.chroma_key, findings, `${sourceRelative}.chroma_key`);
     }
   }
-  if (edit.version === 1 && hasSource && !hasSources) {
-    structureFinding(findings, editRelative, "version 1 does not support source");
-  }
-  if (!Array.isArray(edit.cuts)) {
-    structureFinding(findings, editRelative, "cuts must be an array");
-  }
-  if (!Array.isArray(edit.overlays)) {
-    structureFinding(findings, editRelative, "overlays must be an array");
-  }
-  return { sourcePath, sourceIds };
+  if (!Array.isArray(edit.cuts)) structureFinding(findings, editRelative, "cuts must be an array");
+  if (!Array.isArray(edit.overlays)) structureFinding(findings, editRelative, "overlays must be an array");
+  return { sourcePath: null, sourceIds };
 }
 
 // notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。
@@ -684,14 +592,24 @@ function validateEditV2(edit, findings) {
       }
 
       if (Number.isInteger(item.at) && item.at >= 0 && Number.isInteger(item.duration) && item.duration >= 0) {
-        intervals.push({ index: itemIndex, start: item.at, end: item.at + item.duration });
+        const transitionSeconds = isRecord(item.source?.transition_out)
+          && isPositiveNumber(item.source.transition_out.duration)
+          ? item.source.transition_out.duration : 0;
+        intervals.push({
+          index: itemIndex,
+          start: item.at,
+          end: item.at + item.duration,
+          transitionFrames: Math.round(transitionSeconds * (edit.output?.fps ?? 0)),
+        });
       }
     }
 
     intervals.sort((left, right) => left.start - right.start || left.index - right.index);
     let furthest = null;
     for (const interval of intervals) {
-      if (furthest && interval.start < furthest.end && interval.end > interval.start) {
+      const overlap = furthest ? furthest.end - interval.start : 0;
+      if (furthest && overlap > 0 && interval.end > interval.start
+        && overlap > furthest.transitionFrames) {
         addFinding(findings, {
           severity: "error",
           check: "v2.track-overlap",
@@ -813,7 +731,7 @@ function computeCutTrackSegments(cuts) {
     }
     const hasValidTrack = Object.hasOwn(cut, "track") && Number.isInteger(cut.track) && cut.track >= 0;
     const track = hasValidTrack ? cut.track : 0;
-    const duration = cut.out - cut.in;
+    const duration = segmentDuration(cut);
     const cursor = cursorByTrack.get(track) ?? 0;
     const hasValidAt = Object.hasOwn(cut, "at") && isFiniteNumber(cut.at) && cut.at >= 0;
     const start = hasValidAt ? cut.at : cursor;
@@ -840,6 +758,16 @@ function findTrackOverlaps(segments) {
     }
   }
   return overlaps;
+}
+
+function isDeclaredTransitionOverlap(cuts, segments, current) {
+  const previous = segments
+    .filter(segment => segment.track === current.track && segment.index < current.index)
+    .sort((left, right) => right.index - left.index)[0];
+  if (!previous) return false;
+  const duration = cuts?.[previous.index]?.transition_out?.duration;
+  return isPositiveNumber(duration)
+    && Math.abs((previous.end - current.start) - duration) <= EPSILON;
 }
 
 function validateCutTrackFields(cuts, findings) {
@@ -940,27 +868,6 @@ function validateStillImageCuts(edit, findings) {
   if (!isRecord(edit)) return;
   const cuts = Array.isArray(edit.cuts) ? edit.cuts : [];
 
-  if (edit.version === 0) {
-    if (!isRecord(edit.source) || !isImageCutSourcePath(edit.source.path)) return;
-    if (cuts.length === 0) {
-      addFinding(findings, {
-        severity: "error",
-        check: "cuts.still-image-cuts-required",
-        message:
-          "source.path is a still image, which has no intrinsic duration, so v0's \"empty cuts = whole "
-            + "source\" shortcut does not apply. Declare at least one cut with an explicit out to state the "
-            + "display duration.",
-        path: "edit.json#cuts",
-      });
-      return;
-    }
-    for (const [index, cut] of cuts.entries()) {
-      validateStillImageCutFields(cut, index, findings);
-    }
-    return;
-  }
-
-  if (edit.version !== 1) return;
   const imageSourceIds = new Set(
     (Array.isArray(edit.sources) ? edit.sources : [])
       .filter((source) => isRecord(source) && isImageCutSourcePath(source.path))
@@ -1122,11 +1029,15 @@ function validateTimelineTracks(edit, findings) {
     return;
   }
 
+  const audioTracks = collectActualTrackNumbers(edit?.audio?.sfx);
+  if (isRecord(edit?.audio?.bgm) || (Array.isArray(edit?.audio?.narration) && edit.audio.narration.length > 0)) {
+    audioTracks.add(0);
+  }
   const actualTracks = new Map([
     ["cuts", collectActualTrackNumbers(edit?.cuts)],
     ["layers", collectActualTrackNumbers(edit?.layers)],
     ["overlays", collectActualTrackNumbers(edit?.overlays)],
-    ["audio", collectActualTrackNumbers(edit?.audio?.sfx)],
+    ["audio", audioTracks],
   ]);
   const allowedKinds = new Set(["cuts", "layers", "overlays", "captions", "audio"]);
   const ids = new Set();
@@ -1265,10 +1176,10 @@ function validateTimelineTracks(edit, findings) {
 // combination. Reject it instead: it fails loudly and specifically, rather than rendering a
 // broken video with a phantom black flash that's very hard to trace back to its cause.
 function validateTrackTransitionOutCompatibility(edit, findings) {
-  if (edit?.version !== 1 || !Array.isArray(edit.cuts)) return;
+  if (!Array.isArray(edit?.cuts)) return;
   const tracks = edit?.timeline?.tracks;
   if (!Array.isArray(tracks)) return; // malformed timeline.tracks is already reported by validateTimelineTracks
-  if (usesDefaultTrackOrder(edit, tracks)) return; // cuts[].track has no compositing effect here (flat concat; see cuts.track-render-unsupported)
+  if (usesDefaultCompatibilityTrackOrder(tracks)) return;
 
   const cutsTrackRefs = new Set(
     tracks
@@ -1301,14 +1212,17 @@ function validateTrackTransitionOutCompatibility(edit, findings) {
   }
 }
 
-// Local port of render-cut/src/track-order.mjs's usesDefaultTrackOrder: edit-lint is a lower-level
-// package render-cut depends on, so it duplicates this small comparison rather than importing
-// back from render-cut. deriveTracks itself stays the single shared source of the "default" order.
-function usesDefaultTrackOrder(edit, tracks) {
-  const trackKey = (track) => `${track?.kind ?? ""}:${Number.isInteger(track?.ref) ? track.ref : ""}`;
-  const resolved = tracks.map(trackKey);
-  const derived = deriveTracks(edit).map(trackKey);
-  return resolved.length === derived.length && resolved.every((value, index) => value === derived[index]);
+function usesDefaultCompatibilityTrackOrder(tracks) {
+  const rank = new Map([["cuts", 0], ["layers", 1], ["overlays", 2], ["captions", 3], ["audio", 4]]);
+  const keys = tracks.map((track, index) => ({
+    kind: track?.kind,
+    ref: Number.isInteger(track?.ref) ? track.ref : -1,
+    index,
+  }));
+  if (keys.some(key => !rank.has(key.kind))) return false;
+  const expected = [...keys].sort((left, right) =>
+    rank.get(left.kind) - rank.get(right.kind) || left.ref - right.ref || left.index - right.index);
+  return keys.every((key, index) => key.index === expected[index].index);
 }
 
 function collectActualTrackNumbers(items) {
@@ -1325,11 +1239,9 @@ function collectActualTrackNumbers(items) {
   return tracks;
 }
 
-function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds) {
+function validateCuts(cuts, sourceDuration, findings, paths, sourceIds) {
   if (!Array.isArray(cuts)) return null;
   let valid = true;
-  let previousIn = -Infinity;
-  let previousOut = -Infinity;
   let timeline = 0;
 
   for (const [index, cut] of cuts.entries()) {
@@ -1356,8 +1268,7 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
     } else {
       timeline += segmentDuration(cut);
     }
-    if (version === 1) {
-      if (!isNonEmptyString(cut.src)) {
+    if (!isNonEmptyString(cut.src)) {
         addFinding(findings, {
           severity: "error",
           check: "cuts.src",
@@ -1365,7 +1276,7 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
           path,
         });
         valid = false;
-      } else if (!sourceIds.has(cut.src)) {
+    } else if (!sourceIds.has(cut.src)) {
         addFinding(findings, {
           severity: "error",
           check: "cuts.src-reference",
@@ -1373,35 +1284,6 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
           path,
         });
         valid = false;
-      }
-    } else if (Object.hasOwn(cut, "src")) {
-      addFinding(findings, {
-        severity: "error",
-        check: "cuts.src",
-        message: "version 0 cut must not contain src",
-        path,
-      });
-      valid = false;
-    }
-    if (version === 0 && cut.in < previousIn - EPSILON) {
-      addFinding(findings, {
-        severity: "error",
-        check: "cuts.order",
-        message: "cuts must be sorted by in time",
-        path,
-        range: { start: cut.in, end: cut.out },
-      });
-      valid = false;
-    }
-    if (version === 0 && cut.in < previousOut - EPSILON) {
-      addFinding(findings, {
-        severity: "error",
-        check: "cuts.overlap",
-        message: "cuts must not overlap",
-        path,
-        range: { start: cut.in, end: cut.out },
-      });
-      valid = false;
     }
     if (sourceDuration !== null && cut.out > sourceDuration + EPSILON) {
       addFinding(findings, {
@@ -1423,11 +1305,9 @@ function validateCuts(cuts, sourceDuration, findings, paths, version, sourceIds)
       valid = false;
     }
     validateTransitionOut(cut.transition_out, findings, `${path}.transition_out`);
-    previousIn = cut.in;
-    previousOut = cut.out;
   }
 
-  if (cuts.length === 0) return version === 1 ? 0 : sourceDuration;
+  if (cuts.length === 0) return 0;
   return valid ? timeline : null;
 }
 
@@ -1829,7 +1709,7 @@ async function validateNarration(narration, timeline, findings, paths) {
 // バリデータを import しない）。beats[].t は timeline 秒ではなく source 秒アンカー（同 §3）であり、
 // source 実尺との突き合わせは --media なしでデコードしない規律のため行わない（同 §7 の将来課題）。
 // beats フィールドの不在はエラーにしない（同 §4 の劣化規約）。
-function validateBeats(beats, version, sourceIds, findings) {
+function validateBeats(beats, sourceIds, findings) {
   if (beats === undefined) return;
   if (!Array.isArray(beats)) {
     addFinding(findings, {
@@ -1909,14 +1789,7 @@ function validateBeats(beats, version, sourceIds, findings) {
     }
 
     if (Object.hasOwn(item, "src")) {
-      if (version === 0) {
-        addFinding(findings, {
-          severity: "error",
-          check: "beats.src",
-          message: "src is not available in version 0 (no sources[] to reference)",
-          path: itemPath,
-        });
-      } else if (!isNonEmptyString(item.src)) {
+      if (!isNonEmptyString(item.src)) {
         addFinding(findings, {
           severity: "error",
           check: "beats.src",
@@ -1941,7 +1814,7 @@ function validateBeats(beats, version, sourceIds, findings) {
 // source 実尺との突き合わせは --media なしでデコードしない規律のため行わない（同 §7 の将来課題）。
 // 各要素は素材ファイルを参照しないためファイル実在チェックも行わない。
 // emphasis_words フィールドの不在はエラーにしない（同 §5 の劣化規約）。
-function validateEmphasisWords(emphasisWords, version, sourceIds, findings) {
+function validateEmphasisWords(emphasisWords, sourceIds, findings) {
   if (emphasisWords === undefined) return;
   if (!Array.isArray(emphasisWords)) {
     addFinding(findings, {
@@ -2040,14 +1913,7 @@ function validateEmphasisWords(emphasisWords, version, sourceIds, findings) {
     }
 
     if (Object.hasOwn(item, "src")) {
-      if (version === 0) {
-        addFinding(findings, {
-          severity: "error",
-          check: "emphasis_words.src",
-          message: "src is not available in version 0 (no sources[] to reference)",
-          path: itemPath,
-        });
-      } else if (!isNonEmptyString(item.src)) {
+      if (!isNonEmptyString(item.src)) {
         addFinding(findings, {
           severity: "error",
           check: "emphasis_words.src",
@@ -2662,7 +2528,7 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
           "src must be a non-empty string when present",
           itemPath,
         );
-      } else if (edit?.version === 1) {
+      } else {
         const sourceIds = new Set(
           Array.isArray(edit.sources)
             ? edit.sources.filter(isRecord).map((source) => source.id)
@@ -2814,11 +2680,27 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       if (conflict) captionFinding(findings, "captions.display-policy-emphasis", "emphasis_words cannot act on a cue under display_policy v1", `captions.json#[${index}]`);
     }
     try {
-      resolveCaptionDisplay(captionsRoot, edit);
+      resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit));
     } catch (error) {
       captionFinding(findings, "captions.display-policy", error instanceof Error ? error.message : String(error), captionPath);
     }
   }
+}
+
+function captionDisplayEdit(edit) {
+  if (!Array.isArray(edit?.cuts)) return edit;
+  let cursor = 0;
+  for (const cut of edit.cuts) {
+    if (!isRecord(cut) || (cut.track ?? 0) !== 0 || !isFiniteNumber(cut.at)
+      || Math.abs(cut.at - cursor) > EPSILON) return edit;
+    const overlap = isPositiveNumber(cut.transition_out?.duration) ? cut.transition_out.duration : 0;
+    cursor = cut.at + segmentDuration(cut) - overlap;
+  }
+  const { timeline: _timeline, ...withoutTimeline } = edit;
+  return {
+    ...withoutTimeline,
+    cuts: edit.cuts.map(({ at: _at, track: _track, ...cut }) => cut),
+  };
 }
 
 const CAPTION_WORD_FIELDS = ["start", "end", "text"];
@@ -3314,7 +3196,7 @@ async function validateReview(review, edit, findings, paths, skipped) {
   }
 
   const sourceIds = new Set(
-    edit?.version === 1 && Array.isArray(edit.sources)
+    Array.isArray(edit?.sources)
       ? edit.sources.filter(isRecord).map((source) => source.id).filter(isNonEmptyString)
       : [],
   );
@@ -3411,7 +3293,7 @@ async function validateReview(review, edit, findings, paths, skipped) {
     if (Object.hasOwn(annotation, "src") && annotation.src !== null) {
       if (!isNonEmptyString(annotation.src)) {
         reviewFinding(findings, "review.schema", "src must be null or a non-empty string", itemPath);
-      } else if (edit?.version === 1 && !sourceIds.has(annotation.src)) {
+      } else if (!sourceIds.has(annotation.src)) {
         reviewFinding(
           findings,
           "review.src-reference",
@@ -3640,7 +3522,7 @@ async function validateReviewRefs(refs, edit, sourceIds, findings, paths, itemPa
       if (!isNonEmptyString(ref.src)) {
         reviewFinding(findings, "review.schema", "ref src must be a non-empty string", refPath);
         valid = false;
-      } else if (edit?.version === 1 && !sourceIds.has(ref.src)) {
+      } else if (!sourceIds.has(ref.src)) {
         reviewFinding(
           findings,
           "review.refs-reference",
@@ -3672,7 +3554,7 @@ async function validateReviewRefs(refs, edit, sourceIds, findings, paths, itemPa
 function validateInsertAnchor(annotation, edit, findings, itemPath) {
   if (!Array.isArray(edit?.cuts) || !isFiniteNumber(annotation.sourceT)) return;
   const anchorSrc = isNonEmptyString(annotation.src) ? annotation.src : null;
-  if (edit?.version === 1 && anchorSrc === null) {
+  if (anchorSrc === null) {
     reviewFinding(
       findings,
       "review.insert-anchor-unresolved",
@@ -3685,7 +3567,7 @@ function validateInsertAnchor(annotation, edit, findings, itemPath) {
   let matches = 0;
   for (const cut of edit.cuts) {
     if (!isRecord(cut) || !isFiniteNumber(cut.in) || !isFiniteNumber(cut.out)) continue;
-    if (edit?.version === 1 && cut.src !== anchorSrc) continue;
+    if (cut.src !== anchorSrc) continue;
     if (annotation.sourceT >= cut.in - EPSILON && annotation.sourceT <= cut.out + EPSILON) {
       matches += 1;
     }

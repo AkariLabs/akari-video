@@ -167,7 +167,6 @@ export async function renderProject(input, options = {}, io = console) {
   const plan = buildPlan({
     edit,
     internalEdit,
-    sourceVersion: parsedEdit.version,
     projectRoot,
     outputPath,
     capabilities,
@@ -201,25 +200,17 @@ export async function renderProject(input, options = {}, io = console) {
     },
     plan,
     provenance: {
-      ...(edit.version === 0
-        ? {
-            source: relativeOrAbsolute(projectRoot, resolve(projectRoot, edit.source.path)),
-            source_pix_fmt: capabilities.sourcePixFmt,
-            source_color_range: capabilities.sourceColorRange,
-          }
-        : {
-            sources: capabilities.sourceInputs.map((source) => ({
-              id: source.id,
-              path: relativeOrAbsolute(projectRoot, source.path),
-              duration_seconds: source.duration,
-              has_audio: source.hasAudio,
-              width: source.width,
-              height: source.height,
-              fps: source.fps,
-              pix_fmt: source.pixFmt,
-              color_range: source.colorRange,
-            })),
-          }),
+      sources: capabilities.sourceInputs.map((source) => ({
+        id: source.id,
+        path: relativeOrAbsolute(projectRoot, source.path),
+        duration_seconds: source.duration,
+        has_audio: source.hasAudio,
+        width: source.width,
+        height: source.height,
+        fps: source.fps,
+        pix_fmt: source.pixFmt,
+        color_range: source.colorRange,
+      })),
       proxy_used: false,
       render_tmp_dir: relativeOrAbsolute(projectRoot, temporaryDirectory),
       rasterizer: { planned: plan.rasterizer.selected, adopted: null, attempts: [] },
@@ -486,11 +477,19 @@ export async function renderProject(input, options = {}, io = console) {
         };
       }
     }
+    let receiptDeclaredInputs = declaredInputs;
+    let receiptInputSnapshot = inputSnapshot;
     if (verification.verdict === "pass") {
+      await appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state });
+      const receiptEditText = await readFile(editPath, "utf8");
+      receiptDeclaredInputs = await enumerateDeclaredRenderInputs({
+        projectRoot, edit, editText: receiptEditText, captionFontAsset, internalEdit,
+      });
+      receiptInputSnapshot = await hashDeclaredRenderInputs(receiptDeclaredInputs, { useConsumedText: true });
       const receipt = await createImmutableRenderReceipt({
         projectRoot,
-        declaredInputs,
-        inputSnapshot,
+        declaredInputs: receiptDeclaredInputs,
+        inputSnapshot: receiptInputSnapshot,
         outputPath,
         ffprobe: verification.measured,
         plan,
@@ -508,9 +507,6 @@ export async function renderProject(input, options = {}, io = console) {
         path: receipt.path,
         sha256: receipt.sha256,
       };
-    }
-    if (verification.verdict === "pass") {
-      await appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state });
     }
     if (state.audio_qc?.verdict === "MEASUREMENT_ERROR") {
       throw new RefusalError("audio QC decoded artifact measurement failed");
@@ -628,43 +624,6 @@ async function measureCapabilities(projectRoot, edit) {
   const chromePath = await findChromePath();
   const chromeVersion = chromePath ? commandVersion(chromePath, ["--version"]) : null;
   if (!chromePath) throw new ExecutionError("system Chrome was not found");
-  if (edit.version === 0) {
-    const sourcePath = resolve(projectRoot, edit.source.path);
-    const sourceProbe = probeMedia(ffprobeCommand, sourcePath);
-    const sourceVideo = sourceProbe.streams.find((stream) => stream.codec_type === "video");
-    // docs/contract-2026-08-12-still-image-cut-source-v0.md: ffprobe never reports format.duration
-    // for a bare still image (verified empirically, with or without -loop), so the positive-
-    // duration requirement below is meaningless for one and must not throw. sourceDuration stays
-    // null; plan.mjs's own guard rejects the one case that would actually need it (v0 + still
-    // image + empty cuts[], the "whole source" shortcut a duration-less image cannot satisfy).
-    const sourceIsStillImage = isImageLayerSource(edit.source.path);
-    const sourceDuration = sourceIsStillImage ? null : Number(sourceProbe.format?.duration);
-    if (!sourceIsStillImage && (!Number.isFinite(sourceDuration) || sourceDuration <= 0)) {
-      throw new ExecutionError("ffprobe did not report a positive source duration");
-    }
-    const hyperframesPath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "bin", "hyperframes.mjs");
-    const hyperframesPackagePath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "package.json");
-    const puppeteerPath = resolvePuppeteerPackagePath();
-    return {
-      ffmpegCommand,
-      ffprobeCommand,
-      ffmpegVersion,
-      ffprobeVersion,
-      nodeVersion: process.version,
-      chromePath,
-      chromeVersion,
-      hyperframesPath,
-      hyperframesAvailable: await isReadable(hyperframesPath),
-      hyperframesVersion: await readPackageVersion(hyperframesPackagePath),
-      puppeteerAvailable: puppeteerPath !== null,
-      puppeteerVersion: puppeteerPath ? await readPackageVersion(puppeteerPath) : null,
-      sourceDuration,
-      sourceHasAudio: sourceProbe.streams.some((stream) => stream.codec_type === "audio"),
-      sourcePixFmt: sourceVideo?.pix_fmt ?? null,
-      sourceColorRange: sourceVideo?.color_range ?? null,
-    };
-  }
-
   const hyperframesPath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "bin", "hyperframes.mjs");
   const hyperframesPackagePath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "package.json");
   const puppeteerPath = resolvePuppeteerPackagePath();
@@ -696,6 +655,7 @@ async function measureCapabilities(projectRoot, edit) {
     return {
       id: source.id,
       path,
+      ...(source.chroma_key !== undefined ? { chromaKey: source.chroma_key } : {}),
       duration,
       hasAudio: probe.streams.some((stream) => stream.codec_type === "audio"),
       width: video?.width ?? null,
@@ -710,12 +670,8 @@ async function measureCapabilities(projectRoot, edit) {
 
 async function collectInputReceipts(projectRoot, edit, editText) {
   const files = new Map([["edit.json", { path: join(projectRoot, "edit.json"), text: editText }]]);
-  if (edit.version === 0) {
-    addReference(files, projectRoot, "source", edit.source.path);
-  } else {
-    for (const source of usedSources(edit)) {
-      addReference(files, projectRoot, `source:${source.id}`, source.path);
-    }
+  for (const source of usedSources(edit)) {
+    addReference(files, projectRoot, `source:${source.id}`, source.path);
   }
   for (const [index, overlay] of edit.overlays.entries()) {
     addReference(files, projectRoot, `overlay:${index}`, overlay.html);
@@ -767,33 +723,40 @@ async function loadCaptions(projectRoot, edit) {
   if (!captions) {
     throw new ExecutionError("captions.json root must be an array or an object with captions[]");
   }
-  const resolved = resolveCaptionDisplay(captionsRoot, edit, { output: edit.output });
+  const resolved = resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit), { output: edit.output });
   if (resolved) {
     return { overlays: generateResolvedCaptionOverlays(resolved), warnings: [], layout: resolved };
   }
   const defaultTextStyle = Array.isArray(captionsRoot)
     ? undefined
     : captionsRoot.default_text_style;
-  if (edit.version === 0) {
-    return {
-      overlays: generateCaptionOverlays(captions, edit.cuts, {
-        emphasisWords: edit.emphasis_words,
-        defaultTextStyle,
-        output: edit.output,
-      }),
-      warnings: [],
-      layout: null,
-    };
-  }
   const warnings = [];
   const overlays = generateCaptionOverlays(captions, edit.cuts, {
     emphasisWords: edit.emphasis_words,
     defaultTextStyle,
     output: edit.output,
-    sourceCount: edit.version === 1 ? edit.sources.length : 1,
+    sourceCount: edit.sources.length,
     onWarning: (warning) => warnings.push(warning),
   });
   return { overlays, warnings, layout: null };
+}
+
+function captionDisplayEdit(edit) {
+  if (!Array.isArray(edit?.cuts)) return edit;
+  let cursor = 0;
+  for (const cut of edit.cuts) {
+    if (!cut || typeof cut !== "object" || (cut.track ?? 0) !== 0
+      || !Number.isFinite(cut.at) || Math.abs(cut.at - cursor) > 1e-6) return edit;
+    const speed = positive(cut.speed) ? cut.speed : 1;
+    const freeze = positive(cut.freeze?.duration_sec) ? cut.freeze.duration_sec : 0;
+    const overlap = positive(cut.transition_out?.duration) ? cut.transition_out.duration : 0;
+    cursor = cut.at + (cut.out - cut.in) / speed + freeze - overlap;
+  }
+  const { timeline: _timeline, ...withoutTimeline } = edit;
+  return {
+    ...withoutTimeline,
+    cuts: edit.cuts.map(({ at: _at, track: _track, ...cut }) => cut),
+  };
 }
 
 async function persistCaptionLayout(projectRoot, result, capabilities) {
@@ -1228,14 +1191,8 @@ async function assertContainedDirectory(root, directory, label) {
 
 function validateEditShape(edit) {
   if (!edit || typeof edit !== "object" || Array.isArray(edit)) throw new ExecutionError("edit.json must be an object");
-  if (edit.version !== 0 && edit.version !== 1) throw new ExecutionError("edit.json version must be 0 or 1");
   if (!edit.output || !positive(edit.output.width) || !positive(edit.output.height) || !positive(edit.output.fps)) throw new ExecutionError("edit.json output width, height, and fps must be positive numbers");
-  if (edit.version === 0) {
-    if (Object.hasOwn(edit, "sources")) throw new ExecutionError("edit.json source and sources are mutually exclusive");
-    if (!edit.source || typeof edit.source.path !== "string" || edit.source.path === "") throw new ExecutionError("edit.json source.path is required");
-    if (!Array.isArray(edit.cuts)) throw new ExecutionError("edit.json cuts and overlays must be arrays");
-  } else {
-    if (Object.hasOwn(edit, "source")) throw new ExecutionError("edit.json source and sources are mutually exclusive");
+  {
     if (!Array.isArray(edit.sources) || edit.sources.length === 0) {
       throw new ExecutionError("edit.json sources must be an array with at least one item");
     }
@@ -1458,7 +1415,7 @@ async function appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, s
     return;
   }
 
-  if (edit?.version !== 1 || !Array.isArray(edit.sources)) {
+  if (edit?.version !== 2 || !Array.isArray(edit.sources)) {
     return;
   }
 
@@ -1562,9 +1519,7 @@ function resolveOutput(projectRoot, value) {
 function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
   const inputs = [
     resolve(projectRoot, "edit.json"),
-    ...(edit.version === 0
-      ? [resolve(projectRoot, edit.source.path)]
-      : usedSources(edit).map((source) => resolve(projectRoot, source.path))),
+    ...usedSources(edit).map((source) => resolve(projectRoot, source.path)),
     ...edit.overlays.map((overlay) => resolve(projectRoot, overlay.html)),
   ];
   const captions = resolve(projectRoot, "captions.json");

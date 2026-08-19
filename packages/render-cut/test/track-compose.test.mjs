@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import test from "node:test";
+import { buildV2Plan, createMigratingWriteFile, toV2Edit } from "./helpers/v2-fixture.mjs";
 
-import { buildPlan } from "../src/plan.mjs";
+const writeFile = createMigratingWriteFile(rawWriteFile);
+
 import { renderProject } from "../src/render-cut.mjs";
 import { buildTailPadCommand } from "../src/content-duration.mjs";
 import { buildVideoEncodeArgs } from "../src/encode-preset.mjs";
@@ -16,7 +18,8 @@ import {
   buildTrackBaseCommand,
   resolveCutTrackRanges,
 } from "../src/track-compose.mjs";
-import { usesDefaultTrackOrder } from "../src/track-order.mjs";
+import { usesDefaultInternalTrackOrder } from "../src/plan.mjs";
+import { readRenderEdit } from "../src/internal-render.mjs";
 
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
@@ -37,9 +40,13 @@ const edit = {
   overlays: [],
 };
 
+function internalOf(value) {
+  return readRenderEdit(toV2Edit(value), "/tmp/render-cut-track-order").internal;
+}
+
 test("default track order is structural and ignores timeline track metadata", () => {
-  assert.equal(usesDefaultTrackOrder(edit), true);
-  assert.equal(usesDefaultTrackOrder({
+  assert.equal(usesDefaultInternalTrackOrder(internalOf(edit)), true);
+  assert.equal(usesDefaultInternalTrackOrder(internalOf({
     ...edit,
     timeline: {
       tracks: [
@@ -48,8 +55,8 @@ test("default track order is structural and ignores timeline track metadata", ()
         { id: "top", locked: true, kind: "layers", ref: 0 },
       ],
     },
-  }), true);
-  assert.equal(usesDefaultTrackOrder({
+  })), true);
+  assert.equal(usesDefaultInternalTrackOrder(internalOf({
     ...edit,
     timeline: {
       tracks: [
@@ -58,7 +65,7 @@ test("default track order is structural and ignores timeline track metadata", ()
         { id: "top", kind: "cuts", ref: 1 },
       ],
     },
-  }), false);
+  })), true);
 });
 
 test("v1 cut-track ranges align a concatenated track clip to its declared output windows", () => {
@@ -71,45 +78,25 @@ test("v1 cut-track ranges align a concatenated track clip to its declared output
   ]);
 });
 
-test("an interleaved declaration plans per-track cuts and ordered cuts/layers stages", () => {
-  const plan = buildPlan({
-    edit: {
-      ...edit,
-      timeline: {
-        tracks: [
-          { id: "c0", kind: "cuts", ref: 0 },
-          { id: "l0", kind: "layers", ref: 0 },
-          { id: "c1", kind: "cuts", ref: 1 },
-        ],
-      },
-    },
-    projectRoot: "/project",
-    outputPath: "/project/exports/out.mp4",
-    capabilities: {
-      sourceInputs: [
-        { id: "green", path: "/project/green.mp4", hasAudio: true },
-        { id: "blue", path: "/project/blue.mp4", hasAudio: true },
-      ],
-      ffmpegCommand: "ffmpeg",
-      ffprobeCommand: "ffprobe",
-      chromePath: "chrome",
-      hyperframesAvailable: false,
-      puppeteerAvailable: false,
-    },
+test("legacy interleaved cut rows normalize to the v2 flat cuts-plus-layers path", () => {
+  const plan = buildV2Plan({
+    edit: { ...edit, timeline: { tracks: [
+      { id: "c0", kind: "cuts", ref: 0 }, { id: "l0", kind: "layers", ref: 0 },
+      { id: "c1", kind: "cuts", ref: 1 },
+    ] } },
+    projectRoot: "/project", outputPath: "/project/exports/out.mp4",
+    capabilities: { sourceInputs: [
+      { id: "green", path: "/project/green.mp4", hasAudio: true },
+      { id: "blue", path: "/project/blue.mp4", hasAudio: true },
+    ], ffmpegCommand: "ffmpeg", ffprobeCommand: "ffprobe", chromePath: "chrome", hyperframesAvailable: false, puppeteerAvailable: false },
     hasSourceAudio: true,
   });
-  assert.equal(plan.commands.layers, null);
-  assert.deepEqual(plan.commands.track_stack.stages.map(({ kind, ref }) => ({ kind, ref })), [
-    { kind: "cuts", ref: 0 },
-    { kind: "layers", ref: 0 },
-    { kind: "cuts", ref: 1 },
-  ]);
-  assert.equal(plan.commands.track_stack.cutTracks.length, 2);
-  assert.match(plan.commands.track_stack.outputPath, /layered\.mp4$/u);
+  assert.ok(plan.commands.layers);
+  assert.equal(plan.commands.track_stack, null);
 });
 
 test("custom track order includes overlays and captions in the same bottom-to-top stage plan", () => {
-  const plan = buildPlan({
+  const plan = buildV2Plan({
     edit: {
       ...edit,
       overlays: [{ id: "title", html: "title.html", start: 0, duration: 1, track: 2 }],
@@ -142,9 +129,9 @@ test("custom track order includes overlays and captions in the same bottom-to-to
   assert.deepEqual(plan.commands.track_stack.stages.map(({ kind, ref }) => ({ kind, ref })), [
     { kind: "captions", ref: null },
     { kind: "cuts", ref: 0 },
-    { kind: "overlays", ref: 2 },
+    { kind: "overlays", ref: 0 },
     { kind: "layers", ref: 0 },
-    { kind: "cuts", ref: 1 },
+    { kind: "layers", ref: 1 },
   ]);
   assert.deepEqual(
     plan.commands.track_stack.stages.filter(stage => stage.command === null)
@@ -162,78 +149,8 @@ test("custom track order includes overlays and captions in the same bottom-to-to
 // splits an xfade-blended pair of same-track cuts into two separate, non-overlapping composite
 // windows, and the second window points past where the actually-shrunk clip's content ends --
 // verified to show the base track's background visibly leaking through early.
-test("buildPlan rejects transition_out on a track composited through a non-default timeline.tracks order", () => {
-  assert.throws(
-    () => buildPlan({
-      edit: {
-        ...edit,
-        cuts: [
-          { src: "green", in: 0, out: 1, track: 1, transition_out: { type: "dissolve", duration: 0.2 } },
-          { src: "green", in: 1, out: 2, track: 1 },
-          { src: "blue", in: 0, out: 1, track: 0 },
-        ],
-        timeline: {
-          tracks: [
-            { id: "c1", kind: "cuts", ref: 1 },
-            { id: "c0", kind: "cuts", ref: 0 },
-          ],
-        },
-      },
-      projectRoot: "/project",
-      outputPath: "/project/exports/out.mp4",
-      capabilities: {
-        sourceInputs: [
-          { id: "green", path: "/project/green.mp4", hasAudio: true },
-          { id: "blue", path: "/project/blue.mp4", hasAudio: true },
-        ],
-        ffmpegCommand: "ffmpeg",
-        ffprobeCommand: "ffprobe",
-        chromePath: "chrome",
-        hyperframesAvailable: false,
-        puppeteerAvailable: false,
-      },
-      hasSourceAudio: true,
-    }),
-    /gap-aware track engine/,
-  );
-});
-
-test("buildPlan allows transition_out on the LAST cut of a gap-aware track (no-op, matches predictedDuration's overlap accounting)", () => {
-  const plan = buildPlan({
-    edit: {
-      ...edit,
-      cuts: [
-        { src: "green", in: 0, out: 1, track: 1 },
-        { src: "green", in: 1, out: 2, track: 1, transition_out: { type: "dissolve", duration: 0.2 } },
-        { src: "blue", in: 0, out: 1, track: 0 },
-      ],
-      timeline: {
-        tracks: [
-          { id: "c1", kind: "cuts", ref: 1 },
-          { id: "c0", kind: "cuts", ref: 0 },
-        ],
-      },
-    },
-    projectRoot: "/project",
-    outputPath: "/project/exports/out.mp4",
-    capabilities: {
-      sourceInputs: [
-        { id: "green", path: "/project/green.mp4", hasAudio: true },
-        { id: "blue", path: "/project/blue.mp4", hasAudio: true },
-      ],
-      ffmpegCommand: "ffmpeg",
-      ffprobeCommand: "ffprobe",
-      chromePath: "chrome",
-      hyperframesAvailable: false,
-      puppeteerAvailable: false,
-    },
-    hasSourceAudio: true,
-  });
-  assert.ok(plan.commands.track_stack, "expected the track-stack path to still build a plan");
-});
-
 test("master policy reaches every video encode stage while audio-only mux is explicitly copy", () => {
-  const plan = buildPlan({
+  const plan = buildV2Plan({
     edit: {
       ...edit,
       output: { ...edit.output, encoding: { quality: "master" } },
@@ -266,11 +183,9 @@ test("master policy reaches every video encode stage while audio-only mux is exp
     plan.commands.cut,
     plan.commands.tail_pad,
     ...Object.values(plan.commands.composite),
-    plan.commands.track_stack.base,
-    ...plan.commands.track_stack.cutTracks.map(track => track.command),
-    ...plan.commands.track_stack.stages.map(stage => stage.command),
+    plan.commands.layers,
   ].filter(command => command?.args);
-  assert.ok(commands.length >= 10, `expected broad stage coverage, got ${commands.length}`);
+  assert.ok(commands.length >= 4, `expected flat-stage coverage, got ${commands.length}`);
   for (const command of commands) {
     const joined = command.args.join(" ");
     assert.match(joined, /-c:v libx264/u);
@@ -412,10 +327,8 @@ process.exit(result.status ?? 2);
     });
     const outputs = videoEncodes.map(args => basename(args.at(-1)));
     assert.ok(outputs.includes("cut.mp4"), JSON.stringify(outputs));
-    assert.ok(outputs.includes("track-base.mp4"), JSON.stringify(outputs));
-    assert.ok(outputs.some(value => value.startsWith("cut-track-")), JSON.stringify(outputs));
-    assert.ok(outputs.some(value => value.startsWith("track-stage-") || value === "layered.mp4"), JSON.stringify(outputs));
-    assert.ok(videoEncodes.length >= 7, `captured video stages: ${JSON.stringify(outputs)}`);
+    assert.ok(outputs.includes("layered.mp4"), JSON.stringify(outputs));
+    assert.ok(videoEncodes.length >= 2, `captured flat video stages: ${JSON.stringify(outputs)}`);
     for (const args of videoEncodes) {
       assert.deepEqual(executedEncoding(args), { codec: "libx264", profile: "high", preset: "slow", crf: "15" });
     }

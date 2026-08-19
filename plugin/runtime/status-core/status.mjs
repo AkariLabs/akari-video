@@ -7,6 +7,7 @@ import { resolveProjectDisplayName } from "./display-name.mjs";
 import { inspectFullIntegrity } from "./integrity.mjs";
 import { validateAndCountReview } from "./review.mjs";
 
+
 export {
   detectStatusScope,
   resolveWorkspaceStatus,
@@ -218,30 +219,38 @@ function validatePlan(value, problems) {
 
 function validateEdit(value, problems) {
   if (!value) return;
-  if (value.version !== 0 && value.version !== 1) {
+  if (value.version !== 2) {
     problems.push(`edit.json has unsupported version ${String(value.version)}`);
     return;
   }
-  if (!isRecord(value.output) || !Array.isArray(value.overlays)) problems.push("edit.json has an invalid output/overlays shape");
-  if (value.version === 0) {
-    if (!isNonEmptyString(value.source?.path) || Object.hasOwn(value, "sources")) problems.push("edit.json v0 source shape is invalid");
-  } else {
-    if (!Array.isArray(value.sources) || Object.hasOwn(value, "source") || !Array.isArray(value.cuts)) {
-      problems.push("edit.json v1 sources/cuts shape is invalid");
+  if (!isRecord(value.output) || !Array.isArray(value.sources) || !Array.isArray(value.tracks)) {
+    problems.push("edit.json v2 has an invalid output/sources/tracks shape");
+    return;
+  }
+  const sourceIds = new Set();
+  for (const source of value.sources) {
+    if (!isNonEmptyString(source?.id) || !isNonEmptyString(source?.path) || sourceIds.has(source.id)) {
+      problems.push("edit.json v2 sources are invalid or duplicated");
       return;
     }
-    const ids = new Set();
-    for (const source of value.sources) {
-      if (!isNonEmptyString(source?.id) || !isNonEmptyString(source?.path) || ids.has(source.id)) {
-        problems.push("edit.json v1 sources are invalid or duplicated");
-        break;
-      }
-      ids.add(source.id);
+    sourceIds.add(source.id);
+  }
+  const trackIds = new Set();
+  for (const track of value.tracks) {
+    const hasItems = Array.isArray(track?.items);
+    const hasContent = isRecord(track?.content);
+    if (!isNonEmptyString(track?.id) || trackIds.has(track.id)
+      || (track?.lane !== "visual" && track?.lane !== "audio") || hasItems === hasContent) {
+      problems.push("edit.json v2 tracks are invalid or duplicated");
+      return;
     }
-    for (const cut of value.cuts) {
-      if (!isRecord(cut) || !ids.has(cut.src)) {
-        problems.push(`edit.json cut references unknown source ${String(cut?.src)}`);
-        break;
+    trackIds.add(track.id);
+    if (!hasItems) continue;
+    for (const item of track.items) {
+      if (!isRecord(item) || !isRecord(item.source)
+        || (item.source.kind === "media" && !sourceIds.has(item.source.src))) {
+        problems.push(`edit.json v2 item references unknown source ${String(item?.source?.src)}`);
+        return;
       }
     }
   }
@@ -270,14 +279,14 @@ function resolveMaterialState({ projectRoot, edit, interpretation, problems, war
   let fixed = false;
   if (edit) {
     fixed = true;
-    if (edit.version === 0 && isNonEmptyString(edit.source?.path)) {
-      sources = [resolveProjectPath(projectRoot, edit.source.path, "edit source", problems)];
-    } else if (edit.version === 1 && Array.isArray(edit.sources) && Array.isArray(edit.cuts)) {
-      const usedIds = new Set(edit.cuts.map((cut) => cut?.src));
-      sources = edit.sources
-        .filter((source) => usedIds.has(source.id))
-        .map((source) => resolveProjectPath(projectRoot, source.path, `edit source ${source.id}`, problems));
-    }
+    const mainVisualTrack = Array.isArray(edit.tracks)
+      ? edit.tracks.find(track => track?.lane === "visual" && Array.isArray(track.items)) : null;
+    const usedIds = new Set((mainVisualTrack?.items ?? [])
+      .filter(item => item?.source?.kind === "media")
+      .map(item => item.source.src));
+    sources = (Array.isArray(edit.sources) ? edit.sources : [])
+      .filter(source => usedIds.has(source?.id) && isNonEmptyString(source?.path))
+      .map(source => resolveProjectPath(projectRoot, source.path, `edit source ${source.id}`, problems));
   } else if (interpretation && Array.isArray(interpretation.inputs?.analyses)) {
     fixed = true;
     for (const [index, entry] of interpretation.inputs.analyses.entries()) {
