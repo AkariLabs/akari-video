@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 // docs/contract-2026-07-22-render-basics.md #4 (output.look: LUT). L2 requires a pixel diff
 // between LUT-applied and LUT-free output, measured on the real rendered frame — not just
@@ -201,7 +204,7 @@ test("output.look with a project-relative path (not a bare catalog name) resolve
   }
 });
 
-test("output.look absent keeps today's exact scale/pad filter chain (non-regression)", async (t) => {
+test("output.look absent keeps the v2 multi-source scale/pad chain without LUT", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const project = await makeProject({});
   try {
@@ -209,7 +212,8 @@ test("output.look absent keeps today's exact scale/pad filter chain (non-regress
     assert.equal(executed.status, 0, executed.stderr);
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
-    assert.match(state.plan.commands.cut.args.join(" "), /setsar=1\[outv\]/);
+    assert.match(state.plan.commands.cut.args.join(" "), /setsar=1\[vrange0\]/);
+    assert.match(state.plan.commands.cut.args.join(" "), /\[joinedv\]null\[outv_tv\]/);
     assert.doesNotMatch(state.plan.commands.cut.args.join(" "), /lut3d/);
   } finally {
     await rm(project, { recursive: true, force: true });

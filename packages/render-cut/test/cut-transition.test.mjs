@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 // docs/contract-2026-07-22-render-basics.md #3 (cuts[].transition_out). L2 requires proving the
 // mid-transition frame is a real blend (frame extraction), and that a boundary with no

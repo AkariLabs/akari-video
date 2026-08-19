@@ -2,10 +2,11 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import { WorkspaceServer } from '@theia/workspace/lib/common';
 import { lintProjectCandidates } from '@akari-video/edit-store/lib/write-gate';
 import { projectLegacyEdit, readInternalEdit, resolveCaptionDisplay } from '@akari-video/edit-store';
+import { planMigration } from '@akari-video/edit-store/lib/migrate';
 import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import { constants as fsConstants, createReadStream, readFileSync, rmdirSync, rmSync, statSync, unlinkSync } from 'fs';
-import { FileHandle, lstat, mkdtemp, open, readdir, readFile, realpath, rm, rmdir, stat, symlink, unlink, writeFile } from 'fs/promises';
+import { FileHandle, lstat, mkdtemp, open, readFile, realpath, rm, rmdir, stat, unlink } from 'fs/promises';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'http';
 import { tmpdir } from 'os';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -24,6 +25,8 @@ import {
     OverlayRuntimeAssets,
     ProbeAudioPresenceRequest,
     ProbeAudioPresenceResult,
+    PrepareLegacyEditRequest,
+    PrepareLegacyEditResult,
     ResolveHevcProxyRequest,
     ResolveHevcProxyResult,
     ReviewSessionSummary,
@@ -419,6 +422,20 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         return { pass: result.pass, errors: result.errors };
     }
 
+    async prepareLegacyEdit(request: PrepareLegacyEditRequest): Promise<PrepareLegacyEditResult> {
+        const roots = await this.resolveWorkspaceRoots();
+        const text = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
+        const editPath = this.filePath(request.editUri);
+        const planned = planMigration(dirname(editPath), editPath, text);
+        if ('blockers' in planned) return planned;
+        return {
+            ok: true,
+            version: planned.version,
+            nextText: planned.nextText,
+            changes: planned.changes
+        };
+    }
+
     async resolveCaptionDisplay(request: ResolveCaptionDisplayRequest): Promise<ResolvedCaptionDisplayPayload | null> {
         if (!request || typeof request.captionsUri !== 'string' || typeof request.editUri !== 'string') {
             throw new Error('Invalid caption display request');
@@ -437,12 +454,19 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             return null;
         }
         const editText = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
-        const rawEdit = JSON.parse(editText);
+        let rawEdit = JSON.parse(editText);
+        if (rawEdit?.version !== 2) {
+            const planned = planMigration(dirname(this.filePath(request.editUri)), this.filePath(request.editUri), editText);
+            if ('blockers' in planned) {
+                throw new Error(`古い edit.json を読み取り専用で開けません: ${planned.blockers.join(' / ')}`);
+            }
+            rawEdit = JSON.parse(planned.nextText);
+        }
         const internal = readInternalEdit(rawEdit);
         const legacy = projectLegacyEdit(internal);
         const edit = {
             output: internal.output,
-            cuts: legacy.cuts,
+            cuts: this.captionCompatibleCuts(internal, legacy.cuts),
             ...(internal.sourceTableDeclared ? {
                 sources: internal.sources.map(source => ({ id: source.id, path: source.path }))
             } : {}),
@@ -454,6 +478,31 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const resolved = resolveCaptionDisplay(captionsRoot, edit, { output: rawEdit.output });
         if (!resolved) return null;
         return { schema: resolved.schema, captions: resolved.display_cues };
+    }
+
+    /**
+     * display_policy の既存 resolver は線形 cuts[] を入力契約にしている。v2 は線形でも
+     * at/track を常に持つため、内部フレーム列が 0 から隙間なく連続する場合に限って
+     * その 2 フィールドを省く。ギャップ・重なりは残し、resolver の既存拒否を維持する。
+     */
+    protected captionCompatibleCuts(
+        internal: ReturnType<typeof readInternalEdit>,
+        cuts: ReturnType<typeof projectLegacyEdit>['cuts']
+    ): ReturnType<typeof projectLegacyEdit>['cuts'] {
+        const items = internal.tracks
+            .flatMap(track => track.items)
+            .filter(item => item.legacy.collection === 'cuts')
+            .sort((left, right) => left.legacy.index - right.legacy.index);
+        let cursor = 0;
+        const linear = items.length === cuts.length && items.every(item => {
+            const contiguous = item.atFrames === cursor;
+            cursor = item.atFrames + item.durationFrames;
+            return contiguous;
+        });
+        if (!linear) return cuts;
+        return cuts.map(cut => Object.fromEntries(
+            Object.entries(cut).filter(([key]) => key !== 'at' && key !== 'track')
+        ) as typeof cut);
     }
 
     protected async readWorkspaceRegularFile(uri: string, roots: string[], label: string): Promise<string> {

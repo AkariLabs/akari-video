@@ -8,13 +8,7 @@
  *   - Web UI（packages/preview-server public/app.js）— edit-kernel.bundle.js（ESM）で import
  *   - shell annotations widget — computeCutTrackSegments を直接使用（従来どおり）
  *   - shell 動画面（previewBootstrapScript）— webview-kernel.js（IIFE、global: AkariEditKernel）
- *     のインライン注入で共有（旧インライン複製は撤去済み。gaps/tracks モードの暗黙 at にも
- *     トランジション重なりが載る = 書き込み側と同一の正本挙動へ収斂）
- *
- * モード判定は webview 実装と同一:
- *   - cuts に at 指定 or track≠0 が無い → シーケンシャル（トランジション重なり + プレート算出）
- *   - ある → マルチトラック平坦化（境界分割 + 中点勝者。既定は小さい track 番号が勝つ =
- *     webview の zForTrack フォールバックと同順。宣言トラック順を持つ呼び出し側は trackZ で上書き）
+ *     のインライン注入で共有。v2 の絶対配置を常にマルチトラック平坦化する。
  */
 
 import { EditCut, computeCutTrackSegments } from './edit-store';
@@ -25,7 +19,6 @@ export interface TimelineTransitionPlate {
     mid: number;
     color: string;
 }
-
 export interface TimelineSegment {
     kind: 'src' | 'gap';
     outStart: number;
@@ -49,11 +42,6 @@ export interface TimelineMapResult {
     usesGapsOrTracks: boolean;
 }
 
-export function cutsUseGapsOrTracks(cuts: readonly EditCut[]): boolean {
-    return cuts.some(cut => cut.at !== undefined
-        || (typeof cut.track === 'number' && Number.isInteger(cut.track) && cut.track !== 0));
-}
-
 export function buildTimelineMap(
     cuts: readonly EditCut[],
     options?: { trackZ?: (track: number) => number }
@@ -67,44 +55,6 @@ export function buildTimelineMap(
     });
     const usableCuts = usable.map(entry => entry.cut);
     const trackSegments = computeCutTrackSegments(usableCuts);
-    const gapsOrTracks = cutsUseGapsOrTracks(usableCuts);
-
-    if (!gapsOrTracks) {
-        const segments: TimelineSegment[] = [];
-        const transitionPlates: TimelineTransitionPlate[] = [];
-        for (let index = 0; index < trackSegments.length; index++) {
-            const segment = trackSegments[index];
-            const cut = usableCuts[segment.index];
-            const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
-            segments.push({
-                kind: 'src',
-                outStart: segment.at,
-                outEnd: segment.end,
-                cutIndex: usable[segment.index].index,
-                ...(cut.src !== undefined ? { src: cut.src } : {}),
-                in: cut.in,
-                out: cut.out,
-                speed,
-                track: 0,
-                transitionOut: cut.transitionOut ?? null
-            });
-            // プレートは fade-black / fade-white のみ（§2.6 — dissolve は尺計算のみ）。
-            // 中心は「重なり適用前の自然な継ぎ目」= このセグメントの outEnd。
-            if (cut.transitionOut && index < trackSegments.length - 1
-                && (cut.transitionOut.type === 'fade-black' || cut.transitionOut.type === 'fade-white')) {
-                const duration = cut.transitionOut.duration;
-                transitionPlates.push({
-                    start: segment.end - duration / 2,
-                    end: segment.end + duration / 2,
-                    mid: segment.end,
-                    color: cut.transitionOut.type === 'fade-black' ? '#000000' : '#ffffff'
-                });
-            }
-        }
-        const totalDuration = segments.reduce((max, segment) => Math.max(max, segment.outEnd), 0);
-        return { segments, totalDuration, transitionPlates, usesGapsOrTracks: false };
-    }
-
     // マルチトラック平坦化: 全 at/end を境界に分割し、各区間の中点で最前面トラックの
     // セグメントを勝者にする（webview computeVideoRuns と同型）。
     const trackZ = options?.trackZ ?? ((track: number) => -track);

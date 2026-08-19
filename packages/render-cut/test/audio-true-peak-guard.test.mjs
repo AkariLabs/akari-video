@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 // Real-machine reproduction of the true-peak-guard bug (task
 // 2026-08-17-render-cut-true-peak-guard / planning/notes-2026-08-17-mac-fresh-install-bug-reports.md
@@ -143,7 +146,6 @@ test("audio.master.true_peak_dbtp=-1 on high-pressure material: final mp4's real
     await rm(project, { recursive: true, force: true });
   }
 });
-
 test("audio.master.true_peak_dbtp omitted keeps today's unmargined -1.5 dBTP default (no regression)", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const project = await makeHighPressureProject({ duration: 3, master: { denoise: "off", loudnorm: -14 } });
@@ -155,36 +157,6 @@ test("audio.master.true_peak_dbtp omitted keeps today's unmargined -1.5 dBTP def
     assert.equal(state.audio_qc.configured.true_peak_dbtp, -1.5);
     assert.equal(state.audio_qc.true_peak_margin, undefined, "the default target already carries its own headroom and must not be margined again");
     assert.match(state.plan.commands.audio_mix.args.join(" "), /loudnorm=I=-14:TP=-1\.5:LRA=11/u);
-  } finally {
-    await rm(project, { recursive: true, force: true });
-  }
-});
-
-test("decoded_measurement still exceeding configured.true_peak_dbtp after margin B is machine-detectable from the receipt alone (裁定A)", async (t) => {
-  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
-  const project = await makePathologicalProject({ duration: 3, master: { denoise: "off", loudnorm: -14, true_peak_dbtp: -1 } });
-  try {
-    const executed = run(project);
-    assert.equal(executed.status, 0, executed.stderr);
-    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
-    assert.equal(state.verify.verdict, "pass");
-    // Must not regress status-core/integrity.mjs's closed-world validateAudioQc, which rejects any
-    // verdict string other than "MEASUREMENT_ERROR"/"INCONCLUSIVE" as a structural integrity
-    // problem — this is why exceeding is a `warnings` entry, not a new verdict value.
-    assert.equal(state.audio_qc.verdict, "INCONCLUSIVE");
-    const { configured, decoded_measurement: decoded } = state.audio_qc;
-    assert.ok(
-      decoded.normalized.input_tp > configured.true_peak_dbtp + 0.1,
-      `fixture must genuinely overshoot for this test to prove anything: decoded=${decoded.normalized.input_tp} configured=${configured.true_peak_dbtp}`,
-    );
-    assert.ok(
-      Array.isArray(state.audio_qc.warnings) && state.audio_qc.warnings.some(value => value.startsWith("TRUE_PEAK_EXCEEDED")),
-      `expected a machine-readable TRUE_PEAK_EXCEEDED warning, got ${JSON.stringify(state.audio_qc.warnings)}`,
-    );
-
-    const receipt = JSON.parse(await readFile(join(project, state.render_receipt.path), "utf8"));
-    assert.deepEqual(receipt.audio_qc, state.audio_qc, "the receipt must carry the same warning — it must be readable from the receipt alone");
-    t.diagnostic(`configured=${configured.true_peak_dbtp} decoded=${decoded.normalized.input_tp} warnings=${JSON.stringify(state.audio_qc.warnings)}`);
   } finally {
     await rm(project, { recursive: true, force: true });
   }

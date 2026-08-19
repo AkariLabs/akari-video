@@ -4,7 +4,7 @@ import { computeCutTrackSegments, EditCut, EditLayer, EditTimelineTrack, Timelin
  * 素材追加コマンド（akari.timeline.addMaterialAtPlayhead / D&D ドロップ）の挿入要素を組み立てる
  * 純関数 (task 2026-08-10-timeline-clip-menu 指示5、2026-08-10-material-dnd-timeline で D&D 用に拡張)。
  * DOM に一切依存しないため node --test で検証できる。受理判定・id 採番（既存 layer id との
- * 衝突回避・nextCopyId の流儀）・cuts への挿入（v0 → v1 マイグレーションを含む）をここに集約する。
+ * 衝突回避・nextCopyId の流儀）・v2 本編トラックへの挿入をここに集約する。
  * 書き込み自体（全文スナップショット方式）は呼び出し側 (akari-annotations-widget.ts) が担う。
  *
  * 2026-08-18 (task 2026-08-18-timeline-dnd-p0p1) の変更点:
@@ -282,9 +282,7 @@ const CUT_MIN_DURATION_SECONDS = 0.15;
 export interface CutInsertionResult {
     /** 書き戻す edit.json の値。入力オブジェクトは変更しない（浅いコピー + 差し替え）。 */
     readonly value: Record<string, unknown>;
-    /** v0（単一ソース）から v1（マルチソース）へ移行したか。呼び出し側は利用者に伝える。 */
-    readonly migratedToV1: boolean;
-    /** 利用者に伝えるべき注意（現状は v0 の freeze × gap-aware 併用不可のみ）。 */
+    /** 利用者に伝えるべき注意。 */
     readonly warnings: readonly string[];
 }
 
@@ -305,128 +303,129 @@ function nextSourceId(sources: readonly unknown[]): string {
 }
 
 /**
- * 明示 at / 非 0 track が 1 つでもあると、render-cut は v0 でも gap-aware 経路へ切り替わる
- * （packages/render-cut/src/cut-timeline.mjs の同名判定と同じ規則）。v0 の `freeze` は
- * gap-aware と併用できない（edit.schema.json cutFreeze の $comment）ため、その組み合わせだけ
- * 利用者に警告する。
- */
-function requiresGapAwareTimeline(cuts: readonly EditCut[]): boolean {
-    const segments = computeCutTrackSegments(cuts);
-    let cursor = 0;
-    for (const segment of segments) {
-        if (segment.track !== 0) {
-            return true;
-        }
-        if (Math.abs(segment.at - cursor) > 1e-6) {
-            return true;
-        }
-        cursor = segment.end;
-    }
-    return false;
-}
-
-/**
  * 素材（動画 / 静止画）を本編トラック `cuts[]` へ挿入した edit.json 値を返す純関数
  * （task 2026-08-18-timeline-dnd-p0p1 / P1-a）。
  *
  * 設計上の要点:
- * - **末尾に append する**。新しいカットは明示 `at` を持つので、配列末尾に足す限り既存カットの
- *   レイアウトは 1 ミリも動かない（computeCutTrackSegments は配列順・トラック別カーソルで解決し、
- *   明示 at のカットは前カットの transitionOut 重なりも受けない）。したがって既存カットの
- *   `at` を凍結する前処理は不要。
- * - **ソース解決**: v1（`sources[]` あり）は同じ path の source を再利用し、無ければ採番して追加。
- *   v0（`source` 単体）は、落とした素材が既定ソースと同じなら v0 のまま（cutV0 は `src` を
- *   持てない — edit.schema.json の `not: {required: ["src"]}`）、違うなら **v1 へ移行**する
- *   （`sources[0]` に既定ソースを移し、既存カット全部に `src` を付け、`version` を 1 にして
- *   `source` を落とす）。docs/contract-2026-07-18-edit-json-v1-sources.md §移行手順のとおり。
- * - 静止画も同じ経路に乗る（docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定1:
- *   判定は拡張子のみでスキーマに新フィールドを足さない）。`in: 0` / `out: 表示尺`。
+ * - plan の `insertIndex` へ item を挿入する。既存 item の整数フレーム `at` は変更しない。
+ * - **ソース解決**: v2 `sources[]` に同じ path があれば再利用し、無ければ採番して追加。
+ *   本編 visual track へ整数フレームの item を挿入する。
  */
 export function insertCutIntoEdit(
     input: Readonly<Record<string, unknown>>,
     relativePath: string,
     plan: CutDropPlan,
     durationSeconds: number,
-    track: number
+    _track: number
 ): CutInsertionResult {
     const value: Record<string, unknown> = { ...input };
-    const cuts: EditCut[] = Array.isArray(input.cuts) ? [...(input.cuts as EditCut[])] : [];
-    let srcId: string | undefined;
-    let migratedToV1 = false;
+    const sources = Array.isArray(input.sources) ? [...input.sources] : [];
+    const existing = sources.find(source => isRecord(source) && source.path === relativePath);
+    const srcId = isRecord(existing) && typeof existing.id === 'string' ? existing.id : nextSourceId(sources);
+    if (!existing) sources.push({ id: srcId, path: relativePath, proxy: null });
+    value.sources = sources;
 
-    if (Array.isArray(input.sources)) {
-        const sources = [...(input.sources as unknown[])];
-        const existing = sources.find(source => isRecord(source) && source.path === relativePath);
-        if (isRecord(existing) && typeof existing.id === 'string') {
-            srcId = existing.id;
-        } else {
-            srcId = nextSourceId(sources);
-            sources.push({ id: srcId, path: relativePath, proxy: null });
-        }
-        value.sources = sources;
-    } else {
-        const defaultSource = isRecord(input.source) ? input.source : undefined;
-        if (defaultSource && defaultSource.path === relativePath) {
-            srcId = undefined;
-        } else {
-            migratedToV1 = true;
-            const sources: Record<string, unknown>[] = [];
-            if (defaultSource) {
-                sources.push({
-                    id: 's1',
-                    path: defaultSource.path,
-                    proxy: defaultSource.proxy ?? null,
-                    ...(defaultSource.chroma_key !== undefined ? { chroma_key: defaultSource.chroma_key } : {})
-                });
-            }
-            srcId = nextSourceId(sources);
-            sources.push({ id: srcId, path: relativePath, proxy: null });
-            // 既存カットは移行前の既定ソースを指していた。既定ソースが無い壊れた v0 の場合だけ、
-            // やむを得ず新しいソースへ寄せる（そのままでは v1 の必須 src を満たせないため）。
-            const inheritedSrc = defaultSource ? 's1' : srcId;
-            for (let index = 0; index < cuts.length; index++) {
-                const cut = cuts[index];
-                if (isRecord(cut) && typeof cut.src !== 'string') {
-                    cuts[index] = { src: inheritedSrc, ...cut } as EditCut;
-                }
-            }
-            value.sources = sources;
-            value.version = 1;
-            delete value.source;
-        }
+    const tracks = Array.isArray(input.tracks)
+        ? input.tracks.map(trackValue => isRecord(trackValue)
+            ? { ...trackValue, ...(Array.isArray(trackValue.items) ? { items: [...trackValue.items] } : {}) }
+            : trackValue)
+        : [];
+    let mainIndex = tracks.findIndex(trackValue => isRecord(trackValue)
+        && trackValue.lane === 'visual' && Array.isArray(trackValue.items));
+    if (mainIndex < 0) {
+        const ids = new Set(tracks.filter(isRecord).map(trackValue => String(trackValue.id ?? '')));
+        let serial = 1;
+        while (ids.has(`v${serial}`)) serial++;
+        tracks.unshift({ id: `v${serial}`, lane: 'visual', name: '本編', items: [] });
+        mainIndex = 0;
     }
+    const main = tracks[mainIndex] as Record<string, any>;
+    const items = [...main.items];
+    const usedIds = new Set(tracks.filter(isRecord).flatMap(trackValue => Array.isArray(trackValue.items)
+        ? trackValue.items.filter(isRecord).map(item => String(item.id ?? '')) : []));
+    let idSerial = 1;
+    while (usedIds.has(`cut-${idSerial}`)) idSerial++;
+    const fps = isRecord(input.output) && Number.isInteger(input.output.fps) && input.output.fps > 0
+        ? input.output.fps : 30;
+    const at = Math.round(Math.max(0, plan.at) * fps);
+    const end = Math.round((Math.max(0, plan.at) + Math.max(CUT_MIN_DURATION_SECONDS, durationSeconds)) * fps);
+    const inserted = {
+        id: `cut-${idSerial}`,
+        at,
+        duration: Math.max(1, end - at),
+        source: { kind: 'media', src: srcId, in: 0, out: Math.max(CUT_MIN_DURATION_SECONDS, durationSeconds) }
+    };
+    items.splice(Math.min(Math.max(0, plan.insertIndex), items.length), 0, inserted);
+    main.items = items;
+    tracks[mainIndex] = main;
+    value.tracks = tracks;
+    return { value, warnings: [] };
+}
 
-    // 明示配置（at/track）を書くのは、そのプロジェクトが既にそう宣言している v0 の
-    // gap-aware タイムラインのときだけ（plan.mode === 'free'）。順次連結のプロジェクトへ
-    // at を書き足すと、v1 の描画経路が at を無視して連結するため「見えている位置」と
-    // 「焼き上がり」がずれる（edit-lint の cuts.at-render-unsupported）。
-    const inserted: EditCut = plan.mode === 'free'
-        ? {
-            ...(srcId !== undefined ? { src: srcId } : {}),
-            at: Math.max(0, plan.at), track,
-            in: 0, out: Math.max(CUT_MIN_DURATION_SECONDS, durationSeconds)
-        }
-        : {
-            ...(srcId !== undefined ? { src: srcId } : {}),
-            in: 0, out: Math.max(CUT_MIN_DURATION_SECONDS, durationSeconds)
-        };
-    cuts.splice(Math.min(Math.max(0, plan.insertIndex), cuts.length), 0, inserted);
-    value.cuts = cuts;
+export function insertLayerIntoV2(
+    input: Readonly<Record<string, unknown>>,
+    relativePath: string,
+    t: number,
+    durationSeconds: number,
+    trackRef: number,
+    insertTrack?: number
+): Record<string, unknown> {
+    const value: Record<string, unknown> = { ...input };
+    const sources = Array.isArray(input.sources) ? [...input.sources] : [];
+    const existing = sources.find(source => isRecord(source) && source.path === relativePath);
+    const srcId = isRecord(existing) && typeof existing.id === 'string' ? existing.id : nextSourceId(sources);
+    if (!existing) sources.push({ id: srcId, path: relativePath, proxy: null });
+    value.sources = sources;
+    const tracks = Array.isArray(input.tracks)
+        ? input.tracks.map(trackValue => isRecord(trackValue)
+            ? { ...trackValue, ...(Array.isArray(trackValue.items) ? { items: [...trackValue.items] } : {}) }
+            : trackValue)
+        : [];
+    const visualIndexes = tracks.flatMap((trackValue, index) => isRecord(trackValue)
+        && trackValue.lane === 'visual' && Array.isArray(trackValue.items) ? [index] : []);
+    const layerIndexes = visualIndexes.slice(1);
+    let targetIndex = layerIndexes[trackRef];
+    if (targetIndex === undefined || insertTrack !== undefined) {
+        const ids = new Set(tracks.filter(isRecord).map(trackValue => String(trackValue.id ?? '')));
+        let serial = 1;
+        while (ids.has(`v-layer-${serial}`)) serial++;
+        const created = { id: `v-layer-${serial}`, lane: 'visual', name: `レイヤー ${trackRef + 1}`, items: [] };
+        const insertAt = insertTrack === undefined
+            ? tracks.length
+            : Math.min(tracks.length, Math.max(visualIndexes[0] === undefined ? 0 : visualIndexes[0] + 1, insertTrack));
+        tracks.splice(insertAt, 0, created);
+        targetIndex = insertAt;
+    }
+    const target = tracks[targetIndex] as Record<string, any>;
+    const allIds = new Set(tracks.filter(isRecord).flatMap(trackValue => Array.isArray(trackValue.items)
+        ? trackValue.items.filter(isRecord).map(item => String(item.id ?? '')) : []));
+    let serial = 1;
+    while (allIds.has(`layer-${serial}`)) serial++;
+    const fps = isRecord(input.output) && Number.isInteger(input.output.fps) && input.output.fps > 0
+        ? input.output.fps : 30;
+    const at = Math.round(Math.max(0, t) * fps);
+    const end = Math.round((Math.max(0, t) + Math.max(0.001, durationSeconds)) * fps);
+    target.items.push({
+        id: `layer-${serial}`, at, duration: Math.max(1, end - at),
+        source: { kind: 'media', src: srcId, in: 0, out: Math.max(0.001, durationSeconds) }
+    });
+    tracks[targetIndex] = target;
+    value.tracks = tracks;
+    return value;
+}
 
-    const warnings: string[] = [];
-    if (plan.mode === 'free' && !migratedToV1 && !Array.isArray(input.sources)
-        && cuts.some(cut => isRecord(cut) && cut['freeze']) && requiresGapAwareTimeline(cuts)) {
-        warnings.push(
-            'このプロジェクトは v0 形式で freeze（静止）を使っているため、'
-            + '本編の自由配置（明示の位置・トラック）と併用できません。freeze を外してください。'
-        );
+export function ensureV2AudioTrack(input: Readonly<Record<string, unknown>>, ref: number): Record<string, unknown> {
+    const value = { ...input };
+    const tracks = Array.isArray(input.tracks) ? [...input.tracks] : [];
+    const audioTracks = tracks.filter(trackValue => isRecord(trackValue) && trackValue.lane === 'audio');
+    if (!audioTracks[ref]) {
+        const ids = new Set(tracks.filter(isRecord).map(trackValue => String(trackValue.id ?? '')));
+        let serial = 1;
+        while (ids.has(`a${serial}`)) serial++;
+        tracks.push({ id: `a${serial}`, lane: 'audio', name: `オーディオ ${ref + 1}`, items: [] });
     }
-    if (plan.mode === 'free' && (migratedToV1 || Array.isArray(input.sources))) {
-        warnings.push(
-            '複数ソース（v1）では本編の明示位置が描画に反映されず、カットは順に連結されます。'
-        );
-    }
-    return { value, migratedToV1, warnings };
+    value.tracks = tracks;
+    return value;
 }
 
 /**
@@ -469,14 +468,9 @@ export function firstFreeCutStart(
 /**
  * 本編（cuts）へのドロップ計画（task 2026-08-18-timeline-dnd-p0p1 / P1-a）。
  *
- * `mode` が 2 つあるのは、cuts の描画意味論がプロジェクトの形で変わるから:
- * - **sequential**: `cuts[]` は配列順に連結される（v0 の既定・v1 は常にこれ。v1 の描画経路は
- *   `at`/`track` を無視する — edit-lint の `cuts.at-render-unsupported` / `cuts.track-render-unsupported`）。
- *   ドロップは「落とした位置に一番近いカット境界へ割り込む」= 以降のカットが後ろへずれる。
- *   `at` は書かない（書くと見えている位置と焼き上がりがずれる）。
- * - **free**: 既に明示 `at` / 非 0 `track` を持つ v0 の gap-aware タイムライン。そのプロジェクトは
- *   自由配置を宣言済みなので、落とした位置へそのまま置く（重なりだけは `cuts.track-overlap`
- *   が error なので firstFreeCutStart で空きへ寄せる）。以降のカットは `at` で固定されているため動かない。
+ * - **sequential**: `at` を持たない互換ビュー向け。最も近いカット境界へ割り込む。
+ * - **free**: v2 の絶対配置互換ビュー向け。落とした位置を使い、重なりだけは
+ *   `cuts.track-overlap` が error なので firstFreeCutStart で空きへ寄せる。
  *
  * `at` は着地時刻（ゴーストにもこの値を出す = 見えている場所が入る場所）、
  * `insertIndex` は `cuts[]` 配列内の挿入位置。

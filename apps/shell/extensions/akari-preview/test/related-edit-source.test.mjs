@@ -3,9 +3,11 @@ import test from 'node:test';
 
 import { editReferencesRawMedia } from '../lib/common/related-edit-source.js';
 
-test('v1 標準配置: ルート直下 edit.json の sources[].path が assets/ の raw media に一致する', () => {
+const output = { width: 1920, height: 1080, fps: 30 };
+
+test('v2 標準配置: ルート直下 edit.json の sources[].path が assets/ の raw media に一致する', () => {
     const edit = {
-        version: 1,
+        version: 2, output, tracks: [],
         sources: [
             { id: 'main', path: 'assets/source.mp4', proxy: null },
             { id: 'render', path: 'exports/render.mp4', proxy: null }
@@ -23,9 +25,9 @@ test('v1 標準配置: ルート直下 edit.json の sources[].path が assets/ 
     ), true);
 });
 
-test('v1 は basename だけでなく絶対 URI で照合し、別ディレクトリの同名素材を拾わない', () => {
+test('v2 は basename だけでなく絶対 URI で照合し、別ディレクトリの同名素材を拾わない', () => {
     const edit = {
-        version: 1,
+        version: 2, output, tracks: [],
         sources: [{ id: 'main', path: 'assets/source.mp4' }]
     };
     assert.equal(editReferencesRawMedia(
@@ -40,28 +42,11 @@ test('v1 は basename だけでなく絶対 URI で照合し、別ディレク�
     ), false);
 });
 
-test('v0 source.path は従来どおり basename 一致で候補 edit.json を見つける', () => {
-    const edit = { version: 0, source: { path: 'media/legacy.mp4' } };
-    assert.equal(editReferencesRawMedia(
-        edit,
-        'file:///project/edit.json',
-        'file:///project/assets/legacy.mp4'
-    ), true);
-    assert.equal(editReferencesRawMedia(
-        edit,
-        'file:///project/edit.json',
-        'file:///project/assets/different.mp4'
-    ), false);
-});
-
-test('壊れた sources[] エントリは無視し、後続の有効な v1 source を照合する', () => {
-    const edit = {
-        version: 1,
-        sources: [null, { path: '' }, { path: 42 }, { path: 'assets/source.mp4' }]
-    };
+test('空の v2 素材表は raw media に一致しない', () => {
+    const edit = { version: 2, output, tracks: [], sources: [] };
     assert.equal(editReferencesRawMedia(
         edit,
         'file:///project/edit.json',
         'file:///project/assets/source.mp4'
-    ), true);
+    ), false);
 });

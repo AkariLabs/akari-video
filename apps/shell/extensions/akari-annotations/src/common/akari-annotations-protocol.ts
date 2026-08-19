@@ -496,6 +496,27 @@ export interface WriteEditSnapshotRequest {
     captionsSource?: string;
 }
 
+export interface EditMigrationProposal {
+    filePath: string;
+    version: 0 | 1;
+    changes: Array<{ path: string; note: string }>;
+    warnings: string[];
+    nextText: string;
+    previousText: string;
+    backupPath: string;
+}
+
+export type EditMigrationPlanResult = EditMigrationProposal | {
+    ok: false;
+    version: number;
+    blockers: string[];
+};
+
+export interface EditMigrationRequest {
+    editUri: string;
+    projectRootUri: string;
+}
+
 export interface DeferredLintNotification {
     projectRootUri: string;
     pass: boolean;
@@ -575,4 +596,7 @@ export interface AkariAnnotationsService {
     setCaptionFields(request: SetCaptionFieldsRequest): Promise<WriteBackResult>;
     setCaptionTextStyle(request: SetCaptionTextStyleRequest): Promise<WriteBackResult>;
     writeEditSnapshot(request: WriteEditSnapshotRequest): Promise<WriteBackResult>;
+    planEditMigration(request: EditMigrationRequest): Promise<EditMigrationPlanResult>;
+    applyEditMigration(proposal: EditMigrationProposal): Promise<void>;
+    revertEditMigration(proposal: EditMigrationProposal): Promise<void>;
 }

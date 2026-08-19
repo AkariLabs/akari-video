@@ -37,6 +37,6 @@
   "scripts": {
     "prepack": "node scripts/prepack.mjs",
     "postpack": "node scripts/prepack.mjs clean",
-    "test": "node --test test/*.mjs"
+    "test": "node --test --test-concurrency=1 test/*.mjs"
   }
 }

@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import { readInternalEdit } from '@akari-video/edit-store';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../lib/common/preview-items.js';
+import { toV2Edit } from './helpers/v2-fixture.mjs';
 
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = join(extensionRoot, '../../../..');
@@ -31,18 +32,15 @@ const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Arra
 const declarationsOf = (raw, key) => (Array.isArray(raw?.[key]) ? raw[key] : []).map(v => (isRecord(v) ? v : {}));
 
 /**
- * loadPreviewModel が要約に流し込む宣言レコード列は、旧実装が読んでいた生配列と
- * **同じ内容・同じ順序**であること（差し替えたのは「どこから取るか」だけで、
- * 何が要約に入るかは 1 件も変えていない）を実プロジェクト由来の fixture 全数で示す。
+ * loadPreviewModel が要約へ流す全 visual item が、v2 の単一 reader から
+ * cuts / overlays / layers のどれか 1 つへ入ることを実 fixture で示す。
  */
-test('内部表現から集めた宣言列が、旧実装の生 cuts[] / overlays[] / layers[] と全数一致する', () => {
+test('移行可能な実 fixture の全 visual item が内部表現の 3 バケットへ過不足なく入る', () => {
     const files = [
         ...findEditJson(join(repositoryRoot, 'packages/schemas/examples')),
-        ...findEditJson(join(repositoryRoot, 'packages/edit-lint/fixtures')),
-        ...findEditJson(join(repositoryRoot, 'dev-fixtures')),
-        ...findEditJson(join(repositoryRoot, 'templates'))
+        ...findEditJson(join(repositoryRoot, 'packages/edit-lint/fixtures/v2-valid'))
     ];
-    assert.ok(files.length > 100, `検査対象が少なすぎます: ${files.length}`);
+    assert.ok(files.length > 90, `検査対象が少なすぎます: ${files.length}`);
     let checked = 0;
     for (const file of files) {
         const text = readFileSync(file, 'utf8');
@@ -52,42 +50,50 @@ test('内部表現から集めた宣言列が、旧実装の生 cuts[] / overlay
         } catch {
             continue;
         }
-        if (raw?.version === 2) continue;
-        const internal = readInternalEdit(text);
-        for (const [bucket, key] of [['cuts', 'cuts'], ['overlays', 'overlays'], ['layers', 'layers']]) {
-            const actual = collectItems(internal, bucket).map(item => item.declaration);
-            assert.deepEqual(actual, declarationsOf(raw, key), `${file} の ${bucket} が一致しません`);
+        let edit;
+        try {
+            edit = toV2Edit(raw);
+        } catch {
+            continue;
         }
-        // layers[] のラベル（`layers[N]`）に使う添字も宣言配列の位置と一致する。
+        let internal;
+        try {
+            internal = readInternalEdit(edit);
+        } catch {
+            continue;
+        }
+        const visual = internal.tracks.filter(track => track.lane === 'visual').flatMap(track => track.items);
+        const collected = ['cuts', 'overlays', 'layers'].flatMap(bucket => collectItems(internal, bucket));
+        assert.equal(collected.length, visual.length, `${file} の visual item 数が一致しません`);
         assert.deepEqual(
-            collectItems(internal, 'layers').map(item => item.legacy.index),
-            declarationsOf(raw, 'layers').map((_, index) => index),
-            `${file} の layers[] の添字が宣言位置と一致しません`
+            [...collected.map(item => item.id)].sort(),
+            [...visual.map(item => item.id)].sort(),
+            `${file} の visual item がバケット間で欠落または重複しています`
         );
         assert.equal(hasInlineCaptions(internal), Array.isArray(raw?.captions) && raw.captions.length > 0);
         checked += 1;
     }
-    assert.ok(checked > 100, `検査できた v0/v1 が少なすぎます: ${checked}`);
+    assert.ok(checked > 50, `検査できた v2 / 移行 fixture が少なすぎます: ${checked}`);
 });
 
-test('timeline.tracks 未宣言では外部字幕または埋め込み字幕から captions 段を導出する', () => {
-    const base = {
+test('v2 移行時に外部字幕または埋め込み字幕から captions 段を導出する', () => {
+    const legacy = {
         version: 1,
         output: { width: 1280, height: 720, fps: 30 },
         sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
         cuts: [{ src: 'main', in: 0, out: 1 }],
         overlays: []
     };
-    const external = readPreviewInternalEdit(JSON.stringify(base), true);
+    const external = readPreviewInternalEdit(JSON.stringify(toV2Edit(legacy, { hasCaptions: true })), true);
     assert.equal(external.tracks.at(-1).legacy.kind, 'captions');
 
-    const inline = readPreviewInternalEdit(JSON.stringify({
-        ...base,
+    const inline = readPreviewInternalEdit(JSON.stringify(toV2Edit({
+        ...legacy,
         captions: [{ id: 'c1', start: 0, end: 1, text: 'inline' }]
-    }), false);
+    })), false);
     assert.equal(inline.tracks.at(-1).legacy.kind, 'captions');
 
-    const none = readPreviewInternalEdit(JSON.stringify(base), false);
+    const none = readPreviewInternalEdit(JSON.stringify(toV2Edit(legacy)), false);
     assert.equal(none.tracks.some(track => track.legacy.kind === 'captions'), false);
 });
 

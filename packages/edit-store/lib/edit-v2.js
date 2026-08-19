@@ -6,7 +6,7 @@ const BLEND_MODES = new Set([
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ]);
 const ITEM_KEYS = new Set([
-    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'keyframes', 'source'
+    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'source'
 ]);
 /**
  * edit.json v2 だけを検証して内部表現へ読む。v0/v1 の変換は意図的に扱わない。
@@ -15,7 +15,7 @@ const ITEM_KEYS = new Set([
 function readEditV2(json) {
     const parsed = parseInput(json);
     requireRecord(parsed, 'edit.json');
-    requireExactKeys(parsed, new Set(['version', 'output', 'sources', 'tracks']), 'edit.json');
+    requireExactKeys(parsed, new Set(['version', 'output', 'sources', 'tracks', 'audio', 'captions', 'thumbnail']), 'edit.json');
     if (parsed.version !== 2) {
         throw invalid('edit.json.version', '2 である必要があります（v0/v1 はこの reader の対象外です）');
     }
@@ -26,6 +26,13 @@ function readEditV2(json) {
     if (!Array.isArray(parsed.tracks)) {
         throw invalid('edit.json.tracks', '配列である必要があります');
     }
+    if (hasOwn(parsed, 'audio'))
+        requireRecord(parsed.audio, 'edit.json.audio');
+    if (hasOwn(parsed, 'captions') && !Array.isArray(parsed.captions)) {
+        throw invalid('edit.json.captions', '配列である必要があります');
+    }
+    if (hasOwn(parsed, 'thumbnail'))
+        requireRecord(parsed.thumbnail, 'edit.json.thumbnail');
     const sourceIds = new Set();
     parsed.sources.forEach((source, index) => validateEditSource(source, index, sourceIds));
     const trackIds = new Set();
@@ -36,6 +43,9 @@ function readEditV2(json) {
         version: 2,
         output: { ...edit.output },
         sources: edit.sources.map(source => ({ ...source })),
+        ...(edit.audio !== undefined ? { audio: edit.audio } : {}),
+        ...(edit.captions !== undefined ? { captions: edit.captions } : {}),
+        ...(edit.thumbnail !== undefined ? { thumbnail: { ...edit.thumbnail } } : {}),
         tracks: edit.tracks.map((track, z) => {
             if ('items' in track) {
                 return {
@@ -128,6 +138,8 @@ function validateItem(value, path, ids, sourceIds) {
     }
     if (hasOwn(value, 'crop'))
         validateCrop(value.crop, `${path}.crop`);
+    if (hasOwn(value, 'perspective'))
+        requireRecord(value.perspective, `${path}.perspective`);
     if (hasOwn(value, 'keyframes'))
         validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
@@ -136,7 +148,9 @@ function validateItemSource(value, path, sourceIds) {
     requireRecord(value, path);
     switch (value.kind) {
         case 'media':
-            requireExactKeys(value, new Set(['kind', 'src', 'in', 'out']), path);
+            requireExactKeys(value, new Set([
+                'kind', 'src', 'in', 'out', 'framing', 'transition_out', 'freeze', 'fx', 'speed', 'chroma_key'
+            ]), path);
             requireText(value.src, `${path}.src`);
             if (!sourceIds.has(value.src))
                 throw invalid(`${path}.src`, `sources[].id に存在しません: ${value.src}`);
@@ -144,10 +158,20 @@ function validateItemSource(value, path, sourceIds) {
             requireNonNegativeNumber(value.out, `${path}.out`);
             if (value.out <= value.in)
                 throw invalid(path, 'media source は out > in である必要があります');
+            for (const key of ['framing', 'transition_out', 'freeze', 'chroma_key']) {
+                if (hasOwn(value, key) && value[key] !== null)
+                    requireRecord(value[key], `${path}.${key}`);
+            }
+            if (hasOwn(value, 'fx') && !Array.isArray(value.fx))
+                throw invalid(`${path}.fx`, '配列である必要があります');
+            if (hasOwn(value, 'speed'))
+                requirePositiveNumber(value.speed, `${path}.speed`);
             return;
         case 'html':
-            requireExactKeys(value, new Set(['kind', 'path']), path);
+            requireExactKeys(value, new Set(['kind', 'path', 'vars']), path);
             requireText(value.path, `${path}.path`);
+            if (hasOwn(value, 'vars'))
+                requireRecord(value.vars, `${path}.vars`);
             return;
         case 'telop':
             requireExactKeys(value, new Set(['kind', 'preset', 'params', 'baked']), path);

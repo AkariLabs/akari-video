@@ -224,6 +224,7 @@ export function describeCliHelp() {
     '  sounds                 公式音源ライブラリを一括ダウンロード（無料）',
     '  update                 更新を確認する',
     '  status                 接続状態を確認する',
+    '  migrate [dir]          古い edit.json を退避バックアップ付きで v2 へ変換',
     '',
     '開発者向け:',
     '  --opencode              Claude Code の代わりに opencode を起動する',

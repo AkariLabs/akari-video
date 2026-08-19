@@ -6,6 +6,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
+const LOCAL_SERVER_AVAILABLE = await new Promise(resolveAvailable => {
+  const probe = createServer();
+  probe.once('error', () => resolveAvailable(false));
+  probe.listen(0, '127.0.0.1', () => probe.close(() => resolveAvailable(true)));
+});
+const serverTest = LOCAL_SERVER_AVAILABLE
+  ? test
+  : (name, fn) => test(name, { skip: 'sandbox cannot bind a localhost fixture server' }, fn);
+
 import { run, runUpdateCommand } from '../src/cli.mjs';
 import { resolveRepoAssets } from '../src/repo-assets.mjs';
 import { resolveCachePath } from '../src/update-check.mjs';
@@ -72,7 +81,7 @@ async function withScratchProject(callback) {
   }
 }
 
-test('akari 実行 1 回目: キャッシュ未形成のため通知なし。2 回目: バックグラウンド fetch 完了後に 1 行通知が出る', async (t) => {
+serverTest('akari 実行 1 回目: キャッシュ未形成のため通知なし。2 回目: バックグラウンド fetch 完了後に 1 行通知が出る', async (t) => {
   await withScratchProject(async (projectRoot) => {
     const home = await mkdtemp(join(tmpdir(), 'akari-home-'));
     t.after(() => rm(home, { recursive: true, force: true }));

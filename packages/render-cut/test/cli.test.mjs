@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import { resolvePuppeteerPackagePath } from "../src/render-cut.mjs";
 import { ABSENT_LINT_SENTINEL } from "../src/render-receipt.mjs";
@@ -364,16 +367,13 @@ test("--progress streams machine-readable PROGRESS lines and ends with a done ma
   }
 });
 
-test("--fps overrides edit.json's output.fps end-to-end (ffprobe measures the override)", async (t) => {
+test("--fps refuses to bypass v2 retime", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const project = await makeProject({ withAudio: false, overlays: false });
   try {
     const executed = run(project, ["--fps", "5"]);
-    assert.equal(executed.status, 0, executed.stderr);
-    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
-    assert.equal(state.verify.verdict, "pass");
-    assert.equal(state.plan.preset.fps, 5);
-    assert.equal(state.artifacts[0].ffprobe.fps, 5);
+    assert.equal(executed.status, 2);
+    assert.match(executed.stderr, /retime/);
   } finally {
     await rm(project, { recursive: true, force: true });
   }

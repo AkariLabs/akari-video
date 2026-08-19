@@ -212,6 +212,14 @@ export interface LintEditCandidateResult {
     errors: string[];
 }
 
+export interface PrepareLegacyEditRequest {
+    editUri: string;
+}
+
+export type PrepareLegacyEditResult =
+    | { ok: true; version: 0 | 1; nextText: string; changes: Array<{ path: string; note: string }> }
+    | { ok: false; version: number; blockers: string[] };
+
 export interface ResolveCaptionDisplayRequest {
     captionsUri: string;
     editUri: string;
@@ -248,5 +256,6 @@ export interface AkariPreviewService {
     endReviewSession(request: EndReviewSessionRequest): Promise<void>;
     listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]>;
     lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult>;
+    prepareLegacyEdit(request: PrepareLegacyEditRequest): Promise<PrepareLegacyEditResult>;
     resolveCaptionDisplay(request: ResolveCaptionDisplayRequest): Promise<ResolvedCaptionDisplayPayload | null>;
 }

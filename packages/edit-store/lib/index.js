@@ -14,6 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.LegacyEditVersionError = exports.parseEdit = void 0;
 /**
  * ブラウザ安全なエントリポイント（テキスト手術のみ）。
  * lint ゲート付き書き込み（Node 専用）は './write-gate' を明示的に import すること
@@ -28,3 +29,10 @@ __exportStar(require("./edit-v2"), exports);
 __exportStar(require("./internal-model"), exports);
 __exportStar(require("./retime"), exports);
 __exportStar(require("./track-order"), exports);
+// Legacy parser implementation lives in the frozen migration unit. This re-export keeps
+// text-surgery consumers source-compatible while preventing legacy knowledge from returning
+// to edit-store.ts.
+var legacy_parse_1 = require("./migrate/legacy-parse");
+Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function () { return legacy_parse_1.parseEdit; } });
+var error_1 = require("./migrate/error");
+Object.defineProperty(exports, "LegacyEditVersionError", { enumerable: true, get: function () { return error_1.LegacyEditVersionError; } });

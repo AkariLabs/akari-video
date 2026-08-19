@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 // docs/contract-2026-07-22-render-basics.md #1 (cuts[].speed). L2 measures the theoretical vs
 // actual output duration via ffprobe and confirms audio pitch is preserved (atempo, not simple
@@ -176,7 +179,7 @@ test("speed changes preserve audio pitch (atempo, not naive resampling): tone en
   }
 });
 
-test("cuts without speed keep today's exact concat pipeline (non-regression)", async (t) => {
+test("cuts without speed keep the v2 multi-source concat pipeline free of atempo", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const project = await makeProject({ sourceDuration: 4, cuts: [{ in: 0, out: 4 }] });
   try {
@@ -185,7 +188,7 @@ test("cuts without speed keep today's exact concat pipeline (non-regression)", a
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
     assert.doesNotMatch(state.plan.commands.cut.args.join(" "), /atempo/);
-    assert.match(state.plan.commands.cut.args.join(" "), /setpts=PTS-STARTPTS\[v0\]/);
+    assert.match(state.plan.commands.cut.args.join(" "), /setpts=PTS-STARTPTS,scale=.*\[vrange0\]/);
   } finally {
     await rm(project, { recursive: true, force: true });
   }

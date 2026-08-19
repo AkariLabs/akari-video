@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEdit } from '../lib/edit-store.js';
+import { parseEdit } from '../lib/migrate/legacy-parse.js';
 
 const base = {
   version: 0,

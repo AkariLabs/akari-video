@@ -6,7 +6,8 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { hasCutVisualTransform } from "../src/cut-transform.mjs";
-import { buildCutCommand, buildMultiSourceCutCommand } from "../src/plan.mjs";
+import { buildMultiSourceCutCommand } from "../src/plan.mjs";
+import { buildCutCommand } from "./helpers/v2-fixture.mjs";
 
 function run(command, args) {
   const result = spawnSync(command, args, { encoding: null });
@@ -96,7 +97,7 @@ test("gap-aware and v1 command builders apply cut transforms before timeline ass
     projectRoot: "/tmp",
   });
   const v0Filter = v0.args[v0.args.indexOf("-filter_complex") + 1];
-  assert.match(v0Filter, /ct_gap_0_prepared/);
+  assert.match(v0Filter, /ct_gap1_0_prepared/);
   assert.match(v0Filter, /colorchannelmixer=aa=0\.75/);
 
   const v1 = buildMultiSourceCutCommand({

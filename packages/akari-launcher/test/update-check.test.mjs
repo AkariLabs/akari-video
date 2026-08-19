@@ -8,6 +8,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 
+const LOCAL_SERVER_AVAILABLE = await new Promise(resolveAvailable => {
+  const probe = createServer();
+  probe.once('error', () => resolveAvailable(false));
+  probe.listen(0, '127.0.0.1', () => probe.close(() => resolveAvailable(true)));
+});
+const serverTest = LOCAL_SERVER_AVAILABLE
+  ? test
+  : (name, fn) => test(name, { skip: 'sandbox cannot bind a localhost fixture server' }, fn);
+
 import {
   checkForUpdateSync,
   compareVersions,
@@ -141,7 +150,7 @@ function buildFeedWithApp({ version, appUrl, sha256: expectedSha, notesUrl }) {
 
 // --- compareVersions ---
 
-test('compareVersions: major.minor.patch を数値比較する', () => {
+serverTest('compareVersions: major.minor.patch を数値比較する', () => {
   assert.equal(compareVersions('0.2.0', '0.1.0'), 1);
   assert.equal(compareVersions('0.1.0', '0.1.0'), 0);
   assert.equal(compareVersions('0.1.0', '0.2.0'), -1);
@@ -151,7 +160,7 @@ test('compareVersions: major.minor.patch を数値比較する', () => {
 
 // --- 6 ケース: 新版あり/なし/dismissed済み/キャッシュ無し/壊れたキャッシュ/壊れたフィード ---
 
-test('ケース1: 新版あり — キャッシュに現在版より新しい product があれば available: true', async () => {
+serverTest('ケース1: 新版あり — キャッシュに現在版より新しい product があれば available: true', async () => {
   await withScratchHome(async (env) => {
     await writeCacheFixture(env, { schema: 1, fetched_at: '2026-07-27T00:00:00.000Z', feed: VALID_FEED, dismissed: {} });
     const status = checkForUpdateSync({ currentVersion: '0.1.0', env });
@@ -161,8 +170,7 @@ test('ケース1: 新版あり — キャッシュに現在版より新しい pr
     assert.equal(status.notesUrl, VALID_FEED.notes_url);
   });
 });
-
-test('ケース2: 新版なし — フィードの product が現在版と同じか古ければ available: false', async () => {
+serverTest('ケース2: 新版なし — フィードの product が現在版と同じか古ければ available: false', async () => {
   await withScratchHome(async (env) => {
     await writeCacheFixture(env, { schema: 1, feed: { ...VALID_FEED, product: '0.1.0' }, dismissed: {} });
     assert.equal(checkForUpdateSync({ currentVersion: '0.1.0', env }).available, false);
@@ -172,7 +180,7 @@ test('ケース2: 新版なし — フィードの product が現在版と同じ
   });
 });
 
-test('ケース3: dismissed 済み — 新版はあるが dismissed に記録済みの版は available: false', async () => {
+serverTest('ケース3: dismissed 済み — 新版はあるが dismissed に記録済みの版は available: false', async () => {
   await withScratchHome(async (env) => {
     await writeCacheFixture(env, {
       schema: 1,
@@ -185,7 +193,7 @@ test('ケース3: dismissed 済み — 新版はあるが dismissed に記録済
   });
 });
 
-test('ケース4: キャッシュ無し — ファイルが存在しなくても例外を投げず available: false', async () => {
+serverTest('ケース4: キャッシュ無し — ファイルが存在しなくても例外を投げず available: false', async () => {
   await withScratchHome(async (env) => {
     const status = checkForUpdateSync({ currentVersion: '0.1.0', env });
     assert.equal(status.available, false);
@@ -193,7 +201,7 @@ test('ケース4: キャッシュ無し — ファイルが存在しなくても
   });
 });
 
-test('ケース5: 壊れたキャッシュ — JSON パースに失敗しても例外を投げず available: false', async () => {
+serverTest('ケース5: 壊れたキャッシュ — JSON パースに失敗しても例外を投げず available: false', async () => {
   await withScratchHome(async (env) => {
     await mkdir(env.AKARI_HOME, { recursive: true });
     await writeFile(resolveCachePath(env), '{ this is not json', 'utf8');
@@ -202,7 +210,7 @@ test('ケース5: 壊れたキャッシュ — JSON パースに失敗しても�
   });
 });
 
-test('ケース6: 壊れたフィード — バックグラウンド fetch がスキーマ不明のフィードを取得しても、キャッシュを書き換えず沈黙する', async () => {
+serverTest('ケース6: 壊れたフィード — バックグラウンド fetch がスキーマ不明のフィードを取得しても、キャッシュを書き換えず沈黙する', async () => {
   await withScratchHome(async (env) => {
     await withFixtureServer(
       (req, res) => {
@@ -219,7 +227,7 @@ test('ケース6: 壊れたフィード — バックグラウンド fetch が�
 
 // --- 起動非ブロック性: 同期パスは fetch に一切触れない ---
 
-test('起動非ブロック性: checkForUpdateSync は fetch を一切呼ばない（呼ばれたら fail するスタブで担保）', async () => {
+serverTest('起動非ブロック性: checkForUpdateSync は fetch を一切呼ばない（呼ばれたら fail するスタブで担保）', async () => {
   await withScratchHome(async (env) => {
     await writeCacheFixture(env, { schema: 1, feed: VALID_FEED, dismissed: {} });
     const originalFetch = globalThis.fetch;
@@ -236,7 +244,7 @@ test('起動非ブロック性: checkForUpdateSync は fetch を一切呼ばな�
 
 // --- runBackgroundFetch: 正常系（ローカルサーバーから取得しキャッシュへ反映） ---
 
-test('runBackgroundFetch: 正常なフィードを取得しキャッシュへ書き込む（dismissed は既存キャッシュから引き継ぐ）', async () => {
+serverTest('runBackgroundFetch: 正常なフィードを取得しキャッシュへ書き込む（dismissed は既存キャッシュから引き継ぐ）', async () => {
   await withScratchHome(async (env) => {
     await writeCacheFixture(env, { schema: 1, fetched_at: 'old', feed: null, dismissed: { '0.0.5': 'x' } });
     await withFixtureServer(
@@ -255,7 +263,7 @@ test('runBackgroundFetch: 正常なフィードを取得しキャッシュへ書
   });
 });
 
-test('runBackgroundFetch: オフライン（接続できないポート）でも例外を投げず、キャッシュは変更されない', async () => {
+serverTest('runBackgroundFetch: オフライン（接続できないポート）でも例外を投げず、キャッシュは変更されない', async () => {
   await withScratchHome(async (env) => {
     // どのサーバーも listen していないポート宛て（接続失敗を安定して起こす）。
     const unreachableUrl = 'http://127.0.0.1:1/latest.json';
@@ -264,7 +272,7 @@ test('runBackgroundFetch: オフライン（接続できないポート）でも
   });
 });
 
-test('runBackgroundFetch: 404 などの非 200 応答は沈黙してキャッシュを書かない', async () => {
+serverTest('runBackgroundFetch: 404 などの非 200 応答は沈黙してキャッシュを書かない', async () => {
   await withScratchHome(async (env) => {
     await withFixtureServer(
       (req, res) => {
@@ -281,7 +289,7 @@ test('runBackgroundFetch: 404 などの非 200 応答は沈黙してキャッシ
 
 // --- recordDismissalSync ---
 
-test('recordDismissalSync: dismissed に版を追加し、既存の feed/fetched_at は保持する', async () => {
+serverTest('recordDismissalSync: dismissed に版を追加し、既存の feed/fetched_at は保持する', async () => {
   await withScratchHome(async (env) => {
     await writeCacheFixture(env, { schema: 1, fetched_at: 't0', feed: VALID_FEED, dismissed: { '0.0.5': 'x' } });
     const next = recordDismissalSync({ version: '0.2.0', env, now: new Date('2026-07-27T02:00:00.000Z') });
@@ -297,7 +305,7 @@ test('recordDismissalSync: dismissed に版を追加し、既存の feed/fetched
   });
 });
 
-test('recordDismissalSync: キャッシュが無い状態から呼んでも新規作成できる', async () => {
+serverTest('recordDismissalSync: キャッシュが無い状態から呼んでも新規作成できる', async () => {
   await withScratchHome(async (env) => {
     const next = recordDismissalSync({ version: '0.2.0', env, now: new Date('2026-07-27T03:00:00.000Z') });
     assert.deepEqual(next.dismissed, { '0.2.0': '2026-07-27T03:00:00.000Z' });
@@ -308,18 +316,18 @@ test('recordDismissalSync: キャッシュが無い状態から呼んでも新�
 
 // --- evaluateUpdateStatus（純関数の単体テスト） ---
 
-test('evaluateUpdateStatus: cache が null なら available: false', () => {
+serverTest('evaluateUpdateStatus: cache が null なら available: false', () => {
   assert.equal(evaluateUpdateStatus({ currentVersion: '0.1.0', cache: null }).available, false);
 });
 
-test('evaluateUpdateStatus: feed.product が欠けている壊れたフィードなら available: false', () => {
+serverTest('evaluateUpdateStatus: feed.product が欠けている壊れたフィードなら available: false', () => {
   const status = evaluateUpdateStatus({ currentVersion: '0.1.0', cache: { schema: 1, feed: { schema: 1 }, dismissed: {} } });
   assert.equal(status.available, false);
 });
 
 // --- maybeStageInBackground（契約 §11: staging DL の適格性判定 + 実行） ---
 
-test('maybeStageInBackground: 新版 + app 経由 + components.app ありなら staging を作る', async () => {
+serverTest('maybeStageInBackground: 新版 + app 経由 + components.app ありなら staging を作る', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     const tarball = await buildAppTarball({ version: '9.9.9' });
@@ -334,7 +342,7 @@ test('maybeStageInBackground: 新版 + app 経由 + components.app ありなら 
   });
 });
 
-test('maybeStageInBackground: AKARI_NO_AUTO_UPDATE=1 なら staging せず null（ネットワークにも触れない）', async () => {
+serverTest('maybeStageInBackground: AKARI_NO_AUTO_UPDATE=1 なら staging せず null（ネットワークにも触れない）', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     const feed = buildFeedWithApp({ version: '9.9.9', appUrl: 'http://127.0.0.1:1/should-not-be-fetched.tgz', sha256: 'f'.repeat(64) });
@@ -344,7 +352,7 @@ test('maybeStageInBackground: AKARI_NO_AUTO_UPDATE=1 なら staging せず null�
   });
 });
 
-test('maybeStageInBackground: app 外実行（launcherRoot 不一致）なら staging せず null', async () => {
+serverTest('maybeStageInBackground: app 外実行（launcherRoot 不一致）なら staging せず null', async () => {
   await withScratchHome(async (env) => {
     await seedOldApp(env, { version: '0.1.0' });
     const feed = buildFeedWithApp({ version: '9.9.9', appUrl: 'http://127.0.0.1:1/should-not-be-fetched.tgz', sha256: 'f'.repeat(64) });
@@ -354,7 +362,7 @@ test('maybeStageInBackground: app 外実行（launcherRoot 不一致）なら st
   });
 });
 
-test('maybeStageInBackground: components.app が無い（旧フィード）なら staging せず null', async () => {
+serverTest('maybeStageInBackground: components.app が無い（旧フィード）なら staging せず null', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     const feed = { schema: 1, product: '9.9.9', components: { cli: { version: '9.9.9' } } };
@@ -363,7 +371,7 @@ test('maybeStageInBackground: components.app が無い（旧フィード）な�
   });
 });
 
-test('maybeStageInBackground: 新版が無ければ staging せず null（インストール済み版が readOwnVersion 由来）', async () => {
+serverTest('maybeStageInBackground: 新版が無ければ staging せず null（インストール済み版が readOwnVersion 由来）', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     const own = readOwnVersion();
@@ -375,7 +383,7 @@ test('maybeStageInBackground: 新版が無ければ staging せず null（イン
 
 // --- runBackgroundFetch × staging 統合（フィード取得成功後に staging を試みる） ---
 
-test('runBackgroundFetch: 適格条件が揃えば feed キャッシュに加えて staged も記録し、staging ディレクトリが実在する', async () => {
+serverTest('runBackgroundFetch: 適格条件が揃えば feed キャッシュに加えて staged も記録し、staging ディレクトリが実在する', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     const tarball = await buildAppTarball({ version: '9.9.9' });
@@ -405,7 +413,7 @@ test('runBackgroundFetch: 適格条件が揃えば feed キャッシュに加え
   });
 });
 
-test('runBackgroundFetch: AKARI_NO_AUTO_UPDATE=1 では feed は書くが staged は書かない（U2 通知のみに縮退）', async () => {
+serverTest('runBackgroundFetch: AKARI_NO_AUTO_UPDATE=1 では feed は書くが staged は書かない（U2 通知のみに縮退）', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     const feed = buildFeedWithApp({ version: '9.9.9', appUrl: 'http://127.0.0.1:1/should-not-be-fetched.tgz', sha256: 'f'.repeat(64) });
@@ -425,7 +433,7 @@ test('runBackgroundFetch: AKARI_NO_AUTO_UPDATE=1 では feed は書くが staged
   });
 });
 
-test('runBackgroundFetch: staging tarball が改竄されていれば feed は書くが staged は書かず、例外も投げない（沈黙）', async () => {
+serverTest('runBackgroundFetch: staging tarball が改竄されていれば feed は書くが staged は書かず、例外も投げない（沈黙）', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     const tarball = await buildAppTarball({ version: '9.9.9' });
@@ -471,7 +479,7 @@ async function stageForLaunch(env, appDir, { version = '9.9.9' } = {}) {
   });
 }
 
-test('maybeApplyPendingUpdateOnLaunch: staged が feed 最新と一致していればスワップし、成功を通知する', async () => {
+serverTest('maybeApplyPendingUpdateOnLaunch: staged が feed 最新と一致していればスワップし、成功を通知する', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     const feed = await stageForLaunch(env, appDir);
@@ -492,7 +500,7 @@ test('maybeApplyPendingUpdateOnLaunch: staged が feed 最新と一致してい�
   });
 });
 
-test('maybeApplyPendingUpdateOnLaunch: staged が無ければ何もしない', async () => {
+serverTest('maybeApplyPendingUpdateOnLaunch: staged が無ければ何もしない', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     await writeFile(resolveCachePath(env), JSON.stringify({ schema: 1, feed: buildFeedWithApp({ version: '9.9.9', appUrl: 'x', sha256: 'f'.repeat(64) }), dismissed: {} }), 'utf8');
@@ -502,7 +510,7 @@ test('maybeApplyPendingUpdateOnLaunch: staged が無ければ何もしない', a
   });
 });
 
-test('maybeApplyPendingUpdateOnLaunch: staged の版が最新フィードと不一致（stale）なら何もしない', async () => {
+serverTest('maybeApplyPendingUpdateOnLaunch: staged の版が最新フィードと不一致（stale）なら何もしない', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     const feed = buildFeedWithApp({ version: '9.9.9', appUrl: 'x', sha256: 'f'.repeat(64) });
@@ -515,7 +523,7 @@ test('maybeApplyPendingUpdateOnLaunch: staged の版が最新フィードと不�
   });
 });
 
-test('maybeApplyPendingUpdateOnLaunch: AKARI_NO_AUTO_UPDATE=1 では staged があっても適用しない', async () => {
+serverTest('maybeApplyPendingUpdateOnLaunch: AKARI_NO_AUTO_UPDATE=1 では staged があっても適用しない', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     await stageForLaunch(env, appDir);
@@ -526,7 +534,7 @@ test('maybeApplyPendingUpdateOnLaunch: AKARI_NO_AUTO_UPDATE=1 では staged が�
   });
 });
 
-test('maybeApplyPendingUpdateOnLaunch: app 外実行（launcherRoot 不一致）では適用しない', async () => {
+serverTest('maybeApplyPendingUpdateOnLaunch: app 外実行（launcherRoot 不一致）では適用しない', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     await stageForLaunch(env, appDir);
@@ -537,7 +545,7 @@ test('maybeApplyPendingUpdateOnLaunch: app 外実行（launcherRoot 不一致）
   });
 });
 
-test('maybeApplyPendingUpdateOnLaunch: staging ディレクトリが既に消費済み（存在しない）なら適用しない（ループガード）', async () => {
+serverTest('maybeApplyPendingUpdateOnLaunch: staging ディレクトリが既に消費済み（存在しない）なら適用しない（ループガード）', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     const feed = buildFeedWithApp({ version: '9.9.9', appUrl: 'x', sha256: 'f'.repeat(64) });
@@ -549,7 +557,7 @@ test('maybeApplyPendingUpdateOnLaunch: staging ディレクトリが既に消費
   });
 });
 
-test('maybeApplyPendingUpdateOnLaunch: 1 起動につき適用 1 回 — 同一プロセス内で 2 回呼んでも 2 回目は自然に no-op', async () => {
+serverTest('maybeApplyPendingUpdateOnLaunch: 1 起動につき適用 1 回 — 同一プロセス内で 2 回呼んでも 2 回目は自然に no-op', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     await stageForLaunch(env, appDir);
@@ -563,7 +571,7 @@ test('maybeApplyPendingUpdateOnLaunch: 1 起動につき適用 1 回 — 同一�
   });
 });
 
-test('maybeApplyPendingUpdateOnLaunch: ロック競合時は静かに見送り、app は変更されない', async () => {
+serverTest('maybeApplyPendingUpdateOnLaunch: ロック競合時は静かに見送り、app は変更されない', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     await stageForLaunch(env, appDir);
@@ -578,7 +586,7 @@ test('maybeApplyPendingUpdateOnLaunch: ロック競合時は静かに見送り�
   });
 });
 
-test('maybeApplyPendingUpdateOnLaunch: 既定では npm install を一切実行しない（起動時にネットワークを待たない）', async () => {
+serverTest('maybeApplyPendingUpdateOnLaunch: 既定では npm install を一切実行しない（起動時にネットワークを待たない）', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, { version: '0.1.0' });
     await stageForLaunch(env, appDir);

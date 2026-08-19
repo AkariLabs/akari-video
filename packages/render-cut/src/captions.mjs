@@ -782,7 +782,7 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
 //
 // task 2026-08-07-captions-linear-timeline: このカット境界オフセット計算はかつて
 // v1（multi-source, generateCaptionOverlays が linearTimeline: true を渡す）向けに
-// cuts.reduce() の素の累積和を自前で持っていたが、これは buildCutCommand /
+// cuts.reduce() の素の累積和を自前で持っていたが、これは cut command /
 // buildMultiSourceCutCommand が xfade 用に使う computeCutTimelineOffsets（cut-timeline.mjs）
 // と同じ「順送りの区間積算」でありながら、cuts[].transition_out の重なり（オーバーラップ）を
 // 一切減算しない別実装だった。v1 の transition_out 自体が render-cut 側で長らく no-op

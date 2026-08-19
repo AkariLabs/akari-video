@@ -8,13 +8,7 @@
  *   - Web UI（packages/preview-server public/app.js）— edit-kernel.bundle.js（ESM）で import
  *   - shell annotations widget — computeCutTrackSegments を直接使用（従来どおり）
  *   - shell 動画面（previewBootstrapScript）— webview-kernel.js（IIFE、global: AkariEditKernel）
- *     のインライン注入で共有（旧インライン複製は撤去済み。gaps/tracks モードの暗黙 at にも
- *     トランジション重なりが載る = 書き込み側と同一の正本挙動へ収斂）
- *
- * モード判定は webview 実装と同一:
- *   - cuts に at 指定 or track≠0 が無い → シーケンシャル（トランジション重なり + プレート算出）
- *   - ある → マルチトラック平坦化（境界分割 + 中点勝者。既定は小さい track 番号が勝つ =
- *     webview の zForTrack フォールバックと同順。宣言トラック順を持つ呼び出し側は trackZ で上書き）
+ *     のインライン注入で共有。v2 の絶対配置を常にマルチトラック平坦化する。
  */
 import { EditCut } from './edit-store';
 export interface TimelineTransitionPlate {
@@ -44,7 +38,6 @@ export interface TimelineMapResult {
     transitionPlates: TimelineTransitionPlate[];
     usesGapsOrTracks: boolean;
 }
-export declare function cutsUseGapsOrTracks(cuts: readonly EditCut[]): boolean;
 export declare function buildTimelineMap(cuts: readonly EditCut[], options?: {
     trackZ?: (track: number) => number;
 }): TimelineMapResult;

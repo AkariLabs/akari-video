@@ -31,7 +31,9 @@ const REQUIRED_SKILL_FILES = [
 ];
 
 function run(executable, args, cwd) {
-  return spawnSync(executable, args, { cwd, encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } });
+  return spawnSync(executable, args, { cwd, encoding: "utf8", env: {
+    ...process.env, NO_COLOR: "1", npm_config_cache: path.join(tmpdir(), "akari-launcher-npm-cache"),
+  } });
 }
 
 async function sha(file) {

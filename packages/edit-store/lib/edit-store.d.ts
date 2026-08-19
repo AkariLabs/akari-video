@@ -22,11 +22,6 @@ export interface EditSource {
     path: string;
     proxy: string | null;
 }
-/** v0（単一ソース）edit.json 直下の `source`。sidecar に依存しない一次情報。 */
-export interface EditDefaultSource {
-    path: string;
-    proxy: string | null;
-}
 export interface EditBeat {
     id: string;
     src?: string;
@@ -110,18 +105,6 @@ export interface EditTimelineTrack {
     muted?: boolean;
     hidden?: boolean;
     locked?: boolean;
-}
-/**
- * parseEdit が採用した要素の、元配列における添字。読み飛ばした要素があるぶん
- * 出力配列の位置とはずれるため、内部表現（internal-model.ts）が生要素と突き合わせるのに使う。
- */
-export interface EditParseOrigins {
-    cuts: number[];
-    overlays: number[];
-    beats: number[];
-    layers: number[];
-    audioSfx: number[];
-    audioNarration: number[];
 }
 export interface SourceElement {
     text: string;
@@ -221,23 +204,6 @@ export declare function moveOverlayInSource(source: string, overlayId: string, n
 export declare function resizeOverlayInSource(source: string, overlayId: string, nextDuration: number): string;
 export declare function insertOverlayInSource(source: string, overlay: Record<string, unknown>): string;
 export declare function removeOverlayInSource(source: string, overlayId: string): string;
-export declare function parseEdit(source: string): {
-    cuts: EditCut[];
-    sources?: EditSource[];
-    source?: EditDefaultSource;
-    overlays: EditOverlay[];
-    beats?: EditBeat[];
-    layers: EditLayer[];
-    audioSfx: EditAudioSfx[];
-    audioNarration: EditAudioNarration[];
-    audioBgm?: EditAudioBgm;
-    timeline?: {
-        tracks: EditTimelineTrack[];
-    };
-    fps: number;
-    warnings: string[];
-    origins: EditParseOrigins;
-};
 export declare function writeTimelineTracksInSource(source: string, tracks: EditTimelineTrack[]): string;
 export declare function updateArrayElementByIndex(source: string, key: string, index: number, label: string, update: (element: string) => string): string;
 export declare function updateOverlayVarInSource(source: string, overlayId: string, varName: string, nextValue: string): string;

@@ -7,6 +7,7 @@ import {
     AkariAnnotationsService,
     Annotation,
     CaptionWritePayload,
+    EditMigrationProposal,
     ClipFilmstripChunk,
     OverlayWritePayload,
     WriteBackResult
@@ -52,20 +53,18 @@ import { computeCutBoundaries } from '../common/cut-boundaries';
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
 import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
 import {
-    buildLayerElement,
     buildSfxElement,
     computeMaterialGhostRange,
     CutDropPlan,
-    ensuredAudioTimelineTracks,
     planCutDrop,
     IMAGE_LAYER_DEFAULT_DURATION_SECONDS,
     insertCutIntoEdit,
-    insertedLayerTimelineTracks,
+    insertLayerIntoV2,
+    ensureV2AudioTrack,
     materialDropDecision,
     materialGhostVisibility,
     MaterialDragKind,
     MaterialDropZone,
-    shiftLayerTracksForInsert
 } from '../common/timeline-material-insert';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { openTimelineContextMenu } from './akari-timeline-context-menu';
@@ -484,6 +483,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected segments: OutputSegment[] = [];
     protected wordBoundaries: number[] = [];
     protected configured = false;
+    protected legacyReadOnly = false;
+    protected legacyReadOnlyText: string | undefined;
+    protected legacyMigrationProposal: EditMigrationProposal | undefined;
     protected dragState: DragState | undefined;
     /** 素材カード D&D 中（受け側）: 直近 dragStart イベントで受け取ったペイロード。dragEnd/drop でクリアする。 */
     protected materialDragPayload: MaterialDragPayload | undefined;
@@ -2909,36 +2911,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let beyondNote = '';
             if (zone === 'cuts') {
                 const plan = planCutDrop(
-                    Array.isArray(value.cuts) ? value.cuts : [], track, t, durationSeconds
+                    this.cuts, track, t, durationSeconds
                 );
                 const inserted = insertCutIntoEdit(value, relativePath, plan, durationSeconds, track);
                 value = inserted.value as Record<string, any>;
-                successNote = inserted.migratedToV1
-                    ? '本編に素材を追加しました（複数ソースを扱えるよう v1 形式へ変換しました）。'
-                    : '本編に素材を追加しました。';
+                successNote = '本編に素材を追加しました。';
                 warningNote = inserted.warnings.join(' ');
             } else if (zone === 'layers') {
-                const existingIds: string[] = Array.isArray(value.layers)
-                    ? value.layers
-                        .map((layer: any) => (layer && typeof layer.id === 'string' ? layer.id : ''))
-                        .filter((id: string) => id.length > 0)
-                    : [];
-                const element = buildLayerElement(existingIds, relativePath, t, durationSeconds, track);
-                if (!Array.isArray(value.layers)) {
-                    value.layers = [];
-                }
-                if (options?.insertTrack !== undefined) {
-                    value.layers = shiftLayerTracksForInsert(value.layers, options.insertTrack);
-                    // timeline は丸ごと置換せず spread で保全する（2026-08-10-dnd-ghost-and-insert-fix
-                    // の P3 申し送り: 未知フィールドを落とさない）。
-                    value.timeline = {
-                        ...(value.timeline && typeof value.timeline === 'object' ? value.timeline : {}),
-                        tracks: insertedLayerTimelineTracks(
-                            this.snapshotTimelineTracks(editBefore), options.insertTrack
-                        )
-                    };
-                }
-                value.layers.push(element);
+                value = insertLayerIntoV2(value, relativePath, t, durationSeconds, track, options?.insertTrack);
                 beyondNote = this.beyondCutsEndNote(t);
             } else {
                 const element = buildSfxElement(relativePath, t, track);
@@ -2949,15 +2929,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     value.audio.sfx = [];
                 }
                 value.audio.sfx.push(element);
+                value = ensureV2AudioTrack(value, track) as Record<string, any>;
                 beyondNote = this.beyondCutsEndNote(t);
                 // P0-a: 明示 timeline.tracks に audio 行が無いと、sfx を足しても帯が出ない。
                 // 宣言していないプロジェクトは deriveTracks が sfx から自動で生やすので触らない。
-                if (Array.isArray(value.timeline?.tracks)) {
-                    value.timeline = {
-                        ...value.timeline,
-                        tracks: ensuredAudioTimelineTracks(value.timeline.tracks)
-                    };
-                }
             }
             let editAfter = `${JSON.stringify(value, undefined, 2)}\n`;
             await this.writeTimelineSnapshots(editAfter);
@@ -3529,7 +3504,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.fps = 30;
         if (this.location?.editUri) {
             try {
-                const source = (await this.fileService.readFile(this.location.editUri)).value.toString();
+                const diskSource = (await this.fileService.readFile(this.location.editUri)).value.toString();
+                const source = await this.resolveLegacyEditForOpen(diskSource);
+                if (!source) {
+                    throw new Error('古い edit.json を読み取り専用で開けません。');
+                }
                 // 版を知るのはここ（読み込み層）だけ。以降は内部表現（tracks[].items[]）と
                 // その射影しか見ない。
                 const internal = this.readEdit(source);
@@ -3558,6 +3537,72 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.syncTimelineTrackTogglesToPreview();
         await this.loadTrackHeights();
         this.renderStrip();
+    }
+
+    protected async resolveLegacyEditForOpen(source: string): Promise<string | undefined> {
+        let raw: { version?: unknown };
+        try {
+            raw = JSON.parse(source) as { version?: unknown };
+        } catch {
+            return source;
+        }
+        if (raw.version === 2) {
+            this.setLegacyReadOnly(false);
+            this.legacyReadOnlyText = undefined;
+            this.legacyMigrationProposal = undefined;
+            return source;
+        }
+        if (this.legacyReadOnlyText) {
+            this.setLegacyReadOnly(true);
+            return this.legacyReadOnlyText;
+        }
+        const location = this.location;
+        if (!location?.editUri) return undefined;
+        const planned = await this.annotationsService.planEditMigration({
+            editUri: location.editUri.toString(),
+            projectRootUri: location.root.toString()
+        });
+        if ('ok' in planned && planned.ok === false) {
+            this.setLegacyReadOnly(true);
+            this.showNotice(`このプロジェクトは変換できません: ${planned.blockers.join(' / ')}`);
+            return undefined;
+        }
+        const proposal = planned as EditMigrationProposal;
+        const summary = proposal.changes.map(change => `${change.path}: ${change.note}`).join('\n');
+        const choice = await this.messages.info(
+            `${proposal.filePath} は edit.json version ${proposal.version} です。\n${summary}`,
+            '変換する', '読み取り専用で開く'
+        );
+        if (choice === '変換する') {
+            await this.annotationsService.applyEditMigration(proposal);
+            this.setLegacyReadOnly(false);
+            void this.messages.info(
+                `version 2 へ変換しました。変換前: ${proposal.backupPath}`,
+                '元に戻す'
+            ).then(async action => {
+                if (action !== '元に戻す') return;
+                await this.annotationsService.revertEditMigration(proposal);
+                this.legacyReadOnlyText = proposal.nextText;
+                this.legacyMigrationProposal = proposal;
+                this.setLegacyReadOnly(true);
+                await this.reloadEdit();
+            });
+            return proposal.nextText;
+        }
+        this.legacyReadOnlyText = proposal.nextText;
+        this.legacyMigrationProposal = proposal;
+        this.setLegacyReadOnly(true);
+        this.showNotice('古い edit.json を読み取り専用で開いています。元ファイルは変更されていません。');
+        return proposal.nextText;
+    }
+
+    protected setLegacyReadOnly(readOnly: boolean): void {
+        this.legacyReadOnly = readOnly;
+        this.node.classList.toggle('akari-legacy-readonly', readOnly);
+        for (const element of Array.from(this.toolbar.querySelectorAll('button, input'))) {
+            (element as HTMLButtonElement | HTMLInputElement).disabled = readOnly;
+        }
+        this.stripScroll.draggable = !readOnly;
     }
 
     protected defaultTrackHeight(kind: TimelineTrackKind): number {

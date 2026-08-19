@@ -111,7 +111,7 @@ export function appendFreezeAwareVideoTrim({
 // `normalize` controls only the NO-freeze fallback line's format: it exists so this shared
 // helper can reproduce each of the three call sites' pre-existing byte-identical behavior when
 // freeze is absent (buildMultiSourceCutCommand already unconditionally resamples to
-// 48k/stereo; buildCutCommand/buildGapAwareCutCommand do not). Whenever freeze *is* present,
+// 48k/stereo; the historical single-source paths did not). Whenever freeze *is* present,
 // the resample+format step is applied unconditionally regardless of `normalize` -- concat-ing
 // real audio with anullsrc-generated silence needs a matching sample format on both sides, and
 // that requirement doesn't depend on which call site is asking.

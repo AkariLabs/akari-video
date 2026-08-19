@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 import puppeteer from "puppeteer-core";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import { renderOverlaySheet } from "../src/rasterize.mjs";
 import { findChromePath } from "../src/render-cut.mjs";

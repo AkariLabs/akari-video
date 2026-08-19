@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+
+const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import { verifyArtifact } from "../src/render-cut.mjs";
 

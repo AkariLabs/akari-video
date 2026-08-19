@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
+import { toV2Edit } from './helpers/v2-fixture.mjs';
 
 const require = createRequire(import.meta.url);
 const { parsePreviewCaptions, parseResolvedPreviewCaptions } = require('../lib/browser/akari-preview-captions.js');
@@ -198,12 +199,12 @@ test('shell backend resolves policy while browser source contains no segmentatio
         },
         captions: [{ ...caption, text: '今回設定します', display_fragments: ['今回', '設定します'] }]
     }));
-    await writeFile(editPath, JSON.stringify({
+    await writeFile(editPath, JSON.stringify(toV2Edit({
         version: 0,
         source: { path: 'source.mp4' },
         cuts: [{ in: 0, out: 2 }],
         output: { width: 1920, height: 1080, fps: 30 }
-    }));
+    })));
     const service = new AkariPreviewServiceImpl();
     service.workspaceServer = { getMostRecentlyUsedWorkspace: async () => pathToFileURL(root).toString() };
     const payload = await service.resolveCaptionDisplay({
@@ -223,12 +224,12 @@ test('shell backend resolves policy while browser source contains no segmentatio
         },
         captions: [{ ...caption, src: 'ghost' }]
     }));
-    await writeFile(editPath, JSON.stringify({
+    await writeFile(editPath, JSON.stringify(toV2Edit({
         version: 1,
         sources: [{ id: 'a', path: 'a.mp4' }, { id: 'b', path: 'b.mp4' }],
         cuts: [{ src: 'a', in: 0, out: 2 }],
         output: { width: 1920, height: 1080, fps: 30 }
-    }));
+    })));
     await assert.rejects(service.resolveCaptionDisplay({
         captionsUri: pathToFileURL(captionsPath).toString(),
         editUri: pathToFileURL(editPath).toString()
@@ -306,7 +307,7 @@ test('kernel, render, preview API, and shell return the exact same complete disp
     const captionsPath = join(root, 'captions.json');
     const editPath = join(root, 'edit.json');
     await writeFile(captionsPath, JSON.stringify(fixture.captionsRoot));
-    await writeFile(editPath, JSON.stringify(fixture.edit));
+    await writeFile(editPath, JSON.stringify(toV2Edit(fixture.edit)));
     const service = new AkariPreviewServiceImpl();
     service.workspaceServer = { getMostRecentlyUsedWorkspace: async () => pathToFileURL(root).toString() };
     const shell = await service.resolveCaptionDisplay({
