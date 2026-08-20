@@ -13,6 +13,7 @@
 //   --snap 12.3,45.6       その timeline 秒をグリッドへ寄せた結果を出す
 //   --window <秒>          スナップ窓（既定 0.12）
 //   --every <N>            カット候補の間隔（拍。既定 4 = 1 小節）
+//   --fps <数>             出力 fps（--edit 指定時は edit.json の output.fps）
 //   --declarations <path>  宣言 JSON（既定: <ライブラリ>/declarations.json / env AKARI_SOUNDS_DECLARATIONS）
 //   --json                 機械可読出力
 
@@ -21,7 +22,7 @@ import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import { cutCandidates, musicGrid, snapToGrid } from '../shared/beat-grid.mjs';
+import { cutCandidates, musicGrid, snapToGrid, toFrameGrid } from '../shared/beat-grid.mjs';
 
 function libraryRoot(env = process.env) {
     return path.join(env.AKARI_HOME || path.join(os.homedir(), '.akari'), 'assets', 'audio');
@@ -30,7 +31,7 @@ function libraryRoot(env = process.env) {
 function parseArguments(argv, env = process.env) {
     const options = {
         track: null, edit: null, timeline: null, in: null, trackDuration: null,
-        snap: [], window: 0.12, every: 4,
+        snap: [], window: 0.12, every: 4, fps: null,
         declarations: env.AKARI_SOUNDS_DECLARATIONS || null, json: false,
     };
     for (let i = 0; i < argv.length; i += 1) {
@@ -43,6 +44,7 @@ function parseArguments(argv, env = process.env) {
         if (arg === '--snap') { options.snap = argv[++i].split(',').map(Number).filter((n) => Number.isFinite(n)); continue; }
         if (arg === '--window') { options.window = Number(argv[++i]); continue; }
         if (arg === '--every') { options.every = Number(argv[++i]); continue; }
+        if (arg === '--fps') { options.fps = Number(argv[++i]); continue; }
         if (arg === '--declarations') { options.declarations = argv[++i]; continue; }
         if (arg === '--json') { options.json = true; continue; }
         throw new Error(`Unknown option: ${arg}`);
@@ -76,6 +78,7 @@ async function readEdit(editPath) {
     return {
         bgmPath: bgm?.path ?? null,
         bgmIn: Number.isFinite(bgm?.in) ? bgm.in : 0,
+        outputFps: Number.isFinite(edit.output?.fps) ? edit.output.fps : null,
         timelineFromCuts: timeline > 0 ? Math.round(timeline * 1000) / 1000 : null,
         editDir: path.dirname(editPath),
     };
@@ -98,11 +101,11 @@ function formatHuman(grid, { trackId, snaps, cuts, declarationsSource }) {
     const lines = [];
     const m = grid.meta;
     lines.push(`音楽グリッド: ${trackId}（宣言: ${declarationsSource}）`);
-    lines.push(`  ♩${m.bpm ?? '—'} / ${m.beats_per_bar}拍子 / 曲長 ${m.track_duration}s / in ${m.bgm_in}s / timeline ${m.timeline_duration}s（${m.loops} 周）`);
-    lines.push(`  拍 ${grid.beats.length} 個 / 小節頭 ${grid.downbeats.length} / キメ ${grid.hits.length}${grid.seams.length ? ` / ループ継ぎ目 ${grid.seams.join(', ')}s` : ''}`);
-    if (grid.hits.length) lines.push(`  キメ（timeline 秒）: ${grid.hits.slice(0, 12).join(', ')}${grid.hits.length > 12 ? ' …' : ''}`);
+    lines.push(`  ♩${m.bpm ?? '—'} / ${m.beats_per_bar}拍子 / ${m.fps}fps / 曲長 ${m.track_duration}s / in ${m.bgm_in}s / timeline ${m.timeline_frames}f（${m.loops} 周）`);
+    lines.push(`  拍 ${grid.beats.length} 個 / 小節頭 ${grid.downbeats.length} / キメ ${grid.hits.length}${grid.seams.length ? ` / ループ継ぎ目 ${grid.seams.join(', ')}f` : ''}`);
+    if (grid.hits.length) lines.push(`  キメ（timeline frame）: ${grid.hits.slice(0, 12).join(', ')}${grid.hits.length > 12 ? ' …' : ''}`);
     for (const section of grid.sections) {
-        lines.push(`  構成: ${section.label} ${section.start_sec}–${section.end_sec}s`);
+        lines.push(`  構成: ${section.label} ${section.start_frame}–${section.end_frame}f`);
     }
     if (cuts.length) {
         lines.push(`  カット候補（${cuts.length} 点）: ${cuts.slice(0, 12).join(', ')}${cuts.length > 12 ? ' …' : ''}`);
@@ -111,8 +114,8 @@ function formatHuman(grid, { trackId, snaps, cuts, declarationsSource }) {
         lines.push('  スナップ:');
         for (const snap of snaps) {
             lines.push(snap.snapped
-                ? `    ${snap.from}s → ${snap.t}s（${snap.kind} / ${snap.delta > 0 ? '+' : ''}${snap.delta}s）`
-                : `    ${snap.from}s → 動かさない（窓内にグリッドなし）`);
+                ? `    ${snap.from}f → ${snap.t}f（${snap.kind} / ${snap.delta > 0 ? '+' : ''}${snap.delta}f）`
+                : `    ${snap.from}f → 動かさない（窓内にグリッドなし）`);
         }
     }
     lines.push('  ※ 発火位置の採用は素材計画・実行の承認ゲートで決めてください（これは候補の提示まで）');
@@ -121,7 +124,7 @@ function formatHuman(grid, { trackId, snaps, cuts, declarationsSource }) {
 
 async function main() {
     const options = parseArguments(process.argv.slice(2));
-    let { track: trackId, in: bgmIn, timeline: timelineDuration, trackDuration } = options;
+    let { track: trackId, in: bgmIn, timeline: timelineDuration, trackDuration, fps } = options;
     let bgmFile = null;
 
     if (options.edit) {
@@ -131,10 +134,14 @@ async function main() {
         trackId = trackId ?? trackIdFromPath(edit.bgmPath);
         bgmIn = bgmIn ?? edit.bgmIn;
         timelineDuration = timelineDuration ?? edit.timelineFromCuts;
+        fps = fps ?? edit.outputFps;
     }
     if (!trackId) throw new Error('--track か --edit を指定してください');
     if (!Number.isFinite(timelineDuration) || timelineDuration <= 0) {
         throw new Error('--timeline（タイムライン全長・秒）を指定してください（edit.json の cuts から求まらない場合）');
+    }
+    if (!Number.isFinite(fps) || fps <= 0) {
+        throw new Error('--fps（出力 fps）を指定してください（edit.json の output.fps から求まらない場合）');
     }
 
     const { declarations, source } = await loadDeclarations(options);
@@ -154,9 +161,10 @@ async function main() {
         }
     }
 
-    const grid = musicGrid({ declaration, trackDuration, bgmIn: bgmIn ?? 0, timelineDuration });
-    const snaps = options.snap.map((t) => snapToGrid(t, grid, { window: options.window }));
-    const cuts = cutCandidates(grid, { every: options.every });
+    const secondsGrid = musicGrid({ declaration, trackDuration, bgmIn: bgmIn ?? 0, timelineDuration });
+    const grid = toFrameGrid(secondsGrid, fps);
+    const snaps = options.snap.map((t) => snapToGrid(t, secondsGrid, { fps, window: options.window }));
+    const cuts = cutCandidates(secondsGrid, { fps, every: options.every });
 
     if (options.json) {
         console.log(JSON.stringify({

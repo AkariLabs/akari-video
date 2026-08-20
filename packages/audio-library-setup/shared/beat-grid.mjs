@@ -59,6 +59,21 @@ function round3(value) {
     return Math.round(value * 1000) / 1000;
 }
 
+function requireFps(fps) {
+    if (!(typeof fps === 'number' && Number.isFinite(fps) && fps > 0)) {
+        throw new Error('fps は正の数で指定してください');
+    }
+    return fps;
+}
+
+function frameAt(seconds, fps) {
+    return Math.round(seconds * requireFps(fps));
+}
+
+function uniqueFrames(seconds, fps) {
+    return [...new Set((seconds ?? []).map((value) => frameAt(value, fps)))];
+}
+
 /**
  * 宣言 1 件を timeline 秒のグリッドへ展開する。
  * @param {object} params
@@ -132,17 +147,48 @@ export function musicGrid({ declaration, trackDuration, bgmIn = 0, timelineDurat
     };
 }
 
+/**
+ * musicGrid の timeline 秒を、配置に使う整数フレームへ投影する。
+ * track_duration / bgm_in は素材側なので秒のまま。出力側だけをフレーム番号にする。
+ */
+export function toFrameGrid(grid, fps) {
+    requireFps(fps);
+    return {
+        beats: uniqueFrames(grid.beats, fps),
+        downbeats: uniqueFrames(grid.downbeats, fps),
+        hits: uniqueFrames(grid.hits, fps),
+        sections: (grid.sections ?? []).map((section) => ({
+            label: section.label,
+            start_frame: frameAt(section.start_sec, fps),
+            end_frame: frameAt(section.end_sec, fps),
+        })),
+        seams: uniqueFrames(grid.seams, fps),
+        meta: {
+            bpm: grid.meta?.bpm ?? null,
+            beats_per_bar: grid.meta?.beats_per_bar ?? null,
+            track_duration: grid.meta?.track_duration ?? null,
+            bgm_in: grid.meta?.bgm_in ?? null,
+            timeline_frames: frameAt(grid.meta?.timeline_duration, fps),
+            fps,
+            loops: grid.meta?.loops ?? 0,
+        },
+    };
+}
+
 /** 優先順位: キメ > 小節頭 > 拍。同点は早い方（決定論）。 */
 const SNAP_KINDS = [['hit', 'hits'], ['downbeat', 'downbeats'], ['beat', 'beats']];
 
 /**
- * timeline 秒をグリッドへ寄せる。窓の外なら動かさない（null 返しではなく snapped:false）。
+ * timeline 秒をグリッドへ寄せ、配置用の整数フレームを返す。
+ * 窓の外なら入力秒をフレームへ丸める（null 返しではなく snapped:false）。
  * @param {number} t timeline 秒
  * @param {object} grid musicGrid の返り値
- * @param {object} options { window: 秒（既定 0.12）, kinds: ['hit','downbeat','beat'] }
- * @returns {object} { t, snapped, kind, delta, from }
+ * @param {object} options { fps, window: 秒（既定 0.12）, kinds: ['hit','downbeat','beat'] }
+ * @returns {object} { t, snapped, kind, delta, from }（t / delta / from はフレーム数）
  */
-export function snapToGrid(t, grid, { window = 0.12, kinds = ['hit', 'downbeat', 'beat'] } = {}) {
+export function snapToGrid(t, grid, { fps, window = 0.12, kinds = ['hit', 'downbeat', 'beat'] } = {}) {
+    requireFps(fps);
+    const from = frameAt(t, fps);
     for (const [kind, key] of SNAP_KINDS) {
         if (!kinds.includes(kind)) continue;
         let best = null;
@@ -154,22 +200,25 @@ export function snapToGrid(t, grid, { window = 0.12, kinds = ['hit', 'downbeat',
             }
         }
         if (best) {
-            return { t: round3(best.candidate), snapped: true, kind, delta: round3(best.delta), from: round3(t) };
+            const snapped = frameAt(best.candidate, fps);
+            return { t: snapped, snapped: true, kind, delta: snapped - from, from };
         }
     }
-    return { t: round3(t), snapped: false, kind: null, delta: 0, from: round3(t) };
+    return { t: from, snapped: false, kind: null, delta: 0, from };
 }
 
 /**
  * カット割りの候補（拍で切る = 写真の入れ替えを拍に乗せる）。
  * @param {object} grid musicGrid の返り値
- * @param {object} options { every: 何拍ごと（既定 4 = 1 小節）, from, to, unit: 'beat'|'downbeat'|'hit' }
- * @returns {number[]} timeline 秒（昇順）
+ * @param {object} options { fps, every: 何拍ごと（既定 4 = 1 小節）, from, to, unit: 'beat'|'downbeat'|'hit' }
+ *   from / to は入力 timeline 秒。
+ * @returns {number[]} timeline の整数フレーム番号（昇順）
  */
-export function cutCandidates(grid, { every = 4, from = 0, to = Infinity, unit = 'beat' } = {}) {
+export function cutCandidates(grid, { fps, every = 4, from = 0, to = Infinity, unit = 'beat' } = {}) {
+    requireFps(fps);
     const source = unit === 'hit' ? grid.hits : unit === 'downbeat' ? grid.downbeats : grid.beats;
     const step = unit === 'beat' ? Math.max(1, Math.round(every)) : 1;
-    return (source ?? [])
+    return uniqueFrames((source ?? [])
         .filter((t) => t >= from && t <= to)
-        .filter((_, index) => index % step === 0);
+        .filter((_, index) => index % step === 0), fps);
 }

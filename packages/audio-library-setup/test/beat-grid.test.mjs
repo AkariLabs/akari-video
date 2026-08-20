@@ -12,11 +12,13 @@ import {
     musicGrid,
     snapToGrid,
     timelineOccurrences,
+    toFrameGrid,
     trackPositionAt,
 } from '../shared/beat-grid.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cliPath = path.join(here, '..', 'bin', 'beat-grid.mjs');
+const FPS = 30;
 
 // ffmpeg 実測（2026-08-04）で確定したループの意味論を、そのままテストに固定する:
 // 6 秒ファイル・in=3 → 1 周目は 3→6（timeline 0→3）、2 周目以降は**ファイル先頭から**
@@ -95,49 +97,76 @@ test('musicGrid: bpm が無い宣言（拍の無い曲）でもキメ・構成�
     assert.equal(grid.sections.length, 1);
 });
 
+test('toFrameGrid: 出力側の拍・小節頭・キメ・構成・継ぎ目を整数フレームへ投影する', () => {
+    const secondsGrid = musicGrid({
+        declaration: DECLARATION, trackDuration: 20, bgmIn: 0, timelineDuration: 45,
+    });
+    const grid = toFrameGrid(secondsGrid, FPS);
+
+    assert.equal(grid.meta.fps, FPS);
+    assert.equal(grid.meta.timeline_frames, 1350);
+    assert.equal(grid.meta.track_duration, 20, '素材側の曲長は秒のまま');
+    assert.deepEqual(grid.hits, [248, 488, 848, 1088]);
+    assert.deepEqual(grid.seams, [600, 1200]);
+    assert.deepEqual(grid.sections[0], { label: 'intro', start_frame: 0, end_frame: 248 });
+    for (const values of [grid.beats, grid.downbeats, grid.hits, grid.seams]) {
+        assert.ok(values.every(Number.isInteger));
+    }
+});
+
 test('snapToGrid: キメ > 小節頭 > 拍 の優先順で、窓の外は動かさない', () => {
     const grid = musicGrid({ declaration: DECLARATION, trackDuration: 20, bgmIn: 0, timelineDuration: 20 });
     // 8.25 のキメの近く（8.3）→ キメへ
-    const toHit = snapToGrid(8.3, grid, { window: 0.2 });
+    const toHit = snapToGrid(8.3, grid, { fps: FPS, window: 0.2 });
     assert.equal(toHit.kind, 'hit');
-    assert.equal(toHit.t, 8.25);
+    assert.deepEqual(toHit, { t: 248, snapped: true, kind: 'hit', delta: -1, from: 249 });
 
     // 4.3 の近くには小節頭 4.25（0.25 + 4 拍 × 0.5 × 2）がある
-    const toDownbeat = snapToGrid(4.3, grid, { window: 0.2 });
+    const toDownbeat = snapToGrid(4.3, grid, { fps: FPS, window: 0.2 });
     assert.equal(toDownbeat.kind, 'downbeat');
-    assert.equal(toDownbeat.t, 4.25);
+    assert.equal(toDownbeat.t, 128);
 
     // 3.8 の近くは拍 3.75（小節頭ではない）
-    const toBeat = snapToGrid(3.8, grid, { window: 0.2 });
+    const toBeat = snapToGrid(3.8, grid, { fps: FPS, window: 0.2 });
     assert.equal(toBeat.kind, 'beat');
-    assert.equal(toBeat.t, 3.75);
+    assert.equal(toBeat.t, 113);
 
     // 窓が狭ければ動かさない
-    const notSnapped = snapToGrid(3.8, grid, { window: 0.01 });
+    const notSnapped = snapToGrid(3.8, grid, { fps: FPS, window: 0.01 });
     assert.equal(notSnapped.snapped, false);
-    assert.equal(notSnapped.t, 3.8);
+    assert.equal(notSnapped.t, 114);
 
     // kinds を絞れば拍には寄せない（儀式スナップ済みを拍で動かさない用途）
-    const onlyHits = snapToGrid(3.8, grid, { window: 0.5, kinds: ['hit'] });
+    const onlyHits = snapToGrid(3.8, grid, { fps: FPS, window: 0.5, kinds: ['hit'] });
     assert.equal(onlyHits.snapped, false);
 });
 
 test('snapToGrid: 決定論（同じ入力 → 同じ結果・同点は早い側）', () => {
     const grid = { hits: [], downbeats: [], beats: [10, 10.2] };
-    const first = snapToGrid(10.1, grid, { window: 0.2 });
-    const second = snapToGrid(10.1, grid, { window: 0.2 });
+    const first = snapToGrid(10.1, grid, { fps: FPS, window: 0.2 });
+    const second = snapToGrid(10.1, grid, { fps: FPS, window: 0.2 });
     assert.deepEqual(first, second);
-    assert.equal(first.t, 10, '等距離なら早い方');
+    assert.equal(first.t, 300, '等距離なら早い方');
 });
 
-test('cutCandidates: 既定は 1 小節（4 拍）ごと。unit で小節頭・キメにも切り替わる', () => {
+test('cutCandidates: 拍・小節頭・キメを整数フレームで返す', () => {
     const grid = musicGrid({ declaration: DECLARATION, trackDuration: 20, bgmIn: 0, timelineDuration: 12 });
-    const everyBar = cutCandidates(grid, { every: 4 });
-    assert.equal(Math.round((everyBar[1] - everyBar[0]) * 100) / 100, 2);
-    const onHits = cutCandidates(grid, { unit: 'hit' });
-    assert.deepEqual(onHits, grid.hits);
-    const ranged = cutCandidates(grid, { every: 4, from: 5, to: 9 });
-    assert.ok(ranged.every((t) => t >= 5 && t <= 9));
+    const everyBar = cutCandidates(grid, { fps: FPS, every: 4 });
+    assert.equal(everyBar[1] - everyBar[0], 60);
+    const onDownbeats = cutCandidates(grid, { fps: FPS, unit: 'downbeat' });
+    assert.deepEqual(onDownbeats, [8, 68, 128, 188, 248, 308]);
+    const onHits = cutCandidates(grid, { fps: FPS, unit: 'hit' });
+    assert.deepEqual(onHits, [248]);
+    const ranged = cutCandidates(grid, { fps: FPS, every: 4, from: 5, to: 9 });
+    assert.ok(ranged.every((frame) => frame >= 5 * FPS && frame <= 9 * FPS));
+    assert.ok(ranged.every(Number.isInteger));
+});
+
+test('配置用 API: fps が無ければ秒を黙って返さず拒否する', () => {
+    const grid = { hits: [], downbeats: [], beats: [1] };
+    assert.throws(() => snapToGrid(1, grid), /fps/);
+    assert.throws(() => cutCandidates(grid), /fps/);
+    assert.throws(() => toFrameGrid({ ...grid, sections: [], seams: [], meta: {} }), /fps/);
 });
 
 test('CLI: 宣言が無ければ declare-audio / 宣言パックを案内して exit 1', async () => {
@@ -147,7 +176,7 @@ test('CLI: 宣言が無ければ declare-audio / 宣言パックを案内して 
         await writeFile(declPath, JSON.stringify({ 'other-track': DECLARATION }));
         const result = spawnSync(process.execPath, [
             cliPath, '--track', 'missing-track', '--timeline', '30', '--track-duration', '20',
-            '--declarations', declPath,
+            '--fps', '30', '--declarations', declPath,
         ], { encoding: 'utf8' });
         assert.equal(result.status, 1);
         assert.match(result.stderr, /declare-audio|宣言パック/);
@@ -163,15 +192,18 @@ test('CLI: --json でグリッド・スナップ・カット候補を返す', as
         await writeFile(declPath, JSON.stringify({ 'my-track': DECLARATION }));
         const result = spawnSync(process.execPath, [
             cliPath, '--track', 'my-track', '--timeline', '20', '--track-duration', '20',
-            '--in', '0', '--snap', '8.3,3.8', '--window', '0.2', '--declarations', declPath, '--json',
+            '--in', '0', '--fps', '30', '--snap', '8.3,3.8', '--window', '0.2',
+            '--declarations', declPath, '--json',
         ], { encoding: 'utf8' });
         assert.equal(result.status, 0, result.stderr);
         const parsed = JSON.parse(result.stdout);
         assert.equal(parsed.track, 'my-track');
         assert.equal(parsed.grid.meta.bpm, 120);
+        assert.equal(parsed.grid.meta.fps, 30);
+        assert.ok(parsed.grid.downbeats.every(Number.isInteger));
         assert.equal(parsed.snaps[0].kind, 'hit');
-        assert.equal(parsed.snaps[0].t, 8.25);
-        assert.ok(parsed.cut_candidates.length > 0);
+        assert.equal(parsed.snaps[0].t, 248);
+        assert.ok(parsed.cut_candidates.length > 0 && parsed.cut_candidates.every(Number.isInteger));
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -184,6 +216,7 @@ test('CLI: --edit から BGM の id・in・タイムライン長（cuts 合計�
         await writeFile(declPath, JSON.stringify({ 'my-track': DECLARATION }));
         const editPath = path.join(root, 'edit.json');
         await writeFile(editPath, JSON.stringify({
+            output: { width: 1920, height: 1080, fps: 24 },
             cuts: [{ in: 0, out: 6 }, { in: 10, out: 16 }],
             audio: { bgm: { path: 'audio/my-track.mp3', in: 8.25 } },
         }));
@@ -193,7 +226,8 @@ test('CLI: --edit から BGM の id・in・タイムライン長（cuts 合計�
         assert.equal(result.status, 0, result.stderr);
         const parsed = JSON.parse(result.stdout);
         assert.equal(parsed.track, 'my-track', 'path の stem を id にする');
-        assert.equal(parsed.grid.meta.timeline_duration, 12, 'cuts の合計 6 + 6');
+        assert.equal(parsed.grid.meta.timeline_frames, 288, 'cuts の合計 12 秒 × 24fps');
+        assert.equal(parsed.grid.meta.fps, 24, 'edit.json.output.fps を使う');
         assert.equal(parsed.grid.meta.bgm_in, 8.25);
         assert.equal(parsed.grid.hits[0], 0, 'in の位置のキメが timeline 0 に来る');
     } finally {

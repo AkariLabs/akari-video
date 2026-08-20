@@ -15,8 +15,8 @@
 | `bin/fetch-akari-sounds.mjs` | AKARI Sounds を GitHub Release から**一括取得**し user スコープへ登録する CLI（first-party のみ許可。取得先は AkariLabs/akari-sounds に限定） |
 | `shared/bgm-suggest.mjs` | BGM 自動提案の純粋ロジック — tone 語彙（表現選定と同じ 8 語）× 系統対応表 `FAMILY_TONE_RULES` × 体感 BPM で決定論ランキング |
 | `bin/suggest-bgm.mjs` | BGM 自動提案 CLI。導入済みスナップショット（`.origin-catalog.json`）を読み、`--tone`（複数可）`--tempo` から候補 + ローカル実体パスを提示（`--json` あり）。`--declarations`（または env `AKARI_SOUNDS_DECLARATIONS`）で耳検証済み宣言を合流 — 実測 BPM 置換・耳検証ボーナス・**サビ頭出し（`audio.bgm.in` の推奨値）**・構成表示が付く。ネットワーク不使用 |
-| `shared/beat-grid.mjs` | 宣言（bpm / 頭拍 / キメ / 構成）を **timeline 秒**へ写す純粋ロジック。`audio.bgm.in` とループ（**1 周目は in から・2 周目以降はファイル先頭から**。2026-08-04 に ffmpeg 実測で確定）を反映し、スナップ（キメ > 小節頭 > 拍）とカット候補を返す |
-| `bin/beat-grid.mjs` | 音楽グリッド CLI（`--edit` / `--track` + `--timeline`・`--snap`・`--json`）。edit-plan の [beat-sync](../../skills/edit-plan/beat-sync.md) が発火位置を拍へ寄せるのに使う |
+| `shared/beat-grid.mjs` | 宣言（bpm / 頭拍 / キメ / 構成）を timeline へ写す純粋ロジック。`musicGrid()` の秒グリッドは検査用の内部計算として維持し、`toFrameGrid()` / `snapToGrid()` / `cutCandidates()` が出力 fps 上の整数フレームを返す。`audio.bgm.in` とループ（**1 周目は in から・2 周目以降はファイル先頭から**。2026-08-04 に ffmpeg 実測で確定）を反映する |
+| `bin/beat-grid.mjs` | 音楽グリッド CLI（`--edit` / `--track` + `--timeline`・`--fps`・`--snap`・`--json`）。`--edit` では `output.fps` を使い、拍・小節頭・キメ・スナップ・カット候補を整数フレームで返す。edit-plan の [beat-sync](../../skills/edit-plan/beat-sync.md) が発火位置を拍へ寄せるのに使う |
 | `shared/sfx-suggest.mjs` | SFX / ジングル自動提案の純粋ロジック — 「場面の意味」14 語 × 宣言表 `MEANING_RULES`（候補順 = 優先順・外部補完の参照つき） |
 | `bin/suggest-sfx.mjs` | SFX / ジングル自動提案 CLI（`--meaning` / `--list` / `--json`）。suggest-bgm の姉妹 |
 | `bin/review-sfx-mapping.mjs` | 「意味 → 音」対応表の**耳レビュー面**を生成（全意味 × 候補の試聴プレイヤー + 判定 JSON 書き出し。既定出力 `~/.akari/reviews/sfx-mapping.html`） |
