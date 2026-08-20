@@ -2,6 +2,8 @@ import { copyFile, mkdir, readdir, readFile, realpath, rm, stat, writeFile } fro
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { BUNDLED_CLI_NPM_ENTRIES } from './bundled-cli-npm-entries.mjs';
+
 // 配布物(app.asar + lib/ バンドル)に同梱される全サードパーティ依存のライセンス通知
 // ThirdPartyNotices.txt を機械生成する。prepackage で毎回再生成し、electron-builder の
 // extraResources 経由で mac: Contents/Resources/ 直下、win/linux: resources/ 直下に置かれる。
@@ -128,6 +130,18 @@ function enqueueDependencies(packageJson, fromDir) {
 }
 
 enqueueDependencies(rootPackageJson, shellRoot);
+
+// extraResources で配る CLI（packages/render-cut・packages/bake-layer）が実行時に import する
+// npm 依存も配布物に入る（prepackage の bundle-cli-node-modules.mjs が
+// resources/cli-node-modules へ staging し、Resources/packages/node_modules として同梱される）。
+// apps/shell の dependencies には現れないので、ここで明示的に BFS の起点へ足す。
+// 足さないと通知が実際の配布物より狭くなる（= 同梱しているのに載っていない依存が出る）。
+// 起点は CLI の package.json の dependencies ではなく **実際に staging する入口**を使う
+// （render-cut は hyperframes を依存として宣言しているが同梱しない — 宣言から辿ると
+// 配布していない 400MB 分の依存まで通知に載り、今度は逆に実態とずれる）。
+for (const name of BUNDLED_CLI_NPM_ENTRIES) {
+  queue.push({ name, spec: '*', fromDir: repoRoot, optional: false });
+}
 
 while (queue.length > 0) {
   const { name, spec, fromDir, optional } = queue.shift();
