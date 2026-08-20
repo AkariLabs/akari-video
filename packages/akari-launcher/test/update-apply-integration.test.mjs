@@ -77,10 +77,13 @@ async function seedOldApp(env, version) {
   return appDir;
 }
 
-function akariVersionOf(appDir) {
+function akariVersionOf(appDir, env) {
   const bin = join(appDir, 'packages', 'akari-launcher', 'bin', 'akari.mjs');
-  const result = execFileSync(process.execPath, [bin, '--version'], { encoding: 'utf8' });
-  return result.trim();
+  const result = execFileSync(process.execPath, [bin, '--version'], {
+    encoding: 'utf8',
+    env: { ...process.env, ...env }
+  });
+  return result.split('\n').find((line) => /^v\d+\.\d+\.\d+/.test(line));
 }
 
 async function withFixtureServer(tarball, callback) {
@@ -114,7 +117,7 @@ function collectLogs() {
 serverTest('akari update: app 経由インストール + 新版フィードなら実適用し、akari --version が新版を返す。--rollback で旧版に戻る', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, '0.1.0');
-    assert.equal(akariVersionOf(appDir), 'v0.1.0');
+    assert.equal(akariVersionOf(appDir, env), 'v0.1.0');
 
     const tarball = await buildAppTarball({ version: '0.2.0' });
     const expectedSha = sha256(tarball);
@@ -148,13 +151,13 @@ serverTest('akari update: app 経由インストール + 新版フィードな�
 
       assert.equal(result.exitCode, 0);
       assert.ok(lines.some((line) => line.includes('v0.2.0 に更新しました')), JSON.stringify(lines));
-      assert.equal(akariVersionOf(appDir), 'v0.2.0', 'akari --version が新版を返すこと');
+      assert.equal(akariVersionOf(appDir, env), 'v0.2.0', 'akari --version が新版を返すこと');
 
       const { log: rbLog, lines: rbLines } = collectLogs();
       const rollbackResult = await runUpdateCommand(['--rollback'], { log: rbLog, env, currentVersion: '0.2.0' });
       assert.equal(rollbackResult.exitCode, 0);
       assert.ok(rbLines.some((line) => line.includes('v0.1.0 へロールバックしました')), JSON.stringify(rbLines));
-      assert.equal(akariVersionOf(appDir), 'v0.1.0', '--rollback 後は akari --version が旧版に戻ること');
+      assert.equal(akariVersionOf(appDir, env), 'v0.1.0', '--rollback 後は akari --version が旧版に戻ること');
     });
   });
 });
@@ -215,6 +218,6 @@ serverTest('akari update: フィードに components.app が無い（旧フィ�
 
     assert.equal(result.exitCode, 0);
     assert.ok(lines.some((line) => line.includes('最新バージョン: v0.2.0')), JSON.stringify(lines));
-    assert.equal(akariVersionOf(appDir), 'v0.1.0', '適用されていないこと');
+    assert.equal(akariVersionOf(appDir, env), 'v0.1.0', '適用されていないこと');
   });
 });

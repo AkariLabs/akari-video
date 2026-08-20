@@ -8,7 +8,7 @@ import test from 'node:test';
 
 import { runUpdateCommand } from '../src/cli.mjs';
 import { applySelfUpdate, rollbackSelfUpdate } from '../src/self-update.mjs';
-import { checkForUpdateSync, resolveCachePath, resolveInstallRefPath } from '../src/update-check.mjs';
+import { checkForUpdateSync, readOwnVersion, resolveCachePath, resolveInstallRefPath } from '../src/update-check.mjs';
 import { describeVersionStatus, describeUpdateCommand, formatUpdateNotice } from '../src/messages.mjs';
 
 const VALID_FEED = {
@@ -47,6 +47,45 @@ test('akari update: フィード未取得時は「まだ取得できていませ
     assert.equal(result.exitCode, 0);
     assert.ok(lines.some((line) => line.includes('現在のバージョン: v0.1.0')));
     assert.ok(lines.some((line) => line.includes('まだ取得できていません')));
+  });
+});
+
+test('install-ref の未記録と破損を区別し、破損時は --force の修復案内と実行経路を出す', async () => {
+  await withScratchHome(async (env) => {
+    const missing = collectLogs();
+    await runUpdateCommand([], { log: missing.log, env });
+    assert.ok(missing.lines.some((line) => line.includes('本体バージョン: 未記録')));
+    assert.ok(!missing.lines.some((line) => line.includes('壊れています')));
+
+    await mkdir(join(env.AKARI_HOME, 'app'), { recursive: true });
+    await writeFile(resolveInstallRefPath(env), 'nightly\n', 'utf8');
+    const feed = {
+      schema: 1,
+      product: readOwnVersion(),
+      components: { app: { url: 'https://example.invalid/app.tgz', sha256: 'a'.repeat(64) } }
+    };
+    await writeCacheFixture(env, { schema: 1, feed, dismissed: {} });
+    const broken = collectLogs();
+    await runUpdateCommand([], { log: broken.log, env });
+    assert.ok(broken.lines.some((line) => line.includes('本体版を判定できません')));
+    assert.ok(broken.lines.some((line) => line.includes('.akari-install-ref') && line.includes('壊れています')));
+    assert.ok(broken.lines.some((line) => line.includes('akari update --force')));
+    assert.ok(!broken.lines.some((line) => line.includes('本体バージョン: 未記録')));
+    assert.ok(!broken.lines.some((line) => line.includes('お使いのバージョンは最新です')));
+
+    let applied = false;
+    const repaired = await runUpdateCommand(['--force'], {
+      env,
+      log: () => {},
+      launcherRoot: '/outside/managed/app',
+      applySelfUpdate: ({ feed: appliedFeed }) => {
+        applied = true;
+        assert.deepEqual(appliedFeed, feed);
+        return { exitCode: 0, applied: true };
+      }
+    });
+    assert.equal(repaired.applied, true);
+    assert.equal(applied, true, '破損 install-ref も管理本体として --force の修復対象になること');
   });
 });
 
@@ -169,6 +208,58 @@ test('install-ref 取り残し回帰: 更新必要判定・数字表示・--forc
   });
 });
 
+test('akari update --force: 現在の本体版からフィードの入れ替え先をログに出す', async () => {
+  await withScratchHome(async (env) => {
+    await mkdir(join(env.AKARI_HOME, 'app'), { recursive: true });
+    await writeFile(resolveInstallRefPath(env), 'v0.1.11\n', 'utf8');
+    const feed = {
+      schema: 1,
+      product: '0.1.12',
+      components: { app: { url: 'https://example.invalid/app.tgz', sha256: 'b'.repeat(64) } }
+    };
+    await writeCacheFixture(env, { schema: 1, feed, dismissed: {} });
+    const { log, lines } = collectLogs();
+    await runUpdateCommand(['--force'], {
+      env,
+      log,
+      launcherRoot: '/outside/managed/app',
+      applySelfUpdate: () => ({ exitCode: 0, applied: true })
+    });
+    assert.ok(lines.includes('--force: 本体 v0.1.11 → v0.1.12 を入れ直します。'));
+  });
+});
+
+test('akari update --force: キャッシュ未取得ならフィードを同期取得してから再導入する', async () => {
+  await withScratchHome(async (env) => {
+    await mkdir(join(env.AKARI_HOME, 'app'), { recursive: true });
+    await writeFile(resolveInstallRefPath(env), 'v0.1.11\n', 'utf8');
+    const feed = {
+      schema: 1,
+      product: '0.1.12',
+      components: { app: { url: 'https://example.invalid/app.tgz', sha256: 'd'.repeat(64) } }
+    };
+    let feedFetches = 0;
+    let appliedFeed;
+    const result = await runUpdateCommand(['--force'], {
+      env,
+      log: () => {},
+      launcherRoot: '/outside/managed/app',
+      fetchImpl: async () => {
+        feedFetches += 1;
+        return { ok: true, json: async () => feed };
+      },
+      applySelfUpdate: ({ feed: receivedFeed }) => {
+        appliedFeed = receivedFeed;
+        return { exitCode: 0, applied: true };
+      }
+    });
+    assert.equal(result.applied, true);
+    assert.equal(feedFetches, 1, '同期フィード取得は1回だけ');
+    assert.equal(appliedFeed.product, '0.1.12');
+    assert.equal(JSON.parse(await readFile(resolveCachePath(env), 'utf8')).feed.product, '0.1.12');
+  });
+});
+
 test('--rollback: install-ref の無い前世代へ戻しても本体版の参照を復元する', async () => {
   await withScratchHome(async (env) => {
     const current = join(env.AKARI_HOME, 'app', 'packages', 'akari-launcher');
@@ -200,6 +291,17 @@ test('formatUpdateNotice: stable では版名の注記が付かない', () => {
 
 test('formatUpdateNotice: available: false なら null', () => {
   assert.equal(formatUpdateNotice({ available: false }), null);
+});
+
+test('formatUpdateNotice: 本体の方が新しい逆向きずれでは CLI の npm 更新手順を案内する', () => {
+  const text = formatUpdateNotice({
+    available: false,
+    mismatch: true,
+    cliVersion: '0.1.12',
+    appVersion: '0.1.13'
+  });
+  assert.equal(text, '⚠ CLI v0.1.12 / 本体 v0.1.13 → CLI が古い。`npm i -g akari-video@latest` で CLI を更新してください。');
+  assert.ok(!text.includes('akari update` で本体'));
 });
 
 test('describeVersionStatus: フィード未取得', () => {

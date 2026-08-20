@@ -65,29 +65,49 @@ export function readOwnVersion() {
   return JSON.parse(raw).version;
 }
 
+/** install-ref を「有効・未記録・破損」の 3 状態で読む内部表現。 */
+function readInstalledAppVersionInfo(env = process.env) {
+  const path = resolveInstallRefPath(env);
+  try {
+    const raw = readFileSync(path, 'utf8').trim();
+    const match = raw.match(/^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/);
+    return match
+      ? { status: 'valid', version: match[1], path }
+      : { status: 'invalid', version: null, path };
+  } catch (error) {
+    return {
+      status: error?.code === 'ENOENT' ? 'missing' : 'invalid',
+      version: null,
+      path
+    };
+  }
+}
+
 /**
  * 実際に render-cut / edit-lint を実行する本体の導入版。
- * install.sh / self-update.mjs が書く `vX.Y.Z` を読み、無い・壊れている場合は null。
+ * install.sh / self-update.mjs が書く `vX.Y.Z` を読む。互換 API として版または null を返し、
+ * 未記録と破損の区別は `resolveInstalledVersionInfo()` が保持する。
  */
 export function readInstalledAppVersion(env = process.env) {
-  try {
-    const raw = readFileSync(resolveInstallRefPath(env), 'utf8').trim();
-    const match = raw.match(/^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/);
-    return match?.[1] ?? null;
-  } catch {
-    return null;
-  }
+  return readInstalledAppVersionInfo(env).version;
 }
 
 /** 更新判定に使う版と、CLI / 本体のずれを一度に解決する。 */
 export function resolveInstalledVersionInfo({ env = process.env, cliVersion = readOwnVersion() } = {}) {
-  const installedAppVersion = readInstalledAppVersion(env);
+  const installRef = readInstalledAppVersionInfo(env);
+  const installedAppVersion = installRef.version;
   const currentVersion = installedAppVersion ?? cliVersion;
   return {
     cliVersion,
     appVersion: installedAppVersion,
     currentVersion,
-    source: installedAppVersion ? 'install-ref' : 'cli-fallback',
+    source: installRef.status === 'valid'
+      ? 'install-ref'
+      : installRef.status === 'invalid' ? 'invalid-install-ref' : 'cli-fallback',
+    installRefStatus: installRef.status,
+    installRefPath: installRef.path,
+    installRefNeedsRepair: installRef.status === 'invalid',
+    managedApp: installRef.status !== 'missing',
     mismatch: installedAppVersion !== null && compareVersions(cliVersion, installedAppVersion) !== 0
   };
 }
@@ -135,8 +155,18 @@ function writeCacheSync(cachePath, cache) {
 /**
  * キャッシュと現在版から、新版通知を出すべきかを判定する（同期・純粋関数・I/O なし）。
  */
-export function evaluateUpdateStatus({ currentVersion, cache, cliVersion = currentVersion, appVersion = null, source = 'cli-fallback', mismatch = false }) {
-  const versionDetails = { currentVersion, cliVersion, appVersion, source, mismatch };
+export function evaluateUpdateStatus({ currentVersion, cache, cliVersion = currentVersion, appVersion = null, source = 'cli-fallback', installRefStatus, installRefPath, installRefNeedsRepair, managedApp, mismatch = false }) {
+  const versionDetails = {
+    currentVersion,
+    cliVersion,
+    appVersion,
+    source,
+    installRefStatus,
+    installRefPath,
+    installRefNeedsRepair,
+    managedApp,
+    mismatch
+  };
   const feed = cache?.feed;
   if (!isValidFeedShape(feed)) {
     return { available: false, ...versionDetails };
@@ -215,16 +245,8 @@ export async function maybeStageInBackground({ env = process.env, feed, fetchImp
   return stageSelfUpdate({ env, feed, log: () => {}, fetchImpl, timeoutMs, extract });
 }
 
-/**
- * バックグラウンド fetch 本体。fetch 失敗・非 200・JSON パース失敗・スキーマ不明は
- * すべて沈黙して return する（何も throw しない）。`dismissed` は既存キャッシュから
- * 引き継ぐ（fetch のたびに既読状態が消えないように）。
- *
- * フィード取得・キャッシュ反映が成功した後、契約 §11 のバックグラウンド staging も
- * 同じ沈黙原則のもとで試みる（`maybeStageInBackground`）。成功したときだけ
- * キャッシュへ `staged`（版・sha256・staged_at）を追記する。
- */
-export async function runBackgroundFetch({ env = process.env, fetchImpl = globalThis.fetch, launcherRoot } = {}) {
+/** フィードを 1 回取得し、正常なら既読状態を保ったままキャッシュへ反映する。 */
+export async function refreshUpdateFeed({ env = process.env, fetchImpl = globalThis.fetch } = {}) {
   const feedUrl = resolveFeedUrl(env);
   const cachePath = resolveCachePath(env);
   try {
@@ -241,15 +263,34 @@ export async function runBackgroundFetch({ env = process.env, fetchImpl = global
     }
     const feed = await response.json();
     if (!isValidFeedShape(feed)) {
-      return;
+      return null;
     }
     const existing = readCacheSync(cachePath);
-    writeCacheSync(cachePath, {
+    const next = {
       schema: CACHE_SCHEMA,
       fetched_at: new Date().toISOString(),
       feed,
       dismissed: existing?.dismissed ?? {}
-    });
+    };
+    writeCacheSync(cachePath, next);
+    return next;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * バックグラウンド fetch 本体。フィード取得失敗は沈黙し、成功後は契約 §11 の staging を
+ * 同じ沈黙原則で試す。成功したときだけキャッシュへ `staged` を追記する。
+ */
+export async function runBackgroundFetch({ env = process.env, fetchImpl = globalThis.fetch, launcherRoot } = {}) {
+  const cachePath = resolveCachePath(env);
+  try {
+    const refreshed = await refreshUpdateFeed({ env, fetchImpl });
+    const feed = refreshed?.feed;
+    if (!feed) {
+      return;
+    }
 
     const staged = await maybeStageInBackground({ env, feed, fetchImpl, launcherRoot });
     if (staged?.ok) {
