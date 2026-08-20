@@ -6,7 +6,7 @@ import { resolveLauncherAssets } from './repo-assets.mjs';
 import { detectProjectState } from './project-state.mjs';
 import { findClaudeExecutable, findOpencodeExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
-import { describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
+import { describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
 import { resolveEffectiveProjectRoot } from './first-run.mjs';
 import { maybeShowAssetIntroNotice } from './sounds-setup.mjs';
 import {
@@ -14,9 +14,11 @@ import {
   compareVersions,
   isValidFeedShape,
   readCacheSync,
+  readInstalledAppVersion,
   readOwnVersion,
   recordDismissalSync,
   resolveCachePath,
+  resolveInstalledVersionInfo,
   triggerBackgroundRefresh
 } from './update-check.mjs';
 import { applySelfUpdate, isRunningFromAppDir, rollbackSelfUpdate } from './self-update.mjs';
@@ -41,7 +43,8 @@ export async function run(args, options = {}) {
   const spawnOpencode = options.spawnOpencode ?? defaultSpawnOpencode;
   const env = options.env ?? process.env;
   const platform = options.platform ?? process.platform;
-  const currentVersion = options.currentVersion ?? readOwnVersion();
+  const versionInfo = resolveCommandVersionInfo(options, env);
+  const currentVersion = versionInfo.currentVersion;
   const now = options.now ?? new Date();
 
   // --opencode / --claude / --claudecode / --yes / --here フラグを解析
@@ -92,13 +95,13 @@ export async function run(args, options = {}) {
     } catch (error) {
       log(`接続確認でエラーが発生しました（続行します）: ${error instanceof Error ? error.message : String(error)}`);
     }
-    log(describeVersionStatus(currentVersion, readCacheSync(resolveCachePath(env))));
+    log(describeVersionStatus(versionInfo, readCacheSync(resolveCachePath(env))));
   }
 
   // 新版通知（契約 §4-1）: キャッシュの読み比較のみ・ネットワークには一切触れない
   // （起動をブロックしない）。fetch は detached な子プロセスへ切り離し、
   // 結果は次回セッションで効く。
-  const updateNotice = formatUpdateNotice((options.checkUpdate ?? checkForUpdateSync)({ currentVersion, env }));
+  const updateNotice = formatUpdateNotice((options.checkUpdate ?? checkForUpdateSync)({ currentVersion, versionInfo, env }));
   if (updateNotice) {
     log(updateNotice);
   }
@@ -178,22 +181,26 @@ function defaultSpawnOpencode(opencodePath, args, projectRoot) {
 /**
  * `akari update`: 新版があり、かつ自己更新の対象（app 経由実行 + フィードに
  * `components.app` がある）なら DL → sha256 検証 → 適用まで実行する（契約 §11。
+ * `app/.akari-install-ref` がある管理インストールは、npm 側 CLI から実行した場合も対象。
  * 「update は明示操作」なので U2 の沈黙原則は適用せず、失敗は必ず表示する）。
  * 対象外（npm グローバル / git checkout・旧フィード）のときは従来どおり
  * **案内するだけ**（自動実行はしない — 契約 §4-1）に縮退する。`--dismiss` は
  * 自己更新を試みず、キャッシュに載っている最新版の通知を今後出さないよう記録するだけ
- * （既存挙動を維持）。`--rollback` は直前 1 世代（`~/.akari/app-previous/`）へ戻す。
+ * （既存挙動を維持）。`--force` は同じ版の本体も再導入し、`--rollback` は直前 1 世代
+ * （`~/.akari/app-previous/`）へ戻す。
  * ネットワークに触れるのは自己更新の DL 区間のみ — フィード自体は既存キャッシュ由来
  * （最新情報は `akari` 起動時のバックグラウンド fetch で更新される）。
  */
 export async function runUpdateCommand(args, options = {}) {
   const log = options.log ?? ((line) => console.log(line));
   const env = options.env ?? process.env;
-  const currentVersion = options.currentVersion ?? readOwnVersion();
+  const versionInfo = resolveCommandVersionInfo(options, env);
+  const currentVersion = versionInfo.currentVersion;
   const cachePath = resolveCachePath(env);
   const cache = readCacheSync(cachePath);
   const dismissRequested = args.includes('--dismiss');
   const rollbackRequested = args.includes('--rollback');
+  const forceRequested = args.includes('--force');
 
   if (rollbackRequested) {
     return (options.rollbackSelfUpdate ?? rollbackSelfUpdate)({ env, log });
@@ -206,7 +213,7 @@ export async function runUpdateCommand(args, options = {}) {
       dismissed = true;
     }
     const finalCache = dismissed ? readCacheSync(cachePath) : cache;
-    for (const line of describeUpdateCommand({ currentVersion, cache: finalCache, dismissed })) {
+    for (const line of describeUpdateCommand({ currentVersion, versionInfo, cache: finalCache, dismissed })) {
       log(line);
     }
     return { exitCode: 0 };
@@ -214,16 +221,26 @@ export async function runUpdateCommand(args, options = {}) {
 
   const feed = cache?.feed;
   const updateAvailable = isValidFeedShape(feed) && compareVersions(feed.product, currentVersion) > 0;
-  const selfUpdateEligible = updateAvailable
+  const reinstallRequested = forceRequested && isValidFeedShape(feed) && compareVersions(feed.product, currentVersion) >= 0;
+  const hasManagedApp = !!readInstalledAppVersion(env);
+  const selfUpdateEligible = (updateAvailable || reinstallRequested)
     && !!feed.components?.app?.url
     && !!feed.components?.app?.sha256
-    && (options.isRunningFromAppDir ?? isRunningFromAppDir)({ env, launcherRoot: options.launcherRoot });
+    && (hasManagedApp || (options.isRunningFromAppDir ?? isRunningFromAppDir)({ env, launcherRoot: options.launcherRoot }));
 
   if (!selfUpdateEligible) {
-    for (const line of describeUpdateCommand({ currentVersion, cache, dismissed: false })) {
+    for (const line of describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed: false })) {
       log(line);
     }
     return { exitCode: 0 };
+  }
+
+  for (const line of describeInstalledVersions(versionInfo)) {
+    log(line);
+  }
+  log(`最新バージョン: v${feed.product}`);
+  if (forceRequested) {
+    log(`--force: 本体 v${currentVersion} を入れ直します。`);
   }
 
   return (options.applySelfUpdate ?? applySelfUpdate)({
@@ -233,4 +250,20 @@ export async function runUpdateCommand(args, options = {}) {
     fetchImpl: options.fetchImpl,
     runNpmInstall: options.runNpmInstall
   });
+}
+
+function resolveCommandVersionInfo(options, env) {
+  // 既存テスト/埋め込み利用の currentVersion 注入は CLI 版注入としても扱う。
+  const cliVersion = options.cliVersion ?? options.currentVersion ?? readOwnVersion();
+  if (options.currentVersion !== undefined) {
+    const appVersion = options.appVersion ?? null;
+    return {
+      cliVersion,
+      appVersion,
+      currentVersion: options.currentVersion,
+      source: appVersion ? 'install-ref' : 'cli-fallback',
+      mismatch: appVersion !== null && compareVersions(cliVersion, appVersion) !== 0
+    };
+  }
+  return resolveInstalledVersionInfo({ env, cliVersion });
 }

@@ -96,6 +96,19 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
             return { status: 'skipped', log };
         }
 
+        const appVersion = await readInstalledAppVersion(akariHome);
+        const appVersionRelation = appVersion
+            ? versionRelation(appVersion, shellVersion)
+            : undefined;
+        const versionDetails = appVersion
+            ? { appVersion, appVersionRelation }
+            : {};
+        if (appVersionRelation === 'older') {
+            push(`版のずれ: CLI v${shellVersion} / 本体 v${appVersion} → 本体が古い。akari update で本体を更新してください。`);
+        } else if (appVersionRelation === 'newer') {
+            push(`版のずれ: CLI v${shellVersion} / 本体 v${appVersion} → CLI と本体の版が不一致です。`);
+        }
+
         const versionDir = join(cliRoot, shellVersion);
         const mjsPath = join(versionDir, 'package', 'bin', 'akari.mjs');
         if (existsSync(mjsPath)) {
@@ -112,7 +125,7 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
                 push
             });
             if (!fetched) {
-                return { status: 'failed', version: shellVersion, log };
+                return { status: 'failed', version: shellVersion, ...versionDetails, log };
             }
         }
 
@@ -124,11 +137,26 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
         push(`シム生成: ${shimPath}`);
         pruneOldVersionDirs(cliRoot, shellVersion);
 
-        return { status: 'ready', version: shellVersion, shimDir, log };
+        return { status: 'ready', version: shellVersion, ...versionDetails, shimDir, log };
     } catch (error) {
         push(`CLI 配備で予期しないエラーが発生しました（接続は続行します）: ${errorMessage(error)}`);
         return { status: 'failed', log };
     }
+}
+
+/** 書き出し本体の install-ref。AKARI_HOME 解決後のパスだけを読み、homedir を直書きしない。 */
+export async function readInstalledAppVersion(akariHome: string): Promise<string | undefined> {
+    try {
+        const raw = (await fs.readFile(join(akariHome, 'app', '.akari-install-ref'), 'utf8')).trim();
+        return /^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/.exec(raw)?.[1];
+    } catch {
+        return undefined;
+    }
+}
+
+function versionRelation(appVersion: string, cliVersion: string): 'older' | 'same' | 'newer' {
+    const compared = compareVersionTriplets(appVersion, cliVersion);
+    return compared < 0 ? 'older' : compared > 0 ? 'newer' : 'same';
 }
 
 // --- 配備先パス --------------------------------------------------------------

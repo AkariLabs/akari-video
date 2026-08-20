@@ -424,15 +424,28 @@ export class AkariPartnerWidget extends ReactWidget {
         try {
             const cli = await this.partnerServer.ensureCli();
             const lastLog = cli.log[cli.log.length - 1] ?? '';
+            if (cli.appVersionRelation === 'older') {
+                this.setWarning(entry, `AKARI Video の更新が必要です: CLI v${cli.version} / 本体 v${cli.appVersion} → 本体が古い。ターミナルで \`akari update\` を実行してください。`);
+            } else if (cli.appVersionRelation === 'newer') {
+                this.setWarning(entry, `AKARI Video の版が一致しません: CLI v${cli.version} / 本体 v${cli.appVersion}。`);
+            }
             if (cli.status === 'ready') {
-                this.setProgress(entry, `AKARI CLI: ${cli.version ? `v${cli.version}` : 'dev'} 利用可能`, cli.shimDir ?? lastLog);
+                const versionStatus = cli.appVersion
+                    ? `CLI v${cli.version} / 本体 v${cli.appVersion}`
+                    : `AKARI CLI: ${cli.version ? `v${cli.version}` : 'dev'} 利用可能`;
+                this.setProgress(entry, versionStatus, cli.shimDir ?? lastLog);
             } else {
+                const versions = cli.appVersion
+                    ? `CLI v${cli.version} / 本体 v${cli.appVersion}。`
+                    : '';
+                this.setWarning(entry, `AKARI CLI の配備に失敗しました: ${versions}${lastLog || '原因を取得できませんでした'}`);
                 this.setProgress(entry, 'AKARI CLI は未配備（接続は続行）', lastLog);
             }
         } catch (error) {
             // ensureCli() 自体は fail-soft（'failed'/'skipped' を返すだけ）だが、RPC 経路自体の
             // 想定外エラー（トランスポート断等）も同じ規律で握りつぶす — 接続フローは止めない。
             this.setProgress(entry, 'AKARI CLI は未配備（接続は続行）', this.errorMessage(error));
+            this.setWarning(entry, `AKARI CLI の配備確認に失敗しました: ${this.errorMessage(error)}`);
             console.warn('[akari-partner] ensureCli failed:', error);
         }
     }

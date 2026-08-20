@@ -59,18 +59,64 @@ export function opencodeMissingGuidance() {
  */
 export function formatUpdateNotice(status) {
   if (!status?.available) {
+    if (status?.mismatch) {
+      return formatVersionMismatch(status);
+    }
     return null;
   }
-  return `⬆ AKARI Video v${status.latestVersion}${channelSuffix(status.channel)}があります（現在 v${status.currentVersion}）→ 詳細: akari update`;
+  const current = status.mismatch
+    ? `CLI v${status.cliVersion} / 本体 v${status.appVersion} → ${versionRelationLabel(status)}`
+    : `現在 v${status.currentVersion}`;
+  return `⬆ AKARI Video v${status.latestVersion}${channelSuffix(status.channel)}があります（${current}）→ 詳細: akari update`;
 }
 
 /** `akari doctor` 系出力に足す 1 行（現在版 + フィード取得状態）。 */
-export function describeVersionStatus(currentVersion, cache) {
+export function describeVersionStatus(versionOrInfo, cache) {
+  if (typeof versionOrInfo === 'string') {
+    if (!cache?.feed) {
+      return `バージョン: v${versionOrInfo}（更新フィード: 未取得）`;
+    }
+    const fetchedAt = typeof cache.fetched_at === 'string' ? cache.fetched_at : '不明';
+    return `バージョン: v${versionOrInfo}（更新フィード: 取得済み・${fetchedAt} 時点）`;
+  }
+  const info = normalizeVersionInfo(versionOrInfo);
+  const installed = describeInstalledVersions(info).join(' / ');
   if (!cache?.feed) {
-    return `バージョン: v${currentVersion}（更新フィード: 未取得）`;
+    return `${installed}（更新フィード: 未取得）`;
   }
   const fetchedAt = typeof cache.fetched_at === 'string' ? cache.fetched_at : '不明';
-  return `バージョン: v${currentVersion}（更新フィード: 取得済み・${fetchedAt} 時点）`;
+  return `${installed}（更新フィード: 取得済み・${fetchedAt} 時点）`;
+}
+
+export function describeInstalledVersions(versionOrInfo) {
+  const info = normalizeVersionInfo(versionOrInfo);
+  if (!info.appVersion) {
+    return [
+      `現在のバージョン: v${info.currentVersion}`,
+      `CLI バージョン: v${info.cliVersion}`,
+      `本体バージョン: 未記録（更新判定は CLI v${info.currentVersion} へフォールバック）`
+    ];
+  }
+  const lines = [`CLI バージョン: v${info.cliVersion}`, `本体バージョン: v${info.appVersion}（更新判定の基準）`];
+  if (info.mismatch) {
+    lines.push(`版のずれ: CLI v${info.cliVersion} / 本体 v${info.appVersion} → ${versionRelationLabel(info)}`);
+  }
+  return lines;
+}
+
+function normalizeVersionInfo(value) {
+  if (typeof value === 'string') {
+    return { cliVersion: value, appVersion: null, currentVersion: value, mismatch: false };
+  }
+  return value;
+}
+
+function versionRelationLabel(info) {
+  return compareVersions(info.appVersion, info.cliVersion) < 0 ? '本体が古い' : 'CLI と本体の版が不一致';
+}
+
+function formatVersionMismatch(info) {
+  return `⚠ CLI v${info.cliVersion} / 本体 v${info.appVersion} → ${versionRelationLabel(info)}。\`akari update\` で本体を更新してください。`;
 }
 
 /**
@@ -107,8 +153,9 @@ export function creatorRootPromptText(defaultPath) {
  * `akari update` の出力本文（複数行）。フィード未取得・最新・新版ありで案内が変わる。
  * `dismissed` は今回の実行で dismiss 記録を書いたかどうか（表示文言の切り替えのみに使う）。
  */
-export function describeUpdateCommand({ currentVersion, cache, dismissed }) {
-  const lines = [`現在のバージョン: v${currentVersion}`];
+export function describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed }) {
+  const info = versionInfo ?? normalizeVersionInfo(currentVersion);
+  const lines = versionInfo ? describeInstalledVersions(info) : [`現在のバージョン: v${currentVersion}`];
   const feed = cache?.feed;
   if (!feed) {
     lines.push('最新情報をまだ取得できていません（オフライン、または初回起動直後の可能性があります）。');
@@ -121,7 +168,7 @@ export function describeUpdateCommand({ currentVersion, cache, dismissed }) {
     lines.push(`リリースノート: ${feed.notes_url}`);
   }
 
-  if (compareVersions(feed.product, currentVersion) <= 0) {
+  if (compareVersions(feed.product, info.currentVersion) <= 0) {
     lines.push('お使いのバージョンは最新です。');
     return lines;
   }
@@ -222,7 +269,7 @@ export function describeCliHelp() {
     '  (引数なし)              プロジェクトを開いて AI エージェントを起動（未作成なら自動作成）',
     '  store connect          アカウント連携（無料の素材パックと購入済み素材が使えるようになる）',
     '  sounds                 公式音源ライブラリを一括ダウンロード（無料）',
-    '  update                 更新を確認する',
+    '  update [--force]       更新を確認する（--force で本体を入れ直す）',
     '  status                 接続状態を確認する',
     '  migrate [dir]          古い edit.json を退避バックアップ付きで v2 へ変換',
     '',
