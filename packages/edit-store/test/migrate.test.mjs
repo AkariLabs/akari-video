@@ -105,3 +105,74 @@ test('v2 は再変換せず、reader 往復も差分ゼロ', () => {
   assert.equal(migrateEditToV2(JSON.parse(text)).ok, false);
   assert.deepEqual(readEditV2(text), readEditV2(`${JSON.stringify(JSON.parse(text), null, 2)}\n`));
 });
+
+// task/2026-08-20-migrate-crop-schema: v0/v1 は「未設定」を明示 `null`（例: `crop: null`）で
+// 書くことがあるが、v2 の対応する任意フィールドは「未設定」をキー省略で表し `null` を許容しない。
+// 実測（内部リポ fieldtest/2026-07-14）: 修正前は `crop: null` を持つ v0 プロジェクトの変換が
+// `ok: true` を返しながら `tracks[0].items[0].crop` が `readEditV2` の検証に落ちる不正な v2 を
+// 吐いていた（凍結方針が禁じる「未知の取りこぼしに対応を足す」ではなく、既知フィールド crop の
+// 転写ミスの是正 = バグ修正であることを task.md 裁定どおり確認済み）。
+
+test('crop: null（cuts）は v2 で crop キーごと省略され、readEditV2 を通る', () => {
+  const doc = base();
+  doc.cuts[0].crop = null;
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, true);
+  assert.equal('crop' in result.doc.tracks[0].items[0], false);
+  assert.doesNotThrow(() => readEditV2(result.doc));
+});
+
+test('crop: null（layers）も同様に省略され、readEditV2 を通る', () => {
+  const doc = base(1);
+  doc.layers = [{ id: 'pip', t: 0, duration: 1, kind: 'video', src: 'pip.mp4', crop: null }];
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, true);
+  const layerTrack = result.doc.tracks.find(track => track.items?.some(item => item.id === 'pip'));
+  assert.equal('crop' in layerTrack.items[0], false);
+  assert.doesNotThrow(() => readEditV2(result.doc));
+});
+
+test('transform / opacity / perspective / blend の明示 null も同じ理由で省略される（copyPresent の一括是正）', () => {
+  const doc = base(1);
+  doc.cuts[0].transform = null;
+  doc.cuts[0].opacity = null;
+  doc.layers = [{
+    id: 'pip', t: 0, duration: 1, kind: 'video', src: 'pip.mp4',
+    perspective: null, blend: null
+  }];
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, true);
+  const cutItem = result.doc.tracks[0].items[0];
+  assert.equal('transform' in cutItem, false);
+  assert.equal('opacity' in cutItem, false);
+  const layerTrack = result.doc.tracks.find(track => track.items?.some(item => item.id === 'pip'));
+  assert.equal('perspective' in layerTrack.items[0], false);
+  assert.equal('blend' in layerTrack.items[0], false);
+  assert.doesNotThrow(() => readEditV2(result.doc));
+});
+
+test('proxy / chroma_key の明示 null は copyPresent を経由しないため、従来どおり null のまま v2 へ残る（回帰確認）', () => {
+  const doc = base(1);
+  doc.sources[0].proxy = null;
+  doc.sources[0].chroma_key = null;
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, true);
+  assert.equal(result.doc.sources[0].proxy, null);
+  assert.equal(result.doc.sources[0].chroma_key, null);
+  assert.doesNotThrow(() => readEditV2(result.doc));
+});
+
+test('出口の自己検証の根拠: readEditV2 は item.crop: null 単体を独立に拒否する（この検証を migrateEditToV2 の出口へ足した理由）', () => {
+  // copyPresent の null 除去とは独立に、「crop: null を含む v2 は readEditV2 で必ず落ちる」こと
+  // 自体を確認する。migrateEditToV2 は内部で組み立てた doc をこの同じ readEditV2 に必ず通すため
+  // （src/migrate/index.ts の出口）、万一 copyPresent 以外の経路で不正な v2 が組み立てられても
+  // 同じ理由で ok:true にはならない、という自己検証の実効性の根拠になる。
+  const migrated = migrateEditToV2(base());
+  const brokenDoc = {
+    ...migrated.doc,
+    tracks: migrated.doc.tracks.map((track, index) => index === 0
+      ? { ...track, items: track.items.map((item, itemIndex) => itemIndex === 0 ? { ...item, crop: null } : item) }
+      : track)
+  };
+  assert.throws(() => readEditV2(brokenDoc), /crop.*object である必要があります/s);
+});
