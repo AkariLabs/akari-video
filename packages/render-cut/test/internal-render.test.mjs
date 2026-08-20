@@ -95,12 +95,12 @@ test("v2 の 77-frame cut 境界と同フレーム layer は同じ enable 開始
 
   assert.ok(renderEdit.edit.cuts.every(cut => !Object.hasOwn(cut, "speed")));
   assert.ok(renderEdit.edit.cuts.every(cut => Math.abs((cut.out - cut.in) - 77 / 30) < 1e-12));
-  const boundary = String(154 / 30);
+  const boundaryMidpoint = "5.116666666666666"; // (154 - 0.5) / 30
   const [cutStage, layerStage] = plan.commands.track_stack.stages;
   const cutFilter = cutStage.command.args[cutStage.command.args.indexOf("-filter_complex") + 1];
   const layerFilter = layerStage.command.args[layerStage.command.args.indexOf("-filter_complex") + 1];
-  assert.match(cutFilter, new RegExp(`enable='gte\\(t,${boundary.replaceAll(".", "\\.")}\\)`));
-  assert.match(layerFilter, new RegExp(`enable='gte\\(t,${boundary.replaceAll(".", "\\.")}\\)`));
+  assert.match(cutFilter, new RegExp(`enable='gte\\(t,${boundaryMidpoint.replaceAll(".", "\\.")}\\)`));
+  assert.match(layerFilter, new RegExp(`enable='gte\\(t,${boundaryMidpoint.replaceAll(".", "\\.")}\\)`));
 });
 
 test("renderProject plans v2 mixed source.kind tracks in normalized bottom-to-top order", async (t) => {

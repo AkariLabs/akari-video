@@ -15,8 +15,29 @@
 //
 // 4 箇所が同じ式を各自で持っていたこと自体が、この穴を長く生かしていた原因なので、
 // 新しい表示区間を書くときもここを経由すること。
-export function enableWindowExpr(start, end) {
-  return `gte(t,${formatSeconds(start)})*lt(t,${formatSeconds(end)})`;
+//
+// 2026-08-20: 秒の境界値をそのまましきい値にすると、JS の `n / fps` と ffmpeg の
+// `n * av_q2d(time_base)` が double で一致しないため、境界フレームが窓から抜ける。
+// 30fps・n=77 の実測では、JS の `77 / 30` は 2.566666666666667、ffmpeg と同じ
+// `77 * (1.0 / 30.0)` は 2.5666666666666664 となり、`gte(t,2.566666666666667)` が
+// フレーム 77 を除外した。そこで対象フレームを先に決め、しきい値を隣接フレーム間の
+// 中点へ置く。1ulp のずれでは境界を越えないため、半開区間の帰属を保ったまま頑健になる。
+const EPSILON = 1e-6;
+
+export function enableWindowExpr(start, end, fps) {
+  if (!Number.isFinite(fps) || fps <= 0) {
+    throw new TypeError(`enableWindowExpr: fps は正の有限数である必要があります: ${fps}`);
+  }
+  // 表示するフレーム番号の半開区間 [startFrame, endFrame)。
+  // 連続時間の半開区間 [start, end) が含むフレーム n（= n/fps >= start かつ n/fps < end）と
+  // 完全に同じ集合になるよう ceil で量子化する（EPSILON は double 誤差の吸収のみ）。
+  const startFrame = Math.max(0, Math.ceil(start * fps - EPSILON));
+  const endFrame = Math.max(startFrame, Math.ceil(end * fps - EPSILON));
+  // しきい値をフレームの中点（n - 0.5）に置く。t がどちら向きに 1ulp ずれても
+  // 帰属が変わらない = 上記の double 不一致に対して構造的に頑健になる。
+  const lower = Math.max(0, (startFrame - 0.5) / fps);
+  const upper = (endFrame - 0.5) / fps;
+  return `gte(t,${formatSeconds(lower)})*lt(t,${formatSeconds(upper)})`;
 }
 
 function formatSeconds(value) {

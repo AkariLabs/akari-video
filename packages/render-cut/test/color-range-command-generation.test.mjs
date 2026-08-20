@@ -122,6 +122,7 @@ test("tail pad, track stack, and layers commands normalize values and tag H.264 
       outputPath: "/project/stacked.mp4",
       ranges: [{ inputStart: 0, outputStart: 0, outputEnd: 1 }],
       duration: 2,
+      fps: 10,
     })],
     ["layers", buildLayersCompositeCommand({
       ffmpegCommand: "ffmpeg",
@@ -133,6 +134,7 @@ test("tail pad, track stack, and layers commands normalize values and tag H.264 
       duration: 2,
       width: 320,
       height: 180,
+      fps: 10,
     })],
   ];
   for (const [label, command] of commands) assertTvEncode(command, label);
@@ -165,6 +167,7 @@ appendFileSync(process.env.AKARI_COLOR_RANGE_COMMAND_LOG, JSON.stringify(process
         outputPath: join(directory, "static.mp4"),
         hasAudio: true,
         duration: 1,
+        fps: 10,
       });
     } finally {
       if (previous === undefined) delete process.env.AKARI_COLOR_RANGE_COMMAND_LOG;
