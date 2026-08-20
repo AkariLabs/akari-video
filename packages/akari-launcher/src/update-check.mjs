@@ -55,10 +55,41 @@ export function resolveCachePath(env = process.env) {
   return join(resolveAkariHome(env), 'update-check.json');
 }
 
+export function resolveInstallRefPath(env = process.env) {
+  return join(resolveAkariHome(env), 'app', '.akari-install-ref');
+}
+
 /** launcher 自身の package.json version（D3 裁定により現状はプロダクト版と一致）。 */
 export function readOwnVersion() {
   const raw = readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8');
   return JSON.parse(raw).version;
+}
+
+/**
+ * 実際に render-cut / edit-lint を実行する本体の導入版。
+ * install.sh / self-update.mjs が書く `vX.Y.Z` を読み、無い・壊れている場合は null。
+ */
+export function readInstalledAppVersion(env = process.env) {
+  try {
+    const raw = readFileSync(resolveInstallRefPath(env), 'utf8').trim();
+    const match = raw.match(/^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** 更新判定に使う版と、CLI / 本体のずれを一度に解決する。 */
+export function resolveInstalledVersionInfo({ env = process.env, cliVersion = readOwnVersion() } = {}) {
+  const installedAppVersion = readInstalledAppVersion(env);
+  const currentVersion = installedAppVersion ?? cliVersion;
+  return {
+    cliVersion,
+    appVersion: installedAppVersion,
+    currentVersion,
+    source: installedAppVersion ? 'install-ref' : 'cli-fallback',
+    mismatch: installedAppVersion !== null && compareVersions(cliVersion, installedAppVersion) !== 0
+  };
 }
 
 /** "major.minor.patch" の先頭 3 要素だけを数値比較する（prerelease 考慮不要 — 契約 D4: stable のみ）。 */
@@ -104,23 +135,25 @@ function writeCacheSync(cachePath, cache) {
 /**
  * キャッシュと現在版から、新版通知を出すべきかを判定する（同期・純粋関数・I/O なし）。
  */
-export function evaluateUpdateStatus({ currentVersion, cache }) {
+export function evaluateUpdateStatus({ currentVersion, cache, cliVersion = currentVersion, appVersion = null, source = 'cli-fallback', mismatch = false }) {
+  const versionDetails = { currentVersion, cliVersion, appVersion, source, mismatch };
   const feed = cache?.feed;
   if (!isValidFeedShape(feed)) {
-    return { available: false };
+    return { available: false, ...versionDetails };
   }
   const latest = feed.product;
   if (compareVersions(latest, currentVersion) <= 0) {
-    return { available: false };
+    return { available: false, latestVersion: latest, ...versionDetails };
   }
   const dismissedAt = cache?.dismissed?.[latest];
-  if (dismissedAt) {
-    return { available: false, dismissed: true, latestVersion: latest };
+  // CLI と本体の取り残しは release 通知の dismiss より強い。黙って古い本体を使わせない。
+  if (dismissedAt && !mismatch) {
+    return { available: false, dismissed: true, latestVersion: latest, ...versionDetails };
   }
   return {
     available: true,
     latestVersion: latest,
-    currentVersion,
+    ...versionDetails,
     channel: typeof feed.channel === 'string' ? feed.channel : undefined,
     notesUrl: typeof feed.notes_url === 'string' ? feed.notes_url : undefined,
     cli: feed.components?.cli
@@ -131,9 +164,13 @@ export function evaluateUpdateStatus({ currentVersion, cache }) {
  * `akari` 起動時の同期チェック。ファイルの読み比較のみ（ネットワーク I/O 無し）。
  * fetch 関数への参照すら持たない — 「起動をブロックしない」を構造で保証する。
  */
-export function checkForUpdateSync({ currentVersion, env = process.env } = {}) {
+export function checkForUpdateSync({ currentVersion, versionInfo, env = process.env } = {}) {
   const cache = readCacheSync(resolveCachePath(env));
-  return evaluateUpdateStatus({ currentVersion, cache });
+  const versions = versionInfo
+    ?? (currentVersion === undefined
+      ? resolveInstalledVersionInfo({ env })
+      : { cliVersion: currentVersion, appVersion: null, currentVersion, source: 'cli-fallback', mismatch: false });
+  return evaluateUpdateStatus({ ...versions, currentVersion: currentVersion ?? versions.currentVersion, cache });
 }
 
 /** 「この版の通知を今後出さない」を記録する（同期・ローカル I/O のみ）。 */
@@ -157,6 +194,7 @@ export function recordDismissalSync({ version, env = process.env, now = new Date
  *
  * `launcherRoot` はテスト用の注入口（`isRunningFromAppDir` へそのまま渡す。
  * `runUpdateCommand` の `options.launcherRoot` と同じ流儀）。
+ * app 外から動く npm CLI でも install-ref があれば管理本体を staging 対象にする。
  */
 export async function maybeStageInBackground({ env = process.env, feed, fetchImpl = globalThis.fetch, timeoutMs, extract, launcherRoot } = {}) {
   if (env.AKARI_NO_AUTO_UPDATE === '1') {
@@ -166,10 +204,11 @@ export async function maybeStageInBackground({ env = process.env, feed, fetchImp
   if (!appComponent?.url || !appComponent?.sha256) {
     return null;
   }
-  if (compareVersions(feed.product, readOwnVersion()) <= 0) {
+  if (compareVersions(feed.product, resolveInstalledVersionInfo({ env }).currentVersion) <= 0) {
     return null;
   }
-  if (!isRunningFromAppDir({ env, launcherRoot })) {
+  // npm 側 CLI と本体が分離していても、install-ref があれば管理対象の本体を更新できる。
+  if (!isRunningFromAppDir({ env, launcherRoot }) && !readInstalledAppVersion(env)) {
     return null;
   }
   // 沈黙原則（U2 を継承）: staging の失敗メッセージはどこにも表示しない（log は no-op）。

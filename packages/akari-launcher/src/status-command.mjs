@@ -8,6 +8,8 @@ import {
   serializeWorkspaceStatus,
   formatWorkspaceStatusSummary,
 } from "./status-core/status.mjs";
+import { describeVersionStatus } from "./messages.mjs";
+import { readCacheSync, readOwnVersion, resolveCachePath, resolveInstalledVersionInfo } from "./update-check.mjs";
 
 export async function runStatusCommand(argv, options = {}) {
   const log = options.log ?? ((line) => process.stdout.write(line));
@@ -19,18 +21,24 @@ export async function runStatusCommand(argv, options = {}) {
     error(cause instanceof Error ? cause.message : String(cause));
     return { exitCode: 2 };
   }
+  const env = options.env ?? process.env;
+  const versionInfo = options.versionInfo ?? resolveInstalledVersionInfo({
+    env,
+    cliVersion: options.cliVersion ?? readOwnVersion(),
+  });
+  const versionLine = describeVersionStatus(versionInfo, readCacheSync(resolveCachePath(env)));
   if (detectStatusScope(parsed.projectRoot) === "workspace") {
     const workspace = resolveWorkspaceStatus(parsed.projectRoot);
     // fail-safe: a broken root.json falls through to the unchanged project-scope path below.
     if (workspace) {
-      log(parsed.json ? serializeWorkspaceStatus(workspace) : `${formatWorkspaceStatusSummary(workspace)}\n`);
+      log(parsed.json ? serializeWorkspaceStatus(workspace) : `${versionLine}\n${formatWorkspaceStatusSummary(workspace)}\n`);
       return { exitCode: 0, workspace };
     }
   }
   const status = parsed.full
     ? await resolveFullProjectStatus(parsed.projectRoot)
     : resolveProjectStatus(parsed.projectRoot, { mode: "fast" });
-  log(parsed.json ? serializeStatus(status) : `${formatStatusOutput(status)}\n`);
+  log(parsed.json ? serializeStatus(status) : `${versionLine}\n${formatStatusOutput(status)}\n`);
   return { exitCode: status.state_health === "inconclusive" ? 1 : 0, status };
 }
 

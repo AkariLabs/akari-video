@@ -75,7 +75,11 @@ export type EnsureCliStatus = 'ready' | 'skipped' | 'failed';
 
 export interface EnsureCliResult {
     status: EnsureCliStatus;
+    /** アプリ管理で配備する npm CLI の版（packaged 時はシェル版と一致）。 */
     version?: string;
+    /** `<AKARI_HOME>/app/.akari-install-ref` が示す、書き出し本体の導入版。 */
+    appVersion?: string;
+    appVersionRelation?: 'older' | 'same' | 'newer';
     shimDir?: string;
     log: string[];
 }
