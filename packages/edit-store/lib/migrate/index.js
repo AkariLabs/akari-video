@@ -16,6 +16,7 @@ exports.revertMigration = revertMigration;
 const fs_1 = require("fs");
 const path_1 = require("path");
 const write_gate_1 = require("../write-gate");
+const edit_v2_1 = require("../edit-v2");
 var error_1 = require("./error");
 Object.defineProperty(exports, "LegacyEditVersionError", { enumerable: true, get: function () { return error_1.LegacyEditVersionError; } });
 var legacy_parse_1 = require("./legacy-parse");
@@ -263,6 +264,20 @@ function migrateEditToV2(raw, options = {}) {
         changes.push({ path: 'audio', note: '音声の秒宣言は変更せず持ち越し' });
     if (raw.thumbnail !== undefined)
         changes.push({ path: 'thumbnail', note: 'サムネイル参照を変更せず持ち越し' });
+    // 出口の自己検証（task/2026-08-20-migrate-crop-schema）。この上のロジックが未知の取りこぼしで
+    // 不正な v2 を組み立ててしまっても、`ok: true` のまま黙って抜けさせない。`readEditV2` は
+    // 現行の v2 リーダーと完全に同じ検証（型・範囲・exactKeys）を通す — 「変換器が書いた v2」と
+    // 「実際にアプリが読む v2」の間に検証の抜け道を作らないため、ここだけの簡易チェックにはしない。
+    try {
+        (0, edit_v2_1.readEditV2)(doc);
+    }
+    catch (error) {
+        return {
+            ok: false,
+            version,
+            blockers: [`変換後の v2 が自己検証に失敗しました（変換器のバグの可能性があります。不正な v2 は書き出しません）: ${messageOf(error)}`]
+        };
+    }
     return { ok: true, version, doc, changes, warnings: [] };
 }
 function planMigration(projectRoot, editPath, text, options = {}) {
@@ -369,8 +384,21 @@ function uniqueId(candidate, used) {
     used.add(id);
     return id;
 }
+/**
+ * v0/v1 は「未設定」を明示 `null`（例: `crop: null`）で書くことがあるが、v2 の対応する
+ * 任意フィールド（`transform` / `opacity` / `crop` / `perspective` / `blend`）は「未設定」を
+ * キー自体の省略で表す（v2 スキーマはこれらに `null` を許容しない — `edit-v2.ts` の
+ * `validateCrop` 等は `requireRecord` で `null` を拒否する）。`source[key] !== undefined` だけの
+ * 判定だと明示 `null` がそのまま v2 へ複写され、`crop: null` のような不正な v2 を生む
+ * （task/2026-08-20-migrate-crop-schema で実測: `crop: null` を持つ v0 プロジェクトの変換が
+ * `ok: true` を返しつつ `readEditV2` に通すと必ず失敗する）。既知の語彙（この 5 フィールド）の
+ * 転写ミスの是正であり、新しい変換規則の追加ではない。
+ *
+ * ※ `proxy` / `chroma_key`（v2 側が `null` を許容する数少ないフィールド）はこの関数を通らず、
+ * 呼び出し元が別途 `hasOwn` で明示的に `null` ごと転写している（このファイル内 2 箇所）。
+ */
 function copyPresent(source, keys) {
-    return Object.fromEntries(keys.filter(key => source[key] !== undefined).map(key => [key, clone(source[key])]));
+    return Object.fromEntries(keys.filter(key => source[key] !== undefined && source[key] !== null).map(key => [key, clone(source[key])]));
 }
 function rejectUnknownKeys(value, allowed, path, blockers) {
     for (const key of Object.keys(value)) {
