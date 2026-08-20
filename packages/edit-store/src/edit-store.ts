@@ -333,7 +333,7 @@ export function setCutSpeedInSource(source: string, cutIndex: number, speed: num
         throw new Error('speed は正の数で指定してください。');
     }
     return updateArrayElementByIndex(source, 'cuts', cutIndex, 'クリップ', element => {
-        const hasSpeed = /"speed"\s*:/.test(element);
+        const hasSpeed = hasTopLevelProperty(element, 'speed');
         if (speed === null) {
             return hasSpeed ? removeObjectProperty(element, 'speed') : element;
         }
@@ -380,7 +380,7 @@ export function updateCutTransformInSource(
             if (value === undefined) {
                 continue;
             }
-            const hasProperty = new RegExp(`"${property}"\\s*:`).test(transform);
+            const hasProperty = hasTopLevelProperty(transform, property);
             transform = value === null
                 ? (hasProperty ? removeObjectProperty(transform, property) : transform)
                 : (hasProperty
@@ -487,7 +487,7 @@ export function splitCutInSource(source: string, cutIndex: number, atSeconds: nu
     }
     const firstText = replaceNumberProperty(element.text, 'out', atSeconds, label);
     let secondText = replaceNumberProperty(element.text, 'in', atSeconds, label);
-    if (/"at"\s*:/.test(element.text)) {
+    if (hasTopLevelProperty(element.text, 'at')) {
         const before = readCutsForSurgery(source);
         const speed = typeof before.cuts[cutIndex].speed === 'number' && before.cuts[cutIndex].speed! > 0
             ? before.cuts[cutIndex].speed! : 1;
@@ -671,7 +671,7 @@ export function setCutAtValuesInSource(
             return element.text;
         }
         const at = updates.get(index)!;
-        const hasAt = /"at"\s*:/.test(element.text);
+        const hasAt = hasTopLevelProperty(element.text, 'at');
         return at === null
             ? (hasAt ? removeObjectProperty(element.text, 'at') : element.text)
             : (hasAt
@@ -693,7 +693,10 @@ export function updateLayerInSource(
             if (value === undefined) {
                 continue;
             }
-            const hasProperty = new RegExp(`"${property}"\\s*:`).test(next);
+            const hasProperty = hasTopLevelProperty(next, property);
+            if (hasProperty && readOptionalNumberProperty(next, property) === value) {
+                continue;
+            }
             next = hasProperty
                 ? replacePropertyValue(next, property, value, `素材 ${layerId}`)
                 : appendNumberProperty(next, property, value);
@@ -739,7 +742,7 @@ export function updateLayerTransformInSource(
             if (value === undefined) {
                 continue;
             }
-            const hasProperty = new RegExp(`"${property}"\\s*:`).test(transform);
+            const hasProperty = hasTopLevelProperty(transform, property);
             transform = value === null
                 ? (hasProperty ? removeObjectProperty(transform, property) : transform)
                 : (hasProperty
@@ -837,7 +840,7 @@ export function moveSfxInSource(
     }
     const currentTrack = normalizeTrack(readOptionalNumberProperty(currentElement.text, 'track'));
     const updated = updateArrayElementByIndex(source, 'sfx', sfxIndex, 'SE', element => {
-        const hasT = /"t"\s*:/.test(element);
+        const hasT = hasTopLevelProperty(element, 't');
         let next = hasT
             ? replacePropertyValue(element, 't', nextT, `SE ${sfxIndex + 1}`)
             : appendNumberProperty(element, 't', nextT);
@@ -880,21 +883,21 @@ export function trimSfxInSource(
         const label = `SE ${sfxIndex + 1}`;
         let next = element;
         if (nextT !== undefined) {
-            next = /"t"\s*:/.test(next)
+            next = hasTopLevelProperty(next, 't')
                 ? replacePropertyValue(next, 't', nextT, label)
                 : appendNumberProperty(next, 't', nextT);
         }
         if (nextIn === null) {
-            next = /"in"\s*:/.test(next) ? removeObjectProperty(next, 'in') : next;
+            next = hasTopLevelProperty(next, 'in') ? removeObjectProperty(next, 'in') : next;
         } else {
-            next = /"in"\s*:/.test(next)
+            next = hasTopLevelProperty(next, 'in')
                 ? replacePropertyValue(next, 'in', nextIn, label)
                 : appendNumberProperty(next, 'in', nextIn);
         }
         if (nextOut === null) {
-            next = /"out"\s*:/.test(next) ? removeObjectProperty(next, 'out') : next;
+            next = hasTopLevelProperty(next, 'out') ? removeObjectProperty(next, 'out') : next;
         } else {
-            next = /"out"\s*:/.test(next)
+            next = hasTopLevelProperty(next, 'out')
                 ? replacePropertyValue(next, 'out', nextOut, label)
                 : appendNumberProperty(next, 'out', nextOut);
         }
@@ -907,7 +910,7 @@ export function setSfxGainDbInSource(source: string, sfxIndex: number, gainDb: n
         throw new Error('gain_db は -60〜12 の範囲で指定してください。');
     }
     return updateArrayElementByIndex(source, 'sfx', sfxIndex, 'SE', element => {
-        const hasGain = /"gain_db"\s*:/.test(element);
+        const hasGain = hasTopLevelProperty(element, 'gain_db');
         if (gainDb === null) {
             return hasGain ? removeObjectProperty(element, 'gain_db') : element;
         }
@@ -940,13 +943,14 @@ export function updateBgmInSource(
     if (updates.ducking !== undefined && updates.ducking !== null && typeof updates.ducking !== 'boolean') {
         throw new Error('ducking は boolean で指定してください。');
     }
-    const located = locateObjectProperty(source, 'bgm');
+    const audio = locateTopLevelObjectProperty(source, 'audio');
+    const located = locateTopLevelObjectProperty(audio.text, 'bgm');
     let next = located.text;
     const apply = (property: string, value: number | boolean | null | undefined): void => {
         if (value === undefined) {
             return;
         }
-        const has = new RegExp(`"${property}"\\s*:`).test(next);
+        const has = hasTopLevelProperty(next, property);
         if (value === null) {
             next = has ? removeObjectProperty(next, property) : next;
             return;
@@ -959,7 +963,8 @@ export function updateBgmInSource(
     apply('fadeIn', updates.fadeIn);
     apply('fadeOut', updates.fadeOut);
     apply('ducking', updates.ducking);
-    return source.slice(0, located.start) + next + source.slice(located.end);
+    const nextAudio = audio.text.slice(0, located.start) + next + audio.text.slice(located.end);
+    return source.slice(0, audio.start) + nextAudio + source.slice(audio.end);
 }
 
 export function moveOverlayInSource(
@@ -1179,7 +1184,7 @@ function freezeNextImplicitCutAt(
 
 function writeCutAtProperty(source: string, cutIndex: number, at: number): string {
     return updateArrayElementByIndex(source, 'cuts', cutIndex, 'クリップ', element =>
-        /"at"\s*:/.test(element)
+        hasTopLevelProperty(element, 'at')
             ? replacePropertyValue(element, 'at', at, `クリップ ${cutIndex + 1}`)
             : appendNumberProperty(element, 'at', at));
 }
@@ -1277,12 +1282,13 @@ function writeTrackProperty(source: string, track: number | null, label: string)
     if (track !== null && (!Number.isInteger(track) || track < 0)) {
         throw new Error(`${label} のトラックが不正です。`);
     }
-    const hasTrack = /"track"\s*:/.test(source);
+    const hasTrack = hasTopLevelProperty(source, 'track');
     if (track === null) {
         return hasTrack ? removeObjectProperty(source, 'track') : source;
     }
     return hasTrack
-        ? replacePropertyValue(source, 'track', track, label)
+        ? (readOptionalNumberProperty(source, 'track') === track
+            ? source : replacePropertyValue(source, 'track', track, label))
         : appendNumberProperty(source, 'track', track);
 }
 
@@ -1299,27 +1305,35 @@ function assertMovedCutDoesNotOverlap(source: string, cutIndex: number): void {
 }
 
 function replaceNumberProperty(source: string, property: string, value: number, label: string): string {
-    const pattern = new RegExp(`("${property}"\\s*:\\s*)${JSON_NUMBER}`, 'g');
-    const matches = [...source.matchAll(pattern)];
-    if (matches.length !== 1) {
+    const located = locateTopLevelProperty(source, property);
+    if (!located) {
         throw new Error(`${label} の ${property} を特定できません。`);
     }
-    return source.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
+    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^("${escapedProperty}"\\s*:\\s*)${JSON_NUMBER}$`);
+    if (!pattern.test(located.text)) {
+        throw new Error(`${label} の ${property} を特定できません。`);
+    }
+    const updated = located.text.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
+    return source.slice(0, located.start) + updated + source.slice(located.end);
 }
 
 function readNumberProperty(source: string, property: string, label: string): number {
-    const pattern = new RegExp(`"${property}"\\s*:\\s*(${JSON_NUMBER})`, 'g');
-    const matches = [...source.matchAll(pattern)];
-    if (matches.length !== 1) {
+    const value = readOptionalNumberProperty(source, property);
+    if (value === undefined) {
         throw new Error(`${label} の ${property} を特定できません。`);
     }
-    return Number(matches[0][1]);
+    return value;
 }
 
 function readOptionalNumberProperty(source: string, property: string): number | undefined {
-    const pattern = new RegExp(`"${property}"\\s*:\\s*(${JSON_NUMBER})`, 'g');
-    const matches = [...source.matchAll(pattern)];
-    return matches.length === 1 ? Number(matches[0][1]) : undefined;
+    const located = locateTopLevelProperty(source, property);
+    if (!located) {
+        return undefined;
+    }
+    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = new RegExp(`^"${escapedProperty}"\\s*:\\s*(${JSON_NUMBER})$`).exec(located.text);
+    return match ? Number(match[1]) : undefined;
 }
 
 function normalizeTrack(value: unknown): number {
@@ -1355,16 +1369,19 @@ function replacePropertyValue(
     value: number | string | boolean,
     label: string
 ): string {
-    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(
-        `("${escapedProperty}"\\s*:\\s*)(?:${JSON_NUMBER}|"(?:\\\\.|[^"\\\\])*"|true|false|null)`,
-        'g'
-    );
-    const matches = [...source.matchAll(pattern)];
-    if (matches.length !== 1) {
+    const located = locateTopLevelProperty(source, property);
+    if (!located) {
         throw new Error(`${label} の ${property} を特定できません。`);
     }
-    return source.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
+    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(
+        `^("${escapedProperty}"\\s*:\\s*)(?:${JSON_NUMBER}|"(?:\\\\.|[^"\\\\])*"|true|false|null)$`
+    );
+    if (!pattern.test(located.text)) {
+        throw new Error(`${label} の ${property} を特定できません。`);
+    }
+    const updated = located.text.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
+    return source.slice(0, located.start) + updated + source.slice(located.end);
 }
 
 function replaceTopLevelPropertyValue(
@@ -1373,12 +1390,7 @@ function replaceTopLevelPropertyValue(
     value: number | string | boolean,
     label: string
 ): string {
-    const located = locateTopLevelProperty(source, property);
-    if (!located) {
-        throw new Error(`${label} の ${property} を特定できません。`);
-    }
-    const updated = replacePropertyValue(located.text, property, value, label);
-    return source.slice(0, located.start) + updated + source.slice(located.end);
+    return replacePropertyValue(source, property, value, label);
 }
 
 function removeObjectProperty(source: string, property: string): string {
@@ -1418,7 +1430,7 @@ function applyOverlayTrackState(source: string, trackState: Record<string, numbe
         if (track !== null && (!Number.isInteger(track) || track < 0)) {
             throw new Error(`オーバーレイ ${id} のトラックが不正です。`);
         }
-        const hasTrack = new RegExp('"track"\\s*:').test(element.text);
+        const hasTrack = hasTopLevelProperty(element.text, 'track');
         const nextText = track === null
             ? (hasTrack ? removeObjectProperty(element.text, 'track') : element.text)
             : (hasTrack
@@ -1452,9 +1464,8 @@ export function updateOverlayVarInSource(
         throw new Error('オーバーレイのパラメータ更新値が不正です。');
     }
     return updateArrayElementById(source, 'overlays', overlayId, 'オーバーレイ', element => {
-        const vars = locateObjectProperty(element, 'vars');
-        const escapedName = varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const hasVar = new RegExp(`"${escapedName}"\\s*:`).test(vars.text);
+        const vars = locateTopLevelObjectProperty(element, 'vars');
+        const hasVar = hasTopLevelProperty(vars.text, varName);
         if (!hasVar) {
             throw new Error(`オーバーレイ ${overlayId} のパラメータ ${varName} が見つかりません。`);
         }
@@ -1475,7 +1486,12 @@ function replaceElement(source: string, innerOffset: number, element: SourceElem
 }
 
 function readStringProperty(source: string, property: string): string | undefined {
-    const match = new RegExp(`"${property}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`).exec(source);
+    const located = locateTopLevelProperty(source, property);
+    if (!located) {
+        return undefined;
+    }
+    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = new RegExp(`^"${escapedProperty}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"$`).exec(located.text);
     if (!match) {
         return undefined;
     }
