@@ -1199,6 +1199,23 @@ for (const fixture of [
   });
 }
 
+test("P0 2026-08-20 track-identity-and-duration: 総尺は cuts の合計ではなく visual 全体の最大終端（layers の方が長ければ layers が決める）", async () => {
+  // base(cuts) は 5s で終わるが upper(layers) は 11s まで伸びている。overlay は 9-10s に置かれていて
+  // cuts だけの合計（旧定義, 5s）なら overlays.timeline error になるが、layers を含む visual 全体の
+  // 最大終端（11s）なら収まる。段を動かして本編から layers 側へ落ちたクリップが総尺を縮めない
+  // ことの直接の回帰確認（症状 2: "overlay ends after timeline duration" の誤検知）。
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "v2-layer-extends-timeline-for-overlay-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.check === "overlays.timeline"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("layers on the same v2 track overlapping fail closed", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "layers-track-overlap-warning"));

@@ -22,6 +22,7 @@ const {
   projectLegacyEdit,
   readInternalEdit,
   resolveCaptionDisplay,
+  visualContentEndSeconds,
 } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 
 const VERSION = 1;
@@ -234,13 +235,19 @@ export async function lintProject(input, options = {}) {
   const referenceState = await validateReferences(edit, findings, paths);
   const sourceDuration = null;
 
-  const timeline = validateCuts(
+  const cutsStructureResult = validateCuts(
     edit.cuts,
     sourceDuration,
     findings,
     paths,
     structure.sourceIds,
   );
+  // 総尺の正本定義は「cuts の合計」ではなく「全 visual トラックのアイテムの最大終端」
+  // （packages/edit-store の visualContentEndSeconds、render-cut と共有）。段（トラック）を
+  // 移動しても cuts/layers の振り分けが変わるだけで total は動かない
+  // （P0 2026-08-20 track-identity-and-duration 指示 2）。cuts が構造的に不正なときは
+  // 従来どおり timeline を null にして下流の尺検証を止める。
+  const timeline = cutsStructureResult === null ? null : visualContentEndSeconds(internalEdit);
   validateCutTrackFields(edit.cuts, findings);
   validateCutTransformFields(edit.cuts, findings);
   validateStillImageCuts(edit, findings);

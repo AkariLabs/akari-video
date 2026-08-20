@@ -95,6 +95,7 @@ export function buildPlan({
   const finalDurationSeconds = computeContentDurationSeconds({
     edit,
     cutsEndSeconds,
+    internalEdit: normalizedInternalEdit,
     projectRoot,
     captionOverlays,
     probeAudioDurationSeconds,
@@ -332,11 +333,17 @@ export function usesDefaultInternalTrackOrder(internalEdit) {
     ["captions", 3],
     ["audio", 4],
   ]);
-  const keys = (internalEdit?.tracks ?? []).map((track, index) => ({
-    kind: track?.legacy?.kind,
-    ref: Number.isInteger(track?.legacy?.ref) ? track.legacy.ref : -1,
-    index,
-  }));
+  // 中身の無い declared visual トラック（段を新設してクリップを移した後の空トラック等）は旧種別が
+  // 名目上のものでしかなく、実際の描画には何も寄与しない。並び順判定の対象から外すことで、
+  // 空トラックの存在・位置が「既定順かどうか」を左右しないようにする
+  // （P0 2026-08-20 track-identity-and-duration）。
+  const keys = (internalEdit?.tracks ?? [])
+    .filter(track => track?.content !== undefined || (track?.items?.length ?? 0) > 0)
+    .map((track, index) => ({
+      kind: track?.legacy?.kind,
+      ref: Number.isInteger(track?.legacy?.ref) ? track.legacy.ref : -1,
+      index,
+    }));
   if (keys.some(key => !rank.has(key.kind))) return false;
   const expected = [...keys].sort((left, right) =>
     rank.get(left.kind) - rank.get(right.kind)

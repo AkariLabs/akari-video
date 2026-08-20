@@ -6,6 +6,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.readInternalEdit = readInternalEdit;
 exports.readInternalSources = readInternalSources;
+exports.visualContentEndSeconds = visualContentEndSeconds;
 exports.projectLegacyEdit = projectLegacyEdit;
 exports.toLegacyTrack = toLegacyTrack;
 exports.derivedLegacyTracks = derivedLegacyTracks;
@@ -44,6 +45,27 @@ function readInternalSources(source) {
     }
     return readV2Internal(raw).sources;
 }
+/**
+ * 総尺の正本定義: 映像本体（cuts + layers 相当。source.kind が media / telop / filter）の
+ * 全 visual トラックのアイテムの最大終端（出力秒）。「本編（cuts）かどうか」の旧種別は見ない
+ * ため、段（トラック）を移動しても値が変わらない。edit-lint と render-cut の両方がこの 1 関数を
+ * 共有し、定義がずれないようにする（P0 2026-08-20 track-identity-and-duration 指示 2）。
+ * html（overlays）は含めない: overlays / captions / audio はこの尺に収まっているかを
+ * 検証される側であり、検証対象自身を尺の分母に混ぜると常に「収まっている」判定になってしまう。
+ */
+function visualContentEndSeconds(internal) {
+    let maxEnd = 0;
+    for (const track of internal.tracks) {
+        if (track.lane !== 'visual')
+            continue;
+        for (const item of track.items) {
+            if (item.source.kind === 'html')
+                continue;
+            maxEnd = Math.max(maxEnd, item.at + item.duration);
+        }
+    }
+    return maxEnd;
+}
 function toRecord(source) {
     try {
         const text = typeof source === 'string' ? source : JSON.stringify(source);
@@ -76,7 +98,11 @@ function readV2Internal(raw) {
     const pathOf = (id) => sources.find(entry => entry.id === id)?.path;
     const warnings = [];
     const refCounters = new Map();
-    const mainVisualTrackId = edit.tracks.find(track => track.lane === 'visual' && 'items' in track)?.id;
+    // どの段が「本編（cuts 相当）」かは、配列上の位置だけでなく段の**現在の中身**で決める。
+    // 空トラックは資格外（そこに動画を移しても本編化しない）。段を新設して動画をそこへ動かすと、
+    // 元の段は空になり、動かした先が資格を引き継ぐため、「動画を本編から別の段へ動かす」操作
+    // そのものは本編判定を変えない（P0 2026-08-20 track-identity-and-duration）。
+    const mainVisualTrackId = edit.tracks.find(track => track.lane === 'visual' && 'items' in track && track.items.length > 0)?.id;
     const tracks = edit.tracks.map(track => {
         const kind = legacyKindOfV2Track(track, track.id === mainVisualTrackId);
         const ref = kind === 'captions' ? undefined : nextRef(refCounters, kind);
