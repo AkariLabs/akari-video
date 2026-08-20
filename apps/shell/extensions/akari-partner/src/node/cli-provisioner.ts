@@ -111,10 +111,19 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
 
         const versionDir = join(cliRoot, shellVersion);
         const mjsPath = join(versionDir, 'package', 'bin', 'akari.mjs');
+        // extraResources が同梱する `Contents/Resources/packages/akari-launcher/bin/akari.mjs`
+        // （task/2026-08-20-packaged-cli-bundling。外部依存ゼロ・約 700K）。registry へ到達
+        // できない配布先でも CLI シム配備を成立させるため、レジストリ到達不可時のフォールバック
+        // として使う（task/2026-08-20-cli-provisioner-resources）。
+        const bundledMjsPath = options.resourcesPath
+            ? join(options.resourcesPath, 'packages', 'akari-launcher', 'bin', 'akari.mjs')
+            : undefined;
+        let targetMjsPath: string;
         if (existsSync(mjsPath)) {
             push(`v${shellVersion} は配備済みです（${versionDir}）`);
+            targetMjsPath = mjsPath;
         } else {
-            const fetched = await fetchAndExtractVersion({
+            const outcome = await fetchAndExtractVersion({
                 version: shellVersion,
                 cliRoot,
                 versionDir,
@@ -124,7 +133,29 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
                 spawnTar: options.spawnTar ?? spawnSync,
                 push
             });
-            if (!fetched) {
+            if (outcome === 'fetched') {
+                targetMjsPath = mjsPath;
+            } else if (bundledMjsPath && existsSync(bundledMjsPath)) {
+                // 同梱物は tarball の `dist.integrity`（SRI）検証の対象にしない: 検証の目的は
+                // レジストリ〜ローカル間のネットワーク越し改ざん・破損を検出することで、
+                // ここで読むのはネットワークを一切経由しない、アプリ本体と同じ
+                // 署名済み .app バンドル内のファイル（他の同梱 CLI — edit-lint / render-cut /
+                // bake-layer — も同じ Resources 配下から検証なしに spawn している）。
+                // 改ざんできる攻撃者は app.asar 自体も書き換えられる立場にあり、
+                // ここだけ SRI を足しても守れる脅威モデルが無い。
+                //
+                // ただし `integrity-mismatch`（＝取得はできたが SRI が一致しない = 改ざんの
+                // 疑い）は `unavailable`（＝単に到達できなかった）と同列に扱わない。フォール
+                // バック自体は許容する（実行するのは検証済みの同梱物であり tampered tarball
+                // ではない）が、ログは何が起きたかを正確に言う（r2: 旧実装は
+                // `fetchAndExtractVersion` 内で先に「CLI は未配備のままです」と書いてから
+                // 直後にシムを生成しており、文言と実挙動が食い違っていた）。
+                push(outcome === 'integrity-mismatch'
+                    ? `⚠️ registry の tarball が integrity 検証に失敗した（改ざんの疑い）ため、同梱 CLI（Resources 配下）を使用します: ${bundledMjsPath}`
+                    : `registry に到達できないため、同梱 CLI（Resources 配下）を使用します: ${bundledMjsPath}`);
+                targetMjsPath = bundledMjsPath;
+            } else {
+                push('CLI は未配備のままです。');
                 return { status: 'failed', version: shellVersion, ...versionDetails, log };
             }
         }
@@ -132,7 +163,7 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
         const shimPath = writeShimFile(
             shimDir,
             platform,
-            buildShimScript({ platform, targetMjsPath: mjsPath, bakedNodeExecPath: execPath })
+            buildShimScript({ platform, targetMjsPath, bakedNodeExecPath: execPath })
         );
         push(`シム生成: ${shimPath}`);
         pruneOldVersionDirs(cliRoot, shellVersion);
@@ -357,7 +388,17 @@ interface FetchAndExtractOptions {
     push: (line: string) => void;
 }
 
-async function fetchAndExtractVersion(options: FetchAndExtractOptions): Promise<boolean> {
+/**
+ * `fetched`（成功）と `unavailable`（registry 未到達 / 未公開版 / 応答不正 / 展開失敗など
+ * ネットワーク・可用性起因）を `integrity-mismatch`（取得はできたが SRI 不一致 = 改ざんの疑い）
+ * で区別する。呼び出し側（`ensureCli`）は同梱 CLI へフォールバックするかどうかとログ文言を
+ * この区別で決めるため、真因を握りつぶしてはいけない
+ * （task/2026-08-20-cli-provisioner-resources r2: 旧実装は両方とも単一の `boolean` に
+ * つぶしており、integrity 不一致でも無警告で同梱版へフォールバックしていた）。
+ */
+type FetchAndExtractOutcome = 'fetched' | 'unavailable' | 'integrity-mismatch';
+
+async function fetchAndExtractVersion(options: FetchAndExtractOptions): Promise<FetchAndExtractOutcome> {
     const { version, cliRoot, versionDir, platform, fetchImpl, registryBaseUrl, spawnTar, push } = options;
     const metadataUrl = `${registryBaseUrl}/${version}`;
     push(`registry から取得しています: ${metadataUrl}`);
@@ -368,35 +409,35 @@ async function fetchAndExtractVersion(options: FetchAndExtractOptions): Promise<
             headers: { Accept: 'application/json', 'User-Agent': 'AKARI-Video-Partner-CLI-Provisioner' }
         });
         if (!response.ok) {
-            push(`registry が ${response.status} を返しました（未公開の版の可能性があります）。CLI は未配備のままです。`);
-            return false;
+            push(`registry が ${response.status} を返しました（未公開の版の可能性があります）。`);
+            return 'unavailable';
         }
         metadata = parseRegistryVersionMetadata(await response.json());
     } catch (error) {
-        push(`registry への接続に失敗しました。CLI は未配備のままです: ${errorMessage(error)}`);
-        return false;
+        push(`registry への接続に失敗しました: ${errorMessage(error)}`);
+        return 'unavailable';
     }
     if (!metadata) {
-        push('registry の応答に dist.tarball / dist.integrity がありません。CLI は未配備のままです。');
-        return false;
+        push('registry の応答に dist.tarball / dist.integrity がありません。');
+        return 'unavailable';
     }
 
     let tarballBuffer: Buffer;
     try {
         const response = await fetchImpl(metadata.tarballUrl);
         if (!response.ok) {
-            push(`tarball の取得に失敗しました（HTTP ${response.status}）。CLI は未配備のままです。`);
-            return false;
+            push(`tarball の取得に失敗しました（HTTP ${response.status}）。`);
+            return 'unavailable';
         }
         tarballBuffer = Buffer.from(await response.arrayBuffer());
     } catch (error) {
-        push(`tarball の取得に失敗しました。CLI は未配備のままです: ${errorMessage(error)}`);
-        return false;
+        push(`tarball の取得に失敗しました: ${errorMessage(error)}`);
+        return 'unavailable';
     }
 
     if (!verifyTarballIntegrity(tarballBuffer, metadata.integrity)) {
-        push('tarball の integrity 検証に失敗しました（改ざんの疑い）。CLI は未配備のままです。');
-        return false;
+        push('tarball の integrity 検証に失敗しました（改ざんの疑い）。');
+        return 'integrity-mismatch';
     }
 
     mkdirSync(cliRoot, { recursive: true });
@@ -412,8 +453,8 @@ async function fetchAndExtractVersion(options: FetchAndExtractOptions): Promise<
     } catch (error) {
         rmSync(stagingDir, { recursive: true, force: true });
         rmSync(downloadPath, { force: true });
-        push(`tarball の展開に失敗しました。CLI は未配備のままです: ${errorMessage(error)}`);
-        return false;
+        push(`tarball の展開に失敗しました: ${errorMessage(error)}`);
+        return 'unavailable';
     }
     rmSync(downloadPath, { force: true });
     // 展開先は staging → rename でアトミックに確定させる（途中クラッシュでも半端な
@@ -421,7 +462,7 @@ async function fetchAndExtractVersion(options: FetchAndExtractOptions): Promise<
     rmSync(versionDir, { recursive: true, force: true });
     renameSync(stagingDir, versionDir);
     push(`v${version} を配備しました: ${versionDir}`);
-    return true;
+    return 'fetched';
 }
 
 function extractTarball(options: {
