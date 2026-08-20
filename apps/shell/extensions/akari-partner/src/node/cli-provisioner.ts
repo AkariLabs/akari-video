@@ -111,8 +111,17 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
 
         const versionDir = join(cliRoot, shellVersion);
         const mjsPath = join(versionDir, 'package', 'bin', 'akari.mjs');
+        // extraResources が同梱する `Contents/Resources/packages/akari-launcher/bin/akari.mjs`
+        // （task/2026-08-20-packaged-cli-bundling。外部依存ゼロ・約 700K）。registry へ到達
+        // できない配布先でも CLI シム配備を成立させるため、レジストリ到達不可時のフォールバック
+        // として使う（task/2026-08-20-cli-provisioner-resources）。
+        const bundledMjsPath = options.resourcesPath
+            ? join(options.resourcesPath, 'packages', 'akari-launcher', 'bin', 'akari.mjs')
+            : undefined;
+        let targetMjsPath: string;
         if (existsSync(mjsPath)) {
             push(`v${shellVersion} は配備済みです（${versionDir}）`);
+            targetMjsPath = mjsPath;
         } else {
             const fetched = await fetchAndExtractVersion({
                 version: shellVersion,
@@ -124,7 +133,19 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
                 spawnTar: options.spawnTar ?? spawnSync,
                 push
             });
-            if (!fetched) {
+            if (fetched) {
+                targetMjsPath = mjsPath;
+            } else if (bundledMjsPath && existsSync(bundledMjsPath)) {
+                // 同梱物は tarball の `dist.integrity`（SRI）検証の対象にしない: 検証の目的は
+                // レジストリ〜ローカル間のネットワーク越し改ざん・破損を検出することで、
+                // ここで読むのはネットワークを一切経由しない、アプリ本体と同じ
+                // 署名済み .app バンドル内のファイル（他の同梱 CLI — edit-lint / render-cut /
+                // bake-layer — も同じ Resources 配下から検証なしに spawn している）。
+                // 改ざんできる攻撃者は app.asar 自体も書き換えられる立場にあり、
+                // ここだけ SRI を足しても守れる脅威モデルが無い。
+                push(`registry に到達できないため、同梱 CLI（Resources 配下）を使用します: ${bundledMjsPath}`);
+                targetMjsPath = bundledMjsPath;
+            } else {
                 return { status: 'failed', version: shellVersion, ...versionDetails, log };
             }
         }
@@ -132,7 +153,7 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
         const shimPath = writeShimFile(
             shimDir,
             platform,
-            buildShimScript({ platform, targetMjsPath: mjsPath, bakedNodeExecPath: execPath })
+            buildShimScript({ platform, targetMjsPath, bakedNodeExecPath: execPath })
         );
         push(`シム生成: ${shimPath}`);
         pruneOldVersionDirs(cliRoot, shellVersion);
