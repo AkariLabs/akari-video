@@ -14,6 +14,7 @@ import {
     findRepoAkariLauncherMjs,
     isElectronExecutable,
     parseRegistryVersionMetadata,
+    readInstalledAppVersion,
     resolveCliRoot,
     resolveCliShimDir,
     resolveShellVersion,
@@ -330,6 +331,35 @@ test('ensureCli: 配備済みの版は再取得せず ready を返す（冪等�
 
     assert.equal(result.status, 'ready');
     assert.equal(result.version, '0.1.11');
+});
+
+test('ensureCli: CLI 版 > install-ref 本体版のずれを数字付きで返す', async () => {
+    const home = await tempDir('akari-ensure-version-mismatch-home-');
+    const shellRoot = await tempDir('akari-ensure-version-mismatch-shell-');
+    await writeShellPackageJson(shellRoot, '0.1.12');
+    const versionMjsDir = path.join(resolveCliRoot(home), '0.1.12', 'package', 'bin');
+    mkdirSync(versionMjsDir, { recursive: true });
+    writeFileSync(path.join(versionMjsDir, 'akari.mjs'), '// already deployed');
+    mkdirSync(path.join(home, 'app'), { recursive: true });
+    writeFileSync(path.join(home, 'app', '.akari-install-ref'), 'v0.1.11\n');
+
+    assert.equal(await readInstalledAppVersion(home), '0.1.11');
+    const result = await ensureCli({
+        akariHome: home,
+        execPath: PACKAGED_EXEC_PATH,
+        hasElectronRuntime: true,
+        platform: 'darwin',
+        shellPackageJsonStartDirs: [shellRoot],
+        fetchImpl: async () => {
+            throw new Error('配備済みなので fetch されないこと');
+        }
+    });
+
+    assert.equal(result.status, 'ready');
+    assert.equal(result.version, '0.1.12');
+    assert.equal(result.appVersion, '0.1.11');
+    assert.equal(result.appVersionRelation, 'older');
+    assert.ok(result.log.some(line => line.includes('CLI v0.1.12 / 本体 v0.1.11 → 本体が古い')));
 });
 
 test('ensureCli: 版が変わったら新版を配備しシムを差し替え、旧版は直近 1 世代だけ残す', async () => {

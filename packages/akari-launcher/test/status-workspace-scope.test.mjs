@@ -217,6 +217,24 @@ test("runStatusCommand (terminal entry): a broken root.json falls back to the un
   });
 });
 
+test("runStatusCommand: human output shows CLI and install-ref body versions", async () => {
+  await withTempDir(async (root) => {
+    const akariHome = join(root, "isolated-akari-home");
+    await mkdir(join(akariHome, "app"), { recursive: true });
+    await writeFile(join(akariHome, "app", ".akari-install-ref"), "v0.1.11\n", "utf8");
+    const lines = [];
+    await runStatusCommand([root], {
+      env: { AKARI_HOME: akariHome },
+      cliVersion: "0.1.12",
+      log: (line) => lines.push(line),
+    });
+    const output = lines.join("");
+    assert.match(output, /CLI バージョン: v0\.1\.12/u);
+    assert.match(output, /本体バージョン: v0\.1\.11/u);
+    assert.match(output, /本体が古い/u);
+  });
+});
+
 test("SessionStart hook (plugin entry): injects workspace status at a workspace root", async () => {
   await withTempDir(async (root) => {
     await writeRootManifest(root);

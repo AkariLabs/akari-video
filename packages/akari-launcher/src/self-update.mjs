@@ -378,6 +378,10 @@ export function rollbackSelfUpdate({ env = process.env, log = () => {} } = {}) {
   }
 
   const version = readVersionAt(appDir);
+  if (version) {
+    // install-ref が無い古い app-previous へ戻した場合も、以後の更新判定を本体版基準に保つ。
+    writeFileSync(join(appDir, '.akari-install-ref'), `v${version}\n`, 'utf8');
+  }
   log(version ? `v${version} へロールバックしました` : 'ロールバックしました');
   return { exitCode: 0, rolledBack: true, version };
 }
