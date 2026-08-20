@@ -425,6 +425,52 @@ test('ensureCli: tarball の integrity 不一致は failed を返しファイル
     assert.ok(!existsSync(cliShimFilePath(resolveCliShimDir(home), 'darwin')));
 });
 
+test('ensureCli: tarball の integrity 不一致でも同梱 CLI があれば ready を返す（ログは改ざんの疑いを明示し、未配備とは言わない）', async () => {
+    // r2: fetchAndExtractVersion は「到達不可」と「integrity 不一致（改ざんの疑い）」を
+    // 区別しないまま同じ bundled フォールバックへ流していた。フォールバック自体は許容する
+    // （実行するのは検証済みの同梱物であり tampered tarball ではない）が、ログは事実
+    // （改ざんの疑いがあったこと）を明示し、「CLI は未配備のままです」という直後の
+    // シム生成と矛盾する文言を残してはいけない。
+    const home = await tempDir('akari-ensure-integrity-bundled-home-');
+    const shellRoot = await tempDir('akari-ensure-integrity-bundled-shell-');
+    await writeShellPackageJson(shellRoot, '0.1.11');
+    const resourcesRoot = await tempDir('akari-ensure-integrity-bundled-resources-');
+    const bundledMjsDir = path.join(resourcesRoot, 'packages', 'akari-launcher', 'bin');
+    await mkdir(bundledMjsDir, { recursive: true });
+    const bundledMjsPath = path.join(bundledMjsDir, 'akari.mjs');
+    await writeFile(bundledMjsPath, '#!/usr/bin/env node\n// bundled akari.mjs');
+
+    const tarballBuffer = Buffer.from('fake tarball bytes');
+    const result = await ensureCli({
+        akariHome: home,
+        execPath: PACKAGED_EXEC_PATH,
+        hasElectronRuntime: true,
+        platform: 'darwin',
+        resourcesPath: resourcesRoot,
+        shellPackageJsonStartDirs: [shellRoot],
+        fetchImpl: makeFakeFetch(
+            {
+                version: '0.1.11',
+                tarballUrl: 'https://registry.npmjs.org/akari-video/-/akari-video-0.1.11.tgz',
+                integrity: 'sha512-thisDoesNotMatchTheTarball=='
+            },
+            tarballBuffer
+        ),
+        spawnTar: makeFakeSpawnTar('// should never be reached')
+    });
+
+    assert.equal(result.status, 'ready');
+    assert.equal(result.version, '0.1.11');
+    // ログは「改ざんの疑い」を明示した上でフォールバックしたことを言う。
+    assert.ok(result.log.some(line => line.includes('integrity') && line.includes('改ざんの疑い') && line.includes(bundledMjsPath)));
+    // 「CLI は未配備のままです」という、直後にシムを生成する事実と矛盾する行を残さない。
+    assert.ok(!result.log.some(line => line.includes('未配備のまま')));
+    const shimContent = await readFile(cliShimFilePath(resolveCliShimDir(home), 'darwin'), 'utf8');
+    assert.ok(shimContent.includes(bundledMjsPath));
+    // 改ざんが疑われた tarball 由来のファイルは cliRoot 配下に一切残っていない。
+    assert.ok(!existsSync(path.join(resolveCliRoot(home), '0.1.11')));
+});
+
 test('ensureCli: registry 404（未公開版）は例外を投げず fail-soft を返す', async () => {
     const home = await tempDir('akari-ensure-404-home-');
     const shellRoot = await tempDir('akari-ensure-404-shell-');
