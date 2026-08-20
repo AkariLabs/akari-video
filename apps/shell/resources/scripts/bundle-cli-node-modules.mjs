@@ -20,8 +20,8 @@
 //
 // hyperframes を同梱しない判断の根拠は bundled-cli-npm-entries.mjs のコメントにある。
 
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, readdirSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readFileSync, readlinkSync, rmSync, statSync, readdirSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { BUNDLED_CLI_NPM_ENTRIES } from './bundled-cli-npm-entries.mjs';
@@ -106,7 +106,44 @@ for (const directory of closure.keys()) {
     const relativePath = directory.slice(join(REPO_ROOT, 'node_modules').length + 1);
     const target = join(STAGING_DIR, relativePath);
     mkdirSync(dirname(target), { recursive: true });
-    cpSync(directory, target, { recursive: true, dereference: true, preserveTimestamps: true });
+    cpSync(directory, target, {
+        recursive: true,
+        dereference: true,
+        preserveTimestamps: true,
+        // `.bin` は npm が作る CLI シムのディレクトリで、中身は他パッケージへの相対 symlink。
+        // cpSync の dereference はコピー元のトップレベルにしか効かず、ツリー内部の symlink は
+        // 「symlink のまま・宛先を絶対パスへ解決して」複製される。その絶対パスは .app の外を
+        // 指すため、codesign が
+        //   `AKARI Video.app: invalid destination for symbolic link in bundle`
+        // で署名を拒否し、package が丸ごと落ちる（2026-08-20 実測。40 分かけて 2 回踏んだ）。
+        // 同梱 CLI は .bin シムを一切使わない（render-cut は「.bin シムは Windows で
+        // spawn できない」という理由から、常に node へパッケージ入口を直接渡す実装）ので、
+        // まるごと除外するのが正しい。
+        filter: source => basename(source) !== '.bin',
+    });
+}
+
+// 除外し漏れの保険。staging に symlink が 1 つでも残っていたら、.app の外を指す可能性が
+// あるのでここで止める（署名まで進んでから 40 分後に落ちるより、prepackage で落とす）。
+const remainingSymlinks = [];
+{
+    const stack = [STAGING_DIR];
+    while (stack.length > 0) {
+        for (const entry of readdirSync(stack.pop(), { withFileTypes: true, encoding: 'utf8' })) {
+            const child = join(entry.parentPath ?? entry.path, entry.name);
+            if (entry.isSymbolicLink()) {
+                remainingSymlinks.push(`${child} -> ${readlinkSync(child)}`);
+            } else if (entry.isDirectory()) {
+                stack.push(child);
+            }
+        }
+    }
+}
+if (remainingSymlinks.length > 0) {
+    throw new Error(
+        'staging に symlink が残っています（codesign が .app 内の外部宛 symlink を拒否します）:\n'
+        + remainingSymlinks.map(line => `  ${line}`).join('\n'),
+    );
 }
 
 const megabytes = (directoryBytes(STAGING_DIR) / (1024 * 1024)).toFixed(1);
