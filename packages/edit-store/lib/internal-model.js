@@ -219,7 +219,16 @@ function buildV2Item(item, index, fps, ref, lane, mainVisualTrack, pathOf) {
             const alignsDuration = Math.abs(span - playbackDuration) <= 1 / fps + 1e-9;
             const cutOut = alignsDuration ? item.source.in + playbackDuration : item.source.out;
             const speed = !alignsDuration && playbackDuration > 0 ? span / playbackDuration : undefined;
-            if (!mainVisualTrack) {
+            // mainVisualTrack への昇格はトラック単位だが、cuts（concat チェーン）経路は
+            // crop / perspective / blend / keyframes を読まない（render-cut の cut-transform.mjs /
+            // track-compose.mjs が対応していない）。これらを宣言するアイテムは、たまたま昇格した
+            // トラックに乗っていても常に layers 扱いにし、無関係な既存クリップが黙って
+            // cuts へ再分類されて見た目が壊れないようにする（P0 2026-08-20 r2・wave-verify r1 差し戻し）。
+            const hasLayerOnlyVisualProperties = item.crop !== undefined
+                || item.perspective !== undefined
+                || item.blend !== undefined
+                || item.keyframes !== undefined;
+            if (!mainVisualTrack || hasLayerOnlyVisualProperties) {
                 const declaration = {
                     id: item.id, t: at, duration, kind: 'video', src: path ?? item.source.src,
                     track: ref, ...common, ...copyMediaSourceFields(item.source)
