@@ -12,13 +12,13 @@ const bin = resolve(dirname(fileURLToPath(import.meta.url)), "..", "bin", "expor
 function makeProject() {
   const root = mkdtempSync(join(tmpdir(), "export-nle-"));
   writeFileSync(join(root, "edit.json"), JSON.stringify({
-    version: 0,
+    version: 2,
     output: { width: 1280, height: 720, fps: 30 },
-    source: { path: "source.mp4", proxy: null },
-    cuts: [
-      { in: 0, out: 5 },
-      { in: 10, out: 12, transform: { scale: 1.1 } },
-    ],
+    sources: [{ id: "main", path: "source.mp4", proxy: null }],
+    tracks: [{ id: "main-track", lane: "visual", items: [
+      { id: "c1", at: 0, duration: 150, source: { kind: "media", src: "main", in: 0, out: 5 } },
+      { id: "c2", at: 150, duration: 60, transform: { scale: 1.1 }, source: { kind: "media", src: "main", in: 10, out: 12 } },
+    ] }],
     audio: {
       narration: [
         { id: "n-0001", path: "n.mp3", t: 1, provenance: { provider: "human" } },

@@ -67,86 +67,64 @@ export function buildFcpxml(model, { durations, frameDur, totalDuration }) {
     ...assetNodes,
   ]);
 
-  // --- カット列（lane 1）------------------------------------------------------
+  // --- video tracks（tracks[] の配列順 = z）----------------------------------
   const gapChildren = [];
-  const looseMode = model.gapAware;
-  if (looseMode && model.cuts.some((cut) => cut.transition_out)) {
-    dropped.push({
-      field: "cuts[].transition_out",
-      reason: "at / track 指定のあるタイムラインではトランジション境界が隣接に限らないため書き出さない",
-      hint: "書き出し先で手動でトランジションを追加する",
-    });
-  }
-
   const beatTargets = mapAnchorsToCuts(model, warnings, dropped);
+  for (const track of model.videoTracks) {
+    const lane = String(track.z + 1);
+    if (canUseStoryline(track, halfFrame)) {
+      const spineItems = [];
+      let cursor = 0;
+      track.clips.forEach((cut, trackIndex) => {
+        const boundary = usableTransition(track.clips, trackIndex, halfFrame);
+        const visibleDuration = boundary ? cut.duration - boundary.duration : cut.duration;
+        if (cut.at - cursor > halfFrame) {
+          spineItems.push(element("gap", {
+            name: "Gap", offset: t(cursor), start: "0s", duration: t(cut.at - cursor),
+          }));
+        }
+        spineItems.push(cutClipNode(
+          model, cut, { start: cut.at }, visibleDuration, t, assetIds, beatTargets, fd, warnings,
+        ));
+        cursor = cut.at + visibleDuration;
+        if (boundary) {
+          const junction = cursor;
+          spineItems.push(element("transition", {
+            name: transitionName(boundary.type),
+            offset: t(Math.max(cut.at, junction - boundary.duration / 2)),
+            duration: t(boundary.duration),
+          }));
+          if (boundary.type !== "dissolve") {
+            dropped.push({
+              field: `tracks[${track.id}].items[${cut.id}].source.transition_out.type`,
+              reason: `${boundary.type} は FCPXML の既定トランジション（cross dissolve）で近似する`,
+              hint: "書き出し先で dip to color へ差し替える",
+            });
+          }
+        }
+      });
+      gapChildren.push(element("spine", { lane, offset: "0s" }, spineItems));
+      continue;
+    }
 
-  if (model.cuts.length > 0 && !looseMode) {
-    const spineItems = [];
-    let cursor = 0;
-    model.cuts.forEach((cut, index) => {
-      const placement = model.placements[index];
-      const boundary = cut.transition_out && index + 1 < model.cuts.length
-        ? cut.transition_out
-        : null;
-      const visibleDuration = boundary
-        ? placement.duration - boundary.duration
-        : placement.duration;
-      if (placement.start - cursor > halfFrame) {
-        spineItems.push(element("gap", {
-          name: "Gap",
-          offset: t(cursor),
-          start: "0s",
-          duration: t(placement.start - cursor),
-        }));
-      }
-      spineItems.push(cutClipNode(model, cut, index, placement, visibleDuration, t, assetIds, beatTargets, fd));
-      cursor = placement.start + visibleDuration;
-      if (boundary) {
-        const junction = placement.start + visibleDuration;
-        spineItems.push(element("transition", {
-          name: transitionName(boundary.type),
-          offset: t(Math.max(placement.start, junction - boundary.duration / 2)),
-          duration: t(boundary.duration),
-        }));
-        if (boundary.type !== "dissolve") {
+    for (const clip of track.clips) {
+      if (clip.kind === "media") {
+        if (clip.transition_out) {
           dropped.push({
-            field: `cuts[${index}].transition_out.type`,
-            reason: `${boundary.type} は FCPXML の既定トランジション（cross dissolve）で近似する`,
-            hint: "書き出し先で dip to color へ差し替える",
+            field: `tracks[${track.id}].items[${clip.id}].source.transition_out`,
+            reason: "同一トラックが storyline にできない配置のためトランジションを書き出さない",
+            hint: "書き出し先で手動でトランジションを追加する",
           });
         }
+        gapChildren.push(cutClipNode(
+          model, clip, { start: clip.at }, clip.duration,
+          t, assetIds, beatTargets, fd, warnings, { lane, offset: t(clip.at) },
+        ));
+      } else {
+        gapChildren.push(layerClipNode(clip, lane, t, assetIds, warnings));
       }
-    });
-    gapChildren.push(element("spine", { lane: "1", offset: "0s" }, spineItems));
-  } else if (model.cuts.length > 0) {
-    // gap-aware（at / track 指定あり）: 各カットを connected clip として絶対配置する
-    model.cuts.forEach((cut, index) => {
-      const placement = model.placements[index];
-      const lane = 1 + (Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0);
-      gapChildren.push(cutClipNode(
-        model, cut, index, placement, placement.duration, t, assetIds, beatTargets, fd,
-        { lane: String(lane), offset: t(placement.start) },
-      ));
-    });
+    }
   }
-
-  // --- layers（lane 2+）-------------------------------------------------------
-  const layerLaneBase = 1 + Math.max(1, ...model.cuts.map((cut) => 1 + (cut.track ?? 0)));
-  model.layers.forEach((layer, index) => {
-    const lane = layerLaneBase + (Number.isInteger(layer.track) && layer.track >= 0 ? layer.track : 0);
-    const children = [];
-    if (layer.transform) children.push(transformNode(layer.transform));
-    const blend = blendNode(layer.opacity, layer.blend, warnings);
-    if (blend) children.push(blend);
-    gapChildren.push(element("asset-clip", {
-      ref: assetIds.get(layer.src),
-      lane: String(lane),
-      offset: t(layer.t),
-      name: layer.id ?? `layer-${index + 1}`,
-      start: "0s",
-      duration: t(layer.duration),
-    }, children));
-  });
 
   // --- audio（lane -1..）------------------------------------------------------
   const sfxTracks = (model.sfx ?? []).map((item) => (Number.isInteger(item.track) && item.track >= 0 ? item.track : 0));
@@ -212,7 +190,7 @@ export function buildFcpxml(model, { durations, frameDur, totalDuration }) {
   return { xml: xmlDocument(root, "<!DOCTYPE fcpxml>"), dropped, warnings };
 }
 
-function cutClipNode(model, cut, index, placement, visibleDuration, t, assetIds, beatTargets, fd, extraAttrs = {}) {
+function cutClipNode(model, cut, placement, visibleDuration, t, assetIds, beatTargets, fd, warnings, extraAttrs = {}) {
   const children = [];
   const speed = cutSpeed(cut);
   if (speed !== 1) {
@@ -227,9 +205,9 @@ function cutClipNode(model, cut, index, placement, visibleDuration, t, assetIds,
     ]));
   }
   if (cut.transform) children.push(transformNode(cut.transform));
-  const blend = blendNode(cut.opacity, null, null);
+  const blend = blendNode(cut.opacity, cut.blend, warnings);
   if (blend) children.push(blend);
-  for (const marker of beatTargets.get(index) ?? []) {
+  for (const marker of beatTargets.get(cut.id) ?? []) {
     children.push(element("marker", {
       start: t(marker.start),
       duration: t(Math.max(marker.duration, fd.numerator / fd.denominator)),
@@ -240,11 +218,48 @@ function cutClipNode(model, cut, index, placement, visibleDuration, t, assetIds,
   return element("asset-clip", {
     ref: assetIds.get(sourcePath(model, cut.src)),
     offset: t(placement.start),
-    name: `${cut.src} ${index + 1}`,
+    name: cut.id,
     start: t(cut.in),
     duration: t(visibleDuration),
     ...extraAttrs,
   }, children);
+}
+
+function layerClipNode(layer, lane, t, assetIds, warnings) {
+  const children = [];
+  if (layer.transform) children.push(transformNode(layer.transform));
+  const blend = blendNode(layer.opacity, layer.blend, warnings);
+  if (blend) children.push(blend);
+  return element("asset-clip", {
+    ref: assetIds.get(layer.path),
+    lane,
+    offset: t(layer.at),
+    name: layer.id,
+    start: "0s",
+    duration: t(layer.duration),
+  }, children);
+}
+
+function usableTransition(clips, index, epsilon) {
+  const clip = clips[index];
+  const next = clips[index + 1];
+  const boundary = clip?.transition_out;
+  if (!boundary || next?.kind !== "media" || !(boundary.duration > 0)) return null;
+  const expected = clip.at + clip.duration - boundary.duration;
+  return Math.abs(next.at - expected) <= epsilon ? boundary : null;
+}
+
+function canUseStoryline(track, epsilon) {
+  if (!track.clips.every((clip) => clip.kind === "media")) return false;
+  let cursor = 0;
+  for (let index = 0; index < track.clips.length; index += 1) {
+    const clip = track.clips[index];
+    if (clip.at < cursor - epsilon) return false;
+    const boundary = usableTransition(track.clips, index, epsilon);
+    if (clip.transition_out && !boundary) return false;
+    cursor = clip.at + clip.duration - (boundary?.duration ?? 0);
+  }
+  return true;
 }
 
 // beats / emphasis_words は (src, source 秒) アンカー。カット内側の時刻はクリップの
@@ -252,14 +267,14 @@ function cutClipNode(model, cut, index, placement, visibleDuration, t, assetIds,
 function mapAnchorsToCuts(model, warnings, dropped) {
   const targets = new Map();
   const attach = (anchorStart, anchorEnd, src, value, note, field) => {
-    const index = model.cuts.findIndex((cut) =>
-      (src === null || cut.src === src) && anchorStart >= cut.in && anchorStart < cut.out);
-    if (index === -1) {
+    const cut = model.cuts.find((candidate) =>
+      (src === null || candidate.src === src) && anchorStart >= candidate.in && anchorStart < candidate.out);
+    if (!cut) {
       dropped.push({ field, reason: "アンカーがどのカットにも含まれない", hint: "カット範囲外のマーカーは書き出されない" });
       return;
     }
-    if (!targets.has(index)) targets.set(index, []);
-    targets.get(index).push({
+    if (!targets.has(cut.id)) targets.set(cut.id, []);
+    targets.get(cut.id).push({
       start: anchorStart,
       duration: Math.max(0, anchorEnd - anchorStart),
       value,
@@ -267,7 +282,7 @@ function mapAnchorsToCuts(model, warnings, dropped) {
     });
   };
   for (const beat of model.beats) {
-    const src = typeof beat.src === "string" ? beat.src : (model.version === 0 ? null : null);
+    const src = typeof beat.src === "string" ? beat.src : null;
     attach(beat.t, beat.t, src, `beat:${beat.kind} (${beat.strength})`, beat.basis ?? "", `beats[${beat.id}]`);
   }
   for (const word of model.emphasisWords) {
@@ -393,7 +408,7 @@ function fallbackAssetDuration(model, ref, totalDuration) {
     if (outs.length > 0) return Math.max(...outs);
   }
   if (ref.roles.has("layer")) {
-    const durations = model.layers.filter((layer) => layer.src === ref.path).map((layer) => layer.duration);
+    const durations = model.layers.filter((layer) => layer.path === ref.path).map((layer) => layer.duration);
     if (durations.length > 0) return Math.max(...durations);
   }
   if (ref.roles.has("bgm")) return totalDuration;

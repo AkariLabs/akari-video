@@ -2,7 +2,7 @@
 // entry: { field, reason, hint } — report と CLI 出力の両方で使う。
 
 export function collectBaseDropped(model) {
-  const dropped = [];
+  const dropped = [...(model.unsupportedItems ?? [])];
   const push = (field, reason, hint) => dropped.push({ field, reason, hint });
 
   if (model.bgm?.ducking) {
@@ -38,7 +38,7 @@ export function collectBaseDropped(model) {
   for (const layer of model.layers) {
     if (layer.chroma_key) {
       push(
-        `layers[${layer.id}].chroma_key`,
+        `items[${layer.id}].chroma_key`,
         "レイヤーのクロマキーは交換形式に移らない",
         "書き出し先のキーヤーを手動設定する",
       );

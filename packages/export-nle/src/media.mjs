@@ -30,7 +30,7 @@ export function collectMediaRefs(model) {
     refs.get(path).roles.add(role);
   };
   for (const source of model.sources) add(source.path, "source");
-  for (const layer of model.layers) add(layer.src, "layer");
+  for (const layer of model.layers) add(layer.path, "layer");
   for (const item of model.narration) add(item.path, "narration");
   for (const item of model.sfx ?? []) add(item.path, "sfx");
   if (model.bgm) add(model.bgm.path, "bgm");

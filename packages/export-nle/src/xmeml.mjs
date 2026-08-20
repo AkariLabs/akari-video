@@ -63,46 +63,37 @@ export function buildXmeml(model, { durations, frameDur, totalDuration }) {
   const clipId = () => `clipitem-${clipSerial += 1}`;
 
   const videoTracks = [];
-  const cutTrackIndexes = [...new Set(model.cuts.map((cut) => (Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0)))].sort((a, b) => a - b);
-  for (const trackIndex of cutTrackIndexes.length > 0 ? cutTrackIndexes : []) {
+  const halfFrame = 1 / fps / 2;
+  for (const track of model.videoTracks) {
     const items = [];
-    model.cuts.forEach((cut, index) => {
-      const cutTrack = Number.isInteger(cut.track) && cut.track >= 0 ? cut.track : 0;
-      if (cutTrack !== trackIndex) return;
-      const placement = model.placements[index];
-      const boundary = !model.gapAware && cut.transition_out && index + 1 < model.cuts.length
-        ? cut.transition_out
-        : null;
-      const visibleDuration = boundary ? placement.duration - boundary.duration : placement.duration;
-      items.push(cutClipItem(model, cut, index, placement, visibleDuration, {
+    track.clips.forEach((clip, trackIndex) => {
+      if (clip.kind === "baked") {
+        items.push(layerClipItem(model, clip, { toFrame, rateNode, fileNode, clipId, warnings }));
+        return;
+      }
+      const boundary = usableTransition(track.clips, trackIndex, halfFrame);
+      const visibleDuration = boundary ? clip.duration - boundary.duration : clip.duration;
+      items.push(cutClipItem(model, clip, { start: clip.at }, visibleDuration, {
         toFrame, rateNode, fileNode, clipId, warnings,
       }));
       if (boundary) {
-        const junction = placement.start + visibleDuration;
+        const junction = clip.at + visibleDuration;
         items.push(transitionItem(boundary, junction, { toFrame, rateNode }));
         if (boundary.type !== "dissolve") {
           dropped.push({
-            field: `cuts[${index}].transition_out.type`,
+            field: `tracks[${track.id}].items[${clip.id}].source.transition_out.type`,
             reason: `${boundary.type} は Cross Dissolve で近似する`,
             hint: "書き出し先で Dip to Black/White へ差し替える",
           });
         }
+      } else if (clip.transition_out) {
+        dropped.push({
+          field: `tracks[${track.id}].items[${clip.id}].source.transition_out`,
+          reason: "後続クリップとの配置が transition_out の重複と一致しないため書き出さない",
+          hint: "書き出し先で手動でトランジションを追加する",
+        });
       }
     });
-    videoTracks.push(element("track", {}, items));
-  }
-  if (model.gapAware && model.cuts.some((cut) => cut.transition_out)) {
-    dropped.push({
-      field: "cuts[].transition_out",
-      reason: "at / track 指定のあるタイムラインではトランジション境界が隣接に限らないため書き出さない",
-      hint: "書き出し先で手動でトランジションを追加する",
-    });
-  }
-  const layerTracks = [...new Set(model.layers.map((layer) => (Number.isInteger(layer.track) && layer.track >= 0 ? layer.track : 0)))].sort((a, b) => a - b);
-  for (const trackIndex of layerTracks) {
-    const items = model.layers
-      .filter((layer) => (Number.isInteger(layer.track) && layer.track >= 0 ? layer.track : 0) === trackIndex)
-      .map((layer) => layerClipItem(model, layer, { toFrame, rateNode, fileNode, clipId, warnings }));
     videoTracks.push(element("track", {}, items));
   }
 
@@ -201,16 +192,19 @@ export function buildXmeml(model, { durations, frameDur, totalDuration }) {
   return { xml: xmlDocument(root, "<!DOCTYPE xmeml>"), dropped, warnings };
 }
 
-function cutClipItem(model, cut, index, placement, visibleDuration, context) {
+function cutClipItem(model, cut, placement, visibleDuration, context) {
   const { toFrame, rateNode, fileNode, clipId, warnings } = context;
   const speed = cutSpeed(cut);
   const path = model.sources.find((source) => source.id === cut.src)?.path;
   const filters = [];
   if (cut.transform) filters.push(basicMotionFilter(cut.transform, model.output));
   if (typeof cut.opacity === "number" && cut.opacity < 1) filters.push(opacityFilter(cut.opacity));
+  if (typeof cut.blend === "string" && cut.blend !== "normal") {
+    warnings.push(`items[${cut.id}] blend=${cut.blend} は xmeml に相互運用表現がなく落ちる（合成モードは書き出し先で再設定）`);
+  }
   if (speed !== 1) {
     // ⚠ 未検証: FCP7 流儀の timeremap 定速。Premiere は speed パラメータ（%）を読む
-    warnings.push(`cuts[${index}] speed=${speed} を timeremap 定速で書き出す（未検証）`);
+    warnings.push(`items[${cut.id}] speed=${speed} を timeremap 定速で書き出す（未検証）`);
     filters.push(element("filter", {}, [element("effect", {}, [
       element("name", {}, [], "Time Remap"),
       element("effectid", {}, [], "timeremap"),
@@ -234,7 +228,7 @@ function cutClipItem(model, cut, index, placement, visibleDuration, context) {
     ])]));
   }
   return element("clipitem", { id: clipId() }, [
-    element("name", {}, [], `${cut.src} ${index + 1}`),
+    element("name", {}, [], cut.id),
     element("enabled", {}, [], "TRUE"),
     element("duration", {}, [], String(toFrame(visibleDuration))),
     rateNode(),
@@ -253,20 +247,29 @@ function layerClipItem(model, layer, context) {
   if (layer.transform) filters.push(basicMotionFilter(layer.transform, model.output));
   if (typeof layer.opacity === "number" && layer.opacity < 1) filters.push(opacityFilter(layer.opacity));
   if (typeof layer.blend === "string" && layer.blend !== "normal") {
-    warnings.push(`layers[${layer.id}] blend=${layer.blend} は xmeml に相互運用表現がなく落ちる（合成モードは書き出し先で再設定）`);
+    warnings.push(`items[${layer.id}] blend=${layer.blend} は xmeml に相互運用表現がなく落ちる（合成モードは書き出し先で再設定）`);
   }
   return element("clipitem", { id: clipId() }, [
     element("name", {}, [], layer.id),
     element("enabled", {}, [], "TRUE"),
     element("duration", {}, [], String(toFrame(layer.duration))),
     rateNode(),
-    element("start", {}, [], String(toFrame(layer.t))),
-    element("end", {}, [], String(toFrame(layer.t + layer.duration))),
+    element("start", {}, [], String(toFrame(layer.at))),
+    element("end", {}, [], String(toFrame(layer.at + layer.duration))),
     element("in", {}, [], "0"),
     element("out", {}, [], String(toFrame(layer.duration))),
-    fileNode(layer.src),
+    fileNode(layer.path),
     ...filters,
   ]);
+}
+
+function usableTransition(clips, index, epsilon) {
+  const clip = clips[index];
+  const next = clips[index + 1];
+  const boundary = clip?.transition_out;
+  if (!boundary || next?.kind !== "media" || !(boundary.duration > 0)) return null;
+  const expected = clip.at + clip.duration - boundary.duration;
+  return Math.abs(next.at - expected) <= epsilon ? boundary : null;
 }
 
 function audioClipItem(name, path, placement, context) {
