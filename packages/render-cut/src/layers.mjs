@@ -644,7 +644,7 @@ export function buildLayersCompositeCommand({
     if (isNormal) {
       const next = `[${idBase}_out]`;
       filters.push(
-        `${previous}${processed}overlay=x=(main_w-overlay_w)/2+${xExpr}:y=(main_h-overlay_h)/2+${yExpr}:format=auto:enable='${enableWindowExpr(t, end)}'${next}`,
+        `${previous}${processed}overlay=x=(main_w-overlay_w)/2+${xExpr}:y=(main_h-overlay_h)/2+${yExpr}:format=auto:enable='${enableWindowExpr(t, end, fps)}'${next}`,
       );
       previous = next;
       return;

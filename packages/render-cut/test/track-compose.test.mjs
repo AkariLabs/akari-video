@@ -252,6 +252,7 @@ appendFileSync(process.env.AKARI_FFMPEG_STAGE_LOG, JSON.stringify(process.argv.s
         outputPath: join(directory, "static-composite.mp4"),
         hasAudio: true,
         duration: 2,
+        fps: 10,
         videoEncodeArgs,
       });
     } finally {
@@ -400,12 +401,12 @@ test("real FFmpeg frames hide caption alpha when its track stage is below an opa
     });
     const coverCaption = buildCutTrackCompositeCommand({
       ffmpegCommand: "ffmpeg", inputPath: belowCaptionPath, trackPath: sourcePath,
-      outputPath: belowOutputPath, ranges: cutRanges, duration: 1.5,
+      outputPath: belowOutputPath, ranges: cutRanges, duration: 1.5, fps: 10,
     });
     runChecked(coverCaption.command, coverCaption.args);
     const cutBelow = buildCutTrackCompositeCommand({
       ffmpegCommand: "ffmpeg", inputPath: basePath, trackPath: sourcePath,
-      outputPath: aboveCutPath, ranges: cutRanges, duration: 1.5,
+      outputPath: aboveCutPath, ranges: cutRanges, duration: 1.5, fps: 10,
     });
     runChecked(cutBelow.command, cutBelow.args);
     await compositeAnimatedOverlay({

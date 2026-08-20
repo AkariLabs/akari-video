@@ -10,8 +10,8 @@ import { enableWindowExpr } from "../src/enable-window.mjs";
 // 境界の帰属を一意にするため半開区間 [start, end) を唯一の定義とする。
 
 test("enableWindowExpr: 半開区間 [start, end) を返す（閉区間 between は使わない）", () => {
-  const expr = enableWindowExpr(1, 4.4);
-  assert.equal(expr, "gte(t,1)*lt(t,4.4)");
+  const expr = enableWindowExpr(1, 4.4, 30);
+  assert.equal(expr, "gte(t,0.9833333333333333)*lt(t,4.383333333333334)");
   assert.doesNotMatch(expr, /between/);
 });
 
@@ -20,11 +20,11 @@ test("enableWindowExpr: 終端のフレームは含まれず、次のクリッ�
   const start = 1;
   const duration = 3.4; // ちょうど 102 フレーム。閉区間だとここで漏れていた
   const end = start + duration;
-  const expr = enableWindowExpr(start, end);
+  const expr = enableWindowExpr(start, end, fps);
 
   // 式を JS の述語として評価し、フレーム時刻で境界の帰属を確かめる
   const active = (t) => {
-    const [, lo, hi] = expr.match(/^gte\(t,([\d.]+)\)\*lt\(t,([\d.]+)\)$/).map(Number);
+    const [, lo, hi] = expr.match(/^gte\(t,([^\)]+)\)\*lt\(t,([^\)]+)\)$/).map(Number);
     return t >= lo && t < hi;
   };
 
@@ -57,13 +57,40 @@ test("enableWindowExpr: 隣接するクリップ列が重ならない", () => {
     [7.7, 11.6333],
   ];
   const predicates = windows.map(([start, end]) => {
-    const [, lo, hi] = enableWindowExpr(start, end)
-      .match(/^gte\(t,([\d.]+)\)\*lt\(t,([\d.]+)\)$/)
+    const [, lo, hi] = enableWindowExpr(start, end, 30)
+      .match(/^gte\(t,([^\)]+)\)\*lt\(t,([^\)]+)\)$/)
       .map(Number);
     return (t) => t >= lo && t < hi;
   });
   for (const boundary of [3.4, 7.7]) {
     const activeCount = predicates.filter((predicate) => predicate(boundary)).length;
     assert.equal(activeCount, 1, `境界 ${boundary}s でちょうど 1 つのクリップだけが有効`);
+  }
+});
+
+test("enableWindowExpr: 30fps の 77 フレーム境界を ffmpeg の時刻計算でも取りこぼさない", () => {
+  const fps = 30;
+  const expr = enableWindowExpr(77 / fps, 154 / fps, fps);
+  const [, lo, hi] = expr.match(/^gte\(t,([^\)]+)\)\*lt\(t,([^\)]+)\)$/).map(Number);
+  const active = (frame) => {
+    const t = frame * (1 / fps);
+    return t >= lo && t < hi;
+  };
+
+  // 旧実装の秒しきい値 gte(t,2.566666666666667) では、ffmpeg と同じ計算の
+  // frame 77 = 77 * (1/30) = 2.5666666666666664 が false になっていた。
+  assert.equal(active(76), false, "開始直前のフレーム 76 は含まない");
+  assert.equal(active(77), true, "開始フレーム 77 を含む");
+  assert.equal(active(153), true, "終端直前のフレーム 153 を含む");
+  assert.equal(active(154), false, "終端フレーム 154 は含まない");
+});
+
+test("enableWindowExpr: fps は正の有限数を必須とする", () => {
+  for (const fps of [undefined, 0, Number.NaN, -30]) {
+    assert.throws(
+      () => enableWindowExpr(0, 1, fps),
+      { name: "TypeError" },
+      `fps=${String(fps)} は拒否する`,
+    );
   }
 });

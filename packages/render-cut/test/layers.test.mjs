@@ -9,11 +9,15 @@ import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
-import { buildLayersCompositeCommand, hasLayers, isImageLayerSource } from "../src/layers.mjs";
+import { buildLayersCompositeCommand as buildLayersCompositeCommandImpl, hasLayers, isImageLayerSource } from "../src/layers.mjs";
 import { computePerspectiveFfmpegCorners } from "../src/perspective-homography.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");
+
+function buildLayersCompositeCommand(options) {
+  return buildLayersCompositeCommandImpl({ fps: 30, ...options });
+}
 
 function run(project, args = []) {
   return spawnSync(process.execPath, [cliPath, project, ...args], { encoding: "utf8" });
@@ -209,6 +213,7 @@ test("buildLayersCompositeCommand: a normal-blend baked layer uses a PTS shift +
     inputPath: "/project/.akari/render-tmp/cut.mp4",
     outputPath: "/project/.akari/render-tmp/layered.mp4",
     duration: 10,
+    fps: 30,
   });
   assert.ok(!args.includes("-itsoffset"));
   assert.ok(args.includes("/project/fx.mov"));
@@ -219,7 +224,7 @@ test("buildLayersCompositeCommand: a normal-blend baked layer uses a PTS shift +
   // ちょうど乗るとき（実運用で普通にある丸い尺）、次のクリップの先頭フレームにも 1 フレーム
   // 重なって出る。実測で 102 フレームであるべきところが 103 フレーム出ることを確認している
   // （src/enable-window.mjs のコメント参照）。
-  assert.match(filterComplex, /enable='gte\(t,2\)\*lt\(t,5\)'/);
+  assert.match(filterComplex, /enable='gte\(t,1\.9833333333333334\)\*lt\(t,4\.983333333333333\)'/);
   assert.doesNotMatch(filterComplex, /between\(t,/);
   assert.doesNotMatch(filterComplex, /blend=all_mode/);
 });

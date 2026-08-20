@@ -56,6 +56,7 @@ export function buildCutTrackCompositeCommand({
   outputPath,
   ranges,
   duration,
+  fps,
   videoEncodeArgs = null,
 }) {
   const filters = [];
@@ -75,7 +76,7 @@ export function buildCutTrackCompositeCommand({
       `${sources[index]}trim=start=${formatNumber(range.inputStart)}:end=${formatNumber(inputEnd)},setpts=PTS-STARTPTS+${formatNumber(range.outputStart)}/TB${prepared}`,
     );
     filters.push(
-      `${previous}${prepared}overlay=x=0:y=0:format=auto:eof_action=pass:enable='${enableWindowExpr(range.outputStart, range.outputEnd)}'${next}`,
+      `${previous}${prepared}overlay=x=0:y=0:format=auto:eof_action=pass:enable='${enableWindowExpr(range.outputStart, range.outputEnd, fps)}'${next}`,
     );
     previous = next;
   });

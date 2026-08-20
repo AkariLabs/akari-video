@@ -939,6 +939,7 @@ export async function rasterizeAndComposite(context) {
       outputPath: compositePath,
       hasAudio: true,
       duration,
+      fps,
       videoEncodeArgs,
       onProgress,
     });

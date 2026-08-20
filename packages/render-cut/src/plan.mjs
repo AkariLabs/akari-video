@@ -296,6 +296,7 @@ export function buildPlan({
           temporary,
           renderOverlays,
           finalDurationSeconds,
+          fps,
           videoEncodeArgs,
         ),
       },
@@ -469,6 +470,7 @@ function buildTrackStackPlan({
           outputPath,
           ranges: resolveCutTrackRanges(track.items),
           duration,
+          fps,
           videoEncodeArgs,
         }),
       });
@@ -809,7 +811,7 @@ function buildAnimatedCompositeCommand(command, cutPath, overlayPath, outputPath
   };
 }
 
-function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, overlays, duration, videoEncodeArgs = null) {
+function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, overlays, duration, fps, videoEncodeArgs = null) {
   const args = ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", cutPath];
   const filters = [];
   let previous = "[0:v]";
@@ -818,7 +820,7 @@ function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, ov
     args.push("-loop", "1", "-i", png);
     const next = `[overlay${index}]`;
     filters.push(
-      `${previous}[${index + 1}:v]overlay=0:0:format=auto:enable='${enableWindowExpr(overlay.start, overlay.start + overlay.duration)}'${next}`,
+      `${previous}[${index + 1}:v]overlay=0:0:format=auto:enable='${enableWindowExpr(overlay.start, overlay.start + overlay.duration, fps)}'${next}`,
     );
     previous = next;
   }
