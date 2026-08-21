@@ -442,3 +442,167 @@ test("keyframes: an animated crop position lands at the same footprint content a
     await Promise.all([rootAlone, rootWithBase].map(root => rm(root, { recursive: true, force: true })));
   }
 });
+
+// --- r2 (2026-08-21, independent Codex review before merge) --------------------------------
+// The above tests (1)-(7) cover r1's own acceptance criteria (position independence). This
+// section pins the 1 BLOCKER + 3 MAJOR regressions an independent read-only review found in that
+// same r1 work before merge, each first confirmed real with a hand-built ffmpeg repro (see
+// tasks/2026-08-21-render-path-unification/report.md's r2 section for the full verification
+// trail) and then fixed. Kept in this file rather than a new one: same task, same helpers.
+
+function makeMarkerSource(path, { duration, width = WIDTH, height = HEIGHT }) {
+  // Solid red background with a small white square in the extreme top-left corner -- a marker
+  // that a "crop away everything except the center" punch-in must remove, and a plain pass-through
+  // must leave untouched. Used by the MAJOR-2 regression below.
+  ffmpeg([
+    "-f", "lavfi", "-i", `color=c=red:s=${width}x${height}:r=${FPS}:d=${duration}`,
+    "-vf", "drawbox=x=2:y=2:w=12:h=12:color=white:t=fill",
+    "-c:v", "libx264", "-pix_fmt", "yuv420p", path,
+  ]);
+}
+
+// --- BLOCKER: a transform-only PiP (no crop/perspective/keyframes) must scale relative to the
+// source's OWN native size, not get canvas-letterbox-fit baked into its own footprint first ------
+
+test("BLOCKER regression: a transform-only PiP's footprint is sized from the source's native pixels, not inflated by a canvas letterbox-fit", async (t) => {
+  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+  // 200x100 source, transform.scale=0.3, no crop/perspective/keyframes -- the exact shape that
+  // used to dispatch through appendCutVisualTransform's unconditional canvas-fit-then-scale
+  // chain. Correct native-relative footprint: 200*0.3=60 wide, 100*0.3=30 tall (half-height 15).
+  // The pre-fix bug instead fit 200x100 into the 320x180 canvas first (->320x160, padded to
+  // 320x180), THEN scaled that by 0.3 (->96x54, half-height 27, with an inflated interior that
+  // stops being magenta only in the outer few px of black letterbox padding). A canvas point at
+  // vertical distance 20px from center is outside the correct 30px-tall footprint (black
+  // background expected) but still inside the buggy 54px-tall footprint's magenta interior
+  // (black-pad band only starts at distance 24px there) -- so it discriminates the two directly.
+  const sources = [{ id: "pip", path: "pip.mp4", proxy: null }];
+  const pipTrack = { id: "pip-track", lane: "visual", items: [
+    { id: "pip-1", at: 0, duration: 30, source: { kind: "media", src: "pip", in: 0, out: 3 }, transform: { scale: 0.3 } },
+  ] };
+  const edit = { version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS }, sources, tracks: [pipTrack] };
+  const root = await writeProject(edit);
+  try {
+    await makeColorSource(join(root, "pip.mp4"), { color: "magenta", duration: 3, width: 200, height: 100 });
+    const output = await renderAndGetOutputPath(root);
+    const insideCorrectFootprint = samplePixelRgb(output, 1.5, 0.5, 90 / 180);
+    const beyondCorrectFootprint = samplePixelRgb(output, 1.5, 0.5, 70 / 180);
+    t.diagnostic(`center=${JSON.stringify(insideCorrectFootprint)} 20px-above-center=${JSON.stringify(beyondCorrectFootprint)}`);
+    assert.ok(isColor(insideCorrectFootprint, "magenta"), `expected magenta at the footprint's own center: ${JSON.stringify(insideCorrectFootprint)}`);
+    assert.ok(!isColor(beyondCorrectFootprint, "magenta"), `expected the opaque black canvas background 20px above center (outside the correct 30px-tall footprint) -- magenta here means the footprint was inflated by a canvas fit step: ${JSON.stringify(beyondCorrectFootprint)}`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// --- MAJOR-1: a keyframed rotate on a crop-bearing (layers-style) cut must actually animate ------
+
+test("MAJOR-1 regression: a keyframed rotate on a crop-declared cut animates over time instead of staying static", async (t) => {
+  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+  // crop (an identity crop, {x:0,y:0,w:1,h:1}) forces dispatch to appendCutLayerStyleVisual, the
+  // builder that (pre-fix) only ever read the static cut.transform.rotate field and never
+  // transformKeyframes.rotateExpr -- so a cut with ONLY keyframed rotate (no static
+  // transform.rotate at all) rendered permanently un-rotated. 100x60 source at native scale
+  // (transform omits scale -> 1): half-width 50, half-height 30. A canvas point at
+  // dx=40 from center is inside the un-rotated box (half-width 50) but outside once rotated to
+  // ~90 degrees (half-width becomes ~30, the old half-height) -- so sampling that same point near
+  // the start and near the end of the keyframe range discriminates "did it actually rotate".
+  const sources = [{ id: "pip", path: "pip.mp4", proxy: null }];
+  const pipTrack = { id: "pip-track", lane: "visual", items: [
+    {
+      id: "pip-1", at: 0, duration: 30,
+      source: { kind: "media", src: "pip", in: 0, out: 3 },
+      crop: { x: 0, y: 0, w: 1, h: 1 },
+      keyframes: [
+        { t: 0, transform: { rotate: 0 } },
+        { t: 3, transform: { rotate: 90 } },
+      ],
+    },
+  ] };
+  const edit = { version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS }, sources, tracks: [pipTrack] };
+  const root = await writeProject(edit);
+  try {
+    await makeColorSource(join(root, "pip.mp4"), { color: "magenta", duration: 3, width: 100, height: 60 });
+    const output = await renderAndGetOutputPath(root);
+    const nearStart = samplePixelRgb(output, 0.1, (160 + 40) / 320, 0.5);
+    const nearEnd = samplePixelRgb(output, 2.9, (160 + 40) / 320, 0.5);
+    t.diagnostic(`dx=40 sample near t=0 (rotate~=0deg)=${JSON.stringify(nearStart)}; near t=3 (rotate~=90deg)=${JSON.stringify(nearEnd)}`);
+    assert.ok(isColor(nearStart, "magenta"), `expected magenta at dx=40 while still near 0deg: ${JSON.stringify(nearStart)}`);
+    assert.ok(!isColor(nearEnd, "magenta"), `expected dx=40 to have rotated OUT of the footprint by ~90deg -- staying magenta means the keyframed rotate was never applied: ${JSON.stringify(nearEnd)}`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// --- MAJOR-2: framing must still apply when combined with crop/perspective/keyframes -------------
+
+test("MAJOR-2 regression: cuts[].framing still applies when the same cut also declares crop", async (t) => {
+  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+  // crop is an identity crop (forces the appendCutLayerStyleVisual dispatch without changing the
+  // frame itself) declared alongside source.framing (a punch-in that crops the CENTER 50%x50%
+  // window and rescales it to fill the canvas). Pre-fix, appendCutLayerStyleVisual never read
+  // cut.framing at all, so the marker (a white square in the extreme top-left corner, well
+  // outside the center 50% window) stayed visible in the output. If framing actually applies, the
+  // punch-in crops that corner away entirely and the whole frame should read as plain background
+  // red, including at the exact source pixel the marker used to occupy.
+  const sources = [{ id: "base", path: "base.mp4", proxy: null }];
+  const track = { id: "t1", lane: "visual", items: [
+    {
+      id: "cut-1", at: 0, duration: 30,
+      crop: { x: 0, y: 0, w: 1, h: 1 },
+      source: { kind: "media", src: "base", in: 0, out: 3, framing: { crop: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 } } },
+    },
+  ] };
+  const edit = { version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS }, sources, tracks: [track] };
+  const root = await writeProject(edit);
+  try {
+    makeMarkerSource(join(root, "base.mp4"), { duration: 3 });
+    const output = await renderAndGetOutputPath(root);
+    const cornerSample = samplePixelRgb(output, 1.5, 0.02, 0.02);
+    t.diagnostic(`top-left corner (marker's own source position) after framing+crop=${JSON.stringify(cornerSample)}`);
+    assert.ok(isColor(cornerSample, "red"), `expected the marker cropped away by framing's punch-in (plain red background), got ${JSON.stringify(cornerSample)} -- white here means framing was silently dropped`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// --- MAJOR-3: a declared transition overlap shorter than the actual timeline overlap must still
+// blend (clamped to what's really available), not silently hard-cut and drop frames -------------
+
+test("MAJOR-3 regression: transition_out still blends when the next cut's explicit `at` gives less overlap than declared", async (t) => {
+  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+  const sources = [
+    { id: "red", path: "red.mp4", proxy: null },
+    { id: "blue", path: "blue.mp4", proxy: null },
+  ];
+  // c1 declares a 1s dissolve (10 frames @10fps); a fully-honored declaration would place c2 at
+  // at=20 (2.0s, i.e. duration 30 - transition 10 = 20). c2 instead declares at=25 (2.5s) --
+  // only 0.5s/5 frames of actual overlap, half of what was declared. Pre-fix this mismatch routed
+  // the whole array to the gap-aware engine (no transition_out support at all): an instant hard
+  // cut, c2's first 0.5s of source silently dropped, and both clips' full audio overlapping
+  // audibly across the boundary. Post-fix, the transition duration actually rendered is clamped
+  // to the real 0.5s overlap (not the declared 1s) and offset accordingly.
+  const track = { id: "t1", lane: "visual", items: [
+    { id: "c1", at: 0, duration: 30, source: { kind: "media", src: "red", in: 0, out: 3, transition_out: { type: "dissolve", duration: 1 } } },
+    { id: "c2", at: 25, duration: 20, source: { kind: "media", src: "blue", in: 0, out: 2 } },
+  ] };
+  const edit = { version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS }, sources, tracks: [track] };
+  const root = await writeProject(edit);
+  try {
+    await makeColorSource(join(root, "red.mp4"), { color: "red", duration: 3 });
+    await makeColorSource(join(root, "blue.mp4"), { color: "blue", duration: 2 });
+    const output = await renderAndGetOutputPath(root);
+    const duration = ffprobeDurationSeconds(output);
+    t.diagnostic(`predicted/actual duration=${duration}s (expected ~4.5s: 3+2-0.5 actual overlap)`);
+    assert.ok(Math.abs(duration - 4.5) <= 0.2, `expected ~4.5s (self-consistent either way; this alone would not catch the bug), got ${duration}s`);
+
+    const beforeBoundary = samplePixelRgb(output, 2.4, 0.5, 0.5);
+    const midBoundary = samplePixelRgb(output, 2.7, 0.5, 0.5);
+    const afterBoundary = samplePixelRgb(output, 3.2, 0.5, 0.5);
+    t.diagnostic(`before=${JSON.stringify(beforeBoundary)} mid=${JSON.stringify(midBoundary)} after=${JSON.stringify(afterBoundary)}`);
+    assert.ok(isColor(beforeBoundary, "red"), `expected pure red before the transition window: ${JSON.stringify(beforeBoundary)}`);
+    assert.ok(isColor(afterBoundary, "blue"), `expected pure blue after the transition window: ${JSON.stringify(afterBoundary)}`);
+    assert.ok(!isColor(midBoundary, "red") && !isColor(midBoundary, "blue"), `expected a genuine red/blue blend inside the actual 0.5s overlap -- a hard cut here means transition_out was silently dropped: ${JSON.stringify(midBoundary)}`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
