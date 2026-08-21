@@ -1,0 +1,156 @@
+{
+  "label": "postfix-layer",
+  "steps": [
+    {
+      "step": "viewport",
+      "width": 1440,
+      "height": 1250
+    },
+    {
+      "step": "opened",
+      "found": true
+    },
+    {
+      "step": "baseline",
+      "bands": [
+        {
+          "id": "captions",
+          "kind": "captions",
+          "top": 861.3984375,
+          "bottom": 898.3984375
+        },
+        {
+          "id": "v3",
+          "kind": "cuts",
+          "top": 903.3984375,
+          "bottom": 976.3984375
+        },
+        {
+          "id": "v2",
+          "kind": "cuts",
+          "top": 981.3984375,
+          "bottom": 1054.3984375
+        },
+        {
+          "id": "v-lay",
+          "kind": "layers",
+          "top": 1059.3984375,
+          "bottom": 1096.3984375
+        },
+        {
+          "id": "v1",
+          "kind": "cuts",
+          "top": 1101.3984375,
+          "bottom": 1174.3984375
+        },
+        {
+          "id": "v-empty",
+          "kind": "layers",
+          "top": 1179.3984375,
+          "bottom": 1216.3984375
+        },
+        {
+          "id": "a-bgm",
+          "kind": "audio",
+          "top": 1221.3984375,
+          "bottom": 1278.3984375
+        }
+      ],
+      "layers": [
+        {
+          "id": "L1",
+          "lane": "v-lay",
+          "left": 422.0390625,
+          "top": 1059.3984375,
+          "width": 72.59375,
+          "height": 32
+        },
+        {
+          "id": "L2",
+          "lane": "v-lay",
+          "left": 530.9375,
+          "top": 1059.3984375,
+          "width": 72.59375,
+          "height": 32
+        }
+      ]
+    },
+    {
+      "step": "layer-over-v2-top-edge",
+      "y": 984.3984375,
+      "indicator": {
+        "visible": false,
+        "top": 0
+      },
+      "feedback": "00:00:00.000 / 尺 2.00 秒 / 行 2",
+      "ghost": {
+        "found": true,
+        "rejected": false
+      }
+    },
+    {
+      "step": "layer-far-above",
+      "y": 741.3984375,
+      "topBand": "captions",
+      "distancePx": 120,
+      "indicator": {
+        "visible": true,
+        "top": 860.3984375
+      },
+      "feedback": "00:00:00.000 / 尺 2.00 秒 / 行 2",
+      "ghost": {
+        "found": true,
+        "rejected": false
+      }
+    },
+    {
+      "step": "result",
+      "tracks": [
+        {
+          "id": "a-bgm",
+          "items": [
+            "bgm-1"
+          ]
+        },
+        {
+          "id": "v-empty",
+          "items": []
+        },
+        {
+          "id": "v1",
+          "items": [
+            "c1"
+          ]
+        },
+        {
+          "id": "v-lay",
+          "items": [
+            "L2"
+          ]
+        },
+        {
+          "id": "v2",
+          "items": [
+            "c2"
+          ]
+        },
+        {
+          "id": "v3",
+          "items": [
+            "c3"
+          ]
+        },
+        {
+          "id": "captions",
+          "items": null
+        },
+        {
+          "id": "v4",
+          "items": [
+            "L1"
+          ]
+        }
+      ]
+    }
+  ]
+}

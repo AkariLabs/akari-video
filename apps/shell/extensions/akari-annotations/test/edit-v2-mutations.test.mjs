@@ -44,11 +44,14 @@ test('item id 索引は trackId / trackIndex / itemIndex を返す', () => {
   });
 });
 
-test('moveItem は visual 段どうしを種別なしで移動し、元の空段を残す', () => {
+test('moveItem は visual 段どうしを種別なしで移動し、空になった移動元段を畳む', () => {
   const result = valid(moveItem(fixture, { itemId: 'html-1', toTrackId: 'v-main', atFrames: 15 }));
-  assert.equal(result.tracks.find(track => track.id === 'v-html').items.length, 0);
+  assert.equal(result.tracks.some(track => track.id === 'v-html'), false);
   assert.equal(result.tracks.find(track => track.id === 'v-main').items.at(-1).id, 'html-1');
   assert.equal(result.tracks.find(track => track.id === 'v-main').items.at(-1).at, 15);
+  assert.deepEqual(result.tracks.map(track => track.id), [
+    'a-sfx', 'a-narration', 'a-bgm', 'v-main', 'captions', 'v-filter', 'v-telop'
+  ]);
   assert.throws(
     () => moveItem(fixture, { itemId: 'clip-1', toTrackId: 'a-sfx', atFrames: 0 }),
     /音のレーンには映像を置けません/
@@ -59,10 +62,47 @@ test('moveItemToNewTrack は行間に同じ lane の段を作る', () => {
   const result = valid(moveItemToNewTrack(fixture, {
     itemId: 'clip-1', insertIndex: 4, atFrames: 12
   }));
-  assert.equal(result.tracks.find(track => track.id === 'v-main').items.length, 0);
-  assert.equal(result.tracks[4].lane, 'visual');
-  assert.equal(result.tracks[4].items[0].id, 'clip-1');
-  assert.equal(result.tracks[4].items[0].at, 12);
+  assert.equal(result.tracks.some(track => track.id === 'v-main'), false);
+  assert.equal(result.tracks[3].lane, 'visual');
+  assert.equal(result.tracks[3].items[0].id, 'clip-1');
+  assert.equal(result.tracks[3].items[0].at, 12);
+});
+
+test('最上段挿入は空になった移動元を畳み、tracks[] 末尾へ新しい最上段を作る', () => {
+  const result = valid(moveItemToNewTrack(fixture, {
+    itemId: 'html-1', insertIndex: fixture.tracks.length, atFrames: 90
+  }));
+  assert.equal(result.tracks.some(track => track.id === 'v-html'), false);
+  assert.equal(result.tracks.at(-1).lane, 'visual');
+  assert.equal(result.tracks.at(-1).items[0].id, 'html-1');
+  assert.equal(result.tracks.at(-1).items[0].at, 90);
+  assert.deepEqual(result.tracks.slice(0, -1).map(track => track.id), [
+    'a-sfx', 'a-narration', 'a-bgm', 'v-main', 'captions', 'v-filter', 'v-telop'
+  ]);
+});
+
+test('移動元に別アイテムが残る場合は visual 段を畳まない', () => {
+  const source = structuredClone(fixture);
+  source.tracks.find(track => track.id === 'v-html').items.push({
+    id: 'html-2', at: 120, duration: 30,
+    source: { kind: 'html', path: 'overlays/second.html' }
+  });
+  const result = valid(moveItem(source, { itemId: 'html-1', toTrackId: 'v-main', atFrames: 15 }));
+  assert.deepEqual(result.tracks.find(track => track.id === 'v-html').items.map(item => item.id), ['html-2']);
+});
+
+test('移動時の空段整理は content/audio/明示追加の未使用 visual 段を巻き込まない', () => {
+  const source = structuredClone(fixture);
+  source.tracks.splice(6, 0, { id: 'v-empty-explicit', lane: 'visual', items: [] });
+  const result = valid(moveItem(source, { itemId: 'html-1', toTrackId: 'v-main', atFrames: 15 }));
+  assert.equal(result.tracks.some(track => track.id === 'v-html'), false);
+  assert.ok(result.tracks.some(track => track.id === 'v-empty-explicit'));
+  assert.deepEqual(result.tracks.find(track => track.id === 'captions').content, {
+    from: 'captions.json'
+  });
+  assert.ok(result.tracks.some(track => track.id === 'a-sfx'));
+  assert.ok(result.tracks.some(track => track.id === 'a-narration'));
+  assert.ok(result.tracks.some(track => track.id === 'a-bgm'));
 });
 
 test('updateItem は item と source を部分更新し、未知の既存値を保つ', () => {

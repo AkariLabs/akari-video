@@ -1,0 +1,254 @@
+{
+  "label": "postfix",
+  "steps": [
+    {
+      "step": "viewport",
+      "width": 1440,
+      "height": 1250
+    },
+    {
+      "step": "opened",
+      "ok": true
+    },
+    {
+      "step": "baseline",
+      "tracks": [
+        {
+          "id": "a-bgm",
+          "items": [
+            "bgm-1"
+          ]
+        },
+        {
+          "id": "v-empty",
+          "items": []
+        },
+        {
+          "id": "v1",
+          "items": [
+            "c1"
+          ]
+        },
+        {
+          "id": "v-lay",
+          "items": [
+            "L1",
+            "L2"
+          ]
+        },
+        {
+          "id": "v2",
+          "items": [
+            "c2"
+          ]
+        },
+        {
+          "id": "v3",
+          "items": [
+            "c3"
+          ]
+        },
+        {
+          "id": "captions",
+          "items": null
+        }
+      ],
+      "bands": [
+        {
+          "id": "captions",
+          "kind": "captions",
+          "top": 861.3984375,
+          "bottom": 898.3984375,
+          "height": 37
+        },
+        {
+          "id": "v3",
+          "kind": "cuts",
+          "top": 903.3984375,
+          "bottom": 976.3984375,
+          "height": 73
+        },
+        {
+          "id": "v2",
+          "kind": "cuts",
+          "top": 981.3984375,
+          "bottom": 1054.3984375,
+          "height": 73
+        },
+        {
+          "id": "v-lay",
+          "kind": "layers",
+          "top": 1059.3984375,
+          "bottom": 1096.3984375,
+          "height": 37
+        },
+        {
+          "id": "v1",
+          "kind": "cuts",
+          "top": 1101.3984375,
+          "bottom": 1174.3984375,
+          "height": 73
+        },
+        {
+          "id": "v-empty",
+          "kind": "layers",
+          "top": 1179.3984375,
+          "bottom": 1216.3984375,
+          "height": 37
+        },
+        {
+          "id": "a-bgm",
+          "kind": "audio",
+          "top": 1221.3984375,
+          "bottom": 1278.3984375,
+          "height": 57
+        }
+      ],
+      "clips": [
+        {
+          "id": "0",
+          "top": 1101.3984375,
+          "bottom": 1173.3984375,
+          "left": 422.0390625,
+          "width": 72.59375,
+          "height": 72
+        },
+        {
+          "id": "1",
+          "top": 981.3984375,
+          "bottom": 1053.3984375,
+          "left": 422.0390625,
+          "width": 72.59375,
+          "height": 72
+        },
+        {
+          "id": "2",
+          "top": 903.3984375,
+          "bottom": 975.3984375,
+          "left": 530.9375,
+          "width": 72.59375,
+          "height": 72
+        }
+      ]
+    },
+    {
+      "step": "s3-probe",
+      "name": "v2-top+1",
+      "y": 982.3984375,
+      "indicator": {
+        "found": true,
+        "visible": false,
+        "top": 0,
+        "background": "rgb(34, 197, 94)"
+      },
+      "feedback": "00:00:03.000 / 行 2",
+      "ghost": {
+        "found": true,
+        "rejected": false
+      }
+    },
+    {
+      "step": "s3-probe",
+      "name": "v2-top+3",
+      "y": 984.3984375,
+      "indicator": {
+        "found": true,
+        "visible": false,
+        "top": 0,
+        "background": "rgb(34, 197, 94)"
+      },
+      "feedback": "00:00:03.000 / 行 2",
+      "ghost": {
+        "found": true,
+        "rejected": false
+      }
+    },
+    {
+      "step": "s3-probe",
+      "name": "v2-top+8",
+      "y": 989.3984375,
+      "indicator": {
+        "found": true,
+        "visible": false,
+        "top": 0,
+        "background": "rgb(34, 197, 94)"
+      },
+      "feedback": "00:00:03.000 / 行 2",
+      "ghost": {
+        "found": true,
+        "rejected": false
+      }
+    },
+    {
+      "step": "s3-probe",
+      "name": "v2-center",
+      "y": 1017.8984375,
+      "indicator": {
+        "found": true,
+        "visible": false,
+        "top": 0,
+        "background": "rgb(34, 197, 94)"
+      },
+      "feedback": "00:00:03.000 / 行 2",
+      "ghost": {
+        "found": true,
+        "rejected": false
+      }
+    },
+    {
+      "step": "s3-probe",
+      "name": "v2-bottom-3",
+      "y": 1051.3984375,
+      "indicator": {
+        "found": true,
+        "visible": false,
+        "top": 0,
+        "background": "rgb(34, 197, 94)"
+      },
+      "feedback": "00:00:03.000 / 行 2",
+      "ghost": {
+        "found": true,
+        "rejected": false
+      }
+    },
+    {
+      "step": "s3-result",
+      "tracks": [
+        {
+          "id": "a-bgm",
+          "items": [
+            "bgm-1"
+          ]
+        },
+        {
+          "id": "v-empty",
+          "items": []
+        },
+        {
+          "id": "v1",
+          "items": [
+            "c1"
+          ]
+        },
+        {
+          "id": "v-lay",
+          "items": [
+            "L1",
+            "L2"
+          ]
+        },
+        {
+          "id": "v2",
+          "items": [
+            "c2",
+            "c3"
+          ]
+        },
+        {
+          "id": "captions",
+          "items": null
+        }
+      ]
+    }
+  ]
+}
