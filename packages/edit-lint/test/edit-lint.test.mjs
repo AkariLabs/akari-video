@@ -929,20 +929,6 @@ test("bgm.in (R6a trim offset, contract §2) passes without disturbing existing 
   });
 });
 
-test("direction の不在はエラーにしない（既存 fixture の非退行）", async () => {
-  await withFixtures(async (fixtures) => {
-    const project = join(fixtures, "valid");
-    const executed = run(project);
-    assert.equal(executed.status, 0, executed.stderr);
-    const result = parseResult(executed);
-    assert.equal(result.verdict, "pass");
-    assert.ok(
-      result.findings.every((finding) => !finding.check.startsWith("direction.")),
-      JSON.stringify(result.findings, null, 2),
-    );
-  });
-});
-
 test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.master pass with zero findings", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "render-basics-valid");

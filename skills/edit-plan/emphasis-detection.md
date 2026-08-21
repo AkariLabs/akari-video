@@ -2,7 +2,7 @@
 
 > **v2 注記**: edit.json v2 のトップレベルは exact で `emphasis_words` を受け付けない。
 > 以下の導出知識は候補と根拠を判断記録へ残すために使い、v2 の `edit.json` には書かない。
-> `emphasis_words` の再受け入れは別タスクとする。
+> `emphasis_words` は v2 で廃止済みであり、消費者側コードも畳んだため、今後も復活させない。
 
 ## 原則
 

@@ -34,6 +34,20 @@ test("readEditV2 rejects v0/v1 instead of converting them", () => {
   );
 });
 
+test("readEditV2 rejects removed top-level vocabulary as undefined keys", async () => {
+  const value = JSON.parse(await readFile(fixturePath, "utf8"));
+  for (const [key, extension] of [
+    ["beats", []],
+    ["emphasis_words", []],
+    ["direction", {}],
+  ]) {
+    assert.throws(
+      () => readEditV2({ ...value, [key]: extension }),
+      new RegExp(`edit\\.json.*未定義キー.*${key}`),
+    );
+  }
+});
+
 test("readEditV2 reports closed source and item violations with a path", async () => {
   const value = JSON.parse(await readFile(fixturePath, "utf8"));
   value.tracks[4].items[0].source.in = 0;
