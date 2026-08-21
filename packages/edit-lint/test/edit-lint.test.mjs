@@ -645,6 +645,45 @@ test("captions-short-duration fixture warns only below the 1.0s readability floo
   });
 });
 
+test("captions-overlap-invalid detects every caption overlapping the furthest prior end", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "captions-overlap-invalid"));
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    const findings = result.findings.filter(
+      (finding) => finding.check === "captions.overlap",
+    );
+    assert.deepEqual(
+      findings.map(({ severity, message, path, range }) => ({ severity, message, path, range })),
+      [
+        {
+          severity: "error",
+          message: "caption overlaps c-0001 on the same track",
+          path: "captions.json#[1]",
+          range: { start: 1, end: 2 },
+        },
+        {
+          severity: "error",
+          message: "caption overlaps c-0001 on the same track",
+          path: "captions.json#[2]",
+          range: { start: 3, end: 4 },
+        },
+      ],
+    );
+  });
+});
+
+test("captions-overlap-adjacent-valid permits captions whose boundaries only touch", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "captions-overlap-adjacent-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(!result.findings.some((finding) => finding.check === "captions.overlap"));
+  });
+});
+
 test("words[] rejects unknown fields, requires 0 <= start <= end, and non-empty text", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "captions-words-valid");

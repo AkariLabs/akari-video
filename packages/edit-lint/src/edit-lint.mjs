@@ -2534,6 +2534,8 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
   // 常に全件発火する警告は本物の指摘を埋めるだけなので、規則ごと落とすのが正しい。
   // 撤去の証跡は edit-lint.test.mjs の "captions.overlay-link は発火しない" で固定してある。
   let previousStart = -Infinity;
+  let furthestEnd = -Infinity;
+  let furthestCaption = null;
 
   for (const [index, caption] of captions.entries()) {
     const itemPath = `captions.json#[${index}]`;
@@ -2655,6 +2657,19 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
         );
       }
       previousStart = caption.start;
+      if (caption.start < furthestEnd - EPSILON) {
+        addFinding(findings, {
+          severity: "error",
+          check: "captions.overlap",
+          message: `caption overlaps ${furthestCaption.id ?? furthestCaption.path} on the same track`,
+          path: itemPath,
+          range: { start: caption.start, end: caption.end },
+        });
+      }
+      if (caption.end > furthestEnd) {
+        furthestEnd = caption.end;
+        furthestCaption = { id: caption.id, path: itemPath };
+      }
       const displaySeconds = caption.end - caption.start;
       if (displaySeconds < 1.0 - EPSILON) {
         addFinding(findings, {

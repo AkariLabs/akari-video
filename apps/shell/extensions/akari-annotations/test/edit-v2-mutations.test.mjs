@@ -119,6 +119,26 @@ test('reorderTracks は tracks[] の順だけを動かし lane 越えを拒否�
   assert.throws(() => reorderTracks(fixture, { fromIndex: 0, toIndex: 1 }), /レーンをまたいで/);
 });
 
+test('reorderTracks は content 型の captions トラック自体を visual レーン内で双方向に動かせる', () => {
+  const movedDown = valid(reorderTracks(fixture, { fromIndex: 2, toIndex: 1 }));
+  assert.deepEqual(movedDown.tracks.map(track => track.id), [
+    'a1', 'captions', 'v-main', 'v-filter', 'v-html', 'v-telop'
+  ]);
+  assert.deepEqual(
+    movedDown.tracks.find(track => track.id === 'captions').content,
+    { from: 'captions.json' }
+  );
+
+  const movedUp = valid(reorderTracks(fixture, { fromIndex: 2, toIndex: 5 }));
+  assert.deepEqual(movedUp.tracks.map(track => track.id), [
+    'a1', 'v-main', 'v-filter', 'v-html', 'v-telop', 'captions'
+  ]);
+  assert.deepEqual(
+    movedUp.tracks.find(track => track.id === 'captions').content,
+    { from: 'captions.json' }
+  );
+});
+
 test('insertTrack / removeTrack は audio 最下段規約と一意 id を守る', () => {
   const inserted = valid(insertTrack(fixture, { index: 1, lane: 'visual', name: '差し込み' }));
   assert.equal(inserted.tracks[1].id, 'v1');

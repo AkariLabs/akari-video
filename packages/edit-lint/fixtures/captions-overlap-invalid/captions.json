@@ -1,0 +1,29 @@
+[
+  {
+    "id": "c-0001",
+    "start": 0,
+    "end": 10,
+    "text": "長い字幕",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false
+  },
+  {
+    "id": "c-0002",
+    "start": 1,
+    "end": 2,
+    "text": "内側の字幕",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false
+  },
+  {
+    "id": "c-0003",
+    "start": 3,
+    "end": 4,
+    "text": "直前とは重ならない字幕",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false
+  }
+]
