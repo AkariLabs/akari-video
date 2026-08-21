@@ -1135,8 +1135,8 @@ test("layers[].perspective combined with crop + rotate applies in crop → persp
 // a valid determinism probe -- x264's lookahead (rc_lookahead) lets encoder-internal scheduling
 // perturb the compressed bytes run to run even when the filter-graph output is bit-identical (a
 // single 1-frame filter change was measured to appear as up to rc_lookahead frames of "difference"
-// in the final artifact -- see tasks/2026-08-19-render-enable-window-black-frame/report.md §2-5 in
-// the internal repo). Comparing the stage's own pre-encode filter output side-steps the encoder
+// in the final artifact -- measured during the enable-window rounding investigation).
+// Comparing the stage's own pre-encode filter output side-steps the encoder
 // entirely, which is the same "stage-isolated framemd5" methodology that task established.
 function runFilterFramemd5Twice({ command, args }) {
   const mapIndex = args.indexOf("[outv]");

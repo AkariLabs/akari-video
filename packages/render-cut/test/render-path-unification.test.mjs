@@ -498,9 +498,8 @@ test("keyframes: an animated crop position lands at the same footprint content a
 // --- r2 (2026-08-21, independent Codex review before merge) --------------------------------
 // The above tests (1)-(7) cover r1's own acceptance criteria (position independence). This
 // section pins the 1 BLOCKER + 3 MAJOR regressions an independent read-only review found in that
-// same r1 work before merge, each first confirmed real with a hand-built ffmpeg repro (see
-// tasks/2026-08-21-render-path-unification/report.md's r2 section for the full verification
-// trail) and then fixed. Kept in this file rather than a new one: same task, same helpers.
+// same r1 work before merge, each first confirmed real with a hand-built ffmpeg repro
+// and then fixed. Kept in this file rather than a new one: same task, same helpers.
 
 function makeMarkerSource(path, { duration, width = WIDTH, height = HEIGHT }) {
   // Solid red background with a small white square in the extreme top-left corner -- a marker
