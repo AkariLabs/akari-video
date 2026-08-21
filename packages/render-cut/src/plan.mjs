@@ -11,13 +11,18 @@ import {
   resolveCutSegments,
   segmentDuration,
 } from "./cut-timeline.mjs";
-import { appendCutVisualTransform, hasCutVisualTransform } from "./cut-transform.mjs";
+import {
+  appendCutLayerStyleVisual,
+  appendCutVisualTransform,
+  hasCutLayerStyleVisual,
+  hasCutVisualTransform,
+} from "./cut-transform.mjs";
 import { hasCutFraming } from "./cut-framing.mjs";
 import { appendFreezeAwareAudioTrim, appendFreezeAwareVideoTrim, hasCutFreeze } from "./cut-freeze.mjs";
 import { buildTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
 import { appendCutFxChain, hasCutFx } from "./fx.mjs";
 import { resolveEncodingPolicy } from "./encode-preset.mjs";
-import { buildLayersCompositeCommand, hasLayers, isImageLayerSource } from "./layers.mjs";
+import { buildLayersCompositeCommand, hasLayers, isImageLayerSource, resolveDecoderForLayer } from "./layers.mjs";
 import { resolveLutPath } from "./render-inputs.mjs";
 import {
   buildCutTrackCompositeCommand,
@@ -127,6 +132,7 @@ export function buildPlan({
           fps,
           duration: cutsEndSeconds,
           ffmpegCommand: capabilities.ffmpegCommand,
+          ffprobeCommand: capabilities.ffprobeCommand,
           projectRoot,
           look: edit.output.look,
           videoEncodeArgs: cutVideoEncodeArgs,
@@ -139,6 +145,7 @@ export function buildPlan({
           height,
           fps,
           ffmpegCommand: capabilities.ffmpegCommand,
+          ffprobeCommand: capabilities.ffprobeCommand,
           projectRoot,
           look: edit.output.look,
           videoEncodeArgs: cutVideoEncodeArgs,
@@ -345,6 +352,18 @@ export function usesDefaultInternalTrackOrder(internalEdit) {
       index,
     }));
   if (keys.some(key => !rank.has(key.kind))) return false;
+  // P0 2026-08-21 render-path-unification: source.kind:'media' now always maps to 'cuts'
+  // (packages/edit-store/src/internal-model.ts no longer branches on track position), so a
+  // project with more than one real visual track (e.g. a base track + a PiP track, both plain
+  // media) can legitimately have more than one 'cuts'-kind track today. The flat/default dispatch
+  // below feeds every 'cuts'-kind track's items into ONE combined array
+  // (buildGapAwareMultiSourceCutCommand's computeVideoRuns), which resolves overlapping tracks by
+  // winner-take-all, not alpha compositing (verified: no real fieldtest/ project exercises this,
+  // but fieldtest/2026-08-06-pip-perspective-crop-check does have a genuine base+PiP pair that
+  // needs real compositing). More than one 'cuts'-kind visual track must always route through
+  // buildTrackStackPlan below, which composites each track's own canvas in z-order with a real
+  // alpha overlay -- so "default order" only ever holds for at most one 'cuts' track.
+  if (keys.filter(key => key.kind === "cuts").length > 1) return false;
   const expected = [...keys].sort((left, right) =>
     rank.get(left.kind) - rank.get(right.kind)
       || left.ref - right.ref
@@ -451,9 +470,12 @@ function buildTrackStackPlan({
     if (track.kind === "cuts") {
       const duplicateCutGroup = ordered.filter(candidate => candidate.kind === "cuts"
         && candidate.ref === track.ref && candidate.orderIndex === track.orderIndex).length > 1;
+      // .mov, not .mp4: this track's own canvas needs an alpha channel to composite correctly
+      // onto whatever is below it (transparentBackground: true below), and qtrle -- the alpha-
+      // capable intermediate codec that survives the round trip -- wants a MOV-family container.
       const trackPath = join(
         temporary,
-        `cut-track-${track.ref}-${track.orderIndex}${duplicateCutGroup ? `-${stageIndex}` : ""}.mp4`,
+        `cut-track-${track.ref}-${track.orderIndex}${duplicateCutGroup ? `-${stageIndex}` : ""}.mov`,
       );
       const command = buildMultiSourceCutCommand({
             sourceInputs: capabilities.sourceInputs,
@@ -463,9 +485,17 @@ function buildTrackStackPlan({
             height,
             fps,
             ffmpegCommand: capabilities.ffmpegCommand,
+            ffprobeCommand: capabilities.ffprobeCommand,
             projectRoot,
             look: edit.output.look,
             videoEncodeArgs: cutVideoEncodeArgs,
+            // This track's own canvas is about to be overlaid onto `previous` below
+            // (buildCutTrackCompositeCommand) -- it needs to stay see-through wherever an item
+            // does not cover the full frame. `previous` (or basePath for the first stage) is
+            // always itself opaque, so a fractional opacity still fades toward whatever is below
+            // exactly like the flat/default dispatch fades toward black (verified: this is the
+            // same math with "below" generalized from hardcoded black to the real stack).
+            transparentBackground: true,
           });
       cutTracks.push({ ref: track.ref, path: trackPath, command });
       stages.push({
@@ -1051,14 +1081,27 @@ export function buildMultiSourceCutCommand({
   height,
   fps,
   ffmpegCommand = resolveFfmpeg(),
+  ffprobeCommand = resolveFfprobe(),
   projectRoot,
   look,
   videoEncodeArgs = null,
+  // P0 2026-08-21 render-path-unification: true only for a buildTrackStackPlan stage that
+  // overlays this track's own canvas onto real content below it. Every pre-existing caller
+  // (the flat/default dispatch) omits this, keeping the opaque background byte-identical to
+  // before this task -- see cut-transform.mjs's appendCutVisualTransform for why an
+  // unconditionally transparent background would silently break fractional opacity there.
+  transparentBackground = false,
 }) {
   const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
   const filters = [];
   const extraInputArgs = [];
   const concatInputs = [];
+  // P0 2026-08-21 render-path-unification: a cuts[] item can now sit on any track, including one
+  // that used to be layers-only, so a VP9/VP8 alpha-side-channel source (previously only reachable
+  // through layers.mjs) can now arrive here too. Reuse the same ffprobe-based decoder selection so
+  // the cuts pipeline doesn't silently composite such a source as opaque -- see layers.mjs's
+  // SIDE_CHANNEL_ALPHA_DECODERS comment for the underlying ffmpeg decoder gap this works around.
+  const warnings = [];
   const transformCuts = hasCutVisualTransform(cuts) || hasCutFraming(cuts);
   // docs/contract-2026-08-05-fx-v0.md (cuts[].fx). v1's per-cut branch is already always
   // full-WxH-framed (both the transform and plain branches below produce a complete frame), so
@@ -1103,17 +1146,35 @@ export function buildMultiSourceCutCommand({
         id: `v1_${index}`,
         fps,
       });
-      appendCutVisualTransform({
-        filters,
-        inputLabel: trimmedLabel,
-        outputLabel: shapedLabel,
-        cut,
-        id: `v1_${index}`,
-        width,
-        height,
-        fps,
-        duration: segmentDuration(cut),
-      });
+      if (hasCutLayerStyleVisual(cut)) {
+        appendCutLayerStyleVisual({
+          filters,
+          inputLabel: trimmedLabel,
+          outputLabel: shapedLabel,
+          cut,
+          id: `v1_${index}`,
+          width,
+          height,
+          fps,
+          duration: segmentDuration(cut),
+          sourceWidth: source.width,
+          sourceHeight: source.height,
+          transparentBackground,
+        });
+      } else {
+        appendCutVisualTransform({
+          filters,
+          inputLabel: trimmedLabel,
+          outputLabel: shapedLabel,
+          cut,
+          id: `v1_${index}`,
+          width,
+          height,
+          fps,
+          duration: segmentDuration(cut),
+          transparentBackground,
+        });
+      }
     } else {
       appendFreezeAwareVideoTrim({
         filters,
@@ -1220,7 +1281,8 @@ export function buildMultiSourceCutCommand({
   appendMultiSourceLookFilters(filters, "[joinedv]", { look, projectRoot, alreadyNormalized: true });
 
   return buildMultiSourceCommandResult({
-    ffmpegCommand, sourceInputs, extraInputArgs, filters, videoEncodeArgs, cutPath,
+    ffmpegCommand, ffprobeCommand, sourceInputs, extraInputArgs, filters, videoEncodeArgs, cutPath,
+    transparentBackground, warnings,
   });
 }
 
@@ -1283,10 +1345,12 @@ function appendMultiSourceLookFilters(filters, videoLabel, { look, projectRoot, 
 }
 
 function buildMultiSourceCommandResult({
-  ffmpegCommand, sourceInputs, extraInputArgs = [], filters, videoEncodeArgs, cutPath,
+  ffmpegCommand, ffprobeCommand, sourceInputs, extraInputArgs = [], filters, videoEncodeArgs, cutPath,
+  transparentBackground = false, warnings = [],
 }) {
   return {
     command: ffmpegCommand,
+    warnings,
     args: [
       "-hide_banner",
       "-loglevel",
@@ -1295,9 +1359,14 @@ function buildMultiSourceCommandResult({
       "-y",
       // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定2: same `-loop 1` recipe as
       // the removed single-source path, applied per-source here since v1 mixes video and still-image sources.
-      ...sourceInputs.flatMap((source) =>
-        isImageLayerSource(source.path) ? ["-loop", "1", "-i", source.path] : ["-i", source.path],
-      ),
+      // P0 2026-08-21 render-path-unification: a VP9/VP8 alpha-side-channel source needs an
+      // explicit libvpx decoder or its alpha plane silently comes back opaque (layers.mjs's
+      // resolveDecoderForLayer / SIDE_CHANNEL_ALPHA_DECODERS) -- reused here now that cuts[] items
+      // can carry the same alpha-carrying sources layers[] items always could.
+      ...sourceInputs.flatMap((source) => [
+        ...(ffprobeCommand ? resolveDecoderForLayer(ffprobeCommand, source.path, warnings) : []),
+        ...(isImageLayerSource(source.path) ? ["-loop", "1", "-i", source.path] : ["-i", source.path]),
+      ]),
       ...extraInputArgs,
       "-filter_complex",
       filters.join(";"),
@@ -1305,9 +1374,18 @@ function buildMultiSourceCommandResult({
       "[outv_tv]",
       "-map",
       "[joineda]",
-      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
-      "-pix_fmt",
-      "yuv420p",
+      // P0 2026-08-21 render-path-unification: an alpha channel built up inside filter_complex
+      // (transparentBackground) is worthless if the intermediate file itself can't carry it --
+      // libx264/yuv420p have no alpha plane, so every bit of it would be silently discarded the
+      // instant this file hits disk, and buildCutTrackCompositeCommand's later overlay of that
+      // now-fully-opaque file would paint over whatever was supposed to show through (verified:
+      // this was exactly why the first version of this change still failed real-pixel tests).
+      // qtrle (a lossless, alpha-capable intra codec long supported by ffmpeg) keeps it intact
+      // through the round trip -- verified empirically (packages/render-cut/test/*, report.md).
+      // videoEncodeArgs is ignored in this branch: this is a decode-again intermediate, never the
+      // final delivered artifact, so quality/size tuning is moot and codec choice is what matters.
+      ...(transparentBackground ? ["-c:v", "qtrle"] : (videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"])),
+      ...(transparentBackground ? [] : ["-pix_fmt", "yuv420p"]),
       "-c:a",
       "aac",
       "-ar",
@@ -1347,10 +1425,15 @@ export function buildGapAwareMultiSourceCutCommand({
   fps,
   duration,
   ffmpegCommand = resolveFfmpeg(),
+  ffprobeCommand = resolveFfprobe(),
   projectRoot,
   look,
   videoEncodeArgs = null,
+  // See buildMultiSourceCutCommand's own comment. Every pre-existing caller omits this.
+  transparentBackground = false,
 }) {
+  // See buildMultiSourceCutCommand's own comment on the same line.
+  const warnings = [];
   // Same restriction as v0's the removed single-source path dispatch (see its own comment): computeVideoRuns maps
   // output time back to source time with a single linear speed factor per run, which cannot represent
   // a freeze hold's non-linear pause. Reject loudly rather than silently render the wrong frames.
@@ -1374,8 +1457,16 @@ export function buildGapAwareMultiSourceCutCommand({
   for (const [index, run] of runs.entries()) {
     const label = `[gv1_${index}]`;
     if (run.kind === "gap") {
+      // P0 2026-08-21 render-path-unification: transparent, not opaque black, only when the
+      // caller actually needs alpha (transparentBackground -- this track overlays onto real
+      // content below it) AND the other segments in this same concat are already alpha-carrying
+      // (transformCuts -- concat requires every input to share one pixel format). Every
+      // pre-existing caller passes transparentBackground=false, so this stays byte-identical
+      // opaque black exactly as before this task.
       filters.push(
-        `color=c=black:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(run.outEnd - run.outStart)}${label}`,
+        transformCuts && transparentBackground
+          ? `color=c=black@0:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(run.outEnd - run.outStart)},format=yuva420p${label}`
+          : `color=c=black:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(run.outEnd - run.outStart)}${label}`,
       );
     } else {
       const cut = run.cut;
@@ -1388,17 +1479,35 @@ export function buildGapAwareMultiSourceCutCommand({
         `[${source.inputIndex}:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${rawLabel}`,
       );
       if (transformCuts) {
-        appendCutVisualTransform({
-          filters,
-          inputLabel: rawLabel,
-          outputLabel: shapedLabel,
-          cut,
-          id: `gap1_${index}`,
-          width,
-          height,
-          fps,
-          duration: run.outEnd - run.outStart,
-        });
+        if (hasCutLayerStyleVisual(cut)) {
+          appendCutLayerStyleVisual({
+            filters,
+            inputLabel: rawLabel,
+            outputLabel: shapedLabel,
+            cut,
+            id: `gap1_${index}`,
+            width,
+            height,
+            fps,
+            duration: run.outEnd - run.outStart,
+            sourceWidth: source.width,
+            sourceHeight: source.height,
+            transparentBackground,
+          });
+        } else {
+          appendCutVisualTransform({
+            filters,
+            inputLabel: rawLabel,
+            outputLabel: shapedLabel,
+            cut,
+            id: `gap1_${index}`,
+            width,
+            height,
+            fps,
+            duration: run.outEnd - run.outStart,
+            transparentBackground,
+          });
+        }
       } else {
         filters.push(
           `${rawLabel}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${shapedLabel}`,
@@ -1456,7 +1565,9 @@ export function buildGapAwareMultiSourceCutCommand({
 
   appendMultiSourceLookFilters(filters, "[joinedv]", { look, projectRoot, alreadyNormalized: false });
 
-  return buildMultiSourceCommandResult({ ffmpegCommand, sourceInputs, filters, videoEncodeArgs, cutPath });
+  return buildMultiSourceCommandResult({
+    ffmpegCommand, ffprobeCommand, sourceInputs, filters, videoEncodeArgs, cutPath, transparentBackground, warnings,
+  });
 }
 
 export function predictedDuration(cuts) {
