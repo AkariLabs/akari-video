@@ -969,16 +969,21 @@ window.akari.interaction = (() => {
     startY,
     startScale,
     scale,
-    anchorClientX,
-    anchorClientY,
+    anchorStageX,
+    anchorStageY,
   }) {
-    if (!Number.isFinite(startScale) || startScale === 0) return null;
+    if (
+      !stage ||
+      !Number.isFinite(startScale) ||
+      startScale === 0 ||
+      !Number.isFinite(anchorStageX) ||
+      !Number.isFinite(anchorStageY)
+    ) {
+      return null;
+    }
 
-    const anchor = stageLocalPoint(anchorClientX, anchorClientY);
-    if (!anchor) return null;
-
-    const dx = anchor.x - anchor.centerX;
-    const dy = anchor.y - anchor.centerY;
+    const dx = anchorStageX - stage.clientWidth / 2;
+    const dy = anchorStageY - stage.clientHeight / 2;
     const scaleRatio = scale / startScale;
     return {
       x: dx - scaleRatio * (dx - startX),
@@ -1048,8 +1053,14 @@ window.akari.interaction = (() => {
     // 断片ルートの矩形）を基準にする。取得できない異常系のみコンテナ矩形へ退避。
     const visualRect = fragmentBounds(container) ?? container.getBoundingClientRect();
     const corner = handleCorner(handleEl);
-    const anchor = cornerAnchorPoint(visualRect, corner);
-    const startDistance = Math.hypot(event.clientX - anchor.x, event.clientY - anchor.y);
+    const anchorClient = cornerAnchorPoint(visualRect, corner);
+    const draggedClient = namedCornerPoint(visualRect, corner);
+    const anchor = stageLocalPoint(anchorClient.x, anchorClient.y);
+    const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
+    const pointer = stageLocalPoint(event.clientX, event.clientY);
+    if (!anchor || !dragged || !pointer) return;
+
+    const startDistance = Math.hypot(pointer.x - anchor.x, pointer.y - anchor.y);
     const transform = readTransform(container);
 
     activeResize = {
@@ -1058,8 +1069,10 @@ window.akari.interaction = (() => {
       overlayId: container.dataset.overlayId ?? "",
       pointerId: event.pointerId,
       corner,
-      anchorX: anchor.x,
-      anchorY: anchor.y,
+      anchorStageX: anchor.x,
+      anchorStageY: anchor.y,
+      draggedStageX: dragged.x,
+      draggedStageY: dragged.y,
       startDistance: startDistance || 1, // 0除算回避（アンカーとハンドルが重なる異常系向け保険）
       startScale: transform.scale,
       startX: transform.x,
@@ -1092,14 +1105,19 @@ window.akari.interaction = (() => {
   //   S_snap = (target - A) * scale / (D(scale) - A)
   // で閉じた形に解ける（軸ごとに独立、uniform scale なので一度に1軸のみ採用）。
   function applyResizeSnap(resize, scale) {
-    if (!(Math.abs(scale) > 1e-6)) return null;
+    if (!(Math.abs(scale) > 1e-6) || !(Math.abs(resize.startScale) > 1e-6)) {
+      return null;
+    }
 
-    const anchor = stageLocalPoint(resize.anchorX, resize.anchorY);
-    const visualRect =
-      fragmentBounds(resize.container) ?? resize.container.getBoundingClientRect();
-    const draggedClient = namedCornerPoint(visualRect, resize.corner);
-    const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
-    if (!anchor || !dragged) return null;
+    // pointerdown 時の stage-local 幾何だけからドラッグ中コーナーを求める。
+    // fragmentBounds() を測り直すと、前フレームの transform や断片内レイアウトの
+    // 変化が次フレームの基準へ混ざるため、resize の固定アンカーとは分離する。
+    const anchor = { x: resize.anchorStageX, y: resize.anchorStageY };
+    const scaleRatio = scale / resize.startScale;
+    const dragged = {
+      x: anchor.x + (resize.draggedStageX - anchor.x) * scaleRatio,
+      y: anchor.y + (resize.draggedStageY - anchor.y) * scaleRatio,
+    };
 
     const { width, height } = outputSize();
     const displayScale = currentDisplayScale();
@@ -1178,20 +1196,16 @@ window.akari.interaction = (() => {
   }
 
   function applyResizeTransformAt(resize, scaleValue) {
-    // scale を変える前の描画後アンカーを、その時点の stage 矩形で動画座標へ戻す。
-    // 直前フレームの transform を基準に補正するため、resize 中に stage のズームや
-    // 全画面状態が変わっても、古いクライアント座標へ引き戻さない。
-    const visualRect =
-      fragmentBounds(resize.container) ?? resize.container.getBoundingClientRect();
-    const visualAnchor = cornerAnchorPoint(visualRect, resize.corner);
-    const currentTransform = readTransform(resize.container);
+    // pointerdown 時に確定した対角コーナー（stage-local）と開始 transform だけを使う。
+    // stage-local 値なので、ズームや全画面切替で client 矩形が変われば表示位置は自然に
+    // 追従する一方、断片自身の前フレームの変形結果は次の基準へ混ざらない。
     const translate = anchorPreservingTranslate({
-      startX: currentTransform.x,
-      startY: currentTransform.y,
-      startScale: currentTransform.scale,
+      startX: resize.startX,
+      startY: resize.startY,
+      startScale: resize.startScale,
       scale: scaleValue,
-      anchorClientX: visualAnchor.x,
-      anchorClientY: visualAnchor.y,
+      anchorStageX: resize.anchorStageX,
+      anchorStageY: resize.anchorStageY,
     });
     if (!translate) return false;
 
@@ -1205,9 +1219,11 @@ window.akari.interaction = (() => {
     const resize = activeResize;
     if (!resize || event.pointerId !== resize.pointerId) return;
 
+    const pointer = stageLocalPoint(event.clientX, event.clientY);
+    if (!pointer) return;
     const currentDistance = Math.hypot(
-      event.clientX - resize.anchorX,
-      event.clientY - resize.anchorY
+      pointer.x - resize.anchorStageX,
+      pointer.y - resize.anchorStageY
     );
     if (!Number.isFinite(currentDistance)) return;
 

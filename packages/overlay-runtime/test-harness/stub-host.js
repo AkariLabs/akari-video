@@ -98,6 +98,38 @@ const STUB_SUMMARY = {
         "</div>",
       ].join("\n"),
     },
+    // resize の幾何回帰専用フィクスチャ。通常の実寸ルート型。
+    {
+      id: "resize-regular",
+      start: 110,
+      duration: 20,
+      transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+      vars: {},
+      html: [
+        '<div class="resize-regular-root" style="position:absolute;left:260px;top:180px;',
+        'width:240px;height:120px;padding:12px 20px;box-sizing:border-box;border-radius:8px;',
+        'background:#1b4fd8;color:#fff;font-size:28px;font-weight:700;">',
+        "通常ルート",
+        "</div>",
+      ].join("\n"),
+    },
+    // telop-chapter-tag と同じ「inset:0 の全画面ルート + top/left の内側 anchor」型。
+    {
+      id: "resize-inset-wrapper",
+      start: 140,
+      duration: 20,
+      transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+      vars: {},
+      html: [
+        '<div class="resize-inset-root" style="position:absolute;inset:0;">',
+        '  <div class="resize-inset-anchor" style="position:absolute;top:60px;left:60px;">',
+        '    <div class="resize-inset-plate" style="width:260px;height:96px;padding:12px 20px;',
+        'box-sizing:border-box;border-radius:8px;background:#7a1710;color:#fff;',
+        'font-size:24px;font-weight:700;">全画面ラッパー</div>',
+        "  </div>",
+        "</div>",
+      ].join("\n"),
+    },
   ],
 };
 
