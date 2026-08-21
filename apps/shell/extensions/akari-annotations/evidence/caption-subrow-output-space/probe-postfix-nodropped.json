@@ -1,0 +1,451 @@
+{
+  "label": "postfix-nodropped",
+  "failures": [],
+  "log": [
+    {
+      "step": "viewport",
+      "width": 1440,
+      "height": 1250
+    },
+    {
+      "step": "connected",
+      "cdpPort": 9714,
+      "workspace": "/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-caption-subrow-output-space/1998f1e6-7f59-4784-a462-fe4c9bd39095/scratchpad/ws-nodrop",
+      "label": "postfix-nodropped"
+    },
+    {
+      "step": "ok",
+      "message": "タイムラインウィジェットが開いた"
+    },
+    {
+      "step": "fixture",
+      "cuts": [
+        {
+          "id": "c1",
+          "atFrames": 0,
+          "durationFrames": 60,
+          "outSeconds": [
+            0,
+            2
+          ],
+          "sourceSeconds": [
+            0,
+            2
+          ]
+        },
+        {
+          "id": "c2",
+          "atFrames": 60,
+          "durationFrames": 60,
+          "outSeconds": [
+            2,
+            4
+          ],
+          "sourceSeconds": [
+            10,
+            12
+          ]
+        },
+        {
+          "id": "c3",
+          "atFrames": 120,
+          "durationFrames": 60,
+          "outSeconds": [
+            4,
+            6
+          ],
+          "sourceSeconds": [
+            2,
+            4
+          ]
+        }
+      ],
+      "captions": [
+        {
+          "id": "cap-tiny-1",
+          "source": [
+            0.2,
+            0.24
+          ]
+        },
+        {
+          "id": "cap-tiny-2",
+          "source": [
+            0.26,
+            0.3
+          ]
+        },
+        {
+          "id": "cap-tiny-3",
+          "source": [
+            0.32,
+            0.36
+          ]
+        },
+        {
+          "id": "cap-span",
+          "source": [
+            1,
+            3
+          ]
+        },
+        {
+          "id": "cap-edge-1",
+          "source": [
+            3.9,
+            3.94
+          ]
+        },
+        {
+          "id": "cap-edge-2",
+          "source": [
+            3.96,
+            3.98
+          ]
+        },
+        {
+          "id": "cap-late",
+          "source": [
+            5,
+            10.6
+          ]
+        }
+      ]
+    },
+    {
+      "step": "caption-band",
+      "band": {
+        "id": "captions",
+        "top": 935.3984375,
+        "bottom": 1044.3984375,
+        "height": 109
+      },
+      "strip": {
+        "left": 359.9140625,
+        "right": 926.9140625,
+        "width": 567,
+        "top": 860.3984375,
+        "bottom": 1194.3984375
+      },
+      "drawnCount": 7
+    },
+    {
+      "step": "caption-rects",
+      "rects": [
+        {
+          "id": "cap-tiny-1",
+          "lane": "captions",
+          "left": 370.328125,
+          "right": 377.3828125,
+          "top": 935.3984375,
+          "bottom": 967.3984375,
+          "width": 7.0546875,
+          "height": 32
+        },
+        {
+          "id": "cap-tiny-2",
+          "lane": "captions",
+          "left": 373.1484375,
+          "right": 380.2109375,
+          "top": 971.3984375,
+          "bottom": 1003.3984375,
+          "width": 7.0625,
+          "height": 32
+        },
+        {
+          "id": "cap-tiny-3",
+          "lane": "captions",
+          "left": 375.9765625,
+          "right": 383.03125,
+          "top": 1007.3984375,
+          "bottom": 1039.3984375,
+          "width": 7.0546875,
+          "height": 32
+        },
+        {
+          "id": "cap-span",
+          "lane": "captions",
+          "left": 407.9921875,
+          "right": 596.3203125,
+          "top": 935.3984375,
+          "bottom": 967.3984375,
+          "width": 188.328125,
+          "height": 32
+        },
+        {
+          "id": "cap-edge-1",
+          "lane": "captions",
+          "left": 638.703125,
+          "right": 643.40625,
+          "top": 935.3984375,
+          "bottom": 967.3984375,
+          "width": 4.703125,
+          "height": 32
+        },
+        {
+          "id": "cap-edge-2",
+          "lane": "captions",
+          "left": 641.5234375,
+          "right": 643.40625,
+          "top": 971.3984375,
+          "bottom": 1003.3984375,
+          "width": 1.8828125,
+          "height": 32
+        },
+        {
+          "id": "cap-late",
+          "lane": "captions",
+          "left": 455.078125,
+          "right": 483.328125,
+          "top": 971.3984375,
+          "bottom": 1003.3984375,
+          "width": 28.25,
+          "height": 32
+        }
+      ]
+    },
+    {
+      "step": "rows",
+      "subrowStride": 36,
+      "bandTop": 935.3984375,
+      "distinctTops": [
+        935.4,
+        971.4,
+        1007.4
+      ],
+      "assignment": [
+        {
+          "id": "cap-tiny-1",
+          "top": 935.3984375,
+          "laneRelativeTop": 0,
+          "row": 0
+        },
+        {
+          "id": "cap-tiny-2",
+          "top": 971.3984375,
+          "laneRelativeTop": 36,
+          "row": 1
+        },
+        {
+          "id": "cap-tiny-3",
+          "top": 1007.3984375,
+          "laneRelativeTop": 72,
+          "row": 2
+        },
+        {
+          "id": "cap-span",
+          "top": 935.3984375,
+          "laneRelativeTop": 0,
+          "row": 0
+        },
+        {
+          "id": "cap-edge-1",
+          "top": 935.3984375,
+          "laneRelativeTop": 0,
+          "row": 0
+        },
+        {
+          "id": "cap-edge-2",
+          "top": 971.3984375,
+          "laneRelativeTop": 36,
+          "row": 1
+        },
+        {
+          "id": "cap-late",
+          "top": 971.3984375,
+          "laneRelativeTop": 36,
+          "row": 1
+        }
+      ],
+      "rowById": {
+        "cap-tiny-1": 0,
+        "cap-tiny-2": 1,
+        "cap-tiny-3": 2,
+        "cap-span": 0,
+        "cap-edge-1": 0,
+        "cap-edge-2": 1,
+        "cap-late": 1
+      }
+    },
+    {
+      "step": "overlap-pairs",
+      "total": 21,
+      "overlapping": []
+    },
+    {
+      "step": "ok",
+      "message": "字幕帯の矩形どうしが 1px も重ならない（全ペアの getBoundingClientRect 交差なし）",
+      "overlappingCount": 0,
+      "overlapping": []
+    },
+    {
+      "step": "ok",
+      "message": "同じ top の帯が x 方向で交差しない",
+      "sameTopCrossing": []
+    },
+    {
+      "step": "ok",
+      "message": "極短い字幕 3 本がすべて描かれている",
+      "tiny": [
+        {
+          "id": "cap-tiny-1",
+          "lane": "captions",
+          "left": 370.328125,
+          "right": 377.3828125,
+          "top": 935.3984375,
+          "bottom": 967.3984375,
+          "width": 7.0546875,
+          "height": 32
+        },
+        {
+          "id": "cap-tiny-2",
+          "lane": "captions",
+          "left": 373.1484375,
+          "right": 380.2109375,
+          "top": 971.3984375,
+          "bottom": 1003.3984375,
+          "width": 7.0625,
+          "height": 32
+        },
+        {
+          "id": "cap-tiny-3",
+          "lane": "captions",
+          "left": 375.9765625,
+          "right": 383.03125,
+          "top": 1007.3984375,
+          "bottom": 1039.3984375,
+          "width": 7.0546875,
+          "height": 32
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "極短い字幕（MINIMUM_ITEM_DURATION 未満）が連続しても重ならない",
+      "tinyPairs": [
+        {
+          "a": "cap-tiny-1",
+          "b": "cap-tiny-2",
+          "xOverlap": 4.234375,
+          "yOverlap": -4,
+          "overlapping": false
+        },
+        {
+          "a": "cap-tiny-1",
+          "b": "cap-tiny-3",
+          "xOverlap": 1.40625,
+          "yOverlap": -40,
+          "overlapping": false
+        },
+        {
+          "a": "cap-tiny-2",
+          "b": "cap-tiny-3",
+          "xOverlap": 4.234375,
+          "yOverlap": -4,
+          "overlapping": false
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "削除区間へ完全に落ちた字幕は帯として描かれない",
+      "droppedIds": [],
+      "drawnIds": [
+        "cap-tiny-1",
+        "cap-tiny-2",
+        "cap-tiny-3",
+        "cap-span",
+        "cap-edge-1",
+        "cap-edge-2",
+        "cap-late"
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "削除区間に落ちていない字幕はすべて描かれている",
+      "expectedDrawn": [
+        "cap-tiny-1",
+        "cap-tiny-2",
+        "cap-tiny-3",
+        "cap-span",
+        "cap-edge-1",
+        "cap-edge-2",
+        "cap-late"
+      ],
+      "drawnIds": [
+        "cap-tiny-1",
+        "cap-tiny-2",
+        "cap-tiny-3",
+        "cap-span",
+        "cap-edge-1",
+        "cap-edge-2",
+        "cap-late"
+      ]
+    },
+    {
+      "step": "headline-symptom",
+      "sourceRanges": {
+        "cap-span": [
+          1,
+          3
+        ],
+        "cap-late": [
+          5,
+          10.6
+        ]
+      },
+      "sourceOverlap": false,
+      "rects": {
+        "span": {
+          "id": "cap-span",
+          "lane": "captions",
+          "left": 407.9921875,
+          "right": 596.3203125,
+          "top": 935.3984375,
+          "bottom": 967.3984375,
+          "width": 188.328125,
+          "height": 32
+        },
+        "late": {
+          "id": "cap-late",
+          "lane": "captions",
+          "left": 455.078125,
+          "right": 483.328125,
+          "top": 971.3984375,
+          "bottom": 1003.3984375,
+          "width": 28.25,
+          "height": 32
+        }
+      },
+      "intersect": {
+        "xOverlap": 28.25,
+        "yOverlap": -4,
+        "overlapping": false
+      }
+    },
+    {
+      "step": "ok",
+      "message": "source で重ならない cap-span / cap-late が output でも重なって描かれない",
+      "span": {
+        "id": "cap-span",
+        "lane": "captions",
+        "left": 407.9921875,
+        "right": 596.3203125,
+        "top": 935.3984375,
+        "bottom": 967.3984375,
+        "width": 188.328125,
+        "height": 32
+      },
+      "late": {
+        "id": "cap-late",
+        "lane": "captions",
+        "left": 455.078125,
+        "right": 483.328125,
+        "top": 971.3984375,
+        "bottom": 1003.3984375,
+        "width": 28.25,
+        "height": 32
+      }
+    }
+  ]
+}

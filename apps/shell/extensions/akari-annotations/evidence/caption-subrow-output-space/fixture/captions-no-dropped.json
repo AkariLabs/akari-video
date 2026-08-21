@@ -1,0 +1,9 @@
+[
+  { "id": "cap-tiny-1", "start": 0.20, "end": 0.24, "text": "極短1", "speaker": null, "sourceRef": null, "edited": false },
+  { "id": "cap-tiny-2", "start": 0.26, "end": 0.30, "text": "極短2", "speaker": null, "sourceRef": null, "edited": false },
+  { "id": "cap-tiny-3", "start": 0.32, "end": 0.36, "text": "極短3", "speaker": null, "sourceRef": null, "edited": false },
+  { "id": "cap-span", "start": 1.00, "end": 3.00, "text": "削除区間を跨ぐ字幕", "speaker": null, "sourceRef": null, "edited": false },
+  { "id": "cap-edge-1", "start": 3.90, "end": 3.94, "text": "端1", "speaker": null, "sourceRef": null, "edited": false },
+  { "id": "cap-edge-2", "start": 3.96, "end": 3.98, "text": "端2", "speaker": null, "sourceRef": null, "edited": false },
+  { "id": "cap-late", "start": 5.00, "end": 10.60, "text": "後半の字幕", "speaker": null, "sourceRef": null, "edited": false }
+]

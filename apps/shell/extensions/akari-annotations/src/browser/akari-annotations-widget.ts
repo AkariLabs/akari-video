@@ -68,6 +68,7 @@ import {
     withCaptionsDisplaySupplement
 } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
+import { CaptionSubrowLayout, computeCaptionSubrowLayout } from '../common/caption-subrow-layout';
 import { clampSfxFadeToEffectiveDuration, slipAudioWindow } from '../common/audio-clip-trimmer';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
 import {
@@ -594,7 +595,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly layerRows = new Map<string, number>();
     protected readonly audioSfxRows = new Map<string, number>();
     protected readonly audioNarrationRows = new Map<string, number>();
-    protected captionRows: number[] = [];
+    /** captions.json を正本のまま保ち、content トラック内の表示用サブ段だけを ID 単位で導出する。 */
+    protected captionLayouts = new Map<string, CaptionSubrowLayout>();
     protected audioBgmTop = 0;
     protected captionsVisible = true;
     protected captionsMuted = false;
@@ -3613,8 +3615,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.computeAudioDisplayTracks();
         this.computeBgmDisplayTrack();
         this.computeCaptionsDisplayTrack();
-        this.captionRows = assignSubRows(this.captions.map(caption => ({ start: caption.start, end: caption.end })));
-        const captionRowCount = this.captionRows.length ? Math.max(...this.captionRows) + 1 : 0;
+        this.captionLayouts = computeCaptionSubrowLayout(
+            this.captions,
+            MINIMUM_ITEM_DURATION,
+            (start, end) => this.sourceRangeToOutputRanges(start, end)
+        );
+        const captionRows = [...this.captionLayouts.values()].map(layout => layout.row);
+        const captionRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 0;
         let nextTop = topOffset;
         const beats = { top: nextTop, height: this.beats.length > 0 ? SUBROW_STRIDE : 0 };
         if (beats.height > 0) {
@@ -3899,28 +3906,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(band);
         }
 
-        this.captions.forEach((caption, index) => {
-            const captionLayout = this.trackLayout('captions', 0);
-            if (!captionLayout) {
+        this.captions.forEach(caption => {
+            const captionTrackLayout = this.trackLayout('captions', 0);
+            const captionLayout = this.captionLayouts.get(caption.id);
+            if (!captionTrackLayout || !captionLayout) {
+                // output 区間を持たない（削除区間へ完全に落ちた）字幕はレイアウト計算時に除外済み。
                 return;
             }
-            const captionEnd = Math.max(caption.end, caption.start + MINIMUM_ITEM_DURATION);
-            const outputRanges = this.sourceRangeToOutputRanges(caption.start, captionEnd);
-            if (outputRanges.length === 0) {
-                // 削除区間に完全に落ちた字幕は非表示にする。
-                return;
-            }
-            const [outputStart, outputEnd] = [outputRanges[0][0], outputRanges[outputRanges.length - 1][1]];
+            const { start: outputStart, end: outputEnd } = captionLayout;
             if (!this.isRangeVisible(outputStart, outputEnd)) {
                 return;
             }
-            const top = captionLayout.top + this.captionRows[index] * SUBROW_STRIDE;
+            const top = captionTrackLayout.top + captionLayout.row * SUBROW_STRIDE;
             const element = this.stripSegment(
                 outputStart, outputEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
             );
             element.dataset.akariItemKind = 'caption';
             element.dataset.akariItemId = caption.id;
-            element.dataset.akariLane = captionLayout.id ?? 'captions';
+            element.dataset.akariLane = captionTrackLayout.id ?? 'captions';
             element.style.opacity = this.captionsVisible ? '' : '.28';
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
