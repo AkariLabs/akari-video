@@ -279,6 +279,58 @@ test("freeze: a held frame stays pixel-identical across the frozen span regardle
   }
 });
 
+// r5 (Codex re-review, real regression this task's own r4 fix introduced): r4's duration:0
+// projection fix short-circuited on `playbackDuration === 0` (packages/edit-store/src/
+// internal-model.ts's buildV2Item), which also catches a WHOLE-REGION freeze -- a genuinely
+// positive item.duration where ALL of it is a frozen hold (e.g. duration: 1s with
+// freeze.duration_sec: 1s), since playbackDuration = duration - freezeSeconds = 0 there too. r4
+// collapsed that case's trim window to cutOut === cutIn (a literal zero-frame stream), starving
+// appendFreezeAwareVideoTrim (packages/render-cut/src/cut-freeze.mjs) of any seed frame to hold
+// at all. Fixed by keying the short-circuit off the item's own declared durationFrames instead of
+// the freeze-adjusted playbackDuration -- this test renders a real whole-region freeze end to end
+// (v2 edit.json -> internal-model projection -> render-cut) and confirms it still holds a real,
+// visible frame for its full declared duration, matching what a partial freeze (the sibling test
+// above) already does.
+test("freeze regression (r5): a whole-region freeze (item.duration entirely covered by freeze.duration_sec) still holds a real seed frame, not an empty trim window", async (t) => {
+  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+  const sources = [{ id: "moving", path: "moving.mp4", proxy: null }];
+  const mainTrack = { id: "main", lane: "visual", items: [
+    // duration: 1s, freeze.duration_sec: 1s -- the ENTIRE declared v2 duration is "spent" on the
+    // frozen hold (playbackDuration = 1 - 1 = 0 in buildV2Item's own accounting), unlike the
+    // partial-freeze test above (duration 4s, freeze only 1s of it). at_sec:0 means the hold is
+    // inserted right at the start of the [in,out) window, before any of it plays normally.
+    // render-cut's OWN segmentDuration (cut-timeline.mjs) treats freeze as ADDITIVE on top of
+    // however long (out-in)/speed already takes, independent of and unaffected by this task's own
+    // r4/r5 fixes -- for this declaration that's (1-0)/1 + 1 = 2s total, not 1s (verified directly
+    // against the exported segmentDuration function before writing this assertion, to avoid
+    // asserting a plausible-sounding but wrong expected value). This test's actual purpose is
+    // narrower and unrelated to that pre-existing arithmetic: confirm r5 does NOT starve the trim
+    // window into an empty (cutOut === cutIn) stream the way r4's playbackDuration===0 bug did --
+    // i.e. that a real, non-black seed frame is held, matching whatever main/pre-r4 already
+    // produced for this exact declaration shape.
+    { id: "c1", at: 0, duration: 10, source: { kind: "media", src: "moving", in: 0, out: 1, freeze: { at_sec: 0, duration_sec: 1 } } },
+  ] };
+  const edit = { version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS }, sources, tracks: [mainTrack] };
+  const root = await writeProject(edit);
+  try {
+    makeMovingSource(join(root, "moving.mp4"), { duration: 1 });
+    const output = await renderAndGetOutputPath(root);
+    const duration = ffprobeDurationSeconds(output);
+    t.diagnostic(`whole-region freeze output duration=${duration}s (expected ~2s: (out-in)/speed=1s + freeze.duration_sec=1s, additive per cut-timeline.mjs's own segmentDuration)`);
+    assert.ok(Math.abs(duration - 2) <= 0.15, `expected ~2s ((out-in)/speed + freeze, additive), got ${duration}s`);
+    // The frozen hold (at_sec:0) sits at the very start of the timeline -- two timestamps well
+    // within [0, 1) must be pixel-identical (a real, held seed frame), and that frame must not be
+    // a black/empty decode failure from a starved zero-frame trim.
+    const frameA = frameBytes(output, 0.1);
+    const frameB = frameBytes(output, 0.8);
+    assertFramesMatch(frameB, frameA, "two frames inside the whole-region frozen span must be pixel-identical (a real held seed frame)");
+    const isBlack = frameA.every(byte => byte < 8);
+    assert.ok(!isBlack, `expected a real decoded seed frame (testsrc content), not a black/empty frame from a starved zero-frame trim window: sample bytes ${JSON.stringify([...frameA.slice(0, 12)])}`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 // --- (4)/(5)/(6)/(7): crop / perspective / blend / keyframes は PiP 型（全画面ではない）
 // フィールドなので、比較の枠組みを変える: A = 単独トラック（flat dispatch、footprint 外は不透明黒
 // キャンバス）、B = 別の実コンテンツを持つトラックと同居（buildTrackStackPlan 経由、footprint 外は
