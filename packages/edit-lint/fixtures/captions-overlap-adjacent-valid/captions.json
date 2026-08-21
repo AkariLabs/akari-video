@@ -1,0 +1,29 @@
+[
+  {
+    "id": "c-0001",
+    "start": 0,
+    "end": 1,
+    "text": "一つ目",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false
+  },
+  {
+    "id": "c-0002",
+    "start": 1,
+    "end": 2,
+    "text": "二つ目",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false
+  },
+  {
+    "id": "c-0003",
+    "start": 2,
+    "end": 3,
+    "text": "三つ目",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false
+  }
+]
