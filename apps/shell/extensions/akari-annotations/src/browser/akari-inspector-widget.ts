@@ -763,16 +763,15 @@ function AUDIO_TABS(
             min: -60,
             max: 12,
             write: async (_snapshot, nextValue) => {
-                if (snapshot.audioKind === 'narration') {
-                    return { ok: false, message: 'narration の書き込みは未対応です。' };
-                }
                 const parsed = Number(nextValue);
                 if (!Number.isFinite(parsed) || parsed < -60 || parsed > 12) {
                     return { ok: false, message: 'gain_db は -60〜12 の範囲で入力してください。' };
                 }
                 return snapshot.audioKind === 'bgm'
                     ? requestWrite({ kind: 'bgm-gain', value: parsed })
-                    : requestWrite({ kind: 'sfx-gain', id: snapshot.id, value: parsed });
+                    : snapshot.audioKind === 'narration'
+                        ? requestWrite({ kind: 'narration-gain', id: snapshot.id, value: parsed })
+                        : requestWrite({ kind: 'sfx-gain', id: snapshot.id, value: parsed });
             }
         }
     ];
