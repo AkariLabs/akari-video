@@ -39,12 +39,14 @@ test('readInternalEdit and readInternalSources reject legacy versions', () => {
   }
 });
 
-test('lowest visual media track projects to cuts and upper visual media projects to layers', () => {
+// P0 2026-08-21 render-path-unification: 段（トラック）は media の旧種別に一切影響しない
+// （legacyKindOfV2Track/buildV2Item はもう track 位置を見ない — needsLayersEngine 参照）。
+// 素の media アイテムはどの段にあっても常に 'cuts'。
+test('every plain media item projects to cuts regardless of which visual track it is on', () => {
   const view = projectLegacyEdit(readInternalEdit(base()));
-  assert.equal(view.cuts.length, 1);
-  assert.equal(view.cuts[0].src, 'main');
-  assert.equal(view.layers.length, 1);
-  assert.equal(view.layers[0].src, 'pip.mp4');
+  assert.equal(view.cuts.length, 2, JSON.stringify(view.cuts));
+  assert.deepEqual(view.cuts.map(cut => cut.src).sort(), ['main', 'pip']);
+  assert.equal(view.layers.length, 0);
 });
 
 // P0 2026-08-20 track-identity-and-duration: オーナー実機報告の再現。「本編（V1）にあった動画を
@@ -66,15 +68,9 @@ const movedToNewTrack = () => ({
 });
 
 test('本編クリップを新設の空トラックへ移しても cuts のまま（段を動かしても種別が変わらない）', () => {
-  const beforeInternal = readInternalEdit(base());
   const afterInternal = readInternalEdit(movedToNewTrack());
-  const beforeView = projectLegacyEdit(beforeInternal);
   const afterView = projectLegacyEdit(afterInternal);
-  // 移動前: 'main' は base（先頭・非空の media トラック）にあり cuts。
-  assert.equal(beforeView.cuts.length, 1);
-  assert.equal(beforeView.cuts[0].src, 'main');
-  // 移動後: base は空になったので資格を失い、new-track（唯一の非空 media トラック）が
-  // 本編トラックを引き継ぐ。同じクリップは引き続き cuts のまま、layers へは落ちない。
+  // 移動後: 段が空トラック + 新設トラックだけの構成でも、素の media クリップは常に cuts。
   assert.equal(afterView.cuts.length, 1, 'moved clip should still project to cuts, not layers');
   assert.equal(afterView.cuts[0].src, 'main');
   assert.equal(afterView.layers.length, 0);
@@ -83,12 +79,16 @@ test('本編クリップを新設の空トラックへ移しても cuts のま�
   assert.equal(movedTrack.legacy.kind, 'cuts');
 });
 
-// P0 2026-08-20 track-identity-and-duration r2（wave-verify r1 差し戻し）:
-// クリップを「新設の空トラック」ではなく「既に crop 付き PiP を持つ既存トラック」へ移すと、
-// 昇格した mainVisualTrackId がトラック単位で一括 'cuts' 化し、動かしていない既存の PiP
-// クリップまで 'layers' -> 'cuts' へ黙って再分類される回帰があった（cuts 経路は crop を読まず
-// 全画面不透明合成のため見た目が壊れる）。track A の素の media クリップを track B（A より
-// 配列順で後ろ、crop 付き PiP を持つ）へ移しても、B の PiP クリップは layers のままであること。
+// P0 2026-08-21 render-path-unification（wave-verify r1/r2 差し戻しを経て、経路統合へ裁定）:
+// r1/r2 は「トラック単位で一括昇格する」実装のまま item 単位の除外フィールドを積み増す
+// ヒューリスティックだったため、反例トポロジ（挟まれた既存トラックの無関係クリップが
+// 巻き込まれて昇格・降格する）が 2 回連続で見つかった。r3 は render-cut の cuts 経路自体に
+// crop/perspective(静的)/keyframes(crop・transform)を実装して layers 相当の機能を持たせ、
+// mainVisualTrack という「段に基づく推測」を完全に撤去した。今は crop を宣言していても
+// 段に関わらず常に 'cuts'（render-cut の cut-transform.mjs が対応 — 詳細は report.md）。
+// track A の素の media クリップを track B（crop 付き PiP を持つ既存トラック）へ移しても、
+// 動かしていない B の PiP は crop 宣言を保ったまま 'cuts' で描かれ続ける（'layers' へは
+// 落ちない — もう 'layers' へ落とす理由が無い）。
 const trackAtoExistingTrackB = () => ({
   version: 2,
   output: { width: 1920, height: 1080, fps: 30 },
@@ -112,24 +112,52 @@ const trackAtoExistingTrackB = () => ({
   ],
 });
 
-test('既存の crop 付き PiP トラックへクリップを移しても、動かしていない PiP は layers のまま（トラック単位で一括 cuts 化しない）', () => {
+test('既存の crop 付き PiP トラックへクリップを移しても、動かしていない PiP は crop 宣言を保ったまま cuts のまま', () => {
   const internal = readInternalEdit(trackAtoExistingTrackB());
   const view = projectLegacyEdit(internal);
-  // b は非空の visual トラックの中で配列順最初（a は空）なので mainVisualTrackId は b。
-  // それでも b 上の crop 付き PiP は cuts へ昇格せず layers のまま。
-  assert.equal(view.layers.length, 1, JSON.stringify(view.layers));
-  assert.equal(view.layers[0].src, 'pip.mp4');
-  assert.ok('crop' in view.layers[0], 'PiP の crop 宣言が保持されていること');
-  // 移ってきた素の media クリップだけが cuts になる。
-  assert.equal(view.cuts.length, 1);
-  assert.equal(view.cuts[0].src, 'main');
-  // アイテム単位でも直接確認: b トラック内の 2 アイテムの legacy.collection が分かれていること。
+  // どちらも素の media（blend/perspective-keyframes 無し）なので、段に関わらずどちらも cuts。
+  assert.equal(view.layers.length, 0, JSON.stringify(view.layers));
+  assert.equal(view.cuts.length, 2, JSON.stringify(view.cuts));
+  assert.deepEqual(view.cuts.map(cut => cut.src).sort(), ['main', 'pip']);
+  // crop 宣言そのものは失われず declaration に残っている（render-cut が cuts 経路でも
+  // crop を読めるよう cut-transform.mjs 側で実装済み。projectLegacyEdit の投影先である
+  // internal.tracks[].items[].declaration で直接確認する）。
   const trackB = internal.tracks.find(track => track.id === 'b');
-  const collections = Object.fromEntries(trackB.items.map(item => [item.id, item.legacy.collection]));
-  assert.deepEqual(collections, { 'pip-1': 'layers', c1: 'cuts' });
+  const pip = trackB.items.find(item => item.id === 'pip-1');
+  assert.equal(pip.legacy.collection, 'cuts');
+  assert.deepEqual(pip.declaration.crop, { x: 0.2, y: 0.2, w: 0.5, h: 0.5 });
 });
 
-test('perspective / blend / keyframes を宣言するクリップも mainVisualTrack 上で cuts へ昇格しない', () => {
+test('非 normal blend を宣言するクリップだけは、段に関わらず常に layers のまま（cuts へ昇格しない）', () => {
+  // 唯一残った 'layers' が必要な理由: blend は合成時（前面までに何があるか）に依存する演算で、
+  // それは layers.mjs にしか実装が無い（アイテム自身の宣言だけで決まり、段は見ない）。
+  const withBlend = readInternalEdit({
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+    tracks: [
+      { id: 'v1', lane: 'visual', items: [
+        { id: 'clip', at: 0, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 }, blend: 'screen' },
+      ] },
+    ],
+  });
+  assert.equal(withBlend.tracks[0].items[0].legacy.collection, 'layers');
+
+  // blend: 'normal'（既定と同値の明示宣言）は非対象 — cuts のまま。
+  const withNormalBlend = readInternalEdit({
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+    tracks: [
+      { id: 'v1', lane: 'visual', items: [
+        { id: 'clip', at: 0, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 }, blend: 'normal' },
+      ] },
+    ],
+  });
+  assert.equal(withNormalBlend.tracks[0].items[0].legacy.collection, 'cuts');
+});
+
+test('静的な perspective・crop/transform keyframes は cuts へ昇格する（cuts 経路が実装済みのため）', () => {
   const withVisualProps = (extra) => readInternalEdit({
     version: 2,
     output: { width: 1920, height: 1080, fps: 30 },
@@ -142,13 +170,33 @@ test('perspective / blend / keyframes を宣言するクリップも mainVisualT
   });
   for (const extra of [
     { perspective: { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] } },
-    { blend: 'screen' },
     { keyframes: [{ t: 0, transform: { scale: 1 } }, { t: 30, transform: { scale: 1.2 } }] },
+    { keyframes: [{ t: 0, crop: { x: 0, y: 0, w: 1, h: 1 } }, { t: 30, crop: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 } }] },
   ]) {
     const internal = withVisualProps(extra);
     const item = internal.tracks[0].items[0];
-    assert.equal(item.legacy.collection, 'layers', `${JSON.stringify(extra)} should stay layers even as the sole visual track`);
+    assert.equal(item.legacy.collection, 'cuts', `${JSON.stringify(extra)} should be cuts (render-cut now implements this)`);
   }
+});
+
+test('アニメーションする perspective keyframe は layers のまま（cuts 経路は静的 perspective のみ対応）', () => {
+  const internal = readInternalEdit({
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+    tracks: [
+      { id: 'v1', lane: 'visual', items: [
+        {
+          id: 'clip', at: 0, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 },
+          keyframes: [
+            { t: 0, perspective: { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] } },
+            { t: 30, perspective: { corners: [[0.1, 0], [1, 0], [0, 1], [0.9, 1]] } },
+          ],
+        },
+      ] },
+    ],
+  });
+  assert.equal(internal.tracks[0].items[0].legacy.collection, 'layers');
 });
 
 test('visualContentEndSeconds は cuts/layers の振り分けに関わらず全 visual アイテムの最大終端を返す', () => {
@@ -197,4 +245,162 @@ test('v2 audio.sfx keeps zero-based ids and a one-second provisional display dur
   assert.deepEqual(sfx.map(item => item.id), ['sfx-0', 'sfx-2']);
   assert.deepEqual(sfx.map(item => item.atFrames), [810, 1470]);
   assert.deepEqual(sfx.map(item => item.durationFrames), [30, 45]);
+});
+
+// P0 2026-08-21 render-path-unification (Lead 指摘・L1 fork 発見のドラッグ例外の根治):
+// legacy.index はトラック横断で一意・宣言順の通し番号でなければならない。以前は
+// track.items.forEach のトラックごとにリセットされる index をそのまま使っていたため、
+// 複数の cuts トラックが同じ「cuts」collection へ寄与すると legacy.index が衝突していた
+// （2 本目以降のトラックのクリップが 1 本目のクリップと同じ legacy.index を名乗る）。
+// apps/shell/extensions/akari-annotations の widget は legacy.index をキーにした配列
+// （cutItemIds）でクリップの id を引くため、衝突が起きると 2 本目以降のクリップをドラッグした
+// ときに id を特定できず例外を投げていた（mainVisualTrackId があった旧実装では「中身のある
+// cuts トラックは常に高々 1 本」だったため、この衝突が実プロジェクトで到達不能だった —
+// 経路統合で複数の cuts トラックが通常状態になり、初めて踏めるようになった）。
+test('legacy.index stays globally unique and declaration-ordered across multiple cuts tracks (widget cutItemIds collision fix)', () => {
+  const edit = {
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [
+      { id: 'main', path: 'main.mp4', proxy: null },
+      { id: 'pip', path: 'pip.mp4', proxy: null },
+    ],
+    tracks: [
+      { id: 't1', lane: 'visual', items: [
+        { id: 'c1', at: 0, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
+        { id: 'c2', at: 60, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
+      ] },
+      { id: 't2', lane: 'visual', items: [
+        { id: 'c3', at: 0, duration: 60, source: { kind: 'media', src: 'pip', in: 0, out: 2 } },
+      ] },
+    ],
+  };
+  const internal = readInternalEdit(edit);
+  const cutItems = internal.tracks.flatMap(track => track.items)
+    .filter(item => item.legacy.collection === 'cuts');
+  // 一意性: 3 本とも異なる legacy.index を持つ（衝突ゼロ）。
+  const indexes = cutItems.map(item => item.legacy.index);
+  assert.deepEqual(new Set(indexes).size, indexes.length, `legacy.index must be unique, got ${JSON.stringify(indexes)}`);
+  // 宣言順（トラック配列順→トラック内 item 順）と一致する: c1, c2, c3 の順で 0,1,2。
+  assert.deepEqual(
+    cutItems.map(item => ({ id: item.id, index: item.legacy.index })),
+    [{ id: 'c1', index: 0 }, { id: 'c2', index: 1 }, { id: 'c3', index: 2 }],
+  );
+  // widget が cutItemIds[index] = item.id で組む配列を模倣し、2 本目トラックのクリップ（c3）が
+  // 1 本目トラックのクリップ（c1）を上書きしていないこと、全スロットが埋まっていることを確認する。
+  const cutItemIds = [];
+  for (const item of cutItems) cutItemIds[item.legacy.index] = item.id;
+  assert.deepEqual(cutItemIds, ['c1', 'c2', 'c3']);
+  // projectLegacyEdit の cuts[] も同じ理由でトラック横断の宣言順のまま組まれることを確認する
+  // （以前は legacy.index の衝突により Array.sort の安定ソートで他トラックの要素が割り込み、
+  // 宣言順と異なる並びになり得た）。
+  const view = projectLegacyEdit(internal);
+  assert.deepEqual(view.cuts.map(cut => cut.src), ['main', 'main', 'pip']);
+});
+
+// 同一トラックへ 3 本以上のクリップが乗っても衝突しないことも確認する（team lead 指示 2:
+// 「複数 cuts トラック構成で 2 本目のクリップの... 段移動が例外なく成立」の前提となる、
+// 段を移した後もクリップの id が一意に解決できることの直接確認）。
+test('legacy.index survives moving a clip into an existing multi-item cuts track without colliding', () => {
+  const before = {
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [
+      { id: 'main', path: 'main.mp4', proxy: null },
+      { id: 'pip', path: 'pip.mp4', proxy: null },
+    ],
+    tracks: [
+      { id: 't1', lane: 'visual', items: [
+        { id: 'moved-1', at: 0, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
+      ] },
+      { id: 't2', lane: 'visual', items: [
+        { id: 'c1', at: 0, duration: 60, source: { kind: 'media', src: 'pip', in: 0, out: 2 } },
+        { id: 'c2', at: 60, duration: 60, source: { kind: 'media', src: 'pip', in: 0, out: 2 } },
+      ] },
+    ],
+  };
+  // moved-1 が t1 から t2 の末尾へ移った後の状態。
+  const after = {
+    ...before,
+    tracks: [
+      { id: 't1', lane: 'visual', items: [] },
+      { id: 't2', lane: 'visual', items: [
+        { id: 'c1', at: 0, duration: 60, source: { kind: 'media', src: 'pip', in: 0, out: 2 } },
+        { id: 'c2', at: 60, duration: 60, source: { kind: 'media', src: 'pip', in: 0, out: 2 } },
+        { id: 'moved-1', at: 120, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
+      ] },
+    ],
+  };
+  for (const edit of [before, after]) {
+    const internal = readInternalEdit(edit);
+    const cutItems = internal.tracks.flatMap(track => track.items)
+      .filter(item => item.legacy.collection === 'cuts');
+    const indexes = cutItems.map(item => item.legacy.index);
+    assert.deepEqual(new Set(indexes).size, indexes.length, `legacy.index must be unique after the move, got ${JSON.stringify(indexes)}`);
+    // 全アイテムに欠番なく id が引ける（widget の cutItemId() が例外を投げない条件そのもの）。
+    const cutItemIds = [];
+    for (const item of cutItems) cutItemIds[item.legacy.index] = item.id;
+    for (let index = 0; index < cutItems.length; index += 1) {
+      assert.ok(cutItemIds[index], `cutItemIds[${index}] must resolve to an item id, got ${JSON.stringify(cutItemIds)}`);
+    }
+  }
+});
+
+// P0 2026-08-21 render-path-unification (実測で発見: fieldtest/2026-08-06-pip-perspective-crop-check
+// の実プロジェクトで再現): 'cuts'（concat チェーン）は同一トラック上の複数アイテムを
+// 「順に連結される別セグメント」として扱う構造的前提を持つ。同じトラックに at/duration が
+// 完全に重なる 2 つの media アイテム（例: 2 本の PiP が同時に映る）が乗っていると、
+// buildMultiSourceCutCommand の concat がそれらを連結した 1 本の内部クリップにしてしまい、
+// resolveCutTrackRanges が出力尺ぶんだけ先頭から trim するため、後ろに連結されたアイテムが
+// 黙って描画から消える。時間的に重なるアイテムは常に 'layers'（独立した重ね合わせを正しく
+// 表現できる唯一の経路）へ倒すことで防ぐ。
+test('media items on the same track with fully overlapping at/duration both classify layers (concat cannot represent simultaneous overlap)', () => {
+  const edit = {
+    version: 2,
+    output: { width: 1280, height: 720, fps: 30 },
+    sources: [
+      { id: 'main', path: 'main.mp4', proxy: null },
+      { id: 'pip', path: 'pip.mp4', proxy: null },
+    ],
+    tracks: [
+      { id: 't1', lane: 'visual', items: [
+        { id: 'cut-1', at: 0, duration: 240, source: { kind: 'media', src: 'main', in: 0, out: 8 } },
+      ] },
+      { id: 't2', lane: 'visual', items: [
+        { id: 'pip-a', at: 0, duration: 240, transform: { scale: 0.7 }, crop: { x: 0.2, y: 0.3, w: 0.5, h: 0.3 },
+          source: { kind: 'media', src: 'pip', in: 0, out: 8 } },
+        { id: 'pip-b', at: 0, duration: 240, perspective: { corners: [[0, 0], [1, 0.2], [0, 1], [1, 0.8]] },
+          source: { kind: 'media', src: 'pip', in: 0, out: 8 } },
+      ] },
+    ],
+  };
+  const internal = readInternalEdit(edit);
+  const items = internal.tracks.flatMap(track => track.items);
+  const byId = Object.fromEntries(items.map(item => [item.id, item]));
+  assert.equal(byId['cut-1'].legacy.collection, 'cuts', 'the untouched base track is unaffected');
+  assert.equal(byId['pip-a'].legacy.collection, 'layers', 'a fully-overlapping same-track item cannot be represented by concat');
+  assert.equal(byId['pip-b'].legacy.collection, 'layers', 'its overlapping sibling is likewise forced to layers');
+});
+
+// A same-track transition_out crossfade is a DELIBERATE, narrow overlap (the tail of one cut
+// blending into the head of the next) that the cuts/concat engine's own xfade support already
+// represents correctly -- it must NOT be caught by the overlap rule above, or every existing
+// transition_out project would be wrongly forced onto the layers engine.
+test('a same-track transition_out crossfade overlap does not force layers (concat already represents it via xfade)', () => {
+  const edit = {
+    version: 2,
+    output: { width: 1280, height: 720, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+    tracks: [
+      { id: 't1', lane: 'visual', items: [
+        { id: 'c1', at: 0, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2, transition_out: { type: 'dissolve', duration: 1 } } },
+        { id: 'c2', at: 30, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
+      ] },
+    ],
+  };
+  const internal = readInternalEdit(edit);
+  const items = internal.tracks.flatMap(track => track.items);
+  const byId = Object.fromEntries(items.map(item => [item.id, item]));
+  assert.equal(byId['c1'].legacy.collection, 'cuts', 'transition_out overlap stays on the cuts/xfade path');
+  assert.equal(byId['c2'].legacy.collection, 'cuts', 'its crossfade partner likewise stays on cuts');
 });

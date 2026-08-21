@@ -264,24 +264,60 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
         isDefault: false
     }));
     const pathOf = (id: string): string | undefined => sources.find(entry => entry.id === id)?.path;
+    const chromaKeyOf = (id: string): unknown => sources.find(entry => entry.id === id)?.chromaKey;
 
     const warnings: string[] = [];
     const refCounters = new Map<TimelineTrackKind, number>();
-    // どの段が「本編（cuts 相当）」かは、配列上の位置だけでなく段の**現在の中身**で決める。
-    // 空トラックは資格外（そこに動画を移しても本編化しない）。段を新設して動画をそこへ動かすと、
-    // 元の段は空になり、動かした先が資格を引き継ぐため、「動画を本編から別の段へ動かす」操作
-    // そのものは本編判定を変えない（P0 2026-08-20 track-identity-and-duration）。
-    const mainVisualTrackId = edit.tracks.find(track =>
-        track.lane === 'visual' && 'items' in track && track.items.length > 0
-    )?.id;
+    // P0 2026-08-21 render-path-unification (Lead 指摘・L1 fork 発見のドラッグ例外の根治):
+    // legacy.index はトラック横断で一意な「宣言順の通し番号」でなければならない。以前は
+    // track.items.forEach の**トラックごとにリセットされる** index をそのまま使っていたため、
+    // 複数トラックが同じ legacy.collection（cuts/layers/overlays/sfx）へ寄与すると
+    // index が衝突していた。mainVisualTrackId があった旧実装では「中身のある cuts トラックは
+    // 常に高々 1 本」だったため踏まなかったが、統合後は複数の cuts トラックが通常状態になり、
+    // apps/shell/extensions/akari-annotations の cutItemIds（legacy.index をキーにした配列）が
+    // 後勝ちで上書き・穴あきになり、2 本目以降のトラックのクリップをドラッグすると
+    // cutItemId() が例外を投げていた（同じ根から packages/render-cut/src/internal-render.mjs の
+    // projectRendererCompatibilityEdit・packages/edit-store/src/internal-model.ts の
+    // projectLegacyEdit 双方の「legacy.index で安定ソートして配列を組む」処理も、
+    // 衝突する index のせいで宣言順とは違う順に並び替わり得た）。
+    // legacyIndexCounters で collection 別に通し番号を発行し、buildV2Item 内の全 7 箇所の
+    // legacy.index 代入をこれに差し替える。
+    const legacyIndexCounters = new Map<string, number>();
+    // P0 2026-08-21 render-path-unification: どの段（トラック）にあるかは、もう source.kind:'media'
+    // アイテムの旧種別（cuts/layers）に一切影響しない。render-cut の cuts 経路
+    // （packages/render-cut/src/cut-transform.mjs）が transform/crop/perspective/keyframes/
+    // transition_out/speed/freeze の全機能集合を持つに至ったため、位置による「本編か否か」の
+    // 推測（旧 mainVisualTrackId）自体を撤去した。media アイテムの旧種別は常に 'cuts'
+    // （= layers 相当の見た目・機能も含めて描ける唯一の経路）。'layers' に残るのは、
+    // まだ cuts 経路へ移していない機能（非 normal blend の合成時ブレンド演算・
+    // アニメーションする perspective）を宣言するアイテムだけ（needsLayersEngine 参照。
+    // これも段ではなくアイテム自身の宣言だけで決まる）。
     const tracks: InternalTrack[] = edit.tracks.map(track => {
-        const kind = legacyKindOfV2Track(track, track.id === mainVisualTrackId);
+        // P0 2026-08-21 render-path-unification (実測で発覚): 'cuts' 経路（concat チェーン）は
+        // 同じトラック上の複数アイテムを「順番に連結される別セグメント」として扱う構造的前提を
+        // 持つ。同じトラックに時間的に重なる（同時に映る）2 アイテムが乗っていると、
+        // buildMultiSourceCutCommand の concat はそれらを連結された 1 本の内部クリップにしてしまい、
+        // resolveCutTrackRanges が出力尺ぶんだけを先頭から trim するため、後ろに連結された
+        // アイテムが黙って描画から消える（実測: fieldtest/2026-08-06-pip-perspective-crop-check
+        // で pip-perspective-demo が消失することを非回帰監査で発見）。'layers' 経路は各アイテムを
+        // 独立した重ね合わせとして扱うため、重なりを正しく表現できる唯一の経路である。
+        // そのため、同一トラック内で他アイテムと時間区間が重なる media アイテムは、宣言内容に
+        // 関わらず常に 'layers' 扱いにする（段の位置ではなく、そのトラック自身の中身が
+        // 構造的に 'cuts' で表現不可能かどうかで決まる — 推測の再導入にはあたらない）。
+        // legacyKindOfV2Track（トラック単位の旧種別・ref 採番元）にも同じ判定を渡す:
+        // track.items[0] だけを見て 'cuts' と判定すると、実際には items[0] が重なりで 'layers' に
+        // 倒れているのに track 自体は 'cuts' 名乗ったままになり、usesDefaultInternalTrackOrder が
+        // 無関係に buildTrackStackPlan（実際には不要な余分なエンコード世代）へ倒れてしまう
+        // （非回帰監査で実測: pip-perspective-crop-check が本来要らない track_stack を経由していた）。
+        const overlappingItemIds = 'items' in track ? computeOverlappingItemIds(track.items) : new Set<string>();
+        const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
         const ref = kind === 'captions' ? undefined : nextRef(refCounters, kind);
         const items: InternalItem[] = [];
         if ('items' in track) {
-            track.items.forEach((item, index) => {
+            track.items.forEach(item => {
                 const built = buildV2Item(
-                    item, index, fps, ref ?? 0, track.lane, track.id === mainVisualTrackId, pathOf
+                    item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters,
+                    overlappingItemIds.has(item.id)
                 );
                 if (built.warning) {
                     warnings.push(built.warning);
@@ -301,7 +337,7 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
         };
     });
 
-    addV2AudioItems(tracks, edit.audio, fps);
+    addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
     return {
         output: {
             width: edit.output.width,
@@ -322,19 +358,111 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
     };
 }
 
-function legacyKindOfV2Track(track: TrackV2 & { z: number }, mainVisualTrack: boolean): TimelineTrackKind {
+function legacyKindOfV2Track(
+    track: TrackV2 & { z: number },
+    chromaKeyOf: (sourceId: string) => unknown,
+    overlappingItemIds: ReadonlySet<string>
+): TimelineTrackKind {
     if (!('items' in track)) {
         return 'captions';
     }
     if (track.lane === 'audio') {
         return 'audio';
     }
-    switch (track.items[0]?.source.kind) {
+    const first = track.items[0];
+    switch (first?.source.kind) {
         case 'html': return 'overlays';
         case 'telop':
         case 'filter': return 'layers';
-        default: return mainVisualTrack ? 'cuts' : 'layers';
+        // 空トラック（first === undefined）は中身が無く旧種別は名目上のものでしかない。'layers' を
+        // 既定にする: 'cuts' にすると、このトラックも nextRef の 'cuts' カウンタを消費して
+        // しまい、後続の実際に中身がある cuts トラックの ref 番号がずれる
+        // （旧 track: N を見る needsGapAwareCutTimeline が誤って gap-aware 経路へ倒れる）。
+        // 'layers' は別カウンタなので、空トラックの存在が実クリップの分類・ref に影響しない
+        // （P0 2026-08-20 track-identity-and-duration r1 で踏んだのと同じ罠）。
+        default: return first === undefined
+            || needsLayersEngine(first, chromaKeyOf, overlappingItemIds.has(first.id))
+            ? 'layers' : 'cuts';
     }
+}
+
+// P0 2026-08-21 render-path-unification: cuts 経路（packages/render-cut/src/cut-transform.mjs）へ
+// まだ移していない機能を宣言する media アイテムだけが 'layers' に残る。段（トラック）は一切見ない
+// — アイテム自身の宣言だけで決まるので、移動しても判定は変わらない。
+// - blend: 'normal' 以外は合成時（前面までに何があるか）に依存するブレンド演算が要り、
+//   それは packages/render-cut/src/layers.mjs にしか実装が無い
+// - perspective keyframes: ffmpeg の perspective フィルタはフレームごとの式評価に対応しないため、
+//   layers.mjs は宣言全体を静的な複数レイヤーへ事前展開している（layer-keyframes.mjs の
+//   expandLayerForPerspectiveKeyframes）。この展開は t/duration ベースの layers 配列専用で、
+//   at/in/out ベースの cuts 配列へは未移植（本タスクのスコープ外。report.md 参照）
+// chromaKeyOf: 宣言（item.source.chroma_key）が無いときは素材表の既定（sources[].chroma_key）に
+// フォールバックする（copyMediaSourceFields / appendMultiSourceChromaKey と同じ解決順）。
+function needsLayersEngine(
+    item: ItemV2, chromaKeyOf?: (sourceId: string) => unknown, hasOverlappingSibling = false
+): boolean {
+    if (item.source.kind !== 'media') return false;
+    if (item.blend !== undefined && item.blend !== 'normal') return true;
+    if (Array.isArray(item.keyframes) && item.keyframes.some(point =>
+        point && typeof point === 'object' && 'perspective' in point && point.perspective !== undefined
+    )) return true;
+    // cuts 経路の chroma_key（packages/render-cut/src/plan.mjs の appendMultiSourceChromaKey）と
+    // layers 経路の chroma_key（layers.mjs）は意味が異なる: cuts はキー抜き部分を「指定/既定の
+    // 背景色・背景画像で塗りつぶす」実装、layers は「透過にして下のトラックを見せる」実装で、
+    // background 差し替えの手段を持たない（layers.mjs 自身が宣言時に警告する）。
+    // どちらを選ぶかは「background を宣言したか」というアイテム自身の宣言だけで決まる
+    // （段の位置には依存しない）: background 宣言ありは cuts でしか実現できないため cuts へ、
+    // background 宣言なし（透過して下を見せる意図）は layers へ。
+    const chromaKey = item.source.chroma_key ?? chromaKeyOf?.(item.source.src);
+    if (chromaKey !== undefined && chromaKey !== null) {
+        const hasBackground = typeof chromaKey === 'object'
+            && typeof (chromaKey as { background?: unknown }).background === 'string'
+            && (chromaKey as { background: string }).background.length > 0;
+        if (!hasBackground) return true;
+    }
+    // 'cuts'（concat チェーン）は同一トラック上の複数アイテムを「順に連結される別セグメント」
+    // として扱う構造的前提を持つ。同じトラックに時間的に重なる 2 アイテムが乗っていると、
+    // concat はそれらを連結した 1 本の内部クリップにしてしまい、出力尺ぶんだけを先頭から
+    // trim するため、後ろに連結されたアイテムが黙って描画から消える（readV2Internal の
+    // computeOverlappingItemIds 呼び出し側コメント参照。実測で発見: fieldtest の
+    // pip-perspective-crop-check で同一トラックの 2 番目の PiP が消失していた）。
+    if (hasOverlappingSibling) return true;
+    return false;
+}
+
+// P0 2026-08-21 render-path-unification: 'cuts' 経路は同一トラック上の複数アイテムを
+// 「順に連結される別セグメント」として扱えるだけで、時間的に重なる（同時に映る）複数アイテムは
+// 表現できない（buildMultiSourceCutCommand の concat 前提。needsLayersEngine 自身のコメント参照）。
+// このトラックの items[] を総当りで比較し、他のどれかと時間区間が重なる media アイテムの id を
+// 集める。
+function computeOverlappingItemIds(items: readonly ItemV2[]): Set<string> {
+    const overlapping = new Set<string>();
+    for (let i = 0; i < items.length; i++) {
+        const a = items[i];
+        if (a.source.kind !== 'media') continue;
+        for (let j = i + 1; j < items.length; j++) {
+            const b = items[j];
+            if (b.source.kind !== 'media') continue;
+            const aStart = a.at;
+            const aEnd = a.at + a.duration;
+            const bStart = b.at;
+            const bEnd = b.at + b.duration;
+            if (aStart < bEnd && bStart < aEnd) {
+                // cuts[].transition_out (a crossfade into the next cut) is a DELIBERATE, narrow
+                // overlap between two otherwise-sequential same-track items -- the concat engine's
+                // own xfade support (packages/render-cut/src/plan.mjs) already represents this
+                // correctly, so it must not be caught by this "cuts can't represent overlap" rule
+                // (only a genuine simultaneous-PiP overlap, with no transition_out involved at
+                // all, structurally can't be represented by concat). Declaring transition_out on
+                // either item in an overlapping pair is enough to exclude it: a real simultaneous
+                // PiP overlay never declares transition_out (it has no "next clip" to transition
+                // into within the same track).
+                if (a.source.transition_out !== undefined || b.source.transition_out !== undefined) continue;
+                overlapping.add(a.id);
+                overlapping.add(b.id);
+            }
+        }
+    }
+    return overlapping;
 }
 
 function nextRef(counters: Map<TimelineTrackKind, number>, kind: TimelineTrackKind): number {
@@ -343,14 +471,24 @@ function nextRef(counters: Map<TimelineTrackKind, number>, kind: TimelineTrackKi
     return ref;
 }
 
+// P0 2026-08-21 render-path-unification: legacy.collection（cuts/layers/overlays/sfx）ごとに
+// トラック横断で一意・宣言順（trackの配列順→そのtrack内のitem順）の通し番号を発行する。
+// readV2Internal 自身の comment 参照（Lead 指摘・L1 fork 発見のドラッグ例外の根治）。
+function nextLegacyIndex(counters: Map<string, number>, collection: string): number {
+    const index = counters.get(collection) ?? 0;
+    counters.set(collection, index + 1);
+    return index;
+}
+
 function buildV2Item(
     item: ItemV2,
-    index: number,
     fps: number,
     ref: number,
     lane: InternalLane,
-    mainVisualTrack: boolean,
-    pathOf: (id: string) => string | undefined
+    pathOf: (id: string) => string | undefined,
+    chromaKeyOf: (sourceId: string) => unknown,
+    legacyIndexCounters: Map<string, number>,
+    hasOverlappingSibling = false
 ): { item: InternalItem; warning?: string } {
     const atFrames = item.at;
     const durationFrames = item.duration;
@@ -389,7 +527,7 @@ function buildV2Item(
                     item: {
                         id: item.id, atFrames, durationFrames, at, duration, source,
                         declaration: { id: item.id, t: at, duration, path: value.path, track: ref, in: value.in, out: value.out },
-                        legacy: { collection: 'sfx', index, value }
+                        legacy: { collection: 'sfx', index: nextLegacyIndex(legacyIndexCounters, 'sfx'), value }
                     }
                 };
             }
@@ -404,16 +542,10 @@ function buildV2Item(
             const alignsDuration = Math.abs(span - playbackDuration) <= 1 / fps + 1e-9;
             const cutOut = alignsDuration ? item.source.in + playbackDuration : item.source.out;
             const speed = !alignsDuration && playbackDuration > 0 ? span / playbackDuration : undefined;
-            // mainVisualTrack への昇格はトラック単位だが、cuts（concat チェーン）経路は
-            // crop / perspective / blend / keyframes を読まない（render-cut の cut-transform.mjs /
-            // track-compose.mjs が対応していない）。これらを宣言するアイテムは、たまたま昇格した
-            // トラックに乗っていても常に layers 扱いにし、無関係な既存クリップが黙って
-            // cuts へ再分類されて見た目が壊れないようにする（P0 2026-08-20 r2・wave-verify r1 差し戻し）。
-            const hasLayerOnlyVisualProperties = item.crop !== undefined
-                || item.perspective !== undefined
-                || item.blend !== undefined
-                || item.keyframes !== undefined;
-            if (!mainVisualTrack || hasLayerOnlyVisualProperties) {
+            // P0 2026-08-21 render-path-unification: 段（トラック）は一切見ない。needsLayersEngine
+            // が false の media アイテムは常に 'cuts'（render-cut の cut-transform.mjs が
+            // transform/crop/perspective/keyframes/transition_out/speed/freeze の全機能集合を持つ）。
+            if (needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling)) {
                 const declaration = {
                     id: item.id, t: at, duration, kind: 'video', src: path ?? item.source.src,
                     track: ref, ...common, ...copyMediaSourceFields(item.source)
@@ -423,7 +555,7 @@ function buildV2Item(
                     item: {
                         id: item.id, atFrames, durationFrames, at, duration, source,
                         declaration,
-                        legacy: { collection: 'layers', index, value }
+                        legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers'), value }
                     }
                 };
             }
@@ -445,7 +577,7 @@ function buildV2Item(
                         id: item.id, src: item.source.src, in: item.source.in, out: cutOut, at, track: ref,
                         ...common, ...copyMediaSourceFields(item.source), ...(speed !== undefined ? { speed } : {})
                     },
-                    legacy: { collection: 'cuts', index, value }
+                    legacy: { collection: 'cuts', index: nextLegacyIndex(legacyIndexCounters, 'cuts'), value }
                 }
             };
         }
@@ -466,7 +598,7 @@ function buildV2Item(
                     id: item.id, atFrames, durationFrames, at, duration,
                     source: { kind: 'html', html: item.source.path },
                     declaration,
-                    legacy: { collection: 'overlays', index, value }
+                    legacy: { collection: 'overlays', index: nextLegacyIndex(legacyIndexCounters, 'overlays'), value }
                 }
             };
         }
@@ -483,7 +615,7 @@ function buildV2Item(
             };
             if (item.source.baked === undefined) {
                 return {
-                    item: { id: item.id, atFrames, durationFrames, at, duration, source, declaration, legacy: { collection: 'layers', index } }
+                    item: { id: item.id, atFrames, durationFrames, at, duration, source, declaration, legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers') } }
                 };
             }
             const value: EditLayer = {
@@ -499,7 +631,7 @@ function buildV2Item(
                 ...(item.blend !== undefined ? { blend: item.blend as LayerBlendMode } : {})
             };
             return {
-                item: { id: item.id, atFrames, durationFrames, at, duration, source, declaration, legacy: { collection: 'layers', index, value } }
+                item: { id: item.id, atFrames, durationFrames, at, duration, source, declaration, legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers'), value } }
             };
         }
         default: {
@@ -511,7 +643,7 @@ function buildV2Item(
                         id: item.id, t: at, duration, kind: 'filter',
                         filter: item.source.filter, track: ref, ...common
                     },
-                    legacy: { collection: 'layers', index }
+                    legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers') }
                 }
             };
         }
@@ -529,8 +661,17 @@ function copyMediaSourceFields(source: Extract<ItemV2['source'], { kind: 'media'
     };
 }
 
-/** v2 が秒のまま持ち越した audio を、表示用の audio lane へ落とさず射影する。 */
-function addV2AudioItems(tracks: InternalTrack[], audioValue: unknown, fps: number): void {
+/**
+ * v2 が秒のまま持ち越した audio を、表示用の audio lane へ落とさず射影する。
+ * legacyIndexCounters は buildV2Item と共有する（P0 2026-08-21 render-path-unification:
+ * 'sfx' コレクションは audio-lane トラックの items 経由（buildV2Item）とここ
+ * （edit.audio.sfx[]）の両方から寄与し得るため、同じカウンタでトラック横断・呼び出し元横断の
+ * 一意性を保つ。narration/bgm はここでしか発行されないが、将来 'sfx' と同じ理由で衝突しないよう
+ * 同じ仕組みで統一しておく）。
+ */
+function addV2AudioItems(
+    tracks: InternalTrack[], audioValue: unknown, fps: number, legacyIndexCounters: Map<string, number>
+): void {
     const audio = isRecord(audioValue) ? audioValue : undefined;
     if (!audio) return;
     const ensureTrack = (ref: number): InternalTrack => {
@@ -566,7 +707,7 @@ function addV2AudioItems(tracks: InternalTrack[], audioValue: unknown, fps: numb
             at: value.t, duration,
             source: { kind: 'media', path: value.path, in: start, out: end },
             declaration: entry,
-            legacy: { collection: 'sfx', index, value }
+            legacy: { collection: 'sfx', index: nextLegacyIndex(legacyIndexCounters, 'sfx'), value }
         });
     });
     const narration = Array.isArray(audio.narration) ? audio.narration : [];
@@ -583,7 +724,7 @@ function addV2AudioItems(tracks: InternalTrack[], audioValue: unknown, fps: numb
             at: value.t, duration: 0,
             source: { kind: 'media', path: value.path, in: 0, out: 0 },
             declaration: entry,
-            legacy: { collection: 'narration', index, value }
+            legacy: { collection: 'narration', index: nextLegacyIndex(legacyIndexCounters, 'narration'), value }
         });
     });
     if (isRecord(audio.bgm) && typeof audio.bgm.path === 'string') {
