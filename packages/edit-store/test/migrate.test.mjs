@@ -25,6 +25,25 @@ function base(version = 0) {
   };
 }
 
+function wavBuffer(durationSeconds, sampleRate = 8000) {
+  const sampleCount = Math.round(durationSeconds * sampleRate);
+  const dataSize = sampleCount * 2;
+  const buffer = Buffer.alloc(44 + dataSize);
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write('WAVEfmt ', 8);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(1, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  return buffer;
+}
+
 test('v0/v1 -> v2: 暗黙 at を絶対フレームに焼き、v2 reader を通す', () => {
   for (const version of [0, 1]) {
     const result = migrateEditToV2(base(version));
@@ -34,7 +53,7 @@ test('v0/v1 -> v2: 暗黙 at を絶対フレームに焼き、v2 reader を通�
   }
 });
 
-test('レイヤー動画の素材表追加・baked telop・audio・縦順を保つ', () => {
+test('レイヤー動画の素材表追加・baked telop・audio を音声先頭の縦順へ移す', () => {
   const doc = base(1);
   doc.audio = { sfx: [{ path: 'hit.wav', t: 0.25, track: 2 }] };
   doc.layers = [
@@ -49,11 +68,105 @@ test('レイヤー動画の素材表追加・baked telop・audio・縦順を保�
   ] };
   const result = migrateEditToV2(doc);
   assert.equal(result.ok, true);
-  assert.deepEqual(result.doc.tracks.map(track => track.id), ['main-row', 'pip-row', 'title-row', 'audio-row']);
+  assert.deepEqual(result.doc.tracks.map(track => track.id), ['audio-row', 'main-row', 'pip-row', 'title-row']);
   assert.equal(result.doc.sources.find(source => source.path === 'pip.mp4').id, 'l-1');
-  assert.equal(result.doc.tracks[1].items[0].source.kind, 'media');
-  assert.deepEqual(result.doc.tracks[2].items[0].source, { kind: 'telop', preset: 'title', params: { text: 'A' }, baked: 'title.mov' });
-  assert.deepEqual(result.doc.audio, doc.audio);
+  assert.equal(result.doc.tracks[2].items[0].source.kind, 'media');
+  assert.deepEqual(result.doc.tracks[3].items[0].source, { kind: 'telop', preset: 'title', params: { text: 'A' }, baked: 'title.mov' });
+  assert.equal(result.doc.audio, undefined);
+  assert.equal(result.doc.tracks[0].role, 'sfx');
+  assert.equal(result.doc.tracks[0].items[0].duration, 1);
+  assert.equal(result.unresolvedAudioDurations[0].trackIndex, 0);
+  assert.equal(result.unresolvedAudioDurations[0].itemIndex, 0);
+  assert.equal(result.unresolvedAudioDurations.length, 1);
+});
+
+test('明示 out の SE は ffprobe 不要で frameRange と source fields へ移る', () => {
+  const doc = base(1);
+  doc.audio = { sfx: [{ id: 'hit', t: 0.25, path: 'hit.wav', in: 0.1, out: 0.6, gain_db: -8 }] };
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.unresolvedAudioDurations, []);
+  const track = result.doc.tracks[0];
+  assert.equal(track.role, 'sfx');
+  assert.deepEqual({ at: track.items[0].at, duration: track.items[0].duration }, { at: 8, duration: 15 });
+  assert.deepEqual(track.items[0].source, {
+    kind: 'media', src: result.doc.sources.find(source => source.path === 'hit.wav').id,
+    in: 0.1, out: 0.6, gain_db: -8,
+  });
+});
+
+test('BGM・narration・複数 SE ref は役割別に分離し bgm→narration→sfx 昇順で並ぶ', () => {
+  const doc = base(1);
+  doc.audio = {
+    master: { loudnorm: true },
+    bgm: { path: 'music.wav', fadeIn: 1.25, fadeOut: 2.5, gain_db: -18, ducking: true },
+    narration: [{ id: 'n-1', t: 0.2, path: 'voice.wav', gain_db: -3, script: 'hello' }],
+    sfx: [
+      { id: 's2', t: 0, path: 'two.wav', track: 2, out: 0.5 },
+      { id: 's0', t: 0, path: 'zero.wav', out: 0.5 },
+    ],
+  };
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.doc.tracks.slice(0, 4).map(track => [track.role, track.items[0].id]), [
+    ['bgm', 'bgm'], ['narration', 'n-1'], ['sfx', 's0'], ['sfx', 's2'],
+  ]);
+  assert.deepEqual(result.doc.tracks[0].items[0].source, {
+    kind: 'media', src: result.doc.sources.find(source => source.path === 'music.wav').id,
+    in: 0, out: 2, fade_in: 1.25, fade_out: 2.5, gain_db: -18, ducking: true,
+  });
+  assert.equal(result.doc.tracks[1].items[0].script, 'hello');
+  assert.deepEqual(result.doc.audio, { master: { loudnorm: true } });
+  assert.deepEqual(result.unresolvedAudioDurations.map(value => value.path), ['voice.wav']);
+});
+
+test('planMigration は実 WAV を ffprobe し SE/narration の duration と source.out を確定する', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-migrate-audio-'));
+  try {
+    await writeFile(join(root, 'hit.wav'), wavBuffer(0.4));
+    await writeFile(join(root, 'voice.wav'), wavBuffer(0.75));
+    const doc = base(1);
+    doc.audio = {
+      sfx: [{ id: 'hit', t: 0.1, path: 'hit.wav' }],
+      narration: [{ id: 'voice', t: 0.2, path: 'voice.wav' }],
+    };
+    const text = `${JSON.stringify(doc)}\n`;
+    const proposal = planMigration(root, join(root, 'edit.json'), text);
+    assert.equal('blockers' in proposal, false, proposal.blockers?.join('\n'));
+    const migrated = JSON.parse(proposal.nextText);
+    const [narrationTrack, sfxTrack] = migrated.tracks.slice(0, 2);
+    assert.equal(narrationTrack.role, 'narration');
+    assert.equal(sfxTrack.role, 'sfx');
+    assert.deepEqual([sfxTrack.items[0].duration, narrationTrack.items[0].duration], [12, 23]);
+    assert.deepEqual([sfxTrack.items[0].source.out, narrationTrack.items[0].source.out], [0.4, 0.75]);
+    assert.doesNotThrow(() => readEditV2(migrated));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('planMigration は ffprobe failure を blocker にして placeholder を出力しない', () => {
+  const doc = base(1);
+  doc.audio = { narration: [{ id: 'voice', t: 0, path: 'missing.wav' }] };
+  const result = planMigration('/tmp', '/tmp/edit.json', JSON.stringify(doc), {
+    ffprobeCommand: '/definitely/missing/ffprobe',
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.blockers.join('\n'), /ffprobe.*missing\.wav/);
+});
+
+test('legacy audio entry の未知キーは category ごとの allow-list で拒否する', () => {
+  for (const audio of [
+    { sfx: [{ t: 0, path: 'hit.wav', volume: 1 }] },
+    { narration: [{ t: 0, path: 'voice.wav', text: 'x' }] },
+    { bgm: { path: 'music.wav', fade_in: 1 } },
+  ]) {
+    const doc = base(1);
+    doc.audio = audio;
+    const result = migrateEditToV2(doc);
+    assert.equal(result.ok, false);
+    assert.match(result.blockers.join('\n'), /未知フィールド/);
+  }
 });
 
 test('明示 timeline に captions 行が無い場合は字幕の黙示的な損失を blocker で止める', () => {
@@ -217,11 +330,10 @@ test('proxy / chroma_key の明示 null は copyPresent を経由しないため
   assert.doesNotThrow(() => readEditV2(result.doc));
 });
 
-test('出口の自己検証の根拠: readEditV2 は item.crop: null 単体を独立に拒否する（この検証を migrateEditToV2 の出口へ足した理由）', () => {
+test('planMigration の最終自己検証の根拠: readEditV2 は item.crop: null 単体を独立に拒否する', () => {
   // copyPresent の null 除去とは独立に、「crop: null を含む v2 は readEditV2 で必ず落ちる」こと
-  // 自体を確認する。migrateEditToV2 は内部で組み立てた doc をこの同じ readEditV2 に必ず通すため
-  // （src/migrate/index.ts の出口）、万一 copyPresent 以外の経路で不正な v2 が組み立てられても
-  // 同じ理由で ok:true にはならない、という自己検証の実効性の根拠になる。
+  // 自体を確認する。planMigration は ffprobe patch 後の doc をこの同じ readEditV2 に必ず通すため、
+  // 万一 copyPresent 以外の経路で不正な v2 が組み立てられても提案にはならない根拠になる。
   const migrated = migrateEditToV2(base());
   const brokenDoc = {
     ...migrated.doc,
