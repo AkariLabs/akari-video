@@ -286,7 +286,12 @@ function computeOverlappingItemIds(items) {
             const b = items[j];
             if (b.source.kind !== 'media')
                 continue;
-            if (a.at === b.at && a.duration === b.duration) {
+            // r3 (Codex re-review, MINOR): a zero-duration item is an empty interval that can
+            // never actually be visible on screen at the same instant as anything else, so two
+            // zero-duration items sharing the same `at` are not a genuine overlap -- require a
+            // positive duration too, or an empty-interval pair would be forced to 'layers' for
+            // no real reason.
+            if (a.at === b.at && a.duration === b.duration && a.duration > 0) {
                 // cuts[].transition_out (a crossfade into the next cut) is a DELIBERATE, narrow
                 // overlap between two otherwise-sequential same-track items -- the concat engine's
                 // own xfade support (packages/render-cut/src/plan.mjs) already represents this

@@ -439,3 +439,26 @@ test('a sequential mid-array insert leaving a stale, partially-overlapping trail
   assert.equal(byId['cut-3'].legacy.collection, 'cuts', 'the newly-inserted item stays on cuts (not a genuine PiP overlap)');
   assert.equal(byId['cut-2'].legacy.collection, 'cuts', 'the stale-at trailing item stays on cuts (not a genuine PiP overlap)');
 });
+
+// r3 (Codex re-review, MINOR): two zero-duration items sharing the same at are empty intervals
+// that can never actually be visible at the same instant -- not a genuine overlap, even though
+// their at AND duration are both exactly equal (the same shape the "fully overlapping"
+// exact-match rule above otherwise flags).
+test('two zero-duration items sharing the same at are not treated as an overlap (an empty interval never overlaps)', () => {
+  const edit = {
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+    tracks: [
+      { id: 't1', lane: 'visual', items: [
+        { id: 'zero-a', at: 60, duration: 0, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
+        { id: 'zero-b', at: 60, duration: 0, source: { kind: 'media', src: 'main', in: 2, out: 4 } },
+      ] },
+    ],
+  };
+  const internal = readInternalEdit(edit);
+  const items = internal.tracks.flatMap(track => track.items);
+  const byId = Object.fromEntries(items.map(item => [item.id, item]));
+  assert.equal(byId['zero-a'].legacy.collection, 'cuts', 'a zero-duration item is not a genuine overlap');
+  assert.equal(byId['zero-b'].legacy.collection, 'cuts', 'nor is its same-at, zero-duration sibling');
+});
