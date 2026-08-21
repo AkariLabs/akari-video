@@ -767,14 +767,24 @@ function findTrackOverlaps(segments) {
   return overlaps;
 }
 
+// P0 2026-08-21 render-path-unification (MAJOR-3 fix, Codex review): render-cut now auto-clamps
+// a declared transition_out.duration down to whatever overlap an explicit `at` actually provides
+// (packages/render-cut/src/cut-timeline.mjs's effectiveTransitionDurations) whenever that overlap
+// is real (positive) but shorter than declared, rendering a genuinely shorter dissolve instead of
+// silently hard-cutting and dropping frames -- so this check must accept that same range as a
+// valid, declared transition (not only an exact duration match), or a project render-cut can now
+// render correctly would still fail lint. Still rejects zero/negative overlap (a genuine gap --
+// no transition is physically possible) and overlap greater than declared (an unrelated shape
+// render-cut does not auto-adjust for -- see effectiveTransitionDurations' own comment).
 function isDeclaredTransitionOverlap(cuts, segments, current) {
   const previous = segments
     .filter(segment => segment.track === current.track && segment.index < current.index)
     .sort((left, right) => right.index - left.index)[0];
   if (!previous) return false;
   const duration = cuts?.[previous.index]?.transition_out?.duration;
-  return isPositiveNumber(duration)
-    && Math.abs((previous.end - current.start) - duration) <= EPSILON;
+  if (!isPositiveNumber(duration)) return false;
+  const availableOverlap = previous.end - current.start;
+  return availableOverlap > EPSILON && availableOverlap <= duration + EPSILON;
 }
 
 function validateCutTrackFields(cuts, findings) {

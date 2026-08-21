@@ -7,6 +7,7 @@ import {
   computeCutTimelineOffsets,
   computeVideoRuns,
   cutSpeed,
+  effectiveTransitionDurations,
   needsGapAwareCutTimeline,
   resolveCutSegments,
   segmentDuration,
@@ -1255,6 +1256,12 @@ export function buildMultiSourceCutCommand({
     // unlike the removed single-source path's single hasAudio flag for the whole source -- so this join never
     // needs the removed single-source path's "no audio at all" fallback branch.
     const cutOffsets = computeCutTimelineOffsets(cuts);
+    // MAJOR-3 fix (Codex review, see cut-timeline.mjs's effectiveTransitionDurations): use the
+    // same possibly-clamped-to-actual-overlap duration cutOffsets itself was built from, not the
+    // raw declared cuts[index-1].transition_out.duration -- xfade/acrossfade must be told exactly
+    // how much overlap really exists, or the filter graph and the timeline math it was placed
+    // against (cutOffsets) would silently disagree again the same way the routing decision used to.
+    const transitionDurations = effectiveTransitionDurations(cuts);
     let videoAcc = "[v0]";
     let audioAcc = "[a0]";
     for (let index = 1; index < cuts.length; index += 1) {
@@ -1264,7 +1271,7 @@ export function buildMultiSourceCutCommand({
       const nextAudioLabel = isLastBoundary ? "[joineda]" : `[aacc${index}]`;
       if (boundary) {
         const transitionName = XFADE_TRANSITION_NAMES[boundary.type] ?? "fade";
-        const transitionDuration = boundary.duration;
+        const transitionDuration = transitionDurations[index - 1];
         const offset = Math.max(0, cutOffsets[index].start);
         filters.push(
           `${videoAcc}[v${index}]xfade=transition=${transitionName}:duration=${formatNumber(transitionDuration)}:offset=${formatNumber(offset)}${nextVideoLabel}`,
