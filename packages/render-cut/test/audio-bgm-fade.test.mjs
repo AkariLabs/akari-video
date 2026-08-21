@@ -72,7 +72,7 @@ async function makeProject({ duration = 8, bgm = {}, narration = null } = {}) {
   if (narration) {
     makeTone(join(root, "audio", "narration.wav"), { frequency: 880, duration: narration.duration ?? duration, gainDb: narration.sourceGainDb ?? 24 });
     audio.narration = [
-      { id: "n-0001", path: "audio/narration.wav", t: narration.t ?? 0, gain_db: narration.gainDb ?? 0, provenance: { provider: "human" } },
+      { id: "n-0001", path: "audio/narration.wav", t: narration.t ?? 0, gain_db: narration.gainDb ?? 0 },
     ];
   }
 

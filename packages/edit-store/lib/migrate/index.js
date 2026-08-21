@@ -35,6 +35,9 @@ const LAYER_KEYS = new Set([
     'id', 't', 'duration', 'kind', 'src', 'transform', 'crop', 'perspective', 'opacity',
     'keyframes', 'preset', 'params', 'track', 'blend', 'chroma_key'
 ]);
+const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out']);
+const NARRATION_KEYS = new Set(['id', 't', 'path', 'gain_db', 'script', 'reading', 'provenance']);
+const BGM_KEYS = new Set(['id', 'path', 'in', 'fadeIn', 'fadeOut', 'gain_db', 'ducking']);
 function detectEditVersion(raw) {
     return isRecord(raw) && typeof raw.version === 'number' && Number.isFinite(raw.version)
         ? raw.version : undefined;
@@ -224,10 +227,126 @@ function migrateEditToV2(raw, options = {}) {
             }
         });
     });
+    const audio = isRecord(raw.audio) ? raw.audio : undefined;
+    if (raw.audio !== undefined && !audio) {
+        blockers.push('edit.json.audio が object ではありません。');
+    }
+    const audioTrackRefs = legacyAudioTrackRefs(audio);
+    let audioSourceSerial = 1;
+    const audioSourceId = (path) => {
+        const existing = sourceIdByPath.get(path);
+        if (existing)
+            return existing;
+        let id;
+        do
+            id = `a-${audioSourceSerial++}`;
+        while (sourceIds.has(id));
+        sourceIds.add(id);
+        sourceIdByPath.set(path, id);
+        sources.push({ id, path, proxy: null });
+        return id;
+    };
+    const sfx = arrayOrEmpty(audio?.sfx ?? undefined, 'edit.json.audio.sfx', blockers);
+    sfx.forEach((value, index) => {
+        const itemPath = `edit.json.audio.sfx[${index}]`;
+        if (!isRecord(value)) {
+            blockers.push(`${itemPath} が object ではありません。`);
+            return;
+        }
+        rejectUnknownKeys(value, SFX_KEYS, itemPath, blockers);
+        const inSeconds = value.in === undefined ? 0 : value.in;
+        if (!nonEmpty(value.path) || !nonNegative(value.t) || !nonNegative(inSeconds)
+            || (value.out !== undefined && (!positive(value.out) || value.out <= inSeconds))
+            || (value.gain_db !== undefined && !gainDb(value.gain_db))
+            || (value.fade_in !== undefined && !nonNegative(value.fade_in))
+            || (value.fade_out !== undefined && !nonNegative(value.fade_out))) {
+            blockers.push(`${itemPath} の path / t / in / out / gain_db / fade_in / fade_out が不正です。`);
+            return;
+        }
+        const source = {
+            kind: 'media', src: audioSourceId(value.path), in: inSeconds,
+            ...(value.out !== undefined ? { out: value.out } : {})
+        };
+        const item = {
+            id: uniqueId(nonEmpty(value.id) ? value.id : `sfx-${index}`, usedItemIds),
+            at: Math.round(value.t * frameRate),
+            duration: value.out !== undefined
+                ? Math.round((value.out - inSeconds) * frameRate)
+                : 0,
+            source,
+            ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {}),
+            ...(value.fade_in !== undefined ? { fade_in: value.fade_in } : {}),
+            ...(value.fade_out !== undefined ? { fade_out: value.fade_out } : {})
+        };
+        pending.push({ kind: 'audio', ref: trackOf(value.track), item });
+    });
+    const narration = arrayOrEmpty(audio?.narration, 'edit.json.audio.narration', blockers);
+    narration.forEach((value, index) => {
+        const itemPath = `edit.json.audio.narration[${index}]`;
+        if (!isRecord(value)) {
+            blockers.push(`${itemPath} が object ではありません。`);
+            return;
+        }
+        rejectUnknownKeys(value, NARRATION_KEYS, itemPath, blockers);
+        if (!nonEmpty(value.path) || !nonNegative(value.t)
+            || (value.gain_db !== undefined && !gainDb(value.gain_db))
+            || (value.script !== undefined && typeof value.script !== 'string')
+            || (value.reading !== undefined && typeof value.reading !== 'string')
+            || !validNarrationProvenance(value.provenance)) {
+            blockers.push(`${itemPath} の path / t / gain_db / script / reading / provenance が不正です。`);
+            return;
+        }
+        const item = {
+            id: uniqueId(nonEmpty(value.id) ? value.id : `narration-${index + 1}`, usedItemIds),
+            at: Math.round(value.t * frameRate),
+            duration: 0,
+            role: 'narration',
+            source: { kind: 'media', src: audioSourceId(value.path), in: 0 },
+            ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {}),
+            ...(value.script !== undefined ? { script: value.script } : {}),
+            ...(value.reading !== undefined ? { reading: value.reading } : {}),
+            provenance: clone(value.provenance)
+        };
+        pending.push({ kind: 'audio', ref: audioTrackRefs.narration, item });
+    });
+    if (audio?.bgm !== undefined && audio.bgm !== null) {
+        const value = audio.bgm;
+        if (!isRecord(value)) {
+            blockers.push('edit.json.audio.bgm が object ではありません。');
+        }
+        else {
+            rejectUnknownKeys(value, BGM_KEYS, 'edit.json.audio.bgm', blockers);
+            if (!nonEmpty(value.path)
+                || (value.in !== undefined && !nonNegative(value.in))
+                || (value.fadeIn !== undefined && !nonNegative(value.fadeIn))
+                || (value.fadeOut !== undefined && !nonNegative(value.fadeOut))
+                || (value.gain_db !== undefined && !gainDb(value.gain_db))
+                || (value.ducking !== undefined && typeof value.ducking !== 'boolean')) {
+                blockers.push('edit.json.audio.bgm の path / in / fadeIn / fadeOut / gain_db / ducking が不正です。');
+            }
+            else if (usedItemIds.has('bgm')) {
+                blockers.push('audio.bgm の固定 item id "bgm" が他の item id と重複します。');
+            }
+            else {
+                usedItemIds.add('bgm');
+                pending.push({
+                    kind: 'audio', ref: audioTrackRefs.bgm,
+                    item: {
+                        id: 'bgm', at: 0, duration: 0, role: 'bgm',
+                        source: { kind: 'media', src: audioSourceId(value.path), in: value.in ?? 0 },
+                        ...(value.fadeIn !== undefined ? { fade_in: value.fadeIn } : {}),
+                        ...(value.fadeOut !== undefined ? { fade_out: value.fadeOut } : {}),
+                        ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {}),
+                        ...(value.ducking !== undefined ? { ducking: value.ducking } : {})
+                    }
+                });
+            }
+        }
+    }
     if (blockers.length > 0)
         return { ok: false, version, blockers };
     const hasCaptions = options.hasCaptions === true || Array.isArray(raw.captions);
-    const trackDefs = readTrackDefs(raw.timeline, pending, legacyAudioTrackRefs(raw.audio), hasCaptions, blockers);
+    const trackDefs = readTrackDefs(raw.timeline, pending, audioTrackRefs.all, hasCaptions, blockers);
     if (blockers.length > 0)
         return { ok: false, version, blockers };
     const tracks = trackDefs.map(def => {
@@ -237,7 +356,8 @@ function migrateEditToV2(raw, options = {}) {
         const lane = def.kind === 'audio' ? 'audio' : 'visual';
         return {
             id: def.id, lane, ...(def.label !== undefined ? { name: def.label } : {}),
-            items: pending.filter(entry => entry.kind === def.kind && entry.ref === (def.ref ?? 0)).map(entry => entry.item)
+            items: pending.filter(entry => entry.kind === def.kind && entry.ref === (def.ref ?? 0))
+                .map(entry => entry.item)
         };
     });
     // timeline が壊れていてアイテムに対応する行が無い場合は黙って落とさない。
@@ -260,23 +380,26 @@ function migrateEditToV2(raw, options = {}) {
         output: clone(output),
         sources: sources,
         tracks,
-        ...(raw.audio !== undefined ? { audio: clone(raw.audio) } : {}),
+        ...(audio?.master !== undefined ? { audio: { master: clone(audio.master) } } : {}),
         ...(raw.captions !== undefined ? { captions: clone(raw.captions) } : {}),
         ...(raw.thumbnail !== undefined ? { thumbnail: clone(raw.thumbnail) } : {})
     };
     const changes = [
         { path: 'version', note: 'edit.json version 0/1 を version 2 へ更新' },
         { path: 'cuts/overlays/layers', note: 'tracks[].items[] と source.kind へ移し、出力時刻を整数フレームに確定' },
-        { path: 'timeline.tracks', note: '(種別, ref) の行を tracks[] へ縦順のまま移行' }
+        { path: 'timeline.tracks', note: '(種別, ref) の visual 行の相対順を保ち、audio 行を用途別の ref へ分離して先頭へ移行' }
     ];
     if (raw.audio !== undefined)
-        changes.push({ path: 'audio', note: '音声の秒宣言は変更せず持ち越し' });
+        changes.push({
+            path: 'audio',
+            note: 'BGM・ナレーション・SE を tracks[].items[] へ移し、出力側 at/duration は整数フレーム、素材側 in/out/fade/bgm.in は秒のまま維持'
+        });
     if (raw.thumbnail !== undefined)
         changes.push({ path: 'thumbnail', note: 'サムネイル参照を変更せず持ち越し' });
-    // 出口の自己検証（task/2026-08-20-migrate-crop-schema）。この上のロジックが未知の取りこぼしで
-    // 不正な v2 を組み立ててしまっても、`ok: true` のまま黙って抜けさせない。`readEditV2` は
-    // 現行の v2 リーダーと完全に同じ検証（型・範囲・exactKeys）を通す — 「変換器が書いた v2」と
-    // 「実際にアプリが読む v2」の間に検証の抜け道を作らないため、ここだけの簡易チェックにはしない。
+    if (pending.reduce((sum, entry) => sum + tracks.filter(track => 'items' in track
+        && track.items.some(item => item === entry.item)).length, 0) !== pending.length) {
+        return { ok: false, version, blockers: ['変換後の tracks[] が pending item を一意に保持していません。'] };
+    }
     try {
         (0, edit_v2_1.readEditV2)(doc);
     }
@@ -332,7 +455,7 @@ function readTrackDefs(timeline, pending, audioRefs, hasCaptions, blockers) {
             return [];
         }
         const ids = new Set();
-        return timeline.tracks.flatMap((value, index) => {
+        const declared = timeline.tracks.flatMap((value, index) => {
             if (!isRecord(value) || !nonEmpty(value.id)
                 || !['cuts', 'layers', 'overlays', 'captions', 'audio'].includes(String(value.kind))) {
                 blockers.push(`edit.json.timeline.tracks[${index}] の id / kind が不正です。`);
@@ -348,6 +471,7 @@ function readTrackDefs(timeline, pending, audioRefs, hasCaptions, blockers) {
                     ...(typeof value.label === 'string' ? { label: value.label } : {})
                 }];
         });
+        return orderedTrackDefs(declared, audioRefs, hasCaptions, blockers);
     }
     const defs = [];
     const append = (kind, ref) => {
@@ -359,24 +483,51 @@ function readTrackDefs(timeline, pending, audioRefs, hasCaptions, blockers) {
     }
     if (hasCaptions)
         append('captions');
-    audioRefs.forEach(ref => append('audio', ref));
-    return defs;
+    return orderedTrackDefs(defs, audioRefs, hasCaptions, blockers);
+}
+function orderedTrackDefs(declared, audioRefs, hasCaptions, blockers) {
+    const usedIds = new Set(declared.map(def => def.id));
+    const newId = (candidate) => uniqueId(candidate, usedIds);
+    const audio = [];
+    for (const ref of audioRefs) {
+        const legacy = declared.find(def => def.kind === 'audio' && (def.ref ?? 0) === ref);
+        audio.push({ ...(legacy ?? { id: newId(`audio-${ref}`), kind: 'audio' }), ref });
+    }
+    for (const legacy of declared.filter(def => def.kind === 'audio')) {
+        if (!audio.some(def => (def.ref ?? 0) === (legacy.ref ?? 0)))
+            audio.push(legacy);
+    }
+    const visual = declared.filter(def => def.kind !== 'audio');
+    if (hasCaptions && declared.length === 0 && !visual.some(def => def.kind === 'captions')) {
+        blockers.push('内部エラー: captions track を導出できませんでした。');
+    }
+    return [...audio, ...visual];
 }
 function legacyAudioTrackRefs(value) {
     const audio = isRecord(value) ? value : undefined;
     if (!audio)
-        return [];
-    const refs = new Set();
+        return { sfx: [], all: [] };
+    const sfx = new Set();
     if (Array.isArray(audio.sfx)) {
         for (const entry of audio.sfx)
             if (isRecord(entry))
-                refs.add(trackOf(entry.track));
+                sfx.add(trackOf(entry.track));
     }
-    if (Array.isArray(audio.narration) && audio.narration.length > 0)
-        refs.add(0);
-    if (isRecord(audio.bgm))
-        refs.add(0);
-    return [...refs].sort((a, b) => a - b);
+    const sfxRefs = [...sfx].sort((a, b) => a - b);
+    let nextRef = sfxRefs.length > 0 ? Math.max(...sfxRefs) + 1 : 0;
+    const narration = Array.isArray(audio.narration) && audio.narration.length > 0
+        ? nextRef++ : undefined;
+    const bgm = isRecord(audio.bgm) ? nextRef++ : undefined;
+    return {
+        sfx: sfxRefs,
+        ...(narration !== undefined ? { narration } : {}),
+        ...(bgm !== undefined ? { bgm } : {}),
+        all: [
+            ...sfxRefs,
+            ...(narration !== undefined ? [narration] : []),
+            ...(bgm !== undefined ? [bgm] : [])
+        ]
+    };
 }
 function arrayOrEmpty(value, path, blockers) {
     if (value === undefined)
@@ -439,6 +590,18 @@ function positive(value) {
 }
 function nonNegative(value) {
     return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+function gainDb(value) {
+    return typeof value === 'number' && Number.isFinite(value) && value >= -60 && value <= 12;
+}
+function validNarrationProvenance(value) {
+    if (!isRecord(value) || !nonEmpty(value.provider))
+        return false;
+    for (const key of ['engine', 'voice', 'credit', 'generated_at']) {
+        if (value[key] !== undefined && typeof value[key] !== 'string')
+            return false;
+    }
+    return value.provider !== 'voicevox' || nonEmpty(value.credit);
 }
 function trackOf(value) {
     return Number.isInteger(value) && value >= 0 ? value : 0;

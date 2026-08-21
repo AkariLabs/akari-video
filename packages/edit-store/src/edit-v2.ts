@@ -58,6 +58,15 @@ export interface MediaSourceV2 {
     chroma_key?: Record<string, unknown> | null;
 }
 
+export interface AudioMediaSourceV2 {
+    kind: 'media';
+    src: string;
+    /** 素材ファイル内のトリム開始（秒）。省略時は 0。 */
+    in?: number;
+    /** 素材ファイル内のトリム終端（秒）。省略時はファイル末尾。 */
+    out?: number;
+}
+
 export interface HtmlSourceV2 {
     kind: 'html';
     path: string;
@@ -103,16 +112,54 @@ export type ItemV2 =
     | (ItemV2Base & { source: TelopSourceV2 })
     | (ItemV2Base & { source: FilterSourceV2 });
 
+export type AudioRoleV2 = 'sfx' | 'narration' | 'bgm';
+
+export interface NarrationProvenanceV2 {
+    provider: string;
+    engine?: string;
+    voice?: string;
+    credit?: string;
+    generated_at?: string;
+    [key: string]: unknown;
+}
+
+export interface AudioMediaItemV2 {
+    id: string;
+    /** 出力タイムライン上の絶対位置（整数フレーム）。 */
+    at: number;
+    /** 出力尺（整数フレーム）。0 は実尺未解決のセンチネル。 */
+    duration: number;
+    /** 省略時は sfx。 */
+    role?: AudioRoleV2;
+    source: AudioMediaSourceV2;
+    gain_db?: number;
+    fade_in?: number;
+    fade_out?: number;
+    ducking?: boolean;
+    script?: string;
+    reading?: string;
+    provenance?: NarrationProvenanceV2;
+}
+
 export interface CaptionTrackContentV2 {
     from: 'captions.json';
 }
 
-export interface ItemsTrackV2 {
+export interface VisualItemsTrackV2 {
     id: string;
-    lane: LaneV2;
+    lane: 'visual';
     name?: string;
     items: ItemV2[];
 }
+
+export interface AudioItemsTrackV2 {
+    id: string;
+    lane: 'audio';
+    name?: string;
+    items: AudioMediaItemV2[];
+}
+
+export type ItemsTrackV2 = VisualItemsTrackV2 | AudioItemsTrackV2;
 
 export interface ContentTrackV2 {
     id: string;
@@ -130,8 +177,8 @@ export interface EditV2 {
     /** 配列順が下から上の合成 z 順。 */
     tracks: TrackV2[];
     /**
-     * 移行では v0/v1 の音声秒宣言をそのまま保持する。音を整数フレーム化すると
-     * SFX/BGM の位置・尺が動くため、本タスクでは変換せず、トラック化は後続へ送る。
+     * 旧 v2 fixture が持つ top-level audio の互換 fallback。新規の SFX / narration / BGM は
+     * audio lane の items で宣言する。
      */
     audio?: unknown;
     captions?: unknown[];
@@ -162,6 +209,10 @@ const BLEND_MODES = new Set<BlendModeV2>([
 ]);
 const ITEM_KEYS = new Set([
     'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'source'
+]);
+const AUDIO_ITEM_KEYS = new Set([
+    'id', 'at', 'duration', 'role', 'source', 'gain_db', 'fade_in', 'fade_out', 'ducking',
+    'script', 'reading', 'provenance'
 ]);
 
 /**
@@ -272,13 +323,77 @@ function validateTrack(
     }
     if (hasItems) {
         if (!Array.isArray(value.items)) throw invalid(`${path}.items`, '配列である必要があります');
-        value.items.forEach((item, itemIndex) => validateItem(item, `${path}.items[${itemIndex}]`, itemIds, sourceIds));
+        value.items.forEach((item, itemIndex) => {
+            const itemPath = `${path}.items[${itemIndex}]`;
+            if (value.lane === 'audio') validateAudioItem(item, itemPath, itemIds, sourceIds);
+            else validateItem(item, itemPath, itemIds, sourceIds);
+        });
         return;
     }
     requireRecord(value.content, `${path}.content`);
     requireExactKeys(value.content, new Set(['from']), `${path}.content`);
     if (value.content.from !== 'captions.json') {
         throw invalid(`${path}.content.from`, 'captions.json である必要があります');
+    }
+}
+
+function validateAudioItem(
+    value: unknown,
+    path: string,
+    ids: Set<string>,
+    sourceIds: Set<string>
+): asserts value is AudioMediaItemV2 {
+    requireRecord(value, path);
+    requireExactKeys(value, AUDIO_ITEM_KEYS, path);
+    requireText(value.id, `${path}.id`);
+    if (ids.has(value.id)) throw invalid(`${path}.id`, `item id が重複しています: ${value.id}`);
+    ids.add(value.id);
+    requireInteger(value.at, 0, `${path}.at`);
+    requireInteger(value.duration, 0, `${path}.duration`);
+    if (hasOwn(value, 'role') && value.role !== 'sfx' && value.role !== 'narration' && value.role !== 'bgm') {
+        throw invalid(`${path}.role`, 'sfx/narration/bgm のいずれかである必要があります');
+    }
+    if (hasOwn(value, 'gain_db')) requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+    if (hasOwn(value, 'fade_in')) requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
+    if (hasOwn(value, 'fade_out')) requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
+    if (hasOwn(value, 'ducking') && typeof value.ducking !== 'boolean') {
+        throw invalid(`${path}.ducking`, 'boolean である必要があります');
+    }
+    if (hasOwn(value, 'script') && typeof value.script !== 'string') {
+        throw invalid(`${path}.script`, 'string である必要があります');
+    }
+    if (hasOwn(value, 'reading') && typeof value.reading !== 'string') {
+        throw invalid(`${path}.reading`, 'string である必要があります');
+    }
+    if (hasOwn(value, 'provenance')) validateNarrationProvenance(value.provenance, `${path}.provenance`);
+    validateAudioMediaSource(value.source, `${path}.source`, sourceIds);
+}
+
+function validateNarrationProvenance(value: unknown, path: string): asserts value is NarrationProvenanceV2 {
+    requireRecord(value, path);
+    requireText(value.provider, `${path}.provider`);
+    for (const key of ['engine', 'voice', 'credit', 'generated_at']) {
+        if (hasOwn(value, key) && typeof value[key] !== 'string') {
+            throw invalid(`${path}.${key}`, 'string である必要があります');
+        }
+    }
+    if (value.provider === 'voicevox' && (!hasOwn(value, 'credit')
+        || typeof value.credit !== 'string' || value.credit.trim().length === 0)) {
+        throw invalid(`${path}.credit`, 'provider が voicevox のときは空でない文字列が必要です');
+    }
+}
+
+function validateAudioMediaSource(value: unknown, path: string, sourceIds: Set<string>): asserts value is AudioMediaSourceV2 {
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['kind', 'src', 'in', 'out']), path);
+    if (value.kind !== 'media') throw invalid(`${path}.kind`, 'media である必要があります');
+    requireText(value.src, `${path}.src`);
+    if (!sourceIds.has(value.src)) throw invalid(`${path}.src`, `sources[].id に存在しません: ${value.src}`);
+    if (hasOwn(value, 'in')) requireNonNegativeNumber(value.in, `${path}.in`);
+    if (hasOwn(value, 'out')) {
+        requireNonNegativeNumber(value.out, `${path}.out`);
+        const inSeconds = hasOwn(value, 'in') ? value.in as number : 0;
+        if (value.out <= inSeconds) throw invalid(path, 'audio media source は out > in である必要があります');
     }
 }
 

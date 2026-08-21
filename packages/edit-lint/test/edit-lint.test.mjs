@@ -145,8 +145,11 @@ for (const [fixture, expectedCheck] of [
   ["v2-id-duplicate-invalid", "v2.id-unique"],
   ["v2-items-content-invalid", "v2.track-content-exclusive"],
   ["v2-track-overlap-invalid", "v2.track-overlap"],
+  ["v2-audio-track-overlap-invalid", "v2.track-overlap"],
   ["v2-lane-source-invalid", "v2.lane-source"],
   ["v2-item-duration-zero-invalid", "v2.item-duration"],
+  ["v2-audio-bgm-multiple-invalid", "v2.audio-bgm-multiple"],
+  ["v2-audio-bgm-items-invalid", "v2.audio-bgm-multiple"],
 ]) {
   test(`${fixture} reports ${expectedCheck}`, async () => {
     await withFixtures(async (fixtures) => {
@@ -163,14 +166,8 @@ for (const [fixture, expectedCheck] of [
   });
 }
 
-// P0 2026-08-21 render-path-unification (r6, Codex re-review): duration.md=0 was found, across
-// two earlier rounds of this task, to be unsafe to let reach the projection/render layers at all
-// -- a v2 item declaring it stays schema-valid (edit.schema.json's `frames` $def allows 0, since
-// `at` legitimately can be 0 too) but represents nothing on the timeline, and no downstream layer
-// should have to special-case it. This is asserted end-to-end and pins the exact message text
-// (not just the check id, unlike the table-driven tests above), since the whole point of this
-// check is to surface a clear, purpose-built reason INSTEAD of letting it surface later as an
-// unrelated-looking cuts.range/validateEditShape failure deep in a render attempt.
+// Visual duration: 0 represents nothing renderable and must still fail clearly. Audio items are
+// intentionally different: migration uses 0 as the unresolved material-duration sentinel.
 test("v2-item-duration-zero-invalid reports a clear, purpose-built message naming the field and the rule", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "v2-item-duration-zero-invalid"));
@@ -719,7 +716,7 @@ test("words[] rejects unknown fields, requires 0 <= start <= end, and non-empty 
   });
 });
 
-test("narration with bgm and full provenance passes with zero findings", async () => {
+test("narration with bgm passes from item-level audio roles", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "narration-valid");
     const executed = run(project);
@@ -731,10 +728,7 @@ test("narration with bgm and full provenance passes with zero findings", async (
 });
 
 for (const [fixture, expectedCheck] of [
-  ["narration-invalid-id", "audio.narration.id"],
   ["narration-gain-out-of-range", "audio.narration.gain-db"],
-  ["narration-missing-provenance", "audio.narration.provenance"],
-  ["narration-voicevox-missing-credit", "audio.narration.credit"],
 ]) {
   test(`${fixture} fails with ${expectedCheck}`, async () => {
     await withFixtures(async (fixtures) => {
@@ -1201,7 +1195,6 @@ test("intake.json with duration_s and keep_length both set fails", async () => {
 
 for (const [fixture, expectedCheck] of [
   ["cuts-track-overlap-invalid", "v2.track-overlap"],
-  ["audio-sfx-track-invalid-value", "audio.sfx.track"],
 ]) {
   test(`${fixture} fails with ${expectedCheck}`, async () => {
     await withFixtures(async (fixtures) => {

@@ -140,7 +140,8 @@ function readV2Internal(raw) {
         // 倒れているのに track 自体は 'cuts' 名乗ったままになり、usesDefaultInternalTrackOrder が
         // 無関係に buildTrackStackPlan（実際には不要な余分なエンコード世代）へ倒れてしまう
         // （非回帰監査で実測: pip-perspective-crop-check が本来要らない track_stack を経由していた）。
-        const overlappingItemIds = 'items' in track ? computeOverlappingItemIds(track.items) : new Set();
+        const overlappingItemIds = 'items' in track && track.lane === 'visual'
+            ? computeOverlappingItemIds(track.items) : new Set();
         const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
         const ref = kind === 'captions' ? undefined : nextRef(refCounters, kind);
         const items = [];
@@ -164,6 +165,8 @@ function readV2Internal(raw) {
             legacy: { kind, ...(ref === undefined ? {} : { ref }) }
         };
     });
+    // 旧 top-level audio と tracks[] 音声が同居すると、後者に加えてこの fallback も射影される。
+    // どちらを優先するかは未裁定なので、旧 fixture の互換挙動を変えず二重計上の可能性を残す。
     addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
     return {
         output: {
@@ -324,6 +327,12 @@ function nextLegacyIndex(counters, collection) {
     return index;
 }
 function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false) {
+    if (lane === 'audio') {
+        return buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters);
+    }
+    return buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling);
+}
+function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false) {
     const atFrames = item.at;
     const durationFrames = item.duration;
     const at = atFrames / fps;
@@ -347,24 +356,6 @@ function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCount
                 in: item.source.in,
                 out: item.source.out
             };
-            if (lane === 'audio') {
-                const value = {
-                    id: item.id,
-                    t: at,
-                    duration,
-                    path: path ?? item.source.src,
-                    track: ref,
-                    in: item.source.in,
-                    out: item.source.out
-                };
-                return {
-                    item: {
-                        id: item.id, atFrames, durationFrames, at, duration, source,
-                        declaration: { id: item.id, t: at, duration, path: value.path, track: ref, in: value.in, out: value.out },
-                        legacy: { collection: 'sfx', index: nextLegacyIndex(legacyIndexCounters, 'sfx'), value }
-                    }
-                };
-            }
             // 1 フレーム以内の差は速度変更ではなく尺合わせなので、trim の素材窓を詰める。
             // それを超える差だけを本物の速度変更として旧 cuts[].speed へ写す。
             const span = item.source.out - item.source.in;
@@ -541,6 +532,101 @@ function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCount
         }
     }
 }
+function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
+    const atFrames = item.at;
+    const durationFrames = item.duration;
+    const at = atFrames / fps;
+    const duration = durationFrames / fps;
+    const inSeconds = item.source.in ?? 0;
+    const path = pathOf(item.source.src);
+    const source = {
+        kind: 'media',
+        sourceId: item.source.src,
+        ...(path !== undefined ? { path } : {}),
+        in: inSeconds,
+        out: item.source.out ?? inSeconds
+    };
+    const resolvedPath = path ?? item.source.src;
+    const role = item.role ?? 'sfx';
+    if (role === 'narration') {
+        const value = {
+            id: item.id,
+            t: at,
+            path: resolvedPath,
+            track: ref,
+            ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
+            ...(item.script !== undefined ? { script: item.script } : {}),
+            ...(item.reading !== undefined ? { reading: item.reading } : {}),
+            ...(item.provenance !== undefined ? { provenance: structuredClone(item.provenance) } : {})
+        };
+        return {
+            item: {
+                id: item.id, atFrames, durationFrames, at, duration, source,
+                declaration: {
+                    id: item.id, t: at, path: resolvedPath,
+                    ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                    ...(item.script !== undefined ? { script: item.script } : {}),
+                    ...(item.reading !== undefined ? { reading: item.reading } : {}),
+                    ...(item.provenance !== undefined ? { provenance: structuredClone(item.provenance) } : {})
+                },
+                legacy: {
+                    collection: 'narration',
+                    index: nextLegacyIndex(legacyIndexCounters, 'narration'),
+                    value
+                }
+            }
+        };
+    }
+    if (role === 'bgm') {
+        const value = {
+            id: 'bgm',
+            path: resolvedPath,
+            track: ref,
+            ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
+            ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),
+            ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
+            ...(item.ducking !== undefined ? { ducking: item.ducking } : {})
+        };
+        return {
+            item: {
+                id: item.id, atFrames, durationFrames, at, duration, source,
+                declaration: {
+                    path: resolvedPath,
+                    ...(item.source.in !== undefined ? { in: item.source.in } : {}),
+                    ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
+                    ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),
+                    ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                    ...(item.ducking !== undefined ? { ducking: item.ducking } : {})
+                },
+                legacy: { collection: 'bgm', index: 0, value }
+            }
+        };
+    }
+    const value = {
+        id: item.id,
+        t: at,
+        duration,
+        path: resolvedPath,
+        track: ref,
+        in: inSeconds,
+        ...(item.source.out !== undefined ? { out: item.source.out } : {}),
+        ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {})
+    };
+    return {
+        item: {
+            id: item.id, atFrames, durationFrames, at, duration, source,
+            declaration: {
+                id: item.id, t: at, duration, path: resolvedPath, track: ref,
+                in: inSeconds,
+                ...(item.source.out !== undefined ? { out: item.source.out } : {}),
+                ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                ...(item.fade_in !== undefined ? { fade_in: item.fade_in } : {}),
+                ...(item.fade_out !== undefined ? { fade_out: item.fade_out } : {})
+            },
+            legacy: { collection: 'sfx', index: nextLegacyIndex(legacyIndexCounters, 'sfx'), value }
+        }
+    };
+}
 function copyMediaSourceFields(source) {
     return {
         ...(source.framing !== undefined ? { framing: source.framing } : {}),
@@ -556,7 +642,7 @@ function copyMediaSourceFields(source) {
  * legacyIndexCounters は buildV2Item と共有する（P0 2026-08-21 render-path-unification:
  * 'sfx' コレクションは audio-lane トラックの items 経由（buildV2Item）とここ
  * （edit.audio.sfx[]）の両方から寄与し得るため、同じカウンタでトラック横断・呼び出し元横断の
- * 一意性を保つ。narration/bgm はここでしか発行されないが、将来 'sfx' と同じ理由で衝突しないよう
+ * 一意性を保つ。narration/bgm も audio-lane items とこの fallback の両経路から寄与し得るため、
  * 同じ仕組みで統一しておく）。
  */
 function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
@@ -608,7 +694,10 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
             id: typeof entry.id === 'string' ? entry.id : `n-${String(index + 1).padStart(4, '0')}`,
             t: entry.t, path: entry.path,
             ...(typeof entry.gain_db === 'number' ? { gainDb: entry.gain_db } : {}),
-            ...(typeof entry.script === 'string' ? { script: entry.script } : {})
+            ...(typeof entry.script === 'string' ? { script: entry.script } : {}),
+            ...(typeof entry.reading === 'string' ? { reading: entry.reading } : {}),
+            ...(isRecord(entry.provenance)
+                ? { provenance: structuredClone(entry.provenance) } : {})
         };
         ensureTrack(0).items.push({
             id: value.id, atFrames: Math.round(value.t * fps), durationFrames: 0,

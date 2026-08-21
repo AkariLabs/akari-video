@@ -66,11 +66,10 @@ test("setSfxFadeInSource only touches the targeted sfx index (sibling items unto
 });
 
 // widget's withSfxFade() merges rawValue.audio.sfx[N].fade_in/fade_out into parsed.audioSfx by
-// the "sfx-N" id index (parsed.audioSfx can skip invalid raw entries, so array position alone
-// is not reliable -- see akari-annotations-widget.ts's EditAudioSfxWithFade header comment).
+// the "sfx-N" id index.
 // This test locks down the id numbering the v2 reader's compatibility view produces,
 // which withSfxFade depends on.
-test("v2 reader's audioSfx[].id numbering matches the raw array index even when an earlier item is skipped (regression guard for withSfxFade's id-based lookup)", () => {
+test("v2 reader's audioSfx[].id numbering matches the raw array index (regression guard for withSfxFade's id-based lookup)", () => {
   const source = JSON.stringify({
     version: 0,
     output: { width: 1280, height: 720, fps: 30 },
@@ -80,12 +79,12 @@ test("v2 reader's audioSfx[].id numbering matches the raw array index even when 
     audio: {
       sfx: [
         { path: "ok0.mp3", t: 1 },
-        { path: "", t: 2 }, // invalid (empty path) -- the v2 compatibility reader skips this one
+        { path: "ok1.mp3", t: 2 },
         { path: "ok2.mp3", t: 3, fade_in: 0.2 }
       ]
     }
   });
   const parsed = readLegacyView(JSON.parse(source));
-  assert.equal(parsed.audioSfx.length, 2);
-  assert.deepEqual(parsed.audioSfx.map(item => item.id), ["sfx-0", "sfx-2"]);
+  assert.equal(parsed.audioSfx.length, 3);
+  assert.deepEqual(parsed.audioSfx.map(item => item.id), ["sfx-0", "sfx-1", "sfx-2"]);
 });

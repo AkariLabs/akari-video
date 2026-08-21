@@ -130,6 +130,22 @@ test("deriveDefaultTimelineTracks derives an audio ref-0 track from audio.bgm al
   assert.equal(derived[0].kind, "audio");
 });
 
+test("deriveDefaultTimelineTracks respects narration / BGM track refs and defaults missing refs to 0", () => {
+  const derived = deriveDefaultTimelineTracks({
+    audio: {
+      narration: [
+        { id: "n-1", path: "voice-1.wav", t: 0, track: 2 },
+        { id: "n-2", path: "voice-2.wav", t: 1 }
+      ],
+      bgm: { path: "music.wav", track: 4 }
+    }
+  });
+  assert.deepEqual(
+    derived.filter(track => track.kind === "audio").map(track => track.ref),
+    [0, 2, 4]
+  );
+});
+
 test("deriveDefaultTimelineTracks derives no audio track when audio is absent (non-regression)", () => {
   const derived = deriveDefaultTimelineTracks({ cuts: [{ track: 0 }] });
   assert.equal(derived.some((track) => track.kind === "audio"), false);
@@ -162,4 +178,11 @@ test("withAudioDisplaySupplement is a no-op without bgm and never mutates its in
   const frozen = Object.freeze([...explicit]);
   assert.deepEqual(withAudioDisplaySupplement(frozen, false), explicit);
   assert.deepEqual(withAudioDisplaySupplement(frozen, true)[0].id, "t-audio-implied");
+});
+
+test("withAudioDisplaySupplement uses the BGM's actual ref for the implied row", () => {
+  const result = withAudioDisplaySupplement(
+    [{ id: "v1", kind: "cuts", ref: 0 }], true, 3
+  );
+  assert.deepEqual(result[0], { id: "t-audio-implied", kind: "audio", ref: 3 });
 });

@@ -1,10 +1,24 @@
 {
-  "version": 0,
+  "version": 2,
   "output": { "width": 1280, "height": 720, "fps": 30 },
-  "source": { "path": "source.mp4", "proxy": null },
-  "cuts": [{ "in": 0, "out": 20 }],
-  "overlays": [],
-  "audio": {
-    "bgm": { "path": "audio/bgm.wav", "gain_db": -18, "fadeOut": -2 }
-  }
+  "sources": [
+    { "id": "main", "path": "source.mp4", "proxy": null },
+    { "id": "music", "path": "audio/bgm.wav", "proxy": null }
+  ],
+  "tracks": [
+    {
+      "id": "bgm",
+      "lane": "audio",
+      "items": [
+        { "id": "bgm", "at": 0, "duration": 0, "role": "bgm", "gain_db": -18, "fade_out": -2, "source": { "kind": "media", "src": "music", "in": 0 } }
+      ]
+    },
+    {
+      "id": "video",
+      "lane": "visual",
+      "items": [
+        { "id": "main-cut", "at": 0, "duration": 600, "source": { "kind": "media", "src": "main", "in": 0, "out": 20 } }
+      ]
+    }
+  ]
 }

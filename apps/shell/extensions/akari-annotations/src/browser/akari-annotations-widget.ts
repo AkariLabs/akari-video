@@ -41,21 +41,24 @@ import {
 import {
     EditV2Document,
     ItemLocation,
+    findAudioItemIdByRole,
     indexEditV2Items,
-    insertAudioSfx,
+    insertAudioSfxPreferV2,
     insertItem as insertV2Item,
     insertTrack as insertV2Track,
     moveItem as moveV2Item,
-    moveAudioSfx,
+    moveAudioSfxPreferV2,
     moveItemToNewTrack as moveV2ItemToNewTrack,
     removeItem as removeV2Item,
-    removeAudioSfx,
+    removeAudioNarrationPreferV2,
+    removeAudioSfxPreferV2,
     removeTrack as removeV2Track,
     renameTrack as renameV2Track,
     reorderTracks as reorderV2Tracks,
     splitItem as splitV2Item,
     stringifyEditV2,
-    updateAudioSfx,
+    updateAudioSfxPreferV2,
+    updateAudioNarrationGainPreferV2,
     updateItem as updateV2Item
 } from '../common/edit-v2-mutations';
 import {
@@ -1846,6 +1849,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         fadeOut: request.kind === 'bgm-fade-out' ? originalFadeOut : undefined,
                         ducking: request.kind === 'bgm-ducking' ? originalDucking : undefined
                     };
+                    const rawBgmItemId = this.editDocument
+                        ? findAudioItemIdByRole(this.editDocument, 'bgm') : undefined;
+                    if (rawBgmItemId !== undefined) {
+                        const itemPatch = request.kind === 'bgm-gain'
+                            ? { gain_db: request.value }
+                            : request.kind === 'bgm-fade-in'
+                                ? { fade_in: request.value }
+                                : request.kind === 'bgm-fade-out'
+                                    ? { fade_out: request.value }
+                                    : { ducking: request.value };
+                        await this.commitEditMutation('BGM の設定を変更', doc => {
+                            const itemId = findAudioItemIdByRole(doc, 'bgm');
+                            if (!itemId) throw new Error('BGM の item が見つかりません。');
+                            return updateV2Item(doc, { itemId, patch: itemPatch });
+                        });
+                        this.hideNotice();
+                        this.footer.textContent = 'BGM の設定を変更しました。';
+                        return { ok: true };
+                    }
                     await this.annotationsService.setBgmFields({ editUri, projectRootUri, ...nextFields });
                     this.pushHistory({
                         label: 'BGM の設定を変更',
@@ -1903,7 +1925,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ]);
         if (!cutKinds.has(request.kind) && !layerKinds.has(request.kind)
             && request.kind !== 'sfx-gain' && request.kind !== 'sfx-fade-in'
-            && request.kind !== 'sfx-fade-out' && request.kind !== 'overlay-var') {
+            && request.kind !== 'sfx-fade-out' && request.kind !== 'narration-gain'
+            && request.kind !== 'overlay-var') {
             return undefined;
         }
         try {
@@ -1968,6 +1991,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     source: { vars: { ...(raw?.source?.vars ?? {}), [request.name]: request.value } }
                 };
                 label = 'クリップのパラメータを変更';
+            } else if (request.kind === 'narration-gain') {
+                itemId = request.id;
+                patch = { gain_db: request.value };
+                label = 'ナレーションの音量を変更';
             } else {
                 itemId = (request as Extract<InspectorWriteRequest, { id: string }>).id;
                 patch = request.kind === 'sfx-gain'
@@ -1976,8 +2003,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 audioPatch = true;
                 label = '音声クリップの設定を変更';
             }
-            await this.commitEditMutation(label, doc => audioPatch
-                ? updateAudioSfx(doc, { sfxId: itemId, patch })
+            await this.commitEditMutation(label, doc => request.kind === 'narration-gain'
+                ? updateAudioNarrationGainPreferV2(doc, {
+                    narrationId: itemId, gainDb: request.value
+                })
+                : audioPatch ? updateAudioSfxPreferV2(doc, {
+                    sfxId: itemId, itemPatch: patch, legacyPatch: patch
+                })
                 : updateV2Item(doc, { itemId, patch }));
             this.hideNotice();
             this.footer.textContent = `${label}しました。`;
@@ -2158,10 +2190,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(sfx.fadeOut !== undefined ? { fadeOut: sfx.fadeOut } : {})
             };
         }
+        const narration = this.audioNarration.find(candidate => candidate.id === selection.id);
+        if (narration) {
+            return {
+                kind: 'audio', id: narration.id, audioKind: 'narration',
+                label: this.pathBaseName(narration.path),
+                trackName: this.trackDisplayNameForAudioRef(this.narrationDisplayTrack(narration)),
+                clipName: this.pathBaseName(narration.path) || narration.id,
+                outputStart: narration.t,
+                duration: this.narrationDisplayDuration(narration),
+                ...(narration.gainDb !== undefined ? { gainDb: narration.gainDb } : {}),
+                ...(narration.script !== undefined ? { script: narration.script } : {})
+            };
+        }
         if (selection.id === 'bgm' && this.audioBgm) {
             return {
                 kind: 'audio', id: this.audioBgm.id, audioKind: 'bgm', label: this.pathBaseName(this.audioBgm.path),
-                trackName: 'A1', clipName: this.pathBaseName(this.audioBgm.path) || this.audioBgm.id,
+                trackName: this.trackDisplayNameForAudioRef(this.bgmDisplayTrack(this.audioBgm)),
+                clipName: this.pathBaseName(this.audioBgm.path) || this.audioBgm.id,
                 outputStart: 0, duration: this.contentEndDuration(),
                 ...(this.audioBgm.gainDb !== undefined ? { gainDb: this.audioBgm.gainDb } : {}),
                 ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
@@ -2177,6 +2223,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!trackId) return '—';
         const track = this.timelineTracks.find(candidate => candidate.id === trackId);
         return track?.label || this.computeTrackAutoNames().get(trackId) || trackId;
+    }
+
+    protected trackDisplayNameForAudioRef(ref: number): string {
+        const track = this.displayTimelineTracks.find(candidate =>
+            candidate.kind === 'audio' && (candidate.ref ?? 0) === ref);
+        if (!track) return '—';
+        return track.label || this.computeTrackAutoNames().get(track.id) || track.id;
     }
 
     protected sourceBaseName(): string {
@@ -2296,9 +2349,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.footer.textContent = "BGM は削除できません。";
                     return;
                 }
-                await this.commitEditMutation("クリップの削除", doc => selection.kind === "audio"
-                    ? removeAudioSfx(doc, selection.id)
-                    : removeV2Item(doc, selection.id));
+                const narrationSelected = selection.kind === 'audio'
+                    && this.audioNarration.some(item => item.id === selection.id);
+                await this.commitEditMutation("クリップの削除", doc =>
+                    narrationSelected
+                        ? removeAudioNarrationPreferV2(doc, selection.id)
+                        : selection.kind === "audio"
+                            ? removeAudioSfxPreferV2(doc, selection.id)
+                            : removeV2Item(doc, selection.id));
                 this.footer.textContent = "クリップを削除しました。";
             }
             this.applySelection(undefined);
@@ -2339,7 +2397,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const itemIds = new Set<string>([
                     ...[...cutIndexes].map(index => this.cutItemId(index)),
                     ...[...idsByKind.entries()]
-                        .filter(([kind]) => kind !== 'caption' && kind !== 'audio')
+                        .filter(([kind]) => kind !== 'caption')
                         .flatMap(([, ids]) => [...ids].filter(id => id !== 'bgm'))
                 ]);
                 value.tracks = value.tracks.map((track: any) => Array.isArray(track?.items)
@@ -2360,6 +2418,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (Array.isArray(value.audio.sfx) && audioIds) {
                     value.audio.sfx = value.audio.sfx.filter((item: any, index: number) =>
                         !audioIds.has(typeof item?.id === 'string' ? item.id : `sfx-${index}`));
+                }
+                if (Array.isArray(value.audio.narration) && audioIds) {
+                    value.audio.narration = value.audio.narration.filter((item: any, index: number) =>
+                        !audioIds.has(typeof item?.id === 'string' ? item.id : `narration-${index}`));
                 }
                 if (audioIds?.has('bgm')) {
                     delete value.audio.bgm;
@@ -2483,12 +2545,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const audio = value.audio && typeof value.audio === 'object' && !Array.isArray(value.audio)
                     ? value.audio as Record<string, unknown> : {};
                 const sfx = Array.isArray(audio.sfx) ? audio.sfx as Array<Record<string, unknown>> : [];
-                const ids = new Set(sfx.map((entry, index) =>
-                    typeof entry.id === 'string' ? entry.id : `sfx-${index}`));
+                const ids = new Set([
+                    ...indexEditV2Items(value).keys(),
+                    ...sfx.map((entry, index) =>
+                        typeof entry.id === 'string' ? entry.id : `sfx-${index}`)
+                ]);
                 let serial = 1;
                 while (ids.has(`audio-${serial}`)) serial++;
-                value = insertAudioSfx(value, {
-                    id: `audio-${serial}`, path: relativePath, t: Math.max(0, t), track
+                const itemId = `audio-${serial}`;
+                let targetTrackId = options?.targetTrackId;
+                if (options?.createAudioTrack) {
+                    value = insertV2Track(value, { index: 0, lane: 'audio' });
+                    targetTrackId = String((value.tracks as Array<Record<string, unknown>>)[0].id);
+                }
+                const targetTrack = targetTrackId === undefined ? undefined
+                    : (value.tracks as Array<Record<string, unknown>>)
+                        .find(candidate => candidate.id === targetTrackId && candidate.lane === 'audio');
+                let sourceId: string | undefined;
+                if (targetTrack) {
+                    const sources = Array.isArray(value.sources)
+                        ? [...value.sources] as Array<Record<string, unknown>> : [];
+                    const existing = sources.find(candidate => candidate.path === relativePath);
+                    if (existing && typeof existing.id === 'string') {
+                        sourceId = existing.id;
+                    } else {
+                        const sourceIds = new Set(sources.map(candidate => String(candidate.id ?? '')));
+                        let sourceSerial = 1;
+                        while (sourceIds.has(`src-${sourceSerial}`)) sourceSerial++;
+                        sourceId = `src-${sourceSerial}`;
+                        sources.push({ id: sourceId, path: relativePath });
+                        value = { ...value, sources };
+                    }
+                }
+                value = insertAudioSfxPreferV2(value, {
+                    ...(targetTrack ? { trackId: targetTrackId } : {}),
+                    item: {
+                        id: itemId,
+                        at: this.frameAt(Math.max(0, t)),
+                        duration: Math.max(1, this.frameAt(durationSeconds)),
+                        source: { kind: 'media', src: sourceId, in: 0, out: durationSeconds }
+                    },
+                    legacyItem: { id: itemId, path: relativePath, t: Math.max(0, t), track }
                 });
                 const editAfter = stringifyEditV2(value);
                 await this.writeTimelineSnapshots(editAfter);
@@ -3566,23 +3663,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } else if (timelineTrack.kind === 'captions') {
                 height = Math.max(1, captionRowCount) * SUBROW_STRIDE;
             } else {
-                // audio は track（ref）ごとに独立した帯として積む。BGM はトラック概念を持たないため
-                // 常に ref 0 の帯にのみ乗せる（「bgm の UI 新設はやらない」= 既存の単一表示を維持）。
+                // audio は track（ref）ごとに独立した帯として積む。narration / BGM も v2 item を
+                // 読んだ投影形では実 track ref を持つため、その ref の帯だけへ乗せる。
                 // sfx 同士の重なりは computeAudioDisplayTracks（R7-3）が表示上の別トラックへ
-                // 振り分け済みのため、ここで残る重なりは「bgm（全区間）× sfx」のみ。
+                // 振り分け済み。
                 const intervals = [
-                    ...(this.audioBgm && ref === 0
+                    ...(this.audioBgm && this.bgmDisplayTrack(this.audioBgm) === ref
                         // BGM バーの終端はコンテンツ終端（実際に音が使われる範囲）。totalDuration() は
                         // スクロール余白込みの表示全長（contentEnd の約 2 倍）なので使わない
                         // （実機報告 2026-08-18: mp3 実尺相当までバーが伸びて見えていた）。
                         ? [{ start: 0, end: this.contentEndDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
-                    // narration は track を持たないため常に ref 0 帯へ乗せる（Phase 2-5 逆輸入）。
-                    ...(ref === 0 ? this.audioNarration.map(narration => ({
+                    ...this.audioNarration.filter(narration => this.narrationDisplayTrack(narration) === ref)
+                        .map(narration => ({
                         start: narration.t,
                         end: narration.t + this.narrationDisplayDuration(narration),
                         id: narration.id,
                         kind: 'narration' as const
-                    })) : []),
+                    })),
                     ...this.audioSfx.filter(sfx => this.sfxDisplayTrack(sfx) === ref)
                         .map(sfx => ({ start: sfx.t, end: this.sfxIntervalEnd(sfx), id: sfx.id, kind: 'sfx' as const }))
                 ];
@@ -3688,12 +3785,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 明示 timeline.tracks に audio 種別が 1 つも無くても、audio.bgm が宣言されていれば
      * 表示上のみ最下段へ補う（中核は withAudioDisplaySupplement、字幕補完〔裁定 2026-08-12・
      * 裁定 2〕と同型の純関数として単体テスト済み）。BGM バー自体の描画は calculateLaneLayout の
-     * 既存 bgm 区間処理（ref 0 帯）がそのまま拾う。edit.json への書き戻しは一切行わない。
+     * 既存 bgm 区間処理が実 track ref の帯で拾う。edit.json への書き戻しは一切行わない。
      */
     protected computeBgmDisplayTrack(): void {
         this.displayTimelineTracks = withAudioDisplaySupplement(
-            this.displayTimelineTracks, Boolean(this.audioBgm)
+            this.displayTimelineTracks,
+            Boolean(this.audioBgm),
+            this.audioBgm ? this.bgmDisplayTrack(this.audioBgm) : 0
         );
+    }
+
+    protected narrationDisplayTrack(narration: EditAudioNarration): number {
+        return narration.track ?? 0;
+    }
+
+    protected bgmDisplayTrack(bgm: EditAudioBgm): number {
+        return bgm.track ?? 0;
     }
 
     /** sfx の表示上の割当トラック ref（R7-3 の自動配置で上書きされていればそれを、なければ実際の sfx.track を返す）。 */
@@ -3898,7 +4005,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(element);
         });
-        const bgmLayout = this.trackLayout('audio', 0);
+        const bgmLayout = this.audioBgm
+            ? this.trackLayout('audio', this.bgmDisplayTrack(this.audioBgm)) : undefined;
         if (this.audioBgm && bgmLayout && this.isRangeVisible(0, this.contentEndDuration())) {
             const bgm = this.audioBgm;
             const label = this.pathBaseName(bgm.path);
@@ -3923,10 +4031,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(element);
         }
-        // Phase 2-5 逆輸入: narration を audio ref 0 帯に表示する（v1 は表示のみ —
-        // narration の編集 RPC は未提供のため、シーク等の操作を遮らない pointer-events: none）。
+        // narration を実 track ref の帯に表示する。選択後の gain 更新は v2 item を優先し、
+        // legacy audio.narration[] にしか無い場合も互換 mutation が同じ id へ書き戻す。
         this.audioNarration.forEach(narration => {
-            const layout = this.trackLayout('audio', 0);
+            const layout = this.trackLayout('audio', this.narrationDisplayTrack(narration));
             if (!layout) {
                 return;
             }
@@ -3950,12 +4058,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariItemKind = 'audio';
             element.dataset.akariItemId = narration.id;
             element.dataset.akariLane = layout.id ?? 'audio';
-            element.style.pointerEvents = 'none';
+            element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
             element.appendChild(this.segmentLabel(label));
             if (narration.script) {
                 element.title = narration.script;
             }
+            element.addEventListener('click', event => {
+                event.stopPropagation();
+                this.applySelection({ kind: 'audio', id: narration.id });
+            });
             this.strip.appendChild(element);
         });
         // 音声クリップ版ソーストリマー（task 2026-08-18-audio-clip-trimmer-dblclick）: cuts の
@@ -6680,7 +6792,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const hit = layouts.find(layout =>
                 localY >= layout.top && localY < layout.top + layout.height + LANE_GAP);
             const target = hit ?? layouts.find(layout => layout.track === originalTrack) ?? layouts[0];
-            return { track: target.track, top: target.top, rejected: false };
+            return {
+                track: target.track, top: target.top, rejected: false, targetTrackId: target.id
+            };
         }
         const lane = 'visual';
         const rawTracks = Array.isArray(this.editDocument?.tracks)
@@ -7121,23 +7235,34 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     break;
                 }
                 case 'audio':
-                    mutate = doc => moveAudioSfx(doc, {
-                        sfxId: preview.id, t: preview.t, track: preview.track
+                    mutate = doc => moveAudioSfxPreferV2(doc, {
+                        sfxId: preview.id,
+                        t: preview.t,
+                        track: preview.track,
+                        toTrackId: preview.targetTrackId,
+                        atFrames: this.frameAt(preview.t)
                     });
                     label = '音声クリップの移動';
                     message = '音声クリップを移動しました。';
                     break;
                 case 'audio-trim':
-                    mutate = doc => updateAudioSfx(doc, {
+                    mutate = doc => updateAudioSfxPreferV2(doc, {
                         sfxId: preview.id,
-                        patch: { t: preview.t, in: preview.in, out: preview.out }
+                        itemPatch: {
+                            at: this.frameAt(preview.t),
+                            duration: Math.max(1, this.frameAt(preview.out - preview.in)),
+                            source: { in: preview.in, out: preview.out }
+                        },
+                        legacyPatch: { t: preview.t, in: preview.in, out: preview.out }
                     });
                     label = '音声クリップのトリム';
                     message = '音声クリップをトリムしました。';
                     break;
                 case 'audio-slip':
-                    mutate = doc => updateAudioSfx(doc, {
-                        sfxId: preview.id, patch: { in: preview.in, out: preview.out }
+                    mutate = doc => updateAudioSfxPreferV2(doc, {
+                        sfxId: preview.id,
+                        itemPatch: { source: { in: preview.in, out: preview.out } },
+                        legacyPatch: { in: preview.in, out: preview.out }
                     });
                     label = '音声クリップのスリップ';
                     message = '音声クリップをスリップしました。';

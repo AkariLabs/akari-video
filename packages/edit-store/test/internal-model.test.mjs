@@ -247,6 +247,69 @@ test('v2 audio.sfx keeps zero-based ids and a one-second provisional display dur
   assert.deepEqual(sfx.map(item => item.durationFrames), [30, 45]);
 });
 
+test('v2 audio tracks project sfx, narration, and bgm to their exact legacy shapes', () => {
+  const edit = {
+    ...base(),
+    sources: [
+      ...base().sources,
+      { id: 'hit', path: 'hit.wav', proxy: null },
+      { id: 'voice', path: 'voice.wav', proxy: null },
+      { id: 'music', path: 'music.wav', proxy: null },
+    ],
+    tracks: [
+      { id: 'narration', lane: 'audio', items: [{
+        id: 'n-0001', at: 30, duration: 60, role: 'narration', gain_db: 1.5,
+        script: 'hello', reading: 'こんにちは',
+        provenance: { provider: 'human', engine: 'studio', voice: 'owner', generated_at: '2026-08-21T00:00:00Z' },
+        source: { kind: 'media', src: 'voice', in: 0, out: 2 },
+      }] },
+      { id: 'sfx-0', lane: 'audio', items: [{
+        id: 'hit-1', at: 45, duration: 15, gain_db: -6, fade_in: 0.1, fade_out: 0.2,
+        source: { kind: 'media', src: 'hit', in: 0.25, out: 0.75 },
+      }] },
+      { id: 'bgm', lane: 'audio', items: [{
+        id: 'music-item', at: 0, duration: 300, role: 'bgm',
+        fade_in: 1.25, fade_out: 2.5, gain_db: -18, ducking: true,
+        source: { kind: 'media', src: 'music', in: 0, out: 10 },
+      }] },
+      { id: 'sfx-1', lane: 'audio', items: [{
+        id: 'hit-2', at: 90, duration: 0, role: 'sfx',
+        source: { kind: 'media', src: 'hit' },
+      }] },
+      ...base().tracks,
+    ],
+  };
+  const internal = readInternalEdit(edit);
+  const view = projectLegacyEdit(internal);
+
+  assert.deepEqual(view.audioSfx, [
+    { id: 'hit-1', t: 1.5, duration: 0.5, path: 'hit.wav', track: 1, in: 0.25, out: 0.75, gainDb: -6 },
+    { id: 'hit-2', t: 3, duration: 0, path: 'hit.wav', track: 3, in: 0 },
+  ]);
+  assert.deepEqual(view.audioNarration, [
+    {
+      id: 'n-0001', t: 1, path: 'voice.wav', track: 0, gainDb: 1.5, script: 'hello', reading: 'こんにちは',
+      provenance: { provider: 'human', engine: 'studio', voice: 'owner', generated_at: '2026-08-21T00:00:00Z' },
+    },
+  ]);
+  assert.deepEqual(view.audioBgm, {
+    id: 'bgm', path: 'music.wav', track: 2, fadeIn: 1.25, fadeOut: 2.5, gainDb: -18, ducking: true,
+  });
+  assert.notEqual(view.audioNarration[0].track, view.audioBgm.track);
+  assert.deepEqual(internal.tracks.slice(0, 4).map(track => track.legacy.ref), [0, 1, 2, 3]);
+  assert.deepEqual(internal.tracks.slice(0, 4).map(track => track.items[0].legacy.collection), [
+    'narration', 'sfx', 'bgm', 'sfx',
+  ]);
+  assert.deepEqual(
+    { fade_in: internal.tracks[1].items[0].declaration.fade_in, fade_out: internal.tracks[1].items[0].declaration.fade_out },
+    { fade_in: 0.1, fade_out: 0.2 },
+  );
+  assert.equal(internal.tracks[2].items[0].declaration.in, 0);
+  assert.deepEqual(internal.tracks[3].items[0].source, {
+    kind: 'media', sourceId: 'hit', path: 'hit.wav', in: 0, out: 0,
+  });
+});
+
 // P0 2026-08-21 render-path-unification (Lead 指摘・L1 fork 発見のドラッグ例外の根治):
 // legacy.index はトラック横断で一意・宣言順の通し番号でなければならない。以前は
 // track.items.forEach のトラックごとにリセットされる index をそのまま使っていたため、

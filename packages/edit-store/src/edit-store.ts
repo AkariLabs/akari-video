@@ -65,16 +65,25 @@ export interface EditAudioSfx {
     out?: number;
 }
 
-/**
- * audio.narration[] の表示用最小形（スキーマ: id は n-NNNN、t は秒、duration は持たない —
- * 実尺は音声ファイルから解決する）。provenance 等の残りは表示に使わないため保持しない。
- */
+export interface EditAudioNarrationProvenance {
+    provider: string;
+    engine?: string;
+    voice?: string;
+    credit?: string;
+    generated_at?: string;
+    [key: string]: unknown;
+}
+
+/** audio.narration[] の legacy 投影形。 */
 export interface EditAudioNarration {
     id: string;
     t: number;
     path: string;
+    track?: number;
     gainDb?: number;
     script?: string;
+    reading?: string;
+    provenance?: EditAudioNarrationProvenance;
 }
 
 export interface CutTrackSegment {
@@ -88,6 +97,7 @@ export interface CutTrackSegment {
 export interface EditAudioBgm {
     id: 'bgm';
     path: string;
+    track?: number;
     fadeIn?: number;
     fadeOut?: number;
     gainDb?: number;

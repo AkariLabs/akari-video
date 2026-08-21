@@ -30,7 +30,18 @@ export function projectRendererCompatibilityEdit(raw, internal, temporaryDirecto
   const cuts = [];
   const overlays = [];
   const layers = [];
+  const sfx = [];
+  const narration = [];
+  let bgm;
   for (const item of ordered) {
+    if (item.legacy.value !== undefined) {
+      switch (item.legacy.collection) {
+        case "sfx": sfx.push(projectAudioDeclaration(item)); break;
+        case "narration": narration.push(projectAudioDeclaration(item)); break;
+        case "bgm": bgm = projectAudioDeclaration(item); break;
+        default: break;
+      }
+    }
     switch (renderItemKind(item)) {
       case "cut": cuts.push(renderItemDeclaration(item, temporaryDirectory)); break;
       case "html": overlays.push(renderItemDeclaration(item, temporaryDirectory)); break;
@@ -54,6 +65,14 @@ export function projectRendererCompatibilityEdit(raw, internal, temporaryDirecto
       proxy: source.proxy,
       ...(source.chromaKey !== undefined ? { chroma_key: source.chromaKey } : {}),
     }));
+  const master = isRecord(raw?.audio) && raw.audio.master !== undefined
+    ? raw.audio.master : undefined;
+  const audio = {
+    sfx,
+    narration,
+    ...(bgm !== undefined ? { bgm } : {}),
+    ...(master !== undefined ? { master } : {}),
+  };
   return {
     ...(isRecord(raw) ? raw : {}),
     // v2 is projected into the sole multi-source compatibility shape consumed below.
@@ -63,6 +82,28 @@ export function projectRendererCompatibilityEdit(raw, internal, temporaryDirecto
     overlays,
     layers,
     sources,
+    audio,
+  };
+}
+
+// Internal legacy values use edit-store's camelCase display model. The renderer compatibility
+// shape retains the historical JSON spelling consumed by plan.mjs for gain_db.
+function projectAudioDeclaration(item) {
+  const value = item.legacy.value;
+  if (item.source?.sourceId === undefined && isRecord(item.declaration)) {
+    // Legacy top-level audio receives provisional display-only in/out/duration in edit-store.
+    // Rendering must retain the original declaration so an omitted trim still means full material.
+    return {
+      ...item.declaration,
+      ...(value.gainDb !== undefined ? { gain_db: value.gainDb } : {}),
+    };
+  }
+  return {
+    // addV2AudioItems keeps the original top-level entry here. Preserve compatibility-only
+    // fields (for example SFX fade_in/fade_out and BGM in) without making raw.audio authoritative.
+    ...(isRecord(item.declaration) ? item.declaration : {}),
+    ...value,
+    ...(value.gainDb !== undefined ? { gain_db: value.gainDb } : {}),
   };
 }
 
