@@ -155,6 +155,13 @@ jobs:
           node -e "console.log('electron dist version:', require('fs').readFileSync('node_modules/electron/dist/version','utf8'))"
           node -e "require('fs').accessSync('node_modules/electron/dist/Electron.app/Contents/MacOS/Electron'); console.log('Electron.app OK')"
 
+      - name: Install bundled-CLI runtime deps (repo root)
+        # bundle-cli-node-modules.mjs は root node_modules から同梱 CLI の入口
+        # （puppeteer-core / puppeteer / esbuild）を解決する。apps/shell の
+        # --no-workspaces install では入らないため、ここで root へ導入する
+        # （v0.1.13 の build 失敗の恒久対処。版は packages/*/package.json から導出）
+        run: node scripts/release/install-bundled-cli-deps.mjs
+
       - name: build:ext (tsc -b, 9 extensions)
         working-directory: apps/shell
         run: npm run build:ext
@@ -405,6 +412,13 @@ jobs:
           Set-Content -NoNewline node_modules/electron/path.txt "electron.exe"
           node -e "console.log('electron dist version:', require('fs').readFileSync('node_modules/electron/dist/version','utf8'))"
           node -e "require('fs').accessSync('node_modules/electron/dist/electron.exe'); console.log('electron.exe OK')"
+
+      - name: Install bundled-CLI runtime deps (repo root)
+        # bundle-cli-node-modules.mjs は root node_modules から同梱 CLI の入口
+        # （puppeteer-core / puppeteer / esbuild）を解決する。apps/shell の
+        # --no-workspaces install では入らないため、ここで root へ導入する
+        # （v0.1.13 の build 失敗の恒久対処。版は packages/*/package.json から導出）
+        run: node scripts/release/install-bundled-cli-deps.mjs
 
       - name: build:ext (tsc -b, 9 extensions)
         working-directory: apps/shell
