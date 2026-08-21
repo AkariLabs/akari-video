@@ -7,6 +7,7 @@
  */
 
 import { promises as fs } from 'fs';
+import { existsSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'path';
 import { writeAtomic } from '../write-gate';
 import { readEditV2 } from '../edit-v2';
@@ -259,9 +260,9 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
     });
 
     if (blockers.length > 0) return { ok: false, version, blockers };
+    const hasCaptions = options.hasCaptions === true || Array.isArray(raw.captions);
     const trackDefs = readTrackDefs(
-        raw.timeline, pending, legacyAudioTrackRefs(raw.audio),
-        options.hasCaptions === true || Array.isArray(raw.captions), blockers
+        raw.timeline, pending, legacyAudioTrackRefs(raw.audio), hasCaptions, blockers
     );
     if (blockers.length > 0) return { ok: false, version, blockers };
     const tracks = trackDefs.map(def => {
@@ -279,6 +280,13 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
         if (!trackDefs.some(def => def.kind === entry.kind && (def.ref ?? 0) === entry.ref)) {
             blockers.push(`timeline.tracks に ${entry.kind} ref=${entry.ref} の行がありません。`);
         }
+    }
+    // captions は pending に乗らないため上のループでは検出できない。cuts/overlays/layers と
+    // 同じ「黙って落とさない」安全網を captions にも適用する（P0 2026-08-21
+    // track-z-undeclared-kind: timeline.tracks を部分宣言し captions 行だけ書き忘れると、
+    // captions トラックが変換後の tracks[] から跡形もなく消え、字幕が無警告で失われていた）。
+    if (hasCaptions && raw.timeline !== undefined && !trackDefs.some(def => def.kind === 'captions')) {
+        blockers.push('timeline.tracks に captions 行がありません。captions.json / captions[] が存在するため、このまま変換すると字幕が失われます。');
     }
     if (blockers.length > 0) return { ok: false, version, blockers };
 
@@ -328,7 +336,14 @@ export function planMigration(
     } catch (error) {
         return { ok: false, version: -1, blockers: [`edit.json を JSON として読めません: ${messageOf(error)}`] };
     }
-    const migrated = migrateEditToV2(raw, options);
+    // 呼び出し元（akari-preview-service.ts の prepareLegacyEdit / resolveCaptionDisplay）は
+    // hasCaptions を渡さない。captions.json は常に edit.json と同じディレクトリに置かれる規約
+    // (akari-preview-captions.ts の locatePreviewCaptions) なので、ここで実在チェックして
+    // 補う。呼び出し元が明示的に hasCaptions を渡した場合はそちらを優先する
+    // （P0 2026-08-21 track-z-undeclared-kind 追補: これが無いと migrateEditToV2 側の
+    // captions 安全網が実プレビュー経路では一度も発火せず、字幕消失バグが直らないまま残っていた）。
+    const hasCaptions = options.hasCaptions ?? existsSync(join(resolve(projectRoot), 'captions.json'));
+    const migrated = migrateEditToV2(raw, { hasCaptions });
     if ('blockers' in migrated) {
         return { ok: false, version: migrated.version, blockers: migrated.blockers };
     }

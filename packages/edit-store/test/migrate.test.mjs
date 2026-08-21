@@ -56,6 +56,37 @@ test('レイヤー動画の素材表追加・baked telop・audio・縦順を保�
   assert.deepEqual(result.doc.audio, doc.audio);
 });
 
+test('明示 timeline に captions 行が無い場合は字幕の黙示的な損失を blocker で止める', () => {
+  const doc = base(1);
+  doc.timeline = { tracks: [{ id: 'main-row', kind: 'cuts', ref: 0 }] };
+  const result = migrateEditToV2(doc, { hasCaptions: true });
+  assert.equal(result.ok, false);
+  assert.match(result.blockers.join('\n'), /captions/);
+});
+
+test('明示 timeline に captions 行があれば字幕ありでも変換できる', () => {
+  const doc = base(1);
+  doc.timeline = { tracks: [
+    { id: 'main-row', kind: 'cuts', ref: 0 },
+    { id: 'captions-row', kind: 'captions' },
+  ] };
+  const result = migrateEditToV2(doc, { hasCaptions: true });
+  assert.equal(result.ok, true);
+});
+
+test('字幕が存在しない場合は明示 timeline に captions 行が無くても変換できる', () => {
+  const doc = base(1);
+  doc.timeline = { tracks: [{ id: 'main-row', kind: 'cuts', ref: 0 }] };
+  const result = migrateEditToV2(doc, { hasCaptions: false });
+  assert.equal(result.ok, true);
+});
+
+test('timeline 省略時は字幕ありなら captions 行を自動導出して変換できる', () => {
+  const result = migrateEditToV2(base(1), { hasCaptions: true });
+  assert.equal(result.ok, true);
+  assert.equal(result.doc.tracks.some(track => track.content?.from === 'captions.json'), true);
+});
+
 test('transition_out・thumbnail・preset なし baked を損失なく v2 へ写す', () => {
   const doc = base();
   doc.cuts[0].transition_out = { type: 'dissolve', duration: 0.25 };
@@ -93,6 +124,30 @@ test('提案は書かず、承認適用で backup -> atomic write、1 手 undo �
     assert.equal(await readFile(proposal.backupPath, 'utf8'), before);
     await revertMigration(proposal);
     assert.equal(await readFile(editPath, 'utf8'), before);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('planMigration は projectRoot の captions.json 実在をオプション省略時に補完する', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-migrate-captions-'));
+  try {
+    const editPath = join(root, 'edit.json');
+    const captionsPath = join(root, 'captions.json');
+    const doc = base(1);
+    doc.timeline = { tracks: [{ id: 'main-row', kind: 'cuts', ref: 0 }] };
+    const text = `${JSON.stringify(doc, null, 2)}\n`;
+    await writeFile(editPath, text);
+    await writeFile(captionsPath, '[]\n');
+
+    // 本番の prepareLegacyEdit / resolveCaptionDisplay と同じく hasCaptions を渡さない。
+    const withCaptions = planMigration(root, editPath, text);
+    assert.equal('blockers' in withCaptions, true);
+    assert.match(withCaptions.blockers.join('\n'), /captions/);
+
+    await rm(captionsPath);
+    const withoutCaptions = planMigration(root, editPath, text);
+    assert.equal('blockers' in withoutCaptions, false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
