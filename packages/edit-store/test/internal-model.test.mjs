@@ -440,18 +440,30 @@ test('a sequential mid-array insert leaving a stale, partially-overlapping trail
   assert.equal(byId['cut-2'].legacy.collection, 'cuts', 'the stale-at trailing item stays on cuts (not a genuine PiP overlap)');
 });
 
-// r3 (Codex re-review, MINOR) + r4 (Codex re-review, MAJOR): two zero-duration items sharing the
-// same at are empty intervals that can never actually be visible at the same instant -- not a
-// genuine overlap, even though their at AND duration are both exactly equal (the same shape the
-// "fully overlapping" exact-match rule above otherwise flags). r4 additionally asserts the
-// PROJECTED legacy cut itself, not just classification: item.duration === 0 (schema-valid, see
-// edit-v2.ts's requireInteger(value.duration, 0, ...) minimum) used to project into a REAL cut
-// playing its entire declared source span at normal speed (cutOut fell back to item.source.out
-// with no speed compensation, because the speed formula divides by a zero playbackDuration) --
-// silently rendering a supposedly-invisible 0-duration item as a 2-second clip. Fixed in
-// internal-model.ts's buildV2Item: a zero output duration now projects to a true zero-length
-// segment (cutOut === cutIn) regardless of how much source range is declared alongside it.
-test('two zero-duration items sharing the same at are not treated as an overlap, and each projects to a true zero-length segment (not its full declared source span)', () => {
+// r3 (Codex re-review, MINOR): two zero-duration items sharing the same at are empty intervals
+// that can never actually be visible at the same instant -- not a genuine overlap, even though
+// their at AND duration are both exactly equal (the same shape the "fully overlapping"
+// exact-match rule above otherwise flags).
+//
+// r4 (Codex re-review, MAJOR) tried projecting item.duration === 0 (schema-valid, see
+// edit-v2.ts's requireInteger(value.duration, 0, ...) minimum) into a true zero-length segment
+// (cutOut === cutIn) instead of the pre-r4 bug (cutOut fell back to item.source.out with no
+// speed compensation, silently rendering a supposedly-invisible 0-duration item as a real,
+// multi-second clip at normal speed).
+//
+// r5 (Codex re-review) found that r4's own fix was itself incomplete: a zero-length segment
+// (in === out) is REJECTED downstream by both edit-lint's cuts.range check (out <= in is an
+// error) and render-cut's validateEditShape (0 <= in < out is required) -- so r4 only replaced a
+// silent wrong-content bug with a hard validation failure, not a working no-op. Adjudicated: a
+// zero output duration represents nothing on the timeline at all, so it is dropped ENTIRELY at
+// the projection stage (buildV2Item sets legacy.value: undefined, the SAME existing mechanism
+// projectLegacyEdit's own `if (value === undefined) continue` already uses for "not
+// representable in the legacy view" -- see that function's telop/filter comment) rather than
+// emitted as a degenerate cut for lint or render to ever see. Asserted end-to-end here, not just
+// classification: the item still exists in the internal representation (legacy.collection is
+// still 'cuts', for internal-model consumers other than the legacy projection), but
+// projectLegacyEdit's actual output cuts[] array excludes it completely.
+test('two zero-duration items sharing the same at are not treated as an overlap, and are dropped entirely from the projected legacy view (not emitted as a degenerate zero-length cut)', () => {
   const edit = {
     version: 2,
     output: { width: 1920, height: 1080, fps: 30 },
@@ -460,25 +472,52 @@ test('two zero-duration items sharing the same at are not treated as an overlap,
       { id: 't1', lane: 'visual', items: [
         { id: 'zero-a', at: 60, duration: 0, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
         { id: 'zero-b', at: 60, duration: 0, source: { kind: 'media', src: 'main', in: 2, out: 4 } },
+        { id: 'real-c', at: 90, duration: 30, source: { kind: 'media', src: 'main', in: 0, out: 1 } },
       ] },
     ],
   };
   const internal = readInternalEdit(edit);
   const items = internal.tracks.flatMap(track => track.items);
   const byId = Object.fromEntries(items.map(item => [item.id, item]));
-  assert.equal(byId['zero-a'].legacy.collection, 'cuts', 'a zero-duration item is not a genuine overlap');
+  assert.equal(byId['zero-a'].legacy.collection, 'cuts', 'a zero-duration item is not a genuine overlap, and stays notionally a cuts-kind item internally');
   assert.equal(byId['zero-b'].legacy.collection, 'cuts', 'nor is its same-at, zero-duration sibling');
-  // Projection: cutOut must equal cutIn (a true zero-length segment), not item.source.out (which
-  // would silently play the item's entire declared 2-second source span at normal speed).
-  assert.deepEqual(
-    { in: byId['zero-a'].legacy.value.in, out: byId['zero-a'].legacy.value.out },
-    { in: 0, out: 0 },
-    'zero-a must project to a true zero-length segment (cutOut === cutIn === item.source.in), not its full 2s declared source span',
-  );
-  assert.deepEqual(
-    { in: byId['zero-b'].legacy.value.in, out: byId['zero-b'].legacy.value.out },
-    { in: 2, out: 2 },
-    'zero-b must project to a true zero-length segment starting at its own declared source.in (2), not its full declared source span',
-  );
-  assert.equal(byId['zero-a'].legacy.value.speed, undefined, 'speed is moot for a zero-length segment and must stay unset');
+  assert.equal(byId['zero-a'].legacy.value, undefined, 'a zero-duration item projects to legacy.value: undefined -- dropped, not a degenerate zero-length cut');
+  assert.equal(byId['zero-b'].legacy.value, undefined, 'likewise for its sibling');
+  assert.notEqual(byId['real-c'].legacy.value, undefined, 'a real, positive-duration item is unaffected and still projects normally');
+  // End-to-end: the actual projected legacy view (what edit-lint and render-cut both consume)
+  // must contain only the real cut -- neither zero-duration item, and no empty/degenerate segment.
+  const legacy = projectLegacyEdit(internal);
+  assert.equal(legacy.cuts.length, 1, `expected the zero-duration items to be fully absent from the projected cuts[] array, leaving only the real cut: ${JSON.stringify(legacy.cuts)}`);
+  assert.equal(legacy.cuts[0].src, 'main', `expected the surviving cut to be the real one: ${JSON.stringify(legacy.cuts[0])}`);
+  for (const cut of legacy.cuts) {
+    assert.ok(cut.out > cut.in, `no projected cut may be zero-length or empty: ${JSON.stringify(cut)}`);
+  }
+});
+
+// r5 (Codex re-review, real regression this task's own r4 fix introduced): the short-circuit
+// condition MUST key off the item's own declared output duration (durationFrames === 0), not the
+// freeze-adjusted playbackDuration -- a whole-region freeze (a genuinely positive duration where
+// ALL of it is a frozen hold, e.g. duration: 1s + freeze.duration_sec: 1s) also has
+// playbackDuration === 0, but is a completely different, legitimate case: the clip IS visible for
+// its full declared duration, it just never advances past its first frame. r4's own
+// playbackDuration===0 check collapsed this to a literal zero-frame trim window too, which starves
+// freeze's own seed-frame acquisition of anything to hold.
+test('a whole-region freeze (positive duration, entirely covered by freeze) is not treated as a zero-duration item', () => {
+  const edit = {
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+    tracks: [
+      { id: 't1', lane: 'visual', items: [
+        {
+          id: 'frozen', at: 0, duration: 30,
+          source: { kind: 'media', src: 'main', in: 0, out: 1, freeze: { at_sec: 0, duration_sec: 1 } },
+        },
+      ] },
+    ],
+  };
+  const internal = readInternalEdit(edit);
+  const item = internal.tracks[0].items[0];
+  assert.notEqual(item.legacy.value, undefined, 'a whole-region freeze clip has a real, positive duration and must not be dropped like a genuine duration:0 item');
+  assert.ok(item.legacy.value.out > item.legacy.value.in, `expected a non-empty trim window to seed the freeze hold from, got ${JSON.stringify(item.legacy.value)}`);
 });

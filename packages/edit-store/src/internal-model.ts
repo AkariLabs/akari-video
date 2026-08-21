@@ -572,11 +572,45 @@ function buildV2Item(
             // source range happens to be declared alongside it, so this is checked first and
             // short-circuits straight to a true zero-length segment (cutOut = cutIn); speed is
             // moot for a zero-length segment either way.
+            //
+            // r5 (Codex re-review): the short-circuit condition must be `durationFrames === 0`
+            // (the item's own DECLARED output duration), not `playbackDuration === 0` -- those two
+            // are NOT the same thing. A whole-region freeze (e.g. duration: 1s with
+            // freeze.duration_sec: 1s -- hold a single seed frame for the entire declared,
+            // genuinely positive, 1-second duration) also has playbackDuration === 0 (all of that
+            // 1 second is frozen hold, zero of it is "moving playback"), but this is a completely
+            // different, legitimate case from a true zero-duration item: the clip IS visible for a
+            // full second, it just never advances past its first frame. Short-circuiting THIS case
+            // to cutOut = cutIn as well collapsed its trim window to a literal zero-frame stream,
+            // which starves freeze's own seed-frame acquisition (appendFreezeAwareVideoTrim,
+            // packages/render-cut/src/cut-freeze.mjs) of any frame to hold at all. Checking the
+            // item's own declared duration directly, instead of the freeze-adjusted
+            // playbackDuration, leaves every positive-duration freeze clip on exactly the
+            // pre-r4 alignsDuration/speed logic below (byte-identical to before this whole
+            // duration:0 investigation started), and only ever short-circuits a genuinely
+            // zero-duration item.
             const alignsDuration = Math.abs(span - playbackDuration) <= 1 / fps + 1e-9;
-            const cutOut = playbackDuration === 0
+            const cutOut = durationFrames === 0
                 ? item.source.in
                 : (alignsDuration ? item.source.in + playbackDuration : item.source.out);
             const speed = playbackDuration > 0 && !alignsDuration ? span / playbackDuration : undefined;
+            // r5 (Codex re-review): a zero-length projected segment (durationFrames === 0, see
+            // cutOut above) is not a renderable cut at all -- it is REJECTED downstream by both
+            // edit-lint's cuts.range check (out <= in is an error) and render-cut's
+            // validateEditShape (0 <= in < out is required), so r4's fix only replaced a silent
+            // wrong-content bug with a hard validation failure, not a working no-op. Adjudicated:
+            // a zero output duration represents nothing on the timeline at all, so it is dropped
+            // ENTIRELY at this projection stage rather than emitted as a degenerate legacy cut/
+            // layer for lint or render to ever see. `legacy.value: undefined` is the existing,
+            // already-established mechanism for exactly this ("項目自体は内部表現に残るが、旧
+            // 読み取り器向けの投影は無い" -- see this same function's telop/filter comment and
+            // projectLegacyEdit's own `if (value === undefined) continue` skip) -- reused as-is,
+            // not a new mechanism. The item still exists in InternalItem[] (declaration/atFrames/
+            // durationFrames intact, so internal-model consumers other than the legacy projection
+            // -- e.g. editor UI -- can still see and manipulate it as a real, currently-empty
+            // timeline item), and legacy.index is still allocated normally (an unused index number
+            // for a dropped item is harmless -- projectLegacyEdit's byDeclarationOrder only ever
+            // sorts items it actually pushed, so a gap in the numbering changes nothing observable).
             // P0 2026-08-21 render-path-unification: 段（トラック）は一切見ない。needsLayersEngine
             // が false の media アイテムは常に 'cuts'（render-cut の cut-transform.mjs が
             // transform/crop/perspective/keyframes/transition_out/speed/freeze の全機能集合を持つ）。
@@ -585,7 +619,7 @@ function buildV2Item(
                     id: item.id, t: at, duration, kind: 'video', src: path ?? item.source.src,
                     track: ref, ...common, ...copyMediaSourceFields(item.source)
                 };
-                const value = declaration as unknown as EditLayer;
+                const value = durationFrames === 0 ? undefined : declaration as unknown as EditLayer;
                 return {
                     item: {
                         id: item.id, atFrames, durationFrames, at, duration, source,
@@ -594,7 +628,7 @@ function buildV2Item(
                     }
                 };
             }
-            const value: EditCut = {
+            const value: EditCut | undefined = durationFrames === 0 ? undefined : {
                 in: item.source.in,
                 out: cutOut,
                 src: item.source.src,
