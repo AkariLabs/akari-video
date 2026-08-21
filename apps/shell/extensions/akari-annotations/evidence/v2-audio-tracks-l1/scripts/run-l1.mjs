@@ -2,7 +2,7 @@
 // L1 (real machine, Electron + CDP) driver for task 2026-08-20-v2-audio-tracks.
 //
 // Confirms empirically, against the real running app, the two UI-facing acceptance criteria from
-// the owner's field-report addendum (tasks/2026-08-20-v2-audio-tracks/task.md):
+// the owner's field-report addendum:
 //   - SFX / narration / BGM render on separate timeline rows (not merged into one "A1" row, which
 //     was the reported bug).
 //   - Rows can be reordered (z authority = tracks[] array order, per the 5-decision cited in the

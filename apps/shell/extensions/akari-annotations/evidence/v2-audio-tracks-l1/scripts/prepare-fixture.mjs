@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// v2-audio-tracks タスクの L1 実測フィクスチャ。tasks/2026-08-20-v2-audio-tracks/task.md の
+// v2-audio-tracks の L1 実測フィクスチャ。タスク契約の
 // 受け入れ条件（オーナー追記）「SFX と BGM が別々の段に見える・段として入れ替えられる」を
 // 実機で確認するための2フェーズ。
 //   phase "separated": sfx / narration / bgm がそれぞれ独立した audio track に乗っている状態。
