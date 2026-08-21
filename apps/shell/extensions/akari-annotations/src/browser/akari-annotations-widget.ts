@@ -70,6 +70,10 @@ import {
 import { assignSubRows } from '../common/lane-layout';
 import { clampSfxFadeToEffectiveDuration, slipAudioWindow } from '../common/audio-clip-trimmer';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
+import {
+    hitTestTimelineTrackDrop,
+    TimelineTrackDropLayout
+} from '../common/timeline-track-drop';
 import { computeCutBoundaries } from '../common/cut-boundaries';
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
 import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
@@ -121,7 +125,6 @@ const MINIMUM_SFX_TRIM_DURATION = 0.1;
 const MATERIAL_INSERT_FALLBACK_DURATION_SECONDS = 3;
 const DRAG_THRESHOLD_PX = 3;
 const EDGE_ZONE_PX = 6;
-const TRACK_INSERT_ZONE_PX = 10;
 const TRACK_INSERT_LINE_COLOR = '#22c55e';
 const SNAP_THRESHOLD_PX = 6;
 const SNAP_GRID_SECONDS = 0.25;
@@ -778,6 +781,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             background: TRACK_INSERT_LINE_COLOR, pointerEvents: 'none', zIndex: '10',
             boxShadow: `0 0 4px 1px ${TRACK_INSERT_LINE_COLOR}`
         });
+        this.trackInsertIndicator.dataset.testid = 'akari-track-insert-indicator';
         Object.assign(this.selectionMarquee.style, {
             position: 'absolute', display: 'none', border: '1px solid var(--theia-focusBorder)',
             background: 'color-mix(in srgb, var(--theia-focusBorder) 20%, transparent)',
@@ -2852,42 +2856,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 reason: '映像のレーンには音を置けません。'
             };
         }
-        const lane = 'visual';
         const zone: MaterialDropZone = 'layers';
         const rawTracks = Array.isArray(this.editDocument?.tracks)
             ? this.editDocument!.tracks as Array<Record<string, unknown>> : [];
-        const eligible = this.laneLayout.tracks.filter(layout => {
-            const raw = rawTracks.find(track => track.id === layout.id);
-            return raw?.lane === lane && Array.isArray(raw.items);
-        });
+        const dropLayouts = this.timelineTrackDropLayouts(rawTracks);
+        const eligible = dropLayouts.filter(layout => layout.lane === 'visual' && layout.acceptsItems);
         if (eligible.length === 0) {
             return {
                 zone, track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2), height: SUBROW_STRIDE,
                 rejected: false, insertIndex: rawTracks.length
             };
         }
-        for (const layout of eligible) {
-            const rawIndex = rawTracks.findIndex(track => track.id === layout.id);
-            const nearTop = Math.abs(localY - layout.top) <= TRACK_INSERT_ZONE_PX;
-            const nearBottom = Math.abs(localY - (layout.top + layout.height)) <= TRACK_INSERT_ZONE_PX;
-            if (nearTop || nearBottom) {
-                const insertIndex = nearTop ? rawIndex + 1 : rawIndex;
-                const audioCount = rawTracks.filter(track => track.lane === 'audio').length;
-                const laneSafe = insertIndex >= audioCount;
-                if (laneSafe) {
-                    return {
-                        zone, track: layout.track, top: nearTop ? layout.top : layout.top + layout.height,
-                        height: layout.height, rejected: false, insertIndex, insertTrack: insertIndex
-                    };
-                }
-            }
-            if (localY >= layout.top && localY <= layout.top + layout.height) {
-                return {
-                    zone, track: layout.track, top: layout.top, height: layout.height,
-                    rejected: false, targetTrackId: layout.id
-                };
-            }
-        }
+        const hit = hitTestTimelineTrackDrop(localY, dropLayouts, eligible[0].track);
+        if (!hit.rejected) return {
+            zone,
+            track: hit.track,
+            top: hit.top,
+            height: hit.height,
+            rejected: false,
+            targetTrackId: hit.targetTrackId,
+            ...(hit.insertIndex === undefined ? {} : {
+                insertTrack: hit.insertIndex,
+                insertIndex: hit.insertIndex
+            })
+        };
         return {
             zone, track: 0, top: Math.max(0, localY - SUBROW_STRIDE / 2), height: SUBROW_STRIDE,
             rejected: true,
@@ -6552,8 +6544,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const hit = this.trackAtClientY(
                     'layer', this.laneLayout.layerTracks, clientY, state.originalTrack
                 );
-                const isNewTrackSpot = !this.laneLayout.layerTracks.some(layout => layout.track === hit.track);
-                if ((hit.insertTrack !== undefined || isNewTrackSpot) && !hit.rejected) {
+                if (hit.insertTrack !== undefined && !hit.rejected) {
                     this.showTrackInsertIndicatorAt(hit.top);
                 } else {
                     this.hideTrackInsertIndicator();
@@ -6792,37 +6783,41 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 track: target.track, top: target.top, rejected: false, targetTrackId: target.id
             };
         }
-        const lane = 'visual';
         const rawTracks = Array.isArray(this.editDocument?.tracks)
             ? this.editDocument!.tracks as Array<Record<string, unknown>> : [];
-        const layouts = this.laneLayout.tracks.filter(layout => {
-            const raw = rawTracks.find(track => track.id === layout.id);
-            return raw?.lane === lane && Array.isArray(raw.items);
-        });
-        if (layouts.length === 0) return { track: originalTrack, top: 0, rejected: true };
-        for (const layout of layouts) {
+        const hit = hitTestTimelineTrackDrop(
+            localY, this.timelineTrackDropLayouts(rawTracks), originalTrack
+        );
+        return {
+            track: hit.track,
+            top: hit.top,
+            rejected: hit.rejected,
+            targetTrackId: hit.targetTrackId,
+            ...(hit.insertIndex === undefined ? {} : {
+                insertTrack: hit.insertIndex,
+                insertIndex: hit.insertIndex
+            })
+        };
+    }
+
+    protected timelineTrackDropLayouts(
+        rawTracks: readonly Record<string, unknown>[]
+    ): TimelineTrackDropLayout[] {
+        return this.laneLayout.tracks.flatMap(layout => {
             const rawIndex = rawTracks.findIndex(track => track.id === layout.id);
-            const nearTop = Math.abs(localY - layout.top) <= TRACK_INSERT_ZONE_PX;
-            const nearBottom = Math.abs(localY - (layout.top + layout.height)) <= TRACK_INSERT_ZONE_PX;
-            if (nearTop || nearBottom) {
-                const insertIndex = nearTop ? rawIndex + 1 : rawIndex;
-                const audioCount = rawTracks.filter(track => track.lane === 'audio').length;
-                const laneSafe = insertIndex >= audioCount;
-                if (laneSafe) {
-                    return {
-                        track: layout.track, top: nearTop ? layout.top : layout.top + layout.height,
-                        rejected: false, insertTrack: insertIndex, insertIndex
-                    };
-                }
-            }
-            if (localY >= layout.top && localY < layout.top + layout.height) {
-                return {
-                    track: layout.track, top: layout.top, rejected: false, targetTrackId: layout.id
-                };
-            }
-        }
-        const current = layouts.find(layout => layout.track === originalTrack) ?? layouts[0];
-        return { track: current.track, top: current.top, rejected: true, targetTrackId: current.id };
+            if (rawIndex < 0 || !layout.id) return [];
+            const raw = rawTracks[rawIndex];
+            if (raw.lane !== 'visual' && raw.lane !== 'audio') return [];
+            return [{
+                id: layout.id,
+                lane: raw.lane,
+                acceptsItems: Array.isArray(raw.items),
+                rawIndex,
+                track: layout.track,
+                top: layout.top,
+                height: layout.height
+            }];
+        });
     }
 
     protected laneKindAtLocalY(localY: number): 'cut' | 'layer' | 'overlay' | 'audio' | 'foreign' | 'none' {

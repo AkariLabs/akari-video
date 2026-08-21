@@ -244,6 +244,7 @@ export function moveItem(
     }
     const [item] = found.track.items.splice(found.itemIndex, 1);
     target.items.push({ ...item, at: options.atFrames });
+    collapseEmptiedVisualSourceTrack(tracks, found.track, target);
     return value;
 }
 
@@ -256,14 +257,40 @@ export function moveItemToNewTrack(
     const tracks = tracksOf(value);
     const found = findItem(tracks, options.itemId);
     requireInsertIndex(tracks, options.insertIndex, found.track.lane as EditV2Lane);
+    const sourceIndex = tracks.indexOf(found.track);
     const [item] = found.track.items.splice(found.itemIndex, 1);
     const created: UnknownRecord = {
         id: nextTrackId(tracks, found.track.lane as EditV2Lane),
         lane: found.track.lane,
         items: [{ ...item, at: options.atFrames }]
     };
-    tracks.splice(options.insertIndex, 0, created);
+    const collapsed = collapseEmptiedVisualSourceTrack(tracks, found.track);
+    const insertIndex = collapsed && sourceIndex < options.insertIndex
+        ? options.insertIndex - 1
+        : options.insertIndex;
+    tracks.splice(insertIndex, 0, created);
     return value;
+}
+
+/**
+ * 「空トラックを残さない」は移動によって今まさに空になった visual items[] 段だけに適用する。
+ * captions の content 段と audio 段は別の正本・ミックス契約を持つため自動削除しない。また、
+ * 「トラックを追加」で明示作成された未使用の空段を全件 sweep しないことで、追加→配置の途中状態を
+ * 壊さない。tracks[] から当該要素だけを splice するため、残る段の相対順（z）は不変。
+ */
+function collapseEmptiedVisualSourceTrack(
+    tracks: UnknownRecord[],
+    source: UnknownRecord,
+    target?: UnknownRecord
+): boolean {
+    if (source === target || source.lane !== 'visual' || !Array.isArray(source.items)
+        || source.items.length !== 0) {
+        return false;
+    }
+    const index = tracks.indexOf(source);
+    if (index < 0) return false;
+    tracks.splice(index, 1);
+    return true;
 }
 
 export function updateItem(
