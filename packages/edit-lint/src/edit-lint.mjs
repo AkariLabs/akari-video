@@ -598,6 +598,27 @@ function validateEditV2(edit, findings) {
         });
       }
 
+      // P0 2026-08-21 render-path-unification (r6, Codex re-review, control-tower adjudication):
+      // duration: 0 is schema-valid (edit.schema.json's `frames` $def is `{type: integer,
+      // minimum: 0}`, shared with `at`, which legitimately can be 0) but represents nothing on
+      // the timeline -- it cannot be rendered (packages/edit-store's internal-model.ts projects
+      // it to a degenerate in===out cut, which both this package's own cuts.range check and
+      // render-cut's validateEditShape correctly reject as 0 <= in < out) and was found, in an
+      // earlier round of this task, to be unsafe to special-case away anywhere downstream of this
+      // point (a silent-drop attempt at the projection layer broke a second render-cut projection
+      // path that never reads the mechanism used to drop it, and desynced UI item indices). So
+      // this is the one and only place duration:0 is rejected: loudly, at the front door, with a
+      // purpose-built message rather than letting it surface later as an unrelated-looking
+      // cuts.range/validateEditShape failure deep in a render attempt.
+      if (Number.isInteger(item.duration) && item.duration === 0) {
+        addFinding(findings, {
+          severity: "error",
+          check: "v2.item-duration",
+          message: "item duration must be a positive integer (0 represents nothing on the timeline)",
+          path: `${itemPath}.duration`,
+        });
+      }
+
       if (Number.isInteger(item.at) && item.at >= 0 && Number.isInteger(item.duration) && item.duration >= 0) {
         const transitionSeconds = isRecord(item.source?.transition_out)
           && isPositiveNumber(item.source.transition_out.duration)
