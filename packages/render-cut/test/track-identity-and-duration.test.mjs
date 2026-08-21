@@ -161,11 +161,19 @@ test("P0 2026-08-20 track-identity-and-duration r2: 既存の crop 付き PiP �
     assert.equal(beforeLint.verdict, "pass", JSON.stringify(beforeLint.findings, null, 2));
     assert.equal(afterLint.verdict, "pass", JSON.stringify(afterLint.findings, null, 2));
 
-    // 分類の回帰確認: 移動後も b 上の PiP（pip-1）は 'layer' のまま（'cut' へ落ちない）。
+    // P0 2026-08-21 render-path-unification: crop/transform (no blend / chroma_key / keyframed
+    // perspective) is now a feature the 'cut' engine renders natively (cut-transform.mjs's
+    // appendCutLayerStyleVisual), so both the untouched PiP and the moved plain clip classify
+    // 'cut' -- classification no longer depends on which track an item sits on (edit-store's
+    // needsLayersEngine only reads the item's own declared properties). What used to distinguish
+    // "main content" from "PiP overlay" was a track-position guess; that guess is gone, and two
+    // separate 'cut'-kind tracks now always z-order-composite through buildTrackStackPlan (see
+    // plan.mjs's usesDefaultInternalTrackOrder), which is what the pixel assertions below verify:
+    // the PiP keeps its own small, transparent-edged footprint, not an opaque full-frame takeover.
     const afterRenderEdit = readRenderEdit(await readFile(join(after, "edit.json"), "utf8"), join(after, ".akari", "render-tmp"));
     const trackB = afterRenderEdit.internal.tracks.find(track => track.id === "b");
     const pipItem = trackB.items.find(item => item.id === "pip-1");
-    assert.equal(renderItemKind(pipItem), "layer", "the untouched PiP must stay on the layer path, not be promoted to cut");
+    assert.equal(renderItemKind(pipItem), "cut", "the untouched PiP now renders through the unified cut path (crop/transform feature parity)");
     const movedItem = trackB.items.find(item => item.id === "c1");
     assert.equal(renderItemKind(movedItem), "cut", "the moved plain clip should still become the new main-track cut");
 
@@ -181,8 +189,11 @@ test("P0 2026-08-20 track-identity-and-duration r2: 既存の crop 付き PiP �
     // 端は before では下地の green（track a のクリップ）が透けて見えるが、
     // after では a が空になっているため下地が無くなり黒になる（このテストの主眼ではない、
     // track a を空にした副作用）。両状態で共通して検証すべきなのは「端が magenta に
-    // 塗りつぶされていないこと」— もし PiP が誤って cuts（不透明全画面合成）へ昇格していたら、
-    // 端まで PiP 自身の色で塗りつぶされて背景が完全に消えるはずだが、それは起きていない。
+    // 塗りつぶされていないこと」— pip-1 は 'cut' 分類だが、buildTrackStackPlan の
+    // transparentBackground 経路（段ごとの自前キャンバスを下地へ合成）を通るため、
+    // footprint 外は透明のまま保たれるはず。もし誤ってフラット/不透明全画面合成の分岐へ
+    // 落ちていたら、端まで PiP 自身の色で塗りつぶされて背景が完全に消えるはずだが、
+    // それは起きていない。
     const beforeCenter = samplePixelRgb(beforeOutput, 1.5, 0.5, 0.5);
     const beforeEdge = samplePixelRgb(beforeOutput, 1.5, 0.02, 0.02);
     assert.ok(isColorR2(beforeCenter, "magenta"), `before: expected magenta PiP at center: ${JSON.stringify(beforeCenter)}`);
