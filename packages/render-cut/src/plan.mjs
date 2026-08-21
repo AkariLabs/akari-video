@@ -496,7 +496,39 @@ function buildTrackStackPlan({
             // always itself opaque, so a fractional opacity still fades toward whatever is below
             // exactly like the flat/default dispatch fades toward black (verified: this is the
             // same math with "below" generalized from hardcoded black to the real stack).
+            // Left unconditionally true (byte-identical to before r4) -- see canvasBasisTransform
+            // just below for the stageIndex-0 fix this comment used to describe here. Keeping
+            // transparentBackground itself untouched matters for a reason UNRELATED to alpha
+            // compositing: buildMultiSourceCommandResult also reads it to choose this stage's own
+            // intermediate codec (qtrle, lossless, vs. the requested quality preset) specifically
+            // to avoid an AVOIDABLE extra generation of lossy compression before this stage's
+            // output gets decoded and recomposited again by whatever stage sits above it in the
+            // stack (verified: real-master-render-encoding-boundaries.test.mjs's own "identical
+            // encoding policy at every boundary" assertion -- stageIndex 0 still has stages above
+            // it whenever the stack has more than one, so it benefits from staying lossless the
+            // same as every other stage, independent of whether ITS OWN canvas happens to need
+            // alpha for compositing purposes).
             transparentBackground: true,
+            // P0 2026-08-21 render-path-unification (r4 fix, Codex re-review): a SEPARATE signal
+            // from transparentBackground, scoped to ONLY the canvas-fit-vs-native-basis transform
+            // question inside appendCutVisualTransform (cut-transform.mjs) -- see that function's
+            // own comment for the full rationale (r3). transparentBackground alone was the wrong
+            // proxy for "is this stage genuinely the bottom of the whole composite, with nothing
+            // real below it": buildTrackStackPlan passed transparentBackground: true unconditionally
+            // to every cuts-kind stage including stageIndex 0, which meant (a) moving an item from
+            // an upper stage down to the true bottom didn't switch its transform.scale back to
+            // canvas-basis the way the flat/default (no-stack) dispatch does for the identical
+            // declaration, and (b) merely adding a second, non-overlapping-in-time 'cuts' track
+            // flipped an EXISTING bottom-stage transform/opacity clip's own rendered geometry with
+            // zero change to its own declaration (the "adding a PiP track changed my main content's
+            // zoom" shape Codex's r3 re-review flagged as still reachable). stageIndex 0's `previous`
+            // is always basePath, which buildTrackBaseCommand (track-compose.mjs) renders as a plain
+            // `color=c=black` canvas with cutPath's own visual content fully discarded -- so
+            // stageIndex 0 is the one stage that is genuinely "the bottom, nothing real below it",
+            // exactly like the flat/default dispatch. Every stage above it has a REAL prior stage's
+            // content as `previous` and keeps canvasBasisTransform: false (native-basis), unchanged
+            // from r3.
+            canvasBasisTransform: stageIndex === 0,
           });
       cutTracks.push({ ref: track.ref, path: trackPath, command });
       stages.push({
@@ -1092,6 +1124,14 @@ export function buildMultiSourceCutCommand({
   // before this task -- see cut-transform.mjs's appendCutVisualTransform for why an
   // unconditionally transparent background would silently break fractional opacity there.
   transparentBackground = false,
+  // P0 2026-08-21 render-path-unification (r4 fix, Codex re-review): whether transform.scale in
+  // appendCutVisualTransform uses canvas-fit basis (true, the r1/main-content convention) or
+  // native-source basis (false, the PiP-overlay convention) -- see that function's own comment.
+  // Defaults true (every pre-existing caller: the flat/default dispatch, and any direct
+  // unit-test caller). buildTrackStackPlan (plan.mjs) is the only caller that ever passes false,
+  // and only for stages above stageIndex 0 -- deliberately independent of transparentBackground
+  // (see that call site's own comment for why the two questions don't share one flag).
+  canvasBasisTransform = true,
 }) {
   const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
   const filters = [];
@@ -1174,6 +1214,7 @@ export function buildMultiSourceCutCommand({
           fps,
           duration: segmentDuration(cut),
           transparentBackground,
+          canvasBasisTransform,
         });
       }
     } else {
@@ -1438,6 +1479,11 @@ export function buildGapAwareMultiSourceCutCommand({
   videoEncodeArgs = null,
   // See buildMultiSourceCutCommand's own comment. Every pre-existing caller omits this.
   transparentBackground = false,
+  // See buildMultiSourceCutCommand's own comment. This function is only ever reached from the
+  // flat/default (non-stack) dispatch (see plan.mjs's buildPlan) -- never as a buildTrackStackPlan
+  // stage -- so canvasBasisTransform is always its true default in practice; threaded through for
+  // API symmetry with buildMultiSourceCutCommand and any direct unit-test caller.
+  canvasBasisTransform = true,
 }) {
   // See buildMultiSourceCutCommand's own comment on the same line.
   const warnings = [];
@@ -1513,6 +1559,7 @@ export function buildGapAwareMultiSourceCutCommand({
             fps,
             duration: run.outEnd - run.outStart,
             transparentBackground,
+            canvasBasisTransform,
           });
         }
       } else {

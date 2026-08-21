@@ -556,6 +556,112 @@ test("BLOCKER regression (r3): a main clip whose source resolution differs from 
   }
 });
 
+// r4 (2026-08-21, Codex diff re-review of the r3 fix): the r3 fix (appendCutVisualTransform's
+// fit-basis keyed off transparentBackground) was itself still wrong at the exact boundary it was
+// meant to fix -- buildTrackStackPlan passed transparentBackground:true unconditionally to EVERY
+// cuts-kind stage, including stageIndex 0 (the true bottom of the stack, whose own `previous` is
+// always a plain black basePath with no real content -- see track-compose.mjs's
+// buildTrackBaseCommand). So a bottom-stage transform/opacity clip's own rendered geometry
+// depended on whether a stack existed at all, not on its own declaration -- reachable just by
+// adding an unrelated second 'cuts' track next to it. r4 decouples the fit-basis question into
+// its own signal (canvasBasisTransform, plan.mjs), computed as `stageIndex === 0` independent of
+// transparentBackground (which still controls alpha compositing AND this stage's own lossless
+// qtrle intermediate codec choice -- an unrelated concern threaded through unchanged).
+test("BLOCKER regression (r4): adding an unrelated, non-overlapping-in-time second cuts track does not change an existing bottom-stage clip's own geometry", async (t) => {
+  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+  // 640x360 (16:9) testsrc main clip, plain default transform, no framing -- the exact
+  // main-content shape from the r3 test above. Rendered alone (flat/default dispatch) as the
+  // reference, then again with a second, entirely non-overlapping-in-time cuts track added
+  // (forces buildTrackStackPlan) -- the main clip's own rendered frame must be unaffected by a
+  // track it never shares a moment on screen with.
+  const sources = [
+    { id: "main", path: "main.mp4", proxy: null },
+    { id: "decoy", path: "decoy.mp4", proxy: null },
+  ];
+  const mainTrack = { id: "main-track", lane: "visual", items: [
+    { id: "m1", at: 0, duration: 20, transform: { x: 0, y: 0, scale: 1 }, source: { kind: "media", src: "main", in: 0, out: 2 } },
+  ] };
+  const decoyTrack = { id: "decoy-track", lane: "visual", items: [
+    { id: "d1", at: 25, duration: 10, source: { kind: "media", src: "decoy", in: 0, out: 1 } },
+  ] };
+  const alone = { version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS }, sources: [sources[0]], tracks: [mainTrack] };
+  const withDecoy = { version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS }, sources, tracks: [mainTrack, decoyTrack] };
+  const rootAlone = await writeProject(alone);
+  const rootWithDecoy = await writeProject(withDecoy);
+  try {
+    makeMovingSource(join(rootAlone, "main.mp4"), { duration: 2, width: 640, height: 360 });
+    makeMovingSource(join(rootWithDecoy, "main.mp4"), { duration: 2, width: 640, height: 360 });
+    await makeColorSource(join(rootWithDecoy, "decoy.mp4"), { color: "red", duration: 1 });
+    const outputAlone = await renderAndGetOutputPath(rootAlone);
+    const outputWithDecoy = await renderAndGetOutputPath(rootWithDecoy);
+    const frameAlone = frameBytes(outputAlone, 1.0);
+    const frameWithDecoy = frameBytes(outputWithDecoy, 1.0);
+    let total = 0;
+    for (let index = 0; index < frameAlone.length; index += 1) total += Math.abs(frameAlone[index] - frameWithDecoy[index]);
+    const meanDiff = total / frameAlone.length;
+    t.diagnostic(`mean per-byte diff, alone vs. with an unrelated non-overlapping decoy track added: ${meanDiff.toFixed(3)} (a basis-flip bug measured ~109 by hand; ordinary lossy re-encode noise measured ~1)`);
+    assert.ok(meanDiff <= 10, `expected the main clip's own geometry to be unaffected by an unrelated track it never shares a moment with: mean diff ${meanDiff.toFixed(3)}`);
+  } finally {
+    await Promise.all([rootAlone, rootWithDecoy].map(root => rm(root, { recursive: true, force: true })));
+  }
+});
+
+// r4: the companion case to the test above -- an item declared with a small, PiP-style transform
+// (matching the ORIGINAL BLOCKER's own shape) renders native-basis (its own small footprint) when
+// it's an upper, non-bottom stage sitting on top of a base track, but must switch to canvas-basis
+// (a full-canvas fit, since transform.scale=1's default now applies to the fitted frame) once
+// it's moved down to become the sole/bottom track -- matching what the identical declaration
+// would do in the flat/default (no-stack) dispatch, exactly like "main" behaves. (The former base
+// track is dropped entirely for the "moved" case, rather than swapped to sit on top of the pip:
+// stacking it above with its own full-canvas, untransformed content would completely obscure the
+// pip underneath regardless of the pip's own basis, which would test compositing z-order instead
+// of the fit-basis question this test is actually isolating.)
+test("BLOCKER regression (r4): moving a PiP-declared item down to become the sole/bottom track switches it to canvas-basis, matching the flat/default dispatch", async (t) => {
+  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+  const pipItem = { id: "pip-1", at: 0, duration: 30, source: { kind: "media", src: "pip", in: 0, out: 3 }, transform: { scale: 0.3 } };
+  // Upper stage (unchanged from the original BLOCKER shape): base track first (bottom), PiP track second (top).
+  const upper = {
+    version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS },
+    sources: [
+      { id: "base", path: "base.mp4", proxy: null },
+      { id: "pip", path: "pip.mp4", proxy: null },
+    ],
+    tracks: [
+      { id: "base-track", lane: "visual", items: [{ id: "b1", at: 0, duration: 30, source: { kind: "media", src: "base", in: 0, out: 3 } }] },
+      { id: "pip-track", lane: "visual", items: [pipItem] },
+    ],
+  };
+  // Moved down to become the sole track (the base content is removed entirely, not stacked above
+  // it -- see the comment above): pip-1 now goes through the flat/default dispatch, exactly like
+  // any other single-track main-content clip.
+  const movedToSoleTrack = {
+    version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS },
+    sources: [{ id: "pip", path: "pip.mp4", proxy: null }],
+    tracks: [{ id: "pip-track", lane: "visual", items: [pipItem] }],
+  };
+  const rootUpper = await writeProject(upper);
+  const rootMoved = await writeProject(movedToSoleTrack);
+  try {
+    await makeColorSource(join(rootUpper, "base.mp4"), { color: "green", duration: 3 });
+    await makeColorSource(join(rootUpper, "pip.mp4"), { color: "magenta", duration: 3, width: 200, height: 100 });
+    await makeColorSource(join(rootMoved, "pip.mp4"), { color: "magenta", duration: 3, width: 200, height: 100 });
+    const outputUpper = await renderAndGetOutputPath(rootUpper);
+    const outputMoved = await renderAndGetOutputPath(rootMoved);
+    // Upper stage: native-basis, small (60x30) footprint -- 20px above center is outside it.
+    const upperBeyondFootprint = samplePixelRgb(outputUpper, 1.5, 0.5, 70 / 180);
+    t.diagnostic(`upper stage, 20px above center: ${JSON.stringify(upperBeyondFootprint)} (expected NOT magenta -- small native-basis footprint)`);
+    assert.ok(!isColor(upperBeyondFootprint, "magenta"), `expected the upper-stage PiP to keep its small native-basis footprint: ${JSON.stringify(upperBeyondFootprint)}`);
+    // Moved to sole/bottom track: canvas-basis -- transform.scale=0.3 now shrinks the FITTED
+    // (full-canvas) frame, so the footprint should be much larger and clearly present well beyond
+    // the small native-basis footprint's own bounds.
+    const movedBeyondFootprint = samplePixelRgb(outputMoved, 1.5, 0.5, 70 / 180);
+    t.diagnostic(`moved to sole/bottom track, 20px above center: ${JSON.stringify(movedBeyondFootprint)} (expected magenta -- canvas-basis footprint is much larger)`);
+    assert.ok(isColor(movedBeyondFootprint, "magenta"), `expected the item to switch to a canvas-basis (larger) footprint once moved to the sole/bottom track, matching the flat/default dispatch: ${JSON.stringify(movedBeyondFootprint)}`);
+  } finally {
+    await Promise.all([rootUpper, rootMoved].map(root => rm(root, { recursive: true, force: true })));
+  }
+});
+
 // --- MAJOR-1: a keyframed rotate on a crop-bearing (layers-style) cut must actually animate ------
 
 test("MAJOR-1 regression: a keyframed rotate on a crop-declared cut animates over time instead of staying static", async (t) => {
