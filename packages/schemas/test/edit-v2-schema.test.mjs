@@ -51,6 +51,24 @@ test("minimum v2 fixture is valid", () => {
   assert.equal(validate(fixture("edit-v2-minimal-valid")), true, JSON.stringify(validate.errors, null, 2));
 });
 
+test("editV2 rejects removed top-level vocabulary as additional properties", () => {
+  for (const [key, extension] of [
+    ["beats", []],
+    ["emphasis_words", []],
+    ["direction", {}],
+  ]) {
+    const value = { ...fixture("edit-v2-valid"), [key]: extension };
+    assert.equal(validate(value), false, key);
+    assert.ok(
+      validate.errors?.some(
+        (error) => error.keyword === "additionalProperties"
+          && error.params.additionalProperty === key,
+      ),
+      JSON.stringify(validate.errors, null, 2),
+    );
+  }
+});
+
 test("v2 keyframe t is an integer frame while legacy layerKeyframe stays in seconds", () => {
   assert.deepEqual(schema.$defs.layerKeyframe.properties.t, { $ref: "#/$defs/seconds" });
   assert.deepEqual(schema.$defs.keyframeV2.properties.t, { $ref: "#/$defs/frames" });

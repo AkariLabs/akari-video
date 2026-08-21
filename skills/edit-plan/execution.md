@@ -2,7 +2,7 @@
 
 > **edit.json v2**: トップレベルは exact で、`version` / `output` / `sources` / `tracks` /
 > `audio` / `captions` / `thumbnail` 以外を書けない。`beats` / `emphasis_words` / `direction` は
-> v2 の `edit.json` へ書かず、判断記録に置く。再受け入れは別タスクとする。
+> v2 で廃止済みのため `edit.json` へ書かず、判断記録に置く。消費者側コードも畳んでおり、今後も復活させない。
 
 ## 原則
 
