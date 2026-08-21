@@ -440,11 +440,18 @@ test('a sequential mid-array insert leaving a stale, partially-overlapping trail
   assert.equal(byId['cut-2'].legacy.collection, 'cuts', 'the stale-at trailing item stays on cuts (not a genuine PiP overlap)');
 });
 
-// r3 (Codex re-review, MINOR): two zero-duration items sharing the same at are empty intervals
-// that can never actually be visible at the same instant -- not a genuine overlap, even though
-// their at AND duration are both exactly equal (the same shape the "fully overlapping"
-// exact-match rule above otherwise flags).
-test('two zero-duration items sharing the same at are not treated as an overlap (an empty interval never overlaps)', () => {
+// r3 (Codex re-review, MINOR) + r4 (Codex re-review, MAJOR): two zero-duration items sharing the
+// same at are empty intervals that can never actually be visible at the same instant -- not a
+// genuine overlap, even though their at AND duration are both exactly equal (the same shape the
+// "fully overlapping" exact-match rule above otherwise flags). r4 additionally asserts the
+// PROJECTED legacy cut itself, not just classification: item.duration === 0 (schema-valid, see
+// edit-v2.ts's requireInteger(value.duration, 0, ...) minimum) used to project into a REAL cut
+// playing its entire declared source span at normal speed (cutOut fell back to item.source.out
+// with no speed compensation, because the speed formula divides by a zero playbackDuration) --
+// silently rendering a supposedly-invisible 0-duration item as a 2-second clip. Fixed in
+// internal-model.ts's buildV2Item: a zero output duration now projects to a true zero-length
+// segment (cutOut === cutIn) regardless of how much source range is declared alongside it.
+test('two zero-duration items sharing the same at are not treated as an overlap, and each projects to a true zero-length segment (not its full declared source span)', () => {
   const edit = {
     version: 2,
     output: { width: 1920, height: 1080, fps: 30 },
@@ -461,4 +468,17 @@ test('two zero-duration items sharing the same at are not treated as an overlap 
   const byId = Object.fromEntries(items.map(item => [item.id, item]));
   assert.equal(byId['zero-a'].legacy.collection, 'cuts', 'a zero-duration item is not a genuine overlap');
   assert.equal(byId['zero-b'].legacy.collection, 'cuts', 'nor is its same-at, zero-duration sibling');
+  // Projection: cutOut must equal cutIn (a true zero-length segment), not item.source.out (which
+  // would silently play the item's entire declared 2-second source span at normal speed).
+  assert.deepEqual(
+    { in: byId['zero-a'].legacy.value.in, out: byId['zero-a'].legacy.value.out },
+    { in: 0, out: 0 },
+    'zero-a must project to a true zero-length segment (cutOut === cutIn === item.source.in), not its full 2s declared source span',
+  );
+  assert.deepEqual(
+    { in: byId['zero-b'].legacy.value.in, out: byId['zero-b'].legacy.value.out },
+    { in: 2, out: 2 },
+    'zero-b must project to a true zero-length segment starting at its own declared source.in (2), not its full declared source span',
+  );
+  assert.equal(byId['zero-a'].legacy.value.speed, undefined, 'speed is moot for a zero-length segment and must stay unset');
 });

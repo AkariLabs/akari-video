@@ -561,9 +561,22 @@ function buildV2Item(
                 && Number.isFinite(item.source.freeze.duration_sec)
                 ? Math.max(0, item.source.freeze.duration_sec) : 0;
             const playbackDuration = Math.max(0, duration - freezeSeconds);
+            // r4 (Codex re-review, MAJOR): a genuine zero output duration (item.duration === 0,
+            // schema-valid per requireInteger's own minimum of 0 -- see edit-v2.ts) used to fall
+            // through the `!alignsDuration` branch below (span=out-in is almost always far more
+            // than one frame away from playbackDuration=0, so alignsDuration is false) straight to
+            // `cutOut = item.source.out`, with speed left undefined because the speed formula
+            // (span / playbackDuration) would divide by zero -- projecting a supposedly-invisible
+            // 0-duration item as a REAL cut playing its entire declared source span at normal
+            // speed. A zero output duration means zero output duration regardless of how much
+            // source range happens to be declared alongside it, so this is checked first and
+            // short-circuits straight to a true zero-length segment (cutOut = cutIn); speed is
+            // moot for a zero-length segment either way.
             const alignsDuration = Math.abs(span - playbackDuration) <= 1 / fps + 1e-9;
-            const cutOut = alignsDuration ? item.source.in + playbackDuration : item.source.out;
-            const speed = !alignsDuration && playbackDuration > 0 ? span / playbackDuration : undefined;
+            const cutOut = playbackDuration === 0
+                ? item.source.in
+                : (alignsDuration ? item.source.in + playbackDuration : item.source.out);
+            const speed = playbackDuration > 0 && !alignsDuration ? span / playbackDuration : undefined;
             // P0 2026-08-21 render-path-unification: 段（トラック）は一切見ない。needsLayersEngine
             // が false の media アイテムは常に 'cuts'（render-cut の cut-transform.mjs が
             // transform/crop/perspective/keyframes/transition_out/speed/freeze の全機能集合を持つ）。
