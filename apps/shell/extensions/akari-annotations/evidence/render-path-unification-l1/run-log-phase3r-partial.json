@@ -1,0 +1,109 @@
+[
+  {
+    "t": "2026-08-21T03:05:23.436Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened"
+  },
+  {
+    "t": "2026-08-21T03:05:23.444Z",
+    "step": "project-consent-dismissed"
+  },
+  {
+    "t": "2026-08-21T03:05:23.745Z",
+    "step": "3r-start"
+  },
+  {
+    "t": "2026-08-21T03:05:23.749Z",
+    "step": "assertion-ok",
+    "message": "3r before: pip-1 renders as a cut clip",
+    "beforePip": [
+      {
+        "itemKind": "cut",
+        "itemId": "1",
+        "className": "akari-annotations-strip-clip",
+        "background": "rgb(39, 39, 42)",
+        "headerBackground": "rgb(44, 138, 154)"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T03:05:23.749Z",
+    "step": "assertion-ok",
+    "message": "3r before: moved-1 renders as a cut clip",
+    "beforeMoved": [
+      {
+        "itemKind": "cut",
+        "itemId": "0",
+        "className": "akari-annotations-strip-clip",
+        "background": "rgb(39, 39, 42)",
+        "headerBackground": "rgb(44, 138, 154)"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T03:05:23.830Z",
+    "step": "assertion-ok",
+    "message": "3r: moved-1 element located for drag"
+  },
+  {
+    "t": "2026-08-21T03:05:23.830Z",
+    "step": "assertion-ok",
+    "message": "3r: target track v5 band located"
+  },
+  {
+    "t": "2026-08-21T03:05:25.670Z",
+    "step": "3r-uncaught-exceptions-during-drag",
+    "count": 0,
+    "exceptions": []
+  },
+  {
+    "t": "2026-08-21T03:05:25.670Z",
+    "step": "assertion-ok",
+    "message": "3r: no uncaught exception during the real drag (the original bug: cutItemId() threw from updateDragPreview on every mousemove)",
+    "exceptions": []
+  },
+  {
+    "t": "2026-08-21T03:05:25.671Z",
+    "step": "3r-edit-after",
+    "tracks": [
+      {
+        "id": "v1",
+        "items": [
+          "moved-1"
+        ]
+      },
+      {
+        "id": "v2",
+        "items": [
+          "pip-1"
+        ]
+      },
+      {
+        "id": "v5",
+        "items": []
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T03:05:25.672Z",
+    "step": "ASSERTION-FAILED",
+    "message": "3r: v1 is now empty (drag committed)",
+    "sourceAfter": {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "moved-1",
+          "at": 0,
+          "duration": 40,
+          "source": {
+            "kind": "media",
+            "src": "s1",
+            "in": 0,
+            "out": 4
+          }
+        }
+      ]
+    }
+  }
+]
