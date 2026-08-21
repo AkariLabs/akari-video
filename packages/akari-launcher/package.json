@@ -1,6 +1,6 @@
 {
   "name": "akari-video",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "AKARI Video launcher CLI — start an AI-edited video project from any directory: scaffold, connection check, then hand over to Claude Code (or opencode). AKARI Video を opencode や Claude Code で、どのディレクトリからでも始めるための `akari` ランチャー CLI。接続確認（doctor）→ 未セットアップならプロジェクト雛形を作成 → AI エージェントを起動する。外部 npm 依存ゼロ（Node.js 組み込みモジュールのみ）。",
   "type": "module",
   "bin": {
