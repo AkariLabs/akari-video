@@ -85,6 +85,7 @@ import {
 } from '../common/timeline-material-insert';
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { openTimelineContextMenu } from './akari-timeline-context-menu';
+import { createAkariNoticeBanner } from './akari-notice-banner';
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { ReviewModel } from './review-model';
@@ -455,7 +456,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly selectionMarquee = document.createElement('div');
     /** 素材カード D&D の点線ゴースト（task 2026-08-10-material-dnd-timeline 司令塔裁定5）。 */
     protected readonly materialGhost = document.createElement('div');
-    protected readonly notice = document.createElement('div');
+    protected readonly notice = createAkariNoticeBanner({ dataAttribute: 'data-akari-timeline-notice' });
     protected readonly footer = document.createElement('div');
 
     @inject(ReviewModel)
@@ -816,11 +817,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.rulerBar.addEventListener('contextmenu', event => this.openAnnotationPopup(event));
         this.trackHeaderColumn.addEventListener('contextmenu', event => this.openTrackContextMenu(event));
 
-        Object.assign(this.notice.style, {
-            display: 'none', padding: '7px 11px', color: 'var(--theia-warningForeground)',
-            background: 'var(--theia-inputValidation-warningBackground)',
-            borderBottom: '1px solid var(--theia-inputValidation-warningBorder)', fontSize: '12px', lineHeight: '1.4'
-        });
         Object.assign(this.stripScroll.style, { minHeight: '0', overflow: 'auto' });
         Object.assign(this.hScrollbarTrack.style, {
             position: 'relative', height: '14px', margin: '0 10px 8px 10px', flex: 'none',
@@ -864,7 +860,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.footer.textContent = 'タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。';
 
-        this.node.append(this.toolbar, this.timelineViewport, this.hScrollbarTrack, this.notice, this.footer);
+        this.node.append(this.toolbar, this.timelineViewport, this.hScrollbarTrack, this.notice.node, this.footer);
         const style = document.createElement('style');
         style.textContent = `
     .akari-annotations-widget .akari-annotations-strip-clip {
@@ -1607,7 +1603,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected showAudioDurationUnavailableNotice(): void {
-        if (!this.audioDurationNoticeShown && !this.notice.textContent) {
+        if (!this.audioDurationNoticeShown && !this.notice.hasMessage()) {
             this.showNotice('音声素材の実尺が取得できないため、ソーストリマーを開けません。');
             this.audioDurationNoticeShown = true;
         }
@@ -6119,14 +6115,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected showVideoDurationUnavailableNotice(): void {
-        if (!this.videoDurationNoticeShown && !this.notice.textContent) {
+        if (!this.videoDurationNoticeShown && !this.notice.hasMessage()) {
             this.showNotice('素材の実尺が取得できないため、Out のクランプは無効です。');
             this.videoDurationNoticeShown = true;
         }
     }
 
     protected showFfmpegMissingNotice(reason: string | undefined): void {
-        if (reason === 'ffmpeg-not-found' && !this.ffmpegMissingNoticeShown && !this.notice.textContent) {
+        if (reason === 'ffmpeg-not-found' && !this.ffmpegMissingNoticeShown && !this.notice.hasMessage()) {
             this.showNotice('ffmpeg が見つからないため、サムネイルと波形は表示されません（他の操作は通常どおり使えます）');
             this.ffmpegMissingNoticeShown = true;
         }
@@ -8127,13 +8123,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected showNotice(message: string): void {
-        this.notice.textContent = message;
-        this.notice.style.display = 'block';
+        this.notice.setMessage(message);
     }
 
     protected hideNotice(): void {
-        this.notice.textContent = '';
-        this.notice.style.display = 'none';
+        this.notice.clear();
     }
 
     protected formatRulerTimestamp(value: number): string {

@@ -12,6 +12,7 @@ import { collectBlockIds, extractBlocksManifest, parseCanvasTarget, parseDocTarg
 import { AkariCanvasDialog } from './akari-canvas-dialog';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { ReviewModel } from './review-model';
+import { AKARI_WARNING_TEXT_COLOR, createAkariNoticeBanner } from './akari-notice-banner';
 
 /** doc: target のブロック存在チェック結果（契約 §6 の劣化規約に対応。akari-review-panel-widget.ts とミラー）。 */
 type DocTargetHealth = 'ok' | 'path-missing' | 'block-missing';
@@ -70,7 +71,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
     @inject(OpenerService)
     protected readonly openerService!: OpenerService;
 
-    protected readonly notice = document.createElement('div');
+    protected readonly notice = createAkariNoticeBanner({ dataAttribute: 'data-board-notice' });
     protected readonly board = document.createElement('div');
     protected readonly columnElements = new Map<BoardColumn, { list: HTMLDivElement; count: HTMLSpanElement }>();
 
@@ -95,13 +96,6 @@ export class AkariReviewBoardWidget extends BaseWidget {
             overflow: 'hidden',
             background: 'var(--theia-editor-background)'
         });
-
-        Object.assign(this.notice.style, {
-            display: 'none', padding: '7px 11px', color: 'var(--theia-warningForeground)',
-            background: 'var(--theia-inputValidation-warningBackground)',
-            borderBottom: '1px solid var(--theia-inputValidation-warningBorder)', fontSize: '12px', lineHeight: '1.4'
-        });
-        this.notice.setAttribute('data-board-notice', '');
 
         Object.assign(this.board.style, {
             display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '1px',
@@ -135,7 +129,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
             this.columnElements.set(def.status, { list, count });
         }
 
-        this.node.append(this.notice, this.board);
+        this.node.append(this.notice.node, this.board);
 
         this.toDispose.push(this.model.onChanged(() => this.refresh()));
         this.refresh();
@@ -394,7 +388,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
             if (health === 'path-missing') {
                 row.textContent = `🖼️⚠️ ${imageTarget.path}`;
                 row.title = `${imageTarget.path} が見つかりません（再表示は不可。注釈自体は有効です）`;
-                row.style.color = 'var(--theia-warningForeground)';
+                row.style.color = AKARI_WARNING_TEXT_COLOR;
             }
         });
         return row;
@@ -506,7 +500,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
             if (health === 'dir-missing') {
                 row.textContent = `🎨⚠️ ${canvasTarget.id}`;
                 row.title = `review/canvas/${canvasTarget.id} が見つかりません（再表示は不可。注釈自体は有効です）`;
-                row.style.color = 'var(--theia-warningForeground)';
+                row.style.color = AKARI_WARNING_TEXT_COLOR;
             }
         });
         return row;
@@ -541,7 +535,7 @@ export class AkariReviewBoardWidget extends BaseWidget {
             } else if (health === 'block-missing') {
                 row.textContent = `📄 ${docTarget.path}（対象消失）`;
                 row.title = `block-id が現在のレポートにありません: ${docTarget.blockId}`;
-                row.style.color = 'var(--theia-warningForeground)';
+                row.style.color = AKARI_WARNING_TEXT_COLOR;
             }
         });
         return row;
@@ -731,13 +725,11 @@ export class AkariReviewBoardWidget extends BaseWidget {
     }
 
     protected showNotice(message: string): void {
-        this.notice.textContent = message;
-        this.notice.style.display = 'block';
+        this.notice.setMessage(message);
     }
 
     protected hideNotice(): void {
-        this.notice.textContent = '';
-        this.notice.style.display = 'none';
+        this.notice.clear();
     }
 
     /** sourceT: null（doc: / image: target）は時刻表示を持たないため縮退させる（契約 §2）。 */

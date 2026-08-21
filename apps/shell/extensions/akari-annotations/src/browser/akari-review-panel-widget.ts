@@ -19,6 +19,7 @@ import {
     transitionRawSourceSelection
 } from '../common/raw-source-selection-state';
 import { AkariCanvasDialog } from './akari-canvas-dialog';
+import { AKARI_WARNING_TEXT_COLOR, createAkariNoticeBanner } from './akari-notice-banner';
 import { AkariImageAnnotationDialog } from './akari-image-annotation-dialog';
 import { OPEN_AKARI_REVIEW_BOARD } from './akari-annotations-commands';
 import { AnnotationStatusFilter, ReviewModel } from './review-model';
@@ -165,7 +166,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
     protected readonly recordingNotice = document.createElement('div');
     protected readonly sessionList = document.createElement('div');
     protected readonly openSessionsButton = document.createElement('button');
-    protected readonly notice = document.createElement('div');
+    protected readonly notice = createAkariNoticeBanner({ dataAttribute: 'data-akari-review-notice' });
     protected readonly listContainer = document.createElement('div');
     protected readonly footer = document.createElement('div');
     protected reviewSessionState: ReviewSessionUiState | undefined;
@@ -393,7 +394,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
         this.recordingLevelMeter.appendChild(this.recordingLevelFill);
         this.silenceWarningNotice.textContent = '入力が無音です — マイク設定を確認してください';
         Object.assign(this.silenceWarningNotice.style, {
-            display: 'none', color: 'var(--theia-warningForeground)', fontSize: '11px', lineHeight: '1.4'
+            display: 'none', color: AKARI_WARNING_TEXT_COLOR, fontSize: '11px', lineHeight: '1.4'
         });
         Object.assign(this.recordingNotice.style, {
             display: 'none', color: 'var(--theia-errorForeground)', fontSize: '11px', lineHeight: '1.4'
@@ -411,11 +412,6 @@ export class AkariReviewPanelWidget extends BaseWidget {
             this.sessionList
         );
 
-        Object.assign(this.notice.style, {
-            display: 'none', padding: '7px 11px', color: 'var(--theia-warningForeground)',
-            background: 'var(--theia-inputValidation-warningBackground)',
-            borderBottom: '1px solid var(--theia-inputValidation-warningBorder)', fontSize: '12px', lineHeight: '1.4'
-        });
         Object.assign(this.listContainer.style, { minHeight: '0', overflow: 'auto', padding: '4px 10px' });
         Object.assign(this.footer.style, {
             height: '26px', minHeight: '26px', maxHeight: '26px', padding: '5px 10px', boxSizing: 'border-box',
@@ -428,7 +424,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
             this.toolbar,
             this.composerRow,
             this.recordingSection,
-            this.notice,
+            this.notice.node,
             this.listContainer,
             this.footer
         );
@@ -703,7 +699,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
                 : this.formatSessionDuration(session.durationSec);
             duration.style.fontVariantNumeric = 'tabular-nums';
             if (session.orphaned) {
-                duration.style.color = 'var(--theia-warningForeground)';
+                duration.style.color = AKARI_WARNING_TEXT_COLOR;
             }
             row.append(id, started, duration);
             this.sessionList.appendChild(row);
@@ -948,7 +944,7 @@ export class AkariReviewPanelWidget extends BaseWidget {
                 const lost = document.createElement('span');
                 lost.textContent = '（対象消失）';
                 lost.title = `block-id が現在のレポートにありません: ${docTarget.blockId}`;
-                Object.assign(lost.style, { color: 'var(--theia-warningForeground)', fontSize: '11px', marginLeft: '4px' });
+                Object.assign(lost.style, { color: AKARI_WARNING_TEXT_COLOR, fontSize: '11px', marginLeft: '4px' });
                 button.after(lost);
             }
         });
@@ -1310,13 +1306,11 @@ export class AkariReviewPanelWidget extends BaseWidget {
     }
 
     protected showNotice(message: string): void {
-        this.notice.textContent = message;
-        this.notice.style.display = 'block';
+        this.notice.setMessage(message);
     }
 
     protected hideNotice(): void {
-        this.notice.textContent = '';
-        this.notice.style.display = 'none';
+        this.notice.clear();
     }
 
     /** sourceT: null（doc: / image: target）は時刻表示を持たないため縮退させる（契約 §2）。 */
