@@ -464,6 +464,19 @@ function makeMarkerSource(path, { duration, width = WIDTH, height = HEIGHT }) {
 // --- BLOCKER: a transform-only PiP (no crop/perspective/keyframes) must scale relative to the
 // source's OWN native size, not get canvas-letterbox-fit baked into its own footprint first ------
 
+// r3 (2026-08-21, Codex re-review after the r2 fix): the original BLOCKER repro is structurally
+// a PiP OVERLAY, which -- per the original report's own wording ("1本のbase cutsトラック+
+// transform-onlyPiPトラックの既定順プロジェクト") and per usesDefaultInternalTrackOrder's own
+// "more than one 'cuts' track always routes through buildTrackStackPlan" rule -- always requires
+// at least two visual tracks (a base + the PiP), which is exactly what makes this item's own
+// canvas a non-bottom buildTrackStackPlan stage (transparentBackground=true). A single lone
+// track with no base beneath it isn't a genuine overlay at all (there's nothing for it to be
+// "on top of") -- see cut-transform.mjs's own comment on the transparentBackground-gated fit for
+// why that shape is instead correctly treated as canvas-basis main content (r3's own fix for a
+// DIFFERENT regression the r2-only fix introduced -- see the very next test below). This test's
+// own base track is deliberately a plain, untransformed, same-resolution clip so its own content
+// is uninteresting -- it exists only to give the PiP track something to sit "on top of" and
+// produce the correct transparentBackground=true stage.
 test("BLOCKER regression: a transform-only PiP's footprint is sized from the source's native pixels, not inflated by a canvas letterbox-fit", async (t) => {
   if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
   // 200x100 source, transform.scale=0.3, no crop/perspective/keyframes -- the exact shape that
@@ -475,20 +488,69 @@ test("BLOCKER regression: a transform-only PiP's footprint is sized from the sou
   // vertical distance 20px from center is outside the correct 30px-tall footprint (black
   // background expected) but still inside the buggy 54px-tall footprint's magenta interior
   // (black-pad band only starts at distance 24px there) -- so it discriminates the two directly.
-  const sources = [{ id: "pip", path: "pip.mp4", proxy: null }];
+  const sources = [
+    { id: "base", path: "base.mp4", proxy: null },
+    { id: "pip", path: "pip.mp4", proxy: null },
+  ];
+  const baseTrack = { id: "base-track", lane: "visual", items: [
+    { id: "b1", at: 0, duration: 30, source: { kind: "media", src: "base", in: 0, out: 3 } },
+  ] };
   const pipTrack = { id: "pip-track", lane: "visual", items: [
     { id: "pip-1", at: 0, duration: 30, source: { kind: "media", src: "pip", in: 0, out: 3 }, transform: { scale: 0.3 } },
   ] };
-  const edit = { version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS }, sources, tracks: [pipTrack] };
+  const edit = { version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS }, sources, tracks: [baseTrack, pipTrack] };
   const root = await writeProject(edit);
   try {
+    await makeColorSource(join(root, "base.mp4"), { color: "green", duration: 3 });
     await makeColorSource(join(root, "pip.mp4"), { color: "magenta", duration: 3, width: 200, height: 100 });
     const output = await renderAndGetOutputPath(root);
     const insideCorrectFootprint = samplePixelRgb(output, 1.5, 0.5, 90 / 180);
     const beyondCorrectFootprint = samplePixelRgb(output, 1.5, 0.5, 70 / 180);
     t.diagnostic(`center=${JSON.stringify(insideCorrectFootprint)} 20px-above-center=${JSON.stringify(beyondCorrectFootprint)}`);
     assert.ok(isColor(insideCorrectFootprint, "magenta"), `expected magenta at the footprint's own center: ${JSON.stringify(insideCorrectFootprint)}`);
-    assert.ok(!isColor(beyondCorrectFootprint, "magenta"), `expected the opaque black canvas background 20px above center (outside the correct 30px-tall footprint) -- magenta here means the footprint was inflated by a canvas fit step: ${JSON.stringify(beyondCorrectFootprint)}`);
+    assert.ok(!isColor(beyondCorrectFootprint, "magenta"), `expected the base track's green to show through 20px above center (outside the correct 30px-tall footprint) -- magenta here means the footprint was inflated by a canvas fit step: ${JSON.stringify(beyondCorrectFootprint)}`);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// r3: the main-content regression the r2-only fix introduced -- a main clip (no PiP track, no
+// framing, a plain/default transform) whose source resolution differs from the output canvas
+// used to render as a center CROP of the source instead of a full-frame DOWNSCALE, because r2
+// made the canvas-fit step conditional on cuts[].framing alone, which this shape never declares.
+test("BLOCKER regression (r3): a main clip whose source resolution differs from the canvas still downscales to fit, not a center crop", async (t) => {
+  if (!ffmpegAvailable()) return t.skip("ffmpeg unavailable");
+  // 640x360 source (same 16:9 aspect as the 320x180 canvas, so a correct fit is a clean 2x
+  // downscale with zero letterbox padding -- isolates the fit-vs-crop question from framing's
+  // own separately-tested letterbox math). testsrc so the frame has real spatial structure: a
+  // center crop and a full downscale produce a whole-frame content that differs almost
+  // everywhere (unlike a solid color source, or a single sampled pixel -- testsrc's own pattern
+  // happens to be flat/black at some individual points in BOTH interpretations, which is why this
+  // compares the ENTIRE decoded frame's mean per-byte difference against a known-correct
+  // reference, the same tolerance-based whole-frame technique this file's own
+  // assertFramesMatch/assertSameColor helpers already use for lossy-encode-safe comparison,
+  // rather than a single hand-picked sample point).
+  const sources = [{ id: "main", path: "main.mp4", proxy: null }];
+  const mainTrack = { id: "main-track", lane: "visual", items: [
+    { id: "m1", at: 0, duration: 30, transform: { x: 0, y: 0, scale: 1 }, source: { kind: "media", src: "main", in: 0, out: 3 } },
+  ] };
+  const edit = { version: 2, output: { width: WIDTH, height: HEIGHT, fps: FPS }, sources, tracks: [mainTrack] };
+  const root = await writeProject(edit);
+  try {
+    const sourcePath = join(root, "main.mp4");
+    makeMovingSource(sourcePath, { duration: 3, width: 640, height: 360 });
+    const output = await renderAndGetOutputPath(root);
+    // The known-correct reference: the same source, plain ffmpeg-scaled to the canvas size (a
+    // full downscale, not a crop) -- independent of render-cut's own pipeline entirely.
+    const referencePath = join(root, "reference.mp4");
+    ffmpeg(["-i", sourcePath, "-vf", `scale=${WIDTH}:${HEIGHT}`, "-c:v", "libx264", "-pix_fmt", "yuv420p", referencePath]);
+    const actual = frameBytes(output, 1.5);
+    const reference = frameBytes(referencePath, 1.5);
+    let total = 0;
+    for (let index = 0; index < actual.length; index += 1) total += Math.abs(actual[index] - reference[index]);
+    const meanDiff = total / actual.length;
+    t.diagnostic(`mean per-byte diff against a plain full-downscale reference: ${meanDiff.toFixed(3)} (a center-crop bug measured ~68 by hand; ordinary lossy re-encode noise measured ~1)`);
+    assert.ok(meanDiff <= 10, `expected a full-frame downscale (mean diff close to ordinary encode noise), not a center crop of the source: mean diff ${meanDiff.toFixed(3)}`);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

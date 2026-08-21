@@ -58,22 +58,50 @@ export function appendCutVisualTransform({
   const background = `[ct_${id}_background]`;
   const framing = cut?.framing;
   const framingDeclared = hasUsableFraming(framing);
-  // P0 2026-08-21 render-path-unification (BLOCKER fix, Codex review): scaling/positioning must
-  // be relative to the source's OWN native pixel size (matching layers.mjs's plain transform.scale
-  // math), not to a canvas-fitted (possibly letterboxed) intermediate -- a media item is now
-  // 'cuts'-classified regardless of whether it's meant to fill the whole frame or sit as a small
-  // PiP overlay, and letterbox-fitting-then-scaling a PiP-sized item first inflates its own
-  // footprint to the canvas's aspect ratio before the declared scale even applies (verified: a
-  // 200x100 source at transform.scale=0.3 in a 320x180 canvas rendered as 96x54 with black bars
-  // baked into its own footprint, not the expected 60x30). cuts[].framing (a punch-in on the
-  // WHOLE canvas, contract-2026-07-22-render-basics.md #6) is the one declared feature that
-  // genuinely needs a canvas-sized intermediate to compute its own crop percentages against -- so
-  // the fit-to-canvas scale/pad only runs when framing is actually declared, preserving that
-  // feature's existing, separately-tested behavior byte-for-byte. fps/setsar/format normalization
-  // stays unconditional either way: the cuts engine concatenates same-track segments together
-  // afterward, which needs consistent timebase/format across every segment regardless of pixel
-  // size (this part predates -- and is unrelated to -- the canvas-fit sizing question above).
-  const steps = framingDeclared
+  // P0 2026-08-21 render-path-unification (BLOCKER fix r2->r3, Codex review): this builder is
+  // now shared by two historically-distinct conventions that genuinely conflict --
+  // "main content" (old cuts[] semantics: transform.scale is relative to the CANVAS, applied
+  // AFTER letterbox-fitting an arbitrarily-sized source into it -- the natural basis for a
+  // punch-in zoom on the whole frame) and "PiP overlay" (old layers[] semantics: transform.scale
+  // is relative to the source's OWN NATIVE pixel size, with no canvas-fit step at all -- the
+  // natural basis for "shrink this clip to 30% of itself and place it in a corner"). r2's own fix
+  // (skip fit whenever framing is absent) chose the PiP/native-basis convention unconditionally,
+  // which fixed the PiP case but broke the FAR MORE COMMON main-content case: a main cut whose
+  // source resolution differs from the output canvas (e.g. a 4K source in a 1080p project) with
+  // a plain default transform now renders as a center CROP of the source instead of a full-frame
+  // DOWNSCALE (verified: a 640x360 16:9 source in a 320x180 16:9 canvas, transform={x:0,y:0,
+  // scale:1}, no framing, produced a center-cropped frame -- mean per-pixel diff of 68/255
+  // against a plain ffmpeg `scale=320:180` reference of the same source). Both r1 (canvas-basis
+  // unconditionally) and r2 (native-basis unconditionally) were each correct for one convention
+  // and wrong for the other; there is no way to tell which convention an item's own
+  // transform.scale was AUTHORED under from the v2 schema alone (both are expressed with the
+  // identical `transform.scale` field, and the ambiguous case -- a plain default transform on an
+  // item whose source doesn't match canvas size -- is exactly what both regressions hit).
+  //
+  // The resolving signal already exists and needs no new field: `transparentBackground` (see its
+  // own comment below) is true precisely when this item's own canvas is a buildTrackStackPlan
+  // z-order stage sitting ON TOP of real content below it -- i.e. a genuine overlay/PiP track,
+  // the ONLY structural shape (verified against both the original BLOCKER repro and the r1 report
+  // itself: "1本のbase cutsトラック+PiPトラックの既定順プロジェクト", always >=2 'cuts' tracks,
+  // which usesDefaultInternalTrackOrder in plan.mjs always routes through buildTrackStackPlan) a
+  // native-basis PiP scale can arise in. `transparentBackground` is false for every flat/default
+  // (single visual track) dispatch AND for the bottom-most stack stage -- i.e. every "this canvas
+  // IS the final frame, nothing sits below it" case, which is exactly where canvas-basis (fit
+  // first, then apply transform.scale=1 by default) is the correct, and by far the most common,
+  // interpretation. This also resolves the "巻き込み" (drag-in) half of the same finding: because
+  // the decision is scoped to `transparentBackground` (one value per track/stage, threaded
+  // through from plan.mjs) rather than to whether THIS SPECIFIC cut declares a transform, a
+  // "plain" cut sharing a track/stage with a transform-bearing sibling now gets the SAME (track-
+  // appropriate) fit behavior as its sibling instead of being swept into native-basis math it
+  // never asked for. cuts[].framing (a punch-in on the WHOLE canvas,
+  // contract-2026-07-22-render-basics.md #6) still forces the fit step on its own whenever
+  // declared, independent of transparentBackground -- framing's own math (appendCutFraming)
+  // requires an already-fitted frame to crop percentages against regardless of which stack stage
+  // it's on, and every one of its own separately-tested cases is a transparentBackground=false,
+  // main-content-style declaration anyway, so this is a superset of r2's own framing handling,
+  // not a behavior change for it.
+  const shouldFitToCanvas = framingDeclared || !transparentBackground;
+  const steps = shouldFitToCanvas
     ? [
         `scale=${width}:${height}:force_original_aspect_ratio=decrease`,
         `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`,
