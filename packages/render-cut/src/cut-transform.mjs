@@ -56,13 +56,36 @@ export function appendCutVisualTransform({
   const fitted = `[ct_${id}_fit]`;
   const prepared = `[ct_${id}_prepared]`;
   const background = `[ct_${id}_background]`;
-  const steps = [
-    `scale=${width}:${height}:force_original_aspect_ratio=decrease`,
-    `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`,
-    `fps=${formatNumber(fps)}`,
-    "setsar=1",
-    "format=yuva420p",
-  ];
+  const framing = cut?.framing;
+  const framingDeclared = hasUsableFraming(framing);
+  // P0 2026-08-21 render-path-unification (BLOCKER fix, Codex review): scaling/positioning must
+  // be relative to the source's OWN native pixel size (matching layers.mjs's plain transform.scale
+  // math), not to a canvas-fitted (possibly letterboxed) intermediate -- a media item is now
+  // 'cuts'-classified regardless of whether it's meant to fill the whole frame or sit as a small
+  // PiP overlay, and letterbox-fitting-then-scaling a PiP-sized item first inflates its own
+  // footprint to the canvas's aspect ratio before the declared scale even applies (verified: a
+  // 200x100 source at transform.scale=0.3 in a 320x180 canvas rendered as 96x54 with black bars
+  // baked into its own footprint, not the expected 60x30). cuts[].framing (a punch-in on the
+  // WHOLE canvas, contract-2026-07-22-render-basics.md #6) is the one declared feature that
+  // genuinely needs a canvas-sized intermediate to compute its own crop percentages against -- so
+  // the fit-to-canvas scale/pad only runs when framing is actually declared, preserving that
+  // feature's existing, separately-tested behavior byte-for-byte. fps/setsar/format normalization
+  // stays unconditional either way: the cuts engine concatenates same-track segments together
+  // afterward, which needs consistent timebase/format across every segment regardless of pixel
+  // size (this part predates -- and is unrelated to -- the canvas-fit sizing question above).
+  const steps = framingDeclared
+    ? [
+        `scale=${width}:${height}:force_original_aspect_ratio=decrease`,
+        `pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`,
+        `fps=${formatNumber(fps)}`,
+        "setsar=1",
+        "format=yuva420p",
+      ]
+    : [
+        `fps=${formatNumber(fps)}`,
+        "setsar=1",
+        "format=yuva420p",
+      ];
   filters.push(`${inputLabel}${steps.join(",")}${fitted}`);
 
   // docs/contract-2026-07-22-render-basics.md #6 (cuts[].framing). Framing crops the already
@@ -71,8 +94,7 @@ export function appendCutVisualTransform({
   // (now possibly zoomed-in) frame within the output canvas. When framing is absent this stays
   // a no-op passthrough (framed === fitted), so the filter graph is byte-identical to before
   // this feature existed.
-  const framing = cut?.framing;
-  const framed = hasUsableFraming(framing) ? `[ct_${id}_framed]` : fitted;
+  const framed = framingDeclared ? `[ct_${id}_framed]` : fitted;
   if (framed !== fitted) {
     appendCutFraming({ filters, inputLabel: fitted, outputLabel: framed, framing, width, height, id });
   }
@@ -170,7 +192,14 @@ export function appendCutLayerStyleVisual({
   const cropKeyframeDeclared = keyframed
     && Array.isArray(cut.keyframes)
     && cut.keyframes.some((point) => point && typeof point === "object" && point.crop);
-  const sourceSize = cropKeyframeDeclared && isFiniteNumber(sourceWidth) && isFiniteNumber(sourceHeight)
+  // P0 2026-08-21 render-path-unification (MAJOR-1 fix, Codex review): a keyframed rotate needs
+  // the same fixed bounding-square sizing layers.mjs's own rotate step uses (rotate's own ow/oh
+  // expressions are only evaluated once at init, so a genuinely time-varying angle needs a size
+  // that already fits the box at every angle it will ever reach -- see layers.mjs's own comment
+  // next to this exact math, ported unchanged below). transformKeyframes.rotateVaries was already
+  // computed by layerTransformKeyframeExprs; this function just wasn't reading it.
+  const rotateVaries = Boolean(transformKeyframes?.rotateVaries);
+  const sourceSize = (cropKeyframeDeclared || rotateVaries) && isFiniteNumber(sourceWidth) && isFiniteNumber(sourceHeight)
     ? { width: sourceWidth, height: sourceHeight }
     : null;
 
@@ -223,8 +252,25 @@ export function appendCutLayerStyleVisual({
       `crop=trunc((iw/${formatNumber(denom)})/2)*2:trunc((ih/${formatNumber(denom)})/2)*2:trunc((iw*${formatNumber(padFrac)}/${formatNumber(denom)})/2)*2:trunc((ih*${formatNumber(padFrac)}/${formatNumber(denom)})/2)*2`,
     );
   }
-  if (rotate !== 0) {
-    const radians = `(${formatNumber(rotate)}*PI/180)`;
+  // Ported unchanged from layers.mjs's own rotate step (same comment there explains the ow/oh
+  // once-at-init limitation and the sqrt(2)*max(w,h) bounding-square derivation). cropVaries here
+  // only ever means "this cut's own crop is keyframed" (cropKeyframeSteps), since a keyframed
+  // perspective never reaches this function at all (needsLayersEngine routes it to the layers
+  // engine instead) -- so, unlike layers.mjs, there is no keyframed-perspective case to fold in.
+  const cropVaries = Boolean(cropKeyframeSteps);
+  const rotateConstant = transformKeyframes ? (rotateVaries ? null : transformKeyframes.rotateMin) : rotate;
+  if (rotateConstant !== 0 && (rotateVaries || cropVaries) && !sourceSize) {
+    // Source size probe unavailable -- skip the rotate step entirely rather than risk a
+    // wrongly-sized/clipped rotation built on an unknown box size (same fallback as the
+    // crop-keyframe path above, which silently no-ops the same way when sourceWidth/sourceHeight
+    // aren't available).
+  } else if (rotateConstant !== 0 && (rotateVaries || cropVaries)) {
+    const scaleMax = transformKeyframes ? transformKeyframes.scaleMax : scale;
+    const boundSide = Math.ceil((Math.sqrt(2) * Math.max(sourceSize.width, sourceSize.height) * scaleMax) / 2) * 2;
+    const radiansExpr = transformKeyframes ? `((${transformKeyframes.rotateExpr})*PI/180)` : `(${formatNumber(rotate)}*PI/180)`;
+    steps.push(`rotate=${radiansExpr}:fillcolor=black@0:ow=${boundSide}:oh=${boundSide}`);
+  } else if (rotateConstant !== 0) {
+    const radians = `(${formatNumber(rotateConstant)}*PI/180)`;
     steps.push(`rotate=${radians}:fillcolor=black@0:ow=rotw(${radians}):oh=roth(${radians})`);
   }
   if (opacity !== 1) {
@@ -243,9 +289,31 @@ export function appendCutLayerStyleVisual({
       ? `color=c=black@0:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(duration)},format=yuva420p${background}`
       : `color=c=black:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(duration)}${background}`,
   );
+  // P0 2026-08-21 render-path-unification (MAJOR-2 fix, Codex review): cut.framing
+  // (docs/contract-2026-07-22-render-basics.md #6) was silently dropped whenever a cut also
+  // declared crop/perspective/keyframes, because this function never referenced cut.framing at
+  // all -- appendCutFraming's own contract requires an already width x height-fitted frame to
+  // crop percentages against (cut-framing.mjs's header comment), and unlike
+  // appendCutVisualTransform (which canvas-fits its source as its very first step, before
+  // transform.scale/x/y even apply), this function has no canvas-sized frame available until
+  // AFTER crop/perspective/rotate/keyframes have already been composited onto the background via
+  // the overlay step directly above -- there is no earlier point in this pipeline where a
+  // width x height frame exists. So framing here necessarily punches in on the fully-placed
+  // result (crop/perspective/keyframes already fixed the item's own footprint and position; a
+  // declared framing zooms into a region of that placed canvas), not on the pre-placement item
+  // footprint the way appendCutVisualTransform's ordering does -- an inherent structural
+  // difference between the two builders' pipelines, not a partial/approximate porting of the
+  // feature. framing's own crop math is unchanged (reused verbatim via appendCutFraming), so its
+  // existing separately-tested behavior (cut-framing.test.mjs) is preserved wherever it runs.
+  const framing = cut?.framing;
+  const framingDeclared = hasUsableFraming(framing);
+  const composed = framingDeclared ? `[ct_${id}_lcanvas]` : outputLabel;
   filters.push(
-    `${background}${processed}overlay=x=(main_w-overlay_w)/2+${xExpr}:y=(main_h-overlay_h)/2+${yExpr}:format=auto:shortest=1${outputLabel}`,
+    `${background}${processed}overlay=x=(main_w-overlay_w)/2+${xExpr}:y=(main_h-overlay_h)/2+${yExpr}:format=auto:shortest=1${composed}`,
   );
+  if (framingDeclared) {
+    appendCutFraming({ filters, inputLabel: composed, outputLabel, framing, width, height, id });
+  }
 }
 
 const EPSILON = 1e-6;
