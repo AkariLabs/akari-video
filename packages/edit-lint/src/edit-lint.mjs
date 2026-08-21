@@ -22,6 +22,7 @@ const {
   projectLegacyEdit,
   readInternalEdit,
   resolveCaptionDisplay,
+  visualContentEndSeconds,
 } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 
 const VERSION = 1;
@@ -234,13 +235,19 @@ export async function lintProject(input, options = {}) {
   const referenceState = await validateReferences(edit, findings, paths);
   const sourceDuration = null;
 
-  const timeline = validateCuts(
+  const cutsStructureResult = validateCuts(
     edit.cuts,
     sourceDuration,
     findings,
     paths,
     structure.sourceIds,
   );
+  // 総尺の正本定義は「cuts の合計」ではなく「全 visual トラックのアイテムの最大終端」
+  // （packages/edit-store の visualContentEndSeconds、render-cut と共有）。段（トラック）を
+  // 移動しても cuts/layers の振り分けが変わるだけで total は動かない
+  // （P0 2026-08-20 track-identity-and-duration 指示 2）。cuts が構造的に不正なときは
+  // 従来どおり timeline を null にして下流の尺検証を止める。
+  const timeline = cutsStructureResult === null ? null : visualContentEndSeconds(internalEdit);
   validateCutTrackFields(edit.cuts, findings);
   validateCutTransformFields(edit.cuts, findings);
   validateStillImageCuts(edit, findings);
@@ -591,6 +598,27 @@ function validateEditV2(edit, findings) {
         });
       }
 
+      // P0 2026-08-21 render-path-unification (r6, Codex re-review, control-tower adjudication):
+      // duration: 0 is schema-valid (edit.schema.json's `frames` $def is `{type: integer,
+      // minimum: 0}`, shared with `at`, which legitimately can be 0) but represents nothing on
+      // the timeline -- it cannot be rendered (packages/edit-store's internal-model.ts projects
+      // it to a degenerate in===out cut, which both this package's own cuts.range check and
+      // render-cut's validateEditShape correctly reject as 0 <= in < out) and was found, in an
+      // earlier round of this task, to be unsafe to special-case away anywhere downstream of this
+      // point (a silent-drop attempt at the projection layer broke a second render-cut projection
+      // path that never reads the mechanism used to drop it, and desynced UI item indices). So
+      // this is the one and only place duration:0 is rejected: loudly, at the front door, with a
+      // purpose-built message rather than letting it surface later as an unrelated-looking
+      // cuts.range/validateEditShape failure deep in a render attempt.
+      if (Number.isInteger(item.duration) && item.duration === 0) {
+        addFinding(findings, {
+          severity: "error",
+          check: "v2.item-duration",
+          message: "item duration must be a positive integer (0 represents nothing on the timeline)",
+          path: `${itemPath}.duration`,
+        });
+      }
+
       if (Number.isInteger(item.at) && item.at >= 0 && Number.isInteger(item.duration) && item.duration >= 0) {
         const transitionSeconds = isRecord(item.source?.transition_out)
           && isPositiveNumber(item.source.transition_out.duration)
@@ -760,14 +788,24 @@ function findTrackOverlaps(segments) {
   return overlaps;
 }
 
+// P0 2026-08-21 render-path-unification (MAJOR-3 fix, Codex review): render-cut now auto-clamps
+// a declared transition_out.duration down to whatever overlap an explicit `at` actually provides
+// (packages/render-cut/src/cut-timeline.mjs's effectiveTransitionDurations) whenever that overlap
+// is real (positive) but shorter than declared, rendering a genuinely shorter dissolve instead of
+// silently hard-cutting and dropping frames -- so this check must accept that same range as a
+// valid, declared transition (not only an exact duration match), or a project render-cut can now
+// render correctly would still fail lint. Still rejects zero/negative overlap (a genuine gap --
+// no transition is physically possible) and overlap greater than declared (an unrelated shape
+// render-cut does not auto-adjust for -- see effectiveTransitionDurations' own comment).
 function isDeclaredTransitionOverlap(cuts, segments, current) {
   const previous = segments
     .filter(segment => segment.track === current.track && segment.index < current.index)
     .sort((left, right) => right.index - left.index)[0];
   if (!previous) return false;
   const duration = cuts?.[previous.index]?.transition_out?.duration;
-  return isPositiveNumber(duration)
-    && Math.abs((previous.end - current.start) - duration) <= EPSILON;
+  if (!isPositiveNumber(duration)) return false;
+  const availableOverlap = previous.end - current.start;
+  return availableOverlap > EPSILON && availableOverlap <= duration + EPSILON;
 }
 
 function validateCutTrackFields(cuts, findings) {

@@ -45,17 +45,33 @@ function internalOf(value) {
 }
 
 test("default track order is structural and ignores timeline track metadata", () => {
-  assert.equal(usesDefaultInternalTrackOrder(internalOf(edit)), true);
-  assert.equal(usesDefaultInternalTrackOrder(internalOf({
+  // A single visual cuts-kind track (decorative label/hidden/locked fields on its timeline.tracks
+  // entry) still uses the fast flat/default dispatch -- decorative UI metadata never drives the
+  // render engine's classification (only track.items[0].source.kind / needsLayersEngine do).
+  const singleTrackEdit = {
     ...edit,
+    cuts: [{ src: "green", in: 0, out: 1.5, at: 0, track: 0 }],
+    layers: [],
+  };
+  assert.equal(usesDefaultInternalTrackOrder(internalOf(singleTrackEdit)), true);
+  assert.equal(usesDefaultInternalTrackOrder(internalOf({
+    ...singleTrackEdit,
     timeline: {
-      tracks: [
-        { id: "bottom", label: "A", kind: "cuts", ref: 0 },
-        { id: "middle", hidden: false, kind: "cuts", ref: 1 },
-        { id: "top", locked: true, kind: "layers", ref: 0 },
-      ],
+      tracks: [{ id: "bottom", label: "A", hidden: false, locked: true, kind: "cuts", ref: 0 }],
     },
   })), true);
+  // P0 2026-08-21 render-path-unification: source.kind:'media' now always maps to 'cuts'
+  // regardless of track position (packages/edit-store/src/internal-model.ts no longer guesses a
+  // "main content" track by position) -- so THIS file's shared `edit` fixture (a green cuts track +
+  // a second, overlapping blue cuts track on a distinct `track` number + a v1 layers[] baked item
+  // with no distinguishing feature, which migrates to plain source.kind:'media' too) structurally
+  // has three separate 'cuts'-kind tracks. usesDefaultInternalTrackOrder always routes 2+
+  // cuts-kind tracks through buildTrackStackPlan (real z-order alpha compositing) -- this is never
+  // the "default order" case, with or without an explicit timeline.tracks declaration, and
+  // regardless of what kind/ref the declaration itself claims (that field is UI-only metadata; the
+  // real per-track kind always comes from the track's own item content). Verified render-correct by
+  // hand for this exact fixture: green/blue/telop compose in the expected bottom-to-top z order.
+  assert.equal(usesDefaultInternalTrackOrder(internalOf(edit)), false);
   assert.equal(usesDefaultInternalTrackOrder(internalOf({
     ...edit,
     timeline: {
@@ -65,7 +81,7 @@ test("default track order is structural and ignores timeline track metadata", ()
         { id: "top", kind: "cuts", ref: 1 },
       ],
     },
-  })), true);
+  })), false);
 });
 
 test("v1 cut-track ranges align a concatenated track clip to its declared output windows", () => {
@@ -78,7 +94,14 @@ test("v1 cut-track ranges align a concatenated track clip to its declared output
   ]);
 });
 
-test("legacy interleaved cut rows normalize to the v2 flat cuts-plus-layers path", () => {
+// P0 2026-08-21 render-path-unification: renamed from "...normalize to the v2 flat
+// cuts-plus-layers path" -- this fixture's telop layer migrates to plain source.kind:'media' (see
+// legacy-parse.ts: a v1 layers[] kind:'baked' item with no preset has no distinguishing schema
+// field), so it is now classified 'cuts' the same as the green/blue tracks. Three separate
+// cuts-kind tracks can never collapse into the flat dispatch's single concatenated cuts[] array
+// (see usesDefaultInternalTrackOrder's own comment) -- they always route through the general,
+// z-order-correct buildTrackStackPlan instead.
+test("legacy interleaved cut rows route through the v2 track-stack composite path", () => {
   const plan = buildV2Plan({
     edit: { ...edit, timeline: { tracks: [
       { id: "c0", kind: "cuts", ref: 0 }, { id: "l0", kind: "layers", ref: 0 },
@@ -88,11 +111,12 @@ test("legacy interleaved cut rows normalize to the v2 flat cuts-plus-layers path
     capabilities: { sourceInputs: [
       { id: "green", path: "/project/green.mp4", hasAudio: true },
       { id: "blue", path: "/project/blue.mp4", hasAudio: true },
+      { id: "l-1", path: "/project/telop.mov", hasAudio: false },
     ], ffmpegCommand: "ffmpeg", ffprobeCommand: "ffprobe", chromePath: "chrome", hyperframesAvailable: false, puppeteerAvailable: false },
     hasSourceAudio: true,
   });
-  assert.ok(plan.commands.layers);
-  assert.equal(plan.commands.track_stack, null);
+  assert.equal(plan.commands.layers, null);
+  assert.ok(plan.commands.track_stack);
 });
 
 test("custom track order includes overlays and captions in the same bottom-to-top stage plan", () => {
@@ -116,6 +140,7 @@ test("custom track order includes overlays and captions in the same bottom-to-to
       sourceInputs: [
         { id: "green", path: "/project/green.mp4", hasAudio: true },
         { id: "blue", path: "/project/blue.mp4", hasAudio: true },
+        { id: "l-1", path: "/project/telop.mov", hasAudio: false },
       ],
       ffmpegCommand: "ffmpeg",
       ffprobeCommand: "ffprobe",
@@ -126,12 +151,17 @@ test("custom track order includes overlays and captions in the same bottom-to-to
     hasSourceAudio: true,
     captionOverlays: [{ id: "caption-01", start: 0, duration: 1 }],
   });
+  // P0 2026-08-21 render-path-unification: the `l0`/`c1` declared labels are UI-only metadata --
+  // real classification comes from each track's own item content, and this fixture's telop layer
+  // (a v1 layers[] kind:'baked' item with no preset) migrates to plain source.kind:'media', same
+  // as the green/blue cuts. Both land on 'cuts' (not 'layers'), with ref numbers assigned by the
+  // shared cuts ref-counter (0 already taken by the base track, so 1 and 2 here).
   assert.deepEqual(plan.commands.track_stack.stages.map(({ kind, ref }) => ({ kind, ref })), [
     { kind: "captions", ref: null },
     { kind: "cuts", ref: 0 },
     { kind: "overlays", ref: 0 },
-    { kind: "layers", ref: 0 },
-    { kind: "layers", ref: 1 },
+    { kind: "cuts", ref: 1 },
+    { kind: "cuts", ref: 2 },
   ]);
   assert.deepEqual(
     plan.commands.track_stack.stages.filter(stage => stage.command === null)
@@ -328,9 +358,30 @@ process.exit(result.status ?? 2);
     });
     const outputs = videoEncodes.map(args => basename(args.at(-1)));
     assert.ok(outputs.includes("cut.mp4"), JSON.stringify(outputs));
-    assert.ok(outputs.includes("layered.mp4"), JSON.stringify(outputs));
-    assert.ok(videoEncodes.length >= 2, `captured flat video stages: ${JSON.stringify(outputs)}`);
+    // P0 2026-08-21 render-path-unification: this fixture's telop layer (a v1 layers[] kind:'baked'
+    // item with no preset) migrates to plain source.kind:'media', same as green/blue -- so the
+    // declared `l0`/`c1` labels no longer describe distinct engines, all three land on 'cuts', and
+    // three separate cuts-kind tracks always route through buildTrackStackPlan (never the flat
+    // layers.mjs path -- see usesDefaultInternalTrackOrder's own comment), so "layered.mp4" is
+    // never produced here any more; assert the track-stack path ran instead.
+    assert.ok(state.plan.commands.track_stack, "expected a track-stack plan (3 cuts-kind tracks)");
+    assert.ok(videoEncodes.length >= 2, `captured video stages: ${JSON.stringify(outputs)}`);
+    // Each buildTrackStackPlan cuts-track stage renders its own canvas as a qtrle-in-.mov
+    // decode-again intermediate so it can carry an alpha channel into the next composite step
+    // (buildMultiSourceCommandResult ignores the requested encoding policy in that branch on
+    // purpose -- see plan.mjs's own comment: qtrle is lossless, so this is strictly higher, not
+    // lower, fidelity than any requested quality preset). Every OTHER video encode boundary --
+    // the flat cut.mp4, the composite/tail/overlay stages, and the final delivered artifact --
+    // must still carry the requested master policy through unchanged.
+    const [trackCanvasEncodes, masterEncodes] = [[], []];
     for (const args of videoEncodes) {
+      (basename(args.at(-1)).startsWith("cut-track-") ? trackCanvasEncodes : masterEncodes).push(args);
+    }
+    assert.ok(trackCanvasEncodes.length > 0, `expected at least one cuts-track canvas stage: ${JSON.stringify(outputs)}`);
+    for (const args of trackCanvasEncodes) {
+      assert.deepEqual(executedEncoding(args), { codec: "qtrle", profile: null, preset: null, crf: null });
+    }
+    for (const args of masterEncodes) {
       assert.deepEqual(executedEncoding(args), { codec: "libx264", profile: "high", preset: "slow", crf: "15" });
     }
     assert.deepEqual(state.plan.encoding.effective, {

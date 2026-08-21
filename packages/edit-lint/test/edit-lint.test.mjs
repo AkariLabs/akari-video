@@ -146,6 +146,7 @@ for (const [fixture, expectedCheck] of [
   ["v2-items-content-invalid", "v2.track-content-exclusive"],
   ["v2-track-overlap-invalid", "v2.track-overlap"],
   ["v2-lane-source-invalid", "v2.lane-source"],
+  ["v2-item-duration-zero-invalid", "v2.item-duration"],
 ]) {
   test(`${fixture} reports ${expectedCheck}`, async () => {
     await withFixtures(async (fixtures) => {
@@ -161,6 +162,27 @@ for (const [fixture, expectedCheck] of [
     });
   });
 }
+
+// P0 2026-08-21 render-path-unification (r6, Codex re-review): duration.md=0 was found, across
+// two earlier rounds of this task, to be unsafe to let reach the projection/render layers at all
+// -- a v2 item declaring it stays schema-valid (edit.schema.json's `frames` $def allows 0, since
+// `at` legitimately can be 0 too) but represents nothing on the timeline, and no downstream layer
+// should have to special-case it. This is asserted end-to-end and pins the exact message text
+// (not just the check id, unlike the table-driven tests above), since the whole point of this
+// check is to surface a clear, purpose-built reason INSTEAD of letting it surface later as an
+// unrelated-looking cuts.range/validateEditShape failure deep in a render attempt.
+test("v2-item-duration-zero-invalid reports a clear, purpose-built message naming the field and the rule", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "v2-item-duration-zero-invalid"));
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    const finding = result.findings.find((entry) => entry.check === "v2.item-duration");
+    assert.ok(finding, JSON.stringify(result.findings, null, 2));
+    assert.equal(finding.severity, "error");
+    assert.equal(finding.message, "item duration must be a positive integer (0 represents nothing on the timeline)");
+    assert.equal(finding.path, "edit.json#tracks[0].items[0].duration");
+  });
+});
 
 for (const [fixture, expectedCheck] of [
   ["missing-reference", "references.files"],
@@ -1198,6 +1220,23 @@ for (const fixture of [
     });
   });
 }
+
+test("P0 2026-08-20 track-identity-and-duration: 総尺は cuts の合計ではなく visual 全体の最大終端（layers の方が長ければ layers が決める）", async () => {
+  // base(cuts) は 5s で終わるが upper(layers) は 11s まで伸びている。overlay は 9-10s に置かれていて
+  // cuts だけの合計（旧定義, 5s）なら overlays.timeline error になるが、layers を含む visual 全体の
+  // 最大終端（11s）なら収まる。段を動かして本編から layers 側へ落ちたクリップが総尺を縮めない
+  // ことの直接の回帰確認（症状 2: "overlay ends after timeline duration" の誤検知）。
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "v2-layer-extends-timeline-for-overlay-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.check === "overlays.timeline"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
 
 test("layers on the same v2 track overlapping fail closed", async () => {
   await withFixtures(async (fixtures) => {
