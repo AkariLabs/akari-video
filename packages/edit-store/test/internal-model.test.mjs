@@ -404,3 +404,38 @@ test('a same-track transition_out crossfade overlap does not force layers (conca
   assert.equal(byId['c1'].legacy.collection, 'cuts', 'transition_out overlap stays on the cuts/xfade path');
   assert.equal(byId['c2'].legacy.collection, 'cuts', 'its crossfade partner likewise stays on cuts');
 });
+
+// r2 (合流前ゲート検収 REJECT・実測 apps/shell/extensions/akari-annotations 204/205 で発見):
+// apps/shell/extensions/akari-annotations の insertCutIntoEdit（sequential モード）は、
+// timeline-material-insert.ts 自身のコメントどおり「既存アイテムの at を再計算しない」契約を
+// 持つ。タイムライン中間へ挿入すると、新規挿入アイテムの at（= 挿入前に後続アイテムが占めていた
+// 位置）と、まだ古い at のままの後続アイテムが、同じ at で始まる部分的な重なりを起こす
+// （実測: cut-1[0,120) の直後に 2s のクリップを挿入すると、新規アイテムは at=120/duration=60、
+// 後続の既存アイテムは古い at=120/duration=90 のまま残る -- duration が異なるので完全一致ではない）。
+// これは配列順で連結されるべき 3 アイテムの、片方だけがまだ書き戻されていない一時的に不正確な
+// at であって、本当に同時に映る PiP ではない。上の "fully overlapping" テストとの対比:
+// あちらは at・duration とも完全一致（同一区間）、こちらは at のみ一致（duration が違う =
+// 部分的な重なり）。narrowed computeOverlappingItemIds はこの違いで両者を区別できなければならない。
+test('a sequential mid-array insert leaving a stale, partially-overlapping trailing at does not force layers', () => {
+  const edit = {
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+    tracks: [
+      { id: 't1', lane: 'visual', items: [
+        { id: 'cut-1', at: 0, duration: 120, source: { kind: 'media', src: 'main', in: 0, out: 4 } },
+        // 新規挿入アイテム（cut-3 相当）: at=120/duration=60（2s @30fps）。
+        { id: 'cut-3', at: 120, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
+        // 既存アイテム（cut-2 相当）: at はまだ古いまま（挿入前の位置 120）。duration は
+        // 別（90）なので cut-3 と完全一致ではない -- 部分的な重なりのみ。
+        { id: 'cut-2', at: 120, duration: 90, source: { kind: 'media', src: 'main', in: 10, out: 13 } },
+      ] },
+    ],
+  };
+  const internal = readInternalEdit(edit);
+  const items = internal.tracks.flatMap(track => track.items);
+  const byId = Object.fromEntries(items.map(item => [item.id, item]));
+  assert.equal(byId['cut-1'].legacy.collection, 'cuts', 'the untouched leading item is unaffected');
+  assert.equal(byId['cut-3'].legacy.collection, 'cuts', 'the newly-inserted item stays on cuts (not a genuine PiP overlap)');
+  assert.equal(byId['cut-2'].legacy.collection, 'cuts', 'the stale-at trailing item stays on cuts (not a genuine PiP overlap)');
+});

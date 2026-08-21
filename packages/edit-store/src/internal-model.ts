@@ -434,6 +434,27 @@ function needsLayersEngine(
 // 表現できない（buildMultiSourceCutCommand の concat 前提。needsLayersEngine 自身のコメント参照）。
 // このトラックの items[] を総当りで比較し、他のどれかと時間区間が重なる media アイテムの id を
 // 集める。
+//
+// r2（合流前ゲート検収 REJECT・実測 204/205 で発見）: 判定を「at/duration がわずかでも交差したら
+// 重なり」から「at と duration が完全一致（同一の開始・同一の尺 = 完全に同一の時間区間）」へ
+// 絞った。理由: apps/shell/extensions/akari-annotations の insertCutIntoEdit
+// （timeline-material-insert.ts）は sequential モードでの挿入時、**既存アイテムの at を
+// 再計算しない**という明示契約を持つ（同ファイル自身のコメント参照）。そのため、タイムライン
+// 中間へドラッグ挿入すると、新規挿入アイテムの at（挿入直前のアイテムの終端 = 挿入前は後続
+// アイテムの at と同じ位置）と、まだ古い at のままの後続アイテムが、同じ at で始まる**部分的な**
+// 重なりを起こす（例: 新規 at=120/duration=60 と、後続の古い at=120/duration=90 —
+// 実測: insertCutIntoEdit で cut-1[0,120) → cut-3[120,180) → cut-2[120,210) という配列になる）。
+// これは「本当に同時に映る PiP」ではなく、単に配列順で連結されるはずの 2 アイテムの片方の at が
+// まだ更新されていないだけ（insertCutIntoEdit の『at 不変・配列順が正』という契約どおりの、
+// 一時的に不正確な at）。v2 の at/duration はどちらも常に必須の整数フレーム値で、
+// 「宣言された絶対配置」と「まだ書き戻されていない sequential 連結」を区別する情報が
+// スキーマ上に残らないため、両者を汎用に見分けることはできない。一方、実際に 'layers' への
+// 退避が必要だと判明している唯一の実例（fieldtest/2026-08-06-pip-perspective-crop-check の
+// pip-crop-demo/pip-perspective-demo、いずれも at=0・duration=240 で完全同一区間）は、
+// 常に完全一致（同じ開始・同じ尺）のケースだった（このファイル自身の発見コメント・
+// packages/edit-store/test/internal-model.test.mjs の該当テスト名 "fully overlapping
+// at/duration" も参照）。完全一致のみを重なりとみなすことで、実証済みの本物の重なりは
+// 引き続き検出しつつ、insertCutIntoEdit の sequential 挿入という日常操作を誤検知しなくなる。
 function computeOverlappingItemIds(items: readonly ItemV2[]): Set<string> {
     const overlapping = new Set<string>();
     for (let i = 0; i < items.length; i++) {
@@ -442,11 +463,7 @@ function computeOverlappingItemIds(items: readonly ItemV2[]): Set<string> {
         for (let j = i + 1; j < items.length; j++) {
             const b = items[j];
             if (b.source.kind !== 'media') continue;
-            const aStart = a.at;
-            const aEnd = a.at + a.duration;
-            const bStart = b.at;
-            const bEnd = b.at + b.duration;
-            if (aStart < bEnd && bStart < aEnd) {
+            if (a.at === b.at && a.duration === b.duration) {
                 // cuts[].transition_out (a crossfade into the next cut) is a DELIBERATE, narrow
                 // overlap between two otherwise-sequential same-track items -- the concat engine's
                 // own xfade support (packages/render-cut/src/plan.mjs) already represents this
