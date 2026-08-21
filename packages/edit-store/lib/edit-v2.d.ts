@@ -47,6 +47,10 @@ export interface MediaSourceV2 {
     fx?: unknown[];
     speed?: number;
     chroma_key?: Record<string, unknown> | null;
+    gain_db?: number;
+    fade_in?: number;
+    fade_out?: number;
+    ducking?: boolean;
 }
 export interface HtmlSourceV2 {
     kind: 'html';
@@ -86,6 +90,7 @@ export interface ItemV2Base {
     crop?: CropV2;
     perspective?: Record<string, unknown>;
     keyframes?: KeyframeV2[];
+    script?: string;
 }
 export type ItemV2 = (ItemV2Base & {
     source: MediaSourceV2;
@@ -103,6 +108,7 @@ export interface ItemsTrackV2 {
     id: string;
     lane: LaneV2;
     name?: string;
+    role?: 'sfx' | 'narration' | 'bgm';
     items: ItemV2[];
 }
 export interface ContentTrackV2 {
@@ -119,8 +125,8 @@ export interface EditV2 {
     /** 配列順が下から上の合成 z 順。 */
     tracks: TrackV2[];
     /**
-     * 移行では v0/v1 の音声秒宣言をそのまま保持する。音を整数フレーム化すると
-     * SFX/BGM の位置・尺が動くため、本タスクでは変換せず、トラック化は後続へ送る。
+     * 旧 v2 fixture が持つ top-level audio の互換 fallback。新規の SFX / narration / BGM は
+     * audio lane の items track と role で宣言する。
      */
     audio?: unknown;
     captions?: unknown[];

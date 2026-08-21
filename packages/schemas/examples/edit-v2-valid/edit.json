@@ -3,19 +3,51 @@
   "output": { "width": 1920, "height": 1080, "fps": 30 },
   "sources": [
     { "id": "main", "path": "assets/talk.mp4" },
+    { "id": "sfx", "path": "assets/hit.wav" },
+    { "id": "voice", "path": "assets/narration.wav" },
     { "id": "music", "path": "assets/music.wav" }
   ],
   "tracks": [
     {
-      "id": "a1",
+      "id": "a-sfx",
       "lane": "audio",
-      "name": "音",
+      "name": "効果音",
+      "role": "sfx",
+      "items": [
+        {
+          "id": "hit-1",
+          "at": 30,
+          "duration": 15,
+          "source": { "kind": "media", "src": "sfx", "in": 0.25, "out": 0.75, "gain_db": -6 }
+        }
+      ]
+    },
+    {
+      "id": "a-narration",
+      "lane": "audio",
+      "name": "ナレーション",
+      "role": "narration",
+      "items": [
+        {
+          "id": "n-0001",
+          "at": 60,
+          "duration": 90,
+          "script": "AKARI Videoへようこそ",
+          "source": { "kind": "media", "src": "voice", "in": 0, "out": 3, "gain_db": 1.5 }
+        }
+      ]
+    },
+    {
+      "id": "a-bgm",
+      "lane": "audio",
+      "name": "BGM",
+      "role": "bgm",
       "items": [
         {
           "id": "music-1",
           "at": 0,
           "duration": 300,
-          "source": { "kind": "media", "src": "music", "in": 0, "out": 10 }
+          "source": { "kind": "media", "src": "music", "in": 0, "out": 10, "gain_db": -18, "fade_in": 1.25, "fade_out": 2.5, "ducking": true }
         }
       ]
     },

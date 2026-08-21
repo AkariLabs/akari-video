@@ -643,7 +643,11 @@
         "freeze": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cutFreeze" }] },
         "fx": { "type": "array", "items": { "$ref": "#/$defs/cutFx" } },
         "speed": { "$ref": "#/$defs/positiveNumber" },
-        "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
+        "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] },
+        "gain_db": { "type": "number" },
+        "fade_in": { "$ref": "#/$defs/seconds" },
+        "fade_out": { "$ref": "#/$defs/seconds" },
+        "ducking": { "type": "boolean" }
       },
       "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。src は editV2.sources[].id を参照し、in/out は素材内の秒。参照整合と out > in は兄弟値比較のため reader / edit-lint が検証する。"
     },
@@ -694,6 +698,7 @@
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
+        "script": { "type": "string" },
         "source": { "$ref": "#/$defs/itemSourceMediaV2" }
       }
     },
@@ -711,6 +716,7 @@
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
+        "script": { "type": "string" },
         "source": { "$ref": "#/$defs/itemSourceHtmlV2" }
       }
     },
@@ -728,6 +734,7 @@
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
+        "script": { "type": "string" },
         "source": { "$ref": "#/$defs/itemSourceTelopV2" }
       }
     },
@@ -745,6 +752,7 @@
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
+        "script": { "type": "string" },
         "source": { "$ref": "#/$defs/itemSourceFilterV2" }
       }
     },
@@ -772,10 +780,17 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["id", "lane", "items"],
+          "allOf": [
+            {
+              "if": { "properties": { "role": { "const": "bgm" } }, "required": ["role"] },
+              "then": { "properties": { "items": { "maxItems": 1 } } }
+            }
+          ],
           "properties": {
             "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
             "lane": { "enum": ["visual", "audio"] },
             "name": { "type": "string" },
+            "role": { "enum": ["sfx", "narration", "bgm"] },
             "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } }
           }
         },
@@ -880,7 +895,14 @@
         },
         "tracks": {
           "type": "array",
-          "items": { "$ref": "#/$defs/trackV2" }
+          "items": { "$ref": "#/$defs/trackV2" },
+          "contains": {
+            "type": "object",
+            "required": ["role"],
+            "properties": { "role": { "const": "bgm" } }
+          },
+          "minContains": 0,
+          "maxContains": 1
         },
         "audio": { "$ref": "#/$defs/audio" },
         "captions": { "$ref": "#/$defs/inlineCaptions" },
@@ -891,7 +913,7 @@
           "properties": { "path": { "type": "string", "minLength": 1, "pattern": "\\S" } }
         }
       },
-      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10 / §10-1。tracks の配列順が画面の下から上、すなわち合成 z 順の唯一の正本。出力軸は整数フレーム、素材軸は秒、字幕は captions.json のソース秒を維持する。音声の整数フレーム化は本移行では行わない。v0/v1 の audio を秒のまま持ち越し、変換前後の SFX/BGM の位置と尺を保つ。音声のトラック化は後続タスクの責務。"
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10 / §10-1。tracks の配列順が画面の下から上、すなわち合成 z 順の唯一の正本。出力軸は映像・音声とも整数フレーム、素材軸は秒、字幕は captions.json のソース秒を維持する。新規の SFX / narration / BGM は audio lane の items track と role で宣言する。top-level audio は既存 v2 fixture の互換 fallback と master 設定のため残す。"
     }
   }
 }

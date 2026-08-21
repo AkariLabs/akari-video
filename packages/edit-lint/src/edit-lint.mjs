@@ -542,6 +542,18 @@ function validateEditV2(edit, findings) {
     }
   }
 
+  const bgmTracks = edit.tracks
+    .map((track, index) => ({ track, index }))
+    .filter(({ track }) => isRecord(track) && track.role === "bgm" && Array.isArray(track.items));
+  if (bgmTracks.length > 1) {
+    addFinding(findings, {
+      severity: "error",
+      check: "v2.audio-bgm-multiple",
+      message: "audio tracks may declare at most one bgm role",
+      path: "edit.json#tracks",
+    });
+  }
+
   for (const [trackIndex, track] of edit.tracks.entries()) {
     const trackPath = `edit.json#tracks[${trackIndex}]`;
     if (!isRecord(track)) {
@@ -576,6 +588,14 @@ function validateEditV2(edit, findings) {
     }
 
     if (!Array.isArray(track.items)) continue;
+    if (track.role === "bgm" && track.items.length > 1) {
+      addFinding(findings, {
+        severity: "error",
+        check: "v2.audio-bgm-multiple",
+        message: "a bgm track may contain at most one item",
+        path: `${trackPath}.items`,
+      });
+    }
     const intervals = [];
     for (const [itemIndex, item] of track.items.entries()) {
       const itemPath = `${trackPath}.items[${itemIndex}]`;

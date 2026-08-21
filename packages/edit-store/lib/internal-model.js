@@ -142,11 +142,13 @@ function readV2Internal(raw) {
         // （非回帰監査で実測: pip-perspective-crop-check が本来要らない track_stack を経由していた）。
         const overlappingItemIds = 'items' in track ? computeOverlappingItemIds(track.items) : new Set();
         const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
-        const ref = kind === 'captions' ? undefined : nextRef(refCounters, kind);
+        const usesAudioRef = kind !== 'audio'
+            || ('items' in track && (track.role === undefined || track.role === 'sfx'));
+        const ref = kind === 'captions' || !usesAudioRef ? undefined : nextRef(refCounters, kind);
         const items = [];
         if ('items' in track) {
             track.items.forEach(item => {
-                const built = buildV2Item(item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters, overlappingItemIds.has(item.id));
+                const built = buildV2Item(item, fps, ref ?? 0, track.lane, track.role, pathOf, chromaKeyOf, legacyIndexCounters, overlappingItemIds.has(item.id));
                 if (built.warning) {
                     warnings.push(built.warning);
                 }
@@ -164,6 +166,8 @@ function readV2Internal(raw) {
             legacy: { kind, ...(ref === undefined ? {} : { ref }) }
         };
     });
+    // 旧 top-level audio と tracks[] 音声が同居すると、後者に加えてこの fallback も射影される。
+    // どちらを優先するかは未裁定なので、旧 fixture の互換挙動を変えず二重計上の可能性を残す。
     addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
     return {
         output: {
@@ -323,7 +327,7 @@ function nextLegacyIndex(counters, collection) {
     counters.set(collection, index + 1);
     return index;
 }
-function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false) {
+function buildV2Item(item, fps, ref, lane, role, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false) {
     const atFrames = item.at;
     const durationFrames = item.duration;
     const at = atFrames / fps;
@@ -348,6 +352,43 @@ function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCount
                 out: item.source.out
             };
             if (lane === 'audio') {
+                if (role === 'narration') {
+                    const value = {
+                        id: item.id,
+                        t: at,
+                        path: path ?? item.source.src,
+                        ...(item.source.gain_db !== undefined ? { gainDb: item.source.gain_db } : {}),
+                        ...(item.script !== undefined ? { script: item.script } : {})
+                    };
+                    return {
+                        item: {
+                            id: item.id, atFrames, durationFrames, at, duration, source,
+                            declaration: { ...value },
+                            legacy: {
+                                collection: 'narration',
+                                index: nextLegacyIndex(legacyIndexCounters, 'narration'),
+                                value
+                            }
+                        }
+                    };
+                }
+                if (role === 'bgm') {
+                    const value = {
+                        id: 'bgm',
+                        path: path ?? item.source.src,
+                        ...(item.source.fade_in !== undefined ? { fadeIn: item.source.fade_in } : {}),
+                        ...(item.source.fade_out !== undefined ? { fadeOut: item.source.fade_out } : {}),
+                        ...(item.source.gain_db !== undefined ? { gainDb: item.source.gain_db } : {}),
+                        ...(item.source.ducking !== undefined ? { ducking: item.source.ducking } : {})
+                    };
+                    return {
+                        item: {
+                            id: item.id, atFrames, durationFrames, at, duration, source,
+                            declaration: { ...value },
+                            legacy: { collection: 'bgm', index: 0, value }
+                        }
+                    };
+                }
                 const value = {
                     id: item.id,
                     t: at,
@@ -355,12 +396,18 @@ function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCount
                     path: path ?? item.source.src,
                     track: ref,
                     in: item.source.in,
-                    out: item.source.out
+                    out: item.source.out,
+                    ...(item.source.gain_db !== undefined ? { gainDb: item.source.gain_db } : {})
                 };
                 return {
                     item: {
                         id: item.id, atFrames, durationFrames, at, duration, source,
-                        declaration: { id: item.id, t: at, duration, path: value.path, track: ref, in: value.in, out: value.out },
+                        declaration: {
+                            id: item.id, t: at, duration, path: value.path, track: ref,
+                            in: value.in, out: value.out,
+                            ...(item.source.fade_in !== undefined ? { fade_in: item.source.fade_in } : {}),
+                            ...(item.source.fade_out !== undefined ? { fade_out: item.source.fade_out } : {})
+                        },
                         legacy: { collection: 'sfx', index: nextLegacyIndex(legacyIndexCounters, 'sfx'), value }
                     }
                 };

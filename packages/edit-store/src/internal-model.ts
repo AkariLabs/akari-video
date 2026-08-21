@@ -16,7 +16,7 @@ import {
     LayerBlendMode,
     TimelineTrackKind,
 } from './edit-store';
-import { ItemV2, TrackV2, readEditV2 } from './edit-v2';
+import { ItemV2, ItemsTrackV2, TrackV2, readEditV2 } from './edit-v2';
 import { LegacyEditVersionError } from './migrate/error';
 
 export type InternalLane = 'visual' | 'audio';
@@ -311,12 +311,14 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
         // （非回帰監査で実測: pip-perspective-crop-check が本来要らない track_stack を経由していた）。
         const overlappingItemIds = 'items' in track ? computeOverlappingItemIds(track.items) : new Set<string>();
         const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
-        const ref = kind === 'captions' ? undefined : nextRef(refCounters, kind);
+        const usesAudioRef = kind !== 'audio'
+            || ('items' in track && (track.role === undefined || track.role === 'sfx'));
+        const ref = kind === 'captions' || !usesAudioRef ? undefined : nextRef(refCounters, kind);
         const items: InternalItem[] = [];
         if ('items' in track) {
             track.items.forEach(item => {
                 const built = buildV2Item(
-                    item, fps, ref ?? 0, track.lane, pathOf, chromaKeyOf, legacyIndexCounters,
+                    item, fps, ref ?? 0, track.lane, track.role, pathOf, chromaKeyOf, legacyIndexCounters,
                     overlappingItemIds.has(item.id)
                 );
                 if (built.warning) {
@@ -337,6 +339,8 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
         };
     });
 
+    // 旧 top-level audio と tracks[] 音声が同居すると、後者に加えてこの fallback も射影される。
+    // どちらを優先するかは未裁定なので、旧 fixture の互換挙動を変えず二重計上の可能性を残す。
     addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
     return {
         output: {
@@ -507,6 +511,7 @@ function buildV2Item(
     fps: number,
     ref: number,
     lane: InternalLane,
+    role: ItemsTrackV2['role'],
     pathOf: (id: string) => string | undefined,
     chromaKeyOf: (sourceId: string) => unknown,
     legacyIndexCounters: Map<string, number>,
@@ -536,6 +541,43 @@ function buildV2Item(
                 out: item.source.out
             };
             if (lane === 'audio') {
+                if (role === 'narration') {
+                    const value: EditAudioNarration = {
+                        id: item.id,
+                        t: at,
+                        path: path ?? item.source.src,
+                        ...(item.source.gain_db !== undefined ? { gainDb: item.source.gain_db } : {}),
+                        ...(item.script !== undefined ? { script: item.script } : {})
+                    };
+                    return {
+                        item: {
+                            id: item.id, atFrames, durationFrames, at, duration, source,
+                            declaration: { ...value },
+                            legacy: {
+                                collection: 'narration',
+                                index: nextLegacyIndex(legacyIndexCounters, 'narration'),
+                                value
+                            }
+                        }
+                    };
+                }
+                if (role === 'bgm') {
+                    const value: EditAudioBgm = {
+                        id: 'bgm',
+                        path: path ?? item.source.src,
+                        ...(item.source.fade_in !== undefined ? { fadeIn: item.source.fade_in } : {}),
+                        ...(item.source.fade_out !== undefined ? { fadeOut: item.source.fade_out } : {}),
+                        ...(item.source.gain_db !== undefined ? { gainDb: item.source.gain_db } : {}),
+                        ...(item.source.ducking !== undefined ? { ducking: item.source.ducking } : {})
+                    };
+                    return {
+                        item: {
+                            id: item.id, atFrames, durationFrames, at, duration, source,
+                            declaration: { ...value },
+                            legacy: { collection: 'bgm', index: 0, value }
+                        }
+                    };
+                }
                 const value: EditAudioSfx = {
                     id: item.id,
                     t: at,
@@ -543,12 +585,18 @@ function buildV2Item(
                     path: path ?? item.source.src,
                     track: ref,
                     in: item.source.in,
-                    out: item.source.out
+                    out: item.source.out,
+                    ...(item.source.gain_db !== undefined ? { gainDb: item.source.gain_db } : {})
                 };
                 return {
                     item: {
                         id: item.id, atFrames, durationFrames, at, duration, source,
-                        declaration: { id: item.id, t: at, duration, path: value.path, track: ref, in: value.in, out: value.out },
+                        declaration: {
+                            id: item.id, t: at, duration, path: value.path, track: ref,
+                            in: value.in, out: value.out,
+                            ...(item.source.fade_in !== undefined ? { fade_in: item.source.fade_in } : {}),
+                            ...(item.source.fade_out !== undefined ? { fade_out: item.source.fade_out } : {})
+                        },
                         legacy: { collection: 'sfx', index: nextLegacyIndex(legacyIndexCounters, 'sfx'), value }
                     }
                 };

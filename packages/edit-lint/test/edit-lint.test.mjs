@@ -145,8 +145,11 @@ for (const [fixture, expectedCheck] of [
   ["v2-id-duplicate-invalid", "v2.id-unique"],
   ["v2-items-content-invalid", "v2.track-content-exclusive"],
   ["v2-track-overlap-invalid", "v2.track-overlap"],
+  ["v2-audio-track-overlap-invalid", "v2.track-overlap"],
   ["v2-lane-source-invalid", "v2.lane-source"],
   ["v2-item-duration-zero-invalid", "v2.item-duration"],
+  ["v2-audio-bgm-multiple-invalid", "v2.audio-bgm-multiple"],
+  ["v2-audio-bgm-items-invalid", "v2.audio-bgm-multiple"],
 ]) {
   test(`${fixture} reports ${expectedCheck}`, async () => {
     await withFixtures(async (fixtures) => {

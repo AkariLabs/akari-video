@@ -56,6 +56,10 @@ export interface MediaSourceV2 {
     fx?: unknown[];
     speed?: number;
     chroma_key?: Record<string, unknown> | null;
+    gain_db?: number;
+    fade_in?: number;
+    fade_out?: number;
+    ducking?: boolean;
 }
 
 export interface HtmlSourceV2 {
@@ -95,6 +99,7 @@ export interface ItemV2Base {
     crop?: CropV2;
     perspective?: Record<string, unknown>;
     keyframes?: KeyframeV2[];
+    script?: string;
 }
 
 export type ItemV2 =
@@ -111,6 +116,7 @@ export interface ItemsTrackV2 {
     id: string;
     lane: LaneV2;
     name?: string;
+    role?: 'sfx' | 'narration' | 'bgm';
     items: ItemV2[];
 }
 
@@ -130,8 +136,8 @@ export interface EditV2 {
     /** 配列順が下から上の合成 z 順。 */
     tracks: TrackV2[];
     /**
-     * 移行では v0/v1 の音声秒宣言をそのまま保持する。音を整数フレーム化すると
-     * SFX/BGM の位置・尺が動くため、本タスクでは変換せず、トラック化は後続へ送る。
+     * 旧 v2 fixture が持つ top-level audio の互換 fallback。新規の SFX / narration / BGM は
+     * audio lane の items track と role で宣言する。
      */
     audio?: unknown;
     captions?: unknown[];
@@ -161,7 +167,7 @@ const BLEND_MODES = new Set<BlendModeV2>([
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ]);
 const ITEM_KEYS = new Set([
-    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'source'
+    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'script', 'source'
 ]);
 
 /**
@@ -194,6 +200,16 @@ export function readEditV2(json: unknown): InternalEditV2 {
     const trackIds = new Set<string>();
     const itemIds = new Set<string>();
     parsed.tracks.forEach((track, index) => validateTrack(track, index, trackIds, itemIds, sourceIds));
+    const bgmTracks = parsed.tracks.filter(track =>
+        isRecord(track) && hasOwn(track, 'items') && track.role === 'bgm'
+    );
+    if (bgmTracks.length > 1) {
+        throw invalid('edit.json.tracks', 'role が bgm の items track は 1 本以下である必要があります');
+    }
+    if (bgmTracks.length === 1 && Array.isArray(bgmTracks[0].items) && bgmTracks[0].items.length > 1) {
+        const index = parsed.tracks.indexOf(bgmTracks[0]);
+        throw invalid(`edit.json.tracks[${index}].items`, 'role が bgm の track は item を 1 個以下にする必要があります');
+    }
 
     const edit = parsed as unknown as EditV2;
     return {
@@ -255,7 +271,7 @@ function validateTrack(
 ): asserts value is TrackV2 {
     const path = `edit.json.tracks[${index}]`;
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['id', 'lane', 'name', 'items', 'content']), path);
+    requireExactKeys(value, new Set(['id', 'lane', 'name', 'role', 'items', 'content']), path);
     requireText(value.id, `${path}.id`);
     if (trackIds.has(value.id)) throw invalid(`${path}.id`, `track id が重複しています: ${value.id}`);
     trackIds.add(value.id);
@@ -264,6 +280,9 @@ function validateTrack(
     }
     if (hasOwn(value, 'name') && typeof value.name !== 'string') {
         throw invalid(`${path}.name`, '文字列である必要があります');
+    }
+    if (hasOwn(value, 'role') && value.role !== 'sfx' && value.role !== 'narration' && value.role !== 'bgm') {
+        throw invalid(`${path}.role`, 'sfx/narration/bgm のいずれかである必要があります');
     }
     const hasItems = hasOwn(value, 'items');
     const hasContent = hasOwn(value, 'content');
@@ -274,6 +293,9 @@ function validateTrack(
         if (!Array.isArray(value.items)) throw invalid(`${path}.items`, '配列である必要があります');
         value.items.forEach((item, itemIndex) => validateItem(item, `${path}.items[${itemIndex}]`, itemIds, sourceIds));
         return;
+    }
+    if (hasOwn(value, 'role')) {
+        throw invalid(`${path}.role`, 'role は items track でのみ使用できます');
     }
     requireRecord(value.content, `${path}.content`);
     requireExactKeys(value.content, new Set(['from']), `${path}.content`);
@@ -303,6 +325,9 @@ function validateItem(
     if (hasOwn(value, 'crop')) validateCrop(value.crop, `${path}.crop`);
     if (hasOwn(value, 'perspective')) requireRecord(value.perspective, `${path}.perspective`);
     if (hasOwn(value, 'keyframes')) validateKeyframes(value.keyframes, `${path}.keyframes`);
+    if (hasOwn(value, 'script') && typeof value.script !== 'string') {
+        throw invalid(`${path}.script`, '文字列である必要があります');
+    }
     validateItemSource(value.source, `${path}.source`, sourceIds);
 }
 
@@ -311,7 +336,8 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
     switch (value.kind) {
         case 'media':
             requireExactKeys(value, new Set([
-                'kind', 'src', 'in', 'out', 'framing', 'transition_out', 'freeze', 'fx', 'speed', 'chroma_key'
+                'kind', 'src', 'in', 'out', 'framing', 'transition_out', 'freeze', 'fx', 'speed', 'chroma_key',
+                'gain_db', 'fade_in', 'fade_out', 'ducking'
             ]), path);
             requireText(value.src, `${path}.src`);
             if (!sourceIds.has(value.src)) throw invalid(`${path}.src`, `sources[].id に存在しません: ${value.src}`);
@@ -323,6 +349,12 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
             }
             if (hasOwn(value, 'fx') && !Array.isArray(value.fx)) throw invalid(`${path}.fx`, '配列である必要があります');
             if (hasOwn(value, 'speed')) requirePositiveNumber(value.speed, `${path}.speed`);
+            if (hasOwn(value, 'gain_db')) requireNumber(value.gain_db, `${path}.gain_db`);
+            if (hasOwn(value, 'fade_in')) requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
+            if (hasOwn(value, 'fade_out')) requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
+            if (hasOwn(value, 'ducking') && typeof value.ducking !== 'boolean') {
+                throw invalid(`${path}.ducking`, 'boolean である必要があります');
+            }
             return;
         case 'html':
             requireExactKeys(value, new Set(['kind', 'path', 'vars']), path);
@@ -405,6 +437,10 @@ function requireRecord(value: unknown, path: string): asserts value is UnknownRe
 
 function hasOwn(value: object, key: PropertyKey): boolean {
     return Object.prototype.hasOwnProperty.call(value, key);
+}
+
+function isRecord(value: unknown): value is UnknownRecord {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function requireExactKeys(value: UnknownRecord, allowed: Set<string>, path: string): void {

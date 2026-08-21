@@ -247,6 +247,59 @@ test('v2 audio.sfx keeps zero-based ids and a one-second provisional display dur
   assert.deepEqual(sfx.map(item => item.durationFrames), [30, 45]);
 });
 
+test('v2 audio tracks project sfx, narration, and bgm to their exact legacy shapes', () => {
+  const edit = {
+    ...base(),
+    sources: [
+      ...base().sources,
+      { id: 'hit', path: 'hit.wav', proxy: null },
+      { id: 'voice', path: 'voice.wav', proxy: null },
+      { id: 'music', path: 'music.wav', proxy: null },
+    ],
+    tracks: [
+      { id: 'narration', lane: 'audio', role: 'narration', items: [{
+        id: 'n-0001', at: 30, duration: 60, script: 'hello',
+        source: { kind: 'media', src: 'voice', in: 0, out: 2, gain_db: 1.5 },
+      }] },
+      { id: 'sfx-0', lane: 'audio', items: [{
+        id: 'hit-1', at: 45, duration: 15,
+        source: { kind: 'media', src: 'hit', in: 0.25, out: 0.75, gain_db: -6 },
+      }] },
+      { id: 'bgm', lane: 'audio', role: 'bgm', items: [{
+        id: 'music-item', at: 0, duration: 300,
+        source: {
+          kind: 'media', src: 'music', in: 0, out: 10,
+          fade_in: 1.25, fade_out: 2.5, gain_db: -18, ducking: true,
+        },
+      }] },
+      { id: 'sfx-1', lane: 'audio', role: 'sfx', items: [{
+        id: 'hit-2', at: 90, duration: 15,
+        source: { kind: 'media', src: 'hit', in: 0, out: 0.5 },
+      }] },
+      ...base().tracks,
+    ],
+  };
+  const internal = readInternalEdit(edit);
+  const view = projectLegacyEdit(internal);
+
+  assert.deepEqual(view.audioSfx, [
+    { id: 'hit-1', t: 1.5, duration: 0.5, path: 'hit.wav', track: 0, in: 0.25, out: 0.75, gainDb: -6 },
+    { id: 'hit-2', t: 3, duration: 0.5, path: 'hit.wav', track: 1, in: 0, out: 0.5 },
+  ]);
+  assert.deepEqual(view.audioNarration, [
+    { id: 'n-0001', t: 1, path: 'voice.wav', gainDb: 1.5, script: 'hello' },
+  ]);
+  assert.deepEqual(view.audioBgm, {
+    id: 'bgm', path: 'music.wav', fadeIn: 1.25, fadeOut: 2.5, gainDb: -18, ducking: true,
+  });
+  assert.equal(internal.tracks.find(track => track.id === 'narration').legacy.ref, undefined);
+  assert.equal(internal.tracks.find(track => track.id === 'bgm').legacy.ref, undefined);
+  assert.deepEqual(
+    internal.tracks.filter(track => track.id.startsWith('sfx-')).map(track => track.legacy.ref),
+    [0, 1],
+  );
+});
+
 // P0 2026-08-21 render-path-unification (Lead 指摘・L1 fork 発見のドラッグ例外の根治):
 // legacy.index はトラック横断で一意・宣言順の通し番号でなければならない。以前は
 // track.items.forEach のトラックごとにリセットされる index をそのまま使っていたため、

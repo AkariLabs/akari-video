@@ -33,18 +33,49 @@ test("editV2 is the third root branch and keeps v2 timing/output definitions sep
   assert.match(schema.$defs.itemAtV2.$comment, /oneOf/);
 });
 
-test("hand-written v2 fixture accepts four source kinds, captions content, audio lane, and z-order", () => {
+test("hand-written v2 fixture accepts four source kinds, three audio roles, captions content, and z-order", () => {
   const value = fixture("edit-v2-valid");
   assert.equal(validate(value), true, JSON.stringify(validate.errors, null, 2));
   assert.deepEqual(
     value.tracks.map((track) => track.id),
-    ["a1", "v-main", "captions", "v-filter", "v-html", "v-telop"],
+    ["a-sfx", "a-narration", "a-bgm", "v-main", "captions", "v-filter", "v-html", "v-telop"],
   );
+  assert.deepEqual(value.tracks.slice(0, 3).map((track) => track.role), ["sfx", "narration", "bgm"]);
   assert.deepEqual(
     value.tracks.flatMap((track) => (track.items ?? []).map((item) => item.source.kind)),
-    ["media", "media", "filter", "html", "telop"],
+    ["media", "media", "media", "media", "filter", "html", "telop"],
   );
-  assert.deepEqual(value.tracks[2].content, { from: "captions.json" });
+  assert.equal(value.tracks[1].items[0].script, "AKARI Videoへようこそ");
+  assert.deepEqual(value.tracks[4].content, { from: "captions.json" });
+});
+
+test("v2 audio fields are typed and BGM role cardinality is closed", () => {
+  const valid = fixture("edit-v2-valid");
+  assert.equal(validate(valid), true, JSON.stringify(validate.errors, null, 2));
+
+  for (const [mutate, expectedPath] of [
+    [(value) => { value.tracks[0].role = "dialogue"; }, "/tracks/0/role"],
+    [(value) => { value.tracks[1].items[0].script = 42; }, "/tracks/1/items/0/script"],
+    [(value) => { value.tracks[2].items[0].source.fade_in = -1; }, "/tracks/2/items/0/source/fade_in"],
+    [(value) => { value.tracks[2].items[0].source.ducking = "yes"; }, "/tracks/2/items/0/source/ducking"],
+  ]) {
+    const value = structuredClone(valid);
+    mutate(value);
+    assert.equal(validate(value), false, expectedPath);
+    assert.ok(validate.errors?.some(error => error.instancePath === expectedPath), JSON.stringify(validate.errors, null, 2));
+  }
+
+  const tooManyItems = structuredClone(valid);
+  tooManyItems.tracks[2].items.push({
+    ...structuredClone(tooManyItems.tracks[2].items[0]), id: "music-2", at: 300,
+  });
+  assert.equal(validate(tooManyItems), false);
+  assert.ok(validate.errors?.some(error => error.keyword === "maxItems"));
+
+  const tooManyTracks = structuredClone(valid);
+  tooManyTracks.tracks.push({ id: "a-bgm-2", lane: "audio", role: "bgm", items: [] });
+  assert.equal(validate(tooManyTracks), false);
+  assert.ok(validate.errors?.some(error => error.keyword === "contains"));
 });
 
 test("minimum v2 fixture is valid", () => {
