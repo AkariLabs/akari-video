@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "main",
+      "path": "assets/talk.mp4"
+    },
+    {
+      "id": "pip",
+      "path": "assets/talk.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "name": "本編",
+      "items": [
+        {
+          "id": "clip-1",
+          "at": 0,
+          "duration": 150,
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 0,
+            "out": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-pip",
+      "lane": "visual",
+      "name": "PiP",
+      "items": [
+        {
+          "id": "pip-1",
+          "at": 0,
+          "duration": 150,
+          "blend": "screen",
+          "transform": {
+            "x": 150.14662756598239,
+            "y": 60.058651026392965,
+            "scale": 0.6070001307487725,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "media",
+            "src": "pip",
+            "in": 0,
+            "out": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-html",
+      "lane": "visual",
+      "name": "テロップ",
+      "items": [
+        {
+          "id": "title-1",
+          "at": 0,
+          "duration": 150,
+          "transform": {
+            "x": 315.0202786604387,
+            "y": -8.418792087303792,
+            "scale": 1.8507825571585563,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "html",
+            "path": "overlays/title.html"
+          }
+        }
+      ]
+    }
+  ]
+}

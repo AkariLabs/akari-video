@@ -15,7 +15,7 @@ import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { resolveInternalTrackZ } from '@akari-video/edit-store';
+import { resolveInternalTrackZ, resolvePreviewItemWrite } from '@akari-video/edit-store';
 import {
     AkariPreviewService,
     OverlayRuntimeAssets,
@@ -137,6 +137,8 @@ export const isImageLayerSrc = (src: string | undefined): boolean =>
     typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
 
 interface EditSummaryCut {
+    /** v2 tracks[].items[].id（legacy でも内部表現が付けた安定 id）。 */
+    id: string;
     /** 参照するソース id（v1 cuts[].src。v0 は既定 id）。webview はこれで <video> を切り替える */
     src: string;
     in: number;
@@ -327,6 +329,7 @@ interface CutWriteRequest {
     type: 'akari-preview-cut-write';
     requestId: string;
     cutIndex: number;
+    cutId?: string;
     patch: {
         transform?: OverlayTransform;
     };
@@ -2701,6 +2704,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 );
                 if (result.ok && result.fields) {
                     cuts.push({
+                        id: item.id,
                         ...result.fields,
                         trackId,
                         renderTrack: resolveInternalTrackZ(
@@ -3403,14 +3407,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         try {
-            const edit = JSON.parse(await this.readText(editUri));
-            if (!Array.isArray(edit?.overlays)) {
-                throw new Error('edit.json の overlays が配列ではありません');
-            }
-            const overlay = edit.overlays.find((value: any) => String(value?.id) === request.overlayId);
-            if (!overlay) {
-                throw new Error(`オーバーレイが見つかりません: ${request.overlayId}`);
-            }
+            const resolved = resolvePreviewItemWrite(await this.readText(editUri), {
+                kind: 'overlay',
+                itemId: request.overlayId,
+                patch: request.patch
+            });
             // 断片テキスト編集の html patch は overlays[].html が指す断片ファイルへ書く。
             // 旧実装はここで html を黙って捨てて ok を返しており、contenteditable の編集が
             // どのサーフェスでも一度も永続化されていなかった（edit.json へマージすると
@@ -3419,11 +3420,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!request.patch.html.trim()) {
                     throw new Error('html が空です');
                 }
-                if (typeof overlay.html !== 'string' || !overlay.html) {
-                    throw new Error(`overlays[].html がファイル参照ではありません: ${request.overlayId}`);
-                }
                 const projectRoot = editUri.parent;
-                const htmlPath = String(overlay.html);
+                const htmlPath = resolved.htmlPath;
+                if (typeof htmlPath !== 'string' || !htmlPath) {
+                    throw new Error(`HTML 断片の参照先を特定できません: ${request.overlayId}`);
+                }
                 // URI.resolve は '..' を正規化しない可能性があるため、セグメント検査で先に弾く
                 if (htmlPath.startsWith('/') || htmlPath.split(/[\\/]/).some(segment => segment === '..')) {
                     throw new Error('プロジェクト外への書き込みは拒否しました');
@@ -3433,19 +3434,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     throw new Error('プロジェクト外への書き込みは拒否しました');
                 }
                 if (!(await this.fileService.exists(target))) {
-                    throw new Error(`断片ファイルがありません: ${overlay.html}`);
+                    throw new Error(`断片ファイルがありません: ${htmlPath}`);
                 }
                 this.recentWrites.set(target.toString(), Date.now());
                 await this.fileService.writeFile(target, BinaryBuffer.fromString(request.patch.html));
             }
-            if (request.patch.vars) {
-                overlay.vars = { ...this.objectRecord(overlay.vars), ...request.patch.vars };
-            }
-            if (request.patch.transform) {
-                overlay.transform = { ...this.objectRecord(overlay.transform), ...request.patch.transform };
-            }
-            if (request.patch.vars || request.patch.transform) {
-                const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
+            if (resolved.candidateText) {
+                const candidateText = resolved.candidateText;
                 const lintResult = await this.previewService.lintEditCandidate({
                     editUri: editUri.toString(),
                     candidateText
@@ -3590,30 +3585,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         try {
             const originalText = await this.readText(editUri);
-            const edit = JSON.parse(originalText);
-            if (!Array.isArray(edit?.layers)) {
-                throw new Error('edit.json の layers が配列ではありません');
+            const resolved = resolvePreviewItemWrite(originalText, {
+                kind: 'layer',
+                itemId: request.layerId,
+                patch: request.patch
+            });
+            const candidateText = resolved.candidateText;
+            if (!candidateText) {
+                throw new Error('edit.json へ書き込む変更がありません');
             }
-            const layer = edit.layers.find((value: any) => String(value?.id) === request.layerId);
-            if (!layer) {
-                throw new Error(`素材が見つかりません: ${request.layerId}`);
-            }
-            if (request.patch.transform) {
-                layer.transform = { ...this.objectRecord(layer.transform), ...request.patch.transform };
-            }
-            if (request.patch.crop) {
-                layer.crop = { ...request.patch.crop };
-            }
-            if (request.patch.perspective !== undefined) {
-                // null = explicit clear (removes layer.perspective entirely, matching the
-                // schema's "absent = no perspective, byte-identical render" default).
-                if (request.patch.perspective === null) {
-                    delete layer.perspective;
-                } else {
-                    layer.perspective = { corners: request.patch.perspective.corners.map(([x, y]) => [x, y]) };
-                }
-            }
-            const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
             const lintResult = await this.previewService.lintEditCandidate({
                 editUri: editUri.toString(),
                 candidateText
@@ -3653,18 +3633,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         try {
             const originalText = await this.readText(editUri);
-            const edit = JSON.parse(originalText);
-            if (!Array.isArray(edit?.cuts)) {
-                throw new Error('edit.json の cuts が配列ではありません');
+            const resolved = resolvePreviewItemWrite(originalText, {
+                kind: 'cut',
+                itemId: request.cutId,
+                legacyIndex: request.cutIndex,
+                patch: request.patch
+            });
+            const candidateText = resolved.candidateText;
+            if (!candidateText) {
+                throw new Error('edit.json へ書き込む変更がありません');
             }
-            const cut = edit.cuts[request.cutIndex];
-            if (!cut || typeof cut !== 'object') {
-                throw new Error(`カットが見つかりません: index ${request.cutIndex}`);
-            }
-            if (request.patch.transform) {
-                cut.transform = { ...this.objectRecord(cut.transform), ...request.patch.transform };
-            }
-            const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
             const lintResult = await this.previewService.lintEditCandidate({
                 editUri: editUri.toString(),
                 candidateText
@@ -3686,6 +3664,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && typeof message.requestId === 'string'
             && Number.isInteger(message.cutIndex)
             && message.cutIndex >= 0
+            && (message.cutId === undefined || typeof message.cutId === 'string')
             && message.patch
             && typeof message.patch === 'object';
     }
@@ -4024,6 +4003,10 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .audio-notice { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px; max-width: 92%; padding: 8px 12px; border-radius: 6px; background: rgba(20, 20, 20, 0.78); color: #f1f1f1; font-size: 12.5px; line-height: 1.5; }
 .audio-notice[hidden] { display: none; }
 .audio-notice button { flex: none; border: none; background: transparent; color: #ccc; font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px; }
+.write-error-banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2100; display: flex; align-items: flex-start; gap: 10px; width: min(92%, 680px); box-sizing: border-box; padding: 10px 12px; border: 1px solid #ff8a8a; border-radius: 6px; background: #4a1117; color: #fff4f4; box-shadow: 0 4px 18px rgba(0,0,0,0.45); font-size: 12.5px; line-height: 1.5; }
+.write-error-banner[hidden] { display: none; }
+.write-error-banner span { flex: 1; overflow-wrap: anywhere; }
+.write-error-banner button { flex: none; border: none; background: transparent; color: #fff; font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 4px; }
 .transport { display: grid; gap: 8px; padding: 9px 14px 10px; border-top: 1px solid #303030; background: #202020; }
 .transport-waveform { position: relative; width: 100%; height: 56px; overflow: hidden; border-top: 1px solid #303030; background: #181818; cursor: pointer; touch-action: none; }
 .transport-waveform[hidden] { display: none; }
@@ -4088,6 +4071,10 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
       <div id="audio-notice" class="audio-notice" hidden role="status">
         <span>音声が検出されていません。無音の素材か、音声形式がプレビュー非対応の可能性があります（書き出しには影響しません）。</span>
         <button id="audio-notice-dismiss" type="button" aria-label="閉じる" title="閉じる">×</button>
+      </div>
+      <div id="write-error-banner" class="write-error-banner" hidden role="alert" aria-live="assertive">
+        <span id="write-error-message"></span>
+        <button id="write-error-dismiss" type="button" aria-label="閉じる" title="閉じる">×</button>
       </div>
       <div id="preview-message" class="message-card" hidden role="status">
         <p id="preview-message-text">${UNSUPPORTED_FORMAT_MESSAGE}</p>
@@ -4191,6 +4178,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const wrapper = document.getElementById('preview-wrapper');
             const video = document.getElementById('preview-video');
             const outputPreviewLink = document.getElementById('output-preview-link');
+            const writeErrorBanner = document.getElementById('write-error-banner');
+            const writeErrorMessage = document.getElementById('write-error-message');
+            const writeErrorDismiss = document.getElementById('write-error-dismiss');
             const layersStage = document.getElementById('preview-layers');
             const stage = document.getElementById('overlay-stage');
             const penLayer = document.getElementById('pen-layer');
@@ -4198,6 +4188,14 @@ body { display: grid; place-items: center; padding: 32px; }
 
             window.akari = window.akari || {};
             window.akari.state = { editPath: initial.editPath, summary: initial.summary };
+            window.akari.showWriteError = error => {
+                const reason = error instanceof Error ? error.message : String(error || '書き込みに失敗しました');
+                writeErrorMessage.textContent = reason;
+                writeErrorBanner.hidden = false;
+            };
+            writeErrorDismiss.addEventListener('click', () => {
+                writeErrorBanner.hidden = true;
+            });
             window.akari.engine = {
                 overlayWrite: (_editPath, overlayId, patch) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
@@ -4209,10 +4207,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     pending.set(requestId, { kind: 'layer-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-layer-write', requestId, layerId, patch });
                 }),
-                cutWrite: (cutIndex, patch) => new Promise((resolve, reject) => {
+                cutWrite: (cutIndex, cutId, patch) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'cut-write', resolve, reject });
-                    vscode.postMessage({ type: 'akari-preview-cut-write', requestId, cutIndex, patch });
+                    vscode.postMessage({ type: 'akari-preview-cut-write', requestId, cutIndex, cutId, patch });
                 }),
                 captionWrite: (captionId, patch) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
@@ -4669,7 +4667,9 @@ body { display: grid; place-items: center; padding: 32px; }
                             : request.kind === 'hevc-fallback'
                                 ? 'HEVC 互換変換に失敗しました'
                                 : 'edit.json の書き込みに失敗しました';
-                    request.reject(new Error(message.error || fallback));
+                    const reason = message.error || fallback;
+                    window.akari.showWriteError(reason);
+                    request.reject(new Error(reason));
                     return;
                 }
                 if (request.kind !== 'waveform-fetch') {
@@ -5457,6 +5457,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.style.transform = '';
                     video.style.opacity = '';
                     video.dataset.akariCutIndex = '';
+                    video.dataset.akariCutId = '';
                     // ㉓ ギャップ等クリック選択の対象外へ移った場合は選択を外す
                     // （deselectCut は後段で定義される const だが、実際の呼び出しは
                     // 常にトップレベルスクリプト完了後の非同期経路のため安全）。
@@ -5479,6 +5480,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 video.style.opacity = Number.isFinite(segment.opacity) ? String(segment.opacity) : '';
                 video.dataset.akariCutIndex = Number.isInteger(segment.cutIndex) ? String(segment.cutIndex) : '';
+                video.dataset.akariCutId = typeof segment.id === 'string' ? segment.id : '';
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 if (typeof updateCutSelectBox === 'function') updateCutSelectBox();
             };
@@ -6005,7 +6007,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 try {
                     await window.akari.engine.layerWrite(entry.spec.id, { perspective: corners ? { corners } : null });
                 } catch (error) {
-                    console.warn('[akari-preview] layer perspective write rejected; reverting', error);
+                    window.akari.showWriteError(error);
                     applyLayerPerspectiveNow(entry, original);
                 }
             };
@@ -6207,7 +6209,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     try {
                         await window.akari.engine.layerWrite(entry.spec.id, { transform: finalTransform });
                     } catch (error) {
-                        console.warn('[akari-preview] layer transform write rejected; reverting', error);
+                        window.akari.showWriteError(error);
                         applyLayerTransformNow(entry, original);
                         layerTransformVisualThrottle.flush();
                     }
@@ -6460,7 +6462,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         try {
                             await window.akari.engine.layerWrite(entry.spec.id, { crop: finalCrop, transform: finalTransform });
                         } catch (error) {
-                            console.warn('[akari-preview] layer crop write rejected; reverting', error);
+                            window.akari.showWriteError(error);
                             applyLayerCropAndTransformNow(entry, original, startTransform);
                             layerCropVisualThrottle.flush();
                         }
@@ -6631,9 +6633,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     const finalTransform = cutTransformNow();
                     try {
-                        await window.akari.engine.cutWrite(cutIndex, { transform: finalTransform });
+                        await window.akari.engine.cutWrite(
+                            cutIndex,
+                            video.dataset.akariCutId || undefined,
+                            { transform: finalTransform }
+                        );
                     } catch (error) {
-                        console.warn('[akari-preview] cut transform write rejected; reverting', error);
+                        window.akari.showWriteError(error);
                         applyCutTransformNow(original);
                         cutTransformVisualThrottle.flush();
                     }
@@ -6883,6 +6889,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const cut = rawCuts[segment.cutIndex];
                         return {
                             ...segment,
+                            id: cut ? cut.id : undefined,
                             trackId: cut ? cut.trackId : undefined,
                             transform: cut ? cut.transform : undefined,
                             opacity: cut ? cut.opacity : undefined,
