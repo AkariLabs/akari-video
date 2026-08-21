@@ -594,23 +594,34 @@ function buildV2Item(
                 ? item.source.in
                 : (alignsDuration ? item.source.in + playbackDuration : item.source.out);
             const speed = playbackDuration > 0 && !alignsDuration ? span / playbackDuration : undefined;
-            // r5 (Codex re-review): a zero-length projected segment (durationFrames === 0, see
-            // cutOut above) is not a renderable cut at all -- it is REJECTED downstream by both
-            // edit-lint's cuts.range check (out <= in is an error) and render-cut's
-            // validateEditShape (0 <= in < out is required), so r4's fix only replaced a silent
-            // wrong-content bug with a hard validation failure, not a working no-op. Adjudicated:
-            // a zero output duration represents nothing on the timeline at all, so it is dropped
-            // ENTIRELY at this projection stage rather than emitted as a degenerate legacy cut/
-            // layer for lint or render to ever see. `legacy.value: undefined` is the existing,
-            // already-established mechanism for exactly this ("項目自体は内部表現に残るが、旧
-            // 読み取り器向けの投影は無い" -- see this same function's telop/filter comment and
-            // projectLegacyEdit's own `if (value === undefined) continue` skip) -- reused as-is,
-            // not a new mechanism. The item still exists in InternalItem[] (declaration/atFrames/
-            // durationFrames intact, so internal-model consumers other than the legacy projection
-            // -- e.g. editor UI -- can still see and manipulate it as a real, currently-empty
-            // timeline item), and legacy.index is still allocated normally (an unused index number
-            // for a dropped item is harmless -- projectLegacyEdit's byDeclarationOrder only ever
-            // sorts items it actually pushed, so a gap in the numbering changes nothing observable).
+            // r5 (Codex re-review) tried dropping a zero-length projected segment
+            // (durationFrames === 0) ENTIRELY at this stage (legacy.value: undefined) rather than
+            // emitting it as a degenerate cut, reasoning that it is rejected downstream anyway by
+            // both edit-lint's cuts.range check and render-cut's validateEditShape.
+            //
+            // r6 (Codex re-review) found that drop was itself broken and reverted it: (a)
+            // render-cut has a SEPARATE projection path (internal-render.mjs's
+            // projectRendererCompatibilityEdit, consumed by plan.mjs's track-stack construction)
+            // that reconstructs in/out itself directly rather than reading legacy.value, so the
+            // drop never actually reached that path -- a duration:0 item could still leak into a
+            // render attempt through it. (b) A dropped item still consumes a legacy.index slot
+            // (nextLegacyIndex below still runs) but vanishes from projectLegacyEdit's own
+            // cuts[]/layers[] output, so any UI code that correlates "the Nth declared item" with
+            // "the Nth projected legacy entry" (e.g. cutItemIds) could desync and a user's
+            // edit/delete/drag could land on the WRONG item -- a new BLOCKER, not a fix. (c) the
+            // "reuses the established telop/filter legacy.value:undefined pattern" framing was
+            // itself inaccurate: that case re-inserts a declaration into layers via a DIFFERENT
+            // branch (see the telop/filter case elsewhere in this file), it does not silently drop
+            // the item, so it was never really the same mechanism.
+            //
+            // Final adjudication (r6, control-tower call): duration:0 stays schema-valid but is
+            // caught at the FRONT DOOR by edit-lint with a clear, purpose-built error message
+            // (see edit-lint.mjs's own duration:0 check) -- neither the projection nor rendering
+            // paths need to special-case it at all. This function projects a zero output duration
+            // exactly like r4 did: a real (degenerate, in === out) cut/layer, using the
+            // durationFrames === 0 short-circuit above (kept from r5 -- see that comment) purely
+            // to make cutOut deterministic (cutIn, not a leftover full source span) for whatever
+            // downstream code inspects it before lint has a chance to reject the project.
             // P0 2026-08-21 render-path-unification: 段（トラック）は一切見ない。needsLayersEngine
             // が false の media アイテムは常に 'cuts'（render-cut の cut-transform.mjs が
             // transform/crop/perspective/keyframes/transition_out/speed/freeze の全機能集合を持つ）。
@@ -619,7 +630,7 @@ function buildV2Item(
                     id: item.id, t: at, duration, kind: 'video', src: path ?? item.source.src,
                     track: ref, ...common, ...copyMediaSourceFields(item.source)
                 };
-                const value = durationFrames === 0 ? undefined : declaration as unknown as EditLayer;
+                const value = declaration as unknown as EditLayer;
                 return {
                     item: {
                         id: item.id, atFrames, durationFrames, at, duration, source,
@@ -628,7 +639,7 @@ function buildV2Item(
                     }
                 };
             }
-            const value: EditCut | undefined = durationFrames === 0 ? undefined : {
+            const value: EditCut = {
                 in: item.source.in,
                 out: cutOut,
                 src: item.source.src,

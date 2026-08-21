@@ -445,25 +445,24 @@ test('a sequential mid-array insert leaving a stale, partially-overlapping trail
 // their at AND duration are both exactly equal (the same shape the "fully overlapping"
 // exact-match rule above otherwise flags).
 //
-// r4 (Codex re-review, MAJOR) tried projecting item.duration === 0 (schema-valid, see
-// edit-v2.ts's requireInteger(value.duration, 0, ...) minimum) into a true zero-length segment
+// r4 (Codex re-review, MAJOR) projects item.duration === 0 (schema-valid, see edit-v2.ts's
+// requireInteger(value.duration, 0, ...) minimum) into a true zero-length segment
 // (cutOut === cutIn) instead of the pre-r4 bug (cutOut fell back to item.source.out with no
 // speed compensation, silently rendering a supposedly-invisible 0-duration item as a real,
 // multi-second clip at normal speed).
 //
-// r5 (Codex re-review) found that r4's own fix was itself incomplete: a zero-length segment
-// (in === out) is REJECTED downstream by both edit-lint's cuts.range check (out <= in is an
-// error) and render-cut's validateEditShape (0 <= in < out is required) -- so r4 only replaced a
-// silent wrong-content bug with a hard validation failure, not a working no-op. Adjudicated: a
-// zero output duration represents nothing on the timeline at all, so it is dropped ENTIRELY at
-// the projection stage (buildV2Item sets legacy.value: undefined, the SAME existing mechanism
-// projectLegacyEdit's own `if (value === undefined) continue` already uses for "not
-// representable in the legacy view" -- see that function's telop/filter comment) rather than
-// emitted as a degenerate cut for lint or render to ever see. Asserted end-to-end here, not just
-// classification: the item still exists in the internal representation (legacy.collection is
-// still 'cuts', for internal-model consumers other than the legacy projection), but
-// projectLegacyEdit's actual output cuts[] array excludes it completely.
-test('two zero-duration items sharing the same at are not treated as an overlap, and are dropped entirely from the projected legacy view (not emitted as a degenerate zero-length cut)', () => {
+// r5 (Codex re-review) tried dropping this zero-length segment ENTIRELY at this projection stage
+// (legacy.value: undefined) instead of emitting it as a degenerate cut, reasoning that it gets
+// rejected downstream anyway. r6 (Codex re-review) found that drop itself broken -- a second,
+// separate render-cut projection path (internal-render.mjs's projectRendererCompatibilityEdit)
+// reconstructs in/out directly and never reads legacy.value at all, so duration:0 could still
+// leak into that path; and a dropped item still consumed a legacy.index slot while vanishing from
+// projectLegacyEdit's own array, risking a UI index desync (edit/delete/drag landing on the wrong
+// item) -- a new BLOCKER, not a fix. r6's control-tower adjudication: duration:0 stays
+// schema-valid and projects to a real (degenerate) cut here exactly like r4, byte-identical;
+// catching it is edit-lint's job at the front door (see edit-lint.mjs's own test suite for the
+// duration:0-specific rejection), not this projection layer's.
+test('two zero-duration items sharing the same at are not treated as an overlap, and each still projects to a real (degenerate, in === out) cut here -- rejecting duration:0 is edit-lint\'s job, not this layer\'s', () => {
   const edit = {
     version: 2,
     output: { width: 1920, height: 1080, fps: 30 },
@@ -472,26 +471,28 @@ test('two zero-duration items sharing the same at are not treated as an overlap,
       { id: 't1', lane: 'visual', items: [
         { id: 'zero-a', at: 60, duration: 0, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
         { id: 'zero-b', at: 60, duration: 0, source: { kind: 'media', src: 'main', in: 2, out: 4 } },
-        { id: 'real-c', at: 90, duration: 30, source: { kind: 'media', src: 'main', in: 0, out: 1 } },
       ] },
     ],
   };
   const internal = readInternalEdit(edit);
   const items = internal.tracks.flatMap(track => track.items);
   const byId = Object.fromEntries(items.map(item => [item.id, item]));
-  assert.equal(byId['zero-a'].legacy.collection, 'cuts', 'a zero-duration item is not a genuine overlap, and stays notionally a cuts-kind item internally');
+  assert.equal(byId['zero-a'].legacy.collection, 'cuts', 'a zero-duration item is not a genuine overlap');
   assert.equal(byId['zero-b'].legacy.collection, 'cuts', 'nor is its same-at, zero-duration sibling');
-  assert.equal(byId['zero-a'].legacy.value, undefined, 'a zero-duration item projects to legacy.value: undefined -- dropped, not a degenerate zero-length cut');
-  assert.equal(byId['zero-b'].legacy.value, undefined, 'likewise for its sibling');
-  assert.notEqual(byId['real-c'].legacy.value, undefined, 'a real, positive-duration item is unaffected and still projects normally');
-  // End-to-end: the actual projected legacy view (what edit-lint and render-cut both consume)
-  // must contain only the real cut -- neither zero-duration item, and no empty/degenerate segment.
-  const legacy = projectLegacyEdit(internal);
-  assert.equal(legacy.cuts.length, 1, `expected the zero-duration items to be fully absent from the projected cuts[] array, leaving only the real cut: ${JSON.stringify(legacy.cuts)}`);
-  assert.equal(legacy.cuts[0].src, 'main', `expected the surviving cut to be the real one: ${JSON.stringify(legacy.cuts[0])}`);
-  for (const cut of legacy.cuts) {
-    assert.ok(cut.out > cut.in, `no projected cut may be zero-length or empty: ${JSON.stringify(cut)}`);
-  }
+  // Projection: cutOut must equal cutIn (a true zero-length segment), not item.source.out (which
+  // would silently play the item's entire declared source span at normal speed) -- byte-identical
+  // to r4, unaffected by r5's now-reverted drop attempt.
+  assert.deepEqual(
+    { in: byId['zero-a'].legacy.value.in, out: byId['zero-a'].legacy.value.out },
+    { in: 0, out: 0 },
+    'zero-a must project to a true zero-length segment (cutOut === cutIn === item.source.in), not its full declared source span',
+  );
+  assert.deepEqual(
+    { in: byId['zero-b'].legacy.value.in, out: byId['zero-b'].legacy.value.out },
+    { in: 2, out: 2 },
+    'zero-b must project to a true zero-length segment starting at its own declared source.in (2), not its full declared source span',
+  );
+  assert.equal(byId['zero-a'].legacy.value.speed, undefined, 'speed is moot for a zero-length segment and must stay unset');
 });
 
 // r5 (Codex re-review, real regression this task's own r4 fix introduced): the short-circuit
