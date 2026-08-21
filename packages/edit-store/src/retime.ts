@@ -1,4 +1,4 @@
-import { EditV2, ItemV2, readEditV2 } from './edit-v2';
+import { AudioMediaItemV2, EditV2, ItemV2, readEditV2 } from './edit-v2';
 
 /**
  * v2 の出力フレーム格子を変更し、すべての出力側時刻を境界丸めで再スケールする。
@@ -28,6 +28,13 @@ export function retime(source: string | unknown, fpsNew: number): EditV2 {
                 return { ...contentTrack, content: { ...track.content } };
             }
             const { z: _z, ...itemsTrack } = track;
+            if (track.lane === 'audio') {
+                return {
+                    ...itemsTrack,
+                    lane: 'audio' as const,
+                    items: track.items.map(item => retimeAudioItem(item, ratio))
+                };
+            }
             let downstreamShift = 0;
             let previousAt: number | undefined;
             const items = track.items.map(item => {
@@ -53,8 +60,16 @@ export function retime(source: string | unknown, fpsNew: number): EditV2 {
                 return retimeItem(item, at, duration, ratio);
             });
             return { ...itemsTrack, items };
-        })
+        }) as EditV2['tracks']
     };
+}
+
+function retimeAudioItem(item: AudioMediaItemV2, ratio: number): AudioMediaItemV2 {
+    const at = Math.round(item.at * ratio);
+    const duration = item.duration === 0
+        ? 0
+        : Math.max(1, Math.round((item.at + item.duration) * ratio) - at);
+    return { ...item, at, duration, source: { ...item.source } };
 }
 
 function retimeItem(item: ItemV2, at: number, duration: number, ratio: number): ItemV2 {

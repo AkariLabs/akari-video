@@ -6,10 +6,9 @@
     {
       "id": "sfx",
       "lane": "audio",
-      "role": "sfx",
       "items": [
-        { "id": "hit-1", "at": 0, "duration": 30, "source": { "kind": "media", "src": "hit", "in": 0, "out": 1 } },
-        { "id": "hit-2", "at": 15, "duration": 30, "source": { "kind": "media", "src": "hit", "in": 0, "out": 1 } }
+        { "id": "hit-1", "at": 0, "duration": 30, "role": "sfx", "source": { "kind": "media", "src": "hit", "in": 0, "out": 1 } },
+        { "id": "hit-2", "at": 15, "duration": 30, "role": "sfx", "source": { "kind": "media", "src": "hit", "in": 0, "out": 1 } }
       ]
     }
   ]

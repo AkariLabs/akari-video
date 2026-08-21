@@ -12,6 +12,7 @@ import {
   revertMigration,
 } from '../lib/migrate/index.js';
 import { readEditV2 } from '../lib/edit-v2.js';
+import { projectLegacyEdit, readInternalEdit } from '../lib/internal-model.js';
 
 function base(version = 0) {
   return {
@@ -23,25 +24,6 @@ function base(version = 0) {
     cuts: [{ ...(version === 1 ? { src: 'main' } : {}), in: 0, out: 1 }, { ...(version === 1 ? { src: 'main' } : {}), in: 2, out: 3 }],
     overlays: [],
   };
-}
-
-function wavBuffer(durationSeconds, sampleRate = 8000) {
-  const sampleCount = Math.round(durationSeconds * sampleRate);
-  const dataSize = sampleCount * 2;
-  const buffer = Buffer.alloc(44 + dataSize);
-  buffer.write('RIFF', 0);
-  buffer.writeUInt32LE(36 + dataSize, 4);
-  buffer.write('WAVEfmt ', 8);
-  buffer.writeUInt32LE(16, 16);
-  buffer.writeUInt16LE(1, 20);
-  buffer.writeUInt16LE(1, 22);
-  buffer.writeUInt32LE(sampleRate, 24);
-  buffer.writeUInt32LE(sampleRate * 2, 28);
-  buffer.writeUInt16LE(2, 32);
-  buffer.writeUInt16LE(16, 34);
-  buffer.write('data', 36);
-  buffer.writeUInt32LE(dataSize, 40);
-  return buffer;
 }
 
 test('v0/v1 -> v2: 暗黙 at を絶対フレームに焼き、v2 reader を通す', () => {
@@ -73,86 +55,93 @@ test('レイヤー動画の素材表追加・baked telop・audio を音声先頭
   assert.equal(result.doc.tracks[2].items[0].source.kind, 'media');
   assert.deepEqual(result.doc.tracks[3].items[0].source, { kind: 'telop', preset: 'title', params: { text: 'A' }, baked: 'title.mov' });
   assert.equal(result.doc.audio, undefined);
-  assert.equal(result.doc.tracks[0].role, 'sfx');
-  assert.equal(result.doc.tracks[0].items[0].duration, 1);
-  assert.equal(result.unresolvedAudioDurations[0].trackIndex, 0);
-  assert.equal(result.unresolvedAudioDurations[0].itemIndex, 0);
-  assert.equal(result.unresolvedAudioDurations.length, 1);
+  assert.equal(result.doc.tracks[0].items[0].role, undefined);
+  assert.equal(result.doc.tracks[0].items[0].duration, 0);
+  assert.equal(result.doc.tracks[0].items[0].source.out, undefined);
 });
 
-test('明示 out の SE は ffprobe 不要で frameRange と source fields へ移る', () => {
-  const doc = base(1);
-  doc.audio = { sfx: [{ id: 'hit', t: 0.25, path: 'hit.wav', in: 0.1, out: 0.6, gain_db: -8 }] };
-  const result = migrateEditToV2(doc);
-  assert.equal(result.ok, true);
-  assert.deepEqual(result.unresolvedAudioDurations, []);
-  const track = result.doc.tracks[0];
-  assert.equal(track.role, 'sfx');
-  assert.deepEqual({ at: track.items[0].at, duration: track.items[0].duration }, { at: 8, duration: 15 });
-  assert.deepEqual(track.items[0].source, {
-    kind: 'media', src: result.doc.sources.find(source => source.path === 'hit.wav').id,
-    in: 0.1, out: 0.6, gain_db: -8,
-  });
-});
-
-test('BGM・narration・複数 SE ref は役割別に分離し bgm→narration→sfx 昇順で並ぶ', () => {
+test('v1 audio は用途別 audio track へ移り、時刻・尺と音声属性を契約どおり変換する', () => {
   const doc = base(1);
   doc.audio = {
-    master: { loudnorm: true },
-    bgm: { path: 'music.wav', fadeIn: 1.25, fadeOut: 2.5, gain_db: -18, ducking: true },
-    narration: [{ id: 'n-1', t: 0.2, path: 'voice.wav', gain_db: -3, script: 'hello' }],
+    master: { loudnorm: -14 },
     sfx: [
-      { id: 's2', t: 0, path: 'two.wav', track: 2, out: 0.5 },
-      { id: 's0', t: 0, path: 'zero.wav', out: 0.5 },
+      { id: 'trimmed', t: 0.25, path: 'hit.wav', in: 0.1, out: 0.6, gain_db: -8, fade_in: 0.05, fade_out: 0.1 },
+      { id: 'open-ended', t: 1.25, path: 'tail.wav' },
     ],
+    narration: [{ id: 'n-0001', t: 0.2, path: 'voice.wav', gain_db: -3, provenance: { provider: 'human' } }],
+    bgm: { path: 'music.wav', in: 4, fadeIn: 1.25, fadeOut: 2.5, gain_db: -18, ducking: true },
   };
   const result = migrateEditToV2(doc);
   assert.equal(result.ok, true);
-  assert.deepEqual(result.doc.tracks.slice(0, 4).map(track => [track.role, track.items[0].id]), [
-    ['bgm', 'bgm'], ['narration', 'n-1'], ['sfx', 's0'], ['sfx', 's2'],
+  const audioTracks = result.doc.tracks.filter(track => track.lane === 'audio');
+  assert.equal(audioTracks.length, 3);
+  assert.deepEqual(audioTracks.map(track => track.items.map(item => item.role ?? 'sfx')), [
+    ['sfx', 'sfx'], ['narration'], ['bgm'],
   ]);
-  assert.deepEqual(result.doc.tracks[0].items[0].source, {
-    kind: 'media', src: result.doc.sources.find(source => source.path === 'music.wav').id,
-    in: 0, out: 2, fade_in: 1.25, fade_out: 2.5, gain_db: -18, ducking: true,
+
+  const [trimmed, openEnded] = audioTracks[0].items;
+  assert.deepEqual({ at: trimmed.at, duration: trimmed.duration }, { at: 8, duration: 15 });
+  assert.deepEqual(trimmed.source, {
+    kind: 'media', src: result.doc.sources.find(source => source.path === 'hit.wav').id, in: 0.1, out: 0.6,
   });
-  assert.equal(result.doc.tracks[1].items[0].script, 'hello');
-  assert.deepEqual(result.doc.audio, { master: { loudnorm: true } });
-  assert.deepEqual(result.unresolvedAudioDurations.map(value => value.path), ['voice.wav']);
+  assert.deepEqual(
+    { gain_db: trimmed.gain_db, fade_in: trimmed.fade_in, fade_out: trimmed.fade_out },
+    { gain_db: -8, fade_in: 0.05, fade_out: 0.1 },
+  );
+  assert.equal(openEnded.duration, 0);
+  assert.deepEqual(openEnded.source, {
+    kind: 'media', src: result.doc.sources.find(source => source.path === 'tail.wav').id, in: 0,
+  });
+
+  const narration = audioTracks[1].items[0];
+  assert.equal(narration.duration, 0);
+  assert.deepEqual(narration.source, {
+    kind: 'media', src: result.doc.sources.find(source => source.path === 'voice.wav').id, in: 0,
+  });
+  const bgm = audioTracks[2].items[0];
+  assert.equal(bgm.duration, 0);
+  assert.deepEqual(bgm.source, {
+    kind: 'media', src: result.doc.sources.find(source => source.path === 'music.wav').id, in: 4,
+  });
+  assert.deepEqual(
+    { gain_db: bgm.gain_db, fade_in: bgm.fade_in, fade_out: bgm.fade_out, ducking: bgm.ducking },
+    { gain_db: -18, fade_in: 1.25, fade_out: 2.5, ducking: true },
+  );
+  assert.deepEqual(result.doc.audio, { master: { loudnorm: -14 } });
+  assert.doesNotThrow(() => readEditV2(result.doc));
+  assert.doesNotThrow(() => readInternalEdit(result.doc));
 });
 
-test('planMigration は実 WAV を ffprobe し SE/narration の duration と source.out を確定する', async () => {
-  const root = await mkdtemp(join(tmpdir(), 'akari-migrate-audio-'));
-  try {
-    await writeFile(join(root, 'hit.wav'), wavBuffer(0.4));
-    await writeFile(join(root, 'voice.wav'), wavBuffer(0.75));
-    const doc = base(1);
-    doc.audio = {
-      sfx: [{ id: 'hit', t: 0.1, path: 'hit.wav' }],
-      narration: [{ id: 'voice', t: 0.2, path: 'voice.wav' }],
-    };
-    const text = `${JSON.stringify(doc)}\n`;
-    const proposal = planMigration(root, join(root, 'edit.json'), text);
-    assert.equal('blockers' in proposal, false, proposal.blockers?.join('\n'));
-    const migrated = JSON.parse(proposal.nextText);
-    const [narrationTrack, sfxTrack] = migrated.tracks.slice(0, 2);
-    assert.equal(narrationTrack.role, 'narration');
-    assert.equal(sfxTrack.role, 'sfx');
-    assert.deepEqual([sfxTrack.items[0].duration, narrationTrack.items[0].duration], [12, 23]);
-    assert.deepEqual([sfxTrack.items[0].source.out, narrationTrack.items[0].source.out], [0.4, 0.75]);
-    assert.doesNotThrow(() => readEditV2(migrated));
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-test('planMigration は ffprobe failure を blocker にして placeholder を出力しない', () => {
+test('SE が無くても narration と BGM は別々の track ref へ分離される', () => {
   const doc = base(1);
-  doc.audio = { narration: [{ id: 'voice', t: 0, path: 'missing.wav' }] };
-  const result = planMigration('/tmp', '/tmp/edit.json', JSON.stringify(doc), {
-    ffprobeCommand: '/definitely/missing/ffprobe',
-  });
-  assert.equal(result.ok, false);
-  assert.match(result.blockers.join('\n'), /ffprobe.*missing\.wav/);
+  doc.audio = {
+    narration: [{ id: 'n-0001', t: 0, path: 'voice.wav', provenance: { provider: 'human' } }],
+    bgm: { path: 'music.wav' },
+  };
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, true);
+  const audioTracks = result.doc.tracks.filter(track => track.lane === 'audio');
+  assert.equal(audioTracks.length, 2);
+  assert.deepEqual(audioTracks.map(track => track.items[0].role), ['narration', 'bgm']);
+  const internal = readInternalEdit(result.doc);
+  assert.deepEqual(internal.tracks.filter(track => track.lane === 'audio').map(track => track.legacy.ref), [0, 1]);
+});
+
+test('planMigration は音声素材を ffprobe せず duration: 0 センチネルのまま提案する', () => {
+  const doc = base(1);
+  doc.audio = {
+    sfx: [{ id: 'hit', t: 0.1, path: 'missing-hit.wav' }],
+    narration: [{ id: 'n-0001', t: 0.2, path: 'missing-voice.wav', provenance: { provider: 'human' } }],
+    bgm: { path: 'missing-music.wav' },
+  };
+  const proposal = planMigration('/tmp', '/tmp/edit.json', JSON.stringify(doc));
+  assert.equal('blockers' in proposal, false, proposal.blockers?.join('\n'));
+  const migrated = JSON.parse(proposal.nextText);
+  assert.deepEqual(
+    migrated.tracks.filter(track => track.lane === 'audio').flatMap(track => track.items).map(item => item.duration),
+    [0, 0, 0],
+  );
+  assert.doesNotThrow(() => readEditV2(migrated));
 });
 
 test('legacy audio entry の未知キーは category ごとの allow-list で拒否する', () => {
@@ -167,6 +156,52 @@ test('legacy audio entry の未知キーは category ごとの allow-list で拒
     assert.equal(result.ok, false);
     assert.match(result.blockers.join('\n'), /未知フィールド/);
   }
+});
+
+test('narration の script / reading / provenance を credit あり・なしとも損失なく v2 item へ移す', () => {
+  const doc = base(1);
+  const withCredit = {
+    id: 'n-0001', path: 'voicevox.wav', t: 0.25, gain_db: 2,
+    script: 'アカリ、紹介PVを作って。',
+    reading: 'あかり、しょうかいピーブイをつくって。',
+    provenance: {
+      provider: 'voicevox', engine: 'voicevox-0.25.2', voice: 'speaker:13(青山龍星)',
+      credit: 'VOICEVOX:青山龍星', generated_at: '2026-08-03T08:37:37.627Z',
+    },
+  };
+  const withoutCredit = {
+    id: 'n-0002', path: 'human.wav', t: 1.5,
+    script: '収録音声です。', reading: 'しゅうろくおんせいです。',
+    provenance: {
+      provider: 'human', engine: 'studio', voice: 'owner', generated_at: '2026-08-04T00:00:00Z',
+    },
+  };
+  doc.audio = { narration: [withCredit, withoutCredit] };
+
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, true, result.blockers?.join('\n'));
+  const items = result.doc.tracks
+    .filter(track => track.lane === 'audio')
+    .flatMap(track => track.items);
+  assert.deepEqual(
+    items.map(({ script, reading, provenance }) => ({ script, reading, provenance })),
+    [withCredit, withoutCredit].map(({ script, reading, provenance }) => ({ script, reading, provenance })),
+  );
+  assert.doesNotThrow(() => readEditV2(result.doc));
+
+  const projected = projectLegacyEdit(readInternalEdit(result.doc)).audioNarration;
+  assert.deepEqual(
+    projected.map(({ script, reading, provenance }) => ({ script, reading, provenance })),
+    [withCredit, withoutCredit].map(({ script, reading, provenance }) => ({ script, reading, provenance })),
+  );
+});
+
+test('v1 narration は元契約どおり provenance を必須とする', () => {
+  const doc = base(1);
+  doc.audio = { narration: [{ id: 'n-0001', path: 'voice.wav', t: 0 }] };
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, false);
+  assert.match(result.blockers.join('\n'), /provenance/);
 });
 
 test('明示 timeline に captions 行が無い場合は字幕の黙示的な損失を blocker で止める', () => {
@@ -330,9 +365,9 @@ test('proxy / chroma_key の明示 null は copyPresent を経由しないため
   assert.doesNotThrow(() => readEditV2(result.doc));
 });
 
-test('planMigration の最終自己検証の根拠: readEditV2 は item.crop: null 単体を独立に拒否する', () => {
+test('migrateEditToV2 の最終自己検証の根拠: readEditV2 は item.crop: null 単体を独立に拒否する', () => {
   // copyPresent の null 除去とは独立に、「crop: null を含む v2 は readEditV2 で必ず落ちる」こと
-  // 自体を確認する。planMigration は ffprobe patch 後の doc をこの同じ readEditV2 に必ず通すため、
+  // 自体を確認する。migrateEditToV2 は組み立てた doc をこの同じ readEditV2 に必ず通すため、
   // 万一 copyPresent 以外の経路で不正な v2 が組み立てられても提案にはならない根拠になる。
   const migrated = migrateEditToV2(base());
   const brokenDoc = {

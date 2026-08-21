@@ -8,11 +8,10 @@
 
 import { promises as fs } from 'fs';
 import { existsSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { basename, dirname, join, resolve } from 'path';
+import { join, resolve } from 'path';
 import { writeAtomic } from '../write-gate';
 import { readEditV2 } from '../edit-v2';
-import type { EditV2, ItemV2, TrackV2 } from '../edit-v2';
+import type { AudioMediaItemV2, EditV2, ItemV2, TrackV2 } from '../edit-v2';
 export { LegacyEditVersionError } from './error';
 export { parseEdit } from './legacy-parse';
 export type { EditParseOrigins } from './legacy-parse';
@@ -25,22 +24,8 @@ export interface MigrateChange {
 }
 
 export type MigrateResult =
-    | {
-        ok: true;
-        version: LegacyVersion;
-        doc: EditV2;
-        changes: MigrateChange[];
-        warnings: string[];
-        unresolvedAudioDurations: ReadonlyArray<UnresolvedAudioDuration>;
-    }
+    | { ok: true; version: LegacyVersion; doc: EditV2; changes: MigrateChange[]; warnings: string[] }
     | { ok: false; version: number; blockers: string[] };
-
-export interface UnresolvedAudioDuration {
-    trackIndex: number;
-    itemIndex: number;
-    path: string;
-    atSeconds: number;
-}
 
 export interface MigrationProposal {
     filePath: string;
@@ -64,15 +49,20 @@ interface LegacyTrackDef {
     id: string;
     kind: 'cuts' | 'layers' | 'overlays' | 'captions' | 'audio';
     ref?: number;
-    role?: 'sfx' | 'narration' | 'bgm';
     label?: string;
 }
 
 interface PendingItem {
     kind: LegacyTrackDef['kind'];
     ref: number;
-    role?: LegacyTrackDef['role'];
-    item: ItemV2;
+    item: ItemV2 | AudioMediaItemV2;
+}
+
+interface LegacyAudioTrackRefs {
+    sfx: number[];
+    narration?: number;
+    bgm?: number;
+    all: number[];
 }
 
 const TOP_KEYS = new Set([
@@ -88,9 +78,9 @@ const LAYER_KEYS = new Set([
     'id', 't', 'duration', 'kind', 'src', 'transform', 'crop', 'perspective', 'opacity',
     'keyframes', 'preset', 'params', 'track', 'blend', 'chroma_key'
 ]);
-const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out']);
-const NARRATION_KEYS = new Set(['id', 't', 'path', 'gain_db', 'script']);
-const BGM_KEYS = new Set(['id', 'path', 'fadeIn', 'fadeOut', 'gain_db', 'ducking']);
+const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out']);
+const NARRATION_KEYS = new Set(['id', 't', 'path', 'gain_db', 'script', 'reading', 'provenance']);
+const BGM_KEYS = new Set(['id', 'path', 'in', 'fadeIn', 'fadeOut', 'gain_db', 'ducking']);
 
 export function detectEditVersion(raw: unknown): number | undefined {
     return isRecord(raw) && typeof raw.version === 'number' && Number.isFinite(raw.version)
@@ -159,7 +149,6 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
     const sourceIds = new Set(sources.map(source => String(source.id)));
     const sourceIdByPath = new Map(sources.map(source => [String(source.path), String(source.id)]));
     const pending: PendingItem[] = [];
-    const unresolvedItems: Array<{ item: ItemV2; path: string; atSeconds: number }> = [];
     const usedItemIds = new Set<string>();
     const cuts = arrayOrEmpty(raw.cuts, 'edit.json.cuts', blockers);
     const cursorByTrack = new Map<number, number>();
@@ -284,6 +273,7 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
     if (raw.audio !== undefined && !audio) {
         blockers.push('edit.json.audio が object ではありません。');
     }
+    const audioTrackRefs = legacyAudioTrackRefs(audio);
     let audioSourceSerial = 1;
     const audioSourceId = (path: string): string => {
         const existing = sourceIdByPath.get(path);
@@ -295,7 +285,7 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
         sources.push({ id, path, proxy: null });
         return id;
     };
-    const sfx = arrayOrEmpty(audio?.sfx, 'edit.json.audio.sfx', blockers);
+    const sfx = arrayOrEmpty(audio?.sfx ?? undefined, 'edit.json.audio.sfx', blockers);
     sfx.forEach((value, index) => {
         const itemPath = `edit.json.audio.sfx[${index}]`;
         if (!isRecord(value)) {
@@ -306,22 +296,28 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
         const inSeconds = value.in === undefined ? 0 : value.in;
         if (!nonEmpty(value.path) || !nonNegative(value.t) || !nonNegative(inSeconds)
             || (value.out !== undefined && (!positive(value.out) || value.out <= (inSeconds as number)))
-            || (value.gain_db !== undefined && !finiteNumber(value.gain_db))) {
-            blockers.push(`${itemPath} の path / t / in / out / gain_db が不正です。`);
+            || (value.gain_db !== undefined && !gainDb(value.gain_db))
+            || (value.fade_in !== undefined && !nonNegative(value.fade_in))
+            || (value.fade_out !== undefined && !nonNegative(value.fade_out))) {
+            blockers.push(`${itemPath} の path / t / in / out / gain_db / fade_in / fade_out が不正です。`);
             return;
         }
-        const source: RecordValue = {
+        const source: AudioMediaItemV2['source'] = {
             kind: 'media', src: audioSourceId(value.path), in: inSeconds,
-            out: value.out !== undefined ? value.out : (inSeconds as number) + (1 / frameRate),
-            ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {})
+            ...(value.out !== undefined ? { out: value.out as number } : {})
         };
-        const item = {
+        const item: AudioMediaItemV2 = {
             id: uniqueId(nonEmpty(value.id) ? value.id : `sfx-${index}`, usedItemIds),
-            ...frameRange(value.t, value.out !== undefined ? (value.out as number) - (inSeconds as number) : 1 / frameRate, frameRate),
-            source
-        } as unknown as ItemV2;
-        pending.push({ kind: 'audio', ref: trackOf(value.track), role: 'sfx', item });
-        if (value.out === undefined) unresolvedItems.push({ item, path: value.path, atSeconds: value.t });
+            at: Math.round(value.t * frameRate),
+            duration: value.out !== undefined
+                ? Math.round(((value.out as number) - (inSeconds as number)) * frameRate)
+                : 0,
+            source,
+            ...(value.gain_db !== undefined ? { gain_db: value.gain_db as number } : {}),
+            ...(value.fade_in !== undefined ? { fade_in: value.fade_in as number } : {}),
+            ...(value.fade_out !== undefined ? { fade_out: value.fade_out as number } : {})
+        };
+        pending.push({ kind: 'audio', ref: trackOf(value.track), item });
     });
 
     const narration = arrayOrEmpty(audio?.narration, 'edit.json.audio.narration', blockers);
@@ -333,56 +329,54 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
         }
         rejectUnknownKeys(value, NARRATION_KEYS, itemPath, blockers);
         if (!nonEmpty(value.path) || !nonNegative(value.t)
-            || (value.gain_db !== undefined && !finiteNumber(value.gain_db))
-            || (value.script !== undefined && typeof value.script !== 'string')) {
-            blockers.push(`${itemPath} の path / t / gain_db / script が不正です。`);
+            || (value.gain_db !== undefined && !gainDb(value.gain_db))
+            || (value.script !== undefined && typeof value.script !== 'string')
+            || (value.reading !== undefined && typeof value.reading !== 'string')
+            || !validNarrationProvenance(value.provenance)) {
+            blockers.push(`${itemPath} の path / t / gain_db / script / reading / provenance が不正です。`);
             return;
         }
-        const item = {
+        const item: AudioMediaItemV2 = {
             id: uniqueId(nonEmpty(value.id) ? value.id : `narration-${index + 1}`, usedItemIds),
-            ...frameRange(value.t, 1 / frameRate, frameRate),
-            ...(value.script !== undefined ? { script: value.script } : {}),
-            source: {
-                kind: 'media', src: audioSourceId(value.path), in: 0, out: 1 / frameRate,
-                ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {})
-            }
-        } as unknown as ItemV2;
-        pending.push({ kind: 'audio', ref: 0, role: 'narration', item });
-        unresolvedItems.push({ item, path: value.path, atSeconds: value.t });
+            at: Math.round(value.t * frameRate),
+            duration: 0,
+            role: 'narration',
+            source: { kind: 'media', src: audioSourceId(value.path), in: 0 },
+            ...(value.gain_db !== undefined ? { gain_db: value.gain_db as number } : {}),
+            ...(value.script !== undefined ? { script: value.script as string } : {}),
+            ...(value.reading !== undefined ? { reading: value.reading as string } : {}),
+            provenance: clone(value.provenance) as AudioMediaItemV2['provenance']
+        };
+        pending.push({ kind: 'audio', ref: audioTrackRefs.narration as number, item });
     });
 
-    if (audio?.bgm !== undefined) {
+    if (audio?.bgm !== undefined && audio.bgm !== null) {
         const value = audio.bgm;
         if (!isRecord(value)) {
             blockers.push('edit.json.audio.bgm が object ではありません。');
         } else {
             rejectUnknownKeys(value, BGM_KEYS, 'edit.json.audio.bgm', blockers);
             if (!nonEmpty(value.path)
+                || (value.in !== undefined && !nonNegative(value.in))
                 || (value.fadeIn !== undefined && !nonNegative(value.fadeIn))
                 || (value.fadeOut !== undefined && !nonNegative(value.fadeOut))
-                || (value.gain_db !== undefined && !finiteNumber(value.gain_db))
+                || (value.gain_db !== undefined && !gainDb(value.gain_db))
                 || (value.ducking !== undefined && typeof value.ducking !== 'boolean')) {
-                blockers.push('edit.json.audio.bgm の path / fadeIn / fadeOut / gain_db / ducking が不正です。');
+                blockers.push('edit.json.audio.bgm の path / in / fadeIn / fadeOut / gain_db / ducking が不正です。');
             } else if (usedItemIds.has('bgm')) {
                 blockers.push('audio.bgm の固定 item id "bgm" が他の item id と重複します。');
             } else {
                 usedItemIds.add('bgm');
-                const visualEndFrames = pending
-                    .filter(entry => entry.kind !== 'audio')
-                    .reduce((max, entry) => Math.max(max, entry.item.at + entry.item.duration), 0);
-                const duration = Math.max(1, visualEndFrames);
                 pending.push({
-                    kind: 'audio', ref: 0, role: 'bgm',
+                    kind: 'audio', ref: audioTrackRefs.bgm as number,
                     item: {
-                        id: 'bgm', at: 0, duration,
-                        source: {
-                            kind: 'media', src: audioSourceId(value.path), in: 0, out: duration / frameRate,
-                            ...(value.fadeIn !== undefined ? { fade_in: value.fadeIn } : {}),
-                            ...(value.fadeOut !== undefined ? { fade_out: value.fadeOut } : {}),
-                            ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {}),
-                            ...(value.ducking !== undefined ? { ducking: value.ducking } : {})
-                        }
-                    } as ItemV2
+                        id: 'bgm', at: 0, duration: 0, role: 'bgm',
+                        source: { kind: 'media', src: audioSourceId(value.path), in: value.in ?? 0 },
+                        ...(value.fadeIn !== undefined ? { fade_in: value.fadeIn as number } : {}),
+                        ...(value.fadeOut !== undefined ? { fade_out: value.fadeOut as number } : {}),
+                        ...(value.gain_db !== undefined ? { gain_db: value.gain_db as number } : {}),
+                        ...(value.ducking !== undefined ? { ducking: value.ducking as boolean } : {})
+                    } as AudioMediaItemV2
                 });
             }
         }
@@ -390,7 +384,7 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
 
     if (blockers.length > 0) return { ok: false, version, blockers };
     const hasCaptions = options.hasCaptions === true || Array.isArray(raw.captions);
-    const trackDefs = readTrackDefs(raw.timeline, pending, hasCaptions, blockers);
+    const trackDefs = readTrackDefs(raw.timeline, pending, audioTrackRefs.all, hasCaptions, blockers);
     if (blockers.length > 0) return { ok: false, version, blockers };
     const tracks = trackDefs.map(def => {
         if (def.kind === 'captions') {
@@ -399,14 +393,13 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
         const lane = def.kind === 'audio' ? 'audio' : 'visual';
         return {
             id: def.id, lane, ...(def.label !== undefined ? { name: def.label } : {}),
-            ...(def.role !== undefined ? { role: def.role } : {}),
-            items: pending.filter(entry => entry.kind === def.kind && entry.ref === (def.ref ?? 0)
-                && entry.role === def.role).map(entry => entry.item)
+            items: pending.filter(entry => entry.kind === def.kind && entry.ref === (def.ref ?? 0))
+                .map(entry => entry.item)
         } as TrackV2;
     });
     // timeline が壊れていてアイテムに対応する行が無い場合は黙って落とさない。
     for (const entry of pending) {
-        if (!trackDefs.some(def => def.kind === entry.kind && (def.ref ?? 0) === entry.ref && def.role === entry.role)) {
+        if (!trackDefs.some(def => def.kind === entry.kind && (def.ref ?? 0) === entry.ref)) {
             blockers.push(`timeline.tracks に ${entry.kind} ref=${entry.ref} の行がありません。`);
         }
     }
@@ -431,46 +424,37 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
     const changes: MigrateChange[] = [
         { path: 'version', note: 'edit.json version 0/1 を version 2 へ更新' },
         { path: 'cuts/overlays/layers', note: 'tracks[].items[] と source.kind へ移し、出力時刻を整数フレームに確定' },
-        { path: 'timeline.tracks', note: '(種別, ref) の visual 行の相対順を保ち、audio 行を役割別に分割して先頭へ移行' }
+        { path: 'timeline.tracks', note: '(種別, ref) の visual 行の相対順を保ち、audio 行を用途別の ref へ分離して先頭へ移行' }
     ];
     if (raw.audio !== undefined) changes.push({
         path: 'audio',
-        note: 'BGM・ナレーション・SE を役割別の tracks[].items[] へ移し、出力時刻を整数フレームに確定（素材側 in/out・fade・gain_db・ducking は秒宣言を維持）'
+        note: 'BGM・ナレーション・SE を tracks[].items[] へ移し、出力側 at/duration は整数フレーム、素材側 in/out/fade/bgm.in は秒のまま維持'
     });
     if (raw.thumbnail !== undefined) changes.push({ path: 'thumbnail', note: 'サムネイル参照を変更せず持ち越し' });
 
-    const unresolvedAudioDurations: UnresolvedAudioDuration[] = [];
-    for (const unresolved of unresolvedItems) {
-        let located = false;
-        for (let trackIndex = 0; trackIndex < tracks.length; trackIndex++) {
-            const track = tracks[trackIndex];
-            if (!('items' in track)) continue;
-            const itemIndex = track.items.indexOf(unresolved.item);
-            if (itemIndex >= 0) {
-                unresolvedAudioDurations.push({
-                    trackIndex, itemIndex, path: unresolved.path, atSeconds: unresolved.atSeconds
-                });
-                located = true;
-                break;
-            }
-        }
-        if (!located) {
-            return { ok: false, version, blockers: [`未解決音声 item ${unresolved.item.id} が tracks[] にありません。`] };
-        }
-    }
     if (pending.reduce((sum, entry) => sum + tracks.filter(track => 'items' in track
-        && track.items.includes(entry.item)).length, 0) !== pending.length) {
+        && track.items.some(item => item === entry.item)).length, 0) !== pending.length) {
         return { ok: false, version, blockers: ['変換後の tracks[] が pending item を一意に保持していません。'] };
     }
 
-    return { ok: true, version, doc, changes, warnings: [], unresolvedAudioDurations };
+    try {
+        readEditV2(doc);
+    } catch (error) {
+        return {
+            ok: false,
+            version,
+            blockers: [`変換後の v2 が自己検証に失敗しました（変換器のバグの可能性があります。不正な v2 は書き出しません）: ${messageOf(error)}`]
+        };
+    }
+
+    return { ok: true, version, doc, changes, warnings: [] };
 }
 
 export function planMigration(
     projectRoot: string,
     editPath: string,
     text: string,
-    options: { hasCaptions?: boolean; now?: Date; ffprobeCommand?: string } = {}
+    options: { hasCaptions?: boolean; now?: Date } = {}
 ): MigrationProposal | MigrationBlocked {
     let raw: unknown;
     try {
@@ -488,41 +472,6 @@ export function planMigration(
     const migrated = migrateEditToV2(raw, { hasCaptions });
     if ('blockers' in migrated) {
         return { ok: false, version: migrated.version, blockers: migrated.blockers };
-    }
-    const durationCache = new Map<string, number | null>();
-    let ffprobeCommand: string | undefined;
-    try {
-        if (migrated.unresolvedAudioDurations.length > 0) {
-            ffprobeCommand = options.ffprobeCommand ?? resolveFfprobeCommand();
-        }
-    } catch (error) {
-        return { ok: false, version: migrated.version, blockers: [`ffprobe を解決できません: ${messageOf(error)}`] };
-    }
-    for (const unresolved of migrated.unresolvedAudioDurations) {
-        const mediaPath = resolve(projectRoot, unresolved.path);
-        let fileDuration = durationCache.get(mediaPath);
-        if (fileDuration === undefined) {
-            fileDuration = probeAudioDurationSeconds(ffprobeCommand as string, mediaPath);
-            durationCache.set(mediaPath, fileDuration);
-        }
-        const track = migrated.doc.tracks[unresolved.trackIndex];
-        const item = track && 'items' in track ? track.items[unresolved.itemIndex] : undefined;
-        if (fileDuration === null || !item || item.source.kind !== 'media' || fileDuration <= item.source.in) {
-            return {
-                ok: false, version: migrated.version,
-                blockers: [`音声素材の実尺を ffprobe で解決できません: ${unresolved.path}`]
-            };
-        }
-        item.source.out = fileDuration;
-        item.duration = frameRange(unresolved.atSeconds, fileDuration - item.source.in, migrated.doc.output.fps).duration;
-    }
-    try {
-        readEditV2(migrated.doc);
-    } catch (error) {
-        return {
-            ok: false, version: migrated.version,
-            blockers: [`変換後の v2 が自己検証に失敗しました（変換器のバグの可能性があります。不正な v2 は書き出しません）: ${messageOf(error)}`]
-        };
     }
     const iso = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
     return {
@@ -547,6 +496,7 @@ export async function revertMigration(proposal: MigrationProposal): Promise<void
 function readTrackDefs(
     timeline: unknown,
     pending: readonly PendingItem[],
+    audioRefs: readonly number[],
     hasCaptions: boolean,
     blockers: string[]
 ): LegacyTrackDef[] {
@@ -571,7 +521,7 @@ function readTrackDefs(
                 ...(typeof value.label === 'string' ? { label: value.label } : {})
             }];
         });
-        return orderedTrackDefs(pending, declared, hasCaptions, blockers);
+        return orderedTrackDefs(declared, audioRefs, hasCaptions, blockers);
     }
     const defs: LegacyTrackDef[] = [];
     const append = (kind: LegacyTrackDef['kind'], ref?: number): void => {
@@ -582,26 +532,21 @@ function readTrackDefs(
         refs.forEach(ref => append(kind, ref));
     }
     if (hasCaptions) append('captions');
-    return orderedTrackDefs(pending, defs, hasCaptions, blockers);
+    return orderedTrackDefs(defs, audioRefs, hasCaptions, blockers);
 }
 
 function orderedTrackDefs(
-    pending: readonly PendingItem[], declared: readonly LegacyTrackDef[], hasCaptions: boolean, blockers: string[]
+    declared: readonly LegacyTrackDef[], audioRefs: readonly number[], hasCaptions: boolean, blockers: string[]
 ): LegacyTrackDef[] {
     const usedIds = new Set(declared.map(def => def.id));
     const newId = (candidate: string): string => uniqueId(candidate, usedIds);
     const audio: LegacyTrackDef[] = [];
-    if (pending.some(entry => entry.kind === 'audio' && entry.role === 'bgm')) {
-        audio.push({ id: newId('audio-bgm'), kind: 'audio', ref: 0, role: 'bgm' });
-    }
-    if (pending.some(entry => entry.kind === 'audio' && entry.role === 'narration')) {
-        audio.push({ id: newId('audio-narration'), kind: 'audio', ref: 0, role: 'narration' });
-    }
-    const sfxRefs = [...new Set(pending.filter(entry => entry.kind === 'audio' && entry.role === 'sfx')
-        .map(entry => entry.ref))].sort((a, b) => a - b);
-    for (const ref of sfxRefs) {
+    for (const ref of audioRefs) {
         const legacy = declared.find(def => def.kind === 'audio' && (def.ref ?? 0) === ref);
-        audio.push({ ...(legacy ?? { id: newId(`audio-sfx-${ref}`), kind: 'audio' as const }), ref, role: 'sfx' });
+        audio.push({ ...(legacy ?? { id: newId(`audio-${ref}`), kind: 'audio' as const }), ref });
+    }
+    for (const legacy of declared.filter(def => def.kind === 'audio')) {
+        if (!audio.some(def => (def.ref ?? 0) === (legacy.ref ?? 0))) audio.push(legacy);
     }
     const visual = declared.filter(def => def.kind !== 'audio');
     if (hasCaptions && declared.length === 0 && !visual.some(def => def.kind === 'captions')) {
@@ -610,36 +555,28 @@ function orderedTrackDefs(
     return [...audio, ...visual];
 }
 
-function probeAudioDurationSeconds(ffprobeCommand: string, path: string): number | null {
-    try {
-        const result = spawnSync(ffprobeCommand, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'json', path], { encoding: 'utf8' });
-        if (result.status !== 0) return null;
-        const duration = JSON.parse(result.stdout)?.format?.duration;
-        const numeric = Number(duration);
-        return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
-    } catch {
-        return null;
+function legacyAudioTrackRefs(value: unknown): LegacyAudioTrackRefs {
+    const audio = isRecord(value) ? value : undefined;
+    if (!audio) return { sfx: [], all: [] };
+    const sfx = new Set<number>();
+    if (Array.isArray(audio.sfx)) {
+        for (const entry of audio.sfx) if (isRecord(entry)) sfx.add(trackOf(entry.track));
     }
-}
-
-function resolveFfprobeCommand(): string {
-    // edit-store は CommonJS へ同期コンパイルされ、media-bin は純 ESM .mjs なので、ここから
-    // resolveFfprobe() を静的 import すると Node 20 で require(ESM) になる。同期 API を保つため、
-    // media-bin と同じ env -> PATH -> vendor の探索順だけをこの境界で再現する。
-    const explicit = process.env.AKARI_FFPROBE_BIN;
-    if (explicit) {
-        if (/[\\/]/.test(explicit)) {
-            if (!existsSync(explicit)) throw new Error(`AKARI_FFPROBE_BIN で指定されたファイルがありません: ${explicit}`);
-            return explicit;
-        }
-        if (spawnSync(explicit, ['-version'], { stdio: 'ignore' }).error === undefined) return explicit;
-        throw new Error(`AKARI_FFPROBE_BIN で指定されたコマンド ${explicit} が PATH に見つかりません。`);
-    }
-    if (spawnSync('ffprobe', ['-version'], { stdio: 'ignore' }).status === 0) return 'ffprobe';
-    const executable = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
-    const vendor = resolve(__dirname, '../../../media-bin/vendor', `${process.platform}-${process.arch}`, executable);
-    if (existsSync(vendor)) return vendor;
-    throw new Error('ffprobe が PATH または packages/media-bin/vendor に見つかりません。');
+    const sfxRefs = [...sfx].sort((a, b) => a - b);
+    let nextRef = sfxRefs.length > 0 ? Math.max(...sfxRefs) + 1 : 0;
+    const narration = Array.isArray(audio.narration) && audio.narration.length > 0
+        ? nextRef++ : undefined;
+    const bgm = isRecord(audio.bgm) ? nextRef++ : undefined;
+    return {
+        sfx: sfxRefs,
+        ...(narration !== undefined ? { narration } : {}),
+        ...(bgm !== undefined ? { bgm } : {}),
+        all: [
+            ...sfxRefs,
+            ...(narration !== undefined ? [narration] : []),
+            ...(bgm !== undefined ? [bgm] : [])
+        ]
+    };
 }
 
 function arrayOrEmpty(value: unknown, path: string, blockers: string[]): unknown[] {
@@ -714,8 +651,16 @@ function nonNegative(value: unknown): value is number {
     return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
-function finiteNumber(value: unknown): value is number {
-    return typeof value === 'number' && Number.isFinite(value);
+function gainDb(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value) && value >= -60 && value <= 12;
+}
+
+function validNarrationProvenance(value: unknown): value is NonNullable<AudioMediaItemV2['provenance']> {
+    if (!isRecord(value) || !nonEmpty(value.provider)) return false;
+    for (const key of ['engine', 'voice', 'credit', 'generated_at']) {
+        if (value[key] !== undefined && typeof value[key] !== 'string') return false;
+    }
+    return value.provider !== 'voicevox' || nonEmpty(value.credit);
 }
 
 function trackOf(value: unknown): number {

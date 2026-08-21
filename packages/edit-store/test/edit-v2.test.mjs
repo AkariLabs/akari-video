@@ -19,19 +19,18 @@ test("readEditV2 reads all source kinds and preserves bottom-to-top track order"
   ]);
   assert.deepEqual(edit.tracks.map((track) => track.z), [0, 1, 2, 3, 4, 5, 6, 7]);
   assert.equal(edit.tracks[0].lane, "audio");
-  assert.deepEqual(edit.tracks.slice(0, 3).map((track) => track.role), ["sfx", "narration", "bgm"]);
+  assert.deepEqual(edit.tracks.slice(0, 3).map((track) => track.items[0].role ?? "sfx"), ["sfx", "narration", "bgm"]);
   assert.deepEqual(edit.tracks[4].content, { from: "captions.json" });
   assert.deepEqual(
     edit.tracks.flatMap((track) => (track.items ?? []).map((item) => item.source.kind)),
     ["media", "media", "media", "media", "filter", "html", "telop"],
   );
-  assert.equal(edit.tracks[1].items[0].script, "AKARI Videoへようこそ");
   assert.deepEqual(
     {
-      gain_db: edit.tracks[2].items[0].source.gain_db,
-      fade_in: edit.tracks[2].items[0].source.fade_in,
-      fade_out: edit.tracks[2].items[0].source.fade_out,
-      ducking: edit.tracks[2].items[0].source.ducking,
+      gain_db: edit.tracks[2].items[0].gain_db,
+      fade_in: edit.tracks[2].items[0].fade_in,
+      fade_out: edit.tracks[2].items[0].fade_out,
+      ducking: edit.tracks[2].items[0].ducking,
     },
     { gain_db: -18, fade_in: 1.25, fade_out: 2.5, ducking: true },
   );
@@ -69,43 +68,57 @@ test("readEditV2 reports closed source and item violations with a path", async (
   assert.throws(() => readEditV2(topLevel), /tracks\[7\]\.items\[0\].*textStyle/);
 });
 
-test("readEditV2 validates audio roles and BGM cardinality", async () => {
+test("readEditV2 validates audio item roles and closed audio item shape", async () => {
   const value = JSON.parse(await readFile(fixturePath, "utf8"));
   const invalidRole = structuredClone(value);
-  invalidRole.tracks[0].role = "dialogue";
-  assert.throws(() => readEditV2(invalidRole), /tracks\[0\]\.role.*sfx\/narration\/bgm/);
+  invalidRole.tracks[0].items[0].role = "dialogue";
+  assert.throws(() => readEditV2(invalidRole), /tracks\[0\]\.items\[0\]\.role.*sfx\/narration\/bgm/);
 
-  const multipleBgmTracks = structuredClone(value);
-  multipleBgmTracks.tracks.push({ id: "a-bgm-2", lane: "audio", role: "bgm", items: [] });
-  assert.throws(() => readEditV2(multipleBgmTracks), /tracks.*bgm.*1 本以下/);
-
-  const multipleBgmItems = structuredClone(value);
-  multipleBgmItems.tracks[2].items.push({
-    ...structuredClone(multipleBgmItems.tracks[2].items[0]),
-    id: "music-2",
-    at: 300,
-  });
-  assert.throws(() => readEditV2(multipleBgmItems), /tracks\[2\]\.items.*1 個以下/);
+  const visualField = structuredClone(value);
+  visualField.tracks[0].items[0].transform = { scale: 1 };
+  assert.throws(() => readEditV2(visualField), /tracks\[0\]\.items\[0\].*transform/);
 });
 
-test("readEditV2 validates new audio source and narration item fields", async () => {
+test("readEditV2 validates audio item fields and accepts duration: 0 with omitted role", async () => {
   const value = JSON.parse(await readFile(fixturePath, "utf8"));
-  value.tracks[2].items[0].source.fade_in = -1;
+  value.tracks[2].items[0].fade_in = -1;
   assert.throws(() => readEditV2(value), /fade_in.*0 以上/);
 
-  const invalidScript = JSON.parse(await readFile(fixturePath, "utf8"));
-  invalidScript.tracks[1].items[0].script = 42;
-  assert.throws(() => readEditV2(invalidScript), /script.*文字列/);
+  const sentinel = JSON.parse(await readFile(fixturePath, "utf8"));
+  sentinel.tracks[0].items[0].duration = 0;
+  delete sentinel.tracks[0].items[0].role;
+  delete sentinel.tracks[0].items[0].source.out;
+  assert.doesNotThrow(() => readEditV2(sentinel));
+});
+
+test("readEditV2 accepts and validates narration metadata on audio items", async () => {
+  const value = JSON.parse(await readFile(fixturePath, "utf8"));
+  const narration = value.tracks[1].items[0];
+  narration.script = "表示原稿";
+  narration.reading = "よみげんこう";
+  narration.provenance = {
+    provider: "voicevox", engine: "voicevox-0.25.2", voice: "speaker:13",
+    credit: "VOICEVOX:青山龍星", generated_at: "2026-08-03T08:37:37.627Z",
+  };
+  assert.doesNotThrow(() => readEditV2(value));
+
+  const missingProvider = structuredClone(value);
+  delete missingProvider.tracks[1].items[0].provenance.provider;
+  assert.throws(() => readEditV2(missingProvider), /provenance\.provider/);
+
+  const missingVoicevoxCredit = structuredClone(value);
+  delete missingVoicevoxCredit.tracks[1].items[0].provenance.credit;
+  assert.throws(() => readEditV2(missingVoicevoxCredit), /provenance\.credit/);
 });
 
 test("readEditV2 rejects fractional or negative v2 keyframe frames", async () => {
   const fractional = JSON.parse(await readFile(fixturePath, "utf8"));
-  fractional.tracks[1].items[0].keyframes = [{ t: 0 }, { t: 1.5 }];
-  assert.throws(() => readEditV2(fractional), /keyframes\[1\]\.t.*整数/);
+  fractional.tracks[3].items[0].keyframes = [{ t: 0 }, { t: 1.5 }];
+  assert.throws(() => readEditV2(fractional), /tracks\[3\].*keyframes\[1\]\.t.*整数/);
 
   const negative = JSON.parse(await readFile(fixturePath, "utf8"));
-  negative.tracks[1].items[0].keyframes = [{ t: 0 }, { t: -1 }];
-  assert.throws(() => readEditV2(negative), /keyframes\[1\]\.t.*0 以上の整数/);
+  negative.tracks[3].items[0].keyframes = [{ t: 0 }, { t: -1 }];
+  assert.throws(() => readEditV2(negative), /tracks\[3\].*keyframes\[1\]\.t.*0 以上の整数/);
 });
 
 test("readEditV2 accepts migration-only visual/audio vocabulary without relaxing frame integers", () => {

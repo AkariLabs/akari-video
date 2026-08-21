@@ -6,7 +6,11 @@ const BLEND_MODES = new Set([
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ]);
 const ITEM_KEYS = new Set([
-    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'script', 'source'
+    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'source'
+]);
+const AUDIO_ITEM_KEYS = new Set([
+    'id', 'at', 'duration', 'role', 'source', 'gain_db', 'fade_in', 'fade_out', 'ducking',
+    'script', 'reading', 'provenance'
 ]);
 /**
  * edit.json v2 だけを検証して内部表現へ読む。v0/v1 の変換は意図的に扱わない。
@@ -38,14 +42,6 @@ function readEditV2(json) {
     const trackIds = new Set();
     const itemIds = new Set();
     parsed.tracks.forEach((track, index) => validateTrack(track, index, trackIds, itemIds, sourceIds));
-    const bgmTracks = parsed.tracks.filter(track => isRecord(track) && hasOwn(track, 'items') && track.role === 'bgm');
-    if (bgmTracks.length > 1) {
-        throw invalid('edit.json.tracks', 'role が bgm の items track は 1 本以下である必要があります');
-    }
-    if (bgmTracks.length === 1 && Array.isArray(bgmTracks[0].items) && bgmTracks[0].items.length > 1) {
-        const index = parsed.tracks.indexOf(bgmTracks[0]);
-        throw invalid(`edit.json.tracks[${index}].items`, 'role が bgm の track は item を 1 個以下にする必要があります');
-    }
     const edit = parsed;
     return {
         version: 2,
@@ -100,7 +96,7 @@ function validateEditSource(value, index, ids) {
 function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     const path = `edit.json.tracks[${index}]`;
     requireRecord(value, path);
-    requireExactKeys(value, new Set(['id', 'lane', 'name', 'role', 'items', 'content']), path);
+    requireExactKeys(value, new Set(['id', 'lane', 'name', 'items', 'content']), path);
     requireText(value.id, `${path}.id`);
     if (trackIds.has(value.id))
         throw invalid(`${path}.id`, `track id が重複しています: ${value.id}`);
@@ -111,9 +107,6 @@ function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     if (hasOwn(value, 'name') && typeof value.name !== 'string') {
         throw invalid(`${path}.name`, '文字列である必要があります');
     }
-    if (hasOwn(value, 'role') && value.role !== 'sfx' && value.role !== 'narration' && value.role !== 'bgm') {
-        throw invalid(`${path}.role`, 'sfx/narration/bgm のいずれかである必要があります');
-    }
     const hasItems = hasOwn(value, 'items');
     const hasContent = hasOwn(value, 'content');
     if (hasItems === hasContent) {
@@ -122,16 +115,80 @@ function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     if (hasItems) {
         if (!Array.isArray(value.items))
             throw invalid(`${path}.items`, '配列である必要があります');
-        value.items.forEach((item, itemIndex) => validateItem(item, `${path}.items[${itemIndex}]`, itemIds, sourceIds));
+        value.items.forEach((item, itemIndex) => {
+            const itemPath = `${path}.items[${itemIndex}]`;
+            if (value.lane === 'audio')
+                validateAudioItem(item, itemPath, itemIds, sourceIds);
+            else
+                validateItem(item, itemPath, itemIds, sourceIds);
+        });
         return;
-    }
-    if (hasOwn(value, 'role')) {
-        throw invalid(`${path}.role`, 'role は items track でのみ使用できます');
     }
     requireRecord(value.content, `${path}.content`);
     requireExactKeys(value.content, new Set(['from']), `${path}.content`);
     if (value.content.from !== 'captions.json') {
         throw invalid(`${path}.content.from`, 'captions.json である必要があります');
+    }
+}
+function validateAudioItem(value, path, ids, sourceIds) {
+    requireRecord(value, path);
+    requireExactKeys(value, AUDIO_ITEM_KEYS, path);
+    requireText(value.id, `${path}.id`);
+    if (ids.has(value.id))
+        throw invalid(`${path}.id`, `item id が重複しています: ${value.id}`);
+    ids.add(value.id);
+    requireInteger(value.at, 0, `${path}.at`);
+    requireInteger(value.duration, 0, `${path}.duration`);
+    if (hasOwn(value, 'role') && value.role !== 'sfx' && value.role !== 'narration' && value.role !== 'bgm') {
+        throw invalid(`${path}.role`, 'sfx/narration/bgm のいずれかである必要があります');
+    }
+    if (hasOwn(value, 'gain_db'))
+        requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+    if (hasOwn(value, 'fade_in'))
+        requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
+    if (hasOwn(value, 'fade_out'))
+        requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
+    if (hasOwn(value, 'ducking') && typeof value.ducking !== 'boolean') {
+        throw invalid(`${path}.ducking`, 'boolean である必要があります');
+    }
+    if (hasOwn(value, 'script') && typeof value.script !== 'string') {
+        throw invalid(`${path}.script`, 'string である必要があります');
+    }
+    if (hasOwn(value, 'reading') && typeof value.reading !== 'string') {
+        throw invalid(`${path}.reading`, 'string である必要があります');
+    }
+    if (hasOwn(value, 'provenance'))
+        validateNarrationProvenance(value.provenance, `${path}.provenance`);
+    validateAudioMediaSource(value.source, `${path}.source`, sourceIds);
+}
+function validateNarrationProvenance(value, path) {
+    requireRecord(value, path);
+    requireText(value.provider, `${path}.provider`);
+    for (const key of ['engine', 'voice', 'credit', 'generated_at']) {
+        if (hasOwn(value, key) && typeof value[key] !== 'string') {
+            throw invalid(`${path}.${key}`, 'string である必要があります');
+        }
+    }
+    if (value.provider === 'voicevox' && (!hasOwn(value, 'credit')
+        || typeof value.credit !== 'string' || value.credit.trim().length === 0)) {
+        throw invalid(`${path}.credit`, 'provider が voicevox のときは空でない文字列が必要です');
+    }
+}
+function validateAudioMediaSource(value, path, sourceIds) {
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['kind', 'src', 'in', 'out']), path);
+    if (value.kind !== 'media')
+        throw invalid(`${path}.kind`, 'media である必要があります');
+    requireText(value.src, `${path}.src`);
+    if (!sourceIds.has(value.src))
+        throw invalid(`${path}.src`, `sources[].id に存在しません: ${value.src}`);
+    if (hasOwn(value, 'in'))
+        requireNonNegativeNumber(value.in, `${path}.in`);
+    if (hasOwn(value, 'out')) {
+        requireNonNegativeNumber(value.out, `${path}.out`);
+        const inSeconds = hasOwn(value, 'in') ? value.in : 0;
+        if (value.out <= inSeconds)
+            throw invalid(path, 'audio media source は out > in である必要があります');
     }
 }
 function validateItem(value, path, ids, sourceIds) {
@@ -156,9 +213,6 @@ function validateItem(value, path, ids, sourceIds) {
         requireRecord(value.perspective, `${path}.perspective`);
     if (hasOwn(value, 'keyframes'))
         validateKeyframes(value.keyframes, `${path}.keyframes`);
-    if (hasOwn(value, 'script') && typeof value.script !== 'string') {
-        throw invalid(`${path}.script`, '文字列である必要があります');
-    }
     validateItemSource(value.source, `${path}.source`, sourceIds);
 }
 function validateItemSource(value, path, sourceIds) {
@@ -166,8 +220,7 @@ function validateItemSource(value, path, sourceIds) {
     switch (value.kind) {
         case 'media':
             requireExactKeys(value, new Set([
-                'kind', 'src', 'in', 'out', 'framing', 'transition_out', 'freeze', 'fx', 'speed', 'chroma_key',
-                'gain_db', 'fade_in', 'fade_out', 'ducking'
+                'kind', 'src', 'in', 'out', 'framing', 'transition_out', 'freeze', 'fx', 'speed', 'chroma_key'
             ]), path);
             requireText(value.src, `${path}.src`);
             if (!sourceIds.has(value.src))
@@ -184,15 +237,6 @@ function validateItemSource(value, path, sourceIds) {
                 throw invalid(`${path}.fx`, '配列である必要があります');
             if (hasOwn(value, 'speed'))
                 requirePositiveNumber(value.speed, `${path}.speed`);
-            if (hasOwn(value, 'gain_db'))
-                requireNumber(value.gain_db, `${path}.gain_db`);
-            if (hasOwn(value, 'fade_in'))
-                requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
-            if (hasOwn(value, 'fade_out'))
-                requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
-            if (hasOwn(value, 'ducking') && typeof value.ducking !== 'boolean') {
-                throw invalid(`${path}.ducking`, 'boolean である必要があります');
-            }
             return;
         case 'html':
             requireExactKeys(value, new Set(['kind', 'path', 'vars']), path);
@@ -281,9 +325,6 @@ function requireRecord(value, path) {
 }
 function hasOwn(value, key) {
     return Object.prototype.hasOwnProperty.call(value, key);
-}
-function isRecord(value) {
-    return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 function requireExactKeys(value, allowed, path) {
     const unknown = Object.keys(value).filter(key => !allowed.has(key));

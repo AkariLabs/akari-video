@@ -48,7 +48,7 @@ function fixtureEdit() {
     audio: {
       bgm: { path: "audio/bgm.wav" },
       sfx: [{ path: "audio/sfx.wav", t: 0 }],
-      narration: [{ id: "n-1", path: "audio/narration.wav", t: 0 }],
+      narration: [{ id: "n-1", path: "audio/narration.wav", t: 0, provenance: { provider: "human" } }],
     },
     thumbnail: { path: "assets/thumb.png" },
   };

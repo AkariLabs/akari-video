@@ -11,25 +11,22 @@
     {
       "id": "a-sfx",
       "lane": "audio",
-      "role": "sfx",
       "items": [
-        { "id": "hit-1", "at": 30, "duration": 15, "source": { "kind": "media", "src": "sfx", "in": 0.25, "out": 0.75, "gain_db": -6 } }
+        { "id": "hit-1", "at": 30, "duration": 15, "gain_db": -6, "source": { "kind": "media", "src": "sfx", "in": 0.25, "out": 0.75 } }
       ]
     },
     {
       "id": "a-narration",
       "lane": "audio",
-      "role": "narration",
       "items": [
-        { "id": "n-0001", "at": 60, "duration": 90, "script": "AKARI Videoへようこそ", "source": { "kind": "media", "src": "voice", "in": 0, "out": 3, "gain_db": 1.5 } }
+        { "id": "n-0001", "at": 60, "duration": 90, "role": "narration", "gain_db": 1.5, "source": { "kind": "media", "src": "voice", "in": 0, "out": 3 } }
       ]
     },
     {
       "id": "a-bgm",
       "lane": "audio",
-      "role": "bgm",
       "items": [
-        { "id": "music-1", "at": 0, "duration": 300, "source": { "kind": "media", "src": "music", "in": 0, "out": 10, "gain_db": -18, "fade_in": 1.25, "fade_out": 2.5, "ducking": true } }
+        { "id": "music-1", "at": 0, "duration": 300, "role": "bgm", "gain_db": -18, "fade_in": 1.25, "fade_out": 2.5, "ducking": true, "source": { "kind": "media", "src": "music", "in": 0, "out": 10 } }
       ]
     },
     {

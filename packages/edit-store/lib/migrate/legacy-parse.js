@@ -439,7 +439,11 @@ function parseEdit(source) {
                     t: narration.t,
                     path: narration.path,
                     ...(gainDb !== undefined ? { gainDb } : {}),
-                    ...(typeof narration.script === 'string' && narration.script ? { script: narration.script } : {})
+                    ...(typeof narration.script === 'string' ? { script: narration.script } : {}),
+                    ...(typeof narration.reading === 'string' ? { reading: narration.reading } : {}),
+                    ...(narration.provenance !== null && typeof narration.provenance === 'object'
+                        && !Array.isArray(narration.provenance)
+                        ? { provenance: structuredClone(narration.provenance) } : {})
                 });
             }
         }

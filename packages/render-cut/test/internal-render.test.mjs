@@ -60,21 +60,17 @@ test("v2 renderer audio is derived from role-marked tracks while raw master is p
       }] },
       { id: "sfx", lane: "audio", items: [{
         id: "hit-1", at: 30, duration: 15,
-        source: {
-          kind: "media", src: "hit", in: 0.25, out: 0.75,
-          gain_db: -6, fade_in: 0.1, fade_out: 0.2,
-        },
+        gain_db: -6, fade_in: 0.1, fade_out: 0.2,
+        source: { kind: "media", src: "hit", in: 0.25, out: 0.75 },
       }] },
-      { id: "narration", lane: "audio", role: "narration", items: [{
-        id: "n-0001", at: 60, duration: 90, script: "hello",
-        source: { kind: "media", src: "voice", in: 0, out: 3, gain_db: 1.5 },
+      { id: "narration", lane: "audio", items: [{
+        id: "n-0001", at: 60, duration: 90, role: "narration", gain_db: 1.5,
+        source: { kind: "media", src: "voice", in: 0, out: 3 },
       }] },
-      { id: "bgm", lane: "audio", role: "bgm", items: [{
-        id: "music-item", at: 0, duration: 300,
-        source: {
-          kind: "media", src: "music", in: 0, out: 10,
-          fade_in: 1.25, fade_out: 2.5, gain_db: -18, ducking: true,
-        },
+      { id: "bgm", lane: "audio", items: [{
+        id: "music-item", at: 0, duration: 300, role: "bgm",
+        fade_in: 1.25, fade_out: 2.5, gain_db: -18, ducking: true,
+        source: { kind: "media", src: "music", in: 0, out: 10 },
       }] },
     ],
     audio: { master },
@@ -86,10 +82,10 @@ test("v2 renderer audio is derived from role-marked tracks while raw master is p
     in: 0.25, out: 0.75, fade_in: 0.1, fade_out: 0.2, gainDb: -6, gain_db: -6,
   }]);
   assert.deepEqual(edit.audio.narration, [{
-    id: "n-0001", t: 2, path: "voice.wav", gainDb: 1.5, script: "hello", gain_db: 1.5,
+    id: "n-0001", t: 2, path: "voice.wav", gainDb: 1.5, gain_db: 1.5,
   }]);
   assert.deepEqual(edit.audio.bgm, {
-    id: "bgm", path: "music.wav", fadeIn: 1.25, fadeOut: 2.5,
+    id: "bgm", path: "music.wav", in: 0, fadeIn: 1.25, fadeOut: 2.5,
     gainDb: -18, ducking: true, gain_db: -18,
   });
   assert.equal(edit.audio.master, master);

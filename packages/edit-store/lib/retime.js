@@ -30,6 +30,13 @@ function retime(source, fpsNew) {
                 return { ...contentTrack, content: { ...track.content } };
             }
             const { z: _z, ...itemsTrack } = track;
+            if (track.lane === 'audio') {
+                return {
+                    ...itemsTrack,
+                    lane: 'audio',
+                    items: track.items.map(item => retimeAudioItem(item, ratio))
+                };
+            }
             let downstreamShift = 0;
             let previousAt;
             const items = track.items.map(item => {
@@ -55,6 +62,13 @@ function retime(source, fpsNew) {
             return { ...itemsTrack, items };
         })
     };
+}
+function retimeAudioItem(item, ratio) {
+    const at = Math.round(item.at * ratio);
+    const duration = item.duration === 0
+        ? 0
+        : Math.max(1, Math.round((item.at + item.duration) * ratio) - at);
+    return { ...item, at, duration, source: { ...item.source } };
 }
 function retimeItem(item, at, duration, ratio) {
     return {

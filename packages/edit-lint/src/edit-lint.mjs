@@ -134,7 +134,7 @@ export async function lintProject(input, options = {}) {
   const internalEdit = readInternalEdit(rawEdit);
   const legacyEdit = projectLegacyEdit(internalEdit);
   const rawAudio = isRecord(rawEdit.audio) ? rawEdit.audio : {};
-  const rawSfx = Array.isArray(rawAudio.sfx) ? rawAudio.sfx : [];
+  const projectedAudio = projectAudioForLint(internalEdit);
   edit = {
     ...rawEdit,
     ...legacyEdit,
@@ -145,8 +145,7 @@ export async function lintProject(input, options = {}) {
     output: rawEdit.output,
     audio: {
       ...rawAudio,
-      ...(rawSfx.length > 0 ? { sfx: rawSfx }
-        : legacyEdit.audioSfx.length > 0 ? { sfx: legacyEdit.audioSfx } : {}),
+      ...projectedAudio,
     },
   };
 
@@ -232,7 +231,8 @@ export async function lintProject(input, options = {}) {
 
   const structure = validateEditStructure(edit, findings, paths);
   const sourcePath = structure.sourcePath;
-  const referenceState = await validateReferences(edit, findings, paths);
+  const audioOnlySourceIds = collectAudioOnlySourceIds(rawEdit);
+  const referenceState = await validateReferences(edit, findings, paths, audioOnlySourceIds);
   const sourceDuration = null;
 
   const cutsStructureResult = validateCuts(
@@ -281,7 +281,7 @@ export async function lintProject(input, options = {}) {
   validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
   validateOutputEncoding(edit?.output?.encoding, findings, "edit.json#output.encoding");
   validateLayerTracks(edit.layers, findings);
-  validateTimelineTracks(edit, findings);
+  validateTimelineTracks(edit, findings, collectInternalAudioTrackRefs(internalEdit));
   validateTrackTransitionOutCompatibility(edit, findings);
 
   if (captionsState.value !== undefined) {
@@ -309,6 +309,50 @@ export async function lintProject(input, options = {}) {
   }
 
   return writeResult(findings, skipped, inputs, paths, options);
+}
+
+function projectAudioForLint(internalEdit) {
+  const sfx = [];
+  const narration = [];
+  let bgm;
+  for (const track of internalEdit.tracks) {
+    if (track.lane !== "audio") continue;
+    for (const item of track.items) {
+      if (!isRecord(item.declaration)) continue;
+      const declaration = { ...item.declaration };
+      if (item.legacy.collection === "sfx") sfx.push(declaration);
+      if (item.legacy.collection === "narration") narration.push(declaration);
+      if (item.legacy.collection === "bgm") bgm = declaration;
+    }
+  }
+  return {
+    ...(sfx.length > 0 ? { sfx } : {}),
+    ...(narration.length > 0 ? { narration } : {}),
+    ...(bgm !== undefined ? { bgm } : {}),
+  };
+}
+
+function collectAudioOnlySourceIds(edit) {
+  if (!Array.isArray(edit?.tracks)) return new Set();
+  const audio = new Set();
+  const visual = new Set();
+  for (const track of edit.tracks) {
+    if (!isRecord(track) || !Array.isArray(track.items)) continue;
+    for (const item of track.items) {
+      const sourceId = isRecord(item?.source) && item.source.kind === "media"
+        ? item.source.src : undefined;
+      if (!isNonEmptyString(sourceId)) continue;
+      if (track.lane === "audio") audio.add(sourceId);
+      if (track.lane === "visual") visual.add(sourceId);
+    }
+  }
+  return new Set([...audio].filter(sourceId => !visual.has(sourceId)));
+}
+
+function collectInternalAudioTrackRefs(internalEdit) {
+  return new Set(internalEdit.tracks
+    .filter(track => track.lane === "audio" && track.items.length > 0)
+    .map(track => Number.isInteger(track.legacy.ref) ? track.legacy.ref : 0));
 }
 
 async function writeResult(findings, skipped, inputs, paths, options) {
@@ -542,14 +586,17 @@ function validateEditV2(edit, findings) {
     }
   }
 
-  const bgmTracks = edit.tracks
-    .map((track, index) => ({ track, index }))
-    .filter(({ track }) => isRecord(track) && track.role === "bgm" && Array.isArray(track.items));
-  if (bgmTracks.length > 1) {
+  const bgmItems = edit.tracks.flatMap((track, trackIndex) =>
+    isRecord(track) && track.lane === "audio" && Array.isArray(track.items)
+      ? track.items.flatMap((item, itemIndex) =>
+        isRecord(item) && item.role === "bgm" ? [{ trackIndex, itemIndex }] : [])
+      : []
+  );
+  if (bgmItems.length > 1) {
     addFinding(findings, {
       severity: "error",
       check: "v2.audio-bgm-multiple",
-      message: "audio tracks may declare at most one bgm role",
+      message: "audio lane items may declare at most one bgm role",
       path: "edit.json#tracks",
     });
   }
@@ -588,14 +635,6 @@ function validateEditV2(edit, findings) {
     }
 
     if (!Array.isArray(track.items)) continue;
-    if (track.role === "bgm" && track.items.length > 1) {
-      addFinding(findings, {
-        severity: "error",
-        check: "v2.audio-bgm-multiple",
-        message: "a bgm track may contain at most one item",
-        path: `${trackPath}.items`,
-      });
-    }
     const intervals = [];
     for (const [itemIndex, item] of track.items.entries()) {
       const itemPath = `${trackPath}.items[${itemIndex}]`;
@@ -615,19 +654,44 @@ function validateEditV2(edit, findings) {
         });
       }
 
-      // P0 2026-08-21 render-path-unification (r6, Codex re-review, control-tower adjudication):
-      // duration: 0 is schema-valid (edit.schema.json's `frames` $def is `{type: integer,
-      // minimum: 0}`, shared with `at`, which legitimately can be 0) but represents nothing on
-      // the timeline -- it cannot be rendered (packages/edit-store's internal-model.ts projects
-      // it to a degenerate in===out cut, which both this package's own cuts.range check and
-      // render-cut's validateEditShape correctly reject as 0 <= in < out) and was found, in an
-      // earlier round of this task, to be unsafe to special-case away anywhere downstream of this
-      // point (a silent-drop attempt at the projection layer broke a second render-cut projection
-      // path that never reads the mechanism used to drop it, and desynced UI item indices). So
-      // this is the one and only place duration:0 is rejected: loudly, at the front door, with a
-      // purpose-built message rather than letting it surface later as an unrelated-looking
-      // cuts.range/validateEditShape failure deep in a render attempt.
-      if (Number.isInteger(item.duration) && item.duration === 0) {
+      if (track.lane === "audio") {
+        const role = item.role ?? "sfx";
+        if (Object.hasOwn(item, "gain_db")
+          && (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12)) {
+          addFinding(findings, {
+            severity: "error",
+            check: `audio.${role}.gain-db`,
+            message: "gain_db must be a finite number within [-60, 12]",
+            path: `${itemPath}.gain_db`,
+          });
+        }
+        for (const [field, bgmField] of [["fade_in", "fadeIn"], ["fade_out", "fadeOut"]]) {
+          if (!Object.hasOwn(item, field) || (isFiniteNumber(item[field]) && item[field] >= 0)) continue;
+          addFinding(findings, {
+            severity: "error",
+            check: role === "bgm" ? `audio.bgm.${bgmField}` : `audio.sfx.${field}`,
+            message: `${field} must be a non-negative finite number`,
+            path: `${itemPath}.${field}`,
+          });
+        }
+        if (isRecord(item.source)
+          && isFiniteNumber(item.source.in)
+          && isFiniteNumber(item.source.out)
+          && item.source.out <= item.source.in) {
+          addFinding(findings, {
+            severity: "error",
+            check: "audio.sfx.in-out",
+            message: "sfx must satisfy in < out when both are present",
+            path: `${itemPath}.source`,
+            range: { start: item.source.in, end: item.source.out },
+          });
+        }
+      }
+
+      // Visual items with duration: 0 represent nothing renderable and remain invalid. Audio
+      // items deliberately use 0 as the unresolved-material-duration sentinel when a legacy
+      // declaration omits an explicit out point; render-cut resolves that duration from media.
+      if (track.lane !== "audio" && Number.isInteger(item.duration) && item.duration === 0) {
         addFinding(findings, {
           severity: "error",
           check: "v2.item-duration",
@@ -1062,7 +1126,7 @@ function validateSfxTracks(sfx, findings) {
   }
 }
 
-function validateTimelineTracks(edit, findings) {
+function validateTimelineTracks(edit, findings, projectedAudioTracks = null) {
   const timeline = edit?.timeline;
   if (timeline === undefined || timeline === null) return;
   if (!isRecord(timeline)) {
@@ -1084,8 +1148,9 @@ function validateTimelineTracks(edit, findings) {
     return;
   }
 
-  const audioTracks = collectActualTrackNumbers(edit?.audio?.sfx);
-  if (isRecord(edit?.audio?.bgm) || (Array.isArray(edit?.audio?.narration) && edit.audio.narration.length > 0)) {
+  const audioTracks = projectedAudioTracks ?? collectActualTrackNumbers(edit?.audio?.sfx);
+  if (projectedAudioTracks === null
+    && (isRecord(edit?.audio?.bgm) || (Array.isArray(edit?.audio?.narration) && edit.audio.narration.length > 0))) {
     audioTracks.add(0);
   }
   const actualTracks = new Map([
@@ -1654,11 +1719,11 @@ async function validateNarration(narration, timeline, findings, paths) {
       continue;
     }
 
-    if (typeof item.id !== "string" || !/^n-\d{4}$/.test(item.id)) {
+    if (!isNonEmptyString(item.id)) {
       addFinding(findings, {
         severity: "error",
         check: "audio.narration.id",
-        message: "id must match n- followed by four digits",
+        message: "id must be a non-empty string",
         path: itemPath,
       });
     } else if (ids.has(item.id)) {
@@ -1731,31 +1796,6 @@ async function validateNarration(narration, timeline, findings, paths) {
       });
     }
 
-    if (!isRecord(item.provenance)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "audio.narration.provenance",
-        message: "provenance is required and must be an object",
-        path: itemPath,
-      });
-    } else if (!isNonEmptyString(item.provenance.provider)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "audio.narration.provenance",
-        message: "provenance.provider must be a non-empty string",
-        path: itemPath,
-      });
-    } else if (
-      item.provenance.provider === "voicevox" &&
-      !isNonEmptyString(item.provenance.credit)
-    ) {
-      addFinding(findings, {
-        severity: "error",
-        check: "audio.narration.credit",
-        message: "provenance.credit is required when provider is voicevox",
-        path: itemPath,
-      });
-    }
   }
 }
 
@@ -2156,7 +2196,7 @@ function resolveBgmTrackId(bgmPath, declarations) {
   return baseNoExt;
 }
 
-async function validateReferences(edit, findings, paths) {
+async function validateReferences(edit, findings, paths, ignoredSourceIds = new Set()) {
   const references = [];
   if (isRecord(edit?.source)) {
     references.push({ label: "source.path", value: edit.source.path, source: true });
@@ -2167,6 +2207,7 @@ async function validateReferences(edit, findings, paths) {
   if (Array.isArray(edit?.sources)) {
     for (const [index, source] of edit.sources.entries()) {
       if (!isRecord(source)) continue;
+      if (ignoredSourceIds.has(source.id)) continue;
       references.push({
         label: `sources[${index}].path`,
         value: source.path,

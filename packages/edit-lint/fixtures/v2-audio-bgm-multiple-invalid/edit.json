@@ -1,9 +1,21 @@
 {
   "version": 2,
   "output": { "width": 1920, "height": 1080, "fps": 30 },
-  "sources": [],
+  "sources": [{ "id": "music", "path": "assets/music.wav" }],
   "tracks": [
-    { "id": "bgm-1", "lane": "audio", "role": "bgm", "items": [] },
-    { "id": "bgm-2", "lane": "audio", "role": "bgm", "items": [] }
+    {
+      "id": "bgm-1",
+      "lane": "audio",
+      "items": [
+        { "id": "music-1", "at": 0, "duration": 30, "role": "bgm", "source": { "kind": "media", "src": "music", "in": 0, "out": 1 } }
+      ]
+    },
+    {
+      "id": "bgm-2",
+      "lane": "audio",
+      "items": [
+        { "id": "music-2", "at": 30, "duration": 30, "role": "bgm", "source": { "kind": "media", "src": "music", "in": 1, "out": 2 } }
+      ]
+    }
   ]
 }

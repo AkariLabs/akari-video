@@ -643,13 +643,21 @@
         "freeze": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/cutFreeze" }] },
         "fx": { "type": "array", "items": { "$ref": "#/$defs/cutFx" } },
         "speed": { "$ref": "#/$defs/positiveNumber" },
-        "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] },
-        "gain_db": { "type": "number" },
-        "fade_in": { "$ref": "#/$defs/seconds" },
-        "fade_out": { "$ref": "#/$defs/seconds" },
-        "ducking": { "type": "boolean" }
+        "chroma_key": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/chromaKey" }] }
       },
       "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。src は editV2.sources[].id を参照し、in/out は素材内の秒。参照整合と out > in は兄弟値比較のため reader / edit-lint が検証する。"
+    },
+    "itemSourceAudioMediaV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "src"],
+      "properties": {
+        "kind": { "const": "media" },
+        "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "in": { "$ref": "#/$defs/seconds", "default": 0 },
+        "out": { "$ref": "#/$defs/seconds" }
+      },
+      "$comment": "audio lane 専用の media source。in/out は素材内の秒。in は省略時 0、out 省略時はファイル末尾まで再生し、対応する item.duration は実尺未解決を表す 0 センチネルにする。"
     },
     "itemSourceHtmlV2": {
       "type": "object",
@@ -698,7 +706,6 @@
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
-        "script": { "type": "string" },
         "source": { "$ref": "#/$defs/itemSourceMediaV2" }
       }
     },
@@ -716,7 +723,6 @@
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
-        "script": { "type": "string" },
         "source": { "$ref": "#/$defs/itemSourceHtmlV2" }
       }
     },
@@ -734,7 +740,6 @@
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
-        "script": { "type": "string" },
         "source": { "$ref": "#/$defs/itemSourceTelopV2" }
       }
     },
@@ -752,9 +757,28 @@
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
-        "script": { "type": "string" },
         "source": { "$ref": "#/$defs/itemSourceFilterV2" }
       }
+    },
+    "itemV2AudioMedia": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "duration", "source"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "at": { "$ref": "#/$defs/itemAtV2" },
+        "duration": { "$ref": "#/$defs/frames" },
+        "role": { "enum": ["sfx", "narration", "bgm"] },
+        "source": { "$ref": "#/$defs/itemSourceAudioMediaV2" },
+        "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "fade_in": { "$ref": "#/$defs/seconds" },
+        "fade_out": { "$ref": "#/$defs/seconds" },
+        "ducking": { "type": "boolean" },
+        "script": { "type": "string" },
+        "reading": { "type": "string" },
+        "provenance": { "$ref": "#/$defs/narrationProvenance" }
+      },
+      "$comment": "audio lane 専用 item。role 省略時は sfx。at/duration は整数フレームで、duration 0 は実尺未解決を表す明示的センチネル。素材側 in/out と fade は秒。script/reading/provenance は narration 用の任意メタデータ。"
     },
     "itemV2": {
       "oneOf": [
@@ -782,16 +806,27 @@
           "required": ["id", "lane", "items"],
           "allOf": [
             {
-              "if": { "properties": { "role": { "const": "bgm" } }, "required": ["role"] },
-              "then": { "properties": { "items": { "maxItems": 1 } } }
+              "if": {
+                "properties": { "lane": { "const": "audio" } },
+                "required": ["lane"]
+              },
+              "then": {
+                "properties": {
+                  "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2AudioMedia" } }
+                }
+              },
+              "else": {
+                "properties": {
+                  "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } }
+                }
+              }
             }
           ],
           "properties": {
             "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
             "lane": { "enum": ["visual", "audio"] },
             "name": { "type": "string" },
-            "role": { "enum": ["sfx", "narration", "bgm"] },
-            "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } }
+            "items": { "type": "array" }
           }
         },
         {
@@ -806,7 +841,7 @@
           }
         }
       ],
-      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §8 / §9。lane は visual/audio の 2 値だけで、種別は source に持たせる。items と字幕 content は閉じた oneOf により必ず排他。"
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §8 / §9。lane は visual/audio の 2 値。audio lane の items は itemV2AudioMedia、visual lane の items は itemV2 を使う。items と字幕 content は閉じた oneOf により必ず排他。"
     },
     "editV0": {
       "type": "object",
@@ -895,14 +930,7 @@
         },
         "tracks": {
           "type": "array",
-          "items": { "$ref": "#/$defs/trackV2" },
-          "contains": {
-            "type": "object",
-            "required": ["role"],
-            "properties": { "role": { "const": "bgm" } }
-          },
-          "minContains": 0,
-          "maxContains": 1
+          "items": { "$ref": "#/$defs/trackV2" }
         },
         "audio": { "$ref": "#/$defs/audio" },
         "captions": { "$ref": "#/$defs/inlineCaptions" },
@@ -913,7 +941,7 @@
           "properties": { "path": { "type": "string", "minLength": 1, "pattern": "\\S" } }
         }
       },
-      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10 / §10-1。tracks の配列順が画面の下から上、すなわち合成 z 順の唯一の正本。出力軸は映像・音声とも整数フレーム、素材軸は秒、字幕は captions.json のソース秒を維持する。新規の SFX / narration / BGM は audio lane の items track と role で宣言する。top-level audio は既存 v2 fixture の互換 fallback と master 設定のため残す。"
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10 / §10-1。tracks の配列順が画面の下から上、すなわち合成 z 順の唯一の正本。出力軸は映像・音声とも整数フレーム、素材軸は秒、字幕は captions.json のソース秒を維持する。新規の SFX / narration / BGM は audio lane の items で宣言する。top-level audio は既存 v2 fixture の互換 fallback と master 設定のため残す。"
     }
   }
 }

@@ -20,18 +20,11 @@ export type MigrateResult = {
     doc: EditV2;
     changes: MigrateChange[];
     warnings: string[];
-    unresolvedAudioDurations: ReadonlyArray<UnresolvedAudioDuration>;
 } | {
     ok: false;
     version: number;
     blockers: string[];
 };
-export interface UnresolvedAudioDuration {
-    trackIndex: number;
-    itemIndex: number;
-    path: string;
-    atSeconds: number;
-}
 export interface MigrationProposal {
     filePath: string;
     version: LegacyVersion;
@@ -53,7 +46,6 @@ export declare function migrateEditToV2(raw: unknown, options?: {
 export declare function planMigration(projectRoot: string, editPath: string, text: string, options?: {
     hasCaptions?: boolean;
     now?: Date;
-    ffprobeCommand?: string;
 }): MigrationProposal | MigrationBlocked;
 /** 承認後のみ実行する。先に .akari/backup/ へ原文を退避し、次に atomic rename する。 */
 export declare function applyMigration(proposal: MigrationProposal): Promise<void>;

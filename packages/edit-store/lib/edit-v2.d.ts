@@ -47,10 +47,14 @@ export interface MediaSourceV2 {
     fx?: unknown[];
     speed?: number;
     chroma_key?: Record<string, unknown> | null;
-    gain_db?: number;
-    fade_in?: number;
-    fade_out?: number;
-    ducking?: boolean;
+}
+export interface AudioMediaSourceV2 {
+    kind: 'media';
+    src: string;
+    /** 素材ファイル内のトリム開始（秒）。省略時は 0。 */
+    in?: number;
+    /** 素材ファイル内のトリム終端（秒）。省略時はファイル末尾。 */
+    out?: number;
 }
 export interface HtmlSourceV2 {
     kind: 'html';
@@ -90,7 +94,6 @@ export interface ItemV2Base {
     crop?: CropV2;
     perspective?: Record<string, unknown>;
     keyframes?: KeyframeV2[];
-    script?: string;
 }
 export type ItemV2 = (ItemV2Base & {
     source: MediaSourceV2;
@@ -101,16 +104,48 @@ export type ItemV2 = (ItemV2Base & {
 }) | (ItemV2Base & {
     source: FilterSourceV2;
 });
+export type AudioRoleV2 = 'sfx' | 'narration' | 'bgm';
+export interface NarrationProvenanceV2 {
+    provider: string;
+    engine?: string;
+    voice?: string;
+    credit?: string;
+    generated_at?: string;
+    [key: string]: unknown;
+}
+export interface AudioMediaItemV2 {
+    id: string;
+    /** 出力タイムライン上の絶対位置（整数フレーム）。 */
+    at: number;
+    /** 出力尺（整数フレーム）。0 は実尺未解決のセンチネル。 */
+    duration: number;
+    /** 省略時は sfx。 */
+    role?: AudioRoleV2;
+    source: AudioMediaSourceV2;
+    gain_db?: number;
+    fade_in?: number;
+    fade_out?: number;
+    ducking?: boolean;
+    script?: string;
+    reading?: string;
+    provenance?: NarrationProvenanceV2;
+}
 export interface CaptionTrackContentV2 {
     from: 'captions.json';
 }
-export interface ItemsTrackV2 {
+export interface VisualItemsTrackV2 {
     id: string;
-    lane: LaneV2;
+    lane: 'visual';
     name?: string;
-    role?: 'sfx' | 'narration' | 'bgm';
     items: ItemV2[];
 }
+export interface AudioItemsTrackV2 {
+    id: string;
+    lane: 'audio';
+    name?: string;
+    items: AudioMediaItemV2[];
+}
+export type ItemsTrackV2 = VisualItemsTrackV2 | AudioItemsTrackV2;
 export interface ContentTrackV2 {
     id: string;
     lane: LaneV2;
@@ -126,7 +161,7 @@ export interface EditV2 {
     tracks: TrackV2[];
     /**
      * 旧 v2 fixture が持つ top-level audio の互換 fallback。新規の SFX / narration / BGM は
-     * audio lane の items track と role で宣言する。
+     * audio lane の items で宣言する。
      */
     audio?: unknown;
     captions?: unknown[];
