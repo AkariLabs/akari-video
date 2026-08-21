@@ -79,6 +79,7 @@ export interface EditAudioNarration {
     id: string;
     t: number;
     path: string;
+    track?: number;
     gainDb?: number;
     script?: string;
     reading?: string;
@@ -96,6 +97,7 @@ export interface CutTrackSegment {
 export interface EditAudioBgm {
     id: 'bgm';
     path: string;
+    track?: number;
     fadeIn?: number;
     fadeOut?: number;
     gainDb?: number;

@@ -553,6 +553,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
             id: item.id,
             t: at,
             path: resolvedPath,
+            track: ref,
             ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
             ...(item.script !== undefined ? { script: item.script } : {}),
             ...(item.reading !== undefined ? { reading: item.reading } : {}),
@@ -580,6 +581,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
         const value = {
             id: 'bgm',
             path: resolvedPath,
+            track: ref,
             ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
             ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),
             ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
