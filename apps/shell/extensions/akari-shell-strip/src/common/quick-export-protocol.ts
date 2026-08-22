@@ -41,6 +41,9 @@ export interface QuickExportStatus {
     readonly logTail: string;
     /** lint-failed のときだけ、edit-lint の findings 件数。 */
     readonly lintIssueCount?: number;
+    /** lint-failed のときだけ、findings の severity 別件数。 */
+    readonly lintErrorCount?: number;
+    readonly lintWarningCount?: number;
     /** done のときだけ、プロジェクトルート相対の出力先（例: 'exports/final.mp4'）。 */
     readonly artifactPath?: string;
     readonly artifactSize?: number;

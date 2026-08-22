@@ -1,6 +1,6 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { spawn, spawnSync } from 'child_process';
+import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'child_process';
 import { existsSync, promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import {
@@ -13,6 +13,8 @@ import {
     buildEditLintArgs,
     buildRenderCutArgs,
     buildRenderCutOutputPath,
+    describeRenderFailure,
+    describeUnexpectedQuickExportFailure,
     determineLintOutcome,
     determineRenderOutcome,
     QuickExportRenderSettings,
@@ -54,9 +56,15 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         this.running = true;
         this.logBuffer = '';
         this.status = { phase: request.rerunLint ? 'linting' : 'rendering', logTail: '' };
-        void this.run(request).finally(() => {
-            this.running = false;
-        });
+        void this.run(request)
+            .catch(error => {
+                const failureSummary = describeUnexpectedQuickExportFailure(error, '書き出しバックエンドで予期しないエラーが発生しました');
+                this.appendLog(`${failureSummary}\n`);
+                this.updateStatus({ phase: 'failed', failureSummary });
+            })
+            .finally(() => {
+                this.running = false;
+            });
         return { accepted: true };
     }
 
@@ -100,15 +108,19 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             return 'pass';
         }
         if (outcome === 'fail') {
-            const issueCount = this.parseLintIssueCount(result.stdout);
+            const lintSummary = this.parseLintFindingSummary(result.stdout);
             this.updateStatus({
                 phase: 'lint-failed',
-                lintIssueCount: issueCount,
+                lintIssueCount: lintSummary?.issueCount,
+                lintErrorCount: lintSummary?.errorCount,
+                lintWarningCount: lintSummary?.warningCount,
                 reportPath: await this.existingReportPath(projectRoot, EDIT_LINT_REPORT_RELATIVE_PATH)
             });
             return 'fail';
         }
-        this.updateStatus({ phase: 'failed', failureSummary: summarizeStderrTail(result.stderr) });
+        const failureSummary = summarizeStderrTail(result.stderr)
+            || `edit-lint が exit code ${result.exitCode ?? '不明'} で終了しました（エラー出力はありません）`;
+        this.updateStatus({ phase: 'failed', failureSummary });
         return 'error';
     }
 
@@ -142,13 +154,27 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             });
             return;
         }
-        this.updateStatus({ phase: 'failed', failureSummary: summarizeStderrTail(result.stderr) });
+        this.updateStatus({
+            phase: 'failed',
+            failureSummary: describeRenderFailure(result.exitCode, result.stderr, outputRelativePath, outputStat)
+        });
     }
 
-    protected parseLintIssueCount(stdout: string): number | undefined {
+    protected parseLintFindingSummary(stdout: string): {
+        issueCount: number;
+        errorCount: number;
+        warningCount: number;
+    } | undefined {
         try {
-            const parsed = JSON.parse(stdout) as { findings?: unknown[] };
-            return Array.isArray(parsed.findings) ? parsed.findings.length : undefined;
+            const parsed = JSON.parse(stdout) as { findings?: Array<{ severity?: unknown }> };
+            if (!Array.isArray(parsed.findings)) {
+                return undefined;
+            }
+            return {
+                issueCount: parsed.findings.length,
+                errorCount: parsed.findings.filter(finding => finding?.severity === 'error').length,
+                warningCount: parsed.findings.filter(finding => finding?.severity === 'warning').length
+            };
         } catch {
             return undefined;
         }
@@ -300,12 +326,26 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
      */
     protected spawnNodeScript(scriptPath: string, args: string[], onChunk: (chunk: string) => void): Promise<SpawnResult> {
         return new Promise(resolvePromise => {
-            const child = spawn(process.execPath, [scriptPath, ...args], {
-                env: this.childEnvironment(),
-                stdio: ['ignore', 'pipe', 'pipe']
-            });
             let stdout = '';
             let stderr = '';
+            let settled = false;
+            const settle = (result: SpawnResult): void => {
+                if (!settled) {
+                    settled = true;
+                    resolvePromise(result);
+                }
+            };
+            let child: ChildProcessWithoutNullStreams;
+            try {
+                child = spawn(process.execPath, [scriptPath, ...args], {
+                    env: this.childEnvironment(),
+                    stdio: ['ignore', 'pipe', 'pipe']
+                });
+            } catch (error) {
+                const message = describeUnexpectedQuickExportFailure(error, `${scriptPath} を起動できませんでした`);
+                settle({ exitCode: 2, stdout, stderr: message });
+                return;
+            }
             child.stdout.on('data', chunk => {
                 const text = chunk.toString();
                 stdout += text;
@@ -318,9 +358,11 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
             });
             child.on('error', error => {
                 stderr += `\n${error.message}`;
-                resolvePromise({ exitCode: 2, stdout, stderr });
+                settle({ exitCode: 2, stdout, stderr });
             });
-            child.on('exit', code => resolvePromise({ exitCode: code, stdout, stderr }));
+            // `exit` より `close` を待つ。close は stdout/stderr が閉じた後なので、
+            // 失敗理由の末尾を取りこぼした状態で GUI を終端させない。
+            child.on('close', code => settle({ exitCode: code, stdout, stderr }));
         });
     }
 

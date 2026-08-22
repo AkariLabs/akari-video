@@ -5,6 +5,8 @@ import {
     buildRenderCutArgs,
     buildRenderCutOutputPath,
     buildRenderCutOutputRelativePath,
+    describeRenderFailure,
+    describeUnexpectedQuickExportFailure,
     determineLintOutcome,
     determineRenderOutcome,
     sanitizeQuickExportOutputName,
@@ -43,9 +45,9 @@ test('buildRenderCutOutputPath: outputDirectory 未指定なら既定の exports
 });
 
 test('buildRenderCutOutputPath: outputDirectory 指定時はその絶対パス直下（ファイル名は引き続き脱出防止）', () => {
-    assert.equal(buildRenderCutOutputPath('final.mp4', '/Users/someone/Desktop'), '/Users/someone/Desktop/final.mp4');
-    assert.equal(buildRenderCutOutputPath('final.mp4', '/Users/someone/Desktop/'), '/Users/someone/Desktop/final.mp4');
-    assert.equal(buildRenderCutOutputPath('../evil.mp4', '/Users/someone/Desktop'), '/Users/someone/Desktop/evil.mp4');
+    assert.equal(buildRenderCutOutputPath('final.mp4', '/chosen/exports'), '/chosen/exports/final.mp4');
+    assert.equal(buildRenderCutOutputPath('final.mp4', '/chosen/exports/'), '/chosen/exports/final.mp4');
+    assert.equal(buildRenderCutOutputPath('../evil.mp4', '/chosen/exports'), '/chosen/exports/evil.mp4');
 });
 
 test('buildRenderCutArgs (task 2026-07-25-export-options backward-compat): 既定設定は --out と --progress のみ', () => {
@@ -110,4 +112,39 @@ test('summarizeStderrTail: 末尾N行のみ・空行は除外', () => {
     assert.equal(summarizeStderrTail(stderr, 3), 'line4\nline5\nline6');
     assert.equal(summarizeStderrTail('', 3), '');
     assert.equal(summarizeStderrTail('  \n \n', 3), '');
+});
+
+test('summarizeStderrTail: スタックの手前にある根本理由を落とさない', () => {
+    const stderr = [
+        'wrapper failed',
+        'renderer failed: browser process could not start',
+        'at launch (browser.js:1:1)',
+        'at run (render.js:2:2)',
+        'at main (cli.js:3:3)',
+        'at processTicks (task.js:4:4)',
+        'at async entry (entry.js:5:5)'
+    ].join('\n');
+    const summary = summarizeStderrTail(stderr, 5);
+    assert.match(summary, /renderer failed: browser process could not start/);
+    assert.equal(summary.split('\n').length, 5);
+});
+
+test('describeRenderFailure: exit 0 でも成果物が無ければ理由を必ず返す', () => {
+    assert.equal(
+        describeRenderFailure(0, '', 'exports/final.mp4', undefined),
+        'render-cut は正常終了を返しましたが、成果物 exports/final.mp4 が作成されませんでした'
+    );
+    assert.match(describeRenderFailure(0, '', 'exports/final.mp4', { size: 0 }), /成果物 exports\/final\.mp4/);
+});
+
+test('describeRenderFailure: stderr が無い非0終了でも exit code を見せる', () => {
+    assert.equal(
+        describeRenderFailure(2, '', 'exports/final.mp4', undefined),
+        'render-cut が exit code 2 で終了しました（エラー出力はありません）'
+    );
+});
+
+test('describeUnexpectedQuickExportFailure: unknown でも空の失敗理由にしない', () => {
+    assert.equal(describeUnexpectedQuickExportFailure(new Error('socket closed'), 'RPC 失敗'), 'RPC 失敗: socket closed');
+    assert.equal(describeUnexpectedQuickExportFailure(undefined, 'RPC 失敗'), 'RPC 失敗');
 });
