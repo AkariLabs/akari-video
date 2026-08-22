@@ -845,7 +845,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             onLintResult: result => this.client?.onLintResult({
                 projectRootUri: URI.fromFilePath(projectDir).toString(),
                 pass: result.pass,
-                errors: result.errors
+                errors: result.errors,
+                findings: result.findings
             })
         });
         return { committed: false };
@@ -870,7 +871,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
             onLintResult: result => this.client?.onLintResult({
                 projectRootUri: URI.fromFilePath(projectDir).toString(),
                 pass: result.pass,
-                errors: result.errors
+                errors: result.errors,
+                findings: result.findings
             })
         });
     }
