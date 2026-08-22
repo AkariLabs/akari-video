@@ -2086,6 +2086,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    /** プレビューで現在表示中の本編を選択したとき、同じ項目をタイムラインと inspector へ渡す。 */
+    handleCutSelection(editUri: string, cutId: string | null): void {
+        if (!this.canHandlePlaybackTick(editUri)) {
+            return;
+        }
+        if (cutId === null) {
+            if (this.selection?.kind === 'cut') {
+                this.applySelection(undefined, false);
+            }
+            return;
+        }
+        const index = this.cutItemIds.indexOf(cutId);
+        if (index >= 0) {
+            this.applySelection({ kind: 'cut', index }, false);
+        }
+    }
+
     /** 選択の実体を TimelineSelectionModel へ反映する。対象が消えていれば選択解除する。 */
     protected pushSelectionSnapshot(): void {
         if (this.multiSelection.length > 0) {

@@ -30,6 +30,7 @@ import {
     sfxFadeGainSchedule
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
+import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import {
     CAPTION_FONT_FAMILY,
@@ -45,7 +46,9 @@ import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visua
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
 import { computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
 import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
+import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
+import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
 import {
     buildCutSummaryFields,
     buildLayerSummaryBase,
@@ -563,9 +566,8 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
-// ㉓ forwardOverlaySelection/forwardLayerSelection の流儀で追加した cut 版。
-// タイムライン側（akari-annotations、編集禁止）の購読は本タスクの対象外
-// （既存 2 チャンネルと同じ配線パターンだけをここに追加する）。
+// forwardOverlaySelection/forwardLayerSelection と同じ拡張間チャンネルの cut 版。
+// payload は表示中 cut の安定 ID とし、タイムラインと inspector が同じ項目を引けるようにする。
 const PREVIEW_CUT_SELECTED_EVENT = 'akari.preview.cutSelected';
 // ㉓ 字幕版。既存 2 チャンネルと同じ配線パターンをここに追加するだけ
 // （タイムライン側〔akari-annotations、編集禁止〕の購読は対象外）。
@@ -638,10 +640,10 @@ interface PreviewLayerSelectedRequest {
     layerId: string | null;
 }
 
-// ㉓ overlay/layer 選択同期チャンネルの cut 版。true = 現在再生中のカットが選択中。
+// ㉓ overlay/layer 選択同期チャンネルの cut 版。安定 ID で inspector の同じ項目へ同期する。
 interface PreviewCutSelectedRequest {
     type: 'akari-preview-cut-selected';
-    selected: boolean;
+    cutId: string | null;
 }
 
 interface PreviewReviewTransportRequest {
@@ -2106,7 +2108,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected isCutSelectedRequest(message: any): message is PreviewCutSelectedRequest {
-        return message?.type === 'akari-preview-cut-selected' && typeof message.selected === 'boolean';
+        return message?.type === 'akari-preview-cut-selected'
+            && (typeof message.cutId === 'string' || message.cutId === null);
     }
 
     protected forwardCutSelection(widget: PreviewWidgetMarker, message: PreviewCutSelectedRequest): void {
@@ -2117,7 +2120,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         window.dispatchEvent(new CustomEvent(PREVIEW_CUT_SELECTED_EVENT, {
             detail: {
                 editUri: editUri.normalizePath().toString(),
-                selected: message.selected
+                cutId: message.cutId
             }
         }));
     }
@@ -2982,11 +2985,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ...(audioTracks ? { audio: audioTracks } : {})
             } : undefined;
             // 宣言トラック（z の権威 = 配列順）。読み込み層が正規化した並びをそのまま使う。
-            const timelineTracks: EditSummaryTimelineTrack[] = internal.tracks.map(track => ({
-                id: track.id,
-                z: resolveInternalTrackZ(internal.tracks, track.id)
-            }));
-            const captionTrackId = internal.tracks.find(track => track.content?.from === 'captions.json')?.id;
+            const captionTrackOrder = resolvePreviewCaptionTrackOrder(
+                internal.tracks,
+                captions.length > 0 || hasInlineCaptions(internal)
+            );
+            const timelineTracks: EditSummaryTimelineTrack[] = captionTrackOrder.tracks;
+            const captionTrackId = captionTrackOrder.captionTrackId;
             const audio = await this.resolveAudioAssets(internal.declaration.audio, editUri, assetStreams, assetUris);
             const indicators: string[] = [];
             if (isTruthyObject(internal.output.look)) indicators.push('LUT');
@@ -4299,6 +4303,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // previewBootstrapScript's own copy of this function is ever reached -- so this script
             // block injects its own copy rather than relying on cross-<script>-tag scope.
             const computeLayerPerspectiveVisualFn = (${computeLayerPerspectiveVisual.toString()});
+            const resolveLayerHitRegionClipFn = (${resolveLayerHitRegionClip.toString()});
             let perspectiveVisualWarned = false;
             let sequence = 0;
             let displayScale = 1;
@@ -4751,8 +4756,8 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reportLayerSelection = layerId => {
                 vscode.postMessage({ type: 'akari-preview-layer-selected', layerId });
             };
-            window.akari.reportCutSelection = selected => {
-                vscode.postMessage({ type: 'akari-preview-cut-selected', selected });
+            window.akari.reportCutSelection = cutId => {
+                vscode.postMessage({ type: 'akari-preview-cut-selected', cutId });
             };
             window.akari.reportCaptionSelection = captionId => {
                 vscode.postMessage({ type: 'akari-preview-caption-selected', captionId });
@@ -4920,10 +4925,20 @@ body { display: grid; place-items: center; padding: 32px; }
                         }
                     }
                     layerVideo.style.transform = 'translate(-' + pivotXPct + '%, -' + pivotYPct + '%) rotate(' + rotate + 'deg)' + perspectiveFn;
-                    layerVideo.style.clipPath = (cropX > 0 || cropY > 0 || cropW < 1 || cropH < 1)
-                        ? 'inset(' + (cropY * 100) + '% ' + (Math.max(0, (1 - cropX - cropW)) * 100) + '% '
-                            + (Math.max(0, (1 - cropY - cropH)) * 100) + '% ' + (cropX * 100) + '%)'
-                        : '';
+                    const opaqueX = Number(layerVideo.dataset.akariOpaqueX);
+                    const opaqueY = Number(layerVideo.dataset.akariOpaqueY);
+                    const opaqueW = Number(layerVideo.dataset.akariOpaqueW);
+                    const opaqueH = Number(layerVideo.dataset.akariOpaqueH);
+                    const opaqueBox = [opaqueX, opaqueY, opaqueW, opaqueH].every(Number.isFinite)
+                        && opaqueW > 0 && opaqueH > 0
+                        ? { x: opaqueX, y: opaqueY, w: opaqueW, h: opaqueH }
+                        : undefined;
+                    layerVideo.style.clipPath = resolveLayerHitRegionClipFn(
+                        layerVideo.videoWidth,
+                        layerVideo.videoHeight,
+                        { x: cropX, y: cropY, w: cropW, h: cropH },
+                        opaqueBox
+                    );
                 }
                 // ㉕ cuts[].framing（contract-2026-08-02-preview-parity.md §2.4.2）: この cut.transform
                 // 部分（PIP 位置決め）は video.style.transform の一部にすぎず、時間で変化する framing
@@ -5017,6 +5032,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // task.md 指示4 (rect tool): normalized drag -> [x,y,w,h] box, same shape as
             // review.json's region.box (../common/rect-tool-visual.ts).
             const normalizeRectFromPointsFn = (${normalizeRectFromPoints.toString()});
+            const layerResizeCornerPointFn = (${layerResizeCornerPoint.toString()});
             const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>';
             const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"></path></svg>';
             const fullscreenIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"></path></svg>';
@@ -5659,6 +5675,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariLayerId = String(layer.id);
                 layerVideo.dataset.akariLayerIndex = String(index);
                 layerVideo.dataset.akariLayerKind = String(layer.kind);
+                if (layer.kind === 'baked') layerVideo.style.pointerEvents = 'none';
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
                 layerVideo.style.zIndex = String(zForTrack(layer.trackId));
@@ -5961,6 +5978,30 @@ body { display: grid; place-items: center; padding: 32px; }
                     return null;
                 }
             };
+            const syncLayerHitRegion = (entry, forceMeasure = false) => {
+                if (forceMeasure) entry.opaqueBox = undefined;
+                if (entry.opaqueBox === undefined) entry.opaqueBox = measureLayerOpaqueBox(entry);
+                const box = entry.opaqueBox;
+                if (box) {
+                    entry.video.dataset.akariOpaqueX = String(box.x);
+                    entry.video.dataset.akariOpaqueY = String(box.y);
+                    entry.video.dataset.akariOpaqueW = String(box.w);
+                    entry.video.dataset.akariOpaqueH = String(box.h);
+                    entry.video.style.pointerEvents = 'auto';
+                } else {
+                    delete entry.video.dataset.akariOpaqueX;
+                    delete entry.video.dataset.akariOpaqueY;
+                    delete entry.video.dataset.akariOpaqueW;
+                    delete entry.video.dataset.akariOpaqueH;
+                    if (entry.spec.kind === 'baked') entry.video.style.pointerEvents = 'none';
+                }
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                return box;
+            };
+            for (const entry of layerEntries) {
+                entry.video.addEventListener('loadeddata', () => syncLayerHitRegion(entry, true));
+                entry.video.addEventListener('seeked', () => syncLayerHitRegion(entry, true));
+            }
             const updateLayerSelectBox = () => {
                 const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : undefined;
                 if (!entry || entry.video.style.display === 'none' || !(entry.video.videoWidth > 0)) {
@@ -5975,7 +6016,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 // フレーム未着で測れないうちは全面フォールバック枠を一瞬見せず、届いてから出す
                 if (entry.opaqueBox === undefined) {
                     if (entry.video.readyState >= 2) {
-                        entry.opaqueBox = measureLayerOpaqueBox(entry);
+                        syncLayerHitRegion(entry);
                     } else {
                         layerSelectBox.classList.remove('is-active');
                         entry.video.addEventListener('loadeddata', () => updateLayerSelectBox(), { once: true });
@@ -6467,6 +6508,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!entry) return;
                     const kind = handle.getAttribute('data-akari-handle');
                     const boxRect = layerSelectBox.getBoundingClientRect();
+                    const boxCenter = {
+                        x: boxRect.left + boxRect.width / 2,
+                        y: boxRect.top + boxRect.height / 2
+                    };
                     // 枠はコンテンツにフィットしているが、拡縮・回転のピボットは transform モデルの
                     // 中心 = ビデオ中心のまま。箱中心からピボットオフセット（出力 px）を引き戻す
                     const pivotPerOutput = (window.akari.stageScale() || 1) * (typeof zoom === 'number' && zoom > 0 ? zoom : 1);
@@ -6483,28 +6528,55 @@ body { display: grid; place-items: center; padding: 32px; }
                             return { ...original, rotate: original.rotate + (angle - startAngle) };
                         });
                     } else {
-                        const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
-                        // ㉔ crop 適用中は見えている自然サイズが cropW/cropH 分小さいので、bounds→scale の
-                        // 逆算（solveCenteredResizeSnap の naturalWidth/Height）もそれに合わせる。
-                        const crop = layerCropNow(entry);
+                        const oppositeKind = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' }[kind];
+                        const boxZoom = typeof zoom === 'number' && zoom > 0 ? zoom : 1;
+                        const boxWidth = (Number.parseFloat(layerSelectBox.style.width) || 0) * boxZoom;
+                        const boxHeight = (Number.parseFloat(layerSelectBox.style.height) || 0) * boxZoom;
+                        const rotate = layerTransformNow(entry).rotate;
+                        const anchorClient = layerResizeCornerPointFn(
+                            boxCenter.x, boxCenter.y, boxWidth, boxHeight, rotate, oppositeKind
+                        );
+                        const draggedClient = layerResizeCornerPointFn(
+                            boxCenter.x, boxCenter.y, boxWidth, boxHeight, rotate, kind
+                        );
+                        const anchor = window.akari.interaction?.stageLocalPoint?.(anchorClient.x, anchorClient.y);
+                        const dragged = window.akari.interaction?.stageLocalPoint?.(draggedClient.x, draggedClient.y);
+                        if (!anchor || !dragged || !window.akari.interaction?.anchorPreservingTranslate) return;
+                        const startDistance = Math.max(1, Math.hypot(dragged.x - anchor.x, dragged.y - anchor.y));
                         let dragSnap = { x: null, y: null };
                         beginLayerTransformDrag(entry, event, (moveEvent, original) => {
-                            const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
+                            const point = window.akari.interaction.stageLocalPoint(moveEvent.clientX, moveEvent.clientY);
+                            if (!point) return original;
+                            const distance = Math.hypot(point.x - anchor.x, point.y - anchor.y);
                             const factor = distance / startDistance;
                             let nextScale = Math.max(0.01, original.scale * factor);
-                            if (moveEvent.shiftKey || !window.akari.interaction) {
+                            if (moveEvent.shiftKey || !window.akari.interaction.computeAnchorResizeSnap) {
                                 dragSnap = { x: null, y: null };
                                 window.akari.interaction?.hideSnapGuides?.();
                             } else {
-                                const bounds = layerOutputBoundsForTransform(entry, { ...original, scale: nextScale });
-                                const solved = solveCenteredResizeSnap(
-                                    bounds, (entry.video.videoWidth || 0) * crop.w, (entry.video.videoHeight || 0) * crop.h,
-                                    nextScale, dragSnap
-                                );
+                                const solved = window.akari.interaction.computeAnchorResizeSnap({
+                                    anchorStageX: anchor.x,
+                                    anchorStageY: anchor.y,
+                                    draggedStageX: dragged.x,
+                                    draggedStageY: dragged.y,
+                                    startScale: original.scale,
+                                    scale: nextScale,
+                                    snapX: dragSnap.x,
+                                    snapY: dragSnap.y
+                                });
+                                if (!solved) return original;
                                 nextScale = solved.scale;
                                 dragSnap = { x: solved.snapX, y: solved.snapY };
                             }
-                            return { ...original, scale: nextScale };
+                            const translated = window.akari.interaction.anchorPreservingTranslate({
+                                startX: original.x,
+                                startY: original.y,
+                                startScale: original.scale,
+                                scale: nextScale,
+                                anchorStageX: anchor.x,
+                                anchorStageY: anchor.y
+                            });
+                            return translated ? { ...original, ...translated, scale: nextScale } : original;
                         });
                     }
                 });
@@ -6703,13 +6775,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 const report = !options || options.report !== false;
                 if (cutSelected) {
                     updateCutSelectBox();
+                    if (report) window.akari.reportCutSelection(video.dataset.akariCutId || null);
                     return;
                 }
                 cutSelected = true;
                 selectLayer(null, { report: true });
                 if (typeof deselectCaption === 'function') deselectCaption({ report: true });
                 updateCutSelectBox();
-                if (report) window.akari.reportCutSelection(true);
+                if (report) window.akari.reportCutSelection(video.dataset.akariCutId || null);
             };
             const deselectCut = options => {
                 const report = !options || options.report !== false;
@@ -6719,7 +6792,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 cutSelected = false;
                 updateCutSelectBox();
-                if (report) window.akari.reportCutSelection(false);
+                if (report) window.akari.reportCutSelection(null);
             };
             const beginCutTransformDrag = (startEvent, computeTransform) => {
                 startEvent.preventDefault();
@@ -8024,6 +8097,13 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (!layerVideo.paused) layerVideo.pause();
                     } else if (layerVideo.paused) {
                         void layerVideo.play().catch(() => undefined);
+                    }
+                    if (layer.kind === 'baked') {
+                        const hitRegionBucket = Math.floor(target * 4);
+                        if (entry.hitRegionBucket !== hitRegionBucket) {
+                            entry.hitRegionBucket = hitRegionBucket;
+                            syncLayerHitRegion(entry, true);
+                        }
                     }
                 }
                 if (anyKeyframeApplied && window.akari.updateLayerLayout) window.akari.updateLayerLayout();

@@ -1,0 +1,55 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "a",
+      "path": "assets/take-a.mp4"
+    },
+    {
+      "id": "b",
+      "path": "assets/take-b.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v-layer-bottom",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "layer-b",
+          "at": 0,
+          "duration": 180,
+          "source": {
+            "kind": "media",
+            "src": "b",
+            "in": 0,
+            "out": 6
+          },
+          "blend": "screen"
+        }
+      ]
+    },
+    {
+      "id": "v-cut-top",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "cut-a",
+          "at": 0,
+          "duration": 180,
+          "source": {
+            "kind": "media",
+            "src": "a",
+            "in": 0,
+            "out": 6
+          }
+        }
+      ]
+    }
+  ]
+}

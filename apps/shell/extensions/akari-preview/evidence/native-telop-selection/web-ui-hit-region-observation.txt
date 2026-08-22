@@ -1,0 +1,10 @@
+Web UI follow-up (read-only)
+
+The Web UI does not have the shell's same pointer-routing hole:
+- layer media elements are full-frame and pointer-events:auto;
+- wrapper capture calls findLayerHit();
+- findLayerHit() checks alpha at the pointer and continues through transparent layer pixels;
+- when it reaches an overlay descendant it returns null so the overlay runtime keeps the gesture.
+
+The Web UI still uses crop-only clip-path on layer media, but its delegated alpha hit-test prevents a
+transparent baked telop from stealing a visible overlay's pointer gesture. No Web UI source was changed.

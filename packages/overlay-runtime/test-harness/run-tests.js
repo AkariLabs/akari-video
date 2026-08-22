@@ -207,9 +207,11 @@
       typeof window.akari.interaction.computeSnapCorrection === "function" &&
         typeof window.akari.interaction.stageLocalPoint === "function" &&
         typeof window.akari.interaction.currentDisplayScale === "function" &&
-        typeof window.akari.interaction.outputSize === "function" &&
-        typeof window.akari.interaction.showSnapGuides === "function" &&
-        typeof window.akari.interaction.hideSnapGuides === "function",
+      typeof window.akari.interaction.outputSize === "function" &&
+      typeof window.akari.interaction.showSnapGuides === "function" &&
+        typeof window.akari.interaction.hideSnapGuides === "function" &&
+        typeof window.akari.interaction.anchorPreservingTranslate === "function" &&
+        typeof window.akari.interaction.computeAnchorResizeSnap === "function",
       "interaction.js が layers[]/cut/caption 実装向けの共有スナップ API を公開している"
     );
 
@@ -411,6 +413,73 @@
       await nextPaint();
       const container = stage.querySelector(`[data-overlay-id="${fixture.id}"]`);
       const visibleElement = container.querySelector(fixture.visibleSelector);
+      if (fixture.id === "resize-regular") {
+        const rect = visibleElement.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        assert(
+          getComputedStyle(visibleElement).pointerEvents === "auto" && hit === visibleElement,
+          "実寸の描画ルート自身が pointer target になり、背面の本編へ同じ gesture を渡さない"
+        );
+        const writesBefore = window.__akariOverlayWrites.length;
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+          const dragRect = visibleElement.getBoundingClientRect();
+          const startX = dragRect.left + dragRect.width / 2;
+          const startY = dragRect.top + dragRect.height / 2;
+          const pointerId = 80800 + attempt;
+          const common = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            pointerId,
+            pointerType: "mouse",
+            isPrimary: true,
+            button: 0,
+            shiftKey: true,
+          };
+          visibleElement.dispatchEvent(new PointerEvent("pointerdown", {
+            ...common, buttons: 1, clientX: startX, clientY: startY,
+          }));
+          window.dispatchEvent(new PointerEvent("pointermove", {
+            ...common, buttons: 1, clientX: startX + 12, clientY: startY + 7,
+          }));
+          window.dispatchEvent(new PointerEvent("pointerup", {
+            ...common, buttons: 0, clientX: startX + 12, clientY: startY + 7,
+          }));
+          await nextPaint();
+        }
+        const repeatedWrites = window.__akariOverlayWrites.slice(writesBefore);
+        assert(
+          repeatedWrites.length === 10 && repeatedWrites.every(write =>
+            write.overlayId === "resize-regular"
+            && Number.isFinite(write.patch?.transform?.x)
+            && Number.isFinite(write.patch?.transform?.y)
+          ),
+          "同じオーバーレイを10回連続で移動しても毎回 X/Y が同じ対象へ書き込まれる"
+        );
+        visibleElement.dispatchEvent(new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          clientX: rect.left + rect.width / 2,
+          clientY: rect.top + rect.height / 2,
+        }));
+        stage.dispatchEvent(new PointerEvent("pointerdown", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          pointerId: 80999,
+          pointerType: "mouse",
+          isPrimary: true,
+          button: 0,
+          buttons: 1,
+          clientX: stage.getBoundingClientRect().right - 10,
+          clientY: stage.getBoundingClientRect().bottom - 10,
+        }));
+        assert(
+          container.getAttribute("data-akari-interaction-selected") !== "true",
+          "舞台の空白 pointerdown でオーバーレイ選択が解除される"
+        );
+      }
       for (const corner of ["nw", "ne", "se", "sw"]) {
         await exerciseCorner({
           fixture: fixture.id,
