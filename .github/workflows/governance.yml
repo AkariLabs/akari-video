@@ -47,6 +47,8 @@ jobs:
             "apps/shell/extensions/akari-shell-strip/test/quick-export-cli.test.mjs:47|synthetic test path (/Users/someone/) — identifies no machine"
             "apps/shell/extensions/akari-shell-strip/test/quick-export-cli.test.mjs:48|synthetic test path (/Users/someone/) — identifies no machine"
             "packages/schemas/fixtures/recipe/invalid-source-project-path/recipe.json:5|fixture must be path-like by design (tests the path rejection); username is synthetic (/Users/example/)"
+            "apps/shell/extensions/akari-partner/src/node/cli-provisioner.test.mjs:126|synthetic test path (/Users/x/) — identifies no machine"
+            "apps/shell/extensions/akari-surfaces/src/node/tool-install.test.mjs:340|synthetic test path (/Users/fixture) — identifies no machine"
           )
 
           is_allowed() {

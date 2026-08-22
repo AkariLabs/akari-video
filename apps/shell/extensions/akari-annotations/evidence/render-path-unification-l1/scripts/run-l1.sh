@@ -9,7 +9,7 @@
 # Usage: run-l1.sh
 set -uo pipefail
 
-SHELL_DIR="/Users/ryoma/_edit/30_products/akari-video-wt/track-identity-and-duration/apps/shell"
+SHELL_DIR="<WORKTREE>/apps/shell"
 EVIDENCE_DIR="$SHELL_DIR/extensions/akari-annotations/evidence/render-path-unification-l1"
 SCRIPTS_DIR="$EVIDENCE_DIR/scripts"
 WORKSPACE="/tmp/render-path-unification-l1-ws"

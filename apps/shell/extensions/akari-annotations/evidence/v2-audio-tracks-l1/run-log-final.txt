@@ -2,7 +2,7 @@
 === [phase:separated] preparing fixture ===
 prepared phase separated fixture at /tmp/v2-audio-tracks-l1-ws/project/edit.json
 === [phase:separated] launching electron ===
-[assertion-ok] {"message":"found electron page target","targets":["file:///Users/ryoma/_edit/30_products/akari-video-wt/v2-audio-tracks/apps/shell/lib/frontend/index.html?port=50119#/private/tmp/v2-audio-tracks-l1-ws"]}
+[assertion-ok] {"message":"found electron page target","targets":["file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=50119#<TMP>/v2-audio-tracks-l1-ws"]}
 [onboarding-modal-absent] {}
 [onboarding-modal-absent] {}
 [onboarding-modal-absent] {}
@@ -33,7 +33,7 @@ PHASE_separated_EXIT=0
 === [phase:reordered] preparing fixture ===
 prepared phase reordered fixture at /tmp/v2-audio-tracks-l1-ws/project/edit.json
 === [phase:reordered] launching electron ===
-[assertion-ok] {"message":"found electron page target","targets":["file:///Users/ryoma/_edit/30_products/akari-video-wt/v2-audio-tracks/apps/shell/lib/frontend/index.html?port=50142#/private/tmp/v2-audio-tracks-l1-ws"]}
+[assertion-ok] {"message":"found electron page target","targets":["file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=50142#<TMP>/v2-audio-tracks-l1-ws"]}
 [onboarding-modal-absent] {}
 [onboarding-modal-absent] {}
 [onboarding-modal-absent] {}

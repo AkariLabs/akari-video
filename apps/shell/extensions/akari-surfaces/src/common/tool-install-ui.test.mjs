@@ -62,11 +62,11 @@ test('結果 3 値のマッピング: message 無しは outcome からフォー�
 });
 
 test('作成先パスはホーム配下のとき ~/ に短縮される', () => {
-    assert.equal(shortenHomePath('/Users/ryoma/Akari', '/Users/ryoma'), '~/Akari');
-    assert.equal(shortenHomePath('/Users/ryoma', '/Users/ryoma'), '~');
-    assert.equal(shortenHomePath('/opt/data/Akari', '/Users/ryoma'), '/opt/data/Akari');
+    assert.equal(shortenHomePath('/Users/fixture/Akari', '/Users/fixture'), '~/Akari');
+    assert.equal(shortenHomePath('/Users/fixture', '/Users/fixture'), '~');
+    assert.equal(shortenHomePath('/opt/data/Akari', '/Users/fixture'), '/opt/data/Akari');
 });
 
 test('作成先パスは homeDir 不明のときそのまま返す', () => {
-    assert.equal(shortenHomePath('/Users/ryoma/Akari', undefined), '/Users/ryoma/Akari');
+    assert.equal(shortenHomePath('/Users/fixture/Akari', undefined), '/Users/fixture/Akari');
 });

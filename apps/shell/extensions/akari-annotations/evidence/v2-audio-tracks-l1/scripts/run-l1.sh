@@ -6,7 +6,7 @@
 # Usage: run-l1.sh
 set -uo pipefail
 
-SHELL_DIR="/Users/ryoma/_edit/30_products/akari-video-wt/v2-audio-tracks/apps/shell"
+SHELL_DIR="<WORKTREE>/apps/shell"
 EVIDENCE_DIR="$SHELL_DIR/extensions/akari-annotations/evidence/v2-audio-tracks-l1"
 SCRIPTS_DIR="$EVIDENCE_DIR/scripts"
 WORKSPACE="/tmp/v2-audio-tracks-l1-ws"

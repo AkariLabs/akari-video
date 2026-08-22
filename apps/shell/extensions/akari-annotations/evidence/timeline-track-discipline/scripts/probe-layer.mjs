@@ -2,7 +2,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { CDP, listTargets, evalOn, screenshot, keyPress, resizeViewport } from '/Users/ryoma/_edit/30_products/akari-video-wt/timeline-track-discipline/apps/shell/extensions/akari-annotations/evidence/timeline-track-discipline/scripts/cdp-lib.mjs';
+import { CDP, listTargets, evalOn, screenshot, keyPress, resizeViewport } from './cdp-lib.mjs';
 const [, , port, ws, ev, label] = process.argv;
 const out = { label, steps: [] };
 const rec = (s, d) => { out.steps.push({ step: s, ...d }); console.log(`[${s}]`, JSON.stringify(d)); };

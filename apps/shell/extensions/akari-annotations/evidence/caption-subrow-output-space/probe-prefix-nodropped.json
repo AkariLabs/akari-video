@@ -141,7 +141,7 @@
     {
       "step": "connected",
       "cdpPort": 9712,
-      "workspace": "/tmp/claude-501/-Users-ryoma--edit-30-products-akari-video-wt-caption-subrow-output-space/1998f1e6-7f59-4784-a462-fe4c9bd39095/scratchpad/ws-nodrop",
+      "workspace": "<SCRATCH>",
       "label": "prefix-nodropped"
     },
     {
