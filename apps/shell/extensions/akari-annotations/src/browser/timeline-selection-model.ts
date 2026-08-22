@@ -55,7 +55,7 @@ export interface TimelineLayerSelection {
     layerKind: 'baked' | 'video';
     outputStart: number;
     duration: number;
-    src: string;
+    src?: string;
     preset?: string;
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
     opacity?: number;
@@ -65,6 +65,26 @@ export interface TimelineLayerSelection {
     track?: number;
     trackName: string;
     clipName: string;
+}
+
+export interface TimelineClipNameInput {
+    id: string;
+    src?: unknown;
+    preset?: unknown;
+}
+
+/**
+ * インスペクターに表示するクリップ名を、実在する宣言値だけから解決する。
+ * 未焼成 telop は src を持たないため preset、さらに無ければ安定した item id を使う。
+ */
+export function resolveTimelineClipName(item: TimelineClipNameInput): string {
+    if (typeof item.src === 'string' && item.src.length > 0) {
+        return item.src.split('/').pop() || item.src;
+    }
+    if (typeof item.preset === 'string' && item.preset.length > 0) {
+        return item.preset;
+    }
+    return item.id;
 }
 
 export interface TimelineAudioSelection {

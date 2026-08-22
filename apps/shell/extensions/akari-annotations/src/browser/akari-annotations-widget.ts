@@ -99,7 +99,8 @@ import {
     InspectorWriteResult,
     LivePreviewRequest,
     TimelineItemSelectionSnapshot,
-    TimelineSelectionModel
+    TimelineSelectionModel,
+    resolveTimelineClipName
 } from './timeline-selection-model';
 
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
@@ -2141,7 +2142,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const track = Object.prototype.hasOwnProperty.call(overlay.payload, 'track') ? overlay.track : undefined;
             return {
                 kind: 'overlay', id: overlay.id, outputStart: overlay.start, duration: overlay.duration,
-                trackName: this.trackDisplayNameForItem(overlay.id), clipName: overlay.id,
+                trackName: this.trackDisplayNameForItem(overlay.id), clipName: resolveTimelineClipName(overlay),
                 ...(track !== undefined ? { track } : {}),
                 payload: overlay.payload
             };
@@ -2171,9 +2172,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return {
                 kind: 'layer', id: layer.id, layerKind: layer.kind,
                 trackName: this.trackDisplayNameForItem(layer.id),
-                clipName: this.pathBaseName(layer.src) || layer.id,
-                outputStart: layer.t, duration: layer.duration, src: layer.src,
-                ...(layer.preset !== undefined ? { preset: layer.preset } : {}),
+                clipName: resolveTimelineClipName(layer),
+                outputStart: layer.t, duration: layer.duration,
+                ...(typeof layer.src === 'string' && layer.src.length > 0 ? { src: layer.src } : {}),
+                ...(typeof layer.preset === 'string' && layer.preset.length > 0 ? { preset: layer.preset } : {}),
                 ...(layer.transform !== undefined ? { transform: layer.transform } : {}),
                 ...(layer.opacity !== undefined ? { opacity: layer.opacity } : {}),
                 ...(layer.blend !== undefined ? { blend: layer.blend } : {}),
