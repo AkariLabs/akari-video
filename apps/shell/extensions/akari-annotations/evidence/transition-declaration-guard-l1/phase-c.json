@@ -1,0 +1,28 @@
+{
+  "phase": "c",
+  "status": "PASS",
+  "observations": [
+    {
+      "step": "application-shell-ready",
+      "elapsedMs": 33754
+    },
+    {
+      "step": "open-timeline-attempt",
+      "attempt": 1,
+      "opened": true
+    },
+    {
+      "step": "default-order-allows-transition",
+      "guardVisible": false,
+      "typeButtonsDisabled": [
+        false,
+        false,
+        false
+      ],
+      "lint": "pass"
+    },
+    {
+      "step": "phase-pass"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "phase": "a",
+  "status": "PASS",
+  "observations": [
+    {
+      "step": "application-shell-ready",
+      "elapsedMs": 21506
+    },
+    {
+      "step": "open-timeline-attempt",
+      "attempt": 1,
+      "opened": true
+    },
+    {
+      "step": "warning-visible",
+      "title": "このトランジション（映像トラック 1）は、並べ替えたトラックを合成する方式では書き出せません。削除するか、トラックを既定順へ戻してください。",
+      "hitTag": "BUTTON",
+      "height": 19
+    },
+    {
+      "step": "one-click-removal",
+      "transitionOutPresent": false,
+      "lint": "pass"
+    },
+    {
+      "step": "localized-lint-banner",
+      "height": 26,
+      "text": "保存後の検証で問題が見つかりました: このトランジションは現在のトラック順では書き出せません。トランジションを削除するか、トラックを既定順へ戻してください。 詳細: [cuts.track-transition-unsupported] cuts[].transition_out is declared on track 0, which timeline.tracks composites through the gap-aware track engine. That engine treats adjacent same-track cuts as separate, non-overlapping windows, so it cannot represent an xfade's intentional overlap -- the composited window and the actually-shrunk clip diverge, and content disappears early (verified with a real render: the base track's background visibly leaked through where the dissolved clip should still have been playing). Remove transition_out from this track's cuts, or drop the custom timeline.tracks order for this track so it renders through the plain sequential path instead. 直前の編集を元に戻す"
+    },
+    {
+      "step": "phase-a-final",
+      "transitionOutPresent": false,
+      "lint": "pass"
+    },
+    {
+      "step": "phase-pass"
+    }
+  ]
+}

@@ -19,6 +19,7 @@ import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
 const {
+  findUnsupportedDeclaredTrackTransitions,
   projectLegacyEdit,
   readInternalEdit,
   resolveCaptionDisplay,
@@ -351,7 +352,11 @@ function collectAudioOnlySourceIds(edit) {
 
 function collectInternalAudioTrackRefs(internalEdit) {
   return new Set(internalEdit.tracks
-    .filter(track => track.lane === "audio" && track.items.length > 0)
+    // v2 top-level audio は読み込み層が implicit audio track へ射影するが、元データに
+    // tracks[] 宣言は無い。これを実段として数えると declaration-missing が必ず出る。
+    // validateTimelineTracks が照合する相手は projectLegacyEdit の declaredTracks なので、
+    // 実データ側も同じ declared origin に限定して投影ノイズを除く。
+    .filter(track => track.origin === "declared" && track.lane === "audio" && track.items.length > 0)
     .map(track => Number.isInteger(track.legacy.ref) ? track.legacy.ref : 0));
 }
 
@@ -1297,53 +1302,24 @@ function validateTimelineTracks(edit, findings, projectedAudioTracks = null) {
 // combination. Reject it instead: it fails loudly and specifically, rather than rendering a
 // broken video with a phantom black flash that's very hard to trace back to its cause.
 export function validateTrackTransitionOutCompatibility(edit, findings) {
-  if (!Array.isArray(edit?.cuts)) return;
-  const tracks = edit?.timeline?.tracks;
-  if (!Array.isArray(tracks)) return; // malformed timeline.tracks is already reported by validateTimelineTracks
-  if (usesDefaultCompatibilityTrackOrder(tracks)) return;
-
-  const cutsTrackRefs = new Set(
-    tracks
-      .filter((item) => isRecord(item) && item.kind === "cuts" && Number.isInteger(item.ref) && item.ref >= 0)
-      .map((item) => item.ref),
-  );
-  for (const ref of cutsTrackRefs) {
-    const trackCuts = edit.cuts
-      .map((cut, index) => ({ cut, index }))
-      .filter(({ cut }) => isRecord(cut) && (cut.track ?? 0) === ref);
-    // The last cut on a track has no following same-track cut to blend into, so its own
-    // transition_out (if any) never renders -- mirrors buildMultiSourceCutCommand's own
-    // hasAnyTransition check (plan.mjs) and predictedDuration's overlap accounting.
-    for (const { cut, index } of trackCuts.slice(0, -1)) {
-      if (!cut.transition_out) continue;
-      addFinding(findings, {
-        severity: "error",
-        check: "cuts.track-transition-unsupported",
-        message:
-          `cuts[].transition_out is declared on track ${ref}, which timeline.tracks composites through the `
-          + `gap-aware track engine. That engine treats adjacent same-track cuts as separate, non-overlapping `
-          + `windows, so it cannot represent an xfade's intentional overlap -- the composited window and the `
-          + `actually-shrunk clip diverge, and content disappears early (verified with a real render: the base `
-          + `track's background visibly leaked through where the dissolved clip should still have been `
-          + `playing). Remove transition_out from this track's cuts, or drop the custom timeline.tracks order `
-          + `for this track so it renders through the plain sequential path instead.`,
-        path: `edit.json#cuts[${index}]`,
-      });
-    }
+  for (const { cutIndex, trackRef } of findUnsupportedDeclaredTrackTransitions(
+    edit?.cuts,
+    edit?.timeline?.tracks,
+  )) {
+    addFinding(findings, {
+      severity: "error",
+      check: "cuts.track-transition-unsupported",
+      message:
+        `cuts[].transition_out is declared on track ${trackRef}, which timeline.tracks composites through the `
+        + `gap-aware track engine. That engine treats adjacent same-track cuts as separate, non-overlapping `
+        + `windows, so it cannot represent an xfade's intentional overlap -- the composited window and the `
+        + `actually-shrunk clip diverge, and content disappears early (verified with a real render: the base `
+        + `track's background visibly leaked through where the dissolved clip should still have been `
+        + `playing). Remove transition_out from this track's cuts, or drop the custom timeline.tracks order `
+        + `for this track so it renders through the plain sequential path instead.`,
+      path: `edit.json#cuts[${cutIndex}]`,
+    });
   }
-}
-
-function usesDefaultCompatibilityTrackOrder(tracks) {
-  const rank = new Map([["cuts", 0], ["layers", 1], ["overlays", 2], ["captions", 3], ["audio", 4]]);
-  const keys = tracks.map((track, index) => ({
-    kind: track?.kind,
-    ref: Number.isInteger(track?.ref) ? track.ref : -1,
-    index,
-  }));
-  if (keys.some(key => !rank.has(key.kind))) return false;
-  const expected = [...keys].sort((left, right) =>
-    rank.get(left.kind) - rank.get(right.kind) || left.ref - right.ref || left.index - right.index);
-  return keys.every((key, index) => key.index === expected[index].index);
 }
 
 function collectActualTrackNumbers(items) {
