@@ -35,6 +35,12 @@ export type QuickExportPhase =
     | 'done'
     | 'failed';
 
+export interface QuickExportLintFinding {
+    readonly check?: string;
+    readonly severity?: string;
+    readonly message?: string;
+}
+
 export interface QuickExportStatus {
     readonly phase: QuickExportPhase;
     /** 直近の子プロセス出力（stdout+stderr）の末尾。実行中は随時伸びる。 */
@@ -44,6 +50,8 @@ export interface QuickExportStatus {
     /** lint-failed のときだけ、findings の severity 別件数。 */
     readonly lintErrorCount?: number;
     readonly lintWarningCount?: number;
+    /** lint-failed のときだけ、日本語要約と英語詳細の組み立てに使う findings。 */
+    readonly lintFindings?: readonly QuickExportLintFinding[];
     /** done のときだけ、プロジェクトルート相対の出力先（例: 'exports/final.mp4'）。 */
     readonly artifactPath?: string;
     readonly artifactSize?: number;

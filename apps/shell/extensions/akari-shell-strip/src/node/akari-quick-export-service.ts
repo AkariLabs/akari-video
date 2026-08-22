@@ -5,6 +5,7 @@ import { existsSync, promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import {
     AkariQuickExportService,
+    QuickExportLintFinding,
     QuickExportStartOutcome,
     QuickExportStartRequest,
     QuickExportStatus
@@ -114,6 +115,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
                 lintIssueCount: lintSummary?.issueCount,
                 lintErrorCount: lintSummary?.errorCount,
                 lintWarningCount: lintSummary?.warningCount,
+                lintFindings: lintSummary?.findings,
                 reportPath: await this.existingReportPath(projectRoot, EDIT_LINT_REPORT_RELATIVE_PATH)
             });
             return 'fail';
@@ -164,16 +166,25 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         issueCount: number;
         errorCount: number;
         warningCount: number;
+        findings: QuickExportLintFinding[];
     } | undefined {
         try {
-            const parsed = JSON.parse(stdout) as { findings?: Array<{ severity?: unknown }> };
+            const parsed = JSON.parse(stdout) as {
+                findings?: Array<{ check?: unknown; severity?: unknown; message?: unknown }>;
+            };
             if (!Array.isArray(parsed.findings)) {
                 return undefined;
             }
+            const findings = parsed.findings.map(finding => ({
+                check: typeof finding?.check === 'string' ? finding.check : undefined,
+                severity: typeof finding?.severity === 'string' ? finding.severity : undefined,
+                message: typeof finding?.message === 'string' ? finding.message : undefined
+            }));
             return {
-                issueCount: parsed.findings.length,
-                errorCount: parsed.findings.filter(finding => finding?.severity === 'error').length,
-                warningCount: parsed.findings.filter(finding => finding?.severity === 'warning').length
+                issueCount: findings.length,
+                errorCount: findings.filter(finding => finding.severity === 'error').length,
+                warningCount: findings.filter(finding => finding.severity === 'warning').length,
+                findings
             };
         } catch {
             return undefined;

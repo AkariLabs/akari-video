@@ -53,8 +53,16 @@ test('start: lint-failed に error / warning 件数とレポートを載せる',
                 exitCode: 1,
                 stdout: JSON.stringify({
                     findings: [
-                        { severity: 'error' },
-                        { severity: 'warning' }
+                        {
+                            check: 'cuts.track-transition-unsupported',
+                            severity: 'error',
+                            message: 'gap-aware track engine cannot represent xfade'
+                        },
+                        {
+                            check: 'timeline.tracks.declaration-missing',
+                            severity: 'warning',
+                            message: 'timeline track declaration is missing'
+                        }
                     ]
                 }),
                 stderr: ''
@@ -77,6 +85,18 @@ test('start: lint-failed に error / warning 件数とレポートを載せる',
         lintIssueCount: 2,
         lintErrorCount: 1,
         lintWarningCount: 1,
+        lintFindings: [
+            {
+                check: 'cuts.track-transition-unsupported',
+                severity: 'error',
+                message: 'gap-aware track engine cannot represent xfade'
+            },
+            {
+                check: 'timeline.tracks.declaration-missing',
+                severity: 'warning',
+                message: 'timeline track declaration is missing'
+            }
+        ],
         reportPath: '.akari/reports/edit-lint-report.html'
     });
 });
