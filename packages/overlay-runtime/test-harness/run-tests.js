@@ -232,6 +232,144 @@
       `computeSnapCorrection(): 出力幅中央付近の bounds がセンター吸着候補を返す（target=${centerSnap.x?.target}）`
     );
 
+    const outerEdgeSnap = window.akari.interaction.computeSnapCorrection(
+      {
+        left: 4,
+        top: 4,
+        right: 104,
+        bottom: 104,
+        centerX: 54,
+        centerY: 54,
+      },
+      { x: null, y: null }
+    );
+    assert(
+      outerEdgeSnap.x?.target === 0 && outerEdgeSnap.y?.target === 0,
+      `computeSnapCorrection(): キャンバス外周付近の bounds が 0/0 へ吸着する ` +
+        `(actual=${outerEdgeSnap.x?.target}/${outerEdgeSnap.y?.target})`
+    );
+
+    const farOuterEdgeSnap = window.akari.interaction.computeSnapCorrection(
+      {
+        left: outputSizeNow.width - 104,
+        top: outputSizeNow.height - 104,
+        right: outputSizeNow.width - 4,
+        bottom: outputSizeNow.height - 4,
+        centerX: outputSizeNow.width - 54,
+        centerY: outputSizeNow.height - 54,
+      },
+      { x: null, y: null }
+    );
+    assert(
+      farOuterEdgeSnap.x?.target === outputSizeNow.width &&
+        farOuterEdgeSnap.y?.target === outputSizeNow.height,
+      `computeSnapCorrection(): 反対側のキャンバス外周へも吸着する ` +
+        `(actual=${farOuterEdgeSnap.x?.target}/${farOuterEdgeSnap.y?.target})`
+    );
+
+    const safeMarginSnap = window.akari.interaction.computeSnapCorrection(
+      {
+        left: outputSizeNow.width * 0.05 + 3,
+        top: outputSizeNow.height * 0.05 + 3,
+        right: outputSizeNow.width * 0.05 + 103,
+        bottom: outputSizeNow.height * 0.05 + 103,
+        centerX: outputSizeNow.width * 0.05 + 53,
+        centerY: outputSizeNow.height * 0.05 + 53,
+      },
+      { x: null, y: null }
+    );
+    assert(
+      safeMarginSnap.x?.target === outputSizeNow.width * 0.05 &&
+        safeMarginSnap.y?.target === outputSizeNow.height * 0.05,
+      "computeSnapCorrection(): 既存の 5% セーフマージン吸着を維持する"
+    );
+
+    // centered cut の bounds は center↔center の correction=0 が常に最短になる。
+    // この縮退を再現した上で、cut resize が使う anchor 方式なら四隅が
+    // 外周へ解けることを固定する。
+    const centeredRawScale = 0.98;
+    const centeredBounds = {
+      left: outputSizeNow.width * (1 - centeredRawScale) / 2,
+      top: outputSizeNow.height * (1 - centeredRawScale) / 2,
+      right: outputSizeNow.width * (1 + centeredRawScale) / 2,
+      bottom: outputSizeNow.height * (1 + centeredRawScale) / 2,
+      centerX: outputSizeNow.width / 2,
+      centerY: outputSizeNow.height / 2,
+    };
+    const centeredDegenerateSnap = window.akari.interaction.computeSnapCorrection(
+      centeredBounds,
+      { x: null, y: null }
+    );
+    assert(
+      centeredDegenerateSnap.x?.sourceIndex === 1 &&
+        centeredDegenerateSnap.x?.correction === 0 &&
+        centeredDegenerateSnap.y?.sourceIndex === 1 &&
+        centeredDegenerateSnap.y?.correction === 0,
+      "centered bounds の computeSnapCorrection() は center↔center の縮退を再現する"
+    );
+
+    const centeredAnchor = {
+      x: outputSizeNow.width / 2,
+      y: outputSizeNow.height / 2,
+    };
+    const centeredCorners = {
+      nw: { x: 0, y: 0 },
+      ne: { x: outputSizeNow.width, y: 0 },
+      se: { x: outputSizeNow.width, y: outputSizeNow.height },
+      sw: { x: 0, y: outputSizeNow.height },
+    };
+    for (const [corner, dragged] of Object.entries(centeredCorners)) {
+      const solved = window.akari.interaction.computeAnchorResizeSnap({
+        anchorStageX: centeredAnchor.x,
+        anchorStageY: centeredAnchor.y,
+        draggedStageX: dragged.x,
+        draggedStageY: dragged.y,
+        startScale: 1,
+        scale: centeredRawScale,
+        snapX: null,
+        snapY: null,
+      });
+      const solvedRatio = solved.scale;
+      const solvedCorner = {
+        x: centeredAnchor.x + (dragged.x - centeredAnchor.x) * solvedRatio,
+        y: centeredAnchor.y + (dragged.y - centeredAnchor.y) * solvedRatio,
+      };
+      assert(
+        Math.abs(solved.scale - 1) < 1e-12 &&
+          Math.abs(solvedCorner.x - dragged.x) < 1e-9 &&
+          Math.abs(solvedCorner.y - dragged.y) < 1e-9 &&
+          (solved.snapX || solved.snapY),
+        `computeAnchorResizeSnap(): centered cut ${corner} が外周 ` +
+          `(${dragged.x},${dragged.y}) へ吸着する`
+      );
+    }
+
+    window.akari.interaction.showSnapGuides(
+      { target: 0 },
+      { target: outputSizeNow.height }
+    );
+    const verticalGuide = stage.querySelector(
+      '[data-akari-interaction="snap-guide-vertical"]'
+    );
+    const horizontalGuide = stage.querySelector(
+      '[data-akari-interaction="snap-guide-horizontal"]'
+    );
+    assert(
+      verticalGuide.style.left === "0.5px" &&
+        horizontalGuide.style.top === `${outputSizeNow.height - 0.5}px`,
+      "左・下外周のスナップガイドがステージ内側にクランプされる"
+    );
+    window.akari.interaction.showSnapGuides(
+      { target: outputSizeNow.width },
+      { target: 0 }
+    );
+    assert(
+      verticalGuide.style.left === `${outputSizeNow.width - 0.5}px` &&
+        horizontalGuide.style.top === "0.5px",
+      "右・上外周のスナップガイドがステージ内側にクランプされる"
+    );
+    window.akari.interaction.hideSnapGuides();
+
     // ---- 3d) resize 幾何回帰: 四隅・可逆性・固定アンカー・停止・全画面ラッパー ----
     // 許容誤差は stage-local（出力動画）座標で 0.25px、scale の相対誤差で 1e-6。
     // 実測は全フレームを console / #harness-log / window の配列へ残し、CDP 側からも
@@ -770,14 +908,18 @@
       y: snapDragged.y - snapAnchor.y,
     };
     const xTargets = [
+      0,
       outputSizeNow.width * 0.05,
       outputSizeNow.width / 2,
       outputSizeNow.width * 0.95,
+      outputSizeNow.width,
     ];
     const yTargets = [
+      0,
       outputSizeNow.height * 0.05,
       outputSizeNow.height / 2,
       outputSizeNow.height * 0.95,
+      outputSizeNow.height,
     ];
     const snapCandidates = [
       ...xTargets.map((target) => ({

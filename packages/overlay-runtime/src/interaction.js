@@ -455,11 +455,22 @@ window.akari.interaction = (() => {
     const guides = ensureSnapGuides();
     if (!guides) return;
 
+    // 外周ターゲットは 0 / width / height だが、ガイドは -0.5px
+    // translate で線の中心を合わせる。overflow:hidden にクリップされないよう、
+    // 表示位置だけをステージ内側へ半ピクセルクランプする。
+    const { width, height } = outputSize();
+    const clampGuidePosition = (target, extent) =>
+      Math.min(Math.max(target, 0.5), Math.max(0.5, extent - 0.5));
+
     guides.vertical.hidden = !snapX;
-    if (snapX) guides.vertical.style.left = `${snapX.target}px`;
+    if (snapX) {
+      guides.vertical.style.left = `${clampGuidePosition(snapX.target, width)}px`;
+    }
 
     guides.horizontal.hidden = !snapY;
-    if (snapY) guides.horizontal.style.top = `${snapY.target}px`;
+    if (snapY) {
+      guides.horizontal.style.top = `${clampGuidePosition(snapY.target, height)}px`;
+    }
   }
 
   function overlayForEvent(event) {
@@ -861,35 +872,47 @@ window.akari.interaction = (() => {
     return closest;
   }
 
-  // キャンバス端（セーフマージン5%）+ センター縦横への吸着候補を、出力px単位の bounds
+  // キャンバス外周 + セーフマージン 5% + センター縦横の共通吸着ターゲット。
+  // 移動と四隅 resize の候補がずれないよう、並びを含めここを単一正本にする。
+  function canvasSnapTargets() {
+    const { width, height } = outputSize();
+    return {
+      x: [
+        0,
+        width * SAFE_MARGIN_RATIO,
+        width / 2,
+        width * (1 - SAFE_MARGIN_RATIO),
+        width,
+      ],
+      y: [
+        0,
+        height * SAFE_MARGIN_RATIO,
+        height / 2,
+        height * (1 - SAFE_MARGIN_RATIO),
+        height,
+      ],
+    };
+  }
+
+  // 共通吸着候補を、出力px単位の bounds
   // {left,top,right,bottom,centerX,centerY} から計算する。overlays のドラッグに限らず、
   // resize・layers[]・cut/caption のドラッグからも共通で呼べるよう window.akari.interaction
   // 経由でも公開する（㉒ スナップ統一の単一正本）。
   function computeSnapCorrection(bounds, previousSnap) {
     if (!bounds) return { x: null, y: null };
 
-    const { width, height } = outputSize();
+    const targets = canvasSnapTargets();
     const scale = currentDisplayScale();
-    const xTargets = [
-      width * SAFE_MARGIN_RATIO,
-      width / 2,
-      width * (1 - SAFE_MARGIN_RATIO),
-    ];
-    const yTargets = [
-      height * SAFE_MARGIN_RATIO,
-      height / 2,
-      height * (1 - SAFE_MARGIN_RATIO),
-    ];
 
     const snapX = closestAxisSnap(
       [bounds.left, bounds.centerX, bounds.right],
-      xTargets,
+      targets.x,
       previousSnap?.x ?? null,
       scale
     );
     const snapY = closestAxisSnap(
       [bounds.top, bounds.centerY, bounds.bottom],
-      yTargets,
+      targets.y,
       previousSnap?.y ?? null,
       scale
     );
@@ -1099,18 +1122,8 @@ window.akari.interaction = (() => {
       y: anchor.y + (draggedStageY - anchor.y) * scaleRatio,
     };
 
-    const { width, height } = outputSize();
+    const targets = canvasSnapTargets();
     const displayScale = currentDisplayScale();
-    const xTargets = [
-      width * SAFE_MARGIN_RATIO,
-      width / 2,
-      width * (1 - SAFE_MARGIN_RATIO),
-    ];
-    const yTargets = [
-      height * SAFE_MARGIN_RATIO,
-      height / 2,
-      height * (1 - SAFE_MARGIN_RATIO),
-    ];
 
     const findCandidate = (draggedValue, anchorValue, targets, previous) => {
       const denom = draggedValue - anchorValue;
@@ -1143,8 +1156,8 @@ window.akari.interaction = (() => {
       return { ...best, scale: solvedScale };
     };
 
-    const candidateX = findCandidate(dragged.x, anchor.x, xTargets, snapX);
-    const candidateY = findCandidate(dragged.y, anchor.y, yTargets, snapY);
+    const candidateX = findCandidate(dragged.x, anchor.x, targets.x, snapX);
+    const candidateY = findCandidate(dragged.y, anchor.y, targets.y, snapY);
 
     let axis = null;
     if (candidateX && candidateY) {
