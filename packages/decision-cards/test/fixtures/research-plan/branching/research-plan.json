@@ -1,0 +1,25 @@
+{
+  "version": 0,
+  "topic": { "candidates": [{ "id": "branch", "title": "3章の主軸とカットアウェイ", "category": "help", "monetization_potential": "low", "rationale": "構造図の検証" }], "selected": "branch", "decided_at": "2026-08-23T00:00:00+09:00" },
+  "target": { "audience": "構造を確認する閲覧者", "competitors": [], "japan_sns": { "platforms": [], "notes": "構造図 fixture。" } },
+  "structure": {
+    "chapters": [
+      { "id": "hook", "title": "導入", "duration_estimate_seconds": 8, "notes": null },
+      { "id": "body", "title": "本編", "duration_estimate_seconds": 30, "notes": null },
+      { "id": "outro", "title": "結び", "duration_estimate_seconds": 8, "notes": null }
+    ],
+    "shots": [
+      { "id": "main-1", "chapter_id": "hook", "sequence": "hook", "shot_type": "wide", "description": "完成形から始める", "duration_estimate_seconds": 5, "image_path": null, "camera": { "movement": ["push-in"], "path_hint": "中央へ" } },
+      { "id": "cut-1", "chapter_id": "hook", "sequence": "hook", "cutaway_of": "main-1", "shot_type": "close-up", "description": "手元へ挿入して戻る", "duration_estimate_seconds": 2, "image_path": null },
+      { "id": "main-2", "chapter_id": "body", "sequence": "body", "shot_type": "medium", "description": "工程を説明する", "duration_estimate_seconds": 20, "image_path": null },
+      { "id": "cut-2", "chapter_id": "body", "sequence": "body", "cutaway_of": "main-2", "shot_type": "insert", "description": "資料へ挿入して戻る", "duration_estimate_seconds": 3, "image_path": null },
+      { "id": "main-3", "chapter_id": "outro", "sequence": "outro", "shot_type": "wide", "description": "全景で締める", "duration_estimate_seconds": 5, "image_path": null }
+    ],
+    "opening_hook": "完成形を先出しする",
+    "confirmed": true,
+    "confirmed_at": "2026-08-23T00:10:00+09:00"
+  },
+  "shot_list": [],
+  "sources": [{ "id": "fixture", "url": null, "retrieved_at": null, "cost": "free", "note": "テスト fixture" }],
+  "feedback": { "reserved": true, "note": null }
+}

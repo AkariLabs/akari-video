@@ -1,0 +1,25 @@
+{
+  "version": 0,
+  "topic": { "candidates": [], "selected": null, "decided_at": null },
+  "target": {
+    "audience": null,
+    "competitors": [],
+    "japan_sns": { "platforms": [], "notes": "不正な多段カットアウェイ fixture。" }
+  },
+  "structure": {
+    "chapters": [
+      { "id": "body", "title": "本編", "duration_estimate_seconds": null, "notes": null }
+    ],
+    "shots": [
+      { "id": "main", "chapter_id": "body", "sequence": "body", "shot_type": "wide", "description": "主軸", "duration_estimate_seconds": null, "image_path": null },
+      { "id": "cut-1", "chapter_id": "body", "sequence": "body", "cutaway_of": "main", "shot_type": "close-up", "description": "一段目", "duration_estimate_seconds": null, "image_path": null },
+      { "id": "cut-2", "chapter_id": "body", "sequence": "body", "cutaway_of": "cut-1", "shot_type": "insert", "description": "二段目", "duration_estimate_seconds": null, "image_path": null }
+    ],
+    "opening_hook": null,
+    "confirmed": false,
+    "confirmed_at": null
+  },
+  "shot_list": [],
+  "sources": [],
+  "feedback": { "reserved": true, "note": null }
+}

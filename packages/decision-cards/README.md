@@ -9,6 +9,7 @@
 |---|---|
 | `report-helper.mjs` | `127.0.0.1` のみにバインドするローカル HTTP ヘルパー。`report.html` の配信・`decisions.json` の read/write・commit を仲介する |
 | `report-template.html` | data 属性でカードを宣言する report.html の雛形。単選・真偽チェック・整数スライダ・配列型の複数選択に対応する。カード種別のハードコードなし。ヘルパー経由なら操作可能、`file://` 直開き等で fetch 失敗時は全操作ボタンが disabled になり案内文言を出す（安全劣化） |
+| `render-research-plan-report.mjs` | `research-plan.json` から固定 5 面の自己完結 HTML を生成する。絵コンテ面は画像 / 文字プレースホルダーのカード面と、主軸 + カットアウェイの読み取り専用 SVG 構造面を切り替えられる |
 | `examples/report.html` + `examples/report.html.decisions.json` | 動作サンプル一式（既存 4 カード + `direction`）。AI 推奨を既定値に入れた `decisions.json` 雛形付き |
 | `test/direction-card.test.mjs` | ローカル Chrome を headless 起動して、演出カードの保存と既存 4 カードの非退行を実測するテスト |
 
@@ -53,6 +54,17 @@ curl -X POST http://127.0.0.1:8791/api/commit
 ```sh
 npm test --workspace @akari-video/decision-cards
 ```
+
+### research-plan のビジュアル絵コンテ
+
+```sh
+node packages/decision-cards/render-research-plan-report.mjs \
+  planning/research-plan.json \
+  planning/research-plan-report.html
+node packages/decision-cards/report-helper.mjs planning/research-plan-report.html
+```
+
+画像は生成時に data URI へ埋め込むため、出力 HTML は外部依存を持たない。`image_path` が無い、または画像を読めないショットは `shot_type` + `description` のプレースホルダーへ安全に劣化する。旧形式に `sequence` / `cutaway_of` が無い場合も生成は成功し、構造面だけが「構造情報なし」になる。
 
 ## edit-plan スキルからの参照方法
 
