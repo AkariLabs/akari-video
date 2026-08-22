@@ -136,6 +136,10 @@ BGM を敷いているときに限り、この段で寄せる。
 - **推測しない**: 宣言が無い BGM の BPM をここで解析・推定しない。ユーザーが宣言を作りたい
   場合は [declare-audio](../declare-audio/SKILL.md)、購入済みなら
   `akari store install sounds-declaration-pack` を案内する（勝手に推定して拍に乗せない）
+- **宣言があること = 正しいことではない**。宣言データの `tempo_flag` は**プロンプト BPM の
+  遵守度**（注文どおりの速さで生成されたか）であって、宣言と実音の一致度ではない。宣言が
+  実音と合っているかは `grid_flag` を見る（`tempo_flag: ok` を「グリッド検証済み」と取り違え、
+  579 件の宣言全滅を見逃した事故の本体だった — `2026-08-19-audio-beatgrid-declaration-audit`）。
 
 ### グリッドの求め方（自分で計算しない）
 
@@ -147,9 +151,13 @@ node packages/audio-library-setup/bin/beat-grid.mjs --edit <edit.json> --timelin
   --snap 12.0,20.5 --window 0.12 --json
 ```
 
-- 出力の `grid.hits` / `grid.downbeats` / `grid.beats` が timeline 秒のグリッド
+- 出力の `grid.hits` / `grid.downbeats` / `grid.beats` / `grid.seams` / `grid.sections[].start_frame`・
+  `end_frame` は**すべて timeline のフレーム番号**であり、timeline 秒ではない。出力側の時刻・尺は
+  映像も音も整数フレームで扱う規約のため（単位裁定 2026-08-19「出力側は映像も音も整数フレーム」。
+  CLI は内部で秒グリッドを計算したうえで `toFrameGrid` により変換して返す）。timeline 秒の欄
+  （`audio.sfx[].t` 等）へ書くときは `fps` で割って戻す。
 - `grid.seams` は**ループの継ぎ目**（曲が末尾から先頭へ飛ぶ位置）。ここは拍が乱れるので
-  **継ぎ目 ±0.3 秒には発火を置かない**（置いても音楽的に決まらない）
+  **継ぎ目の前後（目安 ±0.3 秒相当のフレーム数）には発火を置かない**（置いても音楽的に決まらない）
 - `grid.sections` は構成（サビがどこか）。**サビ区間の中は密度を厳しくしない**（見せ場だから
   発火が集まってよい）。逆に `intro` / `break` では既定どおり抑える
 
@@ -547,8 +555,14 @@ PASS で機械的に確認されている。参照解決が実際に効いてい
   無ければこの段は丸ごと飛ばし、必要なら declare-audio / 宣言パックを案内する）。
 - **宣言の秒（曲の中の秒）を timeline 秒として扱う**。`audio.bgm.in` とループのぶんずれる。
   変換は `bin/beat-grid.mjs` に任せ、手計算しない。
-- **ループの継ぎ目に発火を置く**（`grid.seams` ±0.3 秒）。曲が末尾から先頭へ飛ぶ位置なので、
+- **`grid.hits` / `grid.downbeats` / `grid.beats` / `grid.seams` を timeline 秒だと思って
+  そのまま `audio.sfx[].t` へ書く**。これらは timeline の**フレーム番号**である
+  （単位裁定 2026-08-19「出力側は映像も音も整数フレーム」）。timeline 秒の欄へ書くときは
+  `fps` で割ってから使う。
+- **ループの継ぎ目に発火を置く**（`grid.seams` 周辺 = 曲が末尾から先頭へ飛ぶ位置）。
   拍が合っていても音楽的に決まらない。
+- **宣言データの `tempo_flag: ok` を「グリッドが正しい」と読む**。`tempo_flag` はプロンプト
+  BPM の遵守度でしかない。宣言と実音の一致度は `grid_flag` で見る。
 - 音楽スナップで `beats[].t` を動かす、または BGM 側（`audio.bgm`）を拍に合わせて操作する
   （動かすのは `audio.sfx[].t` だけ。BGM 操作は v0 スコープ外）。
 - `intensity` で儀式スナップ窓を伸縮させる、または `intensity` を下げて儀式スナップ済みの `turn`
