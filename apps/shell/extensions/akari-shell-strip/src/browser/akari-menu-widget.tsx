@@ -2,7 +2,7 @@ import * as React from '@theia/core/shared/react';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { Message } from '@theia/core/shared/@lumino/messaging';
-import { CommandService, Disposable, DisposableCollection } from '@theia/core/lib/common';
+import { CommandService, Disposable, DisposableCollection, MessageService } from '@theia/core/lib/common';
 import { ApplicationShell, OpenerService, QuickInputService, WidgetManager, open } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
@@ -15,8 +15,14 @@ import {
     composeExportRequestPacket
 } from '../common/export-request-packet';
 import { RenderProgressState, parseRenderProgress, RENDER_PROGRESS_UNKNOWN_LABEL } from '../common/render-progress';
-import { AkariQuickExportService, QuickExportStatus } from '../common/quick-export-protocol';
-import { QUICK_EXPORT_OUTPUT_DIRECTORY, QuickExportEncoder, QuickExportQuality } from '../common/quick-export-cli';
+import { AkariQuickExportService, QuickExportStartOutcome, QuickExportStatus } from '../common/quick-export-protocol';
+import {
+    describeUnexpectedQuickExportFailure,
+    QUICK_EXPORT_OUTPUT_DIRECTORY,
+    QuickExportEncoder,
+    QuickExportQuality
+} from '../common/quick-export-cli';
+import { quickExportErrorNotification, shouldShowRenderJsonProgress } from '../common/quick-export-ui';
 
 interface MenuAction {
     id: string;
@@ -118,6 +124,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected readonly quickExportService!: AkariQuickExportService;
     @inject(FileDialogService)
     protected readonly fileDialogs!: FileDialogService;
+    @inject(MessageService)
+    protected readonly messages!: MessageService;
 
     protected skills: SkillEntry[] = [];
     protected skillsNotice = '';
@@ -128,6 +136,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected quickExportRunning = false;
     protected quickExportStatus: QuickExportStatus | undefined;
     protected quickExportPollHandle: number | undefined;
+    /** 同じ終端失敗をポーリングのたびに通知しないためのガード。 */
+    protected quickExportFailureNotified = false;
     /** 「ログを表示」の開閉状態（task 2026-07-25-export-options #5）。 */
     protected quickExportLogExpanded = false;
 
@@ -423,26 +433,47 @@ export class AkariMenuWidget extends ReactWidget {
         if (this.quickExportRunning) {
             return;
         }
-        const roots = await this.workspace.roots;
-        const root = roots[0]?.resource;
-        if (!root) {
+        this.quickExportFailureNotified = false;
+        let roots: FileStat[];
+        try {
+            roots = await this.workspace.roots;
+        } catch (error) {
+            this.failLocalQuickExport(describeUnexpectedQuickExportFailure(error, 'プロジェクトルートを取得できませんでした'));
             return;
         }
-        const outcome = await this.quickExportService.start({
-            projectRootUri: root.toString(),
-            outputName: settings.outputName,
-            rerunLint: settings.rerunLint,
-            quality: settings.quality,
-            encoder: settings.encoder,
-            fps: settings.fps,
-            outputDirectoryUri: settings.outputDirectoryUri
-        });
+        const root = roots[0]?.resource;
+        if (!root) {
+            this.failLocalQuickExport('プロジェクトルートを取得できないため、書き出しを開始できませんでした');
+            return;
+        }
+        let outcome: QuickExportStartOutcome;
+        try {
+            outcome = await this.quickExportService.start({
+                projectRootUri: root.toString(),
+                outputName: settings.outputName,
+                rerunLint: settings.rerunLint,
+                quality: settings.quality,
+                encoder: settings.encoder,
+                fps: settings.fps,
+                outputDirectoryUri: settings.outputDirectoryUri
+            });
+        } catch (error) {
+            this.failLocalQuickExport(describeUnexpectedQuickExportFailure(error, '書き出しサービスに接続できませんでした'));
+            return;
+        }
         if (!outcome.accepted) {
+            this.failLocalQuickExport('別の書き出しが実行中のため、開始できませんでした');
             return;
         }
         this.quickExportRunning = true;
-        this.quickExportStatus = undefined;
+        // start() は backend 側 status を先に linting/rendering へ進めてから accepted を返す。
+        // 最初の poll を待たず同じ phase を置き、前回 render.json の完了表示を即座に隠す。
+        this.quickExportStatus = {
+            phase: settings.rerunLint ? 'linting' : 'rendering',
+            logTail: ''
+        };
         this.quickExportLogExpanded = false;
+        this.quickExportFailureNotified = false;
         this.update();
         this.beginQuickExportPolling();
     }
@@ -461,12 +492,36 @@ export class AkariMenuWidget extends ReactWidget {
     }
 
     protected async pollQuickExportStatus(): Promise<void> {
-        const status = await this.quickExportService.getStatus();
+        let status: QuickExportStatus;
+        try {
+            status = await this.quickExportService.getStatus();
+        } catch (error) {
+            this.failLocalQuickExport(describeUnexpectedQuickExportFailure(error, '書き出しの進捗を取得できませんでした'));
+            return;
+        }
         this.quickExportStatus = status;
         if (status.phase === 'done' || status.phase === 'failed' || status.phase === 'lint-failed') {
             this.quickExportRunning = false;
             this.stopQuickExportPolling();
         }
+        this.notifyQuickExportError(status);
+        this.update();
+    }
+
+    protected notifyQuickExportError(status: QuickExportStatus): void {
+        const notification = quickExportErrorNotification(status, this.quickExportFailureNotified);
+        if (notification !== undefined) {
+            this.quickExportFailureNotified = true;
+            void this.messages.error(notification);
+        }
+    }
+
+    /** RPC 失敗など status を取れない経路も必ず終端状態 + 通知にする。 */
+    protected failLocalQuickExport(failureSummary: string): void {
+        this.quickExportRunning = false;
+        this.stopQuickExportPolling();
+        this.quickExportStatus = { phase: 'failed', logTail: '', failureSummary };
+        this.notifyQuickExportError(this.quickExportStatus);
         this.update();
     }
 
@@ -698,7 +753,9 @@ export class AkariMenuWidget extends ReactWidget {
     }
 
     protected renderExportSection(): React.ReactNode {
-        const progress = this.renderProgress;
+        const progress = shouldShowRenderJsonProgress(this.quickExportStatus?.phase)
+            ? this.renderProgress
+            : undefined;
         return (
             <section style={{ marginBottom: '22px' }}>
                 <h3 style={{ margin: '0 0 8px', fontSize: '0.85em', opacity: 0.6, letterSpacing: '0.05em' }}>書き出し</h3>

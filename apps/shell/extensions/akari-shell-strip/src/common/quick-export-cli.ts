@@ -136,5 +136,43 @@ export function determineRenderOutcome(
 /** stderr 全文から末尾 N 行だけを要約として取り出す（空行は除く）。 */
 export function summarizeStderrTail(stderr: string, maxLines = 5): string {
     const lines = stderr.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '');
-    return lines.slice(-maxLines).join('\n');
+    const tail = lines.slice(-maxLines);
+    const cause = [...lines].reverse().find(line => /(?:error|failed|not found|cannot|unable|見つかりません|失敗|不在)/iu.test(line));
+    if (cause && !tail.includes(cause) && maxLines > 0) {
+        return [cause, ...tail.slice(-(maxLines - 1))].join('\n');
+    }
+    return tail.join('\n');
+}
+
+/**
+ * render-cut が非成功だったとき、stderr が空でも必ずユーザー向け理由を返す。
+ * 特に「exit 0 だが期待した成果物が無い」は従来 failureSummary が空になり、
+ * GUI では失敗ラベル以外の手掛かりが消えていたため明示的に区別する。
+ */
+export function describeRenderFailure(
+    exitCode: number | null,
+    stderr: string,
+    outputPath: string,
+    output: { readonly size: number } | undefined
+): string {
+    const stderrSummary = summarizeStderrTail(stderr);
+    if (stderrSummary) {
+        return stderrSummary;
+    }
+    if (exitCode === 0 && (!output || output.size <= 0)) {
+        return `render-cut は正常終了を返しましたが、成果物 ${outputPath} が作成されませんでした`;
+    }
+    const exitLabel = exitCode === null ? '終了コードを返さず' : `exit code ${exitCode} で`;
+    return `render-cut が ${exitLabel}終了しました（エラー出力はありません）`;
+}
+
+/** JSON-RPC / バックエンド境界の unknown を空でない1行へ正規化する。 */
+export function describeUnexpectedQuickExportFailure(error: unknown, fallback: string): string {
+    if (error instanceof Error && error.message.trim()) {
+        return `${fallback}: ${error.message.trim()}`;
+    }
+    if (typeof error === 'string' && error.trim()) {
+        return `${fallback}: ${error.trim()}`;
+    }
+    return fallback;
 }
