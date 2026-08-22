@@ -4040,13 +4040,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <style>
 ${this.inlineStyle(assets.interactionCss)}
 ${captionFontFaceCss(assets.captionFontDataUri)}
-:root { color-scheme: dark; font-family: "${CAPTION_FONT_FAMILY}", sans-serif; }
+:root {
+  color-scheme: light dark;
+  font-family: "${CAPTION_FONT_FAMILY}", sans-serif;
+  --akari-preview-pasteboard: #2b2d30;
+  --akari-preview-canvas-edge: rgba(255,255,255,0.42);
+}
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
+body.vscode-dark, body.vscode-high-contrast { color-scheme: dark; }
+body.vscode-light {
+  color-scheme: light;
+  --akari-preview-pasteboard: #d5d7da;
+  --akari-preview-canvas-edge: rgba(0,0,0,0.52);
+}
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.preview-pane { min-width: 0; min-height: 0; padding: 16px; display: grid; place-items: center; background: #090909; }
-#preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
+.preview-pane { min-width: 0; min-height: 0; padding: 16px; display: grid; place-items: center; background: var(--akari-preview-pasteboard); }
+#preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; box-shadow: 0 0 0 1px var(--akari-preview-canvas-edge); }
 #preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
@@ -6279,7 +6290,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉒ スナップ統一: layers[]（この後 cut/caption も同型）の移動・拡縮を、
             // interaction.js（overlay-runtime、overlays[] 用スナップの単一正本）が公開する
             // computeSnapCorrection/stageLocalPoint/showSnapGuides/hideSnapGuides へ委譲する。
-            // 出力px（video座標）系の bounds を渡すだけで、キャンバス端5%セーフマージン+
+            // 出力px（video座標）系の bounds を渡すだけで、キャンバス外周+5%セーフマージン+
             // センター縦横・8px吸着/12px解除（表示px基準=ズーム下でも見た目8px相当）・
             // ガイド線が overlays[] と完全に同一挙動になる（旧実装は resize/layers[] とも
             // スナップ皆無だった）。
@@ -6303,43 +6314,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     (entry.video.videoWidth || 0) * crop.w * transform.scale,
                     (entry.video.videoHeight || 0) * crop.h * transform.scale
                 );
-            };
-            // センターピボットの拡縮（layers[]・cut は共に中心固定で scale する）を、
-            // computeSnapCorrection() の left/center/right 一致点から scale へ逆算する。
-            // center（sourceIndex===1）は scale では動かせないため候補から除外し、
-            // left/right（または top/bottom）のどちらか近い方だけを採用する
-            // （uniform scale の制約上 overlays[] resize と同じく一度に1軸のみ）。
-            const solveCenteredResizeSnap = (bounds, naturalWidth, naturalHeight, currentScale, previousSnap) => {
-                const snap = window.akari.interaction.computeSnapCorrection(bounds, previousSnap);
-                const halfW = (bounds.right - bounds.left) / 2;
-                const halfH = (bounds.bottom - bounds.top) / 2;
-                const axisCandidate = (snapEntry, half, natural) => {
-                    if (!snapEntry || snapEntry.sourceIndex === 1 || !(half > 0) || !(natural > 0)) return null;
-                    const sign = snapEntry.sourceIndex === 2 ? 1 : -1;
-                    const nextHalf = half + sign * snapEntry.correction;
-                    if (!(nextHalf > 0)) return null;
-                    return { snap: snapEntry, scale: (nextHalf * 2) / natural };
-                };
-                const candidateX = axisCandidate(snap.x, halfW, naturalWidth);
-                const candidateY = axisCandidate(snap.y, halfH, naturalHeight);
-                let chosen = null;
-                if (candidateX) chosen = { axis: 'x', ...candidateX };
-                if (candidateY && (!chosen || Math.abs(candidateY.snap.correction) < Math.abs(chosen.snap.correction))) {
-                    chosen = { axis: 'y', ...candidateY };
-                }
-                if (!chosen) {
-                    window.akari.interaction.hideSnapGuides();
-                    return { scale: currentScale, snapX: null, snapY: null };
-                }
-                window.akari.interaction.showSnapGuides(
-                    chosen.axis === 'x' ? chosen.snap : null,
-                    chosen.axis === 'y' ? chosen.snap : null
-                );
-                return {
-                    scale: chosen.scale,
-                    snapX: chosen.axis === 'x' ? chosen.snap : null,
-                    snapY: chosen.axis === 'y' ? chosen.snap : null
-                };
             };
             // CF-write: layerWrite 確定 → 失敗時は元の値へ視覚的に巻き戻す（既存 overlay 編集と同じ規約）。
             const beginLayerTransformDrag = (entry, startEvent, computeTransform) => {
@@ -6867,6 +6841,21 @@ body { display: grid; place-items: center; padding: 32px; }
             for (const handle of cutHandleElements) {
                 handle.addEventListener('pointerdown', event => {
                     if (event.button !== 0 || !cutSelected) return;
+                    const corner = handle.dataset.akariHandle;
+                    if (!['nw', 'ne', 'se', 'sw'].includes(corner)) return;
+                    const outputWidth = Number(summary.output && summary.output.width) || 1280;
+                    const outputHeight = Number(summary.output && summary.output.height) || 720;
+                    const startTransform = cutTransformNow();
+                    const anchor = {
+                        x: outputWidth / 2 + startTransform.x,
+                        y: outputHeight / 2 + startTransform.y
+                    };
+                    // ハンドル装飾の client 矩形ではなく、出力幾何からドラッグ中の
+                    // 角を固定する。これが computeAnchorResizeSnap の pointerdown 基準になる。
+                    const dragged = {
+                        x: anchor.x + (corner.includes('w') ? -1 : 1) * outputWidth * startTransform.scale / 2,
+                        y: anchor.y + (corner.includes('n') ? -1 : 1) * outputHeight * startTransform.scale / 2
+                    };
                     const boxRect = cutSelectBox.getBoundingClientRect();
                     const center = { x: boxRect.left + boxRect.width / 2, y: boxRect.top + boxRect.height / 2 };
                     const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
@@ -6875,23 +6864,24 @@ body { display: grid; place-items: center; padding: 32px; }
                         const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
                         const factor = distance / startDistance;
                         let nextScale = Math.max(0.01, original.scale * factor);
-                        if (moveEvent.shiftKey || !window.akari.interaction) {
+                        if (moveEvent.shiftKey || !window.akari.interaction?.computeAnchorResizeSnap) {
                             dragSnap = { x: null, y: null };
                             window.akari.interaction?.hideSnapGuides?.();
                         } else {
-                            const outputWidth = Number(summary.output && summary.output.width) || 1280;
-                            const outputHeight = Number(summary.output && summary.output.height) || 720;
-                            const bounds = outputBoundsForCenteredBox(
-                                outputWidth / 2 + original.x,
-                                outputHeight / 2 + original.y,
-                                outputWidth * nextScale,
-                                outputHeight * nextScale
-                            );
-                            const solved = solveCenteredResizeSnap(
-                                bounds, outputWidth, outputHeight, nextScale, dragSnap
-                            );
-                            nextScale = solved.scale;
-                            dragSnap = { x: solved.snapX, y: solved.snapY };
+                            const solved = window.akari.interaction.computeAnchorResizeSnap({
+                                anchorStageX: anchor.x,
+                                anchorStageY: anchor.y,
+                                draggedStageX: dragged.x,
+                                draggedStageY: dragged.y,
+                                startScale: original.scale,
+                                scale: nextScale,
+                                snapX: dragSnap.x,
+                                snapY: dragSnap.y
+                            });
+                            if (solved) {
+                                nextScale = solved.scale;
+                                dragSnap = { x: solved.snapX, y: solved.snapY };
+                            }
                         }
                         return { ...original, scale: nextScale };
                     });
