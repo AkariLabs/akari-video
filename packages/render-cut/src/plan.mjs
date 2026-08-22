@@ -52,6 +52,7 @@ const GAIN_DB_MAX = 12;
 // Apply this only to an explicitly resolved libx264 policy. The null legacy path and hardware
 // encoders must keep their exact argument arrays.
 const CUT_X264_PERFORMANCE_PARAMS = "keyint=1";
+const IMPLIED_CAPTION_TRACK_ID = "t-captions-implied";
 
 function tuneCutVideoEncodeArgs(videoEncodeArgs) {
   if (!Array.isArray(videoEncodeArgs)) return videoEncodeArgs;
@@ -391,9 +392,11 @@ function buildTrackStackPlan({
 }) {
   const cutVideoEncodeArgs = tuneCutVideoEncodeArgs(videoEncodeArgs);
   const ordered = [];
+  let hasDeclaredCaptionTrack = false;
   for (const track of internalEdit.tracks) {
     const orderIndex = internalTrackZ(internalEdit, track);
     if (track.content?.from === "captions.json") {
+      hasDeclaredCaptionTrack = true;
       if (captionOverlays.length > 0) {
         ordered.push({ kind: "captions", ref: null, orderIndex, items: captionOverlays });
       }
@@ -418,6 +421,20 @@ function buildTrackStackPlan({
       }
       current.items.push(renderItemDeclaration(item, temporary));
     }
+  }
+
+  // Keep export stacking identical to the timeline/preview display-only completion rule: when
+  // captions.json has renderable cues but tracks[] has no captions declaration, synthesize the
+  // same implied lane at the top. An explicit captions track remains authoritative at its declared
+  // position, including positions below opaque visual tracks.
+  if (!hasDeclaredCaptionTrack && captionOverlays.length > 0) {
+    ordered.push({
+      kind: "captions",
+      ref: null,
+      orderIndex: internalEdit.tracks.length,
+      items: captionOverlays,
+      impliedTrackId: IMPLIED_CAPTION_TRACK_ID,
+    });
   }
 
   // task 2026-08-07-track-transition-lint-guard (edit-lint's cuts.track-transition-unsupported
@@ -467,6 +484,7 @@ function buildTrackStackPlan({
       stageIndex,
       inputPath: previousPath,
       outputPath,
+      ...(track.impliedTrackId ? { trackId: track.impliedTrackId } : {}),
     };
     if (track.kind === "cuts") {
       const duplicateCutGroup = ordered.filter(candidate => candidate.kind === "cuts"
