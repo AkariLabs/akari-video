@@ -21,6 +21,18 @@ test("valid research-plan passes without findings", () => {
   assert.equal(executed.stderr.trim(), "");
 });
 
+test("legacy research-plan without shot ids stays valid", () => {
+  const executed = run("valid-legacy-without-shot-ids");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+test("storyboard fields including two cutaways and camera hints are valid", () => {
+  const executed = run("valid-visual-storyboard");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
 test("newer research-plan.json version stops honestly", () => {
   const executed = run("unsupported-version");
   assert.equal(executed.status, 1);
@@ -80,6 +92,12 @@ test("shot referencing a missing chapter fails", () => {
     executed.stderr,
     /structure\.shots\[0\]\.chapter_id が structure\.chapters\[\]\.id を参照していません: ch-nope/,
   );
+});
+
+test("nested cutaway fails because v1 supports one level only", () => {
+  const executed = run("invalid-nested-cutaway");
+  assert.equal(executed.status, 1);
+  assert.match(executed.stderr, /カットアウェイは 1 段のみ/);
 });
 
 test("structure.confirmed true without confirmed_at fails", () => {

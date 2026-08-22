@@ -274,6 +274,7 @@ function validateStructureChapters(value) {
 
 function validateStructureShots(value, chapterIds) {
   const ids = new Set();
+  const cutawayReferences = [];
   if (!isPlainObject(value)) return ids;
   if (value.shots === undefined) return ids;
   if (!Array.isArray(value.shots)) {
@@ -286,16 +287,33 @@ function validateStructureShots(value, chapterIds) {
       fail(`${label} は object である必要があります`);
       continue;
     }
-    for (const field of ["id", "chapter_id", "shot_type", "description", "duration_estimate_seconds", "image_path"]) {
+    for (const field of ["chapter_id", "shot_type", "description", "duration_estimate_seconds", "image_path"]) {
       if (!hasOwn(shot, field)) fail(`${label}.${field} は必須です`);
     }
-    if (!isNonEmptyString(shot.id)) {
-      fail(`${label}.id は空でない文字列である必要があります`);
-    } else if (ids.has(shot.id)) {
-      fail(`structure.shots[].id が重複しています: ${shot.id}`);
-    } else {
-      ids.add(shot.id);
+    if (hasOwn(shot, "id")) {
+      if (!isNonEmptyString(shot.id)) {
+        fail(`${label}.id は指定する場合、空でない文字列である必要があります`);
+      } else if (ids.has(shot.id)) {
+        fail(`structure.shots[].id が重複しています: ${shot.id}`);
+      } else {
+        ids.add(shot.id);
+      }
     }
+    if (hasOwn(shot, "sequence")) {
+      if (!isNonEmptyString(shot.sequence)) {
+        fail(`${label}.sequence は指定する場合、空でない文字列である必要があります`);
+      } else if (!chapterIds.has(shot.sequence)) {
+        fail(`${label}.sequence が structure.chapters[].id を参照していません: ${shot.sequence}`);
+      }
+    }
+    if (hasOwn(shot, "cutaway_of")) {
+      if (!isNonEmptyString(shot.cutaway_of)) {
+        fail(`${label}.cutaway_of は指定する場合、空でない文字列である必要があります`);
+      } else {
+        cutawayReferences.push({ index, id: shot.id, target: shot.cutaway_of });
+      }
+    }
+    if (hasOwn(shot, "camera")) validateCamera(shot.camera, `${label}.camera`);
     if (hasOwn(shot, "chapter_id")) {
       if (shot.chapter_id !== null && !isNonEmptyString(shot.chapter_id)) {
         fail(`${label}.chapter_id は null または空でない文字列である必要があります`);
@@ -319,7 +337,37 @@ function validateStructureShots(value, chapterIds) {
       requireRegularFile(shot.image_path, `${label}.image_path`);
     }
   }
+  for (const reference of cutawayReferences) {
+    const label = `structure.shots[${reference.index}]`;
+    if (!ids.has(reference.target)) {
+      fail(`${label}.cutaway_of が structure.shots[].id を参照していません: ${reference.target}`);
+      continue;
+    }
+    if (reference.id === reference.target) {
+      fail(`${label}.cutaway_of は自分自身を参照できません: ${reference.target}`);
+    }
+    const target = value.shots.find((shot) => isPlainObject(shot) && shot.id === reference.target);
+    if (target && hasOwn(target, "cutaway_of")) {
+      fail(`${label}.cutaway_of は主軸ショットを参照する必要があります（カットアウェイは 1 段のみ）: ${reference.target}`);
+    }
+  }
   return ids;
+}
+
+function validateCamera(value, label) {
+  if (!isPlainObject(value)) {
+    fail(`${label} は object である必要があります`);
+    return;
+  }
+  if (
+    hasOwn(value, "movement") &&
+    (!Array.isArray(value.movement) || value.movement.some((item) => typeof item !== "string"))
+  ) {
+    fail(`${label}.movement は文字列の配列である必要があります`);
+  }
+  if (hasOwn(value, "path_hint") && typeof value.path_hint !== "string") {
+    fail(`${label}.path_hint は文字列である必要があります`);
+  }
 }
 
 function validateStructureRoot(value) {

@@ -13,6 +13,7 @@ export * from './edit-v2-item-write';
 export * from './internal-model';
 export * from './retime';
 export * from './track-order';
+export * from './track-transition-compatibility';
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps
 // text-surgery consumers source-compatible while preventing legacy knowledge from returning
 // to edit-store.ts.
