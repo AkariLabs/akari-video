@@ -1,0 +1,15 @@
+{
+  "version": 0,
+  "topic": { "candidates": [{ "id": "visual", "title": "画のあるショット", "category": "hero", "monetization_potential": "medium", "rationale": "画像表示の検証" }], "selected": "visual", "decided_at": "2026-08-23T00:00:00+09:00" },
+  "target": { "audience": "テスト閲覧者", "competitors": [], "japan_sns": { "platforms": [], "notes": "fixture のため調査対象外。" } },
+  "structure": {
+    "chapters": [{ "id": "opening", "title": "オープニング", "duration_estimate_seconds": 6, "notes": null }],
+    "shots": [{ "id": "main-visual", "chapter_id": "opening", "sequence": "opening", "shot_type": "wide", "description": "朝焼けのスタジオを見せる", "duration_estimate_seconds": 6, "image_path": "shot.svg" }],
+    "opening_hook": "画から始める",
+    "confirmed": true,
+    "confirmed_at": "2026-08-23T00:10:00+09:00"
+  },
+  "shot_list": [],
+  "sources": [{ "id": "fixture", "url": null, "retrieved_at": null, "cost": "free", "note": "テスト fixture" }],
+  "feedback": { "reserved": true, "note": null }
+}

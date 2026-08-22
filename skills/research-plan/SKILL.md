@@ -38,7 +38,7 @@ description: 動画の企画・調査工程（ネタ出し → ターゲット/�
 
 新しい承認機構は作らない。[edit-plan](../edit-plan/SKILL.md) が使う仕組みをそのまま再利用する。
 
-- [report-template.html](../../packages/decision-cards/report-template.html) を複製し、`node packages/decision-cards/report-helper.mjs <レポートパス>` で提示する。カードの data 属性・雛形の書式・「全部おまかせ」+ 要約ビュー必須・`decision_log` 追記専用の規律は [edit-plan/report-guide.md](../edit-plan/report-guide.md) と同型（`byDefault` / `completedAt` / ポーリング / ヘルパー不通時のチャット代替も同じ）。
+- [report-template.html](../../packages/decision-cards/report-template.html) の CSP・自己完結・アクセシビリティ規律に従い、`node packages/decision-cards/render-research-plan-report.mjs <research-plan.json> <research-plan-report.html>` で固定 5 面を生成し、`node packages/decision-cards/report-helper.mjs <レポートパス>` で提示する。絵コンテはカード面 / 構造面の読み取り専用 2 ビューを持つ。カードの data 属性・「全部おまかせ」+ 要約ビュー必須・`decision_log` 追記専用の規律は [edit-plan/report-guide.md](../edit-plan/report-guide.md) と同型（`byDefault` / `completedAt` / ポーリング / ヘルパー不通時のチャット代替も同じ）。
 - レポートは固定 5 面を順守する（空でも省略せず理由を書く）:
   1. **候補ネタランキング表**（[ideate.md](ideate.md) の証拠。`topic-select` カードが載る）
   2. **競合分析サマリー**（[competitor.md](competitor.md) の証拠。日本語 SNS 事情を含む。決定カードは持たない評価面）

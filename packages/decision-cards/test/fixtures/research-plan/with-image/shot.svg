@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#14295f"/><stop offset="1" stop-color="#f59f68"/></linearGradient></defs>
+  <rect width="640" height="360" fill="url(#sky)"/>
+  <circle cx="500" cy="92" r="48" fill="#ffe7a7"/>
+  <path d="M0 285L110 210L220 280L340 175L470 275L560 220L640 270V360H0Z" fill="#17233d"/>
+  <text x="36" y="55" fill="white" font-size="24" font-family="sans-serif" font-weight="700">OPENING / WIDE</text>
+</svg>

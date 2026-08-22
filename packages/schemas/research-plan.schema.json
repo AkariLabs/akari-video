@@ -156,7 +156,6 @@
       "type": "object",
       "additionalProperties": true,
       "required": [
-        "id",
         "chapter_id",
         "shot_type",
         "description",
@@ -164,10 +163,33 @@
         "image_path"
       ],
       "properties": {
-        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "id": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "任意の安定ショット id。cutaway_of や後段参照を使うショットには付与する。旧形式との互換のため必須化しない。"
+        },
         "chapter_id": {
           "$ref": "#/$defs/nullableNonEmptyString",
           "$comment": "chapters[].id への参照。null = 未割当。"
+        },
+        "sequence": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "任意の章 / シーケンス参照。structure.chapters[].id と対応し、ビジュアル絵コンテの章帯に使う。"
+        },
+        "cutaway_of": {
+          "$ref": "#/$defs/nonEmptyString",
+          "$comment": "任意の主軸ショット id 参照。挿入後に主軸へ戻る 1 段のカットアウェイ枝を表す。"
+        },
+        "camera": {
+          "type": "object",
+          "additionalProperties": true,
+          "$comment": "予約フィールド。語彙は未確定で、v0 は文字列として保持・表示するだけ。",
+          "properties": {
+            "movement": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "path_hint": { "type": "string" }
+          }
         },
         "shot_type": {
           "$ref": "#/$defs/nullableNonEmptyString",
