@@ -32,6 +32,8 @@ export type LintCandidates = Record<string, string | null>;
 export interface DeferredLintOptions {
     debounceMs?: number;
     onLintResult?: (result: EditLintGateResult) => void | Promise<void>;
+    /** Deterministic test seam; production callers use runEditLint. */
+    lintRunner?: (projectRoot: string) => Promise<EditLintGateResult>;
     /**
      * atomic rename が完了した「直後」に、書けた全文を同期で渡す。
      * onWillWrite（rename 直前・自己書き込み由来 watcher の抑止用）の対になる通知で、

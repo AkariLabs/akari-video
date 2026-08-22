@@ -3,6 +3,7 @@ import { CommandService, Disposable, MessageService } from '@theia/core/lib/comm
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
+import { isEditableEventTarget } from 'akari-preview/lib/common/review-tool-mode';
 import {
     AkariAnnotationsService,
     Annotation,
@@ -542,6 +543,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected past: HistoryEntry[] = [];
     protected future: HistoryEntry[] = [];
     protected contextPopup: HTMLDivElement | undefined;
+    protected deferredLintFooterMessage: HTMLSpanElement | undefined;
     protected viewStart = 0;
     protected viewDuration: number | undefined;
     protected fps = 30;
@@ -1434,10 +1436,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected isEditableTarget(target: EventTarget | null): boolean {
-        if (!(target instanceof HTMLElement)) {
-            return false;
-        }
-        return target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+        return isEditableEventTarget(target as HTMLElement | null);
     }
 
     protected selectionFromDragState(state: DragState): TimelineSelection {
@@ -2100,6 +2099,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const index = this.cutItemIds.indexOf(cutId);
         if (index >= 0) {
             this.applySelection({ kind: 'cut', index }, false);
+        }
+    }
+
+    /** プレビューで選んだ字幕を、タイムラインの同じ cue と inspector へ同期する。 */
+    handleCaptionSelection(editUri: string, captionId: string | null): void {
+        if (!this.canHandlePlaybackTick(editUri)) {
+            return;
+        }
+        if (captionId === null) {
+            if (this.selection?.kind === 'caption') {
+                this.applySelection(undefined, false);
+            }
+            return;
+        }
+        if (this.captions.some(caption => caption.id === captionId)) {
+            this.applySelection({ kind: 'caption', id: captionId }, false);
         }
     }
 
@@ -3098,6 +3113,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected showDeferredLintResult(pass: boolean, errors: readonly string[]): void {
         if (pass) {
+            if (this.deferredLintFooterMessage?.parentElement === this.footer) {
+                this.footer.replaceChildren();
+            }
+            this.deferredLintFooterMessage = undefined;
             return;
         }
         this.footer.replaceChildren();
@@ -3109,6 +3128,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         undo.disabled = this.past.length === 0;
         undo.addEventListener('click', () => void this.performUndo());
         this.footer.append(message, document.createTextNode(' '), undo);
+        this.deferredLintFooterMessage = message;
         this.messages.warn(message.textContent);
     }
 

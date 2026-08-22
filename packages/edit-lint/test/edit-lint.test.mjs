@@ -7,7 +7,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { INTAKE_ROOT_FIELDS } from "../src/edit-lint.mjs";
+import {
+  INTAKE_ROOT_FIELDS,
+  validateTrackTransitionOutCompatibility,
+} from "../src/edit-lint.mjs";
+import { createRequire } from "node:module";
 import { migrateFixtureTree } from "./helpers/v2-fixture.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,6 +30,8 @@ const intakeSchema = JSON.parse(await readFile(
   join(packageRoot, "../schemas/intake.schema.json"),
   "utf8",
 ));
+const require = createRequire(import.meta.url);
+const { projectLegacyEdit, readInternalEdit } = require("../../edit-store/lib/index.js");
 
 async function withFixtures(callback) {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-test-"));
@@ -1332,6 +1338,37 @@ test("transition_out on the LAST cut of a gap-aware track is a no-op and does no
       JSON.stringify(result.findings, null, 2),
     );
   });
+});
+
+test("fieldtest-shaped v2 non-default track order without transition_out stays clean", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-nondefault-no-transition-valid");
+    const raw = JSON.parse(await readFile(join(project, "edit.json"), "utf8"));
+    const internal = readInternalEdit(raw);
+    const projected = projectLegacyEdit(internal);
+    assert.equal(projected.cuts.length, 2);
+
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.ok(
+      !result.findings.some((finding) => finding.check === "cuts.track-transition-unsupported"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("a genuine transition_out in a legacy-shaped fixture remains detected", async () => {
+  const legacy = JSON.parse(await readFile(
+    join(fixtureRoot, "cuts-track-transition-invalid", "edit.json"),
+    "utf8",
+  ));
+  const findings = [];
+  validateTrackTransitionOutCompatibility(legacy, findings);
+  assert.ok(
+    findings.some((finding) => finding.check === "cuts.track-transition-unsupported"),
+    JSON.stringify(findings, null, 2),
+  );
 });
 
 test("duplicate captions timeline track warns while multiple audio timeline tracks do not (R6c 複数音声トラック化による singleton 緩和)", async () => {

@@ -59,6 +59,7 @@ const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 // akari-preview 側の PREVIEW_LAYER_SELECTED_EVENT とミラー（CF-select）。
 const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
 const PREVIEW_CUT_SELECTED_EVENT = 'akari.preview.cutSelected';
+const PREVIEW_CAPTION_SELECTED_EVENT = 'akari.preview.captionSelected';
 
 // akari-annotations-widget.ts の同名定数とミラー（拡張内で完結させ、他拡張への npm 依存を作らない）。
 const PARTNER_WIDGET_ID = 'akari-partner-onboarding';
@@ -88,6 +89,11 @@ interface PreviewLayerSelection {
 interface PreviewCutSelection {
     editUri?: string;
     cutId?: string | null;
+}
+
+interface PreviewCaptionSelection {
+    editUri?: string;
+    captionId?: string | null;
 }
 
 @injectable()
@@ -259,6 +265,16 @@ export class AkariAnnotationsContribution implements CommandContribution, Fronte
         window.addEventListener(PREVIEW_CUT_SELECTED_EVENT, onCutSelected);
         this.toDispose.push({
             dispose: () => window.removeEventListener(PREVIEW_CUT_SELECTED_EVENT, onCutSelected)
+        });
+        const onCaptionSelected = (event: Event): void => {
+            const request = (event as CustomEvent<PreviewCaptionSelection>).detail;
+            if (request?.editUri && (typeof request.captionId === 'string' || request.captionId === null)) {
+                this.timelineWidget?.handleCaptionSelection(request.editUri, request.captionId);
+            }
+        };
+        window.addEventListener(PREVIEW_CAPTION_SELECTED_EVENT, onCaptionSelected);
+        this.toDispose.push({
+            dispose: () => window.removeEventListener(PREVIEW_CAPTION_SELECTED_EVENT, onCaptionSelected)
         });
     }
 

@@ -64,6 +64,7 @@ export function reviewToolModeForShortcutKey(key: string): ReviewToolMode | unde
 export interface EditableTargetLike {
     tagName?: string;
     isContentEditable?: boolean;
+    type?: string;
 }
 
 /**
@@ -76,5 +77,33 @@ export function isEditableEventTarget(target: EditableTargetLike | null | undefi
         return false;
     }
     const tag = typeof target.tagName === 'string' ? target.tagName.toUpperCase() : '';
-    return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable === true;
+    if (target.isContentEditable === true || tag === 'TEXTAREA') {
+        return true;
+    }
+    if (tag !== 'INPUT') {
+        return false;
+    }
+    const type = typeof target.type === 'string' ? target.type.toLowerCase() : '';
+    const nonTextInputTypes = [
+        'range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file', 'image'
+    ];
+    return !nonTextInputTypes.includes(type);
+}
+
+/**
+ * Theia forwards an inner webview keydown to the host iframe. Stop only destructive editing keys
+ * before that bridge; do not preventDefault, so the browser still edits the focused text.
+ */
+export function shouldStopEditableDeletionKeydown(
+    target: EditableTargetLike | null | undefined,
+    activeElement: EditableTargetLike | null | undefined,
+    key: string,
+    metaKey: boolean,
+    ctrlKey: boolean,
+    isEditable: (value: EditableTargetLike | null | undefined) => boolean = isEditableEventTarget
+): boolean {
+    const normalizedKey = key.toLowerCase();
+    const destructive = key === 'Delete' || key === 'Backspace'
+        || ((metaKey || ctrlKey) && normalizedKey === 'x');
+    return destructive && (isEditable(target) || isEditable(activeElement));
 }
