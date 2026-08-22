@@ -1,0 +1,41 @@
+{
+  "controls": {
+    "checked": true,
+    "replayTitle": "s-0001 の保存済み描線を再表示"
+  },
+  "immediate": {
+    "count": 8159,
+    "width": 682,
+    "height": 384,
+    "persistentVisible": "true"
+  },
+  "afterFiveSeconds": {
+    "count": 8159,
+    "width": 682,
+    "height": 384,
+    "persistentVisible": "true"
+  },
+  "toggleOff": {
+    "count": 0,
+    "width": 682,
+    "height": 384,
+    "persistentVisible": "false"
+  },
+  "toggleOn": {
+    "count": 8159,
+    "width": 682,
+    "height": 384,
+    "persistentVisible": "true"
+  },
+  "replay": {
+    "sessionId": "s-0001",
+    "targetTab": "file:///private/tmp/akari-stroke-l1-recapture2.ljrTRR/project/edit.json",
+    "targetRecT": 2.5
+  },
+  "replayPixels": {
+    "count": 8388,
+    "width": 682,
+    "height": 384,
+    "persistentVisible": "true"
+  }
+}
