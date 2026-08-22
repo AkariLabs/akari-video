@@ -13,6 +13,7 @@ const expectedSources = [
   'caption-display.ts',
   'caption-store.ts',
   'caption-window.ts',
+  'cut-adjacency.ts',
   'edit-store.ts',
   'edit-v2-item-write.ts',
   'edit-v2.ts',

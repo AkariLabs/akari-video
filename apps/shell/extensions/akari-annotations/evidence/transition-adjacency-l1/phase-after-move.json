@@ -1,0 +1,25 @@
+{
+  "phase": "after-move",
+  "status": "PASS",
+  "movedCutIndex": 5,
+  "originalAt": 103,
+  "movedAt": 126,
+  "removedBoundaryValue": "4-5",
+  "remainingBoundaries": [
+    {
+      "value": "0-1",
+      "laterFound": true,
+      "badgeCenterX": 610.125,
+      "laterLeftX": 610.125,
+      "differencePx": 0
+    },
+    {
+      "value": "2-3",
+      "laterFound": true,
+      "badgeCenterX": 600.625,
+      "laterLeftX": 600.625,
+      "differencePx": 0
+    }
+  ],
+  "visibleBoundariesNearMovedCut": []
+}

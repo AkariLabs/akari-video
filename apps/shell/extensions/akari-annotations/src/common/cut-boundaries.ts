@@ -1,3 +1,5 @@
+import { areCutsAdjacent } from '@akari-video/edit-store';
+
 export interface CutBoundaryInput {
     index: number;
     track: number;
@@ -20,7 +22,10 @@ export interface CutBoundary {
  * computeCutTrackSegments と同じ順序（cuts の走査順）で渡す前提 — その順序さえ保たれれば
  * 「間に同一トラックの別カットが挟まらない」という allowedTransitionOverlap の定義と一致する。
  */
-export function computeCutBoundaries(segments: readonly CutBoundaryInput[]): CutBoundary[] {
+export function computeCutBoundaries(
+    segments: readonly CutBoundaryInput[],
+    fps = 30
+): CutBoundary[] {
     const byTrack = new Map<number, CutBoundaryInput[]>();
     for (const segment of segments) {
         const list = byTrack.get(segment.track);
@@ -35,11 +40,14 @@ export function computeCutBoundaries(segments: readonly CutBoundaryInput[]): Cut
         for (let index = 1; index < list.length; index++) {
             const earlier = list[index - 1];
             const later = list[index];
+            if (!areCutsAdjacent(earlier, later, fps)) {
+                continue;
+            }
             boundaries.push({
                 earlierIndex: earlier.index,
                 laterIndex: later.index,
                 track: earlier.track,
-                boundaryT: (earlier.tlEnd + later.tlStart) / 2,
+                boundaryT: later.tlStart,
                 transitionOut: earlier.transitionOut
             });
         }

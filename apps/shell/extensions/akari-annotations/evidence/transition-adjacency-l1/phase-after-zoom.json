@@ -1,0 +1,37 @@
+{
+  "phase": "after-zoom",
+  "status": "PASS",
+  "zoom": {
+    "sliderValue": 300,
+    "cutWidth": 142.25
+  },
+  "boundaryCount": 3,
+  "boundaries": [
+    {
+      "value": "0-1",
+      "laterFound": true,
+      "badgeCenterX": 610.125,
+      "laterLeftX": 610.125,
+      "differencePx": 0
+    },
+    {
+      "value": "2-3",
+      "laterFound": true,
+      "badgeCenterX": 600.625,
+      "laterLeftX": 600.625,
+      "differencePx": 0
+    },
+    {
+      "value": "4-5",
+      "laterFound": true,
+      "badgeCenterX": 534.7734375,
+      "laterLeftX": 534.7734375,
+      "differencePx": 0
+    }
+  ],
+  "nonAdjacentBoundaryValues": [
+    "1-2",
+    "3-4",
+    "5-6"
+  ]
+}

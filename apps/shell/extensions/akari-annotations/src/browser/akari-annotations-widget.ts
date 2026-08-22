@@ -5,6 +5,7 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
 import { isEditableEventTarget } from 'akari-preview/lib/common/review-tool-mode';
 import {
+    areCutsAdjacent,
     findUnsupportedDeclaredTrackTransitions,
     unsupportedTrackTransitionTarget
 } from '@akari-video/edit-store';
@@ -206,6 +207,8 @@ const TRANSITION_BADGE_ACCENT_COLOR = '#a855f7';
 const TRANSITION_BADGE_WARNING_COLOR = '#f97316';
 const TRANSITION_BADGE_NEUTRAL_BORDER_COLOR = 'rgba(255,255,255,.4)';
 const TRANSITION_DEFAULT_DURATION_SECONDS = 0.5;
+const NON_ADJACENT_TRANSITION_MESSAGE = 'このトランジションは次のクリップとの間にすき間があるため書き出されません。'
+    + 'すき間を詰めるか、トランジションを削除してください。';
 const TRANSITION_MIN_DURATION_SECONDS = 0.1;
 const TRANSITION_MAX_DURATION_SECONDS = 3;
 const TRANSITION_TYPE_OPTIONS: ReadonlyArray<{ type: 'dissolve' | 'fade-black' | 'fade-white'; label: string; glyph: string }> = [
@@ -4293,6 +4296,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 巻き戻ることがあるため、既に描画済みの前段クリップの減光判定がその巻き戻りで
         // 揺れないようにする）。
         const trimmerActiveIndex = this.trimmerItemId;
+        const unsupportedDeclaredTransitions = this.unsupportedDeclaredTransitionIndexes();
         this.segments.forEach(segment => {
             const cutLayout = this.trackLayout('cuts', segment.track);
             if (!cutLayout || !this.isRangeVisible(segment.tlStart, segment.tlEnd)) {
@@ -4397,7 +4401,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     element.style.cursor = 'crosshair';
                 }
             }
-            if (this.unsupportedDeclaredTransitionIndexes().has(segment.index)) {
+            if (unsupportedDeclaredTransitions.has(segment.index)) {
                 const warning = document.createElement('button');
                 warning.type = 'button';
                 warning.dataset.akariUnsupportedTransition = String(segment.index);
@@ -4422,7 +4426,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             this.strip.appendChild(element);
         });
-        this.renderTransitionBoundaries();
+        this.renderTransitionBoundaries(unsupportedDeclaredTransitions);
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
         const scrollbarWidth = Math.max(0, this.stripScroll.offsetWidth - this.stripScroll.clientWidth);
         this.rulerBar.style.marginRight = `${scrollbarWidth}px`;
@@ -4475,9 +4479,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 同じ判定基準 = computeCutBoundaries）に常時バッジを描く。transition_out 未設定は
      * 控えめなニュートラル丸、設定済みはアクセント色 + 種別頭文字。クリックでポップオーバー編集。
      */
-    protected renderTransitionBoundaries(): void {
-        const boundaries = computeCutBoundaries(this.segments);
-        const unsupported = this.unsupportedDeclaredTransitionIndexes();
+    protected renderTransitionBoundaries(unsupported: ReadonlySet<number>): void {
+        const boundaries = computeCutBoundaries(this.segments, this.fps);
         for (const boundary of boundaries) {
             const cutLayout = this.trackLayout('cuts', boundary.track);
             if (!cutLayout || !this.isRangeVisible(boundary.boundaryT, boundary.boundaryT)) {
@@ -4561,11 +4564,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             popup.replaceChildren();
             const current = this.cuts[earlierIndex]?.transitionOut;
             const unsupportedTrack = this.unsupportedTransitionTrack(earlierIndex);
+            const unsupportedAdjacency = this.nonAdjacentTransitionTarget(earlierIndex);
             const heading = document.createElement('div');
             heading.textContent = `C${earlierIndex + 1} → C${laterIndex + 1}`;
             heading.style.opacity = '.7';
             popup.appendChild(heading);
-            if (unsupportedTrack !== undefined) {
+            if (unsupportedTrack !== undefined || unsupportedAdjacency !== undefined) {
                 const warning = document.createElement('div');
                 warning.dataset.akariTransitionGuard = String(earlierIndex);
                 warning.textContent = this.unsupportedTransitionMessage(earlierIndex);
@@ -4584,7 +4588,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 button.textContent = option.label;
                 button.style.flex = '1';
                 button.style.padding = '3px 4px';
-                button.disabled = unsupportedTrack !== undefined;
+                button.disabled = unsupportedTrack !== undefined || unsupportedAdjacency !== undefined;
                 button.setAttribute('aria-pressed', String(current?.type === option.type));
                 button.addEventListener('click', () => {
                     void this.applyTransitionOut(earlierIndex, {
@@ -4652,7 +4656,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!location?.editUri) {
             return;
         }
-        if (next && this.unsupportedTransitionTrack(cutIndex) !== undefined) {
+        if (next && (this.unsupportedTransitionTrack(cutIndex) !== undefined
+            || this.nonAdjacentTransitionTarget(cutIndex) !== undefined)) {
             const message = this.unsupportedTransitionMessage(cutIndex);
             this.showNotice(message);
             this.footer.textContent = message;
@@ -4675,13 +4680,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected unsupportedDeclaredTransitionIndexes(): Set<number> {
-        return new Set(findUnsupportedDeclaredTrackTransitions(
+        const indexes = new Set(findUnsupportedDeclaredTrackTransitions(
             this.compatibilityCuts,
             this.compatibilityTimelineTracks
         ).map(candidate => candidate.cutIndex));
+        for (const cutIndex of this.nonAdjacentDeclaredTransitionIndexes()) {
+            indexes.add(cutIndex);
+        }
+        return indexes;
+    }
+
+    protected nonAdjacentTransitionTarget(cutIndex: number): number | undefined {
+        const position = this.segments.findIndex(segment => segment.index === cutIndex);
+        if (position < 0) {
+            return undefined;
+        }
+        const earlier = this.segments[position];
+        let later: OutputSegment | undefined;
+        for (let laterPosition = position + 1; laterPosition < this.segments.length; laterPosition++) {
+            const candidate = this.segments[laterPosition];
+            if (candidate.track === earlier.track) {
+                later = candidate;
+                break;
+            }
+        }
+        if (!later || areCutsAdjacent(earlier, later, this.fps)) {
+            return undefined;
+        }
+        return later.index;
+    }
+
+    protected nonAdjacentDeclaredTransitionIndexes(): Set<number> {
+        return new Set(this.segments
+            .filter(segment => segment.transitionOut
+                && this.nonAdjacentTransitionTarget(segment.index) !== undefined)
+            .map(segment => segment.index));
     }
 
     protected unsupportedTransitionMessage(cutIndex: number): string {
+        if (this.nonAdjacentTransitionTarget(cutIndex) !== undefined) {
+            return NON_ADJACENT_TRANSITION_MESSAGE;
+        }
         const track = this.unsupportedTransitionTrack(cutIndex);
         const suffix = track === undefined ? '' : `（映像トラック ${track + 1}）`;
         return `このトランジション${suffix}は、並べ替えたトラックを合成する方式では書き出せません。`
