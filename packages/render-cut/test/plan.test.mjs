@@ -64,6 +64,113 @@ test("3D plans require puppeteer-core and do not advertise still-image fallback"
   assert.deepEqual(plan.rasterizer.order, ["puppeteer-core"]);
 });
 
+test("non-default visual order appends an implied caption stage at the top", () => {
+  const plan = buildV2Plan({
+    edit: {
+      version: 2,
+      output: { width: 1280, height: 720, fps: 30 },
+      sources: [
+        { id: "base", path: "base.mp4", proxy: null },
+        { id: "upper", path: "upper.mp4", proxy: null },
+      ],
+      tracks: [
+        { id: "cuts", lane: "visual", items: [
+          { id: "base-cut", at: 0, duration: 30, source: { kind: "media", src: "base", in: 0, out: 1 } },
+        ] },
+        { id: "overlays", lane: "visual", items: [
+          { id: "lower-third", at: 0, duration: 30, source: { kind: "html", path: "lower-third.html" } },
+        ] },
+        { id: "upper", lane: "visual", items: [
+          { id: "upper-cut", at: 0, duration: 30, source: { kind: "media", src: "upper", in: 0, out: 1 } },
+        ] },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: {
+      ...capabilities,
+      sourceInputs: [
+        { id: "base", path: "/project/base.mp4", hasAudio: true },
+        { id: "upper", path: "/project/upper.mp4", hasAudio: true },
+      ],
+    },
+    hasSourceAudio: true,
+    captionOverlays: [{ id: "c-0001", start: 0, duration: 1, html: "caption" }],
+  });
+
+  assert.ok(plan.commands.track_stack);
+  assert.deepEqual(
+    plan.commands.track_stack.stages.map(stage => stage.kind),
+    ["cuts", "overlays", "cuts", "captions"],
+  );
+  assert.equal(plan.commands.track_stack.stages.at(-1).trackId, "t-captions-implied");
+  assert.equal(plan.commands.track_stack.stages.at(-1).orderIndex, 3);
+});
+
+test("an explicit caption track keeps its declared z position", () => {
+  const plan = buildV2Plan({
+    edit: {
+      version: 2,
+      output: { width: 1280, height: 720, fps: 30 },
+      sources: [{ id: "base", path: "base.mp4", proxy: null }],
+      tracks: [
+        { id: "captions-below", lane: "visual", content: { from: "captions.json" } },
+        { id: "cuts", lane: "visual", items: [
+          { id: "base-cut", at: 0, duration: 30, source: { kind: "media", src: "base", in: 0, out: 1 } },
+        ] },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: {
+      ...capabilities,
+      sourceInputs: [{ id: "base", path: "/project/base.mp4", hasAudio: true }],
+    },
+    hasSourceAudio: true,
+    captionOverlays: [{ id: "c-0001", start: 0, duration: 1, html: "caption" }],
+  });
+
+  assert.ok(plan.commands.track_stack);
+  assert.deepEqual(plan.commands.track_stack.stages.map(stage => stage.kind), ["captions", "cuts"]);
+  assert.equal(plan.commands.track_stack.stages[0].orderIndex, 0);
+  assert.equal(plan.commands.track_stack.stages[0].trackId, undefined);
+});
+
+test("missing or empty captions do not create an implied stage", () => {
+  const plan = buildV2Plan({
+    edit: {
+      version: 2,
+      output: { width: 1280, height: 720, fps: 30 },
+      sources: [
+        { id: "base", path: "base.mp4", proxy: null },
+        { id: "upper", path: "upper.mp4", proxy: null },
+      ],
+      tracks: [
+        { id: "base", lane: "visual", items: [
+          { id: "base-cut", at: 0, duration: 30, source: { kind: "media", src: "base", in: 0, out: 1 } },
+        ] },
+        { id: "upper", lane: "visual", items: [
+          { id: "upper-cut", at: 0, duration: 30, source: { kind: "media", src: "upper", in: 0, out: 1 } },
+        ] },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: {
+      ...capabilities,
+      sourceInputs: [
+        { id: "base", path: "/project/base.mp4", hasAudio: true },
+        { id: "upper", path: "/project/upper.mp4", hasAudio: true },
+      ],
+    },
+    hasSourceAudio: true,
+    captionOverlays: [],
+  });
+
+  assert.ok(plan.commands.track_stack);
+  assert.deepEqual(plan.commands.track_stack.stages.map(stage => stage.kind), ["cuts", "cuts"]);
+});
+
 test("BGM and SFX produce a deterministic direct ffmpeg mix command", () => {
   const command = buildAudioMixCommand({
     edit: {

@@ -467,6 +467,7 @@ test("real FFmpeg frames hide caption alpha when its track stage is below an opa
 
     const belowWhitePixels = countNearWhitePixels(belowOutputPath, 0.8);
     const aboveWhitePixels = countNearWhitePixels(aboveOutputPath, 0.8);
+    t.diagnostic(`explicit caption z pixels: below-opaque-cut=${belowWhitePixels}, above-cut=${aboveWhitePixels}`);
     assert.ok(aboveWhitePixels > 10, `expected visible caption pixels, got ${aboveWhitePixels}`);
     assert.ok(
       belowWhitePixels < aboveWhitePixels / 4,
@@ -476,6 +477,116 @@ test("real FFmpeg frames hide caption alpha when its track stage is below an opa
     await rm(project, { recursive: true, force: true });
   }
 });
+
+test("renderProject composites implied captions above a non-default stack and honors an explicit bottom caption z", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  if (spawnSync(chromePath, ["--version"]).status !== 0) return t.skip("Chrome unavailable");
+  const impliedProject = await makeCaptionStackProject(false);
+  const explicitBottomProject = await makeCaptionStackProject(true);
+  const previousChrome = process.env.CHROME_PATH;
+  process.env.CHROME_PATH = chromePath;
+  try {
+    let impliedState;
+    let explicitBottomState;
+    try {
+      impliedState = await renderProject(impliedProject);
+      explicitBottomState = await renderProject(explicitBottomProject);
+    } catch (error) {
+      if (await isSandboxRasterizerFailure([impliedProject, explicitBottomProject], error)) {
+        return t.skip("sandbox environment cannot launch an overlay rasterizer");
+      }
+      throw error;
+    }
+
+    assert.equal(impliedState.verify.verdict, "pass", JSON.stringify(impliedState.verify.findings));
+    assert.equal(explicitBottomState.verify.verdict, "pass", JSON.stringify(explicitBottomState.verify.findings));
+    assert.ok(impliedState.plan.commands.track_stack, "implied fixture must use buildTrackStackPlan");
+    assert.ok(explicitBottomState.plan.commands.track_stack, "explicit fixture must use buildTrackStackPlan");
+    assert.deepEqual(
+      impliedState.plan.commands.track_stack.stages.map(stage => stage.kind),
+      ["cuts", "cuts", "captions"],
+    );
+    assert.deepEqual(
+      explicitBottomState.plan.commands.track_stack.stages.map(stage => stage.kind),
+      ["captions", "cuts", "cuts"],
+    );
+    assert.equal(impliedState.plan.commands.track_stack.stages.at(-1)?.trackId, "t-captions-implied");
+
+    const impliedOutput = join(impliedProject, impliedState.plan.output);
+    const explicitBottomOutput = join(explicitBottomProject, explicitBottomState.plan.output);
+    const impliedWhitePixels = countNearWhitePixels(impliedOutput, 0.8);
+    const explicitBottomWhitePixels = countNearWhitePixels(explicitBottomOutput, 0.8);
+    t.diagnostic(
+      `renderProject caption pixels at t=0.8s: implied-top=${impliedWhitePixels}, explicit-bottom=${explicitBottomWhitePixels}`,
+    );
+    assert.ok(impliedWhitePixels > 10, `expected visible implied caption pixels, got ${impliedWhitePixels}`);
+    assert.ok(
+      explicitBottomWhitePixels <= 2,
+      `explicit bottom captions must be hidden by the opaque upper cut, got ${explicitBottomWhitePixels} pixels`,
+    );
+  } finally {
+    if (previousChrome === undefined) delete process.env.CHROME_PATH;
+    else process.env.CHROME_PATH = previousChrome;
+    await Promise.all([impliedProject, explicitBottomProject].map(project =>
+      rm(project, { recursive: true, force: true })));
+  }
+});
+
+async function makeCaptionStackProject(explicitCaptionBottom) {
+  const project = await mkdtemp(join(tmpdir(), "render-cut-caption-stack-test-"));
+  await mkdir(join(project, ".akari"));
+  await writeFile(join(project, ".akari", "lint.json"), '{"version":1,"verdict":"pass"}\n');
+  makeColorSource(join(project, "green.mp4"), "green", 220, 1.5, 320, 180);
+  makeColorSource(join(project, "blue.mp4"), "blue", 660, 1.5, 320, 180);
+  await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+    id: "c-0001",
+    start: 0.2,
+    end: 1.2,
+    text: "VISIBLE CAPTION",
+    speaker: null,
+    sourceRef: null,
+    edited: false,
+    src: "base",
+  }], null, 2)}\n`);
+  const baseTrack = { id: "base-track", lane: "visual", items: [{
+    id: "base-cut", at: 0, duration: 15,
+    source: { kind: "media", src: "base", in: 0, out: 1.5 },
+  }] };
+  const opaqueTopTrack = { id: "opaque-top", lane: "visual", items: [{
+    id: "top-cut", at: 0, duration: 15,
+    source: { kind: "media", src: "top", in: 0, out: 1.5 },
+  }] };
+  await writeFile(join(project, "edit.json"), `${JSON.stringify({
+    version: 2,
+    output: { width: 320, height: 180, fps: 10 },
+    sources: [
+      { id: "base", path: "green.mp4", proxy: null },
+      { id: "top", path: "blue.mp4", proxy: null },
+    ],
+    tracks: [
+      ...(explicitCaptionBottom
+        ? [{ id: "captions-bottom", lane: "visual", content: { from: "captions.json" } }]
+        : []),
+      baseTrack,
+      opaqueTopTrack,
+    ],
+  }, null, 2)}\n`);
+  return project;
+}
+
+async function isSandboxRasterizerFailure(projects, error) {
+  if (!/all overlay rasterizers failed/u.test(String(error))) return false;
+  for (const project of projects) {
+    try {
+      const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+      const reasons = (state.provenance?.rasterizer?.attempts ?? []).map(attempt => attempt.reason).join("\n");
+      if (/SIGABRT|timeout|Failed to launch the browser process/u.test(reasons)) return true;
+    } catch {
+      // The project that did not start rendering has no state file; inspect the other fixture.
+    }
+  }
+  return false;
+}
 
 async function renderFixture(order) {
   const project = await mkdtemp(join(tmpdir(), "render-cut-track-compose-test-"));
@@ -528,10 +639,10 @@ async function renderDefaultOrderFixture(explicitTimeline) {
   }
 }
 
-function makeColorSource(path, color, frequency, duration) {
+function makeColorSource(path, color, frequency, duration, width = 96, height = 54) {
   const result = spawnSync("ffmpeg", [
     "-hide_banner", "-loglevel", "error", "-y",
-    "-f", "lavfi", "-i", `color=c=${color}:s=96x54:r=10:d=${duration}`,
+    "-f", "lavfi", "-i", `color=c=${color}:s=${width}x${height}:r=10:d=${duration}`,
     "-f", "lavfi", "-i", `sine=frequency=${frequency}:sample_rate=48000:duration=${duration}`,
     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", path,
   ], { encoding: "utf8" });
