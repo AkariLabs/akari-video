@@ -7,11 +7,24 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
 
-test('プレビュー舞台は light/dark 両テーマで黒いキャンバスと外側を区別する', () => {
+test('プレビュー舞台は light/dark 両テーマで黒いキャンバスと外側を区別し輪郭線を描かない', () => {
     assert.match(source, /--akari-preview-pasteboard:\s*#2b2d30/);
     assert.match(source, /body\.vscode-light\s*\{[\s\S]*--akari-preview-pasteboard:\s*#d5d7da/);
     assert.match(source, /\.preview-pane\s*\{[^}]*background:\s*var\(--akari-preview-pasteboard\)/);
-    assert.match(source, /#preview-wrapper\s*\{[^\n]*background:\s*#000;[^\n]*box-shadow:\s*0 0 0 1px var\(--akari-preview-canvas-edge\)/);
+    assert.match(source, /#preview-wrapper\s*\{[^\n]*background:\s*#000;/);
+    assert.doesNotMatch(source, /--akari-preview-canvas-edge|#preview-wrapper\s*\{[^\n]*box-shadow:/);
+});
+
+test('キャンバス箱はペインの可用幅と高さの小さい側へ output 比で contain される', () => {
+    assert.match(source, /\.preview-pane\s*\{[^}]*container-type:\s*size/);
+    assert.match(
+        source,
+        /#preview-wrapper\s*\{[^\n]*width:\s*min\(100cqw,\s*calc\(100cqh\s*\*\s*\$\{width\}\s*\/\s*\$\{height\}\)\);[^\n]*aspect-ratio:\s*\$\{width\}\s*\/\s*\$\{height\}/
+    );
+    assert.match(
+        source,
+        /const computeOutputFrameRect = \(\) => \{[\s\S]*return \{ x: 0, y: 0, width: wrapperRect\.width, height: wrapperRect\.height \};/
+    );
 });
 
 test('V1 四隅 resize は共通スナップとガイドを使い Shift で無効化する', () => {

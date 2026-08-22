@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "take-a", "path": "fixture-video.mp4", "proxy": null }
+  ],
+  "cuts": [
+    { "id": "cut-a", "src": "take-a", "in": 0, "out": 6 }
+  ],
+  "layers": [],
+  "overlays": []
+}
