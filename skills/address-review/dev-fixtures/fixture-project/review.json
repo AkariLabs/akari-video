@@ -35,6 +35,9 @@
           "sessionRef": "s-0001/st-0001"
         }
       ],
+      "strokeRefs": [
+        { "sessionId": "s-0001", "strokeId": "st-0001", "sessionRef": "s-0001/st-0001" }
+      ],
       "poses": null,
       "status": "open",
       "response": null,

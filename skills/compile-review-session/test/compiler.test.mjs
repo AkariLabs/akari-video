@@ -196,6 +196,9 @@ test("annotation へ端点を保った最大100点のストロークと sessionR
   assert.deepEqual(annotation.strokes[0].points[0], points[0]);
   assert.deepEqual(annotation.strokes[0].points.at(-1), points.at(-1));
   assert.equal(annotation.strokes[0].sessionRef, "s-0003/st-0012");
+  assert.deepEqual(annotation.strokeRefs, [{
+    sessionId: "s-0003", strokeId: "st-0012", sessionRef: "s-0003/st-0012",
+  }]);
   assert.deepEqual(annotation.strokes[0].frame, { sourceT: 14, cutIndex: 0 });
 });
 
@@ -229,6 +232,9 @@ test("rect ストロークを region として annotation へ埋め込む", () =
   assert.equal(annotation.strokes, null);
   assert.equal(annotation.targetKind, "region");
   assert.deepEqual(annotation.region, { box });
+  assert.deepEqual(annotation.strokeRefs, [{
+    sessionId: "s-0003", strokeId: "st-0013", sessionRef: "s-0003/st-0013",
+  }]);
 });
 
 test("CLI が strokes.json を読み annotation へ着地し、破損時は warning へ劣化する", async (context) => {
@@ -348,6 +354,9 @@ test("CLI が strokes.json を読み annotation へ着地し、破損時は warn
   assert.equal(reviewWithRect.annotations[2].strokes, null);
   assert.equal(reviewWithRect.annotations[2].targetKind, "region");
   assert.deepEqual(reviewWithRect.annotations[2].region, { box });
+  assert.deepEqual(reviewWithRect.annotations[2].strokeRefs, [{
+    sessionId: rectSessionId, strokeId: "st-0003", sessionRef: `${rectSessionId}/st-0003`,
+  }]);
   const rectReport = await fs.readFile(
     path.join(rectSessionDirectory, "compile-report.md"),
     "utf8",

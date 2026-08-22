@@ -7,6 +7,7 @@
   "types": "lib/index.d.ts",
   "scripts": {
     "build": "tsc -b",
+    "test": "tsc -b && node --test test/*.test.mjs",
     "clean": "rimraf lib"
   },
   "devDependencies": {

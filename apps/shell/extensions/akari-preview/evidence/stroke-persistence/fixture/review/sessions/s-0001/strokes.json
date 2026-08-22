@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "strokes": [
+    {
+      "id": "st-0001",
+      "tool": "pen",
+      "space": "content-rect",
+      "recTStart": 2.5,
+      "recTEnd": 3.0,
+      "frame": { "timelineT": 1.5, "sourceT": 1.5, "cutIndex": 0 },
+      "points": [[0.15, 0.2], [0.35, 0.55], [0.75, 0.3]]
+    }
+  ]
+}

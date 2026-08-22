@@ -30,6 +30,25 @@ export interface PenTuning {
     sparkleTwinkleHz: number;
     fadeDurationMs: number;
 }
+export type PersistentStrokeItem = {
+    tool: 'pen';
+    points: Array<[number, number]>;
+    id?: string;
+    recTStart?: number;
+    recTEnd?: number;
+} | {
+    tool: 'rect';
+    box: [number, number, number, number];
+    id?: string;
+    recTStart?: number;
+    recTEnd?: number;
+};
+/**
+ * Persistent overlay input is intentionally a tolerant boundary. Unknown/old entries are skipped,
+ * valid pen/rect geometry is copied, and coordinates remain normalized to the preview frame.
+ * The function is dependency-free so the shell can serialize it into its sandboxed webview.
+ */
+export declare function normalizePersistentStrokeItems(value: unknown): PersistentStrokeItem[];
 export declare const PEN_TUNING: PenTuning;
 /** グロー用スプライト（動画面 `createGlowSprite` と同一実装）。 */
 export declare function createGlowSprite(size: number): HTMLCanvasElement;

@@ -15,11 +15,44 @@
  * それ以外の値は shell 従来値が正本（契約 §2.8）。
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PEN_TUNING = void 0;
-exports.createGlowSprite = createGlowSprite;
-exports.createSparkleSprite = createSparkleSprite;
-exports.createPlatinumGradient = createPlatinumGradient;
-exports.drawPenSegment = drawPenSegment;
+exports.drawPenSegment = exports.createPlatinumGradient = exports.createSparkleSprite = exports.createGlowSprite = exports.PEN_TUNING = exports.normalizePersistentStrokeItems = void 0;
+/**
+ * Persistent overlay input is intentionally a tolerant boundary. Unknown/old entries are skipped,
+ * valid pen/rect geometry is copied, and coordinates remain normalized to the preview frame.
+ * The function is dependency-free so the shell can serialize it into its sandboxed webview.
+ */
+function normalizePersistentStrokeItems(value) {
+    if (!Array.isArray(value))
+        return [];
+    const normalized = [];
+    for (const candidate of value) {
+        if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate))
+            continue;
+        const item = candidate;
+        const metadata = {
+            ...(typeof item.id === 'string' ? { id: item.id } : {}),
+            ...(Number.isFinite(item.recTStart) ? { recTStart: item.recTStart } : {}),
+            ...(Number.isFinite(item.recTEnd) ? { recTEnd: item.recTEnd } : {})
+        };
+        if ((item.tool === 'pen' || item.tool === undefined) && Array.isArray(item.points)) {
+            const points = item.points.filter((point) => (Array.isArray(point) && point.length === 2
+                && point.every(coordinate => Number.isFinite(coordinate)
+                    && coordinate >= 0 && coordinate <= 1))).map(point => [point[0], point[1]]);
+            if (points.length >= 2)
+                normalized.push({ tool: 'pen', points, ...metadata });
+            continue;
+        }
+        if (item.tool === 'rect' && Array.isArray(item.box) && item.box.length === 4
+            && item.box.every(coordinate => Number.isFinite(coordinate))) {
+            const [x, y, width, height] = item.box;
+            if (x >= 0 && y >= 0 && width > 0 && height > 0 && x + width <= 1 && y + height <= 1) {
+                normalized.push({ tool: 'rect', box: [x, y, width, height], ...metadata });
+            }
+        }
+    }
+    return normalized;
+}
+exports.normalizePersistentStrokeItems = normalizePersistentStrokeItems;
 exports.PEN_TUNING = {
     maxDevicePixelRatio: 2,
     coreWidthPx: 3.4,
@@ -51,6 +84,7 @@ function createGlowSprite(size) {
     ctx.fillRect(0, 0, size, size);
     return canvas;
 }
+exports.createGlowSprite = createGlowSprite;
 /** きらめき用スプライト（動画面 `createSparkleSprite` と同一実装 — 十字の光条つき）。 */
 function createSparkleSprite(size) {
     const canvas = document.createElement('canvas');
@@ -75,6 +109,7 @@ function createSparkleSprite(size) {
     ctx.stroke();
     return canvas;
 }
+exports.createSparkleSprite = createSparkleSprite;
 /** プラチナ調グラデーション（動画面 `rebuildPlatinumGradient` と同一実装）。 */
 function createPlatinumGradient(ctx, width, height) {
     const gradient = ctx.createLinearGradient(0, 0, width, height);
@@ -84,6 +119,7 @@ function createPlatinumGradient(ctx, width, height) {
     gradient.addColorStop(1, '#c8cfdd');
     return gradient;
 }
+exports.createPlatinumGradient = createPlatinumGradient;
 /**
  * ペン 1 セグメント分の描画（グロー + プラチナ調コア線）。動画面 `drawSegment` と同一の
  * 見た目ロジック（正規化座標 → キャンバス px 変換・lighter 合成のグロー・プラチナ調ストローク）。
@@ -108,3 +144,4 @@ function drawPenSegment(ctx, glowSprite, platinumGradient, from, to, canvasWidth
     ctx.stroke();
     ctx.restore();
 }
+exports.drawPenSegment = drawPenSegment;

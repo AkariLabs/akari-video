@@ -32,6 +32,46 @@ export interface PenTuning {
     fadeDurationMs: number;
 }
 
+export type PersistentStrokeItem =
+    | { tool: 'pen'; points: Array<[number, number]>; id?: string; recTStart?: number; recTEnd?: number }
+    | { tool: 'rect'; box: [number, number, number, number]; id?: string; recTStart?: number; recTEnd?: number };
+
+/**
+ * Persistent overlay input is intentionally a tolerant boundary. Unknown/old entries are skipped,
+ * valid pen/rect geometry is copied, and coordinates remain normalized to the preview frame.
+ * The function is dependency-free so the shell can serialize it into its sandboxed webview.
+ */
+export function normalizePersistentStrokeItems(value: unknown): PersistentStrokeItem[] {
+    if (!Array.isArray(value)) return [];
+    const normalized: PersistentStrokeItem[] = [];
+    for (const candidate of value) {
+        if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue;
+        const item = candidate as Record<string, unknown>;
+        const metadata = {
+            ...(typeof item.id === 'string' ? { id: item.id } : {}),
+            ...(Number.isFinite(item.recTStart) ? { recTStart: item.recTStart as number } : {}),
+            ...(Number.isFinite(item.recTEnd) ? { recTEnd: item.recTEnd as number } : {})
+        };
+        if ((item.tool === 'pen' || item.tool === undefined) && Array.isArray(item.points)) {
+            const points = item.points.filter((point): point is [number, number] => (
+                Array.isArray(point) && point.length === 2
+                && point.every(coordinate => Number.isFinite(coordinate)
+                    && coordinate >= 0 && coordinate <= 1)
+            )).map(point => [point[0], point[1]] as [number, number]);
+            if (points.length >= 2) normalized.push({ tool: 'pen', points, ...metadata });
+            continue;
+        }
+        if (item.tool === 'rect' && Array.isArray(item.box) && item.box.length === 4
+            && item.box.every(coordinate => Number.isFinite(coordinate))) {
+            const [x, y, width, height] = item.box as number[];
+            if (x >= 0 && y >= 0 && width > 0 && height > 0 && x + width <= 1 && y + height <= 1) {
+                normalized.push({ tool: 'rect', box: [x, y, width, height], ...metadata });
+            }
+        }
+    }
+    return normalized;
+}
+
 export const PEN_TUNING: PenTuning = {
     maxDevicePixelRatio: 2,
     coreWidthPx: 3.4,

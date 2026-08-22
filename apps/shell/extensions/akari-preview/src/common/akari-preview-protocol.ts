@@ -152,6 +152,22 @@ export interface AppendReviewSessionStrokeRequest {
     stroke: ReviewStroke;
 }
 
+export interface ReadReviewSessionStrokesRequest {
+    projectRootUri: string;
+    sessionId: string;
+}
+
+/**
+ * Existing sessions are a tolerant read boundary: missing/legacy/damaged stroke files never make
+ * the session list unusable. Valid entries are returned in file order and warnings describe only
+ * the entries that were ignored.
+ */
+export interface ReadReviewSessionStrokesResult {
+    sessionId: string;
+    strokes: ReviewStroke[];
+    warnings: string[];
+}
+
 export interface EndReviewSessionRequest {
     sessionDir: string;
     startedAt: string;
@@ -253,6 +269,7 @@ export interface AkariPreviewService {
     appendReviewSessionEvent(request: AppendReviewSessionEventRequest): Promise<void>;
     appendReviewSessionAudio(request: AppendReviewSessionAudioRequest): Promise<void>;
     appendReviewSessionStroke(request: AppendReviewSessionStrokeRequest): Promise<void>;
+    readReviewSessionStrokes(request: ReadReviewSessionStrokesRequest): Promise<ReadReviewSessionStrokesResult>;
     endReviewSession(request: EndReviewSessionRequest): Promise<void>;
     listReviewSessions(request: ListReviewSessionsRequest): Promise<ReviewSessionSummary[]>;
     lintEditCandidate(request: LintEditCandidateRequest): Promise<LintEditCandidateResult>;

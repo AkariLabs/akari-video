@@ -199,6 +199,11 @@ export function proposalToAnnotation({ proposal, decision, sessionId, audioPath,
       : decision.text,
     input: "session",
     audio: audioPath,
+    ...(pairedStroke ? { strokeRefs: [{
+      sessionId,
+      strokeId: pairedStroke.id,
+      sessionRef: `${sessionId}/${pairedStroke.id}`,
+    }] } : {}),
     strokes: pairedStroke?.tool === "pen" ? [{
       tool: "pen",
       space: "content-rect",

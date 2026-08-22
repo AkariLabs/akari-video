@@ -227,6 +227,7 @@ test("proposalToAnnotation は refs が無いとき refs キー自体を含め�
     createdAt: "2026-08-11T00:00:00.000Z",
   });
   assert.equal("refs" in annotation, false);
+  assert.equal("strokeRefs" in annotation, false);
 });
 
 test("proposalToAnnotation は reference.refs があるときだけ refs を書き込む", () => {
