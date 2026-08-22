@@ -100,13 +100,128 @@ export function indexEditV2Items(doc: EditV2Document): Map<string, ItemLocation>
     return result;
 }
 
+/**
+ * v2 audio の書き込み先を一意に決めるための検索。新形式の tracks[].items[] を常に優先し、
+ * そこに対象 id が無い場合だけ legacy audio.sfx[] へフォールバックする。
+ */
+export function moveAudioSfxPreferV2(
+    doc: EditV2Document,
+    options: { sfxId: string; t: number; track?: number; toTrackId?: string; atFrames: number }
+): EditV2Document {
+    const location = indexEditV2Items(doc).get(options.sfxId);
+    if (location) {
+        const targetExists = options.toTrackId !== undefined
+            && tracksOf(doc).some(track => track.id === options.toTrackId);
+        return moveItem(doc, {
+            itemId: options.sfxId,
+            toTrackId: targetExists ? options.toTrackId! : location.trackId,
+            atFrames: options.atFrames
+        });
+    }
+    return moveAudioSfx(doc, { sfxId: options.sfxId, t: options.t, track: options.track });
+}
+
+export function updateAudioSfxPreferV2(
+    doc: EditV2Document,
+    options: { sfxId: string; itemPatch: UnknownRecord; legacyPatch: UnknownRecord }
+): EditV2Document {
+    return indexEditV2Items(doc).has(options.sfxId)
+        ? updateItem(doc, { itemId: options.sfxId, patch: options.itemPatch })
+        : updateAudioSfx(doc, { sfxId: options.sfxId, patch: options.legacyPatch });
+}
+
+export function removeAudioSfxPreferV2(doc: EditV2Document, sfxId: string): EditV2Document {
+    return indexEditV2Items(doc).has(sfxId)
+        ? removeItem(doc, sfxId)
+        : removeAudioSfx(doc, sfxId);
+}
+
+export function insertAudioSfxPreferV2(
+    doc: EditV2Document,
+    options: {
+        trackId?: string;
+        item: UnknownRecord;
+        legacyItem: UnknownRecord;
+        index?: number;
+    }
+): EditV2Document {
+    if (options.trackId !== undefined) {
+        const track = trackById(doc, options.trackId);
+        if (track.lane !== 'audio') {
+            throw new Error('映像のレーンには音を置けません。');
+        }
+        return insertItem(doc, options.trackId, options.item, options.index);
+    }
+    return insertAudioSfx(doc, options.legacyItem, options.index);
+}
+
+/** role は省略時 sfx。BGM は旧表示 id が常に "bgm" のため raw id と異なる場合がある。 */
+export function findAudioItemIdByRole(
+    doc: EditV2Document,
+    role: 'sfx' | 'narration' | 'bgm'
+): string | undefined {
+    for (const track of tracksOf(doc)) {
+        if (track.lane !== 'audio' || !Array.isArray(track.items)) continue;
+        for (const item of track.items) {
+            if (!isRecord(item) || typeof item.id !== 'string') continue;
+            const itemRole = item.role === undefined ? 'sfx' : item.role;
+            if (itemRole === role) return item.id;
+        }
+    }
+    return undefined;
+}
+
+export function updateAudioNarrationGainPreferV2(
+    doc: EditV2Document,
+    options: { narrationId: string; gainDb: number | null }
+): EditV2Document {
+    if (indexEditV2Items(doc).has(options.narrationId)) {
+        return updateItem(doc, {
+            itemId: options.narrationId,
+            patch: { gain_db: options.gainDb }
+        });
+    }
+    const value = cloneDocument(doc);
+    if (!isRecord(value.audio) || !Array.isArray(value.audio.narration)
+        || !value.audio.narration.every(isRecord)) {
+        throw new Error('edit.json.audio.narration が見つかりません。');
+    }
+    const index = value.audio.narration.findIndex((entry, entryIndex) =>
+        (typeof entry.id === 'string' && entry.id.trim() ? entry.id : `narration-${entryIndex}`)
+        === options.narrationId);
+    if (index < 0) throw new Error(`ナレーションが見つかりません: ${options.narrationId}`);
+    value.audio.narration[index] = mergeNullable(
+        value.audio.narration[index], { gain_db: options.gainDb }
+    );
+    return value;
+}
+
+export function removeAudioNarrationPreferV2(
+    doc: EditV2Document,
+    narrationId: string
+): EditV2Document {
+    if (indexEditV2Items(doc).has(narrationId)) return removeItem(doc, narrationId);
+    const value = cloneDocument(doc);
+    if (!isRecord(value.audio) || !Array.isArray(value.audio.narration)
+        || !value.audio.narration.every(isRecord)) {
+        throw new Error('edit.json.audio.narration が見つかりません。');
+    }
+    const index = value.audio.narration.findIndex((entry, entryIndex) =>
+        (typeof entry.id === 'string' && entry.id.trim() ? entry.id : `narration-${entryIndex}`)
+        === narrationId);
+    if (index < 0) throw new Error(`ナレーションが見つかりません: ${narrationId}`);
+    value.audio.narration.splice(index, 1);
+    return value;
+}
+
 export function moveItem(
     doc: EditV2Document,
     options: { itemId: string; toTrackId: string; atFrames: number }
 ): EditV2Document {
     requireFrame(options.atFrames, '移動先の時刻');
+    const itemExists = indexEditV2Items(doc).has(options.itemId);
     const audioIndex = findAudioSfxIndexOptional(doc, options.itemId);
-    if (audioIndex >= 0) {
+    if (!itemExists && audioIndex >= 0) {
         const match = /^implicit-audio-(\d+)$/.exec(options.toTrackId);
         if (!match) throw new Error('音声クリップの移動先トラックを特定できません。');
         return moveAudioSfx(doc, {
@@ -129,6 +244,7 @@ export function moveItem(
     }
     const [item] = found.track.items.splice(found.itemIndex, 1);
     target.items.push({ ...item, at: options.atFrames });
+    collapseEmptiedVisualSourceTrack(tracks, found.track, target);
     return value;
 }
 
@@ -141,22 +257,49 @@ export function moveItemToNewTrack(
     const tracks = tracksOf(value);
     const found = findItem(tracks, options.itemId);
     requireInsertIndex(tracks, options.insertIndex, found.track.lane as EditV2Lane);
+    const sourceIndex = tracks.indexOf(found.track);
     const [item] = found.track.items.splice(found.itemIndex, 1);
     const created: UnknownRecord = {
         id: nextTrackId(tracks, found.track.lane as EditV2Lane),
         lane: found.track.lane,
         items: [{ ...item, at: options.atFrames }]
     };
-    tracks.splice(options.insertIndex, 0, created);
+    const collapsed = collapseEmptiedVisualSourceTrack(tracks, found.track);
+    const insertIndex = collapsed && sourceIndex < options.insertIndex
+        ? options.insertIndex - 1
+        : options.insertIndex;
+    tracks.splice(insertIndex, 0, created);
     return value;
+}
+
+/**
+ * 「空トラックを残さない」は移動によって今まさに空になった visual items[] 段だけに適用する。
+ * captions の content 段と audio 段は別の正本・ミックス契約を持つため自動削除しない。また、
+ * 「トラックを追加」で明示作成された未使用の空段を全件 sweep しないことで、追加→配置の途中状態を
+ * 壊さない。tracks[] から当該要素だけを splice するため、残る段の相対順（z）は不変。
+ */
+function collapseEmptiedVisualSourceTrack(
+    tracks: UnknownRecord[],
+    source: UnknownRecord,
+    target?: UnknownRecord
+): boolean {
+    if (source === target || source.lane !== 'visual' || !Array.isArray(source.items)
+        || source.items.length !== 0) {
+        return false;
+    }
+    const index = tracks.indexOf(source);
+    if (index < 0) return false;
+    tracks.splice(index, 1);
+    return true;
 }
 
 export function updateItem(
     doc: EditV2Document,
     options: { itemId: string; patch: UnknownRecord }
 ): EditV2Document {
+    const itemExists = indexEditV2Items(doc).has(options.itemId);
     const audioIndex = findAudioSfxIndexOptional(doc, options.itemId);
-    if (audioIndex >= 0) {
+    if (!itemExists && audioIndex >= 0) {
         const patch: UnknownRecord = {};
         if (Object.prototype.hasOwnProperty.call(options.patch, 'at')) {
             requireFrame(options.patch.at, 'at');

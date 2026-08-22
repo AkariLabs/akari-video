@@ -9,6 +9,7 @@ export * from './caption-window';
 export * from './timeline-map';
 export * from './caption-display';
 export * from './edit-v2';
+export * from './edit-v2-item-write';
 export * from './internal-model';
 export * from './retime';
 export * from './track-order';

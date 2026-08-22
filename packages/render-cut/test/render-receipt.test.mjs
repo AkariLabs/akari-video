@@ -48,7 +48,7 @@ function fixtureEdit() {
     audio: {
       bgm: { path: "audio/bgm.wav" },
       sfx: [{ path: "audio/sfx.wav", t: 0 }],
-      narration: [{ id: "n-1", path: "audio/narration.wav", t: 0 }],
+      narration: [{ id: "n-1", path: "audio/narration.wav", t: 0, provenance: { provider: "human" } }],
     },
     thumbnail: { path: "assets/thumb.png" },
   };
@@ -103,6 +103,17 @@ async function fakeCaptionFontRepository(root, contents = "font-v1") {
   return { repositoryRoot, asset: resolveCanonicalCaptionFontAsset({ repositoryRoot }) };
 }
 
+// P0 2026-08-21 render-path-unification: fixtureEdit()'s sole cut (v0's implicit single source)
+// declares a chroma_key WITH a background image -- packages/edit-store/src/internal-model.ts's
+// needsLayersEngine routes that to the 'cuts' engine specifically because a declared background
+// can only be honored there (plan.mjs's appendMultiSourceChromaKey replaces the keyed pixels with
+// it; the layers engine has no background-replacement mode, only genuine transparency -- see
+// layers.mjs's own comment next to its chroma_key step). fixtureEdit()'s v1 layers[] "layer" item
+// (a plain baked clip, no distinguishing feature) migrates to plain source.kind:'media', which
+// also lands on 'cuts' now (same rule: no blend / chroma_key / keyframed perspective). Both items
+// end up in the legacy-projected edit.cuts[], and edit.layers[] is empty -- so "chroma-background:
+// main"/"source:main" stay exactly as before, and the former layers[] clip is now declared as
+// "source:l-1" (it is used by a cut now) instead of "layer:layer".
 test("declared-input enumerator covers every path-backed render input", async () => {
   await withProject(async (root) => {
     const edit = await prepareInputs(root, fixtureEdit());
@@ -114,12 +125,12 @@ test("declared-input enumerator covers every path-backed render input", async ()
       "caption",
       "chroma-background:main",
       "edit",
-      "layer:layer",
       "lut",
       "overlay:hero",
       "overlay:hero:environment",
       "overlay:hero:model",
       "overlay:hero:texture:Screen",
+      "source:l-1",
       "source:main",
       "thumbnail",
     ]);
@@ -174,10 +185,18 @@ test("undeclared HTML assets, path escape, and symlink escape are refused", asyn
       (error) => error instanceof RenderInputError && /undeclared local\/network/u.test(error.message),
     );
 
-    edit.sources[0].path = "../outside.mp4";
+    // P0 2026-08-21 render-path-unification: enumerateDeclaredRenderInputs processes edit.sources
+    // (filtered to ids edit.cuts[] actually references) before edit.overlays[] -- so this escape
+    // check only proves anything if it fires before the still-broken hero.html above does. Which
+    // source id that is now depends on classification (packages/edit-store/src/internal-model.ts's
+    // needsLayersEngine), not a fixed array index -- fixtureEdit()'s chroma_key-declaring source
+    // now renders through the layers engine instead of cuts, so it is no longer the one edit.cuts[]
+    // references. Resolve the id edit.cuts[] actually uses instead of assuming edit.sources[0].
+    const cutsSource = edit.sources.find((source) => source.id === edit.cuts[0].src);
+    cutsSource.path = "../outside.mp4";
     await assert.rejects(enumerateDeclaredRenderInputs({ projectRoot: root, edit }), /escapes the project root/u);
 
-    edit.sources[0].path = "assets/escape.mp4";
+    cutsSource.path = "assets/escape.mp4";
     await symlink("/etc/hosts", join(root, "assets", "escape.mp4"));
     await assert.rejects(enumerateDeclaredRenderInputs({ projectRoot: root, edit }), /not a regular project file/u);
   });

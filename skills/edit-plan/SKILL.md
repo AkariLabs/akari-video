@@ -14,7 +14,7 @@ description: analyze-project が作る分析レポート（interpretation.json +
 
 > **edit.json v2 語彙**: v2 のトップレベルは exact で、`version` / `output` / `sources` /
 > `tracks` / `audio` / `captions` / `thumbnail` 以外を書けない。`beats` / `emphasis_words` /
-> `direction` は分析・判断の知識として扱い、v2 の `edit.json` には書かない。再受け入れは別タスクとする。
+> `direction` は v2 で廃止済みであり、分析・判断の知識としてだけ扱う。消費者側コードも畳んでおり、今後も復活させない。
 
 ## ハードルール
 

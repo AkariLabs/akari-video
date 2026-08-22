@@ -15,7 +15,7 @@ import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { resolveInternalTrackZ } from '@akari-video/edit-store';
+import { buildTimelineMap, resolveInternalTrackZ, resolvePreviewItemWrite, TimelineSegment } from '@akari-video/edit-store';
 import {
     AkariPreviewService,
     OverlayRuntimeAssets,
@@ -30,6 +30,7 @@ import {
     sfxFadeGainSchedule
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
+import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import {
     CAPTION_FONT_FAMILY,
@@ -45,7 +46,9 @@ import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visua
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
 import { computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
 import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
+import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
+import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
 import {
     buildCutSummaryFields,
     buildLayerSummaryBase,
@@ -136,7 +139,84 @@ const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
 export const isImageLayerSrc = (src: string | undefined): boolean =>
     typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
 
+type PreviewCaptionClockDomain = 'source' | 'output' | 'legacy';
+
+interface PreviewCaptionClockInput extends PreviewCaption {
+    /** 読込層だけが扱う時刻 domain。webview へ渡す前に必ず output へ正規化する。 */
+    clockDomain: PreviewCaptionClockDomain;
+    /** 複数 source の source-domain cue を該当 cut だけへ射影するための任意 source id。 */
+    clockSourceId?: string;
+}
+
+interface OutputPreviewCaption extends PreviewCaptionClockInput {
+    clockDomain: 'output';
+}
+
+/**
+ * 字幕時計の preview-extension 内部契約。
+ *
+ * - resolved display cue は output、未解決 cue は source を既定とする。
+ * - 旧 captions.json には domain 語彙が無いため、宣言区間全体が明示 gap に収まる cue だけを
+ *   output と確定する。これにより gap 用 cue を source 秒へ誤射影せず、その他は cut map で
+ *   source -> output へ射影できる。
+ * - 戻り値は全件 clockDomain='output'。render 層は domain 判定を一切行わない。
+ */
+export const normalizePreviewCaptionClock = (
+    captions: readonly PreviewCaptionClockInput[],
+    segments: readonly TimelineSegment[]
+): OutputPreviewCaption[] => {
+    const epsilon = 0.000001;
+    const output: OutputPreviewCaption[] = [];
+    for (const caption of captions) {
+        const legacyOutputCue = caption.clockDomain === 'legacy' && segments.some(segment =>
+            segment.kind === 'gap'
+            && caption.start >= segment.outStart - epsilon
+            && caption.end <= segment.outEnd + epsilon
+        );
+        const domain = caption.clockDomain === 'legacy'
+            ? (legacyOutputCue ? 'output' : 'source')
+            : caption.clockDomain;
+        if (domain === 'output' || segments.length === 0) {
+            output.push({ ...caption, clockDomain: 'output' });
+            continue;
+        }
+        let occurrence = 0;
+        for (const segment of segments) {
+            if (segment.kind !== 'src' || segment.in === undefined || segment.out === undefined) continue;
+            if (caption.clockSourceId !== undefined && segment.src !== caption.clockSourceId) continue;
+            const sourceStart = Math.max(caption.start, segment.in);
+            const sourceEnd = Math.min(caption.end, segment.out);
+            if (!(sourceEnd - sourceStart > epsilon)) continue;
+            const speed = typeof segment.speed === 'number' && segment.speed > 0 ? segment.speed : 1;
+            const projectTime = (sourceTime: number): number =>
+                segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
+            occurrence += 1;
+            const sourceCueId = caption.sourceCueId ?? caption.id;
+            const words = caption.words?.flatMap(word => {
+                const wordStart = Math.max(word.start, sourceStart);
+                const wordEnd = Math.min(word.end, sourceEnd);
+                return wordEnd - wordStart > epsilon
+                    ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }]
+                    : [];
+            });
+            output.push({
+                ...caption,
+                ...(caption.id ? { id: `${caption.id}-output-${occurrence}` } : {}),
+                ...(sourceCueId ? { sourceCueId } : {}),
+                start: projectTime(sourceStart),
+                end: projectTime(sourceEnd),
+                ...(words && words.length > 0 ? { words } : { words: undefined }),
+                clockDomain: 'output'
+            });
+        }
+    }
+    return output.sort((left, right) => left.start - right.start || left.end - right.end);
+};
+// caption-clock-normalizer:end
+
 interface EditSummaryCut {
+    /** v2 tracks[].items[].id（legacy でも内部表現が付けた安定 id）。 */
+    id: string;
     /** 参照するソース id（v1 cuts[].src。v0 は既定 id）。webview はこれで <video> を切り替える */
     src: string;
     in: number;
@@ -327,6 +407,7 @@ interface CutWriteRequest {
     type: 'akari-preview-cut-write';
     requestId: string;
     cutIndex: number;
+    cutId?: string;
     patch: {
         transform?: OverlayTransform;
     };
@@ -485,9 +566,8 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
-// ㉓ forwardOverlaySelection/forwardLayerSelection の流儀で追加した cut 版。
-// タイムライン側（akari-annotations、編集禁止）の購読は本タスクの対象外
-// （既存 2 チャンネルと同じ配線パターンだけをここに追加する）。
+// forwardOverlaySelection/forwardLayerSelection と同じ拡張間チャンネルの cut 版。
+// payload は表示中 cut の安定 ID とし、タイムラインと inspector が同じ項目を引けるようにする。
 const PREVIEW_CUT_SELECTED_EVENT = 'akari.preview.cutSelected';
 // ㉓ 字幕版。既存 2 チャンネルと同じ配線パターンをここに追加するだけ
 // （タイムライン側〔akari-annotations、編集禁止〕の購読は対象外）。
@@ -560,10 +640,10 @@ interface PreviewLayerSelectedRequest {
     layerId: string | null;
 }
 
-// ㉓ overlay/layer 選択同期チャンネルの cut 版。true = 現在再生中のカットが選択中。
+// ㉓ overlay/layer 選択同期チャンネルの cut 版。安定 ID で inspector の同じ項目へ同期する。
 interface PreviewCutSelectedRequest {
     type: 'akari-preview-cut-selected';
-    selected: boolean;
+    cutId: string | null;
 }
 
 interface PreviewReviewTransportRequest {
@@ -2028,7 +2108,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected isCutSelectedRequest(message: any): message is PreviewCutSelectedRequest {
-        return message?.type === 'akari-preview-cut-selected' && typeof message.selected === 'boolean';
+        return message?.type === 'akari-preview-cut-selected'
+            && (typeof message.cutId === 'string' || message.cutId === null);
     }
 
     protected forwardCutSelection(widget: PreviewWidgetMarker, message: PreviewCutSelectedRequest): void {
@@ -2039,7 +2120,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         window.dispatchEvent(new CustomEvent(PREVIEW_CUT_SELECTED_EVENT, {
             detail: {
                 editUri: editUri.normalizePath().toString(),
-                selected: message.selected
+                cutId: message.cutId
             }
         }));
     }
@@ -2119,7 +2200,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected queueCaptionsUpdate(widget: PreviewWidgetMarker): void {
         const previous = widget.akariPreviewCaptionsUpdate ?? Promise.resolve();
         widget.akariPreviewCaptionsUpdate = previous.then(async () => {
-            const captions = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
+            const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
+            const captions = normalizePreviewCaptionClock(
+                loaded,
+                this.previewCaptionTimelineSegments(widget.akariPreviewSummary?.cuts ?? [])
+            );
             widget.sendMessage({ type: 'akari-preview-captions-update', captions });
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
@@ -2283,6 +2368,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 widget.akariPreviewModelSnapshot = nextSnapshot;
                 widget.akariPreviewSummary = summary;
+                // cut map の変更は source-domain 字幕の output 区間も変える。モデル差分と同じ
+                // 読込で正規化した cue を先に送り、model-update 内の同期 tick が古い字幕を
+                // 1 フレーム描く余地を残さない。
+                widget.sendMessage({ type: 'akari-preview-captions-update', captions: model.captions });
                 widget.sendMessage({ type: 'akari-preview-model-update', summary });
                 this.startDeferredTelopRasters(widget, model);
                 await this.disposeAssetStreams(model.assetStreamIds);
@@ -2644,7 +2733,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetUris: [],
                     assetStreamIds: [],
                     captionsUri,
-                    captions,
+                    captions: normalizePreviewCaptionClock(captions, []),
                     emptyProject: true
                 };
             }
@@ -2701,6 +2790,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 );
                 if (result.ok && result.fields) {
                     cuts.push({
+                        id: item.id,
                         ...result.fields,
                         trackId,
                         renderTrack: resolveInternalTrackZ(
@@ -2895,11 +2985,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ...(audioTracks ? { audio: audioTracks } : {})
             } : undefined;
             // 宣言トラック（z の権威 = 配列順）。読み込み層が正規化した並びをそのまま使う。
-            const timelineTracks: EditSummaryTimelineTrack[] = internal.tracks.map(track => ({
-                id: track.id,
-                z: resolveInternalTrackZ(internal.tracks, track.id)
-            }));
-            const captionTrackId = internal.tracks.find(track => track.content?.from === 'captions.json')?.id;
+            const captionTrackOrder = resolvePreviewCaptionTrackOrder(
+                internal.tracks,
+                captions.length > 0 || hasInlineCaptions(internal)
+            );
+            const timelineTracks: EditSummaryTimelineTrack[] = captionTrackOrder.tracks;
+            const captionTrackId = captionTrackOrder.captionTrackId;
             const audio = await this.resolveAudioAssets(internal.declaration.audio, editUri, assetStreams, assetUris);
             const indicators: string[] = [];
             if (isTruthyObject(internal.output.look)) indicators.push('LUT');
@@ -2923,6 +3014,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 indicators.push('ディゾルブ切り替え');
             }
             indicators.push(...unsupportedGltfWarnings);
+            const outputCaptions = normalizePreviewCaptionClock(
+                captions,
+                this.previewCaptionTimelineSegments(cuts)
+            );
             return {
                 editUri,
                 sourceUri,
@@ -2934,7 +3029,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ...(deferredTelops.length > 0 ? { deferredTelops } : {}),
                 assetUrlByUri: new Map([...assetStreams].map(([uri, stream]) => [uri, stream.url])),
                 captionsUri,
-                captions,
+                captions: outputCaptions,
                 emphasisWords,
                 summary: {
                     output: { width, height, fps: this.positiveNumber(internal.output.fps, 30) },
@@ -2967,7 +3062,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 assetUris: [],
                 assetStreamIds: [],
                 captionsUri,
-                captions: await captionsPromise
+                captions: normalizePreviewCaptionClock(await captionsPromise, [])
             };
         }
     }
@@ -3318,7 +3413,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return document.body.innerHTML;
     }
 
-    protected async loadPreviewCaptions(captionsUri: URI | undefined, editUri?: URI): Promise<PreviewCaption[]> {
+    protected previewCaptionTimelineSegments(cuts: readonly EditSummaryCut[]): TimelineSegment[] {
+        return buildTimelineMap(
+            cuts.map(cut => ({ ...cut, track: cut.renderTrack })),
+            { trackZ: track => track }
+        ).segments;
+    }
+
+    protected async loadPreviewCaptions(
+        captionsUri: URI | undefined,
+        editUri?: URI
+    ): Promise<PreviewCaptionClockInput[]> {
         if (!captionsUri) {
             return [];
         }
@@ -3328,9 +3433,45 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     captionsUri: captionsUri.toString(),
                     editUri: editUri.toString()
                 });
-                if (resolved) return parseResolvedPreviewCaptions(resolved);
+                if (resolved) {
+                    return parseResolvedPreviewCaptions(resolved).map(caption => ({
+                        ...caption,
+                        clockDomain: 'output'
+                    }));
+                }
             }
-            return parsePreviewCaptions(await this.readText(captionsUri));
+            const source = await this.readText(captionsUri);
+            const parsed = parsePreviewCaptions(source);
+            const root: unknown = JSON.parse(source);
+            const rawCaptions = Array.isArray(root)
+                ? root
+                : root && typeof root === 'object' && Array.isArray((root as { captions?: unknown }).captions)
+                    ? (root as { captions: unknown[] }).captions
+                    : [];
+            const rawById = new Map<string, Record<string, unknown>>();
+            for (const value of rawCaptions) {
+                if (value && typeof value === 'object' && !Array.isArray(value)
+                    && typeof (value as { id?: unknown }).id === 'string') {
+                    rawById.set((value as { id: string }).id, value as Record<string, unknown>);
+                }
+            }
+            return parsed.map((caption, index) => {
+                const raw = (caption.id ? rawById.get(caption.id) : undefined)
+                    ?? (rawCaptions[index] && typeof rawCaptions[index] === 'object'
+                        && !Array.isArray(rawCaptions[index])
+                        ? rawCaptions[index] as Record<string, unknown> : undefined);
+                // captions schema 自体には時刻 domain が無いため、preview 読込境界だけの最小語彙
+                // time_domain を先行受理する。未宣言データは normalizePreviewCaptionClock が
+                // cut map の明示 gap と突き合わせて legacy domain を確定する。
+                const declaredDomain = raw?.time_domain === 'source' || raw?.time_domain === 'output'
+                    ? raw.time_domain
+                    : 'legacy';
+                return {
+                    ...caption,
+                    clockDomain: declaredDomain,
+                    ...(typeof raw?.src === 'string' && raw.src ? { clockSourceId: raw.src } : {})
+                };
+            });
         } catch (error) {
             if (await this.fileService.exists(captionsUri)) {
                 console.warn(`[akari-preview] failed to load ${captionsUri.toString()}; hiding captions`, error);
@@ -3403,14 +3544,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         try {
-            const edit = JSON.parse(await this.readText(editUri));
-            if (!Array.isArray(edit?.overlays)) {
-                throw new Error('edit.json の overlays が配列ではありません');
-            }
-            const overlay = edit.overlays.find((value: any) => String(value?.id) === request.overlayId);
-            if (!overlay) {
-                throw new Error(`オーバーレイが見つかりません: ${request.overlayId}`);
-            }
+            const resolved = resolvePreviewItemWrite(await this.readText(editUri), {
+                kind: 'overlay',
+                itemId: request.overlayId,
+                patch: request.patch
+            });
             // 断片テキスト編集の html patch は overlays[].html が指す断片ファイルへ書く。
             // 旧実装はここで html を黙って捨てて ok を返しており、contenteditable の編集が
             // どのサーフェスでも一度も永続化されていなかった（edit.json へマージすると
@@ -3419,11 +3557,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (!request.patch.html.trim()) {
                     throw new Error('html が空です');
                 }
-                if (typeof overlay.html !== 'string' || !overlay.html) {
-                    throw new Error(`overlays[].html がファイル参照ではありません: ${request.overlayId}`);
-                }
                 const projectRoot = editUri.parent;
-                const htmlPath = String(overlay.html);
+                const htmlPath = resolved.htmlPath;
+                if (typeof htmlPath !== 'string' || !htmlPath) {
+                    throw new Error(`HTML 断片の参照先を特定できません: ${request.overlayId}`);
+                }
                 // URI.resolve は '..' を正規化しない可能性があるため、セグメント検査で先に弾く
                 if (htmlPath.startsWith('/') || htmlPath.split(/[\\/]/).some(segment => segment === '..')) {
                     throw new Error('プロジェクト外への書き込みは拒否しました');
@@ -3433,19 +3571,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     throw new Error('プロジェクト外への書き込みは拒否しました');
                 }
                 if (!(await this.fileService.exists(target))) {
-                    throw new Error(`断片ファイルがありません: ${overlay.html}`);
+                    throw new Error(`断片ファイルがありません: ${htmlPath}`);
                 }
                 this.recentWrites.set(target.toString(), Date.now());
                 await this.fileService.writeFile(target, BinaryBuffer.fromString(request.patch.html));
             }
-            if (request.patch.vars) {
-                overlay.vars = { ...this.objectRecord(overlay.vars), ...request.patch.vars };
-            }
-            if (request.patch.transform) {
-                overlay.transform = { ...this.objectRecord(overlay.transform), ...request.patch.transform };
-            }
-            if (request.patch.vars || request.patch.transform) {
-                const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
+            if (resolved.candidateText) {
+                const candidateText = resolved.candidateText;
                 const lintResult = await this.previewService.lintEditCandidate({
                     editUri: editUri.toString(),
                     candidateText
@@ -3590,30 +3722,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         try {
             const originalText = await this.readText(editUri);
-            const edit = JSON.parse(originalText);
-            if (!Array.isArray(edit?.layers)) {
-                throw new Error('edit.json の layers が配列ではありません');
+            const resolved = resolvePreviewItemWrite(originalText, {
+                kind: 'layer',
+                itemId: request.layerId,
+                patch: request.patch
+            });
+            const candidateText = resolved.candidateText;
+            if (!candidateText) {
+                throw new Error('edit.json へ書き込む変更がありません');
             }
-            const layer = edit.layers.find((value: any) => String(value?.id) === request.layerId);
-            if (!layer) {
-                throw new Error(`素材が見つかりません: ${request.layerId}`);
-            }
-            if (request.patch.transform) {
-                layer.transform = { ...this.objectRecord(layer.transform), ...request.patch.transform };
-            }
-            if (request.patch.crop) {
-                layer.crop = { ...request.patch.crop };
-            }
-            if (request.patch.perspective !== undefined) {
-                // null = explicit clear (removes layer.perspective entirely, matching the
-                // schema's "absent = no perspective, byte-identical render" default).
-                if (request.patch.perspective === null) {
-                    delete layer.perspective;
-                } else {
-                    layer.perspective = { corners: request.patch.perspective.corners.map(([x, y]) => [x, y]) };
-                }
-            }
-            const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
             const lintResult = await this.previewService.lintEditCandidate({
                 editUri: editUri.toString(),
                 candidateText
@@ -3653,18 +3770,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         try {
             const originalText = await this.readText(editUri);
-            const edit = JSON.parse(originalText);
-            if (!Array.isArray(edit?.cuts)) {
-                throw new Error('edit.json の cuts が配列ではありません');
+            const resolved = resolvePreviewItemWrite(originalText, {
+                kind: 'cut',
+                itemId: request.cutId,
+                legacyIndex: request.cutIndex,
+                patch: request.patch
+            });
+            const candidateText = resolved.candidateText;
+            if (!candidateText) {
+                throw new Error('edit.json へ書き込む変更がありません');
             }
-            const cut = edit.cuts[request.cutIndex];
-            if (!cut || typeof cut !== 'object') {
-                throw new Error(`カットが見つかりません: index ${request.cutIndex}`);
-            }
-            if (request.patch.transform) {
-                cut.transform = { ...this.objectRecord(cut.transform), ...request.patch.transform };
-            }
-            const candidateText = `${JSON.stringify(edit, undefined, 2)}\n`;
             const lintResult = await this.previewService.lintEditCandidate({
                 editUri: editUri.toString(),
                 candidateText
@@ -3686,6 +3801,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             && typeof message.requestId === 'string'
             && Number.isInteger(message.cutIndex)
             && message.cutIndex >= 0
+            && (message.cutId === undefined || typeof message.cutId === 'string')
             && message.patch
             && typeof message.patch === 'object';
     }
@@ -3924,13 +4040,24 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <style>
 ${this.inlineStyle(assets.interactionCss)}
 ${captionFontFaceCss(assets.captionFontDataUri)}
-:root { color-scheme: dark; font-family: "${CAPTION_FONT_FAMILY}", sans-serif; }
+:root {
+  color-scheme: light dark;
+  font-family: "${CAPTION_FONT_FAMILY}", sans-serif;
+  --akari-preview-pasteboard: #2b2d30;
+  --akari-preview-canvas-edge: rgba(255,255,255,0.42);
+}
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
+body.vscode-dark, body.vscode-high-contrast { color-scheme: dark; }
+body.vscode-light {
+  color-scheme: light;
+  --akari-preview-pasteboard: #d5d7da;
+  --akari-preview-canvas-edge: rgba(0,0,0,0.52);
+}
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.preview-pane { min-width: 0; min-height: 0; padding: 16px; display: grid; place-items: center; background: #090909; }
-#preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
+.preview-pane { min-width: 0; min-height: 0; padding: 16px; display: grid; place-items: center; background: var(--akari-preview-pasteboard); }
+#preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; box-shadow: 0 0 0 1px var(--akari-preview-canvas-edge); }
 #preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
@@ -4024,6 +4151,10 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .audio-notice { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px; max-width: 92%; padding: 8px 12px; border-radius: 6px; background: rgba(20, 20, 20, 0.78); color: #f1f1f1; font-size: 12.5px; line-height: 1.5; }
 .audio-notice[hidden] { display: none; }
 .audio-notice button { flex: none; border: none; background: transparent; color: #ccc; font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px; }
+.write-error-banner { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2100; display: flex; align-items: flex-start; gap: 10px; width: min(92%, 680px); box-sizing: border-box; padding: 10px 12px; border: 1px solid #ff8a8a; border-radius: 6px; background: #4a1117; color: #fff4f4; box-shadow: 0 4px 18px rgba(0,0,0,0.45); font-size: 12.5px; line-height: 1.5; }
+.write-error-banner[hidden] { display: none; }
+.write-error-banner span { flex: 1; overflow-wrap: anywhere; }
+.write-error-banner button { flex: none; border: none; background: transparent; color: #fff; font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 4px; }
 .transport { display: grid; gap: 8px; padding: 9px 14px 10px; border-top: 1px solid #303030; background: #202020; }
 .transport-waveform { position: relative; width: 100%; height: 56px; overflow: hidden; border-top: 1px solid #303030; background: #181818; cursor: pointer; touch-action: none; }
 .transport-waveform[hidden] { display: none; }
@@ -4088,6 +4219,10 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
       <div id="audio-notice" class="audio-notice" hidden role="status">
         <span>音声が検出されていません。無音の素材か、音声形式がプレビュー非対応の可能性があります（書き出しには影響しません）。</span>
         <button id="audio-notice-dismiss" type="button" aria-label="閉じる" title="閉じる">×</button>
+      </div>
+      <div id="write-error-banner" class="write-error-banner" hidden role="alert" aria-live="assertive">
+        <span id="write-error-message"></span>
+        <button id="write-error-dismiss" type="button" aria-label="閉じる" title="閉じる">×</button>
       </div>
       <div id="preview-message" class="message-card" hidden role="status">
         <p id="preview-message-text">${UNSUPPORTED_FORMAT_MESSAGE}</p>
@@ -4179,6 +4314,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // previewBootstrapScript's own copy of this function is ever reached -- so this script
             // block injects its own copy rather than relying on cross-<script>-tag scope.
             const computeLayerPerspectiveVisualFn = (${computeLayerPerspectiveVisual.toString()});
+            const resolveLayerHitRegionClipFn = (${resolveLayerHitRegionClip.toString()});
             let perspectiveVisualWarned = false;
             let sequence = 0;
             let displayScale = 1;
@@ -4191,6 +4327,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const wrapper = document.getElementById('preview-wrapper');
             const video = document.getElementById('preview-video');
             const outputPreviewLink = document.getElementById('output-preview-link');
+            const writeErrorBanner = document.getElementById('write-error-banner');
+            const writeErrorMessage = document.getElementById('write-error-message');
+            const writeErrorDismiss = document.getElementById('write-error-dismiss');
             const layersStage = document.getElementById('preview-layers');
             const stage = document.getElementById('overlay-stage');
             const penLayer = document.getElementById('pen-layer');
@@ -4198,6 +4337,14 @@ body { display: grid; place-items: center; padding: 32px; }
 
             window.akari = window.akari || {};
             window.akari.state = { editPath: initial.editPath, summary: initial.summary };
+            window.akari.showWriteError = error => {
+                const reason = error instanceof Error ? error.message : String(error || '書き込みに失敗しました');
+                writeErrorMessage.textContent = reason;
+                writeErrorBanner.hidden = false;
+            };
+            writeErrorDismiss.addEventListener('click', () => {
+                writeErrorBanner.hidden = true;
+            });
             window.akari.engine = {
                 overlayWrite: (_editPath, overlayId, patch) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
@@ -4209,10 +4356,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     pending.set(requestId, { kind: 'layer-write', resolve, reject });
                     vscode.postMessage({ type: 'akari-preview-layer-write', requestId, layerId, patch });
                 }),
-                cutWrite: (cutIndex, patch) => new Promise((resolve, reject) => {
+                cutWrite: (cutIndex, cutId, patch) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
                     pending.set(requestId, { kind: 'cut-write', resolve, reject });
-                    vscode.postMessage({ type: 'akari-preview-cut-write', requestId, cutIndex, patch });
+                    vscode.postMessage({ type: 'akari-preview-cut-write', requestId, cutIndex, cutId, patch });
                 }),
                 captionWrite: (captionId, patch) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-' + (++sequence);
@@ -4620,8 +4767,8 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.reportLayerSelection = layerId => {
                 vscode.postMessage({ type: 'akari-preview-layer-selected', layerId });
             };
-            window.akari.reportCutSelection = selected => {
-                vscode.postMessage({ type: 'akari-preview-cut-selected', selected });
+            window.akari.reportCutSelection = cutId => {
+                vscode.postMessage({ type: 'akari-preview-cut-selected', cutId });
             };
             window.akari.reportCaptionSelection = captionId => {
                 vscode.postMessage({ type: 'akari-preview-caption-selected', captionId });
@@ -4669,7 +4816,9 @@ body { display: grid; place-items: center; padding: 32px; }
                             : request.kind === 'hevc-fallback'
                                 ? 'HEVC 互換変換に失敗しました'
                                 : 'edit.json の書き込みに失敗しました';
-                    request.reject(new Error(message.error || fallback));
+                    const reason = message.error || fallback;
+                    window.akari.showWriteError(reason);
+                    request.reject(new Error(reason));
                     return;
                 }
                 if (request.kind !== 'waveform-fetch') {
@@ -4787,10 +4936,20 @@ body { display: grid; place-items: center; padding: 32px; }
                         }
                     }
                     layerVideo.style.transform = 'translate(-' + pivotXPct + '%, -' + pivotYPct + '%) rotate(' + rotate + 'deg)' + perspectiveFn;
-                    layerVideo.style.clipPath = (cropX > 0 || cropY > 0 || cropW < 1 || cropH < 1)
-                        ? 'inset(' + (cropY * 100) + '% ' + (Math.max(0, (1 - cropX - cropW)) * 100) + '% '
-                            + (Math.max(0, (1 - cropY - cropH)) * 100) + '% ' + (cropX * 100) + '%)'
-                        : '';
+                    const opaqueX = Number(layerVideo.dataset.akariOpaqueX);
+                    const opaqueY = Number(layerVideo.dataset.akariOpaqueY);
+                    const opaqueW = Number(layerVideo.dataset.akariOpaqueW);
+                    const opaqueH = Number(layerVideo.dataset.akariOpaqueH);
+                    const opaqueBox = [opaqueX, opaqueY, opaqueW, opaqueH].every(Number.isFinite)
+                        && opaqueW > 0 && opaqueH > 0
+                        ? { x: opaqueX, y: opaqueY, w: opaqueW, h: opaqueH }
+                        : undefined;
+                    layerVideo.style.clipPath = resolveLayerHitRegionClipFn(
+                        layerVideo.videoWidth,
+                        layerVideo.videoHeight,
+                        { x: cropX, y: cropY, w: cropW, h: cropH },
+                        opaqueBox
+                    );
                 }
                 // ㉕ cuts[].framing（contract-2026-08-02-preview-parity.md §2.4.2）: この cut.transform
                 // 部分（PIP 位置決め）は video.style.transform の一部にすぎず、時間で変化する framing
@@ -4884,6 +5043,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // task.md 指示4 (rect tool): normalized drag -> [x,y,w,h] box, same shape as
             // review.json's region.box (../common/rect-tool-visual.ts).
             const normalizeRectFromPointsFn = (${normalizeRectFromPoints.toString()});
+            const layerResizeCornerPointFn = (${layerResizeCornerPoint.toString()});
             const playIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>';
             const pauseIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zm6 0h4v14h-4z"></path></svg>';
             const fullscreenIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3zm11-5h5v5h-2V6h-3zm3 11h2v5h-5v-2h3zM9 18v2H4v-5h2v3z"></path></svg>';
@@ -5457,6 +5617,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.style.transform = '';
                     video.style.opacity = '';
                     video.dataset.akariCutIndex = '';
+                    video.dataset.akariCutId = '';
                     // ㉓ ギャップ等クリック選択の対象外へ移った場合は選択を外す
                     // （deselectCut は後段で定義される const だが、実際の呼び出しは
                     // 常にトップレベルスクリプト完了後の非同期経路のため安全）。
@@ -5479,6 +5640,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 video.style.opacity = Number.isFinite(segment.opacity) ? String(segment.opacity) : '';
                 video.dataset.akariCutIndex = Number.isInteger(segment.cutIndex) ? String(segment.cutIndex) : '';
+                video.dataset.akariCutId = typeof segment.id === 'string' ? segment.id : '';
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 if (typeof updateCutSelectBox === 'function') updateCutSelectBox();
             };
@@ -5524,6 +5686,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.dataset.akariLayerId = String(layer.id);
                 layerVideo.dataset.akariLayerIndex = String(index);
                 layerVideo.dataset.akariLayerKind = String(layer.kind);
+                if (layer.kind === 'baked') layerVideo.style.pointerEvents = 'none';
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
                 layerVideo.style.zIndex = String(zForTrack(layer.trackId));
@@ -5826,6 +5989,30 @@ body { display: grid; place-items: center; padding: 32px; }
                     return null;
                 }
             };
+            const syncLayerHitRegion = (entry, forceMeasure = false) => {
+                if (forceMeasure) entry.opaqueBox = undefined;
+                if (entry.opaqueBox === undefined) entry.opaqueBox = measureLayerOpaqueBox(entry);
+                const box = entry.opaqueBox;
+                if (box) {
+                    entry.video.dataset.akariOpaqueX = String(box.x);
+                    entry.video.dataset.akariOpaqueY = String(box.y);
+                    entry.video.dataset.akariOpaqueW = String(box.w);
+                    entry.video.dataset.akariOpaqueH = String(box.h);
+                    entry.video.style.pointerEvents = 'auto';
+                } else {
+                    delete entry.video.dataset.akariOpaqueX;
+                    delete entry.video.dataset.akariOpaqueY;
+                    delete entry.video.dataset.akariOpaqueW;
+                    delete entry.video.dataset.akariOpaqueH;
+                    if (entry.spec.kind === 'baked') entry.video.style.pointerEvents = 'none';
+                }
+                if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                return box;
+            };
+            for (const entry of layerEntries) {
+                entry.video.addEventListener('loadeddata', () => syncLayerHitRegion(entry, true));
+                entry.video.addEventListener('seeked', () => syncLayerHitRegion(entry, true));
+            }
             const updateLayerSelectBox = () => {
                 const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : undefined;
                 if (!entry || entry.video.style.display === 'none' || !(entry.video.videoWidth > 0)) {
@@ -5840,7 +6027,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 // フレーム未着で測れないうちは全面フォールバック枠を一瞬見せず、届いてから出す
                 if (entry.opaqueBox === undefined) {
                     if (entry.video.readyState >= 2) {
-                        entry.opaqueBox = measureLayerOpaqueBox(entry);
+                        syncLayerHitRegion(entry);
                     } else {
                         layerSelectBox.classList.remove('is-active');
                         entry.video.addEventListener('loadeddata', () => updateLayerSelectBox(), { once: true });
@@ -6005,7 +6192,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 try {
                     await window.akari.engine.layerWrite(entry.spec.id, { perspective: corners ? { corners } : null });
                 } catch (error) {
-                    console.warn('[akari-preview] layer perspective write rejected; reverting', error);
+                    window.akari.showWriteError(error);
                     applyLayerPerspectiveNow(entry, original);
                 }
             };
@@ -6103,7 +6290,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉒ スナップ統一: layers[]（この後 cut/caption も同型）の移動・拡縮を、
             // interaction.js（overlay-runtime、overlays[] 用スナップの単一正本）が公開する
             // computeSnapCorrection/stageLocalPoint/showSnapGuides/hideSnapGuides へ委譲する。
-            // 出力px（video座標）系の bounds を渡すだけで、キャンバス端5%セーフマージン+
+            // 出力px（video座標）系の bounds を渡すだけで、キャンバス外周+5%セーフマージン+
             // センター縦横・8px吸着/12px解除（表示px基準=ズーム下でも見た目8px相当）・
             // ガイド線が overlays[] と完全に同一挙動になる（旧実装は resize/layers[] とも
             // スナップ皆無だった）。
@@ -6127,43 +6314,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     (entry.video.videoWidth || 0) * crop.w * transform.scale,
                     (entry.video.videoHeight || 0) * crop.h * transform.scale
                 );
-            };
-            // センターピボットの拡縮（layers[]・cut は共に中心固定で scale する）を、
-            // computeSnapCorrection() の left/center/right 一致点から scale へ逆算する。
-            // center（sourceIndex===1）は scale では動かせないため候補から除外し、
-            // left/right（または top/bottom）のどちらか近い方だけを採用する
-            // （uniform scale の制約上 overlays[] resize と同じく一度に1軸のみ）。
-            const solveCenteredResizeSnap = (bounds, naturalWidth, naturalHeight, currentScale, previousSnap) => {
-                const snap = window.akari.interaction.computeSnapCorrection(bounds, previousSnap);
-                const halfW = (bounds.right - bounds.left) / 2;
-                const halfH = (bounds.bottom - bounds.top) / 2;
-                const axisCandidate = (snapEntry, half, natural) => {
-                    if (!snapEntry || snapEntry.sourceIndex === 1 || !(half > 0) || !(natural > 0)) return null;
-                    const sign = snapEntry.sourceIndex === 2 ? 1 : -1;
-                    const nextHalf = half + sign * snapEntry.correction;
-                    if (!(nextHalf > 0)) return null;
-                    return { snap: snapEntry, scale: (nextHalf * 2) / natural };
-                };
-                const candidateX = axisCandidate(snap.x, halfW, naturalWidth);
-                const candidateY = axisCandidate(snap.y, halfH, naturalHeight);
-                let chosen = null;
-                if (candidateX) chosen = { axis: 'x', ...candidateX };
-                if (candidateY && (!chosen || Math.abs(candidateY.snap.correction) < Math.abs(chosen.snap.correction))) {
-                    chosen = { axis: 'y', ...candidateY };
-                }
-                if (!chosen) {
-                    window.akari.interaction.hideSnapGuides();
-                    return { scale: currentScale, snapX: null, snapY: null };
-                }
-                window.akari.interaction.showSnapGuides(
-                    chosen.axis === 'x' ? chosen.snap : null,
-                    chosen.axis === 'y' ? chosen.snap : null
-                );
-                return {
-                    scale: chosen.scale,
-                    snapX: chosen.axis === 'x' ? chosen.snap : null,
-                    snapY: chosen.axis === 'y' ? chosen.snap : null
-                };
             };
             // CF-write: layerWrite 確定 → 失敗時は元の値へ視覚的に巻き戻す（既存 overlay 編集と同じ規約）。
             const beginLayerTransformDrag = (entry, startEvent, computeTransform) => {
@@ -6207,7 +6357,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     try {
                         await window.akari.engine.layerWrite(entry.spec.id, { transform: finalTransform });
                     } catch (error) {
-                        console.warn('[akari-preview] layer transform write rejected; reverting', error);
+                        window.akari.showWriteError(error);
                         applyLayerTransformNow(entry, original);
                         layerTransformVisualThrottle.flush();
                     }
@@ -6332,6 +6482,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (!entry) return;
                     const kind = handle.getAttribute('data-akari-handle');
                     const boxRect = layerSelectBox.getBoundingClientRect();
+                    const boxCenter = {
+                        x: boxRect.left + boxRect.width / 2,
+                        y: boxRect.top + boxRect.height / 2
+                    };
                     // 枠はコンテンツにフィットしているが、拡縮・回転のピボットは transform モデルの
                     // 中心 = ビデオ中心のまま。箱中心からピボットオフセット（出力 px）を引き戻す
                     const pivotPerOutput = (window.akari.stageScale() || 1) * (typeof zoom === 'number' && zoom > 0 ? zoom : 1);
@@ -6348,28 +6502,55 @@ body { display: grid; place-items: center; padding: 32px; }
                             return { ...original, rotate: original.rotate + (angle - startAngle) };
                         });
                     } else {
-                        const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
-                        // ㉔ crop 適用中は見えている自然サイズが cropW/cropH 分小さいので、bounds→scale の
-                        // 逆算（solveCenteredResizeSnap の naturalWidth/Height）もそれに合わせる。
-                        const crop = layerCropNow(entry);
+                        const oppositeKind = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' }[kind];
+                        const boxZoom = typeof zoom === 'number' && zoom > 0 ? zoom : 1;
+                        const boxWidth = (Number.parseFloat(layerSelectBox.style.width) || 0) * boxZoom;
+                        const boxHeight = (Number.parseFloat(layerSelectBox.style.height) || 0) * boxZoom;
+                        const rotate = layerTransformNow(entry).rotate;
+                        const anchorClient = layerResizeCornerPointFn(
+                            boxCenter.x, boxCenter.y, boxWidth, boxHeight, rotate, oppositeKind
+                        );
+                        const draggedClient = layerResizeCornerPointFn(
+                            boxCenter.x, boxCenter.y, boxWidth, boxHeight, rotate, kind
+                        );
+                        const anchor = window.akari.interaction?.stageLocalPoint?.(anchorClient.x, anchorClient.y);
+                        const dragged = window.akari.interaction?.stageLocalPoint?.(draggedClient.x, draggedClient.y);
+                        if (!anchor || !dragged || !window.akari.interaction?.anchorPreservingTranslate) return;
+                        const startDistance = Math.max(1, Math.hypot(dragged.x - anchor.x, dragged.y - anchor.y));
                         let dragSnap = { x: null, y: null };
                         beginLayerTransformDrag(entry, event, (moveEvent, original) => {
-                            const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
+                            const point = window.akari.interaction.stageLocalPoint(moveEvent.clientX, moveEvent.clientY);
+                            if (!point) return original;
+                            const distance = Math.hypot(point.x - anchor.x, point.y - anchor.y);
                             const factor = distance / startDistance;
                             let nextScale = Math.max(0.01, original.scale * factor);
-                            if (moveEvent.shiftKey || !window.akari.interaction) {
+                            if (moveEvent.shiftKey || !window.akari.interaction.computeAnchorResizeSnap) {
                                 dragSnap = { x: null, y: null };
                                 window.akari.interaction?.hideSnapGuides?.();
                             } else {
-                                const bounds = layerOutputBoundsForTransform(entry, { ...original, scale: nextScale });
-                                const solved = solveCenteredResizeSnap(
-                                    bounds, (entry.video.videoWidth || 0) * crop.w, (entry.video.videoHeight || 0) * crop.h,
-                                    nextScale, dragSnap
-                                );
+                                const solved = window.akari.interaction.computeAnchorResizeSnap({
+                                    anchorStageX: anchor.x,
+                                    anchorStageY: anchor.y,
+                                    draggedStageX: dragged.x,
+                                    draggedStageY: dragged.y,
+                                    startScale: original.scale,
+                                    scale: nextScale,
+                                    snapX: dragSnap.x,
+                                    snapY: dragSnap.y
+                                });
+                                if (!solved) return original;
                                 nextScale = solved.scale;
                                 dragSnap = { x: solved.snapX, y: solved.snapY };
                             }
-                            return { ...original, scale: nextScale };
+                            const translated = window.akari.interaction.anchorPreservingTranslate({
+                                startX: original.x,
+                                startY: original.y,
+                                startScale: original.scale,
+                                scale: nextScale,
+                                anchorStageX: anchor.x,
+                                anchorStageY: anchor.y
+                            });
+                            return translated ? { ...original, ...translated, scale: nextScale } : original;
                         });
                     }
                 });
@@ -6460,7 +6641,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         try {
                             await window.akari.engine.layerWrite(entry.spec.id, { crop: finalCrop, transform: finalTransform });
                         } catch (error) {
-                            console.warn('[akari-preview] layer crop write rejected; reverting', error);
+                            window.akari.showWriteError(error);
                             applyLayerCropAndTransformNow(entry, original, startTransform);
                             layerCropVisualThrottle.flush();
                         }
@@ -6568,13 +6749,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 const report = !options || options.report !== false;
                 if (cutSelected) {
                     updateCutSelectBox();
+                    if (report) window.akari.reportCutSelection(video.dataset.akariCutId || null);
                     return;
                 }
                 cutSelected = true;
                 selectLayer(null, { report: true });
                 if (typeof deselectCaption === 'function') deselectCaption({ report: true });
                 updateCutSelectBox();
-                if (report) window.akari.reportCutSelection(true);
+                if (report) window.akari.reportCutSelection(video.dataset.akariCutId || null);
             };
             const deselectCut = options => {
                 const report = !options || options.report !== false;
@@ -6584,7 +6766,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 cutSelected = false;
                 updateCutSelectBox();
-                if (report) window.akari.reportCutSelection(false);
+                if (report) window.akari.reportCutSelection(null);
             };
             const beginCutTransformDrag = (startEvent, computeTransform) => {
                 startEvent.preventDefault();
@@ -6631,9 +6813,13 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     const finalTransform = cutTransformNow();
                     try {
-                        await window.akari.engine.cutWrite(cutIndex, { transform: finalTransform });
+                        await window.akari.engine.cutWrite(
+                            cutIndex,
+                            video.dataset.akariCutId || undefined,
+                            { transform: finalTransform }
+                        );
                     } catch (error) {
-                        console.warn('[akari-preview] cut transform write rejected; reverting', error);
+                        window.akari.showWriteError(error);
                         applyCutTransformNow(original);
                         cutTransformVisualThrottle.flush();
                     }
@@ -6655,6 +6841,21 @@ body { display: grid; place-items: center; padding: 32px; }
             for (const handle of cutHandleElements) {
                 handle.addEventListener('pointerdown', event => {
                     if (event.button !== 0 || !cutSelected) return;
+                    const corner = handle.dataset.akariHandle;
+                    if (!['nw', 'ne', 'se', 'sw'].includes(corner)) return;
+                    const outputWidth = Number(summary.output && summary.output.width) || 1280;
+                    const outputHeight = Number(summary.output && summary.output.height) || 720;
+                    const startTransform = cutTransformNow();
+                    const anchor = {
+                        x: outputWidth / 2 + startTransform.x,
+                        y: outputHeight / 2 + startTransform.y
+                    };
+                    // ハンドル装飾の client 矩形ではなく、出力幾何からドラッグ中の
+                    // 角を固定する。これが computeAnchorResizeSnap の pointerdown 基準になる。
+                    const dragged = {
+                        x: anchor.x + (corner.includes('w') ? -1 : 1) * outputWidth * startTransform.scale / 2,
+                        y: anchor.y + (corner.includes('n') ? -1 : 1) * outputHeight * startTransform.scale / 2
+                    };
                     const boxRect = cutSelectBox.getBoundingClientRect();
                     const center = { x: boxRect.left + boxRect.width / 2, y: boxRect.top + boxRect.height / 2 };
                     const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
@@ -6663,23 +6864,24 @@ body { display: grid; place-items: center; padding: 32px; }
                         const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
                         const factor = distance / startDistance;
                         let nextScale = Math.max(0.01, original.scale * factor);
-                        if (moveEvent.shiftKey || !window.akari.interaction) {
+                        if (moveEvent.shiftKey || !window.akari.interaction?.computeAnchorResizeSnap) {
                             dragSnap = { x: null, y: null };
                             window.akari.interaction?.hideSnapGuides?.();
                         } else {
-                            const outputWidth = Number(summary.output && summary.output.width) || 1280;
-                            const outputHeight = Number(summary.output && summary.output.height) || 720;
-                            const bounds = outputBoundsForCenteredBox(
-                                outputWidth / 2 + original.x,
-                                outputHeight / 2 + original.y,
-                                outputWidth * nextScale,
-                                outputHeight * nextScale
-                            );
-                            const solved = solveCenteredResizeSnap(
-                                bounds, outputWidth, outputHeight, nextScale, dragSnap
-                            );
-                            nextScale = solved.scale;
-                            dragSnap = { x: solved.snapX, y: solved.snapY };
+                            const solved = window.akari.interaction.computeAnchorResizeSnap({
+                                anchorStageX: anchor.x,
+                                anchorStageY: anchor.y,
+                                draggedStageX: dragged.x,
+                                draggedStageY: dragged.y,
+                                startScale: original.scale,
+                                scale: nextScale,
+                                snapX: dragSnap.x,
+                                snapY: dragSnap.y
+                            });
+                            if (solved) {
+                                nextScale = solved.scale;
+                                dragSnap = { x: solved.snapX, y: solved.snapY };
+                            }
                         }
                         return { ...original, scale: nextScale };
                     });
@@ -6766,10 +6968,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const deselectCaption = options => selectCaption(null, options);
             captionPlate.addEventListener('pointerdown', event => {
                 if (event.button !== 0) return;
-                const time = video.currentTime || 0;
                 // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
-                const resolvedTimeline = captions.some(candidate => candidate.resolvedTimeline);
-                const caption = window.AkariEditKernel.findActiveCaption(captions, resolvedTimeline ? outputTime : time);
+                const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime);
                 if (!caption || !caption.id) return;
                 event.preventDefault();
                 event.stopPropagation();
@@ -6883,6 +7083,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const cut = rawCuts[segment.cutIndex];
                         return {
                             ...segment,
+                            id: cut ? cut.id : undefined,
                             trackId: cut ? cut.trackId : undefined,
                             transform: cut ? cut.transform : undefined,
                             opacity: cut ? cut.opacity : undefined,
@@ -7750,13 +7951,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             const renderCaption = () => {
-                const activeSegment = segments[activeSegmentIndex];
-                const time = video.currentTime || 0;
-                const resolvedTimeline = captions.some(candidate => candidate.resolvedTimeline);
-                // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
-                const caption = (activeSegment && activeSegment.kind === 'gap')
-                    ? null
-                    : (window.AkariEditKernel.findActiveCaption(captions, resolvedTimeline ? outputTime : time) || null);
+                // captions は host 読込層で全件 output-domain へ正規化済み。gap も同じ時計で
+                // 検索し、保持された video.currentTime や active segment kind は参照しない。
+                const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime) || null;
                 if (caption !== activeCaption) {
                     activeCaption = caption;
                     applyCaptionStyleVars(caption);
@@ -7797,7 +7994,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (typeof updateCaptionSelectBox === 'function') updateCaptionSelectBox();
                 }
                 if (caption && styledCaptionActive) {
-                    const localMs = (clamp(time, caption.start, caption.end) - caption.start) * 1000;
+                    const localMs = (clamp(outputTime, caption.start, caption.end) - caption.start) * 1000;
                     for (const animation of captionPlate.getAnimations({ subtree: true })) {
                         animation.pause();
                         animation.currentTime = localMs;
@@ -7890,6 +8087,13 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (!layerVideo.paused) layerVideo.pause();
                     } else if (layerVideo.paused) {
                         void layerVideo.play().catch(() => undefined);
+                    }
+                    if (layer.kind === 'baked') {
+                        const hitRegionBucket = Math.floor(target * 4);
+                        if (entry.hitRegionBucket !== hitRegionBucket) {
+                            entry.hitRegionBucket = hitRegionBucket;
+                            syncLayerHitRegion(entry, true);
+                        }
                     }
                 }
                 if (anyKeyframeApplied && window.akari.updateLayerLayout) window.akari.updateLayerLayout();

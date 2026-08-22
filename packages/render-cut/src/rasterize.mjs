@@ -656,6 +656,7 @@ export async function compositeStaticOverlays({
   outputPath,
   hasAudio,
   duration,
+  fps,
   videoEncodeArgs = null,
   onProgress,
 }) {
@@ -669,7 +670,7 @@ export async function compositeStaticOverlays({
     const next = `[overlay${index}]`;
     const end = capture.start + capture.duration;
     filters.push(
-      `${previous}[${index + 1}:v]overlay=0:0:format=auto:enable='${enableWindowExpr(capture.start, end)}'${next}`,
+      `${previous}[${index + 1}:v]overlay=0:0:format=auto:enable='${enableWindowExpr(capture.start, end, fps)}'${next}`,
     );
     previous = next;
   }

@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "output": {
+    "width": 320,
+    "height": 180,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "source-a",
+      "path": "assets/source-a.mp4"
+    },
+    {
+      "id": "source-b",
+      "path": "assets/source-b.mp4"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "lane": "visual",
+      "name": "V1",
+      "items": [
+        {
+          "id": "clip-a",
+          "at": 0,
+          "duration": 60,
+          "source": { "kind": "media", "src": "source-a", "in": 0, "out": 2 }
+        },
+        {
+          "id": "clip-b",
+          "at": 60,
+          "duration": 60,
+          "source": { "kind": "media", "src": "source-b", "in": 0, "out": 2 }
+        }
+      ]
+    },
+    {
+      "id": "captions",
+      "lane": "visual",
+      "name": "字幕",
+      "content": {
+        "from": "captions.json"
+      }
+    }
+  ]
+}

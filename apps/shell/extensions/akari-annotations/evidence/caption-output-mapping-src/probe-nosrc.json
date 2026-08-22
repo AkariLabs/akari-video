@@ -1,0 +1,59 @@
+{
+  "label": "nosrc",
+  "failures": [
+    {
+      "message": "字幕帯が 2 本描かれている",
+      "count": 0
+    }
+  ],
+  "log": [
+    {
+      "step": "viewport",
+      "width": 1440,
+      "height": 1250
+    },
+    {
+      "step": "ok",
+      "message": "タイムラインウィジェットが開いた"
+    },
+    {
+      "step": "dom-rects",
+      "captions": [],
+      "cuts": [
+        {
+          "id": "0",
+          "left": 360.9140625,
+          "right": 504.6640625,
+          "top": 988.3984375,
+          "bottom": 1060.3984375,
+          "width": 143.75,
+          "height": 72
+        },
+        {
+          "id": "1",
+          "left": 504.6640625,
+          "right": 648.4140625,
+          "top": 988.3984375,
+          "bottom": 1060.3984375,
+          "width": 143.75,
+          "height": 72
+        }
+      ],
+      "correspondence": []
+    },
+    {
+      "step": "FAILED",
+      "message": "字幕帯が 2 本描かれている",
+      "count": 0
+    },
+    {
+      "step": "ok",
+      "message": "異なる source のクリップ帯が 2 本描かれている",
+      "count": 2,
+      "sources": [
+        "source-a",
+        "source-b"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [{ "id": "s1", "path": "../valid/sample.mp4", "proxy": null }],
+  "tracks": [
+    { "id": "base", "lane": "visual", "items": [
+      { "id": "c1", "at": 0, "duration": 150, "source": { "kind": "media", "src": "s1", "in": 0, "out": 5 } }
+    ] },
+    { "id": "upper", "lane": "visual", "items": [
+      { "id": "l1", "at": 180, "duration": 150, "source": { "kind": "media", "src": "s1", "in": 0, "out": 5 } }
+    ] },
+    { "id": "ov", "lane": "visual", "items": [
+      { "id": "ov1", "at": 270, "duration": 30, "source": { "kind": "html", "path": "../valid/overlays/cap-a.html" } }
+    ] }
+  ]
+}

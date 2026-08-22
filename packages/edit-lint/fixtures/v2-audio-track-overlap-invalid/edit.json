@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [{ "id": "hit", "path": "assets/hit.wav" }],
+  "tracks": [
+    {
+      "id": "sfx",
+      "lane": "audio",
+      "items": [
+        { "id": "hit-1", "at": 0, "duration": 30, "role": "sfx", "source": { "kind": "media", "src": "hit", "in": 0, "out": 1 } },
+        { "id": "hit-2", "at": 15, "duration": 30, "role": "sfx", "source": { "kind": "media", "src": "hit", "in": 0, "out": 1 } }
+      ]
+    }
+  ]
+}

@@ -157,6 +157,15 @@ export declare function readInternalEdit(source: string | unknown, options?: Int
  * （生素材と edit.json の突き合わせ等）が、全文の読み取りを払わずに済むようにする。
  */
 export declare function readInternalSources(source: string | unknown): InternalSource[];
+/**
+ * 総尺の正本定義: 映像本体（cuts + layers 相当。source.kind が media / telop / filter）の
+ * 全 visual トラックのアイテムの最大終端（出力秒）。「本編（cuts）かどうか」の旧種別は見ない
+ * ため、段（トラック）を移動しても値が変わらない。edit-lint と render-cut の両方がこの 1 関数を
+ * 共有し、定義がずれないようにする（P0 2026-08-20 track-identity-and-duration 指示 2）。
+ * html（overlays）は含めない: overlays / captions / audio はこの尺に収まっているかを
+ * 検証される側であり、検証対象自身を尺の分母に混ぜると常に「収まっている」判定になってしまう。
+ */
+export declare function visualContentEndSeconds(internal: InternalEdit): number;
 export interface LegacyEditView {
     cuts: EditCut[];
     sources?: EditSource[];

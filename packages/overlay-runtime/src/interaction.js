@@ -291,6 +291,17 @@ window.akari.interaction = (() => {
   // 全画面の外側コンテナと断片ルートは素通しにし、実際に背景・枠・影・文字・置換要素を
   // 描く可視の子孫だけを拾う。data-akari-hit は最寄りの指定を配下へ継承し、機械判定より
   // 優先する。字幕が 1,000 件級でも全件を走査しないよう、runtime の可視化時に一度だけ呼ぶ。
+  function fragmentRootCoversContainer(element, container) {
+    const rootRect = element.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    if (!(rootRect.width > 0) || !(rootRect.height > 0)
+      || !(containerRect.width > 0) || !(containerRect.height > 0)) {
+      return false;
+    }
+    return rootRect.width >= containerRect.width * 0.98
+      && rootRect.height >= containerRect.height * 0.98;
+  }
+
   function applyOverlayHitPolicy(container) {
     if (!container || hitPolicyAppliedContainers.has(container)) return;
 
@@ -313,7 +324,7 @@ window.akari.interaction = (() => {
       } else if (
         isVisible &&
         directive !== "pass" &&
-        !isFragmentRoot &&
+        (!isFragmentRoot || !fragmentRootCoversContainer(element, container)) &&
         drawsOwnContent(element, style)
       ) {
         pointerEvents = "auto";
@@ -444,11 +455,22 @@ window.akari.interaction = (() => {
     const guides = ensureSnapGuides();
     if (!guides) return;
 
+    // 外周ターゲットは 0 / width / height だが、ガイドは -0.5px
+    // translate で線の中心を合わせる。overflow:hidden にクリップされないよう、
+    // 表示位置だけをステージ内側へ半ピクセルクランプする。
+    const { width, height } = outputSize();
+    const clampGuidePosition = (target, extent) =>
+      Math.min(Math.max(target, 0.5), Math.max(0.5, extent - 0.5));
+
     guides.vertical.hidden = !snapX;
-    if (snapX) guides.vertical.style.left = `${snapX.target}px`;
+    if (snapX) {
+      guides.vertical.style.left = `${clampGuidePosition(snapX.target, width)}px`;
+    }
 
     guides.horizontal.hidden = !snapY;
-    if (snapY) guides.horizontal.style.top = `${snapY.target}px`;
+    if (snapY) {
+      guides.horizontal.style.top = `${clampGuidePosition(snapY.target, height)}px`;
+    }
   }
 
   function overlayForEvent(event) {
@@ -462,47 +484,7 @@ window.akari.interaction = (() => {
     ) {
       return selftestOverlayOverride;
     }
-    if (!stage || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) {
-      return eventTargetOverlay;
-    }
-
-    const containers = Array.from(stage.children)
-      .filter((element) => element.hasAttribute("data-overlay-id"))
-      .reverse();
-
-    for (const container of containers) {
-      if (!isSelectable(container)) continue;
-      const bounds = fragmentBounds(container);
-      if (
-        bounds &&
-        event.clientX >= bounds.left &&
-        event.clientX <= bounds.right &&
-        event.clientY >= bounds.top &&
-        event.clientY <= bounds.bottom
-      ) {
-        return container;
-      }
-    }
-
-    // 合成イベントは hit test を経ないため、dispatch 先をフォールバックにする。
-    // ただしコンテナは inset:0 で全画面のため、断片ルートの矩形外（見た目上何もない
-    // 場所）まで無条件に帰属させると誤選択になる。断片ルートの実際の矩形内に
-    // ポインタがある場合のみ帰属させる。
-    if (eventTargetOverlay) {
-      const root = fragmentRoot(eventTargetOverlay);
-      const rootRect = root?.getBoundingClientRect();
-      if (
-        rootRect &&
-        event.clientX >= rootRect.left &&
-        event.clientX <= rootRect.right &&
-        event.clientY >= rootRect.top &&
-        event.clientY <= rootRect.bottom
-      ) {
-        return eventTargetOverlay;
-      }
-    }
-
-    return null;
+    return isSelectable(eventTargetOverlay) ? eventTargetOverlay : null;
   }
 
   function firstOverlayContainer() {
@@ -890,35 +872,47 @@ window.akari.interaction = (() => {
     return closest;
   }
 
-  // キャンバス端（セーフマージン5%）+ センター縦横への吸着候補を、出力px単位の bounds
+  // キャンバス外周 + セーフマージン 5% + センター縦横の共通吸着ターゲット。
+  // 移動と四隅 resize の候補がずれないよう、並びを含めここを単一正本にする。
+  function canvasSnapTargets() {
+    const { width, height } = outputSize();
+    return {
+      x: [
+        0,
+        width * SAFE_MARGIN_RATIO,
+        width / 2,
+        width * (1 - SAFE_MARGIN_RATIO),
+        width,
+      ],
+      y: [
+        0,
+        height * SAFE_MARGIN_RATIO,
+        height / 2,
+        height * (1 - SAFE_MARGIN_RATIO),
+        height,
+      ],
+    };
+  }
+
+  // 共通吸着候補を、出力px単位の bounds
   // {left,top,right,bottom,centerX,centerY} から計算する。overlays のドラッグに限らず、
   // resize・layers[]・cut/caption のドラッグからも共通で呼べるよう window.akari.interaction
   // 経由でも公開する（㉒ スナップ統一の単一正本）。
   function computeSnapCorrection(bounds, previousSnap) {
     if (!bounds) return { x: null, y: null };
 
-    const { width, height } = outputSize();
+    const targets = canvasSnapTargets();
     const scale = currentDisplayScale();
-    const xTargets = [
-      width * SAFE_MARGIN_RATIO,
-      width / 2,
-      width * (1 - SAFE_MARGIN_RATIO),
-    ];
-    const yTargets = [
-      height * SAFE_MARGIN_RATIO,
-      height / 2,
-      height * (1 - SAFE_MARGIN_RATIO),
-    ];
 
     const snapX = closestAxisSnap(
       [bounds.left, bounds.centerX, bounds.right],
-      xTargets,
+      targets.x,
       previousSnap?.x ?? null,
       scale
     );
     const snapY = closestAxisSnap(
       [bounds.top, bounds.centerY, bounds.bottom],
-      yTargets,
+      targets.y,
       previousSnap?.y ?? null,
       scale
     );
@@ -969,16 +963,21 @@ window.akari.interaction = (() => {
     startY,
     startScale,
     scale,
-    anchorClientX,
-    anchorClientY,
+    anchorStageX,
+    anchorStageY,
   }) {
-    if (!Number.isFinite(startScale) || startScale === 0) return null;
+    if (
+      !stage ||
+      !Number.isFinite(startScale) ||
+      startScale === 0 ||
+      !Number.isFinite(anchorStageX) ||
+      !Number.isFinite(anchorStageY)
+    ) {
+      return null;
+    }
 
-    const anchor = stageLocalPoint(anchorClientX, anchorClientY);
-    if (!anchor) return null;
-
-    const dx = anchor.x - anchor.centerX;
-    const dy = anchor.y - anchor.centerY;
+    const dx = anchorStageX - stage.clientWidth / 2;
+    const dy = anchorStageY - stage.clientHeight / 2;
     const scaleRatio = scale / startScale;
     return {
       x: dx - scaleRatio * (dx - startX),
@@ -1048,8 +1047,14 @@ window.akari.interaction = (() => {
     // 断片ルートの矩形）を基準にする。取得できない異常系のみコンテナ矩形へ退避。
     const visualRect = fragmentBounds(container) ?? container.getBoundingClientRect();
     const corner = handleCorner(handleEl);
-    const anchor = cornerAnchorPoint(visualRect, corner);
-    const startDistance = Math.hypot(event.clientX - anchor.x, event.clientY - anchor.y);
+    const anchorClient = cornerAnchorPoint(visualRect, corner);
+    const draggedClient = namedCornerPoint(visualRect, corner);
+    const anchor = stageLocalPoint(anchorClient.x, anchorClient.y);
+    const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
+    const pointer = stageLocalPoint(event.clientX, event.clientY);
+    if (!anchor || !dragged || !pointer) return;
+
+    const startDistance = Math.hypot(pointer.x - anchor.x, pointer.y - anchor.y);
     const transform = readTransform(container);
 
     activeResize = {
@@ -1058,8 +1063,10 @@ window.akari.interaction = (() => {
       overlayId: container.dataset.overlayId ?? "",
       pointerId: event.pointerId,
       corner,
-      anchorX: anchor.x,
-      anchorY: anchor.y,
+      anchorStageX: anchor.x,
+      anchorStageY: anchor.y,
+      draggedStageX: dragged.x,
+      draggedStageY: dragged.y,
       startDistance: startDistance || 1, // 0除算回避（アンカーとハンドルが重なる異常系向け保険）
       startScale: transform.scale,
       startX: transform.x,
@@ -1091,28 +1098,32 @@ window.akari.interaction = (() => {
   // 目標位置 target に一致させる scale は
   //   S_snap = (target - A) * scale / (D(scale) - A)
   // で閉じた形に解ける（軸ごとに独立、uniform scale なので一度に1軸のみ採用）。
-  function applyResizeSnap(resize, scale) {
-    if (!(Math.abs(scale) > 1e-6)) return null;
+  function computeAnchorResizeSnap({
+    anchorStageX,
+    anchorStageY,
+    draggedStageX,
+    draggedStageY,
+    startScale,
+    scale,
+    snapX,
+    snapY,
+  }) {
+    if (!(Math.abs(scale) > 1e-6) || !(Math.abs(startScale) > 1e-6)) {
+      return null;
+    }
 
-    const anchor = stageLocalPoint(resize.anchorX, resize.anchorY);
-    const visualRect =
-      fragmentBounds(resize.container) ?? resize.container.getBoundingClientRect();
-    const draggedClient = namedCornerPoint(visualRect, resize.corner);
-    const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
-    if (!anchor || !dragged) return null;
+    // pointerdown 時の stage-local 幾何だけからドラッグ中コーナーを求める。
+    // fragmentBounds() を測り直すと、前フレームの transform や断片内レイアウトの
+    // 変化が次フレームの基準へ混ざるため、resize の固定アンカーとは分離する。
+    const anchor = { x: anchorStageX, y: anchorStageY };
+    const scaleRatio = scale / startScale;
+    const dragged = {
+      x: anchor.x + (draggedStageX - anchor.x) * scaleRatio,
+      y: anchor.y + (draggedStageY - anchor.y) * scaleRatio,
+    };
 
-    const { width, height } = outputSize();
+    const targets = canvasSnapTargets();
     const displayScale = currentDisplayScale();
-    const xTargets = [
-      width * SAFE_MARGIN_RATIO,
-      width / 2,
-      width * (1 - SAFE_MARGIN_RATIO),
-    ];
-    const yTargets = [
-      height * SAFE_MARGIN_RATIO,
-      height / 2,
-      height * (1 - SAFE_MARGIN_RATIO),
-    ];
 
     const findCandidate = (draggedValue, anchorValue, targets, previous) => {
       const denom = draggedValue - anchorValue;
@@ -1145,8 +1156,8 @@ window.akari.interaction = (() => {
       return { ...best, scale: solvedScale };
     };
 
-    const candidateX = findCandidate(dragged.x, anchor.x, xTargets, resize.snapX);
-    const candidateY = findCandidate(dragged.y, anchor.y, yTargets, resize.snapY);
+    const candidateX = findCandidate(dragged.x, anchor.x, targets.x, snapX);
+    const candidateY = findCandidate(dragged.y, anchor.y, targets.y, snapY);
 
     let axis = null;
     if (candidateX && candidateY) {
@@ -1158,40 +1169,49 @@ window.akari.interaction = (() => {
     }
 
     if (!axis) {
-      resize.snapX = null;
-      resize.snapY = null;
       hideSnapGuides();
-      return null;
+      return { scale, snapX: null, snapY: null };
     }
 
     if (axis === "x") {
-      resize.snapX = { targetIndex: candidateX.targetIndex, target: candidateX.target };
-      resize.snapY = null;
-      showSnapGuides(resize.snapX, null);
-      return candidateX.scale;
+      const nextSnapX = { targetIndex: candidateX.targetIndex, target: candidateX.target };
+      showSnapGuides(nextSnapX, null);
+      return { scale: candidateX.scale, snapX: nextSnapX, snapY: null };
     }
 
-    resize.snapY = { targetIndex: candidateY.targetIndex, target: candidateY.target };
-    resize.snapX = null;
-    showSnapGuides(null, resize.snapY);
-    return candidateY.scale;
+    const nextSnapY = { targetIndex: candidateY.targetIndex, target: candidateY.target };
+    showSnapGuides(null, nextSnapY);
+    return { scale: candidateY.scale, snapX: null, snapY: nextSnapY };
+  }
+
+  function applyResizeSnap(resize, scale) {
+    const solved = computeAnchorResizeSnap({
+      anchorStageX: resize.anchorStageX,
+      anchorStageY: resize.anchorStageY,
+      draggedStageX: resize.draggedStageX,
+      draggedStageY: resize.draggedStageY,
+      startScale: resize.startScale,
+      scale,
+      snapX: resize.snapX,
+      snapY: resize.snapY,
+    });
+    if (!solved) return null;
+    resize.snapX = solved.snapX;
+    resize.snapY = solved.snapY;
+    return solved.scale;
   }
 
   function applyResizeTransformAt(resize, scaleValue) {
-    // scale を変える前の描画後アンカーを、その時点の stage 矩形で動画座標へ戻す。
-    // 直前フレームの transform を基準に補正するため、resize 中に stage のズームや
-    // 全画面状態が変わっても、古いクライアント座標へ引き戻さない。
-    const visualRect =
-      fragmentBounds(resize.container) ?? resize.container.getBoundingClientRect();
-    const visualAnchor = cornerAnchorPoint(visualRect, resize.corner);
-    const currentTransform = readTransform(resize.container);
+    // pointerdown 時に確定した対角コーナー（stage-local）と開始 transform だけを使う。
+    // stage-local 値なので、ズームや全画面切替で client 矩形が変われば表示位置は自然に
+    // 追従する一方、断片自身の前フレームの変形結果は次の基準へ混ざらない。
     const translate = anchorPreservingTranslate({
-      startX: currentTransform.x,
-      startY: currentTransform.y,
-      startScale: currentTransform.scale,
+      startX: resize.startX,
+      startY: resize.startY,
+      startScale: resize.startScale,
       scale: scaleValue,
-      anchorClientX: visualAnchor.x,
-      anchorClientY: visualAnchor.y,
+      anchorStageX: resize.anchorStageX,
+      anchorStageY: resize.anchorStageY,
     });
     if (!translate) return false;
 
@@ -1205,9 +1225,11 @@ window.akari.interaction = (() => {
     const resize = activeResize;
     if (!resize || event.pointerId !== resize.pointerId) return;
 
+    const pointer = stageLocalPoint(event.clientX, event.clientY);
+    if (!pointer) return;
     const currentDistance = Math.hypot(
-      event.clientX - resize.anchorX,
-      event.clientY - resize.anchorY
+      pointer.x - resize.anchorStageX,
+      pointer.y - resize.anchorStageY
     );
     if (!Number.isFinite(currentDistance)) return;
 
@@ -1294,7 +1316,17 @@ window.akari.interaction = (() => {
     }
 
     const container = overlayForEvent(event);
-    if (!isSelectable(container)) return;
+    if (!isSelectable(container)) {
+      if (selectedOverlay && stage && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+        const stageRect = stage.getBoundingClientRect();
+        if (event.clientX >= stageRect.left && event.clientX <= stageRect.right
+          && event.clientY >= stageRect.top && event.clientY <= stageRect.bottom) {
+          if (activeEdit) void commitEdit();
+          clearSelection();
+        }
+      }
+      return;
+    }
 
     selectOverlay(container);
 
@@ -2011,6 +2043,8 @@ window.akari.interaction = (() => {
     hideSnapGuides,
     outputSize,
     currentDisplayScale,
+    anchorPreservingTranslate,
+    computeAnchorResizeSnap,
     // ㉑ 素通し: overlay-runtime.js の tick() が可視化タイミングで呼ぶ。
     applyOverlayHitPolicy,
     invalidateOverlayHitPolicy,

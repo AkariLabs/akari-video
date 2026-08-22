@@ -9,11 +9,15 @@ import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
-import { buildLayersCompositeCommand, hasLayers, isImageLayerSource } from "../src/layers.mjs";
+import { buildLayersCompositeCommand as buildLayersCompositeCommandImpl, hasLayers, isImageLayerSource } from "../src/layers.mjs";
 import { computePerspectiveFfmpegCorners } from "../src/perspective-homography.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");
+
+function buildLayersCompositeCommand(options) {
+  return buildLayersCompositeCommandImpl({ fps: 30, ...options });
+}
 
 function run(project, args = []) {
   return spawnSync(process.execPath, [cliPath, project, ...args], { encoding: "utf8" });
@@ -209,6 +213,7 @@ test("buildLayersCompositeCommand: a normal-blend baked layer uses a PTS shift +
     inputPath: "/project/.akari/render-tmp/cut.mp4",
     outputPath: "/project/.akari/render-tmp/layered.mp4",
     duration: 10,
+    fps: 30,
   });
   assert.ok(!args.includes("-itsoffset"));
   assert.ok(args.includes("/project/fx.mov"));
@@ -219,7 +224,7 @@ test("buildLayersCompositeCommand: a normal-blend baked layer uses a PTS shift +
   // ちょうど乗るとき（実運用で普通にある丸い尺）、次のクリップの先頭フレームにも 1 フレーム
   // 重なって出る。実測で 102 フレームであるべきところが 103 フレーム出ることを確認している
   // （src/enable-window.mjs のコメント参照）。
-  assert.match(filterComplex, /enable='gte\(t,2\)\*lt\(t,5\)'/);
+  assert.match(filterComplex, /enable='gte\(t,1\.9833333333333334\)\*lt\(t,4\.983333333333333\)'/);
   assert.doesNotMatch(filterComplex, /between\(t,/);
   assert.doesNotMatch(filterComplex, /blend=all_mode/);
 });
@@ -1124,79 +1129,106 @@ test("layers[].perspective combined with crop + rotate applies in crop → persp
   }
 });
 
-// L1 non-regression: a project with a layer that has no perspective field renders byte-identical
+// Runs a buildLayersCompositeCommand()-shaped {command, args} twice with its own encode/output
+// tail replaced by `-f framemd5 -`, and returns both stdouts. P0 2026-08-21
+// render-path-unification: comparing the *encoded* artifact's sha256 across two full runs is not
+// a valid determinism probe -- x264's lookahead (rc_lookahead) lets encoder-internal scheduling
+// perturb the compressed bytes run to run even when the filter-graph output is bit-identical (a
+// single 1-frame filter change was measured to appear as up to rc_lookahead frames of "difference"
+// in the final artifact -- measured during the enable-window rounding investigation).
+// Comparing the stage's own pre-encode filter output side-steps the encoder
+// entirely, which is the same "stage-isolated framemd5" methodology that task established.
+function runFilterFramemd5Twice({ command, args }) {
+  const mapIndex = args.indexOf("[outv]");
+  assert.ok(mapIndex >= 0, "expected a -map [outv] video mapping in the built command");
+  const filterArgs = [...args.slice(0, mapIndex + 1), "-f", "framemd5", "-"];
+  const runA = spawnSync(command, filterArgs, { encoding: "utf8" });
+  const runB = spawnSync(command, filterArgs, { encoding: "utf8" });
+  assert.equal(runA.status, 0, runA.stderr);
+  assert.equal(runB.status, 0, runB.stderr);
+  assert.ok(runA.stdout.length > 0, "framemd5 output should not be empty");
+  return [runA.stdout, runB.stdout];
+}
+
+// L1 non-regression: a layer that has no perspective field produces a deterministic filter-graph
 // output across repeated runs (mirrors the crop non-regression test below) — the layer's own
-// filter chain must contain no pad=/perspective= step at all (see the unit test above).
-test("layers[] without a perspective field renders byte-identical output across repeated runs (no perspective regression)", async (t) => {
+// filter chain must contain no pad=/perspective= step at all (see the unit test above; this closes
+// the loop with a real filter-graph execution).
+test("layers[] without a perspective field renders a deterministic filter output across repeated runs (no perspective regression)", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const width = 320;
   const height = 180;
   const fps = 10;
   const duration = 2;
-  const layers = [
-    {
-      id: "pinp-no-perspective",
-      t: 0.2,
-      duration: 1,
-      kind: "video",
-      src: "guest.mp4",
-      transform: { x: 10, y: -5, scale: 0.8, rotate: 15 },
-      crop: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 },
-    },
-  ];
-  const projectA = await makeProject({ width, height, fps, duration, layers });
-  const projectB = await makeProject({ width, height, fps, duration, layers });
+  const root = await mkdtemp(join(tmpdir(), "render-cut-layers-determinism-"));
   try {
-    makeQuadrantLayer(join(projectA, "guest.mp4"), { width: 200, height: 100, duration: 1, fps });
-    makeQuadrantLayer(join(projectB, "guest.mp4"), { width: 200, height: 100, duration: 1, fps });
-    const executedA = run(projectA);
-    const executedB = run(projectB);
-    assert.equal(executedA.status, 0, executedA.stderr);
-    assert.equal(executedB.status, 0, executedB.stderr);
-    const stateA = JSON.parse(await readFile(join(projectA, ".akari", "render.json"), "utf8"));
-    const stateB = JSON.parse(await readFile(join(projectB, ".akari", "render.json"), "utf8"));
-    assert.equal(stateA.artifacts[0].sha256, stateB.artifacts[0].sha256, "no-perspective layers must render byte-identical output (determinism, no pad=/perspective= step involved)");
+    makeSolidSource(join(root, "source.mp4"), { color: "blue", width, height, duration, fps });
+    makeQuadrantLayer(join(root, "guest.mp4"), { width: 200, height: 100, duration: 1, fps });
+    const built = buildLayersCompositeCommand({
+      layers: [
+        {
+          id: "pinp-no-perspective",
+          t: 0.2,
+          duration: 1,
+          kind: "video",
+          src: "guest.mp4",
+          transform: { x: 10, y: -5, scale: 0.8, rotate: 15 },
+          crop: { x: 0.1, y: 0.1, w: 0.8, h: 0.8 },
+        },
+      ],
+      projectRoot: root,
+      ffmpegCommand: "ffmpeg",
+      inputPath: join(root, "source.mp4"),
+      outputPath: join(root, "layered.mp4"),
+      duration,
+      width,
+      height,
+      fps,
+    });
+    const [outputA, outputB] = runFilterFramemd5Twice(built);
+    assert.equal(outputA, outputB, "no-perspective layers must produce a deterministic filter-graph output (pre-encode framemd5, not the encoded artifact)");
   } finally {
-    await rm(projectA, { recursive: true, force: true });
-    await rm(projectB, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true });
   }
 });
 
-// L1 non-regression: a project with a layer that has no crop field renders byte-identical output
-// to the same project before this feature existed (verified here by re-running twice and diffing
-// sha256 — the layer's own filter chain must contain no crop= step at all, see the unit test
-// above; this closes the loop with a real render + hash comparison).
-test("layers[] without a crop field renders byte-identical output across repeated runs (no crop regression)", async (t) => {
+// L1 non-regression: a layer that has no crop field produces a deterministic filter-graph output
+// across repeated runs — the layer's own filter chain must contain no crop= step at all, see the
+// unit test above; this closes the loop with a real filter-graph execution.
+test("layers[] without a crop field renders a deterministic filter output across repeated runs (no crop regression)", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const width = 320;
   const height = 180;
   const fps = 10;
   const duration = 2;
-  const layers = [
-    {
-      id: "pinp-no-crop",
-      t: 0.2,
-      duration: 1,
-      kind: "video",
-      src: "guest.mp4",
-      transform: { x: 10, y: -5, scale: 0.8, rotate: 15 },
-    },
-  ];
-  const projectA = await makeProject({ width, height, fps, duration, layers });
-  const projectB = await makeProject({ width, height, fps, duration, layers });
+  const root = await mkdtemp(join(tmpdir(), "render-cut-layers-determinism-"));
   try {
-    makeQuadrantLayer(join(projectA, "guest.mp4"), { width: 200, height: 100, duration: 1, fps });
-    makeQuadrantLayer(join(projectB, "guest.mp4"), { width: 200, height: 100, duration: 1, fps });
-    const executedA = run(projectA);
-    const executedB = run(projectB);
-    assert.equal(executedA.status, 0, executedA.stderr);
-    assert.equal(executedB.status, 0, executedB.stderr);
-    const stateA = JSON.parse(await readFile(join(projectA, ".akari", "render.json"), "utf8"));
-    const stateB = JSON.parse(await readFile(join(projectB, ".akari", "render.json"), "utf8"));
-    assert.equal(stateA.artifacts[0].sha256, stateB.artifacts[0].sha256, "no-crop layers must render byte-identical output (determinism, no crop= step involved)");
+    makeSolidSource(join(root, "source.mp4"), { color: "blue", width, height, duration, fps });
+    makeQuadrantLayer(join(root, "guest.mp4"), { width: 200, height: 100, duration: 1, fps });
+    const built = buildLayersCompositeCommand({
+      layers: [
+        {
+          id: "pinp-no-crop",
+          t: 0.2,
+          duration: 1,
+          kind: "video",
+          src: "guest.mp4",
+          transform: { x: 10, y: -5, scale: 0.8, rotate: 15 },
+        },
+      ],
+      projectRoot: root,
+      ffmpegCommand: "ffmpeg",
+      inputPath: join(root, "source.mp4"),
+      outputPath: join(root, "layered.mp4"),
+      duration,
+      width,
+      height,
+      fps,
+    });
+    const [outputA, outputB] = runFilterFramemd5Twice(built);
+    assert.equal(outputA, outputB, "no-crop layers must produce a deterministic filter-graph output (pre-encode framemd5, not the encoded artifact)");
   } finally {
-    await rm(projectA, { recursive: true, force: true });
-    await rm(projectB, { recursive: true, force: true });
+    await rm(root, { recursive: true, force: true });
   }
 });
 

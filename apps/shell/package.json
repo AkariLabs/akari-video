@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -78,7 +78,7 @@
     "lint": "eslint \"extensions/*/src/**/*.{ts,tsx}\"",
     "prestart": "npm run preflight",
     "start": "theia start --plugins=local-dir:plugins",
-    "prepackage": "node resources/scripts/copy-native-helpers.mjs && node resources/scripts/patch-ripgrep-asar-path.mjs && node resources/scripts/bundle-media-binaries.mjs && node resources/scripts/generate-third-party-notices.mjs",
+    "prepackage": "node resources/scripts/copy-native-helpers.mjs && node resources/scripts/patch-ripgrep-asar-path.mjs && node resources/scripts/bundle-media-binaries.mjs && node resources/scripts/bundle-cli-node-modules.mjs && node resources/scripts/generate-third-party-notices.mjs",
     "package": "electron-builder --dir",
     "postpackage": "node resources/scripts/verify-asar-contents.mjs",
     "watch": "theia build --watch --mode development"
@@ -136,6 +136,46 @@
         ]
       },
       {
+        "from": "../../packages/render-cut",
+        "to": "packages/render-cut",
+        "filter": [
+          "package.json",
+          "bin/**/*",
+          "src/**/*"
+        ]
+      },
+      {
+        "from": "../../packages/bake-layer",
+        "to": "packages/bake-layer",
+        "filter": [
+          "package.json",
+          "bin/**/*",
+          "src/**/*",
+          "vendor/**/*"
+        ]
+      },
+      {
+        "from": "../../packages/akari-launcher",
+        "to": "packages/akari-launcher",
+        "filter": [
+          "package.json",
+          "bin/**/*",
+          "src/**/*"
+        ]
+      },
+      {
+        "from": "../../packages/overlay-runtime",
+        "to": "packages/overlay-runtime",
+        "filter": [
+          "package.json",
+          "src/**/*"
+        ]
+      },
+      {
+        "from": "resources/cli-node-modules",
+        "to": "packages/node_modules"
+      },
+      {
         "from": "../../packages/asset-resolver",
         "to": "packages/asset-resolver",
         "filter": [
@@ -177,17 +217,11 @@
       },
       {
         "from": "../../presets/telop",
-        "to": "presets/telop",
-        "filter": [
-          "index.jsonl"
-        ]
+        "to": "presets/telop"
       },
       {
         "from": "../../presets/luts",
-        "to": "presets/luts",
-        "filter": [
-          "index.jsonl"
-        ]
+        "to": "presets/luts"
       }
     ],
     "mac": {

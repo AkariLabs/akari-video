@@ -42,6 +42,56 @@ test("v2 renderer view dispatches mixed-track items by source.kind", () => {
   assert.match(edit.layers[1].src, /telop-[a-f0-9]{16}\.mov$/u);
 });
 
+test("v2 renderer audio is derived from role-marked tracks while raw master is preserved", () => {
+  const master = { denoise: "std", loudnorm: -14, true_peak_dbtp: -1.5 };
+  const audioFixture = {
+    version: 2,
+    output: { width: 320, height: 180, fps: 30 },
+    sources: [
+      { id: "main", path: "main.mp4", proxy: null },
+      { id: "hit", path: "hit.wav", proxy: null },
+      { id: "voice", path: "voice.wav", proxy: null },
+      { id: "music", path: "music.wav", proxy: null },
+    ],
+    tracks: [
+      { id: "video", lane: "visual", items: [{
+        id: "main-cut", at: 0, duration: 300,
+        source: { kind: "media", src: "main", in: 0, out: 10 },
+      }] },
+      { id: "sfx", lane: "audio", items: [{
+        id: "hit-1", at: 30, duration: 15,
+        gain_db: -6, fade_in: 0.1, fade_out: 0.2,
+        source: { kind: "media", src: "hit", in: 0.25, out: 0.75 },
+      }] },
+      { id: "narration", lane: "audio", items: [{
+        id: "n-0001", at: 60, duration: 90, role: "narration", gain_db: 1.5,
+        source: { kind: "media", src: "voice", in: 0, out: 3 },
+      }] },
+      { id: "bgm", lane: "audio", items: [{
+        id: "music-item", at: 0, duration: 300, role: "bgm",
+        fade_in: 1.25, fade_out: 2.5, gain_db: -18, ducking: true,
+        source: { kind: "media", src: "music", in: 0, out: 10 },
+      }] },
+    ],
+    audio: { master },
+  };
+
+  const { edit } = readRenderEdit(audioFixture, "/tmp/render");
+  assert.deepEqual(edit.audio.sfx, [{
+    id: "hit-1", t: 1, duration: 0.5, path: "hit.wav", track: 0,
+    in: 0.25, out: 0.75, fade_in: 0.1, fade_out: 0.2, gainDb: -6, gain_db: -6,
+  }]);
+  assert.deepEqual(edit.audio.narration, [{
+    id: "n-0001", t: 2, path: "voice.wav", track: 1, gainDb: 1.5, gain_db: 1.5,
+  }]);
+  assert.deepEqual(edit.audio.bgm, {
+    id: "bgm", path: "music.wav", track: 2, in: 0, fadeIn: 1.25, fadeOut: 2.5,
+    gainDb: -18, ducking: true, gain_db: -18,
+  });
+  assert.notEqual(edit.audio.narration[0].track, edit.audio.bgm.track);
+  assert.equal(edit.audio.master, master);
+});
+
 test("unbaked telop produces a deterministic rasterize command while baked is reused", () => {
   const { internal } = readRenderEdit(JSON.stringify(fixture), "/tmp/render");
   const commands = buildTelopRasterCommands(internal, "/tmp/render");
@@ -95,12 +145,12 @@ test("v2 の 77-frame cut 境界と同フレーム layer は同じ enable 開始
 
   assert.ok(renderEdit.edit.cuts.every(cut => !Object.hasOwn(cut, "speed")));
   assert.ok(renderEdit.edit.cuts.every(cut => Math.abs((cut.out - cut.in) - 77 / 30) < 1e-12));
-  const boundary = String(154 / 30);
+  const boundaryMidpoint = "5.116666666666666"; // (154 - 0.5) / 30
   const [cutStage, layerStage] = plan.commands.track_stack.stages;
   const cutFilter = cutStage.command.args[cutStage.command.args.indexOf("-filter_complex") + 1];
   const layerFilter = layerStage.command.args[layerStage.command.args.indexOf("-filter_complex") + 1];
-  assert.match(cutFilter, new RegExp(`enable='gte\\(t,${boundary.replaceAll(".", "\\.")}\\)`));
-  assert.match(layerFilter, new RegExp(`enable='gte\\(t,${boundary.replaceAll(".", "\\.")}\\)`));
+  assert.match(cutFilter, new RegExp(`enable='gte\\(t,${boundaryMidpoint.replaceAll(".", "\\.")}\\)`));
+  assert.match(layerFilter, new RegExp(`enable='gte\\(t,${boundaryMidpoint.replaceAll(".", "\\.")}\\)`));
 });
 
 test("renderProject plans v2 mixed source.kind tracks in normalized bottom-to-top order", async (t) => {

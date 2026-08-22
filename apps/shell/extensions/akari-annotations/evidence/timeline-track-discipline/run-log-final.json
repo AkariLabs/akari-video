@@ -1,0 +1,1680 @@
+[
+  {
+    "t": "2026-08-21T22:04:17.387Z",
+    "step": "viewport",
+    "width": 1440,
+    "height": 1250
+  },
+  {
+    "t": "2026-08-21T22:04:18.589Z",
+    "step": "connected",
+    "cdpPort": 9633,
+    "workspace": "<SCRATCH>"
+  },
+  {
+    "t": "2026-08-21T22:04:30.566Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened via command palette"
+  },
+  {
+    "t": "2026-08-21T22:04:31.467Z",
+    "step": "baseline",
+    "tracks": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      }
+    ],
+    "bands": [
+      {
+        "id": "captions",
+        "kind": "captions",
+        "track": "0",
+        "top": 861.3984375,
+        "bottom": 898.3984375,
+        "height": 37
+      },
+      {
+        "id": "v3",
+        "kind": "cuts",
+        "track": "2",
+        "top": 903.3984375,
+        "bottom": 976.3984375,
+        "height": 73
+      },
+      {
+        "id": "v2",
+        "kind": "cuts",
+        "track": "1",
+        "top": 981.3984375,
+        "bottom": 1054.3984375,
+        "height": 73
+      },
+      {
+        "id": "v-lay",
+        "kind": "layers",
+        "track": "1",
+        "top": 1059.3984375,
+        "bottom": 1096.3984375,
+        "height": 37
+      },
+      {
+        "id": "v1",
+        "kind": "cuts",
+        "track": "0",
+        "top": 1101.3984375,
+        "bottom": 1174.3984375,
+        "height": 73
+      },
+      {
+        "id": "v-empty",
+        "kind": "layers",
+        "track": "0",
+        "top": 1179.3984375,
+        "bottom": 1216.3984375,
+        "height": 37
+      },
+      {
+        "id": "a-bgm",
+        "kind": "audio",
+        "track": "0",
+        "top": 1221.3984375,
+        "bottom": 1278.3984375,
+        "height": 57
+      }
+    ],
+    "strip": {
+      "left": 421.0390625,
+      "top": 860.3984375,
+      "right": 796.0390625,
+      "bottom": 1193.9921875,
+      "width": 375,
+      "height": 333.59375
+    },
+    "clips": [
+      {
+        "id": "0",
+        "label": "C100",
+        "left": 422.0390625,
+        "top": 1101.3984375,
+        "right": 494.6328125,
+        "bottom": 1173.3984375,
+        "width": 72.59375,
+        "height": 72
+      },
+      {
+        "id": "1",
+        "label": "C200",
+        "left": 422.0390625,
+        "top": 981.3984375,
+        "right": 494.6328125,
+        "bottom": 1053.3984375,
+        "width": 72.59375,
+        "height": 72
+      },
+      {
+        "id": "2",
+        "label": "C300",
+        "left": 530.9375,
+        "top": 903.3984375,
+        "right": 603.53125,
+        "bottom": 975.3984375,
+        "width": 72.59375,
+        "height": 72
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:31.467Z",
+    "step": "assertion-ok",
+    "message": "baseline: 帯の縦順が tracks[] の逆順と完全一致（z の権威 = 配列順）",
+    "declaredTopDown": [
+      "captions",
+      "v3",
+      "v2",
+      "v-lay",
+      "v1",
+      "v-empty",
+      "a-bgm"
+    ],
+    "domTopDown": [
+      "captions",
+      "v3",
+      "v2",
+      "v-lay",
+      "v1",
+      "v-empty",
+      "a-bgm"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:31.467Z",
+    "step": "assertion-ok",
+    "message": "baseline: v3/v2/captions/a-bgm の帯が全て存在",
+    "bV3": {
+      "id": "v3",
+      "kind": "cuts",
+      "track": "2",
+      "top": 903.3984375,
+      "bottom": 976.3984375,
+      "height": 73
+    },
+    "bV2": {
+      "id": "v2",
+      "kind": "cuts",
+      "track": "1",
+      "top": 981.3984375,
+      "bottom": 1054.3984375,
+      "height": 73
+    },
+    "bCaptions": {
+      "id": "captions",
+      "kind": "captions",
+      "track": "0",
+      "top": 861.3984375,
+      "bottom": 898.3984375,
+      "height": 37
+    },
+    "bAudio": {
+      "id": "a-bgm",
+      "kind": "audio",
+      "track": "0",
+      "top": 1221.3984375,
+      "bottom": 1278.3984375,
+      "height": 57
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:31.467Z",
+    "step": "assertion-ok",
+    "message": "baseline: V3 の帯の中に c3 のクリップ要素がある",
+    "c3": {
+      "id": "2",
+      "label": "C300",
+      "left": 530.9375,
+      "top": 903.3984375,
+      "right": 603.53125,
+      "bottom": 975.3984375,
+      "width": 72.59375,
+      "height": 72
+    },
+    "bV3": {
+      "id": "v3",
+      "kind": "cuts",
+      "track": "2",
+      "top": 903.3984375,
+      "bottom": 976.3984375,
+      "height": 73
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:31.743Z",
+    "step": "s3-probe",
+    "probe": "v2-top-edge+1",
+    "y": 982.3984375,
+    "indicatorVisible": false,
+    "feedback": "00:00:03.000 / 行 2",
+    "ghostRejected": false
+  },
+  {
+    "t": "2026-08-21T22:04:31.908Z",
+    "step": "s3-probe",
+    "probe": "v2-top-edge+3",
+    "y": 984.3984375,
+    "indicatorVisible": false,
+    "feedback": "00:00:03.000 / 行 2",
+    "ghostRejected": false
+  },
+  {
+    "t": "2026-08-21T22:04:32.062Z",
+    "step": "s3-probe",
+    "probe": "v2-top-edge+8",
+    "y": 989.3984375,
+    "indicatorVisible": false,
+    "feedback": "00:00:03.000 / 行 2",
+    "ghostRejected": false
+  },
+  {
+    "t": "2026-08-21T22:04:32.229Z",
+    "step": "s3-probe",
+    "probe": "v2-center",
+    "y": 1017.8984375,
+    "indicatorVisible": false,
+    "feedback": "00:00:03.000 / 行 2",
+    "ghostRejected": false
+  },
+  {
+    "t": "2026-08-21T22:04:32.409Z",
+    "step": "s3-probe",
+    "probe": "v2-bottom-edge-3",
+    "y": 1051.3984375,
+    "indicatorVisible": false,
+    "feedback": "00:00:03.000 / 行 2",
+    "ghostRejected": false
+  },
+  {
+    "t": "2026-08-21T22:04:33.024Z",
+    "step": "assertion-ok",
+    "message": "症状3: V2 帯の内側 (v2-top-edge+1) では緑ラインが出ない",
+    "y": 982.3984375,
+    "indicatorTop": 0
+  },
+  {
+    "t": "2026-08-21T22:04:33.025Z",
+    "step": "assertion-ok",
+    "message": "症状3: V2 帯の内側 (v2-top-edge+1) で拒否されない",
+    "feedback": "00:00:03.000 / 行 2"
+  },
+  {
+    "t": "2026-08-21T22:04:33.026Z",
+    "step": "assertion-ok",
+    "message": "症状3: V2 帯の内側 (v2-top-edge+3) では緑ラインが出ない",
+    "y": 984.3984375,
+    "indicatorTop": 0
+  },
+  {
+    "t": "2026-08-21T22:04:33.026Z",
+    "step": "assertion-ok",
+    "message": "症状3: V2 帯の内側 (v2-top-edge+3) で拒否されない",
+    "feedback": "00:00:03.000 / 行 2"
+  },
+  {
+    "t": "2026-08-21T22:04:33.026Z",
+    "step": "assertion-ok",
+    "message": "症状3: V2 帯の内側 (v2-top-edge+8) では緑ラインが出ない",
+    "y": 989.3984375,
+    "indicatorTop": 0
+  },
+  {
+    "t": "2026-08-21T22:04:33.027Z",
+    "step": "assertion-ok",
+    "message": "症状3: V2 帯の内側 (v2-top-edge+8) で拒否されない",
+    "feedback": "00:00:03.000 / 行 2"
+  },
+  {
+    "t": "2026-08-21T22:04:33.027Z",
+    "step": "assertion-ok",
+    "message": "症状3: V2 帯の内側 (v2-center) では緑ラインが出ない",
+    "y": 1017.8984375,
+    "indicatorTop": 0
+  },
+  {
+    "t": "2026-08-21T22:04:33.027Z",
+    "step": "assertion-ok",
+    "message": "症状3: V2 帯の内側 (v2-center) で拒否されない",
+    "feedback": "00:00:03.000 / 行 2"
+  },
+  {
+    "t": "2026-08-21T22:04:33.027Z",
+    "step": "assertion-ok",
+    "message": "症状3: V2 帯の内側 (v2-bottom-edge-3) では緑ラインが出ない",
+    "y": 1051.3984375,
+    "indicatorTop": 0
+  },
+  {
+    "t": "2026-08-21T22:04:33.027Z",
+    "step": "assertion-ok",
+    "message": "症状3: V2 帯の内側 (v2-bottom-edge-3) で拒否されない",
+    "feedback": "00:00:03.000 / 行 2"
+  },
+  {
+    "t": "2026-08-21T22:04:33.032Z",
+    "step": "s3-after",
+    "tracks": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2",
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:33.032Z",
+    "step": "assertion-ok",
+    "message": "症状3: c3 が V2 の items[] へ入った",
+    "v2": {
+      "id": "v2",
+      "lane": "visual",
+      "name": "V2",
+      "items": [
+        {
+          "id": "c2",
+          "at": 0,
+          "duration": 60,
+          "source": {
+            "kind": "media",
+            "src": "src",
+            "in": 0,
+            "out": 2
+          }
+        },
+        {
+          "id": "c3",
+          "at": 90,
+          "duration": 60,
+          "source": {
+            "kind": "media",
+            "src": "src",
+            "in": 2,
+            "out": 4
+          }
+        }
+      ]
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:33.032Z",
+    "step": "assertion-ok",
+    "message": "症状1: 空になった V3 が tracks[] から消えた",
+    "ids": [
+      "a-bgm",
+      "v-empty",
+      "v1",
+      "v-lay",
+      "v2",
+      "captions"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:33.032Z",
+    "step": "assertion-ok",
+    "message": "症状1: 字幕トラック(content型)と音トラックは巻き添えで消えない",
+    "ids": [
+      "a-bgm",
+      "v-empty",
+      "v1",
+      "v-lay",
+      "v2",
+      "captions"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:33.032Z",
+    "step": "assertion-ok",
+    "message": "症状1: 「トラックを追加」相当の明示的な空トラック(v-empty)は sweep されない（裁定）",
+    "ids": [
+      "a-bgm",
+      "v-empty",
+      "v1",
+      "v-lay",
+      "v2",
+      "captions"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:33.032Z",
+    "step": "assertion-ok",
+    "message": "症状1: 畳んだ結果として残るトラックの相対順（z）が不変",
+    "zAfterS3": [
+      "a-bgm",
+      "v-empty",
+      "v1",
+      "v-lay",
+      "v2",
+      "captions"
+    ],
+    "zExpected": [
+      "a-bgm",
+      "v-empty",
+      "v1",
+      "v-lay",
+      "v2",
+      "captions"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:33.042Z",
+    "step": "assertion-ok",
+    "message": "症状1: DOM の帯の縦順も tracks[] 逆順のまま（非回帰）",
+    "domS3": [
+      "captions",
+      "v2",
+      "v-lay",
+      "v1",
+      "v-empty",
+      "a-bgm"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:33.346Z",
+    "step": "s3-undo",
+    "tracks": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:33.346Z",
+    "step": "assertion-ok",
+    "message": "undo: トラックの消滅とクリップの移動が 1 操作でまとめて元へ戻る",
+    "before": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      }
+    ],
+    "after": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:33.877Z",
+    "step": "assertion-ok",
+    "message": "undo 後に c3 が V3 の帯へ戻っている",
+    "c3b": {
+      "id": "2",
+      "label": "C300",
+      "left": 530.9375,
+      "top": 903.3984375,
+      "right": 603.53125,
+      "bottom": 975.3984375,
+      "width": 72.59375,
+      "height": 72
+    },
+    "bV3b": {
+      "id": "v3",
+      "kind": "cuts",
+      "track": "2",
+      "top": 903.3984375,
+      "bottom": 976.3984375,
+      "height": 73
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:33.878Z",
+    "step": "s2-geometry",
+    "topBandId": "captions",
+    "topBandTop": 861.3984375,
+    "stripTop": 860.3984375,
+    "farAboveY": 741.3984375,
+    "distanceAboveTopBandPx": 120
+  },
+  {
+    "t": "2026-08-21T22:04:34.126Z",
+    "step": "s2-near-above",
+    "indicator": {
+      "found": true,
+      "visible": true,
+      "top": 860.3984375,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "00:00:03.000 / 行 3",
+    "ghost": {
+      "found": true,
+      "rejected": false,
+      "top": 861.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:34.291Z",
+    "step": "s2-far-above",
+    "indicator": {
+      "found": true,
+      "visible": true,
+      "top": 860.3984375,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "00:00:03.000 / 行 3",
+    "ghost": {
+      "found": true,
+      "rejected": false,
+      "top": 861.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:34.845Z",
+    "step": "assertion-ok",
+    "message": "症状2: 最上段よりはるか上でも拒否されない",
+    "indicator": {
+      "found": true,
+      "visible": true,
+      "top": 860.3984375,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "00:00:03.000 / 行 3",
+    "ghost": {
+      "found": true,
+      "rejected": false,
+      "top": 861.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:34.845Z",
+    "step": "assertion-ok",
+    "message": "症状2: 「⚠ レーンが異なるため移動できません」が出ない",
+    "feedback": "00:00:03.000 / 行 3"
+  },
+  {
+    "t": "2026-08-21T22:04:34.845Z",
+    "step": "assertion-ok",
+    "message": "症状2: 緑ラインが表示される",
+    "found": true,
+    "visible": true,
+    "top": 860.3984375,
+    "background": "rgb(34, 197, 94)"
+  },
+  {
+    "t": "2026-08-21T22:04:34.845Z",
+    "step": "assertion-ok",
+    "message": "症状2: 緑ラインは最上段の上端に出る（= 実際の挿入位置）",
+    "indicatorTop": 860.3984375,
+    "topBandTop": 861.3984375
+  },
+  {
+    "t": "2026-08-21T22:04:34.845Z",
+    "step": "s2-after",
+    "tracks": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      },
+      {
+        "id": "v4",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:34.845Z",
+    "step": "assertion-ok",
+    "message": "症状2: tracks[] の末尾（= 画面最上段）に新しいトラックが作られ c3 が入った",
+    "created": {
+      "id": "v4",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "c3",
+          "at": 90,
+          "duration": 60,
+          "source": {
+            "kind": "media",
+            "src": "src",
+            "in": 2,
+            "out": 4
+          }
+        }
+      ]
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:34.845Z",
+    "step": "assertion-ok",
+    "message": "症状2: 作られたのは新規 visual トラック",
+    "created": {
+      "id": "v4",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "c3",
+          "at": 90,
+          "duration": 60,
+          "source": {
+            "kind": "media",
+            "src": "src",
+            "in": 2,
+            "out": 4
+          }
+        }
+      ]
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:34.846Z",
+    "step": "assertion-ok",
+    "message": "症状2: 空になった V3 は同時に畳まれる",
+    "ids": [
+      "a-bgm",
+      "v-empty",
+      "v1",
+      "v-lay",
+      "v2",
+      "captions",
+      "v4"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:34.846Z",
+    "step": "assertion-ok",
+    "message": "症状2: 新規トラックが画面上でも最上段（DOM 縦順 = tracks[] 逆順）",
+    "domS2": [
+      "v4",
+      "captions",
+      "v2",
+      "v-lay",
+      "v1",
+      "v-empty",
+      "a-bgm"
+    ],
+    "declared": [
+      "v4",
+      "captions",
+      "v2",
+      "v-lay",
+      "v1",
+      "v-empty",
+      "a-bgm"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:34.847Z",
+    "step": "assertion-ok",
+    "message": "症状2: 新規トラックが実際に最上段に描画される",
+    "domS2": [
+      "v4",
+      "captions",
+      "v2",
+      "v-lay",
+      "v1",
+      "v-empty",
+      "a-bgm"
+    ],
+    "createdId": "v4"
+  },
+  {
+    "t": "2026-08-21T22:04:35.127Z",
+    "step": "assertion-ok",
+    "message": "undo: 最上段への新規トラック作成も 1 操作で元へ戻る",
+    "after": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:35.666Z",
+    "step": "layer-elements",
+    "layerEls": [
+      {
+        "id": "L1",
+        "lane": "v-lay",
+        "left": 422.0390625,
+        "top": 1059.3984375,
+        "width": 72.59375,
+        "height": 32
+      },
+      {
+        "id": "L2",
+        "lane": "v-lay",
+        "left": 530.9375,
+        "top": 1059.3984375,
+        "width": 72.59375,
+        "height": 32
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:35.666Z",
+    "step": "assertion-ok",
+    "message": "前提: layers 経路のクリップが描画されている",
+    "layerEls": [
+      {
+        "id": "L1",
+        "lane": "v-lay",
+        "left": 422.0390625,
+        "top": 1059.3984375,
+        "width": 72.59375,
+        "height": 32
+      },
+      {
+        "id": "L2",
+        "lane": "v-lay",
+        "left": 530.9375,
+        "top": 1059.3984375,
+        "width": 72.59375,
+        "height": 32
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:35.909Z",
+    "step": "s2b-layer-over-v2-top-edge",
+    "indicator": {
+      "found": true,
+      "visible": false,
+      "top": 0,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "00:00:00.000 / 尺 2.00 秒 / 行 2",
+    "ghost": {
+      "found": true,
+      "rejected": false,
+      "top": 981.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:36.078Z",
+    "step": "s2b-layer-far-above",
+    "y": 741.3984375,
+    "indicator": {
+      "found": true,
+      "visible": true,
+      "top": 860.3984375,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "00:00:00.000 / 尺 2.00 秒 / 行 2",
+    "ghost": {
+      "found": true,
+      "rejected": false,
+      "top": 861.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:36.666Z",
+    "step": "assertion-ok",
+    "message": "症状3(layer経路): V2 帯の上端 +3px でも緑線が出ず、そのまま V2 へ入れる",
+    "indicator": {
+      "found": true,
+      "visible": false,
+      "top": 0,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "00:00:00.000 / 尺 2.00 秒 / 行 2",
+    "ghost": {
+      "found": true,
+      "rejected": false,
+      "top": 981.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:36.667Z",
+    "step": "assertion-ok",
+    "message": "症状2(layer経路): 「⚠ レーンが異なるため移動できません」が出ない",
+    "feedback": "00:00:00.000 / 尺 2.00 秒 / 行 2"
+  },
+  {
+    "t": "2026-08-21T22:04:36.667Z",
+    "step": "assertion-ok",
+    "message": "症状2(layer経路): 最上段よりはるか上でも拒否されず緑線が出る",
+    "indicator": {
+      "found": true,
+      "visible": true,
+      "top": 860.3984375,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "00:00:00.000 / 尺 2.00 秒 / 行 2",
+    "ghost": {
+      "found": true,
+      "rejected": false,
+      "top": 861.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:36.667Z",
+    "step": "assertion-ok",
+    "message": "症状2(layer経路): 緑ラインは最上段の上端 = 実際の挿入位置",
+    "indicatorTop": 860.3984375,
+    "topBandTop": 861.3984375
+  },
+  {
+    "t": "2026-08-21T22:04:36.669Z",
+    "step": "s2b-after",
+    "tracks": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      },
+      {
+        "id": "v4",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1"
+        ]
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:36.669Z",
+    "step": "assertion-ok",
+    "message": "症状2(layer経路): tracks[] 末尾に新しい最上段トラックが作られ L1 が入った",
+    "createdL": {
+      "id": "v4",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "L1",
+          "at": 0,
+          "duration": 60,
+          "source": {
+            "kind": "media",
+            "src": "src",
+            "in": 0,
+            "out": 2
+          },
+          "blend": "screen"
+        }
+      ]
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:36.669Z",
+    "step": "assertion-ok",
+    "message": "症状1: まだ L2 が残っている v-lay は畳まれない（空になった段だけを畳む）",
+    "ids": [
+      "a-bgm",
+      "v-empty",
+      "v1",
+      "v-lay",
+      "v2",
+      "v3",
+      "captions",
+      "v4"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:36.945Z",
+    "step": "assertion-ok",
+    "message": "undo: layer 経路の新規トラック作成も 1 操作で元へ戻る",
+    "after": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:37.645Z",
+    "step": "lane-discipline-on-captions",
+    "indicator": {
+      "found": true,
+      "visible": false,
+      "top": 0,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "⚠ 同じ段の中で区間が重なるか、レーンが異なります",
+    "ghost": {
+      "found": true,
+      "rejected": true,
+      "top": 903.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:37.858Z",
+    "step": "lane-discipline-on-audio",
+    "indicator": {
+      "found": true,
+      "visible": false,
+      "top": 0,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "⚠ 同じ段の中で区間が重なるか、レーンが異なります",
+    "ghost": {
+      "found": true,
+      "rejected": true,
+      "top": 903.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:38.510Z",
+    "step": "assertion-ok",
+    "message": "非回帰: 字幕帯(content型)の本体そのものへは落とせない（緑線も出ない）",
+    "indicator": {
+      "found": true,
+      "visible": false,
+      "top": 0,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "⚠ 同じ段の中で区間が重なるか、レーンが異なります",
+    "ghost": {
+      "found": true,
+      "rejected": true,
+      "top": 903.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:38.510Z",
+    "step": "assertion-ok",
+    "message": "非回帰: 音トラック本体へ映像クリップは落とせない（緑線も出ない）",
+    "indicator": {
+      "found": true,
+      "visible": false,
+      "top": 0,
+      "background": "rgb(34, 197, 94)"
+    },
+    "feedback": "⚠ 同じ段の中で区間が重なるか、レーンが異なります",
+    "ghost": {
+      "found": true,
+      "rejected": true,
+      "top": 903.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:38.512Z",
+    "step": "track-header-rows",
+    "headerRects": [
+      {
+        "id": "captions",
+        "kind": "captions",
+        "x": 354.0390625,
+        "y": 879.3984375,
+        "top": 861.3984375,
+        "bottom": 897.3984375
+      },
+      {
+        "id": "v3",
+        "kind": "cuts",
+        "x": 354.0390625,
+        "y": 939.3984375,
+        "top": 903.3984375,
+        "bottom": 975.3984375
+      },
+      {
+        "id": "v2",
+        "kind": "cuts",
+        "x": 354.0390625,
+        "y": 1017.3984375,
+        "top": 981.3984375,
+        "bottom": 1053.3984375
+      },
+      {
+        "id": "v-lay",
+        "kind": "layers",
+        "x": 354.0390625,
+        "y": 1077.3984375,
+        "top": 1059.3984375,
+        "bottom": 1095.3984375
+      },
+      {
+        "id": "v1",
+        "kind": "cuts",
+        "x": 354.0390625,
+        "y": 1137.3984375,
+        "top": 1101.3984375,
+        "bottom": 1173.3984375
+      },
+      {
+        "id": "v-empty",
+        "kind": "layers",
+        "x": 354.0390625,
+        "y": 1197.3984375,
+        "top": 1179.3984375,
+        "bottom": 1215.3984375
+      },
+      {
+        "id": "a-bgm",
+        "kind": "audio",
+        "x": 354.0390625,
+        "y": 1249.3984375,
+        "top": 1221.3984375,
+        "bottom": 1277.3984375
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:38.512Z",
+    "step": "assertion-ok",
+    "message": "非回帰: 字幕と V3 のトラックヘッダー行が取得できる",
+    "hCaptions": {
+      "id": "captions",
+      "kind": "captions",
+      "x": 354.0390625,
+      "y": 879.3984375,
+      "top": 861.3984375,
+      "bottom": 897.3984375
+    },
+    "hV3": {
+      "id": "v3",
+      "kind": "cuts",
+      "x": 354.0390625,
+      "y": 939.3984375,
+      "top": 903.3984375,
+      "bottom": 975.3984375
+    }
+  },
+  {
+    "t": "2026-08-21T22:04:39.502Z",
+    "step": "reorder-after",
+    "order": [
+      "a-bgm",
+      "v-empty",
+      "v1",
+      "v-lay",
+      "v2",
+      "captions",
+      "v3"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:39.503Z",
+    "step": "assertion-ok",
+    "message": "非回帰: 字幕トラックが tracks[] 上で V3 より手前 = 映像の下（z が入れ替わる）",
+    "order": [
+      "a-bgm",
+      "v-empty",
+      "v1",
+      "v-lay",
+      "v2",
+      "captions",
+      "v3"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:39.506Z",
+    "step": "assertion-ok",
+    "message": "非回帰: 入れ替え後も DOM の帯順 = tracks[] 逆順（z の権威は配列順ただ一つ）",
+    "domR": [
+      "v3",
+      "captions",
+      "v2",
+      "v-lay",
+      "v1",
+      "v-empty",
+      "a-bgm"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:39.506Z",
+    "step": "assertion-ok",
+    "message": "非回帰: 画面上でも字幕帯が V3 より下へ移動した",
+    "domR": [
+      "v3",
+      "captions",
+      "v2",
+      "v-lay",
+      "v1",
+      "v-empty",
+      "a-bgm"
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:39.845Z",
+    "step": "assertion-ok",
+    "message": "非回帰: 並べ替えも undo で元へ戻る",
+    "after": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:40.250Z",
+    "step": "final",
+    "tracks": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T22:04:40.250Z",
+    "step": "assertion-ok",
+    "message": "最終状態: 拒否ドロップと undo を経て edit.json が初期状態と一致",
+    "final": [
+      {
+        "id": "a-bgm",
+        "lane": "audio",
+        "kind": "items",
+        "items": [
+          "bgm-1"
+        ]
+      },
+      {
+        "id": "v-empty",
+        "lane": "visual",
+        "kind": "items",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c1"
+        ]
+      },
+      {
+        "id": "v-lay",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "L1",
+          "L2"
+        ]
+      },
+      {
+        "id": "v2",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c2"
+        ]
+      },
+      {
+        "id": "v3",
+        "lane": "visual",
+        "kind": "items",
+        "items": [
+          "c3"
+        ]
+      },
+      {
+        "id": "captions",
+        "lane": "visual",
+        "kind": "content"
+      }
+    ]
+  }
+]

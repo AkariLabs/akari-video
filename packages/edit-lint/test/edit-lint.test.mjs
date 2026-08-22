@@ -145,7 +145,11 @@ for (const [fixture, expectedCheck] of [
   ["v2-id-duplicate-invalid", "v2.id-unique"],
   ["v2-items-content-invalid", "v2.track-content-exclusive"],
   ["v2-track-overlap-invalid", "v2.track-overlap"],
+  ["v2-audio-track-overlap-invalid", "v2.track-overlap"],
   ["v2-lane-source-invalid", "v2.lane-source"],
+  ["v2-item-duration-zero-invalid", "v2.item-duration"],
+  ["v2-audio-bgm-multiple-invalid", "v2.audio-bgm-multiple"],
+  ["v2-audio-bgm-items-invalid", "v2.audio-bgm-multiple"],
 ]) {
   test(`${fixture} reports ${expectedCheck}`, async () => {
     await withFixtures(async (fixtures) => {
@@ -161,6 +165,21 @@ for (const [fixture, expectedCheck] of [
     });
   });
 }
+
+// Visual duration: 0 represents nothing renderable and must still fail clearly. Audio items are
+// intentionally different: migration uses 0 as the unresolved material-duration sentinel.
+test("v2-item-duration-zero-invalid reports a clear, purpose-built message naming the field and the rule", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "v2-item-duration-zero-invalid"));
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    const finding = result.findings.find((entry) => entry.check === "v2.item-duration");
+    assert.ok(finding, JSON.stringify(result.findings, null, 2));
+    assert.equal(finding.severity, "error");
+    assert.equal(finding.message, "item duration must be a positive integer (0 represents nothing on the timeline)");
+    assert.equal(finding.path, "edit.json#tracks[0].items[0].duration");
+  });
+});
 
 for (const [fixture, expectedCheck] of [
   ["missing-reference", "references.files"],
@@ -623,6 +642,45 @@ test("captions-short-duration fixture warns only below the 1.0s readability floo
   });
 });
 
+test("captions-overlap-invalid detects every caption overlapping the furthest prior end", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "captions-overlap-invalid"));
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "fail");
+    const findings = result.findings.filter(
+      (finding) => finding.check === "captions.overlap",
+    );
+    assert.deepEqual(
+      findings.map(({ severity, message, path, range }) => ({ severity, message, path, range })),
+      [
+        {
+          severity: "error",
+          message: "caption overlaps c-0001 on the same track",
+          path: "captions.json#[1]",
+          range: { start: 1, end: 2 },
+        },
+        {
+          severity: "error",
+          message: "caption overlaps c-0001 on the same track",
+          path: "captions.json#[2]",
+          range: { start: 3, end: 4 },
+        },
+      ],
+    );
+  });
+});
+
+test("captions-overlap-adjacent-valid permits captions whose boundaries only touch", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "captions-overlap-adjacent-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(!result.findings.some((finding) => finding.check === "captions.overlap"));
+  });
+});
+
 test("words[] rejects unknown fields, requires 0 <= start <= end, and non-empty text", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "captions-words-valid");
@@ -658,7 +716,7 @@ test("words[] rejects unknown fields, requires 0 <= start <= end, and non-empty 
   });
 });
 
-test("narration with bgm and full provenance passes with zero findings", async () => {
+test("narration with bgm passes from item-level audio roles", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "narration-valid");
     const executed = run(project);
@@ -670,10 +728,7 @@ test("narration with bgm and full provenance passes with zero findings", async (
 });
 
 for (const [fixture, expectedCheck] of [
-  ["narration-invalid-id", "audio.narration.id"],
   ["narration-gain-out-of-range", "audio.narration.gain-db"],
-  ["narration-missing-provenance", "audio.narration.provenance"],
-  ["narration-voicevox-missing-credit", "audio.narration.credit"],
 ]) {
   test(`${fixture} fails with ${expectedCheck}`, async () => {
     await withFixtures(async (fixtures) => {
@@ -904,20 +959,6 @@ test("bgm.in (R6a trim offset, contract §2) passes without disturbing existing 
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
     assert.equal(result.findings.length, 0, JSON.stringify(result.findings, null, 2));
-  });
-});
-
-test("direction の不在はエラーにしない（既存 fixture の非退行）", async () => {
-  await withFixtures(async (fixtures) => {
-    const project = join(fixtures, "valid");
-    const executed = run(project);
-    assert.equal(executed.status, 0, executed.stderr);
-    const result = parseResult(executed);
-    assert.equal(result.verdict, "pass");
-    assert.ok(
-      result.findings.every((finding) => !finding.check.startsWith("direction.")),
-      JSON.stringify(result.findings, null, 2),
-    );
   });
 });
 
@@ -1154,7 +1195,6 @@ test("intake.json with duration_s and keep_length both set fails", async () => {
 
 for (const [fixture, expectedCheck] of [
   ["cuts-track-overlap-invalid", "v2.track-overlap"],
-  ["audio-sfx-track-invalid-value", "audio.sfx.track"],
 ]) {
   test(`${fixture} fails with ${expectedCheck}`, async () => {
     await withFixtures(async (fixtures) => {
@@ -1199,6 +1239,23 @@ for (const fixture of [
   });
 }
 
+test("P0 2026-08-20 track-identity-and-duration: 総尺は cuts の合計ではなく visual 全体の最大終端（layers の方が長ければ layers が決める）", async () => {
+  // base(cuts) は 5s で終わるが upper(layers) は 11s まで伸びている。overlay は 9-10s に置かれていて
+  // cuts だけの合計（旧定義, 5s）なら overlays.timeline error になるが、layers を含む visual 全体の
+  // 最大終端（11s）なら収まる。段を動かして本編から layers 側へ落ちたクリップが総尺を縮めない
+  // ことの直接の回帰確認（症状 2: "overlay ends after timeline duration" の誤検知）。
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "v2-layer-extends-timeline-for-overlay-valid"));
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.ok(
+      !result.findings.some((finding) => finding.check === "overlays.timeline"),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("layers on the same v2 track overlapping fail closed", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "layers-track-overlap-warning"));
@@ -1225,6 +1282,7 @@ test("sfx on the same track at the same t warn without failing", async () => {
 
 for (const fixture of [
   "timeline-tracks-omitted",
+  "timeline-tracks-empty-declared-track",
 ]) {
   test(`${fixture} passes without timeline track findings`, async () => {
     await withFixtures(async (fixtures) => {
@@ -1240,20 +1298,22 @@ for (const fixture of [
   });
 }
 
-test("declared timeline ref without edit data warns without failing", async () => {
+// timeline.tracks.ref-missing 撤去の固定（2026-08-20 cleanup-migrate-lint task）。
+// この規則は「宣言された段の ref が実データのどこにも現れなければ警告」で、v0/v1 の
+// timeline.tracks 契約導入時から入っていたが、v2 では段の ref が宣言順の連番で毎回生成し
+// 直されるため、この警告は「段の中身が 0 個」としか等価にならない。空の段は自動 prune せず
+// 残すのが正本（10番裁定 E）なので、空の段を持つ v2 プロジェクトのたびに必ず誤検知していた
+// （10番の実測: 受け入れ条件 1 直後の lint が PASS・1 findings で、その 1 件がこれ）。
+// timeline-tracks-empty-declared-track fixture は t2（kind: layers, ref: 9）を宣言しつつ
+// 実データに layers を 1 つも持たない、まさにこの「空の段」を再現する。ここで固定しておかないと
+// v0/v1 時代の直感から再導入されうる。
+test("空の段を持つ v2 プロジェクトは findings 0（timeline.tracks.ref-missing は撤去済み）", async () => {
   await withFixtures(async (fixtures) => {
-    const executed = run(join(fixtures, "timeline-tracks-ref-missing-warning"));
+    const executed = run(join(fixtures, "timeline-tracks-empty-declared-track"));
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.ok(
-      result.findings.some(
-        (finding) =>
-          finding.check === "timeline.tracks.ref-missing" &&
-          finding.severity === "warning",
-      ),
-      JSON.stringify(result.findings, null, 2),
-    );
+    assert.deepEqual(result.findings, [], JSON.stringify(result.findings, null, 2));
   });
 });
 

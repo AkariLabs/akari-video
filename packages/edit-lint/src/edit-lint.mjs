@@ -22,6 +22,7 @@ const {
   projectLegacyEdit,
   readInternalEdit,
   resolveCaptionDisplay,
+  visualContentEndSeconds,
 } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 
 const VERSION = 1;
@@ -133,7 +134,7 @@ export async function lintProject(input, options = {}) {
   const internalEdit = readInternalEdit(rawEdit);
   const legacyEdit = projectLegacyEdit(internalEdit);
   const rawAudio = isRecord(rawEdit.audio) ? rawEdit.audio : {};
-  const rawSfx = Array.isArray(rawAudio.sfx) ? rawAudio.sfx : [];
+  const projectedAudio = projectAudioForLint(internalEdit);
   edit = {
     ...rawEdit,
     ...legacyEdit,
@@ -144,8 +145,7 @@ export async function lintProject(input, options = {}) {
     output: rawEdit.output,
     audio: {
       ...rawAudio,
-      ...(rawSfx.length > 0 ? { sfx: rawSfx }
-        : legacyEdit.audioSfx.length > 0 ? { sfx: legacyEdit.audioSfx } : {}),
+      ...projectedAudio,
     },
   };
 
@@ -231,16 +231,23 @@ export async function lintProject(input, options = {}) {
 
   const structure = validateEditStructure(edit, findings, paths);
   const sourcePath = structure.sourcePath;
-  const referenceState = await validateReferences(edit, findings, paths);
+  const audioOnlySourceIds = collectAudioOnlySourceIds(rawEdit);
+  const referenceState = await validateReferences(edit, findings, paths, audioOnlySourceIds);
   const sourceDuration = null;
 
-  const timeline = validateCuts(
+  const cutsStructureResult = validateCuts(
     edit.cuts,
     sourceDuration,
     findings,
     paths,
     structure.sourceIds,
   );
+  // 総尺の正本定義は「cuts の合計」ではなく「全 visual トラックのアイテムの最大終端」
+  // （packages/edit-store の visualContentEndSeconds、render-cut と共有）。段（トラック）を
+  // 移動しても cuts/layers の振り分けが変わるだけで total は動かない
+  // （P0 2026-08-20 track-identity-and-duration 指示 2）。cuts が構造的に不正なときは
+  // 従来どおり timeline を null にして下流の尺検証を止める。
+  const timeline = cutsStructureResult === null ? null : visualContentEndSeconds(internalEdit);
   validateCutTrackFields(edit.cuts, findings);
   validateCutTransformFields(edit.cuts, findings);
   validateStillImageCuts(edit, findings);
@@ -274,10 +281,7 @@ export async function lintProject(input, options = {}) {
   validateAudioMaster(edit?.audio?.master, findings, "edit.json#audio.master");
   validateOutputEncoding(edit?.output?.encoding, findings, "edit.json#output.encoding");
   validateLayerTracks(edit.layers, findings);
-  validateBeats(edit.beats, structure.sourceIds, findings);
-  validateEmphasisWords(edit.emphasis_words, structure.sourceIds, findings);
-  validateDirection(edit.direction, findings);
-  validateTimelineTracks(edit, findings);
+  validateTimelineTracks(edit, findings, collectInternalAudioTrackRefs(internalEdit));
   validateTrackTransitionOutCompatibility(edit, findings);
 
   if (captionsState.value !== undefined) {
@@ -305,6 +309,50 @@ export async function lintProject(input, options = {}) {
   }
 
   return writeResult(findings, skipped, inputs, paths, options);
+}
+
+function projectAudioForLint(internalEdit) {
+  const sfx = [];
+  const narration = [];
+  let bgm;
+  for (const track of internalEdit.tracks) {
+    if (track.lane !== "audio") continue;
+    for (const item of track.items) {
+      if (!isRecord(item.declaration)) continue;
+      const declaration = { ...item.declaration };
+      if (item.legacy.collection === "sfx") sfx.push(declaration);
+      if (item.legacy.collection === "narration") narration.push(declaration);
+      if (item.legacy.collection === "bgm") bgm = declaration;
+    }
+  }
+  return {
+    ...(sfx.length > 0 ? { sfx } : {}),
+    ...(narration.length > 0 ? { narration } : {}),
+    ...(bgm !== undefined ? { bgm } : {}),
+  };
+}
+
+function collectAudioOnlySourceIds(edit) {
+  if (!Array.isArray(edit?.tracks)) return new Set();
+  const audio = new Set();
+  const visual = new Set();
+  for (const track of edit.tracks) {
+    if (!isRecord(track) || !Array.isArray(track.items)) continue;
+    for (const item of track.items) {
+      const sourceId = isRecord(item?.source) && item.source.kind === "media"
+        ? item.source.src : undefined;
+      if (!isNonEmptyString(sourceId)) continue;
+      if (track.lane === "audio") audio.add(sourceId);
+      if (track.lane === "visual") visual.add(sourceId);
+    }
+  }
+  return new Set([...audio].filter(sourceId => !visual.has(sourceId)));
+}
+
+function collectInternalAudioTrackRefs(internalEdit) {
+  return new Set(internalEdit.tracks
+    .filter(track => track.lane === "audio" && track.items.length > 0)
+    .map(track => Number.isInteger(track.legacy.ref) ? track.legacy.ref : 0));
 }
 
 async function writeResult(findings, skipped, inputs, paths, options) {
@@ -538,6 +586,21 @@ function validateEditV2(edit, findings) {
     }
   }
 
+  const bgmItems = edit.tracks.flatMap((track, trackIndex) =>
+    isRecord(track) && track.lane === "audio" && Array.isArray(track.items)
+      ? track.items.flatMap((item, itemIndex) =>
+        isRecord(item) && item.role === "bgm" ? [{ trackIndex, itemIndex }] : [])
+      : []
+  );
+  if (bgmItems.length > 1) {
+    addFinding(findings, {
+      severity: "error",
+      check: "v2.audio-bgm-multiple",
+      message: "audio lane items may declare at most one bgm role",
+      path: "edit.json#tracks",
+    });
+  }
+
   for (const [trackIndex, track] of edit.tracks.entries()) {
     const trackPath = `edit.json#tracks[${trackIndex}]`;
     if (!isRecord(track)) {
@@ -588,6 +651,52 @@ function validateEditV2(edit, findings) {
           check: "v2.lane-source",
           message: `source kind ${String(kind)} is not compatible with lane ${String(track.lane)}`,
           path: `${itemPath}.source.kind`,
+        });
+      }
+
+      if (track.lane === "audio") {
+        const role = item.role ?? "sfx";
+        if (Object.hasOwn(item, "gain_db")
+          && (!isFiniteNumber(item.gain_db) || item.gain_db < -60 || item.gain_db > 12)) {
+          addFinding(findings, {
+            severity: "error",
+            check: `audio.${role}.gain-db`,
+            message: "gain_db must be a finite number within [-60, 12]",
+            path: `${itemPath}.gain_db`,
+          });
+        }
+        for (const [field, bgmField] of [["fade_in", "fadeIn"], ["fade_out", "fadeOut"]]) {
+          if (!Object.hasOwn(item, field) || (isFiniteNumber(item[field]) && item[field] >= 0)) continue;
+          addFinding(findings, {
+            severity: "error",
+            check: role === "bgm" ? `audio.bgm.${bgmField}` : `audio.sfx.${field}`,
+            message: `${field} must be a non-negative finite number`,
+            path: `${itemPath}.${field}`,
+          });
+        }
+        if (isRecord(item.source)
+          && isFiniteNumber(item.source.in)
+          && isFiniteNumber(item.source.out)
+          && item.source.out <= item.source.in) {
+          addFinding(findings, {
+            severity: "error",
+            check: "audio.sfx.in-out",
+            message: "sfx must satisfy in < out when both are present",
+            path: `${itemPath}.source`,
+            range: { start: item.source.in, end: item.source.out },
+          });
+        }
+      }
+
+      // Visual items with duration: 0 represent nothing renderable and remain invalid. Audio
+      // items deliberately use 0 as the unresolved-material-duration sentinel when a legacy
+      // declaration omits an explicit out point; render-cut resolves that duration from media.
+      if (track.lane !== "audio" && Number.isInteger(item.duration) && item.duration === 0) {
+        addFinding(findings, {
+          severity: "error",
+          check: "v2.item-duration",
+          message: "item duration must be a positive integer (0 represents nothing on the timeline)",
+          path: `${itemPath}.duration`,
         });
       }
 
@@ -760,14 +869,24 @@ function findTrackOverlaps(segments) {
   return overlaps;
 }
 
+// P0 2026-08-21 render-path-unification (MAJOR-3 fix, Codex review): render-cut now auto-clamps
+// a declared transition_out.duration down to whatever overlap an explicit `at` actually provides
+// (packages/render-cut/src/cut-timeline.mjs's effectiveTransitionDurations) whenever that overlap
+// is real (positive) but shorter than declared, rendering a genuinely shorter dissolve instead of
+// silently hard-cutting and dropping frames -- so this check must accept that same range as a
+// valid, declared transition (not only an exact duration match), or a project render-cut can now
+// render correctly would still fail lint. Still rejects zero/negative overlap (a genuine gap --
+// no transition is physically possible) and overlap greater than declared (an unrelated shape
+// render-cut does not auto-adjust for -- see effectiveTransitionDurations' own comment).
 function isDeclaredTransitionOverlap(cuts, segments, current) {
   const previous = segments
     .filter(segment => segment.track === current.track && segment.index < current.index)
     .sort((left, right) => right.index - left.index)[0];
   if (!previous) return false;
   const duration = cuts?.[previous.index]?.transition_out?.duration;
-  return isPositiveNumber(duration)
-    && Math.abs((previous.end - current.start) - duration) <= EPSILON;
+  if (!isPositiveNumber(duration)) return false;
+  const availableOverlap = previous.end - current.start;
+  return availableOverlap > EPSILON && availableOverlap <= duration + EPSILON;
 }
 
 function validateCutTrackFields(cuts, findings) {
@@ -1007,7 +1126,7 @@ function validateSfxTracks(sfx, findings) {
   }
 }
 
-function validateTimelineTracks(edit, findings) {
+function validateTimelineTracks(edit, findings, projectedAudioTracks = null) {
   const timeline = edit?.timeline;
   if (timeline === undefined || timeline === null) return;
   if (!isRecord(timeline)) {
@@ -1029,8 +1148,9 @@ function validateTimelineTracks(edit, findings) {
     return;
   }
 
-  const audioTracks = collectActualTrackNumbers(edit?.audio?.sfx);
-  if (isRecord(edit?.audio?.bgm) || (Array.isArray(edit?.audio?.narration) && edit.audio.narration.length > 0)) {
+  const audioTracks = projectedAudioTracks ?? collectActualTrackNumbers(edit?.audio?.sfx);
+  if (projectedAudioTracks === null
+    && (isRecord(edit?.audio?.bgm) || (Array.isArray(edit?.audio?.narration) && edit.audio.narration.length > 0))) {
     audioTracks.add(0);
   }
   const actualTracks = new Map([
@@ -1135,15 +1255,16 @@ function validateTimelineTracks(edit, findings) {
     const ref = item.kind === "audio" && !hasRef ? 0 : item.ref;
     if (ref === undefined) continue;
     declarations.add(`${item.kind}:${ref}`);
-    if (!actualTracks.get(item.kind)?.has(ref)) {
-      addFinding(findings, {
-        severity: "warning",
-        check: "timeline.tracks.ref-missing",
-        message: `${item.kind} timeline track ref ${ref} is not used by edit data`,
-        path: `${path}.ref`,
-      });
-    }
   }
+  // ここには以前 `timeline.tracks.ref-missing`（宣言された段の ref が実データのどこにも
+  // 現れなければ警告）があったが、2026-08-20 に撤去した。v2 では timeline.tracks[] の各段が
+  // internal-model.ts の projectLegacyEdit を通じてそのまま legacy 射影され、ref は宣言順に
+  // 毎回生成し直される連番なので、「宣言はあるが実データに現れない ref」は「段の中身が 0 個」
+  // としか等価にならない。空の段は自動 prune せず残すのが正本（10番裁定 E）なので、この
+  // チェックは空の段を持つ v2 プロジェクトのたびに必ず誤検知していた。v0/v1 は本体から既に
+  // 除かれており（9番）、「(kind, ref) の参照」という v0/v1 由来の概念自体が v2 には無いため
+  // 部分修正ではなく撤去する。撤去の証跡は edit-lint.test.mjs の
+  // "空の段を持つ v2 プロジェクトは findings 0" で固定してある。
 
   for (const [kind, tracks] of actualTracks) {
     for (const ref of tracks) {
@@ -1599,11 +1720,11 @@ async function validateNarration(narration, timeline, findings, paths) {
       continue;
     }
 
-    if (typeof item.id !== "string" || !/^n-\d{4}$/.test(item.id)) {
+    if (!isNonEmptyString(item.id)) {
       addFinding(findings, {
         severity: "error",
         check: "audio.narration.id",
-        message: "id must match n- followed by four digits",
+        message: "id must be a non-empty string",
         path: itemPath,
       });
     } else if (ids.has(item.id)) {
@@ -1676,311 +1797,6 @@ async function validateNarration(narration, timeline, findings, paths) {
       });
     }
 
-    if (!isRecord(item.provenance)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "audio.narration.provenance",
-        message: "provenance is required and must be an object",
-        path: itemPath,
-      });
-    } else if (!isNonEmptyString(item.provenance.provider)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "audio.narration.provenance",
-        message: "provenance.provider must be a non-empty string",
-        path: itemPath,
-      });
-    } else if (
-      item.provenance.provider === "voicevox" &&
-      !isNonEmptyString(item.provenance.credit)
-    ) {
-      addFinding(findings, {
-        severity: "error",
-        check: "audio.narration.credit",
-        message: "provenance.credit is required when provider is voicevox",
-        path: itemPath,
-      });
-    }
-  }
-}
-
-// docs/contract-2026-07-22-edit-json-v1-beats.md §7: beats（見せ場マーカー）の構造検証は
-// validate-edit.mjs と同一のルールを手書きで写す流儀（edit-lint は依存ゼロのため他パッケージの
-// バリデータを import しない）。beats[].t は timeline 秒ではなく source 秒アンカー（同 §3）であり、
-// source 実尺との突き合わせは --media なしでデコードしない規律のため行わない（同 §7 の将来課題）。
-// beats フィールドの不在はエラーにしない（同 §4 の劣化規約）。
-function validateBeats(beats, sourceIds, findings) {
-  if (beats === undefined) return;
-  if (!Array.isArray(beats)) {
-    addFinding(findings, {
-      severity: "error",
-      check: "beats.structure",
-      message: "beats must be an array",
-      path: "edit.json#beats",
-    });
-    return;
-  }
-
-  const ids = new Set();
-  for (const [index, item] of beats.entries()) {
-    const itemPath = `edit.json#beats[${index}]`;
-    if (!isRecord(item)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "beats.structure",
-        message: "beat item must be an object",
-        path: itemPath,
-      });
-      continue;
-    }
-
-    if (typeof item.id !== "string" || !/^b-\d{4}$/.test(item.id)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "beats.id",
-        message: "id must match b- followed by four digits",
-        path: itemPath,
-      });
-    } else if (ids.has(item.id)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "beats.id",
-        message: `duplicate beat id: ${item.id}`,
-        path: itemPath,
-      });
-    } else {
-      ids.add(item.id);
-    }
-
-    if (!isFiniteNumber(item.t) || item.t < 0) {
-      addFinding(findings, {
-        severity: "error",
-        check: "beats.t",
-        message: "t must be a non-negative finite number (source seconds)",
-        path: itemPath,
-      });
-    }
-
-    if (!isNonEmptyString(item.kind)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "beats.kind",
-        message: "kind must be a non-empty string",
-        path: itemPath,
-      });
-    }
-
-    if (!isFiniteNumber(item.strength) || item.strength < 0 || item.strength > 1) {
-      addFinding(findings, {
-        severity: "error",
-        check: "beats.strength",
-        message: "strength must be a finite number within [0, 1]",
-        path: itemPath,
-      });
-    }
-
-    if (Object.hasOwn(item, "basis") && typeof item.basis !== "string") {
-      addFinding(findings, {
-        severity: "error",
-        check: "beats.basis",
-        message: "basis must be a string",
-        path: itemPath,
-      });
-    }
-
-    if (Object.hasOwn(item, "src")) {
-      if (!isNonEmptyString(item.src)) {
-        addFinding(findings, {
-          severity: "error",
-          check: "beats.src",
-          message: "src must be a non-empty string",
-          path: itemPath,
-        });
-      } else if (!sourceIds.has(item.src)) {
-        addFinding(findings, {
-          severity: "error",
-          check: "beats.src-reference",
-          message: `src does not reference sources[].id: ${item.src}`,
-          path: itemPath,
-        });
-      }
-    }
-  }
-}
-
-// docs/contract-2026-07-23-edit-json-v1-emphasis-words.md §7: emphasis_words（語レベル演出）の
-// 構造検証は validate-edit.mjs と同一のルールを手書きで写す流儀（edit-lint は依存ゼロのため他パッケージの
-// バリデータを import しない）。t_start/t_end は timeline 秒ではなく source 秒アンカー（同 §3）であり、
-// source 実尺との突き合わせは --media なしでデコードしない規律のため行わない（同 §7 の将来課題）。
-// 各要素は素材ファイルを参照しないためファイル実在チェックも行わない。
-// emphasis_words フィールドの不在はエラーにしない（同 §5 の劣化規約）。
-function validateEmphasisWords(emphasisWords, sourceIds, findings) {
-  if (emphasisWords === undefined) return;
-  if (!Array.isArray(emphasisWords)) {
-    addFinding(findings, {
-      severity: "error",
-      check: "emphasis_words.structure",
-      message: "emphasis_words must be an array",
-      path: "edit.json#emphasis_words",
-    });
-    return;
-  }
-
-  const ids = new Set();
-  for (const [index, item] of emphasisWords.entries()) {
-    const itemPath = `edit.json#emphasis_words[${index}]`;
-    if (!isRecord(item)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "emphasis_words.structure",
-        message: "emphasis word item must be an object",
-        path: itemPath,
-      });
-      continue;
-    }
-
-    if (typeof item.id !== "string" || !/^e-\d{4}$/.test(item.id)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "emphasis_words.id",
-        message: "id must match e- followed by four digits",
-        path: itemPath,
-      });
-    } else if (ids.has(item.id)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "emphasis_words.id",
-        message: `duplicate emphasis word id: ${item.id}`,
-        path: itemPath,
-      });
-    } else {
-      ids.add(item.id);
-    }
-
-    const hasStart = isFiniteNumber(item.t_start) && item.t_start >= 0;
-    const hasEnd = isFiniteNumber(item.t_end) && item.t_end >= 0;
-    if (!hasStart) {
-      addFinding(findings, {
-        severity: "error",
-        check: "emphasis_words.t_start",
-        message: "t_start must be a non-negative finite number (source seconds)",
-        path: itemPath,
-      });
-    }
-    if (!hasEnd) {
-      addFinding(findings, {
-        severity: "error",
-        check: "emphasis_words.t_end",
-        message: "t_end must be a non-negative finite number (source seconds)",
-        path: itemPath,
-      });
-    }
-    if (hasStart && hasEnd && item.t_end <= item.t_start) {
-      addFinding(findings, {
-        severity: "error",
-        check: "emphasis_words.range",
-        message: "t_end must be greater than t_start",
-        path: itemPath,
-        range: { start: item.t_start, end: item.t_end },
-      });
-    }
-
-    if (!isNonEmptyString(item.word)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "emphasis_words.word",
-        message: "word must be a non-empty string",
-        path: itemPath,
-      });
-    }
-
-    if (!isNonEmptyString(item.emotion)) {
-      addFinding(findings, {
-        severity: "error",
-        check: "emphasis_words.emotion",
-        message: "emotion must be a non-empty string",
-        path: itemPath,
-      });
-    }
-
-    if (Object.hasOwn(item, "style_hint") && typeof item.style_hint !== "string") {
-      addFinding(findings, {
-        severity: "error",
-        check: "emphasis_words.style-hint",
-        message: "style_hint must be a string",
-        path: itemPath,
-      });
-    }
-
-    if (Object.hasOwn(item, "src")) {
-      if (!isNonEmptyString(item.src)) {
-        addFinding(findings, {
-          severity: "error",
-          check: "emphasis_words.src",
-          message: "src must be a non-empty string",
-          path: itemPath,
-        });
-      } else if (!sourceIds.has(item.src)) {
-        addFinding(findings, {
-          severity: "error",
-          check: "emphasis_words.src-reference",
-          message: `src does not reference sources[].id: ${item.src}`,
-          path: itemPath,
-        });
-      }
-    }
-  }
-}
-
-// docs/contract-2026-07-23-edit-json-v1-direction.md §6: direction（演出宣言）の構造検証は
-// validate-edit.mjs と同一のルールを手書きで写す流儀（edit-lint は依存ゼロのため他パッケージの
-// バリデータを import しない）。direction は配列ではなくオブジェクト = 宣言はファイルに 1 つ（同 §1）。
-// preset の値が実在するプリセットかは検証しない（enum 強制をしないため・同 §6）。
-// overrides は語彙が未定義のため object であることだけを見る。
-// direction フィールドの不在はエラーにしない（同 §5 の劣化規約）。
-function validateDirection(direction, findings) {
-  if (direction === undefined) return;
-  if (!isRecord(direction)) {
-    addFinding(findings, {
-      severity: "error",
-      check: "direction.structure",
-      message: "direction must be an object",
-      path: "edit.json#direction",
-    });
-    return;
-  }
-
-  if (!isNonEmptyString(direction.preset)) {
-    addFinding(findings, {
-      severity: "error",
-      check: "direction.preset",
-      message: "preset must be a non-empty string",
-      path: "edit.json#direction",
-    });
-  }
-
-  if (Object.hasOwn(direction, "intensity")) {
-    if (
-      !Number.isInteger(direction.intensity) ||
-      direction.intensity < 0 ||
-      direction.intensity > 100
-    ) {
-      addFinding(findings, {
-        severity: "error",
-        check: "direction.intensity",
-        message: "intensity must be an integer within [0, 100]",
-        path: "edit.json#direction",
-      });
-    }
-  }
-
-  if (Object.hasOwn(direction, "overrides") && !isRecord(direction.overrides)) {
-    addFinding(findings, {
-      severity: "error",
-      check: "direction.overrides",
-      message: "overrides must be an object",
-      path: "edit.json#direction",
-    });
   }
 }
 
@@ -2381,7 +2197,7 @@ function resolveBgmTrackId(bgmPath, declarations) {
   return baseNoExt;
 }
 
-async function validateReferences(edit, findings, paths) {
+async function validateReferences(edit, findings, paths, ignoredSourceIds = new Set()) {
   const references = [];
   if (isRecord(edit?.source)) {
     references.push({ label: "source.path", value: edit.source.path, source: true });
@@ -2392,6 +2208,7 @@ async function validateReferences(edit, findings, paths) {
   if (Array.isArray(edit?.sources)) {
     for (const [index, source] of edit.sources.entries()) {
       if (!isRecord(source)) continue;
+      if (ignoredSourceIds.has(source.id)) continue;
       references.push({
         label: `sources[${index}].path`,
         value: source.path,
@@ -2496,6 +2313,8 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
   // 常に全件発火する警告は本物の指摘を埋めるだけなので、規則ごと落とすのが正しい。
   // 撤去の証跡は edit-lint.test.mjs の "captions.overlay-link は発火しない" で固定してある。
   let previousStart = -Infinity;
+  let furthestEnd = -Infinity;
+  let furthestCaption = null;
 
   for (const [index, caption] of captions.entries()) {
     const itemPath = `captions.json#[${index}]`;
@@ -2617,6 +2436,19 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
         );
       }
       previousStart = caption.start;
+      if (caption.start < furthestEnd - EPSILON) {
+        addFinding(findings, {
+          severity: "error",
+          check: "captions.overlap",
+          message: `caption overlaps ${furthestCaption.id ?? furthestCaption.path} on the same track`,
+          path: itemPath,
+          range: { start: caption.start, end: caption.end },
+        });
+      }
+      if (caption.end > furthestEnd) {
+        furthestEnd = caption.end;
+        furthestCaption = { id: caption.id, path: itemPath };
+      }
       const displaySeconds = caption.end - caption.start;
       if (displaySeconds < 1.0 - EPSILON) {
         addFinding(findings, {
@@ -2669,16 +2501,6 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
   }
 
   if (displayPolicy !== undefined) {
-    const policyCaptions = Array.isArray(captionsRoot?.captions) ? captionsRoot.captions : [];
-    const emphasis = Array.isArray(edit?.emphasis_words) ? edit.emphasis_words : [];
-    for (const [index, caption] of policyCaptions.entries()) {
-      if (!isRecord(caption)) continue;
-      const conflict = emphasis.some(word => isRecord(word)
-        && (!isNonEmptyString(word.src) || !isNonEmptyString(caption.src) || word.src === caption.src)
-        && isFiniteNumber(word.t_start) && isFiniteNumber(word.t_end)
-        && word.t_end > caption.start && word.t_start < caption.end);
-      if (conflict) captionFinding(findings, "captions.display-policy-emphasis", "emphasis_words cannot act on a cue under display_policy v1", `captions.json#[${index}]`);
-    }
     try {
       resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit));
     } catch (error) {

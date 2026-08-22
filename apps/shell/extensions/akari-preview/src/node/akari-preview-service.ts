@@ -632,8 +632,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         return new Promise((resolveRun, rejectRun) => {
             let settled = false;
             let stderr = '';
-            // 通常は nodeCliCommand() が素の Node を選ぶ。明示 override が Electron 実体を
-            // 指した場合にも CLI として動くよう、Node 互換モードを防御的に付ける。
+            // packaged では nodeCliCommand() が Electron 実体（process.execPath）を選ぶため、
+            // Node 互換モードとして動くよう ELECTRON_RUN_AS_NODE を常時付ける
+            // （dev の npm_node_execpath 経路では無害な未使用 env になるだけ）。
             const child = spawn(command, args, {
                 stdio: ['ignore', 'ignore', 'pipe'],
                 env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
@@ -660,9 +661,18 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     protected nodeCliCommand(): string {
-        // npm start / Electron 開発起動では、実際に npm を動かした素の Node がここに入る。
-        // 未設定時も AKARI Video の動作要件である PATH 上の node を使い、子 Electron 起動を避ける。
-        return process.env.npm_node_execpath || 'node';
+        // npm start 経由の開発起動では、npm が実際に自分を動かした素の Node の execpath を
+        // env に設定する。これは明示 override として最優先で維持する。
+        if (process.env.npm_node_execpath) {
+            return process.env.npm_node_execpath;
+        }
+        // Finder / Dock から起動したパッケージ版には npm_node_execpath が無く、PATH も
+        // launchd 既定（/usr/bin:/bin:/usr/sbin:/sbin）— node を別途インストールしていない
+        // 配布先では 'node' 決め打ちが ENOENT になる。akari-quick-export-service.ts と同じ
+        // execPath 規約に合わせ、自プロセスの実行ファイルを Node CLI として使う
+        // （packaged では Electron 自身・プレーン node 実行ではその node 自身が入るので
+        // どちらでも動く）。ELECTRON_RUN_AS_NODE は runProcess が子プロセス env に常時付与する。
+        return process.execPath;
     }
 
     protected async cleanupTemporaryAudio(filePath: string, temporaryDirectory: string): Promise<void> {

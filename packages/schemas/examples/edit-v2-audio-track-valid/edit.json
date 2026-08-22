@@ -1,0 +1,56 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "hit", "path": "assets/hit.wav" },
+    { "id": "voice", "path": "assets/voice.wav" },
+    { "id": "music", "path": "assets/music.wav" }
+  ],
+  "tracks": [
+    {
+      "id": "audio-sfx",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "hit-1",
+          "at": 15,
+          "duration": 0,
+          "gain_db": -6,
+          "fade_in": 0.05,
+          "fade_out": 0.1,
+          "source": { "kind": "media", "src": "hit", "in": 0 }
+        }
+      ]
+    },
+    {
+      "id": "audio-narration",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "n-0001",
+          "at": 30,
+          "duration": 0,
+          "role": "narration",
+          "source": { "kind": "media", "src": "voice", "in": 0 }
+        }
+      ]
+    },
+    {
+      "id": "audio-bgm",
+      "lane": "audio",
+      "items": [
+        {
+          "id": "bgm",
+          "at": 0,
+          "duration": 0,
+          "role": "bgm",
+          "gain_db": -18,
+          "fade_in": 1.5,
+          "fade_out": 2,
+          "ducking": true,
+          "source": { "kind": "media", "src": "music", "in": 4 }
+        }
+      ]
+    }
+  ]
+}

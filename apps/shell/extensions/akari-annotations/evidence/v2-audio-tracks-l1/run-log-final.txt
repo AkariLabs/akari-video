@@ -1,0 +1,59 @@
+=== [setup] preparing isolated workspace ===
+=== [phase:separated] preparing fixture ===
+prepared phase separated fixture at /tmp/v2-audio-tracks-l1-ws/project/edit.json
+=== [phase:separated] launching electron ===
+[assertion-ok] {"message":"found electron page target","targets":["file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=50119#<TMP>/v2-audio-tracks-l1-ws"]}
+[onboarding-modal-absent] {}
+[onboarding-modal-absent] {}
+[onboarding-modal-absent] {}
+[onboarding-modal-absent] {}
+[onboarding-modal-dismissed] {}
+[assertion-ok] {"message":"timeline widget opened"}
+[diagnostics] {"itemKindCounts":{"audio":4,"cut":1},"trackBandCount":4,"trackHeaderIds":["v-main","a-bgm","a-narration","a-sfx"],"stripChildCount":9,"bodyText":"素材\n\nここにはまだ素材がありません。動画・音声・画像をこのパネルへドラッグすると取り込めます。\n\n＋ カタログから素材をさがす\nできたもの\n\nまだありません — 編集したり書き出したりするとここに並びます\n\nホーム\n変更を見る\nホーム\nプロジェクト・ランチャー\nセットアップを開く\n⚪ 単体プロジェクト — チャンネルの設定は効いていません\nチャンネルに入れる\n入れると、テロップのスタイルや好みの設定がこのプロジェクトにも効くようになります\nはじめかたはこれだけです\n\n左に動画・写真を入れるか、右で相棒に話しかけてください。\n\n真ん中には、進めた結果（プレビューやレポート）が表示されます。\n\nこの画面のどこにドラッグ＆ドロップしても素材を取り込めます。\n\nプロジェクト\n\n+ 新しい動画を始める\n2026-08-20-video\nmy-channel\n2026-08-20-video-2\nm"}
+[audio-item-rects] {"rects":[{"id":"bgm","top":741,"left":468,"width":226},{"id":"narration-1","top":803,"left":490,"width":136},{"id":"sfx-1","top":865,"left":536,"width":11},{"id":"sfx-2","top":865,"left":649,"width":11}]}
+[assertion-ok] {"message":"exactly 4 audio clips rendered (sfx-1, sfx-2, narration-1, bgm-1)","rects":[{"id":"bgm","top":741,"left":468,"width":226},{"id":"narration-1","top":803,"left":490,"width":136},{"id":"sfx-1","top":865,"left":536,"width":11},{"id":"sfx-2","top":865,"left":649,"width":11}],"diagnostics":{"itemKindCounts":{"audio":4,"cut":1},"trackBandCount":4,"trackHeaderIds":["v-main","a-bgm","a-narration","a-sfx"],"stripChildCount":9,"bodyText":"素材\n\nここにはまだ素材がありません。動画・音声・画像をこのパネルへドラッグすると取り込めます。\n\n＋ カタログから素材をさがす\nできたもの\n\nまだありません — 編集したり書き出したりするとここに並びます\n\nホーム\n変更を見る\nホーム\nプロジェクト・ランチャー\nセットアップを開く\n⚪ 単体プロジェクト — チャンネルの設定は効いていません\nチャンネルに入れる\n入れると、テロップのスタイルや好みの設定がこのプロジェクトにも効くようになります\nはじめかたはこれだけです\n\n左に動画・写真を入れるか、右で相棒に話しかけてください。\n\n真ん中には、進めた結果（プレビューやレポート）が表示されます。\n\nこの画面のどこにドラッグ＆ドロップしても素材を取り込めます。\n\nプロジェクト\n\n+ 新しい動画を始める\n2026-08-20-video\nmy-channel\n2026-08-20-video-2\nm"}}
+[assertion-ok] {"message":"all 4 expected clip ids found","byId":{"bgm":{"id":"bgm","top":741,"left":468,"width":226},"narration-1":{"id":"narration-1","top":803,"left":490,"width":136},"sfx-1":{"id":"sfx-1","top":865,"left":536,"width":11},"sfx-2":{"id":"sfx-2","top":865,"left":649,"width":11}}}
+[assertion-ok] {"message":"sfx-1 and sfx-2 share the same row (same audio track)","sfx1":{"id":"sfx-1","top":865,"left":536,"width":11},"sfx2":{"id":"sfx-2","top":865,"left":649,"width":11}}
+[assertion-ok] {"message":"sfx row and narration row are visually distinct (the reported bug)","sfx1":{"id":"sfx-1","top":865,"left":536,"width":11},"narration1":{"id":"narration-1","top":803,"left":490,"width":136}}
+[assertion-ok] {"message":"sfx row and bgm row are visually distinct (the reported bug)","sfx1":{"id":"sfx-1","top":865,"left":536,"width":11},"bgm1":{"id":"bgm","top":741,"left":468,"width":226}}
+[assertion-ok] {"message":"narration row and bgm row are visually distinct (the reported bug)","narration1":{"id":"narration-1","top":803,"left":490,"width":136},"bgm1":{"id":"bgm","top":741,"left":468,"width":226}}
+[assertion-ok] {"message":"sfx-1 has no declared gain_db before the edit (baseline)","sfx1Before":{"id":"sfx-1","at":30,"duration":15,"role":"sfx","source":{"kind":"media","src":"sfx-tone","in":0,"out":0.5}}}
+[assertion-ok] {"message":"this fixture was authored directly as v2 -- no legacy top-level audio block exists at all"}
+[assertion-ok] {"message":"inspector opened with a gain_db scrub field after clicking sfx-1"}
+[assertion-ok] {"message":"click (below drag threshold) swapped the scrub div for a real text <input>"}
+[assertion-ok] {"message":"sfx-1 still present in tracks[].items[] after the edit","sfxTrackAfter":{"id":"a-sfx","lane":"audio","items":[{"id":"sfx-1","at":30,"duration":15,"role":"sfx","source":{"kind":"media","src":"sfx-tone","in":0,"out":0.5},"gain_db":-7.5},{"id":"sfx-2","at":80,"duration":15,"role":"sfx","source":{"kind":"media","src":"sfx-tone","in":0,"out":0.5}}]}}
+[assertion-ok] {"message":"gain_db edit landed in tracks[].items[] (not a silent no-op on an empty legacy array)","sfx1After":{"id":"sfx-1","at":30,"duration":15,"role":"sfx","source":{"kind":"media","src":"sfx-tone","in":0,"out":0.5},"gain_db":-7.5},"TARGET_GAIN":-7.5}
+[assertion-ok] {"message":"no legacy top-level audio block was created by the edit"}
+[assertion-ok] {"message":"sfx-2 (untouched sibling) was not affected by the sfx-1 edit","sfx2After":{"id":"sfx-2","at":80,"duration":15,"role":"sfx","source":{"kind":"media","src":"sfx-tone","in":0,"out":0.5}}}
+[DONE] {"phase":"separated"}
+PHASE_RESULT=PASS phase=separated
+=== [phase:separated] killing electron (userdata=/tmp/v2-audio-tracks-l1-userdata) ===
+run-l1.sh: line 34:   390 Killed: 9               THEIA_CONFIG_DIR="$USERDATA" "$ELECTRON_BIN" "$SHELL_DIR" "$WORKSPACE" --remote-debugging-port=$PORT --user-data-dir="$USERDATA" --no-sandbox > "/tmp/v2-audio-tracks-l1-electron-phase-$PHASE.log" 2>&1
+PHASE_separated_EXIT=0
+=== [phase:reordered] preparing fixture ===
+prepared phase reordered fixture at /tmp/v2-audio-tracks-l1-ws/project/edit.json
+=== [phase:reordered] launching electron ===
+[assertion-ok] {"message":"found electron page target","targets":["file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=50142#<TMP>/v2-audio-tracks-l1-ws"]}
+[onboarding-modal-absent] {}
+[onboarding-modal-absent] {}
+[onboarding-modal-absent] {}
+[onboarding-modal-absent] {}
+[onboarding-modal-absent] {}
+[onboarding-modal-absent] {}
+[assertion-ok] {"message":"timeline widget opened"}
+[diagnostics] {"itemKindCounts":{"audio":4,"cut":1},"trackBandCount":4,"trackHeaderIds":["v-main","a-narration","a-bgm","a-sfx"],"stripChildCount":9,"bodyText":"素材\n\nここにはまだ素材がありません。動画・音声・画像をこのパネルへドラッグすると取り込めます。\n\n＋ カタログから素材をさがす\nできたもの\n\nまだありません — 編集したり書き出したりするとここに並びます\n\nホーム\n変更を見る\nホーム\nプロジェクト・ランチャー\nセットアップを開く\n⚪ 単体プロジェクト — チャンネルの設定は効いていません\nチャンネルに入れる\n入れると、テロップのスタイルや好みの設定がこのプロジェクトにも効くようになります\nはじめかたはこれだけです\n\n左に動画・写真を入れるか、右で相棒に話しかけてください。\n\n真ん中には、進めた結果（プレビューやレポート）が表示されます。\n\nこの画面のどこにドラッグ＆ドロップしても素材を取り込めます。\n\nプロジェクト\n\n+ 新しい動画を始める\n2026-08-20-video\nmy-channel\n2026-08-20-video-2\nm"}
+[audio-item-rects] {"rects":[{"id":"bgm","top":803,"left":468,"width":226},{"id":"narration-1","top":741,"left":490,"width":136},{"id":"sfx-1","top":865,"left":536,"width":11},{"id":"sfx-2","top":865,"left":649,"width":11}]}
+[assertion-ok] {"message":"exactly 4 audio clips rendered (sfx-1, sfx-2, narration-1, bgm-1)","rects":[{"id":"bgm","top":803,"left":468,"width":226},{"id":"narration-1","top":741,"left":490,"width":136},{"id":"sfx-1","top":865,"left":536,"width":11},{"id":"sfx-2","top":865,"left":649,"width":11}],"diagnostics":{"itemKindCounts":{"audio":4,"cut":1},"trackBandCount":4,"trackHeaderIds":["v-main","a-narration","a-bgm","a-sfx"],"stripChildCount":9,"bodyText":"素材\n\nここにはまだ素材がありません。動画・音声・画像をこのパネルへドラッグすると取り込めます。\n\n＋ カタログから素材をさがす\nできたもの\n\nまだありません — 編集したり書き出したりするとここに並びます\n\nホーム\n変更を見る\nホーム\nプロジェクト・ランチャー\nセットアップを開く\n⚪ 単体プロジェクト — チャンネルの設定は効いていません\nチャンネルに入れる\n入れると、テロップのスタイルや好みの設定がこのプロジェクトにも効くようになります\nはじめかたはこれだけです\n\n左に動画・写真を入れるか、右で相棒に話しかけてください。\n\n真ん中には、進めた結果（プレビューやレポート）が表示されます。\n\nこの画面のどこにドラッグ＆ドロップしても素材を取り込めます。\n\nプロジェクト\n\n+ 新しい動画を始める\n2026-08-20-video\nmy-channel\n2026-08-20-video-2\nm"}}
+[assertion-ok] {"message":"all 4 expected clip ids found","byId":{"bgm":{"id":"bgm","top":803,"left":468,"width":226},"narration-1":{"id":"narration-1","top":741,"left":490,"width":136},"sfx-1":{"id":"sfx-1","top":865,"left":536,"width":11},"sfx-2":{"id":"sfx-2","top":865,"left":649,"width":11}}}
+[assertion-ok] {"message":"sfx-1 and sfx-2 share the same row (same audio track)","sfx1":{"id":"sfx-1","top":865,"left":536,"width":11},"sfx2":{"id":"sfx-2","top":865,"left":649,"width":11}}
+[assertion-ok] {"message":"sfx row and narration row are visually distinct (the reported bug)","sfx1":{"id":"sfx-1","top":865,"left":536,"width":11},"narration1":{"id":"narration-1","top":741,"left":490,"width":136}}
+[assertion-ok] {"message":"sfx row and bgm row are visually distinct (the reported bug)","sfx1":{"id":"sfx-1","top":865,"left":536,"width":11},"bgm1":{"id":"bgm","top":803,"left":468,"width":226}}
+[assertion-ok] {"message":"narration row and bgm row are visually distinct (the reported bug)","narration1":{"id":"narration-1","top":741,"left":490,"width":136},"bgm1":{"id":"bgm","top":803,"left":468,"width":226}}
+[assertion-ok] {"message":"reordering tracks[] (narration/bgm swapped) swaps their displayed rows accordingly","before":{"bgm":{"id":"bgm","top":741,"left":468,"width":226},"narration-1":{"id":"narration-1","top":803,"left":490,"width":136},"sfx-1":{"id":"sfx-1","top":865,"left":536,"width":11},"sfx-2":{"id":"sfx-2","top":865,"left":649,"width":11}},"after":{"bgm":{"id":"bgm","top":803,"left":468,"width":226},"narration-1":{"id":"narration-1","top":741,"left":490,"width":136},"sfx-1":{"id":"sfx-1","top":865,"left":536,"width":11},"sfx-2":{"id":"sfx-2","top":865,"left":649,"width":11}}}
+[DONE] {"phase":"reordered"}
+PHASE_RESULT=PASS phase=reordered
+=== [phase:reordered] killing electron (userdata=/tmp/v2-audio-tracks-l1-userdata) ===
+run-l1.sh: line 34:   598 Killed: 9               THEIA_CONFIG_DIR="$USERDATA" "$ELECTRON_BIN" "$SHELL_DIR" "$WORKSPACE" --remote-debugging-port=$PORT --user-data-dir="$USERDATA" --no-sandbox > "/tmp/v2-audio-tracks-l1-electron-phase-$PHASE.log" 2>&1
+PHASE_reordered_EXIT=0
+=== [cleanup] verifying no leftover processes for this run ===
+OVERALL_EXIT=0

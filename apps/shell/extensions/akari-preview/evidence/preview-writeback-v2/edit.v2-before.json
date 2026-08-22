@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "assets/talk.mp4" },
+    { "id": "pip", "path": "assets/talk.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "name": "本編",
+      "items": [
+        { "id": "clip-1", "at": 0, "duration": 150, "source": { "kind": "media", "src": "main", "in": 0, "out": 5 } }
+      ]
+    },
+    {
+      "id": "v-pip",
+      "lane": "visual",
+      "name": "PiP",
+      "items": [
+        {
+          "id": "pip-1",
+          "at": 0,
+          "duration": 150,
+          "blend": "screen",
+          "transform": { "x": 0, "y": 0, "scale": 0.4 },
+          "source": { "kind": "media", "src": "pip", "in": 0, "out": 5 }
+        }
+      ]
+    },
+    {
+      "id": "v-html",
+      "lane": "visual",
+      "name": "テロップ",
+      "items": [
+        {
+          "id": "title-1",
+          "at": 0,
+          "duration": 150,
+          "transform": { "x": 0, "y": 0, "scale": 1 },
+          "source": { "kind": "html", "path": "overlays/title.html" }
+        }
+      ]
+    }
+  ]
+}
