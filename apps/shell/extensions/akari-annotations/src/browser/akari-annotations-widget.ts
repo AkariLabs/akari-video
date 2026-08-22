@@ -69,6 +69,13 @@ import {
 } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
 import { CaptionSubrowLayout, computeCaptionSubrowLayout } from '../common/caption-subrow-layout';
+import {
+    CaptionSourceForMapping,
+    computeCaptionSourceMappingWarning,
+    readCaptionSourceMap,
+    resolveCaptionSourceForMapping,
+    shouldNotifyCaptionSourceMappingWarning
+} from '../common/caption-source-map';
 import { clampSfxFadeToEffectiveDuration, slipAudioWindow } from '../common/audio-clip-trimmer';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
 import {
@@ -477,6 +484,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** backend の atomic rename 前通知。自己書き込み由来 watcher reload を 1 秒だけ抑止する。 */
     protected readonly recentWrites = new Map<string, number>();
     protected captions: CaptionRecord[] = [];
+    /** caption-store が正規化しない captions.json の src を、出力射影専用に保持する。 */
+    protected captionSources = new Map<string, string>();
+    /** 同じ captions/edit 状態の再読込で射影不能警告を積み上げないための直近文言。 */
+    protected lastCaptionSourceMappingWarning: string | undefined;
     protected defaultTextStyle: CaptionTextStyle | undefined;
     protected cuts: EditCut[] = [];
     /** undefined は v0、配列（空を含む）は v1。 */
@@ -2152,7 +2163,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!caption) {
                 return undefined;
             }
-            const ranges = this.sourceRangeToOutputRanges(caption.start, caption.end);
+            const ranges = this.captionRangeToOutputRanges(caption.id, caption.start, caption.end);
             const effectiveTextStyle = mergeCaptionTextStyles(this.defaultTextStyle, caption.textStyle);
             return {
                 kind: 'caption', id: caption.id, text: caption.text,
@@ -3086,6 +3097,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async reloadAll(): Promise<void> {
         await Promise.all([this.reloadReview(), this.reloadEdit(), this.reloadCaptions(), this.reloadAnalysis()]);
+        // 並列 reload の別系統が notice を clear しても、初期表示では射影不能の案内を最後に確定する。
+        this.notifyCaptionSourceMappingWarning(true);
     }
 
     protected async reloadReview(): Promise<void> {
@@ -3211,6 +3224,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         }
         this.rebuildSegments();
+        this.notifyCaptionSourceMappingWarning();
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
         await this.applyStoredTrackFlags();
@@ -3448,12 +3462,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected async reloadCaptions(): Promise<void> {
         this.captions = [];
+        this.captionSources.clear();
         this.defaultTextStyle = undefined;
         if (this.location) {
             try {
                 const source = (await this.fileService.readFile(this.location.captionsUri)).value.toString();
                 const parsed = parseCaptions(source);
                 this.captions = parsed.captions;
+                this.captionSources = readCaptionSourceMap(source);
                 this.defaultTextStyle = parsed.defaultTextStyle;
                 if (parsed.warnings.length > 0) {
                     this.showWarnings(parsed.warnings);
@@ -3462,6 +3478,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 // A missing or unreadable captions.json means no caption segments are drawn.
             }
         }
+        this.notifyCaptionSourceMappingWarning();
         this.pushSelectionSnapshot();
         this.renderStrip();
     }
@@ -3602,6 +3619,46 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return ranges;
     }
 
+    protected captionSourceForMapping(captionId: string): CaptionSourceForMapping {
+        return resolveCaptionSourceForMapping(
+            captionId,
+            this.captionSources,
+            this.segments.map(segment => segment.src)
+        );
+    }
+
+    protected notifyCaptionSourceMappingWarning(ensureVisible = false): void {
+        const warning = computeCaptionSourceMappingWarning(
+            this.captions,
+            this.captionSources,
+            this.segments.map(segment => segment.src)
+        );
+        const shouldNotify = shouldNotifyCaptionSourceMappingWarning(
+            this.lastCaptionSourceMappingWarning,
+            warning
+        );
+        this.lastCaptionSourceMappingWarning = warning;
+        if ((ensureVisible || shouldNotify) && warning !== undefined) {
+            this.showNotice(warning);
+        }
+    }
+
+    protected captionRangeToOutputRanges(
+        captionId: string, start: number, end: number
+    ): Array<[number, number]> {
+        const src = this.captionSourceForMapping(captionId);
+        return this.captionSourceRangeToOutputRanges(start, end, src);
+    }
+
+    protected captionSourceRangeToOutputRanges(
+        start: number, end: number, src: CaptionSourceForMapping
+    ): Array<[number, number]> {
+        if (this.segments.length === 0) {
+            return [[start, end]];
+        }
+        return src === null ? [] : this.sourceRangeToOutputRanges(start, end, src);
+    }
+
     protected visibleDuration(): number {
         return this.viewDuration ?? this.totalDuration();
     }
@@ -3618,9 +3675,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.computeBgmDisplayTrack();
         this.computeCaptionsDisplayTrack();
         this.captionLayouts = computeCaptionSubrowLayout(
-            this.captions,
+            this.captions.map(caption => ({
+                ...caption,
+                src: this.captionSourceForMapping(caption.id)
+            })),
             MINIMUM_ITEM_DURATION,
-            (start, end) => this.sourceRangeToOutputRanges(start, end)
+            (start, end, src) => this.captionSourceRangeToOutputRanges(start, end, src)
         );
         const captionRows = [...this.captionLayouts.values()].map(layout => layout.row);
         const captionRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 0;
@@ -6501,7 +6561,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 end = snap.time;
                 snapped = snap.snapped;
             }
-            const ranges = this.sourceRangeToOutputRanges(start, end);
+            const ranges = this.captionRangeToOutputRanges(state.id, start, end);
             if (ranges.length > 0) {
                 this.setGhostRange(state.ghost, ranges[0][0], ranges[ranges.length - 1][1]);
             }

@@ -80,3 +80,34 @@ test("複数 output 区間に分かれる字幕は描画契約どおり最初か
 
   assert.deepEqual(layout.get("split"), { start: 20, end: 25, row: 0 });
 });
+
+test("複数 source の字幕は自分の src の output 区間だけを段割りと描画に使う", () => {
+  const converted = [];
+  const segments = [
+    { src: "source-a", sourceStart: 0, sourceEnd: 2, outputStart: 0 },
+    { src: "source-b", sourceStart: 0, sourceEnd: 2, outputStart: 2 },
+  ];
+  const layout = computeCaptionSubrowLayout(
+    [
+      { id: "caption-a", start: 0.5, end: 1.5, src: "source-a" },
+      { id: "caption-b", start: 0.5, end: 1.5, src: "source-b" },
+    ],
+    0.15,
+    (start, end, src) => {
+      converted.push({ start, end, src });
+      return segments
+        .filter(segment => segment.src === src)
+        .map(segment => [
+          segment.outputStart + Math.max(start, segment.sourceStart) - segment.sourceStart,
+          segment.outputStart + Math.min(end, segment.sourceEnd) - segment.sourceStart,
+        ]);
+    },
+  );
+
+  assert.deepEqual(converted, [
+    { start: 0.5, end: 1.5, src: "source-a" },
+    { start: 0.5, end: 1.5, src: "source-b" },
+  ]);
+  assert.deepEqual(layout.get("caption-a"), { start: 0.5, end: 1.5, row: 0 });
+  assert.deepEqual(layout.get("caption-b"), { start: 2.5, end: 3.5, row: 0 });
+});

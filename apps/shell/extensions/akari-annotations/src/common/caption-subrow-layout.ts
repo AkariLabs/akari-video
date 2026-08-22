@@ -6,6 +6,7 @@ export interface CaptionSubrowItem {
     id: string;
     start: number;
     end: number;
+    src?: string | null;
 }
 
 export interface CaptionSubrowLayout {
@@ -28,11 +29,13 @@ export interface CaptionSubrowLayout {
 export function computeCaptionSubrowLayout(
     captions: readonly CaptionSubrowItem[],
     minimumItemDuration: number,
-    sourceRangeToOutputRanges: (start: number, end: number) => readonly CaptionOutputRange[]
+    sourceRangeToOutputRanges: (
+        start: number, end: number, src: string | null | undefined
+    ) => readonly CaptionOutputRange[]
 ): Map<string, CaptionSubrowLayout> {
     const visibleCaptions = captions.flatMap(caption => {
         const sourceEnd = Math.max(caption.end, caption.start + minimumItemDuration);
-        const outputRanges = sourceRangeToOutputRanges(caption.start, sourceEnd);
+        const outputRanges = sourceRangeToOutputRanges(caption.start, sourceEnd, caption.src);
         if (outputRanges.length === 0) {
             return [];
         }
