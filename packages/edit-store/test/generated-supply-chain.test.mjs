@@ -21,6 +21,7 @@ const expectedSources = [
   'retime.ts',
   'timeline-map.ts',
   'track-order.ts',
+  'track-transition-compatibility.ts',
   'webview-kernel.ts',
   'write-gate.ts',
 ];

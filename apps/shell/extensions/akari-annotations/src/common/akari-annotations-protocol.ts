@@ -521,6 +521,12 @@ export interface DeferredLintNotification {
     projectRootUri: string;
     pass: boolean;
     errors: string[];
+    findings: Array<{
+        severity?: string;
+        message?: string;
+        check?: string;
+        path?: string;
+    }>;
 }
 
 export interface AkariAnnotationsClient {

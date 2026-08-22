@@ -1361,6 +1361,25 @@ test("fieldtest-shaped v2 non-default track order without transition_out stays c
   });
 });
 
+test("v2 top-level BGM without a declared audio lane does not create declaration-missing projection noise", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-nondefault-no-transition-valid");
+    const editPath = join(project, "edit.json");
+    const raw = JSON.parse(await readFile(editPath, "utf8"));
+    raw.audio = { bgm: { path: "../bgm-sfx-valid/audio/bgm.wav", gain_db: -12 } };
+    await writeFile(editPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    assert.ok(
+      !result.findings.some(finding => finding.check === "timeline.tracks.declaration-missing"
+        && finding.path.includes("audio")),
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("a genuine transition_out in a legacy-shaped fixture remains detected", async () => {
   const legacy = JSON.parse(await readFile(
     join(fixtureRoot, "cuts-track-transition-invalid", "edit.json"),

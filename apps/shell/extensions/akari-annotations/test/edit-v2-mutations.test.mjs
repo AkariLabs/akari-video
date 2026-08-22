@@ -120,6 +120,18 @@ test('updateItem は item と source を部分更新し、未知の既存値を�
   assert.deepEqual(clip.source, { kind: 'media', src: 'main', in: 13, out: 18, speed: 2 });
 });
 
+test('updateItem の transition_out:null は既存宣言をキーごと除去する', () => {
+  const source = structuredClone(fixture);
+  source.tracks.find(track => track.id === 'v-main').items[0].source.transition_out = {
+    type: 'dissolve', duration: 0.5
+  };
+  const result = valid(updateItem(source, {
+    itemId: 'clip-1', patch: { source: { transition_out: null } }
+  }));
+  const clipSource = result.tracks.find(track => track.id === 'v-main').items[0].source;
+  assert.equal(Object.hasOwn(clipSource, 'transition_out'), false);
+});
+
 test('removeItem は空になった宣言済み段を prune しない', () => {
   const result = valid(removeItem(fixture, 'filter-1'));
   assert.equal(result.tracks.find(track => track.id === 'v-filter').items.length, 0);

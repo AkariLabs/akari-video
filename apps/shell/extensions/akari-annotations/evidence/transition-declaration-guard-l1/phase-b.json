@@ -1,0 +1,32 @@
+{
+  "phase": "b",
+  "status": "PASS",
+  "observations": [
+    {
+      "step": "application-shell-ready",
+      "elapsedMs": 30645
+    },
+    {
+      "step": "open-timeline-attempt",
+      "attempt": 1,
+      "opened": true
+    },
+    {
+      "step": "guard-visible",
+      "text": "このトランジション（映像トラック 1）は、並べ替えたトラックを合成する方式では書き出せません。削除するか、トラックを既定順へ戻してください。",
+      "typeButtonsDisabled": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "step": "forced-click-rejected",
+      "editByteDiff": 0,
+      "notice": "このトランジション（映像トラック 1）は、並べ替えたトラックを合成する方式では書き出せません。削除するか、トラックを既定順へ戻してください。"
+    },
+    {
+      "step": "phase-pass"
+    }
+  ]
+}
