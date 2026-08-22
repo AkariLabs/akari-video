@@ -15,7 +15,7 @@ import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { resolveInternalTrackZ, resolvePreviewItemWrite } from '@akari-video/edit-store';
+import { buildTimelineMap, resolveInternalTrackZ, resolvePreviewItemWrite, TimelineSegment } from '@akari-video/edit-store';
 import {
     AkariPreviewService,
     OverlayRuntimeAssets,
@@ -135,6 +135,81 @@ interface EditSummaryFilter {
 const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
 export const isImageLayerSrc = (src: string | undefined): boolean =>
     typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
+
+type PreviewCaptionClockDomain = 'source' | 'output' | 'legacy';
+
+interface PreviewCaptionClockInput extends PreviewCaption {
+    /** 読込層だけが扱う時刻 domain。webview へ渡す前に必ず output へ正規化する。 */
+    clockDomain: PreviewCaptionClockDomain;
+    /** 複数 source の source-domain cue を該当 cut だけへ射影するための任意 source id。 */
+    clockSourceId?: string;
+}
+
+interface OutputPreviewCaption extends PreviewCaptionClockInput {
+    clockDomain: 'output';
+}
+
+/**
+ * 字幕時計の preview-extension 内部契約。
+ *
+ * - resolved display cue は output、未解決 cue は source を既定とする。
+ * - 旧 captions.json には domain 語彙が無いため、宣言区間全体が明示 gap に収まる cue だけを
+ *   output と確定する。これにより gap 用 cue を source 秒へ誤射影せず、その他は cut map で
+ *   source -> output へ射影できる。
+ * - 戻り値は全件 clockDomain='output'。render 層は domain 判定を一切行わない。
+ */
+export const normalizePreviewCaptionClock = (
+    captions: readonly PreviewCaptionClockInput[],
+    segments: readonly TimelineSegment[]
+): OutputPreviewCaption[] => {
+    const epsilon = 0.000001;
+    const output: OutputPreviewCaption[] = [];
+    for (const caption of captions) {
+        const legacyOutputCue = caption.clockDomain === 'legacy' && segments.some(segment =>
+            segment.kind === 'gap'
+            && caption.start >= segment.outStart - epsilon
+            && caption.end <= segment.outEnd + epsilon
+        );
+        const domain = caption.clockDomain === 'legacy'
+            ? (legacyOutputCue ? 'output' : 'source')
+            : caption.clockDomain;
+        if (domain === 'output' || segments.length === 0) {
+            output.push({ ...caption, clockDomain: 'output' });
+            continue;
+        }
+        let occurrence = 0;
+        for (const segment of segments) {
+            if (segment.kind !== 'src' || segment.in === undefined || segment.out === undefined) continue;
+            if (caption.clockSourceId !== undefined && segment.src !== caption.clockSourceId) continue;
+            const sourceStart = Math.max(caption.start, segment.in);
+            const sourceEnd = Math.min(caption.end, segment.out);
+            if (!(sourceEnd - sourceStart > epsilon)) continue;
+            const speed = typeof segment.speed === 'number' && segment.speed > 0 ? segment.speed : 1;
+            const projectTime = (sourceTime: number): number =>
+                segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
+            occurrence += 1;
+            const sourceCueId = caption.sourceCueId ?? caption.id;
+            const words = caption.words?.flatMap(word => {
+                const wordStart = Math.max(word.start, sourceStart);
+                const wordEnd = Math.min(word.end, sourceEnd);
+                return wordEnd - wordStart > epsilon
+                    ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }]
+                    : [];
+            });
+            output.push({
+                ...caption,
+                ...(caption.id ? { id: `${caption.id}-output-${occurrence}` } : {}),
+                ...(sourceCueId ? { sourceCueId } : {}),
+                start: projectTime(sourceStart),
+                end: projectTime(sourceEnd),
+                ...(words && words.length > 0 ? { words } : { words: undefined }),
+                clockDomain: 'output'
+            });
+        }
+    }
+    return output.sort((left, right) => left.start - right.start || left.end - right.end);
+};
+// caption-clock-normalizer:end
 
 interface EditSummaryCut {
     /** v2 tracks[].items[].id（legacy でも内部表現が付けた安定 id）。 */
@@ -2122,7 +2197,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected queueCaptionsUpdate(widget: PreviewWidgetMarker): void {
         const previous = widget.akariPreviewCaptionsUpdate ?? Promise.resolve();
         widget.akariPreviewCaptionsUpdate = previous.then(async () => {
-            const captions = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
+            const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
+            const captions = normalizePreviewCaptionClock(
+                loaded,
+                this.previewCaptionTimelineSegments(widget.akariPreviewSummary?.cuts ?? [])
+            );
             widget.sendMessage({ type: 'akari-preview-captions-update', captions });
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
@@ -2286,6 +2365,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 widget.akariPreviewModelSnapshot = nextSnapshot;
                 widget.akariPreviewSummary = summary;
+                // cut map の変更は source-domain 字幕の output 区間も変える。モデル差分と同じ
+                // 読込で正規化した cue を先に送り、model-update 内の同期 tick が古い字幕を
+                // 1 フレーム描く余地を残さない。
+                widget.sendMessage({ type: 'akari-preview-captions-update', captions: model.captions });
                 widget.sendMessage({ type: 'akari-preview-model-update', summary });
                 this.startDeferredTelopRasters(widget, model);
                 await this.disposeAssetStreams(model.assetStreamIds);
@@ -2647,7 +2730,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetUris: [],
                     assetStreamIds: [],
                     captionsUri,
-                    captions,
+                    captions: normalizePreviewCaptionClock(captions, []),
                     emptyProject: true
                 };
             }
@@ -2927,6 +3010,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 indicators.push('ディゾルブ切り替え');
             }
             indicators.push(...unsupportedGltfWarnings);
+            const outputCaptions = normalizePreviewCaptionClock(
+                captions,
+                this.previewCaptionTimelineSegments(cuts)
+            );
             return {
                 editUri,
                 sourceUri,
@@ -2938,7 +3025,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ...(deferredTelops.length > 0 ? { deferredTelops } : {}),
                 assetUrlByUri: new Map([...assetStreams].map(([uri, stream]) => [uri, stream.url])),
                 captionsUri,
-                captions,
+                captions: outputCaptions,
                 emphasisWords,
                 summary: {
                     output: { width, height, fps: this.positiveNumber(internal.output.fps, 30) },
@@ -2971,7 +3058,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 assetUris: [],
                 assetStreamIds: [],
                 captionsUri,
-                captions: await captionsPromise
+                captions: normalizePreviewCaptionClock(await captionsPromise, [])
             };
         }
     }
@@ -3322,7 +3409,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return document.body.innerHTML;
     }
 
-    protected async loadPreviewCaptions(captionsUri: URI | undefined, editUri?: URI): Promise<PreviewCaption[]> {
+    protected previewCaptionTimelineSegments(cuts: readonly EditSummaryCut[]): TimelineSegment[] {
+        return buildTimelineMap(
+            cuts.map(cut => ({ ...cut, track: cut.renderTrack })),
+            { trackZ: track => track }
+        ).segments;
+    }
+
+    protected async loadPreviewCaptions(
+        captionsUri: URI | undefined,
+        editUri?: URI
+    ): Promise<PreviewCaptionClockInput[]> {
         if (!captionsUri) {
             return [];
         }
@@ -3332,9 +3429,45 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     captionsUri: captionsUri.toString(),
                     editUri: editUri.toString()
                 });
-                if (resolved) return parseResolvedPreviewCaptions(resolved);
+                if (resolved) {
+                    return parseResolvedPreviewCaptions(resolved).map(caption => ({
+                        ...caption,
+                        clockDomain: 'output'
+                    }));
+                }
             }
-            return parsePreviewCaptions(await this.readText(captionsUri));
+            const source = await this.readText(captionsUri);
+            const parsed = parsePreviewCaptions(source);
+            const root: unknown = JSON.parse(source);
+            const rawCaptions = Array.isArray(root)
+                ? root
+                : root && typeof root === 'object' && Array.isArray((root as { captions?: unknown }).captions)
+                    ? (root as { captions: unknown[] }).captions
+                    : [];
+            const rawById = new Map<string, Record<string, unknown>>();
+            for (const value of rawCaptions) {
+                if (value && typeof value === 'object' && !Array.isArray(value)
+                    && typeof (value as { id?: unknown }).id === 'string') {
+                    rawById.set((value as { id: string }).id, value as Record<string, unknown>);
+                }
+            }
+            return parsed.map((caption, index) => {
+                const raw = (caption.id ? rawById.get(caption.id) : undefined)
+                    ?? (rawCaptions[index] && typeof rawCaptions[index] === 'object'
+                        && !Array.isArray(rawCaptions[index])
+                        ? rawCaptions[index] as Record<string, unknown> : undefined);
+                // captions schema 自体には時刻 domain が無いため、preview 読込境界だけの最小語彙
+                // time_domain を先行受理する。未宣言データは normalizePreviewCaptionClock が
+                // cut map の明示 gap と突き合わせて legacy domain を確定する。
+                const declaredDomain = raw?.time_domain === 'source' || raw?.time_domain === 'output'
+                    ? raw.time_domain
+                    : 'legacy';
+                return {
+                    ...caption,
+                    clockDomain: declaredDomain,
+                    ...(typeof raw?.src === 'string' && raw.src ? { clockSourceId: raw.src } : {})
+                };
+            });
         } catch (error) {
             if (await this.fileService.exists(captionsUri)) {
                 console.warn(`[akari-preview] failed to load ${captionsUri.toString()}; hiding captions`, error);
@@ -6772,10 +6905,8 @@ body { display: grid; place-items: center; padding: 32px; }
             const deselectCaption = options => selectCaption(null, options);
             captionPlate.addEventListener('pointerdown', event => {
                 if (event.button !== 0) return;
-                const time = video.currentTime || 0;
                 // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
-                const resolvedTimeline = captions.some(candidate => candidate.resolvedTimeline);
-                const caption = window.AkariEditKernel.findActiveCaption(captions, resolvedTimeline ? outputTime : time);
+                const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime);
                 if (!caption || !caption.id) return;
                 event.preventDefault();
                 event.stopPropagation();
@@ -7757,13 +7888,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             const renderCaption = () => {
-                const activeSegment = segments[activeSegmentIndex];
-                const time = video.currentTime || 0;
-                const resolvedTimeline = captions.some(candidate => candidate.resolvedTimeline);
-                // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
-                const caption = (activeSegment && activeSegment.kind === 'gap')
-                    ? null
-                    : (window.AkariEditKernel.findActiveCaption(captions, resolvedTimeline ? outputTime : time) || null);
+                // captions は host 読込層で全件 output-domain へ正規化済み。gap も同じ時計で
+                // 検索し、保持された video.currentTime や active segment kind は参照しない。
+                const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime) || null;
                 if (caption !== activeCaption) {
                     activeCaption = caption;
                     applyCaptionStyleVars(caption);
@@ -7804,7 +7931,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (typeof updateCaptionSelectBox === 'function') updateCaptionSelectBox();
                 }
                 if (caption && styledCaptionActive) {
-                    const localMs = (clamp(time, caption.start, caption.end) - caption.start) * 1000;
+                    const localMs = (clamp(outputTime, caption.start, caption.end) - caption.start) * 1000;
                     for (const animation of captionPlate.getAnimations({ subtree: true })) {
                         animation.pause();
                         animation.currentTime = localMs;
