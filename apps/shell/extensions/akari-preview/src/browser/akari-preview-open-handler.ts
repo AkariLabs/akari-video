@@ -4043,7 +4043,6 @@ ${captionFontFaceCss(assets.captionFontDataUri)}
   color-scheme: light dark;
   font-family: "${CAPTION_FONT_FAMILY}", sans-serif;
   --akari-preview-pasteboard: #2b2d30;
-  --akari-preview-canvas-edge: rgba(255,255,255,0.42);
 }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #141414; color: #eee; }
@@ -4051,12 +4050,13 @@ body.vscode-dark, body.vscode-high-contrast { color-scheme: dark; }
 body.vscode-light {
   color-scheme: light;
   --akari-preview-pasteboard: #d5d7da;
-  --akari-preview-canvas-edge: rgba(0,0,0,0.52);
 }
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.preview-pane { min-width: 0; min-height: 0; padding: 16px; display: grid; place-items: center; background: var(--akari-preview-pasteboard); }
-#preview-wrapper { position: relative; width: 100%; max-height: 100%; aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; box-shadow: 0 0 0 1px var(--akari-preview-canvas-edge); }
+.preview-pane { min-width: 0; min-height: 0; padding: 16px; display: grid; place-items: center; container-type: size; background: var(--akari-preview-pasteboard); }
+/* 黒い箱そのものを output 比で可用領域へ contain する。100cqw/cqh は padding を除いた
+   .preview-pane の content box なので、横長・縦長どちらでも外側は台紙のまま残る。 */
+#preview-wrapper { position: relative; width: min(100cqw, calc(100cqh * ${width} / ${height})); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
 #preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
 #preview-wrapper.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
@@ -4317,10 +4317,9 @@ body { display: grid; place-items: center; padding: 32px; }
             let perspectiveVisualWarned = false;
             let sequence = 0;
             let displayScale = 1;
-            // frameScale: 出力キャンバス(output.width/height)を wrapper 内の出力フレーム矩形へ
-            // 写像する CSS px / 出力 px 比。wrapper は利用可能領域によって出力アスペクト比より横長に
-            // なるため、wrapper 全体を出力フレームとして扱わない。base/layers/captions/overlays は
-            // 同じ出力フレーム矩形、#pen-layer はその中の実映像矩形へ写像する。
+            // frameScale: 出力キャンバス(output.width/height)を output 比そのものの wrapper へ
+            // 写像する CSS px / 出力 px 比。base/layers/captions/overlays は同じキャンバス矩形、
+            // #pen-layer はその中の実映像矩形へ写像する。
             let frameScale = 1;
             let lastPlaybackTickAt = -Infinity;
             const wrapper = document.getElementById('preview-wrapper');
@@ -4838,16 +4837,16 @@ body { display: grid; place-items: center; padding: 32px; }
             });
 
             const fitCompositeRect = (${fitPreviewCompositeRect.toString()});
-            const computeOutputFrameRect = () => fitCompositeRect(
-                wrapper.clientWidth,
-                wrapper.clientHeight,
-                Number(output.width || 1280),
-                Number(output.height || 720)
-            );
+            const computeOutputFrameRect = () => {
+                // #preview-wrapper 自身が output 比のキャンバス箱。getBoundingClientRect() の
+                // sub-pixel 寸法を使い、内側へ二重の letterbox を作らない。
+                const wrapperRect = wrapper.getBoundingClientRect();
+                return { x: 0, y: 0, width: wrapperRect.width, height: wrapperRect.height };
+            };
             const computeContentRect = () => {
                 const frameRect = computeOutputFrameRect();
-                const boxWidth = wrapper.clientWidth;
-                const boxHeight = wrapper.clientHeight;
+                const boxWidth = frameRect.width;
+                const boxHeight = frameRect.height;
                 const videoWidth = video.videoWidth;
                 const videoHeight = video.videoHeight;
                 if (!(boxWidth > 0) || !(boxHeight > 0) || !(videoWidth > 0) || !(videoHeight > 0)) {
