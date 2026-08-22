@@ -20,6 +20,8 @@ import {
     AppendReviewSessionStrokeRequest,
     EndReviewSessionRequest,
     ListReviewSessionsRequest,
+    ReadReviewSessionStrokesRequest,
+    ReadReviewSessionStrokesResult,
     ReviewSessionSummary,
     ReviewStroke,
     StartReviewSessionRequest,
@@ -184,6 +186,70 @@ export class ReviewSessionWriter {
             return x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= 1 && y + h <= 1;
         }
         return false;
+    }
+
+    async readStrokes(request: ReadReviewSessionStrokesRequest): Promise<ReadReviewSessionStrokesResult> {
+        const projectRoot = await this.resolveProjectRoot(request?.projectRootUri);
+        if (typeof request?.sessionId !== 'string' || !SESSION_DIRECTORY_PATTERN.test(request.sessionId)) {
+            throw new Error('Invalid review session id');
+        }
+        const sessionDirectory = join(projectRoot, 'review', 'sessions', request.sessionId);
+        const normalized = resolve(sessionDirectory);
+        if (!this.contains(projectRoot, normalized)) {
+            throw new Error('The review session must be inside the current workspace');
+        }
+        const strokesPath = join(sessionDirectory, 'strokes.json');
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(await readFile(strokesPath, 'utf8'));
+        } catch (error) {
+            if ((error as { code?: string }).code === 'ENOENT') {
+                return { sessionId: request.sessionId, strokes: [], warnings: [] };
+            }
+            return {
+                sessionId: request.sessionId,
+                strokes: [],
+                warnings: ['strokes.json を読み取れないため描線なしとして扱いました。']
+            };
+        }
+
+        const warnings: string[] = [];
+        let candidates: unknown[];
+        if (Array.isArray(parsed)) {
+            candidates = parsed;
+            warnings.push('旧形式（配列ルート）の strokes.json を互換読み込みしました。');
+        } else if (parsed && typeof parsed === 'object'
+            && Array.isArray((parsed as { strokes?: unknown }).strokes)) {
+            candidates = (parsed as { strokes: unknown[] }).strokes;
+            if ((parsed as { version?: unknown }).version !== 1) {
+                warnings.push('旧形式（version 1 以外）の strokes.json を互換読み込みしました。');
+            }
+        } else {
+            return {
+                sessionId: request.sessionId,
+                strokes: [],
+                warnings: ['strokes.json の形式を認識できないため描線なしとして扱いました。']
+            };
+        }
+
+        const strokes: ReviewStroke[] = [];
+        for (const [index, candidate] of candidates.entries()) {
+            const stroke = candidate as ReviewStroke;
+            if (!stroke || !/^st-\d{4,}$/.test(stroke.id)
+                || stroke.space !== 'content-rect'
+                || !Number.isFinite(stroke.recTStart) || stroke.recTStart < 0
+                || !Number.isFinite(stroke.recTEnd) || stroke.recTEnd < stroke.recTStart
+                || !Number.isFinite(stroke.frame?.timelineT)
+                || !Number.isFinite(stroke.frame?.sourceT)
+                || (stroke.frame?.cutIndex !== null
+                    && (!Number.isInteger(stroke.frame?.cutIndex) || stroke.frame.cutIndex < 0))
+                || !this.isValidStrokeShape(stroke)) {
+                warnings.push(`strokes[${index}] は不正なため再表示から除外しました。`);
+                continue;
+            }
+            strokes.push(stroke);
+        }
+        return { sessionId: request.sessionId, strokes, warnings };
     }
 
     async end(request: EndReviewSessionRequest): Promise<void> {

@@ -168,6 +168,54 @@ test('accepts a rect stroke (tool: rect, box: [x,y,w,h]) into the same strokes.j
     assert.deepEqual(stored, { version: 1, strokes: [stroke] });
 });
 
+test('reads existing pen/rect strokes with their recT target and unchanged normalized geometry', async () => {
+    const { root, writer, request } = await fixture();
+    const started = await writer.start(request);
+    const pen = {
+        id: 'st-0001', tool: 'pen', space: 'content-rect', recTStart: 1, recTEnd: 2,
+        frame: { timelineT: 12.4, sourceT: 42.5, cutIndex: 3 },
+        points: [[0.1, 0.2], [0.9, 0.8]]
+    };
+    const rect = {
+        id: 'st-0002', tool: 'rect', space: 'content-rect', recTStart: 3, recTEnd: 4,
+        frame: { timelineT: 12.4, sourceT: 42.5, cutIndex: 3 },
+        box: [0.2, 0.3, 0.4, 0.5]
+    };
+    await writer.appendStroke({ sessionDir: started.sessionDir, stroke: pen });
+    await writer.appendStroke({ sessionDir: started.sessionDir, stroke: rect });
+    const read = await writer.readStrokes({
+        projectRootUri: pathToFileURL(root).toString(), sessionId: started.id
+    });
+    assert.deepEqual(read, { sessionId: started.id, strokes: [pen, rect], warnings: [] });
+});
+
+test('missing, legacy, and partially damaged strokes.json degrade without throwing', async () => {
+    const { root, writer, request } = await fixture();
+    const missing = await writer.start(request);
+    assert.deepEqual(await writer.readStrokes({
+        projectRootUri: pathToFileURL(root).toString(), sessionId: missing.id
+    }), { sessionId: missing.id, strokes: [], warnings: [] });
+
+    const legacy = await writer.start(request);
+    const valid = {
+        id: 'st-0001', tool: 'pen', space: 'content-rect', recTStart: 1, recTEnd: 2,
+        frame: { timelineT: 0, sourceT: 0, cutIndex: null }, points: [[0, 0], [1, 1]]
+    };
+    await writeFile(new URL('strokes.json', `${legacy.sessionDir}/`), JSON.stringify([valid, { bad: true }]));
+    const legacyRead = await writer.readStrokes({
+        projectRootUri: pathToFileURL(root).toString(), sessionId: legacy.id
+    });
+    assert.deepEqual(legacyRead.strokes, [valid]);
+    assert.equal(legacyRead.warnings.length, 2);
+
+    await writeFile(new URL('strokes.json', `${legacy.sessionDir}/`), '{broken');
+    const damaged = await writer.readStrokes({
+        projectRootUri: pathToFileURL(root).toString(), sessionId: legacy.id
+    });
+    assert.deepEqual(damaged.strokes, []);
+    assert.equal(damaged.warnings.length, 1);
+});
+
 test('rejects a rect stroke whose box violates x+w<=1 / y+h<=1, or has a non-positive dimension', async () => {
     const { writer, request } = await fixture();
     const started = await writer.start(request);

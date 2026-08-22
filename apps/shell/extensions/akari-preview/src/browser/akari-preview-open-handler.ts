@@ -56,7 +56,7 @@ import {
     LayerCropSummary,
     LayerPerspectiveSummary
 } from '../common/edit-summary-fields';
-import { PEN_TUNING } from '../common/pen-canvas-visuals';
+import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
 import { classifyPreviewModelUpdate } from '../common/preview-model-diff';
@@ -769,6 +769,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
     protected readonly reviewSessionStateByEdit = new Map<string, ReviewSessionUiState>();
+    protected readonly reviewStrokeVisibilityByEdit = new Map<string, boolean>();
     protected retryWidgetSequence = 0;
     protected activeRawPreviewWidget: PreviewWidgetMarker | undefined;
     protected rawPreviewActivation = 0;
@@ -801,7 +802,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.reviewSessionRecordingIndicator = new ReviewSessionRecordingIndicator();
         this.reviewSessionRecorder = new ReviewSessionRecorder(
             this.previewService,
-            state => this.forwardReviewSessionState(state)
+            state => {
+                this.forwardReviewSessionState(state);
+                queueMicrotask(() => this.syncReviewStrokeControls(state));
+            }
         );
         this.widgetManager.onDidCreateWidget(event => {
             if (event.factoryId !== WebviewWidget.FACTORY_ID || !(event.widget instanceof WebviewWidget)) {
@@ -1264,7 +1268,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.sendMessage({ type: 'akari-preview-seek', time: compositionSeconds });
         widget.sendMessage({
             type: 'akari-preview-show-annotation-strokes',
-            points: detail.strokes.map(stroke => stroke.points)
+            strokes: detail.strokes
         });
     }
 
@@ -1329,6 +1333,97 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
+    /**
+     * The annotation panel is owned by the sibling annotations extension. This task's file boundary
+     * deliberately excludes it, so the preview extension installs an additive control into the
+     * panel's stable data-* slots at runtime. Re-rendered session rows are decorated idempotently.
+     */
+    protected syncReviewStrokeControls(state: ReviewSessionUiState): void {
+        const editUri = this.normalizeReviewEditUri(state.editUri);
+        const panel = document.querySelector<HTMLElement>('[data-akari-ui="panel:review"]');
+        const section = panel?.querySelector<HTMLElement>('[data-review-recording-section]');
+        if (!editUri || !section) return;
+
+        let label = section.querySelector<HTMLLabelElement>('[data-review-stroke-visibility]');
+        if (!label) {
+            label = document.createElement('label');
+            label.setAttribute('data-review-stroke-visibility', '');
+            Object.assign(label.style, {
+                display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer'
+            });
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.setAttribute('aria-label', '注釈描線を表示');
+            const text = document.createElement('span');
+            text.textContent = '描線を表示';
+            label.append(input, text);
+            const sessionList = section.querySelector('[data-review-session]')?.parentElement;
+            section.insertBefore(label, sessionList ?? null);
+        }
+        const input = label.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+        input.checked = this.reviewStrokeVisibilityByEdit.get(editUri) ?? true;
+        input.onchange = () => this.setReviewStrokeVisibility(editUri!, input.checked);
+
+        for (const row of Array.from(section.querySelectorAll<HTMLElement>('[data-review-session]'))) {
+            const sessionId = row.getAttribute('data-review-session');
+            if (!sessionId || row.querySelector('[data-review-session-strokes]')) continue;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'theia-button secondary';
+            button.textContent = '描線';
+            button.title = `${sessionId} の保存済み描線を再表示`;
+            button.setAttribute('data-review-session-strokes', sessionId);
+            button.addEventListener('click', () => void this.showReviewSessionStrokes(state, sessionId));
+            row.style.gridTemplateColumns = 'auto minmax(0, 1fr) auto auto';
+            row.appendChild(button);
+        }
+    }
+
+    protected setReviewStrokeVisibility(editUri: string, visible: boolean): void {
+        this.reviewStrokeVisibilityByEdit.set(editUri, visible);
+        for (const widget of [...this.openOutputPreviews.values(), ...this.openPreviews.values()]) {
+            if (this.reviewEditUriForPreview(widget) === editUri && widget.isAttached) {
+                widget.sendMessage({ type: 'akari-preview-set-stroke-visibility', visible });
+            }
+        }
+    }
+
+    protected async showReviewSessionStrokes(state: ReviewSessionUiState, sessionId: string): Promise<void> {
+        const editUri = this.normalizeReviewEditUri(state.editUri);
+        if (!editUri) return;
+        const replay = await this.previewService.readReviewSessionStrokes({
+            projectRootUri: state.projectRootUri,
+            sessionId
+        });
+        const strokes = normalizePersistentStrokeItems(replay.strokes);
+        if (strokes.length === 0) {
+            this.messages.info(`${sessionId} に再表示できる描線はありません。`);
+            return;
+        }
+        const visibility = await this.ensureVisible(editUri);
+        const widget = this.openOutputPreviews.get(editUri);
+        if (visibility === 'unavailable' || !widget?.isAttached) return;
+        const first = replay.strokes[0];
+        let compositionSeconds = first.frame.sourceT;
+        try {
+            const model = await this.loadPreviewModel(new URI(editUri));
+            compositionSeconds = resolveAnnotationStrokeCompositionSeconds(
+                model.summary.cuts, first.frame.sourceT, first.frame.cutIndex
+            );
+        } catch {
+            // Keep the source-seconds fallback for old snapshots and partially repaired projects.
+        }
+        this.setReviewStrokeVisibility(editUri, true);
+        this.syncReviewStrokeControls(state);
+        widget.sendMessage({ type: 'akari-preview-seek', time: compositionSeconds });
+        widget.sendMessage({
+            type: 'akari-preview-show-session-strokes',
+            sessionId,
+            target: { tab: editUri, recT: first.recTStart },
+            strokes: replay.strokes
+        });
+    }
+
     protected reviewEditUriForPreview(widget: PreviewWidgetMarker): string | undefined {
         return resolveReviewPreviewEditUri({
             editUri: widget.akariPreviewEditUri?.normalizePath().toString(),
@@ -1349,6 +1444,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             type: 'akari-preview-set-review-recording',
             active: state.active,
             mode: state.toolMode
+        });
+        widget.sendMessage({
+            type: 'akari-preview-set-stroke-visibility',
+            visible: this.reviewStrokeVisibilityByEdit.get(stateEditUri) ?? true
         });
     }
 
@@ -5039,6 +5138,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // できず、値を JSON として埋め込む形でのみ共有できる（統合点調査・report.md 参照）。
             // 実際の描画ロジック（グロー/スパークル/フェード）はここに残したまま無変更。
             const PEN_TUNING = ${JSON.stringify(PEN_TUNING)};
+            const normalizePersistentStrokeItemsFn = (${normalizePersistentStrokeItems.toString()});
             // task.md 指示4 (rect tool): normalized drag -> [x,y,w,h] box, same shape as
             // review.json's region.box (../common/rect-tool-visual.ts).
             const normalizeRectFromPointsFn = (${normalizeRectFromPoints.toString()});
@@ -5192,7 +5292,9 @@ body { display: grid; place-items: center; padding: 32px; }
             let currentRect = null;
             let fadingStrokes = [];
             let sparkles = [];
-            let lastStaticStrokePoints = null;
+            let annotationStrokeItems = [];
+            let persistentStrokeItems = [];
+            let persistentStrokesVisible = true;
             let activeDrawRect = null;
             let penCanvasWidth = 0;
             let penCanvasHeight = 0;
@@ -5317,6 +5419,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 ctx.strokeRect(x, y, w, h);
                 ctx.restore();
             };
+            const paintStaticItem = item => {
+                if (!staticBitmap) return;
+                if (item.tool === 'rect') drawRectShape(staticBitmap.ctx, item.box);
+                else paintStaticStroke(item.points);
+            };
+            const redrawStaticBitmap = () => {
+                if (!staticBitmap) return;
+                staticBitmap.ctx.clearRect(0, 0, penCanvasWidth, penCanvasHeight);
+                if (!persistentStrokesVisible) return;
+                for (const item of persistentStrokeItems) paintStaticItem(item);
+                for (const item of annotationStrokeItems) paintStaticItem(item);
+            };
             const redrawRectFull = rect => {
                 rect.canvas.width = Math.max(1, Math.round(penCanvasWidth * penCanvasDpr));
                 rect.canvas.height = Math.max(1, Math.round(penCanvasHeight * penCanvasDpr));
@@ -5339,9 +5453,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 penCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 rebuildPlatinumGradient();
                 staticBitmap = allocPenCanvas();
-                if (Array.isArray(lastStaticStrokePoints)) {
-                    for (const points of lastStaticStrokePoints) paintStaticStroke(points);
-                }
+                redrawStaticBitmap();
                 if (currentStroke) redrawStrokeFull(currentStroke);
                 if (currentRect) redrawRectFull(currentRect);
                 for (const fading of fadingStrokes) redrawFadingFull(fading);
@@ -5421,8 +5533,8 @@ body { display: grid; place-items: center; padding: 32px; }
             new ResizeObserver(resizePenCanvases).observe(penLayer);
             resizePenCanvases();
             const clearStaticAnnotationStrokes = () => {
-                lastStaticStrokePoints = null;
-                if (staticBitmap) staticBitmap.ctx.clearRect(0, 0, penCanvasWidth, penCanvasHeight);
+                annotationStrokeItems = [];
+                redrawStaticBitmap();
                 recomposite();
             };
             const setPenModeActive = active => {
@@ -5477,19 +5589,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 const bitmap = allocPenCanvas();
                 return { kind: 'pen', pointerId, points: [firstPoint], drawnIndex: 0, canvas: bitmap.canvas, ctx: bitmap.ctx };
             };
-            const showStaticAnnotationStrokes = strokeSets => {
-                clearStaticAnnotationStrokes();
-                if (!Array.isArray(strokeSets)) return;
-                const valid = [];
-                for (const points of strokeSets) {
-                    if (!Array.isArray(points) || points.length < 2) continue;
-                    const filtered = points.filter(point => Array.isArray(point) && point.length === 2
-                        && Number.isFinite(point[0]) && Number.isFinite(point[1]));
-                    if (filtered.length < 2) continue;
-                    valid.push(filtered);
-                    paintStaticStroke(filtered);
-                }
-                lastStaticStrokePoints = valid.length > 0 ? valid : null;
+            const showStaticAnnotationStrokes = strokes => {
+                annotationStrokeItems = normalizePersistentStrokeItemsFn(strokes);
+                redrawStaticBitmap();
+                recomposite();
+            };
+            const showPersistentSessionStrokes = message => {
+                persistentStrokeItems = normalizePersistentStrokeItemsFn(message.strokes);
+                penLayer.dataset.akariStrokeSession = typeof message.sessionId === 'string' ? message.sessionId : '';
+                penLayer.dataset.akariStrokeTargetTab = typeof message.target?.tab === 'string' ? message.target.tab : '';
+                penLayer.dataset.akariStrokeTargetRecT = Number.isFinite(message.target?.recT)
+                    ? String(message.target.recT) : '';
+                redrawStaticBitmap();
                 recomposite();
             };
             const canDraw = () => penModeActive && reviewRecordingActive && !isPlaying;
@@ -5566,6 +5677,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (completed.points.length < 2) return;
                 window.akari.reviewStrokeEnd(completed.points);
+                persistentStrokeItems.push({ tool: 'pen', points: completed.points });
+                redrawStaticBitmap();
                 completed.fadeStartedAt = performance.now();
                 fadingStrokes.push(completed);
                 ensurePenLoopRunning();
@@ -5580,6 +5693,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 if (completed.box[2] <= 0 || completed.box[3] <= 0) return;
                 window.akari.reviewRectEnd(completed.box);
+                persistentStrokeItems.push({ tool: 'rect', box: completed.box });
+                redrawStaticBitmap();
                 completed.fadeStartedAt = performance.now();
                 fadingStrokes.push(completed);
                 ensurePenLoopRunning();
@@ -8754,7 +8869,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 const message = event.data;
                 if (message && message.type === 'akari-preview-set-review-recording'
                     && typeof message.active === 'boolean') {
+                    const wasRecordingActive = reviewRecordingActive;
                     reviewRecordingActive = message.active;
+                    if (reviewRecordingActive && !wasRecordingActive) {
+                        persistentStrokeItems = [];
+                        annotationStrokeItems = [];
+                        penLayer.dataset.akariStrokeSession = '';
+                        redrawStaticBitmap();
+                        recomposite();
+                    }
                     penToggle.hidden = !reviewRecordingActive;
                     if (!reviewRecordingActive) {
                         abortCurrentStroke();
@@ -8769,7 +8892,23 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 if (message && message.type === 'akari-preview-show-annotation-strokes') {
-                    showStaticAnnotationStrokes(message.points);
+                    const strokes = Array.isArray(message.strokes)
+                        ? message.strokes
+                        : (Array.isArray(message.points)
+                            ? message.points.map(points => ({ tool: 'pen', points })) : []);
+                    showStaticAnnotationStrokes(strokes);
+                    return;
+                }
+                if (message && message.type === 'akari-preview-show-session-strokes') {
+                    showPersistentSessionStrokes(message);
+                    return;
+                }
+                if (message && message.type === 'akari-preview-set-stroke-visibility'
+                    && typeof message.visible === 'boolean') {
+                    persistentStrokesVisible = message.visible;
+                    penLayer.dataset.akariPersistentVisible = String(persistentStrokesVisible);
+                    redrawStaticBitmap();
+                    recomposite();
                     return;
                 }
                 if (message && message.type === 'akari-preview-captions-update') {

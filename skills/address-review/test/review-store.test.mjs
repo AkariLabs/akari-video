@@ -181,6 +181,12 @@ test("CLI list --ids は明示指定なら [要確認] も対象にする", asyn
   assert.deepEqual(result.notFound, []);
 });
 
+test("CLI list は annotation から元 strokes.json の再表示参照へ到達できる", async (context) => {
+  const projectRoot = await withTempProject(context);
+  const { stdout } = await execFileAsync(process.execPath, [listCli, projectRoot, "--ids", "a-0002"]);
+  assert.match(stdout, /stroke replay: review\/sessions\/s-0001\/strokes\.json#st-0001/);
+});
+
 test("CLI respond は成功時 exit 0、ガード拒否時 exit 1 を返す", async (context) => {
   const projectRoot = await withTempProject(context);
   const ok = await execFileAsync(process.execPath, [

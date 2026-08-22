@@ -25,6 +25,8 @@ import {
     OverlayRuntimeAssets,
     ProbeAudioPresenceRequest,
     ProbeAudioPresenceResult,
+    ReadReviewSessionStrokesRequest,
+    ReadReviewSessionStrokesResult,
     PrepareLegacyEditRequest,
     PrepareLegacyEditResult,
     ResolveHevcProxyRequest,
@@ -399,6 +401,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
 
     async appendReviewSessionStroke(request: AppendReviewSessionStrokeRequest): Promise<void> {
         await this.reviewSessionWriter.appendStroke(request);
+    }
+
+    async readReviewSessionStrokes(request: ReadReviewSessionStrokesRequest): Promise<ReadReviewSessionStrokesResult> {
+        return this.reviewSessionWriter.readStrokes(request);
     }
 
     async endReviewSession(request: EndReviewSessionRequest): Promise<void> {

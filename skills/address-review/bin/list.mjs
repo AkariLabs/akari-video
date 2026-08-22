@@ -69,6 +69,16 @@ function describeStrokes(strokes) {
   return `strokes ${strokes.length} 件${refs.length ? ` (${refs.join(", ")})` : ""}`;
 }
 
+function describeStrokeRefs(strokeRefs) {
+  if (!Array.isArray(strokeRefs) || strokeRefs.length === 0) return null;
+  const refs = strokeRefs.map((reference) => reference?.sessionRef
+    ?? (reference?.sessionId && reference?.strokeId
+      ? `${reference.sessionId}/${reference.strokeId}` : null)).filter(Boolean);
+  return refs.length > 0
+    ? `stroke replay: ${refs.map((reference) => `review/sessions/${reference.split('/')[0]}/strokes.json#${reference.split('/')[1]}`).join(', ')}`
+    : null;
+}
+
 function formatAnnotation(value) {
   const target = value.target ?? value.targetKind ?? "(なし)";
   const lines = [
@@ -82,6 +92,8 @@ function formatAnnotation(value) {
   if (sessionLine) lines.push(`  ${sessionLine}`);
   const strokesLine = describeStrokes(value.strokes);
   if (strokesLine) lines.push(`  ${strokesLine}`);
+  const strokeRefsLine = describeStrokeRefs(value.strokeRefs);
+  if (strokeRefsLine) lines.push(`  ${strokeRefsLine}`);
   if (value.audio) lines.push(`  audio: ${value.audio}`);
   if (value.response) {
     lines.push(

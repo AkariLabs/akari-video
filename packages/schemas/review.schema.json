@@ -98,6 +98,17 @@
       ],
       "$comment": "review セッション契約 §4.2 の annotation 着地型（tool:pen 固定・space で判別）。"
     },
+    "strokeReference": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["sessionId", "strokeId"],
+      "properties": {
+        "sessionId": { "type": "string", "pattern": "^s-[0-9]{4,}$" },
+        "strokeId": { "type": "string", "pattern": "^st-[0-9]{4,}$" },
+        "sessionRef": { "$ref": "#/$defs/nonEmptyString" }
+      },
+      "$comment": "review/sessions/<sessionId>/strokes.json 内の原本ストローク参照。pen/rect 共通で、strokes の点列埋め込みとは独立した追加フィールド。"
+    },
     "refItem": {
       "oneOf": [
         {
@@ -190,6 +201,13 @@
             { "type": "array", "items": { "$ref": "#/$defs/stroke" }, "minItems": 1 }
           ],
           "$comment": "review セッション契約 §4.2 で確定した着地型（tool/space/points 等を持つオブジェクト配列）。region.box と両方非 null の場合は region.box が勝つ（warning）。"
+        },
+        "strokeRefs": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "array", "items": { "$ref": "#/$defs/strokeReference" }, "minItems": 1 }
+          ],
+          "$comment": "セッション原本への追加的な参照。欠落/null は従来データとして正常。"
         },
         "refs": {
           "oneOf": [
