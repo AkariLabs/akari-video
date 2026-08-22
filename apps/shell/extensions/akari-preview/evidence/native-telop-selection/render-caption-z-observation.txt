@@ -1,0 +1,24 @@
+render-cut caption z observation
+
+Input shape:
+- captions.json has an active cue at output 1.000 s.
+- captions track is not declared.
+- normalized visual order is layers -> cuts, so the non-default track-stack path is mandatory.
+- media-only sources preserve the z dispatch while avoiding unrelated browser rasterization.
+
+Commands:
+  node packages/render-cut/bin/render-cut.mjs <FIXTURE_PROJECT> --plan-only --force
+  node packages/render-cut/bin/render-cut.mjs <FIXTURE_PROJECT> --out exports/caption-z-observe.mp4 --force --quality light --progress
+  ffmpeg -hide_banner -loglevel error -y -ss 1.0 -i <FIXTURE_PROJECT>/exports/caption-z-observe.mp4 -frames:v 1 <EVIDENCE_DIR>/render-1s.png
+
+Observed:
+- plan-only: exit 0, predicted duration 6 s.
+- track_stack stage kinds: layers, cuts. No captions stage was planned.
+- render: exit 0, PASS, verified duration 6.000000 s.
+- frame at 1.000 s: the active caption text is absent; the lower caption region contains source pixels only.
+
+Conclusion:
+- Timeline: implied caption lane is topmost.
+- Preview: implied caption lane is topmost.
+- render-cut: caption is omitted on this undeclared-caption + non-default-track-order path.
+- The three surfaces do not agree. The renderer needs the same implied top caption-track rule, but renderer changes are outside this task's file boundary.

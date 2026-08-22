@@ -149,8 +149,10 @@ window.akari.stageScale = () => 1;
 window.akari.engine = {
   overlayWrite(editPath, overlayId, patch) {
     console.log("[stub-host] overlayWrite", { editPath, overlayId, patch });
+    window.__akariOverlayWrites.push({ editPath, overlayId, patch });
     return Promise.resolve({ ok: true, stub: true });
   },
 };
 
+window.__akariOverlayWrites = [];
 window.__akariTestHarness = { summary: STUB_SUMMARY };
