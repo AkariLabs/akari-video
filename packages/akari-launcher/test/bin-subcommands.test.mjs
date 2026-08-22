@@ -1,11 +1,35 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
+import { readOwnVersion } from '../src/update-check.mjs';
+
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const bin = join(packageRoot, 'bin', 'akari.mjs');
+
+test('bin/akari.mjs: --version は1行目の CLI 版を維持し、本体版とずれを追加行で表示する', async () => {
+  const akariHome = await mkdtemp(join(tmpdir(), 'akari-version-command-'));
+  try {
+    await mkdir(join(akariHome, 'app'), { recursive: true });
+    await writeFile(join(akariHome, 'app', '.akari-install-ref'), 'v0.1.11\n', 'utf8');
+    const result = spawnSync(process.execPath, [bin, '--version'], {
+      encoding: 'utf8',
+      env: { ...process.env, AKARI_HOME: akariHome }
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const lines = result.stdout.trim().split('\n');
+    assert.equal(lines[0], `v${readOwnVersion()}`, '既存の機械観測契約として1行目は CLI 版だけ');
+    assert.ok(lines.includes(`CLI バージョン: v${readOwnVersion()}`));
+    assert.ok(lines.includes('本体バージョン: v0.1.11（更新判定の基準）'));
+    assert.ok(lines.some((line) => line.includes('本体が古い')));
+  } finally {
+    await rm(akariHome, { recursive: true, force: true });
+  }
+});
 
 for (const [name, args, expected] of [
   ['new', ['new', '--help'], 'akari new <target-dir>'],

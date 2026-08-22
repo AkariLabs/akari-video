@@ -11,14 +11,19 @@ import { runCapabilityCommand } from '../src/capability-command.mjs';
 import { runStoreCommand } from '../src/store-command.mjs';
 import { runAssetsCommand } from '../src/assets-command.mjs';
 import { runMigrateCommand } from '../src/migrate-command.mjs';
-import { maybeApplyPendingUpdateOnLaunch, readOwnVersion } from '../src/update-check.mjs';
-import { describeCliHelp } from '../src/messages.mjs';
+import { maybeApplyPendingUpdateOnLaunch, resolveInstalledVersionInfo } from '../src/update-check.mjs';
+import { describeCliHelp, describeInstalledVersions } from '../src/messages.mjs';
 
 // `akari --version` / `-v`: インストール済みの版を表示するだけの最小コマンド
 // （タスク契約 2026-08-11-update-u4-cli-self-update の受け入れ条件 —
 // `akari update` / `--rollback` 後にインストール先の版を観測する手段として必要）。
 async function printVersion() {
-  console.log(`v${readOwnVersion()}`);
+  const versionInfo = resolveInstalledVersionInfo({ env: process.env });
+  // 1 行目は update / rollback の既存機械観測契約として CLI 版だけを維持する。
+  console.log(`v${versionInfo.cliVersion}`);
+  for (const line of describeInstalledVersions(versionInfo)) {
+    console.log(line);
+  }
   return { exitCode: 0 };
 }
 

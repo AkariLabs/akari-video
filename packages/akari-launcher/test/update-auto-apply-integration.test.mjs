@@ -165,7 +165,7 @@ async function stageForNextLaunch(env, appDir, feed) {
 serverTest('U5 一気通貫: 1 回目の起動で裏 staging が完了し、2 回目の起動（akari --version）で新版に切り替わる。成功通知も出る', async () => {
   await withScratchHome(async (env) => {
     const appDir = await seedOldApp(env, '0.1.0');
-    assert.equal(akariVersionOf(appDir, env).trim(), 'v0.1.0');
+    assert.match(akariVersionOf(appDir, env), /^v0\.1\.0$/m);
 
     const tarball = await buildAppTarball({ version: '0.2.0' });
     const expectedSha = sha256(tarball);
@@ -246,7 +246,7 @@ serverTest('U5: AKARI_NO_AUTO_UPDATE=1 では 1 回目の起動で staging が�
 
       const versionOutput = akariVersionOf(appDir, optOutEnv);
       assert.ok(!versionOutput.includes('に更新しました'));
-      assert.equal(versionOutput.trim(), 'v0.1.0', 'opt-out では適用もされないこと');
+      assert.match(versionOutput, /^v0\.1\.0$/m, 'opt-out では適用もされないこと');
     });
   });
 });
@@ -276,7 +276,7 @@ serverTest('U5: staging の tarball が改竄されていれば staged が記録
 
       const versionOutput = akariVersionOf(appDir, env);
       assert.ok(!versionOutput.includes('に更新しました'));
-      assert.equal(versionOutput.trim(), 'v0.1.0', '検証 NG のときは適用されず app が不変のこと');
+      assert.match(versionOutput, /^v0\.1\.0$/m, '検証 NG のときは適用されず app が不変のこと');
     });
   });
 });

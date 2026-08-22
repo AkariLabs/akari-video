@@ -90,6 +90,14 @@ export function describeVersionStatus(versionOrInfo, cache) {
 
 export function describeInstalledVersions(versionOrInfo) {
   const info = normalizeVersionInfo(versionOrInfo);
+  if (info.installRefNeedsRepair) {
+    const installRefPath = info.installRefPath ?? '~/.akari/app/.akari-install-ref';
+    return [
+      `CLI バージョン: v${info.cliVersion}`,
+      `本体版を判定できません（\`${installRefPath}\` が壊れています）。`,
+      '修復するには `akari update --force` を実行してください。'
+    ];
+  }
   if (!info.appVersion) {
     return [
       `現在のバージョン: v${info.currentVersion}`,
@@ -104,6 +112,13 @@ export function describeInstalledVersions(versionOrInfo) {
   return lines;
 }
 
+export function describeForceReinstall(versionOrInfo, targetVersion) {
+  const info = normalizeVersionInfo(versionOrInfo);
+  return info.installRefNeedsRepair
+    ? `--force: 版を判定できない本体 → v${targetVersion} を入れ直します。`
+    : `--force: 本体 v${info.currentVersion} → v${targetVersion} を入れ直します。`;
+}
+
 function normalizeVersionInfo(value) {
   if (typeof value === 'string') {
     return { cliVersion: value, appVersion: null, currentVersion: value, mismatch: false };
@@ -112,11 +127,15 @@ function normalizeVersionInfo(value) {
 }
 
 function versionRelationLabel(info) {
-  return compareVersions(info.appVersion, info.cliVersion) < 0 ? '本体が古い' : 'CLI と本体の版が不一致';
+  return compareVersions(info.appVersion, info.cliVersion) < 0 ? '本体が古い' : 'CLI が古い';
 }
 
 function formatVersionMismatch(info) {
-  return `⚠ CLI v${info.cliVersion} / 本体 v${info.appVersion} → ${versionRelationLabel(info)}。\`akari update\` で本体を更新してください。`;
+  const relation = versionRelationLabel(info);
+  const guidance = relation === '本体が古い'
+    ? '`akari update` で本体を更新してください。'
+    : '`npm i -g akari-video@latest` で CLI を更新してください。';
+  return `⚠ CLI v${info.cliVersion} / 本体 v${info.appVersion} → ${relation}。${guidance}`;
 }
 
 /**
@@ -166,6 +185,11 @@ export function describeUpdateCommand({ currentVersion, versionInfo, cache, dism
   lines.push(`最新バージョン: v${feed.product}${channelSuffix(feed.channel)}`);
   if (feed.notes_url) {
     lines.push(`リリースノート: ${feed.notes_url}`);
+  }
+
+  if (info.installRefNeedsRepair) {
+    lines.push('本体版を判定できないため、更新判定を行いません。');
+    return lines;
   }
 
   if (compareVersions(feed.product, info.currentVersion) <= 0) {

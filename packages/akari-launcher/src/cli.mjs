@@ -6,7 +6,7 @@ import { resolveLauncherAssets } from './repo-assets.mjs';
 import { detectProjectState } from './project-state.mjs';
 import { findClaudeExecutable, findOpencodeExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
-import { describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
+import { describeForceReinstall, describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
 import { resolveEffectiveProjectRoot } from './first-run.mjs';
 import { maybeShowAssetIntroNotice } from './sounds-setup.mjs';
 import {
@@ -14,9 +14,9 @@ import {
   compareVersions,
   isValidFeedShape,
   readCacheSync,
-  readInstalledAppVersion,
   readOwnVersion,
   recordDismissalSync,
+  refreshUpdateFeed,
   resolveCachePath,
   resolveInstalledVersionInfo,
   triggerBackgroundRefresh
@@ -188,8 +188,8 @@ function defaultSpawnOpencode(opencodePath, args, projectRoot) {
  * 自己更新を試みず、キャッシュに載っている最新版の通知を今後出さないよう記録するだけ
  * （既存挙動を維持）。`--force` は同じ版の本体も再導入し、`--rollback` は直前 1 世代
  * （`~/.akari/app-previous/`）へ戻す。
- * ネットワークに触れるのは自己更新の DL 区間のみ — フィード自体は既存キャッシュ由来
- * （最新情報は `akari` 起動時のバックグラウンド fetch で更新される）。
+ * 通常時にネットワークへ触れるのは自己更新の DL 区間のみ。`--force` だけはキャッシュが
+ * 未取得なら、復旧経路を塞がないためフィードの同期取得を 1 回試す。
  */
 export async function runUpdateCommand(args, options = {}) {
   const log = options.log ?? ((line) => console.log(line));
@@ -197,7 +197,7 @@ export async function runUpdateCommand(args, options = {}) {
   const versionInfo = resolveCommandVersionInfo(options, env);
   const currentVersion = versionInfo.currentVersion;
   const cachePath = resolveCachePath(env);
-  const cache = readCacheSync(cachePath);
+  let cache = readCacheSync(cachePath);
   const dismissRequested = args.includes('--dismiss');
   const rollbackRequested = args.includes('--rollback');
   const forceRequested = args.includes('--force');
@@ -219,10 +219,15 @@ export async function runUpdateCommand(args, options = {}) {
     return { exitCode: 0 };
   }
 
+  if (forceRequested && !cache?.feed) {
+    await (options.refreshUpdateFeed ?? refreshUpdateFeed)({ env, fetchImpl: options.fetchImpl });
+    cache = readCacheSync(cachePath);
+  }
+
   const feed = cache?.feed;
   const updateAvailable = isValidFeedShape(feed) && compareVersions(feed.product, currentVersion) > 0;
   const reinstallRequested = forceRequested && isValidFeedShape(feed) && compareVersions(feed.product, currentVersion) >= 0;
-  const hasManagedApp = !!readInstalledAppVersion(env);
+  const hasManagedApp = versionInfo.managedApp === true;
   const selfUpdateEligible = (updateAvailable || reinstallRequested)
     && !!feed.components?.app?.url
     && !!feed.components?.app?.sha256
@@ -240,7 +245,7 @@ export async function runUpdateCommand(args, options = {}) {
   }
   log(`最新バージョン: v${feed.product}`);
   if (forceRequested) {
-    log(`--force: 本体 v${currentVersion} を入れ直します。`);
+    log(describeForceReinstall(versionInfo, feed.product));
   }
 
   return (options.applySelfUpdate ?? applySelfUpdate)({
