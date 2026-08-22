@@ -1255,15 +1255,16 @@ function validateTimelineTracks(edit, findings, projectedAudioTracks = null) {
     const ref = item.kind === "audio" && !hasRef ? 0 : item.ref;
     if (ref === undefined) continue;
     declarations.add(`${item.kind}:${ref}`);
-    if (!actualTracks.get(item.kind)?.has(ref)) {
-      addFinding(findings, {
-        severity: "warning",
-        check: "timeline.tracks.ref-missing",
-        message: `${item.kind} timeline track ref ${ref} is not used by edit data`,
-        path: `${path}.ref`,
-      });
-    }
   }
+  // ここには以前 `timeline.tracks.ref-missing`（宣言された段の ref が実データのどこにも
+  // 現れなければ警告）があったが、2026-08-20 に撤去した。v2 では timeline.tracks[] の各段が
+  // internal-model.ts の projectLegacyEdit を通じてそのまま legacy 射影され、ref は宣言順に
+  // 毎回生成し直される連番なので、「宣言はあるが実データに現れない ref」は「段の中身が 0 個」
+  // としか等価にならない。空の段は自動 prune せず残すのが正本（10番裁定 E）なので、この
+  // チェックは空の段を持つ v2 プロジェクトのたびに必ず誤検知していた。v0/v1 は本体から既に
+  // 除かれており（9番）、「(kind, ref) の参照」という v0/v1 由来の概念自体が v2 には無いため
+  // 部分修正ではなく撤去する。撤去の証跡は edit-lint.test.mjs の
+  // "空の段を持つ v2 プロジェクトは findings 0" で固定してある。
 
   for (const [kind, tracks] of actualTracks) {
     for (const ref of tracks) {

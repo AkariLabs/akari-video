@@ -178,7 +178,7 @@ function migrateEditToV2(raw, options = {}) {
     let layerSourceSerial = 1;
     layers.forEach((value, index) => {
         if (!isRecord(value)) {
-            blockers.push(`edit.json.layers[${index}] が object ではあません。`);
+            blockers.push(`edit.json.layers[${index}] が object ではありません。`);
             return;
         }
         rejectUnknownKeys(value, LAYER_KEYS, `edit.json.layers[${index}]`, blockers);

@@ -1282,6 +1282,7 @@ test("sfx on the same track at the same t warn without failing", async () => {
 
 for (const fixture of [
   "timeline-tracks-omitted",
+  "timeline-tracks-empty-declared-track",
 ]) {
   test(`${fixture} passes without timeline track findings`, async () => {
     await withFixtures(async (fixtures) => {
@@ -1297,20 +1298,22 @@ for (const fixture of [
   });
 }
 
-test("declared timeline ref without edit data warns without failing", async () => {
+// timeline.tracks.ref-missing 撤去の固定（2026-08-20 cleanup-migrate-lint task）。
+// この規則は「宣言された段の ref が実データのどこにも現れなければ警告」で、v0/v1 の
+// timeline.tracks 契約導入時から入っていたが、v2 では段の ref が宣言順の連番で毎回生成し
+// 直されるため、この警告は「段の中身が 0 個」としか等価にならない。空の段は自動 prune せず
+// 残すのが正本（10番裁定 E）なので、空の段を持つ v2 プロジェクトのたびに必ず誤検知していた
+// （10番の実測: 受け入れ条件 1 直後の lint が PASS・1 findings で、その 1 件がこれ）。
+// timeline-tracks-empty-declared-track fixture は t2（kind: layers, ref: 9）を宣言しつつ
+// 実データに layers を 1 つも持たない、まさにこの「空の段」を再現する。ここで固定しておかないと
+// v0/v1 時代の直感から再導入されうる。
+test("空の段を持つ v2 プロジェクトは findings 0（timeline.tracks.ref-missing は撤去済み）", async () => {
   await withFixtures(async (fixtures) => {
-    const executed = run(join(fixtures, "timeline-tracks-ref-missing-warning"));
+    const executed = run(join(fixtures, "timeline-tracks-empty-declared-track"));
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.ok(
-      result.findings.some(
-        (finding) =>
-          finding.check === "timeline.tracks.ref-missing" &&
-          finding.severity === "warning",
-      ),
-      JSON.stringify(result.findings, null, 2),
-    );
+    assert.deepEqual(result.findings, [], JSON.stringify(result.findings, null, 2));
   });
 });
 
