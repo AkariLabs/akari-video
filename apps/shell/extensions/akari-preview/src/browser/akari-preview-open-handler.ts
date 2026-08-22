@@ -46,6 +46,7 @@ import {
 import { CutFraming, computeCutFramingVisual } from '../common/cut-framing-visual';
 import { CutFreeze, checkCutFreezeCrossing } from '../common/cut-freeze-visual';
 import { computeLayerPerspectiveVisual } from '../common/layer-perspective-visual';
+import { resolveDeferredTelopPlayback } from '../common/deferred-telop-playback';
 import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
 import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
@@ -117,6 +118,8 @@ interface EditSummaryLayer {
     blend: string;
     chromaKey: boolean;
     proxyMissing: boolean;
+    /** 初回 open の臨界経路から外した telop ラスタだけに host が立てる。通常の baked は false/省略。 */
+    deferredTelop?: boolean;
     track: number;
     trackId: string;
     /** edit.schema.json #/$defs/layerCrop（0..1 正規化・ソースフレーム相対・静的）。
@@ -2906,6 +2909,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     layers.push({
                         ...base,
                         proxyMissing: true,
+                        deferredTelop: true,
                         isImage: false
                     });
                     continue;
@@ -4067,6 +4071,10 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-layers { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; transform-origin: 0 0; overflow: hidden; pointer-events: none; }
 #preview-layers > video, #preview-layers > img { position: absolute; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
 #preview-layers > [data-akari-layer-id] { display: none; }
+#preview-layers > [data-akari-deferred-telop-id] { position: absolute; inset: 0; display: none; place-items: center; pointer-events: none; }
+.akari-deferred-telop-placeholder__label { display: inline-flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.22); border-radius: 999px; background: rgba(20,20,20,0.82); color: #f2f2f2; font-size: 14px; font-weight: 600; letter-spacing: 0.02em; box-shadow: 0 6px 22px rgba(0,0,0,0.35); }
+.akari-deferred-telop-placeholder__label::before { content: ''; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: akari-deferred-telop-spin 0.8s linear infinite; }
+@keyframes akari-deferred-telop-spin { to { transform: rotate(360deg); } }
 #preview-layers > [data-akari-filter-id] { position: absolute; inset: 0; display: none; pointer-events: none; }
 #layer-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px solid #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #layer-select-box.is-active { display: block; pointer-events: auto; cursor: move; }
@@ -5101,6 +5109,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const computeLayerKeyframesVisualFn = (${computeLayerKeyframesVisual.toString()});
             const outputTimeForSourceClockFn = (${outputTimeForSourceClock.toString()});
             const resolveSourceClockPositionFn = (${resolveSourceClockPosition.toString()});
+            const resolveDeferredTelopPlaybackFn = (${resolveDeferredTelopPlayback.toString()});
             // RAF スロットリング（2026-08-09 raf-throttle）: ハンドルドラッグ中の pointermove は
             // 毎回来るが、フル layout 再計算（updateStageScale）は1フレームに1回で十分。
             const createRafThrottleFn = (${createRafThrottle.toString()});
@@ -5652,6 +5661,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 元の拡張子を持たないことがあるため、ここで拡張子を再判定はしない）。
                 const layerIsImage = Boolean(layer.isImage);
                 const layerVideo = document.createElement(layerIsImage ? 'img' : 'video');
+                const deferredTelop = layer.deferredTelop === true;
+                const deferredPlaceholder = deferredTelop ? document.createElement('div') : null;
+                const entry = {
+                    spec: layer,
+                    video: layerVideo,
+                    deferredTelop,
+                    deferredPlaceholder,
+                    deferredSeekPending: false,
+                    deferredSeekTarget: null,
+                    deferredMediaLoading: deferredTelop,
+                    deferredHasPresentedFrame: false
+                };
+                if (deferredPlaceholder) {
+                    deferredPlaceholder.dataset.akariDeferredTelopId = String(layer.id);
+                    deferredPlaceholder.setAttribute('role', 'status');
+                    deferredPlaceholder.setAttribute('aria-label', 'テロップを準備中');
+                    const label = document.createElement('span');
+                    label.className = 'akari-deferred-telop-placeholder__label';
+                    label.textContent = 'テロップを準備中…';
+                    deferredPlaceholder.appendChild(label);
+                    deferredPlaceholder.style.zIndex = String(zForTrack(layer.trackId));
+                    layersStage.appendChild(deferredPlaceholder);
+                }
                 if (layerIsImage) {
                     // ㉚ 画像レイヤー（司令塔裁定3）: <video> 固有の
                     // videoWidth/videoHeight/readyState/paused/play/pause を <img> インスタンス自身に
@@ -5723,6 +5755,19 @@ body { display: grid; place-items: center; padding: 32px; }
                     position();
                     tick(true);
                 });
+                for (const eventName of ['loadeddata', 'canplay']) {
+                    layerVideo.addEventListener(eventName, () => {
+                        if (entry.deferredTelop) entry.deferredMediaLoading = false;
+                        tick(true);
+                    });
+                }
+                layerVideo.addEventListener('seeked', () => {
+                    if (entry.deferredTelop) {
+                        entry.deferredSeekPending = false;
+                        entry.deferredSeekTarget = null;
+                    }
+                    tick(true);
+                });
                 layerVideo.addEventListener('error', () => {
                     layerVideo.style.display = 'none';
                     console.warn('[akari-preview] layer media failed to load', layer.id);
@@ -5731,7 +5776,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     layerVideo.src = layer.src;
                 }
                 layersStage.appendChild(layerVideo);
-                return { spec: layer, video: layerVideo };
+                return entry;
             });
             const cssFilterFor = spec => {
                 if (spec && spec.type === 'invert') return 'invert(1)';
@@ -5759,12 +5804,20 @@ body { display: grid; place-items: center; padding: 32px; }
                 const layerVideo = entry.video;
                 if (typeof layer.src === 'string' && layer.src
                     && layerVideo.getAttribute('src') !== layer.src) {
+                    if (entry.deferredTelop) {
+                        entry.deferredMediaLoading = true;
+                        entry.deferredSeekPending = false;
+                        entry.deferredSeekTarget = null;
+                    }
                     layerVideo.src = layer.src;
                     entry.opaqueBox = undefined;
                 }
                 layerVideo.style.opacity = String(layer.opacity);
                 layerVideo.style.mixBlendMode = layer.blend || 'normal';
                 layerVideo.style.zIndex = String(zForTrack(layer.trackId));
+                if (entry.deferredPlaceholder) {
+                    entry.deferredPlaceholder.style.zIndex = String(zForTrack(layer.trackId));
+                }
                 const transform = layer.transform || {};
                 layerVideo.dataset.akariTransformX = String(Number.isFinite(transform.x) ? transform.x : 0);
                 layerVideo.dataset.akariTransformY = String(Number.isFinite(transform.y) ? transform.y : 0);
@@ -8008,11 +8061,93 @@ body { display: grid; place-items: center; padding: 32px; }
                     const layer = entry.spec;
                     const layerVideo = entry.video;
                     layerVideo.muted = allTracksMutedByScope.layers || mutedTracksByScope.layers.has(layer.track);
-                    const active = !layer.proxyMissing
-                        && typeof layer.src === 'string' && layer.src
-                        && !allTracksHiddenByScope.layers
+                    const activeWindow = !allTracksHiddenByScope.layers
                         && !hiddenTracksByScope.layers.has(layer.track)
                         && timelineTime >= layer.t && timelineTime < layer.t + layer.duration;
+                    const localTime = clamp(timelineTime - layer.t, 0, layer.duration);
+                    const mediaEnd = Number.isFinite(layerVideo.duration) && layerVideo.duration > 0
+                        ? Math.max(0, layerVideo.duration - 0.001)
+                        : layer.duration;
+                    const target = Math.min(localTime, mediaEnd);
+                    let deferredPlaybackRate = 1;
+                    if (entry.deferredTelop) {
+                        if (entry.deferredMediaLoading
+                            && layerVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+                            entry.deferredMediaLoading = false;
+                        }
+                        if (entry.deferredSeekPending && !layerVideo.seeking
+                            && Number.isFinite(entry.deferredSeekTarget)
+                            && Math.abs((layerVideo.currentTime || 0) - entry.deferredSeekTarget) <= 0.25) {
+                            // seeked is the primary release. This covers engines which settle a
+                            // same-frame seek without emitting the event after a source swap.
+                            entry.deferredSeekPending = false;
+                            entry.deferredSeekTarget = null;
+                        }
+                        const bakePending = layer.proxyMissing
+                            || !(typeof layer.src === 'string' && layer.src);
+                        const deferredAction = resolveDeferredTelopPlaybackFn({
+                            active: activeWindow,
+                            bakePending,
+                            mediaReady: !entry.deferredMediaLoading
+                                && layerVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
+                            seekPending: entry.deferredSeekPending,
+                            mediaSeeking: layerVideo.seeking,
+                            currentTime: layerVideo.currentTime || 0,
+                            targetTime: target,
+                            playing: isPlaying
+                        });
+                        // 「準備中」は host がまだ telop を焼いている間だけ。ready 後の media load や
+                        // currentTime 再同期は通常の再生操作なので、表示済みフレームを保ったまま行う。
+                        const showPlaceholder = deferredAction.phase === 'baking';
+                        entry.deferredPlaceholder.style.display = showPlaceholder ? 'grid' : 'none';
+                        entry.deferredPlaceholder.dataset.akariDeferredState = deferredAction.phase;
+                        if (deferredAction.phase === 'inactive') {
+                            layerVideo.style.display = 'none';
+                            if (!layerVideo.paused) layerVideo.pause();
+                            layerVideo.playbackRate = 1;
+                            continue;
+                        }
+                        if (deferredAction.phase === 'baking') {
+                            layerVideo.style.display = 'none';
+                            if (!layerVideo.paused) layerVideo.pause();
+                            continue;
+                        }
+                        if (deferredAction.phase === 'loading') {
+                            layerVideo.style.display = entry.deferredHasPresentedFrame ? 'block' : 'none';
+                            if (isPlaying && entry.deferredHasPresentedFrame && layerVideo.paused) {
+                                void layerVideo.play().catch(() => undefined);
+                            }
+                            continue;
+                        }
+                        if (deferredAction.phase === 'syncing') {
+                            layerVideo.style.display = 'block';
+                            if (isPlaying && layerVideo.paused) {
+                                void layerVideo.play().catch(() => undefined);
+                            }
+                            continue;
+                        }
+                        if (deferredAction.phase === 'seek') {
+                            layerVideo.style.display = 'block';
+                            entry.deferredSeekPending = true;
+                            entry.deferredSeekTarget = deferredAction.targetTime;
+                            try {
+                                layerVideo.currentTime = deferredAction.targetTime;
+                            } catch (error) {
+                                entry.deferredSeekPending = false;
+                                entry.deferredSeekTarget = null;
+                                console.warn('[akari-preview] deferred telop seek failed', layer.id, error);
+                            }
+                            if (isPlaying && layerVideo.paused) {
+                                void layerVideo.play().catch(() => undefined);
+                            }
+                            continue;
+                        }
+                        entry.deferredHasPresentedFrame = true;
+                        deferredPlaybackRate = deferredAction.playbackRate;
+                    }
+                    const active = activeWindow
+                        && !layer.proxyMissing
+                        && typeof layer.src === 'string' && layer.src;
                     if (!active) {
                         layerVideo.style.display = 'none';
                         if (!layerVideo.paused) layerVideo.pause();
@@ -8023,7 +8158,6 @@ body { display: grid; place-items: center; padding: 32px; }
                         continue;
                     }
                     layerVideo.style.display = 'block';
-                    const localTime = clamp(timelineTime - layer.t, 0, layer.duration);
                     if (Array.isArray(layer.keyframes) && layer.keyframes.length >= 2) {
                         // computeLayerKeyframesVisualFn is a webview-injected copy (toString()
                         // serialization) -- guarded the same way computeLayerPerspectiveVisualFn's
@@ -8053,16 +8187,18 @@ body { display: grid; place-items: center; padding: 32px; }
                             console.warn('[akari-preview] layer keyframes visual failed; rendering without them', layer.id, error);
                         }
                     }
-                    const mediaEnd = Number.isFinite(layerVideo.duration) && layerVideo.duration > 0
-                        ? Math.max(0, layerVideo.duration - 0.001)
-                        : layer.duration;
-                    const target = Math.min(localTime, mediaEnd);
-                    const tolerance = isPlaying ? 0.05 : 0.001;
-                    if (Math.abs((layerVideo.currentTime || 0) - target) > tolerance) {
-                        try {
-                            layerVideo.currentTime = target;
-                        } catch (error) {
-                            console.warn('[akari-preview] layer seek failed', layer.id, error);
+                    if (entry.deferredTelop) {
+                        if (Math.abs(layerVideo.playbackRate - deferredPlaybackRate) > 0.001) {
+                            layerVideo.playbackRate = deferredPlaybackRate;
+                        }
+                    } else {
+                        const tolerance = isPlaying ? 0.05 : 0.001;
+                        if (Math.abs((layerVideo.currentTime || 0) - target) > tolerance) {
+                            try {
+                                layerVideo.currentTime = target;
+                            } catch (error) {
+                                console.warn('[akari-preview] layer seek failed', layer.id, error);
+                            }
                         }
                     }
                     if (!isPlaying) {
