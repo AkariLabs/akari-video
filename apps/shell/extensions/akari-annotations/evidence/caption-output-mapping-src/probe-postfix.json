@@ -1,0 +1,168 @@
+{
+  "label": "postfix",
+  "failures": [],
+  "log": [
+    {
+      "step": "viewport",
+      "width": 1440,
+      "height": 1250
+    },
+    {
+      "step": "ok",
+      "message": "タイムラインウィジェットが開いた"
+    },
+    {
+      "step": "dom-rects",
+      "captions": [
+        {
+          "id": "caption-source-a",
+          "left": 396.2265625,
+          "right": 466.8515625,
+          "top": 971.3984375,
+          "bottom": 1003.3984375,
+          "width": 70.625,
+          "height": 32
+        },
+        {
+          "id": "caption-source-b",
+          "left": 537.4765625,
+          "right": 608.1015625,
+          "top": 971.3984375,
+          "bottom": 1003.3984375,
+          "width": 70.625,
+          "height": 32
+        }
+      ],
+      "cuts": [
+        {
+          "id": "0",
+          "left": 360.9140625,
+          "right": 502.1640625,
+          "top": 1013.3984375,
+          "bottom": 1085.3984375,
+          "width": 141.25,
+          "height": 72
+        },
+        {
+          "id": "1",
+          "left": 502.1640625,
+          "right": 643.4140625,
+          "top": 1013.3984375,
+          "bottom": 1085.3984375,
+          "width": 141.25,
+          "height": 72
+        }
+      ],
+      "correspondence": [
+        {
+          "captionId": "caption-source-a",
+          "captionSrc": "source-a",
+          "rect": {
+            "id": "caption-source-a",
+            "left": 396.2265625,
+            "right": 466.8515625,
+            "top": 971.3984375,
+            "bottom": 1003.3984375,
+            "width": 70.625,
+            "height": 32
+          },
+          "overlaps": [
+            {
+              "cutId": "0",
+              "cutSrc": "source-a",
+              "overlapPx": 70.625
+            },
+            {
+              "cutId": "1",
+              "cutSrc": "source-b",
+              "overlapPx": 0
+            }
+          ]
+        },
+        {
+          "captionId": "caption-source-b",
+          "captionSrc": "source-b",
+          "rect": {
+            "id": "caption-source-b",
+            "left": 537.4765625,
+            "right": 608.1015625,
+            "top": 971.3984375,
+            "bottom": 1003.3984375,
+            "width": 70.625,
+            "height": 32
+          },
+          "overlaps": [
+            {
+              "cutId": "0",
+              "cutSrc": "source-a",
+              "overlapPx": 0
+            },
+            {
+              "cutId": "1",
+              "cutSrc": "source-b",
+              "overlapPx": 70.625
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "字幕帯が 2 本描かれている",
+      "count": 2
+    },
+    {
+      "step": "ok",
+      "message": "異なる source のクリップ帯が 2 本描かれている",
+      "count": 2,
+      "sources": [
+        "source-a",
+        "source-b"
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "caption-source-a は自分の source のクリップ区間に描かれる",
+      "own": [
+        {
+          "cutId": "0",
+          "cutSrc": "source-a",
+          "overlapPx": 70.625
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "caption-source-a は無関係な source のクリップ区間に描かれない",
+      "unrelated": [
+        {
+          "cutId": "1",
+          "cutSrc": "source-b",
+          "overlapPx": 0
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "caption-source-b は自分の source のクリップ区間に描かれる",
+      "own": [
+        {
+          "cutId": "1",
+          "cutSrc": "source-b",
+          "overlapPx": 70.625
+        }
+      ]
+    },
+    {
+      "step": "ok",
+      "message": "caption-source-b は無関係な source のクリップ区間に描かれない",
+      "unrelated": [
+        {
+          "cutId": "0",
+          "cutSrc": "source-a",
+          "overlapPx": 0
+        }
+      ]
+    }
+  ]
+}

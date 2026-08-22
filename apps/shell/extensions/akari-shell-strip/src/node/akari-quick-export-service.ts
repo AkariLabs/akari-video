@@ -1,7 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { spawn } from 'child_process';
-import { promises as fs } from 'fs';
+import { spawn, spawnSync } from 'child_process';
+import { existsSync, promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import {
     AkariQuickExportService,
@@ -19,6 +19,7 @@ import {
     summarizeStderrTail
 } from '../common/quick-export-cli';
 import { estimateElapsedAndRemaining, latestQuickExportProgress } from '../common/quick-export-progress';
+import { bundledMediaBinCandidate, packagedCliCandidates } from './packaged-cli-candidates';
 
 const LOG_TAIL_MAX_CHARS = 4000;
 const EDIT_LINT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'edit-lint-report.html');
@@ -206,39 +207,88 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
      * `theia build` は backend を単一バンドル（`apps/shell/lib/backend/main.js`）
      * に固めるため、実行時の `__dirname` は元の `src/node/*.ts` の場所ではなく
      * 常に `apps/shell/lib/backend` になる（akari-preview-service.ts /
-     * akari-project-service.ts の同種コメント・実測で確認済み）。そこから
-     * 4 階層上がモノレポルート。process.cwd() 依存の候補は起動方法
-     * （`npm start` 等で cwd が `apps/shell` になるケース）向けの保険として残す。
+     * akari-project-service.ts の同種コメント・実測で確認済み）。
+     * 候補の組み立ては packaged-cli-candidates.ts に集約する（`process.cwd()` を
+     * 使わない理由と 3 段の内訳はそちらのコメント参照）。
      */
     protected async findEditLintCli(): Promise<string | undefined> {
-        return this.findCli([
-            resolve(__dirname, '../../../../packages/edit-lint/bin/edit-lint.mjs'),
-            resolve(process.cwd(), '../../packages/edit-lint/bin/edit-lint.mjs'),
-            resolve(process.cwd(), 'packages/edit-lint/bin/edit-lint.mjs'),
-            resolve(__dirname, '../edit-lint/bin/edit-lint.mjs')
-        ]);
+        return this.findCli(packagedCliCandidates('edit-lint', 'edit-lint.mjs', __dirname, this.resourcesPath()));
     }
 
     protected async findRenderCutCli(): Promise<string | undefined> {
-        return this.findCli([
-            resolve(__dirname, '../../../../packages/render-cut/bin/render-cut.mjs'),
-            resolve(process.cwd(), '../../packages/render-cut/bin/render-cut.mjs'),
-            resolve(process.cwd(), 'packages/render-cut/bin/render-cut.mjs'),
-            resolve(__dirname, '../render-cut/bin/render-cut.mjs')
-        ]);
+        return this.findCli(packagedCliCandidates('render-cut', 'render-cut.mjs', __dirname, this.resourcesPath()));
     }
 
+    /** Electron が packaged 時のみ設定する `Contents/Resources`（開発起動では undefined）。 */
+    protected resourcesPath(): string | undefined {
+        return (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+    }
+
+    /**
+     * どの候補で当たったかをログへ残す。同梱漏れ・配置ずれの切り分けは
+     * 「見つからなかった」より「どこで見つけたか」の方が速いため
+     * （実測: v0.1.12 では 4 候補すべてが外れており、CLI が見つからない理由の
+     * 特定に .app を開ける必要があった）。
+     */
     protected async findCli(candidates: readonly string[]): Promise<string | undefined> {
-        for (const candidate of candidates) {
+        for (const [index, candidate] of candidates.entries()) {
             try {
                 if ((await this.fsImpl.stat(candidate)).isFile()) {
+                    this.appendLog(`CLI 解決: 候補 ${index + 1}/${candidates.length} = ${candidate}\n`);
                     return candidate;
                 }
             } catch {
-                // 次の候補（開発配置 / パッケージ版配置）を試す。
+                // 次の候補（パッケージ版配置 / 祖先探索 / 後方互換配置）を試す。
             }
         }
+        this.appendLog(`CLI 解決に失敗（試した候補 ${candidates.length} 件）:\n${candidates.map(c => `  - ${c}`).join('\n')}\n`);
         return undefined;
+    }
+
+    /**
+     * 子プロセス（edit-lint / render-cut。render-cut はさらに bake-layer を spawn する）へ渡す環境。
+     *
+     * `AKARI_FFMPEG_BIN` / `AKARI_FFPROBE_BIN` を明示的に載せるのが要点。Finder / Dock から
+     * 起動されたアプリの PATH は launchd 既定（`/usr/bin:/bin:/usr/sbin:/sbin`）で、
+     * Homebrew 等の ffmpeg は載っていない。packages/media-bin の探索順は
+     * 「明示指定 env → PATH → 同梱バイナリ」だが、同梱バイナリの置き場は
+     * `packages/media-bin/vendor/`（npm install の postinstall が作る開発配置）であって
+     * パッケージ版の `Contents/Resources/media-bin/` ではないため、env を渡さないと
+     * どの段にも当たらず `ffmpeg が見つかりませんでした` で書き出しが落ちる。
+     * 優先順位は media-bin / akari-partner-server の resolveMediaBinPath と同一。
+     */
+    protected childEnvironment(): NodeJS.ProcessEnv {
+        const env: NodeJS.ProcessEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
+        for (const [name, variable] of [['ffmpeg', 'AKARI_FFMPEG_BIN'], ['ffprobe', 'AKARI_FFPROBE_BIN']] as const) {
+            const resolved = this.resolveMediaBinPath(name, variable);
+            if (resolved !== undefined) {
+                env[variable] = resolved;
+            }
+        }
+        return env;
+    }
+
+    protected resolveMediaBinPath(
+        name: 'ffmpeg' | 'ffprobe',
+        explicitEnvVariable: 'AKARI_FFMPEG_BIN' | 'AKARI_FFPROBE_BIN'
+    ): string | undefined {
+        const explicit = process.env[explicitEnvVariable];
+        if (explicit) {
+            return explicit;
+        }
+        if (this.canRunOnPath(name)) {
+            return name;
+        }
+        const bundled = bundledMediaBinCandidate(name, this.resourcesPath());
+        return bundled !== undefined && existsSync(bundled) ? bundled : undefined;
+    }
+
+    protected canRunOnPath(command: string): boolean {
+        try {
+            return spawnSync(command, ['-version'], { stdio: 'ignore' }).status === 0;
+        } catch {
+            return false;
+        }
     }
 
     /**
@@ -251,7 +301,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
     protected spawnNodeScript(scriptPath: string, args: string[], onChunk: (chunk: string) => void): Promise<SpawnResult> {
         return new Promise(resolvePromise => {
             const child = spawn(process.execPath, [scriptPath, ...args], {
-                env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+                env: this.childEnvironment(),
                 stdio: ['ignore', 'pipe', 'pipe']
             });
             let stdout = '';

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [{ "id": "main", "path": "main.mp4", "proxy": null }],
+  "tracks": [
+    {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        { "id": "zero", "at": 0, "duration": 0, "source": { "kind": "media", "src": "main", "in": 0, "out": 2 } }
+      ]
+    }
+  ]
+}

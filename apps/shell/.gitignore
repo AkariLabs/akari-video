@@ -14,6 +14,10 @@
 # bundled ffmpeg/ffprobe binaries (prepackage で毎回再生成。task/2026-07-31-shell-ffmpeg-bundle)
 /resources/vendor-ffmpeg/
 
+# 同梱 CLI（render-cut / bake-layer）が実行時に使う npm 依存の staging
+# （prepackage の bundle-cli-node-modules.mjs が毎回再生成）
+/resources/cli-node-modules/
+
 # dependencies
 /node_modules/
 /extensions/*/node_modules/

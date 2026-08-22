@@ -1,0 +1,28 @@
+{
+  "rects": [
+    {
+      "id": "bgm",
+      "top": 803,
+      "left": 468,
+      "width": 226
+    },
+    {
+      "id": "narration-1",
+      "top": 741,
+      "left": 490,
+      "width": 136
+    },
+    {
+      "id": "sfx-1",
+      "top": 865,
+      "left": 536,
+      "width": 11
+    },
+    {
+      "id": "sfx-2",
+      "top": 865,
+      "left": 649,
+      "width": 11
+    }
+  ]
+}

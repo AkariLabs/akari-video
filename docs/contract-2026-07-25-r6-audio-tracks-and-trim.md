@@ -66,7 +66,7 @@
 
 ## 5. §2 追記 — sfx フェード（audio-clip-fades, 2026-08-18・オーナー裁定「クリップ主義」T2）
 
-BGM をクリップ化する裁定（内部リポ `tasks/2026-08-18-bgm-clip-placement-ruling`）に伴い、
+BGM をクリップ化する裁定（内部リポ `akari-video-internal` の該当タスク）に伴い、
 「音楽をクリップ（audio.sfx[]）として置いても BGM ベッドと同じフェード表現ができる」を
 満たすため、`sfxItem` に optional の `fade_in` / `fade_out`（秒・0 以上）を追加のみ拡張する
 （`version` 不変・`contract-2026-07-17-data-contract-versioning.md` の原則に従う）。

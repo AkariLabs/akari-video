@@ -9,6 +9,7 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { Message } from '@theia/core/shared/@lumino/messaging';
 import * as monaco from '@theia/monaco-editor-core';
 import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
+import { createAkariNoticeBanner } from 'akari-annotations/lib/browser/akari-notice-banner';
 import {
     Caption,
     parseCaptions,
@@ -50,7 +51,7 @@ export class AkariTranscriptWidget extends BaseWidget {
 
     protected readonly toolbar = document.createElement('div');
     protected readonly generateButton = document.createElement('button');
-    protected readonly notice = document.createElement('div');
+    protected readonly notice = createAkariNoticeBanner({ dataAttribute: 'data-akari-transcript-notice' });
     protected readonly editorContainer = document.createElement('div');
     protected readonly editorHost = document.createElement('div');
     protected readonly emptyGuide = document.createElement('div');
@@ -107,16 +108,8 @@ export class AkariTranscriptWidget extends BaseWidget {
         this.generateButton.addEventListener('click', () => void this.generate());
         this.toolbar.append(heading, this.generateButton);
 
-        Object.assign(this.notice.style, {
-            display: 'none',
-            gridRow: '2',
-            padding: '7px 11px',
-            color: 'var(--theia-warningForeground)',
-            background: 'var(--theia-inputValidation-warningBackground)',
-            borderBottom: '1px solid var(--theia-inputValidation-warningBorder)',
-            fontSize: '12px',
-            lineHeight: '1.4'
-        });
+        // 帯の見た目は akari-notice-banner が持つ。ここで足すのはこの widget 固有の配置だけ。
+        this.notice.node.style.gridRow = '2';
         Object.assign(this.editorContainer.style, {
             gridRow: '3',
             minHeight: '0',
@@ -159,7 +152,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             textOverflow: 'ellipsis'
         });
         this.footer.textContent = '行をクリックするとプレビュー位置を選択します。プレビューを開いていればその場でシークします。';
-        this.node.append(this.toolbar, this.notice, this.editorContainer, this.footer);
+        this.node.append(this.toolbar, this.notice.node, this.editorContainer, this.footer);
 
         const style = document.createElement('style');
         style.textContent = `
@@ -554,13 +547,11 @@ export class AkariTranscriptWidget extends BaseWidget {
     }
 
     protected showNotice(message: string): void {
-        this.notice.textContent = message;
-        this.notice.style.display = 'block';
+        this.notice.setMessage(message);
     }
 
     protected hideNotice(): void {
-        this.notice.textContent = '';
-        this.notice.style.display = 'none';
+        this.notice.clear();
     }
 
     protected updateEmptyGuide(): void {

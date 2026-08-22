@@ -1099,7 +1099,13 @@ const styles: Record<string, React.CSSProperties> = {
     statusCard: { marginTop: 14, padding: 16, borderRadius: 8, background: 'var(--theia-editorWidget-background)', border: '1px solid var(--theia-widget-border)' },
     statusRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 },
     detail: { marginTop: 9, opacity: 0.75, fontSize: 12, overflowWrap: 'anywhere' },
-    warning: { marginTop: 12, padding: 9, textAlign: 'left', borderRadius: 5, color: 'var(--theia-warningForeground)', background: 'var(--theia-inputValidation-warningBackground)' },
+    // color に warningForeground は使えない — Theia の既定値が
+    // inputValidation.warningBackground そのもので、背景と同色になり本文が消える。
+    warning: {
+        marginTop: 12, padding: 9, textAlign: 'left', borderRadius: 5,
+        color: 'var(--theia-foreground, #e5e5e5)', background: 'var(--theia-inputValidation-warningBackground)',
+        border: '1px solid var(--theia-inputValidation-warningBorder, #b89500)'
+    },
     retryButton: { marginTop: 14 },
     note: { marginTop: 18, fontSize: 11, opacity: 0.55, lineHeight: 1.5 }
 };

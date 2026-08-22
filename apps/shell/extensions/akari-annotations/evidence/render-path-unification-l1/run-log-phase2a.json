@@ -1,0 +1,71 @@
+[
+  {
+    "t": "2026-08-21T02:31:59.609Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened"
+  },
+  {
+    "t": "2026-08-21T02:31:59.614Z",
+    "step": "2a-start"
+  },
+  {
+    "t": "2026-08-21T02:31:59.759Z",
+    "step": "assertion-ok",
+    "message": "2a: pip-1 (transform-only, on v-pip) renders as a cut clip",
+    "pipStates": [
+      {
+        "itemKind": "cut",
+        "itemId": "0",
+        "className": "akari-annotations-strip-clip",
+        "background": "rgb(39, 39, 42)",
+        "headerBackground": "rgb(44, 138, 154)"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T02:31:59.761Z",
+    "step": "assertion-ok",
+    "message": "2a: v-pip band kind is cuts",
+    "pipBandKind": "cuts"
+  },
+  {
+    "t": "2026-08-21T02:31:59.761Z",
+    "step": "assertion-ok",
+    "message": "2a: the plain clip (on v-move) renders as a cut clip",
+    "moveStates": [
+      {
+        "itemKind": "cut",
+        "itemId": "1",
+        "className": "akari-annotations-strip-clip",
+        "background": "rgb(39, 39, 42)",
+        "headerBackground": "rgb(44, 138, 154)"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T02:31:59.765Z",
+    "step": "2a-edit",
+    "tracks": [
+      {
+        "id": "v-empty",
+        "items": []
+      },
+      {
+        "id": "v-pip",
+        "items": [
+          "pip-1"
+        ]
+      },
+      {
+        "id": "v-move",
+        "items": [
+          "move-1"
+        ]
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T02:31:59.768Z",
+    "step": "2a-CAPTURED"
+  }
+]

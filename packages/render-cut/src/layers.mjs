@@ -108,7 +108,7 @@ export function probeLayerAlphaSource(ffprobeCommand, path) {
 // already correct), plus a warning when alpha is declared but unreachable. An unprobeable input
 // (missing file, no ffprobe) yields neither: the file is about to be opened by ffmpeg anyway, and
 // failing loudly there beats guessing here.
-function resolveDecoderForLayer(ffprobeCommand, resolvedPath, warnings) {
+export function resolveDecoderForLayer(ffprobeCommand, resolvedPath, warnings) {
   const probed = probeLayerAlphaSource(ffprobeCommand, resolvedPath);
   if (!probed || probed.alphaInPixelFormat || !probed.alphaInSideChannel) return [];
   const decoder = SIDE_CHANNEL_ALPHA_DECODERS[probed.codec];
@@ -527,6 +527,23 @@ export function buildLayersCompositeCommand({
       steps.push(
         `chromakey=color=${key.color}:similarity=${formatNumber(key.similarity ?? DEFAULT_CHROMA_SIMILARITY)}:blend=${formatNumber(key.blend ?? DEFAULT_CHROMA_BLEND)}`,
       );
+      // P0 2026-08-21 render-path-unification: packages/edit-store/src/internal-model.ts's
+      // needsLayersEngine routes a chroma_key-declaring item here (the layers engine, genuine
+      // transparency -- the real content underneath shows through) only when it does NOT declare
+      // `.background`; a declared background always routes to plan.mjs's appendMultiSourceChromaKey
+      // (the cuts engine's chroma_key) instead, since only that implementation can replace the
+      // keyed pixels with it (cuts has no "underneath" to reveal). This engine has no
+      // background-replacement counterpart of its own. The check below is therefore a defensive
+      // backstop, not the normal path: it only fires for a direct/bypass caller that constructs a
+      // layer object itself (e.g. a unit test) without going through that classification -- surface
+      // the mismatch instead of silently rendering the wrong pixels.
+      if (typeof key.background === "string" && key.background.length > 0) {
+        warnings.push(
+          `layer ${layer.id ?? "?"} declares chroma_key.background ("${key.background}"), but this render`
+            + " path composites chroma-keyed layers with genuine transparency (revealing whatever is"
+            + " underneath), not a replacement background -- the declared background is ignored.",
+        );
+      }
     }
     steps.push("format=yuva420p");
     // contract-2026-08-02-preview-parity.md: layers[].crop applies before scale/rotate/opacity
@@ -644,7 +661,7 @@ export function buildLayersCompositeCommand({
     if (isNormal) {
       const next = `[${idBase}_out]`;
       filters.push(
-        `${previous}${processed}overlay=x=(main_w-overlay_w)/2+${xExpr}:y=(main_h-overlay_h)/2+${yExpr}:format=auto:enable='${enableWindowExpr(t, end)}'${next}`,
+        `${previous}${processed}overlay=x=(main_w-overlay_w)/2+${xExpr}:y=(main_h-overlay_h)/2+${yExpr}:format=auto:enable='${enableWindowExpr(t, end, fps)}'${next}`,
       );
       previous = next;
       return;

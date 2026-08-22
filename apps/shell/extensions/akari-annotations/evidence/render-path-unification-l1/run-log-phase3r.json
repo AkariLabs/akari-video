@@ -1,0 +1,176 @@
+[
+  {
+    "t": "2026-08-21T03:08:48.843Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened"
+  },
+  {
+    "t": "2026-08-21T03:08:48.856Z",
+    "step": "project-consent-dismissed"
+  },
+  {
+    "t": "2026-08-21T03:08:49.157Z",
+    "step": "3r-start"
+  },
+  {
+    "t": "2026-08-21T03:08:49.160Z",
+    "step": "assertion-ok",
+    "message": "3r before: pip-1 renders as a cut clip",
+    "beforePip": [
+      {
+        "itemKind": "cut",
+        "itemId": "1",
+        "className": "akari-annotations-strip-clip",
+        "background": "rgb(39, 39, 42)",
+        "headerBackground": "rgb(44, 138, 154)"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T03:08:49.160Z",
+    "step": "assertion-ok",
+    "message": "3r before: moved-1 renders as a cut clip",
+    "beforeMoved": [
+      {
+        "itemKind": "cut",
+        "itemId": "0",
+        "className": "akari-annotations-strip-clip",
+        "background": "rgb(39, 39, 42)",
+        "headerBackground": "rgb(44, 138, 154)"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T03:08:49.468Z",
+    "step": "assertion-ok",
+    "message": "3r: moved-1 element located for drag"
+  },
+  {
+    "t": "2026-08-21T03:08:49.622Z",
+    "step": "assertion-ok",
+    "message": "3r: target track v5 band located"
+  },
+  {
+    "t": "2026-08-21T03:08:49.622Z",
+    "step": "assertion-ok",
+    "message": "3r: moved-1 still located after scrolling to the target"
+  },
+  {
+    "t": "2026-08-21T03:08:51.475Z",
+    "step": "3r-uncaught-exceptions-during-drag",
+    "count": 0,
+    "exceptions": []
+  },
+  {
+    "t": "2026-08-21T03:08:51.476Z",
+    "step": "assertion-ok",
+    "message": "3r: no uncaught exception during the real drag (the original bug: cutItemId() threw from updateDragPreview on every mousemove)",
+    "exceptions": []
+  },
+  {
+    "t": "2026-08-21T03:08:51.482Z",
+    "step": "3r-edit-after",
+    "tracks": [
+      {
+        "id": "v1",
+        "items": []
+      },
+      {
+        "id": "v2",
+        "items": [
+          "pip-1"
+        ]
+      },
+      {
+        "id": "v5",
+        "items": [
+          "moved-1"
+        ]
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T03:08:51.482Z",
+    "step": "assertion-ok",
+    "message": "3r: v1 is now empty (drag committed)",
+    "sourceAfter": {
+      "id": "v1",
+      "lane": "visual",
+      "items": []
+    }
+  },
+  {
+    "t": "2026-08-21T03:08:51.482Z",
+    "step": "assertion-ok",
+    "message": "3r: moved-1 actually moved to v5 (drag committed, not just visually previewed)",
+    "targetAfter": {
+      "id": "v5",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "moved-1",
+          "at": 0,
+          "duration": 40,
+          "source": {
+            "kind": "media",
+            "src": "s1",
+            "in": 0,
+            "out": 4
+          }
+        }
+      ]
+    }
+  },
+  {
+    "t": "2026-08-21T03:08:51.615Z",
+    "step": "assertion-ok",
+    "message": "3r after: moved-1 still renders as a cut clip on v5",
+    "afterMoved": [
+      {
+        "itemKind": "cut",
+        "itemId": "1",
+        "className": "akari-annotations-strip-clip",
+        "background": "rgb(39, 39, 42)",
+        "headerBackground": "rgb(44, 138, 154)"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T03:08:51.615Z",
+    "step": "assertion-ok",
+    "message": "3r after: untouched pip-1 still renders as a cut clip",
+    "afterPip": [
+      {
+        "itemKind": "cut",
+        "itemId": "0",
+        "className": "akari-annotations-strip-clip",
+        "background": "rgb(39, 39, 42)",
+        "headerBackground": "rgb(44, 138, 154)"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T03:08:51.615Z",
+    "step": "assertion-ok",
+    "message": "3r: untouched pip-1's CSS class unchanged by the unrelated drag",
+    "before": "akari-annotations-strip-clip",
+    "after": "akari-annotations-strip-clip"
+  },
+  {
+    "t": "2026-08-21T03:08:51.615Z",
+    "step": "assertion-ok",
+    "message": "3r: untouched pip-1's computed background unchanged by the unrelated drag",
+    "before": "rgb(39, 39, 42)",
+    "after": "rgb(39, 39, 42)"
+  },
+  {
+    "t": "2026-08-21T03:08:51.616Z",
+    "step": "assertion-ok",
+    "message": "3r after: v5 band kind is cuts",
+    "targetBandKind": "cuts"
+  },
+  {
+    "t": "2026-08-21T03:08:51.616Z",
+    "step": "3r-PASS"
+  }
+]

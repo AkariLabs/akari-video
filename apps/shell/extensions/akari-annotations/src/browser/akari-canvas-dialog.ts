@@ -11,6 +11,7 @@ import {
 } from 'akari-preview/lib/common/pen-canvas-visuals';
 import { decimateStrokePoints, IMAGE_MIME_TYPES } from './akari-image-annotation-dialog';
 import { ReviewModel } from './review-model';
+import { AKARI_WARNING_TEXT_COLOR } from './akari-notice-banner';
 
 /** ダイアログ内でキャンバスを表示する上限（原寸比は保つ・原寸を超えて拡大はしない）。 */
 const MAX_DISPLAY_WIDTH_RATIO = 0.72;
@@ -140,7 +141,7 @@ export class AkariCanvasDialog extends AbstractDialog<string | undefined> {
 
         Object.assign(this.errorNotice.style, {
             display: this.props.backgroundWarning ? 'block' : 'none',
-            color: 'var(--theia-warningForeground)', fontSize: '12px', margin: '4px 0'
+            color: AKARI_WARNING_TEXT_COLOR, fontSize: '12px', margin: '4px 0'
         });
         if (this.props.backgroundWarning) {
             this.errorNotice.textContent = this.props.backgroundWarning;
