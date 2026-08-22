@@ -258,6 +258,11 @@ export async function renderProject(input, options = {}, io = console) {
     }
     const cutPath = join(temporaryDirectory, "cut.mp4");
     const cutCommand = plan.commands.cut;
+    // P0 2026-08-21 render-path-unification: cuts[] can now hit a VP9/VP8 alpha-side-channel
+    // source that needs an explicit libvpx decoder (buildMultiSourceCutCommand /
+    // buildMultiSourceCommandResult); surface the same "composited fully opaque" warning
+    // layers[] already surfaces instead of silently hiding whatever was supposed to show through.
+    for (const warning of cutCommand.warnings ?? []) addWarning(state, warning);
     if (progressEnabled) {
       await runCheckedWithProgress(capabilities.ffmpegCommand, cutCommand.args, {
         cwd: projectRoot,
@@ -280,6 +285,7 @@ export async function renderProject(input, options = {}, io = console) {
     if (trackStack) {
       runChecked(trackStack.base.command, trackStack.base.args, { cwd: projectRoot });
       for (const track of trackStack.cutTracks) {
+        for (const warning of track.command.warnings ?? []) addWarning(state, warning);
         runChecked(track.command.command, track.command.args, { cwd: projectRoot });
       }
       for (const stage of trackStack.stages) {
@@ -939,6 +945,7 @@ export async function rasterizeAndComposite(context) {
       outputPath: compositePath,
       hasAudio: true,
       duration,
+      fps,
       videoEncodeArgs,
       onProgress,
     });

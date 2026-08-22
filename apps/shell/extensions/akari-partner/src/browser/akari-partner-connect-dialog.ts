@@ -71,9 +71,12 @@ export class AkariPartnerConnectDialog extends AbstractDialog<void> {
         });
         this.contentNode.appendChild(this.detailLine);
 
+        // color に warningForeground は使えない — Theia の既定値が
+        // inputValidation.warningBackground そのもので、背景と同色になり本文が消える。
         Object.assign(this.warningLine.style, {
             marginTop: '10px', padding: '8px', borderRadius: '4px', fontSize: '12px', display: 'none',
-            color: 'var(--theia-warningForeground)', background: 'var(--theia-inputValidation-warningBackground)'
+            color: 'var(--theia-foreground, #e5e5e5)', background: 'var(--theia-inputValidation-warningBackground)',
+            border: '1px solid var(--theia-inputValidation-warningBorder, #b89500)'
         });
         this.contentNode.appendChild(this.warningLine);
 

@@ -1,0 +1,151 @@
+[
+  {
+    "t": "2026-08-21T02:31:48.622Z",
+    "step": "assertion-ok",
+    "message": "timeline widget opened"
+  },
+  {
+    "t": "2026-08-21T02:31:48.628Z",
+    "step": "scenario1-start"
+  },
+  {
+    "t": "2026-08-21T02:31:48.737Z",
+    "step": "assertion-ok",
+    "message": "scenario1 before: clip-1 renders as a cut clip",
+    "beforeStates": [
+      {
+        "itemKind": "cut",
+        "itemId": "0",
+        "className": "akari-annotations-strip-clip",
+        "background": "rgb(39, 39, 42)",
+        "headerBackground": "rgb(44, 138, 154)"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T02:31:48.738Z",
+    "step": "assertion-ok",
+    "message": "scenario1 before: v-main band kind is cuts",
+    "beforeBandKind": "cuts"
+  },
+  {
+    "t": "2026-08-21T02:31:48.738Z",
+    "step": "assertion-ok",
+    "message": "scenario1: exactly one visual track exists before the drag",
+    "bands": [
+      {
+        "lane": "v-main",
+        "kind": "cuts",
+        "top": 520.7265625,
+        "height": 73
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T02:31:48.738Z",
+    "step": "assertion-ok",
+    "message": "scenario1: clip-1 element located for drag"
+  },
+  {
+    "t": "2026-08-21T02:31:50.227Z",
+    "step": "scenario1-edit-after",
+    "tracks": [
+      {
+        "id": "v-main",
+        "items": []
+      },
+      {
+        "id": "v1",
+        "items": [
+          "clip-1"
+        ]
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T02:31:50.227Z",
+    "step": "assertion-ok",
+    "message": "scenario1: drag created a new track",
+    "tracks": [
+      "v-main",
+      "v1"
+    ]
+  },
+  {
+    "t": "2026-08-21T02:31:50.228Z",
+    "step": "assertion-ok",
+    "message": "scenario1: v-main is now empty",
+    "mainAfter": {
+      "id": "v-main",
+      "lane": "visual",
+      "items": []
+    }
+  },
+  {
+    "t": "2026-08-21T02:31:50.228Z",
+    "step": "assertion-ok",
+    "message": "scenario1: clip-1 moved to the new track",
+    "newTrack": {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "clip-1",
+          "at": 0,
+          "duration": 40,
+          "source": {
+            "kind": "media",
+            "src": "s1",
+            "in": 0,
+            "out": 4
+          }
+        }
+      ]
+    }
+  },
+  {
+    "t": "2026-08-21T02:31:50.312Z",
+    "step": "assertion-ok",
+    "message": "scenario1 AFTER: clip-1 STILL renders as a cut clip on the new track",
+    "afterStates": [
+      {
+        "itemKind": "cut",
+        "itemId": "0",
+        "className": "akari-annotations-strip-clip",
+        "background": "rgb(39, 39, 42)",
+        "headerBackground": "rgb(44, 138, 154)"
+      }
+    ]
+  },
+  {
+    "t": "2026-08-21T02:31:50.312Z",
+    "step": "assertion-ok",
+    "message": "scenario1: clip-1 CSS class list unchanged after moving to the new track",
+    "before": "akari-annotations-strip-clip",
+    "after": "akari-annotations-strip-clip"
+  },
+  {
+    "t": "2026-08-21T02:31:50.312Z",
+    "step": "assertion-ok",
+    "message": "scenario1: clip-1 computed background color unchanged after the move",
+    "before": "rgb(39, 39, 42)",
+    "after": "rgb(39, 39, 42)"
+  },
+  {
+    "t": "2026-08-21T02:31:50.312Z",
+    "step": "assertion-ok",
+    "message": "scenario1: clip-1 header bar computed background color unchanged after the move",
+    "before": "rgb(44, 138, 154)",
+    "after": "rgb(44, 138, 154)"
+  },
+  {
+    "t": "2026-08-21T02:31:50.313Z",
+    "step": "assertion-ok",
+    "message": "scenario1 AFTER: new track band kind is cuts (same as before)",
+    "afterBandKind": "cuts"
+  },
+  {
+    "t": "2026-08-21T02:31:50.313Z",
+    "step": "scenario1-PASS"
+  }
+]

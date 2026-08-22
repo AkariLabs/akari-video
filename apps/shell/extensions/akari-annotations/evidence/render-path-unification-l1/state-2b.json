@@ -1,0 +1,37 @@
+{
+  "label": "2b",
+  "tracks": [
+    {
+      "id": "v-empty",
+      "items": [
+        "move-1"
+      ]
+    },
+    {
+      "id": "v-pip",
+      "items": [
+        "pip-1"
+      ]
+    },
+    {
+      "id": "v-move",
+      "items": []
+    }
+  ],
+  "pipLane": "v-pip",
+  "pip": {
+    "itemKind": "cut",
+    "itemId": "1",
+    "className": "akari-annotations-strip-clip",
+    "background": "rgb(39, 39, 42)",
+    "headerBackground": "rgb(44, 138, 154)"
+  },
+  "moveLane": "v-empty",
+  "move": {
+    "itemKind": "cut",
+    "itemId": "0",
+    "className": "akari-annotations-strip-clip",
+    "background": "rgb(39, 39, 42)",
+    "headerBackground": "rgb(44, 138, 154)"
+  }
+}

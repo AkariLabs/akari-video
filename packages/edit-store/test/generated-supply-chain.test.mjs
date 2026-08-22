@@ -14,6 +14,7 @@ const expectedSources = [
   'caption-store.ts',
   'caption-window.ts',
   'edit-store.ts',
+  'edit-v2-item-write.ts',
   'edit-v2.ts',
   'index.ts',
   'internal-model.ts',

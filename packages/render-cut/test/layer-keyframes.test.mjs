@@ -5,13 +5,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { buildLayersCompositeCommand } from "../src/layers.mjs";
+import { buildLayersCompositeCommand as buildLayersCompositeCommandImpl } from "../src/layers.mjs";
 import {
   expandLayerForPerspectiveKeyframes,
   hasUsableLayerKeyframes,
   piecewiseValueAt,
   probeLayerSourceSize,
 } from "../src/layer-keyframes.mjs";
+
+function buildLayersCompositeCommand(options) {
+  return buildLayersCompositeCommandImpl({ fps: 30, ...options });
+}
 
 // contract-2026-08-09-transform-keyframes-v0.md. Structural (filter-string) tests mirror
 // layers.test.mjs's own style for the static crop/perspective tests; the real-render pixel tests
@@ -98,6 +102,7 @@ async function renderLayersOnto(baseColor, baseSize, layers, projectRoot) {
     duration: baseSize.duration,
     width: baseSize.width,
     height: baseSize.height,
+    fps: baseSize.fps,
   });
   const result = spawnSync(command, args, { encoding: "utf8" });
   assert.equal(result.status, 0, `${result.stderr}\nwarnings=${JSON.stringify(warnings)}`);

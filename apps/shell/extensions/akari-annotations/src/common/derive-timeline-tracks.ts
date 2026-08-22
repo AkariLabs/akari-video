@@ -40,17 +40,12 @@ export function deriveTracks(edit: unknown, hasCaptions = false): EditTimelineTr
     }
     const audio = isRecord(value?.audio) ? value.audio : undefined;
     const audioTracks = new Set(collectTrackNumbers(audio?.sfx));
-    // 意図的分岐 3（Phase 2-5 narration 逆輸入・2026-08-02）: narration は track を持たず
-    // 常に ref 0 帯へ表示するため、narration だけのプロジェクトでも audio トラックを導出する
-    // （表示専用の導出であり edit.json は変更しない）。
-    if (Array.isArray(audio?.narration) && audio.narration.length > 0) {
-        audioTracks.add(0);
+    // narration / bgm も track を持てる。省略時だけ legacy 互換で ref 0 とする。
+    for (const track of collectTrackNumbers(audio?.narration)) {
+        audioTracks.add(track);
     }
-    // 意図的分岐 5（2026-08-18 実機報告: BGM が鳴るのにタイムラインに出ない）: bgm も track を
-    // 持たず常に ref 0 帯へ表示するため（calculateLaneLayout の既存 bgm 区間描画）、bgm だけの
-    // プロジェクトでも audio トラックを導出する（narration の分岐 3 と同型・表示専用）。
     if (isRecord(audio?.bgm)) {
-        audioTracks.add(0);
+        audioTracks.add(trackNumber(audio.bgm));
     }
     for (const track of [...audioTracks].sort((left, right) => left - right)) {
         append('audio', track);
@@ -66,12 +61,12 @@ export function deriveTracks(edit: unknown, hasCaptions = false): EditTimelineTr
  * ユーザーの「意図的に隠す」口だから。edit.json への書き戻しは行わない純関数。
  */
 export function withAudioDisplaySupplement(
-    tracks: readonly EditTimelineTrack[], hasBgm: boolean
+    tracks: readonly EditTimelineTrack[], hasBgm: boolean, bgmTrack = 0
 ): EditTimelineTrack[] {
     if (!hasBgm || tracks.some(track => track.kind === 'audio')) {
         return [...tracks];
     }
-    return [{ id: 't-audio-implied', kind: 'audio', ref: 0 }, ...tracks];
+    return [{ id: 't-audio-implied', kind: 'audio', ref: bgmTrack }, ...tracks];
 }
 
 /**
@@ -151,6 +146,10 @@ function collectTrackNumbers(items: unknown): number[] {
         }
     }
     return [...tracks].sort((left, right) => left - right);
+}
+
+function trackNumber(item: Record<string, unknown>): number {
+    return Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

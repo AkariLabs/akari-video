@@ -1,18 +1,24 @@
 {
-  "version": 0,
+  "version": 2,
   "output": { "width": 1280, "height": 720, "fps": 30 },
-  "source": { "path": "source.mp4", "proxy": null },
-  "cuts": [{ "in": 0, "out": 20 }],
-  "overlays": [],
-  "audio": {
-    "narration": [
-      {
-        "id": "n-0001",
-        "path": "narration/n-0001.mp3",
-        "t": 2.5,
-        "gain_db": -70,
-        "provenance": { "provider": "human" }
-      }
-    ]
-  }
+  "sources": [
+    { "id": "main", "path": "source.mp4", "proxy": null },
+    { "id": "voice", "path": "narration/n-0001.mp3", "proxy": null }
+  ],
+  "tracks": [
+    {
+      "id": "narration",
+      "lane": "audio",
+      "items": [
+        { "id": "n-0001", "at": 75, "duration": 0, "role": "narration", "gain_db": -70, "source": { "kind": "media", "src": "voice", "in": 0 } }
+      ]
+    },
+    {
+      "id": "video",
+      "lane": "visual",
+      "items": [
+        { "id": "main-cut", "at": 0, "duration": 600, "source": { "kind": "media", "src": "main", "in": 0, "out": 20 } }
+      ]
+    }
+  ]
 }

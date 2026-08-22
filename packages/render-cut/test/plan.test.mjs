@@ -64,6 +64,113 @@ test("3D plans require puppeteer-core and do not advertise still-image fallback"
   assert.deepEqual(plan.rasterizer.order, ["puppeteer-core"]);
 });
 
+test("non-default visual order appends an implied caption stage at the top", () => {
+  const plan = buildV2Plan({
+    edit: {
+      version: 2,
+      output: { width: 1280, height: 720, fps: 30 },
+      sources: [
+        { id: "base", path: "base.mp4", proxy: null },
+        { id: "upper", path: "upper.mp4", proxy: null },
+      ],
+      tracks: [
+        { id: "cuts", lane: "visual", items: [
+          { id: "base-cut", at: 0, duration: 30, source: { kind: "media", src: "base", in: 0, out: 1 } },
+        ] },
+        { id: "overlays", lane: "visual", items: [
+          { id: "lower-third", at: 0, duration: 30, source: { kind: "html", path: "lower-third.html" } },
+        ] },
+        { id: "upper", lane: "visual", items: [
+          { id: "upper-cut", at: 0, duration: 30, source: { kind: "media", src: "upper", in: 0, out: 1 } },
+        ] },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: {
+      ...capabilities,
+      sourceInputs: [
+        { id: "base", path: "/project/base.mp4", hasAudio: true },
+        { id: "upper", path: "/project/upper.mp4", hasAudio: true },
+      ],
+    },
+    hasSourceAudio: true,
+    captionOverlays: [{ id: "c-0001", start: 0, duration: 1, html: "caption" }],
+  });
+
+  assert.ok(plan.commands.track_stack);
+  assert.deepEqual(
+    plan.commands.track_stack.stages.map(stage => stage.kind),
+    ["cuts", "overlays", "cuts", "captions"],
+  );
+  assert.equal(plan.commands.track_stack.stages.at(-1).trackId, "t-captions-implied");
+  assert.equal(plan.commands.track_stack.stages.at(-1).orderIndex, 3);
+});
+
+test("an explicit caption track keeps its declared z position", () => {
+  const plan = buildV2Plan({
+    edit: {
+      version: 2,
+      output: { width: 1280, height: 720, fps: 30 },
+      sources: [{ id: "base", path: "base.mp4", proxy: null }],
+      tracks: [
+        { id: "captions-below", lane: "visual", content: { from: "captions.json" } },
+        { id: "cuts", lane: "visual", items: [
+          { id: "base-cut", at: 0, duration: 30, source: { kind: "media", src: "base", in: 0, out: 1 } },
+        ] },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: {
+      ...capabilities,
+      sourceInputs: [{ id: "base", path: "/project/base.mp4", hasAudio: true }],
+    },
+    hasSourceAudio: true,
+    captionOverlays: [{ id: "c-0001", start: 0, duration: 1, html: "caption" }],
+  });
+
+  assert.ok(plan.commands.track_stack);
+  assert.deepEqual(plan.commands.track_stack.stages.map(stage => stage.kind), ["captions", "cuts"]);
+  assert.equal(plan.commands.track_stack.stages[0].orderIndex, 0);
+  assert.equal(plan.commands.track_stack.stages[0].trackId, undefined);
+});
+
+test("missing or empty captions do not create an implied stage", () => {
+  const plan = buildV2Plan({
+    edit: {
+      version: 2,
+      output: { width: 1280, height: 720, fps: 30 },
+      sources: [
+        { id: "base", path: "base.mp4", proxy: null },
+        { id: "upper", path: "upper.mp4", proxy: null },
+      ],
+      tracks: [
+        { id: "base", lane: "visual", items: [
+          { id: "base-cut", at: 0, duration: 30, source: { kind: "media", src: "base", in: 0, out: 1 } },
+        ] },
+        { id: "upper", lane: "visual", items: [
+          { id: "upper-cut", at: 0, duration: 30, source: { kind: "media", src: "upper", in: 0, out: 1 } },
+        ] },
+      ],
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/out.mp4",
+    capabilities: {
+      ...capabilities,
+      sourceInputs: [
+        { id: "base", path: "/project/base.mp4", hasAudio: true },
+        { id: "upper", path: "/project/upper.mp4", hasAudio: true },
+      ],
+    },
+    hasSourceAudio: true,
+    captionOverlays: [],
+  });
+
+  assert.ok(plan.commands.track_stack);
+  assert.deepEqual(plan.commands.track_stack.stages.map(stage => stage.kind), ["cuts", "cuts"]);
+});
+
 test("BGM and SFX produce a deterministic direct ffmpeg mix command", () => {
   const command = buildAudioMixCommand({
     edit: {
@@ -116,6 +223,12 @@ test("cuts with an output-axis gap render black video for the gap", () => {
   assert.match(filterComplex, /color=c=black[^;]*:d=3\[gv1_1\]/);
 });
 
+// P0 2026-08-21 render-path-unification: two cuts on distinct tracks are two separate
+// 'cuts'-kind internal tracks now (source.kind:'media' always maps to 'cuts' regardless of
+// position -- packages/edit-store/src/internal-model.ts). 2+ cuts-kind tracks can never collapse
+// into the flat layers.mjs composite path (that dispatch has no way to keep them independently
+// stacked), so this always routes through buildTrackStackPlan (real z-order alpha compositing)
+// instead -- see usesDefaultInternalTrackOrder's own comment in plan.mjs.
 test("overlapping tracks show the higher track and mix every cut's audio", () => {
   const plan = buildV2Plan({
     edit: {
@@ -130,10 +243,22 @@ test("overlapping tracks show the higher track and mix every cut's audio", () =>
     capabilities,
     hasSourceAudio: true,
   });
-  assert.ok(plan.commands.layers);
-  assert.ok(plan.commands.layers.args.includes("/project/source.mp4"));
+  assert.equal(plan.commands.layers, null);
+  assert.ok(plan.commands.track_stack);
+  assert.equal(plan.commands.track_stack.cutTracks.length, 2);
+  for (const track of plan.commands.track_stack.cutTracks) {
+    assert.ok(track.command.args.includes("/project/source.mp4"));
+  }
 });
 
+// P0 2026-08-21 render-path-unification: "late-layer" (a plain baked clip, no distinguishing
+// feature) now migrates to source.kind:'media' and lands on its own 'cuts'-kind track alongside
+// the base cuts[] track (packages/edit-store/src/internal-model.ts's needsLayersEngine), so this
+// is a 2-cuts-track case that always routes through buildTrackStackPlan (see the "overlapping
+// tracks" tests' own comment above). buildTrackStackPlan's own base stage
+// (buildTrackBaseCommand) already renders a canvas at the *full* predicted duration -- padding
+// beyond the shorter cuts[] track's own content with black -- so there is no separate tail_pad
+// step to insert here any more; that duration-extension duty moved into the base stage itself.
 test("content beyond the cuts extends predicted duration and inserts tail padding", () => {
   const plan = buildV2Plan({
     edit: {
@@ -154,11 +279,13 @@ test("content beyond the cuts extends predicted duration and inserts tail paddin
     hasSourceAudio: true,
   });
   assert.equal(plan.predicted_duration_seconds, 13);
-  assert.notEqual(plan.commands.tail_pad, null);
-  assert.match(plan.commands.tail_pad.args.join(" "), /stop_duration=3:color=black/);
-  assert.match(plan.commands.tail_pad.args.join(" "), /apad=whole_dur=13/);
-  assert.ok(plan.commands.layers.args.includes("/project/.akari/render-tmp/cut-tail-padded.mp4"));
-  assert.ok(plan.intermediates.includes(".akari/render-tmp/cut-tail-padded.mp4"));
+  assert.equal(plan.commands.tail_pad, null);
+  assert.equal(plan.commands.layers, null);
+  assert.ok(plan.commands.track_stack);
+  assert.match(plan.commands.track_stack.base.args.join(" "), /color=c=black:s=1280x720:r=30:d=13/);
+  assert.ok(plan.commands.track_stack.base.args.includes("13"));
+  assert.equal(plan.commands.track_stack.cutTracks.length, 2);
+  assert.ok(plan.intermediates.includes(".akari/render-tmp/track-base.mp4"));
 });
 
 test("omitting quality and encoder keeps the deterministic default encode policy", () => {
@@ -347,6 +474,8 @@ test("v1: cuts with an output-axis gap render black video for the gap", () => {
   assert.match(filterComplex, /color=c=black[^;]*:d=3\[gv1_1\]/);
 });
 
+// P0 2026-08-21 render-path-unification: see the v0 "overlapping tracks" test's own comment above
+// -- 2+ cuts-kind tracks always route through buildTrackStackPlan now.
 test("v1: overlapping tracks show the higher track and mix every cut's audio", () => {
   const plan = buildV2Plan({
     edit: {
@@ -361,8 +490,11 @@ test("v1: overlapping tracks show the higher track and mix every cut's audio", (
     capabilities: v1Capabilities,
     hasSourceAudio: true,
   });
-  assert.ok(plan.commands.layers);
-  assert.ok(plan.commands.layers.args.includes("/project/b.mp4"));
+  assert.equal(plan.commands.layers, null);
+  assert.ok(plan.commands.track_stack);
+  const higherTrack = plan.commands.track_stack.cutTracks.find(track => track.ref === 1);
+  assert.ok(higherTrack, "expected a ref:1 cuts track");
+  assert.ok(higherTrack.command.args.includes("/project/b.mp4"));
 });
 
 test("predictedDuration accounts for at/track gaps for both v0 and v1 instead of a plain segment sum", () => {

@@ -55,6 +55,23 @@ test('retime は 0 フレーム尺を 1 にし、その増分を同じトラッ�
     assert.equal(result.tracks[1].items[0].at, 0);
 });
 
+test('retime は audio item の duration: 0 未解決センチネルを保持する', () => {
+    const edit = baseEdit([]);
+    edit.sources.push({ id: 'voice', path: 'voice.wav' });
+    edit.tracks.push({
+        id: 'audio', lane: 'audio', items: [{
+            id: 'n-0001', at: 30, duration: 0, role: 'narration',
+            source: { kind: 'media', src: 'voice', in: 0 },
+        }],
+    });
+    const result = retime(edit, 24);
+    assert.deepEqual(
+        { at: result.tracks[1].items[0].at, duration: result.tracks[1].items[0].duration },
+        { at: 24, duration: 0 },
+    );
+    assert.deepEqual(result.tracks[1].items[0].source, edit.tracks[1].items[0].source);
+});
+
 test('retime は v2 と 1 以上の整数 fps だけを受け付ける', () => {
     assert.throws(() => retime(baseEdit([]), 23.976), /1 以上の整数/);
     assert.throws(() => retime(baseEdit([]), 0), /1 以上の整数/);

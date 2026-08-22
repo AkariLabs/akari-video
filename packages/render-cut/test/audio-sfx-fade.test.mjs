@@ -71,7 +71,14 @@ async function makeProject({ duration = 8, sfx = [] }) {
         source: { path: "source.mp4", proxy: null },
         cuts: [{ in: 0, out: duration }],
         overlays: [],
-        audio: { sfx: sfx.map(({ file, ...rest }) => ({ path: `audio/${file}`, ...rest })) },
+        audio: {
+          sfx: sfx.map(({
+            file,
+            frequency: _frequency,
+            materialDuration: _materialDuration,
+            ...rest
+          }) => ({ path: `audio/${file}`, ...rest })),
+        },
       },
       null,
       2,

@@ -8,6 +8,10 @@ const BLEND_MODES = new Set([
 const ITEM_KEYS = new Set([
     'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'source'
 ]);
+const AUDIO_ITEM_KEYS = new Set([
+    'id', 'at', 'duration', 'role', 'source', 'gain_db', 'fade_in', 'fade_out', 'ducking',
+    'script', 'reading', 'provenance'
+]);
 /**
  * edit.json v2 だけを検証して内部表現へ読む。v0/v1 の変換は意図的に扱わない。
  * tracks の配列順を保持し、各 track に z（0 = 最背面）を付ける。
@@ -111,13 +115,80 @@ function validateTrack(value, index, trackIds, itemIds, sourceIds) {
     if (hasItems) {
         if (!Array.isArray(value.items))
             throw invalid(`${path}.items`, '配列である必要があります');
-        value.items.forEach((item, itemIndex) => validateItem(item, `${path}.items[${itemIndex}]`, itemIds, sourceIds));
+        value.items.forEach((item, itemIndex) => {
+            const itemPath = `${path}.items[${itemIndex}]`;
+            if (value.lane === 'audio')
+                validateAudioItem(item, itemPath, itemIds, sourceIds);
+            else
+                validateItem(item, itemPath, itemIds, sourceIds);
+        });
         return;
     }
     requireRecord(value.content, `${path}.content`);
     requireExactKeys(value.content, new Set(['from']), `${path}.content`);
     if (value.content.from !== 'captions.json') {
         throw invalid(`${path}.content.from`, 'captions.json である必要があります');
+    }
+}
+function validateAudioItem(value, path, ids, sourceIds) {
+    requireRecord(value, path);
+    requireExactKeys(value, AUDIO_ITEM_KEYS, path);
+    requireText(value.id, `${path}.id`);
+    if (ids.has(value.id))
+        throw invalid(`${path}.id`, `item id が重複しています: ${value.id}`);
+    ids.add(value.id);
+    requireInteger(value.at, 0, `${path}.at`);
+    requireInteger(value.duration, 0, `${path}.duration`);
+    if (hasOwn(value, 'role') && value.role !== 'sfx' && value.role !== 'narration' && value.role !== 'bgm') {
+        throw invalid(`${path}.role`, 'sfx/narration/bgm のいずれかである必要があります');
+    }
+    if (hasOwn(value, 'gain_db'))
+        requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+    if (hasOwn(value, 'fade_in'))
+        requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
+    if (hasOwn(value, 'fade_out'))
+        requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
+    if (hasOwn(value, 'ducking') && typeof value.ducking !== 'boolean') {
+        throw invalid(`${path}.ducking`, 'boolean である必要があります');
+    }
+    if (hasOwn(value, 'script') && typeof value.script !== 'string') {
+        throw invalid(`${path}.script`, 'string である必要があります');
+    }
+    if (hasOwn(value, 'reading') && typeof value.reading !== 'string') {
+        throw invalid(`${path}.reading`, 'string である必要があります');
+    }
+    if (hasOwn(value, 'provenance'))
+        validateNarrationProvenance(value.provenance, `${path}.provenance`);
+    validateAudioMediaSource(value.source, `${path}.source`, sourceIds);
+}
+function validateNarrationProvenance(value, path) {
+    requireRecord(value, path);
+    requireText(value.provider, `${path}.provider`);
+    for (const key of ['engine', 'voice', 'credit', 'generated_at']) {
+        if (hasOwn(value, key) && typeof value[key] !== 'string') {
+            throw invalid(`${path}.${key}`, 'string である必要があります');
+        }
+    }
+    if (value.provider === 'voicevox' && (!hasOwn(value, 'credit')
+        || typeof value.credit !== 'string' || value.credit.trim().length === 0)) {
+        throw invalid(`${path}.credit`, 'provider が voicevox のときは空でない文字列が必要です');
+    }
+}
+function validateAudioMediaSource(value, path, sourceIds) {
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['kind', 'src', 'in', 'out']), path);
+    if (value.kind !== 'media')
+        throw invalid(`${path}.kind`, 'media である必要があります');
+    requireText(value.src, `${path}.src`);
+    if (!sourceIds.has(value.src))
+        throw invalid(`${path}.src`, `sources[].id に存在しません: ${value.src}`);
+    if (hasOwn(value, 'in'))
+        requireNonNegativeNumber(value.in, `${path}.in`);
+    if (hasOwn(value, 'out')) {
+        requireNonNegativeNumber(value.out, `${path}.out`);
+        const inSeconds = hasOwn(value, 'in') ? value.in : 0;
+        if (value.out <= inSeconds)
+            throw invalid(path, 'audio media source は out > in である必要があります');
     }
 }
 function validateItem(value, path, ids, sourceIds) {

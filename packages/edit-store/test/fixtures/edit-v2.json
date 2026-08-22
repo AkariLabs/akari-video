@@ -3,14 +3,30 @@
   "output": { "width": 1920, "height": 1080, "fps": 30 },
   "sources": [
     { "id": "main", "path": "assets/talk.mp4" },
+    { "id": "sfx", "path": "assets/hit.wav" },
+    { "id": "voice", "path": "assets/narration.wav" },
     { "id": "music", "path": "assets/music.wav" }
   ],
   "tracks": [
     {
-      "id": "a1",
+      "id": "a-sfx",
       "lane": "audio",
       "items": [
-        { "id": "music-1", "at": 0, "duration": 300, "source": { "kind": "media", "src": "music", "in": 0, "out": 10 } }
+        { "id": "hit-1", "at": 30, "duration": 15, "gain_db": -6, "source": { "kind": "media", "src": "sfx", "in": 0.25, "out": 0.75 } }
+      ]
+    },
+    {
+      "id": "a-narration",
+      "lane": "audio",
+      "items": [
+        { "id": "n-0001", "at": 60, "duration": 90, "role": "narration", "gain_db": 1.5, "source": { "kind": "media", "src": "voice", "in": 0, "out": 3 } }
+      ]
+    },
+    {
+      "id": "a-bgm",
+      "lane": "audio",
+      "items": [
+        { "id": "music-1", "at": 0, "duration": 300, "role": "bgm", "gain_db": -18, "fade_in": 1.25, "fade_out": 2.5, "ducking": true, "source": { "kind": "media", "src": "music", "in": 0, "out": 10 } }
       ]
     },
     {

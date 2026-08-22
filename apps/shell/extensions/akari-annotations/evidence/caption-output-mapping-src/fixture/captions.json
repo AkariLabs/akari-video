@@ -1,0 +1,22 @@
+[
+  {
+    "id": "caption-source-a",
+    "start": 0.5,
+    "end": 1.5,
+    "text": "source A の字幕",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "src": "source-a"
+  },
+  {
+    "id": "caption-source-b",
+    "start": 0.5,
+    "end": 1.5,
+    "text": "source B の字幕",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "src": "source-b"
+  }
+]

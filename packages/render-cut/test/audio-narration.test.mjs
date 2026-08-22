@@ -201,7 +201,7 @@ test("ducking measurably lowers the BGM level during the narration window when n
       const edit = {
         audio: {
           bgm: { path: "audio/bgm.wav", gain_db: -18, ducking },
-          narration: [{ id: "n-0001", path: "audio/narration.wav", t: 2, gain_db: 0, provenance: { provider: "human" } }],
+          narration: [{ id: "n-0001", path: "audio/narration.wav", t: 2, gain_db: 0 }],
         },
       };
       const command = buildAudioMixCommand({
