@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "a", "path": "../valid/sample.mp4" },
+    { "id": "b", "path": "../valid/sample.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "items": [
+        { "id": "cut-a", "at": 0, "duration": 180, "source": { "kind": "media", "src": "a", "in": 0, "out": 6 } },
+        { "id": "cut-b", "at": 180, "duration": 150, "source": { "kind": "media", "src": "b", "in": 0.5, "out": 5.5 } }
+      ]
+    },
+    {
+      "id": "v-overlay",
+      "lane": "visual",
+      "items": [
+        { "id": "title", "at": 15, "duration": 60, "source": { "kind": "html", "path": "title.html" } }
+      ]
+    },
+    { "id": "v-telop", "lane": "visual", "items": [] }
+  ]
+}

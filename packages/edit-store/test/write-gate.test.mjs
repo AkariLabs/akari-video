@@ -5,10 +5,13 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   lintProjectCandidates,
+  scheduleProjectLint,
   writeProjectFilesGuarded,
   writeAtomic,
   findEditLintBinPath
 } from '../lib/write-gate.js';
+
+const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
 function makeProject(edit) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'edit-store-test-'));
@@ -118,6 +121,52 @@ test('writeAtomic は tmp + rename で全文を書く', async () => {
       fs.readdirSync(path.dirname(target)).filter(name => name.endsWith('.tmp')), []
     );
   } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('保存後 lint は同一プロジェクトで直列化され、古い fail が新しい pass を上書きしない', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'edit-store-lint-race-'));
+  let calls = 0;
+  let releaseFirst;
+  let notifyFirstStarted;
+  const firstStarted = new Promise(resolve => { notifyFirstStarted = resolve; });
+  const firstGate = new Promise(resolve => { releaseFirst = resolve; });
+  const completions = [];
+  const notifications = [];
+  const lintRunner = async () => {
+    const call = ++calls;
+    if (call === 1) {
+      notifyFirstStarted();
+      await firstGate;
+    }
+    completions.push(call);
+    const result = { pass: call === 2, errors: call === 1 ? ['old fail'] : [], findings: [] };
+    fs.mkdirSync(path.join(root, '.akari'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.akari', 'lint.json'), JSON.stringify({
+      verdict: result.pass ? 'pass' : 'fail', call
+    }));
+    return result;
+  };
+  try {
+    scheduleProjectLint(root, { debounceMs: 0, lintRunner, onLintResult: result => notifications.push(result) });
+    await Promise.race([
+      firstStarted,
+      wait(100).then(() => { throw new Error('injected first lint did not start'); })
+    ]);
+    scheduleProjectLint(root, { debounceMs: 0, lintRunner, onLintResult: result => notifications.push(result) });
+    await wait(30);
+    assert.equal(calls, 1, 'the newer lint must wait for the running older lint');
+    releaseFirst();
+    for (let attempt = 0; attempt < 50 && notifications.length === 0; attempt++) await wait(10);
+    assert.deepEqual(completions, [1, 2]);
+    assert.deepEqual(notifications.map(result => result.pass), [true]);
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(path.join(root, '.akari', 'lint.json'), 'utf8')),
+      { verdict: 'pass', call: 2 }
+    );
+  } finally {
+    releaseFirst?.();
     fs.rmSync(root, { recursive: true, force: true });
   }
 });

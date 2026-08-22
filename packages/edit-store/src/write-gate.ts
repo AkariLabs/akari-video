@@ -40,6 +40,8 @@ export type LintCandidates = Record<string, string | null>;
 export interface DeferredLintOptions {
     debounceMs?: number;
     onLintResult?: (result: EditLintGateResult) => void | Promise<void>;
+    /** Deterministic test seam; production callers use runEditLint. */
+    lintRunner?: (projectRoot: string) => Promise<EditLintGateResult>;
     /**
      * atomic rename が完了した「直後」に、書けた全文を同期で渡す。
      * onWillWrite（rename 直前・自己書き込み由来 watcher の抑止用）の対になる通知で、
@@ -60,6 +62,7 @@ interface EditLintModule {
 const DEFAULT_LINT_DEBOUNCE_MS = 400;
 const lintTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const lintRevisions = new Map<string, number>();
+const lintRunChains = new Map<string, Promise<EditLintGateResult>>();
 const dynamicImport = new Function('specifier', 'return import(specifier)') as
     (specifier: string) => Promise<EditLintModule>;
 
@@ -123,12 +126,21 @@ export function scheduleProjectLint(projectRoot: string, options: DeferredLintOp
     }
     const timer = setTimeout(() => {
         lintTimers.delete(key);
-        void runEditLint(key).then(
+        const previousRun = lintRunChains.get(key) ?? Promise.resolve({ pass: true, errors: [], findings: [] });
+        const currentRun = previousRun
+            .catch(() => ({ pass: true, errors: [], findings: [] }))
+            .then(() => (options.lintRunner ?? runEditLint)(key));
+        lintRunChains.set(key, currentRun);
+        void currentRun.then(
             result => lintRevisions.get(key) === revision ? options.onLintResult?.(result) : undefined,
             error => {
                 console.warn('[edit-store] 保存後 edit-lint の実行に失敗しました（保存は維持します）。', error);
             }
-        );
+        ).finally(() => {
+            if (lintRunChains.get(key) === currentRun) {
+                lintRunChains.delete(key);
+            }
+        });
     }, options.debounceMs ?? DEFAULT_LINT_DEBOUNCE_MS);
     lintTimers.set(key, timer);
 }

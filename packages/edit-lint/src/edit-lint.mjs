@@ -1296,7 +1296,7 @@ function validateTimelineTracks(edit, findings, projectedAudioTracks = null) {
 // too wide a blast radius to take on speculatively, especially with no evidence anyone needs the
 // combination. Reject it instead: it fails loudly and specifically, rather than rendering a
 // broken video with a phantom black flash that's very hard to trace back to its cause.
-function validateTrackTransitionOutCompatibility(edit, findings) {
+export function validateTrackTransitionOutCompatibility(edit, findings) {
   if (!Array.isArray(edit?.cuts)) return;
   const tracks = edit?.timeline?.tracks;
   if (!Array.isArray(tracks)) return; // malformed timeline.tracks is already reported by validateTimelineTracks

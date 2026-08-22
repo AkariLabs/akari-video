@@ -5,7 +5,8 @@ import {
     REVIEW_TOOL_MODE_INITIAL,
     isEditableEventTarget,
     reduceReviewToolMode,
-    reviewToolModeForShortcutKey
+    reviewToolModeForShortcutKey,
+    shouldStopEditableDeletionKeydown
 } from '../lib/common/review-tool-mode.js';
 
 // docs/contract-2026-08-11-review-session-ui-events.md #1 / internal annotation-everywhere §3
@@ -67,4 +68,24 @@ test('isEditableEventTarget recognizes input/textarea/contenteditable, rejects e
     assert.equal(isEditableEventTarget({ tagName: 'BUTTON' }), false);
     assert.equal(isEditableEventTarget(null), false);
     assert.equal(isEditableEventTarget(undefined), false);
+});
+
+test('non-text input controls remain shortcut-capable', () => {
+    for (const type of ['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'color', 'file', 'image']) {
+        assert.equal(isEditableEventTarget({ tagName: 'INPUT', type }), false, type);
+    }
+    assert.equal(isEditableEventTarget({ tagName: 'INPUT', type: 'text' }), true);
+    assert.equal(isEditableEventTarget({ tagName: 'INPUT' }), true);
+});
+
+test('Delete, Backspace, and command-cut stop at an editable webview target without blocking range controls', () => {
+    const editable = { tagName: 'DIV', isContentEditable: true };
+    assert.equal(shouldStopEditableDeletionKeydown(editable, null, 'Delete', false, false), true);
+    assert.equal(shouldStopEditableDeletionKeydown(editable, null, 'Backspace', false, false), true);
+    assert.equal(shouldStopEditableDeletionKeydown(editable, null, 'x', true, false), true);
+    assert.equal(shouldStopEditableDeletionKeydown(editable, null, 'x', false, true), true);
+    assert.equal(shouldStopEditableDeletionKeydown(editable, null, 'x', false, false), false);
+    assert.equal(shouldStopEditableDeletionKeydown(
+        { tagName: 'INPUT', type: 'range' }, null, 'Delete', false, false
+    ), false);
 });
