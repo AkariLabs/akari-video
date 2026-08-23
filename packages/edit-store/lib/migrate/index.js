@@ -186,6 +186,10 @@ function migrateEditToV2(raw, options = {}) {
             blockers.push(`edit.json.layers[${index}].kind は video / image / baked / filter のいずれかである必要があります。`);
             return;
         }
+        if (value.kind !== 'filter' && hasOwn(value, 'filter')) {
+            blockers.push(`edit.json.layers[${index}].filter（映像レイヤー直付きの filter）は v2 に等価表現が無いため変換できません。`);
+            return;
+        }
         if (!nonNegative(value.t) || !positive(value.duration)) {
             blockers.push(`edit.json.layers[${index}] の t / duration が不正です。`);
             return;

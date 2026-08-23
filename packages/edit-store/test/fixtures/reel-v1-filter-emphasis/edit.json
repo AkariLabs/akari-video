@@ -3,7 +3,7 @@
   "output": { "width": 1080, "height": 1920, "fps": 30 },
   "sources": [
     { "id": "main", "path": "reel-main.mp4", "proxy": null },
-    { "id": "person", "path": "person.mp4", "proxy": null }
+    { "id": "person", "path": "assets/matte/person-02.mov", "proxy": null }
   ],
   "cuts": [
     { "id": "main-1", "src": "main", "in": 0, "out": 4 }
@@ -11,20 +11,14 @@
   "overlays": [],
   "layers": [
     {
-      "id": "person-video",
-      "t": 0,
-      "duration": 4,
+      "id": "person-02",
+      "t": 2.98,
+      "duration": 4.3,
       "kind": "video",
-      "src": "person.mp4",
-      "perspective": { "corners": [[0.1, 0.05], [0.9, 0.05], [0.1, 0.95], [0.9, 0.95]] }
-    },
-    {
-      "id": "person-grade",
-      "t": 0,
-      "duration": 4,
-      "kind": "filter",
-      "filter": { "type": "lut", "id": "cinematic", "intensity": 0.5 },
-      "perspective": { "corners": [[0.1, 0.05], [0.9, 0.05], [0.1, 0.95], [0.9, 0.95]] }
+      "src": "assets/matte/person-02.mov",
+      "transform": { "x": 0, "y": 250, "scale": 1, "rotate": 0 },
+      "track": 10,
+      "filter": { "type": "lut", "id": "cinematic", "intensity": 0.5 }
     }
   ],
   "emphasis_words": [

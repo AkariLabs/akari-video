@@ -297,6 +297,19 @@ test('kind filter に src が在る legacy layer は理由付き blocker で止�
   assert.match(result.blockers.join('\n'), /kind filter は src を持てません/);
 });
 
+test('media 系 layer に直付けされた filter は等価表現が無いため理由付き blocker で止まる', () => {
+  for (const kind of ['video', 'image', 'baked']) {
+    const doc = base(1);
+    doc.layers = [{
+      id: `media-filter-${kind}`, t: 0, duration: 1, kind, src: `${kind}.mov`,
+      filter: { type: 'lut', id: 'cinematic', intensity: 0.5 },
+    }];
+    const result = migrateEditToV2(doc);
+    assert.equal(result.ok, false);
+    assert.match(result.blockers.join('\n'), /layers\[0\]\.filter（映像レイヤー直付きの filter）は v2 に等価表現が無いため変換できません/);
+  }
+});
+
 test('提案は書かず、承認適用で backup -> atomic write、1 手 undo で戻る', async () => {
   const root = await mkdtemp(join(tmpdir(), 'akari-migrate-'));
   try {
@@ -315,7 +328,7 @@ test('提案は書かず、承認適用で backup -> atomic write、1 手 undo �
   }
 });
 
-test('リール同形 fixture は filter と emphasis 15 語を移し、両原文を backup / revert する', async () => {
+test('リール同形 fixture の映像レイヤー直付き filter は silent loss せず blocker で止まる', async () => {
   const root = await mkdtemp(join(tmpdir(), 'akari-migrate-reel-'));
   try {
     const editPath = join(root, 'edit.json');
@@ -326,25 +339,48 @@ test('リール同形 fixture は filter と emphasis 15 語を移し、両原�
     await writeFile(editPath, beforeEdit);
     await writeFile(captionsPath, beforeCaptions);
 
+    const migrated = migrateEditToV2(JSON.parse(beforeEdit));
+    assert.equal(migrated.ok, false);
+    assert.match(migrated.blockers.join('\n'), /layers\[0\]\.filter（映像レイヤー直付きの filter）は v2 に等価表現が無いため変換できません/);
+
+    const proposal = planMigration(root, editPath, beforeEdit, { now: new Date('2026-08-23T01:02:03.000Z') });
+    assert.equal('blockers' in proposal, true);
+    assert.match(proposal.blockers.join('\n'), /layers\[0\]\.filter（映像レイヤー直付きの filter）は v2 に等価表現が無いため変換できません/);
+    assert.equal(await readFile(editPath, 'utf8'), beforeEdit, '提案時点では edit.json を変更しない');
+    assert.equal(await readFile(captionsPath, 'utf8'), beforeCaptions, '提案時点では captions.json を変更しない');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('filter 直付けの無い emphasis_words は captions.json へ移り、両原文を backup / revert する', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-migrate-emphasis-'));
+  try {
+    const editPath = join(root, 'edit.json');
+    const captionsPath = join(root, 'captions.json');
+    const doc = base(1);
+    doc.emphasis_words = [
+      { id: 'e-0001', src: 'main', t_start: 0.1, t_end: 0.2, word: '最高', emotion: 'joy' },
+      { id: 'e-0002', src: 'main', t_start: 0.3, t_end: 0.5, word: '注目', emotion: 'emphasis' },
+    ];
+    const beforeEdit = `${JSON.stringify(doc, null, 2)}\n`;
+    const beforeCaptions = `${JSON.stringify({ captions: [] }, null, 2)}\n`;
+    await writeFile(editPath, beforeEdit);
+    await writeFile(captionsPath, beforeCaptions);
+
     const proposal = planMigration(root, editPath, beforeEdit, { now: new Date('2026-08-23T01:02:03.000Z') });
     assert.equal('blockers' in proposal, false, proposal.blockers?.join('\n'));
     assert.ok(proposal.captions);
     assert.equal(proposal.changes.some(change => change.path === 'emphasis_words'), true);
     const migrated = JSON.parse(proposal.nextText);
     assert.equal('emphasis_words' in migrated, false);
-    assert.equal(migrated.sources.length, 2);
-    assert.deepEqual(
-      migrated.tracks.flatMap(track => track.items ?? []).find(item => item.id === 'person-grade').source,
-      { kind: 'filter', filter: { type: 'lut', id: 'cinematic', intensity: 0.5 } },
-    );
     assert.doesNotThrow(() => readEditV2(migrated));
     assert.equal(await readFile(editPath, 'utf8'), beforeEdit, '提案時点では edit.json を変更しない');
     assert.equal(await readFile(captionsPath, 'utf8'), beforeCaptions, '提案時点では captions.json を変更しない');
 
     await applyMigration(proposal);
     const movedCaptions = JSON.parse(await readFile(captionsPath, 'utf8'));
-    assert.equal(movedCaptions.emphasis_words.length, 15);
-    assert.deepEqual(movedCaptions.emphasis_words, JSON.parse(beforeEdit).emphasis_words);
+    assert.deepEqual(movedCaptions.emphasis_words, doc.emphasis_words);
     assert.equal(await readFile(proposal.backupPath, 'utf8'), beforeEdit);
     assert.equal(await readFile(proposal.captions.backupPath, 'utf8'), beforeCaptions);
 
@@ -357,8 +393,9 @@ test('リール同形 fixture は filter と emphasis 15 語を移し、両原�
 });
 
 test('emphasis_words は captions.json 不在・配列ルート・既存席を理由付きでブロックする', async () => {
-  const fixtureRoot = new URL('./fixtures/reel-v1-filter-emphasis/', import.meta.url);
-  const beforeEdit = await readFile(new URL('edit.json', fixtureRoot), 'utf8');
+  const doc = base(1);
+  doc.emphasis_words = [{ id: 'e-0001', t_start: 0.1, t_end: 0.2, word: '最高', emotion: 'joy' }];
+  const beforeEdit = `${JSON.stringify(doc, null, 2)}\n`;
   const cases = [
     { captions: undefined, reason: /移送先 captions\.json がありません/ },
     { captions: '[]\n', reason: /captions\.json が配列ルート/ },
