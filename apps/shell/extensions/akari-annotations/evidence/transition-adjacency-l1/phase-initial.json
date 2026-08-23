@@ -1,0 +1,40 @@
+{
+  "phase": "initial",
+  "status": "PASS",
+  "shellReadyMs": 9057,
+  "boundaryCount": 3,
+  "boundaries": [
+    {
+      "value": "0-1",
+      "laterFound": true,
+      "badgeCenterX": 498.828125,
+      "laterLeftX": 498.828125,
+      "differencePx": 0
+    },
+    {
+      "value": "2-3",
+      "laterFound": true,
+      "badgeCenterX": 562.296875,
+      "laterLeftX": 562.296875,
+      "differencePx": 0
+    },
+    {
+      "value": "4-5",
+      "laterFound": true,
+      "badgeCenterX": 627.3125,
+      "laterLeftX": 627.3125,
+      "differencePx": 0
+    }
+  ],
+  "nonAdjacentBoundaryValues": [
+    "1-2",
+    "3-4",
+    "5-6"
+  ],
+  "unsupportedTransition": {
+    "title": "このトランジションは次のクリップとの間にすき間があるため書き出されません。すき間を詰めるか、トランジションを削除してください。",
+    "text": "⚠ 削除",
+    "width": 24.953125,
+    "height": 49
+  }
+}

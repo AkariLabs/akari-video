@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { computeCutBoundaries } from "../lib/common/cut-boundaries.js";
 
-test("同一トラックで隣り合う2件は1境界を返す（中点 = 境界時刻）", () => {
+test("同一トラックで隣接する2件は1境界を返す（後クリップ左端 = 境界時刻）", () => {
   const segments = [
     { index: 0, track: 0, tlStart: 0, tlEnd: 5 },
     { index: 1, track: 0, tlStart: 5, tlEnd: 10 }
@@ -22,8 +22,30 @@ test("transitionOut は前方（earlier）のセグメントから引き継が�
   ];
   const boundaries = computeCutBoundaries(segments);
   assert.equal(boundaries.length, 1);
-  assert.equal(boundaries[0].boundaryT, 4.75);
+  assert.equal(boundaries[0].boundaryT, 4.5);
   assert.deepEqual(boundaries[0].transitionOut, { type: "dissolve", duration: 0.5 });
+});
+
+test("同一トラックでも1フレーム以上のギャップがあるペアは境界を返さない", () => {
+  const segments = [
+    { index: 0, track: 0, tlStart: 0, tlEnd: 5 },
+    { index: 1, track: 0, tlStart: 5 + 1 / 30, tlEnd: 10 }
+  ];
+  assert.deepEqual(computeCutBoundaries(segments, 30), []);
+});
+
+test("宣言を超える重なりは境界を返さず、宣言内の重なりは later.tlStart に返す", () => {
+  const segments = [
+    { index: 0, track: 0, tlStart: 0, tlEnd: 5, transitionOut: { type: "dissolve", duration: 0.5 } },
+    { index: 1, track: 0, tlStart: 4.4, tlEnd: 9 },
+    { index: 2, track: 0, tlStart: 9, tlEnd: 12, transitionOut: { type: "dissolve", duration: 0.5 } },
+    { index: 3, track: 0, tlStart: 11.5, tlEnd: 15 }
+  ];
+  const boundaries = computeCutBoundaries(segments, 30);
+  assert.deepEqual(boundaries.map(boundary => [boundary.earlierIndex, boundary.laterIndex, boundary.boundaryT]), [
+    [1, 2, 9],
+    [2, 3, 11.5]
+  ]);
 });
 
 test("異なるトラックの間には境界を作らない（トラック単位で独立に隣接判定）", () => {

@@ -19,6 +19,7 @@ import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
 const {
+  areCutsAdjacent,
   findUnsupportedDeclaredTrackTransitions,
   projectLegacyEdit,
   readInternalEdit,
@@ -254,7 +255,7 @@ export async function lintProject(input, options = {}) {
   validateStillImageCuts(edit, findings);
   const cutTrackSegments = computeCutTrackSegments(edit.cuts);
   for (const segment of findTrackOverlaps(cutTrackSegments)) {
-    if (isDeclaredTransitionOverlap(edit.cuts, cutTrackSegments, segment)) continue;
+    if (isDeclaredTransitionOverlap(edit.cuts, cutTrackSegments, segment, edit.fps)) continue;
     addFinding(findings, {
       severity: "error",
       check: "cuts.track-overlap",
@@ -883,15 +884,18 @@ function findTrackOverlaps(segments) {
 // render correctly would still fail lint. Still rejects zero/negative overlap (a genuine gap --
 // no transition is physically possible) and overlap greater than declared (an unrelated shape
 // render-cut does not auto-adjust for -- see effectiveTransitionDurations' own comment).
-function isDeclaredTransitionOverlap(cuts, segments, current) {
+function isDeclaredTransitionOverlap(cuts, segments, current, fps) {
   const previous = segments
     .filter(segment => segment.track === current.track && segment.index < current.index)
     .sort((left, right) => right.index - left.index)[0];
   if (!previous) return false;
   const duration = cuts?.[previous.index]?.transition_out?.duration;
   if (!isPositiveNumber(duration)) return false;
-  const availableOverlap = previous.end - current.start;
-  return availableOverlap > EPSILON && availableOverlap <= duration + EPSILON;
+  return areCutsAdjacent(
+    { tlEnd: previous.end, transitionOut: { duration } },
+    { tlStart: current.start },
+    fps,
+  );
 }
 
 function validateCutTrackFields(cuts, findings) {

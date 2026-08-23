@@ -1,0 +1,27 @@
+{
+  "phase": "after-trim",
+  "status": "PASS",
+  "beforeBoundaryValues": [
+    "0-1",
+    "2-3",
+    "4-5"
+  ],
+  "afterBoundaryCount": 2,
+  "afterBoundaries": [
+    {
+      "value": "2-3",
+      "laterFound": true,
+      "badgeCenterX": 600.625,
+      "laterLeftX": 600.625,
+      "differencePx": 0
+    },
+    {
+      "value": "4-5",
+      "laterFound": true,
+      "badgeCenterX": 534.7734375,
+      "laterLeftX": 534.7734375,
+      "differencePx": 0
+    }
+  ],
+  "removedBoundaryValue": "0-1"
+}
