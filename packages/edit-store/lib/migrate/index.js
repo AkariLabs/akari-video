@@ -24,7 +24,7 @@ var legacy_parse_1 = require("./legacy-parse");
 Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function () { return legacy_parse_1.parseEdit; } });
 const TOP_KEYS = new Set([
     'version', 'output', 'source', 'sources', 'cuts', 'overlays', 'layers', 'audio', 'captions', 'timeline',
-    'thumbnail'
+    'thumbnail', 'emphasis_words'
 ]);
 const CUT_KEYS = new Set([
     'id', 'src', 'in', 'out', 'at', 'track', 'crop', 'transform', 'opacity', 'framing',
@@ -33,7 +33,7 @@ const CUT_KEYS = new Set([
 const OVERLAY_KEYS = new Set(['id', 'html', 'start', 'duration', 'vars', 'transform', 'track']);
 const LAYER_KEYS = new Set([
     'id', 't', 'duration', 'kind', 'src', 'transform', 'crop', 'perspective', 'opacity',
-    'keyframes', 'preset', 'params', 'track', 'blend', 'chroma_key'
+    'keyframes', 'preset', 'params', 'track', 'blend', 'chroma_key', 'filter'
 ]);
 const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out']);
 const NARRATION_KEYS = new Set(['id', 't', 'path', 'gain_db', 'script', 'reading', 'provenance']);
@@ -182,16 +182,32 @@ function migrateEditToV2(raw, options = {}) {
             return;
         }
         rejectUnknownKeys(value, LAYER_KEYS, `edit.json.layers[${index}]`, blockers);
-        if (!['video', 'image', 'baked'].includes(String(value.kind))) {
-            blockers.push(`edit.json.layers[${index}].kind は video / image / baked のいずれかである必要があります。`);
+        if (!['video', 'image', 'baked', 'filter'].includes(String(value.kind))) {
+            blockers.push(`edit.json.layers[${index}].kind は video / image / baked / filter のいずれかである必要があります。`);
             return;
         }
-        if (!nonEmpty(value.src) || !nonNegative(value.t) || !positive(value.duration)) {
-            blockers.push(`edit.json.layers[${index}] の src / t / duration が不正です。`);
+        if (value.kind !== 'filter' && hasOwn(value, 'filter')) {
+            blockers.push(`edit.json.layers[${index}].filter（映像レイヤー直付きの filter）は v2 に等価表現が無いため変換できません。`);
+            return;
+        }
+        if (!nonNegative(value.t) || !positive(value.duration)) {
+            blockers.push(`edit.json.layers[${index}] の t / duration が不正です。`);
             return;
         }
         let source;
-        if (value.kind === 'baked' && nonEmpty(value.preset)) {
+        if (value.kind === 'filter') {
+            const forbidden = ['src', 'chroma_key', 'blend', 'crop', 'transform'].filter(key => hasOwn(value, key));
+            if (forbidden.length > 0) {
+                blockers.push(`edit.json.layers[${index}] の kind filter は ${forbidden.join(' / ')} を持てません。`);
+                return;
+            }
+            source = { kind: 'filter', filter: clone(value.filter) };
+        }
+        else if (!nonEmpty(value.src)) {
+            blockers.push(`edit.json.layers[${index}].src が不正です。`);
+            return;
+        }
+        else if (value.kind === 'baked' && nonEmpty(value.preset)) {
             source = {
                 kind: 'telop', preset: value.preset,
                 ...copyPresent(value, ['params']), baked: value.src
@@ -394,6 +410,11 @@ function migrateEditToV2(raw, options = {}) {
             path: 'audio',
             note: 'BGM・ナレーション・SE を tracks[].items[] へ移し、出力側 at/duration は整数フレーム、素材側 in/out/fade/bgm.in は秒のまま維持'
         });
+    if (raw.emphasis_words !== undefined)
+        changes.push({
+            path: 'emphasis_words',
+            note: 'edit.json v2 から除外し、captions.json のトップレベル emphasis_words[] へ移送'
+        });
     if (raw.thumbnail !== undefined)
         changes.push({ path: 'thumbnail', note: 'サムネイル参照を変更せず持ち越し' });
     if (pending.reduce((sum, entry) => sum + tracks.filter(track => 'items' in track
@@ -426,27 +447,90 @@ function planMigration(projectRoot, editPath, text, options = {}) {
     // 補う。呼び出し元が明示的に hasCaptions を渡した場合はそちらを優先する
     // （P0 2026-08-21 track-z-undeclared-kind 追補: これが無いと migrateEditToV2 側の
     // captions 安全網が実プレビュー経路では一度も発火せず、字幕消失バグが直らないまま残っていた）。
-    const hasCaptions = options.hasCaptions ?? (0, node_fs_1.existsSync)((0, path_1.join)((0, path_1.resolve)(projectRoot), 'captions.json'));
+    const resolvedProjectRoot = (0, path_1.resolve)(projectRoot);
+    const captionsPath = (0, path_1.join)(resolvedProjectRoot, 'captions.json');
+    const hasCaptions = options.hasCaptions ?? (0, node_fs_1.existsSync)(captionsPath);
     const migrated = migrateEditToV2(raw, { hasCaptions });
     if ('blockers' in migrated) {
         return { ok: false, version: migrated.version, blockers: migrated.blockers };
     }
     const iso = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
+    let captions;
+    if (isRecord(raw) && hasOwn(raw, 'emphasis_words')) {
+        if (!Array.isArray(raw.emphasis_words)) {
+            return {
+                ok: false, version: migrated.version,
+                blockers: ['edit.json.emphasis_words が配列ではないため captions.json へ移送できません。']
+            };
+        }
+        if (!(0, node_fs_1.existsSync)(captionsPath)) {
+            return {
+                ok: false, version: migrated.version,
+                blockers: ['emphasis_words の移送先 captions.json がありません。既存の captions.json を object ルートで用意してから再実行してください。']
+            };
+        }
+        let captionsPreviousText;
+        let captionsRoot;
+        try {
+            captionsPreviousText = (0, node_fs_1.readFileSync)(captionsPath, 'utf8');
+            captionsRoot = JSON.parse(captionsPreviousText);
+        }
+        catch (error) {
+            return {
+                ok: false, version: migrated.version,
+                blockers: [`emphasis_words の移送先 captions.json を読めません: ${messageOf(error)}`]
+            };
+        }
+        if (Array.isArray(captionsRoot)) {
+            return {
+                ok: false, version: migrated.version,
+                blockers: ['emphasis_words の移送先 captions.json が配列ルートです。トップレベル emphasis_words[] を持てる object ルートへ移してから再実行してください。']
+            };
+        }
+        if (!isRecord(captionsRoot)) {
+            return {
+                ok: false, version: migrated.version,
+                blockers: ['emphasis_words の移送先 captions.json のルートが object ではありません。']
+            };
+        }
+        if (hasOwn(captionsRoot, 'emphasis_words')) {
+            return {
+                ok: false, version: migrated.version,
+                blockers: ['captions.json に emphasis_words が既に存在するため、二重移送を防ぐため変換を中止します。']
+            };
+        }
+        captions = {
+            filePath: captionsPath,
+            nextText: `${JSON.stringify({ ...captionsRoot, emphasis_words: clone(raw.emphasis_words) }, null, 2)}\n`,
+            previousText: captionsPreviousText,
+            backupPath: (0, path_1.join)(resolvedProjectRoot, '.akari', 'backup', `captions-${iso}.json`)
+        };
+    }
     return {
         filePath: (0, path_1.resolve)(editPath), version: migrated.version, changes: migrated.changes,
         warnings: migrated.warnings, nextText: `${JSON.stringify(migrated.doc, null, 2)}\n`, previousText: text,
-        backupPath: (0, path_1.join)((0, path_1.resolve)(projectRoot), '.akari', 'backup', `edit-${iso}.json`)
+        backupPath: (0, path_1.join)(resolvedProjectRoot, '.akari', 'backup', `edit-${iso}.json`),
+        ...(captions ? { captions } : {})
     };
 }
-/** 承認後のみ実行する。先に .akari/backup/ へ原文を退避し、次に atomic rename する。 */
+/** 承認後のみ実行する。先に全原文を .akari/backup/ へ退避し、次に atomic rename する。 */
 async function applyMigration(proposal) {
     await (0, write_gate_1.writeAtomic)(proposal.backupPath, proposal.previousText);
+    if (proposal.captions)
+        await (0, write_gate_1.writeAtomic)(proposal.captions.backupPath, proposal.captions.previousText);
     await (0, write_gate_1.writeAtomic)(proposal.filePath, proposal.nextText);
+    if (proposal.captions)
+        await (0, write_gate_1.writeAtomic)(proposal.captions.filePath, proposal.captions.nextText);
 }
-/** 退避した原文を 1 手で edit.json へ戻す。backup 自体は監査記録として残す。 */
+/** 退避した原文を 1 手で edit.json / captions.json へ戻す。backup 自体は監査記録として残す。 */
 async function revertMigration(proposal) {
     const original = await fs_1.promises.readFile(proposal.backupPath, 'utf8');
+    const captionsOriginal = proposal.captions
+        ? await fs_1.promises.readFile(proposal.captions.backupPath, 'utf8') : undefined;
     await (0, write_gate_1.writeAtomic)(proposal.filePath, original);
+    if (proposal.captions && captionsOriginal !== undefined) {
+        await (0, write_gate_1.writeAtomic)(proposal.captions.filePath, captionsOriginal);
+    }
 }
 function readTrackDefs(timeline, pending, audioRefs, hasCaptions, blockers) {
     if (timeline !== undefined) {
