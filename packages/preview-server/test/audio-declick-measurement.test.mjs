@@ -5,8 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { spawn, spawnSync } from 'node:child_process';
 import net from 'node:net';
+import { createRequire } from 'node:module';
 
 import { chromium } from 'playwright';
+
+const require = createRequire(import.meta.url);
+const { migrateEditToV2 } = require('../../edit-store/lib/migrate/index.js');
 
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, '..');
 const SYSTEM_CHROME = process.env.CHROME_PATH
@@ -36,13 +40,16 @@ async function waitForServer(url, timeout = 15000) {
 }
 
 function createFixture(project) {
-  fs.writeFileSync(path.join(project, 'edit.json'), JSON.stringify({
+  const legacy = {
     version: 0,
     source: { path: 'source.mp4' },
     output: { width: 320, height: 180, fps: 30 },
     // Automatic boundary at output 5s: same media jumps from source 5s to 15s.
     cuts: [{ in: 0, out: 5 }, { in: 15, out: 20 }],
-  }, null, 2));
+  };
+  const migrated = migrateEditToV2(legacy);
+  assert.equal(migrated.ok, true, JSON.stringify(migrated));
+  fs.writeFileSync(path.join(project, 'edit.json'), JSON.stringify(migrated.doc, null, 2));
 
   // Both halves are 440Hz, with a phase offset after the skipped middle. The
   // 5s -> 15s jump is therefore a deterministic worst-case waveform splice,
@@ -72,7 +79,12 @@ test('実 preview: seeked までミュートを維持して 5s→15s 境界の�
   let browser = null;
   try {
     createFixture(project);
-    const port = await freePort();
+    let port;
+    try { port = await freePort(); }
+    catch (error) {
+      if (error?.code === 'EPERM') { t.skip('local listen is unavailable in this sandbox'); return; }
+      throw error;
+    }
     const base = `http://127.0.0.1:${port}`;
     server = spawn(process.execPath, [
       'src/server.mjs', project, '--port', String(port), '--no-lint',

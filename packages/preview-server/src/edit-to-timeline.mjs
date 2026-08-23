@@ -1,5 +1,5 @@
-// edit.json v0/v1 → TimelineSpec 変換
-// preview-engine が消費する TimelineSpec は edit.json のサブセット。
+// readInternalEdit → projectRendererCompatibilityEdit で得た renderer 互換ビューを
+// TimelineSpec へ変換する。raw edit.json の版判定・正規化はここでは行わない。
 
 import path from 'node:path';
 
@@ -36,6 +36,8 @@ export function editToTimeline(edit, projectRoot) {
     const durationSec = (outSec - inSec) / speed;
     const durationFrames = Math.round(durationSec * fps);
     const track = cut.track ?? 0;
+    const startSec = cut.at ?? cursor;
+    const startFrame = Math.round(startSec * fps);
 
     let src;
     if (isV1 && cut.src) {
@@ -54,18 +56,14 @@ export function editToTimeline(edit, projectRoot) {
     clips.push({
       id: `cut-${i}`,
       src,
-      startFrame: cursor,
-      endFrame: cursor + durationFrames,
+      startFrame,
+      endFrame: startFrame + durationFrames,
       sourceInUs,
       track,
       mediaType: isStillImageSource(src) ? 'image' : 'video',
     });
 
-    if (cut.at !== undefined) {
-      cursor = Math.round(cut.at * fps);
-    } else {
-      cursor += durationFrames;
-    }
+    cursor = startSec + durationSec;
   }
 
   const narration = buildNarrationSpec(edit, projectRoot);

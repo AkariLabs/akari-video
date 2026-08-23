@@ -103,7 +103,7 @@ export function createCutFxController(readState) {
         target.intensity = intensity;
         const put = await fetch('/api/edit.json', {
           method: 'PUT',
-          headers: { 'content-type': 'application/json' },
+          headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },
           body: JSON.stringify(edit),
         });
         if (!put.ok) throw new Error(`FX の保存に失敗しました: HTTP ${put.status}`);

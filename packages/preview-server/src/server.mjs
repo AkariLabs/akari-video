@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { MiniWSServer } from './mini-ws.mjs';
 import { editToTimeline } from './edit-to-timeline.mjs';
+import { migratePreviewCompatibility, previewReadError, projectPreviewEdit } from './preview-edit.mjs';
 // 書き込み前の lint ゲートと atomic 書き込みは shell と同じ共有カーネル（packages/edit-store）。
 // lint 実行系が見つからない場合は fail-open（オーナー裁定 2026-08-02 — shell と同一挙動に統一）。
 import { lintProjectCandidates, writeAtomic } from '../../edit-store/lib/write-gate.js';
@@ -247,6 +248,25 @@ function readJson(filePath) {
   }
 }
 
+// preview / render が異なる edit.json を読む状態を作らない。版判定と v2 tracks-first の
+// 正規化は edit-store、既存プレーヤー向け互換ビューへの射影は render-cut の純関数をそのまま使う。
+// raw JSON が必要な編集 UI には /api/raw-edit.json があるため、この入口では返さない。
+function readPreviewEdit(filePath) {
+  try {
+    const text = fs.readFileSync(filePath, 'utf-8');
+    return {
+      data: projectPreviewEdit(text, path.join(projectRoot, '.akari', 'preview-projection')),
+    };
+  } catch (error) {
+    return { error };
+  }
+}
+
+function respondPreviewReadError(res, error) {
+  const failure = previewReadError(error);
+  respond(res, failure.status, failure.body);
+}
+
 function writeJson(filePath, obj) {
   try {
     const tmp = filePath + '.tmp';
@@ -310,8 +330,8 @@ const router = {
     respond(res, 200, r.data);
   },
   'GET /api/timeline': (req, res) => {
-    const r = readJson(path.join(projectRoot, 'edit.json'));
-    if (r.error) return respond(res, 404, { error: r.error });
+    const r = readPreviewEdit(path.join(projectRoot, 'edit.json'));
+    if (r.error) return respondPreviewReadError(res, r.error);
     try {
       const timeline = editToTimeline(r.data, projectRoot);
       respond(res, 200, timeline);
@@ -320,17 +340,25 @@ const router = {
     }
   },
   'GET /api/summary': (req, res) => {
-    const r = readJson(path.join(projectRoot, 'edit.json'));
-    if (r.error) return respond(res, 404, { error: r.error });
+    const r = readPreviewEdit(path.join(projectRoot, 'edit.json'));
+    if (r.error) return respondPreviewReadError(res, r.error);
     respond(res, 200, r.data);
   },
   'PUT /api/edit.json': async (req, res) => {
     const body = await collectBody(req);
-    let text;
+    let parsed;
     try {
-      text = JSON.stringify(JSON.parse(body), null, 2);
+      parsed = JSON.parse(body);
     } catch (e) {
       return respond(res, 400, { error: 'Invalid JSON: ' + e.message });
+    }
+    let text;
+    try {
+      const candidate = req.headers['x-akari-preview-projection'] === '1'
+        ? migratePreviewCompatibility(parsed) : parsed;
+      text = JSON.stringify(candidate, null, 2);
+    } catch (e) {
+      return respond(res, 422, { error: e instanceof Error ? e.message : String(e) });
     }
     try {
       if (!noLint) {
@@ -429,8 +457,8 @@ const router = {
     const { id, html } = parsed ?? {};
     if (typeof id !== 'string' || !id) return respond(res, 400, { error: 'id が必要です' });
     if (typeof html !== 'string' || !html.trim()) return respond(res, 400, { error: 'html が必要です' });
-    const edit = readJson(path.join(projectRoot, 'edit.json'));
-    if (edit.error) return respond(res, 404, { error: edit.error });
+    const edit = readPreviewEdit(path.join(projectRoot, 'edit.json'));
+    if (edit.error) return respondPreviewReadError(res, edit.error);
     const overlay = (edit.data.overlays || []).find(o => String(o?.id) === id);
     if (!overlay) return respond(res, 404, { error: `オーバーレイが見つかりません: ${id}` });
     if (typeof overlay.html !== 'string' || !overlay.html) {

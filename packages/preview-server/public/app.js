@@ -2,7 +2,7 @@
 
 // タイムライン写像（source↔output）の正本は packages/edit-store/src/timeline-map.ts
 // （パリティ契約 §2.1/§2.2。書き込み側 SSOT computeCutTrackSegments と同じ意味論）。
-import { buildTimelineMap, outputToSource, findActiveCaption } from '/edit-kernel.bundle.js';
+import { buildTimelineMap, outputToSource, findActiveCaption, transitionProgressAt } from '/edit-kernel.bundle.js';
 // ペンの視覚正本は packages/pen-visuals（パリティ契約 §2.8）。定数も描画コードも共有する。
 import {
   PEN_TUNING,
@@ -30,7 +30,9 @@ import {
   transitionApproximationGain,
   waitForMediaSeekCompletion,
 } from '/audio-declick.js';
-import { editForPut, normalizeLegacyCutTransitions } from '/transition-write-guard.js';
+import { editForPut } from '/transition-write-guard.js';
+import { dbToGain, resolveSfxWindow, scheduleSfxAt } from '/audio-clip.js';
+import { transitionVisualState } from '/transition-visual.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -52,6 +54,7 @@ const api = {
 };
 
 const video = document.getElementById('preview-video');
+const transitionVideo = document.getElementById('transition-video');
 // cuts[] の静止画ソース区間用（docs/contract-2026-08-12-still-image-cut-source-v0.md）。
 // video/img は常に両方 DOM に存在し続ける（video を作り直さない — MediaElementAudioSourceNode は
 // 生成元の要素に紐付くため、要素を差し替えると音声グラフが壊れる）。表示は display の出し分けのみ。
@@ -111,6 +114,7 @@ let isPlaying = false;
 let outputTime = 0;
 let fps = 30;
 let segments = [];
+let timelineMap = { segments: [], totalDuration: 0, transitionWindows: [], transitionPlates: [] };
 let totalDuration = 0;
 let zoom = 1;
 let pan = { x: 0, y: 0 };
@@ -178,9 +182,10 @@ async function init() {
       fetch(api.summary),
       fetch(api.captions).catch(() => new Response(null, { status: 404 })),
     ]);
-    if (!timelineRes.ok) throw new Error(`timeline: HTTP ${timelineRes.status}`);
+    if (!timelineRes.ok) throw new Error(await apiReadError(timelineRes, 'timeline'));
+    if (!editRes.ok) throw new Error(await apiReadError(editRes, 'summary'));
     timelineData = await timelineRes.json();
-    summary = normalizeLegacyCutTransitions(await editRes.json());
+    summary = await editRes.json();
     if (captionsRes.ok) {
       const body = await captionsRes.json();
       captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
@@ -246,6 +251,14 @@ async function init() {
   } catch (e) {
     showMessage(e.message);
   }
+}
+
+async function apiReadError(response, label) {
+  try {
+    const body = await response.json();
+    if (body?.error) return body.error;
+  } catch {}
+  return `${label}: HTTP ${response.status}`;
 }
 
 // --- P1-2: ステージ座標系をビデオ枠（出力フレーム矩形）に一致させる ---
@@ -364,7 +377,14 @@ function buildSegments() {
   // 写像の構築は共有カーネル（timeline-map）に委譲し、ここでは既存 UI が使う
   // 旧フィールド名（index / inSec / outSec / speed / durationSec / isGap）へ写す。
   // outStart / outEnd が正で、トランジション重なり時は隣接 src が出力時間上重なる。
-  const built = buildTimelineMap(summary.cuts);
+  // summary の公開 shape は renderer と同じ snake_case。共有 kernel の型付き表示 model へ渡す
+  // 境界でだけ transitionOut に写し、summary 自体には camelCase を混在させない。
+  const kernelCuts = summary.cuts.map(cut => ({
+    ...cut,
+    ...(cut.transition_out !== undefined ? { transitionOut: cut.transition_out } : {}),
+  }));
+  const built = buildTimelineMap(kernelCuts, { trackZ: track => track });
+  timelineMap = built;
   segments = built.segments.map(s => s.kind === 'gap'
     ? { index: -1, isGap: true, durationSec: s.outEnd - s.outStart, outStart: s.outStart, outEnd: s.outEnd }
     : {
@@ -478,6 +498,21 @@ function applyLayerLayout(el, x, y, scale, rotate) {
 function setupLayers() {
   const layers = summary?.layers ?? [];
   for (const layer of layers) {
+    if (layer.kind === 'filter') {
+      const el = document.createElement('div');
+      el.dataset.layerId = String(layer.id);
+      el.dataset.layerKind = 'filter';
+      el.style.position = 'absolute';
+      el.style.inset = '0';
+      el.style.pointerEvents = 'none';
+      const type = layer.filter?.type;
+      if (type === 'invert') el.style.backdropFilter = 'invert(1)';
+      if (type === 'saturation') el.style.backdropFilter = `saturate(${Number(layer.filter.value) || 0})`;
+      el.style.display = 'none';
+      layerContainer.appendChild(el);
+      layerVideos.push({ el, layer, visible: false, loaded: true, isFilter: true });
+      continue;
+    }
     if (!layer.src) continue;
     const layerIsImage = isImageLayer(layer);
     const el = document.createElement(layerIsImage ? 'img' : 'video');
@@ -572,6 +607,12 @@ function setupLayers() {
 function syncLayers(t) {
   for (const lv of layerVideos) {
     const l = lv.layer;
+    if (lv.isFilter) {
+      const shouldShow = t >= (l.t ?? 0) && t < (l.t ?? 0) + (l.duration ?? 0);
+      lv.el.style.display = shouldShow ? 'block' : 'none';
+      lv.visible = shouldShow;
+      continue;
+    }
     syncLayerLazyLoad(lv, t, () => resolveMediaUrl(layerPlaybackPath(l)));
     // メタデータ前に出すと最初のフレームが黒板になるので、読めてから出す（shell と同じ規約）
     const shouldShow = lv.loaded && !lv.unplayable
@@ -1297,7 +1338,7 @@ function layerEffectiveScale() {
 async function layerWriteViaPut(layerId, patch) {
   const res = await fetch('/api/summary');
   if (!res.ok) throw new Error(`edit.json を読めません: HTTP ${res.status}`);
-  const edit = normalizeLegacyCutTransitions(await res.json());
+  const edit = await res.json();
   const layer = (edit.layers || []).find(l => String(l.id) === String(layerId));
   if (!layer) throw new Error(`素材が見つかりません: ${layerId}`);
   if (patch.transform) layer.transform = { ...layer.transform, ...patch.transform };
@@ -1309,7 +1350,7 @@ async function layerWriteViaPut(layerId, patch) {
     else layer.perspective = { corners: patch.perspective.corners.map(([x, y]) => [x, y]) };
   }
   const put = await fetch('/api/edit.json', {
-    method: 'PUT', headers: { 'content-type': 'application/json' },
+    method: 'PUT', headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },
     body: JSON.stringify(editForPut(edit)),
   });
   if (!put.ok) {
@@ -1624,7 +1665,7 @@ function setupAudioGraph() {
     const bgmUrl = audio.bgm.src || resolveMediaUrl(audio.bgm.path);
     if (bgmUrl) {
       const gain = audioCtx.createGain();
-      gain.gain.value = dbToGain(audio.bgm.gainDb ?? audio.bgm.gain_db ?? 0);
+      gain.gain.value = dbToGain(audio.bgm.gain_db ?? 0);
       gain.connect(audioCtx.destination);
       bgmNode = gain;
       loadAudioBuffer(bgmUrl).then((buf) => {
@@ -1641,7 +1682,7 @@ function setupAudioGraph() {
       const nUrl = n.src || resolveMediaUrl(n.path);
       if (!nUrl) continue;
       const gain = audioCtx.createGain();
-      gain.gain.value = dbToGain(n.gainDb ?? 0);
+      gain.gain.value = dbToGain(n.gain_db ?? 0);
       gain.connect(audioCtx.destination);
       const node = { gain, src: nUrl, t: n.t ?? 0 };
       narrationNodes.push(node);
@@ -1653,20 +1694,32 @@ function setupAudioGraph() {
       const sUrl = s.src || resolveMediaUrl(s.path);
       if (!sUrl) continue;
       const gain = audioCtx.createGain();
-      gain.gain.value = dbToGain(s.gainDb ?? 0);
+      gain.gain.value = dbToGain(s.gain_db ?? 0);
       gain.connect(audioCtx.destination);
       // fade_in/fade_out (audio-clip-fades, 2026-08-18): edit.json spells these snake_case
       // (distinct from audio.bgm.fadeIn/fadeOut's camelCase) -- see docs/contract-2026-07-25-r6-
       // audio-tracks-and-trim.md §2 addendum. Read straight off the raw `s` item, matching how
       // this function reads every other raw sfx field.
-      const node = { gain, src: sUrl, t: s.t ?? 0, gainDb: s.gainDb, fadeIn: s.fade_in, fadeOut: s.fade_out };
+      const node = {
+        gain, src: sUrl, t: s.t ?? 0, gain_db: s.gain_db,
+        fadeIn: s.fade_in, fadeOut: s.fade_out,
+      };
       sfxNodes.push(node);
-      loadAudioBuffer(sUrl).then((buf) => { node._buffer = buf; });
+      loadAudioBuffer(sUrl).then((buf) => {
+        node._buffer = buf;
+        if (!buf) return;
+        Object.assign(node, resolveSfxWindow(s, buf.duration));
+      });
     }
   }
+  window.akari = window.akari || {};
+  const audioDebug = {};
+  Object.defineProperties(audioDebug, {
+    bgmNode: { get: () => bgmNode },
+    sfxNodes: { get: () => sfxNodes },
+  });
+  window.akari.audioDebug = audioDebug;
 }
-function dbToGain(db) { return Math.pow(10, (db ?? 0) / 20); }
-
 function teardownTimelineAudioGraph() {
   if (bgmNode?._source) {
     try { bgmNode._source.stop(); } catch { /* already stopped */ }
@@ -1682,12 +1735,7 @@ function teardownTimelineAudioGraph() {
 }
 
 function transitionAudioBoundaries() {
-  const cuts = summary?.cuts ?? [];
-  return segments.flatMap((segment) => {
-    if (segment.isGap || segment.index < 0) return [];
-    const transition = cuts[segment.index]?.transition_out;
-    return transition ? [{ at: segment.outEnd, duration: transition.duration }] : [];
-  });
+  return (timelineMap.transitionWindows ?? []).map(window => ({ at: window.end, duration: window.duration }));
 }
 
 function updateBaseAudioTransition(t) {
@@ -1845,29 +1893,29 @@ function syncAudio(t) {
   }
   if (isPlaying) for (const s of sfxNodes) {
     if (!s._buffer) continue;
-    const should = t >= s.t && t < s.t + s._buffer.duration;
+    const clipDuration = s.effectiveDuration ?? 0;
+    const should = clipDuration > 0 && t >= s.t && t < s.t + clipDuration;
     if (should && (!s._source || s._source._ended)) {
       if (s._source) try { s._source.stop(); } catch {}
       const src = audioCtx.createBufferSource();
       src.buffer = s._buffer; src.connect(s.gain);
-      src.start(0, Math.max(0, t - s.t));
+      const schedule = scheduleSfxAt(s, t);
+      s._lastSchedule = schedule;
+      src.start(schedule.when, schedule.offset, schedule.duration);
       src._ended = false; src.onended = () => { src._ended = true; };
       s._source = src;
     }
     if (should) {
       // sfx fade_in/fade_out (audio-clip-fades, 2026-08-18): same per-tick multiplier shape as
       // BGM's fadeIn/fadeOut below, computed against this clip's own [t, t+clipDuration) window.
-      // clipDuration is the full decoded buffer -- this preview engine doesn't apply audio.sfx[].
-      // in/out trim yet (a pre-existing gap, not this task's scope), so it matches what's actually
-      // played here rather than a possibly-untrimmed edit.json in/out window.
-      const clipDuration = s._buffer.duration;
+      // fade は decoded buffer 全体ではなく、in/out trim 後の実効窓を基準にする。
       const sfxFadeIn = Number.isFinite(s.fadeIn) && s.fadeIn > 0 ? Math.min(s.fadeIn, clipDuration / 2) : 0;
       const sfxFadeOut = Number.isFinite(s.fadeOut) && s.fadeOut > 0 ? Math.min(s.fadeOut, clipDuration / 2) : 0;
       const localT = t - s.t;
       let sfxFadeMul = 1;
       if (sfxFadeIn > 0 && localT < sfxFadeIn) sfxFadeMul = Math.min(sfxFadeMul, localT / sfxFadeIn);
       if (sfxFadeOut > 0 && localT > clipDuration - sfxFadeOut) sfxFadeMul = Math.min(sfxFadeMul, (clipDuration - localT) / sfxFadeOut);
-      s.gain.gain.value = dbToGain(s.gainDb ?? 0) * sfxFadeMul;
+      s.gain.gain.value = dbToGain(s.gain_db ?? 0) * sfxFadeMul;
     }
   }
   // BGM ducking + fade in/out
@@ -1881,7 +1929,7 @@ function syncAudio(t) {
     let fadeMul = 1;
     if (fadeIn > 0 && t < fadeIn) fadeMul = Math.min(fadeMul, t / fadeIn);
     if (fadeOut > 0 && t > totalDuration - fadeOut) fadeMul = Math.min(fadeMul, (totalDuration - t) / fadeOut);
-    const baseGain = dbToGain(audio?.bgm?.gainDb ?? 0);
+    const baseGain = dbToGain(audio?.bgm?.gain_db ?? 0);
     const targetGain = baseGain * Math.pow(10, duckDb / 20) * fadeMul;
     bgmNode.gain.value = targetGain;
   }
@@ -2032,7 +2080,7 @@ waveformCanvas.addEventListener('pointerdown', (e) => {
   seekTo(ratio * totalDuration);
 });
 
-function scheduleTransitions() { transitionPlate.style.transition = 'opacity 0.3s'; }
+function scheduleTransitions() { transitionPlate.style.transition = 'none'; }
 
 function getVideoTimeForOutput(t) {
   // gap 上は -1（呼び出し側の vt >= 0 ガードで video シークを抑止）。
@@ -2100,14 +2148,14 @@ function pauseAllPlaybackForFreeze() {
     if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
   }
   if (audioCtx?.state === 'running') audioCtx.suspend();
-  for (const lv of layerVideos) lv.el.pause();
+  for (const lv of layerVideos) if (!lv.isFilter) lv.el.pause();
 }
 function resumeAllPlaybackForFreeze() {
   // 静止画区間では <video> を再生してはいけない（隠れているだけで、再生すると古いカットの
   // 音声が MediaElementAudioSourceNode 経由で漏れる）。
   if (video.paused && !isStillImageCutSegment(getActiveSegment(outputTime))) video.play();
   if (audioCtx?.state === 'suspended') audioCtx.resume();
-  for (const lv of layerVideos) if (lv.visible) lv.el.play();
+  for (const lv of layerVideos) if (lv.visible && !lv.isFilter) lv.el.play();
 }
 
 function seekTo(t) {
@@ -2123,6 +2171,7 @@ function seekTo(t) {
   if (vt >= 0) {
     const seg = getActiveSegment(outputTime);
     if (seg && seg.index >= 0) {
+      video.playbackRate = seg.speed > 0 ? seg.speed : 1;
       if (isStillImageCutSegment(seg)) {
         // 静止画には currentTime シークの概念が無い。src を合わせて表示を切り替えるだけでよい。
         showStillImageForSegment(seg);
@@ -2160,6 +2209,8 @@ function play() {
   // 静止画区間の開始位置から再生を始めるときは <video> を動かさない（隠れたまま古い映像の
   // 音声が漏れるのを防ぐ -- resumeAllPlaybackForFreeze と同じ理由）。
   const onStillImage = isStillImageCutSegment(getActiveSegment(outputTime));
+  const active = getActiveSegment(outputTime);
+  if (active && !active.isGap) video.playbackRate = active.speed > 0 ? active.speed : 1;
   if (!onStillImage && baseAudioDeClick?.pending) {
     baseAudioDeClick.request(() => ensureMediaPlaying(video, isPlaying));
   }
@@ -2167,7 +2218,7 @@ function play() {
   restartBgm(outputTime);
   syncAudio(outputTime);
   if (!onStillImage) video.play();
-  for (const lv of layerVideos) if (lv.visible) lv.el.play();
+  for (const lv of layerVideos) if (lv.visible && !lv.isFilter) lv.el.play();
   playToggle.innerHTML = pauseIcon;
   playToggle.setAttribute('aria-label', '一時停止');
   playToggle.title = '一時停止';
@@ -2180,7 +2231,8 @@ function finishPausingPlayback() {
     if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
   }
   if (audioCtx?.state === 'running') audioCtx.suspend();
-  for (const lv of layerVideos) lv.el.pause();
+  transitionVideo.pause();
+  for (const lv of layerVideos) if (!lv.isFilter) lv.el.pause();
 }
 
 function pause() {
@@ -2229,6 +2281,7 @@ function playbackLoop() {
   const target = getVideoTimeForOutput(outputTime);
   const seg = getActiveSegment(outputTime);
   if (target >= 0 && seg && seg.index >= 0) {
+    video.playbackRate = seg.speed > 0 ? seg.speed : 1;
     if (isStillImageCutSegment(seg)) {
       // 静止画には currentTime シークも play() 復帰も無い。表示の出し分けだけでよい。
       showStillImageForSegment(seg);
@@ -2285,27 +2338,38 @@ function updateWaveformPlayhead() {
 }
 
 function updateTransitions() {
-  const cuts = summary?.cuts ?? [];
   updateBaseAudioTransition(outputTime);
-  if (!cuts.length) { transitionPlate.style.visibility = 'hidden'; return; }
-  let cursor = 0;
-  for (let i = 0; i < cuts.length; i++) {
-    const cut = cuts[i];
-    const speed = cut.speed || 1;
-    const dur = ((cut.out ?? cut.in + 1) - (cut.in ?? 0)) / speed;
-    if (cut.at !== undefined) cursor = cut.at;
-    const nextStart = cursor + (cut.at !== undefined ? 0 : dur);
-    if (cut.transition_out && outputTime >= nextStart - cut.transition_out.duration && outputTime < nextStart) {
-      const p = (outputTime - (nextStart - cut.transition_out.duration)) / cut.transition_out.duration;
-      transitionPlate.style.background = cut.transition_out.type === 'fade-white' ? '#fff' : '#000';
-      transitionPlate.style.opacity = String(p);
-      transitionPlate.style.visibility = 'visible';
-      return;
-    }
-    if (cut.at === undefined) cursor += dur;
+  const window = (timelineMap.transitionWindows ?? [])
+    .find(candidate => outputTime >= candidate.start && outputTime < candidate.end);
+  if (!window) {
+    transitionPlate.style.opacity = '0';
+    transitionPlate.style.visibility = 'hidden';
+    transitionVideo.style.display = 'none';
+    transitionVideo.pause();
+    return;
   }
-  transitionPlate.style.opacity = '0';
+
+  const p = transitionProgressAt(window, outputTime);
+  const incoming = window.incoming;
+  setVideoSourceIfChanged(transitionVideo, getVideoSource(incoming.cutIndex));
+  transitionVideo.playbackRate = incoming.speed > 0 ? incoming.speed : 1;
+  const target = (incoming.in ?? 0) + (outputTime - incoming.outStart) * transitionVideo.playbackRate;
+  syncMediaCurrentTime(transitionVideo, target, isPlaying ? SYNC_DEADBAND_SEC : 0.001);
+  transitionVideo.style.display = 'block';
+  transitionVideo.style.opacity = '1';
+  transitionVideo.style.clipPath = 'none';
   transitionPlate.style.visibility = 'hidden';
+  transitionPlate.style.opacity = '0';
+
+  const plate = (timelineMap.transitionPlates ?? []).find(candidate =>
+    candidate.start === window.start && candidate.end === window.end);
+  const visual = transitionVisualState(window.type, p, plate?.color);
+  transitionVideo.style.opacity = String(visual.videoOpacity);
+  transitionVideo.style.clipPath = visual.clipPath;
+  transitionPlate.style.opacity = String(visual.plateOpacity);
+  transitionPlate.style.visibility = visual.plateVisible ? 'visible' : 'hidden';
+  if (visual.plateColor) transitionPlate.style.background = visual.plateColor;
+  if (isPlaying) ensureMediaPlaying(transitionVideo, true);
 }
 
 const fm = (sec) => { const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${s.toFixed(2).padStart(5, '0')}`; };
@@ -2376,8 +2440,8 @@ function resolveMediaUrl(pathOrSrc) {
 
 async function reloadSummary() {
   const res = await fetch(api.summary);
-  if (!res.ok) throw new Error(`summary: HTTP ${res.status}`);
-  summary = normalizeLegacyCutTransitions(await res.json());
+  if (!res.ok) throw new Error(await apiReadError(res, 'summary'));
+  summary = await res.json();
   updateStageScale();
   return summary;
 }
@@ -2414,7 +2478,7 @@ async function applySoftReload() {
     throw new Error(`reload fetch failed (timeline=${timelineRes.status}, summary=${editRes.status})`);
   }
   timelineData = await timelineRes.json();
-  summary = normalizeLegacyCutTransitions(await editRes.json());
+  summary = await editRes.json();
   if (captionsRes.ok) {
     const body = await captionsRes.json();
     captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
@@ -2557,7 +2621,7 @@ function renderCutInfoContent(seg) {
     cut.transition_out = toType ? { type: toType, duration: Number.isFinite(toDur) && toDur > 0 ? toDur : 0.3 } : undefined;
     try {
       const res = await fetch('/api/edit.json', {
-        method: 'PUT', headers: { 'content-type': 'application/json' },
+        method: 'PUT', headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },
         body: JSON.stringify(editForPut({ ...summary, cuts: newCuts }))
       });
       if (res.ok) {
@@ -2613,7 +2677,7 @@ async function addCutAt(index, where) {
   const idx = where === 'before' ? index : index + 1;
   const newCuts = [...cuts.slice(0, idx), newCut, ...cuts.slice(idx)];
   const res = await fetch('/api/edit.json', {
-    method: 'PUT', headers: { 'content-type': 'application/json' },
+    method: 'PUT', headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },
     body: JSON.stringify(editForPut({ ...summary, cuts: newCuts }))
   });
   if (res.ok) {
@@ -2632,7 +2696,7 @@ async function moveCut(index, dir) {
   const newCuts = [...cuts];
   [newCuts[index], newCuts[target]] = [newCuts[target], newCuts[index]];
   const res = await fetch('/api/edit.json', {
-    method: 'PUT', headers: { 'content-type': 'application/json' },
+    method: 'PUT', headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },
     body: JSON.stringify(editForPut({ ...summary, cuts: newCuts }))
   });
   if (res.ok) {
@@ -2648,7 +2712,7 @@ async function deleteCut(index) {
   if (!Array.isArray(cuts) || index < 0 || cuts.length <= 1) return;
   const newCuts = [...cuts.slice(0, index), ...cuts.slice(index + 1)];
   const res = await fetch('/api/edit.json', {
-    method: 'PUT', headers: { 'content-type': 'application/json' },
+    method: 'PUT', headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },
     body: JSON.stringify(editForPut({ ...summary, cuts: newCuts }))
   });
   if (res.ok) {
@@ -3146,13 +3210,13 @@ async function deleteSelectedOverlay() {
 async function deleteOverlayViaPut(overlayId) {
   const res = await fetch('/api/summary');
   if (!res.ok) throw new Error(`edit.json を読めません: HTTP ${res.status}`);
-  const edit = normalizeLegacyCutTransitions(await res.json());
+  const edit = await res.json();
   const before = (edit.overlays || []).length;
   edit.overlays = (edit.overlays || []).filter(o => String(o.id) !== String(overlayId));
   if (edit.overlays.length === before) throw new Error(`オーバーレイが見つかりません: ${overlayId}`);
   const put = await fetch('/api/edit.json', {
     method: 'PUT',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },
     body: JSON.stringify(editForPut(edit)),
   });
   if (!put.ok) {
@@ -3187,7 +3251,7 @@ async function overlayWriteViaPut(editPath, overlayId, patch) {
   if (Object.keys(rest).length === 0) return;
   const res = await fetch('/api/summary');
   if (!res.ok) throw new Error(`edit.json を読めません: HTTP ${res.status}`);
-  const edit = normalizeLegacyCutTransitions(await res.json());
+  const edit = await res.json();
   const ov = (edit.overlays || []).find(o => String(o.id) === String(overlayId));
   if (!ov) throw new Error(`オーバーレイが見つかりません: ${overlayId}`);
   for (const [key, value] of Object.entries(rest)) {
@@ -3200,7 +3264,7 @@ async function overlayWriteViaPut(editPath, overlayId, patch) {
   }
   const put = await fetch('/api/edit.json', {
     method: 'PUT',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-akari-preview-projection': '1' },
     body: JSON.stringify(editForPut(edit)),
   });
   if (!put.ok) {
@@ -3671,7 +3735,7 @@ function connectWs() {
       if (m.type === 'reload') { requestSoftReload(); return; }
       if (m.type === 'captions-reload') {
         Promise.all([fetch(api.summary), fetch(api.captions)]).then(async ([summaryResponse, captionsResponse]) => {
-          if (summaryResponse.ok) summary = normalizeLegacyCutTransitions(await summaryResponse.json());
+          if (summaryResponse.ok) summary = await summaryResponse.json();
           if (captionsResponse.ok) {
             const body = await captionsResponse.json();
             captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
