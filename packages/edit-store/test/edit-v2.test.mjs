@@ -58,6 +58,29 @@ test("readEditV2 rejects removed top-level vocabulary as undefined keys", async 
   }
 });
 
+test("readEditV2 guides users to move emphasis_words to captions.json", async () => {
+  const value = JSON.parse(await readFile(fixturePath, "utf8"));
+
+  assert.throws(
+    () => readEditV2({ ...value, emphasis_words: [] }),
+    (error) => {
+      assert.match(error.message, /未定義キー.*emphasis_words/);
+      assert.match(error.message, /captions\.json.*トップレベル emphasis_words\[\].*移してください/);
+      assert.match(error.message, /contract-2026-08-23-captions-emphasis-words-v0\.md/);
+      return true;
+    },
+  );
+});
+
+test("readEditV2 gives recovery guidance for other unknown keys", async () => {
+  const value = JSON.parse(await readFile(fixturePath, "utf8"));
+
+  assert.throws(
+    () => readEditV2({ ...value, unexpected_key: true }),
+    /未定義キー.*unexpected_key.*v2 の語彙にありません.*\.akari\/backup\//,
+  );
+});
+
 test("readEditV2 reports closed source and item violations with a path", async () => {
   const value = JSON.parse(await readFile(fixturePath, "utf8"));
   value.tracks[6].items[0].source.in = 0;
