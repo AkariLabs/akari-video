@@ -30,6 +30,7 @@ import {
   transitionApproximationGain,
   waitForMediaSeekCompletion,
 } from '/audio-declick.js';
+import { editForPut, normalizeLegacyCutTransitions } from '/transition-write-guard.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -179,7 +180,7 @@ async function init() {
     ]);
     if (!timelineRes.ok) throw new Error(`timeline: HTTP ${timelineRes.status}`);
     timelineData = await timelineRes.json();
-    summary = await editRes.json();
+    summary = normalizeLegacyCutTransitions(await editRes.json());
     if (captionsRes.ok) {
       const body = await captionsRes.json();
       captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
@@ -1296,7 +1297,7 @@ function layerEffectiveScale() {
 async function layerWriteViaPut(layerId, patch) {
   const res = await fetch('/api/summary');
   if (!res.ok) throw new Error(`edit.json を読めません: HTTP ${res.status}`);
-  const edit = await res.json();
+  const edit = normalizeLegacyCutTransitions(await res.json());
   const layer = (edit.layers || []).find(l => String(l.id) === String(layerId));
   if (!layer) throw new Error(`素材が見つかりません: ${layerId}`);
   if (patch.transform) layer.transform = { ...layer.transform, ...patch.transform };
@@ -1309,7 +1310,7 @@ async function layerWriteViaPut(layerId, patch) {
   }
   const put = await fetch('/api/edit.json', {
     method: 'PUT', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(edit),
+    body: JSON.stringify(editForPut(edit)),
   });
   if (!put.ok) {
     let detail = `HTTP ${put.status}`;
@@ -1684,7 +1685,7 @@ function transitionAudioBoundaries() {
   const cuts = summary?.cuts ?? [];
   return segments.flatMap((segment) => {
     if (segment.isGap || segment.index < 0) return [];
-    const transition = cuts[segment.index]?.transitionOut;
+    const transition = cuts[segment.index]?.transition_out;
     return transition ? [{ at: segment.outEnd, duration: transition.duration }] : [];
   });
 }
@@ -2294,9 +2295,9 @@ function updateTransitions() {
     const dur = ((cut.out ?? cut.in + 1) - (cut.in ?? 0)) / speed;
     if (cut.at !== undefined) cursor = cut.at;
     const nextStart = cursor + (cut.at !== undefined ? 0 : dur);
-    if (cut.transitionOut && outputTime >= nextStart - cut.transitionOut.duration && outputTime < nextStart) {
-      const p = (outputTime - (nextStart - cut.transitionOut.duration)) / cut.transitionOut.duration;
-      transitionPlate.style.background = cut.transitionOut.type === 'fade-white' ? '#fff' : '#000';
+    if (cut.transition_out && outputTime >= nextStart - cut.transition_out.duration && outputTime < nextStart) {
+      const p = (outputTime - (nextStart - cut.transition_out.duration)) / cut.transition_out.duration;
+      transitionPlate.style.background = cut.transition_out.type === 'fade-white' ? '#fff' : '#000';
       transitionPlate.style.opacity = String(p);
       transitionPlate.style.visibility = 'visible';
       return;
@@ -2376,7 +2377,7 @@ function resolveMediaUrl(pathOrSrc) {
 async function reloadSummary() {
   const res = await fetch(api.summary);
   if (!res.ok) throw new Error(`summary: HTTP ${res.status}`);
-  summary = await res.json();
+  summary = normalizeLegacyCutTransitions(await res.json());
   updateStageScale();
   return summary;
 }
@@ -2413,7 +2414,7 @@ async function applySoftReload() {
     throw new Error(`reload fetch failed (timeline=${timelineRes.status}, summary=${editRes.status})`);
   }
   timelineData = await timelineRes.json();
-  summary = await editRes.json();
+  summary = normalizeLegacyCutTransitions(await editRes.json());
   if (captionsRes.ok) {
     const body = await captionsRes.json();
     captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
@@ -2495,10 +2496,8 @@ function renderCutInfoContent(seg) {
   const inVal = seg.inSec.toFixed(2);
   const outVal = seg.outSec.toFixed(2);
   const speedVal = seg.speed.toFixed(2);
-  const tiType = cut.transitionIn?.type || '';
-  const tiDur = cut.transitionIn?.duration !== undefined ? cut.transitionIn.duration.toFixed(2) : '';
-  const toType = cut.transitionOut?.type || '';
-  const toDur = cut.transitionOut?.duration !== undefined ? cut.transitionOut.duration.toFixed(2) : '';
+  const toType = cut.transition_out?.type || '';
+  const toDur = cut.transition_out?.duration !== undefined ? cut.transition_out.duration.toFixed(2) : '';
   const atVal = cut.at !== undefined ? String(cut.at) : '';
   cutInfoContent.innerHTML = `
     <div style="margin-bottom:6px"><b>カット #${seg.index + 1}</b> <span style="color:#888">${esc(srcName)}</span></div>
@@ -2511,21 +2510,14 @@ function renderCutInfoContent(seg) {
       <label style="flex:0;color:#888;font-size:11px">絶対位置 <input id="cut-inp-at" type="number" step="0.01" value="${atVal}" placeholder="" style="width:80px;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px"></label>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:6px">
-      <label style="flex:1;color:#888;font-size:11px">IN トランジション
-        <select id="cut-inp-ti-type" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px">
-          <option value="">なし</option>
-          <option value="dissolve"${tiType==='dissolve'?' selected':''}>dissolve</option>
-          <option value="fade-black"${tiType==='fade-black'?' selected':''}>fade-black</option>
-          <option value="fade-white"${tiType==='fade-white'?' selected':''}>fade-white</option>
-        </select>
-        <input id="cut-inp-ti-dur" type="number" step="0.01" min="0" value="${tiDur}" placeholder="秒" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px;margin-top:2px">
-      </label>
       <label style="flex:1;color:#888;font-size:11px">OUT トランジション
         <select id="cut-inp-to-type" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px">
           <option value="">なし</option>
           <option value="dissolve"${toType==='dissolve'?' selected':''}>dissolve</option>
           <option value="fade-black"${toType==='fade-black'?' selected':''}>fade-black</option>
           <option value="fade-white"${toType==='fade-white'?' selected':''}>fade-white</option>
+          <option value="reveal-down"${toType==='reveal-down'?' selected':''}>reveal-down</option>
+          <option value="reveal-up"${toType==='reveal-up'?' selected':''}>reveal-up</option>
      </select>
         <input id="cut-inp-to-dur" type="number" step="0.01" min="0" value="${toDur}" placeholder="秒" style="width:100%;background:#303030;color:#fff;border:1px solid #505050;border-radius:3px;padding:2px 4px;font-size:12px;margin-top:2px">
       </label>
@@ -2553,23 +2545,20 @@ function renderCutInfoContent(seg) {
     const outVal = Number(document.getElementById('cut-inp-out').value);
     const speedVal = Number(document.getElementById('cut-inp-speed').value);
     const atVal = document.getElementById('cut-inp-at').value;
-    const tiType = document.getElementById('cut-inp-ti-type').value;
-    const tiDur = Number(document.getElementById('cut-inp-ti-dur').value);
     const toType = document.getElementById('cut-inp-to-type').value;
     const toDur = Number(document.getElementById('cut-inp-to-dur').value);
     if (!Number.isFinite(inVal) || !Number.isFinite(outVal) || !Number.isFinite(speedVal) || speedVal <= 0) return;
     const newCuts = [...(summary?.cuts || [])];
     const cut = newCuts[selectedCutIndex];
     if (!cut) return;
-    const old = { in: cut.in, out: cut.out, speed: cut.speed, at: cut.at, transitionIn: cut.transitionIn, transitionOut: cut.transitionOut };
+    const old = { in: cut.in, out: cut.out, speed: cut.speed, at: cut.at, transition_out: cut.transition_out };
     cut.in = inVal; cut.out = outVal; cut.speed = speedVal;
     cut.at = atVal ? Number(atVal) : undefined;
-    cut.transitionIn = tiType ? { type: tiType, duration: Number.isFinite(tiDur) && tiDur > 0 ? tiDur : 0.3 } : undefined;
-    cut.transitionOut = toType ? { type: toType, duration: Number.isFinite(toDur) && toDur > 0 ? toDur : 0.3 } : undefined;
+    cut.transition_out = toType ? { type: toType, duration: Number.isFinite(toDur) && toDur > 0 ? toDur : 0.3 } : undefined;
     try {
       const res = await fetch('/api/edit.json', {
         method: 'PUT', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...summary, cuts: newCuts })
+        body: JSON.stringify(editForPut({ ...summary, cuts: newCuts }))
       });
       if (res.ok) {
         buildSegments();
@@ -2625,7 +2614,7 @@ async function addCutAt(index, where) {
   const newCuts = [...cuts.slice(0, idx), newCut, ...cuts.slice(idx)];
   const res = await fetch('/api/edit.json', {
     method: 'PUT', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ...summary, cuts: newCuts })
+    body: JSON.stringify(editForPut({ ...summary, cuts: newCuts }))
   });
   if (res.ok) {
     buildSegments();
@@ -2644,7 +2633,7 @@ async function moveCut(index, dir) {
   [newCuts[index], newCuts[target]] = [newCuts[target], newCuts[index]];
   const res = await fetch('/api/edit.json', {
     method: 'PUT', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ...summary, cuts: newCuts })
+    body: JSON.stringify(editForPut({ ...summary, cuts: newCuts }))
   });
   if (res.ok) {
     buildSegments();
@@ -2660,7 +2649,7 @@ async function deleteCut(index) {
   const newCuts = [...cuts.slice(0, index), ...cuts.slice(index + 1)];
   const res = await fetch('/api/edit.json', {
     method: 'PUT', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ ...summary, cuts: newCuts })
+    body: JSON.stringify(editForPut({ ...summary, cuts: newCuts }))
   });
   if (res.ok) {
     buildSegments();
@@ -3157,14 +3146,14 @@ async function deleteSelectedOverlay() {
 async function deleteOverlayViaPut(overlayId) {
   const res = await fetch('/api/summary');
   if (!res.ok) throw new Error(`edit.json を読めません: HTTP ${res.status}`);
-  const edit = await res.json();
+  const edit = normalizeLegacyCutTransitions(await res.json());
   const before = (edit.overlays || []).length;
   edit.overlays = (edit.overlays || []).filter(o => String(o.id) !== String(overlayId));
   if (edit.overlays.length === before) throw new Error(`オーバーレイが見つかりません: ${overlayId}`);
   const put = await fetch('/api/edit.json', {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(edit),
+    body: JSON.stringify(editForPut(edit)),
   });
   if (!put.ok) {
     let detail = `HTTP ${put.status}`;
@@ -3198,7 +3187,7 @@ async function overlayWriteViaPut(editPath, overlayId, patch) {
   if (Object.keys(rest).length === 0) return;
   const res = await fetch('/api/summary');
   if (!res.ok) throw new Error(`edit.json を読めません: HTTP ${res.status}`);
-  const edit = await res.json();
+  const edit = normalizeLegacyCutTransitions(await res.json());
   const ov = (edit.overlays || []).find(o => String(o.id) === String(overlayId));
   if (!ov) throw new Error(`オーバーレイが見つかりません: ${overlayId}`);
   for (const [key, value] of Object.entries(rest)) {
@@ -3212,7 +3201,7 @@ async function overlayWriteViaPut(editPath, overlayId, patch) {
   const put = await fetch('/api/edit.json', {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(edit),
+    body: JSON.stringify(editForPut(edit)),
   });
   if (!put.ok) {
     let detail = `HTTP ${put.status}`;
@@ -3682,7 +3671,7 @@ function connectWs() {
       if (m.type === 'reload') { requestSoftReload(); return; }
       if (m.type === 'captions-reload') {
         Promise.all([fetch(api.summary), fetch(api.captions)]).then(async ([summaryResponse, captionsResponse]) => {
-          if (summaryResponse.ok) summary = await summaryResponse.json();
+          if (summaryResponse.ok) summary = normalizeLegacyCutTransitions(await summaryResponse.json());
           if (captionsResponse.ok) {
             const body = await captionsResponse.json();
             captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
