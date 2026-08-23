@@ -1,0 +1,706 @@
+{
+  "assertions": [
+    {
+      "message": "59% uses themed pasteboard and black stage only",
+      "z059": {
+        "pane": {
+          "left": 0,
+          "top": 0,
+          "right": 1000,
+          "bottom": 640,
+          "width": 1000,
+          "height": 640
+        },
+        "stage": {
+          "left": 214.44000244140625,
+          "top": 159.3725128173828,
+          "right": 785.5599975585938,
+          "bottom": 480.6275177001953,
+          "width": 571.1199951171875,
+          "height": 321.2550048828125
+        },
+        "paneBackground": "rgb(43, 45, 48)",
+        "stageBackground": "rgb(0, 0, 0)",
+        "wrapperBackground": "rgba(0, 0, 0, 0)",
+        "minimap": {
+          "left": 0,
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "width": 0,
+          "height": 0
+        },
+        "minimapHidden": true,
+        "viewport": {
+          "left": null,
+          "top": null,
+          "width": null,
+          "height": null
+        },
+        "transform": "translate(0px, 0px) scale(0.59)"
+      }
+    },
+    {
+      "message": "59% outside pixel is #2b2d30 and not #000000",
+      "pixels": {
+        "outside": [
+          43,
+          45,
+          48,
+          255
+        ],
+        "stage": [
+          0,
+          0,
+          0,
+          255
+        ]
+      }
+    },
+    {
+      "message": "59% stage pixel is #000000",
+      "pixels": {
+        "outside": [
+          43,
+          45,
+          48,
+          255
+        ],
+        "stage": [
+          0,
+          0,
+          0,
+          255
+        ]
+      }
+    },
+    {
+      "message": "100% fit box is unchanged by viewport split",
+      "z059": {
+        "left": 214.44000244140625,
+        "top": 159.3725128173828,
+        "right": 785.5599975585938,
+        "bottom": 480.6275177001953,
+        "width": 571.1199951171875,
+        "height": 321.2550048828125
+      },
+      "z100": {
+        "left": 16,
+        "top": 47.75,
+        "right": 984,
+        "bottom": 592.25,
+        "width": 968,
+        "height": 544.5
+      }
+    },
+    {
+      "message": "minimap is fixed 8px from pane bottom-right",
+      "z200": {
+        "pane": {
+          "left": 0,
+          "top": 0,
+          "right": 1000,
+          "bottom": 640,
+          "width": 1000,
+          "height": 640
+        },
+        "stage": {
+          "left": -468,
+          "top": -224.5,
+          "right": 1468,
+          "bottom": 864.5,
+          "width": 1936,
+          "height": 1089
+        },
+        "paneBackground": "rgb(43, 45, 48)",
+        "stageBackground": "rgb(0, 0, 0)",
+        "wrapperBackground": "rgba(0, 0, 0, 0)",
+        "minimap": {
+          "left": 928,
+          "top": 596,
+          "right": 992,
+          "bottom": 632,
+          "width": 64,
+          "height": 36
+        },
+        "minimapHidden": false,
+        "viewport": {
+          "left": 24.1736,
+          "top": 20.6422,
+          "width": 51.6529,
+          "height": 58.7156
+        },
+        "transform": "translate(0px, 0px) scale(2)"
+      }
+    },
+    {
+      "message": "top-left horizontal edge reaches pane edge",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": 0,
+        "top": 0.5,
+        "right": 1936,
+        "bottom": 1089.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 0,
+        "top": 0,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "message": "top-left vertical edge reaches pane edge",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": 0,
+        "top": 0.5,
+        "right": 1936,
+        "bottom": 1089.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 0,
+        "top": 0,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "message": "top-right horizontal edge reaches pane edge",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": -936,
+        "top": 0.5,
+        "right": 1000,
+        "bottom": 1089.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 48.3471,
+        "top": 0,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "message": "top-right vertical edge reaches pane edge",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": -936,
+        "top": 0.5,
+        "right": 1000,
+        "bottom": 1089.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 48.3471,
+        "top": 0,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "message": "bottom-right horizontal edge reaches pane edge",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": -936,
+        "top": -449.5,
+        "right": 1000,
+        "bottom": 639.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 48.3471,
+        "top": 41.2844,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "message": "bottom-right vertical edge reaches pane edge",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": -936,
+        "top": -449.5,
+        "right": 1000,
+        "bottom": 639.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 48.3471,
+        "top": 41.2844,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "message": "bottom-left horizontal edge reaches pane edge",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": 0,
+        "top": -449.5,
+        "right": 1936,
+        "bottom": 639.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 0,
+        "top": 41.2844,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "message": "bottom-left vertical edge reaches pane edge",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": 0,
+        "top": -449.5,
+        "right": 1936,
+        "bottom": 639.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 0,
+        "top": 41.2844,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "message": "overlay drag maps client px at zoom 0.59",
+      "moved": 187.2363081809467,
+      "displayScale": 0.44618749618530273
+    },
+    {
+      "message": "SE resize keeps opposite corner at zoom 0.59",
+      "scaleAfter": 1.1838143171738633,
+      "drift": 0.00006103515625
+    },
+    {
+      "message": "double click enters text editing at zoom 0.59",
+      "editing": "true"
+    },
+    {
+      "message": "overlay drag maps client px at zoom 1",
+      "moved": 159.6694214876033,
+      "displayScale": 0.75625
+    },
+    {
+      "message": "SE resize keeps opposite corner at zoom 1",
+      "scaleAfter": 1.1074217195780511,
+      "drift": 0.00004825252777356536
+    },
+    {
+      "message": "double click enters text editing at zoom 1",
+      "editing": "true"
+    },
+    {
+      "message": "overlay drag maps client px at zoom 2",
+      "moved": 139.83471074380168,
+      "displayScale": 1.5125
+    },
+    {
+      "message": "SE resize keeps opposite corner at zoom 2",
+      "scaleAfter": 1.0533134468468495,
+      "drift": 0.000030517578125
+    },
+    {
+      "message": "double click enters text editing at zoom 2",
+      "editing": "true"
+    },
+    {
+      "message": "minimap remains fixed after viewport resize",
+      "resized": {
+        "pane": {
+          "left": 0,
+          "top": 0,
+          "right": 1180,
+          "bottom": 700,
+          "width": 1180,
+          "height": 700
+        },
+        "stage": {
+          "left": -558,
+          "top": -295.75,
+          "right": 1738,
+          "bottom": 995.75,
+          "width": 2296,
+          "height": 1291.5
+        },
+        "paneBackground": "rgb(43, 45, 48)",
+        "stageBackground": "rgb(0, 0, 0)",
+        "wrapperBackground": "rgba(0, 0, 0, 0)",
+        "minimap": {
+          "left": 1108,
+          "top": 656,
+          "right": 1172,
+          "bottom": 692,
+          "width": 64,
+          "height": 36
+        },
+        "minimapHidden": false,
+        "viewport": {
+          "left": 24.3031,
+          "top": 22.9102,
+          "width": 51.3937,
+          "height": 54.1796
+        },
+        "transform": "translate(0px, 0px) scale(2)"
+      }
+    }
+  ],
+  "z059": {
+    "pane": {
+      "left": 0,
+      "top": 0,
+      "right": 1000,
+      "bottom": 640,
+      "width": 1000,
+      "height": 640
+    },
+    "stage": {
+      "left": 214.44000244140625,
+      "top": 159.3725128173828,
+      "right": 785.5599975585938,
+      "bottom": 480.6275177001953,
+      "width": 571.1199951171875,
+      "height": 321.2550048828125
+    },
+    "paneBackground": "rgb(43, 45, 48)",
+    "stageBackground": "rgb(0, 0, 0)",
+    "wrapperBackground": "rgba(0, 0, 0, 0)",
+    "minimap": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "width": 0,
+      "height": 0
+    },
+    "minimapHidden": true,
+    "viewport": {
+      "left": null,
+      "top": null,
+      "width": null,
+      "height": null
+    },
+    "transform": "translate(0px, 0px) scale(0.59)"
+  },
+  "pixels": {
+    "outside": [
+      43,
+      45,
+      48,
+      255
+    ],
+    "stage": [
+      0,
+      0,
+      0,
+      255
+    ]
+  },
+  "z100": {
+    "pane": {
+      "left": 0,
+      "top": 0,
+      "right": 1000,
+      "bottom": 640,
+      "width": 1000,
+      "height": 640
+    },
+    "stage": {
+      "left": 16,
+      "top": 47.75,
+      "right": 984,
+      "bottom": 592.25,
+      "width": 968,
+      "height": 544.5
+    },
+    "paneBackground": "rgb(43, 45, 48)",
+    "stageBackground": "rgb(0, 0, 0)",
+    "wrapperBackground": "rgba(0, 0, 0, 0)",
+    "minimap": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "width": 0,
+      "height": 0
+    },
+    "minimapHidden": true,
+    "viewport": {
+      "left": null,
+      "top": null,
+      "width": null,
+      "height": null
+    },
+    "transform": "translate(0px, 0px) scale(1)"
+  },
+  "z200": {
+    "pane": {
+      "left": 0,
+      "top": 0,
+      "right": 1000,
+      "bottom": 640,
+      "width": 1000,
+      "height": 640
+    },
+    "stage": {
+      "left": -468,
+      "top": -224.5,
+      "right": 1468,
+      "bottom": 864.5,
+      "width": 1936,
+      "height": 1089
+    },
+    "paneBackground": "rgb(43, 45, 48)",
+    "stageBackground": "rgb(0, 0, 0)",
+    "wrapperBackground": "rgba(0, 0, 0, 0)",
+    "minimap": {
+      "left": 928,
+      "top": 596,
+      "right": 992,
+      "bottom": 632,
+      "width": 64,
+      "height": 36
+    },
+    "minimapHidden": false,
+    "viewport": {
+      "left": 24.1736,
+      "top": 20.6422,
+      "width": 51.6529,
+      "height": 58.7156
+    },
+    "transform": "translate(0px, 0px) scale(2)"
+  },
+  "corners": [
+    {
+      "name": "top-left",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": 0,
+        "top": 0.5,
+        "right": 1936,
+        "bottom": 1089.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 0,
+        "top": 0,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "name": "top-right",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": -936,
+        "top": 0.5,
+        "right": 1000,
+        "bottom": 1089.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 48.3471,
+        "top": 0,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "name": "bottom-right",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": -936,
+        "top": -449.5,
+        "right": 1000,
+        "bottom": 639.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 48.3471,
+        "top": 41.2844,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    },
+    {
+      "name": "bottom-left",
+      "pane": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 640,
+        "width": 1000,
+        "height": 640
+      },
+      "stage": {
+        "left": 0,
+        "top": -449.5,
+        "right": 1936,
+        "bottom": 639.5,
+        "width": 1936,
+        "height": 1089
+      },
+      "viewport": {
+        "left": 0,
+        "top": 41.2844,
+        "width": 51.6529,
+        "height": 58.7156
+      }
+    }
+  ],
+  "interactionResults": [
+    {
+      "zoom": 0.59,
+      "moved": 187.2363081809467,
+      "displayScale": 0.44618749618530273,
+      "scaleAfter": 1.1838143171738633,
+      "resizeAnchorDrift": 0.00006103515625
+    },
+    {
+      "zoom": 1,
+      "moved": 159.6694214876033,
+      "displayScale": 0.75625,
+      "scaleAfter": 1.1074217195780511,
+      "resizeAnchorDrift": 0.00004825252777356536
+    },
+    {
+      "zoom": 2,
+      "moved": 139.83471074380168,
+      "displayScale": 1.5125,
+      "scaleAfter": 1.0533134468468495,
+      "resizeAnchorDrift": 0.000030517578125
+    }
+  ],
+  "resized": {
+    "pane": {
+      "left": 0,
+      "top": 0,
+      "right": 1180,
+      "bottom": 700,
+      "width": 1180,
+      "height": 700
+    },
+    "stage": {
+      "left": -558,
+      "top": -295.75,
+      "right": 1738,
+      "bottom": 995.75,
+      "width": 2296,
+      "height": 1291.5
+    },
+    "paneBackground": "rgb(43, 45, 48)",
+    "stageBackground": "rgb(0, 0, 0)",
+    "wrapperBackground": "rgba(0, 0, 0, 0)",
+    "minimap": {
+      "left": 1108,
+      "top": 656,
+      "right": 1172,
+      "bottom": 692,
+      "width": 64,
+      "height": 36
+    },
+    "minimapHidden": false,
+    "viewport": {
+      "left": 24.3031,
+      "top": 22.9102,
+      "width": 51.3937,
+      "height": 54.1796
+    },
+    "transform": "translate(0px, 0px) scale(2)"
+  }
+}

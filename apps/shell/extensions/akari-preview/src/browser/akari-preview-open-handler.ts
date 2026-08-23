@@ -4171,13 +4171,14 @@ body.vscode-light {
 }
 body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
-.preview-pane { min-width: 0; min-height: 0; padding: 16px; display: grid; place-items: center; container-type: size; background: var(--akari-preview-pasteboard); }
-/* 黒い箱そのものを output 比で可用領域へ contain する。100cqw/cqh は padding を除いた
-   .preview-pane の content box なので、横長・縦長どちらでも外側は台紙のまま残る。 */
-#preview-wrapper { position: relative; width: min(100cqw, calc(100cqh * ${width} / ${height})); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; }
-#preview-wrapper.is-draggable { cursor: grab; touch-action: none; }
-#preview-wrapper.is-dragging { cursor: grabbing; }
-#zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
+.preview-pane { position: relative; min-width: 0; min-height: 0; padding: 16px; overflow: hidden; background: var(--akari-preview-pasteboard); }
+/* ペインがズーム/パンの唯一のビューポート。wrapper は UI の固定基準、zoom-layer は
+   ペイン全面の変換層、preview-stage だけが output 比の黒い 100% フィット箱を担う。 */
+#preview-wrapper { position: relative; width: 100%; height: 100%; container-type: size; }
+.preview-pane.is-draggable { cursor: grab; touch-action: none; }
+.preview-pane.is-dragging { cursor: grabbing; }
+#zoom-layer { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
+#preview-stage { position: absolute; left: 50%; top: 50%; width: min(100cqw, calc(100cqh * ${width} / ${height})); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
 #preview-video, #transition-video { position: absolute; top: 0; left: 0; object-fit: contain; }
 #transition-video { display: none; pointer-events: none; }
 /* 静止画 cut ソース: #preview-video と同じ位置・サイズに重ね、静止画セグメントの間だけ表示する
@@ -4309,35 +4310,36 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
   <section class="preview-pane" aria-label="動画プレビュー">
     <div id="preview-wrapper">
       <div id="zoom-layer">
-        <div id="preview-layers">
-          <video id="preview-video" data-akari-transition-role="outgoing"${primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="auto"></video>
-          <video id="transition-video" data-akari-transition-role="incoming" preload="auto"></video>
-          <img id="preview-still" alt="" draggable="false">
-          <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
-        </div>
-        <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div></div>
-        <div id="layer-crop-box"><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
-        <div id="layer-crop-toggle" title="クロップモード切替 (Esc で終了)">⛶</div>
-        <div id="layer-perspective-toggle" title="パース変形パネル">◈</div>
-        <div id="layer-perspective-panel">
-          <div class="akari-perspective-presets">
-            <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="right">右奥</button>
-            <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="left">左奥</button>
-            <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="top">上奥</button>
-            <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="bottom">下奥</button>
+        <div id="preview-stage">
+          <div id="preview-layers">
+            <video id="preview-video" data-akari-transition-role="outgoing"${primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="auto"></video>
+            <video id="transition-video" data-akari-transition-role="incoming" preload="auto"></video>
+            <img id="preview-still" alt="" draggable="false">
+            <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
           </div>
-          <div class="akari-perspective-angle-row">
-            <span>角度</span>
-            <input type="range" min="0" max="75" step="1" value="30" data-akari-perspective-angle />
-            <span data-akari-perspective-angle-value>30°</span>
+          <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div></div>
+          <div id="layer-crop-box"><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
+          <div id="layer-crop-toggle" title="クロップモード切替 (Esc で終了)">⛶</div>
+          <div id="layer-perspective-toggle" title="パース変形パネル">◈</div>
+          <div id="layer-perspective-panel">
+            <div class="akari-perspective-presets">
+              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="right">右奥</button>
+              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="left">左奥</button>
+              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="top">上奥</button>
+              <button type="button" class="akari-perspective-preset" data-akari-perspective-preset="bottom">下奥</button>
+            </div>
+            <div class="akari-perspective-angle-row">
+              <span>角度</span>
+              <input type="range" min="0" max="75" step="1" value="30" data-akari-perspective-angle />
+              <span data-akari-perspective-angle-value>30°</span>
+            </div>
+            <button type="button" class="akari-perspective-clear" data-akari-perspective-clear>パースを解除</button>
           </div>
-          <button type="button" class="akari-perspective-clear" data-akari-perspective-clear>パースを解除</button>
+          <div id="cut-select-box"><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div></div>
+          <div id="caption-select-box"></div>
+          <canvas id="pen-layer" aria-hidden="true"></canvas>
         </div>
-        <div id="cut-select-box"><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div></div>
-        <div id="caption-select-box"></div>
-        <canvas id="pen-layer" aria-hidden="true"></canvas>
       </div>
-      <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
       <button id="output-preview-link" class="output-preview-link" type="button"${model.relatedEditUri ? '' : ' hidden'}>合成は出力プレビューで確認（開く）</button>
       <div id="audio-notice" class="audio-notice" hidden role="status">
         <span>音声が検出されていません。無音の素材か、音声形式がプレビュー非対応の可能性があります（書き出しには影響しません）。</span>
@@ -4352,6 +4354,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         <button id="preview-message-reload" class="message-card-reload" type="button" hidden>再読み込み</button>
       </div>
     </div>
+    <div id="zoom-minimap" hidden aria-hidden="true"><div id="zoom-minimap-viewport"></div></div>
   </section>
 </main>
 <div class="transport">
@@ -4441,12 +4444,13 @@ body { display: grid; place-items: center; padding: 32px; }
             let perspectiveVisualWarned = false;
             let sequence = 0;
             let displayScale = 1;
-            // frameScale: 出力キャンバス(output.width/height)を output 比そのものの wrapper へ
+            // frameScale: 出力キャンバス(output.width/height)を output 比そのものの preview-stage へ
             // 写像する CSS px / 出力 px 比。base/layers/captions/overlays は同じキャンバス矩形、
             // #pen-layer はその中の実映像矩形へ写像する。
             let frameScale = 1;
             let lastPlaybackTickAt = -Infinity;
             const wrapper = document.getElementById('preview-wrapper');
+            const previewStage = document.getElementById('preview-stage');
             const video = document.getElementById('preview-video');
             const transitionVideo = document.getElementById('transition-video');
             const stillImage = document.getElementById('preview-still');
@@ -4965,10 +4969,20 @@ body { display: grid; place-items: center; padding: 32px; }
 
             const fitCompositeRect = (${fitPreviewCompositeRect.toString()});
             const computeOutputFrameRect = () => {
-                // #preview-wrapper 自身が output 比のキャンバス箱。getBoundingClientRect() の
+                // #preview-stage 自身が output 比のキャンバス箱。getBoundingClientRect() の
                 // sub-pixel 寸法を使い、内側へ二重の letterbox を作らない。
-                const wrapperRect = wrapper.getBoundingClientRect();
-                return { x: 0, y: 0, width: wrapperRect.width, height: wrapperRect.height };
+                const stageRect = previewStage.getBoundingClientRect();
+                const zoomLayerRect = document.getElementById('zoom-layer').getBoundingClientRect();
+                const zoomScaleX = zoomLayerRect.width > 0 && wrapper.clientWidth > 0
+                    ? zoomLayerRect.width / wrapper.clientWidth : 1;
+                const zoomScaleY = zoomLayerRect.height > 0 && wrapper.clientHeight > 0
+                    ? zoomLayerRect.height / wrapper.clientHeight : 1;
+                return {
+                    x: 0,
+                    y: 0,
+                    width: stageRect.width / (zoomScaleX || 1),
+                    height: stageRect.height / (zoomScaleY || 1)
+                };
             };
             const computeContentRect = () => {
                 const frameRect = computeOutputFrameRect();
@@ -5124,7 +5138,7 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.computeOutputFrameRect = computeOutputFrameRect;
             window.akari.computeContentRect = computeContentRect;
             window.akari.updateLayerLayout = updateStageScale;
-            new ResizeObserver(updateStageScale).observe(wrapper);
+            new ResizeObserver(updateStageScale).observe(previewStage);
             video.addEventListener('loadedmetadata', updateStageScale);
             updateStageScale();
         })();`;
@@ -5156,6 +5170,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const previewPane = document.querySelector('.preview-pane');
             const wrapper = document.getElementById('preview-wrapper');
             const zoomLayer = document.getElementById('zoom-layer');
+            const previewStage = document.getElementById('preview-stage');
             const zoomPopup = document.getElementById('zoom-popup');
             const zoomSlider = document.getElementById('zoom-slider');
             const zoomValue = document.getElementById('zoom-value');
@@ -6671,9 +6686,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         nextX = original.x + (nowPoint.x - startPoint.x);
                         nextY = original.y + (nowPoint.y - startPoint.y);
                     } else {
-                        const frameScale = window.akari.stageScale() || 1;
-                        nextX = original.x + (moveEvent.clientX - startEvent.clientX) / frameScale;
-                        nextY = original.y + (moveEvent.clientY - startEvent.clientY) / frameScale;
+                        const displayScale = (window.akari.stageScale() || 1) * zoom;
+                        nextX = original.x + (moveEvent.clientX - startEvent.clientX) / displayScale;
+                        nextY = original.y + (moveEvent.clientY - startEvent.clientY) / displayScale;
                     }
                     if (moveEvent.shiftKey || !window.akari.interaction) {
                         dragSnap = { x: null, y: null };
@@ -6693,7 +6708,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // 従来どおり media 要素の clip-path / alpha hit test だけが選択を決める。
             layerSelectBox.addEventListener('pointerdown', event => {
                 if (event.button !== 0 || event.target !== layerSelectBox || !selectedLayerId
-                    || zoom > 1.05 || cropModeActive) return;
+                    || cropModeActive) return;
                 const entry = findLayerEntry(selectedLayerId);
                 if (!entry) return;
                 beginLayerMoveDrag(entry, event);
@@ -6709,7 +6724,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const targetIsVisualMedia = target === video || target === stillImage
                     || Boolean(target?.dataset?.akariLayerId);
                 // オーバーレイ / 字幕の実体をクリックした場合は各ランタイムの操作を優先する。
-                if (event.button !== 0 || zoom > 1.05 || cropModeActive
+                if (event.button !== 0 || cropModeActive
                     || (!targetIsVisualMedia && target !== layersStage && target !== stage)) return;
                 const hit = document.elementsFromPoint(event.clientX, event.clientY)
                     .find(candidate => {
@@ -6731,15 +6746,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     let dragSnap = { x: null, y: null };
                     beginCutTransformDrag(event, (moveEvent, original) => {
                         const nowPoint = window.akari.interaction?.stageLocalPoint?.(moveEvent.clientX, moveEvent.clientY);
-                        const frameScale = window.akari.stageScale() || 1;
+                        const displayScale = (window.akari.stageScale() || 1) * zoom;
                         let nextX = original.x;
                         let nextY = original.y;
                         if (startPoint && nowPoint) {
                             nextX = original.x + (nowPoint.x - startPoint.x);
                             nextY = original.y + (nowPoint.y - startPoint.y);
                         } else {
-                            nextX = original.x + (moveEvent.clientX - event.clientX) / frameScale;
-                            nextY = original.y + (moveEvent.clientY - event.clientY) / frameScale;
+                            nextX = original.x + (moveEvent.clientX - event.clientX) / displayScale;
+                            nextY = original.y + (moveEvent.clientY - event.clientY) / displayScale;
                         }
                         if (moveEvent.shiftKey || !window.akari.interaction) {
                             dragSnap = { x: null, y: null };
@@ -7758,14 +7773,25 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (Math.abs(sliderValue - zoomToSlider(1)) <= SNAP_TOLERANCE) return 1;
                 return Math.pow(2, logMin + (logMax - logMin) * sliderValue);
             };
+            const panLimits = () => ({
+                x: Math.max(0, (previewStage.offsetWidth * zoom - previewPane.clientWidth) / 2),
+                y: Math.max(0, (previewStage.offsetHeight * zoom - previewPane.clientHeight) / 2)
+            });
+            const clampPan = value => {
+                const limits = panLimits();
+                return {
+                    x: clamp(value.x, -limits.x, limits.x),
+                    y: clamp(value.y, -limits.y, limits.y)
+                };
+            };
             const renderZoom = () => {
-                zoomLayer.style.transform = 'translate(' + (pan.x * zoom * 100).toFixed(3) + '%, '
-                    + (pan.y * zoom * 100).toFixed(3) + '%) scale(' + zoom + ')';
+                zoomLayer.style.transform = 'translate(' + pan.x.toFixed(3) + 'px, '
+                    + pan.y.toFixed(3) + 'px) scale(' + zoom + ')';
                 zoomValue.textContent = Math.round(zoom * 100) + '%';
                 zoomSlider.value = String(zoomToSlider(zoom));
                 const isZoomed = zoom > 1.05;
-                wrapper.classList.toggle('is-draggable', isZoomed);
-                if (!isZoomed) wrapper.classList.remove('is-dragging');
+                previewPane.classList.toggle('is-draggable', isZoomed);
+                if (!isZoomed) previewPane.classList.remove('is-dragging');
                 zoomMinimap.hidden = !isZoomed;
                 if (!isZoomed) return;
                 const width = Number(summary.output && summary.output.width) || 1280;
@@ -7773,25 +7799,30 @@ body { display: grid; place-items: center; padding: 32px; }
                 const aspectRatio = width / height;
                 zoomMinimap.style.width = (aspectRatio >= 1 ? 64 : 64 * aspectRatio) + 'px';
                 zoomMinimap.style.height = (aspectRatio >= 1 ? 64 / aspectRatio : 64) + 'px';
-                const innerSize = 1 / zoom;
-                zoomMinimapViewport.style.left = (((1 - innerSize) / 2 - pan.x) * 100) + '%';
-                zoomMinimapViewport.style.top = (((1 - innerSize) / 2 - pan.y) * 100) + '%';
-                zoomMinimapViewport.style.width = (innerSize * 100) + '%';
-                zoomMinimapViewport.style.height = (innerSize * 100) + '%';
+                const scaledStageWidth = previewStage.offsetWidth * zoom;
+                const scaledStageHeight = previewStage.offsetHeight * zoom;
+                if (!(scaledStageWidth > 0) || !(scaledStageHeight > 0)) return;
+                const stageLeft = (previewPane.clientWidth - scaledStageWidth) / 2 + pan.x;
+                const stageTop = (previewPane.clientHeight - scaledStageHeight) / 2 + pan.y;
+                const left = clamp(-stageLeft / scaledStageWidth, 0, 1);
+                const top = clamp(-stageTop / scaledStageHeight, 0, 1);
+                const right = clamp((previewPane.clientWidth - stageLeft) / scaledStageWidth, 0, 1);
+                const bottom = clamp((previewPane.clientHeight - stageTop) / scaledStageHeight, 0, 1);
+                zoomMinimapViewport.style.left = (left * 100) + '%';
+                zoomMinimapViewport.style.top = (top * 100) + '%';
+                zoomMinimapViewport.style.width = ((right - left) * 100) + '%';
+                zoomMinimapViewport.style.height = ((bottom - top) * 100) + '%';
             };
             const setZoom = value => {
                 zoom = clamp(value, ZOOM_MIN, ZOOM_MAX);
                 if (zoom <= 1.05) {
                     pan = { x: 0, y: 0 };
                 } else {
-                    const maxR = (zoom - 1) / (2 * zoom);
-                    pan = {
-                        x: clamp(pan.x, -maxR, maxR),
-                        y: clamp(pan.y, -maxR, maxR)
-                    };
+                    pan = clampPan(pan);
                 }
                 renderZoom();
             };
+            new ResizeObserver(() => setZoom(zoom)).observe(previewPane);
 
             const formatTime = value => {
                 const seconds = Number.isFinite(value) ? Math.max(0, value) : 0;
@@ -9012,7 +9043,7 @@ body { display: grid; place-items: center; padding: 32px; }
             for (const preset of document.querySelectorAll('.zoom-preset')) {
                 preset.addEventListener('click', () => setZoom(Number(preset.getAttribute('data-zoom'))));
             }
-            // capture 段で登録: パン開始の stopPropagation（ズーム中の wrapper pointerdown）に
+            // capture 段で登録: パン開始の stopPropagation（ズーム中の previewPane pointerdown）に
             // 外側クリック検知が殺されないようにする
             document.addEventListener('pointerdown', event => {
                 if (!zoomPopup.hidden && !event.target.closest('.transport-right')) {
@@ -9030,28 +9061,39 @@ body { display: grid; place-items: center; padding: 32px; }
                 const factor = Math.exp(-event.deltaY * 0.01);
                 setZoom(clamp(zoom * factor, ZOOM_MIN, ZOOM_MAX));
             }, { passive: false });
-            wrapper.addEventListener('pointerdown', event => {
+            const isDirectManipulationTarget = target => {
+                if (!(target instanceof Element)) return false;
+                if (target.closest('[data-overlay-id], [data-akari-interaction], #caption-plate, '
+                    + '#layer-select-box, #layer-crop-box, #layer-crop-toggle, '
+                    + '#layer-perspective-toggle, #layer-perspective-panel, #cut-select-box, #caption-select-box')) {
+                    return true;
+                }
+                const layer = target.closest('[data-akari-layer-id]');
+                if (layer && layer.dataset.akariLayerId === selectedLayerId) return true;
+                return cutSelected && (target === video || target === stillImage);
+            };
+            previewPane.addEventListener('pointerdown', event => {
                 if (penModeActive || zoom <= 1.05 || event.button !== 0) return;
-                // ズーム中のパン開始判定は capture 段で wrapper 配下の pointerdown を無条件に
+                // ズーム中のパン開始判定は capture 段で previewPane 配下の pointerdown を扱う。
                 // 奪っていたため、audio-notice の × 等インタラクティブ操作系の上で押しても
                 // preventDefault() が click 合成を止めてしまい押せなくなっていた（実測: Chromium は
-                // pointerdown.preventDefault() を呼ぶと後続の click を合成しない）。パンは
-                // 動画面そのものへのドラッグに限定し、ボタン等の上では素通しする。
+                // pointerdown.preventDefault() を呼ぶと後続の click を合成しない）。ボタンに加え、
+                // 選択済みレイヤー/カット・オーバーレイの直接操作面も素通しする。Alt+drag は
+                // 操作面の上からでも明示的にパンできる。
                 if (event.target.closest && event.target.closest('button, [role="button"], input, textarea, select, a[href]')) return;
+                if (!event.altKey && isDirectManipulationTarget(event.target)) return;
                 event.preventDefault();
                 event.stopPropagation();
-                wrapper.setPointerCapture(event.pointerId);
+                previewPane.setPointerCapture(event.pointerId);
                 drag = {
                     pointerId: event.pointerId,
                     startX: event.clientX,
                     startY: event.clientY,
                     base: { x: pan.x, y: pan.y },
-                    vidW: zoomLayer.offsetWidth * zoom,
-                    vidH: zoomLayer.offsetHeight * zoom,
                     didMove: false
                 };
             }, true);
-            wrapper.addEventListener('pointermove', event => {
+            previewPane.addEventListener('pointermove', event => {
                 if (!drag || drag.pointerId !== event.pointerId) return;
                 event.preventDefault();
                 event.stopPropagation();
@@ -9059,14 +9101,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 const dy = event.clientY - drag.startY;
                 if (!drag.didMove && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) {
                     drag.didMove = true;
-                    wrapper.classList.add('is-dragging');
+                    previewPane.classList.add('is-dragging');
                 }
                 if (!drag.didMove) return;
-                const maxR = (zoom - 1) / (2 * zoom);
-                pan = {
-                    x: clamp(drag.base.x + dx / drag.vidW, -maxR, maxR),
-                    y: clamp(drag.base.y + dy / drag.vidH, -maxR, maxR)
-                };
+                pan = clampPan({ x: drag.base.x + dx, y: drag.base.y + dy });
                 renderZoom();
             }, true);
             const finishPan = event => {
@@ -9075,13 +9113,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 event.stopPropagation();
                 const didMove = drag.didMove;
                 drag = null;
-                wrapper.classList.remove('is-dragging');
-                if (wrapper.hasPointerCapture(event.pointerId)) wrapper.releasePointerCapture(event.pointerId);
+                previewPane.classList.remove('is-dragging');
+                if (previewPane.hasPointerCapture(event.pointerId)) previewPane.releasePointerCapture(event.pointerId);
                 if (didMove) suppressClick = true;
             };
-            wrapper.addEventListener('pointerup', finishPan, true);
-            wrapper.addEventListener('pointercancel', finishPan, true);
-            wrapper.addEventListener('click', event => {
+            previewPane.addEventListener('pointerup', finishPan, true);
+            previewPane.addEventListener('pointercancel', finishPan, true);
+            previewPane.addEventListener('click', event => {
                 if (!suppressClick) return;
                 suppressClick = false;
                 event.preventDefault();
