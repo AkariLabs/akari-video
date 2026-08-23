@@ -14,7 +14,8 @@ description: analyze-project が作る分析レポート（interpretation.json +
 
 > **edit.json v2 語彙**: v2 のトップレベルは exact で、`version` / `output` / `sources` /
 > `tracks` / `audio` / `captions` / `thumbnail` 以外を書けない。`beats` / `emphasis_words` /
-> `direction` は v2 で廃止済みであり、分析・判断の知識としてだけ扱う。消費者側コードも畳んでおり、今後も復活させない。
+> `direction` を v2 の `edit.json` へ書かない。語レベル演出の書き先は字幕 SSOT である
+> `captions.json` object ルートの `emphasis_words[]` とする。
 
 ## ハードルール
 
@@ -36,7 +37,8 @@ description: analyze-project が作る分析レポート（interpretation.json +
 - 有償または重い生成の前に、使う手、理由、代替案、影響を宣言する。画像生成は Codex 画像生成を先に検討し、次に Akari Cloud を検討する。OpenAI、Gemini 等の API キーを直叩きしない。
 - `edit.json` は **v2（`sources[]` + `tracks[].items[]`）だけを書く**。段は `lane` と配列順、クリップの内容は `source.kind` で表し、旧 `cuts` / `layers` / `overlays` キーを作らない。足してよいのは v2 公開契約が定めたフィールドだけである。
 - 見せ場マーカーは [beats.md](beats.md) の導出規約で分析・判断に使うが、v2 の `edit.json` へ `beats` を書かない。
-- 語レベル演出は [emphasis-detection.md](emphasis-detection.md) の検出規約で導出し、判断記録へ残すが、v2 の `edit.json` へ `emphasis_words` を書かない。
+- 語レベル演出は [emphasis-detection.md](emphasis-detection.md) の検出規約で導出し、
+  `captions.json` object ルートの `emphasis_words[]` へ書く。v2 の `edit.json` へは書かない。
 - 最終オーバーレイでは [overlay-authoring](../overlay-authoring/SKILL.md) スキルを使う。見つからない場合も規約を省略せず、[CLAUDE.md](../../CLAUDE.md) の authoring 規約を正本として使ったことを記録する。
 - OpenMontage は構造パターンの参考に限り、AGPL の文章やコードを転写しない。
 
@@ -71,7 +73,8 @@ description: analyze-project が作る分析レポート（interpretation.json +
    （`when_to_use` / `tags` 検索とライセンス確認）・選択根拠の記録に従って候補を決める
    （候補の決め方であり、素材計画の承認ゲートは従来どおり通す）。
 10. 語レベル演出を書く工程では [emphasis-detection.md](emphasis-detection.md) を読み、`analysis.json` の
-   `transcript[].words` から語レベル演出候補を導出する（v2 の `edit.json` へは書かず、対象 tier・見せ場連動・密度・根拠を判断記録へ残す）。
+   `transcript[].words` から語レベル演出候補を導出し、`captions.json` object ルートの
+   `emphasis_words[]` へ書く（v2 の `edit.json` へは書かず、対象 tier・見せ場連動・密度・根拠を判断記録へ残す）。
 11. 人・キャラクター（アバター）の挿入を求められた工程では [avatar-resolution.md](avatar-resolution.md) を読み、段階読み出し（L0/L1/L2）・rendition 解決・decision card・記録の手順に従う。
 
 現在の工程に必要なリーフだけを読み、後工程を先回りして実行しない。

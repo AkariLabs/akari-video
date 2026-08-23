@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:akari-video:schema:captions:v0",
   "title": "AKARI Video captions.json v0",
-  "description": "従来の配列ルートと、字幕の既定テキストスタイルを持てる object ルートの公開契約。",
+  "description": "従来の配列ルートと、字幕の既定テキストスタイル・語レベル演出を持てる object ルートの公開契約。",
   "oneOf": [
     { "$ref": "#/$defs/captionsArray" },
     { "$ref": "#/$defs/captionsRootObject" }
@@ -297,6 +297,21 @@
       },
       "$comment": "end > start、ID 一意性、words[].end >= start は JSON Schema 標準だけでは兄弟値を比較できないため validate-captions.mjs でも検証する。style は既存の単語リビール演出、text_style は見た目のスタイルであり別契約。"
     },
+    "emphasisWordItem": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "t_start", "t_end", "word", "emotion"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^e-\\d{4}$" },
+        "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "t_start": { "type": "number", "minimum": 0 },
+        "t_end": { "type": "number", "minimum": 0 },
+        "word": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "emotion": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "style_hint": { "type": "string" }
+      },
+      "$comment": "docs/contract-2026-08-23-captions-emphasis-words-v0.md。レコード形・語彙・source 秒アンカーは edit.json v1 の emphasis_words と同形。emotion は joy/pain/surprise/anger/sadness/emphasis の例示に留め enum 強制しない。t_end > t_start と id のファイル内一意性は validate-captions.mjs が検証する。"
+    },
     "captionBreakHints": {
       "type": "object",
       "additionalProperties": false,
@@ -331,9 +346,13 @@
       "properties": {
         "default_text_style": { "$ref": "#/$defs/textStyle" },
         "display_policy": { "$ref": "#/$defs/captionDisplayPolicy" },
+        "emphasis_words": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/emphasisWordItem" }
+        },
         "captions": { "$ref": "#/$defs/captionsArray" }
       },
-      "$comment": "default_text_style は任意。省略時は従来表示と同値。"
+      "$comment": "default_text_style と emphasis_words は任意。省略時は従来表示と同値。emphasis_words の席は object ルートだけにあり、配列ルートには存在しない。"
     }
   }
 }

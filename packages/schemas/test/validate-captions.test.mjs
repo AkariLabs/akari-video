@@ -56,6 +56,43 @@ for (const [example, message] of [
   });
 }
 
+test("captions object root accepts emphasis_words with the v1 record shape", () => {
+  const executed = run("captions-emphasis-words-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /);
+});
+
+for (const [example, message] of [
+  ["captions-emphasis-words-invalid-id", /emphasis_words\[0\]\.id は e- に続く 4 桁/u],
+  ["captions-emphasis-words-empty-word", /emphasis_words\[0\]\.word は空でない文字列/u],
+  ["captions-emphasis-words-missing-emotion", /emphasis_words\[0\]\.emotion は空でない文字列/u],
+]) {
+  test(`${example} fails deterministically`, () => {
+    const executed = run(example);
+    assert.equal(executed.status, 1, executed.stdout);
+    assert.match(executed.stderr, /^NG: /);
+    assert.match(executed.stderr, message);
+  });
+}
+
+test("captions emphasis_words requires t_end > t_start", () => {
+  const executed = run("captions-emphasis-words-range-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /emphasis_words\[0\]\.t_end は t_start より大きい/u);
+  assert.match(executed.stderr, /emphasis_words\[1\]\.t_end は t_start より大きい/u);
+});
+
+test("captions array root has no emphasis_words seat", () => {
+  const executed = runValue([{
+    ...caption,
+    emphasis_words: [{
+      id: "e-0001", t_start: 0, t_end: 1, word: "今回", emotion: "emphasis",
+    }],
+  }]);
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /captions\[0\] に未知のキーがあります: emphasis_words/u);
+});
+
 for (const captionsPath of [
   "packages/edit-lint/fixtures/captions-words-valid/captions.json",
   "packages/edit-lint/fixtures/captions-reveal-valid/captions.json",

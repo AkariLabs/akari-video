@@ -1,0 +1,16 @@
+{
+  "emphasis_words": [
+    { "id": "e-1", "t_start": 0.1, "t_end": 0.6, "word": "最高", "emotion": "joy" }
+  ],
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0,
+      "end": 1,
+      "text": "最高",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false
+    }
+  ]
+}
