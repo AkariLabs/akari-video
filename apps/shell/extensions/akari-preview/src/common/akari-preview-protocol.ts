@@ -243,6 +243,7 @@ export interface ResolveCaptionDisplayRequest {
 
 export interface ResolvedCaptionDisplayPayload {
     schema: 'caption-layout/v1';
+    emphasisWords?: unknown;
     captions: Array<{
         id: string;
         source_cue_id: string;
