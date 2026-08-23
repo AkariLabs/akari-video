@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { buildStoryboardRedpenText, renderResearchPlanReportFile } from "../render-research-plan-report.mjs";
+import { buildStoryboardAnnotationText, renderResearchPlanReportFile } from "../render-research-plan-report.mjs";
 
 const packageDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureDirectory = path.join(packageDirectory, "test", "fixtures", "research-plan");
@@ -241,25 +241,25 @@ test("新フィールド皆無の旧形式も生成でき、構造面は空面�
   });
 });
 
-test("詳細ダイアログと赤ペンの貼り戻し契約を自己完結 HTML に持つ", () => {
+test("詳細ダイアログと注釈の貼り戻し契約を自己完結 HTML に持つ", () => {
   withRenderedFixture("branching", ({ html }) => {
     assert.match(html, /<dialog class="shot-dialog" data-shot-dialog/);
     assert.match(html, /data-shot-detail="0"[\s\S]*?完成形から始める[\s\S]*?push-in[\s\S]*?中央へ/);
     assert.match(html, /data-shot-feedback="0"/);
     assert.match(html, /data-overall-feedback/);
-    assert.match(html, /data-copy-redpen/);
-    assert.match(html, /data-redpen-output/);
-    assert.match(html, /composeRedpenText/);
+    assert.match(html, /data-copy-annotation/);
+    assert.match(html, /data-annotation-output/);
+    assert.match(html, /composeAnnotationText/);
     assert.match(html, /plan-comments\.json（pass: structure, target_kind: shot）として1ファイルに上書き保存/);
     assert.match(html, /処理後は plan-comments\.json を削除/);
     assert.doesNotMatch(html, /<(?:img|script|link)[^>]+(?:src|href)="https?:\/\//i);
   });
 });
 
-test("赤ペン貼り戻しテキストは shot id と指摘逐語を保持する", () => {
+test("注釈貼り戻しテキストは shot id と指摘逐語を保持する", () => {
   const shotFeedback = "冒頭を 1 秒延ばす。\nただし説明文は変えない。";
   const overallFeedback = "全体の色味を揃える。";
-  const output = buildStoryboardRedpenText({
+  const output = buildStoryboardAnnotationText({
     title: "3章の主軸とカットアウェイ",
     shots: [
       { id: "main-2", label: "工程を説明する", text: shotFeedback },
@@ -267,7 +267,7 @@ test("赤ペン貼り戻しテキストは shot id と指摘逐語を保持す�
     ],
     overall: overallFeedback,
   });
-  assert.equal(output, `【絵コンテ赤ペン】3章の主軸とカットアウェイ
+  assert.equal(output, `【絵コンテ注釈】3章の主軸とカットアウェイ
 - shot main-2「工程を説明する」: ${shotFeedback}
 - 全体: ${overallFeedback}
 ---
@@ -275,7 +275,7 @@ test("赤ペン貼り戻しテキストは shot id と指摘逐語を保持す�
 target_id は各 shot id に対応する structure.shots[] の配列インデックスを文字列で設定し、処理後は plan-comments.json を削除してください。`);
 });
 
-test("実機 Chrome でコマ詳細と赤ペン逐語を照合し、3 枚の証跡を生成する", async (t) => {
+test("実機 Chrome でコマ詳細と注釈逐語を照合し、3 枚の証跡を生成する", async (t) => {
   mkdirSync(screenshotDirectory, { recursive: true });
   const temporaryDirectory = mkdtempSync(path.join(os.tmpdir(), "akari-storyboard-report-"));
   const outputPath = path.join(temporaryDirectory, "branching.html");
@@ -325,19 +325,19 @@ test("実機 Chrome でコマ詳細と赤ペン逐語を照合し、3 枚の証�
     const overall = document.querySelector('[data-overall-feedback]');
     overall.value = ${JSON.stringify(overall)};
     overall.dispatchEvent(new Event('input', { bubbles: true }));
-    document.querySelector('[data-copy-redpen]').click();
-    document.querySelector('[data-redpen-section]').scrollIntoView({ block: 'start' });
+    document.querySelector('[data-copy-annotation]').click();
+    document.querySelector('[data-annotation-section]').scrollIntoView({ block: 'start' });
     await new Promise((resolve) => setTimeout(resolve, 80));
-    const output = document.querySelector('[data-redpen-output]');
+    const output = document.querySelector('[data-annotation-output]');
     output.setSelectionRange(0, 0);
     output.blur();
     return output.value;
   })()`);
-  assert.match(output, /^【絵コンテ赤ペン】3章の主軸とカットアウェイ/m);
+  assert.match(output, /^【絵コンテ注釈】3章の主軸とカットアウェイ/m);
   assert.match(output, new RegExp(`- shot main-1「完成形から始める」: ${feedback}`));
   assert.match(output, new RegExp(`- 全体: ${overall}`));
   assert.match(output, /plan-comments\.json（pass: structure, target_kind: shot）/);
   assert.match(output, /structure\.shots\[\] の配列インデックス/);
-  screenshots.push(await screenshot(command, "03-redpen-output.png"));
+  screenshots.push(await screenshot(command, "03-annotation-output.png"));
   t.diagnostic(`screenshots: ${screenshots.join(", ")}`);
 });
