@@ -8,7 +8,8 @@
     "sfx",
     "writing",
     "foley",
-    "pencil"
+    "pencil",
+    "pack:audio-standard"
   ],
   "knobs": [],
   "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=true を厳守し、必要なクレジット文言は「\"Pencil, Writing, Close, A.wav\" by InspectorJ (freesound.org) — CC BY 4.0」を動画概要欄等に明記する。 AI学習データとしての二次利用はしない。",

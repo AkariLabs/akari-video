@@ -2,13 +2,14 @@
   "id": "maoudamashii-bgm-piano",
   "category": "audio",
   "title": "魔王魂 ピアノ（静寂の世界へ / 見渡す街へ）",
-  "description": "静けさ・ゆったりした時間の流れを出すピアノ BGM 2 点。（収録数: 2点）",
+  "description": "静けさ・ゆったりした時間の流れを出すピアノ BGM 2 点。（収録数: 2点） 【audio-standard】部分参加 1/2 音（対象はローカル index.jsonl の standard フラグ / 正本は内部リポ sfx-curation.json）",
   "when_to_use": "静寂・喪失・ぼんやりした時間（静寂の世界へ）、美しい景色をゆったり見せる場面（見渡す街へ）",
   "tags": [
     "bgm",
     "piano",
     "quiet",
-    "emotional"
+    "emotional",
+    "pack:audio-standard"
   ],
   "knobs": [],
   "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=true を厳守し、必要なクレジット文言は「音楽：魔王魂（https://maou.audio/）」を動画概要欄等に明記する。 AI学習データとしての二次利用はしない。",

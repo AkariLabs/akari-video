@@ -2,13 +2,14 @@
   "id": "musmus-onomatope-sfx-pack",
   "category": "audio",
   "title": "MusMus オノマトペ電子音パック",
-  "description": "ポップ/クリック系の短い電子オノマトペ音（ピッ・ポッ・プッ・ピロリン・チャイム等）とイエスノー判定音・チョキッ（はさみ）・機械的な操作音・注意喚起音を集めた16点セット。（収録数: 16点）",
+  "description": "ポップ/クリック系の短い電子オノマトペ音（ピッ・ポッ・プッ・ピロリン・チャイム等）とイエスノー判定音・チョキッ（はさみ）・機械的な操作音・注意喚起音を集めた16点セット。（収録数: 16点） 【audio-standard】部分参加 4/10 音（対象はローカル index.jsonl の standard フラグ / 正本は内部リポ sfx-curation.json）",
   "when_to_use": "軽いUI操作音・判定音（Yes/No）・機械的な操作/切替の演出・チャイムでの通知を入れたいとき",
   "tags": [
     "sfx",
     "ui",
     "onomatopoeia",
-    "notification"
+    "notification",
+    "pack:audio-standard"
   ],
   "knobs": [],
   "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=true を厳守し、必要なクレジット文言は「BGM:MusMus（フル表記: フリーBGM・音楽素材 MusMus https://musmus.main.jp）」を動画概要欄等に明記する。 AI学習データとしての二次利用はしない。",
