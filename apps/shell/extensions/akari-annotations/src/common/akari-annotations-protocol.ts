@@ -388,7 +388,10 @@ export interface SetCutTransitionOutRequest {
     editUri: string;
     projectRootUri: string;
     cutIndex: number;
-    transitionOut: { type: 'dissolve' | 'fade-black' | 'fade-white'; duration: number } | null;
+    transitionOut: {
+        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        duration: number;
+    } | null;
 }
 
 export interface SetLayerTransformRequest {

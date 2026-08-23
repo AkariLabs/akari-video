@@ -57,6 +57,13 @@ test("setCutTransitionOutInSource replaces an existing transition_out wholesale"
   assert.deepEqual(JSON.parse(replaced).cuts[0].transition_out, { type: "fade-black", duration: 1.2 });
 });
 
+test("setCutTransitionOutInSource accepts reveal-down / reveal-up", () => {
+  for (const type of ["reveal-down", "reveal-up"]) {
+    const updated = setCutTransitionOutInSource(source, 0, { type, duration: 0.75 });
+    assert.deepEqual(JSON.parse(updated).cuts[0].transition_out, { type, duration: 0.75 });
+  }
+});
+
 test("setCutTransitionOutInSource with null removes the property entirely (undo back to absent)", () => {
   const withTransition = setCutTransitionOutInSource(source, 0, { type: "fade-white", duration: 0.3 });
   const removed = setCutTransitionOutInSource(withTransition, 0, null);

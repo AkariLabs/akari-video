@@ -91,6 +91,10 @@ export async function writeProjectFilesGuarded(
     candidates: LintCandidates,
     options: DeferredLintOptions = {}
 ): Promise<void> {
+    const editCandidate = candidates['edit.json'];
+    if (typeof editCandidate === 'string') {
+        assertNoCamelCaseTransitionOut(editCandidate);
+    }
     for (const [name, text] of Object.entries(candidates)) {
         if (text === null) {
             continue;
@@ -108,6 +112,28 @@ export async function writeProjectFilesGuarded(
         }
     }
     scheduleProjectLint(projectRoot, options);
+}
+
+/** Web UI 旧版が生成した camelCase は schema が閉じていない legacy edit でも保存させない。 */
+export function assertNoCamelCaseTransitionOut(content: string): void {
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(content);
+    } catch {
+        // JSON 自体の診断は既存の保存後 lint に任せる。
+        return;
+    }
+    const visit = (value: unknown): boolean => {
+        if (!value || typeof value !== 'object') return false;
+        if (Object.prototype.hasOwnProperty.call(value, 'transitionOut')) return true;
+        return Object.values(value as Record<string, unknown>).some(visit);
+    };
+    if (visit(parsed)) {
+        throw new Error(
+            'transitionOut は Web UI 旧版が書いた綴りです。正しい transition_out へ直すか、'
+            + 'Web UI で開き直して保存してください。'
+        );
+    }
 }
 
 /**

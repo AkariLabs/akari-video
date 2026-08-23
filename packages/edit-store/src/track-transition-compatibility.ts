@@ -59,15 +59,18 @@ export function unsupportedTrackTransitionTarget(
 ): number | undefined {
     if (!Array.isArray(cuts) || !Array.isArray(tracks)) return undefined;
     if (!Number.isInteger(cutIndex) || cutIndex < 0 || cutIndex >= cuts.length) return undefined;
-    if (usesDefaultCompatibilityTrackOrder(tracks)) return undefined;
+    const declaredCutTracks = tracks.filter(track => isRecord(track) && track.kind === 'cuts'
+        && Number.isInteger(track.ref) && (track.ref as number) >= 0);
+    // plain sequential は「既定順かつ cuts track が 1 本」のときだけ。既定順でも PiP 等で
+    // cuts track が複数なら render は track-stack 経路へ入り、xfade を表現できない。
+    if (usesDefaultCompatibilityTrackOrder(tracks) && declaredCutTracks.length <= 1) return undefined;
 
     const cut = cuts[cutIndex];
     if (!isRecord(cut)) return undefined;
     const ref = cut.track ?? 0;
     if (!Number.isInteger(ref) || (ref as number) < 0) return undefined;
     const trackRef = ref as number;
-    const declared = tracks.some(track => isRecord(track)
-        && track.kind === 'cuts' && Number.isInteger(track.ref) && (track.ref as number) >= 0
+    const declared = declaredCutTracks.some(track => isRecord(track)
         && track.ref === trackRef);
     if (!declared) return undefined;
 

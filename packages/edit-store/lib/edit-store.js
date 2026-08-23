@@ -318,7 +318,9 @@ function updateCutOpacityInSource(source, cutIndex, opacity) {
 }
 function setCutTransitionOutInSource(source, cutIndex, transitionOut) {
     if (transitionOut !== null) {
-        if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black' && transitionOut.type !== 'fade-white') {
+        if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black'
+            && transitionOut.type !== 'fade-white' && transitionOut.type !== 'reveal-down'
+            && transitionOut.type !== 'reveal-up') {
             throw new Error('トランジションの種別が不正です。');
         }
         if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {

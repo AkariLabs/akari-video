@@ -1361,6 +1361,33 @@ test("fieldtest-shaped v2 non-default track order without transition_out stays c
   });
 });
 
+test("v2 + PiP + transition_out は render 前に日本語で fail する", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "v2-pip-transition-invalid"));
+    assert.equal(executed.status, 1, executed.stderr || executed.stdout);
+    const result = parseResult(executed);
+    const finding = result.findings.find(candidate =>
+      candidate.check === "cuts.track-transition-unsupported"
+    );
+    assert.ok(finding, JSON.stringify(result.findings, null, 2));
+    assert.match(finding.message, /PiP.*複数トラック.*書き出せません/);
+    assert.match(finding.path, /cuts\[0\]/);
+  });
+});
+
+test("v2 の gap をまたぐ transition_out は日本語で事前に fail する", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "v2-gap-transition-invalid"));
+    assert.equal(executed.status, 1, executed.stderr || executed.stdout);
+    const result = parseResult(executed);
+    const finding = result.findings.find(candidate =>
+      candidate.check === "cuts.transition-out.non-adjacent"
+    );
+    assert.ok(finding, JSON.stringify(result.findings, null, 2));
+    assert.match(finding.message, /次のクリップとの間にすき間.*すき間を詰める/);
+  });
+});
+
 test("v2 top-level BGM without a declared audio lane does not create declaration-missing projection noise", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "v2-nondefault-no-transition-valid");

@@ -30,6 +30,16 @@ test('既定トラック順では transition_out 宣言を許可する', () => {
   assert.deepEqual(findUnsupportedDeclaredTrackTransitions(cuts, defaultTracks), []);
 });
 
+test('既定順でも PiP で cuts track が複数なら transition_out を拒否する', () => {
+  const pipTracks = [
+    { kind: 'cuts', ref: 0 },
+    { kind: 'cuts', ref: 1 },
+    { kind: 'layers', ref: 0 }
+  ];
+  assert.equal(usesDefaultCompatibilityTrackOrder(pipTracks), true);
+  assert.equal(unsupportedTrackTransitionTarget(cuts, pipTracks, 0), 0);
+});
+
 test('並べ替え済み gap-aware 経路では後続 cut への transition_out を宣言前に拒否できる', () => {
   assert.equal(usesDefaultCompatibilityTrackOrder(reorderedTracks), false);
   assert.equal(unsupportedTrackTransitionTarget(cuts, reorderedTracks, 0), 0);

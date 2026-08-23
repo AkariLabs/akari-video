@@ -6,7 +6,7 @@ export interface EditCut {
     opacity?: number;
     speed?: number;
     transitionOut?: {
-        type: 'dissolve' | 'fade-black' | 'fade-white';
+        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
         duration: number;
     };
     at?: number;
@@ -422,10 +422,15 @@ export function updateCutOpacityInSource(source: string, cutIndex: number, opaci
 export function setCutTransitionOutInSource(
     source: string,
     cutIndex: number,
-    transitionOut: { type: 'dissolve' | 'fade-black' | 'fade-white'; duration: number } | null
+    transitionOut: {
+        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        duration: number;
+    } | null
 ): string {
     if (transitionOut !== null) {
-        if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black' && transitionOut.type !== 'fade-white') {
+        if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black'
+            && transitionOut.type !== 'fade-white' && transitionOut.type !== 'reveal-down'
+            && transitionOut.type !== 'reveal-up') {
             throw new Error('トランジションの種別が不正です。');
         }
         if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {

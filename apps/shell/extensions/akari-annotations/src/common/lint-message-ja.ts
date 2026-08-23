@@ -8,7 +8,9 @@ export interface UiLintFinding {
 /** UI で短く案内する高頻度 check だけを持つ。詳細ログの英語本文は置き換えない。 */
 export const LINT_CHECK_JA: Readonly<Record<string, string>> = Object.freeze({
     'cuts.track-transition-unsupported':
-        'このトランジションは現在のトラック順では書き出せません。トランジションを削除するか、トラックを既定順へ戻してください。',
+        'このトランジションは PiP または複数トラックの合成では書き出せません。トランジションを削除するか、映像を単一のトラックへ戻してください。',
+    'cuts.transition-out.non-adjacent':
+        'トランジションの次のクリップとの間にすき間があります。すき間を詰めるか、トランジションを削除してください。',
     'captions.overlap':
         '字幕の表示時間が重なっています。タイムラインで字幕の開始・終了位置をずらしてください。',
     'cuts.track-overlap':

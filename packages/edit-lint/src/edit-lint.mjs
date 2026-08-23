@@ -254,6 +254,7 @@ export async function lintProject(input, options = {}) {
   validateCutTransformFields(edit.cuts, findings);
   validateStillImageCuts(edit, findings);
   const cutTrackSegments = computeCutTrackSegments(edit.cuts);
+  validateTransitionAdjacency(edit.cuts, cutTrackSegments, edit.fps, findings);
   for (const segment of findTrackOverlaps(cutTrackSegments)) {
     if (isDeclaredTransitionOverlap(edit.cuts, cutTrackSegments, segment, edit.fps)) continue;
     addFinding(findings, {
@@ -311,6 +312,28 @@ export async function lintProject(input, options = {}) {
   }
 
   return writeResult(findings, skipped, inputs, paths, options);
+}
+
+function validateTransitionAdjacency(cuts, segments, fps, findings) {
+  for (let position = 0; position < segments.length; position += 1) {
+    const earlier = segments[position];
+    const transition = cuts?.[earlier.index]?.transition_out;
+    if (!isRecord(transition) || !isPositiveNumber(transition.duration)) continue;
+    const later = segments.slice(position + 1).find(candidate => candidate.track === earlier.track);
+    if (!later || later.start <= earlier.end) continue;
+    if (areCutsAdjacent(
+      { tlEnd: earlier.end, transitionOut: { duration: transition.duration } },
+      { tlStart: later.start },
+      fps,
+    )) continue;
+    addFinding(findings, {
+      severity: "error",
+      check: "cuts.transition-out.non-adjacent",
+      message: "transition_out の次のクリップとの間にすき間があります。すき間を詰めるか、トランジションを削除してください。",
+      path: `edit.json#cuts[${earlier.index}].transition_out`,
+      range: { start: earlier.end, end: later.start },
+    });
+  }
 }
 
 function projectAudioForLint(internalEdit) {
@@ -1314,13 +1337,8 @@ export function validateTrackTransitionOutCompatibility(edit, findings) {
       severity: "error",
       check: "cuts.track-transition-unsupported",
       message:
-        `cuts[].transition_out is declared on track ${trackRef}, which timeline.tracks composites through the `
-        + `gap-aware track engine. That engine treats adjacent same-track cuts as separate, non-overlapping `
-        + `windows, so it cannot represent an xfade's intentional overlap -- the composited window and the `
-        + `actually-shrunk clip diverge, and content disappears early (verified with a real render: the base `
-        + `track's background visibly leaked through where the dissolved clip should still have been `
-        + `playing). Remove transition_out from this track's cuts, or drop the custom timeline.tracks order `
-        + `for this track so it renders through the plain sequential path instead.`,
+        `映像トラック ${trackRef} の transition_out は、PiP または複数トラックを合成する方式では書き出せません。`
+        + `トランジションを削除するか、映像を単一の cuts トラックへ戻してください。`,
       path: `edit.json#cuts[${cutIndex}]`,
     });
   }

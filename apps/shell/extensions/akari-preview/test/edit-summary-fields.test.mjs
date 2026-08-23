@@ -178,6 +178,16 @@ test('buildCutSummaryFields: invalid in/out is rejected', () => {
     assert.equal(result.ok, false);
 });
 
+test('buildCutSummaryFields: schema のトランジション 5 種をすべて summary へ保持する', () => {
+    for (const type of ['dissolve', 'fade-black', 'fade-white', 'reveal-down', 'reveal-up']) {
+        const result = buildCutSummaryFields({
+            src: 'main', in: 0, out: 2, transition_out: { type, duration: 0.5 }
+        }, 'main', id => id === 'main', identityTransform, noopWarn);
+        assert.equal(result.ok, true, type);
+        assert.deepEqual(result.fields.transitionOut, { type, duration: 0.5 });
+    }
+});
+
 // End-to-end shape test mirroring loadPreviewModel's actual loop: given a small edit.json-like
 // object, run every layers[]/cuts[] entry through the same builder functions the extension calls,
 // and assert the resulting summary carries every field the webview reads for PiP display.

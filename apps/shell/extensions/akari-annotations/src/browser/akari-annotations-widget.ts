@@ -211,10 +211,13 @@ const NON_ADJACENT_TRANSITION_MESSAGE = 'このトランジションは次のク
     + 'すき間を詰めるか、トランジションを削除してください。';
 const TRANSITION_MIN_DURATION_SECONDS = 0.1;
 const TRANSITION_MAX_DURATION_SECONDS = 3;
-const TRANSITION_TYPE_OPTIONS: ReadonlyArray<{ type: 'dissolve' | 'fade-black' | 'fade-white'; label: string; glyph: string }> = [
+type TransitionType = 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+const TRANSITION_TYPE_OPTIONS: ReadonlyArray<{ type: TransitionType; label: string; glyph: string }> = [
     { type: 'dissolve', label: 'ディゾルブ', glyph: 'D' },
     { type: 'fade-black', label: '黒フェード', glyph: 'B' },
-    { type: 'fade-white', label: '白フェード', glyph: 'W' }
+    { type: 'fade-white', label: '白フェード', glyph: 'W' },
+    { type: 'reveal-down', label: '上からリビール', glyph: '↓' },
+    { type: 'reveal-up', label: '下からリビール', glyph: '↑' }
 ];
 const BEAT_PROJECTION_EPSILON = 0.000001;
 /** タイムライン（出力秒軸）上の1セグメント。cuts[].at / track を解決した結果。 */
@@ -4650,7 +4653,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** ㉔ トランジション書き戻し: annotations 既存の edit RPC 流儀（setCutOpacity 等と同系）。 */
     protected async applyTransitionOut(
         cutIndex: number,
-        next: { type: 'dissolve' | 'fade-black' | 'fade-white'; duration: number } | null
+        next: { type: TransitionType; duration: number } | null
     ): Promise<void> {
         const location = this.location;
         if (!location?.editUri) {
@@ -4723,8 +4726,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const track = this.unsupportedTransitionTrack(cutIndex);
         const suffix = track === undefined ? '' : `（映像トラック ${track + 1}）`;
-        return `このトランジション${suffix}は、並べ替えたトラックを合成する方式では書き出せません。`
-            + '削除するか、トラックを既定順へ戻してください。';
+        return `このトランジション${suffix}は、PiP または複数トラックを合成する方式では書き出せません。`
+            + '削除するか、映像を単一のトラックへ戻してください。';
     }
 
     protected renderTrackHeaders(beatsTop: number, beatsHeight: number): void {

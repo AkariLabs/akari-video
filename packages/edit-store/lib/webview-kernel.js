@@ -24,7 +24,8 @@ var AkariEditKernel = (() => {
     captionWindowSeconds: () => captionWindowSeconds,
     findActiveCaption: () => findActiveCaption,
     findActiveResolvedCaption: () => findActiveResolvedCaption,
-    outputToSource: () => outputToSource
+    outputToSource: () => outputToSource,
+    transitionProgressAt: () => transitionProgressAt
   });
 
   // src/edit-store.ts
@@ -50,6 +51,10 @@ var AkariEditKernel = (() => {
   }
 
   // src/timeline-map.ts
+  function transitionProgressAt(window, outputT) {
+    if (!(window.duration > 0)) return 0;
+    return Math.max(0, Math.min(1, (outputT - window.start) / window.duration));
+  }
   function buildTimelineMap(cuts, options) {
     const usable = [];
     cuts.forEach((cut, index) => {
@@ -67,6 +72,43 @@ var AkariEditKernel = (() => {
       cut: usableCuts[segment.index],
       cutIndex: usable[segment.index].index
     }));
+    const segmentSlice = (entry, start, end, transitionOut = null) => {
+      const cut = entry.cut;
+      const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
+      return {
+        kind: "src",
+        outStart: start,
+        outEnd: end,
+        cutIndex: entry.cutIndex,
+        ...cut.src !== void 0 ? { src: cut.src } : {},
+        in: cut.in + (start - entry.start) * speed,
+        out: cut.in + (end - entry.start) * speed,
+        speed,
+        track: entry.track,
+        transitionOut
+      };
+    };
+    const transitionWindows = [];
+    for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
+      const outgoing = resolved[outgoingIndex];
+      const transition = outgoing.cut.transitionOut;
+      if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0)) continue;
+      const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
+      if (!incoming) continue;
+      const start = incoming.start;
+      const actualOverlap = outgoing.end - start;
+      if (!(actualOverlap > 1e-6) || actualOverlap - transition.duration > 1e-6) continue;
+      const end = Math.min(outgoing.end, incoming.end, start + transition.duration);
+      if (!(end - start > 1e-6)) continue;
+      transitionWindows.push({
+        start,
+        end,
+        duration: end - start,
+        type: transition.type,
+        outgoing: segmentSlice(outgoing, start, end, transition),
+        incoming: segmentSlice(incoming, start, end)
+      });
+    }
     const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);
     const boundarySet = /* @__PURE__ */ new Set([0, outputDuration]);
     for (const segment of resolved) {
@@ -100,22 +142,29 @@ var AkariEditKernel = (() => {
       if (!run.winner) {
         return { kind: "gap", outStart: run.start, outEnd: run.end, cutIndex: null };
       }
-      const cut = run.winner.cut;
-      const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;
-      return {
-        kind: "src",
-        outStart: run.start,
-        outEnd: run.end,
-        cutIndex: run.winner.cutIndex,
-        ...cut.src !== void 0 ? { src: cut.src } : {},
-        in: cut.in + (run.start - run.winner.start) * speed,
-        out: cut.in + (run.end - run.winner.start) * speed,
-        speed,
-        track: run.winner.track,
-        transitionOut: null
-      };
+      return segmentSlice(
+        run.winner,
+        run.start,
+        run.end,
+        run.winner.cut.transitionOut ?? null
+      );
     });
-    return { segments, totalDuration: outputDuration, transitionPlates: [], usesGapsOrTracks: true };
+    const transitionPlates = transitionWindows.flatMap(
+      (window) => window.type === "fade-black" || window.type === "fade-white" ? [{
+        start: window.start,
+        end: window.end,
+        mid: (window.start + window.end) / 2,
+        color: window.type === "fade-white" ? "#fff" : "#000",
+        type: window.type
+      }] : []
+    );
+    return {
+      segments,
+      totalDuration: outputDuration,
+      transitionPlates,
+      transitionWindows,
+      usesGapsOrTracks: true
+    };
   }
   function outputToSource(segments, outputT) {
     if (segments.length === 0) {

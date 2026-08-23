@@ -80,7 +80,9 @@ function parseEdit(source) {
                     const transition = rawCut.transition_out;
                     const validType = transition?.type === 'dissolve'
                         || transition?.type === 'fade-black'
-                        || transition?.type === 'fade-white';
+                        || transition?.type === 'fade-white'
+                        || transition?.type === 'reveal-down'
+                        || transition?.type === 'reveal-up';
                     const validDuration = typeof transition?.duration === 'number'
                         && Number.isFinite(transition.duration) && transition.duration > 0;
                     if (transition && typeof transition === 'object' && !Array.isArray(transition)

@@ -12,7 +12,7 @@ test('対象 check は日本語要約の後ろに従来の英語詳細を残す'
   const message = formatLintFailureForUi('保存後の検証で問題が見つかりました', [detail], [{
     severity: 'error', check: 'cuts.track-transition-unsupported'
   }]);
-  assert.match(message, /このトランジションは現在のトラック順では書き出せません/);
+  assert.match(message, /PiP または複数トラックの合成では書き出せません/);
   assert.match(message, /詳細: \[cuts\.track-transition-unsupported\] gap-aware track engine/);
 });
 

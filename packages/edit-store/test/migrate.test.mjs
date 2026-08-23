@@ -158,6 +158,16 @@ test('legacy audio entry の未知キーは category ごとの allow-list で拒
   }
 });
 
+test('migrate は camelCase transitionOut を旧 Web UI 由来として具体的に案内する', () => {
+  const doc = base(1);
+  doc.cuts[0].transitionOut = { type: 'dissolve', duration: 0.5 };
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, false);
+  assert.match(result.blockers.join('\n'), /Web UI 旧版が書いた綴り/);
+  assert.match(result.blockers.join('\n'), /transition_out/);
+  assert.match(result.blockers.join('\n'), /開き直して保存/);
+});
+
 test('narration の script / reading / provenance を credit あり・なしとも損失なく v2 item へ移す', () => {
   const doc = base(1);
   const withCredit = {

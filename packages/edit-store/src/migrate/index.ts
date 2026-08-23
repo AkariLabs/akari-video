@@ -623,7 +623,12 @@ function copyPresent(source: RecordValue, keys: readonly string[]): RecordValue 
 
 function rejectUnknownKeys(value: RecordValue, allowed: Set<string>, path: string, blockers: string[]): void {
     for (const key of Object.keys(value)) {
-        if (!allowed.has(key)) blockers.push(`${path}.${key} は凍結変換器が対応しない未知フィールドです。`);
+        if (allowed.has(key)) continue;
+        if (key === 'transitionOut') {
+            blockers.push(`${path}.transitionOut は Web UI 旧版が書いた綴りです。正しい transition_out へ直すか、Web UI で開き直して保存してください。`);
+        } else {
+            blockers.push(`${path}.${key} は凍結変換器が対応しない未知フィールドです。`);
+        }
     }
 }
 

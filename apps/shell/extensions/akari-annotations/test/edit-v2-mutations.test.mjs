@@ -132,6 +132,17 @@ test('updateItem の transition_out:null は既存宣言をキーごと除去す
   assert.equal(Object.hasOwn(clipSource, 'transition_out'), false);
 });
 
+test('UI のトランジション 5 種は v2 保存往復で保持される', () => {
+  for (const type of ['dissolve', 'fade-black', 'fade-white', 'reveal-down', 'reveal-up']) {
+    const updated = valid(updateItem(fixture, {
+      itemId: 'clip-1', patch: { source: { transition_out: { type, duration: 0.5 } } }
+    }));
+    const reloaded = readEditV2(stringifyEditV2(updated));
+    const clip = reloaded.tracks.find(track => track.id === 'v-main').items[0];
+    assert.deepEqual(clip.source.transition_out, { type, duration: 0.5 });
+  }
+});
+
 test('removeItem は空になった宣言済み段を prune しない', () => {
   const result = valid(removeItem(fixture, 'filter-1'));
   assert.equal(result.tracks.find(track => track.id === 'v-filter').items.length, 0);
