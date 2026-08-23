@@ -1,4 +1,29 @@
 // ../pen-visuals/src/index.ts
+function normalizePersistentStrokeItems(value) {
+  if (!Array.isArray(value)) return [];
+  const normalized = [];
+  for (const candidate of value) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) continue;
+    const item = candidate;
+    const metadata = {
+      ...typeof item.id === "string" ? { id: item.id } : {},
+      ...Number.isFinite(item.recTStart) ? { recTStart: item.recTStart } : {},
+      ...Number.isFinite(item.recTEnd) ? { recTEnd: item.recTEnd } : {}
+    };
+    if ((item.tool === "pen" || item.tool === void 0) && Array.isArray(item.points)) {
+      const points = item.points.filter((point) => Array.isArray(point) && point.length === 2 && point.every((coordinate) => Number.isFinite(coordinate) && coordinate >= 0 && coordinate <= 1)).map((point) => [point[0], point[1]]);
+      if (points.length >= 2) normalized.push({ tool: "pen", points, ...metadata });
+      continue;
+    }
+    if (item.tool === "rect" && Array.isArray(item.box) && item.box.length === 4 && item.box.every((coordinate) => Number.isFinite(coordinate))) {
+      const [x, y, width, height] = item.box;
+      if (x >= 0 && y >= 0 && width > 0 && height > 0 && x + width <= 1 && y + height <= 1) {
+        normalized.push({ tool: "rect", box: [x, y, width, height], ...metadata });
+      }
+    }
+  }
+  return normalized;
+}
 var PEN_TUNING = {
   maxDevicePixelRatio: 2,
   coreWidthPx: 3.4,
@@ -85,5 +110,6 @@ export {
   createGlowSprite,
   createPlatinumGradient,
   createSparkleSprite,
-  drawPenSegment
+  drawPenSegment,
+  normalizePersistentStrokeItems
 };

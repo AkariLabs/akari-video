@@ -29,7 +29,7 @@
   },
   "replay": {
     "sessionId": "s-0001",
-    "targetTab": "file:///private/tmp/akari-stroke-l1-recapture2.ljrTRR/project/edit.json",
+    "targetTab": "file:///<SCRATCH>/project/edit.json",
     "targetRecT": 2.5
   },
   "replayPixels": {

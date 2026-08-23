@@ -200,6 +200,14 @@
       }
       element.style.setProperty("pointer-events", value, "important");
     }
+    function fragmentRootCoversContainer(element, container) {
+      const rootRect = element.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      if (!(rootRect.width > 0) || !(rootRect.height > 0) || !(containerRect.width > 0) || !(containerRect.height > 0)) {
+        return false;
+      }
+      return rootRect.width >= containerRect.width * 0.98 && rootRect.height >= containerRect.height * 0.98;
+    }
     function applyOverlayHitPolicy(container) {
       if (!container || hitPolicyAppliedContainers.has(container)) return;
       setHitPointerEvents(container, "none");
@@ -212,7 +220,7 @@
         let pointerEvents = "none";
         if (isVisible && directive === "catch") {
           pointerEvents = "auto";
-        } else if (isVisible && directive !== "pass" && !isFragmentRoot && drawsOwnContent(element, style)) {
+        } else if (isVisible && directive !== "pass" && (!isFragmentRoot || !fragmentRootCoversContainer(element, container)) && drawsOwnContent(element, style)) {
           pointerEvents = "auto";
         }
         setHitPointerEvents(element, pointerEvents);
@@ -301,10 +309,16 @@
       }
       const guides = ensureSnapGuides();
       if (!guides) return;
+      const { width, height } = outputSize();
+      const clampGuidePosition = (target, extent) => Math.min(Math.max(target, 0.5), Math.max(0.5, extent - 0.5));
       guides.vertical.hidden = !snapX;
-      if (snapX) guides.vertical.style.left = `${snapX.target}px`;
+      if (snapX) {
+        guides.vertical.style.left = `${clampGuidePosition(snapX.target, width)}px`;
+      }
       guides.horizontal.hidden = !snapY;
-      if (snapY) guides.horizontal.style.top = `${snapY.target}px`;
+      if (snapY) {
+        guides.horizontal.style.top = `${clampGuidePosition(snapY.target, height)}px`;
+      }
     }
     function overlayForEvent(event) {
       const eventTargetOverlay = findOverlayContainer(event.target);
@@ -314,25 +328,7 @@
       if (selftestOverlayOverride && eventTargetOverlay === selftestOverlayOverride) {
         return selftestOverlayOverride;
       }
-      if (!stage || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) {
-        return eventTargetOverlay;
-      }
-      const containers = Array.from(stage.children).filter((element) => element.hasAttribute("data-overlay-id")).reverse();
-      for (const container of containers) {
-        if (!isSelectable(container)) continue;
-        const bounds = fragmentBounds(container);
-        if (bounds && event.clientX >= bounds.left && event.clientX <= bounds.right && event.clientY >= bounds.top && event.clientY <= bounds.bottom) {
-          return container;
-        }
-      }
-      if (eventTargetOverlay) {
-        const root = fragmentRoot(eventTargetOverlay);
-        const rootRect = root?.getBoundingClientRect();
-        if (rootRect && event.clientX >= rootRect.left && event.clientX <= rootRect.right && event.clientY >= rootRect.top && event.clientY <= rootRect.bottom) {
-          return eventTargetOverlay;
-        }
-      }
-      return null;
+      return isSelectable(eventTargetOverlay) ? eventTargetOverlay : null;
     }
     function firstOverlayContainer() {
       if (!stage) return null;
@@ -576,29 +572,38 @@
       }
       return closest;
     }
+    function canvasSnapTargets() {
+      const { width, height } = outputSize();
+      return {
+        x: [
+          0,
+          width * SAFE_MARGIN_RATIO,
+          width / 2,
+          width * (1 - SAFE_MARGIN_RATIO),
+          width
+        ],
+        y: [
+          0,
+          height * SAFE_MARGIN_RATIO,
+          height / 2,
+          height * (1 - SAFE_MARGIN_RATIO),
+          height
+        ]
+      };
+    }
     function computeSnapCorrection(bounds, previousSnap) {
       if (!bounds) return { x: null, y: null };
-      const { width, height } = outputSize();
+      const targets = canvasSnapTargets();
       const scale = currentDisplayScale();
-      const xTargets = [
-        width * SAFE_MARGIN_RATIO,
-        width / 2,
-        width * (1 - SAFE_MARGIN_RATIO)
-      ];
-      const yTargets = [
-        height * SAFE_MARGIN_RATIO,
-        height / 2,
-        height * (1 - SAFE_MARGIN_RATIO)
-      ];
       const snapX = closestAxisSnap(
         [bounds.left, bounds.centerX, bounds.right],
-        xTargets,
+        targets.x,
         previousSnap?.x ?? null,
         scale
       );
       const snapY = closestAxisSnap(
         [bounds.top, bounds.centerY, bounds.bottom],
-        yTargets,
+        targets.y,
         previousSnap?.y ?? null,
         scale
       );
@@ -642,14 +647,14 @@
       startY,
       startScale,
       scale,
-      anchorClientX,
-      anchorClientY
+      anchorStageX,
+      anchorStageY
     }) {
-      if (!Number.isFinite(startScale) || startScale === 0) return null;
-      const anchor = stageLocalPoint(anchorClientX, anchorClientY);
-      if (!anchor) return null;
-      const dx = anchor.x - anchor.centerX;
-      const dy = anchor.y - anchor.centerY;
+      if (!stage || !Number.isFinite(startScale) || startScale === 0 || !Number.isFinite(anchorStageX) || !Number.isFinite(anchorStageY)) {
+        return null;
+      }
+      const dx = anchorStageX - stage.clientWidth / 2;
+      const dy = anchorStageY - stage.clientHeight / 2;
       const scaleRatio = scale / startScale;
       return {
         x: dx - scaleRatio * (dx - startX),
@@ -706,8 +711,13 @@
       if (activeEdit) void commitEdit();
       const visualRect = fragmentBounds(container) ?? container.getBoundingClientRect();
       const corner = handleCorner(handleEl);
-      const anchor = cornerAnchorPoint(visualRect, corner);
-      const startDistance = Math.hypot(event.clientX - anchor.x, event.clientY - anchor.y);
+      const anchorClient = cornerAnchorPoint(visualRect, corner);
+      const draggedClient = namedCornerPoint(visualRect, corner);
+      const anchor = stageLocalPoint(anchorClient.x, anchorClient.y);
+      const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
+      const pointer = stageLocalPoint(event.clientX, event.clientY);
+      if (!anchor || !dragged || !pointer) return;
+      const startDistance = Math.hypot(pointer.x - anchor.x, pointer.y - anchor.y);
       const transform = readTransform(container);
       activeResize = {
         container,
@@ -715,8 +725,10 @@
         overlayId: container.dataset.overlayId ?? "",
         pointerId: event.pointerId,
         corner,
-        anchorX: anchor.x,
-        anchorY: anchor.y,
+        anchorStageX: anchor.x,
+        anchorStageY: anchor.y,
+        draggedStageX: dragged.x,
+        draggedStageY: dragged.y,
         startDistance: startDistance || 1,
         // 0除算回避（アンカーとハンドルが重なる異常系向け保険）
         startScale: transform.scale,
@@ -733,39 +745,41 @@
       }
       if (event.cancelable) event.preventDefault();
     }
-    function applyResizeSnap(resize, scale) {
-      if (!(Math.abs(scale) > 1e-6)) return null;
-      const anchor = stageLocalPoint(resize.anchorX, resize.anchorY);
-      const visualRect = fragmentBounds(resize.container) ?? resize.container.getBoundingClientRect();
-      const draggedClient = namedCornerPoint(visualRect, resize.corner);
-      const dragged = stageLocalPoint(draggedClient.x, draggedClient.y);
-      if (!anchor || !dragged) return null;
-      const { width, height } = outputSize();
+    function computeAnchorResizeSnap({
+      anchorStageX,
+      anchorStageY,
+      draggedStageX,
+      draggedStageY,
+      startScale,
+      scale,
+      snapX,
+      snapY
+    }) {
+      if (!(Math.abs(scale) > 1e-6) || !(Math.abs(startScale) > 1e-6)) {
+        return null;
+      }
+      const anchor = { x: anchorStageX, y: anchorStageY };
+      const scaleRatio = scale / startScale;
+      const dragged = {
+        x: anchor.x + (draggedStageX - anchor.x) * scaleRatio,
+        y: anchor.y + (draggedStageY - anchor.y) * scaleRatio
+      };
+      const targets = canvasSnapTargets();
       const displayScale = currentDisplayScale();
-      const xTargets = [
-        width * SAFE_MARGIN_RATIO,
-        width / 2,
-        width * (1 - SAFE_MARGIN_RATIO)
-      ];
-      const yTargets = [
-        height * SAFE_MARGIN_RATIO,
-        height / 2,
-        height * (1 - SAFE_MARGIN_RATIO)
-      ];
-      const findCandidate = (draggedValue, anchorValue, targets, previous) => {
+      const findCandidate = (draggedValue, anchorValue, targets2, previous) => {
         const denom = draggedValue - anchorValue;
         if (Math.abs(denom) < 1e-6) return null;
         let best = null;
         if (previous) {
-          const target = targets[previous.targetIndex];
+          const target = targets2[previous.targetIndex];
           const distanceOutput = Math.abs(target - draggedValue);
           if (distanceOutput * displayScale <= SNAP_RELEASE_DISTANCE) {
             best = { targetIndex: previous.targetIndex, target, distanceOutput };
           }
         }
         if (!best) {
-          for (let targetIndex = 0; targetIndex < targets.length; targetIndex += 1) {
-            const target = targets[targetIndex];
+          for (let targetIndex = 0; targetIndex < targets2.length; targetIndex += 1) {
+            const target = targets2[targetIndex];
             const distanceOutput = Math.abs(target - draggedValue);
             if (distanceOutput * displayScale <= SNAP_DISTANCE && (!best || distanceOutput < best.distanceOutput)) {
               best = { targetIndex, target, distanceOutput };
@@ -777,8 +791,8 @@
         if (!Number.isFinite(solvedScale)) return null;
         return { ...best, scale: solvedScale };
       };
-      const candidateX = findCandidate(dragged.x, anchor.x, xTargets, resize.snapX);
-      const candidateY = findCandidate(dragged.y, anchor.y, yTargets, resize.snapY);
+      const candidateX = findCandidate(dragged.x, anchor.x, targets.x, snapX);
+      const candidateY = findCandidate(dragged.y, anchor.y, targets.y, snapY);
       let axis = null;
       if (candidateX && candidateY) {
         axis = candidateX.distanceOutput <= candidateY.distanceOutput ? "x" : "y";
@@ -788,33 +802,42 @@
         axis = "y";
       }
       if (!axis) {
-        resize.snapX = null;
-        resize.snapY = null;
         hideSnapGuides();
-        return null;
+        return { scale, snapX: null, snapY: null };
       }
       if (axis === "x") {
-        resize.snapX = { targetIndex: candidateX.targetIndex, target: candidateX.target };
-        resize.snapY = null;
-        showSnapGuides(resize.snapX, null);
-        return candidateX.scale;
+        const nextSnapX = { targetIndex: candidateX.targetIndex, target: candidateX.target };
+        showSnapGuides(nextSnapX, null);
+        return { scale: candidateX.scale, snapX: nextSnapX, snapY: null };
       }
-      resize.snapY = { targetIndex: candidateY.targetIndex, target: candidateY.target };
-      resize.snapX = null;
-      showSnapGuides(null, resize.snapY);
-      return candidateY.scale;
+      const nextSnapY = { targetIndex: candidateY.targetIndex, target: candidateY.target };
+      showSnapGuides(null, nextSnapY);
+      return { scale: candidateY.scale, snapX: null, snapY: nextSnapY };
+    }
+    function applyResizeSnap(resize, scale) {
+      const solved = computeAnchorResizeSnap({
+        anchorStageX: resize.anchorStageX,
+        anchorStageY: resize.anchorStageY,
+        draggedStageX: resize.draggedStageX,
+        draggedStageY: resize.draggedStageY,
+        startScale: resize.startScale,
+        scale,
+        snapX: resize.snapX,
+        snapY: resize.snapY
+      });
+      if (!solved) return null;
+      resize.snapX = solved.snapX;
+      resize.snapY = solved.snapY;
+      return solved.scale;
     }
     function applyResizeTransformAt(resize, scaleValue) {
-      const visualRect = fragmentBounds(resize.container) ?? resize.container.getBoundingClientRect();
-      const visualAnchor = cornerAnchorPoint(visualRect, resize.corner);
-      const currentTransform = readTransform(resize.container);
       const translate = anchorPreservingTranslate({
-        startX: currentTransform.x,
-        startY: currentTransform.y,
-        startScale: currentTransform.scale,
+        startX: resize.startX,
+        startY: resize.startY,
+        startScale: resize.startScale,
         scale: scaleValue,
-        anchorClientX: visualAnchor.x,
-        anchorClientY: visualAnchor.y
+        anchorStageX: resize.anchorStageX,
+        anchorStageY: resize.anchorStageY
       });
       if (!translate) return false;
       resize.container.style.setProperty("--x", `${translate.x}px`);
@@ -825,9 +848,11 @@
     function updateResize(event) {
       const resize = activeResize;
       if (!resize || event.pointerId !== resize.pointerId) return;
+      const pointer = stageLocalPoint(event.clientX, event.clientY);
+      if (!pointer) return;
       const currentDistance = Math.hypot(
-        event.clientX - resize.anchorX,
-        event.clientY - resize.anchorY
+        pointer.x - resize.anchorStageX,
+        pointer.y - resize.anchorStageY
       );
       if (!Number.isFinite(currentDistance)) return;
       let nextScale = resize.startScale * (currentDistance / resize.startDistance);
@@ -892,7 +917,16 @@
         return;
       }
       const container = overlayForEvent(event);
-      if (!isSelectable(container)) return;
+      if (!isSelectable(container)) {
+        if (selectedOverlay && stage && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+          const stageRect = stage.getBoundingClientRect();
+          if (event.clientX >= stageRect.left && event.clientX <= stageRect.right && event.clientY >= stageRect.top && event.clientY <= stageRect.bottom) {
+            if (activeEdit) void commitEdit();
+            clearSelection();
+          }
+        }
+        return;
+      }
       selectOverlay(container);
       if (activeEdit?.container === container && eventHitsElement(event, activeEdit.element)) {
         return;
@@ -1425,6 +1459,8 @@
       hideSnapGuides,
       outputSize,
       currentDisplayScale,
+      anchorPreservingTranslate,
+      computeAnchorResizeSnap,
       // ㉑ 素通し: overlay-runtime.js の tick() が可視化タイミングで呼ぶ。
       applyOverlayHitPolicy,
       invalidateOverlayHitPolicy,
