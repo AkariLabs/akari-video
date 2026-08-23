@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "../v2-valid/assets/talk.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "clip-1",
+          "at": 0,
+          "duration": 90,
+          "source": { "kind": "media", "src": "main", "in": 0, "out": 3 }
+        }
+      ]
+    },
+    {
+      "id": "v-html",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "chapter-1",
+          "at": 0,
+          "duration": 90,
+          "source": {
+            "kind": "html",
+            "path": "overlays/chapter.html",
+            "params": { "title": { "html": "<b>危険</b>" } }
+          }
+        }
+      ]
+    }
+  ]
+}

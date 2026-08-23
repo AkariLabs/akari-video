@@ -19,6 +19,7 @@ export interface InternalHtmlSource {
     kind: 'html';
     /** 断片ファイルのパス、またはインライン HTML。 */
     html: string;
+    params?: Record<string, string>;
 }
 export interface InternalTelopSource {
     kind: 'telop';

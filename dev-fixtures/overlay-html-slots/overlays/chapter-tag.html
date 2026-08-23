@@ -1,0 +1,27 @@
+<div class="slot-fixture">
+  <style>
+    .slot-fixture {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      font-family: system-ui, sans-serif;
+    }
+    .slot-fixture__title {
+      width: max-content;
+      padding: var(--card-padding, 18px 30px);
+      border: 2px solid var(--accent, #62d9ff);
+      border-radius: var(--radius, 14px);
+      background: var(--background, #162131);
+      color: var(--color, #f7fbff);
+      font-size: var(--font-size, 38px);
+      font-weight: 700;
+      line-height: 1.25;
+      white-space: nowrap;
+      box-shadow: 0 10px 28px rgb(0 0 0 / 35%);
+      pointer-events: auto;
+    }
+  </style>
+  <span class="slot-fixture__title" data-akari-slot="title">既定タイトル</span>
+</div>

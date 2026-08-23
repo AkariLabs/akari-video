@@ -74,6 +74,9 @@ export interface TimelineClipNameInput {
     id: string;
     src?: unknown;
     preset?: unknown;
+    html?: unknown;
+    params?: unknown;
+    payload?: Record<string, unknown>;
 }
 
 /**
@@ -83,6 +86,17 @@ export interface TimelineClipNameInput {
 export function resolveTimelineClipName(item: TimelineClipNameInput): string {
     if (typeof item.src === 'string' && item.src.length > 0) {
         return item.src.split('/').pop() || item.src;
+    }
+    // params は native telop にも存在する。HTML 宣言（html が実在）に限って代表値へ使い、
+    // kind:"telop" の src → preset → id という既存名解決は変えない。
+    const html = item.html ?? item.payload?.html;
+    const params = item.params ?? item.payload?.params;
+    if (typeof html === 'string' && params && typeof params === 'object'
+        && !Array.isArray(params)) {
+        const first = Object.values(params as Record<string, unknown>)[0];
+        if (typeof first === 'string' && first.length > 0) {
+            return first;
+        }
     }
     if (typeof item.preset === 'string' && item.preset.length > 0) {
         return item.preset;

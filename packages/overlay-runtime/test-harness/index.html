@@ -98,7 +98,10 @@
        スタブ実装（README.md のアダプタ契約参照。本番シェルは実データで置き換える） -->
   <script src="./stub-host.js"></script>
 
-  <!-- 本パッケージの 3 本（機能的に無改変で移送） -->
+  <!-- スロット注入は preview mount / render-cut rasterize の共有実装を先に読む -->
+  <script src="../src/slot-params.js"></script>
+
+  <!-- 本パッケージのランタイム -->
   <script src="../src/overlay-runtime.js"></script>
   <script src="../src/interaction.js"></script>
   <script src="../src/minimap.js"></script>

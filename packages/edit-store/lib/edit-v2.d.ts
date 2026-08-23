@@ -60,6 +60,7 @@ export interface HtmlSourceV2 {
     kind: 'html';
     path: string;
     vars?: Record<string, unknown>;
+    params?: Record<string, string>;
 }
 export interface TelopSourceV2 {
     kind: 'telop';

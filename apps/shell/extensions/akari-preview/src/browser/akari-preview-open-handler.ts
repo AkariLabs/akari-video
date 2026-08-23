@@ -109,6 +109,7 @@ interface EditSummaryOverlay {
     trackId: string;
     transform: OverlayTransform;
     vars: Record<string, string>;
+    params: Record<string, string>;
 }
 
 interface EditSummaryLayer {
@@ -392,6 +393,8 @@ interface OverlayWriteRequest {
         // 断片テキスト編集（contenteditable）の書き戻し。overlays[].html は契約上ファイル参照
         // なので、この値は edit.json ではなく参照先の断片ファイルへ書く
         html?: string;
+        // data-akari-slot の編集は共有テンプレを変更せず、v2 source.params へ書き戻す。
+        params?: Record<string, string>;
     };
 }
 
@@ -2951,7 +2954,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     track: Number.isInteger(value?.track) && value.track >= 0 ? value.track : 0,
                     trackId: String(trackIdByItem.get(item) ?? ''),
                     transform: this.transform(value?.transform),
-                    vars: this.stringRecord(value?.vars)
+                    vars: this.stringRecord(value?.vars),
+                    params: this.stringRecord(value?.params)
                 });
             }
             const layers: EditSummaryLayer[] = [];

@@ -1139,6 +1139,56 @@
       "commitEdit 後: fill 層の contenteditable が解除されている（ライブ DOM 側）"
     );
 
+    // ---- 6) HTML text slots: 共有注入 + params 書き戻し + instance isolation ----
+    window.akari.runtime.tick(175, true);
+    const slotAContainer = stage.querySelector('[data-overlay-id="slot-a"]');
+    const slotBContainer = stage.querySelector('[data-overlay-id="slot-b"]');
+    const slotA = slotAContainer.querySelector('[data-akari-slot="title"]');
+    const slotB = slotBContainer.querySelector('[data-akari-slot="title"]');
+    assert(
+      slotA.textContent === "インスタンスA" && slotB.textContent === "<b>インスタンスB</b>",
+      "mount(): 同じ HTML の 2 インスタンスへ別々の params が textContent 注入された"
+    );
+    assert(
+      slotB.querySelector("b") === null,
+      "params の <b> は HTML として解釈されず、文字列のまま表示された"
+    );
+
+    let slotPatch = null;
+    let resolveSlotWrite;
+    const slotWritePromise = new Promise((resolve) => { resolveSlotWrite = resolve; });
+    window.akari.engine.overlayWrite = (editPath, overlayId, patch) => {
+      if (overlayId === "slot-a") {
+        slotPatch = { editPath, overlayId, patch };
+        resolveSlotWrite();
+      }
+      return originalOverlayWrite(editPath, overlayId, patch);
+    };
+    const slotRect = slotA.getBoundingClientRect();
+    slotA.dispatchEvent(new MouseEvent("dblclick", {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      clientX: slotRect.left + slotRect.width / 2,
+      clientY: slotRect.top + slotRect.height / 2,
+    }));
+    assert(slotA.getAttribute("contenteditable") === "true", "スロット要素が contenteditable になった");
+    slotA.textContent = "Aだけ編集";
+    slotA.dispatchEvent(new InputEvent("input", { bubbles: true, composed: true }));
+    slotA.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Enter", bubbles: true, cancelable: true, composed: true,
+    }));
+    await slotWritePromise;
+    window.akari.engine.overlayWrite = originalOverlayWrite;
+    assert(
+      slotPatch?.patch?.params?.title === "Aだけ編集" && slotPatch.patch.html === undefined,
+      "スロット編集は html patch を出さず params.title だけを書き戻した"
+    );
+    assert(
+      slotB.textContent === "<b>インスタンスB</b>",
+      "slot-a の編集後も同じテンプレを参照する slot-b の表示は変わらない"
+    );
+
     // CDP/L1 スクリーンショットの最終画面を resize 対象へ戻し、直近の実測ログが
     // 見える位置までスクロールする（テスト結果そのものは上の数値アサーション）。
     window.akari.runtime.tick(145, true);

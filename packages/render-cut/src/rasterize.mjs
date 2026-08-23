@@ -27,6 +27,10 @@ const THREE_RUNTIME_PATH = resolve(
   SOURCE_DIRECTORY,
   "../../overlay-runtime/src/three-runtime.js",
 );
+const SLOT_PARAMS_PATH = resolve(
+  SOURCE_DIRECTORY,
+  "../../overlay-runtime/src/slot-params.js",
+);
 // texts[]（troika-three-text 経由の 3D テキスト）を含むシートだけ追加で読み込む。
 // 読み込み順は three-bundle.js → vendor-3d-text-bundle.js を厳守する
 // （overlay-runtime/README.md「単一 three インスタンス制約への対応」— troika は
@@ -68,6 +72,10 @@ const FONT_MIME_TYPES = new Map([
 
 export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
   const orderedOverlays = orderOverlaysByTrack(overlays);
+  const hasTextSlotParams = orderedOverlays.some((overlay) =>
+    overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
+      && Object.keys(overlay.params).length > 0,
+  );
   const hasThreeDimensionalOverlay = orderedOverlays.some((overlay) =>
     overlay.html.includes("data-akari-3d-scene"),
   );
@@ -94,6 +102,10 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     : "";
   const threeRuntimeScripts = hasThreeDimensionalOverlay
     ? `\n  <script>${inlineScript(readFileSync(THREE_BUNDLE_PATH, "utf8"))}</script>${threeTextBundleScript}\n  <script>${inlineScript(readFileSync(THREE_RUNTIME_PATH, "utf8"))}</script>`
+    : "";
+  const slotRuntimeScripts = hasTextSlotParams
+    ? `\n  <script>${inlineScript(readFileSync(SLOT_PARAMS_PATH, "utf8"))}</script>`
+      + `\n  <script>(function(){for(const content of document.querySelectorAll('.akari-overlay-container[data-akari-params] > .scene-content')){const params=JSON.parse(content.parentElement.dataset.akariParams);content.replaceWith(window.akari.slotParams.renderTextSlots(content,params));}})();</script>`
     : "";
   // 3D は「動画テクスチャのシークが終わってから」描く。ここで描いてしまうと <video> がまだ
   // 前フレームの絵のままテクスチャへ上がり、同じ時刻でも直前に何を撮ったかで結果が変わる。
@@ -137,7 +149,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
 </head>
 <body>
   <div id="stage" data-composition-id="akari-render-cut" data-start="0" data-duration="${formatNumber(duration)}" data-width="${edit.output.width}" data-height="${edit.output.height}" data-fps="${edit.output.fps}" data-no-timeline>
-${nodes}
+${nodes}${slotRuntimeScripts}
   </div>
   <script>
     // Overlay fragments author entrance animations as plain CSS keyframes, but plain CSS
@@ -803,7 +815,11 @@ function renderOverlayNode(overlay, index) {
   const style = Object.entries(variables)
     .map(([name, value]) => `${name}:${String(value).replaceAll(";", "")}`)
     .join(";");
-  return `    <div class="akari-overlay-container scene clip" data-overlay-id="${escapeAttribute(overlay.id)}" data-start="${formatNumber(overlay.start)}" data-duration="${formatNumber(overlay.duration)}" data-track-index="${index + 1}" style="${escapeAttribute(style)}"><div class="scene-content">${overlay.html}</div></div>`;
+  const params = overlay.params && typeof overlay.params === "object" && !Array.isArray(overlay.params)
+    && Object.keys(overlay.params).length > 0
+    ? ` data-akari-params="${escapeAttribute(JSON.stringify(overlay.params))}"`
+    : "";
+  return `    <div class="akari-overlay-container scene clip" data-overlay-id="${escapeAttribute(overlay.id)}" data-start="${formatNumber(overlay.start)}" data-duration="${formatNumber(overlay.duration)}" data-track-index="${index + 1}"${params} style="${escapeAttribute(style)}"><div class="scene-content">${overlay.html}</div></div>`;
 }
 
 function embedThreeModels(html, projectRoot, overlayId) {

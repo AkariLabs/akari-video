@@ -147,6 +147,20 @@ test("valid v2 fixture passes the Phase 0 track checks", async () => {
   });
 });
 
+test("HTML slot params accept string values (including unmatched future keys) and fail otherwise", async () => {
+  await withFixtures(async (fixtures) => {
+    const valid = run(join(fixtures, "v2-html-params-valid"));
+    assert.equal(valid.status, 0, valid.stderr);
+    assert.equal(parseResult(valid).verdict, "pass");
+
+    const invalid = run(join(fixtures, "v2-html-params-invalid"));
+    assert.equal(invalid.status, 1, invalid.stderr);
+    assert.ok(parseResult(invalid).findings.some(finding =>
+      finding.check === "v2.html-params" && finding.severity === "error"
+    ));
+  });
+});
+
 for (const [fixture, expectedCheck] of [
   ["v2-id-duplicate-invalid", "v2.id-unique"],
   ["v2-items-content-invalid", "v2.track-content-exclusive"],

@@ -130,6 +130,24 @@ const STUB_SUMMARY = {
         "</div>",
       ].join("\n"),
     },
+    {
+      id: "slot-a",
+      start: 170,
+      duration: 20,
+      transform: { x: 0, y: -80, scale: 1, rotate: 0 },
+      vars: {},
+      params: { title: "インスタンスA" },
+      html: '<div class="slot-root" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:40px;color:#fff;background:#17365d;padding:12px 24px;"><span data-akari-slot="title">既定タイトル</span></div>',
+    },
+    {
+      id: "slot-b",
+      start: 170,
+      duration: 20,
+      transform: { x: 0, y: 80, scale: 1, rotate: 0 },
+      vars: {},
+      params: { title: "<b>インスタンスB</b>" },
+      html: '<div class="slot-root" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:40px;color:#fff;background:#5d2817;padding:12px 24px;"><span data-akari-slot="title">既定タイトル</span></div>',
+    },
   ],
 };
 
