@@ -1,0 +1,18 @@
+{
+  "cacheEntries": [
+    "9fd506518c24b2c5c259215614102916f406c062.json",
+    "9fd506518c24b2c5c259215614102916f406c062.webm"
+  ],
+  "probe": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "vp9",
+        "tags": {
+          "alpha_mode": "1"
+        }
+      }
+    ]
+  }
+}

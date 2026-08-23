@@ -70,6 +70,7 @@ import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
 import { classifyPreviewModelUpdate } from '../common/preview-model-diff';
 import type { PreviewModelDiffInput } from '../common/preview-model-diff';
+import { resolvePreferredVideoUri } from '../common/video-proxy-resolution';
 import { createRafThrottle } from '../common/raf-throttle';
 import { normalizeRectFromPoints } from '../common/rect-tool-visual';
 import {
@@ -122,6 +123,8 @@ interface EditSummaryLayer {
     duration: number;
     kind: 'baked' | 'video';
     src?: string;
+    /** Original file URI used only to target a decode-failure fallback request. */
+    sourceUri?: string;
     /** task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで判定する
      * 静止画フラグ（schema の kind は 'video' のまま不変）。webview 側はこれで <video>/<img> の
      * どちらを生成するか決める。'baked' は常に false（後述 isImageLayerSrc の呼び出し側コメント参照）。 */
@@ -355,11 +358,8 @@ interface PreviewModel {
     editUri?: URI;
     relatedEditUri?: URI;
     sourceUri?: URI;
-    /** ソース id → 実体 URI（v0 は既定 id ひとつ・v1 は sources[] 全件） */
+    /** ソース id → 実体 URI（v0 は既定 id ひとつ・v1/v2 は sources[] 全件） */
     sourcesById?: Map<string, { uri: URI; proxyUri?: URI }>;
-    // Explicit edit.json source.proxy (v0/v1 schema field), read-only, highest priority over the
-    // HEVC-triggered proxy resolved in refreshPreview(). Only set when the file actually exists.
-    sourceProxyUri?: URI;
     overlayUris: URI[];
     assetUris: URI[];
     assetStreamIds: string[];
@@ -482,6 +482,8 @@ interface HevcFallbackRequest {
     type: 'akari-preview-hevc-fallback-request';
     requestId: string;
     errorCode: number;
+    /** Omitted by the primary/raw video for backward compatibility; set by layers and v2 items. */
+    videoUri?: string;
 }
 
 interface OpenOutputRequest {
@@ -534,6 +536,8 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewEditUri?: URI;
     akariPreviewRelatedEditUri?: URI;
     akariPreviewVideoUri?: URI;
+    /** Original source URIs the generated webview is allowed to request a fallback for. */
+    akariPreviewFallbackSourceUris?: Set<string>;
     akariPreviewCaptionsUri?: URI;
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewTrackedSuffixes?: Set<string>;
@@ -2643,6 +2647,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewEditUri = model.editUri;
         widget.akariPreviewRelatedEditUri = model.relatedEditUri;
         widget.akariPreviewVideoUri = videoUri;
+        widget.akariPreviewFallbackSourceUris = new Set([
+            videoUri.toString(),
+            ...[...(model.sourcesById?.values() ?? [])].map(source => source.uri.toString()),
+            ...model.summary.layers.flatMap(layer => layer.sourceUri ? [layer.sourceUri] : [])
+        ]);
         widget.akariPreviewCaptionsUri = model.captionsUri;
         const trackedUris = [
             ...(model.editUri ? [model.editUri] : []),
@@ -2751,18 +2760,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // in principle this just returns the source as-is — <video> decodes HEVC in hardware fine on
     // the platforms actually measured (see the task's internal report), so probing/transcoding
     // proactively was pure unnecessary latency (it was the cause of the 10s open timeout, not a
-    // safety net for it). An explicit edit.json source.proxy still wins outright (pipeline-
-    // declared, so it's authoritative regardless of what would otherwise be probed). The only
+    // safety net for it). An explicit edit.json sources[].proxy still wins for the exact matching
+    // source across v0/v1/v2 (pipeline-declared, so it is authoritative). The only
     // other case where this returns something other than videoUri is when that exact source
     // already failed to play once in this session and a proxy was generated for it — see
     // handleHevcFallbackRequest, the sole place that calls previewService.resolveHevcProxy (and
     // therefore the sole place that can trigger an ffmpeg transcode). No probing happens here.
-    protected async resolveStreamVideoUri(videoUri: URI, model: PreviewModel): Promise<URI> {
-        if (model.sourceProxyUri) {
-            return model.sourceProxyUri;
-        }
+    protected async resolveStreamVideoUri(
+        videoUri: URI,
+        model: Pick<PreviewModel, 'sourcesById'>
+    ): Promise<URI> {
         const cachedProxyUri = this.hevcFallbackProxyUris.get(videoUri.toString());
-        return cachedProxyUri ? new URI(cachedProxyUri) : videoUri;
+        const resolved = resolvePreferredVideoUri(
+            videoUri.toString(),
+            [...(model.sourcesById?.values() ?? [])].map(source => ({
+                uri: source.uri.toString(),
+                ...(source.proxyUri ? { proxyUri: source.proxyUri.toString() } : {})
+            })),
+            cachedProxyUri
+        );
+        return resolved === videoUri.toString() ? videoUri : new URI(resolved);
     }
 
     protected showMessageCard(
@@ -2781,6 +2798,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewEditUri = kind === 'output' ? identityUri : undefined;
         widget.akariPreviewRelatedEditUri = undefined;
         widget.akariPreviewVideoUri = videoUri;
+        widget.akariPreviewFallbackSourceUris = new Set([videoUri.toString()]);
         widget.akariPreviewCaptionsUri = undefined;
         widget.akariPreviewTrackedResources = new Set(kind === 'output' ? [identityUri.toString()] : []);
         widget.akariPreviewTrackedSuffixes = new Set(kind === 'output' ? [this.resourceSuffix(identityUri)] : []);
@@ -2825,7 +2843,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const assetStreams = new Map<string, { id: string; url: string }>();
         const assetUris: URI[] = [];
         let sourceUri: URI | undefined;
-        let sourceProxyUri: URI | undefined;
         let legacyEmphasisWords: unknown;
         const sourcesById = new Map<string, { uri: URI; proxyUri?: URI }>();
         try {
@@ -2907,11 +2924,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 .find((id: unknown) => typeof id === 'string' && sourcesById.has(id)) as string | undefined;
             const primaryId = firstCutSourceId ?? [...sourcesById.keys()][0];
             sourceUri = sourcesById.get(primaryId)?.uri;
-            // 宣言済み proxy（素材表の proxy）は上のソース表構築時に
-            // 解決済み。存在するときだけ HEVC 検出（refreshPreview）より優先される（読み取り専用・
-            // 書き戻さない）。ファイルが無ければ HEVC 検出へ落ちる（baked レイヤーの preview
-            // サイドカーが無いときと同じ扱い）。
-            sourceProxyUri = sourcesById.get(primaryId)?.proxyUri;
             const isTruthyObject = (value: unknown): boolean => Boolean(value)
                 && typeof value === 'object' && !Array.isArray(value);
             const width = this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width);
@@ -3087,16 +3099,27 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
 
                 try {
-                    const key = sourceUri.toString();
+                    const isImage = isImageLayerSrc(value.src);
+                    // v2 visual media items are projected into this same video-layer branch.
+                    // Route them through the exact same declared-proxy/fallback selection as cuts;
+                    // images remain byte-for-byte asset streams and never trigger video probing.
+                    const streamUri = isImage
+                        ? sourceUri
+                        : await this.resolveStreamVideoUri(sourceUri, { sourcesById });
+                    const key = streamUri.toString();
                     let stream = assetStreams.get(key);
                     if (!stream) {
                         stream = await this.previewService.createAssetStream({ assetUri: key });
                         assetStreams.set(key, stream);
-                        assetUris.push(sourceUri);
+                        assetUris.push(streamUri);
                     }
-                    // 'video' kind はソースファイルをそのまま配信する（サイドカー変換なし）ので、
-                    // 配信 URL は元の value.src と同じバイト列 -- 拡張子判定がそのまま安全に使える。
-                    layers.push({ ...base, src: stream.url, proxyMissing: false, isImage: isImageLayerSrc(value.src) });
+                    layers.push({
+                        ...base,
+                        src: stream.url,
+                        ...(!isImage ? { sourceUri: sourceUri.toString() } : {}),
+                        proxyMissing: false,
+                        isImage
+                    });
                 } catch (error) {
                     console.warn(`[akari-preview] ${label} を無視しました（video レイヤーを配信できません）`, error);
                 }
@@ -3167,7 +3190,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return {
                 editUri,
                 sourceUri,
-                sourceProxyUri,
                 sourcesById,
                 overlayUris,
                 assetUris,
@@ -3202,7 +3224,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return {
                 editUri,
                 sourceUri,
-                sourceProxyUri,
                 sourcesById,
                 summary: EMPTY_SUMMARY,
                 overlayUris: [],
@@ -4057,15 +4078,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected isHevcFallbackRequest(message: any): message is HevcFallbackRequest {
         return message?.type === 'akari-preview-hevc-fallback-request'
-            && typeof message.requestId === 'string';
+            && typeof message.requestId === 'string'
+            && typeof message.errorCode === 'number'
+            && (message.videoUri === undefined || typeof message.videoUri === 'string');
     }
 
     // task/2026-08-09-drop-hevc-proxy: 唯一 previewService.resolveHevcProxy を呼ぶ経路
     // （＝唯一 ffmpeg 変換を新規に起動しうる経路）。open は既に完了しているので、ここで
     // await しても開く処理そのものはブロックしない。成功したら widget を丸ごとリロードする
-    // （refreshPreview が sourceUrlById/segments を含む状態を作り直すため、複数ソース
-    // （cuts[].src）を含む構成でも古い URL が混ざらない — v1 マルチソースの代表ソース以外
-    // （sources[] の追加ソース）はこのフォールバック対象外のまま。実測未確認、report 参照）。
+    // （refreshPreview が sourceUrlById/segments/layers を含む状態を作り直すため、複数ソース
+    // （v1 cuts[].src / v2 media item / video layer）を含む構成でも古い URL が混ざらない）。
     // 再生位置は akariPreviewLastKnownTime（forwardPlaybackTick が常時更新）から復元する。
     protected async handleHevcFallbackRequest(
         widget: PreviewWidgetMarker,
@@ -4081,7 +4103,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ...(error ? { error } : {})
             });
         };
-        const videoUri = widget.akariPreviewVideoUri;
+        let videoUri = widget.akariPreviewVideoUri;
+        if (request.videoUri) {
+            if (!widget.akariPreviewFallbackSourceUris?.has(request.videoUri)) {
+                respond(false, '動画ソースがプレビューの宣言と一致しません');
+                return;
+            }
+            videoUri = new URI(request.videoUri);
+        }
         if (!videoUri) {
             respond(false, '動画ソースが特定できません');
             return;
@@ -4162,6 +4191,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // v1 マルチソース: ソース id → ストリーム URL。webview は cuts[].src が
             // 変わる継ぎ目で <video> をこの表から差し替える（v0 は 1 件のみの表）
             videoSources: sourceUrlById,
+            // フォールバック要求は配信 URL ではなく原本 URI をキーにする。v2 media item も
+            // source.src の id からこの表を引き、失敗した正確なソースだけを変換する。
+            videoSourceUris: Object.fromEntries([...(model.sourcesById ?? new Map())]
+                .map(([id, source]) => [id, source.uri.toString()])),
             // 静止画 cut ソース表（id → asset ストリーム URL）。この表にあるセグメントは
             // <video> ではなく #preview-still + 壁時計クロックで表示する
             // （docs/contract-2026-08-12-still-image-cut-source-v0.md のシェル対応）
@@ -4531,10 +4564,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 // フォールバック要求。成功時はホスト側が widget を丸ごとリロードするので、呼び出し側
                 // (previewBootstrapScript) は resolve を特に処理しない — 失敗時だけ通常のエラー表示に
                 // 戻す。
-                resolveHevcFallback: errorCode => new Promise((resolve, reject) => {
+                resolveHevcFallback: (errorCode, videoUri) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-hevc-fallback-' + (++sequence);
                     pending.set(requestId, { kind: 'hevc-fallback', resolve, reject });
-                    vscode.postMessage({ type: 'akari-preview-hevc-fallback-request', requestId, errorCode });
+                    vscode.postMessage({
+                        type: 'akari-preview-hevc-fallback-request', requestId, errorCode,
+                        ...(typeof videoUri === 'string' && videoUri ? { videoUri } : {})
+                    });
                 })
             };
             const createPreviewAudio = () => {
@@ -4971,7 +5007,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         : request.kind === 'caption-write'
                             ? 'captions.json の書き込みに失敗しました'
                             : request.kind === 'hevc-fallback'
-                                ? 'HEVC 互換変換に失敗しました'
+                                ? '動画の互換変換に失敗しました'
                                 : 'edit.json の書き込みに失敗しました';
                     const reason = message.error || fallback;
                     window.akari.showWriteError(reason);
@@ -5354,9 +5390,9 @@ body { display: grid; place-items: center; padding: 32px; }
             let waveformResizeTimer = 0;
             let waveformDragPointer = null;
             let playbackErrored = false;
-            // task/2026-08-09-drop-hevc-proxy: ソースあたり 1 回だけ HEVC フォールバックを試す
-            // （video.addEventListener('error', ...) 参照）。
-            let hevcFallbackRequested = false;
+            // Decode-failure fallback is tracked per original source. This covers the primary
+            // video, source-swapped cuts, and v2 media items rendered as video layers.
+            const hevcFallbackRequested = new Set();
             let audioNoticeShown = false;
             let activeCaption = null;
             let styledCaptionActive = false;
@@ -6026,6 +6062,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.addEventListener('error', () => {
                     layerVideo.style.display = 'none';
                     console.warn('[akari-preview] layer media failed to load', layer.id);
+                    const errorCode = layerVideo.error ? layerVideo.error.code : 0;
+                    if ((errorCode === 3 || errorCode === 4) && typeof layer.sourceUri === 'string') {
+                        showPlaybackError();
+                        attemptHevcFallback(errorCode, layer.sourceUri);
+                    }
                 });
                 if (typeof layer.src === 'string' && layer.src) {
                     layerVideo.src = layer.src;
@@ -8872,12 +8913,13 @@ body { display: grid; place-items: center; padding: 32px; }
             // MEDIA_ERR_DECODE(3) / MEDIA_ERR_SRC_NOT_SUPPORTED(4) のときだけ呼ぶ。ホスト側で
             // 変換に成功すれば widget が丸ごとリロードされる（このスクリプト自体が入れ替わる）ので
             // ここでは resolve 後の後始末をしない。失敗時だけ通常のエラー文言に戻す。
-            const attemptHevcFallback = errorCode => {
-                if (hevcFallbackRequested) return;
-                hevcFallbackRequested = true;
+            const attemptHevcFallback = (errorCode, videoUri) => {
+                const requestKey = typeof videoUri === 'string' && videoUri ? videoUri : initial.videoUri;
+                if (hevcFallbackRequested.has(requestKey)) return;
+                hevcFallbackRequested.add(requestKey);
                 previewMessageText.textContent = '動画をそのまま再生できませんでした。互換用に変換しています…';
                 previewMessageReload.hidden = true;
-                window.akari.engine.resolveHevcFallback(errorCode).catch(() => {
+                window.akari.engine.resolveHevcFallback(errorCode, requestKey).catch(() => {
                     if (!playbackErrored) return;
                     previewMessageText.textContent = '動画を再生できませんでした。再読み込みを試してください。';
                     previewMessageReload.hidden = false;
@@ -9260,7 +9302,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 // MediaError.MEDIA_ERR_DECODE = 3, MEDIA_ERR_SRC_NOT_SUPPORTED = 4 — 「宣言は
                 // probably/maybe だったが実際には再生できなかった」ケースだけフォールバックを試す。
                 if (errorCode === 3 || errorCode === 4) {
-                    attemptHevcFallback(errorCode);
+                    const segment = segments[activeSegmentIndex];
+                    const sourceId = segment && segment.kind === 'src' ? String(segment.src) : '';
+                    attemptHevcFallback(errorCode, initial.videoSourceUris[sourceId] || initial.videoUri);
                 }
             });
             audioNoticeDismiss.addEventListener('click', () => {
