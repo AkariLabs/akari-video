@@ -715,7 +715,7 @@ async function loadOverlays(projectRoot, edit) {
   );
 }
 
-async function loadCaptions(projectRoot, edit) {
+export async function loadCaptions(projectRoot, edit) {
   const captionsPath = join(projectRoot, "captions.json");
   if (!(await isRegularFile(captionsPath))) {
     return { overlays: [], warnings: [], layout: null };
@@ -736,9 +736,13 @@ async function loadCaptions(projectRoot, edit) {
   const defaultTextStyle = Array.isArray(captionsRoot)
     ? undefined
     : captionsRoot.default_text_style;
+  const emphasisWords = !Array.isArray(captionsRoot)
+    && Object.prototype.hasOwnProperty.call(captionsRoot, "emphasis_words")
+    ? captionsRoot.emphasis_words
+    : edit.emphasis_words;
   const warnings = [];
   const overlays = generateCaptionOverlays(captions, edit.cuts, {
-    emphasisWords: edit.emphasis_words,
+    emphasisWords,
     defaultTextStyle,
     output: edit.output,
     sourceCount: edit.sources.length,
