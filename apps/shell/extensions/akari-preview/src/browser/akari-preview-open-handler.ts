@@ -15,7 +15,13 @@ import { FileChangesEvent, FileStat } from '@theia/filesystem/lib/common/files';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
 import { inject, injectable } from '@theia/core/shared/inversify';
-import { buildTimelineMap, resolveInternalTrackZ, resolvePreviewItemWrite, TimelineSegment } from '@akari-video/edit-store';
+import {
+    buildTimelineMap,
+    projectLegacyAudioView,
+    resolveInternalTrackZ,
+    resolvePreviewItemWrite,
+    TimelineSegment
+} from '@akari-video/edit-store';
 import {
     AkariPreviewService,
     OverlayRuntimeAssets,
@@ -3107,7 +3113,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             );
             const timelineTracks: EditSummaryTimelineTrack[] = captionTrackOrder.tracks;
             const captionTrackId = captionTrackOrder.captionTrackId;
-            const audio = await this.resolveAudioAssets(internal.declaration.audio, editUri, assetStreams, assetUris);
+            const audio = await this.resolveAudioAssets(
+                projectLegacyAudioView(internal), editUri, assetStreams, assetUris
+            );
             const indicators: string[] = [];
             if (isTruthyObject(internal.output.look)) indicators.push('LUT');
             if (internal.sources.some(source => isTruthyObject(source.chromaKey))
