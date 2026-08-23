@@ -11,6 +11,7 @@ export * from './caption-display';
 export * from './edit-v2';
 export * from './edit-v2-item-write';
 export * from './internal-model';
+export * from './legacy-audio-view';
 export * from './retime';
 export * from './track-order';
 export * from './track-transition-compatibility';

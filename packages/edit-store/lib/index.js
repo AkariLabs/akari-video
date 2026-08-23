@@ -28,6 +28,7 @@ __exportStar(require("./caption-display"), exports);
 __exportStar(require("./edit-v2"), exports);
 __exportStar(require("./edit-v2-item-write"), exports);
 __exportStar(require("./internal-model"), exports);
+__exportStar(require("./legacy-audio-view"), exports);
 __exportStar(require("./retime"), exports);
 __exportStar(require("./track-order"), exports);
 __exportStar(require("./track-transition-compatibility"), exports);
