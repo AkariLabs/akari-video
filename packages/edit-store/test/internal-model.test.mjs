@@ -440,7 +440,7 @@ test('media items on the same track with fully overlapping at/duration both clas
   const internal = readInternalEdit(edit);
   const items = internal.tracks.flatMap(track => track.items);
   const byId = Object.fromEntries(items.map(item => [item.id, item]));
-  assert.equal(byId['cut-1'].legacy.collection, 'cuts', 'the untouched base track is unaffected');
+  assert.equal(byId['cut-1'].legacy.collection, 'cuts', 'the bottom item remains the opaque cuts base');
   assert.equal(byId['pip-a'].legacy.collection, 'layers', 'a fully-overlapping same-track item cannot be represented by concat');
   assert.equal(byId['pip-b'].legacy.collection, 'layers', 'its overlapping sibling is likewise forced to layers');
 });
@@ -468,18 +468,7 @@ test('a same-track transition_out crossfade overlap does not force layers (conca
   assert.equal(byId['c2'].legacy.collection, 'cuts', 'its crossfade partner likewise stays on cuts');
 });
 
-// r2 (合流前ゲート検収 REJECT・実測 apps/shell/extensions/akari-annotations 204/205 で発見):
-// apps/shell/extensions/akari-annotations の insertCutIntoEdit（sequential モード）は、
-// timeline-material-insert.ts 自身のコメントどおり「既存アイテムの at を再計算しない」契約を
-// 持つ。タイムライン中間へ挿入すると、新規挿入アイテムの at（= 挿入前に後続アイテムが占めていた
-// 位置）と、まだ古い at のままの後続アイテムが、同じ at で始まる部分的な重なりを起こす
-// （実測: cut-1[0,120) の直後に 2s のクリップを挿入すると、新規アイテムは at=120/duration=60、
-// 後続の既存アイテムは古い at=120/duration=90 のまま残る -- duration が異なるので完全一致ではない）。
-// これは配列順で連結されるべき 3 アイテムの、片方だけがまだ書き戻されていない一時的に不正確な
-// at であって、本当に同時に映る PiP ではない。上の "fully overlapping" テストとの対比:
-// あちらは at・duration とも完全一致（同一区間）、こちらは at のみ一致（duration が違う =
-// 部分的な重なり）。narrowed computeOverlappingItemIds はこの違いで両者を区別できなければならない。
-test('a sequential mid-array insert leaving a stale, partially-overlapping trailing at does not force layers', () => {
+test('partially overlapping media items on the same track both classify layers', () => {
   const edit = {
     version: 2,
     output: { width: 1920, height: 1080, fps: 30 },
@@ -487,11 +476,9 @@ test('a sequential mid-array insert leaving a stale, partially-overlapping trail
     tracks: [
       { id: 't1', lane: 'visual', items: [
         { id: 'cut-1', at: 0, duration: 120, source: { kind: 'media', src: 'main', in: 0, out: 4 } },
-        // 新規挿入アイテム（cut-3 相当）: at=120/duration=60（2s @30fps）。
+        // [120,180) と [150,240) は [150,180) の 30 frames だけ交差する。
         { id: 'cut-3', at: 120, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
-        // 既存アイテム（cut-2 相当）: at はまだ古いまま（挿入前の位置 120）。duration は
-        // 別（90）なので cut-3 と完全一致ではない -- 部分的な重なりのみ。
-        { id: 'cut-2', at: 120, duration: 90, source: { kind: 'media', src: 'main', in: 10, out: 13 } },
+        { id: 'cut-2', at: 150, duration: 90, source: { kind: 'media', src: 'main', in: 10, out: 13 } },
       ] },
     ],
   };
@@ -499,8 +486,110 @@ test('a sequential mid-array insert leaving a stale, partially-overlapping trail
   const items = internal.tracks.flatMap(track => track.items);
   const byId = Object.fromEntries(items.map(item => [item.id, item]));
   assert.equal(byId['cut-1'].legacy.collection, 'cuts', 'the untouched leading item is unaffected');
-  assert.equal(byId['cut-3'].legacy.collection, 'cuts', 'the newly-inserted item stays on cuts (not a genuine PiP overlap)');
-  assert.equal(byId['cut-2'].legacy.collection, 'cuts', 'the stale-at trailing item stays on cuts (not a genuine PiP overlap)');
+  assert.equal(byId['cut-3'].legacy.collection, 'layers');
+  assert.equal(byId['cut-2'].legacy.collection, 'layers');
+});
+
+test('cross-track interval intersection keeps the bottom media as cuts, sends the upper media to layers, and preserves declarations', () => {
+  const edit = {
+    version: 2,
+    output: { width: 1280, height: 720, fps: 30 },
+    sources: [
+      { id: 'photo-a', path: 'photo-a.png', proxy: null },
+      { id: 'photo-b', path: 'photo-b.png', proxy: null },
+    ],
+    tracks: [
+      { id: 'v1', lane: 'visual', items: [
+        { id: 'a', at: 0, duration: 360, transform: { scale: 1, x: 0, y: 0 },
+          source: { kind: 'media', src: 'photo-a', in: 0, out: 12 } },
+      ] },
+      { id: 'v4', lane: 'visual', items: [
+        { id: 'b', at: 120, duration: 120, transform: { scale: 0.5, x: 0, y: 0 },
+          source: { kind: 'media', src: 'photo-b', in: 0, out: 4 } },
+      ] },
+    ],
+  };
+  const internal = readInternalEdit(edit);
+  const [back, front] = internal.tracks;
+  assert.equal(back.z, 0);
+  assert.equal(front.z, 1);
+  assert.deepEqual([back.legacy.kind, front.legacy.kind], ['cuts', 'layers']);
+  assert.deepEqual([back.legacy.ref, front.legacy.ref], [0, 0]);
+  assert.equal(back.items[0].legacy.collection, 'cuts');
+  assert.equal(front.items[0].legacy.collection, 'layers');
+  assert.deepEqual(
+    [back.items[0].atFrames, back.items[0].durationFrames, back.items[0].declaration.transform],
+    [0, 360, { scale: 1, x: 0, y: 0 }],
+  );
+  assert.deepEqual(
+    [front.items[0].atFrames, front.items[0].durationFrames, front.items[0].declaration.transform],
+    [120, 120, { scale: 0.5, x: 0, y: 0 }],
+  );
+  assert.deepEqual(
+    [back.items[0].source.in, back.items[0].source.out, front.items[0].source.in, front.items[0].source.out],
+    [0, 12, 0, 4],
+    'engine selection does not change either item source window',
+  );
+  const view = projectLegacyEdit(internal);
+  assert.deepEqual(view.cuts.map(cut => cut.src), ['photo-a'], 'bottom track remains the renderable base');
+  assert.deepEqual(view.layers.map(layer => layer.id), ['b'], 'upper track is composited by layers');
+  assert.deepEqual(view.layers.map(layer => layer.track), [0]);
+});
+
+test('cross-track intersection with a full-frame opaque upper item keeps both media items on cuts', () => {
+  const internal = readInternalEdit(base());
+  assert.deepEqual(internal.tracks.map(track => track.items[0].legacy.collection), ['cuts', 'cuts']);
+  assert.deepEqual(internal.tracks.map(track => track.legacy.kind), ['cuts', 'cuts']);
+  assert.equal(projectLegacyEdit(internal).layers.length, 0);
+});
+
+test('cross-track intersection routes every declared non-full-frame upper shape to layers', () => {
+  const upperShapes = [
+    { transform: { scale: 0.8 } },
+    { transform: { x: 1 } },
+    { transform: { y: -1 } },
+    { transform: { rotate: 1 } },
+    { crop: { x: 0, y: 0, w: 0.9, h: 1 } },
+    { opacity: 0.9 },
+    { keyframes: [{ t: 0, transform: { scale: 1 } }, { t: 30, transform: { scale: 1 } }] },
+  ];
+  for (const extra of upperShapes) {
+    const edit = base();
+    Object.assign(edit.tracks[1].items[0], extra);
+    const internal = readInternalEdit(edit);
+    assert.equal(
+      internal.tracks[1].items[0].legacy.collection,
+      'layers',
+      `${JSON.stringify(extra)} should route the cross-track upper item to layers`,
+    );
+  }
+});
+
+test('media intervals that only touch at an endpoint do not classify as overlapping', () => {
+  const edit = {
+    version: 2,
+    output: { width: 1280, height: 720, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+    tracks: [
+      { id: 'v1', lane: 'visual', items: [
+        { id: 'a', at: 0, duration: 60, source: { kind: 'media', src: 'main', in: 0, out: 2 } },
+      ] },
+      { id: 'v2', lane: 'visual', items: [
+        { id: 'b', at: 60, duration: 60, source: { kind: 'media', src: 'main', in: 2, out: 4 } },
+      ] },
+    ],
+  };
+  const internal = readInternalEdit(edit);
+  assert.deepEqual(internal.tracks.map(track => track.items[0].legacy.collection), ['cuts', 'cuts']);
+  assert.deepEqual(internal.tracks.map(track => track.legacy.kind), ['cuts', 'cuts']);
+});
+
+test('non-overlapping media project keeps the cuts engine selection unchanged', () => {
+  const edit = base();
+  edit.tracks[1].items[0].at = 60;
+  const internal = readInternalEdit(edit);
+  assert.deepEqual(internal.tracks.map(track => track.items[0].legacy.collection), ['cuts', 'cuts']);
+  assert.equal(projectLegacyEdit(internal).layers.length, 0);
 });
 
 // r3 (Codex re-review, MINOR): two zero-duration items sharing the same at are empty intervals
