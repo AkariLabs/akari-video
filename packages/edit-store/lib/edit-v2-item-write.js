@@ -49,6 +49,15 @@ function resolveV2Write(parsed, command) {
         if (typeof command.patch.html === 'string') {
             htmlPath = source.path;
         }
+        if (command.patch.params) {
+            for (const [name, value] of Object.entries(command.patch.params)) {
+                if (!name || typeof value !== 'string') {
+                    throw new Error('HTML params は空でないキーと文字列値である必要があります');
+                }
+            }
+            source.params = { ...source.params, ...command.patch.params };
+            editChanged = true;
+        }
         if (command.patch.vars) {
             source.vars = { ...recordOf(source.vars), ...command.patch.vars };
             editChanged = true;
@@ -109,6 +118,9 @@ function resolveLegacyWrite(edit, command) {
             throw new Error(`overlays[].html がファイル参照ではありません: ${command.itemId}`);
         }
         let editChanged = false;
+        if (command.patch.params) {
+            throw new Error('HTML params の書き戻しには edit.json version 2 が必要です');
+        }
         if (command.patch.vars) {
             overlay.vars = { ...recordOf(overlay.vars), ...command.patch.vars };
             editChanged = true;

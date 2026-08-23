@@ -10,6 +10,23 @@ test('HTML overlay: src と preset が無ければ既存どおり id を clip na
     assert.equal(resolveTimelineClipName({ id: 'chapter-tag' }), 'chapter-tag');
 });
 
+test('スロット付き HTML は params の最初の値を clip name にする', () => {
+    assert.equal(resolveTimelineClipName({
+        id: 'chapter-tag',
+        html: 'overlays/chapter-tag.html',
+        params: { title: '第1章 問題の本質', subtitle: '補足' }
+    }), '第1章 問題の本質');
+});
+
+test('空の代表値は id へ fallback し、native telop の params は preset を変えない', () => {
+    assert.equal(resolveTimelineClipName({
+        id: 'chapter-tag', html: 'overlays/chapter-tag.html', params: { title: '' }
+    }), 'chapter-tag');
+    assert.equal(resolveTimelineClipName({
+        id: 'native-telop', preset: 'ref3_name_rounded', params: { name: 'AKARI' }
+    }), 'ref3_name_rounded');
+});
+
 test('baked telop: non-empty src の basename を既存どおり clip name にする', () => {
     assert.equal(resolveTimelineClipName({
         id: 'baked-telop',

@@ -82,7 +82,13 @@ window.akari.runtime = (() => {
         "translate(var(--x,0px), var(--y,0px)) " +
         "scale(var(--scale,1)) rotate(var(--rotate,0deg))";
 
-      container.innerHTML = overlay.html ?? "";
+      const template = document.createElement("template");
+      template.innerHTML = overlay.html ?? "";
+      const rendered = window.akari.slotParams?.renderTextSlots(
+        template.content,
+        overlay.params
+      );
+      container.replaceChildren(rendered ?? template.content.cloneNode(true));
 
       // 多層テキスト断片のミラー層（縁取り・影・裏打ち等でテキストを複製した層。
       // interaction.js のテキスト編集同期対象）を支援技術・検索から隠す。断片は

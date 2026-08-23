@@ -21,6 +21,7 @@ export type PreviewItemWriteCommand = {
         vars?: UnknownRecord;
         transform?: PreviewItemTransformPatch;
         html?: string;
+        params?: Record<string, string>;
     };
 } | {
     kind: 'layer';

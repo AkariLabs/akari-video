@@ -683,6 +683,21 @@ function validateEditV2(edit, findings) {
         });
       }
 
+      if (kind === "html" && Object.hasOwn(item.source, "params")) {
+        const params = item.source.params;
+        const invalidEntry = isRecord(params)
+          ? Object.entries(params).find(([, value]) => typeof value !== "string")
+          : ["params", params];
+        if (invalidEntry) {
+          addFinding(findings, {
+            severity: "error",
+            check: "v2.html-params",
+            message: "HTML source params must be an object whose values are strings",
+            path: `${itemPath}.source.params${invalidEntry[0] === "params" ? "" : `.${invalidEntry[0]}`}`,
+          });
+        }
+      }
+
       if (track.lane === "audio") {
         const role = item.role ?? "sfx";
         if (Object.hasOwn(item, "gain_db")

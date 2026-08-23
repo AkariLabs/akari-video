@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "v-html",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "chapter-1",
+          "at": 0,
+          "duration": 90,
+          "source": {
+            "kind": "html",
+            "path": "overlays/chapter.html",
+            "params": { "title": 1 }
+          }
+        }
+      ]
+    }
+  ]
+}

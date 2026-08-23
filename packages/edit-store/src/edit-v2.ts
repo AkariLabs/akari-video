@@ -71,6 +71,7 @@ export interface HtmlSourceV2 {
     kind: 'html';
     path: string;
     vars?: Record<string, unknown>;
+    params?: Record<string, string>;
 }
 
 export interface TelopSourceV2 {
@@ -440,9 +441,15 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
             if (hasOwn(value, 'speed')) requirePositiveNumber(value.speed, `${path}.speed`);
             return;
         case 'html':
-            requireExactKeys(value, new Set(['kind', 'path', 'vars']), path);
+            requireExactKeys(value, new Set(['kind', 'path', 'vars', 'params']), path);
             requireText(value.path, `${path}.path`);
             if (hasOwn(value, 'vars')) requireRecord(value.vars, `${path}.vars`);
+            if (hasOwn(value, 'params')) {
+                requireRecord(value.params, `${path}.params`);
+                for (const [name, text] of Object.entries(value.params)) {
+                    if (typeof text !== 'string') throw invalid(`${path}.params.${name}`, '文字列である必要があります');
+                }
+            }
             return;
         case 'telop':
             requireExactKeys(value, new Set(['kind', 'preset', 'params', 'baked']), path);

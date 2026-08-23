@@ -466,7 +466,8 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
         case 'html': {
             const declaration = {
                 id: item.id, html: item.source.path, start: at, duration, track: ref,
-                ...(item.source.vars !== undefined ? { vars: item.source.vars } : {}), ...common
+                ...(item.source.vars !== undefined ? { vars: item.source.vars } : {}),
+                ...(item.source.params !== undefined ? { params: item.source.params } : {}), ...common
             };
             const value = {
                 id: item.id,
@@ -478,7 +479,10 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
             return {
                 item: {
                     id: item.id, atFrames, durationFrames, at, duration,
-                    source: { kind: 'html', html: item.source.path },
+                    source: {
+                        kind: 'html', html: item.source.path,
+                        ...(item.source.params !== undefined ? { params: item.source.params } : {})
+                    },
                     declaration,
                     legacy: { collection: 'overlays', index: nextLegacyIndex(legacyIndexCounters, 'overlays'), value }
                 }

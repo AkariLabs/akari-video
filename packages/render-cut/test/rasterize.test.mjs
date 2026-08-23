@@ -46,6 +46,26 @@ test("non-3D overlay sheets remain byte-identical", () => {
   assert.doesNotMatch(sheet, /threeRuntime|AkariThree|data:model\/gltf-binary/);
 });
 
+test("slot params use the shared overlay-runtime injector and escape parameter markup", () => {
+  const sheet = renderOverlaySheet({
+    overlays: [{
+      id: "slot-title",
+      start: 0,
+      duration: 1,
+      html: '<div data-akari-slot="title">既定</div>',
+      params: { title: '<b class="unsafe">太字にしない</b>' },
+    }],
+    edit: { output: { width: 320, height: 180, fps: 30 } },
+    projectRoot: "/unused",
+    duration: 1,
+  });
+
+  assert.match(sheet, /slotParams\.renderTextSlots\(content,params\)/u);
+  assert.match(sheet, /slot\.textContent = params\[name\]/u);
+  assert.doesNotMatch(sheet, /data-akari-params="[^"]*<b/u);
+  assert.match(sheet, /&lt;b class=\\&quot;unsafe\\&quot;&gt;太字にしない&lt;\/b&gt;/u);
+});
+
 // role==="background" must render with identity geometry no
 // matter what transform/vars the data carries — the host locks it, it does not merely default it.
 test("background-role overlays ignore transform and lock reserved vars to identity geometry", () => {

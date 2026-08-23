@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "sources": [
+    { "id": "background", "path": "assets/photo-a.png" }
+  ],
+  "tracks": [
+    {
+      "id": "v-background",
+      "lane": "visual",
+      "name": "Background",
+      "items": [
+        {
+          "id": "background-item",
+          "at": 0,
+          "duration": 90,
+          "source": { "kind": "media", "src": "background", "in": 0, "out": 3 }
+        }
+      ]
+    },
+    {
+      "id": "v-slot-a",
+      "lane": "visual",
+      "name": "Shared HTML slot instance A",
+      "items": [
+        {
+          "id": "slot-a",
+          "at": 0,
+          "duration": 90,
+          "transform": { "x": 0, "y": -110, "scale": 1, "rotate": 0 },
+          "source": {
+            "kind": "html",
+            "path": "overlays/chapter-tag.html",
+            "params": { "title": "第1章 問題の本質" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-slot-b",
+      "lane": "visual",
+      "name": "Shared HTML slot instance B",
+      "items": [
+        {
+          "id": "slot-b",
+          "at": 0,
+          "duration": 90,
+          "transform": { "x": 0, "y": 0, "scale": 1, "rotate": 0 },
+          "source": {
+            "kind": "html",
+            "path": "overlays/chapter-tag.html",
+            "params": { "title": "第2章 解決への道" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "v-slot-c",
+      "lane": "visual",
+      "name": "Shared HTML slot instance C",
+      "items": [
+        {
+          "id": "slot-c",
+          "at": 0,
+          "duration": 90,
+          "transform": { "x": 0, "y": 110, "scale": 1, "rotate": 0 },
+          "source": {
+            "kind": "html",
+            "path": "overlays/chapter-tag.html",
+            "params": { "title": "<b>第3章 安全な文字列</b>" }
+          }
+        }
+      ]
+    }
+  ]
+}

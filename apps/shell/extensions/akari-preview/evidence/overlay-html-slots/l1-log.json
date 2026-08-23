@@ -1,0 +1,134 @@
+[
+  {
+    "step": "reopen-preview",
+    "result": "revealed"
+  },
+  {
+    "step": "A-dom-initial",
+    "slot-a": {
+      "text": "第1章 問題の本質",
+      "hasBoldChild": false,
+      "childElementCount": 0,
+      "fontSize": "38px",
+      "borderColor": "rgb(98, 217, 255)"
+    },
+    "slot-b": {
+      "text": "第2章 解決への道",
+      "hasBoldChild": false,
+      "childElementCount": 0,
+      "fontSize": "38px",
+      "borderColor": "rgb(98, 217, 255)"
+    },
+    "slot-c": {
+      "text": "<b>第3章 安全な文字列</b>",
+      "hasBoldChild": false,
+      "childElementCount": 0,
+      "fontSize": "38px",
+      "borderColor": "rgb(98, 217, 255)"
+    },
+    "defaultTextVisible": false
+  },
+  {
+    "step": "A-verdict",
+    "ok": true
+  },
+  {
+    "step": "B-template-edited",
+    "change": "font-size default 38px -> 61px"
+  },
+  {
+    "step": "B-nudge-via-edit-json",
+    "note": "external edit.json change triggers model reload"
+  },
+  {
+    "step": "B-dom-after-template-edit",
+    "live": false,
+    "slot-a": {
+      "text": "第1章 問題の本質",
+      "hasBoldChild": false,
+      "childElementCount": 0,
+      "fontSize": "61px",
+      "borderColor": "rgb(98, 217, 255)"
+    },
+    "slot-b": {
+      "text": "第2章 解決への道",
+      "hasBoldChild": false,
+      "childElementCount": 0,
+      "fontSize": "61px",
+      "borderColor": "rgb(98, 217, 255)"
+    },
+    "slot-c": {
+      "text": "<b>第3章 安全な文字列</b>",
+      "hasBoldChild": false,
+      "childElementCount": 0,
+      "fontSize": "61px",
+      "borderColor": "rgb(98, 217, 255)"
+    },
+    "defaultTextVisible": false
+  },
+  {
+    "step": "B-verdict",
+    "ok": true,
+    "allFontSizes": [
+      "61px",
+      "61px",
+      "61px"
+    ]
+  },
+  {
+    "step": "C-settled-back-to-38px",
+    "settled": true
+  },
+  {
+    "step": "C-text-edit-dispatched",
+    "editing": "true",
+    "textNow": "編集で差し替えた第1章"
+  },
+  {
+    "step": "C-after-edit",
+    "editJsonChanged": true,
+    "onlySlotAParamsChanged": true,
+    "paramsA": {
+      "title": "編集で差し替えた第1章"
+    },
+    "paramsB": {
+      "title": "第2章 解決への道"
+    },
+    "paramsC": {
+      "title": "<b>第3章 安全な文字列</b>"
+    },
+    "templateShaUnchanged": true,
+    "domA": {
+      "text": "編集で差し替えた第1章",
+      "hasBoldChild": false,
+      "childElementCount": 0,
+      "fontSize": "38px",
+      "borderColor": "rgb(98, 217, 255)"
+    },
+    "domB": {
+      "text": "第2章 解決への道",
+      "hasBoldChild": false,
+      "childElementCount": 0,
+      "fontSize": "38px",
+      "borderColor": "rgb(98, 217, 255)"
+    },
+    "domC": {
+      "text": "<b>第3章 安全な文字列</b>",
+      "hasBoldChild": false,
+      "childElementCount": 0,
+      "fontSize": "38px",
+      "borderColor": "rgb(98, 217, 255)"
+    }
+  },
+  {
+    "step": "C-verdict",
+    "ok": true
+  },
+  {
+    "step": "FINAL",
+    "A": true,
+    "B": true,
+    "C": true,
+    "allPass": true
+  }
+]

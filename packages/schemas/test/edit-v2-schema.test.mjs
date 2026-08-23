@@ -134,6 +134,17 @@ test("minimum v2 fixture is valid", () => {
   assert.equal(validate(fixture("edit-v2-minimal-valid")), true, JSON.stringify(validate.errors, null, 2));
 });
 
+test("HTML source params accepts arbitrary slot names but only string values", () => {
+  const valid = fixture("edit-v2-html-params-valid");
+  assert.equal(validate(valid), true, JSON.stringify(validate.errors, null, 2));
+
+  const invalid = fixture("edit-v2-html-params-invalid");
+  assert.equal(validate(invalid), false);
+  assert.ok(validate.errors?.some(error =>
+    error.instancePath.endsWith("/source/params/title") && error.keyword === "type"
+  ), JSON.stringify(validate.errors, null, 2));
+});
+
 test("editV2 rejects removed top-level vocabulary as additional properties", () => {
   for (const [key, extension] of [
     ["beats", []],

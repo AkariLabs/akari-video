@@ -666,9 +666,14 @@
       "properties": {
         "kind": { "const": "html" },
         "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
-        "vars": { "type": "object" }
+        "vars": { "type": "object" },
+        "params": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": { "type": "string" }
+        }
       },
-      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9。HTML はその場で描画する絵の出どころであり、素材トリムの in/out を持たない。"
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / contract-2026-08-22-overlay-html-slots.md §1。HTML はその場で描画する絵の出どころであり、素材トリムの in/out を持たない。params は任意のスロット名をキーにできる一方、値を string のみに閉じる。"
     },
     "itemSourceTelopV2": {
       "type": "object",

@@ -1519,6 +1519,22 @@ window.akari.interaction = (() => {
     }
   }
 
+  function slotNameForElement(element) {
+    if (!(element instanceof Element)) return null;
+    const name = element.getAttribute("data-akari-slot");
+    return typeof name === "string" && name.length > 0 ? name : null;
+  }
+
+  function syncSlotInstances(container, element, slotName) {
+    if (!slotName) return;
+    const text = element.textContent ?? "";
+    for (const slot of container.querySelectorAll("[data-akari-slot]")) {
+      if (slot !== element && slot.getAttribute("data-akari-slot") === slotName) {
+        slot.textContent = text;
+      }
+    }
+  }
+
   function restoreAttribute(element, name, hadAttribute, value) {
     if (hadAttribute) {
       element.setAttribute(name, value);
@@ -1578,6 +1594,23 @@ window.akari.interaction = (() => {
 
     if (blur && document.activeElement === edit.element) edit.element.blur();
 
+    // テキスト編集で断片内容の実寸が変わり得るため、当たり判定（clip-path）を
+    // 最新の bbox に合わせ直す（refreshSelectionFrame は毎フレーム再計算されるが、
+    // clip-path は内容変化時のみの明示同期が必要）。
+    invalidateOverlayHitPolicy(edit.container);
+    applyOverlayHitPolicy(edit.container);
+    syncOverlayHitRegion(edit.container);
+
+    if (edit.slotName) {
+      const record = enqueueWrite(
+        edit.writeContext,
+        edit.overlayId,
+        { params: { [edit.slotName]: edit.element.textContent ?? "" } },
+        "params"
+      );
+      return record.promise;
+    }
+
     let html;
     try {
       html = serializeFragment(edit.container);
@@ -1587,13 +1620,6 @@ window.akari.interaction = (() => {
       failure.catch(() => undefined);
       return failure;
     }
-
-    // テキスト編集で断片内容の実寸が変わり得るため、当たり判定（clip-path）を
-    // 最新の bbox に合わせ直す（refreshSelectionFrame は毎フレーム再計算されるが、
-    // clip-path は内容変化時のみの明示同期が必要）。
-    invalidateOverlayHitPolicy(edit.container);
-    applyOverlayHitPolicy(edit.container);
-    syncOverlayHitRegion(edit.container);
 
     const record = enqueueWrite(
       edit.writeContext,
@@ -1633,6 +1659,7 @@ window.akari.interaction = (() => {
       hadEditingMarker: element.hasAttribute("data-akari-interaction-editing"),
       editingMarkerValue:
         element.getAttribute("data-akari-interaction-editing") ?? "",
+      slotName: slotNameForElement(element),
       writeContext: captureWriteContext(),
     };
 
@@ -1674,6 +1701,11 @@ window.akari.interaction = (() => {
   function onEditableInput(event) {
     if (!activeEdit || event.target !== activeEdit.element) return;
     syncMirrorLayers(activeEdit.container, activeEdit.element);
+    syncSlotInstances(
+      activeEdit.container,
+      activeEdit.element,
+      activeEdit.slotName
+    );
   }
 
   function onKeyDown(event) {

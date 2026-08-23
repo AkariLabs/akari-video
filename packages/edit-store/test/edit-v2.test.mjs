@@ -66,6 +66,14 @@ test("readEditV2 reports closed source and item violations with a path", async (
   const topLevel = JSON.parse(await readFile(fixturePath, "utf8"));
   topLevel.tracks[7].items[0].textStyle = {};
   assert.throws(() => readEditV2(topLevel), /tracks\[7\]\.items\[0\].*textStyle/);
+
+  const validParams = JSON.parse(await readFile(fixturePath, "utf8"));
+  validParams.tracks[6].items[0].source.params = { title: "第1章" };
+  assert.doesNotThrow(() => readEditV2(validParams));
+
+  const invalidParams = structuredClone(validParams);
+  invalidParams.tracks[6].items[0].source.params.title = 1;
+  assert.throws(() => readEditV2(invalidParams), /source\.params\.title.*文字列/);
 });
 
 test("readEditV2 validates audio item roles and closed audio item shape", async () => {

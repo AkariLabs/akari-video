@@ -73,6 +73,23 @@ test('v2 html patch resolves its referenced fragment and never embeds html in ed
   assert.equal(written.tracks[1].items[0].html, undefined);
 });
 
+test('v2 slot edit merges source.params without returning an html file write', () => {
+  const value = v2();
+  value.tracks[1].items[0].source.params = { title: '旧タイトル', fixed: '維持' };
+  const result = resolvePreviewItemWrite(JSON.stringify(value), {
+    kind: 'overlay',
+    itemId: 'title-1',
+    patch: { params: { title: '<b>文字列のまま</b>' } },
+  });
+
+  assert.equal(result.htmlPath, undefined);
+  const written = JSON.parse(result.candidateText);
+  assert.deepEqual(written.tracks[1].items[0].source.params, {
+    title: '<b>文字列のまま</b>',
+    fixed: '維持',
+  });
+});
+
 test('legacy v0/v1 documents stay on their existing collection route', () => {
   const legacyOverlay = {
     version: 1,
