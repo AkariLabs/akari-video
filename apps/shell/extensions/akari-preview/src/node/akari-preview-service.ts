@@ -43,6 +43,11 @@ import {
     VideoStreamReference,
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
+import {
+    readCaptionsEmphasisWords,
+    readLegacyEditEmphasisWords,
+    resolvePreviewEmphasisWords
+} from '../common/preview-emphasis-seat';
 import { getH264Proxy, probeHasAudioStream, resolveFfmpegPath } from './hevc-proxy';
 import { ReviewSessionWriter } from './review-session-writer';
 
@@ -459,8 +464,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             || captionsRoot.display_policy === undefined) {
             return null;
         }
+        const captionsEmphasisWords = readCaptionsEmphasisWords(captionsRoot);
         const editText = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
         let rawEdit = JSON.parse(editText);
+        const legacyEmphasisWords = readLegacyEditEmphasisWords(rawEdit);
         if (rawEdit?.version !== 2) {
             const planned = planMigration(dirname(this.filePath(request.editUri)), this.filePath(request.editUri), editText);
             if ('blockers' in planned) {
@@ -483,7 +490,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         // optional width/height を既定値で埋めると、未宣言時の字幕レイアウト挙動が変わる。
         const resolved = resolveCaptionDisplay(captionsRoot, edit, { output: rawEdit.output });
         if (!resolved) return null;
-        return { schema: resolved.schema, captions: resolved.display_cues };
+        const emphasisWords = resolvePreviewEmphasisWords(captionsEmphasisWords, legacyEmphasisWords);
+        return { schema: resolved.schema, captions: resolved.display_cues, emphasisWords };
     }
 
     /**

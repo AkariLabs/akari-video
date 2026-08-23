@@ -72,6 +72,11 @@ import { classifyPreviewModelUpdate } from '../common/preview-model-diff';
 import type { PreviewModelDiffInput } from '../common/preview-model-diff';
 import { createRafThrottle } from '../common/raf-throttle';
 import { normalizeRectFromPoints } from '../common/rect-tool-visual';
+import {
+    readCaptionsEmphasisWords,
+    readLegacyEditEmphasisWords,
+    resolvePreviewEmphasisWords
+} from '../common/preview-emphasis-seat';
 import { editReferencesRawMedia } from '../common/related-edit-source';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
 import {
@@ -168,6 +173,11 @@ interface PreviewCaptionClockInput extends PreviewCaption {
 
 interface OutputPreviewCaption extends PreviewCaptionClockInput {
     clockDomain: 'output';
+}
+
+interface LoadedPreviewCaptions {
+    captions: PreviewCaptionClockInput[];
+    emphasisWords?: unknown;
 }
 
 /**
@@ -2323,7 +2333,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewCaptionsUpdate = previous.then(async () => {
             const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
             const captions = normalizePreviewCaptionClock(
-                loaded,
+                loaded.captions,
                 this.previewCaptionTimelineSegments(widget.akariPreviewSummary?.cuts ?? [])
             );
             widget.sendMessage({ type: 'akari-preview-captions-update', captions });
@@ -2816,14 +2826,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const assetUris: URI[] = [];
         let sourceUri: URI | undefined;
         let sourceProxyUri: URI | undefined;
+        let legacyEmphasisWords: unknown;
         const sourcesById = new Map<string, { uri: URI; proxyUri?: URI }>();
         try {
             // 版を知るのは読み込み層（readInternalEdit）だけ。v0（単一 source）も v1（sources[]）も
             // v2（tracks[].items[]）も、ここから先は同じ内部表現として扱う。
             let editText = editSource ?? await this.readText(editUri);
-            const rawVersion = (() => {
-                try { return (JSON.parse(editText) as { version?: unknown }).version; } catch { return undefined; }
+            const rawEdit = (() => {
+                try { return JSON.parse(editText) as unknown; } catch { return undefined; }
             })();
+            const rawVersion = rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
+                ? (rawEdit as { version?: unknown }).version
+                : undefined;
+            // audio には projectLegacyAudioView があるが emphasisWords の共有射影は無い。
+            // 凍結 migration 前の v0/v1 生 JSON から旧席だけを退避し、後方互換入力にする。
+            legacyEmphasisWords = readLegacyEditEmphasisWords(rawEdit);
             if (rawVersion !== 2) {
                 const prepared = await this.previewService.prepareLegacyEdit({ editUri: editUri.toString() });
                 if ('blockers' in prepared) {
@@ -2837,8 +2854,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             // timeline.tracks 未宣言時の captions 段は captions.json の実在に依存する。
             // 先に字幕解決を確定し、埋め込み字幕と合わせて正規化読込へ渡す。
-            const captions = await captionsPromise;
+            const loadedCaptions = await captionsPromise;
+            const captions = loadedCaptions.captions;
             const internal = readPreviewInternalEdit(editText, captions.length > 0);
+            const emphasisWords = this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
+                loadedCaptions.emphasisWords,
+                legacyEmphasisWords
+            ));
             const trackIdByItem = new Map(internal.tracks.flatMap(track =>
                 track.items.map(item => [item, track.id] as const)));
             const declaredSources = internal.sources;
@@ -2855,6 +2877,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetStreamIds: [],
                     captionsUri,
                     captions: normalizePreviewCaptionClock(captions, []),
+                    emphasisWords,
                     emptyProject: true
                 };
             }
@@ -2876,7 +2899,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 sourcesById.set(declared.id, { uri, ...(proxyUri ? { proxyUri } : {}) });
             }
-            const emphasisWords = this.normalizeEmphasisWords(internal.declaration.emphasisWords);
             // 代表ソース（字幕の探索・ファイル監視・タイトル・単一ソース時の従来経路）は
             // 先頭カットが参照するソース。無ければ宣言順の先頭。
             const cutItems = collectItems(internal, 'cuts');
@@ -3176,6 +3198,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 throw error;
             }
             console.warn(`[akari-preview] failed to load composite data from ${editUri.toString()}; opening source only`, error);
+            const loadedCaptions = await captionsPromise;
             return {
                 editUri,
                 sourceUri,
@@ -3186,7 +3209,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 assetUris: [],
                 assetStreamIds: [],
                 captionsUri,
-                captions: normalizePreviewCaptionClock(await captionsPromise, [])
+                captions: normalizePreviewCaptionClock(loadedCaptions.captions, []),
+                emphasisWords: this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
+                    loadedCaptions.emphasisWords,
+                    legacyEmphasisWords
+                ))
             };
         }
     }
@@ -3547,9 +3574,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected async loadPreviewCaptions(
         captionsUri: URI | undefined,
         editUri?: URI
-    ): Promise<PreviewCaptionClockInput[]> {
+    ): Promise<LoadedPreviewCaptions> {
         if (!captionsUri) {
-            return [];
+            return { captions: [] };
         }
         try {
             if (editUri) {
@@ -3558,15 +3585,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     editUri: editUri.toString()
                 });
                 if (resolved) {
-                    return parseResolvedPreviewCaptions(resolved).map(caption => ({
-                        ...caption,
-                        clockDomain: 'output'
-                    }));
+                    return {
+                        captions: parseResolvedPreviewCaptions(resolved).map(caption => ({
+                            ...caption,
+                            clockDomain: 'output'
+                        })),
+                        emphasisWords: resolved.emphasisWords
+                    };
                 }
             }
             const source = await this.readText(captionsUri);
             const parsed = parsePreviewCaptions(source);
             const root: unknown = JSON.parse(source);
+            const emphasisWords = readCaptionsEmphasisWords(root);
             const rawCaptions = Array.isArray(root)
                 ? root
                 : root && typeof root === 'object' && Array.isArray((root as { captions?: unknown }).captions)
@@ -3579,7 +3610,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     rawById.set((value as { id: string }).id, value as Record<string, unknown>);
                 }
             }
-            return parsed.map((caption, index) => {
+            const captions: PreviewCaptionClockInput[] = parsed.map((caption, index) => {
                 const raw = (caption.id ? rawById.get(caption.id) : undefined)
                     ?? (rawCaptions[index] && typeof rawCaptions[index] === 'object'
                         && !Array.isArray(rawCaptions[index])
@@ -3596,11 +3627,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(typeof raw?.src === 'string' && raw.src ? { clockSourceId: raw.src } : {})
                 };
             });
+            return { captions, emphasisWords };
         } catch (error) {
             if (await this.fileService.exists(captionsUri)) {
                 console.warn(`[akari-preview] failed to load ${captionsUri.toString()}; hiding captions`, error);
             }
-            return [];
+            return { captions: [] };
         }
     }
 
