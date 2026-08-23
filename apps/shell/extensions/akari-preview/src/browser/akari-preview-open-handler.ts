@@ -56,6 +56,7 @@ import {
     buildCutSummaryFields,
     buildLayerSummaryBase,
     LayerCropSummary,
+    LayerKeyframesSummary,
     LayerPerspectiveSummary
 } from '../common/edit-summary-fields';
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
@@ -129,6 +130,7 @@ interface EditSummaryLayer {
     /** edit.schema.json #/$defs/layerPerspective（corner-pin パース変形・v0 静的）。
      * common/edit-summary-fields.ts の normalizeLayerPerspectiveForSummary が担う。 */
     perspective?: LayerPerspectiveSummary;
+    keyframes?: LayerKeyframesSummary;
 }
 
 interface EditSummaryFilter {
@@ -233,6 +235,10 @@ interface EditSummaryCut {
     out: number;
     transform?: OverlayTransform;
     opacity?: number;
+    /** render-cut の cut layer-style 経路と同じ source-frame-relative visual。 */
+    crop?: LayerCropSummary;
+    perspective?: LayerPerspectiveSummary;
+    keyframes?: LayerKeyframesSummary;
     speed?: number;
     transitionOut?: {
         type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
@@ -4435,6 +4441,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const wrapper = document.getElementById('preview-wrapper');
             const video = document.getElementById('preview-video');
             const transitionVideo = document.getElementById('transition-video');
+            const stillImage = document.getElementById('preview-still');
             const outputPreviewLink = document.getElementById('output-preview-link');
             const writeErrorBanner = document.getElementById('write-error-banner');
             const writeErrorMessage = document.getElementById('write-error-message');
@@ -4972,6 +4979,79 @@ body { display: grid; place-items: center; padding: 32px; }
                     height: contentRect.height
                 };
             };
+            // crop / perspective / keyframes を持つ media item は render-cut でも layer-style
+            // （ソース実寸基準、crop 中心を錨に配置）へ入る。layer DOM と cut DOM が同じ描画式を
+            // 必ず通るよう、既存 layer loop の本体をこの 1 関数へ寄せる。perspective と clip は
+            // layer 側の既存純関数をそのまま使い、cut 用の計算は持たない。
+            const mediaNaturalSize = media => ({
+                width: media.tagName === 'IMG' ? media.naturalWidth : media.videoWidth,
+                height: media.tagName === 'IMG' ? media.naturalHeight : media.videoHeight
+            });
+            const applyLayerStyleMediaLayout = (media, outputWidth, outputHeight) => {
+                const natural = mediaNaturalSize(media);
+                if (!(natural.width > 0) || !(natural.height > 0)) return false;
+                const x = Number(media.dataset.akariTransformX) || 0;
+                const y = Number(media.dataset.akariTransformY) || 0;
+                const scale = Number(media.dataset.akariTransformScale) || 1;
+                const rotate = Number(media.dataset.akariTransformRotate) || 0;
+                const cropX = Number(media.dataset.akariCropX) || 0;
+                const cropY = Number(media.dataset.akariCropY) || 0;
+                const cropWRaw = Number(media.dataset.akariCropW);
+                const cropHRaw = Number(media.dataset.akariCropH);
+                const cropW = Number.isFinite(cropWRaw) && cropWRaw > 0 ? cropWRaw : 1;
+                const cropH = Number.isFinite(cropHRaw) && cropHRaw > 0 ? cropHRaw : 1;
+                const pivotXPct = (cropX + cropW / 2) * 100;
+                const pivotYPct = (cropY + cropH / 2) * 100;
+                media.style.objectFit = 'fill';
+                media.style.width = (natural.width * scale) + 'px';
+                media.style.height = (natural.height * scale) + 'px';
+                media.style.left = (outputWidth / 2 + x) + 'px';
+                media.style.top = (outputHeight / 2 + y) + 'px';
+                media.style.transformOrigin = pivotXPct + '% ' + pivotYPct + '%';
+                let perspectiveFn = '';
+                const perspectiveRaw = media.dataset.akariPerspectiveCorners;
+                if (perspectiveRaw) {
+                    let corners = null;
+                    try { corners = JSON.parse(perspectiveRaw); } catch (_error) { corners = null; }
+                    const boxWidthPx = natural.width * cropW * scale;
+                    const boxHeightPx = natural.height * cropH * scale;
+                    try {
+                        const visual = corners
+                            ? computeLayerPerspectiveVisualFn({ corners }, boxWidthPx, boxHeightPx) : null;
+                        if (visual) perspectiveFn = ' ' + visual.transformFunction;
+                    } catch (error) {
+                        if (!perspectiveVisualWarned) {
+                            perspectiveVisualWarned = true;
+                            console.warn('[akari-preview] layer perspective visual failed; rendering without perspective', error);
+                        }
+                    }
+                }
+                media.style.transform = 'translate(-' + pivotXPct + '%, -' + pivotYPct + '%) rotate('
+                    + rotate + 'deg)' + perspectiveFn;
+                const opaqueX = Number(media.dataset.akariOpaqueX);
+                const opaqueY = Number(media.dataset.akariOpaqueY);
+                const opaqueW = Number(media.dataset.akariOpaqueW);
+                const opaqueH = Number(media.dataset.akariOpaqueH);
+                const opaqueBox = [opaqueX, opaqueY, opaqueW, opaqueH].every(Number.isFinite)
+                    && opaqueW > 0 && opaqueH > 0
+                    ? { x: opaqueX, y: opaqueY, w: opaqueW, h: opaqueH }
+                    : undefined;
+                media.style.clipPath = resolveLayerHitRegionClipFn(
+                    natural.width,
+                    natural.height,
+                    { x: cropX, y: cropY, w: cropW, h: cropH },
+                    opaqueBox
+                );
+                media.dataset.akariCropClipPath = media.style.clipPath || 'none';
+                return true;
+            };
+            const applyCutLayerStyleLayout = media => {
+                if (!media || media.dataset.akariCutLayerStyleActive !== 'true') return false;
+                const outputWidth = Number(output.width || 1280);
+                const outputHeight = Number(output.height || 720);
+                return applyLayerStyleMediaLayout(media, outputWidth, outputHeight);
+            };
+            window.akari.applyCutLayerStyleLayout = applyCutLayerStyleLayout;
             const updateStageScale = () => {
                 const frameRect = computeOutputFrameRect();
                 const rect = computeContentRect();
@@ -4986,85 +5066,20 @@ body { display: grid; place-items: center; padding: 32px; }
                 video.style.top = '0px';
                 video.style.width = outputWidth + 'px';
                 video.style.height = outputHeight + 'px';
+                video.style.objectFit = 'contain';
+                video.style.clipPath = '';
                 transitionVideo.style.left = '0px';
                 transitionVideo.style.top = '0px';
                 transitionVideo.style.width = outputWidth + 'px';
                 transitionVideo.style.height = outputHeight + 'px';
+                transitionVideo.style.objectFit = 'contain';
                 layersStage.style.left = frameRect.x + 'px';
                 layersStage.style.top = frameRect.y + 'px';
                 layersStage.style.width = outputWidth + 'px';
                 layersStage.style.height = outputHeight + 'px';
                 layersStage.style.transform = stageTransform;
                 for (const layerVideo of layersStage.querySelectorAll('[data-akari-layer-id]')) {
-                    if (!(layerVideo.videoWidth > 0) || !(layerVideo.videoHeight > 0)) continue;
-                    const x = Number(layerVideo.dataset.akariTransformX) || 0;
-                    const y = Number(layerVideo.dataset.akariTransformY) || 0;
-                    const scale = Number(layerVideo.dataset.akariTransformScale) || 1;
-                    const rotate = Number(layerVideo.dataset.akariTransformRotate) || 0;
-                    // ㉔ layers[].crop（contract-2026-08-02-preview-parity.md）: render-cut は
-                    // crop→scale→rotate→opacity→overlay の順で合成する。プレビューは同じ最終見た目を、
-                    // 要素を1枚のまま clip-path: inset() で切り抜き、pivot（transform-origin と
-                    // translate の基準点）をクロップ矩形の中心へ動かすことで再現する（wrapper 要素の
-                    // 追加なし = 既存のヒットテスト/アルファ実測コードへの影響を最小化）。
-                    // crop 無し（既定 0,0,1,1）では pivot=50%/50% となり、既存の挙動と完全一致する。
-                    const cropX = Number(layerVideo.dataset.akariCropX) || 0;
-                    const cropY = Number(layerVideo.dataset.akariCropY) || 0;
-                    const cropWRaw = Number(layerVideo.dataset.akariCropW);
-                    const cropHRaw = Number(layerVideo.dataset.akariCropH);
-                    const cropW = Number.isFinite(cropWRaw) && cropWRaw > 0 ? cropWRaw : 1;
-                    const cropH = Number.isFinite(cropHRaw) && cropHRaw > 0 ? cropHRaw : 1;
-                    const pivotXPct = (cropX + cropW / 2) * 100;
-                    const pivotYPct = (cropY + cropH / 2) * 100;
-                    layerVideo.style.width = (layerVideo.videoWidth * scale) + 'px';
-                    layerVideo.style.height = (layerVideo.videoHeight * scale) + 'px';
-                    layerVideo.style.left = (outputWidth / 2 + x) + 'px';
-                    layerVideo.style.top = (outputHeight / 2 + y) + 'px';
-                    layerVideo.style.transformOrigin = pivotXPct + '% ' + pivotYPct + '%';
-                    // ㉖ layers[].perspective（contract-2026-08-02-preview-parity.md §2.4.4）: applies
-                    // after scale, before rotate (crop → scale → perspective → rotate). Appended as
-                    // the innermost (rightmost) transform function -- since transform-origin already
-                    // wraps the whole chain at the crop pivot, matrix3d receives pivot-relative
-                    // coordinates and composes correctly under the *existing* translate/rotate without
-                    // any extra bookkeeping (computeLayerPerspectiveVisualFn is built specifically for
-                    // this). The box it operates on is the crop rect's own *rendered* (already scaled)
-                    // pixel size, matching layer-perspective-visual.ts's box-size contract.
-                    let perspectiveFn = '';
-                    const perspectiveRaw = layerVideo.dataset.akariPerspectiveCorners;
-                    if (perspectiveRaw) {
-                        let corners = null;
-                        try { corners = JSON.parse(perspectiveRaw); } catch (_error) { corners = null; }
-                        const boxWidthPx = layerVideo.videoWidth * cropW * scale;
-                        const boxHeightPx = layerVideo.videoHeight * cropH * scale;
-                        // computeLayerPerspectiveVisualFn is a webview-injected copy (toString()
-                        // serialization, see this IIFE's top) -- guard the call so a future injection
-                        // regression degrades to "perspective not applied" instead of aborting the
-                        // rest of updateStageScale (crop/pivot/stage/pen-layer placement) every time
-                        // it runs, which is what made this fail silently and janky at once.
-                        try {
-                            const visual = corners ? computeLayerPerspectiveVisualFn({ corners }, boxWidthPx, boxHeightPx) : null;
-                            if (visual) perspectiveFn = ' ' + visual.transformFunction;
-                        } catch (error) {
-                            if (!perspectiveVisualWarned) {
-                                perspectiveVisualWarned = true;
-                                console.warn('[akari-preview] layer perspective visual failed; rendering without perspective', error);
-                            }
-                        }
-                    }
-                    layerVideo.style.transform = 'translate(-' + pivotXPct + '%, -' + pivotYPct + '%) rotate(' + rotate + 'deg)' + perspectiveFn;
-                    const opaqueX = Number(layerVideo.dataset.akariOpaqueX);
-                    const opaqueY = Number(layerVideo.dataset.akariOpaqueY);
-                    const opaqueW = Number(layerVideo.dataset.akariOpaqueW);
-                    const opaqueH = Number(layerVideo.dataset.akariOpaqueH);
-                    const opaqueBox = [opaqueX, opaqueY, opaqueW, opaqueH].every(Number.isFinite)
-                        && opaqueW > 0 && opaqueH > 0
-                        ? { x: opaqueX, y: opaqueY, w: opaqueW, h: opaqueH }
-                        : undefined;
-                    layerVideo.style.clipPath = resolveLayerHitRegionClipFn(
-                        layerVideo.videoWidth,
-                        layerVideo.videoHeight,
-                        { x: cropX, y: cropY, w: cropW, h: cropH },
-                        opaqueBox
-                    );
+                    applyLayerStyleMediaLayout(layerVideo, outputWidth, outputHeight);
                 }
                 // ㉕ cuts[].framing（contract-2026-08-02-preview-parity.md §2.4.2）: この cut.transform
                 // 部分（PIP 位置決め）は video.style.transform の一部にすぎず、時間で変化する framing
@@ -5072,6 +5087,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 競合しないよう、ここでは「cut.transform だけの文字列」を dataset に置くに留め、実際の
                 // video.style.transform への反映は window.akari.applyCutFramingVisual に委譲する
                 // （bootstrap 未初期化の最初の呼び出しだけ、フォールバックとして自分で直接書く）。
+                const cutLayerStyleApplied = applyCutLayerStyleLayout(video);
                 const baseTransform = video.dataset.akariCutTransformActive === 'true'
                     ? (() => {
                         const x = Number(video.dataset.akariTransformX) || 0;
@@ -5085,9 +5101,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 video.dataset.akariBaseTransform = baseTransform;
                 if (window.akari.applyCutFramingVisual) {
                     window.akari.applyCutFramingVisual();
-                } else {
+                } else if (!cutLayerStyleApplied) {
                     video.style.transform = baseTransform;
                 }
+                if (transitionVideo.style.display !== 'none') applyCutLayerStyleLayout(transitionVideo);
+                if (stillImage.style.display !== 'none') applyCutLayerStyleLayout(stillImage);
                 stage.style.left = '0px';
                 stage.style.top = '0px';
                 penLayer.style.left = rect.x + 'px';
@@ -5750,9 +5768,72 @@ body { display: grid; place-items: center; padding: 32px; }
                     transitionPlate.style.zIndex = String(z);
                 }
             };
+            const cutHasLayerStyleVisual = segment => Boolean(segment && segment.kind === 'src'
+                && (segment.crop || segment.perspective
+                    || (Array.isArray(segment.keyframes) && segment.keyframes.length >= 2)));
+            const writeCutLayerStyleBase = (media, segment) => {
+                const active = cutHasLayerStyleVisual(segment);
+                media.dataset.akariCutLayerStyleActive = String(active);
+                if (!active) {
+                    delete media.dataset.akariCropX;
+                    delete media.dataset.akariCropY;
+                    delete media.dataset.akariCropW;
+                    delete media.dataset.akariCropH;
+                    delete media.dataset.akariPerspectiveCorners;
+                    delete media.dataset.akariCropClipPath;
+                    return false;
+                }
+                const transform = segment.transform || {};
+                media.dataset.akariTransformX = String(Number.isFinite(transform.x) ? transform.x : 0);
+                media.dataset.akariTransformY = String(Number.isFinite(transform.y) ? transform.y : 0);
+                media.dataset.akariTransformScale = String(
+                    Number.isFinite(transform.scale) && transform.scale > 0 ? transform.scale : 1
+                );
+                media.dataset.akariTransformRotate = String(Number.isFinite(transform.rotate) ? transform.rotate : 0);
+                const crop = segment.crop;
+                media.dataset.akariCropX = String(crop && Number.isFinite(crop.x) ? crop.x : 0);
+                media.dataset.akariCropY = String(crop && Number.isFinite(crop.y) ? crop.y : 0);
+                media.dataset.akariCropW = String(crop && Number.isFinite(crop.w) && crop.w > 0 ? crop.w : 1);
+                media.dataset.akariCropH = String(crop && Number.isFinite(crop.h) && crop.h > 0 ? crop.h : 1);
+                const corners = segment.perspective && Array.isArray(segment.perspective.corners)
+                    ? segment.perspective.corners : null;
+                if (corners) media.dataset.akariPerspectiveCorners = JSON.stringify(corners);
+                else delete media.dataset.akariPerspectiveCorners;
+                return true;
+            };
+            const applyCutKeyframesToMedia = (media, segment, localTime) => {
+                if (!cutHasLayerStyleVisual(segment)) return false;
+                if (Array.isArray(segment.keyframes) && segment.keyframes.length >= 2) {
+                    try {
+                        // layer と同じ純関数を同じ cut-local/output 秒で評価する。outputTime 由来なので
+                        // media の seeked 待ちに依存せず、再生とシークの双方で同じ値へ着地する。
+                        const resolved = computeLayerKeyframesVisualFn(segment.keyframes, localTime);
+                        if (resolved?.transform) {
+                            media.dataset.akariTransformX = String(resolved.transform.x);
+                            media.dataset.akariTransformY = String(resolved.transform.y);
+                            media.dataset.akariTransformScale = String(resolved.transform.scale);
+                            media.dataset.akariTransformRotate = String(resolved.transform.rotate);
+                        }
+                        if (resolved?.crop) {
+                            media.dataset.akariCropX = String(resolved.crop.x);
+                            media.dataset.akariCropY = String(resolved.crop.y);
+                            media.dataset.akariCropW = String(resolved.crop.w);
+                            media.dataset.akariCropH = String(resolved.crop.h);
+                        }
+                        if (resolved?.perspective) {
+                            media.dataset.akariPerspectiveCorners = JSON.stringify(resolved.perspective.corners);
+                        }
+                    } catch (error) {
+                        console.warn('[akari-preview] cut keyframes visual failed; rendering static values', segment.id, error);
+                    }
+                }
+                if (window.akari.applyCutLayerStyleLayout) window.akari.applyCutLayerStyleLayout(media);
+                return true;
+            };
             const applyCutVisual = segment => {
                 if (!segment || segment.kind !== 'src') {
                     video.dataset.akariCutTransformActive = 'false';
+                    for (const media of [video, stillImage]) writeCutLayerStyleBase(media, null);
                     video.style.transform = '';
                     video.style.opacity = '';
                     video.dataset.akariCutIndex = '';
@@ -5775,9 +5856,15 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.dataset.akariTransformScale = String(scale);
                     video.dataset.akariTransformRotate = String(rotate);
                 } else {
-                    video.dataset.akariCutTransformActive = 'false';
+                    video.dataset.akariCutTransformActive = String(cutHasLayerStyleVisual(segment));
+                }
+                for (const media of [video, stillImage]) {
+                    if (writeCutLayerStyleBase(media, segment)) {
+                        applyCutKeyframesToMedia(media, segment, Math.max(0, outputTime - segment.outStart));
+                    }
                 }
                 video.style.opacity = Number.isFinite(segment.opacity) ? String(segment.opacity) : '';
+                stillImage.style.opacity = video.style.opacity;
                 video.dataset.akariCutIndex = Number.isInteger(segment.cutIndex) ? String(segment.cutIndex) : '';
                 video.dataset.akariCutId = typeof segment.id === 'string' ? segment.id : '';
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
@@ -7274,8 +7361,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     trackZ: track => track
                 });
                 if (map.segments.length > 0) {
-                    // transform / opacity は再生時の見た目情報で写像には関与しないため、
-                    // 共有カーネルの segment には無い。元 cuts から補う。
+                    // transform / opacity / crop / perspective / keyframes は再生時の見た目情報で
+                    // 写像には関与しないため、共有カーネルの segment には無い。元 cuts から補う。
                     const decorateSegment = segment => {
                         if (segment.kind !== 'src' || !Number.isInteger(segment.cutIndex)) {
                             return segment;
@@ -7287,6 +7374,9 @@ body { display: grid; place-items: center; padding: 32px; }
                             trackId: cut ? cut.trackId : undefined,
                             transform: cut ? cut.transform : undefined,
                             opacity: cut ? cut.opacity : undefined,
+                            crop: cut ? cut.crop : undefined,
+                            perspective: cut ? cut.perspective : undefined,
+                            keyframes: cut ? cut.keyframes : undefined,
                             // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md）:
                             // 同じ理由（写像には関与しない見た目/再生情報）で元 cuts から補う。
                             framing: cut ? cut.framing : undefined,
@@ -7417,6 +7507,13 @@ body { display: grid; place-items: center; padding: 32px; }
             const hideStillImage = () => { stillImage.style.display = 'none'; };
             const syncStillImageVisual = () => {
                 if (stillImage.style.display === 'none') return;
+                if (stillImage.dataset.akariCutLayerStyleActive === 'true'
+                    && window.akari.applyCutLayerStyleLayout) {
+                    window.akari.applyCutLayerStyleLayout(stillImage);
+                    stillImage.style.opacity = video.style.opacity;
+                    stillImage.style.zIndex = video.style.zIndex;
+                    return;
+                }
                 // #preview-video のインラインスタイルを鏡写しにする。updateStageScale /
                 // applyCutVisual / applyCutFramingVisual は video が hidden の間も video の
                 // style を書き続けるので、静止画はそれを写すだけで配置・cut transform・
@@ -7436,6 +7533,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 stillImage.style.display = 'block';
                 syncStillImageVisual();
             };
+            stillImage.addEventListener('load', () => {
+                const segment = segments[activeSegmentIndex];
+                if (segment && cutHasLayerStyleVisual(segment)) {
+                    applyCutKeyframesToMedia(stillImage, segment, Math.max(0, outputTime - segment.outStart));
+                }
+                syncStillImageVisual();
+            });
             const clampSourceTime = (sourceTime, preferredIndex) =>
                 resolveSourceClockPositionFn(segments, sourceTime, preferredIndex);
             // segment.freeze / framing.keyframes[].t の座標系（カット内・速度適用後の再生秒）に
@@ -7455,6 +7559,13 @@ body { display: grid; place-items: center; padding: 32px; }
             // baseTransform をそのまま書くだけなので見た目・回帰は無い。
             const applyCutFramingVisual = () => {
                 const segment = segments[activeSegmentIndex];
+                if (segment && cutHasLayerStyleVisual(segment)) {
+                    // layer-style の crop pivot / perspective を書く同一レール。framing は従来の
+                    // canvas-fit cut 専用レールなので、plain cut の既存分岐には触れない。
+                    if (window.akari.applyCutLayerStyleLayout) window.akari.applyCutLayerStyleLayout(video);
+                    syncStillImageVisual();
+                    return;
+                }
                 const framing = segment && segment.kind === 'src' ? segment.framing : null;
                 const visual = computeCutFramingVisualFn(framing, playedCutLocalSeconds(segment));
                 const baseTransform = video.dataset.akariBaseTransform || '';
@@ -8266,20 +8377,32 @@ body { display: grid; place-items: center; padding: 32px; }
                 transitionVideo.style.top = video.style.top;
                 transitionVideo.style.width = video.style.width;
                 transitionVideo.style.height = video.style.height;
-                const incomingTransform = window.incoming.transform;
-                const incomingBaseTransform = incomingTransform
-                    ? 'translate(' + (Number(incomingTransform.x) || 0) + 'px, '
-                        + (Number(incomingTransform.y) || 0) + 'px) scale('
-                        + (Number(incomingTransform.scale) || 1) + ') rotate('
-                        + (Number(incomingTransform.rotate) || 0) + 'deg)'
-                    : '';
-                const incomingFraming = computeCutFramingVisualFn(
-                    window.incoming.framing,
-                    Math.max(0, timelineTime - window.start)
-                );
-                transitionVideo.style.transformOrigin = incomingFraming?.transformOrigin || '';
-                transitionVideo.style.transform = incomingBaseTransform
-                    + (incomingFraming ? (incomingBaseTransform ? ' ' : '') + incomingFraming.transform : '');
+                const incomingLocalTime = Math.max(0, timelineTime - window.start);
+                const incomingLayerStyle = writeCutLayerStyleBase(transitionVideo, window.incoming);
+                if (incomingLayerStyle) {
+                    applyCutKeyframesToMedia(transitionVideo, window.incoming, incomingLocalTime);
+                    // dissolve/fade の 'none' で crop clip を消さない。reveal は既存 transition
+                    // window の clip を優先し、窓モデル自体の挙動を維持する。
+                    transitionVideo.style.clipPath = visual.incomingClipPath === 'none'
+                        ? (transitionVideo.dataset.akariCropClipPath || 'none')
+                        : visual.incomingClipPath;
+                } else {
+                    const incomingTransform = window.incoming.transform;
+                    const incomingBaseTransform = incomingTransform
+                        ? 'translate(' + (Number(incomingTransform.x) || 0) + 'px, '
+                            + (Number(incomingTransform.y) || 0) + 'px) scale('
+                            + (Number(incomingTransform.scale) || 1) + ') rotate('
+                            + (Number(incomingTransform.rotate) || 0) + 'deg)'
+                        : '';
+                    const incomingFraming = computeCutFramingVisualFn(
+                        window.incoming.framing,
+                        incomingLocalTime
+                    );
+                    transitionVideo.style.transformOrigin = incomingFraming?.transformOrigin || '';
+                    transitionVideo.style.transform = incomingBaseTransform
+                        + (incomingFraming ? (incomingBaseTransform ? ' ' : '') + incomingFraming.transform : '');
+                    transitionVideo.style.clipPath = visual.incomingClipPath;
+                }
                 transitionVideo.style.zIndex = String(zForTrack(window.incoming.trackId));
                 const progressText = visual.progress.toFixed(3);
                 video.dataset.akariTransitionType = window.type;
@@ -8489,6 +8612,15 @@ body { display: grid; place-items: center; padding: 32px; }
                         && timelineTime < filter.t + filter.duration ? 'block' : 'none';
                 }
             };
+            const renderCutLayerStyleVisual = timelineTime => {
+                const segment = segments[activeSegmentIndex];
+                if (!segment || !cutHasLayerStyleVisual(segment)) return;
+                const localTime = Math.max(0, timelineTime - segment.outStart);
+                applyCutKeyframesToMedia(video, segment, localTime);
+                if (stillImage.style.display !== 'none') {
+                    applyCutKeyframesToMedia(stillImage, segment, localTime);
+                }
+            };
             const applyCutsMuteState = () => {
                 const segment = segments[activeSegmentIndex];
                 applyCutsZIndex(segment);
@@ -8582,6 +8714,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 } else {
                     outputTime = video.currentTime || 0;
                 }
+                renderCutLayerStyleVisual(outputTime);
                 applyCutFramingVisual();
                 preloadUpcomingTransition(outputTime);
                 renderLayers(outputTime);
