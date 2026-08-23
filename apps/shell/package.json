@@ -71,7 +71,7 @@
   "scripts": {
     "preflight": "node scripts/ensure-no-nested-extension-deps.mjs && node scripts/ensure-electron-dist.mjs",
     "prebuild": "npm run preflight && node resources/scripts/ensure-file-deps-linked.mjs",
-    "build:ext": "tsc -b extensions/akari-shell-strip extensions/akari-project extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-preview extensions/akari-annotations extensions/akari-transcript extensions/akari-theme",
+    "build:ext": "tsc -b extensions/akari-project extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-preview extensions/akari-annotations extensions/akari-shell-strip extensions/akari-transcript extensions/akari-theme",
     "build": "npm run build:ext && theia build --mode production",
     "postbuild": "node scripts/resign-electron.mjs",
     "postinstall": "npm run preflight && node scripts/resign-electron.mjs",
