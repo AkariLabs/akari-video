@@ -165,6 +165,44 @@ test('buildCutSummaryFields: framing and freeze from a realistic edit.json cut r
     assert.deepEqual(result.fields.freeze, { at_sec: 3, duration_sec: 1.5 });
 });
 
+test('buildCutSummaryFields: cut-level crop, perspective, and keyframes reach the summary fields', () => {
+    const cut = {
+        src: 'main',
+        in: 0,
+        out: 4,
+        transform: { x: 12, y: -8, scale: 0.75, rotate: 3 },
+        crop: { x: 0.1, y: 0.2, w: 0.7, h: 0.6 },
+        perspective: { corners: [[0.05, 0], [0.95, 0.1], [0, 1], [1, 0.9]] },
+        keyframes: [
+            { t: 0, transform: { x: 0, scale: 0.75 }, crop: { x: 0.1, y: 0.2, w: 0.7, h: 0.6 } },
+            { t: 2, transform: { x: 100, scale: 1 }, crop: { x: 0.2, y: 0.1, w: 0.6, h: 0.8 } },
+            { t: 4, transform: { x: 200, scale: 1.25 }, crop: { x: 0.3, y: 0, w: 0.5, h: 1 } }
+        ]
+    };
+    const result = buildCutSummaryFields(cut, 'main', id => id === 'main', identityTransform, noopWarn);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.fields.crop, cut.crop);
+    assert.deepEqual(result.fields.perspective, cut.perspective);
+    assert.equal(result.fields.keyframes, cut.keyframes);
+});
+
+test('buildCutSummaryFields: invalid cut-level layer-style fields are omitted and warned', () => {
+    const warnings = [];
+    const result = buildCutSummaryFields({
+        src: 'main', in: 0, out: 2,
+        crop: { x: 0.8, y: 0, w: 0.5, h: 1 },
+        perspective: { corners: [[0.5, 0.5], [0.5, 0.5], [0.5, 0.5], [0.5, 0.5]] },
+        keyframes: [{ t: 0, transform: { x: 0 } }]
+    }, 'main', id => id === 'main', identityTransform, (message, detail) => warnings.push({ message, detail }));
+    assert.equal(result.ok, true);
+    assert.equal('crop' in result.fields, false);
+    assert.equal('perspective' in result.fields, false);
+    assert.equal('keyframes' in result.fields, false);
+    assert.deepEqual(warnings.map(({ message }) => message.match(/cut\.(crop|perspective|keyframes)/)?.[1]), [
+        'crop', 'perspective', 'keyframes'
+    ]);
+});
+
 test('buildCutSummaryFields: unknown cut.src falls back to the primary source and flags unresolvedSrc', () => {
     const cut = { src: 'ghost', in: 0, out: 1 };
     const result = buildCutSummaryFields(cut, 'main', id => id === 'main', identityTransform, noopWarn);

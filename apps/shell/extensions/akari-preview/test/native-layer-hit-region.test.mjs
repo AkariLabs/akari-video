@@ -36,6 +36,7 @@ test('baked layer は実体計測まで全面 hit を無効化し、計測値を
     assert.match(source, /if \(layer\.kind === 'baked'\) layerVideo\.style\.pointerEvents = 'none'/);
     assert.match(source, /const syncLayerHitRegion = \(entry, forceMeasure = false\) =>/);
     assert.match(source, /entry\.video\.dataset\.akariOpaqueX = String\(box\.x\)/);
-    assert.match(source, /layerVideo\.style\.clipPath = resolveLayerHitRegionClipFn\(/);
+    assert.match(source, /media\.style\.clipPath = resolveLayerHitRegionClipFn\(/);
+    assert.match(source, /applyLayerStyleMediaLayout\(layerVideo, outputWidth, outputHeight\)/);
     assert.match(source, /entry\.video\.addEventListener\('seeked', \(\) => syncLayerHitRegion\(entry, true\)\)/);
 });

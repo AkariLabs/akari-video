@@ -78,6 +78,10 @@ export interface CutSummaryFields {
     track: number;
     transform?: OverlayTransformLike;
     opacity?: number;
+    /** v2 media item の layer-style visual。layers[] と同じ正規化器を通して preview へ渡す。 */
+    crop?: LayerCropSummary;
+    perspective?: LayerPerspectiveSummary;
+    keyframes?: LayerKeyframesSummary;
     speed?: number;
     transitionOut?: CutSummaryTransitionOut;
     at?: number;
@@ -340,5 +344,29 @@ export function buildCutSummaryFields(
         ...(isPlainObject(record?.framing) ? { framing: record?.framing as unknown as CutFraming } : {}),
         ...(isPlainObject(record?.freeze) ? { freeze: record?.freeze as unknown as CutFreeze } : {})
     };
+    if (record?.crop !== undefined) {
+        const crop = normalizeLayerCropForSummary(record.crop);
+        if (crop) {
+            fields.crop = crop;
+        } else {
+            warn('[akari-preview] cut.crop を無視しました（0..1 範囲外/矩形が不正です）', record.crop);
+        }
+    }
+    if (record?.perspective !== undefined) {
+        const perspective = normalizeLayerPerspectiveForSummary(record.perspective);
+        if (perspective) {
+            fields.perspective = perspective;
+        } else {
+            warn('[akari-preview] cut.perspective を無視しました（corners が不正/退化四角形です）', record.perspective);
+        }
+    }
+    if (record?.keyframes !== undefined) {
+        const keyframes = normalizeLayerKeyframesForSummary(record.keyframes);
+        if (keyframes) {
+            fields.keyframes = keyframes;
+        } else {
+            warn('[akari-preview] cut.keyframes を無視しました（2 点以上の配列ではありません）', record.keyframes);
+        }
+    }
     return { ok: true, fields, unresolvedSrc };
 }
