@@ -61,9 +61,11 @@ import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
 import {
     buildCutSummaryFields,
     buildLayerSummaryBase,
+    ChromaKeySummary,
     LayerCropSummary,
     LayerKeyframesSummary,
-    LayerPerspectiveSummary
+    LayerPerspectiveSummary,
+    normalizeChromaKeyForSummary
 } from '../common/edit-summary-fields';
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
@@ -129,7 +131,7 @@ interface EditSummaryLayer {
     transform: OverlayTransform;
     opacity: number;
     blend: string;
-    chromaKey: boolean;
+    chromaKey?: VideoFxChromaKey;
     proxyMissing: boolean;
     /** 初回 open の臨界経路から外した telop ラスタだけに host が立てる。通常の baked は false/省略。 */
     deferredTelop?: boolean;
@@ -161,6 +163,12 @@ interface EditSummaryFilter {
 const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
 export const isImageLayerSrc = (src: string | undefined): boolean =>
     typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
+const PREVIEW_COLOR_KEYWORDS = new Set([
+    'black', 'white', 'red', 'green', 'blue', 'yellow', 'cyan', 'magenta', 'gray', 'grey',
+    'orange', 'purple', 'pink', 'brown'
+]);
+const isPreviewColorLike = (value: string): boolean =>
+    value.startsWith('#') || /^0x/iu.test(value) || PREVIEW_COLOR_KEYWORDS.has(value.toLowerCase());
 
 type PreviewCaptionClockDomain = 'source' | 'output' | 'legacy';
 
@@ -271,6 +279,26 @@ interface EditSummaryCut {
     /** contract-2026-07-22-render-basics.md #7（フリーズ）。同上、深いバリデーションは
      * common/cut-freeze-visual.ts の checkCutFreezeCrossing 側。 */
     freeze?: CutFreeze;
+    chromaKey?: VideoFxChromaKey;
+}
+
+interface VideoFxBackground {
+    type: 'color' | 'image';
+    color?: string;
+    url?: string;
+}
+
+interface VideoFxChromaKey {
+    color: string;
+    similarity: number;
+    blend: number;
+    mode: 'source' | 'layer';
+    background?: VideoFxBackground;
+}
+
+interface EditSummaryVideoFx {
+    look?: { cubeText: string; intensity: number };
+    sources: Record<string, VideoFxChromaKey>;
 }
 
 interface EditSummaryAudioSource {
@@ -347,6 +375,7 @@ interface EditSummary {
     captionTrackId?: string;
     hasCaptions?: boolean;
     hasInlineCaptions?: boolean;
+    videoFx?: EditSummaryVideoFx;
     indicators: string[];
 }
 
@@ -2419,6 +2448,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             overlayRuntimeAssets: [
                 assets.threeJavaScript,
                 assets.threeRuntimeJavaScript,
+                assets.videoFxJavaScript,
                 assets.runtimeJavaScript,
                 assets.interactionJavaScript,
                 assets.interactionCss,
@@ -2916,6 +2946,65 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 && typeof value === 'object' && !Array.isArray(value);
             const width = this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width);
             const height = this.positiveNumber(internal.output.height, EMPTY_SUMMARY.output.height);
+            const videoFxFailures = new Set<string>();
+            const resolveChromaKey = async (
+                raw: ChromaKeySummary | undefined,
+                mode: 'source' | 'layer'
+            ): Promise<VideoFxChromaKey | undefined> => {
+                if (!raw) return undefined;
+                let background: VideoFxBackground | undefined;
+                if (mode === 'source') {
+                    const declaredBackground = raw.background ?? '0x000000';
+                    if (isPreviewColorLike(declaredBackground)) {
+                        background = { type: 'color', color: declaredBackground };
+                    } else {
+                        try {
+                            const backgroundUri = this.resolveEditAssetUri(declaredBackground, editUri);
+                            const key = backgroundUri.toString();
+                            let stream = assetStreams.get(key);
+                            if (!stream) {
+                                stream = await this.previewService.createAssetStream({ assetUri: key });
+                                assetStreams.set(key, stream);
+                                assetUris.push(backgroundUri);
+                            }
+                            background = { type: 'image', url: stream.url };
+                        } catch (error) {
+                            videoFxFailures.add('クロマキー');
+                            console.warn('[akari-preview] chroma background could not be resolved', error);
+                            return undefined;
+                        }
+                    }
+                }
+                return {
+                    color: raw.color,
+                    similarity: raw.similarity,
+                    blend: raw.blend,
+                    mode,
+                    ...(background ? { background } : {})
+                };
+            };
+            let look: EditSummaryVideoFx['look'];
+            const rawLook = internal.output.look;
+            if (isTruthyObject(rawLook) && typeof (rawLook as { lut?: unknown }).lut === 'string') {
+                try {
+                    look = {
+                        cubeText: await this.previewService.readVideoFxLut({
+                            projectRootUri: editUri.parent.toString(),
+                            lutRef: (rawLook as { lut: string }).lut
+                        }),
+                        intensity: typeof (rawLook as { intensity?: unknown }).intensity === 'number'
+                            ? Math.max(0, Math.min(1, (rawLook as { intensity: number }).intensity)) : 1
+                    };
+                } catch (error) {
+                    videoFxFailures.add('LUT');
+                    console.warn('[akari-preview] LUT could not be resolved; keeping the honest-preview badge', error);
+                }
+            }
+            const sourceVideoFx: Record<string, VideoFxChromaKey> = {};
+            for (const declared of declaredSources) {
+                const resolved = await resolveChromaKey(normalizeChromaKeyForSummary(declared.chromaKey), 'source');
+                if (resolved) sourceVideoFx[declared.id] = resolved;
+            }
             const cuts: EditSummaryCut[] = [];
             for (const item of cutItems) {
                 const value = item.declaration as any;
@@ -2932,9 +3021,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     (message, detail) => console.warn(message, detail)
                 );
                 if (result.ok && result.fields) {
+                    const cutChromaKey = await resolveChromaKey(result.fields.chromaKey, 'source');
                     cuts.push({
                         id: item.id,
                         ...result.fields,
+                        ...(cutChromaKey ? { chromaKey: cutChromaKey } : { chromaKey: undefined }),
                         trackId,
                         renderTrack: resolveInternalTrackZ(
                             internal.tracks,
@@ -3037,6 +3128,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing' | 'isImage'> = {
                     ...result.base,
+                    chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
                     trackId: String(trackIdByItem.get(item) ?? '')
                 };
                 if (deferredTelop) {
@@ -3139,12 +3231,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 projectLegacyAudioView(internal), editUri, assetStreams, assetUris
             );
             const indicators: string[] = [];
-            if (isTruthyObject(internal.output.look)) indicators.push('LUT');
-            if (internal.sources.some(source => isTruthyObject(source.chromaKey))
-                || layerItems.some(item =>
-                    isTruthyObject((item.declaration as { chroma_key?: unknown }).chroma_key))) {
-                indicators.push('クロマキー');
-            }
+            indicators.push(...videoFxFailures);
             const missingProxyCount = layers.filter(layer => layer.kind === 'baked' && layer.proxyMissing).length;
             if (missingProxyCount > 0) {
                 indicators.push(`テロップ ${missingProxyCount}枚（プレビュー用プロキシ未生成）`);
@@ -3189,7 +3276,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     timelineTracks,
                     ...(captionTrackId ? { captionTrackId } : {}),
                     ...(captions.length > 0 || hasInlineCaptions(internal) ? { hasCaptions: true } : {}),
-                    ...(hasInlineCaptions(internal) ? { hasInlineCaptions: true } : {})
+                    ...(hasInlineCaptions(internal) ? { hasInlineCaptions: true } : {}),
+                    ...((look || Object.keys(sourceVideoFx).length > 0 || layers.some(layer => layer.chromaKey))
+                        ? { videoFx: { ...(look ? { look } : {}), sources: sourceVideoFx } } : {})
                 }
             };
         } catch (error) {
@@ -4212,6 +4301,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
 #preview-video, #transition-video { position: absolute; top: 0; left: 0; object-fit: contain; }
 #transition-video { display: none; pointer-events: none; }
+.akari-video-fx-rail { position: absolute; top: 0; left: 0; max-width: none; max-height: none; }
 /* 静止画 cut ソース: #preview-video と同じ位置・サイズに重ね、静止画セグメントの間だけ表示する
    （配置・transform は毎フレーム video のインラインスタイルを鏡写し — syncStillImageVisual）。 */
 #preview-still { position: absolute; top: 0; left: 0; object-fit: contain; display: none; user-select: none; }
@@ -4342,8 +4432,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
     <div id="preview-wrapper">
       <div id="zoom-layer">
         <div id="preview-layers">
-          <video id="preview-video" data-akari-transition-role="outgoing"${primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="auto"></video>
-          <video id="transition-video" data-akari-transition-role="incoming" preload="auto"></video>
+          <video id="preview-video" data-akari-transition-role="outgoing"${primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="auto" crossorigin="anonymous"></video>
+          <video id="transition-video" data-akari-transition-role="incoming" preload="auto" crossorigin="anonymous"></video>
           <img id="preview-still" alt="" draggable="false">
           <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
         </div>
@@ -4430,6 +4520,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <script>${this.hostAdapterScript()}</script>
 <script>${this.inlineScript(assets.threeJavaScript)}</script>
 <script>${this.inlineScript(assets.threeRuntimeJavaScript)}</script>
+<script>${this.inlineScript(assets.videoFxJavaScript)}</script>
 <script>${this.inlineScript(assets.runtimeJavaScript)}</script>
 <script>${this.inlineScript(assets.interactionJavaScript)}</script>
 <script>${this.inlineScript(assets.webviewKernelJavaScript)}</script>
@@ -5180,6 +5271,27 @@ body { display: grid; place-items: center; padding: 32px; }
             const waveformPlayhead = document.querySelector('.transport-waveform-playhead');
             const indicatorToggle = document.getElementById('indicator-toggle');
             const indicatorPopup = document.getElementById('indicator-popup');
+            const videoFxFailedIndicators = new Set();
+            const INDICATOR_GLOSSARY = {
+                'LUT': '色調フィルタ',
+                'クロマキー': '背景透過',
+                '音声マスター処理': 'ノイズ除去・音量正規化',
+                'ディゾルブ切り替え': 'カットの溶け込み切替'
+            };
+            const refreshIndicators = () => {
+                const declared = Array.isArray(summary.indicators) ? summary.indicators : [];
+                const indicators = [...new Set([...declared, ...videoFxFailedIndicators])];
+                indicatorToggle.hidden = indicators.length === 0;
+                if (indicators.length === 0) {
+                    indicatorPopup.hidden = true;
+                    indicatorPopup.textContent = '';
+                    return;
+                }
+                const items = indicators.map(item => INDICATOR_GLOSSARY[item]
+                    ? item + ' = ' + INDICATOR_GLOSSARY[item]
+                    : item).join(' / ');
+                indicatorPopup.textContent = 'プレビュー未対応: ' + items;
+            };
             const penToggle = document.getElementById('pen-toggle');
             const zoomToggle = document.getElementById('zoom-toggle');
             const fullscreenToggle = document.getElementById('fullscreen-toggle');
@@ -6033,6 +6145,103 @@ body { display: grid; place-items: center; padding: 32px; }
                 layersStage.appendChild(layerVideo);
                 return entry;
             });
+            // video FX rail is structurally absent when no LUT/chroma declaration exists. This is
+            // the inert guarantee: no canvas, WebGL context, or per-tick work for ordinary projects.
+            const videoFxConfig = summary.videoFx || null;
+            const videoFxRails = [];
+            const railMeta = new Map();
+            const noteVideoFxFailure = effects => {
+                if (effects && effects.look) videoFxFailedIndicators.add('LUT');
+                if (effects && effects.chromaKey) videoFxFailedIndicators.add('クロマキー');
+                refreshIndicators();
+            };
+            const mountVideoFxRail = (media, role, initialEffects) => {
+                try {
+                    const rail = window.AkariVideoFx.createRail({
+                        media,
+                        role,
+                        onStateChange: event => {
+                            if (event.status === 'failed') noteVideoFxFailure(railMeta.get(event.rail)?.effects || initialEffects);
+                        }
+                    });
+                    const meta = { effects: initialEffects || {}, key: null };
+                    railMeta.set(rail, meta);
+                    videoFxRails.push(rail);
+                    return rail;
+                } catch (error) {
+                    console.warn('[akari-preview] video FX rail unavailable; continuing native playback', role, error);
+                    noteVideoFxFailure(initialEffects);
+                    return null;
+                }
+            };
+            const configureVideoFxRail = (rail, key, effects) => {
+                if (!rail) return;
+                const meta = railMeta.get(rail);
+                if (meta.key === key) return;
+                meta.key = key;
+                meta.effects = effects;
+                void rail.configure(effects);
+            };
+            const cutHasChroma = (Array.isArray(summary.cuts) ? summary.cuts : []).some(cut => cut.chromaKey);
+            const hasBaseVideoFx = Boolean(videoFxConfig && (videoFxConfig.look
+                || Object.keys(videoFxConfig.sources || {}).length > 0 || cutHasChroma));
+            const representativeChroma = hasBaseVideoFx && (
+                Object.values(videoFxConfig.sources || {})[0]
+                || (Array.isArray(summary.cuts) ? summary.cuts.find(cut => cut.chromaKey)?.chromaKey : null)
+            );
+            const baseInitialEffects = hasBaseVideoFx ? {
+                ...(videoFxConfig.look ? { look: videoFxConfig.look } : {}),
+                ...(representativeChroma ? { chromaKey: representativeChroma } : {})
+            } : null;
+            const baseVideoFxRail = hasBaseVideoFx ? mountVideoFxRail(video, 'source', baseInitialEffects) : null;
+            const transitionVideoFxRail = hasBaseVideoFx
+                ? mountVideoFxRail(transitionVideo, 'transition', baseInitialEffects) : null;
+            const stillVideoFxRail = hasBaseVideoFx ? mountVideoFxRail(stillImage, 'still', baseInitialEffects) : null;
+            for (const entry of layerEntries) {
+                entry.fxRail = entry.spec.chromaKey
+                    ? mountVideoFxRail(entry.video, 'layer:' + entry.spec.id, { chromaKey: entry.spec.chromaKey })
+                    : null;
+                if (entry.fxRail) configureVideoFxRail(
+                    entry.fxRail,
+                    'layer:' + entry.spec.id,
+                    { chromaKey: entry.spec.chromaKey }
+                );
+            }
+            const effectsForSegment = segment => {
+                const chromaKey = segment && (segment.chromaKey
+                    || (videoFxConfig && videoFxConfig.sources && videoFxConfig.sources[segment.src]));
+                return {
+                    ...(videoFxConfig && videoFxConfig.look ? { look: videoFxConfig.look } : {}),
+                    ...(chromaKey ? { chromaKey } : {})
+                };
+            };
+            const renderVideoFx = timelineTime => {
+                if (!hasBaseVideoFx && !layerEntries.some(entry => entry.fxRail)) return;
+                const segment = segments[activeSegmentIndex];
+                const baseEffects = effectsForSegment(segment);
+                const baseKey = 'base:' + String(segment && segment.cutIndex) + ':' + String(segment && segment.src);
+                configureVideoFxRail(baseVideoFxRail, baseKey, baseEffects);
+                configureVideoFxRail(stillVideoFxRail, baseKey, baseEffects);
+                if (baseVideoFxRail) baseVideoFxRail.render(timelineTime);
+                if (stillVideoFxRail && stillImage.style.display !== 'none') stillVideoFxRail.render(timelineTime);
+
+                const transitionWindow = transitionWindows.find(candidate =>
+                    timelineTime >= candidate.start && timelineTime < candidate.end);
+                const transitionEffects = effectsForSegment(transitionWindow && transitionWindow.incoming);
+                const transitionKey = 'transition:' + String(transitionWindow && transitionWindow.incoming.cutIndex)
+                    + ':' + String(transitionWindow && transitionWindow.incoming.src);
+                configureVideoFxRail(transitionVideoFxRail, transitionKey, transitionEffects);
+                if (transitionVideoFxRail && transitionVideo.style.display !== 'none') {
+                    transitionVideoFxRail.render(timelineTime);
+                }
+                for (const entry of layerEntries) {
+                    if (entry.fxRail && entry.video.style.display !== 'none') entry.fxRail.render(timelineTime);
+                }
+            };
+            window.akari.videoFx = Object.freeze({
+                rails: videoFxRails,
+                inspect: () => videoFxRails.map(rail => rail.inspect())
+            });
             const cssFilterFor = spec => {
                 if (spec && spec.type === 'invert') return 'invert(1)';
                 if (spec && spec.type === 'saturation' && Number.isFinite(spec.value)) {
@@ -6057,6 +6266,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 entry.spec = layer;
                 const layerVideo = entry.video;
+                if (entry.fxRail && layer.chromaKey) {
+                    configureVideoFxRail(entry.fxRail, 'layer:' + layer.id + ':' + JSON.stringify(layer.chromaKey), {
+                        chromaKey: layer.chromaKey
+                    });
+                }
                 if (typeof layer.src === 'string' && layer.src
                     && layerVideo.getAttribute('src') !== layer.src) {
                     if (entry.deferredTelop) {
@@ -8773,6 +8987,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 updateTransport();
                 updateWaveformPlayhead();
                 applyCutsMuteState();
+                renderVideoFx(outputTime);
             };
             const runTickGuarded = () => {
                 // A thrown exception here would otherwise abort animate()/the
@@ -9502,23 +9717,7 @@ body { display: grid; place-items: center; padding: 32px; }
             Promise.all([window.__akariCaptionFontReady, window.akari.runtime.mount(summary), sfxDurationsReady]).then(() => {
                 applyOverlayTracks();
                 stage.append(transitionPlate, captionPlate);
-                const indicators = Array.isArray(summary.indicators) ? summary.indicators : [];
-                const INDICATOR_GLOSSARY = {
-                    'LUT': '色調フィルタ',
-                    'クロマキー': '背景透過',
-                    '音声マスター処理': 'ノイズ除去・音量正規化',
-                    'ディゾルブ切り替え': 'カットの溶け込み切替'
-                };
-                indicatorToggle.hidden = indicators.length === 0;
-                if (indicators.length > 0) {
-                    const items = indicators.map(item => INDICATOR_GLOSSARY[item]
-                        ? item + ' = ' + INDICATOR_GLOSSARY[item]
-                        : item).join(' / ');
-                    // task/2026-08-10-preview-bug-sweep (B3): dropped the blanket
-                    // "（書き出し時のみ適用）" claim — it doesn't hold for every indicator (e.g. an
-                    // unsupported-glTF-extension 3D model fails at export too, not just preview).
-                    indicatorPopup.textContent = 'プレビュー未対応: ' + items;
-                }
+                refreshIndicators();
                 rebuildSegments();
                 applyInitialPosition();
                 setZoom(1);

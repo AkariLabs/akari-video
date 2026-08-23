@@ -44,7 +44,8 @@ const layerDomIdentity = (value: unknown): unknown => {
         id: layer.id,
         kind: layer.kind,
         isImage: layer.isImage,
-        proxyMissing: layer.proxyMissing
+        proxyMissing: layer.proxyMissing,
+        chromaKey: Boolean(layer.chromaKey)
     };
 };
 

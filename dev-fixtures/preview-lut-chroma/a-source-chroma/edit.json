@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 10 },
+  "sources": [{
+    "id": "main", "path": "media/green.mp4",
+    "chroma_key": { "color": "0x00FF00", "similarity": 0.2, "blend": 0.1, "background": "0x2040FF" }
+  }, {"id":"reference","path":"exports/reference.mp4","proxy":null}],
+  "tracks": [{
+    "id": "v-main", "lane": "visual", "name": "source chroma",
+    "items": [{ "id": "main-1", "at": 0, "duration": 20, "source": { "kind": "media", "src": "main", "in": 0, "out": 2 } }]
+  }]
+}

@@ -1,0 +1,13 @@
+{
+  "fixture": "c-lut-pip-telop",
+  "render_cut_stages": ["cut-with-lut", "layers", "html-overlay"],
+  "observations": {
+    "base_before_layer_rgb": [16, 161, 96],
+    "pip_after_layer_rgb": [205, 31, 31],
+    "pip_source_rgb": [205, 31, 31],
+    "pip_lut_applied": false,
+    "html_overlay_lut_applied": false
+  },
+  "basis": "render-cut produced and pixel-sampled cut.mp4 and layered.mp4; its planned HTML overlay command consumes layered.mp4 after the LUT-bearing cut stage",
+  "html_rasterizer": "blocked by the macOS execution sandbox; the stage ordering and generated command were inspected, but a completed HTML composite was not claimed"
+}

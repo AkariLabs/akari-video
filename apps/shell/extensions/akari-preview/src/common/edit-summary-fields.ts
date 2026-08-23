@@ -45,6 +45,13 @@ export interface LayerPerspectiveSummary {
 // place for them to drift out of sync.
 export type LayerKeyframesSummary = unknown[];
 
+export interface ChromaKeySummary {
+    color: string;
+    similarity: number;
+    blend: number;
+    background?: string;
+}
+
 export interface LayerSummaryBase {
     id: string;
     t: number;
@@ -54,7 +61,7 @@ export interface LayerSummaryBase {
     transform: OverlayTransformLike;
     opacity: number;
     blend: string;
-    chromaKey: boolean;
+    chromaKey?: ChromaKeySummary;
     crop?: LayerCropSummary;
     perspective?: LayerPerspectiveSummary;
     keyframes?: LayerKeyframesSummary;
@@ -91,6 +98,7 @@ export interface CutSummaryFields {
     // matching the shape akari-preview-open-handler.ts's EditSummaryCut has always used.
     framing?: CutFraming;
     freeze?: CutFreeze;
+    chromaKey?: ChromaKeySummary;
 }
 
 export interface CutSummaryFieldsResult {
@@ -186,6 +194,18 @@ export function normalizeLayerKeyframesForSummary(value: unknown): LayerKeyframe
     return usable.length >= 2 ? value : undefined;
 }
 
+export function normalizeChromaKeyForSummary(value: unknown): ChromaKeySummary | undefined {
+    if (!isPlainObject(value)) return undefined;
+    const color = typeof value.color === 'string' && value.color.trim() ? value.color : '0x00FF00';
+    const similarity = typeof value.similarity === 'number' && Number.isFinite(value.similarity)
+        ? Math.max(0, Math.min(1, value.similarity)) : 0.2;
+    const blend = typeof value.blend === 'number' && Number.isFinite(value.blend)
+        ? Math.max(0, Math.min(1, value.blend)) : 0.1;
+    const background = typeof value.background === 'string' && value.background.trim()
+        ? value.background : undefined;
+    return { color, similarity, blend, ...(background ? { background } : {}) };
+}
+
 /**
  * The exact per-layer summary object loadPreviewModel builds from a raw edit.json layers[]
  * entry (minus the async `src` asset-stream resolution, which stays in the caller). Validity
@@ -241,9 +261,12 @@ export function buildLayerSummaryBase(
         track: Number.isInteger(record.track) && (record.track as number) >= 0 ? record.track as number : 0,
         transform: normalizeTransform(record.transform),
         opacity,
-        blend,
-        chromaKey: record.kind === 'video' && isPlainObject(record.chroma_key)
+        blend
     };
+    if (record.kind === 'video') {
+        const chromaKey = normalizeChromaKeyForSummary(record.chroma_key);
+        if (chromaKey) base.chromaKey = chromaKey;
+    }
     if (record.crop !== undefined) {
         const crop = normalizeLayerCropForSummary(record.crop);
         if (crop) {
@@ -368,5 +391,7 @@ export function buildCutSummaryFields(
             warn('[akari-preview] cut.keyframes を無視しました（2 点以上の配列ではありません）', record.keyframes);
         }
     }
+    const chromaKey = normalizeChromaKeyForSummary(record?.chroma_key);
+    if (chromaKey) fields.chromaKey = chromaKey;
     return { ok: true, fields, unresolvedSrc };
 }
