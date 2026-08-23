@@ -1,0 +1,197 @@
+{
+  "status": "PASS",
+  "pixel_formula": "sum(abs(preview-export) over RGB) / (pixel_count * 3 * 255)",
+  "tv_range_normalization": "none; Electron/Chromium and ffmpeg both expand tagged TV range to display RGB",
+  "l1": {
+    "status": "PASS",
+    "environment": "production Electron + CDP",
+    "method": "akari.preview.ensureVisible -> seekOutput -> rail canvas drawImage/getImageData",
+    "cors_regression": {
+      "status": "PASS",
+      "fix": "successful preview stream responses include Access-Control-Allow-Origin: *",
+      "observation": "after the fix, #preview-video reached readyState >= 2 in Electron"
+    }
+  },
+  "results": [
+    {
+      "kind": "source-chroma",
+      "fixture": "a-source-chroma",
+      "status": "PASS",
+      "environment": "Electron + CDP",
+      "mad": 0.002872,
+      "preview_fnv": "c4f2874e",
+      "repeat_fnv": "c4f2874e",
+      "export_fnv": "58293980",
+      "rail_count": 3,
+      "rail_roles": ["source", "transition", "still"],
+      "source_rail": {
+        "status": "ready",
+        "has_chroma": true,
+        "time": 1
+      }
+    },
+    {
+      "kind": "lut-1.0",
+      "fixture": "b-lut-100",
+      "status": "PASS",
+      "environment": "Electron + CDP",
+      "mad": 0.004273,
+      "preview_fnv": "340c7bec",
+      "repeat_fnv": "340c7bec",
+      "export_fnv": "24638ee9",
+      "rail_count": 3,
+      "rail_roles": ["source", "transition", "still"],
+      "all_rails_have_lut": true
+    },
+    {
+      "kind": "lut-0.5",
+      "fixture": "b-lut-050",
+      "status": "PASS",
+      "environment": "Electron + CDP",
+      "mad": 0.003781,
+      "preview_fnv": "32af7728",
+      "repeat_fnv": "32af7728",
+      "export_fnv": "d3373ff5",
+      "rail_count": 3,
+      "rail_roles": ["source", "transition", "still"]
+    },
+    {
+      "kind": "lut-1.0-webgl1",
+      "fixture": "b-lut-100",
+      "status": "PASS",
+      "environment": "headless Chromium WebGL1 forced by the rail test option",
+      "mad": 0.003318899782135076,
+      "preview_fnv": "94f06b7d",
+      "repeat_fnv": "94f06b7d",
+      "export_fnv": "24638ee9",
+      "rail_count": 1,
+      "badge": "",
+      "rail": {
+        "status": "ready",
+        "webgl_version": 1,
+        "role": "source",
+        "has_lut": true,
+        "has_chroma": false,
+        "time": 1
+      },
+      "regions": {
+        "inside_mad": 0.002949019607843137,
+        "outside_mad": 0.003396605701103971
+      }
+    },
+    {
+      "kind": "lut-0.5-webgl1",
+      "fixture": "b-lut-050",
+      "status": "PASS",
+      "environment": "headless Chromium WebGL1 forced by the rail test option",
+      "mad": 0.002815949527959332,
+      "preview_fnv": "33f2147d",
+      "repeat_fnv": "33f2147d",
+      "export_fnv": "d3373ff5",
+      "rail_count": 1,
+      "badge": "",
+      "rail": {
+        "status": "ready",
+        "webgl_version": 1,
+        "role": "source",
+        "has_lut": true,
+        "has_chroma": false,
+        "time": 1
+      },
+      "regions": {
+        "inside_mad": 0.001917124183006536,
+        "outside_mad": 0.003004778381941012
+      }
+    },
+    {
+      "kind": "inert",
+      "fixture": "inert",
+      "status": "PASS",
+      "environment": "Electron + CDP",
+      "preview_fnv": "ac17e6b2",
+      "render_path": "native video",
+      "rail_count": 0,
+      "rails": [],
+      "rail_dom_count": 0
+    },
+    {
+      "kind": "transition-lut",
+      "fixture": "e-transition-lut",
+      "status": "PASS",
+      "environment": "Electron + CDP",
+      "transition": "dissolve",
+      "rail_count": 3,
+      "rail_roles": ["source", "transition", "still"],
+      "source_and_transition_ready": true,
+      "source_and_transition_have_lut": true,
+      "measurements": [
+        {
+          "time": 1.1,
+          "source_rail_time": 1.1,
+          "transition_rail_time": 1.1,
+          "outgoing_opacity": 0.9,
+          "incoming_opacity": 0.1,
+          "corner_and_center_samples_distinct": true
+        },
+        {
+          "time": 1.5,
+          "source_rail_time": 1.5,
+          "transition_rail_time": 1.5,
+          "outgoing_opacity": 0.5,
+          "incoming_opacity": 0.5,
+          "corner_and_center_samples_distinct": true
+        },
+        {
+          "time": 1.9,
+          "source_rail_time": 1.9,
+          "transition_rail_time": 1.9,
+          "outgoing_opacity": 0.1,
+          "incoming_opacity": 0.9,
+          "corner_and_center_samples_distinct": true
+        }
+      ]
+    },
+    {
+      "kind": "layer-chroma",
+      "fixture": "d-layer-chroma",
+      "status": "PASS",
+      "pixel_measurement_environment": "headless Chromium using the same video-fx.js shader path",
+      "mad": 0.0010415985838779956,
+      "preview_fnv": "fc575a86",
+      "export_fnv": "0f65bd6f",
+      "white_bounds_preview": [141, 71, 178, 108],
+      "white_bounds_export": [141, 71, 178, 108],
+      "electron_wiring": {
+        "status": "PASS",
+        "role": "layer:pip-keyed",
+        "rail_status": "ready",
+        "has_chroma": true,
+        "background_matches_declaration": true
+      },
+      "electron_pixel_measurement": {
+        "status": "INCOMPLETE_ENVIRONMENT_GPU_CONTENTION",
+        "observation": "CDP Runtime.evaluate timed out across multiple clean retries while other Electron GPU processes shared the worker"
+      }
+    },
+    {
+      "kind": "forced-failure",
+      "status": "PASS_WITH_ENVIRONMENT_VARIANCE",
+      "environment": "Electron + CDP with --disable-webgl --disable-webgl2",
+      "first_attempt": {
+        "rail_count": 0,
+        "badge": "プレビュー未対応: LUT",
+        "video_ready_state": 1,
+        "fail_open_observed": true
+      },
+      "retry": {
+        "webgl_version": 2,
+        "rail_created": true,
+        "observation": "the Chromium disable flags did not deterministically prevent WebGL context creation in this driver environment"
+      }
+    }
+  ],
+  "limitations": [
+    "layer-chroma pixel MAD is from headless Chromium; Electron wiring was verified separately",
+    "forced WebGL disablement was environment-dependent across Electron retries"
+  ]
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+html,body{margin:0;background:#111}#stage{position:relative;width:320px;height:180px;overflow:hidden;background:#000}
+#stage>*{position:absolute;left:0;top:0;width:320px;height:180px;object-fit:fill}
+</style></head><body><div id="stage"></div>
+<script src="../../../../../../packages/overlay-runtime/src/video-fx.js"></script>
+<script>
+(() => {
+  const params=new URLSearchParams(location.search), kind=params.get('kind');
+  const stage=document.getElementById('stage'), root='../../../../../../dev-fixtures/preview-lut-chroma/';
+  const makeVideo=src=>{const v=document.createElement('video');v.muted=true;v.preload='auto';v.src=src;stage.append(v);return v;};
+  const ready=v=>new Promise((resolve,reject)=>{v.addEventListener('loadeddata',resolve,{once:true});v.addEventListener('error',reject,{once:true});});
+  const seek=(v,t)=>new Promise(resolve=>{v.addEventListener('seeked',resolve,{once:true});v.currentTime=t;});
+  const loadText=url=>new Promise((resolve,reject)=>{const frame=document.createElement('iframe');frame.hidden=true;frame.onload=()=>{try{resolve(frame.contentDocument.body.innerText);}catch(error){reject(error);}finally{frame.remove();}};frame.onerror=reject;frame.src=url;document.body.append(frame);});
+  const paths={source:'a-source-chroma/media/green.mp4',lut100:'b-lut-100/media/pattern.mp4','lut100-webgl1':'b-lut-100/media/pattern.mp4',lut050:'b-lut-050/media/pattern.mp4','lut050-webgl1':'b-lut-050/media/pattern.mp4',layer:'d-layer-chroma/media/pattern.mp4',transition:'e-transition-lut/media/pattern.mp4',inert:'inert/media/pattern.mp4',failure:'b-lut-100/media/pattern.mp4'};
+  window.__harness=(async()=>{
+    const main=makeVideo(root+paths[kind]);await ready(main);await seek(main,1);
+    if(kind==='inert'){document.body.dataset.status='ready';return {kind,rails:[]};}
+    const cubeText=kind.startsWith('lut')||kind==='transition'?await loadText('../../../../../../presets/luts/cinematic/cinematic.cube'):null;
+    const rails=[];
+    try{
+      if(kind==='layer'){
+        const layer=makeVideo(root+'d-layer-chroma/media/green-pip.mp4');layer.style.width='100px';layer.style.height='100px';layer.style.left='110px';layer.style.top='40px';
+        await ready(layer);await seek(layer,1);
+        const rail=AkariVideoFx.createRail({media:layer,role:'layer:test'});await rail.configure({chromaKey:{color:'0x00FF00',similarity:.2,blend:.1,mode:'layer'}});rail.render(1);rails.push(rail);
+      }else if(kind==='transition'){
+        const incoming=makeVideo(root+'e-transition-lut/media/red.mp4');await ready(incoming);await seek(incoming,.5);
+        const effects={look:{cubeText,intensity:1}},outRail=AkariVideoFx.createRail({media:main,role:'source'}),inRail=AkariVideoFx.createRail({media:incoming,role:'transition'});await outRail.configure(effects);await inRail.configure(effects);outRail.render(1.5);inRail.render(1.5);outRail.canvas.style.opacity='.5';inRail.canvas.style.opacity='.5';rails.push(outRail,inRail);
+      }else{
+        const effects=kind==='source'?{chromaKey:{color:'0x00FF00',similarity:.2,blend:.1,mode:'source',background:{type:'color',color:'0x2040FF'}}}:{look:{cubeText,intensity:kind.startsWith('lut050')?.5:1}};
+        const rail=AkariVideoFx.createRail({media:main,role:'source',forceFailure:kind==='failure',forceWebGl1:kind.endsWith('-webgl1')});await rail.configure(effects);rail.render(1);rails.push(rail);
+      }
+      document.body.dataset.status='ready';window.__rails=rails;return {kind,rails:rails.map(r=>r.inspect())};
+    }catch(error){document.getElementById('stage').dataset.badge='LUT';document.body.dataset.status='failed';window.__rails=[];return {kind,error:String(error)};}
+  })();
+  window.__harness.then(async()=>{
+    const out=document.createElement('canvas');out.width=320;out.height=180;const x=out.getContext('2d',{willReadFrequently:true});
+    const main=stage.querySelector('video'),source=stage.querySelector('canvas[data-akari-video-fx-role="source"]');
+    if(source){x.globalAlpha=Number(source.style.opacity)||1;x.drawImage(source,0,0);x.globalAlpha=1;}else if(main?.readyState>=2)x.drawImage(main,0,0,320,180);const transition=stage.querySelector('canvas[data-akari-video-fx-role="transition"]');if(transition){x.globalAlpha=Number(transition.style.opacity)||1;x.drawImage(transition,0,0);x.globalAlpha=1;}
+    for(const rail of stage.querySelectorAll('canvas[data-akari-video-fx-role^="layer:"]'))x.drawImage(rail,parseFloat(rail.style.left),parseFloat(rail.style.top),parseFloat(rail.style.width),parseFloat(rail.style.height));
+    const d=x.getImageData(0,0,320,180).data;let binary='';for(let i=0;i<d.length;i+=16384)binary+=String.fromCharCode(...d.subarray(i,i+16384));
+    let hash=0x811c9dc5;for(const byte of d){hash^=byte;hash=Math.imul(hash,0x01000193);}
+    const at=(px,py)=>{const i=(py*320+px)*4;return Array.from(d.slice(i,i+4));};const raw=document.createElement('canvas');raw.width=320;raw.height=180;const rx=raw.getContext('2d',{willReadFrequently:true});rx.drawImage(main,0,0,320,180);const rd=rx.getImageData(0,0,320,180).data;const rat=(px,py)=>Array.from(rd.slice((py*320+px)*4,(py*320+px)*4+4));
+    for(const rail of (window.__rails||[])){rail.render(.25);rail.render(kind==='transition'?1.5:1);}x.clearRect(0,0,320,180);if(source){x.globalAlpha=Number(source.style.opacity)||1;x.drawImage(source,0,0);x.globalAlpha=1;}else if(main?.readyState>=2)x.drawImage(main,0,0,320,180);if(transition){x.globalAlpha=Number(transition.style.opacity)||1;x.drawImage(transition,0,0);x.globalAlpha=1;}for(const rail of stage.querySelectorAll('canvas[data-akari-video-fx-role^="layer:"]'))x.drawImage(rail,parseFloat(rail.style.left),parseFloat(rail.style.top),parseFloat(rail.style.width),parseFloat(rail.style.height));const repeat=x.getImageData(0,0,320,180).data;let repeatHash=0x811c9dc5;for(const byte of repeat){repeatHash^=byte;repeatHash=Math.imul(repeatHash,0x01000193);}
+    const pre=document.createElement('pre');pre.id='result';pre.textContent=JSON.stringify({rgba:btoa(binary),fnv:(hash>>>0).toString(16).padStart(8,'0'),repeatFnv:(repeatHash>>>0).toString(16).padStart(8,'0'),railCount:stage.querySelectorAll('canvas.akari-video-fx-rail').length,badge:stage.dataset.badge||'',inspect:(window.__rails||[]).map(r=>r.inspect()),status:document.body.dataset.status,samples:{corner:at(10,10),center:at(160,90),orange:at(40,40),green:at(250,130),layerGreen:at(120,50),layerBase:at(130,120)},mediaSamples:{corner:rat(10,10),center:rat(160,90),orange:rat(40,40),green:rat(250,130),layerGreen:rat(120,50),layerBase:rat(130,120)}});document.body.append(pre);document.body.dataset.done='true';
+  });
+})();
+</script></body></html>

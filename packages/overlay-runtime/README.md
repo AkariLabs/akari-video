@@ -18,6 +18,12 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
 | `#overlay-stage` 配下のオーバーレイ DOM の mount/tick/unmount | アプリシェルの DOM 骨格（上部バー・字幕リストパネル・トランスポート・スプリッタ等） |
 | オーバーレイの選択・ドラッグ移動・拡縮ハンドル・ダブルクリックテキスト編集 | edit.json の実ファイル I/O（`overlay_write` の実装） |
 | ズーム中の全体フレーム + 現在視野ミニマップ（`#minimap`） | 動画プレーンの再生/シーク、書き出しパイプライン |
+| `video-fx.js` による動画面の画素 FX（LUT / chroma。外部時刻駆動） | 動画プレーン自身の再生・音声・クロック |
+
+`video-fx.js` は `<video>` / `<img>` 1 面ごとに宣言がある場合だけ WebGL canvas を重ねる。
+宣言が無い場合は canvas・WebGL context・rAF 負荷を一切作らない。ホストはメディア要素を再生の
+正として保ち、タイムライン更新時に `rail.render(t)` を呼ぶ。WebGL 初期化・LUT 解決・画像読込が
+失敗した rail は canvas を畳んで元のメディア表示へ戻るため、再生と音声を止めない。
 
 ホストシェル（新モノレポの `apps/shell/` 等）は、本パッケージが期待する DOM id と
 `window.akari.*` インターフェースを用意した上で、必要なスクリプトを読み込む。

@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 10, "look": { "lut": "cinematic", "intensity": 1 } },
+  "sources": [
+    { "id": "main", "path": "media/pattern.mp4" },
+    { "id": "pip", "path": "media/red-pip.mp4" }
+  ],
+  "tracks": [
+    { "id": "v-main", "lane": "visual", "name": "LUT base", "items": [
+      { "id": "main-1", "at": 0, "duration": 20, "source": { "kind": "media", "src": "main", "in": 0, "out": 2 } }
+    ] },
+    { "id": "v-pip", "lane": "visual", "name": "ungraded PiP", "items": [
+      { "id": "pip-1", "at": 0, "duration": 20, "transform": { "x": 95, "y": 48, "scale": 0.35, "rotate": 0 },
+        "source": { "kind": "media", "src": "pip", "in": 0, "out": 2 } }
+    ] },
+    { "id": "v-title", "lane": "visual", "name": "ungraded HTML", "items": [
+      { "id": "title", "at": 0, "duration": 20, "source": { "kind": "html", "path": "overlays/title.html" } }
+    ] }
+  ]
+}

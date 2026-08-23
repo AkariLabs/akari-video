@@ -6,6 +6,7 @@ export const AkariPreviewService = Symbol('AkariPreviewService');
 export interface OverlayRuntimeAssets {
     threeJavaScript: string;
     threeRuntimeJavaScript: string;
+    videoFxJavaScript: string;
     runtimeJavaScript: string;
     interactionJavaScript: string;
     interactionCss: string;
@@ -19,6 +20,11 @@ export interface OverlayRuntimeAssets {
     // 直接 goto するため pathToFileURL がそのまま使えるが、こちらは Theia WebviewWidget 経由で
     // 別オリジンに描画される）ため、data: URI として埋め込む。
     captionFontDataUri: string;
+}
+
+export interface ReadVideoFxLutRequest {
+    projectRootUri: string;
+    lutRef: string;
 }
 
 export interface VideoStreamReference {
@@ -256,6 +262,7 @@ export interface ResolvedCaptionDisplayPayload {
 
 export interface AkariPreviewService {
     getOverlayRuntimeAssets(): Promise<OverlayRuntimeAssets>;
+    readVideoFxLut(request: ReadVideoFxLutRequest): Promise<string>;
     createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference>;
     disposeVideoStream(id: string): Promise<void>;
     createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference>;

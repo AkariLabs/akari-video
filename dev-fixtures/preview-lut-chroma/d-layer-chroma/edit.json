@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 10 },
+  "sources": [
+    { "id": "main", "path": "media/pattern.mp4" },
+    { "id": "pip", "path": "media/green-pip.mp4" },
+    {
+      "id": "reference",
+      "path": "exports/reference.mp4",
+      "proxy": null
+    }
+  ],
+  "tracks": [
+    { "id": "v-main", "lane": "visual", "name": "base", "items": [
+      { "id": "main-1", "at": 0, "duration": 20, "source": { "kind": "media", "src": "main", "in": 0, "out": 2 } }
+    ] },
+    { "id": "v-pip", "lane": "visual", "name": "layer chroma", "items": [
+      { "id": "pip-keyed", "at": 0, "duration": 20, "transform": { "x": 0, "y": 0, "scale": 1, "rotate": 0 },
+        "source": { "kind": "media", "src": "pip", "in": 0, "out": 2,
+          "chroma_key": { "color": "0x00FF00", "similarity": 0.2, "blend": 0.1 } } }
+    ] }
+  ]
+}

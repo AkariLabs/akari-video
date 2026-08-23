@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 10, "look": { "lut": "cinematic", "intensity": 1 } },
+  "sources": [
+    { "id": "a", "path": "media/pattern.mp4" },
+    { "id": "b", "path": "media/red.mp4" },
+    {
+      "id": "reference",
+      "path": "exports/reference.mp4",
+      "proxy": null
+    }
+  ],
+  "tracks": [{ "id": "v-main", "lane": "visual", "name": "dissolve + LUT", "items": [
+    { "id": "a-1", "at": 0, "duration": 20,
+      "source": { "kind": "media", "src": "a", "in": 0, "out": 2,
+        "transition_out": { "type": "dissolve", "duration": 1 } } },
+    { "id": "b-1", "at": 10, "duration": 20,
+      "source": { "kind": "media", "src": "b", "in": 0, "out": 2 } }
+  ] }]
+}
