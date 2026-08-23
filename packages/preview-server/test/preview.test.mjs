@@ -22,9 +22,12 @@ const PROJECT = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-preview-test-run-')
 fs.cpSync(SRC_PROJECT, PROJECT, { recursive: true });
 {
   const editPath = path.join(PROJECT, 'edit.json');
-  const migrated = migrateEditToV2(JSON.parse(fs.readFileSync(editPath, 'utf-8')));
-  if (!migrated.ok) throw new Error(`test-project v2 migration failed: ${migrated.blockers.join(' / ')}`);
-  fs.writeFileSync(editPath, JSON.stringify(migrated.doc, null, 2));
+  const edit = JSON.parse(fs.readFileSync(editPath, 'utf-8'));
+  if (edit.version < 2) {
+    const migrated = migrateEditToV2(edit);
+    if (!migrated.ok) throw new Error(`test-project v2 migration failed: ${migrated.blockers.join(' / ')}`);
+    fs.writeFileSync(editPath, JSON.stringify(migrated.doc, null, 2));
+  }
 }
 // ポートは固定しない。固定にすると、別セッションが同じポートで別プロジェクトを
 // 配信していたときにテストがそちらへ接続し、偽の失敗（404 / 422 / 別プロジェクトの
