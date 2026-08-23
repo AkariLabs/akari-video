@@ -1,0 +1,33 @@
+{
+  "checks": [
+    {
+      "ok": true,
+      "msg": "RESIZE zoom=0.59: SE drag scales up, NW corner anchored",
+      "scaleBefore": 1.6355536712810967,
+      "scaleAfter": 2.3007402952074094,
+      "anchorDriftPx": 1.52587890625e-05
+    },
+    {
+      "ok": true,
+      "msg": "DRAG zoom=2: +37.1px maps to logical px (exact or within snap radius onto integer target)",
+      "x0": 774.849491623617,
+      "x1": 844.48000161262,
+      "delta": 69.63050998900292,
+      "expected": 69.63049853372434,
+      "diffCss": 6.103515619315659e-06
+    },
+    {
+      "ok": false,
+      "msg": "RESIZE zoom=2: SE drag scales up, NW corner anchored",
+      "scaleBefore": 2.3007402952074094,
+      "scaleAfter": 2.3007402952074094,
+      "anchorDriftPx": 0
+    }
+  ],
+  "zoom2_retry_with_visible_handle": {
+    "ok": true,
+    "scaleBefore": 0.8177761279841328,
+    "scaleAfter": 1,
+    "anchorDriftPx": 3.814697265625e-05
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "mode": "emulation-viewport",
+  "before": {
+    "rightGap": 8,
+    "bottomGap": 8,
+    "paneW": 373,
+    "paneH": 284,
+    "hidden": false
+  },
+  "after": {
+    "rightGap": 8,
+    "bottomGap": 8,
+    "paneW": 193,
+    "paneH": 216,
+    "hidden": false
+  },
+  "restored": {
+    "rightGap": 8,
+    "bottomGap": 8,
+    "paneW": 373,
+    "paneH": 284,
+    "hidden": false
+  },
+  "ok1": true,
+  "ok2": true
+}

@@ -400,6 +400,35 @@ async function main() {
   assert(popupOpen, 'zoom popup must open after clicking zoom-toggle');
   await screenshot(main, path.join(EVIDENCE_DIR, '02-zoom-popup-open.png'));
 
+  // 59%: 黒を持つ stage 自体が縮み、外側は preview-pane の dark 台紙色 #2b2d30 のまま残る。
+  const zoom059State = await evalActive(`(() => {
+    const slider = document.getElementById('zoom-slider');
+    slider.value = String((Math.log2(0.59) - Math.log2(0.25)) / (Math.log2(8) - Math.log2(0.25)));
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    const plain = rect => ({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height });
+    const pane = document.querySelector('.preview-pane');
+    const stage = document.getElementById('preview-stage');
+    const wrapper = document.getElementById('preview-wrapper');
+    return {
+      pane: plain(pane.getBoundingClientRect()),
+      stage: plain(stage.getBoundingClientRect()),
+      wrapper: plain(wrapper.getBoundingClientRect()),
+      paneBackground: getComputedStyle(pane).backgroundColor,
+      stageBackground: getComputedStyle(stage).backgroundColor,
+      wrapperBackground: getComputedStyle(wrapper).backgroundColor,
+      minimapHidden: document.getElementById('zoom-minimap').hidden,
+      transform: document.getElementById('zoom-layer').style.transform
+    };
+  })()`);
+  record('zoom-059-state', zoom059State);
+  assert(zoom059State.paneBackground === 'rgb(43, 45, 48)', `59% pasteboard must be #2b2d30, got ${zoom059State.paneBackground}`);
+  assert(zoom059State.stageBackground === 'rgb(0, 0, 0)', `stage alone must own #000, got ${zoom059State.stageBackground}`);
+  assert(zoom059State.wrapperBackground === 'rgba(0, 0, 0, 0)', `wrapper must be transparent, got ${zoom059State.wrapperBackground}`);
+  assert(zoom059State.stage.width < zoom059State.wrapper.width * 0.61, '59% stage must shrink inside the pane');
+  assert(zoom059State.minimapHidden === true, 'minimap stays hidden below 100%');
+  await screenshot(main, path.join(EVIDENCE_DIR, '02b-zoom-059-pasteboard.png'));
+  results.criterion5_zoom_059 = zoom059State;
+
   const preset200 = await evalActive(`(() => {
     const el = document.querySelector('.zoom-preset[data-zoom="2"]');
     const r = el.getBoundingClientRect();
@@ -411,15 +440,31 @@ async function main() {
     const layerTransform = document.getElementById('zoom-layer').style.transform;
     const minimapHidden = document.getElementById('zoom-minimap').hidden;
     const vp = document.getElementById('zoom-minimap-viewport');
-    return { layerTransform, minimapHidden, vpWidth: vp.style.width, vpHeight: vp.style.height, vpLeft: vp.style.left, vpTop: vp.style.top };
+    const paneRect = document.querySelector('.preview-pane').getBoundingClientRect();
+    const minimapRect = document.getElementById('zoom-minimap').getBoundingClientRect();
+    const stageRect = document.getElementById('preview-stage').getBoundingClientRect();
+    return {
+      layerTransform, minimapHidden,
+      vpWidth: vp.style.width, vpHeight: vp.style.height, vpLeft: vp.style.left, vpTop: vp.style.top,
+      minimapParent: document.getElementById('zoom-minimap').parentElement.className,
+      minimapRightGap: paneRect.right - minimapRect.right,
+      minimapBottomGap: paneRect.bottom - minimapRect.bottom,
+      pane: { left: paneRect.left, top: paneRect.top, right: paneRect.right, bottom: paneRect.bottom, width: paneRect.width, height: paneRect.height },
+      stage: { left: stageRect.left, top: stageRect.top, right: stageRect.right, bottom: stageRect.bottom, width: stageRect.width, height: stageRect.height }
+    };
   })()`);
   record('zoom-200-state', zoomedState);
   assert(/scale\(2\)/.test(zoomedState.layerTransform), `zoom-layer transform must contain scale(2), got "${zoomedState.layerTransform}"`);
   assert(zoomedState.minimapHidden === false, 'minimap must be visible when zoomed > 1.05');
   const vpWidthPct = parseFloat(zoomedState.vpWidth);
   const vpHeightPct = parseFloat(zoomedState.vpHeight);
-  assert(Math.abs(vpWidthPct - 50) <= 2, `minimap viewport width ${vpWidthPct}% within +-2% of 50%`);
-  assert(Math.abs(vpHeightPct - 50) <= 2, `minimap viewport height ${vpHeightPct}% within +-2% of 50%`);
+  const expectedVpWidthPct = Math.min(100, zoomedState.pane.width / zoomedState.stage.width * 100);
+  const expectedVpHeightPct = Math.min(100, zoomedState.pane.height / zoomedState.stage.height * 100);
+  assert(Math.abs(vpWidthPct - expectedVpWidthPct) <= 0.2, `minimap viewport width ${vpWidthPct}% matches pane/stage ${expectedVpWidthPct}%`);
+  assert(Math.abs(vpHeightPct - expectedVpHeightPct) <= 0.2, `minimap viewport height ${vpHeightPct}% matches pane/stage ${expectedVpHeightPct}%`);
+  assert(zoomedState.minimapParent.includes('preview-pane'), `minimap parent must be preview-pane, got ${zoomedState.minimapParent}`);
+  assert(Math.abs(zoomedState.minimapRightGap - 8) <= 0.5, `minimap right gap ${zoomedState.minimapRightGap}px must be 8px`);
+  assert(Math.abs(zoomedState.minimapBottomGap - 8) <= 0.5, `minimap bottom gap ${zoomedState.minimapBottomGap}px must be 8px`);
   await screenshot(main, path.join(EVIDENCE_DIR, '03-zoom-200-minimap.png'));
 
   // close popup by clicking outside it (on the video area) before dragging
@@ -447,6 +492,44 @@ async function main() {
   assert(vpAfterDrag.left !== vpBeforeDrag.left || vpAfterDrag.top !== vpBeforeDrag.top, 'minimap viewport rect must move after drag pan');
   await screenshot(main, path.join(EVIDENCE_DIR, '04-zoom-200-panned.png'));
 
+  // ペイン実縁基準の 4 隅クランプ + minimap 5 点（中央は vpBeforeDrag）を実測する。
+  const paneRectForCorners = zoomedState.pane;
+  const cornerPlans = [
+    { name: 'top-left', dx: paneRectForCorners.width * 4, dy: paneRectForCorners.height * 4, h: 'left', v: 'top' },
+    { name: 'top-right', dx: -paneRectForCorners.width * 8, dy: 0, h: 'right', v: 'top' },
+    { name: 'bottom-right', dx: 0, dy: -paneRectForCorners.height * 8, h: 'right', v: 'bottom' },
+    { name: 'bottom-left', dx: paneRectForCorners.width * 8, dy: 0, h: 'left', v: 'bottom' }
+  ];
+  const cornerStates = [];
+  for (const plan of cornerPlans) {
+    const start = { x: paneRectForCorners.left + paneRectForCorners.width / 2, y: paneRectForCorners.top + paneRectForCorners.height / 2 };
+    await realDrag(outer, start.x, start.y, start.x + plan.dx, start.y + plan.dy, 12);
+    await sleep(150);
+    const state = await evalActive(`(() => {
+      const plain = rect => ({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height });
+      const pane = plain(document.querySelector('.preview-pane').getBoundingClientRect());
+      const stage = plain(document.getElementById('preview-stage').getBoundingClientRect());
+      const minimap = plain(document.getElementById('zoom-minimap').getBoundingClientRect());
+      const vp = document.getElementById('zoom-minimap-viewport');
+      return {
+        pane, stage,
+        minimapRightGap: pane.right - minimap.right,
+        minimapBottomGap: pane.bottom - minimap.bottom,
+        viewport: { left: parseFloat(vp.style.left), top: parseFloat(vp.style.top), width: parseFloat(vp.style.width), height: parseFloat(vp.style.height) }
+      };
+    })()`);
+    record('pan-corner-' + plan.name, state);
+    if (plan.h === 'left') assert(Math.abs(state.stage.left - state.pane.left) <= 1, `${plan.name}: output left edge reaches pane left edge`);
+    else assert(Math.abs(state.stage.right - state.pane.right) <= 1, `${plan.name}: output right edge reaches pane right edge`);
+    if (plan.v === 'top') assert(Math.abs(state.stage.top - state.pane.top) <= 1, `${plan.name}: output top edge reaches pane top edge`);
+    else assert(Math.abs(state.stage.bottom - state.pane.bottom) <= 1, `${plan.name}: output bottom edge reaches pane bottom edge`);
+    assert(Math.abs(state.minimapRightGap - 8) <= 0.5 && Math.abs(state.minimapBottomGap - 8) <= 0.5,
+      `${plan.name}: minimap remains fixed 8px from pane bottom-right`);
+    cornerStates.push({ name: plan.name, ...state });
+    await screenshot(main, path.join(EVIDENCE_DIR, `04-${plan.name}.png`));
+  }
+  results.criterion5_pan_corners = { center: vpBeforeDrag, corners: cornerStates };
+
   // reset to 100% via popup preset
   await realClick(outer, zoomToggleRect.x, zoomToggleRect.y);
   await sleep(200);
@@ -464,7 +547,7 @@ async function main() {
   })()`);
   record('zoom-reset-100', resetState);
   assert(/scale\(1\)/.test(resetState.layerTransform), `zoom-layer transform must contain scale(1) after reset, got "${resetState.layerTransform}"`);
-  assert(/translate\(0(\.000)?%, 0(\.000)?%\)/.test(resetState.layerTransform), `pan must be 0 after reset, got "${resetState.layerTransform}"`);
+  assert(/translate\(0(\.000)?px, 0(\.000)?px\)/.test(resetState.layerTransform), `pan must be 0 after reset, got "${resetState.layerTransform}"`);
   assert(resetState.minimapHidden === true, 'minimap must hide again at zoom<=1.05');
   results.criterion5_zoom_pan_minimap = { zoomedState, vpBeforeDrag, vpAfterDrag, resetState };
 

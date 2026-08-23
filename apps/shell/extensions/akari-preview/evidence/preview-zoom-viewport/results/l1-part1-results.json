@@ -1,0 +1,644 @@
+{
+  "assertions": [
+    {
+      "ok": true,
+      "message": "A1 pane pasteboard is #2b2d30",
+      "paneBg": "rgb(43, 45, 48)"
+    },
+    {
+      "ok": true,
+      "message": "A2 stage owns #000",
+      "stageBg": "rgb(0, 0, 0)"
+    },
+    {
+      "ok": true,
+      "message": "A3 wrapper transparent",
+      "wrapperBg": "rgba(0, 0, 0, 0)"
+    },
+    {
+      "ok": true,
+      "message": "A4 minimap hidden below 100%"
+    },
+    {
+      "ok": true,
+      "message": "A5 leftGutterOuter pixel is pasteboard #2b2d30 (no black band)",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A6 leftGutterOuter pixel is not #000",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A5 leftGutterInner pixel is pasteboard #2b2d30 (no black band)",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A6 leftGutterInner pixel is not #000",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A5 rightGutterOuter pixel is pasteboard #2b2d30 (no black band)",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A6 rightGutterOuter pixel is not #000",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A5 rightGutterInner pixel is pasteboard #2b2d30 (no black band)",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A6 rightGutterInner pixel is not #000",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A5 topGutterInner pixel is pasteboard #2b2d30 (no black band)",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A6 topGutterInner pixel is not #000",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A5 bottomGutterInner pixel is pasteboard #2b2d30 (no black band)",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A6 bottomGutterInner pixel is not #000",
+      "rgb": [
+        44,
+        45,
+        48
+      ]
+    },
+    {
+      "ok": true,
+      "message": "A7 stage shrunk inside pane",
+      "stage": 201.3592529296875,
+      "pane": 373
+    },
+    {
+      "ok": true,
+      "message": "B1 zoom=1 stage equals legacy contain-fit box size",
+      "stage": {
+        "left": 36,
+        "top": 46.09375,
+        "right": 377,
+        "bottom": 237.90625,
+        "width": 341,
+        "height": 191.8125
+      },
+      "expectW": 341,
+      "expectH": 191.8125
+    },
+    {
+      "ok": true,
+      "message": "B2 zoom=1 stage centered like legacy",
+      "cx": 206.5,
+      "cy": 142,
+      "expCx": 206.5,
+      "expCy": 142
+    },
+    {
+      "ok": true,
+      "message": "B3 zoom=1 transform identity",
+      "transform": "translate(0px, 0px) scale(1)"
+    },
+    {
+      "ok": true,
+      "message": "C1 zoom=2 stage covers pane to its edges",
+      "stage": {
+        "left": -134.5,
+        "top": -49.8125,
+        "right": 547.5,
+        "bottom": 333.8125,
+        "width": 682,
+        "height": 383.625
+      },
+      "pane": {
+        "left": 20,
+        "top": 0,
+        "right": 393,
+        "bottom": 284,
+        "width": 373,
+        "height": 284
+      }
+    },
+    {
+      "ok": true,
+      "message": "C2 minimap visible at zoom=2"
+    },
+    {
+      "ok": true,
+      "message": "C3 minimap 8px from pane bottom-right",
+      "rightGap": 8,
+      "bottomGap": 8
+    },
+    {
+      "ok": true,
+      "message": "C4 minimap viewport size matches pane/stage ratio (center)",
+      "vw": 54.692082111436946,
+      "vh": 73.95833333333334,
+      "left": 22.654,
+      "top": 13.0208,
+      "w": 54.6921,
+      "h": 73.9583
+    },
+    {
+      "ok": true,
+      "message": "C5 top-left: output frame corner reached (stage edge meets pane edge)",
+      "hEdge": 0,
+      "vEdge": 0.1875
+    },
+    {
+      "ok": true,
+      "message": "C6 top-left: minimap stays fixed at pane bottom-right"
+    },
+    {
+      "ok": true,
+      "message": "C7 top-left: minimap viewport rect follows pan",
+      "vpNow": {
+        "left": 0,
+        "top": 0,
+        "w": 54.6921,
+        "h": 73.9583
+      },
+      "expL": 0,
+      "expT": 0
+    },
+    {
+      "ok": true,
+      "message": "C8 top-left: pane corner shows video content, not pasteboard",
+      "rgb": [
+        95,
+        15,
+        8
+      ]
+    },
+    {
+      "ok": true,
+      "message": "C5 top-right: output frame corner reached (stage edge meets pane edge)",
+      "hEdge": 0,
+      "vEdge": 0.1875
+    },
+    {
+      "ok": true,
+      "message": "C6 top-right: minimap stays fixed at pane bottom-right"
+    },
+    {
+      "ok": true,
+      "message": "C7 top-right: minimap viewport rect follows pan",
+      "vpNow": {
+        "left": 45.3079,
+        "top": 0,
+        "w": 54.6921,
+        "h": 73.9583
+      },
+      "expL": 45.30791788856305,
+      "expT": 0
+    },
+    {
+      "ok": true,
+      "message": "C8 top-right: pane corner shows video content, not pasteboard",
+      "rgb": [
+        107,
+        231,
+        252
+      ]
+    },
+    {
+      "ok": true,
+      "message": "C5 bottom-right: output frame corner reached (stage edge meets pane edge)",
+      "hEdge": 0,
+      "vEdge": 0.1875
+    },
+    {
+      "ok": true,
+      "message": "C6 bottom-right: minimap stays fixed at pane bottom-right"
+    },
+    {
+      "ok": true,
+      "message": "C7 bottom-right: minimap viewport rect follows pan",
+      "vpNow": {
+        "left": 45.3079,
+        "top": 26.0417,
+        "w": 54.6921,
+        "h": 73.9583
+      },
+      "expL": 45.30791788856305,
+      "expT": 26.01824698598892
+    },
+    {
+      "ok": true,
+      "message": "C8 bottom-right: pane corner shows video content, not pasteboard",
+      "rgb": [
+        104,
+        225,
+        172
+      ]
+    },
+    {
+      "ok": true,
+      "message": "C5 bottom-left: output frame corner reached (stage edge meets pane edge)",
+      "hEdge": 0,
+      "vEdge": 0.1875
+    },
+    {
+      "ok": true,
+      "message": "C6 bottom-left: minimap stays fixed at pane bottom-right"
+    },
+    {
+      "ok": true,
+      "message": "C7 bottom-left: minimap viewport rect follows pan",
+      "vpNow": {
+        "left": 0,
+        "top": 26.0417,
+        "w": 54.6921,
+        "h": 73.9583
+      },
+      "expL": 0,
+      "expT": 26.01824698598892
+    },
+    {
+      "ok": true,
+      "message": "C8 bottom-left: pane corner shows video content, not pasteboard",
+      "rgb": [
+        234,
+        58,
+        36
+      ]
+    }
+  ],
+  "s059": {
+    "pane": {
+      "left": 20,
+      "top": 0,
+      "right": 393,
+      "bottom": 284,
+      "width": 373,
+      "height": 284
+    },
+    "padding": {
+      "l": 16,
+      "t": 16,
+      "r": 16,
+      "b": 16
+    },
+    "stage": {
+      "left": 105.82038116455078,
+      "top": 85.36771392822266,
+      "right": 307.1796340942383,
+      "bottom": 198.63229370117188,
+      "width": 201.3592529296875,
+      "height": 113.26457977294922
+    },
+    "minimap": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "width": 0,
+      "height": 0
+    },
+    "minimapHidden": true,
+    "vpStyle": {
+      "left": "",
+      "top": "",
+      "width": "",
+      "height": ""
+    },
+    "paneBg": "rgb(43, 45, 48)",
+    "stageBg": "rgb(0, 0, 0)",
+    "wrapperBg": "rgba(0, 0, 0, 0)",
+    "transform": "translate(0px, 0px) scale(0.590496)",
+    "paneClient": {
+      "w": 373,
+      "h": 284
+    }
+  },
+  "px059": {
+    "leftGutterOuter": [
+      44,
+      45,
+      48
+    ],
+    "leftGutterInner": [
+      44,
+      45,
+      48
+    ],
+    "rightGutterOuter": [
+      44,
+      45,
+      48
+    ],
+    "rightGutterInner": [
+      44,
+      45,
+      48
+    ],
+    "topGutterInner": [
+      44,
+      45,
+      48
+    ],
+    "bottomGutterInner": [
+      44,
+      45,
+      48
+    ],
+    "stageCenter": [
+      29,
+      37,
+      150
+    ]
+  },
+  "s100": {
+    "pane": {
+      "left": 20,
+      "top": 0,
+      "right": 393,
+      "bottom": 284,
+      "width": 373,
+      "height": 284
+    },
+    "padding": {
+      "l": 16,
+      "t": 16,
+      "r": 16,
+      "b": 16
+    },
+    "stage": {
+      "left": 36,
+      "top": 46.09375,
+      "right": 377,
+      "bottom": 237.90625,
+      "width": 341,
+      "height": 191.8125
+    },
+    "minimap": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "width": 0,
+      "height": 0
+    },
+    "minimapHidden": true,
+    "vpStyle": {
+      "left": "",
+      "top": "",
+      "width": "",
+      "height": ""
+    },
+    "paneBg": "rgb(43, 45, 48)",
+    "stageBg": "rgb(0, 0, 0)",
+    "wrapperBg": "rgba(0, 0, 0, 0)",
+    "transform": "translate(0px, 0px) scale(1)",
+    "paneClient": {
+      "w": 373,
+      "h": 284
+    }
+  },
+  "s200": {
+    "pane": {
+      "left": 20,
+      "top": 0,
+      "right": 393,
+      "bottom": 284,
+      "width": 373,
+      "height": 284
+    },
+    "padding": {
+      "l": 16,
+      "t": 16,
+      "r": 16,
+      "b": 16
+    },
+    "stage": {
+      "left": -134.5,
+      "top": -49.8125,
+      "right": 547.5,
+      "bottom": 333.8125,
+      "width": 682,
+      "height": 383.625
+    },
+    "minimap": {
+      "left": 321,
+      "top": 240,
+      "right": 385,
+      "bottom": 276,
+      "width": 64,
+      "height": 36
+    },
+    "minimapHidden": false,
+    "vpStyle": {
+      "left": "22.654%",
+      "top": "13.0208%",
+      "width": "54.6921%",
+      "height": "73.9583%"
+    },
+    "paneBg": "rgb(43, 45, 48)",
+    "stageBg": "rgb(0, 0, 0)",
+    "wrapperBg": "rgba(0, 0, 0, 0)",
+    "transform": "translate(0px, 0px) scale(2)",
+    "paneClient": {
+      "w": 373,
+      "h": 284
+    }
+  },
+  "vpCenter": {
+    "vw": 54.692082111436946,
+    "vh": 73.95833333333334,
+    "left": 22.654,
+    "top": 13.0208,
+    "w": 54.6921,
+    "h": 73.9583
+  },
+  "corners": [
+    {
+      "plan": "top-left",
+      "stage": {
+        "left": 20,
+        "top": 0.1875,
+        "right": 702,
+        "bottom": 383.8125,
+        "width": 682,
+        "height": 383.625
+      },
+      "pane": {
+        "left": 20,
+        "top": 0,
+        "right": 393,
+        "bottom": 284,
+        "width": 373,
+        "height": 284
+      },
+      "vpNow": {
+        "left": 0,
+        "top": 0,
+        "w": 54.6921,
+        "h": 73.9583
+      },
+      "expL": 0,
+      "expT": 0,
+      "cornerPixel": [
+        95,
+        15,
+        8
+      ]
+    },
+    {
+      "plan": "top-right",
+      "stage": {
+        "left": -289,
+        "top": 0.1875,
+        "right": 393,
+        "bottom": 383.8125,
+        "width": 682,
+        "height": 383.625
+      },
+      "pane": {
+        "left": 20,
+        "top": 0,
+        "right": 393,
+        "bottom": 284,
+        "width": 373,
+        "height": 284
+      },
+      "vpNow": {
+        "left": 45.3079,
+        "top": 0,
+        "w": 54.6921,
+        "h": 73.9583
+      },
+      "expL": 45.30791788856305,
+      "expT": 0,
+      "cornerPixel": [
+        107,
+        231,
+        252
+      ]
+    },
+    {
+      "plan": "bottom-right",
+      "stage": {
+        "left": -289,
+        "top": -99.8125,
+        "right": 393,
+        "bottom": 283.8125,
+        "width": 682,
+        "height": 383.625
+      },
+      "pane": {
+        "left": 20,
+        "top": 0,
+        "right": 393,
+        "bottom": 284,
+        "width": 373,
+        "height": 284
+      },
+      "vpNow": {
+        "left": 45.3079,
+        "top": 26.0417,
+        "w": 54.6921,
+        "h": 73.9583
+      },
+      "expL": 45.30791788856305,
+      "expT": 26.01824698598892,
+      "cornerPixel": [
+        104,
+        225,
+        172
+      ]
+    },
+    {
+      "plan": "bottom-left",
+      "stage": {
+        "left": 20,
+        "top": -99.8125,
+        "right": 702,
+        "bottom": 283.8125,
+        "width": 682,
+        "height": 383.625
+      },
+      "pane": {
+        "left": 20,
+        "top": 0,
+        "right": 393,
+        "bottom": 284,
+        "width": 373,
+        "height": 284
+      },
+      "vpNow": {
+        "left": 0,
+        "top": 26.0417,
+        "w": 54.6921,
+        "h": 73.9583
+      },
+      "expL": 0,
+      "expT": 26.01824698598892,
+      "cornerPixel": [
+        234,
+        58,
+        36
+      ]
+    }
+  ]
+}

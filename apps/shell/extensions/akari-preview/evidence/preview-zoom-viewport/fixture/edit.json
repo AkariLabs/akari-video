@@ -1,0 +1,14 @@
+{
+  "source": { "path": "sample.mp4" },
+  "output": { "width": 1280, "height": 720, "fps": 24 },
+  "overlays": [
+    {
+      "id": "cap-a",
+      "html": "overlays/cap-a.html",
+      "start": 0,
+      "duration": 20,
+      "transform": { "x": 120, "y": 100, "scale": 1, "rotate": 0 },
+      "vars": { "--color": "#ffcc00" }
+    }
+  ]
+}

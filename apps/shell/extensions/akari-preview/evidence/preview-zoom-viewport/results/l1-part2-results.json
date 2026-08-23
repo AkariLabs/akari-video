@@ -1,0 +1,145 @@
+{
+  "assertions": [
+    {
+      "ok": true,
+      "message": "E0 zoom=0.59: overlay reset to x=120 reflected live"
+    },
+    {
+      "ok": false,
+      "message": "E1 zoom=0.59: overlay drag +30px maps to logical px (no coordinate drift)",
+      "movedX": 340.0000848724035,
+      "expectedX": 310.7039256517746,
+      "displayScale": 0.15731191635131836
+    },
+    {
+      "ok": true,
+      "message": "E2 zoom=0.59: drag persisted to edit.json",
+      "persisted": 340.0000848724035,
+      "movedX": 340.0000848724035
+    },
+    {
+      "ok": true,
+      "message": "E3 zoom=0.59: selection handles present"
+    },
+    {
+      "ok": false,
+      "message": "E4 zoom=0.59: SE resize scales up, opposite corner anchored",
+      "scale": 0.9999993937689146,
+      "anchorDriftPx": 0
+    },
+    {
+      "ok": true,
+      "message": "E5 zoom=0.59: double-click enters text editing",
+      "editing": "true"
+    },
+    {
+      "ok": false,
+      "message": "E0 zoom=1: overlay reset to x=120 reflected live"
+    },
+    {
+      "ok": false,
+      "message": "E1 zoom=1: overlay drag +30px maps to logical px (no coordinate drift)",
+      "movedX": 452.60974030669644,
+      "expectedX": 232.60997067448682,
+      "displayScale": 0.26640625
+    },
+    {
+      "ok": true,
+      "message": "E2 zoom=1: drag persisted to edit.json",
+      "persisted": 452.60974030669644,
+      "movedX": 452.60974030669644
+    },
+    {
+      "ok": true,
+      "message": "E3 zoom=1: selection handles present"
+    },
+    {
+      "ok": true,
+      "message": "E4 zoom=1: SE resize scales up, opposite corner anchored",
+      "scale": 1.0000001097240763,
+      "anchorDriftPx": 0.00000762939453125
+    },
+    {
+      "ok": true,
+      "message": "E5 zoom=1: double-click enters text editing",
+      "editing": "true"
+    },
+    {
+      "ok": false,
+      "message": "E0 zoom=2: overlay reset to x=120 reflected live"
+    },
+    {
+      "ok": false,
+      "message": "E1 zoom=2: overlay drag +30px maps to logical px (no coordinate drift)",
+      "movedX": 520.0001419289134,
+      "expectedX": 176.3049853372434,
+      "displayScale": 0.5328125
+    },
+    {
+      "ok": true,
+      "message": "E2 zoom=2: drag persisted to edit.json",
+      "persisted": 520.0001419289134,
+      "movedX": 520.0001419289134
+    },
+    {
+      "ok": true,
+      "message": "E3 zoom=2: selection handles present"
+    },
+    {
+      "ok": true,
+      "message": "E4 zoom=2: SE resize scales up, opposite corner anchored",
+      "scale": 1.0000001097240763,
+      "anchorDriftPx": 0
+    },
+    {
+      "ok": true,
+      "message": "E5 zoom=2: double-click enters text editing",
+      "editing": "true"
+    },
+    {
+      "ok": false,
+      "message": "D1 window resize: Browser.setWindowBounds unavailable"
+    }
+  ],
+  "interactions": [
+    {
+      "zoom": 0.59,
+      "geom": {
+        "displayScale": 0.15731191635131836,
+        "frag": {
+          "x": 171.8913803100586,
+          "y": 126.26880645751953,
+          "w": 56.63227844238281
+        }
+      },
+      "movedX": 340.0000848724035,
+      "expectedX": 310.7039256517746
+    },
+    {
+      "zoom": 1,
+      "geom": {
+        "displayScale": 0.26640625,
+        "frag": {
+          "x": 206.4999771118164,
+          "y": 126.0156021118164,
+          "w": 95.90620422363281
+        }
+      },
+      "movedX": 452.60974030669644,
+      "expectedX": 232.60997067448682
+    },
+    {
+      "zoom": 2,
+      "geom": {
+        "displayScale": 0.5328125,
+        "frag": {
+          "x": 266.5000457763672,
+          "y": 110.0312728881836,
+          "w": 191.81253051757812
+        }
+      },
+      "movedX": 520.0001419289134,
+      "expectedX": 176.3049853372434
+    }
+  ]
+}
