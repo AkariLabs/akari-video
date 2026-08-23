@@ -1,0 +1,49 @@
+{
+  "phase": "instance-2",
+  "log": [
+    {
+      "at": "2026-08-23T23:41:42.425Z",
+      "step": "project-prompt",
+      "dismissed": false
+    },
+    {
+      "at": "2026-08-23T23:41:42.951Z",
+      "step": "developer-mode",
+      "skipped": "tree already visible"
+    },
+    {
+      "at": "2026-08-23T23:41:42.963Z",
+      "step": "assert-ok",
+      "message": "file explorer tree became visible"
+    },
+    {
+      "at": "2026-08-23T23:41:58.352Z",
+      "step": "connected-webview",
+      "captionCount": 1
+    },
+    {
+      "at": "2026-08-23T23:42:00.219Z",
+      "step": "assert-ok",
+      "message": "restart: edited text persists at t=1.0",
+      "currentTime": 1,
+      "plateText": "編集後の字幕テスト"
+    },
+    {
+      "at": "2026-08-23T23:42:00.867Z",
+      "step": "assert-ok",
+      "message": "restart: blank-deleted cue stays gone at t=2.8",
+      "currentTime": 2.8,
+      "plateText": ""
+    },
+    {
+      "at": "2026-08-23T23:42:01.040Z",
+      "step": "assert-ok",
+      "message": "restart: captions.json still holds the single edited cue",
+      "cues": 1
+    },
+    {
+      "at": "2026-08-23T23:42:02.035Z",
+      "step": "instance-2-complete"
+    }
+  ]
+}

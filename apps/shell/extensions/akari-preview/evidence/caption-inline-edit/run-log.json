@@ -1,0 +1,247 @@
+{
+  "phase": "instance-1",
+  "log": [
+    {
+      "at": "2026-08-23T23:38:25.897Z",
+      "step": "connected-main"
+    },
+    {
+      "at": "2026-08-23T23:38:26.464Z",
+      "step": "screenshot",
+      "name": "00-boot.png"
+    },
+    {
+      "at": "2026-08-23T23:38:26.760Z",
+      "step": "project-prompt",
+      "dismissed": true
+    },
+    {
+      "at": "2026-08-23T23:38:30.118Z",
+      "step": "developer-mode",
+      "checkedBefore": false,
+      "checkedNow": true
+    },
+    {
+      "at": "2026-08-23T23:38:30.119Z",
+      "step": "assert-ok",
+      "message": "developer mode enabled",
+      "checkedNow": true
+    },
+    {
+      "at": "2026-08-23T23:38:32.537Z",
+      "step": "assert-ok",
+      "message": "file explorer tree became visible"
+    },
+    {
+      "at": "2026-08-23T23:38:36.113Z",
+      "step": "preview-open-requested"
+    },
+    {
+      "at": "2026-08-23T23:38:47.780Z",
+      "step": "connected-webview",
+      "captionCount": 2
+    },
+    {
+      "at": "2026-08-23T23:38:50.215Z",
+      "step": "assert-ok",
+      "message": "baseline caption shows original text at t=1.0",
+      "currentTime": 1,
+      "plateText": "こんにちは世界"
+    },
+    {
+      "at": "2026-08-23T23:38:50.965Z",
+      "step": "assert-ok",
+      "message": "second cue shows at t=2.8 (timing baseline)",
+      "currentTime": 2.8,
+      "plateText": "触らない字幕"
+    },
+    {
+      "at": "2026-08-23T23:38:51.578Z",
+      "step": "screenshot",
+      "name": "01-preview-baseline.png"
+    },
+    {
+      "at": "2026-08-23T23:38:52.120Z",
+      "step": "assert-ok",
+      "message": "playback started before dblclick",
+      "paused": false
+    },
+    {
+      "at": "2026-08-23T23:38:52.788Z",
+      "step": "assert-ok",
+      "message": "dblclick during playback enters contenteditable edit",
+      "editing": true,
+      "contentEditable": "true",
+      "editText": "こんにちは世界",
+      "focused": true,
+      "videoPaused": true,
+      "plateText": "こんにちは世界"
+    },
+    {
+      "at": "2026-08-23T23:38:52.788Z",
+      "step": "assert-ok",
+      "message": "beginCaptionEdit pauses playback",
+      "editing": true,
+      "contentEditable": "true",
+      "editText": "こんにちは世界",
+      "focused": true,
+      "videoPaused": true,
+      "plateText": "こんにちは世界"
+    },
+    {
+      "at": "2026-08-23T23:38:52.788Z",
+      "step": "assert-ok",
+      "message": "editing element receives focus",
+      "editing": true,
+      "contentEditable": "true",
+      "editText": "こんにちは世界",
+      "focused": true,
+      "videoPaused": true,
+      "plateText": "こんにちは世界"
+    },
+    {
+      "at": "2026-08-23T23:38:58.138Z",
+      "step": "screenshot",
+      "name": "02-editing-active.png"
+    },
+    {
+      "at": "2026-08-23T23:38:58.893Z",
+      "step": "assert-ok",
+      "message": "Escape leaves edit mode",
+      "editing": false,
+      "contentEditable": null,
+      "editText": null,
+      "focused": false,
+      "videoPaused": true,
+      "plateText": "こんにちは世界"
+    },
+    {
+      "at": "2026-08-23T23:38:59.098Z",
+      "step": "assert-ok",
+      "message": "Escape restores original caption text",
+      "currentTime": 1,
+      "plateText": "こんにちは世界"
+    },
+    {
+      "at": "2026-08-23T23:38:59.721Z",
+      "step": "assert-ok",
+      "message": "captions.json is byte-identical after Escape cancel"
+    },
+    {
+      "at": "2026-08-23T23:39:00.311Z",
+      "step": "screenshot",
+      "name": "03-after-escape.png"
+    },
+    {
+      "at": "2026-08-23T23:39:01.624Z",
+      "step": "assert-ok",
+      "message": "seek to another cue window keeps the in-progress edit",
+      "editing": true,
+      "contentEditable": "true",
+      "editText": "ガード確認",
+      "focused": true,
+      "videoPaused": true,
+      "plateText": "ガード確認"
+    },
+    {
+      "at": "2026-08-23T23:39:02.193Z",
+      "step": "assert-ok",
+      "message": "cancel after seek rerenders the cue for the current time",
+      "currentTime": 2.8,
+      "plateText": "触らない字幕"
+    },
+    {
+      "at": "2026-08-23T23:39:02.329Z",
+      "step": "assert-ok",
+      "message": "captions.json untouched by guarded edit + cancel"
+    },
+    {
+      "at": "2026-08-23T23:39:06.653Z",
+      "step": "assert-ok",
+      "message": "commit changes ONLY c-0001.text (timing/zone/other cue byte-identical)",
+      "expectedBytes": "[\n  {\n    \"id\": \"c-0001\",\n    \"start\": 0.3,\n    \"end\": 2,\n    \"text\": \"編集後の字幕テスト\",\n    \"speaker\": null,\n    \"sourceRef\": null,\n    \"edited\": false,\n    \"src\": \"a\",\n    \"text_style\": {\n      \"color\": \"#ffffff\",\n      \"zone\": \"bottom\"\n    }\n  },\n  {\n    \"id\": \"c-0002\",\n    \"start\": 2.2,\n    \"end\": 3.5,\n    \"text\": \"触らない字幕\",\n    \"speaker\": null,\n    \"sourceRef\": null,\n    \"edited\": false,\n    \"src\": \"a\"\n  }\n]\n",
+      "actualBytes": "[\n  {\n    \"id\": \"c-0001\",\n    \"start\": 0.3,\n    \"end\": 2,\n    \"text\": \"編集後の字幕テスト\",\n    \"speaker\": null,\n    \"sourceRef\": null,\n    \"edited\": false,\n    \"src\": \"a\",\n    \"text_style\": {\n      \"color\": \"#ffffff\",\n      \"zone\": \"bottom\"\n    }\n  },\n  {\n    \"id\": \"c-0002\",\n    \"start\": 2.2,\n    \"end\": 3.5,\n    \"text\": \"触らない字幕\",\n    \"speaker\": null,\n    \"sourceRef\": null,\n    \"edited\": false,\n    \"src\": \"a\"\n  }\n]\n"
+    },
+    {
+      "at": "2026-08-23T23:39:07.679Z",
+      "step": "assert-ok",
+      "message": "plate shows edited text after commit",
+      "currentTime": 1,
+      "plateText": "編集後の字幕テスト"
+    },
+    {
+      "at": "2026-08-23T23:39:08.231Z",
+      "step": "screenshot",
+      "name": "04-after-commit.png"
+    },
+    {
+      "at": "2026-08-23T23:39:09.177Z",
+      "step": "assert-ok",
+      "message": "zone write still succeeds after text patch support",
+      "ok": true
+    },
+    {
+      "at": "2026-08-23T23:39:09.195Z",
+      "step": "assert-ok",
+      "message": "zone write updates zone only, edited text preserved",
+      "cue": {
+        "id": "c-0001",
+        "start": 0.3,
+        "end": 2,
+        "text": "編集後の字幕テスト",
+        "speaker": null,
+        "sourceRef": null,
+        "edited": false,
+        "src": "a",
+        "text_style": {
+          "color": "#ffffff",
+          "zone": "top"
+        }
+      }
+    },
+    {
+      "at": "2026-08-23T23:39:10.556Z",
+      "step": "assert-ok",
+      "message": "zone write back to bottom succeeds",
+      "ok": true
+    },
+    {
+      "at": "2026-08-23T23:39:10.666Z",
+      "step": "assert-ok",
+      "message": "zone round-trip returns to the committed bytes"
+    },
+    {
+      "at": "2026-08-23T23:39:12.133Z",
+      "step": "assert-ok",
+      "message": "dblclick on second cue enters edit",
+      "editing": true,
+      "contentEditable": "true",
+      "editText": "触らない字幕",
+      "focused": true,
+      "videoPaused": true,
+      "plateText": "触らない字幕"
+    },
+    {
+      "at": "2026-08-23T23:39:13.177Z",
+      "step": "assert-ok",
+      "message": "blank commit removes only that cue",
+      "cues": 1
+    },
+    {
+      "at": "2026-08-23T23:39:14.324Z",
+      "step": "assert-ok",
+      "message": "plate is empty where the deleted cue used to be",
+      "currentTime": 2.8,
+      "plateText": ""
+    },
+    {
+      "at": "2026-08-23T23:39:18.299Z",
+      "step": "screenshot",
+      "name": "05-after-blank-delete.png"
+    },
+    {
+      "at": "2026-08-23T23:39:18.305Z",
+      "step": "instance-1-complete"
+    }
+  ]
+}
