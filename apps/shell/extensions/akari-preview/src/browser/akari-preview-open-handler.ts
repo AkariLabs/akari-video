@@ -22,6 +22,7 @@ import {
     resolvePreviewItemWrite,
     TimelineSegment
 } from '@akari-video/edit-store';
+import type { EditV2 } from '@akari-video/edit-store';
 import {
     AkariPreviewService,
     OverlayRuntimeAssets,
@@ -78,6 +79,10 @@ import {
     readLegacyEditEmphasisWords,
     resolvePreviewEmphasisWords
 } from '../common/preview-emphasis-seat';
+import {
+    compactVisualTracks,
+    trackCompactionProposalAfterMigration
+} from '../common/track-compact';
 import { editReferencesRawMedia } from '../common/related-edit-source';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
 import {
@@ -630,6 +635,9 @@ const ATTACH_TIMELINE_PASSIVE_COMMAND_ID = 'akari.annotations.attachPassive';
 const ENSURE_PREVIEW_VISIBLE_COMMAND: Command = { id: 'akari.preview.ensureVisible' };
 const SEEK_OUTPUT_PREVIEW_COMMAND: Command = { id: 'akari.preview.seekOutput' };
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND: Command = { id: 'akari.preview.togglePlayback' };
+const COMPACT_TRACKS_COMMAND: Command = { id: 'akari.preview.compactTracks' };
+const COMPACT_TRACKS_ACTION = '整理する';
+const KEEP_TRACKS_ACTION = '今はしない';
 // task/2026-08-09-drop-hevc-proxy: withOpenTimeout はモデル読み込み・createVideoStream・
 // setHTML だけを包む（webview 自体の起動・レンダリングは待たない — setHTML が返れば operation は
 // 完了扱い）。resolveStreamVideoUri がもう resolveHevcProxy を呼ばなくなった今、この区間に
@@ -655,6 +663,10 @@ interface SeekOutputRequest {
 }
 
 interface TogglePlaybackRequest {
+    editUri?: string;
+}
+
+interface CompactTracksRequest {
     editUri?: string;
 }
 
@@ -783,6 +795,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
+    protected readonly lastRawEditVersionByUri = new Map<string, 0 | 1 | 2>();
+    protected readonly migrationCompactionPrompted = new Set<string>();
     // task/2026-08-09-drop-hevc-proxy: 実際に再生失敗した動画（videoUri.toString() をキー）だけを
     // 憶えておくフォールバック台帳。既定経路（resolveStreamVideoUri）はここに載っている場合だけ
     // プロキシを使う。新規生成のトリガーは handleHevcFallbackRequest のみ（このプロセスの生存中は
@@ -866,6 +880,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerEnsureVisibleCommand();
         this.registerOutputSeekCommand();
         this.registerTogglePlaybackCommand();
+        this.registerCompactTracksCommand();
         const onTimelineOverlaySelected = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; overlayId?: string | null }>).detail;
             if (!detail?.editUri || (typeof detail.overlayId !== 'string' && detail.overlayId !== null)) {
@@ -1615,6 +1630,65 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.commandRegistry.registerCommand(TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND, {
             execute: (request?: TogglePlaybackRequest) => this.toggleOutputPreviewPlayback(request)
         });
+    }
+
+    protected registerCompactTracksCommand(): void {
+        this.commandRegistry.registerCommand(COMPACT_TRACKS_COMMAND, {
+            execute: (request?: CompactTracksRequest) => this.compactTracks(request)
+        });
+    }
+
+    protected async compactTracks(
+        request: CompactTracksRequest | undefined
+    ): Promise<'compacted' | 'unchanged' | 'unavailable'> {
+        if (!request?.editUri) {
+            return 'unavailable';
+        }
+        const editUri = new URI(request.editUri).normalizePath();
+        if (!(await this.isInsideWorkspace(editUri))) {
+            return 'unavailable';
+        }
+        const originalText = await this.readText(editUri);
+        const parsed = JSON.parse(originalText) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+            || (parsed as { version?: unknown }).version !== 2) {
+            return 'unavailable';
+        }
+        const compacted = compactVisualTracks(parsed as EditV2);
+        if (!compacted.changed) {
+            return 'unchanged';
+        }
+        const candidateText = `${JSON.stringify(compacted.edit, null, 2)}\n`;
+        const lintResult = await this.previewService.lintEditCandidate({
+            editUri: editUri.toString(),
+            candidateText
+        });
+        if (!lintResult.pass) {
+            throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+        }
+        this.markRecentWrite(editUri);
+        await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+        return 'compacted';
+    }
+
+    protected async offerTrackCompaction(
+        editUri: URI,
+        beforeTrackCount: number,
+        afterTrackCount: number
+    ): Promise<void> {
+        const choice = await this.messages.info(
+            `トラックを ${beforeTrackCount} 本 → ${afterTrackCount} 本に整理できます。整理しますか？`,
+            COMPACT_TRACKS_ACTION,
+            KEEP_TRACKS_ACTION
+        );
+        if (choice !== COMPACT_TRACKS_ACTION) {
+            return;
+        }
+        try {
+            await this.compactTracks({ editUri: editUri.toString() });
+        } catch (error) {
+            this.messages.error(`トラックを整理できませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
     protected async toggleOutputPreviewPlayback(
@@ -2855,6 +2929,28 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const rawVersion = rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
                 ? (rawEdit as { version?: unknown }).version
                 : undefined;
+            const editKey = editUri.normalizePath().toString();
+            const previousRawVersion = this.lastRawEditVersionByUri.get(editKey);
+            if (rawVersion === 0 || rawVersion === 1 || rawVersion === 2) {
+                this.lastRawEditVersionByUri.set(editKey, rawVersion);
+            }
+            const migrationTransition = (previousRawVersion === 0 || previousRawVersion === 1)
+                && rawVersion === 2;
+            if (migrationTransition && !this.migrationCompactionPrompted.has(editKey)) {
+                this.migrationCompactionPrompted.add(editKey);
+                const proposal = trackCompactionProposalAfterMigration(previousRawVersion, rawEdit);
+                if (proposal) {
+                    // MessageService をモデル読込の await 鎖へ入れるとシェル起動を止め得る。
+                    // 移行後の書き込み通知を消費した次の macrotask で、一度だけ非同期に提案する。
+                    window.setTimeout(() => {
+                        void this.offerTrackCompaction(
+                            editUri,
+                            proposal.beforeTrackCount,
+                            proposal.afterTrackCount
+                        );
+                    }, 0);
+                }
+            }
             // audio には projectLegacyAudioView があるが emphasisWords の共有射影は無い。
             // 凍結 migration 前の v0/v1 生 JSON から旧席だけを退避し、後方互換入力にする。
             legacyEmphasisWords = readLegacyEditEmphasisWords(rawEdit);
