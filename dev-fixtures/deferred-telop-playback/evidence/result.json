@@ -1,0 +1,559 @@
+{
+  "project": "copied-project",
+  "telopExtended": false,
+  "output": {
+    "width": 640,
+    "height": 360,
+    "fps": 10
+  },
+  "telopBakeFrames": 30,
+  "telopWindow": {
+    "id": "telop-chapter",
+    "start": 1,
+    "end": 4
+  },
+  "timelineDuration": 11,
+  "cutBoundaries": [
+    6
+  ],
+  "passes": {
+    "pass1": {
+      "label": "開いた直後に即再生",
+      "sampleCount": 561,
+      "minTimelineT": 0,
+      "maxTimelineT": 11,
+      "crossedCutBoundaries": [
+        6
+      ],
+      "marks": [
+        {
+          "label": "play-click",
+          "now": 2765,
+          "t": 0,
+          "ms": 1
+        }
+      ],
+      "telopWindow": {
+        "id": "telop-chapter",
+        "start": 1,
+        "end": 4
+      },
+      "bakeReadyMs": null,
+      "bakeReadyAtTimelineT": null,
+      "firstVisibleMs": null,
+      "firstVisibleAtTimelineT": null,
+      "readyToVisibleMs": null,
+      "visibleWhilePlaying": false,
+      "placeholderSeenWhileBaking": 165,
+      "placeholderText": "テロップを準備中…",
+      "placeholderStates": [
+        "inactive",
+        "baking"
+      ],
+      "placeholderFramesAfterReadyInWindow": 0,
+      "visibleFramesInWindow": 0,
+      "framesInWindow": 165,
+      "blankFramesInWindow": 0,
+      "blankFramesInWindowAfterReady": 0,
+      "maxTimelineBackJumpSec": 0,
+      "maxTelopClockDriftSec": null,
+      "playbackRates": []
+    },
+    "pass1b": {
+      "label": "焼き上がりの瞬間（区間内で再生継続）",
+      "sampleCount": 4622,
+      "minTimelineT": 1.05,
+      "maxTimelineT": 4.228,
+      "crossedCutBoundaries": [],
+      "marks": [
+        {
+          "label": "play-click",
+          "now": 16352,
+          "t": 1.05,
+          "ms": 40
+        },
+        {
+          "label": "loop-seek",
+          "now": 19069,
+          "t": 3.761,
+          "ms": 2757
+        },
+        {
+          "label": "loop-seek",
+          "now": 21935,
+          "t": 3.843,
+          "ms": 5623
+        },
+        {
+          "label": "loop-seek",
+          "now": 24737,
+          "t": 3.737,
+          "ms": 8425
+        },
+        {
+          "label": "loop-seek",
+          "now": 27495,
+          "t": 3.741,
+          "ms": 11183
+        },
+        {
+          "label": "loop-seek",
+          "now": 30293,
+          "t": 3.771,
+          "ms": 13981
+        },
+        {
+          "label": "loop-seek",
+          "now": 33110,
+          "t": 3.774,
+          "ms": 16798
+        },
+        {
+          "label": "loop-seek",
+          "now": 35852,
+          "t": 3.73,
+          "ms": 19540
+        },
+        {
+          "label": "loop-seek",
+          "now": 38676,
+          "t": 3.791,
+          "ms": 22364
+        },
+        {
+          "label": "loop-seek",
+          "now": 41467,
+          "t": 3.753,
+          "ms": 25155
+        },
+        {
+          "label": "loop-seek",
+          "now": 44250,
+          "t": 3.771,
+          "ms": 27938
+        },
+        {
+          "label": "loop-seek",
+          "now": 46987,
+          "t": 3.711,
+          "ms": 30675
+        },
+        {
+          "label": "loop-seek",
+          "now": 49753,
+          "t": 3.734,
+          "ms": 33441
+        },
+        {
+          "label": "loop-seek",
+          "now": 52551,
+          "t": 3.785,
+          "ms": 36239
+        }
+      ],
+      "telopWindow": {
+        "id": "telop-chapter",
+        "start": 1,
+        "end": 4
+      },
+      "bakeReadyMs": 36887,
+      "bakeReadyAtTimelineT": 1.643,
+      "firstVisibleMs": 36954,
+      "firstVisibleAtTimelineT": 1.714,
+      "readyToVisibleMs": 67,
+      "visibleWhilePlaying": true,
+      "placeholderSeenWhileBaking": 4422,
+      "placeholderText": "テロップを準備中…",
+      "placeholderStates": [
+        "baking",
+        "loading",
+        "ready",
+        "inactive"
+      ],
+      "placeholderFramesAfterReadyInWindow": 0,
+      "visibleFramesInWindow": 168,
+      "framesInWindow": 4594,
+      "blankFramesInWindow": 4,
+      "blankFramesInWindowAfterReady": 4,
+      "maxTimelineBackJumpSec": 2.777,
+      "maxTelopClockDriftSec": 0.056,
+      "playbackRates": [
+        1.001,
+        1.002,
+        1.003
+      ],
+      "loopSeekCount": 13,
+      "lastLoopSeekBeforeVisibleMs": 36239,
+      "visibleAfterLastSeekMs": 715,
+      "readyToVisibleMsMeasured": 67,
+      "seekBetweenReadyAndVisible": false
+    },
+    "pass2": {
+      "label": "焼き上がり後の通し再生",
+      "sampleCount": 552,
+      "minTimelineT": 0,
+      "maxTimelineT": 4.451,
+      "crossedCutBoundaries": [],
+      "marks": [
+        {
+          "label": "play-click",
+          "now": 57057,
+          "t": 0,
+          "ms": -6
+        }
+      ],
+      "telopWindow": {
+        "id": "telop-chapter",
+        "start": 1,
+        "end": 4
+      },
+      "bakeReadyMs": 0,
+      "bakeReadyAtTimelineT": 0,
+      "firstVisibleMs": 1018,
+      "firstVisibleAtTimelineT": 1.018,
+      "readyToVisibleMs": 1018,
+      "visibleWhilePlaying": true,
+      "placeholderSeenWhileBaking": 0,
+      "placeholderText": "テロップを準備中…",
+      "placeholderStates": [
+        "inactive",
+        "ready"
+      ],
+      "placeholderFramesAfterReadyInWindow": 0,
+      "visibleFramesInWindow": 285,
+      "framesInWindow": 285,
+      "blankFramesInWindow": 0,
+      "blankFramesInWindowAfterReady": 0,
+      "maxTimelineBackJumpSec": 0,
+      "maxTelopClockDriftSec": 0.05,
+      "playbackRates": [
+        1.001,
+        1.002,
+        1.003,
+        1.004
+      ]
+    },
+    "pass3": {
+      "label": "シーク経由",
+      "sampleCount": 1224,
+      "minTimelineT": 1.429,
+      "maxTimelineT": 3.571,
+      "crossedCutBoundaries": [],
+      "marks": [
+        {
+          "label": "seek-1.429",
+          "now": 62905,
+          "t": 5.237,
+          "ms": -7
+        },
+        {
+          "label": "seek-1.857",
+          "now": 63610,
+          "t": 1.429,
+          "ms": 698
+        },
+        {
+          "label": "seek-2.286",
+          "now": 64319,
+          "t": 1.857,
+          "ms": 1407
+        },
+        {
+          "label": "seek-2.714",
+          "now": 65026,
+          "t": 2.286,
+          "ms": 2114
+        },
+        {
+          "label": "seek-3.143",
+          "now": 65741,
+          "t": 2.714,
+          "ms": 2829
+        },
+        {
+          "label": "seek-3.571",
+          "now": 66446,
+          "t": 3.143,
+          "ms": 3534
+        }
+      ],
+      "telopWindow": {
+        "id": "telop-chapter",
+        "start": 1,
+        "end": 4
+      },
+      "bakeReadyMs": 0,
+      "bakeReadyAtTimelineT": 1.429,
+      "firstVisibleMs": 0,
+      "firstVisibleAtTimelineT": 1.429,
+      "readyToVisibleMs": 0,
+      "visibleWhilePlaying": false,
+      "placeholderSeenWhileBaking": 0,
+      "placeholderText": "テロップを準備中…",
+      "placeholderStates": [
+        "seek",
+        "ready"
+      ],
+      "placeholderFramesAfterReadyInWindow": 0,
+      "visibleFramesInWindow": 1224,
+      "framesInWindow": 1224,
+      "blankFramesInWindow": 0,
+      "blankFramesInWindowAfterReady": 0,
+      "maxTimelineBackJumpSec": 0,
+      "maxTelopClockDriftSec": 0,
+      "playbackRates": [
+        1
+      ],
+      "scrubObservations": [
+        {
+          "seekTo": 1.429,
+          "timelineT": 1.429,
+          "videoVisible": true,
+          "placeholderVisible": false,
+          "placeholderState": "ready",
+          "videoCurrentTime": 0.429
+        },
+        {
+          "seekTo": 1.857,
+          "timelineT": 1.857,
+          "videoVisible": true,
+          "placeholderVisible": false,
+          "placeholderState": "ready",
+          "videoCurrentTime": 0.857
+        },
+        {
+          "seekTo": 2.286,
+          "timelineT": 2.286,
+          "videoVisible": true,
+          "placeholderVisible": false,
+          "placeholderState": "ready",
+          "videoCurrentTime": 1.286
+        },
+        {
+          "seekTo": 2.714,
+          "timelineT": 2.714,
+          "videoVisible": true,
+          "placeholderVisible": false,
+          "placeholderState": "ready",
+          "videoCurrentTime": 1.714
+        },
+        {
+          "seekTo": 3.143,
+          "timelineT": 3.143,
+          "videoVisible": true,
+          "placeholderVisible": false,
+          "placeholderState": "ready",
+          "videoCurrentTime": 2.143
+        },
+        {
+          "seekTo": 3.571,
+          "timelineT": 3.571,
+          "videoVisible": true,
+          "placeholderVisible": false,
+          "placeholderState": "ready",
+          "videoCurrentTime": 2.571
+        }
+      ],
+      "placeholderFlashFramesWhilePaused": 0,
+      "blankFramesWhilePausedInWindow": 0
+    }
+  },
+  "screenshots": [
+    "01-baking-placeholder.png",
+    "02-telop-visible-while-playing.png",
+    "03-second-playthrough.png",
+    "04-seek-visible.png"
+  ],
+  "errors": [],
+  "consentDismissed": false,
+  "openCommand": {
+    "ok": true,
+    "value": "opened"
+  },
+  "previewTabActivated": true,
+  "bakeReadyWaitMs": 4,
+  "bakeReady": true,
+  "consoleWarnings": [
+    {
+      "type": "warning",
+      "args": [
+        "%cElectron Security Warning (Insecure Content-Security-Policy)",
+        "font-weight: bold;",
+        "This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "Property with id 'akari.developerMode' already exists"
+      ]
+    },
+    {
+      "type": "error",
+      "args": [
+        "RangeError: Maximum call stack size exceeded\n    at Lur (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at qhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Hhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Vhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at zhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9111\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9028"
+      ]
+    },
+    {
+      "type": "error",
+      "args": [
+        "RangeError: Maximum call stack size exceeded\n    at Lur (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at qhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Hhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Vhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at zhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9111\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9028"
+      ]
+    },
+    {
+      "type": "error",
+      "args": [
+        "RangeError: Maximum call stack size exceeded\n    at Lur (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at qhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Hhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Vhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at zhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9111\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9028"
+      ]
+    },
+    {
+      "type": "error",
+      "args": [
+        "RangeError: Maximum call stack size exceeded\n    at Lur (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at qhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Hhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Vhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at zhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9111\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9028"
+      ]
+    },
+    {
+      "type": "error",
+      "args": [
+        "RangeError: Maximum call stack size exceeded\n    at Lur (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at qhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Hhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Vhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at zhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9111\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9028"
+      ]
+    },
+    {
+      "type": "error",
+      "args": [
+        "RangeError: Maximum call stack size exceeded\n    at Lur (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at qhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Hhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Vhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at zhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9111\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9028"
+      ]
+    },
+    {
+      "type": "error",
+      "args": [
+        "Error: You are attempting to construct Symbol(WindowTitleAddOnContribution) in a synchronous way but it has asynchronous dependencies.\n    at n._getButThrowIfAsync (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:36252)\n    at n.getAll (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:32004)\n    at Tut.getContributions (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:73616)\n    at zDe.updateTitle (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1709:822752)\n    at zDe.init (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1709:821920)\n    at Ihr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:7179)\n    at vmn (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:6992)\n    at Phr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:7763)\n    at Hhr (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9650)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:11:9869"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:18.425Z root WARN Frontend wm.configure took longer than the expected maximum 100 milliseconds: 159.3 ms [5.107 s since frontend page start]"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:19.139Z root WARN Linked preference \"workbench.colorCustomizations\" not found."
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:19.139Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found."
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:19.223Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 736.1 ms [5.887 s since frontend page start]"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:19.305Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:19.305Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:430:9611)\n    at Proxy.l (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:434:41508)\n    at Pk.onStart (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1709:1217791)\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1359:7848\n    at file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1359:8350\n    at X9i.startAsync (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:469:60714)\n    at Edn.measure (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1359:8473)\n    at Edn.measureContribution (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1359:8311)"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:20.523Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:20.523Z root WARN     at _event._event.Object.assign.maxListeners (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:430:9611)\n    at Pg.doInit (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1709:1189188)"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:20.635Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (87):"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:20.636Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:430:9611)\n    at Proxy.l (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:434:41508)\n    at Pg.doInit (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1709:1189332)"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:20.644Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (89):"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:20.644Z root WARN     at _event._event.Object.assign.maxListeners (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:430:9611)\n    at Pg.doInit (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1709:1189188)"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:21.080Z root WARN Frontend ket.onStart took longer than the expected maximum 100 milliseconds: 1761.3 ms [7.760 s since frontend page start]"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:21.657Z root WARN Frontend Xp.initializeLayout took longer than the expected maximum 100 milliseconds: 317.6 ms [8.336 s since frontend page start]"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:21.762Z root WARN Possible Emitter memory leak detected. 348 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (146):"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:21.762Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:430:9611)\n    at Proxy.l (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:434:41508)\n    at Pg.doInit (file://<REDACTED>/apps/shell/lib/frontend/bundle.js:1709:1189332)"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:23.217Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:26.785Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget"
+      ]
+    },
+    {
+      "type": "warning",
+      "args": [
+        "2026-08-22T20:53:26.966Z root WARN Frontend SXt.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 5124.5 ms [13.647 s since frontend page start]"
+      ]
+    },
+    {
+      "type": "error",
+      "args": [
+        "2026-08-22T20:53:38.075Z root ERROR [webview: akari-output-preview-1cayv5h] [akari-three] 3D scene の読み込みに失敗しました",
+        "Object"
+      ]
+    }
+  ],
+  "electronStderr": [
+    "[47879:0823/055329.256702:ERROR:sandbox/mac/system_services.cc:35] SetApplicationIsDaemon: Error Domain=NSOSStatusErrorDomain Code=-50 \"paramErr: error in user parameter list\" (-50)",
+    "2026-08-22T20:53:38.095Z root ERROR [webview: akari-output-preview-1cayv5h] [akari-three] 3D scene の読み込みに失敗しました { isTrusted: true }"
+  ]
+}
