@@ -8,7 +8,8 @@
     "akari-sounds",
     "bgm",
     "ai-generated",
-    "suno"
+    "suno",
+    "pack:audio-standard"
   ],
   "knobs": [],
   "ai_usage": "利用条件（AKARI Sounds Terms v0）上、カット・ループ・ピッチ変更・ミックス等の編集加工は可。単体再配布・音楽配信サービス登録・Content ID 登録は禁止。AI 学習データとしての二次利用はしない（明示許可なしのため安全側）。",
