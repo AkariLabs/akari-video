@@ -26,14 +26,14 @@ test('v1: mp4 source produces mediaType "video", png source produces mediaType "
   assert.equal(timeline.clips[1].mediaType, 'image');
 });
 
-test('v0: an all-video project keeps mediaType "video" on every clip (non-regression)', () => {
+test('renderer compatibility view keeps mediaType "video" on every clip (non-regression)', () => {
   const edit = {
-    version: 0,
+    version: 1,
     output: { fps: 30 },
-    source: { path: 'assets/main.mp4' },
+    sources: [{ id: 'main', path: 'assets/main.mp4' }],
     cuts: [
-      { in: 0, out: 2 },
-      { in: 5, out: 8 },
+      { src: 'main', in: 0, out: 2 },
+      { src: 'main', in: 5, out: 8 },
     ],
   };
   const timeline = editToTimeline(edit, '/project');
