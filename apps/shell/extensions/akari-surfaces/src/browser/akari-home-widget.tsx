@@ -42,10 +42,15 @@ import {
     withDismissedVersion
 } from '../common/update-feed';
 import {
+    applyImmediateUpdaterFallback,
     applyShellUpdaterEvent,
+    beginUserInitiatedUpdaterCheck,
     formatDownloadedBannerText,
     formatDownloadingBannerText,
+    formatUpdaterFallbackText,
     INITIAL_SHELL_UPDATER_UI_STATE,
+    resolveUpdateButtonAction,
+    shouldOpenUpdaterBrowserFallback,
     ShellUpdaterUiState
 } from '../common/shell-update-applier';
 import { ElectronAkariUpdaterApi, ShellUpdaterEvent } from '../electron-common/electron-api';
@@ -1433,21 +1438,28 @@ export class AkariHomeWidget extends ReactWidget {
      * 「更新する」: electron-updater が使える環境（パッケージ済み Electron）では
      * main プロセスへ即時チェックを発火する — autoDownload で裏 DL が始まり、イベントが
      * バナーを「ダウンロード中」→「DL 済み・再起動で適用」へ進める（アプリ内で完結）。
-     * updater が使えない（非 Electron・開発ビルド）か直近で error になっている場合は
-     * 従来の F7-v1 挙動（外部ブラウザで配布物 DL）へ縮退する。
+     * 直近が error でも API があれば必ず先に再チェックする。再試行も失敗した場合、または
+     * updater API が使えない場合だけ、理由を一行表示して外部ブラウザへ縮退する。
      */
     protected downloadUpdate = (): void => {
         const api = this.resolveElectronUpdaterApi();
-        if (api && !this.updaterUiState.failed) {
-            this.updateCheckRequested = true;
+        const action = resolveUpdateButtonAction(this.updaterUiState, api !== undefined);
+        if (action === 'check' && api) {
+            this.updaterUiState = beginUserInitiatedUpdaterCheck(this.updaterUiState);
+            this.update();
             void api.checkForUpdatesNow().catch(() => {
-                // IPC 自体の失敗は沈黙（契約 §11）。次クリックは failed 経由でブラウザ DL に落とす。
-                this.updateCheckRequested = false;
-                this.applyUpdaterEvent({ kind: 'error' });
+                this.applyUpdaterEvent({ kind: 'error', reason: '更新処理を開始できませんでした' });
             });
             return;
         }
-        this.openUpdateDownloadInBrowser();
+        if (action === 'browser-fallback') {
+            this.updaterUiState = applyImmediateUpdaterFallback(
+                this.updaterUiState,
+                'アプリ内更新機能を利用できませんでした'
+            );
+            this.update();
+            this.openUpdateDownloadInBrowser();
+        }
     };
 
     /**
@@ -1499,17 +1511,12 @@ export class AkariHomeWidget extends ReactWidget {
         this.toDispose.push({ dispose: () => this.updaterUnsubscribe?.() });
     }
 
-    /** 「更新する」クリック起点のチェックが進行中か（error 時にブラウザ DL へ一度だけ自動フォールバックするための印）。 */
-    protected updateCheckRequested = false;
-
     protected applyUpdaterEvent(event: ShellUpdaterEvent): void {
+        const shouldOpenFallback = shouldOpenUpdaterBrowserFallback(this.updaterUiState, event);
         this.updaterUiState = applyShellUpdaterEvent(this.updaterUiState, event);
-        if (event.kind === 'update-downloaded' || event.kind === 'update-not-available') {
-            this.updateCheckRequested = false;
-        } else if (event.kind === 'error' && this.updateCheckRequested) {
-            // ユーザーが明示的に「更新する」を押した直後の失敗だけは黙って終わらせず、
-            // 従来の手動 DL（外部ブラウザ）へ引き継ぐ。バックグラウンドチェックの失敗では開かない。
-            this.updateCheckRequested = false;
+        if (shouldOpenFallback) {
+            // ユーザーが明示的に「更新する」を押した再試行の失敗だけ、理由を表示して
+            // 手動 DL（外部ブラウザ）へ引き継ぐ。バックグラウンドチェックの失敗では開かない。
             this.openUpdateDownloadInBrowser();
         }
         this.update();
@@ -2085,6 +2092,7 @@ export class AkariHomeWidget extends ReactWidget {
      * （ボタンなし） → `downloaded` = 「DL 済み・今すぐ再起動して適用」バナー。
      */
     protected renderUpdateBanner(): React.ReactNode {
+        const fallbackText = formatUpdaterFallbackText(this.updaterUiState);
         if (this.updaterUiState.downloaded) {
             return (
                 <div role='status' style={homeFlowStyles.updateBanner} data-akari-update-downloaded='true'>
@@ -2115,7 +2123,14 @@ export class AkariHomeWidget extends ReactWidget {
         return (
             <div role='status' style={homeFlowStyles.updateBanner}>
                 <span className='codicon codicon-arrow-circle-up' aria-hidden='true' style={homeFlowStyles.updateBannerIcon} />
-                <span style={homeFlowStyles.updateBannerText}>{formatHomeBannerText(this.updateStatus)}</span>
+                <span style={homeFlowStyles.updateBannerMessage}>
+                    <span style={homeFlowStyles.updateBannerText}>{formatHomeBannerText(this.updateStatus)}</span>
+                    {fallbackText && (
+                        <span data-akari-update-fallback-reason='true' style={homeFlowStyles.updateBannerFallbackText}>
+                            {fallbackText}
+                        </span>
+                    )}
+                </span>
                 <div style={homeFlowStyles.updateBannerActions}>
                     <button
                         type='button'
@@ -2686,6 +2701,8 @@ const homeFlowStyles: Record<string, React.CSSProperties> = {
     },
     updateBannerIcon: { fontSize: 16, color: 'var(--theia-focusBorder)', flex: '0 0 auto' },
     updateBannerText: { fontSize: 13, flex: '1 1 auto' },
+    updateBannerMessage: { display: 'flex', flex: '1 1 auto', minWidth: 0, flexDirection: 'column', gap: 3 },
+    updateBannerFallbackText: { fontSize: 11.5, color: 'var(--theia-descriptionForeground)', lineHeight: 1.5 },
     updateBannerActions: { display: 'flex', gap: 8, flex: '0 0 auto' },
     updateBannerButton: {
         fontSize: 12, padding: '6px 12px', borderRadius: 8, minHeight: 'auto', height: 'auto'

@@ -1,16 +1,22 @@
 import { ElectronMainApplication, ElectronMainApplicationContribution } from '@theia/core/lib/electron-main/electron-main-application';
 import { BrowserWindow, ipcMain } from '@theia/core/electron-shared/electron';
 import { injectable } from '@theia/core/shared/inversify';
-import { readFileSync } from 'fs';
+import { appendFileSync, mkdirSync, readFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { autoUpdater, UpdateInfo } from 'electron-updater';
 import { parseUpdateCache } from '../common/update-feed';
-import { resolveAllowPrerelease, ShellUpdaterEvent } from '../common/shell-update-applier';
+import {
+    isAppTranslocationPath,
+    resolveAllowPrerelease,
+    resolveShellUpdaterErrorReason,
+    ShellUpdaterEvent
+} from '../common/shell-update-applier';
 import { CHANNEL_UPDATER_CHECK, CHANNEL_UPDATER_EVENT, CHANNEL_UPDATER_GET_STATE, CHANNEL_UPDATER_RESTART } from '../electron-common/electron-api';
 
 /** U2 のフロントエンド/CLI と共有するキャッシュファイル名（update-feed.ts の同名定数と同じ値 — 複製の経緯は同ファイル冒頭コメント参照）。 */
 const UPDATE_CACHE_FILENAME = 'update-check.json';
+const UPDATER_LOG_FILENAME = 'updater.log';
 
 /**
  * 定期再チェック間隔（4 時間）。起動時 1 回だけのチェックだと、アプリを何日も
@@ -53,7 +59,7 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         try {
             this.configureAndCheck();
         } catch (error) {
-            console.error('[akari-surfaces] electron-updater の初期化に失敗しました（沈黙して既存の U2 手動 DL 誘導へ縮退します）:', error);
+            this.recordUpdaterError('electron-updater の初期化に失敗しました', error);
         }
     }
 
@@ -67,9 +73,7 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
         autoUpdater.on('update-not-available', () => this.emit({ kind: 'update-not-available' }));
         autoUpdater.on('update-downloaded', (info: UpdateInfo) => this.emit({ kind: 'update-downloaded', version: info.version }));
         autoUpdater.on('error', (error: Error) => {
-            // 沈黙原則: ログにのみ残し、ユーザーには例外を露出しない。
-            console.error('[akari-surfaces] electron-updater error（沈黙）:', error);
-            this.emit({ kind: 'error', message: error instanceof Error ? error.message : String(error) });
+            this.recordUpdaterError('electron-updater error', error);
         });
 
         // 起動をブロックしない: checkForUpdates は非同期・失敗はここで飲み込む
@@ -79,9 +83,38 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
     }
 
     protected safeCheck(): void {
+        if (isAppTranslocationPath(process.execPath)) {
+            this.recordUpdaterError('App Translocation を検知しました', new Error('App Translocation'));
+            return;
+        }
         autoUpdater.checkForUpdates().catch(error => {
-            console.error('[akari-surfaces] checkForUpdates に失敗しました（沈黙して継続します）:', error);
+            this.recordUpdaterError('checkForUpdates に失敗しました', error);
         });
+    }
+
+    /**
+     * Finder 起動のパッケージ版では stderr の永続先を利用者が確認できる保証がないため、
+     * console.error と併せて AKARI_HOME/logs/updater.log へ最小の診断行を追記する。
+     */
+    protected recordUpdaterError(context: string, error: unknown): void {
+        const message = error instanceof Error ? error.message : String(error);
+        const reason = resolveShellUpdaterErrorReason(message, process.execPath);
+        console.error(`[akari-surfaces] ${context}:`, error);
+        this.appendUpdaterLog(context, message);
+        this.emit({ kind: 'error', message, reason });
+    }
+
+    protected appendUpdaterLog(context: string, message: string): void {
+        try {
+            const home = process.env.AKARI_HOME || join(homedir(), '.akari');
+            const logDirectory = join(home, 'logs');
+            mkdirSync(logDirectory, { recursive: true });
+            const safeContext = context.replace(/[\r\n]+/g, ' ');
+            const safeMessage = message.replace(/[\r\n]+/g, ' ');
+            appendFileSync(join(logDirectory, UPDATER_LOG_FILENAME), `${new Date().toISOString()} ${safeContext}: ${safeMessage}\n`, 'utf8');
+        } catch (logError) {
+            console.error('[akari-surfaces] updater 診断ログの追記に失敗しました:', logError);
+        }
     }
 
     /**
