@@ -259,14 +259,42 @@ test('transition_out・thumbnail・preset なし baked を損失なく v2 へ写
   assert.equal(result.doc.sources.find(source => source.path === 'baked.mov').id, layer.items[0].source.src);
 });
 
-test('凍結方針: 未知フィールド・非整数 fps・未知 layer は blocker で止まる', () => {
+test('凍結方針: 未知フィールド・非整数 fps・不正な filter は blocker で止まる', () => {
   const unknown = { ...base(), direction: {} };
   assert.match(migrateEditToV2(unknown).blockers.join('\n'), /direction/);
   const fractional = base();
   fractional.output.fps = 29.97;
   assert.match(migrateEditToV2(fractional).blockers.join('\n'), /整数/);
   const layer = { ...base(), layers: [{ id: 'x', t: 0, duration: 1, kind: 'filter', filter: {} }] };
-  assert.match(migrateEditToV2(layer).blockers.join('\n'), /video \/ image \/ baked/);
+  assert.match(migrateEditToV2(layer).blockers.join('\n'), /filter\.type.*invert\/lut\/saturation/s);
+});
+
+test('filter layer は src の無い独立 source として閉じた FilterV2 をそのまま転写する', () => {
+  for (const filter of [
+    { type: 'invert' },
+    { type: 'lut', id: 'cinematic', intensity: 0.5 },
+    { type: 'saturation', value: 1.4 },
+  ]) {
+    const doc = base(1);
+    doc.layers = [{
+      id: `filter-${filter.type}`, t: 0, duration: 1, kind: 'filter', filter,
+      perspective: { corners: [[0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]] },
+    }];
+    const result = migrateEditToV2(doc);
+    assert.equal(result.ok, true, result.blockers?.join('\n'));
+    const item = result.doc.tracks.find(track => track.items?.some(entry => entry.id === doc.layers[0].id)).items[0];
+    assert.deepEqual(item.source, { kind: 'filter', filter });
+    assert.equal('src' in item.source, false);
+    assert.doesNotThrow(() => readEditV2(result.doc));
+  }
+});
+
+test('kind filter に src が在る legacy layer は理由付き blocker で止まる', () => {
+  const doc = base(1);
+  doc.layers = [{ id: 'filter', t: 0, duration: 1, kind: 'filter', src: 'main.mp4', filter: { type: 'invert' } }];
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, false);
+  assert.match(result.blockers.join('\n'), /kind filter は src を持てません/);
 });
 
 test('提案は書かず、承認適用で backup -> atomic write、1 手 undo で戻る', async () => {
@@ -284,6 +312,71 @@ test('提案は書かず、承認適用で backup -> atomic write、1 手 undo �
     assert.equal(await readFile(editPath, 'utf8'), before);
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('リール同形 fixture は filter と emphasis 15 語を移し、両原文を backup / revert する', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-migrate-reel-'));
+  try {
+    const editPath = join(root, 'edit.json');
+    const captionsPath = join(root, 'captions.json');
+    const fixtureRoot = new URL('./fixtures/reel-v1-filter-emphasis/', import.meta.url);
+    const beforeEdit = await readFile(new URL('edit.json', fixtureRoot), 'utf8');
+    const beforeCaptions = await readFile(new URL('captions.json', fixtureRoot), 'utf8');
+    await writeFile(editPath, beforeEdit);
+    await writeFile(captionsPath, beforeCaptions);
+
+    const proposal = planMigration(root, editPath, beforeEdit, { now: new Date('2026-08-23T01:02:03.000Z') });
+    assert.equal('blockers' in proposal, false, proposal.blockers?.join('\n'));
+    assert.ok(proposal.captions);
+    assert.equal(proposal.changes.some(change => change.path === 'emphasis_words'), true);
+    const migrated = JSON.parse(proposal.nextText);
+    assert.equal('emphasis_words' in migrated, false);
+    assert.equal(migrated.sources.length, 2);
+    assert.deepEqual(
+      migrated.tracks.flatMap(track => track.items ?? []).find(item => item.id === 'person-grade').source,
+      { kind: 'filter', filter: { type: 'lut', id: 'cinematic', intensity: 0.5 } },
+    );
+    assert.doesNotThrow(() => readEditV2(migrated));
+    assert.equal(await readFile(editPath, 'utf8'), beforeEdit, '提案時点では edit.json を変更しない');
+    assert.equal(await readFile(captionsPath, 'utf8'), beforeCaptions, '提案時点では captions.json を変更しない');
+
+    await applyMigration(proposal);
+    const movedCaptions = JSON.parse(await readFile(captionsPath, 'utf8'));
+    assert.equal(movedCaptions.emphasis_words.length, 15);
+    assert.deepEqual(movedCaptions.emphasis_words, JSON.parse(beforeEdit).emphasis_words);
+    assert.equal(await readFile(proposal.backupPath, 'utf8'), beforeEdit);
+    assert.equal(await readFile(proposal.captions.backupPath, 'utf8'), beforeCaptions);
+
+    await revertMigration(proposal);
+    assert.equal(await readFile(editPath, 'utf8'), beforeEdit);
+    assert.equal(await readFile(captionsPath, 'utf8'), beforeCaptions);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('emphasis_words は captions.json 不在・配列ルート・既存席を理由付きでブロックする', async () => {
+  const fixtureRoot = new URL('./fixtures/reel-v1-filter-emphasis/', import.meta.url);
+  const beforeEdit = await readFile(new URL('edit.json', fixtureRoot), 'utf8');
+  const cases = [
+    { captions: undefined, reason: /移送先 captions\.json がありません/ },
+    { captions: '[]\n', reason: /captions\.json が配列ルート/ },
+    { captions: '{"captions":[],"emphasis_words":[]}\n', reason: /emphasis_words が既に存在/ },
+  ];
+  for (const item of cases) {
+    const root = await mkdtemp(join(tmpdir(), 'akari-migrate-emphasis-block-'));
+    try {
+      const editPath = join(root, 'edit.json');
+      await writeFile(editPath, beforeEdit);
+      if (item.captions !== undefined) await writeFile(join(root, 'captions.json'), item.captions);
+      const proposal = planMigration(root, editPath, beforeEdit);
+      assert.equal('blockers' in proposal, true);
+      assert.match(proposal.blockers.join('\n'), item.reason);
+      assert.equal(await readFile(editPath, 'utf8'), beforeEdit);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   }
 });
 

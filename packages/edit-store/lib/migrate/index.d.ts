@@ -33,6 +33,12 @@ export interface MigrationProposal {
     nextText: string;
     previousText: string;
     backupPath: string;
+    captions?: {
+        filePath: string;
+        nextText: string;
+        previousText: string;
+        backupPath: string;
+    };
 }
 export interface MigrationBlocked {
     ok: false;
@@ -47,7 +53,7 @@ export declare function planMigration(projectRoot: string, editPath: string, tex
     hasCaptions?: boolean;
     now?: Date;
 }): MigrationProposal | MigrationBlocked;
-/** 承認後のみ実行する。先に .akari/backup/ へ原文を退避し、次に atomic rename する。 */
+/** 承認後のみ実行する。先に全原文を .akari/backup/ へ退避し、次に atomic rename する。 */
 export declare function applyMigration(proposal: MigrationProposal): Promise<void>;
-/** 退避した原文を 1 手で edit.json へ戻す。backup 自体は監査記録として残す。 */
+/** 退避した原文を 1 手で edit.json / captions.json へ戻す。backup 自体は監査記録として残す。 */
 export declare function revertMigration(proposal: MigrationProposal): Promise<void>;

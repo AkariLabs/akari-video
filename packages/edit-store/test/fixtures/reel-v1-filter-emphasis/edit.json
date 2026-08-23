@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "output": { "width": 1080, "height": 1920, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "reel-main.mp4", "proxy": null },
+    { "id": "person", "path": "person.mp4", "proxy": null }
+  ],
+  "cuts": [
+    { "id": "main-1", "src": "main", "in": 0, "out": 4 }
+  ],
+  "overlays": [],
+  "layers": [
+    {
+      "id": "person-video",
+      "t": 0,
+      "duration": 4,
+      "kind": "video",
+      "src": "person.mp4",
+      "perspective": { "corners": [[0.1, 0.05], [0.9, 0.05], [0.1, 0.95], [0.9, 0.95]] }
+    },
+    {
+      "id": "person-grade",
+      "t": 0,
+      "duration": 4,
+      "kind": "filter",
+      "filter": { "type": "lut", "id": "cinematic", "intensity": 0.5 },
+      "perspective": { "corners": [[0.1, 0.05], [0.9, 0.05], [0.1, 0.95], [0.9, 0.95]] }
+    }
+  ],
+  "emphasis_words": [
+    { "id": "e-0001", "src": "main", "t_start": 0.10, "t_end": 0.20, "word": "一", "emotion": "emphasis" },
+    { "id": "e-0002", "src": "main", "t_start": 0.20, "t_end": 0.30, "word": "二", "emotion": "joy" },
+    { "id": "e-0003", "src": "main", "t_start": 0.30, "t_end": 0.40, "word": "三", "emotion": "surprise" },
+    { "id": "e-0004", "src": "main", "t_start": 0.40, "t_end": 0.50, "word": "四", "emotion": "emphasis" },
+    { "id": "e-0005", "src": "main", "t_start": 0.50, "t_end": 0.60, "word": "五", "emotion": "joy" },
+    { "id": "e-0006", "src": "main", "t_start": 0.60, "t_end": 0.70, "word": "六", "emotion": "surprise" },
+    { "id": "e-0007", "src": "main", "t_start": 0.70, "t_end": 0.80, "word": "七", "emotion": "emphasis" },
+    { "id": "e-0008", "src": "main", "t_start": 0.80, "t_end": 0.90, "word": "八", "emotion": "joy" },
+    { "id": "e-0009", "src": "main", "t_start": 0.90, "t_end": 1.00, "word": "九", "emotion": "surprise" },
+    { "id": "e-0010", "src": "main", "t_start": 1.00, "t_end": 1.10, "word": "十", "emotion": "emphasis" },
+    { "id": "e-0011", "src": "main", "t_start": 1.10, "t_end": 1.20, "word": "十一", "emotion": "joy" },
+    { "id": "e-0012", "src": "main", "t_start": 1.20, "t_end": 1.30, "word": "十二", "emotion": "surprise" },
+    { "id": "e-0013", "src": "main", "t_start": 1.30, "t_end": 1.40, "word": "十三", "emotion": "emphasis" },
+    { "id": "e-0014", "src": "main", "t_start": 1.40, "t_end": 1.50, "word": "十四", "emotion": "joy" },
+    { "id": "e-0015", "src": "main", "t_start": 1.50, "t_end": 1.60, "word": "十五", "emotion": "surprise", "style_hint": "size-pulse" }
+  ]
+}
