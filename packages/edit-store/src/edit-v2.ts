@@ -522,9 +522,20 @@ function hasOwn(value: object, key: PropertyKey): boolean {
     return Object.prototype.hasOwnProperty.call(value, key);
 }
 
+const UNKNOWN_KEY_GUIDANCE: Readonly<Record<string, string>> = {
+    emphasis_words: '語レベル演出は captions.json のトップレベル emphasis_words[] へ移してください（契約 contract-2026-08-23-captions-emphasis-words-v0.md）',
+};
+
+const DEFAULT_UNKNOWN_KEY_GUIDANCE = 'このキーは v2 の語彙にありません。手で編集した場合は取り除くか、.akari/backup/ の原本から復元してください';
+
 function requireExactKeys(value: UnknownRecord, allowed: Set<string>, path: string): void {
     const unknown = Object.keys(value).filter(key => !allowed.has(key));
-    if (unknown.length > 0) throw invalid(path, `未定義キーを使用できません: ${unknown.join(', ')}`);
+    if (unknown.length > 0) {
+        const guidance = unknown
+            .map(key => `${key}: ${UNKNOWN_KEY_GUIDANCE[key] ?? DEFAULT_UNKNOWN_KEY_GUIDANCE}`)
+            .join(' / ');
+        throw invalid(path, `未定義キーを使用できません: ${unknown.join(', ')}。案内: ${guidance}`);
+    }
 }
 
 function requireText(value: unknown, path: string): asserts value is string {
