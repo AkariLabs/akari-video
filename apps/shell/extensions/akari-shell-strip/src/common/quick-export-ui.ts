@@ -1,4 +1,9 @@
-import { QuickExportPhase, QuickExportStatus } from './quick-export-protocol';
+import {
+    formatLintFailureForUi,
+    japaneseLintSummary,
+    UiLintFinding
+} from 'akari-annotations/lib/common/lint-message-ja';
+import { QuickExportLintFinding, QuickExportPhase, QuickExportStatus } from './quick-export-protocol';
 
 /**
  * render.json は前回実行の成功結果を保持し得るため、今回の quick export が
@@ -24,6 +29,17 @@ export function quickExportErrorNotification(
         return `書き出しに失敗しました: ${summary.split(/\r?\n/)[0]}`;
     }
     if (status.phase === 'lint-failed') {
+        const findings = status.lintFindings ?? [];
+        const errors = lintErrorDetails(findings);
+        if (japaneseLintSummary(errors, findings as readonly UiLintFinding[])) {
+            const prefix = '書き出しに失敗しました';
+            const formatted = formatLintFailureForUi(
+                prefix,
+                errors,
+                findings as readonly UiLintFinding[]
+            );
+            return formatted.slice(`${prefix}: `.length);
+        }
         const counts = lintFindingCounts(status);
         const reportHint = status.reportPath
             ? 'lint レポートを開いて確認できます。'
@@ -31,6 +47,15 @@ export function quickExportErrorNotification(
         return `lint NG（${counts}）のため書き出しを中断しました。${reportHint}`;
     }
     return undefined;
+}
+
+function lintErrorDetails(findings: readonly QuickExportLintFinding[]): string[] {
+    return findings
+        .filter(finding => finding.severity === 'error')
+        .map(finding => {
+            const check = finding.check ? `[${finding.check}]` : '';
+            return [check, finding.message].filter(Boolean).join(' ') || 'edit-lint error';
+        });
 }
 
 function lintFindingCounts(status: QuickExportStatus): string {
