@@ -56,6 +56,54 @@
       "rail_roles": ["source", "transition", "still"]
     },
     {
+      "kind": "lut-1.0-webgl1",
+      "fixture": "b-lut-100",
+      "status": "PASS",
+      "environment": "headless Chromium WebGL1 forced by the rail test option",
+      "mad": 0.003318899782135076,
+      "preview_fnv": "94f06b7d",
+      "repeat_fnv": "94f06b7d",
+      "export_fnv": "24638ee9",
+      "rail_count": 1,
+      "badge": "",
+      "rail": {
+        "status": "ready",
+        "webgl_version": 1,
+        "role": "source",
+        "has_lut": true,
+        "has_chroma": false,
+        "time": 1
+      },
+      "regions": {
+        "inside_mad": 0.002949019607843137,
+        "outside_mad": 0.003396605701103971
+      }
+    },
+    {
+      "kind": "lut-0.5-webgl1",
+      "fixture": "b-lut-050",
+      "status": "PASS",
+      "environment": "headless Chromium WebGL1 forced by the rail test option",
+      "mad": 0.002815949527959332,
+      "preview_fnv": "33f2147d",
+      "repeat_fnv": "33f2147d",
+      "export_fnv": "d3373ff5",
+      "rail_count": 1,
+      "badge": "",
+      "rail": {
+        "status": "ready",
+        "webgl_version": 1,
+        "role": "source",
+        "has_lut": true,
+        "has_chroma": false,
+        "time": 1
+      },
+      "regions": {
+        "inside_mad": 0.001917124183006536,
+        "outside_mad": 0.003004778381941012
+      }
+    },
+    {
       "kind": "inert",
       "fixture": "inert",
       "status": "PASS",

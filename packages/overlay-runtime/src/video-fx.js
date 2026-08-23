@@ -112,6 +112,39 @@
     return out;
   }
 
+  // WebGL1 stores the canonical R-fastest, then G, then B .cube sequence in a
+  // width=size^2 / height=size atlas. The upload and shader helpers remain
+  // separate so tests can pin both sides of the texture-addressing contract.
+  function lutAtlasUploadPosition(size, r, g, b) {
+    const pixelIndex = b * size * size + g * size + r;
+    return Object.freeze({ x: pixelIndex % (size * size), y: Math.floor(pixelIndex / (size * size)) });
+  }
+
+  function lutAtlasSamplePosition(size, r, g, b) {
+    const x = g * size + r;
+    const y = b;
+    return Object.freeze({ x, y, u: (x + 0.5) / (size * size), v: (y + 0.5) / size });
+  }
+
+  function packLutAtlas(lut) {
+    const width = lut.size * lut.size;
+    const height = lut.size;
+    const data = new Float32Array(width * height * 3);
+    for (let b = 0; b < lut.size; b += 1) {
+      for (let g = 0; g < lut.size; g += 1) {
+        for (let r = 0; r < lut.size; r += 1) {
+          const source = (b * lut.size * lut.size + g * lut.size + r) * 3;
+          const position = lutAtlasUploadPosition(lut.size, r, g, b);
+          const target = (position.y * width + position.x) * 3;
+          data[target] = lut.data[source];
+          data[target + 1] = lut.data[source + 1];
+          data[target + 2] = lut.data[source + 2];
+        }
+      }
+    }
+    return Object.freeze({ width, height, data });
+  }
+
   function parseColor(value) {
     const input = typeof value === 'string' ? value.trim().toLowerCase() : '';
     if (CSS_COLOR_KEYWORDS[input]) return [...CSS_COLOR_KEYWORDS[input]];
@@ -215,7 +248,7 @@ uniform sampler2D u_lut;
 varying vec2 v_uv;
 vec3 lutCell(float r,float g,float b){
   vec2 atlas=vec2(u_lut_size*u_lut_size,u_lut_size);
-  return texture2D(u_lut,(vec2(b*u_lut_size+r,g)+0.5)/atlas).rgb;
+  return texture2D(u_lut,(vec2(g*u_lut_size+r,b)+0.5)/atlas).rgb;
 }
 vec3 applyLut(vec3 rgb){
   vec3 p=clamp(rgb,0.0,1.0)*(u_lut_size-1.0), lo=floor(p), hi=min(lo+1.0,u_lut_size-1.0), f=p-lo;
@@ -308,7 +341,9 @@ void main(){
 
     try {
       if (options.forceFailure) throw new Error('forced WebGL failure');
-      gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true });
+      if (!options.forceWebGl1) {
+        gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true });
+      }
       isWebGl2 = Boolean(gl);
       if (!gl) gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true });
       if (!gl) throw new Error('WebGL is unavailable');
@@ -375,7 +410,10 @@ void main(){
         lutTexture = createTexture2D(gl);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, parsed.size * parsed.size, parsed.size, 0, gl.RGB, gl.FLOAT, parsed.data);
+        const atlas = packLutAtlas(parsed);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, atlas.width, atlas.height, 0, gl.RGB, gl.FLOAT, atlas.data);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
       }
     };
 
@@ -540,5 +578,14 @@ void main(){
     return api;
   }
 
-  root.AkariVideoFx = Object.freeze({ parseCube, sampleLutTrilinear, parseColor, rgbToFfmpegUv, createRail });
+  root.AkariVideoFx = Object.freeze({
+    parseCube,
+    sampleLutTrilinear,
+    lutAtlasUploadPosition,
+    lutAtlasSamplePosition,
+    packLutAtlas,
+    parseColor,
+    rgbToFfmpegUv,
+    createRail
+  });
 })();

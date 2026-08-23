@@ -6,12 +6,16 @@ production Electron を CDP で操作し、`akari.preview.ensureVisible` → `se
 `drawImage` / `getImageData` で 320×180 fixture を実測した。MAD は
 `Σ|preview-export| / (画素数×3×255)`。TV range の追加正規化は行っていない
 （tagged TV-range 動画を Electron/Chromium と ffmpeg の双方で display RGB へ展開して比較）。
+chroma のエッジ処理は 3×3 近傍の色差平均を使うため、ffmpeg `chromakey` の per-pixel 意味論に
+対する近似である。
 
 | fixture | MAD | 測定環境 | 判定 |
 |---|---:|---|---|
 | source chroma + 背景色 | 0.2872% | Electron + CDP | PASS（≤1%） |
 | cinematic LUT intensity 1.0 | 0.4273% | Electron + CDP | PASS（≤1%） |
 | cinematic LUT intensity 0.5 | 0.3781% | Electron + CDP | PASS（≤1%） |
+| cinematic LUT intensity 1.0（WebGL1） | 0.3319% | headless Chromium WebGL1 | PASS（≤1%） |
+| cinematic LUT intensity 0.5（WebGL1） | 0.2816% | headless Chromium WebGL1 | PASS（≤1%） |
 | PiP layer chroma | 0.1042% | headless Chromium | PASS（≤1%） |
 | transition × LUT | — | Electron + CDP、3 seek points | PASS |
 | 宣言なし | — | Electron + CDP | PASS（rail 0） |
@@ -21,6 +25,17 @@ source chroma の preview FNV は `c4f2874e` で、同一時刻へのシーク�
 `hasChroma: true`、`time: 1` と宣言・seek 位置に一致した。LUT intensity 1.0 は
 `340c7bec → 340c7bec`、0.5 は `32af7728 → 32af7728` で、往復再描画も決定論的だった。
 LUT intensity 1.0 fixture は全 rail で `hasLut: true` を確認した。
+
+## WebGL1 LUT fallback
+
+テスト専用 `forceWebGl1` で WebGL2 context の取得をスキップし、WebGL1 context を決定論的に選んだ。
+LUT atlas は `.cube` の R-fastest 順序を `x = g*size+r / y = b` へ配置し、shader も同じセルを読む。
+size=3 の全27セルについて CPU upload 座標と shader sample 座標が一致することを node テストで固定した。
+
+実ブラウザでは LUT intensity 1.0 が MAD `0.3319%`、FNV
+`94f06b7d → 94f06b7d`、intensity 0.5 が MAD `0.2816%`、FNV
+`33f2147d → 33f2147d` だった。両方とも rail は `status: ready`・`webglVersion: 1`・
+`hasLut: true`、badge は空で、render-cut 参照フレームとの差は基準の1%以内だった。
 
 宣言なし fixture は rail canvas 0 個・空の rails 配列で、native video を直接描画した FNV は
 `ac17e6b2`。宣言のないプロジェクトでは rail DOM を生成しない構造的不活性を実機で確認した。

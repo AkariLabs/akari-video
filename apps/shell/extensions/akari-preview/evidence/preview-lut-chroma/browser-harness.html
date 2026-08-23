@@ -12,7 +12,7 @@ html,body{margin:0;background:#111}#stage{position:relative;width:320px;height:1
   const ready=v=>new Promise((resolve,reject)=>{v.addEventListener('loadeddata',resolve,{once:true});v.addEventListener('error',reject,{once:true});});
   const seek=(v,t)=>new Promise(resolve=>{v.addEventListener('seeked',resolve,{once:true});v.currentTime=t;});
   const loadText=url=>new Promise((resolve,reject)=>{const frame=document.createElement('iframe');frame.hidden=true;frame.onload=()=>{try{resolve(frame.contentDocument.body.innerText);}catch(error){reject(error);}finally{frame.remove();}};frame.onerror=reject;frame.src=url;document.body.append(frame);});
-  const paths={source:'a-source-chroma/media/green.mp4',lut100:'b-lut-100/media/pattern.mp4',lut050:'b-lut-050/media/pattern.mp4',layer:'d-layer-chroma/media/pattern.mp4',transition:'e-transition-lut/media/pattern.mp4',inert:'inert/media/pattern.mp4',failure:'b-lut-100/media/pattern.mp4'};
+  const paths={source:'a-source-chroma/media/green.mp4',lut100:'b-lut-100/media/pattern.mp4','lut100-webgl1':'b-lut-100/media/pattern.mp4',lut050:'b-lut-050/media/pattern.mp4','lut050-webgl1':'b-lut-050/media/pattern.mp4',layer:'d-layer-chroma/media/pattern.mp4',transition:'e-transition-lut/media/pattern.mp4',inert:'inert/media/pattern.mp4',failure:'b-lut-100/media/pattern.mp4'};
   window.__harness=(async()=>{
     const main=makeVideo(root+paths[kind]);await ready(main);await seek(main,1);
     if(kind==='inert'){document.body.dataset.status='ready';return {kind,rails:[]};}
@@ -27,8 +27,8 @@ html,body{margin:0;background:#111}#stage{position:relative;width:320px;height:1
         const incoming=makeVideo(root+'e-transition-lut/media/red.mp4');await ready(incoming);await seek(incoming,.5);
         const effects={look:{cubeText,intensity:1}},outRail=AkariVideoFx.createRail({media:main,role:'source'}),inRail=AkariVideoFx.createRail({media:incoming,role:'transition'});await outRail.configure(effects);await inRail.configure(effects);outRail.render(1.5);inRail.render(1.5);outRail.canvas.style.opacity='.5';inRail.canvas.style.opacity='.5';rails.push(outRail,inRail);
       }else{
-        const effects=kind==='source'?{chromaKey:{color:'0x00FF00',similarity:.2,blend:.1,mode:'source',background:{type:'color',color:'0x2040FF'}}}:{look:{cubeText,intensity:kind==='lut050'?.5:1}};
-        const rail=AkariVideoFx.createRail({media:main,role:'source',forceFailure:kind==='failure'});await rail.configure(effects);rail.render(1);rails.push(rail);
+        const effects=kind==='source'?{chromaKey:{color:'0x00FF00',similarity:.2,blend:.1,mode:'source',background:{type:'color',color:'0x2040FF'}}}:{look:{cubeText,intensity:kind.startsWith('lut050')?.5:1}};
+        const rail=AkariVideoFx.createRail({media:main,role:'source',forceFailure:kind==='failure',forceWebGl1:kind.endsWith('-webgl1')});await rail.configure(effects);rail.render(1);rails.push(rail);
       }
       document.body.dataset.status='ready';window.__rails=rails;return {kind,rails:rails.map(r=>r.inspect())};
     }catch(error){document.getElementById('stage').dataset.badge='LUT';document.body.dataset.status='failed';window.__rails=[];return {kind,error:String(error)};}
