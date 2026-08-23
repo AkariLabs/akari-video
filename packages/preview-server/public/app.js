@@ -84,8 +84,10 @@ const stage = document.getElementById('overlay-stage');
 const cutFxLayer = document.getElementById('cut-fx-layer');
 const captionPlate = document.getElementById('caption-plate');
 const transitionPlate = document.getElementById('transition-plate');
+const previewPane = document.querySelector('.preview-pane');
 const wrapper = document.getElementById('preview-wrapper');
 const zoomLayer = document.getElementById('zoom-layer');
+const previewStage = document.getElementById('preview-stage');
 const previewMessage = document.getElementById('preview-message');
 const previewMessageText = document.getElementById('preview-message-text');
 const editToggle = document.getElementById('edit-toggle');
@@ -264,8 +266,8 @@ async function apiReadError(response, label) {
 // --- P1-2: ステージ座標系をビデオ枠（出力フレーム矩形）に一致させる ---
 // 正本は shell の updateStageScale（akari-preview-open-handler.ts）。stage / layer-container を
 // 論理サイズ = 出力 px（overlay/layer の px 座標・字幕の px 指定が render-cut と同じ意味になる）
-// にし、transform: scale(frameScale) で wrapper 内の出力フレーム矩形へ写像する。
-// wrapper は aspect-ratio が max-height で破れてペイン全体に広がることがある（レターボックス）。
+// にし、transform: scale(frameScale) で preview-stage の出力フレーム矩形へ写像する。
+// preview-stage はペイン内へ output 比で fit し、その外側はペインの台紙色のまま残す。
 let frameScale = 1;
 function outputSizePx() {
   const os = summary?.output || {};
@@ -274,11 +276,20 @@ function outputSizePx() {
     height: Number(os.height) > 0 ? Number(os.height) : 720
   };
 }
-// wrapper の外枠比率を出力サイズへ追従させる（shell の動的 aspect-ratio とパリティ）。
-// output 欠落時は outputSizePx() のフォールバック（1280x720 = 16:9）がそのまま効く。
-function applyWrapperAspectRatio() {
+// Web UI は px + clientWidth 実測を正本にする。wrapper（ペイン content box 全面）へ
+// output 比を contain した寸法を preview-stage に与える。
+function applyPreviewStageSize() {
   const os = outputSizePx();
-  wrapper.style.aspectRatio = `${os.width} / ${os.height}`;
+  const boxW = wrapper.clientWidth;
+  const boxH = wrapper.clientHeight;
+  if (!(boxW > 0) || !(boxH > 0)) {
+    previewStage.style.width = '0px';
+    previewStage.style.height = '0px';
+    return;
+  }
+  const fit = Math.min(boxW / os.width, boxH / os.height);
+  previewStage.style.width = `${os.width * fit}px`;
+  previewStage.style.height = `${os.height * fit}px`;
 }
 // ミニマップ箱の縦横比も出力サイズへ追従させる（shell zoomMinimap と同じ式:
 // akari-preview-open-handler.ts の aspectRatio>=1 分岐。基準辺 120px は従来の横長既定
@@ -291,17 +302,10 @@ function applyMinimapAspectRatio() {
   minimap.style.height = `${ratio >= 1 ? base / ratio : base}px`;
 }
 function computeOutputFrameRect() {
-  const boxW = wrapper.clientWidth;
-  const boxH = wrapper.clientHeight;
-  const os = outputSizePx();
-  if (!(boxW > 0) || !(boxH > 0)) return { x: 0, y: 0, width: boxW, height: boxH };
-  const fit = Math.min(boxW / os.width, boxH / os.height);
-  const width = os.width * fit;
-  const height = os.height * fit;
-  return { x: (boxW - width) / 2, y: (boxH - height) / 2, width, height };
+  return { x: 0, y: 0, width: previewStage.clientWidth, height: previewStage.clientHeight };
 }
 function updateStageScale() {
-  applyWrapperAspectRatio();
+  applyPreviewStageSize();
   applyMinimapAspectRatio();
   const os = outputSizePx();
   const rect = computeOutputFrameRect();
@@ -322,7 +326,12 @@ function updateStageScale() {
   stage.style.outlineOffset = '0';
 }
 updateStageScale();
-new ResizeObserver(() => { updateStageScale(); setupPenCanvas(); }).observe(wrapper);
+new ResizeObserver(() => {
+  updateStageScale();
+  setupPenCanvas();
+  pan = clampPan(pan);
+  updateZoom();
+}).observe(previewPane);
 
 // clip.src はルート相対（/assets/foo.mp4）だが video.src は常に絶対 URL を返すため、
 // 生の文字列比較では必ず不一致になり毎フレーム再代入 → 動画がロードし直され続ける
@@ -1616,16 +1625,18 @@ function setupMinimap() {
 function updateMinimap() {
   if (zoom <= 1) { minimap.hidden = true; return; }
   minimap.hidden = false;
-  const vw = minimap.clientWidth;
-  const vh = minimap.clientHeight;
-  const vpW = vw / zoom;
-  const vpH = vh / zoom;
-  const cx = vw / 2 + pan.x / (zoomLayer.clientWidth / vw);
-  const cy = vh / 2 + pan.y / (zoomLayer.clientHeight / vh);
-  minimapViewport.style.width = `${vpW}px`;
-  minimapViewport.style.height = `${vpH}px`;
-  minimapViewport.style.left = `${cx - vpW / 2}px`;
-  minimapViewport.style.top = `${cy - vpH / 2}px`;
+  const paneRect = previewPane.getBoundingClientRect();
+  const stageRect = previewStage.getBoundingClientRect();
+  if (!(stageRect.width > 0) || !(stageRect.height > 0)) return;
+  const clampRatio = value => Math.max(0, Math.min(1, value));
+  const left = clampRatio((paneRect.left - stageRect.left) / stageRect.width);
+  const top = clampRatio((paneRect.top - stageRect.top) / stageRect.height);
+  const right = clampRatio((paneRect.right - stageRect.left) / stageRect.width);
+  const bottom = clampRatio((paneRect.bottom - stageRect.top) / stageRect.height);
+  minimapViewport.style.left = `${left * 100}%`;
+  minimapViewport.style.top = `${top * 100}%`;
+  minimapViewport.style.width = `${(right - left) * 100}%`;
+  minimapViewport.style.height = `${(bottom - top) * 100}%`;
 }
 
 // --- Audio graph ---
@@ -2890,10 +2901,26 @@ waveformToggle.addEventListener('click', () => {
 
 // --- Zoom ---
 const ZOOM_MIN = 0.25, ZOOM_MAX = 8;
+function panLimits() {
+  return {
+    x: Math.max(0, (previewStage.clientWidth * zoom - previewPane.clientWidth) / 2),
+    y: Math.max(0, (previewStage.clientHeight * zoom - previewPane.clientHeight) / 2),
+  };
+}
+function clampPan(value) {
+  const limits = panLimits();
+  return {
+    x: Math.max(-limits.x, Math.min(limits.x, value.x)),
+    y: Math.max(-limits.y, Math.min(limits.y, value.y)),
+  };
+}
 function updateZoom() {
-  zoomLayer.style.transform = `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`;
+  pan = clampPan(pan);
+  zoomLayer.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`;
   zoomValue.textContent = `${Math.round(zoom * 100)}%`;
   zoomSlider.value = Math.log2(zoom / ZOOM_MIN) / Math.log2(ZOOM_MAX / ZOOM_MIN);
+  previewPane.classList.toggle('is-draggable', zoom > 1);
+  if (zoom <= 1) previewPane.classList.remove('is-dragging');
   updateMinimap();
 }
 zoomToggle.addEventListener('click', () => { const o = !zoomPopup.hidden; zoomPopup.hidden = o; zoomToggle.setAttribute('aria-expanded', String(!o)); });
@@ -2901,24 +2928,55 @@ zoomSlider.addEventListener('input', () => { zoom = ZOOM_MIN * Math.pow(ZOOM_MAX
 document.querySelectorAll('.zoom-preset').forEach(btn => {
   btn.addEventListener('click', () => { zoom = Number(btn.dataset.zoom); pan = { x: 0, y: 0 }; updateZoom(); zoomPopup.hidden = true; zoomToggle.setAttribute('aria-expanded', 'false'); saveSettings({ zoom }); });
 });
-wrapper.addEventListener('wheel', (e) => {
+previewPane.addEventListener('wheel', (e) => {
   if (!e.ctrlKey && !e.metaKey) return;
   e.preventDefault();
   zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + (e.deltaY > 0 ? -0.1 : 0.1) * zoom));
   pan = { x: 0, y: 0 }; updateZoom();
 }, { passive: false });
-wrapper.addEventListener('pointerdown', (e) => {
+function isDirectManipulationTarget(e) {
+  const target = e.target;
+  if (!(target instanceof Element)) return false;
+  if (target.closest('[data-overlay-id], [data-akari-interaction], #caption-plate')) return true;
+  return Boolean(findLayerHit(e));
+}
+// overlay-interaction は document capture で pointer 系を受ける。previewPane capture では
+// document 側が先に断片ドラッグを開始してしまうため、パンだけはその外側の window capture で
+// 判定し、開始したポインタ列を document へ到達させない。
+window.addEventListener('pointerdown', (e) => {
   // ペン使用中はパンでポインタを奪わない（P2-3: ズーム中に注釈が描けなかった）
-  if (zoom <= 1 || penActive || e.target.closest('.icon-button, .popup, #seek')) return;
+  if (zoom <= 1 || penActive || e.button !== 0 || !previewPane.contains(e.target)) return;
+  // preventDefault() は click 合成も止めるため、操作可能な UI はパン判定より先に素通しする。
+  if (e.target.closest('button, [role="button"], input, textarea, select, a[href]')) return;
+  // 選択・ドラッグ・ダブルクリック編集を優先する。操作面から明示的にパンする時だけ Alt を使う。
+  if (!e.altKey && isDirectManipulationTarget(e)) return;
+  e.preventDefault();
+  e.stopPropagation();
   drag = { startX: e.clientX - pan.x, startY: e.clientY - pan.y };
-  wrapper.setPointerCapture(e.pointerId);
-  wrapper.style.cursor = 'grabbing';
-});
-wrapper.addEventListener('pointermove', (e) => { if (!drag) return; pan.x = e.clientX - drag.startX; pan.y = e.clientY - drag.startY; updateZoom(); });
-wrapper.addEventListener('pointerup', () => { drag = null; wrapper.style.cursor = ''; });
+  drag.pointerId = e.pointerId;
+  previewPane.setPointerCapture(e.pointerId);
+  previewPane.classList.add('is-dragging');
+}, true);
+window.addEventListener('pointermove', (e) => {
+  if (!drag || drag.pointerId !== e.pointerId) return;
+  e.preventDefault();
+  e.stopPropagation();
+  pan = clampPan({ x: e.clientX - drag.startX, y: e.clientY - drag.startY });
+  updateZoom();
+}, true);
+function finishPan(e) {
+  if (!drag || drag.pointerId !== e.pointerId) return;
+  e.preventDefault();
+  e.stopPropagation();
+  drag = null;
+  previewPane.classList.remove('is-dragging');
+  if (previewPane.hasPointerCapture(e.pointerId)) previewPane.releasePointerCapture(e.pointerId);
+}
+window.addEventListener('pointerup', finishPan, true);
+window.addEventListener('pointercancel', finishPan, true);
 fullscreenToggle.addEventListener('click', () => {
   if (document.fullscreenElement) { document.exitFullscreen(); fullscreenToggle.innerHTML = fullscreenIcon; fullscreenToggle.setAttribute('aria-pressed', 'false'); }
-  else { wrapper.requestFullscreen(); fullscreenToggle.innerHTML = restoreIcon; fullscreenToggle.setAttribute('aria-pressed', 'true'); }
+  else { previewPane.requestFullscreen(); fullscreenToggle.innerHTML = restoreIcon; fullscreenToggle.setAttribute('aria-pressed', 'true'); }
 });
 
 // --- 3D オーバーレイ（three.js） ---
