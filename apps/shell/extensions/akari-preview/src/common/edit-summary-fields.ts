@@ -67,7 +67,7 @@ export interface LayerSummaryBaseResult {
 }
 
 export interface CutSummaryTransitionOut {
-    type: 'dissolve' | 'fade-black' | 'fade-white';
+    type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
     duration: number;
 }
 
@@ -301,7 +301,9 @@ export function buildCutSummaryFields(
         const transition = record.transition_out as { type?: unknown; duration?: unknown };
         const validType = transition?.type === 'dissolve'
             || transition?.type === 'fade-black'
-            || transition?.type === 'fade-white';
+            || transition?.type === 'fade-white'
+            || transition?.type === 'reveal-down'
+            || transition?.type === 'reveal-up';
         const validDuration = typeof transition?.duration === 'number'
             && Number.isFinite(transition.duration) && transition.duration > 0;
         if (isPlainObject(transition) && validType && validDuration) {

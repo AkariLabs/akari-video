@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   lintProjectCandidates,
+  assertNoCamelCaseTransitionOut,
   scheduleProjectLint,
   writeProjectFilesGuarded,
   writeAtomic,
@@ -49,6 +50,27 @@ test('writeProjectFilesGuarded は lint を待たず候補全文を atomic 保�
     assert.deepEqual(after, JSON.parse(candidate));
   } finally {
     await new Promise(resolve => setTimeout(resolve, 30));
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('write-gate は legacy / v2 の camelCase transitionOut を保存前に拒否する', async () => {
+  const root = makeProject({ version: 0 });
+  try {
+    for (const candidate of [
+      { version: 1, cuts: [{ in: 0, out: 1, transitionOut: { type: 'dissolve', duration: 0.5 } }] },
+      { version: 2, tracks: [{ items: [{ source: { kind: 'media', transitionOut: {} } }] }] }
+    ]) {
+      await assert.rejects(
+        writeProjectFilesGuarded(root, { 'edit.json': JSON.stringify(candidate) }),
+        /Web UI 旧版.*transition_out.*開き直して保存/
+      );
+      assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'edit.json'), 'utf8')), { version: 0 });
+    }
+    assert.doesNotThrow(() => assertNoCamelCaseTransitionOut(JSON.stringify({
+      cuts: [{ transition_out: { type: 'reveal-up', duration: 0.5 } }]
+    })));
+  } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
 });

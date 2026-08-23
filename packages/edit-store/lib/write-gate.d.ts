@@ -52,6 +52,8 @@ export declare function lintProjectCandidates(projectRoot: string, candidates: L
 export declare function assertLintPasses(projectRoot: string, candidates: LintCandidates): Promise<void>;
 /** atomic 保存を即時完了し、lint は末尾 debounce で非同期に実行する。 */
 export declare function writeProjectFilesGuarded(projectRoot: string, candidates: LintCandidates, options?: DeferredLintOptions): Promise<void>;
+/** Web UI 旧版が生成した camelCase は schema が閉じていない legacy edit でも保存させない。 */
+export declare function assertNoCamelCaseTransitionOut(content: string): void;
 /**
  * 同じプロジェクト宛ての連続保存をまとめ、最後の状態だけを lint する。
  * 保存後 lint は実 projectRoot に対して writeReports=true で走るため、結果は

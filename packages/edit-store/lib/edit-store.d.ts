@@ -11,7 +11,7 @@ export interface EditCut {
     opacity?: number;
     speed?: number;
     transitionOut?: {
-        type: 'dissolve' | 'fade-black' | 'fade-white';
+        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
         duration: number;
     };
     at?: number;
@@ -140,7 +140,7 @@ export declare function updateCutTransformInSource(source: string, cutIndex: num
 }): string;
 export declare function updateCutOpacityInSource(source: string, cutIndex: number, opacity: number | null): string;
 export declare function setCutTransitionOutInSource(source: string, cutIndex: number, transitionOut: {
-    type: 'dissolve' | 'fade-black' | 'fade-white';
+    type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
     duration: number;
 } | null): string;
 export declare function reorderCutsInSource(source: string, fromIndex: number, toIndex: number): string;

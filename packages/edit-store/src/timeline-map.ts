@@ -18,6 +18,7 @@ export interface TimelineTransitionPlate {
     end: number;
     mid: number;
     color: string;
+    type: 'fade-black' | 'fade-white';
 }
 export interface TimelineSegment {
     kind: 'src' | 'gap';
@@ -35,11 +36,31 @@ export interface TimelineSegment {
     transitionOut?: EditCut['transitionOut'] | null;
 }
 
+/**
+ * 同一トラック上の隣接 cut が同時に存在するトランジション窓。
+ * outgoing / incoming は窓の範囲へ切り詰め済みで、各 in/out はその窓に対応する
+ * source 秒を保持する。progress は transitionProgressAt で 0..1 に正規化する。
+ */
+export interface TimelineTransitionWindow {
+    start: number;
+    end: number;
+    duration: number;
+    type: NonNullable<EditCut['transitionOut']>['type'];
+    outgoing: TimelineSegment;
+    incoming: TimelineSegment;
+}
+
 export interface TimelineMapResult {
     segments: TimelineSegment[];
     totalDuration: number;
     transitionPlates: TimelineTransitionPlate[];
+    transitionWindows: TimelineTransitionWindow[];
     usesGapsOrTracks: boolean;
+}
+
+export function transitionProgressAt(window: TimelineTransitionWindow, outputT: number): number {
+    if (!(window.duration > 0)) return 0;
+    return Math.max(0, Math.min(1, (outputT - window.start) / window.duration));
 }
 
 export function buildTimelineMap(
@@ -65,6 +86,49 @@ export function buildTimelineMap(
         cut: usableCuts[segment.index],
         cutIndex: usable[segment.index].index
     }));
+    const segmentSlice = (
+        entry: typeof resolved[number],
+        start: number,
+        end: number,
+        transitionOut: EditCut['transitionOut'] | null = null
+    ): TimelineSegment => {
+        const cut = entry.cut;
+        const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
+        return {
+            kind: 'src',
+            outStart: start,
+            outEnd: end,
+            cutIndex: entry.cutIndex,
+            ...(cut.src !== undefined ? { src: cut.src } : {}),
+            in: cut.in + (start - entry.start) * speed,
+            out: cut.in + (end - entry.start) * speed,
+            speed,
+            track: entry.track,
+            transitionOut
+        };
+    };
+    const transitionWindows: TimelineTransitionWindow[] = [];
+    for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
+        const outgoing = resolved[outgoingIndex];
+        const transition = outgoing.cut.transitionOut;
+        if (!transition || !(typeof transition.duration === 'number' && Number.isFinite(transition.duration)
+            && transition.duration > 0)) continue;
+        const incoming = resolved.slice(outgoingIndex + 1).find(candidate => candidate.track === outgoing.track);
+        if (!incoming) continue;
+        const start = incoming.start;
+        const actualOverlap = outgoing.end - start;
+        if (!(actualOverlap > 0.000001) || actualOverlap - transition.duration > 0.000001) continue;
+        const end = Math.min(outgoing.end, incoming.end, start + transition.duration);
+        if (!(end - start > 0.000001)) continue;
+        transitionWindows.push({
+            start,
+            end,
+            duration: end - start,
+            type: transition.type,
+            outgoing: segmentSlice(outgoing, start, end, transition),
+            incoming: segmentSlice(incoming, start, end)
+        });
+    }
     const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);
     const boundarySet = new Set<number>([0, outputDuration]);
     for (const segment of resolved) {
@@ -102,22 +166,31 @@ export function buildTimelineMap(
         if (!run.winner) {
             return { kind: 'gap' as const, outStart: run.start, outEnd: run.end, cutIndex: null };
         }
-        const cut = run.winner.cut;
-        const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
-        return {
-            kind: 'src' as const,
-            outStart: run.start,
-            outEnd: run.end,
-            cutIndex: run.winner.cutIndex,
-            ...(cut.src !== undefined ? { src: cut.src } : {}),
-            in: cut.in + (run.start - run.winner.start) * speed,
-            out: cut.in + (run.end - run.winner.start) * speed,
-            speed,
-            track: run.winner.track,
-            transitionOut: null
-        };
+        return segmentSlice(
+            run.winner,
+            run.start,
+            run.end,
+            run.winner.cut.transitionOut ?? null
+        );
     });
-    return { segments, totalDuration: outputDuration, transitionPlates: [], usesGapsOrTracks: true };
+    const transitionPlates = transitionWindows.flatMap(window =>
+        window.type === 'fade-black' || window.type === 'fade-white'
+            ? [{
+                start: window.start,
+                end: window.end,
+                mid: (window.start + window.end) / 2,
+                color: window.type === 'fade-white' ? '#fff' : '#000',
+                type: window.type
+            }]
+            : []
+    );
+    return {
+        segments,
+        totalDuration: outputDuration,
+        transitionPlates,
+        transitionWindows,
+        usesGapsOrTracks: true
+    };
 }
 
 /**

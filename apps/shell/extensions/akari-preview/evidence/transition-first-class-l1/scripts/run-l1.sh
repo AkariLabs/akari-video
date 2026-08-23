@@ -1,0 +1,81 @@
+#!/bin/bash
+set -uo pipefail
+
+if [ "$#" -ne 1 ]; then
+  echo "usage: run-l1.sh <fieldtest-media.mp4>" >&2
+  exit 2
+fi
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+EVIDENCE_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)
+SHELL_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../../../../.." && pwd -P)
+ELECTRON_BIN="$SHELL_DIR/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
+MEDIA_PATH=$1
+TEMP_BASE=${TMPDIR:?TMPDIR is required}
+RUN_ROOT_RAW=$(mktemp -d "${TEMP_BASE%/}/akari-transition-preview-l1.XXXXXX")
+# macOS の TMPDIR は /var/... 側を返すことがある。Theia へ渡す workspace / user-data は
+# symlink 表記を残さず、SCRIPT_DIR と同じ pwd -P の流儀で実体パスへ統一する。
+RUN_ROOT=$(CDPATH= cd -- "$RUN_ROOT_RAW" && pwd -P)
+PORT=${AKARI_L1_PORT:-9473}
+ACTIVE_PID=""
+
+stop_electron() {
+  if [ -n "$ACTIVE_PID" ]; then
+    kill "$ACTIVE_PID" 2>/dev/null || true
+  fi
+  local attempt=0
+  while [ -n "$ACTIVE_PID" ] && kill -0 "$ACTIVE_PID" 2>/dev/null && [ "$attempt" -lt 40 ]; do
+    attempt=$((attempt + 1))
+    sleep 0.25
+  done
+  if [ -n "$ACTIVE_PID" ] && kill -0 "$ACTIVE_PID" 2>/dev/null; then
+    kill -9 "$ACTIVE_PID" 2>/dev/null || true
+  fi
+  ACTIVE_PID=""
+}
+
+cleanup() {
+  stop_electron
+  rm -rf -- "$RUN_ROOT"
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
+
+wait_for_cdp() {
+  local attempt=0
+  while ! curl -fsS "http://127.0.0.1:$PORT/json/version" >/dev/null 2>&1; do
+    if [ -n "$ACTIVE_PID" ] && ! kill -0 "$ACTIVE_PID" 2>/dev/null; then
+      return 1
+    fi
+    attempt=$((attempt + 1))
+    if [ "$attempt" -ge 480 ]; then return 1; fi
+    sleep 0.25
+  done
+}
+
+OVERALL_EXIT=0
+for TYPE in dissolve fade-black fade-white reveal-down reveal-up; do
+  WORKSPACE="$RUN_ROOT/workspace-$TYPE"
+  USERDATA="$RUN_ROOT/userdata-$TYPE"
+  mkdir -p "$WORKSPACE" "$USERDATA"
+  if ! node "$SCRIPT_DIR/prepare-fixture.mjs" "$TYPE" "$WORKSPACE" "$MEDIA_PATH"; then
+    OVERALL_EXIT=1
+    continue
+  fi
+  THEIA_CONFIG_DIR="$USERDATA" "$ELECTRON_BIN" "$SHELL_DIR" "$WORKSPACE/project" \
+    --remote-debugging-port="$PORT" --user-data-dir="$USERDATA" --no-sandbox \
+    >"$RUN_ROOT/electron-$TYPE.log" 2>&1 &
+  ACTIVE_PID=$!
+  TYPE_EXIT=1
+  if wait_for_cdp; then
+    node "$SCRIPT_DIR/run-l1.mjs" "$PORT" "$WORKSPACE/project" "$EVIDENCE_DIR" "$TYPE"
+    TYPE_EXIT=$?
+  else
+    tail -60 "$RUN_ROOT/electron-$TYPE.log"
+  fi
+  stop_electron
+  if [ "$TYPE_EXIT" -ne 0 ]; then OVERALL_EXIT=1; fi
+done
+
+if [ "$OVERALL_EXIT" -eq 0 ]; then echo "TRANSITION FIRST CLASS L1 PASS"; fi
+exit "$OVERALL_EXIT"

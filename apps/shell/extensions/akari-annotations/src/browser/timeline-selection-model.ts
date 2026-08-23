@@ -16,7 +16,10 @@ export interface TimelineCutSelection {
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
     opacity?: number;
     speed?: number;
-    transitionOut?: { type: 'dissolve' | 'fade-black' | 'fade-white'; duration: number };
+    transitionOut?: {
+        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        duration: number;
+    };
     track?: number;
     trackName: string;
     clipName: string;

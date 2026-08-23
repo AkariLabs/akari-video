@@ -12,9 +12,15 @@
  *     のインライン注入で共有。v2 の絶対配置を常にマルチトラック平坦化する。
  */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.transitionProgressAt = transitionProgressAt;
 exports.buildTimelineMap = buildTimelineMap;
 exports.outputToSource = outputToSource;
 const edit_store_1 = require("./edit-store");
+function transitionProgressAt(window, outputT) {
+    if (!(window.duration > 0))
+        return 0;
+    return Math.max(0, Math.min(1, (outputT - window.start) / window.duration));
+}
 function buildTimelineMap(cuts, options) {
     const usable = [];
     cuts.forEach((cut, index) => {
@@ -35,6 +41,48 @@ function buildTimelineMap(cuts, options) {
         cut: usableCuts[segment.index],
         cutIndex: usable[segment.index].index
     }));
+    const segmentSlice = (entry, start, end, transitionOut = null) => {
+        const cut = entry.cut;
+        const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
+        return {
+            kind: 'src',
+            outStart: start,
+            outEnd: end,
+            cutIndex: entry.cutIndex,
+            ...(cut.src !== undefined ? { src: cut.src } : {}),
+            in: cut.in + (start - entry.start) * speed,
+            out: cut.in + (end - entry.start) * speed,
+            speed,
+            track: entry.track,
+            transitionOut
+        };
+    };
+    const transitionWindows = [];
+    for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
+        const outgoing = resolved[outgoingIndex];
+        const transition = outgoing.cut.transitionOut;
+        if (!transition || !(typeof transition.duration === 'number' && Number.isFinite(transition.duration)
+            && transition.duration > 0))
+            continue;
+        const incoming = resolved.slice(outgoingIndex + 1).find(candidate => candidate.track === outgoing.track);
+        if (!incoming)
+            continue;
+        const start = incoming.start;
+        const actualOverlap = outgoing.end - start;
+        if (!(actualOverlap > 0.000001) || actualOverlap - transition.duration > 0.000001)
+            continue;
+        const end = Math.min(outgoing.end, incoming.end, start + transition.duration);
+        if (!(end - start > 0.000001))
+            continue;
+        transitionWindows.push({
+            start,
+            end,
+            duration: end - start,
+            type: transition.type,
+            outgoing: segmentSlice(outgoing, start, end, transition),
+            incoming: segmentSlice(incoming, start, end)
+        });
+    }
     const outputDuration = resolved.reduce((max, segment) => Math.max(max, segment.end), 0);
     const boundarySet = new Set([0, outputDuration]);
     for (const segment of resolved) {
@@ -72,22 +120,24 @@ function buildTimelineMap(cuts, options) {
         if (!run.winner) {
             return { kind: 'gap', outStart: run.start, outEnd: run.end, cutIndex: null };
         }
-        const cut = run.winner.cut;
-        const speed = typeof cut.speed === 'number' && cut.speed > 0 ? cut.speed : 1;
-        return {
-            kind: 'src',
-            outStart: run.start,
-            outEnd: run.end,
-            cutIndex: run.winner.cutIndex,
-            ...(cut.src !== undefined ? { src: cut.src } : {}),
-            in: cut.in + (run.start - run.winner.start) * speed,
-            out: cut.in + (run.end - run.winner.start) * speed,
-            speed,
-            track: run.winner.track,
-            transitionOut: null
-        };
+        return segmentSlice(run.winner, run.start, run.end, run.winner.cut.transitionOut ?? null);
     });
-    return { segments, totalDuration: outputDuration, transitionPlates: [], usesGapsOrTracks: true };
+    const transitionPlates = transitionWindows.flatMap(window => window.type === 'fade-black' || window.type === 'fade-white'
+        ? [{
+                start: window.start,
+                end: window.end,
+                mid: (window.start + window.end) / 2,
+                color: window.type === 'fade-white' ? '#fff' : '#000',
+                type: window.type
+            }]
+        : []);
+    return {
+        segments,
+        totalDuration: outputDuration,
+        transitionPlates,
+        transitionWindows,
+        usesGapsOrTracks: true
+    };
 }
 /**
  * 出力秒 → ソース秒。トランジション重なり区間（隣接 src が重なる出力時刻）は

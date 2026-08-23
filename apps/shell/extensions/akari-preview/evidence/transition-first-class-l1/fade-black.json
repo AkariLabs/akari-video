@@ -1,0 +1,155 @@
+{
+  "status": "PASS",
+  "type": "fade-black",
+  "observations": [
+    {
+      "step": "ensure-visible-attempt",
+      "attempt": 1,
+      "commandAccepted": true,
+      "contextFound": false
+    },
+    {
+      "step": "ensure-visible-attempt",
+      "attempt": 2,
+      "commandAccepted": true,
+      "contextFound": true
+    },
+    {
+      "step": "incoming-preloaded",
+      "incoming": {
+        "display": "none",
+        "opacity": 0,
+        "clipPath": "none",
+        "currentTime": 2,
+        "volume": 1,
+        "readyState": 4,
+        "preloadedWindow": "1:2:1",
+        "type": "",
+        "progress": ""
+      }
+    },
+    {
+      "step": "window-points",
+      "type": "fade-black",
+      "points": [
+        {
+          "timelineTime": 1.1,
+          "videoCount": 2,
+          "outgoing": {
+            "display": "block",
+            "visibility": "visible",
+            "opacity": 0.9,
+            "currentTime": 1.1,
+            "volume": 0.8999999999999999,
+            "type": "fade-black",
+            "progress": "0.100"
+          },
+          "incoming": {
+            "display": "block",
+            "opacity": 0.1,
+            "clipPath": "none",
+            "currentTime": 2.1,
+            "volume": 0.10000000000000009,
+            "readyState": 1,
+            "preloadedWindow": "1:2:1",
+            "type": "fade-black",
+            "progress": "0.100"
+          },
+          "plate": {
+            "opacity": 0.2,
+            "background": "rgb(0, 0, 0)"
+          }
+        },
+        {
+          "timelineTime": 1.5,
+          "videoCount": 2,
+          "outgoing": {
+            "display": "block",
+            "visibility": "visible",
+            "opacity": 0.5,
+            "currentTime": 1.5,
+            "volume": 0.5,
+            "type": "fade-black",
+            "progress": "0.500"
+          },
+          "incoming": {
+            "display": "block",
+            "opacity": 0.5,
+            "clipPath": "none",
+            "currentTime": 2.5,
+            "volume": 0.5,
+            "readyState": 1,
+            "preloadedWindow": "1:2:1",
+            "type": "fade-black",
+            "progress": "0.500"
+          },
+          "plate": {
+            "opacity": 1,
+            "background": "rgb(0, 0, 0)"
+          }
+        },
+        {
+          "timelineTime": 1.9,
+          "videoCount": 2,
+          "outgoing": {
+            "display": "block",
+            "visibility": "visible",
+            "opacity": 0.1,
+            "currentTime": 1.9,
+            "volume": 0.10000000000000009,
+            "type": "fade-black",
+            "progress": "0.900"
+          },
+          "incoming": {
+            "display": "block",
+            "opacity": 0.9,
+            "clipPath": "none",
+            "currentTime": 2.9,
+            "volume": 0.8999999999999999,
+            "readyState": 1,
+            "preloadedWindow": "1:2:1",
+            "type": "fade-black",
+            "progress": "0.900"
+          },
+          "plate": {
+            "opacity": 0.2,
+            "background": "rgb(0, 0, 0)"
+          }
+        }
+      ]
+    },
+    {
+      "step": "after-window",
+      "type": "fade-black",
+      "state": {
+        "timelineTime": 2.1,
+        "videoCount": 2,
+        "outgoing": {
+          "display": "block",
+          "visibility": "visible",
+          "opacity": 1,
+          "currentTime": 3.1,
+          "volume": 1,
+          "type": "",
+          "progress": ""
+        },
+        "incoming": {
+          "display": "none",
+          "opacity": 0,
+          "clipPath": "none",
+          "currentTime": 2.9,
+          "volume": 0.8999999999999999,
+          "readyState": 1,
+          "preloadedWindow": "1:2:1",
+          "type": "",
+          "progress": ""
+        },
+        "plate": {
+          "opacity": 0,
+          "background": "rgb(0, 0, 0)"
+        }
+      },
+      "expectedSourceTime": 3.1
+    }
+  ]
+}

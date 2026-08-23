@@ -21,6 +21,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.lintProjectCandidates = lintProjectCandidates;
 exports.assertLintPasses = assertLintPasses;
 exports.writeProjectFilesGuarded = writeProjectFilesGuarded;
+exports.assertNoCamelCaseTransitionOut = assertNoCamelCaseTransitionOut;
 exports.scheduleProjectLint = scheduleProjectLint;
 exports.writeAtomic = writeAtomic;
 exports.runEditLint = runEditLint;
@@ -50,6 +51,10 @@ async function assertLintPasses(projectRoot, candidates) {
 }
 /** atomic 保存を即時完了し、lint は末尾 debounce で非同期に実行する。 */
 async function writeProjectFilesGuarded(projectRoot, candidates, options = {}) {
+    const editCandidate = candidates['edit.json'];
+    if (typeof editCandidate === 'string') {
+        assertNoCamelCaseTransitionOut(editCandidate);
+    }
     for (const [name, text] of Object.entries(candidates)) {
         if (text === null) {
             continue;
@@ -68,6 +73,28 @@ async function writeProjectFilesGuarded(projectRoot, candidates, options = {}) {
         }
     }
     scheduleProjectLint(projectRoot, options);
+}
+/** Web UI 旧版が生成した camelCase は schema が閉じていない legacy edit でも保存させない。 */
+function assertNoCamelCaseTransitionOut(content) {
+    let parsed;
+    try {
+        parsed = JSON.parse(content);
+    }
+    catch {
+        // JSON 自体の診断は既存の保存後 lint に任せる。
+        return;
+    }
+    const visit = (value) => {
+        if (!value || typeof value !== 'object')
+            return false;
+        if (Object.prototype.hasOwnProperty.call(value, 'transitionOut'))
+            return true;
+        return Object.values(value).some(visit);
+    };
+    if (visit(parsed)) {
+        throw new Error('transitionOut は Web UI 旧版が書いた綴りです。正しい transition_out へ直すか、'
+            + 'Web UI で開き直して保存してください。');
+    }
 }
 /**
  * 同じプロジェクト宛ての連続保存をまとめ、最後の状態だけを lint する。

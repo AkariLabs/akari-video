@@ -16,6 +16,7 @@ export interface TimelineTransitionPlate {
     end: number;
     mid: number;
     color: string;
+    type: 'fade-black' | 'fade-white';
 }
 export interface TimelineSegment {
     kind: 'src' | 'gap';
@@ -32,12 +33,27 @@ export interface TimelineSegment {
     track?: number;
     transitionOut?: EditCut['transitionOut'] | null;
 }
+/**
+ * 同一トラック上の隣接 cut が同時に存在するトランジション窓。
+ * outgoing / incoming は窓の範囲へ切り詰め済みで、各 in/out はその窓に対応する
+ * source 秒を保持する。progress は transitionProgressAt で 0..1 に正規化する。
+ */
+export interface TimelineTransitionWindow {
+    start: number;
+    end: number;
+    duration: number;
+    type: NonNullable<EditCut['transitionOut']>['type'];
+    outgoing: TimelineSegment;
+    incoming: TimelineSegment;
+}
 export interface TimelineMapResult {
     segments: TimelineSegment[];
     totalDuration: number;
     transitionPlates: TimelineTransitionPlate[];
+    transitionWindows: TimelineTransitionWindow[];
     usesGapsOrTracks: boolean;
 }
+export declare function transitionProgressAt(window: TimelineTransitionWindow, outputT: number): number;
 export declare function buildTimelineMap(cuts: readonly EditCut[], options?: {
     trackZ?: (track: number) => number;
 }): TimelineMapResult;
