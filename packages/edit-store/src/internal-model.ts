@@ -290,8 +290,15 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
     // 推測（旧 mainVisualTrackId）自体を撤去した。media アイテムの旧種別は常に 'cuts'
     // （= layers 相当の見た目・機能も含めて描ける唯一の経路）。'layers' に残るのは、
     // まだ cuts 経路へ移していない機能（非 normal blend の合成時ブレンド演算・
-    // アニメーションする perspective）を宣言するアイテムだけ（needsLayersEngine 参照。
-    // これも段ではなくアイテム自身の宣言だけで決まる）。
+    // アニメーションする perspective）を宣言するアイテムと、cuts の構造では同時表示できない
+    // 時間重なりだけ（needsLayersEngine / computeOverlappingItemIds 参照）。
+    // cuts の winner-take-all 経路では、同一トラック内だけでなく別 visual トラック間の
+    // 同時表示も表現できない。先に全 visual media アイテムを横断して区間交差を求め、
+    // 参加したアイテムを各トラックの build へ同じ集合として渡す。これにより preview / render
+    // の両方が、トラックごとに独立した要素を合成できる layers 経路を選ぶ。
+    const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap(track =>
+        'items' in track && track.lane === 'visual' ? [track.items] : []
+    ));
     const tracks: InternalTrack[] = edit.tracks.map(track => {
         // P0 2026-08-21 render-path-unification (実測で発覚): 'cuts' 経路（concat チェーン）は
         // 同じトラック上の複数アイテムを「順番に連結される別セグメント」として扱う構造的前提を
@@ -309,8 +316,6 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
         // 倒れているのに track 自体は 'cuts' 名乗ったままになり、usesDefaultInternalTrackOrder が
         // 無関係に buildTrackStackPlan（実際には不要な余分なエンコード世代）へ倒れてしまう
         // （非回帰監査で実測: pip-perspective-crop-check が本来要らない track_stack を経由していた）。
-        const overlappingItemIds = 'items' in track && track.lane === 'visual'
-            ? computeOverlappingItemIds(track.items) : new Set<string>();
         const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
         const ref = kind === 'captions' ? undefined : nextRef(refCounters, kind);
         const items: InternalItem[] = [];
@@ -384,14 +389,16 @@ function legacyKindOfV2Track(
         // 'layers' は別カウンタなので、空トラックの存在が実クリップの分類・ref に影響しない
         // （P0 2026-08-20 track-identity-and-duration r1 で踏んだのと同じ罠）。
         default: return first === undefined
+            || track.items.some(item => overlappingItemIds.has(item.id))
             || needsLayersEngine(first, chromaKeyOf, overlappingItemIds.has(first.id))
             ? 'layers' : 'cuts';
     }
 }
 
 // P0 2026-08-21 render-path-unification: cuts 経路（packages/render-cut/src/cut-transform.mjs）へ
-// まだ移していない機能を宣言する media アイテムだけが 'layers' に残る。段（トラック）は一切見ない
-// — アイテム自身の宣言だけで決まるので、移動しても判定は変わらない。
+// まだ移していない機能を宣言する media アイテム、または computeOverlappingItemIds が
+// 同時表示のために指定した media アイテムだけが 'layers' に残る。機能判定自体は段を見ないが、
+// 重なり判定は宣言された時刻とトラックの z 関係を使う。
 // - blend: 'normal' 以外は合成時（前面までに何があるか）に依存するブレンド演算が要り、
 //   それは packages/render-cut/src/layers.mjs にしか実装が無い
 // - perspective keyframes: ffmpeg の perspective フィルタはフレームごとの式評価に対応しないため、
@@ -432,62 +439,56 @@ function needsLayersEngine(
     return false;
 }
 
-// P0 2026-08-21 render-path-unification: 'cuts' 経路は同一トラック上の複数アイテムを
-// 「順に連結される別セグメント」として扱えるだけで、時間的に重なる（同時に映る）複数アイテムは
-// 表現できない（buildMultiSourceCutCommand の concat 前提。needsLayersEngine 自身のコメント参照）。
-// このトラックの items[] を総当りで比較し、他のどれかと時間区間が重なる media アイテムの id を
-// 集める。
+// P0 2026-08-23 cuts-cross-track-overlap: 'cuts' 経路は同一トラック内の同時表示だけでなく、
+// 別トラック間の同時表示も winner-take-all になり、下段を描画できない。全 visual トラックの
+// items[] を総当りで比較し、半開区間 [at, at+duration) が正の長さで交差する media アイテムを
+// layers へ退避する。終端と開始が接するだけなら交差ではない。同一トラックの交差は両方を
+// layers へ送る。別トラックの交差は、下段を cuts の不透明な基底として残し、上段が全画面不透明
+// ではない宣言を持つときだけ layers へ送る。上段が全画面不透明なら winner-take-all でも同じ絵に
+// なるため、従来の cuts / track-stack 経路を保つ。
 //
-// r2（合流前ゲート検収 REJECT・実測 204/205 で発見）: 判定を「at/duration がわずかでも交差したら
-// 重なり」から「at と duration が完全一致（同一の開始・同一の尺 = 完全に同一の時間区間）」へ
-// 絞った。理由: apps/shell/extensions/akari-annotations の insertCutIntoEdit
-// （timeline-material-insert.ts）は sequential モードでの挿入時、**既存アイテムの at を
-// 再計算しない**という明示契約を持つ（同ファイル自身のコメント参照）。そのため、タイムライン
-// 中間へドラッグ挿入すると、新規挿入アイテムの at（挿入直前のアイテムの終端 = 挿入前は後続
-// アイテムの at と同じ位置）と、まだ古い at のままの後続アイテムが、同じ at で始まる**部分的な**
-// 重なりを起こす（例: 新規 at=120/duration=60 と、後続の古い at=120/duration=90 —
-// 実測: insertCutIntoEdit で cut-1[0,120) → cut-3[120,180) → cut-2[120,210) という配列になる）。
-// これは「本当に同時に映る PiP」ではなく、単に配列順で連結されるはずの 2 アイテムの片方の at が
-// まだ更新されていないだけ（insertCutIntoEdit の『at 不変・配列順が正』という契約どおりの、
-// 一時的に不正確な at）。v2 の at/duration はどちらも常に必須の整数フレーム値で、
-// 「宣言された絶対配置」と「まだ書き戻されていない sequential 連結」を区別する情報が
-// スキーマ上に残らないため、両者を汎用に見分けることはできない。一方、実際に 'layers' への
-// 退避が必要だと判明している唯一の実例（fieldtest/2026-08-06-pip-perspective-crop-check の
-// pip-crop-demo/pip-perspective-demo、いずれも at=0・duration=240 で完全同一区間）は、
-// 常に完全一致（同じ開始・同じ尺）のケースだった（このファイル自身の発見コメント・
-// packages/edit-store/test/internal-model.test.mjs の該当テスト名 "fully overlapping
-// at/duration" も参照）。完全一致のみを重なりとみなすことで、実証済みの本物の重なりは
-// 引き続き検出しつつ、insertCutIntoEdit の sequential 挿入という日常操作を誤検知しなくなる。
-function computeOverlappingItemIds(items: readonly ItemV2[]): Set<string> {
+// transition_out は同一トラックの隣接カットが意図的に作る狭い重なりで、cuts/xfade が表現する。
+// その例外は同一トラックのペアだけに適用する。別トラックとの交差は transition の有無にかかわらず
+// 真の同時表示なので layers へ退避する。
+function computeOverlappingItemIds(itemGroups: readonly (readonly ItemV2[])[]): Set<string> {
     const overlapping = new Set<string>();
-    for (let i = 0; i < items.length; i++) {
-        const a = items[i];
+    const entries = itemGroups.flatMap((items, trackIndex) =>
+        items.map(item => ({ item, trackIndex }))
+    );
+    for (let i = 0; i < entries.length; i++) {
+        const { item: a, trackIndex: aTrackIndex } = entries[i];
         if (a.source.kind !== 'media') continue;
-        for (let j = i + 1; j < items.length; j++) {
-            const b = items[j];
+        for (let j = i + 1; j < entries.length; j++) {
+            const { item: b, trackIndex: bTrackIndex } = entries[j];
             if (b.source.kind !== 'media') continue;
-            // r3 (Codex re-review, MINOR): a zero-duration item is an empty interval that can
-            // never actually be visible on screen at the same instant as anything else, so two
-            // zero-duration items sharing the same `at` are not a genuine overlap -- require a
-            // positive duration too, or an empty-interval pair would be forced to 'layers' for
-            // no real reason.
-            if (a.at === b.at && a.duration === b.duration && a.duration > 0) {
-                // cuts[].transition_out (a crossfade into the next cut) is a DELIBERATE, narrow
-                // overlap between two otherwise-sequential same-track items -- the concat engine's
-                // own xfade support (packages/render-cut/src/plan.mjs) already represents this
-                // correctly, so it must not be caught by this "cuts can't represent overlap" rule
-                // (only a genuine simultaneous-PiP overlap, with no transition_out involved at
-                // all, structurally can't be represented by concat). Declaring transition_out on
-                // either item in an overlapping pair is enough to exclude it: a real simultaneous
-                // PiP overlay never declares transition_out (it has no "next clip" to transition
-                // into within the same track).
-                if (a.source.transition_out !== undefined || b.source.transition_out !== undefined) continue;
+            if (!(a.at < b.at + b.duration && b.at < a.at + a.duration)) continue;
+            const sameTrack = aTrackIndex === bTrackIndex;
+            if (sameTrack
+                && (a.source.transition_out !== undefined || b.source.transition_out !== undefined)) continue;
+            if (sameTrack) {
                 overlapping.add(a.id);
                 overlapping.add(b.id);
+            } else {
+                const upper = aTrackIndex > bTrackIndex ? a : b;
+                if (needsCrossTrackLayers(upper)) overlapping.add(upper.id);
             }
         }
     }
     return overlapping;
+}
+
+// cuts の winner-take-all が下段を隠してよいのは、上段が全画面を不透明に覆う場合だけ。
+// transform の単位元を明示しただけなら従来経路を維持する。crop / 半透明 / keyframes は、
+// 現在または途中フレームで下段が見える可能性があるため宣言の存在だけで layers へ退避する。
+function needsCrossTrackLayers(item: ItemV2): boolean {
+    const transform = item.transform;
+    return (transform?.scale !== undefined && transform.scale !== 1)
+        || (transform?.x !== undefined && transform.x !== 0)
+        || (transform?.y !== undefined && transform.y !== 0)
+        || (transform?.rotate !== undefined && transform.rotate !== 0)
+        || item.crop !== undefined
+        || (item.opacity !== undefined && item.opacity < 1)
+        || item.keyframes !== undefined;
 }
 
 function nextRef(counters: Map<TimelineTrackKind, number>, kind: TimelineTrackKind): number {

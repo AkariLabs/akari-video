@@ -1,0 +1,70 @@
+{
+  "version": 2,
+  "output": {
+    "width": 640,
+    "height": 360,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "photo-a",
+      "path": "photo-a.png",
+      "proxy": null
+    },
+    {
+      "id": "photo-b",
+      "path": "photo-b.png",
+      "proxy": null
+    }
+  ],
+  "tracks": [
+    {
+      "id": "v1",
+      "lane": "visual",
+      "name": "V1 — full-frame photo A",
+      "items": [
+        {
+          "id": "photo-a-item",
+          "at": 0,
+          "duration": 360,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 1,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "media",
+            "src": "photo-a",
+            "in": 0,
+            "out": 12
+          }
+        }
+      ]
+    },
+    {
+      "id": "v4",
+      "lane": "visual",
+      "name": "V4 — centered 50% photo B",
+      "items": [
+        {
+          "id": "photo-b-item",
+          "at": 120,
+          "duration": 120,
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scale": 0.5,
+            "rotate": 0
+          },
+          "source": {
+            "kind": "media",
+            "src": "photo-b",
+            "in": 0,
+            "out": 4
+          }
+        }
+      ]
+    }
+  ]
+}
