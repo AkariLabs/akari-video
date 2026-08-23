@@ -1,17 +1,20 @@
 # 語レベル演出（emphasis_words）を導出する
 
 > **v2 注記**: edit.json v2 のトップレベルは exact で `emphasis_words` を受け付けない。
-> 以下の導出知識は候補と根拠を判断記録へ残すために使い、v2 の `edit.json` には書かない。
-> `emphasis_words` は v2 で廃止済みであり、消費者側コードも畳んだため、今後も復活させない。
+> 書き先は `captions.json` object ルートのトップレベル `emphasis_words[]` とし、v2 の
+> `edit.json` には書かない。データ契約は
+> [captions.json v0 語レベル演出契約](../../docs/contract-2026-08-23-captions-emphasis-words-v0.md) を参照する。
 
 ## 原則
 
 `emphasis_words[]`（人間向けの呼称は **語レベル演出**）は、素材のどの語を演出の対象にするかを
 記録する解析結果である。データの器と検証責務の正は
-[edit.json v1 語レベル演出契約](../../docs/contract-2026-07-23-edit-json-v1-emphasis-words.md) にある
+[captions.json v0 語レベル演出契約](../../docs/contract-2026-08-23-captions-emphasis-words-v0.md) にあり、
+レコード形と選定規律は
+[edit.json v1 語レベル演出契約](../../docs/contract-2026-07-23-edit-json-v1-emphasis-words.md) を引き継ぐ
 （`id` は `^e-\d{4}$` でファイル内一意 / `t_start` / `t_end` は source 秒で `t_end > t_start` /
 `word` は transcript の実表記 / `emotion` は例示 6 値で enum 強制なし / `style_hint` は任意の提案 /
-`src` は v1 のみ）。本リーフはその器へ**どの語を選ぶか**、すなわち検証済み `analysis.json` の
+`src` は任意）。本リーフはその器へ**どの語を選ぶか**、すなわち検証済み `analysis.json` の
 word-level タイムスタンプから emphasis_words を導出する規約を定める。
 
 - **入力**は検証済み `analysis.json` の `transcript[].words`（[analysis.schema.json](../../packages/schemas/analysis.schema.json)
@@ -221,7 +224,7 @@ word-level タイムスタンプから emphasis_words を導出する規約を�
 | `b-0004` | 132.60 | `punchline` | 数値実績の提示『処理時間は、12 分から 90 秒になりました。』 |
 | `b-0005` | 158.40 | `emotion` | 発話『終わってみると、ほんとうに、しんどかった。』 |
 
-### 判断記録へ残す語レベル演出候補（旧 `emphasis_words` 形は根拠の構造例としてのみ使用）
+### `captions.json` へ書く語レベル演出
 
 ```json
 {
@@ -297,13 +300,15 @@ word-level タイムスタンプから emphasis_words を導出する規約を�
 
 ### v2 での保存先
 
-上の JSON 片は v2 の `edit.json` へ貼り付けない。採用・不採用、実測の `t_start` / `t_end`、
-語の表記、根拠を `decision-log.md` へ残す。
+上の `emphasis_words[]` は `captions.json` の object ルートへ書く。v2 の `edit.json` へは
+貼り付けない。採用・不採用、実測の `t_start` / `t_end`、語の表記、根拠は従来どおり
+`decision-log.md` にも残す。
 
 ## 検証
 
 語レベル演出候補は `analysis.json` の `words` へ戻れるか、`t_end > t_start` かを検証し、
-採用判断を `decision-log.md` で確認する。v2 の `edit.json` へは書かない。
+採用判断を `decision-log.md` で確認する。採用結果が `captions.json.emphasis_words[]` にあり、
+v2 の `edit.json` には無いことも確認する。
 
 **検証がしないこと**（契約 §7）。ここを検証に頼らない。
 
@@ -329,5 +334,5 @@ word-level タイムスタンプから emphasis_words を導出する規約を�
 - `style_hint` を描画への指定だと思って必須にする。提案止まりであり、省略してよい。
 - 不採用候補を黙って捨て、`decision-log.md` に残さない。
 - `id` を連番以外（`e-1` / `emphasis-0001` 等）で振る。`^e-\d{4}$` の 4 桁ゼロ埋めである。
-- v0 の `edit.json` に `src` を書く（参照先が定義できないため検証エラー）。
+- 語レベル演出を v2 の `edit.json` に書く。書き先は `captions.json.emphasis_words[]` である。
 - `t_start` / `t_end` に timeline 秒（cut 連結後の時刻）を書く。emphasis_words は source 秒である。

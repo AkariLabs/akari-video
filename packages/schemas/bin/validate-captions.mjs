@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// captions.json v0 のレコード、語タイミング、テキストスタイルを依存ゼロで検証する。
+// captions.json v0 のレコード、語タイミング、語レベル演出、テキストスタイルを依存ゼロで検証する。
 
 import fs from "node:fs";
 import path from "node:path";
@@ -100,7 +100,12 @@ function validateCaptionsRoot(value) {
     captions = value;
   } else if (isPlainObject(value)) {
     for (const key of Object.keys(value)) {
-      if (key !== "default_text_style" && key !== "display_policy" && key !== "captions") {
+      if (
+        key !== "default_text_style"
+        && key !== "display_policy"
+        && key !== "emphasis_words"
+        && key !== "captions"
+      ) {
         fail(`captions.json のルートに未知のキーがあります: ${key}`);
       }
     }
@@ -108,6 +113,7 @@ function validateCaptionsRoot(value) {
       validateTextStyle(value.default_text_style, "default_text_style");
     }
     if (hasOwn(value, "display_policy")) validateDisplayPolicy(value.display_policy);
+    if (hasOwn(value, "emphasis_words")) validateEmphasisWords(value.emphasis_words);
     if (!hasOwn(value, "captions")) {
       fail("captions.json の object ルートでは captions が必須です");
       return;
@@ -126,6 +132,49 @@ function validateCaptionsRoot(value) {
     captions,
     isPlainObject(value) && hasOwn(value, "display_policy") ? value.default_text_style : null,
   );
+}
+
+// docs/contract-2026-08-23-captions-emphasis-words-v0.md。レコード形と語彙は
+// edit.json v1 の emphasis_words と同形だが、captions.json では object ルートだけに置く。
+function validateEmphasisWords(value) {
+  if (!Array.isArray(value)) {
+    fail("emphasis_words は配列である必要があります");
+    return;
+  }
+  const ids = new Set();
+  for (const [index, item] of value.entries()) {
+    const label = `emphasis_words[${index}]`;
+    if (!isPlainObject(item)) {
+      fail(`${label} は object である必要があります`);
+      continue;
+    }
+    if (typeof item.id !== "string" || !/^e-\d{4}$/.test(item.id)) {
+      fail(`${label}.id は e- に続く 4 桁の数字である必要があります`);
+    } else if (ids.has(item.id)) {
+      fail(`emphasis_words[].id が重複しています: ${item.id}`);
+    } else {
+      ids.add(item.id);
+    }
+    const hasStart = isFiniteNumber(item.t_start) && item.t_start >= 0;
+    const hasEnd = isFiniteNumber(item.t_end) && item.t_end >= 0;
+    if (!hasStart) fail(`${label}.t_start は 0 以上の有限数である必要があります`);
+    if (!hasEnd) fail(`${label}.t_end は 0 以上の有限数である必要があります`);
+    if (hasStart && hasEnd && item.t_end <= item.t_start) {
+      fail(`${label}.t_end は t_start より大きい必要があります`);
+    }
+    if (!isNonEmptyString(item.word)) {
+      fail(`${label}.word は空でない文字列である必要があります`);
+    }
+    if (!isNonEmptyString(item.emotion)) {
+      fail(`${label}.emotion は空でない文字列である必要があります`);
+    }
+    if (hasOwn(item, "src") && !isNonEmptyString(item.src)) {
+      fail(`${label}.src は空でない文字列である必要があります`);
+    }
+    if (hasOwn(item, "style_hint") && typeof item.style_hint !== "string") {
+      fail(`${label}.style_hint は文字列である必要があります`);
+    }
+  }
 }
 
 function validateCaptionsArray(captions, optInDefaultTextStyle = null) {

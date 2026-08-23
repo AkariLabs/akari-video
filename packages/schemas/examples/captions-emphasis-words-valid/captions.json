@@ -1,0 +1,31 @@
+{
+  "emphasis_words": [
+    {
+      "id": "e-0001",
+      "t_start": 0.1,
+      "t_end": 0.6,
+      "word": "最高",
+      "emotion": "joy",
+      "style_hint": "size-pulse"
+    },
+    {
+      "id": "e-0002",
+      "src": "main",
+      "t_start": 0.7,
+      "t_end": 1.2,
+      "word": "痛い",
+      "emotion": "pain"
+    }
+  ],
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0,
+      "end": 2,
+      "text": "最高、痛い",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false
+    }
+  ]
+}
