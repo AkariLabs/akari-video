@@ -43,11 +43,11 @@ export function resolveCaptionSourceForMapping(
 
 /** 複数 source で src が無く、誤射影を避けるため非表示になる字幕の案内文を作る。 */
 export function computeCaptionSourceMappingWarning(
-    captions: readonly { id: string }[],
+    captions: readonly { id: string; timeDomain?: 'source' | 'output' }[],
     explicitSources: ReadonlyMap<string, string>,
     segmentSources: readonly (string | undefined)[]
 ): string | undefined {
-    const hiddenCount = captions.filter(caption =>
+    const hiddenCount = captions.filter(caption => caption.timeDomain !== 'output' &&
         resolveCaptionSourceForMapping(caption.id, explicitSources, segmentSources) === null
     ).length;
     if (hiddenCount === 0) {

@@ -61,6 +61,68 @@ test('projects repeated/crossing/speed/multi-source occurrences before splitting
   assert.equal(result.display_cues.at(-1).end, 5.5);
 });
 
+test('output-domain cue bypasses src cut filtering and keeps one continuous output interval', () => {
+  const root = {
+    display_policy: policy,
+    captions: [caption('c-0001', 0.5, 3.5, 'C2まで表示', {
+      src: 'a', time_domain: 'output',
+    })],
+  };
+  const result = resolveCaptionDisplay(root, {
+    version: 1,
+    output: { width: 1920, height: 1080 },
+    sources: [{ id: 'a' }, { id: 'b' }],
+    cuts: [
+      { src: 'a', in: 0, out: 2 },
+      { src: 'b', in: 0, out: 2 },
+    ],
+  });
+  assert.equal(result.occurrence_count, 1);
+  assert.equal(result.display_cue_count, 1);
+  assert.equal(result.display_cues[0].start, 0.5);
+  assert.equal(result.display_cues[0].end, 3.5);
+  assert.equal(result.display_cues[0].src, 'a');
+  assert.equal(result.display_cues[0].cut_index, -1);
+});
+
+test('output-domain cue may omit provenance src in a multi-source edit', () => {
+  const root = {
+    display_policy: policy,
+    captions: [caption('c-0001', 0.5, 3.5, '出力字幕', { time_domain: 'output' })],
+  };
+  assert.doesNotThrow(() => resolveCaptionDisplay(root, {
+    sources: [{ id: 'a' }, { id: 'b' }],
+    cuts: [{ src: 'a', in: 0, out: 2 }, { src: 'b', in: 0, out: 2 }],
+  }));
+});
+
+test('output-domain cue is clamped to the linear cuts duration', () => {
+  const root = {
+    display_policy: policy,
+    captions: [caption('c-0001', 3, 7, '字幕です', { time_domain: 'output' })],
+  };
+  const result = resolveCaptionDisplay(root, {
+    sources: [{ id: 'a' }, { id: 'b' }],
+    cuts: [{ src: 'a', in: 0, out: 2 }, { src: 'b', in: 0, out: 2 }],
+  });
+  assert.equal(result.occurrence_count, 1);
+  assert.equal(result.display_cues[0].start, 3);
+  assert.equal(result.display_cues[0].end, 4);
+});
+
+test('output-domain cue at or beyond the linear cuts end produces no occurrence', () => {
+  const root = {
+    display_policy: policy,
+    captions: [caption('c-0001', 4, 7, '字幕です', { time_domain: 'output' })],
+  };
+  const result = resolveCaptionDisplay(root, {
+    sources: [{ id: 'a' }, { id: 'b' }],
+    cuts: [{ src: 'a', in: 0, out: 2 }, { src: 'b', in: 0, out: 2 }],
+  });
+  assert.equal(result.occurrence_count, 0);
+  assert.deepEqual(result.display_cues, []);
+});
+
 test('source reference validation is driven by normalized sources, not edit.version', () => {
   const root = {
     display_policy: policy,

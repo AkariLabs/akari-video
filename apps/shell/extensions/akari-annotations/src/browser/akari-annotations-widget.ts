@@ -75,6 +75,7 @@ import {
 } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
 import { CaptionSubrowLayout, computeCaptionSubrowLayout } from '../common/caption-subrow-layout';
+import { clampCaptionOutputRange, resolveSourceCaptionEdgeDrag } from '../common/caption-output-domain';
 import {
     CaptionSourceForMapping,
     computeCaptionSourceMappingWarning,
@@ -386,7 +387,8 @@ interface DragBase {
 type DragDetail =
     | { kind: 'cut-trim'; index: number; edge: 'left' | 'right'; originalIn: number; originalOut: number }
     | { kind: 'cut-move'; index: number; originalAt: number; originalTrack: number; duration: number }
-    | { kind: 'caption'; id: string; mode: 'move' | 'start' | 'end'; originalStart: number; originalEnd: number }
+    | { kind: 'caption'; id: string; mode: 'move' | 'start' | 'end'; originalStart: number; originalEnd: number;
+        originalTimeDomain?: 'source' | 'output'; originalEdited: boolean }
     | { kind: 'overlay'; id: string; mode: 'move' | 'resize'; originalStart: number; originalDuration: number; originalTrack: number }
     | { kind: 'layer'; id: string; mode: 'move' | 'start' | 'end'; originalT: number; originalDuration: number; originalTrack: number }
     | { kind: 'audio'; id: string; originalT: number; originalTrack: number; originalDuration: number }
@@ -414,7 +416,9 @@ type DragPreview =
     }
     | { kind: 'cut-move'; index: number; at: number; track: number; rejected: boolean;
         insertTrack?: number; targetTrackId?: string; insertIndex?: number }
-    | { kind: 'caption'; id: string; deltaStart: number; deltaEnd: number; start: number; end: number }
+    | { kind: 'caption'; id: string; start: number; end: number; timeDomain: 'source' | 'output';
+        storedTimeDomain?: 'source' | 'output';
+        originalStart: number; originalEnd: number; originalTimeDomain?: 'source' | 'output'; originalEdited: boolean }
     | { kind: 'overlay-move'; id: string; start: number; track: number; insertTrack?: number;
         targetTrackId?: string; insertIndex?: number }
     | { kind: 'overlay-resize'; id: string; duration: number }
@@ -1218,6 +1222,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     .akari-annotations-widget .akari-annotations-ghost-duration-warning {
         border-color: #f14c4c !important;
         border-width: 2px !important;
+    }
+    .akari-annotations-widget .akari-annotations-ghost-output-domain {
+        border-color: #a855f7 !important;
+        background: rgba(168, 85, 247, .3) !important;
     }
     .akari-annotations-widget .akari-annotations-strip-clip-trimmer-active {
         outline: 2px solid #f97316;
@@ -3714,6 +3722,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected captionRangeToOutputRanges(
         captionId: string, start: number, end: number
     ): Array<[number, number]> {
+        const caption = this.captions.find(candidate => candidate.id === captionId);
+        if (caption?.timeDomain === 'output') {
+            return [[start, end]];
+        }
         const src = this.captionSourceForMapping(captionId);
         return this.captionSourceRangeToOutputRanges(start, end, src);
     }
@@ -4062,7 +4074,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     : rightDistance <= EDGE_ZONE_PX ? 'end' : 'move';
                 return {
                     kind: 'caption', id: caption.id, mode,
-                    originalStart: caption.start, originalEnd: caption.end
+                    originalStart: caption.start, originalEnd: caption.end,
+                    originalTimeDomain: caption.timeDomain,
+                    originalEdited: caption.edited
                 };
             });
             this.strip.appendChild(element);
@@ -6718,38 +6732,111 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let start = state.originalStart;
             let end = state.originalEnd;
             let snapped = false;
+            let timeDomain: 'source' | 'output' = state.originalTimeDomain ?? 'source';
+            let outputStart: number | undefined;
+            let outputEnd: number | undefined;
             const originalEdges = [{ time: state.originalStart }, { time: state.originalEnd }];
-            if (state.mode === 'move') {
+            const originalRanges = this.captionRangeToOutputRanges(
+                state.id, state.originalStart, state.originalEnd
+            );
+            const originalOutputStart = originalRanges[0]?.[0];
+            const originalOutputEnd = originalRanges[originalRanges.length - 1]?.[1];
+            if (timeDomain === 'output') {
+                if (state.mode === 'move') {
+                    const snap = this.snapMovingRangeInOutputSpace(
+                        state.originalStart + delta,
+                        state.originalEnd - state.originalStart,
+                        showGuide,
+                        originalEdges
+                    );
+                    start = Math.max(0, snap.time);
+                    end = state.originalEnd + (start - state.originalStart);
+                    snapped = snap.snapped;
+                } else {
+                    const originalEdge = state.mode === 'start' ? state.originalStart : state.originalEnd;
+                    const snap = this.snapTimeInOutputSpaceWithResult(
+                        Math.max(0, originalEdge + delta), showGuide, originalEdges
+                    );
+                    snapped = snap.snapped;
+                    if (state.mode === 'start') start = snap.time;
+                    else end = snap.time;
+                }
+                outputStart = start;
+                outputEnd = end;
+            } else if (state.mode === 'move') {
                 const snap = this.snapTimeInSourceSpaceWithResult(
                     state.originalStart + delta, showGuide, originalEdges
                 );
                 start = snap.time;
                 snapped = snap.snapped;
                 end = state.originalEnd + (start - state.originalStart);
-            } else if (state.mode === 'start') {
-                const snap = this.snapTimeInSourceSpaceWithResult(
-                    state.originalStart + delta, showGuide, originalEdges
-                );
-                start = snap.time;
-                snapped = snap.snapped;
             } else {
-                const snap = this.snapTimeInSourceSpaceWithResult(
-                    state.originalEnd + delta, showGuide, originalEdges
+                const edge = state.mode;
+                const originalOutputEdge = edge === 'start' ? originalOutputStart : originalOutputEnd;
+                const snap = this.snapTimeInOutputSpaceWithResult(
+                    Math.max(0, (originalOutputEdge ?? (edge === 'start'
+                        ? state.originalStart : state.originalEnd)) + delta),
+                    showGuide,
+                    originalOutputStart !== undefined && originalOutputEnd !== undefined
+                        ? [{ time: originalOutputStart }, { time: originalOutputEnd }]
+                        : originalEdges
                 );
-                end = snap.time;
                 snapped = snap.snapped;
+                if (originalOutputStart !== undefined && originalOutputEnd !== undefined) {
+                    const source = this.captionSourceForMapping(state.id);
+                    const resolved = resolveSourceCaptionEdgeDrag({
+                        edge,
+                        originalStart: state.originalStart,
+                        originalEnd: state.originalEnd,
+                        originalOutputStart,
+                        originalOutputEnd,
+                        proposedOutputEdge: snap.time,
+                        ...(typeof source === 'string' ? { src: source } : {}),
+                        segments: this.segments
+                    });
+                    start = resolved.start;
+                    end = resolved.end;
+                    outputStart = resolved.outputStart;
+                    outputEnd = resolved.outputEnd;
+                    if (resolved.convertsToOutput) timeDomain = 'output';
+                } else if (edge === 'start') {
+                    start = snap.time;
+                } else {
+                    end = snap.time;
+                }
             }
-            const ranges = this.captionRangeToOutputRanges(state.id, start, end);
-            if (ranges.length > 0) {
-                this.setGhostRange(state.ghost, ranges[0][0], ranges[ranges.length - 1][1]);
+            if (timeDomain === 'output') {
+                const clamped = clampCaptionOutputRange(start, end, this.totalDuration());
+                start = clamped.start;
+                end = clamped.end;
+                outputStart = start;
+                outputEnd = end;
+            }
+            if (outputStart === undefined || outputEnd === undefined) {
+                const ranges = timeDomain === 'output'
+                    ? [[start, end] as [number, number]]
+                    : this.captionRangeToOutputRanges(state.id, start, end);
+                outputStart = ranges[0]?.[0];
+                outputEnd = ranges[ranges.length - 1]?.[1];
+            }
+            if (outputStart !== undefined && outputEnd !== undefined) {
+                this.setGhostRange(state.ghost, outputStart, outputEnd);
             }
             this.setGhostSnapped(state.ghost, snapped);
-            this.updateDragFeedback(state, `${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`);
+            this.setGhostOutputDomain(state.ghost, timeDomain === 'output');
+            this.updateDragFeedback(state, timeDomain === 'output' && state.originalTimeDomain !== 'output'
+                ? `出力時間の字幕に変換 ${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`
+                : `${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`);
             return {
                 kind: 'caption', id: state.id,
-                deltaStart: start - state.originalStart,
-                deltaEnd: end - state.originalEnd,
-                start, end
+                start, end, timeDomain,
+                ...(timeDomain === 'output' ? { storedTimeDomain: 'output' as const }
+                    : state.originalTimeDomain !== undefined
+                        ? { storedTimeDomain: state.originalTimeDomain } : {}),
+                originalStart: state.originalStart,
+                originalEnd: state.originalEnd,
+                originalTimeDomain: state.originalTimeDomain,
+                originalEdited: state.originalEdited
             };
         }
         if (state.kind === 'layer') {
@@ -7146,6 +7233,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ghost.classList.toggle('akari-annotations-ghost-duration-warning', warning);
     }
 
+    protected setGhostOutputDomain(ghost: HTMLDivElement, outputDomain: boolean): void {
+        ghost.classList.toggle('akari-annotations-ghost-output-domain', outputDomain);
+    }
+
     protected setGhostRange(ghost: HTMLDivElement, start: number, end: number): void {
         ghost.style.left = `${this.percent(start)}%`;
         ghost.style.width = `${Math.max(this.percent(end) - this.percent(start), 0.3)}%`;
@@ -7360,24 +7451,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         try {
-            const result = await this.annotationsService.shiftCaption({
+            const request = {
                 captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                captionId: preview.id, deltaStart: preview.deltaStart, deltaEnd: preview.deltaEnd
-            });
+                captionId: preview.id, start: preview.start, end: preview.end,
+                timeDomain: preview.storedTimeDomain ?? null, edited: true
+            } as const;
+            const result = await this.annotationsService.setCaptionTiming(request);
             this.pushHistory({
                 label: "字幕タイミングの調整",
                 undo: async () => {
-                    await this.annotationsService.shiftCaption({
+                    await this.annotationsService.setCaptionTiming({
                         captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                        captionId: preview.id, deltaStart: -preview.deltaStart, deltaEnd: -preview.deltaEnd
+                        captionId: preview.id, start: preview.originalStart, end: preview.originalEnd,
+                        timeDomain: preview.originalTimeDomain ?? null, edited: preview.originalEdited
                     });
                     await this.reloadCaptions();
                 },
                 redo: async () => {
-                    await this.annotationsService.shiftCaption({
-                        captionsUri: location.captionsUri.toString(), projectRootUri: location.root.toString(),
-                        captionId: preview.id, deltaStart: preview.deltaStart, deltaEnd: preview.deltaEnd
-                    });
+                    await this.annotationsService.setCaptionTiming(request);
                     await this.reloadCaptions();
                 }
             });

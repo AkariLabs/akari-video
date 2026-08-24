@@ -8,6 +8,7 @@ import {
   insertCaptionLine,
   mergeCaptionTextStyles,
   parseCaptions,
+  setCaptionTimingLine,
   updateCaptionTextStyleInSource,
 } from '../lib/caption-store.js';
 
@@ -28,6 +29,19 @@ const caption = (id, start, text, extra = {}) => ({
   sourceRef: { segment: 0 },
   edited: false,
   ...extra
+});
+
+test('time_domain を読み、絶対時刻更新で output 変換と未宣言への undo を往復できる', () => {
+  const source = JSON.stringify([caption('c-0001', 0.5, '跨ぐ字幕')], null, 2);
+  const converted = setCaptionTimingLine(source, 'c-0001', 0.5, 3.5, 'output', true);
+  assert.deepEqual(parseCaptions(converted).captions[0], {
+    ...caption('c-0001', 0.5, '跨ぐ字幕'),
+    end: 3.5,
+    edited: true,
+    timeDomain: 'output',
+  });
+  const restored = setCaptionTimingLine(converted, 'c-0001', 0.5, 1.5, null, false);
+  assert.deepEqual(JSON.parse(restored), JSON.parse(source));
 });
 
 test('拡張フィールド（font_family 等）を含む text_style があっても字幕行を破棄しない', () => {

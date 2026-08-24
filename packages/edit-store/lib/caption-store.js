@@ -4,6 +4,7 @@ exports.CAPTION_ZONES = void 0;
 exports.parseCaptions = parseCaptions;
 exports.mergeCaptionTextStyles = mergeCaptionTextStyles;
 exports.shiftCaptionLine = shiftCaptionLine;
+exports.setCaptionTimingLine = setCaptionTimingLine;
 exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
 exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
 exports.insertCaptionLine = insertCaptionLine;
@@ -127,6 +128,20 @@ function shiftCaptionLine(source, captionId, deltaStart, deltaEnd) {
     let nextElement = replaceCaptionProperty(element.text, 'start', nextStart, captionId);
     nextElement = replaceCaptionProperty(nextElement, 'end', nextEnd, captionId);
     nextElement = replaceCaptionProperty(nextElement, 'edited', true, captionId);
+    return replaceElement(source, array.openIndex + 1, element, nextElement);
+}
+/** 字幕の時刻と domain を絶対値で更新する。undo は元値をそのまま渡して完全復元できる。 */
+function setCaptionTimingLine(source, captionId, start, end, timeDomain, edited) {
+    if (!captionId || !Number.isFinite(start) || !Number.isFinite(end)
+        || start < 0 || end - start < 0.15) {
+        throw new Error('字幕が短すぎます（0.15 秒未満にはできません）');
+    }
+    const array = locateCaptionArray(source);
+    const element = findCaptionElement(array.elements, captionId);
+    let nextElement = replaceCaptionProperty(element.text, 'start', start, captionId);
+    nextElement = replaceCaptionProperty(nextElement, 'end', end, captionId);
+    nextElement = replaceCaptionProperty(nextElement, 'edited', edited, captionId);
+    nextElement = updateOptionalStyleProperty(nextElement, 'time_domain', timeDomain, `字幕 ${captionId}`);
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
 function updateCaptionFieldsInSource(source, captionId, updates) {
@@ -281,6 +296,8 @@ function normalizeCaption(value, onTextStyleUnknownKeys) {
         speaker: value.speaker,
         sourceRef,
         edited: value.edited,
+        ...(value.time_domain === 'source' || value.time_domain === 'output'
+            ? { timeDomain: value.time_domain } : {}),
         ...(textStyle !== undefined ? { textStyle } : {})
     };
 }
@@ -427,10 +444,13 @@ function insertIntoEmptyArray(inner, serialized, lineEnding) {
     return `${beforeClosingIndent}${closingIndent}  ${serialized}${lineEnding}${closingIndent}`;
 }
 function serializeCaption(caption) {
+    const timeDomain = caption.timeDomain === undefined
+        ? ''
+        : `, "time_domain": ${JSON.stringify(caption.timeDomain)}`;
     const textStyle = caption.textStyle === undefined
         ? ''
         : `, "text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`;
-    return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${textStyle} }`;
+    return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${timeDomain}${textStyle} }`;
 }
 function isRecord(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);

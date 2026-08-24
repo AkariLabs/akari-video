@@ -109,6 +109,8 @@ export interface CaptionRecord {
         segment: number;
     } | null;
     edited: boolean;
+    /** 省略時は source。output は edit.json の出力時間軸を直接参照する。 */
+    timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
 }
 export declare function parseCaptions(source: string): {
@@ -118,6 +120,8 @@ export declare function parseCaptions(source: string): {
 };
 export declare function mergeCaptionTextStyles(defaultStyle: CaptionTextStyle | undefined, captionStyle: CaptionTextStyle | undefined): CaptionTextStyle | undefined;
 export declare function shiftCaptionLine(source: string, captionId: string, deltaStart: number, deltaEnd: number): string;
+/** 字幕の時刻と domain を絶対値で更新する。undo は元値をそのまま渡して完全復元できる。 */
+export declare function setCaptionTimingLine(source: string, captionId: string, start: number, end: number, timeDomain: 'source' | 'output' | null | undefined, edited: boolean): string;
 export declare function updateCaptionFieldsInSource(source: string, captionId: string, updates: {
     text?: string;
     speaker?: string | null;

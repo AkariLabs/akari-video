@@ -10,7 +10,7 @@ export function bootstrapRunner(): void {
     const os = require('os') as typeof import('os');
     const path = require('path') as typeof import('path');
     const { spawn } = require('child_process') as typeof import('child_process');
-    const { gunzipSync } = require('zlib') as typeof import('zlib');
+    const { gunzipSync, inflateRawSync } = require('zlib') as typeof import('zlib');
 
     const claudeInstallUrl = process.env.AKARI_PARTNER_CLAUDE_INSTALL_URL
         || (process.platform === 'win32' ? 'https://claude.ai/install.ps1' : 'https://claude.ai/install.sh');
@@ -18,6 +18,14 @@ export function bootstrapRunner(): void {
     const codexReleaseTagApiUrlTemplate = process.env.AKARI_PARTNER_CODEX_RELEASE_TAG_API_URL_TEMPLATE
         || 'https://api.github.com/repos/openai/codex/releases/tags/{tag}';
     const requestTimeoutMs = 120_000;
+    // win32 の opencode/copilot は 160-180MB の単一 exe 入り zip を直接ダウンロードする
+    // ため、既定の 120s では低速回線で足りない。呼び出し側 (akari-partner-server.ts) の
+    // bootstrap 全体タイムアウト 10 分の内側に収める。
+    const largeDownloadTimeoutMs = 480_000;
+    // Windows インストーラーが %LOCALAPPDATA% 配下へ置く CLI の探索基点。
+    // LOCALAPPDATA が無い異常環境でも既定レイアウトへフォールバックする。
+    const windowsLocalAppData = process.env.LOCALAPPDATA
+        || path.join(os.homedir(), 'AppData', 'Local');
     // Escape hatch for forcing a fresh (re)install even when a usable binary is
     // already on disk. Default is detection-first — see runClaudeInstaller /
     // installCodexBinary below (F46: partner connect must not reinstall CLIs
@@ -108,9 +116,9 @@ export function bootstrapRunner(): void {
         return candidates;
     }
 
-    async function request(url: string, accept = 'application/octet-stream'): Promise<Buffer> {
+    async function request(url: string, accept = 'application/octet-stream', timeoutMs = requestTimeoutMs): Promise<Buffer> {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
             const response = await fetch(url, {
                 redirect: 'follow',
@@ -221,7 +229,8 @@ export function bootstrapRunner(): void {
             throw new Error(`Codex release does not contain ${assetName}`);
         }
         console.log(`${asset.name} をダウンロードしています`);
-        const archive = await request(asset.browser_download_url);
+        // バンドルは 114MB 級。低速回線向けの大容量タイムアウトを使う（win32 zip CLI と同方針）。
+        const archive = await request(asset.browser_download_url, 'application/octet-stream', largeDownloadTimeoutMs);
         const managedRoot = codexManagedRoot();
         const versionDir = path.join(managedRoot, version);
         await fs.mkdir(managedRoot, { recursive: true });
@@ -285,7 +294,7 @@ export function bootstrapRunner(): void {
         if (!asset) {
             throw new Error(`Codex release does not contain a matching code-mode host asset (${candidateNames.join(', ')})`);
         }
-        const download = await request(asset.browser_download_url);
+        const download = await request(asset.browser_download_url, 'application/octet-stream', largeDownloadTimeoutMs);
         const hostName = process.platform === 'win32' ? 'codex-code-mode-host.exe' : 'codex-code-mode-host';
         const destination = path.join(path.dirname(executableRealpath), hostName);
         const temporary = `${destination}.akari-download-${process.pid}`;
@@ -367,8 +376,14 @@ export function bootstrapRunner(): void {
         installUrlEnvVar: string;
         defaultInstallUrl: string;
         defaultInstallUrlWin32?: string;
+        // 公式インストールスクリプトが win32 に存在しない CLI 向けの直接配置ルート:
+        // GitHub リリースの単一 exe 入り zip を ~/.local/bin へ展開する（codex と同方式）。
+        // installUrlEnvVar が指定されているときはスクリプト方式の env 上書きを優先する。
+        win32ZipUrlByArch?: Record<string, string>;
         extraCandidatePaths: string[];
         manualInstallCommand: string;
+        // win32 で manualInstallCommand が実行不能（curl | bash 等）な CLI はこちらを案内する。
+        manualInstallCommandWin32?: string;
     }
 
     const scriptInstallAgentConfigs: Record<ScriptInstallAgent, ScriptInstallAgentConfig> = {
@@ -377,24 +392,43 @@ export function bootstrapRunner(): void {
             executableName: 'opencode',
             installUrlEnvVar: 'AKARI_PARTNER_OPENCODE_INSTALL_URL',
             defaultInstallUrl: 'https://opencode.ai/install',
+            // opencode.ai/install.ps1 は 404（2026-08-24 実測）。win32 は GitHub リリースの
+            // 単一 exe 入り zip（opencode-windows-*.zip, unzip -l で単一 opencode.exe を確認済み）
+            // を直接配置する。
+            win32ZipUrlByArch: {
+                x64: 'https://github.com/sst/opencode/releases/latest/download/opencode-windows-x64.zip',
+                arm64: 'https://github.com/sst/opencode/releases/latest/download/opencode-windows-arm64.zip'
+            },
             extraCandidatePaths: [path.join(os.homedir(), '.opencode', 'bin', 'opencode')],
-            manualInstallCommand: 'curl -fsSL https://opencode.ai/install | bash（または npm install -g opencode-ai）'
+            manualInstallCommand: 'curl -fsSL https://opencode.ai/install | bash（または npm install -g opencode-ai）',
+            manualInstallCommandWin32: 'npm install -g opencode-ai'
         },
         copilot: {
             agent: 'copilot',
             executableName: 'copilot',
             installUrlEnvVar: 'AKARI_PARTNER_COPILOT_INSTALL_URL',
             defaultInstallUrl: 'https://gh.io/copilot-install',
+            // gh.io/copilot-install は bash 専用（win32 分岐は winget 呼び出しのみ）。win32 は
+            // GitHub リリースの単一 exe 入り zip（copilot-win32-*.zip, 2026-08-24 実測）を直接配置する。
+            win32ZipUrlByArch: {
+                x64: 'https://github.com/github/copilot-cli/releases/latest/download/copilot-win32-x64.zip',
+                arm64: 'https://github.com/github/copilot-cli/releases/latest/download/copilot-win32-arm64.zip'
+            },
             extraCandidatePaths: [],
-            manualInstallCommand: 'npm install -g @github/copilot'
+            manualInstallCommand: 'npm install -g @github/copilot',
+            manualInstallCommandWin32: 'winget install GitHub.Copilot（または npm install -g @github/copilot）'
         },
         cursor: {
             agent: 'cursor',
             executableName: 'cursor-agent',
             installUrlEnvVar: 'AKARI_PARTNER_CURSOR_INSTALL_URL',
             defaultInstallUrl: 'https://cursor.com/install',
+            // cursor.com/install は linux/darwin のみ対応で、install.ps1 はサイトの HTML を返す
+            // 偽エンドポイント（2026-08-24 実測）。Windows ネイティブ配布が存在しないため
+            // win32 は自動インストール不可 — 手動誘導のみ（WSL 内での公式スクリプト実行）。
             extraCandidatePaths: [],
-            manualInstallCommand: 'curl https://cursor.com/install -fsS | bash'
+            manualInstallCommand: 'curl https://cursor.com/install -fsS | bash',
+            manualInstallCommandWin32: 'Cursor CLI は Windows ネイティブ未対応です。WSL 内で curl https://cursor.com/install -fsS | bash を実行してください'
         },
         antigravity: {
             agent: 'antigravity',
@@ -402,8 +436,16 @@ export function bootstrapRunner(): void {
             installUrlEnvVar: 'AKARI_PARTNER_ANTIGRAVITY_INSTALL_URL',
             defaultInstallUrl: 'https://antigravity.google/cli/install.sh',
             defaultInstallUrlWin32: 'https://antigravity.google/cli/install.ps1',
-            extraCandidatePaths: [],
-            manualInstallCommand: 'curl -fsSL https://antigravity.google/cli/install.sh | bash'
+            // 公式 install.ps1 は agy.exe を %LOCALAPPDATA%\agy\bin へ置き、PATH 追加は
+            // レジストリ（User PATH）のみ — 起動済み backend の process.env.PATH には届かず
+            // 探索で構造的に見つからない。grok と同型
+            // (task/2026-08-17-partner-grok-install-detection)。POSIX 側は ~/.local/bin に
+            // 入るため追加不要。
+            extraCandidatePaths: process.platform === 'win32'
+                ? [path.join(windowsLocalAppData, 'agy', 'bin', 'agy')]
+                : [],
+            manualInstallCommand: 'curl -fsSL https://antigravity.google/cli/install.sh | bash',
+            manualInstallCommandWin32: 'powershell -c "irm https://antigravity.google/cli/install.ps1 | iex"'
         },
         grok: {
             agent: 'grok',
@@ -420,6 +462,12 @@ export function bootstrapRunner(): void {
         }
     };
 
+    function manualInstallGuidance(config: ScriptInstallAgentConfig): string {
+        return process.platform === 'win32' && config.manualInstallCommandWin32
+            ? config.manualInstallCommandWin32
+            : config.manualInstallCommand;
+    }
+
     async function runScriptInstaller(config: ScriptInstallAgentConfig): Promise<BootstrapOutcome> {
         const candidates = scriptInstallCandidates(config.executableName, config.extraCandidatePaths);
         if (!forceReinstall) {
@@ -429,10 +477,16 @@ export function bootstrapRunner(): void {
                 return { executablePath: existing, reused: true };
             }
         }
-        const installUrl = process.env[config.installUrlEnvVar]
+        const manualCommand = manualInstallGuidance(config);
+        const envInstallUrl = process.env[config.installUrlEnvVar];
+        // env 上書きはスクリプト方式を意味する（zip 直接配置より優先）。
+        if (!envInstallUrl && process.platform === 'win32' && config.win32ZipUrlByArch) {
+            return installWin32ZipBinary(config, manualCommand);
+        }
+        const installUrl = envInstallUrl
             || (process.platform === 'win32' ? config.defaultInstallUrlWin32 : config.defaultInstallUrl);
         if (!installUrl) {
-            throw new Error(`${config.agent} はこの環境で自動インストールできません。手動でインストールしてください: ${config.manualInstallCommand}`);
+            throw new Error(`${config.agent} はこの環境で自動インストールできません。手動でインストールしてください: ${manualCommand}`);
         }
 
         console.log(`${config.agent} installer を取得しています: ${installUrl}`);
@@ -440,7 +494,7 @@ export function bootstrapRunner(): void {
         try {
             script = await request(installUrl, 'text/plain');
         } catch (error) {
-            throw new Error(`${config.agent} のインストーラー取得に失敗しました。手動でインストールしてください: ${config.manualInstallCommand} (${error instanceof Error ? error.message : String(error)})`);
+            throw new Error(`${config.agent} のインストーラー取得に失敗しました。手動でインストールしてください: ${manualCommand} (${error instanceof Error ? error.message : String(error)})`);
         }
         const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `akari-${config.agent}-`));
         try {
@@ -465,7 +519,7 @@ export function bootstrapRunner(): void {
                     });
                 }
             } catch (error) {
-                throw new Error(`${config.agent} のインストールに失敗しました。手動でインストールしてください: ${config.manualInstallCommand} (${error instanceof Error ? error.message : String(error)})`);
+                throw new Error(`${config.agent} のインストールに失敗しました。手動でインストールしてください: ${manualCommand} (${error instanceof Error ? error.message : String(error)})`);
             }
             const executable = await firstExecutable(candidates);
             if (!executable) {
@@ -474,12 +528,91 @@ export function bootstrapRunner(): void {
                     path.join(os.homedir(), '.local', 'bin'),
                     ...config.extraCandidatePaths.map(candidate => path.dirname(candidate))
                 ])];
-                throw new Error(`インストールスクリプトは完了しましたが実行ファイルが見つかりませんでした（探索先: ${searchedDirectories.join(', ')}）。手動でインストールしてください: ${config.manualInstallCommand}`);
+                throw new Error(`インストールスクリプトは完了しましたが実行ファイルが見つかりませんでした（探索先: ${searchedDirectories.join(', ')}）。手動でインストールしてください: ${manualCommand}`);
             }
             return { executablePath: executable, reused: false };
         } finally {
             await fs.rm(tempDir, { recursive: true, force: true });
         }
+    }
+
+    /**
+     * win32 で公式インストールスクリプトを持たない CLI（opencode / copilot）向け:
+     * GitHub リリースの単一 exe 入り zip をダウンロードし、codex と同じく
+     * ~/.local/bin へ直接配置する。npm や winget の有無に依存しない。
+     */
+    async function installWin32ZipBinary(config: ScriptInstallAgentConfig, manualCommand: string): Promise<BootstrapOutcome> {
+        const url = config.win32ZipUrlByArch?.[process.arch];
+        if (!url) {
+            throw new Error(`${config.agent} は ${process.platform}-${process.arch} 向けの配布物がありません。手動でインストールしてください: ${manualCommand}`);
+        }
+        console.log(`${config.agent} をダウンロードしています: ${url}`);
+        let archive: Buffer;
+        try {
+            archive = await request(url, 'application/octet-stream', largeDownloadTimeoutMs);
+        } catch (error) {
+            throw new Error(`${config.agent} のダウンロードに失敗しました。手動でインストールしてください: ${manualCommand} (${error instanceof Error ? error.message : String(error)})`);
+        }
+        const binary = extractSingleZipFile(archive, new RegExp(`^${config.executableName}\\.exe$`, 'i'));
+        const executable = path.join(os.homedir(), '.local', 'bin', `${config.executableName}.exe`);
+        await fs.mkdir(path.dirname(executable), { recursive: true });
+        const temporary = `${executable}.akari-download`;
+        // Windows の fs.chmod は POSIX 実行属性を持たないため mode 指定は不要（codex 同様）。
+        await fs.writeFile(temporary, binary);
+        await fs.rename(temporary, executable);
+        console.log(`${config.agent} を ${executable} にインストールしました`);
+        return { executablePath: executable, reused: false };
+    }
+
+    /**
+     * 依存なしの最小 zip 展開（単一エントリの取り出し専用）。central directory を
+     * 正として名前・サイズ・格納方式を読む（general purpose bit 3 = data descriptor
+     * 使用時、local header のサイズ欄は 0 のため信用しない）。対象 zip は 4GB 未満・
+     * エントリ数 65535 未満なので zip64 は対象外。
+     */
+    function extractSingleZipFile(zip: Buffer, namePattern: RegExp): Buffer {
+        // End of central directory record (署名 0x06054b50) を末尾から探す。
+        // 固定長 22 バイト + 可変コメント最大 65535 バイト。
+        let eocd = -1;
+        for (let i = zip.length - 22; i >= Math.max(0, zip.length - 22 - 65535); i--) {
+            if (zip.readUInt32LE(i) === 0x06054b50) {
+                eocd = i;
+                break;
+            }
+        }
+        if (eocd < 0) {
+            throw new Error('zip: end of central directory record not found');
+        }
+        const entryCount = zip.readUInt16LE(eocd + 10);
+        let offset = zip.readUInt32LE(eocd + 16);
+        for (let i = 0; i < entryCount; i++) {
+            if (zip.readUInt32LE(offset) !== 0x02014b50) {
+                throw new Error('zip: invalid central directory entry');
+            }
+            const method = zip.readUInt16LE(offset + 10);
+            const compressedSize = zip.readUInt32LE(offset + 20);
+            const nameLength = zip.readUInt16LE(offset + 28);
+            const extraLength = zip.readUInt16LE(offset + 30);
+            const commentLength = zip.readUInt16LE(offset + 32);
+            const localHeaderOffset = zip.readUInt32LE(offset + 42);
+            const name = zip.subarray(offset + 46, offset + 46 + nameLength).toString('utf8');
+            if (!name.endsWith('/') && namePattern.test(path.posix.basename(name))) {
+                // local header の name/extra 長は central directory と異なりうるので読み直す。
+                const localNameLength = zip.readUInt16LE(localHeaderOffset + 26);
+                const localExtraLength = zip.readUInt16LE(localHeaderOffset + 28);
+                const dataStart = localHeaderOffset + 30 + localNameLength + localExtraLength;
+                const data = zip.subarray(dataStart, dataStart + compressedSize);
+                if (method === 0) {
+                    return Buffer.from(data);
+                }
+                if (method === 8) {
+                    return inflateRawSync(data);
+                }
+                throw new Error(`zip: unsupported compression method ${method} for ${name}`);
+            }
+            offset += 46 + nameLength + extraLength + commentLength;
+        }
+        throw new Error('zip: no entry matched the expected executable name');
     }
 
     function codexTarget(): string {
