@@ -21,6 +21,12 @@ import { spawnSync } from "node:child_process";
 const EASINGS = new Set(["linear", "ease-in-out"]);
 const TRANSFORM_LEAF_DEFAULTS = { x: 0, y: 0, scale: 1, rotate: 0 };
 
+// Keep this numerically aligned with cut-framing.mjs's SUPERSAMPLE. It is intentionally local:
+// cut-framing's constant is private to a different rendering mechanism, while this module owns
+// the native-source-relative layer keyframe grid. Sharing the value through either implementation
+// module would couple two otherwise independent filter builders merely to save one literal.
+export const LAYER_KEYFRAME_SUPERSAMPLE = 2;
+
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -166,6 +172,7 @@ export function layerTransformKeyframeExprs(layer, localTExpr) {
   }));
   const scaleLeaf = leaf("scale").map((p) => ({ ...p, value: p.value > 0 ? p.value : 1 }));
   const rotateLeaf = leaf("rotate");
+  const scaleValues = scaleLeaf.map((p) => p.value);
   const rotateValues = rotateLeaf.map((p) => p.value);
   const rotateVaries = Math.max(...rotateValues) !== Math.min(...rotateValues);
 
@@ -177,7 +184,9 @@ export function layerTransformKeyframeExprs(layer, localTExpr) {
     rotateVaries,
     rotateMin: Math.min(...rotateValues),
     rotateMax: Math.max(...rotateValues),
-    scaleMax: Math.max(...scaleLeaf.map((p) => p.value)),
+    scaleDeclared: declaring.some((point) => isFiniteNumber(point.transform.scale)),
+    scaleVaries: Math.max(...scaleValues) !== Math.min(...scaleValues),
+    scaleMax: Math.max(...scaleValues),
   };
 }
 
@@ -250,6 +259,95 @@ export function layerCropKeyframeSteps(layer, localTExpr, sourceWidth, sourceHei
     `scale=w='${scaledWExpr}':h='${scaledHExpr}':eval=frame`,
     `crop=w=${SW}:h=${SH}:x='${cropXExpr}':y='${cropYExpr}'`,
     `scale=w='${finalWExpr}':h='${finalHExpr}':eval=frame`,
+  ];
+}
+
+// Fixed-canvas supersampled path for layers[].keyframes crop and/or transform.scale. The caller
+// deliberately limits this to combinations whose downstream semantics remain stable (normal
+// blend, no perspective/rotate): perspective defines its corners against the processed bitmap
+// bounds, so feeding it a max-sized transparent canvas would change the declared geometry.
+//
+// Unlike layerCropKeyframeSteps's compatibility path, every returned frame has one invariant
+// output size. The visible bitmap grows/shrinks inside that transparent canvas at 2x resolution;
+// the final Lanczos reduction turns one supersampled grid step into half an output pixel and keeps
+// overlay_w/overlay_h constant, removing the old parity-dependent `(main-overlay)/2` reversal.
+// `sourceWidth`/`sourceHeight` describe the stream arriving at these steps. For a scale-only layer
+// with a static crop, layers.mjs emits that crop first and passes its even-rounded dimensions here.
+export function layerFixedCanvasKeyframeSteps({
+  layer,
+  localTExpr,
+  sourceWidth,
+  sourceHeight,
+  scaleExpr = "1",
+  scaleMax = 1,
+}) {
+  const points = usableLayerKeyframePoints(layer?.keyframes);
+  if (!points || !(sourceWidth > 0) || !(sourceHeight > 0)) return null;
+
+  const cropPoints = declaringPoints(points, "crop", isUsableCropShape);
+  const ss = LAYER_KEYFRAME_SUPERSAMPLE;
+  const baseWidth = Math.max(2, Math.round(sourceWidth));
+  const baseHeight = Math.max(2, Math.round(sourceHeight));
+  const ssBaseWidth = baseWidth * ss;
+  const ssBaseHeight = baseHeight * ss;
+  const boundedScaleMax = isFiniteNumber(scaleMax) && scaleMax > 0 ? scaleMax : 1;
+
+  const evenCeil = (value) => Math.max(2, Math.ceil(value / 2) * 2);
+  const centeredPad = (canvasWidth, canvasHeight) =>
+    `pad=w=${canvasWidth}:h=${canvasHeight}:x='trunc((ow-iw)/4)*2':y='trunc((oh-ih)/4)*2':color=black@0:eval=frame`;
+
+  if (!cropPoints) {
+    const canvasWidth = evenCeil(baseWidth * boundedScaleMax);
+    const canvasHeight = evenCeil(baseHeight * boundedScaleMax);
+    const ssCanvasWidth = canvasWidth * ss;
+    const ssCanvasHeight = canvasHeight * ss;
+    const scaledWidthExpr = `trunc((${ssBaseWidth}*(${scaleExpr}))/2)*2`;
+    const scaledHeightExpr = `trunc((${ssBaseHeight}*(${scaleExpr}))/2)*2`;
+    return [
+      `scale=w=${ssBaseWidth}:h=${ssBaseHeight}:flags=lanczos`,
+      `scale=w='${scaledWidthExpr}':h='${scaledHeightExpr}':eval=frame:flags=lanczos`,
+      centeredPad(ssCanvasWidth, ssCanvasHeight),
+      `scale=${canvasWidth}:${canvasHeight}:flags=lanczos`,
+      `crop=w=${canvasWidth}:h=${canvasHeight}:x='0':y='0'`,
+    ];
+  }
+
+  const track = (leaf) => cropPoints.map((point) => ({
+    t: point.t,
+    value: point.crop[leaf],
+    easing: point.easing,
+  }));
+  const wTrack = track("w").map((point) => ({ ...point, value: clamp(point.value, 0.01, 1) }));
+  const hTrack = track("h").map((point) => ({ ...point, value: clamp(point.value, 0.01, 1) }));
+  const wExpr = piecewiseExpr(wTrack, (point) => point.value, localTExpr);
+  const hExpr = piecewiseExpr(hTrack, (point) => point.value, localTExpr);
+  const xExpr = piecewiseExpr(track("x"), (point) => point.value, localTExpr);
+  const yExpr = piecewiseExpr(track("y"), (point) => point.value, localTExpr);
+
+  const scaledWidthExpr = `trunc((${ssBaseWidth}/(${wExpr}))/2)*2`;
+  const scaledHeightExpr = `trunc((${ssBaseHeight}/(${hExpr}))/2)*2`;
+  const cropXExpr = `trunc(clip((${xExpr})*(${scaledWidthExpr})\\,0\\,(${scaledWidthExpr})-${ssBaseWidth})/2)*2`;
+  const cropYExpr = `trunc(clip((${yExpr})*(${scaledHeightExpr})\\,0\\,(${scaledHeightExpr})-${ssBaseHeight})/2)*2`;
+  const visibleWidthExpr = `trunc((${ssBaseWidth}*(${wExpr})*(${scaleExpr}))/2)*2`;
+  const visibleHeightExpr = `trunc((${ssBaseHeight}*(${hExpr})*(${scaleExpr}))/2)*2`;
+
+  // Independent maxima are a deliberate conservative bound. w(t)*scale(t) can have an interior
+  // extremum when the two tracks move in opposite directions; max(w)*max(scale) cannot clip it,
+  // and transparent excess only costs a small amount of canvas area.
+  const maxW = Math.max(...wTrack.map((point) => point.value));
+  const maxH = Math.max(...hTrack.map((point) => point.value));
+  const canvasWidth = evenCeil(baseWidth * maxW * boundedScaleMax);
+  const canvasHeight = evenCeil(baseHeight * maxH * boundedScaleMax);
+  const ssCanvasWidth = canvasWidth * ss;
+  const ssCanvasHeight = canvasHeight * ss;
+
+  return [
+    `scale=w='${scaledWidthExpr}':h='${scaledHeightExpr}':eval=frame:flags=lanczos`,
+    `crop=w=${ssBaseWidth}:h=${ssBaseHeight}:x='${cropXExpr}':y='${cropYExpr}'`,
+    `scale=w='${visibleWidthExpr}':h='${visibleHeightExpr}':eval=frame:flags=lanczos`,
+    centeredPad(ssCanvasWidth, ssCanvasHeight),
+    `scale=${canvasWidth}:${canvasHeight}:flags=lanczos`,
+    `crop=w=${canvasWidth}:h=${canvasHeight}:x='0':y='0'`,
   ];
 }
 
