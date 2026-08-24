@@ -99,3 +99,16 @@ perspective のレイヤー分割フォールバック — perspective は `crop
 "per-frame 評価に対応しない" 制約を持つが、ffmpeg 側に時刻変数自体が無いためこの技法すら
 使えず、レイヤー分割へフォールバックする点が crop/framing と異なる）・プレビュー再現の詳細は
 すべて同契約 §2.4.7 に記載する（本ファイルでの重複記載はしない — SSOT は 1 箇所）。
+
+- **レイヤー拡大・crop の固定キャンバス化（2026-08-24 追記）**: normal blend かつ
+  perspective/rotate 非併用の `layers[].keyframes` では、`transform.scale` に応じて素材の整数
+  bitmap 寸法を毎フレーム変え、その可変 `overlay_w/overlay_h` を中央配置する方式を廃止した。
+  素材ネイティブ寸法を 2 倍した固定グリッド（`LAYER_KEYFRAME_SUPERSAMPLE=2`）内で scale/crop
+  を補間し、最大 footprint の固定透明キャンバスへ偶数座標で配置・固定 crop した後、Lanczos で
+  実寸へ縮小する。これにより overlay の外形寸法は全フレーム不変となり、拡大後サイズの偶奇変化
+  による中央座標の ±1px 往復を除去しつつ、PiP の footprint 自体は固定グリッド内で連続的に
+  拡縮する。倍率値は `cut-framing.mjs` の `SUPERSAMPLE=2` と同値だが、両者は出力相対の framing
+  と素材ネイティブ相対の layer という独立した filter builder であり、実装モジュール間の逆依存を
+  作らないため定数は共有しない。キーフレーム無しの filter 文字列は不変。perspective は bitmap
+  外形を四隅の基準にし、rotate と非 normal blend は固定外形化による既存意味の変化を排除できない
+  ため、この組み合わせだけは従来互換経路を維持する。

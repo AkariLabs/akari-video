@@ -9,6 +9,7 @@ import {
   expandLayerForPerspectiveKeyframes,
   hasUsableLayerKeyframes,
   layerCropKeyframeSteps,
+  layerFixedCanvasKeyframeSteps,
   layerTransformKeyframeExprs,
   probeLayerSourceSize,
 } from "./layer-keyframes.mjs";
@@ -477,22 +478,33 @@ export function buildLayersCompositeCommand({
     const xExpr = transformKeyframes ? transformKeyframes.xExpr : formatNumber(Number(transform.x ?? 0) || 0);
     const yExpr = transformKeyframes ? transformKeyframes.yExpr : formatNumber(Number(transform.y ?? 0) || 0);
 
-    // layers[].keyframes[].crop / a genuinely time-varying rotate both need the layer source's own
-    // native pixel size (see layer-keyframes.mjs's layerCropKeyframeSteps / the rotate bounding-box
-    // comment below) -- probed once, only when actually needed, so keyframe-less layers and layers
-    // that only animate x/y/scale never pay for it.
+    // layers[].keyframes[].crop / transform.scale / a genuinely time-varying rotate need the layer
+    // source's native pixel size. scale now needs it because its fixed-canvas supersampled grid is
+    // sized from the source instead of reading a frame-varying `iw` downstream. The probe remains
+    // fully gated by usable keyframes, so keyframe-less layers/projects stay byte-for-byte intact.
     const cropKeyframeDeclared = keyframed
       && Array.isArray(layer.keyframes)
       && layer.keyframes.some((point) => point && typeof point === "object" && point.crop);
     const rotateVaries = Boolean(transformKeyframes?.rotateVaries);
-    const sourceSize = (cropKeyframeDeclared || rotateVaries)
+    const effectiveRotate = transformKeyframes
+      ? (rotateVaries ? null : transformKeyframes.rotateMin)
+      : rotate;
+    // A fixed max-sized transparent bitmap is safe for the ordinary overlay compositor. It is
+    // deliberately not fed into perspective (whose corners are defined against bitmap bounds),
+    // rotate, or blend/maskedmerge (same-size pixel math), where changing those bounds would alter
+    // established semantics. Those combinations retain the compatibility path below.
+    const fixedCanvasEligible = isNormal
+      && !layer.perspective
+      && effectiveRotate === 0
+      && (cropKeyframeDeclared || Boolean(transformKeyframes?.scaleDeclared));
+    const sourceSize = (cropKeyframeDeclared || rotateVaries || fixedCanvasEligible)
       ? probeLayerSourceSize(ffprobeCommand, resolvedSource)
       : null;
-    if ((cropKeyframeDeclared || rotateVaries) && !sourceSize) {
+    if ((cropKeyframeDeclared || rotateVaries || fixedCanvasEligible) && !sourceSize) {
       warnings.push(
-        `layer ${layer.id ?? index} declares keyframed crop and/or a time-varying rotate, but its`
-          + ` source size could not be probed (ffprobe failed on ${resolvedSource}); those`
-          + " keyframes will not be applied.",
+        `layer ${layer.id ?? index} declares keyframed scale/crop and/or a time-varying rotate, but its`
+          + ` source size could not be probed (ffprobe failed on ${resolvedSource}); fixed-canvas`
+          + " scale/crop and fixed-bound rotate processing are unavailable.",
       );
     }
     // Folds *any* additional scale factor -- transform's own keyframed scale if animated,
@@ -508,7 +520,24 @@ export function buildLayersCompositeCommand({
     const cropKeyframeSteps = sourceSize
       ? layerCropKeyframeSteps(layer, localTExpr, sourceSize.width, sourceSize.height, extraScaleExpr)
       : null;
-    const cropScaleFolded = Boolean(cropKeyframeSteps && extraScaleExpr);
+    const crop = layer.crop;
+    const staticCropWidth = sourceSize && crop && !cropKeyframeDeclared
+      ? Math.max(2, Math.trunc(sourceSize.width * clamp(Number(crop.w) || 1, EPSILON, 1) / 2) * 2)
+      : sourceSize?.width;
+    const staticCropHeight = sourceSize && crop && !cropKeyframeDeclared
+      ? Math.max(2, Math.trunc(sourceSize.height * clamp(Number(crop.h) || 1, EPSILON, 1) / 2) * 2)
+      : sourceSize?.height;
+    const fixedCanvasSteps = fixedCanvasEligible && sourceSize
+      ? layerFixedCanvasKeyframeSteps({
+          layer,
+          localTExpr,
+          sourceWidth: staticCropWidth,
+          sourceHeight: staticCropHeight,
+          scaleExpr: transformKeyframes?.scaleExpr ?? formatNumber(scale),
+          scaleMax: transformKeyframes?.scaleMax ?? scale,
+        })
+      : null;
+    const cropScaleFolded = Boolean((fixedCanvasSteps || cropKeyframeSteps) && extraScaleExpr);
 
     // Layer preprocessing chain shared by both compositing styles: trim to the declared duration,
     // key out chroma if requested, normalize to an alpha-carrying format, then apply transform/opacity.
@@ -552,8 +581,9 @@ export function buildLayersCompositeCommand({
     // existing crop-less projects render byte-identical output — zero regression risk). Even
     // rounding (trunc(.../2)*2) keeps w/h/x/y aligned to yuva420p's 4:2:0 chroma subsampling,
     // which the same-style scale step below does not need since it never runs on odd offsets.
-    const crop = layer.crop;
-    if (cropKeyframeSteps) {
+    if (fixedCanvasSteps && cropKeyframeDeclared) {
+      steps.push(...fixedCanvasSteps);
+    } else if (cropKeyframeSteps) {
       steps.push(...cropKeyframeSteps);
     } else if (crop) {
       const cropW = clamp(Number(crop.w) || 1, EPSILON, 1);
@@ -564,7 +594,9 @@ export function buildLayersCompositeCommand({
         `crop=trunc(iw*${formatNumber(cropW)}/2)*2:trunc(ih*${formatNumber(cropH)}/2)*2:trunc(iw*${formatNumber(cropX)}/2)*2:trunc(ih*${formatNumber(cropY)}/2)*2`,
       );
     }
-    if (cropScaleFolded) {
+    if (fixedCanvasSteps && !cropKeyframeDeclared) {
+      steps.push(...fixedCanvasSteps);
+    } else if (cropScaleFolded) {
       // Already applied as part of cropKeyframeSteps' own final scale-down step above.
     } else if (transformKeyframes) {
       steps.push(
