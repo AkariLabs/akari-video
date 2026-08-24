@@ -166,6 +166,16 @@ window.__akariCaptionFontReady = (async () => {
 // B-roll layer videos
 let layerVideos = [];
 
+// LUT / chroma-key are drawn by the repository-owned video FX rail. These stay empty for
+// projects without declarations, so ordinary previews allocate no canvas/WebGL context and
+// perform no extra per-frame work.
+let videoFxRails = [];
+let baseVideoFxRail = null;
+let transitionVideoFxRail = null;
+let stillVideoFxRail = null;
+const videoFxRailMeta = new Map();
+const videoFxFailedIndicators = new Set();
+
 // Pen annotation
 let penPoints = [];
 let penActive = false;
@@ -230,6 +240,7 @@ async function init() {
     // 固定のため名目値でよい（PUT /api/edit.json に届く）。
     window.akari.state = { editPath: 'edit.json', summary };
     window.akari.engine = { overlayWrite: overlayWriteViaPut };
+    setupVideoFx();
 
     // Restore settings
     if (savedSettings.zoom && savedSettings.zoom >= ZOOM_MIN && savedSettings.zoom <= ZOOM_MAX) {
@@ -549,6 +560,7 @@ function setupLayers() {
       el.preload = 'none';
       el.muted = true;
       el.playsInline = true;
+      el.crossOrigin = 'anonymous';
     }
     // サイドカーが無い案件（--no-preview-proxy で焼いた等）は 404 で error になる。
     // その場合だけ非表示にして知らせる（黒板で映像を覆わないため）
@@ -602,6 +614,145 @@ function setupLayers() {
   }
   // 起動時は seekTo/playbackLoop がまだ走っていないため、0 秒付近の先読みをここで始める。
   syncLayers(outputTime);
+}
+
+function noteVideoFxFailure(effects) {
+  if (effects?.look) videoFxFailedIndicators.add('LUT');
+  if (effects?.chromaKey) videoFxFailedIndicators.add('クロマキー');
+  if (!indicatorPopup.hidden) renderIndicators();
+}
+
+function mountVideoFxRail(media, role, initialEffects) {
+  try {
+    const testOptions = window.__akariVideoFxTestOptions ?? {};
+    const rail = window.AkariVideoFx.createRail({
+      media,
+      role,
+      forceFailure: Boolean(testOptions.forceFailure),
+      forceWebGl1: Boolean(testOptions.forceWebGl1),
+      onStateChange: event => {
+        if (event.status === 'failed') {
+          noteVideoFxFailure(videoFxRailMeta.get(event.rail)?.effects ?? initialEffects);
+        } else if (event.status === 'ready') {
+          renderVideoFx(outputTime);
+        }
+      },
+    });
+    // createRail inserts immediately. Keep unconfigured or not-yet-decodable media from exposing
+    // the canvas's intrinsic 300x150 surface before the first successful render synchronizes style.
+    rail.canvas.style.display = 'none';
+    videoFxRailMeta.set(rail, { effects: initialEffects ?? {}, key: null });
+    videoFxRails.push(rail);
+    return rail;
+  } catch (error) {
+    console.warn('[preview] video FX rail unavailable; continuing native playback', role, error);
+    noteVideoFxFailure(initialEffects);
+    return null;
+  }
+}
+
+function configureVideoFxRail(rail, key, effects) {
+  if (!rail) return;
+  const meta = videoFxRailMeta.get(rail);
+  if (!meta || meta.key === key) return;
+  meta.key = key;
+  meta.effects = effects;
+  void rail.configure(effects);
+}
+
+function sourceEffectsForCut(cutIndex) {
+  const config = summary?.videoFx;
+  const sourceId = summary?.cuts?.[cutIndex]?.src;
+  const chromaKey = sourceId && config?.sources?.[sourceId];
+  return {
+    ...(config?.look ? { look: config.look } : {}),
+    ...(chromaKey ? { chromaKey } : {}),
+  };
+}
+
+function layerChromaEffects(layer) {
+  const raw = layer?.chroma_key;
+  if (!raw) return null;
+  return {
+    chromaKey: {
+      color: raw.color,
+      similarity: raw.similarity,
+      blend: raw.blend,
+      mode: 'layer',
+    },
+  };
+}
+
+function disposeVideoFx() {
+  for (const rail of videoFxRails) rail.dispose();
+  videoFxRails = [];
+  videoFxRailMeta.clear();
+  baseVideoFxRail = null;
+  transitionVideoFxRail = null;
+  stillVideoFxRail = null;
+  for (const entry of layerVideos) entry.fxRail = null;
+}
+
+function setupVideoFx() {
+  disposeVideoFx();
+  videoFxFailedIndicators.clear();
+  const config = summary?.videoFx;
+  const sourceEffects = Object.values(config?.sources ?? {});
+  const hasBaseVideoFx = Boolean(config?.look || sourceEffects.length > 0);
+  const representativeEffects = hasBaseVideoFx ? {
+    ...(config?.look ? { look: config.look } : {}),
+    ...(sourceEffects[0] ? { chromaKey: sourceEffects[0] } : {}),
+  } : null;
+
+  if (hasBaseVideoFx) {
+    baseVideoFxRail = mountVideoFxRail(video, 'source', representativeEffects);
+    transitionVideoFxRail = mountVideoFxRail(transitionVideo, 'transition', representativeEffects);
+    stillVideoFxRail = mountVideoFxRail(img, 'still', representativeEffects);
+  }
+  for (const entry of layerVideos) {
+    const effects = entry.isFilter ? null : layerChromaEffects(entry.layer);
+    entry.fxRail = effects
+      ? mountVideoFxRail(entry.el, `layer:${entry.layer.id}`, effects) : null;
+    if (entry.fxRail) {
+      configureVideoFxRail(entry.fxRail, `layer:${entry.layer.id}`, effects);
+      for (const eventName of ['loadeddata', 'loadedmetadata', 'seeked', 'load']) {
+        entry.el.addEventListener(eventName, () => renderVideoFx(outputTime));
+      }
+    }
+  }
+
+  window.akari.videoFx = Object.freeze({
+    rails: videoFxRails,
+    inspect: () => videoFxRails.map(rail => rail.inspect()),
+  });
+  if (!indicatorPopup.hidden) renderIndicators();
+  renderVideoFx(outputTime);
+}
+
+function renderVideoFx(timelineTime) {
+  if (!videoFxRails.length) return;
+  const segment = getActiveSegment(timelineTime);
+  const baseEffects = segment?.index >= 0 ? sourceEffectsForCut(segment.index) : {};
+  const baseKey = `base:${segment?.index ?? 'gap'}`;
+  configureVideoFxRail(baseVideoFxRail, baseKey, baseEffects);
+  configureVideoFxRail(stillVideoFxRail, baseKey, baseEffects);
+  baseVideoFxRail?.render(timelineTime);
+  stillVideoFxRail?.render(timelineTime);
+
+  const transitionWindow = (timelineMap.transitionWindows ?? [])
+    .find(candidate => timelineTime >= candidate.start && timelineTime < candidate.end);
+  const incomingCutIndex = transitionWindow?.incoming?.cutIndex;
+  const transitionEffects = incomingCutIndex >= 0 ? sourceEffectsForCut(incomingCutIndex) : {};
+  configureVideoFxRail(transitionVideoFxRail, `transition:${incomingCutIndex ?? 'none'}`, transitionEffects);
+  transitionVideoFxRail?.render(timelineTime);
+
+  for (const entry of layerVideos) entry.fxRail?.render(timelineTime);
+}
+
+for (const media of [video, transitionVideo, img]) {
+  for (const eventName of ['loadeddata', 'loadedmetadata', 'seeked', 'load']) {
+    media.addEventListener(eventName, () => renderVideoFx(outputTime));
+  }
 }
 
 function syncLayers(t) {
@@ -2196,6 +2347,7 @@ function seekTo(t) {
   resyncAudioAfterSeek(outputTime);
   syncAudio(outputTime);
   syncLayers(outputTime);
+  renderVideoFx(outputTime);
   applyCutFramingVisual();
   cutFx.update();
 }
@@ -2319,6 +2471,7 @@ function playbackLoop() {
   updateMinimap();
   syncAudio(outputTime);
   syncLayers(outputTime);
+  renderVideoFx(outputTime);
   const tickNow = performance.now();
   if (tickNow - wsTickLast > 200) { sendWsTick(); wsTickLast = tickNow; }
   requestAnimationFrame(playbackLoop);
@@ -2491,9 +2644,11 @@ async function applySoftReload() {
   updateStageScale();
 
   // B-roll レイヤーを組み直し
+  disposeVideoFx();
   for (const lv of layerVideos) lv.el.remove();
   layerVideos = [];
   setupLayers();
+  setupVideoFx();
 
   // MediaElementSource は 1 要素 1 回のため AudioContext / 下地経路は保持し、編集内容に
   // 依存する BGM・ナレーション・効果音のノードだけを組み直す。
@@ -2870,7 +3025,8 @@ indicatorBtn.addEventListener('click', () => {
   if (h) renderIndicators();
 });
 function renderIndicators() {
-  const ind = summary?.indicators;
+  const declared = Array.isArray(summary?.indicators) ? summary.indicators : [];
+  const ind = [...new Set([...declared, ...videoFxFailedIndicators])];
   if (!Array.isArray(ind) || !ind.length) {
     indicatorPopup.innerHTML = '<div class="indicator-item"><span class="val">指標なし</span></div>';
     return;

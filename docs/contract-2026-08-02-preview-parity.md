@@ -560,8 +560,8 @@ ffmpeg の `perspective` フィルタの制約（式に時刻変数を持たな�
 | `cuts[].fx`（2026-08-07 実装・近似あり） | 🟡（§2.4.5。5 種対応、3 種は近似バッジ付き） | ❌（未実装） |
 | `layers[].keyframes`（2026-08-09 実装） | ✅（§2.4.7。transform/crop は連続補間。perspective は blend:"normal" のみ・書き出しの段階保持とサンプル点で一致） | ✅（§2.4.7。同左） |
 | `cuts[].static-image-source`（2026-08-12 実装。正本: `contract-2026-08-12-still-image-cut-source-v0.md`） | 🟡（`<img>`/`<video>` 出し分け + preview-engine ClipSession/Timeline の image 対応を実装。framing/freeze/transform は流用。実ブラウザでの対話的スクラブ・複数区間切替の実機検証は未実施。2026-08-17: 静止画が stylesheet の display:none に隠れたまま永久に出ない実機バグ（`img.style.display=''`）を是正） | 🟡（2026-08-17 実装 — task/2026-08-17-shell-still-image-cut-preview。#preview-still + gap と同じ壁時計クロックで表示。cut transform/framing/freeze/選択ドラッグは video のスタイル鏡写しで流用。タイムラインの静止画フィルムストリップ/サムネも同時是正（probeForFilmstrip の duration 必須ガードが静止画分岐を dead code 化していた）。Electron 実機での対話検証は未実施） |
-| `output.look` | 🟡（WebGL rail 配線は T2 予定） | ✅（WebGL rail。chroma → LUT、intensity 対応） |
-| `chroma_key`（source / layer） | 🟡（WebGL rail 配線は T2 予定） | ✅（WebGL rail。source は背景合成、layer はアルファ抜き） |
+| `output.look` | ✅（WebGL rail。chroma → LUT、intensity 対応） | ✅（WebGL rail。chroma → LUT、intensity 対応） |
+| `chroma_key`（source / layer） | ✅（WebGL rail。source は背景合成、layer はアルファ抜き） | ✅（WebGL rail。source は背景合成、layer はアルファ抜き） |
 | `audio.master` | 🟡（未裁定・badge のみ） | 🟡（未裁定・badge のみ） |
 
 - `cuts[].framing`（静的クロップ / ズームキーフレーム）・`cuts[].freeze`（フリーズ）は
