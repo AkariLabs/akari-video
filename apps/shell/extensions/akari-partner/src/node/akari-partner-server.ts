@@ -1,6 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import { spawn, spawnSync } from 'child_process';
 import { existsSync, promises as fs } from 'fs';
+import { tmpdir } from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import {
@@ -32,7 +33,13 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
     async bootstrap(agent: PartnerAgentId, workspaceRootUri?: string): Promise<BootstrapResult> {
         const runtimePath = process.execPath;
         const runtimeMode = this.isElectronExecutable(runtimePath) ? 'electron-as-node' : 'node';
+        // `node -e <runnerSource>` は runner の肥大化（Codex の bundle/host 対応など）により
+        // Windows のコマンドライン長上限を超える。都度一意の一時ファイルへ書いて実行し、
+        // Electron-as-Node / plain Node の両方で同じ引数契約を保つ。
         const runnerSource = `(${bootstrapRunner.toString()})()`;
+        const runnerDir = await fs.mkdtemp(path.join(tmpdir(), 'akari-partner-bootstrap-'));
+        const runnerPath = path.join(runnerDir, 'runner.cjs');
+        await fs.writeFile(runnerPath, runnerSource, 'utf8');
         const workspaceRootFsPath = workspaceRootUri ? this.toFsPath(workspaceRootUri) : undefined;
         const env = {
             ...process.env,
@@ -43,32 +50,37 @@ export class AkariPartnerServerImpl implements AkariPartnerServer {
             ...(workspaceRootFsPath ? { AKARI_PARTNER_WORKSPACE_ROOT: workspaceRootFsPath } : {})
         };
 
-        const output = await new Promise<string>((resolve, reject) => {
-            const child = spawn(runtimePath, ['-e', runnerSource, agent], {
-                env,
-                stdio: ['ignore', 'pipe', 'pipe']
+        let output: string;
+        try {
+            output = await new Promise<string>((resolve, reject) => {
+                const child = spawn(runtimePath, [runnerPath, agent], {
+                    env,
+                    stdio: ['ignore', 'pipe', 'pipe']
+                });
+                let stdout = '';
+                let stderr = '';
+                const timer = setTimeout(() => {
+                    child.kill();
+                    reject(new Error(`${agent} bootstrap timed out after ${BOOTSTRAP_TIMEOUT_MS} ms`));
+                }, BOOTSTRAP_TIMEOUT_MS);
+                child.stdout.on('data', chunk => stdout += chunk.toString());
+                child.stderr.on('data', chunk => stderr += chunk.toString());
+                child.on('error', error => {
+                    clearTimeout(timer);
+                    reject(error);
+                });
+                child.on('exit', code => {
+                    clearTimeout(timer);
+                    if (code !== 0) {
+                        reject(new Error(stderr.trim() || stdout.trim() || `${agent} bootstrap exited with code ${code}`));
+                        return;
+                    }
+                    resolve(stdout);
+                });
             });
-            let stdout = '';
-            let stderr = '';
-            const timer = setTimeout(() => {
-                child.kill();
-                reject(new Error(`${agent} bootstrap timed out after ${BOOTSTRAP_TIMEOUT_MS} ms`));
-            }, BOOTSTRAP_TIMEOUT_MS);
-            child.stdout.on('data', chunk => stdout += chunk.toString());
-            child.stderr.on('data', chunk => stderr += chunk.toString());
-            child.on('error', error => {
-                clearTimeout(timer);
-                reject(error);
-            });
-            child.on('exit', code => {
-                clearTimeout(timer);
-                if (code !== 0) {
-                    reject(new Error(stderr.trim() || stdout.trim() || `${agent} bootstrap exited with code ${code}`));
-                    return;
-                }
-                resolve(stdout);
-            });
-        });
+        } finally {
+            await fs.rm(runnerDir, { recursive: true, force: true });
+        }
 
         const lines = output.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
         const resultLine = [...lines].reverse().find(line => line.startsWith('{'));

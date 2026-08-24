@@ -368,7 +368,7 @@ export function bootstrapRunner(): void {
         console.log(`Codex code-mode host: ${result}（${executable} の realpath 隣）`);
     }
 
-    type ScriptInstallAgent = 'opencode' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
+    type ScriptInstallAgent = 'opencode' | 'hermes' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
 
     interface ScriptInstallAgentConfig {
         agent: ScriptInstallAgent;
@@ -402,6 +402,19 @@ export function bootstrapRunner(): void {
             extraCandidatePaths: [path.join(os.homedir(), '.opencode', 'bin', 'opencode')],
             manualInstallCommand: 'curl -fsSL https://opencode.ai/install | bash（または npm install -g opencode-ai）',
             manualInstallCommandWin32: 'npm install -g opencode-ai'
+        },
+        hermes: {
+            agent: 'hermes',
+            executableName: 'hermes',
+            installUrlEnvVar: 'AKARI_PARTNER_HERMES_INSTALL_URL',
+            defaultInstallUrl: 'https://hermes-agent.nousresearch.com/install.sh',
+            // Hermes Agent の Windows installer はこのユーザー領域へ venv を展開する。
+            // GUI 起動した Electron の PATH に入っていない場合も直接検出する。
+            extraCandidatePaths: process.platform === 'win32'
+                ? [path.join(windowsLocalAppData, 'hermes', 'hermes-agent', 'venv', 'Scripts', 'hermes')]
+                : [],
+            manualInstallCommand: 'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash',
+            manualInstallCommandWin32: 'Hermes Agent の公式セットアップを実行してください: https://hermes-agent.nousresearch.com/docs'
         },
         copilot: {
             agent: 'copilot',
@@ -817,9 +830,9 @@ export function bootstrapRunner(): void {
 
     async function main(): Promise<void> {
         const agent = process.argv[process.argv.length - 1];
-        if (agent !== 'claude' && agent !== 'codex' && agent !== 'opencode'
+        if (agent !== 'claude' && agent !== 'codex' && agent !== 'opencode' && agent !== 'hermes'
             && agent !== 'copilot' && agent !== 'cursor' && agent !== 'antigravity' && agent !== 'grok') {
-            throw new Error('expected bootstrap target: claude, codex, opencode, copilot, cursor, antigravity, or grok');
+            throw new Error('expected bootstrap target: claude, codex, opencode, hermes, copilot, cursor, antigravity, or grok');
         }
         let outcome: BootstrapOutcome;
         if (agent === 'claude') {
