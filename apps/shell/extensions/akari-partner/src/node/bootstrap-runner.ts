@@ -15,6 +15,8 @@ export function bootstrapRunner(): void {
     const claudeInstallUrl = process.env.AKARI_PARTNER_CLAUDE_INSTALL_URL
         || (process.platform === 'win32' ? 'https://claude.ai/install.ps1' : 'https://claude.ai/install.sh');
     const codexReleaseApiUrl = process.env.AKARI_PARTNER_CODEX_RELEASE_API_URL || 'https://api.github.com/repos/openai/codex/releases/latest';
+    const codexReleaseTagApiUrlTemplate = process.env.AKARI_PARTNER_CODEX_RELEASE_TAG_API_URL_TEMPLATE
+        || 'https://api.github.com/repos/openai/codex/releases/tags/{tag}';
     const requestTimeoutMs = 120_000;
     // win32 の opencode/copilot は 160-180MB の単一 exe 入り zip を直接ダウンロードする
     // ため、既定の 120s では低速回線で足りない。呼び出し側 (akari-partner-server.ts) の
@@ -69,9 +71,19 @@ export function bootstrapRunner(): void {
     }
 
     function codexCandidates(): string[] {
-        return [
-            path.join(os.homedir(), '.local', 'bin', process.platform === 'win32' ? 'codex.exe' : 'codex')
-        ];
+        const executableName = process.platform === 'win32' ? 'codex.exe' : 'codex';
+        const candidates = [path.join(os.homedir(), '.local', 'bin', executableName)];
+        if (process.platform === 'win32') {
+            candidates.push(path.join(codexManagedRoot(), 'current', 'bin', executableName));
+        }
+        return candidates;
+    }
+
+    function codexManagedRoot(): string {
+        if (process.platform === 'win32') {
+            return path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'AKARI Video', 'codex');
+        }
+        return path.join(os.homedir(), '.local', 'share', 'akari-video', 'codex');
     }
 
     function scriptInstallCandidates(executableName: string, extraCandidates: string[] = []): string[] {
@@ -172,47 +184,188 @@ export function bootstrapRunner(): void {
     }
 
     async function installCodexBinary(): Promise<BootstrapOutcome> {
-        if (!forceReinstall) {
-            const existing = await firstExecutable(codexCandidates());
-            if (existing) {
-                console.log(`既存の codex を検出: ${existing}`);
-                return { executablePath: existing, reused: true };
+        try {
+            if (!forceReinstall) {
+                const existing = await firstExecutable(codexCandidates());
+                if (existing) {
+                    console.log(`既存の codex を検出: ${existing}`);
+                    if (await codexHostPath(existing)) {
+                        logCodexHostResult('OK', existing);
+                        return { executablePath: existing, reused: true };
+                    }
+                    try {
+                        await repairCodexHost(existing);
+                        await requireCodexHost(existing);
+                        logCodexHostResult('補充した', existing);
+                        return { executablePath: existing, reused: true };
+                    } catch (error) {
+                        console.log(`既存 Codex の code-mode host 補充に失敗したため、公式バンドルへ切り替えます: ${errorMessage(error)}`);
+                    }
+                }
             }
+
+            const installed = await installManagedCodexBundle();
+            await requireCodexHost(installed);
+            logCodexHostResult('OK', installed);
+            return { executablePath: installed, reused: false };
+        } catch (error) {
+            console.log(`Codex code-mode host: 取得失敗 — 画像生成が使えません: ${errorMessage(error)}`);
+            throw error;
         }
+    }
+
+    interface CodexRelease {
+        tag_name?: string;
+        assets?: Array<{ name: string; browser_download_url: string }>;
+    }
+
+    async function installManagedCodexBundle(): Promise<string> {
         console.log(`Codex リリース情報を取得しています: ${codexReleaseApiUrl}`);
-        const release = JSON.parse((await request(codexReleaseApiUrl, 'application/vnd.github+json')).toString('utf8')) as {
-            assets?: Array<{ name: string; browser_download_url: string }>;
-        };
-        const assetName = codexAssetName();
+        const release = await fetchCodexRelease(codexReleaseApiUrl);
+        const version = releaseVersion(release);
+        const assetName = codexBundleAssetName();
         const asset = release.assets?.find(candidate => candidate.name === assetName);
         if (!asset) {
             throw new Error(`Codex release does not contain ${assetName}`);
         }
         console.log(`${asset.name} をダウンロードしています`);
-        const archive = await request(asset.browser_download_url);
-        // win32 の資産は tar.gz ではなく、GitHub リリース上の生の .exe（content-type:
-        // application/x-msdos-program）を直接公開している。gunzip/tar 展開は不要
-        // （2026-07-23 実測: gh api repos/openai/codex/releases/latest, rust-v0.145.0）。
-        const binary = assetName.endsWith('.exe')
-            ? archive
-            : extractSingleTarFile(gunzipSync(archive), /^codex(?:-|$)/);
-        const [executable] = codexCandidates();
-        const binDir = path.dirname(executable);
-        await fs.mkdir(binDir, { recursive: true });
-        const temporary = `${executable}.akari-download`;
-        // Windows の fs.chmod は POSIX の実行属性を持たない（read-only 属性のみ）ため
-        // mode 指定・chmod 呼び出しは darwin/linux 側でのみ意味を持つ。
+        // バンドルは 114MB 級。低速回線向けの大容量タイムアウトを使う（win32 zip CLI と同方針）。
+        const archive = await request(asset.browser_download_url, 'application/octet-stream', largeDownloadTimeoutMs);
+        const managedRoot = codexManagedRoot();
+        const versionDir = path.join(managedRoot, version);
+        await fs.mkdir(managedRoot, { recursive: true });
+        const temporaryDir = await fs.mkdtemp(path.join(managedRoot, '.akari-download-'));
+        try {
+            await extractTarArchive(gunzipSync(archive), temporaryDir);
+            const bundled = codexBundlePaths(temporaryDir);
+            await fs.access(bundled.executable, fs.constants.X_OK);
+            await fs.access(bundled.host, fs.constants.X_OK);
+            await fs.rm(versionDir, { recursive: true, force: true });
+            await fs.rename(temporaryDir, versionDir);
+        } catch (error) {
+            await fs.rm(temporaryDir, { recursive: true, force: true });
+            throw error;
+        }
+
+        const bundled = codexBundlePaths(versionDir);
+        let executable: string;
         if (process.platform === 'win32') {
-            await fs.writeFile(temporary, binary);
+            const currentBin = path.join(managedRoot, 'current', 'bin');
+            const temporaryCurrent = path.join(managedRoot, `.current-${process.pid}`);
+            await fs.rm(temporaryCurrent, { recursive: true, force: true });
+            await fs.mkdir(path.join(temporaryCurrent, 'bin'), { recursive: true });
+            await fs.copyFile(bundled.executable, path.join(temporaryCurrent, 'bin', path.basename(bundled.executable)));
+            await fs.copyFile(bundled.host, path.join(temporaryCurrent, 'bin', path.basename(bundled.host)));
+            await fs.rm(path.dirname(currentBin), { recursive: true, force: true });
+            await fs.rename(temporaryCurrent, path.dirname(currentBin));
+            executable = path.join(currentBin, path.basename(bundled.executable));
         } else {
-            await fs.writeFile(temporary, binary, { mode: 0o755 });
+            const executableLink = path.join(os.homedir(), '.local', 'bin', 'codex');
+            await fs.mkdir(path.dirname(executableLink), { recursive: true });
+            const temporaryLink = `${executableLink}.akari-download-${process.pid}`;
+            await fs.rm(temporaryLink, { force: true });
+            await fs.symlink(bundled.executable, temporaryLink);
+            await fs.rename(temporaryLink, executableLink);
+            executable = executableLink;
         }
-        await fs.rename(temporary, executable);
-        if (process.platform !== 'win32') {
-            await fs.chmod(executable, 0o755);
+        console.log(`Codex ${version} を ${versionDir} にインストールしました`);
+        return executable;
+    }
+
+    async function repairCodexHost(executable: string): Promise<void> {
+        const executableRealpath = await fs.realpath(executable);
+        const versionOutput = await runCapture(executableRealpath, ['--version'], {
+            ...process.env,
+            PATH: explicitSystemPath
+        });
+        const versionMatch = /(?:^|\s)(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?:\s|$)/.exec(versionOutput.trim());
+        if (!versionMatch) {
+            throw new Error(`codex --version から版を特定できませんでした: ${versionOutput.trim()}`);
         }
-        console.log(`Codex を ${executable} にインストールしました`);
-        return { executablePath: executable, reused: false };
+        const tag = `rust-v${versionMatch[1]}`;
+        const tagUrl = codexReleaseTagApiUrlTemplate.replace('{tag}', encodeURIComponent(tag));
+        console.log(`Codex ${versionMatch[1]} の code-mode host を取得しています: ${tagUrl}`);
+        const release = await fetchCodexRelease(tagUrl);
+        if (release.tag_name !== tag) {
+            throw new Error(`Codex host release tag mismatch: expected ${tag}, got ${release.tag_name ?? '(missing)'}`);
+        }
+        const candidateNames = codexHostAssetNames();
+        const asset = release.assets?.find(candidate => candidateNames.includes(candidate.name));
+        if (!asset) {
+            throw new Error(`Codex release does not contain a matching code-mode host asset (${candidateNames.join(', ')})`);
+        }
+        const download = await request(asset.browser_download_url, 'application/octet-stream', largeDownloadTimeoutMs);
+        const hostName = process.platform === 'win32' ? 'codex-code-mode-host.exe' : 'codex-code-mode-host';
+        const destination = path.join(path.dirname(executableRealpath), hostName);
+        const temporary = `${destination}.akari-download-${process.pid}`;
+        await fs.rm(temporary, { force: true });
+        try {
+            if (asset.name.endsWith('.tar.gz')) {
+                const temporaryDir = await fs.mkdtemp(path.join(os.tmpdir(), 'akari-codex-host-'));
+                try {
+                    await extractTarArchive(gunzipSync(download), temporaryDir);
+                    const extracted = await findFileByBasenamePrefix(temporaryDir, 'codex-code-mode-host');
+                    if (!extracted) {
+                        throw new Error('code-mode host was not found in its release archive');
+                    }
+                    await fs.copyFile(extracted, temporary);
+                } finally {
+                    await fs.rm(temporaryDir, { recursive: true, force: true });
+                }
+            } else {
+                await fs.writeFile(temporary, download);
+            }
+            if (process.platform !== 'win32') {
+                await fs.chmod(temporary, 0o755);
+            }
+            await fs.rename(temporary, destination);
+        } catch (error) {
+            await fs.rm(temporary, { force: true });
+            throw error;
+        }
+    }
+
+    async function fetchCodexRelease(url: string): Promise<CodexRelease> {
+        return JSON.parse((await request(url, 'application/vnd.github+json')).toString('utf8')) as CodexRelease;
+    }
+
+    function releaseVersion(release: CodexRelease): string {
+        const match = /^rust-v([0-9A-Za-z._-]+)$/.exec(release.tag_name ?? '');
+        if (!match) {
+            throw new Error(`Codex release has an invalid tag_name: ${release.tag_name ?? '(missing)'}`);
+        }
+        return match[1];
+    }
+
+    function codexBundlePaths(root: string): { executable: string; host: string } {
+        const suffix = process.platform === 'win32' ? '.exe' : '';
+        return {
+            executable: path.join(root, 'bin', `codex${suffix}`),
+            host: path.join(root, 'bin', `codex-code-mode-host${suffix}`)
+        };
+    }
+
+    async function codexHostPath(executable: string): Promise<string | undefined> {
+        try {
+            const executableRealpath = await fs.realpath(executable);
+            const host = path.join(path.dirname(executableRealpath), process.platform === 'win32' ? 'codex-code-mode-host.exe' : 'codex-code-mode-host');
+            await fs.access(host, fs.constants.X_OK);
+            return host;
+        } catch {
+            return undefined;
+        }
+    }
+
+    async function requireCodexHost(executable: string): Promise<string> {
+        const host = await codexHostPath(executable);
+        if (!host) {
+            throw new Error(`Codex code-mode host is missing next to the resolved executable; image generation is unavailable (${executable})`);
+        }
+        return host;
+    }
+
+    function logCodexHostResult(result: 'OK' | '補充した', executable: string): void {
+        console.log(`Codex code-mode host: ${result}（${executable} の realpath 隣）`);
     }
 
     type ScriptInstallAgent = 'opencode' | 'copilot' | 'cursor' | 'antigravity' | 'grok';
@@ -462,51 +615,99 @@ export function bootstrapRunner(): void {
         throw new Error('zip: no entry matched the expected executable name');
     }
 
-    function codexAssetName(): string {
+    function codexTarget(): string {
         if (process.platform === 'darwin' && process.arch === 'arm64') {
-            return 'codex-aarch64-apple-darwin.tar.gz';
+            return 'aarch64-apple-darwin';
         }
         if (process.platform === 'darwin' && process.arch === 'x64') {
-            return 'codex-x86_64-apple-darwin.tar.gz';
+            return 'x86_64-apple-darwin';
         }
         if (process.platform === 'linux' && process.arch === 'arm64') {
-            return 'codex-aarch64-unknown-linux-musl.tar.gz';
+            return 'aarch64-unknown-linux-musl';
         }
         if (process.platform === 'linux' && process.arch === 'x64') {
-            return 'codex-x86_64-unknown-linux-musl.tar.gz';
+            return 'x86_64-unknown-linux-musl';
         }
         if (process.platform === 'win32' && process.arch === 'arm64') {
-            return 'codex-aarch64-pc-windows-msvc.exe';
+            return 'aarch64-pc-windows-msvc';
         }
         if (process.platform === 'win32' && process.arch === 'x64') {
-            return 'codex-x86_64-pc-windows-msvc.exe';
+            return 'x86_64-pc-windows-msvc';
         }
         throw new Error(`Codex binary bootstrap is unsupported on ${process.platform}-${process.arch}`);
     }
 
-    function extractSingleTarFile(tar: Buffer, namePattern: RegExp): Buffer {
+    function codexBundleAssetName(): string {
+        return `codex-package-${codexTarget()}.tar.gz`;
+    }
+
+    function codexHostAssetNames(): string[] {
+        const stem = `codex-code-mode-host-${codexTarget()}`;
+        return process.platform === 'win32'
+            ? [`${stem}.exe`, `${stem}.exe.tar.gz`]
+            : [`${stem}.tar.gz`];
+    }
+
+    async function extractTarArchive(tar: Buffer, destination: string): Promise<void> {
         for (let offset = 0; offset + 512 <= tar.length;) {
             const header = tar.subarray(offset, offset + 512);
-            const name = readTarString(header, 0, 100);
+            const name = [readTarString(header, 345, 155), readTarString(header, 0, 100)]
+                .filter(Boolean)
+                .join('/');
             if (!name) {
                 break;
             }
             const size = Number.parseInt(readTarString(header, 124, 12).trim() || '0', 8);
-            if (!Number.isFinite(size) || size < 0) {
+            const mode = Number.parseInt(readTarString(header, 100, 8).trim() || '0', 8);
+            if (!Number.isFinite(size) || size < 0 || !Number.isFinite(mode) || mode < 0) {
                 throw new Error('Codex archive has an invalid tar entry');
             }
             const contentStart = offset + 512;
-            if (namePattern.test(path.posix.basename(name)) && size > 0) {
-                return tar.subarray(contentStart, contentStart + size);
+            const contentEnd = contentStart + size;
+            if (contentEnd > tar.length) {
+                throw new Error('Codex archive has a truncated tar entry');
+            }
+            const normalized = path.posix.normalize(name.replace(/\\/g, '/'));
+            if (normalized === '..' || normalized.startsWith('../') || path.posix.isAbsolute(normalized)) {
+                throw new Error(`Codex archive contains an unsafe path: ${name}`);
+            }
+            const target = path.join(destination, ...normalized.split('/'));
+            const type = String.fromCharCode(header[156] || 0);
+            if (type === '5') {
+                await fs.mkdir(target, { recursive: true, mode: mode & 0o777 });
+                if (process.platform !== 'win32') {
+                    await fs.chmod(target, mode & 0o777);
+                }
+            } else if (type === '\0' || type === '0') {
+                await fs.mkdir(path.dirname(target), { recursive: true });
+                await fs.writeFile(target, tar.subarray(contentStart, contentEnd), { mode: mode & 0o777 });
+                if (process.platform !== 'win32') {
+                    await fs.chmod(target, mode & 0o777);
+                }
             }
             offset = contentStart + Math.ceil(size / 512) * 512;
         }
-        throw new Error('Codex executable was not found in the release archive');
     }
 
     function readTarString(buffer: Buffer, offset: number, length: number): string {
         const end = buffer.indexOf(0, offset);
         return buffer.subarray(offset, end >= offset && end < offset + length ? end : offset + length).toString('utf8');
+    }
+
+    async function findFileByBasenamePrefix(directory: string, prefix: string): Promise<string | undefined> {
+        const entries = await fs.readdir(directory, { withFileTypes: true });
+        for (const entry of entries) {
+            const entryPath = path.join(directory, entry.name);
+            if (entry.isDirectory()) {
+                const nested = await findFileByBasenamePrefix(entryPath, prefix);
+                if (nested) {
+                    return nested;
+                }
+            } else if (entry.isFile() && entry.name.startsWith(prefix)) {
+                return entryPath;
+            }
+        }
+        return undefined;
     }
 
     async function run(command: string, args: string[], env: NodeJS.ProcessEnv, cwd?: string): Promise<void> {
@@ -522,6 +723,24 @@ export function bootstrapRunner(): void {
             child.on('error', reject);
             child.on('exit', (code: number | null) => code === 0 ? resolve() : reject(new Error(stderr.trim() || `${command} exited with code ${code}`)));
         });
+    }
+
+    async function runCapture(command: string, args: string[], env: NodeJS.ProcessEnv): Promise<string> {
+        return new Promise<string>((resolve, reject) => {
+            const child = spawn(command, args, { env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+            let stdout = '';
+            let stderr = '';
+            child.stdout.on('data', (chunk: Buffer) => stdout += chunk.toString());
+            child.stderr.on('data', (chunk: Buffer) => stderr += chunk.toString());
+            child.on('error', reject);
+            child.on('exit', (code: number | null) => code === 0
+                ? resolve(stdout)
+                : reject(new Error(stderr.trim() || `${command} exited with code ${code}`)));
+        });
+    }
+
+    function errorMessage(error: unknown): string {
+        return error instanceof Error ? error.message : String(error);
     }
 
     async function firstExecutable(candidates: string[]): Promise<string | undefined> {
