@@ -75,7 +75,7 @@ import {
 } from '../common/derive-timeline-tracks';
 import { assignSubRows } from '../common/lane-layout';
 import { CaptionSubrowLayout, computeCaptionSubrowLayout } from '../common/caption-subrow-layout';
-import { resolveSourceCaptionEdgeDrag } from '../common/caption-output-domain';
+import { clampCaptionOutputRange, resolveSourceCaptionEdgeDrag } from '../common/caption-output-domain';
 import {
     CaptionSourceForMapping,
     computeCaptionSourceMappingWarning,
@@ -6804,6 +6804,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 } else {
                     end = snap.time;
                 }
+            }
+            if (timeDomain === 'output') {
+                const clamped = clampCaptionOutputRange(start, end, this.totalDuration());
+                start = clamped.start;
+                end = clamped.end;
+                outputStart = start;
+                outputEnd = end;
             }
             if (outputStart === undefined || outputEnd === undefined) {
                 const ranges = timeDomain === 'output'

@@ -52,6 +52,27 @@ test("output-domain cue does not require provenance src in a multi-source edit",
   assert.equal(overlay.duration, 1);
 });
 
+test("output-domain cue end is clamped to the cuts duration", () => {
+  const [overlay] = generateCaptionOverlays([{
+    ...caption("output"),
+    start: 3,
+    end: 7,
+  }], cuts, { sourceCount: 2 });
+
+  assert.equal(overlay.start, 3);
+  assert.equal(overlay.duration, 1);
+});
+
+test("output-domain cue at or beyond the cuts end produces no overlay", () => {
+  const overlays = generateCaptionOverlays([{
+    ...caption("output"),
+    start: 4,
+    end: 7,
+  }], cuts, { sourceCount: 2 });
+
+  assert.deepEqual(overlays, []);
+});
+
 test("undeclared and explicit source-domain cues preserve the previous projection byte-for-byte", () => {
   const undeclared = generateCaptionOverlays([caption(undefined)], cuts, { sourceCount: 2 });
   const explicitSource = generateCaptionOverlays([caption("source")], cuts, { sourceCount: 2 });

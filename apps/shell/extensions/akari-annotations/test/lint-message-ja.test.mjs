@@ -2,10 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  LINT_CHECK_JA,
   formatLintFailureForUi,
   japaneseLintSummary,
   lintCheckFromError
 } from '../lib/common/lint-message-ja.js';
+
+test('output-domain 総尺超過の警告 check は日本語辞書にある', () => {
+  assert.match(
+    LINT_CHECK_JA['captions.output-domain-exceeds-duration'],
+    /動画終端までにクランプ/u,
+  );
+});
 
 test('対象 check は日本語要約の後ろに従来の英語詳細を残す', () => {
   const detail = '[cuts.track-transition-unsupported] gap-aware track engine cannot represent xfade';

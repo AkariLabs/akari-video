@@ -142,6 +142,34 @@ test("output-domain caption spans source boundaries without cut-visibility proje
     const result = parseResult(executed);
     assert.ok(!result.findings.some((finding) => finding.check === "captions.cut-visibility"));
     assert.ok(!result.findings.some((finding) => finding.check === "captions.schema"));
+    assert.ok(!result.findings.some(
+      (finding) => finding.check === "captions.output-domain-exceeds-duration",
+    ));
+  });
+});
+
+test("output-domain caption beyond the cuts duration warns about render clamping", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001",
+      start: 3,
+      end: 12,
+      time_domain: "output",
+      text: "動画総尺でクランプされる字幕",
+      speaker: null,
+      sourceRef: null,
+      edited: true,
+    }])}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr || executed.stdout);
+    const result = parseResult(executed);
+    const warning = result.findings.find(
+      (finding) => finding.check === "captions.output-domain-exceeds-duration",
+    );
+    assert.equal(warning.severity, "warning");
+    assert.match(warning.message, /動画総尺 10\.0s/u);
+    assert.match(warning.message, /10\.0s までにクランプして表示/u);
   });
 });
 

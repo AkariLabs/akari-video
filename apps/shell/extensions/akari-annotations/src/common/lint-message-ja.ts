@@ -13,6 +13,8 @@ export const LINT_CHECK_JA: Readonly<Record<string, string>> = Object.freeze({
         'トランジションの次のクリップとの間にすき間があります。すき間を詰めるか、トランジションを削除してください。',
     'captions.overlap':
         '字幕の表示時間が重なっています。タイムラインで字幕の開始・終了位置をずらしてください。',
+    'captions.output-domain-exceeds-duration':
+        '出力時間の字幕が動画総尺を超えています。書き出しでは動画終端までにクランプして表示されます。',
     'cuts.track-overlap':
         '同じ映像トラック上でクリップが重なっています。クリップを重ならない位置へ移動してください。',
     'references.files':

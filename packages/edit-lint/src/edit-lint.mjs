@@ -288,12 +288,17 @@ export async function lintProject(input, options = {}) {
   validateTrackTransitionOutCompatibility(edit, findings);
 
   if (captionsState.value !== undefined) {
+    const cutsEndSeconds = cutTrackSegments.reduce(
+      (maximum, segment) => Math.max(maximum, segment.end),
+      0,
+    );
     validateCaptions(
       captionsState.value,
       edit,
       analysisState.value,
       findings,
       paths,
+      cutsEndSeconds,
     );
   }
 
@@ -2257,7 +2262,7 @@ async function validateReferences(edit, findings, paths, ignoredSourceIds = new 
   return { sourceExists };
 }
 
-function validateCaptions(captions, edit, analysis, findings, paths) {
+function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeconds) {
   const captionPath = relativePath(paths.projectRoot, paths.captionsPath);
   const captionsRoot = captions;
   let displayPolicy;
@@ -2462,6 +2467,15 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
           severity: "warning",
           check: "captions.short-duration",
           message: `caption display duration is ${displaySeconds.toFixed(2)}s, under the 1.0s readability floor`,
+          path: itemPath,
+          range: { start: caption.start, end: caption.end },
+        });
+      }
+      if (caption.time_domain === "output" && caption.end > cutsEndSeconds + EPSILON) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "captions.output-domain-exceeds-duration",
+          message: `captions[${index}] は time_domain: output の宣言区間が動画総尺 ${cutsEndSeconds.toFixed(1)}s を超えています。書き出しでは ${cutsEndSeconds.toFixed(1)}s までにクランプして表示されます。`,
           path: itemPath,
           range: { start: caption.start, end: caption.end },
         });

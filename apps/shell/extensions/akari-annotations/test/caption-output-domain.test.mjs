@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveSourceCaptionEdgeDrag } from '../lib/common/caption-output-domain.js';
+import {
+  clampCaptionOutputRange,
+  resolveSourceCaptionEdgeDrag,
+} from '../lib/common/caption-output-domain.js';
 
 const segments = [
   { src: 'a', in: 0, out: 2, speed: 1, tlStart: 0, tlEnd: 2 },
@@ -28,6 +31,22 @@ test('source caption edge crossing C1 becomes one continuous output-domain inter
     start: 0.5, end: 3.5, outputStart: 0.5, outputEnd: 3.5,
     convertsToOutput: true,
   });
+});
+
+test('source caption left edge crossing C2 becomes one continuous output-domain interval through C1', () => {
+  assert.deepEqual(resolveSourceCaptionEdgeDrag({
+    edge: 'start', originalStart: 0.5, originalEnd: 1.5,
+    originalOutputStart: 2.5, originalOutputEnd: 3.5,
+    proposedOutputEdge: 1, src: 'b', segments,
+  }), {
+    start: 1, end: 3.5, outputStart: 1, outputEnd: 3.5,
+    convertsToOutput: true,
+  });
+});
+
+test('output-domain range is clamped symmetrically to zero and the timeline end', () => {
+  assert.deepEqual(clampCaptionOutputRange(-1, 7, 4), { start: 0, end: 4 });
+  assert.deepEqual(clampCaptionOutputRange(3, 5, 4), { start: 3, end: 4 });
 });
 
 test('speed is applied only while the edge remains source-domain', () => {

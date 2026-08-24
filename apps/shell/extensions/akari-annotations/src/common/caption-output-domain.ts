@@ -28,6 +28,19 @@ export interface SourceCaptionEdgeDragResult {
 
 const EPSILON = 0.000001;
 
+/** output-domain 字幕の保存・ゴーストに共通する表示可能範囲クランプ。 */
+export function clampCaptionOutputRange(
+    start: number,
+    end: number,
+    timelineEnd: number
+): { start: number; end: number } {
+    const limit = Number.isFinite(timelineEnd) ? Math.max(0, timelineEnd) : 0;
+    return {
+        start: Math.min(limit, Math.max(0, start)),
+        end: Math.min(limit, Math.max(0, end))
+    };
+}
+
 /**
  * source-domain 字幕の端ドラッグを、現在その端を描いている cut と照合する。
  * cut 内なら source 秒へ戻し、cut 境界を越えた瞬間だけ output 秒の連続区間へ変換する。

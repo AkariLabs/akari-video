@@ -96,6 +96,33 @@ test('output-domain cue may omit provenance src in a multi-source edit', () => {
   }));
 });
 
+test('output-domain cue is clamped to the linear cuts duration', () => {
+  const root = {
+    display_policy: policy,
+    captions: [caption('c-0001', 3, 7, '字幕です', { time_domain: 'output' })],
+  };
+  const result = resolveCaptionDisplay(root, {
+    sources: [{ id: 'a' }, { id: 'b' }],
+    cuts: [{ src: 'a', in: 0, out: 2 }, { src: 'b', in: 0, out: 2 }],
+  });
+  assert.equal(result.occurrence_count, 1);
+  assert.equal(result.display_cues[0].start, 3);
+  assert.equal(result.display_cues[0].end, 4);
+});
+
+test('output-domain cue at or beyond the linear cuts end produces no occurrence', () => {
+  const root = {
+    display_policy: policy,
+    captions: [caption('c-0001', 4, 7, '字幕です', { time_domain: 'output' })],
+  };
+  const result = resolveCaptionDisplay(root, {
+    sources: [{ id: 'a' }, { id: 'b' }],
+    cuts: [{ src: 'a', in: 0, out: 2 }, { src: 'b', in: 0, out: 2 }],
+  });
+  assert.equal(result.occurrence_count, 0);
+  assert.deepEqual(result.display_cues, []);
+});
+
 test('source reference validation is driven by normalized sources, not edit.version', () => {
   const root = {
     display_policy: policy,

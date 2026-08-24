@@ -3,6 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { computeCutTimelineOffsets, cutSpeed, segmentDuration } from "./cut-timeline.mjs";
 import { CAPTION_FONT_FILE_URL } from "./caption-font.mjs";
+import { predictedDuration } from "./plan.mjs";
 
 const DEFAULT_MAX_CHARACTERS = 20;
 // 縦長（output.height > output.width）の既定。横長より 1 行を短く・文字を大きくする
@@ -795,7 +796,11 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
 // 常に computeCutTimelineOffsets(cuts) を使うよう統合する。
 function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = undefined) {
   if (timeDomain === "output") {
-    return [{ start, duration: end - start, sourceStart: start, sourceEnd: end }];
+    const timelineEnd = Array.isArray(cuts) && cuts.length > 0 ? predictedDuration(cuts) : 0;
+    const clampedEnd = Math.min(end, timelineEnd);
+    return clampedEnd > start
+      ? [{ start, duration: clampedEnd - start, sourceStart: start, sourceEnd: clampedEnd }]
+      : [];
   }
   if (!Array.isArray(cuts) || cuts.length === 0) {
     return [{ start, duration: end - start, sourceStart: start, sourceEnd: end }];

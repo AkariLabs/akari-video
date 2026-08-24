@@ -545,17 +545,28 @@ function validateLinearCuts(cuts: UnknownRecord[], edit: UnknownRecord): void {
 
 function projectOccurrences(captions: UnknownRecord[], cuts: UnknownRecord[], sourceCount: number): CaptionOccurrence[] {
     const occurrences: CaptionOccurrence[] = [];
+    let cursor = 0;
+    const segments = cuts.map((cut, cutIndex) => {
+        const speed = finitePositive(cut.speed) ? cut.speed : 1;
+        const duration = (cut.out - cut.in) / speed;
+        const segment = { cut, cutIndex, speed, start: cursor, end: cursor + duration };
+        cursor += duration;
+        return segment;
+    });
+    const timelineEnd = cursor;
     captions.forEach((caption, captionInputIndex) => {
         if (!isRecord(caption) || caption.time_domain !== 'output') return;
+        const clampedEnd = Math.min(caption.end, timelineEnd);
+        if (!(clampedEnd > caption.start)) return;
         occurrences.push({
             source_cue_id: caption.id,
             src: strictText(caption.src) ? caption.src : null,
             cut_index: -1,
             caption_input_index: captionInputIndex,
             source_start: caption.start,
-            source_end: caption.end,
+            source_end: clampedEnd,
             start: caption.start,
-            end: caption.end,
+            end: clampedEnd,
             text: caption.display_text ?? caption.text,
             display_fragments: caption.display_fragments,
             text_style: caption.text_style
@@ -583,14 +594,6 @@ function projectOccurrences(captions: UnknownRecord[], cuts: UnknownRecord[], so
         });
         return occurrences;
     }
-    let cursor = 0;
-    const segments = cuts.map((cut, cutIndex) => {
-        const speed = finitePositive(cut.speed) ? cut.speed : 1;
-        const duration = (cut.out - cut.in) / speed;
-        const segment = { cut, cutIndex, speed, start: cursor, end: cursor + duration };
-        cursor += duration;
-        return segment;
-    });
     captions.forEach((caption, captionInputIndex) => {
         if (!isRecord(caption)) return;
         if (caption.time_domain === 'output') return;
