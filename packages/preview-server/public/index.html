@@ -27,8 +27,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-stage { position: absolute; left: 50%; top: 50%; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
 #preview-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
 #transition-video { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: contain; display: none; pointer-events: none; }
-#zoom-layer > canvas.akari-video-fx-rail { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
-#zoom-layer > canvas[data-akari-video-fx-role="transition"] { z-index: 1; }
+#preview-stage > canvas.akari-video-fx-rail { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#preview-stage > canvas[data-akari-video-fx-role="transition"] { z-index: 1; }
 /* cuts[] の静止画ソース区間用（docs/contract-2026-08-12-still-image-cut-source-v0.md）。
    #preview-video と同じ位置・サイズで重ね、app.js が display の出し分けだけで切り替える。 */
 #preview-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; }
