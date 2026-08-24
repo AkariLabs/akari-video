@@ -336,6 +336,54 @@ test('--yes: opencode に --auto を付加する', async () => {
   });
 });
 
+test('--hermes: Hermes Agent を起動する（--yes は転送しない）', async () => {
+  await withScratchRoot(async (root) => {
+    await mkdir(join(root, '.akari'), { recursive: true });
+    await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
+
+    const { log, lines } = collectLogs();
+    let hermesCall = null;
+    const result = await run(['-y', '--hermes', '--continue'], {
+      projectRoot: root,
+      log,
+      assets: resolveRepoAssets(repoRoot),
+      runDoctor: () => ({ status: 0 }),
+      resolveHermes: () => '/fake/bin/hermes',
+      spawnHermes: (hermesPath, args, cwd) => {
+        hermesCall = { hermesPath, args, cwd };
+        return { status: 0 };
+      },
+      ...isolatedUpdateOptions(root)
+    });
+
+    assert.deepEqual(hermesCall, { hermesPath: '/fake/bin/hermes', args: ['--continue'], cwd: root });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.hermesLaunched, true);
+    assert.ok(lines.some((line) => line.includes('Hermes Agent を起動します…')));
+  });
+});
+
+test('--hermes: Hermes Agent 不在時は案内を出して終了する', async () => {
+  await withScratchRoot(async (root) => {
+    await mkdir(join(root, '.akari'), { recursive: true });
+    await writeFile(join(root, '.akari', 'connections.json'), JSON.stringify({ providers: [], policy: {} }), 'utf8');
+
+    const { log, lines } = collectLogs();
+    const result = await run(['--here', '--hermes'], {
+      projectRoot: root,
+      log,
+      assets: resolveRepoAssets(repoRoot),
+      runDoctor: () => ({ status: 0 }),
+      resolveHermes: () => null,
+      ...isolatedUpdateOptions(root)
+    });
+
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.hermesLaunched, false);
+    assert.ok(lines.some((line) => line.includes('Hermes Agent コマンドが見つかりませんでした')));
+  });
+});
+
 // --- U5（タスク契約 2026-08-11-update-u5-cli-auto-update）: 起動非ブロック性の固定 ---
 // 契約 §11「起動時にネットワークを待つことは今後もない」の直接的な回帰ガード。
 // バックグラウンド staging（`runBackgroundFetch` 拡張）は `triggerBackgroundRefresh` が
