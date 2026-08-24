@@ -37,7 +37,7 @@ import {
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
 import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
-import { persistCaptionZone } from '../common/caption-zone-write';
+import { persistCaptionText, persistCaptionZone } from '../common/caption-zone-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import {
     CAPTION_FONT_FAMILY,
@@ -454,9 +454,7 @@ interface CaptionWriteRequest {
     type: 'akari-preview-caption-write';
     requestId: string;
     captionId: string;
-    patch: {
-        zone: CaptionZoneValue;
-    };
+    patch: { zone: CaptionZoneValue; text?: never } | { text: string; zone?: never };
 }
 
 interface PreviewCaptionSelectedRequest {
@@ -3935,7 +3933,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     // ㉓ layerWrite/cutWrite と同型だが対象ファイルは captions.json（edit.json ではない）。
-    // text_style.zone のみをフィールド単位で上書き（他フィールド・他キャプションは無傷）。
+    // text_style.zone または text をフィールド単位で上書き（他フィールド・他キャプションは無傷）。
+    // 空白だけの text は captions.schema が保持できないため、対象 cue の削除として扱う。
     // captions.json は array ルート / {captions:[...], default_text_style} object ルートの
     // どちらも許容（schemas/captions.schema.json oneOf）ため両形を読む。
     protected async handleCaptionWrite(widget: PreviewWidgetMarker, request: CaptionWriteRequest): Promise<void> {
@@ -3952,25 +3951,31 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             respond(false, '字幕ファイル（captions.json）がありません');
             return;
         }
-        if (!(CAPTION_ZONES as readonly string[]).includes(request.patch.zone)) {
+        if (typeof request.patch.zone === 'string'
+            && !(CAPTION_ZONES as readonly string[]).includes(request.patch.zone)) {
             respond(false, `不正な zone です: ${request.patch.zone}`);
             return;
         }
         try {
             const originalText = await this.readText(captionsUri);
-            const lintResult = await persistCaptionZone({
+            const persistOptions = {
                 source: originalText,
                 captionId: request.captionId,
-                zone: request.patch.zone as Parameters<typeof persistCaptionZone>[0]['zone'],
-                lint: candidateText => this.previewService.lintEditCandidate({
+                lint: (candidateText: string) => this.previewService.lintEditCandidate({
                     editUri: captionsUri.toString(),
                     candidateText
                 }),
-                write: async candidateText => {
+                write: async (candidateText: string) => {
                     this.markRecentWrite(captionsUri);
                     await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
                 }
-            });
+            };
+            const lintResult = typeof request.patch.text === 'string'
+                ? await persistCaptionText({ ...persistOptions, text: request.patch.text })
+                : await persistCaptionZone({
+                    ...persistOptions,
+                    zone: request.patch.zone as Parameters<typeof persistCaptionZone>[0]['zone']
+                });
             if (!lintResult.pass) {
                 respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
                 return;
@@ -3983,12 +3988,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     }
 
     protected isCaptionWriteRequest(message: any): message is CaptionWriteRequest {
+        const hasZone = typeof message?.patch?.zone === 'string';
+        const hasText = typeof message?.patch?.text === 'string';
         return message?.type === 'akari-preview-caption-write'
             && typeof message.requestId === 'string'
             && typeof message.captionId === 'string'
             && message.patch
             && typeof message.patch === 'object'
-            && typeof message.patch.zone === 'string';
+            && hasZone !== hasText;
     }
 
     protected isLayerWriteRequest(message: any): message is LayerWriteRequest {
@@ -4263,7 +4270,11 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
    shrink-to-fit の形状と cursor: move はドラッグ当たり判定のため維持する。 */
 #caption-plate { position: absolute; left: 50%; bottom: 7%; max-width: 92%; transform: translateX(-50%); padding: 0.08em 0.42em; border-radius: 10px; background: transparent; color: #fff; font-size: ${captionFontSize}px; font-weight: 700; line-height: 1.42; text-align: center; -webkit-text-stroke: 0.14em rgba(0,0,0,.9); paint-order: stroke fill; text-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: pre-wrap; pointer-events: auto; cursor: move; user-select: none; }
 #caption-plate:empty { display: none; }
+#caption-plate.akari-caption-host--editing:empty { display: block; min-width: 1em; min-height: 1.42em; }
 #caption-plate.akari-caption-host--styled { inset: 0; max-width: none; transform: none; padding: 0; border-radius: 0; background: none; text-shadow: none; white-space: normal; --caption-font-size: ${captionFontSize}px; }
+#caption-plate.akari-caption-host--editing, #caption-plate.akari-caption-host--editing * { cursor: text; user-select: text; }
+#caption-plate.akari-caption-host--editing .akari-caption { pointer-events: auto; }
+#caption-plate [data-akari-caption-editing="true"], #caption-plate[data-akari-caption-editing="true"] { pointer-events: auto; outline: 1px solid rgba(255,255,255,0.9); outline-offset: 3px; caret-color: currentColor; }
 .output-preview-link { position: absolute; top: 8px; left: 8px; z-index: 5; border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 5px 9px; background: rgba(20,20,20,0.78); color: #d8e9ff; font-size: 11px; line-height: 1.35; cursor: pointer; }
 .output-preview-link:hover { color: #fff; background: rgba(45,45,45,0.9); }
 .output-preview-link[hidden] { display: none; }
@@ -5347,6 +5358,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let audioNoticeShown = false;
             let activeCaption = null;
             let styledCaptionActive = false;
+            let activeCaptionEdit = null;
             let reviewRecordingActive = false;
             // docs/contract-2026-08-11-review-session-ui-events.md #1 / internal
             // annotation-everywhere §3 (M2): neutral/pen/rect/select, mirrored from
@@ -7278,7 +7290,122 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (report) window.akari.reportCaptionSelection(selectedCaptionId);
             };
             const deselectCaption = options => selectCaption(null, options);
+            const restoreCaptionEditAttribute = (element, name, value) => {
+                if (value === null) element.removeAttribute(name);
+                else element.setAttribute(name, value);
+            };
+            const restoreCaptionEditElement = edit => {
+                restoreCaptionEditAttribute(edit.element, 'contenteditable', edit.contentEditable);
+                restoreCaptionEditAttribute(edit.element, 'spellcheck', edit.spellcheck);
+                restoreCaptionEditAttribute(edit.element, 'style', edit.style);
+                edit.element.removeAttribute('data-akari-caption-editing');
+                captionPlate.classList.remove('akari-caption-host--editing');
+            };
+            const rerenderCaptionAfterEdit = () => {
+                activeCaption = null;
+                renderCaption();
+            };
+            const cancelCaptionEdit = () => {
+                if (!activeCaptionEdit) return;
+                const edit = activeCaptionEdit;
+                activeCaptionEdit = null;
+                restoreCaptionEditElement(edit);
+                rerenderCaptionAfterEdit();
+            };
+            const commitCaptionEdit = async () => {
+                if (!activeCaptionEdit) return;
+                const edit = activeCaptionEdit;
+                const nextText = (edit.element.textContent || '').normalize('NFC').trim();
+                activeCaptionEdit = null;
+                restoreCaptionEditElement(edit);
+                if (nextText === edit.originalText) {
+                    rerenderCaptionAfterEdit();
+                    return;
+                }
+                try {
+                    await window.akari.engine.captionWrite(edit.captionId, { text: nextText });
+                    if (nextText.trim().length === 0) {
+                        captions = captions.filter(caption => (caption.sourceCueId || caption.id) !== edit.captionId);
+                        if (selectedCaptionId === edit.captionId) deselectCaption();
+                    } else {
+                        for (const caption of captions) {
+                            if ((caption.sourceCueId || caption.id) === edit.captionId) {
+                                caption.text = nextText;
+                                delete caption.words;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn('[akari-preview] caption text write rejected; reverting', error);
+                    window.akari.showWriteError(error);
+                }
+                rerenderCaptionAfterEdit();
+            };
+            const placeCaptionCaretAtEnd = element => {
+                const selection = window.getSelection();
+                if (!selection) return;
+                const range = document.createRange();
+                range.selectNodeContents(element);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+            };
+            const beginCaptionEdit = caption => {
+                const captionId = caption && (caption.sourceCueId || caption.id);
+                if (!captionId) return;
+                if (activeCaptionEdit) {
+                    activeCaptionEdit.element.focus({ preventScroll: true });
+                    return;
+                }
+                if (isPlaying) togglePlayback();
+                selectCaption(captionId);
+                const element = captionPlate.querySelector('.akari-caption__plate') || captionPlate;
+                activeCaptionEdit = {
+                    captionId,
+                    originalText: caption.text || '',
+                    element,
+                    contentEditable: element.getAttribute('contenteditable'),
+                    spellcheck: element.getAttribute('spellcheck'),
+                    style: element.getAttribute('style')
+                };
+                element.setAttribute('contenteditable', 'true');
+                element.setAttribute('spellcheck', 'false');
+                element.setAttribute('data-akari-caption-editing', 'true');
+                // styled 字幕の token/行ラッパーは編集開始時だけプレーンな本文へ畳み、
+                // CSS やアニメーション断片を textContent に混入させない。
+                element.textContent = caption.text || '';
+                element.style.pointerEvents = 'auto';
+                element.style.userSelect = 'text';
+                captionPlate.classList.add('akari-caption-host--editing');
+                element.focus({ preventScroll: true });
+                placeCaptionCaretAtEnd(element);
+            };
+            captionPlate.addEventListener('dblclick', event => {
+                const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime);
+                if (!caption || !(caption.sourceCueId || caption.id)) return;
+                event.preventDefault();
+                event.stopPropagation();
+                beginCaptionEdit(caption);
+            });
+            captionPlate.addEventListener('blur', event => {
+                if (activeCaptionEdit && event.target === activeCaptionEdit.element) {
+                    void commitCaptionEdit();
+                }
+            }, true);
+            captionPlate.addEventListener('keydown', event => {
+                if (!activeCaptionEdit || event.target !== activeCaptionEdit.element || event.isComposing) return;
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void commitCaptionEdit();
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    cancelCaptionEdit();
+                }
+            });
             captionPlate.addEventListener('pointerdown', event => {
+                if (activeCaptionEdit) return;
                 if (event.button !== 0) return;
                 // 字幕ウィンドウ判定は共有カーネル（webview-kernel.js / caption-window.ts）
                 const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime);
@@ -8317,6 +8444,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             const renderCaption = () => {
+                if (activeCaptionEdit) return;
                 // captions は host 読込層で全件 output-domain へ正規化済み。gap も同じ時計で
                 // 検索し、保持された video.currentTime や active segment kind は参照しない。
                 const caption = window.AkariEditKernel.findActiveCaption(captions, outputTime) || null;
