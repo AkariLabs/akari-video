@@ -7,6 +7,7 @@ export interface CaptionSubrowItem {
     start: number;
     end: number;
     src?: string | null;
+    timeDomain?: 'source' | 'output';
 }
 
 export interface CaptionSubrowLayout {
@@ -35,7 +36,9 @@ export function computeCaptionSubrowLayout(
 ): Map<string, CaptionSubrowLayout> {
     const visibleCaptions = captions.flatMap(caption => {
         const sourceEnd = Math.max(caption.end, caption.start + minimumItemDuration);
-        const outputRanges = sourceRangeToOutputRanges(caption.start, sourceEnd, caption.src);
+        const outputRanges = caption.timeDomain === 'output'
+            ? [[caption.start, sourceEnd] as const]
+            : sourceRangeToOutputRanges(caption.start, sourceEnd, caption.src);
         if (outputRanges.length === 0) {
             return [];
         }

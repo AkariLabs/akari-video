@@ -52,6 +52,7 @@ import {
     SlipCutRequest,
     SetBgmFieldsRequest,
     SetCaptionFieldsRequest,
+    SetCaptionTimingRequest,
     SetCaptionTextStyleRequest,
     SetCutAtValuesRequest,
     SetCutOpacityRequest,
@@ -89,6 +90,7 @@ import {
     insertCaptionLine,
     removeCaptionLine,
     shiftCaptionLine,
+    setCaptionTimingLine,
     updateCaptionFieldsInSource,
     updateCaptionTextStyleInSource
 } from '../common/caption-store';
@@ -662,6 +664,22 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const captionsPath = this.fsPath(request.captionsUri);
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = shiftCaptionLine(source, request.captionId, request.deltaStart, request.deltaEnd);
+        await this.writeProjectFileGuarded(captionsPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
+    }
+
+    async setCaptionTiming(request: SetCaptionTimingRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const source = await fs.readFile(captionsPath, 'utf8');
+        const updated = setCaptionTimingLine(
+            source,
+            request.captionId,
+            request.start,
+            request.end,
+            request.timeDomain,
+            request.edited
+        );
         await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のタイミングを調整') };
     }

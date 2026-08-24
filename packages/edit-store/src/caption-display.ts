@@ -514,7 +514,7 @@ function validateSourceReferences(captions: UnknownRecord[], cuts: UnknownRecord
         }
     });
     captions.forEach((caption, index) => {
-        if (edit.sources.length > 1 && caption.src === undefined) {
+        if (edit.sources.length > 1 && caption.time_domain !== 'output' && caption.src === undefined) {
             fail('MISSING_SOURCE', `captions[${index}].src is required for a multi-source edit`);
         }
         if (caption.src !== undefined && !sourceIds.has(caption.src)) {
@@ -545,8 +545,36 @@ function validateLinearCuts(cuts: UnknownRecord[], edit: UnknownRecord): void {
 
 function projectOccurrences(captions: UnknownRecord[], cuts: UnknownRecord[], sourceCount: number): CaptionOccurrence[] {
     const occurrences: CaptionOccurrence[] = [];
+    let cursor = 0;
+    const segments = cuts.map((cut, cutIndex) => {
+        const speed = finitePositive(cut.speed) ? cut.speed : 1;
+        const duration = (cut.out - cut.in) / speed;
+        const segment = { cut, cutIndex, speed, start: cursor, end: cursor + duration };
+        cursor += duration;
+        return segment;
+    });
+    const timelineEnd = cursor;
+    captions.forEach((caption, captionInputIndex) => {
+        if (!isRecord(caption) || caption.time_domain !== 'output') return;
+        const clampedEnd = Math.min(caption.end, timelineEnd);
+        if (!(clampedEnd > caption.start)) return;
+        occurrences.push({
+            source_cue_id: caption.id,
+            src: strictText(caption.src) ? caption.src : null,
+            cut_index: -1,
+            caption_input_index: captionInputIndex,
+            source_start: caption.start,
+            source_end: clampedEnd,
+            start: caption.start,
+            end: clampedEnd,
+            text: caption.display_text ?? caption.text,
+            display_fragments: caption.display_fragments,
+            text_style: caption.text_style
+        });
+    });
     if (cuts.length === 0) {
         captions.forEach((caption, captionInputIndex) => {
+            if (caption?.time_domain === 'output') return;
             const text = caption?.display_text ?? caption?.text;
             if (isRecord(caption) && finiteNonNegative(caption.start) && finitePositive(caption.end) && caption.end > caption.start && typeof text === 'string') {
                 occurrences.push({
@@ -566,16 +594,9 @@ function projectOccurrences(captions: UnknownRecord[], cuts: UnknownRecord[], so
         });
         return occurrences;
     }
-    let cursor = 0;
-    const segments = cuts.map((cut, cutIndex) => {
-        const speed = finitePositive(cut.speed) ? cut.speed : 1;
-        const duration = (cut.out - cut.in) / speed;
-        const segment = { cut, cutIndex, speed, start: cursor, end: cursor + duration };
-        cursor += duration;
-        return segment;
-    });
     captions.forEach((caption, captionInputIndex) => {
         if (!isRecord(caption)) return;
+        if (caption.time_domain === 'output') return;
         const captionSource = strictText(caption.src) ? caption.src : null;
         if (sourceCount > 1 && captionSource === null) {
             fail('MISSING_SOURCE', `captions[${captionInputIndex}].src is required for a multi-source edit`);
@@ -611,6 +632,10 @@ function validateSourceCaption(caption: UnknownRecord, index: number, policy: Ca
     if (caption.src !== undefined && !strictText(caption.src)) {
         fail('INVALID_CAPTION', `captions[${index}].src must be a non-empty NFC trimmed string when present`);
     }
+    if (caption.time_domain !== undefined
+        && caption.time_domain !== 'source' && caption.time_domain !== 'output') {
+        fail('INVALID_CAPTION', `captions[${index}].time_domain must be source or output when present`);
+    }
     const text = caption.display_text ?? caption.text;
     if (!strictText(text)) fail('INVALID_TEXT', `captions[${index}] display text must be non-empty, NFC, and trimmed`);
     if (caption.style !== undefined) {
@@ -631,6 +656,7 @@ function validateSourceCaption(caption: UnknownRecord, index: number, policy: Ca
 function validateEmphasisConflicts(captions: UnknownRecord[], emphasisValue: unknown): void {
     if (!Array.isArray(emphasisValue)) return;
     captions.forEach((caption, index) => {
+        if (caption.time_domain === 'output') return;
         const conflict = emphasisValue.some(value => isRecord(value)
             && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src)
             && finiteNonNegative(value.t_start) && finitePositive(value.t_end)

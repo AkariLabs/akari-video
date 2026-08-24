@@ -111,3 +111,17 @@ test("複数 source の字幕は自分の src の output 区間だけを段割�
   assert.deepEqual(layout.get("caption-a"), { start: 0.5, end: 1.5, row: 0 });
   assert.deepEqual(layout.get("caption-b"), { start: 2.5, end: 3.5, row: 0 });
 });
+
+test("output-domain 字幕は source 射影せず宣言区間をそのまま使う", () => {
+  let projections = 0;
+  const layout = computeCaptionSubrowLayout(
+    [{ id: "cross-cut", start: 0.5, end: 3.5, timeDomain: "output", src: "source-a" }],
+    0.15,
+    () => {
+      projections += 1;
+      return [];
+    },
+  );
+  assert.equal(projections, 0);
+  assert.deepEqual(layout.get("cross-cut"), { start: 0.5, end: 3.5, row: 0 });
+});

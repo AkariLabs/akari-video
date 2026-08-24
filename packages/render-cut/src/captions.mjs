@@ -3,6 +3,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { computeCutTimelineOffsets, cutSpeed, segmentDuration } from "./cut-timeline.mjs";
 import { CAPTION_FONT_FILE_URL } from "./caption-font.mjs";
+import { predictedDuration } from "./plan.mjs";
 
 const DEFAULT_MAX_CHARACTERS = 20;
 // 縦長（output.height > output.width）の既定。横長より 1 行を短く・文字を大きくする
@@ -127,7 +128,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       ? caption.display_text
       : caption.text;
     const captionSource = typeof caption.src === "string" && caption.src !== "" ? caption.src : null;
-    if (captionSource === null && sourceCount > 1) {
+    if (captionSource === null && sourceCount > 1 && caption.time_domain !== "output") {
       options.onWarning?.(
         `captions.json item ${caption.id ?? "(unknown)"} omits src in a multi-source edit; skipped`,
       );
@@ -138,6 +139,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       caption.end,
       cuts,
       captionSource,
+      caption.time_domain,
     );
     let style = normalizeCaptionStyle(caption.style);
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
@@ -792,7 +794,14 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
 // のまま → computeContentDurationSeconds が captionsEnd を採用し、末尾に黒フレームが
 // 追加された）。両実装は cuts と同じ index で参照されるだけの並列配列を返す点で同形なので、
 // 常に computeCutTimelineOffsets(cuts) を使うよう統合する。
-function computeCaptionRanges(start, end, cuts, sourceId = null) {
+function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = undefined) {
+  if (timeDomain === "output") {
+    const timelineEnd = Array.isArray(cuts) && cuts.length > 0 ? predictedDuration(cuts) : 0;
+    const clampedEnd = Math.min(end, timelineEnd);
+    return clampedEnd > start
+      ? [{ start, duration: clampedEnd - start, sourceStart: start, sourceEnd: clampedEnd }]
+      : [];
+  }
   if (!Array.isArray(cuts) || cuts.length === 0) {
     return [{ start, duration: end - start, sourceStart: start, sourceEnd: end }];
   }

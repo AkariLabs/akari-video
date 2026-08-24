@@ -200,10 +200,9 @@ interface LoadedPreviewCaptions {
 /**
  * 字幕時計の preview-extension 内部契約。
  *
- * - resolved display cue は output、未解決 cue は source を既定とする。
- * - 旧 captions.json には domain 語彙が無いため、宣言区間全体が明示 gap に収まる cue だけを
- *   output と確定する。これにより gap 用 cue を source 秒へ誤射影せず、その他は cut map で
- *   source -> output へ射影できる。
+ * - captions.schema で time_domain を明示した cue は source/output をそのまま使う。
+ * - 未宣言の legacy cue は、宣言区間全体が明示 gap に収まる場合だけ output と確定し、
+ *   それ以外は後方互換の source として cut map で output へ射影する。
  * - 戻り値は全件 clockDomain='output'。render 層は domain 判定を一切行わない。
  */
 export const normalizePreviewCaptionClock = (
@@ -3823,9 +3822,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ?? (rawCaptions[index] && typeof rawCaptions[index] === 'object'
                         && !Array.isArray(rawCaptions[index])
                         ? rawCaptions[index] as Record<string, unknown> : undefined);
-                // captions schema 自体には時刻 domain が無いため、preview 読込境界だけの最小語彙
-                // time_domain を先行受理する。未宣言データは normalizePreviewCaptionClock が
-                // cut map の明示 gap と突き合わせて legacy domain を確定する。
+                // 明示 domain は schema 正本どおり直通し、未宣言だけ既存 legacy 推定へ渡す。
                 const declaredDomain = raw?.time_domain === 'source' || raw?.time_domain === 'output'
                     ? raw.time_domain
                     : 'legacy';

@@ -129,6 +129,8 @@ export interface CaptionRecord {
     speaker: string | null;
     sourceRef: { segment: number } | null;
     edited: boolean;
+    /** 省略時は source。output は edit.json の出力時間軸を直接参照する。 */
+    timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
 }
 
@@ -257,6 +259,33 @@ export function shiftCaptionLine(
     let nextElement = replaceCaptionProperty(element.text, 'start', nextStart, captionId);
     nextElement = replaceCaptionProperty(nextElement, 'end', nextEnd, captionId);
     nextElement = replaceCaptionProperty(nextElement, 'edited', true, captionId);
+    return replaceElement(source, array.openIndex + 1, element, nextElement);
+}
+
+/** 字幕の時刻と domain を絶対値で更新する。undo は元値をそのまま渡して完全復元できる。 */
+export function setCaptionTimingLine(
+    source: string,
+    captionId: string,
+    start: number,
+    end: number,
+    timeDomain: 'source' | 'output' | null | undefined,
+    edited: boolean
+): string {
+    if (!captionId || !Number.isFinite(start) || !Number.isFinite(end)
+        || start < 0 || end - start < 0.15) {
+        throw new Error('字幕が短すぎます（0.15 秒未満にはできません）');
+    }
+    const array = locateCaptionArray(source);
+    const element = findCaptionElement(array.elements, captionId);
+    let nextElement = replaceCaptionProperty(element.text, 'start', start, captionId);
+    nextElement = replaceCaptionProperty(nextElement, 'end', end, captionId);
+    nextElement = replaceCaptionProperty(nextElement, 'edited', edited, captionId);
+    nextElement = updateOptionalStyleProperty(
+        nextElement,
+        'time_domain',
+        timeDomain,
+        `字幕 ${captionId}`
+    );
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
 
@@ -434,6 +463,8 @@ function normalizeCaption(
         speaker: value.speaker,
         sourceRef,
         edited: value.edited,
+        ...(value.time_domain === 'source' || value.time_domain === 'output'
+            ? { timeDomain: value.time_domain } : {}),
         ...(textStyle !== undefined ? { textStyle } : {})
     };
 }
@@ -614,10 +645,13 @@ function insertIntoEmptyArray(inner: string, serialized: string, lineEnding: str
 }
 
 function serializeCaption(caption: CaptionRecord): string {
+    const timeDomain = caption.timeDomain === undefined
+        ? ''
+        : `, "time_domain": ${JSON.stringify(caption.timeDomain)}`;
     const textStyle = caption.textStyle === undefined
         ? ''
         : `, "text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`;
-    return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${textStyle} }`;
+    return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${timeDomain}${textStyle} }`;
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

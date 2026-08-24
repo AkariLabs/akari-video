@@ -42,6 +42,7 @@ const CAPTION_FIELDS = new Set([
   "sourceRef",
   "edited",
   "src",
+  "time_domain",
   "words",
   "style",
   "display_text",
@@ -218,6 +219,13 @@ function validateCaptionsArray(captions, optInDefaultTextStyle = null) {
     }
     if (hasOwn(caption, "src") && !isNonEmptyString(caption.src)) {
       fail(`${label}.src は空でない文字列である必要があります`);
+    }
+    if (
+      hasOwn(caption, "time_domain")
+      && caption.time_domain !== "source"
+      && caption.time_domain !== "output"
+    ) {
+      fail(`${label}.time_domain は source または output である必要があります`);
     }
     if (hasOwn(caption, "words")) validateCaptionWords(caption.words, label);
     if (hasOwn(caption, "style") && !CAPTION_STYLES.has(caption.style)) {

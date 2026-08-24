@@ -54,12 +54,7 @@ test('source/output domain cues normalize to output intervals across deletion an
 });
 
 test('the seven Electron observations are selected only by output time', () => {
-    // The read-only Electron fixture predates the extension-local time_domain vocabulary, so all
-    // four cues enter as legacy. The load normalizer fixes their domain before rendering.
-    const normalized = normalizePreviewCaptionClock(
-        fixtureCaptions.map(cue => ({ ...cue, clockDomain: 'legacy' })),
-        segments
-    );
+    const normalized = normalizePreviewCaptionClock(fixtureCaptions, segments);
     const activeText = outputTime =>
         normalized.find(cue => cue.start <= outputTime && outputTime < cue.end)?.text ?? '';
     const samples = [
@@ -76,13 +71,32 @@ test('the seven Electron observations are selected only by output time', () => {
     }
 });
 
-test('legacy cue whose declared interval is wholly inside an output gap keeps that interval', () => {
+test('an explicit output cue in a gap keeps its interval', () => {
     const [normalized] = normalizePreviewCaptionClock([
-        { id: 'gap', start: 3, end: 4, text: 'gap', clockDomain: 'legacy' }
+        { id: 'gap', start: 3, end: 4, text: 'gap', clockDomain: 'output' }
     ], segments);
     assert.equal(normalized.start, 3);
     assert.equal(normalized.end, 4);
     assert.equal(normalized.clockDomain, 'output');
+    assert.match(compiled, /\? raw\.time_domain\s*:\s*'legacy'/u);
+});
+
+test('legacy gap heuristic applies only when time_domain is undeclared', () => {
+    const legacy = normalizePreviewCaptionClock([
+        { id: 'legacy-gap', start: 3, end: 4, text: 'legacy', clockDomain: 'legacy' }
+    ], segments);
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(legacy.map(cue => [cue.start, cue.end, cue.clockDomain]))),
+        [[3, 4, 'output']]
+    );
+
+    const explicitSource = normalizePreviewCaptionClock([
+        { id: 'explicit-source', start: 3, end: 4, text: 'source', clockDomain: 'source' }
+    ], segments);
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(explicitSource.map(cue => [cue.start, cue.end, cue.clockDomain]))),
+        [[1, 2, 'output']]
+    );
 });
 
 test('render, caption selection, and styled animation consume outputTime only', () => {
