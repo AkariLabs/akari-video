@@ -93,7 +93,7 @@ async function ensureCacheDirectory(directory: string, projectRoot: string): Pro
 }
 
 interface FfprobeStreamsResult {
-    streams?: Array<{ codec_name?: string }>;
+    streams?: Array<{ codec_name?: string; pix_fmt?: string }>;
 }
 
 /**
@@ -112,6 +112,20 @@ export async function probeVideoCodecName(videoPath: string): Promise<string | u
     ]);
     const parsed = JSON.parse(stdout) as FfprobeStreamsResult;
     return parsed.streams?.[0]?.codec_name;
+}
+
+/** Returns the first video stream's decoded pixel format (for example yuva444p10le). */
+export async function probeVideoPixelFormat(videoPath: string): Promise<string | undefined> {
+    const ffprobePath = await resolveFfprobePath() ?? 'ffprobe';
+    const { stdout } = await execFileAsync(ffprobePath, [
+        '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'stream=pix_fmt',
+        '-of', 'json',
+        videoPath
+    ]);
+    const parsed = JSON.parse(stdout) as FfprobeStreamsResult;
+    return parsed.streams?.[0]?.pix_fmt;
 }
 
 // task/2026-08-10-preview-bug-sweep (B1): <video>.webkitAudioDecodedByteCount stays 0 for the
@@ -153,16 +167,17 @@ export type GetH264ProxyResult =
 
 interface ProxyMeta {
     sourceCodec: string;
+    sourcePixelFormat?: string;
     proxyCodec: string;
+    proxyPixelFormat?: string;
     generatedAt: string;
 }
 
 /**
- * Lazily produces (and caches) an H.264 proxy for an HEVC source, keyed on
- * sha1(path|size|mtimeMs|'h264-proxy') so a re-encode or file replacement invalidates the cache
- * (same key shape as media-cache.ts's getClipThumbnail/getClipWaveform). Returns 'not-hevc'
- * immediately (no ffmpeg call) when the source is already H.264/other, so this is a no-op cost-
- * wise for the common case.
+ * Lazily produces (and caches) a Chromium-compatible playback proxy after an actual <video>
+ * decode failure. Sources whose pixel format begins with yuva use VP9/yuva420p in WebM so their
+ * alpha plane survives; opaque HEVC keeps the established H.264/MP4 fallback. Other opaque
+ * codecs return not-hevc without invoking ffmpeg.
  */
 export async function getH264Proxy(projectRoot: string, videoPath: string): Promise<GetH264ProxyResult> {
     let stat;
@@ -175,12 +190,17 @@ export async function getH264Proxy(projectRoot: string, videoPath: string): Prom
         return { status: 'unavailable', reason: 'ffprobe-not-found' };
     }
     let codecName: string | undefined;
+    let pixelFormat: string | undefined;
     try {
-        codecName = await probeVideoCodecName(videoPath);
+        [codecName, pixelFormat] = await Promise.all([
+            probeVideoCodecName(videoPath),
+            probeVideoPixelFormat(videoPath)
+        ]);
     } catch {
         return { status: 'unavailable', reason: 'probe-failed' };
     }
-    if (codecName !== 'hevc') {
+    const hasAlpha = typeof pixelFormat === 'string' && /^yuva/i.test(pixelFormat);
+    if (!hasAlpha && codecName !== 'hevc') {
         return { status: 'not-hevc' };
     }
     if (!(await hasFfmpeg())) {
@@ -188,8 +208,9 @@ export async function getH264Proxy(projectRoot: string, videoPath: string): Prom
     }
 
     const directory = join(projectRoot, 'cache', 'media-proxy');
-    const hash = cacheHash([videoPath, stat.size, stat.mtimeMs, 'h264-proxy']);
-    const destination = join(directory, `${hash}.mp4`);
+    const proxyKind = hasAlpha ? 'vp9-alpha-proxy' : 'h264-proxy';
+    const hash = cacheHash([videoPath, stat.size, stat.mtimeMs, proxyKind]);
+    const destination = join(directory, `${hash}.${hasAlpha ? 'webm' : 'mp4'}`);
     const metaDestination = join(directory, `${hash}.json`);
 
     try {
@@ -203,28 +224,40 @@ export async function getH264Proxy(projectRoot: string, videoPath: string): Prom
         const temporary = `${destination}.${process.pid}.tmp`;
         try {
             const ffmpegPath = await resolveFfmpegPath() ?? 'ffmpeg';
-            await execFileAsync(ffmpegPath, [
-                '-y',
-                '-i', videoPath,
+            const encodeArgs = hasAlpha ? [
+                '-c:v', 'libvpx-vp9',
+                '-pix_fmt', 'yuva420p',
+                '-deadline', 'realtime',
+                '-cpu-used', '8',
+                '-c:a', 'libopus',
+                '-f', 'webm'
+            ] : [
                 '-c:v', 'libx264',
                 '-preset', 'veryfast',
                 '-crf', '20',
                 '-c:a', 'aac',
                 '-movflags', '+faststart',
-                // The atomic-write temp file ends in .tmp (not .mp4), so ffmpeg can't infer the
-                // muxer from the filename extension the way it normally would — force it.
-                '-f', 'mp4',
+                '-f', 'mp4'
+            ];
+            // The atomic-write temp file ends in .tmp, so ffmpeg cannot infer the muxer from the
+            // destination extension. Both branches force their container explicitly.
+            await execFileAsync(ffmpegPath, [
+                '-y',
+                '-i', videoPath,
+                ...encodeArgs,
                 temporary
             ], { maxBuffer: 64 * 1024 * 1024 });
             await fs.rename(temporary, destination);
         } catch (error) {
             await fs.unlink(temporary).catch(() => undefined);
-            console.warn('[akari-preview] HEVC -> H.264 proxy generation failed', error);
+            console.warn(`[akari-preview] ${hasAlpha ? 'alpha -> VP9' : 'HEVC -> H.264'} proxy generation failed`, error);
             return { status: 'unavailable', reason: 'proxy-generation-failed' };
         }
         const meta: ProxyMeta = {
-            sourceCodec: 'hevc',
-            proxyCodec: 'h264',
+            sourceCodec: codecName ?? 'unknown',
+            ...(pixelFormat ? { sourcePixelFormat: pixelFormat } : {}),
+            proxyCodec: hasAlpha ? 'vp9' : 'h264',
+            ...(hasAlpha ? { proxyPixelFormat: 'yuva420p' } : {}),
             generatedAt: new Date().toISOString()
         };
         await writeAtomicJson(metaDestination, meta);

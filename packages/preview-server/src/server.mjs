@@ -64,6 +64,7 @@ const CAPTION_FONT_ROUTE = '/assets/fonts/akari-noto-sans-jp.ttf';
 const THREE_ROUTES = {
   '/three-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/three-bundle.js', import.meta.url)),
   '/three-runtime.js': fileURLToPath(new URL('../../overlay-runtime/src/three-runtime.js', import.meta.url)),
+  '/video-fx.js': fileURLToPath(new URL('../../overlay-runtime/src/video-fx.js', import.meta.url)),
 };
 const PROXY_DIR = path.join(projectRoot, '.proxy');
 
@@ -255,7 +256,7 @@ function readPreviewEdit(filePath) {
   try {
     const text = fs.readFileSync(filePath, 'utf-8');
     return {
-      data: projectPreviewEdit(text, path.join(projectRoot, '.akari', 'preview-projection')),
+      data: projectPreviewEdit(text, path.join(projectRoot, '.akari', 'preview-projection'), projectRoot),
     };
   } catch (error) {
     return { error };

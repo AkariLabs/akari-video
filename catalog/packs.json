@@ -6,6 +6,12 @@
       "category": "font",
       "title": "テロップ定番フォントパック",
       "summary": "動画テロップの定番 23 書体（同梱 9 + 無料参照 14）。全部無料"
+    },
+    {
+      "id": "audio-standard",
+      "category": "audio",
+      "title": "定番オーディオパック",
+      "summary": "動画で常用する定番 198 音（効果音 79 + BGM 119・19 パック横断）。AKARI Sounds + 無料参照ライブラリの混成。選別の正本は内部リポ assets/audio/sfx-curation.json（2026-08-23 オーナー選別）"
     }
   ]
 }

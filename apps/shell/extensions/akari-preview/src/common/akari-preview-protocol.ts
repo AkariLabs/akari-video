@@ -6,6 +6,7 @@ export const AkariPreviewService = Symbol('AkariPreviewService');
 export interface OverlayRuntimeAssets {
     threeJavaScript: string;
     threeRuntimeJavaScript: string;
+    videoFxJavaScript: string;
     runtimeJavaScript: string;
     interactionJavaScript: string;
     interactionCss: string;
@@ -19,6 +20,11 @@ export interface OverlayRuntimeAssets {
     // 直接 goto するため pathToFileURL がそのまま使えるが、こちらは Theia WebviewWidget 経由で
     // 別オリジンに描画される）ため、data: URI として埋め込む。
     captionFontDataUri: string;
+}
+
+export interface ReadVideoFxLutRequest {
+    projectRootUri: string;
+    lutRef: string;
 }
 
 export interface VideoStreamReference {
@@ -195,9 +201,8 @@ export interface ReviewSessionSummary {
 // longer invoked proactively on open — resolveHevcProxy is called exactly once per source, only
 // after the browser side observes an actual <video> playback failure (MEDIA_ERR_DECODE /
 // MEDIA_ERR_SRC_NOT_SUPPORTED). See AkariPreviewOpenHandler.handleHevcFallbackRequest. The
-// resulting proxy is cached (size+mtime keyed) and reused for the rest of the app session. This
-// runs on all platforms (not just win32) so the behavior is identical everywhere and macOS gets
-// the same test coverage as the platform that actually needs it.
+// resulting proxy is cached (size+mtime keyed) and reused for the rest of the app session.
+// Alpha pixel formats use VP9/yuva WebM; opaque HEVC uses H.264/MP4. This runs on all platforms.
 export type ResolveHevcProxyUnavailableReason =
     | 'ffprobe-not-found'
     | 'ffmpeg-not-found'
@@ -243,6 +248,7 @@ export interface ResolveCaptionDisplayRequest {
 
 export interface ResolvedCaptionDisplayPayload {
     schema: 'caption-layout/v1';
+    emphasisWords?: unknown;
     captions: Array<{
         id: string;
         source_cue_id: string;
@@ -256,6 +262,7 @@ export interface ResolvedCaptionDisplayPayload {
 
 export interface AkariPreviewService {
     getOverlayRuntimeAssets(): Promise<OverlayRuntimeAssets>;
+    readVideoFxLut(request: ReadVideoFxLutRequest): Promise<string>;
     createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference>;
     disposeVideoStream(id: string): Promise<void>;
     createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference>;

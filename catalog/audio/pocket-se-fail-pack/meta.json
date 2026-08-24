@@ -2,13 +2,14 @@
   "id": "pocket-se-fail-pack",
   "category": "audio",
   "title": "ポケットサウンド 失敗系SE（呆れチーン / 死亡音 / デデーン）",
-  "description": "やらかし・失敗の定番 3 点。呆れ「チーン」・ゲーム死亡音・失敗「デデーン」。（収録数: 3点）",
+  "description": "やらかし・失敗の定番 3 点。呆れ「チーン」・ゲーム死亡音・失敗「デデーン」。（収録数: 3点） 【audio-standard】部分参加 1/3 音（対象はローカル index.jsonl の standard フラグ / 正本は内部リポ sfx-curation.json）",
   "when_to_use": "ずっこけ・ツッコミ（chin）、撃沈・退場（deathse）、「〇〇アウト！」の失敗提示（deden）",
   "tags": [
     "sfx",
     "fail",
     "gag",
-    "buzzer"
+    "buzzer",
+    "pack:audio-standard"
   ],
   "knobs": [],
   "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=true を厳守し、必要なクレジット文言は「効果音：ポケットサウンド – https://pocket-se.info/」を動画概要欄等に明記する（リンクでも可）。 AI学習データとしての二次利用はしない。",

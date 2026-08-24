@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 10 },
+  "sources": [{ "id": "main", "path": "media/pattern.mp4" }],
+  "tracks": [{ "id": "v-main", "lane": "visual", "name": "inert", "items": [
+    { "id": "main-1", "at": 0, "duration": 20, "source": { "kind": "media", "src": "main", "in": 0, "out": 2 } }
+  ] }]
+}

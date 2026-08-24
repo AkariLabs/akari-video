@@ -29,6 +29,7 @@ import {
     ReadReviewSessionStrokesResult,
     PrepareLegacyEditRequest,
     PrepareLegacyEditResult,
+    ReadVideoFxLutRequest,
     ResolveHevcProxyRequest,
     ResolveHevcProxyResult,
     ReviewSessionSummary,
@@ -43,6 +44,11 @@ import {
     VideoStreamReference,
     VideoStreamRequest
 } from '../common/akari-preview-protocol';
+import {
+    readCaptionsEmphasisWords,
+    readLegacyEditEmphasisWords,
+    resolvePreviewEmphasisWords
+} from '../common/preview-emphasis-seat';
 import { getH264Proxy, probeHasAudioStream, resolveFfmpegPath } from './hevc-proxy';
 import { ReviewSessionWriter } from './review-session-writer';
 
@@ -153,6 +159,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         this.assets = {
             threeJavaScript: readFileSync(resolve(directory, 'vendor/three-bundle.js'), 'utf8'),
             threeRuntimeJavaScript: readFileSync(resolve(directory, 'three-runtime.js'), 'utf8'),
+            videoFxJavaScript: readFileSync(resolve(directory, 'video-fx.js'), 'utf8'),
             // slot-params.js は preview mount と render-cut rasterize が共有する唯一の注入実装。
             // runtimeJavaScript の先頭へ同梱し、公開プロトコルの資産フィールドは増やさない。
             runtimeJavaScript: `${readFileSync(resolve(directory, 'slot-params.js'), 'utf8')}\n${
@@ -164,6 +171,32 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             captionFontDataUri: this.readCaptionFontDataUri()
         };
         return this.assets;
+    }
+
+    async readVideoFxLut(request: ReadVideoFxLutRequest): Promise<string> {
+        if (!request || typeof request.projectRootUri !== 'string'
+            || typeof request.lutRef !== 'string' || !request.lutRef.trim()) {
+            throw new Error('Invalid video FX LUT request');
+        }
+        let candidate: string;
+        if (!request.lutRef.includes('/') && !request.lutRef.includes('\\')) {
+            if (!/^[A-Za-z0-9_-]+$/.test(request.lutRef)) {
+                throw new Error('Invalid LUT preset id');
+            }
+            candidate = resolve(this.findPresetLutDirectory(), request.lutRef, `${request.lutRef}.cube`);
+        } else {
+            const projectRoot = await realpath(this.filePath(request.projectRootUri));
+            candidate = await realpath(resolve(projectRoot, request.lutRef));
+            if (!this.contains(projectRoot, candidate)) {
+                throw new Error('LUT path escapes the project root');
+            }
+        }
+        const actual = await realpath(candidate);
+        const info = await stat(actual);
+        if (!info.isFile() || extname(actual).toLowerCase() !== '.cube') {
+            throw new Error('LUT is not a .cube file');
+        }
+        return readFile(actual, 'utf8');
     }
 
     // win2-fonts-wire: assets/font/noto-sans-jp/NotoSansJP-Variable.ttf（win2-fonts-assets 同梱）を
@@ -234,8 +267,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     // task/2026-08-09-drop-hevc-proxy: this RPC is no longer called from the default preview-open
     // path (see AkariPreviewOpenHandler.resolveStreamVideoUri in the browser extension) — its
     // only remaining caller is handleHevcFallbackRequest, invoked after an actual <video>
-    // playback failure. The implementation itself (probe → generate-if-hevc → cache) is
-    // unchanged; only who calls it, and when, changed.
+    // playback failure. Alpha sources become VP9/yuva WebM; opaque HEVC keeps the H.264 fallback.
     async resolveHevcProxy(request: ResolveHevcProxyRequest): Promise<ResolveHevcProxyResult> {
         if (!request || typeof request.videoUri !== 'string' || typeof request.projectRootUri !== 'string') {
             return { status: 'unavailable', reason: 'source-missing' };
@@ -463,8 +495,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             || captionsRoot.display_policy === undefined) {
             return null;
         }
+        const captionsEmphasisWords = readCaptionsEmphasisWords(captionsRoot);
         const editText = await this.readWorkspaceRegularFile(request.editUri, roots, 'edit.json');
         let rawEdit = JSON.parse(editText);
+        const legacyEmphasisWords = readLegacyEditEmphasisWords(rawEdit);
         if (rawEdit?.version !== 2) {
             const planned = planMigration(dirname(this.filePath(request.editUri)), this.filePath(request.editUri), editText);
             if ('blockers' in planned) {
@@ -487,7 +521,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         // optional width/height を既定値で埋めると、未宣言時の字幕レイアウト挙動が変わる。
         const resolved = resolveCaptionDisplay(captionsRoot, edit, { output: rawEdit.output });
         if (!resolved) return null;
-        return { schema: resolved.schema, captions: resolved.display_cues };
+        const emphasisWords = resolvePreviewEmphasisWords(captionsEmphasisWords, legacyEmphasisWords);
+        return { schema: resolved.schema, captions: resolved.display_cues, emphasisWords };
     }
 
     /**
@@ -862,9 +897,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             const start = range?.start ?? 0;
             const end = range?.end ?? Math.max(0, targetStat.size - 1);
             response.statusCode = range ? 206 : 200;
-            if (assetMatch || transcodedAudioMatch) {
-                response.setHeader('Access-Control-Allow-Origin', '*');
-            }
+            response.setHeader('Access-Control-Allow-Origin', '*');
             response.setHeader('Accept-Ranges', 'bytes');
             response.setHeader('Cache-Control', 'no-store');
             response.setHeader('Content-Type', target.mimeType);
@@ -956,6 +989,32 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         throw new Error(`overlay-runtime assets were not found (tried: ${candidates.join(', ')})`);
     }
 
+    protected findPresetLutDirectory(): string {
+        const candidates: string[] = [];
+        if (typeof process.resourcesPath === 'string') {
+            candidates.push(resolve(process.resourcesPath, 'presets/luts'));
+        }
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth += 1) {
+            candidates.push(resolve(ancestor, 'presets/luts'));
+            const parent = dirname(ancestor);
+            if (parent === ancestor) break;
+            ancestor = parent;
+        }
+        candidates.push(
+            resolve(process.cwd(), 'presets/luts'),
+            resolve(process.cwd(), '../../presets/luts')
+        );
+        for (const candidate of candidates) {
+            try {
+                if (statSync(candidate).isDirectory()) return candidate;
+            } catch {
+                // Try the next packaged/development location.
+            }
+        }
+        throw new Error(`LUT presets were not found (tried: ${candidates.join(', ')})`);
+    }
+
     protected findBakeLayerEntry(): string {
         const candidates: string[] = [];
         let ancestor = resolve(__dirname);
@@ -1004,6 +1063,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         try {
             return statSync(resolve(candidate, 'overlay-runtime.js')).isFile()
                 && statSync(resolve(candidate, 'three-runtime.js')).isFile()
+                && statSync(resolve(candidate, 'video-fx.js')).isFile()
                 && statSync(resolve(candidate, 'vendor/three-bundle.js')).isFile()
                 && statSync(resolve(candidate, 'interaction.js')).isFile()
                 && statSync(resolve(candidate, 'interaction.css')).isFile();

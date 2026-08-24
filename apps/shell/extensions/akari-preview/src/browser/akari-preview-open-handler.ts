@@ -22,6 +22,7 @@ import {
     resolvePreviewItemWrite,
     TimelineSegment
 } from '@akari-video/edit-store';
+import type { EditV2 } from '@akari-video/edit-store';
 import {
     AkariPreviewService,
     OverlayRuntimeAssets,
@@ -61,17 +62,29 @@ import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
 import {
     buildCutSummaryFields,
     buildLayerSummaryBase,
+    ChromaKeySummary,
     LayerCropSummary,
     LayerKeyframesSummary,
-    LayerPerspectiveSummary
+    LayerPerspectiveSummary,
+    normalizeChromaKeyForSummary
 } from '../common/edit-summary-fields';
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
 import { classifyPreviewModelUpdate } from '../common/preview-model-diff';
 import type { PreviewModelDiffInput } from '../common/preview-model-diff';
+import { resolvePreferredVideoUri } from '../common/video-proxy-resolution';
 import { createRafThrottle } from '../common/raf-throttle';
 import { normalizeRectFromPoints } from '../common/rect-tool-visual';
+import {
+    readCaptionsEmphasisWords,
+    readLegacyEditEmphasisWords,
+    resolvePreviewEmphasisWords
+} from '../common/preview-emphasis-seat';
+import {
+    compactVisualTracks,
+    trackCompactionProposalAfterMigration
+} from '../common/track-compact';
 import { editReferencesRawMedia } from '../common/related-edit-source';
 import { resolveAnnotationStrokeCompositionSeconds } from '../common/review-stroke-seek';
 import {
@@ -118,6 +131,8 @@ interface EditSummaryLayer {
     duration: number;
     kind: 'baked' | 'video';
     src?: string;
+    /** Original file URI used only to target a decode-failure fallback request. */
+    sourceUri?: string;
     /** task 2026-08-10-image-layer-parity 司令塔裁定1: layers[].src の拡張子だけで判定する
      * 静止画フラグ（schema の kind は 'video' のまま不変）。webview 側はこれで <video>/<img> の
      * どちらを生成するか決める。'baked' は常に false（後述 isImageLayerSrc の呼び出し側コメント参照）。 */
@@ -125,7 +140,7 @@ interface EditSummaryLayer {
     transform: OverlayTransform;
     opacity: number;
     blend: string;
-    chromaKey: boolean;
+    chromaKey?: VideoFxChromaKey;
     proxyMissing: boolean;
     /** 初回 open の臨界経路から外した telop ラスタだけに host が立てる。通常の baked は false/省略。 */
     deferredTelop?: boolean;
@@ -157,6 +172,12 @@ interface EditSummaryFilter {
 const IMAGE_LAYER_SRC_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/i;
 export const isImageLayerSrc = (src: string | undefined): boolean =>
     typeof src === 'string' && IMAGE_LAYER_SRC_PATTERN.test(src);
+const PREVIEW_COLOR_KEYWORDS = new Set([
+    'black', 'white', 'red', 'green', 'blue', 'yellow', 'cyan', 'magenta', 'gray', 'grey',
+    'orange', 'purple', 'pink', 'brown'
+]);
+const isPreviewColorLike = (value: string): boolean =>
+    value.startsWith('#') || /^0x/iu.test(value) || PREVIEW_COLOR_KEYWORDS.has(value.toLowerCase());
 
 type PreviewCaptionClockDomain = 'source' | 'output' | 'legacy';
 
@@ -169,6 +190,11 @@ interface PreviewCaptionClockInput extends PreviewCaption {
 
 interface OutputPreviewCaption extends PreviewCaptionClockInput {
     clockDomain: 'output';
+}
+
+interface LoadedPreviewCaptions {
+    captions: PreviewCaptionClockInput[];
+    emphasisWords?: unknown;
 }
 
 /**
@@ -262,6 +288,26 @@ interface EditSummaryCut {
     /** contract-2026-07-22-render-basics.md #7（フリーズ）。同上、深いバリデーションは
      * common/cut-freeze-visual.ts の checkCutFreezeCrossing 側。 */
     freeze?: CutFreeze;
+    chromaKey?: VideoFxChromaKey;
+}
+
+interface VideoFxBackground {
+    type: 'color' | 'image';
+    color?: string;
+    url?: string;
+}
+
+interface VideoFxChromaKey {
+    color: string;
+    similarity: number;
+    blend: number;
+    mode: 'source' | 'layer';
+    background?: VideoFxBackground;
+}
+
+interface EditSummaryVideoFx {
+    look?: { cubeText: string; intensity: number };
+    sources: Record<string, VideoFxChromaKey>;
 }
 
 interface EditSummaryAudioSource {
@@ -338,6 +384,7 @@ interface EditSummary {
     captionTrackId?: string;
     hasCaptions?: boolean;
     hasInlineCaptions?: boolean;
+    videoFx?: EditSummaryVideoFx;
     indicators: string[];
 }
 
@@ -346,11 +393,8 @@ interface PreviewModel {
     editUri?: URI;
     relatedEditUri?: URI;
     sourceUri?: URI;
-    /** ソース id → 実体 URI（v0 は既定 id ひとつ・v1 は sources[] 全件） */
+    /** ソース id → 実体 URI（v0 は既定 id ひとつ・v1/v2 は sources[] 全件） */
     sourcesById?: Map<string, { uri: URI; proxyUri?: URI }>;
-    // Explicit edit.json source.proxy (v0/v1 schema field), read-only, highest priority over the
-    // HEVC-triggered proxy resolved in refreshPreview(). Only set when the file actually exists.
-    sourceProxyUri?: URI;
     overlayUris: URI[];
     assetUris: URI[];
     assetStreamIds: string[];
@@ -473,6 +517,8 @@ interface HevcFallbackRequest {
     type: 'akari-preview-hevc-fallback-request';
     requestId: string;
     errorCode: number;
+    /** Omitted by the primary/raw video for backward compatibility; set by layers and v2 items. */
+    videoUri?: string;
 }
 
 interface OpenOutputRequest {
@@ -525,6 +571,8 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewEditUri?: URI;
     akariPreviewRelatedEditUri?: URI;
     akariPreviewVideoUri?: URI;
+    /** Original source URIs the generated webview is allowed to request a fallback for. */
+    akariPreviewFallbackSourceUris?: Set<string>;
     akariPreviewCaptionsUri?: URI;
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewTrackedSuffixes?: Set<string>;
@@ -617,6 +665,9 @@ const ATTACH_TIMELINE_PASSIVE_COMMAND_ID = 'akari.annotations.attachPassive';
 const ENSURE_PREVIEW_VISIBLE_COMMAND: Command = { id: 'akari.preview.ensureVisible' };
 const SEEK_OUTPUT_PREVIEW_COMMAND: Command = { id: 'akari.preview.seekOutput' };
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND: Command = { id: 'akari.preview.togglePlayback' };
+const COMPACT_TRACKS_COMMAND: Command = { id: 'akari.preview.compactTracks' };
+const COMPACT_TRACKS_ACTION = '整理する';
+const KEEP_TRACKS_ACTION = '今はしない';
 // task/2026-08-09-drop-hevc-proxy: withOpenTimeout はモデル読み込み・createVideoStream・
 // setHTML だけを包む（webview 自体の起動・レンダリングは待たない — setHTML が返れば operation は
 // 完了扱い）。resolveStreamVideoUri がもう resolveHevcProxy を呼ばなくなった今、この区間に
@@ -642,6 +693,10 @@ interface SeekOutputRequest {
 }
 
 interface TogglePlaybackRequest {
+    editUri?: string;
+}
+
+interface CompactTracksRequest {
     editUri?: string;
 }
 
@@ -770,6 +825,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly previewSessionSettings = new Map<string, PreviewSessionSettings>();
     protected readonly pendingOutputInitialSeek = new Map<string, number>();
     protected readonly reviewTransportByEdit = new Map<string, ReviewTransportSnapshot>();
+    protected readonly lastRawEditVersionByUri = new Map<string, 0 | 1 | 2>();
+    protected readonly migrationCompactionPrompted = new Set<string>();
     // task/2026-08-09-drop-hevc-proxy: 実際に再生失敗した動画（videoUri.toString() をキー）だけを
     // 憶えておくフォールバック台帳。既定経路（resolveStreamVideoUri）はここに載っている場合だけ
     // プロキシを使う。新規生成のトリガーは handleHevcFallbackRequest のみ（このプロセスの生存中は
@@ -853,6 +910,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.registerEnsureVisibleCommand();
         this.registerOutputSeekCommand();
         this.registerTogglePlaybackCommand();
+        this.registerCompactTracksCommand();
         const onTimelineOverlaySelected = (event: Event): void => {
             const detail = (event as CustomEvent<{ editUri?: string; overlayId?: string | null }>).detail;
             if (!detail?.editUri || (typeof detail.overlayId !== 'string' && detail.overlayId !== null)) {
@@ -1604,6 +1662,65 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         });
     }
 
+    protected registerCompactTracksCommand(): void {
+        this.commandRegistry.registerCommand(COMPACT_TRACKS_COMMAND, {
+            execute: (request?: CompactTracksRequest) => this.compactTracks(request)
+        });
+    }
+
+    protected async compactTracks(
+        request: CompactTracksRequest | undefined
+    ): Promise<'compacted' | 'unchanged' | 'unavailable'> {
+        if (!request?.editUri) {
+            return 'unavailable';
+        }
+        const editUri = new URI(request.editUri).normalizePath();
+        if (!(await this.isInsideWorkspace(editUri))) {
+            return 'unavailable';
+        }
+        const originalText = await this.readText(editUri);
+        const parsed = JSON.parse(originalText) as unknown;
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+            || (parsed as { version?: unknown }).version !== 2) {
+            return 'unavailable';
+        }
+        const compacted = compactVisualTracks(parsed as EditV2);
+        if (!compacted.changed) {
+            return 'unchanged';
+        }
+        const candidateText = `${JSON.stringify(compacted.edit, null, 2)}\n`;
+        const lintResult = await this.previewService.lintEditCandidate({
+            editUri: editUri.toString(),
+            candidateText
+        });
+        if (!lintResult.pass) {
+            throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+        }
+        this.markRecentWrite(editUri);
+        await this.fileService.writeFile(editUri, BinaryBuffer.fromString(candidateText));
+        return 'compacted';
+    }
+
+    protected async offerTrackCompaction(
+        editUri: URI,
+        beforeTrackCount: number,
+        afterTrackCount: number
+    ): Promise<void> {
+        const choice = await this.messages.info(
+            `トラックを ${beforeTrackCount} 本 → ${afterTrackCount} 本に整理できます。整理しますか？`,
+            COMPACT_TRACKS_ACTION,
+            KEEP_TRACKS_ACTION
+        );
+        if (choice !== COMPACT_TRACKS_ACTION) {
+            return;
+        }
+        try {
+            await this.compactTracks({ editUri: editUri.toString() });
+        } catch (error) {
+            this.messages.error(`トラックを整理できませんでした: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
     protected async toggleOutputPreviewPlayback(
         request: TogglePlaybackRequest | undefined
     ): Promise<'toggled' | 'unavailable'> {
@@ -2324,7 +2441,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewCaptionsUpdate = previous.then(async () => {
             const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
             const captions = normalizePreviewCaptionClock(
-                loaded,
+                loaded.captions,
                 this.previewCaptionTimelineSegments(widget.akariPreviewSummary?.cuts ?? [])
             );
             widget.sendMessage({ type: 'akari-preview-captions-update', captions });
@@ -2410,6 +2527,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             overlayRuntimeAssets: [
                 assets.threeJavaScript,
                 assets.threeRuntimeJavaScript,
+                assets.videoFxJavaScript,
                 assets.runtimeJavaScript,
                 assets.interactionJavaScript,
                 assets.interactionCss,
@@ -2634,6 +2752,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewEditUri = model.editUri;
         widget.akariPreviewRelatedEditUri = model.relatedEditUri;
         widget.akariPreviewVideoUri = videoUri;
+        widget.akariPreviewFallbackSourceUris = new Set([
+            videoUri.toString(),
+            ...[...(model.sourcesById?.values() ?? [])].map(source => source.uri.toString()),
+            ...model.summary.layers.flatMap(layer => layer.sourceUri ? [layer.sourceUri] : [])
+        ]);
         widget.akariPreviewCaptionsUri = model.captionsUri;
         const trackedUris = [
             ...(model.editUri ? [model.editUri] : []),
@@ -2742,18 +2865,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     // in principle this just returns the source as-is — <video> decodes HEVC in hardware fine on
     // the platforms actually measured (see the task's internal report), so probing/transcoding
     // proactively was pure unnecessary latency (it was the cause of the 10s open timeout, not a
-    // safety net for it). An explicit edit.json source.proxy still wins outright (pipeline-
-    // declared, so it's authoritative regardless of what would otherwise be probed). The only
+    // safety net for it). An explicit edit.json sources[].proxy still wins for the exact matching
+    // source across v0/v1/v2 (pipeline-declared, so it is authoritative). The only
     // other case where this returns something other than videoUri is when that exact source
     // already failed to play once in this session and a proxy was generated for it — see
     // handleHevcFallbackRequest, the sole place that calls previewService.resolveHevcProxy (and
     // therefore the sole place that can trigger an ffmpeg transcode). No probing happens here.
-    protected async resolveStreamVideoUri(videoUri: URI, model: PreviewModel): Promise<URI> {
-        if (model.sourceProxyUri) {
-            return model.sourceProxyUri;
-        }
+    protected async resolveStreamVideoUri(
+        videoUri: URI,
+        model: Pick<PreviewModel, 'sourcesById'>
+    ): Promise<URI> {
         const cachedProxyUri = this.hevcFallbackProxyUris.get(videoUri.toString());
-        return cachedProxyUri ? new URI(cachedProxyUri) : videoUri;
+        const resolved = resolvePreferredVideoUri(
+            videoUri.toString(),
+            [...(model.sourcesById?.values() ?? [])].map(source => ({
+                uri: source.uri.toString(),
+                ...(source.proxyUri ? { proxyUri: source.proxyUri.toString() } : {})
+            })),
+            cachedProxyUri
+        );
+        return resolved === videoUri.toString() ? videoUri : new URI(resolved);
     }
 
     protected showMessageCard(
@@ -2772,6 +2903,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewEditUri = kind === 'output' ? identityUri : undefined;
         widget.akariPreviewRelatedEditUri = undefined;
         widget.akariPreviewVideoUri = videoUri;
+        widget.akariPreviewFallbackSourceUris = new Set([videoUri.toString()]);
         widget.akariPreviewCaptionsUri = undefined;
         widget.akariPreviewTrackedResources = new Set(kind === 'output' ? [identityUri.toString()] : []);
         widget.akariPreviewTrackedSuffixes = new Set(kind === 'output' ? [this.resourceSuffix(identityUri)] : []);
@@ -2816,15 +2948,43 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const assetStreams = new Map<string, { id: string; url: string }>();
         const assetUris: URI[] = [];
         let sourceUri: URI | undefined;
-        let sourceProxyUri: URI | undefined;
+        let legacyEmphasisWords: unknown;
         const sourcesById = new Map<string, { uri: URI; proxyUri?: URI }>();
         try {
             // 版を知るのは読み込み層（readInternalEdit）だけ。v0（単一 source）も v1（sources[]）も
             // v2（tracks[].items[]）も、ここから先は同じ内部表現として扱う。
             let editText = editSource ?? await this.readText(editUri);
-            const rawVersion = (() => {
-                try { return (JSON.parse(editText) as { version?: unknown }).version; } catch { return undefined; }
+            const rawEdit = (() => {
+                try { return JSON.parse(editText) as unknown; } catch { return undefined; }
             })();
+            const rawVersion = rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
+                ? (rawEdit as { version?: unknown }).version
+                : undefined;
+            const editKey = editUri.normalizePath().toString();
+            const previousRawVersion = this.lastRawEditVersionByUri.get(editKey);
+            if (rawVersion === 0 || rawVersion === 1 || rawVersion === 2) {
+                this.lastRawEditVersionByUri.set(editKey, rawVersion);
+            }
+            const migrationTransition = (previousRawVersion === 0 || previousRawVersion === 1)
+                && rawVersion === 2;
+            if (migrationTransition && !this.migrationCompactionPrompted.has(editKey)) {
+                this.migrationCompactionPrompted.add(editKey);
+                const proposal = trackCompactionProposalAfterMigration(previousRawVersion, rawEdit);
+                if (proposal) {
+                    // MessageService をモデル読込の await 鎖へ入れるとシェル起動を止め得る。
+                    // 移行後の書き込み通知を消費した次の macrotask で、一度だけ非同期に提案する。
+                    window.setTimeout(() => {
+                        void this.offerTrackCompaction(
+                            editUri,
+                            proposal.beforeTrackCount,
+                            proposal.afterTrackCount
+                        );
+                    }, 0);
+                }
+            }
+            // audio には projectLegacyAudioView があるが emphasisWords の共有射影は無い。
+            // 凍結 migration 前の v0/v1 生 JSON から旧席だけを退避し、後方互換入力にする。
+            legacyEmphasisWords = readLegacyEditEmphasisWords(rawEdit);
             if (rawVersion !== 2) {
                 const prepared = await this.previewService.prepareLegacyEdit({ editUri: editUri.toString() });
                 if ('blockers' in prepared) {
@@ -2838,8 +2998,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             // timeline.tracks 未宣言時の captions 段は captions.json の実在に依存する。
             // 先に字幕解決を確定し、埋め込み字幕と合わせて正規化読込へ渡す。
-            const captions = await captionsPromise;
+            const loadedCaptions = await captionsPromise;
+            const captions = loadedCaptions.captions;
             const internal = readPreviewInternalEdit(editText, captions.length > 0);
+            const emphasisWords = this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
+                loadedCaptions.emphasisWords,
+                legacyEmphasisWords
+            ));
             const trackIdByItem = new Map(internal.tracks.flatMap(track =>
                 track.items.map(item => [item, track.id] as const)));
             const declaredSources = internal.sources;
@@ -2856,6 +3021,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetStreamIds: [],
                     captionsUri,
                     captions: normalizePreviewCaptionClock(captions, []),
+                    emphasisWords,
                     emptyProject: true
                 };
             }
@@ -2877,7 +3043,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 sourcesById.set(declared.id, { uri, ...(proxyUri ? { proxyUri } : {}) });
             }
-            const emphasisWords = this.normalizeEmphasisWords(internal.declaration.emphasisWords);
             // 代表ソース（字幕の探索・ファイル監視・タイトル・単一ソース時の従来経路）は
             // 先頭カットが参照するソース。無ければ宣言順の先頭。
             const cutItems = collectItems(internal, 'cuts');
@@ -2886,15 +3051,69 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 .find((id: unknown) => typeof id === 'string' && sourcesById.has(id)) as string | undefined;
             const primaryId = firstCutSourceId ?? [...sourcesById.keys()][0];
             sourceUri = sourcesById.get(primaryId)?.uri;
-            // 宣言済み proxy（素材表の proxy）は上のソース表構築時に
-            // 解決済み。存在するときだけ HEVC 検出（refreshPreview）より優先される（読み取り専用・
-            // 書き戻さない）。ファイルが無ければ HEVC 検出へ落ちる（baked レイヤーの preview
-            // サイドカーが無いときと同じ扱い）。
-            sourceProxyUri = sourcesById.get(primaryId)?.proxyUri;
             const isTruthyObject = (value: unknown): boolean => Boolean(value)
                 && typeof value === 'object' && !Array.isArray(value);
             const width = this.positiveNumber(internal.output.width, EMPTY_SUMMARY.output.width);
             const height = this.positiveNumber(internal.output.height, EMPTY_SUMMARY.output.height);
+            const videoFxFailures = new Set<string>();
+            const resolveChromaKey = async (
+                raw: ChromaKeySummary | undefined,
+                mode: 'source' | 'layer'
+            ): Promise<VideoFxChromaKey | undefined> => {
+                if (!raw) return undefined;
+                let background: VideoFxBackground | undefined;
+                if (mode === 'source') {
+                    const declaredBackground = raw.background ?? '0x000000';
+                    if (isPreviewColorLike(declaredBackground)) {
+                        background = { type: 'color', color: declaredBackground };
+                    } else {
+                        try {
+                            const backgroundUri = this.resolveEditAssetUri(declaredBackground, editUri);
+                            const key = backgroundUri.toString();
+                            let stream = assetStreams.get(key);
+                            if (!stream) {
+                                stream = await this.previewService.createAssetStream({ assetUri: key });
+                                assetStreams.set(key, stream);
+                                assetUris.push(backgroundUri);
+                            }
+                            background = { type: 'image', url: stream.url };
+                        } catch (error) {
+                            videoFxFailures.add('クロマキー');
+                            console.warn('[akari-preview] chroma background could not be resolved', error);
+                            return undefined;
+                        }
+                    }
+                }
+                return {
+                    color: raw.color,
+                    similarity: raw.similarity,
+                    blend: raw.blend,
+                    mode,
+                    ...(background ? { background } : {})
+                };
+            };
+            let look: EditSummaryVideoFx['look'];
+            const rawLook = internal.output.look;
+            if (isTruthyObject(rawLook) && typeof (rawLook as { lut?: unknown }).lut === 'string') {
+                try {
+                    look = {
+                        cubeText: await this.previewService.readVideoFxLut({
+                            projectRootUri: editUri.parent.toString(),
+                            lutRef: (rawLook as { lut: string }).lut
+                        }),
+                        intensity: typeof (rawLook as { intensity?: unknown }).intensity === 'number'
+                            ? Math.max(0, Math.min(1, (rawLook as { intensity: number }).intensity)) : 1
+                    };
+                } catch (error) {
+                    videoFxFailures.add('LUT');
+                    console.warn('[akari-preview] LUT could not be resolved; keeping the honest-preview badge', error);
+                }
+            }
+            const sourceVideoFx: Record<string, VideoFxChromaKey> = {};
+            for (const declared of declaredSources) {
+                const resolved = await resolveChromaKey(normalizeChromaKeyForSummary(declared.chromaKey), 'source');
+                if (resolved) sourceVideoFx[declared.id] = resolved;
+            }
             const cuts: EditSummaryCut[] = [];
             for (const item of cutItems) {
                 const value = item.declaration as any;
@@ -2911,9 +3130,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     (message, detail) => console.warn(message, detail)
                 );
                 if (result.ok && result.fields) {
+                    const cutChromaKey = await resolveChromaKey(result.fields.chromaKey, 'source');
                     cuts.push({
                         id: item.id,
                         ...result.fields,
+                        ...(cutChromaKey ? { chromaKey: cutChromaKey } : { chromaKey: undefined }),
                         trackId,
                         renderTrack: resolveInternalTrackZ(
                             internal.tracks,
@@ -3017,6 +3238,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 const base: Omit<EditSummaryLayer, 'src' | 'proxyMissing' | 'isImage'> = {
                     ...result.base,
+                    chromaKey: await resolveChromaKey(result.base.chromaKey, 'layer'),
                     trackId: String(trackIdByItem.get(item) ?? '')
                 };
                 if (deferredTelop) {
@@ -3067,16 +3289,27 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
 
                 try {
-                    const key = sourceUri.toString();
+                    const isImage = isImageLayerSrc(value.src);
+                    // v2 visual media items are projected into this same video-layer branch.
+                    // Route them through the exact same declared-proxy/fallback selection as cuts;
+                    // images remain byte-for-byte asset streams and never trigger video probing.
+                    const streamUri = isImage
+                        ? sourceUri
+                        : await this.resolveStreamVideoUri(sourceUri, { sourcesById });
+                    const key = streamUri.toString();
                     let stream = assetStreams.get(key);
                     if (!stream) {
                         stream = await this.previewService.createAssetStream({ assetUri: key });
                         assetStreams.set(key, stream);
-                        assetUris.push(sourceUri);
+                        assetUris.push(streamUri);
                     }
-                    // 'video' kind はソースファイルをそのまま配信する（サイドカー変換なし）ので、
-                    // 配信 URL は元の value.src と同じバイト列 -- 拡張子判定がそのまま安全に使える。
-                    layers.push({ ...base, src: stream.url, proxyMissing: false, isImage: isImageLayerSrc(value.src) });
+                    layers.push({
+                        ...base,
+                        src: stream.url,
+                        ...(!isImage ? { sourceUri: sourceUri.toString() } : {}),
+                        proxyMissing: false,
+                        isImage
+                    });
                 } catch (error) {
                     console.warn(`[akari-preview] ${label} を無視しました（video レイヤーを配信できません）`, error);
                 }
@@ -3119,12 +3352,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 projectLegacyAudioView(internal), editUri, assetStreams, assetUris
             );
             const indicators: string[] = [];
-            if (isTruthyObject(internal.output.look)) indicators.push('LUT');
-            if (internal.sources.some(source => isTruthyObject(source.chromaKey))
-                || layerItems.some(item =>
-                    isTruthyObject((item.declaration as { chroma_key?: unknown }).chroma_key))) {
-                indicators.push('クロマキー');
-            }
+            indicators.push(...videoFxFailures);
             const missingProxyCount = layers.filter(layer => layer.kind === 'baked' && layer.proxyMissing).length;
             if (missingProxyCount > 0) {
                 indicators.push(`テロップ ${missingProxyCount}枚（プレビュー用プロキシ未生成）`);
@@ -3147,7 +3375,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return {
                 editUri,
                 sourceUri,
-                sourceProxyUri,
                 sourcesById,
                 overlayUris,
                 assetUris,
@@ -3169,7 +3396,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     timelineTracks,
                     ...(captionTrackId ? { captionTrackId } : {}),
                     ...(captions.length > 0 || hasInlineCaptions(internal) ? { hasCaptions: true } : {}),
-                    ...(hasInlineCaptions(internal) ? { hasInlineCaptions: true } : {})
+                    ...(hasInlineCaptions(internal) ? { hasInlineCaptions: true } : {}),
+                    ...((look || Object.keys(sourceVideoFx).length > 0 || layers.some(layer => layer.chromaKey))
+                        ? { videoFx: { ...(look ? { look } : {}), sources: sourceVideoFx } } : {})
                 }
             };
         } catch (error) {
@@ -3178,17 +3407,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 throw error;
             }
             console.warn(`[akari-preview] failed to load composite data from ${editUri.toString()}; opening source only`, error);
+            const loadedCaptions = await captionsPromise;
             return {
                 editUri,
                 sourceUri,
-                sourceProxyUri,
                 sourcesById,
                 summary: EMPTY_SUMMARY,
                 overlayUris: [],
                 assetUris: [],
                 assetStreamIds: [],
                 captionsUri,
-                captions: normalizePreviewCaptionClock(await captionsPromise, [])
+                captions: normalizePreviewCaptionClock(loadedCaptions.captions, []),
+                emphasisWords: this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
+                    loadedCaptions.emphasisWords,
+                    legacyEmphasisWords
+                ))
             };
         }
     }
@@ -3549,9 +3782,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected async loadPreviewCaptions(
         captionsUri: URI | undefined,
         editUri?: URI
-    ): Promise<PreviewCaptionClockInput[]> {
+    ): Promise<LoadedPreviewCaptions> {
         if (!captionsUri) {
-            return [];
+            return { captions: [] };
         }
         try {
             if (editUri) {
@@ -3560,15 +3793,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     editUri: editUri.toString()
                 });
                 if (resolved) {
-                    return parseResolvedPreviewCaptions(resolved).map(caption => ({
-                        ...caption,
-                        clockDomain: 'output'
-                    }));
+                    return {
+                        captions: parseResolvedPreviewCaptions(resolved).map(caption => ({
+                            ...caption,
+                            clockDomain: 'output'
+                        })),
+                        emphasisWords: resolved.emphasisWords
+                    };
                 }
             }
             const source = await this.readText(captionsUri);
             const parsed = parsePreviewCaptions(source);
             const root: unknown = JSON.parse(source);
+            const emphasisWords = readCaptionsEmphasisWords(root);
             const rawCaptions = Array.isArray(root)
                 ? root
                 : root && typeof root === 'object' && Array.isArray((root as { captions?: unknown }).captions)
@@ -3581,7 +3818,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     rawById.set((value as { id: string }).id, value as Record<string, unknown>);
                 }
             }
-            return parsed.map((caption, index) => {
+            const captions: PreviewCaptionClockInput[] = parsed.map((caption, index) => {
                 const raw = (caption.id ? rawById.get(caption.id) : undefined)
                     ?? (rawCaptions[index] && typeof rawCaptions[index] === 'object'
                         && !Array.isArray(rawCaptions[index])
@@ -3598,11 +3835,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(typeof raw?.src === 'string' && raw.src ? { clockSourceId: raw.src } : {})
                 };
             });
+            return { captions, emphasisWords };
         } catch (error) {
             if (await this.fileService.exists(captionsUri)) {
                 console.warn(`[akari-preview] failed to load ${captionsUri.toString()}; hiding captions`, error);
             }
-            return [];
+            return { captions: [] };
         }
     }
 
@@ -4036,15 +4274,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     protected isHevcFallbackRequest(message: any): message is HevcFallbackRequest {
         return message?.type === 'akari-preview-hevc-fallback-request'
-            && typeof message.requestId === 'string';
+            && typeof message.requestId === 'string'
+            && typeof message.errorCode === 'number'
+            && (message.videoUri === undefined || typeof message.videoUri === 'string');
     }
 
     // task/2026-08-09-drop-hevc-proxy: 唯一 previewService.resolveHevcProxy を呼ぶ経路
     // （＝唯一 ffmpeg 変換を新規に起動しうる経路）。open は既に完了しているので、ここで
     // await しても開く処理そのものはブロックしない。成功したら widget を丸ごとリロードする
-    // （refreshPreview が sourceUrlById/segments を含む状態を作り直すため、複数ソース
-    // （cuts[].src）を含む構成でも古い URL が混ざらない — v1 マルチソースの代表ソース以外
-    // （sources[] の追加ソース）はこのフォールバック対象外のまま。実測未確認、report 参照）。
+    // （refreshPreview が sourceUrlById/segments/layers を含む状態を作り直すため、複数ソース
+    // （v1 cuts[].src / v2 media item / video layer）を含む構成でも古い URL が混ざらない）。
     // 再生位置は akariPreviewLastKnownTime（forwardPlaybackTick が常時更新）から復元する。
     protected async handleHevcFallbackRequest(
         widget: PreviewWidgetMarker,
@@ -4060,7 +4299,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 ...(error ? { error } : {})
             });
         };
-        const videoUri = widget.akariPreviewVideoUri;
+        let videoUri = widget.akariPreviewVideoUri;
+        if (request.videoUri) {
+            if (!widget.akariPreviewFallbackSourceUris?.has(request.videoUri)) {
+                respond(false, '動画ソースがプレビューの宣言と一致しません');
+                return;
+            }
+            videoUri = new URI(request.videoUri);
+        }
         if (!videoUri) {
             respond(false, '動画ソースが特定できません');
             return;
@@ -4141,6 +4387,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // v1 マルチソース: ソース id → ストリーム URL。webview は cuts[].src が
             // 変わる継ぎ目で <video> をこの表から差し替える（v0 は 1 件のみの表）
             videoSources: sourceUrlById,
+            // フォールバック要求は配信 URL ではなく原本 URI をキーにする。v2 media item も
+            // source.src の id からこの表を引き、失敗した正確なソースだけを変換する。
+            videoSourceUris: Object.fromEntries([...(model.sourcesById ?? new Map())]
+                .map(([id, source]) => [id, source.uri.toString()])),
             // 静止画 cut ソース表（id → asset ストリーム URL）。この表にあるセグメントは
             // <video> ではなく #preview-still + 壁時計クロックで表示する
             // （docs/contract-2026-08-12-still-image-cut-source-v0.md のシェル対応）
@@ -4192,6 +4442,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-stage { position: absolute; left: 50%; top: 50%; width: min(100cqw, calc(100cqh * ${width} / ${height})); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
 #preview-video, #transition-video { position: absolute; top: 0; left: 0; object-fit: contain; }
 #transition-video { display: none; pointer-events: none; }
+.akari-video-fx-rail { position: absolute; top: 0; left: 0; max-width: none; max-height: none; }
 /* 静止画 cut ソース: #preview-video と同じ位置・サイズに重ね、静止画セグメントの間だけ表示する
    （配置・transform は毎フレーム video のインラインスタイルを鏡写し — syncStillImageVisual）。 */
 #preview-still { position: absolute; top: 0; left: 0; object-fit: contain; display: none; user-select: none; }
@@ -4327,8 +4578,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
       <div id="zoom-layer">
         <div id="preview-stage">
           <div id="preview-layers">
-            <video id="preview-video" data-akari-transition-role="outgoing"${primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="auto"></video>
-            <video id="transition-video" data-akari-transition-role="incoming" preload="auto"></video>
+            <video id="preview-video" data-akari-transition-role="outgoing"${primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="auto" crossorigin="anonymous"></video>
+            <video id="transition-video" data-akari-transition-role="incoming" preload="auto" crossorigin="anonymous"></video>
             <img id="preview-still" alt="" draggable="false">
             <div id="overlay-stage"><div id="transition-plate"></div><div id="caption-plate"></div></div>
           </div>
@@ -4416,6 +4667,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <script>${this.hostAdapterScript()}</script>
 <script>${this.inlineScript(assets.threeJavaScript)}</script>
 <script>${this.inlineScript(assets.threeRuntimeJavaScript)}</script>
+<script>${this.inlineScript(assets.videoFxJavaScript)}</script>
 <script>${this.inlineScript(assets.runtimeJavaScript)}</script>
 <script>${this.inlineScript(assets.interactionJavaScript)}</script>
 <script>${this.inlineScript(assets.webviewKernelJavaScript)}</script>
@@ -4518,10 +4770,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 // フォールバック要求。成功時はホスト側が widget を丸ごとリロードするので、呼び出し側
                 // (previewBootstrapScript) は resolve を特に処理しない — 失敗時だけ通常のエラー表示に
                 // 戻す。
-                resolveHevcFallback: errorCode => new Promise((resolve, reject) => {
+                resolveHevcFallback: (errorCode, videoUri) => new Promise((resolve, reject) => {
                     const requestId = 'akari-preview-hevc-fallback-' + (++sequence);
                     pending.set(requestId, { kind: 'hevc-fallback', resolve, reject });
-                    vscode.postMessage({ type: 'akari-preview-hevc-fallback-request', requestId, errorCode });
+                    vscode.postMessage({
+                        type: 'akari-preview-hevc-fallback-request', requestId, errorCode,
+                        ...(typeof videoUri === 'string' && videoUri ? { videoUri } : {})
+                    });
                 })
             };
             const createPreviewAudio = () => {
@@ -4958,7 +5213,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         : request.kind === 'caption-write'
                             ? 'captions.json の書き込みに失敗しました'
                             : request.kind === 'hevc-fallback'
-                                ? 'HEVC 互換変換に失敗しました'
+                                ? '動画の互換変換に失敗しました'
                                 : 'edit.json の書き込みに失敗しました';
                     const reason = message.error || fallback;
                     window.akari.showWriteError(reason);
@@ -5177,6 +5432,27 @@ body { display: grid; place-items: center; padding: 32px; }
             const waveformPlayhead = document.querySelector('.transport-waveform-playhead');
             const indicatorToggle = document.getElementById('indicator-toggle');
             const indicatorPopup = document.getElementById('indicator-popup');
+            const videoFxFailedIndicators = new Set();
+            const INDICATOR_GLOSSARY = {
+                'LUT': '色調フィルタ',
+                'クロマキー': '背景透過',
+                '音声マスター処理': 'ノイズ除去・音量正規化',
+                'ディゾルブ切り替え': 'カットの溶け込み切替'
+            };
+            const refreshIndicators = () => {
+                const declared = Array.isArray(summary.indicators) ? summary.indicators : [];
+                const indicators = [...new Set([...declared, ...videoFxFailedIndicators])];
+                indicatorToggle.hidden = indicators.length === 0;
+                if (indicators.length === 0) {
+                    indicatorPopup.hidden = true;
+                    indicatorPopup.textContent = '';
+                    return;
+                }
+                const items = indicators.map(item => INDICATOR_GLOSSARY[item]
+                    ? item + ' = ' + INDICATOR_GLOSSARY[item]
+                    : item).join(' / ');
+                indicatorPopup.textContent = 'プレビュー未対応: ' + items;
+            };
             const penToggle = document.getElementById('pen-toggle');
             const zoomToggle = document.getElementById('zoom-toggle');
             const fullscreenToggle = document.getElementById('fullscreen-toggle');
@@ -5352,9 +5628,9 @@ body { display: grid; place-items: center; padding: 32px; }
             let waveformResizeTimer = 0;
             let waveformDragPointer = null;
             let playbackErrored = false;
-            // task/2026-08-09-drop-hevc-proxy: ソースあたり 1 回だけ HEVC フォールバックを試す
-            // （video.addEventListener('error', ...) 参照）。
-            let hevcFallbackRequested = false;
+            // Decode-failure fallback is tracked per original source. This covers the primary
+            // video, source-swapped cuts, and v2 media items rendered as video layers.
+            const hevcFallbackRequested = new Set();
             let audioNoticeShown = false;
             let activeCaption = null;
             let styledCaptionActive = false;
@@ -6025,12 +6301,114 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerVideo.addEventListener('error', () => {
                     layerVideo.style.display = 'none';
                     console.warn('[akari-preview] layer media failed to load', layer.id);
+                    const errorCode = layerVideo.error ? layerVideo.error.code : 0;
+                    if ((errorCode === 3 || errorCode === 4) && typeof layer.sourceUri === 'string') {
+                        showPlaybackError();
+                        attemptHevcFallback(errorCode, layer.sourceUri);
+                    }
                 });
                 if (typeof layer.src === 'string' && layer.src) {
                     layerVideo.src = layer.src;
                 }
                 layersStage.appendChild(layerVideo);
                 return entry;
+            });
+            // video FX rail is structurally absent when no LUT/chroma declaration exists. This is
+            // the inert guarantee: no canvas, WebGL context, or per-tick work for ordinary projects.
+            const videoFxConfig = summary.videoFx || null;
+            const videoFxRails = [];
+            const railMeta = new Map();
+            const noteVideoFxFailure = effects => {
+                if (effects && effects.look) videoFxFailedIndicators.add('LUT');
+                if (effects && effects.chromaKey) videoFxFailedIndicators.add('クロマキー');
+                refreshIndicators();
+            };
+            const mountVideoFxRail = (media, role, initialEffects) => {
+                try {
+                    const rail = window.AkariVideoFx.createRail({
+                        media,
+                        role,
+                        onStateChange: event => {
+                            if (event.status === 'failed') noteVideoFxFailure(railMeta.get(event.rail)?.effects || initialEffects);
+                        }
+                    });
+                    const meta = { effects: initialEffects || {}, key: null };
+                    railMeta.set(rail, meta);
+                    videoFxRails.push(rail);
+                    return rail;
+                } catch (error) {
+                    console.warn('[akari-preview] video FX rail unavailable; continuing native playback', role, error);
+                    noteVideoFxFailure(initialEffects);
+                    return null;
+                }
+            };
+            const configureVideoFxRail = (rail, key, effects) => {
+                if (!rail) return;
+                const meta = railMeta.get(rail);
+                if (meta.key === key) return;
+                meta.key = key;
+                meta.effects = effects;
+                void rail.configure(effects);
+            };
+            const cutHasChroma = (Array.isArray(summary.cuts) ? summary.cuts : []).some(cut => cut.chromaKey);
+            const hasBaseVideoFx = Boolean(videoFxConfig && (videoFxConfig.look
+                || Object.keys(videoFxConfig.sources || {}).length > 0 || cutHasChroma));
+            const representativeChroma = hasBaseVideoFx && (
+                Object.values(videoFxConfig.sources || {})[0]
+                || (Array.isArray(summary.cuts) ? summary.cuts.find(cut => cut.chromaKey)?.chromaKey : null)
+            );
+            const baseInitialEffects = hasBaseVideoFx ? {
+                ...(videoFxConfig.look ? { look: videoFxConfig.look } : {}),
+                ...(representativeChroma ? { chromaKey: representativeChroma } : {})
+            } : null;
+            const baseVideoFxRail = hasBaseVideoFx ? mountVideoFxRail(video, 'source', baseInitialEffects) : null;
+            const transitionVideoFxRail = hasBaseVideoFx
+                ? mountVideoFxRail(transitionVideo, 'transition', baseInitialEffects) : null;
+            const stillVideoFxRail = hasBaseVideoFx ? mountVideoFxRail(stillImage, 'still', baseInitialEffects) : null;
+            for (const entry of layerEntries) {
+                entry.fxRail = entry.spec.chromaKey
+                    ? mountVideoFxRail(entry.video, 'layer:' + entry.spec.id, { chromaKey: entry.spec.chromaKey })
+                    : null;
+                if (entry.fxRail) configureVideoFxRail(
+                    entry.fxRail,
+                    'layer:' + entry.spec.id,
+                    { chromaKey: entry.spec.chromaKey }
+                );
+            }
+            const effectsForSegment = segment => {
+                const chromaKey = segment && (segment.chromaKey
+                    || (videoFxConfig && videoFxConfig.sources && videoFxConfig.sources[segment.src]));
+                return {
+                    ...(videoFxConfig && videoFxConfig.look ? { look: videoFxConfig.look } : {}),
+                    ...(chromaKey ? { chromaKey } : {})
+                };
+            };
+            const renderVideoFx = timelineTime => {
+                if (!hasBaseVideoFx && !layerEntries.some(entry => entry.fxRail)) return;
+                const segment = segments[activeSegmentIndex];
+                const baseEffects = effectsForSegment(segment);
+                const baseKey = 'base:' + String(segment && segment.cutIndex) + ':' + String(segment && segment.src);
+                configureVideoFxRail(baseVideoFxRail, baseKey, baseEffects);
+                configureVideoFxRail(stillVideoFxRail, baseKey, baseEffects);
+                if (baseVideoFxRail) baseVideoFxRail.render(timelineTime);
+                if (stillVideoFxRail && stillImage.style.display !== 'none') stillVideoFxRail.render(timelineTime);
+
+                const transitionWindow = transitionWindows.find(candidate =>
+                    timelineTime >= candidate.start && timelineTime < candidate.end);
+                const transitionEffects = effectsForSegment(transitionWindow && transitionWindow.incoming);
+                const transitionKey = 'transition:' + String(transitionWindow && transitionWindow.incoming.cutIndex)
+                    + ':' + String(transitionWindow && transitionWindow.incoming.src);
+                configureVideoFxRail(transitionVideoFxRail, transitionKey, transitionEffects);
+                if (transitionVideoFxRail && transitionVideo.style.display !== 'none') {
+                    transitionVideoFxRail.render(timelineTime);
+                }
+                for (const entry of layerEntries) {
+                    if (entry.fxRail && entry.video.style.display !== 'none') entry.fxRail.render(timelineTime);
+                }
+            };
+            window.akari.videoFx = Object.freeze({
+                rails: videoFxRails,
+                inspect: () => videoFxRails.map(rail => rail.inspect())
             });
             const cssFilterFor = spec => {
                 if (spec && spec.type === 'invert') return 'invert(1)';
@@ -6056,6 +6434,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 entry.spec = layer;
                 const layerVideo = entry.video;
+                if (entry.fxRail && layer.chromaKey) {
+                    configureVideoFxRail(entry.fxRail, 'layer:' + layer.id + ':' + JSON.stringify(layer.chromaKey), {
+                        chromaKey: layer.chromaKey
+                    });
+                }
                 if (typeof layer.src === 'string' && layer.src
                     && layerVideo.getAttribute('src') !== layer.src) {
                     if (entry.deferredTelop) {
@@ -8904,6 +9287,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 updateTransport();
                 updateWaveformPlayhead();
                 applyCutsMuteState();
+                renderVideoFx(outputTime);
             };
             const runTickGuarded = () => {
                 // A thrown exception here would otherwise abort animate()/the
@@ -9003,12 +9387,13 @@ body { display: grid; place-items: center; padding: 32px; }
             // MEDIA_ERR_DECODE(3) / MEDIA_ERR_SRC_NOT_SUPPORTED(4) のときだけ呼ぶ。ホスト側で
             // 変換に成功すれば widget が丸ごとリロードされる（このスクリプト自体が入れ替わる）ので
             // ここでは resolve 後の後始末をしない。失敗時だけ通常のエラー文言に戻す。
-            const attemptHevcFallback = errorCode => {
-                if (hevcFallbackRequested) return;
-                hevcFallbackRequested = true;
+            const attemptHevcFallback = (errorCode, videoUri) => {
+                const requestKey = typeof videoUri === 'string' && videoUri ? videoUri : initial.videoUri;
+                if (hevcFallbackRequested.has(requestKey)) return;
+                hevcFallbackRequested.add(requestKey);
                 previewMessageText.textContent = '動画をそのまま再生できませんでした。互換用に変換しています…';
                 previewMessageReload.hidden = true;
-                window.akari.engine.resolveHevcFallback(errorCode).catch(() => {
+                window.akari.engine.resolveHevcFallback(errorCode, requestKey).catch(() => {
                     if (!playbackErrored) return;
                     previewMessageText.textContent = '動画を再生できませんでした。再読み込みを試してください。';
                     previewMessageReload.hidden = false;
@@ -9398,7 +9783,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 // MediaError.MEDIA_ERR_DECODE = 3, MEDIA_ERR_SRC_NOT_SUPPORTED = 4 — 「宣言は
                 // probably/maybe だったが実際には再生できなかった」ケースだけフォールバックを試す。
                 if (errorCode === 3 || errorCode === 4) {
-                    attemptHevcFallback(errorCode);
+                    const segment = segments[activeSegmentIndex];
+                    const sourceId = segment && segment.kind === 'src' ? String(segment.src) : '';
+                    attemptHevcFallback(errorCode, initial.videoSourceUris[sourceId] || initial.videoUri);
                 }
             });
             audioNoticeDismiss.addEventListener('click', () => {
@@ -9640,23 +10027,7 @@ body { display: grid; place-items: center; padding: 32px; }
             Promise.all([window.__akariCaptionFontReady, window.akari.runtime.mount(summary), sfxDurationsReady]).then(() => {
                 applyOverlayTracks();
                 stage.append(transitionPlate, captionPlate);
-                const indicators = Array.isArray(summary.indicators) ? summary.indicators : [];
-                const INDICATOR_GLOSSARY = {
-                    'LUT': '色調フィルタ',
-                    'クロマキー': '背景透過',
-                    '音声マスター処理': 'ノイズ除去・音量正規化',
-                    'ディゾルブ切り替え': 'カットの溶け込み切替'
-                };
-                indicatorToggle.hidden = indicators.length === 0;
-                if (indicators.length > 0) {
-                    const items = indicators.map(item => INDICATOR_GLOSSARY[item]
-                        ? item + ' = ' + INDICATOR_GLOSSARY[item]
-                        : item).join(' / ');
-                    // task/2026-08-10-preview-bug-sweep (B3): dropped the blanket
-                    // "（書き出し時のみ適用）" claim — it doesn't hold for every indicator (e.g. an
-                    // unsupported-glTF-extension 3D model fails at export too, not just preview).
-                    indicatorPopup.textContent = 'プレビュー未対応: ' + items;
-                }
+                refreshIndicators();
                 rebuildSegments();
                 applyInitialPosition();
                 setZoom(1);

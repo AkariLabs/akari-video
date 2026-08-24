@@ -97,3 +97,11 @@ edit.json の `version` は変わらないし、edit.json が `version: 1` に�
 task `2026-08-20-v2-audio-tracks` に限り、「機能追加禁止・バグ修正のみ」の明示承認済み・1 回限りの例外として、v0/v1 の `audio.sfx[]`・`audio.narration[]`・`audio.bgm` を v2 の audio lane `tracks[].items[]` へ移す変換を追加した。出力側の `at` / `duration` は整数フレームへ確定し、素材側の `in` / `out` と fade / `bgm.in` は秒のまま保持する。実尺が旧形式だけでは決まらない音声は `duration: 0` センチネルとし、この変換器では ffprobe しない。トップレベル `audio` は `master` が宣言されている場合だけ残す。
 
 これは凍結前に許可された最後の機能追加である。今後この変換器へさらに変換能力を足さず、§6 の期限どおり本体から分離・削除する。
+
+### 6.2 filter レイヤー転写と emphasis_words 移送（2026-08-23・1 回限りの例外）
+
+task `2026-08-23-migrate-filter-emphasis-exception` に限り、2026-08-23 オーナー裁定による「機能追加禁止・バグ修正のみ」の明示承認済み・1 回限りの例外として、v0/v1 の独立した `kind: "filter"` レイヤーを v2 の filter source へ転写し、トップレベル `emphasis_words[]` を edit.json v2 から除外して object ルートの `captions.json.emphasis_words[]` へ移送する変換を追加した。media 系レイヤー（`video` / `baked`）に直付けされた `filter` は v2 に等価表現が無いため転写対象外とし、理由付きで変換を停止する。移送時は edit.json と captions.json の原文をそれぞれ退避し、1 手の revert で両方を復元する。移送先が無い、配列ルートである、または既に `emphasis_words` を持つ場合は理由付きで停止する。
+
+2026-08-21 の廃止裁定は fieldtest 60 本を母集団とし、本番リールでの使用が調査圏外だったという母集団瑕疵があったため、本例外で既存データを損失なく移す。
+
+これ以後この変換器へさらに変換能力を足さず、§6 の期限どおり本体から分離・削除する。

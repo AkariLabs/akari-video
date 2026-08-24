@@ -1,0 +1,36 @@
+{
+  "id": "soundeffect-lab-scene-transition",
+  "category": "audio",
+  "title": "効果音ラボ 場面転換SFX（シーン切り替え2）",
+  "description": "場面転換用の柔らかい風切り「ブオッ」1 点。（収録数: 1点）",
+  "when_to_use": "柔らかい場面転換・シーンの切り替わり（速いカットには otologic-sfx-selection のスイング06）",
+  "tags": [
+    "sfx",
+    "whoosh",
+    "transition",
+    "soft",
+    "pack:audio-standard"
+  ],
+  "knobs": [],
+  "ai_usage": "音源そのもの（波形）は改変しない。ピッチ・音量・トリム程度の加工は可。利用時は attribution_required=false を厳守し、クレジット表記は任意（つけなくてよい）。 AI学習データとしての二次利用はしない。",
+  "requires": [],
+  "provenance": {
+    "origin": "SFX 見直し 2026-08-23: 自作生成 SFX（Suno/ElevenLabs）と参照ライブラリの聴き比べでオーナー採用（内部リポ assets/audio/sfx-review.json / 聴き比べ UI harness/audition/sfx-review.py）。candidates 経由 direct DL / 取得日 2026-08-23",
+    "generator": null
+  },
+  "author": "効果音ラボ",
+  "license": {
+    "spdx": "LicenseRef-SoundEffectLab-Free",
+    "scope": "commercial-ok",
+    "attribution_required": false,
+    "ai_training_allowed": false
+  },
+  "price": null,
+  "source": {
+    "url": "https://soundeffect-lab.info/sound/anime/",
+    "acquisition": "direct",
+    "license_at_source": "商用利用無料・クレジット任意・再配布禁止・直リンク禁止・AI学習利用禁止（自社独自の利用規約 https://soundeffect-lab.info/agreement/）",
+    "attribution_required": false
+  },
+  "remote": true
+}

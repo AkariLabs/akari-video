@@ -5,9 +5,17 @@ import {
     buildCutSummaryFields,
     buildLayerSummaryBase,
     normalizeLayerCropForSummary,
+    normalizeChromaKeyForSummary,
     normalizeLayerKeyframesForSummary,
     normalizeLayerPerspectiveForSummary
 } from '../lib/common/edit-summary-fields.js';
+
+test('chroma_key defaults and explicit background survive the edit-to-summary boundary', () => {
+    assert.deepEqual(normalizeChromaKeyForSummary({ color: '0x00FF00', background: '#1020ff' }), {
+        color: '0x00FF00', similarity: 0.2, blend: 0.1, background: '#1020ff'
+    });
+    assert.equal(normalizeChromaKeyForSummary(null), undefined);
+});
 
 // 2026-08-06 field-test bug (shell-summary-field-gap): edit.json's layers[].crop /
 // layers[].perspective were correctly rendered by the webview (updateStageScale already
