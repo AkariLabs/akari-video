@@ -127,7 +127,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       ? caption.display_text
       : caption.text;
     const captionSource = typeof caption.src === "string" && caption.src !== "" ? caption.src : null;
-    if (captionSource === null && sourceCount > 1) {
+    if (captionSource === null && sourceCount > 1 && caption.time_domain !== "output") {
       options.onWarning?.(
         `captions.json item ${caption.id ?? "(unknown)"} omits src in a multi-source edit; skipped`,
       );
@@ -138,6 +138,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
       caption.end,
       cuts,
       captionSource,
+      caption.time_domain,
     );
     let style = normalizeCaptionStyle(caption.style);
     const textStyle = mergeCaptionTextStyles(options.defaultTextStyle, caption.text_style);
@@ -792,7 +793,10 @@ export function buildCaptionAnimation(animation, overlayDuration, onWarning) {
 // のまま → computeContentDurationSeconds が captionsEnd を採用し、末尾に黒フレームが
 // 追加された）。両実装は cuts と同じ index で参照されるだけの並列配列を返す点で同形なので、
 // 常に computeCutTimelineOffsets(cuts) を使うよう統合する。
-function computeCaptionRanges(start, end, cuts, sourceId = null) {
+function computeCaptionRanges(start, end, cuts, sourceId = null, timeDomain = undefined) {
+  if (timeDomain === "output") {
+    return [{ start, duration: end - start, sourceStart: start, sourceEnd: end }];
+  }
   if (!Array.isArray(cuts) || cuts.length === 0) {
     return [{ start, duration: end - start, sourceStart: start, sourceEnd: end }];
   }
