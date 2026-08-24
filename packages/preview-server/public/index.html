@@ -22,6 +22,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #zoom-layer { position: absolute; inset: 0; overflow: hidden; will-change: transform; }
 #preview-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
 #transition-video { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: contain; display: none; pointer-events: none; }
+#zoom-layer > canvas.akari-video-fx-rail { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#zoom-layer > canvas[data-akari-video-fx-role="transition"] { z-index: 1; }
 /* cuts[] の静止画ソース区間用（docs/contract-2026-08-12-still-image-cut-source-v0.md）。
    #preview-video と同じ位置・サイズで重ね、app.js が display の出し分けだけで切り替える。 */
 #preview-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; display: none; }
@@ -109,9 +111,9 @@ input[type=range] { width: 100%; }
     <div id="status-bar" style="position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none;display:flex;gap:12px;background:rgba(0,0,0,0.55);border-radius:4px;padding:3px 10px;font-size:11px;color:#ccc;font-variant-numeric:tabular-nums;opacity:0;transition:opacity 0.3s"><span id="status-info"></span></div>
     <div id="preview-wrapper">
       <div id="zoom-layer">
-        <video id="preview-video" preload="auto"></video>
-        <video id="transition-video" preload="auto" muted playsinline></video>
-        <img id="preview-image" alt="" />
+        <video id="preview-video" preload="auto" crossorigin="anonymous"></video>
+        <video id="transition-video" preload="auto" crossorigin="anonymous" muted playsinline></video>
+        <img id="preview-image" crossorigin="anonymous" alt="" />
         <div id="cut-fx-layer" hidden></div>
         <div id="layer-container"></div>
         <div id="overlay-stage"><div id="pen-layer"><canvas id="pen-canvas"></canvas></div><div id="transition-plate"></div><div id="caption-plate"></div></div>
@@ -204,6 +206,7 @@ input[type=range] { width: 100%; }
 <!-- オーバーレイ操作は packages/overlay-runtime/src/interaction.js（単一正本・スナップ最新版）の
      esbuild バンドル。旧 391 行フォーク（overlay-interaction.js）は Phase 2-4 で廃棄 -->
 <script src="/overlay-interaction.bundle.js"></script>
+<script src="/video-fx.js"></script>
 <script type="module" src="/app.js"></script>
 </body>
 </html>

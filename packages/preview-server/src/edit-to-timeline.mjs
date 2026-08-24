@@ -71,6 +71,8 @@ export function editToTimeline(edit, projectRoot) {
 
   const timeline = { fps, clips };
 
+  if (edit?.videoFx) timeline.videoFx = edit.videoFx;
+
   if (narration.length > 0 || bgmDucking) {
     timeline.audio = {};
     if (narration.length > 0) timeline.audio.narration = narration;
