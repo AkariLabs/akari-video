@@ -66,6 +66,7 @@ const LEGACY_CLI_LABELS: Record<PartnerCliCatalogEntry['agent'], string[]> = {
     claude: ['Claude Code'],
     codex: ['Codex'],
     opencode: [],
+    hermes: [],
     copilot: [],
     cursor: [],
     antigravity: [],

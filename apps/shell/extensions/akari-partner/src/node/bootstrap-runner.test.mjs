@@ -113,7 +113,7 @@ async function startFixtureServer(fixtures) {
     }
 }
 
-async function runBootstrap({ home, mock, platform = 'darwin', arch = 'arm64', force = false, pathEnv = '' }) {
+async function runBootstrap({ agent = 'codex', home, mock, platform = 'darwin', arch = 'arm64', force = false, pathEnv = '' }) {
     const sourceLines = [
         `Object.defineProperty(process, 'platform', { value: ${JSON.stringify(platform)} });`,
         `Object.defineProperty(process, 'arch', { value: ${JSON.stringify(arch)} });`
@@ -134,6 +134,8 @@ async function runBootstrap({ home, mock, platform = 'darwin', arch = 'arm64', f
     }
     sourceLines.push(`(${bootstrapRunner.toString()})()`);
     const source = sourceLines.join('\n');
+    const sourcePath = path.join(home, 'bootstrap-runner-test.cjs');
+    await writeFile(sourcePath, source, 'utf8');
     const env = {
         ...process.env,
         HOME: home,
@@ -144,7 +146,7 @@ async function runBootstrap({ home, mock, platform = 'darwin', arch = 'arm64', f
         ...(force ? { AKARI_PARTNER_FORCE_REINSTALL: '1' } : {})
     };
     return new Promise((resolve, reject) => {
-        const child = spawn(process.execPath, ['-e', source, 'codex'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+        const child = spawn(process.execPath, [sourcePath, agent], { env, stdio: ['ignore', 'pipe', 'pipe'] });
         let stdout = '';
         let stderr = '';
         child.stdout.on('data', chunk => stdout += chunk.toString());
@@ -153,6 +155,29 @@ async function runBootstrap({ home, mock, platform = 'darwin', arch = 'arm64', f
         child.on('exit', code => resolve({ code, stdout, stderr }));
     });
 }
+
+test('Windows の Hermes Agent は既存のユーザー領域 venv を検出し、再インストールせずに再利用する', async () => {
+    const home = await makeHome('akari-hermes-win32-');
+    const executable = path.join(home, 'local-app-data', 'hermes', 'hermes-agent', 'venv', 'Scripts', 'hermes.exe');
+    await mkdir(path.dirname(executable), { recursive: true });
+    await writeFile(executable, 'hermes');
+    await chmod(executable, 0o755);
+    try {
+        const result = await runBootstrap({
+            agent: 'hermes',
+            home,
+            mock: { origin: 'http://unused.test', fixtures: undefined },
+            platform: 'win32',
+            arch: 'x64'
+        });
+        assert.equal(result.code, 0, result.stderr || result.stdout);
+        assert.match(result.stdout, /既存の hermes を検出/);
+        assert.match(result.stdout, /"reused":true/);
+        assert.match(result.stdout, /hermes\.exe/);
+    } finally {
+        await rm(home, { recursive: true, force: true });
+    }
+});
 
 function latestRelease(origin = '__ORIGIN__') {
     return {

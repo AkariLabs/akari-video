@@ -4,9 +4,9 @@ import { pathToFileURL } from 'node:url';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
 import { detectProjectState } from './project-state.mjs';
-import { findClaudeExecutable, findOpencodeExecutable } from './path-lookup.mjs';
+import { findClaudeExecutable, findOpencodeExecutable, findHermesExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
-import { describeForceReinstall, describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
+import { describeForceReinstall, describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, hermesMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
 import { resolveEffectiveProjectRoot } from './first-run.mjs';
 import { maybeShowAssetIntroNotice } from './sounds-setup.mjs';
 import {
@@ -39,20 +39,23 @@ export async function run(args, options = {}) {
   const runDoctor = options.runDoctor ?? defaultRunDoctor;
   const resolveClaude = options.resolveClaude ?? (() => findClaudeExecutable());
   const resolveOpencode = options.resolveOpencode ?? (() => findOpencodeExecutable());
+  const resolveHermes = options.resolveHermes ?? (() => findHermesExecutable());
   const spawnClaude = options.spawnClaude ?? defaultSpawnClaude;
   const spawnOpencode = options.spawnOpencode ?? defaultSpawnOpencode;
+  const spawnHermes = options.spawnHermes ?? defaultSpawnHermes;
   const env = options.env ?? process.env;
   const platform = options.platform ?? process.platform;
   const versionInfo = resolveCommandVersionInfo(options, env);
   const currentVersion = versionInfo.currentVersion;
   const now = options.now ?? new Date();
 
-  // --opencode / --claude / --claudecode / --yes / --here フラグを解析
+  // --opencode / --hermes / --claude / --claudecode / --yes / --here フラグを解析
   const useOpencode = args.includes('--opencode');
+  const useHermes = args.includes('--hermes');
   const autoConfirm = args.includes('--yes') || args.includes('-y');
   const hereOnly = args.includes('--here');
   const filteredArgs = args.filter(arg =>
-    arg !== '--opencode' && arg !== '--claude' && arg !== '--claudecode'
+    arg !== '--opencode' && arg !== '--hermes' && arg !== '--claude' && arg !== '--claudecode'
     && arg !== '--yes' && arg !== '-y' && arg !== '--here'
   );
 
@@ -117,6 +120,20 @@ export async function run(args, options = {}) {
     log(`素材案内の表示でエラーが発生しました（続行します）: ${error instanceof Error ? error.message : String(error)}`);
   }
 
+  if (useHermes) {
+    log('Hermes Agent を起動します…');
+    const hermesPath = resolveHermes();
+    if (!hermesPath) {
+      log(hermesMissingGuidance());
+      return { exitCode: 1, scaffolded: state.scaffolded, hermesLaunched: false };
+    }
+
+    // Hermes Agent に opencode の --auto 相当は無いため、--yes は転送しない。
+    const result = spawnHermes(hermesPath, filteredArgs, projectRoot);
+    const exitCode = typeof result.status === 'number' ? result.status : (result.error ? 1 : 0);
+    return { exitCode, scaffolded: state.scaffolded, hermesLaunched: true };
+  }
+
   if (useOpencode) {
     log('opencode を起動します…');
     const opencodePath = resolveOpencode();
@@ -176,6 +193,10 @@ function defaultSpawnClaude(claudePath, args, projectRoot) {
 
 function defaultSpawnOpencode(opencodePath, args, projectRoot) {
   return spawnSync(opencodePath, args, { stdio: 'inherit', cwd: projectRoot });
+}
+
+function defaultSpawnHermes(hermesPath, args, projectRoot) {
+  return spawnSync(hermesPath, args, { stdio: 'inherit', cwd: projectRoot });
 }
 
 /**

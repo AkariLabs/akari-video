@@ -53,6 +53,14 @@ export function opencodeMissingGuidance() {
   ].join('\n');
 }
 
+export function hermesMissingGuidance() {
+  return [
+    'Hermes Agent コマンドが見つかりませんでした。',
+    'Hermes Agent をインストールまたはPATHへ追加してください。',
+    'インストール後、このフォルダーで再度 `akari --hermes` を実行してください。'
+  ].join('\n');
+}
+
 /**
  * `akari` 起動時、claude 起動直前に出す 1 行通知（契約 §4-1）。
  * `checkForUpdateSync` が返す状態から組み立てる。新版が無ければ null。
@@ -298,6 +306,7 @@ export function describeCliHelp() {
     '  migrate [dir]          古い edit.json を退避バックアップ付きで v2 へ変換',
     '',
     '開発者向け:',
+    '  --hermes              Claude Code の代わりに Hermes Agent を起動する',
     '  --opencode              Claude Code の代わりに opencode を起動する',
     '  --claude, --claudecode  Claude Code を明示的に起動する',
     '  -y, --yes               自動承認（確認をスキップ）',
