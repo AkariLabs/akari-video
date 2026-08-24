@@ -124,6 +124,27 @@ test("v1 accepts multiple sources, array-order cuts, and captions src", async ()
   });
 });
 
+test("output-domain caption spans source boundaries without cut-visibility projection", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001",
+      start: 0.5,
+      end: 8.5,
+      time_domain: "output",
+      text: "収録境界を跨ぐ字幕",
+      speaker: null,
+      sourceRef: null,
+      edited: true,
+    }])}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr || executed.stdout);
+    const result = parseResult(executed);
+    assert.ok(!result.findings.some((finding) => finding.check === "captions.cut-visibility"));
+    assert.ok(!result.findings.some((finding) => finding.check === "captions.schema"));
+  });
+});
+
 test("version 3 stops with an honest too-new message", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "version-3"));

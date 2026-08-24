@@ -70,3 +70,11 @@ test("単一 source の src 省略字幕には警告を出さず、同じ警告�
   assert.equal(shouldNotifyCaptionSourceMappingWarning(multiSourceWarning, multiSourceWarning), false);
   assert.equal(shouldNotifyCaptionSourceMappingWarning(multiSourceWarning, undefined), false);
 });
+
+test("output-domain 字幕は src が無くても source 射影不能警告の対象にしない", () => {
+  assert.equal(computeCaptionSourceMappingWarning(
+    [{ id: "cross-cut", timeDomain: "output" }],
+    new Map(),
+    ["source-a", "source-b"],
+  ), undefined);
+});

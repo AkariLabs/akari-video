@@ -1,0 +1,12 @@
+[
+  {
+    "id": "c-0001",
+    "start": 0.5,
+    "end": 1.5,
+    "text": "C2まで表示する字幕",
+    "speaker": null,
+    "sourceRef": null,
+    "edited": false,
+    "src": "source-a"
+  }
+]

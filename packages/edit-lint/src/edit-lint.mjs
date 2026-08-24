@@ -2321,7 +2321,7 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "words", "style", "display_text", "display_fragments", "text_style"];
+    const optional = ["src", "time_domain", "words", "style", "display_text", "display_fragments", "text_style"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -2360,6 +2360,15 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
           );
         }
       }
+    }
+    if (Object.hasOwn(caption, "time_domain")
+      && caption.time_domain !== "source" && caption.time_domain !== "output") {
+      captionFinding(
+        findings,
+        "captions.schema",
+        'time_domain must be "source" or "output" when present',
+        itemPath,
+      );
     }
     if (typeof caption.id !== "string" || !/^c-\d{4}$/.test(caption.id)) {
       captionFinding(
@@ -2457,16 +2466,19 @@ function validateCaptions(captions, edit, analysis, findings, paths) {
           range: { start: caption.start, end: caption.end },
         });
       }
-      const kept = keptOverlap(caption.start, caption.end, edit?.cuts, caption.src);
-      const ratio = kept / (caption.end - caption.start);
-      if (ratio < 0.5 - EPSILON) {
-        addFinding(findings, {
-          severity: "error",
-          check: "captions.cut-visibility",
-          message: "less than 50% of the caption remains after cuts",
-          path: itemPath,
-          range: { start: caption.start, end: caption.end },
-        });
+      // output-domain cue は既に最終出力軸にあり、source cut への keptOverlap 射影を行わない。
+      if (caption.time_domain !== "output") {
+        const kept = keptOverlap(caption.start, caption.end, edit?.cuts, caption.src);
+        const ratio = kept / (caption.end - caption.start);
+        if (ratio < 0.5 - EPSILON) {
+          addFinding(findings, {
+            severity: "error",
+            check: "captions.cut-visibility",
+            message: "less than 50% of the caption remains after cuts",
+            path: itemPath,
+            range: { start: caption.start, end: caption.end },
+          });
+        }
       }
     }
 

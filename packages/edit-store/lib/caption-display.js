@@ -445,7 +445,7 @@ function validateSourceReferences(captions, cuts, edit) {
         }
     });
     captions.forEach((caption, index) => {
-        if (edit.sources.length > 1 && caption.src === undefined) {
+        if (edit.sources.length > 1 && caption.time_domain !== 'output' && caption.src === undefined) {
             fail('MISSING_SOURCE', `captions[${index}].src is required for a multi-source edit`);
         }
         if (caption.src !== undefined && !sourceIds.has(caption.src)) {
@@ -475,8 +475,27 @@ function validateLinearCuts(cuts, edit) {
 }
 function projectOccurrences(captions, cuts, sourceCount) {
     const occurrences = [];
+    captions.forEach((caption, captionInputIndex) => {
+        if (!isRecord(caption) || caption.time_domain !== 'output')
+            return;
+        occurrences.push({
+            source_cue_id: caption.id,
+            src: strictText(caption.src) ? caption.src : null,
+            cut_index: -1,
+            caption_input_index: captionInputIndex,
+            source_start: caption.start,
+            source_end: caption.end,
+            start: caption.start,
+            end: caption.end,
+            text: caption.display_text ?? caption.text,
+            display_fragments: caption.display_fragments,
+            text_style: caption.text_style
+        });
+    });
     if (cuts.length === 0) {
         captions.forEach((caption, captionInputIndex) => {
+            if (caption?.time_domain === 'output')
+                return;
             const text = caption?.display_text ?? caption?.text;
             if (isRecord(caption) && finiteNonNegative(caption.start) && finitePositive(caption.end) && caption.end > caption.start && typeof text === 'string') {
                 occurrences.push({
@@ -506,6 +525,8 @@ function projectOccurrences(captions, cuts, sourceCount) {
     });
     captions.forEach((caption, captionInputIndex) => {
         if (!isRecord(caption))
+            return;
+        if (caption.time_domain === 'output')
             return;
         const captionSource = strictText(caption.src) ? caption.src : null;
         if (sourceCount > 1 && captionSource === null) {
@@ -544,6 +565,10 @@ function validateSourceCaption(caption, index, policy) {
     if (caption.src !== undefined && !strictText(caption.src)) {
         fail('INVALID_CAPTION', `captions[${index}].src must be a non-empty NFC trimmed string when present`);
     }
+    if (caption.time_domain !== undefined
+        && caption.time_domain !== 'source' && caption.time_domain !== 'output') {
+        fail('INVALID_CAPTION', `captions[${index}].time_domain must be source or output when present`);
+    }
     const text = caption.display_text ?? caption.text;
     if (!strictText(text))
         fail('INVALID_TEXT', `captions[${index}] display text must be non-empty, NFC, and trimmed`);
@@ -562,6 +587,8 @@ function validateEmphasisConflicts(captions, emphasisValue) {
     if (!Array.isArray(emphasisValue))
         return;
     captions.forEach((caption, index) => {
+        if (caption.time_domain === 'output')
+            return;
         const conflict = emphasisValue.some(value => isRecord(value)
             && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src)
             && finiteNonNegative(value.t_start) && finitePositive(value.t_end)

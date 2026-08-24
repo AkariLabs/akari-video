@@ -225,6 +225,17 @@ export interface ShiftCaptionRequest {
     deltaEnd: number;
 }
 
+export interface SetCaptionTimingRequest {
+    captionsUri: string;
+    projectRootUri: string;
+    captionId: string;
+    start: number;
+    end: number;
+    /** null は未宣言へ戻す。undefined は既存宣言を変えない。 */
+    timeDomain?: 'source' | 'output' | null;
+    edited: boolean;
+}
+
 export interface MoveOverlayRequest {
     editUri: string;
     projectRootUri: string;
@@ -575,6 +586,7 @@ export interface AkariAnnotationsService {
     moveCut(request: MoveCutRequest): Promise<MoveCutResult>;
     setCutAtValues(request: SetCutAtValuesRequest): Promise<WriteBackResult>;
     shiftCaption(request: ShiftCaptionRequest): Promise<WriteBackResult>;
+    setCaptionTiming(request: SetCaptionTimingRequest): Promise<WriteBackResult>;
     insertCaption(request: InsertCaptionRequest): Promise<WriteBackResult>;
     removeCaption(request: RemoveCaptionRequest): Promise<WriteBackResult>;
     moveOverlay(request: MoveOverlayRequest): Promise<WriteBackResult>;

@@ -131,6 +131,18 @@ const displayPolicy = {
   },
 };
 
+test("time_domain は source/output を受理し、省略時も後方互換で通る", () => {
+  for (const time_domain of [undefined, "source", "output"]) {
+    const value = { ...caption };
+    if (time_domain !== undefined) value.time_domain = time_domain;
+    const executed = runValue([value]);
+    assert.equal(executed.status, 0, executed.stderr);
+  }
+  const invalid = runValue([{ ...caption, time_domain: "timeline" }]);
+  assert.equal(invalid.status, 1, invalid.stdout);
+  assert.match(invalid.stderr, /time_domain は source または output/u);
+});
+
 test("display policy, manual fragments, and reference-pixel style pass together", () => {
   const executed = runValue({
     display_policy: displayPolicy,

@@ -281,6 +281,11 @@
         "sourceRef": { "$ref": "#/$defs/sourceRef" },
         "edited": { "type": "boolean" },
         "src": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "time_domain": {
+          "enum": ["source", "output"],
+          "default": "source",
+          "$comment": "start/end と words[].start/end の時刻ドメイン。省略時は後方互換の source。output は edit.json の出力時間軸を直接参照し、src は任意の出所情報として保持できる。"
+        },
         "words": {
           "type": "array",
           "items": { "$ref": "#/$defs/captionWord" }
@@ -295,7 +300,7 @@
         },
         "text_style": { "$ref": "#/$defs/textStyle" }
       },
-      "$comment": "end > start、ID 一意性、words[].end >= start は JSON Schema 標準だけでは兄弟値を比較できないため validate-captions.mjs でも検証する。style は既存の単語リビール演出、text_style は見た目のスタイルであり別契約。"
+      "$comment": "end > start、ID 一意性、words[].end >= start は JSON Schema 標準だけでは兄弟値を比較できないため validate-captions.mjs でも検証する。time_domain 省略時は source。style は既存の単語リビール演出、text_style は見た目のスタイルであり別契約。"
     },
     "emphasisWordItem": {
       "type": "object",
