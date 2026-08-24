@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { launchBrowser } from "./browser-launch.mjs";
 import { enableWindowExpr } from "./enable-window.mjs";
 
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -340,6 +341,7 @@ export async function captureWithPuppeteer({
   ffmpegCommand,
   timeoutMs = captureTimeoutMs(),
   puppeteerModule = null,
+  browserLauncher = launchBrowser,
   onWarning = null,
   onMetrics = null,
 }) {
@@ -354,30 +356,33 @@ export async function captureWithPuppeteer({
   let browserClosed = captureStarted;
   let seekWaitMilliseconds = 0;
   let screenshotMilliseconds = 0;
-  let browser = null;
+  let browserSession = null;
   let watchdogExpired = false;
   const pageMessages = [];
   const recentFrameMilliseconds = [];
   try {
-    browser = await withTimeout(
-      puppeteer.launch({
-        executablePath: chromePath,
-        headless: true,
-        timeout: timeoutMs,
-        userDataDir: join(framesDirectory, "chrome-profile"),
-        args: [
-          "--no-sandbox",
-          "--disable-gpu",
-          "--enable-unsafe-swiftshader",
-          "--use-angle=swiftshader",
-          "--disable-dev-shm-usage",
-          "--no-first-run",
-          "--no-default-browser-check",
-        ],
-      }),
+    browserSession = await browserLauncher({
+      puppeteer,
+      chromePath,
+      profileParent: framesDirectory,
+      failureMarkerPath: join(dirname(framesDirectory), ".browser-launch-failed"),
       timeoutMs,
-      "launching Chrome",
-    );
+      // Existing tests can inject a launch-only Puppeteer stub without pretending to implement
+      // the macOS connect path. Production puppeteer-core always exposes both methods.
+      platform: puppeteerModule && typeof puppeteer.connect !== "function"
+        ? "linux"
+        : process.platform,
+      args: [
+        "--no-sandbox",
+        "--disable-gpu",
+        "--enable-unsafe-swiftshader",
+        "--use-angle=swiftshader",
+        "--disable-dev-shm-usage",
+        "--no-first-run",
+        "--no-default-browser-check",
+      ],
+    });
+    const browser = browserSession.browser;
     browserLaunched = performance.now();
     const page = await withTimeout(browser.newPage(), timeoutMs, "opening a Puppeteer page");
     // タイムアウトしたとき「固まった」のか「単に遅い」のかを事後に切り分けられるよう、
@@ -463,7 +468,7 @@ export async function captureWithPuppeteer({
     }
     throw error;
   } finally {
-    await terminateBrowser(browser, { force: watchdogExpired, timeoutMs });
+    await browserSession?.close({ force: watchdogExpired });
     browserClosed = performance.now();
   }
 
@@ -510,57 +515,99 @@ export async function captureStaticOverlays({
   temporaryDirectory,
   chromePath,
   timeoutMs = captureTimeoutMs(),
+  puppeteerModule = null,
+  browserLauncher = launchBrowser,
 }) {
+  const imported = puppeteerModule ?? await import("puppeteer-core");
+  const puppeteer = imported.default ?? imported;
   const captures = [];
-  for (const [index, overlay] of orderOverlaysByTrack(overlays).entries()) {
-    const stem = `static-${String(index + 1).padStart(4, "0")}`;
-    const htmlPath = join(temporaryDirectory, `${stem}.html`);
-    const pngPath = join(temporaryDirectory, `${stem}.png`);
-    const sampleTime = Math.min(0.25, overlay.duration / 2);
-    const shifted = {
-      ...overlay,
-      start: -sampleTime,
-      duration: Math.max(overlay.duration, sampleTime + 0.001),
-    };
-    await writeFile(
-      htmlPath,
-      renderOverlaySheet({
-        overlays: [shifted],
-        edit,
-        projectRoot,
-        duration: shifted.duration,
-      }),
-      "utf8",
-    );
-    const result = spawnSync(
+  let browserSession = null;
+  try {
+    browserSession = await browserLauncher({
+      puppeteer,
       chromePath,
-      [
-        "--headless=new",
+      profileParent: temporaryDirectory,
+      profilePrefix: "static-chrome-profile-",
+      failureMarkerPath: join(temporaryDirectory, ".browser-launch-failed"),
+      timeoutMs,
+      args: [
         "--no-sandbox",
         "--disable-gpu",
         "--enable-unsafe-swiftshader",
         "--use-angle=swiftshader",
         "--disable-dev-shm-usage",
-        `--user-data-dir=${join(temporaryDirectory, `${stem}-chrome-profile`)}`,
         "--hide-scrollbars",
         "--run-all-compositor-stages-before-draw",
-        "--virtual-time-budget=1000",
         "--default-background-color=00000000",
         `--window-size=${edit.output.width},${edit.output.height}`,
-        `--screenshot=${pngPath}`,
-        pathToFileURL(htmlPath).href,
       ],
-      { encoding: "utf8", timeout: timeoutMs, killSignal: "SIGKILL" },
-    );
-    if (result.error?.code === "ETIMEDOUT") {
-      throw new Error(`Chrome screenshot timeout after ${timeoutMs}ms`);
-    }
-    if (result.status !== 0) {
-      throw new Error(
-        `Chrome screenshot failed (${result.signal ?? `exit ${result.status}`}): ${result.error?.message ?? result.stderr ?? result.stdout ?? "no output"}`,
+    });
+    for (const [index, overlay] of orderOverlaysByTrack(overlays).entries()) {
+      const stem = `static-${String(index + 1).padStart(4, "0")}`;
+      const htmlPath = join(temporaryDirectory, `${stem}.html`);
+      const pngPath = join(temporaryDirectory, `${stem}.png`);
+      const sampleTime = Math.min(0.25, overlay.duration / 2);
+      const shifted = {
+        ...overlay,
+        start: -sampleTime,
+        duration: Math.max(overlay.duration, sampleTime + 0.001),
+      };
+      await writeFile(
+        htmlPath,
+        renderOverlaySheet({
+          overlays: [shifted],
+          edit,
+          projectRoot,
+          duration: shifted.duration,
+        }),
+        "utf8",
       );
+      const page = await withTimeout(
+        browserSession.browser.newPage(),
+        timeoutMs,
+        "opening a static overlay page",
+      );
+      try {
+        page.setDefaultTimeout(timeoutMs);
+        page.setDefaultNavigationTimeout(timeoutMs);
+        await withTimeout(
+          page.setViewport({
+            width: edit.output.width,
+            height: edit.output.height,
+            deviceScaleFactor: 1,
+          }),
+          timeoutMs,
+          "setting the static overlay viewport",
+        );
+        await withTimeout(
+          page.goto(pathToFileURL(htmlPath).href, {
+            waitUntil: "networkidle0",
+            timeout: timeoutMs,
+          }),
+          timeoutMs,
+          "loading a static overlay sheet",
+        );
+        await withTimeout(
+          page.evaluate(() => window.__akariReady),
+          timeoutMs,
+          "waiting for a static overlay sheet",
+        );
+        await withTimeout(
+          page.screenshot({ path: pngPath, omitBackground: true }),
+          timeoutMs,
+          "capturing a static overlay",
+        );
+      } finally {
+        await withTimeout(
+          page.close(),
+          Math.min(timeoutMs, 2_000),
+          "closing a static overlay page",
+        ).catch(() => {});
+      }
+      captures.push({ path: pngPath, start: overlay.start, duration: overlay.duration });
     }
-    captures.push({ path: pngPath, start: overlay.start, duration: overlay.duration });
+  } finally {
+    await browserSession?.close();
   }
   return captures;
 }
@@ -586,24 +633,6 @@ function withTimeout(promise, timeoutMs, operation) {
 
 function isTimeoutError(error) {
   return error?.code === "ETIMEDOUT" || /timeout/iu.test(error?.message ?? "");
-}
-
-async function terminateBrowser(browser, { force, timeoutMs }) {
-  if (!browser) return;
-  const process = browser.process?.();
-  try {
-    await withTimeout(browser.close(), Math.min(timeoutMs, 2_000), "closing Puppeteer browser");
-  } catch {
-    force = true;
-  }
-  if (
-    (force || browser.connected) &&
-    process &&
-    process.exitCode === null &&
-    process.signalCode === null
-  ) {
-    process.kill("SIGKILL");
-  }
 }
 
 function orderOverlaysByTrack(overlays) {
