@@ -112,3 +112,18 @@ perspective のレイヤー分割フォールバック — perspective は `crop
   作らないため定数は共有しない。キーフレーム無しの filter 文字列は不変。perspective は bitmap
   外形を四隅の基準にし、rotate と非 normal blend は固定外形化による既存意味の変化を排除できない
   ため、この組み合わせだけは従来互換経路を維持する。
+
+## 5. macOS の字幕レンダ用 Chrome 起動（2026-08-24 追記）
+
+- macOS では `.app` 内の Chrome 実行ファイルを子プロセスとして直接起動しない。書き出し専用の
+  一意な `user-data-dir` を作り、`/usr/bin/open -na <Chrome.app> --args` で LaunchServices
+  経由の新規インスタンスを起動する。
+- `--remote-debugging-port=0` で起動し、専用プロファイルの `DevToolsActivePort` を
+  タイムアウト付きで待ってから `puppeteer.connect()` する。通常の連番 PNG 経路と静止画経路は
+  同じ起動・接続・終了層を使う。Linux / Windows は共通層内の `puppeteer.launch()` で
+  実行ファイルを直接起動する。
+- 正常・異常を問わず、接続済み Chrome は CDP の `Browser.close` 相当で終了し、専用プロファイルを
+  削除する。macOS の終了設計は PID の推測や広域 `kill` に依存しない。
+- Chrome 不在、`.app` でない実行ファイル、`DevToolsActivePort` 待機または接続の失敗は、
+  「字幕レンダ用ブラウザの起動に失敗した」ことと Chrome の確認を日本語で示し、書き出しを
+  非 0 で停止する。別スタイルの簡易字幕へは切り替えない。
