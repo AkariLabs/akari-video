@@ -2,6 +2,10 @@ import type { TransitionPreviewKind } from '@akari-video/edit-store';
 
 export interface PreviewTransitionVisual {
     progress: number;
+    engine: 'none' | 'directional-blur' | 'pixelize' | 'noise-dissolve';
+    blurStdDeviationRatio: number;
+    pixelBlockRatio: number;
+    dissolveVisibleRatio: number;
     outgoingOpacity: number;
     incomingOpacity: number;
     incomingClipPath: string;
@@ -31,6 +35,10 @@ export function computeTransitionVisual(
     const translateY = (value: number): string => `translateY(${percent(value)})`;
     const base: PreviewTransitionVisual = {
         progress,
+        engine: 'none',
+        blurStdDeviationRatio: 0,
+        pixelBlockRatio: 0,
+        dissolveVisibleRatio: 0,
         outgoingOpacity: 1,
         incomingOpacity: 1,
         incomingClipPath: 'none',
@@ -51,7 +59,16 @@ export function computeTransitionVisual(
         incomingOpacity: progress
     });
 
-    if (previewKind === 'dissolve' || previewKind === 'fade') return cross();
+    if (previewKind === 'blur') {
+        return { ...cross(), engine: 'directional-blur', blurStdDeviationRatio: mid * 0.075 };
+    }
+    if (previewKind === 'pixelize') {
+        return { ...cross(), engine: 'pixelize', pixelBlockRatio: mid / 22 };
+    }
+    if (previewKind === 'dissolve') {
+        return { ...base, engine: 'noise-dissolve', dissolveVisibleRatio: progress };
+    }
+    if (previewKind === 'fade') return cross();
     if (previewKind === 'fade-black' || previewKind === 'fade-white') {
         return {
             ...cross(),

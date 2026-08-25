@@ -17,20 +17,24 @@ test('正準 29 種はすべてレシピまたは明示フォールバックへ�
   for (const definition of TRANSITION_VOCABULARY) {
     const result = visual(definition.id, 0.5);
     assert.equal(result.progress, 0.5, definition.id);
-    if (definition.previewKind === 'fallback') {
-      assert.match(result.fallbackLabel, new RegExp(definition.labelJa), definition.id);
-      assert.match(result.fallbackLabel, /プレビュー近似なし/u, definition.id);
-    } else {
-      assert.equal(result.fallbackLabel, '', definition.id);
-    }
+    assert.equal(result.fallbackLabel, '', definition.id);
   }
+  assert.equal(visual('blur', 0.5).engine, 'directional-blur');
+  assert.equal(visual('pixelize', 0.5).engine, 'pixelize');
+  assert.equal(visual('dissolve', 0.5).engine, 'noise-dissolve');
 });
 
-test('dissolve / fade は線形クロスする', () => {
-  for (const type of ['dissolve', 'fade']) {
-    assert.equal(visual(type, 0.25).outgoingOpacity, 0.75);
-    assert.equal(visual(type, 0.25).incomingOpacity, 0.25);
-  }
+test('fade は線形クロスする', () => {
+  assert.equal(visual('fade', 0.25).outgoingOpacity, 0.75);
+  assert.equal(visual('fade', 0.25).incomingOpacity, 0.25);
+});
+
+test('dissolve は両層を不透明に保ちノイズ可視比だけを進める', () => {
+  const result = visual('dissolve', 0.25);
+  assert.equal(result.engine, 'noise-dissolve');
+  assert.equal(result.outgoingOpacity, 1);
+  assert.equal(result.incomingOpacity, 1);
+  assert.equal(result.dissolveVisibleRatio, 0.25);
 });
 
 test('fade-black / fade-white は指定の非対称 plate 式を使う', () => {
@@ -102,4 +106,9 @@ test('未知種別は汎用クロス + type 文字列ラベルへ落ちる', () 
   assert.equal(result.outgoingOpacity, 0.75);
   assert.equal(result.incomingOpacity, 0.25);
   assert.equal(result.fallbackLabel, 'future-transition — プレビュー近似なし');
+
+  const nonCanonical = computeTransitionVisual('future-transition-x', 0.25);
+  assert.equal(nonCanonical.outgoingOpacity, 0.75);
+  assert.equal(nonCanonical.incomingOpacity, 0.25);
+  assert.equal(nonCanonical.fallbackLabel, 'future-transition-x — プレビュー近似なし');
 });
