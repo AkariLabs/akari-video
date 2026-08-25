@@ -1424,17 +1424,65 @@ test("fieldtest-shaped v2 non-default track order without transition_out stays c
   });
 });
 
-test("v2 + PiP + transition_out は render 前に日本語で fail する", async () => {
+test("2026-08-23 cuts-cross-track-overlap 後は PiP 側だけが layers へ退避され、cuts 側 transition は生きる", async () => {
   await withFixtures(async (fixtures) => {
-    const executed = run(join(fixtures, "v2-pip-transition-invalid"));
-    assert.equal(executed.status, 1, executed.stderr || executed.stdout);
+    const project = join(fixtures, "v2-pip-transition-invalid");
+    const raw = JSON.parse(await readFile(join(project, "edit.json"), "utf8"));
+    const internal = readInternalEdit(raw);
+    const projected = projectLegacyEdit(internal);
+    // 2026-08-23 の投影変更により、transform.scale 0.25 の pip だけが layers へ退避する。
+    // transition_out を持つ cut-a / cut-b は cuts に残り、実際に xfade 可能なので PASS が正しい。
+    assert.deepEqual(projected.layers.map(layer => layer.id), ["pip"]);
+    assert.deepEqual(projected.cuts.map(cut => cut.src), ["a", "b"]);
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr || executed.stdout);
+    const result = parseResult(executed);
+    assert.equal(result.verdict, "pass");
+    assert.deepEqual(result.findings, []);
+  });
+});
+
+test("transition_out 宣言つき item 自身が layers へ退避されたら相手 id 付き warning になる", async () => {
+  await withFixtures(async (fixtures) => {
+    const executed = run(join(fixtures, "v2-layer-evacuated-transition-warning"));
+    assert.equal(executed.status, 0, executed.stderr || executed.stdout);
     const result = parseResult(executed);
     const finding = result.findings.find(candidate =>
-      candidate.check === "cuts.track-transition-unsupported"
+      candidate.check === "cuts.transition-out.layer-evacuated"
     );
     assert.ok(finding, JSON.stringify(result.findings, null, 2));
-    assert.match(finding.message, /PiP.*複数トラック.*書き出せません/);
-    assert.match(finding.path, /cuts\[0\]/);
+    assert.equal(finding.severity, "warning");
+    assert.match(finding.message, /他トラックのアイテム（bg-1）.*PiP 経路へ退避/u);
+    assert.match(finding.message, /重なりを解消するか、トランジションを削除/u);
+    assert.match(finding.path, /tracks\[1\]\.items\[0\]/u);
+  });
+});
+
+test("重なり 0 の transition_out だけを warning にし、重なり済み・宣言なしは誤検知しない", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-zero-overlap-transition-warning");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr || executed.stdout);
+    const result = parseResult(executed);
+    const zero = result.findings.filter(finding => finding.check === "cuts.transition-out.zero-overlap");
+    assert.equal(zero.length, 1, JSON.stringify(result.findings, null, 2));
+    assert.equal(zero[0].severity, "warning");
+    assert.match(zero[0].message, /次のクリップと重なっていないため効きません/u);
+
+    const editPath = join(project, "edit.json");
+    const raw = JSON.parse(await readFile(editPath, "utf8"));
+    raw.tracks[0].items[0].duration = 75;
+    raw.tracks[0].items[0].source.out = 2.5;
+    await writeFile(editPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+    const overlapped = parseResult(run(project));
+    assert.equal(overlapped.findings.length, 0, JSON.stringify(overlapped.findings, null, 2));
+
+    delete raw.tracks[0].items[0].source.transition_out;
+    raw.tracks[0].items[0].duration = 60;
+    raw.tracks[0].items[0].source.out = 2;
+    await writeFile(editPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+    const undeclared = parseResult(run(project));
+    assert.equal(undeclared.findings.length, 0, JSON.stringify(undeclared.findings, null, 2));
   });
 });
 

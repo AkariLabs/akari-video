@@ -6,7 +6,9 @@ import { inject, injectable, postConstruct } from '@theia/core/shared/inversify'
 import { isEditableEventTarget } from 'akari-preview/lib/common/review-tool-mode';
 import {
     areCutsAdjacent,
-    findUnsupportedDeclaredTrackTransitions,
+    cutOverlapFrames,
+    findCrossTrackLayerEvacuations,
+    setV2TransitionOutWithHandleInSource,
     unsupportedTrackTransitionTarget
 } from '@akari-video/edit-store';
 import {
@@ -92,7 +94,7 @@ import {
 import { computeCutBoundaries } from '../common/cut-boundaries';
 import { resolveItemRowLayout } from '../common/item-row-layout';
 import { splitLintBlame } from '../common/lint-blame-scope';
-import { formatLintFailureForUi, UiLintFinding } from '../common/lint-message-ja';
+import { formatLintFailureForUi, japaneseLintWarningSummary, UiLintFinding } from '../common/lint-message-ja';
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
 import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
 import {
@@ -212,6 +214,9 @@ const TRANSITION_BADGE_NEUTRAL_BORDER_COLOR = 'rgba(255,255,255,.4)';
 const TRANSITION_DEFAULT_DURATION_SECONDS = 0.5;
 const NON_ADJACENT_TRANSITION_MESSAGE = 'このトランジションは次のクリップとの間にすき間があるため書き出されません。'
     + 'すき間を詰めるか、トランジションを削除してください。';
+const ZERO_OVERLAP_TRANSITION_MESSAGE = 'このトランジションは効きません: 素材に余りがありません。'
+    + '前のクリップを短くするか削除してください。';
+const IMAGE_CUT_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
 const TRANSITION_MIN_DURATION_SECONDS = 0.1;
 const TRANSITION_MAX_DURATION_SECONDS = 3;
 type TransitionType = 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
@@ -523,6 +528,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected overlays: EditOverlay[] = [];
     protected beats: EditBeat[] = [];
     protected layers: EditLayer[] = [];
+    /** layers へ退避され transition_out が無効になった v2 item id → 日本語理由。 */
+    protected readonly layerTransitionWarnings = new Map<string, string>();
     protected audioSfx: EditAudioSfxWithFade[] = [];
     protected audioNarration: EditAudioNarration[] = [];
     protected audioBgm: EditAudioBgm | undefined;
@@ -548,6 +555,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly trackHeights = new Map<string, number>();
     protected readonly trackHeightLoadPromises = new Map<string, Promise<void>>();
     protected segments: OutputSegment[] = [];
+    /** rebuildSegments の後方 1 パスで作る transition 境界索引。描画ループでは参照だけ行う。 */
+    protected readonly nextSameTrackSegmentByCutIndex = new Map<number, OutputSegment>();
+    protected readonly unsupportedTrackTransitionByCutIndex = new Map<number, number>();
+    protected readonly nonAdjacentTransitionTargetByCutIndex = new Map<number, number>();
+    protected readonly zeroOverlapTransitionIndexes = new Set<number>();
+    protected readonly declaredTrackTransitionWarnings = new Set<number>();
+    protected readonly declaredTransitionAdjacencyWarnings = new Set<number>();
     protected wordBoundaries: number[] = [];
     protected configured = false;
     protected legacyReadOnly = false;
@@ -3153,6 +3167,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.footer.replaceChildren();
             }
             this.deferredLintFooterMessage = undefined;
+            const warningSummary = japaneseLintWarningSummary(findings);
+            if (warningSummary) {
+                this.footer.textContent = warningSummary;
+                this.messages.warn(warningSummary);
+                return;
+            }
             return;
         }
         this.footer.replaceChildren();
@@ -3284,6 +3304,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.overlays = [];
         this.beats = [];
         this.layers = [];
+        this.layerTransitionWarnings.clear();
         this.audioSfx = [];
         this.audioNarration = [];
         this.audioBgm = undefined;
@@ -3303,10 +3324,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const document = JSON.parse(source) as EditV2Document;
                 this.editDocument = document;
                 this.itemLocations = indexEditV2Items(document);
+                const layerCauses = new Map((document.version === 2
+                    ? findCrossTrackLayerEvacuations(document) : [])
+                    .map(cause => [cause.itemId, cause] as const));
                 for (const track of internal.tracks) {
                     for (const item of track.items) {
                         if (item.legacy.collection === 'cuts') {
                             this.cutItemIds[item.legacy.index] = item.id;
+                        }
+                        const transition = item.declaration.transition_out;
+                        if (item.legacy.collection === 'layers' && transition
+                            && typeof transition === 'object' && !Array.isArray(transition)) {
+                            const cause = layerCauses.get(item.id);
+                            this.layerTransitionWarnings.set(
+                                item.id,
+                                cause
+                                    ? `このクリップは他トラックのアイテム（${cause.causeItemId}）と重なっているため PiP 経路へ退避され、宣言したトランジションは書き出されません。重なりを解消するか、トランジションを削除してください。`
+                                    : 'このクリップは合成機能または同一トラック内の重なりにより PiP 経路へ退避され、宣言したトランジションは書き出されません。重なりを解消するか、トランジションを削除してください。'
+                            );
                         }
                     }
                 }
@@ -3608,6 +3643,46 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 transitionOut: cut.transitionOut, tlStart: segment.at, tlEnd: segment.end, track: segment.track
             };
         });
+        this.nextSameTrackSegmentByCutIndex.clear();
+        this.unsupportedTrackTransitionByCutIndex.clear();
+        this.nonAdjacentTransitionTargetByCutIndex.clear();
+        this.zeroOverlapTransitionIndexes.clear();
+        this.declaredTrackTransitionWarnings.clear();
+        this.declaredTransitionAdjacencyWarnings.clear();
+        for (let cutIndex = 0; cutIndex < this.compatibilityCuts.length; cutIndex++) {
+            const trackRef = unsupportedTrackTransitionTarget(
+                this.compatibilityCuts,
+                this.compatibilityTimelineTracks,
+                cutIndex
+            );
+            if (trackRef !== undefined) {
+                this.unsupportedTrackTransitionByCutIndex.set(cutIndex, trackRef);
+                if (this.compatibilityCuts[cutIndex]?.transition_out) {
+                    this.declaredTrackTransitionWarnings.add(cutIndex);
+                }
+            }
+        }
+        const nextByTrack = new Map<number, OutputSegment>();
+        for (let position = this.segments.length - 1; position >= 0; position--) {
+            const earlier = this.segments[position];
+            const later = nextByTrack.get(earlier.track);
+            if (later) {
+                this.nextSameTrackSegmentByCutIndex.set(earlier.index, later);
+                const overlapFrames = cutOverlapFrames(earlier, later, this.fps);
+                if (overlapFrames === 0) {
+                    if (earlier.transitionOut) {
+                        this.zeroOverlapTransitionIndexes.add(earlier.index);
+                        this.declaredTransitionAdjacencyWarnings.add(earlier.index);
+                    }
+                } else if (!areCutsAdjacent(earlier, later, this.fps)) {
+                    this.nonAdjacentTransitionTargetByCutIndex.set(earlier.index, later.index);
+                    if (earlier.transitionOut) {
+                        this.declaredTransitionAdjacencyWarnings.add(earlier.index);
+                    }
+                }
+            }
+            nextByTrack.set(earlier.track, earlier);
+        }
     }
 
     protected async reloadAnalysis(): Promise<void> {
@@ -4177,6 +4252,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             element.style.opacity = layout.hidden ? '.28' : '';
             element.appendChild(this.segmentLabel(layer.id));
+            const transitionWarning = this.layerTransitionWarnings.get(layer.id);
+            if (transitionWarning) {
+                const warning = document.createElement('button');
+                warning.type = 'button';
+                warning.dataset.akariLayerTransitionWarning = layer.id;
+                warning.setAttribute('aria-label', '書き出せないトランジションを削除');
+                warning.title = transitionWarning;
+                warning.textContent = '⚠ 削除';
+                Object.assign(warning.style, {
+                    position: 'absolute', top: '3px', right: '3px', zIndex: '8',
+                    padding: '1px 5px', borderRadius: '4px', border: `1px solid ${TRANSITION_BADGE_WARNING_COLOR}`,
+                    color: '#fff', background: '#9a3412', fontSize: '10px', cursor: 'pointer', pointerEvents: 'auto'
+                });
+                warning.addEventListener('pointerdown', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                });
+                warning.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void this.removeLayerEvacuatedTransition(layer.id);
+                });
+                element.appendChild(warning);
+            }
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
                 const rightDistance = rect.right - event.clientX;
@@ -4637,11 +4736,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const current = this.cuts[earlierIndex]?.transitionOut;
             const unsupportedTrack = this.unsupportedTransitionTrack(earlierIndex);
             const unsupportedAdjacency = this.nonAdjacentTransitionTarget(earlierIndex);
+            const zeroOverlap = this.zeroOverlapTransitionIndexes.has(earlierIndex);
             const heading = document.createElement('div');
             heading.textContent = `C${earlierIndex + 1} → C${laterIndex + 1}`;
             heading.style.opacity = '.7';
             popup.appendChild(heading);
-            if (unsupportedTrack !== undefined || unsupportedAdjacency !== undefined) {
+            if (unsupportedTrack !== undefined || unsupportedAdjacency !== undefined || zeroOverlap) {
                 const warning = document.createElement('div');
                 warning.dataset.akariTransitionGuard = String(earlierIndex);
                 warning.textContent = this.unsupportedTransitionMessage(earlierIndex);
@@ -4666,7 +4766,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     void this.applyTransitionOut(earlierIndex, {
                         type: option.type,
                         duration: current?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS
-                    }).then(render);
+                    }, { autoHandle: true }).then(render);
                 });
                 typeRow.appendChild(button);
             }
@@ -4722,7 +4822,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** ㉔ トランジション書き戻し: annotations 既存の edit RPC 流儀（setCutOpacity 等と同系）。 */
     protected async applyTransitionOut(
         cutIndex: number,
-        next: { type: TransitionType; duration: number } | null
+        next: { type: TransitionType; duration: number } | null,
+        options?: { autoHandle?: boolean }
     ): Promise<void> {
         const location = this.location;
         if (!location?.editUri) {
@@ -4736,6 +4837,50 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.messages.warn(message);
             return;
         }
+        const earlier = this.segments.find(segment => segment.index === cutIndex);
+        const later = earlier ? this.nextSameTrackSegment(cutIndex) : undefined;
+        const shouldAutoHandle = Boolean(next && options?.autoHandle && earlier && later
+            && cutOverlapFrames(earlier, later, this.fps) === 0);
+        if (next && shouldAutoHandle && earlier && later) {
+            const maxExtendSeconds = await this.transitionMaxExtendSeconds(cutIndex);
+            const handle: {
+                outcome: 'already-overlapping' | 'full' | 'partial' | 'none';
+                effectiveSeconds: number;
+            } = { outcome: 'none', effectiveSeconds: 0 };
+            // 宣言 + out + duration をこの 1 text commit に閉じ、pushHistory も 1 回だけにする。
+            await this.commitEditTextMutation('トランジションを変更', text => {
+                const result = setV2TransitionOutWithHandleInSource(text, {
+                    itemId: this.cutItemId(cutIndex),
+                    transitionOut: next,
+                    earlierEndSeconds: earlier.tlEnd,
+                    laterStartSeconds: later.tlStart,
+                    maxExtendSeconds,
+                    fps: this.fps
+                });
+                handle.outcome = result.plan.outcome;
+                handle.effectiveSeconds = result.plan.effectiveSeconds;
+                return result.source;
+            });
+            if (handle.outcome === 'partial') {
+                // 宣言尺はユーザーが選んだ値のまま保持し、実効尺だけを既存レンダーカーネルに
+                // クランプさせる。素材を延ばした後で余りが増えれば再宣言なしで本来の尺へ戻せる。
+                const seconds = this.formatTransitionSeconds(handle.effectiveSeconds);
+                const message = `トランジションが ${seconds} 秒に短くなります（素材の余りが足りません）`;
+                this.showNotice(message);
+                this.footer.textContent = message;
+                this.messages.warn(message);
+                return;
+            }
+            if (handle.outcome === 'none') {
+                this.showNotice(ZERO_OVERLAP_TRANSITION_MESSAGE);
+                this.footer.textContent = ZERO_OVERLAP_TRANSITION_MESSAGE;
+                this.messages.warn(ZERO_OVERLAP_TRANSITION_MESSAGE);
+                return;
+            }
+            this.hideNotice();
+            this.footer.textContent = 'トランジションを変更しました。';
+            return;
+        }
         await this.commitEditMutation('トランジションを変更', doc => updateV2Item(doc, {
             itemId: this.cutItemId(cutIndex), patch: { source: { transition_out: next } }
         }));
@@ -4743,55 +4888,63 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.footer.textContent = next ? 'トランジションを変更しました。' : 'トランジションを削除しました。';
     }
 
+    protected nextSameTrackSegment(cutIndex: number): OutputSegment | undefined {
+        return this.nextSameTrackSegmentByCutIndex.get(cutIndex);
+    }
+
+    protected async transitionMaxExtendSeconds(cutIndex: number): Promise<number> {
+        const cut = this.cuts[cutIndex];
+        if (!cut) return 0;
+        const declaredPath = cut.src !== undefined
+            ? this.sourceMap.get(cut.src)?.path
+            : this.defaultSource?.path;
+        if (declaredPath && IMAGE_CUT_SOURCE_PATTERN.test(declaredPath)) {
+            return Number.POSITIVE_INFINITY;
+        }
+        const videoUri = this.cutVideoUri(cut);
+        if (!videoUri) return 0;
+        const duration = await this.ensureVideoDurationFetch(videoUri);
+        if (typeof duration !== 'number') return 0;
+        const speed = typeof cut.speed === 'number' && Number.isFinite(cut.speed) && cut.speed > 0
+            ? cut.speed : 1;
+        return Math.max(0, duration - cut.out) / speed;
+    }
+
+    protected formatTransitionSeconds(seconds: number): string {
+        return seconds.toFixed(2).replace(/\.0+$/u, '').replace(/(\.\d*[1-9])0+$/u, '$1');
+    }
+
+    protected async removeLayerEvacuatedTransition(itemId: string): Promise<void> {
+        await this.commitEditMutation('トランジションを削除', doc => updateV2Item(doc, {
+            itemId,
+            patch: { source: { transition_out: null } }
+        }));
+        this.hideNotice();
+        this.footer.textContent = 'トランジションを削除しました。';
+    }
+
     protected unsupportedTransitionTrack(cutIndex: number): number | undefined {
-        return unsupportedTrackTransitionTarget(
-            this.compatibilityCuts,
-            this.compatibilityTimelineTracks,
-            cutIndex
-        );
+        return this.unsupportedTrackTransitionByCutIndex.get(cutIndex);
     }
 
     protected unsupportedDeclaredTransitionIndexes(): Set<number> {
-        const indexes = new Set(findUnsupportedDeclaredTrackTransitions(
-            this.compatibilityCuts,
-            this.compatibilityTimelineTracks
-        ).map(candidate => candidate.cutIndex));
-        for (const cutIndex of this.nonAdjacentDeclaredTransitionIndexes()) {
+        const indexes = new Set(this.declaredTrackTransitionWarnings);
+        for (const cutIndex of this.declaredTransitionAdjacencyWarnings) {
             indexes.add(cutIndex);
         }
         return indexes;
     }
 
     protected nonAdjacentTransitionTarget(cutIndex: number): number | undefined {
-        const position = this.segments.findIndex(segment => segment.index === cutIndex);
-        if (position < 0) {
-            return undefined;
-        }
-        const earlier = this.segments[position];
-        let later: OutputSegment | undefined;
-        for (let laterPosition = position + 1; laterPosition < this.segments.length; laterPosition++) {
-            const candidate = this.segments[laterPosition];
-            if (candidate.track === earlier.track) {
-                later = candidate;
-                break;
-            }
-        }
-        if (!later || areCutsAdjacent(earlier, later, this.fps)) {
-            return undefined;
-        }
-        return later.index;
-    }
-
-    protected nonAdjacentDeclaredTransitionIndexes(): Set<number> {
-        return new Set(this.segments
-            .filter(segment => segment.transitionOut
-                && this.nonAdjacentTransitionTarget(segment.index) !== undefined)
-            .map(segment => segment.index));
+        return this.nonAdjacentTransitionTargetByCutIndex.get(cutIndex);
     }
 
     protected unsupportedTransitionMessage(cutIndex: number): string {
         if (this.nonAdjacentTransitionTarget(cutIndex) !== undefined) {
             return NON_ADJACENT_TRANSITION_MESSAGE;
+        }
+        if (this.zeroOverlapTransitionIndexes.has(cutIndex)) {
+            return ZERO_OVERLAP_TRANSITION_MESSAGE;
         }
         const track = this.unsupportedTransitionTrack(cutIndex);
         const suffix = track === undefined ? '' : `（映像トラック ${track + 1}）`;
@@ -5282,6 +5435,37 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const raw = JSON.parse(before) as EditV2Document;
         if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
         const after = stringifyEditV2(mutate(raw));
+        if (after === before) return { before, after, result: { committed: false } };
+        await this.writeEditSnapshotGuarded(after);
+        if (options?.history !== false) {
+            this.pushHistory({
+                label,
+                undo: async () => {
+                    await this.writeEditSnapshotGuarded(before);
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.writeEditSnapshotGuarded(after);
+                    await this.reloadEdit();
+                }
+            });
+        }
+        if (options?.reload !== false) await this.reloadEdit();
+        return { before, after, result: { committed: false } };
+    }
+
+    /** v2 の整形を保つテキスト手術を 1 履歴として保存する。 */
+    protected async commitEditTextMutation(
+        label: string,
+        mutate: (text: string) => string,
+        options?: { reload?: boolean; history?: boolean }
+    ): Promise<{ before: string; after: string; result: WriteBackResult }> {
+        const editUri = this.location?.editUri;
+        if (!editUri) throw new Error('edit.json がありません。');
+        const before = (await this.fileService.readFile(editUri)).value.toString();
+        const raw = JSON.parse(before) as EditV2Document;
+        if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
+        const after = mutate(before);
         if (after === before) return { before, after, result: { committed: false } };
         await this.writeEditSnapshotGuarded(after);
         if (options?.history !== false) {

@@ -1,3 +1,8 @@
+import {
+    planTransitionHandleExtension,
+    type TransitionHandleExtensionPlan
+} from './cut-adjacency';
+
 export interface EditCut {
     in: number;
     out: number;
@@ -456,6 +461,144 @@ export function setCutTransitionOutInSource(
             return appendJsonProperty(removeObjectProperty(element, 'transition_out'), 'transition_out', value);
         }
     });
+}
+
+export interface SetV2TransitionOutWithHandleInput {
+    itemId: string;
+    transitionOut: {
+        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        duration: number;
+    };
+    earlierEndSeconds: number;
+    laterStartSeconds: number;
+    maxExtendSeconds: number;
+    fps: number;
+}
+
+export interface SetV2TransitionOutWithHandleResult {
+    source: string;
+    plan: TransitionHandleExtensionPlan;
+}
+
+/**
+ * v2 の transition_out 宣言と outgoing の source.out / duration 延長を 1 回の
+ * byte-preserving 手術で行う。maxExtendSeconds は出力秒軸の上限で、素材実尺は呼び出し側が決める。
+ */
+export function setV2TransitionOutWithHandleInSource(
+    source: string,
+    input: SetV2TransitionOutWithHandleInput
+): SetV2TransitionOutWithHandleResult {
+    const raw = JSON.parse(source) as { version?: unknown };
+    if (raw.version !== 2) {
+        throw new Error('v2 へ変換してから編集してください。');
+    }
+    assertTransitionOutValue(input.transitionOut);
+    if (!input.itemId) {
+        throw new Error('トランジション対象のアイテム id が空です。');
+    }
+
+    const tracks = locateArray(source, 'tracks');
+    const trackElements = splitTopLevelElements(tracks.inner);
+    const matches: Array<{
+        track: SourceElement;
+        items: ReturnType<typeof locateArray>;
+        item: SourceElement;
+    }> = [];
+    for (const track of trackElements) {
+        let items: ReturnType<typeof locateArray>;
+        try {
+            items = locateArray(track.text, 'items');
+        } catch {
+            continue;
+        }
+        const item = splitTopLevelElements(items.inner)
+            .find(candidate => readStringProperty(candidate.text, 'id') === input.itemId);
+        if (item) matches.push({ track, items, item });
+    }
+    if (matches.length !== 1) {
+        throw new Error(matches.length === 0
+            ? `アイテム ${input.itemId} が見つかりません`
+            : `アイテム ${input.itemId} が複数あります`);
+    }
+
+    const match = matches[0];
+    const label = `アイテム ${input.itemId}`;
+    const durationFrames = readNumberProperty(match.item.text, 'duration', label);
+    const mediaSource = locateTopLevelObjectProperty(match.item.text, 'source');
+    if (readStringProperty(mediaSource.text, 'kind') !== 'media') {
+        throw new Error(`${label} は映像素材ではありません。`);
+    }
+    const sourceIn = readNumberProperty(mediaSource.text, 'in', label);
+    const sourceOut = readNumberProperty(mediaSource.text, 'out', label);
+    const outputDurationSeconds = durationFrames / input.fps;
+    const speed = (sourceOut - sourceIn) / outputDurationSeconds;
+    // 暗黙 speed を維持できない極端値は、素材窓を壊すより宣言だけを残す保守側へ倒す。
+    // 実用域外（1e-6 未満 / 1e6 超）の比率も浮動小数の増分が不安定なので延長しない。
+    const safeSpeed = Number.isFinite(speed) && speed >= 1e-6 && speed <= 1e6;
+    const plan = planTransitionHandleExtension({
+        declaredSeconds: input.transitionOut.duration,
+        earlierEndSeconds: input.earlierEndSeconds,
+        laterStartSeconds: input.laterStartSeconds,
+        maxExtendSeconds: safeSpeed ? input.maxExtendSeconds : 0,
+        fps: input.fps
+    });
+
+    let nextMediaSource = writeTransitionOutProperty(mediaSource.text, input.transitionOut);
+    if (plan.appliedFrames > 0) {
+        const nextOut = sourceOut + plan.appliedSeconds * speed;
+        if (!Number.isFinite(nextOut)) {
+            throw new Error(`${label} の out を安全に延長できません。`);
+        }
+        nextMediaSource = replaceNumberProperty(nextMediaSource, 'out', nextOut, label);
+    }
+    let nextItem = match.item.text.slice(0, mediaSource.start)
+        + nextMediaSource
+        + match.item.text.slice(mediaSource.end);
+    if (plan.appliedFrames > 0) {
+        nextItem = replaceNumberProperty(
+            nextItem,
+            'duration',
+            durationFrames + plan.appliedFrames,
+            label
+        );
+    }
+    const nextTrack = replaceElement(
+        match.track.text,
+        match.items.openIndex + 1,
+        match.item,
+        nextItem
+    );
+    return {
+        source: replaceElement(source, tracks.openIndex + 1, match.track, nextTrack),
+        plan
+    };
+}
+
+function assertTransitionOutValue(transitionOut: SetV2TransitionOutWithHandleInput['transitionOut']): void {
+    if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black'
+        && transitionOut.type !== 'fade-white' && transitionOut.type !== 'reveal-down'
+        && transitionOut.type !== 'reveal-up') {
+        throw new Error('トランジションの種別が不正です。');
+    }
+    if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {
+        throw new Error('トランジションの尺は正の数で指定してください。');
+    }
+}
+
+function writeTransitionOutProperty(
+    mediaSource: string,
+    transitionOut: SetV2TransitionOutWithHandleInput['transitionOut']
+): string {
+    const value = { type: transitionOut.type, duration: transitionOut.duration };
+    if (!hasTopLevelProperty(mediaSource, 'transition_out')) {
+        return appendJsonProperty(mediaSource, 'transition_out', value);
+    }
+    try {
+        const located = locateTopLevelObjectProperty(mediaSource, 'transition_out');
+        return mediaSource.slice(0, located.start) + JSON.stringify(value) + mediaSource.slice(located.end);
+    } catch {
+        return appendJsonProperty(removeObjectProperty(mediaSource, 'transition_out'), 'transition_out', value);
+    }
 }
 
 export function reorderCutsInSource(source: string, fromIndex: number, toIndex: number): string {
