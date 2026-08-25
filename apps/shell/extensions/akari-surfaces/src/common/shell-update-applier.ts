@@ -10,6 +10,8 @@
  * バナーへ切り替える（task.md §3-4 指定の 2 段階）。
  */
 
+import { compareVersions } from './update-feed';
+
 export type ShellUpdaterEventKind =
     | 'checking-for-update'
     | 'update-available'
@@ -49,7 +51,8 @@ export const INITIAL_SHELL_UPDATER_UI_STATE: ShellUpdaterUiState = { downloaded:
  * イベント → 次のバナー状態（同期・純粋関数）。
  *
  * - `update-available`（version 付き）: 自動 DL が始まった合図なので「ダウンロード中」
- *   バナーへ（DL 済みなら既存バナーを維持）。かつては U2 バナーとの二重表示を避けて
+ *   バナーへ。DL 済みでも、その版より新しければ staged を追い越して DL 中へ戻る。
+ *   かつては U2 バナーとの二重表示を避けて
  *   沈黙していたが、「更新する」ボタンが electron-updater 直結になった（適用まで
  *   アプリ内で完結する）ため、進行が見えないほうが不安になる — 表示に切り替えた
  * - `update-downloaded`（version 付き）: 「DL 済み・再起動で適用」バナーへ
@@ -60,9 +63,22 @@ export const INITIAL_SHELL_UPDATER_UI_STATE: ShellUpdaterUiState = { downloaded:
  */
 export function applyShellUpdaterEvent(state: ShellUpdaterUiState, event: ShellUpdaterEvent): ShellUpdaterUiState {
     if (event.kind === 'update-downloaded' && typeof event.version === 'string' && event.version.length > 0) {
+        const stagedVersion = state.downloadingVersion ?? state.downloadedVersion;
+        if (stagedVersion && compareVersions(event.version, stagedVersion) < 0) {
+            return state;
+        }
         return { downloaded: true, downloadedVersion: event.version };
     }
     if (state.downloaded) {
+        if (
+            event.kind === 'update-available'
+            && typeof event.version === 'string'
+            && event.version.length > 0
+            && typeof state.downloadedVersion === 'string'
+            && compareVersions(event.version, state.downloadedVersion) > 0
+        ) {
+            return { downloaded: false, downloading: true, downloadingVersion: event.version };
+        }
         return state;
     }
     if (event.kind === 'update-available' && typeof event.version === 'string' && event.version.length > 0) {
@@ -108,6 +124,18 @@ export function beginUserInitiatedUpdaterCheck(state: ShellUpdaterUiState): Shel
         return state;
     }
     return { downloaded: false, checkRequestedByUser: true };
+}
+
+/** ホーム表示時の再チェック。DL 済み状態を含め UI 状態では抑止せず、失敗は沈黙する。 */
+export function checkForShellUpdatesOnHomeShow(
+    api: Pick<{ checkForUpdatesNow(): Promise<void> }, 'checkForUpdatesNow'> | undefined
+): void {
+    if (!api) {
+        return;
+    }
+    void api.checkForUpdatesNow().catch(() => {
+        // バックグラウンドチェックの失敗は画面に出さない（契約 §11）。
+    });
 }
 
 /** API 不在など、チェックを開始できない場合の明示クリック起点の縮退状態。 */

@@ -8,6 +8,7 @@ import {
     applyImmediateUpdaterFallback,
     applyShellUpdaterEvent,
     beginUserInitiatedUpdaterCheck,
+    checkForShellUpdatesOnHomeShow,
     formatDownloadedBannerText,
     formatDownloadingBannerText,
     formatUpdaterFallbackText,
@@ -41,6 +42,27 @@ test('applyShellUpdaterEvent: version の無い update-available は無視する
 test('applyShellUpdaterEvent: ダウンロード中 → update-downloaded で DL 済み状態へ進む', () => {
     const downloading = { downloaded: false, downloading: true, downloadingVersion: '0.2.0' };
     assert.deepEqual(applyShellUpdaterEvent(downloading, { kind: 'update-downloaded', version: '0.2.0' }), { downloaded: true, downloadedVersion: '0.2.0' });
+});
+
+test('applyShellUpdaterEvent: DL 済み版より新しい update-available が staged を追い越し、新版の DL 済みへ進む', () => {
+    const downloaded = { downloaded: true, downloadedVersion: '0.1.19' };
+    const downloading = applyShellUpdaterEvent(downloaded, { kind: 'update-available', version: '0.1.20' });
+    assert.deepEqual(downloading, { downloaded: false, downloading: true, downloadingVersion: '0.1.20' });
+    assert.deepEqual(applyShellUpdaterEvent(downloading, { kind: 'update-downloaded', version: '0.1.20' }), {
+        downloaded: true,
+        downloadedVersion: '0.1.20'
+    });
+});
+
+test('applyShellUpdaterEvent: DL 済み版と同じ・古い update-available では staged を維持する', () => {
+    const downloaded = { downloaded: true, downloadedVersion: '0.1.19' };
+    assert.equal(applyShellUpdaterEvent(downloaded, { kind: 'update-available', version: '0.1.19' }), downloaded);
+    assert.equal(applyShellUpdaterEvent(downloaded, { kind: 'update-available', version: '0.1.18' }), downloaded);
+});
+
+test('applyShellUpdaterEvent: staged より古い update-downloaded では状態を巻き戻さない', () => {
+    const downloaded = { downloaded: true, downloadedVersion: '0.1.20' };
+    assert.equal(applyShellUpdaterEvent(downloaded, { kind: 'update-downloaded', version: '0.1.19' }), downloaded);
 });
 
 test('applyShellUpdaterEvent: error は reason を保持し、DL 済みなら既存状態を維持する', () => {
@@ -96,6 +118,18 @@ test('failed 中の更新ボタンも API があればまず再試行し、明�
     assert.equal(shouldOpenUpdaterBrowserFallback(checking, error), true);
     const fallback = applyShellUpdaterEvent(checking, error);
     assert.equal(formatUpdaterFallbackText(fallback), 'アプリ内更新が使えないため、ブラウザでダウンロードページを開きます（理由: still offline）');
+});
+
+test('ホーム表示時の updater 再チェックは DL 済み状態による分岐を持たず、API を 1 回だけ発火する', async () => {
+    let checks = 0;
+    checkForShellUpdatesOnHomeShow({
+        checkForUpdatesNow: async () => {
+            checks += 1;
+            throw new Error('background failure');
+        }
+    });
+    assert.equal(checks, 1);
+    await Promise.resolve();
 });
 
 test('バックグラウンドチェックの失敗では縮退表示もブラウザ遷移も発生しない', () => {
