@@ -45,6 +45,17 @@ Supply differs by platform (no official macOS binary distribution exists):
   per-CPU-microarchitecture `ggml-cpu-*.dll` backend variants ggml
   dynamically dispatches between) are bundled alongside it.
 
+## Robust Video Matting (RVM)
+
+This product downloads and uses the official ONNX models from
+PeterL1n/RobustVideoMatting as a separate inference asset. Robust Video
+Matting is MIT licensed. Source and license:
+https://github.com/PeterL1n/RobustVideoMatting
+
+Model URLs and sha256 checksums are pinned in
+`packages/matte-rvm/src/model-manifest.mjs`; downloads are verified before
+being installed under `packages/matte-rvm/vendor/`.
+
 ## Electron shell (desktop app)
 
 Additional third-party notices for the desktop shell are generated at build
