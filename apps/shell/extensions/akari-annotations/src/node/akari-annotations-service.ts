@@ -864,6 +864,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 projectRootUri: URI.fromFilePath(projectDir).toString(),
                 pass: result.pass,
                 errors: result.errors,
+                writtenFiles: Object.keys(candidates),
                 findings: result.findings
             })
         });
@@ -890,6 +891,7 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 projectRootUri: URI.fromFilePath(projectDir).toString(),
                 pass: result.pass,
                 errors: result.errors,
+                writtenFiles: [basename(filePath)],
                 findings: result.findings
             })
         });

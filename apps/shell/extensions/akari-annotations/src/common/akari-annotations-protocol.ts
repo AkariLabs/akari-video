@@ -535,6 +535,7 @@ export interface DeferredLintNotification {
     projectRootUri: string;
     pass: boolean;
     errors: string[];
+    writtenFiles?: string[];
     findings: Array<{
         severity?: string;
         message?: string;
