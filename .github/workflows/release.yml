@@ -437,6 +437,9 @@ jobs:
           npm_config_enable_thin_lto: 'false'
         run: npm run package
 
+      - name: app-update.yml 生成 (win)
+        run: node scripts/release/gen-app-update-yml.mjs apps/shell/electron-builder-out/win-unpacked/resources/app-update.yml
+
       # task/2026-08-17-media-bin-whisper: whisper-cli.exe は win32-x64 の manifest エントリ
       # 経由で `npm run package` の暗黙の prepackage フック（bundle-media-binaries.mjs）が
       # 自動取得・同梱する（ffmpeg/ffprobe と同じ経路 — windows-build.yml に既存の明示的な

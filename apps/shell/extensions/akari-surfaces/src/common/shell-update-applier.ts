@@ -12,6 +12,17 @@
 
 import { compareVersions } from './update-feed';
 
+export const FALLBACK_FEED_OPTIONS = {
+    provider: 'github',
+    owner: 'AkariLabs',
+    repo: 'akari-video'
+} as const;
+
+/** パッケージ版で app-update.yml が欠けた場合だけ、GitHub feed を明示設定する。 */
+export function shouldApplyFeedUrlFallback(isPackaged: boolean, appUpdateYmlExists: boolean): boolean {
+    return isPackaged && !appUpdateYmlExists;
+}
+
 export type ShellUpdaterEventKind =
     | 'checking-for-update'
     | 'update-available'
