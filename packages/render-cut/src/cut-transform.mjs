@@ -3,6 +3,7 @@ import { computePerspectiveFfmpegCorners, PERSPECTIVE_PAD_FRAC } from "./perspec
 import {
   hasUsableLayerKeyframes,
   layerCropKeyframeSteps,
+  layerFixedCanvasKeyframeSteps,
   layerTransformKeyframeExprs,
 } from "./layer-keyframes.mjs";
 
@@ -237,7 +238,20 @@ export function appendCutLayerStyleVisual({
   // next to this exact math, ported unchanged below). transformKeyframes.rotateVaries was already
   // computed by layerTransformKeyframeExprs; this function just wasn't reading it.
   const rotateVaries = Boolean(transformKeyframes?.rotateVaries);
-  const sourceSize = (cropKeyframeDeclared || rotateVaries) && isFiniteNumber(sourceWidth) && isFiniteNumber(sourceHeight)
+  const effectiveRotate = transformKeyframes
+    ? (rotateVaries ? null : transformKeyframes.rotateMin)
+    : rotate;
+  // Keep the fixed-canvas path aligned with layers.mjs: changing the processed bitmap bounds is
+  // safe only for the ordinary normal-blend overlay compositor, without perspective or rotate.
+  // needsLayersEngine already routes non-normal v2 media items away from cuts, but the explicit
+  // blend guard also keeps this exported builder safe for direct callers.
+  const fixedCanvasEligible = (cut?.blend ?? "normal") === "normal"
+    && !cut?.perspective
+    && rotate === 0
+    && effectiveRotate === 0
+    && (cropKeyframeDeclared || Boolean(transformKeyframes?.scaleDeclared));
+  const sourceSize = (cropKeyframeDeclared || rotateVaries || fixedCanvasEligible)
+    && isFiniteNumber(sourceWidth) && isFiniteNumber(sourceHeight)
     ? { width: sourceWidth, height: sourceHeight }
     : null;
 
@@ -245,14 +259,41 @@ export function appendCutLayerStyleVisual({
   const cropKeyframeSteps = sourceSize
     ? layerCropKeyframeSteps(cut, localTExpr, sourceSize.width, sourceSize.height, extraScaleExpr)
     : null;
-  const cropScaleFolded = Boolean(cropKeyframeSteps && extraScaleExpr);
+  const crop = cut?.crop;
+  const staticCropWidth = sourceSize && crop && !cropKeyframeDeclared
+    ? Math.max(2, Math.trunc(sourceSize.width * clamp(finiteOr(crop.w, 1), EPSILON, 1) / 2) * 2)
+    : sourceSize?.width;
+  const staticCropHeight = sourceSize && crop && !cropKeyframeDeclared
+    ? Math.max(2, Math.trunc(sourceSize.height * clamp(finiteOr(crop.h, 1), EPSILON, 1) / 2) * 2)
+    : sourceSize?.height;
+  const fixedCanvasSteps = fixedCanvasEligible && sourceSize
+    ? layerFixedCanvasKeyframeSteps({
+        layer: cut,
+        localTExpr,
+        sourceWidth: staticCropWidth,
+        sourceHeight: staticCropHeight,
+        scaleExpr: transformKeyframes?.scaleExpr ?? formatNumber(scale),
+        scaleMax: transformKeyframes?.scaleMax ?? scale,
+      })
+    : null;
+  const cropScaleFolded = Boolean((fixedCanvasSteps || cropKeyframeSteps) && extraScaleExpr);
 
   const raw = `[ct_${id}_lraw]`;
   filters.push(`${inputLabel}format=yuva420p${raw}`);
 
   const steps = [];
-  const crop = cut?.crop;
-  if (cropKeyframeSteps) {
+  if (fixedCanvasSteps) {
+    if (crop && !cropKeyframeDeclared) {
+      const cropW = clamp(finiteOr(crop.w, 1), EPSILON, 1);
+      const cropH = clamp(finiteOr(crop.h, 1), EPSILON, 1);
+      const cropX = clamp(finiteOr(crop.x, 0), 0, 1 - cropW);
+      const cropY = clamp(finiteOr(crop.y, 0), 0, 1 - cropH);
+      steps.push(
+        `crop=trunc(iw*${formatNumber(cropW)}/2)*2:trunc(ih*${formatNumber(cropH)}/2)*2:trunc(iw*${formatNumber(cropX)}/2)*2:trunc(ih*${formatNumber(cropY)}/2)*2`,
+      );
+    }
+    steps.push(...fixedCanvasSteps);
+  } else if (cropKeyframeSteps) {
     steps.push(...cropKeyframeSteps);
   } else if (crop) {
     const cropW = clamp(finiteOr(crop.w, 1), EPSILON, 1);
@@ -264,7 +305,7 @@ export function appendCutLayerStyleVisual({
     );
   }
   if (cropScaleFolded) {
-    // Already applied as part of cropKeyframeSteps' own final scale-down step above.
+    // Already applied by the fixed-canvas path or cropKeyframeSteps' final scale-down step above.
   } else if (transformKeyframes) {
     steps.push(
       `scale=w='trunc(iw*(${transformKeyframes.scaleExpr}))':h='trunc(ih*(${transformKeyframes.scaleExpr}))':eval=frame`,
