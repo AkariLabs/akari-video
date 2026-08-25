@@ -1348,7 +1348,7 @@ export function buildMultiSourceCutCommand({
 
   return buildMultiSourceCommandResult({
     ffmpegCommand, ffprobeCommand, sourceInputs, extraInputArgs, filters, videoEncodeArgs, cutPath,
-    transparentBackground, warnings,
+    fps, transparentBackground, warnings,
   });
 }
 
@@ -1412,7 +1412,7 @@ function appendMultiSourceLookFilters(filters, videoLabel, { look, projectRoot, 
 
 function buildMultiSourceCommandResult({
   ffmpegCommand, ffprobeCommand, sourceInputs, extraInputArgs = [], filters, videoEncodeArgs, cutPath,
-  transparentBackground = false, warnings = [],
+  fps, transparentBackground = false, warnings = [],
 }) {
   return {
     command: ffmpegCommand,
@@ -1425,13 +1425,16 @@ function buildMultiSourceCommandResult({
       "-y",
       // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定2: same `-loop 1` recipe as
       // the removed single-source path, applied per-source here since v1 mixes video and still-image sources.
+      // image2 loop inputs otherwise default to 25fps, leaving trim boundaries on the wrong frame grid.
       // P0 2026-08-21 render-path-unification: a VP9/VP8 alpha-side-channel source needs an
       // explicit libvpx decoder or its alpha plane silently comes back opaque (layers.mjs's
       // resolveDecoderForLayer / SIDE_CHANNEL_ALPHA_DECODERS) -- reused here now that cuts[] items
       // can carry the same alpha-carrying sources layers[] items always could.
       ...sourceInputs.flatMap((source) => [
         ...(ffprobeCommand ? resolveDecoderForLayer(ffprobeCommand, source.path, warnings) : []),
-        ...(isImageLayerSource(source.path) ? ["-loop", "1", "-i", source.path] : ["-i", source.path]),
+        ...(isImageLayerSource(source.path)
+          ? ["-framerate", formatNumber(fps), "-loop", "1", "-i", source.path]
+          : ["-i", source.path]),
       ]),
       ...extraInputArgs,
       "-filter_complex",
@@ -1638,7 +1641,8 @@ export function buildGapAwareMultiSourceCutCommand({
   appendMultiSourceLookFilters(filters, "[joinedv]", { look, projectRoot, alreadyNormalized: false });
 
   return buildMultiSourceCommandResult({
-    ffmpegCommand, ffprobeCommand, sourceInputs, filters, videoEncodeArgs, cutPath, transparentBackground, warnings,
+    ffmpegCommand, ffprobeCommand, sourceInputs, filters, videoEncodeArgs, cutPath, fps,
+    transparentBackground, warnings,
   });
 }
 
