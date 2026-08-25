@@ -93,10 +93,10 @@ test('generateLatestJson: 契約 §3 のスキーマ形状と一致し、sha256 
     assert.equal(latest.components.plugin.version, '0.1.0');
     assert.equal(Object.keys(latest.components.plugin).length, 1, 'plugin は version のみ（契約 §3 例に url 系フィールドなし）');
 
-    // 契約 §11 追記: フル構成ソース tarball（CLI self-update の実体）。additive のため
-    // components.app は url/sha256 のみ（他コンポーネントのような version フィールドは持たない
-    // — トップレベルの product が同じ値を表す）。
-    assert.deepEqual(Object.keys(latest.components.app).sort(), ['sha256', 'url']);
+    // 契約 §11 追記: フル構成ソース tarball（CLI self-update の実体）。
+    // version は tag 由来の product 版と同値にし、旧フィードに対する additive な追加に留める。
+    assert.deepEqual(Object.keys(latest.components.app).sort(), ['sha256', 'url', 'version']);
+    assert.equal(latest.components.app.version, latest.product);
     assert.equal(latest.components.app.sha256, sha256(appBytes));
     assert.equal(
       latest.components.app.url,

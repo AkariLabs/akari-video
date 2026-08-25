@@ -21,6 +21,10 @@ const VALID_FEED = {
   }
 };
 
+const OFFLINE_FETCH = async () => {
+  throw new Error('offline fixture');
+};
+
 async function withScratchHome(callback) {
   const root = await mkdtemp(join(tmpdir(), 'akari-update-command-test-'));
   try {
@@ -40,20 +44,62 @@ function collectLogs() {
   return { log: (line) => lines.push(line), lines };
 }
 
-test('akari update: フィード未取得時は「まだ取得できていません」を案内する（自動 fetch はしない）', async () => {
+test('akari update: 再取得できずキャッシュも無いときは「まだ取得できていません」を案内する', async () => {
   await withScratchHome(async (env) => {
     const { log, lines } = collectLogs();
-    const result = await runUpdateCommand([], { log, env, currentVersion: '0.1.0' });
+    const result = await runUpdateCommand([], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH });
     assert.equal(result.exitCode, 0);
     assert.ok(lines.some((line) => line.includes('現在のバージョン: v0.1.0')));
     assert.ok(lines.some((line) => line.includes('まだ取得できていません')));
   });
 });
 
+test('akari update: 古いキャッシュがあっても明示実行では再取得した新しい最新バージョンを表示する', async () => {
+  await withScratchHome(async (baseEnv) => {
+    const env = { ...baseEnv, AKARI_UPDATE_FEED_URL: 'https://example.test/latest.json' };
+    const fetchedAt = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+    await writeCacheFixture(env, {
+      schema: 1,
+      fetched_at: fetchedAt,
+      feed: { ...VALID_FEED, product: '0.1.9' },
+      dismissed: {}
+    });
+    const freshFeed = { ...VALID_FEED, product: '0.2.0' };
+    const { log, lines } = collectLogs();
+
+    await runUpdateCommand([], {
+      log,
+      env,
+      currentVersion: '0.1.0',
+      fetchImpl: async (url) => {
+        assert.equal(url, 'https://example.test/latest.json');
+        return { ok: true, json: async () => freshFeed };
+      }
+    });
+
+    assert.ok(lines.includes('最新バージョン: v0.2.0（プレリリース）'));
+    assert.ok(!lines.some((line) => line.includes('v0.1.9')));
+    assert.equal(JSON.parse(await readFile(resolveCachePath(env), 'utf8')).feed.product, '0.2.0');
+  });
+});
+
+test('akari update: ネットワーク不通時は既存キャッシュへフォールバックし取得時刻を表示する', async () => {
+  await withScratchHome(async (env) => {
+    const fetchedAt = '2026-08-25T01:23:45.000Z';
+    await writeCacheFixture(env, { schema: 1, fetched_at: fetchedAt, feed: VALID_FEED, dismissed: {} });
+    const { log, lines } = collectLogs();
+
+    await runUpdateCommand([], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH });
+
+    assert.ok(lines.includes('最新バージョン: v0.2.0（プレリリース）'));
+    assert.ok(lines.some((line) => line.includes(fetchedAt) && line.includes('キャッシュ')));
+  });
+});
+
 test('install-ref の未記録と破損を区別し、破損時は --force の修復案内と実行経路を出す', async () => {
   await withScratchHome(async (env) => {
     const missing = collectLogs();
-    await runUpdateCommand([], { log: missing.log, env });
+    await runUpdateCommand([], { log: missing.log, env, fetchImpl: OFFLINE_FETCH });
     assert.ok(missing.lines.some((line) => line.includes('本体バージョン: 未記録')));
     assert.ok(!missing.lines.some((line) => line.includes('壊れています')));
 
@@ -66,7 +112,7 @@ test('install-ref の未記録と破損を区別し、破損時は --force の�
     };
     await writeCacheFixture(env, { schema: 1, feed, dismissed: {} });
     const broken = collectLogs();
-    await runUpdateCommand([], { log: broken.log, env });
+    await runUpdateCommand([], { log: broken.log, env, fetchImpl: OFFLINE_FETCH });
     assert.ok(broken.lines.some((line) => line.includes('本体版を判定できません')));
     assert.ok(broken.lines.some((line) => line.includes('.akari-install-ref') && line.includes('壊れています')));
     assert.ok(broken.lines.some((line) => line.includes('akari update --force')));
@@ -77,6 +123,7 @@ test('install-ref の未記録と破損を区別し、破損時は --force の�
     const repaired = await runUpdateCommand(['--force'], {
       env,
       log: () => {},
+      fetchImpl: OFFLINE_FETCH,
       launcherRoot: '/outside/managed/app',
       applySelfUpdate: ({ feed: appliedFeed }) => {
         applied = true;
@@ -93,7 +140,7 @@ test('akari update: 新版があれば現在版・最新版・リリースノー
   await withScratchHome(async (env) => {
     await writeCacheFixture(env, { schema: 1, fetched_at: 't0', feed: VALID_FEED, dismissed: {} });
     const { log, lines } = collectLogs();
-    await runUpdateCommand([], { log, env, currentVersion: '0.1.0' });
+    await runUpdateCommand([], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH });
 
     assert.ok(lines.some((line) => line === '現在のバージョン: v0.1.0'));
     assert.ok(lines.some((line) => line === '最新バージョン: v0.2.0（プレリリース）'));
@@ -109,7 +156,7 @@ test('akari update: tarball URL が無ければ npm i -g akari-video@latest に�
     const feedWithoutTarball = { ...VALID_FEED, components: { cli: { version: '0.2.0' } } };
     await writeCacheFixture(env, { schema: 1, feed: feedWithoutTarball, dismissed: {} });
     const { log, lines } = collectLogs();
-    await runUpdateCommand([], { log, env, currentVersion: '0.1.0' });
+    await runUpdateCommand([], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH });
     assert.ok(lines.some((line) => line.includes('npm i -g akari-video@latest')));
   });
 });
@@ -118,7 +165,7 @@ test('akari update: 最新版が現在版以下なら「最新です」だけ表
   await withScratchHome(async (env) => {
     await writeCacheFixture(env, { schema: 1, feed: { ...VALID_FEED, product: '0.1.0' }, dismissed: {} });
     const { log, lines } = collectLogs();
-    await runUpdateCommand([], { log, env, currentVersion: '0.1.0' });
+    await runUpdateCommand([], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH });
     assert.ok(lines.some((line) => line.includes('最新です')));
     assert.ok(!lines.some((line) => line.includes('npm i -g')));
   });
@@ -128,7 +175,7 @@ test('akari update --dismiss: dismissed を記録し、以後の checkForUpdateS
   await withScratchHome(async (env) => {
     await writeCacheFixture(env, { schema: 1, feed: VALID_FEED, dismissed: {} });
     const { log, lines } = collectLogs();
-    await runUpdateCommand(['--dismiss'], { log, env, currentVersion: '0.1.0' });
+    await runUpdateCommand(['--dismiss'], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH });
 
     assert.ok(lines.some((line) => line.includes('この版（v0.2.0）の通知は今後表示しません')));
 
@@ -140,7 +187,7 @@ test('akari update --dismiss: dismissed を記録し、以後の checkForUpdateS
 test('akari update --dismiss: フィード未取得のときは dismiss 対象が無く、何も記録しない', async () => {
   await withScratchHome(async (env) => {
     const { log } = collectLogs();
-    await runUpdateCommand(['--dismiss'], { log, env, currentVersion: '0.1.0' });
+    await runUpdateCommand(['--dismiss'], { log, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH });
     await assert.rejects(readFile(resolveCachePath(env), 'utf8'));
   });
 });
@@ -186,6 +233,7 @@ test('install-ref 取り残し回帰: 更新必要判定・数字表示・--forc
     const updated = await runUpdateCommand([], {
       env,
       log: first.log,
+      fetchImpl: OFFLINE_FETCH,
       launcherRoot: '/outside/managed/app',
       applySelfUpdate: applyFixture
     });
@@ -199,6 +247,7 @@ test('install-ref 取り残し回帰: 更新必要判定・数字表示・--forc
     const reinstalled = await runUpdateCommand(['--force'], {
       env,
       log: forced.log,
+      fetchImpl: OFFLINE_FETCH,
       launcherRoot: '/outside/managed/app',
       applySelfUpdate: applyFixture
     });
@@ -222,6 +271,7 @@ test('akari update --force: 現在の本体版からフィードの入れ替え�
     await runUpdateCommand(['--force'], {
       env,
       log,
+      fetchImpl: OFFLINE_FETCH,
       launcherRoot: '/outside/managed/app',
       applySelfUpdate: () => ({ exitCode: 0, applied: true })
     });
@@ -229,7 +279,7 @@ test('akari update --force: 現在の本体版からフィードの入れ替え�
   });
 });
 
-test('akari update --force: キャッシュ未取得ならフィードを同期取得してから再導入する', async () => {
+test('akari update --force: キャッシュ未取得でもフィードを同期取得してから再導入する', async () => {
   await withScratchHome(async (env) => {
     await mkdir(join(env.AKARI_HOME, 'app'), { recursive: true });
     await writeFile(resolveInstallRefPath(env), 'v0.1.11\n', 'utf8');

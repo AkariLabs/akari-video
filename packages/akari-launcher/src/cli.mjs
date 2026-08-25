@@ -6,7 +6,7 @@ import { resolveLauncherAssets } from './repo-assets.mjs';
 import { detectProjectState } from './project-state.mjs';
 import { findClaudeExecutable, findOpencodeExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
-import { describeForceReinstall, describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
+import { describeForceReinstall, describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCacheFallback, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
 import { resolveEffectiveProjectRoot } from './first-run.mjs';
 import { maybeShowAssetIntroNotice } from './sounds-setup.mjs';
 import {
@@ -188,8 +188,8 @@ function defaultSpawnOpencode(opencodePath, args, projectRoot) {
  * 自己更新を試みず、キャッシュに載っている最新版の通知を今後出さないよう記録するだけ
  * （既存挙動を維持）。`--force` は同じ版の本体も再導入し、`--rollback` は直前 1 世代
  * （`~/.akari/app-previous/`）へ戻す。
- * 通常時にネットワークへ触れるのは自己更新の DL 区間のみ。`--force` だけはキャッシュが
- * 未取得なら、復旧経路を塞がないためフィードの同期取得を 1 回試す。
+ * `--dismiss` / `--rollback` 以外の明示 update は、キャッシュ TTL に関係なく
+ * フィードの同期取得を 1 回試す。取得失敗時だけ既存キャッシュへフォールバックする。
  */
 export async function runUpdateCommand(args, options = {}) {
   const log = options.log ?? ((line) => console.log(line));
@@ -201,6 +201,7 @@ export async function runUpdateCommand(args, options = {}) {
   const dismissRequested = args.includes('--dismiss');
   const rollbackRequested = args.includes('--rollback');
   const forceRequested = args.includes('--force');
+  let usingCachedFeed = false;
 
   if (rollbackRequested) {
     return (options.rollbackSelfUpdate ?? rollbackSelfUpdate)({ env, log });
@@ -219,9 +220,12 @@ export async function runUpdateCommand(args, options = {}) {
     return { exitCode: 0 };
   }
 
-  if (forceRequested && !cache?.feed) {
-    await (options.refreshUpdateFeed ?? refreshUpdateFeed)({ env, fetchImpl: options.fetchImpl });
-    cache = readCacheSync(cachePath);
+  const refreshed = await (options.refreshUpdateFeed ?? refreshUpdateFeed)({ env, fetchImpl: options.fetchImpl });
+  if (isValidFeedShape(refreshed?.feed)) {
+    cache = refreshed;
+  } else {
+    cache = readCacheSync(cachePath) ?? cache;
+    usingCachedFeed = isValidFeedShape(cache?.feed);
   }
 
   const feed = cache?.feed;
@@ -234,12 +238,15 @@ export async function runUpdateCommand(args, options = {}) {
     && (hasManagedApp || (options.isRunningFromAppDir ?? isRunningFromAppDir)({ env, launcherRoot: options.launcherRoot }));
 
   if (!selfUpdateEligible) {
-    for (const line of describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed: false })) {
+    for (const line of describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed: false, usingCachedFeed })) {
       log(line);
     }
     return { exitCode: 0 };
   }
 
+  if (usingCachedFeed) {
+    log(describeUpdateCacheFallback(cache));
+  }
   for (const line of describeInstalledVersions(versionInfo)) {
     log(line);
   }
