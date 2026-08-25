@@ -1,0 +1,22 @@
+{
+  "name": "@akari-video/matte-rvm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Robust Video Matting model deployment and raw BGRA inference helper.",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "scripts": {
+    "postinstall": "node scripts/fetch-models.mjs",
+    "fetch:resnet50": "node scripts/fetch-models.mjs --model resnet50",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "onnxruntime-node": "1.29.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

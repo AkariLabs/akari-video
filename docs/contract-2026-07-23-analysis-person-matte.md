@@ -57,7 +57,7 @@
     "person_matte": {                        // null（未生成）/ string（旧形）も有効
       "path": "matte/person-matte.webm",     // 必須。VP9 alpha WebM への相対 or 絶対パス
       "fps": 24,                             // 必須。マット動画の fps（元素材と異なってよい）
-      "quality": "balanced",                 // 任意。fast / balanced / accurate を例示（enum 強制はしない）
+      "quality": "balanced",                 // 任意。fast / balanced / accurate / best を例示（enum 強制はしない）
       "generated_at": "2026-07-23T01:33:30.069Z",  // 任意。ISO8601
       "tool": "vision-person-segmentation"   // 任意。生成手段の記録
     }
@@ -72,7 +72,7 @@
 | `tracks.person_matte` | object \| string \| null | **必須（キー）** | — | `null` = 未生成。string = 旧形（`{path}` の糖衣・非推奨） |
 | `person_matte.path` | string | **必須** | — | マット動画へのパス。相対パスは **analysis.json の所在ディレクトリ**基準、区切りは `/`。実体は VP9 alpha WebM（§3） |
 | `person_matte.fps` | number | **必須** | — | マット動画の fps。0 より大きい。**元素材の fps と一致しなくてよい**（§4 の時刻対応は fps に依存しない） |
-| `person_matte.quality` | string | 否 | — | 生成品質。`fast` / `balanced` / `accurate` を例示。**enum 強制はしない** |
+| `person_matte.quality` | string | 否 | — | 生成品質。`fast` / `balanced` / `accurate` / `best` を例示。**enum 強制はしない** |
 | `person_matte.generated_at` | string | 否 | — | 生成時刻（ISO8601） |
 | `person_matte.tool` | string | 否 | — | 生成手段の記録。`vision-person-segmentation` を例示 |
 
@@ -170,6 +170,23 @@ HEVC alpha MOV は「Apple 系ツールへの受け渡しが要るとき」の�
 
 quality を上げると Vision の側が伸びる（`accurate` は 135ms/frame・peak 638MB）。
 `fast` は輪郭が階段状になり本番品質に達しないため、当たり付け専用とする。
+
+| quality | engine | 用途・実測 |
+|---|---|---|
+| `fast` | Vision | 当たり付け専用。256x192 のマット |
+| `balanced`（既定） | Vision | 通常の本番用途。512x384 のマット |
+| `accurate` | Vision | 寄りカットの仕上げ。2016x1512 のマット |
+| `best` | RVM mobilenetv3 | 髪の毛レベルの細部が必要なときだけ明示指定。CPU 実測 **約 178〜289 ms/frame** |
+| `best --model resnet50` | RVM resnet50 | 処理時間をさらに許容できる場合のこだわり指定 |
+
+Mac では `fast` / `balanced` / `accurate` に Vision、`best` に RVM を使う。Windows では Vision が
+利用できないため、将来は全品質段を RVM に接続する予定である（Windows 接続は別タスク）。
+
+### 6.1 RVM の ExecutionProvider 規律
+
+RVM は **CPU のみ**で実行する。較正ではアクセラレーション用 EP が CPU と異なるマットを出し、
+二値マスク IoU が 0.8057 まで崩れた。将来別の EP を追加するときは、採用候補と CPU の出力一致を
+同一 raw BGRA 入力で測り、**IoU ≈ 1.0 を実測してから**有効化することを受け入れ条件とする。
 
 手順は `skills/analyze-footage/person-matte.md`（`bin/person-matte/` のヘルパー）に置く。
 

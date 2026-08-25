@@ -13,7 +13,8 @@
 // 使い方:
 //   node person-matte.mjs --check
 //   node person-matte.mjs --input <video> --out <matte.webm>
-//                         [--quality fast|balanced|accurate] [--fps 24] [--decode-width 1280]
+//                         [--quality fast|balanced|accurate|best]
+//                         [--model mobilenetv3|resnet50] [--fps 24] [--decode-width 1280]
 //
 // 出力は stdout の 1 行 JSON。成功時 `ok: true` と実測値、失敗時 `ok: false` と `reason`。
 // 外部 npm 依存ゼロ・ネットワーク禁止（edit-lint と同じ規律）。
@@ -25,18 +26,24 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { findAlphaModeTag } from "./alpha-tag.mjs";
+import { DEFAULT_RVM_MODEL, resolveRvmModel } from "../../../../packages/matte-rvm/src/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const helperSource = path.join(scriptDir, "person-matte-helper.swift");
 const defaultHelperBin = path.join(scriptDir, "person-matte-helper");
+const rvmHelper = fileURLToPath(
+  new URL("../../../../packages/matte-rvm/bin/rvm-helper.mjs", import.meta.url),
+);
 
 // スパイク実測（2026-07-23）で確定した既定値。入力解像度は Vision の速度にほぼ無関係
 // （quality ごとに内部で固定リサイズされる）ため、デコード幅は 1280 で統一する。
 const DEFAULT_DECODE_WIDTH = 1280;
 const DEFAULT_FPS = 24;
 const DEFAULT_QUALITY = "balanced";
-const QUALITIES = ["fast", "balanced", "accurate"];
+const QUALITIES = ["fast", "balanced", "accurate", "best"];
+const RVM_MODELS = ["mobilenetv3", "resnet50"];
 const TOOL_ID = "vision-person-segmentation";
+const RVM_TOOL_ID = "rvm-person-matting";
 
 function printJson(value) {
   process.stdout.write(`${JSON.stringify(value)}\n`);
@@ -99,6 +106,8 @@ function parseArguments(argv) {
     fps: DEFAULT_FPS,
     decodeWidth: DEFAULT_DECODE_WIDTH,
     helperBin: defaultHelperBin,
+    model: DEFAULT_RVM_MODEL,
+    modelExplicit: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -122,6 +131,10 @@ function parseArguments(argv) {
       case "--quality":
         result.quality = value;
         break;
+      case "--model":
+        result.model = value;
+        result.modelExplicit = true;
+        break;
       case "--fps":
         result.fps = Number(value);
         break;
@@ -134,6 +147,12 @@ function parseArguments(argv) {
   }
   if (!QUALITIES.includes(result.quality)) {
     throw new Error(`--quality は ${QUALITIES.join(" / ")} のいずれかです`);
+  }
+  if (!RVM_MODELS.includes(result.model)) {
+    throw new Error(`--model は ${RVM_MODELS.join(" / ")} のいずれかです`);
+  }
+  if (result.modelExplicit && result.quality !== "best") {
+    throw new Error("--model は --quality best のときだけ指定できます");
   }
   if (!Number.isFinite(result.fps) || result.fps <= 0 || result.fps > 240) {
     throw new Error("--fps は 0 より大きく 240 以下の数値です");
@@ -251,17 +270,31 @@ async function generate(options) {
     ],
     ["ignore", "pipe", "pipe"],
   );
-  const helper = stage(
-    "segment",
-    options.helperBin,
-    [
-      "--width", String(size.width),
-      "--height", String(size.height),
-      "--quality", options.quality,
-      "--metrics", metricsPath,
-    ],
-    ["pipe", "pipe", "pipe"],
-  );
+  const helper = options.quality === "best"
+    ? stage(
+      "segment",
+      process.execPath,
+      [
+        rvmHelper,
+        "--width", String(size.width),
+        "--height", String(size.height),
+        "--model", options.modelPath,
+        "--metrics", metricsPath,
+        "--total-frames", String(source.duration ? Math.round(source.duration * options.fps) : 0),
+      ],
+      ["pipe", "pipe", "pipe"],
+    )
+    : stage(
+      "segment",
+      options.helperBin,
+      [
+        "--width", String(size.width),
+        "--height", String(size.height),
+        "--quality", options.quality,
+        "--metrics", metricsPath,
+      ],
+      ["pipe", "pipe", "pipe"],
+    );
   const encoder = stage(
     "encode",
     "ffmpeg",
@@ -289,6 +322,9 @@ async function generate(options) {
   }
   decoder.child.stdout?.pipe(helper.child.stdin);
   helper.child.stdout?.pipe(encoder.child.stdin);
+  if (options.quality === "best") {
+    helper.child.stderr?.on("data", (chunk) => process.stderr.write(chunk));
+  }
 
   const startedAt = Date.now();
   const results = await Promise.all([decoder.exited, helper.exited, encoder.exited]);
@@ -318,16 +354,19 @@ async function generate(options) {
   }
 
   const verified = verifyOutput(options.out);
+  const engine = options.quality === "best" ? "rvm" : "vision";
   return {
     ok: true,
     path: options.out,
+    engine,
+    ...(engine === "rvm" ? { model: options.model } : {}),
     // analysis.json へ貼る形。path は analysis.json のディレクトリ基準へ書き換えること。
     person_matte: {
       path: options.out,
       fps: options.fps,
       quality: options.quality,
       generated_at: new Date().toISOString(),
-      tool: TOOL_ID,
+      tool: engine === "rvm" ? RVM_TOOL_ID : TOOL_ID,
     },
     source: { path: options.input, ...source },
     width: size.width,
@@ -336,7 +375,9 @@ async function generate(options) {
     bytes: fs.statSync(options.out).size,
     elapsed_seconds: elapsedSeconds,
     realtime_ratio: source.duration ? elapsedSeconds / source.duration : null,
-    vision_ms_per_frame: metrics.vision_ms_per_frame,
+    ...(engine === "rvm"
+      ? { rvm_ms_per_frame: metrics.ms_per_frame }
+      : { vision_ms_per_frame: metrics.vision_ms_per_frame }),
     mask_size: { width: metrics.mask_width, height: metrics.mask_height },
     alpha_transparent_ratio: metrics.alpha_transparent_ratio,
     alpha_partial_ratio: metrics.alpha_partial_ratio,
@@ -387,7 +428,7 @@ async function main() {
 
   const availability = checkAvailability();
   if (options.check) {
-    printJson(availability);
+    printJson({ ...availability, rvm_model: resolveRvmModel(DEFAULT_RVM_MODEL) });
     return;
   }
   if (!options.input || !options.out) {
@@ -402,11 +443,24 @@ async function main() {
   }
 
   try {
-    const buildError = buildHelper(options.helperBin);
-    if (buildError) {
-      printJson({ ok: false, reason: `swiftc build failed: ${buildError}` });
-      process.exitCode = 1;
-      return;
+    if (options.quality === "best") {
+      const resolved = resolveRvmModel(options.model);
+      if (resolved.missing) {
+        printJson({
+          ok: false,
+          reason: `RVM model is not installed: ${resolved.path}. ${resolved.fetchHint}`,
+        });
+        process.exitCode = 1;
+        return;
+      }
+      options.modelPath = resolved.path;
+    } else {
+      const buildError = buildHelper(options.helperBin);
+      if (buildError) {
+        printJson({ ok: false, reason: `swiftc build failed: ${buildError}` });
+        process.exitCode = 1;
+        return;
+      }
     }
     printJson(await generate(options));
   } catch (error) {
@@ -415,4 +469,22 @@ async function main() {
   }
 }
 
-await main();
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return fs.realpathSync(fileURLToPath(import.meta.url)) === fs.realpathSync(path.resolve(process.argv[1]));
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) await main();
+
+export {
+  DEFAULT_DECODE_WIDTH,
+  DEFAULT_FPS,
+  DEFAULT_QUALITY,
+  QUALITIES,
+  RVM_MODELS,
+  parseArguments,
+};
