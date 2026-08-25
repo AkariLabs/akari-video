@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseEdit = parseEdit;
+const transition_vocabulary_1 = require("../transition-vocabulary");
 const LAYER_BLEND_MODES = [
     'normal', 'screen', 'multiply', 'add', 'difference',
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
@@ -78,16 +79,18 @@ function parseEdit(source) {
                 let transitionOut;
                 if (rawCut.transition_out !== undefined && rawCut.transition_out !== null) {
                     const transition = rawCut.transition_out;
-                    const validType = transition?.type === 'dissolve'
-                        || transition?.type === 'fade-black'
-                        || transition?.type === 'fade-white'
-                        || transition?.type === 'reveal-down'
-                        || transition?.type === 'reveal-up';
+                    // 正準語彙に加え、手編集で先行した非空文字列も読み取りだけは保持する。
+                    // 書き込み API は isTransitionType で閉じたまま、preview の汎用フォールバックへ渡す。
+                    const validType = (0, transition_vocabulary_1.isTransitionType)(transition?.type)
+                        || (typeof transition?.type === 'string' && transition.type.trim().length > 0);
                     const validDuration = typeof transition?.duration === 'number'
                         && Number.isFinite(transition.duration) && transition.duration > 0;
                     if (transition && typeof transition === 'object' && !Array.isArray(transition)
                         && validType && validDuration) {
-                        transitionOut = { type: transition.type, duration: transition.duration };
+                        transitionOut = {
+                            type: transition.type,
+                            duration: transition.duration
+                        };
                     }
                     else {
                         warnings.push(`${index + 1} 番目のクリップの transition_out が不正なため無視します。`);

@@ -1,5 +1,6 @@
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
+import type { ReadableTransitionType } from '@akari-video/edit-store';
 import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
 
 export interface TimelineCutSelection {
@@ -17,7 +18,7 @@ export interface TimelineCutSelection {
     opacity?: number;
     speed?: number;
     transitionOut?: {
-        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        type: ReadableTransitionType;
         duration: number;
     };
     track?: number;

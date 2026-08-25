@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTimelineMap, outputToSource, transitionProgressAt } from '../lib/timeline-map.js';
+import { TRANSITION_TYPE_IDS } from '../lib/transition-vocabulary.js';
 
 function approx(actual, expected, eps = 1e-9) {
   assert.ok(Math.abs(actual - expected) <= eps, `${actual} !~ ${expected}`);
@@ -55,8 +56,8 @@ test('トランジション窓は前後 2 cut・source 時刻・0→1 の進行�
   assert.equal(dissolve.transitionWindows[0].type, 'dissolve');
 });
 
-test('5 種すべてが同尺の transition window になり、明示 overlap は実尺へ clamp される', () => {
-  for (const type of ['dissolve', 'fade-black', 'fade-white', 'reveal-down', 'reveal-up']) {
+test('29 種すべてが同尺の transition window になり、明示 overlap は実尺へ clamp される', () => {
+  for (const type of TRANSITION_TYPE_IDS) {
     const map = buildTimelineMap([
       { in: 0, out: 4, at: 0, transitionOut: { type, duration: 1 } },
       { in: 10, out: 14, at: 3.4 }

@@ -19,6 +19,7 @@
       "incoming": {
         "display": "none",
         "opacity": 0,
+        "zIndex": "auto",
         "clipPath": "none",
         "currentTime": 2,
         "volume": 1,
@@ -39,6 +40,9 @@
             "display": "block",
             "visibility": "visible",
             "opacity": 1,
+            "transform": "matrix(1, 0, 0, 1, 0, -36)",
+            "height": 360,
+            "zIndex": "1",
             "currentTime": 1.1,
             "volume": 0.8999999999999999,
             "type": "reveal-up",
@@ -47,7 +51,8 @@
           "incoming": {
             "display": "block",
             "opacity": 1,
-            "clipPath": "inset(90% 0px 0px)",
+            "zIndex": "0",
+            "clipPath": "none",
             "currentTime": 2.1,
             "volume": 0.10000000000000009,
             "readyState": 1,
@@ -58,6 +63,20 @@
           "plate": {
             "opacity": 0,
             "background": "rgba(0, 0, 0, 0)"
+          },
+          "paint": {
+            "top": [
+              "preview-video",
+              "transition-video"
+            ],
+            "center": [
+              "preview-video",
+              "transition-video"
+            ],
+            "bottom": [
+              "preview-video",
+              "transition-video"
+            ]
           }
         },
         {
@@ -67,6 +86,9 @@
             "display": "block",
             "visibility": "visible",
             "opacity": 1,
+            "transform": "matrix(1, 0, 0, 1, 0, -180)",
+            "height": 360,
+            "zIndex": "1",
             "currentTime": 1.5,
             "volume": 0.5,
             "type": "reveal-up",
@@ -75,7 +97,8 @@
           "incoming": {
             "display": "block",
             "opacity": 1,
-            "clipPath": "inset(50% 0px 0px)",
+            "zIndex": "0",
+            "clipPath": "none",
             "currentTime": 2.5,
             "volume": 0.5,
             "readyState": 1,
@@ -86,6 +109,18 @@
           "plate": {
             "opacity": 0,
             "background": "rgba(0, 0, 0, 0)"
+          },
+          "paint": {
+            "top": [
+              "preview-video",
+              "transition-video"
+            ],
+            "center": [
+              "transition-video"
+            ],
+            "bottom": [
+              "transition-video"
+            ]
           }
         },
         {
@@ -95,6 +130,9 @@
             "display": "block",
             "visibility": "visible",
             "opacity": 1,
+            "transform": "matrix(1, 0, 0, 1, 0, -324)",
+            "height": 360,
+            "zIndex": "1",
             "currentTime": 1.9,
             "volume": 0.10000000000000009,
             "type": "reveal-up",
@@ -103,10 +141,11 @@
           "incoming": {
             "display": "block",
             "opacity": 1,
-            "clipPath": "inset(10% 0px 0px)",
+            "zIndex": "0",
+            "clipPath": "none",
             "currentTime": 2.9,
             "volume": 0.8999999999999999,
-            "readyState": 1,
+            "readyState": 4,
             "preloadedWindow": "1:2:1",
             "type": "reveal-up",
             "progress": "0.900"
@@ -114,6 +153,17 @@
           "plate": {
             "opacity": 0,
             "background": "rgba(0, 0, 0, 0)"
+          },
+          "paint": {
+            "top": [
+              "transition-video"
+            ],
+            "center": [
+              "transition-video"
+            ],
+            "bottom": [
+              "transition-video"
+            ]
           }
         }
       ]
@@ -128,6 +178,9 @@
           "display": "block",
           "visibility": "visible",
           "opacity": 1,
+          "transform": "none",
+          "height": 360,
+          "zIndex": "0",
           "currentTime": 3.1,
           "volume": 1,
           "type": "",
@@ -136,10 +189,11 @@
         "incoming": {
           "display": "none",
           "opacity": 0,
+          "zIndex": "0",
           "clipPath": "none",
           "currentTime": 2.9,
           "volume": 0.8999999999999999,
-          "readyState": 1,
+          "readyState": 4,
           "preloadedWindow": "1:2:1",
           "type": "",
           "progress": ""
@@ -147,6 +201,17 @@
         "plate": {
           "opacity": 0,
           "background": "rgba(0, 0, 0, 0)"
+        },
+        "paint": {
+          "top": [
+            "preview-video"
+          ],
+          "center": [
+            "preview-video"
+          ],
+          "bottom": [
+            "preview-video"
+          ]
         }
       },
       "expectedSourceTime": 3.1

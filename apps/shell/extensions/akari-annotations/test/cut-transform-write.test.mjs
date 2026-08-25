@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import test from "node:test";
 
 import {
@@ -6,6 +7,10 @@ import {
   updateCutOpacityInSource,
   updateCutTransformInSource,
 } from "../lib/common/edit-store.js";
+
+const { TRANSITION_TYPE_IDS } = createRequire(import.meta.url)(
+  "../../../../../packages/edit-store/lib/index.js"
+);
 
 const source = `{
   "cuts": [
@@ -57,8 +62,8 @@ test("setCutTransitionOutInSource replaces an existing transition_out wholesale"
   assert.deepEqual(JSON.parse(replaced).cuts[0].transition_out, { type: "fade-black", duration: 1.2 });
 });
 
-test("setCutTransitionOutInSource accepts reveal-down / reveal-up", () => {
-  for (const type of ["reveal-down", "reveal-up"]) {
+test("setCutTransitionOutInSource accepts all canonical transition types", () => {
+  for (const type of TRANSITION_TYPE_IDS) {
     const updated = setCutTransitionOutInSource(source, 0, { type, duration: 0.75 });
     assert.deepEqual(JSON.parse(updated).cuts[0].transition_out, { type, duration: 0.75 });
   }

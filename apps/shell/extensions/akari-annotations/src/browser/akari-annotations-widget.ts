@@ -8,9 +8,13 @@ import {
     areCutsAdjacent,
     cutOverlapFrames,
     findCrossTrackLayerEvacuations,
+    isTransitionType,
     setV2TransitionOutWithHandleInSource,
+    TRANSITION_CATEGORIES,
+    TRANSITION_VOCABULARY,
     unsupportedTrackTransitionTarget
 } from '@akari-video/edit-store';
+import type { TransitionType } from '@akari-video/edit-store';
 import {
     AkariAnnotationsService,
     Annotation,
@@ -219,14 +223,12 @@ const ZERO_OVERLAP_TRANSITION_MESSAGE = 'このトランジションは効きま
 const IMAGE_CUT_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
 const TRANSITION_MIN_DURATION_SECONDS = 0.1;
 const TRANSITION_MAX_DURATION_SECONDS = 3;
-type TransitionType = 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
-const TRANSITION_TYPE_OPTIONS: ReadonlyArray<{ type: TransitionType; label: string; glyph: string }> = [
-    { type: 'dissolve', label: 'ディゾルブ', glyph: 'D' },
-    { type: 'fade-black', label: '黒フェード', glyph: 'B' },
-    { type: 'fade-white', label: '白フェード', glyph: 'W' },
-    { type: 'reveal-down', label: '上からリビール', glyph: '↓' },
-    { type: 'reveal-up', label: '下からリビール', glyph: '↑' }
-];
+const TRANSITION_TYPE_OPTIONS = TRANSITION_VOCABULARY.map(entry => ({
+    type: entry.id,
+    label: entry.labelJa,
+    category: entry.category,
+    glyph: entry.glyph
+}));
 const BEAT_PROJECTION_EPSILON = 0.000001;
 /** タイムライン（出力秒軸）上の1セグメント。cuts[].at / track を解決した結果。 */
 interface OutputSegment {
@@ -4715,12 +4717,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
-    /** ㉔ 境界バッジのクリックで開くポップオーバー: type（3択）・duration スライダー・削除。 */
+    /** ㉔ 境界バッジのクリックで開くポップオーバー: type（カテゴリ別）・duration・削除。 */
     protected openTransitionPopup(anchorX: number, anchorY: number, earlierIndex: number, laterIndex: number): void {
         this.closeAnnotationPopup();
         const popup = document.createElement('div');
         popup.className = 'akari-annotations-transition-popover';
-        const popoverWidth = 220;
+        const popoverWidth = 440;
         const margin = 8;
         const left = Math.max(margin, Math.min(anchorX - popoverWidth / 2, window.innerWidth - popoverWidth - margin));
         const top = anchorY + 12;
@@ -4729,7 +4731,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             display: 'flex', flexDirection: 'column', gap: '6px', width: `${popoverWidth}px`,
             padding: '8px', borderRadius: '6px', border: '1px solid var(--theia-widget-border)',
             background: 'var(--theia-menu-background)', boxShadow: '0 3px 12px rgba(0,0,0,.35)',
-            fontSize: '11px'
+            fontSize: '11px', maxHeight: `calc(100vh - ${top + margin}px)`, overflowY: 'auto'
         });
         const render = (): void => {
             popup.replaceChildren();
@@ -4751,26 +4753,38 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 popup.appendChild(warning);
             }
-            const typeRow = document.createElement('div');
-            Object.assign(typeRow.style, { display: 'flex', gap: '4px' });
-            for (const option of TRANSITION_TYPE_OPTIONS) {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = `theia-button ${current?.type === option.type ? 'main' : 'secondary'}`;
-                button.textContent = option.label;
-                button.style.flex = '1';
-                button.style.padding = '3px 4px';
-                button.disabled = unsupportedTrack !== undefined || unsupportedAdjacency !== undefined;
-                button.setAttribute('aria-pressed', String(current?.type === option.type));
-                button.addEventListener('click', () => {
-                    void this.applyTransitionOut(earlierIndex, {
-                        type: option.type,
-                        duration: current?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS
-                    }, { autoHandle: true }).then(render);
+            for (const category of TRANSITION_CATEGORIES) {
+                const categorySection = document.createElement('section');
+                categorySection.dataset.akariTransitionCategory = category;
+                const categoryHeading = document.createElement('div');
+                categoryHeading.textContent = category;
+                categoryHeading.style.opacity = '.72';
+                categoryHeading.style.marginTop = '2px';
+                categorySection.appendChild(categoryHeading);
+                const typeGrid = document.createElement('div');
+                Object.assign(typeGrid.style, {
+                    display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '4px'
                 });
-                typeRow.appendChild(button);
+                for (const option of TRANSITION_TYPE_OPTIONS.filter(candidate => candidate.category === category)) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = `theia-button ${current?.type === option.type ? 'main' : 'secondary'}`;
+                    button.textContent = option.label;
+                    button.style.padding = '3px 4px';
+                    button.disabled = unsupportedTrack !== undefined || unsupportedAdjacency !== undefined;
+                    button.dataset.akariTransitionType = option.type;
+                    button.setAttribute('aria-pressed', String(current?.type === option.type));
+                    button.addEventListener('click', () => {
+                        void this.applyTransitionOut(earlierIndex, {
+                            type: option.type,
+                            duration: current?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS
+                        }, { autoHandle: true }).then(render);
+                    });
+                    typeGrid.appendChild(button);
+                }
+                categorySection.appendChild(typeGrid);
+                popup.appendChild(categorySection);
             }
-            popup.appendChild(typeRow);
             if (current) {
                 const sliderRow = document.createElement('div');
                 Object.assign(sliderRow.style, { display: 'flex', alignItems: 'center', gap: '6px' });
@@ -4780,6 +4794,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 slider.max = String(TRANSITION_MAX_DURATION_SECONDS);
                 slider.step = '0.05';
                 slider.value = String(current.duration);
+                const currentType = isTransitionType(current.type) ? current.type : undefined;
+                slider.disabled = currentType === undefined;
                 slider.setAttribute('aria-label', 'トランジションの尺');
                 slider.style.flex = '1';
                 const durationLabel = document.createElement('span');
@@ -4789,8 +4805,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     durationLabel.textContent = `${Number(slider.value).toFixed(2)}s`;
                 });
                 slider.addEventListener('change', () => {
+                    if (!currentType) return;
                     void this.applyTransitionOut(earlierIndex, {
-                        type: current.type, duration: Number(slider.value)
+                        type: currentType, duration: Number(slider.value)
                     }).then(render);
                 });
                 sliderRow.append(slider, durationLabel);

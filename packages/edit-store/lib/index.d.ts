@@ -16,5 +16,6 @@ export * from './retime';
 export * from './track-order';
 export * from './track-transition-compatibility';
 export * from './cut-adjacency';
+export * from './transition-vocabulary';
 export { parseEdit } from './migrate/legacy-parse';
 export { LegacyEditVersionError } from './migrate/error';

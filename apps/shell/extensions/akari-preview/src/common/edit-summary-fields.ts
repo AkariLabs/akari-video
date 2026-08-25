@@ -16,6 +16,7 @@
 
 import { CutFraming } from './cut-framing-visual';
 import { CutFreeze } from './cut-freeze-visual';
+import { isTransitionType, type ReadableTransitionType } from '@akari-video/edit-store';
 
 export interface OverlayTransformLike {
     x?: number;
@@ -74,7 +75,7 @@ export interface LayerSummaryBaseResult {
 }
 
 export interface CutSummaryTransitionOut {
-    type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+    type: ReadableTransitionType;
     duration: number;
 }
 
@@ -326,15 +327,14 @@ export function buildCutSummaryFields(
     let transitionOut: CutSummaryTransitionOut | undefined;
     if (record?.transition_out !== undefined && record.transition_out !== null) {
         const transition = record.transition_out as { type?: unknown; duration?: unknown };
-        const validType = transition?.type === 'dissolve'
-            || transition?.type === 'fade-black'
-            || transition?.type === 'fade-white'
-            || transition?.type === 'reveal-down'
-            || transition?.type === 'reveal-up';
+        // 正準語彙は isTransitionType で受理する。さらに非空文字列も defensive に通し、
+        // schema より先に新種別が届いた場合は preview の汎用フォールバックへ渡す。
+        const validType = isTransitionType(transition?.type)
+            || (typeof transition?.type === 'string' && transition.type.trim().length > 0);
         const validDuration = typeof transition?.duration === 'number'
             && Number.isFinite(transition.duration) && transition.duration > 0;
         if (isPlainObject(transition) && validType && validDuration) {
-            transitionOut = { type: transition.type as CutSummaryTransitionOut['type'], duration: transition.duration as number };
+            transitionOut = { type: transition.type as ReadableTransitionType, duration: transition.duration as number };
         } else {
             warn('[akari-preview] cut.transition_out を無視しました（type/duration 不正）', transition);
         }

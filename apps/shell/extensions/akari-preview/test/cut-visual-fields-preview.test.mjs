@@ -136,8 +136,8 @@ test('cut keyframes are evaluated from output-local time on both playback ticks 
 test('plain cut framing and transition window rails remain as explicit fallbacks', () => {
     assert.match(source, /if \(segment && cutHasLayerStyleVisual\(segment\)\)/);
     assert.match(source, /const incomingFraming = computeCutFramingVisualFn\(/);
-    assert.match(source, /const visual = computeTransitionVisualFn\(window\.type, progress\)/);
-    assert.match(source, /transitionVideo\.style\.clipPath = visual\.incomingClipPath/);
+    assert.match(source, /const visual = computeTransitionVisualFn\(/);
+    assert.match(source, /incomingElement\.style\.clipPath = visual\.incomingClipPath/);
 });
 
 test('shared layer-style layout pins the Electron DOM crop/perspective values and preserves the no-crop layer baseline', () => {
