@@ -1,7 +1,7 @@
 import URI from '@theia/core/lib/common/uri';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
-import { DisposableCollection } from '@theia/core/lib/common/disposable';
+import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
 import {
     ApplicationShell,
     FrontendApplicationContribution,
@@ -405,6 +405,10 @@ interface PreviewWidgetMarker extends WebviewWidget {
 // akari-transcript の AKARI_TRANSCRIPT_SEEK_REQUESTED.id（akari-transcript-commands.ts）とミラー。
 // cross-package import を避けるため文字列 ID のみで CommandRegistry.registerHandler に後付け登録する。
 const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
+// プレビュー全画面（togglePreviewFullscreen）で widget.node に付ける CSS クラスと、
+// そのスタイルを注入する <style> 要素の id。
+const PREVIEW_FULLSCREEN_CLASS = 'akari-preview-fullscreen';
+const PREVIEW_FULLSCREEN_STYLE_ID = 'akari-preview-fullscreen-style';
 // akari-annotations 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 // raw preview は editUri を持たないため、注釈パネルへ「現在フォーカス中の素材 URI + source 秒」を
@@ -1576,8 +1580,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isOpenOutputRequest(message)) {
                 void this.handleOpenOutputRequest(widget);
             }
-            if (message?.type === 'akari-preview-fullscreen-fallback') {
-                this.shell.toggleMaximized(widget);
+            if (message?.type === 'akari-preview-fullscreen-toggle') {
+                this.togglePreviewFullscreen(widget);
+            }
+            if (message?.type === 'akari-preview-fullscreen-exit') {
+                this.exitPreviewFullscreen();
+            }
+            if (message?.type === 'akari-preview-fullscreen-sync-request') {
+                widget.sendMessage({
+                    type: 'akari-preview-fullscreen-state',
+                    active: this.fullscreenPreviewWidget === widget
+                });
             }
             if (this.isPlaybackTickRequest(message)) {
                 this.forwardPlaybackTick(widget, message);
@@ -2197,7 +2210,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             assets,
             initialSeekTime,
             sourceUrlById,
-            hasSourceAudio
+            hasSourceAudio,
+            kind
         ));
     }
 
@@ -3432,6 +3446,94 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
     }
 
+    // プレビュー全画面（webview の ⛶ ボタン / Escape）。widget.node を position: fixed の
+    // オーバーレイとして最前面に広げる自前実装で、Theia の shell.toggleMaximized は使わない。
+    // 理由: (1) toggleMaximized はタブバーが残り「本当の全画面」にならない (2) 全画面中に
+    // タブの ✕ で widget が閉じられると解除経路が消えて戻れなくなる (3) DockPanel ごと
+    // maximizedElement へ再親付けするため webview iframe がリロードされ再生状態が飛ぶ。
+    // fixed オーバーレイは DOM 再親付けなし（iframe 継続）+ タブバーごと覆う + 破棄時に
+    // 必ず自動解除、で三点とも解消する。
+    protected fullscreenPreviewWidget?: PreviewWidgetMarker;
+    protected readonly toDisposeOnPreviewFullscreenExit = new DisposableCollection();
+
+    protected togglePreviewFullscreen(widget: PreviewWidgetMarker): void {
+        if (this.fullscreenPreviewWidget === widget) {
+            this.exitPreviewFullscreen();
+            return;
+        }
+        this.exitPreviewFullscreen();
+        this.enterPreviewFullscreen(widget);
+    }
+
+    protected enterPreviewFullscreen(widget: PreviewWidgetMarker): void {
+        // セカンダリウィンドウへ切り離されたプレビューでも効くよう、widget が実際に
+        // 属する document を基準にする（style 注入・Escape とも）。
+        const ownerDocument = widget.node.ownerDocument;
+        this.ensurePreviewFullscreenStyle(ownerDocument);
+        widget.node.classList.add(PREVIEW_FULLSCREEN_CLASS);
+        this.fullscreenPreviewWidget = widget;
+        // webview 内にフォーカスがあるときの Escape は webview 側のリスナーが
+        // akari-preview-fullscreen-exit で届ける。ここはホスト側にフォーカスが
+        // あるときの保険。isTrusted は合成イベント（オーバーレイ選択解除の
+        // synthetic Escape）での誤解除防止。
+        const onKeyDown = (event: KeyboardEvent): void => {
+            if (event.key !== 'Escape' || !event.isTrusted) {
+                return;
+            }
+            event.preventDefault();
+            event.stopPropagation();
+            this.exitPreviewFullscreen();
+        };
+        ownerDocument.addEventListener('keydown', onKeyDown, true);
+        this.toDisposeOnPreviewFullscreenExit.push(
+            Disposable.create(() => ownerDocument.removeEventListener('keydown', onKeyDown, true))
+        );
+        const onDisposed = (): void => this.exitPreviewFullscreen();
+        widget.disposed.connect(onDisposed);
+        this.toDisposeOnPreviewFullscreenExit.push(
+            Disposable.create(() => widget.disposed.disconnect(onDisposed))
+        );
+        widget.sendMessage({ type: 'akari-preview-fullscreen-state', active: true });
+    }
+
+    protected exitPreviewFullscreen(): void {
+        const widget = this.fullscreenPreviewWidget;
+        if (!widget) {
+            return;
+        }
+        this.fullscreenPreviewWidget = undefined;
+        this.toDisposeOnPreviewFullscreenExit.dispose();
+        widget.node.classList.remove(PREVIEW_FULLSCREEN_CLASS);
+        if (!widget.isDisposed) {
+            widget.sendMessage({ type: 'akari-preview-fullscreen-state', active: false });
+        }
+    }
+
+    // akari-theme の AkariButtonStyleContribution と同じ流儀（このリポの拡張ビルドは
+    // tsc -b のみで CSS アセットコピーが無いため、TS から <style> を注入する）。
+    protected ensurePreviewFullscreenStyle(ownerDocument: Document): void {
+        if (ownerDocument.getElementById(PREVIEW_FULLSCREEN_STYLE_ID)) {
+            return;
+        }
+        const style = ownerDocument.createElement('style');
+        style.id = PREVIEW_FULLSCREEN_STYLE_ID;
+        // !important は Lumino DockLayout が widget.node に書き込むインライン配置
+        // （position: absolute / top / left / width / height）へ勝つために必要。
+        style.textContent = `
+.${PREVIEW_FULLSCREEN_CLASS} {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    z-index: 2000;
+    background: #000;
+}`;
+        ownerDocument.head.appendChild(style);
+    }
+
     protected prepareHtml(
         videoUri: URI,
         videoSource: string,
@@ -3439,13 +3541,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         assets: OverlayRuntimeAssets,
         initialSeekTime?: number,
         sourceUrlById: Record<string, string> = {},
-        hasSourceAudio?: boolean
+        hasSourceAudio?: boolean,
+        kind: 'raw' | 'output' = 'output'
     ): string {
         const { width, height } = model.summary.output;
         // render-cut captions.mjs の既定とパリティ（stage は出力 px 論理空間）:
         // 縦長 = 出力幅 6% / 横長 = 38px。従来の height*0.05 は焼き込みよりも大きく表示される乖離だった。
         const captionFontSize = height > width ? Math.round(width * 0.06) : 38;
         const initialState = this.safeJson({
+            // raw = 素材単体プレビュー。出力キャンバス（summary.output）ではなく素材自身の
+            // 実寸法をステージ寸法にする（hostAdapterScript の raw 同期を参照）。
+            kind,
             summary: model.summary,
             captions: model.captions,
             emphasisWords: model.emphasisWords ?? [],
@@ -4133,19 +4239,24 @@ body { display: grid; place-items: center; padding: 32px; }
                     vscode.postMessage({ type: 'akari-preview-open-output-request' });
                 });
             }
+            // 全画面はホスト側（togglePreviewFullscreen）の固定オーバーレイ実装に一本化する。
+            // この webview の iframe（Theia webview / その内側の content iframe とも）は sandbox に
+            // allowfullscreen が無く Element.requestFullscreen() は常に reject するため、
+            // Fullscreen API はここでは使わない。旧実装はその失敗時に shell.toggleMaximized へ
+            // 落ちていたが、タブバーが残る + 全画面中にタブを閉じると解除不能になるバグがあった。
             window.akari.toggleFullscreen = () => {
-                if (document.fullscreenElement) {
-                    return document.exitFullscreen();
-                }
-                try {
-                    return Promise.resolve(document.documentElement.requestFullscreen()).catch(() => {
-                        vscode.postMessage({ type: 'akari-preview-fullscreen-fallback' });
-                    });
-                } catch (_error) {
-                    vscode.postMessage({ type: 'akari-preview-fullscreen-fallback' });
-                    return Promise.resolve();
-                }
+                vscode.postMessage({ type: 'akari-preview-fullscreen-toggle' });
+                return Promise.resolve();
             };
+            // Escape 解除経路（previewBootstrapScript は別 IIFE で vscode を持たないため window 越し）
+            window.akari.exitFullscreen = () => {
+                vscode.postMessage({ type: 'akari-preview-fullscreen-exit' });
+            };
+            // 全画面のまま setHTML 再描画（edit.json 変更など）されると webview 側の状態が
+            // 初期値 false に戻るため、起動時にホストへ現在状態を問い合わせる。応答
+            // （akari-preview-fullscreen-state）は非同期に届くので、後続の
+            // previewBootstrapScript がリスナーを張り終えた後に処理される。
+            vscode.postMessage({ type: 'akari-preview-fullscreen-sync-request' });
 
             const PENDING_RESPONSE_TYPES = {
                 'overlay-write': 'akari-preview-overlay-write-response',
@@ -4329,6 +4440,34 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.updateLayerLayout = updateStageScale;
             new ResizeObserver(updateStageScale).observe(wrapper);
             video.addEventListener('loadedmetadata', updateStageScale);
+            if (initial.kind === 'raw') {
+                // raw（素材単体）プレビューに出力キャンバスは無い。summary.output は
+                // EMPTY_SUMMARY の 1280x720 のままなので、そのまま使うと縦長素材の左右に
+                // 16:9 レターボックスの黒帯が出る（wrapper の aspect-ratio と
+                // computeOutputFrameRect の両方が output 寸法を参照するため）。素材の
+                // 実寸法が分かった時点で output を実寸法へ差し替え、wrapper 自体を
+                // ペインへ収まる素材アスペクトの矩形に張り直す。
+                const previewPane = document.querySelector('.preview-pane');
+                const syncRawStageToVideo = () => {
+                    if (!(video.videoWidth > 0) || !(video.videoHeight > 0)) return;
+                    output.width = video.videoWidth;
+                    output.height = video.videoHeight;
+                    const paneStyle = getComputedStyle(previewPane);
+                    const availWidth = previewPane.clientWidth
+                        - parseFloat(paneStyle.paddingLeft) - parseFloat(paneStyle.paddingRight);
+                    const availHeight = previewPane.clientHeight
+                        - parseFloat(paneStyle.paddingTop) - parseFloat(paneStyle.paddingBottom);
+                    const fit = fitCompositeRect(availWidth, availHeight, video.videoWidth, video.videoHeight);
+                    if (!(fit.width > 0) || !(fit.height > 0)) return;
+                    wrapper.style.aspectRatio = 'auto';
+                    wrapper.style.width = fit.width + 'px';
+                    wrapper.style.height = fit.height + 'px';
+                    updateStageScale();
+                };
+                new ResizeObserver(syncRawStageToVideo).observe(previewPane);
+                video.addEventListener('loadedmetadata', syncRawStageToVideo);
+                syncRawStageToVideo();
+            }
             updateStageScale();
         })();`;
     }
@@ -7736,13 +7875,33 @@ body { display: grid; place-items: center; padding: 32px; }
             fullscreenToggle.addEventListener('click', () => {
                 void window.akari.toggleFullscreen().catch(error => console.error('[akari-preview] fullscreen failed', error));
             });
-            document.addEventListener('fullscreenchange', () => {
-                const isFullscreen = Boolean(document.fullscreenElement);
-                fullscreenToggle.setAttribute('aria-pressed', String(isFullscreen));
-                fullscreenToggle.setAttribute('aria-label', isFullscreen ? '全画面解除' : '全画面');
-                fullscreenToggle.title = isFullscreen ? '全画面解除' : '全画面';
-                fullscreenToggle.innerHTML = isFullscreen ? restoreIcon : fullscreenIcon;
+            // 全画面状態の正本はホスト（akari-preview-fullscreen-state で通知される）。ボタン表示は
+            // その通知でだけ切り替える。旧実装の document.fullscreenchange はこの webview では
+            // 発火し得ない（sandbox に allowfullscreen が無い）ため廃止。
+            let hostFullscreenActive = false;
+            const applyHostFullscreenState = active => {
+                hostFullscreenActive = Boolean(active);
+                fullscreenToggle.setAttribute('aria-pressed', String(hostFullscreenActive));
+                fullscreenToggle.setAttribute('aria-label', hostFullscreenActive ? '全画面解除' : '全画面');
+                fullscreenToggle.title = hostFullscreenActive ? '全画面解除' : '全画面';
+                fullscreenToggle.innerHTML = hostFullscreenActive ? restoreIcon : fullscreenIcon;
+            };
+            window.addEventListener('message', event => {
+                const message = event.data;
+                if (message && message.type === 'akari-preview-fullscreen-state') {
+                    applyHostFullscreenState(message.active);
+                }
             });
+            // Escape で必ず元のレイアウトへ戻す。isTrusted 必須 — オーバーレイ選択解除が
+            // 合成 Escape（applyRequestedOverlaySelection の dispatchEvent）を window に流すため、
+            // それで全画面が解除されてしまうのを防ぐ。capture でオーバーレイ側の Escape 処理より
+            // 先に拾う（全画面解除を最優先にする）。
+            window.addEventListener('keydown', event => {
+                if (event.key !== 'Escape' || !event.isTrusted || !hostFullscreenActive) return;
+                event.preventDefault();
+                event.stopPropagation();
+                window.akari.exitFullscreen();
+            }, true);
             window.addEventListener('keydown', event => {
                 if ((event.code !== 'Space' && event.key !== ' ')
                     || isEditable(event.target)
