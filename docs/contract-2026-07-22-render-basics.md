@@ -113,6 +113,15 @@ perspective のレイヤー分割フォールバック — perspective は `crop
   外形を四隅の基準にし、rotate と非 normal blend は固定外形化による既存意味の変化を排除できない
   ため、この組み合わせだけは従来互換経路を維持する。
 
+- **主映像カット拡大・crop の固定キャンバス化（2026-08-25 追記）**: v2 主映像トラックから
+  gap-aware cuts へ変換された `transform.scale` / crop キーフレームにも、レイヤー経路と同じ
+  `layerFixedCanvasKeyframeSteps` を適用する。normal blend・perspective 非宣言・rotate=0（静的・
+  キーフレームとも）の場合に限り、素材ネイティブ寸法の 2 倍グリッドで補間し、最大 footprint の
+  固定透明キャンバスへ偶数座標で配置した後、Lanczos で実寸へ縮小する。これにより毎フレームの
+  可変 bitmap 寸法と中央 overlay の組み合わせを排除し、拡大後サイズの偶奇変化による ±1px 往復を
+  防ぐ。perspective・rotate・非 normal blend は従来互換経路を維持し、キーフレーム無しカットの
+  filter 文字列は変更しない。
+
 ## 5. macOS の字幕レンダ用 Chrome 起動（2026-08-24 追記）
 
 - macOS では `.app` 内の Chrome 実行ファイルを子プロセスとして直接起動しない。書き出し専用の
