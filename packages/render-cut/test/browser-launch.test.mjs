@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { access, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
+import { createServer } from "node:net";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import test from "node:test";
 
 import {
+  BrowserLaunchError,
   chromeAppBundlePath,
   launchBrowser,
   waitForDevToolsActivePort,
@@ -260,10 +262,307 @@ test("port timeout reports a Japanese user action and removes the failed profile
   }
 });
 
+test("cleanup failure cannot replace the original browser launch failure", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-launch-cleanup-failure-"));
+  const failureMarkerPath = join(root, ".browser-launch-failed");
+  const warnings = [];
+  try {
+    await assert.rejects(
+      launchBrowser({
+        puppeteer: {
+          async launch() {
+            return {
+              connected: true,
+              async close() { throw new Error("cleanup close failed"); },
+              wsEndpoint() { throw new Error("original endpoint inspection failed"); },
+              process() {
+                return {
+                  exitCode: null,
+                  signalCode: null,
+                  kill() { throw new Error("cleanup kill failed"); },
+                };
+              },
+            };
+          },
+        },
+        chromePath: "/opt/chrome",
+        profileParent: root,
+        timeoutMs: 100,
+        platform: "linux",
+        failureMarkerPath,
+        onWarning: (message) => warnings.push(message),
+        onError: () => {},
+      }),
+      (error) => error instanceof BrowserLaunchError
+        && /original endpoint inspection failed/u.test(error.message)
+        && !/cleanup kill failed/u.test(error.message),
+    );
+    assert.ok(warnings.some((message) => /cleanup kill failed/u.test(message)));
+    assert.match(await readFile(failureMarkerPath, "utf8"), /original endpoint inspection failed/u);
+    assert.deepEqual(await readdir(root), [".browser-launch-failed"]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a hanging Puppeteer connection retries and reaches the launch deadline", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-connect-timeout-"));
+  let connectCalls = 0;
+  const connectResolvers = [];
+  let lateDisconnectCalled = false;
+  let launchedProfile = null;
+  let profileProcessAlive = true;
+  let forceKilledPid = null;
+  try {
+    await assert.rejects(
+      launchBrowser({
+        puppeteer: {
+          connect() {
+            connectCalls += 1;
+            return new Promise((resolvePromise) => connectResolvers.push(resolvePromise));
+          },
+        },
+        chromePath: SYSTEM_CHROME,
+        profileParent: root,
+        timeoutMs: 2_500,
+        platform: "darwin",
+        async launchMacApplication({ args }) {
+          const profile = args.find((argument) => argument.startsWith("--user-data-dir="))
+            .slice("--user-data-dir=".length);
+          launchedProfile = profile;
+          await writeFile(
+            join(profile, "DevToolsActivePort"),
+            "43125\n/devtools/browser/hanging-browser\n",
+            "utf8",
+          );
+        },
+        async closeRemoteBrowser() {},
+        async listProfileProcessDetails() {
+          return profileProcessAlive
+            ? [{ pid: 43_125, command: `fake chrome --user-data-dir=${launchedProfile}` }]
+            : [];
+        },
+        killProfileProcess(pid, signal) {
+          assert.equal(signal, "SIGKILL");
+          forceKilledPid = pid;
+          profileProcessAlive = false;
+        },
+        onError: () => {},
+      }),
+      (error) => error instanceof BrowserLaunchError
+        && /puppeteer\.connect timeout after 2500ms/u.test(error.message),
+    );
+    assert.ok(connectCalls >= 2, `expected a retry after a hung connect, got ${connectCalls} call(s)`);
+    assert.equal(forceKilledPid, 43_125);
+    connectResolvers[0]({ disconnect() { lateDisconnectCalled = true; } });
+    await new Promise((resolvePromise) => setImmediate(resolvePromise));
+    assert.equal(lateDisconnectCalled, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("successful macOS cleanup reports a profile-exit timeout without rejecting", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-cleanup-warning-"));
+  const warnings = [];
+  const previousTimeout = process.env.RENDER_CUT_PROFILE_EXIT_TIMEOUT_MS;
+  let blocker = null;
+  try {
+    const session = await launchBrowser({
+      puppeteer: {
+        async connect() {
+          return { connected: true, async close() {} };
+        },
+      },
+      chromePath: SYSTEM_CHROME,
+      profileParent: root,
+      timeoutMs: 500,
+      platform: "darwin",
+      async launchMacApplication({ args }) {
+        const profile = args.find((argument) => argument.startsWith("--user-data-dir="))
+          .slice("--user-data-dir=".length);
+        await writeFile(
+          join(profile, "DevToolsActivePort"),
+          "43126\n/devtools/browser/cleanup-browser\n",
+          "utf8",
+        );
+      },
+      async closeRemoteBrowser() {},
+      async listProfileProcesses() {
+        return blocker?.exitCode === null && blocker?.signalCode === null
+          ? [`node fixture ${blocker.spawnargs.at(-1)}`]
+          : [];
+      },
+      async listProfileProcessDetails() {
+        return blocker?.exitCode === null && blocker?.signalCode === null
+          ? [{ pid: blocker.pid, command: `node fixture ${blocker.spawnargs.at(-1)}` }]
+          : [];
+      },
+      killProfileProcess(pid, signal) {
+        assert.equal(pid, blocker.pid);
+        blocker.kill(signal);
+      },
+      onWarning: (message) => {
+        assert.equal(blocker.signalCode, "SIGKILL");
+        warnings.push(message);
+      },
+      onError: () => assert.fail("successful launch must not report an error"),
+    });
+    blocker = spawn(
+      process.execPath,
+      ["-e", "setInterval(() => {}, 1000)", session.userDataDir],
+      { stdio: "ignore" },
+    );
+    await new Promise((resolvePromise, rejectPromise) => {
+      blocker.once("spawn", resolvePromise);
+      blocker.once("error", rejectPromise);
+    });
+    process.env.RENDER_CUT_PROFILE_EXIT_TIMEOUT_MS = "200";
+    await session.close();
+    assert.ok(warnings.some((message) =>
+      /Chrome cleanup warning: Chrome processes still reference.*after 200ms/u.test(message),
+    ), JSON.stringify(warnings));
+    assert.equal(blocker.signalCode, "SIGKILL");
+    assert.equal(existsSync(session.userDataDir), false);
+  } finally {
+    if (previousTimeout === undefined) {
+      delete process.env.RENDER_CUT_PROFILE_EXIT_TIMEOUT_MS;
+    } else {
+      process.env.RENDER_CUT_PROFILE_EXIT_TIMEOUT_MS = previousTimeout;
+    }
+    if (blocker?.exitCode === null && blocker?.signalCode === null) {
+      await new Promise((resolvePromise) => {
+        blocker.once("close", resolvePromise);
+        blocker.kill("SIGKILL");
+      });
+    }
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a wedged real Puppeteer connection is force-closed and the caller exits naturally", async (t) => {
+  if (process.platform !== "darwin") return t.skip("LaunchServices process cleanup requires macOS");
+  if (!await canListenOnLoopback()) return t.skip("loopback listener unavailable");
+  const processInspectionAvailable = spawnSync(
+    "/bin/ps",
+    ["-axo", "pid=,command="],
+  ).status === 0;
+  let puppeteerModuleUrl;
+  try {
+    puppeteerModuleUrl = import.meta.resolve("puppeteer-core");
+    await import(puppeteerModuleUrl);
+  } catch {
+    return t.skip("puppeteer-core unavailable");
+  }
+
+  const root = await mkdtemp(join(tmpdir(), "render-cut-wedged-connect-process-"));
+  const probePath = join(root, "probe.mjs");
+  const wedgePidPath = join(root, "wedge.pid");
+  const browserLaunchModuleUrl = new URL("../src/browser-launch.mjs", import.meta.url).href;
+  const wedgeSource = "const net=require('node:net');const server=net.createServer(()=>{});"
+    + "server.listen(0,'127.0.0.1',()=>process.stdout.write(`${server.address().port}\\n`));";
+  let probe = null;
+  let wedgePid = null;
+  try {
+    await writeFile(probePath, `
+import { spawn } from "node:child_process";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { BrowserLaunchError, launchBrowser } from ${JSON.stringify(browserLaunchModuleUrl)};
+
+const root = process.argv[2];
+const wedgePidPath = process.argv[3];
+const imported = await import(${JSON.stringify(puppeteerModuleUrl)});
+const puppeteer = imported.default ?? imported;
+const processInspectionAvailable = ${JSON.stringify(processInspectionAvailable)};
+let wedge = null;
+let launchedUserDataDir = null;
+try {
+  await launchBrowser({
+    puppeteer,
+    chromePath: ${JSON.stringify(SYSTEM_CHROME)},
+    profileParent: root,
+    timeoutMs: 500,
+    platform: "darwin",
+    async launchMacApplication({ args }) {
+      const userDataDir = args.find((argument) => argument.startsWith("--user-data-dir="))
+        .slice("--user-data-dir=".length);
+      launchedUserDataDir = userDataDir;
+      wedge = spawn(process.execPath, ["-e", ${JSON.stringify(wedgeSource)}, "--", "--user-data-dir=" + userDataDir], {
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      await writeFile(wedgePidPath, String(wedge.pid), "utf8");
+      const port = await new Promise((resolvePromise, rejectPromise) => {
+        let stdout = "";
+        let stderr = "";
+        wedge.stdout.on("data", (chunk) => {
+          stdout += chunk.toString();
+          if (stdout.includes("\\n")) resolvePromise(Number(stdout.trim()));
+        });
+        wedge.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+        wedge.once("error", rejectPromise);
+        wedge.once("close", (code, signal) => {
+          rejectPromise(new Error(
+            "wedge exited before listening: " + (signal ?? code) + " " + stderr.trim(),
+          ));
+        });
+      });
+      await writeFile(
+        join(userDataDir, "DevToolsActivePort"),
+        String(port) + "\\n/devtools/browser/wedged-browser\\n",
+        "utf8",
+      );
+    },
+    async closeRemoteBrowser() {},
+    ...(processInspectionAvailable ? {} : {
+      async listProfileProcessDetails() {
+        return wedge?.exitCode === null && wedge?.signalCode === null
+          ? [{ pid: wedge.pid, command: "fake chrome --user-data-dir=" + launchedUserDataDir }]
+          : [];
+      },
+    }),
+    onError: () => {},
+    onWarning: () => {},
+  });
+  console.error("unexpected launch success");
+  process.exitCode = 2;
+} catch (error) {
+  if (!(error instanceof BrowserLaunchError)
+      || !/puppeteer\\.connect timeout after 500ms/u.test(error.message)) {
+    console.error(error?.stack ?? String(error));
+    process.exitCode = 2;
+  } else {
+    console.log(error.message);
+  }
+}
+`, "utf8");
+
+    probe = spawn(process.execPath, [probePath, root, wedgePidPath], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const result = await waitForChildExit(probe, 30_000);
+    assert.equal(result.code, 0, `${result.stderr}\n${result.stdout}`);
+    assert.match(result.stdout, /puppeteer\.connect timeout after 500ms/u);
+    wedgePid = Number(await readFile(wedgePidPath, "utf8"));
+    assert.equal(isSafeChildPid(wedgePid), true);
+    assert.equal(isProcessAlive(wedgePid), false, `wedge process ${wedgePid} must be terminated`);
+  } finally {
+    if (probe?.exitCode === null && probe?.signalCode === null) probe.kill("SIGKILL");
+    if (!isSafeChildPid(wedgePid)) {
+      wedgePid = Number(await readFile(wedgePidPath, "utf8").catch(() => ""));
+    }
+    if (isSafeChildPid(wedgePid) && isProcessAlive(wedgePid)) {
+      try { process.kill(wedgePid, "SIGKILL"); } catch {}
+    }
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("animated and static captures both use the shared browser launcher", async () => {
   const root = await mkdtemp(join(tmpdir(), "render-cut-shared-browser-launcher-"));
   const launcherCalls = [];
   const closedSessions = [];
+  const onWarning = () => {};
   const page = {
     setDefaultTimeout() {},
     setDefaultNavigationTimeout() {},
@@ -298,6 +597,7 @@ test("animated and static captures both use the shared browser launcher", async 
       timeoutMs: 500,
       puppeteerModule: { connect() {} },
       browserLauncher: sharedLauncher,
+      onWarning,
     });
     const captures = await captureStaticOverlays({
       overlays: [{
@@ -319,6 +619,7 @@ test("animated and static captures both use the shared browser launcher", async 
 
     assert.equal(launcherCalls.length, 2);
     assert.equal(launcherCalls[0].profileParent, join(root, "frames"));
+    assert.equal(launcherCalls[0].onWarning, onWarning);
     assert.equal(launcherCalls[1].profileParent, root);
     assert.deepEqual(closedSessions, [1, 2]);
     assert.equal(captures.length, 1);
@@ -466,6 +767,53 @@ test("real macOS Chrome launches through LaunchServices and captures a transpare
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function waitForChildExit(child, timeoutMs) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      rejectPromise(new Error(`child process did not exit naturally within ${timeoutMs}ms`));
+    }, timeoutMs);
+    child.once("error", (error) => {
+      clearTimeout(timer);
+      rejectPromise(error);
+    });
+    child.once("close", (code, signal) => {
+      clearTimeout(timer);
+      resolvePromise({ code, signal, stdout, stderr });
+    });
+  });
+}
+
+function isProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === "ESRCH") return false;
+    throw error;
+  }
+}
+
+function isSafeChildPid(pid) {
+  return Number.isInteger(pid) && pid > 1 && pid !== process.pid;
+}
+
+function canListenOnLoopback() {
+  return new Promise((resolvePromise) => {
+    const server = createServer();
+    server.once("error", () => resolvePromise(false));
+    server.listen(0, "127.0.0.1", () => {
+      server.close(() => resolvePromise(true));
+    });
+  });
 }
 
 async function findLaunchableChromeApp() {

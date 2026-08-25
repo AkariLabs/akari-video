@@ -61,8 +61,13 @@ export async function createImmutableRenderReceipt({
   const digest = sha256(bytes);
   const receiptDirectory = await prepareContainedReportDirectory(root, "render-receipts");
   const currentSnapshot = await hashDeclaredRenderInputs(declaredInputs);
-  const changed = findSnapshotDifference(inputSnapshot, currentSnapshot);
-  if (changed) throw new Error(`render inputs changed during rendering: ${changed}`);
+  const changes = findSnapshotDifferences(inputSnapshot, currentSnapshot);
+  if (changes.length > 0 && !await isOnlyUnreferencedSourceDifference({
+    changes,
+    declaredInputs,
+  })) {
+    throw new Error(`render inputs changed during rendering: ${changes[0]}`);
+  }
   await assertContainedDirectory(root, receiptDirectory, ".akari/reports/render-receipts");
   const receiptPath = join(receiptDirectory, `${digest}.json`);
   try {
@@ -130,15 +135,42 @@ async function assertContainedDirectory(root, directory, label) {
   }
 }
 
-function findSnapshotDifference(initial, current) {
+function findSnapshotDifferences(initial, current) {
+  const changes = [];
   const length = Math.max(initial.length, current.length);
   for (let index = 0; index < length; index += 1) {
     if (canonicalJson(initial[index]) !== canonicalJson(current[index])) {
       const entry = current[index] ?? initial[index];
-      return `${entry?.role ?? "unknown"}:${entry?.path ?? "unknown"}`;
+      changes.push(`${entry?.role ?? "unknown"}:${entry?.path ?? "unknown"}`);
     }
   }
-  return null;
+  return changes;
+}
+
+async function isOnlyUnreferencedSourceDifference({ changes, declaredInputs }) {
+  if (changes.length !== 1) return false;
+  const editInput = declaredInputs.find((input) => input?.role === "edit");
+  if (changes[0] !== `edit:${editInput?.path ?? "unknown"}`
+      || typeof editInput?.text !== "string") return false;
+
+  try {
+    // cuts から未参照の source は本レンダが消費した入力ではなく、同時レンダの成果物登録だけを除外する。
+    const consumed = JSON.parse(editInput.text);
+    const current = JSON.parse(await readFile(editInput.lexical_path ?? editInput.absolute_path, "utf8"));
+    if (!Array.isArray(consumed?.sources) || !Array.isArray(current?.sources)) return false;
+    return canonicalJson(withoutUnreferencedSources(consumed))
+      === canonicalJson(withoutUnreferencedSources(current));
+  } catch {
+    return false;
+  }
+}
+
+function withoutUnreferencedSources(edit) {
+  const referenced = new Set((edit.cuts ?? []).map((cut) => cut?.src));
+  return {
+    ...edit,
+    sources: edit.sources.filter((source) => referenced.has(source?.id)),
+  };
 }
 
 async function sha256File(path) {

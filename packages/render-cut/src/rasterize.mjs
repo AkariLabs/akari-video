@@ -367,6 +367,7 @@ export async function captureWithPuppeteer({
       profileParent: framesDirectory,
       failureMarkerPath: join(dirname(framesDirectory), ".browser-launch-failed"),
       timeoutMs,
+      onWarning: onWarning ?? undefined,
       // Existing tests can inject a launch-only Puppeteer stub without pretending to implement
       // the macOS connect path. Production puppeteer-core always exposes both methods.
       platform: puppeteerModule && typeof puppeteer.connect !== "function"

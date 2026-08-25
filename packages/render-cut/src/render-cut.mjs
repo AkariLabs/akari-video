@@ -820,6 +820,7 @@ export async function rasterizeAndComposite(context) {
     fps = edit.output.fps,
     videoEncodeArgs = null,
     onProgress,
+    staticPuppeteerModule = null,
   } = context;
   const sheetPath = join(temporaryDirectory, "overlay-sheet.html");
   await writeFile(
@@ -941,6 +942,7 @@ export async function rasterizeAndComposite(context) {
       temporaryDirectory,
       chromePath: capabilities.chromePath,
       timeoutMs: captureTimeoutMs,
+      puppeteerModule: staticPuppeteerModule,
     });
     await compositeStaticOverlays({
       ffmpegCommand: capabilities.ffmpegCommand,

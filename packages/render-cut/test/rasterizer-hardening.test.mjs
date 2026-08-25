@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmod, mkdir, mkdtemp, rm, writeFile as rawWriteFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -161,9 +161,7 @@ test("puppeteer-core package detection accepts a hoisted require.resolve result"
 test("a hanging static Chrome capture times out and records the rejected attempt", async () => {
   const root = await mkdtemp(join(tmpdir(), "render-cut-hanging-chrome-"));
   try {
-    const fakeChrome = join(root, "fake-chrome.sh");
-    await writeFile(fakeChrome, "#!/bin/sh\nexec sleep 5\n");
-    await chmod(fakeChrome, 0o755);
+    let launchCalls = 0;
     const state = {
       warnings: [],
       plan: {
@@ -174,7 +172,6 @@ test("a hanging static Chrome capture times out and records the rejected attempt
       },
       provenance: { rasterizer: { planned: "static-screenshot", adopted: null, attempts: [] } },
     };
-    const started = Date.now();
     await assert.rejects(
       rasterizeAndComposite({
         state,
@@ -194,22 +191,28 @@ test("a hanging static Chrome capture times out and records the rejected attempt
         capabilities: {
           hyperframesAvailable: false,
           puppeteerAvailable: false,
-          chromePath: fakeChrome,
+          chromePath: join(root, "fake-chrome"),
           ffprobeCommand: "ffprobe",
           ffmpegCommand: "ffmpeg",
         },
         duration: 1,
         hasThreeDimensionalOverlay: false,
         captureTimeoutMs: 50,
+        staticPuppeteerModule: {
+          launch() {
+            launchCalls += 1;
+            return new Promise(() => {});
+          },
+        },
       }),
       /all overlay rasterizers failed/,
     );
-    assert.ok(Date.now() - started < 2_000);
     const staticAttempt = state.provenance.rasterizer.attempts.find(
       (attempt) => attempt.method === "static-screenshot",
     );
     assert.equal(staticAttempt?.status, "rejected");
     assert.match(staticAttempt?.reason ?? "", /timeout.*50ms/iu);
+    assert.equal(launchCalls, 1);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -218,7 +221,7 @@ test("a hanging static Chrome capture times out and records the rejected attempt
 test("a hanging Puppeteer launch times out independently of the frame count", async () => {
   const root = await mkdtemp(join(tmpdir(), "render-cut-hanging-puppeteer-launch-"));
   try {
-    const started = Date.now();
+    let launchCalls = 0;
     await assert.rejects(
       captureWithPuppeteer({
         sheetPath: join(root, "overlay-sheet.html"),
@@ -231,14 +234,16 @@ test("a hanging Puppeteer launch times out independently of the frame count", as
         duration: 10,
         ffmpegCommand: "ffmpeg",
         timeoutMs: 200,
-        puppeteerModule: { launch: () => new Promise(() => {}) },
+        puppeteerModule: {
+          launch() {
+            launchCalls += 1;
+            return new Promise(() => {});
+          },
+        },
       }),
       /launching Chrome timeout after 200ms/,
     );
-    assert.ok(
-      Date.now() - started < 2_000,
-      "launch timeout must not scale with the 50-frame capture duration",
-    );
+    assert.equal(launchCalls, 1, "launch timeout must not scale with the 50-frame capture duration");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

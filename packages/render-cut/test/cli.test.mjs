@@ -338,6 +338,39 @@ test("3D overlays skip HyperFrames and use the puppeteer-core path", async (t) =
   }
 });
 
+test("a verified overlay render keeps exit 0 and records a profile cleanup warning", async (t) => {
+  if (process.platform !== "darwin") return t.skip("LaunchServices cleanup requires macOS");
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  if (spawnSync(chromePath, ["--version"]).status !== 0) return t.skip("Chrome unavailable");
+  if (spawnSync("/bin/ps", ["-axo", "command="]).status !== 0) return t.skip("process inspection unavailable");
+  if (!resolvePuppeteerPackagePath()) return t.skip("puppeteer-core unavailable");
+  const project = await makeProject({ threeDimensional: true });
+  const outputPath = join(project, "cleanup-warning.mp4");
+  try {
+    const executed = spawnSync(
+      process.execPath,
+      [cliPath, project, "--out", outputPath],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          CHROME_PATH: chromePath,
+          RENDER_CUT_PROFILE_EXIT_TIMEOUT_MS: "1",
+        },
+      },
+    );
+    assert.equal(executed.status, 0, executed.stderr);
+    assert.ok((await readFile(outputPath)).length > 0);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.match(
+      `${state.warnings.join("\n")}\n${executed.stderr}`,
+      /Chrome cleanup warning: Chrome processes still reference.*after 1ms/u,
+    );
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
 test("--progress streams machine-readable PROGRESS lines and ends with a done marker before the verdict", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const project = await makeProject({ withAudio: false, overlays: false });
