@@ -45,6 +45,7 @@ import {
     applyImmediateUpdaterFallback,
     applyShellUpdaterEvent,
     beginUserInitiatedUpdaterCheck,
+    checkForShellUpdatesOnHomeShow,
     formatDownloadedBannerText,
     formatDownloadingBannerText,
     formatUpdaterFallbackText,
@@ -428,6 +429,7 @@ export class AkariHomeWidget extends ReactWidget {
      */
     protected override onAfterShow(msg: Message): void {
         super.onAfterShow(msg);
+        checkForShellUpdatesOnHomeShow(this.resolveElectronUpdaterApi());
         void this.refreshWelcomeMode();
         void this.refreshHomeFlow();
         void this.loadCreatorRootProjects()
