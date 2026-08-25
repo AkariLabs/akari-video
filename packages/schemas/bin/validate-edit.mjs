@@ -6,6 +6,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+const { TRANSITION_TYPE_IDS } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 
 const LAYER_KINDS = new Set(["baked", "video", "filter"]);
 const LAYER_BLEND_MODES = new Set([
@@ -1063,8 +1066,8 @@ function validateTransitionOut(value, label) {
     fail(`${label} は object である必要があります`);
     return;
   }
-  if (!["dissolve", "fade-black", "fade-white", "reveal-down", "reveal-up"].includes(value.type)) {
-    fail(`${label}.type は dissolve/fade-black/fade-white/reveal-down/reveal-up のいずれかである必要があります`);
+  if (!TRANSITION_TYPE_IDS.includes(value.type)) {
+    fail(`${label}.type は ${TRANSITION_TYPE_IDS.join("/")} のいずれかである必要があります`);
   }
   if (!isFiniteNumber(value.duration) || value.duration <= 0) {
     fail(`${label}.duration は 0 より大きい有限数である必要があります`);

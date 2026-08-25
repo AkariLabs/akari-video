@@ -63,12 +63,71 @@ const preloadStart = bootstrap.indexOf('preloadUpcomingTransition = timelineTime
 const preloadEnd = bootstrap.indexOf('const stillUrlForSegment =', preloadStart);
 const preload = bootstrap.slice(preloadStart, preloadEnd);
 
+function extractConstArrow(name, nextName) {
+    const start = bootstrap.indexOf(`const ${name} =`);
+    const end = bootstrap.indexOf(`const ${nextName} =`, start);
+    assert.ok(start >= 0 && end > start, `${name} .. ${nextName}`);
+    const declaration = bootstrap.slice(start, end).trim().replace(/;$/u, '');
+    return declaration.slice(declaration.indexOf('=') + 1).trim();
+}
+
 test('静止画 incoming 合成レイヤーが DOM と生成 JS に配線される', () => {
     assert.match(compiled, /id="transition-still" data-akari-transition-role="incoming-still"/);
     assert.match(compiled, /#preview-video, #transition-video, #transition-still/);
     assert.match(compiled, /#transition-video, #transition-still \{ display: none; pointer-events: none; \}/);
     assert.match(bootstrap, /getElementById\('transition-still'\)/);
     assert.doesNotThrow(() => new vm.Script(bootstrap, { filename: 'preview-bootstrap.js' }));
+});
+
+test('runtime mount 後も fallback label を transition plate と caption plate の間へ再アタッチする', () => {
+    const mountStart = bootstrap.indexOf('Promise.all([window.__akariCaptionFontReady');
+    const mountEnd = bootstrap.indexOf('const reportOverlaySelectionChange', mountStart);
+    const mount = bootstrap.slice(mountStart, mountEnd);
+    const append = mount.match(/stage\.append\(([^)]+)\)/u);
+    assert.ok(append, 'runtime mount 後の stage.append が存在する');
+    assert.deepEqual(
+        append[1].split(',').map(value => value.trim()),
+        ['transitionPlate', 'transitionFallbackLabel', 'captionPlate']
+    );
+});
+
+test('合成中の applyCutsZIndex は composite が確定した outgoing z を巻き戻さない', () => {
+    const context = {
+        activeTransitionWindowKey: '1:2:1',
+        zForTrack: () => 0,
+        video: { style: { zIndex: '9' } },
+        stillImage: { style: { zIndex: '9' } },
+        transitionPlate: { style: { zIndex: '' } },
+        transitionFallbackLabel: { style: { zIndex: '' } }
+    };
+    const applyCutsZIndex = vm.runInNewContext(
+        `(${extractConstArrow('applyCutsZIndex', 'cutHasLayerStyleVisual')})`,
+        context
+    );
+    applyCutsZIndex({ kind: 'src', trackId: 'v-main' });
+    assert.equal(context.video.style.zIndex, '9');
+    assert.equal(context.stillImage.style.zIndex, '9');
+    assert.equal(context.transitionPlate.style.zIndex, '0');
+    assert.equal(context.transitionFallbackLabel.style.zIndex, '2');
+
+    context.activeTransitionWindowKey = null;
+    applyCutsZIndex({ kind: 'src', trackId: 'v-main' });
+    assert.equal(context.video.style.zIndex, '0');
+    assert.equal(context.stillImage.style.zIndex, '0');
+});
+
+test('transition transform 書き込みは同じ base/progress で再入しても積み上がらない', () => {
+    const writeTransitionTransform = vm.runInNewContext(
+        `(${extractConstArrow('writeTransitionTransform', 'resetTransitionComposite')})`
+    );
+    const element = { style: { transform: 'scale(99)' } };
+    const first = writeTransitionTransform(element, 'translateX(12px)', 'scale(1.3)');
+    const second = writeTransitionTransform(element, 'translateX(12px)', 'scale(1.3)');
+    assert.equal(first, 'translateX(12px) scale(1.3)');
+    assert.equal(second, first);
+    assert.equal((second.match(/scale\(1\.3\)/gu) ?? []).length, 1);
+    assert.match(composite, /outgoingElement\.dataset\.akariTransitionBaseTransform \|\| ''/u);
+    assert.doesNotMatch(composite, /outgoingBaseTransform = outgoingElement\.style\.transform/u);
 });
 
 test('動画→静止画・静止画→動画・静止画→静止画を独立した要素種別で解決する', () => {

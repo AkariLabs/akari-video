@@ -1,3 +1,5 @@
+import type { TransitionType } from '@akari-video/edit-store';
+
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
 
@@ -400,7 +402,7 @@ export interface SetCutTransitionOutRequest {
     projectRootUri: string;
     cutIndex: number;
     transitionOut: {
-        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        type: TransitionType;
         duration: number;
     } | null;
 }

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import test from 'node:test';
 
 import {
@@ -9,6 +10,10 @@ import {
     normalizeLayerKeyframesForSummary,
     normalizeLayerPerspectiveForSummary
 } from '../lib/common/edit-summary-fields.js';
+
+const { TRANSITION_TYPE_IDS } = createRequire(import.meta.url)(
+    '../../../../../packages/edit-store/lib/index.js'
+);
 
 test('chroma_key defaults and explicit background survive the edit-to-summary boundary', () => {
     assert.deepEqual(normalizeChromaKeyForSummary({ color: '0x00FF00', background: '#1020ff' }), {
@@ -224,14 +229,21 @@ test('buildCutSummaryFields: invalid in/out is rejected', () => {
     assert.equal(result.ok, false);
 });
 
-test('buildCutSummaryFields: schema のトランジション 5 種をすべて summary へ保持する', () => {
-    for (const type of ['dissolve', 'fade-black', 'fade-white', 'reveal-down', 'reveal-up']) {
+test('buildCutSummaryFields: 正準 29 種をすべて summary へ保持する', () => {
+    for (const type of TRANSITION_TYPE_IDS) {
         const result = buildCutSummaryFields({
             src: 'main', in: 0, out: 2, transition_out: { type, duration: 0.5 }
         }, 'main', id => id === 'main', identityTransform, noopWarn);
         assert.equal(result.ok, true, type);
         assert.deepEqual(result.fields.transitionOut, { type, duration: 0.5 });
     }
+});
+
+test('buildCutSummaryFields: 未知の非空 type もフォールバック描画のため保持する', () => {
+    const result = buildCutSummaryFields({
+        src: 'main', in: 0, out: 2, transition_out: { type: 'future-transition', duration: 0.5 }
+    }, 'main', id => id === 'main', identityTransform, noopWarn);
+    assert.deepEqual(result.fields.transitionOut, { type: 'future-transition', duration: 0.5 });
 });
 
 // End-to-end shape test mirroring loadPreviewModel's actual loop: given a small edit.json-like

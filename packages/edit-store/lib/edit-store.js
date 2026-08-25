@@ -39,6 +39,7 @@ exports.writeTimelineTracksInSource = writeTimelineTracksInSource;
 exports.updateArrayElementByIndex = updateArrayElementByIndex;
 exports.updateOverlayVarInSource = updateOverlayVarInSource;
 const cut_adjacency_1 = require("./cut-adjacency");
+const transition_vocabulary_1 = require("./transition-vocabulary");
 const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
 const LAYER_BLEND_MODES = [
     'normal', 'screen', 'multiply', 'add', 'difference',
@@ -320,9 +321,7 @@ function updateCutOpacityInSource(source, cutIndex, opacity) {
 }
 function setCutTransitionOutInSource(source, cutIndex, transitionOut) {
     if (transitionOut !== null) {
-        if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black'
-            && transitionOut.type !== 'fade-white' && transitionOut.type !== 'reveal-down'
-            && transitionOut.type !== 'reveal-up') {
+        if (!(0, transition_vocabulary_1.isTransitionType)(transitionOut.type)) {
             throw new Error('トランジションの種別が不正です。');
         }
         if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {
@@ -426,9 +425,7 @@ function setV2TransitionOutWithHandleInSource(source, input) {
     };
 }
 function assertTransitionOutValue(transitionOut) {
-    if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black'
-        && transitionOut.type !== 'fade-white' && transitionOut.type !== 'reveal-down'
-        && transitionOut.type !== 'reveal-up') {
+    if (!(0, transition_vocabulary_1.isTransitionType)(transitionOut.type)) {
         throw new Error('トランジションの種別が不正です。');
     }
     if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {

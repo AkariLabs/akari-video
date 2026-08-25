@@ -31,7 +31,7 @@ const intakeSchema = JSON.parse(await readFile(
   "utf8",
 ));
 const require = createRequire(import.meta.url);
-const { projectLegacyEdit, readInternalEdit } = require("../../edit-store/lib/index.js");
+const { projectLegacyEdit, readInternalEdit, TRANSITION_TYPE_IDS } = require("../../edit-store/lib/index.js");
 
 async function withFixtures(callback) {
   const root = await mkdtemp(join(tmpdir(), "edit-lint-test-"));
@@ -1040,6 +1040,46 @@ test("cuts[].speed + transition_out + output.look + source.chroma_key + audio.ma
     assert.equal(result.verdict, "pass");
     assert.equal(result.findings.length, 0, JSON.stringify(result.findings));
   });
+});
+
+test("cuts[].transition_out は正準 29 種をすべて受理し未知種別を拒否する", async () => {
+  const root = await mkdtemp(join(tmpdir(), "edit-lint-transition-vocabulary-"));
+  try {
+    const editPath = join(root, "edit.json");
+    const editFor = (type) => ({
+      version: 2,
+      output: { width: 1280, height: 720, fps: 30 },
+      sources: [{ id: "main", path: "source.mp4", proxy: null }],
+      tracks: [
+        { id: "v-main", lane: "visual", items: [
+          { id: "cut-1", at: 0, duration: 60, source: {
+            kind: "media", src: "main", in: 0, out: 2,
+            transition_out: { type, duration: 0.5 },
+          } },
+          { id: "cut-2", at: 45, duration: 60, source: {
+            kind: "media", src: "main", in: 2, out: 4,
+          } },
+        ] },
+      ],
+    });
+    for (const type of TRANSITION_TYPE_IDS) {
+      await writeFile(editPath, `${JSON.stringify(editFor(type))}\n`);
+      const result = parseResult(run(root));
+      assert.equal(
+        result.findings.some((finding) => finding.check === "cuts.transition-out.type"),
+        false,
+        type,
+      );
+    }
+    await writeFile(editPath, `${JSON.stringify(editFor("future-transition"))}\n`);
+    const invalid = parseResult(run(root));
+    assert.equal(
+      invalid.findings.some((finding) => finding.check === "cuts.transition-out.type"),
+      true,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("cuts[].freeze extends the timeline used by overlays", async () => {

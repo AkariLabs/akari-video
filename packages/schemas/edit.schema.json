@@ -279,10 +279,10 @@
       "additionalProperties": true,
       "required": ["type", "duration"],
       "properties": {
-        "type": { "enum": ["dissolve", "fade-black", "fade-white", "reveal-down", "reveal-up"] },
+        "type": { "enum": ["dissolve", "fade", "fade-black", "fade-white", "fade-grays", "wipe-left", "wipe-right", "wipe-up", "wipe-down", "radial", "slide-left", "slide-right", "slide-up", "slide-down", "cover-left", "cover-right", "cover-up", "cover-down", "reveal-left", "reveal-right", "reveal-down", "reveal-up", "circle-open", "circle-close", "zoom-in", "squeeze-h", "squeeze-v", "blur", "pixelize"] },
         "duration": { "$ref": "#/$defs/positiveNumber" }
       },
-      "$comment": "docs/contract-2026-07-22-render-basics.md #3。v0 は指定されたカット境界のみ xfade 経路（残裁定3）。ffmpeg xfade の transition 名へ直接対応: dissolve/fadeblack/fadewhite/revealdown/revealup。reveal-down / reveal-up は前カットが丸ごとその方向へ動いて画面外へ抜け、空いた側から次カットが現れる（2026-08-14 追加）。"
+      "$comment": "docs/contract-2026-07-22-render-basics.md #3。v0 は指定されたカット境界のみ xfade 経路（残裁定3）。enum は packages/edit-store の正準トランジション語彙と drift test で一致させる。"
     },
     "cutTransform": {
       "type": "object",
