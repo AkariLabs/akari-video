@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -41,7 +42,16 @@ function makeStripeStill(path) {
   ]);
 }
 
-function v2MainTrackEdit({ keyframes }) {
+function v2MainTrackEdit({ keyframes, visual }) {
+  const visualFields = visual ?? (keyframes ? {
+    keyframes: [
+      { t: 0, transform: { scale: 1 } },
+      { t: DURATION * FPS, transform: { scale: SCALE_END } },
+    ],
+  } : {
+    transform: { scale: SCALE_END },
+    crop: { x: 0, y: 0, w: 1, h: 1 },
+  });
   return {
     version: 2,
     output: { width: WIDTH, height: HEIGHT, fps: FPS },
@@ -54,15 +64,7 @@ function v2MainTrackEdit({ keyframes }) {
         at: GAP * FPS,
         duration: DURATION * FPS,
         source: { kind: "media", src: "still", in: 0, out: DURATION },
-        ...(keyframes ? {
-          keyframes: [
-            { t: 0, transform: { scale: 1 } },
-            { t: DURATION * FPS, transform: { scale: SCALE_END } },
-          ],
-        } : {
-          transform: { scale: SCALE_END },
-          crop: { x: 0, y: 0, w: 1, h: 1 },
-        }),
+        ...visualFields,
       }],
     }],
   };
@@ -100,6 +102,10 @@ function buildMainTrackPlan({ edit, projectRoot, temporaryDirectory, outputPath,
 function filterComplex(plan) {
   const args = plan.commands.cut.args;
   return args[args.indexOf("-filter_complex") + 1];
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
 }
 
 // Exact reproduction of appendCutLayerStyleVisual's former scale-keyframe geometry: the bitmap
@@ -259,6 +265,91 @@ test("v2 main-track keyframe-less cut keeps its gap-aware filter byte-for-byte u
   );
 });
 
+test("static rotate ignored by scale keyframes uses the v2 gap-aware fixed canvas", () => {
+  const plan = buildMainTrackPlan({
+    edit: v2MainTrackEdit({
+      visual: {
+        transform: { rotate: 12 },
+        keyframes: [
+          { t: 0, transform: { scale: 1 } },
+          { t: DURATION * FPS, transform: { scale: SCALE_END } },
+        ],
+      },
+    }),
+    projectRoot: "/project",
+    temporaryDirectory: "/project/render-tmp",
+    outputPath: "/project/out.mp4",
+    sourcePath: "/project/still.png",
+  });
+  const filter = filterComplex(plan);
+  assert.match(filter, /ct_gap1_1_lraw/);
+  assert.match(filter, /scale=w=640:h=360:flags=lanczos/);
+  assert.match(filter, /pad=w=680:h=384:.*eval=frame/);
+  assert.match(filter, /scale=340:192:flags=lanczos/);
+  assert.doesNotMatch(filter, /scale=w='trunc\(iw\*\(/);
+  assert.doesNotMatch(filter, /rotate=/);
+});
+
+test("rotate-producing and other ineligible v2 gap-aware filters stay byte-for-byte unchanged", () => {
+  const cases = [
+    {
+      name: "static rotate without keyframes",
+      visual: { transform: { rotate: 12 } },
+      expectedHash: "bd4c506062a8f92fefcf31bf9c0bea1ecb5be6b1f51dac1155dcbb3153b282d3",
+      rotate: /rotate=\(12\*PI\/180\)/,
+    },
+    {
+      name: "constant non-zero keyframed rotate",
+      visual: {
+        keyframes: [
+          { t: 0, transform: { scale: 1, rotate: 5 } },
+          { t: DURATION * FPS, transform: { scale: SCALE_END, rotate: 5 } },
+        ],
+      },
+      expectedHash: "fa30f7e8aa9904d3d44dad986605474935e8a70f44f19ad011e99ea180aa7322",
+      rotate: /rotate=\(5\*PI\/180\)/,
+    },
+    {
+      name: "time-varying rotate",
+      visual: {
+        keyframes: [
+          { t: 0, transform: { scale: 1, rotate: 0 } },
+          { t: DURATION * FPS, transform: { scale: SCALE_END, rotate: 5 } },
+        ],
+      },
+      expectedHash: "5e782995cf0bed8a42be08b0920284d358a702850500600123733dfbac00445c",
+      rotate: /rotate=\(\(if\(/,
+    },
+    {
+      name: "perspective with scale keyframes",
+      visual: {
+        perspective: { corners: [[0, 0], [1, 0], [1, 1], [0, 1]] },
+        keyframes: [
+          { t: 0, transform: { scale: 1 } },
+          { t: DURATION * FPS, transform: { scale: SCALE_END } },
+        ],
+      },
+      expectedHash: "58cd19722d2aae9cc2c24f426f4092b8e0f1d963ec8cdedeca70b30397d78d97",
+      rotate: null,
+    },
+  ];
+
+  for (const current of cases) {
+    const plan = buildMainTrackPlan({
+      edit: v2MainTrackEdit({ visual: current.visual }),
+      projectRoot: "/project",
+      temporaryDirectory: "/project/render-tmp",
+      outputPath: "/project/out.mp4",
+      sourcePath: "/project/still.png",
+    });
+    const filter = filterComplex(plan);
+    assert.equal(sha256(filter), current.expectedHash, `${current.name} filter argv changed`);
+    if (current.rotate) assert.match(filter, current.rotate, current.name);
+    if (current.visual.keyframes) assert.match(filter, /scale=w='trunc\(iw\*\(/, current.name);
+    assert.doesNotMatch(filter, /scale=w=640:h=360:flags=lanczos/, current.name);
+  }
+});
+
 test("perspective, rotate, and non-normal blend keep the compatibility scale path", () => {
   const scaleKeyframes = [
     { t: 0, transform: { scale: 1 } },
@@ -270,7 +361,12 @@ test("perspective, rotate, and non-normal blend keep the compatibility scale pat
       perspective: { corners: [[0, 0], [1, 0], [1, 1], [0, 1]] },
       keyframes: scaleKeyframes,
     },
-    { transform: { rotate: 5 }, keyframes: scaleKeyframes },
+    {
+      keyframes: [
+        { t: 0, transform: { scale: 1, rotate: 5 } },
+        { t: DURATION, transform: { scale: SCALE_END, rotate: 5 } },
+      ],
+    },
     {
       keyframes: [
         { t: 0, transform: { scale: 1, rotate: 0 } },

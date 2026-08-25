@@ -122,6 +122,14 @@ perspective のレイヤー分割フォールバック — perspective は `crop
   防ぐ。perspective・rotate・非 normal blend は従来互換経路を維持し、キーフレーム無しカットの
   filter 文字列は変更しない。
 
+- **rotate 適用条件の追補（2026-08-25）**: 上記の「rotate=0（静的・キーフレームとも）」は、
+  下流 filter に rotate ステップが実際に出るかどうかへ読み替え、`rotateConstant === 0` のときだけ
+  固定キャンバスを適用する。静的 `transform.rotate` が非 0 でも、キーフレームが `transform` を
+  宣言すれば rotate はキーフレーム由来の既定 0 で解決され、rotate ステップが出ないため対象となる
+  （rotate の描画意味論は不変）。これで `layers.mjs` の同名ガードと一致する。静的 rotate 非 0 かつ
+  transform キーフレーム無し、キーフレーム rotate が非 0、rotate が時間変化する構成は、rotate
+  ステップが実際に出るため従来互換経路を維持する。
+
 ## 5. macOS の字幕レンダ用 Chrome 起動（2026-08-24 追記）
 
 - macOS では `.app` 内の Chrome 実行ファイルを子プロセスとして直接起動しない。書き出し専用の
