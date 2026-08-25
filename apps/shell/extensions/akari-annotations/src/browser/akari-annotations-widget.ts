@@ -91,6 +91,7 @@ import {
 } from '../common/timeline-track-drop';
 import { computeCutBoundaries } from '../common/cut-boundaries';
 import { resolveItemRowLayout } from '../common/item-row-layout';
+import { splitLintBlame } from '../common/lint-blame-scope';
 import { formatLintFailureForUi, UiLintFinding } from '../common/lint-message-ja';
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
 import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
@@ -3098,7 +3099,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }));
         this.toDispose.push(this.annotationsClient.onLintResultEvent(notification => {
             if (notification.projectRootUri === this.location?.root.toString()) {
-                this.showDeferredLintResult(notification.pass, notification.errors, notification.findings);
+                this.showDeferredLintResult(
+                    notification.pass,
+                    notification.errors,
+                    notification.findings,
+                    notification.writtenFiles
+                );
             }
         }));
         this.toDispose.push(this.fileService.onDidFilesChange(event => {
@@ -3139,7 +3145,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected showDeferredLintResult(
         pass: boolean,
         errors: readonly string[],
-        findings: readonly UiLintFinding[] = []
+        findings: readonly UiLintFinding[] = [],
+        writtenFiles?: readonly string[]
     ): void {
         if (pass) {
             if (this.deferredLintFooterMessage?.parentElement === this.footer) {
@@ -3150,15 +3157,46 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.footer.replaceChildren();
         const message = document.createElement('span');
-        message.textContent = formatLintFailureForUi('保存後の検証で問題が見つかりました', errors, findings);
-        const undo = document.createElement('button');
-        undo.type = 'button';
-        undo.textContent = '直前の編集を元に戻す';
-        undo.disabled = this.past.length === 0;
-        undo.addEventListener('click', () => void this.performUndo());
-        this.footer.append(message, document.createTextNode(' '), undo);
+        if (writtenFiles === undefined) {
+            message.textContent = formatLintFailureForUi('保存後の検証で問題が見つかりました', errors, findings);
+            const undo = document.createElement('button');
+            undo.type = 'button';
+            undo.textContent = '直前の編集を元に戻す';
+            undo.disabled = this.past.length === 0;
+            undo.addEventListener('click', () => void this.performUndo());
+            this.footer.append(message, document.createTextNode(' '), undo);
+            this.deferredLintFooterMessage = message;
+            this.messages.warn(message.textContent);
+            return;
+        }
+        const { own, foreign } = splitLintBlame(findings, writtenFiles);
+        const ownErrors = own.filter(finding => finding.severity === 'error');
+        const foreignErrors = foreign.filter(finding => finding.severity === 'error');
+        const formatFinding = (finding: UiLintFinding): string =>
+            `[${finding.check ?? 'edit-lint'}] ${finding.message ?? '不明なエラー'}`;
+        if (ownErrors.length > 0) {
+            message.textContent = formatLintFailureForUi(
+                '保存後の検証で問題が見つかりました',
+                ownErrors.map(formatFinding),
+                ownErrors
+            );
+            const undo = document.createElement('button');
+            undo.type = 'button';
+            undo.textContent = '直前の編集を元に戻す';
+            undo.disabled = this.past.length === 0;
+            undo.addEventListener('click', () => void this.performUndo());
+            this.footer.append(message, document.createTextNode(' '), undo);
+            this.messages.warn(message.textContent);
+        } else if (foreignErrors.length > 0) {
+            const example = formatFinding(foreignErrors[0]);
+            const ellipsis = foreignErrors.length > 1 ? ' …' : '';
+            message.textContent = `このプロジェクトには保存前からの課題が ${foreignErrors.length} 件あります（例: ${example}${ellipsis}）。Lint レポートで確認してください`;
+            this.footer.append(message);
+        } else {
+            this.deferredLintFooterMessage = undefined;
+            return;
+        }
         this.deferredLintFooterMessage = message;
-        this.messages.warn(message.textContent);
     }
 
     protected async reloadAll(): Promise<void> {
