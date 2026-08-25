@@ -90,6 +90,7 @@ import {
     TimelineTrackDropLayout
 } from '../common/timeline-track-drop';
 import { computeCutBoundaries } from '../common/cut-boundaries';
+import { resolveItemRowLayout } from '../common/item-row-layout';
 import { formatLintFailureForUi, UiLintFinding } from '../common/lint-message-ja';
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
 import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
@@ -4085,7 +4086,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.appendChild(label);
         });
         this.overlays.forEach(overlay => {
-            const layout = this.overlayTrackLayouts.find(candidate => candidate.track === overlay.track);
+            const layout = resolveItemRowLayout(
+                this.laneLayout.tracks,
+                this.itemLocations.get(overlay.id)?.trackId,
+                'overlays',
+                overlay.track
+            );
             const end = overlay.start + overlay.duration;
             if (!layout || !this.isRangeVisible(overlay.start, end)) {
                 return;
@@ -4112,7 +4118,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         });
         this.layers.forEach(layer => {
-            const layout = this.trackLayout('layers', layer.track ?? 0);
+            const layout = resolveItemRowLayout(
+                this.laneLayout.tracks,
+                this.itemLocations.get(layer.id)?.trackId,
+                'layers',
+                layer.track ?? 0
+            );
             const end = layer.t + layer.duration;
             if (!layout || !this.isRangeVisible(layer.t, end)) {
                 return;
@@ -4315,7 +4326,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const trimmerActiveIndex = this.trimmerItemId;
         const unsupportedDeclaredTransitions = this.unsupportedDeclaredTransitionIndexes();
         this.segments.forEach(segment => {
-            const cutLayout = this.trackLayout('cuts', segment.track);
+            const itemTrackId = this.itemLocations.get(this.cutItemIds[segment.index] ?? '')?.trackId;
+            const cutLayout = resolveItemRowLayout(
+                this.laneLayout.tracks, itemTrackId, 'cuts', segment.track
+            );
             if (!cutLayout || !this.isRangeVisible(segment.tlStart, segment.tlEnd)) {
                 return;
             }
@@ -4499,7 +4513,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected renderTransitionBoundaries(unsupported: ReadonlySet<number>): void {
         const boundaries = computeCutBoundaries(this.segments, this.fps);
         for (const boundary of boundaries) {
-            const cutLayout = this.trackLayout('cuts', boundary.track);
+            const itemTrackId = this.itemLocations.get(this.cutItemIds[boundary.earlierIndex] ?? '')?.trackId;
+            const cutLayout = resolveItemRowLayout(
+                this.laneLayout.tracks, itemTrackId, 'cuts', boundary.track
+            );
             if (!cutLayout || !this.isRangeVisible(boundary.boundaryT, boundary.boundaryT)) {
                 continue;
             }
