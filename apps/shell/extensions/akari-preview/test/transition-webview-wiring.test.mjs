@@ -16,7 +16,8 @@ test('webview は transition window 内だけ 2 本目の video を同期する'
   assert.match(source, /transitionWindows = \(map\.transitionWindows \|\| \[\]\)/);
   assert.match(source, /applyTransitionSegmentSource\(window\.incoming/);
   assert.match(source, /transitionVideo\.currentTime = target/);
-  assert.match(source, /video\.dataset\.akariTransitionProgress = progressText/);
+  assert.match(source, /outgoingElement\.dataset\.akariTransitionProgress = progressText/);
+  assert.match(source, /incomingElement\.dataset\.akariTransitionProgress = progressText/);
 });
 
 test('incoming video は window へ入る前に src と先頭フレームを先読みする', () => {
