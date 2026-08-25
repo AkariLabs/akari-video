@@ -1,16 +1,18 @@
 import { ElectronMainApplication, ElectronMainApplicationContribution } from '@theia/core/lib/electron-main/electron-main-application';
-import { BrowserWindow, ipcMain } from '@theia/core/electron-shared/electron';
+import { app, BrowserWindow, ipcMain } from '@theia/core/electron-shared/electron';
 import { injectable } from '@theia/core/shared/inversify';
-import { appendFileSync, mkdirSync, readFileSync } from 'fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { autoUpdater, UpdateInfo } from 'electron-updater';
 import { parseUpdateCache } from '../common/update-feed';
 import {
+    FALLBACK_FEED_OPTIONS,
     isAppTranslocationPath,
     resolveAllowPrerelease,
     resolveShellUpdaterErrorReason,
-    ShellUpdaterEvent
+    ShellUpdaterEvent,
+    shouldApplyFeedUrlFallback
 } from '../common/shell-update-applier';
 import { CHANNEL_UPDATER_CHECK, CHANNEL_UPDATER_EVENT, CHANNEL_UPDATER_GET_STATE, CHANNEL_UPDATER_RESTART } from '../electron-common/electron-api';
 
@@ -64,6 +66,11 @@ export class AkariUpdaterElectronMain implements ElectronMainApplicationContribu
     }
 
     protected configureAndCheck(): void {
+        const appUpdateYmlExists = existsSync(join(process.resourcesPath, 'app-update.yml'));
+        if (shouldApplyFeedUrlFallback(app.isPackaged, appUpdateYmlExists)) {
+            autoUpdater.setFeedURL(FALLBACK_FEED_OPTIONS);
+        }
+
         autoUpdater.autoDownload = true;
         autoUpdater.autoInstallOnAppQuit = true;
         autoUpdater.allowPrerelease = resolveAllowPrerelease(this.readCachedChannel());

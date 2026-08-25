@@ -23,6 +23,17 @@ async function readShellPackageJson() {
   return JSON.parse(await readFile(path.join(shellRoot, 'package.json'), 'utf8'));
 }
 
+async function readFallbackFeedOptions() {
+  const source = await readFile(
+    path.join(shellRoot, 'extensions/akari-surfaces/src/common/shell-update-applier.ts'),
+    'utf8'
+  );
+  const block = source.match(/FALLBACK_FEED_OPTIONS\s*=\s*\{(?<body>[\s\S]*?)\}\s*as const;/)?.groups?.body;
+  assert.ok(block, 'FALLBACK_FEED_OPTIONS 定数が見つからない');
+  const field = (name) => block.match(new RegExp(`${name}:\\s*'([^']+)'`))?.[1];
+  return { provider: field('provider'), owner: field('owner'), repo: field('repo') };
+}
+
 /** electron-builder のテンプレート置換を模した最小実装（`${ext}` のみこのテストで使う）。 */
 function substituteArtifactName(template, ext) {
   return template.replace('${ext}', ext);
@@ -31,6 +42,11 @@ function substituteArtifactName(template, ext) {
 test('build.publish は GitHub provider（AkariLabs/akari-video）を指す（electron-updater が app-update.yml から読む契約）', async () => {
   const pkg = await readShellPackageJson();
   assert.deepEqual(pkg.build.publish, { provider: 'github', owner: 'AkariLabs', repo: 'akari-video' });
+});
+
+test('main の feed URL フォールバック定数は build.publish と一致する（drift ガード）', async () => {
+  const pkg = await readShellPackageJson();
+  assert.deepEqual(await readFallbackFeedOptions(), pkg.build.publish);
 });
 
 test('mac.artifactName は gen-latest-json.mjs の ARTIFACT_FILES.shellMac と一致する固定名を生成する（U3: リネーム後処理を無くす設計）', async () => {
@@ -64,6 +80,29 @@ test('release.yml のシェルビルドステップは --publish never を明示
   const releaseYml = await readFile(path.join(repoRoot, '.github/workflows/release.yml'), 'utf8');
   assert.match(releaseYml, /electron-builder --mac zip dmg --publish never/);
   assert.match(releaseYml, /electron-builder --win nsis --pd electron-builder-out\/win-unpacked --publish never/);
+});
+
+test('release.yml の build-win は package 後・Zip win-unpacked 前に app-update.yml を生成する', async () => {
+  const releaseYml = await readFile(path.join(repoRoot, '.github/workflows/release.yml'), 'utf8');
+  const buildWinStart = releaseYml.indexOf('\n  build-win:');
+  assert.notEqual(buildWinStart, -1, 'build-win ジョブが見つからない');
+  const buildWinHeadingEnd = buildWinStart + '\n  build-win:'.length;
+  const nextJob = releaseYml.slice(buildWinHeadingEnd).match(/^  [a-z][a-z0-9-]*:\s*$/m);
+  const buildWinEnd = nextJob
+    ? buildWinHeadingEnd + nextJob.index
+    : releaseYml.length;
+  const buildWin = releaseYml.slice(buildWinStart, buildWinEnd);
+  const packageStep = buildWin.indexOf('run: npm run package');
+  const generateStep = buildWin.indexOf(
+    'run: node scripts/release/gen-app-update-yml.mjs apps/shell/electron-builder-out/win-unpacked/resources/app-update.yml'
+  );
+  const zipStep = buildWin.indexOf('- name: Zip win-unpacked');
+
+  assert.notEqual(packageStep, -1, 'build-win 内に package ステップが無い');
+  assert.notEqual(generateStep, -1, 'build-win 内に gen-app-update-yml 呼び出しが無い');
+  assert.notEqual(zipStep, -1, 'build-win 内に Zip win-unpacked ステップが無い');
+  assert.ok(packageStep < generateStep, 'gen-app-update-yml は package より後でなければならない');
+  assert.ok(generateStep < zipStep, 'gen-app-update-yml は Zip win-unpacked より前でなければならない');
 });
 
 test('release.yml は electron-updater メタデータ（latest-mac.yml / latest.yml）の存在確認を必須アセットとして課している', async () => {

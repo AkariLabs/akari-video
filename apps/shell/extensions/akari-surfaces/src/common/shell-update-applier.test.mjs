@@ -12,13 +12,27 @@ import {
     formatDownloadedBannerText,
     formatDownloadingBannerText,
     formatUpdaterFallbackText,
+    FALLBACK_FEED_OPTIONS,
     INITIAL_SHELL_UPDATER_UI_STATE,
     isAppTranslocationPath,
     resolveAllowPrerelease,
     resolveShellUpdaterErrorReason,
     resolveUpdateButtonAction,
+    shouldApplyFeedUrlFallback,
     shouldOpenUpdaterBrowserFallback
 } from '../../lib/common/shell-update-applier.js';
+
+test('feed URL フォールバックはパッケージ版かつ app-update.yml 欠如時だけ適用する', () => {
+    assert.equal(shouldApplyFeedUrlFallback(true, true), false);
+    assert.equal(shouldApplyFeedUrlFallback(true, false), true);
+    assert.equal(shouldApplyFeedUrlFallback(false, true), false);
+    assert.equal(shouldApplyFeedUrlFallback(false, false), false);
+    assert.deepEqual(FALLBACK_FEED_OPTIONS, {
+        provider: 'github',
+        owner: 'AkariLabs',
+        repo: 'akari-video'
+    });
+});
 
 test('applyShellUpdaterEvent: update-downloaded で downloaded: true + version が入る（通知→DL済み・再起動ボタンの遷移）', () => {
     const next = applyShellUpdaterEvent(INITIAL_SHELL_UPDATER_UI_STATE, { kind: 'update-downloaded', version: '0.2.0' });
