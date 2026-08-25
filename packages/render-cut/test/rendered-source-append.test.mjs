@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -46,6 +47,16 @@ test("a verified render appends its v2 source once and a second render is byte-s
     const first = run(process.execPath, [cliPath, project, "--out", "exports/render.mp4"]);
     assert.equal(first.status, 0, first.stderr);
     const afterFirst = await readFile(editPath, "utf8");
+    const firstState = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    const firstReceipt = JSON.parse(
+      await readFile(join(project, firstState.render_receipt.path), "utf8"),
+    );
+    const receiptEditInput = firstReceipt.inputs.find((input) => input.role === "edit");
+    assert.equal(
+      receiptEditInput?.sha256,
+      createHash("sha256").update(afterFirst).digest("hex"),
+      "completed edit.json must match the receipt-bound edit input",
+    );
     const second = run(process.execPath, [cliPath, project, "--out", "exports/render.mp4"]);
     assert.equal(second.status, 0, second.stderr);
 

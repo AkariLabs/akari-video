@@ -4,7 +4,9 @@ import { join, sep } from "node:path";
 
 const POLL_INTERVAL_MS = 25;
 const CLOSE_TIMEOUT_MS = 2_000;
-const PROFILE_PROCESS_EXIT_TIMEOUT_MS = 5_000;
+const CONNECT_ATTEMPT_TIMEOUT_MS = 2_000;
+const DEFAULT_PROFILE_PROCESS_EXIT_TIMEOUT_MS = 5_000;
+const FORCE_KILL_CONFIRM_TIMEOUT_MS = 1_000;
 const PROFILE_REMOVE_TIMEOUT_MS = 8_000;
 const PROFILE_REMOVE_RETRY_CODES = new Set(["EBUSY", "ENOTEMPTY", "EPERM"]);
 const USER_MESSAGE = "字幕レンダ用ブラウザの起動に失敗しました。Google Chrome のインストールと、CHROME_PATH が .app 内の実行ファイルを指していることを確認してください。";
@@ -31,7 +33,11 @@ export async function launchBrowser({
   failureMarkerPath = null,
   launchMacApplication = launchThroughLaunchServices,
   closeRemoteBrowser = sendBrowserClose,
+  listProfileProcesses = listProcessCommands,
+  listProfileProcessDetails = listProcessDetails,
+  killProfileProcess = killProcessByPid,
   onError = (message) => console.error(message),
+  onWarning = (message) => console.error(message),
 }) {
   const previousFailure = failureMarkerPath
     ? await readFile(failureMarkerPath, "utf8").catch(() => null)
@@ -89,7 +95,6 @@ export async function launchBrowser({
       async close({ force = false } = {}) {
         if (closed) return;
         closed = true;
-        let closeError = null;
         try {
           await closeBrowser({
             browser,
@@ -99,42 +104,56 @@ export async function launchBrowser({
             userDataDir,
             timeoutMs,
             closeRemoteBrowser,
+            listProfileProcesses,
+            listProfileProcessDetails,
+            killProfileProcess,
           });
         } catch (error) {
-          closeError = error;
+          // キャプチャ成功後は Chrome の終了遅延だけで成果物を失敗扱いにしない。
+          reportCleanupWarning(onWarning, error);
         }
         try {
           await removeProfile(userDataDir);
         } catch (error) {
-          if (closeError) {
-            throw new AggregateError(
-              [closeError, error],
-              "Chrome の終了待機と一時プロファイルの削除に失敗しました",
-            );
-          }
-          throw error;
+          // 起動ごとに一意なパスなので、削除失敗も次回起動を妨げない後始末警告に留める。
+          reportCleanupWarning(onWarning, error);
         }
-        if (closeError) throw closeError;
       },
     };
   } catch (error) {
-    if (browser) {
-      await closeBrowser({
-        browser,
-        browserWSEndpoint,
-        force: true,
-        usesLaunchServices,
-        userDataDir,
-        timeoutMs,
-        closeRemoteBrowser,
-      });
-    } else if (usesLaunchServices) {
-      browserWSEndpoint ??= await readDevToolsActivePort(userDataDir)
-        .then((activePort) => activePort.browserWSEndpoint)
-        .catch(() => null);
-      if (browserWSEndpoint) await closeRemoteBrowser(browserWSEndpoint).catch(() => {});
+    try {
+      if (browser) {
+        await closeBrowser({
+          browser,
+          browserWSEndpoint,
+          force: true,
+          usesLaunchServices,
+          userDataDir,
+          timeoutMs,
+          closeRemoteBrowser,
+          listProfileProcesses,
+          listProfileProcessDetails,
+          killProfileProcess,
+        });
+      } else if (usesLaunchServices) {
+        browserWSEndpoint ??= await readDevToolsActivePort(userDataDir)
+          .then((activePort) => activePort.browserWSEndpoint)
+          .catch(() => null);
+        if (browserWSEndpoint) await closeRemoteBrowser(browserWSEndpoint).catch(() => {});
+      }
+    } catch (cleanupError) {
+      // 起動失敗の原因を Chrome 終了待ちの失敗で差し替えず、失敗マーカーまで必ず進める。
+      reportCleanupWarning(onWarning, cleanupError);
     }
-    await removeProfile(userDataDir);
+    if (usesLaunchServices) {
+      await forceTerminateProfileProcesses({
+        userDataDir,
+        listProcesses: listProfileProcessDetails,
+        killProcess: killProfileProcess,
+      }).catch((cleanupError) => reportCleanupWarning(onWarning, cleanupError));
+    }
+    await removeProfile(userDataDir)
+      .catch((cleanupError) => reportCleanupWarning(onWarning, cleanupError));
     const wrapped = error instanceof BrowserLaunchError
       ? error
       : new BrowserLaunchError(error?.message ?? String(error), { cause: error });
@@ -221,10 +240,24 @@ async function connectWithRetry({ puppeteer, browserWSEndpoint, timeoutMs }) {
   const deadline = Date.now() + timeoutMs;
   let lastError = null;
   do {
+    const remainingMs = Math.max(1, deadline - Date.now());
+    const attemptTimeoutMs = Math.min(
+      timeoutMs,
+      CONNECT_ATTEMPT_TIMEOUT_MS,
+      remainingMs,
+    );
+    const connection = Promise.resolve().then(() => puppeteer.connect({
+      browserWSEndpoint,
+      defaultViewport: null,
+    }));
     try {
-      return await puppeteer.connect({ browserWSEndpoint, defaultViewport: null });
+      return await withTimeout(connection, attemptTimeoutMs, "connecting to Chrome");
     } catch (error) {
       lastError = error;
+      if (error?.code === "ETIMEDOUT") {
+        // 見捨てた CDP 接続が期限後に成立しても Chrome を握り続けない。
+        connection.then((lateBrowser) => lateBrowser?.disconnect?.()).catch(() => {});
+      }
     }
     await delay(Math.min(POLL_INTERVAL_MS, Math.max(1, deadline - Date.now())));
   } while (Date.now() < deadline);
@@ -243,6 +276,9 @@ async function closeBrowser({
   userDataDir,
   timeoutMs,
   closeRemoteBrowser,
+  listProfileProcesses,
+  listProfileProcessDetails,
+  killProfileProcess,
 }) {
   const process = browser.process?.();
   let closeFailed = false;
@@ -264,7 +300,17 @@ async function closeBrowser({
     await closeRemoteBrowser(browserWSEndpoint).catch(() => {});
   }
   if (usesLaunchServices) {
-    await waitForProfileProcessesExit({ userDataDir });
+    try {
+      await waitForProfileProcessesExit({ userDataDir, listProcesses: listProfileProcesses });
+    } catch (error) {
+      // 通常終了の猶予を使い切った Chrome だけ、一意プロファイルで限定して強制終了する。
+      await forceTerminateProfileProcesses({
+        userDataDir,
+        listProcesses: listProfileProcessDetails,
+        killProcess: killProfileProcess,
+      }).catch(() => {});
+      throw error;
+    }
   }
   if (
     !usesLaunchServices
@@ -303,7 +349,7 @@ async function sendBrowserClose(browserWSEndpoint) {
 
 export async function waitForProfileProcessesExit({
   userDataDir,
-  timeoutMs = PROFILE_PROCESS_EXIT_TIMEOUT_MS,
+  timeoutMs = profileProcessExitTimeoutMs(),
   pollIntervalMs = 50,
   listProcesses = listProcessCommands,
 }) {
@@ -331,6 +377,22 @@ export async function waitForProfileProcessesExit({
   throw error;
 }
 
+function profileProcessExitTimeoutMs() {
+  const configured = Number(process.env.RENDER_CUT_PROFILE_EXIT_TIMEOUT_MS);
+  const milliseconds = Math.floor(configured);
+  return Number.isFinite(configured) && milliseconds > 0
+    ? milliseconds
+    : DEFAULT_PROFILE_PROCESS_EXIT_TIMEOUT_MS;
+}
+
+function reportCleanupWarning(onWarning, error) {
+  try {
+    onWarning?.(`Chrome cleanup warning: ${error?.message ?? String(error)}`);
+  } catch {
+    // 診断の受け取り側が失敗しても、成功済みキャプチャを後始末エラーへ格下げしない。
+  }
+}
+
 async function listProcessCommands() {
   return new Promise((resolvePromise) => {
     let child;
@@ -351,6 +413,74 @@ async function listProcessCommands() {
       resolvePromise(code === 0 ? stdout.split(/\r?\n/u).filter(Boolean) : null);
     });
   });
+}
+
+async function listProcessDetails() {
+  return new Promise((resolvePromise) => {
+    let child;
+    try {
+      child = spawn("/bin/ps", ["-axo", "pid=,command="], {
+        stdio: ["ignore", "pipe", "ignore"],
+      });
+    } catch {
+      resolvePromise(null);
+      return;
+    }
+    let stdout = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.on("error", () => resolvePromise(null));
+    child.on("close", (code) => {
+      if (code !== 0) {
+        resolvePromise(null);
+        return;
+      }
+      resolvePromise(stdout.split(/\r?\n/u).flatMap((line) => {
+        const match = /^\s*(\d+)\s+(.+)$/u.exec(line);
+        return match ? [{ pid: Number(match[1]), command: match[2] }] : [];
+      }));
+    });
+  });
+}
+
+async function forceTerminateProfileProcesses({
+  userDataDir,
+  listProcesses = listProcessDetails,
+  killProcess = killProcessByPid,
+  timeoutMs = FORCE_KILL_CONFIRM_TIMEOUT_MS,
+  pollIntervalMs = 25,
+}) {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    const processes = await listProcesses();
+    if (processes === null) return false;
+    const matches = processes.filter(({ pid, command }) =>
+      Number.isInteger(pid)
+      && pid > 1
+      && pid !== process.pid
+      && typeof command === "string"
+      && command.includes(userDataDir),
+    );
+    if (matches.length === 0) return true;
+    for (const { pid } of matches) {
+      try {
+        killProcess(pid, "SIGKILL");
+      } catch (error) {
+        if (error?.code !== "ESRCH") throw error;
+      }
+    }
+    await delay(Math.min(pollIntervalMs, Math.max(1, deadline - Date.now())));
+  } while (Date.now() < deadline);
+  const error = new Error(
+    `Chrome processes still reference the temporary profile after forced termination ${timeoutMs}ms`,
+  );
+  error.code = "ETIMEDOUT";
+  throw error;
+}
+
+function killProcessByPid(pid, signal) {
+  process.kill(pid, signal);
 }
 
 async function removeProfile(userDataDir) {

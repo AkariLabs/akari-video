@@ -258,6 +258,58 @@ test("source, caption, and overlay mutation after planning prevents receipt crea
   }
 });
 
+test("an unreferenced rendered source append does not invalidate the receipt", async () => {
+  await withProject(async (root) => {
+    const options = await prepareReceiptOptions(root);
+    const editPath = join(root, "edit.json");
+    const current = JSON.parse(await readFile(editPath, "utf8"));
+    current.sources.push({ id: "rendered-output", path: "exports/other-run.mp4", proxy: null });
+    await writeFile(editPath, `${JSON.stringify(current, null, 2)}\n`, "utf8");
+
+    const receipt = await createImmutableRenderReceipt(options);
+    assert.equal(receipt.payload.verify.verdict, "pass");
+    assert.equal((await readFile(join(root, receipt.path), "utf8")).length > 0, true);
+  });
+});
+
+test("an unreferenced rendered source removal does not invalidate the receipt", async () => {
+  await withProject(async (root) => {
+    const options = await prepareReceiptOptions(root);
+    const editPath = join(root, "edit.json");
+    const currentText = await readFile(editPath, "utf8");
+    const consumed = JSON.parse(currentText);
+    consumed.sources.push({ id: "rendered-output", path: "exports/lost-run.mp4", proxy: null });
+    const consumedText = `${JSON.stringify(consumed, null, 2)}\n`;
+    await writeFile(editPath, consumedText, "utf8");
+    options.declaredInputs.find((input) => input.role === "edit").text = consumedText;
+    options.inputSnapshot = await hashDeclaredRenderInputs(
+      options.declaredInputs,
+      { useConsumedText: true },
+    );
+    await writeFile(editPath, currentText, "utf8");
+
+    const receipt = await createImmutableRenderReceipt(options);
+    assert.equal(receipt.payload.verify.verdict, "pass");
+    assert.equal((await readFile(join(root, receipt.path), "utf8")).length > 0, true);
+  });
+});
+
+test("a valid edit declaration mutation still invalidates the receipt", async () => {
+  await withProject(async (root) => {
+    const options = await prepareReceiptOptions(root);
+    const editPath = join(root, "edit.json");
+    const current = JSON.parse(await readFile(editPath, "utf8"));
+    current.output.width += 1;
+    await writeFile(editPath, `${JSON.stringify(current, null, 2)}\n`, "utf8");
+
+    await assert.rejects(
+      createImmutableRenderReceipt(options),
+      /render inputs changed during rendering: edit:edit\.json/u,
+    );
+    assert.deepEqual(await readdir(join(root, ".akari", "reports", "render-receipts")), []);
+  });
+});
+
 test("caption font mutation after planning prevents receipt creation", async () => {
   await withProject(async (root) => {
     const { asset } = await fakeCaptionFontRepository(root);
