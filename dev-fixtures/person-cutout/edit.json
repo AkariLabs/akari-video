@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "assets/main.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "name": "本編",
+      "items": [
+        {
+          "id": "clip-0",
+          "at": 0,
+          "duration": 60,
+          "source": { "kind": "media", "src": "main", "in": 1, "out": 3 }
+        },
+        {
+          "id": "clip-1",
+          "at": 60,
+          "duration": 60,
+          "source": { "kind": "media", "src": "main", "in": 4, "out": 8, "speed": 2 }
+        }
+      ]
+    },
+    {
+      "id": "v-overlay",
+      "lane": "visual",
+      "name": "HTML オーバーレイ",
+      "items": [
+        {
+          "id": "title",
+          "at": 0,
+          "duration": 120,
+          "source": { "kind": "html", "path": "overlays/title.html" }
+        }
+      ]
+    }
+  ]
+}
