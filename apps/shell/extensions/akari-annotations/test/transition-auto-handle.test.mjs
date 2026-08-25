@@ -17,7 +17,8 @@ const method = (startNeedle, endNeedle) => {
 test('種別選択だけが autoHandle を要求し、尺スライダーと削除は既存経路を保つ', () => {
   const popup = method('protected openTransitionPopup', 'protected async applyTransitionOut');
   assert.match(popup, /type: option\.type,[\s\S]*\}, \{ autoHandle: true \}\)/u);
-  assert.match(popup, /type: current\.type, duration: Number\(slider\.value\)[\s\S]*\}\)\.then\(render\)/u);
+  assert.match(popup, /type: currentType, duration: Number\(slider\.value\)[\s\S]*\}\)\.then\(render\)/u);
+  assert.match(popup, /slider\.disabled = currentType === undefined/u);
   assert.doesNotMatch(popup, /slider\.value\)[\s\S]{0,80}autoHandle/u);
   assert.match(popup, /applyTransitionOut\(earlierIndex, null\)/u);
 });

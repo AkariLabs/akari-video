@@ -1,4 +1,5 @@
 import { type TransitionHandleExtensionPlan } from './cut-adjacency';
+import { type ReadableTransitionType, type TransitionType } from './transition-vocabulary';
 export interface EditCut {
     in: number;
     out: number;
@@ -12,7 +13,7 @@ export interface EditCut {
     opacity?: number;
     speed?: number;
     transitionOut?: {
-        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        type: ReadableTransitionType;
         duration: number;
     };
     at?: number;
@@ -141,13 +142,13 @@ export declare function updateCutTransformInSource(source: string, cutIndex: num
 }): string;
 export declare function updateCutOpacityInSource(source: string, cutIndex: number, opacity: number | null): string;
 export declare function setCutTransitionOutInSource(source: string, cutIndex: number, transitionOut: {
-    type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+    type: TransitionType;
     duration: number;
 } | null): string;
 export interface SetV2TransitionOutWithHandleInput {
     itemId: string;
     transitionOut: {
-        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        type: TransitionType;
         duration: number;
     };
     earlierEndSeconds: number;

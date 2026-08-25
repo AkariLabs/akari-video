@@ -180,7 +180,7 @@ export function buildTimelineMap(
                 end: window.end,
                 mid: (window.start + window.end) / 2,
                 color: window.type === 'fade-white' ? '#fff' : '#000',
-                type: window.type
+                type: window.type as TimelineTransitionPlate['type']
             }]
             : []
     );

@@ -2,6 +2,7 @@ import {
     planTransitionHandleExtension,
     type TransitionHandleExtensionPlan
 } from './cut-adjacency';
+import { isTransitionType, type ReadableTransitionType, type TransitionType } from './transition-vocabulary';
 
 export interface EditCut {
     in: number;
@@ -11,7 +12,7 @@ export interface EditCut {
     opacity?: number;
     speed?: number;
     transitionOut?: {
-        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        type: ReadableTransitionType;
         duration: number;
     };
     at?: number;
@@ -428,14 +429,12 @@ export function setCutTransitionOutInSource(
     source: string,
     cutIndex: number,
     transitionOut: {
-        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        type: TransitionType;
         duration: number;
     } | null
 ): string {
     if (transitionOut !== null) {
-        if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black'
-            && transitionOut.type !== 'fade-white' && transitionOut.type !== 'reveal-down'
-            && transitionOut.type !== 'reveal-up') {
+        if (!isTransitionType(transitionOut.type)) {
             throw new Error('トランジションの種別が不正です。');
         }
         if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {
@@ -466,7 +465,7 @@ export function setCutTransitionOutInSource(
 export interface SetV2TransitionOutWithHandleInput {
     itemId: string;
     transitionOut: {
-        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        type: TransitionType;
         duration: number;
     };
     earlierEndSeconds: number;
@@ -575,9 +574,7 @@ export function setV2TransitionOutWithHandleInSource(
 }
 
 function assertTransitionOutValue(transitionOut: SetV2TransitionOutWithHandleInput['transitionOut']): void {
-    if (transitionOut.type !== 'dissolve' && transitionOut.type !== 'fade-black'
-        && transitionOut.type !== 'fade-white' && transitionOut.type !== 'reveal-down'
-        && transitionOut.type !== 'reveal-up') {
+    if (!isTransitionType(transitionOut.type)) {
         throw new Error('トランジションの種別が不正です。');
     }
     if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {

@@ -19,6 +19,7 @@
       "incoming": {
         "display": "none",
         "opacity": 0,
+        "zIndex": "auto",
         "clipPath": "none",
         "currentTime": 2,
         "volume": 1,
@@ -39,6 +40,9 @@
             "display": "block",
             "visibility": "visible",
             "opacity": 0.9,
+            "transform": "none",
+            "height": 360,
+            "zIndex": "0",
             "currentTime": 1.1,
             "volume": 0.8999999999999999,
             "type": "fade-white",
@@ -47,6 +51,7 @@
           "incoming": {
             "display": "block",
             "opacity": 0.1,
+            "zIndex": "0",
             "clipPath": "none",
             "currentTime": 2.1,
             "volume": 0.10000000000000009,
@@ -56,8 +61,22 @@
             "progress": "0.100"
           },
           "plate": {
-            "opacity": 0.2,
+            "opacity": 0.555556,
             "background": "rgb(255, 255, 255)"
+          },
+          "paint": {
+            "top": [
+              "transition-video",
+              "preview-video"
+            ],
+            "center": [
+              "transition-video",
+              "preview-video"
+            ],
+            "bottom": [
+              "transition-video",
+              "preview-video"
+            ]
           }
         },
         {
@@ -67,6 +86,9 @@
             "display": "block",
             "visibility": "visible",
             "opacity": 0.5,
+            "transform": "none",
+            "height": 360,
+            "zIndex": "0",
             "currentTime": 1.5,
             "volume": 0.5,
             "type": "fade-white",
@@ -75,6 +97,7 @@
           "incoming": {
             "display": "block",
             "opacity": 0.5,
+            "zIndex": "0",
             "clipPath": "none",
             "currentTime": 2.5,
             "volume": 0.5,
@@ -84,8 +107,22 @@
             "progress": "0.500"
           },
           "plate": {
-            "opacity": 1,
+            "opacity": 0.714286,
             "background": "rgb(255, 255, 255)"
+          },
+          "paint": {
+            "top": [
+              "transition-video",
+              "preview-video"
+            ],
+            "center": [
+              "transition-video",
+              "preview-video"
+            ],
+            "bottom": [
+              "transition-video",
+              "preview-video"
+            ]
           }
         },
         {
@@ -95,6 +132,9 @@
             "display": "block",
             "visibility": "visible",
             "opacity": 0.1,
+            "transform": "none",
+            "height": 360,
+            "zIndex": "0",
             "currentTime": 1.9,
             "volume": 0.10000000000000009,
             "type": "fade-white",
@@ -103,6 +143,7 @@
           "incoming": {
             "display": "block",
             "opacity": 0.9,
+            "zIndex": "0",
             "clipPath": "none",
             "currentTime": 2.9,
             "volume": 0.8999999999999999,
@@ -112,8 +153,22 @@
             "progress": "0.900"
           },
           "plate": {
-            "opacity": 0.2,
+            "opacity": 0.142857,
             "background": "rgb(255, 255, 255)"
+          },
+          "paint": {
+            "top": [
+              "transition-video",
+              "preview-video"
+            ],
+            "center": [
+              "transition-video",
+              "preview-video"
+            ],
+            "bottom": [
+              "transition-video",
+              "preview-video"
+            ]
           }
         }
       ]
@@ -128,6 +183,9 @@
           "display": "block",
           "visibility": "visible",
           "opacity": 1,
+          "transform": "none",
+          "height": 360,
+          "zIndex": "0",
           "currentTime": 3.1,
           "volume": 1,
           "type": "",
@@ -136,6 +194,7 @@
         "incoming": {
           "display": "none",
           "opacity": 0,
+          "zIndex": "0",
           "clipPath": "none",
           "currentTime": 2.9,
           "volume": 0.8999999999999999,
@@ -147,6 +206,17 @@
         "plate": {
           "opacity": 0,
           "background": "rgb(255, 255, 255)"
+        },
+        "paint": {
+          "top": [
+            "preview-video"
+          ],
+          "center": [
+            "preview-video"
+          ],
+          "bottom": [
+            "preview-video"
+          ]
         }
       },
       "expectedSourceTime": 3.1

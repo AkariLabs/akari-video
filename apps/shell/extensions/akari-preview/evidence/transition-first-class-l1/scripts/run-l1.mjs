@@ -23,6 +23,16 @@ const record = (step, value) => {
 };
 const closeEnough = (actual, expected, tolerance = 0.08) =>
   Math.abs(Number(actual) - expected) <= tolerance;
+const fadePlateOpacity = progress => Math.max(
+  0,
+  Math.min(1, Math.min(progress / 0.18, (1 - progress) / 0.7))
+);
+const matrixTranslateY = value => {
+  const serialized = String(value);
+  const numbers = serialized.slice(serialized.indexOf('(') + 1, -1)
+    .split(',').map(part => Number(part.trim()));
+  return serialized.startsWith('matrix3d(') ? numbers[13] : numbers[5];
+};
 
 await mkdir(evidenceDir, { recursive: true });
 const main = await connectMain(port);
@@ -94,11 +104,17 @@ async function readDom(timeoutMs = 10000) {
       const outgoing = document.getElementById('preview-video');
       const incoming = document.getElementById('transition-video');
       const plate = document.getElementById('transition-plate');
+      const stage = document.getElementById('preview-stage');
       const seek = document.getElementById('seek');
-      if (!outgoing || !incoming || !plate || !seek) return null;
+      if (!outgoing || !incoming || !plate || !stage || !seek) return null;
       const outgoingStyle = getComputedStyle(outgoing);
       const incomingStyle = getComputedStyle(incoming);
       const plateStyle = getComputedStyle(plate);
+      const stageRect = stage.getBoundingClientRect();
+      const paintOrderAt = (fx, fy) => document.elementsFromPoint(
+        stageRect.left + stageRect.width * fx,
+        stageRect.top + stageRect.height * fy
+      ).map(element => element.id).filter(id => id === 'preview-video' || id === 'transition-video');
       return {
         timelineTime: Number(seek.value),
         videoCount: document.querySelectorAll('#preview-layers > video').length,
@@ -106,6 +122,9 @@ async function readDom(timeoutMs = 10000) {
           display: outgoingStyle.display,
           visibility: outgoingStyle.visibility,
           opacity: Number(outgoingStyle.opacity),
+          transform: outgoingStyle.transform,
+          height: outgoing.offsetHeight,
+          zIndex: outgoingStyle.zIndex,
           currentTime: outgoing.currentTime,
           volume: outgoing.volume,
           type: outgoing.dataset.akariTransitionType || '',
@@ -114,6 +133,7 @@ async function readDom(timeoutMs = 10000) {
         incoming: {
           display: incomingStyle.display,
           opacity: Number(incomingStyle.opacity),
+          zIndex: incomingStyle.zIndex,
           clipPath: incomingStyle.clipPath,
           currentTime: incoming.currentTime,
           volume: incoming.volume,
@@ -122,7 +142,12 @@ async function readDom(timeoutMs = 10000) {
           type: incoming.dataset.akariTransitionType || '',
           progress: incoming.dataset.akariTransitionProgress || ''
         },
-        plate: { opacity: Number(plateStyle.opacity), background: plateStyle.backgroundColor }
+        plate: { opacity: Number(plateStyle.opacity), background: plateStyle.backgroundColor },
+        paint: {
+          top: paintOrderAt(0.5, 0.25),
+          center: paintOrderAt(0.5, 0.5),
+          bottom: paintOrderAt(0.5, 0.75)
+        }
       };
     })()`);
     if (state) return state;
@@ -169,12 +194,32 @@ try {
     assert.ok(closeEnough(points[1].incoming.opacity, 0.5));
     assert.ok(closeEnough(points[2].incoming.opacity, 0.9));
   } else if (type === 'fade-black' || type === 'fade-white') {
-    assert.ok(points[1].plate.opacity >= 0.95, JSON.stringify(points[1]));
+    for (const [index, progress] of [0.1, 0.5, 0.9].entries()) {
+      assert.ok(closeEnough(
+        points[index].plate.opacity,
+        fadePlateOpacity(progress),
+        0.005
+      ), JSON.stringify({ progress, state: points[index] }));
+    }
     assert.equal(points[1].plate.background, type === 'fade-white' ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)');
   } else if (type === 'reveal-down') {
-    assert.match(points[1].incoming.clipPath, /inset\(0px 0px 50%/);
+    assert.notEqual(points[1].outgoing.transform, 'none');
+    assert.ok(closeEnough(
+      matrixTranslateY(points[1].outgoing.transform),
+      points[1].outgoing.height * 0.5,
+      Math.max(2, points[1].outgoing.height * 0.03)
+    ), JSON.stringify(points[1]));
+    assert.deepEqual(points[1].paint.bottom.slice(0, 2), ['preview-video', 'transition-video']);
+    assert.equal(points[1].incoming.clipPath, 'none');
   } else if (type === 'reveal-up') {
-    assert.match(points[1].incoming.clipPath, /inset\(50% 0px 0px/);
+    assert.notEqual(points[1].outgoing.transform, 'none');
+    assert.ok(closeEnough(
+      matrixTranslateY(points[1].outgoing.transform),
+      -points[1].outgoing.height * 0.5,
+      Math.max(2, points[1].outgoing.height * 0.03)
+    ), JSON.stringify(points[1]));
+    assert.deepEqual(points[1].paint.top.slice(0, 2), ['preview-video', 'transition-video']);
+    assert.equal(points[1].incoming.clipPath, 'none');
   }
   record('window-points', { type, points });
 

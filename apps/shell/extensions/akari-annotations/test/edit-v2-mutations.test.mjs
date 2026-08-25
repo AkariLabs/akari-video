@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
@@ -32,6 +33,9 @@ import {
 
 const fixturePath = new URL('../../../../../packages/edit-store/test/fixtures/edit-v2.json', import.meta.url);
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
+const { TRANSITION_TYPE_IDS } = createRequire(import.meta.url)(
+  '../../../../../packages/edit-store/lib/index.js'
+);
 
 function valid(value) {
   assert.equal(readEditV2(value).version, 2);
@@ -132,8 +136,8 @@ test('updateItem の transition_out:null は既存宣言をキーごと除去す
   assert.equal(Object.hasOwn(clipSource, 'transition_out'), false);
 });
 
-test('UI のトランジション 5 種は v2 保存往復で保持される', () => {
-  for (const type of ['dissolve', 'fade-black', 'fade-white', 'reveal-down', 'reveal-up']) {
+test('UI のトランジション 29 種は v2 保存往復で保持される', () => {
+  for (const type of TRANSITION_TYPE_IDS) {
     const updated = valid(updateItem(fixture, {
       itemId: 'clip-1', patch: { source: { transition_out: { type, duration: 0.5 } } }
     }));

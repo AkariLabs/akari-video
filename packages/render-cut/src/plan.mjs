@@ -1685,14 +1685,38 @@ function isPositiveNumber(value) {
 // transition names (dissolve/fadeblack/fadewhite all exist natively — verified via `ffmpeg -filters`).
 const XFADE_TRANSITION_NAMES = {
   dissolve: "dissolve",
+  fade: "fade",
   "fade-black": "fadeblack",
   "fade-white": "fadewhite",
+  "fade-grays": "fadegrays",
+  "wipe-left": "wipeleft",
+  "wipe-right": "wiperight",
+  "wipe-up": "wipeup",
+  "wipe-down": "wipedown",
+  radial: "radial",
+  "slide-left": "slideleft",
+  "slide-right": "slideright",
+  "slide-up": "slideup",
+  "slide-down": "slidedown",
+  "cover-left": "coverleft",
+  "cover-right": "coverright",
+  "cover-up": "coverup",
+  "cover-down": "coverdown",
+  "reveal-left": "revealleft",
+  "reveal-right": "revealright",
   // reveal-down / reveal-up: 前カットが丸ごとその方向へ動いて画面外へ抜け、空いた側から
   // 次カットが現れる（前カットは動きながら画面端でクロップされる）。ディゾルブのように
   // 混ざらないので、同じ構図が続くトークシーンでも「場面が入れ替わった」ことが読める。
   // 2026-08-14 追加（テンプレの基本トランジションとしてオーナー指定）。
   "reveal-down": "revealdown",
   "reveal-up": "revealup",
+  "circle-open": "circleopen",
+  "circle-close": "circleclose",
+  "zoom-in": "zoomin",
+  "squeeze-h": "squeezeh",
+  "squeeze-v": "squeezev",
+  blur: "hblur",
+  pixelize: "pixelize",
 };
 
 // atempo only accepts factors in [0.5, 2.0]; speeds outside that range are decomposed into a
