@@ -360,12 +360,37 @@ export function buildLayersCompositeCommand({
     }
     group.consumers.push(index);
   });
+  const hasStillImageInput = expandedLayers.some((layer) =>
+    isImageLayerSource(resolve(projectRoot, layer.src ?? "")));
+  // image2 loop inputs default to 25fps. That clock drives trim boundaries and every
+  // eval=frame transform before the layer is framesynced against the base video, so it must use
+  // the project frame grid. Plan construction always passes fps; the edit/base fallbacks keep
+  // direct callers with fps=null aligned without ever emitting an invalid `-framerate null`.
+  const stillImageInputFps = hasStillImageInput
+    ? (isFiniteNumber(fps) && fps > 0
+        ? fps
+        : (resolveEditFps(projectRoot)
+          ?? (ffprobeCommand ? probeBaseFps(ffprobeCommand, inputPath) : null)))
+    : null;
+  if (hasStillImageInput && stillImageInputFps === null) {
+    warnings.push(
+      "still-image layer input fps could not be resolved; ffmpeg image2's 25fps default will be used",
+    );
+  }
   const videoInputLabelByLayerIndex = new Map();
   let videoGroupIndex = 0;
   for (const group of sourceGroups.values()) {
     const inputIndex = nextInputIndex++; // 0 is the base video (-i inputPath)
     inputArgs.push(
-      ...(isImageLayerSource(group.resolvedSource) ? ["-loop", "1"] : []),
+      ...(isImageLayerSource(group.resolvedSource)
+        ? [
+            ...(stillImageInputFps === null
+              ? []
+              : ["-framerate", formatNumber(stillImageInputFps)]),
+            "-loop",
+            "1",
+          ]
+        : []),
       // Input option, so it must sit between the previous input and this source's own `-i`.
       ...resolveDecoderForLayer(ffprobeCommand, group.resolvedSource, warnings),
       "-i",
@@ -449,7 +474,15 @@ export function buildLayersCompositeCommand({
       const inputIndex = nextInputIndex++; // 0 is the base video (-i inputPath)
       inputArgs.push(
         ...(isNormal ? ["-itsoffset", formatNumber(t)] : []),
-        ...(isImageLayerSource(resolvedSource) ? ["-loop", "1"] : []),
+        ...(isImageLayerSource(resolvedSource)
+          ? [
+              ...(stillImageInputFps === null
+                ? []
+                : ["-framerate", formatNumber(stillImageInputFps)]),
+              "-loop",
+              "1",
+            ]
+          : []),
         ...resolveDecoderForLayer(ffprobeCommand, resolvedSource, warnings),
         "-i",
         resolvedSource,
