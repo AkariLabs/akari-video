@@ -1507,10 +1507,22 @@ test("重なり 0 の transition_out だけを warning にし、重なり済み�
     const zero = result.findings.filter(finding => finding.check === "cuts.transition-out.zero-overlap");
     assert.equal(zero.length, 1, JSON.stringify(result.findings, null, 2));
     assert.equal(zero[0].severity, "warning");
-    assert.match(zero[0].message, /次のクリップと重なっていないため効きません/u);
+    assert.match(zero[0].message, /のりしろにできる素材の余りがないため効きません/u);
 
     const editPath = join(project, "edit.json");
     const raw = JSON.parse(await readFile(editPath, "utf8"));
+    raw.tracks[0].items[1].source.in = 1;
+    raw.tracks[0].items[1].source.out = 3;
+    await writeFile(editPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");
+    const hiddenHandle = parseResult(run(project));
+    assert.equal(
+      hiddenHandle.findings.filter(finding => finding.check === "cuts.transition-out.zero-overlap").length,
+      0,
+      JSON.stringify(hiddenHandle.findings, null, 2),
+    );
+
+    raw.tracks[0].items[1].source.in = 0;
+    raw.tracks[0].items[1].source.out = 2;
     raw.tracks[0].items[0].duration = 75;
     raw.tracks[0].items[0].source.out = 2.5;
     await writeFile(editPath, `${JSON.stringify(raw, null, 2)}\n`, "utf8");

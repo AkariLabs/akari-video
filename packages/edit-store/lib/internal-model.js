@@ -12,6 +12,7 @@ exports.projectLegacyEdit = projectLegacyEdit;
 exports.toLegacyTrack = toLegacyTrack;
 exports.derivedLegacyTracks = derivedLegacyTracks;
 const edit_v2_1 = require("./edit-v2");
+const cut_adjacency_1 = require("./cut-adjacency");
 const error_1 = require("./migrate/error");
 /**
  * edit.json v2 を内部表現へ読む。v0/v1 は凍結変換ユニットのみが読む。
@@ -172,6 +173,7 @@ function readV2Internal(raw) {
     // 旧 top-level audio と tracks[] 音声が同居すると、後者に加えてこの fallback も射影される。
     // どちらを優先するかは未裁定なので、旧 fixture の互換挙動を変えず二重計上の可能性を残す。
     addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
+    synthesizeHiddenTransitionHandlesForRender(tracks, fps);
     return {
         output: {
             width: edit.output.width,
@@ -190,6 +192,66 @@ function readV2Internal(raw) {
             ...(edit.captions !== undefined ? { captions: edit.captions } : {})
         }
     };
+}
+/**
+ * render-cut に加え shell プレビューの summary と Web UI の readRenderEdit も
+ * item.declaration を読む。そのため出荷プレビューはこの合成済み実重なりを既存窓として描く。
+ * UI / lint が読む item の at/duration/source と legacy.value は生タイムラインのまま保ち、
+ * 突き合わせ境界の隠れのりしろだけを declaration 上の物理重なりへ合成して既存
+ * xfade/acrossfade と 2 つのプレビューへ渡す。生 cuts を直接読む消費者の隠れのりしろ経路とは
+ * packages/edit-store/test/transition-window-path-equivalence.test.mjs で等価性を固定する。
+ */
+function synthesizeHiddenTransitionHandlesForRender(tracks, fps) {
+    const speedOf = (item) => {
+        const speed = item.declaration.speed;
+        return typeof speed === 'number' && Number.isFinite(speed) && speed > 0 ? speed : 1;
+    };
+    for (const track of tracks) {
+        if (track.lane !== 'visual')
+            continue;
+        const cuts = track.items.filter((item) => item.legacy.collection === 'cuts' && item.source.kind === 'media');
+        for (let index = 0; index + 1 < cuts.length; index++) {
+            const outgoing = cuts[index];
+            const incoming = cuts[index + 1];
+            if ((0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: outgoing.at + outgoing.duration }, { tlStart: incoming.at }, fps) !== 0)
+                continue;
+            const transition = outgoing.declaration.transition_out;
+            if (!isRecord(transition)
+                || typeof transition.duration !== 'number'
+                || !Number.isFinite(transition.duration)
+                || transition.duration <= 0)
+                continue;
+            const incomingSpeed = speedOf(incoming);
+            const incomingStill = (0, cut_adjacency_1.isStillImageSourcePath)(incoming.source.path);
+            const plan = (0, cut_adjacency_1.planTransitionHandleWindow)({
+                declaredSeconds: transition.duration,
+                outgoingTailRoomSeconds: Number.POSITIVE_INFINITY,
+                incomingHeadRoomSeconds: incomingStill
+                    ? Number.POSITIVE_INFINITY : incoming.source.in / incomingSpeed,
+                outgoingDurationSeconds: outgoing.duration,
+                incomingDurationSeconds: incoming.duration
+            });
+            if (plan.effectiveSeconds <= 0)
+                continue;
+            const outgoingSpeed = speedOf(outgoing);
+            outgoing.declaration = {
+                ...outgoing.declaration,
+                out: Number(outgoing.declaration.out) + plan.halfSeconds * outgoingSpeed,
+                transition_out: { ...transition, duration: plan.effectiveSeconds }
+            };
+            incoming.declaration = incomingStill
+                ? {
+                    ...incoming.declaration,
+                    at: Number(incoming.declaration.at) - plan.halfSeconds,
+                    out: Number(incoming.declaration.out) + plan.halfSeconds * incomingSpeed
+                }
+                : {
+                    ...incoming.declaration,
+                    at: Number(incoming.declaration.at) - plan.halfSeconds,
+                    in: Number(incoming.declaration.in) - plan.halfSeconds * incomingSpeed
+                };
+        }
+    }
 }
 function legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds) {
     if (!('items' in track)) {

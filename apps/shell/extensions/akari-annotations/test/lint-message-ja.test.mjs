@@ -61,7 +61,7 @@ test('pass 時の warning 要約対象は transition の 2 check だけに固定
   ]);
   assert.match(japaneseLintWarningSummary([{
     severity: 'warning', check: 'cuts.transition-out.zero-overlap'
-  }]), /次のクリップと重なっていないため効きません/u);
+  }]), /のりしろにできる素材の余りがないため効きません/u);
   assert.match(japaneseLintWarningSummary([{
     severity: 'warning', check: 'cuts.transition-out.layer-evacuated'
   }]), /PiP 経路へ退避/u);

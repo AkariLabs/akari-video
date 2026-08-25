@@ -1,4 +1,3 @@
-import { type TransitionHandleExtensionPlan } from './cut-adjacency';
 import { type ReadableTransitionType, type TransitionType } from './transition-vocabulary';
 export interface EditCut {
     in: number;
@@ -145,26 +144,16 @@ export declare function setCutTransitionOutInSource(source: string, cutIndex: nu
     type: TransitionType;
     duration: number;
 } | null): string;
-export interface SetV2TransitionOutWithHandleInput {
+export interface RemoveV2TransitionOutWithHandleRetractInput {
     itemId: string;
-    transitionOut: {
-        type: TransitionType;
-        duration: number;
-    };
-    earlierEndSeconds: number;
-    laterStartSeconds: number;
-    maxExtendSeconds: number;
+    retractFrames: number;
     fps: number;
 }
-export interface SetV2TransitionOutWithHandleResult {
-    source: string;
-    plan: TransitionHandleExtensionPlan;
-}
 /**
- * v2 の transition_out 宣言と outgoing の source.out / duration 延長を 1 回の
- * byte-preserving 手術で行う。maxExtendSeconds は出力秒軸の上限で、素材実尺は呼び出し側が決める。
+ * v0.1.20 の自動のりしろ debris を、transition_out の削除と同じ 1 回の
+ * byte-preserving 手術で回収する。新意味論の通常操作では trim を一切変更しない。
  */
-export declare function setV2TransitionOutWithHandleInSource(source: string, input: SetV2TransitionOutWithHandleInput): SetV2TransitionOutWithHandleResult;
+export declare function removeV2TransitionOutWithHandleRetractInSource(source: string, input: RemoveV2TransitionOutWithHandleRetractInput): string;
 export declare function reorderCutsInSource(source: string, fromIndex: number, toIndex: number): string;
 export declare function splitCutInSource(source: string, cutIndex: number, atSeconds: number): string;
 export declare function deleteCutInSource(source: string, cutIndex: number): {

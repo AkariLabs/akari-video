@@ -8,8 +8,10 @@ import {
     areCutsAdjacent,
     cutOverlapFrames,
     findCrossTrackLayerEvacuations,
+    isStillImageSourcePath,
     isTransitionType,
-    setV2TransitionOutWithHandleInSource,
+    planTransitionHandleWindow,
+    removeV2TransitionOutWithHandleRetractInSource,
     TRANSITION_CATEGORIES,
     TRANSITION_VOCABULARY,
     unsupportedTrackTransitionTarget
@@ -100,6 +102,7 @@ import { resolveItemRowLayout } from '../common/item-row-layout';
 import { splitLintBlame } from '../common/lint-blame-scope';
 import { formatLintFailureForUi, japaneseLintWarningSummary, UiLintFinding } from '../common/lint-message-ja';
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
+import { formatTransitionSeconds, roundTransitionDurationForWrite } from '../common/transition-duration';
 import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
 import {
     computeMaterialGhostRange,
@@ -219,8 +222,7 @@ const TRANSITION_DEFAULT_DURATION_SECONDS = 0.5;
 const NON_ADJACENT_TRANSITION_MESSAGE = 'このトランジションは次のクリップとの間にすき間があるため書き出されません。'
     + 'すき間を詰めるか、トランジションを削除してください。';
 const ZERO_OVERLAP_TRANSITION_MESSAGE = 'このトランジションは効きません: 素材に余りがありません。'
-    + '前のクリップを短くするか削除してください。';
-const IMAGE_CUT_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
+    + 'のりしろにできる素材の余りがないため、素材のトリムを調整するか削除してください。';
 const TRANSITION_MIN_DURATION_SECONDS = 0.1;
 const TRANSITION_MAX_DURATION_SECONDS = 3;
 const TRANSITION_TYPE_OPTIONS = TRANSITION_VOCABULARY.map(entry => ({
@@ -3672,7 +3674,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.nextSameTrackSegmentByCutIndex.set(earlier.index, later);
                 const overlapFrames = cutOverlapFrames(earlier, later, this.fps);
                 if (overlapFrames === 0) {
-                    if (earlier.transitionOut) {
+                    if (earlier.transitionOut && this.transitionHandlePlanSync(earlier, later).effectiveSeconds <= 0) {
                         this.zeroOverlapTransitionIndexes.add(earlier.index);
                         this.declaredTransitionAdjacencyWarnings.add(earlier.index);
                     }
@@ -4778,7 +4780,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         void this.applyTransitionOut(earlierIndex, {
                             type: option.type,
                             duration: current?.duration ?? TRANSITION_DEFAULT_DURATION_SECONDS
-                        }, { autoHandle: true }).then(render);
+                        }).then(render);
                     });
                     typeGrid.appendChild(button);
                 }
@@ -4839,8 +4841,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** ㉔ トランジション書き戻し: annotations 既存の edit RPC 流儀（setCutOpacity 等と同系）。 */
     protected async applyTransitionOut(
         cutIndex: number,
-        next: { type: TransitionType; duration: number } | null,
-        options?: { autoHandle?: boolean }
+        next: { type: TransitionType; duration: number } | null
     ): Promise<void> {
         const location = this.location;
         if (!location?.editUri) {
@@ -4856,51 +4857,56 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const earlier = this.segments.find(segment => segment.index === cutIndex);
         const later = earlier ? this.nextSameTrackSegment(cutIndex) : undefined;
-        const shouldAutoHandle = Boolean(next && options?.autoHandle && earlier && later
-            && cutOverlapFrames(earlier, later, this.fps) === 0);
-        if (next && shouldAutoHandle && earlier && later) {
-            const maxExtendSeconds = await this.transitionMaxExtendSeconds(cutIndex);
-            const handle: {
-                outcome: 'already-overlapping' | 'full' | 'partial' | 'none';
-                effectiveSeconds: number;
-            } = { outcome: 'none', effectiveSeconds: 0 };
-            // 宣言 + out + duration をこの 1 text commit に閉じ、pushHistory も 1 回だけにする。
-            await this.commitEditTextMutation('トランジションを変更', text => {
-                const result = setV2TransitionOutWithHandleInSource(text, {
-                    itemId: this.cutItemId(cutIndex),
-                    transitionOut: next,
-                    earlierEndSeconds: earlier.tlEnd,
-                    laterStartSeconds: later.tlStart,
-                    maxExtendSeconds,
-                    fps: this.fps
-                });
-                handle.outcome = result.plan.outcome;
-                handle.effectiveSeconds = result.plan.effectiveSeconds;
-                return result.source;
-            });
-            if (handle.outcome === 'partial') {
-                // 宣言尺はユーザーが選んだ値のまま保持し、実効尺だけを既存レンダーカーネルに
-                // クランプさせる。素材を延ばした後で余りが増えれば再宣言なしで本来の尺へ戻せる。
-                const seconds = this.formatTransitionSeconds(handle.effectiveSeconds);
-                const message = `トランジションが ${seconds} 秒に短くなります（素材の余りが足りません）`;
-                this.showNotice(message);
-                this.footer.textContent = message;
-                this.messages.warn(message);
+        if (!next && earlier?.transitionOut && later) {
+            const overlapFrames = cutOverlapFrames(earlier, later, this.fps);
+            if (overlapFrames > 0 && areCutsAdjacent(earlier, later, this.fps)) {
+                await this.commitEditTextMutation('トランジションを削除', text =>
+                    removeV2TransitionOutWithHandleRetractInSource(text, {
+                        itemId: this.cutItemId(cutIndex), retractFrames: overlapFrames, fps: this.fps
+                    })
+                );
+                this.hideNotice();
+                this.footer.textContent = 'トランジションを削除しました（のりしろも戻しました）。';
                 return;
             }
-            if (handle.outcome === 'none') {
-                this.showNotice(ZERO_OVERLAP_TRANSITION_MESSAGE);
-                this.footer.textContent = ZERO_OVERLAP_TRANSITION_MESSAGE;
-                this.messages.warn(ZERO_OVERLAP_TRANSITION_MESSAGE);
-                return;
+        }
+        let handle: ReturnType<typeof planTransitionHandleWindow> | undefined;
+        let writtenNext = next;
+        if (next && earlier && later && cutOverlapFrames(earlier, later, this.fps) === 0) {
+            handle = await this.transitionHandlePlan(earlier, later, next.duration);
+            if (handle.outcome === 'clamped') {
+                const roundedSeconds = roundTransitionDurationForWrite(handle.effectiveSeconds);
+                handle = roundedSeconds > 0
+                    ? { ...handle, effectiveSeconds: roundedSeconds, halfSeconds: roundedSeconds / 2 }
+                    : { ...handle, effectiveSeconds: 0, halfSeconds: 0, outcome: 'none' };
+                if (handle.outcome === 'clamped') {
+                    writtenNext = { ...next, duration: handle.effectiveSeconds };
+                }
             }
-            this.hideNotice();
-            this.footer.textContent = 'トランジションを変更しました。';
-            return;
         }
         await this.commitEditMutation('トランジションを変更', doc => updateV2Item(doc, {
-            itemId: this.cutItemId(cutIndex), patch: { source: { transition_out: next } }
+            itemId: this.cutItemId(cutIndex), patch: { source: { transition_out: writtenNext } }
         }));
+        if (handle?.outcome === 'clamped') {
+            const seconds = formatTransitionSeconds(handle.effectiveSeconds);
+            const message = `トランジションが ${seconds} 秒に短くなります（素材の余りが足りません）`;
+            this.showNotice(message);
+            this.footer.textContent = message;
+            this.messages.warn(message);
+            return;
+        }
+        if (handle?.outcome === 'none') {
+            this.showNotice(ZERO_OVERLAP_TRANSITION_MESSAGE);
+            this.footer.textContent = ZERO_OVERLAP_TRANSITION_MESSAGE;
+            this.messages.warn(ZERO_OVERLAP_TRANSITION_MESSAGE);
+            return;
+        }
+        if (!next && earlier && later && cutOverlapFrames(earlier, later, this.fps) > 0) {
+            const message = 'トランジションを削除しました。クリップの重なりが残っています。';
+            this.showNotice(message);
+            this.footer.textContent = message;
+            return;
+        }
         this.hideNotice();
         this.footer.textContent = next ? 'トランジションを変更しました。' : 'トランジションを削除しました。';
     }
@@ -4909,26 +4915,76 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.nextSameTrackSegmentByCutIndex.get(cutIndex);
     }
 
-    protected async transitionMaxExtendSeconds(cutIndex: number): Promise<number> {
-        const cut = this.cuts[cutIndex];
-        if (!cut) return 0;
+    protected isStillImageCut(cut: EditCut | undefined): boolean {
+        if (!cut) return false;
         const declaredPath = cut.src !== undefined
             ? this.sourceMap.get(cut.src)?.path
             : this.defaultSource?.path;
-        if (declaredPath && IMAGE_CUT_SOURCE_PATTERN.test(declaredPath)) {
-            return Number.POSITIVE_INFINITY;
-        }
-        const videoUri = this.cutVideoUri(cut);
-        if (!videoUri) return 0;
-        const duration = await this.ensureVideoDurationFetch(videoUri);
-        if (typeof duration !== 'number') return 0;
-        const speed = typeof cut.speed === 'number' && Number.isFinite(cut.speed) && cut.speed > 0
-            ? cut.speed : 1;
-        return Math.max(0, duration - cut.out) / speed;
+        return isStillImageSourcePath(declaredPath);
     }
 
-    protected formatTransitionSeconds(seconds: number): string {
-        return seconds.toFixed(2).replace(/\.0+$/u, '').replace(/(\.\d*[1-9])0+$/u, '$1');
+    protected transitionHandlePlanSync(
+        earlier: OutputSegment,
+        later: OutputSegment,
+        declaredSeconds = earlier.transitionOut?.duration ?? 0
+    ): ReturnType<typeof planTransitionHandleWindow> {
+        const outgoing = this.cuts[earlier.index];
+        const incoming = this.cuts[later.index];
+        const outgoingSpeed = typeof outgoing?.speed === 'number' && outgoing.speed > 0 ? outgoing.speed : 1;
+        const incomingSpeed = typeof incoming?.speed === 'number' && incoming.speed > 0 ? incoming.speed : 1;
+        let tailSeconds = Number.POSITIVE_INFINITY;
+        if (!this.isStillImageCut(outgoing)) {
+            const videoUri = outgoing ? this.cutVideoUri(outgoing) : undefined;
+            const cached = videoUri ? this.videoDurationCache.get(videoUri) : undefined;
+            tailSeconds = typeof cached === 'number'
+                ? Math.max(0, cached - (outgoing?.out ?? 0)) / outgoingSpeed
+                : cached === 'unavailable' ? 0 : Number.POSITIVE_INFINITY;
+        }
+        return planTransitionHandleWindow({
+            declaredSeconds,
+            outgoingTailRoomSeconds: tailSeconds,
+            incomingHeadRoomSeconds: this.isStillImageCut(incoming)
+                ? Number.POSITIVE_INFINITY : Math.max(0, incoming?.in ?? 0) / incomingSpeed,
+            outgoingDurationSeconds: Math.max(0, earlier.tlEnd - earlier.tlStart),
+            incomingDurationSeconds: Math.max(0, later.tlEnd - later.tlStart)
+        });
+    }
+
+    protected async transitionHandlePlan(
+        earlier: OutputSegment,
+        later: OutputSegment,
+        declaredSeconds: number
+    ): Promise<ReturnType<typeof planTransitionHandleWindow>> {
+        const outgoing = this.cuts[earlier.index];
+        if (!outgoing || this.isStillImageCut(outgoing)) {
+            return this.transitionHandlePlanSync(earlier, later, declaredSeconds);
+        }
+        const videoUri = this.cutVideoUri(outgoing);
+        if (!videoUri) {
+            const incoming = this.cuts[later.index];
+            const incomingSpeed = typeof incoming?.speed === 'number' && incoming.speed > 0 ? incoming.speed : 1;
+            return planTransitionHandleWindow({
+                declaredSeconds,
+                outgoingTailRoomSeconds: 0,
+                incomingHeadRoomSeconds: this.isStillImageCut(incoming)
+                    ? Number.POSITIVE_INFINITY : Math.max(0, incoming?.in ?? 0) / incomingSpeed,
+                outgoingDurationSeconds: Math.max(0, earlier.tlEnd - earlier.tlStart),
+                incomingDurationSeconds: Math.max(0, later.tlEnd - later.tlStart)
+            });
+        }
+        const duration = await this.ensureVideoDurationFetch(videoUri);
+        const incoming = this.cuts[later.index];
+        const outgoingSpeed = typeof outgoing.speed === 'number' && outgoing.speed > 0 ? outgoing.speed : 1;
+        const incomingSpeed = typeof incoming?.speed === 'number' && incoming.speed > 0 ? incoming.speed : 1;
+        return planTransitionHandleWindow({
+            declaredSeconds,
+            outgoingTailRoomSeconds: typeof duration === 'number'
+                ? Math.max(0, duration - outgoing.out) / outgoingSpeed : 0,
+            incomingHeadRoomSeconds: this.isStillImageCut(incoming)
+                ? Number.POSITIVE_INFINITY : Math.max(0, incoming?.in ?? 0) / incomingSpeed,
+            outgoingDurationSeconds: Math.max(0, earlier.tlEnd - earlier.tlStart),
+            incomingDurationSeconds: Math.max(0, later.tlEnd - later.tlStart)
+        });
     }
 
     protected async removeLayerEvacuatedTransition(itemId: string): Promise<void> {

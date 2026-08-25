@@ -2443,7 +2443,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const loaded = await this.loadPreviewCaptions(widget.akariPreviewCaptionsUri, widget.akariPreviewEditUri);
             const captions = normalizePreviewCaptionClock(
                 loaded.captions,
-                this.previewCaptionTimelineSegments(widget.akariPreviewSummary?.cuts ?? [])
+                this.previewCaptionTimelineSegments(
+                    widget.akariPreviewSummary?.cuts ?? [],
+                    widget.akariPreviewSummary?.output?.fps
+                )
             );
             widget.sendMessage({ type: 'akari-preview-captions-update', captions });
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
@@ -3371,7 +3374,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             indicators.push(...unsupportedGltfWarnings);
             const outputCaptions = normalizePreviewCaptionClock(
                 captions,
-                this.previewCaptionTimelineSegments(cuts)
+                this.previewCaptionTimelineSegments(cuts, internal.output.fps)
             );
             return {
                 editUri,
@@ -3773,10 +3776,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return document.body.innerHTML;
     }
 
-    protected previewCaptionTimelineSegments(cuts: readonly EditSummaryCut[]): TimelineSegment[] {
+    protected previewCaptionTimelineSegments(
+        cuts: readonly EditSummaryCut[],
+        fps = 30
+    ): TimelineSegment[] {
         return buildTimelineMap(
             cuts.map(cut => ({ ...cut, track: cut.renderTrack })),
-            { trackZ: track => track }
+            { trackZ: track => track, fps }
         ).segments;
     }
 
@@ -7913,8 +7919,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 delete transitionStill.dataset.akariPreloadedWindow;
                 const rawCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
                 const timelineCuts = rawCuts.map(cut => ({ ...cut, track: cut.renderTrack }));
+                // shell summary は item.declaration 由来なので通常は internal-model が合成した
+                // 実重なりを既存窓として読む。handleRoom は webview-kernel を生 cuts で使う消費者にも
+                // 静止画の無限 head/tail room を伝えるための経路で、両経路の等価性は edit-store の
+                // transition-window-path-equivalence.test.mjs が固定する。
                 const map = window.AkariEditKernel.buildTimelineMap(timelineCuts, {
-                    trackZ: track => track
+                    trackZ: track => track,
+                    fps,
+                    handleRoom: cutIndex => imageSources[String(timelineCuts[cutIndex]?.src)]
+                        ? { tailSeconds: Number.POSITIVE_INFINITY, headSeconds: Number.POSITIVE_INFINITY }
+                        : undefined
                 });
                 if (map.segments.length > 0) {
                     // transform / opacity / crop / perspective / keyframes は再生時の見た目情報で

@@ -20,6 +20,20 @@ test('webview は transition window 内だけ 2 本目の video を同期する'
   assert.match(source, /incomingElement\.dataset\.akariTransitionProgress = progressText/);
 });
 
+test('webview kernel へ fps と静止画の無限 handle room を渡す', () => {
+  assert.match(source, /buildTimelineMap\(timelineCuts, \{[\s\S]*trackZ: track => track,[\s\S]*fps,/u);
+  assert.match(source, /handleRoom: cutIndex => imageSources\[String\(timelineCuts\[cutIndex\]\?\.src\)\]/u);
+  assert.match(source, /tailSeconds: Number\.POSITIVE_INFINITY, headSeconds: Number\.POSITIVE_INFINITY/u);
+});
+
+test('transition の source seek は trim の in/out へクランプせず窓の自然延長を使う', () => {
+  const compositeStart = source.indexOf('const renderTransitionComposite');
+  const compositeEnd = source.indexOf('const tick =', compositeStart);
+  const composite = source.slice(compositeStart, compositeEnd);
+  assert.match(composite, /window\.incoming\.in \+ \(timelineTime - window\.start\) \* incomingSpeed/u);
+  assert.doesNotMatch(composite, /Math\.min\([^\n]*(?:window\.incoming\.out|segment\.out)/u);
+});
+
 test('incoming video は window へ入る前に src と先頭フレームを先読みする', () => {
   assert.match(source, /preloadUpcomingTransition = timelineTime =>/);
   assert.match(source, /applyTransitionSegmentSource\(upcoming\.incoming, primeIncomingFrame\)/);
