@@ -56,6 +56,11 @@ export interface TimelineMapResult {
 export declare function transitionProgressAt(window: TimelineTransitionWindow, outputT: number): number;
 export declare function buildTimelineMap(cuts: readonly EditCut[], options?: {
     trackZ?: (track: number) => number;
+    fps?: number;
+    handleRoom?: (cutIndex: number) => {
+        tailSeconds?: number;
+        headSeconds?: number;
+    } | undefined;
 }): TimelineMapResult;
 /**
  * 出力秒 → ソース秒。トランジション重なり区間（隣接 src が重なる出力時刻）は

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { isImageLayerSource } from '../../../../../packages/render-cut/src/layers.mjs';
+import { isStillImageSourcePath } from '../../../../../packages/edit-store/lib/index.js';
 
 // task 2026-08-10-image-layer-parity 司令塔裁定1: akari-preview-open-handler.ts の
 // isImageLayerSrc (module-scope export, defined right above the EditSummaryLayer interface) picks
@@ -43,6 +44,11 @@ test('isImageLayerSrc (akari-preview) agrees with render-cut isImageLayerSource 
             isImageLayerSrc(src),
             isImageLayerSource(src),
             `akari-preview and render-cut disagree on .${ext}`,
+        );
+        assert.equal(
+            isImageLayerSrc(src),
+            isStillImageSourcePath(src),
+            `akari-preview and edit-store disagree on .${ext}`,
         );
     }
 });

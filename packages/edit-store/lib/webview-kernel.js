@@ -86,6 +86,32 @@ var AkariEditKernel = (() => {
     return segments;
   }
 
+  // src/cut-adjacency.ts
+  var DEFAULT_CUT_ADJACENCY_FPS = 30;
+  function effectiveCutFps(fps) {
+    return Number.isFinite(fps) && fps > 0 ? fps : DEFAULT_CUT_ADJACENCY_FPS;
+  }
+  function cutOverlapFrames(earlier, later, fps = DEFAULT_CUT_ADJACENCY_FPS) {
+    const resolvedFps = effectiveCutFps(fps);
+    return Math.round(earlier.tlEnd * resolvedFps) - Math.round(later.tlStart * resolvedFps);
+  }
+  var nonNegativeRoom = (value) => value === Number.POSITIVE_INFINITY ? value : Number.isFinite(value) && value > 0 ? value : 0;
+  function planTransitionHandleWindow(input) {
+    const declaredSeconds = Number.isFinite(input.declaredSeconds) && input.declaredSeconds > 0 ? input.declaredSeconds : 0;
+    const effectiveSeconds = Math.max(0, Math.min(
+      declaredSeconds,
+      2 * nonNegativeRoom(input.outgoingTailRoomSeconds),
+      2 * nonNegativeRoom(input.incomingHeadRoomSeconds),
+      2 * nonNegativeRoom(input.outgoingDurationSeconds),
+      2 * nonNegativeRoom(input.incomingDurationSeconds)
+    ));
+    return {
+      effectiveSeconds,
+      halfSeconds: effectiveSeconds / 2,
+      outcome: effectiveSeconds <= 0 ? "none" : effectiveSeconds < declaredSeconds ? "clamped" : "full"
+    };
+  }
+
   // src/timeline-map.ts
   function transitionProgressAt(window, outputT) {
     if (!(window.duration > 0)) return 0;
@@ -104,10 +130,46 @@ var AkariEditKernel = (() => {
     const resolved = trackSegments.map((segment) => ({
       start: segment.at,
       end: segment.end,
+      baseStart: segment.at,
+      baseEnd: segment.end,
       track: segment.track,
       cut: usableCuts[segment.index],
       cutIndex: usable[segment.index].index
     }));
+    const fps = options?.fps ?? DEFAULT_CUT_ADJACENCY_FPS;
+    for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
+      const outgoing = resolved[outgoingIndex];
+      const transition = outgoing.cut.transitionOut;
+      if (!transition || !(typeof transition.duration === "number" && Number.isFinite(transition.duration) && transition.duration > 0)) continue;
+      const incoming = resolved.slice(outgoingIndex + 1).find((candidate) => candidate.track === outgoing.track);
+      if (!incoming || cutOverlapFrames(
+        { tlEnd: outgoing.end },
+        { tlStart: incoming.start },
+        fps
+      ) !== 0) continue;
+      const outgoingRoom = options?.handleRoom?.(outgoing.cutIndex);
+      const incomingRoom = options?.handleRoom?.(incoming.cutIndex);
+      const incomingSpeed = typeof incoming.cut.speed === "number" && incoming.cut.speed > 0 ? incoming.cut.speed : 1;
+      const plan = planTransitionHandleWindow({
+        declaredSeconds: transition.duration,
+        outgoingTailRoomSeconds: outgoingRoom?.tailSeconds ?? Number.POSITIVE_INFINITY,
+        incomingHeadRoomSeconds: incomingRoom?.headSeconds ?? incoming.cut.in / incomingSpeed,
+        outgoingDurationSeconds: outgoing.baseEnd - outgoing.baseStart,
+        incomingDurationSeconds: incoming.baseEnd - incoming.baseStart
+      });
+      if (plan.effectiveSeconds <= 0) continue;
+      const cutPoint = outgoing.end;
+      outgoing.end = cutPoint + plan.halfSeconds;
+      outgoing.cut = {
+        ...outgoing.cut,
+        transitionOut: { ...transition, duration: plan.effectiveSeconds }
+      };
+      incoming.start = cutPoint - plan.halfSeconds;
+      incoming.cut = {
+        ...incoming.cut,
+        in: Math.max(0, incoming.cut.in - plan.halfSeconds * incomingSpeed)
+      };
+    }
     const segmentSlice = (entry, start, end, transitionOut = null) => {
       const cut = entry.cut;
       const speed = typeof cut.speed === "number" && cut.speed > 0 ? cut.speed : 1;

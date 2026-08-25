@@ -1,7 +1,3 @@
-import {
-    planTransitionHandleExtension,
-    type TransitionHandleExtensionPlan
-} from './cut-adjacency';
 import { isTransitionType, type ReadableTransitionType, type TransitionType } from './transition-vocabulary';
 
 export interface EditCut {
@@ -462,38 +458,30 @@ export function setCutTransitionOutInSource(
     });
 }
 
-export interface SetV2TransitionOutWithHandleInput {
+export interface RemoveV2TransitionOutWithHandleRetractInput {
     itemId: string;
-    transitionOut: {
-        type: TransitionType;
-        duration: number;
-    };
-    earlierEndSeconds: number;
-    laterStartSeconds: number;
-    maxExtendSeconds: number;
+    retractFrames: number;
     fps: number;
 }
 
-export interface SetV2TransitionOutWithHandleResult {
-    source: string;
-    plan: TransitionHandleExtensionPlan;
-}
-
 /**
- * v2 の transition_out 宣言と outgoing の source.out / duration 延長を 1 回の
- * byte-preserving 手術で行う。maxExtendSeconds は出力秒軸の上限で、素材実尺は呼び出し側が決める。
+ * v0.1.20 の自動のりしろ debris を、transition_out の削除と同じ 1 回の
+ * byte-preserving 手術で回収する。新意味論の通常操作では trim を一切変更しない。
  */
-export function setV2TransitionOutWithHandleInSource(
+export function removeV2TransitionOutWithHandleRetractInSource(
     source: string,
-    input: SetV2TransitionOutWithHandleInput
-): SetV2TransitionOutWithHandleResult {
+    input: RemoveV2TransitionOutWithHandleRetractInput
+): string {
     const raw = JSON.parse(source) as { version?: unknown };
     if (raw.version !== 2) {
         throw new Error('v2 へ変換してから編集してください。');
     }
-    assertTransitionOutValue(input.transitionOut);
     if (!input.itemId) {
         throw new Error('トランジション対象のアイテム id が空です。');
+    }
+    if (!Number.isInteger(input.retractFrames) || input.retractFrames <= 0
+        || !Number.isFinite(input.fps) || input.fps <= 0) {
+        throw new Error('のりしろの復元量が不正です。');
     }
 
     const tracks = locateArray(source, 'tracks');
@@ -523,79 +511,36 @@ export function setV2TransitionOutWithHandleInSource(
     const match = matches[0];
     const label = `アイテム ${input.itemId}`;
     const durationFrames = readNumberProperty(match.item.text, 'duration', label);
+    if (!Number.isInteger(durationFrames) || durationFrames < input.retractFrames) {
+        throw new Error(`${label} の duration を安全に復元できません。`);
+    }
     const mediaSource = locateTopLevelObjectProperty(match.item.text, 'source');
     if (readStringProperty(mediaSource.text, 'kind') !== 'media') {
         throw new Error(`${label} は映像素材ではありません。`);
     }
     const sourceIn = readNumberProperty(mediaSource.text, 'in', label);
     const sourceOut = readNumberProperty(mediaSource.text, 'out', label);
-    const outputDurationSeconds = durationFrames / input.fps;
-    const speed = (sourceOut - sourceIn) / outputDurationSeconds;
-    // 暗黙 speed を維持できない極端値は、素材窓を壊すより宣言だけを残す保守側へ倒す。
-    // 実用域外（1e-6 未満 / 1e6 超）の比率も浮動小数の増分が不安定なので延長しない。
-    const safeSpeed = Number.isFinite(speed) && speed >= 1e-6 && speed <= 1e6;
-    const plan = planTransitionHandleExtension({
-        declaredSeconds: input.transitionOut.duration,
-        earlierEndSeconds: input.earlierEndSeconds,
-        laterStartSeconds: input.laterStartSeconds,
-        maxExtendSeconds: safeSpeed ? input.maxExtendSeconds : 0,
-        fps: input.fps
-    });
-
-    let nextMediaSource = writeTransitionOutProperty(mediaSource.text, input.transitionOut);
-    if (plan.appliedFrames > 0) {
-        const nextOut = sourceOut + plan.appliedSeconds * speed;
-        if (!Number.isFinite(nextOut)) {
-            throw new Error(`${label} の out を安全に延長できません。`);
-        }
-        nextMediaSource = replaceNumberProperty(nextMediaSource, 'out', nextOut, label);
+    const speed = (sourceOut - sourceIn) / (durationFrames / input.fps);
+    if (!Number.isFinite(speed) || speed <= 0) {
+        throw new Error(`${label} の speed を安全に復元できません。`);
     }
+    const nextOut = sourceOut - (input.retractFrames / input.fps) * speed;
+    if (!Number.isFinite(nextOut) || nextOut < sourceIn) {
+        throw new Error(`${label} の out を安全に復元できません。`);
+    }
+    let nextMediaSource = removeObjectProperty(mediaSource.text, 'transition_out');
+    nextMediaSource = replaceNumberProperty(nextMediaSource, 'out', nextOut, label);
     let nextItem = match.item.text.slice(0, mediaSource.start)
         + nextMediaSource
         + match.item.text.slice(mediaSource.end);
-    if (plan.appliedFrames > 0) {
-        nextItem = replaceNumberProperty(
-            nextItem,
-            'duration',
-            durationFrames + plan.appliedFrames,
-            label
-        );
-    }
+    nextItem = replaceNumberProperty(nextItem, 'duration', durationFrames - input.retractFrames, label);
     const nextTrack = replaceElement(
         match.track.text,
         match.items.openIndex + 1,
         match.item,
         nextItem
     );
-    return {
-        source: replaceElement(source, tracks.openIndex + 1, match.track, nextTrack),
-        plan
-    };
-}
-
-function assertTransitionOutValue(transitionOut: SetV2TransitionOutWithHandleInput['transitionOut']): void {
-    if (!isTransitionType(transitionOut.type)) {
-        throw new Error('トランジションの種別が不正です。');
-    }
-    if (!Number.isFinite(transitionOut.duration) || transitionOut.duration <= 0) {
-        throw new Error('トランジションの尺は正の数で指定してください。');
-    }
-}
-
-function writeTransitionOutProperty(
-    mediaSource: string,
-    transitionOut: SetV2TransitionOutWithHandleInput['transitionOut']
-): string {
-    const value = { type: transitionOut.type, duration: transitionOut.duration };
-    if (!hasTopLevelProperty(mediaSource, 'transition_out')) {
-        return appendJsonProperty(mediaSource, 'transition_out', value);
-    }
-    try {
-        const located = locateTopLevelObjectProperty(mediaSource, 'transition_out');
-        return mediaSource.slice(0, located.start) + JSON.stringify(value) + mediaSource.slice(located.end);
-    } catch {
-        return appendJsonProperty(removeObjectProperty(mediaSource, 'transition_out'), 'transition_out', value);
-    }
+    return replaceElement(source, tracks.openIndex + 1, match.track, nextTrack);
 }
 
 export function reorderCutsInSource(source: string, fromIndex: number, toIndex: number): string {

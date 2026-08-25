@@ -77,6 +77,94 @@ test('宣言尺を超える無関係な重なりには transition window を作�
   assert.deepEqual(map.transitionWindows, []);
 });
 
+test('突き合わせ境界の隠れのりしろ窓はカット点を中心に ±e/2 で対称', () => {
+  const map = buildTimelineMap([
+    { in: 1, out: 5, at: 0, transitionOut: { type: 'dissolve', duration: 1 } },
+    { in: 2, out: 6, at: 4 },
+  ], { fps: 30 });
+  assert.equal(map.transitionWindows.length, 1);
+  const window = map.transitionWindows[0];
+  approx(window.start, 3.5);
+  approx(window.end, 4.5);
+  approx(window.duration, 1);
+  approx(window.outgoing.in, 4.5);
+  approx(window.outgoing.out, 5.5, 1e-9);
+  approx(window.incoming.in, 1.5);
+  approx(window.incoming.out, 2.5);
+  approx(map.totalDuration, 8);
+  assert.deepEqual(map.segments.map(segment => segment.cutIndex), [0, 1]);
+  approx(map.segments[0].outEnd, 4.5);
+  approx(map.segments[1].outStart, 4.5);
+});
+
+test('隠れのりしろは room で対称クランプされ、e=0 なら窓を作らない', () => {
+  const cuts = [
+    { in: 0, out: 4, at: 0, transitionOut: { type: 'dissolve', duration: 1 } },
+    { in: 2, out: 6, at: 4 },
+  ];
+  const clamped = buildTimelineMap(cuts, {
+    fps: 30,
+    handleRoom: index => index === 0 ? { tailSeconds: 0.2 } : undefined,
+  });
+  approx(clamped.transitionWindows[0].start, 3.8);
+  approx(clamped.transitionWindows[0].end, 4.2);
+  approx(clamped.transitionWindows[0].duration, 0.4);
+  const none = buildTimelineMap(cuts, {
+    fps: 30,
+    handleRoom: index => index === 1 ? { headSeconds: 0 } : undefined,
+  });
+  assert.deepEqual(none.transitionWindows, []);
+  assert.deepEqual(none.segments.map(segment => [segment.outStart, segment.outEnd]), [[0, 4], [4, 8]]);
+});
+
+test('静止画 incoming の無限 room は source in を 0 未満へ出さない', () => {
+  const still = buildTimelineMap([
+    { in: 0, out: 2, at: 0, transitionOut: { type: 'dissolve', duration: 0.5 } },
+    { in: 0, out: 2, at: 2 },
+  ], {
+    fps: 30,
+    handleRoom: () => ({
+      tailSeconds: Number.POSITIVE_INFINITY,
+      headSeconds: Number.POSITIVE_INFINITY,
+    }),
+  });
+  assert.equal(still.transitionWindows.length, 1);
+  approx(still.transitionWindows[0].incoming.in, 0);
+  approx(still.transitionWindows[0].incoming.out, 0.5);
+
+  const video = buildTimelineMap([
+    { in: 0, out: 2, at: 0, transitionOut: { type: 'dissolve', duration: 0.5 } },
+    { in: 1, out: 3, at: 2 },
+  ], { fps: 30 });
+  approx(video.transitionWindows[0].incoming.in, 0.75);
+  approx(video.transitionWindows[0].incoming.out, 1.25);
+});
+
+test('実重なり済みデータは handleRoom を渡しても従来窓・segments・総尺が不変', () => {
+  const cuts = [
+    { in: 0, out: 4, at: 0, transitionOut: { type: 'fade-black', duration: 1 } },
+    { in: 10, out: 14, at: 3.4 },
+  ];
+  const baseline = buildTimelineMap(cuts, { fps: 30 });
+  const withRooms = buildTimelineMap(cuts, {
+    fps: 30,
+    handleRoom: () => ({ tailSeconds: 0, headSeconds: 0 }),
+  });
+  assert.deepEqual(withRooms, baseline);
+});
+
+test('連鎖境界の窓上限は前境界で延長された見かけ尺でなく各 cut の宣言尺を使う', () => {
+  const map = buildTimelineMap([
+    { in: 0, out: 0.2, at: 0, transitionOut: { type: 'dissolve', duration: 1 } },
+    { in: 1, out: 1.2, at: 0.2, transitionOut: { type: 'dissolve', duration: 1 } },
+    { in: 1, out: 3, at: 0.4 },
+  ]);
+  assert.equal(map.transitionWindows.length, 2);
+  approx(map.transitionWindows[0].duration, 0.4);
+  approx(map.transitionWindows[1].duration, 0.4);
+  approx(map.totalDuration, 2.4);
+});
+
 test('at 指定でギャップが出力セグメントとして現れる', () => {
   const map = buildTimelineMap([{ in: 0, out: 5, at: 2 }]);
   assert.equal(map.usesGapsOrTracks, true);

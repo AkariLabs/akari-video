@@ -12,6 +12,11 @@
  */
 
 import { EditCut, computeCutTrackSegments } from './edit-store';
+import {
+    cutOverlapFrames,
+    DEFAULT_CUT_ADJACENCY_FPS,
+    planTransitionHandleWindow
+} from './cut-adjacency';
 
 export interface TimelineTransitionPlate {
     start: number;
@@ -65,7 +70,11 @@ export function transitionProgressAt(window: TimelineTransitionWindow, outputT: 
 
 export function buildTimelineMap(
     cuts: readonly EditCut[],
-    options?: { trackZ?: (track: number) => number }
+    options?: {
+        trackZ?: (track: number) => number;
+        fps?: number;
+        handleRoom?: (cutIndex: number) => { tailSeconds?: number; headSeconds?: number } | undefined;
+    }
 ): TimelineMapResult {
     const usable: Array<{ cut: EditCut; index: number }> = [];
     cuts.forEach((cut, index) => {
@@ -82,10 +91,48 @@ export function buildTimelineMap(
     const resolved = trackSegments.map(segment => ({
         start: segment.at,
         end: segment.end,
+        baseStart: segment.at,
+        baseEnd: segment.end,
         track: segment.track,
         cut: usableCuts[segment.index],
         cutIndex: usable[segment.index].index
     }));
+    const fps = options?.fps ?? DEFAULT_CUT_ADJACENCY_FPS;
+    // 隠れのりしろは、フレーム量子化で突き合わせとなる境界にだけ合成する。
+    // 実重なり済みの境界は一切変更せず、従来の窓計算へそのまま流す。
+    for (let outgoingIndex = 0; outgoingIndex < resolved.length; outgoingIndex++) {
+        const outgoing = resolved[outgoingIndex];
+        const transition = outgoing.cut.transitionOut;
+        if (!transition || !(typeof transition.duration === 'number' && Number.isFinite(transition.duration)
+            && transition.duration > 0)) continue;
+        const incoming = resolved.slice(outgoingIndex + 1).find(candidate => candidate.track === outgoing.track);
+        if (!incoming || cutOverlapFrames(
+            { tlEnd: outgoing.end }, { tlStart: incoming.start }, fps
+        ) !== 0) continue;
+        const outgoingRoom = options?.handleRoom?.(outgoing.cutIndex);
+        const incomingRoom = options?.handleRoom?.(incoming.cutIndex);
+        const incomingSpeed = typeof incoming.cut.speed === 'number' && incoming.cut.speed > 0
+            ? incoming.cut.speed : 1;
+        const plan = planTransitionHandleWindow({
+            declaredSeconds: transition.duration,
+            outgoingTailRoomSeconds: outgoingRoom?.tailSeconds ?? Number.POSITIVE_INFINITY,
+            incomingHeadRoomSeconds: incomingRoom?.headSeconds ?? incoming.cut.in / incomingSpeed,
+            outgoingDurationSeconds: outgoing.baseEnd - outgoing.baseStart,
+            incomingDurationSeconds: incoming.baseEnd - incoming.baseStart
+        });
+        if (plan.effectiveSeconds <= 0) continue;
+        const cutPoint = outgoing.end;
+        outgoing.end = cutPoint + plan.halfSeconds;
+        outgoing.cut = {
+            ...outgoing.cut,
+            transitionOut: { ...transition, duration: plan.effectiveSeconds }
+        };
+        incoming.start = cutPoint - plan.halfSeconds;
+        incoming.cut = {
+            ...incoming.cut,
+            in: Math.max(0, incoming.cut.in - plan.halfSeconds * incomingSpeed)
+        };
+    }
     const segmentSlice = (
         entry: typeof resolved[number],
         start: number,

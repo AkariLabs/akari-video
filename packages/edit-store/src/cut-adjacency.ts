@@ -16,7 +16,7 @@ export interface CutAdjacencyLaterLike {
     tlStart: number;
 }
 
-const DEFAULT_CUT_ADJACENCY_FPS = 30;
+export const DEFAULT_CUT_ADJACENCY_FPS = 30;
 
 export function effectiveCutFps(fps: number): number {
     return Number.isFinite(fps) && fps > 0 ? fps : DEFAULT_CUT_ADJACENCY_FPS;
@@ -35,62 +35,49 @@ export function cutOverlapFrames(
     return Math.round(earlier.tlEnd * resolvedFps) - Math.round(later.tlStart * resolvedFps);
 }
 
-export type TransitionHandleExtensionOutcome = 'already-overlapping' | 'full' | 'partial' | 'none';
-
-export interface TransitionHandleExtensionPlan {
-    appliedSeconds: number;
-    effectiveSeconds: number;
-    appliedFrames: number;
-    outcome: TransitionHandleExtensionOutcome;
-}
-
-export interface TransitionHandleExtensionInput {
+export interface TransitionHandleWindowInput {
     declaredSeconds: number;
-    earlierEndSeconds: number;
-    laterStartSeconds: number;
-    maxExtendSeconds: number;
-    fps?: number;
+    /** outgoing の out より後ろに残る素材尺（出力秒）。不明なら Infinity。 */
+    outgoingTailRoomSeconds: number;
+    /** incoming の in より前に残る素材尺（出力秒）。 */
+    incomingHeadRoomSeconds: number;
+    outgoingDurationSeconds: number;
+    incomingDurationSeconds: number;
 }
 
-/**
- * 突き合わせ境界へ宣言尺ぶんの重なりを作るため、outgoing を何フレーム延ばすか決める。
- * メディア長は知らず、呼び出し側が maxExtendSeconds として渡した上限だけを使う。
- */
-export function planTransitionHandleExtension(
-    input: TransitionHandleExtensionInput
-): TransitionHandleExtensionPlan {
-    const fps = effectiveCutFps(input.fps ?? DEFAULT_CUT_ADJACENCY_FPS);
-    const declaredFrames = Number.isFinite(input.declaredSeconds) && input.declaredSeconds > 0
-        ? Math.max(1, Math.round(input.declaredSeconds * fps)) : 0;
-    const overlapFrames = cutOverlapFrames(
-        { tlEnd: input.earlierEndSeconds },
-        { tlStart: input.laterStartSeconds },
-        fps
-    );
-    if (overlapFrames > 0) {
-        return {
-            appliedSeconds: 0,
-            effectiveSeconds: Math.min(declaredFrames, overlapFrames) / fps,
-            appliedFrames: 0,
-            outcome: 'already-overlapping'
-        };
-    }
-    const maximumFrames = input.maxExtendSeconds === Number.POSITIVE_INFINITY
-        ? Number.POSITIVE_INFINITY
-        : Number.isFinite(input.maxExtendSeconds) && input.maxExtendSeconds > 0
-            ? Math.max(0, Math.floor(input.maxExtendSeconds * fps + 1e-9)) : 0;
-    // すき間（負の overlapFrames）がある場合は、その穴を埋めたうえで宣言尺ぶん重ねる。
-    // UI は非隣接ガードでこの経路へ入れないが、純関数としては安全な値を返す。
-    const requiredFrames = Math.max(0, declaredFrames - overlapFrames);
-    const appliedFrames = Math.min(requiredFrames, maximumFrames);
-    const effectiveFrames = Math.max(0, Math.min(declaredFrames, overlapFrames + appliedFrames));
+export interface TransitionHandleWindowPlan {
+    effectiveSeconds: number;
+    halfSeconds: number;
+    outcome: 'full' | 'clamped' | 'none';
+}
+
+const nonNegativeRoom = (value: number): number => value === Number.POSITIVE_INFINITY
+    ? value
+    : Number.isFinite(value) && value > 0 ? value : 0;
+
+/** 隠れのりしろ窓の実効尺を秒の連続量で決める単一定義。 */
+export function planTransitionHandleWindow(input: TransitionHandleWindowInput): TransitionHandleWindowPlan {
+    const declaredSeconds = Number.isFinite(input.declaredSeconds) && input.declaredSeconds > 0
+        ? input.declaredSeconds : 0;
+    const effectiveSeconds = Math.max(0, Math.min(
+        declaredSeconds,
+        2 * nonNegativeRoom(input.outgoingTailRoomSeconds),
+        2 * nonNegativeRoom(input.incomingHeadRoomSeconds),
+        2 * nonNegativeRoom(input.outgoingDurationSeconds),
+        2 * nonNegativeRoom(input.incomingDurationSeconds)
+    ));
     return {
-        appliedSeconds: appliedFrames / fps,
-        effectiveSeconds: effectiveFrames / fps,
-        appliedFrames,
-        outcome: appliedFrames <= 0 ? 'none'
-            : appliedFrames >= requiredFrames ? 'full' : 'partial'
+        effectiveSeconds,
+        halfSeconds: effectiveSeconds / 2,
+        outcome: effectiveSeconds <= 0 ? 'none'
+            : effectiveSeconds < declaredSeconds ? 'clamped' : 'full'
     };
+}
+
+export const STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
+
+export function isStillImageSourcePath(path: unknown): boolean {
+    return typeof path === 'string' && STILL_IMAGE_SOURCE_PATTERN.test(path);
 }
 
 /**

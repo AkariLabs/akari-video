@@ -17,6 +17,7 @@ import {
     TimelineTrackKind,
 } from './edit-store';
 import { AudioMediaItemV2, ItemV2, TrackV2, readEditV2 } from './edit-v2';
+import { cutOverlapFrames, isStillImageSourcePath, planTransitionHandleWindow } from './cut-adjacency';
 import { LegacyEditVersionError } from './migrate/error';
 
 export type InternalLane = 'visual' | 'audio';
@@ -347,6 +348,7 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
     // 旧 top-level audio と tracks[] 音声が同居すると、後者に加えてこの fallback も射影される。
     // どちらを優先するかは未裁定なので、旧 fixture の互換挙動を変えず二重計上の可能性を残す。
     addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
+    synthesizeHiddenTransitionHandlesForRender(tracks, fps);
     return {
         output: {
             width: edit.output.width,
@@ -365,6 +367,67 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
             ...(edit.captions !== undefined ? { captions: edit.captions } : {})
         }
     };
+}
+
+/**
+ * render-cut に加え shell プレビューの summary と Web UI の readRenderEdit も
+ * item.declaration を読む。そのため出荷プレビューはこの合成済み実重なりを既存窓として描く。
+ * UI / lint が読む item の at/duration/source と legacy.value は生タイムラインのまま保ち、
+ * 突き合わせ境界の隠れのりしろだけを declaration 上の物理重なりへ合成して既存
+ * xfade/acrossfade と 2 つのプレビューへ渡す。生 cuts を直接読む消費者の隠れのりしろ経路とは
+ * packages/edit-store/test/transition-window-path-equivalence.test.mjs で等価性を固定する。
+ */
+function synthesizeHiddenTransitionHandlesForRender(tracks: InternalTrack[], fps: number): void {
+    const speedOf = (item: InternalItem): number => {
+        const speed = item.declaration.speed;
+        return typeof speed === 'number' && Number.isFinite(speed) && speed > 0 ? speed : 1;
+    };
+    for (const track of tracks) {
+        if (track.lane !== 'visual') continue;
+        const cuts = track.items.filter((item): item is InternalItem & { source: InternalMediaSource } =>
+            item.legacy.collection === 'cuts' && item.source.kind === 'media'
+        );
+        for (let index = 0; index + 1 < cuts.length; index++) {
+            const outgoing = cuts[index];
+            const incoming = cuts[index + 1];
+            if (cutOverlapFrames(
+                { tlEnd: outgoing.at + outgoing.duration }, { tlStart: incoming.at }, fps
+            ) !== 0) continue;
+            const transition = outgoing.declaration.transition_out;
+            if (!isRecord(transition)
+                || typeof transition.duration !== 'number'
+                || !Number.isFinite(transition.duration)
+                || transition.duration <= 0) continue;
+            const incomingSpeed = speedOf(incoming);
+            const incomingStill = isStillImageSourcePath(incoming.source.path);
+            const plan = planTransitionHandleWindow({
+                declaredSeconds: transition.duration,
+                outgoingTailRoomSeconds: Number.POSITIVE_INFINITY,
+                incomingHeadRoomSeconds: incomingStill
+                    ? Number.POSITIVE_INFINITY : incoming.source.in / incomingSpeed,
+                outgoingDurationSeconds: outgoing.duration,
+                incomingDurationSeconds: incoming.duration
+            });
+            if (plan.effectiveSeconds <= 0) continue;
+            const outgoingSpeed = speedOf(outgoing);
+            outgoing.declaration = {
+                ...outgoing.declaration,
+                out: Number(outgoing.declaration.out) + plan.halfSeconds * outgoingSpeed,
+                transition_out: { ...transition, duration: plan.effectiveSeconds }
+            };
+            incoming.declaration = incomingStill
+                ? {
+                    ...incoming.declaration,
+                    at: Number(incoming.declaration.at) - plan.halfSeconds,
+                    out: Number(incoming.declaration.out) + plan.halfSeconds * incomingSpeed
+                }
+                : {
+                    ...incoming.declaration,
+                    at: Number(incoming.declaration.at) - plan.halfSeconds,
+                    in: Number(incoming.declaration.in) - plan.halfSeconds * incomingSpeed
+                };
+        }
+    }
 }
 
 function legacyKindOfV2Track(

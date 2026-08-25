@@ -50,7 +50,7 @@ test('非隣接判定は同一トラックの後続 cut がある場合だけ共
   const method = source.slice(start, end);
   assert.match(method, /this\.nonAdjacentTransitionTargetByCutIndex\.get\(cutIndex\)/);
   const helperStart = source.indexOf('protected nextSameTrackSegment');
-  const helperEnd = source.indexOf('protected async transitionMaxExtendSeconds', helperStart);
+  const helperEnd = source.indexOf('protected isStillImageCut', helperStart);
   const helper = source.slice(helperStart, helperEnd);
   assert.match(helper, /this\.nextSameTrackSegmentByCutIndex\.get\(cutIndex\)/);
 });
@@ -64,6 +64,7 @@ test('後続 cut・非隣接・zero-overlap は rebuildSegments の後方 1 パ�
   assert.match(method, /unsupportedTrackTransitionByCutIndex\.set\(cutIndex, trackRef\)/u);
   assert.match(method, /nextSameTrackSegmentByCutIndex\.set\(earlier\.index, later\)/u);
   assert.match(method, /nonAdjacentTransitionTargetByCutIndex\.set\(earlier\.index, later\.index\)/u);
+  assert.match(method, /transitionHandlePlanSync\(earlier, later\)\.effectiveSeconds <= 0/u);
   assert.match(method, /zeroOverlapTransitionIndexes\.add\(earlier\.index\)/u);
   const messages = source.slice(
     source.indexOf('protected unsupportedDeclaredTransitionIndexes'),

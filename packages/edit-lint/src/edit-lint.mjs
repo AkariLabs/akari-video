@@ -23,6 +23,8 @@ const {
   cutOverlapFrames,
   findCrossTrackLayerEvacuations,
   findUnsupportedDeclaredTrackTransitions,
+  isStillImageSourcePath,
+  planTransitionHandleWindow,
   projectLegacyEdit,
   readInternalEdit,
   resolveCaptionDisplay,
@@ -258,7 +260,7 @@ export async function lintProject(input, options = {}) {
   validateCutTransformFields(edit.cuts, findings);
   validateStillImageCuts(edit, findings);
   const cutTrackSegments = computeCutTrackSegments(edit.cuts);
-  validateTransitionAdjacency(edit.cuts, cutTrackSegments, edit.fps, findings);
+  validateTransitionAdjacency(edit.cuts, cutTrackSegments, edit.sources, edit.fps, findings);
   for (const segment of findTrackOverlaps(cutTrackSegments)) {
     if (isDeclaredTransitionOverlap(edit.cuts, cutTrackSegments, segment, edit.fps)) continue;
     addFinding(findings, {
@@ -323,7 +325,11 @@ export async function lintProject(input, options = {}) {
   return writeResult(findings, skipped, inputs, paths, options);
 }
 
-function validateTransitionAdjacency(cuts, segments, fps, findings) {
+function validateTransitionAdjacency(cuts, segments, sources, fps, findings) {
+  const sourcePaths = new Map((Array.isArray(sources) ? sources : [])
+    .filter(source => isRecord(source) && typeof source.id === "string")
+    .map(source => [source.id, source.path]));
+  const isStillCut = cut => isStillImageSourcePath(sourcePaths.get(cut?.src) ?? cut?.src);
   for (let position = 0; position < segments.length; position += 1) {
     const earlier = segments[position];
     const transition = cuts?.[earlier.index]?.transition_out;
@@ -336,13 +342,26 @@ function validateTransitionAdjacency(cuts, segments, fps, findings) {
       fps,
     );
     if (overlapFrames === 0) {
-      addFinding(findings, {
-        severity: "warning",
-        check: "cuts.transition-out.zero-overlap",
-        message: "トランジションを宣言していますが、次のクリップと重なっていないため効きません。前のクリップの終わりを延ばして重なりを作るか、トランジションを削除してください。",
-        path: `edit.json#cuts[${earlier.index}].transition_out`,
-        range: { start: earlier.end, end: later.start },
+      const outgoingCut = cuts?.[earlier.index];
+      const incomingCut = cuts?.[later.index];
+      const incomingSpeed = isPositiveNumber(incomingCut?.speed) ? incomingCut.speed : 1;
+      const plan = planTransitionHandleWindow({
+        declaredSeconds: transition.duration,
+        outgoingTailRoomSeconds: Number.POSITIVE_INFINITY,
+        incomingHeadRoomSeconds: isStillCut(incomingCut)
+          ? Number.POSITIVE_INFINITY : Math.max(0, Number(incomingCut?.in) || 0) / incomingSpeed,
+        outgoingDurationSeconds: Math.max(0, earlier.end - earlier.start),
+        incomingDurationSeconds: Math.max(0, later.end - later.start),
       });
+      if (plan.effectiveSeconds <= 0) {
+        addFinding(findings, {
+          severity: "warning",
+          check: "cuts.transition-out.zero-overlap",
+          message: "トランジションを宣言していますが、のりしろにできる素材の余りがないため効きません。素材のトリムを調整するか、トランジションを削除してください。",
+          path: `edit.json#cuts[${earlier.index}].transition_out`,
+          range: { start: earlier.end, end: later.start },
+        });
+      }
       continue;
     }
     // 正の重なりは、宣言尺未満なら既存の短縮クランプ、宣言尺超なら track-overlap が担当する。
@@ -1087,17 +1106,6 @@ function validateCutTransformFields(cuts, findings) {
   }
 }
 
-// docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定1: 判定は拡張子のみ。同じ集合
-// (png/jpe?g/webp/bmp/gif, 大小無視) を packages/render-cut/src/layers.mjs の
-// IMAGE_LAYER_SOURCE_PATTERN / plan.mjs の chroma_key 背景判定と揃える。edit-lint はスキーマ
-// パッケージから独立しているため、ここでは同じパターンを別リテラルとして持つ（3面パリティ
-// テストと同じ流儀: packages/preview-server/test/image-layer-source.test.mjs 参照）。
-const IMAGE_CUT_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
-
-function isImageCutSourcePath(pathValue) {
-  return typeof pathValue === "string" && IMAGE_CUT_SOURCE_PATTERN.test(pathValue);
-}
-
 // 裁定3〜5（in/out 意味論・freeze/speed 警告・v0 空 cuts 拒否）。source が静止画のときだけ発火する。
 function validateStillImageCuts(edit, findings) {
   if (!isRecord(edit)) return;
@@ -1105,7 +1113,7 @@ function validateStillImageCuts(edit, findings) {
 
   const imageSourceIds = new Set(
     (Array.isArray(edit.sources) ? edit.sources : [])
-      .filter((source) => isRecord(source) && isImageCutSourcePath(source.path))
+      .filter((source) => isRecord(source) && isStillImageSourcePath(source.path))
       .map((source) => source.id),
   );
   if (imageSourceIds.size === 0) return;
