@@ -167,6 +167,19 @@ export declare function readInternalSources(source: string | unknown): InternalS
  * 検証される側であり、検証対象自身を尺の分母に混ぜると常に「収まっている」判定になってしまう。
  */
 export declare function visualContentEndSeconds(internal: InternalEdit): number;
+export interface CrossTrackLayerEvacuation {
+    itemId: string;
+    trackId: string;
+    causeItemId: string;
+    causeTrackId: string;
+    overlapStartFrames: number;
+    overlapEndFrames: number;
+}
+/**
+ * 別 visual track との重なりが原因で upper item が layers へ退避される組を返す。
+ * edit-lint と UI は理由文言に必要な相手 id を、この単一定義から得る。
+ */
+export declare function findCrossTrackLayerEvacuations(edit: unknown): CrossTrackLayerEvacuation[];
 export interface LegacyEditView {
     cuts: EditCut[];
     sources?: EditSource[];

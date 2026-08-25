@@ -3,8 +3,10 @@ import test from 'node:test';
 
 import {
   LINT_CHECK_JA,
+  LINT_WARNING_SUMMARY_CHECKS,
   formatLintFailureForUi,
   japaneseLintSummary,
+  japaneseLintWarningSummary,
   lintCheckFromError
 } from '../lib/common/lint-message-ja.js';
 
@@ -37,4 +39,34 @@ test('辞書に無い check は従来表示へ完全フォールバックする'
     formatLintFailureForUi('書き出しに失敗しました', [detail]),
     `書き出しに失敗しました: ${detail}`
   );
+});
+
+test('失敗用要約は warning を使わず、未知 error の原文を transition warning で隠さない', () => {
+  const warning = {
+    severity: 'warning',
+    check: 'cuts.transition-out.zero-overlap',
+  };
+  assert.equal(japaneseLintSummary([], [warning]), undefined);
+  const detail = '[future.failure] actual failure detail';
+  assert.equal(
+    formatLintFailureForUi('保存後の検証で問題が見つかりました', [detail], [warning]),
+    `保存後の検証で問題が見つかりました: ${detail}`,
+  );
+});
+
+test('pass 時の warning 要約対象は transition の 2 check だけに固定する', () => {
+  assert.deepEqual(LINT_WARNING_SUMMARY_CHECKS, [
+    'cuts.transition-out.zero-overlap',
+    'cuts.transition-out.layer-evacuated',
+  ]);
+  assert.match(japaneseLintWarningSummary([{
+    severity: 'warning', check: 'cuts.transition-out.zero-overlap'
+  }]), /次のクリップと重なっていないため効きません/u);
+  assert.match(japaneseLintWarningSummary([{
+    severity: 'warning', check: 'cuts.transition-out.layer-evacuated'
+  }]), /PiP 経路へ退避/u);
+  assert.equal(japaneseLintWarningSummary([{
+    severity: 'warning', check: 'captions.output-domain-exceeds-duration'
+  }]), undefined);
+  assert.match(LINT_CHECK_JA['cuts.transition-out.layer-evacuated'], /PiP 経路へ退避/u);
 });

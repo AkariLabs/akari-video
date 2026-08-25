@@ -20,6 +20,8 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 
 const {
   areCutsAdjacent,
+  cutOverlapFrames,
+  findCrossTrackLayerEvacuations,
   findUnsupportedDeclaredTrackTransitions,
   projectLegacyEdit,
   readInternalEdit,
@@ -135,6 +137,7 @@ export async function lintProject(input, options = {}) {
   const rawEdit = edit;
   const internalEdit = readInternalEdit(rawEdit);
   const legacyEdit = projectLegacyEdit(internalEdit);
+  validateTransitionLayerEvacuations(rawEdit, internalEdit, findings);
   const rawAudio = isRecord(rawEdit.audio) ? rawEdit.audio : {};
   const projectedAudio = projectAudioForLint(internalEdit);
   edit = {
@@ -325,8 +328,24 @@ function validateTransitionAdjacency(cuts, segments, fps, findings) {
     const transition = cuts?.[earlier.index]?.transition_out;
     if (!isRecord(transition) || !isPositiveNumber(transition.duration)) continue;
     const later = segments.slice(position + 1).find(candidate => candidate.track === earlier.track);
-    if (!later || later.start <= earlier.end) continue;
-    if (areCutsAdjacent(
+    if (!later) continue;
+    const overlapFrames = cutOverlapFrames(
+      { tlEnd: earlier.end },
+      { tlStart: later.start },
+      fps,
+    );
+    if (overlapFrames === 0) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "cuts.transition-out.zero-overlap",
+        message: "トランジションを宣言していますが、次のクリップと重なっていないため効きません。前のクリップの終わりを延ばして重なりを作るか、トランジションを削除してください。",
+        path: `edit.json#cuts[${earlier.index}].transition_out`,
+        range: { start: earlier.end, end: later.start },
+      });
+      continue;
+    }
+    // 正の重なりは、宣言尺未満なら既存の短縮クランプ、宣言尺超なら track-overlap が担当する。
+    if (overlapFrames > 0 || areCutsAdjacent(
       { tlEnd: earlier.end, transitionOut: { duration: transition.duration } },
       { tlStart: later.start },
       fps,
@@ -338,6 +357,50 @@ function validateTransitionAdjacency(cuts, segments, fps, findings) {
       path: `edit.json#cuts[${earlier.index}].transition_out`,
       range: { start: earlier.end, end: later.start },
     });
+  }
+}
+
+function validateTransitionLayerEvacuations(rawEdit, internalEdit, findings) {
+  if (!isRecord(rawEdit) || rawEdit.version !== 2) return;
+  const crossTrackCauses = new Map();
+  for (const cause of findCrossTrackLayerEvacuations(rawEdit)) {
+    if (!crossTrackCauses.has(cause.itemId)) crossTrackCauses.set(cause.itemId, cause);
+  }
+  const rawLocations = new Map();
+  if (Array.isArray(rawEdit.tracks)) {
+    rawEdit.tracks.forEach((track, trackIndex) => {
+      if (!isRecord(track) || !Array.isArray(track.items)) return;
+      track.items.forEach((item, itemIndex) => {
+        if (isRecord(item) && typeof item.id === "string") {
+          rawLocations.set(item.id, { trackIndex, itemIndex });
+        }
+      });
+    });
+  }
+  for (const track of internalEdit.tracks) {
+    for (const item of track.items) {
+      const transition = item.declaration?.transition_out;
+      if (item.legacy.collection !== "layers" || !isRecord(transition)) continue;
+      const location = rawLocations.get(item.id);
+      const cause = crossTrackCauses.get(item.id);
+      const reason = cause
+        ? `このクリップは他トラックのアイテム（${cause.causeItemId}）と重なっているため PiP 経路へ退避され、宣言したトランジションは書き出されません。`
+        : "このクリップは合成機能または同一トラック内の重なりにより PiP 経路へ退避され、宣言したトランジションは書き出されません。";
+      addFinding(findings, {
+        severity: "warning",
+        check: "cuts.transition-out.layer-evacuated",
+        message: `${reason}重なりを解消するか、トランジションを削除してください。`,
+        path: location
+          ? `edit.json#tracks[${location.trackIndex}].items[${location.itemIndex}].source.transition_out`
+          : `edit.json#tracks[${track.z}].items`,
+        ...(cause ? {
+          range: {
+            start: cause.overlapStartFrames / internalEdit.output.fps,
+            end: cause.overlapEndFrames / internalEdit.output.fps,
+          },
+        } : {}),
+      });
+    }
   }
 }
 

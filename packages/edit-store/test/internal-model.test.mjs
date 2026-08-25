@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  findCrossTrackLayerEvacuations,
   LegacyEditVersionError,
   projectLegacyEdit,
   readInternalEdit,
@@ -534,6 +535,37 @@ test('cross-track interval intersection keeps the bottom media as cuts, sends th
   assert.deepEqual(view.cuts.map(cut => cut.src), ['photo-a'], 'bottom track remains the renderable base');
   assert.deepEqual(view.layers.map(layer => layer.id), ['b'], 'upper track is composited by layers');
   assert.deepEqual(view.layers.map(layer => layer.track), [0]);
+});
+
+test('cross-track layer evacuation reports the exact overlapping cause and frame interval', () => {
+  const edit = {
+    version: 2,
+    output: { width: 1280, height: 720, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4', proxy: null }],
+    tracks: [
+      { id: 'v0', lane: 'visual', items: [
+        { id: 'bg-1', at: 0, duration: 92,
+          source: { kind: 'media', src: 'main', in: 0, out: 92 / 30 } },
+      ] },
+      { id: 'v1', lane: 'visual', items: [
+        { id: 'clip-01', at: 90, duration: 60, crop: { x: 0, y: 0, w: 0.8, h: 1 },
+          source: { kind: 'media', src: 'main', in: 0, out: 2,
+            transition_out: { type: 'dissolve', duration: 1 } } },
+        { id: 'clip-02', at: 150, duration: 60,
+          source: { kind: 'media', src: 'main', in: 2, out: 4 } },
+      ] },
+    ],
+  };
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), [{
+    itemId: 'clip-01',
+    trackId: 'v1',
+    causeItemId: 'bg-1',
+    causeTrackId: 'v0',
+    overlapStartFrames: 90,
+    overlapEndFrames: 92,
+  }]);
+  const internal = readInternalEdit(edit);
+  assert.equal(internal.tracks[1].items[0].legacy.collection, 'layers');
 });
 
 test('cross-track intersection with a full-frame opaque upper item keeps both media items on cuts', () => {

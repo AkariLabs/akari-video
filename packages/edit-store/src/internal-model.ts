@@ -451,16 +451,36 @@ function needsLayersEngine(
 // transition_out は同一トラックの隣接カットが意図的に作る狭い重なりで、cuts/xfade が表現する。
 // その例外は同一トラックのペアだけに適用する。別トラックとの交差は transition の有無にかかわらず
 // 真の同時表示なので layers へ退避する。
-function computeOverlappingItemIds(itemGroups: readonly (readonly ItemV2[])[]): Set<string> {
+export interface CrossTrackLayerEvacuation {
+    itemId: string;
+    trackId: string;
+    causeItemId: string;
+    causeTrackId: string;
+    overlapStartFrames: number;
+    overlapEndFrames: number;
+}
+
+interface OverlapItemGroup {
+    items: readonly ItemV2[];
+    trackId: string;
+}
+
+interface OverlapAnalysis {
+    itemIds: Set<string>;
+    crossTrackEvacuations: CrossTrackLayerEvacuation[];
+}
+
+function analyzeOverlappingItems(itemGroups: readonly OverlapItemGroup[]): OverlapAnalysis {
     const overlapping = new Set<string>();
-    const entries = itemGroups.flatMap((items, trackIndex) =>
-        items.map(item => ({ item, trackIndex }))
+    const crossTrackEvacuations: CrossTrackLayerEvacuation[] = [];
+    const entries = itemGroups.flatMap((group, trackIndex) =>
+        group.items.map(item => ({ item, trackIndex, trackId: group.trackId }))
     );
     for (let i = 0; i < entries.length; i++) {
-        const { item: a, trackIndex: aTrackIndex } = entries[i];
+        const { item: a, trackIndex: aTrackIndex, trackId: aTrackId } = entries[i];
         if (a.source.kind !== 'media') continue;
         for (let j = i + 1; j < entries.length; j++) {
-            const { item: b, trackIndex: bTrackIndex } = entries[j];
+            const { item: b, trackIndex: bTrackIndex, trackId: bTrackId } = entries[j];
             if (b.source.kind !== 'media') continue;
             if (!(a.at < b.at + b.duration && b.at < a.at + a.duration)) continue;
             const sameTrack = aTrackIndex === bTrackIndex;
@@ -470,12 +490,44 @@ function computeOverlappingItemIds(itemGroups: readonly (readonly ItemV2[])[]): 
                 overlapping.add(a.id);
                 overlapping.add(b.id);
             } else {
-                const upper = aTrackIndex > bTrackIndex ? a : b;
-                if (needsCrossTrackLayers(upper)) overlapping.add(upper.id);
+                const upperIsA = aTrackIndex > bTrackIndex;
+                const upper = upperIsA ? a : b;
+                const lower = upperIsA ? b : a;
+                if (needsCrossTrackLayers(upper)) {
+                    overlapping.add(upper.id);
+                    crossTrackEvacuations.push({
+                        itemId: upper.id,
+                        trackId: upperIsA ? aTrackId : bTrackId,
+                        causeItemId: lower.id,
+                        causeTrackId: upperIsA ? bTrackId : aTrackId,
+                        overlapStartFrames: Math.max(a.at, b.at),
+                        overlapEndFrames: Math.min(a.at + a.duration, b.at + b.duration)
+                    });
+                }
             }
         }
     }
-    return overlapping;
+    return { itemIds: overlapping, crossTrackEvacuations };
+}
+
+function computeOverlappingItemIds(itemGroups: readonly (readonly ItemV2[])[]): Set<string> {
+    return analyzeOverlappingItems(itemGroups.map((items, index) => ({
+        items,
+        trackId: String(index)
+    }))).itemIds;
+}
+
+/**
+ * 別 visual track との重なりが原因で upper item が layers へ退避される組を返す。
+ * edit-lint と UI は理由文言に必要な相手 id を、この単一定義から得る。
+ */
+export function findCrossTrackLayerEvacuations(edit: unknown): CrossTrackLayerEvacuation[] {
+    const parsed = readEditV2(edit);
+    return analyzeOverlappingItems(parsed.tracks.flatMap(track =>
+        track.lane === 'visual' && 'items' in track
+            ? [{ items: track.items, trackId: track.id }]
+            : []
+    )).crossTrackEvacuations;
 }
 
 // cuts の winner-take-all が下段を隠してよいのは、上段が全画面を不透明に覆う場合だけ。

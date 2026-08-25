@@ -11,6 +11,10 @@ export const LINT_CHECK_JA: Readonly<Record<string, string>> = Object.freeze({
         'このトランジションは PiP または複数トラックの合成では書き出せません。トランジションを削除するか、映像を単一のトラックへ戻してください。',
     'cuts.transition-out.non-adjacent':
         'トランジションの次のクリップとの間にすき間があります。すき間を詰めるか、トランジションを削除してください。',
+    'cuts.transition-out.zero-overlap':
+        'トランジションを宣言していますが、次のクリップと重なっていないため効きません。前のクリップの終わりを延ばすか、トランジションを削除してください。',
+    'cuts.transition-out.layer-evacuated':
+        'このクリップは PiP 経路へ退避されているため、宣言したトランジションは書き出されません。重なりを解消するか、トランジションを削除してください。',
     'captions.overlap':
         '字幕の表示時間が重なっています。タイムラインで字幕の開始・終了位置をずらしてください。',
     'captions.output-domain-exceeds-duration':
@@ -25,6 +29,12 @@ export const LINT_CHECK_JA: Readonly<Record<string, string>> = Object.freeze({
         '効果音が映像の範囲外にあります。再生位置か映像の長さを調整してください。'
 });
 
+/** pass verdict でも保存直後に知らせる、本タスク由来の transition warning だけ。 */
+export const LINT_WARNING_SUMMARY_CHECKS: readonly string[] = Object.freeze([
+    'cuts.transition-out.zero-overlap',
+    'cuts.transition-out.layer-evacuated'
+]);
+
 export function lintCheckFromError(error: string | undefined): string | undefined {
     const match = /^\[([^\]]+)\]/u.exec(error ?? '');
     return match?.[1];
@@ -38,6 +48,14 @@ export function japaneseLintSummary(
         && LINT_CHECK_JA[candidate.check]);
     const check = finding?.check ?? lintCheckFromError(errors[0]);
     return check ? LINT_CHECK_JA[check] : undefined;
+}
+
+export function japaneseLintWarningSummary(
+    findings: readonly UiLintFinding[] = []
+): string | undefined {
+    const finding = findings.find(candidate => candidate.severity === 'warning' && candidate.check
+        && LINT_WARNING_SUMMARY_CHECKS.includes(candidate.check));
+    return finding?.check ? LINT_CHECK_JA[finding.check] : undefined;
 }
 
 /**

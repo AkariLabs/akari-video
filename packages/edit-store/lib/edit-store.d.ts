@@ -1,3 +1,4 @@
+import { type TransitionHandleExtensionPlan } from './cut-adjacency';
 export interface EditCut {
     in: number;
     out: number;
@@ -143,6 +144,26 @@ export declare function setCutTransitionOutInSource(source: string, cutIndex: nu
     type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
     duration: number;
 } | null): string;
+export interface SetV2TransitionOutWithHandleInput {
+    itemId: string;
+    transitionOut: {
+        type: 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+        duration: number;
+    };
+    earlierEndSeconds: number;
+    laterStartSeconds: number;
+    maxExtendSeconds: number;
+    fps: number;
+}
+export interface SetV2TransitionOutWithHandleResult {
+    source: string;
+    plan: TransitionHandleExtensionPlan;
+}
+/**
+ * v2 の transition_out 宣言と outgoing の source.out / duration 延長を 1 回の
+ * byte-preserving 手術で行う。maxExtendSeconds は出力秒軸の上限で、素材実尺は呼び出し側が決める。
+ */
+export declare function setV2TransitionOutWithHandleInSource(source: string, input: SetV2TransitionOutWithHandleInput): SetV2TransitionOutWithHandleResult;
 export declare function reorderCutsInSource(source: string, fromIndex: number, toIndex: number): string;
 export declare function splitCutInSource(source: string, cutIndex: number, atSeconds: number): string;
 export declare function deleteCutInSource(source: string, cutIndex: number): {

@@ -18,8 +18,79 @@ export interface CutAdjacencyLaterLike {
 
 const DEFAULT_CUT_ADJACENCY_FPS = 30;
 
-function effectiveFps(fps: number): number {
+export function effectiveCutFps(fps: number): number {
     return Number.isFinite(fps) && fps > 0 ? fps : DEFAULT_CUT_ADJACENCY_FPS;
+}
+
+/**
+ * earlier の終端と later の開始を出力 fps へ量子化し、実重なりをフレーム数で返す。
+ * 正数は重なり、0 は突き合わせ、負数はすき間を表す。
+ */
+export function cutOverlapFrames(
+    earlier: Pick<CutAdjacencyEarlierLike, 'tlEnd'>,
+    later: CutAdjacencyLaterLike,
+    fps = DEFAULT_CUT_ADJACENCY_FPS
+): number {
+    const resolvedFps = effectiveCutFps(fps);
+    return Math.round(earlier.tlEnd * resolvedFps) - Math.round(later.tlStart * resolvedFps);
+}
+
+export type TransitionHandleExtensionOutcome = 'already-overlapping' | 'full' | 'partial' | 'none';
+
+export interface TransitionHandleExtensionPlan {
+    appliedSeconds: number;
+    effectiveSeconds: number;
+    appliedFrames: number;
+    outcome: TransitionHandleExtensionOutcome;
+}
+
+export interface TransitionHandleExtensionInput {
+    declaredSeconds: number;
+    earlierEndSeconds: number;
+    laterStartSeconds: number;
+    maxExtendSeconds: number;
+    fps?: number;
+}
+
+/**
+ * 突き合わせ境界へ宣言尺ぶんの重なりを作るため、outgoing を何フレーム延ばすか決める。
+ * メディア長は知らず、呼び出し側が maxExtendSeconds として渡した上限だけを使う。
+ */
+export function planTransitionHandleExtension(
+    input: TransitionHandleExtensionInput
+): TransitionHandleExtensionPlan {
+    const fps = effectiveCutFps(input.fps ?? DEFAULT_CUT_ADJACENCY_FPS);
+    const declaredFrames = Number.isFinite(input.declaredSeconds) && input.declaredSeconds > 0
+        ? Math.max(1, Math.round(input.declaredSeconds * fps)) : 0;
+    const overlapFrames = cutOverlapFrames(
+        { tlEnd: input.earlierEndSeconds },
+        { tlStart: input.laterStartSeconds },
+        fps
+    );
+    if (overlapFrames > 0) {
+        return {
+            appliedSeconds: 0,
+            effectiveSeconds: Math.min(declaredFrames, overlapFrames) / fps,
+            appliedFrames: 0,
+            outcome: 'already-overlapping'
+        };
+    }
+    const maximumFrames = input.maxExtendSeconds === Number.POSITIVE_INFINITY
+        ? Number.POSITIVE_INFINITY
+        : Number.isFinite(input.maxExtendSeconds) && input.maxExtendSeconds > 0
+            ? Math.max(0, Math.floor(input.maxExtendSeconds * fps + 1e-9)) : 0;
+    // すき間（負の overlapFrames）がある場合は、その穴を埋めたうえで宣言尺ぶん重ねる。
+    // UI は非隣接ガードでこの経路へ入れないが、純関数としては安全な値を返す。
+    const requiredFrames = Math.max(0, declaredFrames - overlapFrames);
+    const appliedFrames = Math.min(requiredFrames, maximumFrames);
+    const effectiveFrames = Math.max(0, Math.min(declaredFrames, overlapFrames + appliedFrames));
+    return {
+        appliedSeconds: appliedFrames / fps,
+        effectiveSeconds: effectiveFrames / fps,
+        appliedFrames,
+        outcome: appliedFrames <= 0 ? 'none'
+            : appliedFrames >= requiredFrames ? 'full' : 'partial'
+    };
 }
 
 /**
@@ -31,10 +102,8 @@ export function areCutsAdjacent(
     later: CutAdjacencyLaterLike,
     fps = DEFAULT_CUT_ADJACENCY_FPS
 ): boolean {
-    const resolvedFps = effectiveFps(fps);
-    const earlierEndFrame = Math.round(earlier.tlEnd * resolvedFps);
-    const laterStartFrame = Math.round(later.tlStart * resolvedFps);
-    const overlapFrames = earlierEndFrame - laterStartFrame;
+    const resolvedFps = effectiveCutFps(fps);
+    const overlapFrames = cutOverlapFrames(earlier, later, resolvedFps);
     const declaredDuration = earlier.transitionOut?.duration;
     const declaredOverlapFrames = typeof declaredDuration === 'number'
         && Number.isFinite(declaredDuration) && declaredDuration > 0
