@@ -172,7 +172,7 @@ export function creatorRootPromptText(defaultPath) {
  * `akari update` の出力本文（複数行）。フィード未取得・最新・新版ありで案内が変わる。
  * `dismissed` は今回の実行で dismiss 記録を書いたかどうか（表示文言の切り替えのみに使う）。
  */
-export function describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed }) {
+export function describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed, usingCachedFeed = false }) {
   const info = versionInfo ?? normalizeVersionInfo(currentVersion);
   const lines = versionInfo ? describeInstalledVersions(info) : [`現在のバージョン: v${currentVersion}`];
   const feed = cache?.feed;
@@ -180,6 +180,10 @@ export function describeUpdateCommand({ currentVersion, versionInfo, cache, dism
     lines.push('最新情報をまだ取得できていません（オフライン、または初回起動直後の可能性があります）。');
     lines.push('少し待ってから、もう一度 `akari` を実行すると次回チェックされます。');
     return lines;
+  }
+
+  if (usingCachedFeed) {
+    lines.push(describeUpdateCacheFallback(cache));
   }
 
   lines.push(`最新バージョン: v${feed.product}${channelSuffix(feed.channel)}`);
@@ -206,6 +210,12 @@ export function describeUpdateCommand({ currentVersion, versionInfo, cache, dism
       : 'この版の通知を今後出さない場合は `akari update --dismiss` を実行してください。'
   );
   return lines;
+}
+
+/** 明示 update の再取得失敗時に、参照するキャッシュの取得時刻を示す 1 行。 */
+export function describeUpdateCacheFallback(cache) {
+  const fetchedAt = typeof cache?.fetched_at === 'string' ? cache.fetched_at : '取得時刻不明';
+  return `更新フィードを取得できなかったため、${fetchedAt} 時点のキャッシュを表示します。`;
 }
 
 /**

@@ -142,7 +142,7 @@ export async function generateLatestJson({ artifactsDir, tag, channel, released,
       plugin: { version: pluginPkg.version },
       // update-and-versioning 契約（内部リポ）§11 追記: install.sh が展開するものと同内容の
       // フル構成ソース tarball（CLI self-update の実体）。additive 追加のため schema は 1 のまま。
-      app: { url: releaseAssetUrl(tag, ARTIFACT_FILES.app), sha256: appSha }
+      app: { version: productVersion, url: releaseAssetUrl(tag, ARTIFACT_FILES.app), sha256: appSha }
     }
   };
 }

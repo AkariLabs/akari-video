@@ -19,6 +19,10 @@ import { run, runUpdateCommand } from '../src/cli.mjs';
 import { resolveRepoAssets } from '../src/repo-assets.mjs';
 import { resolveCachePath } from '../src/update-check.mjs';
 
+const OFFLINE_FETCH = async () => {
+  throw new Error('offline fixture');
+};
+
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = join(packageRoot, '..', '..');
 
@@ -126,7 +130,7 @@ serverTest('akari 実行 1 回目: キャッシュ未形成のため通知なし
 
       // akari update --dismiss で今回の版を既読にする。
       const { log: logUpdate, lines: linesUpdate } = collectLogs();
-      await runUpdateCommand(['--dismiss'], { log: logUpdate, env, currentVersion: '0.1.0' });
+      await runUpdateCommand(['--dismiss'], { log: logUpdate, env, currentVersion: '0.1.0', fetchImpl: OFFLINE_FETCH });
       assert.ok(linesUpdate.some((line) => line.includes('今後表示しません')), '実出力: ' + JSON.stringify(linesUpdate));
 
       // 3 回目: dismissed 済みのため通知は出ない。

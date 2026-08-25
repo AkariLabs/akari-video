@@ -33,6 +33,10 @@ import { resolveAppDir, resolveAppPreviousDir } from '../src/self-update.mjs';
  */
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const UPDATE_FEED_URL = 'https://example.test/latest.json';
+const OFFLINE_FETCH = async () => {
+  throw new Error('offline fixture');
+};
 
 function sha256(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
@@ -116,6 +120,7 @@ function collectLogs() {
 
 serverTest('akari update: app 経由インストール + 新版フィードなら実適用し、akari --version が新版を返す。--rollback で旧版に戻る', async () => {
   await withScratchHome(async (env) => {
+    env = { ...env, AKARI_UPDATE_FEED_URL: UPDATE_FEED_URL };
     const appDir = await seedOldApp(env, '0.1.0');
     assert.equal(akariVersionOf(appDir, env), 'v0.1.0');
 
@@ -146,6 +151,13 @@ serverTest('akari update: app 経由インストール + 新版フィードな�
         env,
         currentVersion: '0.1.0',
         launcherRoot: appDir,
+        fetchImpl: async (url) => {
+          if (url === UPDATE_FEED_URL) {
+            return { ok: true, json: async () => feed };
+          }
+          assert.equal(url, tarballUrl);
+          return { ok: true, arrayBuffer: async () => tarball };
+        },
         runNpmInstall: () => ({ ok: true })
       });
 
@@ -154,7 +166,12 @@ serverTest('akari update: app 経由インストール + 新版フィードな�
       assert.equal(akariVersionOf(appDir, env), 'v0.2.0', 'akari --version が新版を返すこと');
 
       const { log: rbLog, lines: rbLines } = collectLogs();
-      const rollbackResult = await runUpdateCommand(['--rollback'], { log: rbLog, env, currentVersion: '0.2.0' });
+      const rollbackResult = await runUpdateCommand(['--rollback'], {
+        log: rbLog,
+        env,
+        currentVersion: '0.2.0',
+        fetchImpl: OFFLINE_FETCH
+      });
       assert.equal(rollbackResult.exitCode, 0);
       assert.ok(rbLines.some((line) => line.includes('v0.1.0 へロールバックしました')), JSON.stringify(rbLines));
       assert.equal(akariVersionOf(appDir, env), 'v0.1.0', '--rollback 後は akari --version が旧版に戻ること');
@@ -164,6 +181,7 @@ serverTest('akari update: app 経由インストール + 新版フィードな�
 
 serverTest('akari update: app 外（モノレポ checkout 相当）から実行すると適用せず従来の案内表示に縮退する', async () => {
   await withScratchHome(async (env) => {
+    env = { ...env, AKARI_UPDATE_FEED_URL: UPDATE_FEED_URL };
     await seedOldApp(env, '0.1.0');
     const feed = {
       schema: 1,
@@ -179,6 +197,10 @@ serverTest('akari update: app 外（モノレポ checkout 相当）から実行�
       log,
       env,
       currentVersion: '0.1.0',
+      fetchImpl: async (url) => {
+        assert.equal(url, UPDATE_FEED_URL);
+        return { ok: true, json: async () => feed };
+      },
       // launcherRoot を注入しない → 既定値（このテストファイル自身のモノレポ checkout 位置）
       // が使われ、AKARI_HOME/app とは一致しない。
       applySelfUpdate: () => {
@@ -195,6 +217,7 @@ serverTest('akari update: app 外（モノレポ checkout 相当）から実行�
 
 serverTest('akari update: フィードに components.app が無い（旧フィード）場合も案内表示に縮退する', async () => {
   await withScratchHome(async (env) => {
+    env = { ...env, AKARI_UPDATE_FEED_URL: UPDATE_FEED_URL };
     const appDir = await seedOldApp(env, '0.1.0');
     const feed = {
       schema: 1,
@@ -210,6 +233,10 @@ serverTest('akari update: フィードに components.app が無い（旧フィ�
       log,
       env,
       currentVersion: '0.1.0',
+      fetchImpl: async (url) => {
+        assert.equal(url, UPDATE_FEED_URL);
+        return { ok: true, json: async () => feed };
+      },
       launcherRoot: appDir, // app 経由実行ではあるが、フィード側に components.app が無い
       applySelfUpdate: () => {
         throw new Error('components.app が無いのに self-update が呼ばれてしまった');
