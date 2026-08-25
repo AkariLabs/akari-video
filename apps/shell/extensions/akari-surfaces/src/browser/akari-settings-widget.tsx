@@ -2,7 +2,12 @@ import * as React from '@theia/core/shared/react';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import { ReactWidget } from '@theia/core/lib/browser/widgets/react-widget';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
-import { AKARI_CLOUD_ACCOUNT, AKARI_DEVELOPER_MODE, AKARI_QUALITY_TIER } from './akari-preferences';
+import {
+    AKARI_AGENT_TURN_END_NOTIFICATION,
+    AKARI_CLOUD_ACCOUNT,
+    AKARI_DEVELOPER_MODE,
+    AKARI_QUALITY_TIER
+} from './akari-preferences';
 
 @injectable()
 export class AkariSettingsWidget extends ReactWidget {
@@ -14,6 +19,7 @@ export class AkariSettingsWidget extends ReactWidget {
     protected qualityTier = 'draft';
     protected theme = 'dark';
     protected developerMode = false;
+    protected agentTurnEndNotification = true;
     protected cloudAccount = '';
     protected saveMessage = '';
 
@@ -26,7 +32,13 @@ export class AkariSettingsWidget extends ReactWidget {
         this.title.closable = false;
         this.refreshValues();
         this.toDispose.push(this.preferences.onPreferenceChanged(change => {
-            if ([AKARI_QUALITY_TIER, AKARI_DEVELOPER_MODE, AKARI_CLOUD_ACCOUNT, 'workbench.colorTheme'].includes(change.preferenceName)) {
+            if ([
+                AKARI_QUALITY_TIER,
+                AKARI_DEVELOPER_MODE,
+                AKARI_AGENT_TURN_END_NOTIFICATION,
+                AKARI_CLOUD_ACCOUNT,
+                'workbench.colorTheme'
+            ].includes(change.preferenceName)) {
                 this.refreshValues();
             }
         }));
@@ -36,6 +48,7 @@ export class AkariSettingsWidget extends ReactWidget {
         this.qualityTier = this.preferences.get<string>(AKARI_QUALITY_TIER, 'draft');
         this.theme = this.preferences.get<string>('workbench.colorTheme', 'dark');
         this.developerMode = this.preferences.get<boolean>(AKARI_DEVELOPER_MODE, false);
+        this.agentTurnEndNotification = this.preferences.get<boolean>(AKARI_AGENT_TURN_END_NOTIFICATION, true);
         this.cloudAccount = this.preferences.get<string>(AKARI_CLOUD_ACCOUNT, '');
         this.update();
     }
@@ -89,12 +102,24 @@ export class AkariSettingsWidget extends ReactWidget {
                     </select>
                 </label>
 
+                {/* Developer mode の checkbox は e2e ヘルパー（cdp-lib.mjs の
+                    toggleDeveloperModeViaSettings）が「パネル内の最初の checkbox」として
+                    掴むため、後続の checkbox は必ずこの下に足すこと。 */}
                 <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                     <input aria-label='Developer mode' type='checkbox' checked={this.developerMode}
                         onChange={event => void this.save(AKARI_DEVELOPER_MODE, event.currentTarget.checked)} />
                     <span>
                         <strong>Developer mode</strong><br />
                         <small style={{ opacity: 0.7 }}>HTML をコードとして開き、フル設定を利用できるようにします。</small>
+                    </span>
+                </label>
+
+                <label style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <input aria-label='AI 完了通知' type='checkbox' checked={this.agentTurnEndNotification}
+                        onChange={event => void this.save(AKARI_AGENT_TURN_END_NOTIFICATION, event.currentTarget.checked)} />
+                    <span>
+                        <strong>AI 完了通知</strong><br />
+                        <small style={{ opacity: 0.7 }}>Claude Code などの処理が終わったとき、通知でお知らせします（ウィンドウが背面のときだけ）。</small>
                     </span>
                 </label>
 

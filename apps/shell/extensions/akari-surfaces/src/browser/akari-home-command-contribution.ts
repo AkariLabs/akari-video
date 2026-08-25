@@ -6,7 +6,14 @@ import {
     MenuContribution,
     MenuModelRegistry
 } from '@theia/core/lib/common';
-import { ApplicationShell, CommonMenus, WidgetManager } from '@theia/core/lib/browser';
+import {
+    ApplicationShell,
+    CommonMenus,
+    KeybindingContribution,
+    KeybindingRegistry,
+    WidgetManager
+} from '@theia/core/lib/browser';
+import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { AkariHomeWidget } from './akari-home-widget';
 
 /**
@@ -37,17 +44,29 @@ export const AkariHomeCommands = {
     OPEN_FIRST_RUN_SETUP: {
         id: 'akari.home.openFirstRunSetup',
         label: '初回セットアップを開く'
+    } as Command,
+    // task 2026-08-25-shell-window-and-notify ②: 別プロジェクトを並行で開くための入口。
+    // ワークスペース未指定の既定ウィンドウ（ホーム + ランチャー）が開く。Theia 標準の
+    // File > New Window（workbench.action.newWindow・英語ラベル）と重複するため、
+    // あちらのメニュー項目は AkariMenuCuration（akari-shell-strip）が外している
+    // （コマンド自体は残す）。
+    NEW_WINDOW: {
+        id: 'akari.home.newWindow',
+        label: '新しいウィンドウ'
     } as Command
 };
 
 @injectable()
-export class AkariHomeCommandContribution implements CommandContribution, MenuContribution {
+export class AkariHomeCommandContribution implements CommandContribution, MenuContribution, KeybindingContribution {
 
     @inject(WidgetManager)
     protected readonly widgetManager!: WidgetManager;
 
     @inject(ApplicationShell)
     protected readonly shell!: ApplicationShell;
+
+    @inject(WindowService)
+    protected readonly windowService!: WindowService;
 
     registerCommands(registry: CommandRegistry): void {
         registry.registerCommand(AkariHomeCommands.OPEN_INTAKE_FORM, {
@@ -70,6 +89,11 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
                 await widget.openFirstRunSetup();
             }
         });
+        registry.registerCommand(AkariHomeCommands.NEW_WINDOW, {
+            execute: async () => {
+                await this.windowService.openNewDefaultWindow();
+            }
+        });
     }
 
     registerMenus(menus: MenuModelRegistry): void {
@@ -77,6 +101,26 @@ export class AkariHomeCommandContribution implements CommandContribution, MenuCo
             commandId: AkariHomeCommands.NEW_PROJECT.id,
             label: AkariHomeCommands.NEW_PROJECT.label,
             order: 'a05'
+        });
+        menus.registerMenuAction(CommonMenus.FILE_NEW, {
+            commandId: AkariHomeCommands.NEW_WINDOW.id,
+            label: AkariHomeCommands.NEW_WINDOW.label,
+            order: 'a06'
+        });
+        // Theia 標準の File > New Window（workbench.action.newWindow・英語ラベル）と
+        // 重複するが、ここ（registerMenus）で unregister すると WindowContribution 側の
+        // 登録順に負けて復活し得るため、全 MenuContribution の後に走る
+        // akari-shell-strip の AkariMenuCuration.onStart 側で外している。
+    }
+
+    registerKeybindings(keybindings: KeybindingRegistry): void {
+        // 標準の New Window と同じ Cmd/Ctrl+Shift+N。Electron のショートカットは
+        // ネイティブメニュー項目のアクセラレータとして効くため、標準項目を外した分を
+        // こちらの項目に付け直す（キーは標準側 keybinding にも残るが、ネイティブ
+        // アクセラレータが先に取るので実質こちらが勝つ）。
+        keybindings.registerKeybinding({
+            command: AkariHomeCommands.NEW_WINDOW.id,
+            keybinding: 'ctrlcmd+shift+n'
         });
     }
 

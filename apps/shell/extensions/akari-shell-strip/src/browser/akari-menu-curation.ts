@@ -68,9 +68,22 @@ export class AkariMenuCuration implements FrontendApplicationContribution {
         }
 
         this.curateEditMenu();
+        this.curateFileMenu();
 
         const after = root.children.map(c => ({ id: c.id, label: (c as { label?: string }).label }));
         console.info('[akari-shell-strip] top-level menubar items AFTER curation:', JSON.stringify(after));
+    }
+
+    /**
+     * File 配下の重複解消（task 2026-08-25-shell-window-and-notify ②）:
+     * Theia 標準の New Window（workbench.action.newWindow・英語ラベル）は、
+     * akari-surfaces が日本語の「新しいウィンドウ」（akari.home.newWindow）を
+     * 同じ File メニューに出すため外す。registerMenus 内で外すと
+     * WindowContribution の登録順に負けて復活し得るので、全 MenuContribution の
+     * 後に走るここ（onStart）で行う。
+     */
+    protected curateFileMenu(): void {
+        this.menus.unregisterMenuAction('workbench.action.newWindow', CommonMenus.FILE_NEW_TEXT);
     }
 
     /**

@@ -11,6 +11,7 @@ import { AkariPartnerWidget } from './akari-partner-widget';
 import { AkariPartnerCatalogWidget } from './akari-partner-catalog-widget';
 import { AkariPartnerCommandContribution } from './akari-partner-command-contribution';
 import { PartnerSessionService } from './partner-session-service';
+import { PartnerTurnNotifier } from './partner-turn-notifier';
 
 export default new ContainerModule(bind => {
     bind(AkariPartnerServer).toDynamicValue(ctx =>
@@ -19,6 +20,9 @@ export default new ContainerModule(bind => {
 
     bind(PartnerSessionService).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(PartnerSessionService);
+
+    bind(PartnerTurnNotifier).toSelf().inSingletonScope();
+    bind(FrontendApplicationContribution).toService(PartnerTurnNotifier);
 
     bind(AkariPartnerWidget).toSelf().inSingletonScope();
     bind(WidgetFactory).toDynamicValue(ctx => ({
