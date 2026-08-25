@@ -13,6 +13,8 @@
   従って進める。`autonomy: checkpoint`（既定）なら企画承認・書き出し前などの要所で
   利用者に確認する。`status: draft` なら進め方が未確定のため、フォームまたは対話で
   確定させてから進める。
+- 進め方を `.akari/intake.json` に書くときは、`tasks` は決められた 5 つの id だけを使い、`target` は `duration_s` か `keep_length: true` のどちらか片方にする。
+  `status` を `submitted` にする前に lint で確認する。
 - プロジェクトルート直下に新規ファイルを作らない（`edit.json` 等の既存契約ファイルを除く）。
   生成物は `.akari/work/`、証跡は `.akari/reports/`、キャッシュは `.akari/cache/` に置く。
   詳しい層の定義は `docs/contract-2026-07-25-project-structure-v0.md`（本モノレポ側）を参照する。

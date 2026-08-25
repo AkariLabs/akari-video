@@ -19,6 +19,8 @@
 要所で必ず利用者に確認します。`status` が `draft` のときは進め方がまだ決まっていないので、
 フォームまたは対話で確定させてから作業を始めます。
 
+進め方を `.akari/intake.json` に書くときは、`tasks` は決められた 5 つの id だけを使い、`target` は `duration_s` か `keep_length: true` のどちらか片方にします。`status` を `submitted` にする前に lint で確認します。
+
 素材が足りないときは、`akari assets list` でアカウントの素材ライブラリ（無料全部 + 購入済み）を
 確認できます。使いたい素材が見つかったら `akari assets fetch <id> --project .` でこのプロジェクトへ
 取り込みます（sha256 検証込み）。有料素材は `akari store connect` で接続済みのアカウントで
