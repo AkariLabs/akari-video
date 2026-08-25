@@ -51,6 +51,14 @@ test("bare template: scaffold generates a draft .akari/intake.json and a CLAUDE.
     assert.match(claudeMd, /submitted/);
     assert.match(claudeMd, /draft/);
     assert.match(claudeMd, /checkpoint/);
+    assert.match(claudeMd, /`tasks` は決められた 5 つの id だけ/);
+    assert.match(claudeMd, /`duration_s` か `keep_length: true` のどちらか片方/);
+    assert.match(claudeMd, /`submitted` にする前に lint で確認/);
+
+    const agentsMd = await readFile(join(destination, "AGENTS.md"), "utf8");
+    assert.match(agentsMd, /`tasks` は決められた 5 つの id だけ/);
+    assert.match(agentsMd, /`duration_s` か `keep_length: true` のどちらか片方/);
+    assert.match(agentsMd, /`submitted` にする前に lint で確認/);
 
     assert.ok(report.fallback.writtenFiles.includes(".akari/intake.json"));
     assert.ok(report.fallback.writtenFiles.includes("CLAUDE.md"));
