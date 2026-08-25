@@ -6,6 +6,7 @@
 - [道具を確認する](#道具を確認する)
 - [生成する](#生成する)
 - [analysis.json へ書く](#analysisjson-へ書く)
+- [Windows 実機検証手順](#windows-実機検証手順)
 - [劣化](#劣化)
 
 ## 原則
@@ -40,6 +41,8 @@
 | `best` | **髪の毛をくっきり残す必要があるときだけ** | RVM mobilenetv3。10 秒素材で約 1〜1.5 分待つ目安 |
 | `best --model resnet50` | 処理時間をさらに許容できる場合のこだわり指定 | RVM resnet50。既定の mobilenetv3 より大幅に遅い |
 
+Windows では全品質段が RVM mobilenetv3 になる。手順は [Windows 実機検証手順](#windows-実機検証手順) を参照する。
+
 `fast` の出力を本番の成果物として `analysis.json` に載せない。
 
 ## 道具を確認する
@@ -49,9 +52,10 @@ node bin/person-matte/person-matte.mjs --check
 ```
 
 `available:true` 以外なら `reason` を報告し、マットを作らずに `null` のまま進む。結果には既定の
-RVM モデルの配備状況を示す `rvm_model` も含まれる。macOS、
-`swiftc`、`ffmpeg`／`ffprobe`、ffmpeg の `libvpx-vp9` エンコーダのいずれかが欠けていれば作れない。
-ネットワークからツールを導入しない。Swift ヘルパーは初回実行時に `swiftc -O` で自動ビルドされ、
+RVM モデルの配備状況を示す `rvm_model` も含まれる。Mac は `swiftc`、ffmpeg / ffprobe、ffmpeg の
+`libvpx-vp9` エンコーダを要求する。Windows は swiftc を要求せず、同じメディア道具に加えて RVM の
+mobilenetv3 モデルを要求する。ffmpeg / ffprobe は `packages/media-bin` の解決規則を使う。
+ネットワークからツールを導入しない。Mac の Swift ヘルパーは初回実行時に `swiftc -O` で自動ビルドされ、
 バイナリはコミットしない（[.gitignore](.gitignore) 参照）。
 
 ## 生成する
@@ -106,6 +110,84 @@ Vision 時の `vision_ms_per_frame` または RVM 時の `rvm_ms_per_frame`、
 - マット動画の時刻 0 が素材の時刻 0 と一致する（区間を切り出したマットを載せない）。
 - `fps` が実際に書き出したマット動画の fps と一致する。
 - `path` を analysis.json の位置から解決でき、実ファイルが存在する。
+
+## Windows 実機検証手順
+
+Windows では `fast` / `balanced` / `accurate` / `best` の全段が RVM mobilenetv3 を使う。
+次の PowerShell コマンドは公開リポジトリのルートで実行する。Node.js 20 以上を前提とし、まず版を確認して
+`packages/matte-rvm` 内で依存と既定モデルを配備する。`npm install` の postinstall が
+mobilenetv3 を取得する。
+
+```powershell
+node --version
+cd packages\matte-rvm
+npm install
+cd ..\..
+```
+
+道具とモデルを検査する。
+
+```powershell
+node skills\analyze-footage\bin\person-matte\person-matte.mjs --check
+```
+
+期待する 1 行 JSON は次の形で、`available` が `true`、`rvm_model.missing` が `false` になる。
+
+```json
+{"available":true,"rvm_model":{"model":"mobilenetv3","path":"C:\\...\\rvm_mobilenetv3_fp32.onnx","missing":false,"fetchHint":"cd packages/matte-rvm && node scripts/fetch-models.mjs"}}
+```
+
+次に、人物が映る実素材 1 本を `C:\Users\owner\Videos\person-input.mp4` へ置き、`balanced` で生成する。
+出力先は必要に応じて書き換える。
+
+```powershell
+$SOURCE = "C:\Users\owner\Videos\person-input.mp4"
+$OUT = "C:\Users\owner\Videos\person-matte-balanced.webm"
+node skills\analyze-footage\bin\person-matte\person-matte.mjs --input "$SOURCE" --out "$OUT" --quality balanced
+```
+
+実際に返る 1 行 JSON から確認するキーの抜粋は次のとおりで、`ok:true`、`engine:"rvm"`、`model:"mobilenetv3"`、
+`probe.alpha_mode:"1"` を含む。`quality` は `person_matte.quality:"balanced"` として指定値のまま残る。
+
+```json
+{"ok":true,"engine":"rvm","model":"mobilenetv3","person_matte":{"path":"C:\\Users\\owner\\Videos\\person-matte-balanced.webm","fps":24,"quality":"balanced","tool":"rvm-person-matting"},"probe":{"codec_name":"vp9","alpha_mode":"1"}}
+```
+
+速度は `rvm_ms_per_frame`（RVM 推論 1 フレーム当たりのミリ秒）で読む。Mac の既存実測は
+**137〜271 ms/frame** なので、Windows の値を同じ単位で比較する。VP9 エンコードを含む全体時間では
+ないため、総所要時間は `elapsed_seconds` も併記する。
+
+実測記録欄:
+
+- Windows PC: CPU ______ / RAM ______ GB / GPU ______ / Windows ______
+- 素材: 解像度 ______ / fps ______ / 尺 ______ 秒
+- `rvm_ms_per_frame`: ______ ms/frame（Mac 137〜271 ms/frame と比較）
+- `elapsed_seconds`: ______ 秒
+
+つまずいた場合は `reason` を先に読む。
+
+- モデル不在: `rvm_model.missing:true` または reason 内の `fetchHint` を確認し、次のコマンドで
+  mobilenetv3 を取得してから再検査する。
+
+  ```powershell
+  cd packages\matte-rvm
+  node scripts\fetch-models.mjs
+  cd ..\..
+  node skills\analyze-footage\bin\person-matte\person-matte.mjs --check
+  ```
+
+- ffmpeg / ffprobe 不在: `packages/media-bin` の postinstall が同梱バイナリを配備するため、
+  次のコマンドで配備をやり直してから `--check` を再実行する。
+
+  ```powershell
+  cd packages\media-bin
+  npm install
+  cd ..\..
+  node skills\analyze-footage\bin\person-matte\person-matte.mjs --check
+  ```
+
+- `libvpx-vp9` 不在: 解決された ffmpeg が VP9 alpha を書けない。`reason` に従って media-bin の配備と
+  ffmpeg の解決元を確認する。
 
 ## 劣化
 
