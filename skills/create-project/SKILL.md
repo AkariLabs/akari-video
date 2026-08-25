@@ -64,3 +64,24 @@ akari new <target-dir> [--template <path>]
 ## intake.json（進め方フォームの保存先）
 
 作成直後の `.akari/intake.json` は `status: "draft"`・空 `tasks` から始まる（契約: `packages/schemas/intake.schema.json`）。プロジェクトの CLAUDE.md には intake の規律を追記する — `status: "submitted"` なら `tasks` / `target` / `autonomy` に従い、`autonomy: "checkpoint"`（既定）なら企画承認・書き出し前などの要所で人に確認し、`status: "draft"` のままなら進め方をフォームまたは対話で確定させてから進める。
+
+- `tasks` は次の固定語彙のみを使う。日本語ラベルの正本は契約正本の `x-akari-labels` とする
+  - `transcribe-captions`（文字起こし・テロップ）
+  - `silence-cut`（いらない間・NG のカット）
+  - `bgm-sfx`（BGM・効果音）
+  - `narration`（ナレーション（自分の声 / 既製の声））
+  - `3d-inserts`（3D・画面はめ込みの演出）
+- 依頼文・自由文を `tasks` に入れない。語彙に無い要望は `tasks` に書かず、
+  `target.taste`（自由記述）や `planning/` 側へ置く
+- `target.duration_s`（数値指定）と `target.keep_length: true`（尺維持）はどちらか片方にする。
+  「約60秒にする」なら `{"duration_s": 60, "keep_length": false}`、「尺は変えない」なら
+  `{"duration_s": null, "keep_length": true}` とする
+- `status` を `"submitted"` へ変える前に、リポジトリルートから edit-lint スキルと同じ CLI を
+  実行し、`intake.*` の error finding が無いことを確認する。`submitted` にするときは
+  `submitted_at` に ISO 8601 日時を必ず入れる
+
+  ```sh
+  node packages/edit-lint/bin/edit-lint.mjs <project-root>
+  ```
+
+フィールドの契約正本は `packages/schemas/intake.schema.json` とする。
