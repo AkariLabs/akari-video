@@ -271,7 +271,8 @@ test("buildLayersCompositeCommand: an image-extension src gets -loop 1 and its n
     outputPath: "/project/.akari/render-tmp/layered.mp4",
     duration: 10,
   });
-  assert.deepEqual(inputOptionsFor(args, "/project/photo.png"), ["-loop", "1"]);
+  // image2 loop inputs must use the project frame grid, even during plan-only construction.
+  assert.deepEqual(inputOptionsFor(args, "/project/photo.png"), ["-framerate", "30", "-loop", "1"]);
   const filterComplex = args[args.indexOf("-filter_complex") + 1];
   assert.match(filterComplex, /trim=duration=2,setpts=PTS-STARTPTS\+1\.5\/TB/u);
 });
@@ -288,7 +289,8 @@ test("buildLayersCompositeCommand: an image-extension src gets -loop 1 on its ow
     width: 640,
     height: 360,
   });
-  assert.deepEqual(inputOptionsFor(args, "/project/photo.jpg"), ["-loop", "1"]);
+  // The maskedmerge path shares the same project-fps input contract as the normal overlay path.
+  assert.deepEqual(inputOptionsFor(args, "/project/photo.jpg"), ["-framerate", "30", "-loop", "1"]);
 });
 
 test("buildLayersCompositeCommand: a non-image video src gets neither -loop nor an input-level offset", () => {
