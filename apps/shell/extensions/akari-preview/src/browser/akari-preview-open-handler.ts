@@ -8917,15 +8917,236 @@ body { display: grid; place-items: center; padding: 32px; }
             const renderTransitionPlate = timelineTime => renderTransitionComposite(timelineTime);
             let activeTransitionWindowKey = null;
             let activeTransitionOutgoingIsStill = false;
+            let activeTransitionEngine = 'none';
             let transitionAudioBaseVolume = 1;
             const setTransitionMask = (element, value) => {
                 const mask = value && value !== 'none' ? value : '';
                 element.style.maskImage = mask;
                 element.style.webkitMaskImage = mask;
             };
+            // feTurbulence(type=turbulence, baseFrequency=0.9, numOctaves=2, seed=7) を
+            // luminanceToAlpha した α の実測 CDF（Chromium 実機・320x320・102400 画素）の逆関数。
+            // 添字 i は目標可視比 p = i / 32、値は 256 スロット中の可視スロット数。
+            // seed / baseFrequency / numOctaves を変えたらこの表も測り直すこと。
+            const DISSOLVE_VISIBLE_SLOTS = [
+                0, 20, 26, 30, 33, 36, 39, 41, 44, 46, 48, 51, 53, 55, 58, 60, 62,
+                65, 67, 70, 72, 75, 78, 81, 84, 88, 92, 96, 100, 106, 112, 122, 256
+            ];
             const writeTransitionTransform = (element, base, transition) => {
                 element.style.transform = [base, transition].filter(Boolean).join(' ');
                 return element.style.transform;
+            };
+            const transitionEngineBlockSize = (ratio, width) => {
+                return Math.max(1, Math.round(ratio * width));
+            };
+            const transitionDissolveTableValues = (visibleRatio, slots) => {
+                const safeSlots = Math.max(0, Math.floor(Number(slots) || 0));
+                const ratio = Math.max(0, Math.min(1, Number(visibleRatio) || 0));
+                const tablePosition = ratio * (DISSOLVE_VISIBLE_SLOTS.length - 1);
+                const lowerIndex = Math.floor(tablePosition);
+                const upperIndex = Math.min(DISSOLVE_VISIBLE_SLOTS.length - 1, lowerIndex + 1);
+                const fraction = tablePosition - lowerIndex;
+                const calibratedSlots = DISSOLVE_VISIBLE_SLOTS[lowerIndex]
+                    + (DISSOLVE_VISIBLE_SLOTS[upperIndex] - DISSOLVE_VISIBLE_SLOTS[lowerIndex])
+                        * fraction;
+                const visibleSlots = Math.round(calibratedSlots * safeSlots / 256);
+                return Array.from({ length: safeSlots }, (_value, index) =>
+                    index < visibleSlots ? '1' : '0').join(' ');
+            };
+            const drawTransitionPixelize = (canvas, outgoingSource, incomingSource, blockSize, alpha) => {
+                const ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
+                if (!ctx) return false;
+                const width = Math.max(1, Number(canvas.width) || 1);
+                const height = Math.max(1, Number(canvas.height) || 1);
+                ctx.clearRect(0, 0, width, height);
+                const block = Math.max(1, Math.round(Number(blockSize) || 1));
+                const reducedWidth = Math.max(1, Math.ceil(width / block));
+                const reducedHeight = Math.max(1, Math.ceil(height / block));
+                const reduced = document.createElement('canvas');
+                reduced.width = reducedWidth;
+                reduced.height = reducedHeight;
+                const reducedCtx = reduced.getContext('2d');
+                if (!reducedCtx) return false;
+                reducedCtx.clearRect(0, 0, reducedWidth, reducedHeight);
+                reducedCtx.imageSmoothingEnabled = false;
+                reducedCtx.webkitImageSmoothingEnabled = false;
+                const sourceDimensions = source => {
+                    if (!source) return null;
+                    const tagName = String(source.tagName || '').toLowerCase();
+                    if (tagName === 'video') {
+                        if (Number(source.readyState) < 2) return null;
+                        const sourceWidth = Number(source.videoWidth);
+                        const sourceHeight = Number(source.videoHeight);
+                        return sourceWidth > 0 && sourceHeight > 0
+                            ? { width: sourceWidth, height: sourceHeight } : null;
+                    }
+                    if (tagName === 'img') {
+                        const sourceWidth = Number(source.naturalWidth);
+                        const sourceHeight = Number(source.naturalHeight);
+                        return sourceWidth > 0 && sourceHeight > 0
+                            ? { width: sourceWidth, height: sourceHeight } : null;
+                    }
+                    return null;
+                };
+                const drawContained = (source, sourceAlpha) => {
+                    const dimensions = sourceDimensions(source);
+                    if (!dimensions) return false;
+                    const scale = Math.min(
+                        reducedWidth / dimensions.width,
+                        reducedHeight / dimensions.height
+                    );
+                    const drawWidth = dimensions.width * scale;
+                    const drawHeight = dimensions.height * scale;
+                    const drawX = (reducedWidth - drawWidth) / 2;
+                    const drawY = (reducedHeight - drawHeight) / 2;
+                    reducedCtx.globalAlpha = sourceAlpha;
+                    reducedCtx.drawImage(source, drawX, drawY, drawWidth, drawHeight);
+                    return true;
+                };
+                const outgoingDrawn = drawContained(outgoingSource, 1);
+                const incomingDrawn = drawContained(
+                    incomingSource,
+                    Math.max(0, Math.min(1, Number(alpha) || 0))
+                );
+                if (!outgoingDrawn && !incomingDrawn) return false;
+                ctx.globalAlpha = 1;
+                ctx.imageSmoothingEnabled = false;
+                ctx.webkitImageSmoothingEnabled = false;
+                const expandedWidth = reducedWidth * block;
+                const expandedHeight = reducedHeight * block;
+                const offsetX = expandedWidth === width
+                    ? 0 : -Math.round((expandedWidth - width) / 2);
+                const offsetY = expandedHeight === height
+                    ? 0 : -Math.round((expandedHeight - height) / 2);
+                ctx.drawImage(
+                    reduced,
+                    0,
+                    0,
+                    reducedWidth,
+                    reducedHeight,
+                    offsetX,
+                    offsetY,
+                    expandedWidth,
+                    expandedHeight
+                );
+                return true;
+            };
+            const createTransitionPixelizeReadyHooks = rerender => {
+                const listeners = new Map();
+                const reset = () => {
+                    for (const [element, eventListeners] of listeners) {
+                        for (const [eventName, listener] of eventListeners) {
+                            element.removeEventListener(eventName, listener);
+                        }
+                    }
+                    listeners.clear();
+                };
+                const arm = element => {
+                    if (!element) return;
+                    const tagName = String(element.tagName || '').toLowerCase();
+                    const eventNames = tagName === 'video'
+                        ? ['loadeddata', 'seeked']
+                        : tagName === 'img' ? ['load'] : [];
+                    if (eventNames.length === 0) return;
+                    let eventListeners = listeners.get(element);
+                    if (!eventListeners) {
+                        eventListeners = new Map();
+                        listeners.set(element, eventListeners);
+                    }
+                    for (const eventName of eventNames) {
+                        if (eventListeners.has(eventName)) continue;
+                        const listener = () => {
+                            reset();
+                            rerender();
+                        };
+                        eventListeners.set(eventName, listener);
+                        element.addEventListener(eventName, listener, { once: true });
+                    }
+                };
+                return { arm, reset };
+            };
+            const transitionPixelizeReadyHooks = createTransitionPixelizeReadyHooks(() => tick(true));
+            const removeTransitionEngineElements = () => {
+                transitionPixelizeReadyHooks.reset();
+                document.getElementById('transition-engine-filters')?.remove();
+                document.getElementById('transition-pixelize-canvas')?.remove();
+            };
+            const ensureTransitionEngineFilters = zIndex => {
+                const existing = document.getElementById('transition-engine-filters');
+                if (existing) {
+                    existing.style.zIndex = String(zIndex);
+                    return {
+                        svg: existing,
+                        blur: document.getElementById('akari-transition-hblur-node'),
+                        dissolveTable: document.getElementById('akari-transition-dissolve-table')
+                    };
+                }
+                const ns = 'http://www.w3.org/2000/svg';
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.id = 'transition-engine-filters';
+                svg.setAttribute('width', '0');
+                svg.setAttribute('height', '0');
+                svg.setAttribute('aria-hidden', 'true');
+                svg.style.position = 'absolute';
+                svg.style.zIndex = String(zIndex);
+                const defs = document.createElementNS(ns, 'defs');
+                const blurFilter = document.createElementNS(ns, 'filter');
+                blurFilter.id = 'akari-transition-hblur';
+                blurFilter.setAttribute('x', '-10%');
+                blurFilter.setAttribute('y', '-10%');
+                blurFilter.setAttribute('width', '120%');
+                blurFilter.setAttribute('height', '120%');
+                const blur = document.createElementNS(ns, 'feGaussianBlur');
+                blur.id = 'akari-transition-hblur-node';
+                blur.setAttribute('stdDeviation', '0 0');
+                blur.setAttribute('edgeMode', 'duplicate');
+                blurFilter.appendChild(blur);
+                const dissolveFilter = document.createElementNS(ns, 'filter');
+                dissolveFilter.id = 'akari-transition-dissolve';
+                dissolveFilter.setAttribute('x', '0%');
+                dissolveFilter.setAttribute('y', '0%');
+                dissolveFilter.setAttribute('width', '100%');
+                dissolveFilter.setAttribute('height', '100%');
+                dissolveFilter.setAttribute('color-interpolation-filters', 'sRGB');
+                const turbulence = document.createElementNS(ns, 'feTurbulence');
+                turbulence.setAttribute('type', 'turbulence');
+                turbulence.setAttribute('baseFrequency', '0.9');
+                turbulence.setAttribute('numOctaves', '2');
+                turbulence.setAttribute('seed', '7');
+                turbulence.setAttribute('result', 'noise');
+                const luminance = document.createElementNS(ns, 'feColorMatrix');
+                luminance.setAttribute('in', 'noise');
+                luminance.setAttribute('type', 'luminanceToAlpha');
+                luminance.setAttribute('result', 'noiseAlpha');
+                const transfer = document.createElementNS(ns, 'feComponentTransfer');
+                transfer.setAttribute('in', 'noiseAlpha');
+                transfer.setAttribute('result', 'mask');
+                const dissolveTable = document.createElementNS(ns, 'feFuncA');
+                dissolveTable.id = 'akari-transition-dissolve-table';
+                dissolveTable.setAttribute('type', 'discrete');
+                dissolveTable.setAttribute('tableValues', transitionDissolveTableValues(0, 256));
+                transfer.appendChild(dissolveTable);
+                const composite = document.createElementNS(ns, 'feComposite');
+                composite.setAttribute('in', 'SourceGraphic');
+                composite.setAttribute('in2', 'mask');
+                composite.setAttribute('operator', 'in');
+                dissolveFilter.append(turbulence, luminance, transfer, composite);
+                defs.append(blurFilter, dissolveFilter);
+                svg.appendChild(defs);
+                layersStage.appendChild(svg);
+                return { svg, blur, dissolveTable };
+            };
+            const ensureTransitionPixelizeCanvas = zIndex => {
+                let canvas = document.getElementById('transition-pixelize-canvas');
+                if (!canvas) {
+                    canvas = document.createElement('canvas');
+                    canvas.id = 'transition-pixelize-canvas';
+                    canvas.style.position = 'absolute';
+                    canvas.style.pointerEvents = 'none';
+                    layersStage.appendChild(canvas);
+                }
+                canvas.style.zIndex = String(zIndex);
+                return canvas;
             };
             const resetTransitionComposite = () => {
                 if (activeTransitionWindowKey !== null) {
@@ -8951,6 +9172,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 activeTransitionWindowKey = null;
                 activeTransitionOutgoingIsStill = false;
+                activeTransitionEngine = 'none';
+                removeTransitionEngineElements();
                 video.dataset.akariTransitionAudioActive = 'false';
                 video.dataset.akariTransitionType = '';
                 video.dataset.akariTransitionProgress = '';
@@ -9013,6 +9236,31 @@ body { display: grid; place-items: center; padding: 32px; }
                     progress,
                     transitionDefinition?.labelJa || String(window.type)
                 );
+                if (activeTransitionEngine !== visual.engine) {
+                    removeTransitionEngineElements();
+                    activeTransitionEngine = visual.engine;
+                }
+                const outgoingZ = zForTrack(window.outgoing.trackId);
+                const incomingZ = zForTrack(window.incoming.trackId);
+                const engineZ = Math.max(outgoingZ, incomingZ) + 1;
+                const engineFilters = visual.engine === 'directional-blur'
+                    || visual.engine === 'noise-dissolve'
+                    ? ensureTransitionEngineFilters(engineZ) : null;
+                if (visual.engine === 'directional-blur' && engineFilters?.blur) {
+                    const stageWidth = Number.parseFloat(layersStage.style.width)
+                        || Number.parseFloat(video.style.width)
+                        || Number(summary.output && summary.output.width)
+                        || 1280;
+                    engineFilters.blur.setAttribute(
+                        'stdDeviation',
+                        String(visual.blurStdDeviationRatio * stageWidth) + ' 0'
+                    );
+                } else if (visual.engine === 'noise-dissolve' && engineFilters?.dissolveTable) {
+                    engineFilters.dissolveTable.setAttribute(
+                        'tableValues',
+                        transitionDissolveTableValues(visual.dissolveVisibleRatio, 256)
+                    );
+                }
                 const outgoingOpacity = Number.isFinite(window.outgoing.opacity) ? window.outgoing.opacity : 1;
                 const incomingOpacity = Number.isFinite(window.incoming.opacity) ? window.incoming.opacity : 1;
                 if (outgoingIsStill) {
@@ -9024,7 +9272,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 } else {
                     video.style.opacity = String(outgoingOpacity * visual.outgoingOpacity);
                 }
-                outgoingElement.style.filter = visual.outgoingFilter === 'none' ? '' : visual.outgoingFilter;
+                outgoingElement.style.filter = visual.engine === 'directional-blur'
+                    ? 'url(#akari-transition-hblur)'
+                    : (visual.outgoingFilter === 'none' ? '' : visual.outgoingFilter);
                 setTransitionMask(outgoingElement, visual.outgoingMask);
                 if (outgoingIsStill) {
                     video.style.filter = outgoingElement.style.filter;
@@ -9089,13 +9339,36 @@ body { display: grid; place-items: center; padding: 32px; }
                     incomingElement.style.transform,
                     visual.incomingTransform
                 );
-                incomingElement.style.filter = visual.incomingFilter === 'none' ? '' : visual.incomingFilter;
+                incomingElement.style.filter = visual.engine === 'directional-blur'
+                    ? 'url(#akari-transition-hblur)'
+                    : visual.engine === 'noise-dissolve'
+                        ? 'url(#akari-transition-dissolve)'
+                        : (visual.incomingFilter === 'none' ? '' : visual.incomingFilter);
                 setTransitionMask(incomingElement, visual.incomingMask);
-                const outgoingZ = zForTrack(window.outgoing.trackId);
-                const incomingZ = zForTrack(window.incoming.trackId);
                 outgoingElement.style.zIndex = String(visual.zSwap ? Math.max(outgoingZ, incomingZ) + 1 : outgoingZ);
                 if (outgoingIsStill) video.style.zIndex = outgoingElement.style.zIndex;
                 incomingElement.style.zIndex = String(incomingZ);
+                if (visual.engine === 'pixelize') {
+                    transitionPixelizeReadyHooks.arm(outgoingElement);
+                    transitionPixelizeReadyHooks.arm(incomingElement);
+                    const canvas = ensureTransitionPixelizeCanvas(engineZ);
+                    const canvasWidth = Number(summary.output && summary.output.width) || 1280;
+                    const canvasHeight = Number(summary.output && summary.output.height) || 720;
+                    canvas.width = Math.max(1, Math.round(canvasWidth));
+                    canvas.height = Math.max(1, Math.round(canvasHeight));
+                    canvas.style.left = video.style.left;
+                    canvas.style.top = video.style.top;
+                    canvas.style.width = video.style.width;
+                    canvas.style.height = video.style.height;
+                    const blockSize = transitionEngineBlockSize(visual.pixelBlockRatio, canvasWidth);
+                    canvas.style.display = drawTransitionPixelize(
+                        canvas,
+                        outgoingElement,
+                        incomingElement,
+                        blockSize,
+                        visual.progress
+                    ) ? 'block' : 'none';
+                }
                 const progressText = visual.progress.toFixed(3);
                 outgoingElement.dataset.akariTransitionType = window.type;
                 outgoingElement.dataset.akariTransitionProgress = progressText;

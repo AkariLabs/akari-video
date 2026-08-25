@@ -19,6 +19,7 @@
       "incoming": {
         "display": "none",
         "opacity": 0,
+        "filter": "",
         "zIndex": "auto",
         "clipPath": "none",
         "currentTime": 2,
@@ -39,7 +40,8 @@
           "outgoing": {
             "display": "block",
             "visibility": "visible",
-            "opacity": 0.9,
+            "opacity": 1,
+            "filter": "",
             "transform": "none",
             "height": 360,
             "zIndex": "0",
@@ -50,7 +52,8 @@
           },
           "incoming": {
             "display": "block",
-            "opacity": 0.1,
+            "opacity": 1,
+            "filter": "url(\"#akari-transition-dissolve\")",
             "zIndex": "0",
             "clipPath": "none",
             "currentTime": 2.1,
@@ -85,7 +88,8 @@
           "outgoing": {
             "display": "block",
             "visibility": "visible",
-            "opacity": 0.5,
+            "opacity": 1,
+            "filter": "",
             "transform": "none",
             "height": 360,
             "zIndex": "0",
@@ -96,7 +100,8 @@
           },
           "incoming": {
             "display": "block",
-            "opacity": 0.5,
+            "opacity": 1,
+            "filter": "url(\"#akari-transition-dissolve\")",
             "zIndex": "0",
             "clipPath": "none",
             "currentTime": 2.5,
@@ -131,7 +136,8 @@
           "outgoing": {
             "display": "block",
             "visibility": "visible",
-            "opacity": 0.1,
+            "opacity": 1,
+            "filter": "",
             "transform": "none",
             "height": 360,
             "zIndex": "0",
@@ -142,7 +148,8 @@
           },
           "incoming": {
             "display": "block",
-            "opacity": 0.9,
+            "opacity": 1,
+            "filter": "url(\"#akari-transition-dissolve\")",
             "zIndex": "0",
             "clipPath": "none",
             "currentTime": 2.9,
@@ -183,6 +190,7 @@
           "display": "block",
           "visibility": "visible",
           "opacity": 1,
+          "filter": "",
           "transform": "none",
           "height": 360,
           "zIndex": "0",
@@ -194,6 +202,7 @@
         "incoming": {
           "display": "none",
           "opacity": 0,
+          "filter": "",
           "zIndex": "0",
           "clipPath": "none",
           "currentTime": 2.9,

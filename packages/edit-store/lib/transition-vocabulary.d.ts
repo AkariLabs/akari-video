@@ -196,14 +196,14 @@ export declare const TRANSITION_VOCABULARY: readonly [{
     readonly xfadeName: "hblur";
     readonly labelJa: "ブラー";
     readonly category: "質感";
-    readonly previewKind: "fallback";
+    readonly previewKind: "blur";
     readonly glyph: "B";
 }, {
     readonly id: "pixelize";
     readonly xfadeName: "pixelize";
     readonly labelJa: "ピクセレート";
     readonly category: "質感";
-    readonly previewKind: "fallback";
+    readonly previewKind: "pixelize";
     readonly glyph: "P";
 }];
 export type TransitionDefinition = typeof TRANSITION_VOCABULARY[number];

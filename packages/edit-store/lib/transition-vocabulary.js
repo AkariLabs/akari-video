@@ -34,8 +34,8 @@ exports.TRANSITION_VOCABULARY = [
     { id: 'zoom-in', xfadeName: 'zoomin', labelJa: 'ズームイン', category: '変形', previewKind: 'zoom-in', glyph: '＋' },
     { id: 'squeeze-h', xfadeName: 'squeezeh', labelJa: 'スクイーズ（縦つぶし）', category: '変形', previewKind: 'squeeze-h', glyph: '↕' },
     { id: 'squeeze-v', xfadeName: 'squeezev', labelJa: 'スクイーズ（横つぶし）', category: '変形', previewKind: 'squeeze-v', glyph: '↔' },
-    { id: 'blur', xfadeName: 'hblur', labelJa: 'ブラー', category: '質感', previewKind: 'fallback', glyph: 'B' },
-    { id: 'pixelize', xfadeName: 'pixelize', labelJa: 'ピクセレート', category: '質感', previewKind: 'fallback', glyph: 'P' }
+    { id: 'blur', xfadeName: 'hblur', labelJa: 'ブラー', category: '質感', previewKind: 'blur', glyph: 'B' },
+    { id: 'pixelize', xfadeName: 'pixelize', labelJa: 'ピクセレート', category: '質感', previewKind: 'pixelize', glyph: 'P' }
 ];
 exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY.map(entry => entry.id);
 exports.TRANSITION_CATEGORIES = [...new Set(exports.TRANSITION_VOCABULARY.map(entry => entry.category))];

@@ -118,7 +118,7 @@ test('合成中の applyCutsZIndex は composite が確定した outgoing z を�
 
 test('transition transform 書き込みは同じ base/progress で再入しても積み上がらない', () => {
     const writeTransitionTransform = vm.runInNewContext(
-        `(${extractConstArrow('writeTransitionTransform', 'resetTransitionComposite')})`
+        `(${extractConstArrow('writeTransitionTransform', 'transitionEngineBlockSize')})`
     );
     const element = { style: { transform: 'scale(99)' } };
     const first = writeTransitionTransform(element, 'translateX(12px)', 'scale(1.3)');

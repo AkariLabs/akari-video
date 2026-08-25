@@ -28,6 +28,9 @@ test('正準表は 29 種・8 カテゴリで id / xfade 名が一意', () => {
     assert.equal(isTransitionType(entry.id), true);
   }
   assert.equal(isTransitionType('future-transition'), false);
+  assert.equal(TRANSITION_BY_ID.blur.previewKind, 'blur');
+  assert.equal(TRANSITION_BY_ID.pixelize.previewKind, 'pixelize');
+  assert.equal(TRANSITION_BY_ID.dissolve.previewKind, 'dissolve');
 });
 
 test('schema enum と render-cut xfade 表は正準表から 1 種消しても検知できる完全一致', () => {

@@ -122,6 +122,7 @@ async function readDom(timeoutMs = 10000) {
           display: outgoingStyle.display,
           visibility: outgoingStyle.visibility,
           opacity: Number(outgoingStyle.opacity),
+          filter: outgoing.style.filter,
           transform: outgoingStyle.transform,
           height: outgoing.offsetHeight,
           zIndex: outgoingStyle.zIndex,
@@ -133,6 +134,7 @@ async function readDom(timeoutMs = 10000) {
         incoming: {
           display: incomingStyle.display,
           opacity: Number(incomingStyle.opacity),
+          filter: incoming.style.filter,
           zIndex: incomingStyle.zIndex,
           clipPath: incomingStyle.clipPath,
           currentTime: incoming.currentTime,
@@ -187,12 +189,12 @@ try {
     if (time === 1.5) await screenshot(main, path.join(evidenceDir, `${type}.png`));
   }
   if (type === 'dissolve') {
-    assert.ok(closeEnough(points[0].outgoing.opacity, 0.9));
-    assert.ok(closeEnough(points[1].outgoing.opacity, 0.5));
-    assert.ok(closeEnough(points[2].outgoing.opacity, 0.1));
-    assert.ok(closeEnough(points[0].incoming.opacity, 0.1));
-    assert.ok(closeEnough(points[1].incoming.opacity, 0.5));
-    assert.ok(closeEnough(points[2].incoming.opacity, 0.9));
+    for (const point of points) {
+      assert.ok(closeEnough(point.outgoing.opacity, 1));
+      assert.ok(closeEnough(point.incoming.opacity, 1));
+      assert.equal(point.outgoing.filter, '');
+      assert.match(point.incoming.filter, /url\(["']?#akari-transition-dissolve["']?\)/u);
+    }
   } else if (type === 'fade-black' || type === 'fade-white') {
     for (const [index, progress] of [0.1, 0.5, 0.9].entries()) {
       assert.ok(closeEnough(

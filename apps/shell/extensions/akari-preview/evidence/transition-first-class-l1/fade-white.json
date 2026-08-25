@@ -19,6 +19,7 @@
       "incoming": {
         "display": "none",
         "opacity": 0,
+        "filter": "",
         "zIndex": "auto",
         "clipPath": "none",
         "currentTime": 2,
@@ -40,6 +41,7 @@
             "display": "block",
             "visibility": "visible",
             "opacity": 0.9,
+            "filter": "",
             "transform": "none",
             "height": 360,
             "zIndex": "0",
@@ -51,6 +53,7 @@
           "incoming": {
             "display": "block",
             "opacity": 0.1,
+            "filter": "",
             "zIndex": "0",
             "clipPath": "none",
             "currentTime": 2.1,
@@ -86,6 +89,7 @@
             "display": "block",
             "visibility": "visible",
             "opacity": 0.5,
+            "filter": "",
             "transform": "none",
             "height": 360,
             "zIndex": "0",
@@ -97,6 +101,7 @@
           "incoming": {
             "display": "block",
             "opacity": 0.5,
+            "filter": "",
             "zIndex": "0",
             "clipPath": "none",
             "currentTime": 2.5,
@@ -132,6 +137,7 @@
             "display": "block",
             "visibility": "visible",
             "opacity": 0.1,
+            "filter": "",
             "transform": "none",
             "height": 360,
             "zIndex": "0",
@@ -143,6 +149,7 @@
           "incoming": {
             "display": "block",
             "opacity": 0.9,
+            "filter": "",
             "zIndex": "0",
             "clipPath": "none",
             "currentTime": 2.9,
@@ -183,6 +190,7 @@
           "display": "block",
           "visibility": "visible",
           "opacity": 1,
+          "filter": "",
           "transform": "none",
           "height": 360,
           "zIndex": "0",
@@ -194,6 +202,7 @@
         "incoming": {
           "display": "none",
           "opacity": 0,
+          "filter": "",
           "zIndex": "0",
           "clipPath": "none",
           "currentTime": 2.9,

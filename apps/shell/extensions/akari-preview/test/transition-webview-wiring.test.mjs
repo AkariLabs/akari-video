@@ -37,6 +37,12 @@ test('webview の 29 種は正準 previewKind から opacity / transform / clip 
   assert.match(source, /visual\.incomingMask/);
   assert.match(source, /transitionPlate\.style\.opacity = String\(visual\.plateOpacity\)/);
   assert.match(source, /video\.style\.opacity = String\(outgoingOpacity \* visual\.outgoingOpacity\)/);
+  assert.match(source, /visual\.engine === 'directional-blur'/);
+  assert.match(source, /visual\.engine === 'pixelize'/);
+  assert.match(source, /visual\.engine === 'noise-dissolve'/);
+  assert.match(source, /url\(#akari-transition-hblur\)/);
+  assert.match(source, /url\(#akari-transition-dissolve\)/);
+  assert.match(source, /drawTransitionPixelize\(/);
 });
 
 test('未知・近似なし種別は合成領域の日本語ラベルへ配線される', () => {
@@ -74,4 +80,11 @@ test('L1 fade plate は非対称式を p=0.1 / 0.5 / 0.9 の全点で検査す�
   assert.match(l1Driver, /fadePlateOpacity\(progress\)/u);
   assert.match(l1Driver, /0\.005/u);
   assert.doesNotMatch(l1Driver, /plate\.opacity >= 0\.95/u);
+});
+
+test('L1 dissolve は不透明な両層と incoming ノイズフィルタを検査する', () => {
+  assert.match(l1Driver, /point\.outgoing\.opacity, 1/u);
+  assert.match(l1Driver, /point\.incoming\.opacity, 1/u);
+  assert.match(l1Driver, /point\.outgoing\.filter, ''/u);
+  assert.match(l1Driver, /akari-transition-dissolve/u);
 });
