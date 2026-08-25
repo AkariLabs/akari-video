@@ -238,17 +238,18 @@ export function appendCutLayerStyleVisual({
   // next to this exact math, ported unchanged below). transformKeyframes.rotateVaries was already
   // computed by layerTransformKeyframeExprs; this function just wasn't reading it.
   const rotateVaries = Boolean(transformKeyframes?.rotateVaries);
-  const effectiveRotate = transformKeyframes
+  const rotateConstant = transformKeyframes
     ? (rotateVaries ? null : transformKeyframes.rotateMin)
     : rotate;
   // Keep the fixed-canvas path aligned with layers.mjs: changing the processed bitmap bounds is
   // safe only for the ordinary normal-blend overlay compositor, without perspective or rotate.
+  // This guard intentionally reads the same rotateConstant as the downstream rotate branches:
+  // eligibility must match whether those branches will actually emit a rotate step.
   // needsLayersEngine already routes non-normal v2 media items away from cuts, but the explicit
   // blend guard also keeps this exported builder safe for direct callers.
   const fixedCanvasEligible = (cut?.blend ?? "normal") === "normal"
     && !cut?.perspective
-    && rotate === 0
-    && effectiveRotate === 0
+    && rotateConstant === 0
     && (cropKeyframeDeclared || Boolean(transformKeyframes?.scaleDeclared));
   const sourceSize = (cropKeyframeDeclared || rotateVaries || fixedCanvasEligible)
     && isFiniteNumber(sourceWidth) && isFiniteNumber(sourceHeight)
@@ -337,7 +338,6 @@ export function appendCutLayerStyleVisual({
   // perspective never reaches this function at all (needsLayersEngine routes it to the layers
   // engine instead) -- so, unlike layers.mjs, there is no keyframed-perspective case to fold in.
   const cropVaries = Boolean(cropKeyframeSteps);
-  const rotateConstant = transformKeyframes ? (rotateVaries ? null : transformKeyframes.rotateMin) : rotate;
   if (rotateConstant !== 0 && (rotateVaries || cropVaries) && !sourceSize) {
     // Source size probe unavailable -- skip the rotate step entirely rather than risk a
     // wrongly-sized/clipped rotation built on an unknown box size (same fallback as the
