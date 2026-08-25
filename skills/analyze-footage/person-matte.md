@@ -5,6 +5,7 @@
 - [実行するかを先に決める](#実行するかを先に決める)
 - [道具を確認する](#道具を確認する)
 - [生成する](#生成する)
+- [カットへ自動配線する](#カットへ自動配線する)
 - [analysis.json へ書く](#analysisjson-へ書く)
 - [Windows 実機検証手順](#windows-実機検証手順)
 - [劣化](#劣化)
@@ -88,6 +89,47 @@ Vision 時の `vision_ms_per_frame` または RVM 時の `rvm_ms_per_frame`、
 
 `ok: false` なら `reason` を報告し、マットを諦めて `null` のまま分析を続ける。**マットが作れない
 ことを理由に分析全体を失敗扱いにしない。**
+
+## カットへ自動配線する
+
+使い分けは次のとおり。
+
+- 素材全体の解析結果として `analysis.json` の `tracks.person_matte` を作る場合は、上の
+  `person-matte.mjs` を使う。入力素材の時刻 0 とマットの時刻 0 を一致させる。
+- 編集済みの特定カットを人物レイヤーへ載せる場合は `person-cutout.mjs` を使う。カットの `in` /
+  `out` / `speed` を解決し、速度適用済みの区間マットを作って v2 `edit.json` へ自動配線する。
+
+```bash
+node skills/analyze-footage/bin/person-matte/person-cutout.mjs \
+  --project /path/to/project \
+  --cut 0
+```
+
+`--cut` は v2 `tracks` を下から上、各 `items` を宣言順に走査した visual media item の 0 始まり
+index で、`0,2,4` のように複数指定できる。自動生成済みの `person-N` item は数えない。
+`--quality fast|balanced|accurate|best`（既定 `balanced`）と、`best` の場合だけ
+`--model mobilenetv3|resnet50` を指定できる。
+
+生成物は `<project>/assets/matte/person-<cut index>.webm`。v2 は旧 `layers[]` と
+`timeline.tracks` を持たず、トップレベル `tracks[]` 自体が下→上の z 順の正本なので、コマンドは
+マットを `sources[]` に登録し、対応する media item を `person-cutout` visual track へ置く。この
+track は既存 track の相互順を変えず最前面へ移すため、HTML overlay やテロップより人物が上に来る。
+
+同じ cut へ再実行すると `person-cutout-N` source と `person-N` item を更新し、source / item / track
+を重複させない。`edit.json` は候補ファイルを v2 reader と `validate-edit.mjs` の両方で検証してから
+atomic rename し、不合格時は元ファイルを変更しない。
+
+変更内容だけを確認する場合は `--dry-run` を付ける。マットの生成、ディレクトリ作成、edit.json の
+書き換えを一切行わず、予定するマット・レイヤー互換表示・track 順を stdout の 1 行 JSON で返す。
+
+```bash
+node skills/analyze-footage/bin/person-matte/person-cutout.mjs \
+  --project /path/to/project \
+  --cut 1,3 \
+  --quality best \
+  --model resnet50 \
+  --dry-run
+```
 
 ## analysis.json へ書く
 

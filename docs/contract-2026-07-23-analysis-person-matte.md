@@ -254,3 +254,64 @@ JSON として読めるかまでしか見ていない（`analysis.schema` チェ
   マットが取れることと、それを本番の合成として出せることは別である
   （`skills/overlay-authoring/text-behind-person.md` の「現在の制約を先に判定する」と同じ判断）
 - overlay 断片からの**相対 video URL の解決**（preview / 書き出し双方）が未整備
+
+## 10. 配線コマンド person-cutout
+
+`skills/analyze-footage/bin/person-matte/person-cutout.mjs` は、編集済みカットの人物マット生成と
+v2 `edit.json` への配線を 1 回で行う決定論的 CLI である。§4 の素材全体マットとは異なり、これは
+プロジェクト固有のカット区間マットを `analysis.json` を経由せず編集トラックへ直接置く。
+
+### 10.1 引数と出力規律
+
+```text
+--project <dir>                         必須。edit.json を持つプロジェクト
+--cut <index[,index...]>                必須。0 始まり
+--quality fast|balanced|accurate|best   省略時 balanced
+--model mobilenetv3|resnet50            best のときだけ指定可
+--dry-run                               生成・書き換えを行わず予定だけ返す
+```
+
+v2 だけを受理し、v0/v1 は「v2 へ migrate してから」という復旧案内付きで失敗する。stdout は成功・
+失敗とも 1 行 JSON とし、成功時は `ok`、マットのパスと実測値、追加または更新したレイヤー、track
+変更の有無、検証結果を含む。失敗時は `ok:false` と `reason` を返し、exit code を非 0 にする。
+
+`--dry-run` は edit.json とファイルシステムを変更しない。選択対象は v2 `tracks[]` を下から上、
+各 `items[]` を宣言順に走査した visual `source.kind:"media"` item である。自動生成した
+`person-N` item と `assets/matte/person-N.webm` source は index の母集団から除外するため、再実行後も
+同じ index が同じ元カットを指す。
+
+### 10.2 置き場、時間、速度
+
+マットは `<project>/assets/matte/person-<cut index>.webm` に固定する。元カットの source path、
+`source.in` / `source.out`、出力 `at` / `duration` を解決し、プロジェクトの整数 fps を使う。
+
+`source.speed` がある場合は、ffmpeg の `setpts=(PTS-STARTPTS)/speed` 相当を**マット生成より先に**
+適用する。省略時は source 区間と出力 duration が 1 フレーム以内なら 1 倍、それを超えて異なる場合は
+`(out-in) / (duration/fps)` を実効速度とする。速度適用済みの一時動画は `os.tmpdir()` 下に置き、成功・
+失敗を問わず削除する。`person-matte.mjs` には出力 fps を渡し、生成 item の `at` / `duration` は元
+カットと同じ整数フレーム値にする。
+
+### 10.3 v2 track と z 順
+
+現行 v2 は旧版のトップレベル `layers[]` / `timeline.tracks` を持たない。`tracks[]` の配列順そのものが
+画面の下から上への z 順で、各 visual track の `items[]` が旧 layer item の役割を持つ。このため
+コマンドは次を v2 ネイティブ表現として出力する。
+
+- `sources[]`: `{id:"person-cutout-N", path:"assets/matte/person-N.webm"}`
+- 最前面 visual track: `{id:"person-cutout", lane:"visual", items:[...]}`
+- item: 元カットと同じ `at` / `duration`、`source.kind:"media"`、`in:0`、
+  `out:duration/fps`
+
+既存 track の相互順は保持し、人物 track だけを末尾（最前面）へ挿入または移動する。これにより人物は
+HTML overlay / telop より上に来る。`deriveTracks` 相当の既定順は変更しない。
+
+### 10.4 冪等性と書き込みゲート
+
+同じ cut の再実行では `person-cutout-N` source、`person-N` item、既存マットを更新し、重複を追加しない。
+人物 track も常に 1 本である。複数 cut 指定では同じ track に item を集約し、`at`、次いで id の順に
+決定的に並べる。
+
+パッチ候補はまず v2 reader で閉じた語彙、参照、一意性、整数フレームを検証し、同一ディレクトリの
+一時 edit.json に書いて `packages/schemas/bin/validate-edit.mjs` も通す。両方が成功した場合だけ元
+`edit.json` へ atomic rename する。不合格なら一時ファイルを削除し、元 edit.json は一切変更しない。
+バックアップは作らない（git 管理を復旧手段とする）。
