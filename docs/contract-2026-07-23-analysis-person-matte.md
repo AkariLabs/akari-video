@@ -179,14 +179,36 @@ quality を上げると Vision の側が伸びる（`accurate` は 135ms/frame�
 | `best` | RVM mobilenetv3 | 髪の毛レベルの細部が必要なときだけ明示指定。CPU 実測 **約 178〜289 ms/frame** |
 | `best --model resnet50` | RVM resnet50 | 処理時間をさらに許容できる場合のこだわり指定 |
 
-Mac では `fast` / `balanced` / `accurate` に Vision、`best` に RVM を使う。Windows では Vision が
-利用できないため、将来は全品質段を RVM に接続する予定である（Windows 接続は別タスク）。
+Mac では `fast` / `balanced` / `accurate` に Vision、`best` に RVM を使う。Windows の対応は
+§6.2 で定める。
 
 ### 6.1 RVM の ExecutionProvider 規律
 
 RVM は **CPU のみ**で実行する。較正ではアクセラレーション用 EP が CPU と異なるマットを出し、
 二値マスク IoU が 0.8057 まで崩れた。将来別の EP を追加するときは、採用候補と CPU の出力一致を
 同一 raw BGRA 入力で測り、**IoU ≈ 1.0 を実測してから**有効化することを受け入れ条件とする。
+
+### 6.2 Windows
+
+Windows（`win32`）では Vision を利用できないため、**全品質段を RVM へ接続する**。`quality` は
+ユーザーが指定した値をそのまま結果と `tracks.person_matte.quality` に残すが、実行エンジンと既定モデルは
+次の表に固定する。
+
+| quality | engine | 既定モデル |
+|---|---|---|
+| `fast` | RVM | mobilenetv3 |
+| `balanced`（既定） | RVM | mobilenetv3 |
+| `accurate` | RVM | mobilenetv3 |
+| `best` | RVM | mobilenetv3 |
+| `best --model resnet50` | RVM | resnet50 |
+
+Windows では RVM が唯一のエンジンなので、mobilenetv3 モデルの配備を必須とする。`--check` はモデルが
+無ければ `available:false` と取得用の `fetchHint` を返す。Mac では従来どおり、RVM モデルが無くても
+Vision の品質段を使えるため `available:true` のままとする。
+
+ffmpeg / ffprobe は OS の PATH 名を直接起動せず、`packages/media-bin` の `resolveFfmpeg()` /
+`resolveFfprobe()` で解決する。これにより Windows では同梱されたプラットフォーム別バイナリも探索対象に
+なり、デコード、VP9 alpha エンコード、出力検証の全工程で同じ解決規則を使う。
 
 手順は `skills/analyze-footage/person-matte.md`（`bin/person-matte/` のヘルパー）に置く。
 

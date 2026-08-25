@@ -27,6 +27,7 @@ import { fileURLToPath } from "node:url";
 
 import { findAlphaModeTag } from "./alpha-tag.mjs";
 import { DEFAULT_RVM_MODEL, resolveRvmModel } from "../../../../packages/matte-rvm/src/index.mjs";
+import { resolveFfmpeg, resolveFfprobe } from "../../../../packages/media-bin/src/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const helperSource = path.join(scriptDir, "person-matte-helper.swift");
@@ -62,36 +63,67 @@ function spawnSyncSafe(command, args) {
   }
 }
 
-function checkAvailability() {
-  if (os.platform() !== "darwin") {
-    return { available: false, reason: `macOS ではありません（${os.platform()}）` };
+function checkAvailability({
+  platform = os.platform(),
+  runSync = spawnSyncSafe,
+  resolveFfmpegBin = resolveFfmpeg,
+  resolveFfprobeBin = resolveFfprobe,
+  resolveModel = resolveRvmModel,
+} = {}) {
+  if (platform !== "darwin" && platform !== "win32") {
+    return { available: false, reason: `未対応のプラットフォームです（${platform}）` };
   }
 
-  const swift = spawnSyncSafe("swiftc", ["-version"]);
-  if (swift.error?.code === "ENOENT") {
-    return { available: false, reason: "swiftc が PATH 上にありません" };
-  }
-  if (swift.error || swift.status !== 0) {
-    return { available: false, reason: "swiftc を起動できません" };
+  if (platform === "darwin") {
+    const swift = runSync("swiftc", ["-version"]);
+    if (swift.error?.code === "ENOENT") {
+      return { available: false, reason: "swiftc が PATH 上にありません" };
+    }
+    if (swift.error || swift.status !== 0) {
+      return { available: false, reason: "swiftc を起動できません" };
+    }
   }
 
-  for (const command of ["ffmpeg", "ffprobe"]) {
-    const probe = spawnSyncSafe(command, ["-version"]);
+  let ffmpegBin;
+  let ffprobeBin;
+  try {
+    ffmpegBin = resolveFfmpegBin();
+  } catch (error) {
+    return { available: false, reason: summarize(error?.message, "ffmpeg が見つかりません") };
+  }
+  try {
+    ffprobeBin = resolveFfprobeBin();
+  } catch (error) {
+    return { available: false, reason: summarize(error?.message, "ffprobe が見つかりません") };
+  }
+
+  for (const [label, command] of [["ffmpeg", ffmpegBin], ["ffprobe", ffprobeBin]]) {
+    const probe = runSync(command, ["-version"]);
     if (probe.error?.code === "ENOENT") {
-      return { available: false, reason: `${command} が PATH 上にありません` };
+      return { available: false, reason: `${label} が見つかりません` };
     }
     if (probe.error || probe.status !== 0) {
-      return { available: false, reason: `${command} を起動できません` };
+      return { available: false, reason: `${label} を起動できません` };
     }
   }
 
   // VP9 alpha WebM を書けるかは libvpx-vp9 の有無で決まる（ffmpeg 内蔵の vp9 エンコーダは別物）。
-  const encoders = spawnSyncSafe("ffmpeg", ["-hide_banner", "-encoders"]);
+  const encoders = runSync(ffmpegBin, ["-hide_banner", "-encoders"]);
   if (encoders.error || encoders.status !== 0) {
     return { available: false, reason: "ffmpeg -encoders を取得できません" };
   }
   if (!String(encoders.stdout ?? "").includes("libvpx-vp9")) {
     return { available: false, reason: "ffmpeg に libvpx-vp9 エンコーダがありません" };
+  }
+
+  if (platform === "win32") {
+    const model = resolveModel(DEFAULT_RVM_MODEL);
+    if (model.missing) {
+      return {
+        available: false,
+        reason: `RVM model is not installed: ${model.path}. ${model.fetchHint}`,
+      };
+    }
   }
 
   return { available: true };
@@ -185,8 +217,31 @@ function buildHelper(helperBin) {
   return null;
 }
 
-function ffprobeJson(args) {
-  const result = spawnSyncSafe("ffprobe", ["-v", "error", ...args, "-of", "json"]);
+function engineForPlatform(quality, platform = os.platform()) {
+  return platform === "win32" || quality === "best" ? "rvm" : "vision";
+}
+
+function prepareExecution(options, {
+  platform = os.platform(),
+  resolveModel = resolveRvmModel,
+  buildVisionHelper = buildHelper,
+} = {}) {
+  const engine = engineForPlatform(options.quality, platform);
+  if (engine === "rvm") {
+    const resolved = resolveModel(options.model);
+    if (resolved.missing) {
+      throw new Error(`RVM model is not installed: ${resolved.path}. ${resolved.fetchHint}`);
+    }
+    return { ...options, engine, modelPath: resolved.path };
+  }
+
+  const buildError = buildVisionHelper(options.helperBin);
+  if (buildError) throw new Error(`swiftc build failed: ${buildError}`);
+  return { ...options, engine };
+}
+
+function ffprobeJson(args, ffprobeBin = resolveFfprobe()) {
+  const result = spawnSyncSafe(ffprobeBin, ["-v", "error", ...args, "-of", "json"]);
   if (result.error || result.status !== 0) {
     throw new Error(summarize(result.stderr, "ffprobe に失敗しました"));
   }
@@ -198,14 +253,14 @@ function ffprobeJson(args) {
 }
 
 /// 素材の表示上の寸法（回転を反映した幅・高さ）と尺を得る。
-function probeSource(input) {
+function probeSource(input, ffprobeBin) {
   const probed = ffprobeJson([
     "-select_streams",
     "v:0",
     "-show_entries",
     "stream=width,height,r_frame_rate,duration:stream_side_data=rotation:format=duration",
     input,
-  ]);
+  ], ffprobeBin);
   const stream = probed?.streams?.[0];
   if (!stream) throw new Error("映像ストリームが見つかりません");
   const width = Number(stream.width);
@@ -249,7 +304,9 @@ function stage(name, command, args, stdio) {
 }
 
 async function generate(options) {
-  const source = probeSource(options.input);
+  const ffmpegBin = resolveFfmpeg();
+  const ffprobeBin = resolveFfprobe();
+  const source = probeSource(options.input, ffprobeBin);
   const size = outputSize(source, options.decodeWidth);
   const metricsPath = path.join(
     os.tmpdir(),
@@ -259,7 +316,7 @@ async function generate(options) {
 
   const decoder = stage(
     "decode",
-    "ffmpeg",
+    ffmpegBin,
     [
       "-hide_banner", "-nostdin", "-loglevel", "error",
       "-i", options.input,
@@ -270,7 +327,7 @@ async function generate(options) {
     ],
     ["ignore", "pipe", "pipe"],
   );
-  const helper = options.quality === "best"
+  const helper = options.engine === "rvm"
     ? stage(
       "segment",
       process.execPath,
@@ -297,7 +354,7 @@ async function generate(options) {
     );
   const encoder = stage(
     "encode",
-    "ffmpeg",
+    ffmpegBin,
     [
       "-hide_banner", "-loglevel", "error",
       "-f", "rawvideo", "-pix_fmt", "bgra",
@@ -322,7 +379,7 @@ async function generate(options) {
   }
   decoder.child.stdout?.pipe(helper.child.stdin);
   helper.child.stdout?.pipe(encoder.child.stdin);
-  if (options.quality === "best") {
+  if (options.engine === "rvm") {
     helper.child.stderr?.on("data", (chunk) => process.stderr.write(chunk));
   }
 
@@ -353,8 +410,8 @@ async function generate(options) {
     throw new Error("フレームを 1 枚も処理していません");
   }
 
-  const verified = verifyOutput(options.out);
-  const engine = options.quality === "best" ? "rvm" : "vision";
+  const verified = verifyOutput(options.out, ffprobeBin);
+  const engine = options.engine;
   return {
     ok: true,
     path: options.out,
@@ -388,14 +445,14 @@ async function generate(options) {
 /// 書き出した WebM が本当に VP9 かつアルファ付きかを ffprobe で確かめる。
 /// ffmpeg 自身は VP9 の alpha レイヤをデコードできない（pix_fmt は yuv420p と報告される）ので、
 /// アルファの有無はコンテナの alpha_mode タグで判定する。
-function verifyOutput(out) {
+function verifyOutput(out, ffprobeBin) {
   const probed = ffprobeJson([
     "-select_streams",
     "v:0",
     "-show_entries",
     "stream=codec_name,width,height,r_frame_rate,nb_frames:stream_tags=alpha_mode:format=duration",
     out,
-  ]);
+  ], ffprobeBin);
   const stream = probed?.streams?.[0];
   if (!stream) throw new Error("書き出した WebM に映像ストリームがありません");
   if (stream.codec_name !== "vp9") {
@@ -426,7 +483,8 @@ async function main() {
     return;
   }
 
-  const availability = checkAvailability();
+  const platform = os.platform();
+  const availability = checkAvailability({ platform });
   if (options.check) {
     printJson({ ...availability, rvm_model: resolveRvmModel(DEFAULT_RVM_MODEL) });
     return;
@@ -443,26 +501,8 @@ async function main() {
   }
 
   try {
-    if (options.quality === "best") {
-      const resolved = resolveRvmModel(options.model);
-      if (resolved.missing) {
-        printJson({
-          ok: false,
-          reason: `RVM model is not installed: ${resolved.path}. ${resolved.fetchHint}`,
-        });
-        process.exitCode = 1;
-        return;
-      }
-      options.modelPath = resolved.path;
-    } else {
-      const buildError = buildHelper(options.helperBin);
-      if (buildError) {
-        printJson({ ok: false, reason: `swiftc build failed: ${buildError}` });
-        process.exitCode = 1;
-        return;
-      }
-    }
-    printJson(await generate(options));
+    const prepared = prepareExecution(options, { platform });
+    printJson(await generate(prepared));
   } catch (error) {
     printJson({ ok: false, reason: summarize(error?.message, "人物マットの生成に失敗しました") });
     process.exitCode = 1;
@@ -486,5 +526,8 @@ export {
   DEFAULT_QUALITY,
   QUALITIES,
   RVM_MODELS,
+  checkAvailability,
+  engineForPlatform,
   parseArguments,
+  prepareExecution,
 };
