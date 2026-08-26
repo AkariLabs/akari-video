@@ -597,6 +597,47 @@ test('cross-track intersection routes every declared non-full-frame upper shape 
   }
 });
 
+// 2026-08-26 akari-reel 実機: 単位元 transform の全画面アルファ webm マット（mask-top.webm）が
+// cuts に残り、プレビューの平坦化でマットが本編の勝者になって再生ヘッドが境界で巻き戻った。
+// アルファを運べるコンテナ（webm / mov）は宣言から不透明を証明できないため、
+// 単位元 transform でも cross-track 交差で layers へ退避する。
+test('cross-track intersection sends a full-frame alpha-capable upper item (webm/mov) to layers even with an identity transform', () => {
+  for (const path of ['matte/mask-top.webm', 'matte/mask-top.MOV']) {
+    const edit = base();
+    edit.sources[1] = { id: 'pip', path, proxy: null };
+    edit.tracks[1].items[0].transform = { x: 0, y: 0, scale: 1, rotate: 0 };
+    const internal = readInternalEdit(edit);
+    assert.equal(
+      internal.tracks[1].items[0].legacy.collection,
+      'layers',
+      `${path} should route the cross-track upper item to layers`,
+    );
+    assert.deepEqual(projectLegacyEdit(internal).layers.map(layer => layer.id), ['l1']);
+  }
+});
+
+test('findCrossTrackLayerEvacuations reports the alpha-capable upper item with the same single definition', () => {
+  const edit = base();
+  edit.sources[1] = { id: 'pip', path: 'matte/mask-top.webm', proxy: null };
+  edit.tracks[1].items[0].transform = { x: 0, y: 0, scale: 1, rotate: 0 };
+  assert.deepEqual(findCrossTrackLayerEvacuations(edit), [{
+    itemId: 'l1',
+    trackId: 'upper',
+    causeItemId: 'c1',
+    causeTrackId: 'base',
+    overlapStartFrames: 15,
+    overlapEndFrames: 45,
+  }]);
+});
+
+test('an alpha-capable webm upper item without any cross-track overlap stays on cuts', () => {
+  const edit = base();
+  edit.sources[1] = { id: 'pip', path: 'matte/mask-top.webm', proxy: null };
+  edit.tracks[1].items[0].at = 60; // c1 は [0,60) — 接するだけで交差しない
+  const internal = readInternalEdit(edit);
+  assert.equal(internal.tracks[1].items[0].legacy.collection, 'cuts');
+});
+
 test('media intervals that only touch at an endpoint do not classify as overlapping', () => {
   const edit = {
     version: 2,

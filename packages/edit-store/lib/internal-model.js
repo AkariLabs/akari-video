@@ -129,7 +129,7 @@ function readV2Internal(raw) {
     // 同時表示も表現できない。先に全 visual media アイテムを横断して区間交差を求め、
     // 参加したアイテムを各トラックの build へ同じ集合として渡す。これにより preview / render
     // の両方が、トラックごとに独立した要素を合成できる layers 経路を選ぶ。
-    const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap(track => 'items' in track && track.lane === 'visual' ? [track.items] : []));
+    const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap(track => 'items' in track && track.lane === 'visual' ? [track.items] : []), pathOf);
     const tracks = edit.tracks.map(track => {
         // P0 2026-08-21 render-path-unification (実測で発覚): 'cuts' 経路（concat チェーン）は
         // 同じトラック上の複数アイテムを「順番に連結される別セグメント」として扱う構造的前提を
@@ -321,7 +321,7 @@ function needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling = false) {
         return true;
     return false;
 }
-function analyzeOverlappingItems(itemGroups) {
+function analyzeOverlappingItems(itemGroups, pathOf) {
     const overlapping = new Set();
     const crossTrackEvacuations = [];
     const entries = itemGroups.flatMap((group, trackIndex) => group.items.map(item => ({ item, trackIndex, trackId: group.trackId })));
@@ -347,7 +347,7 @@ function analyzeOverlappingItems(itemGroups) {
                 const upperIsA = aTrackIndex > bTrackIndex;
                 const upper = upperIsA ? a : b;
                 const lower = upperIsA ? b : a;
-                if (needsCrossTrackLayers(upper)) {
+                if (needsCrossTrackLayers(upper, pathOf)) {
                     overlapping.add(upper.id);
                     crossTrackEvacuations.push({
                         itemId: upper.id,
@@ -363,11 +363,11 @@ function analyzeOverlappingItems(itemGroups) {
     }
     return { itemIds: overlapping, crossTrackEvacuations };
 }
-function computeOverlappingItemIds(itemGroups) {
+function computeOverlappingItemIds(itemGroups, pathOf) {
     return analyzeOverlappingItems(itemGroups.map((items, index) => ({
         items,
         trackId: String(index)
-    }))).itemIds;
+    })), pathOf).itemIds;
 }
 /**
  * 別 visual track との重なりが原因で upper item が layers へ退避される組を返す。
@@ -375,14 +375,25 @@ function computeOverlappingItemIds(itemGroups) {
  */
 function findCrossTrackLayerEvacuations(edit) {
     const parsed = (0, edit_v2_1.readEditV2)(edit);
+    const pathOf = (id) => parsed.sources.find(entry => entry.id === id)?.path;
     return analyzeOverlappingItems(parsed.tracks.flatMap(track => track.lane === 'visual' && 'items' in track
         ? [{ items: track.items, trackId: track.id }]
-        : [])).crossTrackEvacuations;
+        : []), pathOf).crossTrackEvacuations;
 }
 // cuts の winner-take-all が下段を隠してよいのは、上段が全画面を不透明に覆う場合だけ。
 // transform の単位元を明示しただけなら従来経路を維持する。crop / 半透明 / keyframes は、
 // 現在または途中フレームで下段が見える可能性があるため宣言の存在だけで layers へ退避する。
-function needsCrossTrackLayers(item) {
+// 加えて、アルファを運べるコンテナ（webm / mov — 本製品のマット生成パイプラインの出力形式）は
+// 宣言からは不透明を証明できないため、単位元 transform でも layers へ退避する。単位元 transform の
+// 全画面アルファ webm（例: mask-top.webm）が cuts に残ると、プレビューの平坦化で
+// マットが本編の勝者になり「ソース範囲がほぼ同一の縮退セグメント群」を作って
+// 再生ヘッドが境界で巻き戻る（2026-08-26 akari-reel 実機・15.5s→11.2s ループの真因）。
+// 静止画（png 等）は退避先の layers 経路が video 前提のため対象外（従来どおり cuts に残す）。
+const ALPHA_CAPABLE_MEDIA_SOURCE_PATTERN = /\.(webm|mov)$/iu;
+function isAlphaCapableMediaSourcePath(path) {
+    return typeof path === 'string' && ALPHA_CAPABLE_MEDIA_SOURCE_PATTERN.test(path);
+}
+function needsCrossTrackLayers(item, pathOf) {
     const transform = item.transform;
     return (transform?.scale !== undefined && transform.scale !== 1)
         || (transform?.x !== undefined && transform.x !== 0)
@@ -390,7 +401,8 @@ function needsCrossTrackLayers(item) {
         || (transform?.rotate !== undefined && transform.rotate !== 0)
         || item.crop !== undefined
         || (item.opacity !== undefined && item.opacity < 1)
-        || item.keyframes !== undefined;
+        || item.keyframes !== undefined
+        || (item.source.kind === 'media' && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src)));
 }
 function nextRef(counters, kind) {
     const ref = counters.get(kind) ?? 0;
