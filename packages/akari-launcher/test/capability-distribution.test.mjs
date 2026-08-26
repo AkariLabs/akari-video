@@ -26,7 +26,7 @@ test("npm prepack keeps only runnable vendored bins and marks omitted capability
     );
 
     const entries = [
-      ["analysis-report", "render-analysis-report.mjs"],
+      ["timeline-report", "render-timeline-report.mjs"],
       ["decision-cards", "report-helper.mjs"],
       ["intake-form", "intake-form-helper.mjs"],
       ["preview-server", "src/server.mjs"],
@@ -75,16 +75,16 @@ test("npm prepack keeps only runnable vendored bins and marks omitted capability
     await mkdir(unpacked);
     assert.equal(run("tar", ["-xzf", archive, "-C", unpacked], temporary).status, 0);
     const referenceManifest = JSON.parse(await readFile(
-      join(unpacked, "package", "vendor", "packages", "analysis-report", "package.json"),
+      join(unpacked, "package", "vendor", "packages", "timeline-report", "package.json"),
       "utf8",
     ));
     assert.equal(referenceManifest.bin, undefined);
     assert.equal(referenceManifest.akariVideoVendor.execution, "reference-only");
     assert.deepEqual(referenceManifest.akariVideoVendor.omittedBin, {
-      "analysis-report": "render-analysis-report.mjs",
+      "timeline-report": "render-timeline-report.mjs",
     });
     assert.match(referenceManifest.akariVideoVendor.guidance, /~\/\.akari\/app/u);
-    assert.match(referenceManifest.description, /render-analysis-report\.mjs is reference-only/u);
+    assert.match(referenceManifest.description, /render-timeline-report\.mjs is reference-only/u);
 
     const runnable = run(process.execPath, [
       join(unpacked, "package", "vendor", "packages", "edit-lint", "bin", "edit-lint.mjs"),
@@ -94,11 +94,11 @@ test("npm prepack keeps only runnable vendored bins and marks omitted capability
     assert.match(runnable.stdout, /fixture edit-lint help/u);
 
     const cli = join(unpacked, "package", "bin", "akari.mjs");
-    const omittedQuery = run(process.execPath, [cli, "capability", "render-analysis-report.mjs", "--json"], temporary);
+    const omittedQuery = run(process.execPath, [cli, "capability", "render-timeline-report.mjs", "--json"], temporary);
     assert.equal(omittedQuery.status, 0, omittedQuery.stderr || omittedQuery.stdout);
     const omittedResult = JSON.parse(omittedQuery.stdout);
     assert.ok(omittedResult.matches.some((match) =>
-      match.path === "packages/analysis-report/package.json"
+      match.path === "packages/timeline-report/package.json"
       && /reference-only/u.test(`${match.heading} ${match.snippet}`)));
 
     const query = run(process.execPath, [cli, "capability", "beat-sync", "--json"], temporary);
@@ -127,6 +127,61 @@ test("npm prepack keeps only runnable vendored bins and marks omitted capability
     assert.equal(receipt.verdict, "NO_TEXT_MATCH_REQUIRES_REVIEW");
     assert.equal(receipt.approved_to_build, false);
     assert.equal((await readdir(join(project, ".akari", "reports", "absence"))).length, 1);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("npm pack vendors a runnable analysis-report CLI with its adjacent template", async () => {
+  const temporary = await mkdtemp(join(tmpdir(), "akari-analysis-report-pack-"));
+  try {
+    const packageRoot = join(REAL_REPO_ROOT, "packages", "akari-launcher");
+    const packed = run("npm", ["pack", "--json", "--pack-destination", temporary], packageRoot);
+    assert.equal(packed.status, 0, packed.stderr || packed.stdout);
+    const archive = join(temporary, JSON.parse(packed.stdout)[0].filename);
+    const listing = run("tar", ["-tzf", archive], temporary);
+    assert.equal(listing.status, 0, listing.stderr);
+
+    for (const relative of ["package.json", "README.md", "render-analysis-report.mjs", "template.html"]) {
+      assert.match(
+        listing.stdout,
+        new RegExp(`package/vendor/packages/analysis-report/${escapeRegex(relative)}`, "u"),
+      );
+    }
+    assert.doesNotMatch(listing.stdout, /package\/vendor\/packages\/analysis-report\/test\//u);
+
+    const unpacked = join(temporary, "unpacked");
+    await mkdir(unpacked);
+    assert.equal(run("tar", ["-xzf", archive, "-C", unpacked], temporary).status, 0);
+    const reportRoot = join(unpacked, "package", "vendor", "packages", "analysis-report");
+    const manifest = JSON.parse(await readFile(join(reportRoot, "package.json"), "utf8"));
+    assert.equal(manifest.akariVideoVendor, undefined);
+    assert.deepEqual(manifest.bin, { "render-analysis-report": "render-analysis-report.mjs" });
+
+    const analysisPath = join(temporary, "analysis-minimal.json");
+    const interpretationPath = join(temporary, "interpretation-minimal.json");
+    await cp(
+      join(REAL_REPO_ROOT, "packages", "analysis-report", "test", "fixtures", "analysis-minimal.json"),
+      analysisPath,
+    );
+    await cp(
+      join(REAL_REPO_ROOT, "packages", "analysis-report", "test", "fixtures", "interpretation-minimal.json"),
+      interpretationPath,
+    );
+    const outPath = join(temporary, "analysis-report.html");
+    const rendered = run(process.execPath, [
+      join(reportRoot, "render-analysis-report.mjs"),
+      "--analysis",
+      `clip-01=${analysisPath}`,
+      "--interpretation",
+      interpretationPath,
+      "--out",
+      outPath,
+    ], temporary);
+    assert.equal(rendered.status, 0, rendered.stderr || rendered.stdout);
+    const html = await readFile(outPath, "utf8");
+    assert.match(html, /id="akari-analysis-report-data"/u);
+    assert.doesNotMatch(html, /__AKARI_ANALYSIS_REPORT_DATA__/u);
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }

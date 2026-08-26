@@ -50,6 +50,10 @@ const VENDOR_SOURCES = [
   'assets/font/noto-sans-jp/NotoSansJP-Variable.ttf',
   'packages/schemas',
   'packages/project-scaffold',
+  // analysis-report は package.json / README.md を capability source として既に収集する。
+  // 実行に必要な CLI と同居必須テンプレートだけを追加し、test/ は配布しない。
+  'packages/analysis-report/render-analysis-report.mjs',
+  'packages/analysis-report/template.html',
   'packages/edit-lint/bin',
   'packages/edit-lint/src',
   'packages/edit-store/lib',

@@ -300,6 +300,23 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
   const resourcesDir = targetPlatform === 'darwin'
     ? path.join(application.displayPath, 'Contents', 'Resources')
     : path.join(application.displayPath, 'resources');
+  // analyze-project のレポート生成本体は extraResources（asar 外）へ配置される。
+  // どれか欠けると CLI の実行、テンプレート解決、または interpretation 検証が失敗する。
+  const analysisReportRuntimeFiles = [
+    path.join('packages', 'analysis-report', 'render-analysis-report.mjs'),
+    path.join('packages', 'analysis-report', 'template.html'),
+    path.join('packages', 'schemas', 'bin', 'validate-interpretation.mjs'),
+    path.join('packages', 'schemas', 'interpretation.schema.json')
+  ];
+  for (const relative of analysisReportRuntimeFiles) {
+    const exists = await stat(path.join(resourcesDir, relative)).then(s => s.isFile(), () => false);
+    if (exists) {
+      console.log(`✅ ${relative}`);
+    } else {
+      console.error(`❌ MISSING: ${relative}(リソース直下)`);
+      failed = true;
+    }
+  }
   for (const noticeFile of ['ThirdPartyNotices.txt', 'LICENSE.electron.txt', 'LICENSES.chromium.html']) {
     const exists = await stat(path.join(resourcesDir, noticeFile)).then(s => s.isFile(), () => false);
     if (exists) {
