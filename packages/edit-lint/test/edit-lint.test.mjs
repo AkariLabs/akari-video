@@ -9,6 +9,7 @@ import test from "node:test";
 
 import {
   INTAKE_ROOT_FIELDS,
+  validateCaptionTrackDeclaration,
   validateTrackTransitionOutCompatibility,
 } from "../src/edit-lint.mjs";
 import { createRequire } from "node:module";
@@ -193,6 +194,48 @@ test("valid v2 fixture passes the Phase 0 track checks", async () => {
     assert.equal(result.verdict, "pass");
     assert.ok(!result.findings.some((finding) => finding.check.startsWith("v2.")));
     assert.ok(!result.skipped.some((item) => item.check === "edit.v2.extended-validation"));
+  });
+});
+
+test("v2 captions track warning covers undeclared, declared, empty cues, and v1 branches", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const captionsPath = join(project, "captions.json");
+    const declaredEdit = JSON.parse(await readFile(editPath, "utf8"));
+    const undeclaredEdit = {
+      ...declaredEdit,
+      tracks: declaredEdit.tracks.filter(track => track.content?.from !== "captions.json"),
+    };
+    const renderableCue = [{
+      id: "c-0001", start: 0, end: 1, time_domain: "output", text: "字幕",
+      speaker: null, sourceRef: null, edited: true,
+    }];
+
+    await writeFile(editPath, `${JSON.stringify(undeclaredEdit, null, 2)}\n`, "utf8");
+    await writeFile(captionsPath, `${JSON.stringify(renderableCue)}\n`, "utf8");
+    const undeclared = parseResult(run(project)).findings.filter(
+      finding => finding.check === "v2.captions-track-undeclared",
+    );
+    assert.equal(undeclared.length, 1);
+    assert.equal(undeclared[0].severity, "warning");
+    assert.match(undeclared[0].message, /暗黙補完で表示自体はされています/u);
+    assert.match(undeclared[0].message, /\{ "id": "captions", "lane": "visual", "content": \{ "from": "captions\.json" \} \}/u);
+
+    await writeFile(editPath, `${JSON.stringify(declaredEdit, null, 2)}\n`, "utf8");
+    assert.equal(parseResult(run(project)).findings.filter(
+      finding => finding.check === "v2.captions-track-undeclared",
+    ).length, 0);
+
+    await writeFile(editPath, `${JSON.stringify(undeclaredEdit, null, 2)}\n`, "utf8");
+    await writeFile(captionsPath, '{"captions":[]}\n', "utf8");
+    assert.equal(parseResult(run(project)).findings.filter(
+      finding => finding.check === "v2.captions-track-undeclared",
+    ).length, 0);
+
+    const legacyFindings = [];
+    validateCaptionTrackDeclaration({ version: 1, tracks: [] }, renderableCue, legacyFindings);
+    assert.equal(legacyFindings.length, 0);
   });
 });
 

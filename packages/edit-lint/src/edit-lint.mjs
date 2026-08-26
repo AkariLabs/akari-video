@@ -31,6 +31,9 @@ const {
   visualContentEndSeconds,
   TRANSITION_TYPE_IDS,
 } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
+const { captionsHaveRenderableCues } = createRequire(import.meta.url)(
+  "../../edit-store/lib/migrate/index.js",
+);
 
 const VERSION = 1;
 const EPSILON = 1e-6;
@@ -198,6 +201,7 @@ export async function lintProject(input, options = {}) {
   } else {
     addSkipped(skipped, "captions", "captions.json is absent");
   }
+  validateCaptionTrackDeclaration(rawEdit, captionsState.value, findings);
 
   const reviewState = await readOptionalJson(
     paths.reviewPath,
@@ -422,6 +426,22 @@ function validateTransitionLayerEvacuations(rawEdit, internalEdit, findings) {
       });
     }
   }
+}
+
+export function validateCaptionTrackDeclaration(rawEdit, captionsRoot, findings) {
+  if (!isRecord(rawEdit) || rawEdit.version !== 2
+    || !captionsHaveRenderableCues(captionsRoot)) return;
+  const declared = Array.isArray(rawEdit.tracks) && rawEdit.tracks.some(
+    track => isRecord(track) && isRecord(track.content)
+      && track.content.from === "captions.json",
+  );
+  if (declared) return;
+  addFinding(findings, {
+    severity: "warning",
+    check: "v2.captions-track-undeclared",
+    message: 'captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { "id": "captions", "lane": "visual", "content": { "from": "captions.json" } } を追加してください。',
+    path: "edit.json#tracks",
+  });
 }
 
 function projectAudioForLint(internalEdit) {
