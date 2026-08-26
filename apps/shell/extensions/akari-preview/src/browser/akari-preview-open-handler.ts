@@ -44,6 +44,7 @@ import {
     resolveThreeSceneDescriptorAssets
 } from '../common/three-scene-assets';
 import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
+import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
 import { persistCaptionText, persistCaptionZone } from '../common/caption-zone-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import {
@@ -5725,6 +5726,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const outputTimeForSourceClockFn = (${outputTimeForSourceClock.toString()});
             const resolveSourceClockPositionFn = (${resolveSourceClockPosition.toString()});
             const resolveDeferredTelopPlaybackFn = (${resolveDeferredTelopPlayback.toString()});
+            const captionEntryAnimationsSettledFn = (${captionEntryAnimationsSettled.toString()});
             // RAF スロットリング（2026-08-09 raf-throttle）: ハンドルドラッグ中の pointermove は
             // 毎回来るが、フル layout 再計算（updateStageScale）は1フレームに1回で十分。
             const createRafThrottleFn = (${createRafThrottle.toString()});
@@ -5806,6 +5808,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let audioNoticeShown = false;
             let activeCaption = null;
             let styledCaptionActive = false;
+            let captionHitRegionPending = false;
             let activeCaptionEdit = null;
             let reviewRecordingActive = false;
             // docs/contract-2026-08-11-review-session-ui-events.md #1 / internal
@@ -9066,19 +9069,27 @@ body { display: grid; place-items: center; padding: 32px; }
                     } else {
                         captionPlate.textContent = caption ? caption.text : '';
                     }
-                    // ㉓ 字幕もオーバーレイ同様「inset:0 全画面ラッパー + 内側配置」パターン
-                    // （styled 字幕の .akari-caption 断片）を取り得るため、㉑ と同じ
-                    // clip-path 実寸当たり判定を流用する。プレーン字幕（shrink-to-fit の
-                    // #caption-plate 自体が既に実寸）は fragmentBounds が null を返し
-                    // clip-path 'none'（=元々実寸のフルコンテナ）のまま無害。
-                    window.akari.interaction?.syncOverlayHitRegion?.(captionPlate);
-                    if (typeof updateCaptionSelectBox === 'function') updateCaptionSelectBox();
+                    captionHitRegionPending = true;
                 }
+                let captionAnimations = [];
                 if (caption && styledCaptionActive) {
                     const localMs = (clamp(outputTime, caption.start, caption.end) - caption.start) * 1000;
-                    for (const animation of captionPlate.getAnimations({ subtree: true })) {
+                    captionAnimations = captionPlate.getAnimations({ subtree: true });
+                    for (const animation of captionAnimations) {
                         animation.pause();
                         animation.currentTime = localMs;
+                    }
+                }
+                // ㉓ styled 字幕は「inset:0 全画面ラッパー + 内側配置」を取り得るため、
+                // WAAPI を現在時刻へシークした後の実寸で clip-path を測る。可視化した最初の
+                // 1 tick だけで確定すると、通常再生では 0% の画面外姿勢が焼き付くため、有限な
+                // 入場アニメが終わるまでは毎 tick 測り直す。終端の無い装飾アニメは無視し、
+                // 完了後は pending を落として追加の bbox 測定を止める。
+                if (captionHitRegionPending) {
+                    window.akari.interaction?.syncOverlayHitRegion?.(captionPlate);
+                    if (typeof updateCaptionSelectBox === 'function') updateCaptionSelectBox();
+                    if (captionEntryAnimationsSettledFn(captionAnimations)) {
+                        captionHitRegionPending = false;
                     }
                 }
             };
