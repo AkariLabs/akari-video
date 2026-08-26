@@ -1,9 +1,15 @@
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { computeCutTimelineOffsets, cutSpeed, segmentDuration } from "./cut-timeline.mjs";
 import { CAPTION_FONT_FILE_URL } from "./caption-font.mjs";
 import { predictedDuration } from "./plan.mjs";
+
+// text_anchor / position → CSS 変数は共有カーネル単一定義（プレビューと同じ式で描く —
+// packages/edit-store/src/caption-display.ts captionAnchorPositionVars 参照）。
+const require = createRequire(import.meta.url);
+const { captionAnchorPositionVars } = require("../../edit-store/lib/index.js");
 
 const DEFAULT_MAX_CHARACTERS = 20;
 // 縦長（output.height > output.width）の既定。横長より 1 行を短く・文字を大きくする
@@ -410,7 +416,7 @@ export function captionTextStyleVars(style) {
     vars["--caption-text-shadow"] = textShadow;
   }
   Object.assign(vars, zoneVars(style.zone));
-  Object.assign(vars, anchorPositionVars(style.text_anchor, style.position, style.vertical_align));
+  Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align));
   if (style.align) {
     // 明示 align は zone / anchor の水平配置より優先する
     vars["--caption-text-align"] = style.align;
@@ -444,42 +450,9 @@ function captionTextShadowValue(shadow, glow) {
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
-// text_anchor（9 点）+ position（0..1 相対）→ プレート配置の CSS 変数。
-// position 未指定なら anchor は zone 相当の縁寄せとして効く。position 指定時は
-// その座標へ anchor の縦成分（t/m/b）を合わせる（m は 100% を超えないよう近似で top 配置）。
-function anchorPositionVars(anchor, position, verticalAlign) {
-  if (!anchor && !position && !verticalAlign) return {};
-  const vars = {};
-  const vertical = anchor
-    ? anchor[0]
-    : verticalAlign === "top" ? "t" : verticalAlign === "middle" ? "m" : "b";
-  const horizontal = anchor ? anchor[1] : "c";
-  if (typeof position?.y === "number") {
-    const clamped = Math.min(1, Math.max(0, position.y));
-    vars["--caption-top"] = `${Math.round(clamped * 10000) / 100}%`;
-    vars["--caption-bottom"] = "auto";
-  } else if (anchor || verticalAlign) {
-    vars["--caption-top"] = vertical === "t" ? "7%" : vertical === "m" ? "0" : "auto";
-    vars["--caption-bottom"] = vertical === "b" ? "7%" : vertical === "m" ? "0" : "auto";
-    if (vertical === "m") vars["--caption-justify-content"] = "center";
-  }
-  if (typeof position?.x === "number") {
-    const clamped = Math.min(1, Math.max(0, position.x));
-    vars["--caption-left"] = `${Math.round(clamped * 10000) / 100}%`;
-    vars["--caption-right"] = "4%";
-    vars["--caption-align-items"] = "flex-start";
-    vars["--caption-line-margin"] = "0";
-  } else if (anchor) {
-    vars["--caption-left"] = "4%";
-    vars["--caption-right"] = "4%";
-    vars["--caption-align-items"] = horizontal === "l"
-      ? "flex-start" : horizontal === "r" ? "flex-end" : "center";
-    vars["--caption-text-align"] = horizontal === "l" ? "left" : horizontal === "r" ? "right" : "center";
-    vars["--caption-line-margin"] = "0";
-    vars["--caption-line-max-width"] = "100%";
-  }
-  return vars;
-}
+// text_anchor / position → CSS 変数の実体は共有カーネル captionAnchorPositionVars（上の import）。
+// 旧ローカル複製 anchorPositionVars はプレビュー側の実装漏れ（text_anchor/position を落として
+// 既定下段に描く）と対で drift の温床だったため撤去した。
 
 const TEXT_TRANSFORM_MAP = {
   upper: "uppercase",

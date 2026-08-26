@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 const { parsePreviewCaptions, parseResolvedPreviewCaptions } = require('../lib/browser/akari-preview-captions.js');
 const { AkariPreviewServiceImpl } = require('../lib/node/akari-preview-service.js');
 const shellVisualContract = require('../lib/common/caption-visual-contract.js');
-const { resolveCaptionDisplay } = require('../../../../../packages/edit-store/lib/index.js');
+const { captionAnchorPositionVars, resolveCaptionDisplay } = require('../../../../../packages/edit-store/lib/index.js');
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = join(extensionRoot, '../../../..');
 const styleParity = JSON.parse(await readFile(join(
@@ -48,6 +48,32 @@ test('配列ルートを従来どおり読み text_style 不在なら id 以外�
     // （akari-preview-captions.ts PreviewCaption）。他のフィールドは変更なし。
     const [parsed] = parsePreviewCaptions(JSON.stringify([caption]));
     assert.deepEqual(parsed, { id: 'c-0001', start: 0, end: 2, text: '字幕' });
+});
+
+test('text_anchor + position は共有カーネル単一定義の位置変数になる（プレビューだけ既定下段へ落ちる出力不一致の再発防止）', () => {
+    // 2026-08-26 akari-reel 実機: text_style { text_anchor: 'tc', position: { y: 0.386458 } } の
+    // 字幕が書き出しでは上中段・プレビューでは既定の bottom 7% に出て縦位置が不一致だった。
+    const [parsed] = parsePreviewCaptions(JSON.stringify({
+        captions: [{ ...caption, text_style: { text_anchor: 'tc', position: { y: 0.386458 } } }]
+    }));
+    assert.equal(parsed.textStyleVars['--caption-top'], '38.65%');
+    assert.equal(parsed.textStyleVars['--caption-bottom'], 'auto');
+    assert.equal(parsed.textStyleVars['--caption-left'], '4%');
+    assert.equal(parsed.textStyleVars['--caption-right'], '4%');
+    // 書き出し（render-cut captions.mjs）と同じ単一定義から出ていること
+    const expected = captionAnchorPositionVars('tc', { y: 0.386458 }, undefined);
+    for (const [name, value] of Object.entries(expected)) {
+        assert.equal(parsed.textStyleVars[name], value, name);
+    }
+});
+
+test('default_text_style の text_anchor / position も caption 側 text_style と合成される', () => {
+    const [parsed] = parsePreviewCaptions(JSON.stringify({
+        default_text_style: { text_anchor: 'tc', position: { y: 0.692708 } },
+        captions: [{ ...caption, text_style: { color: '#ffffff' } }]
+    }));
+    assert.equal(parsed.textStyleVars['--caption-top'], '69.27%');
+    assert.equal(parsed.textStyleVars['--caption-bottom'], 'auto');
 });
 
 test('object ルートを読み default と caption をネストもフィールド単位で合成する', () => {

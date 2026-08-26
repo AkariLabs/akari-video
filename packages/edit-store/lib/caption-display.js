@@ -14,6 +14,7 @@ exports.validateCaptionTextStyle = validateCaptionTextStyle;
 exports.splitCaptionFragments = splitCaptionFragments;
 exports.scheduleCaptionFragments = scheduleCaptionFragments;
 exports.mergeCaptionDisplayStyles = mergeCaptionDisplayStyles;
+exports.captionAnchorPositionVars = captionAnchorPositionVars;
 exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
 exports.formatCssNumber = formatCssNumber;
 exports.CAPTION_DISPLAY_SCHEMA = 'caption-layout/v1';
@@ -714,6 +715,57 @@ function mergeCaptionDisplayStyles(base, override) {
         fail('STYLE_LAYOUT_CONFLICT', 'merged caption text style cannot contain both zone and layout');
     return merged;
 }
+/**
+ * text_anchor（9 点）+ position（0..1 相対）→ プレート配置の CSS 変数。単一定義
+ * （プレビュー = shell captionTextStyleVars / 書き出し = render-cut captions.mjs の両消費者が
+ * これを使う — 2026-08-26 akari-reel 実機: プレビュー側だけ text_anchor/position を落として
+ * 明示位置付き字幕が既定の下段 7% に出る「出力とプレビューの位置不一致」の再発防止）。
+ * position 未指定なら anchor は zone 相当の縁寄せとして効く。position 指定時は
+ * その座標へ anchor の縦成分（t/m/b）を合わせる（m は 100% を超えないよう近似で top 配置）。
+ * 不正な anchor / vertical_align は未宣言として無視する（書き込み時検証済みが前提の防御）。
+ */
+function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
+    const anchor = typeof anchorValue === 'string' && CAPTION_TEXT_ANCHOR_VALUES.has(anchorValue)
+        ? anchorValue : undefined;
+    const position = isRecord(positionValue) ? positionValue : undefined;
+    const verticalAlign = typeof verticalAlignValue === 'string'
+        && CAPTION_VERTICAL_ALIGN_VALUES.has(verticalAlignValue) ? verticalAlignValue : undefined;
+    if (!anchor && !position && !verticalAlign)
+        return {};
+    const vars = {};
+    const vertical = anchor
+        ? anchor[0]
+        : verticalAlign === 'top' ? 't' : verticalAlign === 'middle' ? 'm' : 'b';
+    const horizontal = anchor ? anchor[1] : 'c';
+    if (typeof position?.y === 'number' && Number.isFinite(position.y)) {
+        const clamped = Math.min(1, Math.max(0, position.y));
+        vars['--caption-top'] = `${Math.round(clamped * 10000) / 100}%`;
+        vars['--caption-bottom'] = 'auto';
+    }
+    else if (anchor || verticalAlign) {
+        vars['--caption-top'] = vertical === 't' ? '7%' : vertical === 'm' ? '0' : 'auto';
+        vars['--caption-bottom'] = vertical === 'b' ? '7%' : vertical === 'm' ? '0' : 'auto';
+        if (vertical === 'm')
+            vars['--caption-justify-content'] = 'center';
+    }
+    if (typeof position?.x === 'number' && Number.isFinite(position.x)) {
+        const clamped = Math.min(1, Math.max(0, position.x));
+        vars['--caption-left'] = `${Math.round(clamped * 10000) / 100}%`;
+        vars['--caption-right'] = '4%';
+        vars['--caption-align-items'] = 'flex-start';
+        vars['--caption-line-margin'] = '0';
+    }
+    else if (anchor) {
+        vars['--caption-left'] = '4%';
+        vars['--caption-right'] = '4%';
+        vars['--caption-align-items'] = horizontal === 'l'
+            ? 'flex-start' : horizontal === 'r' ? 'flex-end' : 'center';
+        vars['--caption-text-align'] = horizontal === 'l' ? 'left' : horizontal === 'r' ? 'right' : 'center';
+        vars['--caption-line-margin'] = '0';
+        vars['--caption-line-max-width'] = '100%';
+    }
+    return vars;
+}
 function resolveCaptionStyleForOutput(style, output) {
     const vars = {};
     let layout;
@@ -758,6 +810,11 @@ function resolveCaptionStyleForOutput(style, output) {
     if (isRecord(style.background) && finiteNonNegative(style.background.radius_px)) {
         vars['--plate-radius'] = `${formatCssNumber(style.background.radius_px * scale)}px`;
         vars['--plate-block-radius'] = `${formatCssNumber(style.background.radius_px * scale)}px`;
+    }
+    // layout（reference-pixel）は px 座標で left/right/bottom を確定済みなので anchor と併用しない
+    // （zone + layout は mergeCaptionDisplayStyles が既に拒否している）。
+    if (layout === undefined) {
+        Object.assign(vars, captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align));
     }
     return { vars, ...(layout ? { layout } : {}) };
 }

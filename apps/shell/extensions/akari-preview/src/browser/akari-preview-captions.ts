@@ -1,4 +1,5 @@
 import URI from '@theia/core/lib/common/uri';
+import { captionAnchorPositionVars } from '@akari-video/edit-store';
 import { ResolvedCaptionDisplayPayload } from '../common/akari-preview-protocol';
 
 export const PREVIEW_CAPTION_ZONES = [
@@ -20,6 +21,11 @@ export interface PreviewCaptionTextStyle {
         mode?: 'per-line' | 'block';
     };
     zone?: PreviewCaptionZone;
+    // text_anchor（9 点）+ position（0..1 相対）+ vertical_align — 明示位置。CSS 変数化は
+    // 共有カーネル captionAnchorPositionVars（書き出し render-cut と同一定義）に委ねる。
+    textAnchor?: string;
+    position?: { x?: number; y?: number };
+    verticalAlign?: 'top' | 'middle' | 'bottom';
 }
 
 // akari-transcript の Caption から、プレビュー表示に必要なフィールドだけを複製する。
@@ -166,6 +172,9 @@ export function captionTextStyleVars(style: PreviewCaptionTextStyle | undefined)
         vars[radiusVariable] = `${style.background.radiusPx}px`;
     }
     Object.assign(vars, zoneVars(style.zone));
+    // 明示 text_anchor / position は zone より優先（書き出し captions.mjs applyTextStyle と同順・
+    // 変数化は共有カーネル単一定義 — プレビューだけ位置指定を落として下段に描く不一致の再発防止）。
+    Object.assign(vars, captionAnchorPositionVars(style.textAnchor, style.position, style.verticalAlign));
     return vars;
 }
 
@@ -182,6 +191,19 @@ function normalizeTextStyle(value: unknown): PreviewCaptionTextStyle | undefined
     if (typeof value.size_px === 'number' && Number.isFinite(value.size_px)) style.sizePx = value.size_px;
     if (PREVIEW_CAPTION_ZONES.includes(value.zone as PreviewCaptionZone)) {
         style.zone = value.zone as PreviewCaptionZone;
+    }
+    if (typeof value.text_anchor === 'string') style.textAnchor = value.text_anchor;
+    if (value.vertical_align === 'top' || value.vertical_align === 'middle' || value.vertical_align === 'bottom') {
+        style.verticalAlign = value.vertical_align;
+    }
+    if (isRecord(value.position)) {
+        const position = {
+            ...(typeof value.position.x === 'number' && Number.isFinite(value.position.x)
+                ? { x: value.position.x } : {}),
+            ...(typeof value.position.y === 'number' && Number.isFinite(value.position.y)
+                ? { y: value.position.y } : {})
+        };
+        if (Object.keys(position).length > 0) style.position = position;
     }
     if (isRecord(value.stroke)) {
         style.stroke = {
@@ -213,10 +235,13 @@ function mergeTextStyles(
         ...override,
         ...(base?.stroke || override?.stroke ? { stroke: { ...base?.stroke, ...override?.stroke } } : {}),
         ...(base?.background || override?.background
-            ? { background: { ...base?.background, ...override?.background } } : {})
+            ? { background: { ...base?.background, ...override?.background } } : {}),
+        ...(base?.position || override?.position
+            ? { position: { ...base?.position, ...override?.position } } : {})
     };
     if (merged.stroke && Object.keys(merged.stroke).length === 0) delete merged.stroke;
     if (merged.background && Object.keys(merged.background).length === 0) delete merged.background;
+    if (merged.position && Object.keys(merged.position).length === 0) delete merged.position;
     return Object.keys(merged).length > 0 ? merged : undefined;
 }
 
