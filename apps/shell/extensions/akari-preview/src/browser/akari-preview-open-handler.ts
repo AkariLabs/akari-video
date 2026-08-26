@@ -80,6 +80,7 @@ import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
 import { classifyPreviewModelUpdate } from '../common/preview-model-diff';
 import type { PreviewModelDiffInput } from '../common/preview-model-diff';
+import { summarizePreviewError } from '../common/preview-error-summary';
 import { resolvePreferredVideoUri } from '../common/video-proxy-resolution';
 import { createRafThrottle } from '../common/raf-throttle';
 import { normalizeRectFromPoints } from '../common/rect-tool-visual';
@@ -404,6 +405,7 @@ interface PreviewModel {
     overlayUris: URI[];
     assetUris: URI[];
     assetStreamIds: string[];
+    compositeError?: string;
     deferredTelops?: DeferredTelopPreview[];
     /** asset URI → この loadPreviewModel 呼び出しで開いた stream URL。差分更新時の URL 引継ぎ用。 */
     assetUrlByUri?: Map<string, string>;
@@ -2015,6 +2017,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (this.isReviewToolModeRequest(message)) {
                 this.forwardReviewToolModeRequest(widget, message);
             }
+            if (message?.type === 'akari-preview-reload-retry') {
+                this.queueRefresh(widget, identityUri, kind, undefined, true);
+            }
         }));
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
@@ -2430,7 +2435,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         widget.akariPreviewRefresh = previous.then(
             refresh,
             refresh
-        ).catch(error => console.error('[akari-preview] failed to refresh preview', error));
+        ).catch(error => {
+            console.error('[akari-preview] failed to refresh preview', error);
+            this.handleRefreshFailure(widget, error);
+        });
+    }
+
+    protected handleRefreshFailure(widget: PreviewWidgetMarker, error: unknown): void {
+        if (widget.isDisposed) {
+            return;
+        }
+        widget.sendMessage({
+            type: 'akari-preview-refresh-error',
+            message: summarizePreviewError(error)
+        });
     }
 
     // basename + 直上ディレクトリ名からなる比較キー。ワークスペースルートの watcher が
@@ -2623,6 +2641,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
             const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
             if (updateKind === 'none') {
+                widget.sendMessage({
+                    type: 'akari-preview-refresh-ok',
+                    compositeError: model.compositeError ?? null
+                });
                 this.startDeferredTelopRasters(widget, model);
                 await this.disposeAssetStreams(model.assetStreamIds);
                 return;
@@ -2636,6 +2658,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 // 1 フレーム描く余地を残さない。
                 widget.sendMessage({ type: 'akari-preview-captions-update', captions: model.captions });
                 widget.sendMessage({ type: 'akari-preview-model-update', summary });
+                widget.sendMessage({
+                    type: 'akari-preview-refresh-ok',
+                    compositeError: model.compositeError ?? null
+                });
                 this.startDeferredTelopRasters(widget, model);
                 await this.disposeAssetStreams(model.assetStreamIds);
                 return;
@@ -2867,6 +2893,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
             });
         }
+        const reloadNotice = widget.akariPreviewModelSnapshot !== undefined;
         widget.setHTML(this.prepareHtml(
             videoUri,
             videoStream.url,
@@ -2877,7 +2904,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             hasSourceAudio,
             imageSourceUrlById,
             primaryIsStillImage,
-            kind
+            kind,
+            reloadNotice
         ));
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
@@ -3440,6 +3468,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 overlayUris: [],
                 assetUris: [],
                 assetStreamIds: [],
+                compositeError: summarizePreviewError(error),
                 captionsUri,
                 captions: normalizePreviewCaptionClock(loadedCaptions.captions, []),
                 emphasisWords: this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
@@ -4490,7 +4519,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         hasSourceAudio?: boolean,
         imageSourceUrlById: Record<string, string> = {},
         primaryIsStillImage = false,
-        kind: 'raw' | 'output' = 'output'
+        kind: 'raw' | 'output' = 'output',
+        reloadNotice = false
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
@@ -4526,6 +4556,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // unknown (ffprobe unavailable or probe failed) — never treated as "silent" client-side.
             hasSourceAudio: hasSourceAudio ?? null,
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
+            reloadNotice,
+            compositeError: model.compositeError ?? null,
             muted: model.session?.muted ?? false,
             captionsVisible: model.session?.captionsVisible ?? true,
             hiddenTracks: model.session?.hiddenTracks ?? [],
@@ -4663,6 +4695,21 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .message-card p { max-width: 520px; margin: 0; color: #e5e5e5; font-size: 15px; line-height: 1.7; text-align: center; }
 .message-card-reload { border: 1px solid #505050; border-radius: 4px; padding: 8px 18px; background: #303030; color: #fff; font-size: 13px; cursor: pointer; }
 .message-card-reload[hidden] { display: none; }
+/* 全面の再生エラー／案内カード (z-index: 10) を最優先に保つ。リロード通知群は
+   z-index: 8 の縦積み面へまとめ、互いに重ねず既存エラー表示も隠さない。 */
+.reload-surface { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; flex-direction: column; align-items: center; gap: 6px; width: min(92%, 760px); pointer-events: none; }
+.reload-surface > * { position: static; transform: none; width: 100%; }
+.reload-toast { padding: 8px 12px; border: 1px solid rgba(143, 211, 255, 0.5); border-radius: 6px; background: rgba(20, 45, 62, 0.9); color: #eef9ff; box-shadow: 0 4px 18px rgba(0,0,0,0.3); font-size: 12.5px; line-height: 1.5; }
+.reload-toast[hidden] { display: none; }
+.composite-error-banner { display: grid; gap: 2px; padding: 9px 12px; border: 1px solid #e5b85c; border-radius: 6px; background: rgba(69, 48, 12, 0.94); color: #fff7df; box-shadow: 0 4px 18px rgba(0,0,0,0.38); font-size: 12.5px; line-height: 1.45; }
+.composite-error-banner[hidden] { display: none; }
+.composite-error-banner strong { font-size: 12.5px; }
+#composite-error-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reload-error-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; align-items: center; padding: 11px 12px; border: 1px solid #ff8a8a; border-radius: 7px; background: rgba(74, 17, 23, 0.96); color: #fff4f4; box-shadow: 0 5px 20px rgba(0,0,0,0.46); font-size: 12.5px; line-height: 1.45; }
+.reload-error-card[hidden] { display: none; }
+.reload-error-card strong { min-width: 0; }
+#reload-error-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#reload-error-retry { grid-column: 2; grid-row: 1 / span 2; border: 1px solid rgba(255,255,255,0.55); border-radius: 4px; padding: 6px 12px; background: rgba(255,255,255,0.12); color: #fff; cursor: pointer; pointer-events: auto; }
 .audio-notice { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 4; display: flex; align-items: center; gap: 10px; max-width: 92%; padding: 8px 12px; border-radius: 6px; background: rgba(20, 20, 20, 0.78); color: #f1f1f1; font-size: 12.5px; line-height: 1.5; }
 .audio-notice[hidden] { display: none; }
 .audio-notice button { flex: none; border: none; background: transparent; color: #ccc; font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 4px; }
@@ -4734,6 +4781,18 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         </div>
       </div>
       <button id="output-preview-link" class="output-preview-link" type="button"${model.relatedEditUri ? '' : ' hidden'}>合成は出力プレビューで確認（開く）</button>
+      <div id="reload-surface" class="reload-surface">
+        <div id="reload-toast" class="reload-toast" hidden role="status">edit.json を再読込しました（一時停止中）</div>
+        <div id="composite-error-banner" class="composite-error-banner" hidden role="status">
+          <strong>edit.json の合成情報を読めません — 素材のみ表示中</strong>
+          <span id="composite-error-detail"></span>
+        </div>
+        <div id="reload-error-card" class="reload-error-card" hidden role="alert" aria-live="assertive">
+          <strong>edit.json の再読込に失敗しました。プレビューは変更前の内容です。</strong>
+          <span id="reload-error-detail"></span>
+          <button id="reload-error-retry" type="button">再試行</button>
+        </div>
+      </div>
       <div id="audio-notice" class="audio-notice" hidden role="status">
         <span>音声が検出されていません。無音の素材か、音声形式がプレビュー非対応の可能性があります（書き出しには影響しません）。</span>
         <button id="audio-notice-dismiss" type="button" aria-label="閉じる" title="閉じる">×</button>
@@ -4850,6 +4909,12 @@ body { display: grid; place-items: center; padding: 32px; }
             const stillImage = document.getElementById('preview-still');
             const transitionStill = document.getElementById('transition-still');
             const outputPreviewLink = document.getElementById('output-preview-link');
+            const reloadToast = document.getElementById('reload-toast');
+            const compositeErrorBanner = document.getElementById('composite-error-banner');
+            const compositeErrorDetail = document.getElementById('composite-error-detail');
+            const reloadErrorCard = document.getElementById('reload-error-card');
+            const reloadErrorDetail = document.getElementById('reload-error-detail');
+            const reloadErrorRetry = document.getElementById('reload-error-retry');
             const writeErrorBanner = document.getElementById('write-error-banner');
             const writeErrorMessage = document.getElementById('write-error-message');
             const writeErrorDismiss = document.getElementById('write-error-dismiss');
@@ -4857,6 +4922,32 @@ body { display: grid; place-items: center; padding: 32px; }
             const stage = document.getElementById('overlay-stage');
             const penLayer = document.getElementById('pen-layer');
             const output = initial.summary.output;
+
+            let reloadToastTimer;
+            function showReloadToast() {
+                if (reloadToastTimer !== undefined) window.clearTimeout(reloadToastTimer);
+                reloadToast.hidden = false;
+                reloadToastTimer = window.setTimeout(() => {
+                    reloadToast.hidden = true;
+                    reloadToastTimer = undefined;
+                }, 4000);
+            }
+            function showReloadError(message) {
+                reloadErrorDetail.textContent = String(message || '原因不明のエラーです。');
+                reloadErrorCard.hidden = false;
+            }
+            function hideReloadError() {
+                reloadErrorCard.hidden = true;
+            }
+            function applyCompositeError(message) {
+                compositeErrorDetail.textContent = typeof message === 'string' ? message : '';
+                compositeErrorBanner.hidden = !message;
+            }
+            reloadErrorRetry.addEventListener('click', () => {
+                vscode.postMessage({ type: 'akari-preview-reload-retry' });
+            });
+            applyCompositeError(initial.compositeError);
+            if (initial.reloadNotice) showReloadToast();
 
             window.akari = window.akari || {};
             window.akari.state = { editPath: initial.editPath, summary: initial.summary };
@@ -5334,6 +5425,15 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             window.addEventListener('message', event => {
                 const message = event.data;
+                if (message && message.type === 'akari-preview-refresh-error') {
+                    showReloadError(message.message);
+                    return;
+                }
+                if (message && message.type === 'akari-preview-refresh-ok') {
+                    hideReloadError();
+                    applyCompositeError(message.compositeError);
+                    return;
+                }
                 if (!message || !Object.values(PENDING_RESPONSE_TYPES).includes(message.type)) return;
                 const request = pending.get(message.requestId);
                 if (!request) return;
