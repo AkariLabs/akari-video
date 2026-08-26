@@ -87,6 +87,8 @@ const ASSET_MIME_TYPES = new Map<string, string>([
     ['.opus', 'audio/ogg'],
     ['.wav', 'audio/wav'],
     ['.glb', 'model/gltf-binary'],
+    ['.otf', 'font/otf'],
+    ['.ttf', 'font/ttf'],
     ['.avif', 'image/avif'],
     ['.bmp', 'image/bmp'],
     ['.gif', 'image/gif'],
@@ -158,6 +160,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         const directory = this.findOverlayRuntimeDirectory();
         this.assets = {
             threeJavaScript: readFileSync(resolve(directory, 'vendor/three-bundle.js'), 'utf8'),
+            threeTextJavaScript: readFileSync(resolve(directory, 'vendor/vendor-3d-text-bundle.js'), 'utf8'),
             threeRuntimeJavaScript: readFileSync(resolve(directory, 'three-runtime.js'), 'utf8'),
             videoFxJavaScript: readFileSync(resolve(directory, 'video-fx.js'), 'utf8'),
             // slot-params.js は preview mount と render-cut rasterize が共有する唯一の注入実装。

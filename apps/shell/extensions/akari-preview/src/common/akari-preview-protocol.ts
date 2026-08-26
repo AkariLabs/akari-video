@@ -5,6 +5,7 @@ export const AkariPreviewService = Symbol('AkariPreviewService');
 
 export interface OverlayRuntimeAssets {
     threeJavaScript: string;
+    threeTextJavaScript: string;
     threeRuntimeJavaScript: string;
     videoFxJavaScript: string;
     runtimeJavaScript: string;
