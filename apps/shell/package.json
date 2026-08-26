@@ -136,6 +136,15 @@
         ]
       },
       {
+        "from": "../../packages/analysis-report",
+        "to": "packages/analysis-report",
+        "filter": [
+          "package.json",
+          "render-analysis-report.mjs",
+          "template.html"
+        ]
+      },
+      {
         "from": "../../packages/render-cut",
         "to": "packages/render-cut",
         "filter": [
@@ -205,7 +214,9 @@
         "to": "packages/schemas",
         "filter": [
           "captions.schema.json",
-          "bin/validate-asset.mjs"
+          "interpretation.schema.json",
+          "bin/validate-asset.mjs",
+          "bin/validate-interpretation.mjs"
         ]
       },
       {
