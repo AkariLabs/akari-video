@@ -3450,7 +3450,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         for (const element of Array.from(this.toolbar.querySelectorAll('button, input'))) {
             (element as HTMLButtonElement | HTMLInputElement).disabled = readOnly;
         }
-        this.stripScroll.draggable = !readOnly;
+        // stripScroll に draggable を立ててはいけない。HTML5 の draggable=true は「ドロップを
+        // 受ける」ではなく要素自体をネイティブドラッグ元にする属性で、空き地からのマーキー
+        // 選択が dragstart に乗っ取られてパネルのゴーストが付いてくる（2026-08-26 実機報告）。
+        // 素材 D&D の受け側は dragover/drop リスナーだけで成立する。
     }
 
     protected defaultTrackHeight(kind: TimelineTrackKind): number {
