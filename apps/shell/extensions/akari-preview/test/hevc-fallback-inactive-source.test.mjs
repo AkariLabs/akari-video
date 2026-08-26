@@ -92,10 +92,11 @@ const legacyActiveSegmentRequestUri = (segments, activeSegmentIndex) => {
 
 test('main video decode failure uses its loaded source during gap and still segments', () => {
     const errorBody = extractBetween(
-        "            video.addEventListener('error', () => {",
-        "\n            transitionVideo.addEventListener('error', () => {"
+        '            const onMainVideoError = event => {',
+        '\n            for (const media of [video, standbyVideo]) {'
     );
     assert.match(errorBody, /if \(errorCode === 3 \|\| errorCode === 4\)/u);
+    assert.match(errorBody, /if \(media !== video\)/u);
     assert.match(errorBody, /const sourceId = currentVideoSourceId \|\| segmentSourceId;/u);
     assert.match(errorBody, /initial\.videoSourceUris\[sourceId\] \|\| initial\.videoUri/u);
 
