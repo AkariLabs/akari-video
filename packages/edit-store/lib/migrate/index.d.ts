@@ -46,6 +46,8 @@ export interface MigrationBlocked {
     blockers: string[];
 }
 export declare function detectEditVersion(raw: unknown): number | undefined;
+/** captions.json / legacy captions[] に描画対象の cue が 1 件以上あるかを判定する。 */
+export declare function captionsHaveRenderableCues(root: unknown): boolean;
 export declare function migrateEditToV2(raw: unknown, options?: {
     hasCaptions?: boolean;
 }): MigrateResult;

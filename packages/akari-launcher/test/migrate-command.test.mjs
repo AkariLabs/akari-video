@@ -49,3 +49,59 @@ test('--yes は .akari/backup へ退避して v2 を書く', async () => {
     assert.equal(await readFile(result.proposal.backupPath, 'utf8'), item.text);
   } finally { await rm(item.root, { recursive: true, force: true }); }
 });
+
+test('CLI は captions.json の描画対象 cue を判定して planMigration へ渡す', async () => {
+  const item = await fixture();
+  try {
+    await writeFile(join(item.root, 'captions.json'), '{"captions":[{"text":"字幕"}]}\n');
+    let receivedOptions;
+    const observingMigrate = {
+      ...migrate,
+      planMigration(...args) {
+        receivedOptions = args[3];
+        return migrate.planMigration(...args);
+      },
+    };
+    const result = await runMigrateCommand([item.root, '--dry-run'], {
+      migrate: observingMigrate, log: () => {}, error: () => {},
+    });
+    assert.equal(result.exitCode, 0);
+    assert.equal(receivedOptions.hasCaptions, true);
+    assert.equal(JSON.parse(result.proposal.nextText).tracks.at(-1).content?.from, 'captions.json');
+  } finally { await rm(item.root, { recursive: true, force: true }); }
+});
+
+test('壊れた captions.json は cue なしとして CLI の移行を止めない', async () => {
+  const item = await fixture();
+  try {
+    await writeFile(join(item.root, 'captions.json'), '{broken json\n');
+    const result = await runMigrateCommand([item.root, '--dry-run'], {
+      migrate, log: () => {}, error: () => {},
+    });
+    assert.equal(result.exitCode, 0);
+    assert.equal(JSON.parse(result.proposal.nextText).tracks.some(
+      track => track.content?.from === 'captions.json',
+    ), false);
+  } finally { await rm(item.root, { recursive: true, force: true }); }
+});
+
+test('字幕トラック合成は通常出力の 1 行と --json の changes[] に現れる', async () => {
+  const item = await fixture();
+  try {
+    await writeFile(join(item.root, 'captions.json'), '[{"display_text":"表示字幕"}]\n');
+    const lines = [];
+    const plain = await runMigrateCommand([item.root, '--dry-run'], {
+      migrate, log: line => lines.push(line), error: () => {},
+    });
+    assert.equal(plain.exitCode, 0);
+    assert.equal(lines.filter(line => /tracks\[\].*字幕トラック宣言/u.test(line)).length, 1);
+
+    const jsonLines = [];
+    const json = await runMigrateCommand([item.root, '--dry-run', '--json'], {
+      migrate, log: line => jsonLines.push(line), error: () => {},
+    });
+    assert.equal(json.exitCode, 0);
+    const payload = JSON.parse(jsonLines.at(-1));
+    assert.equal(payload.changes.filter(change => change.path === 'tracks[]').length, 1);
+  } finally { await rm(item.root, { recursive: true, force: true }); }
+});

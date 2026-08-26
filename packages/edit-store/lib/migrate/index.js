@@ -9,6 +9,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseEdit = exports.LegacyEditVersionError = void 0;
 exports.detectEditVersion = detectEditVersion;
+exports.captionsHaveRenderableCues = captionsHaveRenderableCues;
 exports.migrateEditToV2 = migrateEditToV2;
 exports.planMigration = planMigration;
 exports.applyMigration = applyMigration;
@@ -41,6 +42,13 @@ const BGM_KEYS = new Set(['id', 'path', 'in', 'fadeIn', 'fadeOut', 'gain_db', 'd
 function detectEditVersion(raw) {
     return isRecord(raw) && typeof raw.version === 'number' && Number.isFinite(raw.version)
         ? raw.version : undefined;
+}
+/** captions.json / legacy captions[] に描画対象の cue が 1 件以上あるかを判定する。 */
+function captionsHaveRenderableCues(root) {
+    const cues = Array.isArray(root)
+        ? root
+        : isRecord(root) && Array.isArray(root.captions) ? root.captions : [];
+    return cues.some(cue => isRecord(cue) && (nonEmpty(cue.text) || nonEmpty(cue.display_text)));
 }
 function migrateEditToV2(raw, options = {}) {
     const version = detectEditVersion(raw);
@@ -361,7 +369,7 @@ function migrateEditToV2(raw, options = {}) {
     }
     if (blockers.length > 0)
         return { ok: false, version, blockers };
-    const hasCaptions = options.hasCaptions === true || Array.isArray(raw.captions);
+    const hasCaptions = options.hasCaptions === true || captionsHaveRenderableCues(raw.captions);
     const trackDefs = readTrackDefs(raw.timeline, pending, audioTrackRefs.all, hasCaptions, blockers);
     if (blockers.length > 0)
         return { ok: false, version, blockers };
@@ -381,13 +389,6 @@ function migrateEditToV2(raw, options = {}) {
         if (!trackDefs.some(def => def.kind === entry.kind && (def.ref ?? 0) === entry.ref)) {
             blockers.push(`timeline.tracks に ${entry.kind} ref=${entry.ref} の行がありません。`);
         }
-    }
-    // captions は pending に乗らないため上のループでは検出できない。cuts/overlays/layers と
-    // 同じ「黙って落とさない」安全網を captions にも適用する（P0 2026-08-21
-    // track-z-undeclared-kind: timeline.tracks を部分宣言し captions 行だけ書き忘れると、
-    // captions トラックが変換後の tracks[] から跡形もなく消え、字幕が無警告で失われていた）。
-    if (hasCaptions && raw.timeline !== undefined && !trackDefs.some(def => def.kind === 'captions')) {
-        blockers.push('timeline.tracks に captions 行がありません。captions.json / captions[] が存在するため、このまま変換すると字幕が失われます。');
     }
     if (blockers.length > 0)
         return { ok: false, version, blockers };
@@ -417,6 +418,11 @@ function migrateEditToV2(raw, options = {}) {
         });
     if (raw.thumbnail !== undefined)
         changes.push({ path: 'thumbnail', note: 'サムネイル参照を変更せず持ち越し' });
+    if (hasCaptions && !timelineDeclaresCaptions(raw.timeline))
+        changes.push({
+            path: 'tracks[]',
+            note: '字幕トラック宣言（captions.json 参照）を tracks[] 末尾（最上段）へ合成'
+        });
     if (pending.reduce((sum, entry) => sum + tracks.filter(track => 'items' in track
         && track.items.some(item => item === entry.item)).length, 0) !== pending.length) {
         return { ok: false, version, blockers: ['変換後の tracks[] が pending item を一意に保持していません。'] };
@@ -441,15 +447,11 @@ function planMigration(projectRoot, editPath, text, options = {}) {
     catch (error) {
         return { ok: false, version: -1, blockers: [`edit.json を JSON として読めません: ${messageOf(error)}`] };
     }
-    // 呼び出し元（akari-preview-service.ts の prepareLegacyEdit / resolveCaptionDisplay）は
-    // hasCaptions を渡さない。captions.json は常に edit.json と同じディレクトリに置かれる規約
-    // (akari-preview-captions.ts の locatePreviewCaptions) なので、ここで実在チェックして
-    // 補う。呼び出し元が明示的に hasCaptions を渡した場合はそちらを優先する
-    // （P0 2026-08-21 track-z-undeclared-kind 追補: これが無いと migrateEditToV2 側の
-    // captions 安全網が実プレビュー経路では一度も発火せず、字幕消失バグが直らないまま残っていた）。
+    // annotations の書き込み経路も projectRoot 付きで planMigration を呼ぶため、ここでの解決だけで
+    // CLI と同じ cue 判定が適用され、呼び出し元への追加配線は要らない。
     const resolvedProjectRoot = (0, path_1.resolve)(projectRoot);
     const captionsPath = (0, path_1.join)(resolvedProjectRoot, 'captions.json');
-    const hasCaptions = options.hasCaptions ?? (0, node_fs_1.existsSync)(captionsPath);
+    const hasCaptions = options.hasCaptions ?? readCaptionsHaveRenderableCues(captionsPath);
     const migrated = migrateEditToV2(raw, { hasCaptions });
     if ('blockers' in migrated) {
         return { ok: false, version: migrated.version, blockers: migrated.blockers };
@@ -555,6 +557,9 @@ function readTrackDefs(timeline, pending, audioRefs, hasCaptions, blockers) {
                     ...(typeof value.label === 'string' ? { label: value.label } : {})
                 }];
         });
+        if (hasCaptions && !declared.some(def => def.kind === 'captions')) {
+            declared.push({ id: uniqueId('captions', ids), kind: 'captions' });
+        }
         return orderedTrackDefs(declared, audioRefs, hasCaptions, blockers);
     }
     const defs = [];
@@ -586,6 +591,18 @@ function orderedTrackDefs(declared, audioRefs, hasCaptions, blockers) {
         blockers.push('内部エラー: captions track を導出できませんでした。');
     }
     return [...audio, ...visual];
+}
+function timelineDeclaresCaptions(timeline) {
+    return isRecord(timeline) && Array.isArray(timeline.tracks)
+        && timeline.tracks.some(track => isRecord(track) && track.kind === 'captions');
+}
+function readCaptionsHaveRenderableCues(captionsPath) {
+    try {
+        return captionsHaveRenderableCues(JSON.parse((0, node_fs_1.readFileSync)(captionsPath, 'utf8')));
+    }
+    catch {
+        return false;
+    }
 }
 function legacyAudioTrackRefs(value) {
     const audio = isRecord(value) ? value : undefined;

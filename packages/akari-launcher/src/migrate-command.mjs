@@ -22,15 +22,24 @@ export async function runMigrateCommand(args, options = {}) {
   }
   const projectRoot = parsed.projectRoot;
   const editPath = path.join(projectRoot, 'edit.json');
+  const captionsPath = path.join(projectRoot, 'captions.json');
+  const readText = options.readFile ?? readFile;
   let text;
   try {
-    text = await (options.readFile ?? readFile)(editPath, 'utf8');
+    text = await readText(editPath, 'utf8');
   } catch (cause) {
     error(`edit.json を読めません: ${editPath} (${messageOf(cause)})`);
     return { exitCode: 2 };
   }
   const migrate = options.migrate ?? loadMigrateModule(options.assets ?? resolveLauncherAssets());
-  const proposal = migrate.planMigration(projectRoot, editPath, text, { now: options.now });
+  let captionsRoot;
+  try {
+    captionsRoot = JSON.parse(await readText(captionsPath, 'utf8'));
+  } catch {
+    // captions.json の不在・読み取り失敗・壊れた JSON は cue なしとして移行を続ける。
+  }
+  const hasCaptions = migrate.captionsHaveRenderableCues(captionsRoot);
+  const proposal = migrate.planMigration(projectRoot, editPath, text, { hasCaptions, now: options.now });
   if (proposal.ok === false) {
     if (parsed.json) {
       log(JSON.stringify({ ok: false, error: 'このプロジェクトは変換できません', blockers: proposal.blockers }));
