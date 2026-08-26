@@ -300,7 +300,7 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
     // の両方が、トラックごとに独立した要素を合成できる layers 経路を選ぶ。
     const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap(track =>
         'items' in track && track.lane === 'visual' ? [track.items] : []
-    ));
+    ), pathOf);
     const tracks: InternalTrack[] = edit.tracks.map(track => {
         // P0 2026-08-21 render-path-unification (実測で発覚): 'cuts' 経路（concat チェーン）は
         // 同じトラック上の複数アイテムを「順番に連結される別セグメント」として扱う構造的前提を
@@ -509,7 +509,9 @@ function needsLayersEngine(
 // layers へ退避する。終端と開始が接するだけなら交差ではない。同一トラックの交差は両方を
 // layers へ送る。別トラックの交差は、下段を cuts の不透明な基底として残し、上段が全画面不透明
 // ではない宣言を持つときだけ layers へ送る。上段が全画面不透明なら winner-take-all でも同じ絵に
-// なるため、従来の cuts / track-stack 経路を保つ。
+// なるため、従来の cuts / track-stack 経路を保つ。「全画面不透明」は宣言から証明できる場合に
+// 限る: アルファを運べるコンテナ（webm / mov）のソースは単位元 transform でも不透明を証明
+// できないため退避対象（needsCrossTrackLayers 参照）。
 //
 // transition_out は同一トラックの隣接カットが意図的に作る狭い重なりで、cuts/xfade が表現する。
 // その例外は同一トラックのペアだけに適用する。別トラックとの交差は transition の有無にかかわらず
@@ -533,7 +535,10 @@ interface OverlapAnalysis {
     crossTrackEvacuations: CrossTrackLayerEvacuation[];
 }
 
-function analyzeOverlappingItems(itemGroups: readonly OverlapItemGroup[]): OverlapAnalysis {
+function analyzeOverlappingItems(
+    itemGroups: readonly OverlapItemGroup[],
+    pathOf?: (sourceId: string) => string | undefined
+): OverlapAnalysis {
     const overlapping = new Set<string>();
     const crossTrackEvacuations: CrossTrackLayerEvacuation[] = [];
     const entries = itemGroups.flatMap((group, trackIndex) =>
@@ -556,7 +561,7 @@ function analyzeOverlappingItems(itemGroups: readonly OverlapItemGroup[]): Overl
                 const upperIsA = aTrackIndex > bTrackIndex;
                 const upper = upperIsA ? a : b;
                 const lower = upperIsA ? b : a;
-                if (needsCrossTrackLayers(upper)) {
+                if (needsCrossTrackLayers(upper, pathOf)) {
                     overlapping.add(upper.id);
                     crossTrackEvacuations.push({
                         itemId: upper.id,
@@ -573,11 +578,14 @@ function analyzeOverlappingItems(itemGroups: readonly OverlapItemGroup[]): Overl
     return { itemIds: overlapping, crossTrackEvacuations };
 }
 
-function computeOverlappingItemIds(itemGroups: readonly (readonly ItemV2[])[]): Set<string> {
+function computeOverlappingItemIds(
+    itemGroups: readonly (readonly ItemV2[])[],
+    pathOf?: (sourceId: string) => string | undefined
+): Set<string> {
     return analyzeOverlappingItems(itemGroups.map((items, index) => ({
         items,
         trackId: String(index)
-    }))).itemIds;
+    })), pathOf).itemIds;
 }
 
 /**
@@ -586,17 +594,30 @@ function computeOverlappingItemIds(itemGroups: readonly (readonly ItemV2[])[]): 
  */
 export function findCrossTrackLayerEvacuations(edit: unknown): CrossTrackLayerEvacuation[] {
     const parsed = readEditV2(edit);
+    const pathOf = (id: string): string | undefined => parsed.sources.find(entry => entry.id === id)?.path;
     return analyzeOverlappingItems(parsed.tracks.flatMap(track =>
         track.lane === 'visual' && 'items' in track
             ? [{ items: track.items, trackId: track.id }]
             : []
-    )).crossTrackEvacuations;
+    ), pathOf).crossTrackEvacuations;
 }
 
 // cuts の winner-take-all が下段を隠してよいのは、上段が全画面を不透明に覆う場合だけ。
 // transform の単位元を明示しただけなら従来経路を維持する。crop / 半透明 / keyframes は、
 // 現在または途中フレームで下段が見える可能性があるため宣言の存在だけで layers へ退避する。
-function needsCrossTrackLayers(item: ItemV2): boolean {
+// 加えて、アルファを運べるコンテナ（webm / mov — 本製品のマット生成パイプラインの出力形式）は
+// 宣言からは不透明を証明できないため、単位元 transform でも layers へ退避する。単位元 transform の
+// 全画面アルファ webm（例: mask-top.webm）が cuts に残ると、プレビューの平坦化で
+// マットが本編の勝者になり「ソース範囲がほぼ同一の縮退セグメント群」を作って
+// 再生ヘッドが境界で巻き戻る（2026-08-26 akari-reel 実機・15.5s→11.2s ループの真因）。
+// 静止画（png 等）は退避先の layers 経路が video 前提のため対象外（従来どおり cuts に残す）。
+const ALPHA_CAPABLE_MEDIA_SOURCE_PATTERN = /\.(webm|mov)$/iu;
+
+function isAlphaCapableMediaSourcePath(path: unknown): boolean {
+    return typeof path === 'string' && ALPHA_CAPABLE_MEDIA_SOURCE_PATTERN.test(path);
+}
+
+function needsCrossTrackLayers(item: ItemV2, pathOf?: (sourceId: string) => string | undefined): boolean {
     const transform = item.transform;
     return (transform?.scale !== undefined && transform.scale !== 1)
         || (transform?.x !== undefined && transform.x !== 0)
@@ -604,7 +625,8 @@ function needsCrossTrackLayers(item: ItemV2): boolean {
         || (transform?.rotate !== undefined && transform.rotate !== 0)
         || item.crop !== undefined
         || (item.opacity !== undefined && item.opacity < 1)
-        || item.keyframes !== undefined;
+        || item.keyframes !== undefined
+        || (item.source.kind === 'media' && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src)));
 }
 
 function nextRef(counters: Map<TimelineTrackKind, number>, kind: TimelineTrackKind): number {
