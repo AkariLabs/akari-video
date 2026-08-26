@@ -142,13 +142,6 @@ window.akari.runtime = (() => {
         if (!visible && overlay.isThreeDimensional) {
           window.akari.threeRuntime?.dispose(overlay.container);
         }
-        // ㉑ 素通し: 可視化した断片の実寸に当たり判定（clip-path）を合わせ直す。
-        // 非可視の間は当たり判定自体が発生しない（visibility:hidden は hit-test 対象外）
-        // ため、可視化タイミングだけに限定して呼べば十分（tick() 全体の毎フレーム負荷は
-        // 増えない = 上の性能原則と同じ「見えている分だけ」）。
-        if (visible) {
-          window.akari.interaction?.syncOverlayHitRegion?.(overlay.container);
-        }
         overlay.visible = visible;
       }
 
@@ -168,7 +161,10 @@ window.akari.runtime = (() => {
         window.akari.threeRuntime?.render(overlay.container, localTimeMs / 1000, {
           syncVideos: true,
         });
+        // clip-path も opacity 判定と同じく、現在時刻を反映した後の実寸で一度だけ測る。
+        // 先に測ると 0% の遠方姿勢で clip が確定し、入場する断片が丸ごと消える。
         if (overlay.hitPolicyPending) {
+          window.akari.interaction?.syncOverlayHitRegion?.(overlay.container);
           window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
           overlay.hitPolicyPending = false;
         }
@@ -179,9 +175,10 @@ window.akari.runtime = (() => {
         animation.pause();
         animation.currentTime = localTimeMs;
       }
-      // opacity を含む出入りアニメを現在時刻へ合わせた後の computed style で一度だけ判定する。
-      // 可視化より先に判定すると、途中へシークしても 0% キーフレームを見てしまう。
+      // opacity と clip-path は出入りアニメを現在時刻へ合わせた後に一度だけ判定・測定する。
+      // 先に測ると 0% の遠方姿勢で clip が確定し、入場する断片が丸ごと消える。
       if (overlay.hitPolicyPending) {
+        window.akari.interaction?.syncOverlayHitRegion?.(overlay.container);
         window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
         overlay.hitPolicyPending = false;
       }
