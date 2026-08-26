@@ -73,8 +73,8 @@ function extractConstArrow(name, nextName) {
 
 test('静止画 incoming 合成レイヤーが DOM と生成 JS に配線される', () => {
     assert.match(compiled, /id="transition-still" data-akari-transition-role="incoming-still"/);
-    assert.match(compiled, /#preview-video, #transition-video, #transition-still/);
-    assert.match(compiled, /#transition-video, #transition-still \{ display: none; pointer-events: none; \}/);
+    assert.match(compiled, /#preview-video, #standby-video, #transition-video, #transition-still/);
+    assert.match(compiled, /#standby-video, #transition-video, #transition-still \{ display: none; pointer-events: none; \}/);
     assert.match(bootstrap, /getElementById\('transition-still'\)/);
     assert.doesNotThrow(() => new vm.Script(bootstrap, { filename: 'preview-bootstrap.js' }));
 });

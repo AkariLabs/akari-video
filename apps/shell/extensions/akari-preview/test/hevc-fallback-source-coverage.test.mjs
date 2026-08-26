@@ -96,8 +96,8 @@ test('webview pins the loaded source and serializes fallback requests in FIFO or
     assert.match(attemptBody, /processNextHevcFallback\(\);/u);
 
     const errorBody = extractBetween(
-        "            video.addEventListener('error', () => {",
-        "\n            audioNoticeDismiss.addEventListener('click'"
+        '            const onMainVideoError = event => {',
+        '\n            for (const media of [video, standbyVideo]) {'
     );
     assert.match(errorBody, /const segment = segments\[activeSegmentIndex\];/u);
     assert.match(errorBody, /const segmentSourceId = segment && segment\.kind === 'src' \? String\(segment\.src\) : '';/u);
