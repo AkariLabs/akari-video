@@ -4565,8 +4565,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 .preview-pane.is-dragging { cursor: grabbing; }
 #zoom-layer { position: absolute; inset: 0; transform-origin: 50% 50%; will-change: transform; }
 #preview-stage { position: absolute; left: 50%; top: 50%; width: min(100cqw, calc(100cqh * ${width} / ${height})); aspect-ratio: ${width} / ${height}; overflow: hidden; background: #000; transform: translate(-50%, -50%); }
-#preview-video, #transition-video, #transition-still { position: absolute; top: 0; left: 0; object-fit: contain; }
-#transition-video, #transition-still { display: none; pointer-events: none; }
+#preview-video, #standby-video, #transition-video, #transition-still { position: absolute; top: 0; left: 0; object-fit: contain; }
+#standby-video, #transition-video, #transition-still { display: none; pointer-events: none; }
 .akari-video-fx-rail { position: absolute; top: 0; left: 0; max-width: none; max-height: none; }
 /* 静止画 cut ソース: #preview-video と同じ位置・サイズに重ね、静止画セグメントの間だけ表示する
    （配置・transform は毎フレーム video のインラインスタイルを鏡写し — syncStillImageVisual）。 */
@@ -4705,6 +4705,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
         <div id="preview-stage">
           <div id="preview-layers">
             <video id="preview-video" data-akari-transition-role="outgoing"${primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="auto" crossorigin="anonymous"></video>
+            <video id="standby-video" data-akari-playback-role="standby" preload="auto" crossorigin="anonymous"></video>
             <img id="preview-still" alt="" draggable="false">
             <video id="transition-video" data-akari-transition-role="incoming" preload="auto" crossorigin="anonymous"></video>
             <img id="transition-still" data-akari-transition-role="incoming-still" alt="" draggable="false">
@@ -4845,7 +4846,8 @@ body { display: grid; place-items: center; padding: 32px; }
             let lastPlaybackTickAt = -Infinity;
             const wrapper = document.getElementById('preview-wrapper');
             const previewStage = document.getElementById('preview-stage');
-            const video = document.getElementById('preview-video');
+            let video = document.getElementById('preview-video');
+            let standbyVideo = document.getElementById('standby-video');
             const transitionVideo = document.getElementById('transition-video');
             const stillImage = document.getElementById('preview-still');
             const transitionStill = document.getElementById('transition-still');
@@ -4914,7 +4916,6 @@ body { display: grid; place-items: center; padding: 32px; }
                     || (Array.isArray(config.narration) && config.narration.length > 0));
                 if (!hasAudio) return null;
 
-                const video = document.getElementById('preview-video');
                 let context;
                 try {
                     context = new AudioContext();
@@ -5250,6 +5251,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 syncMasterGain();
                 video.addEventListener('volumechange', syncMasterGain);
+                standbyVideo.addEventListener('volumechange', syncMasterGain);
                 window.addEventListener('pagehide', () => {
                     controller.pause();
                     void context.close().catch(() => undefined);
@@ -5493,6 +5495,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 video.style.height = outputHeight + 'px';
                 video.style.objectFit = 'contain';
                 video.style.clipPath = '';
+                standbyVideo.style.left = '0px';
+                standbyVideo.style.top = '0px';
+                standbyVideo.style.width = outputWidth + 'px';
+                standbyVideo.style.height = outputHeight + 'px';
+                standbyVideo.style.objectFit = 'contain';
                 transitionVideo.style.left = '0px';
                 transitionVideo.style.top = '0px';
                 transitionVideo.style.width = outputWidth + 'px';
@@ -5547,8 +5554,14 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.computeOutputFrameRect = computeOutputFrameRect;
             window.akari.computeContentRect = computeContentRect;
             window.akari.updateLayerLayout = updateStageScale;
+            window.akari.activateStandbyVideoElement = (active, standby) => {
+                video = active;
+                standbyVideo = standby;
+                updateStageScale();
+            };
             new ResizeObserver(updateStageScale).observe(previewStage);
             video.addEventListener('loadedmetadata', updateStageScale);
+            standbyVideo.addEventListener('loadedmetadata', updateStageScale);
             if (initial.kind === 'raw') {
                 // raw（素材単体）プレビューに出力キャンバスは無い。summary.output は
                 // EMPTY_SUMMARY の 1280x720 のままなので、そのまま使うと縦長素材の左右に
@@ -5575,6 +5588,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 new ResizeObserver(syncRawStageToVideo).observe(previewPane);
                 video.addEventListener('loadedmetadata', syncRawStageToVideo);
+                standbyVideo.addEventListener('loadedmetadata', syncRawStageToVideo);
                 syncRawStageToVideo();
             }
             updateStageScale();
@@ -5585,7 +5599,8 @@ body { display: grid; place-items: center; padding: 32px; }
         return `(() => {
             const initial = window.__akariPreview;
             let summary = initial.summary;
-            const video = document.getElementById('preview-video');
+            let video = document.getElementById('preview-video');
+            let standbyVideo = document.getElementById('standby-video');
             const transitionVideo = document.getElementById('transition-video');
             const stillImage = document.getElementById('preview-still');
             const transitionStill = document.getElementById('transition-still');
@@ -5698,6 +5713,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let globalMuted = initial.muted === true;
             video.dataset.akariGlobalMuted = String(globalMuted);
             video.muted = globalMuted;
+            standbyVideo.muted = true;
             captionPlate.style.visibility = initial.captionsVisible === false ? 'hidden' : 'visible';
             let animationFrame = 0;
             let animationWatchdogTimer = 0;
@@ -5705,6 +5721,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let transitionWindows = [];
             let preloadedTransitionWindowKey = null;
             let preloadUpcomingTransition = () => undefined;
+            let preloadUpcomingCut = () => undefined;
             let totalTimelineDuration = 0;
             let segments = [];
             // ㉕ cuts[].framing / cuts[].freeze（contract-2026-08-02-preview-parity.md §2.4.2/2.4.3）。
@@ -6542,10 +6559,28 @@ body { display: grid; place-items: center; padding: 32px; }
                 ...(videoFxConfig.look ? { look: videoFxConfig.look } : {}),
                 ...(representativeChroma ? { chromaKey: representativeChroma } : {})
             } : null;
-            const baseVideoFxRail = hasBaseVideoFx ? mountVideoFxRail(video, 'source', baseInitialEffects) : null;
+            let baseVideoFxRail = hasBaseVideoFx ? mountVideoFxRail(video, 'source', baseInitialEffects) : null;
+            let standbyVideoFxRail = hasBaseVideoFx
+                ? mountVideoFxRail(standbyVideo, 'standby', baseInitialEffects) : null;
             const transitionVideoFxRail = hasBaseVideoFx
                 ? mountVideoFxRail(transitionVideo, 'transition', baseInitialEffects) : null;
             const stillVideoFxRail = hasBaseVideoFx ? mountVideoFxRail(stillImage, 'still', baseInitialEffects) : null;
+            // createRail の canvas style 同期は render() 内だけで行われる。ダブルバッファの退避側は
+            // render 対象から外れるため、最後の不透明フレームを残さないよう主映像 2 レールだけは
+            // media の可視性を明示的に同期する（transition / still の既存レールには触れない）。
+            const syncDoubleBufferVideoFxVisibility = () => {
+                if (baseVideoFxRail && baseVideoFxRail.canvas) {
+                    baseVideoFxRail.canvas.style.display = video.style.display || '';
+                    baseVideoFxRail.canvas.style.visibility = video.style.visibility || '';
+                    baseVideoFxRail.canvas.style.zIndex = video.style.zIndex || '';
+                }
+                if (standbyVideoFxRail && standbyVideoFxRail.canvas) {
+                    standbyVideoFxRail.canvas.style.display = standbyVideo.style.display || '';
+                    standbyVideoFxRail.canvas.style.visibility = standbyVideo.style.visibility || '';
+                    standbyVideoFxRail.canvas.style.zIndex = standbyVideo.style.zIndex || '';
+                }
+            };
+            syncDoubleBufferVideoFxVisibility();
             for (const entry of layerEntries) {
                 entry.fxRail = entry.spec.chromaKey
                     ? mountVideoFxRail(entry.video, 'layer:' + entry.spec.id, { chromaKey: entry.spec.chromaKey })
@@ -6566,6 +6601,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const renderVideoFx = timelineTime => {
                 if (!hasBaseVideoFx && !layerEntries.some(entry => entry.fxRail)) return;
+                syncDoubleBufferVideoFxVisibility();
                 const segment = segments[activeSegmentIndex];
                 const baseEffects = effectsForSegment(segment);
                 const baseKey = 'base:' + String(segment && segment.cutIndex) + ':' + String(segment && segment.src);
@@ -8072,6 +8108,8 @@ body { display: grid; place-items: center; padding: 32px; }
             // computeCutTrackSegments と同じ = 正本挙動へ収斂）。
             const rebuildSegments = () => {
                 preloadedTransitionWindowKey = null;
+                standbyPreloadKey = null;
+                standbyPreloadReadyKey = null;
                 delete transitionVideo.dataset.akariPreloadedWindow;
                 delete transitionStill.dataset.akariPreloadedWindow;
                 const rawCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
@@ -8144,6 +8182,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 outputTime = clamp(outputTime, 0, totalTimelineDuration);
                 syncSegmentPlaybackRate();
                 preloadUpcomingTransition(outputTime);
+                preloadUpcomingCut(outputTime);
             };
             const syncSegmentPlaybackRate = () => {
                 const segment = segments[activeSegmentIndex];
@@ -8162,6 +8201,16 @@ body { display: grid; place-items: center; padding: 32px; }
             for (const [id, url] of Object.entries(videoSources)) {
                 if (url === video.getAttribute('src')) currentVideoSourceId = id;
             }
+            let currentStandbyVideoSourceId = null;
+            let standbyPreloadKey = null;
+            let standbyPreloadReadyKey = null;
+            const CUT_PRELOAD_LEAD_SECONDS = 0.75;
+            // 実素材では +0.35s の同一ソース境界は warm cache で 68-76ms だった一方、
+            // +0.58/+0.63s から 160-265ms の停止が観測された。連続カットを現行経路に残しつつ、
+            // 体感停止へ入る側を前倒しする境界として 0.5s 超をプリシーク対象にする。
+            const SAME_SOURCE_PRESEEK_THRESHOLD_SECONDS = 0.5;
+            const standbyKeyForSegment = (index, segment) => index + ':'
+                + String(segment && segment.src) + ':' + String(segment && segment.in);
             // 差し替えたときだけ true を返す（呼び出し側は false なら即座に続行する）
             const applySegmentSource = (segment, onReady) => {
                 const nextId = segment && segment.src;
@@ -8180,6 +8229,100 @@ body { display: grid; place-items: center; padding: 32px; }
                 }, { once: true });
                 video.src = nextUrl;
                 video.load();
+                return true;
+            };
+            const primeStandbySegment = (index, segment) => {
+                const nextId = segment && segment.kind === 'src' ? segment.src : null;
+                const nextUrl = nextId && videoSources[nextId];
+                if (!nextId || !nextUrl || isStillSegment(segment)) return;
+                const key = standbyKeyForSegment(index, segment);
+                // rAF ごとの呼び出しで同じ load/seek を積み増さない。未完了のまま境界へ着いた場合は
+                // 再試行で現在のデコードを潰さず、そのまま現行フォールバックへ渡す。
+                if (standbyPreloadKey === key) return;
+                standbyPreloadKey = key;
+                standbyPreloadReadyKey = null;
+                const target = Number.isFinite(segment.in) ? segment.in : 0;
+                const markReady = () => {
+                    if (standbyPreloadKey !== key || currentStandbyVideoSourceId !== nextId) return;
+                    if (standbyVideo.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+                    if (Math.abs((standbyVideo.currentTime || 0) - target) > 0.05) return;
+                    standbyVideo.pause();
+                    standbyPreloadReadyKey = key;
+                };
+                const seekStandby = () => {
+                    if (standbyPreloadKey !== key || currentStandbyVideoSourceId !== nextId) return;
+                    const speed = Number.isFinite(segment.speed) && segment.speed > 0 ? segment.speed : 1;
+                    standbyVideo.playbackRate = speed;
+                    standbyVideo.muted = true;
+                    standbyVideo.pause();
+                    if (Math.abs((standbyVideo.currentTime || 0) - target) <= 0.001) {
+                        if (standbyVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) markReady();
+                        else standbyVideo.addEventListener('loadeddata', markReady, { once: true });
+                        return;
+                    }
+                    standbyVideo.addEventListener('seeked', markReady, { once: true });
+                    try {
+                        standbyVideo.currentTime = target;
+                    } catch (_error) {
+                        // loadedmetadata 後でも Chromium が一時的に seek を拒む場合は未完了のままにし、
+                        // 境界側を従来フォールバックへ落とす。
+                    }
+                };
+                if (currentStandbyVideoSourceId === nextId
+                    && standbyVideo.getAttribute('src') === nextUrl
+                    && standbyVideo.readyState >= HTMLMediaElement.HAVE_METADATA) {
+                    seekStandby();
+                    return;
+                }
+                currentStandbyVideoSourceId = nextId;
+                standbyVideo.addEventListener('loadedmetadata', seekStandby, { once: true });
+                standbyVideo.src = nextUrl;
+                standbyVideo.load();
+            };
+            preloadUpcomingCut = timelineTime => {
+                const current = segments[activeSegmentIndex];
+                const nextIndex = activeSegmentIndex + 1;
+                const next = segments[nextIndex];
+                if (!current || !next || next.kind !== 'src' || isStillSegment(next)) return;
+                const secondsToBoundary = next.outStart - timelineTime;
+                if (secondsToBoundary < 0 || secondsToBoundary > CUT_PRELOAD_LEAD_SECONDS) return;
+                const sourceChanges = String(next.src) !== String(currentVideoSourceId);
+                const sourceDiscontinuity = current.kind === 'src' && String(current.src) === String(next.src)
+                    ? Math.abs((Number(next.in) || 0) - (Number(current.out) || 0)) : Number.POSITIVE_INFINITY;
+                if (!sourceChanges && sourceDiscontinuity <= SAME_SOURCE_PRESEEK_THRESHOLD_SECONDS) return;
+                primeStandbySegment(nextIndex, next);
+            };
+            const activatePreloadedSegment = (index, segment, target) => {
+                const key = standbyKeyForSegment(index, segment);
+                if (standbyPreloadKey !== key || standbyPreloadReadyKey !== key) return false;
+                if (String(currentStandbyVideoSourceId) !== String(segment.src)
+                    || Math.abs((standbyVideo.currentTime || 0) - target) > 0.05) return false;
+                const outgoingVideo = video;
+                const outgoingSourceId = currentVideoSourceId;
+                outgoingVideo.pause();
+                video = standbyVideo;
+                standbyVideo = outgoingVideo;
+                currentVideoSourceId = currentStandbyVideoSourceId;
+                currentStandbyVideoSourceId = outgoingSourceId;
+                standbyVideo.id = 'standby-video-buffer';
+                video.id = 'preview-video';
+                standbyVideo.id = 'standby-video';
+                video.dataset.akariTransitionRole = 'outgoing';
+                delete video.dataset.akariPlaybackRole;
+                delete standbyVideo.dataset.akariTransitionRole;
+                standbyVideo.dataset.akariPlaybackRole = 'standby';
+                video.style.display = '';
+                standbyVideo.style.display = 'none';
+                standbyVideo.muted = true;
+                const outgoingFxRail = baseVideoFxRail;
+                baseVideoFxRail = standbyVideoFxRail;
+                standbyVideoFxRail = outgoingFxRail;
+                syncDoubleBufferVideoFxVisibility();
+                if (window.akari.activateStandbyVideoElement) {
+                    window.akari.activateStandbyVideoElement(video, standbyVideo);
+                }
+                standbyPreloadKey = null;
+                standbyPreloadReadyKey = null;
                 return true;
             };
             let currentTransitionVideoSourceId = null;
@@ -8365,13 +8508,14 @@ body { display: grid; place-items: center; padding: 32px; }
                     gapOutputOrigin = outputTime;
                     return;
                 }
+                const segmentDuration = segment.outEnd - segment.outStart;
+                const withinSegment = clamp(outputTime - segment.outStart, 0, segmentDuration);
+                const target = segment.in + withinSegment * segment.speed;
+                const activatedPreload = activatePreloadedSegment(index, segment, target);
                 applyCutVisual(segment);
                 hideStillImage();
                 video.style.visibility = '';
                 syncSegmentPlaybackRate();
-                const segmentDuration = segment.outEnd - segment.outStart;
-                const withinSegment = clamp(outputTime - segment.outStart, 0, segmentDuration);
-                const target = segment.in + withinSegment * segment.speed;
                 const seekAndResume = () => {
                     if (Math.abs((video.currentTime || 0) - target) > 0.0005) {
                         video.currentTime = target;
@@ -8383,7 +8527,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 // v1 マルチソース: このカットが別ソースを指しているならストリームを差し替える。
                 // 差し替え直後は readyState が 0 に戻り currentTime 代入が無視されるため、
                 // loadedmetadata を待ってからシークする（単一ソースでは分岐しない）
-                if (!applySegmentSource(segment, seekAndResume)) {
+                if (activatedPreload) {
+                    seekAndResume();
+                } else if (!applySegmentSource(segment, seekAndResume)) {
                     seekAndResume();
                 }
             };
@@ -9869,6 +10015,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 renderCutLayerStyleVisual(outputTime);
                 applyCutFramingVisual();
                 preloadUpcomingTransition(outputTime);
+                preloadUpcomingCut(outputTime);
                 renderLayers(outputTime);
                 updateLayerSelectBox();
                 renderTransitionPlate(outputTime);
@@ -10329,20 +10476,26 @@ body { display: grid; place-items: center; padding: 32px; }
                     clientY: rect.top + rect.height / 2
                 }));
             };
-            video.addEventListener('loadedmetadata', () => {
+            const onMainVideoLoadedMetadata = event => {
+                if (event.currentTarget !== video) return;
                 void sfxDurationsReady.then(() => {
                     restorePlayback();
                     rebuildSegments();
                     applyInitialPosition();
                     updateTransport();
                 });
-            });
-            video.addEventListener('canplay', restorePlayback);
-            video.addEventListener('play', () => {
+            };
+            const onMainVideoCanPlay = event => {
+                if (event.currentTarget === video) restorePlayback();
+            };
+            const onMainVideoPlay = event => {
+                if (event.currentTarget !== video) return;
                 if (window.akari.previewAudio) void window.akari.previewAudio.playFrom(outputTime);
                 if (isPlaying) startAnimation();
-            });
-            video.addEventListener('play', () => {
+            };
+            const onMainVideoAudioNoticePlay = event => {
+                if (event.currentTarget !== video) return;
+                const playingVideo = event.currentTarget;
                 // 無音素材の検知は 1 ドキュメントにつき 1 回だけ。判定は ffprobe による
                 // ソースファイルの実測（initial.hasSourceAudio、node 側 probeAudioPresence）を
                 // 正とする — webkitAudioDecodedByteCount はこのアプリが同梱する
@@ -10350,14 +10503,15 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 再生されているソースでも誤検出する。hasSourceAudio が null（ffprobe 不在・
                 // 失敗で未確定）のときは、確証が無いまま出すと偽陽性の原因になるため表示しない。
                 window.setTimeout(() => {
-                    if (audioNoticeShown || video.paused || video.ended) return;
+                    if (playingVideo !== video || audioNoticeShown || video.paused || video.ended) return;
                     if (initial.hasSourceAudio === false) {
                         audioNoticeShown = true;
                         audioNotice.hidden = false;
                     }
                 }, 1500);
-            });
-            video.addEventListener('pause', () => {
+            };
+            const onMainVideoPause = event => {
+                if (event.currentTarget !== video) return;
                 if (pausedForGapEntry) {
                     pausedForGapEntry = false;
                     return;
@@ -10391,19 +10545,22 @@ body { display: grid; place-items: center; padding: 32px; }
                 isPlaying = false;
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
-            });
-            video.addEventListener('ended', () => {
+            };
+            const onMainVideoEnded = event => {
+                if (event.currentTarget !== video) return;
                 if (isPlaying) {
                     window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                 }
                 isPlaying = false;
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
-            });
-            video.addEventListener('seeking', () => {
+            };
+            const onMainVideoSeeking = event => {
+                if (event.currentTarget !== video) return;
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
-            });
-            video.addEventListener('seeked', () => {
+            };
+            const onMainVideoSeeked = event => {
+                if (event.currentTarget !== video) return;
                 tick(true);
                 const segment = segments[activeSegmentIndex];
                 if (isPlaying && segment && segment.kind === 'src' && !isStillSegment(segment)) {
@@ -10411,19 +10568,38 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (video.paused) void video.play().catch(error => console.error('[akari-preview] playback failed', error));
                 }
                 applyRequestedOverlaySelection();
-            });
-            video.addEventListener('error', () => {
-                showPlaybackError();
-                const errorCode = video.error ? video.error.code : 0;
+            };
+            const onMainVideoError = event => {
+                const media = event.currentTarget;
+                const errorCode = media.error ? media.error.code : 0;
+                if (media === video) showPlaybackError();
                 // MediaError.MEDIA_ERR_DECODE = 3, MEDIA_ERR_SRC_NOT_SUPPORTED = 4 — 「宣言は
                 // probably/maybe だったが実際には再生できなかった」ケースだけフォールバックを試す。
                 if (errorCode === 3 || errorCode === 4) {
+                    if (media !== video) {
+                        const standbyUri = initial.videoSourceUris[currentStandbyVideoSourceId];
+                        if (typeof standbyUri === 'string' && standbyUri) {
+                            attemptHevcFallback(errorCode, standbyUri);
+                        }
+                        return;
+                    }
                     const segment = segments[activeSegmentIndex];
                     const segmentSourceId = segment && segment.kind === 'src' ? String(segment.src) : '';
                     const sourceId = currentVideoSourceId || segmentSourceId;
                     attemptHevcFallback(errorCode, initial.videoSourceUris[sourceId] || initial.videoUri);
                 }
-            });
+            };
+            for (const media of [video, standbyVideo]) {
+                media.addEventListener('loadedmetadata', onMainVideoLoadedMetadata);
+                media.addEventListener('canplay', onMainVideoCanPlay);
+                media.addEventListener('play', onMainVideoPlay);
+                media.addEventListener('play', onMainVideoAudioNoticePlay);
+                media.addEventListener('pause', onMainVideoPause);
+                media.addEventListener('ended', onMainVideoEnded);
+                media.addEventListener('seeking', onMainVideoSeeking);
+                media.addEventListener('seeked', onMainVideoSeeked);
+                media.addEventListener('error', onMainVideoError);
+            }
             transitionVideo.addEventListener('error', () => {
                 const errorCode = transitionVideo.error ? transitionVideo.error.code : 0;
                 if (errorCode === 3 || errorCode === 4) {
