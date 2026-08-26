@@ -14,6 +14,8 @@ see [Reference](../README.md#reference)).
 | `edit.json` | **The edit's save data (SSOT)**. Cuts, overlays, audio, beats, direction |
 | `captions.json` | Caption data |
 | `review.json` | Sidecar for review annotations (tickets) |
+| `decision-log.md` | Append-only decision history shared by analyze-project and edit-plan |
+| `analysis-report.html` | The formal cross-asset analysis report produced by analyze-project |
 
 These contract files are the only generated output allowed directly at the root.
 Everything else has its own designated place (a no-clutter convention).
@@ -23,7 +25,7 @@ Everything else has its own designated place (a no-clutter convention).
 | Location | Role |
 |---|---|
 | `assets/` | Source material (`assets/<category>/<id>/` + meta.json) |
-| `planning/` | Planning documents (research-plan.json / plan.json / decision-log.md) |
+| `planning/` | Planning documents (research-plan.json / plan.json) |
 | `exports/` | Render output |
 
 ## Inside .akari/
