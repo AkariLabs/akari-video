@@ -137,7 +137,7 @@ const ENTRY_ANIMATION_FRAGMENT = `
 </style>
 `;
 
-test("入場アニメを現在時刻へ合わせてから clip-path を測り、CTA 全体を残す", async (t) => {
+async function openHarness(t) {
   const puppeteer = loadPuppeteer();
   const tempDir = mkdtempSync(join(tmpdir(), "entry-animation-hit-region-test-"));
   const htmlPath = join(tempDir, "harness.html");
@@ -160,17 +160,38 @@ test("入場アニメを現在時刻へ合わせてから clip-path を測り、
   const page = await browser.newPage();
   await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 });
   await page.goto(pathToFileURL(htmlPath).href, { waitUntil: "load" });
+  return page;
+}
 
-  const result = await page.evaluate(async (html) => {
+async function mountAndTickContinuously(page, end = 12) {
+  await page.evaluate(async ({ html, endTime }) => {
     await window.akari.runtime.mount({
       overlays: [{ id: "cta", start: 10, duration: 4, html }],
     });
-    // 表示区間の中ほどへ直接シークする。入場アニメは完了姿勢になる。
-    window.akari.runtime.tick(12, false);
-    await new Promise((resolveFrame) =>
-      requestAnimationFrame(() => requestAnimationFrame(resolveFrame))
-    );
 
+    const waitForAnimationFrame = () =>
+      new Promise((resolveFrame) => requestAnimationFrame(resolveFrame));
+    let timelineTime = 9.9;
+    while (timelineTime < endTime) {
+      window.akari.runtime.tick(timelineTime, true);
+      await waitForAnimationFrame();
+      timelineTime += 0.033;
+    }
+    window.akari.runtime.tick(endTime, true);
+    await waitForAnimationFrame();
+  }, { html: ENTRY_ANIMATION_FRAGMENT, endTime: end });
+}
+
+async function waitForFrames(page, count) {
+  await page.evaluate(async (frameCount) => {
+    for (let index = 0; index < frameCount; index += 1) {
+      await new Promise((resolveFrame) => requestAnimationFrame(resolveFrame));
+    }
+  }, count);
+}
+
+async function measureHitRegion(page) {
+  return page.evaluate(() => {
     const container = document.querySelector('[data-overlay-id="cta"]');
     const anchor = container.querySelector(".fixture-cta__anchor");
     const containerRect = container.getBoundingClientRect();
@@ -197,13 +218,13 @@ test("入場アニメを現在時刻へ合わせてから clip-path を測り、
     const clip =
       values.length >= 1 && values.length <= 4 &&
       [top, right, bottom, left].every(Number.isFinite)
-      ? {
-          top: containerRect.top + (containerRect.height * top) / 100,
-          right: containerRect.right - (containerRect.width * right) / 100,
-          bottom: containerRect.bottom - (containerRect.height * bottom) / 100,
-          left: containerRect.left + (containerRect.width * left) / 100,
-        }
-      : null;
+        ? {
+            top: containerRect.top + (containerRect.height * top) / 100,
+            right: containerRect.right - (containerRect.width * right) / 100,
+            bottom: containerRect.bottom - (containerRect.height * bottom) / 100,
+            left: containerRect.left + (containerRect.width * left) / 100,
+          }
+        : null;
     const center = { x: (bbox.left + bbox.right) / 2, y: (bbox.top + bbox.bottom) / 2 };
     const hit = document.elementFromPoint(center.x, center.y);
 
@@ -219,8 +240,10 @@ test("入場アニメを現在時刻へ合わせてから clip-path を測り、
       hit: hit ? `${hit.tagName}.${hit.className}` : null,
       hitIsDescendant: Boolean(hit && container.contains(hit)),
     };
-  }, ENTRY_ANIMATION_FRAGMENT);
+  });
+}
 
+function assertHitRegion(result) {
   assert.ok(result.clip, `clip-path が inset(...) ではありません: ${result.clipPath}`);
   const epsilon = 0.5;
   assert.ok(
@@ -234,5 +257,73 @@ test("入場アニメを現在時刻へ合わせてから clip-path を測り、
     result.hitIsDescendant,
     true,
     `bbox 中心の elementFromPoint が CTA の子孫ではありません: ${JSON.stringify(result)}`
+  );
+}
+
+test("入場アニメを現在時刻へ合わせてから clip-path を測り、CTA 全体を残す", async (t) => {
+  const page = await openHarness(t);
+
+  await page.evaluate(async (html) => {
+    await window.akari.runtime.mount({
+      overlays: [{ id: "cta", start: 10, duration: 4, html }],
+    });
+    // 表示区間の中ほどへ直接シークする。入場アニメは完了姿勢になる。
+    window.akari.runtime.tick(12, false);
+    await new Promise((resolveFrame) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolveFrame))
+    );
+  }, ENTRY_ANIMATION_FRAGMENT);
+
+  const result = await measureHitRegion(page);
+
+  assertHitRegion(result);
+});
+
+test("overlay.start を小刻みに跨ぐ連続再生でも、入場アニメ完了後の clip が現在姿勢の bbox を内包する", async (t) => {
+  const page = await openHarness(t);
+
+  await mountAndTickContinuously(page);
+  await waitForFrames(page, 2);
+
+  const result = await measureHitRegion(page);
+
+  assertHitRegion(result);
+});
+
+test("入場アニメ完了後は clip-path を測り直さない（可視な間ずっと測り続けない）", async (t) => {
+  const page = await openHarness(t);
+
+  await page.evaluate(() => {
+    const originalSyncOverlayHitRegion = window.akari.interaction.syncOverlayHitRegion;
+    window.__syncOverlayHitRegionCalls = 0;
+    window.akari.interaction.syncOverlayHitRegion = (...args) => {
+      window.__syncOverlayHitRegionCalls += 1;
+      return originalSyncOverlayHitRegion(...args);
+    };
+  });
+  await mountAndTickContinuously(page, 10.9);
+
+  const callsDuringEntry = await page.evaluate(() => window.__syncOverlayHitRegionCalls);
+  assert.ok(
+    callsDuringEntry >= 2,
+    `入場中に clip-path が複数回測定されていません: ${JSON.stringify({ callsDuringEntry })}`
+  );
+
+  await page.evaluate(async () => {
+    const waitForAnimationFrame = () =>
+      new Promise((resolveFrame) => requestAnimationFrame(resolveFrame));
+    for (let index = 1; index <= 5; index += 1) {
+      window.akari.runtime.tick(10.9 + index * 0.033, true);
+      await waitForAnimationFrame();
+    }
+  });
+  const callsAfterEntry = await page.evaluate(() => window.__syncOverlayHitRegionCalls);
+  assert.equal(
+    callsAfterEntry - callsDuringEntry,
+    0,
+    `入場完了後も clip-path を測定しています: ${JSON.stringify({
+      callsDuringEntry,
+      callsAfterEntry,
+    })}`
   );
 });

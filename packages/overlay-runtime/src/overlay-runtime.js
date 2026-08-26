@@ -17,6 +17,18 @@ window.akari.runtime = (() => {
     return Number.isFinite(number) ? number : fallback;
   }
 
+  // 入場アニメが現在時刻で確定姿勢に達したか。装飾用の無限ループ（spark 等）は
+  // 永遠に終わらないため、終端が有限なアニメーションだけを見る。
+  function entryAnimationsSettled(animations) {
+    for (const animation of animations) {
+      const endTime = Number(animation.effect?.getComputedTiming?.().endTime);
+      if (!Number.isFinite(endTime)) continue;
+      const currentTime = Number(animation.currentTime);
+      if (!Number.isFinite(currentTime) || currentTime < endTime) return false;
+    }
+    return true;
+  }
+
   function unmount() {
     for (const overlay of mountedOverlays) {
       if (overlay.isThreeDimensional) {
@@ -161,12 +173,19 @@ window.akari.runtime = (() => {
         window.akari.threeRuntime?.render(overlay.container, localTimeMs / 1000, {
           syncVideos: true,
         });
-        // clip-path も opacity 判定と同じく、現在時刻を反映した後の実寸で一度だけ測る。
-        // 先に測ると 0% の遠方姿勢で clip が確定し、入場する断片が丸ごと消える。
+        // clip-path は可視な間、入場アニメが終わるまで毎 tick 測り直す。可視化フリップの
+        // 1 tick だけで確定すると、通常再生では localTimeMs がほぼ 0 のため、0% の遠方姿勢の
+        // bbox が焼き付き、入場後の断片が丸ごと消える。対象は可視オーバーレイだけに絞り、
+        // 有限な入場アニメが終わった tick で確定して以後は呼ばない。無限ループは終端無しと
+        // して数えず、性能原則「見えている分だけ」を保ったまま永久 pending を避ける。
         if (overlay.hitPolicyPending) {
           window.akari.interaction?.syncOverlayHitRegion?.(overlay.container);
           window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
-          overlay.hitPolicyPending = false;
+          if (entryAnimationsSettled(overlay.container.getAnimations({ subtree: true }))) {
+            window.akari.interaction?.invalidateOverlayHitPolicy?.(overlay.container);
+            window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
+            overlay.hitPolicyPending = false;
+          }
         }
         continue;
       }
@@ -175,12 +194,21 @@ window.akari.runtime = (() => {
         animation.pause();
         animation.currentTime = localTimeMs;
       }
-      // opacity と clip-path は出入りアニメを現在時刻へ合わせた後に一度だけ判定・測定する。
-      // 先に測ると 0% の遠方姿勢で clip が確定し、入場する断片が丸ごと消える。
+      // opacity と clip-path は現在時刻へ合わせ、可視な間は入場アニメの終了まで毎 tick
+      // 測り直す。フリップ時だけでは通常再生の localTimeMs がほぼ 0 となり、0% 姿勢の
+      // bbox が焼き付くため。上で取得済みの animations を再利用し、有限な入場アニメが
+      // 終わった tick で確定する。以後は呼ばず、無限ループも終端無しとして数えないので、
+      // 対象を可視オーバーレイだけにする性能原則「見えている分だけ」は維持される。
       if (overlay.hitPolicyPending) {
         window.akari.interaction?.syncOverlayHitRegion?.(overlay.container);
+        // 当たり判定ポリシーは初回適用が WeakSet でガードされるため、ここでの再呼び出しは
+        // 実質 no-op（暫定適用）。確定姿勢に達した tick で invalidate してから測り直す。
         window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
-        overlay.hitPolicyPending = false;
+        if (entryAnimationsSettled(animations)) {
+          window.akari.interaction?.invalidateOverlayHitPolicy?.(overlay.container);
+          window.akari.interaction?.applyOverlayHitPolicy?.(overlay.container);
+          overlay.hitPolicyPending = false;
+        }
       }
     }
   }
