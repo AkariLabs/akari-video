@@ -177,7 +177,8 @@ try {
   const points = [];
   for (const time of [1.1, 1.5, 1.9]) {
     const state = await seekTo(time);
-    assert.equal(state.videoCount, 2);
+    // cut-boundary-double-buffer で常設 #standby-video が 1 本増えた（primary + standby + transition）
+    assert.equal(state.videoCount, 3);
     assert.equal(state.outgoing.display, 'block');
     assert.equal(state.outgoing.visibility, 'visible');
     assert.equal(state.incoming.display, 'block');
