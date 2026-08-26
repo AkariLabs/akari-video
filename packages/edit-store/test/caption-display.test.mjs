@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  captionAnchorPositionVars,
   measureCaptionUnits,
   resolveCaptionDisplay,
   resolveCaptionStyleForOutput,
@@ -267,6 +268,56 @@ test('reference-pixel geometry resolves A4 numeric oracle and scales only pixel 
     mode: 'reference-pixel', reference_width_px: 1920, reference_height_px: 1080,
     left_px: 261, width_px: 1120, bottom_px: 29, text_align: 'center', max_lines: 1,
   } }, { width: 1080, height: 1920 }), /aspect ratio/);
+});
+
+// 2026-08-26 akari-reel 実機: text_anchor + position の位置変数はこれまで render-cut 側の
+// ローカル複製だけが実装し、プレビューは落としていた（明示位置付き字幕がプレビューだけ
+// 既定下段 7% に出る出力不一致）。単一定義 captionAnchorPositionVars を正とする。
+test('captionAnchorPositionVars maps the nine anchors and 0..1 positions like the render pipeline', () => {
+  assert.deepEqual(captionAnchorPositionVars('tc', { y: 0.386458 }, undefined), {
+    '--caption-top': '38.65%',
+    '--caption-bottom': 'auto',
+    '--caption-left': '4%',
+    '--caption-right': '4%',
+    '--caption-align-items': 'center',
+    '--caption-text-align': 'center',
+    '--caption-line-margin': '0',
+    '--caption-line-max-width': '100%',
+  });
+  assert.deepEqual(captionAnchorPositionVars('bc', undefined, undefined), {
+    '--caption-top': 'auto',
+    '--caption-bottom': '7%',
+    '--caption-left': '4%',
+    '--caption-right': '4%',
+    '--caption-align-items': 'center',
+    '--caption-text-align': 'center',
+    '--caption-line-margin': '0',
+    '--caption-line-max-width': '100%',
+  });
+  assert.deepEqual(captionAnchorPositionVars('mc', undefined, undefined)['--caption-justify-content'], 'center');
+  const withX = captionAnchorPositionVars('tl', { x: 0.25, y: 1.5 }, undefined);
+  assert.equal(withX['--caption-left'], '25%');
+  assert.equal(withX['--caption-align-items'], 'flex-start');
+  assert.equal(withX['--caption-top'], '100%', 'position.y is clamped to 0..1');
+  assert.deepEqual(captionAnchorPositionVars(undefined, undefined, 'middle')['--caption-top'], '0');
+  assert.deepEqual(captionAnchorPositionVars('zz', undefined, undefined), {}, 'invalid anchor is ignored');
+  assert.deepEqual(captionAnchorPositionVars(undefined, undefined, undefined), {});
+});
+
+test('resolveCaptionStyleForOutput emits anchor/position vars unless a reference-pixel layout owns the geometry', () => {
+  const anchored = resolveCaptionStyleForOutput({ text_anchor: 'tc', position: { y: 0.5 } }, undefined);
+  assert.equal(anchored.vars['--caption-top'], '50%');
+  assert.equal(anchored.vars['--caption-bottom'], 'auto');
+  const withLayout = resolveCaptionStyleForOutput({
+    text_anchor: 'tc',
+    position: { y: 0.5 },
+    layout: {
+      mode: 'reference-pixel', reference_width_px: 1920, reference_height_px: 1080,
+      left_px: 261, width_px: 1120, bottom_px: 29, text_align: 'center', max_lines: 1,
+    },
+  }, { width: 1920, height: 1080 });
+  assert.equal(withLayout.vars['--caption-top'], undefined, 'layout keeps exclusive ownership of geometry');
+  assert.equal(withLayout.vars['--caption-bottom'], '29px');
 });
 
 test('legacy shadow preserves non-integer width bytes while reference-pixel scaling rounds to six places', () => {

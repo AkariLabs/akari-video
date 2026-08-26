@@ -96,6 +96,16 @@ export declare function scheduleCaptionFragments(start: number, end: number, fra
     text: string;
 }>;
 export declare function mergeCaptionDisplayStyles(base: unknown, override: unknown): UnknownRecord | undefined;
+/**
+ * text_anchor（9 点）+ position（0..1 相対）→ プレート配置の CSS 変数。単一定義
+ * （プレビュー = shell captionTextStyleVars / 書き出し = render-cut captions.mjs の両消費者が
+ * これを使う — 2026-08-26 akari-reel 実機: プレビュー側だけ text_anchor/position を落として
+ * 明示位置付き字幕が既定の下段 7% に出る「出力とプレビューの位置不一致」の再発防止）。
+ * position 未指定なら anchor は zone 相当の縁寄せとして効く。position 指定時は
+ * その座標へ anchor の縦成分（t/m/b）を合わせる（m は 100% を超えないよう近似で top 配置）。
+ * 不正な anchor / vertical_align は未宣言として無視する（書き込み時検証済みが前提の防御）。
+ */
+export declare function captionAnchorPositionVars(anchorValue: unknown, positionValue: unknown, verticalAlignValue: unknown): Record<string, string>;
 export declare function resolveCaptionStyleForOutput(style: UnknownRecord, output: {
     width: number;
     height: number;
