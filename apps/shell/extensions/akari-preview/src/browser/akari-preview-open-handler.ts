@@ -5801,6 +5801,8 @@ body { display: grid; place-items: center; padding: 32px; }
             // Decode-failure fallback is tracked per original source. This covers the primary
             // video, source-swapped cuts, and v2 media items rendered as video layers.
             const hevcFallbackRequested = new Set();
+            const hevcFallbackQueue = [];
+            let hevcFallbackInFlight = false;
             let audioNoticeShown = false;
             let activeCaption = null;
             let styledCaptionActive = false;
@@ -9970,19 +9972,36 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             // task/2026-08-09-drop-hevc-proxy: showPlaybackError の直後、その動画で初めての
             // MEDIA_ERR_DECODE(3) / MEDIA_ERR_SRC_NOT_SUPPORTED(4) のときだけ呼ぶ。ホスト側で
-            // 変換に成功すれば widget が丸ごとリロードされる（このスクリプト自体が入れ替わる）ので
-            // ここでは resolve 後の後始末をしない。失敗時だけ通常のエラー文言に戻す。
+            // 変換に成功すれば widget が丸ごとリロードされるため UI の後始末はせず、キューだけ
+            // 進める。失敗時はエラー表示中の既存経路だけ通常のエラー文言に戻す。
+            const processNextHevcFallback = () => {
+                if (hevcFallbackInFlight || hevcFallbackQueue.length === 0) return;
+                const request = hevcFallbackQueue.shift();
+                hevcFallbackInFlight = true;
+                if (playbackErrored) {
+                    previewMessageText.textContent = '動画をそのまま再生できませんでした。互換用に変換しています…';
+                    previewMessageReload.hidden = true;
+                }
+                window.akari.engine.resolveHevcFallback(request.errorCode, request.requestKey).then(() => {
+                    // 成功応答はホスト側の ffmpeg 完了後に届くため、ここで次を送っても
+                    // 変換は重ならず、webview の in-flight は常に 1 件に保たれる。
+                    hevcFallbackInFlight = false;
+                    processNextHevcFallback();
+                }, () => {
+                    if (playbackErrored) {
+                        previewMessageText.textContent = '動画を再生できませんでした。再読み込みを試してください。';
+                        previewMessageReload.hidden = false;
+                    }
+                    hevcFallbackInFlight = false;
+                    processNextHevcFallback();
+                });
+            };
             const attemptHevcFallback = (errorCode, videoUri) => {
                 const requestKey = typeof videoUri === 'string' && videoUri ? videoUri : initial.videoUri;
                 if (hevcFallbackRequested.has(requestKey)) return;
                 hevcFallbackRequested.add(requestKey);
-                previewMessageText.textContent = '動画をそのまま再生できませんでした。互換用に変換しています…';
-                previewMessageReload.hidden = true;
-                window.akari.engine.resolveHevcFallback(errorCode, requestKey).catch(() => {
-                    if (!playbackErrored) return;
-                    previewMessageText.textContent = '動画を再生できませんでした。再読み込みを試してください。';
-                    previewMessageReload.hidden = false;
-                });
+                hevcFallbackQueue.push({ errorCode, requestKey });
+                processNextHevcFallback();
             };
             previewMessageReload.addEventListener('click', () => video.load());
             const togglePlayback = () => {
@@ -10389,8 +10408,20 @@ body { display: grid; place-items: center; padding: 32px; }
                 // probably/maybe だったが実際には再生できなかった」ケースだけフォールバックを試す。
                 if (errorCode === 3 || errorCode === 4) {
                     const segment = segments[activeSegmentIndex];
-                    const sourceId = segment && segment.kind === 'src' ? String(segment.src) : '';
+                    const segmentSourceId = segment && segment.kind === 'src' ? String(segment.src) : '';
+                    const sourceId = currentVideoSourceId || segmentSourceId;
                     attemptHevcFallback(errorCode, initial.videoSourceUris[sourceId] || initial.videoUri);
+                }
+            });
+            transitionVideo.addEventListener('error', () => {
+                const errorCode = transitionVideo.error ? transitionVideo.error.code : 0;
+                if (errorCode === 3 || errorCode === 4) {
+                    const videoUri = initial.videoSourceUris[currentTransitionVideoSourceId];
+                    if (typeof videoUri === 'string' && videoUri) {
+                        // 先読み中の未来のカットはまだ画面に出ていないため、再生中の画面を
+                        // エラー表示へ切り替えず、変換要求だけを静かに送る。
+                        attemptHevcFallback(errorCode, videoUri);
+                    }
                 }
             });
             audioNoticeDismiss.addEventListener('click', () => {
