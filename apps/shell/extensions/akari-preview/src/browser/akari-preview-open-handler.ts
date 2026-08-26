@@ -39,6 +39,10 @@ import {
     sfxFadeGainSchedule
 } from '../common/audio-schedule';
 import { classifyEditAssetPath, uncToFileUriString, windowsDriveToFileUriString } from '../common/edit-asset-path';
+import {
+    hasThreeDimensionalTextOverlay,
+    resolveThreeSceneDescriptorAssets
+} from '../common/three-scene-assets';
 import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
 import { persistCaptionText, persistCaptionZone } from '../common/caption-zone-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
@@ -800,10 +804,10 @@ const THREE_SCENE_KEYS = new Set([
     'lights',
     'animationClip',
     'materialOverrides',
-    // environment / shadows がここに無いと宣言ごと拒否され、model パスが空になって
-    // preview の読み込みが失敗していた（export は別経路のため影響を受けていなかった）
     'environment',
-    'shadows'
+    'shadows',
+    'texts',
+    'physics'
 ]);
 const LAYER_BLEND_TO_CSS = new Map<string, string>([
     ['normal', 'normal'],
@@ -2543,6 +2547,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             output: { ...model.summary.output },
             overlayRuntimeAssets: [
                 assets.threeJavaScript,
+                assets.threeTextJavaScript,
                 assets.threeRuntimeJavaScript,
                 assets.videoFxJavaScript,
                 assets.runtimeJavaScript,
@@ -3713,14 +3718,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         }
         for (const declaration of Array.from(declarations)) {
             try {
-                const descriptor = JSON.parse(declaration.textContent || '{}');
-                if (!descriptor || typeof descriptor !== 'object' || Array.isArray(descriptor)
-                    || typeof descriptor.model !== 'string' || !descriptor.model) {
-                    throw new TypeError('data-akari-3d-scene.model は edit.json 相対の .glb パスである必要があります');
-                }
-                if (Object.keys(descriptor).some(key => !THREE_SCENE_KEYS.has(key))) {
-                    throw new TypeError('data-akari-3d-scene に未対応の top-level key があります');
-                }
                 const resolveAsset = async (relativePath: string, field: string): Promise<string> => {
                     if (relativePath.startsWith('/') || /^[a-z][a-z\d+.-]*:/i.test(relativePath)) {
                         throw new TypeError(`${field} に絶対パスや URL は指定できません`);
@@ -3735,19 +3732,32 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     }
                     return stream.url;
                 };
-                const modelPath: string = descriptor.model;
-                descriptor.model = await resolveAsset(modelPath, 'data-akari-3d-scene.model');
-                try {
-                    const modelContent = await this.fileService.readFile(editUri.parent.resolve(modelPath));
-                    const unsupported = this.detectUnsupportedGltfExtensions(modelContent.value.buffer);
-                    if (unsupported.length > 0) {
-                        unsupportedGltfWarnings.push(
-                            `3D モデル ${modelPath} が ${unsupported.join('/')} 圧縮のため読み込めません` +
-                            `（書き出しも同様に失敗します。非圧縮で書き出し直してください）`
+                const parsedDescriptor: unknown = JSON.parse(declaration.textContent || '{}');
+                if (!parsedDescriptor || typeof parsedDescriptor !== 'object' || Array.isArray(parsedDescriptor)) {
+                    throw new TypeError('data-akari-3d-scene は JSON object である必要があります');
+                }
+                if (Object.keys(parsedDescriptor).some(key => !THREE_SCENE_KEYS.has(key))) {
+                    throw new TypeError('data-akari-3d-scene に未対応の top-level key があります');
+                }
+                const resolved = await resolveThreeSceneDescriptorAssets(parsedDescriptor, resolveAsset);
+                const descriptor = resolved.descriptor;
+                if (resolved.modelPath) {
+                    try {
+                        const modelContent = await this.fileService.readFile(editUri.parent.resolve(resolved.modelPath));
+                        const unsupported = this.detectUnsupportedGltfExtensions(modelContent.value.buffer);
+                        if (unsupported.length > 0) {
+                            unsupportedGltfWarnings.push(
+                                `3D モデル ${resolved.modelPath} が ${unsupported.join('/')} 圧縮のため読み込めません` +
+                                `（書き出しも同様に失敗します。非圧縮で書き出し直してください）`
+                            );
+                        }
+                    } catch (error) {
+                        console.warn(
+                            '[akari-preview] failed to inspect 3D model for unsupported glTF extensions',
+                            resolved.modelPath,
+                            error
                         );
                     }
-                } catch (error) {
-                    console.warn('[akari-preview] failed to inspect 3D model for unsupported glTF extensions', modelPath, error);
                 }
                 if (descriptor.environment?.map !== undefined) {
                     if (typeof descriptor.environment.map !== 'string' || !descriptor.environment.map) {
@@ -4482,6 +4492,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         kind: 'raw' | 'output' = 'output'
     ): string {
         const { width, height } = model.summary.output;
+        const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
+            ? `<script>${this.inlineScript(assets.threeTextJavaScript)}</script>\n`
+            : '';
         // render-cut captions.mjs の既定とパリティ（stage は出力 px 論理空間）:
         // 縦長 = 出力幅 6% / 横長 = 38px。従来の height*0.05 は焼き込みよりも大きく表示される乖離だった。
         const captionFontSize = height > width ? Math.round(width * 0.06) : 38;
@@ -4779,7 +4792,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <script>window.__akariCaptionFontReady = (async () => { await document.fonts.load(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)}); await document.fonts.ready; if (!document.fonts.check(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)})) throw new Error('AKARI caption font did not load'); return true; })();</script>
 <script>${this.hostAdapterScript()}</script>
 <script>${this.inlineScript(assets.threeJavaScript)}</script>
-<script>${this.inlineScript(assets.threeRuntimeJavaScript)}</script>
+${threeTextRuntimeScript}<script>${this.inlineScript(assets.threeRuntimeJavaScript)}</script>
 <script>${this.inlineScript(assets.videoFxJavaScript)}</script>
 <script>${this.inlineScript(assets.runtimeJavaScript)}</script>
 <script>${this.inlineScript(assets.interactionJavaScript)}</script>

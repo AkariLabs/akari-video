@@ -8,7 +8,7 @@ const base = () => ({
     assetUris: ['file:///project/layer.mov', 'file:///project/bgm.wav'],
     overlayUris: ['file:///project/overlay.html'],
     output: { width: 1920, height: 1080, fps: 30 },
-    overlayRuntimeAssets: ['three', 'three-runtime', 'runtime', 'interaction', 'css', 'kernel', 'font'],
+    overlayRuntimeAssets: ['three', 'three-text', 'three-runtime', 'runtime', 'interaction', 'css', 'kernel', 'font'],
     captions: [{ id: 'c1', start: 0, end: 1, text: 'before' }],
     summary: {
         output: { width: 1920, height: 1080, fps: 30 },
@@ -51,7 +51,7 @@ test('ソース URI の増減、fps、解像度、overlay runtime 資産は全�
         model => model.sourceUris.push('alt=file:///project/alt.mp4'),
         model => { model.output.fps = 60; },
         model => { model.output.width = 1080; },
-        model => { model.overlayRuntimeAssets[2] = 'runtime-v2'; }
+        model => { model.overlayRuntimeAssets[3] = 'runtime-v2'; }
     ]) {
         const previous = base();
         const next = structuredClone(previous);
