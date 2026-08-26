@@ -168,6 +168,12 @@ export type GetH264ProxyResult =
 interface ProxyMeta {
     sourceCodec: string;
     sourcePixelFormat?: string;
+    // The 2026-08-26 orphan-cache investigation could not reconstruct the inputs used at
+    // generation time. Persisting them makes future cache-key mismatches directly diagnosable.
+    cacheKey: string;
+    sourcePath: string;
+    sourceSize: number;
+    sourceMtimeMs: number;
     proxyCodec: string;
     proxyPixelFormat?: string;
     generatedAt: string;
@@ -233,6 +239,9 @@ export async function getH264Proxy(projectRoot: string, videoPath: string): Prom
                 '-f', 'webm'
             ] : [
                 '-c:v', 'libx264',
+                // Preserving yuv420p10le would produce H.264 High 10, which Chromium does not
+                // guarantee it can decode. The opaque fallback must always be 8-bit yuv420p.
+                '-pix_fmt', 'yuv420p',
                 '-preset', 'veryfast',
                 '-crf', '20',
                 '-c:a', 'aac',
@@ -256,8 +265,12 @@ export async function getH264Proxy(projectRoot: string, videoPath: string): Prom
         const meta: ProxyMeta = {
             sourceCodec: codecName ?? 'unknown',
             ...(pixelFormat ? { sourcePixelFormat: pixelFormat } : {}),
+            cacheKey: hash,
+            sourcePath: videoPath,
+            sourceSize: stat.size,
+            sourceMtimeMs: stat.mtimeMs,
             proxyCodec: hasAlpha ? 'vp9' : 'h264',
-            ...(hasAlpha ? { proxyPixelFormat: 'yuva420p' } : {}),
+            proxyPixelFormat: hasAlpha ? 'yuva420p' : 'yuv420p',
             generatedAt: new Date().toISOString()
         };
         await writeAtomicJson(metaDestination, meta);
