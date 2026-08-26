@@ -2,7 +2,14 @@
 
 // タイムライン写像（source↔output）の正本は packages/edit-store/src/timeline-map.ts
 // （パリティ契約 §2.1/§2.2。書き込み側 SSOT computeCutTrackSegments と同じ意味論）。
-import { buildTimelineMap, outputToSource, findActiveCaption, transitionProgressAt } from '/edit-kernel.bundle.js';
+import {
+  buildTimelineMap,
+  computeTransitionVisual,
+  findActiveCaption,
+  outputToSource,
+  TRANSITION_BY_ID,
+  transitionProgressAt,
+} from '/edit-kernel.bundle.js';
 // ペンの視覚正本は packages/pen-visuals（パリティ契約 §2.8）。定数も描画コードも共有する。
 import {
   PEN_TUNING,
@@ -32,7 +39,7 @@ import {
 } from '/audio-declick.js';
 import { editForPut } from '/transition-write-guard.js';
 import { dbToGain, resolveSfxWindow, scheduleSfxAt } from '/audio-clip.js';
-import { transitionVisualState } from '/transition-visual.js';
+import { createTransitionVisualApplicator } from '/transition-visual.js';
 
 const SETTINGS_KEY = 'akari-preview-settings';
 function loadSettings() {
@@ -84,6 +91,7 @@ const stage = document.getElementById('overlay-stage');
 const cutFxLayer = document.getElementById('cut-fx-layer');
 const captionPlate = document.getElementById('caption-plate');
 const transitionPlate = document.getElementById('transition-plate');
+const transitionFallbackLabel = document.getElementById('transition-fallback-label');
 const previewPane = document.querySelector('.preview-pane');
 const wrapper = document.getElementById('preview-wrapper');
 const zoomLayer = document.getElementById('zoom-layer');
@@ -102,6 +110,14 @@ const indicatorBtn = document.getElementById('indicator-toggle');
 const indicatorPopup = document.getElementById('indicator-popup');
 const reviewRecordBtn = document.getElementById('review-record-btn');
 const reviewTimer = document.getElementById('review-timer');
+
+const transitionApplicator = createTransitionVisualApplicator({
+  stage: previewStage,
+  incomingElement: transitionVideo,
+  plate: transitionPlate,
+  fallbackLabel: transitionFallbackLabel,
+  rerender: () => updateTransitions(),
+});
 
 const TRACK_COLORS = { bgm: '#4da3ff', narration: '#ffd94a', sfx: '#ff798c' };
 
@@ -2351,6 +2367,7 @@ function seekTo(t) {
   updateCaption();
   syncCaptionAnimations();
   updateOverlays();
+  applyCutFramingVisual();
   // 一時停止中のシークでもトランジション帯を反映する（P2-1）
   updateTransitions();
   // 音はシーク先へ組み替える（BGM は作り直し、ナレーション / 効果音は再武装）。
@@ -2359,7 +2376,6 @@ function seekTo(t) {
   syncAudio(outputTime);
   syncLayers(outputTime);
   renderVideoFx(outputTime);
-  applyCutFramingVisual();
   cutFx.update();
 }
 
@@ -2506,9 +2522,7 @@ function updateTransitions() {
   const window = (timelineMap.transitionWindows ?? [])
     .find(candidate => outputTime >= candidate.start && outputTime < candidate.end);
   if (!window) {
-    transitionPlate.style.opacity = '0';
-    transitionPlate.style.visibility = 'hidden';
-    transitionVideo.style.display = 'none';
+    transitionApplicator.reset();
     transitionVideo.pause();
     return;
   }
@@ -2520,19 +2534,52 @@ function updateTransitions() {
   const target = (incoming.in ?? 0) + (outputTime - incoming.outStart) * transitionVideo.playbackRate;
   syncMediaCurrentTime(transitionVideo, target, isPlaying ? SYNC_DEADBAND_SEC : 0.001);
   transitionVideo.style.display = 'block';
-  transitionVideo.style.opacity = '1';
-  transitionVideo.style.clipPath = 'none';
-  transitionPlate.style.visibility = 'hidden';
-  transitionPlate.style.opacity = '0';
-
-  const plate = (timelineMap.transitionPlates ?? []).find(candidate =>
-    candidate.start === window.start && candidate.end === window.end);
-  const visual = transitionVisualState(window.type, p, plate?.color);
-  transitionVideo.style.opacity = String(visual.videoOpacity);
-  transitionVideo.style.clipPath = visual.clipPath;
-  transitionPlate.style.opacity = String(visual.plateOpacity);
-  transitionPlate.style.visibility = visual.plateVisible ? 'visible' : 'hidden';
-  if (visual.plateColor) transitionPlate.style.background = visual.plateColor;
+  const definition = TRANSITION_BY_ID[window.type];
+  const visual = computeTransitionVisual(
+    definition?.previewKind || 'fallback',
+    p,
+    definition?.labelJa || String(window.type),
+  );
+  const outgoingSegment = getActiveSegment(outputTime);
+  const outgoingElement = isStillImageCutSegment(outgoingSegment) ? img : video;
+  const os = outputSizePx();
+  const outgoingFramingVisual = computeCutFramingVisual(
+    outgoingSegment?.framing,
+    playedCutLocalSeconds(outgoingSegment),
+  );
+  const outgoingComposed = composeCutVisualStyle({
+    framingVisual: outgoingFramingVisual,
+    transform: outgoingSegment?.transform,
+    opacity: outgoingSegment?.opacity,
+    outputWidth: os.width,
+    outputHeight: os.height,
+  });
+  const incomingCut = summary?.cuts?.[incoming.cutIndex] ?? null;
+  const incomingLocalTime = Math.max(0, outputTime - window.start);
+  const incomingFramingVisual = computeCutFramingVisual(incomingCut?.framing, incomingLocalTime);
+  const incomingComposed = composeCutVisualStyle({
+    framingVisual: incomingFramingVisual,
+    transform: incomingCut?.transform,
+    opacity: incomingCut?.opacity,
+    outputWidth: os.width,
+    outputHeight: os.height,
+  });
+  transitionApplicator.apply({
+    visual,
+    type: window.type,
+    outgoingElement,
+    outgoingBaseTransform: outgoingComposed.transform,
+    incomingBaseTransform: incomingComposed.transform,
+    incomingTransformOrigin: incomingComposed.transformOrigin,
+    outgoingBaseOpacity: Number.isFinite(Number.parseFloat(outgoingComposed.opacity))
+      ? Number.parseFloat(outgoingComposed.opacity) : 1,
+    incomingBaseOpacity: Number.isFinite(Number.parseFloat(incomingComposed.opacity))
+      ? Number.parseFloat(incomingComposed.opacity) : 1,
+    outgoingZ: 0,
+    incomingZ: 1,
+    width: os.width,
+    height: os.height,
+  });
   if (isPlaying) ensureMediaPlaying(transitionVideo, true);
 }
 
