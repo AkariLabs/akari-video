@@ -72,7 +72,19 @@ test('host fallback gate is source-pinned and simulated because its browser modu
     assert.equal(refreshCount, 2);
 });
 
-test('webview requests the active segment source once and only after that segment fails', () => {
+test('webview pins the loaded source and serializes fallback requests in FIFO order', () => {
+    const processBody = extractBetween(
+        '            const processNextHevcFallback = () => {',
+        '\n            const attemptHevcFallback = (errorCode, videoUri) => {'
+    );
+    assert.match(processBody, /if \(hevcFallbackInFlight \|\| hevcFallbackQueue\.length === 0\) return;/u);
+    assert.match(processBody, /const request = hevcFallbackQueue\.shift\(\);/u);
+    assert.match(processBody, /hevcFallbackInFlight = true;/u);
+    assert.match(processBody, /resolveHevcFallback\(request\.errorCode, request\.requestKey\)/u);
+    assert.match(processBody, /if \(playbackErrored\) \{[\s\S]*?互換用に変換しています…[\s\S]*?previewMessageReload\.hidden = true;[\s\S]*?\}/u);
+    assert.match(processBody, /\.then\(\(\) => \{[\s\S]*?hevcFallbackInFlight = false;[\s\S]*?processNextHevcFallback\(\);[\s\S]*?\}, \(\) => \{/u);
+    assert.match(processBody, /\}, \(\) => \{[\s\S]*?if \(playbackErrored\) \{[\s\S]*?再読み込みを試してください。[\s\S]*?previewMessageReload\.hidden = false;[\s\S]*?\}[\s\S]*?hevcFallbackInFlight = false;[\s\S]*?processNextHevcFallback\(\);/u);
+
     const attemptBody = extractBetween(
         '            const attemptHevcFallback = (errorCode, videoUri) => {',
         "\n            previewMessageReload.addEventListener('click'"
@@ -80,14 +92,16 @@ test('webview requests the active segment source once and only after that segmen
     assert.match(attemptBody, /const requestKey = typeof videoUri === 'string' && videoUri \? videoUri : initial\.videoUri/u);
     assert.match(attemptBody, /if \(hevcFallbackRequested\.has\(requestKey\)\) return;/u);
     assert.match(attemptBody, /hevcFallbackRequested\.add\(requestKey\);/u);
-    assert.match(attemptBody, /resolveHevcFallback\(errorCode, requestKey\)/u);
+    assert.match(attemptBody, /hevcFallbackQueue\.push\(\{ errorCode, requestKey \}\);/u);
+    assert.match(attemptBody, /processNextHevcFallback\(\);/u);
 
     const errorBody = extractBetween(
         "            video.addEventListener('error', () => {",
         "\n            audioNoticeDismiss.addEventListener('click'"
     );
     assert.match(errorBody, /const segment = segments\[activeSegmentIndex\];/u);
-    assert.match(errorBody, /const sourceId = segment && segment\.kind === 'src' \? String\(segment\.src\) : '';/u);
+    assert.match(errorBody, /const segmentSourceId = segment && segment\.kind === 'src' \? String\(segment\.src\) : '';/u);
+    assert.match(errorBody, /const sourceId = currentVideoSourceId \|\| segmentSourceId;/u);
     assert.match(errorBody, /attemptHevcFallback\(errorCode, initial\.videoSourceUris\[sourceId\] \|\| initial\.videoUri\);/u);
 
     const initial = {
@@ -97,35 +111,34 @@ test('webview requests the active segment source once and only after that segmen
             'take-b': 'file:///project/assets/take-b.mp4'
         }
     };
-    const segments = [
-        { kind: 'src', src: 'take-a' },
-        { kind: 'src', src: 'take-b' }
-    ];
     const requested = new Set();
+    const queue = [];
     const sent = [];
+    let inFlight = false;
+    const processNext = () => {
+        if (inFlight || queue.length === 0) return;
+        inFlight = true;
+        sent.push(queue.shift());
+    };
     const attemptHevcFallback = (errorCode, videoUri) => {
         const requestKey = typeof videoUri === 'string' && videoUri ? videoUri : initial.videoUri;
         if (requested.has(requestKey)) return;
         requested.add(requestKey);
-        sent.push({ errorCode, requestKey });
+        queue.push({ errorCode, requestKey });
+        processNext();
     };
-    let activeSegmentIndex = 0;
-    const fireVideoError = errorCode => {
-        const segment = segments[activeSegmentIndex];
-        const sourceId = segment && segment.kind === 'src' ? String(segment.src) : '';
-        attemptHevcFallback(errorCode, initial.videoSourceUris[sourceId] || initial.videoUri);
+    const completeCurrent = () => {
+        inFlight = false;
+        processNext();
     };
 
-    fireVideoError(3);
-    fireVideoError(3);
-    assert.deepEqual(sent, [{ errorCode: 3, requestKey: initial.videoSourceUris['take-a'] }]);
-
-    activeSegmentIndex = 1;
-    assert.equal(sent.some(request => request.requestKey === initial.videoSourceUris['take-b']), false);
-    fireVideoError(4);
-    fireVideoError(4);
+    attemptHevcFallback(3, initial.videoSourceUris['take-b']);
+    attemptHevcFallback(3, initial.videoSourceUris['take-b']);
+    attemptHevcFallback(4, initial.videoSourceUris['take-a']);
+    assert.deepEqual(sent, [{ errorCode: 3, requestKey: initial.videoSourceUris['take-b'] }]);
+    completeCurrent();
     assert.deepEqual(sent, [
-        { errorCode: 3, requestKey: initial.videoSourceUris['take-a'] },
-        { errorCode: 4, requestKey: initial.videoSourceUris['take-b'] }
+        { errorCode: 3, requestKey: initial.videoSourceUris['take-b'] },
+        { errorCode: 4, requestKey: initial.videoSourceUris['take-a'] }
     ]);
 });
