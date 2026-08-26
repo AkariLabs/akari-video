@@ -1,3 +1,17 @@
+// 【凍結中の申し送り（2026-08-27 裁定）】本ファイルはプレビュー側 ducking の「唯一の
+// 純関数 + テスト付き実装」だが、**正本ではない**。同じ規則が Web UI
+// （packages/preview-server/public/app.js の hasNarration / duckDb）と shell
+// （apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts の
+// duckGainDbAt）にインラインで各 1 本あり、プレビュー側は計 3 実装ある。
+// 2026-08-27 実測で 3 者は数値的に同値（0〜10s を 10ms 刻み × ducking on/off の 2,002 点で
+// 不一致 0）。共有カーネル（packages/edit-store）への一本化は消費側 2 ファイルの書き換えを
+// 伴うため別タスク扱い。**本パッケージの凍結解除時は本ファイルを残さず、カーネル側を
+// import すること**（詳細は README.md 冒頭の凍結ノート）。
+//
+// なお 3 実装いずれの固定 -12dB も、正である render-cut の
+// sidechaincompress=threshold=0.063:ratio=8:attack=5:release=300 とは挙動が違う近似である
+// （正は narration の実レベル依存の可変減衰 + attack 5ms / release 300ms の時間応答を持つ。
+// こちらは区間内なら常に -12dB・立ち上がり/戻りは瞬時）。
 // narration 静的ダッキング近似（契約 docs/contract-2026-07-20-edit-json-v1-narration.md §3、
 // docs/contract-2026-07-14-edit-json-v1-audio.md §3-4 の "静的近似 -12dB" と同じ思想）。
 // DOM 非依存の純粋関数のみ（Node の `node --test` で直接検証できる）。

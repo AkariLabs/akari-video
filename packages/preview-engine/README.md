@@ -1,5 +1,43 @@
 # @akari-video/preview-engine
 
+> ## 🧊 状態: **凍結中（2026-08-27 裁定）** — 接続先未定・ビルド/配信ラインから除外済み
+>
+> このパッケージは **どのアプリからも import されていない**。2026-07-15〜16 の実装ラウンド以降、
+> `packages/preview-server` が `public/preview-engine.bundle.js` へバンドル・配信していたが、
+> `public/index.html` にも `public/app.js` にも読み込み口が無く、実行されたことは一度も無い
+> （死蔵の確定根拠: 内部監査 2026-08-17）。維持費（ビルド時間・381KB のバンドル配信・
+> 追随改修による保守錯覚）だけが発生していたため、**ビルド・配信ラインから外した**:
+>
+> - `packages/preview-server/package.json` の `build` から preview-engine の esbuild を削除
+> - 追跡されていた `packages/preview-server/public/preview-engine.bundle.js` を削除
+> - `packages/preview-server/test/server.spec.mjs` の「配信されるか」スモークを削除
+>
+> **コードは消していない**。エンジン v2 構想（合成エンジンを 1 個に統一する
+> WebCodecs + GPU コンポジタ路線・2026-08-26 オーナー承認）で **土台候補**として実査済みであり、
+> 「再利用するか新規に起こすか」はエンジン v2 のゲート G1（Phase 0 スパイクの実測と併せて裁定）
+> に委ねられている。それまでは触らない — **本パッケージへの追随改修を新たに入れないこと**
+> （入れても誰も実行しない。必要な変更は G1 の裁定後に、再利用と決まってから行う）。
+>
+> ### 凍結の解除（復活）手順
+>
+> 1. `packages/preview-server/package.json` の `build` 先頭へ次を戻す:
+>    `esbuild ../preview-engine/src/index.ts --bundle --format=esm --outfile=public/preview-engine.bundle.js --target=chrome122 --platform=browser && `
+> 2. `public/index.html` か `public/app.js` に**実際の読み込み口**を作る（これが無かったのが死蔵の原因）
+> 3. 必要なら `server.spec.mjs` の配信スモークを復活させる（削除前の内容は git 履歴を参照）
+>
+> ### 凍結中に確定した申し送り
+>
+> - **ducking の正本は本パッケージではない**。`src/duckingGain.ts` は「BGM を下げる区間」の
+>   計算を純関数 + テスト付きで持つ唯一の実装だが、同じ規則が Web UI（`packages/preview-server/public/app.js`）
+>   と shell（`apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts`）に
+>   インラインで各 1 本ある（= プレビュー側は計 3 実装）。2026-08-27 時点で 3 者は数値的に同値
+>   （0〜10s を 10ms 刻み × ducking on/off の 2,002 点で不一致 0 を実測）。
+>   共有カーネル（`packages/edit-store`）への一本化は消費側 2 ファイルの書き換えを伴うため
+>   別タスク扱い。**復活時は `src/duckingGain.ts` を残さず、カーネル側を import すること**
+> - `src/timeline.ts` の `Timeline` は MVP 用の素朴な解決器で、`packages/edit-store` の
+>   timeline-map 共有カーネル（トラック勝者・時間写像の正本）とは別物。復活時は timeline-map を正とする
+
+
 シェル非依存の TS プレビューエンジン（レベル3: Chromium 内完結、WebCodecs + `@webav/av-cliper` 基盤）。
 正本契約（E1〜E5）は非公開の内部 planning で管理する（本リポには置かない方針）。
 パラメータの根拠・設計判断の要約は本 README 「E1〜E4 の実装メモ」節を参照。

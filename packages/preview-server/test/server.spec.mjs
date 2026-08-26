@@ -90,14 +90,6 @@ test.describe('Preview Server', () => {
     expect(headers['accept-ranges']).toBe('bytes');
   });
 
-  test('preview-engine.bundle.js is served', async ({ request }) => {
-    const res = await request.get(`${BASE}/preview-engine.bundle.js`);
-    expect(res.ok()).toBeTruthy();
-    const text = await res.text();
-    expect(text).toContain('PreviewEngine');
-    expect(text.length).toBeGreaterThan(100_000);
-  });
-
   test('404 for missing file', async ({ request }) => {
     const res = await request.get(`${BASE}/nonexistent.txt`);
     expect(res.status()).toBe(404);
