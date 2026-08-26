@@ -611,6 +611,7 @@ const TRANSCRIPT_SEEK_COMMAND_ID = 'akari.transcript.seekRequested';
 // プレビュー全画面（togglePreviewFullscreen）で widget.node に付ける CSS クラスと、
 // そのスタイルを注入する <style> 要素の id。
 const PREVIEW_FULLSCREEN_CLASS = 'akari-preview-fullscreen';
+const PREVIEW_FULLSCREEN_ANCESTOR_CLASS = 'akari-preview-fullscreen-ancestor';
 const PREVIEW_FULLSCREEN_STYLE_ID = 'akari-preview-fullscreen-style';
 // akari-annotations 側の PREVIEW_PLAYBACK_TICK_EVENT とミラー。
 const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
@@ -4445,6 +4446,21 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // 属する document を基準にする（style 注入・Escape とも）。
         const ownerDocument = widget.node.ownerDocument;
         this.ensurePreviewFullscreenStyle(ownerDocument);
+        const markedAncestors: HTMLElement[] = [];
+        let ancestor = widget.node.parentElement;
+        while (ancestor) {
+            ancestor.classList.add(PREVIEW_FULLSCREEN_ANCESTOR_CLASS);
+            markedAncestors.push(ancestor);
+            if (ancestor === ownerDocument.body) {
+                break;
+            }
+            ancestor = ancestor.parentElement;
+        }
+        this.toDisposeOnPreviewFullscreenExit.push(Disposable.create(() => {
+            for (const markedAncestor of markedAncestors) {
+                markedAncestor.classList.remove(PREVIEW_FULLSCREEN_ANCESTOR_CLASS);
+            }
+        }));
         widget.node.classList.add(PREVIEW_FULLSCREEN_CLASS);
         this.fullscreenPreviewWidget = widget;
         // webview 内にフォーカスがあるときの Escape は webview 側のリスナーが
@@ -4495,6 +4511,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // !important は Lumino DockLayout が widget.node に書き込むインライン配置
         // （position: absolute / top / left / width / height）へ勝つために必要。
         style.textContent = `
+.${PREVIEW_FULLSCREEN_ANCESTOR_CLASS} {
+    z-index: auto !important;
+}
 .${PREVIEW_FULLSCREEN_CLASS} {
     position: fixed !important;
     top: 0 !important;
@@ -5682,6 +5701,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     const fit = fitCompositeRect(availWidth, availHeight, video.videoWidth, video.videoHeight);
                     if (!(fit.width > 0) || !(fit.height > 0)) return;
                     wrapper.style.aspectRatio = 'auto';
+                    wrapper.style.position = 'absolute';
+                    wrapper.style.inset = '0';
+                    wrapper.style.margin = 'auto';
                     wrapper.style.width = fit.width + 'px';
                     wrapper.style.height = fit.height + 'px';
                     updateStageScale();
