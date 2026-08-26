@@ -3140,28 +3140,52 @@ fullscreenToggle.addEventListener('click', () => {
 // （「3D を読み込み中」）が永久に出たままだった（実機報告 2026-08-07。three.js の取得要求は
 // ゼロ = 遅いのではなく未実装）。shell と同じ packages/overlay-runtime のランタイムを使う。
 //
-// vendor は 776KB あるので、断片が実際に 3D を宣言していた時だけ読む。
-// 宣言の無いプロジェクトのダウンロード量は 1 バイトも増えない。
+// three vendor は 3D 宣言時だけ、追加の text vendor は texts[] 宣言時だけ読む。
+// 該当宣言の無いプロジェクトのダウンロード量は 1 バイトも増えない。
+let threeBundleReady = null;
+let threeTextBundleReady = null;
 let threeRuntimeReady = null;
-function ensureThreeRuntime() {
-  if (threeRuntimeReady) return threeRuntimeReady;
-  const loadScript = (src) => new Promise((resolve, reject) => {
-    const el = document.createElement('script');
-    el.src = src;
-    el.async = false; // vendor → runtime の順序を守る
-    el.onload = () => resolve();
-    el.onerror = () => reject(new Error(`${src} を読み込めませんでした`));
-    document.head.appendChild(el);
-  });
-  threeRuntimeReady = (async () => {
-    await loadScript('/three-bundle.js');
-    await loadScript('/three-runtime.js');
-    return Boolean(window.akari?.threeRuntime);
+const loadThreeScript = (src) => new Promise((resolve, reject) => {
+  const el = document.createElement('script');
+  el.src = src;
+  el.async = false; // vendor → runtime の順序を守る
+  el.onload = () => resolve();
+  el.onerror = () => reject(new Error(`${src} を読み込めませんでした`));
+  document.head.appendChild(el);
+});
+function ensureThreeBundle() {
+  if (!threeBundleReady) threeBundleReady = loadThreeScript('/three-bundle.js');
+  return threeBundleReady;
+}
+function ensureThreeTextBundle() {
+  if (!threeTextBundleReady) {
+    threeTextBundleReady = (async () => {
+      await ensureThreeBundle();
+      await loadThreeScript('/vendor-3d-text-bundle.js');
+    })();
+  }
+  return threeTextBundleReady;
+}
+function ensureThreeRuntime(needsText = false) {
+  const prerequisites = needsText ? ensureThreeTextBundle() : ensureThreeBundle();
+  if (!threeRuntimeReady) {
+    threeRuntimeReady = (async () => {
+      await prerequisites;
+      await loadThreeScript('/three-runtime.js');
+      return Boolean(window.akari?.threeRuntime);
+    })().catch((e) => {
+      console.warn('[preview] 3D ランタイムを読み込めませんでした', e);
+      return false;
+    });
+  }
+  return (async () => {
+    await prerequisites;
+    const runtimeReady = await threeRuntimeReady;
+    return runtimeReady && Boolean(window.akari?.threeRuntime);
   })().catch((e) => {
     console.warn('[preview] 3D ランタイムを読み込めませんでした', e);
     return false;
   });
-  return threeRuntimeReady;
 }
 // プレビューの描画バッファ上限（長辺 px）。書き出しには渡さないので最終品質は不変。
 // プレビューは「位置と動きを掴む」用途なので等倍で描く必要がない。
@@ -3170,7 +3194,9 @@ const PREVIEW_3D_MAX_RENDER_SIZE = 720;
 // --- Overlay runtime ---
 function createOverlayRuntime() {
   const overlays = [];
+  let mountGeneration = 0;
   function unmount() {
+    mountGeneration++;
     for (const o of overlays) {
       if (o.is3d) window.akari?.threeRuntime?.dispose(o.el);
     }
@@ -3179,13 +3205,16 @@ function createOverlayRuntime() {
   }
   // 断片の HTML が入った後に判定する（html はファイル参照で非同期に届くため）
   function markThreeOverlay(rec) {
-    rec.is3d = Boolean(rec.el.querySelector('script[type="application/json"][data-akari-3d-scene]'));
-    if (rec.is3d) ensureThreeRuntime();
+    const scene = rec.el.querySelector('script[type="application/json"][data-akari-3d-scene]');
+    rec.is3d = Boolean(scene);
+    rec.needsThreeText = Boolean(scene?.textContent?.includes('"texts"'));
   }
   function mount(s) {
     unmount();
     if (!Array.isArray(s?.overlays)) return;
+    const generation = mountGeneration;
     const frag = document.createDocumentFragment();
+    const fragmentLoads = [];
     for (const o of s.overlays) {
       const c = document.createElement('div');
       c.dataset.overlayId = String(o.id);
@@ -3217,18 +3246,20 @@ function createOverlayRuntime() {
       }
       // html は「< で始まればインライン、それ以外はファイルパス参照」（shell と同一解釈。lint 契約はパス参照が正）
       const rawHtml = typeof o.html === 'string' ? o.html : '';
-      const rec = { el: c, start: o.start, duration: o.duration, visible: false, is3d: false, hitPolicyPending: false };
+      const rec = { el: c, start: o.start, duration: o.duration, visible: false, is3d: false, needsThreeText: false, threeReady: false, hitPolicyPending: false };
       if (rawHtml && !rawHtml.trimStart().startsWith('<')) {
         c.innerHTML = '';
-        fetch(resolveMediaUrl(rawHtml))
+        const load = fetch(resolveMediaUrl(rawHtml))
           .then(r => (r.ok ? r.text() : ''))
           .then(html => {
+            if (generation !== mountGeneration) return;
             c.innerHTML = html || '';
             markThreeOverlay(rec);
             window.akari.interaction?.invalidateOverlayHitPolicy?.(c);
             rec.hitPolicyPending = rec.visible;
           })
           .catch(() => {});
+        fragmentLoads.push(load);
       } else {
         c.innerHTML = rawHtml;
         markThreeOverlay(rec);
@@ -3237,6 +3268,15 @@ function createOverlayRuntime() {
       overlays.push(rec);
     }
     stage.appendChild(frag);
+    Promise.all(fragmentLoads).then(async () => {
+      if (generation !== mountGeneration) return;
+      const threeOverlays = overlays.filter(o => o.is3d);
+      if (threeOverlays.length === 0) return;
+      const ready = await ensureThreeRuntime(threeOverlays.some(o => o.needsThreeText));
+      if (generation !== mountGeneration) return;
+      for (const rec of threeOverlays) rec.threeReady = ready;
+      if (ready) updateOverlays();
+    });
   }
   // 断片の実寸はアニメで毎フレーム変わりうる。外枠のサイズは固定なのでキャッシュ判定が
   // できず、可視中の断片は毎回測り直す（同時に見えている断片は通常 1〜3 枚）。
@@ -3264,6 +3304,7 @@ function createOverlayRuntime() {
       if (!v) continue;
       const ms = Math.max(0, (t - o.start) * 1000);
       if (o.is3d) {
+        if (!o.threeReady) continue;
         // 3D 断片は three 側が時刻を持つ（mixer.setTime）。shell と同じく
         // getAnimations ループは回さない — ここで continue する
         window.akari?.threeRuntime?.render(o.el, ms / 1000, {

@@ -63,6 +63,7 @@ const CAPTION_FONT_ROUTE = '/assets/fonts/akari-noto-sans-jp.ttf';
 // projectRoot もユーザー入力も経由しないため traversal で別ファイルを選べない。
 const THREE_ROUTES = {
   '/three-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/three-bundle.js', import.meta.url)),
+  '/vendor-3d-text-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/vendor-3d-text-bundle.js', import.meta.url)),
   '/three-runtime.js': fileURLToPath(new URL('../../overlay-runtime/src/three-runtime.js', import.meta.url)),
   '/video-fx.js': fileURLToPath(new URL('../../overlay-runtime/src/video-fx.js', import.meta.url)),
 };
