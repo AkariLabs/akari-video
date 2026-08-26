@@ -3,6 +3,7 @@ import { CommandContribution, MenuContribution } from '@theia/core/lib/common';
 import { ContainerModule } from '@theia/core/shared/inversify';
 import {
     FrontendApplicationContribution,
+    KeybindingContribution,
     OpenHandler,
     WebSocketConnectionProvider,
     WidgetFactory
@@ -49,6 +50,7 @@ export default new ContainerModule(bind => {
     bind(AkariHomeCommandContribution).toSelf().inSingletonScope();
     bind(CommandContribution).toService(AkariHomeCommandContribution);
     bind(MenuContribution).toService(AkariHomeCommandContribution);
+    bind(KeybindingContribution).toService(AkariHomeCommandContribution);
 
     // プロジェクト・ランチャーの手動再表示コマンド（task 2026-08-17-home-launcher-popup・
     // 正本 §3.2「手動再表示」）。ダイアログ自体は akari-project-launcher-dialog.ts が持つ。

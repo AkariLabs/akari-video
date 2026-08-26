@@ -69,6 +69,7 @@ import { FirstRunSetupOpenMode } from '../common/first-run-onboarding';
 import { parseIntakeTitle, resolveProjectDisplayName } from '../common/project-display-name';
 import { shouldAutoOpenProjectLauncher } from '../common/launcher-visibility';
 import { AkariFirstRunSetupDialog } from './akari-first-run-setup-dialog';
+import { AkariOpenProjectChoiceDialog } from './akari-open-project-choice-dialog';
 import { AkariProjectLauncherDialog } from './akari-project-launcher-dialog';
 import { AkariProjectService, AssetEntitlementsStatus } from 'akari-project/lib/common/akari-project-protocol';
 import {
@@ -913,15 +914,33 @@ export class AkariHomeWidget extends ReactWidget {
     }
 
     /**
-     * クリックでそのプロジェクトをワークスペースとして開く。既存の Theia
+     * クリックでそのプロジェクトをワークスペースとして開く。実際の open は既存の Theia
      * `WorkspaceService#open` をそのまま呼ぶだけで新規実装はしない
      * （§task「既存の Theia workspace open 系サービス/コマンドを使う」）。
-     * `preserveWindow` は指定しない = 既定の「別ウィンドウで開く」（Theia 標準の
-     * フォルダ切り替え挙動。現在開いているプロジェクトはそのまま残る）。
+     *
+     * task 2026-08-25-shell-window-and-notify ③: プロジェクトを既に開いている状態では
+     * 選択ポップアップを挟む。AI パートナーの処理や書き出しが走ったまま黙って
+     * ウィンドウが増える/切り替わるより、「新しいウィンドウで並行」（既定）か
+     * 「このウィンドウで切り替える」かを本人が選べるようにする。未オープン
+     * （ウェルカム状態）のときは従来どおり即このウィンドウで開く。
      */
     protected openCreatorRootProject = (uri: URI): void => {
-        this.workspaceService.open(uri);
+        void this.openProjectWithChoice(uri);
     };
+
+    protected async openProjectWithChoice(uri: URI): Promise<void> {
+        if (!this.workspaceService.opened) {
+            this.workspaceService.open(uri);
+            return;
+        }
+        const choice = await new AkariOpenProjectChoiceDialog(uri.path.base || uri.path.fsPath()).open();
+        if (choice === 'new-window') {
+            this.workspaceService.open(uri, { preserveWindow: false });
+        } else if (choice === 'this-window') {
+            this.workspaceService.open(uri, { preserveWindow: true });
+        }
+        // undefined = キャンセル。何もしない。
+    }
 
     /**
      * プロジェクトカードの「Finder で表示」ボタン（task 2026-08-09-reveal-in-finder）。
