@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import {
   applyMigration,
+  captionsHaveRenderableCues,
   detectEditVersion,
   migrateEditToV2,
   planMigration,
@@ -214,15 +215,27 @@ test('v1 narration は元契約どおり provenance を必須とする', () => {
   assert.match(result.blockers.join('\n'), /provenance/);
 });
 
-test('明示 timeline に captions 行が無い場合は字幕の黙示的な損失を blocker で止める', () => {
-  const doc = base(1);
-  doc.timeline = { tracks: [{ id: 'main-row', kind: 'cuts', ref: 0 }] };
-  const result = migrateEditToV2(doc, { hasCaptions: true });
-  assert.equal(result.ok, false);
-  assert.match(result.blockers.join('\n'), /captions/);
+test('描画対象 cue の純粋述語は配列/object ルートと text/display_text を同じ定義で扱う', () => {
+  assert.equal(captionsHaveRenderableCues([{ text: '字幕' }]), true);
+  assert.equal(captionsHaveRenderableCues({ captions: [{ text: ' ', display_text: '表示字幕' }] }), true);
+  for (const value of [undefined, null, 'broken', {}, [], [{ text: '  ' }], { captions: 'invalid' }]) {
+    assert.equal(captionsHaveRenderableCues(value), false);
+  }
 });
 
-test('明示 timeline に captions 行があれば字幕ありでも変換できる', () => {
+test('明示 timeline に captions 行が無く cue がある場合は末尾へ一意な字幕トラックを合成する', () => {
+  const doc = base(1);
+  doc.timeline = { tracks: [{ id: 'captions', kind: 'cuts', ref: 0 }] };
+  const result = migrateEditToV2(doc, { hasCaptions: true });
+  assert.equal(result.ok, true, result.blockers?.join('\n'));
+  assert.deepEqual(result.doc.tracks.at(-1), {
+    id: 'captions-2', lane: 'visual', content: { from: 'captions.json' },
+  });
+  assert.equal(new Set(result.doc.tracks.map(track => track.id)).size, result.doc.tracks.length);
+  assert.equal(result.changes.filter(change => change.path === 'tracks[]').length, 1);
+});
+
+test('明示 timeline に captions 行があれば字幕ありでも二重合成しない', () => {
   const doc = base(1);
   doc.timeline = { tracks: [
     { id: 'main-row', kind: 'cuts', ref: 0 },
@@ -230,6 +243,8 @@ test('明示 timeline に captions 行があれば字幕ありでも変換でき
   ] };
   const result = migrateEditToV2(doc, { hasCaptions: true });
   assert.equal(result.ok, true);
+  assert.equal(result.doc.tracks.filter(track => track.content?.from === 'captions.json').length, 1);
+  assert.equal(result.changes.some(change => change.path === 'tracks[]'), false);
 });
 
 test('字幕が存在しない場合は明示 timeline に captions 行が無くても変換できる', () => {
@@ -243,6 +258,7 @@ test('timeline 省略時は字幕ありなら captions 行を自動導出して�
   const result = migrateEditToV2(base(1), { hasCaptions: true });
   assert.equal(result.ok, true);
   assert.equal(result.doc.tracks.some(track => track.content?.from === 'captions.json'), true);
+  assert.equal(result.changes.filter(change => change.path === 'tracks[]').length, 1);
 });
 
 test('transition_out・thumbnail・preset なし baked を損失なく v2 へ写す', () => {
@@ -417,7 +433,7 @@ test('emphasis_words は captions.json 不在・配列ルート・既存席を�
   }
 });
 
-test('planMigration は projectRoot の captions.json 実在をオプション省略時に補完する', async () => {
+test('planMigration は captions.json の描画対象 cue だけを見て合成し、空・壊れた JSON は cue なしとして続行する', async () => {
   const root = await mkdtemp(join(tmpdir(), 'akari-migrate-captions-'));
   try {
     const editPath = join(root, 'edit.json');
@@ -426,16 +442,24 @@ test('planMigration は projectRoot の captions.json 実在をオプション�
     doc.timeline = { tracks: [{ id: 'main-row', kind: 'cuts', ref: 0 }] };
     const text = `${JSON.stringify(doc, null, 2)}\n`;
     await writeFile(editPath, text);
-    await writeFile(captionsPath, '[]\n');
+    await writeFile(captionsPath, '{"captions":[{"text":"字幕あり"}]}\n');
 
-    // 本番の prepareLegacyEdit / resolveCaptionDisplay と同じく hasCaptions を渡さない。
+    // annotations service と同じく projectRoot だけを渡す経路でも cue 判定が効く。
     const withCaptions = planMigration(root, editPath, text);
-    assert.equal('blockers' in withCaptions, true);
-    assert.match(withCaptions.blockers.join('\n'), /captions/);
+    assert.equal('blockers' in withCaptions, false, withCaptions.blockers?.join('\n'));
+    const withCaptionsDoc = JSON.parse(withCaptions.nextText);
+    assert.equal(withCaptionsDoc.tracks.at(-1).content?.from, 'captions.json');
+    assert.equal(withCaptions.changes.filter(change => change.path === 'tracks[]').length, 1);
 
-    await rm(captionsPath);
+    await writeFile(captionsPath, '{"captions":[]}\n');
     const withoutCaptions = planMigration(root, editPath, text);
     assert.equal('blockers' in withoutCaptions, false);
+    assert.equal(JSON.parse(withoutCaptions.nextText).tracks.some(track => track.content?.from === 'captions.json'), false);
+
+    await writeFile(captionsPath, '{broken json\n');
+    const withBrokenCaptions = planMigration(root, editPath, text);
+    assert.equal('blockers' in withBrokenCaptions, false, withBrokenCaptions.blockers?.join('\n'));
+    assert.equal(JSON.parse(withBrokenCaptions.nextText).tracks.some(track => track.content?.from === 'captions.json'), false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

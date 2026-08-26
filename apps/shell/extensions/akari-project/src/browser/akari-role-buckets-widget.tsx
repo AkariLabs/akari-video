@@ -136,7 +136,10 @@ const PROJECT_DATA_FILES: ReadonlyArray<{ readonly name: string; readonly label:
 ];
 
 /** 「企画・メモ」グループに出すルート直下の md（`planning/` 配下は別途 walk する）。 */
-const ROOT_PLAN_FILES: ReadonlyArray<string> = ['README.md'];
+const ROOT_PLAN_FILES: ReadonlyArray<string> = ['README.md', 'decision-log.md'];
+
+/** 「レポート」グループに出すルート直下の契約ファイル。 */
+const ROOT_REPORT_FILES: ReadonlyArray<string> = ['analysis-report.html'];
 
 /**
  * プロジェクト直下の契約ファイル（edit.json 等）・アトミック書き込みの一時ファイル・
@@ -1045,7 +1048,8 @@ export class AkariRoleBucketsWidget extends ReactWidget {
      * - 編集データ: ルート直下の PROJECT_DATA_FILES（あるものだけ）
      * - 企画・メモ: `planning/` 配下の md（再帰）+ ルート直下の ROOT_PLAN_FILES
      * - 書き出し: `exports/` 直下（非再帰 — サブフォルダは対象外）
-     * - レポート: `.akari/reports/` 直下の HTML のみ（PNG 視認証跡は対象外）
+     * - レポート: ルート直下の ROOT_REPORT_FILES + `.akari/reports/` 直下の HTML
+     *   （PNG 視認証跡は対象外）
      *
      * 素材（`assets/`）は上段の持ち物なのでここには出さない。`.akari/work/` `.akari/cache/`
      * `.akari/sidecars/` も出さない — project-structure-v0 §2-2 が「再生成可能・削除安全な
@@ -1062,12 +1066,14 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         }
         this.outputsLoading = true;
         this.update();
-        const [dataFiles, planFiles, exportFiles, reportFiles] = await Promise.all([
+        const [dataFiles, planFiles, exportFiles, rootReportFiles, managedReportFiles] = await Promise.all([
             this.collectRootFilesNamed(root, PROJECT_DATA_FILES.map(file => file.name)),
             this.collectPlanFiles(root),
             this.collectTopLevelFiles(root.resolve('exports')),
+            this.collectRootFilesNamed(root, ROOT_REPORT_FILES),
             this.collectTopLevelFiles(root.resolve('.akari/reports'))
         ]);
+        const reportFiles = [...rootReportFiles, ...managedReportFiles];
         const [dataEntries, planEntries, exportEntries, reportEntries] = await Promise.all([
             Promise.all(dataFiles.map(file => this.buildOutputEntry(root, file, 'data'))),
             Promise.all(planFiles.map(file => this.buildOutputEntry(root, file, 'plan'))),
@@ -1253,7 +1259,11 @@ export class AkariRoleBucketsWidget extends ReactWidget {
         const rootKey = root.toString();
         // ルート直下は名前で絞る。`.akari/cache/` の書き込みでも親（`.akari`）の変更として
         // ここに届くため、素通しにすると自分のサムネ生成で再読み込みループが回る。
-        const watchedRootNames = new Set([...PROJECT_DATA_FILES.map(file => file.name), ...ROOT_PLAN_FILES]);
+        const watchedRootNames = new Set([
+            ...PROJECT_DATA_FILES.map(file => file.name),
+            ...ROOT_PLAN_FILES,
+            ...ROOT_REPORT_FILES
+        ]);
         const relevant = event.changes.some(change =>
             watched.exportsUri.isEqualOrParent(change.resource)
             || watched.reportsUri.isEqualOrParent(change.resource)

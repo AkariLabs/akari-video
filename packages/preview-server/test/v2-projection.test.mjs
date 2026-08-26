@@ -289,17 +289,34 @@ test('v2 WebUI renders projected DOM, track winner, transition, speed and trimme
   await page.click('#play-toggle');
 
   await seekTo(1.5);
-  const rendered = await page.evaluate(() => ({
-    total: document.getElementById('time-label').textContent,
-    transitionDisplay: getComputedStyle(document.getElementById('transition-video')).display,
-    transitionOpacity: Number(getComputedStyle(document.getElementById('transition-video')).opacity),
-    html: Boolean(document.querySelector('[data-overlay-id="html-1"]')),
-    telop: Boolean(document.querySelector('[data-layer-id="telop-1"]')),
-    filter: getComputedStyle(document.querySelector('[data-layer-kind="filter"]')).display,
-  }));
+  const rendered = await page.evaluate(() => {
+    const previewVideo = document.getElementById('preview-video');
+    const transitionVideo = document.getElementById('transition-video');
+    const transitionEngineFilters = document.getElementById('transition-engine-filters');
+    return {
+      total: document.getElementById('time-label').textContent,
+      transitionDisplay: getComputedStyle(transitionVideo).display,
+      transitionOpacity: Number(getComputedStyle(transitionVideo).opacity),
+      previewOpacity: Number(getComputedStyle(previewVideo).opacity),
+      transitionFilter: getComputedStyle(transitionVideo).filter,
+      transitionEngineFilters: Boolean(transitionEngineFilters),
+      dissolveTableType: transitionEngineFilters
+        ?.querySelector('feFuncA#akari-transition-dissolve-table')
+        ?.getAttribute('type'),
+      transitionProgress: transitionVideo.dataset.akariTransitionProgress,
+      html: Boolean(document.querySelector('[data-overlay-id="html-1"]')),
+      telop: Boolean(document.querySelector('[data-layer-id="telop-1"]')),
+      filter: getComputedStyle(document.querySelector('[data-layer-kind="filter"]')).display,
+    };
+  });
   assert.match(rendered.total, /0:03\.00$/);
   assert.equal(rendered.transitionDisplay, 'block');
-  assert.ok(rendered.transitionOpacity > 0.4 && rendered.transitionOpacity < 0.6, JSON.stringify(rendered));
+  assert.equal(rendered.transitionOpacity, 1);
+  assert.equal(rendered.previewOpacity, 1);
+  assert.match(rendered.transitionFilter, /akari-transition-dissolve/);
+  assert.equal(rendered.transitionEngineFilters, true);
+  assert.equal(rendered.dissolveTableType, 'discrete');
+  assert.equal(rendered.transitionProgress, '0.500');
   assert.equal(rendered.html, true);
   assert.equal(rendered.telop, true);
   assert.equal(rendered.filter, 'block');
