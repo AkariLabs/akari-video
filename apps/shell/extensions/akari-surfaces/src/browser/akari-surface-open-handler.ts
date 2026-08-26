@@ -92,8 +92,9 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
 
     /**
      * 整形サーフェスで開く md かどうか。`planning/` 配下（従来）に加え、ワークスペース
-     * ルート直下の `README.md` を含める — 左パネル下段「できたもの」の「企画・メモ」から
-     * 辿れる入口になったため、非開発者がクリックして生の Monaco へ落ちないようにする
+     * ルート直下の `README.md` と `decision-log.md` を含める — 左パネル下段「できたもの」の
+     * 「企画・メモ」から辿れる入口になったため、非開発者がクリックして生の Monaco へ
+     * 落ちないようにする
      * （akari-project の AkariRoleBucketsWidget.ROOT_PLAN_FILES と対の関係）。
      * `assets/foo/README.md` のような配下の README は対象外（ルート直下のみ）。
      */
@@ -101,7 +102,7 @@ export class AkariSurfaceOpenHandler implements OpenHandler, FrontendApplication
         if (uri.path.toString().includes('/planning/')) {
             return true;
         }
-        if (uri.path.base !== 'README.md') {
+        if (!['README.md', 'decision-log.md'].includes(uri.path.base)) {
             return false;
         }
         return this.workspaceService.tryGetRoots().some(root => root.resource.isEqual(uri.parent));

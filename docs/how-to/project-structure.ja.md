@@ -14,6 +14,8 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 | `edit.json` | **編集のセーブデータ（SSOT）**。カット・オーバーレイ・音声・ビート・演出 |
 | `captions.json` | 字幕データ |
 | `review.json` | レビュー注釈（チケット）のサイドカー |
+| `decision-log.md` | analyze-project と edit-plan が共有する追記専用の判断履歴 |
+| `analysis-report.html` | analyze-project が生成する素材横断の正式な分析レポート |
 
 ルート直下に置いてよい生成物はこの契約ファイルだけです。それ以外の生成物は
 役割ごとの置き場に入ります（散らかさない規約）。
@@ -23,7 +25,7 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 | 場所 | 役割 |
 |---|---|
 | `assets/` | 素材置き場（`assets/<カテゴリ>/<id>/` + meta.json） |
-| `planning/` | 企画・計画文書（research-plan.json / plan.json / decision-log.md） |
+| `planning/` | 企画・計画文書（research-plan.json / plan.json） |
 | `exports/` | 書き出し先 |
 
 ## .akari/ 配下

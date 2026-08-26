@@ -1,3 +1,9 @@
+---
+lifecycle: draft
+created: 2026-07-25
+updated: 2026-08-26
+---
+
 # project-structure-v0（生成物の置き場所）契約
 
 - 日付: 2026-07-25
@@ -59,6 +65,17 @@
 - `frame-*.png`・ad-hoc 検証スクリプトとその結果・最終書き出し前の中間ファイル等、上記
   3 ファイル以外の生成物は、性質に応じて §1 の層へ振り分ける（具体例は §4）
 - 新しいトップレベル契約ファイルを追加する場合（将来の話）は、本契約の改訂を通す
+
+#### 2026-08-26 追記: ルート直下の判断記録・分析レポート
+
+- `decision-log.md` は analyze-project と edit-plan が共同追記する判断履歴の単一 SSOT であり、
+  プロジェクトルート直下の正当な契約ファイルとする（根拠:
+  `skills/edit-plan/report-guide.md` の `decision_log` 節）
+- `analysis-report.html` は analyze-project が生成し edit-plan が読む正式な分析レポートであり、
+  プロジェクトルート直下の正当な契約ファイルとする（根拠:
+  `skills/edit-plan/workflow.md` §1）
+- この追記は上記 2 ファイルを §2-1 の許可リストへ追加するものであり、その他のファイルに
+  ルート直下配置を許可しない
 
 ### 2-2. 削除安全の定義
 
