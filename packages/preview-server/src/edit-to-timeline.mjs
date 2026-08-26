@@ -1,7 +1,11 @@
-// readInternalEdit → projectRendererCompatibilityEdit で得た renderer 互換ビューを
-// TimelineSpec へ変換する。raw edit.json の版判定・正規化はここでは行わない。
+// renderer 互換ビューを TimelineSpec へ変換する。raw v2 が直接来る output
+// 経路だけは edit-store の正本射影で同じ互換形へ揃える。
 
 import path from 'node:path';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { readInternalEdit, projectLegacyEdit } = require('../../edit-store/lib/index.js');
 
 // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定1: 判定は拡張子のみ（png/jpe?g/webp/
 // bmp/gif、大小無視）。packages/render-cut/src/layers.mjs の IMAGE_LAYER_SOURCE_PATTERN /
@@ -18,6 +22,31 @@ function isStillImageSource(src) {
  * @returns {object} TimelineSpec
  */
 export function editToTimeline(edit, projectRoot) {
+  // renderer 互換ビューは raw v2 を spread して tracks と cuts を併せ持つため、tracks や version
+  // だけでは判定しない。cuts が無い raw v2 だけを edit-store の正本射影へ通す。
+  if (!Array.isArray(edit?.cuts) && Array.isArray(edit?.tracks)) {
+    let legacy;
+    try {
+      legacy = projectLegacyEdit(readInternalEdit(edit));
+    } catch {
+      // output preview は raw v2 に overlays 等の互換フィールドを付けた中間文書も読む。
+      // v2 として厳密に読めない場合は、着手前の v0/v1 変換へ fail-soft に戻す。
+    }
+    if (legacy) {
+      return editToTimeline({
+        version: 1,
+        output: { ...edit.output, fps: legacy.fps },
+        sources: legacy.sources,
+        cuts: legacy.cuts,
+        audio: {
+          ...(legacy.audioBgm ? { bgm: legacy.audioBgm } : {}),
+          narration: legacy.audioNarration,
+        },
+        ...(edit.videoFx ? { videoFx: edit.videoFx } : {}),
+      }, projectRoot);
+    }
+  }
+
   const fps = edit?.output?.fps ?? 30;
   const cuts = edit?.cuts ?? [];
 
@@ -39,14 +68,14 @@ export function editToTimeline(edit, projectRoot) {
     const startSec = cut.at ?? cursor;
     const startFrame = Math.round(startSec * fps);
 
-    let src;
+    let source;
     if (isV1 && cut.src) {
-      src = sourceMap[cut.src];
+      source = sourceMap[cut.src];
     } else if (!isV1) {
-      src = sourceMap['default'];
+      source = sourceMap['default'];
     }
 
-    if (!src) {
+    if (!source) {
       console.warn(`[edit-to-timeline] cut[${i}]: src "${cut.src}" not found in sources, skipping`);
       continue;
     }
@@ -55,12 +84,12 @@ export function editToTimeline(edit, projectRoot) {
 
     clips.push({
       id: `cut-${i}`,
-      src,
+      src: source.src,
       startFrame,
       endFrame: startFrame + durationFrames,
       sourceInUs,
       track,
-      mediaType: isStillImageSource(src) ? 'image' : 'video',
+      mediaType: source.mediaType,
     });
 
     cursor = startSec + durationSec;
@@ -88,11 +117,23 @@ function buildSourceMap(edit, projectRoot) {
 
   if (isV1) {
     for (const src of edit.sources) {
-      map[src.id] = fileToUrl(src.path, projectRoot);
+      const playbackPath = typeof src.proxy === 'string' && src.proxy.trim().length > 0
+        ? src.proxy
+        : src.path;
+      map[src.id] = {
+        src: fileToUrl(playbackPath, projectRoot),
+        // proxy のコンテナ形式ではなく、宣言 source.path の拡張子が素材種別の正本。
+        mediaType: isStillImageSource(src.path) ? 'image' : 'video',
+      };
     }
   } else {
     const srcPath = edit?.source?.path;
-    if (srcPath) map['default'] = fileToUrl(srcPath, projectRoot);
+    if (srcPath) {
+      map['default'] = {
+        src: fileToUrl(srcPath, projectRoot),
+        mediaType: isStillImageSource(srcPath) ? 'image' : 'video',
+      };
+    }
   }
 
   return map;
