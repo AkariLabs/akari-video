@@ -1,0 +1,27 @@
+{
+  "name": "@akari-video/frame-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic timeline frame evaluator with a WebGL2 compositor and shared preview/export surfaces.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.golden.json",
+    "bundle:golden": "mkdir -p test/golden/.generated && esbuild test/golden/renderer.ts --bundle --format=iife --platform=browser --target=chrome122 --outfile=test/golden/.generated/renderer.js",
+    "test:unit": "node --test test/*.test.mjs",
+    "test:golden": "node test/golden/run.mjs",
+    "test": "npm run build && npm run test:unit && npm run test:golden"
+  },
+  "dependencies": {
+    "@akari-video/edit-store": "0.1.0",
+    "@webav/av-cliper": "1.2.8",
+    "@webav/mp4box.js": "^0.5.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}
