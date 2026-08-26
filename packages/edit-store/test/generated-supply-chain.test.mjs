@@ -24,6 +24,7 @@ const expectedSources = [
   'timeline-map.ts',
   'track-order.ts',
   'track-transition-compatibility.ts',
+  'transition-visual.ts',
   'transition-vocabulary.ts',
   'webview-kernel.ts',
   'write-gate.ts',

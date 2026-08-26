@@ -8,6 +8,8 @@
  */
 export * from './timeline-map';
 export * from './caption-window';
+export * from './transition-vocabulary';
+export * from './transition-visual';
 
 /** Browser selection is timeline-domain only. Segmentation stays in the Node caller. */
 export function findActiveResolvedCaption<T extends { start: number; end: number }>(
