@@ -1,7 +1,7 @@
 // Adapted from packages/preview-engine/src/clipSession.ts.
 import { MP4Clip } from '@webav/av-cliper';
 import type { FrameMetricsRecorder, NativeFrameSource } from '../types.js';
-import { withTimeout, watchDecoderErrors } from './guard.js';
+import { isDecoderErrorMessage, withTimeout, watchDecoderErrors } from './guard.js';
 import { buildKeyframeIndexFromHeader, type KeyframeIndex } from './keyframe-index.js';
 
 export type ClipSessionState = 'idle' | 'loading' | 'ready' | 'degraded' | 'unavailable';
@@ -11,6 +11,13 @@ export interface ClipSessionOptions {
   tickTimeoutMs?: number;
   tailMarginUs?: number;
   onWarning?: (message: string) => void;
+}
+
+class DecoderGuardError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DecoderGuardError';
+  }
 }
 
 /** Owns one decoded frame and answers every timestamp covered by its declared duration. */
@@ -145,11 +152,18 @@ export class ClipSession implements NativeFrameSource {
     const covered = this.coverage.cloneAt(target);
     if (covered) return covered;
     const tickStarted = performance.now();
-    const result = await this.serialize(() => withTimeout(
-      this.clip!.tick(target),
-      this.options.tickTimeoutMs,
-      `tick ${this.id}`
-    ));
+    const result = await this.serialize(async () => {
+      try {
+        return await this.guardedTick(target);
+      } catch (error) {
+        if (!(error instanceof DecoderGuardError) && !isDecoderErrorMessage(error)) throw error;
+        if (!(error instanceof DecoderGuardError)) {
+          this.options.onWarning?.(`${this.id}: decoder runtime error: ${String(error)}`);
+        }
+        await this.recreateDecoder();
+        return this.guardedTick(target);
+      }
+    });
     metrics?.record('tick', performance.now() - tickStarted);
     if (!result.video) {
       const coveredAfterTick = this.coverage.cloneAt(target);
@@ -199,9 +213,44 @@ export class ClipSession implements NativeFrameSource {
   destroy(): void {
     this.clip?.destroy();
     this.clip = null;
+    this.meta = null;
     this.coverage.clear();
     this.loadPromise = null;
     this.state = 'idle';
+  }
+
+  private async guardedTick(target: number): Promise<{ video?: VideoFrame }> {
+    if (!this.clip) throw new Error(`clip ${this.id} is unavailable`);
+    let rejectDecoder: ((message: string) => void) | null = null;
+    const decoderError = new Promise<never>((_resolve, reject) => {
+      rejectDecoder = message => reject(new DecoderGuardError(message));
+    });
+    decoderError.catch(() => undefined);
+    const stopWatching = watchDecoderErrors(message => {
+      this.options.onWarning?.(`${this.id}: decoder runtime error: ${message}`);
+      rejectDecoder?.(message);
+    });
+    try {
+      return await withTimeout(
+        Promise.race([this.clip.tick(target), decoderError]),
+        this.options.tickTimeoutMs,
+        `tick ${this.id}`
+      );
+    } finally {
+      stopWatching();
+    }
+  }
+
+  private async recreateDecoder(): Promise<void> {
+    this.clip?.destroy();
+    this.clip = null;
+    this.meta = null;
+    this.coverage.clear();
+    this.keyframes = null;
+    this.tailSafeLimitUs = null;
+    this.loadPromise = null;
+    this.state = 'idle';
+    await this.load();
   }
 
   private serialize<T>(operation: () => Promise<T>): Promise<T> {
