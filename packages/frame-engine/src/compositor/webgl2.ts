@@ -13,6 +13,7 @@ import type {
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import type { ParsedCubeLut } from '../look/cube.js';
 import { cornersToHomography, invertMat3 } from '../timeline/layer-visual.js';
+import { dissolveNoiseField } from './dissolve-noise.js';
 
 export const TRANSITION_BLUR_MAX_TAPS = 65;
 
@@ -170,6 +171,7 @@ interface BaseProgramState {
   cutUniforms: readonly CutUniforms[];
   output: WebGLUniformLocation;
   progress: WebGLUniformLocation | null;
+  dissolveNoise: WebGLUniformLocation | null;
   secondary: boolean;
 }
 
@@ -190,17 +192,20 @@ export class DirectUploadFallbackError extends Error {
 }
 
 const YUV_GLSL = `
-vec3 yuv709(float y, vec2 chroma) {
+vec3 yuv709Unclamped(float y, vec2 chroma) {
   y -= 16.0 / 255.0;
   float u = chroma.r - 0.5;
   float v = chroma.g - 0.5;
-  return clamp(vec3(
+  return vec3(
     1.164383 * y + 1.792741 * v,
     1.164383 * y - 0.213249 * u - 0.532909 * v,
     1.164383 * y + 2.112402 * u
-  ), 0.0, 1.0);
+  );
+}
+vec3 yuv709(float y, vec2 chroma) {
+  return clamp(yuv709Unclamped(y, chroma), 0.0, 1.0);
 }`;
-const BASE_FRAGMENT_PREFIX = `#version 300 es
+const baseFragmentPrefix = (type: ResolvedTransition['type']) => `#version 300 es
 precision highp float;
 precision highp int;
 in vec2 uv;
@@ -225,6 +230,7 @@ uniform vec2 outputSize;
 uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
 uniform float transitionProgress;
+${type === 'dissolve' ? 'uniform sampler2D dissolveNoise;' : ''}
 ${YUV_GLSL}
 vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
   vec2 pixel = (p - 0.5) * outputSize - transform.xy;
@@ -317,15 +323,19 @@ function transitionFragmentBody(type: ResolvedTransition['type']): string {
     case 'hard-cut':
       return 'result = A(p);';
     case 'dissolve':
+      return 'result = texelFetch(dissolveNoise, ivec2(ip), 0).r < amount ? B(p) : A(p);';
     case 'fade':
       return 'result = mixFf(A(p), B(p), P);';
     case 'fade-black':
     case 'fade-white':
       return `
-    vec3 plate = vec3(${type === 'fade-white' ? '1.0' : '0.0'});
-    result = amount < 0.5
-      ? mix(A(p), plate, amount * 2.0)
-      : mix(plate, B(p), (amount - 0.5) * 2.0);`;
+    const float phase = 0.2;
+    // The plate maps Y=0/255 with neutral U/V=128 directly to unclamped RGB.
+    vec3 plate = yuv709Unclamped(${type === 'fade-white' ? '1.0' : '0.0'}, vec2(128.0 / 255.0));
+    vec3 a = A(p), b = B(p);
+    result = clamp(mixFf(
+      mixFf(a, plate, smoothstep(1.0 - phase, 1.0, P)),
+      mixFf(plate, b, smoothstep(phase, 1.0, P)), P), 0.0, 1.0);`;
     case 'fade-grays':
       return `
     const float phase = 0.2;
@@ -425,7 +435,7 @@ export function buildBaseFragment(type: ResolvedTransition['type']): string {
 }
 `
     : '';
-  return `${BASE_FRAGMENT_PREFIX}${blurHelper}void main() {
+  return `${baseFragmentPrefix(type)}${blurHelper}void main() {
   vec2 p = vec2(uv.x, 1.0 - uv.y);
   vec2 ip = floor(p * outputSize);
   float amount = clamp(transitionProgress, 0.0, 1.0);
@@ -542,7 +552,8 @@ const BASE_RGBA_UNITS = [6, 7] as const;
 const LAYER_RGBA_UNIT = 8;
 const MASK_RGBA_UNIT = 10;
 const LUT_UNIT = 11;
-const REQUIRED_TEXTURE_UNITS = LUT_UNIT + 1;
+const DISSOLVE_NOISE_UNIT = 12;
+const REQUIRED_TEXTURE_UNITS = DISSOLVE_NOISE_UNIT + 1;
 
 function isVideoFrame(value: NativeYuvFrame | StillImageBitmap | VideoFrame): value is VideoFrame {
   return 'displayWidth' in value && 'displayHeight' in value && 'close' in value;
@@ -682,6 +693,7 @@ export class WebGL2Compositor implements CompositorBackend {
   private readonly ownedImageTextures = new Set<WebGLTexture>();
   private readonly lookTextures = new WeakMap<ParsedCubeLut, WebGLTexture>();
   private readonly ownedLookTextures = new Set<WebGLTexture>();
+  private readonly dissolveNoiseTextures = new Map<string, WebGLTexture>();
   private disposed = false;
   private directUploadDisabled = false;
   constructor(
@@ -817,6 +829,7 @@ export class WebGL2Compositor implements CompositorBackend {
       cutUniforms,
       output: uniform(gl, program, 'outputSize'),
       progress: gl.getUniformLocation(program, 'transitionProgress'),
+      dissolveNoise: gl.getUniformLocation(program, 'dissolveNoise'),
       secondary: false,
     };
     this.basePrograms.set(type, state);
@@ -859,6 +872,35 @@ export class WebGL2Compositor implements CompositorBackend {
     );
     this.lookTextures.set(lut, texture);
     this.ownedLookTextures.add(texture);
+    return texture;
+  }
+  private dissolveNoiseTexture(width: number, height: number): WebGLTexture {
+    const key = `${width}x${height}`;
+    const cached = this.dissolveNoiseTextures.get(key);
+    if (cached) return cached;
+    const texture = this.gl.createTexture();
+    if (!texture)
+      throw new Error('WebGL2 could not allocate a dissolve noise texture');
+    const gl = this.gl;
+    this.bind(DISSOLVE_NOISE_UNIT, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R32F,
+      width,
+      height,
+      0,
+      gl.RED,
+      gl.FLOAT,
+      dissolveNoiseField(width, height),
+    );
+    this.dissolveNoiseTextures.set(key, texture);
     return texture;
   }
   get uploadPath(): UploadPath {
@@ -1148,6 +1190,13 @@ export class WebGL2Compositor implements CompositorBackend {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
     this.gl.useProgram(baseProgram.program);
     this.gl.uniform1f(baseProgram.progress, plan.transition?.progress ?? 0);
+    if (baseProgram.dissolveNoise) {
+      this.bind(
+        DISSOLVE_NOISE_UNIT,
+        this.dissolveNoiseTexture(plan.output.width, plan.output.height),
+      );
+      this.gl.uniform1i(baseProgram.dissolveNoise, DISSOLVE_NOISE_UNIT);
+    }
   }
 
   async compose(
@@ -1431,6 +1480,7 @@ export class WebGL2Compositor implements CompositorBackend {
       ...this.fboTextures,
       ...this.ownedImageTextures,
       ...this.ownedLookTextures,
+      ...this.dissolveNoiseTextures.values(),
     ])
       this.gl.deleteTexture(t);
     for (const f of this.fbos) this.gl.deleteFramebuffer(f);
@@ -1438,6 +1488,7 @@ export class WebGL2Compositor implements CompositorBackend {
     for (const value of this.basePrograms.values())
       this.gl.deleteProgram(value.program);
     this.basePrograms.clear();
+    this.dissolveNoiseTextures.clear();
     this.gl.deleteProgram(this.layerProgram);
     this.gl.deleteProgram(this.copyProgram);
     this.gl.deleteProgram(this.lookProgram);

@@ -80,6 +80,33 @@ test('base shaders are lazily compiled and cached per transition type', () => {
     if (type === 'blur') assert.match(fragment, /vec3 horizontalBlur/u);
     else assert.doesNotMatch(fragment, /vec3 horizontalBlur/u, type);
   }
+  const dissolve = buildBaseFragment('dissolve');
+  const fade = buildBaseFragment('fade');
+  assert.match(dissolve, /uniform sampler2D dissolveNoise/u);
+  assert.match(dissolve, /texelFetch\(dissolveNoise, ivec2\(ip\), 0\)\.r < amount/u);
+  assert.doesNotMatch(dissolve, /fract\(/u);
+  assert.doesNotMatch(fade, /dissolveNoise/u);
+  assert.match(source, /gl\.R32F/u);
+  assert.match(source, /gl\.RED/u);
+  assert.match(source, /gl\.FLOAT/u);
+  assert.match(source, /const DISSOLVE_NOISE_UNIT = 12/u);
+  assert.match(source, /dissolveNoiseTextures = new Map<string, WebGLTexture>/u);
+  assert.match(source, /\.\.\.this\.dissolveNoiseTextures\.values\(\)/u);
+});
+
+test('phase plate fades use unclamped limited-range YUV plates', () => {
+  const black = buildBaseFragment('fade-black');
+  const white = buildBaseFragment('fade-white');
+  assert.match(source, /vec3 yuv709Unclamped/u);
+  assert.match(source, /return clamp\(yuv709Unclamped\(y, chroma\), 0\.0, 1\.0\)/u);
+  for (const fragment of [black, white]) {
+    assert.match(fragment, /const float phase = 0\.2/u);
+    assert.match(fragment, /vec2\(128\.0 \/ 255\.0\)/u);
+    assert.match(fragment, /smoothstep\(1\.0 - phase, 1\.0, P\)/u);
+    assert.match(fragment, /smoothstep\(phase, 1\.0, P\)/u);
+  }
+  assert.match(black, /yuv709Unclamped\(0\.0,/u);
+  assert.match(white, /yuv709Unclamped\(1\.0,/u);
 });
 
 test('frame-engine matte path has no VP8/VP9 decoder branch', () => {
@@ -121,8 +148,22 @@ test('failed PBO fence allocation releases its bound buffer', () => {
 
 test('cross-engine comparison uses midpoint extraction and fail-closed class limits', () => {
   assert.match(comparisonSource, /\(frameNumber \+ 0\.5\) \/ FPS/u);
+  assert.match(comparisonSource, /layerParity\?\.length !== 36/u);
   assert.match(comparisonSource, /CLASS_LIMITS/u);
   assert.match(comparisonSource, /engine-side error \(investigate\)/u);
-  assert.match(comparisonSource, /if \(engineErrors\.length > 0\)/u);
+  assert.match(comparisonSource, /if \(engineErrors\.length > 0 \|\| blendLutErrors\.length > 0\)/u);
   assert.doesNotMatch(comparisonSource, /cls === 'noise-floor' \? 'noise floor' : 'known filtergraph difference'/u);
+  assert.match(transitionComparisonSource, /TRANSITION_LIMITS/u);
+  assert.match(transitionComparisonSource, /noiseFloorMad/u);
+  assert.doesNotMatch(transitionComparisonSource, /absoluteCap: 4/u);
+  assert.match(transitionComparisonSource, /sourceFrames/u);
+  assert.match(transitionComparisonSource, /engineVsIdeal\.MAD <= 4/u);
+  assert.match(transitionComparisonSource, /mp4VsIdeal\.MAD \+ noiseFloorMad/u);
+  assert.match(transitionComparisonSource, /idealYuv420RoundTrip/u);
+  assert.match(transitionComparisonSource, /known measurement-instrument difference/u);
+  assert.match(transitionComparisonSource, /floorMultiplier: 2,\s+allowance: 2/u);
+  assert.match(transitionComparisonSource, /matchRate >= 0\.995/u);
+  assert.match(transitionComparisonSource, /dissolveNoiseField\(WIDTH, HEIGHT\)/u);
+  assert.match(transitionComparisonSource, /engine-side error \(investigate\)/u);
+  assert.match(transitionComparisonSource, /if \(engineErrors\.length > 0 \|\| !dissolveNoise\.pass\)/u);
 });
