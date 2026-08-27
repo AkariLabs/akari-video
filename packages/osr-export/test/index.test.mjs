@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { access, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import test from "node:test";
 
+import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { verifyFinalVideo } from "../src/ffprobe.mjs";
 import { exportWithOsr, resolveOsrRuntimeOptions } from "../src/index.mjs";
+
+const execFileAsync = promisify(execFile);
 
 test("OSR 環境変数を renderer オプションへ正規化する", () => {
   assert.deepEqual(resolveOsrRuntimeOptions({ env: {
@@ -17,26 +23,212 @@ test("OSR 環境変数を renderer オプションへ正規化する", () => {
   assert.throws(() => resolveOsrRuntimeOptions({ env: { AKARI_OSR_VERIFY: "bad" } }), /stamp\|hash\|off/);
 });
 
-test("成功 run.json を .akari/osr-run.json へ永続化して receipt に記録する", async () => {
+test("音声 mux は短い・長い・音声なしの全てで 90 コマを維持する", async (t) => {
   const projectRoot = await mkdtemp(join(tmpdir(), "osr-index-"));
-  const out = join(projectRoot, "render-tmp", "composite.mp4");
-  let launchedOptions;
+  const ffmpeg = resolveFfmpeg();
+  const ffprobe = resolveFfprobe();
+  const width = 64;
+  const height = 64;
+  const fps = 30;
+  const frames = 90;
+  const duration = frames / fps;
+  const shortAudio = join(projectRoot, "short.m4a");
+  const longAudio = join(projectRoot, "long.m4a");
+  let shortBaselineVideo;
+  let shortResult;
   try {
-    await mkdir(join(projectRoot, "render-tmp"), { recursive: true });
+    await execFileAsync(ffmpeg, [
+      "-hide_banner", "-loglevel", "error", "-y",
+      "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+      "-t", "2.993", "-c:a", "aac", shortAudio,
+    ]);
+    await execFileAsync(ffmpeg, [
+      "-hide_banner", "-loglevel", "error", "-y",
+      "-f", "lavfi", "-i", "sine=frequency=660:sample_rate=48000",
+      "-t", "3.05", "-c:a", "aac", longAudio,
+    ]);
+
+    const runCase = async ({ name, audioSource, preserveVideo = false }) => {
+      const renderDirectory = join(projectRoot, `render-${name}`);
+      const out = join(renderDirectory, "composite.mp4");
+      await mkdir(renderDirectory, { recursive: true });
+      let launchedOptions;
+      const result = await exportWithOsr({
+        projectRoot,
+        out,
+        audioSourcePath: audioSource === "intermediate" ? `${out}.osr-video.mp4` : audioSource,
+        fps,
+        width,
+        height,
+        duration,
+        frames,
+        env: { ...process.env, AKARI_OSR_SOFT: "1", AKARI_OSR_DUMP_FRAMES: "0,89" },
+        ffmpegCommand: ffmpeg,
+        ffprobeCommand: ffprobe,
+        launcherResolver: async () => ({ tier: 2, kind: "npm-electron", executable: "/electron" }),
+        launcherRunner: async (_launcher, options) => {
+          launchedOptions = options;
+          await execFileAsync(ffmpeg, [
+            "-hide_banner", "-loglevel", "error", "-y",
+            "-f", "lavfi", "-i", `testsrc=size=${width}x${height}:rate=${fps}`,
+            "-frames:v", String(frames), "-c:v", "libx264", "-pix_fmt", "yuv420p", options.out,
+          ]);
+          if (preserveVideo) {
+            shortBaselineVideo = join(projectRoot, "baseline-video.mp4");
+            await copyFile(options.out, shortBaselineVideo);
+          }
+          await writeFile(join(renderDirectory, "run.json"), JSON.stringify({
+            status: "completed",
+            framesRequested: frames,
+            framesCompleted: frames,
+            memory: { peakBytes: 10 },
+          }));
+        },
+      });
+      const video = result.run.finalVerify.measured.streams.find((stream) => stream.codec_type === "video");
+      const audio = result.run.finalVerify.measured.streams.find((stream) => stream.codec_type === "audio");
+      assert.equal(launchedOptions.soft, true);
+      assert.deepEqual(launchedOptions.dumpFrames, [0, 89]);
+      assert.equal(Number(video.nb_read_frames), frames);
+      assert.equal(Number(video.duration), duration);
+      assert.ok(Number(audio.duration) <= duration + 1 / fps);
+      assert.equal(result.run.finalVerify.matched, true);
+      assert.equal(result.receipt.finalVerify.matched, true);
+      assert.equal(result.receipt.run, ".akari/osr-run.json");
+      const persistentRun = JSON.parse(await readFile(join(projectRoot, ".akari", "osr-run.json"), "utf8"));
+      assert.equal(persistentRun.status, "completed");
+      assert.equal(persistentRun.finalVerify.matched, true);
+      await assert.rejects(access(`${out}.osr-video.mp4`));
+      return { out, result };
+    };
+
+    await t.test("2.993 秒の AAC でも映像を切り詰めない", async () => {
+      shortResult = await runCase({ name: "short", audioSource: shortAudio, preserveVideo: true });
+    });
+    await t.test("3.05 秒の AAC は要求映像尺以内に収める", async () => {
+      await runCase({ name: "long", audioSource: longAudio });
+    });
+    await t.test("音声ストリームがない source には要求尺の無音を付ける", async () => {
+      await runCase({ name: "silent", audioSource: "intermediate" });
+    });
+    await t.test("従来の shortest 引数列は短い AAC で 90 コマ未満になる", async () => {
+      const baselineOut = join(projectRoot, "baseline-shortest.mp4");
+      await execFileAsync(ffmpeg, [
+        "-hide_banner", "-loglevel", "error", "-y",
+        "-i", shortBaselineVideo, "-i", shortAudio,
+        "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "copy", "-shortest", baselineOut,
+      ]);
+      const baseline = await verifyFinalVideo({ command: ffprobe, path: baselineOut, frames, fps, width, height, requireAudio: true });
+      const baselineVideo = baseline.measured.streams.find((stream) => stream.codec_type === "video");
+      assert.ok(Number(baselineVideo.nb_read_frames) < frames);
+    });
+    await t.test("最終映像のコマ数不一致は run に記録して失敗する", async () => {
+      const renderDirectory = join(projectRoot, "render-mismatch");
+      const out = join(renderDirectory, "composite.mp4");
+      await mkdir(renderDirectory, { recursive: true });
+      await assert.rejects(exportWithOsr({
+        projectRoot,
+        out,
+        fps,
+        width,
+        height,
+        duration: 91 / fps,
+        frames: 91,
+        ffprobeCommand: ffprobe,
+        launcherResolver: async () => ({ tier: 2, kind: "npm-electron", executable: "/electron" }),
+        launcherRunner: async (_launcher, options) => {
+          await copyFile(shortResult.out, options.out);
+          await writeFile(join(renderDirectory, "run.json"), JSON.stringify({ status: "completed", framesRequested: 91 }));
+        },
+      }), /final ffprobe verification failed/);
+      const failedRun = JSON.parse(await readFile(join(renderDirectory, "run.json"), "utf8"));
+      assert.equal(failedRun.finalVerify.matched, false);
+      assert.equal(failedRun.finalVerify.checks.frames, false);
+      await assert.rejects(access(`${out}.osr-video.mp4`));
+    });
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("60 fps の AAC mux は 196 コマを維持し、音声を 1 コマ以内に収める", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "osr-index-60fps-"));
+  const ffmpeg = resolveFfmpeg();
+  const ffprobe = resolveFfprobe();
+  const width = 64;
+  const height = 64;
+  const fps = 60;
+  const frames = 196;
+  const duration = frames / fps;
+  const audioPath = join(projectRoot, "long.m4a");
+  const renderDirectory = join(projectRoot, "render");
+  const out = join(renderDirectory, "composite.mp4");
+  const baselineVideo = join(projectRoot, "baseline-video.mp4");
+  try {
+    await mkdir(renderDirectory, { recursive: true });
+    await execFileAsync(ffmpeg, [
+      "-hide_banner", "-loglevel", "error", "-y",
+      "-f", "lavfi", "-i", "sine=frequency=880:sample_rate=48000",
+      "-t", "3.4", "-c:a", "aac", audioPath,
+    ]);
+
     const result = await exportWithOsr({
-      projectRoot, out, fps: 30, width: 16, height: 16, duration: 1, frames: 30,
-      env: { AKARI_OSR_SOFT: "1", AKARI_OSR_DUMP_FRAMES: "0,29" },
+      projectRoot,
+      out,
+      audioSourcePath: audioPath,
+      fps,
+      width,
+      height,
+      duration,
+      frames,
+      env: { ...process.env, AKARI_OSR_SOFT: "1" },
+      ffmpegCommand: ffmpeg,
+      ffprobeCommand: ffprobe,
       launcherResolver: async () => ({ tier: 2, kind: "npm-electron", executable: "/electron" }),
       launcherRunner: async (_launcher, options) => {
-        launchedOptions = options;
-        await writeFile(options.out, "video");
-        await writeFile(join(projectRoot, "render-tmp", "run.json"), JSON.stringify({ status: "completed", memory: { peakBytes: 10 } }));
+        await execFileAsync(ffmpeg, [
+          "-hide_banner", "-loglevel", "error", "-y",
+          "-f", "lavfi", "-i", `testsrc=size=${width}x${height}:rate=${fps}`,
+          "-frames:v", String(frames), "-c:v", "libx264", "-pix_fmt", "yuv420p", options.out,
+        ]);
+        await copyFile(options.out, baselineVideo);
+        await writeFile(join(renderDirectory, "run.json"), JSON.stringify({
+          status: "completed",
+          framesRequested: frames,
+          framesCompleted: frames,
+          memory: { peakBytes: 10 },
+        }));
       },
     });
-    assert.equal(launchedOptions.soft, true);
-    assert.deepEqual(launchedOptions.dumpFrames, [0, 29]);
-    assert.equal(result.receipt.run, ".akari/osr-run.json");
-    assert.equal(JSON.parse(await readFile(join(projectRoot, ".akari", "osr-run.json"), "utf8")).status, "completed");
+
+    const video = result.run.finalVerify.measured.streams.find((stream) => stream.codec_type === "video");
+    const audio = result.run.finalVerify.measured.streams.find((stream) => stream.codec_type === "audio");
+    assert.equal(Number(video.nb_read_frames), frames);
+    assert.ok(Math.abs(Number(video.duration) - duration) <= 1e-6);
+    assert.ok(Number(audio.duration) <= duration + 1 / fps);
+    assert.equal(result.run.finalVerify.matched, true);
+    const persistentRun = JSON.parse(await readFile(join(projectRoot, ".akari", "osr-run.json"), "utf8"));
+    assert.equal(persistentRun.status, "completed");
+
+    const baselineOut = join(projectRoot, "baseline-copy-t.mp4");
+    await execFileAsync(ffmpeg, [
+      "-hide_banner", "-loglevel", "error", "-y",
+      "-i", baselineVideo, "-i", audioPath,
+      "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "copy", "-t", String(duration), baselineOut,
+    ]);
+    const baseline = await verifyFinalVideo({
+      command: ffprobe,
+      path: baselineOut,
+      frames,
+      fps,
+      width,
+      height,
+      requireAudio: true,
+    });
+    const baselineAudio = baseline.measured.streams.find((stream) => stream.codec_type === "audio");
+    assert.equal(baseline.checks.duration, true);
+    assert.ok(Number(baselineAudio.duration) > duration + 1 / fps);
+    assert.equal(baseline.checks.audioDuration, false);
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

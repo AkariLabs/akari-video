@@ -56,6 +56,8 @@ CI・検収用の環境変数として`AKARI_OSR_SOFT=1`、`AKARI_OSR_VERIFY=sta
 3. 同じ fixture を legacy で書き出し、字幕・HTML・3D の指定時刻を raw BGRA で比較する。
 4. ffprobe で尺、フレーム数、解像度を照合する。
 
+音声 mux は映像を再エンコードせず、要求コマ数から算出した映像尺を出力上限にします。mux 後にも映像コマ数の完全一致、尺、解像度、codec、音声の存在と上限尺を ffprobe で検証し、結果を `run.json` と receipt の `finalVerify` に記録します。不一致の出力は成功扱いにしません。
+
 legacyとの全画面MADにはベース映像の色変換差が乗るため、オーバーレイ層の比較は単色ベースのfixtureで行います。
 
 速度計測の前は1分 load averageが8未満になるまで待ち、3走の medianを採用します。v0 は連番1 workerで走り、チャンク分割や並列 seekは行いません。
