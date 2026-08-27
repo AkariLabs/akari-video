@@ -1,3 +1,4 @@
+// このファイルは生成物です。正本は packages/frame-engine/src、再生成は npm run bundle:frame-engine。
 "use strict";
 var AkariFrameEngine = (() => {
   var __create = Object.create;
