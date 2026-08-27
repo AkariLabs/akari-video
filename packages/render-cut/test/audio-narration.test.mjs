@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,6 +76,7 @@ async function makeProject({
   bgm = { gainDb: -18, ducking: false },
   narration = [{ id: "n-0001", t: 2, durationSeconds: 2, frequency: 880, gainDb: 0 }],
   narrationFileExists = true,
+  narrationFileCorrupt = false,
 } = {}) {
   const root = await mkdtemp(join(tmpdir(), "render-cut-narration-test-"));
   makeSilentSourceVideo(join(root, "source.mp4"), { duration });
@@ -87,7 +88,7 @@ async function makeProject({
     audio.bgm = { path: "audio/bgm.wav", gain_db: bgm.gainDb, ducking: bgm.ducking === true };
   }
   if (narration) {
-    audio.narration = narration.map((item) => {
+    audio.narration = await Promise.all(narration.map(async (item) => {
       const relPath = narrationFileExists ? `audio/${item.id}.wav` : `audio/${item.id}-missing.wav`;
       if (narrationFileExists) {
         // sourceGainDb boosts the tone baked into the source WAV file itself (as a real narration
@@ -95,7 +96,11 @@ async function makeProject({
         // maps to edit.json's audio.narration[].gain_db (the mix-time gain render-cut applies).
         // The sine source's default amplitude peaks around -18dBFS, too quiet on its own to clear
         // an audibility threshold even when the mix is working correctly.
-        makeTone(join(root, relPath), { frequency: item.frequency, duration: item.durationSeconds, gainDb: item.sourceGainDb ?? 0 });
+        if (narrationFileCorrupt) {
+          await rawWriteFile(join(root, relPath), "not audio");
+        } else {
+          makeTone(join(root, relPath), { frequency: item.frequency, duration: item.durationSeconds, gainDb: item.sourceGainDb ?? 0 });
+        }
       }
       return {
         id: item.id,
@@ -104,7 +109,7 @@ async function makeProject({
         gain_db: item.gainDb,
         provenance: { provider: "human" },
       };
-    });
+    }));
   }
 
   await writeFile(
@@ -330,5 +335,107 @@ test("a narration file that cannot be found is skipped with a warning; the rende
     );
   } finally {
     await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("a narration file that cannot be decoded is skipped with a warning; the render still succeeds with BGM only", async (t) => {
+  if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
+  const project = await makeProject({
+    duration: 6,
+    bgm: { gainDb: -18, ducking: false },
+    narration: [{ id: "n-0001", t: 2, durationSeconds: 2, frequency: 880, gainDb: 0 }],
+    narrationFileCorrupt: true,
+  });
+  try {
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const expectedWarning = "narration n-0001: file could not be decoded as audio at audio/n-0001.wav; skipped";
+    assert.match(executed.stderr, /render-cut warning: narration n-0001: file could not be decoded as audio/);
+
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.verify.verdict, "pass");
+    assert.ok(state.warnings.includes(expectedWarning));
+    assert.equal(state.plan.commands.audio_mix.operation, "ffmpeg");
+    assert.equal(state.plan.commands.audio_mix.hasNarration, false);
+    assert.equal(state.plan.commands.audio_mix.args.includes(join(project, "audio", "n-0001.wav")), false);
+    assert.doesNotMatch(state.plan.commands.audio_mix.args.join(" "), /nar_raw|\[narration\]/);
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("a video-only narration input is rejected by the shared audio probe without generating narration input or filters", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-narration-video-only-plan-"));
+  try {
+    const narrationPath = join(root, "voice.mp4");
+    const probePath = join(root, "ffprobe-fixture.mjs");
+    await rawWriteFile(narrationPath, "fixture");
+    await rawWriteFile(probePath, `#!/usr/bin/env node
+process.stdout.write(JSON.stringify({ streams: [{ codec_type: "video" }], format: { duration: 12 } }));
+`);
+    await chmod(probePath, 0o755);
+
+    const command = buildAudioMixCommand({
+      edit: {
+        audio: {
+          bgm: { path: "bgm.wav", gain_db: 0 },
+          narration: [{ id: "n-0001", path: "voice.mp4", t: 0, gain_db: 0 }],
+        },
+      },
+      projectRoot: root,
+      inputPath: join(root, "composite.mp4"),
+      outputPath: join(root, "final.mp4"),
+      duration: 12,
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: probePath,
+    });
+    assert.equal(command.hasNarration, false);
+    assert.deepEqual(command.warnings, [
+      "narration n-0001: file could not be decoded as audio at voice.mp4; skipped",
+    ]);
+    assert.equal(command.args.includes(narrationPath), false);
+    assert.doesNotMatch(command.args[command.args.indexOf("-filter_complex") + 1], /nar_raw|\[narration\]/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("narration in/out adds the trim prefix while an omitted window keeps the legacy filter byte-identical with one probe per item", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-narration-trim-plan-"));
+  try {
+    const narrationPath = join(root, "voice.wav");
+    const probePath = join(root, "ffprobe-fixture.mjs");
+    const callsPath = join(root, "ffprobe-calls.txt");
+    await rawWriteFile(narrationPath, "fixture");
+    await rawWriteFile(probePath, `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+appendFileSync(${JSON.stringify(callsPath)}, "probe\\n");
+process.stdout.write(JSON.stringify({ streams: [{ codec_type: "audio" }], format: { duration: 12 } }));
+`);
+    await chmod(probePath, 0o755);
+
+    const build = narration => buildAudioMixCommand({
+      edit: { audio: { narration } },
+      projectRoot: root,
+      inputPath: join(root, "composite.mp4"),
+      outputPath: join(root, "final.mp4"),
+      duration: 12,
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: probePath,
+    });
+    const untrimmed = build([{ id: "n-0001", path: "voice.wav", t: 0, gain_db: 0 }]);
+    const untrimmedFilter = untrimmed.args[untrimmed.args.indexOf("-filter_complex") + 1];
+    assert.match(untrimmedFilter, /^\[1:a\]volume=0dB,adelay=0:all=1\[nar_raw0\]/);
+    assert.doesNotMatch(untrimmedFilter, /atrim=start=/);
+    assert.equal((await readFile(callsPath, "utf8")).trim().split("\n").length, 1);
+
+    const trimmed = build([{
+      id: "n-0001", path: "voice.wav", t: 0, in: 5.8, out: 9.7, gain_db: 0,
+    }]);
+    const trimmedFilter = trimmed.args[trimmed.args.indexOf("-filter_complex") + 1];
+    assert.match(trimmedFilter, /\[1:a\]atrim=start=5\.8:end=9\.7,asetpts=PTS-STARTPTS,volume=0dB/);
+    assert.equal((await readFile(callsPath, "utf8")).trim().split("\n").length, 2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });

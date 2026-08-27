@@ -162,7 +162,7 @@ test("still-image source inputs receive project framerate before -loop 1; video 
   assert.equal(video.args.includes("-framerate"), false);
 });
 
-test("video-only command args and filter_complex stay byte-for-byte unchanged", () => {
+test("video-only command adds only segment audio padding and omits cut-level -shortest", () => {
   const built = buildMultiSourceCutCommand({
     sourceInputs: [{ id: "video", path: "video.mp4", hasAudio: true }],
     cutPath: "cut.mp4",
@@ -174,14 +174,14 @@ test("video-only command args and filter_complex stay byte-for-byte unchanged", 
     ffprobeCommand: null,
     projectRoot: ".",
   });
-  const expectedFilter = "[0:v]trim=start=0:end=1.3,setpts=PTS-STARTPTS,scale=320:180:force_original_aspect_ratio=decrease,pad=320:180:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1[vrange0];[vrange0]scale=out_range=tv[v0];[0:a]atrim=start=0:end=1.3,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo[a0];[v0][a0]concat=n=1:v=1:a=1[joinedv][joineda];[joinedv]null[outv_tv]";
+  const expectedFilter = "[0:v]trim=start=0:end=1.3,setpts=PTS-STARTPTS,scale=320:180:force_original_aspect_ratio=decrease,pad=320:180:(ow-iw)/2:(oh-ih)/2,fps=30,setsar=1[vrange0];[vrange0]scale=out_range=tv[v0];[0:a]atrim=start=0:end=1.3,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=1.3[a0];[v0][a0]concat=n=1:v=1:a=1[joinedv][joineda];[joinedv]null[outv_tv]";
   const expectedArgs = [
     "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
     "-i", "video.mp4",
     "-filter_complex", expectedFilter,
     "-map", "[outv_tv]", "-map", "[joineda]",
     "-c:v", "libx264", "-profile:v", "high", "-color_range", "tv",
-    "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "48000", "-shortest", "cut.mp4",
+    "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "48000", "cut.mp4",
   ];
   assert.deepEqual(built.args, expectedArgs);
   assert.equal(built.args[built.args.indexOf("-filter_complex") + 1], expectedFilter);
