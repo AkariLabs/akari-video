@@ -5146,6 +5146,30 @@ var require_transition_visual = __commonJS({
   }
 });
 
+// ../edit-store/lib/ducking.js
+var require_ducking = __commonJS({
+  "../edit-store/lib/ducking.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.STATIC_DUCK_GAIN_DB = void 0;
+    exports.computeDuckIntervals = computeDuckIntervals;
+    exports.isWithinDuckInterval = isWithinDuckInterval;
+    exports.computeBgmDuckGainDb = computeBgmDuckGainDb;
+    exports.STATIC_DUCK_GAIN_DB = -12;
+    function computeDuckIntervals(sources) {
+      return sources.filter((s) => Number.isFinite(s.t) && s.t >= 0 && Number.isFinite(s.durationSec) && s.durationSec > 0).map((s) => ({ startSec: s.t, endSec: s.t + s.durationSec }));
+    }
+    function isWithinDuckInterval(intervals, atSec) {
+      return intervals.some((iv) => atSec >= iv.startSec && atSec < iv.endSec);
+    }
+    function computeBgmDuckGainDb(intervals, duckingEnabled, atSec) {
+      if (!duckingEnabled)
+        return 0;
+      return isWithinDuckInterval(intervals, atSec) ? exports.STATIC_DUCK_GAIN_DB : 0;
+    }
+  }
+});
+
 // ../edit-store/lib/migrate/legacy-parse.js
 var require_legacy_parse = __commonJS({
   "../edit-store/lib/migrate/legacy-parse.js"(exports) {
@@ -5658,6 +5682,7 @@ var require_lib = __commonJS({
     __exportStar(require_cut_adjacency(), exports);
     __exportStar(require_transition_vocabulary(), exports);
     __exportStar(require_transition_visual(), exports);
+    __exportStar(require_ducking(), exports);
     var legacy_parse_1 = require_legacy_parse();
     Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function() {
       return legacy_parse_1.parseEdit;

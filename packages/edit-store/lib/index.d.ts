@@ -18,5 +18,6 @@ export * from './track-transition-compatibility';
 export * from './cut-adjacency';
 export * from './transition-vocabulary';
 export * from './transition-visual';
+export * from './ducking';
 export { parseEdit } from './migrate/legacy-parse';
 export { LegacyEditVersionError } from './migrate/error';
