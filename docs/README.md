@@ -116,6 +116,7 @@ All contracts follow the
 |---|---|
 | [contract-2026-08-02-preview-parity.md](./contract-2026-08-02-preview-parity.md) | Preview parity v0 — a single behavior spec for the Web UI and the shell (same edit.json / captions.json → same look, same behavior) |
 | [contract-2026-08-01-export-nle-beta.md](./contract-2026-08-01-export-nle-beta.md) | export-nle: one-way export to other NLEs (FCPXML / FCP7 XML / SRT) — **BETA, untested against real NLEs** |
+| [contract-2026-08-28-osr-export-v0.md](./contract-2026-08-28-osr-export-v0.md) | Whole-page Electron OSR export v0 — page layers, seek/paint verification handshake, launcher fallback, and memory limits (Japanese) |
 
 ### Assets & personal layer
 

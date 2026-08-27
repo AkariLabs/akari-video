@@ -45,6 +45,7 @@ import { createImmutableRenderReceipt, prepareContainedReportDirectory } from ".
 import { buildAudioQc, measurementErrorAudioQc, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { resolveCanonicalCaptionFontAsset } from "./caption-font.mjs";
+import { exportWithOsr, resolveOsrLauncher } from "../../osr-export/src/index.mjs";
 import {
   projectRendererCompatibilityEdit,
   readRenderEdit,
@@ -58,9 +59,10 @@ const { resolveCaptionDisplay } = packageRequire("../../edit-store/lib/index.js"
 // itself. 24h gives ample time for a same-day retry/inspection before we reclaim the space, while
 // never touching a directory an active concurrent run still owns (see createRunTemporaryDirectory).
 const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
+const ENGINE_CHOICES = ["legacy", "osr"];
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|x264]
-  [--fps <number>] [--capture-workers <n>] [--progress]
+  [--fps <number>] [--capture-workers <n>] [--engine legacy|osr] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
@@ -229,6 +231,7 @@ export async function renderProject(input, options = {}, io = console) {
         hyperframes: capabilities.hyperframesVersion,
         puppeteer_core: capabilities.puppeteerVersion,
       },
+      ...(options.engine === "osr" ? { engine: "osr" } : {}),
     },
     artifacts: [],
     verify: null,
@@ -240,6 +243,14 @@ export async function renderProject(input, options = {}, io = console) {
   const reportPath = join(projectRoot, ".akari", "reports", "render-report.html");
   await writeState(state, statePath, reportPath, projectRoot);
   if (options.planOnly) return state;
+
+  const osrLauncher = options.engine === "osr" ? await resolveOsrLauncher() : null;
+  const engineExecution = selectRenderEngineExecution(options.engine, osrLauncher);
+  const useOsr = engineExecution.useOsr;
+  if (osrLauncher?.tier === 3) {
+    delete state.provenance.engine;
+    addWarning(state, osrLauncher.warning);
+  }
 
   // --progress (task 2026-07-25-export-options): "cut" always runs; "composite" only exists when
   // there is overlay/caption HTML to rasterize onto the base video (mirrors the allOverlays.length
@@ -289,7 +300,7 @@ export async function renderProject(input, options = {}, io = console) {
     const overlays = loadedOverlays;
     const captions = captionOverlays;
     const allOverlays = [...overlays, ...captions];
-    if (trackStack) {
+    if (trackStack && engineExecution.runLegacyTrackStack) {
       runChecked(trackStack.base.command, trackStack.base.args, { cwd: projectRoot });
       for (const track of trackStack.cutTracks) {
         for (const warning of track.command.warnings ?? []) addWarning(state, warning);
@@ -339,17 +350,38 @@ export async function renderProject(input, options = {}, io = console) {
     // command and always feeds the original cut.mp4 onward unchanged (byte-identical output).
     const layersCommand = plan.commands.layers;
     const layeredPath = join(temporaryDirectory, "layered.mp4");
-    if (layersCommand) {
+    if (layersCommand && engineExecution.runLegacyLayers) {
       // A layer whose declared alpha cannot be decoded composites as an opaque rectangle over the
       // base video. That used to happen silently; surface it as a warning next to the render.
       for (const warning of layersCommand.warnings ?? []) addWarning(state, warning);
       runChecked(layersCommand.command, layersCommand.args, { cwd: projectRoot });
     }
     const cutOutputPath = tailPadCommand ? tailPaddedPath : cutPath;
-    const baseVideoPath = trackStack?.outputPath ?? (layersCommand ? layeredPath : cutOutputPath);
+    const baseVideoPath = useOsr ? cutOutputPath : (trackStack?.outputPath ?? (layersCommand ? layeredPath : cutOutputPath));
 
     const compositePath = join(temporaryDirectory, "composite.mp4");
-    if (trackStack) {
+    if (useOsr) {
+      const osr = await exportWithOsr({
+        projectRoot,
+        out: compositePath,
+        audioSourcePath: cutOutputPath,
+        fps: plan.preset.fps,
+        width: edit.output.width,
+        height: edit.output.height,
+        duration: plan.predicted_duration_seconds,
+        frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
+        quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
+        encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
+        ffmpegCommand: capabilities.ffmpegCommand,
+        ffprobeCommand: capabilities.ffprobeCommand,
+        io,
+        launcher: osrLauncher,
+      });
+      state.provenance.osr = osr.receipt;
+      state.provenance.rasterizer.adopted = "osr";
+      state.provenance.rasterizer.attempts.push({ method: "osr", status: "adopted", reason: null });
+      emitProgress("composite", plan.predicted_duration_seconds);
+    } else if (trackStack) {
       await copyFile(trackStack.outputPath, compositePath);
       if (allOverlays.length === 0) {
         state.provenance.rasterizer.adopted = "skip";
@@ -568,6 +600,10 @@ export function parseArguments(argv, env = process.env) {
     else if (argument === "--plan-only") options.planOnly = true;
     else if (argument === "--force") options.force = true;
     else if (argument === "--progress") options.progress = true;
+    else if (argument === "--engine") {
+      if (index + 1 >= argv.length) throw new Error("--engine requires a value");
+      options.engine = parseEngineValue(argv[++index]);
+    } else if (argument.startsWith("--engine=")) options.engine = parseEngineValue(argument.slice(9));
     else if (argument === "--out") {
       if (index + 1 >= argv.length) throw new Error("--out requires a path");
       options.out = argv[++index];
@@ -601,6 +637,23 @@ export function parseArguments(argv, env = process.env) {
   }
   if (!options.help && options.projectRoot === null) throw new Error("A project root is required");
   return options;
+}
+
+export function selectRenderEngineExecution(engine, launcher) {
+  const useOsr = engine === "osr" && launcher !== null && launcher?.tier !== 3;
+  return {
+    useOsr,
+    runLegacyTrackStack: !useOsr,
+    runLegacyLayers: !useOsr,
+    runLegacyRasterize: !useOsr,
+  };
+}
+
+function parseEngineValue(value) {
+  if (!ENGINE_CHOICES.includes(value)) {
+    throw new Error(`--engine must be one of ${ENGINE_CHOICES.join("|")}, got: ${value}`);
+  }
+  return value;
 }
 
 function parseQualityValue(value) {
