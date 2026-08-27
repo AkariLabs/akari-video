@@ -157,9 +157,11 @@ Electron 内の実 Chromium / WebCodecs / WebGL2 と、同じ入力を使う ren
 
 ## 条件
 
+- upload path: requested=${benchmark.uploadPath?.requested ?? '—'} / effective=${benchmark.uploadPath?.effective ?? '—'}
 - ${benchmark.environment?.userAgent ?? '環境情報未取得'}
 - ${benchmark.frameCount ?? '—'} frames / ${benchmark.durationSeconds ?? '—'}s / 1920×1080 / 30fps
 - ratio 対象 ${benchmark.ratio?.runs ?? '—'} runs（代表値 median、段階別 profile source run=${benchmark.profile?.sourceRun ?? '—'}）
+- v2/render-cut median=${number(benchmark.ratio?.median)} / cold run 除外 steady median=${number(benchmark.ratio?.steadyMedian)}
 - 入力 SHA-256: \`${renderCut?.inputSha256 ?? '未取得'}\`（同一 bytes=${renderCut?.sameInputBytes ?? '未取得'}）。cuts は 3.25 秒 × 4、2 番目に transform を含む
 - v2 最終出口: canvas → WebCodecs H.264（Annex B）→ ffmpeg copy mux
 - 対照: render-cut \`standard\` / \`videotoolbox\`

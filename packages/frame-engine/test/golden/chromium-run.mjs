@@ -156,7 +156,8 @@ await page.addInitScript(({ sourceUrl, codecs }) => {
 }, { sourceUrl: fixtureUrl, codecs: fixtureCodecs });
 
 try {
-  await page.goto(pathToFileURL(chromiumHtml).toString());
+  const uploadPath = process.env.FRAME_ENGINE_UPLOAD_PATH === 'copyTo' ? 'copyTo' : 'direct';
+  await page.goto(`${pathToFileURL(chromiumHtml)}?uploadPath=${uploadPath}`);
   await page.addScriptTag({ path: bundle });
   await Promise.race([
     completion,

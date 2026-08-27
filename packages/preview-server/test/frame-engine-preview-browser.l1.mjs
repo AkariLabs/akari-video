@@ -103,12 +103,28 @@ test('real browser runs the cuts-only frame engine field project outside the par
     assert.equal(offRequests.some(url => url.endsWith('/frame-engine.bundle.js')), false);
     await off.close();
 
+    const directPage = await context.newPage();
+    const directPageErrors = [];
+    directPage.on('pageerror', error => directPageErrors.push(error.message));
+    await directPage.goto(`${base}/?frameEngine=1`, { waitUntil: 'load' });
+    await directPage.waitForSelector(
+      '#frame-engine-preview[data-frame-engine-ready="true"]',
+      { timeout: 20_000 },
+    );
+    assert.equal(
+      await directPage.locator('#frame-engine-metrics').getAttribute('data-upload-path'),
+      'direct',
+    );
+    assert.equal(await directPage.locator('#frame-engine-error').isHidden(), true);
+    assert.deepEqual(directPageErrors, []);
+    await directPage.close();
+
     const page = await context.newPage();
     const onRequests = [];
     const pageErrors = [];
     page.on('request', request => onRequests.push(request.url()));
     page.on('pageerror', error => pageErrors.push(error.message));
-    await page.goto(`${base}/?frameEngine=1`, { waitUntil: 'load' });
+    await page.goto(`${base}/?frameEngine=1&uploadPath=copyTo`, { waitUntil: 'load' });
     await page.waitForSelector('#frame-engine-preview[data-frame-engine-ready="true"]', { timeout: 20_000 });
 
     assert.equal(onRequests.some(url => url.endsWith('/frame-engine.bundle.js')), true);
@@ -117,6 +133,7 @@ test('real browser runs the cuts-only frame engine field project outside the par
     assert.doesNotMatch(await page.locator('#frame-engine-unsupported-banner').textContent(), /未対応: layers/u);
     assert.equal(await page.locator('#preview-video').evaluate(element => getComputedStyle(element).display), 'none');
     assert.deepEqual(await page.locator('#frame-engine-canvas').evaluate(canvas => [canvas.width, canvas.height]), [1280, 720]);
+    assert.equal(await page.locator('#frame-engine-metrics').getAttribute('data-upload-path'), 'copyTo');
 
     const duration = Number(await page.locator('#seek').getAttribute('max'));
     assert.ok(duration > 2.2 && duration < 2.4, `freeze-adjusted duration was ${duration}`);

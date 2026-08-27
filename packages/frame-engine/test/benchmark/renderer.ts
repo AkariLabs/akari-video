@@ -69,7 +69,9 @@ const FPS = 30;
 const DURATION = 13;
 const FRAME_COUNT = DURATION * FPS;
 const SOURCE_URL = window.frameBench.fixtureUrl;
-const REPEAT_COUNT = Number(new URL(window.location.href).searchParams.get('repeat') ?? '3');
+const query = new URL(window.location.href).searchParams;
+const REPEAT_COUNT = Number(query.get('repeat') ?? '3');
+const REQUESTED_UPLOAD_PATH = query.get('uploadPath') === 'copyTo' ? 'copyTo' : 'direct';
 const output = { width: WIDTH, height: HEIGHT, colorSpace: 'bt709-limited' as const };
 const timeline = buildResolvedTimelinePlan(edit.cuts as FrameEngineCut[], { fps: FPS });
 
@@ -110,21 +112,33 @@ const STAGE_RELATIONSHIPS: Record<string, Pick<ProfileStage, 'classification' | 
   ffmpegClose: { classification: 'one-shot', relationship: 'once per export; excluded from per-frame ranking' }
 };
 
-function buildStageProfile(metrics: Record<string, MetricSummary>): {
+function buildStageProfile(metrics: Record<string, unknown>): {
   stages: Record<string, ProfileStage>;
   ranking: Array<{ name: string; p50Ms: number; count: number; perFrameContributionMs: number }>;
   dominantStage: { name: string; p50Ms: number; count: number; perFrameContributionMs: number } | null;
   oneShotStages: Array<{ name: string; p50Ms: number | null; count: number }>;
 } {
-  const sink = metrics.sink;
-  const ipcWrite = metrics.ipcWrite;
-  const ffmpegDrain = metrics.ffmpegDrain;
+  const metric = (name: string): MetricSummary | undefined => {
+    const value = metrics[name];
+    return typeof value === 'object' && value !== null && 'count' in value
+      ? value as MetricSummary
+      : undefined;
+  };
+  const sink = metric('sink');
+  const ipcWrite = metric('ipcWrite');
+  const ffmpegDrain = metric('ffmpegDrain');
   const ipcTransitP50 = sink?.p50Ms != null && ipcWrite?.p50Ms != null && ffmpegDrain?.p50Ms != null
     ? Math.max(0, sink.p50Ms - ipcWrite.p50Ms - ffmpegDrain.p50Ms)
     : null;
   const ipcTransitCount = Math.min(sink?.count ?? 0, ipcWrite?.count ?? 0, ffmpegDrain?.count ?? 0);
+  const measured = Object.fromEntries(Object.entries(metrics).filter(
+    (entry): entry is [string, MetricSummary] =>
+      typeof entry[1] === 'object' && entry[1] !== null
+      && 'count' in entry[1]
+      && typeof entry[1].count === 'number',
+  ));
   const withDerived: Record<string, MetricSummary> = {
-    ...metrics,
+    ...measured,
     ipcTransit: {
       count: ipcTransitCount,
       p50Ms: ipcTransitP50,
@@ -241,7 +255,7 @@ async function profileSource(
   plans: ReturnType<typeof plansForFrames>
 ) {
   const metrics = new FrameMetrics();
-  const compositor = new WebGL2Compositor();
+  const compositor = new WebGL2Compositor(undefined, { uploadPath: REQUESTED_UPLOAD_PATH });
   const sources = new Map([[SOURCE_URL, source]]);
   const started = performance.now();
   try {
@@ -272,7 +286,10 @@ async function benchmarkLayerCount(context: PhaseContext, count: number) {
   const sources = new Map([[SOURCE_URL, pool]]);
   const metrics = new FrameMetrics();
   const constructionStarted = performance.now();
-  const compositor = new WebGL2Compositor(undefined, { synchronization: 'finish' });
+  const compositor = new WebGL2Compositor(undefined, {
+    synchronization: 'finish',
+    uploadPath: REQUESTED_UPLOAD_PATH,
+  });
   const gpuInitializationMs = performance.now() - constructionStarted;
   const frameWalls: number[] = [];
   try {
@@ -573,7 +590,7 @@ async function ipcComparison(context: PhaseContext) {
 
 async function exportRawFfmpeg(context: PhaseContext) {
   const session = new ClipSessionPool('raw-export', SOURCE_URL);
-  const compositor = new WebGL2Compositor();
+  const compositor = new WebGL2Compositor(undefined, { uploadPath: REQUESTED_UPLOAD_PATH });
   const metrics = new FrameMetrics();
   const sources = new Map([[SOURCE_URL, session]]);
   const started = performance.now();
@@ -610,7 +627,10 @@ async function exportRawFfmpeg(context: PhaseContext) {
 
 async function exportWebCodecs(context: PhaseContext) {
   const session = new ClipSessionPool('webcodecs-export', SOURCE_URL);
-  const compositor = new WebGL2Compositor(undefined, { synchronization: 'flush' });
+  const compositor = new WebGL2Compositor(undefined, {
+    synchronization: 'flush',
+    uploadPath: REQUESTED_UPLOAD_PATH,
+  });
   const metrics = new FrameMetrics();
   const sources = new Map([[SOURCE_URL, session]]);
   const encoderOptions = { width: WIDTH, height: HEIGHT, fps: FPS, bitrate: 8_000_000 };
@@ -748,7 +768,7 @@ async function run() {
   ] as const) {
     if (isSkipped(value)) skippedPhases.push({ name, reason: value.skipped, elapsedMs: value.elapsedMs });
   }
-  const rawStageMetrics: Record<string, MetricSummary> | null = isSkipped(raw)
+  const rawStageMetrics: Record<string, unknown> | null = isSkipped(raw)
     ? null
     : {
         ...raw.stages,
@@ -783,8 +803,11 @@ async function run() {
         evidence: 'repeated-run medians on the same surface path: before includes RGBA readback, 8MB/frame renderer-to-main copy, and raw ffmpeg pipe; after uses WebCodecs H.264 plus copy mux'
       }]
     : [];
+  const pathSpecificStages = REQUESTED_UPLOAD_PATH === 'copyTo'
+    ? ['copyTo', 'planeCompact']
+    : ['upload'];
   const stageProfileEstablished = stageProfile != null && [
-    'tick', 'copyTo', 'planeCompact', 'upload', 'shaderGpu', 'pboWait', 'rowFlip',
+    'tick', ...pathSpecificStages, 'shaderGpu', 'pboWait', 'rowFlip',
     'ipcTransit', 'ipcWrite', 'ffmpegDrain', 'ffmpegClose'
   ].every(name => (stageProfile.stages[name]?.count ?? 0) > 0)
     && stageProfile.dominantStage?.name !== 'ffmpegClose'
@@ -835,6 +858,10 @@ async function run() {
   const firstLayerScaling = layerScaling[0]!;
   await window.frameBench.complete({
     pass,
+    uploadPath: {
+      requested: REQUESTED_UPLOAD_PATH,
+      effective: isSkipped(raw) ? null : raw.stages.uploadPath,
+    },
     skippedPhases,
     phases: phaseResults,
     environment: {
@@ -868,6 +895,8 @@ async function run() {
     ratio: {
       v2ToRenderCut: ratio,
       samples: ratioSamples,
+      steadySamples: ratioSamples.slice(1),
+      steadyMedian: median(ratioSamples.slice(1)),
       minimum: ratioSamples.length ? Math.min(...ratioSamples) : null,
       median: ratio,
       maximum: ratioSamples.length ? Math.max(...ratioSamples) : null,

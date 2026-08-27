@@ -1,3 +1,4 @@
+import './decoder-instrumentation.js';
 import {
   BufferedRawFrameSink,
   buildResolvedTimelinePlan,
@@ -52,6 +53,7 @@ declare global {
   interface Window {
     goldenHarness: GoldenBridge;
   }
+  var __frameEngineDecoderInstances: VideoDecoder[] | undefined;
 }
 
 const WIDTH = 320;
@@ -63,6 +65,10 @@ const STILL_URL = new URL('still.png', SOURCE_URL).href;
 const MATTE_COLOR_URL = new URL('matte-color.mp4', SOURCE_URL).href;
 const MATTE_ALPHA_URL = new URL('matte-alpha.webm', SOURCE_URL).href;
 const MATTE_MASK_URL = new URL('matte-mask.mp4', SOURCE_URL).href;
+const COLOR_PATCHES_URL = new URL('color-patches.mp4', SOURCE_URL).href;
+const REQUESTED_UPLOAD_PATH = new URL(window.location.href).searchParams.get('uploadPath') === 'copyTo'
+  ? 'copyTo'
+  : 'direct';
 const SAMPLE_POINTS = [
   ['hard-cut-before', 900_000],
   ['hard-cut-after', 1_100_000],
@@ -155,13 +161,354 @@ async function rgbaToPng(rgba: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await blob.arrayBuffer());
 }
 
+const COLOR_PATCHES = [
+  { name: 'black', rgb: [0, 0, 0] },
+  { name: 'white', rgb: [255, 255, 255] },
+  { name: 'red', rgb: [255, 0, 0] },
+  { name: 'green', rgb: [0, 255, 0] },
+  { name: 'blue', rgb: [0, 0, 255] },
+  { name: 'cyan', rgb: [0, 255, 255] },
+  { name: 'magenta', rgb: [255, 0, 255] },
+  { name: 'yellow', rgb: [255, 255, 0] },
+  { name: 'mid-gray', rgb: [128, 128, 128] },
+] as const;
+
+const fullFrameVisual: ResolvedCutVisual = {
+  framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
+  transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
+  opacity: 1,
+};
+
+function centerMean(rgba: Uint8Array): [number, number, number] {
+  const totals: [number, number, number] = [0, 0, 0];
+  const startX = WIDTH / 2 - 8;
+  const startY = HEIGHT / 2 - 8;
+  for (let y = startY; y < startY + 16; y += 1) {
+    for (let x = startX; x < startX + 16; x += 1) {
+      const offset = (y * WIDTH + x) * 4;
+      totals[0] += rgba[offset]!;
+      totals[1] += rgba[offset + 1]!;
+      totals[2] += rgba[offset + 2]!;
+    }
+  }
+  return totals.map(value => value / 256) as [number, number, number];
+}
+
+function meanAbsoluteRgbDiff(left: Uint8Array, right: Uint8Array): number {
+  let total = 0;
+  let channels = 0;
+  for (let offset = 0; offset < left.length; offset += 4) {
+    for (let channel = 0; channel < 3; channel += 1) {
+      total += Math.abs(left[offset + channel]! - right[offset + channel]!);
+      channels += 1;
+    }
+  }
+  return total / channels;
+}
+
+async function inspectColorPatches(output: EvaluationPlan['output']) {
+  const directSource = new ClipSessionPool('colors-direct', COLOR_PATCHES_URL);
+  const copySource = new ClipSessionPool('colors-copy', COLOR_PATCHES_URL);
+  const maskSource = new ClipSessionPool('colors-mask', MATTE_MASK_URL);
+  const directMetrics = new FrameMetrics();
+  const copyMetrics = new FrameMetrics();
+  const directCompositor = new WebGL2Compositor(undefined, { uploadPath: 'direct' });
+  const copyCompositor = new WebGL2Compositor(undefined, { uploadPath: 'copyTo' });
+  const directRows = [];
+  const copyRows = [];
+  const crossPathDiff = [];
+  const directTimestamps = new Map<string, number>();
+  const copyTimestamps = new Map<string, number>();
+  const recordTimestamps = (
+    source: NativeFrameSource,
+    timestamps: Map<string, number>,
+  ): NativeFrameSource => ({
+    async decode(timeUs, metrics, request) {
+      const frame = await source.decode(timeUs, metrics, request);
+      timestamps.set(request?.streamId ?? '', Number(frame.timestamp));
+      return frame;
+    },
+  });
+  const directRecordedSource = recordTimestamps(directSource, directTimestamps);
+  const copyRecordedSource = recordTimestamps(copySource, copyTimestamps);
+  try {
+    for (let index = 0; index < COLOR_PATCHES.length; index += 1) {
+      const patch = COLOR_PATCHES[index]!;
+      const timeUs = Math.round((index * 0.5 + 0.25) * 1e6);
+      const windowStartUs = index * 500_000;
+      const windowEndUs = (index + 1) * 500_000;
+      const planFor = (source: NativeFrameSource, id: string): EvaluationPlan => ({
+        timeUs,
+        base: [{ id, source, sourceTimeUs: timeUs, visual: fullFrameVisual }],
+        layers: [],
+        output,
+      });
+      const render = async (
+        plan: EvaluationPlan,
+        compositor: WebGL2Compositor,
+        metrics: FrameMetrics,
+      ) => {
+        const frame = await evaluateFrame(plan, { compositor, metrics });
+        try {
+          return { rgba: await frame.surface.readRgba(), uploadPath: frame.uploadPath };
+        } finally {
+          frame.close();
+        }
+      };
+      const directStreamId = `direct-${index}`;
+      const copyStreamId = `copy-${index}`;
+      const direct = await render(
+        planFor(directRecordedSource, directStreamId),
+        directCompositor,
+        directMetrics,
+      );
+      const copy = await render(
+        planFor(copyRecordedSource, copyStreamId),
+        copyCompositor,
+        copyMetrics,
+      );
+      const directTimestampUs = directTimestamps.get(directStreamId) ?? null;
+      const copyTimestampUs = copyTimestamps.get(copyStreamId) ?? null;
+      const directTimestampInWindow = directTimestampUs != null
+        && directTimestampUs >= windowStartUs && directTimestampUs < windowEndUs;
+      const copyTimestampInWindow = copyTimestampUs != null
+        && copyTimestampUs >= windowStartUs && copyTimestampUs < windowEndUs;
+      const directMean = centerMean(direct.rgba);
+      const copyMean = centerMean(copy.rgba);
+      const directDelta = directMean.map((value, channel) => Math.abs(value - patch.rgb[channel]!));
+      const copyDelta = copyMean.map((value, channel) => Math.abs(value - patch.rgb[channel]!));
+      directRows.push({ name: patch.name, expected: patch.rgb, actual: directMean, delta: directDelta,
+        requestedTimestampUs: timeUs, decodedTimestampUs: directTimestampUs,
+        timestampWindowUs: [windowStartUs, windowEndUs], timestampInWindow: directTimestampInWindow,
+        uploadPath: direct.uploadPath,
+        pass: directDelta.every(value => value <= 2) && directTimestampInWindow });
+      copyRows.push({ name: patch.name, expected: patch.rgb, actual: copyMean, delta: copyDelta,
+        requestedTimestampUs: timeUs, decodedTimestampUs: copyTimestampUs,
+        timestampWindowUs: [windowStartUs, windowEndUs], timestampInWindow: copyTimestampInWindow,
+        uploadPath: copy.uploadPath,
+        pass: copyDelta.every(value => value <= 2) && copyTimestampInWindow });
+      crossPathDiff.push({
+        name: patch.name,
+        ...compareRgba(direct.rgba, copy.rgba),
+        meanAbsoluteDelta: meanAbsoluteRgbDiff(direct.rgba, copy.rgba),
+      });
+    }
+
+    const maskFrameNumber = 10;
+    const maskTimeUs = Math.round(((maskFrameNumber + 0.5) / FPS) * 1e6);
+    const maskPlan: EvaluationPlan = {
+      timeUs: maskTimeUs,
+      base: [{ id: 'mask-base', source: directSource, sourceTimeUs: 250_000, visual: fullFrameVisual }],
+      layers: [{
+        id: 'mask-layer', kind: 'matte', source: directSource, sourceTimeUs: 750_000,
+        mask: { kind: 'greyscale', source: maskSource, sourceTimeUs: maskTimeUs },
+        visual: {
+          crop: { x: 0, y: 0, width: 1, height: 1 },
+          perspective: null,
+          transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
+        },
+        blend: 'normal', opacity: 1,
+      }],
+      output,
+    };
+    const maskFrame = await evaluateFrame(maskPlan, {
+      compositor: directCompositor,
+      metrics: directMetrics,
+    });
+    let maxDelta = 0;
+    let samples = 0;
+    try {
+      const rgba = await maskFrame.surface.readRgba();
+      const start = (5 * maskFrameNumber) % 288;
+      const end = start + 31;
+      for (let y = 4; y < HEIGHT - 4; y += 8) {
+        for (let x = 4; x < WIDTH - 4; x += 4) {
+          if (Math.abs(x - start) <= 2 || Math.abs(x - end) <= 2) continue;
+          const expected = x >= start && x <= end ? 255 : 0;
+          const offset = (y * WIDTH + x) * 4;
+          maxDelta = Math.max(maxDelta, Math.abs(rgba[offset]! - expected));
+          samples += 1;
+        }
+      }
+    } finally {
+      maskFrame.close();
+    }
+    const maskFidelity = { frameNumber: maskFrameNumber, samples, maxDelta, pass: maxDelta <= 3 };
+    return {
+      colorspaceConversion: directCompositor.stats.colorspaceConversion,
+      direct: { rows: directRows, pass: directRows.every(row => row.pass) },
+      copyTo: { rows: copyRows, pass: copyRows.every(row => row.pass) },
+      crossPathDiff,
+      maskFidelity,
+      pass: directRows.every(row => row.pass)
+        && copyRows.every(row => row.pass)
+        && maskFidelity.pass
+        && directCompositor.uploadPath === 'direct',
+    };
+  } finally {
+    directSource.destroy();
+    copySource.destroy();
+    maskSource.destroy();
+    directCompositor.dispose();
+    copyCompositor.dispose();
+  }
+}
+
+async function inspectTexturedCrossPath(
+  output: EvaluationPlan['output'],
+  timeline: ReturnType<typeof buildResolvedTimelinePlan>,
+  layerTimeline: ReturnType<typeof buildResolvedTimelinePlan>,
+) {
+  const directMain = new ClipSessionPool('textured-direct-main', SOURCE_URL);
+  const directLayer = new ClipSessionPool('textured-direct-layer', SOURCE_B_URL);
+  const copyMain = new ClipSessionPool('textured-copy-main', SOURCE_URL);
+  const copyLayer = new ClipSessionPool('textured-copy-layer', SOURCE_B_URL);
+  const directSources = new Map<string, NativeFrameSource>([
+    [SOURCE_URL, directMain],
+    [SOURCE_B_URL, directLayer],
+  ]);
+  const copySources = new Map<string, NativeFrameSource>([
+    [SOURCE_URL, copyMain],
+    [SOURCE_B_URL, copyLayer],
+  ]);
+  const directCompositor = new WebGL2Compositor(undefined, { uploadPath: 'direct' });
+  const copyCompositor = new WebGL2Compositor(undefined, { uploadPath: 'copyTo' });
+  const directMetrics = new FrameMetrics();
+  const copyMetrics = new FrameMetrics();
+  const points = [
+    { label: 'layer-static-crop', timeUs: Math.round((15.5 / FPS) * 1e6), layers: true },
+    { label: 'framing-static', timeUs: 2_500_000, layers: false },
+    { label: 'zoom-mid', timeUs: 3_500_000, layers: false },
+  ] as const;
+  try {
+    const render = async (
+      plan: EvaluationPlan,
+      compositor: WebGL2Compositor,
+      metrics: FrameMetrics,
+    ) => {
+      const frame = await evaluateFrame(plan, { compositor, metrics });
+      try {
+        return await frame.surface.readRgba();
+      } finally {
+        frame.close();
+      }
+    };
+    const rows = [];
+    for (const point of points) {
+      const resolved = point.layers ? layerTimeline : timeline;
+      const directPlan = evaluationPlanFromResolvedTimeline(
+        resolved,
+        point.timeUs,
+        directSources,
+        output,
+      );
+      const copyPlan = evaluationPlanFromResolvedTimeline(
+        resolved,
+        point.timeUs,
+        copySources,
+        output,
+      );
+      const direct = await render(directPlan, directCompositor, directMetrics);
+      const copyTo = await render(copyPlan, copyCompositor, copyMetrics);
+      rows.push({
+        label: point.label,
+        timeUs: point.timeUs,
+        baseFrames: directPlan.base.length,
+        layers: directPlan.layers.length,
+        ...compareRgba(direct, copyTo),
+        meanAbsoluteDelta: meanAbsoluteRgbDiff(direct, copyTo),
+      });
+    }
+    return {
+      directUploadPath: directCompositor.uploadPath,
+      copyToUploadPath: copyCompositor.uploadPath,
+      rows,
+    };
+  } finally {
+    directMain.destroy();
+    directLayer.destroy();
+    copyMain.destroy();
+    copyLayer.destroy();
+    directCompositor.dispose();
+    copyCompositor.dispose();
+  }
+}
+
+async function inspectFrameLifetime(output: EvaluationPlan['output']) {
+  const session = new ClipSessionPool('frame-lifetime', MATTE_COLOR_URL);
+  let handedOut = 0;
+  let closed = 0;
+  const source: NativeFrameSource = {
+    async decode(timeUs, metrics, request) {
+      const frame = await session.decode(timeUs, metrics, request);
+      handedOut += 1;
+      const nativeClose = frame.close.bind(frame);
+      let didClose = false;
+      Object.defineProperty(frame, 'close', {
+        configurable: true,
+        value() {
+          if (didClose) return;
+          didClose = true;
+          closed += 1;
+          nativeClose();
+        },
+      });
+      return frame;
+    },
+  };
+  const compositor = new WebGL2Compositor(undefined, { uploadPath: REQUESTED_UPLOAD_PATH });
+  const metrics = new FrameMetrics();
+  const queueSamples: number[] = [];
+  const safeFrames = Array.from({ length: 389 }, (_value, index) => index)
+    .filter(frameNumber => frameNumber % 30 !== 29);
+  try {
+    for (let index = 0; index < 1_000; index += 1) {
+      const frameNumber = safeFrames[index % safeFrames.length]!;
+      const timeUs = Math.round(((frameNumber + 0.5) / FPS) * 1e6);
+      const plan: EvaluationPlan = {
+        timeUs,
+        base: [{ id: 'lifetime', source, sourceTimeUs: timeUs, visual: fullFrameVisual }],
+        layers: [],
+        output,
+      };
+      const frame = await evaluateFrame(plan, { compositor, metrics });
+      frame.close();
+      queueSamples.push((globalThis.__frameEngineDecoderInstances ?? [])
+        .reduce((sum, decoder) => sum + decoder.decodeQueueSize, 0));
+    }
+    await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+    const decodeQueueSizeFinal = (globalThis.__frameEngineDecoderInstances ?? [])
+      .reduce((sum, decoder) => sum + decoder.decodeQueueSize, 0);
+    const firstHalfMax = Math.max(...queueSamples.slice(0, 100));
+    const secondHalfMax = Math.max(...queueSamples.slice(-100));
+    const openFrames = handedOut - closed;
+    return {
+      frames: 1_000,
+      handedOut,
+      closed,
+      openFrames,
+      decodeQueueSizeMax: Math.max(...queueSamples),
+      decodeQueueSizeFinal,
+      firstHalfMax,
+      secondHalfMax,
+      pass: handedOut === closed
+        && openFrames === 0
+        && decodeQueueSizeFinal === 0
+        && secondHalfMax <= firstHalfMax + 4,
+    };
+  } finally {
+    session.destroy();
+    compositor.dispose();
+  }
+}
+
 async function run(): Promise<void> {
   const metrics = new FrameMetrics();
   const warnings: string[] = [];
   const session = new ClipSessionPool('fixture', SOURCE_URL, {
     onWarning: (warning) => warnings.push(warning),
   });
-  const compositor = new WebGL2Compositor();
+  const compositor = new WebGL2Compositor(undefined, { uploadPath: REQUESTED_UPLOAD_PATH });
   const context = { compositor, metrics };
   const timeline = buildResolvedTimelinePlan(edit.cuts as FrameEngineCut[], {
     fps: FPS,
@@ -539,7 +886,7 @@ async function run(): Promise<void> {
     layerSources,
     output,
   );
-  const firstCompositor = new WebGL2Compositor(recreationCanvas);
+  const firstCompositor = new WebGL2Compositor(recreationCanvas, { uploadPath: REQUESTED_UPLOAD_PATH });
   const firstFrame = await evaluateFrame(recreationPlan, {
     compositor: firstCompositor,
     metrics,
@@ -547,7 +894,7 @@ async function run(): Promise<void> {
   const firstRgba = await firstFrame.surface.readRgba();
   firstFrame.close();
   firstCompositor.dispose();
-  const secondCompositor = new WebGL2Compositor(recreationCanvas);
+  const secondCompositor = new WebGL2Compositor(recreationCanvas, { uploadPath: REQUESTED_UPLOAD_PATH });
   const secondFrame = await evaluateFrame(recreationPlan, {
     compositor: secondCompositor,
     metrics,
@@ -656,6 +1003,13 @@ async function run(): Promise<void> {
     frame.close();
   }
   const encoded = await window.goldenHarness.finishEncoder();
+  const colorPatches = await inspectColorPatches(output);
+  const texturedCrossPathDiff = await inspectTexturedCrossPath(
+    output,
+    timeline,
+    layerTimeline,
+  );
+  const frameLifetime = await inspectFrameLifetime(output);
   const metricJson = metrics.toJSON();
   const semanticPlans = Object.fromEntries(
     SAMPLE_POINTS.map(([label, timeUs]) => {
@@ -721,9 +1075,6 @@ async function run(): Promise<void> {
   const requiredMetricStages: FrameMetricStage[] = [
     'decode',
     'tick',
-    'copy',
-    'copyTo',
-    'planeCompact',
     'upload',
     'shader',
     'shaderGpu',
@@ -731,6 +1082,9 @@ async function run(): Promise<void> {
     'pboWait',
     'rowFlip',
     'sink',
+    ...(REQUESTED_UPLOAD_PATH === 'copyTo'
+      ? ['copy', 'copyTo', 'planeCompact'] as FrameMetricStage[]
+      : []),
   ];
   const planNamed = (label: string) => {
     const value = semanticPlans[label];
@@ -809,7 +1163,10 @@ async function run(): Promise<void> {
     matteSync.laggedFrames === 0 &&
     matteStats.vp9Decodes === 0 &&
     matteStats.h264Decodes > 0 &&
-    matteStats.glErrors === 0;
+    matteStats.glErrors === 0 &&
+    colorPatches.pass &&
+    frameLifetime.pass &&
+    compositor.uploadPath === REQUESTED_UPLOAD_PATH;
 
   session.destroy();
   layerSession.destroy();
@@ -819,6 +1176,12 @@ async function run(): Promise<void> {
   compositor.dispose();
   await window.goldenHarness.complete({
     pass,
+    uploadPath: {
+      requested: REQUESTED_UPLOAD_PATH,
+      effective: compositor.uploadPath,
+      fallbackReason: compositor.stats.directUploadFallbackReason,
+      frameDimensions: compositor.stats.directUploadFrameDimensions,
+    },
     fixture: {
       cuts: edit.cuts.length,
       durationSeconds: timeline.totalDuration,
@@ -847,6 +1210,9 @@ async function run(): Promise<void> {
     matteSemantic,
     matteSync,
     matteStats,
+    colorPatches,
+    texturedCrossPathDiff,
+    frameLifetime,
     metrics: metricJson,
     warnings,
   });

@@ -1,4 +1,5 @@
 import { copyNativeYuvFrame } from './decode/native-yuv.js';
+import { DirectUploadFallbackError } from './compositor/webgl2.js';
 import type {
   CompositedFrame,
   CompositorBackend,
@@ -6,7 +7,8 @@ import type {
   FrameMetricsRecorder,
   NativeVideoFormat,
   NativeYuvFrame,
-  StillImageBitmap
+  StillImageBitmap,
+  UploadPath,
 } from './types.js';
 
 export interface EvaluationContext {
@@ -28,8 +30,11 @@ export async function evaluateFrame(
   context: EvaluationContext
 ): Promise<CompositedFrame> {
   const decoded: VideoFrame[] = [];
-  const baseNative: NativeYuvFrame[] = [];
-  const layerInputs: Array<{ color: NativeYuvFrame | StillImageBitmap; mask?: NativeYuvFrame | null }> = [];
+  const baseFrames: VideoFrame[] = [];
+  const layerFrames: Array<{
+    color: VideoFrame | StillImageBitmap;
+    mask?: VideoFrame | null;
+  }> = [];
   const maskSync: Array<{
     layerId: string;
     colorTimestamp: number;
@@ -42,14 +47,12 @@ export async function evaluateFrame(
       const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: layer.id });
       context.metrics.record('decode', performance.now() - decodeStarted);
       decoded.push(frame);
-      const copyStarted = performance.now();
-      baseNative.push(await copyNativeYuvFrame(frame, context.metrics));
-      context.metrics.record('copy', performance.now() - copyStarted);
+      baseFrames.push(frame);
     }
     for (const layer of plan.layers) {
       if (layer.kind === 'image') {
         if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
-        layerInputs.push({ color: await layer.image.load() });
+        layerFrames.push({ color: await layer.image.load() });
         continue;
       }
       if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
@@ -57,10 +60,7 @@ export async function evaluateFrame(
       const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: `layer-${layer.id}` });
       context.metrics.record('decode', performance.now() - decodeStarted);
       decoded.push(frame);
-      const copyStarted = performance.now();
-      const color = await copyNativeYuvFrame(frame, context.metrics);
-      context.metrics.record('copy', performance.now() - copyStarted);
-      let mask: NativeYuvFrame | null = null;
+      let mask: VideoFrame | null = null;
       if (layer.kind === 'matte' && layer.mask) {
         const maskDecodeStarted = performance.now();
         const maskFrame = await layer.mask.source.decode(
@@ -70,9 +70,7 @@ export async function evaluateFrame(
         );
         context.metrics.record('decode', performance.now() - maskDecodeStarted);
         decoded.push(maskFrame);
-        const maskCopyStarted = performance.now();
-        mask = await copyNativeYuvFrame(maskFrame, context.metrics);
-        context.metrics.record('copy', performance.now() - maskCopyStarted);
+        mask = maskFrame;
         maskSync.push({
           layerId: layer.id,
           colorTimestamp: Number(frame.timestamp ?? 0),
@@ -80,21 +78,70 @@ export async function evaluateFrame(
           requestedUs: layer.sourceTimeUs
         });
       }
-      layerInputs.push({ color, mask });
+      layerFrames.push({ color: frame, mask });
     }
-    const surface = await context.compositor.compose(baseNative, layerInputs, plan.output, context.metrics, plan);
-    const formats = [
-      ...baseNative,
-      ...layerInputs.flatMap(value => [value.color, value.mask].filter(
-        (frame): frame is NativeYuvFrame => Boolean(frame && 'format' in frame)
-      ))
-    ]
-      .map(frame => frame.format) as NativeVideoFormat[];
+
+    const copyFrame = async (frame: VideoFrame): Promise<NativeYuvFrame> => {
+      const started = performance.now();
+      const copied = await copyNativeYuvFrame(frame, context.metrics);
+      context.metrics.record('copy', performance.now() - started);
+      return copied;
+    };
+    const buildInputs = async (path: UploadPath) => {
+      if (path === 'direct') return { base: baseFrames, layers: layerFrames };
+      const base: NativeYuvFrame[] = [];
+      for (const frame of baseFrames) base.push(await copyFrame(frame));
+      const layers: Array<{
+        color: NativeYuvFrame | StillImageBitmap;
+        mask?: NativeYuvFrame | null;
+      }> = [];
+      for (const input of layerFrames) {
+        const color = 'bitmap' in input.color
+          ? input.color
+          : await copyFrame(input.color);
+        const mask = input.mask ? await copyFrame(input.mask) : input.mask;
+        layers.push({ color, mask });
+      }
+      return { base, layers };
+    };
+
+    let usedPath: UploadPath = context.compositor.uploadPath ?? 'copyTo';
+    let inputs = await buildInputs(usedPath);
+    let surface;
+    try {
+      surface = await context.compositor.compose(
+        inputs.base,
+        inputs.layers,
+        plan.output,
+        context.metrics,
+        plan,
+      );
+      usedPath = context.compositor.uploadPath ?? usedPath;
+    } catch (error) {
+      if (!(error instanceof DirectUploadFallbackError) || usedPath !== 'direct') {
+        throw error;
+      }
+      usedPath = 'copyTo';
+      inputs = await buildInputs(usedPath);
+      surface = await context.compositor.compose(
+        inputs.base,
+        inputs.layers,
+        plan.output,
+        context.metrics,
+        plan,
+      );
+    }
+    context.metrics.recordUploadPath?.(usedPath);
+    const formats = decoded
+      .map(frame => frame.format)
+      .filter((format): format is NativeVideoFormat =>
+        format === 'NV12' || format === 'I420');
     let closed = false;
     return {
       timeUs: plan.timeUs,
       surface,
       nativeFormats: formats,
+      uploadPath: usedPath,
       ...(maskSync.length > 0 ? { maskSync } : {}),
       close() {
         if (closed) return;

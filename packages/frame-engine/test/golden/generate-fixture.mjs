@@ -10,6 +10,7 @@ const still = resolve(directory, '.generated/still.png');
 const matteColor = resolve(directory, '.generated/matte-color.mp4');
 const matteAlpha = resolve(directory, '.generated/matte-alpha.webm');
 const matteMask = resolve(directory, '.generated/matte-mask.mp4');
+const colorPatches = resolve(directory, '.generated/color-patches.mp4');
 mkdirSync(dirname(output), { recursive: true });
 
 function tool(name) {
@@ -178,4 +179,86 @@ assertSafeDecodeTail(matteColor, 'matte-color.mp4');
 assertSafeDecodeTail(matteAlpha, 'matte-alpha.webm');
 assertSafeDecodeTail(matteMask, 'matte-mask.mp4');
 
-process.stdout.write(`${output}\n${sourceB}\n${still}\n${matteColor}\n${matteAlpha}\n${matteMask}\n`);
+const patchColors = [
+  [0, 0, 0], [255, 255, 255], [255, 0, 0],
+  [0, 255, 0], [0, 0, 255], [0, 255, 255],
+  [255, 0, 255], [255, 255, 0], [128, 128, 128],
+];
+const patchFrames = 15;
+const paddingFrames = 60;
+const colorPatchFrameCount = patchColors.length * patchFrames + paddingFrames;
+const lastPatchSampleSeconds = ((patchColors.length - 1) * patchFrames + 7) / 30;
+const colorPatchTailMarginSeconds = 0.25;
+
+function colorPatchesValid() {
+  if (!existsSync(colorPatches)) return false;
+  try {
+    const stream = probeStream(
+      colorPatches,
+      'codec_name,profile,pix_fmt,color_range,color_space,color_primaries,color_transfer,width,height,nb_frames',
+    );
+    if (stream.codec_name !== 'h264'
+      || !['Baseline', 'Constrained Baseline', 'Main', 'High'].includes(stream.profile)
+      || stream.pix_fmt !== 'yuv420p'
+      || stream.color_range !== 'tv'
+      || stream.color_space !== 'bt709'
+      || stream.color_primaries !== 'bt709'
+      || stream.color_transfer !== 'bt709'
+      || stream.width !== 320
+      || stream.height !== 180
+      || Number(stream.nb_frames) !== colorPatchFrameCount) return false;
+    const raw = execFileSync(ffmpeg, [
+      '-hide_banner', '-loglevel', 'error', '-i', colorPatches,
+      '-vf', 'scale=in_color_matrix=bt709:in_range=tv:out_range=full,format=rgb24',
+      '-pix_fmt', 'rgb24', '-f', 'rawvideo', 'pipe:1',
+    ], { maxBuffer: 320 * 180 * 3 * (colorPatchFrameCount + 1) });
+    const stride = 320 * 180 * 3;
+    return patchColors.every((expected, index) => {
+      const frame = index * patchFrames + 7;
+      const offset = frame * stride + ((90 * 320 + 160) * 3);
+      return expected.every((value, channel) => Math.abs(raw[offset + channel] - value) <= 2);
+    });
+  } catch {
+    return false;
+  }
+}
+
+if (!colorPatchesValid()) {
+  const inputs = patchColors.flatMap(([r, g, b]) => [
+    '-f', 'lavfi', '-i',
+    `nullsrc=s=320x180:r=30:d=0.5,format=gbrp,geq=r=${r}:g=${g}:b=${b}`,
+  ]).concat([
+    '-f', 'lavfi', '-i',
+    'nullsrc=s=320x180:r=30:d=2,format=gbrp,geq=r=0:g=0:b=0',
+  ]);
+  execFileSync(ffmpeg, [
+    '-hide_banner', '-loglevel', 'error', '-y', ...inputs,
+    '-filter_complex', `${Array.from({ length: patchColors.length + 1 }, (_value, index) => `[${index}:v]`).join('')}concat=n=10:v=1:a=0,scale=out_color_matrix=bt709:out_range=tv,format=yuv420p[v]`,
+    '-map', '[v]', '-an', '-c:v', 'libx264', '-preset', 'medium', '-crf', '6',
+    '-threads', '1', '-g', '15', '-keyint_min', '15', '-sc_threshold', '0', '-bf', '0',
+    '-pix_fmt', 'yuv420p', '-color_range', 'tv', '-color_primaries', 'bt709',
+    '-color_trc', 'bt709', '-colorspace', 'bt709',
+    '-x264-params', 'colorprim=bt709:transfer=bt709:colormatrix=bt709:range=limited',
+    '-movflags', '+faststart', colorPatches,
+  ], { stdio: 'inherit' });
+  if (!colorPatchesValid()) throw new Error('color-patches.mp4 failed BT.709 limited self-verification');
+}
+
+function assertColorPatchSafeDecodeTail() {
+  const keyframeTimes = execFileSync(ffprobe, [
+    '-v', 'error', '-skip_frame', 'nokey', '-select_streams', 'v:0',
+    '-show_entries', 'frame=best_effort_timestamp_time', '-of', 'csv=p=0', colorPatches,
+  ], { encoding: 'utf8' })
+    .trim().split(/\s+/u).map(Number).filter(Number.isFinite);
+  const lastKeyframe = keyframeTimes.at(-1);
+  const safeLimit = Number(lastKeyframe) - 1;
+  const requiredLimit = lastPatchSampleSeconds + colorPatchTailMarginSeconds;
+  if (!(safeLimit >= requiredLimit)) {
+    throw new Error(
+      `color-patches.mp4 safe decode tail ${safeLimit}s is before required ${requiredLimit}s`,
+    );
+  }
+}
+assertColorPatchSafeDecodeTail();
+
+process.stdout.write(`${output}\n${sourceB}\n${still}\n${matteColor}\n${matteAlpha}\n${matteMask}\n${colorPatches}\n`);

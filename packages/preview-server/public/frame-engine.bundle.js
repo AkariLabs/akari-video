@@ -12721,85 +12721,6 @@ async function copyNativeYuvFrame(frame, metrics) {
   return output;
 }
 
-// ../frame-engine/src/evaluate.ts
-async function evaluateFrame(plan, context) {
-  const decoded = [];
-  const baseNative = [];
-  const layerInputs = [];
-  const maskSync = [];
-  try {
-    for (const layer of plan.base) {
-      const decodeStarted = performance.now();
-      const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: layer.id });
-      context.metrics.record("decode", performance.now() - decodeStarted);
-      decoded.push(frame);
-      const copyStarted = performance.now();
-      baseNative.push(await copyNativeYuvFrame(frame, context.metrics));
-      context.metrics.record("copy", performance.now() - copyStarted);
-    }
-    for (const layer of plan.layers) {
-      if (layer.kind === "image") {
-        if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
-        layerInputs.push({ color: await layer.image.load() });
-        continue;
-      }
-      if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
-      const decodeStarted = performance.now();
-      const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: `layer-${layer.id}` });
-      context.metrics.record("decode", performance.now() - decodeStarted);
-      decoded.push(frame);
-      const copyStarted = performance.now();
-      const color = await copyNativeYuvFrame(frame, context.metrics);
-      context.metrics.record("copy", performance.now() - copyStarted);
-      let mask = null;
-      if (layer.kind === "matte" && layer.mask) {
-        const maskDecodeStarted = performance.now();
-        const maskFrame = await layer.mask.source.decode(
-          layer.mask.sourceTimeUs,
-          context.metrics,
-          { streamId: `layer-${layer.id}-mask` }
-        );
-        context.metrics.record("decode", performance.now() - maskDecodeStarted);
-        decoded.push(maskFrame);
-        const maskCopyStarted = performance.now();
-        mask = await copyNativeYuvFrame(maskFrame, context.metrics);
-        context.metrics.record("copy", performance.now() - maskCopyStarted);
-        maskSync.push({
-          layerId: layer.id,
-          colorTimestamp: Number(frame.timestamp ?? 0),
-          maskTimestamp: Number(maskFrame.timestamp ?? 0),
-          requestedUs: layer.sourceTimeUs
-        });
-      }
-      layerInputs.push({ color, mask });
-    }
-    const surface = await context.compositor.compose(baseNative, layerInputs, plan.output, context.metrics, plan);
-    const formats = [
-      ...baseNative,
-      ...layerInputs.flatMap((value) => [value.color, value.mask].filter(
-        (frame) => Boolean(frame && "format" in frame)
-      ))
-    ].map((frame) => frame.format);
-    let closed = false;
-    return {
-      timeUs: plan.timeUs,
-      surface,
-      nativeFormats: formats,
-      ...maskSync.length > 0 ? { maskSync } : {},
-      close() {
-        if (closed) return;
-        closed = true;
-        surface.close();
-      }
-    };
-  } finally {
-    for (const frame of decoded) frame.close();
-  }
-}
-
-// ../frame-engine/src/timeline/plan.ts
-var import_edit_store = __toESM(require_lib(), 1);
-
 // ../frame-engine/src/timeline/layer-visual.ts
 function finite(value) {
   return typeof value === "number" && Number.isFinite(value);
@@ -12933,7 +12854,1105 @@ function invertMat3(matrix) {
   ];
 }
 
+// ../frame-engine/src/compositor/webgl2.ts
+function compileShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  if (!shader) throw new Error("WebGL2 could not allocate a shader");
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const message = gl.getShaderInfoLog(shader) ?? "unknown shader compile failure";
+    gl.deleteShader(shader);
+    throw new Error(message);
+  }
+  return shader;
+}
+function createProgram(gl, fragmentSource) {
+  const vertex = compileShader(
+    gl,
+    gl.VERTEX_SHADER,
+    `#version 300 es
+    in vec2 position; out vec2 uv;
+    void main(){uv=position*0.5+0.5;gl_Position=vec4(position,0,1);}`
+  );
+  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+  const program = gl.createProgram();
+  if (!program) throw new Error("WebGL2 could not allocate a program");
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  gl.deleteShader(vertex);
+  gl.deleteShader(fragment);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+    throw new Error(gl.getProgramInfoLog(program) ?? "WebGL2 link failure");
+  return program;
+}
+function uniform(gl, program, name) {
+  const value = gl.getUniformLocation(program, name);
+  if (value === null) throw new Error(`missing WebGL2 uniform: ${name}`);
+  return value;
+}
+function flipRows(input, width, height) {
+  const stride = width * 4;
+  const output = new Uint8Array(input.length);
+  for (let row = 0; row < height; row += 1)
+    output.set(
+      input.subarray(row * stride, (row + 1) * stride),
+      (height - row - 1) * stride
+    );
+  return output;
+}
+var WebGLSurface = class {
+  constructor(canvas, width, height, gl, metrics) {
+    this.canvas = canvas;
+    this.width = width;
+    this.height = height;
+    this.gl = gl;
+    this.metrics = metrics;
+  }
+  closed = false;
+  async readRgba() {
+    if (this.closed) throw new Error("cannot read a closed GPU frame surface");
+    const length = this.width * this.height * 4, pbo = this.gl.createBuffer();
+    if (!pbo) throw new Error("WebGL2 could not allocate a pixel pack buffer");
+    const started = performance.now();
+    this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, pbo);
+    this.gl.bufferData(this.gl.PIXEL_PACK_BUFFER, length, this.gl.STREAM_READ);
+    this.gl.readPixels(
+      0,
+      0,
+      this.width,
+      this.height,
+      this.gl.RGBA,
+      this.gl.UNSIGNED_BYTE,
+      0
+    );
+    const fence = this.gl.fenceSync(this.gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!fence) {
+      this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, null);
+      this.gl.deleteBuffer(pbo);
+      throw new Error("WebGL2 could not allocate a readback fence");
+    }
+    this.gl.flush();
+    const wait = performance.now();
+    try {
+      const deadline = performance.now() + 15e3;
+      while (true) {
+        const status = this.gl.clientWaitSync(fence, 0, 0);
+        if (status === this.gl.ALREADY_SIGNALED || status === this.gl.CONDITION_SATISFIED)
+          break;
+        if (status === this.gl.WAIT_FAILED || performance.now() >= deadline)
+          throw new Error("WebGL2 PBO fence wait failed");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      this.metrics.record("pboWait", performance.now() - wait);
+      const raw = new Uint8Array(length);
+      this.gl.getBufferSubData(this.gl.PIXEL_PACK_BUFFER, 0, raw);
+      const flip = performance.now(), rgba = flipRows(raw, this.width, this.height);
+      this.metrics.record("rowFlip", performance.now() - flip);
+      this.metrics.record("readback", performance.now() - started);
+      return rgba;
+    } finally {
+      this.gl.deleteSync(fence);
+      this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, null);
+      this.gl.deleteBuffer(pbo);
+    }
+  }
+  recordSink(ms) {
+    this.metrics.record("sink", ms);
+  }
+  close() {
+    this.closed = true;
+  }
+};
+var DirectUploadFallbackError = class extends Error {
+  constructor(reason) {
+    super(`direct VideoFrame upload failed: ${reason}`);
+    this.reason = reason;
+    this.name = "DirectUploadFallbackError";
+  }
+};
+var YUV_GLSL = `
+vec3 yuv709(float y, vec2 chroma) {
+  y -= 16.0 / 255.0;
+  float u = chroma.r - 0.5;
+  float v = chroma.g - 0.5;
+  return clamp(vec3(
+    1.164383 * y + 1.792741 * v,
+    1.164383 * y - 0.213249 * u - 0.532909 * v,
+    1.164383 * y + 2.112402 * u
+  ), 0.0, 1.0);
+}`;
+var BASE_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D y0;
+uniform sampler2D u0;
+uniform sampler2D v0;
+uniform sampler2D y1;
+uniform sampler2D u1;
+uniform sampler2D v1;
+uniform sampler2D rgba0;
+uniform sampler2D rgba1;
+uniform int format0;
+uniform int format1;
+uniform vec4 framing0;
+uniform vec4 framing1;
+uniform vec4 transform0;
+uniform vec4 transform1;
+uniform float opacity0;
+uniform float opacity1;
+uniform vec2 outputSize;
+uniform vec2 sourceSize0;
+uniform vec2 sourceSize1;
+uniform int transitionType;
+uniform float transitionProgress;
+${YUV_GLSL}
+vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
+  vec2 pixel = (p - 0.5) * outputSize - transform.xy;
+  float angle = transform.w;
+  pixel = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * pixel;
+  pixel /= transform.z;
+  vec2 local = pixel / outputSize + 0.5;
+  return framing.xy + local * framing.zw;
+}
+vec2 canvasToSource(vec2 canvasPoint, vec2 sourceSize) {
+  float fit = min(outputSize.x / sourceSize.x, outputSize.y / sourceSize.y);
+  vec2 fitted = sourceSize * fit;
+  vec2 offset = (outputSize - fitted) * 0.5;
+  return (canvasPoint * outputSize - offset) / fitted;
+}
+vec4 sample0(vec2 p) {
+  vec2 canvasPoint = inverseVisual(p, transform0, framing0);
+  if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
+  vec2 q = canvasToSource(canvasPoint, sourceSize0);
+  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  if (format0 == 2) return vec4(texture(rgba0, q).rgb, opacity0);
+  vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
+  return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
+}
+vec4 sample1(vec2 p) {
+  vec2 canvasPoint = inverseVisual(p, transform1, framing1);
+  if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
+  vec2 q = canvasToSource(canvasPoint, sourceSize1);
+  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  if (format1 == 2) return vec4(texture(rgba1, q).rgb, opacity1);
+  vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
+  return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
+}
+vec3 overBlack(vec4 value) { return value.rgb * value.a; }
+void main() {
+  vec2 p = vec2(uv.x, 1.0 - uv.y);
+  vec4 outgoing = sample0(p);
+  float amount = clamp(transitionProgress, 0.0, 1.0);
+  vec3 result;
+  if (transitionType == 0) {
+    result = overBlack(outgoing);
+  } else if (transitionType == 1) {
+    vec4 incoming = sample1(p);
+    result = mix(overBlack(outgoing), overBlack(incoming), amount);
+  } else if (transitionType == 2 || transitionType == 3) {
+    vec4 incoming = sample1(p);
+    vec3 plate = transitionType == 3 ? vec3(1.0) : vec3(0.0);
+    result = amount < 0.5
+      ? mix(overBlack(outgoing), plate, amount * 2.0)
+      : mix(plate, overBlack(incoming), (amount - 0.5) * 2.0);
+  } else if (transitionType == 4) {
+    vec4 incoming = sample1(p);
+    result = p.y < amount
+      ? overBlack(incoming)
+      : overBlack(sample0(vec2(p.x, p.y - amount)));
+  } else if (transitionType == 5) {
+    vec4 incoming = sample1(p);
+    result = p.y > 1.0 - amount
+      ? overBlack(incoming)
+      : overBlack(sample0(vec2(p.x, p.y + amount)));
+  } else {
+    result = overBlack(outgoing);
+  }
+  color = vec4(result, 1.0);
+}`;
+var LAYER_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D backdrop;
+uniform sampler2D ly;
+uniform sampler2D lu;
+uniform sampler2D lv;
+uniform sampler2D image;
+uniform sampler2D maskY;
+uniform sampler2D lrgba;
+uniform sampler2D maskRgba;
+uniform int inputKind;
+uniform int yuvFormat;
+uniform int hasMask;
+uniform int maskFormat;
+uniform vec2 outputSize;
+uniform mat3 inverseMap;
+uniform vec4 cropRect;
+uniform float opacity;
+uniform int blendMode;
+${YUV_GLSL}
+vec3 blend(vec3 dst, vec3 src) {
+  if (blendMode == 1) return 1.0 - (1.0 - dst) * (1.0 - src);
+  if (blendMode == 2) return dst * src;
+  if (blendMode == 3) return min(vec3(1.0), dst + src);
+  if (blendMode == 4) return abs(dst - src);
+  if (blendMode == 5) return min(dst, src);
+  if (blendMode == 6) return max(dst, src);
+  if (blendMode == 7) return mix(2.0 * dst * src, 1.0 - 2.0 * (1.0 - dst) * (1.0 - src), step(0.5, dst));
+  if (blendMode == 8) return mix(2.0 * dst * src, 1.0 - 2.0 * (1.0 - dst) * (1.0 - src), step(0.5, src));
+  if (blendMode == 9) {
+    vec3 curve = mix(((16.0 * dst - 12.0) * dst + 4.0) * dst, sqrt(dst), step(0.25, dst));
+    return mix(
+      dst - (1.0 - 2.0 * src) * dst * (1.0 - dst),
+      dst + (2.0 * src - 1.0) * (curve - dst),
+      step(0.5, src)
+    );
+  }
+  return src;
+}
+void main() {
+  vec4 dst = texture(backdrop, uv);
+  vec2 outputPixel = vec2(uv.x, 1.0 - uv.y) * outputSize;
+  vec3 homogeneous = inverseMap * vec3(outputPixel, 1.0);
+  if (homogeneous.z <= 0.000001) {
+    color = dst;
+    return;
+  }
+  vec2 local = homogeneous.xy / homogeneous.z;
+  if (any(lessThan(local, vec2(0.0))) || any(greaterThan(local, vec2(1.0)))) {
+    color = dst;
+    return;
+  }
+  vec2 sourceUv = cropRect.xy + local * cropRect.zw;
+  vec4 src;
+  if (inputKind == 1) {
+    src = texture(image, sourceUv);
+  } else if (yuvFormat == 2) {
+    src = vec4(texture(lrgba, sourceUv).rgb, 1.0);
+  } else {
+    vec2 chroma = yuvFormat == 1
+      ? texture(lu, sourceUv).rg
+      : vec2(texture(lu, sourceUv).r, texture(lv, sourceUv).r);
+    src = vec4(yuv709(texture(ly, sourceUv).r, chroma), 1.0);
+  }
+  float maskA = hasMask == 1
+    ? (maskFormat == 2 ? texture(maskRgba, sourceUv).r : texture(maskY, sourceUv).r)
+    : 1.0;
+  float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
+  color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
+}`;
+var COPY_FRAGMENT = `#version 300 es
+precision highp float;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D source;
+void main() { color = texture(source, uv); }`;
+var FBO_SCRATCH_UNIT = 9;
+var BASE_RGBA_UNITS = [6, 7];
+var LAYER_RGBA_UNIT = 8;
+var MASK_RGBA_UNIT = 10;
+var REQUIRED_TEXTURE_UNITS = MASK_RGBA_UNIT + 1;
+function isVideoFrame(value) {
+  return "displayWidth" in value && "displayHeight" in value && "close" in value;
+}
+function multiply(a, b) {
+  return Array.from({ length: 9 }, (_3, k2) => {
+    const r = Math.floor(k2 / 3), c = k2 % 3;
+    return a[r * 3] * b[c] + a[r * 3 + 1] * b[c + 3] + a[r * 3 + 2] * b[c + 6];
+  });
+}
+function forwardInverse(visual, srcW, srcH, outW, outH) {
+  const h = visual.perspective ? cornersToHomography(visual.perspective.corners) : [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  const bw = visual.crop.width * srcW * visual.transform.scale, bh = visual.crop.height * srcH * visual.transform.scale;
+  const b = [bw, 0, -bw / 2, 0, bh, -bh / 2, 0, 0, 1], a = visual.transform.rotateDegrees * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  const rotate = [c, -s, 0, s, c, 0, 0, 0, 1], translate = [
+    1,
+    0,
+    outW / 2 + visual.transform.x,
+    0,
+    1,
+    outH / 2 + visual.transform.y,
+    0,
+    0,
+    1
+  ];
+  const inv = invertMat3(multiply(translate, multiply(rotate, multiply(b, h))));
+  return new Float32Array([
+    inv[0],
+    inv[3],
+    inv[6],
+    inv[1],
+    inv[4],
+    inv[7],
+    inv[2],
+    inv[5],
+    inv[8]
+  ]);
+}
+var WebGL2Compositor = class {
+  constructor(canvas = document.createElement("canvas"), options = {}) {
+    this.options = options;
+    this.canvas = canvas;
+    const gl = canvas.getContext("webgl2", {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      preserveDrawingBuffer: true
+    });
+    if (!gl) throw new Error("WebGL2 is unavailable");
+    this.gl = gl;
+    this.directUploadDisabled = options.uploadPath === "copyTo";
+    if (!this.directUploadDisabled && Number(gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)) < REQUIRED_TEXTURE_UNITS) {
+      this.directUploadDisabled = true;
+      this.stats.directUploadFallbackReason = `requires ${REQUIRED_TEXTURE_UNITS} texture units`;
+    }
+    this.baseProgram = createProgram(gl, BASE_FRAGMENT);
+    this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
+    this.copyProgram = createProgram(gl, COPY_FRAGMENT);
+    const vertices = gl.createBuffer();
+    if (!vertices) throw new Error("WebGL2 could not allocate a vertex buffer");
+    this.vertices = vertices;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vertices);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+      gl.STATIC_DRAW
+    );
+    for (const program of [
+      this.baseProgram,
+      this.layerProgram,
+      this.copyProgram
+    ]) {
+      gl.useProgram(program);
+      const p2 = gl.getAttribLocation(program, "position");
+      gl.enableVertexAttribArray(p2);
+      gl.vertexAttribPointer(p2, 2, gl.FLOAT, false, 0, 0);
+    }
+    const texture = () => {
+      const t = gl.createTexture();
+      if (!t) throw new Error("WebGL2 could not allocate a texture");
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA8,
+        1,
+        1,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        new Uint8Array([0, 0, 0, 255])
+      );
+      return t;
+    };
+    this.baseTextures = Array.from({ length: 6 }, texture);
+    this.baseRgbaTextures = Array.from({ length: 2 }, texture);
+    this.layerTextures = Array.from({ length: 4 }, texture);
+    this.layerRgbaTextures = Array.from({ length: 2 }, texture);
+    this.fboTextures = [texture(), texture()];
+    this.fbos = [0, 1].map((i2) => {
+      const f2 = gl.createFramebuffer();
+      if (!f2) throw new Error("WebGL2 could not allocate framebuffer");
+      gl.bindFramebuffer(gl.FRAMEBUFFER, f2);
+      gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        gl.COLOR_ATTACHMENT0,
+        gl.TEXTURE_2D,
+        this.fboTextures[i2],
+        0
+      );
+      return f2;
+    });
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.useProgram(this.baseProgram);
+    ["y0", "u0", "v0", "y1", "u1", "v1", "rgba0", "rgba1"].forEach(
+      (n2, i2) => gl.uniform1i(uniform(gl, this.baseProgram, n2), i2)
+    );
+    this.bind(BASE_RGBA_UNITS[0], this.baseRgbaTextures[0]);
+    this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[1]);
+    this.cutUniforms = [0, 1].map((i2) => ({
+      framing: uniform(gl, this.baseProgram, `framing${i2}`),
+      transform: uniform(gl, this.baseProgram, `transform${i2}`),
+      opacity: uniform(gl, this.baseProgram, `opacity${i2}`),
+      format: uniform(gl, this.baseProgram, `format${i2}`),
+      sourceSize: uniform(gl, this.baseProgram, `sourceSize${i2}`)
+    }));
+    this.baseOutput = uniform(gl, this.baseProgram, "outputSize");
+    this.transitionType = uniform(gl, this.baseProgram, "transitionType");
+    this.transitionProgress = uniform(
+      gl,
+      this.baseProgram,
+      "transitionProgress"
+    );
+    gl.useProgram(this.layerProgram);
+    [
+      ["backdrop", 0],
+      ["ly", 1],
+      ["lu", 2],
+      ["lv", 3],
+      ["image", 4],
+      ["maskY", 5],
+      ["lrgba", LAYER_RGBA_UNIT],
+      ["maskRgba", MASK_RGBA_UNIT]
+    ].forEach(
+      ([n2, u2]) => gl.uniform1i(uniform(gl, this.layerProgram, n2), u2)
+    );
+    this.bind(4, this.layerRgbaTextures[0]);
+    this.bind(5, this.layerTextures[3]);
+    this.bind(LAYER_RGBA_UNIT, this.layerRgbaTextures[0]);
+    this.bind(MASK_RGBA_UNIT, this.layerRgbaTextures[1]);
+    gl.useProgram(this.copyProgram);
+    gl.uniform1i(uniform(gl, this.copyProgram, "source"), 0);
+  }
+  kind = "webgl2";
+  canvas;
+  stats = {
+    imageUploads: 0,
+    glErrors: 0,
+    directUploadFallbackReason: null,
+    directUploadFrameDimensions: null,
+    colorspaceConversion: "browser-default"
+  };
+  gl;
+  baseProgram;
+  layerProgram;
+  copyProgram;
+  vertices;
+  baseTextures;
+  baseRgbaTextures;
+  layerTextures;
+  layerRgbaTextures;
+  shapes = Array(11).fill(null);
+  cutUniforms;
+  baseOutput;
+  transitionType;
+  transitionProgress;
+  fbos;
+  fboTextures;
+  fboShape = "";
+  imageTextures = /* @__PURE__ */ new WeakMap();
+  ownedImageTextures = /* @__PURE__ */ new Set();
+  disposed = false;
+  secondary = false;
+  directUploadDisabled = false;
+  bind(unit, texture) {
+    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+  }
+  get uploadPath() {
+    return this.directUploadDisabled ? "copyTo" : "direct";
+  }
+  failDirectUpload(reason) {
+    this.directUploadDisabled = true;
+    this.stats.directUploadFallbackReason ??= reason;
+    throw new DirectUploadFallbackError(reason);
+  }
+  uploadVideoFrameTexture(texture, unit, frame, uniforms) {
+    if (this.directUploadDisabled)
+      this.failDirectUpload("direct upload is disabled for this session");
+    if (frame.format !== null && frame.format !== "NV12" && frame.format !== "I420")
+      this.failDirectUpload(`unsupported VideoFrame format: ${String(frame.format)}`);
+    const width = frame.displayWidth;
+    const height = frame.displayHeight;
+    if (width <= 0 || height <= 0)
+      this.failDirectUpload(`invalid display size ${width}x${height}`);
+    const gl = this.gl;
+    while (gl.getError() !== gl.NO_ERROR) this.stats.glErrors += 1;
+    this.bind(unit, texture);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+    gl.pixelStorei(
+      gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,
+      gl.BROWSER_DEFAULT_WEBGL
+    );
+    try {
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA8,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        frame
+      );
+    } catch (error2) {
+      this.failDirectUpload(
+        error2 instanceof Error ? error2.message : String(error2)
+      );
+    }
+    const error = gl.getError();
+    if (error !== gl.NO_ERROR) {
+      this.stats.glErrors += 1;
+      this.failDirectUpload(`WebGL error 0x${error.toString(16)}`);
+    }
+    if (!this.stats.directUploadFrameDimensions) {
+      this.stats.directUploadFrameDimensions = {
+        codedWidth: frame.codedWidth,
+        codedHeight: frame.codedHeight,
+        displayWidth: width,
+        displayHeight: height,
+        visibleRect: frame.visibleRect ? {
+          x: frame.visibleRect.x,
+          y: frame.visibleRect.y,
+          width: frame.visibleRect.width,
+          height: frame.visibleRect.height
+        } : null
+      };
+    }
+    if (uniforms) {
+      gl.uniform1i(uniforms.format, 2);
+      gl.uniform2f(uniforms.sourceSize, width, height);
+    }
+    return { width, height };
+  }
+  upload(texture, shapeIndex, data, w, h, channels = 1) {
+    this.bind(shapeIndex, texture);
+    this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
+    this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, 0);
+    const format = channels === 2 ? this.gl.RG : this.gl.RED, shape = `${w}x${h}x${channels}`;
+    if (this.shapes[shapeIndex] === shape)
+      this.gl.texSubImage2D(
+        this.gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        w,
+        h,
+        format,
+        this.gl.UNSIGNED_BYTE,
+        data
+      );
+    else {
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D,
+        0,
+        channels === 2 ? this.gl.RG8 : this.gl.R8,
+        w,
+        h,
+        0,
+        format,
+        this.gl.UNSIGNED_BYTE,
+        data
+      );
+      this.shapes[shapeIndex] = shape;
+    }
+  }
+  uploadYuv(frame, textures, unitBase, shapeBase, uniforms) {
+    const cw = Math.ceil(frame.width / 2), ch = Math.ceil(frame.height / 2);
+    this.upload(textures[0], shapeBase, frame.y, frame.width, frame.height);
+    if (frame.format === "NV12") {
+      this.upload(textures[1], shapeBase + 1, frame.uv, cw, ch, 2);
+      this.upload(textures[2], shapeBase + 2, new Uint8Array([128]), 1, 1);
+      if (uniforms) this.gl.uniform1i(uniforms.format, 1);
+    } else {
+      this.upload(textures[1], shapeBase + 1, frame.u, cw, ch);
+      this.upload(textures[2], shapeBase + 2, frame.v, cw, ch);
+      if (uniforms) this.gl.uniform1i(uniforms.format, 0);
+    }
+    if (uniforms)
+      this.gl.uniform2f(uniforms.sourceSize, frame.width, frame.height);
+    for (let i2 = 0; i2 < 3; i2++) this.bind(unitBase + i2, textures[i2]);
+  }
+  setCut(u2, v2) {
+    this.gl.uniform4f(
+      u2.framing,
+      v2.framing.x,
+      v2.framing.y,
+      v2.framing.width,
+      v2.framing.height
+    );
+    this.gl.uniform4f(
+      u2.transform,
+      v2.transform.x,
+      v2.transform.y,
+      v2.transform.scale,
+      v2.transform.rotateDegrees * Math.PI / 180
+    );
+    this.gl.uniform1f(u2.opacity, v2.opacity);
+  }
+  ensureFbos(w, h) {
+    const shape = `${w}x${h}`;
+    if (shape === this.fboShape) return;
+    for (const t of this.fboTextures) {
+      this.bind(FBO_SCRATCH_UNIT, t);
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D,
+        0,
+        this.gl.RGBA8,
+        w,
+        h,
+        0,
+        this.gl.RGBA,
+        this.gl.UNSIGNED_BYTE,
+        null
+      );
+    }
+    this.fboShape = shape;
+  }
+  recordGlErrors(synchronization) {
+    if (synchronization !== "finish") return;
+    while (this.gl.getError() !== this.gl.NO_ERROR) this.stats.glErrors += 1;
+  }
+  stillTexture(value) {
+    let texture = this.imageTextures.get(value);
+    if (texture) return texture;
+    texture = this.gl.createTexture();
+    this.bind(4, texture);
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_MIN_FILTER,
+      this.gl.LINEAR
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_MAG_FILTER,
+      this.gl.LINEAR
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_WRAP_S,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_WRAP_T,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
+    this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, 0);
+    this.gl.texImage2D(
+      this.gl.TEXTURE_2D,
+      0,
+      this.gl.RGBA,
+      this.gl.RGBA,
+      this.gl.UNSIGNED_BYTE,
+      value.bitmap
+    );
+    this.imageTextures.set(value, texture);
+    this.ownedImageTextures.add(texture);
+    this.stats.imageUploads += 1;
+    return texture;
+  }
+  prepareBase(frames, plan, output) {
+    const gl = this.gl;
+    gl.useProgram(this.baseProgram);
+    gl.uniform2f(this.baseOutput, output.width, output.height);
+    const started = performance.now();
+    frames.forEach((frame, index) => {
+      if (isVideoFrame(frame)) {
+        this.uploadVideoFrameTexture(
+          this.baseRgbaTextures[index],
+          BASE_RGBA_UNITS[index],
+          frame,
+          this.cutUniforms[index]
+        );
+      } else {
+        this.uploadYuv(
+          frame,
+          this.baseTextures.slice(index * 3, index * 3 + 3),
+          index * 3,
+          index * 3,
+          this.cutUniforms[index]
+        );
+      }
+    });
+    if (frames.length === 1 && !this.secondary) {
+      const frame = frames[0];
+      if (isVideoFrame(frame)) {
+        this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[0]);
+        this.gl.uniform1i(this.cutUniforms[1].format, 2);
+        this.gl.uniform2f(
+          this.cutUniforms[1].sourceSize,
+          frame.displayWidth,
+          frame.displayHeight
+        );
+      } else {
+        this.uploadYuv(
+          frame,
+          this.baseTextures.slice(3, 6),
+          3,
+          3,
+          this.cutUniforms[1]
+        );
+      }
+      this.secondary = true;
+    } else if (frames.length === 2) {
+      this.secondary = true;
+    }
+    const elapsed = performance.now() - started;
+    frames.forEach(
+      (_frame, index) => this.setCut(this.cutUniforms[index], plan.base[index].visual)
+    );
+    if (frames.length === 1)
+      this.setCut(this.cutUniforms[1], plan.base[0].visual);
+    return elapsed;
+  }
+  configureBaseDraw(plan, target) {
+    const transitionCodes = {
+      "hard-cut": 0,
+      dissolve: 1,
+      "fade-black": 2,
+      "fade-white": 3,
+      "reveal-down": 4,
+      "reveal-up": 5
+    };
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
+    this.gl.useProgram(this.baseProgram);
+    this.gl.uniform1i(
+      this.transitionType,
+      transitionCodes[plan.transition?.type ?? "hard-cut"]
+    );
+    this.gl.uniform1f(this.transitionProgress, plan.transition?.progress ?? 0);
+  }
+  async compose(base, layers, output, metrics, plan) {
+    if (this.disposed) throw new Error("WebGL2 compositor is disposed");
+    if (output.colorSpace !== "bt709-limited")
+      throw new Error(`unsupported color space: ${output.colorSpace}`);
+    if (base.length > 2 || base.length !== plan.base.length) {
+      throw new Error(
+        `cuts compositor accepts zero to two base frames; received ${base.length}`
+      );
+    }
+    if (layers.length !== plan.layers.length)
+      throw new Error("layer inputs must match plan.layers");
+    if (base.length === 0 && layers.length === 0)
+      throw new Error("cannot compose an empty plan");
+    const hasDirectInput = base.some(isVideoFrame) || layers.some((input) => isVideoFrame(input.color) || Boolean(input.mask && isVideoFrame(input.mask)));
+    if (hasDirectInput && this.directUploadDisabled)
+      this.failDirectUpload("direct upload is disabled for this session");
+    if (this.canvas.width !== output.width) this.canvas.width = output.width;
+    if (this.canvas.height !== output.height)
+      this.canvas.height = output.height;
+    const gl = this.gl;
+    gl.viewport(0, 0, output.width, output.height);
+    let uploadElapsedMs = base.length > 0 ? this.prepareBase(base, plan, output) : 0;
+    let shaderElapsedMs = 0;
+    const synchronization = this.options.synchronization ?? "finish";
+    const timer = synchronization === "finish" ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null;
+    const queries = [];
+    const draw = () => {
+      const query = timer ? gl.createQuery() : null;
+      if (timer && query) gl.beginQuery(timer.TIME_ELAPSED_EXT, query);
+      const started = performance.now();
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      shaderElapsedMs += performance.now() - started;
+      if (timer && query) {
+        gl.endQuery(timer.TIME_ELAPSED_EXT);
+        queries.push(query);
+      }
+    };
+    if (layers.length === 0) {
+      this.configureBaseDraw(plan, null);
+      draw();
+      metrics.record("upload", uploadElapsedMs);
+      this.finishFrame(
+        metrics,
+        shaderElapsedMs,
+        synchronization,
+        timer,
+        queries
+      );
+      return new WebGLSurface(
+        this.canvas,
+        output.width,
+        output.height,
+        gl,
+        metrics
+      );
+    }
+    this.ensureFbos(output.width, output.height);
+    if (base.length > 0) {
+      this.configureBaseDraw(plan, this.fbos[0]);
+      draw();
+    } else {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+    const outLoc = uniform(gl, this.layerProgram, "outputSize");
+    const inverseLoc = uniform(gl, this.layerProgram, "inverseMap");
+    const cropLoc = uniform(gl, this.layerProgram, "cropRect");
+    const opacityLoc = uniform(gl, this.layerProgram, "opacity");
+    const kindLoc = uniform(gl, this.layerProgram, "inputKind");
+    const formatLoc = uniform(gl, this.layerProgram, "yuvFormat");
+    const hasMaskLoc = uniform(gl, this.layerProgram, "hasMask");
+    const maskFormatLoc = uniform(gl, this.layerProgram, "maskFormat");
+    const blendLoc = uniform(gl, this.layerProgram, "blendMode");
+    const blendModes = [
+      "normal",
+      "screen",
+      "multiply",
+      "add",
+      "difference",
+      "darken",
+      "lighten",
+      "overlay",
+      "hardlight",
+      "softlight"
+    ];
+    let current = 0;
+    for (let index = 0; index < layers.length; index += 1) {
+      const input = layers[index];
+      const color = input.color;
+      const layer = plan.layers[index];
+      const next = 1 - current;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[next]);
+      gl.useProgram(this.layerProgram);
+      this.bind(0, this.fboTextures[current]);
+      let width;
+      let height;
+      const uploadStarted = performance.now();
+      if ("bitmap" in color) {
+        width = color.width;
+        height = color.height;
+        this.bind(4, this.stillTexture(color));
+        gl.uniform1i(kindLoc, 1);
+      } else if (isVideoFrame(color)) {
+        const size = this.uploadVideoFrameTexture(
+          this.layerRgbaTextures[0],
+          LAYER_RGBA_UNIT,
+          color
+        );
+        width = size.width;
+        height = size.height;
+        gl.uniform1i(kindLoc, 0);
+        gl.uniform1i(formatLoc, 2);
+      } else {
+        width = color.width;
+        height = color.height;
+        this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
+        gl.uniform1i(kindLoc, 0);
+        gl.uniform1i(formatLoc, color.format === "NV12" ? 1 : 0);
+      }
+      if (input.mask) {
+        if (isVideoFrame(input.mask)) {
+          this.uploadVideoFrameTexture(
+            this.layerRgbaTextures[1],
+            MASK_RGBA_UNIT,
+            input.mask
+          );
+          gl.uniform1i(maskFormatLoc, 2);
+        } else {
+          this.upload(
+            this.layerTextures[3],
+            9,
+            input.mask.y,
+            input.mask.width,
+            input.mask.height
+          );
+          this.bind(5, this.layerTextures[3]);
+          gl.uniform1i(maskFormatLoc, input.mask.format === "NV12" ? 1 : 0);
+        }
+        gl.uniform1i(hasMaskLoc, 1);
+      } else {
+        gl.uniform1i(hasMaskLoc, 0);
+        gl.uniform1i(maskFormatLoc, 0);
+      }
+      uploadElapsedMs += performance.now() - uploadStarted;
+      gl.uniform2f(outLoc, output.width, output.height);
+      gl.uniformMatrix3fv(
+        inverseLoc,
+        false,
+        forwardInverse(
+          layer.visual,
+          width,
+          height,
+          output.width,
+          output.height
+        )
+      );
+      gl.uniform4f(
+        cropLoc,
+        layer.visual.crop.x,
+        layer.visual.crop.y,
+        layer.visual.crop.width,
+        layer.visual.crop.height
+      );
+      gl.uniform1f(opacityLoc, layer.opacity);
+      gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
+      draw();
+      this.recordGlErrors(synchronization);
+      current = next;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.useProgram(this.copyProgram);
+    this.bind(0, this.fboTextures[current]);
+    draw();
+    this.recordGlErrors(synchronization);
+    metrics.record("upload", uploadElapsedMs);
+    this.finishFrame(metrics, shaderElapsedMs, synchronization, timer, queries);
+    return new WebGLSurface(
+      this.canvas,
+      output.width,
+      output.height,
+      gl,
+      metrics
+    );
+  }
+  finishFrame(metrics, shaderSubmissionMs, synchronization, timer, queries) {
+    const syncStarted = performance.now();
+    if (synchronization === "finish") this.gl.finish();
+    else this.gl.flush();
+    const shaderWallMs = shaderSubmissionMs + performance.now() - syncStarted;
+    metrics.record("shader", shaderWallMs);
+    let gpuNanoseconds = 0;
+    let hasGpuMeasurement = timer !== null && queries.length > 0 && !this.gl.getParameter(timer.GPU_DISJOINT_EXT);
+    for (const query of queries) {
+      if (hasGpuMeasurement && this.gl.getQueryParameter(query, this.gl.QUERY_RESULT_AVAILABLE)) {
+        gpuNanoseconds += this.gl.getQueryParameter(
+          query,
+          this.gl.QUERY_RESULT
+        );
+      } else {
+        hasGpuMeasurement = false;
+      }
+      this.gl.deleteQuery(query);
+    }
+    if (hasGpuMeasurement) metrics.record("shaderGpu", gpuNanoseconds / 1e6);
+    else if (synchronization === "finish")
+      metrics.record("shaderGpu", shaderWallMs);
+  }
+  dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    for (const t of [
+      ...this.baseTextures,
+      ...this.baseRgbaTextures,
+      ...this.layerTextures,
+      ...this.layerRgbaTextures,
+      ...this.fboTextures,
+      ...this.ownedImageTextures
+    ])
+      this.gl.deleteTexture(t);
+    for (const f2 of this.fbos) this.gl.deleteFramebuffer(f2);
+    this.gl.deleteBuffer(this.vertices);
+    this.gl.deleteProgram(this.baseProgram);
+    this.gl.deleteProgram(this.layerProgram);
+    this.gl.deleteProgram(this.copyProgram);
+  }
+};
+
+// ../frame-engine/src/evaluate.ts
+async function evaluateFrame(plan, context) {
+  const decoded = [];
+  const baseFrames = [];
+  const layerFrames = [];
+  const maskSync = [];
+  try {
+    for (const layer of plan.base) {
+      const decodeStarted = performance.now();
+      const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: layer.id });
+      context.metrics.record("decode", performance.now() - decodeStarted);
+      decoded.push(frame);
+      baseFrames.push(frame);
+    }
+    for (const layer of plan.layers) {
+      if (layer.kind === "image") {
+        if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
+        layerFrames.push({ color: await layer.image.load() });
+        continue;
+      }
+      if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
+      const decodeStarted = performance.now();
+      const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: `layer-${layer.id}` });
+      context.metrics.record("decode", performance.now() - decodeStarted);
+      decoded.push(frame);
+      let mask = null;
+      if (layer.kind === "matte" && layer.mask) {
+        const maskDecodeStarted = performance.now();
+        const maskFrame = await layer.mask.source.decode(
+          layer.mask.sourceTimeUs,
+          context.metrics,
+          { streamId: `layer-${layer.id}-mask` }
+        );
+        context.metrics.record("decode", performance.now() - maskDecodeStarted);
+        decoded.push(maskFrame);
+        mask = maskFrame;
+        maskSync.push({
+          layerId: layer.id,
+          colorTimestamp: Number(frame.timestamp ?? 0),
+          maskTimestamp: Number(maskFrame.timestamp ?? 0),
+          requestedUs: layer.sourceTimeUs
+        });
+      }
+      layerFrames.push({ color: frame, mask });
+    }
+    const copyFrame = async (frame) => {
+      const started = performance.now();
+      const copied = await copyNativeYuvFrame(frame, context.metrics);
+      context.metrics.record("copy", performance.now() - started);
+      return copied;
+    };
+    const buildInputs = async (path) => {
+      if (path === "direct") return { base: baseFrames, layers: layerFrames };
+      const base = [];
+      for (const frame of baseFrames) base.push(await copyFrame(frame));
+      const layers = [];
+      for (const input of layerFrames) {
+        const color = "bitmap" in input.color ? input.color : await copyFrame(input.color);
+        const mask = input.mask ? await copyFrame(input.mask) : input.mask;
+        layers.push({ color, mask });
+      }
+      return { base, layers };
+    };
+    let usedPath = context.compositor.uploadPath ?? "copyTo";
+    let inputs = await buildInputs(usedPath);
+    let surface;
+    try {
+      surface = await context.compositor.compose(
+        inputs.base,
+        inputs.layers,
+        plan.output,
+        context.metrics,
+        plan
+      );
+      usedPath = context.compositor.uploadPath ?? usedPath;
+    } catch (error) {
+      if (!(error instanceof DirectUploadFallbackError) || usedPath !== "direct") {
+        throw error;
+      }
+      usedPath = "copyTo";
+      inputs = await buildInputs(usedPath);
+      surface = await context.compositor.compose(
+        inputs.base,
+        inputs.layers,
+        plan.output,
+        context.metrics,
+        plan
+      );
+    }
+    context.metrics.recordUploadPath?.(usedPath);
+    const formats = decoded.map((frame) => frame.format).filter((format) => format === "NV12" || format === "I420");
+    let closed = false;
+    return {
+      timeUs: plan.timeUs,
+      surface,
+      nativeFormats: formats,
+      uploadPath: usedPath,
+      ...maskSync.length > 0 ? { maskSync } : {},
+      close() {
+        if (closed) return;
+        closed = true;
+        surface.close();
+      }
+    };
+  } finally {
+    for (const frame of decoded) frame.close();
+  }
+}
+
 // ../frame-engine/src/timeline/plan.ts
+var import_edit_store = __toESM(require_lib(), 1);
 var DEFAULT_VISUAL = {
   framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
   transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
@@ -13223,821 +14242,6 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
   const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources)] : [];
   return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
 }
-
-// ../frame-engine/src/compositor/webgl2.ts
-function compileShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  if (!shader) throw new Error("WebGL2 could not allocate a shader");
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const message = gl.getShaderInfoLog(shader) ?? "unknown shader compile failure";
-    gl.deleteShader(shader);
-    throw new Error(message);
-  }
-  return shader;
-}
-function createProgram(gl, fragmentSource) {
-  const vertex = compileShader(
-    gl,
-    gl.VERTEX_SHADER,
-    `#version 300 es
-    in vec2 position; out vec2 uv;
-    void main(){uv=position*0.5+0.5;gl_Position=vec4(position,0,1);}`
-  );
-  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
-  const program = gl.createProgram();
-  if (!program) throw new Error("WebGL2 could not allocate a program");
-  gl.attachShader(program, vertex);
-  gl.attachShader(program, fragment);
-  gl.linkProgram(program);
-  gl.deleteShader(vertex);
-  gl.deleteShader(fragment);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS))
-    throw new Error(gl.getProgramInfoLog(program) ?? "WebGL2 link failure");
-  return program;
-}
-function uniform(gl, program, name) {
-  const value = gl.getUniformLocation(program, name);
-  if (value === null) throw new Error(`missing WebGL2 uniform: ${name}`);
-  return value;
-}
-function flipRows(input, width, height) {
-  const stride = width * 4;
-  const output = new Uint8Array(input.length);
-  for (let row = 0; row < height; row += 1)
-    output.set(
-      input.subarray(row * stride, (row + 1) * stride),
-      (height - row - 1) * stride
-    );
-  return output;
-}
-var WebGLSurface = class {
-  constructor(canvas, width, height, gl, metrics) {
-    this.canvas = canvas;
-    this.width = width;
-    this.height = height;
-    this.gl = gl;
-    this.metrics = metrics;
-  }
-  closed = false;
-  async readRgba() {
-    if (this.closed) throw new Error("cannot read a closed GPU frame surface");
-    const length = this.width * this.height * 4, pbo = this.gl.createBuffer();
-    if (!pbo) throw new Error("WebGL2 could not allocate a pixel pack buffer");
-    const started = performance.now();
-    this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, pbo);
-    this.gl.bufferData(this.gl.PIXEL_PACK_BUFFER, length, this.gl.STREAM_READ);
-    this.gl.readPixels(
-      0,
-      0,
-      this.width,
-      this.height,
-      this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE,
-      0
-    );
-    const fence = this.gl.fenceSync(this.gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-    if (!fence) {
-      this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, null);
-      this.gl.deleteBuffer(pbo);
-      throw new Error("WebGL2 could not allocate a readback fence");
-    }
-    this.gl.flush();
-    const wait = performance.now();
-    try {
-      const deadline = performance.now() + 15e3;
-      while (true) {
-        const status = this.gl.clientWaitSync(fence, 0, 0);
-        if (status === this.gl.ALREADY_SIGNALED || status === this.gl.CONDITION_SATISFIED)
-          break;
-        if (status === this.gl.WAIT_FAILED || performance.now() >= deadline)
-          throw new Error("WebGL2 PBO fence wait failed");
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-      this.metrics.record("pboWait", performance.now() - wait);
-      const raw = new Uint8Array(length);
-      this.gl.getBufferSubData(this.gl.PIXEL_PACK_BUFFER, 0, raw);
-      const flip = performance.now(), rgba = flipRows(raw, this.width, this.height);
-      this.metrics.record("rowFlip", performance.now() - flip);
-      this.metrics.record("readback", performance.now() - started);
-      return rgba;
-    } finally {
-      this.gl.deleteSync(fence);
-      this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, null);
-      this.gl.deleteBuffer(pbo);
-    }
-  }
-  recordSink(ms) {
-    this.metrics.record("sink", ms);
-  }
-  close() {
-    this.closed = true;
-  }
-};
-var YUV_GLSL = `
-vec3 yuv709(float y, vec2 chroma) {
-  y -= 16.0 / 255.0;
-  float u = chroma.r - 0.5;
-  float v = chroma.g - 0.5;
-  return clamp(vec3(
-    1.164383 * y + 1.792741 * v,
-    1.164383 * y - 0.213249 * u - 0.532909 * v,
-    1.164383 * y + 2.112402 * u
-  ), 0.0, 1.0);
-}`;
-var BASE_FRAGMENT = `#version 300 es
-precision highp float;
-precision highp int;
-in vec2 uv;
-out vec4 color;
-uniform sampler2D y0;
-uniform sampler2D u0;
-uniform sampler2D v0;
-uniform sampler2D y1;
-uniform sampler2D u1;
-uniform sampler2D v1;
-uniform int format0;
-uniform int format1;
-uniform vec4 framing0;
-uniform vec4 framing1;
-uniform vec4 transform0;
-uniform vec4 transform1;
-uniform float opacity0;
-uniform float opacity1;
-uniform vec2 outputSize;
-uniform vec2 sourceSize0;
-uniform vec2 sourceSize1;
-uniform int transitionType;
-uniform float transitionProgress;
-${YUV_GLSL}
-vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
-  vec2 pixel = (p - 0.5) * outputSize - transform.xy;
-  float angle = transform.w;
-  pixel = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * pixel;
-  pixel /= transform.z;
-  vec2 local = pixel / outputSize + 0.5;
-  return framing.xy + local * framing.zw;
-}
-vec2 canvasToSource(vec2 canvasPoint, vec2 sourceSize) {
-  float fit = min(outputSize.x / sourceSize.x, outputSize.y / sourceSize.y);
-  vec2 fitted = sourceSize * fit;
-  vec2 offset = (outputSize - fitted) * 0.5;
-  return (canvasPoint * outputSize - offset) / fitted;
-}
-vec4 sample0(vec2 p) {
-  vec2 canvasPoint = inverseVisual(p, transform0, framing0);
-  if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
-  vec2 q = canvasToSource(canvasPoint, sourceSize0);
-  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
-  vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
-  return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
-}
-vec4 sample1(vec2 p) {
-  vec2 canvasPoint = inverseVisual(p, transform1, framing1);
-  if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
-  vec2 q = canvasToSource(canvasPoint, sourceSize1);
-  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
-  vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
-  return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
-}
-vec3 overBlack(vec4 value) { return value.rgb * value.a; }
-void main() {
-  vec2 p = vec2(uv.x, 1.0 - uv.y);
-  vec4 outgoing = sample0(p);
-  float amount = clamp(transitionProgress, 0.0, 1.0);
-  vec3 result;
-  if (transitionType == 0) {
-    result = overBlack(outgoing);
-  } else if (transitionType == 1) {
-    vec4 incoming = sample1(p);
-    result = mix(overBlack(outgoing), overBlack(incoming), amount);
-  } else if (transitionType == 2 || transitionType == 3) {
-    vec4 incoming = sample1(p);
-    vec3 plate = transitionType == 3 ? vec3(1.0) : vec3(0.0);
-    result = amount < 0.5
-      ? mix(overBlack(outgoing), plate, amount * 2.0)
-      : mix(plate, overBlack(incoming), (amount - 0.5) * 2.0);
-  } else if (transitionType == 4) {
-    vec4 incoming = sample1(p);
-    result = p.y < amount
-      ? overBlack(incoming)
-      : overBlack(sample0(vec2(p.x, p.y - amount)));
-  } else if (transitionType == 5) {
-    vec4 incoming = sample1(p);
-    result = p.y > 1.0 - amount
-      ? overBlack(incoming)
-      : overBlack(sample0(vec2(p.x, p.y + amount)));
-  } else {
-    result = overBlack(outgoing);
-  }
-  color = vec4(result, 1.0);
-}`;
-var LAYER_FRAGMENT = `#version 300 es
-precision highp float;
-precision highp int;
-in vec2 uv;
-out vec4 color;
-uniform sampler2D backdrop;
-uniform sampler2D ly;
-uniform sampler2D lu;
-uniform sampler2D lv;
-uniform sampler2D image;
-uniform sampler2D maskY;
-uniform int inputKind;
-uniform int yuvFormat;
-uniform int hasMask;
-uniform vec2 outputSize;
-uniform mat3 inverseMap;
-uniform vec4 cropRect;
-uniform float opacity;
-uniform int blendMode;
-${YUV_GLSL}
-vec3 blend(vec3 dst, vec3 src) {
-  if (blendMode == 1) return 1.0 - (1.0 - dst) * (1.0 - src);
-  if (blendMode == 2) return dst * src;
-  if (blendMode == 3) return min(vec3(1.0), dst + src);
-  if (blendMode == 4) return abs(dst - src);
-  if (blendMode == 5) return min(dst, src);
-  if (blendMode == 6) return max(dst, src);
-  if (blendMode == 7) return mix(2.0 * dst * src, 1.0 - 2.0 * (1.0 - dst) * (1.0 - src), step(0.5, dst));
-  if (blendMode == 8) return mix(2.0 * dst * src, 1.0 - 2.0 * (1.0 - dst) * (1.0 - src), step(0.5, src));
-  if (blendMode == 9) {
-    vec3 curve = mix(((16.0 * dst - 12.0) * dst + 4.0) * dst, sqrt(dst), step(0.25, dst));
-    return mix(
-      dst - (1.0 - 2.0 * src) * dst * (1.0 - dst),
-      dst + (2.0 * src - 1.0) * (curve - dst),
-      step(0.5, src)
-    );
-  }
-  return src;
-}
-void main() {
-  vec4 dst = texture(backdrop, uv);
-  vec2 outputPixel = vec2(uv.x, 1.0 - uv.y) * outputSize;
-  vec3 homogeneous = inverseMap * vec3(outputPixel, 1.0);
-  if (homogeneous.z <= 0.000001) {
-    color = dst;
-    return;
-  }
-  vec2 local = homogeneous.xy / homogeneous.z;
-  if (any(lessThan(local, vec2(0.0))) || any(greaterThan(local, vec2(1.0)))) {
-    color = dst;
-    return;
-  }
-  vec2 sourceUv = cropRect.xy + local * cropRect.zw;
-  vec4 src;
-  if (inputKind == 1) {
-    src = texture(image, sourceUv);
-  } else {
-    vec2 chroma = yuvFormat == 1
-      ? texture(lu, sourceUv).rg
-      : vec2(texture(lu, sourceUv).r, texture(lv, sourceUv).r);
-    src = vec4(yuv709(texture(ly, sourceUv).r, chroma), 1.0);
-  }
-  float maskA = hasMask == 1 ? texture(maskY, sourceUv).r : 1.0;
-  float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
-  color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
-}`;
-var COPY_FRAGMENT = `#version 300 es
-precision highp float;
-in vec2 uv;
-out vec4 color;
-uniform sampler2D source;
-void main() { color = texture(source, uv); }`;
-var FBO_SCRATCH_UNIT = 9;
-function multiply(a, b) {
-  return Array.from({ length: 9 }, (_3, k2) => {
-    const r = Math.floor(k2 / 3), c = k2 % 3;
-    return a[r * 3] * b[c] + a[r * 3 + 1] * b[c + 3] + a[r * 3 + 2] * b[c + 6];
-  });
-}
-function forwardInverse(visual, srcW, srcH, outW, outH) {
-  const h = visual.perspective ? cornersToHomography(visual.perspective.corners) : [1, 0, 0, 0, 1, 0, 0, 0, 1];
-  const bw = visual.crop.width * srcW * visual.transform.scale, bh = visual.crop.height * srcH * visual.transform.scale;
-  const b = [bw, 0, -bw / 2, 0, bh, -bh / 2, 0, 0, 1], a = visual.transform.rotateDegrees * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
-  const rotate = [c, -s, 0, s, c, 0, 0, 0, 1], translate = [
-    1,
-    0,
-    outW / 2 + visual.transform.x,
-    0,
-    1,
-    outH / 2 + visual.transform.y,
-    0,
-    0,
-    1
-  ];
-  const inv = invertMat3(multiply(translate, multiply(rotate, multiply(b, h))));
-  return new Float32Array([
-    inv[0],
-    inv[3],
-    inv[6],
-    inv[1],
-    inv[4],
-    inv[7],
-    inv[2],
-    inv[5],
-    inv[8]
-  ]);
-}
-var WebGL2Compositor = class {
-  constructor(canvas = document.createElement("canvas"), options = {}) {
-    this.options = options;
-    this.canvas = canvas;
-    const gl = canvas.getContext("webgl2", {
-      alpha: false,
-      antialias: false,
-      depth: false,
-      preserveDrawingBuffer: true
-    });
-    if (!gl) throw new Error("WebGL2 is unavailable");
-    this.gl = gl;
-    this.baseProgram = createProgram(gl, BASE_FRAGMENT);
-    this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
-    this.copyProgram = createProgram(gl, COPY_FRAGMENT);
-    const vertices = gl.createBuffer();
-    if (!vertices) throw new Error("WebGL2 could not allocate a vertex buffer");
-    this.vertices = vertices;
-    gl.bindBuffer(gl.ARRAY_BUFFER, vertices);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
-      gl.STATIC_DRAW
-    );
-    for (const program of [
-      this.baseProgram,
-      this.layerProgram,
-      this.copyProgram
-    ]) {
-      gl.useProgram(program);
-      const p2 = gl.getAttribLocation(program, "position");
-      gl.enableVertexAttribArray(p2);
-      gl.vertexAttribPointer(p2, 2, gl.FLOAT, false, 0, 0);
-    }
-    const texture = () => {
-      const t = gl.createTexture();
-      if (!t) throw new Error("WebGL2 could not allocate a texture");
-      gl.bindTexture(gl.TEXTURE_2D, t);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      return t;
-    };
-    this.baseTextures = Array.from({ length: 6 }, texture);
-    this.layerTextures = Array.from({ length: 4 }, texture);
-    this.fboTextures = [texture(), texture()];
-    this.fbos = [0, 1].map((i2) => {
-      const f2 = gl.createFramebuffer();
-      if (!f2) throw new Error("WebGL2 could not allocate framebuffer");
-      gl.bindFramebuffer(gl.FRAMEBUFFER, f2);
-      gl.framebufferTexture2D(
-        gl.FRAMEBUFFER,
-        gl.COLOR_ATTACHMENT0,
-        gl.TEXTURE_2D,
-        this.fboTextures[i2],
-        0
-      );
-      return f2;
-    });
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.useProgram(this.baseProgram);
-    ["y0", "u0", "v0", "y1", "u1", "v1"].forEach(
-      (n2, i2) => gl.uniform1i(uniform(gl, this.baseProgram, n2), i2)
-    );
-    this.cutUniforms = [0, 1].map((i2) => ({
-      framing: uniform(gl, this.baseProgram, `framing${i2}`),
-      transform: uniform(gl, this.baseProgram, `transform${i2}`),
-      opacity: uniform(gl, this.baseProgram, `opacity${i2}`),
-      format: uniform(gl, this.baseProgram, `format${i2}`),
-      sourceSize: uniform(gl, this.baseProgram, `sourceSize${i2}`)
-    }));
-    this.baseOutput = uniform(gl, this.baseProgram, "outputSize");
-    this.transitionType = uniform(gl, this.baseProgram, "transitionType");
-    this.transitionProgress = uniform(
-      gl,
-      this.baseProgram,
-      "transitionProgress"
-    );
-    gl.useProgram(this.layerProgram);
-    [
-      ["backdrop", 0],
-      ["ly", 1],
-      ["lu", 2],
-      ["lv", 3],
-      ["image", 4],
-      ["maskY", 5]
-    ].forEach(
-      ([n2, u2]) => gl.uniform1i(uniform(gl, this.layerProgram, n2), u2)
-    );
-    gl.useProgram(this.copyProgram);
-    gl.uniform1i(uniform(gl, this.copyProgram, "source"), 0);
-  }
-  kind = "webgl2";
-  canvas;
-  stats = { imageUploads: 0, glErrors: 0 };
-  gl;
-  baseProgram;
-  layerProgram;
-  copyProgram;
-  vertices;
-  baseTextures;
-  layerTextures;
-  shapes = Array(10).fill(null);
-  cutUniforms;
-  baseOutput;
-  transitionType;
-  transitionProgress;
-  fbos;
-  fboTextures;
-  fboShape = "";
-  imageTextures = /* @__PURE__ */ new WeakMap();
-  ownedImageTextures = /* @__PURE__ */ new Set();
-  disposed = false;
-  secondary = false;
-  bind(unit, texture) {
-    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-  }
-  upload(texture, shapeIndex, data, w, h, channels = 1) {
-    this.bind(shapeIndex, texture);
-    this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
-    this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, 0);
-    const format = channels === 2 ? this.gl.RG : this.gl.RED, shape = `${w}x${h}x${channels}`;
-    if (this.shapes[shapeIndex] === shape)
-      this.gl.texSubImage2D(
-        this.gl.TEXTURE_2D,
-        0,
-        0,
-        0,
-        w,
-        h,
-        format,
-        this.gl.UNSIGNED_BYTE,
-        data
-      );
-    else {
-      this.gl.texImage2D(
-        this.gl.TEXTURE_2D,
-        0,
-        channels === 2 ? this.gl.RG8 : this.gl.R8,
-        w,
-        h,
-        0,
-        format,
-        this.gl.UNSIGNED_BYTE,
-        data
-      );
-      this.shapes[shapeIndex] = shape;
-    }
-  }
-  uploadYuv(frame, textures, unitBase, shapeBase, uniforms) {
-    const cw = Math.ceil(frame.width / 2), ch = Math.ceil(frame.height / 2);
-    this.upload(textures[0], shapeBase, frame.y, frame.width, frame.height);
-    if (frame.format === "NV12") {
-      this.upload(textures[1], shapeBase + 1, frame.uv, cw, ch, 2);
-      this.upload(textures[2], shapeBase + 2, new Uint8Array([128]), 1, 1);
-      if (uniforms) this.gl.uniform1i(uniforms.format, 1);
-    } else {
-      this.upload(textures[1], shapeBase + 1, frame.u, cw, ch);
-      this.upload(textures[2], shapeBase + 2, frame.v, cw, ch);
-      if (uniforms) this.gl.uniform1i(uniforms.format, 0);
-    }
-    if (uniforms)
-      this.gl.uniform2f(uniforms.sourceSize, frame.width, frame.height);
-    for (let i2 = 0; i2 < 3; i2++) this.bind(unitBase + i2, textures[i2]);
-  }
-  setCut(u2, v2) {
-    this.gl.uniform4f(
-      u2.framing,
-      v2.framing.x,
-      v2.framing.y,
-      v2.framing.width,
-      v2.framing.height
-    );
-    this.gl.uniform4f(
-      u2.transform,
-      v2.transform.x,
-      v2.transform.y,
-      v2.transform.scale,
-      v2.transform.rotateDegrees * Math.PI / 180
-    );
-    this.gl.uniform1f(u2.opacity, v2.opacity);
-  }
-  ensureFbos(w, h) {
-    const shape = `${w}x${h}`;
-    if (shape === this.fboShape) return;
-    for (const t of this.fboTextures) {
-      this.bind(FBO_SCRATCH_UNIT, t);
-      this.gl.texImage2D(
-        this.gl.TEXTURE_2D,
-        0,
-        this.gl.RGBA8,
-        w,
-        h,
-        0,
-        this.gl.RGBA,
-        this.gl.UNSIGNED_BYTE,
-        null
-      );
-    }
-    this.fboShape = shape;
-  }
-  recordGlErrors(synchronization) {
-    if (synchronization !== "finish") return;
-    while (this.gl.getError() !== this.gl.NO_ERROR) this.stats.glErrors += 1;
-  }
-  stillTexture(value) {
-    let texture = this.imageTextures.get(value);
-    if (texture) return texture;
-    texture = this.gl.createTexture();
-    this.bind(4, texture);
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MIN_FILTER,
-      this.gl.LINEAR
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_MAG_FILTER,
-      this.gl.LINEAR
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_WRAP_S,
-      this.gl.CLAMP_TO_EDGE
-    );
-    this.gl.texParameteri(
-      this.gl.TEXTURE_2D,
-      this.gl.TEXTURE_WRAP_T,
-      this.gl.CLAMP_TO_EDGE
-    );
-    this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
-    this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, 0);
-    this.gl.texImage2D(
-      this.gl.TEXTURE_2D,
-      0,
-      this.gl.RGBA,
-      this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE,
-      value.bitmap
-    );
-    this.imageTextures.set(value, texture);
-    this.ownedImageTextures.add(texture);
-    this.stats.imageUploads += 1;
-    return texture;
-  }
-  prepareBase(frames, plan, output) {
-    const gl = this.gl;
-    gl.useProgram(this.baseProgram);
-    gl.uniform2f(this.baseOutput, output.width, output.height);
-    const started = performance.now();
-    frames.forEach((frame, index) => {
-      this.uploadYuv(
-        frame,
-        this.baseTextures.slice(index * 3, index * 3 + 3),
-        index * 3,
-        index * 3,
-        this.cutUniforms[index]
-      );
-    });
-    if (frames.length === 1 && !this.secondary) {
-      this.uploadYuv(
-        frames[0],
-        this.baseTextures.slice(3, 6),
-        3,
-        3,
-        this.cutUniforms[1]
-      );
-      this.secondary = true;
-    } else if (frames.length === 2) {
-      this.secondary = true;
-    }
-    const elapsed = performance.now() - started;
-    frames.forEach(
-      (_frame, index) => this.setCut(this.cutUniforms[index], plan.base[index].visual)
-    );
-    if (frames.length === 1)
-      this.setCut(this.cutUniforms[1], plan.base[0].visual);
-    return elapsed;
-  }
-  configureBaseDraw(plan, target) {
-    const transitionCodes = {
-      "hard-cut": 0,
-      dissolve: 1,
-      "fade-black": 2,
-      "fade-white": 3,
-      "reveal-down": 4,
-      "reveal-up": 5
-    };
-    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
-    this.gl.useProgram(this.baseProgram);
-    this.gl.uniform1i(
-      this.transitionType,
-      transitionCodes[plan.transition?.type ?? "hard-cut"]
-    );
-    this.gl.uniform1f(this.transitionProgress, plan.transition?.progress ?? 0);
-  }
-  async compose(base, layers, output, metrics, plan) {
-    if (this.disposed) throw new Error("WebGL2 compositor is disposed");
-    if (output.colorSpace !== "bt709-limited")
-      throw new Error(`unsupported color space: ${output.colorSpace}`);
-    if (base.length > 2 || base.length !== plan.base.length) {
-      throw new Error(
-        `cuts compositor accepts zero to two base frames; received ${base.length}`
-      );
-    }
-    if (layers.length !== plan.layers.length)
-      throw new Error("layer inputs must match plan.layers");
-    if (base.length === 0 && layers.length === 0)
-      throw new Error("cannot compose an empty plan");
-    if (this.canvas.width !== output.width) this.canvas.width = output.width;
-    if (this.canvas.height !== output.height)
-      this.canvas.height = output.height;
-    const gl = this.gl;
-    gl.viewport(0, 0, output.width, output.height);
-    let uploadElapsedMs = base.length > 0 ? this.prepareBase(base, plan, output) : 0;
-    let shaderElapsedMs = 0;
-    const synchronization = this.options.synchronization ?? "finish";
-    const timer = synchronization === "finish" ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null;
-    const queries = [];
-    const draw = () => {
-      const query = timer ? gl.createQuery() : null;
-      if (timer && query) gl.beginQuery(timer.TIME_ELAPSED_EXT, query);
-      const started = performance.now();
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      shaderElapsedMs += performance.now() - started;
-      if (timer && query) {
-        gl.endQuery(timer.TIME_ELAPSED_EXT);
-        queries.push(query);
-      }
-    };
-    if (layers.length === 0) {
-      this.configureBaseDraw(plan, null);
-      draw();
-      metrics.record("upload", uploadElapsedMs);
-      this.finishFrame(
-        metrics,
-        shaderElapsedMs,
-        synchronization,
-        timer,
-        queries
-      );
-      return new WebGLSurface(
-        this.canvas,
-        output.width,
-        output.height,
-        gl,
-        metrics
-      );
-    }
-    this.ensureFbos(output.width, output.height);
-    if (base.length > 0) {
-      this.configureBaseDraw(plan, this.fbos[0]);
-      draw();
-    } else {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]);
-      gl.clearColor(0, 0, 0, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-    }
-    const outLoc = uniform(gl, this.layerProgram, "outputSize");
-    const inverseLoc = uniform(gl, this.layerProgram, "inverseMap");
-    const cropLoc = uniform(gl, this.layerProgram, "cropRect");
-    const opacityLoc = uniform(gl, this.layerProgram, "opacity");
-    const kindLoc = uniform(gl, this.layerProgram, "inputKind");
-    const formatLoc = uniform(gl, this.layerProgram, "yuvFormat");
-    const hasMaskLoc = uniform(gl, this.layerProgram, "hasMask");
-    const blendLoc = uniform(gl, this.layerProgram, "blendMode");
-    const blendModes = [
-      "normal",
-      "screen",
-      "multiply",
-      "add",
-      "difference",
-      "darken",
-      "lighten",
-      "overlay",
-      "hardlight",
-      "softlight"
-    ];
-    let current = 0;
-    for (let index = 0; index < layers.length; index += 1) {
-      const input = layers[index];
-      const color = input.color;
-      const layer = plan.layers[index];
-      const next = 1 - current;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[next]);
-      gl.useProgram(this.layerProgram);
-      this.bind(0, this.fboTextures[current]);
-      let width;
-      let height;
-      const uploadStarted = performance.now();
-      if ("bitmap" in color) {
-        width = color.width;
-        height = color.height;
-        this.bind(4, this.stillTexture(color));
-        gl.uniform1i(kindLoc, 1);
-      } else {
-        width = color.width;
-        height = color.height;
-        this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
-        gl.uniform1i(kindLoc, 0);
-        gl.uniform1i(formatLoc, color.format === "NV12" ? 1 : 0);
-      }
-      if (input.mask) {
-        this.upload(
-          this.layerTextures[3],
-          9,
-          input.mask.y,
-          input.mask.width,
-          input.mask.height
-        );
-        this.bind(5, this.layerTextures[3]);
-        gl.uniform1i(hasMaskLoc, 1);
-      } else {
-        gl.uniform1i(hasMaskLoc, 0);
-      }
-      uploadElapsedMs += performance.now() - uploadStarted;
-      gl.uniform2f(outLoc, output.width, output.height);
-      gl.uniformMatrix3fv(
-        inverseLoc,
-        false,
-        forwardInverse(
-          layer.visual,
-          width,
-          height,
-          output.width,
-          output.height
-        )
-      );
-      gl.uniform4f(
-        cropLoc,
-        layer.visual.crop.x,
-        layer.visual.crop.y,
-        layer.visual.crop.width,
-        layer.visual.crop.height
-      );
-      gl.uniform1f(opacityLoc, layer.opacity);
-      gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
-      draw();
-      this.recordGlErrors(synchronization);
-      current = next;
-    }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.useProgram(this.copyProgram);
-    this.bind(0, this.fboTextures[current]);
-    draw();
-    this.recordGlErrors(synchronization);
-    metrics.record("upload", uploadElapsedMs);
-    this.finishFrame(metrics, shaderElapsedMs, synchronization, timer, queries);
-    return new WebGLSurface(
-      this.canvas,
-      output.width,
-      output.height,
-      gl,
-      metrics
-    );
-  }
-  finishFrame(metrics, shaderSubmissionMs, synchronization, timer, queries) {
-    const syncStarted = performance.now();
-    if (synchronization === "finish") this.gl.finish();
-    else this.gl.flush();
-    const shaderWallMs = shaderSubmissionMs + performance.now() - syncStarted;
-    metrics.record("shader", shaderWallMs);
-    let gpuNanoseconds = 0;
-    let hasGpuMeasurement = timer !== null && queries.length > 0 && !this.gl.getParameter(timer.GPU_DISJOINT_EXT);
-    for (const query of queries) {
-      if (hasGpuMeasurement && this.gl.getQueryParameter(query, this.gl.QUERY_RESULT_AVAILABLE)) {
-        gpuNanoseconds += this.gl.getQueryParameter(
-          query,
-          this.gl.QUERY_RESULT
-        );
-      } else {
-        hasGpuMeasurement = false;
-      }
-      this.gl.deleteQuery(query);
-    }
-    if (hasGpuMeasurement) metrics.record("shaderGpu", gpuNanoseconds / 1e6);
-    else if (synchronization === "finish")
-      metrics.record("shaderGpu", shaderWallMs);
-  }
-  dispose() {
-    if (this.disposed) return;
-    this.disposed = true;
-    for (const t of [
-      ...this.baseTextures,
-      ...this.layerTextures,
-      ...this.fboTextures,
-      ...this.ownedImageTextures
-    ])
-      this.gl.deleteTexture(t);
-    for (const f2 of this.fbos) this.gl.deleteFramebuffer(f2);
-    this.gl.deleteBuffer(this.vertices);
-    this.gl.deleteProgram(this.baseProgram);
-    this.gl.deleteProgram(this.layerProgram);
-    this.gl.deleteProgram(this.copyProgram);
-  }
-};
 
 // ../../node_modules/@webav/av-cliper/dist/av-cliper.js
 var import_mp4box2 = __toESM(require_mp4box_all(), 1);
@@ -16779,26 +16983,40 @@ var FrameMetrics = class {
   samples = new Map(
     STAGES.map((stage) => [stage, []])
   );
+  uploadPath = null;
+  uploadPathCounts = {
+    direct: 0,
+    copyTo: 0
+  };
   record(stage, elapsedMs) {
     if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
       throw new Error(`invalid ${stage} metric: ${elapsedMs}`);
     }
     this.samples.get(stage).push(elapsedMs);
   }
+  recordUploadPath(path) {
+    this.uploadPath = path;
+    this.uploadPathCounts[path] += 1;
+  }
   toJSON() {
-    return Object.fromEntries(STAGES.map((stage) => {
-      const values = this.samples.get(stage);
-      return [stage, {
-        count: values.length,
-        p50Ms: percentile(values, 50),
-        p95Ms: percentile(values, 95),
-        maxMs: values.length > 0 ? Math.max(...values) : null
-      }];
-    }));
+    return {
+      ...Object.fromEntries(STAGES.map((stage) => {
+        const values = this.samples.get(stage);
+        return [stage, {
+          count: values.length,
+          p50Ms: percentile(values, 50),
+          p95Ms: percentile(values, 95),
+          maxMs: values.length > 0 ? Math.max(...values) : null
+        }];
+      })),
+      uploadPath: this.uploadPath,
+      uploadPathCounts: { ...this.uploadPathCounts }
+    };
   }
 };
 
 // src/frame-engine-client.ts
+var requestedUploadPath = new URLSearchParams(window.location.search).get("uploadPath") === "copyTo" ? "copyTo" : "direct";
 function percentile2(values, fraction = 0.5) {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -16909,7 +17127,10 @@ var FrameEngineRuntime = class {
     this.edit = edit;
     this.timelineData = timelineData;
     this.fps = fps;
-    this.compositor = new WebGL2Compositor(ui.canvas, { synchronization: "flush" });
+    this.compositor = new WebGL2Compositor(ui.canvas, {
+      synchronization: "flush",
+      uploadPath: requestedUploadPath
+    });
     const cuts = normalizedCuts(edit);
     const urls = sourceUrls(edit, timelineData, cuts);
     for (const layer of Array.isArray(edit?.layers) ? edit.layers : []) {
@@ -17128,6 +17349,7 @@ var FrameEngineRuntime = class {
     this.ui.metrics.dataset.seekAfterMs = after == null ? "" : after.toFixed(3);
     this.ui.metrics.dataset.boundaryLateBefore = `${m2.boundaryBefore.late}/${m2.boundaryBefore.total}`;
     this.ui.metrics.dataset.boundaryLateAfter = `${m2.boundaryAfter.late}/${m2.boundaryAfter.total}`;
+    this.ui.metrics.dataset.uploadPath = this.compositor.uploadPath;
     this.ui.metrics.textContent = [
       `fps (presented/1s)  ${fps}`,
       `late frame          ${m2.lateFrames}`,
@@ -17136,7 +17358,8 @@ var FrameEngineRuntime = class {
       `seek after (cache)  ${format(after)} ms`,
       `boundary late       before ${m2.boundaryBefore.late}/${m2.boundaryBefore.total}`,
       `                    after  ${m2.boundaryAfter.late}/${m2.boundaryAfter.total}`,
-      `warmup median       ${format(percentile2(m2.warmupMs))} ms`
+      `warmup median       ${format(percentile2(m2.warmupMs))} ms`,
+      `upload path         ${this.compositor.uploadPath}`
     ].join("\n");
   }
   showError(message, fatal) {

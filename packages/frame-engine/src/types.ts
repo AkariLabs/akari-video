@@ -1,5 +1,6 @@
 export type TimelineTimeUs = number;
 export type NativeVideoFormat = 'NV12' | 'I420';
+export type UploadPath = 'direct' | 'copyTo';
 export type FrameMetricStage =
   | 'decode'
   | 'tick'
@@ -20,6 +21,7 @@ export type FrameMetricStage =
 
 export interface FrameMetricsRecorder {
   record(stage: FrameMetricStage, elapsedMs: number): void;
+  recordUploadPath?(path: UploadPath): void;
 }
 
 export interface NativeNv12Frame {
@@ -147,6 +149,7 @@ export interface CompositedFrame {
   readonly timeUs: TimelineTimeUs;
   readonly surface: GPUFrameSurface;
   readonly nativeFormats: readonly NativeVideoFormat[];
+  readonly uploadPath: UploadPath;
   readonly maskSync?: readonly {
     layerId: string;
     colorTimestamp: number;
@@ -162,11 +165,12 @@ export interface RawFrameSink {
 
 export interface CompositorBackend {
   readonly kind: 'webgl2';
+  readonly uploadPath?: UploadPath;
   compose(
-    base: readonly NativeYuvFrame[],
+    base: readonly (NativeYuvFrame | VideoFrame)[],
     layers: readonly {
-      color: NativeYuvFrame | StillImageBitmap;
-      mask?: NativeYuvFrame | null;
+      color: NativeYuvFrame | StillImageBitmap | VideoFrame;
+      mask?: NativeYuvFrame | VideoFrame | null;
     }[],
     output: EvaluationPlan['output'],
     metrics: FrameMetricsRecorder,

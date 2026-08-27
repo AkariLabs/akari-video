@@ -39,6 +39,10 @@ interface PreviewSnapshot {
   segments: TimelineUiSegment[];
 }
 
+const requestedUploadPath = new URLSearchParams(window.location.search).get('uploadPath') === 'copyTo'
+  ? 'copyTo'
+  : 'direct';
+
 interface Measurements {
   presentedAt: number[];
   lateFrames: number;
@@ -186,7 +190,10 @@ class FrameEngineRuntime {
     private readonly fps: number,
   ) {
     // The compositor owns the visible canvas directly: no per-frame WebGL -> 2D readback/blit.
-    this.compositor = new WebGL2Compositor(ui.canvas, { synchronization: 'flush' });
+    this.compositor = new WebGL2Compositor(ui.canvas, {
+      synchronization: 'flush',
+      uploadPath: requestedUploadPath,
+    });
     const cuts = normalizedCuts(edit);
     const urls = sourceUrls(edit, timelineData, cuts);
     for (const layer of Array.isArray(edit?.layers) ? edit.layers : []) {
@@ -385,6 +392,7 @@ class FrameEngineRuntime {
     this.ui.metrics.dataset.seekAfterMs = after == null ? '' : after.toFixed(3);
     this.ui.metrics.dataset.boundaryLateBefore = `${m.boundaryBefore.late}/${m.boundaryBefore.total}`;
     this.ui.metrics.dataset.boundaryLateAfter = `${m.boundaryAfter.late}/${m.boundaryAfter.total}`;
+    this.ui.metrics.dataset.uploadPath = this.compositor.uploadPath;
     this.ui.metrics.textContent = [
       `fps (presented/1s)  ${fps}`,
       `late frame          ${m.lateFrames}`,
@@ -394,6 +402,7 @@ class FrameEngineRuntime {
       `boundary late       before ${m.boundaryBefore.late}/${m.boundaryBefore.total}`,
       `                    after  ${m.boundaryAfter.late}/${m.boundaryAfter.total}`,
       `warmup median       ${format(percentile(m.warmupMs))} ms`,
+      `upload path         ${this.compositor.uploadPath}`,
     ].join('\n');
   }
 
