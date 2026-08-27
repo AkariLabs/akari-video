@@ -16,7 +16,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { homedir } from "node:os";
+import { availableParallelism, homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -60,7 +60,7 @@ const { resolveCaptionDisplay } = packageRequire("../../edit-store/lib/index.js"
 const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|x264]
-  [--fps <number>] [--progress]
+  [--fps <number>] [--capture-workers <n>] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
@@ -150,6 +150,11 @@ export async function renderProject(input, options = {}, io = console) {
   const hasThreeDimensionalOverlay = loadedOverlays.some((overlay) =>
     overlay.html.includes("data-akari-3d-scene"),
   );
+  const captureWorkerResolution = resolveCaptureWorkers({
+    requestedWorkers: options.captureWorkers,
+    requestedSource: options.captureWorkersSource,
+    hasThreeDimensionalOverlay,
+  });
   const explicitOutput = options.out ? resolveOutput(projectRoot, options.out) : null;
   const outputPath = explicitOutput ?? selectDefaultOutput(projectRoot, edit, existsSync);
   ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath);
@@ -179,6 +184,8 @@ export async function renderProject(input, options = {}, io = console) {
     encoder: options.encoder,
     encodingPolicy,
     fpsOverride: options.fps,
+    captureWorkers: captureWorkerResolution.workers,
+    captureWorkersSource: captureWorkerResolution.source,
   });
   const state = {
     version: VERSION,
@@ -321,6 +328,7 @@ export async function renderProject(input, options = {}, io = console) {
           hasThreeDimensionalOverlay,
           fps: plan.preset.fps,
           videoEncodeArgs: encodingPolicy?.video_encode_args ?? null,
+          captureWorkers: plan.commands.rasterize["puppeteer-core"].workers,
         });
       }
     }
@@ -374,6 +382,7 @@ export async function renderProject(input, options = {}, io = console) {
         hasThreeDimensionalOverlay,
         fps: plan.preset.fps,
         videoEncodeArgs: encodingPolicy?.video_encode_args ?? null,
+        captureWorkers: plan.commands.rasterize["puppeteer-core"].workers,
         onProgress: progressEnabled ? (seconds) => emitProgress("composite", seconds) : undefined,
       });
     }
@@ -535,7 +544,7 @@ export async function renderProject(input, options = {}, io = console) {
   }
 }
 
-export function parseArguments(argv) {
+export function parseArguments(argv, env = process.env) {
   const options = {
     projectRoot: null,
     planOnly: false,
@@ -549,6 +558,8 @@ export function parseArguments(argv) {
     quality: undefined,
     encoder: undefined,
     fps: undefined,
+    captureWorkers: undefined,
+    captureWorkersSource: undefined,
     progress: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -573,9 +584,20 @@ export function parseArguments(argv) {
       if (index + 1 >= argv.length) throw new Error("--fps requires a number");
       options.fps = parseFpsValue(argv[++index]);
     } else if (argument.startsWith("--fps=")) options.fps = parseFpsValue(argument.slice(6));
-    else if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
+    else if (argument === "--capture-workers") {
+      if (index + 1 >= argv.length) throw new Error("--capture-workers requires a value");
+      options.captureWorkers = parseCaptureWorkersValue(argv[++index]);
+      options.captureWorkersSource = "cli";
+    } else if (argument.startsWith("--capture-workers=")) {
+      options.captureWorkers = parseCaptureWorkersValue(argument.slice(18));
+      options.captureWorkersSource = "cli";
+    } else if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
     else if (options.projectRoot === null) options.projectRoot = argument;
     else throw new Error("Only one project root may be provided");
+  }
+  if (options.captureWorkers === undefined && env.AKARI_CAPTURE_WORKERS !== undefined) {
+    options.captureWorkers = parseCaptureWorkersValue(env.AKARI_CAPTURE_WORKERS);
+    options.captureWorkersSource = "env";
   }
   if (!options.help && options.projectRoot === null) throw new Error("A project root is required");
   return options;
@@ -601,6 +623,30 @@ function parseFpsValue(value) {
     throw new Error(`--fps must be a positive number, got: ${value}`);
   }
   return parsed;
+}
+
+function parseCaptureWorkersValue(value) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`--capture-workers must be a positive integer, got: ${value}`);
+  }
+  return parsed;
+}
+
+export function resolveCaptureWorkers({
+  requestedWorkers,
+  requestedSource,
+  hasThreeDimensionalOverlay,
+  parallelism = availableParallelism(),
+}) {
+  if (requestedWorkers !== undefined) {
+    return { workers: requestedWorkers, source: requestedSource === "env" ? "env" : "cli" };
+  }
+  if (hasThreeDimensionalOverlay) return { workers: 1, source: "auto" };
+  return {
+    workers: Math.max(1, Math.min(4, parallelism - 2)),
+    source: "auto",
+  };
 }
 
 async function validateLint(projectRoot, force) {
@@ -819,6 +865,7 @@ export async function rasterizeAndComposite(context) {
     // output fps, which may differ from edit.output.fps when --fps overrides it.
     fps = edit.output.fps,
     videoEncodeArgs = null,
+    captureWorkers = state.plan.commands?.rasterize?.["puppeteer-core"]?.workers ?? 1,
     onProgress,
     staticPuppeteerModule = null,
   } = context;
@@ -906,6 +953,7 @@ export async function rasterizeAndComposite(context) {
         fps,
         duration,
         ffmpegCommand: capabilities.ffmpegCommand,
+        workers: captureWorkers,
         timeoutMs: captureTimeoutMs,
         onWarning: (warning) => addWarning(state, `puppeteer-core: ${warning}`),
       });

@@ -64,6 +64,20 @@ test("3D plans require puppeteer-core and do not advertise still-image fallback"
   assert.deepEqual(plan.rasterizer.order, ["puppeteer-core"]);
 });
 
+test("the Puppeteer plan records resolved capture workers and their source", () => {
+  const plan = buildV2Plan({
+    edit,
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+    captureWorkers: 3,
+    captureWorkersSource: "env",
+  });
+  assert.equal(plan.commands.rasterize["puppeteer-core"].workers, 3);
+  assert.equal(plan.commands.rasterize["puppeteer-core"].workers_source, "env");
+});
+
 test("non-default visual order appends an implied caption stage at the top", () => {
   const plan = buildV2Plan({
     edit: {

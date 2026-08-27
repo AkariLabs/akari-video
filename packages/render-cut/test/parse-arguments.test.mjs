@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseArguments } from "../src/render-cut.mjs";
+import { parseArguments, resolveCaptureWorkers } from "../src/render-cut.mjs";
 
 test("parseArguments backward-compat: omitting the new flags leaves quality/encoder/fps undefined and progress false", () => {
   const options = parseArguments(["/project"]);
@@ -50,4 +50,73 @@ test("parseArguments keeps existing --out/--plan-only/--force behavior unchanged
   assert.equal(options.out, "exports/x.mp4");
   assert.equal(options.planOnly, true);
   assert.equal(options.force, true);
+});
+
+test("parseArguments accepts capture workers in space and equals forms", () => {
+  assert.deepEqual(
+    parseArguments(["/project", "--capture-workers", "3"], {}),
+    {
+      projectRoot: "/project",
+      planOnly: false,
+      out: null,
+      force: false,
+      help: false,
+      quality: undefined,
+      encoder: undefined,
+      fps: undefined,
+      captureWorkers: 3,
+      captureWorkersSource: "cli",
+      progress: false,
+    },
+  );
+  const equalsForm = parseArguments(["/project", "--capture-workers=4"], {});
+  assert.equal(equalsForm.captureWorkers, 4);
+  assert.equal(equalsForm.captureWorkersSource, "cli");
+});
+
+test("capture worker parsing rejects invalid values", () => {
+  for (const value of ["0", "-1", "1.5", "not-a-number", ""]) {
+    assert.throws(
+      () => parseArguments(["/project", `--capture-workers=${value}`], {}),
+      new RegExp(`--capture-workers must be a positive integer, got:`),
+    );
+  }
+  assert.throws(
+    () => parseArguments(["/project", "--capture-workers"], {}),
+    /--capture-workers requires a value/,
+  );
+});
+
+test("AKARI_CAPTURE_WORKERS is the fallback and CLI has priority", () => {
+  const fromEnvironment = parseArguments(["/project"], { AKARI_CAPTURE_WORKERS: "2" });
+  assert.equal(fromEnvironment.captureWorkers, 2);
+  assert.equal(fromEnvironment.captureWorkersSource, "env");
+
+  const fromCli = parseArguments(
+    ["/project", "--capture-workers", "4"],
+    { AKARI_CAPTURE_WORKERS: "2" },
+  );
+  assert.equal(fromCli.captureWorkers, 4);
+  assert.equal(fromCli.captureWorkersSource, "cli");
+});
+
+test("automatic capture workers are conservative for 3D and bounded for 2D", () => {
+  assert.deepEqual(resolveCaptureWorkers({
+    hasThreeDimensionalOverlay: false,
+    parallelism: 8,
+  }), { workers: 4, source: "auto" });
+  assert.deepEqual(resolveCaptureWorkers({
+    hasThreeDimensionalOverlay: false,
+    parallelism: 3,
+  }), { workers: 1, source: "auto" });
+  assert.deepEqual(resolveCaptureWorkers({
+    hasThreeDimensionalOverlay: true,
+    parallelism: 8,
+  }), { workers: 1, source: "auto" });
+  assert.deepEqual(resolveCaptureWorkers({
+    requestedWorkers: 4,
+    requestedSource: "cli",
+    hasThreeDimensionalOverlay: true,
+    parallelism: 8,
+  }), { workers: 4, source: "cli" });
 });

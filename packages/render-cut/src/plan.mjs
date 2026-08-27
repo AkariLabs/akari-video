@@ -83,6 +83,8 @@ export function buildPlan({
   encoder,
   encodingPolicy,
   fpsOverride,
+  captureWorkers = 1,
+  captureWorkersSource = "auto",
 }) {
   const normalizedInternalEdit = internalEdit ?? readRenderEdit(edit, temporaryDirectory).internal;
   if (isPositiveNumber(fpsOverride) && fpsOverride !== edit.output.fps) {
@@ -275,6 +277,8 @@ export function buildPlan({
           driver: "puppeteer-core",
           input: relative(projectRoot, sheetPath),
           output_pattern: relative(projectRoot, join(temporary, "frames", "frame-%08d.png")),
+          workers: captureWorkers,
+          workers_source: captureWorkersSource,
         },
         "static-screenshot": {
           operation: "capture-one-transparent-png-per-overlay",

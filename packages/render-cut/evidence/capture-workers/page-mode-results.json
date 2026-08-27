@@ -1,0 +1,68 @@
+{
+  "schema": "akari-render-cut-capture-page-mode-probe-v2",
+  "duration_seconds": 4,
+  "frame_count": 120,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "single_process_browser": false,
+  "runs": [
+    {
+      "label": "run A",
+      "uptime": "14:42  up 22 hrs, 21 users, load averages: 6.23 7.72 8.41",
+      "modes": [
+        {
+          "mode": "one-browser-1-page",
+          "browsers": 1,
+          "pages_per_browser": 1,
+          "frame_loop_ms": 5999.0868
+        },
+        {
+          "mode": "one-browser-4-pages",
+          "browsers": 1,
+          "pages_per_browser": 4,
+          "frame_loop_ms": 6084.4015,
+          "speedup_vs_one_page": 0.986
+        },
+        {
+          "mode": "four-browsers",
+          "browsers": 4,
+          "pages_per_browser": 1,
+          "frame_loop_ms": 1962.4453,
+          "speedup_vs_one_page": 3.0569
+        }
+      ]
+    },
+    {
+      "label": "run B",
+      "uptime": "14:43  up 22:01, 21 users, load averages: 5.93 7.43 8.27",
+      "modes": [
+        {
+          "mode": "one-browser-1-page",
+          "browsers": 1,
+          "pages_per_browser": 1,
+          "frame_loop_ms": 6148.934
+        },
+        {
+          "mode": "one-browser-4-pages",
+          "browsers": 1,
+          "pages_per_browser": 4,
+          "frame_loop_ms": 6471.847,
+          "speedup_vs_one_page": 0.9501
+        },
+        {
+          "mode": "four-browsers",
+          "browsers": 4,
+          "pages_per_browser": 1,
+          "frame_loop_ms": 2041.4605,
+          "speedup_vs_one_page": 3.012
+        }
+      ]
+    }
+  ],
+  "one_browser_four_pages_meets_two_times_speedup": false,
+  "four_browsers_meets_three_times_speedup": true,
+  "conclusion": "Multi-process Chrome reproduces the BrowserContext screenshot serialization: four pages in one browser provide no speedup, while four isolated browsers exceed 3x in both runs."
+}

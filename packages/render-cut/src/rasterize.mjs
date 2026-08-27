@@ -339,6 +339,7 @@ export async function captureWithPuppeteer({
   fps,
   duration,
   ffmpegCommand,
+  workers = 1,
   timeoutMs = captureTimeoutMs(),
   puppeteerModule = null,
   browserLauncher = launchBrowser,
@@ -349,127 +350,200 @@ export async function captureWithPuppeteer({
   const puppeteer = imported.default ?? imported;
   await mkdir(framesDirectory, { recursive: true });
   const frameCount = overlayFrameCount(duration, fps);
+  const ranges = splitFrameRanges(frameCount, workers);
   const captureStarted = performance.now();
   let browserLaunched = captureStarted;
   let pageReady = captureStarted;
   let frameLoopFinished = captureStarted;
   let browserClosed = captureStarted;
-  let seekWaitMilliseconds = 0;
-  let screenshotMilliseconds = 0;
-  let browserSession = null;
   let watchdogExpired = false;
-  const pageMessages = [];
-  const recentFrameMilliseconds = [];
+  const workerStates = ranges.map(([start, end], index) => ({
+    index,
+    start,
+    end,
+    page: null,
+    messages: [],
+    recentFrameMilliseconds: [],
+    frameLoopStarted: null,
+    frameLoopFinished: null,
+    seekWaitMilliseconds: 0,
+    screenshotMilliseconds: 0,
+    timeoutWarningReported: false,
+    browserSession: null,
+  }));
   try {
-    browserSession = await browserLauncher({
-      puppeteer,
-      chromePath,
-      profileParent: framesDirectory,
-      failureMarkerPath: join(dirname(framesDirectory), ".browser-launch-failed"),
-      timeoutMs,
-      onWarning: onWarning ?? undefined,
-      // Existing tests can inject a launch-only Puppeteer stub without pretending to implement
-      // the macOS connect path. Production puppeteer-core always exposes both methods.
-      platform: puppeteerModule && typeof puppeteer.connect !== "function"
-        ? "linux"
-        : process.platform,
-      args: [
-        "--no-sandbox",
-        "--disable-gpu",
-        "--enable-unsafe-swiftshader",
-        "--use-angle=swiftshader",
-        "--disable-dev-shm-usage",
-        "--no-first-run",
-        "--no-default-browser-check",
-      ],
-    });
-    const browser = browserSession.browser;
-    browserLaunched = performance.now();
-    const page = await withTimeout(browser.newPage(), timeoutMs, "opening a Puppeteer page");
-    // タイムアウトしたとき「固まった」のか「単に遅い」のかを事後に切り分けられるよう、
-    // ページ側の声と直近フレームの所要時間を握っておく（2026-08-04 PV ドッグフーディングで、
-    // 診断が無いまま同じ症状を 3 回別々の原因に誤診した — 相関で犯人を決めさせないための材料）。
-    if (typeof page.on === "function") {
-      page.on("pageerror", (error) => {
-        pageMessages.push(`pageerror: ${String(error).slice(0, 200)}`);
-        if (pageMessages.length > PAGE_MESSAGE_LIMIT) pageMessages.shift();
-      });
-      page.on("console", (message) => {
-        const type = message.type();
-        if (type !== "error" && type !== "warning") return;
-        pageMessages.push(`console.${type}: ${message.text().slice(0, 200)}`);
-        if (pageMessages.length > PAGE_MESSAGE_LIMIT) pageMessages.shift();
-      });
-    }
-    page.setDefaultTimeout(timeoutMs);
-    page.setDefaultNavigationTimeout(timeoutMs);
-    await withTimeout(
-      page.setViewport({ width, height, deviceScaleFactor: 1 }),
-      timeoutMs,
-      "setting the Puppeteer viewport",
-    );
-    await withTimeout(
-      page.goto(pathToFileURL(sheetPath).href, {
-        waitUntil: "networkidle0",
-        timeout: timeoutMs,
-      }),
-      timeoutMs,
-      "loading the overlay sheet",
-    );
-    await withTimeout(
-      page.evaluate(() => window.__akariReady),
-      timeoutMs,
-      "waiting for the overlay sheet",
-    );
-    pageReady = performance.now();
-    for (let frame = 0; frame < frameCount; frame += 1) {
-      const seekStarted = performance.now();
-      const seekResult = await withTimeout(
-        page.evaluate((seconds) => window.__akariSeek(seconds), frame / fps),
-        timeoutMs,
-        `seeking frame ${frame + 1}`,
-      );
-      seekWaitMilliseconds += performance.now() - seekStarted;
-      for (const warning of seekResult?.warnings ?? []) {
-        onWarning?.(
-          `frame ${frame + 1}/${frameCount} at ${formatNumber(frame / fps)}s: ${warning}`,
-        );
+    await Promise.all(workerStates.map(async (worker) => {
+      const label = captureWorkerLabel(worker, workers);
+      try {
+        worker.browserSession = await browserLauncher({
+          puppeteer,
+          chromePath,
+          profileParent: framesDirectory,
+          profilePrefix: `chrome-profile-${worker.index + 1}-`,
+          failureMarkerPath: join(
+            dirname(framesDirectory),
+            workers === 1 ? ".browser-launch-failed" : `.browser-launch-failed-${worker.index + 1}`,
+          ),
+          timeoutMs,
+          onWarning: workers > 1 && onWarning
+            ? (warning) => onWarning(`${label}: ${warning}`)
+            : (onWarning ?? undefined),
+          // Existing tests can inject a launch-only Puppeteer stub without pretending to implement
+          // the macOS connect path. Production puppeteer-core always exposes both methods.
+          platform: puppeteerModule && typeof puppeteer.connect !== "function"
+            ? "linux"
+            : process.platform,
+          args: [
+            "--no-sandbox",
+            "--disable-gpu",
+            "--enable-unsafe-swiftshader",
+            "--use-angle=swiftshader",
+            "--disable-dev-shm-usage",
+            "--no-first-run",
+            "--no-default-browser-check",
+          ],
+        });
+      } catch (error) {
+        if (isTimeoutError(error)) {
+          watchdogExpired = true;
+          reportWorkerTimeout({ worker, workers, sheetPath, onWarning });
+        }
+        throw error;
       }
-      const screenshotStarted = performance.now();
-      await withTimeout(
-        page.screenshot({
-          path: join(framesDirectory, `frame-${String(frame + 1).padStart(8, "0")}.png`),
-          omitBackground: true,
-        }),
-        timeoutMs,
-        `capturing frame ${frame + 1}`,
-      );
-      screenshotMilliseconds += performance.now() - screenshotStarted;
-      recentFrameMilliseconds.push(Math.round(performance.now() - seekStarted));
-      if (recentFrameMilliseconds.length > RECENT_FRAME_LIMIT) recentFrameMilliseconds.shift();
-    }
+    }));
+    browserLaunched = performance.now();
+    await Promise.all(workerStates.map(async (worker) => {
+      const label = captureWorkerLabel(worker, workers);
+      try {
+        const page = await withTimeout(
+          worker.browserSession.browser.newPage(),
+          timeoutMs,
+          `${label}: opening a Puppeteer page`,
+        );
+        worker.page = page;
+        attachPageDiagnostics(page, worker.messages);
+        page.setDefaultTimeout(timeoutMs);
+        page.setDefaultNavigationTimeout(timeoutMs);
+        await withTimeout(
+          page.setViewport({ width, height, deviceScaleFactor: 1 }),
+          timeoutMs,
+          `${label}: setting the Puppeteer viewport`,
+        );
+        await withTimeout(
+          page.goto(pathToFileURL(sheetPath).href, {
+            waitUntil: "networkidle0",
+            timeout: timeoutMs,
+          }),
+          timeoutMs,
+          `${label}: loading the overlay sheet`,
+        );
+        await withTimeout(
+          page.evaluate(() => window.__akariReady),
+          timeoutMs,
+          `${label}: waiting for the overlay sheet`,
+        );
+      } catch (error) {
+        if (isTimeoutError(error)) {
+          watchdogExpired = true;
+          reportWorkerTimeout({ worker, workers, sheetPath, onWarning });
+        }
+        throw error;
+      }
+    }));
+    pageReady = performance.now();
+    await Promise.all(workerStates.map(async (worker) => {
+      const label = captureWorkerLabel(worker, workers);
+      worker.frameLoopStarted = performance.now();
+      try {
+        // Chrome's first screenshots of a newly-visible text layer can use a different antialiasing
+        // cache state than a page that rendered the overlay from its entrance. Prime only overlays
+        // already active at this chunk boundary with their first two states. These discarded frames
+        // stay inside the measured frame loop; assigned output filenames remain strictly disjoint.
+        const warmupSeconds = worker.start === 0
+          ? []
+          : await withTimeout(
+              worker.page.evaluate((startSeconds, frameRate) => {
+                const times = new Set();
+                for (const container of document.querySelectorAll('.akari-overlay-container')) {
+                  const start = Number(container.dataset.start);
+                  const duration = Number(container.dataset.duration);
+                  if (!(start < startSeconds && startSeconds < start + duration)) continue;
+                  times.add(start);
+                  const secondFrame = start + 1 / frameRate;
+                  if (secondFrame < startSeconds && secondFrame < start + duration) {
+                    times.add(secondFrame);
+                  }
+                }
+                return [...times].sort((left, right) => left - right);
+              }, worker.start / fps, fps),
+              timeoutMs,
+              `${label}: finding deterministic raster warmup frames`,
+            );
+        for (const seconds of Array.isArray(warmupSeconds) ? warmupSeconds : []) {
+          const seekStarted = performance.now();
+          const seekResult = await withTimeout(
+            worker.page.evaluate((value) => window.__akariSeek(value), seconds),
+            timeoutMs,
+            `${label}: seeking deterministic raster warmup at ${formatNumber(seconds)}s`,
+          );
+          worker.seekWaitMilliseconds += performance.now() - seekStarted;
+          for (const warning of seekResult?.warnings ?? []) {
+            onWarning?.(`${label}: raster warmup at ${formatNumber(seconds)}s: ${warning}`);
+          }
+          const screenshotStarted = performance.now();
+          await withTimeout(
+            worker.page.screenshot({ omitBackground: true }),
+            timeoutMs,
+            `${label}: capturing deterministic raster warmup at ${formatNumber(seconds)}s`,
+          );
+          worker.screenshotMilliseconds += performance.now() - screenshotStarted;
+        }
+        for (let frame = worker.start; frame < worker.end; frame += 1) {
+          const seekStarted = performance.now();
+          const seekResult = await withTimeout(
+            worker.page.evaluate((seconds) => window.__akariSeek(seconds), frame / fps),
+            timeoutMs,
+            `${label}: seeking frame ${frame + 1}`,
+          );
+          worker.seekWaitMilliseconds += performance.now() - seekStarted;
+          for (const warning of seekResult?.warnings ?? []) {
+            const workerPrefix = workers > 1 ? `${label}: ` : "";
+            onWarning?.(
+              `${workerPrefix}frame ${frame + 1}/${frameCount} at ${formatNumber(frame / fps)}s: ${warning}`,
+            );
+          }
+          const screenshotStarted = performance.now();
+          await withTimeout(
+            worker.page.screenshot({
+              path: join(framesDirectory, `frame-${String(frame + 1).padStart(8, "0")}.png`),
+              omitBackground: true,
+            }),
+            timeoutMs,
+            `${label}: capturing frame ${frame + 1}`,
+          );
+          worker.screenshotMilliseconds += performance.now() - screenshotStarted;
+          worker.recentFrameMilliseconds.push(Math.round(performance.now() - seekStarted));
+          if (worker.recentFrameMilliseconds.length > RECENT_FRAME_LIMIT) {
+            worker.recentFrameMilliseconds.shift();
+          }
+        }
+        worker.frameLoopFinished = performance.now();
+      } catch (error) {
+        worker.frameLoopFinished = performance.now();
+        if (isTimeoutError(error)) {
+          watchdogExpired = true;
+          reportWorkerTimeout({ worker, workers, sheetPath, onWarning });
+        }
+        throw error;
+      }
+    }));
     frameLoopFinished = performance.now();
   } catch (error) {
-    watchdogExpired = isTimeoutError(error);
-    if (watchdogExpired) {
-      // 「遅くて 60 秒に触れた」のか「ページごと固着した」のかは、直前フレームの所要時間が
-      // 伸びていたかどうかで読める。3D シーン数も併記して、負荷起因かを一目で判断できるようにする。
-      const trend = recentFrameMilliseconds.length > 0
-        ? `recent frame times: ${recentFrameMilliseconds.join("ms, ")}ms`
-        : "no frame completed before the timeout";
-      const scenes = countThreeDimensionalScenes(sheetPath);
-      const voices = pageMessages.length > 0
-        ? `; page said: ${pageMessages.slice(-3).join(" | ")}`
-        : "; the page reported no errors or warnings";
-      onWarning?.(
-        `rasterizer timed out (${trend}; 3D scenes: ${scenes}${voices}). `
-        + "Rising frame times mean the composition is too heavy for this machine's software WebGL — "
-        + "reduce simultaneous 3D scenes or the output resolution.",
-      );
-    }
+    watchdogExpired ||= isTimeoutError(error);
     throw error;
   } finally {
-    await browserSession?.close({ force: watchdogExpired });
+    await Promise.all(workerStates.map((worker) =>
+      worker.browserSession?.close({ force: watchdogExpired })));
     browserClosed = performance.now();
   }
 
@@ -491,6 +565,14 @@ export async function captureWithPuppeteer({
     overlayMovPath,
   ]);
   const captureFinished = performance.now();
+  const seekWaitMilliseconds = workerStates.reduce(
+    (total, worker) => total + worker.seekWaitMilliseconds,
+    0,
+  );
+  const screenshotMilliseconds = workerStates.reduce(
+    (total, worker) => total + worker.screenshotMilliseconds,
+    0,
+  );
   onMetrics?.({
     browser_launch_ms: roundMilliseconds(browserLaunched - captureStarted),
     page_setup_ms: roundMilliseconds(pageReady - browserLaunched),
@@ -500,8 +582,68 @@ export async function captureWithPuppeteer({
     browser_close_ms: roundMilliseconds(browserClosed - frameLoopFinished),
     encode_ms: roundMilliseconds(captureFinished - encodeStarted),
     total_ms: roundMilliseconds(captureFinished - captureStarted),
+    workers,
+    per_worker: workerStates.map((worker) => ({
+      range: [worker.start, worker.end],
+      frame_loop_ms: roundMilliseconds(worker.frameLoopFinished - worker.frameLoopStarted),
+      seek_wait_ms: roundMilliseconds(worker.seekWaitMilliseconds),
+      screenshot_ms: roundMilliseconds(worker.screenshotMilliseconds),
+    })),
   });
   return overlayMovPath;
+}
+
+export function splitFrameRanges(frameCount, workers) {
+  if (!Number.isInteger(workers) || workers < 1) {
+    throw new TypeError(`workers must be a positive integer, got: ${workers}`);
+  }
+  const baseSize = Math.floor(frameCount / workers);
+  const remainder = frameCount % workers;
+  let cursor = 0;
+  return Array.from({ length: workers }, (_, index) => {
+    const size = baseSize + (index < remainder ? 1 : 0);
+    const range = [cursor, cursor + size];
+    cursor += size;
+    return range;
+  });
+}
+
+function captureWorkerLabel(worker, workers) {
+  const range = worker.end > worker.start
+    ? `${worker.start + 1}\u2013${worker.end}`
+    : "empty";
+  return `worker ${worker.index + 1}/${workers} (frames ${range})`;
+}
+
+function attachPageDiagnostics(page, messages) {
+  if (typeof page.on !== "function") return;
+  page.on("pageerror", (error) => {
+    messages.push(`pageerror: ${String(error).slice(0, 200)}`);
+    if (messages.length > PAGE_MESSAGE_LIMIT) messages.shift();
+  });
+  page.on("console", (message) => {
+    const type = message.type();
+    if (type !== "error" && type !== "warning") return;
+    messages.push(`console.${type}: ${message.text().slice(0, 200)}`);
+    if (messages.length > PAGE_MESSAGE_LIMIT) messages.shift();
+  });
+}
+
+function reportWorkerTimeout({ worker, workers, sheetPath, onWarning }) {
+  if (worker.timeoutWarningReported) return;
+  worker.timeoutWarningReported = true;
+  const trend = worker.recentFrameMilliseconds.length > 0
+    ? `recent frame times: ${worker.recentFrameMilliseconds.join("ms, ")}ms`
+    : "no frame completed before the timeout";
+  const voices = worker.messages.length > 0
+    ? `; page said: ${worker.messages.slice(-3).join(" | ")}`
+    : "; the page reported no errors or warnings";
+  onWarning?.(
+    `${captureWorkerLabel(worker, workers)} rasterizer timed out `
+      + `(${trend}; 3D scenes: ${countThreeDimensionalScenes(sheetPath)}${voices}). `
+      + "Rising frame times mean the composition is too heavy for this machine's software WebGL \u2014 "
+      + "reduce simultaneous 3D scenes or the output resolution.",
+  );
 }
 
 /** 格子上の出力秒からフレーム数を復元し、浮動小数誤差による +1 を防ぐ。 */

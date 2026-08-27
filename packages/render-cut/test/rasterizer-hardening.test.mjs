@@ -15,7 +15,7 @@ import {
   rasterizeAndComposite,
   resolvePuppeteerPackagePath,
 } from "../src/render-cut.mjs";
-import { captureWithPuppeteer } from "../src/rasterize.mjs";
+import { captureWithPuppeteer, splitFrameRanges } from "../src/rasterize.mjs";
 import { renderReport } from "../src/report.mjs";
 
 test("Chrome candidate priority is env, newest Playwright headless shell, then system Chrome", async () => {
@@ -249,6 +249,63 @@ test("a hanging Puppeteer launch times out independently of the frame count", as
   }
 });
 
+test("capture workers split ten frames into 4/3/3 contiguous ranges exactly once", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-capture-workers-"));
+  const capturedPaths = [];
+  const seekSeconds = [];
+  let pageCount = 0;
+  let metrics = null;
+  const pages = Array.from({ length: 3 }, () => ({
+    setDefaultTimeout() {},
+    setDefaultNavigationTimeout() {},
+    async setViewport() {},
+    async goto() {},
+    async evaluate(_callback, seconds, frameRate) {
+      if (frameRate !== undefined) return [];
+      if (seconds !== undefined) seekSeconds.push(seconds);
+      return true;
+    },
+    async screenshot({ path }) {
+      capturedPaths.push(path);
+    },
+  }));
+  const browser = {
+    connected: false,
+    async newPage() {
+      return pages[pageCount++];
+    },
+    async close() {},
+  };
+  try {
+    assert.deepEqual(splitFrameRanges(10, 3), [[0, 4], [4, 7], [7, 10]]);
+    await captureWithPuppeteer({
+      sheetPath: join(root, "overlay-sheet.html"),
+      chromePath: "/fake/chrome",
+      framesDirectory: join(root, "frames"),
+      overlayMovPath: join(root, "overlay.mov"),
+      width: 320,
+      height: 180,
+      fps: 1,
+      duration: 10,
+      workers: 3,
+      ffmpegCommand: "true",
+      timeoutMs: 100,
+      puppeteerModule: { launch: async () => browser },
+      onMetrics: (value) => { metrics = value; },
+    });
+    assert.equal(pageCount, 3);
+    assert.deepEqual([...seekSeconds].sort((a, b) => a - b), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    assert.deepEqual(
+      capturedPaths.map((path) => path.slice(-18)).sort(),
+      Array.from({ length: 10 }, (_, index) => `frame-${String(index + 1).padStart(8, "0")}.png`),
+    );
+    assert.equal(metrics.workers, 3);
+    assert.deepEqual(metrics.per_worker.map((worker) => worker.range), [[0, 4], [4, 7], [7, 10]]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("the Puppeteer watchdog closes and kills a browser whose screenshot hangs", async () => {
   const root = await mkdtemp(join(tmpdir(), "render-cut-hanging-puppeteer-"));
   let closeCalled = false;
@@ -260,20 +317,25 @@ test("the Puppeteer watchdog closes and kills a browser whose screenshot hangs",
       killedWith = signal;
     },
   };
-  const page = {
+  const completedPage = {
     setDefaultTimeout() {},
     setDefaultNavigationTimeout() {},
     async setViewport() {},
     async goto() {},
     async evaluate() {},
+    async screenshot() {},
+  };
+  const hangingPage = {
+    ...completedPage,
     screenshot() {
       return new Promise(() => {});
     },
   };
+  let pageIndex = 0;
   const browser = {
     connected: true,
     async newPage() {
-      return page;
+      return [completedPage, hangingPage][pageIndex++];
     },
     async close() {
       closeCalled = true;
@@ -282,6 +344,7 @@ test("the Puppeteer watchdog closes and kills a browser whose screenshot hangs",
       return browserProcess;
     },
   };
+  const warnings = [];
   try {
     await assert.rejects(
       captureWithPuppeteer({
@@ -292,15 +355,18 @@ test("the Puppeteer watchdog closes and kills a browser whose screenshot hangs",
         width: 320,
         height: 180,
         fps: 1,
-        duration: 1,
+        duration: 2,
+        workers: 2,
         ffmpegCommand: "ffmpeg",
         timeoutMs: 30,
         puppeteerModule: { launch: async () => browser },
+        onWarning: (warning) => warnings.push(warning),
       }),
       /timeout after 30ms/,
     );
     assert.equal(closeCalled, true);
     assert.equal(killedWith, "SIGKILL");
+    assert.ok(warnings.some((warning) => /worker 2\/2 \(frames 2–2\)/u.test(warning)));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
