@@ -1,8 +1,9 @@
 import { spawn } from "node:child_process";
-import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { verifyFinalVideo } from "./ffprobe.mjs";
 import { buildOsrReceipt } from "./receipt.mjs";
 import { FALLBACK_WARNING, launchElectronExport, resolveElectronLauncher } from "./runner.mjs";
 
@@ -44,29 +45,45 @@ export async function exportWithOsr({
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
+    const ffprobeCommandResolved = ffprobeCommand ?? resolveFfprobe({ env });
+    let sourceHasAudio = false;
     if (audioSourcePath) {
-      await muxSourceAudio({
+      sourceHasAudio = await muxSourceAudio({
         ffmpegCommand: ffmpegCommand ?? resolveFfmpeg({ env }),
-        ffprobeCommand: ffprobeCommand ?? resolveFfprobe({ env }),
+        ffprobeCommand: ffprobeCommandResolved,
         videoPath: videoOnlyPath,
         audioPath: audioSourcePath,
         outputPath: out,
-        duration,
+        frames,
+        fps,
       });
     } else {
       await copyFile(videoOnlyPath, out);
     }
+    const finalVerify = await verifyFinalVideo({
+      command: ffprobeCommandResolved,
+      path: out,
+      frames,
+      fps,
+      width,
+      height,
+      requireAudio: sourceHasAudio,
+    });
     const runPath = join(dirname(videoOnlyPath), "run.json");
-    const run = JSON.parse(await readFile(runPath, "utf8"));
+    const run = { ...JSON.parse(await readFile(runPath, "utf8")), finalVerify };
+    await writeFile(runPath, `${JSON.stringify(run, null, 2)}\n`);
     const persistentRunPath = join(projectRoot, ".akari", "osr-run.json");
     await mkdir(dirname(persistentRunPath), { recursive: true });
     await copyFile(runPath, persistentRunPath);
+    if (!finalVerify.matched) {
+      throw new Error(`final ffprobe verification failed: ${JSON.stringify(finalVerify.checks)}`);
+    }
     const receiptRunPath = relative(projectRoot, persistentRunPath).split("\\").join("/");
     return {
       fellBackToLegacy: false,
       launcher,
       run,
-      receipt: buildOsrReceipt({ tier: launcher.tier, verify: runtime.verify, memory: run?.memory, run: receiptRunPath, profile: runtime.soft ? "soft" : "gpu" }),
+      receipt: buildOsrReceipt({ tier: launcher.tier, verify: runtime.verify, memory: run?.memory, run: receiptRunPath, finalVerify, profile: runtime.soft ? "soft" : "gpu" }),
     };
   } finally {
     await rm(videoOnlyPath, { force: true }).catch(() => {});
@@ -108,14 +125,16 @@ function nonNegativeInteger(value, label) {
   return number;
 }
 
-async function muxSourceAudio({ ffmpegCommand, ffprobeCommand, videoPath, audioPath, outputPath, duration }) {
+async function muxSourceAudio({ ffmpegCommand, ffprobeCommand, videoPath, audioPath, outputPath, frames, fps }) {
   const sourceHasAudio = (await capture(ffprobeCommand, [
     "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=index", "-of", "csv=p=0", audioPath,
   ])).trim() !== "";
+  const duration = frames / fps;
   const args = sourceHasAudio
-    ? ["-i", videoPath, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "copy", "-shortest", outputPath]
-    : ["-i", videoPath, "-f", "lavfi", "-t", String(duration), "-i", "anullsrc=r=48000:cl=stereo", "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-shortest", outputPath];
+    ? ["-i", videoPath, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "copy", "-t", String(duration), outputPath]
+    : ["-i", videoPath, "-f", "lavfi", "-t", String(duration), "-i", "anullsrc=r=48000:cl=stereo", "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-t", String(duration), outputPath];
   await spawnAndWait(ffmpegCommand, ["-hide_banner", "-loglevel", "warning", "-y", ...args]);
+  return sourceHasAudio;
 }
 
 function spawnAndWait(command, args) {

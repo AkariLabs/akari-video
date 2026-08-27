@@ -1,6 +1,6 @@
 import { resolveMemoryBudget } from "./memory.mjs";
 
-export function buildOsrReceipt({ tier, verify = "stamp", memory = {}, run = null, profile = "gpu" } = {}) {
+export function buildOsrReceipt({ tier, verify = "stamp", memory = {}, run = null, finalVerify = null, profile = "gpu" } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
   return {
     provenance: {
@@ -18,5 +18,6 @@ export function buildOsrReceipt({ tier, verify = "stamp", memory = {}, run = nul
       hard_stop_exceeded: memory.hardStopExceeded ?? false,
     },
     run,
+    finalVerify,
   };
 }
