@@ -349,9 +349,185 @@ test("template.html は素材の読み（role/summary/sections）を描画する
   assert.match(factsSection, /interpAsset\.sections\b/, "renderFacts が asset.sections を参照する");
 });
 
+test("template.html の renderFacts が person_matte の object 形（quality / mask_path / mask_format）を描画するコードを持つ", () => {
+  // 生成 HTML にはテンプレートの JS ソースがそのまま含まれるため、文字列の有無だけでは表示を検証できない。
+  // ここでは描画コードを構造的に固定し、描画結果そのものの実測はヘッドレスブラウザによる L1 に委ねる。
+  const templateSource = readFileSync(templatePath, "utf8");
+  const factsSection = templateSource.slice(
+    templateSource.indexOf("function renderFacts"),
+    templateSource.indexOf("function renderRelations"),
+  );
+  assert.match(factsSection, /const personMatte = tracks\.person_matte\b/, "renderFacts が person_matte を参照する");
+  assert.match(
+    factsSection,
+    /personMatte\s*\?\s*"人物マット: あり"\s*:\s*"人物マット: なし"/,
+    "person_matte の真偽で人物マットの有無を出し分ける",
+  );
+  assert.match(factsSection, /personMatte\.quality\b/, "renderFacts が quality を参照する");
+  assert.match(factsSection, /personMatte\.mask_path\b/, "renderFacts が mask_path を参照する");
+  assert.match(factsSection, /personMatte\.mask_format\b/, "renderFacts が mask_format を参照する");
+  assert.match(factsSection, /マスク併産: あり/, "mask_path があるときマスク併産ありを描画する");
+});
+
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object, key);
 }
+
+function writeAnalysisWithPersonMatte(dir, personMatte) {
+  const analysis = JSON.parse(readFileSync(analysisFixture, "utf8"));
+  analysis.tracks.person_matte = personMatte;
+  const analysisPath = join(dir, "analysis-minimal.json");
+  writeFileSync(analysisPath, JSON.stringify(analysis), "utf8");
+  return analysisPath;
+}
+
+function renderPersonMatteCase(dir, personMatte, outputName = "report.html") {
+  const analysisPath = writeAnalysisWithPersonMatte(dir, personMatte);
+  const outPath = join(dir, outputName);
+  const result = run([
+    "--analysis",
+    analysisPath,
+    "--interpretation",
+    interpretationFixture,
+    "--out",
+    outPath,
+  ]);
+  return { analysisPath, outPath, result };
+}
+
+test("tracks.person_matte の後方互換 string 形を受理する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const personMatte = "matte/person.webm";
+    const { outPath, result } = renderPersonMatteCase(dir, personMatte);
+
+    assert.equal(result.status, 0, result.stderr);
+    const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
+    assert.equal(bundle.assets[0].analysis.tracks.person_matte, personMatte);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tracks.person_matte の null 形を受理する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const { outPath, result } = renderPersonMatteCase(dir, null);
+
+    assert.equal(result.status, 0, result.stderr);
+    const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
+    assert.equal(bundle.assets[0].analysis.tracks.person_matte, null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tracks.person_matte の object 形（マスクなし）を受理し、quality を保持する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const personMatte = {
+      path: "matte/person.webm",
+      fps: 29.97,
+      quality: "balanced",
+    };
+    const { outPath, result } = renderPersonMatteCase(dir, personMatte);
+
+    assert.equal(result.status, 0, result.stderr);
+    // 生成 HTML にはテンプレートの JS ソースがそのまま含まれるため、文字列の有無だけでは表示を検証できない。
+    // 描画コードは構造トラップで検査し、描画結果そのものの実測はヘッドレスブラウザによる L1 に委ねる。
+    const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
+    assert.deepEqual(bundle.assets[0].analysis.tracks.person_matte, personMatte);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tracks.person_matte の object 形（マスクあり）を受理し、マスク情報を保持する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const personMatte = {
+      path: "matte/person.webm",
+      fps: 30,
+      quality: "accurate",
+      mask_path: "matte/person.webm.mask.mp4",
+      mask_format: "gray-h264-fullrange",
+    };
+    const { outPath, result } = renderPersonMatteCase(dir, personMatte);
+
+    assert.equal(result.status, 0, result.stderr);
+    // 生成 HTML にはテンプレートの JS ソースがそのまま含まれるため、文字列の有無だけでは表示を検証できない。
+    // 描画コードは構造トラップで検査し、描画結果そのものの実測はヘッドレスブラウザによる L1 に委ねる。
+    const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
+    assert.deepEqual(bundle.assets[0].analysis.tracks.person_matte, personMatte);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tracks.person_matte の不正な object 形は拒否し、ファイルを書き出さない", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const { outPath, result } = renderPersonMatteCase(dir, { fps: 30, quality: "balanced" });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /tracks\.person_matte.*path.*fps/);
+    assert.ok(!existsSync(outPath));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tracks.person_matte の object 形でも generatedAt を除き同一入力から同一バイトの report.html を生成する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const personMatte = {
+      path: "matte/person.webm",
+      fps: 30,
+      quality: "accurate",
+      mask_path: "matte/person.webm.mask.mp4",
+      mask_format: "gray-h264-fullrange",
+    };
+    const analysisPath = writeAnalysisWithPersonMatte(dir, personMatte);
+    const outPath1 = join(dir, "report-1.html");
+    const outPath2 = join(dir, "report-2.html");
+    const args = [
+      "--analysis",
+      analysisPath,
+      "--interpretation",
+      interpretationFixture,
+    ];
+    const result1 = run([...args, "--out", outPath1]);
+    const result2 = run([...args, "--out", outPath2]);
+
+    assert.equal(result1.status, 0, result1.stderr);
+    assert.equal(result2.status, 0, result2.stderr);
+    // generatedAt はレポート生成の実行時刻を持つため厳密なバイト一致にはならない。
+    // その 1 フィールドだけを固定値へ正規化し、それ以外が完全に決定的であることを検査する。
+    const output1 = readFileSync(outPath1);
+    const output2 = readFileSync(outPath2);
+    const html1 = output1.toString("utf8");
+    const html2 = output2.toString("utf8");
+    const isoPattern = /20\d\d-\d\d-\d\dT[\d:.]+Z/g;
+    const generatedAtPattern = /"generatedAt":"20\d\d-\d\d-\d\dT[\d:.]+Z"/g;
+    const isoValues1 = html1.match(isoPattern) || [];
+    const isoValues2 = html2.match(isoPattern) || [];
+    const generatedAtFields1 = html1.match(generatedAtPattern) || [];
+    const generatedAtFields2 = html2.match(generatedAtPattern) || [];
+
+    assert.equal(isoValues1.length, 1, "1 回目の ISO8601 実行時刻は generatedAt の 1 件だけ");
+    assert.equal(isoValues2.length, 1, "2 回目の ISO8601 実行時刻は generatedAt の 1 件だけ");
+    assert.equal(generatedAtFields1.length, 1, "1 回目の generatedAt フィールドは 1 件だけ");
+    assert.equal(generatedAtFields2.length, 1, "2 回目の generatedAt フィールドは 1 件だけ");
+    assert.notEqual(isoValues1[0], isoValues2[0], "2 回の生成時刻は異なる");
+    assert.notDeepEqual(output1, output2, "正規化前の出力差分には generatedAt の実行時刻がある");
+
+    const normalized1 = html1.replace(generatedAtPattern, '"generatedAt":"<GENERATED_AT>"');
+    const normalized2 = html2.replace(generatedAtPattern, '"generatedAt":"<GENERATED_AT>"');
+    assert.equal(normalized1, normalized2, "generatedAt の 1 か所を除けば全バイトが一致する");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 test("壊れた analysis.json を明確なエラーで拒否する", () => {
   const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));

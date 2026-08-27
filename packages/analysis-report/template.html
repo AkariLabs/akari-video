@@ -1449,6 +1449,8 @@
             const hookEvents = events.filter((e) => e.type === "hook");
             const highlightEvents = events.filter((e) => e.type === "highlight");
             const tracks = analysis.tracks || {};
+            const personMatte = tracks.person_matte;
+            const personMatteState = personMatte ? "人物マット: あり" : "人物マット: なし";
             const interpAsset = interpAssetsByRef.get(asset.ref);
             const troubleOverlapFlags = interpAsset
               ? (interpAsset.flags || []).filter(
@@ -1477,8 +1479,16 @@
                 el("span", { text: `見どころ: ${hookEvents.length}` }),
                 el("span", { text: `ハイライト: ${highlightEvents.length}` }),
                 el("span", {
-                  text: `話者トラック: ${(tracks.speakers || []).length} / 顔トラック: ${(tracks.faces || []).length} / 人物マット: ${tracks.person_matte ? "あり" : "なし"}`,
+                  text: `話者トラック: ${(tracks.speakers || []).length} / 顔トラック: ${(tracks.faces || []).length} / ${personMatteState}`,
                 }),
+                ...(personMatte && typeof personMatte === "object" && personMatte.quality
+                  ? [el("span", { text: `人物マット品質: ${personMatte.quality}` })]
+                  : []),
+                ...(personMatte && typeof personMatte === "object" && personMatte.mask_path
+                  ? [el("span", {
+                      text: `マスク併産: あり（${personMatte.mask_format || "形式未記録"}）`,
+                    })]
+                  : []),
               ]),
             );
 
