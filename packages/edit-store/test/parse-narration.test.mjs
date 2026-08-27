@@ -14,14 +14,15 @@ test('parseEdit は audio.narration を表示用最小形で返す', () => {
     ...base,
     audio: {
       narration: [
-        { id: 'n-0001', path: 'narration/n-0001.mp3', t: 1.5, gain_db: -6, script: 'こんにちは', reading: 'こんにちわ', provenance: { provider: 'voicevox', credit: 'VOICEVOX:テスト' } },
+        { id: 'n-0001', path: 'narration/n-0001.mp3', t: 1.5, in: 5.8, out: 9.7, gain_db: -6, script: 'こんにちは', reading: 'こんにちわ', provenance: { provider: 'voicevox', credit: 'VOICEVOX:テスト' } },
         { id: 'n-0002', path: 'narration/n-0002.mp3', t: 6, provenance: { provider: 'human' } }
       ]
     }
   }));
   assert.equal(parsed.audioNarration.length, 2);
   assert.deepEqual(parsed.audioNarration[0], {
-    id: 'n-0001', t: 1.5, path: 'narration/n-0001.mp3', gainDb: -6, script: 'こんにちは',
+    id: 'n-0001', t: 1.5, path: 'narration/n-0001.mp3', in: 5.8, out: 9.7,
+    gainDb: -6, script: 'こんにちは',
     reading: 'こんにちわ', provenance: { provider: 'voicevox', credit: 'VOICEVOX:テスト' }
   });
   assert.deepEqual(parsed.audioNarration[1], {

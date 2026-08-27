@@ -31,6 +31,8 @@
 - `sfxItem` に optional `in` / `out` を追加（**素材秒**。`in` ≥ 0 省略時 0、
   `out` > `in` 省略時 素材末尾）。再生区間 = 素材の [in, out)、
   タイムライン上の開始は従来どおり `t`（timeline 秒）、表示尺 = out − in
+- `narrationItem` にも同じ optional `in` / `out` を追加する。再生区間・素材秒・既定値・
+  `out > in` の検証分担は sfx と同一で、タイムライン上の開始は narration の `t` とする
 - `bgm` に optional `in` を追加（BGM ファイル内の開始オフセット素材秒。ループ・全体尺
   トリムの既存意味論は不変）
 - edit-lint: `out <= in` を error。実尺越えの検知は lint では行わない
@@ -40,6 +42,10 @@
 ### 消費（render-cut + preview）
 
 - render-cut: sfx の [in, out) 切り出しを出力に反映。bgm の `in` オフセット反映
+- render-cut: narration の [in, out) 切り出しも出力に反映する。`in` が素材実尺以上なら 0 へ、
+  `out` が素材実尺を超えれば素材末尾へクランプして warning を出す。クランプ後に `out <= in` なら
+  その narration 要素だけを skip する。`in` / `out` が両方省略された要素は実尺を probe せず、
+  従来と同じフィルタ文字列を保つ
 - preview（previewAudio）: 同意味論で再生。実尺越え in/out は素材末尾へクランプ
 
 ### UI

@@ -100,6 +100,7 @@ export function buildPlan({
     : encodingPolicy;
   const videoEncodeArgs = resolvedEncodingPolicy?.video_encode_args ?? null;
   const cutVideoEncodeArgs = tuneCutVideoEncodeArgs(videoEncodeArgs);
+  const sourceAudioDurationCache = new Map();
   const cutsEndSeconds = predictedDuration(edit.cuts);
   const finalDurationSeconds = computeContentDurationSeconds({
     edit,
@@ -140,6 +141,7 @@ export function buildPlan({
           projectRoot,
           look: edit.output.look,
           videoEncodeArgs: cutVideoEncodeArgs,
+          audioDurationCache: sourceAudioDurationCache,
         })
       : buildMultiSourceCutCommand({
           sourceInputs: capabilities.sourceInputs,
@@ -153,6 +155,7 @@ export function buildPlan({
           projectRoot,
           look: edit.output.look,
           videoEncodeArgs: cutVideoEncodeArgs,
+          audioDurationCache: sourceAudioDurationCache,
         });
   const tailPad = finalDurationSeconds > cutsEndSeconds + 0.001
     ? buildTailPadCommand({
@@ -200,6 +203,7 @@ export function buildPlan({
         hasSourceAudio,
         videoEncodeArgs,
         captionOverlays,
+        audioDurationCache: sourceAudioDurationCache,
       });
   const baseVideoPath = trackStack ? trackStack.outputPath : (layers ? layeredPath : cutOutputPath);
 
@@ -393,6 +397,7 @@ function buildTrackStackPlan({
   hasSourceAudio,
   videoEncodeArgs,
   captionOverlays,
+  audioDurationCache,
 }) {
   const cutVideoEncodeArgs = tuneCutVideoEncodeArgs(videoEncodeArgs);
   const ordered = [];
@@ -512,6 +517,7 @@ function buildTrackStackPlan({
             projectRoot,
             look: edit.output.look,
             videoEncodeArgs: cutVideoEncodeArgs,
+            audioDurationCache,
             // This track's own canvas is about to be overlaid onto `previous` below
             // (buildCutTrackCompositeCommand) -- it needs to stay see-through wherever an item
             // does not cover the full frame. `previous` (or basePath for the first stage) is
@@ -653,7 +659,7 @@ export function buildAudioMixCommand({
       const delay = Math.max(0, Math.round(track.t * 1000));
       const rawLabel = `nar_raw${index}`;
       filters.push(
-        `[${inputIndex}:a]volume=${formatNumber(track.gain_db)}dB,adelay=${delay}:all=1[${rawLabel}]`,
+        `[${inputIndex}:a]${track.trimFilter}volume=${formatNumber(track.gain_db)}dB,adelay=${delay}:all=1[${rawLabel}]`,
       );
       rawLabels.push(`[${rawLabel}]`);
       inputIndex += 1;
@@ -815,10 +821,6 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
       warnings.push(`narration ${id}: file not found at ${path}; skipped`);
       continue;
     }
-    if (!isReadableAudioFile(ffprobeCommand, resolvedPath)) {
-      warnings.push(`narration ${id}: file could not be decoded as audio at ${path}; skipped`);
-      continue;
-    }
     const t = Number(item.t);
     if (!Number.isFinite(t) || t < 0) {
       warnings.push(`narration ${id}: t is not a finite non-negative number (${item.t}); skipped`);
@@ -837,24 +839,51 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
     if (gain_db !== rawGain) {
       warnings.push(`narration ${id}: gain_db ${rawGain} clamped to ${gain_db}`);
     }
-    tracks.push({ id, path: resolvedPath, t, gain_db });
+    const trim = resolveNarrationTrim(item, ffprobeCommand, resolvedPath, id);
+    warnings.push(...trim.warnings);
+    if (trim.skip) continue;
+    tracks.push({ id, path: resolvedPath, t, gain_db, trimFilter: trim.trimFilter });
   }
   return { tracks, warnings };
 }
 
-function isReadableAudioFile(ffprobeCommand, path) {
-  const result = spawnSync(
-    ffprobeCommand,
-    ["-v", "error", "-show_entries", "stream=codec_type", "-of", "json", path],
-    { encoding: "utf8" },
-  );
-  if (result.error || result.status !== 0) return false;
-  try {
-    const parsed = JSON.parse(result.stdout);
-    return Array.isArray(parsed.streams) && parsed.streams.some((stream) => stream.codec_type === "audio");
-  } catch {
-    return false;
+function resolveNarrationTrim(item, ffprobeCommand, resolvedPath, id) {
+  const hasIn = item.in !== undefined;
+  const hasOut = item.out !== undefined;
+  if (!hasIn && !hasOut) return { skip: false, trimFilter: "", warnings: [] };
+
+  const warnings = [];
+  const actualDuration = probeAudioDurationSeconds(ffprobeCommand, resolvedPath);
+  if (!isFiniteNumber(actualDuration) || actualDuration <= 0) {
+    warnings.push(`narration ${id}: file could not be decoded as audio at ${item.path}; skipped`);
+    return { skip: true, trimFilter: "", warnings };
   }
+
+  let inSeconds = hasIn && isFiniteNumber(item.in) && item.in >= 0 ? item.in : 0;
+  let outSeconds = hasOut && isFiniteNumber(item.out) && item.out > 0 ? item.out : actualDuration;
+  if (inSeconds >= actualDuration) {
+    warnings.push(
+      `narration ${id}: in ${formatNumber(inSeconds)}s is at or beyond the material duration (${formatNumber(actualDuration)}s); clamped to 0s`,
+    );
+    inSeconds = 0;
+  }
+  if (outSeconds > actualDuration) {
+    warnings.push(
+      `narration ${id}: out ${formatNumber(outSeconds)}s exceeds the material duration (${formatNumber(actualDuration)}s); clamped to ${formatNumber(actualDuration)}s`,
+    );
+    outSeconds = actualDuration;
+  }
+  if (outSeconds <= inSeconds) {
+    warnings.push(
+      `narration ${id}: out <= in after clamping (in=${formatNumber(inSeconds)}s, out=${formatNumber(outSeconds)}s); skipped (silent)`,
+    );
+    return { skip: true, trimFilter: "", warnings };
+  }
+  return {
+    skip: false,
+    trimFilter: `atrim=start=${formatNumber(inSeconds)}:end=${formatNumber(outSeconds)},asetpts=PTS-STARTPTS,`,
+    warnings,
+  };
 }
 
 export function probeAudioDurationSeconds(ffprobeCommand, path) {
@@ -1154,6 +1183,7 @@ export function buildMultiSourceCutCommand({
   // and only for stages above stageIndex 0 -- deliberately independent of transparentBackground
   // (see that call site's own comment for why the two questions don't share one flag).
   canvasBasisTransform = true,
+  audioDurationCache = new Map(),
 }) {
   const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
   const filters = [];
@@ -1289,6 +1319,7 @@ export function buildMultiSourceCutCommand({
     concatInputs.push(`[v${index}]`);
 
     if (source.hasAudio) {
+      appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
       const atempoSuffix = buildAtempoChain(speed)
         .map((factor) => `,atempo=${formatNumber(factor)}`)
         .join("");
@@ -1303,6 +1334,7 @@ export function buildMultiSourceCutCommand({
         freeze: cut.freeze,
         id: `v1_${index}`,
         normalize: true,
+        padToSeconds: segmentDuration(cut),
       });
     } else {
       filters.push(
@@ -1463,7 +1495,6 @@ function buildMultiSourceCommandResult({
       "aac",
       "-ar",
       "48000",
-      "-shortest",
       cutPath,
     ],
   };
@@ -1509,6 +1540,7 @@ export function buildGapAwareMultiSourceCutCommand({
   // stage -- so canvasBasisTransform is always its true default in practice; threaded through for
   // API symmetry with buildMultiSourceCutCommand and any direct unit-test caller.
   canvasBasisTransform = true,
+  audioDurationCache = new Map(),
 }) {
   // See buildMultiSourceCutCommand's own comment on the same line.
   const warnings = [];
@@ -1619,11 +1651,12 @@ export function buildGapAwareMultiSourceCutCommand({
     const source = inputsById.get(cut.src);
     const speed = cutSpeed(cut);
     if (source.hasAudio) {
+      appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
       const atempoSuffix = buildAtempoChain(speed)
         .map((factor) => `,atempo=${formatNumber(factor)}`)
         .join("");
       filters.push(
-        `[${source.inputIndex}:a]atrim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},asetpts=PTS-STARTPTS${atempoSuffix}[araw1_${index}]`,
+        `[${source.inputIndex}:a]atrim=start=${formatNumber(cut.in)}:end=${formatNumber(cut.out)},asetpts=PTS-STARTPTS${atempoSuffix},apad=whole_dur=${formatNumber(segmentDuration(cut))}[araw1_${index}]`,
       );
     } else {
       filters.push(
@@ -1648,6 +1681,48 @@ export function buildGapAwareMultiSourceCutCommand({
     ffmpegCommand, ffprobeCommand, sourceInputs, filters, videoEncodeArgs, cutPath, fps,
     transparentBackground, warnings,
   });
+}
+
+function appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache }) {
+  if (!ffprobeCommand || !source?.hasAudio) return;
+  let actualDuration;
+  if (audioDurationCache.has(source.id)) {
+    actualDuration = audioDurationCache.get(source.id);
+  } else {
+    actualDuration = probeAudioStreamDurationSeconds(ffprobeCommand, source.path);
+    audioDurationCache.set(source.id, actualDuration);
+  }
+  if (!isFiniteNumber(actualDuration) || !isFiniteNumber(cut.out) || cut.out <= actualDuration) return;
+  const speed = cutSpeed(cut);
+  const missingSourceSeconds = Math.max(0, cut.out - Math.max(cut.in, actualDuration));
+  const paddedSeconds = Number((missingSourceSeconds / speed).toFixed(6));
+  warnings.push(
+    `cut ${cut.id ?? index + 1}: audio stream ends at ${formatNumber(actualDuration)}s before out=${formatNumber(cut.out)}s; padded ${formatNumber(paddedSeconds)}s of silence`,
+  );
+}
+
+function probeAudioStreamDurationSeconds(ffprobeCommand, path) {
+  if (!existsSync(path)) return null;
+  const result = spawnSync(
+    ffprobeCommand,
+    [
+      "-v", "error", "-select_streams", "a:0",
+      "-show_entries", "stream=duration,duration_ts,time_base", "-of", "json", path,
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.error || result.status !== 0) return null;
+  try {
+    const stream = JSON.parse(result.stdout).streams?.[0];
+    const duration = Number(stream?.duration);
+    if (Number.isFinite(duration) && duration > 0) return duration;
+    const durationTs = Number(stream?.duration_ts);
+    const [numerator, denominator] = String(stream?.time_base ?? "").split("/").map(Number);
+    const derived = durationTs * numerator / denominator;
+    return Number.isFinite(derived) && derived > 0 ? derived : null;
+  } catch {
+    return null;
+  }
 }
 
 export function predictedDuration(cuts) {

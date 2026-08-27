@@ -83,6 +83,8 @@ export interface EditAudioNarration {
     path: string;
     track?: number;
     gainDb?: number;
+    in?: number;
+    out?: number;
     script?: string;
     reading?: string;
     provenance?: EditAudioNarrationProvenance;

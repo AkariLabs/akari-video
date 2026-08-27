@@ -85,7 +85,7 @@ const LAYER_KEYS = new Set([
     'keyframes', 'preset', 'params', 'track', 'blend', 'chroma_key', 'filter'
 ]);
 const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out']);
-const NARRATION_KEYS = new Set(['id', 't', 'path', 'gain_db', 'script', 'reading', 'provenance']);
+const NARRATION_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'script', 'reading', 'provenance']);
 const BGM_KEYS = new Set(['id', 'path', 'in', 'fadeIn', 'fadeOut', 'gain_db', 'ducking']);
 
 export function detectEditVersion(raw: unknown): number | undefined {
@@ -356,26 +356,37 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
             return;
         }
         rejectUnknownKeys(value, NARRATION_KEYS, itemPath, blockers);
-        if (!nonEmpty(value.path) || !nonNegative(value.t)
+        const inSeconds = value.in === undefined ? 0 : value.in;
+        if (!nonEmpty(value.path) || !nonNegative(value.t) || !nonNegative(inSeconds)
+            || (value.out !== undefined && (!positive(value.out) || value.out <= (inSeconds as number)))
             || (value.gain_db !== undefined && !gainDb(value.gain_db))
             || (value.script !== undefined && typeof value.script !== 'string')
             || (value.reading !== undefined && typeof value.reading !== 'string')
             || !validNarrationProvenance(value.provenance)) {
-            blockers.push(`${itemPath} の path / t / gain_db / script / reading / provenance が不正です。`);
+            blockers.push(`${itemPath} の path / t / in / out / gain_db / script / reading / provenance が不正です。`);
             return;
         }
         const item: AudioMediaItemV2 = {
             id: uniqueId(nonEmpty(value.id) ? value.id : `narration-${index + 1}`, usedItemIds),
             at: Math.round(value.t * frameRate),
-            duration: 0,
+            duration: value.out !== undefined
+                ? Math.round(((value.out as number) - (inSeconds as number)) * frameRate)
+                : 0,
             role: 'narration',
-            source: { kind: 'media', src: audioSourceId(value.path), in: 0 },
+            source: {
+                kind: 'media', src: audioSourceId(value.path), in: inSeconds as number,
+                ...(value.out !== undefined ? { out: value.out as number } : {})
+            },
             ...(value.gain_db !== undefined ? { gain_db: value.gain_db as number } : {}),
             ...(value.script !== undefined ? { script: value.script as string } : {}),
             ...(value.reading !== undefined ? { reading: value.reading as string } : {}),
             provenance: clone(value.provenance) as AudioMediaItemV2['provenance']
         };
-        pending.push({ kind: 'audio', ref: audioTrackRefs.narration as number, item });
+        pending.push({
+            kind: 'audio',
+            ref: value.track !== undefined ? trackOf(value.track) : audioTrackRefs.narration as number,
+            item
+        });
     });
 
     if (audio?.bgm !== undefined && audio.bgm !== null) {

@@ -1,0 +1,33 @@
+{
+  "version": 0,
+  "output": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30
+  },
+  "source": {
+    "path": "source.mp4",
+    "proxy": null
+  },
+  "cuts": [
+    {
+      "in": 0,
+      "out": 12
+    }
+  ],
+  "overlays": [],
+  "audio": {
+    "narration": [
+      {
+        "id": "n-0001",
+        "path": "narration/voice.wav",
+        "t": 1,
+        "in": 5.8,
+        "out": 9.7,
+        "provenance": {
+          "provider": "human"
+        }
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -330,5 +330,45 @@ test("a narration file that cannot be found is skipped with a warning; the rende
     );
   } finally {
     await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("narration in/out adds the trim prefix while an omitted window keeps the legacy filter byte-identical and avoids ffprobe", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-narration-trim-plan-"));
+  try {
+    const narrationPath = join(root, "voice.wav");
+    const probePath = join(root, "ffprobe-fixture.mjs");
+    const callsPath = join(root, "ffprobe-calls.txt");
+    await rawWriteFile(narrationPath, "fixture");
+    await rawWriteFile(probePath, `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+appendFileSync(${JSON.stringify(callsPath)}, "probe\\n");
+process.stdout.write(JSON.stringify({ format: { duration: 12 } }));
+`);
+    await chmod(probePath, 0o755);
+
+    const build = narration => buildAudioMixCommand({
+      edit: { audio: { narration } },
+      projectRoot: root,
+      inputPath: join(root, "composite.mp4"),
+      outputPath: join(root, "final.mp4"),
+      duration: 12,
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: probePath,
+    });
+    const untrimmed = build([{ id: "n-0001", path: "voice.wav", t: 0, gain_db: 0 }]);
+    const untrimmedFilter = untrimmed.args[untrimmed.args.indexOf("-filter_complex") + 1];
+    assert.match(untrimmedFilter, /^\[1:a\]volume=0dB,adelay=0:all=1\[nar_raw0\]/);
+    assert.doesNotMatch(untrimmedFilter, /atrim=start=/);
+    await assert.rejects(readFile(callsPath, "utf8"), { code: "ENOENT" });
+
+    const trimmed = build([{
+      id: "n-0001", path: "voice.wav", t: 0, in: 5.8, out: 9.7, gain_db: 0,
+    }]);
+    const trimmedFilter = trimmed.args[trimmed.args.indexOf("-filter_complex") + 1];
+    assert.match(trimmedFilter, /\[1:a\]atrim=start=5\.8:end=9\.7,asetpts=PTS-STARTPTS,volume=0dB/);
+    assert.equal((await readFile(callsPath, "utf8")).trim().split("\n").length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });

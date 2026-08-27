@@ -289,7 +289,8 @@ test('v2 audio tracks project sfx, narration, and bgm to their exact legacy shap
   ]);
   assert.deepEqual(view.audioNarration, [
     {
-      id: 'n-0001', t: 1, path: 'voice.wav', track: 0, gainDb: 1.5, script: 'hello', reading: 'こんにちは',
+      id: 'n-0001', t: 1, path: 'voice.wav', track: 0, gainDb: 1.5, in: 0, out: 2,
+      script: 'hello', reading: 'こんにちは',
       provenance: { provider: 'human', engine: 'studio', voice: 'owner', generated_at: '2026-08-21T00:00:00Z' },
     },
   ]);
