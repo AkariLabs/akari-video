@@ -131,7 +131,7 @@ async function muxSourceAudio({ ffmpegCommand, ffprobeCommand, videoPath, audioP
   ])).trim() !== "";
   const duration = frames / fps;
   const args = sourceHasAudio
-    ? ["-i", videoPath, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-af", "apad", "-c:a", "aac", "-t", String(duration), outputPath]
+    ? ["-i", videoPath, "-i", audioPath, "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "copy", "-t", String(duration), outputPath]
     : ["-i", videoPath, "-f", "lavfi", "-t", String(duration), "-i", "anullsrc=r=48000:cl=stereo", "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-t", String(duration), outputPath];
   await spawnAndWait(ffmpegCommand, ["-hide_banner", "-loglevel", "warning", "-y", ...args]);
   return sourceHasAudio;

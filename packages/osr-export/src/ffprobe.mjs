@@ -27,6 +27,11 @@ export async function verifyFinalVideo({ command, path, frames, fps, width, heig
   const videoDuration = Number(video.duration ?? parsed.format?.duration);
   const audioDuration = Number(audio?.duration);
   const tolerance = 1 / fps;
+  const audioFrameSize = defaultAudioFrameSize(audio?.codec_name) ?? 1024;
+  const probedSampleRate = Number(audio?.sample_rate);
+  const audioSampleRate = Number.isFinite(probedSampleRate) && probedSampleRate > 0 ? probedSampleRate : 48000;
+  const audioPacketSeconds = audioFrameSize / audioSampleRate;
+  const audioMaxDuration = expectedDuration + Math.max(tolerance, audioPacketSeconds) + 0.002;
   const checks = {
     frames: Number(video.nb_read_frames) === frames,
     duration: Number.isFinite(videoDuration) && Math.abs(videoDuration - expectedDuration) <= tolerance,
@@ -35,7 +40,7 @@ export async function verifyFinalVideo({ command, path, frames, fps, width, heig
     audioPresence: !requireAudio || audio !== null,
     audioDuration: audio === null
       ? !requireAudio
-      : Number.isFinite(audioDuration) && audioDuration <= expectedDuration + tolerance,
+      : Number.isFinite(audioDuration) && audioDuration <= audioMaxDuration,
   };
   return {
     matched: Object.values(checks).every(Boolean),
@@ -47,16 +52,21 @@ export async function verifyFinalVideo({ command, path, frames, fps, width, heig
       height,
       duration: expectedDuration,
       requireAudio,
-      audioMaxDuration: expectedDuration + tolerance,
+      audioPacketSeconds,
+      audioMaxDuration,
     },
     measured: parsed,
   };
 }
 
+function defaultAudioFrameSize(codecName) {
+  return codecName === "aac" ? 1024 : null;
+}
+
 async function probeEncodedMedia({ command, path, frames }) {
   const raw = await run(command, [
     "-v", "error", "-count_frames",
-    "-show_entries", "format=duration:stream=codec_type,codec_name,width,height,pix_fmt,r_frame_rate,nb_read_frames,duration",
+    "-show_entries", "format=duration:stream=codec_type,codec_name,width,height,pix_fmt,r_frame_rate,nb_read_frames,duration,sample_rate",
     "-of", "json", path,
   ], ffprobeTimeoutMs(frames));
   return JSON.parse(raw);

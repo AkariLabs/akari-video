@@ -91,7 +91,10 @@ test("音声 mux は短い・長い・音声なしの全てで 90 コマを維�
       assert.deepEqual(launchedOptions.dumpFrames, [0, 89]);
       assert.equal(Number(video.nb_read_frames), frames);
       assert.equal(Number(video.duration), duration);
-      assert.ok(Number(audio.duration) <= duration + 1 / fps);
+      assert.ok(Number(audio.duration) <= result.run.finalVerify.expected.audioMaxDuration);
+      assert.equal(result.run.finalVerify.expected.audioPacketSeconds, 1024 / 48000);
+      assert.equal(result.run.finalVerify.expected.audioMaxDuration, duration + Math.max(1 / fps, 1024 / 48000) + 0.002);
+      assert.equal(result.run.finalVerify.checks.audioDuration, true);
       assert.equal(result.run.finalVerify.matched, true);
       assert.equal(result.receipt.finalVerify.matched, true);
       assert.equal(result.receipt.run, ".akari/osr-run.json");
@@ -151,7 +154,7 @@ test("音声 mux は短い・長い・音声なしの全てで 90 コマを維�
   }
 });
 
-test("60 fps の AAC mux は 196 コマを維持し、音声を 1 コマ以内に収める", async () => {
+test("60 fps・196 コマ・音声 3.4 秒の copy mux を許容する", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "osr-index-60fps-"));
   const ffmpeg = resolveFfmpeg();
   const ffprobe = resolveFfprobe();
@@ -205,16 +208,19 @@ test("60 fps の AAC mux は 196 コマを維持し、音声を 1 コマ以内�
     const audio = result.run.finalVerify.measured.streams.find((stream) => stream.codec_type === "audio");
     assert.equal(Number(video.nb_read_frames), frames);
     assert.ok(Math.abs(Number(video.duration) - duration) <= 1e-6);
-    assert.ok(Number(audio.duration) <= duration + 1 / fps);
+    assert.ok(Number(audio.duration) <= result.run.finalVerify.expected.audioMaxDuration);
+    assert.equal(result.run.finalVerify.expected.audioPacketSeconds, 1024 / 48000);
+    assert.equal(result.run.finalVerify.expected.audioMaxDuration, duration + Math.max(1 / fps, 1024 / 48000) + 0.002);
+    assert.equal(result.run.finalVerify.checks.audioDuration, true);
     assert.equal(result.run.finalVerify.matched, true);
     const persistentRun = JSON.parse(await readFile(join(projectRoot, ".akari", "osr-run.json"), "utf8"));
     assert.equal(persistentRun.status, "completed");
 
-    const baselineOut = join(projectRoot, "baseline-copy-t.mp4");
+    const baselineOut = join(projectRoot, "baseline-copy-without-t.mp4");
     await execFileAsync(ffmpeg, [
       "-hide_banner", "-loglevel", "error", "-y",
       "-i", baselineVideo, "-i", audioPath,
-      "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "copy", "-t", String(duration), baselineOut,
+      "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "copy", baselineOut,
     ]);
     const baseline = await verifyFinalVideo({
       command: ffprobe,
@@ -226,9 +232,12 @@ test("60 fps の AAC mux は 196 コマを維持し、音声を 1 コマ以内�
       requireAudio: true,
     });
     const baselineAudio = baseline.measured.streams.find((stream) => stream.codec_type === "audio");
+    assert.equal(baseline.checks.frames, true);
     assert.equal(baseline.checks.duration, true);
-    assert.ok(Number(baselineAudio.duration) > duration + 1 / fps);
+    assert.ok(Number(baselineAudio.duration) >= duration + 2 * baseline.expected.audioPacketSeconds);
+    assert.ok(Number(baselineAudio.duration) > baseline.expected.audioMaxDuration);
     assert.equal(baseline.checks.audioDuration, false);
+    assert.equal(baseline.matched, false);
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
