@@ -207,6 +207,19 @@ test("plan-only accepts the object captions root with default_text_style", async
   }
 });
 
+test("plan-only records resolved Puppeteer capture workers", async () => {
+  const project = await makeProject();
+  try {
+    const planned = run(project, ["--plan-only", "--capture-workers=3"]);
+    assert.equal(planned.status, 0, planned.stderr);
+    const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
+    assert.equal(state.plan.commands.rasterize["puppeteer-core"].workers, 3);
+    assert.equal(state.plan.commands.rasterize["puppeteer-core"].workers_source, "cli");
+  } finally {
+    await rm(project, { recursive: true, force: true });
+  }
+});
+
 test("caption layout persistence refuses external report-directory symlinks before writing", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   for (const target of ["reports", "caption-layout"]) {

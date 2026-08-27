@@ -1,0 +1,143 @@
+{
+  "schema": "akari-render-cut-capture-workers-3d-benchmark-v1",
+  "fixture": {
+    "source": "3d-text-extrude carouselScene",
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "duration_seconds": 2
+  },
+  "automatic_resolution": {
+    "workers": 1,
+    "source": "auto"
+  },
+  "single_process_browser": false,
+  "runs": [
+    {
+      "workers": 1,
+      "metrics": {
+        "browser_launch_ms": 329.339,
+        "page_setup_ms": 2802.057,
+        "frame_loop_ms": 6707.812,
+        "seek_wait_ms": 63.589,
+        "screenshot_ms": 6643.67,
+        "browser_close_ms": 73.969,
+        "encode_ms": 350.07,
+        "total_ms": 10263.248,
+        "workers": 1,
+        "per_worker": [
+          {
+            "range": [
+              0,
+              60
+            ],
+            "frame_loop_ms": 6707.636,
+            "seek_wait_ms": 63.589,
+            "screenshot_ms": 6643.67
+          }
+        ]
+      }
+    },
+    {
+      "workers": 2,
+      "metrics": {
+        "browser_launch_ms": 194.365,
+        "page_setup_ms": 5153.855,
+        "frame_loop_ms": 5041.518,
+        "seek_wait_ms": 95.469,
+        "screenshot_ms": 9703.563,
+        "browser_close_ms": 61.628,
+        "encode_ms": 368.807,
+        "total_ms": 10820.174,
+        "workers": 2,
+        "per_worker": [
+          {
+            "range": [
+              0,
+              30
+            ],
+            "frame_loop_ms": 4759.54,
+            "seek_wait_ms": 47.075,
+            "screenshot_ms": 4712.212
+          },
+          {
+            "range": [
+              30,
+              60
+            ],
+            "frame_loop_ms": 5041.35,
+            "seek_wait_ms": 48.394,
+            "screenshot_ms": 4991.351
+          }
+        ]
+      }
+    },
+    {
+      "workers": 4,
+      "metrics": {
+        "browser_launch_ms": 291.749,
+        "page_setup_ms": 7286.035,
+        "frame_loop_ms": 3706.466,
+        "seek_wait_ms": 108.743,
+        "screenshot_ms": 14021.224,
+        "browser_close_ms": 85.262,
+        "encode_ms": 357.033,
+        "total_ms": 11726.546,
+        "workers": 4,
+        "per_worker": [
+          {
+            "range": [
+              0,
+              15
+            ],
+            "frame_loop_ms": 3302.805,
+            "seek_wait_ms": 26.386,
+            "screenshot_ms": 3276.311
+          },
+          {
+            "range": [
+              15,
+              30
+            ],
+            "frame_loop_ms": 3706.293,
+            "seek_wait_ms": 25.328,
+            "screenshot_ms": 3679.333
+          },
+          {
+            "range": [
+              30,
+              45
+            ],
+            "frame_loop_ms": 3553.629,
+            "seek_wait_ms": 30.528,
+            "screenshot_ms": 3519.757
+          },
+          {
+            "range": [
+              45,
+              60
+            ],
+            "frame_loop_ms": 3574.254,
+            "seek_wait_ms": 26.501,
+            "screenshot_ms": 3545.823
+          }
+        ]
+      }
+    }
+  ],
+  "equivalence": {
+    "left": "workers-1",
+    "right": "workers-4",
+    "frame_count_left": 60,
+    "frame_count_right": 60,
+    "missing_from_left": [],
+    "missing_from_right": [],
+    "mismatched_frames": [],
+    "png_all_match": true,
+    "overlay_mov": {
+      "left_sha256": "dc3acdee3502205311b27ea47a4043fec6d501f6233d0415c8f783026a7e322b",
+      "right_sha256": "dc3acdee3502205311b27ea47a4043fec6d501f6233d0415c8f783026a7e322b",
+      "matches": true
+    }
+  }
+}

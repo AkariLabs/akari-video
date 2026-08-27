@@ -1,0 +1,12 @@
+{
+  "schema": "akari-render-cut-capture-workers-field-material-v1",
+  "note": "External 3D field project rendered from a temporary copy with render-cut <project> --out exports/final.mp4 --force. 1920x1080, 30 fps, 100.9 s, 3027 frames, one declared 3D scene, so automatic resolution is 1 worker.",
+  "output": { "width": 1920, "height": 1080, "fps": 30, "duration_seconds": 100.9, "frames": 3027 },
+  "runs": [
+    { "label": "previous implementation (merge-base HEAD, before this change)", "wall_seconds": 2884.879553, "load_average_at_start": "5.66 4.55 5.53", "final_mp4_sha256": "2fb396b9336ec02cb4dbfbb4f0991990825da1b4cdfa36f356823f23287fc44a" },
+    { "label": "--capture-workers 1", "wall_seconds": 3078.603934, "load_average_at_start": "10.01 12.23 15.38", "final_mp4_sha256": "2fb396b9336ec02cb4dbfbb4f0991990825da1b4cdfa36f356823f23287fc44a" },
+    { "label": "automatic (resolves to 1 for a 3D sheet)", "wall_seconds": 2349.771017, "load_average_at_start": "7.74 11.02 16.02", "final_mp4_sha256": "2fb396b9336ec02cb4dbfbb4f0991990825da1b4cdfa36f356823f23287fc44a" }
+  ],
+  "all_final_mp4_sha256_match": true,
+  "render_json_delta_vs_previous_implementation": "only the two new plan fields (workers, workers_source) plus the render receipt hash that covers them; provenance.rasterizer is unchanged"
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "akari-render-cut-capture-workers-2d-cli-v1",
+  "note": "Synthetic 2D karaoke project rendered end to end through bin/render-cut.mjs. 1280x720, 30 fps, 10 s, 300 frames, no 3D scene.",
+  "runs": [
+    { "label": "previous implementation", "wall_seconds": 17.437, "workers": null, "workers_source": null, "final_mp4_sha256": "ad19f239ed8ae0db000e4d69a361895869cc0056a102046be3cd099294949db5" },
+    { "label": "--capture-workers 1", "wall_seconds": 17.150, "workers": 1, "workers_source": "cli", "final_mp4_sha256": "ad19f239ed8ae0db000e4d69a361895869cc0056a102046be3cd099294949db5" },
+    { "label": "automatic", "wall_seconds": 8.813, "workers": 4, "workers_source": "auto", "final_mp4_sha256": "ad19f239ed8ae0db000e4d69a361895869cc0056a102046be3cd099294949db5" },
+    { "label": "--capture-workers=4", "wall_seconds": 8.850, "workers": 4, "workers_source": "cli", "final_mp4_sha256": "ad19f239ed8ae0db000e4d69a361895869cc0056a102046be3cd099294949db5" },
+    { "label": "AKARI_CAPTURE_WORKERS=2", "wall_seconds": 11.476, "workers": 2, "workers_source": "env", "final_mp4_sha256": "ad19f239ed8ae0db000e4d69a361895869cc0056a102046be3cd099294949db5" }
+  ],
+  "all_final_mp4_sha256_match": true
+}

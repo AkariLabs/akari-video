@@ -1,0 +1,179 @@
+{
+  "schema": "akari-render-cut-capture-workers-benchmark-v1",
+  "fixture": {
+    "seed": 4310185,
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "durationSeconds": 120,
+    "captionDurationSeconds": 4,
+    "wordsPerCaption": 6
+  },
+  "measured_duration_seconds": 120,
+  "environment": {
+    "node": "v26.3.0",
+    "platform": "darwin",
+    "arch": "arm64",
+    "available_parallelism": 8,
+    "chrome_path": "~/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+    "ffmpeg_command": "/opt/homebrew/bin/ffmpeg",
+    "single_process_browser": false,
+    "uptime": "12:12  up 19:30, 20 users, load averages: 5.51 4.28 6.23"
+  },
+  "method": "one-browser-per-worker",
+  "runs": [
+    {
+      "workers": 1,
+      "frame_count": 3600,
+      "frame_loop_ms": 187553.92,
+      "total_ms": 197665.362,
+      "real_time_ratio": 1.6472,
+      "frame_loop_ms_per_frame": 52.0983,
+      "peak_chrome_rss_bytes": 411729920,
+      "rss_samples": 753,
+      "metrics": {
+        "browser_launch_ms": 307.435,
+        "page_setup_ms": 895.075,
+        "frame_loop_ms": 187553.92,
+        "seek_wait_ms": 6581.389,
+        "screenshot_ms": 180966.7,
+        "browser_close_ms": 39.589,
+        "encode_ms": 8869.343,
+        "total_ms": 197665.362,
+        "workers": 1,
+        "per_worker": [
+          {
+            "range": [
+              0,
+              3600
+            ],
+            "frame_loop_ms": 187553.716,
+            "seek_wait_ms": 6581.389,
+            "screenshot_ms": 180966.7
+          }
+        ]
+      }
+    },
+    {
+      "workers": 2,
+      "frame_count": 3600,
+      "frame_loop_ms": 95718.279,
+      "total_ms": 105567.873,
+      "real_time_ratio": 0.8797,
+      "frame_loop_ms_per_frame": 26.5884,
+      "peak_chrome_rss_bytes": 801275904,
+      "rss_samples": 385,
+      "metrics": {
+        "browser_launch_ms": 173.351,
+        "page_setup_ms": 776.877,
+        "frame_loop_ms": 95718.279,
+        "seek_wait_ms": 7569.205,
+        "screenshot_ms": 183668.939,
+        "browser_close_ms": 64.715,
+        "encode_ms": 8834.65,
+        "total_ms": 105567.873,
+        "workers": 2,
+        "per_worker": [
+          {
+            "range": [
+              0,
+              1800
+            ],
+            "frame_loop_ms": 95526.389,
+            "seek_wait_ms": 3725.87,
+            "screenshot_ms": 91798.497
+          },
+          {
+            "range": [
+              1800,
+              3600
+            ],
+            "frame_loop_ms": 95718.19,
+            "seek_wait_ms": 3843.335,
+            "screenshot_ms": 91870.441
+          }
+        ]
+      }
+    },
+    {
+      "workers": 4,
+      "frame_count": 3600,
+      "frame_loop_ms": 54736.586,
+      "total_ms": 64698.254,
+      "real_time_ratio": 0.5392,
+      "frame_loop_ms_per_frame": 15.2046,
+      "peak_chrome_rss_bytes": 1509769216,
+      "rss_samples": 223,
+      "metrics": {
+        "browser_launch_ms": 220.703,
+        "page_setup_ms": 942.495,
+        "frame_loop_ms": 54736.586,
+        "seek_wait_ms": 13576.563,
+        "screenshot_ms": 204751.293,
+        "browser_close_ms": 51.668,
+        "encode_ms": 8746.801,
+        "total_ms": 64698.254,
+        "workers": 4,
+        "per_worker": [
+          {
+            "range": [
+              0,
+              900
+            ],
+            "frame_loop_ms": 54534.796,
+            "seek_wait_ms": 3454.766,
+            "screenshot_ms": 51078.628
+          },
+          {
+            "range": [
+              900,
+              1800
+            ],
+            "frame_loop_ms": 54736.427,
+            "seek_wait_ms": 3602.401,
+            "screenshot_ms": 51130.21
+          },
+          {
+            "range": [
+              1800,
+              2700
+            ],
+            "frame_loop_ms": 54484.578,
+            "seek_wait_ms": 3069.864,
+            "screenshot_ms": 51412.489
+          },
+          {
+            "range": [
+              2700,
+              3600
+            ],
+            "frame_loop_ms": 54582.998,
+            "seek_wait_ms": 3449.531,
+            "screenshot_ms": 51129.966
+          }
+        ]
+      }
+    }
+  ],
+  "equivalence": {
+    "left": "workers-1",
+    "right": "workers-4",
+    "frame_count_left": 3600,
+    "frame_count_right": 3600,
+    "missing_from_left": [],
+    "missing_from_right": [],
+    "mismatched_frames": [],
+    "png_all_match": true,
+    "overlay_mov": {
+      "left_sha256": "cd81b65d82b3a545708e71978c583d11460b4ad7abc1341445c54f2e3b8b189f",
+      "right_sha256": "cd81b65d82b3a545708e71978c583d11460b4ad7abc1341445c54f2e3b8b189f",
+      "matches": true
+    }
+  },
+  "acceptance": {
+    "png_all_match": true,
+    "overlay_mov_matches": true,
+    "workers_4_frame_loop_at_most_one_third": true,
+    "workers_4_to_1_frame_loop_ratio": 0.2918
+  }
+}
