@@ -119,6 +119,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected readonly workspaceServer: WorkspaceServer;
 
     protected assets: OverlayRuntimeAssets | undefined;
+    protected frameEngineJavaScript: string | undefined;
     protected server: Server | undefined;
     protected serverPort: number | undefined;
     protected serverStartup: Promise<number> | undefined;
@@ -153,27 +154,36 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         });
     }
 
-    async getOverlayRuntimeAssets(): Promise<OverlayRuntimeAssets> {
-        if (this.assets) {
+    async getOverlayRuntimeAssets(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssets> {
+        if (!this.assets) {
+            const directory = this.findOverlayRuntimeDirectory();
+            this.assets = {
+                threeJavaScript: readFileSync(resolve(directory, 'vendor/three-bundle.js'), 'utf8'),
+                threeTextJavaScript: readFileSync(resolve(directory, 'vendor/vendor-3d-text-bundle.js'), 'utf8'),
+                threeRuntimeJavaScript: readFileSync(resolve(directory, 'three-runtime.js'), 'utf8'),
+                videoFxJavaScript: readFileSync(resolve(directory, 'video-fx.js'), 'utf8'),
+                // slot-params.js は preview mount と render-cut rasterize が共有する唯一の注入実装。
+                // runtimeJavaScript の先頭へ同梱し、公開プロトコルの資産フィールドは増やさない。
+                runtimeJavaScript: `${readFileSync(resolve(directory, 'slot-params.js'), 'utf8')}\n${
+                    readFileSync(resolve(directory, 'overlay-runtime.js'), 'utf8')
+                }`,
+                interactionJavaScript: readFileSync(resolve(directory, 'interaction.js'), 'utf8'),
+                interactionCss: readFileSync(resolve(directory, 'interaction.css'), 'utf8'),
+                webviewKernelJavaScript: readFileSync(this.findWebviewKernelBundle(), 'utf8'),
+                captionFontDataUri: this.readCaptionFontDataUri()
+            };
+        }
+        if (options?.includeFrameEngine !== true) {
             return this.assets;
         }
-        const directory = this.findOverlayRuntimeDirectory();
-        this.assets = {
-            threeJavaScript: readFileSync(resolve(directory, 'vendor/three-bundle.js'), 'utf8'),
-            threeTextJavaScript: readFileSync(resolve(directory, 'vendor/vendor-3d-text-bundle.js'), 'utf8'),
-            threeRuntimeJavaScript: readFileSync(resolve(directory, 'three-runtime.js'), 'utf8'),
-            videoFxJavaScript: readFileSync(resolve(directory, 'video-fx.js'), 'utf8'),
-            // slot-params.js は preview mount と render-cut rasterize が共有する唯一の注入実装。
-            // runtimeJavaScript の先頭へ同梱し、公開プロトコルの資産フィールドは増やさない。
-            runtimeJavaScript: `${readFileSync(resolve(directory, 'slot-params.js'), 'utf8')}\n${
-                readFileSync(resolve(directory, 'overlay-runtime.js'), 'utf8')
-            }`,
-            interactionJavaScript: readFileSync(resolve(directory, 'interaction.js'), 'utf8'),
-            interactionCss: readFileSync(resolve(directory, 'interaction.css'), 'utf8'),
-            webviewKernelJavaScript: readFileSync(this.findWebviewKernelBundle(), 'utf8'),
-            captionFontDataUri: this.readCaptionFontDataUri()
-        };
-        return this.assets;
+        if (this.frameEngineJavaScript === undefined) {
+            const bundle = this.findFrameEngineBundle();
+            if (!bundle) {
+                return this.assets;
+            }
+            this.frameEngineJavaScript = readFileSync(bundle, 'utf8');
+        }
+        return { ...this.assets, frameEngineJavaScript: this.frameEngineJavaScript };
     }
 
     async readVideoFxLut(request: ReadVideoFxLutRequest): Promise<string> {
@@ -1123,6 +1133,34 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             ancestor = parent;
         }
         throw new Error(`webview-kernel bundle was not found (tried: ${candidates.join(', ')})`);
+    }
+
+    // frame-engine の webview 用 IIFE。配布時は overlay-runtime と同居し、開発時は
+    // akari-preview の追跡済み generated/ を読む。評価台が無効なら呼ばれない任意資産。
+    protected findFrameEngineBundle(): string | undefined {
+        const fileName = 'frame-engine.js';
+        const packagedCandidate = resolve(__dirname, '../overlay-runtime', fileName);
+        if (this.isFile(packagedCandidate)) {
+            return packagedCandidate;
+        }
+
+        let ancestor = resolve(__dirname);
+        for (let depth = 0; depth < 10; depth++) {
+            const candidate = resolve(
+                ancestor,
+                'apps/shell/extensions/akari-preview/generated',
+                fileName
+            );
+            if (this.isFile(candidate)) {
+                return candidate;
+            }
+            const parent = dirname(ancestor);
+            if (parent === ancestor) {
+                break;
+            }
+            ancestor = parent;
+        }
+        return undefined;
     }
 
     protected isOverlayRuntimeDirectory(candidate: string): boolean {
