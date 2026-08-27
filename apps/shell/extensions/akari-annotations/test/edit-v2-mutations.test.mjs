@@ -62,6 +62,83 @@ test('moveItem は visual 段どうしを種別なしで移動し、空になっ
   );
 });
 
+function telopItem(id, at) {
+  const item = structuredClone(fixture.tracks.find(track => track.id === 'v-telop').items[0]);
+  item.id = id;
+  item.at = at;
+  return item;
+}
+
+function withTelopTrack(id, items) {
+  const source = structuredClone(fixture);
+  source.tracks.push({ id, lane: 'visual', items });
+  return source;
+}
+
+test('moveItem は 9 item の同一トラック移動でも元の配列位置を保つ', () => {
+  const ids = Array.from({ length: 9 }, (_, index) => `t-${index + 1}`);
+  const source = withTelopTrack(
+    'v-telop-9', ids.map((id, index) => telopItem(id, index * 30))
+  );
+  const result = valid(moveItem(source, {
+    itemId: 't-3', toTrackId: 'v-telop-9', atFrames: 250
+  }));
+  const items = result.tracks.find(track => track.id === 'v-telop-9').items;
+  assert.deepEqual(items.map(item => item.id), ids);
+  assert.equal(items[2].at, 250);
+  assert.notEqual(items.at(-1).id, 't-3');
+});
+
+test('moveItem は同一トラックで at が同じなら items を完全に変えない', () => {
+  const source = withTelopTrack('v-telop-9', Array.from(
+    { length: 9 }, (_, index) => telopItem(`t-${index + 1}`, index * 30)
+  ));
+  const before = structuredClone(source.tracks.find(track => track.id === 'v-telop-9').items);
+  const result = valid(moveItem(source, {
+    itemId: 't-3', toTrackId: 'v-telop-9', atFrames: 60
+  }));
+  assert.deepEqual(result.tracks.find(track => track.id === 'v-telop-9').items, before);
+});
+
+test('moveItem は同一トラック内の重なり順を時刻で入れ替えない', () => {
+  const source = withTelopTrack('v-z-order', [
+    telopItem('z-under', 100), telopItem('z-over', 0)
+  ]);
+  const result = valid(moveItem(source, {
+    itemId: 'z-under', toTrackId: 'v-z-order', atFrames: 50
+  }));
+  assert.deepEqual(
+    result.tracks.find(track => track.id === 'v-z-order').items.map(item => item.id),
+    ['z-under', 'z-over']
+  );
+});
+
+test('moveItem は別トラックでは at 昇順の安定位置へ挿入する', () => {
+  const source = withTelopTrack('v-target-order', [
+    telopItem('target-0', 0), telopItem('target-100', 100), telopItem('target-200', 200)
+  ]);
+  const result = valid(moveItem(source, {
+    itemId: 'html-1', toTrackId: 'v-target-order', atFrames: 150
+  }));
+  assert.deepEqual(
+    result.tracks.find(track => track.id === 'v-target-order').items.map(item => item.id),
+    ['target-0', 'target-100', 'html-1', 'target-200']
+  );
+});
+
+test('moveItem は別トラックの全 item より早い at なら先頭へ挿入する', () => {
+  const source = withTelopTrack('v-target-order', [
+    telopItem('target-100', 100), telopItem('target-200', 200)
+  ]);
+  const result = valid(moveItem(source, {
+    itemId: 'html-1', toTrackId: 'v-target-order', atFrames: 50
+  }));
+  assert.deepEqual(
+    result.tracks.find(track => track.id === 'v-target-order').items.map(item => item.id),
+    ['html-1', 'target-100', 'target-200']
+  );
+});
+
 test('moveItemToNewTrack は行間に同じ lane の段を作る', () => {
   const result = valid(moveItemToNewTrack(fixture, {
     itemId: 'clip-1', insertIndex: 4, atFrames: 12

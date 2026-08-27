@@ -52,6 +52,20 @@ DL・sha256 検証・適用まで実行。それ以外（npm グローバル / g
 `packages/asset-resolver` の CLI への薄い委譲で、カタログ合成・entitlements 判定・
 sha256 検証・fail-closed は resolver 側の責務のまま。`src/assets-command.mjs`）。
 
+### Chrome の導入
+
+動画の書き出しに使う Chrome for Testing は、次のコマンドで導入できる。
+
+```sh
+akari chrome install
+akari chrome install --cache-dir /path/to/cache
+akari chrome install --build-id 150.0.7339.16
+```
+
+保存先の既定は `~/.cache/puppeteer`。`--cache-dir` で保存先、`--build-id` で導入する
+buildId を指定できる。実行環境から `@puppeteer/browsers` を解決できる必要があり、
+AKARI Video アプリの配布物には必要なモジュールが同梱されている。
+
 `akari` に渡した引数はそのまま `opencode` に転送する（例: `akari --continue` は
 `opencode --continue` を起動する）。
 

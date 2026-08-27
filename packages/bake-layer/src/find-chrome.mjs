@@ -5,7 +5,7 @@
 // 差では出力に実質差が出ない）。
 //
 // フォールバック順: puppeteer pin 一致 → 近傍キャッシュ(上記) → playwright キャッシュ →
-// システム Chrome（`npx puppeteer browsers install chrome` を一度も走らせていない配布先でも
+// システム Chrome（`akari chrome install` を一度も走らせていない配布先でも
 // bake が完走するようにするため）。playwright / システム Chrome の候補列挙は
 // packages/render-cut/src/render-cut.mjs の chromePathCandidates / defaultChromeSystemCandidates
 // と同じアルゴリズムをここに複製したもの（bake-layer が render-cut に依存する向きを避けるため。
@@ -166,10 +166,11 @@ export async function resolveExecutablePath(
 
   throw new Error(
     [
-      "[bake-layer] Chrome for Testing / Chromium / システム Chrome のいずれも見つかりません。",
+      "Chrome for Testing / Chromium / システム Chrome のいずれも見つかりません。",
       "以下を探しましたが見つかりませんでした:",
       ...searched.map((entry) => `  - ${entry}`),
-      "`npx puppeteer browsers install chrome` を実行するか、システムに Google Chrome をインストールしてください。",
+      "`akari chrome install` を実行するか、システムに Google Chrome をインストールしてください。",
+      "システムの node がある場合は `npx puppeteer browsers install chrome` でも導入できます。",
     ].join("\n"),
   )
 }
