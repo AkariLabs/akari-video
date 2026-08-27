@@ -26,10 +26,13 @@ import {
 import type { EditV2 } from '@akari-video/edit-store';
 import type { ReadableTransitionType } from '@akari-video/edit-store';
 import {
+    AssetStreamRequest,
     AkariPreviewService,
     OverlayRuntimeAssets,
     RasterizeTelopPreviewRequest,
-    ReviewStrokeFrame
+    ReviewStrokeFrame,
+    VideoStreamReference,
+    VideoStreamRequest
 } from '../common/akari-preview-protocol';
 import {
     bgmLoopOffsetSeconds,
@@ -2719,8 +2722,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // probe せず「未確定」を渡して無音検知の通知を出させない。
         const [videoStream, hasSourceAudio] = await Promise.all([
             (primaryIsStillImage
-                ? this.previewService.createAssetStream({ assetUri: streamVideoUri.toString() })
-                : this.previewService.createVideoStream({ videoUri: streamVideoUri.toString() })
+                ? this.createAssetStream({ assetUri: streamVideoUri.toString() })
+                : this.createVideoStream({ videoUri: streamVideoUri.toString() })
             ).catch(async (error: unknown) => {
                 await this.disposeAssetStreams(model.assetStreamIds);
                 throw error;
@@ -2762,14 +2765,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         const key = entry.uri.toString();
                         let stream = imageAssetStreams.get(key);
                         if (!stream) {
-                            stream = await this.previewService.createAssetStream({ assetUri: key });
+                            stream = await this.createAssetStream({ assetUri: key });
                             imageAssetStreams.set(key, stream);
                         }
                         imageSourceUrlById[sourceId] = stream.url;
                         continue;
                     }
                     const streamUri = await this.resolveStreamVideoUri(entry.uri, model);
-                    const stream = await this.previewService.createVideoStream({ videoUri: streamUri.toString() });
+                    const stream = await this.createVideoStream({ videoUri: streamUri.toString() });
                     extraVideoStreams.set(sourceId, stream);
                     sourceUrlById[sourceId] = stream.url;
                 } catch (error) {
@@ -3131,7 +3134,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             const key = backgroundUri.toString();
                             let stream = assetStreams.get(key);
                             if (!stream) {
-                                stream = await this.previewService.createAssetStream({ assetUri: key });
+                                stream = await this.createAssetStream({ assetUri: key });
                                 assetStreams.set(key, stream);
                                 assetUris.push(backgroundUri);
                             }
@@ -3330,7 +3333,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             const key = sidecarUri.toString();
                             let stream = assetStreams.get(key);
                             if (!stream) {
-                                stream = await this.previewService.createAssetStream({ assetUri: key });
+                                stream = await this.createAssetStream({ assetUri: key });
                                 assetStreams.set(key, stream);
                             }
                             src = stream.url;
@@ -3358,7 +3361,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const key = streamUri.toString();
                     let stream = assetStreams.get(key);
                     if (!stream) {
-                        stream = await this.previewService.createAssetStream({ assetUri: key });
+                        stream = await this.createAssetStream({ assetUri: key });
                         assetStreams.set(key, stream);
                         assetUris.push(streamUri);
                     }
@@ -3526,7 +3529,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             try {
                 let stream = assetStreams.get(key);
                 if (!stream) {
-                    stream = await this.previewService.createAssetStream({ assetUri: key });
+                    stream = await this.createAssetStream({ assetUri: key });
                     assetStreams.set(key, stream);
                     assetUris.push(assetUri);
                 }
@@ -3783,7 +3786,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const key = assetUri.toString();
                     let stream = assetStreams.get(key);
                     if (!stream) {
-                        stream = await this.previewService.createAssetStream({ assetUri: key });
+                        stream = await this.createAssetStream({ assetUri: key });
                         assetStreams.set(key, stream);
                         assetUris.push(assetUri);
                     }
@@ -3878,7 +3881,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             if (editUri) {
                 const resolved = await this.previewService.resolveCaptionDisplay({
                     captionsUri: captionsUri.toString(),
-                    editUri: editUri.toString()
+                    editUri: editUri.toString(),
+                    workspaceRoots: await this.currentWorkspaceRoots()
                 });
                 if (resolved) {
                     return {
@@ -11021,6 +11025,28 @@ body { display: grid; place-items: center; padding: 32px; }
                 applyRequestedOverlaySelection();
             }).catch(error => console.error('[akari-preview] overlay mount failed', error));
         })();`;
+    }
+
+    protected async currentWorkspaceRoots(): Promise<string[]> {
+        try {
+            return (await this.workspaceService.roots).map(root => root.resource.toString());
+        } catch {
+            return [];
+        }
+    }
+
+    protected async createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference> {
+        return this.previewService.createVideoStream({
+            ...request,
+            workspaceRoots: await this.currentWorkspaceRoots()
+        });
+    }
+
+    protected async createAssetStream(request: AssetStreamRequest): Promise<VideoStreamReference> {
+        return this.previewService.createAssetStream({
+            ...request,
+            workspaceRoots: await this.currentWorkspaceRoots()
+        });
     }
 
     protected async isInsideWorkspace(uri: URI): Promise<boolean> {

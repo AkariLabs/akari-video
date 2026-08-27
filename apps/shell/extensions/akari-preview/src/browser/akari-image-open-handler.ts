@@ -2,6 +2,7 @@ import URI from '@theia/core/lib/common/uri';
 import { ApplicationShell, OpenHandler, WidgetManager } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
+import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import { AkariPreviewService } from '../common/akari-preview-protocol';
 
@@ -43,6 +44,9 @@ export class AkariImageOpenHandler implements OpenHandler {
 
     @inject(AkariPreviewService)
     protected readonly previewService: AkariPreviewService;
+
+    @inject(WorkspaceService)
+    protected readonly workspaceService: WorkspaceService;
 
     canHandle(uri: URI): number {
         return IMAGE_MIME_TYPES.has(uri.path.ext.toLowerCase()) ? 1100 : 0;
@@ -93,7 +97,10 @@ export class AkariImageOpenHandler implements OpenHandler {
                 widget.setHTML(this.messageHtml(TOO_LARGE_MESSAGE));
                 return;
             }
-            const stream = await this.previewService.createAssetStream({ assetUri: uri.toString() });
+            const stream = await this.previewService.createAssetStream({
+                assetUri: uri.toString(),
+                workspaceRoots: await this.currentWorkspaceRoots()
+            });
             if (widget.isDisposed) {
                 await this.disposeImageStreamId(stream.id);
                 return;
@@ -111,6 +118,14 @@ export class AkariImageOpenHandler implements OpenHandler {
         marker.akariImageStreamId = undefined;
         if (id) {
             await this.disposeImageStreamId(id);
+        }
+    }
+
+    protected async currentWorkspaceRoots(): Promise<string[]> {
+        try {
+            return (await this.workspaceService.roots).map(root => root.resource.toString());
+        } catch {
+            return [];
         }
     }
 
