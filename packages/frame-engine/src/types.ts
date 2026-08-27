@@ -1,6 +1,21 @@
 export type TimelineTimeUs = number;
 export type NativeVideoFormat = 'NV12' | 'I420';
-export type FrameMetricStage = 'decode' | 'copy' | 'upload' | 'shader' | 'readback' | 'sink';
+export type FrameMetricStage =
+  | 'decode'
+  | 'tick'
+  | 'copy'
+  | 'copyTo'
+  | 'planeCompact'
+  | 'upload'
+  | 'shader'
+  | 'shaderGpu'
+  | 'readback'
+  | 'pboWait'
+  | 'rowFlip'
+  | 'sink'
+  | 'ipcWrite'
+  | 'ffmpegDrain'
+  | 'ffmpegClose';
 
 export interface FrameMetricsRecorder {
   record(stage: FrameMetricStage, elapsedMs: number): void;
@@ -26,17 +41,45 @@ export interface NativeI420Frame {
 export type NativeYuvFrame = NativeNv12Frame | NativeI420Frame;
 
 export interface NativeFrameSource {
-  decode(timeUs: TimelineTimeUs): Promise<VideoFrame>;
+  decode(
+    timeUs: TimelineTimeUs,
+    metrics?: FrameMetricsRecorder,
+    request?: { streamId: string }
+  ): Promise<VideoFrame>;
+}
+
+export interface ResolvedFraming {
+  /** Normalized source window after the source has been fitted to the output canvas. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  scale: number;
+  centerX: number;
+  centerY: number;
+}
+
+export interface ResolvedCutVisual {
+  framing: ResolvedFraming;
+  transform: {
+    x: number;
+    y: number;
+    scale: number;
+    rotateDegrees: number;
+  };
+  opacity: number;
 }
 
 export interface ResolvedVideoLayer {
   id: string;
   source: NativeFrameSource;
   sourceTimeUs: TimelineTimeUs;
+  visual: ResolvedCutVisual;
 }
 
 export interface ResolvedTransition {
-  type: 'hard-cut';
+  type: 'hard-cut' | 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+  progress: number;
 }
 
 export interface EvaluationPlan {
@@ -75,7 +118,8 @@ export interface CompositorBackend {
   compose(
     frames: readonly NativeYuvFrame[],
     output: EvaluationPlan['output'],
-    metrics: FrameMetricsRecorder
+    metrics: FrameMetricsRecorder,
+    plan: EvaluationPlan
   ): Promise<GPUFrameSurface>;
   dispose(): void;
 }

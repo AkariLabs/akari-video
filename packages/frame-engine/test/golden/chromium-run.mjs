@@ -21,6 +21,7 @@ function tool(name) {
 }
 
 const ffmpeg = tool('ffmpeg');
+const ffprobe = tool('ffprobe');
 const sha256 = file => createHash('sha256').update(readFileSync(file)).digest('hex');
 const writeJson = (file, value) => writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 
@@ -81,7 +82,10 @@ async function finishEncoder() {
     frames: current.frames,
     sha256: sha256(current.output),
     extracted,
-    distinctExtractedHashes: new Set(extracted.map(item => item.sha256)).size
+    distinctExtractedHashes: new Set(extracted.map(item => item.sha256)).size,
+    durationSeconds: Number(execFileSync(ffprobe, [
+      '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', current.output
+    ], { encoding: 'utf8' }).trim())
   };
 }
 

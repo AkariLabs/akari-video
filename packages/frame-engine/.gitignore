@@ -1,5 +1,6 @@
 dist/
 test/golden/.generated/
+test/benchmark/.generated/
 test/golden/fixture/*.mp4
 test/golden/fixture/*.png
 test/golden/artifacts/

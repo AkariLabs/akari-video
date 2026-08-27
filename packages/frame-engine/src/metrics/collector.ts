@@ -11,11 +11,20 @@ export type FrameMetricsJson = Record<FrameMetricStage, MetricSummary>;
 
 const STAGES: readonly FrameMetricStage[] = [
   'decode',
+  'tick',
   'copy',
+  'copyTo',
+  'planeCompact',
   'upload',
   'shader',
+  'shaderGpu',
   'readback',
-  'sink'
+  'pboWait',
+  'rowFlip',
+  'sink',
+  'ipcWrite',
+  'ffmpegDrain',
+  'ffmpegClose'
 ];
 
 function percentile(values: readonly number[], value: number): number | null {

@@ -1,0 +1,17 @@
+{
+  "version": 0,
+  "source": { "path": "source-1080p.mp4" },
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "encoding": { "quality": "standard", "encoder": "videotoolbox" }
+  },
+  "cuts": [
+    { "src": "frame-engine-bench://fixture/source-1080p.mp4", "in": 0, "out": 3.25 },
+    { "src": "frame-engine-bench://fixture/source-1080p.mp4", "in": 6, "out": 9.25, "transform": { "scale": 1.08, "x": 40, "y": -20 } },
+    { "src": "frame-engine-bench://fixture/source-1080p.mp4", "in": 12, "out": 15.25 },
+    { "src": "frame-engine-bench://fixture/source-1080p.mp4", "in": 18, "out": 21.25 }
+  ],
+  "overlays": []
+}

@@ -4,7 +4,7 @@
 
 `frame-engine` evaluates one edit-store-resolved timeline instant into one completed WebGL2 surface. The same `CompositedFrame` is consumed by the canvas preview exit and the PBO raw-frame exit; `evaluateFrame` has no preview/export mode.
 
-Phase 1a supports hard cuts only. Speed, framing, transforms, freeze frames, and transitions remain outside this package version.
+The cuts path supports hard cuts, speed, static crop and linearly interpolated zoom framing, cut transform/opacity, duration-extending freeze frames, and five GPU transitions (`dissolve`, `fade-black`, `fade-white`, `reveal-down`, and `reveal-up`). Freeze expansion lives in the resolved timeline layer and shifts every later sequential cut before transition overlap is resolved.
 
 ## Local verification
 
@@ -15,9 +15,12 @@ cd packages/frame-engine
 npm run typecheck
 npm run test:unit
 npm test
+npm run bench:cuts
 ```
 
-`npm test` builds the package, runs unit tests, launches Electron, compares preview/export RGBA and PNG hashes, proves the comparator rejects an injected one-pixel mutation, encodes an MP4, and verifies extracted frames are not static. Stage summaries are written to `test/golden/.generated/metrics.json`.
+`npm test` builds the package, runs unit tests, launches Electron, compares preview/export RGBA and PNG hashes at 28 fixed feature/transition points, proves the comparator rejects an injected one-pixel mutation, checks two freeze frames are identical, and verifies the encoded 11-second MP4 duration with ffprobe. Stage summaries are written to `test/golden/.generated/metrics.json`.
+
+`npm run bench:cuts` runs the permanent 1920×1080, 30fps, 13-second cuts benchmark. It compares decode/full-cache/fixed-frame controls, GOP-distance Warmup and Lookahead, 8MB IPC over invoke/MessagePort/shared memory, raw ffmpeg and WebCodecs encoders, and the read-only render-cut control. A successful run updates [the cuts path report](./docs/cuts-path-report.md) with measured p50/p95 values and the final `v2/render-cut` ratio.
 
 The Electron/WebCodecs test is intentionally local-only when a CI runner has no GPU/WebCodecs-capable Chromium. Unit tests and typechecking remain suitable for such CI runners.
 

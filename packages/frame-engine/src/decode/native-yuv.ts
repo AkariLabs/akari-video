@@ -1,4 +1,4 @@
-import type { NativeVideoFormat, NativeYuvFrame } from '../types.js';
+import type { FrameMetricsRecorder, NativeVideoFormat, NativeYuvFrame } from '../types.js';
 
 interface PlaneLayout {
   offset: number;
@@ -11,6 +11,9 @@ function compactPlane(
   width: number,
   height: number
 ): Uint8Array {
+  if (layout.stride === width) {
+    return source.subarray(layout.offset, layout.offset + width * height);
+  }
   const output = new Uint8Array(width * height);
   for (let row = 0; row < height; row += 1) {
     const start = layout.offset + row * layout.stride;
@@ -20,7 +23,10 @@ function compactPlane(
 }
 
 /** Copies a native decoder surface without requesting an RGB format conversion. */
-export async function copyNativeYuvFrame(frame: VideoFrame): Promise<NativeYuvFrame> {
+export async function copyNativeYuvFrame(
+  frame: VideoFrame,
+  metrics?: FrameMetricsRecorder
+): Promise<NativeYuvFrame> {
   const format = frame.format as NativeVideoFormat | null;
   if (format !== 'NV12' && format !== 'I420') {
     throw new Error(`unsupported native VideoFrame format: ${String(frame.format)}`);
@@ -28,27 +34,32 @@ export async function copyNativeYuvFrame(frame: VideoFrame): Promise<NativeYuvFr
   const width = frame.codedWidth;
   const height = frame.codedHeight;
   const bytes = new Uint8Array(frame.allocationSize());
+  const copyStarted = performance.now();
   const layouts = await frame.copyTo(bytes) as PlaneLayout[];
+  metrics?.record('copyTo', performance.now() - copyStarted);
   const chromaWidth = Math.ceil(width / 2);
   const chromaHeight = Math.ceil(height / 2);
+  const compactStarted = performance.now();
 
   if (format === 'NV12') {
     if (layouts.length !== 2 || !layouts[0] || !layouts[1]) {
       throw new Error(`NV12 expected two planes, received ${layouts.length}`);
     }
-    return {
+    const output: NativeYuvFrame = {
       format,
       width,
       height,
       y: compactPlane(bytes, layouts[0], width, height),
       uv: compactPlane(bytes, layouts[1], chromaWidth * 2, chromaHeight)
     };
+    metrics?.record('planeCompact', performance.now() - compactStarted);
+    return output;
   }
 
   if (layouts.length !== 3 || !layouts[0] || !layouts[1] || !layouts[2]) {
     throw new Error(`I420 expected three planes, received ${layouts.length}`);
   }
-  return {
+  const output: NativeYuvFrame = {
     format,
     width,
     height,
@@ -56,4 +67,6 @@ export async function copyNativeYuvFrame(frame: VideoFrame): Promise<NativeYuvFr
     u: compactPlane(bytes, layouts[1], chromaWidth, chromaHeight),
     v: compactPlane(bytes, layouts[2], chromaWidth, chromaHeight)
   };
+  metrics?.record('planeCompact', performance.now() - compactStarted);
+  return output;
 }

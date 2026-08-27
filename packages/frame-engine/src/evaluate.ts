@@ -26,22 +26,19 @@ export async function evaluateFrame(
   plan: EvaluationPlan,
   context: EvaluationContext
 ): Promise<CompositedFrame> {
-  if (plan.transition && plan.transition.type !== 'hard-cut') {
-    throw new Error(`unsupported Phase 1a transition: ${plan.transition.type}`);
-  }
   const decoded: VideoFrame[] = [];
   const native: NativeYuvFrame[] = [];
   try {
     for (const layer of plan.layers) {
       const decodeStarted = performance.now();
-      const frame = await layer.source.decode(layer.sourceTimeUs);
+      const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: layer.id });
       context.metrics.record('decode', performance.now() - decodeStarted);
       decoded.push(frame);
       const copyStarted = performance.now();
-      native.push(await copyNativeYuvFrame(frame));
+      native.push(await copyNativeYuvFrame(frame, context.metrics));
       context.metrics.record('copy', performance.now() - copyStarted);
     }
-    const surface = await context.compositor.compose(native, plan.output, context.metrics);
+    const surface = await context.compositor.compose(native, plan.output, context.metrics, plan);
     const formats = native.map(frame => frame.format) as NativeVideoFormat[];
     let closed = false;
     return {
