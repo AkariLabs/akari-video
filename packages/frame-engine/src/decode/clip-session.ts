@@ -57,6 +57,7 @@ export class ClipSession implements NativeFrameSource {
   private clip: MP4Clip | null = null;
   private keyframes: KeyframeIndex | null = null;
   private lastFrameStartUs: number | null = null;
+  private decoderTimestampOffsetUs = 0;
   private lastTickTargetUs: number | null = null;
   private readonly coverage = new DecodedFrameCoverageCache();
   private loadPromise: Promise<void> | null = null;
@@ -107,24 +108,33 @@ export class ClipSession implements NativeFrameSource {
             this.options.loadTimeoutMs,
             `ready ${this.id}`
           );
-          const primed = await withTimeout(
-            Promise.race([candidate.tick(0), decoderError]),
+          await this.loadKeyframes(candidate);
+          const primeTarget = this.toDecoderTime(0);
+          const rawPrimed = await withTimeout(
+            Promise.race([candidate.tick(primeTarget), decoderError]),
             this.options.tickTimeoutMs,
             `prime ${this.id}`
           );
-          this.lastTickTargetUs = 0;
+          const primed = this.normalizeTickResult(rawPrimed);
+          this.lastTickTargetUs = primeTarget;
           if (primed.video) this.coverage.adopt(primed.video);
         } finally {
           stopWatching();
         }
         this.clip = candidate;
-        this.meta = candidate.meta;
+        this.meta = {
+          ...candidate.meta,
+          duration: this.keyframes?.presentationDurationUs
+            ?? Math.max(0, candidate.meta.duration - this.decoderTimestampOffsetUs),
+        };
         this.state = attempt.state;
         if (attempt.state === 'degraded') this.options.onWarning?.(`${this.id}: software decoder fallback active`);
-        await this.loadKeyframes(candidate);
         return;
       } catch (error) {
         this.coverage.clear();
+        this.keyframes = null;
+        this.lastFrameStartUs = null;
+        this.decoderTimestampOffsetUs = 0;
         candidate?.destroy();
         lastError = error;
         this.options.onWarning?.(`${this.id}: ${String(error)}`);
@@ -139,7 +149,11 @@ export class ClipSession implements NativeFrameSource {
       const header = await withTimeout(clip.getFileHeaderBinData(), 2_000, `header ${this.id}`);
       this.keyframes = await withTimeout(buildKeyframeIndexFromHeader(header), 2_000, `keyframes ${this.id}`);
       this.lastFrameStartUs = this.keyframes.lastFrameStartUs;
+      this.decoderTimestampOffsetUs = this.keyframes.decoderTimestampOffsetUs;
     } catch (error) {
+      this.keyframes = null;
+      this.lastFrameStartUs = null;
+      this.decoderTimestampOffsetUs = 0;
       this.options.onWarning?.(`${this.id}: keyframe index unavailable: ${String(error)}`);
     }
   }
@@ -198,6 +212,10 @@ export class ClipSession implements NativeFrameSource {
     return this.lastFrameStartUs;
   }
 
+  getDecoderTimestampOffsetUs(): number {
+    return this.decoderTimestampOffsetUs;
+  }
+
   /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */
   async fork(id: string): Promise<ClipSession> {
     await this.load();
@@ -210,6 +228,7 @@ export class ClipSession implements NativeFrameSource {
     fork.state = this.state;
     fork.keyframes = this.keyframes;
     fork.lastFrameStartUs = this.lastFrameStartUs;
+    fork.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
     // MP4Clip.clone() constructs a fresh, unprimed VideoFrameFinder.
     fork.lastTickTargetUs = null;
     const coverageSeed = this.coverage.cloneStored();
@@ -223,6 +242,9 @@ export class ClipSession implements NativeFrameSource {
     this.clip = null;
     this.meta = null;
     this.coverage.clear();
+    this.keyframes = null;
+    this.lastFrameStartUs = null;
+    this.decoderTimestampOffsetUs = 0;
     this.lastTickTargetUs = null;
     this.loadPromise = null;
     this.state = 'idle';
@@ -240,22 +262,24 @@ export class ClipSession implements NativeFrameSource {
       rejectDecoder?.(message);
     });
     try {
+      const decoderTarget = this.toDecoderTime(target);
       const result = await withTimeout(
-        Promise.race([this.clip.tick(target), decoderError]),
+        Promise.race([this.clip.tick(decoderTarget), decoderError]),
         this.options.tickTimeoutMs,
         `tick ${this.id}`
       );
-      this.lastTickTargetUs = target;
-      return result;
+      this.lastTickTargetUs = decoderTarget;
+      return this.normalizeTickResult(result);
     } finally {
       stopWatching();
     }
   }
 
   private async guardedExactTick(target: number): Promise<{ video?: VideoFrame }> {
+    const decoderTarget = this.toDecoderTime(target);
     const willReset = this.lastTickTargetUs == null
-      || target <= this.lastTickTargetUs
-      || target - this.lastTickTargetUs > AV_CLIPER_RESET_WINDOW_US;
+      || decoderTarget <= this.lastTickTargetUs
+      || decoderTarget - this.lastTickTargetUs > AV_CLIPER_RESET_WINDOW_US;
     let seeded = false;
 
     if (willReset && this.shouldSeedFromKeyframe(target)) {
@@ -320,10 +344,33 @@ export class ClipSession implements NativeFrameSource {
     this.coverage.clear();
     this.keyframes = null;
     this.lastFrameStartUs = null;
+    this.decoderTimestampOffsetUs = 0;
     this.lastTickTargetUs = null;
     this.loadPromise = null;
     this.state = 'idle';
     await this.load();
+  }
+
+  private toDecoderTime(presentationTimeUs: number): number {
+    return Math.max(0, presentationTimeUs + this.decoderTimestampOffsetUs);
+  }
+
+  private normalizeTickResult<T extends { video?: VideoFrame }>(result: T): T {
+    if (!result.video) return result;
+    const source = result.video;
+    const unbounded = presentationFrameTiming(source, this.decoderTimestampOffsetUs);
+    const nextFrameStartUs = this.keyframes?.nextFrameStartUs(unbounded.timestamp) ?? null;
+    const timing = presentationFrameTiming(
+      source,
+      this.decoderTimestampOffsetUs,
+      nextFrameStartUs,
+    );
+    if (timing.timestamp === source.timestamp && timing.duration === source.duration) return result;
+    const init: VideoFrameInit = { timestamp: timing.timestamp };
+    if (typeof timing.duration === 'number') init.duration = timing.duration;
+    const video = new VideoFrame(source, init);
+    source.close();
+    return { ...result, video };
   }
 
   private serialize<T>(operation: () => Promise<T>): Promise<T> {
@@ -341,4 +388,24 @@ export function frameCoversTimestamp(
   return typeof duration === 'number' && Number.isFinite(duration) && duration > 0
     && targetUs >= frame.timestamp
     && targetUs < frame.timestamp + duration;
+}
+
+export function presentationFrameTiming(
+  frame: Pick<VideoFrame, 'timestamp' | 'duration'>,
+  decoderTimestampOffsetUs: number,
+  nextFrameStartUs: number | null = null,
+): { timestamp: number; duration: number | null } {
+  const offsetUs = Math.max(0, decoderTimestampOffsetUs);
+  const hiddenPrefixUs = Math.max(0, offsetUs - frame.timestamp);
+  const timestamp = Math.max(0, frame.timestamp - offsetUs);
+  let duration = typeof frame.duration === 'number'
+    ? Math.max(1, frame.duration - hiddenPrefixUs)
+    : frame.duration;
+  if (typeof duration === 'number'
+    && nextFrameStartUs != null
+    && nextFrameStartUs > timestamp
+    && timestamp + duration > nextFrameStartUs + 1) {
+    duration = nextFrameStartUs - timestamp;
+  }
+  return { timestamp, duration };
 }

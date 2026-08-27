@@ -14,6 +14,10 @@ execFileSync(process.execPath, [resolve(testDirectory, 'golden/generate-fixture.
   cwd: packageDirectory,
   stdio: 'inherit',
 });
+execFileSync(process.execPath, [resolve(testDirectory, 'b-frame-sample-table.mjs')], {
+  cwd: packageDirectory,
+  stdio: 'inherit',
+});
 execFileSync(resolve(repository, 'node_modules/esbuild/bin/esbuild'), [
   resolve(testDirectory, 'golden/gop-tail.ts'),
   '--bundle', '--format=iife', '--platform=browser', '--target=chrome122',
@@ -51,6 +55,12 @@ assert.equal(results.finalFrameNumber, 239);
 assert.equal(results.clipSession.filter(row => row.requestedFrame === results.finalFrameNumber).length, 2);
 assert.equal(results.clipSession.filter(row => row.requestedFrame === results.finalFrameNumber)
   .every(row => row.decodedFrame === results.finalFrameNumber), true);
+assert.equal(results.bFrame.coverage, 'full');
+assert.equal(results.bFrame.rows.length, 720);
+assert.equal(results.bFrame.rows.every(row => row.pass), true);
+assert.equal(results.bFrame.offsets.every(row => row.pass), true);
+assert.equal(results.bFrame.summaries.length, 10);
+assert.equal(results.bFrame.summaries.every(row => row.mismatches === 0), true);
 assert.deepEqual(Object.keys(results.performance.warm).sort(), ['head', 'middle', 'tail']);
 assert.equal(Object.values(results.performance.warm).every(position =>
   position.samples.length >= 8 && Number.isFinite(position.p50Ms) && Number.isFinite(position.p95Ms)), true);

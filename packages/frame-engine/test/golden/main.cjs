@@ -15,6 +15,13 @@ const MATTE_COLOR = resolve(GENERATED, 'matte-color.mp4');
 const MATTE_ALPHA = resolve(GENERATED, 'matte-alpha.webm');
 const MATTE_MASK = resolve(GENERATED, 'matte-mask.mp4');
 const COLOR_PATCHES = resolve(GENERATED, 'color-patches.mp4');
+const B_FRAME_FIXTURES = new Set([
+  'bframe-bf0-30.mp4',
+  'bframe-bf1-30.mp4',
+  'bframe-bf2-30.mp4',
+  'bframe-bf3-30.mp4',
+  'bframe-bf2-60.mp4',
+]);
 const RESULTS = resolve(GENERATED, 'results.json');
 const LUTS = resolve(__dirname, '../../../../presets/luts');
 mkdirSync(GENERATED, { recursive: true });
@@ -155,6 +162,9 @@ app.whenReady().then(async () => {
     else if (url.hostname === 'fixture' && url.pathname === '/matte-alpha.webm') file = MATTE_ALPHA;
     else if (url.hostname === 'fixture' && url.pathname === '/matte-mask.mp4') file = MATTE_MASK;
     else if (url.hostname === 'fixture' && url.pathname === '/color-patches.mp4') file = COLOR_PATCHES;
+    else if (url.hostname === 'fixture' && B_FRAME_FIXTURES.has(url.pathname.slice(1))) {
+      file = resolve(GENERATED, url.pathname.slice(1));
+    }
     else return new Response('not found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
   });

@@ -7,6 +7,13 @@ const { pathToFileURL } = require('node:url');
 
 const generated = resolve(__dirname, 'golden/.generated');
 const results = resolve(generated, 'gop-tail-seek-results.json');
+const bFrameFixtures = new Set([
+  'bframe-bf0-30.mp4',
+  'bframe-bf1-30.mp4',
+  'bframe-bf2-30.mp4',
+  'bframe-bf3-30.mp4',
+  'bframe-bf2-60.mp4',
+]);
 let finished = false;
 mkdirSync(generated, { recursive: true });
 
@@ -44,6 +51,9 @@ app.whenReady().then(async () => {
     if (url.hostname === 'app' && url.pathname === '/index.html') file = resolve(__dirname, 'gop-tail-seek.html');
     else if (url.hostname === 'app' && url.pathname === '/renderer.js') file = resolve(generated, 'gop-tail-seek-renderer.js');
     else if (url.hostname === 'fixture' && url.pathname === '/source.mp4') file = resolve(generated, 'source.mp4');
+    else if (url.hostname === 'fixture' && bFrameFixtures.has(url.pathname.slice(1))) {
+      file = resolve(generated, url.pathname.slice(1));
+    }
     else return new Response('not found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
   });

@@ -9,6 +9,7 @@ import {
   evaluateFrame,
 } from '../../src/index.js';
 import type { EvaluationPlan, NativeFrameSource } from '../../src/index.js';
+import { inspectBFrameAccess } from './b-frame.js';
 
 interface SeekHarness {
   fixtureUrl: string;
@@ -381,6 +382,7 @@ async function run(): Promise<void> {
   for (const request of requests.slice(0, 20)) {
     rawVendor.push({ ...request, ...await rawDecode(request.frameNumber, request.targetUs) });
   }
+  const bFrame = await inspectBFrameAccess(window.seekHarness.fixtureUrl, 'full');
 
   const profileFrames = {
     head: 120,
@@ -408,6 +410,7 @@ async function run(): Promise<void> {
   const pass = clipSession.length > 0
     && clipSession.every(row => row.decodedFrame === row.frameNumber)
     && clipSession.filter(row => row.requestedFrame === finalFrameNumber).length === 2
+    && bFrame.pass
     && lookahead.every(row => row.hit);
   await window.seekHarness.complete({
     pass,
@@ -420,6 +423,7 @@ async function run(): Promise<void> {
     requestCount: requests.length,
     clipSession,
     rawVendor,
+    bFrame,
     performance: {
       cold: Object.fromEntries(Object.entries(cold).map(([position, values]) => [position, summarize(values)])),
       warm: Object.fromEntries(Object.entries(warm).map(([position, values]) => [position, summarize(values)])),
