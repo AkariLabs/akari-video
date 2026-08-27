@@ -492,7 +492,7 @@ export async function captureWithPuppeteer({
           }
           const screenshotStarted = performance.now();
           await withTimeout(
-            worker.page.screenshot({ omitBackground: true }),
+            worker.page.screenshot({ omitBackground: true, optimizeForSpeed: true }),
             timeoutMs,
             `${label}: capturing deterministic raster warmup at ${formatNumber(seconds)}s`,
           );
@@ -517,6 +517,7 @@ export async function captureWithPuppeteer({
             worker.page.screenshot({
               path: join(framesDirectory, `frame-${String(frame + 1).padStart(8, "0")}.png`),
               omitBackground: true,
+              optimizeForSpeed: true,
             }),
             timeoutMs,
             `${label}: capturing frame ${frame + 1}`,
@@ -736,7 +737,7 @@ export async function captureStaticOverlays({
           "waiting for a static overlay sheet",
         );
         await withTimeout(
-          page.screenshot({ path: pngPath, omitBackground: true }),
+          page.screenshot({ path: pngPath, omitBackground: true, optimizeForSpeed: true }),
           timeoutMs,
           "capturing a static overlay",
         );

@@ -629,6 +629,47 @@ test("animated and static captures both use the shared browser launcher", async 
   }
 });
 
+test("animated frame capture enables speed-optimized screenshots", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-speed-optimized-screenshot-"));
+  const screenshotOptions = [];
+  const page = {
+    setDefaultTimeout() {},
+    setDefaultNavigationTimeout() {},
+    async setViewport() {},
+    async goto() {},
+    async evaluate() { return { warnings: [] }; },
+    async screenshot(options) {
+      screenshotOptions.push(options);
+      await writeFile(options.path, "png");
+    },
+    async close() {},
+  };
+  try {
+    await captureWithPuppeteer({
+      sheetPath: join(root, "sheet.html"),
+      chromePath: SYSTEM_CHROME,
+      framesDirectory: join(root, "frames"),
+      overlayMovPath: join(root, "overlay.mov"),
+      width: 320,
+      height: 180,
+      fps: 1,
+      duration: 1,
+      ffmpegCommand: "true",
+      timeoutMs: 500,
+      puppeteerModule: { connect() {} },
+      browserLauncher: async () => ({
+        browser: { connected: false, async newPage() { return page; } },
+        async close() {},
+      }),
+    });
+
+    assert.equal(screenshotOptions.length, 1);
+    assert.equal(screenshotOptions[0].optimizeForSpeed, true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("a browser launch failure stops the render without a static downgrade or degraded mp4", async () => {
   const root = await mkdtemp(join(tmpdir(), "render-cut-browser-failure-stop-"));
   const compositePath = join(root, "must-not-exist.mp4");
