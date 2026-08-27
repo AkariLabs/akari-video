@@ -20,16 +20,20 @@ var AkariEditKernel = (() => {
   // src/webview-kernel.ts
   var webview_kernel_exports = {};
   __export(webview_kernel_exports, {
+    STATIC_DUCK_GAIN_DB: () => STATIC_DUCK_GAIN_DB,
     TRANSITION_BY_ID: () => TRANSITION_BY_ID,
     TRANSITION_CATEGORIES: () => TRANSITION_CATEGORIES,
     TRANSITION_TYPE_IDS: () => TRANSITION_TYPE_IDS,
     TRANSITION_VOCABULARY: () => TRANSITION_VOCABULARY,
     buildTimelineMap: () => buildTimelineMap,
     captionWindowSeconds: () => captionWindowSeconds,
+    computeBgmDuckGainDb: () => computeBgmDuckGainDb,
+    computeDuckIntervals: () => computeDuckIntervals,
     computeTransitionVisual: () => computeTransitionVisual,
     findActiveCaption: () => findActiveCaption,
     findActiveResolvedCaption: () => findActiveResolvedCaption,
     isTransitionType: () => isTransitionType,
+    isWithinDuckInterval: () => isWithinDuckInterval,
     outputToSource: () => outputToSource,
     transitionProgressAt: () => transitionProgressAt
   });
@@ -433,6 +437,21 @@ var AkariEditKernel = (() => {
       ...cross(),
       fallbackLabel: `${fallbackName || previewKind} \u2014 \u30D7\u30EC\u30D3\u30E5\u30FC\u8FD1\u4F3C\u306A\u3057`
     };
+  }
+
+  // src/ducking.ts
+  var STATIC_DUCK_GAIN_DB = -12;
+  function computeDuckIntervals(sources) {
+    return sources.filter(
+      (s) => Number.isFinite(s.t) && s.t >= 0 && Number.isFinite(s.durationSec) && s.durationSec > 0
+    ).map((s) => ({ startSec: s.t, endSec: s.t + s.durationSec }));
+  }
+  function isWithinDuckInterval(intervals, atSec) {
+    return intervals.some((iv) => atSec >= iv.startSec && atSec < iv.endSec);
+  }
+  function computeBgmDuckGainDb(intervals, duckingEnabled, atSec) {
+    if (!duckingEnabled) return 0;
+    return isWithinDuckInterval(intervals, atSec) ? STATIC_DUCK_GAIN_DB : 0;
   }
 
   // src/webview-kernel.ts

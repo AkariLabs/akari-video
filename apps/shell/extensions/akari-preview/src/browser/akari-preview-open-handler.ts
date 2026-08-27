@@ -19,9 +19,12 @@ import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webvie
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     buildTimelineMap,
+    computeDuckIntervals,
+    isWithinDuckInterval,
     projectLegacyAudioView,
     resolveInternalTrackZ,
     resolvePreviewItemWrite,
+    STATIC_DUCK_GAIN_DB,
     TRANSITION_VOCABULARY,
     TimelineSegment
 } from '@akari-video/edit-store';
@@ -5121,6 +5124,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 const bgmLoopOffsetSecondsFn = (${bgmLoopOffsetSeconds.toString()});
                 const resolveTimedScheduleWindowFn = (${resolveTimedScheduleWindow.toString()});
                 const sfxFadeGainScheduleFn = (${sfxFadeGainSchedule.toString()});
+                // BGM ducking の正本は packages/edit-store/src/ducking.ts。
+                const computeDuckIntervalsFn = (${computeDuckIntervals.toString()});
+                const isWithinDuckIntervalFn = (${isWithinDuckInterval.toString()});
+                const STATIC_DUCK_GAIN_DB_VALUE = ${JSON.stringify(STATIC_DUCK_GAIN_DB)};
                 const decoded = { bgm: null, sfx: [], narration: [] };
                 let timelineDuration = 0;
                 let loadPromise = null;
@@ -5239,8 +5246,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 const duckGainDbAt = timelineTime => {
                     if (!decoded.bgm || decoded.bgm.ducking !== true) return 0;
-                    return decoded.narration.some(item => timelineTime >= item.t
-                        && timelineTime < item.t + item.durationSec) ? -12 : 0;
+                    const intervals = computeDuckIntervalsFn(decoded.narration.map(item => ({
+                        t: item.t,
+                        durationSec: item.durationSec
+                    })));
+                    return isWithinDuckIntervalFn(intervals, timelineTime) ? STATIC_DUCK_GAIN_DB_VALUE : 0;
                 };
                 const fadeMultiplierAt = timelineTime => {
                     if (!decoded.bgm) return 1;

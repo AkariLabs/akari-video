@@ -399,21 +399,40 @@ function computeTransitionVisual(previewKind, rawProgress, fallbackName = "") {
   };
 }
 
+// ../edit-store/src/ducking.ts
+var STATIC_DUCK_GAIN_DB = -12;
+function computeDuckIntervals(sources) {
+  return sources.filter(
+    (s) => Number.isFinite(s.t) && s.t >= 0 && Number.isFinite(s.durationSec) && s.durationSec > 0
+  ).map((s) => ({ startSec: s.t, endSec: s.t + s.durationSec }));
+}
+function isWithinDuckInterval(intervals, atSec) {
+  return intervals.some((iv) => atSec >= iv.startSec && atSec < iv.endSec);
+}
+function computeBgmDuckGainDb(intervals, duckingEnabled, atSec) {
+  if (!duckingEnabled) return 0;
+  return isWithinDuckInterval(intervals, atSec) ? STATIC_DUCK_GAIN_DB : 0;
+}
+
 // ../edit-store/src/webview-kernel.ts
 function findActiveResolvedCaption(cues, outputTime) {
   return cues.find((cue) => cue.start <= outputTime && outputTime < cue.end);
 }
 export {
+  STATIC_DUCK_GAIN_DB,
   TRANSITION_BY_ID,
   TRANSITION_CATEGORIES,
   TRANSITION_TYPE_IDS,
   TRANSITION_VOCABULARY,
   buildTimelineMap,
   captionWindowSeconds,
+  computeBgmDuckGainDb,
+  computeDuckIntervals,
   computeTransitionVisual,
   findActiveCaption,
   findActiveResolvedCaption,
   isTransitionType,
+  isWithinDuckInterval,
   outputToSource,
   transitionProgressAt
 };
