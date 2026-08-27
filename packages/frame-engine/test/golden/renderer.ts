@@ -1,6 +1,7 @@
 import {
   BufferedRawFrameSink,
   buildResolvedTimelinePlan,
+  CachedStillImageSource,
   ClipSessionPool,
   FrameMetrics,
   WebGL2Compositor,
@@ -9,15 +10,29 @@ import {
   evaluateFrame,
   evaluationPlanFromResolvedTimeline,
   presentFrame,
-  readbackFrame
+  readbackFrame,
 } from '../../src/index.js';
-import type { FrameEngineCut, FrameMetricStage, ResolvedCutVisual, ResolvedTransition } from '../../src/index.js';
+import type {
+  EvaluationPlan,
+  FrameEngineCut,
+  FrameEngineLayer,
+  FrameMetricStage,
+  NativeFrameSource,
+  ResolvedCutVisual,
+  ResolvedTransition,
+  StillImageSource,
+} from '../../src/index.js';
 import edit from './edit.json';
+import layersEdit from './layers.edit.json';
 
 interface GoldenBridge {
   fixtureUrl: string;
   writeArtifact(name: string, bytes: Uint8Array): Promise<boolean>;
-  startEncoder(options: { width: number; height: number; fps: number }): Promise<string>;
+  startEncoder(options: {
+    width: number;
+    height: number;
+    fps: number;
+  }): Promise<string>;
   writeEncoderFrame(bytes: Uint8Array): Promise<number>;
   finishEncoder(): Promise<{
     path: string;
@@ -32,28 +47,53 @@ interface GoldenBridge {
 }
 
 declare global {
-  interface Window { goldenHarness: GoldenBridge; }
+  interface Window {
+    goldenHarness: GoldenBridge;
+  }
 }
 
 const WIDTH = 320;
 const HEIGHT = 180;
 const FPS = 30;
 const SOURCE_URL = window.goldenHarness.fixtureUrl;
+const SOURCE_B_URL = new URL('source-b.mp4', SOURCE_URL).href;
+const STILL_URL = new URL('still.png', SOURCE_URL).href;
 const SAMPLE_POINTS = [
-  ['hard-cut-before', 900_000], ['hard-cut-after', 1_100_000],
-  ['speed-start', 1_250_000], ['speed-end', 1_750_000],
+  ['hard-cut-before', 900_000],
+  ['hard-cut-after', 1_100_000],
+  ['speed-start', 1_250_000],
+  ['speed-end', 1_750_000],
   ['framing-static', 2_500_000],
-  ['zoom-start', 3_050_000], ['zoom-mid', 3_500_000], ['zoom-end', 3_950_000],
+  ['zoom-start', 3_050_000],
+  ['zoom-mid', 3_500_000],
+  ['zoom-end', 3_950_000],
   ['transform', 4_500_000],
-  ['freeze-before', 5_200_000], ['freeze-inside-a', 5_450_000], ['freeze-inside-b', 5_750_000], ['freeze-after', 6_200_000],
-  ['dissolve-before', 7_160_000], ['dissolve-mid', 7_350_000], ['dissolve-after', 7_540_000],
-  ['fade-black-before', 7_860_000], ['fade-black-mid', 8_050_000], ['fade-black-after', 8_240_000],
-  ['fade-white-before', 8_560_000], ['fade-white-mid', 8_750_000], ['fade-white-after', 8_940_000],
-  ['reveal-down-before', 9_260_000], ['reveal-down-mid', 9_450_000], ['reveal-down-after', 9_640_000],
-  ['reveal-up-before', 9_960_000], ['reveal-up-mid', 10_150_000], ['reveal-up-after', 10_340_000]
+  ['freeze-before', 5_200_000],
+  ['freeze-inside-a', 5_450_000],
+  ['freeze-inside-b', 5_750_000],
+  ['freeze-after', 6_200_000],
+  ['dissolve-before', 7_160_000],
+  ['dissolve-mid', 7_350_000],
+  ['dissolve-after', 7_540_000],
+  ['fade-black-before', 7_860_000],
+  ['fade-black-mid', 8_050_000],
+  ['fade-black-after', 8_240_000],
+  ['fade-white-before', 8_560_000],
+  ['fade-white-mid', 8_750_000],
+  ['fade-white-after', 8_940_000],
+  ['reveal-down-before', 9_260_000],
+  ['reveal-down-mid', 9_450_000],
+  ['reveal-down-after', 9_640_000],
+  ['reveal-up-before', 9_960_000],
+  ['reveal-up-mid', 10_150_000],
+  ['reveal-up-after', 10_340_000],
 ] as const;
 
-function meanRgb(rgba: Uint8Array, startRow = 0, endRow = HEIGHT): [number, number, number] {
+function meanRgb(
+  rgba: Uint8Array,
+  startRow = 0,
+  endRow = HEIGHT,
+): [number, number, number] {
   const totals: [number, number, number] = [0, 0, 0];
   let pixels = 0;
   for (let row = startRow; row < endRow; row += 1) {
@@ -65,16 +105,26 @@ function meanRgb(rgba: Uint8Array, startRow = 0, endRow = HEIGHT): [number, numb
       pixels += 1;
     }
   }
-  return totals.map(value => value / pixels) as [number, number, number];
+  return totals.map((value) => value / pixels) as [number, number, number];
 }
 
-function colorDistance(left: readonly number[], right: readonly number[]): number {
-  return Math.sqrt(left.reduce((sum, value, index) => sum + (value - right[index]!) ** 2, 0));
+function colorDistance(
+  left: readonly number[],
+  right: readonly number[],
+): number {
+  return Math.sqrt(
+    left.reduce((sum, value, index) => sum + (value - right[index]!) ** 2, 0),
+  );
 }
 
 async function sha256(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes).buffer as ArrayBuffer);
-  return [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new Uint8Array(bytes).buffer as ArrayBuffer,
+  );
+  return [...new Uint8Array(digest)]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 async function rgbaToPng(rgba: Uint8Array): Promise<Uint8Array> {
@@ -83,9 +133,19 @@ async function rgbaToPng(rgba: Uint8Array): Promise<Uint8Array> {
   canvas.height = HEIGHT;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('PNG canvas unavailable');
-  context.putImageData(new ImageData(new Uint8ClampedArray(rgba), WIDTH, HEIGHT), 0, 0);
+  context.putImageData(
+    new ImageData(new Uint8ClampedArray(rgba), WIDTH, HEIGHT),
+    0,
+    0,
+  );
   const blob = await new Promise<Blob>((resolveBlob, reject) => {
-    canvas.toBlob(value => value ? resolveBlob(value) : reject(new Error('PNG encoding returned null')), 'image/png');
+    canvas.toBlob(
+      (value) =>
+        value
+          ? resolveBlob(value)
+          : reject(new Error('PNG encoding returned null')),
+      'image/png',
+    );
   });
   return new Uint8Array(await blob.arrayBuffer());
 }
@@ -93,21 +153,251 @@ async function rgbaToPng(rgba: Uint8Array): Promise<Uint8Array> {
 async function run(): Promise<void> {
   const metrics = new FrameMetrics();
   const warnings: string[] = [];
-  const session = new ClipSessionPool('fixture', SOURCE_URL, { onWarning: warning => warnings.push(warning) });
+  const session = new ClipSessionPool('fixture', SOURCE_URL, {
+    onWarning: (warning) => warnings.push(warning),
+  });
   const compositor = new WebGL2Compositor();
   const context = { compositor, metrics };
-  const timeline = buildResolvedTimelinePlan(edit.cuts as FrameEngineCut[], { fps: FPS });
+  const timeline = buildResolvedTimelinePlan(edit.cuts as FrameEngineCut[], {
+    fps: FPS,
+  });
   const sources = new Map([[SOURCE_URL, session]]);
-  const output = { width: WIDTH, height: HEIGHT, colorSpace: 'bt709-limited' as const };
+  const output = {
+    width: WIDTH,
+    height: HEIGHT,
+    colorSpace: 'bt709-limited' as const,
+  };
   const previewCanvas = document.querySelector<HTMLCanvasElement>('#preview');
   if (!previewCanvas) throw new Error('preview canvas missing');
   const parity: Array<Record<string, unknown>> = [];
   let negativeSeed: { preview: Uint8Array; exported: Uint8Array } | null = null;
   const nativeFormats = new Set<string>();
   const renderedByLabel = new Map<string, Uint8Array>();
+  const layerSession = new ClipSessionPool('fixture-b', SOURCE_B_URL, {
+    onWarning: (warning) => warnings.push(warning),
+  });
+  const stillSource = new CachedStillImageSource(STILL_URL);
+  const layerTimeline = buildResolvedTimelinePlan(
+    layersEdit.cuts as FrameEngineCut[],
+    {
+      fps: FPS,
+      layers: layersEdit.layers as FrameEngineLayer[],
+    },
+  );
+  const layerSources = new Map<string, NativeFrameSource | StillImageSource>([
+    [SOURCE_URL, session],
+    [SOURCE_B_URL, layerSession],
+    [STILL_URL, stillSource],
+  ]);
+  const frameMidpointUs = (frameNumber: number) =>
+    Math.round(((frameNumber + 0.5) / FPS) * 1e6);
+  const layerSamplePoints = [
+    ['static-crop-a', frameMidpointUs(15)],
+    ['static-crop-b', frameMidpointUs(45)],
+    ['static-perspective-a', frameMidpointUs(105)],
+    ['static-perspective-b', frameMidpointUs(135)],
+    ['keyframes-transform-a', frameMidpointUs(195)],
+    ['keyframes-transform-b', frameMidpointUs(225)],
+    ['keyframes-crop-a', frameMidpointUs(285)],
+    ['keyframes-crop-b', frameMidpointUs(315)],
+    ['keyframes-perspective-a', frameMidpointUs(375)],
+    ['keyframes-perspective-b', frameMidpointUs(405)],
+    ['blend-screen-a', frameMidpointUs(465)],
+    ['blend-screen-b', frameMidpointUs(495)],
+    ['blend-multiply-a', frameMidpointUs(555)],
+    ['blend-multiply-b', frameMidpointUs(585)],
+    ['opacity-a', frameMidpointUs(645)],
+    ['opacity-b', frameMidpointUs(675)],
+    ['still-a', frameMidpointUs(735)],
+    ['still-b', frameMidpointUs(765)],
+    ['stack-3-a', frameMidpointUs(825)],
+    ['stack-3-b', frameMidpointUs(855)],
+    ['noise-floor-a', frameMidpointUs(915)],
+    ['noise-floor-b', frameMidpointUs(945)],
+  ] as const;
+  const layerParity: Array<Record<string, unknown>> = [];
+  let layerNegativeSeed: { preview: Uint8Array; exported: Uint8Array } | null =
+    null;
+
+  for (const [label, timeUs] of layerSamplePoints) {
+    const plan = evaluationPlanFromResolvedTimeline(
+      layerTimeline,
+      timeUs,
+      layerSources,
+      output,
+    );
+    const frame = await evaluateFrame(plan, context);
+    presentFrame(frame, previewCanvas);
+    const previewRgba = capturePresentedRgba(previewCanvas);
+    const sink = new BufferedRawFrameSink();
+    await readbackFrame(frame, sink);
+    const exportRgba = sink.frames[0]?.rgba;
+    if (!exportRgba)
+      throw new Error(`layer export sink produced no frame at ${timeUs}us`);
+    const previewPng = await rgbaToPng(previewRgba);
+    const exportPng = await rgbaToPng(exportRgba);
+    const previewSha256 = await sha256(previewPng);
+    const exportSha256 = await sha256(exportPng);
+    const comparison = compareRgba(previewRgba, exportRgba);
+    const stem = `layer-parity-${String(layerParity.length + 1).padStart(2, '0')}-${label}`;
+    await window.goldenHarness.writeArtifact(`${stem}-preview.png`, previewPng);
+    await window.goldenHarness.writeArtifact(`${stem}-export.png`, exportPng);
+    const pass =
+      comparison.differingPixels === 0 &&
+      comparison.maxDelta === 0 &&
+      previewSha256 === exportSha256;
+    layerParity.push({
+      label,
+      timeUs,
+      ...comparison,
+      previewSha256,
+      exportSha256,
+      pass,
+    });
+    layerNegativeSeed ??= { preview: previewRgba, exported: exportRgba };
+    frame.close();
+  }
+
+  if (!layerNegativeSeed)
+    throw new Error('layer negative test has no source frame');
+  const layerMutated = layerNegativeSeed.exported.slice();
+  layerMutated[4] = layerMutated[4] === 255 ? 254 : layerMutated[4]! + 1;
+  const layerNegativeComparison = compareRgba(
+    layerNegativeSeed.preview,
+    layerMutated,
+  );
+  await window.goldenHarness.writeArtifact(
+    'layer-negative-preview.png',
+    await rgbaToPng(layerNegativeSeed.preview),
+  );
+  await window.goldenHarness.writeArtifact(
+    'layer-negative-export-mutated.png',
+    await rgbaToPng(layerMutated),
+  );
+  const layerNegative = {
+    injectedPixelMutation: true,
+    ...layerNegativeComparison,
+    comparatorPassed: layerNegativeComparison.differingPixels === 0,
+  };
+  const boundaryBefore = evaluationPlanFromResolvedTimeline(
+    layerTimeline,
+    frameMidpointUs(884),
+    layerSources,
+    output,
+  );
+  const boundaryAt = evaluationPlanFromResolvedTimeline(
+    layerTimeline,
+    29_500_000,
+    layerSources,
+    output,
+  );
+  const bareTimeline = buildResolvedTimelinePlan(
+    layersEdit.cuts as FrameEngineCut[],
+    { fps: FPS },
+  );
+  const bareBefore = evaluationPlanFromResolvedTimeline(
+    bareTimeline,
+    frameMidpointUs(884),
+    layerSources,
+    output,
+  );
+  const bareAt = evaluationPlanFromResolvedTimeline(
+    bareTimeline,
+    29_500_000,
+    layerSources,
+    output,
+  );
+  const renderRgba = async (plan: EvaluationPlan) => {
+    const frame = await evaluateFrame(plan, context);
+    try {
+      return await frame.surface.readRgba();
+    } finally {
+      frame.close();
+    }
+  };
+  const boundaryBeforeRgba = await renderRgba(boundaryBefore);
+  const boundaryAtRgba = await renderRgba(boundaryAt);
+  const bareBeforeRgba = await renderRgba(bareBefore);
+  const bareAtRgba = await renderRgba(bareAt);
+  const boundaryChanged = compareRgba(boundaryBeforeRgba, boundaryAtRgba);
+  const boundaryLayerPresent = compareRgba(boundaryBeforeRgba, bareBeforeRgba);
+  const boundaryBare = compareRgba(boundaryAtRgba, bareAtRgba);
+  const animatedPlan = evaluationPlanFromResolvedTimeline(
+    layerTimeline,
+    7_000_000,
+    layerSources,
+    output,
+  );
+  const screenPlan = evaluationPlanFromResolvedTimeline(
+    layerTimeline,
+    15_500_000,
+    layerSources,
+    output,
+  );
+  const multiplyPlan = evaluationPlanFromResolvedTimeline(
+    layerTimeline,
+    18_500_000,
+    layerSources,
+    output,
+  );
+  const layerSemantic = {
+    pass:
+      boundaryBefore.layers.length === 3 &&
+      boundaryAt.layers.length === 0 &&
+      boundaryChanged.differingPixels > 0 &&
+      boundaryLayerPresent.differingPixels > 0 &&
+      boundaryBare.differingPixels === 0 &&
+      animatedPlan.layers.length === 1 &&
+      Math.abs(animatedPlan.layers[0]!.visual.transform.x - -2) < 1e-9 &&
+      screenPlan.layers[0]!.blend === 'screen' &&
+      multiplyPlan.layers[0]!.blend === 'multiply',
+    boundaryBeforeCount: boundaryBefore.layers.length,
+    boundaryAtCount: boundaryAt.layers.length,
+    boundaryChangedPixels: boundaryChanged.differingPixels,
+    boundaryLayerPresentPixels: boundaryLayerPresent.differingPixels,
+    boundaryBareDifferingPixels: boundaryBare.differingPixels,
+    animatedVisual: animatedPlan.layers[0]?.visual,
+  };
+
+  const recreationCanvas = document.createElement('canvas');
+  const recreationPlan = evaluationPlanFromResolvedTimeline(
+    layerTimeline,
+    24_500_000,
+    layerSources,
+    output,
+  );
+  const firstCompositor = new WebGL2Compositor(recreationCanvas);
+  const firstFrame = await evaluateFrame(recreationPlan, {
+    compositor: firstCompositor,
+    metrics,
+  });
+  const firstRgba = await firstFrame.surface.readRgba();
+  firstFrame.close();
+  firstCompositor.dispose();
+  const secondCompositor = new WebGL2Compositor(recreationCanvas);
+  const secondFrame = await evaluateFrame(recreationPlan, {
+    compositor: secondCompositor,
+    metrics,
+  });
+  const secondRgba = await secondFrame.surface.readRgba();
+  secondFrame.close();
+  secondCompositor.dispose();
+  const recreationComparison = compareRgba(firstRgba, secondRgba);
+  const layerStats = {
+    imageUploads: compositor.stats.imageUploads,
+    disposeRecreateDifferingPixels: recreationComparison.differingPixels,
+    pass:
+      compositor.stats.imageUploads === 1 &&
+      recreationComparison.differingPixels === 0,
+  };
 
   for (const [label, timeUs] of SAMPLE_POINTS) {
-    const plan = evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output);
+    const plan = evaluationPlanFromResolvedTimeline(
+      timeline,
+      timeUs,
+      sources,
+      output,
+    );
     const frame = await evaluateFrame(plan, context);
     for (const format of frame.nativeFormats) nativeFormats.add(format);
     presentFrame(frame, previewCanvas);
@@ -115,7 +405,8 @@ async function run(): Promise<void> {
     const sink = new BufferedRawFrameSink();
     await readbackFrame(frame, sink);
     const exportRgba = sink.frames[0]?.rgba;
-    if (!exportRgba) throw new Error(`export sink produced no frame at ${timeUs}us`);
+    if (!exportRgba)
+      throw new Error(`export sink produced no frame at ${timeUs}us`);
     const previewPng = await rgbaToPng(previewRgba);
     const exportPng = await rgbaToPng(exportRgba);
     const previewSha256 = await sha256(previewPng);
@@ -124,8 +415,18 @@ async function run(): Promise<void> {
     const stem = `parity-${String(parity.length + 1).padStart(2, '0')}-${label}`;
     await window.goldenHarness.writeArtifact(`${stem}-preview.png`, previewPng);
     await window.goldenHarness.writeArtifact(`${stem}-export.png`, exportPng);
-    const pass = comparison.differingPixels === 0 && comparison.maxDelta === 0 && previewSha256 === exportSha256;
-    parity.push({ label, timeUs, ...comparison, previewSha256, exportSha256, pass });
+    const pass =
+      comparison.differingPixels === 0 &&
+      comparison.maxDelta === 0 &&
+      previewSha256 === exportSha256;
+    parity.push({
+      label,
+      timeUs,
+      ...comparison,
+      previewSha256,
+      exportSha256,
+      pass,
+    });
     renderedByLabel.set(label, exportRgba);
     negativeSeed ??= { preview: previewRgba, exported: exportRgba };
     frame.close();
@@ -139,71 +440,127 @@ async function run(): Promise<void> {
   const negativeExportPng = await rgbaToPng(mutated);
   const negativePreviewSha = await sha256(negativePreviewPng);
   const negativeExportSha = await sha256(negativeExportPng);
-  await window.goldenHarness.writeArtifact('negative-preview.png', negativePreviewPng);
-  await window.goldenHarness.writeArtifact('negative-export-mutated.png', negativeExportPng);
+  await window.goldenHarness.writeArtifact(
+    'negative-preview.png',
+    negativePreviewPng,
+  );
+  await window.goldenHarness.writeArtifact(
+    'negative-export-mutated.png',
+    negativeExportPng,
+  );
   const negative = {
     injectedPixelMutation: true,
     ...negativeComparison,
     previewSha256: negativePreviewSha,
     exportSha256: negativeExportSha,
-    comparatorPassed: negativeComparison.differingPixels === 0 && negativePreviewSha === negativeExportSha
+    comparatorPassed:
+      negativeComparison.differingPixels === 0 &&
+      negativePreviewSha === negativeExportSha,
   };
 
   const totalFrames = Math.round(timeline.totalDuration * FPS);
-  await window.goldenHarness.startEncoder({ width: WIDTH, height: HEIGHT, fps: FPS });
+  await window.goldenHarness.startEncoder({
+    width: WIDTH,
+    height: HEIGHT,
+    fps: FPS,
+  });
   for (let index = 0; index < totalFrames; index += 1) {
     const timeUs = Math.round(((index + 0.5) / FPS) * 1e6);
-    const plan = evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output);
+    const plan = evaluationPlanFromResolvedTimeline(
+      timeline,
+      timeUs,
+      sources,
+      output,
+    );
     const frame = await evaluateFrame(plan, context);
     await readbackFrame(frame, {
       async write(rgba) {
         await window.goldenHarness.writeEncoderFrame(rgba);
-      }
+      },
     });
     frame.close();
   }
   const encoded = await window.goldenHarness.finishEncoder();
   const metricJson = metrics.toJSON();
-  const semanticPlans = Object.fromEntries(SAMPLE_POINTS.map(([label, timeUs]) => {
-    const plan = evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output);
-    return [label, {
-      sourceTimesUs: plan.layers.map(layer => layer.sourceTimeUs),
-      transition: plan.transition,
-      visuals: plan.layers.map(layer => layer.visual)
-    }];
-  })) as Record<string, {
-    sourceTimesUs: number[];
-    transition: ResolvedTransition | undefined;
-    visuals: ResolvedCutVisual[];
-  }>;
-  const transitionMeasurements = Object.fromEntries([
-    'dissolve-mid', 'fade-black-mid', 'fade-white-mid', 'reveal-down-mid', 'reveal-up-mid'
-  ].map(label => {
-    const rgba = renderedByLabel.get(label)!;
-    return [label, {
-      meanRgb: meanRgb(rgba),
-      topMeanRgb: meanRgb(rgba, 0, HEIGHT / 2),
-      bottomMeanRgb: meanRgb(rgba, HEIGHT / 2),
-      halfDistance: colorDistance(meanRgb(rgba, 0, HEIGHT / 2), meanRgb(rgba, HEIGHT / 2))
-    }];
-  })) as Record<string, {
-    meanRgb: [number, number, number];
-    topMeanRgb: [number, number, number];
-    bottomMeanRgb: [number, number, number];
-    halfDistance: number;
-  }>;
+  const semanticPlans = Object.fromEntries(
+    SAMPLE_POINTS.map(([label, timeUs]) => {
+      const plan = evaluationPlanFromResolvedTimeline(
+        timeline,
+        timeUs,
+        sources,
+        output,
+      );
+      return [
+        label,
+        {
+          sourceTimesUs: plan.base.map((layer) => layer.sourceTimeUs),
+          transition: plan.transition,
+          visuals: plan.base.map((layer) => layer.visual),
+        },
+      ];
+    }),
+  ) as Record<
+    string,
+    {
+      sourceTimesUs: number[];
+      transition: ResolvedTransition | undefined;
+      visuals: ResolvedCutVisual[];
+    }
+  >;
+  const transitionMeasurements = Object.fromEntries(
+    [
+      'dissolve-mid',
+      'fade-black-mid',
+      'fade-white-mid',
+      'reveal-down-mid',
+      'reveal-up-mid',
+    ].map((label) => {
+      const rgba = renderedByLabel.get(label)!;
+      return [
+        label,
+        {
+          meanRgb: meanRgb(rgba),
+          topMeanRgb: meanRgb(rgba, 0, HEIGHT / 2),
+          bottomMeanRgb: meanRgb(rgba, HEIGHT / 2),
+          halfDistance: colorDistance(
+            meanRgb(rgba, 0, HEIGHT / 2),
+            meanRgb(rgba, HEIGHT / 2),
+          ),
+        },
+      ];
+    }),
+  ) as Record<
+    string,
+    {
+      meanRgb: [number, number, number];
+      topMeanRgb: [number, number, number];
+      bottomMeanRgb: [number, number, number];
+      halfDistance: number;
+    }
+  >;
   await window.goldenHarness.writeArtifact(
     'metrics.json',
-    new TextEncoder().encode(`${JSON.stringify(metricJson, null, 2)}\n`)
+    new TextEncoder().encode(`${JSON.stringify(metricJson, null, 2)}\n`),
   );
 
   const requiredMetricStages: FrameMetricStage[] = [
-    'decode', 'tick', 'copy', 'copyTo', 'planeCompact', 'upload', 'shader', 'shaderGpu',
-    'readback', 'pboWait', 'rowFlip', 'sink'
+    'decode',
+    'tick',
+    'copy',
+    'copyTo',
+    'planeCompact',
+    'upload',
+    'shader',
+    'shaderGpu',
+    'readback',
+    'pboWait',
+    'rowFlip',
+    'sink',
   ];
   const planNamed = (label: string) => {
     const value = semanticPlans[label];
-    if (!value || !value.visuals[0]) throw new Error(`missing semantic plan ${label}`);
+    if (!value || !value.visuals[0])
+      throw new Error(`missing semantic plan ${label}`);
     return value;
   };
   const measurementNamed = (label: string) => {
@@ -212,60 +569,97 @@ async function run(): Promise<void> {
     return value;
   };
   const hashNamed = (label: string) => {
-    const value = parity.find(sample => sample.label === label)?.exportSha256;
-    if (typeof value !== 'string') throw new Error(`missing parity hash ${label}`);
+    const value = parity.find((sample) => sample.label === label)?.exportSha256;
+    if (typeof value !== 'string')
+      throw new Error(`missing parity hash ${label}`);
     return value;
   };
-  const semanticPass = planNamed('speed-start').sourceTimesUs[0] === 1_500_000
-    && planNamed('framing-static').visuals[0]!.framing.width === 0.6
-    && Math.abs(planNamed('zoom-mid').visuals[0]!.framing.scale - 1.5) < 1e-9
-    && planNamed('transform').visuals[0]!.transform.rotateDegrees === 12
-    && planNamed('freeze-inside-a').sourceTimesUs[0] === 400_000
-    && planNamed('freeze-inside-b').sourceTimesUs[0] === 400_000
-    && hashNamed('freeze-inside-a') === hashNamed('freeze-inside-b')
-    && planNamed('freeze-after').sourceTimesUs[0] === 700_000
-    && ['dissolve', 'fade-black', 'fade-white', 'reveal-down', 'reveal-up']
-      .every(type => planNamed(`${type}-mid`).transition?.type === type
-        && Math.abs((planNamed(`${type}-mid`).transition?.progress ?? -1) - 0.5) < 1e-9)
-    && measurementNamed('fade-black-mid').meanRgb.every(value => value < 3)
-    && measurementNamed('fade-white-mid').meanRgb.every(value => value > 252)
-    && colorDistance(measurementNamed('dissolve-mid').meanRgb, meanRgb(renderedByLabel.get('dissolve-before')!)) > 1
-    && colorDistance(measurementNamed('dissolve-mid').meanRgb, meanRgb(renderedByLabel.get('dissolve-after')!)) > 1
-    && measurementNamed('reveal-down-mid').halfDistance > 5
-    && measurementNamed('reveal-up-mid').halfDistance > 5;
-  const pass = parity.length === SAMPLE_POINTS.length
-    && parity.every(sample => sample.pass === true)
-    && negative.comparatorPassed === false
-    && negative.differingPixels === 1
-    && encoded.frames === totalFrames
-    && Math.abs(encoded.durationSeconds - timeline.totalDuration) <= 1 / FPS
-    && encoded.distinctExtractedHashes === 3
-    && requiredMetricStages.every(stage => metricJson[stage].count > 0
-      && metricJson[stage].p50Ms != null && metricJson[stage].p95Ms != null)
-    && semanticPass;
+  const semanticPass =
+    planNamed('speed-start').sourceTimesUs[0] === 1_500_000 &&
+    planNamed('framing-static').visuals[0]!.framing.width === 0.6 &&
+    Math.abs(planNamed('zoom-mid').visuals[0]!.framing.scale - 1.5) < 1e-9 &&
+    planNamed('transform').visuals[0]!.transform.rotateDegrees === 12 &&
+    planNamed('freeze-inside-a').sourceTimesUs[0] === 400_000 &&
+    planNamed('freeze-inside-b').sourceTimesUs[0] === 400_000 &&
+    hashNamed('freeze-inside-a') === hashNamed('freeze-inside-b') &&
+    planNamed('freeze-after').sourceTimesUs[0] === 700_000 &&
+    ['dissolve', 'fade-black', 'fade-white', 'reveal-down', 'reveal-up'].every(
+      (type) =>
+        planNamed(`${type}-mid`).transition?.type === type &&
+        Math.abs((planNamed(`${type}-mid`).transition?.progress ?? -1) - 0.5) <
+          1e-9,
+    ) &&
+    measurementNamed('fade-black-mid').meanRgb.every((value) => value < 3) &&
+    measurementNamed('fade-white-mid').meanRgb.every((value) => value > 252) &&
+    colorDistance(
+      measurementNamed('dissolve-mid').meanRgb,
+      meanRgb(renderedByLabel.get('dissolve-before')!),
+    ) > 1 &&
+    colorDistance(
+      measurementNamed('dissolve-mid').meanRgb,
+      meanRgb(renderedByLabel.get('dissolve-after')!),
+    ) > 1 &&
+    measurementNamed('reveal-down-mid').halfDistance > 5 &&
+    measurementNamed('reveal-up-mid').halfDistance > 5;
+  const pass =
+    parity.length === SAMPLE_POINTS.length &&
+    parity.every((sample) => sample.pass === true) &&
+    negative.comparatorPassed === false &&
+    negative.differingPixels === 1 &&
+    encoded.frames === totalFrames &&
+    Math.abs(encoded.durationSeconds - timeline.totalDuration) <= 1 / FPS &&
+    encoded.distinctExtractedHashes === 3 &&
+    requiredMetricStages.every(
+      (stage) =>
+        metricJson[stage].count > 0 &&
+        metricJson[stage].p50Ms != null &&
+        metricJson[stage].p95Ms != null,
+    ) &&
+    semanticPass &&
+    layerParity.length === layerSamplePoints.length &&
+    layerParity.every((sample) => sample.pass === true) &&
+    layerNegative.comparatorPassed === false &&
+    layerNegative.differingPixels === 1 &&
+    layerSemantic.pass &&
+    layerStats.pass;
 
   session.destroy();
+  layerSession.destroy();
+  stillSource.destroy();
   compositor.dispose();
   await window.goldenHarness.complete({
     pass,
-    fixture: { cuts: edit.cuts.length, durationSeconds: timeline.totalDuration, samplePoints: SAMPLE_POINTS },
+    fixture: {
+      cuts: edit.cuts.length,
+      durationSeconds: timeline.totalDuration,
+      samplePoints: SAMPLE_POINTS,
+    },
     environment: {
       userAgent: navigator.userAgent,
       webCodecs: typeof VideoDecoder !== 'undefined',
       webgl2: true,
-      nativeFormats: [...nativeFormats]
+      nativeFormats: [...nativeFormats],
     },
     parity,
+    layerParity,
     negative,
+    layerNegative,
     encoded,
-    semantic: { pass: semanticPass, plans: semanticPlans, transitionMeasurements },
+    semantic: {
+      pass: semanticPass,
+      plans: semanticPlans,
+      transitionMeasurements,
+    },
+    layerSemantic,
+    layerStats,
     metrics: metricJson,
-    warnings
+    warnings,
   });
 }
 
-void run().catch(async error => {
-  const message = error instanceof Error ? `${error.stack ?? error.message}` : String(error);
+void run().catch(async (error) => {
+  const message =
+    error instanceof Error ? `${error.stack ?? error.message}` : String(error);
   console.error(message);
   await window.goldenHarness.fail(message);
 });

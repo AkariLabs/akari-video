@@ -42,10 +42,11 @@ test('evaluateFrame routes transition layers to independent cut stream IDs', asy
   };
   const frame = await evaluateFrame({
     timeUs: 500_000,
-    layers: [
+    base: [
       { id: 'cut-6', source, sourceTimeUs: 700_000, visual },
       { id: 'cut-7', source, sourceTimeUs: 1_000_000, visual }
     ],
+    layers: [],
     transition: { type: 'dissolve', progress: 0.5 },
     output: { width: 2, height: 2, colorSpace: 'bt709-limited' }
   }, { compositor, metrics: new FrameMetrics() });

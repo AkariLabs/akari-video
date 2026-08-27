@@ -148,7 +148,7 @@ try {
   await page.addScriptTag({ path: bundle });
   await Promise.race([
     completion,
-    new Promise((_resolve, reject) => setTimeout(() => reject(new Error('Chromium golden harness timed out')), 180_000))
+    new Promise((_resolve, reject) => setTimeout(() => reject(new Error('Chromium golden harness timed out')), 300_000))
   ]);
 } finally {
   if (encoder) encoder.child.kill('SIGTERM');

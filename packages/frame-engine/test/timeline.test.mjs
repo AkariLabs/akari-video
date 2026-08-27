@@ -19,9 +19,9 @@ test('evaluation plans consume edit-store hard-cut boundary resolution', () => {
     height: 180,
     colorSpace: 'bt709-limited'
   });
-  assert.equal(plan.layers.length, 1);
-  assert.equal(plan.layers[0].source, source);
-  assert.equal(plan.layers[0].sourceTimeUs, 2_500_000);
+  assert.equal(plan.base.length, 1);
+  assert.equal(plan.base[0].source, source);
+  assert.equal(plan.base[0].sourceTimeUs, 2_500_000);
   assert.deepEqual(plan.transition, { type: 'hard-cut', progress: 0 });
 });
 
@@ -37,10 +37,10 @@ test('resolved cuts apply speed, freeze extension, and shift every following seg
   ]);
   const output = { width: 320, height: 180, colorSpace: 'bt709-limited' };
   assert.equal(timeline.totalDuration, 3.75);
-  assert.equal(evaluationPlanFromResolvedTimeline(timeline, 250_000, sources, output).layers[0].sourceTimeUs, 1_500_000);
-  assert.equal(evaluationPlanFromResolvedTimeline(timeline, 900_000, sources, output).layers[0].sourceTimeUs, 2_000_000);
-  assert.equal(evaluationPlanFromResolvedTimeline(timeline, 1_400_000, sources, output).layers[0].sourceTimeUs, 2_300_000);
-  assert.equal(evaluationPlanFromResolvedTimeline(timeline, 3_000_000, sources, output).layers[0].sourceTimeUs, 6_250_000);
+  assert.equal(evaluationPlanFromResolvedTimeline(timeline, 250_000, sources, output).base[0].sourceTimeUs, 1_500_000);
+  assert.equal(evaluationPlanFromResolvedTimeline(timeline, 900_000, sources, output).base[0].sourceTimeUs, 2_000_000);
+  assert.equal(evaluationPlanFromResolvedTimeline(timeline, 1_400_000, sources, output).base[0].sourceTimeUs, 2_300_000);
+  assert.equal(evaluationPlanFromResolvedTimeline(timeline, 3_000_000, sources, output).base[0].sourceTimeUs, 6_250_000);
 });
 
 test('resolved cuts interpolate framing, preserve transform, and resolve two transition inputs', () => {
@@ -59,11 +59,11 @@ test('resolved cuts interpolate framing, preserve transform, and resolve two tra
   const plan = evaluationPlanFromResolvedTimeline(timeline, 1_750_000, sources, {
     width: 320, height: 180, colorSpace: 'bt709-limited'
   });
-  assert.equal(plan.layers.length, 2);
+  assert.equal(plan.base.length, 2);
   assert.equal(plan.transition?.type, 'reveal-down');
   assert.equal(plan.transition?.progress, 0.5);
-  assert.equal(plan.layers[0].visual.framing.scale, 1.875);
-  assert.deepEqual(plan.layers[0].visual.transform, { x: 12, y: -8, scale: 0.8, rotateDegrees: 15 });
-  assert.equal(plan.layers[0].visual.opacity, 0.6);
-  assert.equal(plan.layers[1].sourceTimeUs, 3_250_000);
+  assert.equal(plan.base[0].visual.framing.scale, 1.875);
+  assert.deepEqual(plan.base[0].visual.transform, { x: 12, y: -8, scale: 0.8, rotateDegrees: 15 });
+  assert.equal(plan.base[0].visual.opacity, 0.6);
+  assert.equal(plan.base[1].sourceTimeUs, 3_250_000);
 });

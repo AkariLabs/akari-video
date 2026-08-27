@@ -31,7 +31,7 @@ if (existsSync(resultsPath)) unlinkSync(resultsPath);
 const execution = spawnSync(electron, ['--no-sandbox', resolve(goldenDirectory, 'main.cjs')], {
   cwd: packageDirectory,
   encoding: 'utf8',
-  timeout: 210_000,
+  timeout: 330_000,
   env: electronEnvironment,
   maxBuffer: 16 * 1024 * 1024
 });
@@ -55,6 +55,13 @@ assert.equal(results.negative.comparatorPassed, false);
 assert.equal(results.negative.differingPixels, 1);
 assert.equal(results.encoded.distinctExtractedHashes, 3);
 assert.equal(results.semantic.pass, true);
+assert.equal(results.layerParity.every(sample => sample.pass), true);
+assert.equal(results.layerNegative.injectedPixelMutation, true);
+assert.equal(results.layerNegative.comparatorPassed, false);
+assert.equal(results.layerNegative.differingPixels, 1);
+assert.equal(results.layerSemantic.pass, true);
+assert.equal(results.layerStats.imageUploads, 1);
+assert.equal(results.layerStats.disposeRecreateDifferingPixels, 0);
 assert.ok(Math.abs(results.encoded.durationSeconds - results.fixture.durationSeconds) <= 1 / 30);
 
-process.stdout.write(`golden PASS: ${results.parity.length} parity frames, negative differingPixels=${results.negative.differingPixels}, encoded distinct hashes=${results.encoded.distinctExtractedHashes}\n`);
+process.stdout.write(`golden PASS: ${results.parity.length} base + ${results.layerParity.length} layer parity frames, negative differingPixels=${results.negative.differingPixels}, encoded distinct hashes=${results.encoded.distinctExtractedHashes}\n`);

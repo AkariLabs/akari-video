@@ -9,6 +9,8 @@ const { execFileSync, spawn, spawnSync } = require('node:child_process');
 
 const GENERATED = resolve(__dirname, '.generated');
 const FIXTURE = resolve(GENERATED, 'source.mp4');
+const FIXTURE_B = resolve(GENERATED, 'source-b.mp4');
+const STILL = resolve(GENERATED, 'still.png');
 const RESULTS = resolve(GENERATED, 'results.json');
 mkdirSync(GENERATED, { recursive: true });
 let encoder = null;
@@ -127,6 +129,8 @@ app.whenReady().then(async () => {
     if (url.hostname === 'app' && url.pathname === '/renderer.html') file = resolve(__dirname, 'renderer.html');
     else if (url.hostname === 'app' && url.pathname === '/renderer.js') file = resolve(GENERATED, 'renderer.js');
     else if (url.hostname === 'fixture' && url.pathname === '/source.mp4') file = FIXTURE;
+    else if (url.hostname === 'fixture' && url.pathname === '/source-b.mp4') file = FIXTURE_B;
+    else if (url.hostname === 'fixture' && url.pathname === '/still.png') file = STILL;
     else return new Response('not found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
   });
@@ -153,7 +157,7 @@ app.whenReady().then(async () => {
 setTimeout(() => {
   if (!finished) {
     if (encoder) encoder.child.kill('SIGTERM');
-    writeJson(RESULTS, { pass: false, error: 'golden harness timed out after 180 seconds' });
+    writeJson(RESULTS, { pass: false, error: 'golden harness timed out after 300 seconds' });
     stop(1);
   }
-}, 180_000);
+}, 300_000);

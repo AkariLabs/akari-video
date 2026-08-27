@@ -1,5 +1,6 @@
 import {
   buildResolvedTimelinePlan,
+  CachedStillImageSource,
   ClipSessionPool,
   evaluationPlanFromResolvedTimeline,
   evaluateFrame,
@@ -12,6 +13,7 @@ import {
 import type {
   EvaluationPlan,
   FrameEngineCut,
+  FrameEngineLayer,
   LookaheadAccess,
   ResolvedTimelinePlan,
   TimelineSourceRegistry,
@@ -118,7 +120,7 @@ function createUi(stage: HTMLElement): {
   const banner = document.createElement('div');
   banner.id = 'frame-engine-unsupported-banner';
   banner.setAttribute('role', 'status');
-  banner.textContent = 'Frame engine 評価台（cuts のみ）— 未対応: layers / overlays / 字幕 / 音声';
+  banner.textContent = 'Frame engine 評価台（cuts + layers）— 未対応: overlays / 字幕 / 音声';
   Object.assign(banner.style, {
     position: 'absolute', left: '8px', top: '8px', maxWidth: 'calc(100% - 270px)',
     padding: '5px 8px', border: '1px solid rgba(255,209,102,.65)', borderRadius: '4px',
@@ -157,6 +159,7 @@ class FrameEngineRuntime {
   readonly segments: TimelineUiSegment[];
   private readonly pools = new Map<string, ClipSessionPool>();
   private readonly lookahead = new Map<string, LookaheadFrameSource>();
+  private readonly images = new Map<string, CachedStillImageSource>();
   private readonly sources: TimelineSourceRegistry;
   private readonly timeline: ResolvedTimelinePlan;
   private readonly compositor: WebGL2Compositor;
@@ -186,7 +189,16 @@ class FrameEngineRuntime {
     this.compositor = new WebGL2Compositor(ui.canvas, { synchronization: 'flush' });
     const cuts = normalizedCuts(edit);
     const urls = sourceUrls(edit, timelineData, cuts);
+    for (const layer of Array.isArray(edit?.layers) ? edit.layers : []) {
+      if (!layer?.src) continue;
+      const key = String(layer.src);
+      urls.set(key, mediaUrl(key));
+    }
     for (const [id, url] of urls) {
+      if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(url)) {
+        this.images.set(id, new CachedStillImageSource(url));
+        continue;
+      }
       const pool = new ClipSessionPool(id, url, { onWarning: message => this.showError(message, false) });
       const source = new LookaheadFrameSource(pool, {
         fps,
@@ -196,8 +208,11 @@ class FrameEngineRuntime {
       this.pools.set(id, pool);
       this.lookahead.set(id, source);
     }
-    this.sources = this.lookahead;
-    this.timeline = buildResolvedTimelinePlan(cuts);
+    this.sources = new Map([...this.lookahead, ...this.images]);
+    this.timeline = buildResolvedTimelinePlan(cuts, {
+      fps,
+      layers: (Array.isArray(edit?.layers) ? edit.layers : []) as FrameEngineLayer[],
+    });
     this.totalDuration = this.timeline.totalDuration;
     this.segments = (this.timeline as any).cuts.map((placement: any, index: number) => ({
       index,
@@ -266,6 +281,7 @@ class FrameEngineRuntime {
     this.scrub.dispose();
     this.warmup.reset();
     for (const source of this.lookahead.values()) source.clear();
+    for (const image of this.images.values()) image.destroy();
     for (const pool of this.pools.values()) pool.destroy();
     this.compositor.dispose();
   }
@@ -278,7 +294,7 @@ class FrameEngineRuntime {
     if (this.disposed) return;
     const timeUs = Math.round(Math.max(0, Math.min(seconds, this.totalDuration)) * 1e6);
     const plan = evaluationPlanFromResolvedTimeline(this.timeline, timeUs, this.sources, this.output);
-    if (plan.layers.length === 0) {
+    if (plan.base.length === 0 && plan.layers.length === 0) {
       const context = this.ui.canvas.getContext('2d');
       context?.clearRect(0, 0, this.ui.canvas.width, this.ui.canvas.height);
       return;
@@ -294,7 +310,7 @@ class FrameEngineRuntime {
     const elapsed = performance.now() - started;
     const late = elapsed > 1000 / this.fps;
     if (late) this.measurements.lateFrames += 1;
-    const cutIndex = Number(plan.layers[0]?.id.replace('cut-', ''));
+    const cutIndex = Number(plan.base[0]?.id.replace('cut-', ''));
     if (Number.isInteger(cutIndex) && cutIndex !== this.lastCutIndex) {
       const streamId = `cut-${cutIndex}`;
       const bucket = this.warmedStreams.has(streamId)
@@ -322,7 +338,7 @@ class FrameEngineRuntime {
     for (let offset = 1; offset <= 3; offset += 1) {
       const futureUs = Math.min(Math.round(this.totalDuration * 1e6), timeUs + Math.round(offset * 1e6 / this.fps));
       const plan = evaluationPlanFromResolvedTimeline(this.timeline, futureUs, this.sources, this.output);
-      for (const layer of plan.layers) {
+      for (const layer of plan.base) {
         const sourceId = (this.timeline as any).cuts[Number(layer.id.replace('cut-', ''))]?.cut?.src;
         const source = sourceId ? this.lookahead.get(sourceId) : null;
         void source?.prefetch(layer.sourceTimeUs, { streamId: layer.id }).catch(() => undefined);

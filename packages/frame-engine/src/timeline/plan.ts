@@ -1,6 +1,8 @@
 import {
   buildTimelineMap,
   computeCutTrackSegments,
+  DEFAULT_CUT_ADJACENCY_FPS,
+  isStillImageSourcePath,
   outputToSource,
   transitionProgressAt
 } from '@akari-video/edit-store';
@@ -9,10 +11,13 @@ import type {
   EvaluationPlan,
   NativeFrameSource,
   ResolvedCutVisual,
+  ResolvedLayerBlendMode,
+  StillImageSource,
   TimelineTimeUs
 } from '../types.js';
+import { computeLayerKeyframesVisual, type LayerKeyframe } from './layer-visual.js';
 
-export type TimelineSourceRegistry = ReadonlyMap<string, NativeFrameSource>;
+export type TimelineSourceRegistry = ReadonlyMap<string, NativeFrameSource | StillImageSource>;
 
 export interface CutFramingKeyframe {
   t: number;
@@ -31,6 +36,24 @@ export interface FrameEngineCut extends Omit<EditCut, 'transitionOut'> {
   freeze?: { at_sec: number; duration_sec: number } | null;
 }
 
+export interface FrameEngineLayer {
+  id?: string;
+  t: number;
+  duration: number;
+  kind?: 'video' | 'baked' | 'filter';
+  src?: string;
+  transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+  crop?: { x: number; y: number; w: number; h: number };
+  perspective?: { corners: readonly (readonly [number, number])[] };
+  keyframes?: readonly LayerKeyframe[];
+  opacity?: number;
+  blend?: ResolvedLayerBlendMode;
+}
+
+export interface BuildResolvedTimelinePlanOptions extends NonNullable<Parameters<typeof buildTimelineMap>[1]> {
+  layers?: readonly FrameEngineLayer[];
+}
+
 interface ResolvedCutPlacement {
   cut: FrameEngineCut;
   at: number;
@@ -44,6 +67,8 @@ export interface ResolvedTimelinePlan {
   readonly map: TimelineMapResult;
   readonly cuts: readonly ResolvedCutPlacement[];
   readonly totalDuration: number;
+  readonly layers: readonly FrameEngineLayer[];
+  readonly fps: number;
 }
 
 const DEFAULT_VISUAL: ResolvedCutVisual = {
@@ -71,7 +96,7 @@ function normalizeTransition(cut: FrameEngineCut): EditCut['transitionOut'] {
  */
 export function buildResolvedTimelinePlan(
   cuts: readonly FrameEngineCut[],
-  options?: Parameters<typeof buildTimelineMap>[1]
+  options: BuildResolvedTimelinePlanOptions = {}
 ): ResolvedTimelinePlan {
   if (cuts.some(cut => cut.freeze && (cut.at !== undefined || cut.track !== undefined))) {
     throw new Error('freeze with explicit at/track is not supported by the sequential cuts timeline');
@@ -85,7 +110,8 @@ export function buildResolvedTimelinePlan(
       transitionOut: normalizeTransition(cut)
     };
   });
-  const map = buildTimelineMap(virtualCuts, options);
+  const { layers = [], ...timelineOptions } = options;
+  const map = buildTimelineMap(virtualCuts, timelineOptions);
   const trackSegments = computeCutTrackSegments(virtualCuts);
   const placements = cuts.map((cut, index): ResolvedCutPlacement => {
     const segment = trackSegments[index];
@@ -105,7 +131,19 @@ export function buildResolvedTimelinePlan(
       freezeDuration
     };
   });
-  return { map, cuts: placements, totalDuration: map.totalDuration };
+  return {
+    map, cuts: placements, totalDuration: map.totalDuration,
+    layers: layers.filter(layer => layer.kind !== 'filter'),
+    fps: finite(options.fps, DEFAULT_CUT_ADJACENCY_FPS) > 0
+      ? finite(options.fps, DEFAULT_CUT_ADJACENCY_FPS) : DEFAULT_CUT_ADJACENCY_FPS
+  };
+}
+
+export function isLayerActiveAt(layer: Pick<FrameEngineLayer, 't' | 'duration'>, timeUs: TimelineTimeUs, fps: number): boolean {
+  const frame = Math.floor((timeUs / 1e6) * fps + 1e-9);
+  const startFrame = Math.max(0, Math.ceil(finite(layer.t, 0) * fps - 1e-6));
+  const endFrame = Math.max(startFrame, Math.ceil((finite(layer.t, 0) + Math.max(0, finite(layer.duration, 0))) * fps - 1e-6));
+  return frame >= startFrame && frame < endFrame;
 }
 
 function playbackSecondsAt(placement: ResolvedCutPlacement, outputSeconds: number): number {
@@ -198,11 +236,11 @@ function layerFromPlacement(
   cutIndex: number,
   outputSeconds: number,
   sources: TimelineSourceRegistry
-): EvaluationPlan['layers'][number] {
+): EvaluationPlan['base'][number] {
   const cut = placement.cut;
   if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
   const source = sources.get(cut.src);
-  if (!source) throw new Error(`no frame source registered for ${cut.src}`);
+  if (!source || !('decode' in source)) throw new Error(`no video frame source registered for ${cut.src}`);
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
   const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
   return {
@@ -211,6 +249,59 @@ function layerFromPlacement(
     sourceTimeUs: Math.round((cut.in + playbackSeconds * speed) * 1e6),
     visual: visualAt(cut, playbackSeconds)
   };
+}
+
+const BLENDS = new Set<ResolvedLayerBlendMode>([
+  'normal', 'screen', 'multiply', 'add', 'difference', 'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
+]);
+
+function resolvedCompositeLayers(
+  timeline: ResolvedTimelinePlan,
+  timeUs: TimelineTimeUs,
+  sources: TimelineSourceRegistry
+): EvaluationPlan['layers'] {
+  const seconds = timeUs / 1e6;
+  const resolved: EvaluationPlan['layers'][number][] = [];
+  timeline.layers.forEach((layer, index) => {
+    if (!isLayerActiveAt(layer, timeUs, timeline.fps) || !layer.src) return;
+    const source = sources.get(layer.src);
+    if (!source) throw new Error(`no layer source registered for ${layer.src}`);
+    const localSeconds = Math.max(0, seconds - finite(layer.t, 0));
+    const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds);
+    const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
+    const staticTransform = layer.transform ?? {};
+    const visual = {
+      crop: animated?.crop ?? {
+        x: clamp(finite(staticCrop.x, 0), 0, 1),
+        y: clamp(finite(staticCrop.y, 0), 0, 1),
+        width: clamp(finite(staticCrop.w, 1), Number.EPSILON, 1),
+        height: clamp(finite(staticCrop.h, 1), Number.EPSILON, 1)
+      },
+      perspective: animated?.perspective ?? (layer.perspective ?? null),
+      transform: animated?.transform ?? {
+        x: finite(staticTransform.x, 0), y: finite(staticTransform.y, 0),
+        scale: Math.max(Number.EPSILON, finite(staticTransform.scale, 1)),
+        rotateDegrees: finite(staticTransform.rotate, 0)
+      }
+    };
+    visual.crop.width = clamp(visual.crop.width, Number.EPSILON, 1);
+    visual.crop.height = clamp(visual.crop.height, Number.EPSILON, 1);
+    visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
+    visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
+    const blend = BLENDS.has(layer.blend ?? 'normal') ? (layer.blend ?? 'normal') : 'normal';
+    const common = {
+      id: String(layer.id ?? `layer-${index}`), mask: null, visual,
+      blend, opacity: clamp(finite(layer.opacity, 1), 0, 1)
+    };
+    if (isStillImageSourcePath(layer.src)) {
+      if (!('load' in source)) throw new Error(`no still image source registered for ${layer.src}`);
+      resolved.push({ ...common, kind: 'image', image: source });
+      return;
+    }
+    if (!('decode' in source)) throw new Error(`no video frame source registered for ${layer.src}`);
+    resolved.push({ ...common, kind: 'video', source, sourceTimeUs: Math.round(localSeconds * 1e6) });
+  });
+  return resolved;
 }
 
 export function evaluationPlanFromResolvedTimeline(
@@ -232,10 +323,11 @@ export function evaluationPlanFromResolvedTimeline(
     }
     return {
       timeUs,
-      layers: [
+      base: [
         layerFromPlacement(timeline.cuts[outgoingIndex]!, outgoingIndex, outputSeconds, sources),
         layerFromPlacement(timeline.cuts[incomingIndex]!, incomingIndex, outputSeconds, sources)
       ],
+      layers: resolvedCompositeLayers(timeline, timeUs, sources),
       transition: {
         type: window.type as 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up',
         progress: transitionProgressAt(window, outputSeconds)
@@ -245,10 +337,10 @@ export function evaluationPlanFromResolvedTimeline(
   }
   const resolved = outputToSource(timeline.map.segments, outputSeconds);
   const cutIndex = resolved.segment?.cutIndex;
-  const layers = resolved.segment?.kind === 'src' && cutIndex != null
+  const base = resolved.segment?.kind === 'src' && cutIndex != null
     ? [layerFromPlacement(timeline.cuts[cutIndex]!, cutIndex, outputSeconds, sources)]
     : [];
-  return { timeUs, layers, transition: { type: 'hard-cut', progress: 0 }, output };
+  return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: 'hard-cut', progress: 0 }, output };
 }
 
 /** Backward-compatible hard-cut adapter for callers that already own a TimelineMapResult. */
@@ -260,20 +352,20 @@ export function evaluationPlanFromTimelineMap(
 ): EvaluationPlan {
   const outputSeconds = timeUs / 1e6;
   const resolved = outputToSource(timelineMap.segments, outputSeconds);
-  const layers = resolved.segment?.kind === 'src' && resolved.sourceT != null
+  const base = resolved.segment?.kind === 'src' && resolved.sourceT != null
     ? [legacyLayerFromSegment(resolved.segment, resolved.sourceT, sources)]
     : [];
-  return { timeUs, layers, transition: { type: 'hard-cut', progress: 0 }, output };
+  return { timeUs, base, layers: [], transition: { type: 'hard-cut', progress: 0 }, output };
 }
 
 function legacyLayerFromSegment(
   segment: TimelineSegment,
   sourceSeconds: number,
   sources: TimelineSourceRegistry
-): EvaluationPlan['layers'][number] {
+): EvaluationPlan['base'][number] {
   if (!segment.src) throw new Error(`resolved cut ${segment.cutIndex ?? 'unknown'} has no src`);
   const source = sources.get(segment.src);
-  if (!source) throw new Error(`no frame source registered for ${segment.src}`);
+  if (!source || !('decode' in source)) throw new Error(`no video frame source registered for ${segment.src}`);
   return {
     id: `cut-${segment.cutIndex ?? 'unknown'}`,
     source,
