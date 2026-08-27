@@ -64,6 +64,15 @@ function startEncoder(kind, options) {
   encoder = { kind, output, child, stderr: () => stderr, writes: [], drains: [], frames: 0, started: performance.now() };
   return output;
 }
+function abortEncoder() {
+  if (!encoder) return false;
+  const current = encoder;
+  encoder = null;
+  current.child.stdin.on('error', () => undefined);
+  current.child.stdin.destroy();
+  current.child.kill('SIGTERM');
+  return true;
+}
 async function writeEncoder(bytes) {
   if (!encoder) throw new Error('encoder is not running');
   const started = performance.now();
@@ -136,7 +145,11 @@ function measurePsnr() {
     '-hide_banner', '-i', WEBCODECS_OUTPUT, '-i', RENDER_OUTPUT,
     '-lavfi', '[0:v][1:v]psnr', '-f', 'null', '-'
   ], { encoding: 'utf8', timeout: 300_000, maxBuffer: 16 * 1024 * 1024 });
+  if (result.error || result.status !== 0) {
+    throw new Error(`PSNR failed (${result.status}): ${result.error?.message ?? result.stderr ?? result.stdout}`);
+  }
   const match = `${result.stderr}\n${result.stdout}`.match(/average:([0-9.]+)/g)?.at(-1)?.match(/average:([0-9.]+)/);
+  if (!match) throw new Error(`PSNR produced no average value: ${result.stderr.slice(-2000)}`);
   return { averageDb: match ? Number(match[1]) : null, status: result.status, tail: result.stderr.slice(-2000) };
 }
 
@@ -151,6 +164,7 @@ ipcMain.handle('benchmark:raw-finish', () => finishEncoder());
 ipcMain.handle('benchmark:h264-start', (_event, options) => startEncoder('h264', options));
 ipcMain.handle('benchmark:h264-chunk', (_event, bytes) => writeEncoder(bytes));
 ipcMain.handle('benchmark:h264-finish', () => finishEncoder());
+ipcMain.handle('benchmark:encoder-abort', () => abortEncoder());
 ipcMain.handle('benchmark:invoke-roundtrip', (_event, bytes) => bytes.byteLength);
 ipcMain.handle('benchmark:render-cut', () => runRenderCut());
 ipcMain.handle('benchmark:psnr', () => measurePsnr());
@@ -174,6 +188,7 @@ app.whenReady().then(async () => {
     let file;
     if (url.hostname === 'app' && url.pathname === '/renderer.html') file = resolve(DIRECTORY, 'renderer.html');
     else if (url.hostname === 'app' && url.pathname === '/renderer.js') file = resolve(GENERATED, 'renderer.js');
+    else if (url.hostname === 'app' && url.pathname === '/ipc-worker.js') file = resolve(DIRECTORY, 'ipc-worker.js');
     else if (url.hostname === 'fixture' && url.pathname === '/source-1080p.mp4') file = FIXTURE;
     else return new Response('not found', { status: 404 });
     const response = await net.fetch(pathToFileURL(file).toString());
@@ -181,6 +196,7 @@ app.whenReady().then(async () => {
     headers.set('Cross-Origin-Opener-Policy', 'same-origin');
     headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
     headers.set('Cross-Origin-Resource-Policy', 'same-origin');
+    if (url.pathname === '/ipc-worker.js') headers.set('Content-Type', 'text/javascript; charset=utf-8');
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   });
   const window = new BrowserWindow({
@@ -193,18 +209,23 @@ app.whenReady().then(async () => {
   const { port1, port2 } = new MessageChannelMain();
   port2.on('message', event => {
     const value = event.data;
+    if (!value || typeof value !== 'object') {
+      port2.postMessage({ id: null, length: 0, error: 'MessagePortMain received invalid data' });
+      return;
+    }
     const length = value.buffer?.byteLength ?? 0;
     port2.postMessage({ id: value.id, length });
   });
   port2.start();
   window.webContents.on('did-finish-load', () => window.webContents.postMessage('benchmark:port', null, [port1]));
-  await window.loadURL('frame-engine-bench://app/renderer.html');
+  const repeat = process.env.BENCH_REPEAT ?? '3';
+  await window.loadURL(`frame-engine-bench://app/renderer.html?repeat=${encodeURIComponent(repeat)}`);
 });
 
 setTimeout(() => {
   if (!finished) {
-    encoder?.child.kill('SIGTERM');
+    abortEncoder();
     writeFileSync(RESULTS, `${JSON.stringify({ pass: false, error: 'benchmark timed out' }, null, 2)}\n`);
     app.exit(1);
   }
-}, 900_000);
+}, 4_000_000);
