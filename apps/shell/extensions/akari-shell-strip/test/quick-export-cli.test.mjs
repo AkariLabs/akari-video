@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     buildEditLintArgs,
+    buildQuickExportEncoderChoices,
     buildRenderCutArgs,
     buildRenderCutOutputPath,
     buildRenderCutOutputRelativePath,
@@ -12,6 +13,26 @@ import {
     sanitizeQuickExportOutputName,
     summarizeStderrTail
 } from '../lib/common/quick-export-cli.js';
+
+test('buildQuickExportEncoderChoices: OS ごとに対応エンコーダだけを順序どおり返す', () => {
+    assert.deepEqual(buildQuickExportEncoderChoices('darwin'), [
+        { label: '自動（既定・ハードウェアが使えれば優先）', value: 'auto' },
+        { label: 'ハードウェア（VideoToolbox）', value: 'videotoolbox' },
+        { label: 'ソフトウェア（x264）', value: 'x264' }
+    ]);
+    assert.deepEqual(buildQuickExportEncoderChoices('win32'), [
+        { label: '自動（既定・ハードウェアが使えれば優先）', value: 'auto' },
+        { label: 'ハードウェア（NVENC）', value: 'nvenc' },
+        { label: 'ハードウェア（QSV）', value: 'qsv' },
+        { label: 'ハードウェア（AMF）', value: 'amf' },
+        { label: 'ハードウェア（Media Foundation）', value: 'mf' },
+        { label: 'ソフトウェア（x264）', value: 'x264' }
+    ]);
+    assert.deepEqual(buildQuickExportEncoderChoices('linux'), [
+        { label: '自動（既定・ハードウェアが使えれば優先）', value: 'auto' },
+        { label: 'ソフトウェア（x264）', value: 'x264' }
+    ]);
+});
 
 test('buildEditLintArgs: プロジェクトルート + --json', () => {
     assert.deepEqual(buildEditLintArgs('/tmp/project'), ['/tmp/project', '--json']);

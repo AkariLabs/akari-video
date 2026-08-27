@@ -5,6 +5,7 @@ import { Message } from '@theia/core/shared/@lumino/messaging';
 import { CommandService, Disposable, DisposableCollection, MessageService } from '@theia/core/lib/common';
 import { ApplicationShell, OpenerService, QuickInputService, WidgetManager, open } from '@theia/core/lib/browser';
 import URI from '@theia/core/lib/common/uri';
+import { OS } from '@theia/core/lib/common/os';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileStat } from '@theia/filesystem/lib/common/files';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
@@ -17,6 +18,7 @@ import {
 import { RenderProgressState, parseRenderProgress, RENDER_PROGRESS_UNKNOWN_LABEL } from '../common/render-progress';
 import { AkariQuickExportService, QuickExportStartOutcome, QuickExportStatus } from '../common/quick-export-protocol';
 import {
+    buildQuickExportEncoderChoices,
     describeUnexpectedQuickExportFailure,
     QUICK_EXPORT_OUTPUT_DIRECTORY,
     QuickExportEncoder,
@@ -69,11 +71,8 @@ const QUICK_EXPORT_QUALITY_CHOICES: Array<{ label: string; value: QuickExportQua
     { label: '軽量（light・crf 26 相当）', value: 'light' }
 ];
 
-const QUICK_EXPORT_ENCODER_CHOICES: Array<{ label: string; value: QuickExportEncoder }> = [
-    { label: '自動（既定・ハードウェアが使えれば優先）', value: 'auto' },
-    { label: 'ハードウェア（VideoToolbox）', value: 'videotoolbox' },
-    { label: 'ソフトウェア（x264）', value: 'x264' }
-];
+const QUICK_EXPORT_ENCODER_CHOICES: Array<{ label: string; value: QuickExportEncoder }> =
+    buildQuickExportEncoderChoices(OS.type() === OS.Type.OSX ? 'darwin' : OS.type() === OS.Type.Windows ? 'win32' : 'linux');
 
 const QUICK_EXPORT_FPS_CHOICES: Array<{ label: string; value: number | undefined }> = [
     { label: 'そのまま（既定・編集設定に従う）', value: undefined },

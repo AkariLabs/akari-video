@@ -16,7 +16,7 @@ export interface QuickExportStartRequest {
     /** 既定（'standard'）なら render-cut に --quality を渡さない。 */
     readonly quality?: 'high' | 'standard' | 'light';
     /** 既定（'auto'）なら render-cut に --encoder を渡さない。 */
-    readonly encoder?: 'auto' | 'videotoolbox' | 'x264';
+    readonly encoder?: 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
     /** 未指定（そのまま）なら render-cut に --fps を渡さない。 */
     readonly fps?: number;
     /** フォルダ選択ダイアログで得た絶対パスの URI 文字列。未指定なら既定の exports/ を使う。 */
