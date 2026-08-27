@@ -10,13 +10,12 @@ import { DEFAULT_EXPORT_OUTPUT_NAME } from './export-request-packet';
  * そのため設定 quick-pick の「解像度プリセット」は直接実行パスの CLI 引数には
  * 反映できない（正直な縮退。report にも明記）。
  *
- * 画質・エンジン・fps（task 2026-07-25-export-options）: 既定値のときは
- * render-cut への引数を一切追加しない（v0 と同一の `--out` のみの呼び出しを保つ —
- * render-cut 側の「無引数のとき ffmpeg コマンド列は変更前と deepEqual」という
- * 後方互換契約と対になる規律）。`--progress` だけは常に付ける — エンコード
- * パラメータに一切影響しない計装用フラグ（render-cut の plan.commands / 出力
- * バイトは不変。out_time= を PROGRESS 行に変換して stdout へ流すだけ）なので、
- * 既定設定での書き出し結果そのものは無改造のまま詳細進捗だけ得られる。
+ * 画質・エンジン・fps（task 2026-07-25-export-options）: 画質と fps は既定値のとき
+ * render-cut への引数を追加しない。一方、render-cut は `--encoder` 省略を x264 固定の
+ * 後方互換合図として扱うため、シェルは既定でも `--encoder auto` を明示送信する。
+ * `--progress` は常に付ける — エンコードパラメータに一切影響しない計装用フラグ
+ * （render-cut の plan.commands / 出力バイトは不変。out_time= を PROGRESS 行に
+ * 変換して stdout へ流すだけ）。
  */
 
 export const QUICK_EXPORT_OUTPUT_DIRECTORY = 'exports';
@@ -24,15 +23,16 @@ export const QUICK_EXPORT_OUTPUT_DIRECTORY = 'exports';
 export type QuickExportQuality = 'high' | 'standard' | 'light';
 export type QuickExportEncoder = 'auto' | 'videotoolbox' | 'x264';
 
-/** render-cut --quality/--encoder の既定値と同じ（省略時に選ばれているのと同じ選択）。 */
+/** render-cut --quality の既定値と同じ（省略時に選ばれているのと同じ選択）。 */
 export const QUICK_EXPORT_DEFAULT_QUALITY: QuickExportQuality = 'standard';
+/** render-cut の省略時は x264 固定になるため、シェルからは常に明示送信する既定値。 */
 export const QUICK_EXPORT_DEFAULT_ENCODER: QuickExportEncoder = 'auto';
 
 export interface QuickExportRenderSettings {
     readonly outputName: string;
     /** 既定（'standard'）なら --quality を付けない。 */
     readonly quality?: QuickExportQuality;
-    /** 既定（'auto'）なら --encoder を付けない。 */
+    /** 未指定でも --encoder auto を明示送信する。 */
     readonly encoder?: QuickExportEncoder;
     /** 未指定（そのまま）なら --fps を付けない。 */
     readonly fps?: number;
@@ -82,18 +82,16 @@ export function buildRenderCutOutputRelativePath(outputName: string): string {
 }
 
 /**
- * render-cut CLI: `render-cut <projectRoot> --out <path> [--quality ...] [--encoder ...]
- * [--fps ...] --progress`。quality/encoder が既定値のときはその引数自体を省く
- * （後方互換 — v0 の `[projectRoot, '--out', path]` から増える引数は無い）。
+ * render-cut CLI: `render-cut <projectRoot> --out <path> [--quality ...] --encoder ...
+ * [--fps ...] --progress`。quality は既定値なら省略するが、render-cut は `--encoder`
+ * 省略を x264 固定の後方互換合図として扱うため、シェルは `auto` を常に明示送信する。
  */
 export function buildRenderCutArgs(projectRoot: string, settings: QuickExportRenderSettings): string[] {
     const args = [projectRoot, '--out', buildRenderCutOutputPath(settings.outputName, settings.outputDirectory)];
     if (settings.quality !== undefined && settings.quality !== QUICK_EXPORT_DEFAULT_QUALITY) {
         args.push('--quality', settings.quality);
     }
-    if (settings.encoder !== undefined && settings.encoder !== QUICK_EXPORT_DEFAULT_ENCODER) {
-        args.push('--encoder', settings.encoder);
-    }
+    args.push('--encoder', settings.encoder ?? QUICK_EXPORT_DEFAULT_ENCODER);
     if (settings.fps !== undefined) {
         args.push('--fps', String(settings.fps));
     }
