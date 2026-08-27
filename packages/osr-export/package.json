@@ -1,0 +1,23 @@
+{
+  "name": "@akari-video/osr-export",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ページ全体 OSR 書き出し v0（エンジン canvas + DOM 字幕 + 自由 HTML + 3D を Electron オフスクリーンで 1 枚化）",
+  "bin": {
+    "akari-osr-export": "bin/akari-osr-export.mjs"
+  },
+  "scripts": {
+    "bundle:frame-engine": "node scripts/bundle-frame-engine.mjs",
+    "check:frame-engine-drift": "node scripts/bundle-frame-engine.mjs --check",
+    "build-fixture": "node scripts/build-fixture.mjs",
+    "assert-no-intermediates": "node scripts/assert-no-intermediates.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "optionalDependencies": {
+    "electron": "^39.8.7"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

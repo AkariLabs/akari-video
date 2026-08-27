@@ -112,6 +112,7 @@
 |---|---|
 | [contract-2026-08-02-preview-parity.md](./contract-2026-08-02-preview-parity.md) | プレビュー・パリティ契約 v0 — Web UI と shell の挙動仕様を単一化（同じ edit.json / captions.json → 同じ見た目・同じ挙動） |
 | [contract-2026-08-01-export-nle-beta.md](./contract-2026-08-01-export-nle-beta.md) | export-nle: 他社 NLE への片道書き出し（FCPXML / FCP7 XML / SRT）— **BETA・実 NLE 取り込み未確認** |
+| [contract-2026-08-28-osr-export-v0.md](./contract-2026-08-28-osr-export-v0.md) | ページ全体 Electron OSR 書き出し v0 — 4層ページ、seek/paint検証、器のフォールバック、メモリ上限 |
 
 ### 素材・個人層
 
