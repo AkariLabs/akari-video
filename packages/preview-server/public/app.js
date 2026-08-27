@@ -4,6 +4,8 @@
 // （パリティ契約 §2.1/§2.2。書き込み側 SSOT computeCutTrackSegments と同じ意味論）。
 import {
   buildTimelineMap,
+  computeBgmDuckGainDb,
+  computeDuckIntervals,
   computeTransitionVisual,
   findActiveCaption,
   outputToSource,
@@ -2125,8 +2127,10 @@ function syncAudio(t) {
   if (bgmNode) {
     const audio = summary?.audio;
     const ducking = audio?.bgm?.ducking === true;
-    const hasNarration = narrationNodes.some(n => n._buffer && t >= n.t && t < n.t + n._buffer.duration);
-    const duckDb = ducking && hasNarration ? -12 : 0;
+    const duckIntervals = computeDuckIntervals(narrationNodes
+      .filter(n => n._buffer)
+      .map(n => ({ t: n.t, durationSec: n._buffer.duration })));
+    const duckDb = computeBgmDuckGainDb(duckIntervals, ducking, t);
     const fadeIn = Number.isFinite(audio?.bgm?.fadeIn) && audio.bgm.fadeIn > 0 ? Math.min(audio.bgm.fadeIn, totalDuration / 2) : 0;
     const fadeOut = Number.isFinite(audio?.bgm?.fadeOut) && audio.bgm.fadeOut > 0 ? Math.min(audio.bgm.fadeOut, totalDuration / 2) : 0;
     let fadeMul = 1;

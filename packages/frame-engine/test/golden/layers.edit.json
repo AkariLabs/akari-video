@@ -5,6 +5,9 @@
     { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
     { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
     { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
     { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 }
   ],
   "layers": [
@@ -73,6 +76,34 @@
       "src": "frame-engine://fixture/source-b.mp4",
       "crop": { "x": 0.08, "y": 0.08, "w": 0.76, "h": 0.8 },
       "transform": { "x": 4, "y": 38, "scale": 0.34, "rotate": 2 }
+    },
+    {
+      "id": "blend-add", "t": 33, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4", "blend": "add"
+    },
+    {
+      "id": "blend-difference", "t": 36, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4", "blend": "difference"
+    },
+    {
+      "id": "blend-darken", "t": 39, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4", "blend": "darken"
+    },
+    {
+      "id": "blend-lighten", "t": 42, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4", "blend": "lighten"
+    },
+    {
+      "id": "blend-overlay", "t": 45, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4", "blend": "overlay"
+    },
+    {
+      "id": "blend-hardlight", "t": 48, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4", "blend": "hardlight"
+    },
+    {
+      "id": "blend-softlight", "t": 51, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4", "blend": "softlight"
     }
   ]
 }

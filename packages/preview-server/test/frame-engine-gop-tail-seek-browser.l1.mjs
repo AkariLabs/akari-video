@@ -31,7 +31,7 @@ async function waitForServer(url) {
   throw new Error('preview server did not become ready');
 }
 
-test('frame engine random-seeks 300 exact frames without a missing or previous frame', { timeout: 180_000 }, async t => {
+test('frame engine random-seeks 300 exact frames plus every frame in the final GOP', { timeout: 180_000 }, async t => {
   let ffmpegPath;
   try {
     ffmpegPath = resolveFfmpeg();
@@ -89,7 +89,10 @@ test('frame engine random-seeks 300 exact frames without a missing or previous f
     await page.waitForSelector('#frame-engine-preview[data-frame-engine-ready="true"]', { timeout: 25_000 });
 
     const mismatches = [];
-    const frames = Array.from({ length: 300 }, (_unused, index) => (index * 137) % 300);
+    const existingFrames = Array.from({ length: 300 }, (_unused, index) => (index * 137) % 300);
+    const finalGopFrames = Array.from({ length: 30 }, (_unused, index) => 360 + ((index * 17) % 30));
+    assert.equal(new Set(finalGopFrames).size, 30);
+    const frames = [...existingFrames, ...finalGopFrames];
     for (const frameNumber of frames) {
       const seconds = frameNumber / 30;
       const requestedUs = Math.round(seconds * 1e6);

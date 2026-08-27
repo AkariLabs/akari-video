@@ -4,6 +4,7 @@ export * from './timeline/plan.js';
 export * from './timeline/layer-visual.js';
 export * from './compositor/backend.js';
 export * from './compositor/webgl2.js';
+export * from './compositor/dissolve-noise.js';
 export * from './decode/native-yuv.js';
 export * from './decode/clip-session.js';
 export * from './decode/clip-session-pool.js';

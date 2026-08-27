@@ -35,6 +35,8 @@ __exportStar(require("./track-transition-compatibility"), exports);
 __exportStar(require("./cut-adjacency"), exports);
 __exportStar(require("./transition-vocabulary"), exports);
 __exportStar(require("./transition-visual"), exports);
+__exportStar(require("./ducking"), exports);
+__exportStar(require("./audio-schedule"), exports);
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps
 // text-surgery consumers source-compatible while preventing legacy knowledge from returning
 // to edit-store.ts.

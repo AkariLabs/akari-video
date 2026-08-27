@@ -108,7 +108,10 @@ test('matte layers resolve masks once per source and degrade missing or failed m
 test('golden layer classes are isolated, with only the stack window overlapping', () => {
   const fixture = JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'golden/layers.edit.json'), 'utf8'));
   const activeAt = seconds => fixture.layers.filter(layer => seconds >= layer.t && seconds < layer.t + layer.duration);
-  for (const seconds of [.5, 3.5, 6.5, 9.5, 12.5, 15.5, 18.5, 21.5, 24.5]) {
+  for (const seconds of [
+    .5, 3.5, 6.5, 9.5, 12.5, 15.5, 18.5, 21.5, 24.5,
+    33.5, 36.5, 39.5, 42.5, 45.5, 48.5, 51.5,
+  ]) {
     assert.equal(activeAt(seconds).length, 1, `expected one isolated layer at ${seconds}s`);
   }
   assert.equal(activeAt(27.5).length, 3);

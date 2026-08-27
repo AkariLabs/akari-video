@@ -45,8 +45,12 @@ if (!existsSync(resultsPath)) {
 assert.equal(existsSync(resultsPath), true, 'seek renderer did not write results');
 const results = JSON.parse(readFileSync(resultsPath, 'utf8'));
 assert.equal(results.pass, true, results.error);
-assert.equal(results.requestCount, 34, `expected frame-level reachable GOP coverage, got ${results.requestCount}`);
+assert.equal(results.requestCount, 94, `expected legacy and final-GOP frame coverage, got ${results.requestCount}`);
 assert.equal(results.clipSession.every(row => row.decodedFrame === row.requestedFrame), true);
+assert.equal(results.finalFrameNumber, 239);
+assert.equal(results.clipSession.filter(row => row.requestedFrame === results.finalFrameNumber).length, 2);
+assert.equal(results.clipSession.filter(row => row.requestedFrame === results.finalFrameNumber)
+  .every(row => row.decodedFrame === results.finalFrameNumber), true);
 assert.deepEqual(Object.keys(results.performance.warm).sort(), ['head', 'middle', 'tail']);
 assert.equal(Object.values(results.performance.warm).every(position =>
   position.samples.length >= 8 && Number.isFinite(position.p50Ms) && Number.isFinite(position.p95Ms)), true);

@@ -538,9 +538,18 @@ function main() {
     });
   }
 
+  const sourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
+  const sourceDateEpochSeconds = sourceDateEpoch?.trim() === ""
+    ? Number.NaN
+    : Number(sourceDateEpoch);
+  const sourceDate = new Date(sourceDateEpochSeconds * 1_000);
+  const generatedAt = Number.isFinite(sourceDateEpochSeconds) && !Number.isNaN(sourceDate.getTime())
+    ? sourceDate.toISOString()
+    : new Date().toISOString();
+
   const bundle = {
     version: 0,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     assets,
     interpretation,
   };

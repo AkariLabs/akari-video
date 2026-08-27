@@ -18,6 +18,8 @@ export * from './track-transition-compatibility';
 export * from './cut-adjacency';
 export * from './transition-vocabulary';
 export * from './transition-visual';
+export * from './ducking';
+export * from './audio-schedule';
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps
 // text-surgery consumers source-compatible while preventing legacy knowledge from returning
 // to edit-store.ts.

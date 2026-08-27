@@ -682,7 +682,6 @@ export async function captureStaticOverlays({
         "--disable-dev-shm-usage",
         "--hide-scrollbars",
         "--run-all-compositor-stages-before-draw",
-        "--default-background-color=00000000",
         `--window-size=${edit.output.width},${edit.output.height}`,
       ],
     });
