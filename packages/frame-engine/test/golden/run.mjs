@@ -96,6 +96,7 @@ assert.equal(results.negative.differingPixels, 1);
 assert.equal(results.encoded.distinctExtractedHashes, 3);
 assert.equal(results.semantic.pass, true);
 assert.equal(results.layerParity.every(sample => sample.pass), true);
+assert.equal(results.layerParity.length, 36);
 assert.equal(results.layerNegative.injectedPixelMutation, true);
 assert.equal(results.layerNegative.comparatorPassed, false);
 assert.equal(results.layerNegative.differingPixels, 1);
