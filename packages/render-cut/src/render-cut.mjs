@@ -59,16 +59,17 @@ const { resolveCaptionDisplay } = packageRequire("../../edit-store/lib/index.js"
 // itself. 24h gives ample time for a same-day retry/inspection before we reclaim the space, while
 // never touching a directory an active concurrent run still owns (see createRunTemporaryDirectory).
 const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
-const ENGINE_CHOICES = ["legacy", "osr"];
+const ENGINE_CHOICES = ["auto", "legacy", "osr"];
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
-  [--quality master|high|standard|light] [--encoder auto|videotoolbox|x264]
-  [--fps <number>] [--capture-workers <n>] [--engine legacy|osr] [--progress]
+  [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
+  [--fps <number>] [--capture-workers <n>] [--engine auto|legacy|osr] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
 when explicitly passed as (or defaulted to) "standard"/"x264"; --fps defaults to edit.json's
 output.fps; --progress emits "PROGRESS out_time_ms=<n> total_ms=<n>" lines to stdout while
 encoding, followed by "PROGRESS done total_ms=<n>".
+--engine defaults to auto, which resolves to osr on darwin and legacy on other platforms.
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
 
@@ -111,6 +112,8 @@ export async function runCli(argv, io = console) {
 }
 
 export async function renderProject(input, options = {}, io = console) {
+  const engineRequested = options.engine ?? "auto";
+  const resolvedEngine = resolveEngineChoice(engineRequested, process.platform);
   const projectRoot = resolve(input);
   const editPath = join(projectRoot, "edit.json");
   const editText = await readRequired(editPath, "edit.json");
@@ -231,7 +234,7 @@ export async function renderProject(input, options = {}, io = console) {
         hyperframes: capabilities.hyperframesVersion,
         puppeteer_core: capabilities.puppeteerVersion,
       },
-      ...(options.engine === "osr" ? { engine: "osr" } : {}),
+      ...buildEngineProvenance(engineRequested, process.platform),
     },
     artifacts: [],
     verify: null,
@@ -244,11 +247,11 @@ export async function renderProject(input, options = {}, io = console) {
   await writeState(state, statePath, reportPath, projectRoot);
   if (options.planOnly) return state;
 
-  const osrLauncher = options.engine === "osr" ? await resolveOsrLauncher() : null;
-  const engineExecution = selectRenderEngineExecution(options.engine, osrLauncher);
+  const osrLauncher = resolvedEngine === "osr" ? await resolveOsrLauncher() : null;
+  const engineExecution = selectRenderEngineExecution(resolvedEngine, osrLauncher);
   const useOsr = engineExecution.useOsr;
   if (osrLauncher?.tier === 3) {
-    delete state.provenance.engine;
+    Object.assign(state.provenance, buildEngineProvenance(engineRequested, process.platform, osrLauncher));
     addWarning(state, osrLauncher.warning);
   }
 
@@ -589,6 +592,7 @@ export function parseArguments(argv, env = process.env) {
     // command lines (task 2026-07-25-export-options's backward-compat requirement).
     quality: undefined,
     encoder: undefined,
+    engine: "auto",
     fps: undefined,
     captureWorkers: undefined,
     captureWorkersSource: undefined,
@@ -641,11 +645,34 @@ export function parseArguments(argv, env = process.env) {
 
 export function selectRenderEngineExecution(engine, launcher) {
   const useOsr = engine === "osr" && launcher !== null && launcher?.tier !== 3;
+  const engineFallback = engine === "osr" && launcher?.tier === 3
+    ? { from: "osr", reason: launcher.reason }
+    : undefined;
   return {
     useOsr,
+    engine: useOsr ? "osr" : "legacy",
+    engineFallback,
     runLegacyTrackStack: !useOsr,
     runLegacyLayers: !useOsr,
     runLegacyRasterize: !useOsr,
+  };
+}
+
+export function resolveEngineChoice(requested, platform) {
+  if (requested !== "auto") return requested;
+  return platform === "darwin" ? "osr" : "legacy";
+}
+
+export function buildEngineProvenance(requested, platform, launcher = undefined) {
+  const resolvedEngine = resolveEngineChoice(requested, platform);
+  if (launcher === undefined) {
+    return { engine_requested: requested, engine: resolvedEngine };
+  }
+  const execution = selectRenderEngineExecution(resolvedEngine, launcher);
+  return {
+    engine_requested: requested,
+    engine: execution.engine,
+    ...(execution.engineFallback ? { engine_fallback: execution.engineFallback } : {}),
   };
 }
 

@@ -10,6 +10,8 @@ import { findForbiddenIntermediates } from "../scripts/assert-no-intermediates.m
 test("OSR 分岐は legacy track/layers/rasterize を実行しない", () => {
   assert.deepEqual(selectRenderEngineExecution("osr", { tier: 2 }), {
     useOsr: true,
+    engine: "osr",
+    engineFallback: undefined,
     runLegacyTrackStack: false,
     runLegacyLayers: false,
     runLegacyRasterize: false,

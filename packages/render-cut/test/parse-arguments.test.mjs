@@ -3,8 +3,9 @@ import test from "node:test";
 
 import { parseArguments, resolveCaptureWorkers } from "../src/render-cut.mjs";
 
-test("parseArguments backward-compat: omitting the new flags leaves quality/encoder/fps undefined and progress false", () => {
+test("parseArguments defaults engine to auto while quality/encoder/fps stay undefined and progress stays false", () => {
   const options = parseArguments(["/project"]);
+  assert.equal(options.engine, "auto");
   assert.equal(options.quality, undefined);
   assert.equal(options.encoder, undefined);
   assert.equal(options.fps, undefined);
@@ -63,6 +64,7 @@ test("parseArguments accepts capture workers in space and equals forms", () => {
       help: false,
       quality: undefined,
       encoder: undefined,
+      engine: "auto",
       fps: undefined,
       captureWorkers: 3,
       captureWorkersSource: "cli",

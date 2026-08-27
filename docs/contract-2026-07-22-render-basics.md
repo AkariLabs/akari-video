@@ -29,7 +29,7 @@
 
 1. schema は**追記のみ**（既存 edit.json が全て無変更で valid のまま）。validate-edit /
    edit-lint / fixtures / test を同時追随
-2. プレビュー（preview-engine）は v0 では**近似不要・無視でよい**（出力最優先。
+2. プレビュー（後継の frame-engine。`packages/preview-engine` は 2026-08-28 削除済み）は v0 では**近似不要・無視でよい**（出力最優先。
    「プレビューは近似・書き出しが正」の哲学を全項目に適用。プレビュー追随は別契約）
 3. **`output.look`（#4 の LUT）の適用範囲は `cuts[]` の本編映像だけ**である。
    `layers[]`（PinP / 人物マット / B-roll）と `overlays[]` には**掛からない**。
@@ -39,6 +39,9 @@
    実害例（2026-08-14・リール制作）: 本編にだけ `cinematic` が乗り、重ねた人物切り抜きが
    素の色のまま合成されて、窓の継ぎ目で肌色が食い違った。「プロジェクト全体の色」だと
    誤解しやすいため、ここに明記する。
+4. **書き出しエンジンの既定（2026-08-28 改訂）**: `--engine` 省略時は `auto`。
+   darwin では v2（OSR）、win32 / linux では legacy に解決する。従来経路へ戻す場合は
+   `render-cut --engine legacy` を明示する。
 
 ### 2-4. reveal 系トランジション（`reveal-down` / `reveal-up`。2026-08-14 追加）
 

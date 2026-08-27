@@ -247,6 +247,15 @@ test("output.encoding master/x264 and audio.master.true_peak_dbtp pass", () => {
   assert.equal(executed.status, 0, executed.stderr);
 });
 
+test("output.encoding accepts every supported encoder", () => {
+  for (const encoder of ["auto", "videotoolbox", "nvenc", "qsv", "amf", "mf", "x264"]) {
+    const executed = runPatchedExample((edit) => {
+      edit.output.encoding = { quality: "standard", encoder };
+    });
+    assert.equal(executed.status, 0, `${encoder}: ${executed.stderr}`);
+  }
+});
+
 test("output.encoding and true_peak_dbtp closed enums/range fail", () => {
   const executed = runPatchedExample((edit) => {
     edit.output.encoding = { quality: "lossless", encoder: "gpu" };

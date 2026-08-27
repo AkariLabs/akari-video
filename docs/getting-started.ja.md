@@ -256,7 +256,6 @@ Error: puppeteer-core を読み込めませんでした。パッケージの依�
 | `packages/render-cut` | `puppeteer-core`・`hyperframes` | 最終 MP4 の書き出し |
 | `packages/bake-layer` | `puppeteer`・`esbuild` | オーバーレイのベイク |
 | `packages/preview-server` | `esbuild` | ブラウザプレビューサーバー |
-| `packages/preview-engine` | `@webav/av-cliper`・`@webav/mp4box.js` | プレビュー再生エンジン |
 | `packages/media-bin` | なし — ただし `postinstall` が ffmpeg/ffprobe を取得（sha256 検証付き） | すべてのメディア処理で使う ffmpeg |
 | `packages/akari-tools` | `puppeteer-core` + モノレポ内パッケージ `@akari-video/render-cut` | ルートからの一括インストールのみ（後述） |
 | `packages/export-nle` | モノレポ内パッケージ `@akari-video/media-bin` | ルートからの一括インストールのみ（後述） |
@@ -279,14 +278,14 @@ npm install
 
 ```powershell
 # PowerShell
-foreach ($p in 'template-render','render-cut','bake-layer','preview-server','preview-engine','media-bin') {
+foreach ($p in 'template-render','render-cut','bake-layer','preview-server','media-bin') {
   Push-Location "packages\$p"; npm install; Pop-Location
 }
 ```
 
 ```sh
 # bash
-for p in template-render render-cut bake-layer preview-server preview-engine media-bin; do
+for p in template-render render-cut bake-layer preview-server media-bin; do
   (cd "packages/$p" && npm install)
 done
 ```

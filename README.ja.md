@@ -72,6 +72,9 @@ flowchart LR
     class A,B,C,D,E,F,G stage
 ```
 
+macOS の書き出しは v2（OSR）エンジンが既定になりました。従来の合成経路へ戻すには
+`--engine legacy` を指定してください。Windows は当面 legacy が既定です。
+
 ## はじめる — 4 つの入口
 
 どの入口から始めても、同じファイル契約（`.akari/` 配下）に収束します。
@@ -105,7 +108,7 @@ flowchart LR
 ## Layout
 
 - `apps/shell/` — Theia ベースのデスクトップシェル
-- `packages/` — シェル非依存ライブラリ（schemas・プレビューエンジン・surface runtime・`akari-launcher`）
+- `packages/` — シェル非依存ライブラリ（schemas・frame engine・surface runtime・`akari-launcher`）
 - `templates/` — プロジェクト scaffold（`.opencode/` 設定を含む）
 - `skills/` — エージェント側ステージスキル（18 本）
 - `plugin/` — Claude Code プラグインバンドル（スキルパック + SessionStart hook + `/akari`）

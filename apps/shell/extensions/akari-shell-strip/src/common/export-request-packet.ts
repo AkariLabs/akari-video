@@ -23,12 +23,14 @@ export interface ExportRequestSettings {
     resolutionLabel: string;
     outputName: string;
     rerunLint: boolean;
+    engine?: 'auto' | 'osr' | 'legacy';
 }
 
 export function composeExportRequestPacket(settings: ExportRequestSettings): string {
     const lintLabel = settings.rerunLint ? 'する' : 'しない';
     return `【書き出し依頼】edit.json を render-cut スキルで書き出してください。`
-        + `設定: 解像度 ${settings.resolutionLabel}・出力名 ${settings.outputName}・lint 再実行 ${lintLabel}。`
+        + `設定: 解像度 ${settings.resolutionLabel}・出力名 ${settings.outputName}・lint 再実行 ${lintLabel}`
+        + `・書き出しエンジン ${settings.engine ?? 'auto'}。`
         + `ユーザーは書き出しダイアログで設定を確定済み（明示承認済み・チャット再確認不要）。`
         + `進捗を .akari/render.json に随時書き込みながら進めてください`;
 }

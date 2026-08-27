@@ -77,6 +77,9 @@ flowchart LR
     class A,B,C,D,E,F,G stage
 ```
 
+Export now defaults to the v2 OSR engine on macOS. Pass `--engine legacy` to use the previous
+compositing path; Windows continues to default to legacy for now.
+
 ## Getting started — four entrances
 
 Whichever entrance you start from, everything converges on the same file contracts
@@ -114,7 +117,7 @@ First steps: [docs/getting-started.md](./docs/getting-started.md).
 ## Layout
 
 - `apps/shell/` — Theia-based desktop shell
-- `packages/` — shell-independent libraries (schemas, preview engine, surface runtime, `akari-launcher`)
+- `packages/` — shell-independent libraries (schemas, frame engine, surface runtime, `akari-launcher`)
 - `templates/` — project scaffolds (include `.opencode/` config)
 - `skills/` — agent-side stage skills (22 of them)
 - `plugin/` — Claude Code plugin bundle (skill pack + SessionStart hook + `/akari`)

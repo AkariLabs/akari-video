@@ -11,8 +11,8 @@ import { DEFAULT_EXPORT_OUTPUT_NAME } from './export-request-packet';
  * 反映できない（正直な縮退。report にも明記）。
  *
  * 画質・エンジン・fps（task 2026-07-25-export-options）: 画質と fps は既定値のとき
- * render-cut への引数を追加しない。一方、render-cut は `--encoder` 省略を x264 固定の
- * 後方互換合図として扱うため、シェルは既定でも `--encoder auto` を明示送信する。
+ * render-cut への引数を追加しない。一方、エンジン選択とエンコーダ選択を呼び出し境界で
+ * 固定するため、シェルは既定でも `--engine auto` と `--encoder auto` を明示送信する。
  * `--progress` は常に付ける — エンコードパラメータに一切影響しない計装用フラグ
  * （render-cut の plan.commands / 出力バイトは不変。out_time= を PROGRESS 行に
  * 変換して stdout へ流すだけ）。
@@ -21,7 +21,16 @@ import { DEFAULT_EXPORT_OUTPUT_NAME } from './export-request-packet';
 export const QUICK_EXPORT_OUTPUT_DIRECTORY = 'exports';
 
 export type QuickExportQuality = 'high' | 'standard' | 'light';
+export type QuickExportEngine = 'auto' | 'osr' | 'legacy';
 export type QuickExportEncoder = 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
+
+export function buildQuickExportEngineChoices(): Array<{ label: string; value: QuickExportEngine }> {
+    return [
+        { label: '自動（既定・mac は v2）', value: 'auto' },
+        { label: 'v2（OSR）', value: 'osr' },
+        { label: '現行（legacy・互換）', value: 'legacy' }
+    ];
+}
 
 export function buildQuickExportEncoderChoices(
     platform: 'darwin' | 'win32' | 'linux'
@@ -46,6 +55,7 @@ export function buildQuickExportEncoderChoices(
 
 /** render-cut --quality の既定値と同じ（省略時に選ばれているのと同じ選択）。 */
 export const QUICK_EXPORT_DEFAULT_QUALITY: QuickExportQuality = 'standard';
+export const QUICK_EXPORT_DEFAULT_ENGINE: QuickExportEngine = 'auto';
 /** render-cut の省略時は x264 固定になるため、シェルからは常に明示送信する既定値。 */
 export const QUICK_EXPORT_DEFAULT_ENCODER: QuickExportEncoder = 'auto';
 
@@ -53,6 +63,8 @@ export interface QuickExportRenderSettings {
     readonly outputName: string;
     /** 既定（'standard'）なら --quality を付けない。 */
     readonly quality?: QuickExportQuality;
+    /** 未指定でも --engine auto を明示送信する。 */
+    readonly engine?: QuickExportEngine;
     /** 未指定でも --encoder auto を明示送信する。 */
     readonly encoder?: QuickExportEncoder;
     /** 未指定（そのまま）なら --fps を付けない。 */
@@ -103,15 +115,16 @@ export function buildRenderCutOutputRelativePath(outputName: string): string {
 }
 
 /**
- * render-cut CLI: `render-cut <projectRoot> --out <path> [--quality ...] --encoder ...
- * [--fps ...] --progress`。quality は既定値なら省略するが、render-cut は `--encoder`
- * 省略を x264 固定の後方互換合図として扱うため、シェルは `auto` を常に明示送信する。
+ * render-cut CLI: `render-cut <projectRoot> --out <path> [--quality ...] --engine ...
+ * --encoder ... [--fps ...] --progress`。quality は既定値なら省略するが、engine と encoder は
+ * 呼び出し境界で選択を固定するため `auto` も常に明示送信する。
  */
 export function buildRenderCutArgs(projectRoot: string, settings: QuickExportRenderSettings): string[] {
     const args = [projectRoot, '--out', buildRenderCutOutputPath(settings.outputName, settings.outputDirectory)];
     if (settings.quality !== undefined && settings.quality !== QUICK_EXPORT_DEFAULT_QUALITY) {
         args.push('--quality', settings.quality);
     }
+    args.push('--engine', settings.engine ?? QUICK_EXPORT_DEFAULT_ENGINE);
     args.push('--encoder', settings.encoder ?? QUICK_EXPORT_DEFAULT_ENCODER);
     if (settings.fps !== undefined) {
         args.push('--fps', String(settings.fps));

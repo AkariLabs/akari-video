@@ -86,6 +86,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         await this.runRenderCutPhase(projectRoot, {
             outputName: request.outputName,
             quality: request.quality,
+            engine: request.engine,
             encoder: request.encoder,
             fps: request.fps,
             outputDirectory: request.outputDirectoryUri ? this.fsPath(request.outputDirectoryUri) : undefined

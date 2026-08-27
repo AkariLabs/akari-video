@@ -18,9 +18,11 @@ import {
 import { RenderProgressState, parseRenderProgress, RENDER_PROGRESS_UNKNOWN_LABEL } from '../common/render-progress';
 import { AkariQuickExportService, QuickExportStartOutcome, QuickExportStatus } from '../common/quick-export-protocol';
 import {
+    buildQuickExportEngineChoices,
     buildQuickExportEncoderChoices,
     describeUnexpectedQuickExportFailure,
     QUICK_EXPORT_OUTPUT_DIRECTORY,
+    QuickExportEngine,
     QuickExportEncoder,
     QuickExportQuality
 } from '../common/quick-export-cli';
@@ -71,6 +73,9 @@ const QUICK_EXPORT_QUALITY_CHOICES: Array<{ label: string; value: QuickExportQua
     { label: '軽量（light・crf 26 相当）', value: 'light' }
 ];
 
+const QUICK_EXPORT_ENGINE_CHOICES: Array<{ label: string; value: QuickExportEngine }> =
+    buildQuickExportEngineChoices();
+
 const QUICK_EXPORT_ENCODER_CHOICES: Array<{ label: string; value: QuickExportEncoder }> =
     buildQuickExportEncoderChoices(OS.type() === OS.Type.OSX ? 'darwin' : OS.type() === OS.Type.Windows ? 'win32' : 'linux');
 
@@ -91,8 +96,8 @@ const QUICK_EXPORT_FPS_CHOICES: Array<{ label: string; value: number | undefined
  *   の frontmatter（name / description）を列挙する v0 実装。ワンクリック実行は
  *   スコープ外 — パートナーペインでの依頼を促す文言のみ添える。
  * - 「書き出し」: ワンクリック書き出し（輸入リスト③・2026-07-25 両モード制へ
- *   改訂）。設定 3 項目（解像度プリセット / 出力ファイル名 / lint 再実行）+
- *   4 項目目「実行方法」を quick-pick 連鎖で確定させる。「エージェントに
+ *   改訂）。解像度・出力名・lint・画質・エンジン・エンコーダ・fps・出力先と
+ *   「実行方法」を quick-pick 連鎖で確定させる。「エージェントに
  *   任せる」は依頼パケットを `akari.partner.injectPrompt`（ID 文字列呼び出し。
  *   ④と同じ疎結合規律）へ注入するのみ（実行はしない）。「この場で書き出す」
  *   は akari-shell-strip 自身のバックエンド（AkariQuickExportService）が
@@ -354,6 +359,13 @@ export class AkariMenuWidget extends ReactWidget {
         if (!qualityChoice) {
             return;
         }
+        const engineChoice = await this.quickInputService.showQuickPick(
+            QUICK_EXPORT_ENGINE_CHOICES,
+            { placeholder: '書き出しエンジンを選択' }
+        );
+        if (!engineChoice) {
+            return;
+        }
         const encoderChoice = await this.quickInputService.showQuickPick(
             QUICK_EXPORT_ENCODER_CHOICES,
             { placeholder: 'エンコーダ（自動/ハードウェア/ソフトウェア）を選択' }
@@ -404,7 +416,8 @@ export class AkariMenuWidget extends ReactWidget {
             const packet = composeExportRequestPacket({
                 resolutionLabel: resolution.preset.label,
                 outputName,
-                rerunLint: lintChoice.rerunLint
+                rerunLint: lintChoice.rerunLint,
+                engine: engineChoice.value
             });
             await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
             return;
@@ -413,6 +426,7 @@ export class AkariMenuWidget extends ReactWidget {
             outputName,
             rerunLint: lintChoice.rerunLint,
             quality: qualityChoice.value,
+            engine: engineChoice.value,
             encoder: encoderChoice.value,
             fps: fpsChoice.value,
             outputDirectoryUri
@@ -425,6 +439,7 @@ export class AkariMenuWidget extends ReactWidget {
         outputName: string;
         rerunLint: boolean;
         quality: QuickExportQuality;
+        engine: QuickExportEngine;
         encoder: QuickExportEncoder;
         fps: number | undefined;
         outputDirectoryUri: string | undefined;
@@ -452,6 +467,7 @@ export class AkariMenuWidget extends ReactWidget {
                 outputName: settings.outputName,
                 rerunLint: settings.rerunLint,
                 quality: settings.quality,
+                engine: settings.engine,
                 encoder: settings.encoder,
                 fps: settings.fps,
                 outputDirectoryUri: settings.outputDirectoryUri

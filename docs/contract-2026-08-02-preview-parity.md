@@ -582,41 +582,42 @@ ffmpeg の `perspective` フィルタの制約（式に時刻変数を持たな�
 Phase 2 以降（共有カーネル抽出: edit-store / ペン / タイムライン写像 / overlay-runtime 一本化）は
 本契約への適合を保ったまま実装を共通化する。
 
-### 4.1 `packages/preview-engine` の処遇 — **凍結**（2026-08-27 裁定・実行済み）
+### 4.1 `packages/preview-engine` の処遇 — **削除**（2026-08-28・#90）
 
 WebCodecs ベースの `packages/preview-engine` は、Web UI からも shell からも import されない
 死蔵コードだった（`packages/preview-server` が `public/preview-engine.bundle.js` へバンドル・
 配信していたが、`index.html` / `app.js` に読み込み口が無い）。本契約の 3 面
 （render-cut / Web UI / shell）のどれにも属さない 4 つ目の実装であり、パリティの対象外である
-ことを明記したうえで**凍結**する。
+ことを明記したうえで 2026-08-28 に削除した。後継の合成基盤は `packages/frame-engine` である。
 
 - **実行済み**: preview-server の `build` から esbuild 行を削除・追跡されていた
   `public/preview-engine.bundle.js` を削除・`test/server.spec.mjs` の配信スモークを削除。
   以後 `npm run build` の成果物に preview-engine 由来のファイルは含まれない
-- **削除はしない**: 合成エンジンを 1 個へ統一する「エンジン v2」路線（WebCodecs +
-  GPU コンポジタ）の土台候補として資産価値を実査済みであり、再利用 / 新規の裁定は
-  エンジン v2 のゲート（Phase 0 スパイクの実測と併せて裁定）に委ねる。
-  詳細と復活手順は `packages/preview-engine/README.md` 冒頭の凍結ノートを正とする
-- **凍結中の規律**: 本パッケージへ追随改修を新たに入れない。スキーマや語彙が増えても
-  preview-engine 側の追随は不要（誰も実行しないため、追随は保守錯覚にしかならない）
+- **削除済み**: パッケージ本体と workspace lock の項目を除去した。以後、スキーマや語彙の
+  追随先には含めない
 
 ### 4.2 ducking（BGM の narration ダッキング）の実装本数と正本
 
-§2.5 が定める「narration 再生区間で BGM -12dB」は、**プレビュー側に 3 実装ある**:
+§2.5 が定める「narration 再生区間で BGM -12dB」は、**稼働中のプレビュー側に 2 実装ある**:
 
 | 面 | 実装 | 位置づけ |
 |---|---|---|
 | Web UI | `packages/preview-server/public/app.js`（`hasNarration` / `duckDb`） | 稼働中 |
 | shell | `apps/shell/extensions/akari-preview/src/browser/akari-preview-open-handler.ts`（`duckGainDbAt`） | 稼働中 |
-| preview-engine | `packages/preview-engine/src/duckingGain.ts`（純関数 + `node --test`） | **凍結（§4.1）** |
 
-- **現時点で 3 者は数値的に同値**（2026-08-27 実測: 0〜10s を 10ms 刻み × `ducking` on/off の
-  2,002 点で不一致 0）。したがって本契約 §2.5 への適合は 3 面とも保たれている
+- **現時点で 2 者は数値的に同値**（2026-08-27 実測: 0〜10s を 10ms 刻み × `ducking` on/off の
+  2,002 点で不一致 0）。したがって本契約 §2.5 への適合は稼働中の 2 面とも保たれている
 - **-12dB 固定は正（render-cut）とは挙動の違う近似である**。render-cut は
   `sidechaincompress=threshold=0.063:ratio=8:attack=5:release=300` で、減衰量は narration の
-  実レベルに依存し attack 5ms / release 300ms の時間応答を持つ。プレビュー 3 実装は
+  実レベルに依存し attack 5ms / release 300ms の時間応答を持つ。稼働中のプレビュー 2 実装は
   「区間内なら常に -12dB・立ち上がり/戻りは瞬時」であり、**§2.4 系と同じ宣言済みの近似**として扱う
 - **正本の一本化は未了**（稼働中 2 実装の書き換えを伴うため別タスク）。一本化先は共有カーネル
   `packages/edit-store`（`computeDuckIntervals` / `computeBgmDuckGainDb` 相当を昇格し、
   shell は直接 import・Web UI は `edit-kernel.bundle.js` 経由で消費）。それまでは
-  **どれか 1 面の -12dB や区間規則を単独で変えないこと**（3 面同時に変えるか、一本化を先に済ませる）
+  **どちらか 1 面の -12dB や区間規則を単独で変えないこと**（2 面同時に変えるか、一本化を先に済ませる）
+
+### 4.3 退役スケジュール（2026-08-28 改訂）
+
+- `<video>` プレビュー（Web UI / shell）は、プレビュー既定切替（#85）後 **2 リリース保持**する
+- `packages/preview-engine` は 2026-08-28 に削除済み
+- render-cut の legacy 合成経路は #100 まで保持し、その間は `--engine legacy` で到達できる

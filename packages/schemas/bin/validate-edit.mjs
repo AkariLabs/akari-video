@@ -744,8 +744,8 @@ function validateEncoding(value) {
   if (hasOwn(value, "quality") && !["master", "high", "standard", "light"].includes(value.quality)) {
     fail("output.encoding.quality は master/high/standard/light のいずれかである必要があります");
   }
-  if (hasOwn(value, "encoder") && !["auto", "videotoolbox", "x264"].includes(value.encoder)) {
-    fail("output.encoding.encoder は auto/videotoolbox/x264 のいずれかである必要があります");
+  if (hasOwn(value, "encoder") && !["auto", "videotoolbox", "nvenc", "qsv", "amf", "mf", "x264"].includes(value.encoder)) {
+    fail("output.encoding.encoder は auto/videotoolbox/nvenc/qsv/amf/mf/x264 のいずれかである必要があります");
   }
 }
 

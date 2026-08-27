@@ -2,7 +2,20 @@
 
 ## 1. 適用範囲
 
-この契約は `render-cut --engine osr` が生成する映像ページと、そのページを Electron オフスクリーン描画で駆動するプロトコルを定める。既定の engine は `legacy` であり、OSR は opt-in とする。
+この契約は `render-cut --engine osr` が生成する映像ページと、そのページを Electron オフスクリーン描画で駆動するプロトコルを定める。
+
+**2026-08-28 改訂:** `--engine` の既定は `auto` とし、次のように解決する。従来経路へ戻す場合は
+プラットフォームを問わず `--engine legacy` を明示する。
+
+| platform | `auto` の解決 | 備考 |
+|---|---|---|
+| darwin | `osr` | v2 を既定とする |
+| win32 | `legacy` | Windows 実機実測 #14 が完了するまで OSR は opt-in |
+| linux | `legacy` | OSR は opt-in |
+
+`.akari/render.json` の provenance は、指定値を `engine_requested`、解決後の実走値を `engine` に
+記録する。OSR launcher が tier 3 へフォールバックした場合、`engine` は `legacy` とし、
+`engine_fallback: { from: "osr", reason: <launcher.reason> }` を追加する。
 
 ## 2. ページ契約
 
@@ -108,12 +121,15 @@ OSR経路では次を使用しない。
 
 ## 11. 既知の限界
 
-### 11.1 Bフレーム素材の並べ替え遅延
+### 11.1 Bフレーム素材の並べ替え遅延（2026-08-28 改訂・根治済み）
 
-負のDTSで始まるBフレーム素材では、エンジンのデコード経路が並べ替え遅延ぶん手前のコマを返す。`has_b_frames=2`の1920×1080 / 30fps素材では、先頭コマだけが一致し、その後は一定2コマ手前になることを実測した。同一素材を`-bf 0`で生成するとlegacyと完全に一致する。v0はこのずれを補正しない。
+負の DTS で始まる B フレーム素材の並べ替え遅延は、main `b30057de` で
+`elst.media_time` を補正して根治した。`has_b_frames=2` の素材でも、提示時刻を edit list の
+media time に合わせて評価するため、従来の一定 2 コマ手前になるずれは残らない。
 
 ### 11.2 legacyとの全画面画素差
 
 同じraw BGRAを比較した場合、ffmpegが未タグ素材へ既定で使うbt601換算に対してMAD 9.28 / maxDelta 155、bt709換算に対してMAD 0.886であった。残差はクロマ補間による。エンジンは`bt709-limited`で合成する。
+**G3 裁定（2026-08-28）:** v2 の `bt709-limited` を正とし、legacy の bt601 換算側を近似として扱う。
 
 ベースを単色にしたfixtureでlegacyとOSRの最終MP4を比較すると、MAD 0.019〜0.345 / maxDelta 7〜78であった。字幕・自由HTML・3Dの描画は一致し、全画面差の主因はベース映像のYUV→RGB変換である。オーバーレイ層の突き合わせは単色ベースで行う。

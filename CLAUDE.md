@@ -10,7 +10,7 @@
 | ディレクトリ | 内容 |
 |---|---|
 | `apps/shell/` | Theia ベースのシェル本体（タブ + ツリー + 右パートナー + 4 アイコン） |
-| `packages/` | シェル非依存ライブラリ（schemas / preview-engine / サーフェスランタイム / decision-cards） |
+| `packages/` | シェル非依存ライブラリ（schemas / frame-engine / サーフェスランタイム / decision-cards） |
 | `skills/` | ステージスキル（調査・企画・編集・QA。ステージはアプリ機能にしない） |
 | `templates/` | プロジェクトの出発点（`templates/INDEX.md`）。**器**（`project-default/` — assets/ planning/ exports/ + CLAUDE.md + AGENTS.md + .akari/ + .claude/。コードとスキルが参照する製品の一部）と**作例**（`kaisetsu-short/` — 人が複製して改造する完成フロー）の 2 種 |
 | `catalog/` | 🧩 キュレーションカタログ定義（**参照配布のみ** — メタデータ・ツマミ宣言・プレビュー。実体バイナリは置かない） |

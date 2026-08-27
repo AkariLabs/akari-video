@@ -261,7 +261,6 @@ test them):
 | `packages/render-cut` | `puppeteer-core`, `hyperframes` | the final MP4 export |
 | `packages/bake-layer` | `puppeteer`, `esbuild` | baking overlay layers |
 | `packages/preview-server` | `esbuild` | the browser preview server |
-| `packages/preview-engine` | `@webav/av-cliper`, `@webav/mp4box.js` | the preview playback engine |
 | `packages/media-bin` | none — but its `postinstall` downloads ffmpeg/ffprobe (sha256-verified) | ffmpeg for every media step |
 | `packages/akari-tools` | `puppeteer-core` + the monorepo package `@akari-video/render-cut` | root install only — see below |
 | `packages/export-nle` | the monorepo package `@akari-video/media-bin` | root install only — see below |
@@ -283,14 +282,14 @@ modules on Windows and needs the prerequisites listed in the
 
 ```powershell
 # PowerShell
-foreach ($p in 'template-render','render-cut','bake-layer','preview-server','preview-engine','media-bin') {
+foreach ($p in 'template-render','render-cut','bake-layer','preview-server','media-bin') {
   Push-Location "packages\$p"; npm install; Pop-Location
 }
 ```
 
 ```sh
 # bash
-for p in template-render render-cut bake-layer preview-server preview-engine media-bin; do
+for p in template-render render-cut bake-layer preview-server media-bin; do
   (cd "packages/$p" && npm install)
 done
 ```

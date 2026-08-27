@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { exportWithOsr } from "../src/index.mjs";
+import { ENCODER_CHOICES } from "../../render-cut/src/encode-preset.mjs";
 
 const options = parse(process.argv.slice(2));
 const result = await exportWithOsr(options);
@@ -20,7 +21,7 @@ function parse(argv) {
     else if (arg === "--duration") result.duration = Number(value());
     else if (arg === "--frames") result.frames = Number(value());
     else if (arg === "--quality") result.quality = value();
-    else if (arg === "--encoder") result.encoder = value();
+    else if (arg === "--encoder") result.encoder = parseEncoder(value());
     else if (arg === "--verify") result.verify = value();
     else if (arg === "--soft") result.soft = true;
     else if (!arg.startsWith("-") && result.projectRoot === null) result.projectRoot = arg;
@@ -29,4 +30,11 @@ function parse(argv) {
   if (!result.projectRoot || !result.out || !(result.duration > 0)) throw new Error("project root, --out, and --duration are required");
   if (result.frames === null) result.frames = Math.round(result.duration * result.fps);
   return result;
+}
+
+function parseEncoder(value) {
+  if (!ENCODER_CHOICES.includes(value)) {
+    throw new Error(`--encoder must be one of ${ENCODER_CHOICES.join("|")}, got: ${value}`);
+  }
+  return value;
 }
