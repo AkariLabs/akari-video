@@ -9,6 +9,7 @@ export * from './decode/clip-session-pool.js';
 export * from './decode/keyframe-index.js';
 export * from './decode/guard.js';
 export * from './cache/lookahead-cache.js';
+export * from './cache/lookahead-source.js';
 export * from './cache/warmup-manager.js';
 export * from './cache/scrub-controller.js';
 export * from './metrics/collector.js';

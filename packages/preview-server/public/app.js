@@ -53,6 +53,8 @@ function saveSettings(partial) {
 const savedSettings = loadSettings();
 
 const isOutputMode = new URLSearchParams(location.search).get('mode') === 'output';
+// 明示フラグ時だけ bundle を dynamic import する。既定経路では request も DOM 追加も発生しない。
+const frameEngineEnabled = new URLSearchParams(location.search).get('frameEngine') === '1';
 const api = {
   timeline: isOutputMode ? '/api/output/timeline' : '/api/timeline',
   summary: isOutputMode ? '/api/output/summary' : '/api/summary',
@@ -166,6 +168,7 @@ let reviewTimerRAF = 0;
 let reviewEvents = [];
 let trackWaveforms = { bgm: null, narration: null, sfx: null };
 let captionsData = null;
+let frameEnginePreview = null;
 const cutFx = createCutFxController(() => ({ summary, segment: getActiveSegment(outputTime), outputTime }));
 let captionsResolvedTimeline = false;
 let captionStylesInjected = false;
@@ -222,6 +225,16 @@ async function init() {
       captionsData = [];
     }
     fps = timelineData.fps || 30;
+
+    if (frameEngineEnabled) {
+      const { createFrameEnginePreview } = await import('/frame-engine.bundle.js');
+      frameEnginePreview = await createFrameEnginePreview({ edit: summary, timelineData, stage: previewStage, fps });
+      applyFrameEngineSnapshot();
+      updateStageScale();
+      window.akariFrameEngine = frameEnginePreview;
+      showMessage(null);
+      return;
+    }
 
     buildSegments();
     if (summary?.cuts?.length > 0) {
@@ -280,6 +293,18 @@ async function init() {
   } catch (e) {
     showMessage(e.message);
   }
+}
+
+function applyFrameEngineSnapshot() {
+  const snapshot = frameEnginePreview?.snapshot();
+  if (!snapshot) return;
+  totalDuration = snapshot.totalDuration;
+  segments = snapshot.segments;
+  seek.max = totalDuration;
+  outputTime = Math.max(0, Math.min(outputTime, totalDuration));
+  seek.value = outputTime;
+  updateTimeLabel();
+  updateSeekVisual();
 }
 
 async function apiReadError(response, label) {
@@ -2345,6 +2370,13 @@ function seekTo(t) {
   const prev = outputTime;
   outputTime = Math.max(0, Math.min(t, totalDuration));
   if (Math.abs(outputTime - prev) > 0.05) logReviewEvent('seek', { from: +prev.toFixed(3), to: +outputTime.toFixed(3) });
+  if (frameEngineEnabled) {
+    frameEnginePreview?.seek(outputTime);
+    seek.value = outputTime;
+    updateTimeLabel();
+    updateStatusBar();
+    return;
+  }
   const vt = getVideoTimeForOutput(outputTime);
   if (vt >= 0) {
     const seg = getActiveSegment(outputTime);
@@ -2384,6 +2416,13 @@ function play() {
   logReviewEvent('play');
   isPlaying = true;
   lastWallMs = 0;
+  if (frameEngineEnabled) {
+    playToggle.innerHTML = pauseIcon;
+    playToggle.setAttribute('aria-label', '一時停止');
+    playToggle.title = '一時停止';
+    requestAnimationFrame(playbackLoop);
+    return;
+  }
   if (audioCtx?.state === 'suspended') audioCtx.resume();
   // 静止画区間の開始位置から再生を始めるときは <video> を動かさない（隠れたまま古い映像の
   // 音声が漏れるのを防ぐ -- resumeAllPlaybackForFreeze と同じ理由）。
@@ -2440,6 +2479,20 @@ const SYNC_DEADBAND_SEC = 0.35;
 function playbackLoop() {
   if (!isPlaying) return;
   const now = performance.now();
+  if (frameEngineEnabled) {
+    const dt = lastWallMs > 0 ? (now - lastWallMs) / 1000 : 0;
+    lastWallMs = now;
+    outputTime += dt;
+    if (outputTime >= totalDuration) { outputTime = totalDuration; pause(); return; }
+    frameEnginePreview?.renderPlayback(outputTime);
+    seek.value = outputTime;
+    updateTimeLabel();
+    updateStatusBar();
+    const tickNow = performance.now();
+    if (tickNow - wsTickLast > 200) { sendWsTick(); wsTickLast = tickNow; }
+    requestAnimationFrame(playbackLoop);
+    return;
+  }
   // cuts[].freeze の一時停止ホールド中（近似実装。尺は伸ばさない -- contract-2026-08-02-preview-
   // parity.md §2.4.3）: outputTime を進めず video/audio を実時間で止めたまま rAF だけ生かす。
   // lastWallMs を毎フレーム更新しておくことで、ホールドが明けた直後の dt がホールド全体の
@@ -2697,6 +2750,14 @@ async function applySoftReload() {
     captionsData = [];
   }
   fps = timelineData.fps || 30;
+
+  if (frameEngineEnabled) {
+    await frameEnginePreview.rebuild(summary, timelineData, fps);
+    applyFrameEngineSnapshot();
+    seekTo(Math.min(keep.t, totalDuration));
+    if (keep.playing) play();
+    return;
+  }
 
   buildSegments();
   updateStageScale();

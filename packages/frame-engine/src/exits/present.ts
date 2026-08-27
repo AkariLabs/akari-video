@@ -2,8 +2,9 @@ import type { CompositedFrame } from '../types.js';
 
 /** Preview exit: consume an already-completed surface without evaluating the timeline again. */
 export function presentFrame(frame: CompositedFrame, canvas: HTMLCanvasElement): void {
-  canvas.width = frame.surface.width;
-  canvas.height = frame.surface.height;
+  if (canvas.width !== frame.surface.width) canvas.width = frame.surface.width;
+  if (canvas.height !== frame.surface.height) canvas.height = frame.surface.height;
+  // Golden/readback presentation keeps CPU backing; live WebGL presentation bypasses this copy.
   const context = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
   if (!context) throw new Error('2D preview canvas is unavailable');
   context.drawImage(frame.surface.canvas, 0, 0);

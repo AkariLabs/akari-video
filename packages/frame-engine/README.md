@@ -6,6 +6,22 @@
 
 The cuts path supports hard cuts, speed, static crop and linearly interpolated zoom framing, cut transform/opacity, duration-extending freeze frames, and five GPU transitions (`dissolve`, `fade-black`, `fade-white`, `reveal-down`, and `reveal-up`). Freeze expansion lives in the resolved timeline layer and shifts every later sequential cut before transition overlap is resolved.
 
+## Web preview evaluation mode
+
+Open preview-server with `?frameEngine=1` to use the frame-engine canvas. The flag is off by default; without it, the existing Web UI and its network/DOM behavior remain byte-equivalent. The engine canvas is a cuts-path evaluation surface only. Layers, overlays, captions, and audio are not rendered, and the UI always shows an unsupported-features banner rather than silently omitting them.
+
+The measurement overlay reports presented fps, late frames, latest seek arrival time, Lookahead cold-versus-cache seek timing, and cut-boundary late counts before and after Warmup. Run its isolated L1 browser check from the repository root:
+
+```sh
+npm --prefix packages/preview-server run test:frame-engine-browser
+```
+
+The default run is headless. Headless Chromium's animation-frame supply can limit the displayed fps independently of engine evaluation time, so that run validates playback progress, measurements, seeking, rendering, and error containment without applying the headed fps threshold. Measure displayed performance with a headed browser:
+
+```sh
+AKARI_FRAME_ENGINE_HEADED=1 npm --prefix packages/preview-server run test:frame-engine-browser
+```
+
 ## Local verification
 
 The golden harness needs Chromium's WebCodecs and WebGL2 implementations. It first launches the repository's Electron binary; if the host cannot register a GUI app, it runs the same renderer bundle in Playwright Chromium. It generates its H.264 fixture with ffmpeg and keeps all media and evidence under the ignored `test/golden/.generated/` directory.

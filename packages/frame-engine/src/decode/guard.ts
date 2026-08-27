@@ -20,16 +20,22 @@ export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, lab
 
 const DECODER_ERROR = /Unsupported configuration|AudioDecoder err|VideoDecoder err|VideoFinder VideoDecoder|decode.*error/i;
 
+export function isDecoderErrorMessage(value: unknown): boolean {
+  const message = value instanceof Error ? `${value.name}: ${value.message}` : String(value);
+  return DECODER_ERROR.test(message);
+}
+
 export function watchDecoderErrors(onDetect: (message: string) => void): () => void {
+  if (typeof window === 'undefined') return () => undefined;
   const onError = (event: ErrorEvent) => {
     const message = event.message || String(event.error ?? event);
-    if (!DECODER_ERROR.test(message)) return;
+    if (!isDecoderErrorMessage(message)) return;
     event.preventDefault();
     onDetect(message);
   };
   const onRejection = (event: PromiseRejectionEvent) => {
     const message = event.reason?.message ? String(event.reason.message) : String(event.reason);
-    if (!DECODER_ERROR.test(message)) return;
+    if (!isDecoderErrorMessage(message)) return;
     event.preventDefault();
     onDetect(message);
   };

@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DecodedFrameCoverageCache, frameCoversTimestamp, LookaheadCache } from '../dist/index.js';
+import {
+  DecodedFrameCoverageCache,
+  frameCoversTimestamp,
+  LookaheadCache,
+  LookaheadFrameSource,
+} from '../dist/index.js';
 
 function fakeFrame(id) {
   return {
@@ -22,6 +27,25 @@ test('LookaheadCache clones callers and closes evicted masters', () => {
   assert.equal(cache.has(1), false);
   cache.clear();
   assert.equal(second.closed, true);
+});
+
+test('LookaheadFrameSource puts prefetched frames on the evaluateFrame source path', async () => {
+  let decodes = 0;
+  const accesses = [];
+  const source = new LookaheadFrameSource({
+    async decode(timeUs) {
+      decodes += 1;
+      return fakeFrame(`decoded-${timeUs}`);
+    },
+  }, { fps: 30, onAccess: access => accesses.push(access) });
+
+  await source.prefetch(1_000_000, { streamId: 'cut-1' });
+  const frame = await source.decode(1_000_000, undefined, { streamId: 'cut-1' });
+  assert.equal(decodes, 1);
+  assert.equal(frame.id, 'decoded-1000000:clone');
+  assert.deepEqual(accesses.map(access => access.hit), [true]);
+  frame.close();
+  source.clear();
 });
 
 test('decoded frame coverage is half-open and retains sub-frame requests', () => {
