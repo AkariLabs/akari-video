@@ -20,6 +20,12 @@ import type {
   ResolvedTimelinePlan,
   TimelineSourceRegistry,
 } from '../../frame-engine/src/index.ts';
+import { buildWebAudioSchedule } from '../../edit-store/src/audio-schedule.ts';
+import type {
+  WebAudioDecodedItem,
+  WebAudioScheduleDeclaration,
+  WebAudioScheduledItem,
+} from '../../edit-store/src/audio-schedule.ts';
 
 interface PreviewOptions {
   edit: any;
@@ -63,6 +69,33 @@ interface DecodedFrameObservation {
   durationUs: number | null;
 }
 
+interface DecodedAudioItem extends WebAudioDecodedItem {
+  id: string;
+  kind: 'bgm' | 'sfx' | 'narration';
+  url: string;
+  buffer: AudioBuffer;
+}
+
+interface ActiveAudioSource {
+  source: AudioBufferSourceNode;
+  gains: GainNode[];
+}
+
+interface FrameEngineAudioDebug {
+  contextState: AudioContextState | 'unavailable';
+  renderedTimelineSec: number | null;
+  audioPositionSec: number | null;
+  driftMs: number | null;
+  playing: boolean;
+  scheduled: {
+    startAtSec: number | null;
+    itemCount: number;
+    bgm: number;
+    sfx: number;
+    narration: number;
+  };
+}
+
 function percentile(values: readonly number[], fraction = 0.5): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -73,6 +106,282 @@ function mediaUrl(value: unknown): string {
   const source = String(value ?? '');
   if (/^(https?:|blob:|\/)/u.test(source)) return source;
   return `/${source.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/')}`;
+}
+
+function audioDeclarations(edit: any): Array<{
+  kind: 'bgm' | 'sfx' | 'narration';
+  id: string;
+  url: string;
+  spec: WebAudioDecodedItem;
+}> {
+  const audio = edit?.audio;
+  if (!audio || typeof audio !== 'object') return [];
+  const declarations: Array<{
+    kind: 'bgm' | 'sfx' | 'narration';
+    id: string;
+    url: string;
+    spec: WebAudioDecodedItem;
+  }> = [];
+  const append = (kind: 'bgm' | 'sfx' | 'narration', raw: any, fallbackId: string) => {
+    if (!raw || typeof raw !== 'object') return;
+    const source = raw.src || raw.path;
+    if (typeof source !== 'string' || !source) return;
+    const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
+    declarations.push({ kind, id, url: mediaUrl(source), spec: { ...raw, id, durationSec: 0 } });
+  };
+  append('bgm', audio.bgm, 'bgm');
+  if (Array.isArray(audio.sfx)) {
+    audio.sfx.forEach((item: any, index: number) => append('sfx', item, `sfx-${index + 1}`));
+  }
+  if (Array.isArray(audio.narration)) {
+    audio.narration.forEach((item: any, index: number) => append('narration', item, `narration-${index + 1}`));
+  }
+  return declarations;
+}
+
+class FrameEngineAudioSupply {
+  private readonly declarations: ReturnType<typeof audioDeclarations>;
+  private readonly context: AudioContext | null;
+  private decoded: DecodedAudioItem[] = [];
+  private loadPromise: Promise<void> | null = null;
+  private active: ActiveAudioSource[] = [];
+  private generation = 0;
+  private starting = false;
+  private playing = false;
+  private anchorTimelineSec = 0;
+  private anchorContextSec = 0;
+  private latestRequestedSec = 0;
+  private pauseTimer: number | null = null;
+  private lastRenderedTimelineSec: number | null = null;
+  private lastAudioPositionAtRenderSec: number | null = null;
+  private lastSchedule: WebAudioScheduledItem[] = [];
+
+  constructor(edit: any, private readonly timelineDurationSec: number) {
+    this.declarations = audioDeclarations(edit);
+    if (this.declarations.length === 0) {
+      this.context = null;
+      return;
+    }
+    try {
+      const AudioContextConstructor = window.AudioContext || (window as any).webkitAudioContext;
+      this.context = AudioContextConstructor ? new AudioContextConstructor() : null;
+    } catch (error) {
+      console.warn('[frame-engine] Web Audio unavailable; keeping wall-clock playback', error);
+      this.context = null;
+    }
+  }
+
+  seek(seconds: number): void {
+    this.latestRequestedSec = this.clamp(seconds);
+    this.generation += 1;
+    this.starting = false;
+    this.playing = false;
+    this.stopSources();
+  }
+
+  playbackTime(fallbackSeconds: number): number {
+    this.latestRequestedSec = this.clamp(fallbackSeconds);
+    if (!this.context) return this.latestRequestedSec;
+    this.armPauseWatchdog();
+    if (!this.playing && !this.starting) void this.startFrom(this.latestRequestedSec);
+    return this.playing ? this.audioPosition() : this.latestRequestedSec;
+  }
+
+  noteRendered(seconds: number): void {
+    this.lastRenderedTimelineSec = this.clamp(seconds);
+    this.lastAudioPositionAtRenderSec = this.context && this.playing ? this.audioPosition() : null;
+  }
+
+  debug(): FrameEngineAudioDebug {
+    // CDP で観測窓を読むまでの通信時間をドリフトへ混ぜない。描画完了時に同時採取した
+    // AudioContext 位置と、同じ描画の timeline 秒を一組として返す。
+    const audioPositionSec = this.lastAudioPositionAtRenderSec;
+    const driftMs = audioPositionSec === null || this.lastRenderedTimelineSec === null
+      ? null : (this.lastRenderedTimelineSec - audioPositionSec) * 1000;
+    return {
+      contextState: this.context?.state ?? 'unavailable',
+      renderedTimelineSec: this.lastRenderedTimelineSec,
+      audioPositionSec,
+      driftMs,
+      playing: this.playing,
+      scheduled: {
+        startAtSec: this.lastSchedule.length > 0 ? this.anchorTimelineSec : null,
+        itemCount: this.lastSchedule.length,
+        bgm: this.lastSchedule.filter(item => item.kind === 'bgm').length,
+        sfx: this.lastSchedule.filter(item => item.kind === 'sfx').length,
+        narration: this.lastSchedule.filter(item => item.kind === 'narration').length,
+      },
+    };
+  }
+
+  dispose(): void {
+    this.generation += 1;
+    this.playing = false;
+    this.starting = false;
+    if (this.pauseTimer !== null) window.clearTimeout(this.pauseTimer);
+    this.pauseTimer = null;
+    this.stopSources();
+    void this.context?.close().catch(() => undefined);
+  }
+
+  private async startFrom(seconds: number): Promise<void> {
+    const context = this.context;
+    if (!context) return;
+    const generation = ++this.generation;
+    this.starting = true;
+    await this.load();
+    if (generation !== this.generation || this.decoded.length === 0) {
+      this.starting = false;
+      return;
+    }
+    try {
+      await context.resume();
+    } catch (error) {
+      console.warn('[frame-engine] AudioContext resume failed; keeping wall-clock playback', error);
+      this.starting = false;
+      return;
+    }
+    if (generation !== this.generation) {
+      this.starting = false;
+      return;
+    }
+    const startAtSec = this.clamp(this.latestRequestedSec || seconds);
+    const audio = this.scheduleDeclaration();
+    const schedule = buildWebAudioSchedule({
+      timelineDurationSec: this.timelineDurationSec,
+      startAtSec,
+      audio,
+    });
+    for (const warning of schedule.warnings) console.warn(`[frame-engine] audio: ${warning}`);
+    if (schedule.items.length === 0) {
+      this.starting = false;
+      return;
+    }
+    this.stopSources();
+    const contextStart = context.currentTime + 0.02;
+    this.anchorTimelineSec = schedule.startAtSec;
+    this.anchorContextSec = contextStart;
+    this.lastSchedule = schedule.items;
+    for (const item of schedule.items) this.startItem(item, contextStart);
+    this.playing = true;
+    this.starting = false;
+  }
+
+  private scheduleDeclaration(): WebAudioScheduleDeclaration {
+    const bgm = this.decoded.find(item => item.kind === 'bgm');
+    return {
+      ...(bgm ? { bgm } : {}),
+      sfx: this.decoded.filter(item => item.kind === 'sfx'),
+      narration: this.decoded.filter(item => item.kind === 'narration'),
+    };
+  }
+
+  private startItem(item: WebAudioScheduledItem, contextStart: number): void {
+    const context = this.context;
+    const decoded = this.decoded.find(candidate => candidate.id === item.id && candidate.kind === item.kind);
+    if (!context || !decoded) return;
+    try {
+      const source = context.createBufferSource();
+      const baseGain = context.createGain();
+      const gains = [baseGain];
+      source.buffer = decoded.buffer;
+      source.loop = item.loop;
+      source.connect(baseGain);
+      let tail: AudioNode = baseGain;
+      if (item.kind === 'bgm') {
+        const duckGain = context.createGain();
+        baseGain.connect(duckGain);
+        tail = duckGain;
+        gains.push(duckGain);
+        this.applyGainEvents(duckGain.gain, item.duckingEvents, contextStart + item.delaySec);
+      }
+      tail.connect(context.destination);
+      this.applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec);
+      source.start(contextStart + item.delaySec, item.sourceOffsetSec, item.durationSec);
+      const active = { source, gains };
+      this.active.push(active);
+      source.onended = () => {
+        this.active = this.active.filter(candidate => candidate !== active);
+        try { source.disconnect(); } catch {}
+        for (const gain of gains) try { gain.disconnect(); } catch {}
+      };
+    } catch (error) {
+      console.warn(`[frame-engine] ${item.kind} ${item.id} could not be scheduled`, error);
+    }
+  }
+
+  private applyGainEvents(param: AudioParam, events: WebAudioScheduledItem['gainEvents'], startTime: number): void {
+    if (events.length === 0) {
+      param.setValueAtTime(1, startTime);
+      return;
+    }
+    param.cancelScheduledValues(startTime);
+    for (const event of events) {
+      const at = startTime + event.offsetSec;
+      if (event.method === 'linear') param.linearRampToValueAtTime(event.value, at);
+      else param.setValueAtTime(event.value, at);
+    }
+  }
+
+  private load(): Promise<void> {
+    if (this.loadPromise) return this.loadPromise;
+    const context = this.context;
+    if (!context) return Promise.resolve();
+    this.loadPromise = Promise.all(this.declarations.map(async declaration => {
+      try {
+        const response = await fetch(declaration.url);
+        if (!response.ok) throw new Error(`fetch status=${response.status}`);
+        const buffer = await context.decodeAudioData(await response.arrayBuffer());
+        if (!(buffer.duration > 0)) throw new Error('decoded duration is invalid');
+        return {
+          ...declaration.spec,
+          id: declaration.id,
+          kind: declaration.kind,
+          url: declaration.url,
+          buffer,
+          durationSec: buffer.duration,
+        } as DecodedAudioItem;
+      } catch (error) {
+        console.warn(`[frame-engine] ${declaration.kind} ${declaration.id} unavailable; skipped`, error);
+        return null;
+      }
+    })).then(items => {
+      this.decoded = items.filter((item): item is DecodedAudioItem => item !== null);
+    });
+    return this.loadPromise;
+  }
+
+  private audioPosition(): number {
+    const context = this.context;
+    if (!context) return this.latestRequestedSec;
+    return this.clamp(this.anchorTimelineSec + Math.max(0, context.currentTime - this.anchorContextSec));
+  }
+
+  private armPauseWatchdog(): void {
+    if (this.pauseTimer !== null) window.clearTimeout(this.pauseTimer);
+    this.pauseTimer = window.setTimeout(() => {
+      if (this.playing) this.latestRequestedSec = this.audioPosition();
+      this.generation += 1;
+      this.playing = false;
+      this.starting = false;
+      this.stopSources();
+    }, 150);
+  }
+
+  private stopSources(): void {
+    const active = this.active;
+    this.active = [];
+    for (const item of active) {
+      item.source.onended = null;
+      try { item.source.stop(); } catch {}
+      try { item.source.disconnect(); } catch {}
+      for (const gain of item.gains) try { gain.disconnect(); } catch {}
+    }
+  }
+
+  private clamp(seconds: number): number {
+    return Math.max(0, Math.min(Number.isFinite(seconds) ? seconds : 0, this.timelineDurationSec));
+  }
 }
 
 function normalizedCuts(edit: any): FrameEngineCut[] {
@@ -133,7 +442,7 @@ function createUi(stage: HTMLElement): {
   const banner = document.createElement('div');
   banner.id = 'frame-engine-unsupported-banner';
   banner.setAttribute('role', 'status');
-  banner.textContent = 'Frame engine 評価台（cuts + layers + matte）— 未対応: overlays / 字幕 / 音声';
+  banner.textContent = 'Frame engine 評価台（cuts + layers + matte + 音声）— 未対応: overlays / 字幕';
   Object.assign(banner.style, {
     position: 'absolute', left: '8px', top: '8px', maxWidth: 'calc(100% - 270px)',
     padding: '5px 8px', border: '1px solid rgba(255,209,102,.65)', borderRadius: '4px',
@@ -180,6 +489,7 @@ class FrameEngineRuntime {
   private readonly warmup = new WarmupManager(1.5);
   private readonly scrub: ScrubController;
   private readonly output: EvaluationPlan['output'];
+  private readonly audio: FrameEngineAudioSupply;
   private readonly measurements: Measurements = {
     presentedAt: [], lateFrames: 0, seekLatestMs: null, seekBeforeMs: [], seekAfterMs: [],
     boundaryBefore: { total: 0, late: 0 }, boundaryAfter: { total: 0, late: 0 }, warmupMs: [],
@@ -251,6 +561,7 @@ class FrameEngineRuntime {
       layers: (Array.isArray(edit?.layers) ? edit.layers : []) as FrameEngineLayer[],
     });
     this.totalDuration = this.timeline.totalDuration;
+    this.audio = new FrameEngineAudioSupply(edit, this.totalDuration);
     this.segments = (this.timeline as any).cuts.map((placement: any, index: number) => ({
       index,
       isGap: false as const,
@@ -297,11 +608,14 @@ class FrameEngineRuntime {
   }
 
   seek(seconds: number): void {
-    this.scrub.requestScrub(Math.round(Math.max(0, Math.min(seconds, this.totalDuration)) * this.fps));
+    const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
+    this.audio.seek(clamped);
+    this.scrub.requestScrub(Math.round(clamped * this.fps));
   }
 
   renderPlayback(seconds: number): void {
-    const frameNumber = Math.round(seconds * this.fps);
+    const audioClockSeconds = this.audio.playbackTime(seconds);
+    const frameNumber = Math.round(audioClockSeconds * this.fps);
     if (frameNumber === this.lastPlaybackFrame) return;
     this.lastPlaybackFrame = frameNumber;
     if (this.rendering) {
@@ -321,9 +635,14 @@ class FrameEngineRuntime {
     return { totalDuration: this.totalDuration, segments: this.segments };
   }
 
+  audioDebug(): FrameEngineAudioDebug {
+    return this.audio.debug();
+  }
+
   dispose(): void {
     this.disposed = true;
     this.scrub.dispose();
+    this.audio.dispose();
     this.warmup.reset();
     for (const source of this.lookahead.values()) source.clear();
     for (const image of this.images.values()) image.destroy();
@@ -355,6 +674,7 @@ class FrameEngineRuntime {
     }
     const elapsed = performance.now() - started;
     this.lastRequestedTimeUs = timeUs;
+    this.audio.noteRendered(timeUs / 1e6);
     this.lastBaseFrame = this.currentDecodedFrames.find(observation =>
       plan.base.some(layer => layer.id === observation.streamId)) ?? null;
     const late = elapsed > 1000 / this.fps;
@@ -467,11 +787,12 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
   renderPlayback(seconds: number): void;
   rebuild(edit: any, timelineData: any, fps: number): Promise<void>;
   dispose(): void;
+  audioDebug(): FrameEngineAudioDebug;
 }> {
   const ui = createUi(options.stage);
   let runtime = new FrameEngineRuntime(ui, options.edit, options.timelineData, options.fps);
   await runtime.prime();
-  return {
+  const preview = {
     snapshot: () => runtime.snapshot(),
     seek: seconds => runtime.seek(seconds),
     renderPlayback: seconds => runtime.renderPlayback(seconds),
@@ -487,5 +808,8 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
       runtime.dispose();
       ui.root.remove();
     },
+    audioDebug: () => runtime.audioDebug(),
   };
+  (window as any).akariFrameEngineAudioDebug = () => runtime.audioDebug();
+  return preview;
 }
