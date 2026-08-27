@@ -9,7 +9,16 @@ import type {
   StillImageBitmap,
   UploadPath,
 } from '../types.js';
+import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
+import type { ParsedCubeLut } from '../look/cube.js';
 import { cornersToHomography, invertMat3 } from '../timeline/layer-visual.js';
+
+export const TRANSITION_BLUR_MAX_TAPS = 65;
+
+const TRANSITION_CODES = Object.freeze(Object.fromEntries([
+  ['hard-cut', 0],
+  ...TRANSITION_VOCABULARY.map((entry, index) => [entry.id, index + 1]),
+])) as Readonly<Record<'hard-cut' | (typeof TRANSITION_VOCABULARY)[number]['id'], number>>;
 
 function compileShader(
   gl: WebGL2RenderingContext,
@@ -242,34 +251,147 @@ vec4 sample1(vec2 p) {
   return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
 }
 vec3 overBlack(vec4 value) { return value.rgb * value.a; }
+vec3 A(vec2 p) { return overBlack(sample0(p)); }
+vec3 B(vec2 p) { return overBlack(sample1(p)); }
+vec2 texelOf(vec2 pixelIndex) { return (pixelIndex + 0.5) / outputSize; }
+float wrapPixel(float value, float size) {
+  float wrapped = mod(value, size);
+  return wrapped < 0.0 ? wrapped + size : wrapped;
+}
+vec3 mixFf(vec3 a, vec3 b, float P) { return a * P + b * (1.0 - P); }
+vec3 horizontalBlur(bool incoming, vec2 ip, int size) {
+  int taps = min(size, ${TRANSITION_BLUR_MAX_TAPS});
+  vec3 sum = vec3(0.0);
+  for (int i = 0; i < ${TRANSITION_BLUR_MAX_TAPS}; i++) {
+    if (i >= taps) break;
+    float sx = min(outputSize.x - 1.0,
+      ip.x + floor(float(i) * float(size) / float(taps)));
+    vec2 q = texelOf(vec2(sx, ip.y));
+    sum += incoming ? B(q) : A(q);
+  }
+  return sum / float(taps);
+}
 void main() {
   vec2 p = vec2(uv.x, 1.0 - uv.y);
-  vec4 outgoing = sample0(p);
+  vec2 ip = floor(p * outputSize);
   float amount = clamp(transitionProgress, 0.0, 1.0);
+  float P = 1.0 - amount;
   vec3 result;
-  if (transitionType == 0) {
-    result = overBlack(outgoing);
-  } else if (transitionType == 1) {
-    vec4 incoming = sample1(p);
-    result = mix(overBlack(outgoing), overBlack(incoming), amount);
-  } else if (transitionType == 2 || transitionType == 3) {
-    vec4 incoming = sample1(p);
-    vec3 plate = transitionType == 3 ? vec3(1.0) : vec3(0.0);
+  if (transitionType == ${TRANSITION_CODES['hard-cut']}) {
+    result = A(p);
+  } else if (transitionType == ${TRANSITION_CODES.dissolve} || transitionType == ${TRANSITION_CODES.fade}) {
+    result = mixFf(A(p), B(p), P);
+  } else if (transitionType == ${TRANSITION_CODES['fade-black']} || transitionType == ${TRANSITION_CODES['fade-white']}) {
+    vec3 plate = transitionType == ${TRANSITION_CODES['fade-white']} ? vec3(1.0) : vec3(0.0);
     result = amount < 0.5
-      ? mix(overBlack(outgoing), plate, amount * 2.0)
-      : mix(plate, overBlack(incoming), (amount - 0.5) * 2.0);
-  } else if (transitionType == 4) {
-    vec4 incoming = sample1(p);
-    result = p.y < amount
-      ? overBlack(incoming)
-      : overBlack(sample0(vec2(p.x, p.y - amount)));
-  } else if (transitionType == 5) {
-    vec4 incoming = sample1(p);
-    result = p.y > 1.0 - amount
-      ? overBlack(incoming)
-      : overBlack(sample0(vec2(p.x, p.y + amount)));
+      ? mix(A(p), plate, amount * 2.0)
+      : mix(plate, B(p), (amount - 0.5) * 2.0);
+  } else if (transitionType == ${TRANSITION_CODES['fade-grays']}) {
+    const float phase = 0.2;
+    vec3 a = A(p), b = B(p);
+    vec3 ga = vec3(dot(a, vec3(0.2126, 0.7152, 0.0722)));
+    vec3 gb = vec3(dot(b, vec3(0.2126, 0.7152, 0.0722)));
+    result = mixFf(
+      mixFf(a, ga, smoothstep(1.0 - phase, 1.0, P)),
+      mixFf(gb, b, smoothstep(phase, 1.0, P)), P);
+  } else if (transitionType == ${TRANSITION_CODES['wipe-left']}
+      || transitionType == ${TRANSITION_CODES['wipe-right']}
+      || transitionType == ${TRANSITION_CODES['wipe-up']}
+      || transitionType == ${TRANSITION_CODES['wipe-down']}) {
+    float z;
+    bool useA;
+    if (transitionType == ${TRANSITION_CODES['wipe-left']}) { z = trunc(P * outputSize.x); useA = ip.x <= z; }
+    else if (transitionType == ${TRANSITION_CODES['wipe-right']}) { z = trunc((1.0 - P) * outputSize.x); useA = ip.x > z; }
+    else if (transitionType == ${TRANSITION_CODES['wipe-up']}) { z = trunc(P * outputSize.y); useA = ip.y <= z; }
+    else { z = trunc((1.0 - P) * outputSize.y); useA = ip.y > z; }
+    result = useA ? A(p) : B(p);
+  } else if (transitionType == ${TRANSITION_CODES.radial}) {
+    float s = smoothstep(0.0, 1.0,
+      atan(ip.x - outputSize.x * 0.5, ip.y - outputSize.y * 0.5)
+      - (P - 0.5) * (3.141592653589793 * 2.5));
+    result = B(p) * s + A(p) * (1.0 - s);
+  } else if (transitionType == ${TRANSITION_CODES['slide-left']}
+      || transitionType == ${TRANSITION_CODES['slide-right']}
+      || transitionType == ${TRANSITION_CODES['slide-up']}
+      || transitionType == ${TRANSITION_CODES['slide-down']}
+      || transitionType == ${TRANSITION_CODES['cover-left']}
+      || transitionType == ${TRANSITION_CODES['cover-right']}
+      || transitionType == ${TRANSITION_CODES['cover-up']}
+      || transitionType == ${TRANSITION_CODES['cover-down']}
+      || transitionType == ${TRANSITION_CODES['reveal-left']}
+      || transitionType == ${TRANSITION_CODES['reveal-right']}
+      || transitionType == ${TRANSITION_CODES['reveal-up']}
+      || transitionType == ${TRANSITION_CODES['reveal-down']}) {
+    bool horizontal = transitionType == ${TRANSITION_CODES['slide-left']}
+      || transitionType == ${TRANSITION_CODES['slide-right']}
+      || transitionType == ${TRANSITION_CODES['cover-left']}
+      || transitionType == ${TRANSITION_CODES['cover-right']}
+      || transitionType == ${TRANSITION_CODES['reveal-left']}
+      || transitionType == ${TRANSITION_CODES['reveal-right']};
+    bool negative = transitionType == ${TRANSITION_CODES['slide-left']}
+      || transitionType == ${TRANSITION_CODES['slide-up']}
+      || transitionType == ${TRANSITION_CODES['cover-left']}
+      || transitionType == ${TRANSITION_CODES['cover-up']}
+      || transitionType == ${TRANSITION_CODES['reveal-left']}
+      || transitionType == ${TRANSITION_CODES['reveal-up']};
+    float extent = horizontal ? outputSize.x : outputSize.y;
+    float index = horizontal ? ip.x : ip.y;
+    float z = trunc((negative ? -P : P) * extent);
+    float shifted = z + index;
+    float wrapped = wrapPixel(shifted, extent);
+    bool inside = shifted >= 0.0 && shifted < extent;
+    vec2 moved = horizontal ? texelOf(vec2(wrapped, ip.y)) : texelOf(vec2(ip.x, wrapped));
+    bool slide = transitionType == ${TRANSITION_CODES['slide-left']}
+      || transitionType == ${TRANSITION_CODES['slide-right']}
+      || transitionType == ${TRANSITION_CODES['slide-up']}
+      || transitionType == ${TRANSITION_CODES['slide-down']};
+    bool cover = transitionType == ${TRANSITION_CODES['cover-left']}
+      || transitionType == ${TRANSITION_CODES['cover-right']}
+      || transitionType == ${TRANSITION_CODES['cover-up']}
+      || transitionType == ${TRANSITION_CODES['cover-down']};
+    if (slide) result = inside ? B(moved) : A(moved);
+    else if (cover) result = inside ? B(moved) : A(p);
+    else result = inside ? B(p) : A(moved);
+  } else if (transitionType == ${TRANSITION_CODES['circle-open']} || transitionType == ${TRANSITION_CODES['circle-close']}) {
+    float radius = length(outputSize * 0.5);
+    float pp = transitionType == ${TRANSITION_CODES['circle-open']} ? (P - 0.5) * 3.0 : (1.0 - P - 0.5) * 3.0;
+    float s = smoothstep(0.0, 1.0, length(ip - outputSize * 0.5) / radius + pp);
+    result = transitionType == ${TRANSITION_CODES['circle-open']}
+      ? A(p) * s + B(p) * (1.0 - s)
+      : B(p) * s + A(p) * (1.0 - s);
+  } else if (transitionType == ${TRANSITION_CODES['zoom-in']}) {
+    float zf = smoothstep(0.5, 1.0, P);
+    vec2 unit = vec2(
+      0.5 + (ip.x / outputSize.x - 0.5) * zf,
+      0.5 + (ip.y / outputSize.y - 0.5) * zf);
+    vec2 sourcePixel = ceil(unit * (outputSize - 1.0));
+    float s = smoothstep(0.0, 0.5, P);
+    result = A(texelOf(sourcePixel)) * s + B(p) * (1.0 - s);
+  } else if (transitionType == ${TRANSITION_CODES['squeeze-h']}) {
+    float zr = 0.5 + (ip.y / outputSize.y - 0.5) / max(P, 0.000001);
+    result = (P <= 0.0 || zr < 0.0 || zr > 1.0)
+      ? B(p) : A(texelOf(vec2(ip.x, floor(zr * (outputSize.y - 1.0) + 0.5))));
+  } else if (transitionType == ${TRANSITION_CODES['squeeze-v']}) {
+    float zc = 0.5 + (ip.x / outputSize.x - 0.5) / max(P, 0.000001);
+    result = (P <= 0.0 || zc < 0.0 || zc > 1.0)
+      ? B(p) : A(texelOf(vec2(floor(zc * (outputSize.x - 1.0) + 0.5), ip.y)));
+  } else if (transitionType == ${TRANSITION_CODES.blur}) {
+    float prog = P <= 0.5 ? P * 2.0 : (1.0 - P) * 2.0;
+    int size = 1 + int(trunc((outputSize.x * 0.5) * prog));
+    // xfade uses the complete causal box. The fixed tap cap keeps this one-pass GPU path bounded.
+    result = horizontalBlur(false, ip, size) * P + horizontalBlur(true, ip, size) * (1.0 - P);
+  } else if (transitionType == ${TRANSITION_CODES.pixelize}) {
+    float d = min(P, 1.0 - P);
+    float dist = ceil(d * 50.0) / 50.0;
+    float sq = 2.0 * dist * min(outputSize.x, outputSize.y) / 20.0;
+    float sx = dist > 0.0
+      ? min(trunc(floor(ip.x / sq) * sq + 0.5 * sq), outputSize.x - 1.0) : ip.x;
+    float sy = dist > 0.0
+      ? min(trunc(floor(ip.y / sq) * sq + 0.5 * sq), outputSize.y - 1.0) : ip.y;
+    vec2 q = texelOf(vec2(sx, sy));
+    result = A(q) * P + B(q) * (1.0 - P);
   } else {
-    result = overBlack(outgoing);
+    result = A(p);
   }
   color = vec4(result, 1.0);
 }`;
@@ -356,12 +478,31 @@ in vec2 uv;
 out vec4 color;
 uniform sampler2D source;
 void main() { color = texture(source, uv); }`;
+const LOOK_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp sampler3D;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D source;
+uniform sampler3D lut;
+uniform vec3 lutDomainMin;
+uniform vec3 lutDomainMax;
+uniform float lutSize;
+uniform float lutIntensity;
+void main() {
+  vec4 src = texture(source, uv);
+  vec3 unit = clamp((src.rgb - lutDomainMin) / (lutDomainMax - lutDomainMin), 0.0, 1.0);
+  vec3 coord = (unit * (lutSize - 1.0) + 0.5) / lutSize;
+  vec3 lutted = texture(lut, coord).rgb;
+  color = vec4(mix(src.rgb, lutted, lutIntensity), src.a);
+}`;
 
 const FBO_SCRATCH_UNIT = 9;
 const BASE_RGBA_UNITS = [6, 7] as const;
 const LAYER_RGBA_UNIT = 8;
 const MASK_RGBA_UNIT = 10;
-const REQUIRED_TEXTURE_UNITS = MASK_RGBA_UNIT + 1;
+const LUT_UNIT = 11;
+const REQUIRED_TEXTURE_UNITS = LUT_UNIT + 1;
 
 function isVideoFrame(value: NativeYuvFrame | StillImageBitmap | VideoFrame): value is VideoFrame {
   return 'displayWidth' in value && 'displayHeight' in value && 'close' in value;
@@ -375,6 +516,35 @@ function multiply(a: readonly number[], b: readonly number[]): number[] {
       a[r * 3]! * b[c]! + a[r * 3 + 1]! * b[c + 3]! + a[r * 3 + 2]! * b[c + 6]!
     );
   });
+}
+
+const HALF_FLOAT_BUFFER = new ArrayBuffer(4);
+const HALF_FLOAT_BITS = new Uint32Array(HALF_FLOAT_BUFFER);
+const HALF_FLOAT_VALUE = new Float32Array(HALF_FLOAT_BUFFER);
+
+function floatToHalf(value: number): number {
+  HALF_FLOAT_VALUE[0] = value;
+  const word = HALF_FLOAT_BITS[0]!;
+  const sign = (word >>> 16) & 0x8000;
+  const exponent = ((word >>> 23) & 0xff) - 127 + 15;
+  const mantissa = word & 0x7fffff;
+  if (exponent <= 0) {
+    if (exponent < -10) return sign;
+    return sign | ((mantissa | 0x800000) >>> (14 - exponent));
+  }
+  if (exponent >= 31) return sign | 0x7c00;
+  return sign | (exponent << 10) | (mantissa >>> 13);
+}
+
+function packLutRgba16f(lut: ParsedCubeLut): Uint16Array {
+  const output = new Uint16Array(lut.size ** 3 * 4);
+  for (let source = 0, target = 0; source < lut.data.length; source += 3, target += 4) {
+    output[target] = floatToHalf(lut.data[source]!);
+    output[target + 1] = floatToHalf(lut.data[source + 1]!);
+    output[target + 2] = floatToHalf(lut.data[source + 2]!);
+    output[target + 3] = floatToHalf(1);
+  }
+  return output;
 }
 
 // A layer starts in crop-local normalized coordinates (u,v) in [0,1]^2. Its forward map is
@@ -455,6 +625,7 @@ export class WebGL2Compositor implements CompositorBackend {
   private readonly baseProgram: WebGLProgram;
   private readonly layerProgram: WebGLProgram;
   private readonly copyProgram: WebGLProgram;
+  private readonly lookProgram: WebGLProgram;
   private readonly vertices: WebGLBuffer;
   private readonly baseTextures: WebGLTexture[];
   private readonly baseRgbaTextures: WebGLTexture[];
@@ -473,6 +644,8 @@ export class WebGL2Compositor implements CompositorBackend {
     WebGLTexture
   >();
   private readonly ownedImageTextures = new Set<WebGLTexture>();
+  private readonly lookTextures = new WeakMap<ParsedCubeLut, WebGLTexture>();
+  private readonly ownedLookTextures = new Set<WebGLTexture>();
   private disposed = false;
   private secondary = false;
   private directUploadDisabled = false;
@@ -499,6 +672,7 @@ export class WebGL2Compositor implements CompositorBackend {
     this.baseProgram = createProgram(gl, BASE_FRAGMENT);
     this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
     this.copyProgram = createProgram(gl, COPY_FRAGMENT);
+    this.lookProgram = createProgram(gl, LOOK_FRAGMENT);
     const vertices = gl.createBuffer();
     if (!vertices) throw new Error('WebGL2 could not allocate a vertex buffer');
     this.vertices = vertices;
@@ -512,6 +686,7 @@ export class WebGL2Compositor implements CompositorBackend {
       this.baseProgram,
       this.layerProgram,
       this.copyProgram,
+      this.lookProgram,
     ]) {
       gl.useProgram(program);
       const p = gl.getAttribLocation(program, 'position');
@@ -597,10 +772,47 @@ export class WebGL2Compositor implements CompositorBackend {
     this.bind(MASK_RGBA_UNIT, this.layerRgbaTextures[1]!);
     gl.useProgram(this.copyProgram);
     gl.uniform1i(uniform(gl, this.copyProgram, 'source'), 0);
+    gl.useProgram(this.lookProgram);
+    gl.uniform1i(uniform(gl, this.lookProgram, 'source'), 0);
+    gl.uniform1i(uniform(gl, this.lookProgram, 'lut'), LUT_UNIT);
   }
   private bind(unit: number, texture: WebGLTexture) {
     this.gl.activeTexture(this.gl.TEXTURE0 + unit);
     this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+  }
+  private bind3d(unit: number, texture: WebGLTexture) {
+    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+    this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
+  }
+
+  private lookTexture(lut: ParsedCubeLut): WebGLTexture {
+    const cached = this.lookTextures.get(lut);
+    if (cached) return cached;
+    const texture = this.gl.createTexture();
+    if (!texture) throw new Error('WebGL2 could not allocate a 3D LUT texture');
+    const gl = this.gl;
+    this.bind3d(LUT_UNIT, texture);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage3D(
+      gl.TEXTURE_3D,
+      0,
+      gl.RGBA16F,
+      lut.size,
+      lut.size,
+      lut.size,
+      0,
+      gl.RGBA,
+      gl.HALF_FLOAT,
+      packLutRgba16f(lut),
+    );
+    this.lookTextures.set(lut, texture);
+    this.ownedLookTextures.add(texture);
+    return texture;
   }
   get uploadPath(): UploadPath {
     return this.directUploadDisabled ? 'copyTo' : 'direct';
@@ -884,19 +1096,11 @@ export class WebGL2Compositor implements CompositorBackend {
     plan: EvaluationPlan,
     target: WebGLFramebuffer | null,
   ): void {
-    const transitionCodes = {
-      'hard-cut': 0,
-      dissolve: 1,
-      'fade-black': 2,
-      'fade-white': 3,
-      'reveal-down': 4,
-      'reveal-up': 5,
-    } as const;
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
     this.gl.useProgram(this.baseProgram);
     this.gl.uniform1i(
       this.transitionType,
-      transitionCodes[plan.transition?.type ?? 'hard-cut'],
+      TRANSITION_CODES[plan.transition?.type ?? 'hard-cut'],
     );
     this.gl.uniform1f(this.transitionProgress, plan.transition?.progress ?? 0);
   }
@@ -933,6 +1137,11 @@ export class WebGL2Compositor implements CompositorBackend {
 
     const gl = this.gl;
     gl.viewport(0, 0, output.width, output.height);
+    const look = output.look ?? null;
+    const lookIntensity = look
+      ? Math.max(0, Math.min(1, Number.isFinite(look.intensity) ? look.intensity : 1))
+      : 0;
+    const hasLook = look !== null && lookIntensity > 0;
     let uploadElapsedMs =
       base.length > 0 ? this.prepareBase(base, plan, output) : 0;
     let shaderElapsedMs = 0;
@@ -956,9 +1165,10 @@ export class WebGL2Compositor implements CompositorBackend {
 
     // The no-layers path deliberately keeps the original direct-to-default-framebuffer draw.
     // Avoiding an FBO here structurally preserves the existing 28 golden frames byte-for-byte.
-    if (layers.length === 0) {
+    if (layers.length === 0 && !hasLook) {
       this.configureBaseDraw(plan, null);
       draw();
+      this.recordGlErrors(synchronization);
       metrics.record('upload', uploadElapsedMs);
       this.finishFrame(
         metrics,
@@ -980,6 +1190,7 @@ export class WebGL2Compositor implements CompositorBackend {
     if (base.length > 0) {
       this.configureBaseDraw(plan, this.fbos[0]!);
       draw();
+      this.recordGlErrors(synchronization);
     } else {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]!);
       gl.clearColor(0, 0, 0, 1);
@@ -1096,12 +1307,24 @@ export class WebGL2Compositor implements CompositorBackend {
       current = next;
     }
 
-    // Copy the final ping-pong texture to the visible/default framebuffer without resampling.
+    // Copy, or apply the optional final 3D LUT, to the visible/default framebuffer.
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.useProgram(this.copyProgram);
     this.bind(0, this.fboTextures[current]!);
+    if (hasLook && look) {
+      gl.useProgram(this.lookProgram);
+      this.bind3d(LUT_UNIT, this.lookTexture(look.lut));
+      gl.uniform3fv(uniform(gl, this.lookProgram, 'lutDomainMin'), look.lut.domainMin);
+      gl.uniform3fv(uniform(gl, this.lookProgram, 'lutDomainMax'), look.lut.domainMax);
+      gl.uniform1f(uniform(gl, this.lookProgram, 'lutSize'), look.lut.size);
+      gl.uniform1f(uniform(gl, this.lookProgram, 'lutIntensity'), lookIntensity);
+    } else {
+      gl.useProgram(this.copyProgram);
+    }
     draw();
     this.recordGlErrors(synchronization);
+    // Unit 0 is also baseProgram.y0. Do not leave an FBO attachment there: the next direct-upload
+    // frame does not touch unit 0 before drawing its base into fbos[0].
+    this.bind(0, this.baseTextures[0]!);
     metrics.record('upload', uploadElapsedMs);
     this.finishFrame(metrics, shaderElapsedMs, synchronization, timer, queries);
     return new WebGLSurface(
@@ -1159,6 +1382,7 @@ export class WebGL2Compositor implements CompositorBackend {
       ...this.layerRgbaTextures,
       ...this.fboTextures,
       ...this.ownedImageTextures,
+      ...this.ownedLookTextures,
     ])
       this.gl.deleteTexture(t);
     for (const f of this.fbos) this.gl.deleteFramebuffer(f);
@@ -1166,5 +1390,6 @@ export class WebGL2Compositor implements CompositorBackend {
     this.gl.deleteProgram(this.baseProgram);
     this.gl.deleteProgram(this.layerProgram);
     this.gl.deleteProgram(this.copyProgram);
+    this.gl.deleteProgram(this.lookProgram);
   }
 }

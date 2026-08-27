@@ -1,0 +1,6 @@
+{
+  "cuts": [
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 4 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 4, "out": 8 }
+  ]
+}

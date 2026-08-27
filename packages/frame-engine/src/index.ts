@@ -16,6 +16,7 @@ export * from './cache/warmup-manager.js';
 export * from './cache/scrub-controller.js';
 export * from './metrics/collector.js';
 export * from './metrics/frame-diff.js';
+export * from './look/cube.js';
 export * from './exits/present.js';
 export * from './exits/readback.js';
 export * from './exits/webcodecs.js';

@@ -6,11 +6,12 @@ import test from 'node:test';
 const root = path.resolve(import.meta.dirname, '..');
 
 test('frame engine is a query-gated dynamic bundle with no unconditional index DOM', async () => {
-  const [app, html, packageJson, bundle] = await Promise.all([
+  const [app, html, packageJson, bundle, source] = await Promise.all([
     readFile(path.join(root, 'public/app.js'), 'utf8'),
     readFile(path.join(root, 'public/index.html'), 'utf8'),
     readFile(path.join(root, 'package.json'), 'utf8'),
     readFile(path.join(root, 'public/frame-engine.bundle.js'), 'utf8'),
+    readFile(path.join(root, 'src/frame-engine-client.ts'), 'utf8'),
   ]);
   assert.match(app, /get\('frameEngine'\) === '1'/u);
   assert.match(app, /await import\('\/frame-engine\.bundle\.js'\)/u);
@@ -20,4 +21,8 @@ test('frame engine is a query-gated dynamic bundle with no unconditional index D
   assert.match(bundle, /WarmupManager = class/u);
   assert.match(bundle, /LookaheadFrameSource = class/u);
   assert.match(bundle, /async function evaluateFrame/u);
+  assert.match(bundle, /uniform sampler3D lut/u);
+  assert.match(source, /edit\?\.videoFx\?\.look/u);
+  assert.match(source, /lut: parseCube\(projectedLook\.cubeText\)/u);
+  assert.match(source, /Math\.max\(0, Math\.min\(1/u);
 });

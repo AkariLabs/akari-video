@@ -6,6 +6,7 @@ import {
   evaluateFrame,
   FrameMetrics,
   LookaheadFrameSource,
+  parseCube,
   ScrubController,
   WarmupManager,
   WebGL2Compositor,
@@ -233,10 +234,18 @@ class FrameEngineRuntime {
       durationSec: placement.end - placement.at,
     }));
     const size = edit?.output ?? {};
+    const projectedLook = edit?.videoFx?.look;
+    const intensity = Number(projectedLook?.intensity ?? 1);
     this.output = {
       width: Number(size.width) > 0 ? Number(size.width) : 1280,
       height: Number(size.height) > 0 ? Number(size.height) : 720,
       colorSpace: 'bt709-limited',
+      look: typeof projectedLook?.cubeText === 'string'
+        ? {
+            lut: parseCube(projectedLook.cubeText),
+            intensity: Math.max(0, Math.min(1, Number.isFinite(intensity) ? intensity : 1)),
+          }
+        : null,
     };
     this.scrub = new ScrubController(Math.min(24, 1000 / fps), async (frameNumber, generation) => {
       const started = performance.now();

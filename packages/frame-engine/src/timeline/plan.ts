@@ -6,6 +6,7 @@ import {
   outputToSource,
   transitionProgressAt
 } from '@akari-video/edit-store';
+import { isTransitionType } from '@akari-video/edit-store';
 import type { EditCut, TimelineMapResult, TimelineSegment } from '@akari-video/edit-store';
 import type {
   EvaluationPlan,
@@ -372,7 +373,7 @@ export function evaluationPlanFromResolvedTimeline(
     const outgoingIndex = window.outgoing.cutIndex;
     const incomingIndex = window.incoming.cutIndex;
     if (outgoingIndex == null || incomingIndex == null) throw new Error('transition has no source cuts');
-    if (!['dissolve', 'fade-black', 'fade-white', 'reveal-down', 'reveal-up'].includes(window.type)) {
+    if (!isTransitionType(window.type)) {
       throw new Error(`unsupported transition type: ${window.type}`);
     }
     return {
@@ -383,7 +384,7 @@ export function evaluationPlanFromResolvedTimeline(
       ],
       layers: resolvedCompositeLayers(timeline, timeUs, sources),
       transition: {
-        type: window.type as 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up',
+        type: window.type,
         progress: transitionProgressAt(window, outputSeconds)
       },
       output

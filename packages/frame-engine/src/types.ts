@@ -1,3 +1,6 @@
+import type { TransitionType } from '@akari-video/edit-store';
+import type { ParsedCubeLut } from './look/cube.js';
+
 export type TimelineTimeUs = number;
 export type NativeVideoFormat = 'NV12' | 'I420';
 export type UploadPath = 'direct' | 'copyTo';
@@ -120,8 +123,13 @@ export interface ResolvedCompositeLayer {
 }
 
 export interface ResolvedTransition {
-  type: 'hard-cut' | 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
+  type: 'hard-cut' | TransitionType;
   progress: number;
+}
+
+export interface ResolvedLook {
+  lut: ParsedCubeLut;
+  intensity: number;
 }
 
 export interface EvaluationPlan {
@@ -133,6 +141,7 @@ export interface EvaluationPlan {
     width: number;
     height: number;
     colorSpace: 'bt709-limited';
+    look?: ResolvedLook | null;
   };
 }
 

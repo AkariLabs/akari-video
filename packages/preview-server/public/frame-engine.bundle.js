@@ -30,7 +30,7 @@ var require_transition_vocabulary = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.TRANSITION_BY_ID = exports.TRANSITION_CATEGORIES = exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY = void 0;
-    exports.isTransitionType = isTransitionType;
+    exports.isTransitionType = isTransitionType2;
     exports.TRANSITION_VOCABULARY = [
       { id: "dissolve", xfadeName: "dissolve", labelJa: "\u30C7\u30A3\u30BE\u30EB\u30D6", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "dissolve", glyph: "D" },
       { id: "fade", xfadeName: "fade", labelJa: "\u30AF\u30ED\u30B9\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade", glyph: "F" },
@@ -65,7 +65,7 @@ var require_transition_vocabulary = __commonJS({
     exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY.map((entry) => entry.id);
     exports.TRANSITION_CATEGORIES = [...new Set(exports.TRANSITION_VOCABULARY.map((entry) => entry.category))];
     exports.TRANSITION_BY_ID = Object.fromEntries(exports.TRANSITION_VOCABULARY.map((entry) => [entry.id, entry]));
-    function isTransitionType(value) {
+    function isTransitionType2(value) {
       return typeof value === "string" && Object.prototype.hasOwnProperty.call(exports.TRANSITION_BY_ID, value);
     }
   }
@@ -12721,6 +12721,9 @@ async function copyNativeYuvFrame(frame, metrics) {
   return output;
 }
 
+// ../frame-engine/src/compositor/webgl2.ts
+var import_edit_store = __toESM(require_lib(), 1);
+
 // ../frame-engine/src/timeline/layer-visual.ts
 function finite(value) {
   return typeof value === "number" && Number.isFinite(value);
@@ -12855,6 +12858,11 @@ function invertMat3(matrix) {
 }
 
 // ../frame-engine/src/compositor/webgl2.ts
+var TRANSITION_BLUR_MAX_TAPS = 65;
+var TRANSITION_CODES = Object.freeze(Object.fromEntries([
+  ["hard-cut", 0],
+  ...import_edit_store.TRANSITION_VOCABULARY.map((entry, index) => [entry.id, index + 1])
+]));
 function compileShader(gl, type, source) {
   const shader = gl.createShader(type);
   if (!shader) throw new Error("WebGL2 could not allocate a shader");
@@ -13043,34 +13051,147 @@ vec4 sample1(vec2 p) {
   return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
 }
 vec3 overBlack(vec4 value) { return value.rgb * value.a; }
+vec3 A(vec2 p) { return overBlack(sample0(p)); }
+vec3 B(vec2 p) { return overBlack(sample1(p)); }
+vec2 texelOf(vec2 pixelIndex) { return (pixelIndex + 0.5) / outputSize; }
+float wrapPixel(float value, float size) {
+  float wrapped = mod(value, size);
+  return wrapped < 0.0 ? wrapped + size : wrapped;
+}
+vec3 mixFf(vec3 a, vec3 b, float P) { return a * P + b * (1.0 - P); }
+vec3 horizontalBlur(bool incoming, vec2 ip, int size) {
+  int taps = min(size, ${TRANSITION_BLUR_MAX_TAPS});
+  vec3 sum = vec3(0.0);
+  for (int i = 0; i < ${TRANSITION_BLUR_MAX_TAPS}; i++) {
+    if (i >= taps) break;
+    float sx = min(outputSize.x - 1.0,
+      ip.x + floor(float(i) * float(size) / float(taps)));
+    vec2 q = texelOf(vec2(sx, ip.y));
+    sum += incoming ? B(q) : A(q);
+  }
+  return sum / float(taps);
+}
 void main() {
   vec2 p = vec2(uv.x, 1.0 - uv.y);
-  vec4 outgoing = sample0(p);
+  vec2 ip = floor(p * outputSize);
   float amount = clamp(transitionProgress, 0.0, 1.0);
+  float P = 1.0 - amount;
   vec3 result;
-  if (transitionType == 0) {
-    result = overBlack(outgoing);
-  } else if (transitionType == 1) {
-    vec4 incoming = sample1(p);
-    result = mix(overBlack(outgoing), overBlack(incoming), amount);
-  } else if (transitionType == 2 || transitionType == 3) {
-    vec4 incoming = sample1(p);
-    vec3 plate = transitionType == 3 ? vec3(1.0) : vec3(0.0);
+  if (transitionType == ${TRANSITION_CODES["hard-cut"]}) {
+    result = A(p);
+  } else if (transitionType == ${TRANSITION_CODES.dissolve} || transitionType == ${TRANSITION_CODES.fade}) {
+    result = mixFf(A(p), B(p), P);
+  } else if (transitionType == ${TRANSITION_CODES["fade-black"]} || transitionType == ${TRANSITION_CODES["fade-white"]}) {
+    vec3 plate = transitionType == ${TRANSITION_CODES["fade-white"]} ? vec3(1.0) : vec3(0.0);
     result = amount < 0.5
-      ? mix(overBlack(outgoing), plate, amount * 2.0)
-      : mix(plate, overBlack(incoming), (amount - 0.5) * 2.0);
-  } else if (transitionType == 4) {
-    vec4 incoming = sample1(p);
-    result = p.y < amount
-      ? overBlack(incoming)
-      : overBlack(sample0(vec2(p.x, p.y - amount)));
-  } else if (transitionType == 5) {
-    vec4 incoming = sample1(p);
-    result = p.y > 1.0 - amount
-      ? overBlack(incoming)
-      : overBlack(sample0(vec2(p.x, p.y + amount)));
+      ? mix(A(p), plate, amount * 2.0)
+      : mix(plate, B(p), (amount - 0.5) * 2.0);
+  } else if (transitionType == ${TRANSITION_CODES["fade-grays"]}) {
+    const float phase = 0.2;
+    vec3 a = A(p), b = B(p);
+    vec3 ga = vec3(dot(a, vec3(0.2126, 0.7152, 0.0722)));
+    vec3 gb = vec3(dot(b, vec3(0.2126, 0.7152, 0.0722)));
+    result = mixFf(
+      mixFf(a, ga, smoothstep(1.0 - phase, 1.0, P)),
+      mixFf(gb, b, smoothstep(phase, 1.0, P)), P);
+  } else if (transitionType == ${TRANSITION_CODES["wipe-left"]}
+      || transitionType == ${TRANSITION_CODES["wipe-right"]}
+      || transitionType == ${TRANSITION_CODES["wipe-up"]}
+      || transitionType == ${TRANSITION_CODES["wipe-down"]}) {
+    float z;
+    bool useA;
+    if (transitionType == ${TRANSITION_CODES["wipe-left"]}) { z = trunc(P * outputSize.x); useA = ip.x <= z; }
+    else if (transitionType == ${TRANSITION_CODES["wipe-right"]}) { z = trunc((1.0 - P) * outputSize.x); useA = ip.x > z; }
+    else if (transitionType == ${TRANSITION_CODES["wipe-up"]}) { z = trunc(P * outputSize.y); useA = ip.y <= z; }
+    else { z = trunc((1.0 - P) * outputSize.y); useA = ip.y > z; }
+    result = useA ? A(p) : B(p);
+  } else if (transitionType == ${TRANSITION_CODES.radial}) {
+    float s = smoothstep(0.0, 1.0,
+      atan(ip.x - outputSize.x * 0.5, ip.y - outputSize.y * 0.5)
+      - (P - 0.5) * (3.141592653589793 * 2.5));
+    result = B(p) * s + A(p) * (1.0 - s);
+  } else if (transitionType == ${TRANSITION_CODES["slide-left"]}
+      || transitionType == ${TRANSITION_CODES["slide-right"]}
+      || transitionType == ${TRANSITION_CODES["slide-up"]}
+      || transitionType == ${TRANSITION_CODES["slide-down"]}
+      || transitionType == ${TRANSITION_CODES["cover-left"]}
+      || transitionType == ${TRANSITION_CODES["cover-right"]}
+      || transitionType == ${TRANSITION_CODES["cover-up"]}
+      || transitionType == ${TRANSITION_CODES["cover-down"]}
+      || transitionType == ${TRANSITION_CODES["reveal-left"]}
+      || transitionType == ${TRANSITION_CODES["reveal-right"]}
+      || transitionType == ${TRANSITION_CODES["reveal-up"]}
+      || transitionType == ${TRANSITION_CODES["reveal-down"]}) {
+    bool horizontal = transitionType == ${TRANSITION_CODES["slide-left"]}
+      || transitionType == ${TRANSITION_CODES["slide-right"]}
+      || transitionType == ${TRANSITION_CODES["cover-left"]}
+      || transitionType == ${TRANSITION_CODES["cover-right"]}
+      || transitionType == ${TRANSITION_CODES["reveal-left"]}
+      || transitionType == ${TRANSITION_CODES["reveal-right"]};
+    bool negative = transitionType == ${TRANSITION_CODES["slide-left"]}
+      || transitionType == ${TRANSITION_CODES["slide-up"]}
+      || transitionType == ${TRANSITION_CODES["cover-left"]}
+      || transitionType == ${TRANSITION_CODES["cover-up"]}
+      || transitionType == ${TRANSITION_CODES["reveal-left"]}
+      || transitionType == ${TRANSITION_CODES["reveal-up"]};
+    float extent = horizontal ? outputSize.x : outputSize.y;
+    float index = horizontal ? ip.x : ip.y;
+    float z = trunc((negative ? -P : P) * extent);
+    float shifted = z + index;
+    float wrapped = wrapPixel(shifted, extent);
+    bool inside = shifted >= 0.0 && shifted < extent;
+    vec2 moved = horizontal ? texelOf(vec2(wrapped, ip.y)) : texelOf(vec2(ip.x, wrapped));
+    bool slide = transitionType == ${TRANSITION_CODES["slide-left"]}
+      || transitionType == ${TRANSITION_CODES["slide-right"]}
+      || transitionType == ${TRANSITION_CODES["slide-up"]}
+      || transitionType == ${TRANSITION_CODES["slide-down"]};
+    bool cover = transitionType == ${TRANSITION_CODES["cover-left"]}
+      || transitionType == ${TRANSITION_CODES["cover-right"]}
+      || transitionType == ${TRANSITION_CODES["cover-up"]}
+      || transitionType == ${TRANSITION_CODES["cover-down"]};
+    if (slide) result = inside ? B(moved) : A(moved);
+    else if (cover) result = inside ? B(moved) : A(p);
+    else result = inside ? B(p) : A(moved);
+  } else if (transitionType == ${TRANSITION_CODES["circle-open"]} || transitionType == ${TRANSITION_CODES["circle-close"]}) {
+    float radius = length(outputSize * 0.5);
+    float pp = transitionType == ${TRANSITION_CODES["circle-open"]} ? (P - 0.5) * 3.0 : (1.0 - P - 0.5) * 3.0;
+    float s = smoothstep(0.0, 1.0, length(ip - outputSize * 0.5) / radius + pp);
+    result = transitionType == ${TRANSITION_CODES["circle-open"]}
+      ? A(p) * s + B(p) * (1.0 - s)
+      : B(p) * s + A(p) * (1.0 - s);
+  } else if (transitionType == ${TRANSITION_CODES["zoom-in"]}) {
+    float zf = smoothstep(0.5, 1.0, P);
+    vec2 unit = vec2(
+      0.5 + (ip.x / outputSize.x - 0.5) * zf,
+      0.5 + (ip.y / outputSize.y - 0.5) * zf);
+    vec2 sourcePixel = ceil(unit * (outputSize - 1.0));
+    float s = smoothstep(0.0, 0.5, P);
+    result = A(texelOf(sourcePixel)) * s + B(p) * (1.0 - s);
+  } else if (transitionType == ${TRANSITION_CODES["squeeze-h"]}) {
+    float zr = 0.5 + (ip.y / outputSize.y - 0.5) / max(P, 0.000001);
+    result = (P <= 0.0 || zr < 0.0 || zr > 1.0)
+      ? B(p) : A(texelOf(vec2(ip.x, floor(zr * (outputSize.y - 1.0) + 0.5))));
+  } else if (transitionType == ${TRANSITION_CODES["squeeze-v"]}) {
+    float zc = 0.5 + (ip.x / outputSize.x - 0.5) / max(P, 0.000001);
+    result = (P <= 0.0 || zc < 0.0 || zc > 1.0)
+      ? B(p) : A(texelOf(vec2(floor(zc * (outputSize.x - 1.0) + 0.5), ip.y)));
+  } else if (transitionType == ${TRANSITION_CODES.blur}) {
+    float prog = P <= 0.5 ? P * 2.0 : (1.0 - P) * 2.0;
+    int size = 1 + int(trunc((outputSize.x * 0.5) * prog));
+    // xfade uses the complete causal box. The fixed tap cap keeps this one-pass GPU path bounded.
+    result = horizontalBlur(false, ip, size) * P + horizontalBlur(true, ip, size) * (1.0 - P);
+  } else if (transitionType == ${TRANSITION_CODES.pixelize}) {
+    float d = min(P, 1.0 - P);
+    float dist = ceil(d * 50.0) / 50.0;
+    float sq = 2.0 * dist * min(outputSize.x, outputSize.y) / 20.0;
+    float sx = dist > 0.0
+      ? min(trunc(floor(ip.x / sq) * sq + 0.5 * sq), outputSize.x - 1.0) : ip.x;
+    float sy = dist > 0.0
+      ? min(trunc(floor(ip.y / sq) * sq + 0.5 * sq), outputSize.y - 1.0) : ip.y;
+    vec2 q = texelOf(vec2(sx, sy));
+    result = A(q) * P + B(q) * (1.0 - P);
   } else {
-    result = overBlack(outgoing);
+    result = A(p);
   }
   color = vec4(result, 1.0);
 }`;
@@ -13153,11 +13274,30 @@ in vec2 uv;
 out vec4 color;
 uniform sampler2D source;
 void main() { color = texture(source, uv); }`;
+var LOOK_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp sampler3D;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D source;
+uniform sampler3D lut;
+uniform vec3 lutDomainMin;
+uniform vec3 lutDomainMax;
+uniform float lutSize;
+uniform float lutIntensity;
+void main() {
+  vec4 src = texture(source, uv);
+  vec3 unit = clamp((src.rgb - lutDomainMin) / (lutDomainMax - lutDomainMin), 0.0, 1.0);
+  vec3 coord = (unit * (lutSize - 1.0) + 0.5) / lutSize;
+  vec3 lutted = texture(lut, coord).rgb;
+  color = vec4(mix(src.rgb, lutted, lutIntensity), src.a);
+}`;
 var FBO_SCRATCH_UNIT = 9;
 var BASE_RGBA_UNITS = [6, 7];
 var LAYER_RGBA_UNIT = 8;
 var MASK_RGBA_UNIT = 10;
-var REQUIRED_TEXTURE_UNITS = MASK_RGBA_UNIT + 1;
+var LUT_UNIT = 11;
+var REQUIRED_TEXTURE_UNITS = LUT_UNIT + 1;
 function isVideoFrame(value) {
   return "displayWidth" in value && "displayHeight" in value && "close" in value;
 }
@@ -13166,6 +13306,32 @@ function multiply(a, b) {
     const r = Math.floor(k2 / 3), c = k2 % 3;
     return a[r * 3] * b[c] + a[r * 3 + 1] * b[c + 3] + a[r * 3 + 2] * b[c + 6];
   });
+}
+var HALF_FLOAT_BUFFER = new ArrayBuffer(4);
+var HALF_FLOAT_BITS = new Uint32Array(HALF_FLOAT_BUFFER);
+var HALF_FLOAT_VALUE = new Float32Array(HALF_FLOAT_BUFFER);
+function floatToHalf(value) {
+  HALF_FLOAT_VALUE[0] = value;
+  const word = HALF_FLOAT_BITS[0];
+  const sign = word >>> 16 & 32768;
+  const exponent = (word >>> 23 & 255) - 127 + 15;
+  const mantissa = word & 8388607;
+  if (exponent <= 0) {
+    if (exponent < -10) return sign;
+    return sign | (mantissa | 8388608) >>> 14 - exponent;
+  }
+  if (exponent >= 31) return sign | 31744;
+  return sign | exponent << 10 | mantissa >>> 13;
+}
+function packLutRgba16f(lut) {
+  const output = new Uint16Array(lut.size ** 3 * 4);
+  for (let source = 0, target = 0; source < lut.data.length; source += 3, target += 4) {
+    output[target] = floatToHalf(lut.data[source]);
+    output[target + 1] = floatToHalf(lut.data[source + 1]);
+    output[target + 2] = floatToHalf(lut.data[source + 2]);
+    output[target + 3] = floatToHalf(1);
+  }
+  return output;
 }
 function forwardInverse(visual, srcW, srcH, outW, outH) {
   const h = visual.perspective ? cornersToHomography(visual.perspective.corners) : [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -13215,6 +13381,7 @@ var WebGL2Compositor = class {
     this.baseProgram = createProgram(gl, BASE_FRAGMENT);
     this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
     this.copyProgram = createProgram(gl, COPY_FRAGMENT);
+    this.lookProgram = createProgram(gl, LOOK_FRAGMENT);
     const vertices = gl.createBuffer();
     if (!vertices) throw new Error("WebGL2 could not allocate a vertex buffer");
     this.vertices = vertices;
@@ -13227,7 +13394,8 @@ var WebGL2Compositor = class {
     for (const program of [
       this.baseProgram,
       this.layerProgram,
-      this.copyProgram
+      this.copyProgram,
+      this.lookProgram
     ]) {
       gl.useProgram(program);
       const p2 = gl.getAttribLocation(program, "position");
@@ -13313,6 +13481,9 @@ var WebGL2Compositor = class {
     this.bind(MASK_RGBA_UNIT, this.layerRgbaTextures[1]);
     gl.useProgram(this.copyProgram);
     gl.uniform1i(uniform(gl, this.copyProgram, "source"), 0);
+    gl.useProgram(this.lookProgram);
+    gl.uniform1i(uniform(gl, this.lookProgram, "source"), 0);
+    gl.uniform1i(uniform(gl, this.lookProgram, "lut"), LUT_UNIT);
   }
   kind = "webgl2";
   canvas;
@@ -13327,6 +13498,7 @@ var WebGL2Compositor = class {
   baseProgram;
   layerProgram;
   copyProgram;
+  lookProgram;
   vertices;
   baseTextures;
   baseRgbaTextures;
@@ -13342,12 +13514,47 @@ var WebGL2Compositor = class {
   fboShape = "";
   imageTextures = /* @__PURE__ */ new WeakMap();
   ownedImageTextures = /* @__PURE__ */ new Set();
+  lookTextures = /* @__PURE__ */ new WeakMap();
+  ownedLookTextures = /* @__PURE__ */ new Set();
   disposed = false;
   secondary = false;
   directUploadDisabled = false;
   bind(unit, texture) {
     this.gl.activeTexture(this.gl.TEXTURE0 + unit);
     this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+  }
+  bind3d(unit, texture) {
+    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+    this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
+  }
+  lookTexture(lut) {
+    const cached = this.lookTextures.get(lut);
+    if (cached) return cached;
+    const texture = this.gl.createTexture();
+    if (!texture) throw new Error("WebGL2 could not allocate a 3D LUT texture");
+    const gl = this.gl;
+    this.bind3d(LUT_UNIT, texture);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage3D(
+      gl.TEXTURE_3D,
+      0,
+      gl.RGBA16F,
+      lut.size,
+      lut.size,
+      lut.size,
+      0,
+      gl.RGBA,
+      gl.HALF_FLOAT,
+      packLutRgba16f(lut)
+    );
+    this.lookTextures.set(lut, texture);
+    this.ownedLookTextures.add(texture);
+    return texture;
   }
   get uploadPath() {
     return this.directUploadDisabled ? "copyTo" : "direct";
@@ -13598,19 +13805,11 @@ var WebGL2Compositor = class {
     return elapsed;
   }
   configureBaseDraw(plan, target) {
-    const transitionCodes = {
-      "hard-cut": 0,
-      dissolve: 1,
-      "fade-black": 2,
-      "fade-white": 3,
-      "reveal-down": 4,
-      "reveal-up": 5
-    };
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
     this.gl.useProgram(this.baseProgram);
     this.gl.uniform1i(
       this.transitionType,
-      transitionCodes[plan.transition?.type ?? "hard-cut"]
+      TRANSITION_CODES[plan.transition?.type ?? "hard-cut"]
     );
     this.gl.uniform1f(this.transitionProgress, plan.transition?.progress ?? 0);
   }
@@ -13635,6 +13834,9 @@ var WebGL2Compositor = class {
       this.canvas.height = output.height;
     const gl = this.gl;
     gl.viewport(0, 0, output.width, output.height);
+    const look = output.look ?? null;
+    const lookIntensity = look ? Math.max(0, Math.min(1, Number.isFinite(look.intensity) ? look.intensity : 1)) : 0;
+    const hasLook = look !== null && lookIntensity > 0;
     let uploadElapsedMs = base.length > 0 ? this.prepareBase(base, plan, output) : 0;
     let shaderElapsedMs = 0;
     const synchronization = this.options.synchronization ?? "finish";
@@ -13651,9 +13853,10 @@ var WebGL2Compositor = class {
         queries.push(query);
       }
     };
-    if (layers.length === 0) {
+    if (layers.length === 0 && !hasLook) {
       this.configureBaseDraw(plan, null);
       draw();
+      this.recordGlErrors(synchronization);
       metrics.record("upload", uploadElapsedMs);
       this.finishFrame(
         metrics,
@@ -13674,6 +13877,7 @@ var WebGL2Compositor = class {
     if (base.length > 0) {
       this.configureBaseDraw(plan, this.fbos[0]);
       draw();
+      this.recordGlErrors(synchronization);
     } else {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]);
       gl.clearColor(0, 0, 0, 1);
@@ -13785,10 +13989,20 @@ var WebGL2Compositor = class {
       current = next;
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.useProgram(this.copyProgram);
     this.bind(0, this.fboTextures[current]);
+    if (hasLook && look) {
+      gl.useProgram(this.lookProgram);
+      this.bind3d(LUT_UNIT, this.lookTexture(look.lut));
+      gl.uniform3fv(uniform(gl, this.lookProgram, "lutDomainMin"), look.lut.domainMin);
+      gl.uniform3fv(uniform(gl, this.lookProgram, "lutDomainMax"), look.lut.domainMax);
+      gl.uniform1f(uniform(gl, this.lookProgram, "lutSize"), look.lut.size);
+      gl.uniform1f(uniform(gl, this.lookProgram, "lutIntensity"), lookIntensity);
+    } else {
+      gl.useProgram(this.copyProgram);
+    }
     draw();
     this.recordGlErrors(synchronization);
+    this.bind(0, this.baseTextures[0]);
     metrics.record("upload", uploadElapsedMs);
     this.finishFrame(metrics, shaderElapsedMs, synchronization, timer, queries);
     return new WebGLSurface(
@@ -13831,7 +14045,8 @@ var WebGL2Compositor = class {
       ...this.layerTextures,
       ...this.layerRgbaTextures,
       ...this.fboTextures,
-      ...this.ownedImageTextures
+      ...this.ownedImageTextures,
+      ...this.ownedLookTextures
     ])
       this.gl.deleteTexture(t);
     for (const f2 of this.fbos) this.gl.deleteFramebuffer(f2);
@@ -13839,6 +14054,7 @@ var WebGL2Compositor = class {
     this.gl.deleteProgram(this.baseProgram);
     this.gl.deleteProgram(this.layerProgram);
     this.gl.deleteProgram(this.copyProgram);
+    this.gl.deleteProgram(this.lookProgram);
   }
 };
 
@@ -13952,7 +14168,8 @@ async function evaluateFrame(plan, context) {
 }
 
 // ../frame-engine/src/timeline/plan.ts
-var import_edit_store = __toESM(require_lib(), 1);
+var import_edit_store2 = __toESM(require_lib(), 1);
+var import_edit_store3 = __toESM(require_lib(), 1);
 var DEFAULT_VISUAL = {
   framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
   transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
@@ -13981,8 +14198,8 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     };
   });
   const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
-  const map = (0, import_edit_store.buildTimelineMap)(virtualCuts, timelineOptions);
-  const trackSegments = (0, import_edit_store.computeCutTrackSegments)(virtualCuts);
+  const map = (0, import_edit_store2.buildTimelineMap)(virtualCuts, timelineOptions);
+  const trackSegments = (0, import_edit_store2.computeCutTrackSegments)(virtualCuts);
   const placements = cuts.map((cut, index) => {
     const segment = trackSegments[index];
     if (!segment) throw new Error(`timeline did not resolve cut ${index}`);
@@ -14009,7 +14226,7 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
   const maskSources = /* @__PURE__ */ new Map();
   for (const layer of visibleLayers) {
     if (!layer.src || layer.mask !== void 0 || maskSources.has(layer.src)) continue;
-    if ((0, import_edit_store.isStillImageSourcePath)(layer.src)) {
+    if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
       if (layer.kind === "matte") warn(`mask ignored for still image layer ${layer.id ?? layer.src}`);
       maskSources.set(layer.src, null);
       continue;
@@ -14032,7 +14249,7 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     layers: visibleLayers,
     maskSources,
     warn,
-    fps: finite2(options.fps, import_edit_store.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite2(options.fps, import_edit_store.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store.DEFAULT_CUT_ADJACENCY_FPS
+    fps: finite2(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite2(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
   };
 }
 function isLayerActiveAt(layer, timeUs, fps) {
@@ -14181,7 +14398,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
       blend,
       opacity: clamp(finite2(layer.opacity, 1), 0, 1)
     };
-    if ((0, import_edit_store.isStillImageSourcePath)(layer.src)) {
+    if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
       if (layer.mask || layer.kind === "matte") timeline.warn(`mask ignored for still image layer ${id}`);
       if (!("load" in source)) throw new Error(`no still image source registered for ${layer.src}`);
       resolved.push({ ...common, kind: "image", image: source, mask: null });
@@ -14220,7 +14437,7 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
     const outgoingIndex = window2.outgoing.cutIndex;
     const incomingIndex = window2.incoming.cutIndex;
     if (outgoingIndex == null || incomingIndex == null) throw new Error("transition has no source cuts");
-    if (!["dissolve", "fade-black", "fade-white", "reveal-down", "reveal-up"].includes(window2.type)) {
+    if (!(0, import_edit_store3.isTransitionType)(window2.type)) {
       throw new Error(`unsupported transition type: ${window2.type}`);
     }
     return {
@@ -14232,12 +14449,12 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
       layers: resolvedCompositeLayers(timeline, timeUs, sources),
       transition: {
         type: window2.type,
-        progress: (0, import_edit_store.transitionProgressAt)(window2, outputSeconds)
+        progress: (0, import_edit_store2.transitionProgressAt)(window2, outputSeconds)
       },
       output
     };
   }
-  const resolved = (0, import_edit_store.outputToSource)(timeline.map.segments, outputSeconds);
+  const resolved = (0, import_edit_store2.outputToSource)(timeline.map.segments, outputSeconds);
   const cutIndex = resolved.segment?.cutIndex;
   const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources)] : [];
   return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
@@ -17015,6 +17232,60 @@ var FrameMetrics = class {
   }
 };
 
+// ../frame-engine/src/look/cube.ts
+function parseCube(text) {
+  if (typeof text !== "string" || !text.trim()) throw new TypeError(".cube text is required");
+  let size = 0;
+  let domainMin = [0, 0, 0];
+  let domainMax = [1, 1, 1];
+  const values = [];
+  const lines = text.replace(/^\uFEFF/u, "").split(/\r?\n/u);
+  for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
+    const line = lines[lineNumber].replace(/#.*$/u, "").trim();
+    if (!line) continue;
+    const parts = line.split(/\s+/u);
+    const keyword = parts[0].toUpperCase();
+    if (keyword === "TITLE") continue;
+    if (keyword === "LUT_1D_SIZE") throw new TypeError("1D LUT is not supported");
+    if (keyword === "LUT_3D_SIZE") {
+      size = Number(parts[1]);
+      if (!Number.isInteger(size) || size < 2 || size > 256) {
+        throw new RangeError(`invalid LUT_3D_SIZE at line ${lineNumber + 1}`);
+      }
+      continue;
+    }
+    if (keyword === "DOMAIN_MIN" || keyword === "DOMAIN_MAX") {
+      const parsed = parts.slice(1, 4).map(Number);
+      if (parsed.length !== 3 || parsed.some((value) => !Number.isFinite(value))) {
+        throw new TypeError(`invalid ${keyword} at line ${lineNumber + 1}`);
+      }
+      const tuple = parsed;
+      if (keyword === "DOMAIN_MIN") domainMin = tuple;
+      else domainMax = tuple;
+      continue;
+    }
+    const row = parts.slice(0, 3).map(Number);
+    if (row.length !== 3 || row.some((value) => !Number.isFinite(value))) {
+      throw new TypeError(`invalid LUT row at line ${lineNumber + 1}`);
+    }
+    values.push(...row);
+  }
+  if (!size) throw new TypeError("LUT_3D_SIZE is missing");
+  if (domainMax.some((value, index) => !(value > domainMin[index]))) {
+    throw new RangeError("DOMAIN_MAX must be greater than DOMAIN_MIN");
+  }
+  const expected = size * size * size * 3;
+  if (values.length !== expected) {
+    throw new RangeError(`LUT_3D_SIZE ${size} requires ${expected / 3} rows; got ${values.length / 3}`);
+  }
+  return Object.freeze({
+    size,
+    domainMin: Object.freeze([...domainMin]),
+    domainMax: Object.freeze([...domainMax]),
+    data: new Float32Array(values)
+  });
+}
+
 // src/frame-engine-client.ts
 var requestedUploadPath = new URLSearchParams(window.location.search).get("uploadPath") === "copyTo" ? "copyTo" : "direct";
 function percentile2(values, fraction = 0.5) {
@@ -17170,10 +17441,16 @@ var FrameEngineRuntime = class {
       durationSec: placement.end - placement.at
     }));
     const size = edit?.output ?? {};
+    const projectedLook = edit?.videoFx?.look;
+    const intensity = Number(projectedLook?.intensity ?? 1);
     this.output = {
       width: Number(size.width) > 0 ? Number(size.width) : 1280,
       height: Number(size.height) > 0 ? Number(size.height) : 720,
-      colorSpace: "bt709-limited"
+      colorSpace: "bt709-limited",
+      look: typeof projectedLook?.cubeText === "string" ? {
+        lut: parseCube(projectedLook.cubeText),
+        intensity: Math.max(0, Math.min(1, Number.isFinite(intensity) ? intensity : 1))
+      } : null
     };
     this.scrub = new ScrubController(Math.min(24, 1e3 / fps), async (frameNumber, generation) => {
       const started = performance.now();
