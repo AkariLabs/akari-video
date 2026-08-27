@@ -22,8 +22,11 @@ const interpretationBlocksFullSwappedFixture = resolve(
 );
 const analysisCollisionFixture = resolve(here, "fixtures/collision/analysis-minimal.json");
 
-function run(args) {
-  return spawnSync(process.execPath, [renderScript, ...args], { encoding: "utf8" });
+function run(args, sourceDateEpoch) {
+  const env = { ...process.env };
+  if (sourceDateEpoch === undefined) delete env.SOURCE_DATE_EPOCH;
+  else env.SOURCE_DATE_EPOCH = sourceDateEpoch;
+  return spawnSync(process.execPath, [renderScript, ...args], { encoding: "utf8", env });
 }
 
 function embeddedBundleOf(html) {
@@ -477,7 +480,7 @@ test("tracks.person_matte の不正な object 形は拒否し、ファイルを�
   }
 });
 
-test("tracks.person_matte の object 形でも generatedAt を除き同一入力から同一バイトの report.html を生成する", () => {
+test("SOURCE_DATE_EPOCH 固定時は同一入力から同一バイトの report.html を生成する", () => {
   const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
   try {
     const personMatte = {
@@ -496,36 +499,48 @@ test("tracks.person_matte の object 形でも generatedAt を除き同一入力
       "--interpretation",
       interpretationFixture,
     ];
-    const result1 = run([...args, "--out", outPath1]);
-    const result2 = run([...args, "--out", outPath2]);
+    const sourceDateEpoch = "1787875200";
+    const result1 = run([...args, "--out", outPath1], sourceDateEpoch);
+    const result2 = run([...args, "--out", outPath2], sourceDateEpoch);
 
     assert.equal(result1.status, 0, result1.stderr);
     assert.equal(result2.status, 0, result2.stderr);
-    // generatedAt はレポート生成の実行時刻を持つため厳密なバイト一致にはならない。
-    // その 1 フィールドだけを固定値へ正規化し、それ以外が完全に決定的であることを検査する。
     const output1 = readFileSync(outPath1);
     const output2 = readFileSync(outPath2);
-    const html1 = output1.toString("utf8");
-    const html2 = output2.toString("utf8");
-    const isoPattern = /20\d\d-\d\d-\d\dT[\d:.]+Z/g;
-    const generatedAtPattern = /"generatedAt":"20\d\d-\d\d-\d\dT[\d:.]+Z"/g;
-    const isoValues1 = html1.match(isoPattern) || [];
-    const isoValues2 = html2.match(isoPattern) || [];
-    const generatedAtFields1 = html1.match(generatedAtPattern) || [];
-    const generatedAtFields2 = html2.match(generatedAtPattern) || [];
-
-    assert.equal(isoValues1.length, 1, "1 回目の ISO8601 実行時刻は generatedAt の 1 件だけ");
-    assert.equal(isoValues2.length, 1, "2 回目の ISO8601 実行時刻は generatedAt の 1 件だけ");
-    assert.equal(generatedAtFields1.length, 1, "1 回目の generatedAt フィールドは 1 件だけ");
-    assert.equal(generatedAtFields2.length, 1, "2 回目の generatedAt フィールドは 1 件だけ");
-    assert.notEqual(isoValues1[0], isoValues2[0], "2 回の生成時刻は異なる");
-    assert.notDeepEqual(output1, output2, "正規化前の出力差分には generatedAt の実行時刻がある");
-
-    const normalized1 = html1.replace(generatedAtPattern, '"generatedAt":"<GENERATED_AT>"');
-    const normalized2 = html2.replace(generatedAtPattern, '"generatedAt":"<GENERATED_AT>"');
-    assert.equal(normalized1, normalized2, "generatedAt の 1 か所を除けば全バイトが一致する");
+    assert.deepEqual(output1, output2, "正規化なしで全バイトが一致する");
+    assert.equal(
+      embeddedBundleOf(output1.toString("utf8")).generatedAt,
+      new Date(Number(sourceDateEpoch) * 1_000).toISOString(),
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("SOURCE_DATE_EPOCH が未設定または不正でも実行時刻で report.html を生成する", () => {
+  for (const sourceDateEpoch of [undefined, "invalid"]) {
+    const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+    try {
+      const outPath = join(dir, "report.html");
+      const before = Date.now();
+      const result = run([
+        "--analysis",
+        analysisFixture,
+        "--interpretation",
+        interpretationFixture,
+        "--out",
+        outPath,
+      ], sourceDateEpoch);
+      const after = Date.now();
+
+      assert.equal(result.status, 0, result.stderr);
+      const generatedAt = embeddedBundleOf(readFileSync(outPath, "utf8")).generatedAt;
+      const generatedAtMilliseconds = Date.parse(generatedAt);
+      assert.ok(generatedAtMilliseconds >= before, `generatedAt=${generatedAt}`);
+      assert.ok(generatedAtMilliseconds <= after, `generatedAt=${generatedAt}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   }
 });
 

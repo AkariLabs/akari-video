@@ -670,6 +670,53 @@ test("animated frame capture enables speed-optimized screenshots", async () => {
   }
 });
 
+test("static overlay capture launches without a background-color browser argument", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-static-browser-args-"));
+  let launchOptions = null;
+  const page = {
+    setDefaultTimeout() {},
+    setDefaultNavigationTimeout() {},
+    async setViewport() {},
+    async goto() {},
+    async evaluate() { return { warnings: [] }; },
+    async screenshot(options) { await writeFile(options.path, "png"); },
+    async close() {},
+  };
+  try {
+    await captureStaticOverlays({
+      overlays: [{
+        id: "label",
+        html: "<div>label</div>",
+        start: 0,
+        duration: 1,
+        transform: {},
+        vars: {},
+      }],
+      edit: { output: { width: 320, height: 180, fps: 1 } },
+      projectRoot: root,
+      temporaryDirectory: root,
+      chromePath: SYSTEM_CHROME,
+      timeoutMs: 500,
+      puppeteerModule: { connect() {} },
+      browserLauncher: async (options) => {
+        launchOptions = options;
+        return {
+          browser: { connected: false, async newPage() { return page; } },
+          async close() {},
+        };
+      },
+    });
+
+    assert.ok(launchOptions);
+    assert.equal(
+      launchOptions.args.some((argument) => /background-color/iu.test(argument)),
+      false,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("a browser launch failure stops the render without a static downgrade or degraded mp4", async () => {
   const root = await mkdtemp(join(tmpdir(), "render-cut-browser-failure-stop-"));
   const compositePath = join(root, "must-not-exist.mp4");
