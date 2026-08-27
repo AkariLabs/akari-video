@@ -821,6 +821,11 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
       warnings.push(`narration ${id}: file not found at ${path}; skipped`);
       continue;
     }
+    const probe = probeNarrationAudio(ffprobeCommand, resolvedPath);
+    if (!probe.hasAudio || !isFiniteNumber(probe.duration) || probe.duration <= 0) {
+      warnings.push(`narration ${id}: file could not be decoded as audio at ${path}; skipped`);
+      continue;
+    }
     const t = Number(item.t);
     if (!Number.isFinite(t) || t < 0) {
       warnings.push(`narration ${id}: t is not a finite non-negative number (${item.t}); skipped`);
@@ -839,7 +844,7 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
     if (gain_db !== rawGain) {
       warnings.push(`narration ${id}: gain_db ${rawGain} clamped to ${gain_db}`);
     }
-    const trim = resolveNarrationTrim(item, ffprobeCommand, resolvedPath, id);
+    const trim = resolveNarrationTrim(item, probe.duration, id);
     warnings.push(...trim.warnings);
     if (trim.skip) continue;
     tracks.push({ id, path: resolvedPath, t, gain_db, trimFilter: trim.trimFilter });
@@ -847,18 +852,12 @@ function resolveNarrationTracks({ narration, projectRoot, duration, ffprobeComma
   return { tracks, warnings };
 }
 
-function resolveNarrationTrim(item, ffprobeCommand, resolvedPath, id) {
+function resolveNarrationTrim(item, actualDuration, id) {
   const hasIn = item.in !== undefined;
   const hasOut = item.out !== undefined;
   if (!hasIn && !hasOut) return { skip: false, trimFilter: "", warnings: [] };
 
   const warnings = [];
-  const actualDuration = probeAudioDurationSeconds(ffprobeCommand, resolvedPath);
-  if (!isFiniteNumber(actualDuration) || actualDuration <= 0) {
-    warnings.push(`narration ${id}: file could not be decoded as audio at ${item.path}; skipped`);
-    return { skip: true, trimFilter: "", warnings };
-  }
-
   let inSeconds = hasIn && isFiniteNumber(item.in) && item.in >= 0 ? item.in : 0;
   let outSeconds = hasOut && isFiniteNumber(item.out) && item.out > 0 ? item.out : actualDuration;
   if (inSeconds >= actualDuration) {
@@ -884,6 +883,30 @@ function resolveNarrationTrim(item, ffprobeCommand, resolvedPath, id) {
     trimFilter: `atrim=start=${formatNumber(inSeconds)}:end=${formatNumber(outSeconds)},asetpts=PTS-STARTPTS,`,
     warnings,
   };
+}
+
+function probeNarrationAudio(ffprobeCommand, path) {
+  const result = spawnSync(
+    ffprobeCommand,
+    [
+      "-v", "error", "-select_streams", "a:0",
+      "-show_entries", "stream=codec_type:format=duration", "-of", "json", path,
+    ],
+    { encoding: "utf8" },
+  );
+  if (result.error || result.status !== 0) return { hasAudio: false, duration: null };
+  try {
+    const parsed = JSON.parse(result.stdout);
+    const hasAudio = Array.isArray(parsed.streams)
+      && parsed.streams.some((stream) => stream.codec_type === "audio");
+    const duration = Number(parsed.format?.duration);
+    return {
+      hasAudio,
+      duration: Number.isFinite(duration) && duration > 0 ? duration : null,
+    };
+  } catch {
+    return { hasAudio: false, duration: null };
+  }
 }
 
 export function probeAudioDurationSeconds(ffprobeCommand, path) {
@@ -1695,9 +1718,9 @@ function appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCom
   if (!isFiniteNumber(actualDuration) || !isFiniteNumber(cut.out) || cut.out <= actualDuration) return;
   const speed = cutSpeed(cut);
   const missingSourceSeconds = Math.max(0, cut.out - Math.max(cut.in, actualDuration));
-  const paddedSeconds = Number((missingSourceSeconds / speed).toFixed(6));
+  const paddedSeconds = missingSourceSeconds / speed;
   warnings.push(
-    `cut ${cut.id ?? index + 1}: audio stream ends at ${formatNumber(actualDuration)}s before out=${formatNumber(cut.out)}s; padded ${formatNumber(paddedSeconds)}s of silence`,
+    `cut ${cut.id ?? index + 1}: audio stream ends at ${formatSeconds(actualDuration)}s before out=${formatSeconds(cut.out)}s; padded ${formatSeconds(paddedSeconds)}s of silence`,
   );
 }
 
@@ -1857,4 +1880,8 @@ function sanitizeName(value) {
 
 function formatNumber(value) {
   return Number(value).toString();
+}
+
+function formatSeconds(value) {
+  return formatNumber(Number(Number(value).toFixed(6)));
 }

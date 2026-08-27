@@ -134,7 +134,7 @@ process.stdout.write(JSON.stringify(audio
       cutPath: join(root, "cut.mp4"),
       cuts: [
         { id: "cut-1", src: "clip", in: 0, out: 4.933 },
-        { id: "cut-2", src: "clip", in: 0, out: 4.933 },
+        { id: "cut-2", src: "clip", in: 0, out: 4.933333333333334 },
       ],
       width: 320,
       height: 180,
@@ -146,6 +146,10 @@ process.stdout.write(JSON.stringify(audio
     assert.equal(command.args.includes("-shortest"), false);
     assert.equal(command.warnings.length, 2);
     assert.match(command.warnings[0], /^cut cut-1: audio stream ends at 4\.7s before out=4\.933s; padded 0\.233s of silence$/);
+    assert.equal(
+      command.warnings[1],
+      "cut cut-2: audio stream ends at 4.7s before out=4.933333s; padded 0.233333s of silence",
+    );
     const calls = (await readFile(callsPath, "utf8")).trim().split("\n").map(JSON.parse);
     assert.equal(calls.filter(args => args.includes("a:0")).length, 1);
   } finally {

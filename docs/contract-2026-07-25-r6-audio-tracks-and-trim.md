@@ -44,8 +44,10 @@
 - render-cut: sfx の [in, out) 切り出しを出力に反映。bgm の `in` オフセット反映
 - render-cut: narration の [in, out) 切り出しも出力に反映する。`in` が素材実尺以上なら 0 へ、
   `out` が素材実尺を超えれば素材末尾へクランプして warning を出す。クランプ後に `out <= in` なら
-  その narration 要素だけを skip する。`in` / `out` が両方省略された要素は実尺を probe せず、
-  従来と同じフィルタ文字列を保つ
+  その narration 要素だけを skip する。`in` / `out` の有無にかかわらず、各 narration 要素は
+  デコード可否の判定を兼ねて実尺を従来と同じ 1 回だけ probe し、デコードできなければ従来どおり
+  その要素だけを skip して warning を出す一方、両方省略された要素には `atrim` を前置きせず、
+  従来とバイト同一のフィルタ文字列を保つ
 - preview（previewAudio）: 同意味論で再生。実尺越え in/out は素材末尾へクランプ
 
 ### UI
