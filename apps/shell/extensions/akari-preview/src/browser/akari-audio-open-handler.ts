@@ -9,6 +9,7 @@ import {
 } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webview';
+import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     AkariPreviewService,
@@ -65,6 +66,9 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
 
     @inject(AkariPreviewService)
     protected readonly previewService: AkariPreviewService;
+
+    @inject(WorkspaceService)
+    protected readonly workspaceService: WorkspaceService;
 
     @inject(CommandRegistry)
     protected readonly commandRegistry: CommandRegistry;
@@ -232,7 +236,10 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
         }
         let result: TranscodeAudioResult;
         try {
-            result = await this.previewService.transcodeAudioToWav({ audioUri: uri.toString() });
+            result = await this.previewService.transcodeAudioToWav({
+                audioUri: uri.toString(),
+                workspaceRoots: await this.currentWorkspaceRoots()
+            });
         } catch (error) {
             console.warn(`[akari-preview] failed to convert audio ${uri.toString()}`, error);
             widget.setHTML(this.messageHtml(uri, PLAYBACK_ERROR_MESSAGE, fileSize));
@@ -255,6 +262,14 @@ export class AkariAudioOpenHandler implements OpenHandler, FrontendApplicationCo
         marker.akariAudioStreamId = undefined;
         if (id) {
             await this.disposeTranscodedAudioStreamId(id);
+        }
+    }
+
+    protected async currentWorkspaceRoots(): Promise<string[]> {
+        try {
+            return (await this.workspaceService.roots).map(root => root.resource.toString());
+        } catch {
+            return [];
         }
     }
 

@@ -35,10 +35,12 @@ export interface VideoStreamReference {
 
 export interface VideoStreamRequest {
     videoUri: string;
+    workspaceRoots?: string[];
 }
 
 export interface AssetStreamRequest {
     assetUri: string;
+    workspaceRoots?: string[];
 }
 
 export interface RasterizeTelopPreviewRequest {
@@ -52,6 +54,7 @@ export interface RasterizeTelopPreviewRequest {
 
 export interface TranscodeAudioRequest {
     audioUri: string;
+    workspaceRoots?: string[];
 }
 
 export type TranscodeAudioErrorKind =
@@ -245,6 +248,7 @@ export type PrepareLegacyEditResult =
 export interface ResolveCaptionDisplayRequest {
     captionsUri: string;
     editUri: string;
+    workspaceRoots?: string[];
 }
 
 export interface ResolvedCaptionDisplayPayload {

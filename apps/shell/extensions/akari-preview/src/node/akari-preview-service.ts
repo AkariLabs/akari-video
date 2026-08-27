@@ -127,7 +127,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected readonly temporaryAssetDirectories = new Map<string, string>();
     protected readonly transcodedAudioStreams = new Map<string, TranscodedAudioStreamTarget>();
     protected readonly temporaryAudioFiles = new Map<string, string>();
-    protected readonly reviewSessionWriter = new ReviewSessionWriter(() => this.resolveWorkspaceRoots());
+    protected readonly reviewSessionWriter = new ReviewSessionWriter(() => this.resolveAllowedWorkspaceRoots());
 
     constructor() {
         process.once('exit', () => {
@@ -370,7 +370,12 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             if (!request || typeof request.audioUri !== 'string') {
                 return { ok: false, error: 'transcode-failed' };
             }
-            const input = await this.resolveLocalStreamTarget(request.audioUri, TRANSCODABLE_AUDIO_MIME_TYPES, 'Asset');
+            const input = await this.resolveLocalStreamTarget(
+                request.audioUri,
+                TRANSCODABLE_AUDIO_MIME_TYPES,
+                'Asset',
+                request.workspaceRoots
+            );
             const inputStat = await stat(input.path);
             if (inputStat.size > MAX_TRANSCODE_INPUT_BYTES) {
                 return { ok: false, error: 'input-too-large' };
@@ -485,7 +490,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         if (!request || typeof request.captionsUri !== 'string' || typeof request.editUri !== 'string') {
             throw new Error('Invalid caption display request');
         }
-        const roots = await this.resolveWorkspaceRoots();
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
         // Bind each parse to the regular file actually opened. A prior realpath followed by
         // readFile(path) is a TOCTOU boundary: an attacker can retarget the path between those
         // calls. readWorkspaceRegularFile opens with O_NOFOLLOW where available, reads from the
@@ -754,27 +759,28 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         if (!request || typeof request.videoUri !== 'string') {
             throw new Error('Invalid video stream request');
         }
-        return this.resolveLocalStreamTarget(request.videoUri, VIDEO_MIME_TYPES, 'Video');
+        return this.resolveLocalStreamTarget(request.videoUri, VIDEO_MIME_TYPES, 'Video', request.workspaceRoots);
     }
 
     protected async resolveAssetStreamTarget(request: AssetStreamRequest): Promise<StreamTarget> {
         if (!request || typeof request.assetUri !== 'string') {
             throw new Error('Invalid asset stream request');
         }
-        return this.resolveLocalStreamTarget(request.assetUri, ASSET_MIME_TYPES, 'Asset');
+        return this.resolveLocalStreamTarget(request.assetUri, ASSET_MIME_TYPES, 'Asset', request.workspaceRoots);
     }
 
     protected async resolveLocalStreamTarget(
         uri: string,
         mimeTypes: Map<string, string>,
-        kind: 'Video' | 'Asset'
+        kind: 'Video' | 'Asset',
+        requestRoots?: string[]
     ): Promise<StreamTarget> {
         const mimeType = mimeTypes.get(extname(this.filePath(uri)).toLowerCase());
         if (!mimeType) {
             throw new Error(`Unsupported ${kind.toLowerCase()} format`);
         }
         const targetPath = await realpath(this.filePath(uri));
-        const roots = await this.resolveWorkspaceRoots();
+        const roots = await this.resolveWorkspaceRoots(requestRoots);
         if (!roots.some(root => this.contains(root, targetPath))) {
             throw new Error(`${kind} files outside the workspace cannot be streamed`);
         }
@@ -785,12 +791,57 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         return { path: targetPath, mimeType, workspaceRoots: roots };
     }
 
-    protected async resolveWorkspaceRoots(): Promise<string[]> {
+    protected async resolveWorkspaceRoots(requestRoots?: string[]): Promise<string[]> {
+        if (requestRoots !== undefined && !Array.isArray(requestRoots)) {
+            throw new Error('Invalid workspace roots request');
+        }
+        if (requestRoots?.length) {
+            const requestedRoots = await Promise.all(requestRoots.map(async uri => {
+                const root = await realpath(this.filePath(uri));
+                if (!(await stat(root)).isDirectory()) {
+                    throw new Error('The requested workspace root must be a directory');
+                }
+                return root;
+            }));
+            const allowedRoots = await this.resolveAllowedWorkspaceRoots();
+            if (!requestedRoots.every(requested => allowedRoots.some(allowed => this.contains(allowed, requested)))) {
+                throw new Error('The requested workspace root is not an open workspace');
+            }
+            return requestedRoots;
+        }
         const workspaceUri = await this.workspaceServer.getMostRecentlyUsedWorkspace();
         if (!workspaceUri) {
             throw new Error('A workspace must be open to stream video');
         }
-        const workspacePath = await realpath(this.filePath(workspaceUri));
+        return this.expandWorkspaceUri(workspaceUri, false);
+    }
+
+    protected async resolveAllowedWorkspaceRoots(): Promise<string[]> {
+        const recentWorkspaces = await this.workspaceServer.getRecentWorkspaces();
+        const mostRecentlyUsed = await this.workspaceServer.getMostRecentlyUsedWorkspace();
+        const workspaceUris = [...new Set([...recentWorkspaces, mostRecentlyUsed])];
+        const roots: string[] = [];
+        for (const workspaceUri of workspaceUris) {
+            if (!workspaceUri) {
+                continue;
+            }
+            roots.push(...await this.expandWorkspaceUri(workspaceUri, true));
+        }
+        return [...new Set(roots)];
+    }
+
+    protected async expandWorkspaceUri(workspaceUri: string, discardMissing: false): Promise<string[]>;
+    protected async expandWorkspaceUri(workspaceUri: string, discardMissing: true): Promise<string[]>;
+    protected async expandWorkspaceUri(workspaceUri: string, discardMissing: boolean): Promise<string[]> {
+        let workspacePath: string;
+        try {
+            workspacePath = await realpath(this.filePath(workspaceUri));
+        } catch (error) {
+            if (discardMissing && this.isMissingFileError(error)) {
+                return [];
+            }
+            throw error;
+        }
         const workspaceStat = await stat(workspacePath);
         if (workspaceStat.isDirectory()) {
             return [workspacePath];
@@ -802,7 +853,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         if (!data || !Array.isArray(data.folders)) {
             throw new Error('The current workspace file is invalid');
         }
-        return Promise.all(data.folders.map(async (folder: unknown) => {
+        const roots = await Promise.all(data.folders.map(async (folder: unknown) => {
             if (!folder || typeof folder !== 'object' || typeof (folder as { path?: unknown }).path !== 'string') {
                 throw new Error('The current workspace file contains an invalid folder');
             }
@@ -810,8 +861,20 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             const absolutePath = folderPath.startsWith('file:')
                 ? this.filePath(folderPath)
                 : fileURLToPath(new URL(folderPath, pathToFileURL(`${dirname(workspacePath)}${sep}`)));
-            return realpath(absolutePath);
+            try {
+                return await realpath(absolutePath);
+            } catch (error) {
+                if (discardMissing && this.isMissingFileError(error)) {
+                    return undefined;
+                }
+                throw error;
+            }
         }));
+        return roots.filter((root): root is string => root !== undefined);
+    }
+
+    protected isMissingFileError(error: unknown): boolean {
+        return (error as { code?: string }).code === 'ENOENT';
     }
 
     protected filePath(uri: string): string {
