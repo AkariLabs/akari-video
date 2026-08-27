@@ -33,6 +33,24 @@ test('GPU timing uses timer queries and dispose does not lose the canvas context
   assert.match(source, /stats\.glErrors \+= 1/u);
 });
 
+test('direct upload has RGBA shader branches and a sticky copyTo fallback', () => {
+  assert.match(source, /format0 == 2[\s\S]+texture\(rgba0, q\)/u);
+  assert.match(source, /yuvFormat == 2[\s\S]+texture\(lrgba, sourceUv\)/u);
+  assert.match(source, /maskFormat == 2[\s\S]+texture\(maskRgba, sourceUv\)\.r/u);
+  assert.match(source, /UNPACK_ALIGNMENT, 1/u);
+  assert.match(source, /UNPACK_FLIP_Y_WEBGL, 0/u);
+  assert.match(source, /UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0/u);
+  assert.match(source, /UNPACK_COLORSPACE_CONVERSION_WEBGL/u);
+  assert.match(source, /BROWSER_DEFAULT_WEBGL/u);
+  assert.match(source, /gl\.texImage2D\([\s\S]+gl\.RGBA8[\s\S]+frame/u);
+  assert.match(source, /this\.directUploadDisabled = true/u);
+  assert.match(source, /gl\.getError\(\)/u);
+  assert.match(source, /MAX_TEXTURE_IMAGE_UNITS/u);
+  assert.match(source, /get uploadPath\(\): UploadPath/u);
+  assert.match(source, /displayWidth/u);
+  assert.match(source, /displayHeight/u);
+});
+
 test('failed PBO fence allocation releases its bound buffer', () => {
   const failure = source.slice(source.indexOf('if (!fence)'), source.indexOf('this.gl.flush()', source.indexOf('if (!fence)')));
   assert.match(failure, /bindBuffer\(this\.gl\.PIXEL_PACK_BUFFER, null\)/u);

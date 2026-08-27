@@ -9,6 +9,7 @@ const packageDirectory = resolve(goldenDirectory, '../..');
 const repository = resolve(packageDirectory, '../..');
 const generated = resolve(goldenDirectory, '.generated');
 const resultsPath = resolve(generated, 'results.json');
+const requestedUploadPath = process.env.FRAME_ENGINE_UPLOAD_PATH === 'copyTo' ? 'copyTo' : 'direct';
 
 execFileSync(process.execPath, [resolve(goldenDirectory, 'generate-fixture.mjs')], {
   cwd: packageDirectory,
@@ -49,6 +50,22 @@ if (!existsSync(resultsPath)) {
 
 const results = JSON.parse(readFileSync(resultsPath, 'utf8'));
 assert.equal(results.pass, true);
+assert.deepEqual(results.uploadPath.requested, requestedUploadPath);
+assert.deepEqual(results.uploadPath.effective, requestedUploadPath);
+if (requestedUploadPath === 'direct') assert.equal(results.uploadPath.fallbackReason, null);
+assert.equal(results.colorPatches.pass, true);
+assert.equal(results.colorPatches.direct.pass, true);
+assert.equal(results.colorPatches.copyTo.pass, true);
+assert.equal(results.colorPatches.maskFidelity.pass, true);
+assert.equal(results.colorPatches.direct.rows.every(row => row.timestampInWindow), true);
+assert.equal(results.colorPatches.copyTo.rows.every(row => row.timestampInWindow), true);
+assert.equal(results.texturedCrossPathDiff.rows.length >= 3, true);
+assert.equal(results.texturedCrossPathDiff.directUploadPath, 'direct');
+assert.equal(results.texturedCrossPathDiff.copyToUploadPath, 'copyTo');
+assert.equal(results.frameLifetime.pass, true);
+assert.equal(results.frameLifetime.frames, 1_000);
+assert.equal(results.frameLifetime.openFrames, 0);
+assert.equal(results.frameLifetime.decodeQueueSizeFinal, 0);
 assert.equal(results.parity.every(sample => sample.pass), true);
 assert.equal(results.negative.injectedPixelMutation, true);
 assert.equal(results.negative.comparatorPassed, false);

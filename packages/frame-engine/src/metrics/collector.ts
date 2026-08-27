@@ -1,4 +1,8 @@
-import type { FrameMetricStage, FrameMetricsRecorder } from '../types.js';
+import type {
+  FrameMetricStage,
+  FrameMetricsRecorder,
+  UploadPath,
+} from '../types.js';
 
 export interface MetricSummary {
   count: number;
@@ -7,7 +11,10 @@ export interface MetricSummary {
   maxMs: number | null;
 }
 
-export type FrameMetricsJson = Record<FrameMetricStage, MetricSummary>;
+export type FrameMetricsJson = Record<FrameMetricStage, MetricSummary> & {
+  uploadPath: UploadPath | null;
+  uploadPathCounts: Record<UploadPath, number>;
+};
 
 const STAGES: readonly FrameMetricStage[] = [
   'decode',
@@ -39,6 +46,11 @@ export class FrameMetrics implements FrameMetricsRecorder {
   private readonly samples = new Map<FrameMetricStage, number[]>(
     STAGES.map(stage => [stage, []])
   );
+  private uploadPath: UploadPath | null = null;
+  private readonly uploadPathCounts: Record<UploadPath, number> = {
+    direct: 0,
+    copyTo: 0,
+  };
 
   record(stage: FrameMetricStage, elapsedMs: number): void {
     if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
@@ -47,8 +59,14 @@ export class FrameMetrics implements FrameMetricsRecorder {
     this.samples.get(stage)!.push(elapsedMs);
   }
 
+  recordUploadPath(path: UploadPath): void {
+    this.uploadPath = path;
+    this.uploadPathCounts[path] += 1;
+  }
+
   toJSON(): FrameMetricsJson {
-    return Object.fromEntries(STAGES.map(stage => {
+    return {
+      ...Object.fromEntries(STAGES.map(stage => {
       const values = this.samples.get(stage)!;
       return [stage, {
         count: values.length,
@@ -56,6 +74,9 @@ export class FrameMetrics implements FrameMetricsRecorder {
         p95Ms: percentile(values, 95),
         maxMs: values.length > 0 ? Math.max(...values) : null
       }];
-    })) as FrameMetricsJson;
+      })),
+      uploadPath: this.uploadPath,
+      uploadPathCounts: { ...this.uploadPathCounts },
+    } as FrameMetricsJson;
   }
 }

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { evaluateFrame, FrameMetrics } from '../dist/index.js';
+import {
+  DirectUploadFallbackError,
+  evaluateFrame,
+  FrameMetrics,
+} from '../dist/index.js';
 
 const visual = {
   framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
@@ -9,17 +13,25 @@ const visual = {
 };
 
 function fakeFrame(timestamp = 0) {
+  let closed = false;
+  let copies = 0;
   return {
     format: 'NV12',
     timestamp,
     codedWidth: 2,
     codedHeight: 2,
+    displayWidth: 2,
+    displayHeight: 2,
+    visibleRect: null,
     allocationSize() { return 6; },
     async copyTo(bytes) {
+      copies += 1;
       bytes.set([16, 16, 16, 16, 128, 128]);
       return [{ offset: 0, stride: 2 }, { offset: 4, stride: 2 }];
     },
-    close() {}
+    close() { closed = true; },
+    get closed() { return closed; },
+    get copies() { return copies; },
   };
 }
 
@@ -55,6 +67,102 @@ test('evaluateFrame routes transition layers to independent cut stream IDs', asy
     { timeUs: 700_000, streamId: 'cut-6' },
     { timeUs: 1_000_000, streamId: 'cut-7' }
   ]);
+  frame.close();
+});
+
+test('evaluateFrame passes VideoFrame through direct upload and closes it', async () => {
+  const decoded = fakeFrame(123);
+  let received;
+  const compositor = {
+    kind: 'webgl2',
+    uploadPath: 'direct',
+    async compose(base) {
+      received = base[0];
+      return {
+        canvas: {}, width: 2, height: 2,
+        async readRgba() { return new Uint8Array(16); },
+        recordSink() {}, close() {},
+      };
+    },
+    dispose() {},
+  };
+  const metrics = new FrameMetrics();
+  const frame = await evaluateFrame({
+    timeUs: 123,
+    base: [{
+      id: 'cut',
+      source: { async decode() { return decoded; } },
+      sourceTimeUs: 123,
+      visual,
+    }],
+    layers: [],
+    output: { width: 2, height: 2, colorSpace: 'bt709-limited' },
+  }, { compositor, metrics });
+
+  assert.equal(received, decoded);
+  assert.equal(decoded.copies, 0);
+  assert.equal(decoded.closed, true);
+  assert.equal(frame.uploadPath, 'direct');
+  assert.equal(metrics.toJSON().uploadPath, 'direct');
+  frame.close();
+});
+
+test('evaluateFrame retries a failed direct upload once through copyTo and closes all frames', async () => {
+  const color = fakeFrame(321);
+  const mask = fakeFrame(321);
+  let path = 'direct';
+  let attempts = 0;
+  const compositor = {
+    kind: 'webgl2',
+    get uploadPath() { return path; },
+    async compose(_base, layers) {
+      attempts += 1;
+      if (attempts === 1) {
+        assert.equal(layers[0].color, color);
+        assert.equal(layers[0].mask, mask);
+        path = 'copyTo';
+        throw new DirectUploadFallbackError('synthetic upload failure');
+      }
+      assert.equal(layers[0].color.format, 'NV12');
+      assert.equal(layers[0].mask.format, 'NV12');
+      return {
+        canvas: {}, width: 2, height: 2,
+        async readRgba() { return new Uint8Array(16); },
+        recordSink() {}, close() {},
+      };
+    },
+    dispose() {},
+  };
+  const metrics = new FrameMetrics();
+  const frame = await evaluateFrame({
+    timeUs: 321,
+    base: [],
+    layers: [{
+      id: 'matte', kind: 'matte',
+      source: { async decode() { return color; } },
+      sourceTimeUs: 321,
+      mask: {
+        kind: 'greyscale',
+        source: { async decode() { return mask; } },
+        sourceTimeUs: 321,
+      },
+      visual: {
+        crop: { x: 0, y: 0, width: 1, height: 1 },
+        perspective: null,
+        transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
+      },
+      blend: 'normal', opacity: 1,
+    }],
+    output: { width: 2, height: 2, colorSpace: 'bt709-limited' },
+  }, { compositor, metrics });
+
+  assert.equal(attempts, 2);
+  assert.equal(color.copies, 1);
+  assert.equal(mask.copies, 1);
+  assert.equal(color.closed, true);
+  assert.equal(mask.closed, true);
+  assert.equal(frame.uploadPath, 'copyTo');
+  assert.equal(metrics.toJSON().uploadPath, 'copyTo');
   frame.close();
 });
 

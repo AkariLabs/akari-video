@@ -219,7 +219,8 @@ app.whenReady().then(async () => {
   port2.start();
   window.webContents.on('did-finish-load', () => window.webContents.postMessage('benchmark:port', null, [port1]));
   const repeat = process.env.BENCH_REPEAT ?? '3';
-  await window.loadURL(`frame-engine-bench://app/renderer.html?repeat=${encodeURIComponent(repeat)}`);
+  const uploadPath = process.env.FRAME_ENGINE_UPLOAD_PATH === 'copyTo' ? 'copyTo' : 'direct';
+  await window.loadURL(`frame-engine-bench://app/renderer.html?repeat=${encodeURIComponent(repeat)}&uploadPath=${uploadPath}`);
 });
 
 setTimeout(() => {

@@ -7,6 +7,7 @@ import type {
   ResolvedCutVisual,
   ResolvedLayerVisual,
   StillImageBitmap,
+  UploadPath,
 } from '../types.js';
 import { cornersToHomography, invertMat3 } from '../timeline/layer-visual.js';
 
@@ -160,6 +161,14 @@ interface GpuTimerExtension {
 }
 export interface WebGL2CompositorOptions {
   synchronization?: 'finish' | 'flush';
+  uploadPath?: UploadPath;
+}
+
+export class DirectUploadFallbackError extends Error {
+  constructor(readonly reason: string) {
+    super(`direct VideoFrame upload failed: ${reason}`);
+    this.name = 'DirectUploadFallbackError';
+  }
 }
 
 const YUV_GLSL = `
@@ -184,6 +193,8 @@ uniform sampler2D v0;
 uniform sampler2D y1;
 uniform sampler2D u1;
 uniform sampler2D v1;
+uniform sampler2D rgba0;
+uniform sampler2D rgba1;
 uniform int format0;
 uniform int format1;
 uniform vec4 framing0;
@@ -217,6 +228,7 @@ vec4 sample0(vec2 p) {
   if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
   vec2 q = canvasToSource(canvasPoint, sourceSize0);
   if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  if (format0 == 2) return vec4(texture(rgba0, q).rgb, opacity0);
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
   return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
 }
@@ -225,6 +237,7 @@ vec4 sample1(vec2 p) {
   if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
   vec2 q = canvasToSource(canvasPoint, sourceSize1);
   if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  if (format1 == 2) return vec4(texture(rgba1, q).rgb, opacity1);
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
   return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
 }
@@ -275,9 +288,12 @@ uniform sampler2D lu;
 uniform sampler2D lv;
 uniform sampler2D image;
 uniform sampler2D maskY;
+uniform sampler2D lrgba;
+uniform sampler2D maskRgba;
 uniform int inputKind;
 uniform int yuvFormat;
 uniform int hasMask;
+uniform int maskFormat;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
@@ -320,13 +336,17 @@ void main() {
   vec4 src;
   if (inputKind == 1) {
     src = texture(image, sourceUv);
+  } else if (yuvFormat == 2) {
+    src = vec4(texture(lrgba, sourceUv).rgb, 1.0);
   } else {
     vec2 chroma = yuvFormat == 1
       ? texture(lu, sourceUv).rg
       : vec2(texture(lu, sourceUv).r, texture(lv, sourceUv).r);
     src = vec4(yuv709(texture(ly, sourceUv).r, chroma), 1.0);
   }
-  float maskA = hasMask == 1 ? texture(maskY, sourceUv).r : 1.0;
+  float maskA = hasMask == 1
+    ? (maskFormat == 2 ? texture(maskRgba, sourceUv).r : texture(maskY, sourceUv).r)
+    : 1.0;
   float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
   color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
 }`;
@@ -338,6 +358,14 @@ uniform sampler2D source;
 void main() { color = texture(source, uv); }`;
 
 const FBO_SCRATCH_UNIT = 9;
+const BASE_RGBA_UNITS = [6, 7] as const;
+const LAYER_RGBA_UNIT = 8;
+const MASK_RGBA_UNIT = 10;
+const REQUIRED_TEXTURE_UNITS = MASK_RGBA_UNIT + 1;
+
+function isVideoFrame(value: NativeYuvFrame | StillImageBitmap | VideoFrame): value is VideoFrame {
+  return 'displayWidth' in value && 'displayHeight' in value && 'close' in value;
+}
 
 function multiply(a: readonly number[], b: readonly number[]): number[] {
   return Array.from({ length: 9 }, (_, k) => {
@@ -399,15 +427,40 @@ function forwardInverse(
 export class WebGL2Compositor implements CompositorBackend {
   readonly kind = 'webgl2' as const;
   readonly canvas: HTMLCanvasElement;
-  readonly stats = { imageUploads: 0, glErrors: 0 };
+  readonly stats: {
+    imageUploads: number;
+    glErrors: number;
+    directUploadFallbackReason: string | null;
+    directUploadFrameDimensions: {
+      codedWidth: number;
+      codedHeight: number;
+      displayWidth: number;
+      displayHeight: number;
+      visibleRect: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      } | null;
+    } | null;
+    colorspaceConversion: 'browser-default';
+  } = {
+    imageUploads: 0,
+    glErrors: 0,
+    directUploadFallbackReason: null,
+    directUploadFrameDimensions: null,
+    colorspaceConversion: 'browser-default',
+  };
   private readonly gl: WebGL2RenderingContext;
   private readonly baseProgram: WebGLProgram;
   private readonly layerProgram: WebGLProgram;
   private readonly copyProgram: WebGLProgram;
   private readonly vertices: WebGLBuffer;
   private readonly baseTextures: WebGLTexture[];
+  private readonly baseRgbaTextures: WebGLTexture[];
   private readonly layerTextures: WebGLTexture[];
-  private readonly shapes: Array<string | null> = Array(10).fill(null);
+  private readonly layerRgbaTextures: WebGLTexture[];
+  private readonly shapes: Array<string | null> = Array(11).fill(null);
   private readonly cutUniforms: CutUniforms[];
   private readonly baseOutput: WebGLUniformLocation;
   private readonly transitionType: WebGLUniformLocation;
@@ -422,6 +475,7 @@ export class WebGL2Compositor implements CompositorBackend {
   private readonly ownedImageTextures = new Set<WebGLTexture>();
   private disposed = false;
   private secondary = false;
+  private directUploadDisabled = false;
   constructor(
     canvas = document.createElement('canvas'),
     private readonly options: WebGL2CompositorOptions = {},
@@ -435,6 +489,13 @@ export class WebGL2Compositor implements CompositorBackend {
     });
     if (!gl) throw new Error('WebGL2 is unavailable');
     this.gl = gl;
+    this.directUploadDisabled = options.uploadPath === 'copyTo';
+    if (!this.directUploadDisabled &&
+      Number(gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)) < REQUIRED_TEXTURE_UNITS) {
+      this.directUploadDisabled = true;
+      this.stats.directUploadFallbackReason =
+        `requires ${REQUIRED_TEXTURE_UNITS} texture units`;
+    }
     this.baseProgram = createProgram(gl, BASE_FRAGMENT);
     this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
     this.copyProgram = createProgram(gl, COPY_FRAGMENT);
@@ -465,10 +526,23 @@ export class WebGL2Compositor implements CompositorBackend {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA8,
+        1,
+        1,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        new Uint8Array([0, 0, 0, 255]),
+      );
       return t;
     };
     this.baseTextures = Array.from({ length: 6 }, texture);
+    this.baseRgbaTextures = Array.from({ length: 2 }, texture);
     this.layerTextures = Array.from({ length: 4 }, texture);
+    this.layerRgbaTextures = Array.from({ length: 2 }, texture);
     this.fboTextures = [texture(), texture()];
     this.fbos = [0, 1].map((i) => {
       const f = gl.createFramebuffer();
@@ -485,9 +559,11 @@ export class WebGL2Compositor implements CompositorBackend {
     });
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.useProgram(this.baseProgram);
-    ['y0', 'u0', 'v0', 'y1', 'u1', 'v1'].forEach((n, i) =>
+    ['y0', 'u0', 'v0', 'y1', 'u1', 'v1', 'rgba0', 'rgba1'].forEach((n, i) =>
       gl.uniform1i(uniform(gl, this.baseProgram, n), i),
     );
+    this.bind(BASE_RGBA_UNITS[0], this.baseRgbaTextures[0]!);
+    this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[1]!);
     this.cutUniforms = [0, 1].map((i) => ({
       framing: uniform(gl, this.baseProgram, `framing${i}`),
       transform: uniform(gl, this.baseProgram, `transform${i}`),
@@ -510,15 +586,94 @@ export class WebGL2Compositor implements CompositorBackend {
       ['lv', 3],
       ['image', 4],
       ['maskY', 5],
+      ['lrgba', LAYER_RGBA_UNIT],
+      ['maskRgba', MASK_RGBA_UNIT],
     ].forEach(([n, u]) =>
       gl.uniform1i(uniform(gl, this.layerProgram, n as string), u as number),
     );
+    this.bind(4, this.layerRgbaTextures[0]!);
+    this.bind(5, this.layerTextures[3]!);
+    this.bind(LAYER_RGBA_UNIT, this.layerRgbaTextures[0]!);
+    this.bind(MASK_RGBA_UNIT, this.layerRgbaTextures[1]!);
     gl.useProgram(this.copyProgram);
     gl.uniform1i(uniform(gl, this.copyProgram, 'source'), 0);
   }
   private bind(unit: number, texture: WebGLTexture) {
     this.gl.activeTexture(this.gl.TEXTURE0 + unit);
     this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+  }
+  get uploadPath(): UploadPath {
+    return this.directUploadDisabled ? 'copyTo' : 'direct';
+  }
+  private failDirectUpload(reason: string): never {
+    this.directUploadDisabled = true;
+    this.stats.directUploadFallbackReason ??= reason;
+    throw new DirectUploadFallbackError(reason);
+  }
+  private uploadVideoFrameTexture(
+    texture: WebGLTexture,
+    unit: number,
+    frame: VideoFrame,
+    uniforms?: CutUniforms,
+  ): { width: number; height: number } {
+    if (this.directUploadDisabled)
+      this.failDirectUpload('direct upload is disabled for this session');
+    if (frame.format !== null && frame.format !== 'NV12' && frame.format !== 'I420')
+      this.failDirectUpload(`unsupported VideoFrame format: ${String(frame.format)}`);
+    const width = frame.displayWidth;
+    const height = frame.displayHeight;
+    if (width <= 0 || height <= 0)
+      this.failDirectUpload(`invalid display size ${width}x${height}`);
+    const gl = this.gl;
+    while (gl.getError() !== gl.NO_ERROR) this.stats.glErrors += 1;
+    this.bind(unit, texture);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+    gl.pixelStorei(
+      gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,
+      gl.BROWSER_DEFAULT_WEBGL,
+    );
+    try {
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA8,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        frame,
+      );
+    } catch (error) {
+      this.failDirectUpload(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    const error = gl.getError();
+    if (error !== gl.NO_ERROR) {
+      this.stats.glErrors += 1;
+      this.failDirectUpload(`WebGL error 0x${error.toString(16)}`);
+    }
+    if (!this.stats.directUploadFrameDimensions) {
+      this.stats.directUploadFrameDimensions = {
+        codedWidth: frame.codedWidth,
+        codedHeight: frame.codedHeight,
+        displayWidth: width,
+        displayHeight: height,
+        visibleRect: frame.visibleRect
+          ? {
+              x: frame.visibleRect.x,
+              y: frame.visibleRect.y,
+              width: frame.visibleRect.width,
+              height: frame.visibleRect.height,
+            }
+          : null,
+      };
+    }
+    if (uniforms) {
+      gl.uniform1i(uniforms.format, 2);
+      gl.uniform2f(uniforms.sourceSize, width, height);
+    }
+    return { width, height };
   }
   private upload(
     texture: WebGLTexture,
@@ -667,7 +822,7 @@ export class WebGL2Compositor implements CompositorBackend {
     return texture;
   }
   private prepareBase(
-    frames: readonly NativeYuvFrame[],
+    frames: readonly (NativeYuvFrame | VideoFrame)[],
     plan: EvaluationPlan,
     output: EvaluationPlan['output'],
   ): number {
@@ -676,22 +831,42 @@ export class WebGL2Compositor implements CompositorBackend {
     gl.uniform2f(this.baseOutput, output.width, output.height);
     const started = performance.now();
     frames.forEach((frame, index) => {
-      this.uploadYuv(
-        frame,
-        this.baseTextures.slice(index * 3, index * 3 + 3),
-        index * 3,
-        index * 3,
-        this.cutUniforms[index],
-      );
+      if (isVideoFrame(frame)) {
+        this.uploadVideoFrameTexture(
+          this.baseRgbaTextures[index]!,
+          BASE_RGBA_UNITS[index]!,
+          frame,
+          this.cutUniforms[index],
+        );
+      } else {
+        this.uploadYuv(
+          frame,
+          this.baseTextures.slice(index * 3, index * 3 + 3),
+          index * 3,
+          index * 3,
+          this.cutUniforms[index],
+        );
+      }
     });
     if (frames.length === 1 && !this.secondary) {
-      this.uploadYuv(
-        frames[0]!,
-        this.baseTextures.slice(3, 6),
-        3,
-        3,
-        this.cutUniforms[1],
-      );
+      const frame = frames[0]!;
+      if (isVideoFrame(frame)) {
+        this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[0]!);
+        this.gl.uniform1i(this.cutUniforms[1]!.format, 2);
+        this.gl.uniform2f(
+          this.cutUniforms[1]!.sourceSize,
+          frame.displayWidth,
+          frame.displayHeight,
+        );
+      } else {
+        this.uploadYuv(
+          frame,
+          this.baseTextures.slice(3, 6),
+          3,
+          3,
+          this.cutUniforms[1],
+        );
+      }
       this.secondary = true;
     } else if (frames.length === 2) {
       this.secondary = true;
@@ -727,10 +902,10 @@ export class WebGL2Compositor implements CompositorBackend {
   }
 
   async compose(
-    base: readonly NativeYuvFrame[],
+    base: readonly (NativeYuvFrame | VideoFrame)[],
     layers: readonly {
-      color: NativeYuvFrame | StillImageBitmap;
-      mask?: NativeYuvFrame | null;
+      color: NativeYuvFrame | StillImageBitmap | VideoFrame;
+      mask?: NativeYuvFrame | VideoFrame | null;
     }[],
     output: EvaluationPlan['output'],
     metrics: FrameMetricsRecorder,
@@ -748,6 +923,10 @@ export class WebGL2Compositor implements CompositorBackend {
       throw new Error('layer inputs must match plan.layers');
     if (base.length === 0 && layers.length === 0)
       throw new Error('cannot compose an empty plan');
+    const hasDirectInput = base.some(isVideoFrame) || layers.some(input =>
+      isVideoFrame(input.color) || Boolean(input.mask && isVideoFrame(input.mask)));
+    if (hasDirectInput && this.directUploadDisabled)
+      this.failDirectUpload('direct upload is disabled for this session');
     if (this.canvas.width !== output.width) this.canvas.width = output.width;
     if (this.canvas.height !== output.height)
       this.canvas.height = output.height;
@@ -814,6 +993,7 @@ export class WebGL2Compositor implements CompositorBackend {
     const kindLoc = uniform(gl, this.layerProgram, 'inputKind');
     const formatLoc = uniform(gl, this.layerProgram, 'yuvFormat');
     const hasMaskLoc = uniform(gl, this.layerProgram, 'hasMask');
+    const maskFormatLoc = uniform(gl, this.layerProgram, 'maskFormat');
     const blendLoc = uniform(gl, this.layerProgram, 'blendMode');
     const blendModes = [
       'normal',
@@ -848,6 +1028,16 @@ export class WebGL2Compositor implements CompositorBackend {
         height = color.height;
         this.bind(4, this.stillTexture(color));
         gl.uniform1i(kindLoc, 1);
+      } else if (isVideoFrame(color)) {
+        const size = this.uploadVideoFrameTexture(
+          this.layerRgbaTextures[0]!,
+          LAYER_RGBA_UNIT,
+          color,
+        );
+        width = size.width;
+        height = size.height;
+        gl.uniform1i(kindLoc, 0);
+        gl.uniform1i(formatLoc, 2);
       } else {
         width = color.width;
         height = color.height;
@@ -856,17 +1046,28 @@ export class WebGL2Compositor implements CompositorBackend {
         gl.uniform1i(formatLoc, color.format === 'NV12' ? 1 : 0);
       }
       if (input.mask) {
-        this.upload(
-          this.layerTextures[3]!,
-          9,
-          input.mask.y,
-          input.mask.width,
-          input.mask.height,
-        );
-        this.bind(5, this.layerTextures[3]!);
+        if (isVideoFrame(input.mask)) {
+          this.uploadVideoFrameTexture(
+            this.layerRgbaTextures[1]!,
+            MASK_RGBA_UNIT,
+            input.mask,
+          );
+          gl.uniform1i(maskFormatLoc, 2);
+        } else {
+          this.upload(
+            this.layerTextures[3]!,
+            9,
+            input.mask.y,
+            input.mask.width,
+            input.mask.height,
+          );
+          this.bind(5, this.layerTextures[3]!);
+          gl.uniform1i(maskFormatLoc, input.mask.format === 'NV12' ? 1 : 0);
+        }
         gl.uniform1i(hasMaskLoc, 1);
       } else {
         gl.uniform1i(hasMaskLoc, 0);
+        gl.uniform1i(maskFormatLoc, 0);
       }
       uploadElapsedMs += performance.now() - uploadStarted;
       gl.uniform2f(outLoc, output.width, output.height);
@@ -953,7 +1154,9 @@ export class WebGL2Compositor implements CompositorBackend {
     this.disposed = true;
     for (const t of [
       ...this.baseTextures,
+      ...this.baseRgbaTextures,
       ...this.layerTextures,
+      ...this.layerRgbaTextures,
       ...this.fboTextures,
       ...this.ownedImageTextures,
     ])

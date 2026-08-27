@@ -11,6 +11,7 @@ const generated = resolve(directory, '.generated');
 const resultsPath = resolve(generated, 'benchmark-results.json');
 const goldenResultsPath = resolve(packageDirectory, 'test/golden/.generated/results.json');
 const repeatCount = Number(process.env.BENCH_REPEAT ?? '3');
+const requestedUploadPath = process.env.FRAME_ENGINE_UPLOAD_PATH === 'copyTo' ? 'copyTo' : 'direct';
 if (!Number.isInteger(repeatCount) || repeatCount < 1) {
   throw new Error(`BENCH_REPEAT must be a positive integer, got ${process.env.BENCH_REPEAT}`);
 }
@@ -19,7 +20,10 @@ function hasCurrentGoldenResult() {
   if (!existsSync(goldenResultsPath)) return false;
   try {
     const golden = JSON.parse(readFileSync(goldenResultsPath, 'utf8'));
-    return golden.pass === true && golden.semantic?.pass === true && golden.parity?.length === 28;
+    return golden.pass === true
+      && golden.semantic?.pass === true
+      && golden.parity?.length === 28
+      && golden.uploadPath?.requested === requestedUploadPath;
   } catch {
     return false;
   }
@@ -62,6 +66,10 @@ execFileSync(process.execPath, [resolve(directory, 'write-report.mjs')], {
   stdio: 'inherit'
 });
 assert.equal(results.pass, true);
+assert.deepEqual(results.uploadPath, {
+  requested: requestedUploadPath,
+  effective: requestedUploadPath,
+});
 assert.deepEqual(results.skippedPhases, []);
 assert.equal(results.frameCount, 390);
 assert.equal(results.ratio.runs, repeatCount);
@@ -73,6 +81,15 @@ const expectedRatioMedian = sortedRatioSamples.length % 2 === 0
   : sortedRatioSamples[ratioMiddle];
 assert.equal(results.ratio.v2ToRenderCut, results.ratio.median);
 assert.equal(results.ratio.median, expectedRatioMedian);
+const sortedSteadySamples = [...results.ratio.samples.slice(1)].sort((left, right) => left - right);
+const steadyMiddle = Math.floor(sortedSteadySamples.length / 2);
+const expectedSteadyMedian = sortedSteadySamples.length === 0
+  ? null
+  : sortedSteadySamples.length % 2 === 0
+    ? (sortedSteadySamples[steadyMiddle - 1] + sortedSteadySamples[steadyMiddle]) / 2
+    : sortedSteadySamples[steadyMiddle];
+assert.deepEqual(results.ratio.steadySamples, results.ratio.samples.slice(1));
+assert.equal(results.ratio.steadyMedian, expectedSteadyMedian);
 assert.equal(results.ratio.minimum, Math.min(...results.ratio.samples));
 assert.equal(results.ratio.maximum, Math.max(...results.ratio.samples));
 assert.equal(results.phases.runs.length, repeatCount);
@@ -96,8 +113,14 @@ assert.equal(results.outputs.webCodecs.durationOk, true);
 assert.equal(results.outputs.rawFfmpeg.durationOk, true);
 assert.equal(typeof results.ratio.v2ToRenderCut, 'number');
 assert.ok(results.profile.stages.tick.count > 0);
-assert.ok(results.profile.stages.copyTo.count > 0);
-assert.ok(results.profile.stages.planeCompact.count > 0);
+if (requestedUploadPath === 'copyTo') {
+  assert.ok(results.profile.stages.copyTo.count > 0);
+  assert.ok(results.profile.stages.planeCompact.count > 0);
+} else {
+  assert.equal(results.profile.stages.copyTo.count, 0);
+  assert.equal(results.profile.stages.planeCompact.count, 0);
+  assert.ok(results.profile.stages.upload.count > 0);
+}
 assert.ok(results.profile.stages.shaderGpu.count > 0);
 assert.ok(results.profile.stages.pboWait.count > 0);
 assert.ok(results.profile.stages.rowFlip.count > 0);
