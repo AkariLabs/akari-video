@@ -8,9 +8,10 @@ const visual = {
   opacity: 1
 };
 
-function fakeFrame() {
+function fakeFrame(timestamp = 0) {
   return {
     format: 'NV12',
+    timestamp,
     codedWidth: 2,
     codedHeight: 2,
     allocationSize() { return 6; },
@@ -54,5 +55,55 @@ test('evaluateFrame routes transition layers to independent cut stream IDs', asy
     { timeUs: 700_000, streamId: 'cut-6' },
     { timeUs: 1_000_000, streamId: 'cut-7' }
   ]);
+  frame.close();
+});
+
+test('evaluateFrame decodes matte color and mask at one time on independent streams', async () => {
+  const requests = [];
+  const colorSource = {
+    async decode(timeUs, _metrics, request) {
+      requests.push({ source: 'color', timeUs, streamId: request?.streamId });
+      return fakeFrame(timeUs);
+    }
+  };
+  const maskSource = {
+    async decode(timeUs, _metrics, request) {
+      requests.push({ source: 'mask', timeUs, streamId: request?.streamId });
+      return fakeFrame(timeUs);
+    }
+  };
+  const surface = {
+    canvas: {}, width: 2, height: 2,
+    async readRgba() { return new Uint8Array(16); },
+    recordSink() {}, close() {}
+  };
+  let composedLayers;
+  const compositor = {
+    kind: 'webgl2',
+    async compose(_base, layers) { composedLayers = layers; return surface; },
+    dispose() {}
+  };
+  const sourceTimeUs = 733_333;
+  const frame = await evaluateFrame({
+    timeUs: 500_000,
+    base: [],
+    layers: [{
+      id: 'person', kind: 'matte', source: colorSource, sourceTimeUs,
+      mask: { kind: 'greyscale', source: maskSource, sourceTimeUs },
+      visual: { crop:{x:0,y:0,width:1,height:1}, perspective:null, transform:{x:0,y:0,scale:1,rotateDegrees:0} },
+      blend: 'normal', opacity: 1
+    }],
+    transition: { type: 'hard-cut', progress: 0 },
+    output: { width: 2, height: 2, colorSpace: 'bt709-limited' }
+  }, { compositor, metrics: new FrameMetrics() });
+  assert.deepEqual(requests, [
+    { source: 'color', timeUs: sourceTimeUs, streamId: 'layer-person' },
+    { source: 'mask', timeUs: sourceTimeUs, streamId: 'layer-person-mask' }
+  ]);
+  assert.equal(composedLayers[0].color.format, 'NV12');
+  assert.equal(composedLayers[0].mask.format, 'NV12');
+  assert.deepEqual(frame.maskSync, [{
+    layerId: 'person', colorTimestamp: sourceTimeUs, maskTimestamp: sourceTimeUs, requestedUs: sourceTimeUs
+  }]);
   frame.close();
 });

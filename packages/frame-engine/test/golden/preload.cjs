@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('goldenHarness', {
   fixtureUrl: 'frame-engine://fixture/source.mp4',
+  fixtureCodecs: ipcRenderer.sendSync('golden:fixture-codecs'),
   writeArtifact: (name, bytes) => ipcRenderer.invoke('golden:artifact', name, bytes),
   startEncoder: (options) => ipcRenderer.invoke('golden:encoder-start', options),
   writeEncoderFrame: (bytes) => ipcRenderer.invoke('golden:encoder-frame', bytes),

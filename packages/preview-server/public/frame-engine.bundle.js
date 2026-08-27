@@ -12726,6 +12726,7 @@ async function evaluateFrame(plan, context) {
   const decoded = [];
   const baseNative = [];
   const layerInputs = [];
+  const maskSync = [];
   try {
     for (const layer of plan.base) {
       const decodeStarted = performance.now();
@@ -12739,7 +12740,7 @@ async function evaluateFrame(plan, context) {
     for (const layer of plan.layers) {
       if (layer.kind === "image") {
         if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
-        layerInputs.push(await layer.image.load());
+        layerInputs.push({ color: await layer.image.load() });
         continue;
       }
       if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
@@ -12748,16 +12749,43 @@ async function evaluateFrame(plan, context) {
       context.metrics.record("decode", performance.now() - decodeStarted);
       decoded.push(frame);
       const copyStarted = performance.now();
-      layerInputs.push(await copyNativeYuvFrame(frame, context.metrics));
+      const color = await copyNativeYuvFrame(frame, context.metrics);
       context.metrics.record("copy", performance.now() - copyStarted);
+      let mask = null;
+      if (layer.kind === "matte" && layer.mask) {
+        const maskDecodeStarted = performance.now();
+        const maskFrame = await layer.mask.source.decode(
+          layer.mask.sourceTimeUs,
+          context.metrics,
+          { streamId: `layer-${layer.id}-mask` }
+        );
+        context.metrics.record("decode", performance.now() - maskDecodeStarted);
+        decoded.push(maskFrame);
+        const maskCopyStarted = performance.now();
+        mask = await copyNativeYuvFrame(maskFrame, context.metrics);
+        context.metrics.record("copy", performance.now() - maskCopyStarted);
+        maskSync.push({
+          layerId: layer.id,
+          colorTimestamp: Number(frame.timestamp ?? 0),
+          maskTimestamp: Number(maskFrame.timestamp ?? 0),
+          requestedUs: layer.sourceTimeUs
+        });
+      }
+      layerInputs.push({ color, mask });
     }
     const surface = await context.compositor.compose(baseNative, layerInputs, plan.output, context.metrics, plan);
-    const formats = [...baseNative, ...layerInputs.filter((value) => "format" in value)].map((frame) => frame.format);
+    const formats = [
+      ...baseNative,
+      ...layerInputs.flatMap((value) => [value.color, value.mask].filter(
+        (frame) => Boolean(frame && "format" in frame)
+      ))
+    ].map((frame) => frame.format);
     let closed = false;
     return {
       timeUs: plan.timeUs,
       surface,
       nativeFormats: formats,
+      ...maskSync.length > 0 ? { maskSync } : {},
       close() {
         if (closed) return;
         closed = true;
@@ -12933,7 +12961,7 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
       transitionOut: normalizeTransition(cut)
     };
   });
-  const { layers = [], ...timelineOptions } = options;
+  const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
   const map = (0, import_edit_store.buildTimelineMap)(virtualCuts, timelineOptions);
   const trackSegments = (0, import_edit_store.computeCutTrackSegments)(virtualCuts);
   const placements = cuts.map((cut, index) => {
@@ -12952,11 +12980,39 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
       freezeDuration
     };
   });
+  const visibleLayers = layers.filter((layer) => layer.kind !== "filter");
+  const warned = /* @__PURE__ */ new Set();
+  const warn = (message) => {
+    if (warned.has(message)) return;
+    warned.add(message);
+    onWarning?.(message);
+  };
+  const maskSources = /* @__PURE__ */ new Map();
+  for (const layer of visibleLayers) {
+    if (!layer.src || layer.mask !== void 0 || maskSources.has(layer.src)) continue;
+    if ((0, import_edit_store.isStillImageSourcePath)(layer.src)) {
+      if (layer.kind === "matte") warn(`mask ignored for still image layer ${layer.id ?? layer.src}`);
+      maskSources.set(layer.src, null);
+      continue;
+    }
+    if (!maskResolver) {
+      maskSources.set(layer.src, null);
+      continue;
+    }
+    try {
+      maskSources.set(layer.src, maskResolver(layer.src) ?? null);
+    } catch (error) {
+      warn(`mask resolver failed for ${layer.src}: ${error instanceof Error ? error.message : String(error)}`);
+      maskSources.set(layer.src, null);
+    }
+  }
   return {
     map,
     cuts: placements,
     totalDuration: map.totalDuration,
-    layers: layers.filter((layer) => layer.kind !== "filter"),
+    layers: visibleLayers,
+    maskSources,
+    warn,
     fps: finite2(options.fps, import_edit_store.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite2(options.fps, import_edit_store.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store.DEFAULT_CUT_ADJACENCY_FPS
   };
 }
@@ -13099,20 +13155,40 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
     visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
     visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
     const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
+    const id = String(layer.id ?? `layer-${index}`);
     const common = {
-      id: String(layer.id ?? `layer-${index}`),
-      mask: null,
+      id,
       visual,
       blend,
       opacity: clamp(finite2(layer.opacity, 1), 0, 1)
     };
     if ((0, import_edit_store.isStillImageSourcePath)(layer.src)) {
+      if (layer.mask || layer.kind === "matte") timeline.warn(`mask ignored for still image layer ${id}`);
       if (!("load" in source)) throw new Error(`no still image source registered for ${layer.src}`);
-      resolved.push({ ...common, kind: "image", image: source });
+      resolved.push({ ...common, kind: "image", image: source, mask: null });
       return;
     }
     if (!("decode" in source)) throw new Error(`no video frame source registered for ${layer.src}`);
-    resolved.push({ ...common, kind: "video", source, sourceTimeUs: Math.round(localSeconds * 1e6) });
+    const sourceTimeUs = Math.round(localSeconds * 1e6);
+    const maskSrc = layer.mask ?? timeline.maskSources.get(layer.src) ?? null;
+    let mask = null;
+    if (maskSrc) {
+      const maskSource = sources.get(maskSrc);
+      if (maskSource && "decode" in maskSource) {
+        mask = { kind: "greyscale", source: maskSource, sourceTimeUs };
+      } else {
+        timeline.warn(`no mask source registered for ${maskSrc}; layer ${id} will render without a mask`);
+      }
+    } else if (layer.kind === "matte") {
+      timeline.warn(`matte layer ${id} has no usable mask; rendering the color layer without a mask`);
+    }
+    resolved.push({
+      ...common,
+      kind: mask ? "matte" : "video",
+      source,
+      sourceTimeUs,
+      mask
+    });
   });
   return resolved;
 }
@@ -13367,8 +13443,10 @@ uniform sampler2D ly;
 uniform sampler2D lu;
 uniform sampler2D lv;
 uniform sampler2D image;
+uniform sampler2D maskY;
 uniform int inputKind;
 uniform int yuvFormat;
+uniform int hasMask;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
@@ -13417,7 +13495,8 @@ void main() {
       : vec2(texture(lu, sourceUv).r, texture(lv, sourceUv).r);
     src = vec4(yuv709(texture(ly, sourceUv).r, chroma), 1.0);
   }
-  float alpha = clamp(src.a * opacity, 0.0, 1.0);
+  float maskA = hasMask == 1 ? texture(maskY, sourceUv).r : 1.0;
+  float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
   color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
 }`;
 var COPY_FRAGMENT = `#version 300 es
@@ -13426,6 +13505,7 @@ in vec2 uv;
 out vec4 color;
 uniform sampler2D source;
 void main() { color = texture(source, uv); }`;
+var FBO_SCRATCH_UNIT = 9;
 function multiply(a, b) {
   return Array.from({ length: 9 }, (_3, k2) => {
     const r = Math.floor(k2 / 3), c = k2 % 3;
@@ -13545,7 +13625,8 @@ var WebGL2Compositor = class {
       ["ly", 1],
       ["lu", 2],
       ["lv", 3],
-      ["image", 4]
+      ["image", 4],
+      ["maskY", 5]
     ].forEach(
       ([n2, u2]) => gl.uniform1i(uniform(gl, this.layerProgram, n2), u2)
     );
@@ -13554,7 +13635,7 @@ var WebGL2Compositor = class {
   }
   kind = "webgl2";
   canvas;
-  stats = { imageUploads: 0 };
+  stats = { imageUploads: 0, glErrors: 0 };
   gl;
   baseProgram;
   layerProgram;
@@ -13562,7 +13643,7 @@ var WebGL2Compositor = class {
   vertices;
   baseTextures;
   layerTextures;
-  shapes = Array(9).fill(null);
+  shapes = Array(10).fill(null);
   cutUniforms;
   baseOutput;
   transitionType;
@@ -13647,7 +13728,7 @@ var WebGL2Compositor = class {
     const shape = `${w}x${h}`;
     if (shape === this.fboShape) return;
     for (const t of this.fboTextures) {
-      this.gl.bindTexture(this.gl.TEXTURE_2D, t);
+      this.bind(FBO_SCRATCH_UNIT, t);
       this.gl.texImage2D(
         this.gl.TEXTURE_2D,
         0,
@@ -13661,6 +13742,10 @@ var WebGL2Compositor = class {
       );
     }
     this.fboShape = shape;
+  }
+  recordGlErrors(synchronization) {
+    if (synchronization !== "finish") return;
+    while (this.gl.getError() !== this.gl.NO_ERROR) this.stats.glErrors += 1;
   }
   stillTexture(value) {
     let texture = this.imageTextures.get(value);
@@ -13821,6 +13906,7 @@ var WebGL2Compositor = class {
     const opacityLoc = uniform(gl, this.layerProgram, "opacity");
     const kindLoc = uniform(gl, this.layerProgram, "inputKind");
     const formatLoc = uniform(gl, this.layerProgram, "yuvFormat");
+    const hasMaskLoc = uniform(gl, this.layerProgram, "hasMask");
     const blendLoc = uniform(gl, this.layerProgram, "blendMode");
     const blendModes = [
       "normal",
@@ -13837,6 +13923,7 @@ var WebGL2Compositor = class {
     let current = 0;
     for (let index = 0; index < layers.length; index += 1) {
       const input = layers[index];
+      const color = input.color;
       const layer = plan.layers[index];
       const next = 1 - current;
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[next]);
@@ -13845,17 +13932,30 @@ var WebGL2Compositor = class {
       let width;
       let height;
       const uploadStarted = performance.now();
-      if ("bitmap" in input) {
-        width = input.width;
-        height = input.height;
-        this.bind(4, this.stillTexture(input));
+      if ("bitmap" in color) {
+        width = color.width;
+        height = color.height;
+        this.bind(4, this.stillTexture(color));
         gl.uniform1i(kindLoc, 1);
       } else {
-        width = input.width;
-        height = input.height;
-        this.uploadYuv(input, this.layerTextures.slice(0, 3), 1, 6);
+        width = color.width;
+        height = color.height;
+        this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
         gl.uniform1i(kindLoc, 0);
-        gl.uniform1i(formatLoc, input.format === "NV12" ? 1 : 0);
+        gl.uniform1i(formatLoc, color.format === "NV12" ? 1 : 0);
+      }
+      if (input.mask) {
+        this.upload(
+          this.layerTextures[3],
+          9,
+          input.mask.y,
+          input.mask.width,
+          input.mask.height
+        );
+        this.bind(5, this.layerTextures[3]);
+        gl.uniform1i(hasMaskLoc, 1);
+      } else {
+        gl.uniform1i(hasMaskLoc, 0);
       }
       uploadElapsedMs += performance.now() - uploadStarted;
       gl.uniform2f(outLoc, output.width, output.height);
@@ -13880,12 +13980,14 @@ var WebGL2Compositor = class {
       gl.uniform1f(opacityLoc, layer.opacity);
       gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
       draw();
+      this.recordGlErrors(synchronization);
       current = next;
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.useProgram(this.copyProgram);
     this.bind(0, this.fboTextures[current]);
     draw();
+    this.recordGlErrors(synchronization);
     metrics.record("upload", uploadElapsedMs);
     this.finishFrame(metrics, shaderElapsedMs, synchronization, timer, queries);
     return new WebGLSurface(
@@ -16752,7 +16854,7 @@ function createUi(stage) {
   const banner = document.createElement("div");
   banner.id = "frame-engine-unsupported-banner";
   banner.setAttribute("role", "status");
-  banner.textContent = "Frame engine \u8A55\u4FA1\u53F0\uFF08cuts + layers\uFF09\u2014 \u672A\u5BFE\u5FDC: overlays / \u5B57\u5E55 / \u97F3\u58F0";
+  banner.textContent = "Frame engine \u8A55\u4FA1\u53F0\uFF08cuts + layers + matte\uFF09\u2014 \u672A\u5BFE\u5FDC: overlays / \u5B57\u5E55 / \u97F3\u58F0";
   Object.assign(banner.style, {
     position: "absolute",
     left: "8px",
@@ -16814,6 +16916,10 @@ var FrameEngineRuntime = class {
       if (!layer?.src) continue;
       const key = String(layer.src);
       urls.set(key, mediaUrl(key));
+      if (layer.mask) {
+        const maskKey = String(layer.mask);
+        urls.set(maskKey, mediaUrl(maskKey));
+      }
     }
     for (const [id, url] of urls) {
       if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(url)) {

@@ -1,6 +1,7 @@
 # analysis.json v0 人物マット（tracks.person_matte）データ契約
 
 - 日付: 2026-07-23
+- 改訂: 2026-08-27（§8 の format 席を開き mask_path / mask_format を追加）
 - 状態: 実装ラウンドの SSOT（`tracks.person_matte` の値のみ確定）
 - 前提: `contract-2026-07-17-data-contract-versioning.md`（版必須・追加のみ進化・明示マイグレの三原則）、
   `contract-2026-07-13-m5-analysis-report.md`（`analysis.json` v0 の器と `tracks` の枠。
@@ -56,6 +57,8 @@
 
     "person_matte": {                        // null（未生成）/ string（旧形）も有効
       "path": "matte/person-matte.webm",     // 必須。VP9 alpha WebM への相対 or 絶対パス
+      "mask_path": "matte/person-matte.mask.mp4", // 任意。追加のグレースケール H.264 マスク
+      "mask_format": "gray-h264-fullrange", // 任意。mask_path の形式
       "fps": 24,                             // 必須。マット動画の fps（元素材と異なってよい）
       "quality": "balanced",                 // 任意。fast / balanced / accurate / best を例示（enum 強制はしない）
       "generated_at": "2026-07-23T01:33:30.069Z",  // 任意。ISO8601
@@ -218,6 +221,7 @@ ffmpeg / ffprobe は OS の PATH 名を直接起動せず、`packages/media-bin`
 |---|---|
 | `packages/schemas/analysis.schema.json` | `$defs/personMatteTrack` として object 形の構造（`path` / `fps` の必須・型・範囲、`additionalProperties: false`）を定義し、`tracks.person_matte` から `null` / string / object の `oneOf` として参照する |
 | 生成ヘルパー（`bin/person-matte/person-matte.mjs`） | 書き出した WebM が `codec_name = vp9` かつコンテナタグ `alpha_mode = 1` であることを ffprobe で確認してから成功を返す。アルファが落ちた出力を成功扱いにしない。タグキーの大文字小文字は書き込み経路によって変わりうるため、照合は大文字小文字非依存で行う |
+| 追加マスク（`mask_path`） | `codec_name = h264`、`color_range = pc`、幅・高さ・`r_frame_rate`・`nb_frames` が VP9 alpha WebM と一致し、`start_pts = 0` であることを ffprobe で確認する |
 | `skills/analyze-footage/analysis-json.md` の意味制約 | JSON Schema で表せない条件（`path` が解決でき実ファイルがある、マット動画の時刻 0 が素材の時刻 0 と一致する、`fps` がマット動画の実 fps と一致する）を確定前に人が検査する |
 
 **`analysis.json` 専用の検証 CLI は本契約では新設しない。** `packages/schemas/bin/` には
@@ -241,6 +245,27 @@ JSON として読めるかまでしか見ていない（`analysis.schema` チェ
 
 いずれも別契約で扱う。本契約は `tracks.person_matte` の器だけを確定し、これらの席が将来開く
 可能性があることを記録するに留める。
+
+### 8.1 `mask_path` / `mask_format`（2026-08-27 追加）
+
+§8 の `format` の席を、VP9 alpha WebM を置換しない追加出力として開く。`path` が指す VP9 alpha
+WebM の生成と既存消費は不変であり、`mask_path` は v2 frame-engine がハードウェアデコード可能な
+グレースケールマスクを使うための追加物である。
+
+| 項目 | 規格 |
+|---|---|
+| コンテナ / codec / profile | mp4 / H.264（`libx264`）/ High |
+| 画素 | `yuv420p`、Y = アルファ（0 = 透明、255 = 不透明）、U/V = 128 |
+| レンジ・色タグ | full range（`color_range=pc`）、BT.709 primaries / transfer / colorspace |
+| GOP・品質 | GOP 1 秒以下、`crf 6`、`preset medium`、B frame なし |
+| 時間 | 解像度・fps・尺・フレーム数はカラー元と一致し、先頭 PTS は 0 |
+| 命名 | `<VP9 alpha WebM の basename>.mask.mp4` |
+
+`mask_format` の現行値は `"gray-h264-fullrange"` とする。`mask_path` の相対パスは `path` と同じく
+**analysis.json の所在ディレクトリ**を基準に解決し、区切りは `/` を使う。
+
+`mask_path` が無い、または解決・検証できない場合、消費側は `path` の VP9 alpha WebM から一度だけ
+同規格のマスクへ取り込み変換する。それも失敗した場合は人物演出を諦め、映像本体の処理は止めない。
 
 ## 9. 既知の追随事項（本契約が作る宿題）
 

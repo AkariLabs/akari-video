@@ -59,6 +59,52 @@ test('timeline resolves z order, local source time, static and animated visuals'
   assert.equal(plan.layers[1].opacity, .5);
 });
 
+test('matte layers resolve masks once per source and degrade missing or failed masks to warnings', () => {
+  const video = { decode: async () => { throw new Error('unused'); } };
+  const mask = { decode: async () => { throw new Error('unused'); } };
+  const warnings = [];
+  let calls = 0;
+  const timeline = buildResolvedTimelinePlan([{ src:'base', in:0, out:3 }], {
+    fps:30,
+    layers:[
+      { id:'matte-a', t:0, duration:2, kind:'matte', src:'color' },
+      { id:'matte-b', t:0, duration:2, kind:'matte', src:'color' }
+    ],
+    maskResolver(src) { calls += 1; return `${src}.mask.mp4`; },
+    onWarning: warning => warnings.push(warning)
+  });
+  assert.equal(calls, 1);
+  const plan = evaluationPlanFromResolvedTimeline(
+    timeline,
+    500_000,
+    new Map([['base',video],['color',video],['color.mask.mp4',mask]]),
+    { width:320,height:180,colorSpace:'bt709-limited' }
+  );
+  assert.deepEqual(plan.layers.map(layer => layer.kind), ['matte','matte']);
+  assert.equal(plan.layers[0].mask.source, mask);
+  assert.equal(plan.layers[0].mask.sourceTimeUs, plan.layers[0].sourceTimeUs);
+  assert.equal(warnings.length, 0);
+
+  const missing = evaluationPlanFromResolvedTimeline(
+    timeline,
+    500_000,
+    new Map([['base',video],['color',video]]),
+    { width:320,height:180,colorSpace:'bt709-limited' }
+  );
+  assert.deepEqual(missing.layers.map(layer => layer.kind), ['video','video']);
+  assert.equal(missing.layers[0].mask, null);
+  assert.equal(warnings.length, 2);
+
+  const resolverWarnings = [];
+  const failed = buildResolvedTimelinePlan([{ src:'base', in:0, out:1 }], {
+    layers:[{ id:'failed', t:0, duration:1, kind:'matte', src:'color' }],
+    maskResolver() { throw new Error('conversion failed'); },
+    onWarning: warning => resolverWarnings.push(warning)
+  });
+  assert.equal(failed.maskSources.get('color'), null);
+  assert.match(resolverWarnings[0], /conversion failed/u);
+});
+
 test('golden layer classes are isolated, with only the stack window overlapping', () => {
   const fixture = JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'golden/layers.edit.json'), 'utf8'));
   const activeAt = seconds => fixture.layers.filter(layer => seconds >= layer.t && seconds < layer.t + layer.duration);

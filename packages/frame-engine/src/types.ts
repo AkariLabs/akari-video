@@ -107,7 +107,7 @@ export interface ResolvedLayerMask {
 
 export interface ResolvedCompositeLayer {
   id: string;
-  kind: 'video' | 'image';
+  kind: 'video' | 'image' | 'matte';
   source?: NativeFrameSource;
   sourceTimeUs?: TimelineTimeUs;
   image?: StillImageSource;
@@ -147,6 +147,12 @@ export interface CompositedFrame {
   readonly timeUs: TimelineTimeUs;
   readonly surface: GPUFrameSurface;
   readonly nativeFormats: readonly NativeVideoFormat[];
+  readonly maskSync?: readonly {
+    layerId: string;
+    colorTimestamp: number;
+    maskTimestamp: number;
+    requestedUs: number;
+  }[];
   close(): void;
 }
 
@@ -158,7 +164,10 @@ export interface CompositorBackend {
   readonly kind: 'webgl2';
   compose(
     base: readonly NativeYuvFrame[],
-    layers: readonly (NativeYuvFrame | StillImageBitmap)[],
+    layers: readonly {
+      color: NativeYuvFrame | StillImageBitmap;
+      mask?: NativeYuvFrame | null;
+    }[],
     output: EvaluationPlan['output'],
     metrics: FrameMetricsRecorder,
     plan: EvaluationPlan

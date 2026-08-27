@@ -1,0 +1,16 @@
+{
+  "cuts": [
+    { "src": "frame-engine://fixture/matte-color.mp4", "in": 0, "out": 10 }
+  ],
+  "layers": [
+    {
+      "id": "matte-basic",
+      "kind": "matte",
+      "src": "frame-engine://fixture/matte-color.mp4",
+      "mask": "frame-engine://fixture/matte-mask.mp4",
+      "t": 0,
+      "duration": 10,
+      "transform": { "scale": 0.8 }
+    }
+  ]
+}

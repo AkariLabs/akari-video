@@ -24,9 +24,11 @@ import type {
 } from '../../src/index.js';
 import edit from './edit.json';
 import layersEdit from './layers.edit.json';
+import matteEdit from './matte.edit.json';
 
 interface GoldenBridge {
   fixtureUrl: string;
+  fixtureCodecs: Record<string, string>;
   writeArtifact(name: string, bytes: Uint8Array): Promise<boolean>;
   startEncoder(options: {
     width: number;
@@ -58,6 +60,9 @@ const FPS = 30;
 const SOURCE_URL = window.goldenHarness.fixtureUrl;
 const SOURCE_B_URL = new URL('source-b.mp4', SOURCE_URL).href;
 const STILL_URL = new URL('still.png', SOURCE_URL).href;
+const MATTE_COLOR_URL = new URL('matte-color.mp4', SOURCE_URL).href;
+const MATTE_ALPHA_URL = new URL('matte-alpha.webm', SOURCE_URL).href;
+const MATTE_MASK_URL = new URL('matte-mask.mp4', SOURCE_URL).href;
 const SAMPLE_POINTS = [
   ['hard-cut-before', 900_000],
   ['hard-cut-after', 1_100_000],
@@ -189,6 +194,27 @@ async function run(): Promise<void> {
     [SOURCE_B_URL, layerSession],
     [STILL_URL, stillSource],
   ]);
+  const matteColorSession = new ClipSessionPool('matte-color', MATTE_COLOR_URL, {
+    onWarning: (warning) => warnings.push(warning),
+  });
+  const matteMaskSession = new ClipSessionPool('matte-mask', MATTE_MASK_URL, {
+    onWarning: (warning) => warnings.push(warning),
+  });
+  const matteDecodeCounts = new Map<string, number>();
+  const countedSource = (src: string, source: NativeFrameSource): NativeFrameSource => ({
+    async decode(timeUs, frameMetrics, request) {
+      matteDecodeCounts.set(src, (matteDecodeCounts.get(src) ?? 0) + 1);
+      return source.decode(timeUs, frameMetrics, request);
+    },
+  });
+  const matteTimeline = buildResolvedTimelinePlan(
+    matteEdit.cuts as FrameEngineCut[],
+    { fps: FPS, layers: matteEdit.layers as FrameEngineLayer[] },
+  );
+  const matteSources = new Map<string, NativeFrameSource>([
+    [MATTE_COLOR_URL, countedSource(MATTE_COLOR_URL, matteColorSession)],
+    [MATTE_MASK_URL, countedSource(MATTE_MASK_URL, matteMaskSession)],
+  ]);
   const frameMidpointUs = (frameNumber: number) =>
     Math.round(((frameNumber + 0.5) / FPS) * 1e6);
   const layerSamplePoints = [
@@ -315,6 +341,153 @@ async function run(): Promise<void> {
       frame.close();
     }
   };
+  const matteSamplePoints = [
+    ['matte-start', frameMidpointUs(0)],
+    ['matte-middle', frameMidpointUs(120)],
+    ['matte-late', frameMidpointUs(235)],
+  ] as const;
+  // A GOP's final frame is not seekable through the random-access decoder path; it is only
+  // reachable by sequential decode. Keep isolated parity samples away from that boundary.
+  if (matteSamplePoints.some(([, timeUs]) =>
+    Math.round(timeUs * FPS / 1e6 - 0.5) % 30 === 29)) {
+    throw new Error('matte parity sample selects a GOP-final frame');
+  }
+  const matteGlErrorsBefore = compositor.stats.glErrors;
+  const matteParity: Array<Record<string, unknown>> = [];
+  let matteNegativeSeed: { preview: Uint8Array; exported: Uint8Array } | null = null;
+  for (const [label, timeUs] of matteSamplePoints) {
+    const plan = evaluationPlanFromResolvedTimeline(
+      matteTimeline,
+      timeUs,
+      matteSources,
+      output,
+    );
+    const frame = await evaluateFrame(plan, context);
+    presentFrame(frame, previewCanvas);
+    const previewRgba = capturePresentedRgba(previewCanvas);
+    const sink = new BufferedRawFrameSink();
+    await readbackFrame(frame, sink);
+    const exportRgba = sink.frames[0]?.rgba;
+    if (!exportRgba) throw new Error(`matte export sink produced no frame at ${timeUs}us`);
+    const previewPng = await rgbaToPng(previewRgba);
+    const exportPng = await rgbaToPng(exportRgba);
+    const previewSha256 = await sha256(previewPng);
+    const exportSha256 = await sha256(exportPng);
+    const comparison = compareRgba(previewRgba, exportRgba);
+    const pass = comparison.differingPixels === 0
+      && comparison.maxDelta === 0
+      && previewSha256 === exportSha256;
+    matteParity.push({ label, timeUs, ...comparison, previewSha256, exportSha256, pass });
+    await window.goldenHarness.writeArtifact(`matte-${label}-preview.png`, previewPng);
+    await window.goldenHarness.writeArtifact(`matte-${label}-export.png`, exportPng);
+    matteNegativeSeed ??= { preview: previewRgba, exported: exportRgba };
+    frame.close();
+  }
+
+  if (!matteNegativeSeed) throw new Error('matte negative test has no source frame');
+  const matteMutated = matteNegativeSeed.exported.slice();
+  matteMutated[8] = matteMutated[8] === 255 ? 254 : matteMutated[8]! + 1;
+  const matteNegativeComparison = compareRgba(matteNegativeSeed.preview, matteMutated);
+  const matteNegative = {
+    injectedPixelMutation: true,
+    ...matteNegativeComparison,
+    comparatorPassed: matteNegativeComparison.differingPixels === 0,
+  };
+  await window.goldenHarness.writeArtifact(
+    'matte-negative-preview.png',
+    await rgbaToPng(matteNegativeSeed.preview),
+  );
+  await window.goldenHarness.writeArtifact(
+    'matte-negative-export-mutated.png',
+    await rgbaToPng(matteMutated),
+  );
+
+  const unmaskedEdit = structuredClone(matteEdit);
+  delete (unmaskedEdit.layers[0] as { mask?: string }).mask;
+  unmaskedEdit.layers[0]!.kind = 'video';
+  const unmaskedTimeline = buildResolvedTimelinePlan(
+    unmaskedEdit.cuts as FrameEngineCut[],
+    { fps: FPS, layers: unmaskedEdit.layers as FrameEngineLayer[] },
+  );
+  const baseOnlyTimeline = buildResolvedTimelinePlan(
+    matteEdit.cuts as FrameEngineCut[],
+    { fps: FPS },
+  );
+  const semanticTimeUs = frameMidpointUs(0);
+  const maskedSemanticRgba = await renderRgba(evaluationPlanFromResolvedTimeline(
+    matteTimeline, semanticTimeUs, matteSources, output,
+  ));
+  const unmaskedSemanticRgba = await renderRgba(evaluationPlanFromResolvedTimeline(
+    unmaskedTimeline, semanticTimeUs, matteSources, output,
+  ));
+  const baseSemanticRgba = await renderRgba(evaluationPlanFromResolvedTimeline(
+    baseOnlyTimeline, semanticTimeUs, matteSources, output,
+  ));
+  const pixelDelta = (left: Uint8Array, right: Uint8Array, offset: number) =>
+    Math.max(
+      Math.abs(left[offset]! - right[offset]!),
+      Math.abs(left[offset + 1]! - right[offset + 1]!),
+      Math.abs(left[offset + 2]! - right[offset + 2]!),
+    );
+  let transparentBackdropPixels = 0;
+  let opaqueLayerPixels = 0;
+  for (let offset = 0; offset < maskedSemanticRgba.length; offset += 4) {
+    const unmaskedFromBase = pixelDelta(unmaskedSemanticRgba, baseSemanticRgba, offset);
+    const maskedFromBase = pixelDelta(maskedSemanticRgba, baseSemanticRgba, offset);
+    const maskedFromUnmasked = pixelDelta(maskedSemanticRgba, unmaskedSemanticRgba, offset);
+    if (maskedFromBase <= 1 && unmaskedFromBase > 8) transparentBackdropPixels += 1;
+    if (maskedFromUnmasked <= 2 && maskedFromBase > 8) opaqueLayerPixels += 1;
+  }
+  const maskEffect = compareRgba(maskedSemanticRgba, unmaskedSemanticRgba);
+  const matteSemantic = {
+    pass: transparentBackdropPixels > 100 && opaqueLayerPixels > 100 && maskEffect.differingPixels > 0,
+    transparentBackdropPixels,
+    opaqueLayerPixels,
+    withoutMaskDifferingPixels: maskEffect.differingPixels,
+  };
+
+  let mismatches = 0;
+  let maxDeltaUs = 0;
+  let maxFrameLag = 0;
+  let laggedFrames = 0;
+  for (let frameNumber = 0; frameNumber < 300; frameNumber += 1) {
+    const requestedUs = frameMidpointUs(frameNumber);
+    const plan = evaluationPlanFromResolvedTimeline(matteTimeline, requestedUs, matteSources, output);
+    const frame = await evaluateFrame(plan, context);
+    const pairs = frame.maskSync ?? [];
+    if (pairs.length !== 1) mismatches += 1;
+    let frameLagged = pairs.length !== 1;
+    for (const pair of pairs) {
+      const delta = Math.abs(pair.colorTimestamp - pair.maskTimestamp);
+      // VideoFrame timestamps are integer microseconds; round cancels their sub-microsecond PTS truncation.
+      const actualColorFrame = Math.round(pair.colorTimestamp * FPS / 1e6);
+      const actualMaskFrame = Math.round(pair.maskTimestamp * FPS / 1e6);
+      const colorLag = actualColorFrame - frameNumber;
+      const maskLag = actualMaskFrame - frameNumber;
+      maxDeltaUs = Math.max(maxDeltaUs, delta);
+      maxFrameLag = Math.max(maxFrameLag, Math.abs(colorLag), Math.abs(maskLag));
+      if (colorLag !== 0 || maskLag !== 0) frameLagged = true;
+      if (delta !== 0 || pair.requestedUs !== plan.layers[0]?.sourceTimeUs) mismatches += 1;
+    }
+    if (frameLagged) laggedFrames += 1;
+    frame.close();
+  }
+  const matteSync = { frames: 300, mismatches, maxDeltaUs, maxFrameLag, laggedFrames };
+  const codecSources = [MATTE_COLOR_URL, MATTE_MASK_URL, MATTE_ALPHA_URL].map(src => ({
+    src,
+    codec: window.goldenHarness.fixtureCodecs[src] ?? 'unknown',
+    decodes: matteDecodeCounts.get(src) ?? 0,
+  }));
+  const matteStats = {
+    sources: codecSources,
+    vp9Decodes: codecSources
+      .filter(source => source.codec === 'vp9' || source.codec === 'vp8')
+      .reduce((sum, source) => sum + source.decodes, 0),
+    h264Decodes: codecSources
+      .filter(source => source.codec === 'h264')
+      .reduce((sum, source) => sum + source.decodes, 0),
+    glErrors: compositor.stats.glErrors - matteGlErrorsBefore,
+  };
   const boundaryBeforeRgba = await renderRgba(boundaryBefore);
   const boundaryAtRgba = await renderRgba(boundaryAt);
   const bareBeforeRgba = await renderRgba(bareBefore);
@@ -385,9 +558,11 @@ async function run(): Promise<void> {
   const recreationComparison = compareRgba(firstRgba, secondRgba);
   const layerStats = {
     imageUploads: compositor.stats.imageUploads,
+    glErrors: compositor.stats.glErrors,
     disposeRecreateDifferingPixels: recreationComparison.differingPixels,
     pass:
       compositor.stats.imageUploads === 1 &&
+      compositor.stats.glErrors === 0 &&
       recreationComparison.differingPixels === 0,
   };
 
@@ -621,10 +796,25 @@ async function run(): Promise<void> {
     layerNegative.comparatorPassed === false &&
     layerNegative.differingPixels === 1 &&
     layerSemantic.pass &&
-    layerStats.pass;
+    layerStats.pass &&
+    matteParity.length === matteSamplePoints.length &&
+    matteParity.every((sample) => sample.pass === true) &&
+    matteNegative.comparatorPassed === false &&
+    matteNegative.differingPixels === 1 &&
+    matteSemantic.pass &&
+    matteSync.frames === 300 &&
+    matteSync.mismatches === 0 &&
+    matteSync.maxDeltaUs === 0 &&
+    matteSync.maxFrameLag === 0 &&
+    matteSync.laggedFrames === 0 &&
+    matteStats.vp9Decodes === 0 &&
+    matteStats.h264Decodes > 0 &&
+    matteStats.glErrors === 0;
 
   session.destroy();
   layerSession.destroy();
+  matteColorSession.destroy();
+  matteMaskSession.destroy();
   stillSource.destroy();
   compositor.dispose();
   await window.goldenHarness.complete({
@@ -642,8 +832,10 @@ async function run(): Promise<void> {
     },
     parity,
     layerParity,
+    matteParity,
     negative,
     layerNegative,
+    matteNegative,
     encoded,
     semantic: {
       pass: semanticPass,
@@ -652,6 +844,9 @@ async function run(): Promise<void> {
     },
     layerSemantic,
     layerStats,
+    matteSemantic,
+    matteSync,
+    matteStats,
     metrics: metricJson,
     warnings,
   });

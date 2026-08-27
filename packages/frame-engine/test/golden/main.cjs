@@ -11,6 +11,9 @@ const GENERATED = resolve(__dirname, '.generated');
 const FIXTURE = resolve(GENERATED, 'source.mp4');
 const FIXTURE_B = resolve(GENERATED, 'source-b.mp4');
 const STILL = resolve(GENERATED, 'still.png');
+const MATTE_COLOR = resolve(GENERATED, 'matte-color.mp4');
+const MATTE_ALPHA = resolve(GENERATED, 'matte-alpha.webm');
+const MATTE_MASK = resolve(GENERATED, 'matte-mask.mp4');
 const RESULTS = resolve(GENERATED, 'results.json');
 mkdirSync(GENERATED, { recursive: true });
 let encoder = null;
@@ -26,6 +29,14 @@ const ffmpeg = tool('ffmpeg');
 const ffprobe = tool('ffprobe');
 const sha256 = file => createHash('sha256').update(readFileSync(file)).digest('hex');
 const writeJson = (file, value) => writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+const codecName = file => JSON.parse(execFileSync(ffprobe, [
+  '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'json', file
+], { encoding: 'utf8' })).streams?.[0]?.codec_name;
+const fixtureCodecs = {
+  'frame-engine://fixture/matte-color.mp4': codecName(MATTE_COLOR),
+  'frame-engine://fixture/matte-alpha.webm': codecName(MATTE_ALPHA),
+  'frame-engine://fixture/matte-mask.mp4': codecName(MATTE_MASK)
+};
 
 function artifactPath(name) {
   if (!/^[a-z0-9][a-z0-9._-]*$/i.test(name)) throw new Error(`invalid artifact name: ${name}`);
@@ -47,6 +58,7 @@ ipcMain.handle('golden:artifact', (_event, name, bytes) => {
   writeFileSync(artifactPath(name), Buffer.from(bytes));
   return true;
 });
+ipcMain.on('golden:fixture-codecs', event => { event.returnValue = fixtureCodecs; });
 
 ipcMain.handle('golden:encoder-start', (_event, { width, height, fps }) => {
   if (encoder) throw new Error('encoder already running');
@@ -131,6 +143,9 @@ app.whenReady().then(async () => {
     else if (url.hostname === 'fixture' && url.pathname === '/source.mp4') file = FIXTURE;
     else if (url.hostname === 'fixture' && url.pathname === '/source-b.mp4') file = FIXTURE_B;
     else if (url.hostname === 'fixture' && url.pathname === '/still.png') file = STILL;
+    else if (url.hostname === 'fixture' && url.pathname === '/matte-color.mp4') file = MATTE_COLOR;
+    else if (url.hostname === 'fixture' && url.pathname === '/matte-alpha.webm') file = MATTE_ALPHA;
+    else if (url.hostname === 'fixture' && url.pathname === '/matte-mask.mp4') file = MATTE_MASK;
     else return new Response('not found', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
   });
