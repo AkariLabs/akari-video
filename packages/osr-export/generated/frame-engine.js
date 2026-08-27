@@ -14953,7 +14953,7 @@ void main() {
     };
   }
 
-  // node_modules/@webav/av-cliper/dist/av-cliper.js
+  // packages/frame-engine/vendor/av-cliper/av-cliper.js
   var import_mp4box2 = __toESM(require_mp4box_all(), 1);
 
   // node_modules/@webav/internal-utils/dist/internal-utils.js
@@ -15916,7 +15916,7 @@ void main() {
     return H.push(r), F2(`${U2}/${r}`);
   }
 
-  // node_modules/@webav/av-cliper/dist/av-cliper.js
+  // packages/frame-engine/vendor/av-cliper/av-cliper.js
   function et(s) {
     if (s.format === "f32-planar") {
       const t = [];
@@ -16450,10 +16450,7 @@ void main() {
     if (t.length > 0)
       for (let o2 = t.length - 1; o2 >= 0; o2--) {
         const c = t[o2];
-        if (!c.deleted) {
-          a = c.cts + c.duration;
-          break;
-        }
+        if (!c.deleted) a = Math.max(a, c.cts + c.duration);
       }
     if (e.length > 0) {
       const o2 = e.at(-1);
