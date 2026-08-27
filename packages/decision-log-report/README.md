@@ -31,9 +31,11 @@ node packages/decision-log-report/render-decision-log-report.mjs \
 | `category` / `subject` / `決定` を含む markdown 表 | 行を `decisions[]` として構造化 |
 | ラベル付きの 1 行パイプ形式 | `category` / `subject` / `checkpoint` 等を構造化 |
 | 見出し・箇条書き・段落・コード | `blocks[]` として原文順を保持 |
+| `>` で始まる連続行 | `blockquote` block として原文順を保持 |
 | 必須 3 列を持たない markdown 表 | `table` block として原文に保持 |
 | `(direction, tone)` の決定セル先頭にある JSON | `tone[]` / `tempo` を追加抽出（壊れていれば無視） |
 | 画像パス | project 内の実在を確認し、出力 HTML からの相対 `src` を記録 |
+| 裸の画像パストークン | ASCII のパス文字かつ区切りを含むものだけを収集し、グロブを除外 |
 
 同じ `(category, subject)` の決定はファイル順で最後の行を現在有効とし、過去行は
 `supersededBy` で後続行を参照します。日時による並べ替えは行いません。

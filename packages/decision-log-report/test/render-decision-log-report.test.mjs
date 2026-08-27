@@ -184,3 +184,36 @@ test("(h) planning 配下の --log は --project 省略時に親の project root
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("(i) 裸パスは ASCII のパス文字と区切りを要求し、グロブを収集しない", () => {
+  const project = prepareProject("path-tokens");
+  try {
+    installPixel(project.root);
+    const result = run(["--log", project.logPath, "--out", project.outPath, "--project", project.root], project.root);
+    assert.equal(result.status, 0, result.stderr);
+    const data = embeddedDataOf(readFileSync(project.outPath, "utf8"));
+    assert.deepEqual(data.images.map((image) => image.path), ["assets/frame.png"]);
+    assert.equal(data.stats.imageCount, 1);
+  } finally {
+    rmSync(project.root, { recursive: true, force: true });
+  }
+});
+
+test("(j) 引用の連続行は blockquote 1 ブロックとして描画する", () => {
+  const project = prepareProject("blockquote");
+  try {
+    const result = run(["--log", project.logPath, "--out", project.outPath], project.root);
+    assert.equal(result.status, 0, result.stderr);
+    const html = readFileSync(project.outPath, "utf8");
+    const data = embeddedDataOf(html);
+    const quotes = data.blocks.filter((block) => block.type === "blockquote");
+    assert.equal(quotes.length, 1);
+    assert.equal(quotes[0].text, "既存行は変更・削除せず、追記のみ行う。");
+    assert.match(html, /block\.type\s*===\s*["']blockquote["']/u);
+    assert.match(html, /el\s*\(\s*["']blockquote["']/u);
+    const reportBody = html.replace(/<script type="application\/json" id="akari-decision-log-report-data">[\s\S]*?<\/script>/u, "");
+    assert.doesNotMatch(reportBody, /(?:&gt;|>) 既存行/u);
+  } finally {
+    rmSync(project.root, { recursive: true, force: true });
+  }
+});

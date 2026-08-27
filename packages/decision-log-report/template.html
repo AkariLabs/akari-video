@@ -420,6 +420,8 @@
               mount.append(el(`h${level}`, { class: "original-block" }, [inline(block.text)]));
             } else if (block.type === "paragraph") {
               mount.append(el("p", { class: "original-block" }, [inline(block.text)]));
+            } else if (block.type === "blockquote") {
+              mount.append(el("blockquote", { class: "original-block" }, [inline(block.text)]));
             } else if (block.type === "code") {
               mount.append(el("pre", { class: "original-block" }, [el("code", { text: block.text })]));
             } else if (block.type === "table") {

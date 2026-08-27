@@ -195,6 +195,7 @@ function isBlockBoundary(line) {
     line.trim() === "" ||
     /^#{1,6}\s+/u.test(line) ||
     /^\s*(```|~~~)/u.test(line) ||
+    /^\s*>/u.test(line) ||
     /^\s*(?:[-*+] |\d+[.)] )/u.test(line) ||
     tableCells(line) !== null ||
     parsePipeDecision(line, 0) !== null
@@ -282,6 +283,21 @@ function parseMarkdown(markdown) {
       continue;
     }
 
+    const quote = /^\s*>[ \t]?(.*)$/u.exec(line);
+    if (quote) {
+      const raw = [];
+      const body = [];
+      while (cursor < lines.length) {
+        const quotedLine = /^\s*>[ \t]?(.*)$/u.exec(lines[cursor]);
+        if (!quotedLine) break;
+        raw.push(lines[cursor]);
+        body.push(quotedLine[1]);
+        cursor += 1;
+      }
+      addBlock({ type: "blockquote", text: body.join("\n"), raw: raw.join("\n") });
+      continue;
+    }
+
     const list = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/u.exec(line);
     if (list) {
       const indentation = list[1].replace(/\t/gu, "  ").length;
@@ -328,7 +344,7 @@ function imagePathsIn(text) {
   const inlineCode = /`([^`\r\n]+\.(?:png|jpe?g|webp|gif))`/giu;
   for (const match of text.matchAll(inlineCode)) paths.add(match[1].trim());
 
-  const pathToken = /(?:[A-Za-z]:[\\/]|\/|\.{1,2}[\\/])?[^\s<>"'`()|\[\]]+\.(?:png|jpe?g|webp|gif)/giu;
+  const pathToken = /(?<![A-Za-z0-9_./\\*?-])(?:[A-Za-z]:)?(?=[A-Za-z0-9_./\\-]*[\\/])[A-Za-z0-9_./\\-]+\.(?:[Pp][Nn][Gg]|[Jj][Pp](?:[Ee])?[Gg]|[Ww][Ee][Bb][Pp]|[Gg][Ii][Ff])(?![A-Za-z0-9_./\\*?-])/gu;
   for (const match of text.matchAll(pathToken)) paths.add(match[0].trim());
   return [...paths];
 }
