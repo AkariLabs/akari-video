@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
+import { TRANSITION_TYPE_IDS } from '@akari-video/edit-store';
+import { buildBaseFragment } from '../dist/index.js';
 
 const source = await readFile(path.resolve(import.meta.dirname, '../src/compositor/webgl2.ts'), 'utf8');
 const comparisonSource = await readFile(path.resolve(import.meta.dirname, 'golden/layers-compare.mjs'), 'utf8');
@@ -15,7 +17,7 @@ const mattePathSource = await Promise.all([
 ].map(file => readFile(path.resolve(import.meta.dirname, '..', file), 'utf8'))).then(values => values.join('\n'));
 
 test('layer compositor keeps the no-FBO base path and guards projective w', () => {
-  assert.match(source, /if \(layers\.length === 0 && !hasLook\)[\s\S]+configureBaseDraw\(plan, null\)/u);
+  assert.match(source, /if \(layers\.length === 0 && !hasLook\)[\s\S]+configureBaseDraw\(plan, null, baseProgram!\)/u);
   const directPath = source.slice(
     source.indexOf('if (layers.length === 0 && !hasLook)'),
     source.indexOf('this.ensureFbos(output.width, output.height)'),
@@ -62,8 +64,22 @@ test('transition vocabulary is generated from the shared table and look is a fin
   assert.match(source, /this\.lookTexture\(look\.lut\)/u);
   assert.match(source, /\.\.\.this\.ownedLookTextures/u);
   assert.match(source, /draw\(\);\s+this\.recordGlErrors\(synchronization\);[\s\S]{0,300}this\.bind\(0, this\.baseTextures\[0\]!\)/u);
-  assert.match(source, /configureBaseDraw\(plan, null\);\s+draw\(\);\s+this\.recordGlErrors\(synchronization\)/u);
-  assert.match(source, /configureBaseDraw\(plan, this\.fbos\[0\]!\);\s+draw\(\);\s+this\.recordGlErrors\(synchronization\)/u);
+  assert.match(source, /configureBaseDraw\(plan, null, baseProgram!\);\s+draw\(\);\s+this\.recordGlErrors\(synchronization\)/u);
+  assert.match(source, /configureBaseDraw\(plan, this\.fbos\[0\]!, baseProgram\);\s+draw\(\);\s+this\.recordGlErrors\(synchronization\)/u);
+});
+
+test('base shaders are lazily compiled and cached per transition type', () => {
+  assert.match(source, /basePrograms = new Map<ResolvedTransition\['type'\], BaseProgramState>/u);
+  assert.match(source, /const cached = this\.basePrograms\.get\(type\)/u);
+  assert.match(source, /createProgram\(gl, buildBaseFragment\(type\)\)/u);
+  assert.match(source, /this\.basePrograms\.set\(type, state\)/u);
+  assert.match(source, /for \(const value of this\.basePrograms\.values\(\)\)\s+this\.gl\.deleteProgram\(value\.program\)/u);
+  for (const type of ['hard-cut', ...TRANSITION_TYPE_IDS]) {
+    const fragment = buildBaseFragment(type);
+    assert.doesNotMatch(fragment, /else if \(transitionType/u, type);
+    if (type === 'blur') assert.match(fragment, /vec3 horizontalBlur/u);
+    else assert.doesNotMatch(fragment, /vec3 horizontalBlur/u, type);
+  }
 });
 
 test('frame-engine matte path has no VP8/VP9 decoder branch', () => {
