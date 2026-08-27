@@ -6,6 +6,7 @@ import {
   CachedStillImageSource,
   ClipSessionPool,
   FrameMetrics,
+  parseCube,
   WebGL2Compositor,
   capturePresentedRgba,
   compareRgba,
@@ -14,6 +15,7 @@ import {
   presentFrame,
   readbackFrame,
 } from '../../src/index.js';
+import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import type {
   EvaluationPlan,
   FrameEngineCut,
@@ -27,10 +29,12 @@ import type {
 import edit from './edit.json';
 import layersEdit from './layers.edit.json';
 import matteEdit from './matte.edit.json';
+import transitionsEdit from './transitions.edit.json';
 
 interface GoldenBridge {
   fixtureUrl: string;
   fixtureCodecs: Record<string, string>;
+  loadLut(id: string): Promise<string>;
   writeArtifact(name: string, bytes: Uint8Array): Promise<boolean>;
   startEncoder(options: {
     width: number;
@@ -501,6 +505,429 @@ async function inspectFrameLifetime(output: EvaluationPlan['output']) {
     session.destroy();
     compositor.dispose();
   }
+}
+
+async function parityFrame(
+  plan: EvaluationPlan,
+  context: { compositor: WebGL2Compositor; metrics: FrameMetrics },
+  previewCanvas: HTMLCanvasElement,
+) {
+  const frame = await evaluateFrame(plan, context);
+  try {
+    presentFrame(frame, previewCanvas);
+    const preview = capturePresentedRgba(previewCanvas);
+    const sink = new BufferedRawFrameSink();
+    await readbackFrame(frame, sink);
+    const exported = sink.frames[0]?.rgba;
+    if (!exported) throw new Error(`export sink produced no frame at ${plan.timeUs}us`);
+    const comparison = compareRgba(preview, exported);
+    const previewSha256 = await sha256(preview);
+    const exportSha256 = await sha256(exported);
+    return {
+      preview,
+      exported,
+      previewSha256,
+      exportSha256,
+      ...comparison,
+      pass: comparison.differingPixels === 0
+        && comparison.maxDelta === 0
+        && previewSha256 === exportSha256,
+    };
+  } finally {
+    frame.close();
+  }
+}
+
+// Keep this frame-grid formula identical to transitionOutputTimeSeconds() in
+// transitions-compare.mjs so the engine and render-cut samples address one output frame.
+function transitionOutputTimeSeconds(transitionIndex: number, u: number): number {
+  return 0.6 * (transitionIndex + 1) + 0.4 * u;
+}
+
+async function inspectTransitionParity(
+  output: EvaluationPlan['output'],
+  source: NativeFrameSource,
+  context: { compositor: WebGL2Compositor; metrics: FrameMetrics },
+  previewCanvas: HTMLCanvasElement,
+) {
+  const rows: Array<Record<string, unknown>> = [];
+  const ids = ['hard-cut', ...TRANSITION_VOCABULARY.map(entry => entry.id)] as const;
+  const timeline = buildResolvedTimelinePlan(
+    transitionsEdit.cuts as FrameEngineCut[],
+    { fps: FPS },
+  );
+  const sources = new Map([[SOURCE_URL, source]]);
+  let negativeSeed: { preview: Uint8Array; exported: Uint8Array } | null = null;
+  for (const [index, id] of ids.entries()) {
+    for (const u of [0.25, 0.5, 0.75]) {
+      let plan: EvaluationPlan;
+      if (id === 'hard-cut') {
+        const sourceTimeUs = Math.round((0.6 + u * 0.4) * 1e6);
+        plan = {
+          timeUs: sourceTimeUs,
+          base: [
+            { id: 'transition-hard-cut', source, sourceTimeUs, visual: fullFrameVisual },
+          ],
+          layers: [],
+          transition: { type: 'hard-cut', progress: u },
+          output,
+        };
+      } else {
+        const transitionIndex = index - 1;
+        const timeUs = Math.round(transitionOutputTimeSeconds(transitionIndex, u) * 1e6);
+        plan = evaluationPlanFromResolvedTimeline(
+          timeline,
+          timeUs,
+          sources,
+          output,
+        );
+        if (plan.transition?.type !== id) {
+          throw new Error(`${id} resolved as ${plan.transition?.type ?? 'none'}`);
+        }
+        if (Math.abs(plan.transition.progress - u) >= 1e-6) {
+          throw new Error(`${id} resolved progress ${plan.transition.progress}; expected ${u}`);
+        }
+      }
+      const sourceFrames = plan.base
+        .map(layer => Math.round(layer.sourceTimeUs * FPS / 1e6));
+      if (sourceFrames.some(frameNumber => frameNumber % 30 === 29)) {
+        throw new Error(`${id} u=${u} selects a GOP-final source frame`);
+      }
+      const rendered = await parityFrame(plan, context, previewCanvas);
+      const suffix = String(Math.round(u * 100));
+      await window.goldenHarness.writeArtifact(
+        `transitions/${id}-u${suffix}.png`,
+        await rgbaToPng(rendered.exported),
+      );
+      rows.push({
+        label: `${id}-u${suffix}`,
+        id,
+        u,
+        timeUs: plan.timeUs,
+        gopShiftedFrames: 0,
+        sourceTimesUs: plan.base.map(layer => layer.sourceTimeUs),
+        sourceFrames,
+        differingPixels: rendered.differingPixels,
+        maxDelta: rendered.maxDelta,
+        previewSha256: rendered.previewSha256,
+        exportSha256: rendered.exportSha256,
+        pass: rendered.pass,
+      });
+      negativeSeed ??= { preview: rendered.preview, exported: rendered.exported };
+    }
+  }
+  if (!negativeSeed) throw new Error('transition negative test has no source frame');
+  const mutated = negativeSeed.exported.slice();
+  mutated[12] = mutated[12] === 255 ? 254 : mutated[12]! + 1;
+  const negative = {
+    injectedPixelMutation: true,
+    ...compareRgba(negativeSeed.preview, mutated),
+  };
+  return {
+    rows,
+    negative,
+    fixtureCuts: transitionsEdit.cuts.length,
+    pass: rows.length === 90
+      && rows.every(row => row.pass === true)
+      && negative.differingPixels === 1,
+  };
+}
+
+function uvPlate(blue: number) {
+  const y = new Uint8Array(WIDTH * HEIGHT);
+  const u = new Uint8Array((WIDTH / 2) * (HEIGHT / 2));
+  const v = new Uint8Array((WIDTH / 2) * (HEIGHT / 2));
+  const rgb = (x: number, row: number) => [x / (WIDTH - 1), row / (HEIGHT - 1), blue] as const;
+  const limited = (r: number, g: number, b: number) => [
+    16 + 255 * (0.182586 * r + 0.614231 * g + 0.062007 * b),
+    128 + 255 * (-0.100644 * r - 0.338572 * g + 0.439216 * b),
+    128 + 255 * (0.439216 * r - 0.398942 * g - 0.040274 * b),
+  ];
+  for (let row = 0; row < HEIGHT; row += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const [r, g, b] = rgb(x, row);
+      y[row * WIDTH + x] = Math.round(limited(r, g, b)[0]!);
+    }
+  }
+  for (let row = 0; row < HEIGHT; row += 2) {
+    for (let x = 0; x < WIDTH; x += 2) {
+      const totals: [number, number, number] = [0, 0, 0];
+      for (let dy = 0; dy < 2; dy += 1) for (let dx = 0; dx < 2; dx += 1) {
+        const [r, g, b] = rgb(x + dx, row + dy);
+        const values = limited(r, g, b);
+        totals[1] += values[1]!;
+        totals[2] += values[2]!;
+      }
+      const offset = (row / 2) * (WIDTH / 2) + x / 2;
+      u[offset] = Math.round(totals[1]! / 4);
+      v[offset] = Math.round(totals[2]! / 4);
+    }
+  }
+  return { format: 'I420' as const, width: WIDTH, height: HEIGHT, y, u, v };
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  values.sort((a, b) => a - b);
+  return values[Math.floor(values.length / 2)]!;
+}
+
+function analyzeUvPlate(rgba: Uint8Array) {
+  const rowProfile = Array(HEIGHT).fill(0) as number[];
+  const colProfile = Array(WIDTH).fill(0) as number[];
+  const aDx: number[] = [], aDy: number[] = [], bDx: number[] = [], bDy: number[] = [];
+  let bPixels = 0, intermediate = 0, saturation = 0;
+  let horizontalGradientEnergy = 0, verticalGradientEnergy = 0;
+  const mean: [number, number, number] = [0, 0, 0];
+  const squared: [number, number, number] = [0, 0, 0];
+  const quadrantB = [0, 0, 0, 0];
+  let centerB = 0, centerPixels = 0, cornerB = 0, cornerPixels = 0;
+  for (let row = 0; row < HEIGHT; row += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const offset = (row * WIDTH + x) * 4;
+      const r = rgba[offset]!, g = rgba[offset + 1]!, b = rgba[offset + 2]!;
+      mean[0] += r; mean[1] += g; mean[2] += b;
+      squared[0] += r * r; squared[1] += g * g; squared[2] += b * b;
+      saturation += Math.max(r, g, b) - Math.min(r, g, b);
+      const unitB = b / 255;
+      if (unitB > 0.7) {
+        bPixels += 1; rowProfile[row]! += 1; colProfile[x]! += 1;
+        quadrantB[(row >= HEIGHT / 2 ? 2 : 0) + (x >= WIDTH / 2 ? 1 : 0)]! += 1;
+        bDx.push((r / 255) * (WIDTH - 1) - x);
+        bDy.push((g / 255) * (HEIGHT - 1) - row);
+      } else if (unitB < 0.3) {
+        aDx.push((r / 255) * (WIDTH - 1) - x);
+        aDy.push((g / 255) * (HEIGHT - 1) - row);
+      }
+      if (unitB > 0.15 && unitB < 0.85) intermediate += 1;
+      if (Math.abs(x - WIDTH / 2) < 8 && Math.abs(row - HEIGHT / 2) < 8) {
+        centerPixels += 1;
+        if (unitB > 0.7) centerB += 1;
+      }
+      if ((x < 16 || x >= WIDTH - 16) && (row < 16 || row >= HEIGHT - 16)) {
+        cornerPixels += 1;
+        if (unitB > 0.7) cornerB += 1;
+      }
+      if (x > 0) horizontalGradientEnergy += Math.abs(r - rgba[offset - 4]!);
+      if (row > 0) verticalGradientEnergy += Math.abs(g - rgba[offset - WIDTH * 4 + 1]!);
+    }
+  }
+  rowProfile.forEach((_value, index) => { rowProfile[index]! /= WIDTH; });
+  colProfile.forEach((_value, index) => { colProfile[index]! /= HEIGHT; });
+  const range = (values: number[]) => Math.max(...values) - Math.min(...values);
+  const colRange = range(colProfile), rowRange = range(rowProfile);
+  const axis = colRange > rowRange * 1.5 && colRange > 0.2 ? 'x'
+    : rowRange > colRange * 1.5 && rowRange > 0.2 ? 'y' : 'none';
+  const half = (values: number[], first: boolean) => {
+    const slice = first ? values.slice(0, values.length / 2) : values.slice(values.length / 2);
+    return slice.reduce((sum, value) => sum + value, 0) / slice.length;
+  };
+  const left = half(colProfile, true), right = half(colProfile, false);
+  const top = half(rowProfile, true), bottom = half(rowProfile, false);
+  let bSide = 'none';
+  if (axis === 'x') {
+    const edge = (colProfile.slice(0, WIDTH / 4).reduce((a, b) => a + b, 0)
+      + colProfile.slice(-WIDTH / 4).reduce((a, b) => a + b, 0)) / (WIDTH / 2);
+    const center = colProfile.slice(WIDTH / 4, WIDTH * 3 / 4).reduce((a, b) => a + b, 0) / (WIDTH / 2);
+    bSide = edge > center + 0.25 ? 'edge' : left > right ? 'left' : 'right';
+  } else if (axis === 'y') {
+    const edge = (rowProfile.slice(0, HEIGHT / 4).reduce((a, b) => a + b, 0)
+      + rowProfile.slice(-HEIGHT / 4).reduce((a, b) => a + b, 0)) / (HEIGHT / 2);
+    const center = rowProfile.slice(HEIGHT / 4, HEIGHT * 3 / 4).reduce((a, b) => a + b, 0) / (HEIGHT / 2);
+    bSide = edge > center + 0.25 ? 'edge' : top > bottom ? 'top' : 'bottom';
+  }
+  const count = WIDTH * HEIGHT;
+  const middleRow = Math.floor(HEIGHT / 2);
+  const runs: number[] = [];
+  let run = 1;
+  for (let x = 1; x < WIDTH; x += 1) {
+    const current = rgba[(middleRow * WIDTH + x) * 4]!;
+    const previous = rgba[(middleRow * WIDTH + x - 1) * 4]!;
+    if (Math.abs(current - previous) <= 2) run += 1;
+    else { if (run > 1) runs.push(run); run = 1; }
+  }
+  if (run > 1) runs.push(run);
+  const runCounts = new Map<number, number>();
+  for (const length of runs) runCounts.set(length, (runCounts.get(length) ?? 0) + 1);
+  const blockPeriod = [...runCounts].sort((left, right) => right[1] - left[1])[0]?.[0] ?? 1;
+  return {
+    bFraction: bPixels / count,
+    intermediateFraction: intermediate / count,
+    axis, bSide, rowProfile, colProfile,
+    aDisplacementPx: { x: median(aDx), y: median(aDy) },
+    bDisplacementPx: { x: median(bDx), y: median(bDy) },
+    meanRgb: mean.map(value => value / count),
+    meanSaturation: saturation / count,
+    radialSignature: centerB / Math.max(1, centerPixels) - cornerB / Math.max(1, cornerPixels),
+    angularSignature: quadrantB.map(value => value / (count / 4)),
+    uniformity: squared.reduce((sum, value, channel) =>
+      sum + value / count - (mean[channel]! / count) ** 2, 0) / 3,
+    horizontalGradientEnergy: horizontalGradientEnergy / (count - HEIGHT),
+    verticalGradientEnergy: verticalGradientEnergy / (count - WIDTH),
+    blockPeriod,
+  };
+}
+
+async function inspectTransitionSemantics(
+  output: EvaluationPlan['output'],
+  compositor: WebGL2Compositor,
+  metrics: FrameMetrics,
+) {
+  const a = uvPlate(0), b = uvPlate(1);
+  const ids = ['hard-cut', ...TRANSITION_VOCABULARY.map(entry => entry.id)] as const;
+  const directional: Record<string, { axis: string; bSide: string; a: [number, number]; b: [number, number] }> = {
+    'wipe-left': { axis: 'x', bSide: 'right', a: [0, 0], b: [0, 0] },
+    'wipe-right': { axis: 'x', bSide: 'left', a: [0, 0], b: [0, 0] },
+    'wipe-up': { axis: 'y', bSide: 'bottom', a: [0, 0], b: [0, 0] },
+    'wipe-down': { axis: 'y', bSide: 'top', a: [0, 0], b: [0, 0] },
+    'slide-left': { axis: 'x', bSide: 'right', a: [WIDTH / 2, 0], b: [-WIDTH / 2, 0] },
+    'slide-right': { axis: 'x', bSide: 'left', a: [-WIDTH / 2, 0], b: [WIDTH / 2, 0] },
+    'slide-up': { axis: 'y', bSide: 'bottom', a: [0, HEIGHT / 2], b: [0, -HEIGHT / 2] },
+    'slide-down': { axis: 'y', bSide: 'top', a: [0, -HEIGHT / 2], b: [0, HEIGHT / 2] },
+    'cover-left': { axis: 'x', bSide: 'right', a: [0, 0], b: [-WIDTH / 2, 0] },
+    'cover-right': { axis: 'x', bSide: 'left', a: [0, 0], b: [WIDTH / 2, 0] },
+    'cover-up': { axis: 'y', bSide: 'bottom', a: [0, 0], b: [0, -HEIGHT / 2] },
+    'cover-down': { axis: 'y', bSide: 'top', a: [0, 0], b: [0, HEIGHT / 2] },
+    'reveal-left': { axis: 'x', bSide: 'right', a: [WIDTH / 2, 0], b: [0, 0] },
+    'reveal-right': { axis: 'x', bSide: 'left', a: [-WIDTH / 2, 0], b: [0, 0] },
+    'reveal-up': { axis: 'y', bSide: 'bottom', a: [0, HEIGHT / 2], b: [0, 0] },
+    'reveal-down': { axis: 'y', bSide: 'top', a: [0, -HEIGHT / 2], b: [0, 0] },
+  };
+  const semanticNames: Record<string, string> = {
+    'hard-cut': 'hard-cut:bFraction≈0',
+    dissolve: 'blend',
+    fade: 'blend',
+    'fade-black': 'plate:black',
+    'fade-white': 'plate:white',
+    'fade-grays': 'gray',
+    radial: 'angular',
+    'circle-open': 'radial:center',
+    'circle-close': 'radial:edge',
+    'zoom-in': 'uniform:center',
+    'squeeze-h': 'axis=y, bSide=edge',
+    'squeeze-v': 'axis=x, bSide=edge',
+    blur: 'blur:horizontal',
+    pixelize: 'pixelize:block',
+  };
+  const displacementName = (value: number, axis: string) => {
+    if (value === 0) return '0';
+    return `${value > 0 ? '+' : '-'}${axis === 'x' ? 'W' : 'H'}/2`;
+  };
+  const rows = [];
+  const mismatches: string[] = [];
+  for (const id of ids) {
+    const plan: EvaluationPlan = {
+      timeUs: 500_000,
+      base: [
+        { id: `${id}-plate-a`, source: {} as NativeFrameSource, sourceTimeUs: 0, visual: fullFrameVisual },
+        { id: `${id}-plate-b`, source: {} as NativeFrameSource, sourceTimeUs: 0, visual: fullFrameVisual },
+      ],
+      layers: [], transition: { type: id, progress: 0.5 }, output,
+    };
+    const surface = await compositor.compose([a, b], [], output, metrics, plan);
+    const analysis = analyzeUvPlate(await surface.readRgba());
+    surface.close();
+    let matched = true;
+    const expectedDetail = directional[id];
+    if (expectedDetail) {
+      const tolerance = 16;
+      matched = analysis.axis === expectedDetail.axis && analysis.bSide === expectedDetail.bSide
+        && Math.abs(analysis.aDisplacementPx.x - expectedDetail.a[0]) <= tolerance
+        && Math.abs(analysis.aDisplacementPx.y - expectedDetail.a[1]) <= tolerance
+        && Math.abs(analysis.bDisplacementPx.x - expectedDetail.b[0]) <= tolerance
+        && Math.abs(analysis.bDisplacementPx.y - expectedDetail.b[1]) <= tolerance;
+    } else if (id === 'hard-cut') matched = analysis.bFraction < 0.05;
+    else if (id === 'dissolve' || id === 'fade') matched = analysis.intermediateFraction > 0.95;
+    else if (id === 'fade-black') matched = analysis.meanRgb.every(value => value < 4);
+    else if (id === 'fade-white') matched = analysis.meanRgb.every(value => value > 251);
+    else if (id === 'fade-grays') matched = analysis.meanSaturation < 96;
+    else if (id === 'circle-open') matched = analysis.radialSignature > 0.2;
+    else if (id === 'circle-close') matched = analysis.radialSignature < -0.2;
+    else if (id === 'zoom-in') matched = analysis.bFraction < 0.05
+      && analysis.horizontalGradientEnergy < 0.1 && analysis.verticalGradientEnergy < 0.1;
+    else if (id === 'squeeze-h') matched = analysis.axis === 'y' && analysis.bSide === 'edge';
+    else if (id === 'squeeze-v') matched = analysis.axis === 'x' && analysis.bSide === 'edge';
+    else if (id === 'radial') matched = Math.max(...analysis.angularSignature)
+      - Math.min(...analysis.angularSignature) > 0.1;
+    else if (id === 'blur') matched = analysis.intermediateFraction > 0.95;
+    else if (id === 'pixelize') matched = analysis.intermediateFraction > 0.95
+      && analysis.blockPeriod > 1;
+    if (!matched) mismatches.push(id);
+    const expected = expectedDetail
+      ? `axis=${expectedDetail.axis}, bSide=${expectedDetail.bSide}, aD${expectedDetail.axis}=${displacementName(expectedDetail.a[expectedDetail.axis === 'x' ? 0 : 1], expectedDetail.axis)}, bD${expectedDetail.axis}=${displacementName(expectedDetail.b[expectedDetail.axis === 'x' ? 0 : 1], expectedDetail.axis)}`
+      : semanticNames[id] ?? id;
+    rows.push({
+      id,
+      expected,
+      expectedDetail: expectedDetail ?? { kind: semanticNames[id] ?? id },
+      ...analysis,
+      matched,
+    });
+  }
+  return { rows, mismatches, pass: mismatches.length === 0 };
+}
+
+const LOOK_IDS = [
+  'cinematic', 'cool-clear', 'film-warm', 'forest-soft', 'mono',
+  'natural', 'night-neon', 'silver-retain', 'sunset-gold', 'vintage-fade',
+] as const;
+
+async function inspectLookParity(
+  output: EvaluationPlan['output'],
+  source: NativeFrameSource,
+  context: { compositor: WebGL2Compositor; metrics: FrameMetrics },
+  previewCanvas: HTMLCanvasElement,
+) {
+  const rows: Array<Record<string, unknown>> = [];
+  const parsed = new Map<string, ReturnType<typeof parseCube>>();
+  for (const id of LOOK_IDS) parsed.set(id, parseCube(await window.goldenHarness.loadLut(id)));
+  for (const id of LOOK_IDS) {
+    for (const timeUs of [250_000, 1_250_000]) {
+      const plan: EvaluationPlan = {
+        timeUs,
+        base: [{ id: 'look-sample', source, sourceTimeUs: timeUs, visual: fullFrameVisual }],
+        layers: [],
+        transition: { type: 'hard-cut', progress: 0 },
+        output: { ...output, look: { lut: parsed.get(id)!, intensity: 1 } },
+      };
+      const rendered = await parityFrame(plan, context, previewCanvas);
+      await window.goldenHarness.writeArtifact(
+        `look/${id}-t${timeUs}.png`,
+        await rgbaToPng(rendered.exported),
+      );
+      rows.push({ id, timeUs, differingPixels: rendered.differingPixels,
+        maxDelta: rendered.maxDelta, previewSha256: rendered.previewSha256,
+        exportSha256: rendered.exportSha256, pass: rendered.pass });
+    }
+  }
+  const intensityRows: Array<Record<string, unknown>> = [];
+  const basePlan: EvaluationPlan = {
+    timeUs: 750_000,
+    base: [{ id: 'look-intensity', source, sourceTimeUs: 750_000, visual: fullFrameVisual }],
+    layers: [], transition: { type: 'hard-cut', progress: 0 }, output,
+  };
+  const withoutLook = await parityFrame(basePlan, context, previewCanvas);
+  for (const intensity of [0, 0.5, 1]) {
+    const rendered = await parityFrame({
+      ...basePlan,
+      output: { ...output, look: { lut: parsed.get('natural')!, intensity } },
+    }, context, previewCanvas);
+    const baseline = compareRgba(withoutLook.exported, rendered.exported);
+    await window.goldenHarness.writeArtifact(
+      `look/intensity-${String(intensity).replace('.', '_')}.png`,
+      await rgbaToPng(rendered.exported),
+    );
+    intensityRows.push({ intensity, differingPixels: rendered.differingPixels,
+      baselineDifferingPixels: baseline.differingPixels, pass: rendered.pass
+        && (intensity !== 0 || baseline.differingPixels === 0) });
+  }
+  return {
+    rows,
+    intensityRows,
+    fixtureCuts: 2,
+    pass: rows.length === 20 && rows.every(row => row.pass === true)
+      && intensityRows.every(row => row.pass === true),
+  };
 }
 
 async function run(): Promise<void> {
@@ -1005,6 +1432,23 @@ async function run(): Promise<void> {
     layerTimeline,
   );
   const frameLifetime = await inspectFrameLifetime(output);
+  const transitionGlErrorsBefore = compositor.stats.glErrors;
+  const transitionParity = await inspectTransitionParity(
+    output, session, context, previewCanvas,
+  );
+  const transitionSemantics = await inspectTransitionSemantics(
+    output, compositor, metrics,
+  );
+  const transitionStats = {
+    glErrors: compositor.stats.glErrors - transitionGlErrorsBefore,
+  };
+  const lookGlErrorsBefore = compositor.stats.glErrors;
+  const lookParity = await inspectLookParity(
+    output, session, context, previewCanvas,
+  );
+  const lookStats = {
+    glErrors: compositor.stats.glErrors - lookGlErrorsBefore,
+  };
   const gopTail = await inspectGopTailGolden({
     baseUrl: SOURCE_URL,
     layerUrl: SOURCE_B_URL,
@@ -1130,8 +1574,7 @@ async function run(): Promise<void> {
       measurementNamed('dissolve-mid').meanRgb,
       meanRgb(renderedByLabel.get('dissolve-after')!),
     ) > 1 &&
-    measurementNamed('reveal-down-mid').halfDistance > 5 &&
-    measurementNamed('reveal-up-mid').halfDistance > 5;
+    transitionSemantics.pass;
   const pass =
     parity.length === SAMPLE_POINTS.length &&
     parity.every((sample) => sample.pass === true) &&
@@ -1168,6 +1611,11 @@ async function run(): Promise<void> {
     matteStats.glErrors === 0 &&
     colorPatches.pass &&
     frameLifetime.pass &&
+    transitionParity.pass &&
+    transitionSemantics.pass &&
+    transitionStats.glErrors === 0 &&
+    lookParity.pass &&
+    lookStats.glErrors === 0 &&
     gopTail.pass &&
     compositor.uploadPath === REQUESTED_UPLOAD_PATH;
 
@@ -1216,6 +1664,13 @@ async function run(): Promise<void> {
     colorPatches,
     texturedCrossPathDiff,
     frameLifetime,
+    transitionParity: transitionParity.rows,
+    transitionNegative: transitionParity.negative,
+    transitionSemantics,
+    transitionStats,
+    lookParity: lookParity.rows,
+    lookIntensity: lookParity.intensityRows,
+    lookStats,
     gopTail,
     metrics: metricJson,
     warnings,

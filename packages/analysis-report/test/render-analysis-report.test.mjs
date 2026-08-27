@@ -22,8 +22,11 @@ const interpretationBlocksFullSwappedFixture = resolve(
 );
 const analysisCollisionFixture = resolve(here, "fixtures/collision/analysis-minimal.json");
 
-function run(args) {
-  return spawnSync(process.execPath, [renderScript, ...args], { encoding: "utf8" });
+function run(args, sourceDateEpoch) {
+  const env = { ...process.env };
+  if (sourceDateEpoch === undefined) delete env.SOURCE_DATE_EPOCH;
+  else env.SOURCE_DATE_EPOCH = sourceDateEpoch;
+  return spawnSync(process.execPath, [renderScript, ...args], { encoding: "utf8", env });
 }
 
 function embeddedBundleOf(html) {
@@ -349,9 +352,197 @@ test("template.html は素材の読み（role/summary/sections）を描画する
   assert.match(factsSection, /interpAsset\.sections\b/, "renderFacts が asset.sections を参照する");
 });
 
+test("template.html の renderFacts が person_matte の object 形（quality / mask_path / mask_format）を描画するコードを持つ", () => {
+  // 生成 HTML にはテンプレートの JS ソースがそのまま含まれるため、文字列の有無だけでは表示を検証できない。
+  // ここでは描画コードを構造的に固定し、描画結果そのものの実測はヘッドレスブラウザによる L1 に委ねる。
+  const templateSource = readFileSync(templatePath, "utf8");
+  const factsSection = templateSource.slice(
+    templateSource.indexOf("function renderFacts"),
+    templateSource.indexOf("function renderRelations"),
+  );
+  assert.match(factsSection, /const personMatte = tracks\.person_matte\b/, "renderFacts が person_matte を参照する");
+  assert.match(
+    factsSection,
+    /personMatte\s*\?\s*"人物マット: あり"\s*:\s*"人物マット: なし"/,
+    "person_matte の真偽で人物マットの有無を出し分ける",
+  );
+  assert.match(factsSection, /personMatte\.quality\b/, "renderFacts が quality を参照する");
+  assert.match(factsSection, /personMatte\.mask_path\b/, "renderFacts が mask_path を参照する");
+  assert.match(factsSection, /personMatte\.mask_format\b/, "renderFacts が mask_format を参照する");
+  assert.match(factsSection, /マスク併産: あり/, "mask_path があるときマスク併産ありを描画する");
+});
+
 function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object, key);
 }
+
+function writeAnalysisWithPersonMatte(dir, personMatte) {
+  const analysis = JSON.parse(readFileSync(analysisFixture, "utf8"));
+  analysis.tracks.person_matte = personMatte;
+  const analysisPath = join(dir, "analysis-minimal.json");
+  writeFileSync(analysisPath, JSON.stringify(analysis), "utf8");
+  return analysisPath;
+}
+
+function renderPersonMatteCase(dir, personMatte, outputName = "report.html") {
+  const analysisPath = writeAnalysisWithPersonMatte(dir, personMatte);
+  const outPath = join(dir, outputName);
+  const result = run([
+    "--analysis",
+    analysisPath,
+    "--interpretation",
+    interpretationFixture,
+    "--out",
+    outPath,
+  ]);
+  return { analysisPath, outPath, result };
+}
+
+test("tracks.person_matte の後方互換 string 形を受理する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const personMatte = "matte/person.webm";
+    const { outPath, result } = renderPersonMatteCase(dir, personMatte);
+
+    assert.equal(result.status, 0, result.stderr);
+    const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
+    assert.equal(bundle.assets[0].analysis.tracks.person_matte, personMatte);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tracks.person_matte の null 形を受理する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const { outPath, result } = renderPersonMatteCase(dir, null);
+
+    assert.equal(result.status, 0, result.stderr);
+    const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
+    assert.equal(bundle.assets[0].analysis.tracks.person_matte, null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tracks.person_matte の object 形（マスクなし）を受理し、quality を保持する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const personMatte = {
+      path: "matte/person.webm",
+      fps: 29.97,
+      quality: "balanced",
+    };
+    const { outPath, result } = renderPersonMatteCase(dir, personMatte);
+
+    assert.equal(result.status, 0, result.stderr);
+    // 生成 HTML にはテンプレートの JS ソースがそのまま含まれるため、文字列の有無だけでは表示を検証できない。
+    // 描画コードは構造トラップで検査し、描画結果そのものの実測はヘッドレスブラウザによる L1 に委ねる。
+    const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
+    assert.deepEqual(bundle.assets[0].analysis.tracks.person_matte, personMatte);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tracks.person_matte の object 形（マスクあり）を受理し、マスク情報を保持する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const personMatte = {
+      path: "matte/person.webm",
+      fps: 30,
+      quality: "accurate",
+      mask_path: "matte/person.webm.mask.mp4",
+      mask_format: "gray-h264-fullrange",
+    };
+    const { outPath, result } = renderPersonMatteCase(dir, personMatte);
+
+    assert.equal(result.status, 0, result.stderr);
+    // 生成 HTML にはテンプレートの JS ソースがそのまま含まれるため、文字列の有無だけでは表示を検証できない。
+    // 描画コードは構造トラップで検査し、描画結果そのものの実測はヘッドレスブラウザによる L1 に委ねる。
+    const bundle = embeddedBundleOf(readFileSync(outPath, "utf8"));
+    assert.deepEqual(bundle.assets[0].analysis.tracks.person_matte, personMatte);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tracks.person_matte の不正な object 形は拒否し、ファイルを書き出さない", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const { outPath, result } = renderPersonMatteCase(dir, { fps: 30, quality: "balanced" });
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /tracks\.person_matte.*path.*fps/);
+    assert.ok(!existsSync(outPath));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("SOURCE_DATE_EPOCH 固定時は同一入力から同一バイトの report.html を生成する", () => {
+  const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+  try {
+    const personMatte = {
+      path: "matte/person.webm",
+      fps: 30,
+      quality: "accurate",
+      mask_path: "matte/person.webm.mask.mp4",
+      mask_format: "gray-h264-fullrange",
+    };
+    const analysisPath = writeAnalysisWithPersonMatte(dir, personMatte);
+    const outPath1 = join(dir, "report-1.html");
+    const outPath2 = join(dir, "report-2.html");
+    const args = [
+      "--analysis",
+      analysisPath,
+      "--interpretation",
+      interpretationFixture,
+    ];
+    const sourceDateEpoch = "1787875200";
+    const result1 = run([...args, "--out", outPath1], sourceDateEpoch);
+    const result2 = run([...args, "--out", outPath2], sourceDateEpoch);
+
+    assert.equal(result1.status, 0, result1.stderr);
+    assert.equal(result2.status, 0, result2.stderr);
+    const output1 = readFileSync(outPath1);
+    const output2 = readFileSync(outPath2);
+    assert.deepEqual(output1, output2, "正規化なしで全バイトが一致する");
+    assert.equal(
+      embeddedBundleOf(output1.toString("utf8")).generatedAt,
+      new Date(Number(sourceDateEpoch) * 1_000).toISOString(),
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("SOURCE_DATE_EPOCH が未設定または不正でも実行時刻で report.html を生成する", () => {
+  for (const sourceDateEpoch of [undefined, "invalid"]) {
+    const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));
+    try {
+      const outPath = join(dir, "report.html");
+      const before = Date.now();
+      const result = run([
+        "--analysis",
+        analysisFixture,
+        "--interpretation",
+        interpretationFixture,
+        "--out",
+        outPath,
+      ], sourceDateEpoch);
+      const after = Date.now();
+
+      assert.equal(result.status, 0, result.stderr);
+      const generatedAt = embeddedBundleOf(readFileSync(outPath, "utf8")).generatedAt;
+      const generatedAtMilliseconds = Date.parse(generatedAt);
+      assert.ok(generatedAtMilliseconds >= before, `generatedAt=${generatedAt}`);
+      assert.ok(generatedAtMilliseconds <= after, `generatedAt=${generatedAt}`);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
 
 test("壊れた analysis.json を明確なエラーで拒否する", () => {
   const dir = mkdtempSync(join(tmpdir(), "analysis-report-test-"));

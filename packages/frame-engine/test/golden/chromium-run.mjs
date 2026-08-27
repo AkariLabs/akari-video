@@ -15,6 +15,7 @@ const matteAlpha = resolve(generated, 'matte-alpha.webm');
 const matteMask = resolve(generated, 'matte-mask.mp4');
 const bundle = resolve(generated, 'renderer.js');
 const resultsFile = resolve(generated, 'results.json');
+const lutsRoot = resolve(directory, '../../../../presets/luts');
 let encoder = null;
 
 function tool(name) {
@@ -29,8 +30,10 @@ const sha256 = file => createHash('sha256').update(readFileSync(file)).digest('h
 const writeJson = (file, value) => writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 
 function artifactPath(name) {
-  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(name)) throw new Error(`invalid artifact name: ${name}`);
-  return resolve(generated, name);
+  if (!/^[a-z0-9][a-z0-9._/-]*$/i.test(name) || name.includes('..')) throw new Error(`invalid artifact name: ${name}`);
+  const file = resolve(generated, name);
+  mkdirSync(dirname(file), { recursive: true });
+  return file;
 }
 
 async function startEncoder({ width, height, fps }) {
@@ -131,6 +134,10 @@ await page.exposeFunction('__goldenWriteArtifact', async (name, values) => {
 await page.exposeFunction('__goldenStartEncoder', startEncoder);
 await page.exposeFunction('__goldenWriteEncoderFrame', writeEncoderFrame);
 await page.exposeFunction('__goldenFinishEncoder', finishEncoder);
+await page.exposeFunction('__goldenLoadLut', id => {
+  if (!/^[a-z0-9-]+$/i.test(id)) throw new Error(`invalid LUT id: ${id}`);
+  return readFileSync(resolve(lutsRoot, id, `${id}.cube`), 'utf8');
+});
 await page.exposeFunction('__goldenComplete', async result => {
   writeJson(resultsFile, result);
   resolveCompletion(result);
@@ -146,6 +153,7 @@ await page.addInitScript(({ sourceUrl, codecs }) => {
   window.goldenHarness = {
     fixtureUrl: sourceUrl,
     fixtureCodecs: codecs,
+    loadLut: id => window.__goldenLoadLut(id),
     writeArtifact: (name, bytes) => window.__goldenWriteArtifact(name, Array.from(bytes)),
     startEncoder: options => window.__goldenStartEncoder(options),
     writeEncoderFrame: bytes => window.__goldenWriteEncoderFrame(Array.from(bytes)),

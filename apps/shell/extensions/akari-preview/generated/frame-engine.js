@@ -38,7 +38,7 @@ var AkariFrameEngine = (() => {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.TRANSITION_BY_ID = exports.TRANSITION_CATEGORIES = exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY = void 0;
-      exports.isTransitionType = isTransitionType;
+      exports.isTransitionType = isTransitionType2;
       exports.TRANSITION_VOCABULARY = [
         { id: "dissolve", xfadeName: "dissolve", labelJa: "\u30C7\u30A3\u30BE\u30EB\u30D6", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "dissolve", glyph: "D" },
         { id: "fade", xfadeName: "fade", labelJa: "\u30AF\u30ED\u30B9\u30D5\u30A7\u30FC\u30C9", category: "\u30D5\u30A7\u30FC\u30C9", previewKind: "fade", glyph: "F" },
@@ -73,7 +73,7 @@ var AkariFrameEngine = (() => {
       exports.TRANSITION_TYPE_IDS = exports.TRANSITION_VOCABULARY.map((entry) => entry.id);
       exports.TRANSITION_CATEGORIES = [...new Set(exports.TRANSITION_VOCABULARY.map((entry) => entry.category))];
       exports.TRANSITION_BY_ID = Object.fromEntries(exports.TRANSITION_VOCABULARY.map((entry) => [entry.id, entry]));
-      function isTransitionType(value) {
+      function isTransitionType2(value) {
         return typeof value === "string" && Object.prototype.hasOwnProperty.call(exports.TRANSITION_BY_ID, value);
       }
     }
@@ -2266,7 +2266,7 @@ ${indent}`);
       exports.effectiveCutFps = effectiveCutFps;
       exports.cutOverlapFrames = cutOverlapFrames;
       exports.planTransitionHandleWindow = planTransitionHandleWindow;
-      exports.isStillImageSourcePath = isStillImageSourcePath;
+      exports.isStillImageSourcePath = isStillImageSourcePath2;
       exports.areCutsAdjacent = areCutsAdjacent;
       exports.DEFAULT_CUT_ADJACENCY_FPS = 30;
       function effectiveCutFps(fps) {
@@ -2287,7 +2287,7 @@ ${indent}`);
         };
       }
       exports.STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
-      function isStillImageSourcePath(path) {
+      function isStillImageSourcePath2(path) {
         return typeof path === "string" && exports.STILL_IMAGE_SOURCE_PATTERN.test(path);
       }
       function areCutsAdjacent(earlier, later, fps = exports.DEFAULT_CUT_ADJACENCY_FPS) {
@@ -4444,6 +4444,8 @@ ${indent}`);
             path: resolvedPath,
             track: ref,
             ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
+            ...item.source.in !== void 0 ? { in: item.source.in } : {},
+            ...item.source.out !== void 0 ? { out: item.source.out } : {},
             ...item.script !== void 0 ? { script: item.script } : {},
             ...item.reading !== void 0 ? { reading: item.reading } : {},
             ...item.provenance !== void 0 ? { provenance: structuredClone(item.provenance) } : {}
@@ -4461,6 +4463,8 @@ ${indent}`);
                 t: at2,
                 path: resolvedPath,
                 ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
+                ...item.source.in !== void 0 ? { in: item.source.in } : {},
+                ...item.source.out !== void 0 ? { out: item.source.out } : {},
                 ...item.script !== void 0 ? { script: item.script } : {},
                 ...item.reading !== void 0 ? { reading: item.reading } : {},
                 ...item.provenance !== void 0 ? { provenance: structuredClone(item.provenance) } : {}
@@ -4599,11 +4603,16 @@ ${indent}`);
         narration.forEach((entry, index) => {
           if (!isRecord(entry) || typeof entry.path !== "string" || typeof entry.t !== "number")
             return;
+          const start = typeof entry.in === "number" ? entry.in : 0;
+          const end = typeof entry.out === "number" ? entry.out : start;
+          const duration = Math.max(0, end - start);
           const value = {
             id: typeof entry.id === "string" ? entry.id : `n-${String(index + 1).padStart(4, "0")}`,
             t: entry.t,
             path: entry.path,
             ...typeof entry.gain_db === "number" ? { gainDb: entry.gain_db } : {},
+            ...typeof entry.in === "number" ? { in: entry.in } : {},
+            ...typeof entry.out === "number" ? { out: entry.out } : {},
             ...typeof entry.script === "string" ? { script: entry.script } : {},
             ...typeof entry.reading === "string" ? { reading: entry.reading } : {},
             ...isRecord(entry.provenance) ? { provenance: structuredClone(entry.provenance) } : {}
@@ -4611,10 +4620,10 @@ ${indent}`);
           ensureTrack(0).items.push({
             id: value.id,
             atFrames: Math.round(value.t * fps),
-            durationFrames: 0,
+            durationFrames: Math.round(duration * fps),
             at: value.t,
-            duration: 0,
-            source: { kind: "media", path: value.path, in: 0, out: 0 },
+            duration,
+            source: { kind: "media", path: value.path, in: start, out: end },
             declaration: entry,
             legacy: { collection: "narration", index: nextLegacyIndex(legacyIndexCounters, "narration"), value }
           });
@@ -5520,6 +5529,8 @@ ${indent}`);
                 t: narration.t,
                 path: narration.path,
                 ...gainDb !== void 0 ? { gainDb } : {},
+                ...typeof narration.in === "number" && Number.isFinite(narration.in) && narration.in >= 0 ? { in: narration.in } : {},
+                ...typeof narration.out === "number" && Number.isFinite(narration.out) && narration.out > 0 ? { out: narration.out } : {},
                 ...typeof narration.script === "string" ? { script: narration.script } : {},
                 ...typeof narration.reading === "string" ? { reading: narration.reading } : {},
                 ...narration.provenance !== null && typeof narration.provenance === "object" && !Array.isArray(narration.provenance) ? { provenance: structuredClone(narration.provenance) } : {}
@@ -12678,30 +12689,42 @@ ${indent}`);
   var index_exports = {};
   __export(index_exports, {
     BufferedRawFrameSink: () => BufferedRawFrameSink,
+    CachedStillImageSource: () => CachedStillImageSource,
     ClipSession: () => ClipSession,
     ClipSessionPool: () => ClipSessionPool,
     DecodedFrameCoverageCache: () => DecodedFrameCoverageCache,
+    DirectUploadFallbackError: () => DirectUploadFallbackError,
     FrameEvaluator: () => FrameEvaluator,
     FrameMetrics: () => FrameMetrics,
     LookaheadCache: () => LookaheadCache,
     LookaheadFrameSource: () => LookaheadFrameSource,
     ScrubController: () => ScrubController,
+    TRANSITION_BLUR_MAX_TAPS: () => TRANSITION_BLUR_MAX_TAPS,
     TimeoutError: () => TimeoutError,
     WarmupManager: () => WarmupManager,
     WebCodecsH264Encoder: () => WebCodecsH264Encoder,
     WebGL2Compositor: () => WebGL2Compositor,
+    applyHomography: () => applyHomography,
+    buildBaseFragment: () => buildBaseFragment,
     buildKeyframeIndexFromHeader: () => buildKeyframeIndexFromHeader,
     buildResolvedTimelinePlan: () => buildResolvedTimelinePlan,
     capturePresentedRgba: () => capturePresentedRgba,
     compareRgba: () => compareRgba,
+    computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
     copyNativeYuvFrame: () => copyNativeYuvFrame,
+    cornersToHomography: () => cornersToHomography,
     evaluateFrame: () => evaluateFrame,
     evaluationPlanFromResolvedTimeline: () => evaluationPlanFromResolvedTimeline,
     evaluationPlanFromTimelineMap: () => evaluationPlanFromTimelineMap,
     frameCoversTimestamp: () => frameCoversTimestamp,
+    invertMat3: () => invertMat3,
     isDecoderErrorMessage: () => isDecoderErrorMessage,
+    isLayerActiveAt: () => isLayerActiveAt,
+    parseCube: () => parseCube,
     presentFrame: () => presentFrame,
     readbackFrame: () => readbackFrame,
+    resolveLookLutPath: () => resolveLookLutPath,
+    sampleLutTrilinear: () => sampleLutTrilinear,
     watchDecoderErrors: () => watchDecoderErrors,
     withTimeout: () => withTimeout
   });
@@ -12761,6 +12784,1370 @@ ${indent}`);
     return output;
   }
 
+  // packages/frame-engine/src/compositor/webgl2.ts
+  var import_edit_store = __toESM(require_lib(), 1);
+
+  // packages/frame-engine/src/timeline/layer-visual.ts
+  function finite(value) {
+    return typeof value === "number" && Number.isFinite(value);
+  }
+  function ease(point, u2) {
+    return point.easing === "ease-in-out" ? u2 < 0.5 ? 4 * u2 * u2 * u2 : 1 - (-2 * u2 + 2) ** 3 / 2 : u2;
+  }
+  function valueAt(points, pick, t) {
+    if (t <= points[0].t) return pick(points[0]);
+    const last = points[points.length - 1];
+    if (t >= last.t) return pick(last);
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (t <= end.t) {
+        const span = end.t - start.t;
+        if (span <= 0) return pick(end);
+        const u2 = ease(end, (t - start.t) / span);
+        return pick(start) + (pick(end) - pick(start)) * u2;
+      }
+    }
+    return pick(last);
+  }
+  function computeLayerKeyframesVisual(keyframes, layerLocalSeconds) {
+    const points = (keyframes ?? []).filter((point) => finite(point?.t) && point.t >= 0).slice().sort((left, right) => left.t - right.t);
+    if (points.length < 2) return null;
+    const t = finite(layerLocalSeconds) ? layerLocalSeconds : 0;
+    const transformPoints = points.filter(
+      (point) => point.transform && typeof point.transform === "object"
+    );
+    const leaf = (name, fallback) => valueAt(
+      transformPoints,
+      (point) => finite(point.transform?.[name]) ? point.transform[name] : fallback,
+      t
+    );
+    const rawScale = transformPoints.length ? leaf("scale", 1) : 1;
+    const transform = transformPoints.length ? {
+      x: leaf("x", 0),
+      y: leaf("y", 0),
+      scale: rawScale > 0 ? rawScale : 1,
+      rotateDegrees: leaf("rotate", 0)
+    } : null;
+    const cropPoints = points.filter(
+      (point) => point.crop && finite(point.crop.x) && finite(point.crop.y) && finite(point.crop.w) && point.crop.w > 0 && finite(point.crop.h) && point.crop.h > 0
+    );
+    const cropLeaf = (name) => valueAt(cropPoints, (point) => point.crop[name], t);
+    const crop = cropPoints.length ? {
+      x: cropLeaf("x"),
+      y: cropLeaf("y"),
+      width: cropLeaf("w"),
+      height: cropLeaf("h")
+    } : null;
+    const perspectivePoints = points.filter(
+      (point) => Array.isArray(point.perspective?.corners) && point.perspective.corners.length === 4 && point.perspective.corners.every(
+        (corner) => corner.length === 2 && finite(corner[0]) && finite(corner[1])
+      )
+    );
+    const perspective = perspectivePoints.length ? {
+      corners: [0, 1, 2, 3].map(
+        (index) => [
+          valueAt(
+            perspectivePoints,
+            (point) => point.perspective.corners[index][0],
+            t
+          ),
+          valueAt(
+            perspectivePoints,
+            (point) => point.perspective.corners[index][1],
+            t
+          )
+        ]
+      )
+    } : null;
+    return { transform, crop, perspective };
+  }
+  function cornersToHomography(corners) {
+    const [p0, p1, p3, p2] = corners;
+    if (!p0 || !p1 || !p2 || !p3)
+      throw new Error("perspective requires four corners");
+    const [x0, y0] = p0;
+    const [x1, y1] = p1;
+    const [x22, y2] = p2;
+    const [x3, y3] = p3;
+    const dx1 = x1 - x22;
+    const dx2 = x3 - x22;
+    const dx3 = x0 - x1 + x22 - x3;
+    const dy1 = y1 - y2;
+    const dy2 = y3 - y2;
+    const dy3 = y0 - y1 + y2 - y3;
+    const den = dx1 * dy2 - dx2 * dy1;
+    const g2 = dx3 === 0 && dy3 === 0 ? 0 : (dx3 * dy2 - dx2 * dy3) / den;
+    const h = dx3 === 0 && dy3 === 0 ? 0 : (dx1 * dy3 - dx3 * dy1) / den;
+    return [
+      x1 - x0 + g2 * x1,
+      x3 - x0 + h * x3,
+      x0,
+      y1 - y0 + g2 * y1,
+      y3 - y0 + h * y3,
+      y0,
+      g2,
+      h,
+      1
+    ];
+  }
+  function applyHomography(matrix, x3, y2) {
+    const w = matrix[6] * x3 + matrix[7] * y2 + matrix[8];
+    return [
+      (matrix[0] * x3 + matrix[1] * y2 + matrix[2]) / w,
+      (matrix[3] * x3 + matrix[4] * y2 + matrix[5]) / w
+    ];
+  }
+  function invertMat3(matrix) {
+    if (matrix.length !== 9) throw new Error("mat3 requires exactly nine values");
+    const a = matrix[0];
+    const b = matrix[1];
+    const c = matrix[2];
+    const d2 = matrix[3];
+    const e = matrix[4];
+    const f2 = matrix[5];
+    const g2 = matrix[6];
+    const h = matrix[7];
+    const i2 = matrix[8];
+    const cofactor00 = e * i2 - f2 * h;
+    const cofactor10 = f2 * g2 - d2 * i2;
+    const cofactor20 = d2 * h - e * g2;
+    const det = a * cofactor00 + b * cofactor10 + c * cofactor20;
+    if (Math.abs(det) < 1e-12) throw new Error("perspective matrix is singular");
+    return [
+      cofactor00 / det,
+      (c * h - b * i2) / det,
+      (b * f2 - c * e) / det,
+      cofactor10 / det,
+      (a * i2 - c * g2) / det,
+      (c * d2 - a * f2) / det,
+      cofactor20 / det,
+      (b * g2 - a * h) / det,
+      (a * e - b * d2) / det
+    ];
+  }
+
+  // packages/frame-engine/src/compositor/webgl2.ts
+  var TRANSITION_BLUR_MAX_TAPS = 65;
+  var TRANSITION_CODES = Object.freeze(Object.fromEntries([
+    ["hard-cut", 0],
+    ...import_edit_store.TRANSITION_VOCABULARY.map((entry, index) => [entry.id, index + 1])
+  ]));
+  function compileShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    if (!shader) throw new Error("WebGL2 could not allocate a shader");
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const message = gl.getShaderInfoLog(shader) ?? "unknown shader compile failure";
+      gl.deleteShader(shader);
+      throw new Error(message);
+    }
+    return shader;
+  }
+  function createProgram(gl, fragmentSource) {
+    const vertex = compileShader(
+      gl,
+      gl.VERTEX_SHADER,
+      `#version 300 es
+    in vec2 position; out vec2 uv;
+    void main(){uv=position*0.5+0.5;gl_Position=vec4(position,0,1);}`
+    );
+    const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+    const program = gl.createProgram();
+    if (!program) throw new Error("WebGL2 could not allocate a program");
+    gl.attachShader(program, vertex);
+    gl.attachShader(program, fragment);
+    gl.linkProgram(program);
+    gl.deleteShader(vertex);
+    gl.deleteShader(fragment);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+      throw new Error(gl.getProgramInfoLog(program) ?? "WebGL2 link failure");
+    return program;
+  }
+  function uniform(gl, program, name) {
+    const value = gl.getUniformLocation(program, name);
+    if (value === null) throw new Error(`missing WebGL2 uniform: ${name}`);
+    return value;
+  }
+  function flipRows(input, width, height) {
+    const stride = width * 4;
+    const output = new Uint8Array(input.length);
+    for (let row = 0; row < height; row += 1)
+      output.set(
+        input.subarray(row * stride, (row + 1) * stride),
+        (height - row - 1) * stride
+      );
+    return output;
+  }
+  var WebGLSurface = class {
+    constructor(canvas, width, height, gl, metrics) {
+      this.canvas = canvas;
+      this.width = width;
+      this.height = height;
+      this.gl = gl;
+      this.metrics = metrics;
+    }
+    closed = false;
+    async readRgba() {
+      if (this.closed) throw new Error("cannot read a closed GPU frame surface");
+      const length = this.width * this.height * 4, pbo = this.gl.createBuffer();
+      if (!pbo) throw new Error("WebGL2 could not allocate a pixel pack buffer");
+      const started = performance.now();
+      this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, pbo);
+      this.gl.bufferData(this.gl.PIXEL_PACK_BUFFER, length, this.gl.STREAM_READ);
+      this.gl.readPixels(
+        0,
+        0,
+        this.width,
+        this.height,
+        this.gl.RGBA,
+        this.gl.UNSIGNED_BYTE,
+        0
+      );
+      const fence = this.gl.fenceSync(this.gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+      if (!fence) {
+        this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, null);
+        this.gl.deleteBuffer(pbo);
+        throw new Error("WebGL2 could not allocate a readback fence");
+      }
+      this.gl.flush();
+      const wait = performance.now();
+      try {
+        const deadline = performance.now() + 15e3;
+        while (true) {
+          const status = this.gl.clientWaitSync(fence, 0, 0);
+          if (status === this.gl.ALREADY_SIGNALED || status === this.gl.CONDITION_SATISFIED)
+            break;
+          if (status === this.gl.WAIT_FAILED || performance.now() >= deadline)
+            throw new Error("WebGL2 PBO fence wait failed");
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+        this.metrics.record("pboWait", performance.now() - wait);
+        const raw = new Uint8Array(length);
+        this.gl.getBufferSubData(this.gl.PIXEL_PACK_BUFFER, 0, raw);
+        const flip = performance.now(), rgba = flipRows(raw, this.width, this.height);
+        this.metrics.record("rowFlip", performance.now() - flip);
+        this.metrics.record("readback", performance.now() - started);
+        return rgba;
+      } finally {
+        this.gl.deleteSync(fence);
+        this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, null);
+        this.gl.deleteBuffer(pbo);
+      }
+    }
+    recordSink(ms) {
+      this.metrics.record("sink", ms);
+    }
+    close() {
+      this.closed = true;
+    }
+  };
+  var DirectUploadFallbackError = class extends Error {
+    constructor(reason) {
+      super(`direct VideoFrame upload failed: ${reason}`);
+      this.reason = reason;
+      this.name = "DirectUploadFallbackError";
+    }
+  };
+  var YUV_GLSL = `
+vec3 yuv709(float y, vec2 chroma) {
+  y -= 16.0 / 255.0;
+  float u = chroma.r - 0.5;
+  float v = chroma.g - 0.5;
+  return clamp(vec3(
+    1.164383 * y + 1.792741 * v,
+    1.164383 * y - 0.213249 * u - 0.532909 * v,
+    1.164383 * y + 2.112402 * u
+  ), 0.0, 1.0);
+}`;
+  var BASE_FRAGMENT_PREFIX = `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D y0;
+uniform sampler2D u0;
+uniform sampler2D v0;
+uniform sampler2D y1;
+uniform sampler2D u1;
+uniform sampler2D v1;
+uniform sampler2D rgba0;
+uniform sampler2D rgba1;
+uniform int format0;
+uniform int format1;
+uniform vec4 framing0;
+uniform vec4 framing1;
+uniform vec4 transform0;
+uniform vec4 transform1;
+uniform float opacity0;
+uniform float opacity1;
+uniform vec2 outputSize;
+uniform vec2 sourceSize0;
+uniform vec2 sourceSize1;
+uniform float transitionProgress;
+${YUV_GLSL}
+vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
+  vec2 pixel = (p - 0.5) * outputSize - transform.xy;
+  float angle = transform.w;
+  pixel = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * pixel;
+  pixel /= transform.z;
+  vec2 local = pixel / outputSize + 0.5;
+  return framing.xy + local * framing.zw;
+}
+vec2 canvasToSource(vec2 canvasPoint, vec2 sourceSize) {
+  float fit = min(outputSize.x / sourceSize.x, outputSize.y / sourceSize.y);
+  vec2 fitted = sourceSize * fit;
+  vec2 offset = (outputSize - fitted) * 0.5;
+  return (canvasPoint * outputSize - offset) / fitted;
+}
+vec4 sample0(vec2 p) {
+  vec2 canvasPoint = inverseVisual(p, transform0, framing0);
+  if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
+  vec2 q = canvasToSource(canvasPoint, sourceSize0);
+  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  if (format0 == 2) return vec4(texture(rgba0, q).rgb, opacity0);
+  vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
+  return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
+}
+vec4 sample1(vec2 p) {
+  vec2 canvasPoint = inverseVisual(p, transform1, framing1);
+  if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
+  vec2 q = canvasToSource(canvasPoint, sourceSize1);
+  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  if (format1 == 2) return vec4(texture(rgba1, q).rgb, opacity1);
+  vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
+  return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
+}
+vec3 overBlack(vec4 value) { return value.rgb * value.a; }
+vec3 A(vec2 p) { return overBlack(sample0(p)); }
+vec3 B(vec2 p) { return overBlack(sample1(p)); }
+vec2 texelOf(vec2 pixelIndex) { return (pixelIndex + 0.5) / outputSize; }
+float wrapPixel(float value, float size) {
+  float wrapped = mod(value, size);
+  return wrapped < 0.0 ? wrapped + size : wrapped;
+}
+vec3 mixFf(vec3 a, vec3 b, float P) { return a * P + b * (1.0 - P); }
+`;
+  function movingTransitionBody(type) {
+    const settings = {
+      "slide-left": { axis: "x", negative: true, mode: "slide" },
+      "slide-right": { axis: "x", negative: false, mode: "slide" },
+      "slide-up": { axis: "y", negative: true, mode: "slide" },
+      "slide-down": { axis: "y", negative: false, mode: "slide" },
+      "cover-left": { axis: "x", negative: true, mode: "cover" },
+      "cover-right": { axis: "x", negative: false, mode: "cover" },
+      "cover-up": { axis: "y", negative: true, mode: "cover" },
+      "cover-down": { axis: "y", negative: false, mode: "cover" },
+      "reveal-left": { axis: "x", negative: true, mode: "reveal" },
+      "reveal-right": { axis: "x", negative: false, mode: "reveal" },
+      "reveal-up": { axis: "y", negative: true, mode: "reveal" },
+      "reveal-down": { axis: "y", negative: false, mode: "reveal" }
+    };
+    const value = settings[type];
+    if (!value) return null;
+    const horizontal = value.axis === "x";
+    const extent = horizontal ? "outputSize.x" : "outputSize.y";
+    const index = horizontal ? "ip.x" : "ip.y";
+    const moved = horizontal ? "texelOf(vec2(wrapped, ip.y))" : "texelOf(vec2(ip.x, wrapped))";
+    const result = value.mode === "slide" ? "inside ? B(moved) : A(moved)" : value.mode === "cover" ? "inside ? B(moved) : A(p)" : "inside ? B(p) : A(moved)";
+    return `
+    float extent = ${extent};
+    float shifted = trunc(${value.negative ? "-" : ""}P * extent) + ${index};
+    float wrapped = wrapPixel(shifted, extent);
+    bool inside = shifted >= 0.0 && shifted < extent;
+    vec2 moved = ${moved};
+    result = ${result};`;
+  }
+  function transitionFragmentBody(type) {
+    const moving = movingTransitionBody(type);
+    if (moving) return moving;
+    switch (type) {
+      case "hard-cut":
+        return "result = A(p);";
+      case "dissolve":
+      case "fade":
+        return "result = mixFf(A(p), B(p), P);";
+      case "fade-black":
+      case "fade-white":
+        return `
+    vec3 plate = vec3(${type === "fade-white" ? "1.0" : "0.0"});
+    result = amount < 0.5
+      ? mix(A(p), plate, amount * 2.0)
+      : mix(plate, B(p), (amount - 0.5) * 2.0);`;
+      case "fade-grays":
+        return `
+    const float phase = 0.2;
+    vec3 a = A(p), b = B(p);
+    vec3 ga = vec3(dot(a, vec3(0.2126, 0.7152, 0.0722)));
+    vec3 gb = vec3(dot(b, vec3(0.2126, 0.7152, 0.0722)));
+    result = mixFf(
+      mixFf(a, ga, smoothstep(1.0 - phase, 1.0, P)),
+      mixFf(gb, b, smoothstep(phase, 1.0, P)), P);`;
+      case "wipe-left":
+        return `
+    float z = trunc(P * outputSize.x);
+    result = ip.x > z ? B(p) : A(p);`;
+      case "wipe-right":
+        return `
+    float z = trunc((1.0 - P) * outputSize.x);
+    result = ip.x > z ? A(p) : B(p);`;
+      case "wipe-up":
+        return `
+    float z = trunc(P * outputSize.y);
+    result = ip.y > z ? B(p) : A(p);`;
+      case "wipe-down":
+        return `
+    float z = trunc((1.0 - P) * outputSize.y);
+    result = ip.y > z ? A(p) : B(p);`;
+      case "radial":
+        return `
+    float s = smoothstep(0.0, 1.0,
+      atan(ip.x - outputSize.x * 0.5, ip.y - outputSize.y * 0.5)
+      - (P - 0.5) * (3.141592653589793 * 2.5));
+    result = B(p) * s + A(p) * (1.0 - s);`;
+      case "circle-open":
+      case "circle-close": {
+        const open = type === "circle-open";
+        return `
+    float radius = length(outputSize * 0.5);
+    float pp = ${open ? "(P - 0.5)" : "(1.0 - P - 0.5)"} * 3.0;
+    float s = smoothstep(0.0, 1.0, length(ip - outputSize * 0.5) / radius + pp);
+    result = ${open ? "A(p) * s + B(p) * (1.0 - s)" : "B(p) * s + A(p) * (1.0 - s)"};`;
+      }
+      case "zoom-in":
+        return `
+    float zf = smoothstep(0.5, 1.0, P);
+    vec2 unit = vec2(
+      0.5 + (ip.x / outputSize.x - 0.5) * zf,
+      0.5 + (ip.y / outputSize.y - 0.5) * zf);
+    vec2 sourcePixel = ceil(unit * (outputSize - 1.0));
+    float s = smoothstep(0.0, 0.5, P);
+    result = A(texelOf(sourcePixel)) * s + B(p) * (1.0 - s);`;
+      case "squeeze-h":
+        return `
+    float zr = 0.5 + (ip.y / outputSize.y - 0.5) / max(P, 0.000001);
+    result = (P <= 0.0 || zr < 0.0 || zr > 1.0)
+      ? B(p) : A(texelOf(vec2(ip.x, floor(zr * (outputSize.y - 1.0) + 0.5))));`;
+      case "squeeze-v":
+        return `
+    float zc = 0.5 + (ip.x / outputSize.x - 0.5) / max(P, 0.000001);
+    result = (P <= 0.0 || zc < 0.0 || zc > 1.0)
+      ? B(p) : A(texelOf(vec2(floor(zc * (outputSize.x - 1.0) + 0.5), ip.y)));`;
+      case "blur":
+        return `
+    float prog = P <= 0.5 ? P * 2.0 : (1.0 - P) * 2.0;
+    int size = 1 + int(trunc((outputSize.x * 0.5) * prog));
+    // xfade uses the complete causal box. The fixed tap cap keeps this one-pass GPU path bounded.
+    result = horizontalBlur(false, ip, size) * P + horizontalBlur(true, ip, size) * (1.0 - P);`;
+      case "pixelize":
+        return `
+    float d = min(P, 1.0 - P);
+    float dist = ceil(d * 50.0) / 50.0;
+    float sq = 2.0 * dist * min(outputSize.x, outputSize.y) / 20.0;
+    float sx = dist > 0.0
+      ? min(trunc(floor(ip.x / sq) * sq + 0.5 * sq), outputSize.x - 1.0) : ip.x;
+    float sy = dist > 0.0
+      ? min(trunc(floor(ip.y / sq) * sq + 0.5 * sq), outputSize.y - 1.0) : ip.y;
+    vec2 q = texelOf(vec2(sx, sy));
+    result = A(q) * P + B(q) * (1.0 - P);`;
+      default:
+        throw new Error(`unsupported transition type: ${String(type)}`);
+    }
+  }
+  function buildBaseFragment(type) {
+    if (!Object.prototype.hasOwnProperty.call(TRANSITION_CODES, type))
+      throw new Error(`unsupported transition type: ${String(type)}`);
+    const blurHelper = type === "blur" ? `vec3 horizontalBlur(bool incoming, vec2 ip, int size) {
+  int taps = min(size, ${TRANSITION_BLUR_MAX_TAPS});
+  vec3 sum = vec3(0.0);
+  for (int i = 0; i < ${TRANSITION_BLUR_MAX_TAPS}; i++) {
+    if (i >= taps) break;
+    float sx = min(outputSize.x - 1.0,
+      ip.x + floor(float(i) * float(size) / float(taps)));
+    vec2 q = texelOf(vec2(sx, ip.y));
+    sum += incoming ? B(q) : A(q);
+  }
+  return sum / float(taps);
+}
+` : "";
+    return `${BASE_FRAGMENT_PREFIX}${blurHelper}void main() {
+  vec2 p = vec2(uv.x, 1.0 - uv.y);
+  vec2 ip = floor(p * outputSize);
+  float amount = clamp(transitionProgress, 0.0, 1.0);
+  float P = 1.0 - amount;
+  vec3 result;
+  ${transitionFragmentBody(type)}
+  color = vec4(result, 1.0);
+}`;
+  }
+  var LAYER_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D backdrop;
+uniform sampler2D ly;
+uniform sampler2D lu;
+uniform sampler2D lv;
+uniform sampler2D image;
+uniform sampler2D maskY;
+uniform sampler2D lrgba;
+uniform sampler2D maskRgba;
+uniform int inputKind;
+uniform int yuvFormat;
+uniform int hasMask;
+uniform int maskFormat;
+uniform vec2 outputSize;
+uniform mat3 inverseMap;
+uniform vec4 cropRect;
+uniform float opacity;
+uniform int blendMode;
+${YUV_GLSL}
+vec3 blend(vec3 dst, vec3 src) {
+  if (blendMode == 1) return 1.0 - (1.0 - dst) * (1.0 - src);
+  if (blendMode == 2) return dst * src;
+  if (blendMode == 3) return min(vec3(1.0), dst + src);
+  if (blendMode == 4) return abs(dst - src);
+  if (blendMode == 5) return min(dst, src);
+  if (blendMode == 6) return max(dst, src);
+  if (blendMode == 7) return mix(2.0 * dst * src, 1.0 - 2.0 * (1.0 - dst) * (1.0 - src), step(0.5, dst));
+  if (blendMode == 8) return mix(2.0 * dst * src, 1.0 - 2.0 * (1.0 - dst) * (1.0 - src), step(0.5, src));
+  if (blendMode == 9) {
+    vec3 curve = mix(((16.0 * dst - 12.0) * dst + 4.0) * dst, sqrt(dst), step(0.25, dst));
+    return mix(
+      dst - (1.0 - 2.0 * src) * dst * (1.0 - dst),
+      dst + (2.0 * src - 1.0) * (curve - dst),
+      step(0.5, src)
+    );
+  }
+  return src;
+}
+void main() {
+  vec4 dst = texture(backdrop, uv);
+  vec2 outputPixel = vec2(uv.x, 1.0 - uv.y) * outputSize;
+  vec3 homogeneous = inverseMap * vec3(outputPixel, 1.0);
+  if (homogeneous.z <= 0.000001) {
+    color = dst;
+    return;
+  }
+  vec2 local = homogeneous.xy / homogeneous.z;
+  if (any(lessThan(local, vec2(0.0))) || any(greaterThan(local, vec2(1.0)))) {
+    color = dst;
+    return;
+  }
+  vec2 sourceUv = cropRect.xy + local * cropRect.zw;
+  vec4 src;
+  if (inputKind == 1) {
+    src = texture(image, sourceUv);
+  } else if (yuvFormat == 2) {
+    src = vec4(texture(lrgba, sourceUv).rgb, 1.0);
+  } else {
+    vec2 chroma = yuvFormat == 1
+      ? texture(lu, sourceUv).rg
+      : vec2(texture(lu, sourceUv).r, texture(lv, sourceUv).r);
+    src = vec4(yuv709(texture(ly, sourceUv).r, chroma), 1.0);
+  }
+  float maskA = hasMask == 1
+    ? (maskFormat == 2 ? texture(maskRgba, sourceUv).r : texture(maskY, sourceUv).r)
+    : 1.0;
+  float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
+  color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
+}`;
+  var COPY_FRAGMENT = `#version 300 es
+precision highp float;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D source;
+void main() { color = texture(source, uv); }`;
+  var LOOK_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp sampler3D;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D source;
+uniform sampler3D lut;
+uniform vec3 lutDomainMin;
+uniform vec3 lutDomainMax;
+uniform float lutSize;
+uniform float lutIntensity;
+void main() {
+  vec4 src = texture(source, uv);
+  vec3 unit = clamp((src.rgb - lutDomainMin) / (lutDomainMax - lutDomainMin), 0.0, 1.0);
+  vec3 coord = (unit * (lutSize - 1.0) + 0.5) / lutSize;
+  vec3 lutted = texture(lut, coord).rgb;
+  color = vec4(mix(src.rgb, lutted, lutIntensity), src.a);
+}`;
+  var FBO_SCRATCH_UNIT = 9;
+  var BASE_RGBA_UNITS = [6, 7];
+  var LAYER_RGBA_UNIT = 8;
+  var MASK_RGBA_UNIT = 10;
+  var LUT_UNIT = 11;
+  var REQUIRED_TEXTURE_UNITS = LUT_UNIT + 1;
+  function isVideoFrame(value) {
+    return "displayWidth" in value && "displayHeight" in value && "close" in value;
+  }
+  function multiply(a, b) {
+    return Array.from({ length: 9 }, (_3, k2) => {
+      const r = Math.floor(k2 / 3), c = k2 % 3;
+      return a[r * 3] * b[c] + a[r * 3 + 1] * b[c + 3] + a[r * 3 + 2] * b[c + 6];
+    });
+  }
+  var HALF_FLOAT_BUFFER = new ArrayBuffer(4);
+  var HALF_FLOAT_BITS = new Uint32Array(HALF_FLOAT_BUFFER);
+  var HALF_FLOAT_VALUE = new Float32Array(HALF_FLOAT_BUFFER);
+  function floatToHalf(value) {
+    HALF_FLOAT_VALUE[0] = value;
+    const word = HALF_FLOAT_BITS[0];
+    const sign = word >>> 16 & 32768;
+    const exponent = (word >>> 23 & 255) - 127 + 15;
+    const mantissa = word & 8388607;
+    if (exponent <= 0) {
+      if (exponent < -10) return sign;
+      return sign | (mantissa | 8388608) >>> 14 - exponent;
+    }
+    if (exponent >= 31) return sign | 31744;
+    return sign | exponent << 10 | mantissa >>> 13;
+  }
+  function packLutRgba16f(lut) {
+    const output = new Uint16Array(lut.size ** 3 * 4);
+    for (let source = 0, target = 0; source < lut.data.length; source += 3, target += 4) {
+      output[target] = floatToHalf(lut.data[source]);
+      output[target + 1] = floatToHalf(lut.data[source + 1]);
+      output[target + 2] = floatToHalf(lut.data[source + 2]);
+      output[target + 3] = floatToHalf(1);
+    }
+    return output;
+  }
+  function forwardInverse(visual, srcW, srcH, outW, outH) {
+    const h = visual.perspective ? cornersToHomography(visual.perspective.corners) : [1, 0, 0, 0, 1, 0, 0, 0, 1];
+    const bw = visual.crop.width * srcW * visual.transform.scale, bh = visual.crop.height * srcH * visual.transform.scale;
+    const b = [bw, 0, -bw / 2, 0, bh, -bh / 2, 0, 0, 1], a = visual.transform.rotateDegrees * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const rotate = [c, -s, 0, s, c, 0, 0, 0, 1], translate = [
+      1,
+      0,
+      outW / 2 + visual.transform.x,
+      0,
+      1,
+      outH / 2 + visual.transform.y,
+      0,
+      0,
+      1
+    ];
+    const inv = invertMat3(multiply(translate, multiply(rotate, multiply(b, h))));
+    return new Float32Array([
+      inv[0],
+      inv[3],
+      inv[6],
+      inv[1],
+      inv[4],
+      inv[7],
+      inv[2],
+      inv[5],
+      inv[8]
+    ]);
+  }
+  var WebGL2Compositor = class {
+    constructor(canvas = document.createElement("canvas"), options = {}) {
+      this.options = options;
+      this.canvas = canvas;
+      const gl = canvas.getContext("webgl2", {
+        alpha: false,
+        antialias: false,
+        depth: false,
+        preserveDrawingBuffer: true
+      });
+      if (!gl) throw new Error("WebGL2 is unavailable");
+      this.gl = gl;
+      this.directUploadDisabled = options.uploadPath === "copyTo";
+      if (!this.directUploadDisabled && Number(gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)) < REQUIRED_TEXTURE_UNITS) {
+        this.directUploadDisabled = true;
+        this.stats.directUploadFallbackReason = `requires ${REQUIRED_TEXTURE_UNITS} texture units`;
+      }
+      this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
+      this.copyProgram = createProgram(gl, COPY_FRAGMENT);
+      this.lookProgram = createProgram(gl, LOOK_FRAGMENT);
+      const vertices = gl.createBuffer();
+      if (!vertices) throw new Error("WebGL2 could not allocate a vertex buffer");
+      this.vertices = vertices;
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertices);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+        gl.STATIC_DRAW
+      );
+      for (const program of [
+        this.layerProgram,
+        this.copyProgram,
+        this.lookProgram
+      ]) {
+        gl.useProgram(program);
+        const p2 = gl.getAttribLocation(program, "position");
+        gl.enableVertexAttribArray(p2);
+        gl.vertexAttribPointer(p2, 2, gl.FLOAT, false, 0, 0);
+      }
+      const texture = () => {
+        const t = gl.createTexture();
+        if (!t) throw new Error("WebGL2 could not allocate a texture");
+        gl.bindTexture(gl.TEXTURE_2D, t);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA8,
+          1,
+          1,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          new Uint8Array([0, 0, 0, 255])
+        );
+        return t;
+      };
+      this.baseTextures = Array.from({ length: 6 }, texture);
+      this.baseRgbaTextures = Array.from({ length: 2 }, texture);
+      this.layerTextures = Array.from({ length: 4 }, texture);
+      this.layerRgbaTextures = Array.from({ length: 2 }, texture);
+      this.fboTextures = [texture(), texture()];
+      this.fbos = [0, 1].map((i2) => {
+        const f2 = gl.createFramebuffer();
+        if (!f2) throw new Error("WebGL2 could not allocate framebuffer");
+        gl.bindFramebuffer(gl.FRAMEBUFFER, f2);
+        gl.framebufferTexture2D(
+          gl.FRAMEBUFFER,
+          gl.COLOR_ATTACHMENT0,
+          gl.TEXTURE_2D,
+          this.fboTextures[i2],
+          0
+        );
+        return f2;
+      });
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.bind(BASE_RGBA_UNITS[0], this.baseRgbaTextures[0]);
+      this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[1]);
+      gl.useProgram(this.layerProgram);
+      [
+        ["backdrop", 0],
+        ["ly", 1],
+        ["lu", 2],
+        ["lv", 3],
+        ["image", 4],
+        ["maskY", 5],
+        ["lrgba", LAYER_RGBA_UNIT],
+        ["maskRgba", MASK_RGBA_UNIT]
+      ].forEach(
+        ([n2, u2]) => gl.uniform1i(uniform(gl, this.layerProgram, n2), u2)
+      );
+      this.bind(4, this.layerRgbaTextures[0]);
+      this.bind(5, this.layerTextures[3]);
+      this.bind(LAYER_RGBA_UNIT, this.layerRgbaTextures[0]);
+      this.bind(MASK_RGBA_UNIT, this.layerRgbaTextures[1]);
+      gl.useProgram(this.copyProgram);
+      gl.uniform1i(uniform(gl, this.copyProgram, "source"), 0);
+      gl.useProgram(this.lookProgram);
+      gl.uniform1i(uniform(gl, this.lookProgram, "source"), 0);
+      gl.uniform1i(uniform(gl, this.lookProgram, "lut"), LUT_UNIT);
+    }
+    kind = "webgl2";
+    canvas;
+    stats = {
+      imageUploads: 0,
+      glErrors: 0,
+      directUploadFallbackReason: null,
+      directUploadFrameDimensions: null,
+      colorspaceConversion: "browser-default"
+    };
+    gl;
+    basePrograms = /* @__PURE__ */ new Map();
+    layerProgram;
+    copyProgram;
+    lookProgram;
+    vertices;
+    baseTextures;
+    baseRgbaTextures;
+    layerTextures;
+    layerRgbaTextures;
+    shapes = Array(11).fill(null);
+    fbos;
+    fboTextures;
+    fboShape = "";
+    imageTextures = /* @__PURE__ */ new WeakMap();
+    ownedImageTextures = /* @__PURE__ */ new Set();
+    lookTextures = /* @__PURE__ */ new WeakMap();
+    ownedLookTextures = /* @__PURE__ */ new Set();
+    disposed = false;
+    directUploadDisabled = false;
+    baseProgramFor(type) {
+      const cached = this.basePrograms.get(type);
+      if (cached) return cached;
+      const gl = this.gl;
+      const program = createProgram(gl, buildBaseFragment(type));
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vertices);
+      const position = gl.getAttribLocation(program, "position");
+      gl.enableVertexAttribArray(position);
+      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+      ["y0", "u0", "v0", "y1", "u1", "v1", "rgba0", "rgba1"].forEach(
+        (name, unit) => gl.uniform1i(gl.getUniformLocation(program, name), unit)
+      );
+      const cutUniforms = [0, 1].map((index) => ({
+        framing: gl.getUniformLocation(program, `framing${index}`),
+        transform: gl.getUniformLocation(program, `transform${index}`),
+        opacity: gl.getUniformLocation(program, `opacity${index}`),
+        format: gl.getUniformLocation(program, `format${index}`),
+        sourceSize: gl.getUniformLocation(program, `sourceSize${index}`)
+      }));
+      const state = {
+        program,
+        cutUniforms,
+        output: uniform(gl, program, "outputSize"),
+        progress: gl.getUniformLocation(program, "transitionProgress"),
+        secondary: false
+      };
+      this.basePrograms.set(type, state);
+      return state;
+    }
+    bind(unit, texture) {
+      this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+      this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+    }
+    bind3d(unit, texture) {
+      this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+      this.gl.bindTexture(this.gl.TEXTURE_3D, texture);
+    }
+    lookTexture(lut) {
+      const cached = this.lookTextures.get(lut);
+      if (cached) return cached;
+      const texture = this.gl.createTexture();
+      if (!texture) throw new Error("WebGL2 could not allocate a 3D LUT texture");
+      const gl = this.gl;
+      this.bind3d(LUT_UNIT, texture);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.texImage3D(
+        gl.TEXTURE_3D,
+        0,
+        gl.RGBA16F,
+        lut.size,
+        lut.size,
+        lut.size,
+        0,
+        gl.RGBA,
+        gl.HALF_FLOAT,
+        packLutRgba16f(lut)
+      );
+      this.lookTextures.set(lut, texture);
+      this.ownedLookTextures.add(texture);
+      return texture;
+    }
+    get uploadPath() {
+      return this.directUploadDisabled ? "copyTo" : "direct";
+    }
+    failDirectUpload(reason) {
+      this.directUploadDisabled = true;
+      this.stats.directUploadFallbackReason ??= reason;
+      throw new DirectUploadFallbackError(reason);
+    }
+    uploadVideoFrameTexture(texture, unit, frame, uniforms) {
+      if (this.directUploadDisabled)
+        this.failDirectUpload("direct upload is disabled for this session");
+      if (frame.format !== null && frame.format !== "NV12" && frame.format !== "I420")
+        this.failDirectUpload(`unsupported VideoFrame format: ${String(frame.format)}`);
+      const width = frame.displayWidth;
+      const height = frame.displayHeight;
+      if (width <= 0 || height <= 0)
+        this.failDirectUpload(`invalid display size ${width}x${height}`);
+      const gl = this.gl;
+      while (gl.getError() !== gl.NO_ERROR) this.stats.glErrors += 1;
+      this.bind(unit, texture);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+      gl.pixelStorei(
+        gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,
+        gl.BROWSER_DEFAULT_WEBGL
+      );
+      try {
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA8,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          frame
+        );
+      } catch (error2) {
+        this.failDirectUpload(
+          error2 instanceof Error ? error2.message : String(error2)
+        );
+      }
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR) {
+        this.stats.glErrors += 1;
+        this.failDirectUpload(`WebGL error 0x${error.toString(16)}`);
+      }
+      if (!this.stats.directUploadFrameDimensions) {
+        this.stats.directUploadFrameDimensions = {
+          codedWidth: frame.codedWidth,
+          codedHeight: frame.codedHeight,
+          displayWidth: width,
+          displayHeight: height,
+          visibleRect: frame.visibleRect ? {
+            x: frame.visibleRect.x,
+            y: frame.visibleRect.y,
+            width: frame.visibleRect.width,
+            height: frame.visibleRect.height
+          } : null
+        };
+      }
+      if (uniforms) {
+        gl.uniform1i(uniforms.format, 2);
+        gl.uniform2f(uniforms.sourceSize, width, height);
+      }
+      return { width, height };
+    }
+    upload(texture, shapeIndex, data, w, h, channels = 1) {
+      this.bind(shapeIndex, texture);
+      this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
+      this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, 0);
+      const format = channels === 2 ? this.gl.RG : this.gl.RED, shape = `${w}x${h}x${channels}`;
+      if (this.shapes[shapeIndex] === shape)
+        this.gl.texSubImage2D(
+          this.gl.TEXTURE_2D,
+          0,
+          0,
+          0,
+          w,
+          h,
+          format,
+          this.gl.UNSIGNED_BYTE,
+          data
+        );
+      else {
+        this.gl.texImage2D(
+          this.gl.TEXTURE_2D,
+          0,
+          channels === 2 ? this.gl.RG8 : this.gl.R8,
+          w,
+          h,
+          0,
+          format,
+          this.gl.UNSIGNED_BYTE,
+          data
+        );
+        this.shapes[shapeIndex] = shape;
+      }
+    }
+    uploadYuv(frame, textures, unitBase, shapeBase, uniforms) {
+      const cw = Math.ceil(frame.width / 2), ch = Math.ceil(frame.height / 2);
+      this.upload(textures[0], shapeBase, frame.y, frame.width, frame.height);
+      if (frame.format === "NV12") {
+        this.upload(textures[1], shapeBase + 1, frame.uv, cw, ch, 2);
+        this.upload(textures[2], shapeBase + 2, new Uint8Array([128]), 1, 1);
+        if (uniforms) this.gl.uniform1i(uniforms.format, 1);
+      } else {
+        this.upload(textures[1], shapeBase + 1, frame.u, cw, ch);
+        this.upload(textures[2], shapeBase + 2, frame.v, cw, ch);
+        if (uniforms) this.gl.uniform1i(uniforms.format, 0);
+      }
+      if (uniforms)
+        this.gl.uniform2f(uniforms.sourceSize, frame.width, frame.height);
+      for (let i2 = 0; i2 < 3; i2++) this.bind(unitBase + i2, textures[i2]);
+    }
+    setCut(u2, v2) {
+      this.gl.uniform4f(
+        u2.framing,
+        v2.framing.x,
+        v2.framing.y,
+        v2.framing.width,
+        v2.framing.height
+      );
+      this.gl.uniform4f(
+        u2.transform,
+        v2.transform.x,
+        v2.transform.y,
+        v2.transform.scale,
+        v2.transform.rotateDegrees * Math.PI / 180
+      );
+      this.gl.uniform1f(u2.opacity, v2.opacity);
+    }
+    ensureFbos(w, h) {
+      const shape = `${w}x${h}`;
+      if (shape === this.fboShape) return;
+      for (const t of this.fboTextures) {
+        this.bind(FBO_SCRATCH_UNIT, t);
+        this.gl.texImage2D(
+          this.gl.TEXTURE_2D,
+          0,
+          this.gl.RGBA8,
+          w,
+          h,
+          0,
+          this.gl.RGBA,
+          this.gl.UNSIGNED_BYTE,
+          null
+        );
+      }
+      this.fboShape = shape;
+    }
+    recordGlErrors(synchronization) {
+      if (synchronization !== "finish") return;
+      while (this.gl.getError() !== this.gl.NO_ERROR) this.stats.glErrors += 1;
+    }
+    stillTexture(value) {
+      let texture = this.imageTextures.get(value);
+      if (texture) return texture;
+      texture = this.gl.createTexture();
+      this.bind(4, texture);
+      this.gl.texParameteri(
+        this.gl.TEXTURE_2D,
+        this.gl.TEXTURE_MIN_FILTER,
+        this.gl.LINEAR
+      );
+      this.gl.texParameteri(
+        this.gl.TEXTURE_2D,
+        this.gl.TEXTURE_MAG_FILTER,
+        this.gl.LINEAR
+      );
+      this.gl.texParameteri(
+        this.gl.TEXTURE_2D,
+        this.gl.TEXTURE_WRAP_S,
+        this.gl.CLAMP_TO_EDGE
+      );
+      this.gl.texParameteri(
+        this.gl.TEXTURE_2D,
+        this.gl.TEXTURE_WRAP_T,
+        this.gl.CLAMP_TO_EDGE
+      );
+      this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
+      this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, 0);
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D,
+        0,
+        this.gl.RGBA,
+        this.gl.RGBA,
+        this.gl.UNSIGNED_BYTE,
+        value.bitmap
+      );
+      this.imageTextures.set(value, texture);
+      this.ownedImageTextures.add(texture);
+      this.stats.imageUploads += 1;
+      return texture;
+    }
+    prepareBase(frames, plan, output, baseProgram) {
+      const gl = this.gl;
+      gl.useProgram(baseProgram.program);
+      gl.uniform2f(baseProgram.output, output.width, output.height);
+      const started = performance.now();
+      frames.forEach((frame, index) => {
+        if (isVideoFrame(frame)) {
+          this.uploadVideoFrameTexture(
+            this.baseRgbaTextures[index],
+            BASE_RGBA_UNITS[index],
+            frame,
+            baseProgram.cutUniforms[index]
+          );
+        } else {
+          this.uploadYuv(
+            frame,
+            this.baseTextures.slice(index * 3, index * 3 + 3),
+            index * 3,
+            index * 3,
+            baseProgram.cutUniforms[index]
+          );
+        }
+      });
+      if (frames.length === 1 && !baseProgram.secondary) {
+        const frame = frames[0];
+        if (isVideoFrame(frame)) {
+          this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[0]);
+          this.gl.uniform1i(baseProgram.cutUniforms[1].format, 2);
+          this.gl.uniform2f(
+            baseProgram.cutUniforms[1].sourceSize,
+            frame.displayWidth,
+            frame.displayHeight
+          );
+        } else {
+          this.uploadYuv(
+            frame,
+            this.baseTextures.slice(3, 6),
+            3,
+            3,
+            baseProgram.cutUniforms[1]
+          );
+        }
+        baseProgram.secondary = true;
+      } else if (frames.length === 2) {
+        baseProgram.secondary = true;
+      }
+      const elapsed = performance.now() - started;
+      frames.forEach(
+        (_frame, index) => this.setCut(baseProgram.cutUniforms[index], plan.base[index].visual)
+      );
+      if (frames.length === 1)
+        this.setCut(baseProgram.cutUniforms[1], plan.base[0].visual);
+      return elapsed;
+    }
+    configureBaseDraw(plan, target, baseProgram) {
+      this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
+      this.gl.useProgram(baseProgram.program);
+      this.gl.uniform1f(baseProgram.progress, plan.transition?.progress ?? 0);
+    }
+    async compose(base, layers, output, metrics, plan) {
+      if (this.disposed) throw new Error("WebGL2 compositor is disposed");
+      if (output.colorSpace !== "bt709-limited")
+        throw new Error(`unsupported color space: ${output.colorSpace}`);
+      if (base.length > 2 || base.length !== plan.base.length) {
+        throw new Error(
+          `cuts compositor accepts zero to two base frames; received ${base.length}`
+        );
+      }
+      if (layers.length !== plan.layers.length)
+        throw new Error("layer inputs must match plan.layers");
+      if (base.length === 0 && layers.length === 0)
+        throw new Error("cannot compose an empty plan");
+      const hasDirectInput = base.some(isVideoFrame) || layers.some((input) => isVideoFrame(input.color) || Boolean(input.mask && isVideoFrame(input.mask)));
+      if (hasDirectInput && this.directUploadDisabled)
+        this.failDirectUpload("direct upload is disabled for this session");
+      if (this.canvas.width !== output.width) this.canvas.width = output.width;
+      if (this.canvas.height !== output.height)
+        this.canvas.height = output.height;
+      const gl = this.gl;
+      gl.viewport(0, 0, output.width, output.height);
+      const look = output.look ?? null;
+      const lookIntensity = look ? Math.max(0, Math.min(1, Number.isFinite(look.intensity) ? look.intensity : 1)) : 0;
+      const hasLook = look !== null && lookIntensity > 0;
+      const baseProgram = base.length > 0 ? this.baseProgramFor(plan.transition?.type ?? "hard-cut") : null;
+      let uploadElapsedMs = baseProgram ? this.prepareBase(base, plan, output, baseProgram) : 0;
+      let shaderElapsedMs = 0;
+      const synchronization = this.options.synchronization ?? "finish";
+      const timer = synchronization === "finish" ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null;
+      const queries = [];
+      const draw = () => {
+        const query = timer ? gl.createQuery() : null;
+        if (timer && query) gl.beginQuery(timer.TIME_ELAPSED_EXT, query);
+        const started = performance.now();
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        shaderElapsedMs += performance.now() - started;
+        if (timer && query) {
+          gl.endQuery(timer.TIME_ELAPSED_EXT);
+          queries.push(query);
+        }
+      };
+      if (layers.length === 0 && !hasLook) {
+        this.configureBaseDraw(plan, null, baseProgram);
+        draw();
+        this.recordGlErrors(synchronization);
+        metrics.record("upload", uploadElapsedMs);
+        this.finishFrame(
+          metrics,
+          shaderElapsedMs,
+          synchronization,
+          timer,
+          queries
+        );
+        return new WebGLSurface(
+          this.canvas,
+          output.width,
+          output.height,
+          gl,
+          metrics
+        );
+      }
+      this.ensureFbos(output.width, output.height);
+      if (baseProgram) {
+        this.configureBaseDraw(plan, this.fbos[0], baseProgram);
+        draw();
+        this.recordGlErrors(synchronization);
+      } else {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]);
+        gl.clearColor(0, 0, 0, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
+      const outLoc = uniform(gl, this.layerProgram, "outputSize");
+      const inverseLoc = uniform(gl, this.layerProgram, "inverseMap");
+      const cropLoc = uniform(gl, this.layerProgram, "cropRect");
+      const opacityLoc = uniform(gl, this.layerProgram, "opacity");
+      const kindLoc = uniform(gl, this.layerProgram, "inputKind");
+      const formatLoc = uniform(gl, this.layerProgram, "yuvFormat");
+      const hasMaskLoc = uniform(gl, this.layerProgram, "hasMask");
+      const maskFormatLoc = uniform(gl, this.layerProgram, "maskFormat");
+      const blendLoc = uniform(gl, this.layerProgram, "blendMode");
+      const blendModes = [
+        "normal",
+        "screen",
+        "multiply",
+        "add",
+        "difference",
+        "darken",
+        "lighten",
+        "overlay",
+        "hardlight",
+        "softlight"
+      ];
+      let current = 0;
+      for (let index = 0; index < layers.length; index += 1) {
+        const input = layers[index];
+        const color = input.color;
+        const layer = plan.layers[index];
+        const next = 1 - current;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[next]);
+        gl.useProgram(this.layerProgram);
+        this.bind(0, this.fboTextures[current]);
+        let width;
+        let height;
+        const uploadStarted = performance.now();
+        if ("bitmap" in color) {
+          width = color.width;
+          height = color.height;
+          this.bind(4, this.stillTexture(color));
+          gl.uniform1i(kindLoc, 1);
+        } else if (isVideoFrame(color)) {
+          const size = this.uploadVideoFrameTexture(
+            this.layerRgbaTextures[0],
+            LAYER_RGBA_UNIT,
+            color
+          );
+          width = size.width;
+          height = size.height;
+          gl.uniform1i(kindLoc, 0);
+          gl.uniform1i(formatLoc, 2);
+        } else {
+          width = color.width;
+          height = color.height;
+          this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
+          gl.uniform1i(kindLoc, 0);
+          gl.uniform1i(formatLoc, color.format === "NV12" ? 1 : 0);
+        }
+        if (input.mask) {
+          if (isVideoFrame(input.mask)) {
+            this.uploadVideoFrameTexture(
+              this.layerRgbaTextures[1],
+              MASK_RGBA_UNIT,
+              input.mask
+            );
+            gl.uniform1i(maskFormatLoc, 2);
+          } else {
+            this.upload(
+              this.layerTextures[3],
+              9,
+              input.mask.y,
+              input.mask.width,
+              input.mask.height
+            );
+            this.bind(5, this.layerTextures[3]);
+            gl.uniform1i(maskFormatLoc, input.mask.format === "NV12" ? 1 : 0);
+          }
+          gl.uniform1i(hasMaskLoc, 1);
+        } else {
+          gl.uniform1i(hasMaskLoc, 0);
+          gl.uniform1i(maskFormatLoc, 0);
+        }
+        uploadElapsedMs += performance.now() - uploadStarted;
+        gl.uniform2f(outLoc, output.width, output.height);
+        gl.uniformMatrix3fv(
+          inverseLoc,
+          false,
+          forwardInverse(
+            layer.visual,
+            width,
+            height,
+            output.width,
+            output.height
+          )
+        );
+        gl.uniform4f(
+          cropLoc,
+          layer.visual.crop.x,
+          layer.visual.crop.y,
+          layer.visual.crop.width,
+          layer.visual.crop.height
+        );
+        gl.uniform1f(opacityLoc, layer.opacity);
+        gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
+        draw();
+        this.recordGlErrors(synchronization);
+        current = next;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.bind(0, this.fboTextures[current]);
+      if (hasLook && look) {
+        gl.useProgram(this.lookProgram);
+        this.bind3d(LUT_UNIT, this.lookTexture(look.lut));
+        gl.uniform3fv(uniform(gl, this.lookProgram, "lutDomainMin"), look.lut.domainMin);
+        gl.uniform3fv(uniform(gl, this.lookProgram, "lutDomainMax"), look.lut.domainMax);
+        gl.uniform1f(uniform(gl, this.lookProgram, "lutSize"), look.lut.size);
+        gl.uniform1f(uniform(gl, this.lookProgram, "lutIntensity"), lookIntensity);
+      } else {
+        gl.useProgram(this.copyProgram);
+      }
+      draw();
+      this.recordGlErrors(synchronization);
+      this.bind(0, this.baseTextures[0]);
+      metrics.record("upload", uploadElapsedMs);
+      this.finishFrame(metrics, shaderElapsedMs, synchronization, timer, queries);
+      return new WebGLSurface(
+        this.canvas,
+        output.width,
+        output.height,
+        gl,
+        metrics
+      );
+    }
+    finishFrame(metrics, shaderSubmissionMs, synchronization, timer, queries) {
+      const syncStarted = performance.now();
+      if (synchronization === "finish") this.gl.finish();
+      else this.gl.flush();
+      const shaderWallMs = shaderSubmissionMs + performance.now() - syncStarted;
+      metrics.record("shader", shaderWallMs);
+      let gpuNanoseconds = 0;
+      let hasGpuMeasurement = timer !== null && queries.length > 0 && !this.gl.getParameter(timer.GPU_DISJOINT_EXT);
+      for (const query of queries) {
+        if (hasGpuMeasurement && this.gl.getQueryParameter(query, this.gl.QUERY_RESULT_AVAILABLE)) {
+          gpuNanoseconds += this.gl.getQueryParameter(
+            query,
+            this.gl.QUERY_RESULT
+          );
+        } else {
+          hasGpuMeasurement = false;
+        }
+        this.gl.deleteQuery(query);
+      }
+      if (hasGpuMeasurement) metrics.record("shaderGpu", gpuNanoseconds / 1e6);
+      else if (synchronization === "finish")
+        metrics.record("shaderGpu", shaderWallMs);
+    }
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      for (const t of [
+        ...this.baseTextures,
+        ...this.baseRgbaTextures,
+        ...this.layerTextures,
+        ...this.layerRgbaTextures,
+        ...this.fboTextures,
+        ...this.ownedImageTextures,
+        ...this.ownedLookTextures
+      ])
+        this.gl.deleteTexture(t);
+      for (const f2 of this.fbos) this.gl.deleteFramebuffer(f2);
+      this.gl.deleteBuffer(this.vertices);
+      for (const value of this.basePrograms.values())
+        this.gl.deleteProgram(value.program);
+      this.basePrograms.clear();
+      this.gl.deleteProgram(this.layerProgram);
+      this.gl.deleteProgram(this.copyProgram);
+      this.gl.deleteProgram(this.lookProgram);
+    }
+  };
+
   // packages/frame-engine/src/evaluate.ts
   var FrameEvaluator = class {
     constructor(context) {
@@ -12772,24 +14159,101 @@ ${indent}`);
   };
   async function evaluateFrame(plan, context) {
     const decoded = [];
-    const native = [];
+    const baseFrames = [];
+    const layerFrames = [];
+    const maskSync = [];
     try {
-      for (const layer of plan.layers) {
+      for (const layer of plan.base) {
         const decodeStarted = performance.now();
         const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: layer.id });
         context.metrics.record("decode", performance.now() - decodeStarted);
         decoded.push(frame);
-        const copyStarted = performance.now();
-        native.push(await copyNativeYuvFrame(frame, context.metrics));
-        context.metrics.record("copy", performance.now() - copyStarted);
+        baseFrames.push(frame);
       }
-      const surface = await context.compositor.compose(native, plan.output, context.metrics, plan);
-      const formats = native.map((frame) => frame.format);
+      for (const layer of plan.layers) {
+        if (layer.kind === "image") {
+          if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
+          layerFrames.push({ color: await layer.image.load() });
+          continue;
+        }
+        if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
+        const decodeStarted = performance.now();
+        const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: `layer-${layer.id}` });
+        context.metrics.record("decode", performance.now() - decodeStarted);
+        decoded.push(frame);
+        let mask = null;
+        if (layer.kind === "matte" && layer.mask) {
+          const maskDecodeStarted = performance.now();
+          const maskFrame = await layer.mask.source.decode(
+            layer.mask.sourceTimeUs,
+            context.metrics,
+            { streamId: `layer-${layer.id}-mask` }
+          );
+          context.metrics.record("decode", performance.now() - maskDecodeStarted);
+          decoded.push(maskFrame);
+          mask = maskFrame;
+          maskSync.push({
+            layerId: layer.id,
+            colorTimestamp: Number(frame.timestamp ?? 0),
+            maskTimestamp: Number(maskFrame.timestamp ?? 0),
+            requestedUs: layer.sourceTimeUs
+          });
+        }
+        layerFrames.push({ color: frame, mask });
+      }
+      const copyFrame = async (frame) => {
+        const started = performance.now();
+        const copied = await copyNativeYuvFrame(frame, context.metrics);
+        context.metrics.record("copy", performance.now() - started);
+        return copied;
+      };
+      const buildInputs = async (path) => {
+        if (path === "direct") return { base: baseFrames, layers: layerFrames };
+        const base = [];
+        for (const frame of baseFrames) base.push(await copyFrame(frame));
+        const layers = [];
+        for (const input of layerFrames) {
+          const color = "bitmap" in input.color ? input.color : await copyFrame(input.color);
+          const mask = input.mask ? await copyFrame(input.mask) : input.mask;
+          layers.push({ color, mask });
+        }
+        return { base, layers };
+      };
+      let usedPath = context.compositor.uploadPath ?? "copyTo";
+      let inputs = await buildInputs(usedPath);
+      let surface;
+      try {
+        surface = await context.compositor.compose(
+          inputs.base,
+          inputs.layers,
+          plan.output,
+          context.metrics,
+          plan
+        );
+        usedPath = context.compositor.uploadPath ?? usedPath;
+      } catch (error) {
+        if (!(error instanceof DirectUploadFallbackError) || usedPath !== "direct") {
+          throw error;
+        }
+        usedPath = "copyTo";
+        inputs = await buildInputs(usedPath);
+        surface = await context.compositor.compose(
+          inputs.base,
+          inputs.layers,
+          plan.output,
+          context.metrics,
+          plan
+        );
+      }
+      context.metrics.recordUploadPath?.(usedPath);
+      const formats = decoded.map((frame) => frame.format).filter((format) => format === "NV12" || format === "I420");
       let closed = false;
       return {
         timeUs: plan.timeUs,
         surface,
         nativeFormats: formats,
+        uploadPath: usedPath,
+        ...maskSync.length > 0 ? { maskSync } : {},
         close() {
           if (closed) return;
           closed = true;
@@ -12802,13 +14266,14 @@ ${indent}`);
   }
 
   // packages/frame-engine/src/timeline/plan.ts
-  var import_edit_store = __toESM(require_lib(), 1);
+  var import_edit_store2 = __toESM(require_lib(), 1);
+  var import_edit_store3 = __toESM(require_lib(), 1);
   var DEFAULT_VISUAL = {
     framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
     transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
     opacity: 1
   };
-  function finite(value, fallback) {
+  function finite2(value, fallback) {
     return typeof value === "number" && Number.isFinite(value) ? value : fallback;
   }
   function clamp(value, minimum, maximum) {
@@ -12817,28 +14282,29 @@ ${indent}`);
   function normalizeTransition(cut) {
     return cut.transition_out ?? cut.transitionOut;
   }
-  function buildResolvedTimelinePlan(cuts, options) {
+  function buildResolvedTimelinePlan(cuts, options = {}) {
     if (cuts.some((cut) => cut.freeze && (cut.at !== void 0 || cut.track !== void 0))) {
       throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
     }
     const virtualCuts = cuts.map((cut) => {
-      const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
-      const freezeDuration = Math.max(0, finite(cut.freeze?.duration_sec, 0));
+      const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
+      const freezeDuration = Math.max(0, finite2(cut.freeze?.duration_sec, 0));
       return {
         ...cut,
         out: cut.out + freezeDuration * speed,
         transitionOut: normalizeTransition(cut)
       };
     });
-    const map = (0, import_edit_store.buildTimelineMap)(virtualCuts, options);
-    const trackSegments = (0, import_edit_store.computeCutTrackSegments)(virtualCuts);
+    const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
+    const map = (0, import_edit_store2.buildTimelineMap)(virtualCuts, timelineOptions);
+    const trackSegments = (0, import_edit_store2.computeCutTrackSegments)(virtualCuts);
     const placements = cuts.map((cut, index) => {
       const segment = trackSegments[index];
       if (!segment) throw new Error(`timeline did not resolve cut ${index}`);
-      const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
+      const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
       const playbackDuration = Math.max(0, cut.out - cut.in) / speed;
-      const freezeDuration = Math.max(0, finite(cut.freeze?.duration_sec, 0));
-      const freezeAt = cut.freeze ? clamp(finite(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
+      const freezeDuration = Math.max(0, finite2(cut.freeze?.duration_sec, 0));
+      const freezeAt = cut.freeze ? clamp(finite2(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
       return {
         cut,
         at: segment.at,
@@ -12848,7 +14314,47 @@ ${indent}`);
         freezeDuration
       };
     });
-    return { map, cuts: placements, totalDuration: map.totalDuration };
+    const visibleLayers = layers.filter((layer) => layer.kind !== "filter");
+    const warned = /* @__PURE__ */ new Set();
+    const warn = (message) => {
+      if (warned.has(message)) return;
+      warned.add(message);
+      onWarning?.(message);
+    };
+    const maskSources = /* @__PURE__ */ new Map();
+    for (const layer of visibleLayers) {
+      if (!layer.src || layer.mask !== void 0 || maskSources.has(layer.src)) continue;
+      if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
+        if (layer.kind === "matte") warn(`mask ignored for still image layer ${layer.id ?? layer.src}`);
+        maskSources.set(layer.src, null);
+        continue;
+      }
+      if (!maskResolver) {
+        maskSources.set(layer.src, null);
+        continue;
+      }
+      try {
+        maskSources.set(layer.src, maskResolver(layer.src) ?? null);
+      } catch (error) {
+        warn(`mask resolver failed for ${layer.src}: ${error instanceof Error ? error.message : String(error)}`);
+        maskSources.set(layer.src, null);
+      }
+    }
+    return {
+      map,
+      cuts: placements,
+      totalDuration: map.totalDuration,
+      layers: visibleLayers,
+      maskSources,
+      warn,
+      fps: finite2(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite2(options.fps, import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store2.DEFAULT_CUT_ADJACENCY_FPS
+    };
+  }
+  function isLayerActiveAt(layer, timeUs, fps) {
+    const frame = Math.floor(timeUs / 1e6 * fps + 1e-9);
+    const startFrame = Math.max(0, Math.ceil(finite2(layer.t, 0) * fps - 1e-6));
+    const endFrame = Math.max(startFrame, Math.ceil((finite2(layer.t, 0) + Math.max(0, finite2(layer.duration, 0))) * fps - 1e-6));
+    return frame >= startFrame && frame < endFrame;
   }
   function playbackSecondsAt(placement, outputSeconds) {
     const local = clamp(outputSeconds - placement.at, 0, placement.playbackDuration + placement.freezeDuration);
@@ -12882,9 +14388,9 @@ ${indent}`);
     const amount = right.t > left.t ? clamp((playbackSeconds - left.t) / (right.t - left.t), 0, 1) : 0;
     const lerp = (a, b) => a + (b - a) * amount;
     return {
-      scale: Math.max(1, lerp(finite(left.scale, 1), finite(right.scale, 1))),
-      centerX: clamp(lerp(finite(left.cx, 0.5), finite(right.cx, 0.5)), 0, 1),
-      centerY: clamp(lerp(finite(left.cy, 0.5), finite(right.cy, 0.5)), 0, 1)
+      scale: Math.max(1, lerp(finite2(left.scale, 1), finite2(right.scale, 1))),
+      centerX: clamp(lerp(finite2(left.cx, 0.5), finite2(right.cx, 0.5)), 0, 1),
+      centerY: clamp(lerp(finite2(left.cy, 0.5), finite2(right.cy, 0.5)), 0, 1)
     };
   }
   function visualAt(cut, playbackSeconds) {
@@ -12903,42 +14409,122 @@ ${indent}`);
       };
     } else if (cut.framing?.crop) {
       const crop = cut.framing.crop;
-      const width = clamp(finite(crop.w, 1), Number.EPSILON, 1);
-      const height = clamp(finite(crop.h, 1), Number.EPSILON, 1);
+      const width = clamp(finite2(crop.w, 1), Number.EPSILON, 1);
+      const height = clamp(finite2(crop.h, 1), Number.EPSILON, 1);
       framing = {
-        x: clamp(finite(crop.x, 0), 0, 1 - width),
-        y: clamp(finite(crop.y, 0), 0, 1 - height),
+        x: clamp(finite2(crop.x, 0), 0, 1 - width),
+        y: clamp(finite2(crop.y, 0), 0, 1 - height),
         width,
         height,
         scale: Math.max(1 / width, 1 / height),
-        centerX: clamp(finite(crop.x, 0) + width / 2, 0, 1),
-        centerY: clamp(finite(crop.y, 0) + height / 2, 0, 1)
+        centerX: clamp(finite2(crop.x, 0) + width / 2, 0, 1),
+        centerY: clamp(finite2(crop.y, 0) + height / 2, 0, 1)
       };
     }
     return {
       framing,
       transform: {
-        x: finite(cut.transform?.x, 0),
-        y: finite(cut.transform?.y, 0),
-        scale: Math.max(Number.EPSILON, finite(cut.transform?.scale, 1)),
-        rotateDegrees: finite(cut.transform?.rotate, 0)
+        x: finite2(cut.transform?.x, 0),
+        y: finite2(cut.transform?.y, 0),
+        scale: Math.max(Number.EPSILON, finite2(cut.transform?.scale, 1)),
+        rotateDegrees: finite2(cut.transform?.rotate, 0)
       },
-      opacity: clamp(finite(cut.opacity, 1), 0, 1)
+      opacity: clamp(finite2(cut.opacity, 1), 0, 1)
     };
   }
   function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
     const cut = placement.cut;
     if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
     const source = sources.get(cut.src);
-    if (!source) throw new Error(`no frame source registered for ${cut.src}`);
+    if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
     const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
-    const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
+    const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
     return {
       id: `cut-${cutIndex}`,
       source,
       sourceTimeUs: Math.round((cut.in + playbackSeconds * speed) * 1e6),
       visual: visualAt(cut, playbackSeconds)
     };
+  }
+  var BLENDS = /* @__PURE__ */ new Set([
+    "normal",
+    "screen",
+    "multiply",
+    "add",
+    "difference",
+    "darken",
+    "lighten",
+    "overlay",
+    "hardlight",
+    "softlight"
+  ]);
+  function resolvedCompositeLayers(timeline, timeUs, sources) {
+    const seconds = timeUs / 1e6;
+    const resolved = [];
+    timeline.layers.forEach((layer, index) => {
+      if (!isLayerActiveAt(layer, timeUs, timeline.fps) || !layer.src) return;
+      const source = sources.get(layer.src);
+      if (!source) throw new Error(`no layer source registered for ${layer.src}`);
+      const localSeconds = Math.max(0, seconds - finite2(layer.t, 0));
+      const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds);
+      const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
+      const staticTransform = layer.transform ?? {};
+      const visual = {
+        crop: animated?.crop ?? {
+          x: clamp(finite2(staticCrop.x, 0), 0, 1),
+          y: clamp(finite2(staticCrop.y, 0), 0, 1),
+          width: clamp(finite2(staticCrop.w, 1), Number.EPSILON, 1),
+          height: clamp(finite2(staticCrop.h, 1), Number.EPSILON, 1)
+        },
+        perspective: animated?.perspective ?? (layer.perspective ?? null),
+        transform: animated?.transform ?? {
+          x: finite2(staticTransform.x, 0),
+          y: finite2(staticTransform.y, 0),
+          scale: Math.max(Number.EPSILON, finite2(staticTransform.scale, 1)),
+          rotateDegrees: finite2(staticTransform.rotate, 0)
+        }
+      };
+      visual.crop.width = clamp(visual.crop.width, Number.EPSILON, 1);
+      visual.crop.height = clamp(visual.crop.height, Number.EPSILON, 1);
+      visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
+      visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
+      const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
+      const id = String(layer.id ?? `layer-${index}`);
+      const common = {
+        id,
+        visual,
+        blend,
+        opacity: clamp(finite2(layer.opacity, 1), 0, 1)
+      };
+      if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
+        if (layer.mask || layer.kind === "matte") timeline.warn(`mask ignored for still image layer ${id}`);
+        if (!("load" in source)) throw new Error(`no still image source registered for ${layer.src}`);
+        resolved.push({ ...common, kind: "image", image: source, mask: null });
+        return;
+      }
+      if (!("decode" in source)) throw new Error(`no video frame source registered for ${layer.src}`);
+      const sourceTimeUs = Math.round(localSeconds * 1e6);
+      const maskSrc = layer.mask ?? timeline.maskSources.get(layer.src) ?? null;
+      let mask = null;
+      if (maskSrc) {
+        const maskSource = sources.get(maskSrc);
+        if (maskSource && "decode" in maskSource) {
+          mask = { kind: "greyscale", source: maskSource, sourceTimeUs };
+        } else {
+          timeline.warn(`no mask source registered for ${maskSrc}; layer ${id} will render without a mask`);
+        }
+      } else if (layer.kind === "matte") {
+        timeline.warn(`matte layer ${id} has no usable mask; rendering the color layer without a mask`);
+      }
+      resolved.push({
+        ...common,
+        kind: mask ? "matte" : "video",
+        source,
+        sourceTimeUs,
+        mask
+      });
+    });
+    return resolved;
   }
   function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
     const outputSeconds = timeUs / 1e6;
@@ -12949,37 +14535,38 @@ ${indent}`);
       const outgoingIndex = window2.outgoing.cutIndex;
       const incomingIndex = window2.incoming.cutIndex;
       if (outgoingIndex == null || incomingIndex == null) throw new Error("transition has no source cuts");
-      if (!["dissolve", "fade-black", "fade-white", "reveal-down", "reveal-up"].includes(window2.type)) {
+      if (!(0, import_edit_store3.isTransitionType)(window2.type)) {
         throw new Error(`unsupported transition type: ${window2.type}`);
       }
       return {
         timeUs,
-        layers: [
+        base: [
           layerFromPlacement(timeline.cuts[outgoingIndex], outgoingIndex, outputSeconds, sources),
           layerFromPlacement(timeline.cuts[incomingIndex], incomingIndex, outputSeconds, sources)
         ],
+        layers: resolvedCompositeLayers(timeline, timeUs, sources),
         transition: {
           type: window2.type,
-          progress: (0, import_edit_store.transitionProgressAt)(window2, outputSeconds)
+          progress: (0, import_edit_store2.transitionProgressAt)(window2, outputSeconds)
         },
         output
       };
     }
-    const resolved = (0, import_edit_store.outputToSource)(timeline.map.segments, outputSeconds);
+    const resolved = (0, import_edit_store2.outputToSource)(timeline.map.segments, outputSeconds);
     const cutIndex = resolved.segment?.cutIndex;
-    const layers = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources)] : [];
-    return { timeUs, layers, transition: { type: "hard-cut", progress: 0 }, output };
+    const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources)] : [];
+    return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
   }
   function evaluationPlanFromTimelineMap(timelineMap, timeUs, sources, output) {
     const outputSeconds = timeUs / 1e6;
-    const resolved = (0, import_edit_store.outputToSource)(timelineMap.segments, outputSeconds);
-    const layers = resolved.segment?.kind === "src" && resolved.sourceT != null ? [legacyLayerFromSegment(resolved.segment, resolved.sourceT, sources)] : [];
-    return { timeUs, layers, transition: { type: "hard-cut", progress: 0 }, output };
+    const resolved = (0, import_edit_store2.outputToSource)(timelineMap.segments, outputSeconds);
+    const base = resolved.segment?.kind === "src" && resolved.sourceT != null ? [legacyLayerFromSegment(resolved.segment, resolved.sourceT, sources)] : [];
+    return { timeUs, base, layers: [], transition: { type: "hard-cut", progress: 0 }, output };
   }
   function legacyLayerFromSegment(segment, sourceSeconds, sources) {
     if (!segment.src) throw new Error(`resolved cut ${segment.cutIndex ?? "unknown"} has no src`);
     const source = sources.get(segment.src);
-    if (!source) throw new Error(`no frame source registered for ${segment.src}`);
+    if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${segment.src}`);
     return {
       id: `cut-${segment.cutIndex ?? "unknown"}`,
       source,
@@ -12987,385 +14574,6 @@ ${indent}`);
       visual: DEFAULT_VISUAL
     };
   }
-
-  // packages/frame-engine/src/compositor/webgl2.ts
-  function compileShader(gl, type, source) {
-    const shader = gl.createShader(type);
-    if (!shader) throw new Error("WebGL2 could not allocate a shader");
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      const message = gl.getShaderInfoLog(shader) ?? "unknown shader compile failure";
-      gl.deleteShader(shader);
-      throw new Error(message);
-    }
-    return shader;
-  }
-  function requiredUniform(gl, program, name) {
-    const location = gl.getUniformLocation(program, name);
-    if (!location) throw new Error(`missing WebGL2 uniform: ${name}`);
-    return location;
-  }
-  function flipRows(input, width, height) {
-    const stride = width * 4;
-    const output = new Uint8Array(input.length);
-    for (let row = 0; row < height; row += 1) {
-      output.set(input.subarray(row * stride, (row + 1) * stride), (height - row - 1) * stride);
-    }
-    return output;
-  }
-  var WebGLSurface = class {
-    constructor(canvas, width, height, gl, metrics) {
-      this.canvas = canvas;
-      this.width = width;
-      this.height = height;
-      this.gl = gl;
-      this.metrics = metrics;
-    }
-    closed = false;
-    async readRgba() {
-      if (this.closed) throw new Error("cannot read a closed GPU frame surface");
-      const gl = this.gl;
-      const byteLength = this.width * this.height * 4;
-      const pbo = gl.createBuffer();
-      if (!pbo) throw new Error("WebGL2 could not allocate a pixel pack buffer");
-      const started = performance.now();
-      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
-      gl.bufferData(gl.PIXEL_PACK_BUFFER, byteLength, gl.STREAM_READ);
-      gl.readPixels(0, 0, this.width, this.height, gl.RGBA, gl.UNSIGNED_BYTE, 0);
-      const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-      if (!fence) {
-        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-        gl.deleteBuffer(pbo);
-        throw new Error("WebGL2 could not allocate a readback fence");
-      }
-      gl.flush();
-      const waitStarted = performance.now();
-      try {
-        const deadline = performance.now() + 15e3;
-        while (true) {
-          const status = gl.clientWaitSync(fence, 0, 0);
-          if (status === gl.ALREADY_SIGNALED || status === gl.CONDITION_SATISFIED) break;
-          if (status === gl.WAIT_FAILED) throw new Error("WebGL2 PBO fence wait failed");
-          if (performance.now() >= deadline) throw new Error("WebGL2 PBO fence wait timed out");
-          await new Promise((resolve) => setTimeout(resolve, 0));
-        }
-        this.metrics.record("pboWait", performance.now() - waitStarted);
-        const raw = new Uint8Array(byteLength);
-        gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, raw);
-        const flipStarted = performance.now();
-        const rgba = flipRows(raw, this.width, this.height);
-        this.metrics.record("rowFlip", performance.now() - flipStarted);
-        this.metrics.record("readback", performance.now() - started);
-        return rgba;
-      } finally {
-        gl.deleteSync(fence);
-        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-        gl.deleteBuffer(pbo);
-      }
-    }
-    recordSink(elapsedMs) {
-      this.metrics.record("sink", elapsedMs);
-    }
-    close() {
-      this.closed = true;
-    }
-  };
-  var FRAGMENT_SHADER = `#version 300 es
-precision highp float;
-precision highp int;
-in vec2 uv;
-out vec4 color;
-uniform sampler2D y0;
-uniform sampler2D u0;
-uniform sampler2D v0;
-uniform sampler2D y1;
-uniform sampler2D u1;
-uniform sampler2D v1;
-uniform int format0;
-uniform int format1;
-uniform vec4 framing0;
-uniform vec4 framing1;
-uniform vec4 transform0;
-uniform vec4 transform1;
-uniform float opacity0;
-uniform float opacity1;
-uniform vec2 outputSize;
-uniform vec2 sourceSize0;
-uniform vec2 sourceSize1;
-uniform int transitionType;
-uniform float transitionProgress;
-
-vec3 yuv709(float y, vec2 chroma) {
-  y -= 16.0 / 255.0;
-  float u = chroma.r - 0.5;
-  float v = chroma.g - 0.5;
-  return clamp(vec3(
-    1.164383 * y + 1.792741 * v,
-    1.164383 * y - 0.213249 * u - 0.532909 * v,
-    1.164383 * y + 2.112402 * u
-  ), 0.0, 1.0);
-}
-
-vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
-  vec2 pixel = (p - 0.5) * outputSize - transform.xy;
-  float angle = transform.w;
-  pixel = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * pixel;
-  pixel /= transform.z;
-  vec2 local = pixel / outputSize + 0.5;
-  return framing.xy + local * framing.zw;
-}
-
-vec2 canvasToSource(vec2 canvasPoint, vec2 sourceSize) {
-  float fit = min(outputSize.x / sourceSize.x, outputSize.y / sourceSize.y);
-  vec2 fitted = sourceSize * fit;
-  vec2 offset = (outputSize - fitted) * 0.5;
-  return (canvasPoint * outputSize - offset) / fitted;
-}
-
-vec4 sample0(vec2 p) {
-  vec2 canvasPoint = inverseVisual(p, transform0, framing0);
-  if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
-  vec2 q = canvasToSource(canvasPoint, sourceSize0);
-  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
-  vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
-  return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
-}
-
-vec4 sample1(vec2 p) {
-  vec2 canvasPoint = inverseVisual(p, transform1, framing1);
-  if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
-  vec2 q = canvasToSource(canvasPoint, sourceSize1);
-  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
-  vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
-  return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
-}
-
-vec3 overBlack(vec4 value) { return value.rgb * value.a; }
-
-void main() {
-  vec2 p = vec2(uv.x, 1.0 - uv.y);
-  vec4 outgoing = sample0(p);
-  float amount = clamp(transitionProgress, 0.0, 1.0);
-  vec3 result;
-  if (transitionType == 0) {
-    result = overBlack(outgoing);
-  } else if (transitionType == 1) {
-    vec4 incoming = sample1(p);
-    result = mix(overBlack(outgoing), overBlack(incoming), amount);
-  } else if (transitionType == 2 || transitionType == 3) {
-    vec4 incoming = sample1(p);
-    vec3 plate = transitionType == 3 ? vec3(1.0) : vec3(0.0);
-    result = amount < 0.5
-      ? mix(overBlack(outgoing), plate, amount * 2.0)
-      : mix(plate, overBlack(incoming), (amount - 0.5) * 2.0);
-  } else if (transitionType == 4) {
-    vec4 incoming = sample1(p);
-    result = p.y < amount ? overBlack(incoming) : overBlack(sample0(vec2(p.x, p.y - amount)));
-  } else if (transitionType == 5) {
-    vec4 incoming = sample1(p);
-    result = p.y > 1.0 - amount ? overBlack(incoming) : overBlack(sample0(vec2(p.x, p.y + amount)));
-  } else {
-    result = overBlack(outgoing);
-  }
-  color = vec4(result, 1.0);
-}`;
-  var WebGL2Compositor = class {
-    constructor(canvas = document.createElement("canvas"), options = {}) {
-      this.options = options;
-      this.canvas = canvas;
-      const gl = canvas.getContext("webgl2", {
-        alpha: false,
-        antialias: false,
-        depth: false,
-        preserveDrawingBuffer: true
-      });
-      if (!gl) throw new Error("WebGL2 is unavailable");
-      this.gl = gl;
-      const vertex = compileShader(gl, gl.VERTEX_SHADER, `#version 300 es
-      in vec2 position;
-      out vec2 uv;
-      void main() { uv = position * 0.5 + 0.5; gl_Position = vec4(position, 0.0, 1.0); }
-    `);
-      const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
-      const program = gl.createProgram();
-      if (!program) throw new Error("WebGL2 could not allocate a program");
-      gl.attachShader(program, vertex);
-      gl.attachShader(program, fragment);
-      gl.linkProgram(program);
-      gl.deleteShader(vertex);
-      gl.deleteShader(fragment);
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        throw new Error(gl.getProgramInfoLog(program) ?? "WebGL2 link failure");
-      }
-      gl.useProgram(program);
-      this.program = program;
-      const vertices = gl.createBuffer();
-      if (!vertices) throw new Error("WebGL2 could not allocate a vertex buffer");
-      gl.bindBuffer(gl.ARRAY_BUFFER, vertices);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-      const position = gl.getAttribLocation(program, "position");
-      gl.enableVertexAttribArray(position);
-      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-      this.textures = Array.from({ length: 6 }, (_unused, unit) => {
-        const texture = gl.createTexture();
-        if (!texture) throw new Error("WebGL2 could not allocate a texture");
-        gl.activeTexture(gl.TEXTURE0 + unit);
-        gl.bindTexture(gl.TEXTURE_2D, texture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        return texture;
-      });
-      ["y0", "u0", "v0", "y1", "u1", "v1"].forEach((name, unit) => {
-        gl.uniform1i(requiredUniform(gl, program, name), unit);
-      });
-      this.layers = [0, 1].map((index) => ({
-        framing: requiredUniform(gl, program, `framing${index}`),
-        transform: requiredUniform(gl, program, `transform${index}`),
-        opacity: requiredUniform(gl, program, `opacity${index}`),
-        format: requiredUniform(gl, program, `format${index}`),
-        sourceSize: requiredUniform(gl, program, `sourceSize${index}`)
-      }));
-      this.outputSize = requiredUniform(gl, program, "outputSize");
-      this.transitionType = requiredUniform(gl, program, "transitionType");
-      this.transitionProgress = requiredUniform(gl, program, "transitionProgress");
-    }
-    kind = "webgl2";
-    canvas;
-    gl;
-    program;
-    textures;
-    textureShapes = Array.from({ length: 6 }, () => null);
-    layers;
-    outputSize;
-    transitionType;
-    transitionProgress;
-    secondaryInitialized = false;
-    disposed = false;
-    upload(unit, data, width, height, channels = 1) {
-      const gl = this.gl;
-      gl.activeTexture(gl.TEXTURE0 + unit);
-      gl.bindTexture(gl.TEXTURE_2D, this.textures[unit] ?? null);
-      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-      const sourceFormat = channels === 2 ? gl.RG : gl.RED;
-      const shape = `${width}x${height}x${channels}`;
-      if (this.textureShapes[unit] === shape) {
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, sourceFormat, gl.UNSIGNED_BYTE, data);
-      } else {
-        gl.texImage2D(
-          gl.TEXTURE_2D,
-          0,
-          channels === 2 ? gl.RG8 : gl.R8,
-          width,
-          height,
-          0,
-          sourceFormat,
-          gl.UNSIGNED_BYTE,
-          data
-        );
-        this.textureShapes[unit] = shape;
-      }
-    }
-    uploadFrame(frame, layer) {
-      const base = layer * 3;
-      const chromaWidth = Math.ceil(frame.width / 2);
-      const chromaHeight = Math.ceil(frame.height / 2);
-      this.gl.uniform2f(this.layers[layer].sourceSize, frame.width, frame.height);
-      this.upload(base, frame.y, frame.width, frame.height);
-      if (frame.format === "NV12") {
-        this.upload(base + 1, frame.uv, chromaWidth, chromaHeight, 2);
-        this.upload(base + 2, new Uint8Array([128]), 1, 1);
-        this.gl.uniform1i(this.layers[layer].format, 1);
-      } else {
-        this.upload(base + 1, frame.u, chromaWidth, chromaHeight);
-        this.upload(base + 2, frame.v, chromaWidth, chromaHeight);
-        this.gl.uniform1i(this.layers[layer].format, 0);
-      }
-    }
-    setVisual(layer, visual) {
-      const gl = this.gl;
-      const uniforms = this.layers[layer];
-      gl.uniform4f(
-        uniforms.framing,
-        visual.framing.x,
-        visual.framing.y,
-        visual.framing.width,
-        visual.framing.height
-      );
-      gl.uniform4f(
-        uniforms.transform,
-        visual.transform.x,
-        visual.transform.y,
-        visual.transform.scale,
-        visual.transform.rotateDegrees * Math.PI / 180
-      );
-      gl.uniform1f(uniforms.opacity, visual.opacity);
-    }
-    async compose(frames, output, metrics, plan) {
-      if (this.disposed) throw new Error("WebGL2 compositor is disposed");
-      if (output.colorSpace !== "bt709-limited") throw new Error(`unsupported color space: ${output.colorSpace}`);
-      if (frames.length < 1 || frames.length > 2 || frames.length !== plan.layers.length) {
-        throw new Error(`cuts compositor requires one frame, or two during a transition; received ${frames.length}`);
-      }
-      if (this.canvas.width !== output.width) this.canvas.width = output.width;
-      if (this.canvas.height !== output.height) this.canvas.height = output.height;
-      const gl = this.gl;
-      gl.viewport(0, 0, output.width, output.height);
-      gl.useProgram(this.program);
-      gl.uniform2f(this.outputSize, output.width, output.height);
-      const uploadStarted = performance.now();
-      frames.forEach((frame, index) => {
-        this.uploadFrame(frame, index);
-        this.setVisual(index, plan.layers[index].visual);
-      });
-      if (frames.length === 1 && !this.secondaryInitialized) {
-        this.uploadFrame(frames[0], 1);
-        this.setVisual(1, plan.layers[0].visual);
-        this.secondaryInitialized = true;
-      } else if (frames.length === 2) {
-        this.secondaryInitialized = true;
-      }
-      metrics.record("upload", performance.now() - uploadStarted);
-      const transitionCodes = {
-        "hard-cut": 0,
-        dissolve: 1,
-        "fade-black": 2,
-        "fade-white": 3,
-        "reveal-down": 4,
-        "reveal-up": 5
-      };
-      gl.uniform1i(this.transitionType, transitionCodes[plan.transition?.type ?? "hard-cut"] ?? 0);
-      gl.uniform1f(this.transitionProgress, plan.transition?.progress ?? 0);
-      const synchronize = this.options.synchronization ?? "finish";
-      const extension = synchronize === "finish" ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null;
-      const query = extension ? gl.createQuery() : null;
-      if (extension && query) gl.beginQuery(extension.TIME_ELAPSED_EXT, query);
-      const shaderStarted = performance.now();
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      if (extension && query) gl.endQuery(extension.TIME_ELAPSED_EXT);
-      if (synchronize === "finish") gl.finish();
-      else gl.flush();
-      metrics.record("shader", performance.now() - shaderStarted);
-      if (extension && query && !gl.getParameter(extension.GPU_DISJOINT_EXT)) {
-        const nanoseconds = gl.getQueryParameter(query, gl.QUERY_RESULT);
-        metrics.record("shaderGpu", nanoseconds / 1e6);
-        gl.deleteQuery(query);
-      } else if (synchronize === "finish") {
-        metrics.record("shaderGpu", performance.now() - shaderStarted);
-        if (query) gl.deleteQuery(query);
-      }
-      return new WebGLSurface(this.canvas, output.width, output.height, gl, metrics);
-    }
-    dispose() {
-      if (this.disposed) return;
-      this.disposed = true;
-      for (const texture of this.textures) this.gl.deleteTexture(texture);
-      this.gl.deleteProgram(this.program);
-      this.gl.getExtension("WEBGL_lose_context")?.loseContext();
-    }
-  };
 
   // node_modules/@webav/av-cliper/dist/av-cliper.js
   var import_mp4box2 = __toESM(require_mp4box_all(), 1);
@@ -15543,7 +16751,7 @@ void main() {
   // packages/frame-engine/src/decode/keyframe-index.ts
   var MP4BoxNamespace = __toESM(require_mp4box_all(), 1);
   var MP4Box = MP4BoxNamespace.default ?? MP4BoxNamespace;
-  function createIndex(values) {
+  function createIndex(values, frameEnds = /* @__PURE__ */ new Map(), lastFrameStartUs = null) {
     const times = [...values].sort((left, right) => left - right);
     const nearestAtOrBefore = (targetUs) => {
       if (times.length === 0) return 0;
@@ -15565,7 +16773,11 @@ void main() {
     };
     return {
       keyframeTimesUs: times,
+      lastFrameStartUs,
       nearestAtOrBefore,
+      frameEndUs(frameStartUs) {
+        return frameEnds.get(frameStartUs) ?? null;
+      },
       nearest,
       withinTolerance(targetUs, toleranceUs) {
         const candidate = nearest(targetUs);
@@ -15583,7 +16795,25 @@ void main() {
           if (!track) return resolve(createIndex([]));
           const samples = file.getTrackSamplesInfo(track.id);
           const firstDts = samples[0]?.dts ?? 0;
-          resolve(createIndex(samples.filter((sample) => sample.is_sync).map((sample) => (sample.cts - firstDts) / sample.timescale * 1e6)));
+          const timestampUs = (sample) => (sample.cts - firstDts) / sample.timescale * 1e6;
+          let lastFrameStartUs = null;
+          for (const sample of samples) {
+            const startUs = Math.round(timestampUs(sample));
+            lastFrameStartUs = lastFrameStartUs == null ? startUs : Math.max(lastFrameStartUs, startUs);
+          }
+          const frameEnds = /* @__PURE__ */ new Map();
+          for (const sample of samples) {
+            const startUs = timestampUs(sample);
+            const duration = sample.duration;
+            if (typeof duration === "number") {
+              frameEnds.set(startUs, startUs + duration / sample.timescale * 1e6);
+            }
+          }
+          resolve(createIndex(
+            samples.filter((sample) => sample.is_sync).map(timestampUs),
+            frameEnds,
+            lastFrameStartUs
+          ));
         } catch (error) {
           reject(error);
         }
@@ -15602,6 +16832,8 @@ void main() {
       this.name = "DecoderGuardError";
     }
   };
+  var AV_CLIPER_RESET_WINDOW_US = 3e6;
+  var MAX_EXACT_FRAME_TICKS = 4;
   var DecodedFrameCoverageCache = class {
     frame = null;
     cloneAt(targetUs) {
@@ -15629,7 +16861,8 @@ void main() {
     meta = null;
     clip = null;
     keyframes = null;
-    tailSafeLimitUs = null;
+    lastFrameStartUs = null;
+    lastTickTargetUs = null;
     coverage = new DecodedFrameCoverageCache();
     loadPromise = null;
     queue = Promise.resolve();
@@ -15640,7 +16873,6 @@ void main() {
       this.options = {
         loadTimeoutMs: options.loadTimeoutMs ?? 1e4,
         tickTimeoutMs: options.tickTimeoutMs ?? 1e4,
-        tailMarginUs: options.tailMarginUs ?? Math.round(2e6 / 30),
         onWarning: options.onWarning
       };
     }
@@ -15682,6 +16914,7 @@ void main() {
               this.options.tickTimeoutMs,
               `prime ${this.id}`
             );
+            this.lastTickTargetUs = 0;
             if (primed.video) this.coverage.adopt(primed.video);
           } finally {
             stopWatching();
@@ -15706,8 +16939,7 @@ void main() {
       try {
         const header = await withTimeout(clip.getFileHeaderBinData(), 2e3, `header ${this.id}`);
         this.keyframes = await withTimeout(buildKeyframeIndexFromHeader(header), 2e3, `keyframes ${this.id}`);
-        const times = this.keyframes.keyframeTimesUs;
-        if (times.length >= 2) this.tailSafeLimitUs = Math.max(0, times[times.length - 1] - 1e6);
+        this.lastFrameStartUs = this.keyframes.lastFrameStartUs;
       } catch (error) {
         this.options.onWarning?.(`${this.id}: keyframe index unavailable: ${String(error)}`);
       }
@@ -15716,22 +16948,22 @@ void main() {
       await this.load();
       if (!this.clip || this.state === "unavailable") throw new Error(`clip ${this.id} is unavailable`);
       const duration = this.meta?.duration ?? Number.POSITIVE_INFINITY;
-      const fallbackLimit = Math.max(0, duration - this.options.tailMarginUs);
-      const safeLimit = this.tailSafeLimitUs == null ? fallbackLimit : Math.min(fallbackLimit, this.tailSafeLimitUs);
+      const fallbackLimit = Math.max(0, duration - 1);
+      const safeLimit = this.lastFrameStartUs ?? fallbackLimit;
       const target = Math.max(0, Math.min(Math.floor(timeUs), safeLimit));
       const covered = this.coverage.cloneAt(target);
       if (covered) return covered;
       const tickStarted = performance.now();
       const result = await this.serialize(async () => {
         try {
-          return await this.guardedTick(target);
+          return await this.guardedExactTick(target);
         } catch (error) {
           if (!(error instanceof DecoderGuardError) && !isDecoderErrorMessage(error)) throw error;
           if (!(error instanceof DecoderGuardError)) {
             this.options.onWarning?.(`${this.id}: decoder runtime error: ${String(error)}`);
           }
           await this.recreateDecoder();
-          return this.guardedTick(target);
+          return this.guardedExactTick(target);
         }
       });
       metrics?.record("tick", performance.now() - tickStarted);
@@ -15758,6 +16990,9 @@ void main() {
     getKeyframeTimesUs() {
       return this.keyframes?.keyframeTimesUs ?? [];
     }
+    getLastFrameStartUs() {
+      return this.lastFrameStartUs;
+    }
     /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */
     async fork(id) {
       await this.load();
@@ -15769,7 +17004,8 @@ void main() {
       fork.meta = { ...this.meta };
       fork.state = this.state;
       fork.keyframes = this.keyframes;
-      fork.tailSafeLimitUs = this.tailSafeLimitUs;
+      fork.lastFrameStartUs = this.lastFrameStartUs;
+      fork.lastTickTargetUs = null;
       const coverageSeed = this.coverage.cloneStored();
       if (coverageSeed) fork.coverage.adopt(coverageSeed);
       fork.loadPromise = Promise.resolve();
@@ -15780,6 +17016,7 @@ void main() {
       this.clip = null;
       this.meta = null;
       this.coverage.clear();
+      this.lastTickTargetUs = null;
       this.loadPromise = null;
       this.state = "idle";
     }
@@ -15795,14 +17032,59 @@ void main() {
         rejectDecoder?.(message);
       });
       try {
-        return await withTimeout(
+        const result = await withTimeout(
           Promise.race([this.clip.tick(target), decoderError]),
           this.options.tickTimeoutMs,
           `tick ${this.id}`
         );
+        this.lastTickTargetUs = target;
+        return result;
       } finally {
         stopWatching();
       }
+    }
+    async guardedExactTick(target) {
+      const willReset = this.lastTickTargetUs == null || target <= this.lastTickTargetUs || target - this.lastTickTargetUs > AV_CLIPER_RESET_WINDOW_US;
+      let seeded = false;
+      if (willReset && this.shouldSeedFromKeyframe(target)) {
+        await this.seedFromKeyframe(target);
+        seeded = true;
+      }
+      let tickTarget = target;
+      for (let attempt = 0; attempt < MAX_EXACT_FRAME_TICKS; attempt += 1) {
+        const result = await this.guardedTick(tickTarget);
+        const frame = result.video;
+        if (frame && frameCoversTimestamp(frame, target)) return result;
+        const hasUsableDuration = frame != null && typeof frame.duration === "number" && Number.isFinite(frame.duration) && frame.duration > 0;
+        if (frame && !hasUsableDuration && frame.timestamp <= target) return result;
+        const wentPastTarget = frame != null && frame.timestamp > target;
+        const endedBeforeTarget = frame != null && hasUsableDuration && frame.timestamp + frame.duration <= target;
+        frame?.close();
+        if ((frame == null || wentPastTarget) && !seeded && this.shouldSeedFromKeyframe(target)) {
+          await this.seedFromKeyframe(target);
+          seeded = true;
+          tickTarget = target;
+          continue;
+        }
+        if (endedBeforeTarget) {
+          tickTarget = target + 1;
+          continue;
+        }
+        break;
+      }
+      return {};
+    }
+    shouldSeedFromKeyframe(target) {
+      if (!this.keyframes || this.keyframes.keyframeTimesUs.length === 0) return false;
+      const anchor = this.keyframes.nearestAtOrBefore(target);
+      const anchorEnd = this.keyframes.frameEndUs(anchor);
+      return anchorEnd == null ? target > anchor : target >= anchorEnd;
+    }
+    async seedFromKeyframe(target) {
+      if (!this.keyframes) return;
+      const anchor = this.keyframes.nearestAtOrBefore(target);
+      const seeded = await this.guardedTick(anchor + 1);
+      seeded.video?.close();
     }
     async recreateDecoder() {
       this.clip?.destroy();
@@ -15810,7 +17092,8 @@ void main() {
       this.meta = null;
       this.coverage.clear();
       this.keyframes = null;
-      this.tailSafeLimitUs = null;
+      this.lastFrameStartUs = null;
+      this.lastTickTargetUs = null;
       this.loadPromise = null;
       this.state = "idle";
       await this.load();
@@ -15866,6 +17149,34 @@ void main() {
       }
       this.sessions.clear();
       this.base = null;
+    }
+  };
+
+  // packages/frame-engine/src/decode/still-image.ts
+  var CachedStillImageSource = class {
+    constructor(url) {
+      this.url = url;
+    }
+    pending = null;
+    value = null;
+    load() {
+      if (this.value) return Promise.resolve(this.value);
+      if (!this.pending) {
+        this.pending = fetch(this.url).then((response) => {
+          if (!response.ok) throw new Error(`image fetch failed (${response.status}): ${this.url}`);
+          return response.blob();
+        }).then(createImageBitmap).then((bitmap) => {
+          const value = { bitmap, width: bitmap.width, height: bitmap.height };
+          this.value = value;
+          return value;
+        });
+      }
+      return this.pending;
+    }
+    destroy() {
+      this.value?.bitmap.close();
+      this.value = null;
+      this.pending = null;
     }
   };
 
@@ -16060,6 +17371,7 @@ void main() {
     "upload",
     "shader",
     "shaderGpu",
+    "present",
     "readback",
     "pboWait",
     "rowFlip",
@@ -16078,22 +17390,35 @@ void main() {
     samples = new Map(
       STAGES.map((stage) => [stage, []])
     );
+    uploadPath = null;
+    uploadPathCounts = {
+      direct: 0,
+      copyTo: 0
+    };
     record(stage, elapsedMs) {
       if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
         throw new Error(`invalid ${stage} metric: ${elapsedMs}`);
       }
       this.samples.get(stage).push(elapsedMs);
     }
+    recordUploadPath(path) {
+      this.uploadPath = path;
+      this.uploadPathCounts[path] += 1;
+    }
     toJSON() {
-      return Object.fromEntries(STAGES.map((stage) => {
-        const values = this.samples.get(stage);
-        return [stage, {
-          count: values.length,
-          p50Ms: percentile(values, 50),
-          p95Ms: percentile(values, 95),
-          maxMs: values.length > 0 ? Math.max(...values) : null
-        }];
-      }));
+      return {
+        ...Object.fromEntries(STAGES.map((stage) => {
+          const values = this.samples.get(stage);
+          return [stage, {
+            count: values.length,
+            p50Ms: percentile(values, 50),
+            p95Ms: percentile(values, 95),
+            maxMs: values.length > 0 ? Math.max(...values) : null
+          }];
+        })),
+        uploadPath: this.uploadPath,
+        uploadPathCounts: { ...this.uploadPathCounts }
+      };
     }
   };
 
@@ -16125,6 +17450,105 @@ void main() {
       maxDelta,
       meanAbsoluteDelta: left.length === 0 ? 0 : absoluteDelta / left.length
     };
+  }
+
+  // packages/frame-engine/src/look/cube.ts
+  function finite3(value, fallback) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  }
+  function clamp2(value, low = 0, high = 1) {
+    return Math.min(high, Math.max(low, value));
+  }
+  function parseCube(text) {
+    if (typeof text !== "string" || !text.trim()) throw new TypeError(".cube text is required");
+    let size = 0;
+    let domainMin = [0, 0, 0];
+    let domainMax = [1, 1, 1];
+    const values = [];
+    const lines = text.replace(/^\uFEFF/u, "").split(/\r?\n/u);
+    for (let lineNumber = 0; lineNumber < lines.length; lineNumber += 1) {
+      const line = lines[lineNumber].replace(/#.*$/u, "").trim();
+      if (!line) continue;
+      const parts = line.split(/\s+/u);
+      const keyword = parts[0].toUpperCase();
+      if (keyword === "TITLE") continue;
+      if (keyword === "LUT_1D_SIZE") throw new TypeError("1D LUT is not supported");
+      if (keyword === "LUT_3D_SIZE") {
+        size = Number(parts[1]);
+        if (!Number.isInteger(size) || size < 2 || size > 256) {
+          throw new RangeError(`invalid LUT_3D_SIZE at line ${lineNumber + 1}`);
+        }
+        continue;
+      }
+      if (keyword === "DOMAIN_MIN" || keyword === "DOMAIN_MAX") {
+        const parsed = parts.slice(1, 4).map(Number);
+        if (parsed.length !== 3 || parsed.some((value) => !Number.isFinite(value))) {
+          throw new TypeError(`invalid ${keyword} at line ${lineNumber + 1}`);
+        }
+        const tuple = parsed;
+        if (keyword === "DOMAIN_MIN") domainMin = tuple;
+        else domainMax = tuple;
+        continue;
+      }
+      const row = parts.slice(0, 3).map(Number);
+      if (row.length !== 3 || row.some((value) => !Number.isFinite(value))) {
+        throw new TypeError(`invalid LUT row at line ${lineNumber + 1}`);
+      }
+      values.push(...row);
+    }
+    if (!size) throw new TypeError("LUT_3D_SIZE is missing");
+    if (domainMax.some((value, index) => !(value > domainMin[index]))) {
+      throw new RangeError("DOMAIN_MAX must be greater than DOMAIN_MIN");
+    }
+    const expected = size * size * size * 3;
+    if (values.length !== expected) {
+      throw new RangeError(`LUT_3D_SIZE ${size} requires ${expected / 3} rows; got ${values.length / 3}`);
+    }
+    return Object.freeze({
+      size,
+      domainMin: Object.freeze([...domainMin]),
+      domainMax: Object.freeze([...domainMax]),
+      data: new Float32Array(values)
+    });
+  }
+  function lutValue(lut, r, g2, b, channel) {
+    return lut.data[(b * lut.size * lut.size + g2 * lut.size + r) * 3 + channel];
+  }
+  function sampleLutTrilinear(lut, rgb) {
+    if (!lut || !Number.isInteger(lut.size) || !(lut.data instanceof Float32Array)) {
+      throw new TypeError("a parsed 3D LUT is required");
+    }
+    if (!Array.isArray(rgb) && !(rgb instanceof Float32Array)) throw new TypeError("rgb must be an array");
+    const p2 = [0, 1, 2].map((index) => {
+      const unit = (finite3(rgb[index], 0) - lut.domainMin[index]) / (lut.domainMax[index] - lut.domainMin[index]);
+      return clamp2(unit) * (lut.size - 1);
+    });
+    const lo = p2.map(Math.floor);
+    const hi = p2.map((value, index) => Math.min(lut.size - 1, lo[index] + 1));
+    const f2 = p2.map((value, index) => value - lo[index]);
+    const out = [0, 0, 0];
+    for (let channel = 0; channel < 3; channel += 1) {
+      const c000 = lutValue(lut, lo[0], lo[1], lo[2], channel);
+      const c100 = lutValue(lut, hi[0], lo[1], lo[2], channel);
+      const c010 = lutValue(lut, lo[0], hi[1], lo[2], channel);
+      const c110 = lutValue(lut, hi[0], hi[1], lo[2], channel);
+      const c001 = lutValue(lut, lo[0], lo[1], hi[2], channel);
+      const c101 = lutValue(lut, hi[0], lo[1], hi[2], channel);
+      const c011 = lutValue(lut, lo[0], hi[1], hi[2], channel);
+      const c111 = lutValue(lut, hi[0], hi[1], hi[2], channel);
+      const x00 = c000 + (c100 - c000) * f2[0];
+      const x10 = c010 + (c110 - c010) * f2[0];
+      const x01 = c001 + (c101 - c001) * f2[0];
+      const x11 = c011 + (c111 - c011) * f2[0];
+      const y0 = x00 + (x10 - x00) * f2[1];
+      const y1 = x01 + (x11 - x01) * f2[1];
+      out[channel] = y0 + (y1 - y0) * f2[2];
+    }
+    return out;
+  }
+  function resolveLookLutPath(lutRef) {
+    return lutRef.includes("/") || lutRef.includes("\\") ? lutRef.replaceAll("\\", "/") : `presets/luts/${lutRef}/${lutRef}.cube`;
   }
 
   // packages/frame-engine/src/exits/present.ts

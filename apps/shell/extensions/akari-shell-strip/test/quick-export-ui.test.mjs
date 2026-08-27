@@ -50,8 +50,8 @@ test('quickExportErrorNotification: 既知 check は日本語要約と従来の�
     };
     assert.equal(
         quickExportErrorNotification(status, false),
-        'このトランジションは現在のトラック順では書き出せません。' +
-            'トランジションを削除するか、トラックを既定順へ戻してください。 ' +
+        'このトランジションは PiP または複数トラックの合成では書き出せません。' +
+            'トランジションを削除するか、映像を単一のトラックへ戻してください。 ' +
             '詳細: [cuts.track-transition-unsupported] gap-aware track engine cannot represent xfade'
     );
 });

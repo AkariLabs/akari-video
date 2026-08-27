@@ -2,15 +2,27 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
+import { TRANSITION_TYPE_IDS } from '@akari-video/edit-store';
+import { buildBaseFragment } from '../dist/index.js';
 
 const source = await readFile(path.resolve(import.meta.dirname, '../src/compositor/webgl2.ts'), 'utf8');
 const comparisonSource = await readFile(path.resolve(import.meta.dirname, 'golden/layers-compare.mjs'), 'utf8');
+const goldenRendererSource = await readFile(path.resolve(import.meta.dirname, 'golden/renderer.ts'), 'utf8');
+const transitionComparisonSource = await readFile(
+  path.resolve(import.meta.dirname, 'golden/transitions-compare.mjs'),
+  'utf8',
+);
 const mattePathSource = await Promise.all([
   'src/timeline/plan.ts', 'src/evaluate.ts', 'src/compositor/webgl2.ts'
 ].map(file => readFile(path.resolve(import.meta.dirname, '..', file), 'utf8'))).then(values => values.join('\n'));
 
 test('layer compositor keeps the no-FBO base path and guards projective w', () => {
-  assert.match(source, /if \(layers\.length === 0\)[\s\S]+configureBaseDraw\(plan, null\)/u);
+  assert.match(source, /if \(layers\.length === 0 && !hasLook\)[\s\S]+configureBaseDraw\(plan, null, baseProgram!\)/u);
+  const directPath = source.slice(
+    source.indexOf('if (layers.length === 0 && !hasLook)'),
+    source.indexOf('this.ensureFbos(output.width, output.height)'),
+  );
+  assert.doesNotMatch(directPath, /this\.bind\(0, this\.baseTextures\[0\]!\)/u);
   assert.match(source, /homogeneous\.z <= 0\.000001/u);
   assert.match(source, /mix\(dst\.rgb, blend\(dst\.rgb, src\.rgb\), alpha\)/u);
   assert.match(source, /texture\(maskY, sourceUv\)\.r/u);
@@ -18,6 +30,56 @@ test('layer compositor keeps the no-FBO base path and guards projective w', () =
   assert.match(source, /\['maskY', 5\]/u);
   assert.match(source, /const FBO_SCRATCH_UNIT = 9/u);
   assert.match(source, /this\.bind\(FBO_SCRATCH_UNIT, t\)/u);
+});
+
+test('golden transition and look sections fail on GL errors and expose readable expectations', () => {
+  assert.match(goldenRendererSource, /transitionStats = \{\s+glErrors:/u);
+  assert.match(goldenRendererSource, /lookStats = \{\s+glErrors:/u);
+  assert.match(goldenRendererSource, /expectedDetail:/u);
+  assert.match(goldenRendererSource, /expected,\s+expectedDetail/u);
+  assert.match(goldenRendererSource, /axis=\$\{expectedDetail\.axis\}, bSide=/u);
+});
+
+test('transition golden samples resolve the same timeline frame grid as render-cut comparison', () => {
+  for (const value of [goldenRendererSource, transitionComparisonSource]) {
+    assert.match(value, /function transitionOutputTimeSeconds/u);
+    assert.match(value, /0\.6 \* \(transitionIndex \+ 1\) \+ 0\.4 \* u/u);
+    assert.match(value, /0\.6 \+ u \* 0\.4/u);
+  }
+  assert.match(goldenRendererSource, /buildResolvedTimelinePlan\(\s+transitionsEdit\.cuts/u);
+  assert.match(goldenRendererSource, /evaluationPlanFromResolvedTimeline\(/u);
+  assert.match(goldenRendererSource, /plan\.transition\?\.type !== id/u);
+  assert.match(goldenRendererSource, /Math\.abs\(plan\.transition\.progress - u\) >= 1e-6/u);
+  assert.match(goldenRendererSource, /plan\.base\s+\.map\(layer => Math\.round\(layer\.sourceTimeUs \* FPS \/ 1e6\)\)/u);
+});
+
+test('transition vocabulary is generated from the shared table and look is a final sampler3D pass', () => {
+  assert.match(source, /TRANSITION_VOCABULARY\.map\(\(entry, index\) => \[entry\.id, index \+ 1\]\)/u);
+  assert.match(source, /export const TRANSITION_BLUR_MAX_TAPS = 65/u);
+  assert.match(source, /uniform sampler3D lut/u);
+  assert.match(source, /gl\.RGBA16F/u);
+  assert.match(source, /gl\.HALF_FLOAT/u);
+  assert.match(source, /const LUT_UNIT = 11/u);
+  assert.match(source, /layers\.length === 0 && !hasLook/u);
+  assert.match(source, /this\.lookTexture\(look\.lut\)/u);
+  assert.match(source, /\.\.\.this\.ownedLookTextures/u);
+  assert.match(source, /draw\(\);\s+this\.recordGlErrors\(synchronization\);[\s\S]{0,300}this\.bind\(0, this\.baseTextures\[0\]!\)/u);
+  assert.match(source, /configureBaseDraw\(plan, null, baseProgram!\);\s+draw\(\);\s+this\.recordGlErrors\(synchronization\)/u);
+  assert.match(source, /configureBaseDraw\(plan, this\.fbos\[0\]!, baseProgram\);\s+draw\(\);\s+this\.recordGlErrors\(synchronization\)/u);
+});
+
+test('base shaders are lazily compiled and cached per transition type', () => {
+  assert.match(source, /basePrograms = new Map<ResolvedTransition\['type'\], BaseProgramState>/u);
+  assert.match(source, /const cached = this\.basePrograms\.get\(type\)/u);
+  assert.match(source, /createProgram\(gl, buildBaseFragment\(type\)\)/u);
+  assert.match(source, /this\.basePrograms\.set\(type, state\)/u);
+  assert.match(source, /for \(const value of this\.basePrograms\.values\(\)\)\s+this\.gl\.deleteProgram\(value\.program\)/u);
+  for (const type of ['hard-cut', ...TRANSITION_TYPE_IDS]) {
+    const fragment = buildBaseFragment(type);
+    assert.doesNotMatch(fragment, /else if \(transitionType/u, type);
+    if (type === 'blur') assert.match(fragment, /vec3 horizontalBlur/u);
+    else assert.doesNotMatch(fragment, /vec3 horizontalBlur/u, type);
+  }
 });
 
 test('frame-engine matte path has no VP8/VP9 decoder branch', () => {

@@ -9,7 +9,6 @@ export type ClipSessionState = 'idle' | 'loading' | 'ready' | 'degraded' | 'unav
 export interface ClipSessionOptions {
   loadTimeoutMs?: number;
   tickTimeoutMs?: number;
-  tailMarginUs?: number;
   onWarning?: (message: string) => void;
 }
 
@@ -57,7 +56,7 @@ export class ClipSession implements NativeFrameSource {
   meta: { duration: number; width: number; height: number } | null = null;
   private clip: MP4Clip | null = null;
   private keyframes: KeyframeIndex | null = null;
-  private tailSafeLimitUs: number | null = null;
+  private lastFrameStartUs: number | null = null;
   private lastTickTargetUs: number | null = null;
   private readonly coverage = new DecodedFrameCoverageCache();
   private loadPromise: Promise<void> | null = null;
@@ -70,7 +69,6 @@ export class ClipSession implements NativeFrameSource {
     this.options = {
       loadTimeoutMs: options.loadTimeoutMs ?? 10_000,
       tickTimeoutMs: options.tickTimeoutMs ?? 10_000,
-      tailMarginUs: options.tailMarginUs ?? Math.round(2e6 / 30),
       onWarning: options.onWarning
     };
   }
@@ -140,8 +138,7 @@ export class ClipSession implements NativeFrameSource {
     try {
       const header = await withTimeout(clip.getFileHeaderBinData(), 2_000, `header ${this.id}`);
       this.keyframes = await withTimeout(buildKeyframeIndexFromHeader(header), 2_000, `keyframes ${this.id}`);
-      const times = this.keyframes.keyframeTimesUs;
-      if (times.length >= 2) this.tailSafeLimitUs = Math.max(0, times[times.length - 1]! - 1_000_000);
+      this.lastFrameStartUs = this.keyframes.lastFrameStartUs;
     } catch (error) {
       this.options.onWarning?.(`${this.id}: keyframe index unavailable: ${String(error)}`);
     }
@@ -151,8 +148,8 @@ export class ClipSession implements NativeFrameSource {
     await this.load();
     if (!this.clip || this.state === 'unavailable') throw new Error(`clip ${this.id} is unavailable`);
     const duration = this.meta?.duration ?? Number.POSITIVE_INFINITY;
-    const fallbackLimit = Math.max(0, duration - this.options.tailMarginUs);
-    const safeLimit = this.tailSafeLimitUs == null ? fallbackLimit : Math.min(fallbackLimit, this.tailSafeLimitUs);
+    const fallbackLimit = Math.max(0, duration - 1);
+    const safeLimit = this.lastFrameStartUs ?? fallbackLimit;
     const target = Math.max(0, Math.min(Math.floor(timeUs), safeLimit));
     const covered = this.coverage.cloneAt(target);
     if (covered) return covered;
@@ -197,6 +194,10 @@ export class ClipSession implements NativeFrameSource {
     return this.keyframes?.keyframeTimesUs ?? [];
   }
 
+  getLastFrameStartUs(): number | null {
+    return this.lastFrameStartUs;
+  }
+
   /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */
   async fork(id: string): Promise<ClipSession> {
     await this.load();
@@ -208,7 +209,7 @@ export class ClipSession implements NativeFrameSource {
     fork.meta = { ...this.meta };
     fork.state = this.state;
     fork.keyframes = this.keyframes;
-    fork.tailSafeLimitUs = this.tailSafeLimitUs;
+    fork.lastFrameStartUs = this.lastFrameStartUs;
     // MP4Clip.clone() constructs a fresh, unprimed VideoFrameFinder.
     fork.lastTickTargetUs = null;
     const coverageSeed = this.coverage.cloneStored();
@@ -318,7 +319,7 @@ export class ClipSession implements NativeFrameSource {
     this.meta = null;
     this.coverage.clear();
     this.keyframes = null;
-    this.tailSafeLimitUs = null;
+    this.lastFrameStartUs = null;
     this.lastTickTargetUs = null;
     this.loadPromise = null;
     this.state = 'idle';

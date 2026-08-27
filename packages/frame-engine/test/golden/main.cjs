@@ -16,6 +16,7 @@ const MATTE_ALPHA = resolve(GENERATED, 'matte-alpha.webm');
 const MATTE_MASK = resolve(GENERATED, 'matte-mask.mp4');
 const COLOR_PATCHES = resolve(GENERATED, 'color-patches.mp4');
 const RESULTS = resolve(GENERATED, 'results.json');
+const LUTS = resolve(__dirname, '../../../../presets/luts');
 mkdirSync(GENERATED, { recursive: true });
 let encoder = null;
 let finished = false;
@@ -40,8 +41,10 @@ const fixtureCodecs = {
 };
 
 function artifactPath(name) {
-  if (!/^[a-z0-9][a-z0-9._-]*$/i.test(name)) throw new Error(`invalid artifact name: ${name}`);
-  return resolve(GENERATED, name);
+  if (!/^[a-z0-9][a-z0-9._/-]*$/i.test(name) || name.includes('..')) throw new Error(`invalid artifact name: ${name}`);
+  const file = resolve(GENERATED, name);
+  mkdirSync(dirname(file), { recursive: true });
+  return file;
 }
 
 function stop(code) {
@@ -58,6 +61,10 @@ protocol.registerSchemesAsPrivileged([{
 ipcMain.handle('golden:artifact', (_event, name, bytes) => {
   writeFileSync(artifactPath(name), Buffer.from(bytes));
   return true;
+});
+ipcMain.handle('golden:lut', (_event, id) => {
+  if (!/^[a-z0-9-]+$/i.test(id)) throw new Error(`invalid LUT id: ${id}`);
+  return readFileSync(resolve(LUTS, id, `${id}.cube`), 'utf8');
 });
 ipcMain.on('golden:fixture-codecs', event => { event.returnValue = fixtureCodecs; });
 

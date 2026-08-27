@@ -96,6 +96,41 @@ function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function validatePersonMatteTrack(personMatte) {
+  if (personMatte === null) return null;
+  if (typeof personMatte === "string") {
+    return isNonEmptyString(personMatte)
+      ? null
+      : "tracks.person_matte は空でない string、null、または person matte object である必要があります";
+  }
+  if (!isRecord(personMatte)) {
+    return "tracks.person_matte は空でない string、null、または person matte object である必要があります";
+  }
+
+  const allowedFields = new Set([
+    "path",
+    "fps",
+    "quality",
+    "mask_path",
+    "mask_format",
+    "generated_at",
+    "tool",
+  ]);
+  const unknownFields = Object.keys(personMatte).filter((field) => !allowedFields.has(field));
+  if (unknownFields.length > 0) {
+    return `tracks.person_matte に未定義の項目があります: ${unknownFields.join(", ")}`;
+  }
+  if (!isNonEmptyString(personMatte.path) || typeof personMatte.fps !== "number" || !(personMatte.fps > 0)) {
+    return "tracks.person_matte は path(空でない文字列)・fps(正数) を持つ object である必要があります";
+  }
+  for (const field of ["quality", "mask_path", "mask_format", "generated_at", "tool"]) {
+    if (hasOwn(personMatte, field) && !isNonEmptyString(personMatte[field])) {
+      return `tracks.person_matte.${field} は空でない文字列である必要があります`;
+    }
+  }
+  return null;
+}
+
 function readJson(path, label) {
   let text;
   try {
@@ -129,11 +164,11 @@ function validateAnalysisStructure(analysis, label) {
   } else {
     if (!Array.isArray(analysis.tracks.speakers)) errors.push("tracks.speakers は配列である必要があります");
     if (!Array.isArray(analysis.tracks.faces)) errors.push("tracks.faces は配列である必要があります");
-    if (
-      !hasOwn(analysis.tracks, "person_matte") ||
-      (analysis.tracks.person_matte !== null && typeof analysis.tracks.person_matte !== "string")
-    ) {
-      errors.push("tracks.person_matte は string か null である必要があります");
+    if (!hasOwn(analysis.tracks, "person_matte")) {
+      errors.push("tracks.person_matte は必須です");
+    } else {
+      const personMatteError = validatePersonMatteTrack(analysis.tracks.person_matte);
+      if (personMatteError) errors.push(personMatteError);
     }
     for (const field of ["face_landmarks", "hand_pose", "body_pose_3d", "face_expression"]) {
       if (!hasOwn(analysis.tracks, field)) continue;
@@ -503,9 +538,18 @@ function main() {
     });
   }
 
+  const sourceDateEpoch = process.env.SOURCE_DATE_EPOCH;
+  const sourceDateEpochSeconds = sourceDateEpoch?.trim() === ""
+    ? Number.NaN
+    : Number(sourceDateEpoch);
+  const sourceDate = new Date(sourceDateEpochSeconds * 1_000);
+  const generatedAt = Number.isFinite(sourceDateEpochSeconds) && !Number.isNaN(sourceDate.getTime())
+    ? sourceDate.toISOString()
+    : new Date().toISOString();
+
   const bundle = {
     version: 0,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     assets,
     interpretation,
   };
