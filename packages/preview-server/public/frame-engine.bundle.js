@@ -2258,7 +2258,7 @@ var require_cut_adjacency = __commonJS({
     exports.effectiveCutFps = effectiveCutFps;
     exports.cutOverlapFrames = cutOverlapFrames;
     exports.planTransitionHandleWindow = planTransitionHandleWindow;
-    exports.isStillImageSourcePath = isStillImageSourcePath;
+    exports.isStillImageSourcePath = isStillImageSourcePath2;
     exports.areCutsAdjacent = areCutsAdjacent;
     exports.DEFAULT_CUT_ADJACENCY_FPS = 30;
     function effectiveCutFps(fps) {
@@ -2279,7 +2279,7 @@ var require_cut_adjacency = __commonJS({
       };
     }
     exports.STILL_IMAGE_SOURCE_PATTERN = /\.(png|jpe?g|webp|bmp|gif)$/iu;
-    function isStillImageSourcePath(path) {
+    function isStillImageSourcePath2(path) {
       return typeof path === "string" && exports.STILL_IMAGE_SOURCE_PATTERN.test(path);
     }
     function areCutsAdjacent(earlier, later, fps = exports.DEFAULT_CUT_ADJACENCY_FPS) {
@@ -12724,19 +12724,35 @@ async function copyNativeYuvFrame(frame, metrics) {
 // ../frame-engine/src/evaluate.ts
 async function evaluateFrame(plan, context) {
   const decoded = [];
-  const native = [];
+  const baseNative = [];
+  const layerInputs = [];
   try {
-    for (const layer of plan.layers) {
+    for (const layer of plan.base) {
       const decodeStarted = performance.now();
       const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: layer.id });
       context.metrics.record("decode", performance.now() - decodeStarted);
       decoded.push(frame);
       const copyStarted = performance.now();
-      native.push(await copyNativeYuvFrame(frame, context.metrics));
+      baseNative.push(await copyNativeYuvFrame(frame, context.metrics));
       context.metrics.record("copy", performance.now() - copyStarted);
     }
-    const surface = await context.compositor.compose(native, plan.output, context.metrics, plan);
-    const formats = native.map((frame) => frame.format);
+    for (const layer of plan.layers) {
+      if (layer.kind === "image") {
+        if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
+        layerInputs.push(await layer.image.load());
+        continue;
+      }
+      if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
+      const decodeStarted = performance.now();
+      const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: `layer-${layer.id}` });
+      context.metrics.record("decode", performance.now() - decodeStarted);
+      decoded.push(frame);
+      const copyStarted = performance.now();
+      layerInputs.push(await copyNativeYuvFrame(frame, context.metrics));
+      context.metrics.record("copy", performance.now() - copyStarted);
+    }
+    const surface = await context.compositor.compose(baseNative, layerInputs, plan.output, context.metrics, plan);
+    const formats = [...baseNative, ...layerInputs.filter((value) => "format" in value)].map((frame) => frame.format);
     let closed = false;
     return {
       timeUs: plan.timeUs,
@@ -12755,12 +12771,147 @@ async function evaluateFrame(plan, context) {
 
 // ../frame-engine/src/timeline/plan.ts
 var import_edit_store = __toESM(require_lib(), 1);
+
+// ../frame-engine/src/timeline/layer-visual.ts
+function finite(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+function ease(point, u2) {
+  return point.easing === "ease-in-out" ? u2 < 0.5 ? 4 * u2 * u2 * u2 : 1 - (-2 * u2 + 2) ** 3 / 2 : u2;
+}
+function valueAt(points, pick, t) {
+  if (t <= points[0].t) return pick(points[0]);
+  const last = points[points.length - 1];
+  if (t >= last.t) return pick(last);
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index];
+    const end = points[index + 1];
+    if (t <= end.t) {
+      const span = end.t - start.t;
+      if (span <= 0) return pick(end);
+      const u2 = ease(end, (t - start.t) / span);
+      return pick(start) + (pick(end) - pick(start)) * u2;
+    }
+  }
+  return pick(last);
+}
+function computeLayerKeyframesVisual(keyframes, layerLocalSeconds) {
+  const points = (keyframes ?? []).filter((point) => finite(point?.t) && point.t >= 0).slice().sort((left, right) => left.t - right.t);
+  if (points.length < 2) return null;
+  const t = finite(layerLocalSeconds) ? layerLocalSeconds : 0;
+  const transformPoints = points.filter(
+    (point) => point.transform && typeof point.transform === "object"
+  );
+  const leaf = (name, fallback) => valueAt(
+    transformPoints,
+    (point) => finite(point.transform?.[name]) ? point.transform[name] : fallback,
+    t
+  );
+  const rawScale = transformPoints.length ? leaf("scale", 1) : 1;
+  const transform = transformPoints.length ? {
+    x: leaf("x", 0),
+    y: leaf("y", 0),
+    scale: rawScale > 0 ? rawScale : 1,
+    rotateDegrees: leaf("rotate", 0)
+  } : null;
+  const cropPoints = points.filter(
+    (point) => point.crop && finite(point.crop.x) && finite(point.crop.y) && finite(point.crop.w) && point.crop.w > 0 && finite(point.crop.h) && point.crop.h > 0
+  );
+  const cropLeaf = (name) => valueAt(cropPoints, (point) => point.crop[name], t);
+  const crop = cropPoints.length ? {
+    x: cropLeaf("x"),
+    y: cropLeaf("y"),
+    width: cropLeaf("w"),
+    height: cropLeaf("h")
+  } : null;
+  const perspectivePoints = points.filter(
+    (point) => Array.isArray(point.perspective?.corners) && point.perspective.corners.length === 4 && point.perspective.corners.every(
+      (corner) => corner.length === 2 && finite(corner[0]) && finite(corner[1])
+    )
+  );
+  const perspective = perspectivePoints.length ? {
+    corners: [0, 1, 2, 3].map(
+      (index) => [
+        valueAt(
+          perspectivePoints,
+          (point) => point.perspective.corners[index][0],
+          t
+        ),
+        valueAt(
+          perspectivePoints,
+          (point) => point.perspective.corners[index][1],
+          t
+        )
+      ]
+    )
+  } : null;
+  return { transform, crop, perspective };
+}
+function cornersToHomography(corners) {
+  const [p0, p1, p3, p2] = corners;
+  if (!p0 || !p1 || !p2 || !p3)
+    throw new Error("perspective requires four corners");
+  const [x0, y0] = p0;
+  const [x1, y1] = p1;
+  const [x22, y2] = p2;
+  const [x3, y3] = p3;
+  const dx1 = x1 - x22;
+  const dx2 = x3 - x22;
+  const dx3 = x0 - x1 + x22 - x3;
+  const dy1 = y1 - y2;
+  const dy2 = y3 - y2;
+  const dy3 = y0 - y1 + y2 - y3;
+  const den = dx1 * dy2 - dx2 * dy1;
+  const g2 = dx3 === 0 && dy3 === 0 ? 0 : (dx3 * dy2 - dx2 * dy3) / den;
+  const h = dx3 === 0 && dy3 === 0 ? 0 : (dx1 * dy3 - dx3 * dy1) / den;
+  return [
+    x1 - x0 + g2 * x1,
+    x3 - x0 + h * x3,
+    x0,
+    y1 - y0 + g2 * y1,
+    y3 - y0 + h * y3,
+    y0,
+    g2,
+    h,
+    1
+  ];
+}
+function invertMat3(matrix) {
+  if (matrix.length !== 9) throw new Error("mat3 requires exactly nine values");
+  const a = matrix[0];
+  const b = matrix[1];
+  const c = matrix[2];
+  const d2 = matrix[3];
+  const e = matrix[4];
+  const f2 = matrix[5];
+  const g2 = matrix[6];
+  const h = matrix[7];
+  const i2 = matrix[8];
+  const cofactor00 = e * i2 - f2 * h;
+  const cofactor10 = f2 * g2 - d2 * i2;
+  const cofactor20 = d2 * h - e * g2;
+  const det = a * cofactor00 + b * cofactor10 + c * cofactor20;
+  if (Math.abs(det) < 1e-12) throw new Error("perspective matrix is singular");
+  return [
+    cofactor00 / det,
+    (c * h - b * i2) / det,
+    (b * f2 - c * e) / det,
+    cofactor10 / det,
+    (a * i2 - c * g2) / det,
+    (c * d2 - a * f2) / det,
+    cofactor20 / det,
+    (b * g2 - a * h) / det,
+    (a * e - b * d2) / det
+  ];
+}
+
+// ../frame-engine/src/timeline/plan.ts
 var DEFAULT_VISUAL = {
   framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
   transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
   opacity: 1
 };
-function finite(value, fallback) {
+function finite2(value, fallback) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 function clamp(value, minimum, maximum) {
@@ -12769,28 +12920,29 @@ function clamp(value, minimum, maximum) {
 function normalizeTransition(cut) {
   return cut.transition_out ?? cut.transitionOut;
 }
-function buildResolvedTimelinePlan(cuts, options) {
+function buildResolvedTimelinePlan(cuts, options = {}) {
   if (cuts.some((cut) => cut.freeze && (cut.at !== void 0 || cut.track !== void 0))) {
     throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
   }
   const virtualCuts = cuts.map((cut) => {
-    const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
-    const freezeDuration = Math.max(0, finite(cut.freeze?.duration_sec, 0));
+    const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
+    const freezeDuration = Math.max(0, finite2(cut.freeze?.duration_sec, 0));
     return {
       ...cut,
       out: cut.out + freezeDuration * speed,
       transitionOut: normalizeTransition(cut)
     };
   });
-  const map = (0, import_edit_store.buildTimelineMap)(virtualCuts, options);
+  const { layers = [], ...timelineOptions } = options;
+  const map = (0, import_edit_store.buildTimelineMap)(virtualCuts, timelineOptions);
   const trackSegments = (0, import_edit_store.computeCutTrackSegments)(virtualCuts);
   const placements = cuts.map((cut, index) => {
     const segment = trackSegments[index];
     if (!segment) throw new Error(`timeline did not resolve cut ${index}`);
-    const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
+    const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
     const playbackDuration = Math.max(0, cut.out - cut.in) / speed;
-    const freezeDuration = Math.max(0, finite(cut.freeze?.duration_sec, 0));
-    const freezeAt = cut.freeze ? clamp(finite(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
+    const freezeDuration = Math.max(0, finite2(cut.freeze?.duration_sec, 0));
+    const freezeAt = cut.freeze ? clamp(finite2(cut.freeze.at_sec, 0), 0, playbackDuration) : null;
     return {
       cut,
       at: segment.at,
@@ -12800,7 +12952,19 @@ function buildResolvedTimelinePlan(cuts, options) {
       freezeDuration
     };
   });
-  return { map, cuts: placements, totalDuration: map.totalDuration };
+  return {
+    map,
+    cuts: placements,
+    totalDuration: map.totalDuration,
+    layers: layers.filter((layer) => layer.kind !== "filter"),
+    fps: finite2(options.fps, import_edit_store.DEFAULT_CUT_ADJACENCY_FPS) > 0 ? finite2(options.fps, import_edit_store.DEFAULT_CUT_ADJACENCY_FPS) : import_edit_store.DEFAULT_CUT_ADJACENCY_FPS
+  };
+}
+function isLayerActiveAt(layer, timeUs, fps) {
+  const frame = Math.floor(timeUs / 1e6 * fps + 1e-9);
+  const startFrame = Math.max(0, Math.ceil(finite2(layer.t, 0) * fps - 1e-6));
+  const endFrame = Math.max(startFrame, Math.ceil((finite2(layer.t, 0) + Math.max(0, finite2(layer.duration, 0))) * fps - 1e-6));
+  return frame >= startFrame && frame < endFrame;
 }
 function playbackSecondsAt(placement, outputSeconds) {
   const local = clamp(outputSeconds - placement.at, 0, placement.playbackDuration + placement.freezeDuration);
@@ -12834,9 +12998,9 @@ function interpolateFraming(keyframes, playbackSeconds) {
   const amount = right.t > left.t ? clamp((playbackSeconds - left.t) / (right.t - left.t), 0, 1) : 0;
   const lerp = (a, b) => a + (b - a) * amount;
   return {
-    scale: Math.max(1, lerp(finite(left.scale, 1), finite(right.scale, 1))),
-    centerX: clamp(lerp(finite(left.cx, 0.5), finite(right.cx, 0.5)), 0, 1),
-    centerY: clamp(lerp(finite(left.cy, 0.5), finite(right.cy, 0.5)), 0, 1)
+    scale: Math.max(1, lerp(finite2(left.scale, 1), finite2(right.scale, 1))),
+    centerX: clamp(lerp(finite2(left.cx, 0.5), finite2(right.cx, 0.5)), 0, 1),
+    centerY: clamp(lerp(finite2(left.cy, 0.5), finite2(right.cy, 0.5)), 0, 1)
   };
 }
 function visualAt(cut, playbackSeconds) {
@@ -12855,42 +13019,102 @@ function visualAt(cut, playbackSeconds) {
     };
   } else if (cut.framing?.crop) {
     const crop = cut.framing.crop;
-    const width = clamp(finite(crop.w, 1), Number.EPSILON, 1);
-    const height = clamp(finite(crop.h, 1), Number.EPSILON, 1);
+    const width = clamp(finite2(crop.w, 1), Number.EPSILON, 1);
+    const height = clamp(finite2(crop.h, 1), Number.EPSILON, 1);
     framing = {
-      x: clamp(finite(crop.x, 0), 0, 1 - width),
-      y: clamp(finite(crop.y, 0), 0, 1 - height),
+      x: clamp(finite2(crop.x, 0), 0, 1 - width),
+      y: clamp(finite2(crop.y, 0), 0, 1 - height),
       width,
       height,
       scale: Math.max(1 / width, 1 / height),
-      centerX: clamp(finite(crop.x, 0) + width / 2, 0, 1),
-      centerY: clamp(finite(crop.y, 0) + height / 2, 0, 1)
+      centerX: clamp(finite2(crop.x, 0) + width / 2, 0, 1),
+      centerY: clamp(finite2(crop.y, 0) + height / 2, 0, 1)
     };
   }
   return {
     framing,
     transform: {
-      x: finite(cut.transform?.x, 0),
-      y: finite(cut.transform?.y, 0),
-      scale: Math.max(Number.EPSILON, finite(cut.transform?.scale, 1)),
-      rotateDegrees: finite(cut.transform?.rotate, 0)
+      x: finite2(cut.transform?.x, 0),
+      y: finite2(cut.transform?.y, 0),
+      scale: Math.max(Number.EPSILON, finite2(cut.transform?.scale, 1)),
+      rotateDegrees: finite2(cut.transform?.rotate, 0)
     },
-    opacity: clamp(finite(cut.opacity, 1), 0, 1)
+    opacity: clamp(finite2(cut.opacity, 1), 0, 1)
   };
 }
 function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
   const cut = placement.cut;
   if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
   const source = sources.get(cut.src);
-  if (!source) throw new Error(`no frame source registered for ${cut.src}`);
+  if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
-  const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
+  const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
   return {
     id: `cut-${cutIndex}`,
     source,
     sourceTimeUs: Math.round((cut.in + playbackSeconds * speed) * 1e6),
     visual: visualAt(cut, playbackSeconds)
   };
+}
+var BLENDS = /* @__PURE__ */ new Set([
+  "normal",
+  "screen",
+  "multiply",
+  "add",
+  "difference",
+  "darken",
+  "lighten",
+  "overlay",
+  "hardlight",
+  "softlight"
+]);
+function resolvedCompositeLayers(timeline, timeUs, sources) {
+  const seconds = timeUs / 1e6;
+  const resolved = [];
+  timeline.layers.forEach((layer, index) => {
+    if (!isLayerActiveAt(layer, timeUs, timeline.fps) || !layer.src) return;
+    const source = sources.get(layer.src);
+    if (!source) throw new Error(`no layer source registered for ${layer.src}`);
+    const localSeconds = Math.max(0, seconds - finite2(layer.t, 0));
+    const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds);
+    const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
+    const staticTransform = layer.transform ?? {};
+    const visual = {
+      crop: animated?.crop ?? {
+        x: clamp(finite2(staticCrop.x, 0), 0, 1),
+        y: clamp(finite2(staticCrop.y, 0), 0, 1),
+        width: clamp(finite2(staticCrop.w, 1), Number.EPSILON, 1),
+        height: clamp(finite2(staticCrop.h, 1), Number.EPSILON, 1)
+      },
+      perspective: animated?.perspective ?? (layer.perspective ?? null),
+      transform: animated?.transform ?? {
+        x: finite2(staticTransform.x, 0),
+        y: finite2(staticTransform.y, 0),
+        scale: Math.max(Number.EPSILON, finite2(staticTransform.scale, 1)),
+        rotateDegrees: finite2(staticTransform.rotate, 0)
+      }
+    };
+    visual.crop.width = clamp(visual.crop.width, Number.EPSILON, 1);
+    visual.crop.height = clamp(visual.crop.height, Number.EPSILON, 1);
+    visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
+    visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
+    const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
+    const common = {
+      id: String(layer.id ?? `layer-${index}`),
+      mask: null,
+      visual,
+      blend,
+      opacity: clamp(finite2(layer.opacity, 1), 0, 1)
+    };
+    if ((0, import_edit_store.isStillImageSourcePath)(layer.src)) {
+      if (!("load" in source)) throw new Error(`no still image source registered for ${layer.src}`);
+      resolved.push({ ...common, kind: "image", image: source });
+      return;
+    }
+    if (!("decode" in source)) throw new Error(`no video frame source registered for ${layer.src}`);
+    resolved.push({ ...common, kind: "video", source, sourceTimeUs: Math.round(localSeconds * 1e6) });
+  });
+  return resolved;
 }
 function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
   const outputSeconds = timeUs / 1e6;
@@ -12906,10 +13130,11 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
     }
     return {
       timeUs,
-      layers: [
+      base: [
         layerFromPlacement(timeline.cuts[outgoingIndex], outgoingIndex, outputSeconds, sources),
         layerFromPlacement(timeline.cuts[incomingIndex], incomingIndex, outputSeconds, sources)
       ],
+      layers: resolvedCompositeLayers(timeline, timeUs, sources),
       transition: {
         type: window2.type,
         progress: (0, import_edit_store.transitionProgressAt)(window2, outputSeconds)
@@ -12919,8 +13144,8 @@ function evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output) {
   }
   const resolved = (0, import_edit_store.outputToSource)(timeline.map.segments, outputSeconds);
   const cutIndex = resolved.segment?.cutIndex;
-  const layers = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources)] : [];
-  return { timeUs, layers, transition: { type: "hard-cut", progress: 0 }, output };
+  const base = resolved.segment?.kind === "src" && cutIndex != null ? [layerFromPlacement(timeline.cuts[cutIndex], cutIndex, outputSeconds, sources)] : [];
+  return { timeUs, base, layers: resolvedCompositeLayers(timeline, timeUs, sources), transition: { type: "hard-cut", progress: 0 }, output };
 }
 
 // ../frame-engine/src/compositor/webgl2.ts
@@ -12936,17 +13161,39 @@ function compileShader(gl, type, source) {
   }
   return shader;
 }
-function requiredUniform(gl, program, name) {
-  const location = gl.getUniformLocation(program, name);
-  if (!location) throw new Error(`missing WebGL2 uniform: ${name}`);
-  return location;
+function createProgram(gl, fragmentSource) {
+  const vertex = compileShader(
+    gl,
+    gl.VERTEX_SHADER,
+    `#version 300 es
+    in vec2 position; out vec2 uv;
+    void main(){uv=position*0.5+0.5;gl_Position=vec4(position,0,1);}`
+  );
+  const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+  const program = gl.createProgram();
+  if (!program) throw new Error("WebGL2 could not allocate a program");
+  gl.attachShader(program, vertex);
+  gl.attachShader(program, fragment);
+  gl.linkProgram(program);
+  gl.deleteShader(vertex);
+  gl.deleteShader(fragment);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+    throw new Error(gl.getProgramInfoLog(program) ?? "WebGL2 link failure");
+  return program;
+}
+function uniform(gl, program, name) {
+  const value = gl.getUniformLocation(program, name);
+  if (value === null) throw new Error(`missing WebGL2 uniform: ${name}`);
+  return value;
 }
 function flipRows(input, width, height) {
   const stride = width * 4;
   const output = new Uint8Array(input.length);
-  for (let row = 0; row < height; row += 1) {
-    output.set(input.subarray(row * stride, (row + 1) * stride), (height - row - 1) * stride);
-  }
+  for (let row = 0; row < height; row += 1)
+    output.set(
+      input.subarray(row * stride, (row + 1) * stride),
+      (height - row - 1) * stride
+    );
   return output;
 }
 var WebGLSurface = class {
@@ -12960,53 +13207,70 @@ var WebGLSurface = class {
   closed = false;
   async readRgba() {
     if (this.closed) throw new Error("cannot read a closed GPU frame surface");
-    const gl = this.gl;
-    const byteLength = this.width * this.height * 4;
-    const pbo = gl.createBuffer();
+    const length = this.width * this.height * 4, pbo = this.gl.createBuffer();
     if (!pbo) throw new Error("WebGL2 could not allocate a pixel pack buffer");
     const started = performance.now();
-    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
-    gl.bufferData(gl.PIXEL_PACK_BUFFER, byteLength, gl.STREAM_READ);
-    gl.readPixels(0, 0, this.width, this.height, gl.RGBA, gl.UNSIGNED_BYTE, 0);
-    const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, pbo);
+    this.gl.bufferData(this.gl.PIXEL_PACK_BUFFER, length, this.gl.STREAM_READ);
+    this.gl.readPixels(
+      0,
+      0,
+      this.width,
+      this.height,
+      this.gl.RGBA,
+      this.gl.UNSIGNED_BYTE,
+      0
+    );
+    const fence = this.gl.fenceSync(this.gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
     if (!fence) {
-      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-      gl.deleteBuffer(pbo);
+      this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, null);
+      this.gl.deleteBuffer(pbo);
       throw new Error("WebGL2 could not allocate a readback fence");
     }
-    gl.flush();
-    const waitStarted = performance.now();
+    this.gl.flush();
+    const wait = performance.now();
     try {
       const deadline = performance.now() + 15e3;
       while (true) {
-        const status = gl.clientWaitSync(fence, 0, 0);
-        if (status === gl.ALREADY_SIGNALED || status === gl.CONDITION_SATISFIED) break;
-        if (status === gl.WAIT_FAILED) throw new Error("WebGL2 PBO fence wait failed");
-        if (performance.now() >= deadline) throw new Error("WebGL2 PBO fence wait timed out");
+        const status = this.gl.clientWaitSync(fence, 0, 0);
+        if (status === this.gl.ALREADY_SIGNALED || status === this.gl.CONDITION_SATISFIED)
+          break;
+        if (status === this.gl.WAIT_FAILED || performance.now() >= deadline)
+          throw new Error("WebGL2 PBO fence wait failed");
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
-      this.metrics.record("pboWait", performance.now() - waitStarted);
-      const raw = new Uint8Array(byteLength);
-      gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, raw);
-      const flipStarted = performance.now();
-      const rgba = flipRows(raw, this.width, this.height);
-      this.metrics.record("rowFlip", performance.now() - flipStarted);
+      this.metrics.record("pboWait", performance.now() - wait);
+      const raw = new Uint8Array(length);
+      this.gl.getBufferSubData(this.gl.PIXEL_PACK_BUFFER, 0, raw);
+      const flip = performance.now(), rgba = flipRows(raw, this.width, this.height);
+      this.metrics.record("rowFlip", performance.now() - flip);
       this.metrics.record("readback", performance.now() - started);
       return rgba;
     } finally {
-      gl.deleteSync(fence);
-      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-      gl.deleteBuffer(pbo);
+      this.gl.deleteSync(fence);
+      this.gl.bindBuffer(this.gl.PIXEL_PACK_BUFFER, null);
+      this.gl.deleteBuffer(pbo);
     }
   }
-  recordSink(elapsedMs) {
-    this.metrics.record("sink", elapsedMs);
+  recordSink(ms) {
+    this.metrics.record("sink", ms);
   }
   close() {
     this.closed = true;
   }
 };
-var FRAGMENT_SHADER = `#version 300 es
+var YUV_GLSL = `
+vec3 yuv709(float y, vec2 chroma) {
+  y -= 16.0 / 255.0;
+  float u = chroma.r - 0.5;
+  float v = chroma.g - 0.5;
+  return clamp(vec3(
+    1.164383 * y + 1.792741 * v,
+    1.164383 * y - 0.213249 * u - 0.532909 * v,
+    1.164383 * y + 2.112402 * u
+  ), 0.0, 1.0);
+}`;
+var BASE_FRAGMENT = `#version 300 es
 precision highp float;
 precision highp int;
 in vec2 uv;
@@ -13030,18 +13294,7 @@ uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
 uniform int transitionType;
 uniform float transitionProgress;
-
-vec3 yuv709(float y, vec2 chroma) {
-  y -= 16.0 / 255.0;
-  float u = chroma.r - 0.5;
-  float v = chroma.g - 0.5;
-  return clamp(vec3(
-    1.164383 * y + 1.792741 * v,
-    1.164383 * y - 0.213249 * u - 0.532909 * v,
-    1.164383 * y + 2.112402 * u
-  ), 0.0, 1.0);
-}
-
+${YUV_GLSL}
 vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
   vec2 pixel = (p - 0.5) * outputSize - transform.xy;
   float angle = transform.w;
@@ -13050,14 +13303,12 @@ vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
   vec2 local = pixel / outputSize + 0.5;
   return framing.xy + local * framing.zw;
 }
-
 vec2 canvasToSource(vec2 canvasPoint, vec2 sourceSize) {
   float fit = min(outputSize.x / sourceSize.x, outputSize.y / sourceSize.y);
   vec2 fitted = sourceSize * fit;
   vec2 offset = (outputSize - fitted) * 0.5;
   return (canvasPoint * outputSize - offset) / fitted;
 }
-
 vec4 sample0(vec2 p) {
   vec2 canvasPoint = inverseVisual(p, transform0, framing0);
   if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
@@ -13066,7 +13317,6 @@ vec4 sample0(vec2 p) {
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
   return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
 }
-
 vec4 sample1(vec2 p) {
   vec2 canvasPoint = inverseVisual(p, transform1, framing1);
   if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
@@ -13075,9 +13325,7 @@ vec4 sample1(vec2 p) {
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
   return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
 }
-
 vec3 overBlack(vec4 value) { return value.rgb * value.a; }
-
 void main() {
   vec2 p = vec2(uv.x, 1.0 - uv.y);
   vec4 outgoing = sample0(p);
@@ -13096,15 +13344,122 @@ void main() {
       : mix(plate, overBlack(incoming), (amount - 0.5) * 2.0);
   } else if (transitionType == 4) {
     vec4 incoming = sample1(p);
-    result = p.y < amount ? overBlack(incoming) : overBlack(sample0(vec2(p.x, p.y - amount)));
+    result = p.y < amount
+      ? overBlack(incoming)
+      : overBlack(sample0(vec2(p.x, p.y - amount)));
   } else if (transitionType == 5) {
     vec4 incoming = sample1(p);
-    result = p.y > 1.0 - amount ? overBlack(incoming) : overBlack(sample0(vec2(p.x, p.y + amount)));
+    result = p.y > 1.0 - amount
+      ? overBlack(incoming)
+      : overBlack(sample0(vec2(p.x, p.y + amount)));
   } else {
     result = overBlack(outgoing);
   }
   color = vec4(result, 1.0);
 }`;
+var LAYER_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D backdrop;
+uniform sampler2D ly;
+uniform sampler2D lu;
+uniform sampler2D lv;
+uniform sampler2D image;
+uniform int inputKind;
+uniform int yuvFormat;
+uniform vec2 outputSize;
+uniform mat3 inverseMap;
+uniform vec4 cropRect;
+uniform float opacity;
+uniform int blendMode;
+${YUV_GLSL}
+vec3 blend(vec3 dst, vec3 src) {
+  if (blendMode == 1) return 1.0 - (1.0 - dst) * (1.0 - src);
+  if (blendMode == 2) return dst * src;
+  if (blendMode == 3) return min(vec3(1.0), dst + src);
+  if (blendMode == 4) return abs(dst - src);
+  if (blendMode == 5) return min(dst, src);
+  if (blendMode == 6) return max(dst, src);
+  if (blendMode == 7) return mix(2.0 * dst * src, 1.0 - 2.0 * (1.0 - dst) * (1.0 - src), step(0.5, dst));
+  if (blendMode == 8) return mix(2.0 * dst * src, 1.0 - 2.0 * (1.0 - dst) * (1.0 - src), step(0.5, src));
+  if (blendMode == 9) {
+    vec3 curve = mix(((16.0 * dst - 12.0) * dst + 4.0) * dst, sqrt(dst), step(0.25, dst));
+    return mix(
+      dst - (1.0 - 2.0 * src) * dst * (1.0 - dst),
+      dst + (2.0 * src - 1.0) * (curve - dst),
+      step(0.5, src)
+    );
+  }
+  return src;
+}
+void main() {
+  vec4 dst = texture(backdrop, uv);
+  vec2 outputPixel = vec2(uv.x, 1.0 - uv.y) * outputSize;
+  vec3 homogeneous = inverseMap * vec3(outputPixel, 1.0);
+  if (homogeneous.z <= 0.000001) {
+    color = dst;
+    return;
+  }
+  vec2 local = homogeneous.xy / homogeneous.z;
+  if (any(lessThan(local, vec2(0.0))) || any(greaterThan(local, vec2(1.0)))) {
+    color = dst;
+    return;
+  }
+  vec2 sourceUv = cropRect.xy + local * cropRect.zw;
+  vec4 src;
+  if (inputKind == 1) {
+    src = texture(image, sourceUv);
+  } else {
+    vec2 chroma = yuvFormat == 1
+      ? texture(lu, sourceUv).rg
+      : vec2(texture(lu, sourceUv).r, texture(lv, sourceUv).r);
+    src = vec4(yuv709(texture(ly, sourceUv).r, chroma), 1.0);
+  }
+  float alpha = clamp(src.a * opacity, 0.0, 1.0);
+  color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
+}`;
+var COPY_FRAGMENT = `#version 300 es
+precision highp float;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D source;
+void main() { color = texture(source, uv); }`;
+function multiply(a, b) {
+  return Array.from({ length: 9 }, (_3, k2) => {
+    const r = Math.floor(k2 / 3), c = k2 % 3;
+    return a[r * 3] * b[c] + a[r * 3 + 1] * b[c + 3] + a[r * 3 + 2] * b[c + 6];
+  });
+}
+function forwardInverse(visual, srcW, srcH, outW, outH) {
+  const h = visual.perspective ? cornersToHomography(visual.perspective.corners) : [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  const bw = visual.crop.width * srcW * visual.transform.scale, bh = visual.crop.height * srcH * visual.transform.scale;
+  const b = [bw, 0, -bw / 2, 0, bh, -bh / 2, 0, 0, 1], a = visual.transform.rotateDegrees * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  const rotate = [c, -s, 0, s, c, 0, 0, 0, 1], translate = [
+    1,
+    0,
+    outW / 2 + visual.transform.x,
+    0,
+    1,
+    outH / 2 + visual.transform.y,
+    0,
+    0,
+    1
+  ];
+  const inv = invertMat3(multiply(translate, multiply(rotate, multiply(b, h))));
+  return new Float32Array([
+    inv[0],
+    inv[3],
+    inv[6],
+    inv[1],
+    inv[4],
+    inv[7],
+    inv[2],
+    inv[5],
+    inv[8]
+  ]);
+}
 var WebGL2Compositor = class {
   constructor(canvas = document.createElement("canvas"), options = {}) {
     this.options = options;
@@ -13117,152 +13472,271 @@ var WebGL2Compositor = class {
     });
     if (!gl) throw new Error("WebGL2 is unavailable");
     this.gl = gl;
-    const vertex = compileShader(gl, gl.VERTEX_SHADER, `#version 300 es
-      in vec2 position;
-      out vec2 uv;
-      void main() { uv = position * 0.5 + 0.5; gl_Position = vec4(position, 0.0, 1.0); }
-    `);
-    const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
-    const program = gl.createProgram();
-    if (!program) throw new Error("WebGL2 could not allocate a program");
-    gl.attachShader(program, vertex);
-    gl.attachShader(program, fragment);
-    gl.linkProgram(program);
-    gl.deleteShader(vertex);
-    gl.deleteShader(fragment);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      throw new Error(gl.getProgramInfoLog(program) ?? "WebGL2 link failure");
-    }
-    gl.useProgram(program);
-    this.program = program;
+    this.baseProgram = createProgram(gl, BASE_FRAGMENT);
+    this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
+    this.copyProgram = createProgram(gl, COPY_FRAGMENT);
     const vertices = gl.createBuffer();
     if (!vertices) throw new Error("WebGL2 could not allocate a vertex buffer");
+    this.vertices = vertices;
     gl.bindBuffer(gl.ARRAY_BUFFER, vertices);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-    const position = gl.getAttribLocation(program, "position");
-    gl.enableVertexAttribArray(position);
-    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
-    this.textures = Array.from({ length: 6 }, (_unused, unit) => {
-      const texture = gl.createTexture();
-      if (!texture) throw new Error("WebGL2 could not allocate a texture");
-      gl.activeTexture(gl.TEXTURE0 + unit);
-      gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+      gl.STATIC_DRAW
+    );
+    for (const program of [
+      this.baseProgram,
+      this.layerProgram,
+      this.copyProgram
+    ]) {
+      gl.useProgram(program);
+      const p2 = gl.getAttribLocation(program, "position");
+      gl.enableVertexAttribArray(p2);
+      gl.vertexAttribPointer(p2, 2, gl.FLOAT, false, 0, 0);
+    }
+    const texture = () => {
+      const t = gl.createTexture();
+      if (!t) throw new Error("WebGL2 could not allocate a texture");
+      gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      return texture;
+      return t;
+    };
+    this.baseTextures = Array.from({ length: 6 }, texture);
+    this.layerTextures = Array.from({ length: 4 }, texture);
+    this.fboTextures = [texture(), texture()];
+    this.fbos = [0, 1].map((i2) => {
+      const f2 = gl.createFramebuffer();
+      if (!f2) throw new Error("WebGL2 could not allocate framebuffer");
+      gl.bindFramebuffer(gl.FRAMEBUFFER, f2);
+      gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        gl.COLOR_ATTACHMENT0,
+        gl.TEXTURE_2D,
+        this.fboTextures[i2],
+        0
+      );
+      return f2;
     });
-    ["y0", "u0", "v0", "y1", "u1", "v1"].forEach((name, unit) => {
-      gl.uniform1i(requiredUniform(gl, program, name), unit);
-    });
-    this.layers = [0, 1].map((index) => ({
-      framing: requiredUniform(gl, program, `framing${index}`),
-      transform: requiredUniform(gl, program, `transform${index}`),
-      opacity: requiredUniform(gl, program, `opacity${index}`),
-      format: requiredUniform(gl, program, `format${index}`),
-      sourceSize: requiredUniform(gl, program, `sourceSize${index}`)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.useProgram(this.baseProgram);
+    ["y0", "u0", "v0", "y1", "u1", "v1"].forEach(
+      (n2, i2) => gl.uniform1i(uniform(gl, this.baseProgram, n2), i2)
+    );
+    this.cutUniforms = [0, 1].map((i2) => ({
+      framing: uniform(gl, this.baseProgram, `framing${i2}`),
+      transform: uniform(gl, this.baseProgram, `transform${i2}`),
+      opacity: uniform(gl, this.baseProgram, `opacity${i2}`),
+      format: uniform(gl, this.baseProgram, `format${i2}`),
+      sourceSize: uniform(gl, this.baseProgram, `sourceSize${i2}`)
     }));
-    this.outputSize = requiredUniform(gl, program, "outputSize");
-    this.transitionType = requiredUniform(gl, program, "transitionType");
-    this.transitionProgress = requiredUniform(gl, program, "transitionProgress");
+    this.baseOutput = uniform(gl, this.baseProgram, "outputSize");
+    this.transitionType = uniform(gl, this.baseProgram, "transitionType");
+    this.transitionProgress = uniform(
+      gl,
+      this.baseProgram,
+      "transitionProgress"
+    );
+    gl.useProgram(this.layerProgram);
+    [
+      ["backdrop", 0],
+      ["ly", 1],
+      ["lu", 2],
+      ["lv", 3],
+      ["image", 4]
+    ].forEach(
+      ([n2, u2]) => gl.uniform1i(uniform(gl, this.layerProgram, n2), u2)
+    );
+    gl.useProgram(this.copyProgram);
+    gl.uniform1i(uniform(gl, this.copyProgram, "source"), 0);
   }
   kind = "webgl2";
   canvas;
+  stats = { imageUploads: 0 };
   gl;
-  program;
-  textures;
-  textureShapes = Array.from({ length: 6 }, () => null);
-  layers;
-  outputSize;
+  baseProgram;
+  layerProgram;
+  copyProgram;
+  vertices;
+  baseTextures;
+  layerTextures;
+  shapes = Array(9).fill(null);
+  cutUniforms;
+  baseOutput;
   transitionType;
   transitionProgress;
-  secondaryInitialized = false;
+  fbos;
+  fboTextures;
+  fboShape = "";
+  imageTextures = /* @__PURE__ */ new WeakMap();
+  ownedImageTextures = /* @__PURE__ */ new Set();
   disposed = false;
-  upload(unit, data, width, height, channels = 1) {
-    const gl = this.gl;
-    gl.activeTexture(gl.TEXTURE0 + unit);
-    gl.bindTexture(gl.TEXTURE_2D, this.textures[unit] ?? null);
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    const sourceFormat = channels === 2 ? gl.RG : gl.RED;
-    const shape = `${width}x${height}x${channels}`;
-    if (this.textureShapes[unit] === shape) {
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, sourceFormat, gl.UNSIGNED_BYTE, data);
-    } else {
-      gl.texImage2D(
-        gl.TEXTURE_2D,
+  secondary = false;
+  bind(unit, texture) {
+    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+  }
+  upload(texture, shapeIndex, data, w, h, channels = 1) {
+    this.bind(shapeIndex, texture);
+    this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
+    this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, 0);
+    const format = channels === 2 ? this.gl.RG : this.gl.RED, shape = `${w}x${h}x${channels}`;
+    if (this.shapes[shapeIndex] === shape)
+      this.gl.texSubImage2D(
+        this.gl.TEXTURE_2D,
         0,
-        channels === 2 ? gl.RG8 : gl.R8,
-        width,
-        height,
         0,
-        sourceFormat,
-        gl.UNSIGNED_BYTE,
+        0,
+        w,
+        h,
+        format,
+        this.gl.UNSIGNED_BYTE,
         data
       );
-      this.textureShapes[unit] = shape;
+    else {
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D,
+        0,
+        channels === 2 ? this.gl.RG8 : this.gl.R8,
+        w,
+        h,
+        0,
+        format,
+        this.gl.UNSIGNED_BYTE,
+        data
+      );
+      this.shapes[shapeIndex] = shape;
     }
   }
-  uploadFrame(frame, layer) {
-    const base = layer * 3;
-    const chromaWidth = Math.ceil(frame.width / 2);
-    const chromaHeight = Math.ceil(frame.height / 2);
-    this.gl.uniform2f(this.layers[layer].sourceSize, frame.width, frame.height);
-    this.upload(base, frame.y, frame.width, frame.height);
+  uploadYuv(frame, textures, unitBase, shapeBase, uniforms) {
+    const cw = Math.ceil(frame.width / 2), ch = Math.ceil(frame.height / 2);
+    this.upload(textures[0], shapeBase, frame.y, frame.width, frame.height);
     if (frame.format === "NV12") {
-      this.upload(base + 1, frame.uv, chromaWidth, chromaHeight, 2);
-      this.upload(base + 2, new Uint8Array([128]), 1, 1);
-      this.gl.uniform1i(this.layers[layer].format, 1);
+      this.upload(textures[1], shapeBase + 1, frame.uv, cw, ch, 2);
+      this.upload(textures[2], shapeBase + 2, new Uint8Array([128]), 1, 1);
+      if (uniforms) this.gl.uniform1i(uniforms.format, 1);
     } else {
-      this.upload(base + 1, frame.u, chromaWidth, chromaHeight);
-      this.upload(base + 2, frame.v, chromaWidth, chromaHeight);
-      this.gl.uniform1i(this.layers[layer].format, 0);
+      this.upload(textures[1], shapeBase + 1, frame.u, cw, ch);
+      this.upload(textures[2], shapeBase + 2, frame.v, cw, ch);
+      if (uniforms) this.gl.uniform1i(uniforms.format, 0);
     }
+    if (uniforms)
+      this.gl.uniform2f(uniforms.sourceSize, frame.width, frame.height);
+    for (let i2 = 0; i2 < 3; i2++) this.bind(unitBase + i2, textures[i2]);
   }
-  setVisual(layer, visual) {
-    const gl = this.gl;
-    const uniforms = this.layers[layer];
-    gl.uniform4f(
-      uniforms.framing,
-      visual.framing.x,
-      visual.framing.y,
-      visual.framing.width,
-      visual.framing.height
+  setCut(u2, v2) {
+    this.gl.uniform4f(
+      u2.framing,
+      v2.framing.x,
+      v2.framing.y,
+      v2.framing.width,
+      v2.framing.height
     );
-    gl.uniform4f(
-      uniforms.transform,
-      visual.transform.x,
-      visual.transform.y,
-      visual.transform.scale,
-      visual.transform.rotateDegrees * Math.PI / 180
+    this.gl.uniform4f(
+      u2.transform,
+      v2.transform.x,
+      v2.transform.y,
+      v2.transform.scale,
+      v2.transform.rotateDegrees * Math.PI / 180
     );
-    gl.uniform1f(uniforms.opacity, visual.opacity);
+    this.gl.uniform1f(u2.opacity, v2.opacity);
   }
-  async compose(frames, output, metrics, plan) {
-    if (this.disposed) throw new Error("WebGL2 compositor is disposed");
-    if (output.colorSpace !== "bt709-limited") throw new Error(`unsupported color space: ${output.colorSpace}`);
-    if (frames.length < 1 || frames.length > 2 || frames.length !== plan.layers.length) {
-      throw new Error(`cuts compositor requires one frame, or two during a transition; received ${frames.length}`);
+  ensureFbos(w, h) {
+    const shape = `${w}x${h}`;
+    if (shape === this.fboShape) return;
+    for (const t of this.fboTextures) {
+      this.gl.bindTexture(this.gl.TEXTURE_2D, t);
+      this.gl.texImage2D(
+        this.gl.TEXTURE_2D,
+        0,
+        this.gl.RGBA8,
+        w,
+        h,
+        0,
+        this.gl.RGBA,
+        this.gl.UNSIGNED_BYTE,
+        null
+      );
     }
-    if (this.canvas.width !== output.width) this.canvas.width = output.width;
-    if (this.canvas.height !== output.height) this.canvas.height = output.height;
+    this.fboShape = shape;
+  }
+  stillTexture(value) {
+    let texture = this.imageTextures.get(value);
+    if (texture) return texture;
+    texture = this.gl.createTexture();
+    this.bind(4, texture);
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_MIN_FILTER,
+      this.gl.LINEAR
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_MAG_FILTER,
+      this.gl.LINEAR
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_WRAP_S,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.texParameteri(
+      this.gl.TEXTURE_2D,
+      this.gl.TEXTURE_WRAP_T,
+      this.gl.CLAMP_TO_EDGE
+    );
+    this.gl.pixelStorei(this.gl.UNPACK_ALIGNMENT, 1);
+    this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, 0);
+    this.gl.texImage2D(
+      this.gl.TEXTURE_2D,
+      0,
+      this.gl.RGBA,
+      this.gl.RGBA,
+      this.gl.UNSIGNED_BYTE,
+      value.bitmap
+    );
+    this.imageTextures.set(value, texture);
+    this.ownedImageTextures.add(texture);
+    this.stats.imageUploads += 1;
+    return texture;
+  }
+  prepareBase(frames, plan, output) {
     const gl = this.gl;
-    gl.viewport(0, 0, output.width, output.height);
-    gl.useProgram(this.program);
-    gl.uniform2f(this.outputSize, output.width, output.height);
-    const uploadStarted = performance.now();
+    gl.useProgram(this.baseProgram);
+    gl.uniform2f(this.baseOutput, output.width, output.height);
+    const started = performance.now();
     frames.forEach((frame, index) => {
-      this.uploadFrame(frame, index);
-      this.setVisual(index, plan.layers[index].visual);
+      this.uploadYuv(
+        frame,
+        this.baseTextures.slice(index * 3, index * 3 + 3),
+        index * 3,
+        index * 3,
+        this.cutUniforms[index]
+      );
     });
-    if (frames.length === 1 && !this.secondaryInitialized) {
-      this.uploadFrame(frames[0], 1);
-      this.setVisual(1, plan.layers[0].visual);
-      this.secondaryInitialized = true;
+    if (frames.length === 1 && !this.secondary) {
+      this.uploadYuv(
+        frames[0],
+        this.baseTextures.slice(3, 6),
+        3,
+        3,
+        this.cutUniforms[1]
+      );
+      this.secondary = true;
     } else if (frames.length === 2) {
-      this.secondaryInitialized = true;
+      this.secondary = true;
     }
-    metrics.record("upload", performance.now() - uploadStarted);
+    const elapsed = performance.now() - started;
+    frames.forEach(
+      (_frame, index) => this.setCut(this.cutUniforms[index], plan.base[index].visual)
+    );
+    if (frames.length === 1)
+      this.setCut(this.cutUniforms[1], plan.base[0].visual);
+    return elapsed;
+  }
+  configureBaseDraw(plan, target) {
     const transitionCodes = {
       "hard-cut": 0,
       dissolve: 1,
@@ -13271,34 +13745,195 @@ var WebGL2Compositor = class {
       "reveal-down": 4,
       "reveal-up": 5
     };
-    gl.uniform1i(this.transitionType, transitionCodes[plan.transition?.type ?? "hard-cut"] ?? 0);
-    gl.uniform1f(this.transitionProgress, plan.transition?.progress ?? 0);
-    const synchronize = this.options.synchronization ?? "finish";
-    const extension = synchronize === "finish" ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null;
-    const query = extension ? gl.createQuery() : null;
-    if (extension && query) gl.beginQuery(extension.TIME_ELAPSED_EXT, query);
-    const shaderStarted = performance.now();
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    if (extension && query) gl.endQuery(extension.TIME_ELAPSED_EXT);
-    if (synchronize === "finish") gl.finish();
-    else gl.flush();
-    metrics.record("shader", performance.now() - shaderStarted);
-    if (extension && query && !gl.getParameter(extension.GPU_DISJOINT_EXT)) {
-      const nanoseconds = gl.getQueryParameter(query, gl.QUERY_RESULT);
-      metrics.record("shaderGpu", nanoseconds / 1e6);
-      gl.deleteQuery(query);
-    } else if (synchronize === "finish") {
-      metrics.record("shaderGpu", performance.now() - shaderStarted);
-      if (query) gl.deleteQuery(query);
+    this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
+    this.gl.useProgram(this.baseProgram);
+    this.gl.uniform1i(
+      this.transitionType,
+      transitionCodes[plan.transition?.type ?? "hard-cut"]
+    );
+    this.gl.uniform1f(this.transitionProgress, plan.transition?.progress ?? 0);
+  }
+  async compose(base, layers, output, metrics, plan) {
+    if (this.disposed) throw new Error("WebGL2 compositor is disposed");
+    if (output.colorSpace !== "bt709-limited")
+      throw new Error(`unsupported color space: ${output.colorSpace}`);
+    if (base.length > 2 || base.length !== plan.base.length) {
+      throw new Error(
+        `cuts compositor accepts zero to two base frames; received ${base.length}`
+      );
     }
-    return new WebGLSurface(this.canvas, output.width, output.height, gl, metrics);
+    if (layers.length !== plan.layers.length)
+      throw new Error("layer inputs must match plan.layers");
+    if (base.length === 0 && layers.length === 0)
+      throw new Error("cannot compose an empty plan");
+    if (this.canvas.width !== output.width) this.canvas.width = output.width;
+    if (this.canvas.height !== output.height)
+      this.canvas.height = output.height;
+    const gl = this.gl;
+    gl.viewport(0, 0, output.width, output.height);
+    let uploadElapsedMs = base.length > 0 ? this.prepareBase(base, plan, output) : 0;
+    let shaderElapsedMs = 0;
+    const synchronization = this.options.synchronization ?? "finish";
+    const timer = synchronization === "finish" ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null;
+    const queries = [];
+    const draw = () => {
+      const query = timer ? gl.createQuery() : null;
+      if (timer && query) gl.beginQuery(timer.TIME_ELAPSED_EXT, query);
+      const started = performance.now();
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      shaderElapsedMs += performance.now() - started;
+      if (timer && query) {
+        gl.endQuery(timer.TIME_ELAPSED_EXT);
+        queries.push(query);
+      }
+    };
+    if (layers.length === 0) {
+      this.configureBaseDraw(plan, null);
+      draw();
+      metrics.record("upload", uploadElapsedMs);
+      this.finishFrame(
+        metrics,
+        shaderElapsedMs,
+        synchronization,
+        timer,
+        queries
+      );
+      return new WebGLSurface(
+        this.canvas,
+        output.width,
+        output.height,
+        gl,
+        metrics
+      );
+    }
+    this.ensureFbos(output.width, output.height);
+    if (base.length > 0) {
+      this.configureBaseDraw(plan, this.fbos[0]);
+      draw();
+    } else {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[0]);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    }
+    const outLoc = uniform(gl, this.layerProgram, "outputSize");
+    const inverseLoc = uniform(gl, this.layerProgram, "inverseMap");
+    const cropLoc = uniform(gl, this.layerProgram, "cropRect");
+    const opacityLoc = uniform(gl, this.layerProgram, "opacity");
+    const kindLoc = uniform(gl, this.layerProgram, "inputKind");
+    const formatLoc = uniform(gl, this.layerProgram, "yuvFormat");
+    const blendLoc = uniform(gl, this.layerProgram, "blendMode");
+    const blendModes = [
+      "normal",
+      "screen",
+      "multiply",
+      "add",
+      "difference",
+      "darken",
+      "lighten",
+      "overlay",
+      "hardlight",
+      "softlight"
+    ];
+    let current = 0;
+    for (let index = 0; index < layers.length; index += 1) {
+      const input = layers[index];
+      const layer = plan.layers[index];
+      const next = 1 - current;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[next]);
+      gl.useProgram(this.layerProgram);
+      this.bind(0, this.fboTextures[current]);
+      let width;
+      let height;
+      const uploadStarted = performance.now();
+      if ("bitmap" in input) {
+        width = input.width;
+        height = input.height;
+        this.bind(4, this.stillTexture(input));
+        gl.uniform1i(kindLoc, 1);
+      } else {
+        width = input.width;
+        height = input.height;
+        this.uploadYuv(input, this.layerTextures.slice(0, 3), 1, 6);
+        gl.uniform1i(kindLoc, 0);
+        gl.uniform1i(formatLoc, input.format === "NV12" ? 1 : 0);
+      }
+      uploadElapsedMs += performance.now() - uploadStarted;
+      gl.uniform2f(outLoc, output.width, output.height);
+      gl.uniformMatrix3fv(
+        inverseLoc,
+        false,
+        forwardInverse(
+          layer.visual,
+          width,
+          height,
+          output.width,
+          output.height
+        )
+      );
+      gl.uniform4f(
+        cropLoc,
+        layer.visual.crop.x,
+        layer.visual.crop.y,
+        layer.visual.crop.width,
+        layer.visual.crop.height
+      );
+      gl.uniform1f(opacityLoc, layer.opacity);
+      gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
+      draw();
+      current = next;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.useProgram(this.copyProgram);
+    this.bind(0, this.fboTextures[current]);
+    draw();
+    metrics.record("upload", uploadElapsedMs);
+    this.finishFrame(metrics, shaderElapsedMs, synchronization, timer, queries);
+    return new WebGLSurface(
+      this.canvas,
+      output.width,
+      output.height,
+      gl,
+      metrics
+    );
+  }
+  finishFrame(metrics, shaderSubmissionMs, synchronization, timer, queries) {
+    const syncStarted = performance.now();
+    if (synchronization === "finish") this.gl.finish();
+    else this.gl.flush();
+    const shaderWallMs = shaderSubmissionMs + performance.now() - syncStarted;
+    metrics.record("shader", shaderWallMs);
+    let gpuNanoseconds = 0;
+    let hasGpuMeasurement = timer !== null && queries.length > 0 && !this.gl.getParameter(timer.GPU_DISJOINT_EXT);
+    for (const query of queries) {
+      if (hasGpuMeasurement && this.gl.getQueryParameter(query, this.gl.QUERY_RESULT_AVAILABLE)) {
+        gpuNanoseconds += this.gl.getQueryParameter(
+          query,
+          this.gl.QUERY_RESULT
+        );
+      } else {
+        hasGpuMeasurement = false;
+      }
+      this.gl.deleteQuery(query);
+    }
+    if (hasGpuMeasurement) metrics.record("shaderGpu", gpuNanoseconds / 1e6);
+    else if (synchronization === "finish")
+      metrics.record("shaderGpu", shaderWallMs);
   }
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
-    for (const texture of this.textures) this.gl.deleteTexture(texture);
-    this.gl.deleteProgram(this.program);
-    this.gl.getExtension("WEBGL_lose_context")?.loseContext();
+    for (const t of [
+      ...this.baseTextures,
+      ...this.layerTextures,
+      ...this.fboTextures,
+      ...this.ownedImageTextures
+    ])
+      this.gl.deleteTexture(t);
+    for (const f2 of this.fbos) this.gl.deleteFramebuffer(f2);
+    this.gl.deleteBuffer(this.vertices);
+    this.gl.deleteProgram(this.baseProgram);
+    this.gl.deleteProgram(this.layerProgram);
+    this.gl.deleteProgram(this.copyProgram);
   }
 };
 
@@ -15804,6 +16439,34 @@ var ClipSessionPool = class {
   }
 };
 
+// ../frame-engine/src/decode/still-image.ts
+var CachedStillImageSource = class {
+  constructor(url) {
+    this.url = url;
+  }
+  pending = null;
+  value = null;
+  load() {
+    if (this.value) return Promise.resolve(this.value);
+    if (!this.pending) {
+      this.pending = fetch(this.url).then((response) => {
+        if (!response.ok) throw new Error(`image fetch failed (${response.status}): ${this.url}`);
+        return response.blob();
+      }).then(createImageBitmap).then((bitmap) => {
+        const value = { bitmap, width: bitmap.width, height: bitmap.height };
+        this.value = value;
+        return value;
+      });
+    }
+    return this.pending;
+  }
+  destroy() {
+    this.value?.bitmap.close();
+    this.value = null;
+    this.pending = null;
+  }
+};
+
 // ../frame-engine/src/cache/lookahead-cache.ts
 var LookaheadCache = class {
   entries = /* @__PURE__ */ new Map();
@@ -15995,6 +16658,7 @@ var STAGES = [
   "upload",
   "shader",
   "shaderGpu",
+  "present",
   "readback",
   "pboWait",
   "rowFlip",
@@ -16088,7 +16752,7 @@ function createUi(stage) {
   const banner = document.createElement("div");
   banner.id = "frame-engine-unsupported-banner";
   banner.setAttribute("role", "status");
-  banner.textContent = "Frame engine \u8A55\u4FA1\u53F0\uFF08cuts \u306E\u307F\uFF09\u2014 \u672A\u5BFE\u5FDC: layers / overlays / \u5B57\u5E55 / \u97F3\u58F0";
+  banner.textContent = "Frame engine \u8A55\u4FA1\u53F0\uFF08cuts + layers\uFF09\u2014 \u672A\u5BFE\u5FDC: overlays / \u5B57\u5E55 / \u97F3\u58F0";
   Object.assign(banner.style, {
     position: "absolute",
     left: "8px",
@@ -16146,7 +16810,16 @@ var FrameEngineRuntime = class {
     this.compositor = new WebGL2Compositor(ui.canvas, { synchronization: "flush" });
     const cuts = normalizedCuts(edit);
     const urls = sourceUrls(edit, timelineData, cuts);
+    for (const layer of Array.isArray(edit?.layers) ? edit.layers : []) {
+      if (!layer?.src) continue;
+      const key = String(layer.src);
+      urls.set(key, mediaUrl(key));
+    }
     for (const [id, url] of urls) {
+      if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(url)) {
+        this.images.set(id, new CachedStillImageSource(url));
+        continue;
+      }
       const pool = new ClipSessionPool(id, url, { onWarning: (message) => this.showError(message, false) });
       const source = new LookaheadFrameSource(pool, {
         fps,
@@ -16156,8 +16829,11 @@ var FrameEngineRuntime = class {
       this.pools.set(id, pool);
       this.lookahead.set(id, source);
     }
-    this.sources = this.lookahead;
-    this.timeline = buildResolvedTimelinePlan(cuts);
+    this.sources = new Map([...this.lookahead, ...this.images]);
+    this.timeline = buildResolvedTimelinePlan(cuts, {
+      fps,
+      layers: Array.isArray(edit?.layers) ? edit.layers : []
+    });
     this.totalDuration = this.timeline.totalDuration;
     this.segments = this.timeline.cuts.map((placement, index) => ({
       index,
@@ -16190,6 +16866,7 @@ var FrameEngineRuntime = class {
   segments;
   pools = /* @__PURE__ */ new Map();
   lookahead = /* @__PURE__ */ new Map();
+  images = /* @__PURE__ */ new Map();
   sources;
   timeline;
   compositor;
@@ -16247,6 +16924,7 @@ var FrameEngineRuntime = class {
     this.scrub.dispose();
     this.warmup.reset();
     for (const source of this.lookahead.values()) source.clear();
+    for (const image of this.images.values()) image.destroy();
     for (const pool of this.pools.values()) pool.destroy();
     this.compositor.dispose();
   }
@@ -16257,7 +16935,7 @@ var FrameEngineRuntime = class {
     if (this.disposed) return;
     const timeUs = Math.round(Math.max(0, Math.min(seconds, this.totalDuration)) * 1e6);
     const plan = evaluationPlanFromResolvedTimeline(this.timeline, timeUs, this.sources, this.output);
-    if (plan.layers.length === 0) {
+    if (plan.base.length === 0 && plan.layers.length === 0) {
       const context = this.ui.canvas.getContext("2d");
       context?.clearRect(0, 0, this.ui.canvas.width, this.ui.canvas.height);
       return;
@@ -16273,7 +16951,7 @@ var FrameEngineRuntime = class {
     const elapsed = performance.now() - started;
     const late = elapsed > 1e3 / this.fps;
     if (late) this.measurements.lateFrames += 1;
-    const cutIndex = Number(plan.layers[0]?.id.replace("cut-", ""));
+    const cutIndex = Number(plan.base[0]?.id.replace("cut-", ""));
     if (Number.isInteger(cutIndex) && cutIndex !== this.lastCutIndex) {
       const streamId = `cut-${cutIndex}`;
       const bucket = this.warmedStreams.has(streamId) ? this.measurements.boundaryAfter : this.measurements.boundaryBefore;
@@ -16299,7 +16977,7 @@ var FrameEngineRuntime = class {
     for (let offset = 1; offset <= 3; offset += 1) {
       const futureUs = Math.min(Math.round(this.totalDuration * 1e6), timeUs + Math.round(offset * 1e6 / this.fps));
       const plan = evaluationPlanFromResolvedTimeline(this.timeline, futureUs, this.sources, this.output);
-      for (const layer of plan.layers) {
+      for (const layer of plan.base) {
         const sourceId = this.timeline.cuts[Number(layer.id.replace("cut-", ""))]?.cut?.src;
         const source = sourceId ? this.lookahead.get(sourceId) : null;
         void source?.prefetch(layer.sourceTimeUs, { streamId: layer.id }).catch(() => void 0);

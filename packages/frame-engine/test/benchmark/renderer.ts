@@ -2,6 +2,7 @@ import {
   buildResolvedTimelinePlan,
   ClipSession,
   ClipSessionPool,
+  copyNativeYuvFrame,
   evaluateFrame,
   evaluationPlanFromResolvedTimeline,
   FrameMetrics,
@@ -10,7 +11,7 @@ import {
   WebCodecsH264Encoder,
   WebGL2Compositor
 } from '../../src/index.js';
-import type { FrameEngineCut, NativeFrameSource } from '../../src/index.js';
+import type { FrameEngineCut, FrameEngineLayer, NativeFrameSource } from '../../src/index.js';
 import edit from './edit.json';
 
 interface EncoderResult {
@@ -260,6 +261,68 @@ async function profileSource(
   }
 }
 
+async function benchmarkLayerCount(context: PhaseContext, count: number) {
+  const layers: FrameEngineLayer[] = Array.from({ length: count }, (_, index) => ({
+    id: `bench-${index}`, t: 0, duration: 2, kind: 'video', src: SOURCE_URL,
+    transform: { x: (index - count / 2) * 36, y: (index % 2 ? 1 : -1) * 20, scale: .34 + index * .025, rotate: index * 3 },
+    opacity: .72, blend: index % 2 ? 'screen' : 'normal'
+  }));
+  const layerTimeline = buildResolvedTimelinePlan(edit.cuts as FrameEngineCut[], { fps: FPS, layers });
+  const pool = new ClipSessionPool(`layer-bench-${count}`, SOURCE_URL);
+  const sources = new Map([[SOURCE_URL, pool]]);
+  const metrics = new FrameMetrics();
+  const constructionStarted = performance.now();
+  const compositor = new WebGL2Compositor(undefined, { synchronization: 'finish' });
+  const gpuInitializationMs = performance.now() - constructionStarted;
+  const frameWalls: number[] = [];
+  try {
+    for (let index = 0; index < 30; index += 1) {
+      const plan = evaluationPlanFromResolvedTimeline(layerTimeline, Math.round((.25 + index / FPS) * 1e6), sources, output);
+      const started = performance.now();
+      const frame = await context.wait(`layers=${count} frame=${index}`, evaluateFrame(plan, { compositor, metrics }));
+      const presentStarted = performance.now();
+      void frame.surface.canvas;
+      metrics.record('present', performance.now() - presentStarted);
+      frameWalls.push(performance.now() - started);
+      frame.close();
+    }
+    const stages = metrics.toJSON();
+    return {
+      count, frames: frameWalls.length, gpuInitializationMs,
+      coldFirstFrameMs: frameWalls[0], steadyFrameMs: summarize(frameWalls.slice(1)),
+      stages: Object.fromEntries((['decode','upload','shaderGpu','present'] as const).map(name => [name, stages[name]]))
+    };
+  } finally { pool.destroy(); compositor.dispose(); }
+}
+
+async function measureZeroCopy(context: PhaseContext) {
+  const session = new ClipSession('zero-copy', SOURCE_URL);
+  const metrics = new FrameMetrics();
+  try {
+    const decodeStarted = performance.now();
+    const frame = await context.wait('zero-copy decode', session.decode(500_000, metrics));
+    const decoderFirstFrameMs = performance.now() - decodeStarted;
+    try {
+      const copyStarted = performance.now();
+      await copyNativeYuvFrame(frame, metrics);
+      const copyToPlanesMs = performance.now() - copyStarted;
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl2');
+      if (!gl) throw new Error('WebGL2 unavailable for direct VideoFrame upload');
+      const texture = gl.createTexture();
+      if (!texture) throw new Error('texture allocation failed');
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      const directStarted = performance.now();
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, frame as unknown as TexImageSource);
+      gl.finish();
+      const directVideoFrameTexImageMs = performance.now() - directStarted;
+      gl.deleteTexture(texture);
+      return { decoderFirstFrameMs, copyToPlanesMs, directVideoFrameTexImageMs,
+        directToCopyRatio: directVideoFrameTexImageMs / copyToPlanesMs };
+    } finally { frame.close(); }
+  } finally { session.destroy(); }
+}
+
 async function profileDecodeAndCache(context: PhaseContext) {
   const samplePlans = plansForFrames(24);
   const fullSession = new ClipSessionPool('profile-full', SOURCE_URL);
@@ -270,7 +333,7 @@ async function profileDecodeAndCache(context: PhaseContext) {
     for (const plan of samplePlans) {
       const sourceTimeUs = evaluationPlanFromResolvedTimeline(
         timeline, plan.timeUs, new Map([[SOURCE_URL, cacheSession]]), output
-      ).layers[0]!.sourceTimeUs;
+      ).base[0]!.sourceTimeUs;
       if (!masters.has(sourceTimeUs)) {
         masters.set(sourceTimeUs, await context.wait('predecode cache fill', cacheSession.decode(sourceTimeUs)));
       }
@@ -652,6 +715,11 @@ async function run() {
   const profile = await runPhase('profileDecodeAndCache', 300_000, profileDecodeAndCache);
   const gop = await runPhase('gopAndWarmup', 300_000, gopAndWarmup);
   const ipc = await runPhase('ipcComparison', 120_000, ipcComparison);
+  const layerScaling = [];
+  for (const count of [0, 1, 3, 5]) {
+    layerScaling.push(await runPhase(`layerScaling[${count}]`, 180_000, context => benchmarkLayerCount(context, count)));
+  }
+  const zeroCopy = await runPhase('layerZeroCopy', 120_000, measureZeroCopy);
   const durationTolerance = 1 / FPS;
   const phaseResults = {
     exportRawFfmpeg: raw,
@@ -764,6 +832,7 @@ async function run() {
     && psnr.status === 0
     && psnr.averageDb != null
     && psnr.averageDb > 20;
+  const firstLayerScaling = layerScaling[0]!;
   await window.frameBench.complete({
     pass,
     skippedPhases,
@@ -806,6 +875,17 @@ async function run() {
     },
     psnr,
     improvements,
+    layerMeasurements: {
+      scaling: layerScaling,
+      zeroCopy,
+      coldAttribution: isSkipped(firstLayerScaling) ? firstLayerScaling : {
+        gpuInitializationMs: firstLayerScaling.gpuInitializationMs,
+        firstFrameMs: firstLayerScaling.coldFirstFrameMs,
+        steadyP50Ms: firstLayerScaling.steadyFrameMs.p50Ms,
+        decoderFirstFrameMs: isSkipped(zeroCopy) ? null : zeroCopy.decoderFirstFrameMs,
+        interpretation: 'GPU constructor, first decode, and steady-state frame wall are recorded independently; compare the three values to attribute the cold run.'
+      }
+    },
     outputs: {
       rawFfmpeg: isSkipped(raw)
         ? raw

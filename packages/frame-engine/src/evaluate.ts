@@ -5,7 +5,8 @@ import type {
   EvaluationPlan,
   FrameMetricsRecorder,
   NativeVideoFormat,
-  NativeYuvFrame
+  NativeYuvFrame,
+  StillImageBitmap
 } from './types.js';
 
 export interface EvaluationContext {
@@ -27,19 +28,36 @@ export async function evaluateFrame(
   context: EvaluationContext
 ): Promise<CompositedFrame> {
   const decoded: VideoFrame[] = [];
-  const native: NativeYuvFrame[] = [];
+  const baseNative: NativeYuvFrame[] = [];
+  const layerInputs: Array<NativeYuvFrame | StillImageBitmap> = [];
   try {
-    for (const layer of plan.layers) {
+    for (const layer of plan.base) {
       const decodeStarted = performance.now();
       const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: layer.id });
       context.metrics.record('decode', performance.now() - decodeStarted);
       decoded.push(frame);
       const copyStarted = performance.now();
-      native.push(await copyNativeYuvFrame(frame, context.metrics));
+      baseNative.push(await copyNativeYuvFrame(frame, context.metrics));
       context.metrics.record('copy', performance.now() - copyStarted);
     }
-    const surface = await context.compositor.compose(native, plan.output, context.metrics, plan);
-    const formats = native.map(frame => frame.format) as NativeVideoFormat[];
+    for (const layer of plan.layers) {
+      if (layer.kind === 'image') {
+        if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
+        layerInputs.push(await layer.image.load());
+        continue;
+      }
+      if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
+      const decodeStarted = performance.now();
+      const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: `layer-${layer.id}` });
+      context.metrics.record('decode', performance.now() - decodeStarted);
+      decoded.push(frame);
+      const copyStarted = performance.now();
+      layerInputs.push(await copyNativeYuvFrame(frame, context.metrics));
+      context.metrics.record('copy', performance.now() - copyStarted);
+    }
+    const surface = await context.compositor.compose(baseNative, layerInputs, plan.output, context.metrics, plan);
+    const formats = [...baseNative, ...layerInputs.filter((value): value is NativeYuvFrame => 'format' in value)]
+      .map(frame => frame.format) as NativeVideoFormat[];
     let closed = false;
     return {
       timeUs: plan.timeUs,

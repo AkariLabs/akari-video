@@ -6,7 +6,7 @@ test('FrameMetrics emits every detailed p50/p95 stage', () => {
   const metrics = new FrameMetrics();
   for (const stage of [
     'decode', 'tick', 'copy', 'copyTo', 'planeCompact', 'upload', 'shader', 'shaderGpu',
-    'readback', 'pboWait', 'rowFlip', 'sink', 'ipcWrite', 'ffmpegDrain', 'ffmpegClose'
+    'present', 'readback', 'pboWait', 'rowFlip', 'sink', 'ipcWrite', 'ffmpegDrain', 'ffmpegClose'
   ]) {
     metrics.record(stage, 1);
     metrics.record(stage, 3);

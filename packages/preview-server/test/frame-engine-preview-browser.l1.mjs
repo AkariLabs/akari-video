@@ -7,6 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import { resolveFfmpeg } from '../../media-bin/src/index.mjs';
+import { projectLegacyEdit, readInternalEdit } from '../../edit-store/lib/index.js';
 
 const headed = process.env.AKARI_FRAME_ENGINE_HEADED === '1';
 
@@ -112,7 +113,8 @@ test('real browser runs the cuts-only frame engine field project outside the par
 
     assert.equal(onRequests.some(url => url.endsWith('/frame-engine.bundle.js')), true);
     assert.equal(await page.locator('#frame-engine-canvas').count(), 1);
-    assert.match(await page.locator('#frame-engine-unsupported-banner').textContent(), /layers \/ overlays \/ 字幕 \/ 音声/u);
+    assert.match(await page.locator('#frame-engine-unsupported-banner').textContent(), /cuts \+ layers/u);
+    assert.doesNotMatch(await page.locator('#frame-engine-unsupported-banner').textContent(), /未対応: layers/u);
     assert.equal(await page.locator('#preview-video').evaluate(element => getComputedStyle(element).display), 'none');
     assert.deepEqual(await page.locator('#frame-engine-canvas').evaluate(canvas => [canvas.width, canvas.height]), [1280, 720]);
 
@@ -167,5 +169,205 @@ test('real browser runs the cuts-only frame engine field project outside the par
     await browser?.close();
     server.kill('SIGTERM');
     fs.rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test('real browser renders projected video and still layers in the frame engine evaluation surface', { timeout: 90_000 }, async t => {
+  let ffmpegPath;
+  try {
+    ffmpegPath = resolveFfmpeg();
+  } catch {
+    return t.skip('ffmpeg is unavailable for the deterministic layers fixture');
+  }
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-frame-engine-layers-'));
+  const withLayersProject = path.join(root, 'with-layers');
+  const withoutLayersProject = path.join(root, 'without-layers');
+  fs.mkdirSync(withLayersProject, { recursive: true });
+  fs.mkdirSync(withoutLayersProject, { recursive: true });
+
+  const generateVideo = (output, filter, duration = 6) => {
+    const result = spawnSync(ffmpegPath, [
+      '-hide_banner', '-loglevel', 'error',
+      '-f', 'lavfi', '-i', filter, '-t', String(duration),
+      '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18',
+      '-pix_fmt', 'yuv420p', '-g', '30', '-keyint_min', '30', '-sc_threshold', '0',
+      '-movflags', '+faststart', '-y', output,
+    ], { encoding: 'utf8', timeout: 30_000 });
+    if (result.status !== 0) throw new Error(`video fixture generation failed: ${result.stderr || `exit ${result.status}`}`);
+  };
+
+  try {
+    generateVideo(path.join(withLayersProject, 'source.mp4'), 'testsrc2=size=640x360:rate=30', 6);
+    generateVideo(path.join(withLayersProject, 'broll-a.mp4'), 'testsrc2=size=640x360:rate=30,hue=h=45*t:s=1', 4);
+    generateVideo(path.join(withLayersProject, 'broll-b.mp4'), 'mandelbrot=size=640x360:rate=30', 4);
+    const stillResult = spawnSync(ffmpegPath, [
+      '-hide_banner', '-loglevel', 'error', '-f', 'lavfi',
+      '-i', 'testsrc2=size=480x270:rate=1,drawgrid=w=48:h=27:t=3:c=yellow',
+      '-frames:v', '1', '-threads', '1', '-y', path.join(withLayersProject, 'still.png'),
+    ], { encoding: 'utf8', timeout: 30_000 });
+    if (stillResult.status !== 0) throw new Error(`still fixture generation failed: ${stillResult.stderr || `exit ${stillResult.status}`}`);
+
+    const edit = {
+      version: 2,
+      output: { width: 640, height: 360, fps: 30 },
+      sources: [
+        { id: 'main', path: 'source.mp4', proxy: null },
+        { id: 'broll-a', path: 'broll-a.mp4', proxy: null },
+        { id: 'broll-b', path: 'broll-b.mp4', proxy: null },
+        { id: 'still', path: 'still.png', proxy: null },
+      ],
+      tracks: [
+        {
+          id: 'base', lane: 'visual', items: [
+            { id: 'base-cut', at: 0, duration: 180, source: { kind: 'media', src: 'main', in: 0, out: 6 } },
+          ],
+        },
+        {
+          id: 'layer-a', lane: 'visual', items: [
+            {
+              id: 'crop-transform-layer', at: 30, duration: 60,
+              transform: { x: -130, y: -35, scale: 0.48, rotate: -7 },
+              crop: { x: 0.08, y: 0.1, w: 0.72, h: 0.76 },
+              opacity: 0.68,
+              source: { kind: 'media', src: 'broll-a', in: 0, out: 2 },
+            },
+          ],
+        },
+        {
+          id: 'layer-b', lane: 'visual', items: [
+            {
+              id: 'keyframed-blend-layer', at: 60, duration: 75,
+              transform: { x: 125, y: 25, scale: 0.44, rotate: 5 },
+              blend: 'screen',
+              keyframes: [
+                { t: 0, transform: { x: 125, y: 25, scale: 0.44, rotate: 5 } },
+                { t: 60, transform: { x: 40, y: -45, scale: 0.62, rotate: -12 }, easing: 'ease-in-out' },
+              ],
+              source: { kind: 'media', src: 'broll-b', in: 0, out: 2.5 },
+            },
+          ],
+        },
+        {
+          id: 'layer-still', lane: 'visual', items: [
+            {
+              id: 'still-layer', at: 90, duration: 60,
+              transform: { x: 0, y: 45, scale: 0.5, rotate: 3 },
+              opacity: 0.72,
+              source: { kind: 'media', src: 'still', in: 0, out: 2 },
+            },
+          ],
+        },
+      ],
+    };
+    const projected = projectLegacyEdit(readInternalEdit(edit));
+    assert.deepEqual(
+      projected.layers.map(layer => layer.id).sort(),
+      ['crop-transform-layer', 'keyframed-blend-layer', 'still-layer'],
+    );
+
+    const noLayersEdit = { ...edit, tracks: [edit.tracks[0]] };
+    fs.writeFileSync(path.join(withLayersProject, 'edit.json'), JSON.stringify(edit, null, 2));
+    fs.writeFileSync(path.join(withoutLayersProject, 'edit.json'), JSON.stringify(noLayersEdit, null, 2));
+    for (const name of ['source.mp4', 'broll-a.mp4', 'broll-b.mp4', 'still.png']) {
+      fs.copyFileSync(path.join(withLayersProject, name), path.join(withoutLayersProject, name));
+    }
+
+    let withPort;
+    let withoutPort;
+    try {
+      withPort = await freePort();
+      withoutPort = await freePort();
+    } catch (error) {
+      if (error?.code === 'EPERM') return t.skip('local listen is unavailable in this sandbox');
+      throw error;
+    }
+
+    const previewDirectory = path.resolve(import.meta.dirname, '..');
+    const withServer = spawn('node', ['src/server.mjs', withLayersProject, '--port', String(withPort), '--no-lint'], {
+      cwd: previewDirectory, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const withoutServer = spawn('node', ['src/server.mjs', withoutLayersProject, '--port', String(withoutPort), '--no-lint'], {
+      cwd: previewDirectory, stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let browser;
+    try {
+      const withBase = `http://127.0.0.1:${withPort}`;
+      const withoutBase = `http://127.0.0.1:${withoutPort}`;
+      await Promise.all([
+        waitForServer(`${withBase}/api/codec-info`),
+        waitForServer(`${withoutBase}/api/codec-info`),
+      ]);
+      browser = await chromium.launch({ headless: true });
+      const context = await browser.newContext({ viewport: { width: 960, height: 540 } });
+      const withPage = await context.newPage();
+      const withoutPage = await context.newPage();
+      const withErrors = [];
+      const withoutErrors = [];
+      withPage.on('pageerror', error => withErrors.push(error.message));
+      withoutPage.on('pageerror', error => withoutErrors.push(error.message));
+      await Promise.all([
+        withPage.goto(`${withBase}/?frameEngine=1`, { waitUntil: 'load' }),
+        withoutPage.goto(`${withoutBase}/?frameEngine=1`, { waitUntil: 'load' }),
+      ]);
+      await Promise.all([
+        withPage.waitForSelector('#frame-engine-preview[data-frame-engine-ready="true"]', { timeout: 25_000 }),
+        withoutPage.waitForSelector('#frame-engine-preview[data-frame-engine-ready="true"]', { timeout: 25_000 }),
+      ]);
+
+      const banner = await withPage.locator('#frame-engine-unsupported-banner').textContent();
+      assert.match(banner, /cuts \+ layers/u);
+      assert.doesNotMatch(banner, /未対応: layers/u);
+
+      const seekCanvas = async (page, seconds) => {
+        await page.locator('#seek').evaluate((input, next) => {
+          input.value = String(next);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }, seconds);
+        await page.waitForTimeout(700);
+        return page.locator('#frame-engine-canvas').evaluate(canvas => canvas.toDataURL());
+      };
+
+      const outsideCanvas = await seekCanvas(withPage, 0.3);
+      const videoLayerCanvas = await seekCanvas(withPage, 1.5);
+      const withoutLayerCanvas = await seekCanvas(withoutPage, 1.5);
+      assert.notEqual(videoLayerCanvas, outsideCanvas, 'layer window did not differ from the outside window');
+      assert.notEqual(videoLayerCanvas, withoutLayerCanvas, 'layers-on and layers-empty projects matched at the same time');
+
+      await seekCanvas(withPage, 3.5);
+      assert.equal(await withPage.locator('#frame-engine-error').isHidden(), true);
+      assert.deepEqual(withErrors, []);
+
+      const rapidSeeks = Array.from({ length: 30 }, (_unused, index) => 0.15 + ((index * 0.41) % 5.2));
+      for (const value of rapidSeeks) {
+        await withPage.locator('#seek').evaluate((input, next) => {
+          input.value = String(next);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }, value);
+      }
+      await withPage.waitForTimeout(900);
+      const seekMs = await withPage.locator('#frame-engine-metrics').getAttribute('data-seek-ms');
+      assert.ok(typeof seekMs === 'string' && /^\d+(?:\.\d+)?$/u.test(seekMs), `seek metric was ${seekMs}`);
+
+      await seekCanvas(withPage, 0.2);
+      const playbackStart = Number(await withPage.locator('#seek').inputValue());
+      const canvasBeforePlayback = await withPage.locator('#frame-engine-canvas').evaluate(canvas => canvas.toDataURL());
+      await withPage.click('#play-toggle');
+      await withPage.waitForTimeout(1_200);
+      const playbackEnd = Number(await withPage.locator('#seek').inputValue());
+      const canvasAfterPlayback = await withPage.locator('#frame-engine-canvas').evaluate(canvas => canvas.toDataURL());
+      assert.ok(playbackEnd > playbackStart + 0.4, `playback clock did not advance: ${playbackStart} -> ${playbackEnd}`);
+      assert.notEqual(canvasAfterPlayback, canvasBeforePlayback, 'layer project playback did not change the canvas');
+      assert.equal(await withPage.locator('#frame-engine-error').isHidden(), true);
+      assert.deepEqual(withErrors, []);
+      assert.deepEqual(withoutErrors, []);
+      await context.close();
+    } finally {
+      await browser?.close();
+      withServer.kill('SIGTERM');
+      withoutServer.kill('SIGTERM');
+    }
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
   }
 });

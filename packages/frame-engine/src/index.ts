@@ -1,6 +1,7 @@
 export * from './types.js';
 export * from './evaluate.js';
 export * from './timeline/plan.js';
+export * from './timeline/layer-visual.js';
 export * from './compositor/backend.js';
 export * from './compositor/webgl2.js';
 export * from './decode/native-yuv.js';
@@ -8,6 +9,7 @@ export * from './decode/clip-session.js';
 export * from './decode/clip-session-pool.js';
 export * from './decode/keyframe-index.js';
 export * from './decode/guard.js';
+export * from './decode/still-image.js';
 export * from './cache/lookahead-cache.js';
 export * from './cache/lookahead-source.js';
 export * from './cache/warmup-manager.js';

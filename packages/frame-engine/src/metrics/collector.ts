@@ -18,6 +18,7 @@ const STAGES: readonly FrameMetricStage[] = [
   'upload',
   'shader',
   'shaderGpu',
+  'present',
   'readback',
   'pboWait',
   'rowFlip',

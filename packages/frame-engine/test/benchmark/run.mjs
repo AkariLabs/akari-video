@@ -138,4 +138,19 @@ assert.ok(results.improvements[0].beforeMs > 0);
 assert.ok(results.improvements[0].afterMs > 0);
 assert.equal(results.improvements[0].samples.length, repeatCount);
 assert.equal(typeof results.improvements[0].evidence, 'string');
+assert.equal(results.layerMeasurements.scaling.length, 4);
+for (const [index, value] of results.layerMeasurements.scaling.entries()) {
+  if (value.skipped) continue;
+  assert.equal(value.count, [0, 1, 3, 5][index]);
+  assert.equal(value.frames, 30);
+  for (const stage of ['decode', 'upload', 'shaderGpu', 'present']) {
+    assert.ok(value.stages[stage].count > 0);
+    assert.ok(value.stages[stage].p50Ms != null);
+    assert.ok(value.stages[stage].p95Ms != null);
+  }
+}
+if (!results.layerMeasurements.zeroCopy.skipped) {
+  assert.ok(results.layerMeasurements.zeroCopy.copyToPlanesMs > 0);
+  assert.ok(results.layerMeasurements.zeroCopy.directVideoFrameTexImageMs > 0);
+}
 process.stdout.write(`cuts benchmark PASS: v2/render-cut=${results.ratio.v2ToRenderCut.toFixed(3)}\n`);

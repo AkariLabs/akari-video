@@ -9,6 +9,7 @@ export type FrameMetricStage =
   | 'upload'
   | 'shader'
   | 'shaderGpu'
+  | 'present'
   | 'readback'
   | 'pboWait'
   | 'rowFlip'
@@ -48,6 +49,17 @@ export interface NativeFrameSource {
   ): Promise<VideoFrame>;
 }
 
+export interface StillImageBitmap {
+  readonly bitmap: ImageBitmap;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface StillImageSource {
+  load(): Promise<StillImageBitmap>;
+  destroy(): void;
+}
+
 export interface ResolvedFraming {
   /** Normalized source window after the source has been fitted to the output canvas. */
   x: number;
@@ -77,6 +89,34 @@ export interface ResolvedVideoLayer {
   visual: ResolvedCutVisual;
 }
 
+export interface ResolvedLayerVisual {
+  crop: { x: number; y: number; width: number; height: number };
+  perspective: { corners: readonly (readonly [number, number])[] } | null;
+  transform: { x: number; y: number; scale: number; rotateDegrees: number };
+}
+
+export type ResolvedLayerBlendMode =
+  | 'normal' | 'screen' | 'multiply' | 'add' | 'difference'
+  | 'darken' | 'lighten' | 'overlay' | 'hardlight' | 'softlight';
+
+export interface ResolvedLayerMask {
+  kind: 'greyscale';
+  source: NativeFrameSource;
+  sourceTimeUs: TimelineTimeUs;
+}
+
+export interface ResolvedCompositeLayer {
+  id: string;
+  kind: 'video' | 'image';
+  source?: NativeFrameSource;
+  sourceTimeUs?: TimelineTimeUs;
+  image?: StillImageSource;
+  mask: ResolvedLayerMask | null;
+  visual: ResolvedLayerVisual;
+  blend: ResolvedLayerBlendMode;
+  opacity: number;
+}
+
 export interface ResolvedTransition {
   type: 'hard-cut' | 'dissolve' | 'fade-black' | 'fade-white' | 'reveal-down' | 'reveal-up';
   progress: number;
@@ -84,7 +124,8 @@ export interface ResolvedTransition {
 
 export interface EvaluationPlan {
   timeUs: TimelineTimeUs;
-  layers: readonly ResolvedVideoLayer[];
+  base: readonly ResolvedVideoLayer[];
+  layers: readonly ResolvedCompositeLayer[];
   transition?: ResolvedTransition;
   output: {
     width: number;
@@ -116,7 +157,8 @@ export interface RawFrameSink {
 export interface CompositorBackend {
   readonly kind: 'webgl2';
   compose(
-    frames: readonly NativeYuvFrame[],
+    base: readonly NativeYuvFrame[],
+    layers: readonly (NativeYuvFrame | StillImageBitmap)[],
     output: EvaluationPlan['output'],
     metrics: FrameMetricsRecorder,
     plan: EvaluationPlan

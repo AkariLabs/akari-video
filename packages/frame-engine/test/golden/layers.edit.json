@@ -1,0 +1,78 @@
+{
+  "cuts": [
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 6 }
+  ],
+  "layers": [
+    {
+      "id": "static-crop", "t": 0, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4",
+      "crop": { "x": 0.12, "y": 0.08, "w": 0.62, "h": 0.72 }
+    },
+    {
+      "id": "static-perspective", "t": 3, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4",
+      "perspective": { "corners": [[0.08,0.04],[0.92,0.14],[0.0,0.96],[1.0,0.82]] }
+    },
+    {
+      "id": "keyframes-transform", "t": 6, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4",
+      "keyframes": [
+        { "t": 0, "transform": { "x": -38, "y": 24, "scale": 0.58, "rotate": -14 } },
+        { "t": 2, "transform": { "x": 34, "y": -20, "scale": 0.86, "rotate": 19 } }
+      ]
+    },
+    {
+      "id": "keyframes-crop", "t": 9, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4",
+      "keyframes": [
+        { "t": 0, "crop": { "x": 0.02, "y": 0.04, "w": 0.9, "h": 0.88 } },
+        { "t": 2, "crop": { "x": 0.24, "y": 0.12, "w": 0.58, "h": 0.7 } }
+      ]
+    },
+    {
+      "id": "keyframes-perspective", "t": 12, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4",
+      "keyframes": [
+        { "t": 0, "perspective": { "corners": [[0,0],[1,0],[0,1],[1,1]] } },
+        { "t": 2, "perspective": { "corners": [[0.14,0.08],[0.88,0.02],[0.02,0.9],[1,1]] }, "easing": "ease-in-out" }
+      ]
+    },
+    {
+      "id": "blend-screen", "t": 15, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4", "blend": "screen"
+    },
+    {
+      "id": "blend-multiply", "t": 18, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4", "blend": "multiply"
+    },
+    {
+      "id": "opacity", "t": 21, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4", "opacity": 0.42
+    },
+    {
+      "id": "still", "t": 24, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/still.png"
+    },
+    {
+      "id": "stack-back", "t": 27, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4",
+      "transform": { "x": -55, "y": -24, "scale": 0.52, "rotate": -6 }
+    },
+    {
+      "id": "stack-middle", "t": 27, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4",
+      "transform": { "x": 48, "y": 14, "scale": 0.46, "rotate": 8 }, "opacity": 0.75
+    },
+    {
+      "id": "stack-front", "t": 27, "duration": 2.5, "kind": "video",
+      "src": "frame-engine://fixture/source-b.mp4",
+      "crop": { "x": 0.08, "y": 0.08, "w": 0.76, "h": 0.8 },
+      "transform": { "x": 4, "y": 38, "scale": 0.34, "rotate": 2 }
+    }
+  ]
+}
