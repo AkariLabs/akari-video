@@ -1,5 +1,6 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, OpenHandler, WebSocketConnectionProvider } from '@theia/core/lib/browser';
+import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import { FileResourceResolver } from '@theia/filesystem/lib/browser/file-resource';
 import { AkariPreviewService, AKARI_PREVIEW_SERVICE_PATH } from '../common/akari-preview-protocol';
 import { AkariAudioOpenHandler } from './akari-audio-open-handler';
@@ -24,4 +25,16 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
     bind(OpenHandler).toService(AkariImageOpenHandler);
     bind(FrontendApplicationContribution).toService(AkariPreviewOpenHandler);
     bind(FrontendApplicationContribution).toService(AkariAudioOpenHandler);
+    bind(PreferenceContribution).toConstantValue({
+        schema: {
+            type: 'object',
+            properties: {
+                'akari.preview.frameEngine': {
+                    type: 'boolean',
+                    default: false,
+                    description: 'frame-engine のプレビュー評価台を使います（実験・cuts のみ・既定オフ）。'
+                }
+            }
+        }
+    });
 });

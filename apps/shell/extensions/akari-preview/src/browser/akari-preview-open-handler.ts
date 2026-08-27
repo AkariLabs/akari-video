@@ -2,6 +2,8 @@ import URI from '@theia/core/lib/common/uri';
 import { Command, CommandRegistry, MessageService } from '@theia/core/lib/common';
 import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { Disposable, DisposableCollection } from '@theia/core/lib/common/disposable';
+import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
+import { PreferenceService } from '@theia/core/lib/common/preferences';
 import {
     ApplicationShell,
     FrontendApplicationContribution,
@@ -858,6 +860,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly lifecycleDisposables = new DisposableCollection();
     /** バックエンドでプロセス寿命中不変の約 13MB ランタイム資産を、frontend でも RPC 1 回に畳む。 */
     protected overlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssets> | undefined;
+    /** frame-engine 込みは巨大かつ既定オフなので、通常資産とは別の RPC キャッシュにする。 */
+    protected frameEngineOverlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssets> | undefined;
+    /** 環境変数はセッション中に変わらないため、backend RPC は最初の 1 回だけにする。 */
+    protected frameEngineEnvOverridePromise: Promise<string | undefined> | undefined;
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
     protected readonly reviewSessionStateByEdit = new Map<string, ReviewSessionUiState>();
@@ -889,6 +895,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 
     @inject(OpenerService)
     protected readonly openerService: OpenerService;
+
+    @inject(PreferenceService)
+    protected readonly preferences: PreferenceService;
+
+    @inject(EnvVariablesServer)
+    protected readonly envVariables: EnvVariablesServer;
 
     onStart(): void {
         this.reviewSessionRecordingIndicator = new ReviewSessionRecordingIndicator();
@@ -2619,7 +2631,19 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return this.replacePreviewAssetUrls(model.summary, replacements) as EditSummary;
     }
 
-    protected getOverlayRuntimeAssets(): Promise<OverlayRuntimeAssets> {
+    protected getOverlayRuntimeAssets(includeFrameEngine = false): Promise<OverlayRuntimeAssets> {
+        if (includeFrameEngine) {
+            if (!this.frameEngineOverlayRuntimeAssetsPromise) {
+                const cached = this.previewService.getOverlayRuntimeAssets({ includeFrameEngine: true }).catch(error => {
+                    if (this.frameEngineOverlayRuntimeAssetsPromise === cached) {
+                        this.frameEngineOverlayRuntimeAssetsPromise = undefined;
+                    }
+                    throw error;
+                });
+                this.frameEngineOverlayRuntimeAssetsPromise = cached;
+            }
+            return this.frameEngineOverlayRuntimeAssetsPromise;
+        }
         if (!this.overlayRuntimeAssetsPromise) {
             const cached = this.previewService.getOverlayRuntimeAssets().catch(error => {
                 if (this.overlayRuntimeAssetsPromise === cached) {
@@ -2630,6 +2654,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.overlayRuntimeAssetsPromise = cached;
         }
         return this.overlayRuntimeAssetsPromise;
+    }
+
+    protected async resolveFrameEngineEnabled(): Promise<boolean> {
+        this.frameEngineEnvOverridePromise ??= this.envVariables.getValue('AKARI_FRAME_ENGINE')
+            .then(variable => variable?.value?.trim().toLowerCase());
+        const override = await this.frameEngineEnvOverridePromise;
+        if (override === '1' || override === 'true') return true;
+        if (override === '0' || override === 'false') return false;
+        return this.preferences.get<boolean>('akari.preview.frameEngine', false);
     }
 
     protected async refreshPreview(
@@ -2643,12 +2676,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         if (widget.isDisposed) {
             return;
         }
+        // raw は edit タイムラインを持たない素材単体プレビューなので、cuts 評価台の対象にしない。
+        const frameEngineEnabled = kind === 'output' && await this.resolveFrameEngineEnabled();
         const [model, assets] = await Promise.all([
             kind === 'output' ? this.loadPreviewModel(identityUri, editSource) : this.loadRawPreviewModel(identityUri),
-            this.getOverlayRuntimeAssets()
+            this.getOverlayRuntimeAssets(frameEngineEnabled)
         ]);
         const nextSnapshot = this.previewModelSnapshot(model, assets);
-        if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
+        // frame-engine 評価台は host からの model-update メッセージを読まないため、
+        // 差分更新では古い絵が残る。有効時は必ず新しい summary で HTML を組み直す。
+        if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot && !frameEngineEnabled) {
             const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
             if (updateKind === 'none') {
                 widget.sendMessage({
@@ -2915,7 +2952,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             imageSourceUrlById,
             primaryIsStillImage,
             kind,
-            reloadNotice
+            reloadNotice,
+            frameEngineEnabled
         ));
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
@@ -4569,12 +4607,20 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         imageSourceUrlById: Record<string, string> = {},
         primaryIsStillImage = false,
         kind: 'raw' | 'output' = 'output',
-        reloadNotice = false
+        reloadNotice = false,
+        frameEngineEnabled = false
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
             ? `<script>${this.inlineScript(assets.threeTextJavaScript)}</script>\n`
             : '';
+        const frameEngineScripts = frameEngineEnabled && assets.frameEngineJavaScript
+            ? `<script>${this.inlineScript(assets.frameEngineJavaScript)}</script>\n<script>${this.frameEngineBootstrapScript()}</script>\n`
+            : '';
+        // frame-engine の素材デコード（av-cliper / MP4Clip）は OPFS ファイルストアと
+        // タイマーを blob / data URL の Worker で動かす。既定 CSP では生成を拒否されるため、
+        // 評価台を有効にしたときだけ worker-src を開ける。
+        const frameEngineCsp = frameEngineScripts ? '; worker-src blob: data:' : '';
         // render-cut captions.mjs の既定とパリティ（stage は出力 px 論理空間）:
         // 縦長 = 出力幅 6% / 横長 = 38px。従来の height*0.05 は焼き込みよりも大きく表示される乖離だった。
         const captionFontSize = height > width ? Math.round(width * 0.06) : 38;
@@ -4620,7 +4666,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(this.streamOrigin(videoSource))}; connect-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob:; img-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob: data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(this.streamOrigin(videoSource))}; connect-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob:; img-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob: data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:${frameEngineCsp}">
 <style>
 ${this.inlineStyle(assets.interactionCss)}
 ${captionFontFaceCss(assets.captionFontDataUri)}
@@ -4908,7 +4954,7 @@ ${threeTextRuntimeScript}<script>${this.inlineScript(assets.threeRuntimeJavaScri
 <script>${this.inlineScript(assets.interactionJavaScript)}</script>
 <script>${this.inlineScript(assets.webviewKernelJavaScript)}</script>
 <script>${this.previewBootstrapScript()}</script>
-</body>
+${frameEngineScripts}</body>
 </html>`;
     }
 
@@ -5759,6 +5805,403 @@ body { display: grid; place-items: center; padding: 32px; }
                 syncRawStageToVideo();
             }
             updateStageScale();
+        })();`;
+    }
+
+    protected frameEngineBootstrapScript(): string {
+        return `(() => {
+            const initial = window.__akariPreview || {};
+            const summary = initial.summary || {};
+            const engine = window.AkariFrameEngine;
+            const stage = document.getElementById('preview-stage');
+            if (!engine || !stage) {
+                console.warn('[frame-engine] 評価台の初期化に必要な runtime または stage がありません');
+                return;
+            }
+
+            // summary.cuts は表示用の派生配置を含む。逐次 cuts へ戻すことで freeze による
+            // 尺の伸長と transition の重なりを frame-engine 自身に再計算させる。
+            const normalizedCuts = (Array.isArray(summary.cuts) ? summary.cuts : []).map((cut, index) => {
+                const {
+                    at: _derivedAt,
+                    track: _derivedTrack,
+                    trackId: _derivedTrackId,
+                    renderTrack: _derivedRenderTrack,
+                    ...sequential
+                } = cut;
+                return {
+                    ...sequential,
+                    src: cut.src || 'default',
+                    in: Number(cut.in || 0),
+                    out: Number(cut.out == null ? cut.in || 0 : cut.out),
+                    transition_out: cut.transition_out || cut.transitionOut,
+                    id: cut.id || 'cut-' + index
+                };
+            });
+
+            for (const child of Array.from(stage.children)) {
+                child.style.display = 'none';
+            }
+            for (const id of ['preview-video', 'standby-video', 'transition-video']) {
+                const media = document.getElementById(id);
+                if (!media) continue;
+                media.pause();
+                media.muted = true;
+                media.removeAttribute('src');
+                media.load();
+            }
+            const legacyTransport = document.querySelector('.transport');
+            if (legacyTransport) legacyTransport.style.display = 'none';
+
+            const root = document.createElement('div');
+            root.id = 'frame-engine-preview';
+            root.dataset.frameEngineReady = 'false';
+            Object.assign(root.style, {
+                position: 'absolute', inset: '0', zIndex: '1', background: '#000'
+            });
+
+            const canvas = document.createElement('canvas');
+            canvas.id = 'frame-engine-canvas';
+            canvas.setAttribute('aria-label', 'Frame engine canvas preview');
+            Object.assign(canvas.style, {
+                width: '100%', height: '100%', display: 'block', objectFit: 'contain'
+            });
+
+            const banner = document.createElement('div');
+            banner.id = 'frame-engine-unsupported-banner';
+            banner.setAttribute('role', 'status');
+            banner.textContent = 'Frame engine 評価台（cuts のみ）— 未対応: layers / overlays / 字幕 / 音声';
+            Object.assign(banner.style, {
+                position: 'absolute', left: '8px', top: '8px', maxWidth: 'calc(100% - 270px)',
+                padding: '5px 8px', border: '1px solid rgba(255,209,102,.65)', borderRadius: '4px',
+                background: 'rgba(30,24,8,.88)', color: '#ffd166',
+                font: '11px/1.45 system-ui,sans-serif'
+            });
+
+            const metrics = document.createElement('div');
+            metrics.id = 'frame-engine-metrics';
+            Object.assign(metrics.style, {
+                position: 'absolute', right: '8px', top: '8px', minWidth: '250px', padding: '7px 9px',
+                border: '1px solid rgba(116,192,252,.65)', borderRadius: '4px',
+                background: 'rgba(4,12,20,.88)', color: '#d8efff',
+                font: '11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace', whiteSpace: 'pre'
+            });
+
+            const error = document.createElement('div');
+            error.id = 'frame-engine-error';
+            error.hidden = true;
+            Object.assign(error.style, {
+                position: 'absolute', inset: '40% 10% auto', padding: '12px', borderRadius: '6px',
+                background: 'rgba(80,0,0,.9)', color: '#fff', textAlign: 'center'
+            });
+
+            const transport = document.createElement('div');
+            Object.assign(transport.style, {
+                position: 'absolute', left: '12px', right: '12px', bottom: '12px', display: 'grid',
+                gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '10px', padding: '8px 10px',
+                borderRadius: '6px', background: 'rgba(4,12,20,.9)', color: '#fff',
+                font: '12px/1.4 system-ui,sans-serif'
+            });
+            const play = document.createElement('button');
+            play.id = 'frame-engine-play';
+            play.type = 'button';
+            play.textContent = '再生';
+            const seek = document.createElement('input');
+            seek.id = 'frame-engine-seek';
+            seek.type = 'range';
+            seek.min = '0';
+            seek.value = '0';
+            const time = document.createElement('span');
+            time.id = 'frame-engine-time';
+            time.textContent = '0:00 / 0:00';
+            transport.append(play, seek, time);
+            root.append(canvas, banner, metrics, error, transport);
+            stage.append(root);
+
+            const measurements = {
+                presentedAt: [], lateFrames: 0, renderErrors: 0, seekLatestMs: null,
+                seekBeforeMs: [], seekAfterMs: [],
+                boundaryBefore: { total: 0, late: 0 },
+                boundaryAfter: { total: 0, late: 0 }, warmupMs: []
+            };
+            const percentile = values => {
+                if (values.length === 0) return null;
+                const sorted = [...values].sort((left, right) => left - right);
+                return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.5))];
+            };
+            const formatMetric = value => value == null ? '—' : value.toFixed(1);
+            const updateMetrics = () => {
+                const before = percentile(measurements.seekBeforeMs);
+                const after = percentile(measurements.seekAfterMs);
+                const presentedFps = measurements.presentedAt.length;
+                metrics.dataset.fps = String(presentedFps);
+                metrics.dataset.lateFrames = String(measurements.lateFrames);
+                metrics.dataset.renderErrors = String(measurements.renderErrors);
+                metrics.dataset.seekMs = measurements.seekLatestMs == null
+                    ? '' : measurements.seekLatestMs.toFixed(3);
+                metrics.dataset.seekBeforeMs = before == null ? '' : before.toFixed(3);
+                metrics.dataset.seekAfterMs = after == null ? '' : after.toFixed(3);
+                metrics.dataset.boundaryLateBefore = measurements.boundaryBefore.late
+                    + '/' + measurements.boundaryBefore.total;
+                metrics.dataset.boundaryLateAfter = measurements.boundaryAfter.late
+                    + '/' + measurements.boundaryAfter.total;
+                metrics.textContent = [
+                    'fps (presented/1s)  ' + presentedFps,
+                    'late frame          ' + measurements.lateFrames,
+                    'seek reach latest   ' + formatMetric(measurements.seekLatestMs) + ' ms',
+                    'seek before (cold)  ' + formatMetric(before) + ' ms',
+                    'seek after (cache)  ' + formatMetric(after) + ' ms',
+                    'boundary late       before ' + measurements.boundaryBefore.late
+                        + '/' + measurements.boundaryBefore.total,
+                    '                    after  ' + measurements.boundaryAfter.late
+                        + '/' + measurements.boundaryAfter.total,
+                    'warmup median       ' + formatMetric(percentile(measurements.warmupMs)) + ' ms',
+                    'render error       ' + measurements.renderErrors
+                ].join('\\n');
+            };
+            const showError = (value, fatal) => {
+                const message = value instanceof Error ? value.message : String(value);
+                if (fatal) {
+                    measurements.renderErrors += 1;
+                    updateMetrics();
+                    error.hidden = false;
+                    error.textContent = 'Frame engine: ' + message;
+                } else {
+                    console.warn('[frame-engine] ' + message);
+                }
+            };
+
+            void (async () => {
+                const fps = Number(summary.output && summary.output.fps) > 0
+                    ? Number(summary.output.fps) : 30;
+                const sourceUrls = new Map(Object.entries(initial.videoSources || {}));
+                const pools = new Map();
+                const lookahead = new Map();
+                let currentAccesses = null;
+                for (const [id, url] of sourceUrls) {
+                    const pool = new engine.ClipSessionPool(id, url, {
+                        onWarning: message => showError(message, false)
+                    });
+                    const source = new engine.LookaheadFrameSource(pool, {
+                        fps,
+                        capacity: 12,
+                        onAccess: access => {
+                            if (currentAccesses) currentAccesses.push(access);
+                        }
+                    });
+                    pools.set(id, pool);
+                    lookahead.set(id, source);
+                }
+
+                const timeline = engine.buildResolvedTimelinePlan(normalizedCuts);
+                const totalDuration = timeline.totalDuration;
+                const output = {
+                    width: Number(summary.output && summary.output.width) > 0
+                        ? Number(summary.output.width) : 1280,
+                    height: Number(summary.output && summary.output.height) > 0
+                        ? Number(summary.output.height) : 720,
+                    colorSpace: 'bt709-limited'
+                };
+                // 可視 canvas を WebGL2Compositor が直接所有する。毎フレームの 2D 読み戻しは行わない。
+                const compositor = new engine.WebGL2Compositor(canvas, { synchronization: 'flush' });
+                const frameMetrics = new engine.FrameMetrics();
+                const warmup = new engine.WarmupManager(1.5);
+                const warmedStreams = new Set();
+                const warmupRequests = new Set();
+                let rendering = null;
+                let lastPlaybackFrame = -1;
+                let lastCutIndex = null;
+                let disposed = false;
+                let scrub;
+
+                const waitForRender = async () => {
+                    if (rendering) await rendering;
+                };
+                const prefetch = timeUs => {
+                    for (let offset = 1; offset <= 3; offset += 1) {
+                        const futureUs = Math.min(
+                            Math.round(totalDuration * 1e6),
+                            timeUs + Math.round(offset * 1e6 / fps)
+                        );
+                        const plan = engine.evaluationPlanFromResolvedTimeline(
+                            timeline, futureUs, lookahead, output
+                        );
+                        for (const layer of plan.layers) {
+                            const placement = timeline.cuts[Number(layer.id.replace('cut-', ''))];
+                            const source = placement && lookahead.get(placement.cut.src);
+                            if (source) {
+                                void source.prefetch(layer.sourceTimeUs, { streamId: layer.id })
+                                    .catch(() => undefined);
+                            }
+                        }
+                    }
+                };
+                const scheduleWarmup = seconds => {
+                    const nextIndex = timeline.cuts.findIndex(placement => placement.at > seconds);
+                    if (nextIndex < 0) return;
+                    const next = timeline.cuts[nextIndex];
+                    const secondsToBoundary = next.at - seconds;
+                    if (secondsToBoundary > 1.5) return;
+                    const streamId = 'cut-' + nextIndex;
+                    if (warmupRequests.has(streamId)) return;
+                    const pool = pools.get(next.cut.src);
+                    if (!pool) return;
+                    warmupRequests.add(streamId);
+                    void pool.getSession(streamId).then(session => {
+                        warmup.maybeWarmup(
+                            secondsToBoundary,
+                            session,
+                            Math.round(Number(next.cut.in || 0) * 1e6),
+                            (_clipId, elapsedMs) => {
+                                warmedStreams.add(streamId);
+                                measurements.warmupMs.push(elapsedMs);
+                                updateMetrics();
+                            }
+                        );
+                    }).catch(reason => showError('warmup: ' + String(reason), false));
+                };
+                const renderFrame = async (seconds, reason, requestedAt = performance.now()) => {
+                    if (disposed) return;
+                    const timeUs = Math.round(Math.max(0, Math.min(seconds, totalDuration)) * 1e6);
+                    const plan = engine.evaluationPlanFromResolvedTimeline(timeline, timeUs, lookahead, output);
+                    if (plan.layers.length === 0) return;
+                    currentAccesses = [];
+                    const started = performance.now();
+                    let frame;
+                    try {
+                        frame = await engine.evaluateFrame(plan, { compositor, metrics: frameMetrics });
+                    } finally {
+                        if (frame) frame.close();
+                    }
+                    const late = performance.now() - started > 1000 / fps;
+                    if (late) measurements.lateFrames += 1;
+                    const cutIndex = Number(plan.layers[0] && plan.layers[0].id.replace('cut-', ''));
+                    if (Number.isInteger(cutIndex) && cutIndex !== lastCutIndex) {
+                        const streamId = 'cut-' + cutIndex;
+                        const bucket = warmedStreams.has(streamId)
+                            ? measurements.boundaryAfter : measurements.boundaryBefore;
+                        bucket.total += 1;
+                        if (late) bucket.late += 1;
+                        lastCutIndex = cutIndex;
+                    }
+                    if (reason === 'seek') {
+                        const reached = performance.now() - requestedAt;
+                        measurements.seekLatestMs = reached;
+                        const allHit = currentAccesses.length > 0
+                            && currentAccesses.every(access => access.hit);
+                        (allHit ? measurements.seekAfterMs : measurements.seekBeforeMs).push(reached);
+                    }
+                    const presented = performance.now();
+                    measurements.presentedAt.push(presented);
+                    measurements.presentedAt = measurements.presentedAt
+                        .filter(value => value >= presented - 1000);
+                    prefetch(timeUs);
+                    scheduleWarmup(timeUs / 1e6);
+                    currentAccesses = null;
+                    updateMetrics();
+                    // エラー面は履歴ではなく現在の描画状態を表す。次のフレームが成功したら消し、
+                    // 過去に回復したエラーの事実は metrics の累計だけへ残す。
+                    error.hidden = true;
+                    error.textContent = '';
+                };
+
+                scrub = new engine.ScrubController(Math.min(24, 1000 / fps), async (frameNumber, generation) => {
+                    const started = performance.now();
+                    await waitForRender();
+                    if (scrub.isStale(generation) || disposed) return;
+                    const operation = renderFrame(frameNumber / fps, 'seek', started)
+                        .catch(reason => showError(reason, true));
+                    rendering = operation;
+                    try {
+                        await operation;
+                    } finally {
+                        if (rendering === operation) rendering = null;
+                    }
+                });
+                const requestSeek = seconds => {
+                    const clamped = Math.max(0, Math.min(seconds, totalDuration));
+                    scrub.requestScrub(Math.round(clamped * fps));
+                };
+                const renderPlayback = seconds => {
+                    const frameNumber = Math.round(seconds * fps);
+                    if (frameNumber === lastPlaybackFrame) return;
+                    lastPlaybackFrame = frameNumber;
+                    if (rendering) {
+                        measurements.lateFrames += 1;
+                        updateMetrics();
+                        return;
+                    }
+                    const operation = renderFrame(frameNumber / fps, 'playback')
+                        .catch(reason => showError(reason, true));
+                    rendering = operation;
+                    void operation.finally(() => {
+                        if (rendering === operation) rendering = null;
+                    });
+                };
+                const formatTime = seconds => {
+                    const whole = Math.max(0, Math.floor(seconds));
+                    return Math.floor(whole / 60) + ':' + String(whole % 60).padStart(2, '0');
+                };
+                let position = 0;
+                let playing = false;
+                let playAnchorMs = 0;
+                let playAnchorPosition = 0;
+                const updateTransport = () => {
+                    seek.value = String(position);
+                    time.textContent = formatTime(position) + ' / ' + formatTime(totalDuration);
+                    play.textContent = playing ? '一時停止' : '再生';
+                };
+                const setPlaying = next => {
+                    playing = next && position < totalDuration;
+                    playAnchorMs = performance.now();
+                    playAnchorPosition = position;
+                    updateTransport();
+                };
+
+                seek.max = String(totalDuration);
+                seek.step = String(1 / fps);
+                seek.addEventListener('input', () => {
+                    position = Math.max(0, Math.min(Number(seek.value) || 0, totalDuration));
+                    playAnchorMs = performance.now();
+                    playAnchorPosition = position;
+                    requestSeek(position);
+                    updateTransport();
+                });
+                play.addEventListener('click', () => {
+                    if (!playing && position >= totalDuration) {
+                        position = 0;
+                        requestSeek(0);
+                    }
+                    setPlaying(!playing);
+                });
+
+                updateMetrics();
+                await renderFrame(0, 'seek', performance.now());
+                await renderFrame(0, 'seek', performance.now());
+                root.dataset.frameEngineReady = 'true';
+                updateTransport();
+
+                const tick = now => {
+                    if (disposed) return;
+                    if (playing) {
+                        position = Math.min(totalDuration, playAnchorPosition + (now - playAnchorMs) / 1000);
+                        renderPlayback(position);
+                        if (position >= totalDuration) setPlaying(false);
+                        else updateTransport();
+                    }
+                    requestAnimationFrame(tick);
+                };
+                requestAnimationFrame(tick);
+
+                window.addEventListener('beforeunload', () => {
+                    disposed = true;
+                    scrub.dispose();
+                    warmup.reset();
+                    for (const source of lookahead.values()) source.clear();
+                    for (const pool of pools.values()) pool.destroy();
+                    compositor.dispose();
+                }, { once: true });
+            })().catch(reason => showError(reason, true));
         })();`;
     }
 
