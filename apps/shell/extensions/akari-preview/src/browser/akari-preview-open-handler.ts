@@ -323,6 +323,7 @@ interface EditSummaryAudioSource {
 }
 
 interface EditSummaryBgm extends EditSummaryAudioSource {
+    track?: number;
     ducking: boolean;
     fadeIn?: number;
     fadeOut?: number;
@@ -364,6 +365,7 @@ interface EditSummaryEmphasisWord {
 }
 
 interface EditSummaryTrackState {
+    ref: number;
     muted?: boolean;
     hidden?: boolean;
 }
@@ -1020,9 +1022,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 editUri?: string;
                 cuts?: { hidden?: number[]; muted?: number[] };
                 layers?: { hidden?: number[]; muted?: number[] };
+                audio?: { muted?: number[] };
             }>).detail;
             if (!detail?.editUri) return;
-            this.applyTimelineTrackSync(detail.editUri, detail.cuts, detail.layers);
+            this.applyTimelineTrackSync(detail.editUri, detail.cuts, detail.layers, detail.audio);
         };
         window.addEventListener(TIMELINE_SYNC_TRACK_TOGGLES_EVENT, onSyncTrackToggles);
         this.lifecycleDisposables.push({
@@ -1215,7 +1218,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected applyTimelineTrackSync(
         videoUri: string,
         cuts?: { hidden?: number[]; muted?: number[] },
-        layers?: { hidden?: number[]; muted?: number[] }
+        layers?: { hidden?: number[]; muted?: number[] },
+        audio?: { muted?: number[] }
     ): void {
         let key: string;
         try {
@@ -1229,6 +1233,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         settings.mutedTracksByScope.cuts = new Set(cuts?.muted ?? []);
         settings.hiddenTracksByScope.layers = new Set(layers?.hidden ?? []);
         settings.mutedTracksByScope.layers = new Set(layers?.muted ?? []);
+        settings.mutedTracksByScope.audio = new Set(audio?.muted ?? []);
         this.previewSessionSettings.set(key, settings);
         if (widget?.isAttached) {
             widget.akariPreviewHiddenTracksByScope = {
@@ -1246,7 +1251,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 hiddenCuts: [...settings.hiddenTracksByScope.cuts],
                 mutedCuts: [...settings.mutedTracksByScope.cuts],
                 hiddenLayers: [...settings.hiddenTracksByScope.layers],
-                mutedLayers: [...settings.mutedTracksByScope.layers]
+                mutedLayers: [...settings.mutedTracksByScope.layers],
+                mutedAudio: [...settings.mutedTracksByScope.audio]
             });
         }
     }
@@ -2835,15 +2841,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const hiddenLayers = new Set<number>();
             const mutedCuts = new Set<number>();
             const mutedAudio = new Set<number>();
-            model.summary.tracks?.cuts?.forEach((track, index) => {
-                if (track.hidden === true) hiddenCuts.add(index);
-                if (track.muted === true) mutedCuts.add(index);
+            model.summary.tracks?.cuts?.forEach(track => {
+                if (track.hidden === true) hiddenCuts.add(track.ref);
+                if (track.muted === true) mutedCuts.add(track.ref);
             });
-            model.summary.tracks?.layers?.forEach((track, index) => {
-                if (track.hidden === true) hiddenLayers.add(index);
+            model.summary.tracks?.layers?.forEach(track => {
+                if (track.hidden === true) hiddenLayers.add(track.ref);
             });
-            model.summary.tracks?.audio?.forEach((track, index) => {
-                if (track.muted === true) mutedAudio.add(index);
+            model.summary.tracks?.audio?.forEach(track => {
+                if (track.muted === true) mutedAudio.add(track.ref);
             });
             widget.akariPreviewHiddenTracksByScope = { cuts: [...hiddenCuts], layers: [...hiddenLayers] };
             widget.akariPreviewMutedTracksByScope = { cuts: [...mutedCuts], audio: [...mutedAudio] };
@@ -3367,28 +3373,45 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     console.warn(`[akari-preview] ${label} を無視しました（video レイヤーを配信できません）`, error);
                 }
             }
-            const normalizeTrackStates = (value: unknown): EditSummaryTrackState[] | undefined => {
+            const normalizeTrackStates = (
+                value: unknown,
+                refs: number[]
+            ): EditSummaryTrackState[] | undefined => {
                 if (!Array.isArray(value)) {
                     return undefined;
                 }
-                return value.map(item => {
+                return value.map((item, index) => {
+                    const ref = refs[index] ?? index;
                     if (!item || typeof item !== 'object' || Array.isArray(item)) {
-                        return {};
+                        return { ref };
                     }
                     const state = item as { muted?: unknown; hidden?: unknown };
                     return {
+                        ref,
                         ...(typeof state.muted === 'boolean' ? { muted: state.muted } : {}),
                         ...(typeof state.hidden === 'boolean' ? { hidden: state.hidden } : {})
                     };
                 });
             };
+            const internalTrackStates = (kind: 'cuts' | 'layers' | 'audio'): EditSummaryTrackState[] =>
+                internal.tracks.filter(track => track.legacy.kind === kind).map(track => ({
+                    ref: track.legacy.ref ?? 0,
+                    ...(typeof track.muted === 'boolean' ? { muted: track.muted } : {}),
+                    ...(typeof track.hidden === 'boolean' ? { hidden: track.hidden } : {})
+                }));
             const declaredTrackStates = internal.declaration.trackStates;
             const rawTracks = declaredTrackStates && typeof declaredTrackStates === 'object'
                 && !Array.isArray(declaredTrackStates)
                 ? declaredTrackStates as { cuts?: unknown; layers?: unknown; audio?: unknown } : undefined;
-            const cutTracks = normalizeTrackStates(rawTracks?.cuts);
-            const layerTracks = normalizeTrackStates(rawTracks?.layers);
-            const audioTracks = normalizeTrackStates(rawTracks?.audio);
+            const internalCutTracks = internalTrackStates('cuts');
+            const internalLayerTracks = internalTrackStates('layers');
+            const internalAudioTracks = internalTrackStates('audio');
+            const cutTracks = normalizeTrackStates(rawTracks?.cuts, internalCutTracks.map(track => track.ref))
+                ?? (internalCutTracks.length > 0 ? internalCutTracks : undefined);
+            const layerTracks = normalizeTrackStates(rawTracks?.layers, internalLayerTracks.map(track => track.ref))
+                ?? (internalLayerTracks.length > 0 ? internalLayerTracks : undefined);
+            const audioTracks = normalizeTrackStates(rawTracks?.audio, internalAudioTracks.map(track => track.ref))
+                ?? (internalAudioTracks.length > 0 ? internalAudioTracks : undefined);
             const tracks: EditSummaryTracks | undefined = cutTracks || layerTracks || audioTracks ? {
                 ...(cutTracks ? { cuts: cutTracks } : {}),
                 ...(layerTracks ? { layers: layerTracks } : {}),
@@ -3621,9 +3644,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     src,
                     t: item.t,
                     gainDb: normalizedGain,
+                    track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0,
                     ...(kind === 'sfx'
                         ? {
-                            track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0,
                             ...(trimIn !== undefined ? { in: trimIn } : {}),
                             ...(trimOut !== undefined ? { out: trimOut } : {}),
                             ...(fadeIn !== undefined ? { fadeIn } : {}),
@@ -3644,6 +3667,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 fadeIn?: unknown;
                 fadeOut?: unknown;
                 in?: unknown;
+                track?: unknown;
             } | undefined;
             if (!rawBgm || typeof rawBgm !== 'object' || Array.isArray(rawBgm)) {
                 console.warn('[akari-preview] audio.bgm を無視しました（object ではありません）');
@@ -3677,6 +3701,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         bgm = {
                             src,
                             gainDb: normalizedGain,
+                            track: Number.isInteger(rawBgm.track) && (rawBgm.track as number) >= 0
+                                ? rawBgm.track as number : 0,
                             ducking: rawBgm.ducking === true,
                             ...fades,
                             ...(bgmIn !== undefined ? { in: bgmIn } : {})
@@ -5052,13 +5078,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 let active = [];
                 let bgmGain = null;
                 let lastDuckGainDb = null;
-                let mutedSfxTracks = new Set();
-                let allSfxMuted = false;
+                let mutedAudioTracks = new Set();
+                let allAudioMuted = false;
 
                 const dbToLinear = gainDb => Math.pow(10, gainDb / 20);
                 // クリップ全体ミュート（akariGlobalMuted。クリップ帯のスピーカートグルが送る旧 setMuted
                 // イベント由来）は video.muted のみに効かせる。BGM/SFX/narration の audibility は
-                // audio scope の個別ミュート（allSfxMuted/mutedSfxTracks）で独立制御する
+                // audio scope の個別ミュート（allAudioMuted/mutedAudioTracks）で独立制御する
                 // （クリップのスピーカーを OFF にしても BGM/SFX は継続する契約要求のため）。
                 const syncMasterGain = () => {
                     if (video.dataset.akariTransitionAudioActive === 'true') return;
@@ -5185,7 +5211,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     const duckGainDb = duckGainDbAt(timelineTime);
                     const fadeMultiplier = fadeMultiplierAt(timelineTime);
                     if (bgmGain) {
-                        bgmGain.gain.value = allSfxMuted
+                        bgmGain.gain.value = allAudioMuted || mutedAudioTracks.has(decoded.bgm.track ?? 0)
                             ? 0 : dbToLinear(decoded.bgm.gainDb + duckGainDb) * fadeMultiplier;
                     }
                     if (duckGainDb !== lastDuckGainDb) {
@@ -5223,7 +5249,10 @@ body { display: grid; place-items: center; padding: 32px; }
                             gain.connect(masterGain);
                             bgmGain = gain;
                             applyBgmDuck(startAt);
-                            registerSource(source, gain, 'bgm', 'bgm');
+                            registerSource(
+                                source, gain, 'bgm', 'bgm', decoded.bgm.track ?? 0,
+                                dbToLinear(decoded.bgm.gainDb)
+                            );
                             // audio.bgm.in: file-internal start offset, composed with the existing
                             // timeline-position-to-source-position mapping via bgmLoopOffsetSecondsFn.
                             // loop=true means once playback reaches the buffer's own end it wraps to
@@ -5302,8 +5331,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 const controller = {
                     setTimelineDuration: duration => load(duration),
                     setMutedTracks: (trackSet, allMuted) => {
-                        mutedSfxTracks = new Set(trackSet);
-                        allSfxMuted = allMuted === true;
+                        mutedAudioTracks = new Set(trackSet);
+                        allAudioMuted = allMuted === true;
                     },
                     resume: () => context.resume().catch(error => {
                         console.warn('[akari-preview] AudioContext resume failed; continuing with video only', error);
@@ -5326,8 +5355,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     },
                     tick: (timelineTime, playing) => {
                         syncMasterGain();
-                        for (const item of active.filter(candidate => candidate.kind === 'sfx')) {
-                            const muted = allSfxMuted || mutedSfxTracks.has(item.track);
+                        for (const item of active.filter(candidate =>
+                            candidate.kind === 'sfx' || candidate.kind === 'narration')) {
+                            const muted = allAudioMuted || mutedAudioTracks.has(item.track);
                             if (muted) {
                                 item.gain.gain.value = 0;
                             } else if (!item.hasFade) {
@@ -5349,7 +5379,15 @@ body { display: grid; place-items: center; padding: 32px; }
                             sfx: decoded.sfx.map(item => ({ id: item.id, t: item.t, durationSec: item.durationSec, sourceOffset: item.sourceOffset || 0 })),
                             narration: decoded.narration.map(item => ({ id: item.id, t: item.t, durationSec: item.durationSec }))
                         },
-                        active: {
+                        mutedTracks: [...mutedAudioTracks],
+                        allMuted: allAudioMuted,
+                        active: active.map(item => ({
+                            kind: item.kind,
+                            id: item.id,
+                            track: item.track,
+                            gainLinear: item.gain.gain.value
+                        })),
+                        activeCounts: {
                             bgm: active.filter(item => item.kind === 'bgm').length,
                             sfx: active.filter(item => item.kind === 'sfx').length,
                             narration: active.filter(item => item.kind === 'narration').length
@@ -10742,8 +10780,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     hiddenTracksByScope[scope].clear();
                     mutedTracksByScope[scope].clear();
                     for (const [index, entry] of (Array.isArray(entries) ? entries : []).entries()) {
-                        if (entry && entry.hidden === true) hiddenTracksByScope[scope].add(index);
-                        if (entry && entry.muted === true) mutedTracksByScope[scope].add(index);
+                        const ref = entry && Number.isInteger(entry.ref) && entry.ref >= 0 ? entry.ref : index;
+                        if (entry && entry.hidden === true) hiddenTracksByScope[scope].add(ref);
+                        if (entry && entry.muted === true) mutedTracksByScope[scope].add(ref);
                     }
                 };
                 syncScope('cuts', tracks.cuts);
@@ -10893,6 +10932,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     mutedTracksByScope.cuts = new Set(Array.isArray(message.mutedCuts) ? message.mutedCuts : []);
                     hiddenTracksByScope.layers = new Set(Array.isArray(message.hiddenLayers) ? message.hiddenLayers : []);
                     mutedTracksByScope.layers = new Set(Array.isArray(message.mutedLayers) ? message.mutedLayers : []);
+                    mutedTracksByScope.audio = new Set(Array.isArray(message.mutedAudio) ? message.mutedAudio : []);
                     if (window.akari.previewAudio) {
                         window.akari.previewAudio.setMutedTracks(mutedTracksByScope.audio, allTracksMutedByScope.audio);
                     }
