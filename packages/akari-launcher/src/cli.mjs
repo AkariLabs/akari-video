@@ -22,6 +22,7 @@ import {
   triggerBackgroundRefresh
 } from './update-check.mjs';
 import { applySelfUpdate, isRunningFromAppDir, rollbackSelfUpdate } from './self-update.mjs';
+import { runChromeCommand } from './chrome-command.mjs';
 
 /**
  * `akari` ランチャーの本体。3 入口契約（ターミナル `akari` / セッション内 `/akari` /
@@ -33,6 +34,8 @@ import { applySelfUpdate, isRunningFromAppDir, rollbackSelfUpdate } from './self
  * options 経由で差し替え可能にしてあり、node --test から実プロセスを起動せずに分岐を検証できる。
  */
 export async function run(args, options = {}) {
+  if (args[0] === 'chrome') return runChromeCommand(args.slice(1), options);
+
   const log = options.log ?? ((line) => console.log(line));
   const assets = options.assets ?? resolveLauncherAssets();
   const scaffold = options.scaffold ?? defaultScaffold;

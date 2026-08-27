@@ -243,9 +243,25 @@ export function moveItem(
             : '映像のレーンには音を置けません。');
     }
     const [item] = found.track.items.splice(found.itemIndex, 1);
-    target.items.push({ ...item, at: options.atFrames });
+    const moved = { ...item, at: options.atFrames };
+    // items[] の宣言順は legacy 配列の順となり、合成の z と xfade の連結相手を決める。
+    // そのため同じ段で時刻だけを動かす場合は元位置を保ち、別段への移動だけ時刻順へ挿入する。
+    const insertIndex = target === found.track
+        ? found.itemIndex
+        : atAscendingInsertIndex(target.items, options.atFrames);
+    target.items.splice(insertIndex, 0, moved);
     collapseEmptiedVisualSourceTrack(tracks, found.track, target);
     return value;
+}
+
+function atAscendingInsertIndex(items: UnknownRecord[], atFrames: number): number {
+    let insertIndex = 0;
+    items.forEach((entry, index) => {
+        if (typeof entry.at === 'number' && Number.isFinite(entry.at) && entry.at <= atFrames) {
+            insertIndex = index + 1;
+        }
+    });
+    return insertIndex;
 }
 
 export function moveItemToNewTrack(

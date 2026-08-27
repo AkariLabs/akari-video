@@ -303,6 +303,7 @@ export function describeCliHelp() {
     '  (引数なし)              プロジェクトを開いて AI エージェントを起動（未作成なら自動作成）',
     '  store connect          アカウント連携（無料の素材パックと購入済み素材が使えるようになる）',
     '  sounds                 公式音源ライブラリを一括ダウンロード（無料）',
+    '  chrome install         動画書き出しに使う Chrome をダウンロードして導入する',
     '  update [--force]       更新を確認する（--force で本体を入れ直す）',
     '  status                 接続状態を確認する',
     '  migrate [dir]          古い edit.json を退避バックアップ付きで v2 へ変換',

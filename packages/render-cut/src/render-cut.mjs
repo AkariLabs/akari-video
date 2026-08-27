@@ -675,7 +675,7 @@ async function measureCapabilities(projectRoot, edit) {
   const ffprobeVersion = commandVersion(ffprobeCommand, ["-version"]);
   const chromePath = await findChromePath();
   const chromeVersion = chromePath ? commandVersion(chromePath, ["--version"]) : null;
-  if (!chromePath) throw new ExecutionError("system Chrome was not found");
+  if (!chromePath) throw new ExecutionError(await describeChromeNotFound());
   const hyperframesPath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "bin", "hyperframes.mjs");
   const hyperframesPackagePath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "package.json");
   const puppeteerPath = resolvePuppeteerPackagePath();
@@ -1395,6 +1395,17 @@ export async function chromePathCandidates({
     ...puppeteer,
     ...systemCandidates,
   ].filter(Boolean);
+}
+
+export async function describeChromeNotFound(options = {}) {
+  const candidates = await chromePathCandidates(options);
+  return [
+    "Chrome for Testing / Chromium / システム Chrome のいずれも見つかりません。",
+    "以下を探しましたが見つかりませんでした:",
+    ...(candidates.length > 0 ? candidates.map((candidate) => `  - ${candidate}`) : ["  - (候補なし)"]),
+    "`akari chrome install` を実行するか、システムに Google Chrome をインストールしてください。",
+    "システムの node がある場合は `npx puppeteer browsers install chrome` でも導入できます。",
+  ].join("\n");
 }
 
 async function versionedNestedCandidates({ roots, versionPrefix = "", binaryPaths }) {
