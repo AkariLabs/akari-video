@@ -27,7 +27,8 @@ const frameMidpointUs = (frameNumber: number) => Math.round((frameNumber + 0.5) 
 const decodedFrameNumber = (frame: Pick<VideoFrame, 'timestamp'>) =>
   Math.round(frame.timestamp * FPS / 1e6);
 
-const GopTailFrames = [119, 179] as const;
+const SourceGopTailFrames = [119, 179, 239] as const;
+const MatteGopTailFrames = [119, 179, 389] as const;
 
 const baseVisual = {
   framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
@@ -75,6 +76,7 @@ export async function inspectGopTailGolden(options: {
   const categories = [
     {
       category: 'base',
+      frameNumbers: SourceGopTailFrames,
       movingUrls: [options.baseUrl],
       plan(sources: NativeFrameSource[], timeUs: number): EvaluationPlan {
         return {
@@ -87,6 +89,7 @@ export async function inspectGopTailGolden(options: {
     },
     {
       category: 'layers',
+      frameNumbers: SourceGopTailFrames,
       movingUrls: [options.layerUrl],
       plan(sources: NativeFrameSource[], timeUs: number): EvaluationPlan {
         return {
@@ -102,6 +105,7 @@ export async function inspectGopTailGolden(options: {
     },
     {
       category: 'matte',
+      frameNumbers: MatteGopTailFrames,
       movingUrls: [options.matteColorUrl, options.matteMaskUrl],
       plan(sources: NativeFrameSource[], timeUs: number): EvaluationPlan {
         return {
@@ -125,7 +129,7 @@ export async function inspectGopTailGolden(options: {
       const reference = new Map<number, Uint8Array>();
       try {
         let advanced = -1;
-        for (const frameNumber of GopTailFrames) {
+        for (const frameNumber of category.frameNumbers) {
           for (let next = advanced + 1; next <= frameNumber; next += 1) {
             for (const source of sequential) {
               const frame = await source.decode(frameMidpointUs(next));
@@ -146,7 +150,22 @@ export async function inspectGopTailGolden(options: {
       const random = category.movingUrls.map((url, index) =>
         new ClipSessionPool(`gop-${category.category}-random-${index}`, url));
       try {
-        for (const frameNumber of [...GopTailFrames].reverse()) {
+        for (const frameNumber of [...category.frameNumbers].reverse()) {
+          const absolute = new ClipSessionPool(
+            `gop-${category.category}-absolute-${frameNumber}`,
+            category.movingUrls[0],
+          );
+          let actualFrameNumber: number;
+          try {
+            const frame = await absolute.decode(frameMidpointUs(frameNumber));
+            try {
+              actualFrameNumber = decodedFrameNumber(frame);
+            } finally {
+              frame.close();
+            }
+          } finally {
+            absolute.destroy();
+          }
           const actual = await renderPlan(
             category.plan(random.map(singleLane), frameMidpointUs(frameNumber)),
             compositor,
@@ -157,10 +176,13 @@ export async function inspectGopTailGolden(options: {
           rows.push({
             category: category.category,
             frameNumber,
+            decodedFrameNumber: actualFrameNumber,
             timeUs: frameMidpointUs(frameNumber),
             accessOrder: 'descending-random',
             ...comparison,
-            pass: comparison.differingPixels === 0 && comparison.maxDelta === 0,
+            pass: actualFrameNumber === frameNumber
+              && comparison.differingPixels === 0
+              && comparison.maxDelta === 0,
           });
         }
       } finally {
@@ -169,7 +191,7 @@ export async function inspectGopTailGolden(options: {
     }
     return {
       rows,
-      pass: rows.length === 6 && rows.every(row => row.pass === true),
+      pass: rows.length === 9 && rows.every(row => row.pass === true),
     };
   } finally {
     compositor.dispose();
@@ -309,24 +331,43 @@ async function run(): Promise<void> {
   const indexSession = await indexPool.getSession();
   await indexSession.load();
   const keyframeTimesUs = indexSession.getKeyframeTimesUs();
+  const optionalReachLimit = indexSession as typeof indexSession & {
+    getLastFrameStartUs?: () => number | null;
+  };
+  const indexedLastFrameStartUs = typeof optionalReachLimit.getLastFrameStartUs === 'function'
+    ? optionalReachLimit.getLastFrameStartUs()
+    : null;
+  const durationUs = indexSession.meta?.duration ?? null;
   indexPool.destroy();
   if (keyframeTimesUs.length === 0) throw new Error('fixture keyframe index could not be loaded');
   if (keyframeTimesUs.length < 3) throw new Error('fixture has too few GOPs');
-  const safeLimitUs = keyframeTimesUs.at(-1)! - 1_000_000;
+  if (durationUs == null || !Number.isFinite(durationUs)) throw new Error('fixture duration is unavailable');
+  const legacyTailSafeLimitUs = keyframeTimesUs.at(-1)! - 1_000_000;
   const requests: Array<{ frameNumber: number; mode: 'midpoint' | 'pts'; targetUs: number }> = [];
   for (let index = 0; index < keyframeTimesUs.length - 1; index += 1) {
     const startFrame = Math.round(keyframeTimesUs[index]! * FPS / 1e6);
     const nextFrame = Math.round(keyframeTimesUs[index + 1]! * FPS / 1e6);
     for (const frameNumber of [nextFrame - 2, nextFrame - 1, nextFrame]) {
       if (frameNumber < startFrame
-        || frameMidpointUs(frameNumber) > safeLimitUs
-        || framePtsUs(frameNumber) > safeLimitUs) continue;
+        || frameMidpointUs(frameNumber) > legacyTailSafeLimitUs
+        || framePtsUs(frameNumber) > legacyTailSafeLimitUs) continue;
       for (const [mode, targetUs] of [
         ['midpoint', frameMidpointUs(frameNumber)],
         ['pts', framePtsUs(frameNumber)],
       ] as const) {
         requests.push({ frameNumber, mode, targetUs });
       }
+    }
+  }
+  const finalGopStartFrame = Math.round(keyframeTimesUs.at(-1)! * FPS / 1e6);
+  const finalFrameNumber = Math.round(durationUs * FPS / 1e6) - 1;
+  const reachLimitUs = framePtsUs(finalFrameNumber);
+  for (let frameNumber = finalGopStartFrame; frameNumber <= finalFrameNumber; frameNumber += 1) {
+    for (const [mode, targetUs] of [
+      ['midpoint', frameMidpointUs(frameNumber)],
+      ['pts', framePtsUs(frameNumber)],
+    ] as const) {
+      requests.push({ frameNumber, mode, targetUs });
     }
   }
   requests.sort((left, right) => ((left.frameNumber * 17 + (left.mode === 'pts' ? 7 : 0)) % 31)
@@ -366,12 +407,16 @@ async function run(): Promise<void> {
   }
   const pass = clipSession.length > 0
     && clipSession.every(row => row.decodedFrame === row.frameNumber)
+    && clipSession.filter(row => row.requestedFrame === finalFrameNumber).length === 2
     && lookahead.every(row => row.hit);
   await window.seekHarness.complete({
     pass,
     fps: FPS,
     keyframeTimesUs,
-    safeLimitUs,
+    reachLimitUs,
+    indexedLastFrameStartUs,
+    legacyTailSafeLimitUs,
+    finalFrameNumber,
     requestCount: requests.length,
     clipSession,
     rawVendor,
