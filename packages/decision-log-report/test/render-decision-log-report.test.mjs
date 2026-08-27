@@ -217,3 +217,52 @@ test("(j) 引用の連続行は blockquote 1 ブロックとして描画する",
     rmSync(project.root, { recursive: true, force: true });
   }
 });
+
+test("(k) グロブ・範囲表記を含む画像参照はどの経路でも収集しない", () => {
+  const project = prepareProject("glob-refs");
+  try {
+    const result = run(["--log", project.logPath, "--out", project.outPath, "--project", project.root], project.root);
+    assert.equal(result.status, 0, result.stderr);
+    const data = embeddedDataOf(readFileSync(project.outPath, "utf8"));
+    assert.deepEqual(data.images.map((image) => image.path), ["assets/generated/ok.png"]);
+    assert.equal(data.stats.imageCount, 1);
+  } finally {
+    rmSync(project.root, { recursive: true, force: true });
+  }
+});
+
+test("(l) 非 ASCII ディレクトリの明示画像参照を実在確認して相対化する", () => {
+  const project = prepareProject("non-ascii-dir");
+  try {
+    const imagePath = join(project.root, "画像", "logo.png");
+    mkdirSync(dirname(imagePath), { recursive: true });
+    copyFileSync(resolve(fixtures, "non-ascii-dir", "画像", "logo.png"), imagePath);
+    const result = run(["--log", project.logPath, "--out", project.outPath, "--project", project.root], project.root);
+    assert.equal(result.status, 0, result.stderr);
+    const html = readFileSync(project.outPath, "utf8");
+    const data = embeddedDataOf(html);
+    assert.equal(data.images.length, 2);
+    assert.deepEqual(data.images.map((image) => image.path), ["画像/logo.png", "素材/ロゴ.png"]);
+    const existing = data.images.find((image) => image.path === "画像/logo.png");
+    assert.equal(existing.exists, true);
+    assert.equal(existing.src, "../../画像/logo.png");
+    const missing = data.images.find((image) => image.path === "素材/ロゴ.png");
+    assert.equal(missing.exists, false);
+    assert.equal(missing.src, null);
+    assert.match(html, /"src":"\.\.\/\.\.\/画像\/logo\.png"/u);
+  } finally {
+    rmSync(project.root, { recursive: true, force: true });
+  }
+});
+
+test("(m) blockquote は左罫線付きの引用意匠を持つ", () => {
+  const project = prepareProject("blockquote");
+  try {
+    const result = run(["--log", project.logPath, "--out", project.outPath], project.root);
+    assert.equal(result.status, 0, result.stderr);
+    const html = readFileSync(project.outPath, "utf8");
+    assert.match(html, /blockquote\.original-block\s*\{[^}]*border-left:\s*3px solid var\(--line\)/u);
+  } finally {
+    rmSync(project.root, { recursive: true, force: true });
+  }
+});

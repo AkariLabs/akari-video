@@ -336,16 +336,34 @@ function parseMarkdown(markdown) {
   return { decisions, blocks };
 }
 
+function isUnresolvablePathToken(path) {
+  return /[*?–—〜～~]/u.test(path);
+}
+
 function imagePathsIn(text) {
   const paths = new Set();
+  const explicitRanges = [];
+  const add = (rawPath) => {
+    const path = rawPath.trim();
+    if (!isUnresolvablePathToken(path)) paths.add(path);
+  };
   const markdownImage = /!\[[^\]]*\]\(\s*(?:<([^>]+)>|([^\s)]+))(?:\s+["'][^"']*["'])?\s*\)/giu;
-  for (const match of text.matchAll(markdownImage)) paths.add((match[1] ?? match[2]).trim());
+  for (const match of text.matchAll(markdownImage)) {
+    add(match[1] ?? match[2]);
+    explicitRanges.push([match.index, match.index + match[0].length]);
+  }
 
   const inlineCode = /`([^`\r\n]+\.(?:png|jpe?g|webp|gif))`/giu;
-  for (const match of text.matchAll(inlineCode)) paths.add(match[1].trim());
+  for (const match of text.matchAll(inlineCode)) {
+    add(match[1]);
+    explicitRanges.push([match.index, match.index + match[0].length]);
+  }
 
   const pathToken = /(?<![A-Za-z0-9_./\\*?-])(?:[A-Za-z]:)?(?=[A-Za-z0-9_./\\-]*[\\/])[A-Za-z0-9_./\\-]+\.(?:[Pp][Nn][Gg]|[Jj][Pp](?:[Ee])?[Gg]|[Ww][Ee][Bb][Pp]|[Gg][Ii][Ff])(?![A-Za-z0-9_./\\*?-])/gu;
-  for (const match of text.matchAll(pathToken)) paths.add(match[0].trim());
+  for (const match of text.matchAll(pathToken)) {
+    const isExplicit = explicitRanges.some(([start, end]) => match.index >= start && match.index < end);
+    if (!isExplicit) add(match[0]);
+  }
   return [...paths];
 }
 
