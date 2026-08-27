@@ -650,6 +650,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
             path: resolvedPath,
             track: ref,
             ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
+            ...(item.source.in !== undefined ? { in: item.source.in } : {}),
+            ...(item.source.out !== undefined ? { out: item.source.out } : {}),
             ...(item.script !== undefined ? { script: item.script } : {}),
             ...(item.reading !== undefined ? { reading: item.reading } : {}),
             ...(item.provenance !== undefined ? { provenance: structuredClone(item.provenance) } : {})
@@ -660,6 +662,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
                 declaration: {
                     id: item.id, t: at, path: resolvedPath,
                     ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                    ...(item.source.in !== undefined ? { in: item.source.in } : {}),
+                    ...(item.source.out !== undefined ? { out: item.source.out } : {}),
                     ...(item.script !== undefined ? { script: item.script } : {}),
                     ...(item.reading !== undefined ? { reading: item.reading } : {}),
                     ...(item.provenance !== undefined ? { provenance: structuredClone(item.provenance) } : {})
@@ -785,19 +789,24 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
     narration.forEach((entry, index) => {
         if (!isRecord(entry) || typeof entry.path !== 'string' || typeof entry.t !== 'number')
             return;
+        const start = typeof entry.in === 'number' ? entry.in : 0;
+        const end = typeof entry.out === 'number' ? entry.out : start;
+        const duration = Math.max(0, end - start);
         const value = {
             id: typeof entry.id === 'string' ? entry.id : `n-${String(index + 1).padStart(4, '0')}`,
             t: entry.t, path: entry.path,
             ...(typeof entry.gain_db === 'number' ? { gainDb: entry.gain_db } : {}),
+            ...(typeof entry.in === 'number' ? { in: entry.in } : {}),
+            ...(typeof entry.out === 'number' ? { out: entry.out } : {}),
             ...(typeof entry.script === 'string' ? { script: entry.script } : {}),
             ...(typeof entry.reading === 'string' ? { reading: entry.reading } : {}),
             ...(isRecord(entry.provenance)
                 ? { provenance: structuredClone(entry.provenance) } : {})
         };
         ensureTrack(0).items.push({
-            id: value.id, atFrames: Math.round(value.t * fps), durationFrames: 0,
-            at: value.t, duration: 0,
-            source: { kind: 'media', path: value.path, in: 0, out: 0 },
+            id: value.id, atFrames: Math.round(value.t * fps), durationFrames: Math.round(duration * fps),
+            at: value.t, duration,
+            source: { kind: 'media', path: value.path, in: start, out: end },
             declaration: entry,
             legacy: { collection: 'narration', index: nextLegacyIndex(legacyIndexCounters, 'narration'), value }
         });

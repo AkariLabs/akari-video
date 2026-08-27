@@ -11,6 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.golden.json",
     "bundle:golden": "mkdir -p test/golden/.generated && esbuild test/golden/renderer.ts --bundle --format=iife --platform=browser --target=chrome122 --outfile=test/golden/.generated/renderer.js",
     "test:unit": "node --test test/*.test.mjs",
+    "test:seek": "node test/gop-tail-seek.mjs",
     "test:golden": "node test/golden/run.mjs",
     "bench:cuts": "node test/benchmark/run.mjs",
     "bench:matte": "node test/benchmark/matte-decode.mjs",
@@ -18,7 +19,7 @@
     "compare:transitions": "node test/golden/transitions-compare.mjs",
     "compare:look": "node test/golden/look-compare.mjs",
     "verify:l1": "npm test && npm run bench:cuts",
-    "test": "npm run build && npm run test:unit && npm run test:golden"
+    "test": "npm run build && npm run test:unit && npm run test:seek && npm run test:golden"
   },
   "dependencies": {
     "@akari-video/edit-store": "0.1.0",

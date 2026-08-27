@@ -15,6 +15,8 @@ export interface OverlayRuntimeAssets {
     // webview は sandbox 制約で import できないため、IIFE バンドル
     // （edit-store lib/webview-kernel.js、global: AkariEditKernel）をインライン注入する。
     webviewKernelJavaScript: string;
+    // packages/frame-engine/src から生成した評価台用 IIFE。明示的に要求されたときだけ返す。
+    frameEngineJavaScript?: string;
     // win2-fonts-wire: render-cut の焼き込みキャプション（packages/render-cut/src/captions.mjs）と
     // 同じ Noto Sans JP を字幕表示に固定するための @font-face src。prepareHtml() の webview は
     // file:// を同一オリジンで読めない（render-cut の rasterize.mjs は Puppeteer が file:// ページを
@@ -266,7 +268,7 @@ export interface ResolvedCaptionDisplayPayload {
 }
 
 export interface AkariPreviewService {
-    getOverlayRuntimeAssets(): Promise<OverlayRuntimeAssets>;
+    getOverlayRuntimeAssets(options?: { includeFrameEngine?: boolean }): Promise<OverlayRuntimeAssets>;
     readVideoFxLut(request: ReadVideoFxLutRequest): Promise<string>;
     createVideoStream(request: VideoStreamRequest): Promise<VideoStreamReference>;
     disposeVideoStream(id: string): Promise<void>;

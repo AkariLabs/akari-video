@@ -39,6 +39,8 @@
         "id": "n-0001",                  // 必須。^n-\d{4}$。edit.json 内で一意
         "path": "out/narration/n-0001.mp3",  // 必須。edit.json からの相対パス
         "t": 12.5,                       // 必須。タイムライン秒。0 以上
+        "in": 5.8,                       // 任意。素材秒。省略時 0
+        "out": 9.7,                      // 任意。素材秒。省略時 素材末尾
         "gain_db": 0,                    // 任意。既定 0。[-60, 12]（bgm/sfx と同一。範囲外はエラー）
         "script": "こんにちは、AKARI Videoです。",   // 任意。表示原稿（人間が読む正本）
         "reading": "こんにちわ、あかりびでおです。", // 任意。読み原稿（かな化後・生成に使った実テキスト）
@@ -63,6 +65,8 @@
 | `audio.narration[].id` | string | 必須（要素内） | — | `^n-\d{4}$`。edit.json 内で一意 |
 | `audio.narration[].path` | string | 必須（要素内） | — | edit.json からの相対（`audio.sfx[].path` と同一規約） |
 | `audio.narration[].t` | number | 必須（要素内） | — | **タイムライン秒**（`audio.sfx[].t` / `overlays[].start` と同じ座標系）。0 以上 |
+| `audio.narration[].in` | number | 否 | `0` | 素材秒。再生窓 `[in, out)` の始点。0 以上 |
+| `audio.narration[].out` | number | 否 | 素材末尾 | 素材秒。再生窓 `[in, out)` の終点。0 より大きく `out > in` |
 | `audio.narration[].gain_db` | number | 否 | `0.0` | dB。クランプ範囲 `[-60, 12]`（`audio.bgm` / `audio.sfx` と同一） |
 | `audio.narration[].script` | string | 否 | — | 表示原稿（人間が読む正本。字幕連携等の元テキスト） |
 | `audio.narration[].reading` | string | 否 | — | 読み原稿（かな化後・TTS 生成に実際に使ったテキスト） |
@@ -78,6 +82,14 @@
 §6 の「BGM は全体 / SFX はシーン単位」という設計意図をナレーションにも継承する
 （ナレーションも `t` という 1 点情報を持つシーン単位の演出であり、BGM のような
 「プロジェクト全体で 1 本」という制約は当てはまらない）。
+
+### 1.1 ナレーション素材のトリム
+
+`in` / `out` は `audio.sfx[]` と同じ素材秒の語彙を使う。再生区間は `[in, out)`、タイムライン上の
+開始は従来どおり `t` とする。`in` 省略時は 0、`out` 省略時は素材末尾まで再生する。
+`out <= in` は edit-lint が error とし、実尺との整合は render-cut が解決する。`in` が素材実尺以上なら
+0 にクランプして warning、`out` が素材実尺を超えれば素材末尾へクランプして warning、クランプ後に
+`out <= in` となる場合はその narration 要素だけを skip して warning とする。
 
 ## 2. パス解決規約
 

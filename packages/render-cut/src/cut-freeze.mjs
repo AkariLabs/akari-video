@@ -126,11 +126,15 @@ export function appendFreezeAwareAudioTrim({
   freeze,
   id,
   normalize = false,
+  padToSeconds,
 }) {
+  const padSuffix = padToSeconds === undefined
+    ? ""
+    : `,apad=whole_dur=${formatNumber(padToSeconds)}`;
   const split = resolveFreezeSplit({ freeze, sourceIn, sourceOut, speed });
   if (!split) {
     const noFreezeSuffix = normalize ? ",aresample=48000,aformat=channel_layouts=stereo" : "";
-    filters.push(`${inputLabel}atrim=start=${formatNumber(sourceIn)}:end=${formatNumber(sourceOut)},asetpts=PTS-STARTPTS${atempoSuffix}${noFreezeSuffix}${outputLabel}`);
+    filters.push(`${inputLabel}atrim=start=${formatNumber(sourceIn)}:end=${formatNumber(sourceOut)},asetpts=PTS-STARTPTS${atempoSuffix}${noFreezeSuffix}${padSuffix}${outputLabel}`);
     return;
   }
   const freezeSuffix = ",aresample=48000,aformat=channel_layouts=stereo";
@@ -140,19 +144,19 @@ export function appendFreezeAwareAudioTrim({
     buildSilence();
     const rest = `[fza_${id}_rest]`;
     filters.push(`${inputLabel}atrim=start=${formatNumber(sourceIn)}:end=${formatNumber(sourceOut)},asetpts=PTS-STARTPTS${atempoSuffix}${freezeSuffix}${rest}`);
-    filters.push(`${silence}${rest}concat=n=2:v=0:a=1${outputLabel}`);
+    filters.push(`${silence}${rest}concat=n=2:v=0:a=1${padSuffix}${outputLabel}`);
   } else if (split.mode === "end") {
     const rest = `[fza_${id}_rest]`;
     filters.push(`${inputLabel}atrim=start=${formatNumber(sourceIn)}:end=${formatNumber(sourceOut)},asetpts=PTS-STARTPTS${atempoSuffix}${freezeSuffix}${rest}`);
     buildSilence();
-    filters.push(`${rest}${silence}concat=n=2:v=0:a=1${outputLabel}`);
+    filters.push(`${rest}${silence}concat=n=2:v=0:a=1${padSuffix}${outputLabel}`);
   } else {
     buildSilence();
     const partA = `[fza_${id}_a]`;
     const partB = `[fza_${id}_b]`;
     filters.push(`${inputLabel}atrim=start=${formatNumber(sourceIn)}:end=${formatNumber(split.freezeSourceIn)},asetpts=PTS-STARTPTS${atempoSuffix}${freezeSuffix}${partA}`);
     filters.push(`${inputLabel}atrim=start=${formatNumber(split.freezeSourceIn)}:end=${formatNumber(sourceOut)},asetpts=PTS-STARTPTS${atempoSuffix}${freezeSuffix}${partB}`);
-    filters.push(`${partA}${silence}${partB}concat=n=3:v=0:a=1${outputLabel}`);
+    filters.push(`${partA}${silence}${partB}concat=n=3:v=0:a=1${padSuffix}${outputLabel}`);
   }
 }
 

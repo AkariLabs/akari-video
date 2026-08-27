@@ -7,11 +7,15 @@ const MP4Box: typeof MP4BoxNamespace =
 export interface KeyframeIndex {
   keyframeTimesUs: number[];
   nearestAtOrBefore(targetUs: number): number;
+  frameEndUs(frameStartUs: number): number | null;
   nearest(targetUs: number): number;
   withinTolerance(targetUs: number, toleranceUs: number): number | null;
 }
 
-function createIndex(values: readonly number[]): KeyframeIndex {
+function createIndex(
+  values: readonly number[],
+  frameEnds: ReadonlyMap<number, number> = new Map(),
+): KeyframeIndex {
   const times = [...values].sort((left, right) => left - right);
   const nearestAtOrBefore = (targetUs: number): number => {
     if (times.length === 0) return 0;
@@ -34,6 +38,9 @@ function createIndex(values: readonly number[]): KeyframeIndex {
   return {
     keyframeTimesUs: times,
     nearestAtOrBefore,
+    frameEndUs(frameStartUs) {
+      return frameEnds.get(frameStartUs) ?? null;
+    },
     nearest,
     withinTolerance(targetUs, toleranceUs) {
       const candidate = nearest(targetUs);
@@ -52,9 +59,20 @@ export async function buildKeyframeIndexFromHeader(header: ArrayBuffer): Promise
         if (!track) return resolve(createIndex([]));
         const samples = file.getTrackSamplesInfo(track.id);
         const firstDts = samples[0]?.dts ?? 0;
-        resolve(createIndex(samples
-          .filter(sample => sample.is_sync)
-          .map(sample => ((sample.cts - firstDts) / sample.timescale) * 1e6)));
+        const timestampUs = (sample: (typeof samples)[number]) =>
+          ((sample.cts - firstDts) / sample.timescale) * 1e6;
+        const frameEnds = new Map<number, number>();
+        for (const sample of samples) {
+          const startUs = timestampUs(sample);
+          const duration = (sample as typeof sample & { duration?: number }).duration;
+          if (typeof duration === 'number') {
+            frameEnds.set(startUs, startUs + (duration / sample.timescale) * 1e6);
+          }
+        }
+        resolve(createIndex(
+          samples.filter(sample => sample.is_sync).map(timestampUs),
+          frameEnds,
+        ));
       } catch (error) {
         reject(error);
       }

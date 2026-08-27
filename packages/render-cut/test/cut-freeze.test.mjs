@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile as rawWriteFile } from "node:fs/promises";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -15,7 +15,7 @@ const writeFile = createMigratingWriteFile(rawWriteFile);
 // frozen span are pixel-identical, and the declared audio behavior (silence) is measured, not
 // just asserted from the command plan.
 
-import { freezeDurationSeconds, hasCutFreeze } from "../src/cut-freeze.mjs";
+import { appendFreezeAwareAudioTrim, freezeDurationSeconds, hasCutFreeze } from "../src/cut-freeze.mjs";
 import { buildGapAwareMultiSourceCutCommand, buildMultiSourceCutCommand } from "../src/plan.mjs";
 import { buildCutCommand } from "./helpers/v2-fixture.mjs";
 
@@ -83,6 +83,78 @@ test("cuts[].freeze detection: only a positive duration_sec with a non-negative 
   assert.equal(hasCutFreeze([{ in: 0, out: 1, freeze: { at_sec: 0.5, duration_sec: 1 } }]), true);
   assert.equal(freezeDurationSeconds({ duration_sec: 2 }), 2);
   assert.equal(freezeDurationSeconds(null), 0);
+});
+
+test("cut audio padding is appended for no-freeze, freeze start/end/middle, and speed chains", () => {
+  const cases = [
+    { id: "plain", freeze: null, speed: 1, atempoSuffix: "", padToSeconds: 2 },
+    { id: "start", freeze: { at_sec: 0, duration_sec: 1 }, speed: 1, atempoSuffix: "", padToSeconds: 3 },
+    { id: "end", freeze: { at_sec: 2, duration_sec: 1 }, speed: 1, atempoSuffix: "", padToSeconds: 3 },
+    { id: "middle", freeze: { at_sec: 1, duration_sec: 1 }, speed: 1, atempoSuffix: "", padToSeconds: 3 },
+    { id: "speed", freeze: null, speed: 2, atempoSuffix: ",atempo=2", padToSeconds: 1 },
+  ];
+  for (const entry of cases) {
+    const filters = [];
+    appendFreezeAwareAudioTrim({
+      filters,
+      inputLabel: "[0:a]",
+      outputLabel: `[${entry.id}]`,
+      sourceIn: 0,
+      sourceOut: 2,
+      normalize: true,
+      ...entry,
+    });
+    assert.match(
+      filters.at(-1),
+      new RegExp(`apad=whole_dur=${entry.padToSeconds}\\[${entry.id}\\]$`),
+      `${entry.id}: ${filters.join(";")}`,
+    );
+    if (entry.id === "speed") assert.match(filters.at(-1), /atempo=2/);
+  }
+});
+
+test("cut audio end warnings use one duration probe per source and cut intermediates omit -shortest", async () => {
+  const root = await mkdtemp(join(tmpdir(), "render-cut-audio-pad-plan-"));
+  try {
+    const sourcePath = join(root, "source.mp4");
+    const probePath = join(root, "ffprobe-fixture.mjs");
+    const callsPath = join(root, "calls.jsonl");
+    await rawWriteFile(sourcePath, "fixture");
+    await rawWriteFile(probePath, `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+appendFileSync(${JSON.stringify(callsPath)}, JSON.stringify(process.argv.slice(2)) + "\\n");
+const audio = process.argv.includes("a:0");
+process.stdout.write(JSON.stringify(audio
+  ? { streams: [{ duration: "4.7" }] }
+  : { streams: [{ codec_name: "h264", pix_fmt: "yuv420p", tags: {} }] }));
+`);
+    await chmod(probePath, 0o755);
+    const command = buildMultiSourceCutCommand({
+      sourceInputs: [{ id: "clip", path: sourcePath, hasAudio: true }],
+      cutPath: join(root, "cut.mp4"),
+      cuts: [
+        { id: "cut-1", src: "clip", in: 0, out: 4.933 },
+        { id: "cut-2", src: "clip", in: 0, out: 4.933333333333334 },
+      ],
+      width: 320,
+      height: 180,
+      fps: 30,
+      ffmpegCommand: "ffmpeg",
+      ffprobeCommand: probePath,
+      projectRoot: root,
+    });
+    assert.equal(command.args.includes("-shortest"), false);
+    assert.equal(command.warnings.length, 2);
+    assert.match(command.warnings[0], /^cut cut-1: audio stream ends at 4\.7s before out=4\.933s; padded 0\.233s of silence$/);
+    assert.equal(
+      command.warnings[1],
+      "cut cut-2: audio stream ends at 4.7s before out=4.933333s; padded 0.233333s of silence",
+    );
+    const calls = (await readFile(callsPath, "utf8")).trim().split("\n").map(JSON.parse);
+    assert.equal(calls.filter(args => args.includes("a:0")).length, 1);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("cuts[].freeze (middle of the cut): output duration = original + duration_sec, 2 frames inside the hold are pixel-identical, and it resumes real content afterward (lossless encode to rule out compression noise)", async (t) => {

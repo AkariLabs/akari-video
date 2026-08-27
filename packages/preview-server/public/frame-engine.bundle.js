@@ -4436,6 +4436,8 @@ var require_internal_model = __commonJS({
           path: resolvedPath,
           track: ref,
           ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
+          ...item.source.in !== void 0 ? { in: item.source.in } : {},
+          ...item.source.out !== void 0 ? { out: item.source.out } : {},
           ...item.script !== void 0 ? { script: item.script } : {},
           ...item.reading !== void 0 ? { reading: item.reading } : {},
           ...item.provenance !== void 0 ? { provenance: structuredClone(item.provenance) } : {}
@@ -4453,6 +4455,8 @@ var require_internal_model = __commonJS({
               t: at2,
               path: resolvedPath,
               ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
+              ...item.source.in !== void 0 ? { in: item.source.in } : {},
+              ...item.source.out !== void 0 ? { out: item.source.out } : {},
               ...item.script !== void 0 ? { script: item.script } : {},
               ...item.reading !== void 0 ? { reading: item.reading } : {},
               ...item.provenance !== void 0 ? { provenance: structuredClone(item.provenance) } : {}
@@ -4591,11 +4595,16 @@ var require_internal_model = __commonJS({
       narration.forEach((entry, index) => {
         if (!isRecord(entry) || typeof entry.path !== "string" || typeof entry.t !== "number")
           return;
+        const start = typeof entry.in === "number" ? entry.in : 0;
+        const end = typeof entry.out === "number" ? entry.out : start;
+        const duration = Math.max(0, end - start);
         const value = {
           id: typeof entry.id === "string" ? entry.id : `n-${String(index + 1).padStart(4, "0")}`,
           t: entry.t,
           path: entry.path,
           ...typeof entry.gain_db === "number" ? { gainDb: entry.gain_db } : {},
+          ...typeof entry.in === "number" ? { in: entry.in } : {},
+          ...typeof entry.out === "number" ? { out: entry.out } : {},
           ...typeof entry.script === "string" ? { script: entry.script } : {},
           ...typeof entry.reading === "string" ? { reading: entry.reading } : {},
           ...isRecord(entry.provenance) ? { provenance: structuredClone(entry.provenance) } : {}
@@ -4603,10 +4612,10 @@ var require_internal_model = __commonJS({
         ensureTrack(0).items.push({
           id: value.id,
           atFrames: Math.round(value.t * fps),
-          durationFrames: 0,
+          durationFrames: Math.round(duration * fps),
           at: value.t,
-          duration: 0,
-          source: { kind: "media", path: value.path, in: 0, out: 0 },
+          duration,
+          source: { kind: "media", path: value.path, in: start, out: end },
           declaration: entry,
           legacy: { collection: "narration", index: nextLegacyIndex(legacyIndexCounters, "narration"), value }
         });
@@ -5512,6 +5521,8 @@ var require_legacy_parse = __commonJS({
               t: narration.t,
               path: narration.path,
               ...gainDb !== void 0 ? { gainDb } : {},
+              ...typeof narration.in === "number" && Number.isFinite(narration.in) && narration.in >= 0 ? { in: narration.in } : {},
+              ...typeof narration.out === "number" && Number.isFinite(narration.out) && narration.out > 0 ? { out: narration.out } : {},
               ...typeof narration.script === "string" ? { script: narration.script } : {},
               ...typeof narration.reading === "string" ? { reading: narration.reading } : {},
               ...narration.provenance !== null && typeof narration.provenance === "object" && !Array.isArray(narration.provenance) ? { provenance: structuredClone(narration.provenance) } : {}
@@ -16656,7 +16667,7 @@ function watchDecoderErrors(onDetect) {
 // ../frame-engine/src/decode/keyframe-index.ts
 var MP4BoxNamespace = __toESM(require_mp4box_all(), 1);
 var MP4Box = MP4BoxNamespace.default ?? MP4BoxNamespace;
-function createIndex(values) {
+function createIndex(values, frameEnds = /* @__PURE__ */ new Map()) {
   const times = [...values].sort((left, right) => left - right);
   const nearestAtOrBefore = (targetUs) => {
     if (times.length === 0) return 0;
@@ -16679,6 +16690,9 @@ function createIndex(values) {
   return {
     keyframeTimesUs: times,
     nearestAtOrBefore,
+    frameEndUs(frameStartUs) {
+      return frameEnds.get(frameStartUs) ?? null;
+    },
     nearest,
     withinTolerance(targetUs, toleranceUs) {
       const candidate = nearest(targetUs);
@@ -16696,7 +16710,19 @@ async function buildKeyframeIndexFromHeader(header) {
         if (!track) return resolve(createIndex([]));
         const samples = file.getTrackSamplesInfo(track.id);
         const firstDts = samples[0]?.dts ?? 0;
-        resolve(createIndex(samples.filter((sample) => sample.is_sync).map((sample) => (sample.cts - firstDts) / sample.timescale * 1e6)));
+        const timestampUs = (sample) => (sample.cts - firstDts) / sample.timescale * 1e6;
+        const frameEnds = /* @__PURE__ */ new Map();
+        for (const sample of samples) {
+          const startUs = timestampUs(sample);
+          const duration = sample.duration;
+          if (typeof duration === "number") {
+            frameEnds.set(startUs, startUs + duration / sample.timescale * 1e6);
+          }
+        }
+        resolve(createIndex(
+          samples.filter((sample) => sample.is_sync).map(timestampUs),
+          frameEnds
+        ));
       } catch (error) {
         reject(error);
       }
@@ -16715,6 +16741,8 @@ var DecoderGuardError = class extends Error {
     this.name = "DecoderGuardError";
   }
 };
+var AV_CLIPER_RESET_WINDOW_US = 3e6;
+var MAX_EXACT_FRAME_TICKS = 4;
 var DecodedFrameCoverageCache = class {
   frame = null;
   cloneAt(targetUs) {
@@ -16743,6 +16771,7 @@ var ClipSession = class _ClipSession {
   clip = null;
   keyframes = null;
   tailSafeLimitUs = null;
+  lastTickTargetUs = null;
   coverage = new DecodedFrameCoverageCache();
   loadPromise = null;
   queue = Promise.resolve();
@@ -16795,6 +16824,7 @@ var ClipSession = class _ClipSession {
             this.options.tickTimeoutMs,
             `prime ${this.id}`
           );
+          this.lastTickTargetUs = 0;
           if (primed.video) this.coverage.adopt(primed.video);
         } finally {
           stopWatching();
@@ -16837,14 +16867,14 @@ var ClipSession = class _ClipSession {
     const tickStarted = performance.now();
     const result = await this.serialize(async () => {
       try {
-        return await this.guardedTick(target);
+        return await this.guardedExactTick(target);
       } catch (error) {
         if (!(error instanceof DecoderGuardError) && !isDecoderErrorMessage(error)) throw error;
         if (!(error instanceof DecoderGuardError)) {
           this.options.onWarning?.(`${this.id}: decoder runtime error: ${String(error)}`);
         }
         await this.recreateDecoder();
-        return this.guardedTick(target);
+        return this.guardedExactTick(target);
       }
     });
     metrics?.record("tick", performance.now() - tickStarted);
@@ -16883,6 +16913,7 @@ var ClipSession = class _ClipSession {
     fork.state = this.state;
     fork.keyframes = this.keyframes;
     fork.tailSafeLimitUs = this.tailSafeLimitUs;
+    fork.lastTickTargetUs = null;
     const coverageSeed = this.coverage.cloneStored();
     if (coverageSeed) fork.coverage.adopt(coverageSeed);
     fork.loadPromise = Promise.resolve();
@@ -16893,6 +16924,7 @@ var ClipSession = class _ClipSession {
     this.clip = null;
     this.meta = null;
     this.coverage.clear();
+    this.lastTickTargetUs = null;
     this.loadPromise = null;
     this.state = "idle";
   }
@@ -16908,14 +16940,59 @@ var ClipSession = class _ClipSession {
       rejectDecoder?.(message);
     });
     try {
-      return await withTimeout(
+      const result = await withTimeout(
         Promise.race([this.clip.tick(target), decoderError]),
         this.options.tickTimeoutMs,
         `tick ${this.id}`
       );
+      this.lastTickTargetUs = target;
+      return result;
     } finally {
       stopWatching();
     }
+  }
+  async guardedExactTick(target) {
+    const willReset = this.lastTickTargetUs == null || target <= this.lastTickTargetUs || target - this.lastTickTargetUs > AV_CLIPER_RESET_WINDOW_US;
+    let seeded = false;
+    if (willReset && this.shouldSeedFromKeyframe(target)) {
+      await this.seedFromKeyframe(target);
+      seeded = true;
+    }
+    let tickTarget = target;
+    for (let attempt = 0; attempt < MAX_EXACT_FRAME_TICKS; attempt += 1) {
+      const result = await this.guardedTick(tickTarget);
+      const frame = result.video;
+      if (frame && frameCoversTimestamp(frame, target)) return result;
+      const hasUsableDuration = frame != null && typeof frame.duration === "number" && Number.isFinite(frame.duration) && frame.duration > 0;
+      if (frame && !hasUsableDuration && frame.timestamp <= target) return result;
+      const wentPastTarget = frame != null && frame.timestamp > target;
+      const endedBeforeTarget = frame != null && hasUsableDuration && frame.timestamp + frame.duration <= target;
+      frame?.close();
+      if ((frame == null || wentPastTarget) && !seeded && this.shouldSeedFromKeyframe(target)) {
+        await this.seedFromKeyframe(target);
+        seeded = true;
+        tickTarget = target;
+        continue;
+      }
+      if (endedBeforeTarget) {
+        tickTarget = target + 1;
+        continue;
+      }
+      break;
+    }
+    return {};
+  }
+  shouldSeedFromKeyframe(target) {
+    if (!this.keyframes || this.keyframes.keyframeTimesUs.length === 0) return false;
+    const anchor = this.keyframes.nearestAtOrBefore(target);
+    const anchorEnd = this.keyframes.frameEndUs(anchor);
+    return anchorEnd == null ? target > anchor : target >= anchorEnd;
+  }
+  async seedFromKeyframe(target) {
+    if (!this.keyframes) return;
+    const anchor = this.keyframes.nearestAtOrBefore(target);
+    const seeded = await this.guardedTick(anchor + 1);
+    seeded.video?.close();
   }
   async recreateDecoder() {
     this.clip?.destroy();
@@ -16924,6 +17001,7 @@ var ClipSession = class _ClipSession {
     this.coverage.clear();
     this.keyframes = null;
     this.tailSafeLimitUs = null;
+    this.lastTickTargetUs = null;
     this.loadPromise = null;
     this.state = "idle";
     await this.load();
@@ -17424,6 +17502,7 @@ var FrameEngineRuntime = class {
     });
     const cuts = normalizedCuts(edit);
     const urls = sourceUrls(edit, timelineData, cuts);
+    const videoSources = /* @__PURE__ */ new Map();
     for (const layer of Array.isArray(edit?.layers) ? edit.layers : []) {
       if (!layer?.src) continue;
       const key = String(layer.src);
@@ -17444,10 +17523,23 @@ var FrameEngineRuntime = class {
         capacity: 12,
         onAccess: (access) => this.currentAccesses?.push(access)
       });
+      const observedSource = {
+        decode: async (timeUs, metrics, request) => {
+          const frame = await source.decode(timeUs, metrics, request);
+          this.currentDecodedFrames?.push({
+            streamId: request?.streamId ?? "default",
+            requestedUs: timeUs,
+            timestampUs: frame.timestamp,
+            durationUs: frame.duration ?? null
+          });
+          return frame;
+        }
+      };
       this.pools.set(id, pool);
       this.lookahead.set(id, source);
+      videoSources.set(id, observedSource);
     }
-    this.sources = new Map([...this.lookahead, ...this.images]);
+    this.sources = new Map([...videoSources, ...this.images]);
     this.timeline = buildResolvedTimelinePlan(cuts, {
       fps,
       layers: Array.isArray(edit?.layers) ? edit.layers : []
@@ -17514,6 +17606,9 @@ var FrameEngineRuntime = class {
   lastPlaybackFrame = -1;
   lastCutIndex = null;
   currentAccesses = null;
+  currentDecodedFrames = null;
+  lastRequestedTimeUs = null;
+  lastBaseFrame = null;
   disposed = false;
   async prime() {
     const first = performance.now();
@@ -17565,6 +17660,7 @@ var FrameEngineRuntime = class {
       return;
     }
     this.currentAccesses = [];
+    this.currentDecodedFrames = [];
     const started = performance.now();
     let frame;
     try {
@@ -17573,6 +17669,8 @@ var FrameEngineRuntime = class {
       frame?.close();
     }
     const elapsed = performance.now() - started;
+    this.lastRequestedTimeUs = timeUs;
+    this.lastBaseFrame = this.currentDecodedFrames.find((observation) => plan.base.some((layer) => layer.id === observation.streamId)) ?? null;
     const late = elapsed > 1e3 / this.fps;
     if (late) this.measurements.lateFrames += 1;
     const cutIndex = Number(plan.base[0]?.id.replace("cut-", ""));
@@ -17595,6 +17693,7 @@ var FrameEngineRuntime = class {
     this.prefetch(timeUs);
     this.scheduleWarmup(timeUs / 1e6);
     this.currentAccesses = null;
+    this.currentDecodedFrames = null;
     this.updateMetrics();
   }
   prefetch(timeUs) {
@@ -17647,6 +17746,9 @@ var FrameEngineRuntime = class {
     this.ui.metrics.dataset.boundaryLateBefore = `${m2.boundaryBefore.late}/${m2.boundaryBefore.total}`;
     this.ui.metrics.dataset.boundaryLateAfter = `${m2.boundaryAfter.late}/${m2.boundaryAfter.total}`;
     this.ui.metrics.dataset.uploadPath = this.compositor.uploadPath;
+    this.ui.metrics.dataset.requestedTimeUs = this.lastRequestedTimeUs == null ? "" : String(this.lastRequestedTimeUs);
+    this.ui.metrics.dataset.baseFrameTimestampUs = this.lastBaseFrame == null ? "" : String(this.lastBaseFrame.timestampUs);
+    this.ui.metrics.dataset.baseFrameDurationUs = this.lastBaseFrame?.durationUs == null ? "" : String(this.lastBaseFrame.durationUs);
     this.ui.metrics.textContent = [
       `fps (presented/1s)  ${fps}`,
       `late frame          ${m2.lateFrames}`,

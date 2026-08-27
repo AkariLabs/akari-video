@@ -444,6 +444,10 @@ function parseEdit(source) {
                     t: narration.t,
                     path: narration.path,
                     ...(gainDb !== undefined ? { gainDb } : {}),
+                    ...(typeof narration.in === 'number' && Number.isFinite(narration.in) && narration.in >= 0
+                        ? { in: narration.in } : {}),
+                    ...(typeof narration.out === 'number' && Number.isFinite(narration.out) && narration.out > 0
+                        ? { out: narration.out } : {}),
                     ...(typeof narration.script === 'string' ? { script: narration.script } : {}),
                     ...(typeof narration.reading === 'string' ? { reading: narration.reading } : {}),
                     ...(narration.provenance !== null && typeof narration.provenance === 'object'

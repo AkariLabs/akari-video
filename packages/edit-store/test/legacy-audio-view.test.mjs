@@ -19,6 +19,7 @@ const legacyFixture = version => ({
     }],
     narration: [{
       id: 'n-0001', t: 0.3, path: 'voice.wav', gain_db: -3,
+      in: 5.8, out: 9.7,
       provenance: { provider: 'human' },
     }],
     bgm: {
@@ -38,7 +39,7 @@ const previewConsumerFields = audio => ({
       .filter(key => item[key] !== undefined).map(key => [key, item[key]]),
   )),
   narration: audio.narration.map(item => Object.fromEntries(
-    ['id', 'path', 't', 'gain_db']
+    ['id', 'path', 't', 'gain_db', 'in', 'out']
       .filter(key => item[key] !== undefined).map(key => [key, item[key]]),
   )),
 });
@@ -85,7 +86,7 @@ test('tracks-only v2 は bgm/sfx/narration と trim/fade/ducking/track を損失
       }] },
       { id: 'a-narration', lane: 'audio', items: [{
         id: 'n-0001', at: 30, duration: 60, role: 'narration', gain_db: -3,
-        source: { kind: 'media', src: 'voice', in: 0, out: 2 },
+        source: { kind: 'media', src: 'voice', in: 5.8, out: 9.7 },
       }] },
       { id: 'a-bgm', lane: 'audio', items: [{
         id: 'music-item', at: 0, duration: 300, role: 'bgm', gain_db: -18,
@@ -105,8 +106,43 @@ test('tracks-only v2 は bgm/sfx/narration と trim/fade/ducking/track を損失
       in: 0.25, out: 0.75, gain_db: -6, fade_in: 0.1, fade_out: 0.2, gainDb: -6,
     }],
     narration: [{
-      id: 'n-0001', t: 1, path: 'audio/voice.wav', gain_db: -3, track: 1, gainDb: -3,
+      id: 'n-0001', t: 1, path: 'audio/voice.wav', in: 5.8, out: 9.7,
+      gain_db: -3, track: 1, gainDb: -3,
     }],
+  });
+});
+
+test('v2 narration の in/out は legacy 投影を経由して v2 へ戻しても保持される', () => {
+  const v2 = {
+    version: 2,
+    output: { width: 1280, height: 720, fps: 30 },
+    sources: [{ id: 'voice', path: 'audio/voice.wav', proxy: null }],
+    tracks: [{ id: 'a-narration', lane: 'audio', items: [{
+      id: 'n-0001', at: 30, duration: 117, role: 'narration',
+      source: { kind: 'media', src: 'voice', in: 5.8, out: 9.7 },
+      provenance: { provider: 'human' },
+    }] }],
+  };
+  const projected = projectLegacyAudioView(readInternalEdit(v2));
+  assert.deepEqual(
+    Object.fromEntries(['in', 'out'].map(key => [key, projected.narration[0][key]])),
+    { in: 5.8, out: 9.7 },
+  );
+
+  const migrated = migrateEditToV2({
+    version: 0,
+    output: v2.output,
+    source: { path: 'source.mp4', proxy: null },
+    cuts: [{ in: 0, out: 1 }],
+    overlays: [],
+    audio: projected,
+  });
+  assert.equal(migrated.ok, true, migrated.blockers?.join('\n'));
+  const narrationItem = migrated.doc.tracks
+    .flatMap(track => track.items)
+    .find(item => item.role === 'narration');
+  assert.deepEqual(narrationItem.source, {
+    kind: 'media', src: 'a-1', in: 5.8, out: 9.7,
   });
 });
 

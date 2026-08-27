@@ -20,6 +20,9 @@ class DecoderGuardError extends Error {
   }
 }
 
+const AV_CLIPER_RESET_WINDOW_US = 3_000_000;
+const MAX_EXACT_FRAME_TICKS = 4;
+
 /** Owns one decoded frame and answers every timestamp covered by its declared duration. */
 export class DecodedFrameCoverageCache {
   private frame: VideoFrame | null = null;
@@ -55,6 +58,7 @@ export class ClipSession implements NativeFrameSource {
   private clip: MP4Clip | null = null;
   private keyframes: KeyframeIndex | null = null;
   private tailSafeLimitUs: number | null = null;
+  private lastTickTargetUs: number | null = null;
   private readonly coverage = new DecodedFrameCoverageCache();
   private loadPromise: Promise<void> | null = null;
   private queue: Promise<unknown> = Promise.resolve();
@@ -110,6 +114,7 @@ export class ClipSession implements NativeFrameSource {
             this.options.tickTimeoutMs,
             `prime ${this.id}`
           );
+          this.lastTickTargetUs = 0;
           if (primed.video) this.coverage.adopt(primed.video);
         } finally {
           stopWatching();
@@ -154,14 +159,14 @@ export class ClipSession implements NativeFrameSource {
     const tickStarted = performance.now();
     const result = await this.serialize(async () => {
       try {
-        return await this.guardedTick(target);
+        return await this.guardedExactTick(target);
       } catch (error) {
         if (!(error instanceof DecoderGuardError) && !isDecoderErrorMessage(error)) throw error;
         if (!(error instanceof DecoderGuardError)) {
           this.options.onWarning?.(`${this.id}: decoder runtime error: ${String(error)}`);
         }
         await this.recreateDecoder();
-        return this.guardedTick(target);
+        return this.guardedExactTick(target);
       }
     });
     metrics?.record('tick', performance.now() - tickStarted);
@@ -204,6 +209,8 @@ export class ClipSession implements NativeFrameSource {
     fork.state = this.state;
     fork.keyframes = this.keyframes;
     fork.tailSafeLimitUs = this.tailSafeLimitUs;
+    // MP4Clip.clone() constructs a fresh, unprimed VideoFrameFinder.
+    fork.lastTickTargetUs = null;
     const coverageSeed = this.coverage.cloneStored();
     if (coverageSeed) fork.coverage.adopt(coverageSeed);
     fork.loadPromise = Promise.resolve();
@@ -215,6 +222,7 @@ export class ClipSession implements NativeFrameSource {
     this.clip = null;
     this.meta = null;
     this.coverage.clear();
+    this.lastTickTargetUs = null;
     this.loadPromise = null;
     this.state = 'idle';
   }
@@ -231,14 +239,77 @@ export class ClipSession implements NativeFrameSource {
       rejectDecoder?.(message);
     });
     try {
-      return await withTimeout(
+      const result = await withTimeout(
         Promise.race([this.clip.tick(target), decoderError]),
         this.options.tickTimeoutMs,
         `tick ${this.id}`
       );
+      this.lastTickTargetUs = target;
+      return result;
     } finally {
       stopWatching();
     }
+  }
+
+  private async guardedExactTick(target: number): Promise<{ video?: VideoFrame }> {
+    const willReset = this.lastTickTargetUs == null
+      || target <= this.lastTickTargetUs
+      || target - this.lastTickTargetUs > AV_CLIPER_RESET_WINDOW_US;
+    let seeded = false;
+
+    if (willReset && this.shouldSeedFromKeyframe(target)) {
+      await this.seedFromKeyframe(target);
+      seeded = true;
+    }
+
+    let tickTarget = target;
+    for (let attempt = 0; attempt < MAX_EXACT_FRAME_TICKS; attempt += 1) {
+      const result = await this.guardedTick(tickTarget);
+      const frame = result.video;
+      if (frame && frameCoversTimestamp(frame, target)) return result;
+
+      const hasUsableDuration = frame != null
+        && typeof frame.duration === 'number'
+        && Number.isFinite(frame.duration)
+        && frame.duration > 0;
+      // Preserve legacy best-effort decoding when a malformed frame has no usable boundary.
+      if (frame && !hasUsableDuration && frame.timestamp <= target) return result;
+
+      const wentPastTarget = frame != null && frame.timestamp > target;
+      const endedBeforeTarget = frame != null
+        && hasUsableDuration
+        && frame.timestamp + frame.duration <= target;
+      frame?.close();
+
+      if ((frame == null || wentPastTarget) && !seeded && this.shouldSeedFromKeyframe(target)) {
+        await this.seedFromKeyframe(target);
+        seeded = true;
+        tickTarget = target;
+        continue;
+      }
+      if (endedBeforeTarget) {
+        // av-cliper treats the prior frame's end timestamp as inclusive. Moving one
+        // microsecond into the requested frame preserves exact frame selection.
+        tickTarget = target + 1;
+        continue;
+      }
+      break;
+    }
+    return {};
+  }
+
+  private shouldSeedFromKeyframe(target: number): boolean {
+    if (!this.keyframes || this.keyframes.keyframeTimesUs.length === 0) return false;
+    const anchor = this.keyframes.nearestAtOrBefore(target);
+    const anchorEnd = this.keyframes.frameEndUs(anchor);
+    return anchorEnd == null ? target > anchor : target >= anchorEnd;
+  }
+
+  private async seedFromKeyframe(target: number): Promise<void> {
+    if (!this.keyframes) return;
+    const anchor = this.keyframes.nearestAtOrBefore(target);
+    const seeded = await this.guardedTick(anchor + 1);
+    seeded.video?.close();
   }
 
   private async recreateDecoder(): Promise<void> {
@@ -248,6 +319,7 @@ export class ClipSession implements NativeFrameSource {
     this.coverage.clear();
     this.keyframes = null;
     this.tailSafeLimitUs = null;
+    this.lastTickTargetUs = null;
     this.loadPromise = null;
     this.state = 'idle';
     await this.load();

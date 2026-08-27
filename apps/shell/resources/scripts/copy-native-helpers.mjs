@@ -41,6 +41,10 @@ await copyFile(
   path.join(repoRoot, 'packages', 'edit-store', 'lib', 'webview-kernel.js'),
   path.join(overlayRuntimeDestination, 'webview-kernel.js')
 );
+await copyFile(
+  path.join(shellRoot, 'extensions', 'akari-preview', 'generated', 'frame-engine.js'),
+  path.join(overlayRuntimeDestination, 'frame-engine.js')
+);
 console.log(`Copied overlay-runtime assets to ${path.relative(shellRoot, overlayRuntimeDestination)}`);
 
 // Bundle the repo-root skills/ as the source used when a packaged app creates a
