@@ -433,7 +433,7 @@ test("--quality/--encoder are rejected with an unknown value before any renderin
     assert.equal(badQuality.status, 2);
     assert.match(badQuality.stderr, /--quality must be one of/);
 
-    const badEncoder = run(project, ["--plan-only", "--encoder", "nvenc"]);
+    const badEncoder = run(project, ["--plan-only", "--encoder", "future-encoder"]);
     assert.equal(badEncoder.status, 2);
     assert.match(badEncoder.stderr, /--encoder must be one of/);
   } finally {

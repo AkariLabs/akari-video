@@ -30,7 +30,7 @@ test("parseArguments rejects an unknown --quality value", () => {
 });
 
 test("parseArguments rejects an unknown --encoder value", () => {
-  assert.throws(() => parseArguments(["/project", "--encoder", "nvenc"]), /--encoder must be one of/);
+  assert.throws(() => parseArguments(["/project", "--encoder", "future-encoder"]), /--encoder must be one of/);
 });
 
 test("parseArguments rejects a non-positive --fps", () => {

@@ -144,3 +144,24 @@ perspective のレイヤー分割フォールバック — perspective は `crop
 - Chrome 不在、`.app` でない実行ファイル、`DevToolsActivePort` 待機または接続の失敗は、
   「字幕レンダ用ブラウザの起動に失敗した」ことと Chrome の確認を日本語で示し、書き出しを
   非 0 で停止する。別スタイルの簡易字幕へは切り替えない。
+
+## 6. H.264 エンコーダ選択（2026-08-28 追記）
+
+`--encoder` の語彙は `auto` / `videotoolbox` / `nvenc` / `qsv` / `amf` / `mf` / `x264` とする。
+`master` 品質は x264 専用であり、ハードウェアエンコーダを明示した場合は拒否する。
+
+| 値 | ffmpeg エンコーダ | 対応環境・品質制御 |
+|---|---|---|
+| `videotoolbox` | `h264_videotoolbox` | macOS。ビットレート制御 |
+| `nvenc` | `h264_nvenc` | Windows / NVIDIA。VBR + CQ |
+| `qsv` | `h264_qsv` | Windows / Intel。global quality |
+| `amf` | `h264_amf` | Windows / AMD。CQP |
+| `mf` | `h264_mf` | Windows Media Foundation。quality 0..100 |
+| `x264` | `libx264` | 全環境。CRF |
+
+`auto` は macOS で VideoToolbox → x264、Windows で NVENC → QSV → AMF → Media Foundation →
+x264、その他の環境で x264 の順に解決する。ハードウェア対応は `ffmpeg -encoders` の一覧だけで
+決めず、実際の1フレーム試し焼きにも成功した場合だけ採用する。Windows 向け4方式は最小解像度の
+誤判定を避けるため 256x144 で試し焼きし、`AKARI_EXPORT_FORCE_X264=1` のときは試し焼きせず
+すべて不採用とする。明示指定した Windows 向け方式が利用不能なら x264 へ暗黙移行せず停止する。
+`AKARI_EXPORT_FORCE_X264=1` のときに Windows 向け方式を明示指定した場合も、同じく停止する。

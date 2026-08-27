@@ -21,7 +21,28 @@ import { DEFAULT_EXPORT_OUTPUT_NAME } from './export-request-packet';
 export const QUICK_EXPORT_OUTPUT_DIRECTORY = 'exports';
 
 export type QuickExportQuality = 'high' | 'standard' | 'light';
-export type QuickExportEncoder = 'auto' | 'videotoolbox' | 'x264';
+export type QuickExportEncoder = 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
+
+export function buildQuickExportEncoderChoices(
+    platform: 'darwin' | 'win32' | 'linux'
+): Array<{ label: string; value: QuickExportEncoder }> {
+    const automatic = { label: '自動（既定・ハードウェアが使えれば優先）', value: 'auto' as const };
+    const software = { label: 'ソフトウェア（x264）', value: 'x264' as const };
+    if (platform === 'darwin') {
+        return [automatic, { label: 'ハードウェア（VideoToolbox）', value: 'videotoolbox' }, software];
+    }
+    if (platform === 'win32') {
+        return [
+            automatic,
+            { label: 'ハードウェア（NVENC）', value: 'nvenc' },
+            { label: 'ハードウェア（QSV）', value: 'qsv' },
+            { label: 'ハードウェア（AMF）', value: 'amf' },
+            { label: 'ハードウェア（Media Foundation）', value: 'mf' },
+            software
+        ];
+    }
+    return [automatic, software];
+}
 
 /** render-cut --quality の既定値と同じ（省略時に選ばれているのと同じ選択）。 */
 export const QUICK_EXPORT_DEFAULT_QUALITY: QuickExportQuality = 'standard';

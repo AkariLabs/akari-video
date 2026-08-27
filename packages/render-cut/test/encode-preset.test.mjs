@@ -109,7 +109,7 @@ test("resolveEncoderChoice x264/videotoolbox force the engine without probing ff
 });
 
 test("resolveEncoderChoice rejects an unknown value", () => {
-  assert.throws(() => resolveEncoderChoice({ requested: "nvenc" }), RangeError);
+  assert.throws(() => resolveEncoderChoice({ requested: "future-encoder" }), RangeError);
 });
 
 test("resolveEncoderChoice auto picks videotoolbox when the encoder list and smoke test both pass", () => {
@@ -118,6 +118,7 @@ test("resolveEncoderChoice auto picks videotoolbox when the encoder list and smo
     requested: "auto",
     ffmpegCommand: "fake-ffmpeg-auto-1",
     env: {},
+    platform: "darwin",
     spawnSyncImpl: fakeSpawnSync({ hasEncoder: true, smokeOk: true }),
   });
   assert.deepEqual(choice, { engine: "videotoolbox" });
@@ -129,6 +130,7 @@ test("resolveEncoderChoice auto falls back to x264 when the encoder is not liste
     requested: "auto",
     ffmpegCommand: "fake-ffmpeg-auto-2",
     env: {},
+    platform: "darwin",
     spawnSyncImpl: fakeSpawnSync({ hasEncoder: false }),
   });
   assert.deepEqual(choice, { engine: "x264" });
@@ -140,6 +142,7 @@ test("resolveEncoderChoice auto falls back to x264 when the smoke test fails des
     requested: "auto",
     ffmpegCommand: "fake-ffmpeg-auto-3",
     env: {},
+    platform: "darwin",
     spawnSyncImpl: fakeSpawnSync({ hasEncoder: true, smokeOk: false }),
   });
   assert.deepEqual(choice, { engine: "x264" });
