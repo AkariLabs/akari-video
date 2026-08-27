@@ -7,8 +7,11 @@ const MP4Box: typeof MP4BoxNamespace =
 export interface KeyframeIndex {
   keyframeTimesUs: number[];
   lastFrameStartUs: number | null;
+  decoderTimestampOffsetUs: number;
+  presentationDurationUs: number | null;
   nearestAtOrBefore(targetUs: number): number;
   frameEndUs(frameStartUs: number): number | null;
+  nextFrameStartUs(frameStartUs: number): number | null;
   nearest(targetUs: number): number;
   withinTolerance(targetUs: number, toleranceUs: number): number | null;
 }
@@ -16,7 +19,10 @@ export interface KeyframeIndex {
 function createIndex(
   values: readonly number[],
   frameEnds: ReadonlyMap<number, number> = new Map(),
+  nextFrameStarts: ReadonlyMap<number, number> = new Map(),
   lastFrameStartUs: number | null = null,
+  decoderTimestampOffsetUs = 0,
+  presentationDurationUs: number | null = null,
 ): KeyframeIndex {
   const times = [...values].sort((left, right) => left - right);
   const nearestAtOrBefore = (targetUs: number): number => {
@@ -40,9 +46,18 @@ function createIndex(
   return {
     keyframeTimesUs: times,
     lastFrameStartUs,
+    decoderTimestampOffsetUs,
+    presentationDurationUs,
     nearestAtOrBefore,
     frameEndUs(frameStartUs) {
       return frameEnds.get(frameStartUs) ?? null;
+    },
+    nextFrameStartUs(frameStartUs) {
+      const roundedStartUs = Math.round(frameStartUs);
+      return nextFrameStarts.get(roundedStartUs)
+        ?? nextFrameStarts.get(roundedStartUs - 1)
+        ?? nextFrameStarts.get(roundedStartUs + 1)
+        ?? null;
     },
     nearest,
     withinTolerance(targetUs, toleranceUs) {
@@ -50,6 +65,38 @@ function createIndex(
       return Math.abs(candidate - targetUs) <= toleranceUs ? candidate : null;
     }
   };
+}
+
+export interface MediaEdit {
+  segment_duration: number;
+  media_time: number;
+  media_rate_integer: number;
+  media_rate_fraction: number;
+}
+
+/**
+ * Returns the difference between av-cliper's decoder timestamps and the MP4
+ * presentation timeline. av-cliper subtracts the first DTS, while an edit list
+ * maps the first presented CTS to time zero.
+ */
+export function calculateDecoderTimestampOffsetUs(
+  firstDts: number,
+  trackTimescale: number,
+  edits: readonly MediaEdit[] | undefined,
+): number {
+  if (!Number.isFinite(firstDts) || !(trackTimescale > 0)) return 0;
+  const mediaEdit = presentationMediaEdit(edits);
+  if (!mediaEdit) return 0;
+  return Math.max(
+    0,
+    Math.round(((mediaEdit.media_time - firstDts) / trackTimescale) * 1e6),
+  );
+}
+
+function presentationMediaEdit(edits: readonly MediaEdit[] | undefined): MediaEdit | undefined {
+  return edits?.find(edit => edit.media_time >= 0
+    && edit.media_rate_integer === 1
+    && edit.media_rate_fraction === 0);
 }
 
 export async function buildKeyframeIndexFromHeader(header: ArrayBuffer): Promise<KeyframeIndex> {
@@ -62,25 +109,53 @@ export async function buildKeyframeIndexFromHeader(header: ArrayBuffer): Promise
         if (!track) return resolve(createIndex([]));
         const samples = file.getTrackSamplesInfo(track.id);
         const firstDts = samples[0]?.dts ?? 0;
+        const decoderTimestampOffsetUs = calculateDecoderTimestampOffsetUs(
+          firstDts,
+          track.timescale,
+          track.edits,
+        );
+        const presentationMediaTime = presentationMediaEdit(track.edits)?.media_time ?? firstDts;
+        const editDuration = track.edits?.reduce((sum, edit) => sum + edit.segment_duration, 0) ?? 0;
+        const presentationDurationUs = editDuration > 0 && info.timescale > 0
+          ? Math.round(
+            (editDuration / info.timescale) * 1e6,
+          )
+          : null;
         const timestampUs = (sample: (typeof samples)[number]) =>
-          ((sample.cts - firstDts) / sample.timescale) * 1e6;
+          ((sample.cts - presentationMediaTime) / sample.timescale) * 1e6;
         let lastFrameStartUs: number | null = null;
         for (const sample of samples) {
           const startUs = Math.round(timestampUs(sample));
           lastFrameStartUs = lastFrameStartUs == null ? startUs : Math.max(lastFrameStartUs, startUs);
+        }
+        const presentationStarts = [...new Set(samples.map(sample => Math.round(timestampUs(sample))))]
+          .sort((left, right) => left - right);
+        const nextFrameStarts = new Map<number, number>();
+        for (let index = 0; index < presentationStarts.length - 1; index += 1) {
+          nextFrameStarts.set(presentationStarts[index]!, presentationStarts[index + 1]!);
         }
         const frameEnds = new Map<number, number>();
         for (const sample of samples) {
           const startUs = timestampUs(sample);
           const duration = (sample as typeof sample & { duration?: number }).duration;
           if (typeof duration === 'number') {
-            frameEnds.set(startUs, startUs + (duration / sample.timescale) * 1e6);
+            const declaredEndUs = startUs + (duration / sample.timescale) * 1e6;
+            const nextStartUs = nextFrameStarts.get(Math.round(startUs));
+            frameEnds.set(
+              startUs,
+              nextStartUs != null && declaredEndUs > nextStartUs + 1
+                ? nextStartUs
+                : declaredEndUs,
+            );
           }
         }
         resolve(createIndex(
           samples.filter(sample => sample.is_sync).map(timestampUs),
           frameEnds,
+          nextFrameStarts,
           lastFrameStartUs,
+          decoderTimestampOffsetUs,
+          presentationDurationUs,
         ));
       } catch (error) {
         reject(error);

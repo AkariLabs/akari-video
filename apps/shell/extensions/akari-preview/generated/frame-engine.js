@@ -13013,6 +13013,7 @@ ${indent}`);
     buildBaseFragment: () => buildBaseFragment,
     buildKeyframeIndexFromHeader: () => buildKeyframeIndexFromHeader,
     buildResolvedTimelinePlan: () => buildResolvedTimelinePlan,
+    calculateDecoderTimestampOffsetUs: () => calculateDecoderTimestampOffsetUs,
     capturePresentedRgba: () => capturePresentedRgba,
     compareRgba: () => compareRgba,
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
@@ -13028,6 +13029,7 @@ ${indent}`);
     isLayerActiveAt: () => isLayerActiveAt,
     parseCube: () => parseCube,
     presentFrame: () => presentFrame,
+    presentationFrameTiming: () => presentationFrameTiming,
     readbackFrame: () => readbackFrame,
     resolveLookLutPath: () => resolveLookLutPath,
     sampleLutTrilinear: () => sampleLutTrilinear,
@@ -17127,7 +17129,7 @@ void main() {
   // packages/frame-engine/src/decode/keyframe-index.ts
   var MP4BoxNamespace = __toESM(require_mp4box_all(), 1);
   var MP4Box = MP4BoxNamespace.default ?? MP4BoxNamespace;
-  function createIndex(values, frameEnds = /* @__PURE__ */ new Map(), lastFrameStartUs = null) {
+  function createIndex(values, frameEnds = /* @__PURE__ */ new Map(), nextFrameStarts = /* @__PURE__ */ new Map(), lastFrameStartUs = null, decoderTimestampOffsetUs = 0, presentationDurationUs = null) {
     const times = [...values].sort((left, right) => left - right);
     const nearestAtOrBefore = (targetUs) => {
       if (times.length === 0) return 0;
@@ -17150,9 +17152,15 @@ void main() {
     return {
       keyframeTimesUs: times,
       lastFrameStartUs,
+      decoderTimestampOffsetUs,
+      presentationDurationUs,
       nearestAtOrBefore,
       frameEndUs(frameStartUs) {
         return frameEnds.get(frameStartUs) ?? null;
+      },
+      nextFrameStartUs(frameStartUs) {
+        const roundedStartUs = Math.round(frameStartUs);
+        return nextFrameStarts.get(roundedStartUs) ?? nextFrameStarts.get(roundedStartUs - 1) ?? nextFrameStarts.get(roundedStartUs + 1) ?? null;
       },
       nearest,
       withinTolerance(targetUs, toleranceUs) {
@@ -17160,6 +17168,18 @@ void main() {
         return Math.abs(candidate - targetUs) <= toleranceUs ? candidate : null;
       }
     };
+  }
+  function calculateDecoderTimestampOffsetUs(firstDts, trackTimescale, edits) {
+    if (!Number.isFinite(firstDts) || !(trackTimescale > 0)) return 0;
+    const mediaEdit = presentationMediaEdit(edits);
+    if (!mediaEdit) return 0;
+    return Math.max(
+      0,
+      Math.round((mediaEdit.media_time - firstDts) / trackTimescale * 1e6)
+    );
+  }
+  function presentationMediaEdit(edits) {
+    return edits?.find((edit) => edit.media_time >= 0 && edit.media_rate_integer === 1 && edit.media_rate_fraction === 0);
   }
   async function buildKeyframeIndexFromHeader(header) {
     return new Promise((resolve, reject) => {
@@ -17171,24 +17191,47 @@ void main() {
           if (!track) return resolve(createIndex([]));
           const samples = file.getTrackSamplesInfo(track.id);
           const firstDts = samples[0]?.dts ?? 0;
-          const timestampUs = (sample) => (sample.cts - firstDts) / sample.timescale * 1e6;
+          const decoderTimestampOffsetUs = calculateDecoderTimestampOffsetUs(
+            firstDts,
+            track.timescale,
+            track.edits
+          );
+          const presentationMediaTime = presentationMediaEdit(track.edits)?.media_time ?? firstDts;
+          const editDuration = track.edits?.reduce((sum, edit) => sum + edit.segment_duration, 0) ?? 0;
+          const presentationDurationUs = editDuration > 0 && info.timescale > 0 ? Math.round(
+            editDuration / info.timescale * 1e6
+          ) : null;
+          const timestampUs = (sample) => (sample.cts - presentationMediaTime) / sample.timescale * 1e6;
           let lastFrameStartUs = null;
           for (const sample of samples) {
             const startUs = Math.round(timestampUs(sample));
             lastFrameStartUs = lastFrameStartUs == null ? startUs : Math.max(lastFrameStartUs, startUs);
+          }
+          const presentationStarts = [...new Set(samples.map((sample) => Math.round(timestampUs(sample))))].sort((left, right) => left - right);
+          const nextFrameStarts = /* @__PURE__ */ new Map();
+          for (let index = 0; index < presentationStarts.length - 1; index += 1) {
+            nextFrameStarts.set(presentationStarts[index], presentationStarts[index + 1]);
           }
           const frameEnds = /* @__PURE__ */ new Map();
           for (const sample of samples) {
             const startUs = timestampUs(sample);
             const duration = sample.duration;
             if (typeof duration === "number") {
-              frameEnds.set(startUs, startUs + duration / sample.timescale * 1e6);
+              const declaredEndUs = startUs + duration / sample.timescale * 1e6;
+              const nextStartUs = nextFrameStarts.get(Math.round(startUs));
+              frameEnds.set(
+                startUs,
+                nextStartUs != null && declaredEndUs > nextStartUs + 1 ? nextStartUs : declaredEndUs
+              );
             }
           }
           resolve(createIndex(
             samples.filter((sample) => sample.is_sync).map(timestampUs),
             frameEnds,
-            lastFrameStartUs
+            nextFrameStarts,
+            lastFrameStartUs,
+            decoderTimestampOffsetUs,
+            presentationDurationUs
           ));
         } catch (error) {
           reject(error);
@@ -17238,6 +17281,7 @@ void main() {
     clip = null;
     keyframes = null;
     lastFrameStartUs = null;
+    decoderTimestampOffsetUs = 0;
     lastTickTargetUs = null;
     coverage = new DecodedFrameCoverageCache();
     loadPromise = null;
@@ -17285,24 +17329,32 @@ void main() {
               this.options.loadTimeoutMs,
               `ready ${this.id}`
             );
-            const primed = await withTimeout(
-              Promise.race([candidate.tick(0), decoderError]),
+            await this.loadKeyframes(candidate);
+            const primeTarget = this.toDecoderTime(0);
+            const rawPrimed = await withTimeout(
+              Promise.race([candidate.tick(primeTarget), decoderError]),
               this.options.tickTimeoutMs,
               `prime ${this.id}`
             );
-            this.lastTickTargetUs = 0;
+            const primed = this.normalizeTickResult(rawPrimed);
+            this.lastTickTargetUs = primeTarget;
             if (primed.video) this.coverage.adopt(primed.video);
           } finally {
             stopWatching();
           }
           this.clip = candidate;
-          this.meta = candidate.meta;
+          this.meta = {
+            ...candidate.meta,
+            duration: this.keyframes?.presentationDurationUs ?? Math.max(0, candidate.meta.duration - this.decoderTimestampOffsetUs)
+          };
           this.state = attempt.state;
           if (attempt.state === "degraded") this.options.onWarning?.(`${this.id}: software decoder fallback active`);
-          await this.loadKeyframes(candidate);
           return;
         } catch (error) {
           this.coverage.clear();
+          this.keyframes = null;
+          this.lastFrameStartUs = null;
+          this.decoderTimestampOffsetUs = 0;
           candidate?.destroy();
           lastError = error;
           this.options.onWarning?.(`${this.id}: ${String(error)}`);
@@ -17316,7 +17368,11 @@ void main() {
         const header = await withTimeout(clip.getFileHeaderBinData(), 2e3, `header ${this.id}`);
         this.keyframes = await withTimeout(buildKeyframeIndexFromHeader(header), 2e3, `keyframes ${this.id}`);
         this.lastFrameStartUs = this.keyframes.lastFrameStartUs;
+        this.decoderTimestampOffsetUs = this.keyframes.decoderTimestampOffsetUs;
       } catch (error) {
+        this.keyframes = null;
+        this.lastFrameStartUs = null;
+        this.decoderTimestampOffsetUs = 0;
         this.options.onWarning?.(`${this.id}: keyframe index unavailable: ${String(error)}`);
       }
     }
@@ -17369,6 +17425,9 @@ void main() {
     getLastFrameStartUs() {
       return this.lastFrameStartUs;
     }
+    getDecoderTimestampOffsetUs() {
+      return this.decoderTimestampOffsetUs;
+    }
     /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */
     async fork(id) {
       await this.load();
@@ -17381,6 +17440,7 @@ void main() {
       fork.state = this.state;
       fork.keyframes = this.keyframes;
       fork.lastFrameStartUs = this.lastFrameStartUs;
+      fork.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
       fork.lastTickTargetUs = null;
       const coverageSeed = this.coverage.cloneStored();
       if (coverageSeed) fork.coverage.adopt(coverageSeed);
@@ -17392,6 +17452,9 @@ void main() {
       this.clip = null;
       this.meta = null;
       this.coverage.clear();
+      this.keyframes = null;
+      this.lastFrameStartUs = null;
+      this.decoderTimestampOffsetUs = 0;
       this.lastTickTargetUs = null;
       this.loadPromise = null;
       this.state = "idle";
@@ -17408,19 +17471,21 @@ void main() {
         rejectDecoder?.(message);
       });
       try {
+        const decoderTarget = this.toDecoderTime(target);
         const result = await withTimeout(
-          Promise.race([this.clip.tick(target), decoderError]),
+          Promise.race([this.clip.tick(decoderTarget), decoderError]),
           this.options.tickTimeoutMs,
           `tick ${this.id}`
         );
-        this.lastTickTargetUs = target;
-        return result;
+        this.lastTickTargetUs = decoderTarget;
+        return this.normalizeTickResult(result);
       } finally {
         stopWatching();
       }
     }
     async guardedExactTick(target) {
-      const willReset = this.lastTickTargetUs == null || target <= this.lastTickTargetUs || target - this.lastTickTargetUs > AV_CLIPER_RESET_WINDOW_US;
+      const decoderTarget = this.toDecoderTime(target);
+      const willReset = this.lastTickTargetUs == null || decoderTarget <= this.lastTickTargetUs || decoderTarget - this.lastTickTargetUs > AV_CLIPER_RESET_WINDOW_US;
       let seeded = false;
       if (willReset && this.shouldSeedFromKeyframe(target)) {
         await this.seedFromKeyframe(target);
@@ -17469,10 +17534,31 @@ void main() {
       this.coverage.clear();
       this.keyframes = null;
       this.lastFrameStartUs = null;
+      this.decoderTimestampOffsetUs = 0;
       this.lastTickTargetUs = null;
       this.loadPromise = null;
       this.state = "idle";
       await this.load();
+    }
+    toDecoderTime(presentationTimeUs) {
+      return Math.max(0, presentationTimeUs + this.decoderTimestampOffsetUs);
+    }
+    normalizeTickResult(result) {
+      if (!result.video) return result;
+      const source = result.video;
+      const unbounded = presentationFrameTiming(source, this.decoderTimestampOffsetUs);
+      const nextFrameStartUs = this.keyframes?.nextFrameStartUs(unbounded.timestamp) ?? null;
+      const timing = presentationFrameTiming(
+        source,
+        this.decoderTimestampOffsetUs,
+        nextFrameStartUs
+      );
+      if (timing.timestamp === source.timestamp && timing.duration === source.duration) return result;
+      const init = { timestamp: timing.timestamp };
+      if (typeof timing.duration === "number") init.duration = timing.duration;
+      const video = new VideoFrame(source, init);
+      source.close();
+      return { ...result, video };
     }
     serialize(operation) {
       const result = this.queue.then(operation, operation);
@@ -17483,6 +17569,16 @@ void main() {
   function frameCoversTimestamp(frame, targetUs) {
     const duration = frame.duration;
     return typeof duration === "number" && Number.isFinite(duration) && duration > 0 && targetUs >= frame.timestamp && targetUs < frame.timestamp + duration;
+  }
+  function presentationFrameTiming(frame, decoderTimestampOffsetUs, nextFrameStartUs = null) {
+    const offsetUs = Math.max(0, decoderTimestampOffsetUs);
+    const hiddenPrefixUs = Math.max(0, offsetUs - frame.timestamp);
+    const timestamp = Math.max(0, frame.timestamp - offsetUs);
+    let duration = typeof frame.duration === "number" ? Math.max(1, frame.duration - hiddenPrefixUs) : frame.duration;
+    if (typeof duration === "number" && nextFrameStartUs != null && nextFrameStartUs > timestamp && timestamp + duration > nextFrameStartUs + 1) {
+      duration = nextFrameStartUs - timestamp;
+    }
+    return { timestamp, duration };
   }
 
   // packages/frame-engine/src/decode/clip-session-pool.ts

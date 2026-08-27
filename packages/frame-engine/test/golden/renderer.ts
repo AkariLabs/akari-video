@@ -1,4 +1,5 @@
 import './decoder-instrumentation.js';
+import { inspectBFrameAccess } from './b-frame.js';
 import { inspectGopTailGolden } from './gop-tail.js';
 import {
   BufferedRawFrameSink,
@@ -1552,6 +1553,7 @@ async function run(): Promise<void> {
     matteMaskUrl: MATTE_MASK_URL,
     output,
   });
+  const bFrame = await inspectBFrameAccess(SOURCE_URL, 'sampled');
   const metricJson = metrics.toJSON();
   const semanticPlans = Object.fromEntries(
     SAMPLE_POINTS.map(([label, timeUs]) => {
@@ -1726,6 +1728,7 @@ async function run(): Promise<void> {
     lookParity.pass &&
     lookStats.glErrors === 0 &&
     gopTail.pass &&
+    bFrame.pass &&
     compositor.uploadPath === REQUESTED_UPLOAD_PATH;
 
   session.destroy();
@@ -1781,6 +1784,7 @@ async function run(): Promise<void> {
     lookIntensity: lookParity.intensityRows,
     lookStats,
     gopTail,
+    bFrame,
     metrics: metricJson,
     warnings,
   });

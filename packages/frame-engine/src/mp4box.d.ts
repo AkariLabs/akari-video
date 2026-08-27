@@ -6,7 +6,17 @@ declare module '@webav/mp4box.js' {
     is_sync: boolean;
   }
   export interface MP4BoxInfo {
-    videoTracks: Array<{ id: number }>;
+    timescale: number;
+    videoTracks: Array<{
+      id: number;
+      timescale: number;
+      edits?: Array<{
+        segment_duration: number;
+        media_time: number;
+        media_rate_integer: number;
+        media_rate_fraction: number;
+      }>;
+    }>;
   }
   export interface ISOFile {
     onReady: ((info: MP4BoxInfo) => void) | null;

@@ -89,6 +89,12 @@ assert.deepEqual([...new Set(results.gopTail.rows.map(row => row.category))].sor
 assert.equal(results.gopTail.rows.some(row => row.category === 'base' && row.frameNumber === 239), true);
 assert.equal(results.gopTail.rows.some(row => row.category === 'layers' && row.frameNumber === 239), true);
 assert.equal(results.gopTail.rows.some(row => row.category === 'matte' && row.frameNumber === 389), true);
+assert.equal(results.bFrame.coverage, 'sampled');
+assert.equal(results.bFrame.rows.length, 160);
+assert.equal(results.bFrame.rows.every(row => row.pass), true);
+assert.equal(results.bFrame.offsets.every(row => row.pass), true);
+assert.equal(results.bFrame.summaries.length, 10);
+assert.equal(results.bFrame.summaries.every(row => row.mismatches === 0), true);
 assert.equal(results.parity.every(sample => sample.pass), true);
 assert.equal(results.negative.injectedPixelMutation, true);
 assert.equal(results.negative.comparatorPassed, false);

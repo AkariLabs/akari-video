@@ -11,6 +11,13 @@ const matteColor = resolve(directory, '.generated/matte-color.mp4');
 const matteAlpha = resolve(directory, '.generated/matte-alpha.webm');
 const matteMask = resolve(directory, '.generated/matte-mask.mp4');
 const colorPatches = resolve(directory, '.generated/color-patches.mp4');
+const bFrameFixtures = [
+  { name: 'bframe-bf0-30.mp4', bFrames: 0, fps: 30, reorderFrames: 0 },
+  { name: 'bframe-bf1-30.mp4', bFrames: 1, fps: 30, reorderFrames: 1 },
+  { name: 'bframe-bf2-30.mp4', bFrames: 2, fps: 30, reorderFrames: 2 },
+  { name: 'bframe-bf3-30.mp4', bFrames: 3, fps: 30, reorderFrames: 2 },
+  { name: 'bframe-bf2-60.mp4', bFrames: 2, fps: 60, reorderFrames: 2 },
+].map(spec => ({ ...spec, path: resolve(directory, '.generated', spec.name) }));
 mkdirSync(dirname(output), { recursive: true });
 
 function tool(name) {
@@ -261,4 +268,75 @@ function assertColorPatchSafeDecodeTail() {
 }
 assertColorPatchSafeDecodeTail();
 
-process.stdout.write(`${output}\n${sourceB}\n${still}\n${matteColor}\n${matteAlpha}\n${matteMask}\n${colorPatches}\n`);
+function encodedFrameNumbersMatch(file) {
+  try {
+    const frames = 4;
+    const width = 320;
+    const height = 180;
+    const raw = execFileSync(ffmpeg, [
+      '-hide_banner', '-loglevel', 'error', '-i', file,
+      '-frames:v', String(frames), '-f', 'rawvideo', '-pix_fmt', 'gray', 'pipe:1',
+    ], { maxBuffer: width * height * (frames + 1) });
+    const stride = width * height;
+    if (raw.length !== stride * frames) return false;
+    for (let frame = 0; frame < frames; frame += 1) {
+      let decoded = 0;
+      for (let bit = 0; bit < 8; bit += 1) {
+        const x = bit * 40 + 20;
+        const value = raw[frame * stride + Math.floor(height / 2) * width + x];
+        if (value > 128) decoded |= 1 << bit;
+      }
+      if (decoded !== frame) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function bFrameFixtureValid(spec) {
+  if (!existsSync(spec.path) || !encodedFrameNumbersMatch(spec.path)) return false;
+  try {
+    const stream = JSON.parse(execFileSync(ffprobe, [
+      '-v', 'error', '-select_streams', 'v:0',
+      '-show_entries', 'stream=has_b_frames,avg_frame_rate,nb_frames,width,height',
+      '-of', 'json', spec.path,
+    ], { encoding: 'utf8' })).streams?.[0];
+    const packet = JSON.parse(execFileSync(ffprobe, [
+      '-v', 'error', '-select_streams', 'v:0', '-read_intervals', '%+#1',
+      '-show_entries', 'packet=dts_time', '-of', 'json', spec.path,
+    ], { encoding: 'utf8' }).trim()).packets?.[0];
+    const firstDts = Number(packet?.dts_time);
+    return stream?.width === 320
+      && stream?.height === 180
+      && stream?.avg_frame_rate === `${spec.fps}/1`
+      && Number(stream?.nb_frames) === spec.fps * 2
+      && Number(stream?.has_b_frames) === spec.reorderFrames
+      && (spec.reorderFrames === 0 ? firstDts === 0 : firstDts < 0);
+  } catch {
+    return false;
+  }
+}
+
+for (const spec of bFrameFixtures) {
+  if (!bFrameFixtureValid(spec)) {
+    execFileSync(ffmpeg, [
+      '-hide_banner', '-loglevel', 'error', '-y',
+      '-f', 'lavfi', '-i',
+      `nullsrc=size=320x180:rate=${spec.fps},geq=lum='if(bitand(N,pow(2,floor(X/40))),220,32)':cb='128':cr='128'`,
+      '-t', '2', '-an', '-c:v', 'libx264', '-preset', 'medium', '-crf', '10',
+      '-threads', '1', '-g', String(spec.fps / 2), '-keyint_min', String(spec.fps / 2),
+      '-sc_threshold', '0', '-bf', String(spec.bFrames), '-pix_fmt', 'yuv420p',
+      '-color_range', 'tv', '-color_primaries', 'bt709', '-color_trc', 'bt709',
+      '-colorspace', 'bt709', '-movflags', '+faststart', spec.path,
+    ], { stdio: 'inherit' });
+  }
+  if (!bFrameFixtureValid(spec)) {
+    throw new Error(`${spec.name} failed B-frame fixture self-verification`);
+  }
+}
+
+process.stdout.write(`${[
+  output, sourceB, still, matteColor, matteAlpha, matteMask, colorPatches,
+  ...bFrameFixtures.map(spec => spec.path),
+].join('\n')}\n`);
