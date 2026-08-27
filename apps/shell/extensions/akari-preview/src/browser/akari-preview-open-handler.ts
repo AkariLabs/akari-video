@@ -5724,8 +5724,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 // EMPTY_SUMMARY の 1280x720 のままなので、そのまま使うと縦長素材の左右に
                 // 16:9 レターボックスの黒帯が出る（wrapper の aspect-ratio と
                 // computeOutputFrameRect の両方が output 寸法を参照するため）。素材の
-                // 実寸法が分かった時点で output を実寸法へ差し替え、wrapper 自体を
-                // ペインへ収まる素材アスペクトの矩形に張り直す。
+                // 実寸法が分かった時点で output を実寸法へ差し替え、wrapper と
+                // preview-stage をペインへ収まる素材アスペクトの矩形に張り直す。
                 const previewPane = document.querySelector('.preview-pane');
                 const syncRawStageToVideo = () => {
                     if (!(video.videoWidth > 0) || !(video.videoHeight > 0)) return;
@@ -5744,6 +5744,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     wrapper.style.margin = 'auto';
                     wrapper.style.width = fit.width + 'px';
                     wrapper.style.height = fit.height + 'px';
+                    previewStage.style.aspectRatio = video.videoWidth + ' / ' + video.videoHeight;
+                    previewStage.style.width = 'min(100cqw, calc(100cqh * '
+                        + video.videoWidth + ' / ' + video.videoHeight + '))';
                     updateStageScale();
                 };
                 new ResizeObserver(syncRawStageToVideo).observe(previewPane);

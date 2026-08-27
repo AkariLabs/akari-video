@@ -206,7 +206,7 @@ test('全画面スタイルは祖先の z-index スタッキングコンテキ�
     assert.match(appendedStyle.textContent, /\.akari-preview-fullscreen-ancestor \{\s*z-index: auto !important;/u);
 });
 
-test('raw wrapper は固定 px 寸法と絶対配置の auto margin で両軸中央に留まる', () => {
+test('raw wrapper と stage は素材比の固定矩形で両軸中央に留まる', () => {
     const hostAdapter = extractTemplate('hostAdapterScript');
     assert.doesNotThrow(() => new vm.Script(hostAdapter, { filename: 'host-adapter.js' }));
     const rawStart = hostAdapter.indexOf("if (initial.kind === 'raw')");
@@ -217,4 +217,7 @@ test('raw wrapper は固定 px 寸法と絶対配置の auto margin で両軸中
     assert.match(rawSection, /wrapper\.style\.margin = 'auto';/u);
     assert.match(rawSection, /wrapper\.style\.width = fit\.width \+ 'px';/u);
     assert.match(rawSection, /wrapper\.style\.height = fit\.height \+ 'px';/u);
+    assert.match(rawSection, /previewStage\.style\.aspectRatio = video\.videoWidth \+ ' \/ ' \+ video\.videoHeight;/u);
+    assert.match(rawSection, /previewStage\.style\.width = 'min\(100cqw, calc\(100cqh \* '/u);
+    assert.match(rawSection, /\+ video\.videoWidth \+ ' \/ ' \+ video\.videoHeight \+ '\)\)';/u);
 });
