@@ -23,7 +23,9 @@ description: analyze-project が作る分析レポート（interpretation.json +
 - **編集判断は analyze-project の分析レポートを一次証拠として使う**。edit-plan 自身は決定用の
   HTML レポートを新たに生成しない。方針（サムネイル案・カット強度・字幕方針・章立て等）は
   チャットで決め、決定は `decision-log.md` へ記録する。`decision-log.md` の既存行は変更・削除せず、
-  常に追記する。
+  常に追記する。`decision-log.md` を読み取り専用 HTML へ派生描画する判断記録レポート
+  （[report-guide §decision_log](report-guide.md#decision_log)）は決定 UI を持たない記録の写しであり、
+  この原則の例外ではない。
 - **方針 → 素材計画 → 実行**の各チェックポイントで停止する。無操作、タイムアウト、過去の包括承認を今回の承認に読み替えない。
 - Checkpoint 1 で semantic keep/drop を明示承認した後、pause 候補が必要な場合だけ
   [workflow.md](workflow.md) の cut candidate bridge を使う。bridge の全候補は

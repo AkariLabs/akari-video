@@ -305,6 +305,9 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
   const analysisReportRuntimeFiles = [
     path.join('packages', 'analysis-report', 'render-analysis-report.mjs'),
     path.join('packages', 'analysis-report', 'template.html'),
+    // 判断記録レポートも同じく extraResources（asar 外）で renderer とテンプレートを同居させる。
+    path.join('packages', 'decision-log-report', 'render-decision-log-report.mjs'),
+    path.join('packages', 'decision-log-report', 'template.html'),
     path.join('packages', 'schemas', 'bin', 'validate-interpretation.mjs'),
     path.join('packages', 'schemas', 'interpretation.schema.json')
   ];

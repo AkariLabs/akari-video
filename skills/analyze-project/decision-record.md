@@ -37,6 +37,9 @@
 生成を取りやめたことに伴う**最小限の新設**であり、記録の慣行・フィールド構成そのものは
 一切変えていない。
 
+描画は edit-plan と共有の判断記録レポート（`packages/decision-log-report`）で行える。
+analyze-project 側の追記後は任意だが、edit-plan の各 Checkpoint では必ず再描画する。
+
 ## 記録例
 
 ```markdown

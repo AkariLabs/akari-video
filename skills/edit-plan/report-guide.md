@@ -159,6 +159,14 @@ node packages/audio-library-setup/bin/suggest-sfx.mjs --meaning 場面転換 [--
 
 **置き場所**（2026-07-22 改訂）: 固定 6 章 HTML の 1 節として埋め込む運用は retired。プロジェクト直下の独立ファイル `decision-log.md` に追記する（[analyze-project の decision-record.md](../analyze-project/decision-record.md) と共有する単一 SSOT — analyze-project の 2 パス目判断・取材 Q&A と、edit-plan の承認・生成判断が同じファイルへ時系列に積み重なる）。フィールド構成・追記専用の規律はここで変えていない。
 
+**派生描画（2026-08-27）**: 追記の直後に次の CLI を実行して判断記録レポートを再生成する。
+HTML は手で編集しない派生物で、決定 UI を持たず、SSOT は `decision-log.md` のままである。
+出力は一般モードのレポート一覧へ自動で並ぶ。
+
+```sh
+node packages/decision-log-report/render-decision-log-report.mjs --log <project>/decision-log.md --out <project>/.akari/reports/decision-log-report.html
+```
+
 ### 機械可読の方針行
 
 `(category, subject) = (direction, tone)` の行だけは、決定セルの先頭にインラインコード 1 個で

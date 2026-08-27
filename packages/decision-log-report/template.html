@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; font-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>AKARI Video 判断記録レポート</title>
+    <!--
+      AKARI 判断記録レポート 安全な差し替え規約:
+      - このファイルはデータを含まない UI 正本。ログの内容は JSON ブロックだけへ埋め込む。
+      - 埋め込んだ値は textContent / createElement で反映し、HTML として解釈しない。
+      - 読み取り専用であり、決定 UI や確定操作を一切持たない。
+      - 画像は検証済みのローカル相対パスだけを使い、外部オリジンへ接続しない。
+    -->
+    <style>
+      :root {
+        color-scheme: light dark;
+        --page: #f4f6fb;
+        --surface: #ffffff;
+        --surface-muted: #eef2fa;
+        --ink: #172033;
+        --muted: #58647a;
+        --line: #ccd4e3;
+        --accent: #304ffe;
+        --accent-dark: #1633c8;
+        --accent-soft: #eef1ff;
+        --fact: #126a3a;
+        --fact-bg: #e3f5ea;
+        --interp: #6a2fb0;
+        --interp-bg: #f1e6ff;
+        --warn: #7a4c00;
+        --warn-bg: #fff1c8;
+        --empty: #3a4a63;
+        --empty-bg: #eef2fa;
+        --shadow: 0 14px 38px rgba(25, 38, 74, 0.09);
+        --radius: 18px;
+        --space-1: 0.35rem;
+        --space-2: 0.65rem;
+        --space-3: 1rem;
+        --space-4: 1.5rem;
+        --space-5: 2.25rem;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --page: #0e1424;
+          --surface: #161e34;
+          --surface-muted: #1d2740;
+          --ink: #e7ecfb;
+          --muted: #9aa7c7;
+          --line: #2c3859;
+          --accent: #7c93ff;
+          --accent-dark: #a9b8ff;
+          --accent-soft: #202b52;
+          --fact: #6fe0a6;
+          --fact-bg: #10321f;
+          --interp: #d3aaff;
+          --interp-bg: #2c1c48;
+          --warn: #ffcf70;
+          --warn-bg: #3a2c05;
+          --empty: #b7c2de;
+          --empty-bg: #1d2740;
+          --shadow: 0 14px 38px rgba(0, 0, 0, 0.4);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html {
+        background: var(--page);
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+        line-height: 1.65;
+        scroll-behavior: smooth;
+      }
+      body { margin: 0; min-width: 18rem; }
+      a { color: var(--accent-dark); text-underline-offset: 0.16em; }
+      a:focus-visible, summary:focus-visible { outline: 3px solid #ffb000; outline-offset: 3px; }
+      img { display: block; max-width: 100%; height: auto; }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      code { overflow-wrap: anywhere; }
+      .skip-link { position: fixed; top: .5rem; left: .5rem; z-index: 100; padding: .65rem .9rem; background: var(--surface); transform: translateY(-160%); }
+      .skip-link:focus { transform: translateY(0); }
+      .report-header { color: #fff; background: radial-gradient(circle at 85% 20%, rgba(114,137,255,.55), transparent 28rem), linear-gradient(135deg,#101833,#1f2f66); }
+      .report-header__inner, .report-nav__inner, main, .report-footer { width: min(76rem, calc(100% - 2rem)); margin-inline: auto; }
+      .report-header__inner { padding: clamp(2.2rem,6vw,4.4rem) 0 clamp(1.8rem,4vw,3rem); }
+      .eyebrow { margin: 0 0 var(--space-2); color: #cbd5ff; font-size: .78rem; font-weight: 800; letter-spacing: .16em; }
+      h1, h2, h3, h4 { line-height: 1.25; overflow-wrap: anywhere; }
+      h1 { margin: 0; font-size: clamp(1.7rem,4.6vw,3rem); letter-spacing: -.03em; }
+      h2 { margin: 0 0 var(--space-3); font-size: clamp(1.4rem,2.6vw,1.9rem); }
+      h3 { margin: var(--space-3) 0 var(--space-2); font-size: 1.05rem; }
+      h4 { margin: 0 0 var(--space-2); }
+      p, ul, ol, dl { margin-top: 0; }
+      .report-meta { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: var(--space-3); margin: var(--space-4) 0 0; }
+      .report-meta > div { padding: var(--space-3); border: 1px solid rgba(255,255,255,.24); border-radius: 12px; background: rgba(255,255,255,.08); }
+      dt { color: var(--muted); font-size: .8rem; font-weight: 800; }
+      .report-meta dt { color: #dbe2ff; }
+      dd { margin: .15rem 0 0; overflow-wrap: anywhere; }
+      .report-nav { position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--line); background: var(--surface); }
+      .report-nav__inner { display: flex; flex-wrap: wrap; gap: .2rem; padding: .6rem 0; }
+      .report-nav a { padding: .35rem .6rem; border-radius: 999px; color: var(--muted); font-size: .82rem; font-weight: 700; text-decoration: none; }
+      .report-nav a:hover { color: var(--accent-dark); background: var(--accent-soft); }
+      main { padding: var(--space-5) 0 4.5rem; }
+      .report-section { margin-top: var(--space-5); padding: clamp(1.1rem,3vw,2rem); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+      .report-section:first-child { margin-top: 0; }
+      .section-kicker { display: inline-block; margin-bottom: var(--space-2); color: var(--accent-dark); font-size: .76rem; font-weight: 850; letter-spacing: .12em; }
+      .section-lead { max-width: 72ch; color: var(--muted); }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,20rem),1fr)); gap: var(--space-3); }
+      .card { padding: var(--space-3); border: 1px solid var(--line); border-radius: 12px; background: var(--surface-muted); overflow-wrap: anywhere; }
+      .card--superseded { opacity: .62; }
+      .card p:last-child { margin-bottom: 0; }
+      .meta { color: var(--muted); font-size: .82rem; }
+      .badge-row { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .5rem; }
+      .badge { display: inline-flex; padding: .12rem .55rem; border: 1px solid currentColor; border-radius: 999px; font-size: .72rem; font-weight: 800; }
+      .badge--active { color: var(--fact); background: var(--fact-bg); }
+      .badge--tone { color: var(--interp); background: var(--interp-bg); }
+      .badge--warn { color: var(--warn); background: var(--warn-bg); }
+      .empty-state { padding: var(--space-3); border: 1px dashed var(--line); border-radius: 12px; background: var(--empty-bg); color: var(--empty); font-weight: 650; }
+      .checkpoint + .checkpoint { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--line); }
+      .image-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,18rem),1fr)); gap: var(--space-3); }
+      .image-card { margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-muted); }
+      .image-card img { width: 100%; max-height: 24rem; object-fit: contain; background: #101833; }
+      .image-card figcaption { padding: var(--space-3); }
+      .original-block { margin: var(--space-3) 0; }
+      .original-list { margin: .25rem 0; }
+      pre { overflow-x: auto; padding: var(--space-3); border: 1px solid var(--line); border-radius: 10px; background: var(--surface-muted); white-space: pre-wrap; }
+      .table-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+      table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+      th, td { padding: .55rem .7rem; border-top: 1px solid var(--line); text-align: left; vertical-align: top; }
+      tr:first-child th, tr:first-child td { border-top: 0; }
+      .provenance-list { margin: 0; padding: 0; list-style: none; }
+      .provenance-list li { padding: .6rem 0; border-top: 1px solid var(--line); }
+      .provenance-list li:first-child { border-top: 0; }
+      .fatal-error { padding: var(--space-3); border: 2px solid var(--warn); border-radius: 12px; background: var(--warn-bg); color: var(--warn); font-weight: 700; }
+      .report-footer { padding-bottom: 3rem; color: var(--muted); font-size: .82rem; }
+      @media (max-width: 46rem) {
+        .report-header__inner, .report-nav__inner, main, .report-footer { width: min(100% - 1rem,76rem); }
+        .report-meta { grid-template-columns: repeat(2,minmax(0,1fr)); }
+        .report-section { padding: 1rem; border-radius: 12px; }
+      }
+      @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">本文へ移動</a>
+    <header class="report-header" id="section-overview">
+      <div class="report-header__inner">
+        <p class="eyebrow">SECTION 1 / AKARI VIDEO / READ ONLY</p>
+        <h1>1. 判断記録レポート — <span data-mount="project-name">—</span></h1>
+        <p data-mount="source-path">—</p>
+        <dl class="report-meta" aria-label="判断記録の統計">
+          <div><dt>構造化した決定</dt><dd data-mount="decision-count">—</dd></div>
+          <div><dt>原文ブロック</dt><dd data-mount="block-count">—</dd></div>
+          <div><dt>画像参照</dt><dd data-mount="image-count">—</dd></div>
+          <div><dt>欠落画像</dt><dd data-mount="missing-count">—</dd></div>
+        </dl>
+      </div>
+    </header>
+
+    <nav class="report-nav" aria-label="章ジャンプナビ">
+      <div class="report-nav__inner">
+        <a href="#section-overview">1. ヘッダ</a>
+        <a href="#section-current">2. いま有効な決定</a>
+        <a href="#section-history">3. チェックポイント別の履歴</a>
+        <a href="#section-images">4. 画像</a>
+        <a href="#section-original">5. 記録原文</a>
+        <a href="#section-provenance">6. 来歴</a>
+      </div>
+    </nav>
+
+    <main id="main-content">
+      <div data-mount="fatal"></div>
+      <section class="report-section" id="section-current">
+        <span class="section-kicker">SECTION 2</span>
+        <h2>2. いま有効な決定</h2>
+        <p class="section-lead">同じ category / subject では、ファイル順で最後に追記された行を表示します。</p>
+        <div data-mount="current"></div>
+      </section>
+      <section class="report-section" id="section-history">
+        <span class="section-kicker">SECTION 3</span>
+        <h2>3. チェックポイント別の履歴</h2>
+        <div data-mount="history"></div>
+      </section>
+      <section class="report-section" id="section-images">
+        <span class="section-kicker">SECTION 4</span>
+        <h2>4. 画像</h2>
+        <div data-mount="images"></div>
+      </section>
+      <section class="report-section" id="section-original">
+        <span class="section-kicker">SECTION 5</span>
+        <h2>5. 記録原文</h2>
+        <div data-mount="original"></div>
+      </section>
+      <section class="report-section" id="section-provenance">
+        <span class="section-kicker">SECTION 6</span>
+        <h2>6. 来歴</h2>
+        <div data-mount="provenance"></div>
+      </section>
+    </main>
+    <footer class="report-footer"><p>この HTML は decision-log.md から生成した読み取り専用の派生物です。決定 UI は持ちません。</p></footer>
+
+    <script type="application/json" id="akari-decision-log-report-data">{"__AKARI_DECISION_LOG_REPORT_DATA__":true}</script>
+    <script>
+      (() => {
+        "use strict";
+
+        function el(tag, options, children) {
+          const node = document.createElement(tag);
+          if (options?.class) node.className = options.class;
+          if (options?.text !== undefined) node.textContent = String(options.text);
+          for (const [key, value] of Object.entries(options?.attrs || {})) {
+            if (value !== null && value !== undefined) node.setAttribute(key, String(value));
+          }
+          for (const child of children || []) if (child) node.append(child);
+          return node;
+        }
+
+        function emptyState(text) { return el("p", { class: "empty-state", text }); }
+        function badge(text, kind = "active") { return el("span", { class: `badge badge--${kind}`, text }); }
+        function isRecord(value) { return value !== null && typeof value === "object" && !Array.isArray(value); }
+
+        function appendTextWithBreaks(parent, text) {
+          const parts = String(text).split("\n");
+          parts.forEach((part, index) => {
+            if (index > 0) parent.append(el("br"));
+            parent.append(document.createTextNode(part));
+          });
+        }
+
+        function isLocalLink(href) {
+          const value = href.trim();
+          return value.startsWith("#") || (!value.startsWith("/") && !value.startsWith("//") && !/^[A-Za-z][A-Za-z\d+.-]*:/u.test(value));
+        }
+
+        function inline(text) {
+          const fragment = document.createDocumentFragment();
+          const pattern = /(!\[([^\]]*)\]\(([^)]+)\)|\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/gu;
+          let position = 0;
+          for (const match of String(text).matchAll(pattern)) {
+            appendTextWithBreaks(fragment, String(text).slice(position, match.index));
+            if (match[2] !== undefined) {
+              if (match[2] !== "") appendTextWithBreaks(fragment, match[2]);
+            }
+            else if (match[4] !== undefined) fragment.append(el("strong", { text: match[4] }));
+            else if (match[5] !== undefined) fragment.append(el("code", { text: match[5] }));
+            else {
+              const href = match[7].trim().replace(/^<|>$/gu, "");
+              if (isLocalLink(href)) fragment.append(el("a", { text: match[6], attrs: { href } }));
+              else appendTextWithBreaks(fragment, match[0]);
+            }
+            position = match.index + match[0].length;
+          }
+          appendTextWithBreaks(fragment, String(text).slice(position));
+          return fragment;
+        }
+
+        function renderHeader(data) {
+          document.querySelector('[data-mount="project-name"]').textContent = data.source.projectName;
+          document.querySelector('[data-mount="source-path"]').textContent = `source: ${data.source.path}`;
+          document.querySelector('[data-mount="decision-count"]').textContent = `${data.stats.decisionRows} 件`;
+          document.querySelector('[data-mount="block-count"]').textContent = `${data.stats.blockCount} 件`;
+          document.querySelector('[data-mount="image-count"]').textContent = `${data.stats.imageCount} 件`;
+          document.querySelector('[data-mount="missing-count"]').textContent = `${data.stats.missingImageCount} 件`;
+        }
+
+        function appendDecisionBody(card, decision) {
+          card.append(el("div", { class: "badge-row" }, [badge(decision.category || "未分類")]));
+          card.append(el("h4", { text: decision.subject || "（subject なし）" }));
+          card.append(el("p", {}, [inline(decision.decision || "（決定内容なし）")]));
+          if (decision.reason) card.append(el("p", { class: "meta", text: `理由: ${decision.reason}` }));
+          card.append(el("p", { class: "meta", text: `${decision.at || "日時なし"} / ${decision.decider || "決定者なし"}` }));
+          if (decision.tone || decision.tempo) {
+            const row = el("div", { class: "badge-row" });
+            for (const tone of decision.tone || []) row.append(badge(tone, "tone"));
+            if (decision.tempo) row.append(badge(decision.tempo, "tone"));
+            card.append(row);
+          }
+        }
+
+        function renderCurrent(data) {
+          const mount = document.querySelector('[data-mount="current"]');
+          const active = data.decisions.filter((decision) => decision.supersededBy === null);
+          if (active.length === 0) {
+            mount.append(emptyState(data.blocks.length === 0 ? "判断記録はまだありません" : "表形式の決定行はまだありません（記録原文を参照）"));
+            return;
+          }
+          const byCategory = new Map();
+          for (const decision of active) {
+            if (!byCategory.has(decision.category)) byCategory.set(decision.category, []);
+            byCategory.get(decision.category).push(decision);
+          }
+          for (const [category, decisions] of byCategory) {
+            mount.append(el("h3", { text: category || "未分類" }));
+            const grid = el("div", { class: "grid" });
+            for (const decision of decisions) {
+              const card = el("article", { class: "card" });
+              appendDecisionBody(card, decision);
+              const historyCount = data.decisions.filter((row) => row.category === decision.category && row.subject === decision.subject).length - 1;
+              if (historyCount > 0) card.prepend(el("div", { class: "badge-row" }, [badge(`履歴 ${historyCount} 件`, "warn")]));
+              grid.append(card);
+            }
+            mount.append(grid);
+          }
+        }
+
+        function checkpointOf(value) {
+          const text = String(value || "");
+          if (/Checkpoint\s*1|方針/iu.test(text)) return "Checkpoint 1（方針）";
+          if (/Checkpoint\s*2|素材計画/iu.test(text)) return "Checkpoint 2（素材計画）";
+          if (/Checkpoint\s*3|実行/iu.test(text)) return "Checkpoint 3（実行）";
+          return "その他";
+        }
+
+        function renderHistory(data) {
+          const mount = document.querySelector('[data-mount="history"]');
+          if (data.decisions.length === 0) {
+            mount.append(emptyState(data.blocks.length === 0 ? "判断記録はまだありません" : "表形式の決定行はまだありません（記録原文を参照）"));
+            return;
+          }
+          for (const label of ["Checkpoint 1（方針）", "Checkpoint 2（素材計画）", "Checkpoint 3（実行）", "その他"]) {
+            const rows = data.decisions.filter((decision) => checkpointOf(decision.checkpoint) === label);
+            const section = el("div", { class: "checkpoint" });
+            section.append(el("h3", { text: label }));
+            if (rows.length === 0) section.append(emptyState("記録なし"));
+            for (const decision of rows) {
+              const card = el("article", { class: `card${decision.supersededBy === null ? "" : " card--superseded"}` });
+              appendDecisionBody(card, decision);
+              if (decision.supersededBy !== null) {
+                const next = data.decisions[decision.supersededBy];
+                card.append(el("p", { class: "meta", text: `→ 上書き: ${next?.at || "日時なし"}` }));
+              }
+              section.append(card);
+            }
+            mount.append(section);
+          }
+        }
+
+        function withoutMarkdownImages(text) {
+          return String(text).replace(/!\[([^\]]*)\]\([^)]+\)/gu, "$1").trim();
+        }
+
+        function imageHeading(image, data) {
+          if (image.decisionIndex !== null) {
+            const decision = data.decisions[image.decisionIndex];
+            const decisionText = withoutMarkdownImages(decision?.decision || "");
+            return `${decision?.subject || "subject なし"} / ${decisionText || "決定内容なし"}`;
+          }
+          return `記録原文 block ${image.blockIndex}`;
+        }
+
+        function renderImages(data) {
+          const mount = document.querySelector('[data-mount="images"]');
+          if (data.images.length === 0) {
+            mount.append(emptyState("画像参照はありません"));
+            return;
+          }
+          const grid = el("div", { class: "image-grid" });
+          for (const image of data.images) {
+            const figure = el("figure", { class: "image-card" });
+            if (image.exists && image.src) figure.append(el("img", { attrs: { src: image.src, alt: imageHeading(image, data), loading: "lazy" } }));
+            const caption = el("figcaption");
+            caption.append(el("h3", { text: imageHeading(image, data) }));
+            caption.append(el("code", { text: image.path }));
+            if (!image.exists) caption.append(el("div", { class: "badge-row" }, [badge("画像欠落", "warn")]));
+            figure.append(caption);
+            grid.append(figure);
+          }
+          mount.append(grid);
+        }
+
+        function renderTable(block) {
+          const wrapper = el("div", { class: "table-scroll original-block" });
+          const table = el("table");
+          for (const row of block.rows || []) {
+            const tr = el("tr");
+            for (const cell of row) tr.append(el("td", {}, [inline(cell)]));
+            table.append(tr);
+          }
+          wrapper.append(table);
+          return wrapper;
+        }
+
+        function renderListRun(blocks) {
+          const root = el("div", { class: "original-block" });
+          const stack = [];
+          for (const block of blocks) {
+            const depth = Math.max(0, block.depth || 0);
+            stack.splice(depth + 1);
+            const tag = block.ordered ? "ol" : "ul";
+            if (!stack[depth] || stack[depth].tag !== tag) {
+              const list = el(tag, { class: "original-list" });
+              const parent = depth === 0 ? root : (stack[depth - 1]?.lastItem || root);
+              parent.append(list);
+              stack[depth] = { tag, list, lastItem: null };
+            }
+            const item = el("li", {}, [inline(block.text)]);
+            stack[depth].list.append(item);
+            stack[depth].lastItem = item;
+          }
+          return root;
+        }
+
+        function renderOriginal(data) {
+          const mount = document.querySelector('[data-mount="original"]');
+          if (data.blocks.length === 0) {
+            mount.append(emptyState(data.decisions.length === 0 ? "判断記録はまだありません" : "構造化した表以外の原文ブロックはありません"));
+            return;
+          }
+          for (let index = 0; index < data.blocks.length; index += 1) {
+            const block = data.blocks[index];
+            if (block.type === "list") {
+              const run = [];
+              while (index < data.blocks.length && data.blocks[index].type === "list") run.push(data.blocks[index++]);
+              index -= 1;
+              mount.append(renderListRun(run));
+            } else if (block.type === "heading") {
+              const level = Math.min(6, Math.max(3, (block.level || 1) + 2));
+              mount.append(el(`h${level}`, { class: "original-block" }, [inline(block.text)]));
+            } else if (block.type === "paragraph") {
+              mount.append(el("p", { class: "original-block" }, [inline(block.text)]));
+            } else if (block.type === "code") {
+              mount.append(el("pre", { class: "original-block" }, [el("code", { text: block.text })]));
+            } else if (block.type === "table") {
+              mount.append(renderTable(block));
+            }
+          }
+        }
+
+        function renderProvenance(data) {
+          const mount = document.querySelector('[data-mount="provenance"]');
+          const list = el("ul", { class: "provenance-list" });
+          const entries = [
+            ["source.path", data.source.path],
+            ["renderer", "@akari-video/decision-log-report 0.0.0"],
+            ["性質", "decision-log.md を SSOT とする読み取り専用の派生物"],
+          ];
+          if (data.decisions.length === 0) entries.push(["空状態", data.blocks.length === 0 ? "判断記録はまだありません" : "表形式の決定行はまだありません（記録原文を参照）"]);
+          for (const [term, value] of entries) list.append(el("li", {}, [el("dl", {}, [el("dt", { text: term }), el("dd", { text: value })])]));
+          mount.append(list);
+        }
+
+        function fatal(message) {
+          document.querySelector('[data-mount="fatal"]').append(el("p", { class: "fatal-error", text: `レポートデータを読み込めません: ${message}`, attrs: { role: "alert" } }));
+        }
+
+        function main() {
+          let data;
+          try { data = JSON.parse(document.getElementById("akari-decision-log-report-data").textContent); }
+          catch (error) { fatal(error.message); return; }
+          if (!isRecord(data) || !isRecord(data.source) || !Array.isArray(data.decisions) || !Array.isArray(data.blocks) || !Array.isArray(data.images) || !isRecord(data.stats)) {
+            fatal("データの形が想定と異なります");
+            return;
+          }
+          renderHeader(data);
+          renderCurrent(data);
+          renderHistory(data);
+          renderImages(data);
+          renderOriginal(data);
+          renderProvenance(data);
+        }
+
+        main();
+      })();
+    </script>
+  </body>
+</html>

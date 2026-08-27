@@ -185,6 +185,7 @@ node packages/render-cut/bin/akari-apply-textstyle.mjs <project-dir> <preset-id>
 - 中間マスターを作った場合は、素材別対応表と実フレームで境界を確認する。
 - `decision-log.md` に実行結果（生成物一覧・provenance・実行日時）を追記し、Checkpoint 3
   が実行済みであることを記録する。過去の log 行は変更しない。
+- 追記後に判断記録レポートを再描画し、そのパスをチャットで提示する。
 
 ## よくある間違い
 
