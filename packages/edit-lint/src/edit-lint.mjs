@@ -145,6 +145,9 @@ export async function lintProject(input, options = {}) {
   const legacyEdit = projectLegacyEdit(internalEdit);
   validateTransitionLayerEvacuations(rawEdit, internalEdit, findings);
   const rawAudio = isRecord(rawEdit.audio) ? rawEdit.audio : {};
+  if (rawEdit.version === 2) {
+    validateLegacyNarrationTrim(rawAudio.narration, findings);
+  }
   const projectedAudio = projectAudioForLint(internalEdit);
   edit = {
     ...rawEdit,
@@ -321,7 +324,15 @@ export async function lintProject(input, options = {}) {
   }
 
   if (options.media) {
-    addSkipped(skipped, "media", "media checks do not run against the multi-source compatibility view");
+    runReferencedMediaChecks(
+      rawEdit,
+      edit,
+      findings,
+      skipped,
+      paths,
+      options,
+      captionsState.value,
+    );
   } else {
     addSkipped(skipped, "media", "media checks require --media");
   }
@@ -773,10 +784,23 @@ function validateEditV2(edit, findings) {
 
     if (!Array.isArray(track.items)) continue;
     const intervals = [];
+    let previousTimedItem = null;
     for (const [itemIndex, item] of track.items.entries()) {
       const itemPath = `${trackPath}.items[${itemIndex}]`;
       if (!isRecord(item)) continue;
       registerId(itemIds, item.id, `${itemPath}.id`, "item");
+
+      if (isFiniteNumber(item.at)) {
+        if (previousTimedItem && item.at < previousTimedItem.at) {
+          addFinding(findings, {
+            severity: "warning",
+            check: "timeline.items.order",
+            message: `item ${String(item.id)} at array position ${itemIndex} has at=${formatNumber(item.at)}, before item ${String(previousTimedItem.id)} at position ${previousTimedItem.index} (at=${formatNumber(previousTimedItem.at)})`,
+            path: itemPath,
+          });
+        }
+        previousTimedItem = { id: item.id, index: itemIndex, at: item.at };
+      }
 
       const kind = isRecord(item.source) ? item.source.kind : undefined;
       const compatible = track.lane === "audio"
@@ -826,17 +850,32 @@ function validateEditV2(edit, findings) {
             path: `${itemPath}.${field}`,
           });
         }
-        if (isRecord(item.source)
-          && isFiniteNumber(item.source.in)
-          && isFiniteNumber(item.source.out)
-          && item.source.out <= item.source.in) {
-          addFinding(findings, {
-            severity: "error",
-            check: "audio.sfx.in-out",
-            message: "sfx must satisfy in < out when both are present",
-            path: `${itemPath}.source`,
-            range: { start: item.source.in, end: item.source.out },
-          });
+        if (isRecord(item.source)) {
+          if (role === "narration") {
+            for (const field of ["in", "out"]) {
+              if (!Object.hasOwn(item.source, field)
+                || (isFiniteNumber(item.source[field]) && item.source[field] >= 0)) continue;
+              addFinding(findings, {
+                severity: "error",
+                check: "audio.narration.trim",
+                message: `${field} must be a non-negative finite number`,
+                path: `${itemPath}.source.${field}`,
+              });
+            }
+          }
+          if (isFiniteNumber(item.source.in)
+            && item.source.in >= 0
+            && isFiniteNumber(item.source.out)
+            && item.source.out >= 0
+            && item.source.out <= item.source.in) {
+            addFinding(findings, {
+              severity: "error",
+              check: role === "narration" ? "audio.narration.trim" : "audio.sfx.in-out",
+              message: `${role === "narration" ? "narration" : "sfx"} must satisfy in < out when both are present`,
+              path: `${itemPath}.source`,
+              range: { start: item.source.in, end: item.source.out },
+            });
+          }
         }
       }
 
@@ -1795,6 +1834,37 @@ function validateOverlayBackgroundRole(overlays, findings) {
       path: `edit.json#overlays[${segment.index}]`,
       range: { start: segment.start, end: segment.end },
     });
+  }
+}
+
+function validateLegacyNarrationTrim(narration, findings) {
+  if (!Array.isArray(narration)) return;
+  for (const [index, item] of narration.entries()) {
+    if (!isRecord(item)) continue;
+    const itemPath = `edit.json#audio.narration[${index}]`;
+    for (const field of ["in", "out"]) {
+      if (!Object.hasOwn(item, field)
+        || (isFiniteNumber(item[field]) && item[field] >= 0)) continue;
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.trim",
+        message: `${field} must be a non-negative finite number`,
+        path: `${itemPath}.${field}`,
+      });
+    }
+    if (isFiniteNumber(item.in)
+      && item.in >= 0
+      && isFiniteNumber(item.out)
+      && item.out >= 0
+      && item.out <= item.in) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.narration.trim",
+        message: "narration must satisfy in < out when both are present",
+        path: itemPath,
+        range: { start: item.in, end: item.out },
+      });
+    }
   }
 }
 
@@ -3730,9 +3800,221 @@ function isIsoDateTime(value) {
   return typeof value === "string" && Number.isFinite(timestamp) && /^\d{4}-\d{2}-\d{2}T/.test(value);
 }
 
-function runMediaChecks(sourcePath, findings, skipped, paths, options, captions) {
-  const sourceRelative = relativePath(paths.projectRoot, sourcePath);
-  const audioStream = probeAudioStream(sourcePath, options.ffprobeCommand);
+function runReferencedMediaChecks(rawEdit, projectedEdit, findings, skipped, paths, options, captionsRoot) {
+  const declaredSources = Array.isArray(rawEdit?.sources)
+    ? rawEdit.sources
+    : Array.isArray(projectedEdit?.sources) ? projectedEdit.sources : [];
+  const sourcesById = new Map(declaredSources
+    .filter((source) => isRecord(source) && isNonEmptyString(source.id))
+    .map((source) => [source.id, source]));
+  const referencedSourceIds = new Set();
+  const visualSourceIds = new Set();
+  const visualCuts = [];
+  const narrationItems = [];
+
+  if (rawEdit?.version === 2 && Array.isArray(rawEdit.tracks)) {
+    for (const [trackIndex, track] of rawEdit.tracks.entries()) {
+      if (!isRecord(track) || !Array.isArray(track.items)) continue;
+      for (const [itemIndex, item] of track.items.entries()) {
+        if (!isRecord(item) || !isRecord(item.source) || item.source.kind !== "media"
+          || !isNonEmptyString(item.source.src)) continue;
+        const sourceId = item.source.src;
+        referencedSourceIds.add(sourceId);
+        const itemPath = `edit.json#tracks[${trackIndex}].items[${itemIndex}]`;
+        if (track.lane === "visual") {
+          visualSourceIds.add(sourceId);
+          visualCuts.push({ item, sourceId, itemPath });
+        } else if (track.lane === "audio" && item.role === "narration") {
+          narrationItems.push({ item, sourceId, itemPath });
+        }
+      }
+    }
+  } else if (Array.isArray(projectedEdit?.cuts)) {
+    for (const [index, cut] of projectedEdit.cuts.entries()) {
+      if (!isRecord(cut) || !isNonEmptyString(cut.src)) continue;
+      referencedSourceIds.add(cut.src);
+      visualSourceIds.add(cut.src);
+      visualCuts.push({
+        item: { id: cut.id ?? `cut-${index + 1}`, source: cut },
+        sourceId: cut.src,
+        itemPath: `edit.json#cuts[${index}]`,
+      });
+    }
+  }
+
+  if (referencedSourceIds.size === 0) {
+    addSkipped(skipped, "media", "no sources[] entries are referenced by media items");
+  }
+
+  const probeByPath = new Map();
+  const probeForPath = (filePath) => {
+    if (!probeByPath.has(filePath)) {
+      probeByPath.set(filePath, probeMediaAudio(filePath, options.ffprobeCommand));
+    }
+    return probeByPath.get(filePath);
+  };
+  const probeBySourceId = new Map();
+  const captionBinding = bindCaptionsToVisualSource(captionsRoot, visualSourceIds);
+  if (captionBinding.sourceId === null) {
+    addSkipped(skipped, "media.caption-silence-coverage", captionBinding.reason);
+  }
+
+  for (const sourceId of referencedSourceIds) {
+    const source = sourcesById.get(sourceId);
+    if (!source || !isNonEmptyString(source.path)) {
+      addSkipped(skipped, "media", `source ${sourceId}: source path is unavailable`);
+      continue;
+    }
+    const sourcePath = resolveReference(paths.editPath, source.path);
+    const probe = probeForPath(sourcePath);
+    probeBySourceId.set(sourceId, probe);
+    runMediaChecks(
+      { id: sourceId, path: sourcePath },
+      probe,
+      findings,
+      skipped,
+      paths,
+      options,
+      captionBinding.sourceId === sourceId ? captionBinding.captions : undefined,
+    );
+  }
+
+  validateVisualAudioDuration(
+    visualCuts,
+    probeBySourceId,
+    findings,
+    skipped,
+    projectedEdit?.output?.fps,
+  );
+  validateNarrationMediaStart(narrationItems, probeBySourceId, findings, skipped);
+
+  if (Array.isArray(rawEdit?.audio?.narration)) {
+    for (const [index, item] of rawEdit.audio.narration.entries()) {
+      if (!isRecord(item) || !isNonEmptyString(item.path) || !isFiniteNumber(item.in)
+        || item.in < 0) continue;
+      const filePath = resolveReference(paths.editPath, item.path);
+      const probe = probeForPath(filePath);
+      addNarrationStartWarning(
+        item.id ?? `narration-${index + 1}`,
+        item.in,
+        probe,
+        `edit.json#audio.narration[${index}].in`,
+        findings,
+      );
+    }
+  }
+}
+
+function bindCaptionsToVisualSource(captionsRoot, visualSourceIds) {
+  const captions = Array.isArray(captionsRoot)
+    ? captionsRoot
+    : isRecord(captionsRoot) && Array.isArray(captionsRoot.captions)
+      ? captionsRoot.captions : null;
+  if (!captions || captions.length === 0) {
+    return {
+      sourceId: null,
+      captions: null,
+      reason: "captions are absent or empty; caption/silence coverage has no input",
+    };
+  }
+  const explicitSourceIds = new Set(captions
+    .filter(isRecord)
+    .map((caption) => caption.src)
+    .filter(isNonEmptyString));
+  const everyCaptionHasSource = captions.every(
+    (caption) => isRecord(caption) && isNonEmptyString(caption.src),
+  );
+  if (everyCaptionHasSource && explicitSourceIds.size === 1) {
+    const [sourceId] = explicitSourceIds;
+    if (visualSourceIds.has(sourceId)) return { sourceId, captions, reason: null };
+  }
+  if (visualSourceIds.size === 1) {
+    const [sourceId] = visualSourceIds;
+    if (explicitSourceIds.size === 0
+      || (explicitSourceIds.size === 1 && explicitSourceIds.has(sourceId))) {
+      return { sourceId, captions, reason: null };
+    }
+  }
+  return {
+    sourceId: null,
+    captions: null,
+    reason: "captions cannot be associated with exactly one referenced visual source",
+  };
+}
+
+function validateVisualAudioDuration(visualCuts, probeBySourceId, findings, skipped, fps) {
+  const unavailableSourceIds = new Set();
+  for (const { item, sourceId, itemPath } of visualCuts) {
+    const probe = probeBySourceId.get(sourceId);
+    if (probe?.hasAudio !== true || !isPositiveNumber(probe.duration)) {
+      unavailableSourceIds.add(sourceId);
+      continue;
+    }
+    const source = item.source;
+    const inSeconds = isFiniteNumber(source?.in) ? source.in : 0;
+    const effectiveOut = isFiniteNumber(source?.out)
+      ? source.out
+      : Number.isInteger(item.duration) && isPositiveNumber(fps)
+        ? inSeconds + (item.duration / fps) * (isPositiveNumber(source?.speed) ? source.speed : 1)
+        : null;
+    if (!isFiniteNumber(effectiveOut) || effectiveOut <= probe.duration + EPSILON) continue;
+    const itemId = isNonEmptyString(item.id) ? item.id : "media item";
+    addFinding(findings, {
+      severity: "warning",
+      check: "media.audio-shorter-than-out",
+      message: `${itemId}: audio stream ends at ${probe.duration.toFixed(3)}s but out=${effectiveOut.toFixed(3)}s (short by ${(effectiveOut - probe.duration).toFixed(3)}s)`,
+      path: `${itemPath}.source[src=${sourceId}]`,
+    });
+  }
+  for (const sourceId of unavailableSourceIds) {
+    addSkipped(
+      skipped,
+      "media.audio-shorter-than-out",
+      `source ${sourceId}: audio stream duration is unavailable`,
+    );
+  }
+}
+
+function validateNarrationMediaStart(narrationItems, probeBySourceId, findings, skipped) {
+  const unavailableSourceIds = new Set();
+  for (const { item, sourceId, itemPath } of narrationItems) {
+    if (!isFiniteNumber(item.source?.in) || item.source.in < 0) continue;
+    const probe = probeBySourceId.get(sourceId);
+    if (probe?.hasAudio !== true || !isPositiveNumber(probe.duration)) {
+      unavailableSourceIds.add(sourceId);
+      continue;
+    }
+    addNarrationStartWarning(
+      item.id,
+      item.source.in,
+      probe,
+      `${itemPath}.source.in[src=${sourceId}]`,
+      findings,
+    );
+  }
+  for (const sourceId of unavailableSourceIds) {
+    addSkipped(
+      skipped,
+      "audio.narration.trim",
+      `source ${sourceId}: media trim bound check requires an audio stream duration`,
+    );
+  }
+}
+
+function addNarrationStartWarning(itemId, inSeconds, probe, path, findings) {
+  if (probe?.hasAudio !== true || !isPositiveNumber(probe.duration)
+    || inSeconds < probe.duration - EPSILON) return;
+  addFinding(findings, {
+    severity: "warning",
+    check: "audio.narration.trim",
+    message: `${String(itemId)}: in=${inSeconds.toFixed(3)}s is at or beyond audio stream duration ${probe.duration.toFixed(3)}s`,
+    path,
+  });
+}
+
+function runMediaChecks(source, audioStream, findings, skipped, paths, options, captions) {
+  const sourcePath = source.path;
+  const sourceRelative = `${relativePath(paths.projectRoot, sourcePath)}#source=${source.id}`;
   let command = null;
   let silenceIntervals = [];
   if (audioStream.hasAudio === true) {
@@ -3751,7 +4033,7 @@ function runMediaChecks(sourcePath, findings, skipped, paths, options, captions)
     ]);
     silenceIntervals = parseSilenceIntervals(silence.stderr);
   } else {
-    addSkipped(skipped, "media.silence", audioStream.reason);
+    addSkipped(skipped, "media.silence", `source ${source.id}: ${audioStream.reason}`);
   }
   for (const interval of silenceIntervals) {
     const severity =
@@ -3804,14 +4086,27 @@ function runMediaChecks(sourcePath, findings, skipped, paths, options, captions)
           severity: "warning",
           check: "media.caption-silence-coverage",
           message: `captions cover ${coveragePercent.toFixed(1)}% of their total display time with silence (>=1.0s intervals); threshold is ${thresholdPercent}%`,
-          path: relativePath(paths.projectRoot, paths.captionsPath),
+          path: `${relativePath(paths.projectRoot, paths.captionsPath)}#source=${source.id}`,
         });
       }
+    } else {
+      addSkipped(
+        skipped,
+        "media.caption-silence-coverage",
+        `source ${source.id}: captions contain no valid positive-duration intervals`,
+      );
     }
   }
 
   if (audioStream.hasAudio !== true) {
-    addSkipped(skipped, "media.volume", audioStream.reason);
+    if (Array.isArray(captions)) {
+      addSkipped(
+        skipped,
+        "media.caption-silence-coverage",
+        `source ${source.id}: ${audioStream.reason}`,
+      );
+    }
+    addSkipped(skipped, "media.volume", `source ${source.id}: ${audioStream.reason}`);
     return;
   }
 
@@ -3849,7 +4144,7 @@ function runMediaChecks(sourcePath, findings, skipped, paths, options, captions)
   }
 }
 
-function probeAudioStream(sourcePath, configuredCommand) {
+function probeMediaAudio(sourcePath, configuredCommand) {
   let command;
   try {
     command = configuredCommand ?? process.env.FFPROBE ?? resolveFfprobe();
@@ -3865,11 +4160,11 @@ function probeAudioStream(sourcePath, configuredCommand) {
       "-v",
       "error",
       "-select_streams",
-      "a",
+      "a:0",
       "-show_entries",
-      "stream=index",
+      "stream=index,duration",
       "-of",
-      "csv=p=0",
+      "json",
       sourcePath,
     ],
     { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
@@ -3887,10 +4182,26 @@ function probeAudioStream(sourcePath, configuredCommand) {
       reason: `audio stream detection unavailable: ${detail || `ffprobe exited with status ${result.status}`}`,
     };
   }
-  if (String(result.stdout ?? "").trim() === "") {
+  let parsed;
+  try {
+    parsed = JSON.parse(String(result.stdout ?? ""));
+  } catch (error) {
+    return {
+      hasAudio: null,
+      duration: null,
+      reason: `audio stream detection unavailable: invalid ffprobe JSON (${messageOf(error)})`,
+    };
+  }
+  const stream = Array.isArray(parsed?.streams) ? parsed.streams[0] : undefined;
+  if (!stream) {
     return { hasAudio: false, reason: "source has no audio stream" };
   }
-  return { hasAudio: true, reason: null };
+  const duration = Number(stream.duration);
+  return {
+    hasAudio: true,
+    duration: isPositiveNumber(duration) ? duration : null,
+    reason: isPositiveNumber(duration) ? null : "audio stream duration is unavailable",
+  };
 }
 
 function probeDuration(sourcePath, configuredCommand) {

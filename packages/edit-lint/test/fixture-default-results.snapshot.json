@@ -1,0 +1,3022 @@
+{
+  "version": 1,
+  "fixture_count": 112,
+  "fixtures": {
+    "audio-sfx-track-invalid-value": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "audio.sfx.file",
+          "message": "sfx path does not resolve to a regular file: sfx-a.wav",
+          "path": "sfx-a.wav"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "bgm-fade-exceeds-timeline": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "audio.bgm.fadeIn",
+          "message": "fadeIn 15s exceeds half the timeline duration 20s; will be clamped to 10s at render time",
+          "path": "edit.json#audio.bgm"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.sfx is empty; nothing to check against the music grid"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "bgm-fade-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "audio.bgm.fadeOut",
+          "message": "fade_out must be a non-negative finite number",
+          "path": "edit.json#tracks[0].items[0].fade_out"
+        }
+      ],
+      "skipped": []
+    },
+    "bgm-in-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.sfx is empty; nothing to check against the music grid"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "bgm-null-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "bgm-sfx-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "no declarations file found (declarations are optional)"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-display-text-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "captions.schema",
+          "message": "display_text must be a string when present",
+          "path": "captions.json#[0]"
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-display-text-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-overlap-adjacent-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-overlap-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "captions.overlap",
+          "message": "caption overlaps c-0001 on the same track",
+          "path": "captions.json#[1]",
+          "range": {
+            "start": 1,
+            "end": 2
+          }
+        },
+        {
+          "severity": "error",
+          "check": "captions.overlap",
+          "message": "caption overlaps c-0001 on the same track",
+          "path": "captions.json#[2]",
+          "range": {
+            "start": 3,
+            "end": 4
+          }
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-reveal-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-short-duration": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "captions.short-duration",
+          "message": "caption display duration is 0.60s, under the 1.0s readability floor",
+          "path": "captions.json#[0]",
+          "range": {
+            "start": 0,
+            "end": 0.6
+          }
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-style-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "captions.schema",
+          "message": "style must be \"karaoke\", \"pop\", \"reveal\", or \"reveal-word\"",
+          "path": "captions.json#[0]"
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-text-style-background-mode-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "captions.text-style",
+          "message": "text_style.background.mode must be either per-line or block",
+          "path": "captions.json#[0]"
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-text-style-color-non-hex-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "captions.text-style",
+          "message": "text_style.color must be a #RGB, #RRGGBB, or #RRGGBBAA hex color",
+          "path": "captions.json#[0]"
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-text-style-opacity-out-of-range-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "captions.text-style",
+          "message": "default_text_style.background.opacity must be a finite number from zero to one",
+          "path": "captions.json"
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-text-style-record-override-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-text-style-zone-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "captions.text-style",
+          "message": "text_style.zone must be one of the nine caption zones",
+          "path": "captions.json#[0]"
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-word-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "captions.schema",
+          "message": "word must satisfy 0 <= start <= end",
+          "path": "captions.json#[0].words[0]"
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-word-out-of-range": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "captions.words-range",
+          "message": "word falls outside the caption's [start, end] range",
+          "path": "captions.json#[0].words[1]",
+          "range": {
+            "start": 9.5,
+            "end": 10
+          }
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "captions-words-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-at-negative-invalid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-frame-grid-shift-warning": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-frame-grid-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-opacity-out-of-range-invalid": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 1）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "cuts-order": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-track-at-omitted-equivalent": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-track-gap-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-track-invalid-value": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-track-overlap-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.track-overlap",
+          "message": "item overlaps 0 on the same track",
+          "path": "edit.json#tracks[0].items[1]",
+          "range": {
+            "start": 60,
+            "end": 210
+          }
+        }
+      ],
+      "skipped": []
+    },
+    "cuts-track-split-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-track-transition-default-order-valid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "cuts.track-transition-unsupported",
+          "message": "映像トラック 1 の transition_out は、PiP または複数トラックを合成する方式では書き出せません。トランジションを削除するか、映像を単一の cuts トラックへ戻してください。",
+          "path": "edit.json#cuts[1]"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-track-transition-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "cuts.track-transition-unsupported",
+          "message": "映像トラック 0 の transition_out は、PiP または複数トラックを合成する方式では書き出せません。トランジションを削除するか、映像を単一の cuts トラックへ戻してください。",
+          "path": "edit.json#cuts[0]"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-track-transition-last-cut-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-transform-full-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-transform-omitted-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-transform-partial-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "cuts-transform-rotate-invalid": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 1）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "cuts-transform-scale-invalid": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 1）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "cuts-transform-unknown-key-invalid": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 1）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "data-mismatch": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "overlays.data-attributes",
+          "message": "data-duration must match edit.json value 4",
+          "path": "overlays/cap-a.html"
+        },
+        {
+          "severity": "error",
+          "check": "overlays.data-attributes",
+          "message": "data-start must match edit.json value 1",
+          "path": "overlays/cap-a.html"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "duration-max": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 0）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "freeze-extends-timeline-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "intake-invalid-missing-submitted-at": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "intake.submitted_at",
+          "message": "submitted_at must be an ISO 8601 timestamp when status is submitted",
+          "path": ".akari/intake.json#submitted_at"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "intake-invalid-target-exclusive": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "intake.status",
+          "message": "intake.json is still a draft; the plan is not confirmed yet — settle tasks / target / autonomy with the user (form or conversation) before following it",
+          "path": ".akari/intake.json"
+        },
+        {
+          "severity": "error",
+          "check": "intake.target-exclusive",
+          "message": "target.duration_s and target.keep_length: true must not both be set",
+          "path": ".akari/intake.json#target"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "intake-invalid-unknown-task": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "intake.status",
+          "message": "intake.json is still a draft; the plan is not confirmed yet — settle tasks / target / autonomy with the user (form or conversation) before following it",
+          "path": ".akari/intake.json"
+        },
+        {
+          "severity": "error",
+          "check": "intake.tasks",
+          "message": "unknown task id: \"unknown-task-id\"",
+          "path": ".akari/intake.json#tasks[1]"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "intake-valid-draft": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "intake.status",
+          "message": "intake.json is still a draft; the plan is not confirmed yet — settle tasks / target / autonomy with the user (form or conversation) before following it",
+          "path": ".akari/intake.json"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "intake-valid-submitted": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "layers-track-invalid-value": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "references.files",
+          "message": "sources[1].path does not resolve to a regular file",
+          "path": "layer-a.mov"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "layers-track-overlap-warning": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.track-overlap",
+          "message": "item overlaps 0 on the same track",
+          "path": "edit.json#tracks[1].items[1]",
+          "range": {
+            "start": 60,
+            "end": 210
+          }
+        }
+      ],
+      "skipped": []
+    },
+    "missing-optionals": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "missing-reference": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "references.files",
+          "message": "sources[0].path does not resolve to a regular file",
+          "path": "missing.mp4"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "narration-gain-out-of-range": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "audio.narration.gain-db",
+          "message": "gain_db must be a finite number within [-60, 12]",
+          "path": "edit.json#tracks[0].items[0].gain_db"
+        }
+      ],
+      "skipped": []
+    },
+    "narration-invalid-id": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "narration-missing-file": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "audio.narration.file",
+          "message": "narration path does not resolve to a regular file: narration/missing.mp3",
+          "path": "narration/missing.mp3"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "narration-missing-provenance": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 0）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "narration-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.sfx is empty; nothing to check against the music grid"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "narration-voicevox-missing-credit": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 0）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "outputs-duration-max-gaps-warning": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 1）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "overlay-range": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "overlays.timeline",
+          "message": "overlay ends after timeline duration 10s",
+          "path": "edit.json#overlays[0]",
+          "range": {
+            "start": 9,
+            "end": 11
+          }
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "overlay-track-invalid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "overlays-background-overlap-invalid": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 0）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "overlays-background-role-invalid": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 0）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "overlays-background-transform-invalid": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 0）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "overlays-background-valid": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 0）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "overlays-background-vars-locked-invalid": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 0）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "overlays-reserved-css-var-file": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "overlays.reserved-css-var-reference",
+          "message": "overlay fragment references var(--rotate, ...) -- --rotate is a runtime-reserved variable that renderOverlayNode always sets inline on the container (packages/render-cut/src/rasterize.mjs), so the fallback never applies and it resolves to the runtime's inherited value instead (bug report: overlay-css-var-collision, 2026-08-17). Use a non-reserved name for custom knobs (e.g. --block-left).",
+          "path": "overlays/reserved-rotate.html"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "render-basics-invalid": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 0）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "render-basics-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "review-insert-anchor-unresolved": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "review.insert-anchor-unresolved",
+          "message": "insert anchor (src, sourceT) is not covered by any cut; automatic placement is unresolved",
+          "path": "review.json#annotations[0]"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        }
+      ]
+    },
+    "review-legacy-no-kind": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        }
+      ]
+    },
+    "review-region-missing-geometry": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "review.target-consistency",
+          "message": "targetKind region expects region or strokes",
+          "path": "review.json#annotations[0]"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        }
+      ]
+    },
+    "review-src-missing-reference": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "review.src-reference",
+          "message": "src does not reference sources[].id: s9",
+          "path": "review.json#annotations[0]"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        }
+      ]
+    },
+    "review-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        }
+      ]
+    },
+    "review-version-too-new": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "review.version",
+          "message": "review.json version 1 は新しすぎるため検証できません。このファイルは新しい形式です。スキル / アプリを更新してください",
+          "path": "review.json#version"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review.validation",
+          "reason": "a newer review.json version was detected; no format assumptions were made"
+        }
+      ]
+    },
+    "sfx-fade-exceeds-clip": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "audio.sfx.fade-total",
+          "message": "fade_in + fade_out 1.6s exceeds the clip's effective duration 1s (in=0.5s, out=1.5s); each will be clamped to half the effective duration at render time",
+          "path": "edit.json#audio.sfx[0]",
+          "range": {
+            "start": 0.5,
+            "end": 1.5
+          }
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "sfx-fade-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "audio.sfx.fade_in",
+          "message": "fade_in must be a non-negative finite number",
+          "path": "edit.json#tracks[0].items[0].fade_in"
+        }
+      ],
+      "skipped": []
+    },
+    "sfx-file-missing": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "audio.sfx.file",
+          "message": "sfx path does not resolve to a regular file: audio/missing.wav",
+          "path": "audio/missing.wav"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "sfx-in-out-equal-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "audio.sfx.in-out",
+          "message": "sfx must satisfy in < out when both are present",
+          "path": "edit.json#tracks[0].items[0].source",
+          "range": {
+            "start": 3,
+            "end": 3
+          }
+        }
+      ],
+      "skipped": []
+    },
+    "sfx-in-out-reversed-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "audio.sfx.in-out",
+          "message": "sfx must satisfy in < out when both are present",
+          "path": "edit.json#tracks[0].items[0].source",
+          "range": {
+            "start": 5,
+            "end": 2
+          }
+        }
+      ],
+      "skipped": []
+    },
+    "sfx-in-out-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "sfx-t-exceeds-timeline": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "audio.sfx.file",
+          "message": "sfx path does not resolve to a regular file: audio/pop.wav",
+          "path": "audio/pop.wav"
+        },
+        {
+          "severity": "warning",
+          "check": "audio.sfx.timeline",
+          "message": "t 25s exceeds timeline duration 20s",
+          "path": "edit.json#audio.sfx[0]",
+          "range": {
+            "start": 25,
+            "end": 25
+          }
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "sfx-track-overlap-warning": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "audio.sfx.file",
+          "message": "sfx path does not resolve to a regular file: sfx-a.wav",
+          "path": "sfx-a.wav"
+        },
+        {
+          "severity": "warning",
+          "check": "audio.sfx.file",
+          "message": "sfx path does not resolve to a regular file: sfx-b.wav",
+          "path": "sfx-b.wav"
+        },
+        {
+          "severity": "warning",
+          "check": "audio.sfx.track-overlap",
+          "message": "sfx item shares the same track and t as another sfx item",
+          "path": "edit.json#audio.sfx[1]",
+          "range": {
+            "start": 3,
+            "end": 3
+          }
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "speed-exceeds-timeline-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "overlays.timeline",
+          "message": "overlay ends after timeline duration 10s",
+          "path": "edit.json#overlays[0]",
+          "range": {
+            "start": 8,
+            "end": 12
+          }
+        }
+      ],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "timeline-tracks-declaration-missing-warning": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 1）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "timeline-tracks-declared-valid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "references.files",
+          "message": "sources[1].path does not resolve to a regular file",
+          "path": "layer.mov"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "timeline-tracks-empty-declared-track": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "timeline-tracks-interleaved": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "references.files",
+          "message": "sources[1].path does not resolve to a regular file",
+          "path": "layer.mov"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "timeline-tracks-omitted": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "timeline-tracks-singleton-duplicate-warning": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "timeline.tracks.singleton",
+          "message": "captions timeline track is declared more than once",
+          "path": "edit.json#timeline.tracks[4]"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "v1-missing-src-reference": {
+      "exit_code": 2,
+      "verdict": null,
+      "findings": [],
+      "skipped": [],
+      "execution_error": "このプロジェクトは古い形式です（edit.json version 1）。`akari migrate <dir>` で変換してから開いてください。将来本体から変換器が外れた後は `npx akari-migrate@<版> <dir>` を使います。"
+    },
+    "v1-source-sources-exclusive": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "v1-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "v2-audio-bgm-items-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.audio-bgm-multiple",
+          "message": "audio lane items may declare at most one bgm role",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": []
+    },
+    "v2-audio-bgm-multiple-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.audio-bgm-multiple",
+          "message": "audio lane items may declare at most one bgm role",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": []
+    },
+    "v2-audio-track-overlap-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.track-overlap",
+          "message": "item overlaps 0 on the same track",
+          "path": "edit.json#tracks[0].items[1]",
+          "range": {
+            "start": 15,
+            "end": 45
+          }
+        }
+      ],
+      "skipped": []
+    },
+    "v2-gap-transition-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "cuts.transition-out.non-adjacent",
+          "message": "transition_out の次のクリップとの間にすき間があります。すき間を詰めるか、トランジションを削除してください。",
+          "path": "edit.json#cuts[0].transition_out",
+          "range": {
+            "start": 2,
+            "end": 3
+          }
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "v2-html-params-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.html-params",
+          "message": "HTML source params must be an object whose values are strings",
+          "path": "edit.json#tracks[1].items[0].source.params.title"
+        }
+      ],
+      "skipped": []
+    },
+    "v2-html-params-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "v2-id-duplicate-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.id-unique",
+          "message": "item id is duplicated: same (first declared at edit.json#tracks[0].items[0].id)",
+          "path": "edit.json#tracks[0].items[1].id"
+        }
+      ],
+      "skipped": []
+    },
+    "v2-item-duration-zero-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.item-duration",
+          "message": "item duration must be a positive integer (0 represents nothing on the timeline)",
+          "path": "edit.json#tracks[0].items[0].duration"
+        }
+      ],
+      "skipped": []
+    },
+    "v2-items-content-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.track-content-exclusive",
+          "message": "track must contain exactly one of items or content",
+          "path": "edit.json#tracks[0]"
+        }
+      ],
+      "skipped": []
+    },
+    "v2-lane-source-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.lane-source",
+          "message": "source kind html is not compatible with lane audio",
+          "path": "edit.json#tracks[0].items[0].source.kind"
+        }
+      ],
+      "skipped": []
+    },
+    "v2-layer-evacuated-transition-warning": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "cuts.transition-out.layer-evacuated",
+          "message": "このクリップは他トラックのアイテム（bg-1）と重なっているため PiP 経路へ退避され、宣言したトランジションは書き出されません。重なりを解消するか、トランジションを削除してください。",
+          "path": "edit.json#tracks[1].items[0].source.transition_out",
+          "range": {
+            "start": 3,
+            "end": 3.066666666666667
+          }
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "v2-layer-extends-timeline-for-overlay-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "v2-nondefault-no-transition-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "v2.captions-track-undeclared",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "path": "edit.json#tracks"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "v2-pip-transition-invalid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "v2-track-overlap-invalid": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "v2.track-overlap",
+          "message": "item overlaps 0 on the same track",
+          "path": "edit.json#tracks[0].items[1]",
+          "range": {
+            "start": 10,
+            "end": 30
+          }
+        }
+      ],
+      "skipped": []
+    },
+    "v2-valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "v2-zero-overlap-transition-warning": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "cuts.transition-out.zero-overlap",
+          "message": "トランジションを宣言していますが、のりしろにできる素材の余りがないため効きません。素材のトリムを調整するか、トランジションを削除してください。",
+          "path": "edit.json#cuts[0].transition_out",
+          "range": {
+            "start": 2,
+            "end": 2
+          }
+        }
+      ],
+      "skipped": [
+        {
+          "check": "analysis.json",
+          "reason": "analysis.json is absent"
+        },
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "valid": {
+      "exit_code": 0,
+      "verdict": "pass",
+      "findings": [],
+      "skipped": [
+        {
+          "check": "audio.music-grid",
+          "reason": "audio.bgm is absent; music grid checks require audio.bgm.path"
+        },
+        {
+          "check": "captions",
+          "reason": "captions.json is absent"
+        },
+        {
+          "check": "intake",
+          "reason": ".akari/intake.json is absent"
+        },
+        {
+          "check": "media",
+          "reason": "media checks require --media"
+        },
+        {
+          "check": "review",
+          "reason": "review.json is absent"
+        }
+      ]
+    },
+    "version-3": {
+      "exit_code": 1,
+      "verdict": "fail",
+      "findings": [
+        {
+          "severity": "error",
+          "check": "edit.version",
+          "message": "edit.json version 3 は新しすぎるため検証できません。このファイルは新しい形式です。スキル / アプリを更新してください",
+          "path": "edit.json#version"
+        }
+      ],
+      "skipped": [
+        {
+          "check": "edit.validation",
+          "reason": "a newer edit.json version was detected; no format assumptions were made"
+        }
+      ]
+    }
+  }
+}
