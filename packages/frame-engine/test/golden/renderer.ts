@@ -682,6 +682,7 @@ function analyzeUvPlate(rgba: Uint8Array) {
   const squared: [number, number, number] = [0, 0, 0];
   const quadrantB = [0, 0, 0, 0];
   let centerB = 0, centerPixels = 0, cornerB = 0, cornerPixels = 0;
+  let adjacentDisagreements = 0, adjacentPairs = 0;
   for (let row = 0; row < HEIGHT; row += 1) {
     for (let x = 0; x < WIDTH; x += 1) {
       const offset = (row * WIDTH + x) * 4;
@@ -690,6 +691,7 @@ function analyzeUvPlate(rgba: Uint8Array) {
       squared[0] += r * r; squared[1] += g * g; squared[2] += b * b;
       saturation += Math.max(r, g, b) - Math.min(r, g, b);
       const unitB = b / 255;
+      const isB = unitB > 0.7;
       if (unitB > 0.7) {
         bPixels += 1; rowProfile[row]! += 1; colProfile[x]! += 1;
         quadrantB[(row >= HEIGHT / 2 ? 2 : 0) + (x >= WIDTH / 2 ? 1 : 0)]! += 1;
@@ -710,6 +712,16 @@ function analyzeUvPlate(rgba: Uint8Array) {
       }
       if (x > 0) horizontalGradientEnergy += Math.abs(r - rgba[offset - 4]!);
       if (row > 0) verticalGradientEnergy += Math.abs(g - rgba[offset - WIDTH * 4 + 1]!);
+      if (x > 0) {
+        adjacentPairs += 1;
+        adjacentDisagreements += Number(isB !== (rgba[offset - 2]! / 255 > 0.7));
+      }
+      if (row > 0) {
+        adjacentPairs += 1;
+        adjacentDisagreements += Number(
+          isB !== (rgba[offset - WIDTH * 4 + 2]! / 255 > 0.7),
+        );
+      }
     }
   }
   rowProfile.forEach((_value, index) => { rowProfile[index]! /= WIDTH; });
@@ -765,7 +777,52 @@ function analyzeUvPlate(rgba: Uint8Array) {
     horizontalGradientEnergy: horizontalGradientEnergy / (count - HEIGHT),
     verticalGradientEnergy: verticalGradientEnergy / (count - WIDTH),
     blockPeriod,
+    adjacentDisagreementRate: adjacentDisagreements / adjacentPairs,
   };
+}
+
+const PHASE_PLATE_WEIGHT = 0.658203125;
+const PHASE_INCOMING_WEIGHT = 0.341796875;
+
+function phasePlateRgb(luma: 0 | 1): [number, number, number] {
+  const y = luma - 16 / 255;
+  const u = 128 / 255 - 0.5;
+  const v = 128 / 255 - 0.5;
+  return [
+    1.164383 * y + 1.792741 * v,
+    1.164383 * y - 0.213249 * u - 0.532909 * v,
+    1.164383 * y + 2.112402 * u,
+  ];
+}
+
+function expectedPhasePlateMeanFromIncoming(
+  luma: 0 | 1,
+  incomingMean: readonly number[],
+): [number, number, number] {
+  const plate = phasePlateRgb(luma);
+  return incomingMean.map((value, channel) => Math.max(0, Math.min(
+    255,
+    plate[channel]! * 255 * PHASE_PLATE_WEIGHT
+      + value * PHASE_INCOMING_WEIGHT,
+  ))) as [number, number, number];
+}
+
+function expectedPhasePlateMean(luma: 0 | 1): [number, number, number] {
+  const totals: [number, number, number] = [0, 0, 0];
+  for (let row = 0; row < HEIGHT; row += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const incoming = [
+        (x / (WIDTH - 1)) * 255,
+        (row / (HEIGHT - 1)) * 255,
+        255,
+      ];
+      const expected = expectedPhasePlateMeanFromIncoming(luma, incoming);
+      for (let channel = 0; channel < 3; channel += 1) {
+        totals[channel]! += expected[channel]!;
+      }
+    }
+  }
+  return totals.map(value => value / (WIDTH * HEIGHT)) as [number, number, number];
 }
 
 async function inspectTransitionSemantics(
@@ -795,10 +852,10 @@ async function inspectTransitionSemantics(
   };
   const semanticNames: Record<string, string> = {
     'hard-cut': 'hard-cut:bFraction≈0',
-    dissolve: 'blend',
+    dissolve: 'dissolve:hashed-threshold',
     fade: 'blend',
-    'fade-black': 'plate:black',
-    'fade-white': 'plate:white',
+    'fade-black': 'phase-0.2:black-plate',
+    'fade-white': 'phase-0.2:white-plate',
     'fade-grays': 'gray',
     radial: 'angular',
     'circle-open': 'radial:center',
@@ -837,9 +894,16 @@ async function inspectTransitionSemantics(
         && Math.abs(analysis.bDisplacementPx.x - expectedDetail.b[0]) <= tolerance
         && Math.abs(analysis.bDisplacementPx.y - expectedDetail.b[1]) <= tolerance;
     } else if (id === 'hard-cut') matched = analysis.bFraction < 0.05;
-    else if (id === 'dissolve' || id === 'fade') matched = analysis.intermediateFraction > 0.95;
-    else if (id === 'fade-black') matched = analysis.meanRgb.every(value => value < 4);
-    else if (id === 'fade-white') matched = analysis.meanRgb.every(value => value > 251);
+    else if (id === 'dissolve') matched = Math.abs(analysis.bFraction - 0.5) <= 0.05
+      && analysis.intermediateFraction < 0.05
+      && Math.abs(analysis.adjacentDisagreementRate - 0.5) <= 0.05;
+    else if (id === 'fade') matched = analysis.intermediateFraction > 0.95;
+    else if (id === 'fade-black' || id === 'fade-white') {
+      const expectedMean = expectedPhasePlateMean(id === 'fade-white' ? 1 : 0);
+      matched = analysis.meanRgb.every(
+        (value, channel) => Math.abs(value - expectedMean[channel]!) <= 4,
+      );
+    }
     else if (id === 'fade-grays') matched = analysis.meanSaturation < 96;
     else if (id === 'circle-open') matched = analysis.radialSignature > 0.2;
     else if (id === 'circle-close') matched = analysis.radialSignature < -0.2;
@@ -853,13 +917,31 @@ async function inspectTransitionSemantics(
     else if (id === 'pixelize') matched = analysis.intermediateFraction > 0.95
       && analysis.blockPeriod > 1;
     if (!matched) mismatches.push(id);
+    const phasePlateExpected = id === 'fade-black' || id === 'fade-white'
+      ? {
+          kind: 'phase-0.2 two-stage smoothstep plate mix',
+          meanRgb: expectedPhasePlateMean(id === 'fade-white' ? 1 : 0),
+          tolerance: 4,
+        }
+      : null;
+    const dissolveExpected = id === 'dissolve'
+      ? {
+          kind: 'hashed threshold A/B selection',
+          bFraction: 0.5,
+          bFractionTolerance: 0.05,
+          intermediateFractionMax: 0.05,
+          adjacentDisagreementRate: 0.5,
+          adjacentDisagreementTolerance: 0.05,
+        }
+      : null;
     const expected = expectedDetail
       ? `axis=${expectedDetail.axis}, bSide=${expectedDetail.bSide}, aD${expectedDetail.axis}=${displacementName(expectedDetail.a[expectedDetail.axis === 'x' ? 0 : 1], expectedDetail.axis)}, bD${expectedDetail.axis}=${displacementName(expectedDetail.b[expectedDetail.axis === 'x' ? 0 : 1], expectedDetail.axis)}`
       : semanticNames[id] ?? id;
     rows.push({
       id,
       expected,
-      expectedDetail: expectedDetail ?? { kind: semanticNames[id] ?? id },
+      expectedDetail: expectedDetail ?? phasePlateExpected ?? dissolveExpected
+        ?? { kind: semanticNames[id] ?? id },
       ...analysis,
       matched,
     });
@@ -1015,6 +1097,20 @@ async function run(): Promise<void> {
     ['stack-3-b', frameMidpointUs(855)],
     ['noise-floor-a', frameMidpointUs(915)],
     ['noise-floor-b', frameMidpointUs(945)],
+    ['blend-add-a', frameMidpointUs(1005)],
+    ['blend-add-b', frameMidpointUs(1035)],
+    ['blend-difference-a', frameMidpointUs(1095)],
+    ['blend-difference-b', frameMidpointUs(1125)],
+    ['blend-darken-a', frameMidpointUs(1185)],
+    ['blend-darken-b', frameMidpointUs(1215)],
+    ['blend-lighten-a', frameMidpointUs(1275)],
+    ['blend-lighten-b', frameMidpointUs(1305)],
+    ['blend-overlay-a', frameMidpointUs(1365)],
+    ['blend-overlay-b', frameMidpointUs(1395)],
+    ['blend-hardlight-a', frameMidpointUs(1455)],
+    ['blend-hardlight-b', frameMidpointUs(1485)],
+    ['blend-softlight-a', frameMidpointUs(1545)],
+    ['blend-softlight-b', frameMidpointUs(1575)],
   ] as const;
   const layerParity: Array<Record<string, unknown>> = [];
   let layerNegativeSeed: { preview: Uint8Array; exported: Uint8Array } | null =
@@ -1549,6 +1645,19 @@ async function run(): Promise<void> {
       throw new Error(`missing parity hash ${label}`);
     return value;
   };
+  const phaseFadeTolerance = 16;
+  // The 190 ms mid/after source drift and clamp-before-mean ordering need some headroom.
+  // ±16 still rejects the legacy midpoint, which was the raw plate near 0 or 255.
+  const phaseFadeMatches = (luma: 0 | 1, midLabel: string, afterLabel: string) => {
+    const actual = measurementNamed(midLabel).meanRgb;
+    const expected = expectedPhasePlateMeanFromIncoming(
+      luma,
+      meanRgb(renderedByLabel.get(afterLabel)!),
+    );
+    return actual.every(
+      (value, channel) => Math.abs(value - expected[channel]!) <= phaseFadeTolerance,
+    );
+  };
   const semanticPass =
     planNamed('speed-start').sourceTimesUs[0] === 1_500_000 &&
     planNamed('framing-static').visuals[0]!.framing.width === 0.6 &&
@@ -1564,8 +1673,8 @@ async function run(): Promise<void> {
         Math.abs((planNamed(`${type}-mid`).transition?.progress ?? -1) - 0.5) <
           1e-9,
     ) &&
-    measurementNamed('fade-black-mid').meanRgb.every((value) => value < 3) &&
-    measurementNamed('fade-white-mid').meanRgb.every((value) => value > 252) &&
+    phaseFadeMatches(0, 'fade-black-mid', 'fade-black-after') &&
+    phaseFadeMatches(1, 'fade-white-mid', 'fade-white-after') &&
     colorDistance(
       measurementNamed('dissolve-mid').meanRgb,
       meanRgb(renderedByLabel.get('dissolve-before')!),

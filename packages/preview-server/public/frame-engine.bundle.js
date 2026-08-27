@@ -13173,6 +13173,27 @@ function invertMat3(matrix) {
   ];
 }
 
+// ../frame-engine/src/compositor/dissolve-noise.ts
+function dissolveNoiseField(width, height) {
+  if (!Number.isInteger(width) || width <= 0)
+    throw new Error(`dissolve noise width must be a positive integer: ${width}`);
+  if (!Number.isInteger(height) || height <= 0)
+    throw new Error(`dissolve noise height must be a positive integer: ${height}`);
+  const a = Math.fround(12.9898);
+  const b = Math.fround(78.233);
+  const c = Math.fround(43758.545);
+  const field = new Float32Array(width * height);
+  for (let y2 = 0; y2 < height; y2 += 1) {
+    const yTerm = Math.fround(y2 * b);
+    for (let x3 = 0; x3 < width; x3 += 1) {
+      const argument = Math.fround(x3 * a + yTerm);
+      const scaled = Math.fround(Math.fround(Math.sin(argument)) * c);
+      field[y2 * width + x3] = scaled - Math.floor(scaled);
+    }
+  }
+  return field;
+}
+
 // ../frame-engine/src/compositor/webgl2.ts
 var TRANSITION_BLUR_MAX_TAPS = 65;
 var TRANSITION_CODES = Object.freeze(Object.fromEntries([
@@ -13297,17 +13318,20 @@ var DirectUploadFallbackError = class extends Error {
   }
 };
 var YUV_GLSL = `
-vec3 yuv709(float y, vec2 chroma) {
+vec3 yuv709Unclamped(float y, vec2 chroma) {
   y -= 16.0 / 255.0;
   float u = chroma.r - 0.5;
   float v = chroma.g - 0.5;
-  return clamp(vec3(
+  return vec3(
     1.164383 * y + 1.792741 * v,
     1.164383 * y - 0.213249 * u - 0.532909 * v,
     1.164383 * y + 2.112402 * u
-  ), 0.0, 1.0);
+  );
+}
+vec3 yuv709(float y, vec2 chroma) {
+  return clamp(yuv709Unclamped(y, chroma), 0.0, 1.0);
 }`;
-var BASE_FRAGMENT_PREFIX = `#version 300 es
+var baseFragmentPrefix = (type) => `#version 300 es
 precision highp float;
 precision highp int;
 in vec2 uv;
@@ -13332,6 +13356,7 @@ uniform vec2 outputSize;
 uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
 uniform float transitionProgress;
+${type === "dissolve" ? "uniform sampler2D dissolveNoise;" : ""}
 ${YUV_GLSL}
 vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
   vec2 pixel = (p - 0.5) * outputSize - transform.xy;
@@ -13412,15 +13437,19 @@ function transitionFragmentBody(type) {
     case "hard-cut":
       return "result = A(p);";
     case "dissolve":
+      return "result = texelFetch(dissolveNoise, ivec2(ip), 0).r < amount ? B(p) : A(p);";
     case "fade":
       return "result = mixFf(A(p), B(p), P);";
     case "fade-black":
     case "fade-white":
       return `
-    vec3 plate = vec3(${type === "fade-white" ? "1.0" : "0.0"});
-    result = amount < 0.5
-      ? mix(A(p), plate, amount * 2.0)
-      : mix(plate, B(p), (amount - 0.5) * 2.0);`;
+    const float phase = 0.2;
+    // The plate maps Y=0/255 with neutral U/V=128 directly to unclamped RGB.
+    vec3 plate = yuv709Unclamped(${type === "fade-white" ? "1.0" : "0.0"}, vec2(128.0 / 255.0));
+    vec3 a = A(p), b = B(p);
+    result = clamp(mixFf(
+      mixFf(a, plate, smoothstep(1.0 - phase, 1.0, P)),
+      mixFf(plate, b, smoothstep(phase, 1.0, P)), P), 0.0, 1.0);`;
     case "fade-grays":
       return `
     const float phase = 0.2;
@@ -13517,7 +13546,7 @@ function buildBaseFragment(type) {
   return sum / float(taps);
 }
 ` : "";
-  return `${BASE_FRAGMENT_PREFIX}${blurHelper}void main() {
+  return `${baseFragmentPrefix(type)}${blurHelper}void main() {
   vec2 p = vec2(uv.x, 1.0 - uv.y);
   vec2 ip = floor(p * outputSize);
   float amount = clamp(transitionProgress, 0.0, 1.0);
@@ -13629,7 +13658,8 @@ var BASE_RGBA_UNITS = [6, 7];
 var LAYER_RGBA_UNIT = 8;
 var MASK_RGBA_UNIT = 10;
 var LUT_UNIT = 11;
-var REQUIRED_TEXTURE_UNITS = LUT_UNIT + 1;
+var DISSOLVE_NOISE_UNIT = 12;
+var REQUIRED_TEXTURE_UNITS = DISSOLVE_NOISE_UNIT + 1;
 function isVideoFrame(value) {
   return "displayWidth" in value && "displayHeight" in value && "close" in value;
 }
@@ -13824,6 +13854,7 @@ var WebGL2Compositor = class {
   ownedImageTextures = /* @__PURE__ */ new Set();
   lookTextures = /* @__PURE__ */ new WeakMap();
   ownedLookTextures = /* @__PURE__ */ new Set();
+  dissolveNoiseTextures = /* @__PURE__ */ new Map();
   disposed = false;
   directUploadDisabled = false;
   baseProgramFor(type) {
@@ -13851,6 +13882,7 @@ var WebGL2Compositor = class {
       cutUniforms,
       output: uniform(gl, program, "outputSize"),
       progress: gl.getUniformLocation(program, "transitionProgress"),
+      dissolveNoise: gl.getUniformLocation(program, "dissolveNoise"),
       secondary: false
     };
     this.basePrograms.set(type, state);
@@ -13891,6 +13923,35 @@ var WebGL2Compositor = class {
     );
     this.lookTextures.set(lut, texture);
     this.ownedLookTextures.add(texture);
+    return texture;
+  }
+  dissolveNoiseTexture(width, height) {
+    const key = `${width}x${height}`;
+    const cached = this.dissolveNoiseTextures.get(key);
+    if (cached) return cached;
+    const texture = this.gl.createTexture();
+    if (!texture)
+      throw new Error("WebGL2 could not allocate a dissolve noise texture");
+    const gl = this.gl;
+    this.bind(DISSOLVE_NOISE_UNIT, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.R32F,
+      width,
+      height,
+      0,
+      gl.RED,
+      gl.FLOAT,
+      dissolveNoiseField(width, height)
+    );
+    this.dissolveNoiseTextures.set(key, texture);
     return texture;
   }
   get uploadPath() {
@@ -14145,6 +14206,13 @@ var WebGL2Compositor = class {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, target);
     this.gl.useProgram(baseProgram.program);
     this.gl.uniform1f(baseProgram.progress, plan.transition?.progress ?? 0);
+    if (baseProgram.dissolveNoise) {
+      this.bind(
+        DISSOLVE_NOISE_UNIT,
+        this.dissolveNoiseTexture(plan.output.width, plan.output.height)
+      );
+      this.gl.uniform1i(baseProgram.dissolveNoise, DISSOLVE_NOISE_UNIT);
+    }
   }
   async compose(base, layers, output, metrics, plan) {
     if (this.disposed) throw new Error("WebGL2 compositor is disposed");
@@ -14380,7 +14448,8 @@ var WebGL2Compositor = class {
       ...this.layerRgbaTextures,
       ...this.fboTextures,
       ...this.ownedImageTextures,
-      ...this.ownedLookTextures
+      ...this.ownedLookTextures,
+      ...this.dissolveNoiseTextures.values()
     ])
       this.gl.deleteTexture(t);
     for (const f2 of this.fbos) this.gl.deleteFramebuffer(f2);
@@ -14388,6 +14457,7 @@ var WebGL2Compositor = class {
     for (const value of this.basePrograms.values())
       this.gl.deleteProgram(value.program);
     this.basePrograms.clear();
+    this.dissolveNoiseTextures.clear();
     this.gl.deleteProgram(this.layerProgram);
     this.gl.deleteProgram(this.copyProgram);
     this.gl.deleteProgram(this.lookProgram);
