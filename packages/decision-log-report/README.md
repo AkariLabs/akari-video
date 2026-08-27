@@ -36,6 +36,7 @@ node packages/decision-log-report/render-decision-log-report.mjs \
 | `(direction, tone)` の決定セル先頭にある JSON | `tone[]` / `tempo` を追加抽出（壊れていれば無視） |
 | 画像パス | project 内の実在を確認し、出力 HTML からの相対 `src` を記録 |
 | 裸の画像パストークン | ASCII のパス文字かつ区切りを含むものだけを収集し、グロブを除外 |
+| グロブ・範囲表記（`*` `?` `–` `〜` `~`）を含む参照 | どの経路でも収集しない |
 
 同じ `(category, subject)` の決定はファイル順で最後の行を現在有効とし、過去行は
 `supersededBy` で後続行を参照します。日時による並べ替えは行いません。
