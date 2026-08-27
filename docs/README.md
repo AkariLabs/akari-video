@@ -129,6 +129,7 @@ All contracts follow the
 | [contract-2026-08-13-avatar-drive-v0.md](./contract-2026-08-13-avatar-drive-v0.md) | 2D avatar sprite drive v0 (audio-envelope mouth states / deterministic blinking / baked alpha clip) |
 | [contract-2026-08-14-avatar-vrm-v0.md](./contract-2026-08-14-avatar-vrm-v0.md) | VRM avatar backend v0 (VRM 0.x/1.0 expressions / headless baked alpha clip) (Japanese) |
 | [contract-2026-08-18-v1-render-parity.md](./contract-2026-08-18-v1-render-parity.md) | v1 render path parity — cuts[].at explicit placement (gaps) and cuts[].track compositing on the sources[] path (Japanese) |
+| [contract-2026-08-28-v2-audio-roles-v0.md](./contract-2026-08-28-v2-audio-roles-v0.md) | v2 audio roles v0 — Web Audio supplies the frame-engine preview (bgm / narration / sfx, kernel ducking, AudioContext clock as master); ffmpeg mastering stays the export truth; measured preview-vs-export deltas and the items to settle before the default switch |
 
 ### Direction notes
 
