@@ -274,6 +274,7 @@ WebM の生成と既存消費は不変であり、`mask_path` は v2 frame-engin
   本タスクのファイル境界外のため未修正。object 形を実運用へ載せる前に、この読み手を
   `oneOf` へ追随させる必要がある（表示側の「人物マット: あり / なし」の判定も
   `tracks.person_matte` の真偽値で動くため、object 形でもそのまま「あり」になる）
+  - `packages/analysis-report` は object 形と `quality` / マスク併産の表示へ追随済み（2026-08-28）
 - **`<video>` の時刻同期が未実装**である（`packages/overlay-runtime`）。したがって
   「動く人物の text-behind-person」は本契約が整っても**まだ本番品質ではない**。
   マットが取れることと、それを本番の合成として出せることは別である
