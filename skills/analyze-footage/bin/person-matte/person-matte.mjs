@@ -26,6 +26,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { findAlphaModeTag } from "./alpha-tag.mjs";
+import { MASK_FORMAT, maskOutputArguments } from "./mask-format.mjs";
 import { DEFAULT_RVM_MODEL, resolveRvmModel } from "../../../../packages/matte-rvm/src/index.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../../../packages/media-bin/src/index.mjs";
 
@@ -252,6 +253,14 @@ function ffprobeJson(args, ffprobeBin = resolveFfprobe()) {
   }
 }
 
+function frameCount(stream) {
+  for (const value of [stream?.nb_frames, stream?.nb_read_frames]) {
+    const count = Number(value);
+    if (Number.isFinite(count) && count >= 0) return count;
+  }
+  return null;
+}
+
 /// 素材の表示上の寸法（回転を反映した幅・高さ）と尺を得る。
 function probeSource(input, ffprobeBin) {
   const probed = ffprobeJson([
@@ -372,23 +381,60 @@ async function generate(options) {
     ],
     ["pipe", "ignore", "pipe"],
   );
+  const parsedOutput = path.parse(options.out);
+  const maskPath = path.join(parsedOutput.dir, `${parsedOutput.name}.mask.mp4`);
+  const maskEncoder = stage(
+    "mask-encode",
+    ffmpegBin,
+    [
+      "-hide_banner", "-loglevel", "error",
+      "-f", "rawvideo", "-pix_fmt", "bgra",
+      "-s", `${size.width}x${size.height}`,
+      "-r", String(options.fps),
+      "-i", "-",
+      ...maskOutputArguments({ fps: options.fps, output: maskPath }),
+    ],
+    ["pipe", "ignore", "pipe"],
+  );
 
   // 途中の段が先に落ちたときの EPIPE で Node ごと落ちないようにする。
-  for (const stream of [decoder.child.stdout, helper.child.stdin, helper.child.stdout, encoder.child.stdin]) {
+  for (const stream of [
+    decoder.child.stdout,
+    helper.child.stdin,
+    helper.child.stdout,
+    encoder.child.stdin,
+    maskEncoder.child.stdin,
+  ]) {
     stream?.on("error", () => {});
   }
   decoder.child.stdout?.pipe(helper.child.stdin);
   helper.child.stdout?.pipe(encoder.child.stdin);
+  const maskStartedAt = Date.now();
+  helper.child.stdout?.pipe(maskEncoder.child.stdin);
   if (options.engine === "rvm") {
     helper.child.stderr?.on("data", (chunk) => process.stderr.write(chunk));
   }
 
   const startedAt = Date.now();
-  const results = await Promise.all([decoder.exited, helper.exited, encoder.exited]);
+  let maskEndedAt = maskStartedAt;
+  const results = await Promise.all([
+    decoder.exited,
+    helper.exited,
+    encoder.exited,
+    maskEncoder.exited.then((result) => {
+      maskEndedAt = Date.now();
+      return result;
+    }),
+  ]);
   const elapsedSeconds = (Date.now() - startedAt) / 1000;
 
-  const stderrOf = { decode: decoder.stderr(), segment: helper.stderr(), encode: encoder.stderr() };
-  for (const result of results) {
+  const stderrOf = {
+    decode: decoder.stderr(),
+    segment: helper.stderr(),
+    encode: encoder.stderr(),
+    "mask-encode": maskEncoder.stderr(),
+  };
+  for (const result of results.slice(0, 3)) {
     if (result.error?.code === "ENOENT") {
       throw new Error(`${result.name} を起動できません（${result.error.path ?? "不明なコマンド"}）`);
     }
@@ -411,6 +457,31 @@ async function generate(options) {
   }
 
   const verified = verifyOutput(options.out, ffprobeBin);
+  const maskExit = results[3];
+  let maskResult;
+  if (maskExit.error || maskExit.code !== 0) {
+    maskResult = {
+      ok: false,
+      reason: summarize(
+        stderrOf[maskExit.name] || maskExit.error?.message,
+        `mask-encode 終了コード ${maskExit.code}`,
+      ),
+    };
+  } else {
+    try {
+      const maskProbe = verifyMaskOutput(maskPath, verified, metrics.frames, ffprobeBin);
+      maskResult = {
+        ok: true,
+        mask_path: maskPath,
+        mask_elapsed_seconds: (maskEndedAt - maskStartedAt) / 1000,
+        mask_bytes: fs.statSync(maskPath).size,
+        mask_probe: maskProbe,
+      };
+    } catch (error) {
+      maskResult = { ok: false, reason: summarize(error?.message, "マスクの検証に失敗しました") };
+    }
+  }
+  if (!maskResult.ok) fs.rmSync(maskPath, { force: true });
   const engine = options.engine;
   return {
     ok: true,
@@ -424,6 +495,7 @@ async function generate(options) {
       quality: options.quality,
       generated_at: new Date().toISOString(),
       tool: engine === "rvm" ? RVM_TOOL_ID : TOOL_ID,
+      ...(maskResult.ok ? { mask_path: maskResult.mask_path, mask_format: MASK_FORMAT } : {}),
     },
     source: { path: options.input, ...source },
     width: size.width,
@@ -439,6 +511,14 @@ async function generate(options) {
     alpha_transparent_ratio: metrics.alpha_transparent_ratio,
     alpha_partial_ratio: metrics.alpha_partial_ratio,
     probe: verified,
+    ...(maskResult.ok
+      ? {
+        mask_path: maskResult.mask_path,
+        mask_elapsed_seconds: maskResult.mask_elapsed_seconds,
+        mask_bytes: maskResult.mask_bytes,
+        mask_probe: maskResult.mask_probe,
+      }
+      : { mask: maskResult }),
   };
 }
 
@@ -471,6 +551,41 @@ function verifyOutput(out, ffprobeBin) {
     nb_frames: stream.nb_frames ? Number(stream.nb_frames) : null,
     duration: probed?.format?.duration ? Number(probed.format.duration) : null,
   };
+}
+
+function verifyMaskOutput(out, alphaProbe, expectedFrames, ffprobeBin) {
+  const probed = ffprobeJson([
+    "-select_streams",
+    "v:0",
+    "-count_frames",
+    "-show_entries",
+    "stream=codec_name,profile,pix_fmt,color_range,width,height,r_frame_rate,nb_frames,nb_read_frames,start_pts,duration",
+    out,
+  ], ffprobeBin);
+  const stream = probed?.streams?.[0];
+  if (!stream) throw new Error("書き出したマスクに映像ストリームがありません");
+  const probe = {
+    codec_name: stream.codec_name,
+    profile: stream.profile,
+    pix_fmt: stream.pix_fmt,
+    color_range: stream.color_range,
+    width: Number(stream.width),
+    height: Number(stream.height),
+    r_frame_rate: stream.r_frame_rate,
+    nb_frames: frameCount(stream),
+    start_pts: Number(stream.start_pts ?? 0),
+    duration: stream.duration ? Number(stream.duration) : null,
+  };
+  const failures = [];
+  if (probe.codec_name !== "h264") failures.push(`codec=${probe.codec_name}`);
+  if (probe.profile !== "High") failures.push(`profile=${probe.profile}`);
+  if (probe.color_range !== "pc") failures.push(`color_range=${probe.color_range}`);
+  if (probe.width !== alphaProbe.width || probe.height !== alphaProbe.height) failures.push("size mismatch");
+  if (probe.r_frame_rate !== alphaProbe.r_frame_rate) failures.push("fps mismatch");
+  if (probe.nb_frames !== expectedFrames) failures.push("frame count mismatch");
+  if (probe.start_pts !== 0) failures.push(`start_pts=${probe.start_pts}`);
+  if (failures.length > 0) throw new Error(`マスクの規格検証に失敗しました: ${failures.join(", ")}`);
+  return probe;
 }
 
 async function main() {

@@ -120,7 +120,7 @@ function createUi(stage: HTMLElement): {
   const banner = document.createElement('div');
   banner.id = 'frame-engine-unsupported-banner';
   banner.setAttribute('role', 'status');
-  banner.textContent = 'Frame engine 評価台（cuts + layers）— 未対応: overlays / 字幕 / 音声';
+  banner.textContent = 'Frame engine 評価台（cuts + layers + matte）— 未対応: overlays / 字幕 / 音声';
   Object.assign(banner.style, {
     position: 'absolute', left: '8px', top: '8px', maxWidth: 'calc(100% - 270px)',
     padding: '5px 8px', border: '1px solid rgba(255,209,102,.65)', borderRadius: '4px',
@@ -193,6 +193,10 @@ class FrameEngineRuntime {
       if (!layer?.src) continue;
       const key = String(layer.src);
       urls.set(key, mediaUrl(key));
+      if (layer.mask) {
+        const maskKey = String(layer.mask);
+        urls.set(maskKey, mediaUrl(maskKey));
+      }
     }
     for (const [id, url] of urls) {
       if (/\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(url)) {

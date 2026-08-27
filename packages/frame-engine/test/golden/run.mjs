@@ -62,6 +62,24 @@ assert.equal(results.layerNegative.differingPixels, 1);
 assert.equal(results.layerSemantic.pass, true);
 assert.equal(results.layerStats.imageUploads, 1);
 assert.equal(results.layerStats.disposeRecreateDifferingPixels, 0);
+assert.equal(results.layerStats.glErrors, 0);
+assert.equal(results.matteParity.length >= 3, true);
+assert.equal(results.matteParity.every(sample => sample.pass), true);
+assert.equal(results.matteNegative.injectedPixelMutation, true);
+assert.equal(results.matteNegative.comparatorPassed, false);
+assert.equal(results.matteNegative.differingPixels, 1);
+assert.equal(results.matteSemantic.pass, true);
+assert.ok(results.matteSemantic.withoutMaskDifferingPixels > 0);
+assert.deepEqual(results.matteSync, {
+  frames: 300,
+  mismatches: 0,
+  maxDeltaUs: 0,
+  maxFrameLag: 0,
+  laggedFrames: 0,
+});
+assert.equal(results.matteStats.vp9Decodes, 0);
+assert.ok(results.matteStats.h264Decodes > 0);
+assert.equal(results.matteStats.glErrors, 0);
 assert.ok(Math.abs(results.encoded.durationSeconds - results.fixture.durationSeconds) <= 1 / 30);
 
-process.stdout.write(`golden PASS: ${results.parity.length} base + ${results.layerParity.length} layer parity frames, negative differingPixels=${results.negative.differingPixels}, encoded distinct hashes=${results.encoded.distinctExtractedHashes}\n`);
+process.stdout.write(`golden PASS: ${results.parity.length} base + ${results.layerParity.length} layer + ${results.matteParity.length} matte parity frames, matte sync=${results.matteSync.frames - results.matteSync.mismatches}/${results.matteSync.frames}, negative differingPixels=${results.negative.differingPixels}, encoded distinct hashes=${results.encoded.distinctExtractedHashes}\n`);

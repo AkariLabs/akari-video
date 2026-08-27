@@ -13,6 +13,7 @@
     "test:unit": "node --test test/*.test.mjs",
     "test:golden": "node test/golden/run.mjs",
     "bench:cuts": "node test/benchmark/run.mjs",
+    "bench:matte": "node test/benchmark/matte-decode.mjs",
     "compare:layers": "node test/golden/layers-compare.mjs",
     "verify:l1": "npm test && npm run bench:cuts",
     "test": "npm run build && npm run test:unit && npm run test:golden"

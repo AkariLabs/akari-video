@@ -398,7 +398,7 @@
       }
     },
     "personMatteTrack": {
-      "$comment": "2026-07-23 追加（docs/contract-2026-07-23-analysis-person-matte.md）。実体は VP9 alpha WebM（コンテナに alpha_mode=1）。意味制約として、マット動画の時刻 0 は素材の時刻 0 と一致し、fps はマット動画の実 fps と一致する。Draft 2020-12 標準では外部ファイルを参照できないため、この条件は生成・検証手順で確認する。",
+      "$comment": "2026-07-23 追加、2026-08-27 mask_path / mask_format を additive 追加（docs/contract-2026-07-23-analysis-person-matte.md）。path の実体は VP9 alpha WebM（コンテナに alpha_mode=1）、mask_path は追加の full-range H.264 グレースケールマスク。意味制約として、両動画の時刻 0 は素材の時刻 0 と一致し、fps は動画の実 fps と一致する。Draft 2020-12 標準では外部ファイルを参照できないため、この条件は生成・検証手順で確認する。",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -410,6 +410,16 @@
           "type": "string",
           "minLength": 1,
           "description": "マット動画（VP9 alpha WebM）へのパス。相対パスは analysis.json の所在ディレクトリを基準に解決し、区切りは / を使う。"
+        },
+        "mask_path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "追加のグレースケール H.264 マスクへのパス。相対パス規則は path と同じ。"
+        },
+        "mask_format": {
+          "type": "string",
+          "minLength": 1,
+          "description": "マスク形式。現行の生成器は gray-h264-fullrange を書く。"
         },
         "fps": {
           "type": "number",

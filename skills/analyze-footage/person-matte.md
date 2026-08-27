@@ -7,6 +7,7 @@
 - [生成する](#生成する)
 - [カットへ自動配線する](#カットへ自動配線する)
 - [analysis.json へ書く](#analysisjson-へ書く)
+- [グレースケールマスクを使う](#グレースケールマスクを使う)
 - [Windows 実機検証手順](#windows-実機検証手順)
 - [劣化](#劣化)
 
@@ -152,6 +153,25 @@ node skills/analyze-footage/bin/person-matte/person-cutout.mjs \
 - マット動画の時刻 0 が素材の時刻 0 と一致する（区間を切り出したマットを載せない）。
 - `fps` が実際に書き出したマット動画の fps と一致する。
 - `path` を analysis.json の位置から解決でき、実ファイルが存在する。
+
+## グレースケールマスクを使う
+
+`person-matte.mjs` は VP9 alpha WebM を従来どおり生成しながら、同じ推論結果の raw BGRA から
+`<basename>.mask.mp4` も併産する。成功結果の `person_matte` には `mask_path` と
+`mask_format: "gray-h264-fullrange"` が加わる。マスク生成だけが失敗した場合も VP9 alpha WebM は
+成功扱いのままで、結果の `mask.reason` に劣化理由が入る。
+
+既存の VP9 alpha WebM しかない場合は、次の冪等コマンドで一度だけ変換する。入力より新しい出力が
+あれば skip し、作り直す場合だけ `--force` を付ける。
+
+```bash
+node bin/person-matte/mask-from-alpha.mjs \
+  --input "$OUT_DIR/matte/person-matte.webm"
+```
+
+往復精度は `mask-roundtrip.mjs --alpha <webm> --mask <mp4>` で全フレーム比較できる。合否閾値は
+alpha WebM を真値とみなす取り込み変換の基準である。併産された兄弟 2 形式の比較では、それぞれの
+符号化損失の和を測るため、この閾値で `ok:false` になっても変換精度の不合格を意味しない。
 
 ## Windows 実機検証手順
 

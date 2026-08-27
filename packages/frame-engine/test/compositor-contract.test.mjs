@@ -5,11 +5,23 @@ import test from 'node:test';
 
 const source = await readFile(path.resolve(import.meta.dirname, '../src/compositor/webgl2.ts'), 'utf8');
 const comparisonSource = await readFile(path.resolve(import.meta.dirname, 'golden/layers-compare.mjs'), 'utf8');
+const mattePathSource = await Promise.all([
+  'src/timeline/plan.ts', 'src/evaluate.ts', 'src/compositor/webgl2.ts'
+].map(file => readFile(path.resolve(import.meta.dirname, '..', file), 'utf8'))).then(values => values.join('\n'));
 
 test('layer compositor keeps the no-FBO base path and guards projective w', () => {
   assert.match(source, /if \(layers\.length === 0\)[\s\S]+configureBaseDraw\(plan, null\)/u);
   assert.match(source, /homogeneous\.z <= 0\.000001/u);
   assert.match(source, /mix\(dst\.rgb, blend\(dst\.rgb, src\.rgb\), alpha\)/u);
+  assert.match(source, /texture\(maskY, sourceUv\)\.r/u);
+  assert.match(source, /src\.a \* maskA \* opacity/u);
+  assert.match(source, /\['maskY', 5\]/u);
+  assert.match(source, /const FBO_SCRATCH_UNIT = 9/u);
+  assert.match(source, /this\.bind\(FBO_SCRATCH_UNIT, t\)/u);
+});
+
+test('frame-engine matte path has no VP8/VP9 decoder branch', () => {
+  assert.doesNotMatch(mattePathSource, /libvpx|vp[89]/iu);
 });
 
 test('GPU timing uses timer queries and dispose does not lose the canvas context', () => {
@@ -17,6 +29,8 @@ test('GPU timing uses timer queries and dispose does not lose the canvas context
   assert.match(source, /TIME_ELAPSED_EXT/u);
   assert.match(source, /GPU_DISJOINT_EXT/u);
   assert.doesNotMatch(source, /WEBGL_lose_context|loseContext\(/u);
+  assert.match(source, /synchronization !== 'finish'/u);
+  assert.match(source, /stats\.glErrors \+= 1/u);
 });
 
 test('failed PBO fence allocation releases its bound buffer', () => {

@@ -5,5 +5,5 @@
     "rootDir": ".",
     "resolveJsonModule": true
   },
-  "include": ["src", "test/golden/renderer.ts", "test/benchmark/renderer.ts"]
+  "include": ["src", "test/golden/renderer.ts", "test/benchmark/renderer.ts", "test/benchmark/matte-renderer.ts"]
 }

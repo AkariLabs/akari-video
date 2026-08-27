@@ -314,6 +314,9 @@ function generateMatte(plan, options, temporaryPath) {
   return {
     cut: plan.cut,
     path: plan.mattePath,
+    ...(measured.mask_path
+      ? { mask_path: normalizedRelative(path.relative(options.project, measured.mask_path)) }
+      : {}),
     frames: measured.frames,
     bytes: measured.bytes,
     width: measured.width,

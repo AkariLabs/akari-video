@@ -274,8 +274,10 @@ uniform sampler2D ly;
 uniform sampler2D lu;
 uniform sampler2D lv;
 uniform sampler2D image;
+uniform sampler2D maskY;
 uniform int inputKind;
 uniform int yuvFormat;
+uniform int hasMask;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
@@ -324,7 +326,8 @@ void main() {
       : vec2(texture(lu, sourceUv).r, texture(lv, sourceUv).r);
     src = vec4(yuv709(texture(ly, sourceUv).r, chroma), 1.0);
   }
-  float alpha = clamp(src.a * opacity, 0.0, 1.0);
+  float maskA = hasMask == 1 ? texture(maskY, sourceUv).r : 1.0;
+  float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
   color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
 }`;
 const COPY_FRAGMENT = `#version 300 es
@@ -333,6 +336,8 @@ in vec2 uv;
 out vec4 color;
 uniform sampler2D source;
 void main() { color = texture(source, uv); }`;
+
+const FBO_SCRATCH_UNIT = 9;
 
 function multiply(a: readonly number[], b: readonly number[]): number[] {
   return Array.from({ length: 9 }, (_, k) => {
@@ -394,7 +399,7 @@ function forwardInverse(
 export class WebGL2Compositor implements CompositorBackend {
   readonly kind = 'webgl2' as const;
   readonly canvas: HTMLCanvasElement;
-  readonly stats = { imageUploads: 0 };
+  readonly stats = { imageUploads: 0, glErrors: 0 };
   private readonly gl: WebGL2RenderingContext;
   private readonly baseProgram: WebGLProgram;
   private readonly layerProgram: WebGLProgram;
@@ -402,7 +407,7 @@ export class WebGL2Compositor implements CompositorBackend {
   private readonly vertices: WebGLBuffer;
   private readonly baseTextures: WebGLTexture[];
   private readonly layerTextures: WebGLTexture[];
-  private readonly shapes: Array<string | null> = Array(9).fill(null);
+  private readonly shapes: Array<string | null> = Array(10).fill(null);
   private readonly cutUniforms: CutUniforms[];
   private readonly baseOutput: WebGLUniformLocation;
   private readonly transitionType: WebGLUniformLocation;
@@ -504,6 +509,7 @@ export class WebGL2Compositor implements CompositorBackend {
       ['lu', 2],
       ['lv', 3],
       ['image', 4],
+      ['maskY', 5],
     ].forEach(([n, u]) =>
       gl.uniform1i(uniform(gl, this.layerProgram, n as string), u as number),
     );
@@ -598,7 +604,10 @@ export class WebGL2Compositor implements CompositorBackend {
     const shape = `${w}x${h}`;
     if (shape === this.fboShape) return;
     for (const t of this.fboTextures) {
-      this.gl.bindTexture(this.gl.TEXTURE_2D, t);
+      // bindTexture uses whichever active unit the preceding upload left behind. Keep FBO
+      // attachments on a sampler-free scratch unit so they cannot form a feedback loop with
+      // backdrop / layer / mask samplers (units 0..5).
+      this.bind(FBO_SCRATCH_UNIT, t);
       this.gl.texImage2D(
         this.gl.TEXTURE_2D,
         0,
@@ -612,6 +621,10 @@ export class WebGL2Compositor implements CompositorBackend {
       );
     }
     this.fboShape = shape;
+  }
+  private recordGlErrors(synchronization: 'finish' | 'flush'): void {
+    if (synchronization !== 'finish') return;
+    while (this.gl.getError() !== this.gl.NO_ERROR) this.stats.glErrors += 1;
   }
   private stillTexture(value: StillImageBitmap): WebGLTexture {
     let texture = this.imageTextures.get(value);
@@ -715,7 +728,10 @@ export class WebGL2Compositor implements CompositorBackend {
 
   async compose(
     base: readonly NativeYuvFrame[],
-    layers: readonly (NativeYuvFrame | StillImageBitmap)[],
+    layers: readonly {
+      color: NativeYuvFrame | StillImageBitmap;
+      mask?: NativeYuvFrame | null;
+    }[],
     output: EvaluationPlan['output'],
     metrics: FrameMetricsRecorder,
     plan: EvaluationPlan,
@@ -797,6 +813,7 @@ export class WebGL2Compositor implements CompositorBackend {
     const opacityLoc = uniform(gl, this.layerProgram, 'opacity');
     const kindLoc = uniform(gl, this.layerProgram, 'inputKind');
     const formatLoc = uniform(gl, this.layerProgram, 'yuvFormat');
+    const hasMaskLoc = uniform(gl, this.layerProgram, 'hasMask');
     const blendLoc = uniform(gl, this.layerProgram, 'blendMode');
     const blendModes = [
       'normal',
@@ -817,6 +834,7 @@ export class WebGL2Compositor implements CompositorBackend {
     let current = 0;
     for (let index = 0; index < layers.length; index += 1) {
       const input = layers[index]!;
+      const color = input.color;
       const layer = plan.layers[index]!;
       const next = 1 - current;
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[next]!);
@@ -825,17 +843,30 @@ export class WebGL2Compositor implements CompositorBackend {
       let width: number;
       let height: number;
       const uploadStarted = performance.now();
-      if ('bitmap' in input) {
-        width = input.width;
-        height = input.height;
-        this.bind(4, this.stillTexture(input));
+      if ('bitmap' in color) {
+        width = color.width;
+        height = color.height;
+        this.bind(4, this.stillTexture(color));
         gl.uniform1i(kindLoc, 1);
       } else {
-        width = input.width;
-        height = input.height;
-        this.uploadYuv(input, this.layerTextures.slice(0, 3), 1, 6);
+        width = color.width;
+        height = color.height;
+        this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
         gl.uniform1i(kindLoc, 0);
-        gl.uniform1i(formatLoc, input.format === 'NV12' ? 1 : 0);
+        gl.uniform1i(formatLoc, color.format === 'NV12' ? 1 : 0);
+      }
+      if (input.mask) {
+        this.upload(
+          this.layerTextures[3]!,
+          9,
+          input.mask.y,
+          input.mask.width,
+          input.mask.height,
+        );
+        this.bind(5, this.layerTextures[3]!);
+        gl.uniform1i(hasMaskLoc, 1);
+      } else {
+        gl.uniform1i(hasMaskLoc, 0);
       }
       uploadElapsedMs += performance.now() - uploadStarted;
       gl.uniform2f(outLoc, output.width, output.height);
@@ -860,6 +891,7 @@ export class WebGL2Compositor implements CompositorBackend {
       gl.uniform1f(opacityLoc, layer.opacity);
       gl.uniform1i(blendLoc, Math.max(0, blendModes.indexOf(layer.blend)));
       draw();
+      this.recordGlErrors(synchronization);
       current = next;
     }
 
@@ -868,6 +900,7 @@ export class WebGL2Compositor implements CompositorBackend {
     gl.useProgram(this.copyProgram);
     this.bind(0, this.fboTextures[current]!);
     draw();
+    this.recordGlErrors(synchronization);
     metrics.record('upload', uploadElapsedMs);
     this.finishFrame(metrics, shaderElapsedMs, synchronization, timer, queries);
     return new WebGLSurface(

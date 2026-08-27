@@ -10,6 +10,9 @@ const directory = dirname(fileURLToPath(import.meta.url));
 const generated = resolve(directory, '.generated');
 mkdirSync(generated, { recursive: true });
 const fixture = resolve(generated, 'source.mp4');
+const matteColor = resolve(generated, 'matte-color.mp4');
+const matteAlpha = resolve(generated, 'matte-alpha.webm');
+const matteMask = resolve(generated, 'matte-mask.mp4');
 const bundle = resolve(generated, 'renderer.js');
 const resultsFile = resolve(generated, 'results.json');
 let encoder = null;
@@ -96,6 +99,14 @@ writeFileSync(
     .replace(/\s*<script src="frame-engine:\/\/app\/renderer\.js"><\/script>/, '')
 );
 const fixtureUrl = pathToFileURL(fixture).toString();
+const codecName = file => JSON.parse(execFileSync(ffprobe, [
+  '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=codec_name', '-of', 'json', file
+], { encoding: 'utf8' })).streams?.[0]?.codec_name;
+const fixtureCodecs = {
+  [pathToFileURL(matteColor).toString()]: codecName(matteColor),
+  [pathToFileURL(matteAlpha).toString()]: codecName(matteAlpha),
+  [pathToFileURL(matteMask).toString()]: codecName(matteMask)
+};
 
 let resolveCompletion;
 let rejectCompletion;
@@ -131,9 +142,10 @@ await page.exposeFunction('__goldenFail', async message => {
   rejectCompletion(new Error(result.error));
   return true;
 });
-await page.addInitScript(sourceUrl => {
+await page.addInitScript(({ sourceUrl, codecs }) => {
   window.goldenHarness = {
     fixtureUrl: sourceUrl,
+    fixtureCodecs: codecs,
     writeArtifact: (name, bytes) => window.__goldenWriteArtifact(name, Array.from(bytes)),
     startEncoder: options => window.__goldenStartEncoder(options),
     writeEncoderFrame: bytes => window.__goldenWriteEncoderFrame(Array.from(bytes)),
@@ -141,7 +153,7 @@ await page.addInitScript(sourceUrl => {
     complete: result => window.__goldenComplete(result),
     fail: message => window.__goldenFail(message)
   };
-}, fixtureUrl);
+}, { sourceUrl: fixtureUrl, codecs: fixtureCodecs });
 
 try {
   await page.goto(pathToFileURL(chromiumHtml).toString());

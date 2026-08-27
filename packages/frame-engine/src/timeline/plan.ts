@@ -40,8 +40,9 @@ export interface FrameEngineLayer {
   id?: string;
   t: number;
   duration: number;
-  kind?: 'video' | 'baked' | 'filter';
+  kind?: 'video' | 'baked' | 'filter' | 'matte';
   src?: string;
+  mask?: string;
   transform?: { x?: number; y?: number; scale?: number; rotate?: number };
   crop?: { x: number; y: number; w: number; h: number };
   perspective?: { corners: readonly (readonly [number, number])[] };
@@ -52,6 +53,8 @@ export interface FrameEngineLayer {
 
 export interface BuildResolvedTimelinePlanOptions extends NonNullable<Parameters<typeof buildTimelineMap>[1]> {
   layers?: readonly FrameEngineLayer[];
+  maskResolver?: (colorSrc: string) => string | null | undefined;
+  onWarning?: (message: string) => void;
 }
 
 interface ResolvedCutPlacement {
@@ -68,6 +71,8 @@ export interface ResolvedTimelinePlan {
   readonly cuts: readonly ResolvedCutPlacement[];
   readonly totalDuration: number;
   readonly layers: readonly FrameEngineLayer[];
+  readonly maskSources: ReadonlyMap<string, string | null>;
+  readonly warn: (message: string) => void;
   readonly fps: number;
 }
 
@@ -110,7 +115,7 @@ export function buildResolvedTimelinePlan(
       transitionOut: normalizeTransition(cut)
     };
   });
-  const { layers = [], ...timelineOptions } = options;
+  const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
   const map = buildTimelineMap(virtualCuts, timelineOptions);
   const trackSegments = computeCutTrackSegments(virtualCuts);
   const placements = cuts.map((cut, index): ResolvedCutPlacement => {
@@ -131,9 +136,37 @@ export function buildResolvedTimelinePlan(
       freezeDuration
     };
   });
+  const visibleLayers = layers.filter(layer => layer.kind !== 'filter');
+  const warned = new Set<string>();
+  const warn = (message: string) => {
+    if (warned.has(message)) return;
+    warned.add(message);
+    onWarning?.(message);
+  };
+  const maskSources = new Map<string, string | null>();
+  for (const layer of visibleLayers) {
+    if (!layer.src || layer.mask !== undefined || maskSources.has(layer.src)) continue;
+    if (isStillImageSourcePath(layer.src)) {
+      if (layer.kind === 'matte') warn(`mask ignored for still image layer ${layer.id ?? layer.src}`);
+      maskSources.set(layer.src, null);
+      continue;
+    }
+    if (!maskResolver) {
+      maskSources.set(layer.src, null);
+      continue;
+    }
+    try {
+      maskSources.set(layer.src, maskResolver(layer.src) ?? null);
+    } catch (error) {
+      warn(`mask resolver failed for ${layer.src}: ${error instanceof Error ? error.message : String(error)}`);
+      maskSources.set(layer.src, null);
+    }
+  }
   return {
     map, cuts: placements, totalDuration: map.totalDuration,
-    layers: layers.filter(layer => layer.kind !== 'filter'),
+    layers: visibleLayers,
+    maskSources,
+    warn,
     fps: finite(options.fps, DEFAULT_CUT_ADJACENCY_FPS) > 0
       ? finite(options.fps, DEFAULT_CUT_ADJACENCY_FPS) : DEFAULT_CUT_ADJACENCY_FPS
   };
@@ -289,17 +322,38 @@ function resolvedCompositeLayers(
     visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
     visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
     const blend = BLENDS.has(layer.blend ?? 'normal') ? (layer.blend ?? 'normal') : 'normal';
+    const id = String(layer.id ?? `layer-${index}`);
     const common = {
-      id: String(layer.id ?? `layer-${index}`), mask: null, visual,
+      id, visual,
       blend, opacity: clamp(finite(layer.opacity, 1), 0, 1)
     };
     if (isStillImageSourcePath(layer.src)) {
+      if (layer.mask || layer.kind === 'matte') timeline.warn(`mask ignored for still image layer ${id}`);
       if (!('load' in source)) throw new Error(`no still image source registered for ${layer.src}`);
-      resolved.push({ ...common, kind: 'image', image: source });
+      resolved.push({ ...common, kind: 'image', image: source, mask: null });
       return;
     }
     if (!('decode' in source)) throw new Error(`no video frame source registered for ${layer.src}`);
-    resolved.push({ ...common, kind: 'video', source, sourceTimeUs: Math.round(localSeconds * 1e6) });
+    const sourceTimeUs = Math.round(localSeconds * 1e6);
+    const maskSrc = layer.mask ?? timeline.maskSources.get(layer.src) ?? null;
+    let mask = null;
+    if (maskSrc) {
+      const maskSource = sources.get(maskSrc);
+      if (maskSource && 'decode' in maskSource) {
+        mask = { kind: 'greyscale' as const, source: maskSource, sourceTimeUs };
+      } else {
+        timeline.warn(`no mask source registered for ${maskSrc}; layer ${id} will render without a mask`);
+      }
+    } else if (layer.kind === 'matte') {
+      timeline.warn(`matte layer ${id} has no usable mask; rendering the color layer without a mask`);
+    }
+    resolved.push({
+      ...common,
+      kind: mask ? 'matte' : 'video',
+      source,
+      sourceTimeUs,
+      mask
+    });
   });
   return resolved;
 }
