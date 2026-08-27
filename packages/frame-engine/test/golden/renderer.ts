@@ -1,4 +1,5 @@
 import './decoder-instrumentation.js';
+import { inspectGopTailGolden } from './gop-tail.js';
 import {
   BufferedRawFrameSink,
   buildResolvedTimelinePlan,
@@ -693,12 +694,6 @@ async function run(): Promise<void> {
     ['matte-middle', frameMidpointUs(120)],
     ['matte-late', frameMidpointUs(235)],
   ] as const;
-  // A GOP's final frame is not seekable through the random-access decoder path; it is only
-  // reachable by sequential decode. Keep isolated parity samples away from that boundary.
-  if (matteSamplePoints.some(([, timeUs]) =>
-    Math.round(timeUs * FPS / 1e6 - 0.5) % 30 === 29)) {
-    throw new Error('matte parity sample selects a GOP-final frame');
-  }
   const matteGlErrorsBefore = compositor.stats.glErrors;
   const matteParity: Array<Record<string, unknown>> = [];
   let matteNegativeSeed: { preview: Uint8Array; exported: Uint8Array } | null = null;
@@ -1010,6 +1005,13 @@ async function run(): Promise<void> {
     layerTimeline,
   );
   const frameLifetime = await inspectFrameLifetime(output);
+  const gopTail = await inspectGopTailGolden({
+    baseUrl: SOURCE_URL,
+    layerUrl: SOURCE_B_URL,
+    matteColorUrl: MATTE_COLOR_URL,
+    matteMaskUrl: MATTE_MASK_URL,
+    output,
+  });
   const metricJson = metrics.toJSON();
   const semanticPlans = Object.fromEntries(
     SAMPLE_POINTS.map(([label, timeUs]) => {
@@ -1166,6 +1168,7 @@ async function run(): Promise<void> {
     matteStats.glErrors === 0 &&
     colorPatches.pass &&
     frameLifetime.pass &&
+    gopTail.pass &&
     compositor.uploadPath === REQUESTED_UPLOAD_PATH;
 
   session.destroy();
@@ -1213,6 +1216,7 @@ async function run(): Promise<void> {
     colorPatches,
     texturedCrossPathDiff,
     frameLifetime,
+    gopTail,
     metrics: metricJson,
     warnings,
   });

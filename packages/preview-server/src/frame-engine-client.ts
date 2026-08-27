@@ -15,6 +15,7 @@ import type {
   FrameEngineCut,
   FrameEngineLayer,
   LookaheadAccess,
+  NativeFrameSource,
   ResolvedTimelinePlan,
   TimelineSourceRegistry,
 } from '../../frame-engine/src/index.ts';
@@ -52,6 +53,13 @@ interface Measurements {
   boundaryBefore: { total: number; late: number };
   boundaryAfter: { total: number; late: number };
   warmupMs: number[];
+}
+
+interface DecodedFrameObservation {
+  streamId: string;
+  requestedUs: number;
+  timestampUs: number;
+  durationUs: number | null;
 }
 
 function percentile(values: readonly number[], fraction = 0.5): number | null {
@@ -181,6 +189,9 @@ class FrameEngineRuntime {
   private lastPlaybackFrame = -1;
   private lastCutIndex: number | null = null;
   private currentAccesses: LookaheadAccess[] | null = null;
+  private currentDecodedFrames: DecodedFrameObservation[] | null = null;
+  private lastRequestedTimeUs: number | null = null;
+  private lastBaseFrame: DecodedFrameObservation | null = null;
   private disposed = false;
 
   constructor(
@@ -196,6 +207,7 @@ class FrameEngineRuntime {
     });
     const cuts = normalizedCuts(edit);
     const urls = sourceUrls(edit, timelineData, cuts);
+    const videoSources = new Map<string, NativeFrameSource>();
     for (const layer of Array.isArray(edit?.layers) ? edit.layers : []) {
       if (!layer?.src) continue;
       const key = String(layer.src);
@@ -216,10 +228,23 @@ class FrameEngineRuntime {
         capacity: 12,
         onAccess: access => this.currentAccesses?.push(access),
       });
+      const observedSource: NativeFrameSource = {
+        decode: async (timeUs, metrics, request) => {
+          const frame = await source.decode(timeUs, metrics, request);
+          this.currentDecodedFrames?.push({
+            streamId: request?.streamId ?? 'default',
+            requestedUs: timeUs,
+            timestampUs: frame.timestamp,
+            durationUs: frame.duration ?? null,
+          });
+          return frame;
+        },
+      };
       this.pools.set(id, pool);
       this.lookahead.set(id, source);
+      videoSources.set(id, observedSource);
     }
-    this.sources = new Map([...this.lookahead, ...this.images]);
+    this.sources = new Map([...videoSources, ...this.images]);
     this.timeline = buildResolvedTimelinePlan(cuts, {
       fps,
       layers: (Array.isArray(edit?.layers) ? edit.layers : []) as FrameEngineLayer[],
@@ -311,6 +336,7 @@ class FrameEngineRuntime {
       return;
     }
     this.currentAccesses = [];
+    this.currentDecodedFrames = [];
     const started = performance.now();
     let frame;
     try {
@@ -319,6 +345,9 @@ class FrameEngineRuntime {
       frame?.close();
     }
     const elapsed = performance.now() - started;
+    this.lastRequestedTimeUs = timeUs;
+    this.lastBaseFrame = this.currentDecodedFrames.find(observation =>
+      plan.base.some(layer => layer.id === observation.streamId)) ?? null;
     const late = elapsed > 1000 / this.fps;
     if (late) this.measurements.lateFrames += 1;
     const cutIndex = Number(plan.base[0]?.id.replace('cut-', ''));
@@ -342,6 +371,7 @@ class FrameEngineRuntime {
     this.prefetch(timeUs);
     this.scheduleWarmup(timeUs / 1e6);
     this.currentAccesses = null;
+    this.currentDecodedFrames = null;
     this.updateMetrics();
   }
 
@@ -393,6 +423,12 @@ class FrameEngineRuntime {
     this.ui.metrics.dataset.boundaryLateBefore = `${m.boundaryBefore.late}/${m.boundaryBefore.total}`;
     this.ui.metrics.dataset.boundaryLateAfter = `${m.boundaryAfter.late}/${m.boundaryAfter.total}`;
     this.ui.metrics.dataset.uploadPath = this.compositor.uploadPath;
+    this.ui.metrics.dataset.requestedTimeUs = this.lastRequestedTimeUs == null
+      ? '' : String(this.lastRequestedTimeUs);
+    this.ui.metrics.dataset.baseFrameTimestampUs = this.lastBaseFrame == null
+      ? '' : String(this.lastBaseFrame.timestampUs);
+    this.ui.metrics.dataset.baseFrameDurationUs = this.lastBaseFrame?.durationUs == null
+      ? '' : String(this.lastBaseFrame.durationUs);
     this.ui.metrics.textContent = [
       `fps (presented/1s)  ${fps}`,
       `late frame          ${m.lateFrames}`,
