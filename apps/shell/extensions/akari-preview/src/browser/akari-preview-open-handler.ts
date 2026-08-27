@@ -5862,6 +5862,10 @@ body { display: grid; place-items: center; padding: 32px; }
             }
             const legacyTransport = document.querySelector('.transport');
             if (legacyTransport) legacyTransport.style.display = 'none';
+            if (window.akari && window.akari.previewAudio) {
+                window.akari.previewAudio.pause();
+                window.akari.previewAudio = null;
+            }
 
             const root = document.createElement('div');
             root.id = 'frame-engine-preview';
@@ -5880,7 +5884,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const banner = document.createElement('div');
             banner.id = 'frame-engine-unsupported-banner';
             banner.setAttribute('role', 'status');
-            banner.textContent = 'Frame engine 評価台（cuts のみ）— 未対応: layers / overlays / 字幕 / 音声';
+            banner.textContent = 'Frame engine 評価台（cuts + 音声）— 未対応: layers / overlays / 字幕';
             Object.assign(banner.style, {
                 position: 'absolute', left: '8px', top: '8px', maxWidth: 'calc(100% - 270px)',
                 padding: '5px 8px', border: '1px solid rgba(255,209,102,.65)', borderRadius: '4px',
@@ -6005,6 +6009,240 @@ body { display: grid; place-items: center; padding: 32px; }
 
                 const timeline = engine.buildResolvedTimelinePlan(normalizedCuts);
                 const totalDuration = timeline.totalDuration;
+                const createFrameEngineAudioSupply = () => {
+                    const audio = summary.audio;
+                    const kernel = window.AkariEditKernel;
+                    const declarations = [];
+                    const append = (kind, raw, fallbackId) => {
+                        if (!raw || typeof raw !== 'object' || typeof raw.src !== 'string' || !raw.src) return;
+                        const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
+                        declarations.push({ kind, id, url: raw.src, spec: { ...raw, id, durationSec: 0 } });
+                    };
+                    if (audio && typeof audio === 'object') {
+                        append('bgm', audio.bgm, 'bgm');
+                        if (Array.isArray(audio.sfx)) {
+                            audio.sfx.forEach((item, index) => append('sfx', item, 'sfx-' + (index + 1)));
+                        }
+                        if (Array.isArray(audio.narration)) {
+                            audio.narration.forEach((item, index) => append('narration', item, 'narration-' + (index + 1)));
+                        }
+                    }
+                    let context = null;
+                    if (declarations.length > 0 && kernel && typeof kernel.buildWebAudioSchedule === 'function') {
+                        try {
+                            const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+                            context = AudioContextConstructor ? new AudioContextConstructor() : null;
+                        } catch (reason) {
+                            console.warn('[frame-engine] Web Audio unavailable; keeping wall-clock playback', reason);
+                        }
+                    }
+                    let decoded = [];
+                    let loadPromise = null;
+                    let active = [];
+                    let generation = 0;
+                    let playingAudio = false;
+                    let startingAudio = false;
+                    let anchorTimelineSec = 0;
+                    let anchorContextSec = 0;
+                    let latestFallbackSec = 0;
+                    let renderedTimelineSec = null;
+                    let audioPositionAtRenderSec = null;
+                    let scheduled = [];
+                    const clamp = seconds => Math.max(0, Math.min(
+                        Number.isFinite(seconds) ? seconds : 0,
+                        totalDuration
+                    ));
+                    const stopSources = () => {
+                        const sources = active;
+                        active = [];
+                        for (const item of sources) {
+                            item.source.onended = null;
+                            try { item.source.stop(); } catch (_error) { /* already stopped */ }
+                            try { item.source.disconnect(); } catch (_error) { /* already detached */ }
+                            for (const gain of item.gains) {
+                                try { gain.disconnect(); } catch (_error) { /* already detached */ }
+                            }
+                        }
+                    };
+                    const load = () => {
+                        if (loadPromise || !context) return loadPromise || Promise.resolve();
+                        loadPromise = Promise.all(declarations.map(async declaration => {
+                            try {
+                                const response = await fetch(declaration.url);
+                                if (!response.ok) throw new Error('fetch status=' + response.status);
+                                const buffer = await context.decodeAudioData(await response.arrayBuffer());
+                                if (!(buffer.duration > 0)) throw new Error('decoded duration is invalid');
+                                return {
+                                    ...declaration.spec,
+                                    id: declaration.id,
+                                    kind: declaration.kind,
+                                    buffer,
+                                    durationSec: buffer.duration
+                                };
+                            } catch (reason) {
+                                console.warn('[frame-engine] ' + declaration.kind + ' '
+                                    + declaration.id + ' unavailable; skipped', reason);
+                                return null;
+                            }
+                        })).then(items => {
+                            decoded = items.filter(Boolean);
+                        });
+                        return loadPromise;
+                    };
+                    const applyGainEvents = (param, events, startTime) => {
+                        if (events.length === 0) {
+                            param.setValueAtTime(1, startTime);
+                            return;
+                        }
+                        param.cancelScheduledValues(startTime);
+                        for (const event of events) {
+                            const at = startTime + event.offsetSec;
+                            if (event.method === 'linear') param.linearRampToValueAtTime(event.value, at);
+                            else param.setValueAtTime(event.value, at);
+                        }
+                    };
+                    const startItem = (item, contextStart) => {
+                        const material = decoded.find(candidate => candidate.id === item.id
+                            && candidate.kind === item.kind);
+                        if (!context || !material) return;
+                        try {
+                            const source = context.createBufferSource();
+                            const baseGain = context.createGain();
+                            const gains = [baseGain];
+                            source.buffer = material.buffer;
+                            source.loop = item.loop;
+                            source.connect(baseGain);
+                            let tail = baseGain;
+                            if (item.kind === 'bgm') {
+                                const duckGain = context.createGain();
+                                baseGain.connect(duckGain);
+                                tail = duckGain;
+                                gains.push(duckGain);
+                                applyGainEvents(duckGain.gain, item.duckingEvents, contextStart + item.delaySec);
+                            }
+                            tail.connect(context.destination);
+                            applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec);
+                            source.start(contextStart + item.delaySec, item.sourceOffsetSec, item.durationSec);
+                            const activeItem = { source, gains };
+                            active.push(activeItem);
+                            source.onended = () => {
+                                active = active.filter(candidate => candidate !== activeItem);
+                                try { source.disconnect(); } catch (_error) { /* already detached */ }
+                                for (const gain of gains) {
+                                    try { gain.disconnect(); } catch (_error) { /* already detached */ }
+                                }
+                            };
+                        } catch (reason) {
+                            console.warn('[frame-engine] ' + item.kind + ' ' + item.id
+                                + ' could not be scheduled', reason);
+                        }
+                    };
+                    const declarationForSchedule = () => ({
+                        ...(decoded.find(item => item.kind === 'bgm')
+                            ? { bgm: decoded.find(item => item.kind === 'bgm') } : {}),
+                        sfx: decoded.filter(item => item.kind === 'sfx'),
+                        narration: decoded.filter(item => item.kind === 'narration')
+                    });
+                    const audioPosition = () => context && playingAudio
+                        ? clamp(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec))
+                        : latestFallbackSec;
+                    const startFrom = async seconds => {
+                        if (!context) return;
+                        const thisGeneration = ++generation;
+                        startingAudio = true;
+                        await load();
+                        if (thisGeneration !== generation || decoded.length === 0) {
+                            startingAudio = false;
+                            return;
+                        }
+                        try {
+                            await context.resume();
+                        } catch (reason) {
+                            console.warn('[frame-engine] AudioContext resume failed; keeping wall-clock playback', reason);
+                            startingAudio = false;
+                            return;
+                        }
+                        if (thisGeneration !== generation) {
+                            startingAudio = false;
+                            return;
+                        }
+                        const plan = kernel.buildWebAudioSchedule({
+                            timelineDurationSec: totalDuration,
+                            startAtSec: clamp(latestFallbackSec || seconds),
+                            audio: declarationForSchedule()
+                        });
+                        for (const warning of plan.warnings) console.warn('[frame-engine] audio: ' + warning);
+                        if (plan.items.length === 0) {
+                            startingAudio = false;
+                            return;
+                        }
+                        stopSources();
+                        const contextStart = context.currentTime + 0.02;
+                        anchorTimelineSec = plan.startAtSec;
+                        anchorContextSec = contextStart;
+                        scheduled = plan.items;
+                        for (const item of scheduled) startItem(item, contextStart);
+                        playingAudio = true;
+                        startingAudio = false;
+                    };
+                    return {
+                        playFrom: seconds => {
+                            latestFallbackSec = clamp(seconds);
+                            if (context && !playingAudio && !startingAudio) void startFrom(latestFallbackSec);
+                        },
+                        position: fallbackSeconds => {
+                            latestFallbackSec = clamp(fallbackSeconds);
+                            return playingAudio ? audioPosition() : latestFallbackSec;
+                        },
+                        seek: (seconds, continuePlaying) => {
+                            latestFallbackSec = clamp(seconds);
+                            generation += 1;
+                            playingAudio = false;
+                            startingAudio = false;
+                            stopSources();
+                            if (continuePlaying && context) void startFrom(latestFallbackSec);
+                        },
+                        pause: () => {
+                            if (playingAudio) latestFallbackSec = audioPosition();
+                            generation += 1;
+                            playingAudio = false;
+                            startingAudio = false;
+                            stopSources();
+                        },
+                        noteRendered: seconds => {
+                            renderedTimelineSec = clamp(seconds);
+                            audioPositionAtRenderSec = context && playingAudio ? audioPosition() : null;
+                        },
+                        debug: () => {
+                            // CDP 呼び出しの遅延を混ぜず、描画完了時に同時採取した 2 時計を比較する。
+                            const audioPositionSec = audioPositionAtRenderSec;
+                            return {
+                                contextState: context ? context.state : 'unavailable',
+                                renderedTimelineSec,
+                                audioPositionSec,
+                                driftMs: audioPositionSec === null || renderedTimelineSec === null
+                                    ? null : (renderedTimelineSec - audioPositionSec) * 1000,
+                                playing: playingAudio,
+                                scheduled: {
+                                    startAtSec: scheduled.length > 0 ? anchorTimelineSec : null,
+                                    itemCount: scheduled.length,
+                                    bgm: scheduled.filter(item => item.kind === 'bgm').length,
+                                    sfx: scheduled.filter(item => item.kind === 'sfx').length,
+                                    narration: scheduled.filter(item => item.kind === 'narration').length
+                                }
+                            };
+                        },
+                        dispose: () => {
+                            generation += 1;
+                            playingAudio = false;
+                            startingAudio = false;
+                            stopSources();
+                            if (context) void context.close().catch(() => undefined);
+                        }
+                    };
+                };
+                const audioSupply = createFrameEngineAudioSupply();
+                window.akariFrameEngineAudioDebug = () => audioSupply.debug();
                 const output = {
                     width: Number(summary.output && summary.output.width) > 0
                         ? Number(summary.output.width) : 1280,
@@ -6036,7 +6274,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         const plan = engine.evaluationPlanFromResolvedTimeline(
                             timeline, futureUs, lookahead, output
                         );
-                        for (const layer of plan.layers) {
+                        for (const layer of plan.base) {
                             const placement = timeline.cuts[Number(layer.id.replace('cut-', ''))];
                             const source = placement && lookahead.get(placement.cut.src);
                             if (source) {
@@ -6074,7 +6312,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (disposed) return;
                     const timeUs = Math.round(Math.max(0, Math.min(seconds, totalDuration)) * 1e6);
                     const plan = engine.evaluationPlanFromResolvedTimeline(timeline, timeUs, lookahead, output);
-                    if (plan.layers.length === 0) return;
+                    if (plan.base.length === 0 && plan.layers.length === 0) return;
                     currentAccesses = [];
                     const started = performance.now();
                     let frame;
@@ -6085,7 +6323,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     const late = performance.now() - started > 1000 / fps;
                     if (late) measurements.lateFrames += 1;
-                    const cutIndex = Number(plan.layers[0] && plan.layers[0].id.replace('cut-', ''));
+                    const cutIndex = Number(plan.base[0] && plan.base[0].id.replace('cut-', ''));
                     if (Number.isInteger(cutIndex) && cutIndex !== lastCutIndex) {
                         const streamId = 'cut-' + cutIndex;
                         const bucket = warmedStreams.has(streamId)
@@ -6108,6 +6346,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     prefetch(timeUs);
                     scheduleWarmup(timeUs / 1e6);
                     currentAccesses = null;
+                    audioSupply.noteRendered(timeUs / 1e6);
                     updateMetrics();
                     // エラー面は履歴ではなく現在の描画状態を表す。次のフレームが成功したら消し、
                     // 過去に回復したエラーの事実は metrics の累計だけへ残す。
@@ -6162,9 +6401,14 @@ body { display: grid; place-items: center; padding: 32px; }
                     play.textContent = playing ? '一時停止' : '再生';
                 };
                 const setPlaying = next => {
+                    if (!next && playing) {
+                        position = audioSupply.position(position);
+                        audioSupply.pause();
+                    }
                     playing = next && position < totalDuration;
                     playAnchorMs = performance.now();
                     playAnchorPosition = position;
+                    if (playing) audioSupply.playFrom(position);
                     updateTransport();
                 };
 
@@ -6174,6 +6418,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     position = Math.max(0, Math.min(Number(seek.value) || 0, totalDuration));
                     playAnchorMs = performance.now();
                     playAnchorPosition = position;
+                    audioSupply.seek(position, playing);
                     requestSeek(position);
                     updateTransport();
                 });
@@ -6194,7 +6439,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 const tick = now => {
                     if (disposed) return;
                     if (playing) {
-                        position = Math.min(totalDuration, playAnchorPosition + (now - playAnchorMs) / 1000);
+                        const fallbackPosition = Math.min(
+                            totalDuration,
+                            playAnchorPosition + (now - playAnchorMs) / 1000
+                        );
+                        position = audioSupply.position(fallbackPosition);
                         renderPlayback(position);
                         if (position >= totalDuration) setPlaying(false);
                         else updateTransport();
@@ -6209,6 +6458,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     warmup.reset();
                     for (const source of lookahead.values()) source.clear();
                     for (const pool of pools.values()) pool.destroy();
+                    audioSupply.dispose();
                     compositor.dispose();
                 }, { once: true });
             })().catch(reason => showError(reason, true));
