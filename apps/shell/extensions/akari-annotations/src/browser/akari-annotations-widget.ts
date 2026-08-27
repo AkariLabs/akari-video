@@ -103,6 +103,7 @@ import { splitLintBlame } from '../common/lint-blame-scope';
 import { formatLintFailureForUi, japaneseLintWarningSummary, UiLintFinding } from '../common/lint-message-ja';
 import { buildTimelineClipMenuItems } from '../common/timeline-context-menu-items';
 import { formatTransitionSeconds, roundTransitionDurationForWrite } from '../common/transition-duration';
+import { resolveTimelineExtentSeconds } from '../common/timeline-extent';
 import { PARTNER_WIDGET_ID, resolveRightPaneSyncAction } from '../common/right-pane-sync';
 import {
     computeMaterialGhostRange,
@@ -132,19 +133,6 @@ import {
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
-const SHORTCUTS_HELP_TEXT = [
-    'Space  出力プレビュー再生/停止',
-    'B  分割（レザー）ツール切替',
-    'A  選択ツールへ戻る',
-    'Delete / Backspace  選択アイテムを削除',
-    'M / N  マグネット（スナップ）切替',
-    '⌘Z  元に戻す',
-    '⇧⌘Z  やり直す',
-    '←  1フレーム戻る　→  1フレーム進む',
-    '⇧←  1秒戻る　⇧→  1秒進む',
-    '⌘C / ⌘V  コピー / ペースト',
-    'Escape  選択解除'
-].join('\n');
 const HISTORY_LIMIT = 50;
 const PLAYHEAD_FOLLOW_THRESHOLD = 0.78;
 const MINIMUM_ITEM_DURATION = 0.15;
@@ -174,19 +162,20 @@ const ZOOM_EVENT_FACTOR_MAX = 1.5;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
 const PLAYHEAD_COLOR = '#3b82f6';
 const MICRO_CLIP_WIDTH_PX = 28;
-const CLIP_HEADER_HEIGHT = 28;
-/** クリップ帯の高さ（ヘッダー帯28px + サムネイル/波形本体44px）。cuts トラックの既定高さ。 */
-const CLIP_HEIGHT = CLIP_HEADER_HEIGHT + 44;
+const CLIP_HEADER_HEIGHT = 18;
+/** クリップ帯の高さ（ヘッダー帯18px + サムネイル/波形本体34px）。cuts トラックの既定高さ。 */
+const CLIP_HEIGHT = CLIP_HEADER_HEIGHT + 34;
 /**
  * トラック高さドラッグリサイズ（R7-2・T4 の3段階ボタンを退役し連続値へ一般化）。
  * cuts/audio トラックのヘッダー下端をドラッグすると、この範囲内で高さを連続変更できる。
  */
-const MIN_TRACK_HEIGHT_PX = 28;
+const MIN_TRACK_HEIGHT_PX = 20;
 const MAX_TRACK_HEIGHT_PX = 240;
-/** audio トラックの既定高さ（波形が視認できる程度の余白を持たせる）。 */
-const DEFAULT_AUDIO_TRACK_HEIGHT_PX = 56;
+/** audio トラックの既定高さ（コンパクト表示でも波形を視認できる高さ）。 */
+const DEFAULT_AUDIO_TRACK_HEIGHT_PX = 28;
 /** per-track 高さの永続化キー接頭辞（StorageService＝ワークスペース状態。edit.json には書かない）。 */
-const TRACK_HEIGHT_STORAGE_PREFIX = 'akari.annotations.trackHeight';
+// 2026-08-27 既定圧縮に伴いキー世代を上げた。
+const TRACK_HEIGHT_STORAGE_PREFIX = 'akari.annotations.trackHeight.v2';
 const TRACK_FLAG_STORAGE_PREFIX = 'akari.annotations.trackFlag';
 /**
  * cuts トラックの高さがこの値未満ならフィルムストリップ・波形の描画をスキップする。
@@ -194,24 +183,24 @@ const TRACK_FLAG_STORAGE_PREFIX = 'akari.annotations.trackFlag';
  */
 const MIN_TRACK_HEIGHT_FOR_MEDIA_PX = CLIP_HEIGHT;
 /** audio sfx バーの高さがこの値未満なら波形の描画をスキップする（ラベルのみ表示）。 */
-const MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX = 40;
+const MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX = 24;
 /** フィルムストリップの目標セル幅（atlas フレームのアスペクトから実セル幅を導出する基準値）。 */
 const FILMSTRIP_TARGET_CELL_WIDTH_PX = 36;
 /** クリップ 1 個あたりの最大セル数（暴走防止。実測上はズームしても strip 幅に収まるため頭打ちにはまず届かない）。 */
 const FILMSTRIP_MAX_CELLS_PER_CLIP = 160;
-/** 波形の描画帯の高さ（クリップ帯下寄せ・目安 CLIP_HEIGHT の 1/4〜1/3）。clipHeader と非重複にする。 */
-const WAVEFORM_BAND_HEIGHT_PX = 24;
+/** 波形の描画帯の高さ（クリップ帯下寄せ・コンパクト表示用12px）。clipHeader と非重複にする。 */
+const WAVEFORM_BAND_HEIGHT_PX = 12;
 /**
  * ソーストリマー（R6c2r2・外側延長方式）: クリップ左右の「ウィング」（in より前 /
  * out より後の素材）に許す最大表示幅（px）。同一 px/秒スケールで描くため、素材が
  * 長尺でもセル数がズームに関わらずこの幅に収まるようにする（用途は前後数秒の微調整）。
  */
 const TRIMMER_WING_MAX_WIDTH_PX = 480;
-const LANE_GAP = 6;
-const SUBROW_HEIGHT = 32;
-const SUBROW_GAP = 4;
+const LANE_GAP = 2;
+const SUBROW_HEIGHT = 22;
+const SUBROW_GAP = 2;
 const SUBROW_STRIDE = SUBROW_HEIGHT + SUBROW_GAP;
-const STRIP_BOTTOM_MARGIN = 6;
+const STRIP_BOTTOM_MARGIN = 2;
 const TRACK_HEADER_WIDTH = 136;
 /** ㉔ トランジション境界バッジ（隣接カット境界の常時表示 + クリック編集）。 */
 const TRANSITION_BADGE_SIZE_PX = 16;
@@ -307,7 +296,6 @@ const TIMELINE_SET_TRACK_VISIBILITY_EVENT = 'akari.timeline.setTrackVisibility';
 const TIMELINE_SET_CAPTIONS_VISIBILITY_EVENT = 'akari.timeline.setCaptionsVisibility';
 const TIMELINE_SET_OVERLAY_TRACK_MUTED_EVENT = 'akari.timeline.setOverlayTrackMuted';
 const TIMELINE_SET_AUDIO_VISIBILITY_EVENT = 'akari.timeline.setAudioVisibility';
-const TIMELINE_SET_AUDIO_MUTED_EVENT = 'akari.timeline.setAudioMuted';
 const TIMELINE_SET_CAPTIONS_MUTED_EVENT = 'akari.timeline.setCaptionsMuted';
 const TIMELINE_SET_BEATS_VISIBILITY_EVENT = 'akari.timeline.setBeatsVisibility';
 const TIMELINE_SET_BEATS_MUTED_EVENT = 'akari.timeline.setBeatsMuted';
@@ -470,10 +458,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly undoButton = document.createElement('button');
     protected readonly redoButton = document.createElement('button');
     protected readonly compactButton = document.createElement('button');
-    protected readonly shortcutsHelpButton = document.createElement('button');
     protected readonly zoomHud = document.createElement('div');
     protected readonly zoomIcon = document.createElement('span');
-    protected readonly zoomLabel = document.createElement('span');
+    protected readonly zoomLabel = document.createElement('button');
     protected readonly zoomSlider = document.createElement('input');
     protected readonly reviewButton = document.createElement('button');
     protected readonly timelineViewport = document.createElement('div');
@@ -657,9 +644,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected beatsVisible = true;
     protected beatsMuted = false;
     protected audioVisible = true;
-    protected audioMuted = false;
-    /** sfx バーの波形表示トグル（R7-1）。トラックヘッダーの表示切替ボタンで切り替える（edit.json には書かない）。 */
-    protected audioWaveformVisible = true;
     protected readonly hiddenTracks = new Set<number>();
     protected readonly mutedOverlayTracks = new Set<number>();
 
@@ -703,8 +687,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.node.setAttribute('data-akari-dropzone', 'true');
 
         Object.assign(this.toolbar.style, {
-            alignItems: 'center', display: 'flex', gap: '4px', minHeight: '38px',
-            padding: '6px 10px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
+            alignItems: 'center', display: 'flex', gap: '2px', minHeight: '30px',
+            padding: '2px 6px', borderBottom: '1px solid var(--theia-widget-border)', boxSizing: 'border-box'
         });
         this.configureIconButton(this.selectToolButton, 'codicon-cursor', '選択ツール', '選択 (A)');
         this.selectToolButton.addEventListener('click', () => this.setToolMode('select'));
@@ -720,32 +704,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.redoButton.addEventListener('click', () => void this.performRedo());
         this.configureIconButton(this.compactButton, 'codicon-collapse-all', '詰める', 'クリップ間の空白を詰める');
         this.compactButton.addEventListener('click', () => void this.performCompactCuts());
-        this.configureIconButton(
-            this.shortcutsHelpButton, 'codicon-question', 'ショートカット一覧', SHORTCUTS_HELP_TEXT
-        );
         this.toolbar.append(
             this.selectToolButton, this.razorToolButton,
             this.createToolbarSeparator(),
             this.snapToggleButton,
             this.createToolbarSeparator(),
-            this.undoButton, this.redoButton, this.compactButton,
-            this.createToolbarSeparator(),
-            this.shortcutsHelpButton
+            this.undoButton, this.redoButton, this.compactButton
         );
         this.updateToolModeButtons();
         this.updateSnapButton();
         Object.assign(this.zoomHud.style, {
-            display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto'
+            display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto'
         });
         this.zoomIcon.className = 'codicon codicon-search';
         this.zoomIcon.setAttribute('aria-hidden', 'true');
         this.zoomIcon.setAttribute('data-testid', 'akari-timeline-zoom-icon');
+        this.zoomLabel.type = 'button';
         this.zoomLabel.textContent = '100%';
         this.zoomLabel.setAttribute('data-testid', 'akari-timeline-zoom-percent');
+        this.zoomLabel.title = '100%（全体表示）に戻す';
         Object.assign(this.zoomLabel.style, {
             fontSize: '11px', fontVariantNumeric: 'tabular-nums', minWidth: '38px', textAlign: 'right',
-            color: 'var(--theia-descriptionForeground)'
+            color: 'var(--theia-descriptionForeground)', background: 'none', border: '0', padding: '0',
+            margin: '0', cursor: 'pointer'
         });
+        this.zoomLabel.addEventListener('click', () => this.applyViewDuration(this.totalDuration(), 0, 0));
         this.zoomSlider.type = 'range';
         this.zoomSlider.min = '0';
         this.zoomSlider.max = String(ZOOM_SLIDER_RESOLUTION);
@@ -753,7 +736,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.zoomSlider.value = '0';
         this.zoomSlider.setAttribute('aria-label', 'ズーム率');
         this.zoomSlider.setAttribute('data-testid', 'akari-timeline-zoom-slider');
-        Object.assign(this.zoomSlider.style, { width: '90px' });
+        Object.assign(this.zoomSlider.style, { width: '80px' });
         this.zoomSlider.addEventListener('input', () => {
             const proposedDuration = this.sliderValueToViewDuration(Number(this.zoomSlider.value));
             const centerTime = this.viewStart + this.visibleDuration() / 2;
@@ -761,7 +744,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         this.zoomHud.append(this.zoomIcon, this.zoomLabel, this.zoomSlider);
         this.reviewButton.type = 'button';
-        this.reviewButton.className = 'theia-button secondary';
+        this.reviewButton.className = 'theia-button secondary akari-annotations-text-button';
         this.reviewButton.textContent = '注釈';
         this.reviewButton.title = '注釈パネルを開く';
         this.reviewButton.addEventListener('click', () => void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID));
@@ -769,11 +752,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
         Object.assign(this.timelineViewport.style, {
             display: 'grid', gridTemplateColumns: `${TRACK_HEADER_WIDTH}px minmax(0, 1fr)`, minHeight: '0',
-            paddingLeft: '10px', boxSizing: 'border-box'
+            paddingLeft: '6px', boxSizing: 'border-box'
         });
         Object.assign(this.trackHeaderColumn.style, {
             display: 'grid', gridTemplateRows: `${RULER_BAND_HEIGHT_PX}px minmax(0, 1fr)`,
-            minHeight: '0', margin: '8px 0'
+            minHeight: '0', margin: '2px 0'
         });
         Object.assign(this.trackHeaderRulerSpacer.style, {
             border: '1px solid var(--theia-widget-border)', borderRight: '0', borderBottom: '0',
@@ -789,7 +772,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         Object.assign(this.timelineBody.style, {
             position: 'relative', display: 'grid', gridTemplateRows: `${RULER_BAND_HEIGHT_PX}px minmax(0, 1fr)`,
-            minWidth: '0', minHeight: '0', margin: '8px 10px 8px 0'
+            minWidth: '0', minHeight: '0', margin: '2px 6px 2px 0'
         });
         Object.assign(this.rulerBar.style, {
             position: 'relative', minWidth: '0', overflow: 'hidden', background: RULER_BAND_BACKGROUND,
@@ -946,7 +929,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         padding: 0 3px;
         box-sizing: border-box;
         font-family: ui-monospace, SFMono-Regular, monospace;
-        font-size: 12px;
+        font-size: 11px;
         line-height: ${CLIP_HEADER_HEIGHT}px;
         color: #e5e5e5;
         pointer-events: none;
@@ -1053,11 +1036,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
         opacity: .28;
     }
     .akari-annotations-widget .akari-track-header-button {
-        width: 22px;
-        height: 22px;
+        width: 18px;
+        height: 18px;
         display: grid;
         place-items: center;
-        padding: 2px;
+        padding: 1px;
         border: 0;
         border-radius: 3px;
         background: transparent;
@@ -1071,7 +1054,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         right: 0;
         display: flex;
         align-items: center;
-        gap: 3px;
+        gap: 2px;
         min-width: 0;
         padding: 0 3px;
         border-top: 1px solid color-mix(in srgb, var(--theia-widget-border) 55%, transparent);
@@ -1095,16 +1078,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         opacity: .5;
     }
     .akari-annotations-widget .akari-track-header-icon {
-        width: 17px;
-        height: 17px;
+        width: 15px;
+        height: 15px;
         display: grid;
         place-items: center;
         color: var(--theia-descriptionForeground);
         flex: none;
     }
     .akari-annotations-widget .akari-track-header-icon svg {
-        width: 17px;
-        height: 17px;
+        width: 15px;
+        height: 15px;
         fill: none;
         stroke: currentColor;
         stroke-width: 1.8;
@@ -1180,7 +1163,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         white-space: nowrap;
         text-overflow: ellipsis;
         color: var(--theia-editor-foreground, #fff);
-        font-size: 12px;
+        font-size: 11px;
         line-height: ${SUBROW_HEIGHT}px;
         pointer-events: none;
         text-shadow: 0 1px 2px #000;
@@ -1220,13 +1203,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         display: none;
     }
     .akari-annotations-widget .akari-annotations-icon-button {
-        width: 26px;
-        height: 26px;
+        width: 24px;
+        height: 24px;
+        min-width: 0;
         padding: 0;
+        margin: 0;
+        border-radius: 3px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         flex: none;
+    }
+    .akari-annotations-widget .akari-annotations-text-button {
+        min-width: 0;
+        height: 24px;
+        padding: 0 8px;
+        margin: 0;
     }
     .akari-annotations-widget .akari-annotations-icon-button[aria-pressed="true"] {
         background: var(--theia-button-background);
@@ -1445,7 +1437,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected createToolbarSeparator(): HTMLDivElement {
         const separator = document.createElement('div');
         Object.assign(separator.style, {
-            width: '1px', height: '18px', margin: '0 4px', flex: 'none',
+            width: '1px', height: '16px', margin: '0 3px', flex: 'none',
             background: 'var(--theia-widget-border)'
         });
         return separator;
@@ -3745,12 +3737,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected totalDuration(): number {
-        const contentEnd = this.contentEndDuration();
-        const padded = contentEnd * 1.02;
-        if (this.viewDuration !== undefined) {
-            return Math.max(padded, contentEnd + 0.5 * this.viewDuration);
-        }
-        return Math.max(padded, contentEnd * 2);
+        return resolveTimelineExtentSeconds(this.contentEndDuration(), this.viewDuration);
     }
 
     /** source 秒 → 出力秒。cuts が無ければ恒等写像（後方互換）。範囲外は最も近いセグメントへクランプする。 */
@@ -3928,7 +3915,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const intervals = [
                     ...(this.audioBgm && this.bgmDisplayTrack(this.audioBgm) === ref
                         // BGM バーの終端はコンテンツ終端（実際に音が使われる範囲）。totalDuration() は
-                        // スクロール余白込みの表示全長（contentEnd の約 2 倍）なので使わない
+                        // スクロール余白込みの表示全長（全体表示では contentEnd に10%余白）なので使わない
                         // （実機報告 2026-08-18: mp3 実尺相当までバーが伸びて見えていた）。
                         ? [{ start: 0, end: this.contentEndDuration(), id: this.audioBgm.id, kind: 'bgm' as const }] : []),
                     ...this.audioNarration.filter(narration => this.narrationDisplayTrack(narration) === ref)
@@ -5115,16 +5102,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 };
             } else {
                 visible = this.audioVisible;
-                audible = !this.audioMuted;
+                audible = !layout.muted;
                 toggleVisibility = () => {
                     this.audioVisible = !this.audioVisible;
                     this.dispatchPreviewEvent(TIMELINE_SET_AUDIO_VISIBILITY_EVENT, { visible: this.audioVisible });
                     this.renderStrip();
                 };
                 toggleMute = () => {
-                    this.audioMuted = !this.audioMuted;
-                    this.dispatchPreviewEvent(TIMELINE_SET_AUDIO_MUTED_EVENT, { muted: this.audioMuted });
-                    this.renderStrip();
+                    void this.toggleTimelineTrackFlag(track, 'muted');
                 };
             }
             this.trackHeaders.appendChild(this.trackHeaderRow(
@@ -5180,17 +5165,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         nameElement.textContent = timelineTrack && this.timelineTrackItemCount(timelineTrack) === 0
             ? `${name} (空)` : name;
         row.append(icon, nameElement);
-        if (timelineTrack?.kind === 'audio') {
-            row.appendChild(this.trackHeaderButton(
-                '波形の表示切替', 'waveform', this.audioWaveformVisible, this.waveformToggleSvg(), () => {
-                    this.audioWaveformVisible = !this.audioWaveformVisible;
-                    this.renderStrip();
-                }
-            ));
+        const muteButton = this.trackHeaderButton(
+            `${name}の音声`, 'mute', audible, this.speakerSvg(), toggleMute
+        );
+        if (timelineTrack?.kind === 'audio'
+            && !this.timelineTracks.some(track => track.id === timelineTrack.id)) {
+            muteButton.disabled = true;
+            muteButton.title = '自動追加された行はミュートできません（トラックを追加で確定してから）';
         }
         row.append(
             this.trackHeaderButton(`${name}を表示`, 'visibility', visible, this.eyeSvg(), toggleVisibility),
-            this.trackHeaderButton(`${name}の音声`, 'mute', audible, this.speakerSvg(), toggleMute)
+            muteButton
         );
         if (timelineTrack) {
             nameElement.addEventListener('dblclick', event => {
@@ -5581,7 +5566,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected trackHeaderButton(
         label: string,
-        toggle: 'visibility' | 'mute' | 'waveform',
+        toggle: 'visibility' | 'mute',
         enabled: boolean,
         svg: string,
         action: () => void
@@ -5598,12 +5583,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             action();
         });
         return button;
-    }
-
-    protected waveformToggleSvg(): string {
-        return '<svg viewBox="0 0 24 24" aria-hidden="true">'
-            + '<path d="M3 12h2M6 8v8M9 5v14M12 9v6M15 3v18M18 8v8M21 12h-2" stroke-linecap="round"/>'
-            + '</svg>';
     }
 
     protected eyeSvg(): string {
@@ -5638,11 +5617,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected syncTimelineTrackTogglesToPreview(): void {
-        const refsWhere = (kind: 'cuts' | 'layers', field: 'hidden' | 'muted'): number[] =>
+        const refsWhere = (kind: 'cuts' | 'layers' | 'audio', field: 'hidden' | 'muted'): number[] =>
             this.timelineTracks.filter(t => t.kind === kind && t[field]).map(t => t.ref ?? 0);
         this.dispatchPreviewEvent(TIMELINE_SYNC_TRACK_TOGGLES_EVENT, {
             cuts: { hidden: refsWhere('cuts', 'hidden'), muted: refsWhere('cuts', 'muted') },
-            layers: { hidden: refsWhere('layers', 'hidden'), muted: refsWhere('layers', 'muted') }
+            layers: { hidden: refsWhere('layers', 'hidden'), muted: refsWhere('layers', 'muted') },
+            audio: { muted: refsWhere('audio', 'muted') }
         });
     }
 
@@ -6499,8 +6479,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element: HTMLDivElement, sfx: EditAudioSfx, barWidthPx: number, itemHeightPx: number,
         inSeconds: number, outSeconds: number, actualDuration: number | undefined
     ): void {
-        if (!this.audioWaveformVisible || !this.location
-            || barWidthPx < MIN_CLIP_WIDTH_FOR_MEDIA_PX || itemHeightPx < MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX) {
+        if (!this.location || barWidthPx < MIN_CLIP_WIDTH_FOR_MEDIA_PX
+            || itemHeightPx < MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX) {
             return;
         }
         if (actualDuration === undefined || actualDuration <= 0) {
