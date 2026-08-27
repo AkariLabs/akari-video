@@ -145,6 +145,15 @@
         ]
       },
       {
+        "from": "../../packages/decision-log-report",
+        "to": "packages/decision-log-report",
+        "filter": [
+          "package.json",
+          "render-decision-log-report.mjs",
+          "template.html"
+        ]
+      },
+      {
         "from": "../../packages/render-cut",
         "to": "packages/render-cut",
         "filter": [

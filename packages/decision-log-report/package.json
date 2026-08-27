@@ -1,0 +1,13 @@
+{
+  "name": "@akari-video/decision-log-report",
+  "version": "0.0.0",
+  "private": true,
+  "description": "decision-log.md を寛容に読み、読み取り専用の判断記録レポート HTML を生成する依存ゼロの CLI。",
+  "type": "module",
+  "bin": {
+    "render-decision-log-report": "render-decision-log-report.mjs"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  }
+}

@@ -54,6 +54,10 @@ const VENDOR_SOURCES = [
   // 実行に必要な CLI と同居必須テンプレートだけを追加し、test/ は配布しない。
   'packages/analysis-report/render-analysis-report.mjs',
   'packages/analysis-report/template.html',
+  // decision-log-report も package.json / README.md は capability source として収集する。
+  // 実行に必要な CLI と同居必須テンプレートだけを追加し、test/ は配布しない。
+  'packages/decision-log-report/render-decision-log-report.mjs',
+  'packages/decision-log-report/template.html',
   'packages/edit-lint/bin',
   'packages/edit-lint/src',
   'packages/edit-store/lib',

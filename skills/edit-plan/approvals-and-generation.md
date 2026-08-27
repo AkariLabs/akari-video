@@ -57,7 +57,8 @@ OpenAI、Gemini 等の API キーを直接使わない。キーの提示を求�
 回答チャネルだった決定カード（`<レポートパス>.decisions.json` + ヘルパー）は、edit-plan 自身の
 レポート生成が analyze-project へ移管されたことに伴い廃止した。Checkpoint 1〜3 のすべてが
 **チャットでの明示承認**に一本化される（正式なレポートは analyze-project の分析レポートのみ、
-方向性の引き出しはチャットで行うという原則）。
+方向性の引き出しはチャットで行うという原則）。各 Checkpoint で `decision-log.md` へ追記した直後に
+判断記録レポートを再描画し、パスを提示する（[report-guide §decision_log](report-guide.md#decision_log)）。
 
 ### Checkpoint 1: 方針
 

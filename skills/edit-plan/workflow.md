@@ -19,6 +19,9 @@
 └── overlays/                  # 実行承認後だけ
 ```
 
+判断記録の派生描画は `<project>/.akari/reports/decision-log-report.html` に置く
+（project-structure-v0 のレポート層。[report-guide §decision_log](report-guide.md#decision_log)）。
+
 生成した静止画等の原本は `<project>/assets/generated/`（`<plan-dir>/` の外、プロジェクト
 直下の `assets/` 配下）に置く（2026-08-12 改訂 — 素材パネルの守備範囲に入れるための変更。
 旧 `<plan-dir>/generated/` からの置き場変更であり、既存プロジェクトの `<plan-dir>/generated/`
