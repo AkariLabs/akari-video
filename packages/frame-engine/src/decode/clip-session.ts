@@ -1,6 +1,6 @@
 // Adapted from packages/preview-engine/src/clipSession.ts.
 import { MP4Clip } from '@webav/av-cliper';
-import type { NativeFrameSource } from '../types.js';
+import type { FrameMetricsRecorder, NativeFrameSource } from '../types.js';
 import { withTimeout, watchDecoderErrors } from './guard.js';
 import { buildKeyframeIndexFromHeader, type KeyframeIndex } from './keyframe-index.js';
 
@@ -13,6 +13,33 @@ export interface ClipSessionOptions {
   onWarning?: (message: string) => void;
 }
 
+/** Owns one decoded frame and answers every timestamp covered by its declared duration. */
+export class DecodedFrameCoverageCache {
+  private frame: VideoFrame | null = null;
+
+  cloneAt(targetUs: number): VideoFrame | null {
+    return this.frame && frameCoversTimestamp(this.frame, targetUs) ? this.frame.clone() : null;
+  }
+
+  adopt(frame: VideoFrame): void {
+    this.frame?.close();
+    this.frame = frame;
+  }
+
+  remember(frame: VideoFrame): void {
+    this.adopt(frame.clone());
+  }
+
+  cloneStored(): VideoFrame | null {
+    return this.frame?.clone() ?? null;
+  }
+
+  clear(): void {
+    this.frame?.close();
+    this.frame = null;
+  }
+}
+
 export class ClipSession implements NativeFrameSource {
   readonly id: string;
   readonly src: string;
@@ -21,6 +48,7 @@ export class ClipSession implements NativeFrameSource {
   private clip: MP4Clip | null = null;
   private keyframes: KeyframeIndex | null = null;
   private tailSafeLimitUs: number | null = null;
+  private readonly coverage = new DecodedFrameCoverageCache();
   private loadPromise: Promise<void> | null = null;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly options: Required<Omit<ClipSessionOptions, 'onWarning'>> & Pick<ClipSessionOptions, 'onWarning'>;
@@ -43,6 +71,7 @@ export class ClipSession implements NativeFrameSource {
 
   private async doLoad(): Promise<void> {
     this.state = 'loading';
+    this.coverage.clear();
     let lastError: unknown;
     const attempts: Array<{ hardwareAcceleration: HardwarePreference; state: ClipSessionState }> = [
       { hardwareAcceleration: 'prefer-hardware', state: 'ready' },
@@ -74,7 +103,7 @@ export class ClipSession implements NativeFrameSource {
             this.options.tickTimeoutMs,
             `prime ${this.id}`
           );
-          primed.video?.close();
+          if (primed.video) this.coverage.adopt(primed.video);
         } finally {
           stopWatching();
         }
@@ -85,6 +114,7 @@ export class ClipSession implements NativeFrameSource {
         await this.loadKeyframes(candidate);
         return;
       } catch (error) {
+        this.coverage.clear();
         candidate?.destroy();
         lastError = error;
         this.options.onWarning?.(`${this.id}: ${String(error)}`);
@@ -105,19 +135,28 @@ export class ClipSession implements NativeFrameSource {
     }
   }
 
-  async decode(timeUs: number): Promise<VideoFrame> {
+  async decode(timeUs: number, metrics?: FrameMetricsRecorder): Promise<VideoFrame> {
     await this.load();
     if (!this.clip || this.state === 'unavailable') throw new Error(`clip ${this.id} is unavailable`);
     const duration = this.meta?.duration ?? Number.POSITIVE_INFINITY;
     const fallbackLimit = Math.max(0, duration - this.options.tailMarginUs);
     const safeLimit = this.tailSafeLimitUs == null ? fallbackLimit : Math.min(fallbackLimit, this.tailSafeLimitUs);
     const target = Math.max(0, Math.min(Math.floor(timeUs), safeLimit));
+    const covered = this.coverage.cloneAt(target);
+    if (covered) return covered;
+    const tickStarted = performance.now();
     const result = await this.serialize(() => withTimeout(
       this.clip!.tick(target),
       this.options.tickTimeoutMs,
       `tick ${this.id}`
     ));
-    if (!result.video) throw new Error(`clip ${this.id} returned no video frame at ${target}us`);
+    metrics?.record('tick', performance.now() - tickStarted);
+    if (!result.video) {
+      const coveredAfterTick = this.coverage.cloneAt(target);
+      if (coveredAfterTick) return coveredAfterTick;
+      throw new Error(`clip ${this.id} returned no video frame at ${target}us`);
+    }
+    this.coverage.remember(result.video);
     return result.video;
   }
 
@@ -139,9 +178,28 @@ export class ClipSession implements NativeFrameSource {
     return this.keyframes?.keyframeTimesUs ?? [];
   }
 
+  /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */
+  async fork(id: string): Promise<ClipSession> {
+    await this.load();
+    if (!this.clip || !this.meta || this.state === 'unavailable') {
+      throw new Error(`clip ${this.id} cannot be forked while unavailable`);
+    }
+    const fork = new ClipSession(id, this.src, this.options);
+    fork.clip = await this.clip.clone();
+    fork.meta = { ...this.meta };
+    fork.state = this.state;
+    fork.keyframes = this.keyframes;
+    fork.tailSafeLimitUs = this.tailSafeLimitUs;
+    const coverageSeed = this.coverage.cloneStored();
+    if (coverageSeed) fork.coverage.adopt(coverageSeed);
+    fork.loadPromise = Promise.resolve();
+    return fork;
+  }
+
   destroy(): void {
     this.clip?.destroy();
     this.clip = null;
+    this.coverage.clear();
     this.loadPromise = null;
     this.state = 'idle';
   }
@@ -151,4 +209,14 @@ export class ClipSession implements NativeFrameSource {
     this.queue = result.then(() => undefined, () => undefined);
     return result;
   }
+}
+
+export function frameCoversTimestamp(
+  frame: Pick<VideoFrame, 'timestamp' | 'duration'>,
+  targetUs: number
+): boolean {
+  const duration = frame.duration;
+  return typeof duration === 'number' && Number.isFinite(duration) && duration > 0
+    && targetUs >= frame.timestamp
+    && targetUs < frame.timestamp + duration;
 }

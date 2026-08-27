@@ -1,7 +1,16 @@
 {
   "cuts": [
     { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 1 },
-    { "src": "frame-engine://fixture/source.mp4", "in": 2, "out": 3 },
-    { "src": "frame-engine://fixture/source.mp4", "in": 4, "out": 5 }
+    { "src": "frame-engine://fixture/source.mp4", "in": 1, "out": 3, "speed": 2 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 3, "out": 4, "framing": { "crop": { "x": 0.2, "y": 0.15, "w": 0.6, "h": 0.7 } } },
+    { "src": "frame-engine://fixture/source.mp4", "in": 4, "out": 5, "framing": { "keyframes": [{ "t": 0, "scale": 1, "cx": 0.5, "cy": 0.5 }, { "t": 1, "scale": 2, "cx": 0.7, "cy": 0.35 }] } },
+    { "src": "frame-engine://fixture/source.mp4", "in": 5, "out": 6, "transform": { "x": 28, "y": -12, "scale": 0.78, "rotate": 12 }, "opacity": 0.72 },
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 1, "freeze": { "at_sec": 0.4, "duration_sec": 0.5 } },
+    { "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 1, "transition_out": { "type": "dissolve", "duration": 0.3 } },
+    { "src": "frame-engine://fixture/source.mp4", "in": 1, "out": 2, "transition_out": { "type": "fade-black", "duration": 0.3 } },
+    { "src": "frame-engine://fixture/source.mp4", "in": 2, "out": 3, "transition_out": { "type": "fade-white", "duration": 0.3 } },
+    { "src": "frame-engine://fixture/source.mp4", "in": 3, "out": 4, "transition_out": { "type": "reveal-down", "duration": 0.3 } },
+    { "src": "frame-engine://fixture/source.mp4", "in": 4, "out": 5, "transition_out": { "type": "reveal-up", "duration": 0.3 } },
+    { "src": "frame-engine://fixture/source.mp4", "in": 5, "out": 6 }
   ]
 }

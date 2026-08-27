@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { FrameMetrics } from '../dist/index.js';
 
-test('FrameMetrics emits all six p50/p95 stages', () => {
+test('FrameMetrics emits every detailed p50/p95 stage', () => {
   const metrics = new FrameMetrics();
-  for (const stage of ['decode', 'copy', 'upload', 'shader', 'readback', 'sink']) {
+  for (const stage of [
+    'decode', 'tick', 'copy', 'copyTo', 'planeCompact', 'upload', 'shader', 'shaderGpu',
+    'readback', 'pboWait', 'rowFlip', 'sink', 'ipcWrite', 'ffmpegDrain', 'ffmpegClose'
+  ]) {
     metrics.record(stage, 1);
     metrics.record(stage, 3);
     metrics.record(stage, 2);

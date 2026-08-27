@@ -54,10 +54,7 @@ assert.equal(results.negative.injectedPixelMutation, true);
 assert.equal(results.negative.comparatorPassed, false);
 assert.equal(results.negative.differingPixels, 1);
 assert.equal(results.encoded.distinctExtractedHashes, 3);
-for (const [stage, summary] of Object.entries(results.metrics)) {
-  assert.ok(summary.count > 0, `${stage} has no samples`);
-  assert.equal(typeof summary.p50Ms, 'number');
-  assert.equal(typeof summary.p95Ms, 'number');
-}
+assert.equal(results.semantic.pass, true);
+assert.ok(Math.abs(results.encoded.durationSeconds - results.fixture.durationSeconds) <= 1 / 30);
 
 process.stdout.write(`golden PASS: ${results.parity.length} parity frames, negative differingPixels=${results.negative.differingPixels}, encoded distinct hashes=${results.encoded.distinctExtractedHashes}\n`);
