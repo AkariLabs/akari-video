@@ -16667,7 +16667,7 @@ function watchDecoderErrors(onDetect) {
 // ../frame-engine/src/decode/keyframe-index.ts
 var MP4BoxNamespace = __toESM(require_mp4box_all(), 1);
 var MP4Box = MP4BoxNamespace.default ?? MP4BoxNamespace;
-function createIndex(values, frameEnds = /* @__PURE__ */ new Map()) {
+function createIndex(values, frameEnds = /* @__PURE__ */ new Map(), lastFrameStartUs = null) {
   const times = [...values].sort((left, right) => left - right);
   const nearestAtOrBefore = (targetUs) => {
     if (times.length === 0) return 0;
@@ -16689,6 +16689,7 @@ function createIndex(values, frameEnds = /* @__PURE__ */ new Map()) {
   };
   return {
     keyframeTimesUs: times,
+    lastFrameStartUs,
     nearestAtOrBefore,
     frameEndUs(frameStartUs) {
       return frameEnds.get(frameStartUs) ?? null;
@@ -16711,6 +16712,11 @@ async function buildKeyframeIndexFromHeader(header) {
         const samples = file.getTrackSamplesInfo(track.id);
         const firstDts = samples[0]?.dts ?? 0;
         const timestampUs = (sample) => (sample.cts - firstDts) / sample.timescale * 1e6;
+        let lastFrameStartUs = null;
+        for (const sample of samples) {
+          const startUs = Math.round(timestampUs(sample));
+          lastFrameStartUs = lastFrameStartUs == null ? startUs : Math.max(lastFrameStartUs, startUs);
+        }
         const frameEnds = /* @__PURE__ */ new Map();
         for (const sample of samples) {
           const startUs = timestampUs(sample);
@@ -16721,7 +16727,8 @@ async function buildKeyframeIndexFromHeader(header) {
         }
         resolve(createIndex(
           samples.filter((sample) => sample.is_sync).map(timestampUs),
-          frameEnds
+          frameEnds,
+          lastFrameStartUs
         ));
       } catch (error) {
         reject(error);
@@ -16770,7 +16777,7 @@ var ClipSession = class _ClipSession {
   meta = null;
   clip = null;
   keyframes = null;
-  tailSafeLimitUs = null;
+  lastFrameStartUs = null;
   lastTickTargetUs = null;
   coverage = new DecodedFrameCoverageCache();
   loadPromise = null;
@@ -16782,7 +16789,6 @@ var ClipSession = class _ClipSession {
     this.options = {
       loadTimeoutMs: options.loadTimeoutMs ?? 1e4,
       tickTimeoutMs: options.tickTimeoutMs ?? 1e4,
-      tailMarginUs: options.tailMarginUs ?? Math.round(2e6 / 30),
       onWarning: options.onWarning
     };
   }
@@ -16849,8 +16855,7 @@ var ClipSession = class _ClipSession {
     try {
       const header = await withTimeout(clip.getFileHeaderBinData(), 2e3, `header ${this.id}`);
       this.keyframes = await withTimeout(buildKeyframeIndexFromHeader(header), 2e3, `keyframes ${this.id}`);
-      const times = this.keyframes.keyframeTimesUs;
-      if (times.length >= 2) this.tailSafeLimitUs = Math.max(0, times[times.length - 1] - 1e6);
+      this.lastFrameStartUs = this.keyframes.lastFrameStartUs;
     } catch (error) {
       this.options.onWarning?.(`${this.id}: keyframe index unavailable: ${String(error)}`);
     }
@@ -16859,8 +16864,8 @@ var ClipSession = class _ClipSession {
     await this.load();
     if (!this.clip || this.state === "unavailable") throw new Error(`clip ${this.id} is unavailable`);
     const duration = this.meta?.duration ?? Number.POSITIVE_INFINITY;
-    const fallbackLimit = Math.max(0, duration - this.options.tailMarginUs);
-    const safeLimit = this.tailSafeLimitUs == null ? fallbackLimit : Math.min(fallbackLimit, this.tailSafeLimitUs);
+    const fallbackLimit = Math.max(0, duration - 1);
+    const safeLimit = this.lastFrameStartUs ?? fallbackLimit;
     const target = Math.max(0, Math.min(Math.floor(timeUs), safeLimit));
     const covered = this.coverage.cloneAt(target);
     if (covered) return covered;
@@ -16901,6 +16906,9 @@ var ClipSession = class _ClipSession {
   getKeyframeTimesUs() {
     return this.keyframes?.keyframeTimesUs ?? [];
   }
+  getLastFrameStartUs() {
+    return this.lastFrameStartUs;
+  }
   /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */
   async fork(id) {
     await this.load();
@@ -16912,7 +16920,7 @@ var ClipSession = class _ClipSession {
     fork.meta = { ...this.meta };
     fork.state = this.state;
     fork.keyframes = this.keyframes;
-    fork.tailSafeLimitUs = this.tailSafeLimitUs;
+    fork.lastFrameStartUs = this.lastFrameStartUs;
     fork.lastTickTargetUs = null;
     const coverageSeed = this.coverage.cloneStored();
     if (coverageSeed) fork.coverage.adopt(coverageSeed);
@@ -17000,7 +17008,7 @@ var ClipSession = class _ClipSession {
     this.meta = null;
     this.coverage.clear();
     this.keyframes = null;
-    this.tailSafeLimitUs = null;
+    this.lastFrameStartUs = null;
     this.lastTickTargetUs = null;
     this.loadPromise = null;
     this.state = "idle";

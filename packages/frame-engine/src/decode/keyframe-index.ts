@@ -6,6 +6,7 @@ const MP4Box: typeof MP4BoxNamespace =
 
 export interface KeyframeIndex {
   keyframeTimesUs: number[];
+  lastFrameStartUs: number | null;
   nearestAtOrBefore(targetUs: number): number;
   frameEndUs(frameStartUs: number): number | null;
   nearest(targetUs: number): number;
@@ -15,6 +16,7 @@ export interface KeyframeIndex {
 function createIndex(
   values: readonly number[],
   frameEnds: ReadonlyMap<number, number> = new Map(),
+  lastFrameStartUs: number | null = null,
 ): KeyframeIndex {
   const times = [...values].sort((left, right) => left - right);
   const nearestAtOrBefore = (targetUs: number): number => {
@@ -37,6 +39,7 @@ function createIndex(
   };
   return {
     keyframeTimesUs: times,
+    lastFrameStartUs,
     nearestAtOrBefore,
     frameEndUs(frameStartUs) {
       return frameEnds.get(frameStartUs) ?? null;
@@ -61,6 +64,11 @@ export async function buildKeyframeIndexFromHeader(header: ArrayBuffer): Promise
         const firstDts = samples[0]?.dts ?? 0;
         const timestampUs = (sample: (typeof samples)[number]) =>
           ((sample.cts - firstDts) / sample.timescale) * 1e6;
+        let lastFrameStartUs: number | null = null;
+        for (const sample of samples) {
+          const startUs = Math.round(timestampUs(sample));
+          lastFrameStartUs = lastFrameStartUs == null ? startUs : Math.max(lastFrameStartUs, startUs);
+        }
         const frameEnds = new Map<number, number>();
         for (const sample of samples) {
           const startUs = timestampUs(sample);
@@ -72,6 +80,7 @@ export async function buildKeyframeIndexFromHeader(header: ArrayBuffer): Promise
         resolve(createIndex(
           samples.filter(sample => sample.is_sync).map(timestampUs),
           frameEnds,
+          lastFrameStartUs,
         ));
       } catch (error) {
         reject(error);
