@@ -628,7 +628,6 @@ class FrameEngineRuntime {
         if (this.rendering === operation) this.rendering = null;
       }
     });
-    this.scheduler.primeHeaders();
     this.updateMetrics();
   }
 
@@ -638,6 +637,7 @@ class FrameEngineRuntime {
     const second = performance.now();
     await this.renderFrame(0, 'seek', second);
     this.ui.root.dataset.frameEngineReady = 'true';
+    this.scheduler.primeHeaders();
   }
 
   seek(seconds: number): number {

@@ -19227,7 +19227,6 @@ var FrameEngineRuntime = class {
         if (this.rendering === operation) this.rendering = null;
       }
     });
-    this.scheduler.primeHeaders();
     this.updateMetrics();
   }
   totalDuration;
@@ -19268,6 +19267,7 @@ var FrameEngineRuntime = class {
     const second = performance.now();
     await this.renderFrame(0, "seek", second);
     this.ui.root.dataset.frameEngineReady = "true";
+    this.scheduler.primeHeaders();
   }
   seek(seconds) {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));

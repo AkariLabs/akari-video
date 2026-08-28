@@ -6303,7 +6303,6 @@ body { display: grid; place-items: center; padding: 32px; }
                         onWarning: message => showError(message, false)
                     }
                 });
-                scheduler.primeHeaders();
                 let rendering = null;
                 let lastPlaybackFrame = -1;
                 let lastPresentedSec = 0;
@@ -6447,6 +6446,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 await renderFrame(0, 'seek', performance.now());
                 await renderFrame(0, 'seek', performance.now());
                 root.dataset.frameEngineReady = 'true';
+                scheduler.primeHeaders();
                 clock.seek(Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0, false);
                 window.dispatchEvent(new Event('akari-frame-engine-ready'));
 
