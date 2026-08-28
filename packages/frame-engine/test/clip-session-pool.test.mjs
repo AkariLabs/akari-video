@@ -38,11 +38,12 @@ test('ClipSession forks parsed media without priming the base decoder', () => {
   assert.doesNotMatch(fork, /await this\.load\(\)/u);
 });
 
-test('decoder acceleration degradation is learned once per pool and decoder failures get one retry round', () => {
+test('decoder acceleration degradation is learned once per pool and decoder failures get two paced retry rounds', () => {
   assert.match(clipSessionSource, /hardwareAcceleration\?: HardwarePreference/u);
   assert.match(clipSessionSource, /onDecoderDegraded\?: \(\) => void/u);
   assert.match(clipSessionSource, /this\.options\.hardwareAcceleration \?\? 'prefer-hardware'/u);
-  assert.match(clipSessionSource, /for \(let round = 0; round < 2; round \+= 1\)/u);
+  assert.match(clipSessionSource, /for \(let round = 0; round < 3; round \+= 1\)/u);
+  assert.match(clipSessionSource, /setTimeout\(resolve, round \* 150\)/u);
   assert.match(clipSessionSource, /if \(!isDecoderErrorMessage\(lastError\)\) break/u);
   assert.match(clipSessionSource, /this\.options\.onDecoderDegraded\?\.\(\)/u);
   assert.match(poolSource, /private acceleration: HardwarePreference \| undefined/u);

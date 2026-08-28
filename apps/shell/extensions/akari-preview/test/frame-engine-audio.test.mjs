@@ -80,7 +80,7 @@ test('shell cuts 評価は EvaluationPlan.base を参照する', () => {
     bootstrap.indexOf('scrub = new engine.ScrubController'),
   );
   assert.match(bootstrap, /engine\.createPreviewScheduler\(/u);
-  assert.match(renderFrame, /scheduler\.notePresented\(timeUs\)/u);
+  assert.match(renderFrame, /scheduler\.notePresented\(timeUs, \{ reason \}\)/u);
   assert.match(renderFrame, /plan\.base\.length === 0 && plan\.layers\.length === 0/u);
   assert.match(
     renderFrame,

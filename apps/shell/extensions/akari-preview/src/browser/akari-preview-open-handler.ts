@@ -6349,7 +6349,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     measurements.presentedAt.push(presented);
                     measurements.presentedAt = measurements.presentedAt
                         .filter(value => value >= presented - 1000);
-                    scheduler.notePresented(timeUs);
+                    scheduler.notePresented(timeUs, { reason });
                     currentAccesses = null;
                     audioSupply.noteRendered(timeUs / 1e6);
                     updateMetrics();

@@ -734,7 +734,7 @@ class FrameEngineRuntime {
     this.lastPresentedSec = timeUs / 1e6;
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter(value => value >= presented - 1000);
-    this.scheduler.notePresented(timeUs);
+    this.scheduler.notePresented(timeUs, { reason });
     this.currentAccesses = null;
     this.currentDecodedFrames = null;
     this.updateMetrics();

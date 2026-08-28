@@ -136,6 +136,57 @@ test('all clips for one boundary begin warming in parallel', async () => {
   assert.equal(scheduler.state().coverage.warmed, 3);
 });
 
+test('seek presentation keeps live prefetch but skips boundary warmup', async () => {
+  const ids = ['base-a', 'base-b', 'color', 'mask'];
+  const timeline = timelineFixture({
+    cuts: [
+      { src: 'base-a', in: 0, out: 1 },
+      { src: 'base-b', in: 1, out: 2 },
+    ],
+    layers: [{ id: 'matte', t: 1, duration: 1, kind: 'matte', src: 'color', mask: 'mask' }],
+  });
+  const seekRuntime = fakeRuntime(ids, { pendingWarmups: true });
+  const seekScheduler = createScheduler(timeline, ids, seekRuntime);
+
+  seekScheduler.notePresented(0, { reason: 'seek' });
+  await flushMicrotasks();
+  assert.equal(seekRuntime.started.length, 0);
+  assert.ok(seekRuntime.prefetched.length > 0);
+
+  seekScheduler.notePresented(0, { reason: 'playback' });
+  await flushMicrotasks();
+  assert.equal(seekRuntime.started.length, 3);
+
+  const defaultRuntime = fakeRuntime(ids, { pendingWarmups: true });
+  const defaultScheduler = createScheduler(timeline, ids, defaultRuntime);
+  defaultScheduler.notePresented(0);
+  await flushMicrotasks();
+  assert.equal(defaultRuntime.started.length, 3);
+});
+
+test('seek prefetches only base while playback also prefetches layer color and mask', async () => {
+  const ids = ['base', 'color', 'mask'];
+  const timeline = timelineFixture({
+    cuts: [{ src: 'base', in: 0, out: 2 }],
+    layers: [{ id: 'matte', t: 0, duration: 1, kind: 'matte', src: 'color', mask: 'mask' }],
+  });
+  const seekRuntime = fakeRuntime(ids);
+  const seekScheduler = createScheduler(timeline, ids, seekRuntime);
+  seekScheduler.notePresented(0, { reason: 'seek' });
+  await flushMicrotasks();
+  assert.ok(seekRuntime.prefetched.length > 0);
+  assert.deepEqual(new Set(seekRuntime.prefetched.map(item => item.streamId)), new Set(['cut-0']));
+
+  const playbackRuntime = fakeRuntime(ids);
+  const playbackScheduler = createScheduler(timeline, ids, playbackRuntime);
+  playbackScheduler.notePresented(0, { reason: 'playback' });
+  await flushMicrotasks();
+  assert.deepEqual(
+    new Set(playbackRuntime.prefetched.map(item => item.streamId)),
+    new Set(['cut-0', 'layer-matte', 'layer-matte-mask']),
+  );
+});
+
 test('lead-in starts at 2.5 seconds and clamps adaptive p90 to 1.5 through 4.0 seconds', () => {
   const ids = ['base'];
   const timeline = timelineFixture({ cuts: [{ src: 'base', in: 0, out: 5 }] });

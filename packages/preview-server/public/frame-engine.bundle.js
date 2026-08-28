@@ -17285,7 +17285,10 @@ var ClipSession = class _ClipSession {
       hardwareAcceleration,
       state: hardwareAcceleration === "prefer-software" ? "degraded" : "ready"
     }));
-    for (let round = 0; round < 2; round += 1) {
+    for (let round = 0; round < 3; round += 1) {
+      if (round > 0) {
+        await new Promise((resolve) => setTimeout(resolve, round * 150));
+      }
       for (const attempt of attempts) {
         let candidate = null;
         try {
@@ -17923,23 +17926,23 @@ function createPreviewScheduler({
   const requirementsFromPlan = (plan) => {
     const requirements = [];
     const seen = /* @__PURE__ */ new Set();
-    const append = (sourceId, streamId, sourceTimeUs) => {
+    const append = (sourceId, streamId, sourceTimeUs, kind) => {
       if (!sourceId || !pools.has(sourceId)) return;
       const key = `${sourceId}::${streamId}`;
       if (seen.has(key)) return;
       seen.add(key);
-      requirements.push({ sourceId, streamId, sourceTimeUs, key });
+      requirements.push({ sourceId, streamId, sourceTimeUs, key, kind });
     };
     for (const base of plan.base) {
       const cutIndex = Number(base.id.slice("cut-".length));
-      append(timeline.cuts[cutIndex]?.cut.src, base.id, base.sourceTimeUs);
+      append(timeline.cuts[cutIndex]?.cut.src, base.id, base.sourceTimeUs, "base");
     }
     for (const layer of plan.layers) {
       if (layer.kind === "image") continue;
       const declared = layerSources.get(layer.id);
-      append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0);
+      append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0, "layer");
       if (layer.mask) {
-        append(declared?.mask, `layer-${layer.id}-mask`, layer.mask.sourceTimeUs);
+        append(declared?.mask, `layer-${layer.id}-mask`, layer.mask.sourceTimeUs, "mask");
       }
     }
     return requirements;
@@ -18044,7 +18047,7 @@ function createPreviewScheduler({
       metrics.onChanged?.();
     });
   };
-  const notePresented = (timeUs) => {
+  const notePresented = (timeUs, presentation = {}) => {
     if (disposed) return;
     firstPresentationNoted = true;
     if (headersRequested && !headerWorkersStarted && !headerLaunchQueued) {
@@ -18071,6 +18074,7 @@ function createPreviewScheduler({
       const futureUs = Math.min(totalDurationUs, safeTimeUs + Math.round(offset * 1e6 / fps));
       const requirements = requirementsAtTime(futureUs, `preview prefetch plan failed at ${futureUs}us`);
       for (const requirement of requirements) {
+        if ((presentation.reason ?? "playback") === "seek" && requirement.kind !== "base") continue;
         if (!evictFor(requirement, currentKeys)) continue;
         live.set(requirement.key, {
           sourceId: requirement.sourceId,
@@ -18079,6 +18083,10 @@ function createPreviewScheduler({
         });
         void lookahead.get(requirement.sourceId)?.prefetch(requirement.sourceTimeUs, { streamId: requirement.streamId }).catch(() => void 0);
       }
+    }
+    if ((presentation.reason ?? "playback") === "seek") {
+      metrics.onChanged?.();
+      return;
     }
     const leadIn = leadInSeconds();
     for (const boundary of boundaries) {
@@ -19354,7 +19362,7 @@ var FrameEngineRuntime = class {
     this.lastPresentedSec = timeUs / 1e6;
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter((value) => value >= presented - 1e3);
-    this.scheduler.notePresented(timeUs);
+    this.scheduler.notePresented(timeUs, { reason });
     this.currentAccesses = null;
     this.currentDecodedFrames = null;
     this.updateMetrics();

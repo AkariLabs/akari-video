@@ -40,7 +40,7 @@ export interface PreviewSchedulerState {
 }
 
 export interface PreviewScheduler {
-  notePresented(timeUs: number): void;
+  notePresented(timeUs: number, options?: { reason?: 'playback' | 'seek' }): void;
   primeHeaders(): void;
   isWarmed(streamId: string): boolean;
   state(): PreviewSchedulerState;
@@ -71,6 +71,7 @@ interface Requirement {
   streamId: string;
   sourceTimeUs: number;
   key: string;
+  kind: 'base' | 'layer' | 'mask';
 }
 
 interface LiveDecoder {
@@ -203,23 +204,28 @@ export function createPreviewScheduler({
   const requirementsFromPlan = (plan: EvaluationPlan): readonly Requirement[] => {
     const requirements: Requirement[] = [];
     const seen = new Set<string>();
-    const append = (sourceId: string | null | undefined, streamId: string, sourceTimeUs: number) => {
+    const append = (
+      sourceId: string | null | undefined,
+      streamId: string,
+      sourceTimeUs: number,
+      kind: Requirement['kind'],
+    ) => {
       if (!sourceId || !pools.has(sourceId)) return;
       const key = `${sourceId}::${streamId}`;
       if (seen.has(key)) return;
       seen.add(key);
-      requirements.push({ sourceId, streamId, sourceTimeUs, key });
+      requirements.push({ sourceId, streamId, sourceTimeUs, key, kind });
     };
     for (const base of plan.base) {
       const cutIndex = Number(base.id.slice('cut-'.length));
-      append(timeline.cuts[cutIndex]?.cut.src, base.id, base.sourceTimeUs);
+      append(timeline.cuts[cutIndex]?.cut.src, base.id, base.sourceTimeUs, 'base');
     }
     for (const layer of plan.layers) {
       if (layer.kind === 'image') continue;
       const declared = layerSources.get(layer.id);
-      append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0);
+      append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0, 'layer');
       if (layer.mask) {
-        append(declared?.mask, `layer-${layer.id}-mask`, layer.mask.sourceTimeUs);
+        append(declared?.mask, `layer-${layer.id}-mask`, layer.mask.sourceTimeUs, 'mask');
       }
     }
     return requirements;
@@ -342,7 +348,10 @@ export function createPreviewScheduler({
       });
   };
 
-  const notePresented = (timeUs: number) => {
+  const notePresented = (
+    timeUs: number,
+    presentation: { reason?: 'playback' | 'seek' } = {},
+  ) => {
     if (disposed) return;
     firstPresentationNoted = true;
     if (headersRequested && !headerWorkersStarted && !headerLaunchQueued) {
@@ -371,6 +380,7 @@ export function createPreviewScheduler({
       const futureUs = Math.min(totalDurationUs, safeTimeUs + Math.round(offset * 1e6 / fps));
       const requirements = requirementsAtTime(futureUs, `preview prefetch plan failed at ${futureUs}us`);
       for (const requirement of requirements) {
+        if ((presentation.reason ?? 'playback') === 'seek' && requirement.kind !== 'base') continue;
         if (!evictFor(requirement, currentKeys)) continue;
         live.set(requirement.key, {
           sourceId: requirement.sourceId,
@@ -381,6 +391,11 @@ export function createPreviewScheduler({
           ?.prefetch(requirement.sourceTimeUs, { streamId: requirement.streamId })
           .catch(() => undefined);
       }
+    }
+
+    if ((presentation.reason ?? 'playback') === 'seek') {
+      metrics.onChanged?.();
+      return;
     }
 
     const leadIn = leadInSeconds();

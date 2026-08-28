@@ -160,7 +160,10 @@ export class ClipSession implements NativeFrameSource {
       hardwareAcceleration,
       state: hardwareAcceleration === 'prefer-software' ? 'degraded' as const : 'ready' as const
     }));
-    for (let round = 0; round < 2; round += 1) {
+    for (let round = 0; round < 3; round += 1) {
+      if (round > 0) {
+        await new Promise(resolve => setTimeout(resolve, round * 150));
+      }
       for (const attempt of attempts) {
         let candidate: MP4Clip | null = null;
         try {

@@ -171,7 +171,7 @@ test('glue は計測 dataset と可視 canvas 直結 compositor を持つ', () =
     assert.match(bootstrap, /new engine\.WebGL2Compositor\(canvas/);
     assert.doesNotMatch(bootstrap, /willReadFrequently/);
     assert.match(bootstrap, /engine\.createPreviewScheduler\(/);
-    assert.match(bootstrap, /scheduler\.notePresented\(timeUs\)/);
+    assert.match(bootstrap, /scheduler\.notePresented\(timeUs, \{ reason \}\)/);
     assert.match(bootstrap, /scheduler\.primeHeaders\(\)/);
     assert.doesNotMatch(bootstrap, /const scheduleWarmup|const prefetch =/);
     assert.match(bootstrap, /new engine\.ScrubController/);
