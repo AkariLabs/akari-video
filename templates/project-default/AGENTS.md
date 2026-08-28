@@ -17,7 +17,20 @@
   `status` を `submitted` にする前に lint で確認する。
 - プロジェクトルート直下に新規ファイルを作らない（`edit.json` 等の既存契約ファイルを除く）。
   生成物は `.akari/work/`、証跡は `.akari/reports/`、キャッシュは `.akari/cache/` に置く。
-  詳しい層の定義は `docs/contract-2026-07-25-project-structure-v0.md`（本モノレポ側）を参照する。
+  詳しい層の定義は[公開リポの正典](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md)を参照する。
+  ローカル候補は (b) `install.sh` 経路の `~/.akari/app/docs/contract-2026-07-25-project-structure-v0.md`、
+  (c) モノレポの `<repo>/docs/contract-2026-07-25-project-structure-v0.md` である。
+
+## AKARI Video の在処
+
+- `~/.akari/cli` … CLI 本体とシム（`~/.akari/cli/bin/akari`）。パートナー接続時に配備される。
+- `~/.akari/app` … `install.sh` 経路で入れた本体。デスクトップアプリだけを使っている場合は存在しなくてよい。
+- アプリ同梱の `<App>/Contents/Resources/packages/` … render-cut・edit-lint などの CLI 実体。Windows は `<install dir>\resources\packages\`。
+- アプリ同梱の `<App>/Contents/Resources/media-bin/` … ffmpeg・ffprobe。whisper-cli はビルドにより同梱されないことがある。Windows は `<install dir>\resources\media-bin\`。
+- `~/.akari/assets` … 素材ライブラリの実体。
+
+どれも PATH には無い前提とする。パートナー PTY 以外の端末では
+`~/.akari/cli/bin/akari` をフルパスで実行する。
 
 ## 素材が足りないとき
 
@@ -29,26 +42,23 @@
 
 ## プロジェクト内のスキル
 
-次の 6 本がプロジェクト内に実体で入っている。対応する作業では素の名前で使う。
+`.claude/skills/` 配下の全ディレクトリがそのまま使える。主なもの:
 
-- `/analyze-footage` … 素材 1 本の分析
+- `/analyze-footage` … 素材ごとの分析
+- `/analyze-project` … 複数素材とプロジェクト文脈の統合分析
 - `/edit-plan` … 編集計画、レポート、承認、生成
 - `/overlay-authoring` … テロップ、図、3D などの画面要素の制作
+- `/edit-lint` … 編集結果の決定的な検査と QA
+- `/render-cut` … 承認済み編集の書き出しと検証
 - `/setup-library` … 素材ライブラリの準備
-- `/harvest-asset` … 素材の収集
-- `/bake-3d` … 3D 素材の焼き込み
+- `/address-review` … open なレビュー指摘への対応
 
 Codex / Cursor 等のハーネスでは `.agents/skills/` / `.cursor/skills/` / `.codex/skills/`（`.claude/skills/` への symlink）から
 同じスキルが自動発見される。
 
-スキルを自動で読まない作業環境では、次のプロジェクト内相対パスから手順を直接読む。
-
-- `.claude/skills/analyze-footage/SKILL.md`
-- `.claude/skills/edit-plan/SKILL.md`
-- `.claude/skills/overlay-authoring/SKILL.md`
-- `.claude/skills/setup-library/SKILL.md`
-- `.claude/skills/harvest-asset/SKILL.md`
-- `.claude/skills/bake-3d/SKILL.md`
+スキルを自動で読まない作業環境では、プロジェクト内相対パス
+`.claude/skills/<スキル名>/SKILL.md` から手順を直接読む。
+`.claude/skills/` のディレクトリ一覧が、使えるスキルの一覧そのものである。
 
 分析結果と節目の記録の詳しい約束は
 `.claude/skills/analyze-footage/references/akari-data-contract.md` を参照する。
