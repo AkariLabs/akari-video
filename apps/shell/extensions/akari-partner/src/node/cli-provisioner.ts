@@ -52,6 +52,8 @@ export interface EnsureCliOptions {
     env?: NodeJS.ProcessEnv;
     /** Electron の `process.resourcesPath`（packaged 時のみ設定される）。 */
     resourcesPath?: string;
+    /** packaged 実行時に、存在する同梱 CLI を registry より優先する。既定は従来どおり false。 */
+    preferBundled?: boolean;
     fetchImpl?: typeof fetch;
     registryBaseUrl?: string;
     /** `apps/shell/package.json`（版の出所）の探索起点。テスト用に上書き可能。 */
@@ -122,6 +124,9 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
         if (existsSync(mjsPath)) {
             push(`v${shellVersion} は配備済みです（${versionDir}）`);
             targetMjsPath = mjsPath;
+        } else if (options.preferBundled && bundledMjsPath && existsSync(bundledMjsPath)) {
+            push(`同梱 CLI（Resources 配下）を優先して使用します: ${bundledMjsPath}`);
+            targetMjsPath = bundledMjsPath;
         } else {
             const outcome = await fetchAndExtractVersion({
                 version: shellVersion,
@@ -225,7 +230,11 @@ export function buildCliPathEnv(options: BuildCliPathEnvOptions): Record<string,
         return {};
     }
     const delimiter = options.pathDelimiter ?? (options.platform === 'win32' ? ';' : ':');
-    return { PATH: `${shimDir}${delimiter}${options.existingPath ?? ''}` };
+    const existingPath = options.existingPath ?? '';
+    if (existingPath.split(delimiter)[0] === shimDir) {
+        return { PATH: existingPath };
+    }
+    return { PATH: existingPath ? `${shimDir}${delimiter}${existingPath}` : shimDir };
 }
 
 // --- Electron 実行体判定 -------------------------------------------------------

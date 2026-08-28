@@ -182,6 +182,16 @@ test('buildCliPathEnv: シムが存在すれば PATH の先頭に前置する', 
     assert.equal(env.PATH, `${shimDir}:/usr/bin:/bin`);
 });
 
+test('buildCliPathEnv: PATH の先頭が既にシム dir なら不変', async () => {
+    const home = await tempDir('akari-cli-path-idempotent-');
+    const shimDir = resolveCliShimDir(home);
+    mkdirSync(shimDir, { recursive: true });
+    writeFileSync(cliShimFilePath(shimDir, 'darwin'), '#!/bin/sh\n');
+    const existingPath = `${shimDir}:/usr/bin:/bin`;
+    const env = buildCliPathEnv({ akariHome: home, platform: 'darwin', existingPath });
+    assert.equal(env.PATH, existingPath);
+});
+
 test('buildCliPathEnv: シム未配備なら PATH を一切変更しない', async () => {
     const home = await tempDir('akari-cli-path-missing-');
     const env = buildCliPathEnv({ akariHome: home, platform: 'darwin', existingPath: '/usr/bin:/bin' });
@@ -508,6 +518,104 @@ test('ensureCli: ネットワーク不通は例外を投げず fail-soft を返�
 
     assert.ok(result.status === 'failed' || result.status === 'skipped');
     assert.ok(result.log.some(line => line.includes('ENOTFOUND')));
+});
+
+// --- 起動時の同梱 CLI 優先 ----------------------------------------------------
+
+test('ensureCli: preferBundled は同梱 CLI を registry アクセスなしでシム target にする', async () => {
+    const home = await tempDir('akari-ensure-prefer-bundled-home-');
+    const shellRoot = await tempDir('akari-ensure-prefer-bundled-shell-');
+    await writeShellPackageJson(shellRoot, '0.1.12');
+    const resourcesRoot = await tempDir('akari-ensure-prefer-bundled-resources-');
+    const bundledMjsDir = path.join(resourcesRoot, 'packages', 'akari-launcher', 'bin');
+    await mkdir(bundledMjsDir, { recursive: true });
+    const bundledMjsPath = path.join(bundledMjsDir, 'akari.mjs');
+    await writeFile(bundledMjsPath, '#!/usr/bin/env node\n// bundled akari.mjs');
+
+    const result = await ensureCli({
+        akariHome: home,
+        execPath: PACKAGED_EXEC_PATH,
+        hasElectronRuntime: true,
+        platform: 'darwin',
+        resourcesPath: resourcesRoot,
+        preferBundled: true,
+        shellPackageJsonStartDirs: [shellRoot],
+        fetchImpl: async () => {
+            throw new Error('preferBundled では fetch を呼ばないこと');
+        }
+    });
+
+    assert.equal(result.status, 'ready');
+    assert.ok(result.log.some(line => line.includes('優先') && line.includes(bundledMjsPath)));
+    const shimContent = await readFile(cliShimFilePath(resolveCliShimDir(home), 'darwin'), 'utf8');
+    assert.ok(shimContent.includes(bundledMjsPath));
+});
+
+test('ensureCli: preferBundled でも同梱 CLI が無ければ既存順序で registry へアクセスする', async () => {
+    const home = await tempDir('akari-ensure-prefer-bundled-missing-home-');
+    const shellRoot = await tempDir('akari-ensure-prefer-bundled-missing-shell-');
+    await writeShellPackageJson(shellRoot, '0.1.12');
+    const resourcesRoot = await tempDir('akari-ensure-prefer-bundled-missing-resources-');
+    const tarballBuffer = Buffer.from('fake tarball bytes v0.1.12');
+    const integrity = `sha512-${createHash('sha512').update(tarballBuffer).digest('base64')}`;
+    const fakeFetch = makeFakeFetch(
+        { version: '0.1.12', tarballUrl: 'https://registry.npmjs.org/akari-video/-/akari-video-0.1.12.tgz', integrity },
+        tarballBuffer
+    );
+    let fetchCalls = 0;
+
+    const result = await ensureCli({
+        akariHome: home,
+        execPath: PACKAGED_EXEC_PATH,
+        hasElectronRuntime: true,
+        platform: 'darwin',
+        resourcesPath: resourcesRoot,
+        preferBundled: true,
+        shellPackageJsonStartDirs: [shellRoot],
+        fetchImpl: async (...args) => {
+            fetchCalls += 1;
+            return fakeFetch(...args);
+        },
+        spawnTar: makeFakeSpawnTar('// registry 0.1.12')
+    });
+
+    assert.equal(result.status, 'ready');
+    assert.equal(fetchCalls, 2);
+    const registryMjs = path.join(resolveCliRoot(home), '0.1.12', 'package', 'bin', 'akari.mjs');
+    assert.ok(existsSync(registryMjs));
+});
+
+test('ensureCli: preferBundled でも registry 配備済みの version dir を優先する', async () => {
+    const home = await tempDir('akari-ensure-prefer-installed-home-');
+    const shellRoot = await tempDir('akari-ensure-prefer-installed-shell-');
+    await writeShellPackageJson(shellRoot, '0.1.12');
+    const registryMjsDir = path.join(resolveCliRoot(home), '0.1.12', 'package', 'bin');
+    await mkdir(registryMjsDir, { recursive: true });
+    const registryMjsPath = path.join(registryMjsDir, 'akari.mjs');
+    await writeFile(registryMjsPath, '// registry-deployed akari.mjs');
+    const resourcesRoot = await tempDir('akari-ensure-prefer-installed-resources-');
+    const bundledMjsDir = path.join(resourcesRoot, 'packages', 'akari-launcher', 'bin');
+    await mkdir(bundledMjsDir, { recursive: true });
+    const bundledMjsPath = path.join(bundledMjsDir, 'akari.mjs');
+    await writeFile(bundledMjsPath, '// bundled akari.mjs');
+
+    const result = await ensureCli({
+        akariHome: home,
+        execPath: PACKAGED_EXEC_PATH,
+        hasElectronRuntime: true,
+        platform: 'darwin',
+        resourcesPath: resourcesRoot,
+        preferBundled: true,
+        shellPackageJsonStartDirs: [shellRoot],
+        fetchImpl: async () => {
+            throw new Error('配備済みなので fetch されないこと');
+        }
+    });
+
+    assert.equal(result.status, 'ready');
+    const shimContent = await readFile(cliShimFilePath(resolveCliShimDir(home), 'darwin'), 'utf8');
+    assert.ok(shimContent.includes(registryMjsPath));
+    assert.ok(!shimContent.includes(bundledMjsPath));
 });
 
 // --- registry 到達不可時の同梱 CLI（Resources 配下）フォールバック ----------------
