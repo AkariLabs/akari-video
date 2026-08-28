@@ -22,12 +22,22 @@
   引き渡しまでを実ブートで検証する。
 - 開発時の直接起動だけを合格根拠にしない。
 
-### SwiftShader と macOS `VideoDecoder`
+### ソフト描画の前提と検証環境の両立
 
-- macOS でソフト描画を強制したとき、`VideoDecoder.configure()` が `prefer-software` で失敗する条件を
-  最小 fixture へ切り出す。
-- 対応 codec、Electron / Chromium 版、ハードウェア構成を記録し、ソフト描画を使えない環境では
-  診断付きで fail-closed にする。
+- 2026-08-28 の実測により、失敗は macOS 固有の条件やデコード実装側の回帰ではなく、worktree ごとの
+  Electron 同梱 `libffmpeg.dylib` の差に起因すると確定した。`apps/shell` の `npm run build` は
+  `@theia/ffmpeg` 経由で非プロプライエタリ版へ差し替える既知の副作用がある。
+- 差し替え版は 1,203,568 B で `H264 Decoder` 文字列がなく、SwiftShader / `AKARI_OSR_SOFT=1` では
+  `VideoDecoder.configure()` が全指定で失敗する。GPU 描画は VideoToolbox を使うため影響しない。
+  `VideoDecoder.isConfigSupported()` は差し替え版でも `prefer-software` に `true` を返すため、判定には
+  使用しない。
+- 検証 / CI 環境では、`libffmpeg.dylib` に `H264 Decoder` 文字列がある stock 版
+  （2,160,944 B・SHA-256 `5651a2ba1e9d2a57a9dc684729bff4cfb9460ed8be64aed74e8025ba8c12de9f`）
+  であることを機械判定し、差し替え版を検出したら原因と復旧方法を示して fail-closed にする。
+- 詳細は [OSR 書き出し契約](./contract-2026-08-28-osr-export-v0.md) §11.3「ソフト描画の前提」を参照する
+  （本ブランチにはまだ §11.3 がなく、公開 main の合流後に同ファイルへ現れる）。
+- 検証専用 worktree では `apps/shell` を build しない。build した場合は stock 版へ戻し、shell build 済みの
+  ツリーをソフト描画の検収に使わない。CI は `npm ci` 直後の stock 版で検収を実行する。
 
 ## 3. デコード・決定論・性能
 
