@@ -22,6 +22,20 @@ class DecoderGuardError extends Error {
 const AV_CLIPER_RESET_WINDOW_US = 3_000_000;
 const MAX_EXACT_FRAME_TICKS = 4;
 
+export function describeUnusableDecoder(
+  clipId: string,
+  attempted: readonly string[],
+  lastMessage: string,
+): string | null {
+  if (!lastMessage.includes('Unsupported configuration')) return null;
+  return [
+    `clip ${clipId}: this runtime has no usable decoder for this clip's codec`,
+    `after trying hardwareAcceleration [${attempted.join(', ')}].`,
+    'Environments with hardware acceleration disabled require a software decoder bundled with the runtime.',
+    `Original decoder error: ${lastMessage}`,
+  ].join(' ');
+}
+
 /** Owns one decoded frame and answers every timestamp covered by its declared duration. */
 export class DecodedFrameCoverageCache {
   private frame: VideoFrame | null = null;
@@ -141,7 +155,14 @@ export class ClipSession implements NativeFrameSource {
       }
     }
     this.state = 'unavailable';
-    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+    const lastMessage = lastError instanceof Error ? lastError.message : String(lastError);
+    const diagnostic = describeUnusableDecoder(
+      this.id,
+      attempts.map(attempt => attempt.hardwareAcceleration),
+      lastMessage,
+    );
+    if (diagnostic) throw new Error(diagnostic, { cause: lastError });
+    throw lastError instanceof Error ? lastError : new Error(lastMessage);
   }
 
   private async loadKeyframes(clip: MP4Clip): Promise<void> {

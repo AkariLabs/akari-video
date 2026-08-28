@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   calculateDecoderTimestampOffsetUs,
+  describeUnusableDecoder,
   presentationFrameTiming,
 } from '../dist/index.js';
 
@@ -67,5 +68,27 @@ test('presentation timing caps only a duration that overlaps the next displayed 
       1_983_333,
     ),
     { timestamp: 1_966_667, duration: 16_667 },
+  );
+});
+
+test('unsupported decoder configuration is described with actionable context', () => {
+  const original = 'VideoFinder VideoDecoder err: Unsupported configuration. VideoDecoder.configure()';
+  const diagnostic = describeUnusableDecoder(
+    'clip-main',
+    ['prefer-hardware', 'prefer-software'],
+    original,
+  );
+
+  assert.ok(diagnostic);
+  assert.match(diagnostic, /clip-main/);
+  assert.match(diagnostic, /prefer-hardware/);
+  assert.match(diagnostic, /prefer-software/);
+  assert.ok(diagnostic.includes(original));
+});
+
+test('unrelated decoder errors keep their original error path', () => {
+  assert.equal(
+    describeUnusableDecoder('clip-main', ['prefer-hardware', 'prefer-software'], 'fetch failed: 404'),
+    null,
   );
 });

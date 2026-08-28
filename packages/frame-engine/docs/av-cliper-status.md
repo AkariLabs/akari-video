@@ -27,3 +27,20 @@
 moov の `mvhd` / `mdhd` / `elst` duration を伸ばしても、この meta はサンプル表から再計算されるため直らない。また finder は private で、呼び出し側の時刻だけでは duration ガードと最終コマ coverage を同時に満たせないため、最小の vendoring パッチを採用した。非 deleted 全サンプルを走査するので `split()` が deleted を付ける経路を保ち、B フレームを持たない表示順＝デコード順の素材では従来と同値になる。
 
 上流には meta の video duration を非 deleted サンプルの `max(cts + duration)` にする変更と、デコード順末尾が表示順末尾とは限らない再現 fixture を提案する。`videoDeltaTS = samples[0].dts` を `elst.media_time` にする件は別問題として切り分ける。**av-cliper の版を上げるときは `test:seek` を必ず実行する。**
+
+## WebCodecs デコーダの可用性（実測）
+
+macOS arm64、Electron 39.8.7、H.264 `avc1.640032`（1920x1080）で `VideoDecoder.configure` の可否を実測した結果を示す。
+
+| libffmpeg | 描画モード | 未指定 | `no-preference` | `prefer-hardware` | `prefer-software` |
+|---|---|---:|---:|---:|---:|
+| H.264 デコーダ入り | GPU | OK | OK | OK | **NG** |
+| H.264 デコーダ入り | ソフト | OK | OK | **NG** | OK |
+| 非プロプライエタリ版 | GPU | OK | OK | OK | **NG** |
+| 非プロプライエタリ版 | ソフト | **NG** | **NG** | **NG** | **NG** |
+
+`ClipSession` は `prefer-hardware`、`prefer-software` の順に試す。このためソフト描画では 1 回目が必ず失敗し、2 回目の software fallback でロードされて `state = 'degraded'` になる。
+
+非プロプライエタリ版 libffmpeg は H.264 デコーダを持たないため、そのランタイムのソフト描画では H.264 を一切デコードできない。ソフト描画を検証するには、H.264 デコーダを含む libffmpeg を持つランタイムが必要になる。
+
+全試行が `Unsupported configuration` で失敗した場合、`ClipSession` は試した `hardwareAcceleration`、対象 clip id、元のデコーダエラー、およびハードウェア支援が無効な環境ではランタイム同梱のソフトウェアデコーダが必要である旨を診断メッセージに含める。
