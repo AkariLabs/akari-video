@@ -31,7 +31,7 @@ async function tempDir(prefix) {
     return mkdtemp(path.join(tmpdir(), prefix));
 }
 
-const PACKAGED_EXEC_PATH = '/Applications/AKARI Video.app/Contents/MacOS/AKARI Video';
+const PACKAGED_EXEC_PATH = '/opt/akari-test/AKARI Video.app/Contents/MacOS/AKARI Video';
 
 async function writeShellPackageJson(dir, version) {
     await mkdir(dir, { recursive: true });
@@ -123,7 +123,7 @@ test('resolveTarBinary: win32 で SystemRoot 未設定なら C:\\Windows を既�
 // --- シム内容生成（darwin/win32 x dev/packaged の 4 象限） -----------------------
 
 test('buildShimScript: darwin packaged はベイクした Electron 実行体を経由するフォールバックを含む', () => {
-    const targetMjsPath = '/Users/x/.akari/cli/0.1.11/package/bin/akari.mjs';
+    const targetMjsPath = '/opt/akari-test/.akari/cli/0.1.11/package/bin/akari.mjs';
     const script = buildShimScript({ platform: 'darwin', targetMjsPath, bakedNodeExecPath: PACKAGED_EXEC_PATH });
     assert.ok(script.startsWith('#!/bin/sh'));
     assert.ok(script.includes('AKARI_NODE_BIN'));
@@ -435,22 +435,17 @@ test('ensureCli: tarball の integrity 不一致は failed を返しファイル
     assert.ok(!existsSync(cliShimFilePath(resolveCliShimDir(home), 'darwin')));
 });
 
-test('ensureCli: tarball の integrity 不一致でも同梱 CLI があれば ready を返す（ログは改ざんの疑いを明示し、未配備とは言わない）', async () => {
-    // r2: fetchAndExtractVersion は「到達不可」と「integrity 不一致（改ざんの疑い）」を
-    // 区別しないまま同じ bundled フォールバックへ流していた。フォールバック自体は許容する
-    // （実行するのは検証済みの同梱物であり tampered tarball ではない）が、ログは事実
-    // （改ざんの疑いがあったこと）を明示し、「CLI は未配備のままです」という直後の
-    // シム生成と矛盾する文言を残してはいけない。
-    const home = await tempDir('akari-ensure-integrity-bundled-home-');
-    const shellRoot = await tempDir('akari-ensure-integrity-bundled-shell-');
+test('ensureCli: 同梱 CLI があれば registry の integrity 検証経路へ入らない', async () => {
+    const home = await tempDir('akari-ensure-bundled-no-integrity-home-');
+    const shellRoot = await tempDir('akari-ensure-bundled-no-integrity-shell-');
     await writeShellPackageJson(shellRoot, '0.1.11');
-    const resourcesRoot = await tempDir('akari-ensure-integrity-bundled-resources-');
+    const resourcesRoot = await tempDir('akari-ensure-bundled-no-integrity-resources-');
     const bundledMjsDir = path.join(resourcesRoot, 'packages', 'akari-launcher', 'bin');
     await mkdir(bundledMjsDir, { recursive: true });
     const bundledMjsPath = path.join(bundledMjsDir, 'akari.mjs');
     await writeFile(bundledMjsPath, '#!/usr/bin/env node\n// bundled akari.mjs');
 
-    const tarballBuffer = Buffer.from('fake tarball bytes');
+    let fetchCalls = 0;
     const result = await ensureCli({
         akariHome: home,
         execPath: PACKAGED_EXEC_PATH,
@@ -458,27 +453,18 @@ test('ensureCli: tarball の integrity 不一致でも同梱 CLI があれば re
         platform: 'darwin',
         resourcesPath: resourcesRoot,
         shellPackageJsonStartDirs: [shellRoot],
-        fetchImpl: makeFakeFetch(
-            {
-                version: '0.1.11',
-                tarballUrl: 'https://registry.npmjs.org/akari-video/-/akari-video-0.1.11.tgz',
-                integrity: 'sha512-thisDoesNotMatchTheTarball=='
-            },
-            tarballBuffer
-        ),
-        spawnTar: makeFakeSpawnTar('// should never be reached')
+        fetchImpl: async () => {
+            fetchCalls += 1;
+            throw new Error('同梱 CLI があれば fetch を呼ばないこと');
+        }
     });
 
     assert.equal(result.status, 'ready');
     assert.equal(result.version, '0.1.11');
-    // ログは「改ざんの疑い」を明示した上でフォールバックしたことを言う。
-    assert.ok(result.log.some(line => line.includes('integrity') && line.includes('改ざんの疑い') && line.includes(bundledMjsPath)));
-    // 「CLI は未配備のままです」という、直後にシムを生成する事実と矛盾する行を残さない。
-    assert.ok(!result.log.some(line => line.includes('未配備のまま')));
+    assert.equal(fetchCalls, 0);
+    assert.ok(result.log.some(line => line.includes('シムは不変') && line.includes(bundledMjsPath)));
     const shimContent = await readFile(cliShimFilePath(resolveCliShimDir(home), 'darwin'), 'utf8');
     assert.ok(shimContent.includes(bundledMjsPath));
-    // 改ざんが疑われた tarball 由来のファイルは cliRoot 配下に一切残っていない。
-    assert.ok(!existsSync(path.join(resolveCliRoot(home), '0.1.11')));
 });
 
 test('ensureCli: registry 404（未公開版）は例外を投げず fail-soft を返す', async () => {
@@ -520,42 +506,56 @@ test('ensureCli: ネットワーク不通は例外を投げず fail-soft を返�
     assert.ok(result.log.some(line => line.includes('ENOTFOUND')));
 });
 
-// --- 起動時の同梱 CLI 優先 ----------------------------------------------------
+// --- packaged 実行の同梱 CLI 固定 --------------------------------------------
 
-test('ensureCli: preferBundled は同梱 CLI を registry アクセスなしでシム target にする', async () => {
-    const home = await tempDir('akari-ensure-prefer-bundled-home-');
-    const shellRoot = await tempDir('akari-ensure-prefer-bundled-shell-');
+test('ensureCli: 同梱 CLI は配備済み registry 版より優先し、旧版と途中生成物を全削除する', async () => {
+    const home = await tempDir('akari-ensure-bundled-cleanup-home-');
+    const shellRoot = await tempDir('akari-ensure-bundled-cleanup-shell-');
     await writeShellPackageJson(shellRoot, '0.1.12');
-    const resourcesRoot = await tempDir('akari-ensure-prefer-bundled-resources-');
+    const cliRoot = resolveCliRoot(home);
+    const oldVersionMjsDir = path.join(cliRoot, '0.1.24', 'package', 'bin');
+    await mkdir(oldVersionMjsDir, { recursive: true });
+    await writeFile(path.join(oldVersionMjsDir, 'akari.mjs'), '// registry 0.1.24');
+    await writeFile(path.join(cliRoot, '.download-0.1.25-test.tgz'), 'partial tarball');
+    await mkdir(path.join(cliRoot, '0.1.25.staging-test', 'package'), { recursive: true });
+    await mkdir(path.join(cliRoot, '.keep'), { recursive: true });
+
+    const resourcesRoot = await tempDir('akari-ensure-bundled-cleanup-resources-');
     const bundledMjsDir = path.join(resourcesRoot, 'packages', 'akari-launcher', 'bin');
     await mkdir(bundledMjsDir, { recursive: true });
     const bundledMjsPath = path.join(bundledMjsDir, 'akari.mjs');
     await writeFile(bundledMjsPath, '#!/usr/bin/env node\n// bundled akari.mjs');
 
+    let fetchCalls = 0;
     const result = await ensureCli({
         akariHome: home,
         execPath: PACKAGED_EXEC_PATH,
         hasElectronRuntime: true,
         platform: 'darwin',
         resourcesPath: resourcesRoot,
-        preferBundled: true,
         shellPackageJsonStartDirs: [shellRoot],
         fetchImpl: async () => {
-            throw new Error('preferBundled では fetch を呼ばないこと');
+            fetchCalls += 1;
+            throw new Error('同梱 CLI があれば fetch を呼ばないこと');
         }
     });
 
     assert.equal(result.status, 'ready');
-    assert.ok(result.log.some(line => line.includes('優先') && line.includes(bundledMjsPath)));
+    assert.equal(fetchCalls, 0);
     const shimContent = await readFile(cliShimFilePath(resolveCliShimDir(home), 'darwin'), 'utf8');
     assert.ok(shimContent.includes(bundledMjsPath));
+    assert.ok(!shimContent.includes(path.join(cliRoot, '0.1.24')));
+    assert.equal(existsSync(path.join(cliRoot, '0.1.24')), false);
+    assert.equal(existsSync(path.join(cliRoot, '.download-0.1.25-test.tgz')), false);
+    assert.equal(existsSync(path.join(cliRoot, '0.1.25.staging-test')), false);
+    assert.equal(existsSync(path.join(cliRoot, '.keep')), true);
 });
 
-test('ensureCli: preferBundled でも同梱 CLI が無ければ既存順序で registry へアクセスする', async () => {
-    const home = await tempDir('akari-ensure-prefer-bundled-missing-home-');
-    const shellRoot = await tempDir('akari-ensure-prefer-bundled-missing-shell-');
+test('ensureCli: 同梱 CLI が無ければ従来どおり registry へアクセスする', async () => {
+    const home = await tempDir('akari-ensure-bundled-missing-registry-home-');
+    const shellRoot = await tempDir('akari-ensure-bundled-missing-registry-shell-');
     await writeShellPackageJson(shellRoot, '0.1.12');
-    const resourcesRoot = await tempDir('akari-ensure-prefer-bundled-missing-resources-');
+    const resourcesRoot = await tempDir('akari-ensure-bundled-missing-registry-resources-');
     const tarballBuffer = Buffer.from('fake tarball bytes v0.1.12');
     const integrity = `sha512-${createHash('sha512').update(tarballBuffer).digest('base64')}`;
     const fakeFetch = makeFakeFetch(
@@ -570,7 +570,6 @@ test('ensureCli: preferBundled でも同梱 CLI が無ければ既存順序で r
         hasElectronRuntime: true,
         platform: 'darwin',
         resourcesPath: resourcesRoot,
-        preferBundled: true,
         shellPackageJsonStartDirs: [shellRoot],
         fetchImpl: async (...args) => {
             fetchCalls += 1;
@@ -585,15 +584,15 @@ test('ensureCli: preferBundled でも同梱 CLI が無ければ既存順序で r
     assert.ok(existsSync(registryMjs));
 });
 
-test('ensureCli: preferBundled でも registry 配備済みの version dir を優先する', async () => {
-    const home = await tempDir('akari-ensure-prefer-installed-home-');
-    const shellRoot = await tempDir('akari-ensure-prefer-installed-shell-');
+test('ensureCli: 同梱 CLI は同じ版の registry 配備済みディレクトリも無視して削除する', async () => {
+    const home = await tempDir('akari-ensure-bundled-removes-current-home-');
+    const shellRoot = await tempDir('akari-ensure-bundled-removes-current-shell-');
     await writeShellPackageJson(shellRoot, '0.1.12');
     const registryMjsDir = path.join(resolveCliRoot(home), '0.1.12', 'package', 'bin');
     await mkdir(registryMjsDir, { recursive: true });
     const registryMjsPath = path.join(registryMjsDir, 'akari.mjs');
     await writeFile(registryMjsPath, '// registry-deployed akari.mjs');
-    const resourcesRoot = await tempDir('akari-ensure-prefer-installed-resources-');
+    const resourcesRoot = await tempDir('akari-ensure-bundled-removes-current-resources-');
     const bundledMjsDir = path.join(resourcesRoot, 'packages', 'akari-launcher', 'bin');
     await mkdir(bundledMjsDir, { recursive: true });
     const bundledMjsPath = path.join(bundledMjsDir, 'akari.mjs');
@@ -605,7 +604,6 @@ test('ensureCli: preferBundled でも registry 配備済みの version dir を�
         hasElectronRuntime: true,
         platform: 'darwin',
         resourcesPath: resourcesRoot,
-        preferBundled: true,
         shellPackageJsonStartDirs: [shellRoot],
         fetchImpl: async () => {
             throw new Error('配備済みなので fetch されないこと');
@@ -614,16 +612,12 @@ test('ensureCli: preferBundled でも registry 配備済みの version dir を�
 
     assert.equal(result.status, 'ready');
     const shimContent = await readFile(cliShimFilePath(resolveCliShimDir(home), 'darwin'), 'utf8');
-    assert.ok(shimContent.includes(registryMjsPath));
-    assert.ok(!shimContent.includes(bundledMjsPath));
+    assert.ok(shimContent.includes(bundledMjsPath));
+    assert.ok(!shimContent.includes(registryMjsPath));
+    assert.equal(existsSync(path.join(resolveCliRoot(home), '0.1.12')), false);
 });
 
-// --- registry 到達不可時の同梱 CLI（Resources 配下）フォールバック ----------------
-// task/2026-08-20-cli-provisioner-resources: extraResources が同梱する
-// `Contents/Resources/packages/akari-launcher/bin/akari.mjs` を、registry へ到達できない
-// packaged 実行時のフォールバックとして使う分岐の回帰テスト。
-
-test('ensureCli: registry 到達不可でも resourcesPath 配下に同梱 CLI があれば ready を返す', async () => {
+test('ensureCli: オフラインでも resourcesPath 配下に同梱 CLI があれば ready を返す', async () => {
     const home = await tempDir('akari-ensure-bundled-home-');
     const shellRoot = await tempDir('akari-ensure-bundled-shell-');
     await writeShellPackageJson(shellRoot, '0.1.12');
@@ -647,15 +641,15 @@ test('ensureCli: registry 到達不可でも resourcesPath 配下に同梱 CLI �
 
     assert.equal(result.status, 'ready');
     assert.equal(result.version, '0.1.12');
-    assert.ok(result.log.some(line => line.includes('同梱 CLI') && line.includes(bundledMjsPath)));
+    assert.ok(result.log.some(line => line.includes('シムは不変') && line.includes(bundledMjsPath)));
     const shimContent = await readFile(cliShimFilePath(resolveCliShimDir(home), 'darwin'), 'utf8');
     assert.ok(shimContent.includes(bundledMjsPath));
     assert.ok(shimContent.includes('ELECTRON_RUN_AS_NODE=1'));
-    // registry から取得したものではないので、cliRoot 配下には何も展開されていない。
+    // registry へアクセスしないので、cliRoot 配下には何も展開されていない。
     assert.ok(!existsSync(path.join(resolveCliRoot(home), '0.1.12', 'package', 'bin', 'akari.mjs')));
 });
 
-test('ensureCli: registry 到達不可 かつ 同梱 CLI も無ければ failed のまま（後退しない）', async () => {
+test('ensureCli: 同梱 CLI が無い旧構成では registry 到達不可を fail-soft で返す', async () => {
     const home = await tempDir('akari-ensure-bundled-missing-home-');
     const shellRoot = await tempDir('akari-ensure-bundled-missing-shell-');
     await writeShellPackageJson(shellRoot, '0.1.12');
@@ -678,38 +672,41 @@ test('ensureCli: registry 到達不可 かつ 同梱 CLI も無ければ failed 
     assert.ok(!existsSync(cliShimFilePath(resolveCliShimDir(home), 'darwin')));
 });
 
-test('ensureCli: registry に到達できれば同梱 CLI があっても registry 版を優先する（更新経路を維持）', async () => {
-    const home = await tempDir('akari-ensure-bundled-prefers-registry-home-');
-    const shellRoot = await tempDir('akari-ensure-bundled-prefers-registry-shell-');
+test('ensureCli: shellVersion が変わっても同じ Resources と実行体ならシムはバイト同一', async () => {
+    const home = await tempDir('akari-ensure-bundled-stable-shim-home-');
+    const shellRoot = await tempDir('akari-ensure-bundled-stable-shim-shell-');
     await writeShellPackageJson(shellRoot, '0.1.12');
-    const resourcesRoot = await tempDir('akari-ensure-bundled-prefers-registry-resources-');
+    const resourcesRoot = await tempDir('akari-ensure-bundled-stable-shim-resources-');
     const bundledMjsDir = path.join(resourcesRoot, 'packages', 'akari-launcher', 'bin');
     await mkdir(bundledMjsDir, { recursive: true });
-    await writeFile(path.join(bundledMjsDir, 'akari.mjs'), '#!/usr/bin/env node\n// bundled akari.mjs');
+    const bundledMjsPath = path.join(bundledMjsDir, 'akari.mjs');
+    await writeFile(bundledMjsPath, '#!/usr/bin/env node\n// bundled akari.mjs');
 
-    const tarballBuffer = Buffer.from('fake tarball bytes v0.1.12');
-    const integrity = `sha512-${createHash('sha512').update(tarballBuffer).digest('base64')}`;
-
-    const result = await ensureCli({
+    const options = {
         akariHome: home,
         execPath: PACKAGED_EXEC_PATH,
         hasElectronRuntime: true,
         platform: 'darwin',
         resourcesPath: resourcesRoot,
         shellPackageJsonStartDirs: [shellRoot],
-        fetchImpl: makeFakeFetch(
-            { version: '0.1.12', tarballUrl: 'https://registry.npmjs.org/akari-video/-/akari-video-0.1.12.tgz', integrity },
-            tarballBuffer
-        ),
-        spawnTar: makeFakeSpawnTar('// registry 0.1.12')
-    });
+        fetchImpl: async () => {
+            throw new Error('同梱 CLI があれば fetch を呼ばないこと');
+        }
+    };
 
-    assert.equal(result.status, 'ready');
-    const registryMjs = path.join(resolveCliRoot(home), '0.1.12', 'package', 'bin', 'akari.mjs');
-    assert.ok(existsSync(registryMjs));
-    const shimContent = await readFile(cliShimFilePath(resolveCliShimDir(home), 'darwin'), 'utf8');
-    assert.ok(shimContent.includes(registryMjs));
-    assert.ok(!result.log.some(line => line.includes('同梱 CLI')));
+    const first = await ensureCli(options);
+    assert.equal(first.status, 'ready');
+    const shimPath = cliShimFilePath(resolveCliShimDir(home), 'darwin');
+    const firstShim = await readFile(shimPath);
+
+    await writeShellPackageJson(shellRoot, '0.1.13');
+    const second = await ensureCli(options);
+    assert.equal(second.status, 'ready');
+    assert.equal(second.version, '0.1.13');
+    const secondShim = await readFile(shimPath);
+
+    assert.deepEqual(secondShim, firstShim);
+    assert.ok(secondShim.toString('utf8').includes(bundledMjsPath));
 });
 
 // --- ensureCli → buildCliPathEnv: 接続フロー全体の PATH 合成確認 -----------------
