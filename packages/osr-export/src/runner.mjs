@@ -29,8 +29,11 @@ export async function resolveElectronLauncher({
   probe = defaultProbe,
   resolveElectron = defaultResolveElectron,
   runtimePathResolver = desktopRuntimePath,
+  // false のとき tier 1（インストール済みデスクトップアプリ）を候補から外す。
+  // gpu-export が使う: shell の --render は OSR ランタイムしか読まないため、GPU 用 main を tier 1 に渡せない（v0.1.25 で判明）。
+  allowDesktop = true,
 } = {}) {
-  for (const executable of desktopCandidates({ env, platform, homeDirectory })) {
+  for (const executable of allowDesktop ? desktopCandidates({ env, platform, homeDirectory }) : []) {
     const explicit = executable === env.AKARI_OSR_ELECTRON;
     const runtime = runtimePathResolver(executable, platform);
     if (executable && await probe(executable, { kind: "desktop" })
