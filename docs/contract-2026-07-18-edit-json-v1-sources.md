@@ -42,6 +42,8 @@
 | `cuts[].src` | v1 では必須。`sources[].id` を参照する |
 | `cuts[].in`, `cuts[].out` | 対象ソースの秒。`0 <= in < out` を満たす |
 
+`sources[].proxy` の生成規格は [プレビュー用プロキシの規格](./contract-2026-08-02-preview-parity.md#55-プレビュー用プロキシの規格) に従う。
+
 参照は path ではなく安定した `id` で行う。これにより素材の差し替えや path 変更で cut や
 サイドカーの参照が壊れない。JSON Schema は将来の任意フィールドを許容する tolerant reader とし、
 既知フィールドの型、version ごとの必須形、`source` / `sources[]` の排他を検証する。
