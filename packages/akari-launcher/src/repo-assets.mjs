@@ -72,18 +72,32 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
 }
 
 /**
- * ランチャー実行時の同梱物解決: モノレポ checkout（開発時）→ vendor/（npm 配布時）の
- * 順で探し、最初に何かしら見つかったルートを採用する。テストからは candidateRoot /
- * vendorRoot を注入して両分岐を実ディレクトリ無しで検証できる。
+ * ランチャー実行時の同梱物解決: 資産ごとにモノレポ checkout（開発時）→ vendor/
+ * （npm 配布時）の順で探す。checkout が一部の資産しか持たないパッケージ構成でも、
+ * 欠けたフィールドだけを vendor から補完する。
  */
 export function resolveLauncherAssets({
   candidateRoot = DEFAULT_REPO_ROOT_CANDIDATE,
   vendorRoot = DEFAULT_VENDOR_ROOT
 } = {}) {
-  const checkout = resolveRepoAssets(candidateRoot);
-  const found = checkout.skillsSourceDir || checkout.templateDir || checkout.schemasSourceDir
-    || checkout.doctorScript || checkout.scaffoldModulePath || checkout.creatorRootModulePath
-    || checkout.beatmapScript || checkout.probeFrameScript || checkout.renderWhenIdleScript
-    || checkout.eyeBarScript;
-  return found ? checkout : resolveRepoAssets(vendorRoot);
+  const candidate = resolveRepoAssets(candidateRoot);
+  const vendor = resolveRepoAssets(vendorRoot);
+  const candidateHasAssets = Object.entries(candidate)
+    .some(([key, value]) => key !== 'repoRoot' && value !== null);
+
+  return {
+    repoRoot: candidateHasAssets ? candidateRoot : vendorRoot,
+    skillsSourceDir: candidate.skillsSourceDir ?? vendor.skillsSourceDir,
+    templateDir: candidate.templateDir ?? vendor.templateDir,
+    schemasSourceDir: candidate.schemasSourceDir ?? vendor.schemasSourceDir,
+    doctorScript: candidate.doctorScript ?? vendor.doctorScript,
+    scaffoldModulePath: candidate.scaffoldModulePath ?? vendor.scaffoldModulePath,
+    creatorRootModulePath: candidate.creatorRootModulePath ?? vendor.creatorRootModulePath,
+    audioFetchScriptPath: candidate.audioFetchScriptPath ?? vendor.audioFetchScriptPath,
+    assetResolverCliPath: candidate.assetResolverCliPath ?? vendor.assetResolverCliPath,
+    beatmapScript: candidate.beatmapScript ?? vendor.beatmapScript,
+    probeFrameScript: candidate.probeFrameScript ?? vendor.probeFrameScript,
+    renderWhenIdleScript: candidate.renderWhenIdleScript ?? vendor.renderWhenIdleScript,
+    eyeBarScript: candidate.eyeBarScript ?? vendor.eyeBarScript
+  };
 }
