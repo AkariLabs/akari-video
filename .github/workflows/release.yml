@@ -437,6 +437,21 @@ jobs:
           npm_config_enable_thin_lto: 'false'
         run: npm run package
 
+      # 2026-08-29 Windows アイコンの検収。v0.1.25 までの Windows 版は exe にアイコンが
+      # 埋め込まれているのに実機で汎用アイコンに落ちていた。原因は electron-builder が
+      # 2026-06（v26.14 / icons toolset 1.x）で PNG→ICO 変換器を wasm-vips 製へ差し替え、
+      # 全サイズを PNG 圧縮エントリで詰めるようになったこと（Windows のシェルは 256px 未満の
+      # PNG 圧縮エントリを描画できない。素の electron.exe 自身は 16/32/48 が DIB・256 だけ PNG）。
+      # build.win.icon を古典形式（DIB エントリ）の icon.ico に固定したうえで、ここでは
+      # rcedit 後の exe を PE 解析し (1) 16/32/48/256 を含む (2) 256px 未満は DIB
+      # (3) 素の electron.exe と画像が同一でない（= icon.ico が効いている。electron-builder は
+      # 指定アイコンが無くても警告だけで既定アイコンのまま続行する）を機械的に確認する。
+      # 静的な存在 / git 追跡 / .ico 構造と判定器自体のテストは
+      # apps/shell/test/electron-builder-icons.test.mjs（L0）
+      - name: アイコン適用確認 (win)
+        working-directory: apps/shell
+        run: node resources/scripts/verify-win-icon.mjs "electron-builder-out/win-unpacked/AKARI Video.exe" node_modules/electron/dist/electron.exe
+
       - name: app-update.yml 生成 (win)
         run: node scripts/release/gen-app-update-yml.mjs apps/shell/electron-builder-out/win-unpacked/resources/app-update.yml
 

@@ -265,7 +265,7 @@
       "artifactName": "shell-mac.${ext}"
     },
     "win": {
-      "icon": "resources/icons/icon.png",
+      "icon": "resources/icons/icon.ico",
       "target": "dir"
     },
     "nsis": {
