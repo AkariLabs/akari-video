@@ -10,6 +10,7 @@ import {
 } from "./status-core/status.mjs";
 import { describeVersionStatus } from "./messages.mjs";
 import { readCacheSync, readOwnVersion, resolveCachePath, resolveInstalledVersionInfo } from "./update-check.mjs";
+import { resolveRuntimePaths } from "./runtime-diagnostics.mjs";
 
 export async function runStatusCommand(argv, options = {}) {
   const log = options.log ?? ((line) => process.stdout.write(line));
@@ -26,7 +27,10 @@ export async function runStatusCommand(argv, options = {}) {
     env,
     cliVersion: options.cliVersion ?? readOwnVersion(),
   });
-  const versionLine = describeVersionStatus(versionInfo, readCacheSync(resolveCachePath(env)));
+  const runtimeDiagnostics = parsed.json
+    ? undefined
+    : options.runtimeDiagnostics ?? resolveRuntimePaths({ ...options, env });
+  const versionLine = describeVersionStatus(versionInfo, readCacheSync(resolveCachePath(env)), runtimeDiagnostics);
   if (detectStatusScope(parsed.projectRoot) === "workspace") {
     const workspace = resolveWorkspaceStatus(parsed.projectRoot);
     // fail-safe: a broken root.json falls through to the unchanged project-scope path below.

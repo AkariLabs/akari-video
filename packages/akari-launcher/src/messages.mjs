@@ -71,7 +71,7 @@ export function formatUpdateNotice(status) {
 }
 
 /** `akari doctor` 系出力に足す 1 行（現在版 + フィード取得状態）。 */
-export function describeVersionStatus(versionOrInfo, cache) {
+export function describeVersionStatus(versionOrInfo, cache, runtimeDiagnostics) {
   if (typeof versionOrInfo === 'string') {
     if (!cache?.feed) {
       return `バージョン: v${versionOrInfo}（更新フィード: 未取得）`;
@@ -80,7 +80,7 @@ export function describeVersionStatus(versionOrInfo, cache) {
     return `バージョン: v${versionOrInfo}（更新フィード: 取得済み・${fetchedAt} 時点）`;
   }
   const info = normalizeVersionInfo(versionOrInfo);
-  const installed = describeInstalledVersions(info).join(' / ');
+  const installed = describeInstalledVersions(info, runtimeDiagnostics).join(' / ');
   if (!cache?.feed) {
     return `${installed}（更新フィード: 未取得）`;
   }
@@ -88,7 +88,7 @@ export function describeVersionStatus(versionOrInfo, cache) {
   return `${installed}（更新フィード: 取得済み・${fetchedAt} 時点）`;
 }
 
-export function describeInstalledVersions(versionOrInfo) {
+export function describeInstalledVersions(versionOrInfo, runtimeDiagnostics) {
   const info = normalizeVersionInfo(versionOrInfo);
   if (info.installRefNeedsRepair) {
     const installRefPath = info.installRefPath ?? '~/.akari/app/.akari-install-ref';
@@ -99,6 +99,21 @@ export function describeInstalledVersions(versionOrInfo) {
     ];
   }
   if (!info.appVersion) {
+    if (info.installRefStatus === 'missing' && runtimeDiagnostics?.render_cut) {
+      const renderCut = runtimeDiagnostics.render_cut;
+      const availability = renderCut.origin === 'none'
+        ? 'render-cut が見つからないため書き出しできません'
+        : `書き出しは ${humanRenderOrigin(renderCut.origin)} の render-cut を使います`;
+      const lines = [
+        `現在のバージョン: v${info.currentVersion}`,
+        `CLI バージョン: v${info.cliVersion}`,
+        `install.sh 経路の本体は未導入（${availability}。詳細: \`akari doctor\`）`,
+      ];
+      if (renderCut.origin === 'none') {
+        lines.push('復旧するにはデスクトップ版を導入するか、install.sh 経路の本体を導入してください。');
+      }
+      return lines;
+    }
     return [
       `現在のバージョン: v${info.currentVersion}`,
       `CLI バージョン: v${info.cliVersion}`,
@@ -112,11 +127,15 @@ export function describeInstalledVersions(versionOrInfo) {
   return lines;
 }
 
+function humanRenderOrigin(origin) {
+  return origin === 'monorepo' ? '開発リポジトリ' : origin;
+}
+
 export function describeForceReinstall(versionOrInfo, targetVersion) {
   const info = normalizeVersionInfo(versionOrInfo);
   return info.installRefNeedsRepair
-    ? `--force: 版を判定できない本体 → v${targetVersion} を入れ直します。`
-    : `--force: 本体 v${info.currentVersion} → v${targetVersion} を入れ直します。`;
+    ? `--force: 版を判定できない install.sh 経路の本体 → v${targetVersion} を入れ直します。`
+    : `--force: install.sh 経路の本体 v${info.currentVersion} → v${targetVersion} を入れ直します。`;
 }
 
 function normalizeVersionInfo(value) {
@@ -172,9 +191,9 @@ export function creatorRootPromptText(defaultPath) {
  * `akari update` の出力本文（複数行）。フィード未取得・最新・新版ありで案内が変わる。
  * `dismissed` は今回の実行で dismiss 記録を書いたかどうか（表示文言の切り替えのみに使う）。
  */
-export function describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed, usingCachedFeed = false }) {
+export function describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed, usingCachedFeed = false, runtimeDiagnostics, npmAvailable = true }) {
   const info = versionInfo ?? normalizeVersionInfo(currentVersion);
-  const lines = versionInfo ? describeInstalledVersions(info) : [`現在のバージョン: v${currentVersion}`];
+  const lines = versionInfo ? describeInstalledVersions(info, runtimeDiagnostics) : [`現在のバージョン: v${currentVersion}`];
   const feed = cache?.feed;
   if (!feed) {
     lines.push('最新情報をまだ取得できていません（オフライン、または初回起動直後の可能性があります）。');
@@ -202,8 +221,12 @@ export function describeUpdateCommand({ currentVersion, versionInfo, cache, dism
   }
 
   const tarballUrl = feed.components?.cli?.tarball?.url;
-  lines.push('更新するには、次のコマンドを実行してください（自動実行はしません）:');
-  lines.push(tarballUrl ? `  npm i -g ${tarballUrl}` : '  npm i -g akari-video@latest');
+  if (npmAvailable) {
+    lines.push('CLI を更新するには、次のコマンドを実行してください（自動実行はしません）:');
+    lines.push(tarballUrl ? `  npm i -g ${tarballUrl}` : '  npm i -g akari-video@latest');
+  } else {
+    lines.push('npm が PATH に無いため、CLI の npm 更新コマンドは表示しません。');
+  }
   lines.push(
     dismissed
       ? `この版（v${feed.product}）の通知は今後表示しません。`
@@ -304,7 +327,8 @@ export function describeCliHelp() {
     '  store connect          アカウント連携（無料の素材パックと購入済み素材が使えるようになる）',
     '  sounds                 公式音源ライブラリを一括ダウンロード（無料）',
     '  chrome install         動画書き出しに使う Chrome をダウンロードして導入する',
-    '  update [--force]       更新を確認する（--force で本体を入れ直す）',
+    '  doctor [--json]        必須部品の実在と解決元を診断する',
+    '  update [--force]       更新を確認する（--force で install.sh 経路の本体を入れ直す）',
     '  status                 接続状態を確認する',
     '  migrate [dir]          古い edit.json を退避バックアップ付きで v2 へ変換',
     '',

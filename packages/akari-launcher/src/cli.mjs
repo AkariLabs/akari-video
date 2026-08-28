@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 import { resolveLauncherAssets } from './repo-assets.mjs';
 import { detectProjectState } from './project-state.mjs';
-import { findClaudeExecutable, findOpencodeExecutable } from './path-lookup.mjs';
+import { findClaudeExecutable, findExecutable, findOpencodeExecutable } from './path-lookup.mjs';
 import { loadTaskLabels } from './task-labels.mjs';
 import { describeForceReinstall, describeInstalledVersions, describeIntake, claudeMissingGuidance, opencodeMissingGuidance, describeUpdateCacheFallback, describeUpdateCommand, describeVersionStatus, formatUpdateNotice } from './messages.mjs';
 import { resolveEffectiveProjectRoot } from './first-run.mjs';
@@ -23,6 +23,7 @@ import {
 } from './update-check.mjs';
 import { applySelfUpdate, isRunningFromAppDir, rollbackSelfUpdate } from './self-update.mjs';
 import { runChromeCommand } from './chrome-command.mjs';
+import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
 
 /**
  * `akari` ランチャーの本体。3 入口契約（ターミナル `akari` / セッション内 `/akari` /
@@ -98,7 +99,8 @@ export async function run(args, options = {}) {
     } catch (error) {
       log(`接続確認でエラーが発生しました（続行します）: ${error instanceof Error ? error.message : String(error)}`);
     }
-    log(describeVersionStatus(versionInfo, readCacheSync(resolveCachePath(env))));
+    const runtimeDiagnostics = options.runtimeDiagnostics ?? resolveRuntimePaths({ ...options, env, platform });
+    log(describeVersionStatus(versionInfo, readCacheSync(resolveCachePath(env)), runtimeDiagnostics));
   }
 
   // 新版通知（契約 §4-1）: キャッシュの読み比較のみ・ネットワークには一切触れない
@@ -204,6 +206,11 @@ export async function runUpdateCommand(args, options = {}) {
   const dismissRequested = args.includes('--dismiss');
   const rollbackRequested = args.includes('--rollback');
   const forceRequested = args.includes('--force');
+  const runtimeDiagnostics = options.runtimeDiagnostics ?? resolveRuntimePaths({ ...options, env });
+  const pathEnv = Object.hasOwn(env, 'PATH') ? (env.PATH ?? '') : (process.env.PATH ?? '');
+  const npmAvailable = options.npmAvailable
+    ?? !!(options.findExecutable ?? findExecutable)('npm', pathEnv, options.platform ?? process.platform, env.PATHEXT);
+  const describeOptions = { runtimeDiagnostics, npmAvailable };
   let usingCachedFeed = false;
 
   if (rollbackRequested) {
@@ -217,7 +224,7 @@ export async function runUpdateCommand(args, options = {}) {
       dismissed = true;
     }
     const finalCache = dismissed ? readCacheSync(cachePath) : cache;
-    for (const line of describeUpdateCommand({ currentVersion, versionInfo, cache: finalCache, dismissed })) {
+    for (const line of describeUpdateCommand({ currentVersion, versionInfo, cache: finalCache, dismissed, ...describeOptions })) {
       log(line);
     }
     return { exitCode: 0 };
@@ -241,8 +248,14 @@ export async function runUpdateCommand(args, options = {}) {
     && (hasManagedApp || (options.isRunningFromAppDir ?? isRunningFromAppDir)({ env, launcherRoot: options.launcherRoot }));
 
   if (!selfUpdateEligible) {
-    for (const line of describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed: false, usingCachedFeed })) {
+    for (const line of describeUpdateCommand({ currentVersion, versionInfo, cache, dismissed: false, usingCachedFeed, ...describeOptions })) {
       log(line);
+    }
+    if (forceRequested
+        && versionInfo.installRefStatus === 'missing'
+        && runtimeDiagnostics.render_cut.origin !== 'monorepo') {
+      log('この CLI からは install.sh 経路の本体を入れ直せません。');
+      log('導入するには `curl -fsSL https://raw.githubusercontent.com/AkariLabs/akari-video/main/install.sh | bash` を実行してください（デスクトップ版だけで使う場合は不要です）。');
     }
     return { exitCode: 0 };
   }
@@ -250,7 +263,7 @@ export async function runUpdateCommand(args, options = {}) {
   if (usingCachedFeed) {
     log(describeUpdateCacheFallback(cache));
   }
-  for (const line of describeInstalledVersions(versionInfo)) {
+  for (const line of describeInstalledVersions(versionInfo, runtimeDiagnostics)) {
     log(line);
   }
   log(`最新バージョン: v${feed.product}`);
@@ -268,6 +281,7 @@ export async function runUpdateCommand(args, options = {}) {
 }
 
 function resolveCommandVersionInfo(options, env) {
+  if (options.versionInfo) return options.versionInfo;
   // 既存テスト/埋め込み利用の currentVersion 注入は CLI 版注入としても扱う。
   const cliVersion = options.cliVersion ?? options.currentVersion ?? readOwnVersion();
   if (options.currentVersion !== undefined) {

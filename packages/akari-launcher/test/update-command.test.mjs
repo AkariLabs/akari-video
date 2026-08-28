@@ -100,7 +100,7 @@ test('install-ref の未記録と破損を区別し、破損時は --force の�
   await withScratchHome(async (env) => {
     const missing = collectLogs();
     await runUpdateCommand([], { log: missing.log, env, fetchImpl: OFFLINE_FETCH });
-    assert.ok(missing.lines.some((line) => line.includes('本体バージョン: 未記録')));
+    assert.ok(missing.lines.some((line) => line.includes('install.sh 経路の本体は未導入')));
     assert.ok(!missing.lines.some((line) => line.includes('壊れています')));
 
     await mkdir(join(env.AKARI_HOME, 'app'), { recursive: true });
@@ -275,7 +275,7 @@ test('akari update --force: 現在の本体版からフィードの入れ替え�
       launcherRoot: '/outside/managed/app',
       applySelfUpdate: () => ({ exitCode: 0, applied: true })
     });
-    assert.ok(lines.includes('--force: 本体 v0.1.11 → v0.1.12 を入れ直します。'));
+    assert.ok(lines.includes('--force: install.sh 経路の本体 v0.1.11 → v0.1.12 を入れ直します。'));
   });
 });
 

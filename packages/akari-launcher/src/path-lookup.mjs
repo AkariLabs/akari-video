@@ -27,33 +27,23 @@ function resolveWindowsExtensions(pathExt) {
  * を判定するため、拡張子なしファイル（npm の POSIX シムなど）は直接 spawn できない。
  */
 export function findClaudeExecutable(pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
-  const directories = pathEnv.split(path.delimiter).filter(Boolean);
-  const candidateNames = platform === 'win32'
-    ? resolveWindowsExtensions(pathExt).map((extension) => `claude${extension.toLowerCase()}`)
-    : ['claude'];
-
-  for (const directory of directories) {
-    for (const name of candidateNames) {
-      const candidate = path.join(directory, name);
-      try {
-        accessSync(candidate, fsConstants.X_OK);
-        return candidate;
-      } catch {
-        // このディレクトリには無い。次を探す。
-      }
-    }
-  }
-  return null;
+  return findExecutable('claude', pathEnv, platform, pathExt);
 }
 
 /**
  * PATH 上に `opencode` 実行ファイルがあるかを探す。`findClaudeExecutable` と同じ規約。
  */
 export function findOpencodeExecutable(pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
-  const directories = pathEnv.split(path.delimiter).filter(Boolean);
+  return findExecutable('opencode', pathEnv, platform, pathExt);
+}
+
+/** PATH 上の任意のコマンドを探索する共有ヘルパー。doctor / update も同じ判定を使う。 */
+export function findExecutable(command, pathEnv = process.env.PATH ?? '', platform = process.platform, pathExt = process.env.PATHEXT) {
+  const delimiter = platform === 'win32' ? ';' : path.delimiter;
+  const directories = pathEnv.split(delimiter).filter(Boolean);
   const candidateNames = platform === 'win32'
-    ? resolveWindowsExtensions(pathExt).map((extension) => `opencode${extension.toLowerCase()}`)
-    : ['opencode'];
+    ? resolveWindowsExtensions(pathExt).map((extension) => `${command}${extension.toLowerCase()}`)
+    : [command];
 
   for (const directory of directories) {
     for (const name of candidateNames) {
