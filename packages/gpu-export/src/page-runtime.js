@@ -8,7 +8,13 @@
   const pools = new Map();
   const lookahead = new Map();
   const images = new Map();
-  let captionFontDataUrlPromise = null;
+  let captionEncodedFontPromise = null;
+
+  const CAPTION_MEASURE_MAX_ATTEMPTS = 32;
+  const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
+  const CAPTION_BATCH_MAX_UNITS = 8;
+  const CAPTION_BATCH_MAX_HEIGHT_PX = 4096;
+  const CAPTION_FONT_PLACEHOLDER = "/caption-font.ttf";
 
   const macrotaskResolvers = [];
   const macrotaskChannel = new MessageChannel();
@@ -332,15 +338,158 @@
     }
   }
 
-  function captionRasterSvg(value, config, html, extraCss) {
+  function captionMeasurementVariantsEqual(left, right) {
+    return left.length === right.length
+      && left.every((measurement, index) => FE.captionMeasurementsEqual(measurement, right[index]));
+  }
+
+  function resolveStableMeasurement(sequence, maxAttempts, equal) {
+    const limit = Math.min(sequence.length, maxAttempts);
+    for (let index = 1; index < limit; index += 1) {
+      if (equal(sequence[index - 1], sequence[index])) {
+        return { measurement: sequence[index], attempts: index + 1 };
+      }
+    }
+    if (sequence.length >= maxAttempts) {
+      const error = new Error(`caption word measurement is unstable after ${maxAttempts} attempts: ${CAPTION_MEASURE_UNSTABLE_REASON}`);
+      error.code = CAPTION_MEASURE_UNSTABLE_REASON;
+      throw error;
+    }
+    return null;
+  }
+
+  async function measureCaptionVariantsStable(value, config, html, cssVariants, unitIndex, attemptsLog) {
+    const sequence = [];
+    for (let attempt = 1; attempt <= CAPTION_MEASURE_MAX_ATTEMPTS; attempt += 1) {
+      sequence.push(await measureCaptionVariants(value, config, html, cssVariants, unitIndex));
+      try {
+        const stable = resolveStableMeasurement(
+          sequence,
+          CAPTION_MEASURE_MAX_ATTEMPTS,
+          captionMeasurementVariantsEqual,
+        );
+        if (stable) {
+          attemptsLog.push(stable.attempts);
+          return stable.measurement;
+        }
+      } catch (error) {
+        const message = `caption ${value.id} word measurement is unstable after ${CAPTION_MEASURE_MAX_ATTEMPTS} attempts: ${CAPTION_MEASURE_UNSTABLE_REASON}`;
+        warn(message);
+        error.message = message;
+        error.code = CAPTION_MEASURE_UNSTABLE_REASON;
+        throw error;
+      }
+    }
+    throw new Error(`caption ${value.id} measurement loop terminated unexpectedly`);
+  }
+
+  function scopeCaptionCss(css, prefix) {
+    if (css.includes("@")) throw new Error("caption variant CSS cannot contain at-rules");
+    let out = "";
+    let index = 0;
+    for (;;) {
+      const open = css.indexOf("{", index);
+      if (open < 0) {
+        out += css.slice(index);
+        break;
+      }
+      const close = css.indexOf("}", open);
+      const selectors = css.slice(index, open);
+      const body = css.slice(open, close < 0 ? css.length : close + 1);
+      out += selectors.split(",").map((one) => one.trim()).filter(Boolean)
+        .map((one) => `${prefix} ${one}`).join(",") + body;
+      if (close < 0) break;
+      index = close + 1;
+    }
+    return out;
+  }
+
+  function matchingBrace(value, open) {
+    let depth = 0;
+    for (let index = open; index < value.length; index += 1) {
+      if (value[index] === "{") depth += 1;
+      else if (value[index] === "}" && --depth === 0) return index;
+    }
+    return -1;
+  }
+
+  function removeDuplicateCaptionFontFaces(svg, placeholder = CAPTION_FONT_PLACEHOLDER) {
+    let out = "";
+    let cursor = 0;
+    let keptPlaceholderFace = false;
+    for (;;) {
+      const start = svg.indexOf("@font-face", cursor);
+      if (start < 0) {
+        out += svg.slice(cursor);
+        break;
+      }
+      const open = svg.indexOf("{", start);
+      if (open < 0) {
+        out += svg.slice(cursor);
+        break;
+      }
+      const close = matchingBrace(svg, open);
+      if (close < 0) throw new Error("caption @font-face block is unterminated");
+      const block = svg.slice(start, close + 1);
+      out += svg.slice(cursor, start);
+      if (!block.includes(placeholder) || !keptPlaceholderFace) out += block;
+      if (block.includes(placeholder)) keptPlaceholderFace = true;
+      cursor = close + 1;
+    }
+    return out;
+  }
+
+  function captionRasterBand(value, config, html, sharedCss, bandCss, textureRect, bandIndex, offsetY) {
     const xhtml = serializeHtmlToXhtml(html);
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${config.width}" height="${config.height}" viewBox="0 0 ${config.width} ${config.height}">
-      <foreignObject width="100%" height="100%">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;${varsCss(value.vars)}">
-          <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${xhtml}
+    const prefix = `[data-akari-band="${bandIndex}"]`;
+    const scopedBandCss = scopeCaptionCss(bandCss, prefix);
+    return `<foreignObject x="0" y="${offsetY}" width="${config.width}" height="${textureRect.height}">
+      <div xmlns="http://www.w3.org/1999/xhtml" style="position:relative;width:${config.width}px;height:${textureRect.height}px;overflow:hidden">
+        <div class="akari-sprite-root" data-akari-band="${bandIndex}" style="position:absolute;left:0;top:${-textureRect.y}px;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;${varsCss(value.vars)}">
+          <style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}${sharedCss}${scopedBandCss}</style>${xhtml}
+        </div>
+      </div>
+    </foreignObject>`;
+  }
+
+  function captionRasterSvg(value, config, html, sharedCss, bandCss, textureRect) {
+    const xhtml = serializeHtmlToXhtml(html);
+    const scopedBandCss = scopeCaptionCss(bandCss, `[data-akari-band="0"]`);
+    return removeDuplicateCaptionFontFaces(`<svg xmlns="http://www.w3.org/2000/svg" width="${config.width}" height="${textureRect.height}" viewBox="0 ${textureRect.y} ${config.width} ${textureRect.height}">
+      <foreignObject x="0" y="0" width="${config.width}" height="${config.height}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" data-akari-band="0" style="position:relative;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;${varsCss(value.vars)}">
+          <style>html,body{margin:0;width:${config.width}px;height:${config.height}px;overflow:hidden}${sharedCss}${scopedBandCss}</style>${xhtml}
         </div>
       </foreignObject>
-    </svg>`;
+    </svg>`);
+  }
+
+  function captionBatchRasterSvg(batch, config) {
+    let offsetY = 0;
+    let bandIndex = 0;
+    const bands = [];
+    for (const unit of batch.units.filter((entry) => !entry.released)) {
+      for (const [stateIndex, bandCss] of unit.bandCss.entries()) {
+        bands.push({ unit, stateIndex, bandCss, bandIndex, offsetY, height: unit.textureRect.height });
+        offsetY += unit.textureRect.height;
+        bandIndex += 1;
+      }
+    }
+    const body = bands.map(({ unit, bandCss, bandIndex: index, offsetY: y }) => captionRasterBand(
+      unit.value,
+      config,
+      unit.html,
+      unit.sharedCss,
+      bandCss,
+      unit.textureRect,
+      index,
+      y,
+    )).join("");
+    return {
+      svg: removeDuplicateCaptionFontFaces(`<svg xmlns="http://www.w3.org/2000/svg" width="${config.width}" height="${offsetY}" viewBox="0 0 ${config.width} ${offsetY}">${body}</svg>`),
+      bands,
+      height: offsetY,
+    };
   }
 
   function assertCaptionSvg(svg, id) {
@@ -349,9 +498,10 @@
     if (parserError) throw new Error(`caption ${id} SVG parsererror: ${parserError.textContent}`);
   }
 
-  function assignCaptionImageSource(image, svg, fontDataUrl) {
-    const embeddedSvg = svg.replaceAll("/caption-font.ttf", fontDataUrl);
-    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(embeddedSvg)}`;
+  function assignCaptionImageSource(image, svg, encodedFont) {
+    const parts = svg.split(CAPTION_FONT_PLACEHOLDER);
+    if (parts.length > 2) throw new Error("caption SVG contains duplicate embedded font placeholders");
+    image.src = "data:image/svg+xml;charset=utf-8," + parts.map(encodeURIComponent).join(encodedFont);
   }
 
   async function decodeCaptionSvg(svg, id) {
@@ -369,38 +519,39 @@
     return image;
   }
 
-  async function rasterizeCaptionState(value, config, html, extraCss, textureRect) {
-    const settled = value.motion?.in?.duration_sec ?? value.motion?.in?.durationSec ?? 0.18;
-    const settleCss = `.akari-sprite-root,.akari-sprite-root *{animation-play-state:paused!important;animation-delay:-${Math.max(0, Number(settled) || 0)}s!important}`;
-    const svg = captionRasterSvg(value, config, html, `${settleCss}${extraCss}`);
-    assertCaptionSvg(svg, value.id);
-    const image = await decodeCaptionSvg(svg, value.id);
-    const canvas = document.createElement("canvas");
-    canvas.width = textureRect.width;
-    canvas.height = textureRect.height;
-    const context = canvas.getContext("2d", { alpha: true });
-    if (!context) throw new Error("caption 2D canvas is unavailable");
-    context.clearRect(0, 0, textureRect.width, textureRect.height);
-    context.drawImage(image, 0, -textureRect.y);
-    image.src = "";
-    return canvas;
-  }
-
-  async function registerCaptionUnit(unit, config, spriteCompositor) {
-    if (unit.registered || unit.released) throw new Error(`caption unit cannot be registered: ${unit.id}`);
-    for (const [index, css] of unit.rasterCss.entries()) {
-      const canvas = await rasterizeCaptionState(unit.value, config, unit.html, css, unit.textureRect);
-      const id = index === 0 ? unit.id : unit.secondaryId;
+  async function rasterizeCaptionBatch(batch, config, spriteCompositor) {
+    if (batch.registered) throw new Error(`caption batch cannot be registered twice: ${batch.index}`);
+    const raster = captionBatchRasterSvg(batch, config);
+    assertCaptionSvg(raster.svg, `batch-${batch.index}`);
+    const image = await decodeCaptionSvg(raster.svg, `batch-${batch.index}`);
+    const registeredUnits = new Set();
+    for (const band of raster.bands) {
+      const unit = band.unit;
+      if (unit.released) continue;
+      const id = band.stateIndex === 0 ? unit.id : unit.secondaryId;
       if (!id) throw new Error(`caption unit secondary id is missing: ${unit.id}`);
+      const canvas = document.createElement("canvas");
+      canvas.width = config.width;
+      canvas.height = band.height;
+      const context = canvas.getContext("2d", { alpha: true });
+      if (!context) throw new Error("caption 2D canvas is unavailable");
+      context.clearRect(0, 0, config.width, band.height);
+      context.drawImage(image, 0, band.offsetY, config.width, band.height, 0, 0, config.width, band.height);
       spriteCompositor.registerSprite(id, canvas);
       canvas.width = 0;
       canvas.height = 0;
-      await yieldMacrotask();
+      registeredUnits.add(unit);
     }
-    unit.registered = true;
-    unit.html = "";
-    unit.rasterCss = [];
-    unit.value = null;
+    image.src = "";
+    for (const unit of batch.units) {
+      if (registeredUnits.has(unit)) unit.registered = true;
+      unit.html = "";
+      unit.sharedCss = "";
+      unit.bandCss = [];
+      unit.value = null;
+    }
+    batch.registered = true;
+    return { units: registeredUnits.size, bands: raster.bands.length };
   }
 
   function releaseCaptionUnit(unit, spriteCompositor) {
@@ -412,12 +563,15 @@
     unit.registered = false;
     unit.released = true;
     unit.html = "";
-    unit.rasterCss = [];
+    unit.sharedCss = "";
+    unit.bandCss = [];
     unit.value = null;
   }
 
-  async function buildCaptionUnits(value, config) {
+  async function buildCaptionUnits(value, config, attemptsLog) {
     const html = captionHtmlWithUnitMarkers(value.html);
+    const settled = value.motion?.in?.duration_sec ?? value.motion?.in?.durationSec ?? 0.18;
+    const settleCss = `*{animation-play-state:paused!important;animation-delay:-${Math.max(0, Number(settled) || 0)}s!important}`;
     const probe = captionRoot(value, config, html, CAPTION_WORD_FREEZE_CSS);
     let unitCount;
     try {
@@ -431,7 +585,7 @@
     for (let unitIndex = 0; unitIndex < unitCount; unitIndex += 1) {
       const revealIndex = unitCount > 1 || html.includes("akari-caption__reveal-group") ? unitIndex : null;
       const unitCss = `${CAPTION_WORD_FREEZE_CSS}${captionUnitCss(revealIndex)}`;
-      const [probeMeasurement] = await measureCaptionVariants(value, config, html, [unitCss], unitIndex);
+      const [probeMeasurement] = await measureCaptionVariantsStable(value, config, html, [unitCss], unitIndex, attemptsLog);
       const roles = new Set(probeMeasurement.tokens.map((token) => token.role));
       const hasColor = roles.has("karaoke");
       const hasGeometry = ["pop", "reveal-word", "emphasis-bang", "emphasis-pulse"].some((role) => roles.has(role));
@@ -439,42 +593,44 @@
       const mode = hasColor ? "color" : hasGeometry ? "geometry" : "sprite";
       const id = `${value.id}::unit-${unitIndex}`;
       let secondaryId = null;
-      let rasterCss;
+      let bandCss;
       let tiles = null;
       let unitMeasurement = probeMeasurement;
       if (mode === "color") {
-        const baseCss = `${unitCss}.akari-caption__tok--karaoke{color:var(--caption-color,#fff)!important}`;
-        const highlightCss = `${unitCss}.akari-caption__tok--karaoke{color:var(--caption-highlight-color,#ffd94a)!important}`;
-        const [baseMeasurement, highlightMeasurement] = await measureCaptionVariants(
+        const baseCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-color,#fff)!important}`;
+        const highlightCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-highlight-color,#ffd94a)!important}`;
+        const [baseMeasurement, highlightMeasurement] = await measureCaptionVariantsStable(
           value,
           config,
           html,
-          [baseCss, highlightCss],
+          [`${CAPTION_WORD_FREEZE_CSS}${baseCss}`, `${CAPTION_WORD_FREEZE_CSS}${highlightCss}`],
           unitIndex,
+          attemptsLog,
         );
         // Keep the strict threshold: measuring variants in one root removes insertion jitter
         // instead of hiding a real layout mismatch by widening the tolerance.
         layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(baseMeasurement, highlightMeasurement, id));
         unitMeasurement = baseMeasurement;
-        rasterCss = [baseCss, highlightCss];
+        bandCss = [`${settleCss}${baseCss}`, `${settleCss}${highlightCss}`];
         secondaryId = `${id}::b`;
       } else if (mode === "geometry") {
-        const plateCss = `${unitCss}.akari-caption__tok,.akari-caption__emphasis-char{visibility:hidden!important}`;
-        const textCss = `${unitCss}.akari-caption__line,.akari-caption__block{background:transparent!important}`
+        const plateCss = `${captionUnitCss(revealIndex)}.akari-caption__tok,.akari-caption__emphasis-char{visibility:hidden!important}`;
+        const textCss = `${captionUnitCss(revealIndex)}.akari-caption__line,.akari-caption__block{background:transparent!important}`
           + `.akari-caption__line::before{background:transparent!important}`;
-        const [plateMeasurement, textMeasurement] = await measureCaptionVariants(
+        const [plateMeasurement, textMeasurement] = await measureCaptionVariantsStable(
           value,
           config,
           html,
-          [plateCss, textCss],
+          [`${CAPTION_WORD_FREEZE_CSS}${plateCss}`, `${CAPTION_WORD_FREEZE_CSS}${textCss}`],
           unitIndex,
+          attemptsLog,
         );
         layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(plateMeasurement, textMeasurement, id));
         unitMeasurement = plateMeasurement;
-        rasterCss = [plateCss, textCss];
+        bandCss = [`${settleCss}${plateCss}`, `${settleCss}${textCss}`];
         secondaryId = `${id}::b`;
       } else {
-        rasterCss = [unitCss];
+        bandCss = [`${settleCss}${captionUnitCss(revealIndex)}`];
       }
       const textureRect = FE.captionWordTextureRect(unitMeasurement, config);
       tiles = mode === "sprite"
@@ -485,7 +641,8 @@
         secondaryId,
         value: { id: value.id, motion: value.motion, vars: value.vars },
         html,
-        rasterCss,
+        sharedCss: CAPTION_WORD_FREEZE_CSS,
+        bandCss,
         textureRect,
         tiles,
         mode,
@@ -509,8 +666,25 @@
     return { units, layoutMaxDeltaPx };
   }
 
+  function buildCaptionBatches(units, maxUnits = CAPTION_BATCH_MAX_UNITS, maxHeight = CAPTION_BATCH_MAX_HEIGHT_PX) {
+    const batches = [];
+    let current = null;
+    for (const unit of units) {
+      const height = unit.textureRect.height * unit.bandCss.length;
+      if (height > maxHeight) throw new Error(`caption unit ${unit.id} exceeds batch height ${maxHeight}`);
+      if (current === null || current.units.length >= maxUnits || current.height + height > maxHeight) {
+        current = { index: batches.length, units: [], height: 0, registered: false };
+        batches.push(current);
+      }
+      unit.batchIndex = current.index;
+      current.units.push(unit);
+      current.height += height;
+    }
+    return batches;
+  }
+
   function embeddedCaptionFont() {
-    captionFontDataUrlPromise ??= (async () => {
+    captionEncodedFontPromise ??= (async () => {
       const response = await fetch("/caption-font.ttf");
       if (!response.ok) throw new Error(`caption font fetch failed: ${response.status}`);
       const bytes = new Uint8Array(await response.arrayBuffer());
@@ -518,9 +692,9 @@
       for (let index = 0; index < bytes.length; index += 0x8000) {
         binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
       }
-      return `data:font/ttf;base64,${btoa(binary)}`;
+      return encodeURIComponent(`data:font/ttf;base64,${btoa(binary)}`);
     })();
-    return captionFontDataUrlPromise;
+    return captionEncodedFontPromise;
   }
 
   function installReadbackTraps(counters) {
@@ -567,6 +741,12 @@
     return { count: values.length, p50: sorted[Math.floor((sorted.length - 1) * 0.5)], p95: sorted[Math.floor((sorted.length - 1) * 0.95)] };
   }
 
+  function summarizeAttempts(values) {
+    if (values.length === 0) return { count: 0, p50: null, max: null };
+    const sorted = [...values].sort((left, right) => left - right);
+    return { count: values.length, p50: sorted[Math.floor((sorted.length - 1) * 0.5)], max: sorted.at(-1) };
+  }
+
   window.__akariGpuRun = async function () {
     if (!FE || !bridge) throw new Error("GPU page dependencies are unavailable");
     const runtimeConfig = await bridge.config();
@@ -584,11 +764,15 @@
     const engine = new GpuFrameEngineRuntime(config);
     const finalCanvas = document.getElementById("akari-final");
     const spriteCompositor = new FE.SpriteCompositor(finalCanvas, { width: config.width, height: config.height });
-    const stages = { evaluate: [], three: [], captionRaster: [], captions: [], composite: [], encode: [], backpressure: [] };
+    const stages = { evaluate: [], three: [], captionRaster: [], captionRasterBatch: [], captions: [], composite: [], encode: [], backpressure: [] };
     const frameHashes = [];
     const threeRecords = new Map();
     const captionUnits = [];
     const captionRecords = [];
+    const captionMeasureAttemptValues = [];
+    let captionBatches = [];
+    let captionRasterTotalMs = 0;
+    const captionRasterBatchMetrics = { batches: 0, unitsPerBatchMax: 0, bandsMax: 0 };
     let captionLayoutMaxDeltaPx = 0;
     let threeRuntime = null;
     let queueWaits = 0;
@@ -601,13 +785,13 @@
         spriteCompositor.registerSprite(value.id, await rasterizeSprite(value, config));
       }
       for (const value of config.spriteManifest.captions) {
-        const built = await buildCaptionUnits(value, config);
+        const built = await buildCaptionUnits(value, config, captionMeasureAttemptValues);
         captionLayoutMaxDeltaPx = Math.max(captionLayoutMaxDeltaPx, built.layoutMaxDeltaPx);
         let rasters = 0;
         let tiles = 0;
         let words = 0;
         for (const unit of built.units) {
-          rasters += unit.rasterCss.length;
+          rasters += unit.bandCss.length;
           tiles += unit.tiles?.length ?? 0;
           words += unit.wordCount;
           captionUnits.push(unit);
@@ -620,10 +804,13 @@
           units: built.units.length,
           words,
           rasters,
+          bands: rasters,
           tiles,
         });
         value.html = "";
       }
+      captionUnits.sort((left, right) => left.cueStart - right.cueStart);
+      captionBatches = buildCaptionBatches(captionUnits);
       const overlayFrame = document.getElementById("akari-overlays");
       if (overlayFrame) {
         await new Promise((resolve) => {
@@ -700,9 +887,27 @@
             }
             if (seconds < unit.cueStart || seconds >= unit.cueStart + unit.cueDuration) continue;
             if (!unit.registered) {
-              const rasterStarted = performance.now();
-              await registerCaptionUnit(unit, config, spriteCompositor);
-              stages.captionRaster.push(performance.now() - rasterStarted);
+              const batch = captionBatches[unit.batchIndex];
+              if (!batch) throw new Error(`caption batch is missing: ${unit.batchIndex}`);
+              if (!batch.registered) {
+                const rasterStarted = performance.now();
+                const registered = await rasterizeCaptionBatch(batch, config, spriteCompositor);
+                const elapsed = performance.now() - rasterStarted;
+                stages.captionRasterBatch.push(elapsed);
+                captionRasterTotalMs += elapsed;
+                captionRasterBatchMetrics.batches += 1;
+                captionRasterBatchMetrics.unitsPerBatchMax = Math.max(
+                  captionRasterBatchMetrics.unitsPerBatchMax,
+                  registered.units,
+                );
+                captionRasterBatchMetrics.bandsMax = Math.max(captionRasterBatchMetrics.bandsMax, registered.bands);
+                if (registered.units <= 0) throw new Error(`caption batch registered no units: ${batch.index}`);
+                for (let index = 0; index < registered.units; index += 1) {
+                  stages.captionRaster.push(elapsed / registered.units);
+                }
+                await yieldMacrotask();
+              }
+              if (!unit.registered) throw new Error(`caption batch did not register active unit: ${unit.id}`);
             }
           }
           const captionStarted = performance.now();
@@ -788,6 +993,9 @@
               readbackCounters: counters,
               captions: captionRecords,
               captionLayoutMaxDeltaPx,
+              captionMeasureAttempts: summarizeAttempts(captionMeasureAttemptValues),
+              captionRasterTotalMs,
+              captionRasterBatches: captionRasterBatchMetrics,
             },
           });
         }
@@ -814,6 +1022,9 @@
           readbackCounters: counters,
           captions: captionRecords,
           captionLayoutMaxDeltaPx,
+          captionMeasureAttempts: summarizeAttempts(captionMeasureAttemptValues),
+          captionRasterTotalMs,
+          captionRasterBatches: captionRasterBatchMetrics,
         },
         mux,
         eligibility: config.eligibility,

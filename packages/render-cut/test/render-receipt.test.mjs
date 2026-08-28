@@ -61,9 +61,9 @@ function fixtureEdit() {
 test("GPU caption receipt vocabulary accepts only sprite and words-native", () => {
   assert.deepEqual(GPU_CAPTION_RECEIPT_MODES, ["sprite", "words-native"]);
   assert.deepEqual(normalizeGpuCaptionReceiptEntries([{
-    id: "c-0001-01", mode: "words-native", style: "karaoke", units: 1, words: 2, rasters: 2, tiles: 5,
+    id: "c-0001-01", mode: "words-native", style: "karaoke", units: 1, words: 2, rasters: 2, bands: 2, tiles: 5,
   }]), [{
-    id: "c-0001-01", mode: "words-native", style: "karaoke", units: 1, words: 2, rasters: 2, tiles: 5,
+    id: "c-0001-01", mode: "words-native", style: "karaoke", units: 1, words: 2, rasters: 2, bands: 2, tiles: 5,
   }]);
   assert.throws(() => normalizeGpuCaptionReceiptEntries([{
     id: "c-0001-01", mode: "karaoke", units: 1, words: 2, rasters: 2, tiles: 5,

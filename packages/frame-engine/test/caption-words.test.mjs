@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   buildCaptionWordTiles,
+  captionMeasurementsEqual,
   captionRevealGroupStateAt,
   captionWordTextureRect,
   captionWordStateAt,
@@ -56,6 +57,48 @@ test("reveal groups implement the 0/12/99.99/100 percent keyframes", () => {
 function rect(x, y, width, height) {
   return { x, y, width, height, right: x + width, bottom: y + height };
 }
+
+function measurement() {
+  return {
+    emPx: 40,
+    wordCount: 1,
+    reveal: false,
+    revealDelay: 0,
+    revealDuration: 0,
+    plate: rect(0, 40, 100, 30),
+    lines: [rect(0, 42, 100, 24)],
+    tokens: [{
+      tokenIndex: 0,
+      rectIndex: 0,
+      role: "pop",
+      style: "pop",
+      lineIndex: 0,
+      rect: rect(10, 44, 30, 20),
+      timing: { role: "pop", delaySec: 0.5, durationSec: 0.2, emPx: 40 },
+    }],
+  };
+}
+
+test("caption measurements require strict equality across every measured field", () => {
+  const value = measurement();
+  assert.equal(captionMeasurementsEqual(structuredClone(value), structuredClone(value)), true);
+
+  const yChanged = structuredClone(value);
+  yChanged.tokens[0].rect.y += 0.5;
+  assert.equal(captionMeasurementsEqual(value, yChanged), false);
+
+  const tokensChanged = structuredClone(value);
+  tokensChanged.tokens.push(structuredClone(tokensChanged.tokens[0]));
+  assert.equal(captionMeasurementsEqual(value, tokensChanged), false);
+
+  const plateChanged = structuredClone(value);
+  plateChanged.plate = null;
+  assert.equal(captionMeasurementsEqual(value, plateChanged), false);
+
+  const timingChanged = structuredClone(value);
+  timingChanged.tokens[0].timing.durationSec = 0.21;
+  assert.equal(captionMeasurementsEqual(value, timingChanged), false);
+});
 
 function intersects(left, right) {
   return left.x < right.x + right.width && right.x < left.x + left.width

@@ -1,5 +1,7 @@
 import { CAPTION_ANIMATION_RECIPES, splitCaptionLines } from "../../render-cut/src/captions.mjs";
 
+export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
+
 const OVERLAY_CONDITIONS = [
   ["absolute-external-url", /(?:file:\/\/\/|https?:\/\/)/iu, "external"],
   ["font-face-external-resource", /@font-face[\s\S]{0,2000}?src\s*:\s*url\((?!["']?data:)/iu, "external"],

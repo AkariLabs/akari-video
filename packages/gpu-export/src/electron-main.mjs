@@ -11,6 +11,7 @@ import { startStaticServer } from "../../osr-export/src/static-server.mjs";
 import { loadAndBuildGpuPage } from "./page-builder.mjs";
 import { muxMp4boxDirect } from "./mp4-mux.mjs";
 import { resolveGpuEncoding } from "./bitrate.mjs";
+import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
 
 const { app, BrowserWindow, ipcMain } = electron;
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -182,10 +183,12 @@ export async function runGpuExport(options) {
     await writeFile(runPath, `${JSON.stringify(run, null, 2)}\n`);
     return run;
   } catch (error) {
+    const reasonCode = gpuFailureReasonCode(error);
     const failed = {
       version: 1,
       status: "failed",
       error: String(error?.stack ?? error),
+      ...(reasonCode ? { reasonCode, warnings: [`${reasonCode}: GPU export failed closed`] } : {}),
       framesRequested: frames,
       memory: memorySampler.stop("failed"),
       eligibility: built.eligibility,
@@ -197,6 +200,11 @@ export async function runGpuExport(options) {
     if (windowRef && !windowRef.isDestroyed()) await destroyWindow(windowRef);
     await server.close().catch(() => {});
   }
+}
+
+export function gpuFailureReasonCode(error) {
+  const message = String(error?.stack ?? error);
+  return message.includes(CAPTION_MEASURE_UNSTABLE_REASON) ? CAPTION_MEASURE_UNSTABLE_REASON : null;
 }
 
 export function parseElectronArguments(argv) {

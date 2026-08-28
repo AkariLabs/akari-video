@@ -95,3 +95,90 @@ test("released sprite textures are removed and dispose does not delete them twic
   assert.equal(deleted.filter((texture) => texture.id === "released").length, 1);
   assert.equal(deleted.filter((texture) => texture.id === "live").length, 1);
 });
+
+test("compose reuses VAOs and suppresses redundant GL state within one frame", () => {
+  const calls = [];
+  const gl = {
+    FRAMEBUFFER: 1,
+    COLOR_BUFFER_BIT: 2,
+    TEXTURE0: 100,
+    TEXTURE_2D: 101,
+    UNPACK_FLIP_Y_WEBGL: 102,
+    UNPACK_PREMULTIPLY_ALPHA_WEBGL: 103,
+    RGBA: 104,
+    UNSIGNED_BYTE: 105,
+    BLEND: 106,
+    SRC_ALPHA: 107,
+    ONE_MINUS_SRC_ALPHA: 108,
+    TRIANGLE_STRIP: 109,
+    bindFramebuffer: (...args) => calls.push(["bindFramebuffer", ...args]),
+    clearColor: (...args) => calls.push(["clearColor", ...args]),
+    clear: (...args) => calls.push(["clear", ...args]),
+    useProgram: (...args) => calls.push(["useProgram", ...args]),
+    bindVertexArray: (...args) => calls.push(["bindVertexArray", ...args]),
+    activeTexture: (...args) => calls.push(["activeTexture", ...args]),
+    bindTexture: (...args) => calls.push(["bindTexture", ...args]),
+    pixelStorei: (...args) => calls.push(["pixelStorei", ...args]),
+    texImage2D: (...args) => calls.push(["texImage2D", ...args]),
+    uniformMatrix3fv: (...args) => calls.push(["uniformMatrix3fv", ...args]),
+    uniform1f: (...args) => calls.push(["uniform1f", ...args]),
+    uniform1i: (...args) => calls.push(["uniform1i", ...args]),
+    uniform4f: (...args) => calls.push(["uniform4f", ...args]),
+    enable: (...args) => calls.push(["enable", ...args]),
+    disable: (...args) => calls.push(["disable", ...args]),
+    blendFunc: (...args) => calls.push(["blendFunc", ...args]),
+    drawArrays: (...args) => calls.push(["drawArrays", ...args]),
+    flush: (...args) => calls.push(["flush", ...args]),
+  };
+  const base = { id: "base" };
+  const plain = { id: "plain" };
+  const cropped = { id: "cropped" };
+  const highlight = { id: "highlight" };
+  const compositor = Object.create(SpriteCompositor.prototype);
+  Object.assign(compositor, {
+    gl,
+    canvas: { width: 100, height: 100 },
+    program: { id: "program" },
+    vertexArray: { id: "vao" },
+    tileProgram: { id: "tile-program" },
+    tileVertexArray: { id: "tile-vao" },
+    matrixLocation: {},
+    opacityLocation: {},
+    tileUnitLocation: {},
+    tileTransformLocation: {},
+    tileSourceLocation: {},
+    tileDestinationLocation: {},
+    tileMixLocation: {},
+    tileOpacityLocation: {},
+    tileHighlightTextureLocation: {},
+    baseTexture: base,
+    sprites: new Map([
+      ["plain", plain],
+      ["cropped", cropped],
+      ["highlight", highlight],
+    ]),
+    disposed: false,
+  });
+
+  compositor.compose({}, [
+    { id: "plain", opacity: 1 },
+    { id: "plain", opacity: 1 },
+    { id: "cropped", opacity: 1, textureRect: { x: 0, y: 0, width: 100, height: 100 } },
+    { id: "cropped", opacity: 1, textureRect: { x: 0, y: 0, width: 100, height: 100 } },
+    { id: "cropped", secondaryId: "highlight", opacity: 1, tiles: [{ x: 0, y: 0, width: 100, height: 100 }] },
+    { id: "cropped", secondaryId: "highlight", opacity: 1, tiles: [{ x: 0, y: 0, width: 100, height: 100 }] },
+  ]);
+
+  const count = (name) => calls.filter(([call]) => call === name).length;
+  assert.equal(count("useProgram"), 2);
+  assert.equal(count("bindVertexArray"), 2);
+  assert.equal(count("blendFunc"), 1);
+  assert.equal(count("activeTexture"), 2);
+  assert.equal(count("bindTexture"), 4);
+  assert.equal(count("uniform1i"), 2);
+  assert.equal(count("drawArrays"), 7);
+  assert.equal(count("flush"), 1);
+  assert.equal(count("bindBuffer"), 0);
+  assert.equal(count("enableVertexAttribArray"), 0);
+  assert.equal(count("vertexAttribPointer"), 0);
+});

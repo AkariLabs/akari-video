@@ -21,7 +21,10 @@ karaoke、pop、reveal、reveal-word と対応済み `emphasis_words` は GPU-na
 receipt には `sprite` / `words-native` と unit・語・ラスタ・タイル数、2 状態のレイアウト差を記録します。
 
 ラスタ texture は出力幅を維持したまま字幕帯だけを縦方向に crop します。unit が初めて活性化したときに
-生成し、upload 後は CPU canvas を手放し、unit の終了時に GPU texture も解放します。
+開始時刻順の最大 8 unit / バンド高 4096 px のバッチを data URL で 1 回だけ decode し、variant CSS は
+バンド単位にスコープ、埋め込み font は SVG 内 1 本にします。採寸は厳密一致が 2 回続くまで最大 32 回
+行い、GPU texture は従来どおり unit 終了時に解放します。canvas / WebGL を汚染する Blob・HTTP URL は
+使用しません。
 
 karaoke の色変化と幾何 emphasis の混在、縦書きの語単位字幕、未知の word style は引き続き不適格で、
 具体的な理由を付けて fail-closed になります。

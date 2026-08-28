@@ -305,6 +305,7 @@ function finiteNumber(value: number, fallback: number): number {
 
 export {
   buildCaptionWordTiles,
+  captionMeasurementsEqual,
   captionRevealGroupStateAt,
   captionWordTextureRect,
   captionWordStateAt

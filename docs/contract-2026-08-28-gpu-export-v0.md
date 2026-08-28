@@ -42,6 +42,10 @@ CSS animation/transition/keyframes、filter/mask/clip-path 等を検出する。
 GPU 出口はその DOM を別実装で組み直さず、同じ DOM から `getClientRects()` で各語の矩形を採寸する。
 1 語が改行をまたいで複数矩形を返す場合は全矩形を保持する。縦長出力で style 無指定かつ
 `words[]` があり複数行になる cue は、正本と同じ行分割関数で reveal へ自動昇格する。
+採寸は独立した DOM root の挿入ごとに行い、全 variant の全測定値が 2 回連続で厳密一致するまで
+測り直す。上限は 32 回とし、収束しなければ `caption-measure-unstable` を理由コードと warning に残して
+fail-closed とする。HW で max 6、soft で max 7 だった実測に対する余裕として 32 回を採る。
+許容差、平均、丸めによって走間の揺らぎを隠さない。
 
 | 対象 | 毎コマの状態 |
 |---|---|
@@ -63,16 +67,27 @@ unit 1 個とする。unit ごとのラスタは最大 2 枚で、色モード�
 0.01 px 以下であることを起動時に検査し、超過は fail-closed とする。ラスタは unit ごとに 1 回だけ作り、毎コマは
 行ストリップと語境界でフレームを隙間なく分割した整数タイルを配列順に合成する。3 枚目や毎コマ rasterize は行わない。
 
-ラスタはフレーム全面ではなく、出力幅を維持した字幕帯だけを縦方向に crop する。unit の初回活性時に
-最大 2 枚を生成し、upload 後は CPU canvas を破棄、活性区間の終了時に GPU texture を解放する。
+ラスタ SVG はフレーム全面ではなく、出力幅を維持した字幕帯だけの `viewBox` を持つ。開始時刻順の
+連続する最大 8 unit、かつ全バンド高 4096 px 以下を 1 バッチとし、各 unit の 1〜2 状態を縦方向の
+バンドとして 1 枚の SVG に積み、デコードはバッチにつき 1 回だけ行う。variant CSS は
+`data-akari-band` ごとにスコープし、埋め込みフォントの `@font-face` は SVG 内に 1 本だけ置く。
+初めて必要になった unit のバッチをまとめて登録する一方、GPU texture は活性区間の終了時に unit ごとに
+解放し、バッチのために寿命を延ばさない。upload 後の切り出し用 CPU canvas とデコード画像も破棄する。
+
+SVG の入力は data URL に固定する。Blob URL と同一オリジン HTTP URL は SVG 内フォントを含む canvas を
+汚染し、`getImageData` だけでなく `texImage2D(canvas)` も `SecurityError` になるため使用しない。
+フォント data URL は `encodeURIComponent` 済みの文字列を 1 度だけ作って再利用し、生の base64 を
+キャッシュしない。
 
 適格な cue は理由 `words-native` とし、receipt に `mode`（`sprite` / `words-native`）、style、unit 数、
-語数、ラスタ枚数、タイル数と `captionLayoutMaxDeltaPx` を記録する。未知 style は
+語数、ラスタ枚数、バンド数、タイル数と `captionLayoutMaxDeltaPx`、採寸試行の count / p50 / max、
+バッチ実測、字幕ラスタ合計時間を記録する。未知 style は
 `caption-style-unsupported:<value>`、色と幾何の混在は `words-native-color-and-geometry-mixed` とする。
 
 検収は style 5 種 × 各 5 時刻について GPU / OSR decode の画面下 1/4 MAD 1.0 以下、語境界の対比画像
 6 枚以内の目視、語状態評価と合成の追加コスト中央値 1 ms/コマ以下、hardware / software の指定 fixture
-2 走一致、製品経路の読み戻し 0 を要求する。
+2 走一致、製品経路の読み戻し 0 を要求する。性能 gate は cue ラスタ p50 500 ms 以下、karaoke 44 cue の
+akari-video-pv 18 ms/コマ以下、小 fixture（360 コマ・3 cue）の RSS peak 900 MB 以下とする。
 
 `--engine auto` は macOS で全件適格なら `gpu`、不適格なら `osr` を選ぶ。他 OS の `auto` は従来の
 選択を維持する。明示 `--engine gpu` と不適格の組み合わせは理由を全件表示して fail-closed とし、

@@ -27,6 +27,7 @@ export function normalizeGpuCaptionReceiptEntries(value) {
       units: integer("units"),
       words: integer("words"),
       rasters: integer("rasters"),
+      bands: item.bands === undefined ? integer("rasters") : integer("bands"),
       tiles: integer("tiles"),
     };
   });

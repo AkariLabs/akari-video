@@ -39,6 +39,9 @@ export interface CaptionWordTileToken {
   rect: CaptionWordRect;
   timing: CaptionWordTiming | null;
   tokenIndex?: number;
+  rectIndex?: number;
+  role?: CaptionWordRole;
+  style?: string | null;
 }
 
 export interface CaptionWordTileMeasurement {
@@ -46,6 +49,10 @@ export interface CaptionWordTileMeasurement {
   tokens: readonly CaptionWordTileToken[];
   lines: readonly CaptionWordRect[];
   plate?: CaptionWordRect | null;
+  wordCount?: number;
+  reveal?: boolean;
+  revealDelay?: number;
+  revealDuration?: number;
 }
 
 export interface CaptionWordTile {
@@ -70,6 +77,51 @@ const identity = (): CaptionWordState => ({
   scaleX: 1,
   scaleY: 1
 });
+
+const RECT_KEYS = ['x', 'y', 'width', 'height', 'right', 'bottom'] as const;
+
+function captionRectsEqual(left: CaptionWordRect, right: CaptionWordRect): boolean {
+  return RECT_KEYS.every((key) => left[key] === right[key]);
+}
+
+function captionTimingsEqual(left: CaptionWordTiming | null, right: CaptionWordTiming | null): boolean {
+  if (left === null || right === null) return left === right;
+  return left.role === right.role
+    && left.delaySec === right.delaySec
+    && left.durationSec === right.durationSec
+    && left.emPx === right.emPx;
+}
+
+/** Strict equality for independently inserted DOM caption measurements. */
+export function captionMeasurementsEqual(
+  left: CaptionWordTileMeasurement,
+  right: CaptionWordTileMeasurement
+): boolean {
+  if (left.tokens.length !== right.tokens.length || left.lines.length !== right.lines.length) return false;
+  if (left.emPx !== right.emPx
+      || left.wordCount !== right.wordCount
+      || left.reveal !== right.reveal
+      || left.revealDelay !== right.revealDelay
+      || left.revealDuration !== right.revealDuration) return false;
+  if (left.plate === null || left.plate === undefined || right.plate === null || right.plate === undefined) {
+    if (left.plate !== right.plate) return false;
+  } else if (!captionRectsEqual(left.plate, right.plate)) return false;
+  for (let index = 0; index < left.lines.length; index += 1) {
+    if (!captionRectsEqual(left.lines[index]!, right.lines[index]!)) return false;
+  }
+  for (let index = 0; index < left.tokens.length; index += 1) {
+    const a = left.tokens[index]!;
+    const b = right.tokens[index]!;
+    if (a.tokenIndex !== b.tokenIndex
+        || a.rectIndex !== b.rectIndex
+        || a.role !== b.role
+        || a.style !== b.style
+        || a.lineIndex !== b.lineIndex
+        || !captionRectsEqual(a.rect, b.rect)
+        || !captionTimingsEqual(a.timing, b.timing)) return false;
+  }
+  return true;
+}
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 const lerp = (left: number, right: number, progress: number): number => left + (right - left) * clamp01(progress);

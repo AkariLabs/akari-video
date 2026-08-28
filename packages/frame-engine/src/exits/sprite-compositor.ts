@@ -48,6 +48,15 @@ interface NormalizedSpriteTile extends Required<Omit<SpriteTile, 'visible'>> {
   visible: boolean;
 }
 
+interface SpriteComposeState {
+  program: WebGLProgram | null;
+  vertexArray: WebGLVertexArrayObject | null;
+  blend: boolean | null;
+  activeTextureUnit: number | null;
+  textures: Map<number, WebGLTexture>;
+  highlightSamplerUnit: number | null;
+}
+
 function finite(value: number | undefined, fallback: number, label: string): number {
   const resolved = value ?? fallback;
   if (!Number.isFinite(resolved)) throw new Error(`${label} must be finite`);
@@ -200,17 +209,18 @@ export class SpriteCompositor {
   private readonly program: WebGLProgram;
   private readonly matrixLocation: WebGLUniformLocation;
   private readonly opacityLocation: WebGLUniformLocation;
-  private readonly positionLocation: number;
   private readonly vertexBuffer: WebGLBuffer;
+  private readonly vertexArray: WebGLVertexArrayObject;
   private readonly tileProgram: WebGLProgram;
-  private readonly tilePositionLocation: number;
   private readonly tileVertexBuffer: WebGLBuffer;
+  private readonly tileVertexArray: WebGLVertexArrayObject;
   private readonly tileUnitLocation: WebGLUniformLocation;
   private readonly tileTransformLocation: WebGLUniformLocation;
   private readonly tileSourceLocation: WebGLUniformLocation;
   private readonly tileDestinationLocation: WebGLUniformLocation;
   private readonly tileMixLocation: WebGLUniformLocation;
   private readonly tileOpacityLocation: WebGLUniformLocation;
+  private readonly tileHighlightTextureLocation: WebGLUniformLocation;
   private readonly baseTexture: WebGLTexture;
   private readonly sprites = new Map<string, WebGLTexture>();
   private disposed = false;
@@ -262,12 +272,16 @@ export class SpriteCompositor {
     const buffer = gl.createBuffer();
     if (!buffer) throw new Error('sprite compositor could not create vertex buffer');
     this.vertexBuffer = buffer;
+    const vertexArray = gl.createVertexArray();
+    if (!vertexArray) throw new Error('sprite compositor could not create vertex array');
+    this.vertexArray = vertexArray;
+    gl.bindVertexArray(vertexArray);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
     const position = gl.getAttribLocation(program, 'position');
-    this.positionLocation = position;
     gl.enableVertexAttribArray(position);
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
     const matrixLocation = gl.getUniformLocation(program, 'transform');
     const opacityLocation = gl.getUniformLocation(program, 'opacity');
     if (!matrixLocation || !opacityLocation) throw new Error('sprite compositor uniforms are unavailable');
@@ -318,9 +332,16 @@ export class SpriteCompositor {
     const tileBuffer = gl.createBuffer();
     if (!tileBuffer) throw new Error('sprite compositor could not create tile vertex buffer');
     this.tileVertexBuffer = tileBuffer;
+    const tileVertexArray = gl.createVertexArray();
+    if (!tileVertexArray) throw new Error('sprite compositor could not create tile vertex array');
+    this.tileVertexArray = tileVertexArray;
+    gl.bindVertexArray(tileVertexArray);
     gl.bindBuffer(gl.ARRAY_BUFFER, tileBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-    this.tilePositionLocation = gl.getAttribLocation(tileProgram, 'position');
+    const tilePosition = gl.getAttribLocation(tileProgram, 'position');
+    gl.enableVertexAttribArray(tilePosition);
+    gl.vertexAttribPointer(tilePosition, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
     const requiredUniform = (name: string): WebGLUniformLocation => {
       const location = gl.getUniformLocation(tileProgram, name);
       if (!location) throw new Error(`sprite tile compositor uniform is unavailable: ${name}`);
@@ -332,9 +353,10 @@ export class SpriteCompositor {
     this.tileDestinationLocation = requiredUniform('uDst');
     this.tileMixLocation = requiredUniform('uMix');
     this.tileOpacityLocation = requiredUniform('uOpacity');
+    this.tileHighlightTextureLocation = requiredUniform('highlightImage');
     gl.useProgram(tileProgram);
     gl.uniform1i(gl.getUniformLocation(tileProgram, 'baseImage'), 0);
-    gl.uniform1i(gl.getUniformLocation(tileProgram, 'highlightImage'), 1);
+    gl.uniform1i(this.tileHighlightTextureLocation, 1);
     gl.uniform2f(gl.getUniformLocation(tileProgram, 'uCanvas'), canvas.width, canvas.height);
     this.baseTexture = createTexture(gl);
     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -367,26 +389,33 @@ export class SpriteCompositor {
   compose(base: TexImageSource, draws: readonly SpriteDraw[]): void {
     this.assertUsable();
     const gl = this.gl;
-    gl.useProgram(this.program);
+    const state: SpriteComposeState = {
+      program: null,
+      vertexArray: null,
+      blend: null,
+      activeTextureUnit: null,
+      textures: new Map(),
+      highlightSamplerUnit: null
+    };
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    this.upload(this.baseTexture, base);
-    this.draw(this.baseTexture, { id: '__base__', opacity: 1 }, false);
+    this.upload(this.baseTexture, base, state);
+    this.draw(this.baseTexture, { id: '__base__', opacity: 1 }, false, state);
     for (const draw of draws) {
       const texture = this.sprites.get(draw.id);
       if (!texture) throw new Error(`unknown sprite: ${draw.id}`);
       if (draw.tiles !== undefined) {
         const secondary = draw.secondaryId === undefined ? texture : this.sprites.get(draw.secondaryId);
         if (!secondary) throw new Error(`unknown secondary sprite: ${draw.secondaryId}`);
-        this.drawTiles(texture, secondary, draw);
+        this.drawTiles(texture, secondary, draw, state);
       } else if (draw.textureRect !== undefined) {
         this.drawTiles(texture, texture, {
           ...draw,
           tiles: [{ ...draw.textureRect }]
-        });
+        }, state);
       } else {
-        this.draw(texture, draw, true);
+        this.draw(texture, draw, true, state);
       }
     }
     gl.flush();
@@ -398,42 +427,43 @@ export class SpriteCompositor {
     this.gl.deleteTexture(this.baseTexture);
     for (const texture of this.sprites.values()) this.gl.deleteTexture(texture);
     this.sprites.clear();
+    if (this.vertexArray) this.gl.deleteVertexArray?.(this.vertexArray);
+    if (this.tileVertexArray) this.gl.deleteVertexArray?.(this.tileVertexArray);
     this.gl.deleteBuffer(this.vertexBuffer);
     this.gl.deleteBuffer(this.tileVertexBuffer);
     this.gl.deleteProgram(this.program);
     this.gl.deleteProgram(this.tileProgram);
   }
 
-  private upload(texture: WebGLTexture, source: TexImageSource): void {
+  private upload(texture: WebGLTexture, source: TexImageSource, state?: SpriteComposeState): void {
     const gl = this.gl;
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
+    if (state) this.bindTexture(0, texture, state);
+    else {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+    }
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   }
 
-  private draw(texture: WebGLTexture, draw: SpriteDraw, blend: boolean): void {
+  private draw(texture: WebGLTexture, draw: SpriteDraw, blend: boolean, state: SpriteComposeState): void {
     const gl = this.gl;
     const value = normalizeSpriteDraw(draw);
-    gl.useProgram(this.program);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-    gl.enableVertexAttribArray(this.positionLocation);
-    gl.vertexAttribPointer(this.positionLocation, 2, gl.FLOAT, false, 0, 0);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
+    this.usePipeline(this.program, this.vertexArray, state);
+    this.bindTexture(0, texture, state);
     gl.uniformMatrix3fv(this.matrixLocation, false, spriteTransformMatrix(value, this.canvas.width, this.canvas.height));
     gl.uniform1f(this.opacityLocation, value.opacity);
-    if (blend) {
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    } else {
-      gl.disable(gl.BLEND);
-    }
+    this.setBlend(blend, state);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
-  private drawTiles(base: WebGLTexture, secondary: WebGLTexture, draw: SpriteDraw): void {
+  private drawTiles(
+    base: WebGLTexture,
+    secondary: WebGLTexture,
+    draw: SpriteDraw,
+    state: SpriteComposeState
+  ): void {
     const gl = this.gl;
     const unit = normalizeSpriteDraw(draw);
     const textureRect = normalizeSpriteTextureRect(
@@ -441,17 +471,16 @@ export class SpriteCompositor {
       this.canvas.width,
       this.canvas.height
     );
-    gl.useProgram(this.tileProgram);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.tileVertexBuffer);
-    gl.enableVertexAttribArray(this.tilePositionLocation);
-    gl.vertexAttribPointer(this.tilePositionLocation, 2, gl.FLOAT, false, 0, 0);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, base);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, secondary);
+    this.usePipeline(this.tileProgram, this.tileVertexArray, state);
+    this.bindTexture(0, base, state);
+    const highlightSamplerUnit = secondary === base ? 0 : 1;
+    if (state.highlightSamplerUnit !== highlightSamplerUnit) {
+      gl.uniform1i(this.tileHighlightTextureLocation, highlightSamplerUnit);
+      state.highlightSamplerUnit = highlightSamplerUnit;
+    }
+    if (secondary !== base) this.bindTexture(1, secondary, state);
     gl.uniformMatrix3fv(this.tileUnitLocation, false, spriteTransformMatrix(unit, this.canvas.width, this.canvas.height));
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    this.setBlend(true, state);
     for (const tile of draw.tiles ?? []) {
       const value = normalizeSpriteTile(tile);
       if (!value.visible) continue;
@@ -463,7 +492,43 @@ export class SpriteCompositor {
       gl.uniform1f(this.tileOpacityLocation, unit.opacity * value.opacity);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
-    gl.activeTexture(gl.TEXTURE0);
+  }
+
+  private usePipeline(
+    program: WebGLProgram,
+    vertexArray: WebGLVertexArrayObject,
+    state: SpriteComposeState
+  ): void {
+    if (state.program !== program) {
+      this.gl.useProgram(program);
+      state.program = program;
+    }
+    if (state.vertexArray !== vertexArray) {
+      this.gl.bindVertexArray(vertexArray);
+      state.vertexArray = vertexArray;
+    }
+  }
+
+  private bindTexture(unit: number, texture: WebGLTexture, state: SpriteComposeState): void {
+    const gl = this.gl;
+    if (state.textures.get(unit) === texture) return;
+    if (state.activeTextureUnit !== unit) {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      state.activeTextureUnit = unit;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    state.textures.set(unit, texture);
+  }
+
+  private setBlend(blend: boolean, state: SpriteComposeState): void {
+    if (state.blend === blend) return;
+    if (blend) {
+      this.gl.enable(this.gl.BLEND);
+      this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+    } else {
+      this.gl.disable(this.gl.BLEND);
+    }
+    state.blend = blend;
   }
 
   private assertUsable(): void {
