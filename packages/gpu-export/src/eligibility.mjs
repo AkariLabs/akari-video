@@ -5,12 +5,17 @@ const OVERLAY_CONDITIONS = [
   ["font-face-external-resource", /@font-face[\s\S]{0,2000}?src\s*:\s*url\((?!["']?data:)/iu, "external"],
   ["image-external-resource", /<img\b[^>]*\bsrc\s*=\s*["'](?!data:)/iu, "external"],
   ["background-image-external-resource", /background(?:-image)?\s*:[^;}]*url\((?!["']?data:)/iu, "external"],
-  ["three-or-canvas-runtime", /data-akari-3d-scene|<canvas\b|<video\b/iu, "dynamic"],
-  ["script-runtime", /<script\b(?![^>]*type=["']application\/json)/iu, "dynamic"],
   ["embedded-context", /<(?:iframe|object|embed)\b/iu, "dynamic"],
-  ["animation-timing", /@keyframes|\banimation\s*:|\btransition\s*:/iu, "dynamic"],
+  ["css-3d-transform", /perspective\s*:|perspective\s*\(|transform-style\s*:\s*preserve-3d|rotateX\s*\(|rotateY\s*\(|rotate3d\s*\(|matrix3d\s*\(|translateZ\s*\(|translate3d\s*\(/iu, "dynamic"],
+  ["self-driving-clock", /requestAnimationFrame\s*\(|setTimeout\s*\(|setInterval\s*\(|Date\.now\s*\(|performance\.now\s*\(/iu, "dynamic"],
+  ["media-element", /<(?:video|audio)\b/iu, "dynamic"],
+  ["three-or-canvas-runtime", /data-akari-3d-scene|<canvas\b/iu, "dynamic"],
+  ["script-runtime", /<script\b(?![^>]*type=["']application\/json)/iu, "dynamic"],
+  ["animation-timing", /@keyframes|@property|\banimation(?:-[a-z-]+)?\s*:|\btransition(?:-[a-z-]+)?\s*:/iu, "dynamic"],
   ["advanced-css", /backdrop-filter|mix-blend-mode|filter\s*:|mask(?:-image)?\s*:|clip-path\s*:/iu, "dynamic"],
 ];
+
+const DOM_LAYER_CONDITIONS = new Set(["animation-timing", "advanced-css"]);
 
 const UNSUPPORTED_MOTIONS = new Set([
   "push-left", "push-right", "push-up", "push-down", "typewriter", "wipe-left", "wipe-right",
@@ -35,6 +40,8 @@ export function evaluateGpuEligibility({
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
     } else if (names.length === 0) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "same", "static-html-sprite", []));
+    } else if (names.every((name) => DOM_LAYER_CONDITIONS.has(name))) {
+      entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "dom-layer-draw-element", names));
     } else {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", names.join(", "), names));
     }
@@ -68,7 +75,7 @@ export function evaluateGpuEligibility({
     entries.push(entry("edit", "emphasis_words", "unsupported", "emphasis-words-unsupported-in-v0", ["emphasis_words"]));
   }
 
-  const summary = { same: 0, three: 0, degraded: 0, unsupported: 0 };
+  const summary = { same: 0, three: 0, dom: 0, degraded: 0, unsupported: 0 };
   for (const value of entries) summary[value.classification] += 1;
   return {
     eligible: summary.degraded === 0 && summary.unsupported === 0,
@@ -79,7 +86,6 @@ export function evaluateGpuEligibility({
 
 function isThreeOnlyOverlay(html, conditions) {
   if (conditions.length !== 1 || conditions[0] !== "three-or-canvas-runtime") return false;
-  if (/<video\b/iu.test(html)) return false;
   const scripts = html.match(/<script\b[^>]*>/giu) ?? [];
   const declarations = scripts.filter((tag) =>
     /\btype\s*=\s*["']application\/json["']/iu.test(tag)

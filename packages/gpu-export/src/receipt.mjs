@@ -20,6 +20,7 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       queueWaits: run?.gpu?.queueWaits ?? null,
       rss_peak: memory.peakBytes ?? null,
       readback: run?.gpu?.readbackCounters ?? {},
+      domLayer: run?.domLayer ?? null,
       eligibility: [...(eligibility?.entries ?? [])],
     },
     memory: {

@@ -219,6 +219,288 @@
     return { count: values.length, p50: sorted[Math.floor((sorted.length - 1) * 0.5)], p95: sorted[Math.floor((sorted.length - 1) * 0.95)] };
   }
 
+  function sentinelColor(frameNumber) {
+    const mod = (value, divisor) => ((value % divisor) + divisor) % divisor;
+    return [
+      16 + mod(frameNumber, 224),
+      16 + mod(frameNumber * 5 + 37, 224),
+      16 + mod(frameNumber * 11 + 73, 224),
+    ];
+  }
+
+  function parseRgb(value) {
+    const match = String(value).match(/rgba?\(\s*(\d+)\D+(\d+)\D+(\d+)/i);
+    return match ? match.slice(1, 4).map(Number) : null;
+  }
+
+  function sameRgb(left, right) {
+    return Array.isArray(left) && left.length === 3 && left.every((value, index) => value === right[index]);
+  }
+
+  function chooseSettlePolicy(host) {
+    return typeof host?.requestPaint === "function" ? "raf2-paint-event" : "sync-layout";
+  }
+
+  function runActiveAt(run, seconds) {
+    return run.entries.some((value) => activeAt(value, seconds));
+  }
+
+  function orderedSpriteDraws(manifest, seconds, domRuntime) {
+    const values = [];
+    for (const value of manifest.statics) {
+      if (activeAt(value, seconds)) values.push({ index: value.index, id: value.id, opacity: 1 });
+    }
+    for (const value of manifest.three) {
+      if (activeAt(value, seconds)) values.push({ index: value.index, id: value.id, opacity: 1 });
+    }
+    for (const run of manifest.dom ?? []) {
+      if (domRuntime.activeAt(run, seconds)) values.push({ index: run.index, id: run.runId, opacity: 1 });
+    }
+    return values.sort((left, right) => left.index - right.index)
+      .map(({ id, opacity }) => ({ id, opacity }));
+  }
+
+  function styleVariables(element, vars) {
+    for (const [name, value] of Object.entries(vars ?? {})) {
+      if (/^--[a-z0-9_-]+$/i.test(name)) element.style.setProperty(name, String(value).replace(/[;{}]/g, ""));
+    }
+  }
+
+  function nextAnimationFrame() {
+    return new Promise((resolve) => requestAnimationFrame(resolve));
+  }
+
+  class DomLayerRuntime {
+    constructor(config, runs, spriteCompositor, verifier = null) {
+      this.config = config;
+      this.runs = runs ?? [];
+      this.spriteCompositor = spriteCompositor;
+      this.verifier = verifier;
+      this.records = new Map();
+      this.settlePolicy = null;
+      this.api = { drawElementImage: null, devicePixelRatio: window.devicePixelRatio };
+      this.metrics = { timeFixMs: [], waitMs: [], drawElementMs: [], uploadMs: [], domLayerCostMs: [], frameCostMs: [] };
+      this.sentinel = {
+        checked: Boolean(config.verifyFrames && this.runs.length > 0),
+        mode: config.verifyFrames && this.runs.length > 0 ? "css-mod" : "disabled",
+        tolerance: 8,
+        requested: 0,
+        matched: 0,
+        mismatchCount: 0,
+        mismatches: [],
+      };
+    }
+
+    async mount() {
+      if (this.runs.length === 0) return;
+      if (window.devicePixelRatio !== 1) {
+        throw new Error(`GPU DOM layer requires devicePixelRatio 1, got ${window.devicePixelRatio}`);
+      }
+      const stage = document.getElementById("akari-dom-stage");
+      if (!stage) throw new Error("GPU DOM layer stage is missing");
+      if (this.runs.some((run) => run.entries.some((entry) => entry.html.includes("/caption-font.ttf")))) {
+        const fontStyle = document.createElement("style");
+        fontStyle.textContent = "@font-face{font-family:'Noto Sans JP';src:url('/caption-font.ttf') format('truetype');font-display:block}";
+        stage.appendChild(fontStyle);
+      }
+      for (const run of this.runs) {
+        const host = document.createElement("canvas");
+        host.className = "akari-dom-host";
+        host.setAttribute("layoutsubtree", "");
+        host.width = this.config.width;
+        host.height = this.config.height;
+        stage.appendChild(host);
+        const context = host.getContext("2d", { alpha: true });
+        const overlayIds = run.entries.map((entry) => entry.id).join(", ");
+        if (!context || typeof context.drawElementImage !== "function") {
+          this.api.drawElementImage = false;
+          throw new Error(`GPU DOM layer requires CanvasRenderingContext2D.drawElementImage (--enable-features=CanvasDrawElement); overlays: ${overlayIds}`);
+        }
+        this.api.drawElementImage = true;
+        const root = document.createElement("div");
+        root.className = "akari-dom-root";
+        host.appendChild(root);
+        const tick = document.createElement("div");
+        tick.setAttribute("aria-hidden", "true");
+        host.appendChild(tick);
+        let sentinel = null;
+        if (this.config.verifyFrames) {
+          sentinel = document.createElement("div");
+          sentinel.className = "akari-dom-sentinel";
+          sentinel.setAttribute("aria-hidden", "true");
+          sentinel.style.background = "rgb(calc(16 + mod(var(--frame), 224)) calc(16 + mod(var(--frame) * 5 + 37, 224)) calc(16 + mod(var(--frame) * 11 + 73, 224)))";
+          root.prepend(sentinel);
+        }
+        const containers = [];
+        for (const entry of run.entries) {
+          const container = document.createElement("div");
+          container.className = "akari-dom-container scene clip";
+          container.dataset.overlayId = entry.id;
+          container.dataset.start = String(entry.start);
+          container.dataset.duration = String(entry.duration);
+          if (entry.params && typeof entry.params === "object") container.dataset.akariParams = JSON.stringify(entry.params);
+          styleVariables(container, entry.vars);
+          const content = document.createElement("div");
+          content.className = "scene-content";
+          content.insertAdjacentHTML("beforeend", entry.html);
+          container.appendChild(content);
+          root.appendChild(container);
+          containers.push({ entry, container });
+        }
+        this.records.set(run.runId, { host, context, root, tick, sentinel, containers });
+        this.spriteCompositor.registerSprite(run.runId, host);
+        if (this.settlePolicy === null) this.settlePolicy = chooseSettlePolicy(host);
+      }
+      await document.fonts.ready;
+      if (this.config.verifyFrames) this.verifySentinelCss();
+    }
+
+    verifySentinelCss() {
+      for (const record of this.records.values()) {
+        for (const frameNumber of [0, 17, 223]) {
+          record.sentinel.style.setProperty("--frame", String(frameNumber));
+          if (!sameRgb(parseRgb(getComputedStyle(record.sentinel).backgroundColor), sentinelColor(frameNumber))) {
+            this.sentinel.mode = "js-channels";
+            break;
+          }
+        }
+      }
+    }
+
+    activeAt(run, seconds) {
+      return runActiveAt(run, seconds);
+    }
+
+    async settle(record) {
+      if (this.settlePolicy === "sync-layout") {
+        const active = record.containers.find(({ container }) => container.hasAttribute("data-akari-active"));
+        if (active) void getComputedStyle(active.container).backgroundColor;
+        void record.root.getBoundingClientRect();
+        void record.host.offsetHeight;
+        return;
+      }
+      await nextAnimationFrame();
+      await nextAnimationFrame();
+      await new Promise((resolve) => {
+        let finished = false;
+        const finish = () => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timer);
+          record.host.removeEventListener("paint", onPaint);
+          resolve();
+        };
+        const onPaint = () => finish();
+        const timer = setTimeout(finish, 250);
+        record.host.addEventListener("paint", onPaint, { once: true });
+        record.tick.style.opacity = record.tick.style.opacity === "0" ? "0.001" : "0";
+        try { record.host.requestPaint(); } catch { finish(); }
+      });
+    }
+
+    setSentinelFrame(record, frameNumber) {
+      if (!record.sentinel) return;
+      const color = sentinelColor(frameNumber);
+      if (this.sentinel.mode === "css-mod") {
+        record.sentinel.style.setProperty("--frame", String(frameNumber));
+      } else {
+        record.sentinel.style.setProperty("--frame-r", String(color[0]));
+        record.sentinel.style.setProperty("--frame-g", String(color[1]));
+        record.sentinel.style.setProperty("--frame-b", String(color[2]));
+        record.sentinel.style.background = "rgb(var(--frame-r) var(--frame-g) var(--frame-b))";
+      }
+    }
+
+    async captureRun(run, seconds, frameNumber) {
+      const record = this.records.get(run.runId);
+      if (!record) throw new Error(`GPU DOM layer record is missing: ${run.runId}`);
+      const started = performance.now();
+      for (const { entry, container } of record.containers) {
+        const active = activeAt(entry, seconds);
+        container.style.visibility = active ? "visible" : "hidden";
+        container.toggleAttribute("data-akari-active", active);
+        if (!active) continue;
+        for (const animation of container.getAnimations({ subtree: true })) {
+          try { animation.pause(); } catch {}
+          try { animation.currentTime = Math.max(0, seconds - entry.start) * 1000; } catch {}
+        }
+      }
+      this.setSentinelFrame(record, frameNumber);
+      const timeFixMs = performance.now() - started;
+      const waitStarted = performance.now();
+      await this.settle(record);
+      const waitMs = performance.now() - waitStarted;
+      const drawStarted = performance.now();
+      const context = record.context;
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.globalAlpha = 1;
+      context.clearRect(0, 0, this.config.width, this.config.height);
+      const computed = getComputedStyle(record.root);
+      const opacity = Number.parseFloat(computed.opacity);
+      if (Number.isFinite(opacity)) context.globalAlpha = Math.max(0, Math.min(1, opacity));
+      if (computed.transform && computed.transform !== "none") {
+        const matrix = new DOMMatrix(computed.transform);
+        const origin = computed.transformOrigin.split(" ");
+        const x = Number.parseFloat(origin[0]) || 0;
+        const y = Number.parseFloat(origin[1]) || 0;
+        context.translate(x, y);
+        context.transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+        context.translate(-x, -y);
+      }
+      await Promise.resolve(context.drawElementImage(record.root, 0, 0));
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.globalAlpha = 1;
+      const drawElementMs = performance.now() - drawStarted;
+      const uploadStarted = performance.now();
+      this.spriteCompositor.updateSprite(run.runId, record.host);
+      const uploadMs = performance.now() - uploadStarted;
+      const domLayerCostMs = timeFixMs + waitMs + drawElementMs + uploadMs;
+      for (const [name, value] of Object.entries({ timeFixMs, waitMs, drawElementMs, uploadMs, domLayerCostMs })) {
+        this.metrics[name].push(value);
+      }
+      if (this.verifier && record.sentinel) {
+        const expected = sentinelColor(frameNumber);
+        const result = this.verifier.verify(record.host, expected, this.sentinel.tolerance);
+        this.sentinel.requested += 1;
+        if (result.matched) this.sentinel.matched += 1;
+        else {
+          this.sentinel.mismatchCount += 1;
+          if (this.sentinel.mismatches.length < 10) this.sentinel.mismatches.push({ frame: frameNumber, runId: run.runId, expected, actual: result.actual });
+        }
+      }
+      return { timeFixMs, waitMs, drawElementMs, uploadMs, domLayerCostMs };
+    }
+
+    recordFrameCost(value) {
+      this.metrics.frameCostMs.push(value);
+    }
+
+    summary() {
+      const totals = summarize(this.metrics.frameCostMs);
+      return {
+        runs: this.runs.length,
+        overlays: this.runs.reduce((sum, run) => sum + run.entries.length, 0),
+        policy: this.settlePolicy,
+        flags: Array.isArray(this.config.domLayerFlags) ? [...this.config.domLayerFlags] : [],
+        api: { ...this.api, available: this.api.drawElementImage, settlePolicy: this.settlePolicy },
+        cost: {
+          p50: totals.p50,
+          p95: totals.p95,
+          breakdown: Object.fromEntries(Object.entries(this.metrics).map(([name, values]) => [name, summarize(values)])),
+        },
+        sentinel: this.sentinel,
+      };
+    }
+
+    dispose() {
+      this.verifier?.dispose?.();
+      for (const record of this.records.values()) record.host.remove();
+      this.records.clear();
+    }
+  }
+
+  window.__akariGpuDomInternals = { sentinelColor, chooseSettlePolicy, runActiveAt, orderedSpriteDraws };
+
   window.__akariGpuRun = async function () {
     if (!FE || !bridge) throw new Error("GPU page dependencies are unavailable");
     const runtimeConfig = await bridge.config();
@@ -236,7 +518,7 @@
     const engine = new GpuFrameEngineRuntime(config);
     const finalCanvas = document.getElementById("akari-final");
     const spriteCompositor = new FE.SpriteCompositor(finalCanvas, { width: config.width, height: config.height });
-    const stages = { evaluate: [], three: [], composite: [], encode: [], backpressure: [] };
+    const stages = { evaluate: [], three: [], dom: [], composite: [], encode: [], backpressure: [] };
     const frameHashes = [];
     const threeRecords = new Map();
     let threeRuntime = null;
@@ -244,6 +526,7 @@
     let encoder = null;
     let supported = false;
     let hashFrame = null;
+    let domRuntime = null;
     const started = performance.now();
     try {
       if (config.spriteManifest.captions.length > 0) {
@@ -275,10 +558,17 @@
           spriteCompositor.registerSprite(value.id, canvas);
         }
       }
+      let verifyModule = null;
       if (config.verifyFrames) {
         const moduleUrl = `data:text/javascript;charset=utf-8,${encodeURIComponent(config.verifyReadbackModule)}`;
-        hashFrame = (await import(moduleUrl)).hashCanvasFrame;
+        verifyModule = await import(moduleUrl);
+        hashFrame = verifyModule.hashCanvasFrame;
       }
+      const sentinelVerifier = config.verifyFrames && config.spriteManifest.dom?.length > 0
+        ? verifyModule.createDomLayerSentinelVerifier(config.width, config.height)
+        : null;
+      domRuntime = new DomLayerRuntime(config, config.spriteManifest.dom, spriteCompositor, sentinelVerifier);
+      await domRuntime.mount();
       const hardwareAcceleration = config.soft ? "prefer-software" : "prefer-hardware";
       supported = await FE.WebCodecsH264Encoder.isSupported({
         width: config.width, height: config.height, fps: config.fps, bitrate: config.bitrate,
@@ -320,9 +610,17 @@
             }
           }
           stages.three.push(performance.now() - threeStarted);
-          const draws = [];
-          for (const value of config.spriteManifest.statics) if (activeAt(value, seconds)) draws.push({ id: value.id, opacity: 1 });
-          for (const value of config.spriteManifest.three) if (activeAt(value, seconds)) draws.push({ id: value.id, opacity: 1 });
+          const domStarted = performance.now();
+          let activeDomRuns = 0;
+          for (const run of config.spriteManifest.dom ?? []) {
+            if (!domRuntime.activeAt(run, seconds)) continue;
+            activeDomRuns += 1;
+            await domRuntime.captureRun(run, seconds, frameNumber);
+          }
+          const domFrameCost = performance.now() - domStarted;
+          stages.dom.push(domFrameCost);
+          if (activeDomRuns > 0) domRuntime.recordFrameCost(domFrameCost);
+          const draws = orderedSpriteDraws(config.spriteManifest, seconds, domRuntime);
           for (const value of config.spriteManifest.captions) {
             if (!activeAt(value, seconds)) continue;
             const state = FE.captionMotionAt(value.motion, seconds - value.start, value.duration, value.emPx);
@@ -360,6 +658,7 @@
               queueWaits,
               readbackCounters: counters,
             },
+            domLayer: domRuntime.summary(),
           });
         }
       }
@@ -384,6 +683,7 @@
           trapReadback: Boolean(config.trapReadback),
           readbackCounters: counters,
         },
+        domLayer: domRuntime.summary(),
         mux,
         eligibility: config.eligibility,
         warnings,
@@ -391,6 +691,7 @@
     } finally {
       restoreTraps();
       encoder?.close();
+      domRuntime?.dispose();
       spriteCompositor.dispose();
       engine.dispose();
     }

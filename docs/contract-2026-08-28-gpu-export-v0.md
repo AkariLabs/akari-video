@@ -131,3 +131,52 @@ OSR receipt と同じ warning/hard-stop 語彙を使う。`--engine osr` と `--
 - 動的自由 HTML は OSR または事前ベイクが必要。
 - Windows の hardware H.264 encoder は v0 の提供対象外。
 - 長尺の区間並列、複数 process 並列は非対応。
+
+## 9. v1 — HTML-in-Canvas DOM 層
+
+v1 は、CSS animation、transition、`@keyframes`、Web Animations、`@property` で時間変化する自由 HTML を
+`dom` 分類として適格化する。書き出し時だけ動的に生成した `canvas[layoutsubtree]` の子へ DOM を mount し、
+エンジン時計で元の animation を pause・seek してから `drawElementImage` で透過 2D canvas へ転写する。
+その canvas は `SpriteCompositor.updateSprite` で直接 texture 化する。Three.js canvas は従来の別 texture の
+ままとし、DOM host へ入れない。
+
+GPU 出口だけに `--enable-features=CanvasDrawElement`、`--disable-gpu-vsync`、
+`--disable-frame-rate-limit` を付け、`--force-device-scale-factor=1` を維持する。DOM ランは `overlays[]` の
+宣言順で連続する項目をまとめ、静的 HTML、3D、DOM ランを元の index 順に合成したあと、字幕を最後に載せる。
+すべて LUT の外である。
+
+次の条件は fail-closed のまま `degraded` とし、receipt に overlay id、理由、検出条件を全件残す。
+
+- `iframe`、`object`、`embed` の埋め込み context。
+- `perspective`、`preserve-3d`、`rotateX/Y/3d`、`matrix3d`、`translateZ/3d` のいずれかを含む
+  CSS 3D transform。先行実験では `translateZ` 単独・`perspective` 単独は正しく転写できたため、
+  将来はこの粒度まで緩和できる余地があるが、v1 では緩和しない。
+- `requestAnimationFrame`、`setTimeout`、`setInterval`、`Date.now`、`performance.now` で自走する時計。
+- `video`、`audio`、canvas/宣言型 3D 以外の runtime、JSON 以外の script。
+- 絶対 URL と外部 font/image/background resource。
+- `drawElementImage` が利用できない実行環境、または device pixel ratio が 1 でない環境。
+
+settle は mount 時に一度だけ決める。`canvas.requestPaint` がある Chromium では rAF 2 回の後に
+`requestPaint()` と `paint` event（上限 250 ms）を待つ。API がない Chromium では computed style、
+bounding rect、host height を同期読みして layout を確定し、直ちに転写する。採用 policy、API probe、
+DOM 層の固定・待機・転写・upload の p50/p95 は receipt の `gpu.domLayer` に記録する。
+
+`--verify-frames` では各 DOM ラン左上の 8×8 sentinel を frame number から決定論的に着色し、転写後
+texture の左上 4×4 が期待 RGB の ±8 に一致するかを毎コマ検査する。CSS `mod()` の自己検査に失敗した
+環境では JS channel 指定へ切り替え、その mode も記録する。pixel read は
+`src/verify-readback.js` に隔離した検証経路だけに許可し、製品経路の読み戻しゼロ契約は変えない。
+
+DOM 層の OSR decode 比較は overlay 外接矩形内 MAD 1.0 以下を、animation 開始時刻を含む代表 5 時刻で
+要求する。sentinel は全要求 frame 一致を必須とする。既知の限界は karaoke の word texture、CSS 3D、
+自走時計、3D scene の DOM 入場 animation、OSR/legacy に残る `@property` animation の時刻不整合である。
+
+決定論には長尺時の既知の限界がある。短い書き出し（実測 450 / 678 / 900 コマ）は 2 走の全コマ SHA と
+MP4 SHA が一致した。一方、大きな文字を持つ DOM overlay を多数含む長い書き出し（実測 5400 コマ）では、
+1 つの overlay 区間に閉じた 180 コマ前後で文字の縁のアンチエイリアスが走ごとに変わり、全コマ SHA 一致が
+確率的に崩れた（MAD 0.0001〜0.0003、差分画素 11〜41 個）。sentinel は全走一致しており 1 コマ遅れではない。
+ラスタライズ関連の起動フラグでは解消しなかった。
+
+速度にも字幕起動コストの既知の限界がある。字幕 cue はページ起動時に 1 枚ずつ SVG へ焼くため、実測では
+30 cue の焼き込みが 900 コマの書き出しに約 47 秒（約 52 ms/コマ相当）を上乗せし、字幕を含む短い
+書き出しでは GPU 出口が OSR より遅くなった。同じ題材から字幕を外すと GPU は 19.2 ms/コマ、OSR は
+40.9 ms/コマだった。

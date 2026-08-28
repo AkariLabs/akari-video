@@ -15,6 +15,11 @@ import { resolveGpuEncoding } from "./bitrate.mjs";
 const { app, BrowserWindow, ipcMain } = electron;
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const VERIFY_READBACK_PATH = join(SOURCE_DIRECTORY, "verify-readback.js");
+const DOM_LAYER_SWITCHES = Object.freeze([
+  ["enable-features", "CanvasDrawElement"],
+  ["disable-gpu-vsync", null],
+  ["disable-frame-rate-limit", null],
+]);
 
 export async function runGpuExport(options) {
   const {
@@ -42,6 +47,11 @@ export async function runGpuExport(options) {
   if (soft && !app.isReady()) app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("force-color-profile", "srgb");
   app.commandLine.appendSwitch("force-device-scale-factor", "1");
+  const domLayerFlags = DOM_LAYER_SWITCHES.map(([name, value]) => {
+    if (value === null) app.commandLine.appendSwitch(name);
+    else app.commandLine.appendSwitch(name, value);
+    return `--${name}${value === null ? "" : `=${value}`}`;
+  });
   app.commandLine.appendSwitch("disable-background-timer-throttling");
   app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
   app.commandLine.appendSwitch("disable-renderer-backgrounding");
@@ -80,6 +90,7 @@ export async function runGpuExport(options) {
     soft,
     trapReadback,
     verifyFrames,
+    domLayerFlags,
     ...(verifyFrames ? { verifyReadbackModule: await readFile(VERIFY_READBACK_PATH, "utf8") } : {}),
   };
   let windowRef = null;

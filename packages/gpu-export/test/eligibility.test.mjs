@@ -11,7 +11,7 @@ test("static HTML is same and eligible", () => {
   const result = evaluate([{ id: "static", html: "<div>hello</div>" }]);
   assert.equal(result.eligible, true);
   assert.equal(result.entries[0].classification, "same");
-  assert.deepEqual(result.summary, { same: 1, three: 0, degraded: 0, unsupported: 0 });
+  assert.deepEqual(result.summary, { same: 1, three: 0, dom: 0, degraded: 0, unsupported: 0 });
 });
 
 test("a single declarative 3D scene is eligible", () => {
@@ -48,15 +48,59 @@ test("3D rejects video and any script besides its one JSON declaration", () => {
   }
 });
 
-test("dynamic and external overlays are degraded", () => {
+test("declarative dynamic overlays use the DOM layer while external overlays remain degraded", () => {
   const result = evaluate([
     { id: "animated", html: "<style>.x{animation: a 1s}</style>" },
     { id: "external", html: '<img src="https://example.invalid/x.png">' },
   ]);
   assert.equal(result.eligible, false);
-  assert.equal(result.summary.degraded, 2);
+  assert.equal(result.summary.dom, 1);
+  assert.equal(result.summary.degraded, 1);
+  assert.equal(result.entries[0].classification, "dom");
+  assert.equal(result.entries[0].reason, "dom-layer-draw-element");
   assert.ok(result.entries[0].conditions.includes("animation-timing"));
   assert.ok(result.entries[1].conditions.includes("absolute-external-url"));
+});
+
+test("animation timing and advanced CSS are eligible separately and together", () => {
+  const result = evaluate([
+    { id: "animation", html: "<style>.x{transition:opacity 1s}</style>" },
+    { id: "advanced", html: "<style>.x{backdrop-filter:blur(4px)}</style>" },
+    { id: "both", html: "<style>.x{animation:a 1s;filter:blur(1px)}@keyframes a{}</style>" },
+    { id: "property", html: "<style>@property --x{syntax:'<number>';inherits:false;initial-value:0}</style>" },
+  ]);
+  assert.equal(result.eligible, true);
+  assert.deepEqual(result.entries.map((value) => value.classification), ["dom", "dom", "dom", "dom"]);
+  assert.deepEqual(result.entries[2].conditions, ["animation-timing", "advanced-css"]);
+});
+
+test("DOM layer hard blockers fail closed with stable reasons", () => {
+  const fixtures = [
+    ["embedded-context", "<iframe></iframe>"],
+    ["css-3d-transform", "<style>.x{perspective:10px}</style>"],
+    ["css-3d-transform", "<style>.x{transform:perspective(10px)}</style>"],
+    ["css-3d-transform", "<style>.x{transform-style:preserve-3d}</style>"],
+    ["css-3d-transform", "<style>.x{transform:rotateX(2deg)}</style>"],
+    ["css-3d-transform", "<style>.x{transform:rotateY(2deg)}</style>"],
+    ["css-3d-transform", "<style>.x{transform:rotate3d(1,0,0,2deg)}</style>"],
+    ["css-3d-transform", "<style>.x{transform:matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)}</style>"],
+    ["css-3d-transform", "<style>.x{transform:translateZ(2px)}</style>"],
+    ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px,3px)}</style>"],
+    ["self-driving-clock", "<script>requestAnimationFrame(step)</script>"],
+    ["self-driving-clock", "<script>setTimeout(step, 1)</script>"],
+    ["self-driving-clock", "<script>setInterval(step, 1)</script>"],
+    ["self-driving-clock", "<script>Date.now()</script>"],
+    ["self-driving-clock", "<script>performance.now()</script>"],
+    ["media-element", "<video></video>"],
+    ["media-element", "<audio></audio>"],
+    ["three-or-canvas-runtime", "<canvas></canvas>"],
+    ["script-runtime", "<script>tick()</script>"],
+  ];
+  for (const [condition, html] of fixtures) {
+    const result = evaluate([{ id: condition, html }]);
+    assert.equal(result.entries[0].classification, "degraded", html);
+    assert.ok(result.entries[0].conditions.includes(condition), html);
+  }
 });
 
 test("3D mixed with another runtime condition is ineligible", () => {
