@@ -13019,6 +13019,7 @@ ${indent}`);
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
     copyNativeYuvFrame: () => copyNativeYuvFrame,
     cornersToHomography: () => cornersToHomography,
+    describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
     evaluateFrame: () => evaluateFrame,
     evaluationPlanFromResolvedTimeline: () => evaluationPlanFromResolvedTimeline,
@@ -17250,6 +17251,15 @@ void main() {
   };
   var AV_CLIPER_RESET_WINDOW_US = 3e6;
   var MAX_EXACT_FRAME_TICKS = 4;
+  function describeUnusableDecoder(clipId, attempted, lastMessage) {
+    if (!lastMessage.includes("Unsupported configuration")) return null;
+    return [
+      `clip ${clipId}: this runtime has no usable decoder for this clip's codec`,
+      `after trying hardwareAcceleration [${attempted.join(", ")}].`,
+      "Environments with hardware acceleration disabled require a software decoder bundled with the runtime.",
+      `Original decoder error: ${lastMessage}`
+    ].join(" ");
+  }
   var DecodedFrameCoverageCache = class {
     frame = null;
     cloneAt(targetUs) {
@@ -17358,7 +17368,14 @@ void main() {
         }
       }
       this.state = "unavailable";
-      throw lastError instanceof Error ? lastError : new Error(String(lastError));
+      const lastMessage = lastError instanceof Error ? lastError.message : String(lastError);
+      const diagnostic = describeUnusableDecoder(
+        this.id,
+        attempts.map((attempt) => attempt.hardwareAcceleration),
+        lastMessage
+      );
+      if (diagnostic) throw new Error(diagnostic, { cause: lastError });
+      throw lastError instanceof Error ? lastError : new Error(lastMessage);
     }
     async loadKeyframes(clip) {
       try {
