@@ -2,16 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  idleLayerMedia,
   isLayerInLoadWindow,
   markLayerUnplayable,
   syncLayerLazyLoad,
 } from '../public/layer-lazy-load.js';
 
 function fakeLayerVideo(layer = { t: 10, duration: 3 }) {
-  const calls = { pause: 0, load: 0, removed: [] };
+  const calls = { play: 0, pause: 0, load: 0, removed: [] };
   const el = {
     preload: 'none',
     src: '',
+    play() { calls.play += 1; },
     pause() { calls.pause += 1; },
     load() { calls.load += 1; },
     removeAttribute(name) {
@@ -42,7 +44,7 @@ test('窓へ入るまで src を設定せず、窓内の毎フレーム呼び出
   assert.equal(lv.el.src, '/media/layer.preview.webm');
   assert.equal(lv.el.preload, 'auto');
   assert.equal(resolves, 1);
-  assert.deepEqual(calls, { pause: 0, load: 0, removed: [] });
+  assert.deepEqual(calls, { play: 0, pause: 0, load: 0, removed: [] });
 });
 
 test('窓を離れると removeAttribute(src) + load() で解放し、再入場時に復帰する', () => {
@@ -52,7 +54,7 @@ test('窓を離れると removeAttribute(src) + load() で解放し、再入場�
   assert.equal(syncLayerLazyLoad(lv, 14, '/media/layer.preview.webm'), false);
   assert.equal(lv.el.src, '');
   assert.equal(lv.el.preload, 'none');
-  assert.deepEqual(calls, { pause: 1, load: 1, removed: ['src'] });
+  assert.deepEqual(calls, { play: 0, pause: 1, load: 1, removed: ['src'] });
 
   assert.equal(syncLayerLazyLoad(lv, 11, '/media/layer.preview.webm'), true);
   assert.equal(lv.el.src, '/media/layer.preview.webm');
@@ -69,10 +71,38 @@ test('一度 unplayable になったレイヤーは解放し、その後も再�
   assert.equal(lv.unplayable, true);
   assert.equal(lv.loaded, false);
   assert.equal(lv.el.src, '');
-  assert.deepEqual(calls, { pause: 1, load: 1, removed: ['src'] });
+  assert.deepEqual(calls, { play: 0, pause: 1, load: 1, removed: ['src'] });
 
   assert.equal(syncLayerLazyLoad(lv, 10, source), false);
   assert.equal(syncLayerLazyLoad(lv, 5, source), false);
   assert.equal(resolves, 1);
-  assert.deepEqual(calls, { pause: 1, load: 1, removed: ['src'] });
+  assert.deepEqual(calls, { play: 0, pause: 1, load: 1, removed: ['src'] });
+});
+
+test('mediaIdle は窓内でも媒体を割り当てず、媒体 API を呼ばない', () => {
+  const { lv, calls } = fakeLayerVideo();
+  let resolves = 0;
+  const source = () => { resolves += 1; return '/media/layer.preview.webm'; };
+
+  assert.equal(syncLayerLazyLoad(lv, 10, source, { mediaIdle: true }), false);
+  assert.equal(lv.loaded, false);
+  assert.equal(lv.el.src, '');
+  assert.equal(lv.el.preload, 'none');
+  assert.equal(resolves, 0);
+  assert.deepEqual(calls, { play: 0, pause: 0, load: 0, removed: [] });
+});
+
+test('mediaIdle は既存 src を媒体 API なしで一度だけ解放する', () => {
+  const { lv, calls } = fakeLayerVideo();
+  lv.loaded = true;
+  lv.el.preload = 'auto';
+  lv.el.src = '/media/already-loaded.webm';
+
+  assert.equal(idleLayerMedia(lv), true);
+  assert.equal(idleLayerMedia(lv), false);
+  assert.equal(syncLayerLazyLoad(lv, 10, '/media/ignored.webm', { mediaIdle: true }), false);
+  assert.equal(lv.loaded, false);
+  assert.equal(lv.el.src, '');
+  assert.equal(lv.el.preload, 'none');
+  assert.deepEqual(calls, { play: 0, pause: 0, load: 0, removed: ['src'] });
 });

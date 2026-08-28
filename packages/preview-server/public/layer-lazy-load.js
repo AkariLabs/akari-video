@@ -38,12 +38,29 @@ export function releaseLayerMedia(lv) {
   return true;
 }
 
+export function idleLayerMedia(lv) {
+  const el = lv.el;
+  const hasSrcAttribute = typeof el.hasAttribute === 'function' && el.hasAttribute('src');
+  // テスト用の簡易要素は hasAttribute を持たないため、src プロパティも防御的に見る。
+  const hasFallbackSrc = typeof el.hasAttribute !== 'function'
+    && typeof el.src === 'string' && el.src !== '';
+  const shouldRelease = Boolean(lv.loaded || hasSrcAttribute || hasFallbackSrc);
+  lv.loaded = false;
+  if (shouldRelease && typeof el.removeAttribute === 'function') el.removeAttribute('src');
+  el.preload = 'none';
+  return shouldRelease;
+}
+
 export function markLayerUnplayable(lv) {
   lv.unplayable = true;
   releaseLayerMedia(lv);
 }
 
-export function syncLayerLazyLoad(lv, outputTime, sourceUrl) {
+export function syncLayerLazyLoad(lv, outputTime, sourceUrl, options = {}) {
+  if (options.mediaIdle === true) {
+    idleLayerMedia(lv);
+    return false;
+  }
   if (lv.unplayable) {
     releaseLayerMedia(lv);
     return false;

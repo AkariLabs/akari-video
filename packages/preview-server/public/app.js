@@ -189,6 +189,7 @@ window.__akariCaptionFontReady = (async () => {
 
 // B-roll layer videos
 let layerVideos = [];
+const layerMetadata = new WeakMap();
 
 // LUT / chroma-key are drawn by the repository-owned video FX rail. These stay empty for
 // projects without declarations, so ordinary previews allocate no canvas/WebGL context and
@@ -514,6 +515,26 @@ function cropOf(el) {
   };
 }
 
+function isFullFrameAlphaLayer(layer, index) {
+  if (!layer) return false;
+  const intake = summary?.frameEngine?.intake;
+  if (!intake || typeof intake !== 'object') return false;
+  const key = String(layer.id ?? layer.src ?? index);
+  return Object.prototype.hasOwnProperty.call(intake, key);
+}
+
+function layerIntrinsicSize(el, layer, index) {
+  const width = Number(el.videoWidth) || 0;
+  const height = Number(el.videoHeight) || 0;
+  if (width > 0 && height > 0) return { width, height };
+  const metadata = layerMetadata.get(el);
+  const resolvedIndex = Number.isInteger(index) ? index : metadata?.index;
+  const resolvedLayer = layer ?? metadata?.layer;
+  // 出力同寸が保証される alpha intake 成功層だけ、媒体なしの幾何担体へ出力寸法を補う。
+  return frameEngineEnabled && isFullFrameAlphaLayer(resolvedLayer, resolvedIndex)
+    ? outputSizePx() : { width, height };
+}
+
 // ㉖ layers[].perspective（0..1 正規化・corner-pin・静的。contract-2026-08-02-preview-parity.md
 // §2.4.4）。perspective 未指定 or 不正値は null（既存の見た目を一切変えない = 回帰なし）。
 function perspectiveOf(el) {
@@ -552,11 +573,12 @@ function applyLayerLayout(el, x, y, scale, rotate) {
     ? `inset(${crop.y * 100}% ${Math.max(0, (1 - crop.x - crop.w)) * 100}% ${Math.max(0, (1 - crop.y - crop.h)) * 100}% ${crop.x * 100}%)`
     : '';
   let transform = `translate(-${pivotXPct}%, -${pivotYPct}%) rotate(${rotate}deg)`;
-  if (el.videoWidth > 0 && el.videoHeight > 0) {
-    el.style.width = `${el.videoWidth * scale}px`;
-    el.style.height = `${el.videoHeight * scale}px`;
-    const boxWidthPx = crop.w * el.videoWidth * scale;
-    const boxHeightPx = crop.h * el.videoHeight * scale;
+  const intrinsic = layerIntrinsicSize(el);
+  if (intrinsic.width > 0 && intrinsic.height > 0) {
+    el.style.width = `${intrinsic.width * scale}px`;
+    el.style.height = `${intrinsic.height * scale}px`;
+    const boxWidthPx = crop.w * intrinsic.width * scale;
+    const boxHeightPx = crop.h * intrinsic.height * scale;
     const visual = computeLayerPerspectiveVisual(perspectiveOf(el), boxWidthPx, boxHeightPx);
     if (visual) transform += ` ${visual.transformFunction}`;
   }
@@ -565,7 +587,7 @@ function applyLayerLayout(el, x, y, scale, rotate) {
 
 function setupLayers() {
   const layers = summary?.layers ?? [];
-  for (const layer of layers) {
+  for (const [index, layer] of layers.entries()) {
     if (layer.kind === 'filter') {
       const el = document.createElement('div');
       el.dataset.layerId = String(layer.id);
@@ -578,12 +600,13 @@ function setupLayers() {
       if (type === 'saturation') el.style.backdropFilter = `saturate(${Number(layer.filter.value) || 0})`;
       el.style.display = 'none';
       layerContainer.appendChild(el);
-      layerVideos.push({ el, layer, visible: false, loaded: true, isFilter: true });
+      layerVideos.push({ el, layer, index, visible: false, loaded: true, isFilter: true });
       continue;
     }
     if (!layer.src) continue;
     const layerIsImage = isImageLayer(layer);
     const el = document.createElement(layerIsImage ? 'img' : 'video');
+    layerMetadata.set(el, { layer, index });
     if (layerIsImage) {
       // 画像レイヤー（司令塔裁定3）: <video> 固有の
       // videoWidth/videoHeight/readyState/paused/play/pause/load を <img> インスタンス自身に薄い
@@ -667,7 +690,7 @@ function setupLayers() {
     // 編集適用の再構築（要素作り直し）をまたいで選択を保つ
     if (selectedLayerId !== null && layer.id === selectedLayerId) el.classList.add('layer-selected');
     layerContainer.appendChild(el);
-    layerVideos.push({ el, layer, visible: false, loaded: false });
+    layerVideos.push({ el, layer, index, visible: false, loaded: false });
   }
   // 起動時は seekTo/playbackLoop がまだ走っていないため、0 秒付近の先読みをここで始める。
   syncLayers(outputTime);
@@ -821,17 +844,19 @@ function syncLayers(t) {
       lv.visible = shouldShow;
       continue;
     }
-    syncLayerLazyLoad(lv, t, () => resolveMediaUrl(layerPlaybackPath(l)));
+    syncLayerLazyLoad(lv, t, () => resolveMediaUrl(layerPlaybackPath(l)), {
+      mediaIdle: frameEngineEnabled,
+    });
+    const inTimeWindow = t >= (l.t ?? 0) && t < (l.t ?? 0) + (l.duration ?? 0);
     // メタデータ前に出すと最初のフレームが黒板になるので、読めてから出す（shell と同じ規約）
-    const shouldShow = lv.loaded && !lv.unplayable
-      && lv.el.readyState >= HTMLMediaElement.HAVE_METADATA
-      && t >= (l.t ?? 0) && t < (l.t ?? 0) + (l.duration ?? 0);
+    const shouldShow = frameEngineEnabled ? inTimeWindow : lv.loaded && !lv.unplayable
+      && lv.el.readyState >= HTMLMediaElement.HAVE_METADATA && inTimeWindow;
     if (shouldShow !== lv.visible) {
       lv.el.style.display = shouldShow ? 'block' : 'none';
       lv.visible = shouldShow;
-      if (!shouldShow && !lv.el.paused) lv.el.pause();
+      if (!frameEngineEnabled && !shouldShow && !lv.el.paused) lv.el.pause();
       if (selectedLayerId !== null && lv.layer.id === selectedLayerId) {
-        if (shouldShow) lv.opaqueBox = undefined; // 表示時点のフレームで測り直す
+        if (shouldShow) lv.opaqueBox = frameEngineEnabled ? null : undefined; // 表示時点で枠を更新する
         updateLayerSelectBox();
       }
     }
@@ -871,10 +896,12 @@ function syncLayers(t) {
       // 再生中は下地と同じデッドバンドを使う。複数・高負荷のレイヤーほど小刻みな補正が
       // デコードを圧迫するため、フレーム精度よりシーク完了を優先する。一時停止中は目標が
       // 動かないので従来どおり精密に合わせる。
-      const tolerance = isPlaying ? SYNC_DEADBAND_SEC : 0.001;
-      if (!lv.el.seeking) syncMediaCurrentTime(lv.el, localT, tolerance);
-      if (isPlaying && lv.el.paused) void lv.el.play().catch(() => undefined);
-      else if (!isPlaying && !lv.el.paused) lv.el.pause();
+      if (!frameEngineEnabled) {
+        const tolerance = isPlaying ? SYNC_DEADBAND_SEC : 0.001;
+        if (!lv.el.seeking) syncMediaCurrentTime(lv.el, localT, tolerance);
+        if (isPlaying && lv.el.paused) void lv.el.play().catch(() => undefined);
+        else if (!isPlaying && !lv.el.paused) lv.el.pause();
+      }
     }
   }
 }
@@ -904,8 +931,7 @@ function layerAlphaCtx() {
 // 縮小キャンバスで走査するので誤差は数 px。全透明・未ロードは null（= 全体にフォールバック）
 function measureLayerOpaqueBox(el) {
   try {
-    const vw = el.videoWidth;
-    const vh = el.videoHeight;
+    const { width: vw, height: vh } = layerIntrinsicSize(el);
     if (!(vw > 0 && vh > 0) || el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return null;
     const shrink = Math.min(1, 320 / Math.max(vw, vh));
     const w = Math.max(1, Math.round(vw * shrink));
@@ -945,13 +971,10 @@ function measureLayerOpaqueBox(el) {
 // クリック地点のアルファ値（0-255）。透明部分のクリックを素通しさせるための当たり判定。
 // transform（translate/scale/rotate・origin はクロップ矩形の中心 — crop 無しなら要素中心と一致）
 // の逆写像で要素ローカルへ戻す
-function layerAlphaAt(el, clientX, clientY) {
+function layerLocalPointAt(el, clientX, clientY) {
   try {
-    const vw = el.videoWidth;
-    const vh = el.videoHeight;
-    if (!(vw > 0 && vh > 0) || el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return 255;
     const contRect = layerContainer.getBoundingClientRect();
-    if (!(contRect.width > 0)) return 255;
+    if (!(contRect.width > 0) || !(layerContainer.offsetWidth > 0)) return null;
     const viewScale = contRect.width / layerContainer.offsetWidth; // frameScale × zoom
     const px = (clientX - contRect.left) / viewScale;
     const py = (clientY - contRect.top) / viewScale;
@@ -963,6 +986,29 @@ function layerAlphaAt(el, clientX, clientY) {
     const p = m.inverse().transformPoint(new DOMPoint(px - cx, py - cy));
     const lx = p.x + cx - el.offsetLeft;
     const ly = p.y + cy - el.offsetTop;
+    return { x: lx, y: ly };
+  } catch {
+    return null;
+  }
+}
+
+function layerGeometryHitAt(el, clientX, clientY) {
+  const point = layerLocalPointAt(el, clientX, clientY);
+  if (!point || !(el.offsetWidth > 0) || !(el.offsetHeight > 0)) return false;
+  const crop = cropOf(el);
+  return point.x >= crop.x * el.offsetWidth
+    && point.x < (crop.x + crop.w) * el.offsetWidth
+    && point.y >= crop.y * el.offsetHeight
+    && point.y < (crop.y + crop.h) * el.offsetHeight;
+}
+
+function layerAlphaAt(el, clientX, clientY) {
+  try {
+    const { width: vw, height: vh } = layerIntrinsicSize(el);
+    if (!(vw > 0 && vh > 0) || el.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return 255;
+    const point = layerLocalPointAt(el, clientX, clientY);
+    if (!point) return 255;
+    const { x: lx, y: ly } = point;
     if (lx < 0 || ly < 0 || lx >= el.offsetWidth || ly >= el.offsetHeight) return 0;
     const vx = Math.min(vw - 1, Math.floor(lx * vw / el.offsetWidth));
     const vy = Math.min(vh - 1, Math.floor(ly * vh / el.offsetHeight));
@@ -987,6 +1033,16 @@ function updateLayerSelectBox() {
     return;
   }
   const el = lv.el;
+  if (frameEngineEnabled) {
+    const intrinsic = layerIntrinsicSize(el, lv.layer, lv.index);
+    if (!(intrinsic.width > 0 && intrinsic.height > 0)) {
+      layerSelectBox.style.display = 'none';
+      positionLayerCropToggle(null);
+      positionLayerPerspectiveToggle(null);
+      return;
+    }
+    lv.opaqueBox = null;
+  }
   // undefined = 未計測。フレーム未着ならまだ測れない — 全面フォールバック枠を
   // 一瞬見せず（移動確定後の再構築でチラつく実害）、フレーム到着後に測ってから出す
   if (lv.opaqueBox === undefined) {
@@ -1100,7 +1156,8 @@ function fractionForClient(el, transform, pivotFrac, clientX, clientY) {
   const px = (clientX - contRect.left) / viewScale;
   const py = (clientY - contRect.top) / viewScale;
   const os = outputSizePx();
-  const vw = el.videoWidth, vh = el.videoHeight;
+  const { width: vw, height: vh } = layerIntrinsicSize(el);
+  if (!(vw > 0 && vh > 0)) return null;
   const pivotPx = { x: pivotFrac.x * vw, y: pivotFrac.y * vh };
   const dx = px - (os.width / 2 + transform.x);
   const dy = py - (os.height / 2 + transform.y);
@@ -1165,14 +1222,15 @@ function positionLayerCropToggle(el) {
 function updateLayerCropBox() {
   if (!layerCropBox.parentElement) layerContainer.appendChild(layerCropBox);
   const lv = layerVideos.find(v => selectedLayerId !== null && v.layer.id === selectedLayerId);
-  if (!cropModeActive || !lv || lv.el.style.display === 'none' || !(lv.el.videoWidth > 0)) {
+  const intrinsic = lv ? layerIntrinsicSize(lv.el) : null;
+  if (!cropModeActive || !lv || lv.el.style.display === 'none' || !(intrinsic?.width > 0)) {
     layerCropBox.style.display = 'none';
     return;
   }
   const el = lv.el;
   const transform = layerTransformOf(el);
   const crop = cropOf(el);
-  const vw = el.videoWidth, vh = el.videoHeight;
+  const { width: vw, height: vh } = intrinsic;
   // pivot は実合成と同じ「現在のクロップ矩形の中心」（applyLayerLayout の transform-origin と
   // 同じ値。ネイティブ px 空間）を使う（2026-08-06 crop-handle-anchor-fix 以前は全面中心固定の
   // 近似だったが、それだと錨補正後の transform.x/y と噛み合わず外枠が編集中にドリフトして見える
@@ -1303,10 +1361,15 @@ for (const handle of layerCropHandleElements) {
     // 書き戻し用の完全な transform には startTransform の scale/rotate を必ずマージする（欠けると
     // dataset に "undefined" が書かれ Number(...)||1 の既定値フォールバックでスケール/回転が
     // 消し飛ぶ -- L1 実機テストで実際に踏んだ回帰）。
-    const correctedTransformFor = (nextCrop) => ({
-      ...startTransform,
-      ...cropAnchorCorrectedTransform(original, nextCrop, startTransform, el.videoWidth, el.videoHeight),
-    });
+    const correctedTransformFor = (nextCrop) => {
+      const intrinsic = layerIntrinsicSize(el);
+      return {
+        ...startTransform,
+        ...cropAnchorCorrectedTransform(
+          original, nextCrop, startTransform, intrinsic.width, intrinsic.height,
+        ),
+      };
+    };
     const onMove = (moveEvent) => {
       if (moveEvent.pointerId !== pointerId) return;
       moved = true;
@@ -1581,19 +1644,21 @@ function findLayerHit(e) {
     if (el.closest && el.closest('#caption-plate')) return null;
     if ((el.tagName === 'VIDEO' || el.tagName === 'IMG') && el.dataset && el.dataset.layerId && el.style.display !== 'none') {
       // 全面サイズの透明動画（ベイクテロップ）は箱で当てると画面全部が当たりになる。
-      // クリック地点のアルファを実測し、透明部分は下のレイヤーへ素通しする
-      if (layerAlphaAt(el, e.clientX, e.clientY) > 16) return el;
+      // legacy 面はアルファを実測する。engine 面は下の2パス幾何判定へ一本化する。
+      if (!frameEngineEnabled && layerAlphaAt(el, e.clientX, e.clientY) > 16) return el;
       continue;
     }
   }
   // engine 面では legacy media は visibility:hidden だが、選択・ドラッグ用の幾何は同じ DOM に残す。
   if (frameEngineEnabled) {
-    for (const lv of [...layerVideos].reverse()) {
-      const el = lv.el;
-      if (lv.isFilter || el.style.display === 'none') continue;
-      const rect = el.getBoundingClientRect();
-      if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) continue;
-      if (layerAlphaAt(el, e.clientX, e.clientY) > 16) return el;
+    const candidates = [...layerVideos].reverse()
+      .filter(lv => !lv.isFilter && lv.el.style.display !== 'none');
+    // 実寸を出力寸法で補える全面 alpha 層を先に当て、実寸不明の上位層による横取りを防ぐ。
+    for (const fullFrameAlpha of [true, false]) {
+      for (const lv of candidates) {
+        if (isFullFrameAlphaLayer(lv.layer, lv.index) !== fullFrameAlpha) continue;
+        if (layerGeometryHitAt(lv.el, e.clientX, e.clientY)) return lv.el;
+      }
     }
   }
   return null;
@@ -2469,13 +2534,15 @@ function play() {
 }
 
 function finishPausingPlayback() {
-  video.pause();
+  if (!frameEngineEnabled) video.pause();
   for (const n of [...narrationNodes, ...sfxNodes]) {
     if (n._source) { try { n._source.stop(); } catch {} n._source = null; }
   }
   if (audioCtx?.state === 'running') audioCtx.suspend();
-  transitionVideo.pause();
-  for (const lv of layerVideos) if (!lv.isFilter) lv.el.pause();
+  if (!frameEngineEnabled) {
+    transitionVideo.pause();
+    for (const lv of layerVideos) if (!lv.isFilter) lv.el.pause();
+  }
 }
 
 function pause() {
@@ -2516,6 +2583,7 @@ function playbackLoop() {
     updateOverlays();
     updateCaption();
     syncCaptionAnimations();
+    syncLayers(outputTime);
     updateLayerSelectBox();
     const tickNow = performance.now();
     if (tickNow - wsTickLast > 200) { sendWsTick(); wsTickLast = tickNow; }
