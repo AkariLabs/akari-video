@@ -102,6 +102,10 @@ ffprobe timeoutは `max(120000, frames × 100)` msとする。尺、フレーム
 
 ## 9. 検収
 
+完成画の検収は[エンジン v2 パリティ契約](./contract-2026-08-02-preview-parity.md) §4 に一本化する。
+frame-engine は golden の全点 `diff 0`、OSR は本節のソフト描画 2 走・全コマ SHA-256 一致を必須とし、
+GPU は同一マシン一致率を診断値として記録するが byte-exact を合否条件にはしない。
+
 CIはソフト描画の連番2走について全コマSHA-256一致を要求する。製品はGPUを既定とし、同一マシン2走の一致率、`differingPixels`、`maxDelta`を診断値として記録する。GPUのbyte-exactは合否条件にしない。差分調査はH.264を再デコードした画像ではなく、捕捉時のraw BGRAを使用する。
 
 legacyとの比較は字幕、自由HTML、3Dの各指定時刻についてMADと`differingPixels`を記録する。

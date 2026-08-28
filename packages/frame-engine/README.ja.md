@@ -34,10 +34,12 @@ npm test
 npm run bench:cuts
 ```
 
-`npm test` は build、unit test、Electron 実走、機能・transition 28 固定時刻での preview/export RGBA・PNG hash 一致、故意の1px改変の棄却、freeze 内 2 フレームの一致、11 秒 MP4 の ffprobe 尺確認を一括検証します。段階別集計は `test/golden/.generated/metrics.json` に生成されます。
+`npm test` は build、unit test、`test:seek`、Electron golden 全点を一括検証します。必須点群は base 28、layers 36、matte 3 以上、transitions 90、transition semantics 30、LUT 20、GOP tail 9、B-frame sampled 160 行、B-frame tail 24 行です。さらに lifetime 1,000 コマ、matte sync 300 コマ・mismatches 0、故意の 1 px 改変が FAIL することを検証します。段階別集計は `test/golden/.generated/metrics.json` に生成されます。
+
+GitHub Actions の **`frame-engine-golden` は必須ジョブ**です。Electron の postinstall を有効にして導入し、Ubuntu の Xvfb 上で SwiftShader を強制して `npm run ci:required` を実行します。CI 用 alias は既存の `npm test` をそのまま呼ぶため、build、unit、seek、golden 全点のどれか一つでも失敗すればジョブを失敗させます。
 
 `npm run bench:cuts` は 1920×1080・30fps・13 秒の cuts 常設ベンチです。decode / 事前 cache / 固定 frame、GOP 距離別 Warmup と Lookahead、8MB IPC の invoke / MessagePort / shared memory、raw ffmpeg / WebCodecs encoder、読み取り専用 render-cut 対照を比較します。完走時は [cuts パス実測レポート](./docs/cuts-path-report.md)へ p50/p95 と最終 `v2/render-cut` 比を書き込みます。
 
-CI runner が GPU/WebCodecs 対応 Chromium を持たない場合、Electron/WebCodecs 試験はローカル専用です。unit test と typecheck はその種の CI でも実行できます。
+ローカルではリポジトリの Electron または記載済み Chromium fallback を使えます。CI は Electron / WebCodecs 経路を skip せず、必須 Ubuntu ジョブが Xvfb と SwiftShader を用意します。Electron、WebCodecs、WebGL2、golden 比較のいずれかが成立しなければ fail-closed です。
 
 固定した demux/decode 依存の評価は [av-cliper 保守現況](./docs/av-cliper-status.md) を参照してください。

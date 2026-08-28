@@ -30,6 +30,13 @@ Windows は最後の項目が `electron.exe`、Linux は `electron` です。
 
 ## Fixture と検収
 
+GitHub Actions の **`osr-export-soft` は必須ジョブ**である。`npm run ci:required` で既存の
+`npm test` 全件を実行し、`npm run ci:fixture -- <dir> --verify` で 12 秒・360 コマの fixture を作る。
+続いて `AKARI_OSR_SOFT=1` / `AKARI_OSR_VERIFY=hash` で OSR を 2 走し、`run.json` の全コマ raw BGRA
+SHA-256 配列と最終 MP4 の SHA-256 の両方が一致することを要求する。Electron postinstall、Xvfb、
+SwiftShader、`VideoDecoder.configure()` のいずれかが成立しない場合も skip や `continue-on-error` にせず
+fail-closed とする。
+
 決定論 fixture は lavfi だけから作ります。
 
 ```sh
