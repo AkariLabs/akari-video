@@ -26,7 +26,7 @@ jobs:
       - name: Install Linux runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg xvfb
+          sudo apt-get install -y ffmpeg xvfb unzip libnss3 libgbm1 libgtk-3-0 libasound2t64 libatk-bridge2.0-0 libxkbcommon0
       - name: Install frame-engine dependencies and Electron
         run: >-
           npm install --workspace @akari-video/frame-engine
@@ -39,11 +39,18 @@ jobs:
           pkg="$RUNNER_TEMP/electron-pkg"
           mkdir -p "$pkg" && cd "$pkg"
           npm init -y >/dev/null
-          npm install --no-save --no-audit --no-fund electron@39.8.7
-          node node_modules/electron/install.js
+          npm install --no-save --no-audit --no-fund --ignore-scripts electron@39.8.7
+          # install.js（@electron/get）は失敗時に console.error 直後に process.exit するため CI のパイプ出力では
+          # メッセージが落ちる（無言 exit 1）。GitHub Releases の zip を直接展開して同じ dist/ 配置を作る。
+          ver="$(node -p "require('./node_modules/electron/package.json').version")"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/electron.zip" \
+            "https://github.com/electron/electron/releases/download/v${ver}/electron-v${ver}-linux-x64.zip"
+          rm -rf node_modules/electron/dist && mkdir -p node_modules/electron/dist
+          unzip -q "$RUNNER_TEMP/electron.zip" -d node_modules/electron/dist
+          printf 'electron' > node_modules/electron/path.txt
           test -x node_modules/electron/dist/electron
           test -f node_modules/electron/dist/version
-          cat node_modules/electron/dist/version
+          echo "electron dist $(cat node_modules/electron/dist/version)"
       - name: Link Electron into the repository
         shell: bash
         run: |
@@ -118,7 +125,7 @@ jobs:
       - name: Install Linux runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg xvfb
+          sudo apt-get install -y ffmpeg xvfb unzip libnss3 libgbm1 libgtk-3-0 libasound2t64 libatk-bridge2.0-0 libxkbcommon0
       - name: Install frame-engine dependencies and Electron
         run: >-
           npm install --workspace @akari-video/frame-engine
@@ -131,11 +138,18 @@ jobs:
           pkg="$RUNNER_TEMP/electron-pkg"
           mkdir -p "$pkg" && cd "$pkg"
           npm init -y >/dev/null
-          npm install --no-save --no-audit --no-fund electron@39.8.7
-          node node_modules/electron/install.js
+          npm install --no-save --no-audit --no-fund --ignore-scripts electron@39.8.7
+          # install.js（@electron/get）は失敗時に console.error 直後に process.exit するため CI のパイプ出力では
+          # メッセージが落ちる（無言 exit 1）。GitHub Releases の zip を直接展開して同じ dist/ 配置を作る。
+          ver="$(node -p "require('./node_modules/electron/package.json').version")"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/electron.zip" \
+            "https://github.com/electron/electron/releases/download/v${ver}/electron-v${ver}-linux-x64.zip"
+          rm -rf node_modules/electron/dist && mkdir -p node_modules/electron/dist
+          unzip -q "$RUNNER_TEMP/electron.zip" -d node_modules/electron/dist
+          printf 'electron' > node_modules/electron/path.txt
           test -x node_modules/electron/dist/electron
           test -f node_modules/electron/dist/version
-          cat node_modules/electron/dist/version
+          echo "electron dist $(cat node_modules/electron/dist/version)"
       - name: Link Electron into the repository
         shell: bash
         run: |
@@ -173,7 +187,7 @@ jobs:
       - name: Install Linux runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg xvfb
+          sudo apt-get install -y ffmpeg xvfb unzip libnss3 libgbm1 libgtk-3-0 libasound2t64 libatk-bridge2.0-0 libxkbcommon0
       - name: Install osr-export dependencies with Electron postinstall
         run: >-
           npm install --workspace @akari-video/osr-export
@@ -186,11 +200,18 @@ jobs:
           pkg="$RUNNER_TEMP/electron-pkg"
           mkdir -p "$pkg" && cd "$pkg"
           npm init -y >/dev/null
-          npm install --no-save --no-audit --no-fund electron@39.8.7
-          node node_modules/electron/install.js
+          npm install --no-save --no-audit --no-fund --ignore-scripts electron@39.8.7
+          # install.js（@electron/get）は失敗時に console.error 直後に process.exit するため CI のパイプ出力では
+          # メッセージが落ちる（無言 exit 1）。GitHub Releases の zip を直接展開して同じ dist/ 配置を作る。
+          ver="$(node -p "require('./node_modules/electron/package.json').version")"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/electron.zip" \
+            "https://github.com/electron/electron/releases/download/v${ver}/electron-v${ver}-linux-x64.zip"
+          rm -rf node_modules/electron/dist && mkdir -p node_modules/electron/dist
+          unzip -q "$RUNNER_TEMP/electron.zip" -d node_modules/electron/dist
+          printf 'electron' > node_modules/electron/path.txt
           test -x node_modules/electron/dist/electron
           test -f node_modules/electron/dist/version
-          cat node_modules/electron/dist/version
+          echo "electron dist $(cat node_modules/electron/dist/version)"
       - name: Link Electron into the repository
         shell: bash
         run: |
