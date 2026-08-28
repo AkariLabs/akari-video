@@ -227,6 +227,7 @@ jobs:
       - name: Run required osr-export tests
         env:
           AKARI_OSR_SOFT: "1"
+          ELECTRON_DISABLE_SANDBOX: "1"
         run: npm --prefix packages/osr-export run ci:required
       - name: Build deterministic fixture
         run: npm --prefix packages/osr-export run ci:fixture -- "$RUNNER_TEMP/osr-fixture" --verify
@@ -266,6 +267,8 @@ jobs:
         env:
           AKARI_OSR_SOFT: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"
+          # GitHub の ubuntu ランナーは Electron の SUID sandbox が未設定（SIGTRAP で即死）。CI に限りサンドボックスを外す
+          ELECTRON_DISABLE_SANDBOX: "1"
         run: |
           mkdir -p "$RUNNER_TEMP/osr-run-1" "$RUNNER_TEMP/osr-run-2"
           xvfb-run -a node packages/osr-export/bin/akari-osr-export.mjs \
