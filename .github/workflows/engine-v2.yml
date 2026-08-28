@@ -303,3 +303,138 @@ jobs:
           second_sha="$(sha256sum "$RUNNER_TEMP/osr-run-2/composite.mp4" | cut -d ' ' -f 1)"
           test "$first_sha" = "$second_sha"
           echo "MP4 SHA-256 matched: $first_sha"
+
+  gpu-export-soft:
+    name: gpu-export-soft
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+          cache: npm
+      - name: Install Linux runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg xvfb unzip libnss3 libgbm1 libgtk-3-0 libasound2t64 libatk-bridge2.0-0 libxkbcommon0
+      - name: Install GPU export dependencies without lifecycle scripts
+        run: >-
+          npm install --ignore-scripts
+          --workspace @akari-video/gpu-export --workspace @akari-video/osr-export
+          --include-workspace-root=false --include=optional
+          --no-audit --no-fund --no-save
+      - name: Install stock Electron in an isolated directory
+        shell: bash
+        run: |
+          set -e
+          pkg="$RUNNER_TEMP/electron-pkg"
+          mkdir -p "$pkg" && cd "$pkg"
+          npm init -y >/dev/null
+          npm install --no-save --no-audit --no-fund --ignore-scripts electron@39.8.7
+          ver="$(node -p "require('./node_modules/electron/package.json').version")"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/electron.zip" \
+            "https://github.com/electron/electron/releases/download/v${ver}/electron-v${ver}-linux-x64.zip"
+          rm -rf node_modules/electron/dist && mkdir -p node_modules/electron/dist
+          unzip -q "$RUNNER_TEMP/electron.zip" -d node_modules/electron/dist
+          printf 'electron' > node_modules/electron/path.txt
+          test -x node_modules/electron/dist/electron
+          test -f node_modules/electron/dist/version
+      - name: Link Electron into the repository
+        shell: bash
+        run: |
+          set -e
+          rm -rf node_modules/electron
+          ln -s "$RUNNER_TEMP/electron-pkg/node_modules/electron" node_modules/electron
+          test -x "$(node -e "process.stdout.write(require('electron'))")"
+      - name: Run required GPU export checks
+        run: npm --prefix packages/gpu-export run ci:required
+      - name: Build deterministic 360-frame audio fixture
+        run: |
+          npm --prefix packages/osr-export run ci:fixture -- "$RUNNER_TEMP/gpu-fixture" --verify
+          node --input-type=module - "$RUNNER_TEMP/gpu-fixture" <<'NODE'
+          import { readFile, writeFile } from "node:fs/promises";
+          import { join } from "node:path";
+          const root = process.argv[2];
+          const path = join(root, "edit.json");
+          const edit = JSON.parse(await readFile(path, "utf8"));
+          edit.tracks = edit.tracks.filter((track) => track.lane === "audio" || track.id === "v-main");
+          await writeFile(path, JSON.stringify(edit, null, 2) + "\n");
+          await writeFile(join(root, "captions.json"), JSON.stringify({ captions: [] }, null, 2) + "\n");
+          NODE
+      - name: Probe WebCodecs H.264 software encode support
+        shell: bash
+        run: |
+          probe_dir="$RUNNER_TEMP/gpu-encode-probe"
+          mkdir -p "$probe_dir"
+          cat > "$probe_dir/index.html" <<'HTML'
+          <html><body>probe</body></html>
+          HTML
+          cat > "$probe_dir/main.cjs" <<'NODE'
+          const { app, BrowserWindow } = require('electron');
+          app.disableHardwareAcceleration();
+          app.whenReady().then(async () => {
+            const win = new BrowserWindow({ show: false });
+            await win.loadURL(process.env.PROBE_URL);
+            const supported = await win.webContents.executeJavaScript(`VideoEncoder.isConfigSupported({
+              codec:'avc1.640028', width:1920, height:1080, bitrate:8000000, framerate:30,
+              hardwareAcceleration:'prefer-software', latencyMode:'realtime', avc:{format:'annexb'}
+            }).then(v=>v.supported).catch(()=>false)`);
+            process.stdout.write(String(Boolean(supported)));
+            app.exit(0);
+          });
+          NODE
+          result="$(PROBE_URL="file://$probe_dir/index.html" LIBGL_ALWAYS_SOFTWARE=1 \
+            xvfb-run -a node_modules/electron/dist/electron "$probe_dir/main.cjs" \
+            --no-sandbox --disable-gpu --enable-unsafe-swiftshader --use-angle=swiftshader)"
+          if [ "$result" = "true" ]; then echo "GPU_H264_ENCODER=yes" >> "$GITHUB_ENV"; else echo "GPU_H264_ENCODER=no" >> "$GITHUB_ENV"; fi
+      - name: Run software frame verification twice
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          ELECTRON_DISABLE_SANDBOX: "1"
+        run: |
+          mkdir -p "$RUNNER_TEMP/gpu-run-a" "$RUNNER_TEMP/gpu-run-b"
+          for run in a b; do
+            xvfb-run -a node packages/gpu-export/bin/akari-gpu-export.mjs \
+              "$RUNNER_TEMP/gpu-fixture" --out "$RUNNER_TEMP/gpu-run-$run/composite.mp4" \
+              --duration 12 --frames 360 --fps 30 --width 1920 --height 1080 --soft --verify-frames
+          done
+      - name: Require 360 matching pre-encode frame hashes
+        shell: bash
+        run: |
+          node --input-type=module - "$RUNNER_TEMP/gpu-run-a/run.json" "$RUNNER_TEMP/gpu-run-b/run.json" <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          const [leftPath, rightPath] = process.argv.slice(2);
+          const left = JSON.parse(await readFile(leftPath, "utf8"));
+          const right = JSON.parse(await readFile(rightPath, "utf8"));
+          assert.equal(left.framesCompleted, 360);
+          assert.equal(right.framesCompleted, 360);
+          assert.equal(left.frameHashes.length, 360);
+          assert.deepEqual(left.frameHashes, right.frameHashes);
+          assert.ok(["completed", "unsupported"].includes(left.status));
+          assert.equal(left.status, right.status);
+          NODE
+      - name: Record unsupported encoder or verify encoded output
+        shell: bash
+        run: |
+          if [ "$GPU_H264_ENCODER" = "no" ]; then
+            node -e "const r=require('$RUNNER_TEMP/gpu-run-a/run.json'); if(r.status!=='unsupported') process.exit(1)"
+            echo "::warning::Stock Linux Electron has no H.264 encoder; pre-encode frame SHA remains required and passed."
+          else
+            ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/gpu-run-a/composite.mp4" | grep -x 360
+            first_sha="$(sha256sum "$RUNNER_TEMP/gpu-run-a/composite.mp4" | cut -d ' ' -f 1)"
+            second_sha="$(sha256sum "$RUNNER_TEMP/gpu-run-b/composite.mp4" | cut -d ' ' -f 1)"
+            if [ "$first_sha" != "$second_sha" ]; then echo "::warning::Software H.264 MP4 SHA differs; frame SHA is the required determinism gate."; fi
+          fi
+      - name: Run readback trap when the encoder is available
+        if: env.GPU_H264_ENCODER == 'yes'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          ELECTRON_DISABLE_SANDBOX: "1"
+        run: |
+          mkdir -p "$RUNNER_TEMP/gpu-run-trap"
+          xvfb-run -a node packages/gpu-export/bin/akari-gpu-export.mjs \
+            "$RUNNER_TEMP/gpu-fixture" --out "$RUNNER_TEMP/gpu-run-trap/composite.mp4" \
+            --duration 12 --frames 360 --fps 30 --width 1920 --height 1080 --soft --trap-readback
+          node -e "const r=require('$RUNNER_TEMP/gpu-run-trap/run.json'); if(r.status!=='completed'||Object.values(r.gpu.readbackCounters).some(Boolean)) process.exit(1)"

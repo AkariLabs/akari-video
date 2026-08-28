@@ -2801,7 +2801,7 @@ ${indent}`);
           }
         }
         for (const key of ["offset_x", "offset_y"]) {
-          if (Object.prototype.hasOwnProperty.call(value, key) && !finiteNumber(value[key])) {
+          if (Object.prototype.hasOwnProperty.call(value, key) && !finiteNumber2(value[key])) {
             fail("INVALID_TEXT_STYLE", `${label}.${key} must be a finite number`);
           }
         }
@@ -2840,19 +2840,19 @@ ${indent}`);
         failIf(has("weight") && (!Number.isInteger(value.weight) || value.weight < 100 || value.weight > 900), "weight must be an integer within [100, 900]");
         failIf(has("italic") && typeof value.italic !== "boolean", "italic must be a boolean");
         failIf(has("underline") && typeof value.underline !== "boolean", "underline must be a boolean");
-        failIf(has("letter_spacing_em") && !finiteNumber(value.letter_spacing_em), "letter_spacing_em must be a finite number");
+        failIf(has("letter_spacing_em") && !finiteNumber2(value.letter_spacing_em), "letter_spacing_em must be a finite number");
         failIf(has("align") && !CAPTION_ALIGN_VALUES.has(value.align), "align must be one of left, center, right");
         failIf(has("vertical_align") && !CAPTION_VERTICAL_ALIGN_VALUES.has(value.vertical_align), "vertical_align must be one of top, middle, bottom");
         failIf(has("vertical") && typeof value.vertical !== "boolean", "vertical must be a boolean");
         failIf(has("text_transform") && !CAPTION_TEXT_TRANSFORM_VALUES.has(value.text_transform), "text_transform must be one of upper, uppercase, lower, lowercase, title, capitalize, none");
-        failIf(has("max_width_pct") && (!finiteNumber(value.max_width_pct) || value.max_width_pct <= 0 || value.max_width_pct >= 100), "max_width_pct must be a finite number within (0, 100)");
+        failIf(has("max_width_pct") && (!finiteNumber2(value.max_width_pct) || value.max_width_pct <= 0 || value.max_width_pct >= 100), "max_width_pct must be a finite number within (0, 100)");
         failIf(has("text_anchor") && !CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor), "text_anchor must be one of the nine anchor codes");
         if (has("position")) {
           if (!isRecord(value.position))
             fail("INVALID_TEXT_STYLE", `${label}.position must be an object`);
           rejectStyleUnknown(value.position, CAPTION_POSITION_KEYS, `${label}.position`);
           for (const axis of ["x", "y"]) {
-            if (Object.prototype.hasOwnProperty.call(value.position, axis) && !finiteNumber(value.position[axis])) {
+            if (Object.prototype.hasOwnProperty.call(value.position, axis) && !finiteNumber2(value.position[axis])) {
               fail("INVALID_TEXT_STYLE", `${label}.position.${axis} must be a finite number`);
             }
           }
@@ -2899,7 +2899,7 @@ ${indent}`);
         for (const key of allowed) {
           if (key === "color" || !Object.prototype.hasOwnProperty.call(value, key))
             continue;
-          if (!finiteNumber(value[key]))
+          if (!finiteNumber2(value[key]))
             fail("INVALID_TEXT_STYLE", `${label}.${key} must be a finite number`);
         }
         if (Object.prototype.hasOwnProperty.call(value, "opacity") && (value.opacity < 0 || value.opacity > 1)) {
@@ -3318,7 +3318,7 @@ ${indent}`);
       function strictText(value) {
         return typeof value === "string" && value.length > 0 && value.trim() === value && value.normalize("NFC") === value;
       }
-      function finiteNumber(value) {
+      function finiteNumber2(value) {
         return typeof value === "number" && Number.isFinite(value);
       }
       function finitePositive(value) {
@@ -5006,15 +5006,15 @@ ${indent}`);
       function findUnsupportedDeclaredTrackTransitions(cuts, tracks) {
         if (!Array.isArray(cuts))
           return [];
-        const unsupported = [];
+        const unsupported2 = [];
         cuts.forEach((cut, cutIndex) => {
           if (!isRecord(cut) || !cut.transition_out)
             return;
           const trackRef = unsupportedTrackTransitionTarget(cuts, tracks, cutIndex);
           if (trackRef !== void 0)
-            unsupported.push({ cutIndex, trackRef });
+            unsupported2.push({ cutIndex, trackRef });
         });
-        return unsupported;
+        return unsupported2;
       }
     }
   });
@@ -13005,6 +13005,7 @@ ${indent}`);
   var index_exports = {};
   __export(index_exports, {
     BufferedRawFrameSink: () => BufferedRawFrameSink,
+    CAPTION_SPRITE_MOTIONS: () => CAPTION_SPRITE_MOTIONS,
     CachedStillImageSource: () => CachedStillImageSource,
     ClipSession: () => ClipSession,
     ClipSessionPool: () => ClipSessionPool,
@@ -13015,6 +13016,7 @@ ${indent}`);
     LookaheadCache: () => LookaheadCache,
     LookaheadFrameSource: () => LookaheadFrameSource,
     ScrubController: () => ScrubController,
+    SpriteCompositor: () => SpriteCompositor,
     TRANSITION_BLUR_MAX_TAPS: () => TRANSITION_BLUR_MAX_TAPS,
     TimeoutError: () => TimeoutError,
     WarmupManager: () => WarmupManager,
@@ -13025,11 +13027,13 @@ ${indent}`);
     buildKeyframeIndexFromHeader: () => buildKeyframeIndexFromHeader,
     buildResolvedTimelinePlan: () => buildResolvedTimelinePlan,
     calculateDecoderTimestampOffsetUs: () => calculateDecoderTimestampOffsetUs,
+    captionMotionAt: () => captionMotionAt,
     capturePresentedRgba: () => capturePresentedRgba,
     compareRgba: () => compareRgba,
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
     copyNativeYuvFrame: () => copyNativeYuvFrame,
     cornersToHomography: () => cornersToHomography,
+    cubicBezierAt: () => cubicBezierAt,
     describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
     evaluateFrame: () => evaluateFrame,
@@ -13037,14 +13041,17 @@ ${indent}`);
     evaluationPlanFromTimelineMap: () => evaluationPlanFromTimelineMap,
     frameCoversTimestamp: () => frameCoversTimestamp,
     invertMat3: () => invertMat3,
+    isCaptionMotionSupported: () => isCaptionMotionSupported,
     isDecoderErrorMessage: () => isDecoderErrorMessage,
     isLayerActiveAt: () => isLayerActiveAt,
+    normalizeSpriteDraw: () => normalizeSpriteDraw,
     parseCube: () => parseCube,
     presentFrame: () => presentFrame,
     presentationFrameTiming: () => presentationFrameTiming,
     readbackFrame: () => readbackFrame,
     resolveLookLutPath: () => resolveLookLutPath,
     sampleLutTrilinear: () => sampleLutTrilinear,
+    spriteTransformMatrix: () => spriteTransformMatrix,
     watchDecoderErrors: () => watchDecoderErrors,
     withTimeout: () => withTimeout
   });
@@ -14776,11 +14783,11 @@ void main() {
       }
     }
     const amount = right.t > left.t ? clamp((playbackSeconds - left.t) / (right.t - left.t), 0, 1) : 0;
-    const lerp = (a, b) => a + (b - a) * amount;
+    const lerp2 = (a, b) => a + (b - a) * amount;
     return {
-      scale: Math.max(1, lerp(finite2(left.scale, 1), finite2(right.scale, 1))),
-      centerX: clamp(lerp(finite2(left.cx, 0.5), finite2(right.cx, 0.5)), 0, 1),
-      centerY: clamp(lerp(finite2(left.cy, 0.5), finite2(right.cy, 0.5)), 0, 1)
+      scale: Math.max(1, lerp2(finite2(left.scale, 1), finite2(right.scale, 1))),
+      centerX: clamp(lerp2(finite2(left.cx, 0.5), finite2(right.cx, 0.5)), 0, 1),
+      centerY: clamp(lerp2(finite2(left.cy, 0.5), finite2(right.cy, 0.5)), 0, 1)
     };
   }
   function visualAt(cut, playbackSeconds) {
@@ -18103,6 +18110,7 @@ void main() {
         },
         error: (error) => {
           this.failure = error;
+          this.notifyQueueWaiters();
         }
       });
       this.encoder.configure(this.config);
@@ -18113,6 +18121,7 @@ void main() {
     failure = null;
     frameNumber = 0;
     closed = false;
+    queueWaiters = /* @__PURE__ */ new Set();
     static async isSupported(options) {
       if (typeof VideoEncoder === "undefined") return false;
       const config = {
@@ -18130,6 +18139,37 @@ void main() {
     get encodeQueueSize() {
       return this.encoder.encodeQueueSize;
     }
+    async waitForQueueBelow(limit) {
+      if (!Number.isFinite(limit) || limit < 0) throw new Error("WebCodecs queue limit must be a non-negative number");
+      this.assertOpen();
+      if (this.encoder.encodeQueueSize <= limit) return;
+      await new Promise((resolve, reject) => {
+        let settled = false;
+        const cleanup = () => {
+          this.encoder.removeEventListener("dequeue", check);
+          this.queueWaiters.delete(check);
+        };
+        const check = () => {
+          if (settled) return;
+          if (this.failure) {
+            settled = true;
+            cleanup();
+            reject(this.failure);
+          } else if (this.closed) {
+            settled = true;
+            cleanup();
+            reject(new Error("WebCodecs encoder is closed"));
+          } else if (this.encoder.encodeQueueSize <= limit) {
+            settled = true;
+            cleanup();
+            resolve();
+          }
+        };
+        this.queueWaiters.add(check);
+        this.encoder.addEventListener("dequeue", check);
+        check();
+      });
+    }
     encode(frame) {
       if (this.closed) throw new Error("WebCodecs encoder is closed");
       if (this.failure) throw this.failure;
@@ -18144,19 +18184,505 @@ void main() {
       }
     }
     async finish() {
-      if (this.closed) throw new Error("WebCodecs encoder is closed");
+      this.assertOpen();
       await this.encoder.flush();
       await Promise.all(this.writes);
       if (this.failure) throw this.failure;
       this.encoder.close();
       this.closed = true;
+      this.notifyQueueWaiters();
       return { frames: this.frameNumber };
     }
     close() {
       if (this.closed) return;
       this.closed = true;
       this.encoder.close();
+      this.notifyQueueWaiters();
+    }
+    assertOpen() {
+      if (this.failure) throw this.failure;
+      if (this.closed) throw new Error("WebCodecs encoder is closed");
+    }
+    notifyQueueWaiters() {
+      for (const waiter of [...this.queueWaiters]) waiter();
     }
   };
+
+  // packages/frame-engine/src/exits/sprite-compositor.ts
+  function finite4(value, fallback, label) {
+    const resolved = value ?? fallback;
+    if (!Number.isFinite(resolved)) throw new Error(`${label} must be finite`);
+    return resolved;
+  }
+  function normalizeSpriteDraw(draw) {
+    if (!draw || typeof draw.id !== "string" || draw.id === "") {
+      throw new Error("sprite draw id must be a non-empty string");
+    }
+    return {
+      id: draw.id,
+      opacity: Math.max(0, Math.min(1, finite4(draw.opacity, 1, "opacity"))),
+      translateX: finite4(draw.translateX, 0, "translateX"),
+      translateY: finite4(draw.translateY, 0, "translateY"),
+      scaleX: finite4(draw.scaleX, 1, "scaleX"),
+      scaleY: finite4(draw.scaleY, 1, "scaleY"),
+      rotateDeg: finite4(draw.rotateDeg, 0, "rotateDeg")
+    };
+  }
+  function spriteTransformMatrix(draw, width, height) {
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+      throw new Error("sprite compositor dimensions must be positive");
+    }
+    const value = normalizeSpriteDraw(draw);
+    const radians = value.rotateDeg * Math.PI / 180;
+    const cosine = Math.cos(radians);
+    const sine = Math.sin(radians);
+    const translateX = value.translateX * 2 / width;
+    const translateY = -value.translateY * 2 / height;
+    return new Float32Array([
+      cosine * value.scaleX,
+      sine * value.scaleX,
+      0,
+      -sine * value.scaleY,
+      cosine * value.scaleY,
+      0,
+      translateX,
+      translateY,
+      1
+    ]);
+  }
+  function compileShader2(gl, type, source) {
+    const shader = gl.createShader(type);
+    if (!shader) throw new Error("sprite compositor could not create shader");
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const message = gl.getShaderInfoLog(shader) ?? "unknown shader error";
+      gl.deleteShader(shader);
+      throw new Error(message);
+    }
+    return shader;
+  }
+  function createTexture(gl) {
+    const texture = gl.createTexture();
+    if (!texture) throw new Error("sprite compositor could not create texture");
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return texture;
+  }
+  var SpriteCompositor = class {
+    uploadPath = "direct";
+    canvas;
+    gl;
+    program;
+    matrixLocation;
+    opacityLocation;
+    baseTexture;
+    sprites = /* @__PURE__ */ new Map();
+    disposed = false;
+    constructor(canvas, options = {}) {
+      this.canvas = canvas;
+      if (options.width !== void 0) canvas.width = options.width;
+      if (options.height !== void 0) canvas.height = options.height;
+      if (canvas.width <= 0 || canvas.height <= 0) throw new Error("sprite compositor canvas must have positive dimensions");
+      const gl = canvas.getContext("webgl2", {
+        alpha: false,
+        antialias: false,
+        depth: false,
+        preserveDrawingBuffer: true
+      });
+      if (!gl) throw new Error("WebGL2 is unavailable for sprite composition");
+      this.gl = gl;
+      const vertex = compileShader2(gl, gl.VERTEX_SHADER, `#version 300 es
+      in vec2 position;
+      out vec2 uv;
+      uniform mat3 transform;
+      void main() {
+        uv = vec2(position.x * .5 + .5, .5 - position.y * .5);
+        vec3 point = transform * vec3(position, 1.);
+        gl_Position = vec4(point.xy, 0., 1.);
+      }`);
+      const fragment = compileShader2(gl, gl.FRAGMENT_SHADER, `#version 300 es
+      precision highp float;
+      in vec2 uv;
+      out vec4 color;
+      uniform sampler2D image;
+      uniform float opacity;
+      void main() {
+        vec4 value = texture(image, uv);
+        color = vec4(value.rgb, value.a * opacity);
+      }`);
+      const program = gl.createProgram();
+      if (!program) throw new Error("sprite compositor could not create program");
+      gl.attachShader(program, vertex);
+      gl.attachShader(program, fragment);
+      gl.linkProgram(program);
+      gl.deleteShader(vertex);
+      gl.deleteShader(fragment);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(program) ?? "sprite compositor link failed");
+      }
+      this.program = program;
+      gl.useProgram(program);
+      const buffer = gl.createBuffer();
+      if (!buffer) throw new Error("sprite compositor could not create vertex buffer");
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      const position = gl.getAttribLocation(program, "position");
+      gl.enableVertexAttribArray(position);
+      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+      const matrixLocation = gl.getUniformLocation(program, "transform");
+      const opacityLocation = gl.getUniformLocation(program, "opacity");
+      if (!matrixLocation || !opacityLocation) throw new Error("sprite compositor uniforms are unavailable");
+      this.matrixLocation = matrixLocation;
+      this.opacityLocation = opacityLocation;
+      gl.uniform1i(gl.getUniformLocation(program, "image"), 0);
+      this.baseTexture = createTexture(gl);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+    registerSprite(id, source) {
+      this.assertUsable();
+      if (typeof id !== "string" || id === "") throw new Error("sprite id must be a non-empty string");
+      if (this.sprites.has(id)) throw new Error(`sprite already registered: ${id}`);
+      const texture = createTexture(this.gl);
+      this.upload(texture, source);
+      this.sprites.set(id, texture);
+    }
+    updateSprite(id, source) {
+      this.assertUsable();
+      const texture = this.sprites.get(id);
+      if (!texture) throw new Error(`unknown sprite: ${id}`);
+      this.upload(texture, source);
+    }
+    compose(base, draws) {
+      this.assertUsable();
+      const gl = this.gl;
+      gl.useProgram(this.program);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      this.upload(this.baseTexture, base);
+      this.draw(this.baseTexture, { id: "__base__", opacity: 1 }, false);
+      for (const draw of draws) {
+        const texture = this.sprites.get(draw.id);
+        if (!texture) throw new Error(`unknown sprite: ${draw.id}`);
+        this.draw(texture, draw, true);
+      }
+      gl.flush();
+    }
+    dispose() {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.gl.deleteTexture(this.baseTexture);
+      for (const texture of this.sprites.values()) this.gl.deleteTexture(texture);
+      this.sprites.clear();
+      this.gl.deleteProgram(this.program);
+    }
+    upload(texture, source) {
+      const gl = this.gl;
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    }
+    draw(texture, draw, blend) {
+      const gl = this.gl;
+      const value = normalizeSpriteDraw(draw);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.uniformMatrix3fv(this.matrixLocation, false, spriteTransformMatrix(value, this.canvas.width, this.canvas.height));
+      gl.uniform1f(this.opacityLocation, value.opacity);
+      if (blend) {
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      } else {
+        gl.disable(gl.BLEND);
+      }
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    assertUsable() {
+      if (this.disposed) throw new Error("sprite compositor is disposed");
+    }
+  };
+
+  // packages/frame-engine/src/timeline/caption-motion.ts
+  var identity = () => ({
+    opacity: 1,
+    translateX: 0,
+    translateY: 0,
+    scaleX: 1,
+    scaleY: 1,
+    rotateDeg: 0
+  });
+  var motion = (...keyframes) => ({ keyframes });
+  var fromTo = (from, to = {}) => motion({ at: 0, ...from }, { at: 1, ...to });
+  var CAPTION_SPRITE_MOTIONS = {
+    "fade-in-out": fromTo({ opacity: 0 }),
+    "soft-fade": fromTo({ opacity: 0, scaleX: 1.04, scaleY: 1.04 }),
+    "fade-up": fromTo({ opacity: 0, yEm: 0.6 }),
+    "fade-down": fromTo({ opacity: 0, yEm: -0.6 }),
+    "cinematic-fade": fromTo({ opacity: 0, scaleX: 0.94, scaleY: 0.94 }),
+    "slide-left": fromTo({ opacity: 0, xEm: 1.2 }),
+    "slide-right": fromTo({ opacity: 0, xEm: -1.2 }),
+    "slide-up": fromTo({ opacity: 0, yEm: 1.2 }),
+    "slide-down": fromTo({ opacity: 0, yEm: -1.2 }),
+    "rise-soft": fromTo({ opacity: 0, yEm: 0.35, scaleX: 0.98, scaleY: 0.98 }),
+    "drop-in": motion(
+      { at: 0, opacity: 0, yEm: -1.6 },
+      { at: 0.7, opacity: 1, yEm: 0.12 },
+      { at: 1, opacity: 1 }
+    ),
+    "zoom-in-out": fromTo({ opacity: 0, scaleX: 0.6, scaleY: 0.6 }),
+    "zoom-pop": motion(
+      { at: 0, opacity: 0, scaleX: 0.4, scaleY: 0.4 },
+      { at: 0.7, opacity: 1, scaleX: 1.12, scaleY: 1.12 },
+      { at: 1, opacity: 1 }
+    ),
+    "zoom-pulse": motion(
+      { at: 0, opacity: 0, scaleX: 0.7, scaleY: 0.7 },
+      { at: 0.55, opacity: 1, scaleX: 1.06, scaleY: 1.06 },
+      { at: 1, opacity: 1 }
+    ),
+    pop: motion(
+      { at: 0, opacity: 0, scaleX: 0.5, scaleY: 0.5 },
+      { at: 0.65, opacity: 1, scaleX: 1.18, scaleY: 1.18 },
+      { at: 1, opacity: 1 }
+    ),
+    bounce: motion(
+      { at: 0, opacity: 0, yEm: -1.2 },
+      { at: 0.55, opacity: 1, yEm: 0.22 },
+      { at: 0.75, yEm: -0.1 },
+      { at: 1, opacity: 1 }
+    ),
+    "squash-pop": motion(
+      { at: 0, opacity: 0, scaleX: 1.4, scaleY: 0.4 },
+      { at: 0.6, opacity: 1, scaleX: 0.92, scaleY: 1.1 },
+      { at: 1, opacity: 1 }
+    ),
+    "stretch-in": motion(
+      { at: 0, opacity: 0, scaleX: 0.2 },
+      { at: 0.7, opacity: 1, scaleX: 1.08 },
+      { at: 1, opacity: 1 }
+    ),
+    stomp: motion(
+      { at: 0, opacity: 0, scaleX: 1.9, scaleY: 1.9 },
+      { at: 0.6, opacity: 1, scaleX: 0.96, scaleY: 0.96 },
+      { at: 1, opacity: 1 }
+    ),
+    snap: motion(
+      { at: 0, opacity: 0, rotateDeg: -6, scaleX: 0.8, scaleY: 0.8 },
+      { at: 0.7, opacity: 1, rotateDeg: 2, scaleX: 1.04, scaleY: 1.04 },
+      { at: 1, opacity: 1 }
+    ),
+    "rotate-in": fromTo({ opacity: 0, rotateDeg: -12, scaleX: 0.9, scaleY: 0.9 }),
+    "spin-in": fromTo({ opacity: 0, rotateDeg: -180, scaleX: 0.5, scaleY: 0.5 }),
+    "roll-in": fromTo({ opacity: 0, xEm: -2, rotateDeg: -120 }),
+    "spiral-in": fromTo({ opacity: 0, rotateDeg: 240, scaleX: 0.2, scaleY: 0.2 }),
+    shake: motion(
+      { at: 0 },
+      { at: 0.2, xEm: -0.16 },
+      { at: 0.4, xEm: 0.14 },
+      { at: 0.6, xEm: -0.1 },
+      { at: 0.8, xEm: 0.06 },
+      { at: 1 }
+    ),
+    jitter: motion(
+      { at: 0 },
+      { at: 0.25, xEm: 0.05, yEm: -0.04 },
+      { at: 0.5, xEm: -0.05, yEm: 0.04 },
+      { at: 0.75, xEm: 0.03, yEm: 0.05 },
+      { at: 1 }
+    ),
+    flash: motion(
+      { at: 0, opacity: 0 },
+      { at: 0.3, opacity: 1 },
+      { at: 0.45, opacity: 0.2 },
+      { at: 0.6, opacity: 1 },
+      { at: 0.75, opacity: 0.5 },
+      { at: 1, opacity: 1 }
+    ),
+    heartbeat: motion(
+      { at: 0 },
+      { at: 0.25, scaleX: 1.12, scaleY: 1.12 },
+      { at: 0.45 },
+      { at: 0.65, scaleX: 1.08, scaleY: 1.08 },
+      { at: 1 }
+    ),
+    wobble: motion({ at: 0, rotateDeg: -1.6 }, { at: 0.5, rotateDeg: 1.6 }, { at: 1, rotateDeg: -1.6 }),
+    float: motion({ at: 0 }, { at: 0.5, yEm: -0.22 }, { at: 1 }),
+    breath: motion(
+      { at: 0, opacity: 1 },
+      { at: 0.5, opacity: 0.92, scaleX: 1.03, scaleY: 1.03 },
+      { at: 1, opacity: 1 }
+    ),
+    "neon-flicker": motion(
+      { at: 0, opacity: 1 },
+      { at: 0.08, opacity: 0.6 },
+      { at: 0.12, opacity: 1 },
+      { at: 0.4, opacity: 0.85 },
+      { at: 0.44, opacity: 1 },
+      { at: 0.7, opacity: 0.4 },
+      { at: 0.74, opacity: 1 },
+      { at: 1, opacity: 1 }
+    ),
+    hologram: motion(
+      { at: 0, opacity: 1 },
+      { at: 0.3, opacity: 0.75, xEm: 0.03 },
+      { at: 0.6, opacity: 0.9, xEm: -0.03 },
+      { at: 1, opacity: 1 }
+    ),
+    "retro-flicker": motion(
+      { at: 0, opacity: 1 },
+      { at: 0.25, opacity: 0.7 },
+      { at: 0.5, opacity: 1 },
+      { at: 0.75, opacity: 0.8 },
+      { at: 1, opacity: 1 }
+    ),
+    "caption-rise": fromTo({ opacity: 0, yEm: 0.5 }),
+    "news-ticker": fromTo({ xPercent: 1 }, { xPercent: -1 }),
+    "marquee-left": fromTo({ xPercent: 1 }, { xPercent: -1 }),
+    "crawl-up": fromTo({ yPercent: 1 }, { yPercent: -1 })
+  };
+  var unsupported = /* @__PURE__ */ new Set([
+    "push-left",
+    "push-right",
+    "push-up",
+    "push-down",
+    "typewriter",
+    "wipe-left",
+    "wipe-right",
+    "glitch",
+    "swing"
+  ]);
+  var easeCurves = {
+    linear: null,
+    ease: [0.25, 0.1, 0.25, 1],
+    "ease-in": [0.42, 0, 1, 1],
+    "ease-out": [0, 0, 0.58, 1],
+    "ease-in-out": [0.42, 0, 0.58, 1]
+  };
+  function isCaptionMotionSupported(declaration) {
+    if (!declaration) return { supported: true, unsupported: [] };
+    const ids = ["in", "loop", "out"].flatMap((kind) => {
+      const slot = declaration[kind];
+      if (!slot?.id) return [];
+      return unsupported.has(slot.id) || !Object.hasOwn(CAPTION_SPRITE_MOTIONS, slot.id) ? [slot.id] : [];
+    });
+    return { supported: ids.length === 0, unsupported: [...new Set(ids)] };
+  }
+  function captionMotionAt(declaration, localSeconds, cueDurationSec, emPx) {
+    const local = Math.max(0, finiteNumber(localSeconds, 0));
+    const cueDuration = Math.max(0, finiteNumber(cueDurationSec, 0));
+    const em = Math.max(0, finiteNumber(emPx, 0));
+    if (!declaration || !declaration.in && !declaration.loop && !declaration.out) {
+      const progress = Math.max(0, Math.min(1, local / 0.18));
+      const eased = applyEase(progress, "ease-out");
+      return {
+        ...identity(),
+        opacity: eased,
+        translateY: 0.18 * em * (1 - eased)
+      };
+    }
+    const support = isCaptionMotionSupported(declaration);
+    if (!support.supported) throw new Error(`unsupported caption motion: ${support.unsupported.join(", ")}`);
+    const states = [];
+    if (declaration.in) {
+      const duration = slotDuration(declaration.in, cueDuration, 0.6);
+      states.push(sampleSlot(declaration.in, Math.min(1, local / duration), em));
+    }
+    if (declaration.loop) {
+      const period = positiveDuration(declaration.loop.durationSec ?? declaration.loop.duration_sec, 1.6);
+      states.push(sampleSlot(declaration.loop, local % period / period, em, "linear"));
+    }
+    if (declaration.out) {
+      const duration = slotDuration(declaration.out, cueDuration, 0.6);
+      const delay = Math.max(0, cueDuration - duration);
+      if (local >= delay) states.push(sampleSlot(declaration.out, 1 - Math.min(1, (local - delay) / duration), em));
+    }
+    return states.reduce(combine, identity());
+  }
+  function slotDuration(slot, cueDuration, fallback) {
+    return Math.min(positiveDuration(slot.durationSec ?? slot.duration_sec, fallback), Math.max(0.05, cueDuration));
+  }
+  function positiveDuration(value, fallback) {
+    return Number.isFinite(value) && Number(value) > 0 ? Number(value) : fallback;
+  }
+  function sampleSlot(slot, progress, emPx, ease2 = slot.ease ?? "ease-out") {
+    const recipe = CAPTION_SPRITE_MOTIONS[slot.id];
+    if (!recipe || recipe.keyframes.length === 0) throw new Error(`unsupported caption motion: ${slot.id}`);
+    const eased = applyEase(Math.max(0, Math.min(1, progress)), ease2);
+    const points = recipe.keyframes;
+    let left = points[0];
+    let right = points.at(-1) ?? left;
+    for (let index = 1; index < points.length; index += 1) {
+      if (eased <= points[index].at) {
+        left = points[index - 1];
+        right = points[index];
+        break;
+      }
+    }
+    const span = right.at - left.at;
+    const fraction = span <= 0 ? 0 : (eased - left.at) / span;
+    const amp = Number.isFinite(slot.amp) ? Number(slot.amp) : 1;
+    const a = pointState(left, emPx, amp);
+    const b = pointState(right, emPx, amp);
+    return {
+      opacity: lerp(a.opacity, b.opacity, fraction),
+      translateX: lerp(a.translateX, b.translateX, fraction),
+      translateY: lerp(a.translateY, b.translateY, fraction),
+      scaleX: lerp(a.scaleX, b.scaleX, fraction),
+      scaleY: lerp(a.scaleY, b.scaleY, fraction),
+      rotateDeg: lerp(a.rotateDeg, b.rotateDeg, fraction)
+    };
+  }
+  function pointState(point, emPx, amp) {
+    return {
+      opacity: point.opacity ?? 1,
+      translateX: ((point.xEm ?? 0) + (point.xPercent ?? 0) * 20) * emPx * amp,
+      translateY: ((point.yEm ?? 0) + (point.yPercent ?? 0) * 20) * emPx * amp,
+      scaleX: 1 + ((point.scaleX ?? 1) - 1) * amp,
+      scaleY: 1 + ((point.scaleY ?? point.scaleX ?? 1) - 1) * amp,
+      rotateDeg: (point.rotateDeg ?? 0) * amp
+    };
+  }
+  function combine(left, right) {
+    return {
+      opacity: left.opacity * right.opacity,
+      translateX: left.translateX + right.translateX,
+      translateY: left.translateY + right.translateY,
+      scaleX: left.scaleX * right.scaleX,
+      scaleY: left.scaleY * right.scaleY,
+      rotateDeg: left.rotateDeg + right.rotateDeg
+    };
+  }
+  function applyEase(progress, name) {
+    const curve = easeCurves[name] ?? easeCurves["ease-out"];
+    if (!curve) return progress;
+    return cubicBezierAt(progress, ...curve);
+  }
+  function cubicBezierAt(x3, x1, y1, x22, y2) {
+    const sample = (t2, a, b) => {
+      const inverse = 1 - t2;
+      return 3 * inverse * inverse * t2 * a + 3 * inverse * t2 * t2 * b + t2 * t2 * t2;
+    };
+    const derivative = (t2, a, b) => 3 * (1 - t2) * (1 - t2) * a + 6 * (1 - t2) * t2 * (b - a) + 3 * t2 * t2 * (1 - b);
+    let t = Math.max(0, Math.min(1, x3));
+    for (let iteration = 0; iteration < 16; iteration += 1) {
+      const delta = sample(t, x1, x22) - x3;
+      if (Math.abs(delta) <= 1e-7) break;
+      const slope = derivative(t, x1, x22);
+      if (Math.abs(slope) < 1e-7) break;
+      t = Math.max(0, Math.min(1, t - delta / slope));
+    }
+    return sample(t, y1, y2);
+  }
+  function lerp(left, right, progress) {
+    return left + (right - left) * Math.max(0, Math.min(1, progress));
+  }
+  function finiteNumber(value, fallback) {
+    return Number.isFinite(value) ? value : fallback;
+  }
   return __toCommonJS(index_exports);
 })();

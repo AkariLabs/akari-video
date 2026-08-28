@@ -21,3 +21,5 @@ export * from './look/cube.js';
 export * from './exits/present.js';
 export * from './exits/readback.js';
 export * from './exits/webcodecs.js';
+export * from './exits/sprite-compositor.js';
+export * from './timeline/caption-motion.js';

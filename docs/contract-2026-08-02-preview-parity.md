@@ -1,7 +1,7 @@
 # エンジン v2 パリティ契約 — ゴールデンフレーム検収
 
 > **2026-08-28 v2 改訂。** 本契約は面ごとに独立した描画実装を比較する契約から、単一の
-> frame-engine を二つの器と一つの出口が消費する契約へ改訂した。互換経路は §4.3 だけが扱い、
+> frame-engine を二つの器と二つの出口が消費する契約へ改訂した。互換経路は §4.3 だけが扱い、
 > 仕様の正本には含めない。
 
 ## 改訂履歴
@@ -9,7 +9,7 @@
 | 日付 | 版 | 内容 |
 |---|---|---|
 | 2026-08-02 | v0 | Web UI と shell の挙動仕様を統合 |
-| 2026-08-28 | v2 | `packages/frame-engine` の意味論へ統合し、検収をゴールデンフレームへ一本化。出口を OSR に固定し、互換経路を退役節へ移動 |
+| 2026-08-28 | v2 | `packages/frame-engine` の意味論へ統合し、検収をゴールデンフレームへ一本化。出口を OSR と GPU 直結の 2 本に固定し、互換経路を退役節へ移動 |
 
 ## 1. 役割分担
 
@@ -36,10 +36,11 @@ DOM overlay の提示、診断値の表示に限る。
 
 ### 1.3 出口
 
-出口は `packages/osr-export` の OSR 書き出しだけである。OSR は frame-engine の完成フレームと、同じ DOM
-規約から作った overlay sheet をページ全体として捕捉し、raw BGRA を一度だけエンコードして音声を mux する。
-ページ契約、stamp、seek / paint handshake、メモリ規律は
-[ページ全体 OSR 書き出し v0](./contract-2026-08-28-osr-export-v0.md) を正本とする。
+出口は `packages/osr-export` の OSR と `packages/gpu-export` の GPU 直結の 2 本である。OSR は
+frame-engine の完成フレームと同じ DOM 規約の overlay sheet をページ全体で捕捉する。GPU 直結は、
+適格な DOM 層を engine canvas 上のスプライトへ移し、完成 canvas を `VideoFrame` と WebCodecs へ直接渡す。
+OSR の page/stamp/seek-paint は [ページ全体 OSR 書き出し v0](./contract-2026-08-28-osr-export-v0.md)、
+GPU の適格性/readback/mux は [GPU 直結書き出し v0](./contract-2026-08-28-gpu-export-v0.md) を正本とする。
 
 ## 2. エンジンの意味論
 
@@ -144,18 +145,18 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 
 凡例: ✅ = 本契約の経路、🟡 = 契約された近似または実機残課題、— = その境界の責務ではない。
 
-| 機能 | エンジン (`frame-engine`) | Web UI 器 (`preview-server`) | shell 器 (`akari-preview`) | OSR 出口 (`osr-export`) |
-|---|---|---|---|---|
-| 時刻 `T`、cuts、gap、track | ✅ 評価 | ✅ 呼び出し・提示 | ✅ 呼び出し・提示 | ✅ 連番駆動 |
-| framing / transform / opacity / freeze | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 |
-| layers / perspective / keyframes | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 |
-| 5 transitions | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 |
-| matte / chroma key | ✅ 評価 | ✅ stamp 同期 | ✅ stamp 同期 | ✅ stamp 同期・捕捉 |
-| LUT / `bt709-limited` | ✅ 評価 | ✅ 提示 | ✅ 提示 | ✅ 捕捉・encode |
-| 字幕 | — DOM 規約へ active state を供給 | ✅ DOM 層 | ✅ DOM 層 | ✅ 同規約の overlay sheet |
-| overlays / 3D | — DOM 規約へ時刻を供給 | ✅ DOM 層 | ✅ DOM 層 | ✅ 同規約の overlay sheet |
-| 音声予定表 | ✅ 区間評価 | 🟡 Web Audio 近似 | 🟡 Web Audio 近似 | ✅ ffmpeg 納品マスター |
-| Windows 実機 | ✅ platform-neutral | — Web browser | 🟡 実機残課題 | 🟡 実機残課題 |
+| 機能 | エンジン (`frame-engine`) | Web UI 器 (`preview-server`) | shell 器 (`akari-preview`) | OSR 出口 (`osr-export`) | GPU 出口 (`gpu-export`) |
+|---|---|---|---|---|---|
+| 時刻 `T`、cuts、gap、track | ✅ 評価 | ✅ 呼び出し・提示 | ✅ 呼び出し・提示 | ✅ 連番駆動 | ✅ 連番駆動 |
+| framing / transform / opacity / freeze | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
+| layers / perspective / keyframes | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
+| 5 transitions | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
+| matte / chroma key | ✅ 評価 | ✅ stamp 同期 | ✅ stamp 同期 | ✅ stamp 同期・捕捉 | ✅ 同一 frame 評価 |
+| LUT / `bt709-limited` | ✅ 評価 | ✅ 提示 | ✅ 提示 | ✅ 捕捉・encode | ✅ LUT 後 canvas を直結 |
+| 字幕 | — DOM 規約へ active state を供給 | ✅ DOM 層 | ✅ DOM 層 | ✅ 同規約の overlay sheet | 🟡 適格 cue を sprite 化 |
+| overlays / 3D | — DOM 規約へ時刻を供給 | ✅ DOM 層 | ✅ DOM 層 | ✅ 同規約の overlay sheet | 🟡 static / 宣言型 3D のみ |
+| 音声予定表 | ✅ 区間評価 | 🟡 Web Audio 近似 | 🟡 Web Audio 近似 | ✅ ffmpeg 納品マスター | ✅ carrier 後に同じ master |
+| Windows 実機 | ✅ platform-neutral | — Web browser | 🟡 実機残課題 | 🟡 実機残課題 | — v0 非対応 |
 
 未完項目の移管先は [エンジン v2 残課題](./notes-2026-08-28-engine-v2-open-items.md)、近似の判定正本は
 [エンジン v2 恒久近似清算表](./contract-2026-08-28-v2-approximation-ledger.md) とする。
@@ -191,6 +192,9 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 | OSR ソフト描画 | 同じ入力の 2 走で全コマ raw BGRA SHA-256 一致 | 不一致 1 コマでも不合格 |
 | OSR GPU・同一マシン | 2 走の一致率、`differingPixels`、`maxDelta` を記録 | byte-exact は診断値であり合否条件にしない |
 | OSR GPU・別マシン | #14 Windows 実機を含む platform 差を記録 | 共通 byte-exact は要求しない |
+| GPU 直結・engine 区間 | OSR decode 比較の per-frame MAD ≤ 1.0 | 超過は不合格 |
+| GPU 直結・字幕 | cue 代表 5 時刻の下半分 MAD ≤ 1.0 | 超過は不合格 |
+| GPU 直結・3D | 3D active 区間 MAD ≤ 1.0 | 超過は不合格 |
 
 OSR の比較は H.264 を再 decode した画像ではなく捕捉時の raw BGRA を使う。ソフト描画の検収と GPU の
 診断値を混同しない。

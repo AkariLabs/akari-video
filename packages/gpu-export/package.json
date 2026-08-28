@@ -1,0 +1,26 @@
+{
+  "name": "@akari-video/gpu-export",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GPU-direct WebCodecs export for eligible AKARI Video projects.",
+  "bin": {
+    "akari-gpu-export": "bin/akari-gpu-export.mjs"
+  },
+  "scripts": {
+    "bundle:frame-engine": "node scripts/bundle-frame-engine.mjs",
+    "check:frame-engine-drift": "node scripts/bundle-frame-engine.mjs --check",
+    "assert-zero-readback": "node scripts/assert-zero-readback.mjs",
+    "test": "node --test test/*.test.mjs",
+    "ci:required": "npm test && npm run assert-zero-readback"
+  },
+  "dependencies": {
+    "@akari-video/frame-engine": "0.1.0"
+  },
+  "optionalDependencies": {
+    "electron": "^39.8.7"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

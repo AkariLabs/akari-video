@@ -147,3 +147,12 @@ media time に合わせて評価するため、従来の一定 2 コマ手前に
 ### 11.4 アプリ起動中の第1段（2026-08-28 根治）
 
 v0.1.24以前はTheiaの`singleInstance`により、AKARI Videoデスクトップアプリの起動中に第1段を開始すると、子プロセスがexit 0・無出力で終了していた。launcherが出力を検査しなかったため、後続処理ではこの失敗がffmpegのENOENTに化けていた。runごとにuserDataを分離し、exit 0でも出力が無い場合を失敗として扱うことで根治した。Windowsのelectron-builder NSIS per-user既定導入先は`%LOCALAPPDATA%\Programs\@akari-videoshell`である。
+
+## 12. GPU 直結出口との共有境界（2026-08-28 追記）
+
+[GPU 直結書き出し v0](./contract-2026-08-28-gpu-export-v0.md) は、本契約の launcher 3 段、static
+server、page builder の入力解決、memory guard、ffprobe、音声 mux、receipt の語彙を再利用する。
+省略可能引数の既定値は本契約の OSR 挙動を維持する。GPU 出口の適格性、readback 禁止、mp4box direct
+mux、fail-closed 条件は GPU 契約を正本とし、OSR の seek/paint/stamp 経路へ逆流させない。
+§1 の darwin `auto → osr` は GPU 出口追加前の記述であり、GPU 契約の適格性を満たさない場合、
+または GPU launcher が利用できない場合の選択として読む。適格時の `auto → gpu` は GPU 契約を優先する。
