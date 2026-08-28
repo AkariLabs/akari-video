@@ -31,8 +31,8 @@ export default new ContainerModule((bind, _unbind, _isBound, rebind) => {
             properties: {
                 'akari.preview.frameEngine': {
                     type: 'boolean',
-                    default: false,
-                    description: 'frame-engine のプレビュー評価台を使います（実験・cuts のみ・既定オフ）。'
+                    default: true,
+                    description: 'frame-engine の製品プレビューを使います（false で従来の video プレビュー）。'
                 }
             }
         }

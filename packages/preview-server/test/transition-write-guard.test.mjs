@@ -167,7 +167,7 @@ test('実 Web UI は transition_out だけを保存し、汚染キーを浄化�
     page.on('console', message => {
       if (message.type() === 'warning') warnings.push(message.text());
     });
-    await page.goto(base, { waitUntil: 'load', timeout: 15000 });
+    await page.goto(`${base}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await page.waitForFunction(() => Number(document.getElementById('seek')?.max) > 0);
 
     await openFirstCutEditor(page);

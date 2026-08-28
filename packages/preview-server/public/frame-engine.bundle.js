@@ -18464,35 +18464,20 @@ function sourceUrls(edit, timelineData, cuts) {
   return urls;
 }
 function createUi(stage) {
-  for (const child of Array.from(stage.children)) child.style.display = "none";
   const root = document.createElement("div");
   root.id = "frame-engine-preview";
   root.dataset.frameEngineReady = "false";
-  Object.assign(root.style, { position: "absolute", inset: "0", zIndex: "2147483647" });
+  Object.assign(root.style, { position: "absolute", inset: "0", background: "#000" });
   const canvas = document.createElement("canvas");
   canvas.id = "frame-engine-canvas";
   canvas.setAttribute("aria-label", "Frame engine canvas preview");
   Object.assign(canvas.style, { width: "100%", height: "100%", display: "block", objectFit: "contain" });
-  const banner = document.createElement("div");
-  banner.id = "frame-engine-unsupported-banner";
-  banner.setAttribute("role", "status");
-  banner.textContent = "Frame engine \u8A55\u4FA1\u53F0\uFF08cuts + layers + matte + \u97F3\u58F0\uFF09\u2014 \u672A\u5BFE\u5FDC: overlays / \u5B57\u5E55";
-  Object.assign(banner.style, {
-    position: "absolute",
-    left: "8px",
-    top: "8px",
-    maxWidth: "calc(100% - 270px)",
-    padding: "5px 8px",
-    border: "1px solid rgba(255,209,102,.65)",
-    borderRadius: "4px",
-    background: "rgba(30,24,8,.88)",
-    color: "#ffd166",
-    font: "11px/1.45 system-ui,sans-serif"
-  });
   const metrics = document.createElement("div");
   metrics.id = "frame-engine-metrics";
+  metrics.hidden = new URLSearchParams(window.location.search).get("frameEngineMetrics") !== "1";
   Object.assign(metrics.style, {
     position: "absolute",
+    zIndex: "2147483647",
     right: "8px",
     top: "8px",
     minWidth: "250px",
@@ -18509,6 +18494,7 @@ function createUi(stage) {
   error.hidden = true;
   Object.assign(error.style, {
     position: "absolute",
+    zIndex: "2147483647",
     inset: "40% 10% auto",
     padding: "12px",
     borderRadius: "6px",
@@ -18516,8 +18502,8 @@ function createUi(stage) {
     color: "#fff",
     textAlign: "center"
   });
-  root.append(canvas, banner, metrics, error);
-  stage.append(root);
+  root.append(canvas, metrics, error);
+  stage.prepend(root);
   return { root, canvas, metrics, error };
 }
 function replaceCanvas(ui) {
@@ -18581,13 +18567,23 @@ var FrameEngineRuntime = class {
     });
     this.totalDuration = this.timeline.totalDuration;
     this.audio = new FrameEngineAudioSupply(edit, this.totalDuration);
-    this.segments = this.timeline.cuts.map((placement, index) => ({
-      index,
-      isGap: false,
-      outStart: placement.at,
-      outEnd: placement.end,
-      durationSec: placement.end - placement.at
-    }));
+    this.segments = this.timeline.cuts.map((placement, index) => {
+      const cut = placement.cut ?? cuts[index] ?? {};
+      return {
+        index,
+        isGap: false,
+        inSec: Number(cut.in ?? 0),
+        outSec: Number(cut.out ?? cut.in ?? 0),
+        speed: Number(cut.speed) > 0 ? Number(cut.speed) : 1,
+        outStart: placement.at,
+        outEnd: placement.end,
+        durationSec: placement.end - placement.at,
+        framing: cut.framing,
+        freeze: cut.freeze,
+        transform: cut.transform,
+        opacity: Number.isFinite(cut.opacity) ? Number(cut.opacity) : void 0
+      };
+    });
     const size = edit?.output ?? {};
     const projectedLook = edit?.videoFx?.look;
     const intensity = Number(projectedLook?.intensity ?? 1);
@@ -18641,6 +18637,7 @@ var FrameEngineRuntime = class {
   warmupRequests = /* @__PURE__ */ new Set();
   rendering = null;
   lastPlaybackFrame = -1;
+  lastPresentedSec = 0;
   lastCutIndex = null;
   currentAccesses = null;
   currentDecodedFrames = null;
@@ -18657,23 +18654,26 @@ var FrameEngineRuntime = class {
   seek(seconds) {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
     this.audio.seek(clamped);
-    this.scrub.requestScrub(Math.round(clamped * this.fps));
+    const frameNumber = Math.round(clamped * this.fps);
+    this.scrub.requestScrub(frameNumber);
+    return frameNumber / this.fps;
   }
   renderPlayback(seconds) {
     const audioClockSeconds = this.audio.playbackTime(seconds);
     const frameNumber = Math.round(audioClockSeconds * this.fps);
-    if (frameNumber === this.lastPlaybackFrame) return;
+    if (frameNumber === this.lastPlaybackFrame) return this.lastPresentedSec;
     this.lastPlaybackFrame = frameNumber;
     if (this.rendering) {
       this.measurements.lateFrames += 1;
       this.updateMetrics();
-      return;
+      return this.lastPresentedSec;
     }
     const operation = this.renderFrame(frameNumber / this.fps, "playback").catch((error) => this.showError(String(error), true));
     this.rendering = operation;
     void operation.finally(() => {
       if (this.rendering === operation) this.rendering = null;
     });
+    return this.lastPresentedSec;
   }
   snapshot() {
     return { totalDuration: this.totalDuration, segments: this.segments };
@@ -18733,6 +18733,7 @@ var FrameEngineRuntime = class {
       (allHit ? this.measurements.seekAfterMs : this.measurements.seekBeforeMs).push(reached);
     }
     const presented = performance.now();
+    this.lastPresentedSec = timeUs / 1e6;
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter((value) => value >= presented - 1e3);
     this.prefetch(timeUs);

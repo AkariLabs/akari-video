@@ -75,7 +75,7 @@ async function openProject(browser, project, testOptions = {}) {
   if (Object.keys(testOptions).length > 0) {
     await page.addInitScript(options => { window.__akariVideoFxTestOptions = options; }, testOptions);
   }
-  await page.goto(server.base, { waitUntil: 'load' });
+  await page.goto(`${server.base}/?frameEngine=0`, { waitUntil: 'load' });
   await page.waitForFunction(() => document.getElementById('preview-message').hidden === true);
   return { page, server };
 }

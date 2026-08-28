@@ -32,11 +32,10 @@ test('AudioContext.currentTime が描画クロックを支配し、観測窓が�
   assert.match(source, /lastRenderedTimelineSec - audioPositionSec/u);
 });
 
-test('音声対応バナーは overlays / 字幕だけを未対応として残す', () => {
-  const bannerLine = source.split('\n').find(line => line.includes('Frame engine 評価台')) ?? '';
-  assert.match(bannerLine, /cuts \+ layers \+ matte \+ 音声/u);
-  assert.match(bannerLine, /未対応: overlays \/ 字幕/u);
-  assert.doesNotMatch(bannerLine, /字幕 \/ 音声/u);
+test('評価台バナーを撤去し、計測値だけを明示フラグで表示する', () => {
+  assert.doesNotMatch(source, /Frame engine 評価台|frame-engine-unsupported-banner/u);
+  assert.match(source, /get\('frameEngineMetrics'\) !== '1'/u);
+  assert.match(source, /metrics\.dataset\.fps/u);
 });
 
 test('L1 fixtures are tracks-first v2 and reject silent false positives', () => {

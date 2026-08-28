@@ -78,7 +78,7 @@ test('real Chrome applies the manifest geometry oracle and complete kernel style
     } });
 
     const previewPage = await context.newPage();
-    await previewPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'domcontentloaded' });
+    await previewPage.goto(`http://127.0.0.1:${port}/?frameEngine=0`, { waitUntil: 'domcontentloaded' });
     await previewPage.evaluate(async () => window.__akariCaptionFontReady);
     const fontResponse = await context.request.get(`http://127.0.0.1:${port}/assets/fonts/akari-noto-sans-jp.ttf`);
     assert.equal(fontResponse.status(), 200);

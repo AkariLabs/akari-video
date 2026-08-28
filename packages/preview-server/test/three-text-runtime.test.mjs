@@ -147,7 +147,7 @@ test('3D text bundle is text-only, ordered, and safe after a runtime-only scene'
   const lateRequests = runtimeRequests(latePage);
   const lateConsole = [];
   latePage.on('console', message => lateConsole.push(message.text()));
-  await latePage.goto(`${server.base}/?mode=output`, { waitUntil: 'load' });
+  await latePage.goto(`${server.base}/?mode=output&frameEngine=0`, { waitUntil: 'load' });
   await latePage.waitForFunction(() => Boolean(window.akari?.threeRuntime?.render));
   assert.deepEqual(lateRequests, ['/three-bundle.js', '/three-runtime.js']);
   assert.equal(lateRequests.includes('/vendor-3d-text-bundle.js'), false);
@@ -164,7 +164,7 @@ test('3D text bundle is text-only, ordered, and safe after a runtime-only scene'
   const orderedRequests = runtimeRequests(orderedPage);
   const orderedConsole = [];
   orderedPage.on('console', message => orderedConsole.push(message.text()));
-  await orderedPage.goto(`${server.base}/?mode=output`, { waitUntil: 'load' });
+  await orderedPage.goto(`${server.base}/?mode=output&frameEngine=0`, { waitUntil: 'load' });
   await waitForTextScene(orderedPage);
   assert.deepEqual(orderedRequests, [
     '/three-bundle.js',
