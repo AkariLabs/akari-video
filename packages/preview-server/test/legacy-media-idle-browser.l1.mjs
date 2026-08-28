@@ -41,7 +41,7 @@ function generateFixture(ffmpegPath, project) {
 
   run([
     '-hide_banner', '-loglevel', 'error',
-    '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30:duration=4',
+    '-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=30:duration=6',
     '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20', '-pix_fmt', 'yuv420p',
     '-g', '30', '-keyint_min', '30', '-sc_threshold', '0', '-movflags', '+faststart',
     '-y', path.join(project, 'base.mp4'),
@@ -49,12 +49,13 @@ function generateFixture(ffmpegPath, project) {
 
   run([
     '-hide_banner', '-loglevel', 'error',
-    '-f', 'lavfi', '-i', 'color=c=red:size=640x360:rate=30:duration=4',
+    '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30:duration=6',
     '-f', 'lavfi', '-i',
-    'color=c=black:size=640x360:rate=30:duration=4,drawbox=x=220:y=130:w=200:h=100:color=white:t=fill',
+    'color=c=black:size=640x360:rate=30:duration=6,drawbox=x=160:y=90:w=320:h=180:color=white:t=fill',
     '-filter_complex', '[0:v][1:v]alphamerge[v]', '-map', '[v]', '-an',
     '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-auto-alt-ref', '0',
-    '-deadline', 'realtime', '-cpu-used', '8', '-b:v', '500k',
+    '-deadline', 'realtime', '-cpu-used', '8',
+    '-b:v', '20M', '-minrate', '20M', '-maxrate', '20M',
     '-y', path.join(project, 'alpha-layer.webm'),
   ], 'VP9 alpha layer');
 
@@ -66,7 +67,7 @@ function generateFixture(ffmpegPath, project) {
 
   const edit = {
     version: 2,
-    output: { width: 640, height: 360, fps: 30 },
+    output: { width: 1280, height: 720, fps: 30 },
     sources: [
       { id: 'base', path: 'base.mp4', proxy: null },
       { id: 'alpha', path: 'alpha-layer.webm', proxy: null },
@@ -75,24 +76,24 @@ function generateFixture(ffmpegPath, project) {
     tracks: [
       {
         id: 'base-track', lane: 'visual', items: [
-          { id: 'base-cut', at: 0, duration: 120, source: { kind: 'media', src: 'base', in: 0, out: 4 } },
+          { id: 'base-cut', at: 0, duration: 180, source: { kind: 'media', src: 'base', in: 0, out: 6 } },
         ],
       },
       {
         id: 'alpha-track', lane: 'visual', items: [
           {
-            id: 'alpha-layer', at: 0, duration: 120,
-            transform: { x: 0, y: 0, scale: 1, rotate: 0 },
-            source: { kind: 'media', src: 'alpha', in: 0, out: 4 },
+            id: 'alpha-layer', at: 0, duration: 180,
+            transform: { x: 0, y: 0, scale: 2, rotate: 0 },
+            source: { kind: 'media', src: 'alpha', in: 0, out: 6 },
           },
         ],
       },
       {
         id: 'still-track', lane: 'visual', items: [
           {
-            id: 'still-layer', at: 0, duration: 120,
-            transform: { x: -190, y: -110, scale: 1, rotate: 0 },
-            source: { kind: 'media', src: 'still', in: 0, out: 4 },
+            id: 'still-layer', at: 0, duration: 180,
+            transform: { x: -380, y: -220, scale: 1, rotate: 0 },
+            source: { kind: 'media', src: 'still', in: 0, out: 6 },
           },
         ],
       },
@@ -102,12 +103,22 @@ function generateFixture(ffmpegPath, project) {
 }
 
 async function mediaAudit(page) {
-  return page.evaluate(() => {
+  return await page.evaluate(() => {
     const nonEmptySrc = element => Boolean(element.getAttribute('src') || element.src);
+    const resources = performance.getEntriesByType('resource')
+      .filter(entry => entry.initiatorType === 'video' || entry.initiatorType === 'img')
+      .map(entry => ({
+        name: entry.name,
+        initiatorType: entry.initiatorType,
+        encodedBodySize: entry.encodedBodySize,
+      }));
+    const videoResources = resources.filter(entry => entry.initiatorType === 'video');
     return {
-      mediaResources: performance.getEntriesByType('resource')
-        .filter(entry => entry.initiatorType === 'video' || entry.initiatorType === 'img')
-        .map(entry => ({ name: entry.name, initiatorType: entry.initiatorType })),
+      resources,
+      videoResources,
+      imgResources: resources.filter(entry => entry.initiatorType === 'img'),
+      videoEncodedBodySize: videoResources.reduce((sum, entry) => sum + entry.encodedBodySize, 0),
+      videoBodyEntryCount: videoResources.filter(entry => entry.encodedBodySize > 0).length,
       layerSrcCount: Array.from(document.querySelectorAll('#layer-container video, #layer-container img'))
         .filter(nonEmptySrc).length,
       baseSources: ['preview-video', 'transition-video', 'preview-image']
@@ -115,34 +126,92 @@ async function mediaAudit(page) {
           const element = document.getElementById(id);
           return { id, src: element?.getAttribute('src') || element?.src || '' };
         }),
-      allMediaSrcCount: Array.from(document.querySelectorAll('video, img')).filter(nonEmptySrc).length,
+      layerVideos: Array.from(document.querySelectorAll('#layer-container video')).map(element => ({
+        id: element.dataset.layerId,
+        preload: element.preload,
+        playedLength: element.played.length,
+        seeking: element.seeking,
+        currentTime: element.currentTime,
+        paused: element.paused,
+      })),
     };
   });
 }
 
-async function assertAlphaLayerSelected(page) {
-  const point = await page.locator('#preview-stage').evaluate(element => {
-    const rect = element.getBoundingClientRect();
-    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-  });
-  await page.mouse.move(point.x, point.y);
-  await page.mouse.down();
-  await page.waitForTimeout(100);
-  const selected = await page.evaluate(() => ({
-    alpha: document.querySelector('[data-layer-id="alpha-layer"]')?.classList.contains('layer-selected'),
-    still: document.querySelector('[data-layer-id="still-layer"]')?.classList.contains('layer-selected'),
-    box: getComputedStyle(document.getElementById('layer-select-box')).display,
-  }));
-  await page.mouse.up();
-  assert.deepEqual(selected, { alpha: true, still: false, box: 'block' });
+function assertEngineMediaAudit(audit, alphaFileSize) {
+  assert.ok(audit.videoResources.length > 0, JSON.stringify(audit.videoResources));
+  assert.ok(audit.videoResources.length <= 4, JSON.stringify(audit.videoResources));
+  assert.ok(audit.videoResources.every(entry => new URL(entry.name).pathname.endsWith('/alpha-layer.webm')),
+    JSON.stringify(audit.videoResources));
+  assert.ok(audit.videoEncodedBodySize < alphaFileSize * 0.2,
+    `${audit.videoEncodedBodySize} should be less than 20% of ${alphaFileSize}`);
+  assert.ok(audit.videoBodyEntryCount <= 1, JSON.stringify(audit.videoResources));
+  assert.equal(audit.imgResources.length, 1, JSON.stringify(audit.imgResources));
+  assert.ok(new URL(audit.imgResources[0].name).pathname.endsWith('/still-layer.png'));
+  assert.deepEqual(audit.layerVideos, [{
+    id: 'alpha-layer',
+    preload: 'metadata',
+    playedLength: 0,
+    seeking: false,
+    currentTime: 0,
+    paused: true,
+  }]);
 }
 
-test('frame engine keeps legacy video and image elements media-idle', { timeout: 180_000 }, async t => {
+async function clickOutputPoint(page, outputX, outputY) {
+  const client = await page.locator('#layer-container').evaluate((element, point) => {
+    const rect = element.getBoundingClientRect();
+    const viewScale = rect.width / element.offsetWidth;
+    return { x: rect.left + point.x * viewScale, y: rect.top + point.y * viewScale };
+  }, { x: outputX, y: outputY });
+  await page.mouse.click(client.x, client.y);
+}
+
+async function selectionState(page) {
+  return await page.evaluate(() => {
+    const container = document.getElementById('layer-container');
+    const box = document.getElementById('layer-select-box');
+    const containerRect = container.getBoundingClientRect();
+    const boxRect = box.getBoundingClientRect();
+    const viewScale = containerRect.width / container.offsetWidth;
+    return {
+      alpha: document.querySelector('[data-layer-id="alpha-layer"]')?.classList.contains('layer-selected'),
+      still: document.querySelector('[data-layer-id="still-layer"]')?.classList.contains('layer-selected'),
+      display: getComputedStyle(box).display,
+      rect: getComputedStyle(box).display === 'none' ? null : {
+        x: (boxRect.left - containerRect.left) / viewScale,
+        y: (boxRect.top - containerRect.top) / viewScale,
+        width: boxRect.width / viewScale,
+        height: boxRect.height / viewScale,
+      },
+    };
+  });
+}
+
+function assertRectClose(actual, expected, tolerance = 1) {
+  assert.ok(actual, 'selection rectangle should be visible');
+  for (const key of ['x', 'y', 'width', 'height']) {
+    assert.ok(Math.abs(actual[key] - expected[key]) <= tolerance,
+      `${key}: expected ${expected[key]}±${tolerance}, got ${actual[key]}`);
+  }
+}
+
+async function seekFiveTimes(page) {
+  for (const value of [0.25, 1.25, 3.5, 5.5, 0]) {
+    await page.locator('#seek').evaluate((element, next) => {
+      element.value = String(next);
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+    }, value);
+    await page.waitForTimeout(100);
+  }
+}
+
+test('frame engine keeps legacy layer media metadata-only', { timeout: 180_000 }, async t => {
   let ffmpegPath;
   try {
     ffmpegPath = resolveFfmpeg();
   } catch {
-    return t.skip('ffmpeg is unavailable for the media-idle fixture');
+    return t.skip('ffmpeg is unavailable for the metadata-only fixture');
   }
 
   let port;
@@ -159,6 +228,7 @@ test('frame engine keeps legacy video and image elements media-idle', { timeout:
   let server;
   try {
     generateFixture(ffmpegPath, project);
+    const alphaFileSize = fs.statSync(path.join(project, 'alpha-layer.webm')).size;
     server = spawn('node', ['src/server.mjs', project, '--port', String(port), '--no-lint'], {
       cwd: previewDirectory,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -173,24 +243,73 @@ test('frame engine keeps legacy video and image elements media-idle', { timeout:
     enginePage.on('pageerror', error => engineErrors.push(error.message));
     await enginePage.goto(`${base}/`, { waitUntil: 'load' });
     await enginePage.waitForSelector('#frame-engine-preview[data-frame-engine-ready="true"]', { timeout: 60_000 });
+    await enginePage.waitForFunction(() => {
+      const alpha = document.querySelector('[data-layer-id="alpha-layer"]');
+      const still = document.querySelector('[data-layer-id="still-layer"]');
+      return alpha?.videoWidth === 640 && alpha?.videoHeight === 360
+        && still?.naturalWidth === 320 && still?.naturalHeight === 180;
+    }, null, { timeout: 30_000 });
     await enginePage.waitForTimeout(1_000);
 
-    const engineAudit = await mediaAudit(enginePage);
-    assert.deepEqual(engineAudit.mediaResources, []);
-    assert.equal(engineAudit.layerSrcCount, 0);
-    assert.equal(engineAudit.allMediaSrcCount, 0);
-    assert.deepEqual(engineAudit.baseSources, [
+    const engineAuditBefore = await mediaAudit(enginePage);
+    console.log('engine metadata-only media audit (before playback)', {
+      alphaFileSize,
+      videoRawEntries: engineAuditBefore.videoResources.length,
+      videoBodyEntries: engineAuditBefore.videoBodyEntryCount,
+      videoEncodedBodySize: engineAuditBefore.videoEncodedBodySize,
+    });
+    assertEngineMediaAudit(engineAuditBefore, alphaFileSize);
+    assert.equal(engineAuditBefore.layerSrcCount, 2);
+    assert.deepEqual(engineAuditBefore.baseSources, [
       { id: 'preview-video', src: '' },
       { id: 'transition-video', src: '' },
       { id: 'preview-image', src: '' },
     ]);
 
-    await assertAlphaLayerSelected(enginePage);
+    await enginePage.locator('#play-toggle').click();
+    await enginePage.waitForTimeout(2_500);
+    await enginePage.locator('#play-toggle').click();
+    await seekFiveTimes(enginePage);
+    await enginePage.waitForTimeout(500);
+
+    const engineAuditAfter = await mediaAudit(enginePage);
+    console.log('engine metadata-only media audit (after playback/seeks)', {
+      alphaFileSize,
+      videoRawEntries: engineAuditAfter.videoResources.length,
+      videoBodyEntries: engineAuditAfter.videoBodyEntryCount,
+      videoEncodedBodySize: engineAuditAfter.videoEncodedBodySize,
+    });
+    assertEngineMediaAudit(engineAuditAfter, alphaFileSize);
+    assert.equal(engineAuditAfter.videoEncodedBodySize, engineAuditBefore.videoEncodedBodySize);
+    assert.equal(engineAuditAfter.videoBodyEntryCount, engineAuditBefore.videoBodyEntryCount);
+
+    // 要素の箱は left=output.width/2+x、top=output.height/2+y、width/height=実寸×scale を
+    // translate(-50%,-50%) する。alpha は left=640, top=360, 1280x720 → 出力
+    // (0,0)-(1280,720)。ソース不透明部 (160,90)-(480,270) は scale 2 で要素ローカル
+    // (320,180)-(960,540) → 出力も同矩形、中心は (640,360)。still は left=260,
+    // top=140, 320x180 → 出力 (100,50)-(420,230)、中心は (260,140)。
+    await clickOutputPoint(enginePage, 640, 360);
+    let selected = await selectionState(enginePage);
+    assert.deepEqual({ alpha: selected.alpha, still: selected.still, display: selected.display },
+      { alpha: true, still: false, display: 'block' });
+    assertRectClose(selected.rect, { x: 0, y: 0, width: 1280, height: 720 });
+
+    await clickOutputPoint(enginePage, 260, 140);
+    selected = await selectionState(enginePage);
+    assert.deepEqual({ alpha: selected.alpha, still: selected.still, display: selected.display },
+      { alpha: false, still: true, display: 'block' });
+    assertRectClose(selected.rect, { x: 100, y: 50, width: 320, height: 180 });
+
+    await clickOutputPoint(enginePage, 1100, 650);
+    selected = await selectionState(enginePage);
+    assert.deepEqual({ alpha: selected.alpha, still: selected.still }, { alpha: true, still: false });
     assert.deepEqual(engineErrors, []);
     await engineContext.close();
 
     const legacyContext = await browser.newContext({ viewport: { width: 960, height: 540 } });
     const legacyPage = await legacyContext.newPage();
+    const legacyErrors = [];
+    legacyPage.on('pageerror', error => legacyErrors.push(error.message));
     await legacyPage.goto(`${base}/?frameEngine=0`, { waitUntil: 'load' });
     await legacyPage.waitForFunction(() => performance.getEntriesByType('resource')
       .some(entry => entry.initiatorType === 'video' || entry.initiatorType === 'img'), null, { timeout: 30_000 });
@@ -198,13 +317,24 @@ test('frame engine keeps legacy video and image elements media-idle', { timeout:
       const alpha = document.querySelector('[data-layer-id="alpha-layer"]');
       const still = document.querySelector('[data-layer-id="still-layer"]');
       return alpha?.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
-        && still?.complete && still?.naturalWidth === 320;
+        && alpha?.videoWidth === 640 && still?.complete && still?.naturalWidth === 320;
     }, null, { timeout: 30_000 });
     const legacyAudit = await mediaAudit(legacyPage);
-    assert.ok(legacyAudit.mediaResources.length >= 1, JSON.stringify(legacyAudit.mediaResources));
-    assert.ok(legacyAudit.allMediaSrcCount >= 1);
+    assert.ok(legacyAudit.resources.length >= 1, JSON.stringify(legacyAudit.resources));
     assert.ok(legacyAudit.layerSrcCount >= 1);
-    await assertAlphaLayerSelected(legacyPage);
+
+    await clickOutputPoint(legacyPage, 640, 360);
+    selected = await selectionState(legacyPage);
+    assert.deepEqual({ alpha: selected.alpha, still: selected.still }, { alpha: true, still: false });
+
+    await clickOutputPoint(legacyPage, 260, 140);
+    selected = await selectionState(legacyPage);
+    assert.deepEqual({ alpha: selected.alpha, still: selected.still }, { alpha: false, still: true });
+
+    await clickOutputPoint(legacyPage, 1100, 650);
+    selected = await selectionState(legacyPage);
+    assert.deepEqual({ alpha: selected.alpha, still: selected.still }, { alpha: false, still: false });
+    assert.deepEqual(legacyErrors, []);
     await legacyContext.close();
   } finally {
     await browser?.close();

@@ -189,7 +189,6 @@ window.__akariCaptionFontReady = (async () => {
 
 // B-roll layer videos
 let layerVideos = [];
-const layerMetadata = new WeakMap();
 
 // LUT / chroma-key are drawn by the repository-owned video FX rail. These stay empty for
 // projects without declarations, so ordinary previews allocate no canvas/WebGL context and
@@ -515,24 +514,10 @@ function cropOf(el) {
   };
 }
 
-function isFullFrameAlphaLayer(layer, index) {
-  if (!layer) return false;
-  const intake = summary?.frameEngine?.intake;
-  if (!intake || typeof intake !== 'object') return false;
-  const key = String(layer.id ?? layer.src ?? index);
-  return Object.prototype.hasOwnProperty.call(intake, key);
-}
-
-function layerIntrinsicSize(el, layer, index) {
-  const width = Number(el.videoWidth) || 0;
-  const height = Number(el.videoHeight) || 0;
-  if (width > 0 && height > 0) return { width, height };
-  const metadata = layerMetadata.get(el);
-  const resolvedIndex = Number.isInteger(index) ? index : metadata?.index;
-  const resolvedLayer = layer ?? metadata?.layer;
-  // 出力同寸が保証される alpha intake 成功層だけ、媒体なしの幾何担体へ出力寸法を補う。
-  return frameEngineEnabled && isFullFrameAlphaLayer(resolvedLayer, resolvedIndex)
-    ? outputSizePx() : { width, height };
+function layerIntrinsicSize(el) {
+  // 配置の正本は媒体メタデータの実寸。person-matte 等の intake 出力寸法はプロジェクトの
+  // output 寸法と一致する保証がないため、frame-engine の成否から寸法を推定しない。
+  return { width: Number(el.videoWidth) || 0, height: Number(el.videoHeight) || 0 };
 }
 
 // ㉖ layers[].perspective（0..1 正規化・corner-pin・静的。contract-2026-08-02-preview-parity.md
@@ -606,7 +591,6 @@ function setupLayers() {
     if (!layer.src) continue;
     const layerIsImage = isImageLayer(layer);
     const el = document.createElement(layerIsImage ? 'img' : 'video');
-    layerMetadata.set(el, { layer, index });
     if (layerIsImage) {
       // 画像レイヤー（司令塔裁定3）: <video> 固有の
       // videoWidth/videoHeight/readyState/paused/play/pause/load を <img> インスタンス自身に薄い
@@ -1034,7 +1018,7 @@ function updateLayerSelectBox() {
   }
   const el = lv.el;
   if (frameEngineEnabled) {
-    const intrinsic = layerIntrinsicSize(el, lv.layer, lv.index);
+    const intrinsic = layerIntrinsicSize(el);
     if (!(intrinsic.width > 0 && intrinsic.height > 0)) {
       layerSelectBox.style.display = 'none';
       positionLayerCropToggle(null);
@@ -1644,21 +1628,20 @@ function findLayerHit(e) {
     if (el.closest && el.closest('#caption-plate')) return null;
     if ((el.tagName === 'VIDEO' || el.tagName === 'IMG') && el.dataset && el.dataset.layerId && el.style.display !== 'none') {
       // 全面サイズの透明動画（ベイクテロップ）は箱で当てると画面全部が当たりになる。
-      // legacy 面はアルファを実測する。engine 面は下の2パス幾何判定へ一本化する。
+      // legacy 面はアルファを実測する。engine 面は下の幾何判定へ一本化する。
       if (!frameEngineEnabled && layerAlphaAt(el, e.clientX, e.clientY) > 16) return el;
       continue;
     }
   }
   // engine 面では legacy media は visibility:hidden だが、選択・ドラッグ用の幾何は同じ DOM に残す。
+  // メタデータ未着の video は CSS 既定の 300x150 を持つため、実寸が取れた層だけを DOM 上位から
+  // 素直に当てる。全面 alpha を優先すると、その上にある静止画を永久に選べなくなる。
   if (frameEngineEnabled) {
-    const candidates = [...layerVideos].reverse()
-      .filter(lv => !lv.isFilter && lv.el.style.display !== 'none');
-    // 実寸を出力寸法で補える全面 alpha 層を先に当て、実寸不明の上位層による横取りを防ぐ。
-    for (const fullFrameAlpha of [true, false]) {
-      for (const lv of candidates) {
-        if (isFullFrameAlphaLayer(lv.layer, lv.index) !== fullFrameAlpha) continue;
-        if (layerGeometryHitAt(lv.el, e.clientX, e.clientY)) return lv.el;
-      }
+    for (const lv of [...layerVideos].reverse()) {
+      if (lv.isFilter || lv.el.style.display === 'none') continue;
+      const intrinsic = layerIntrinsicSize(lv.el);
+      if (!(intrinsic.width > 0 && intrinsic.height > 0)) continue;
+      if (layerGeometryHitAt(lv.el, e.clientX, e.clientY)) return lv.el;
     }
   }
   return null;

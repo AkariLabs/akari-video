@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  idleLayerMedia,
   isLayerInLoadWindow,
+  loadLayerMediaMetadata,
   markLayerUnplayable,
   syncLayerLazyLoad,
 } from '../public/layer-lazy-load.js';
@@ -79,30 +79,63 @@ test('一度 unplayable になったレイヤーは解放し、その後も再�
   assert.deepEqual(calls, { play: 0, pause: 1, load: 1, removed: ['src'] });
 });
 
-test('mediaIdle は窓内でも媒体を割り当てず、媒体 API を呼ばない', () => {
+test("mediaIdle は窓内で preload='metadata' + src だけを割り当て、媒体 API を呼ばない", () => {
   const { lv, calls } = fakeLayerVideo();
-  let resolves = 0;
-  const source = () => { resolves += 1; return '/media/layer.preview.webm'; };
+  const source = '/media/layer.preview.webm';
 
-  assert.equal(syncLayerLazyLoad(lv, 10, source, { mediaIdle: true }), false);
-  assert.equal(lv.loaded, false);
-  assert.equal(lv.el.src, '');
-  assert.equal(lv.el.preload, 'none');
-  assert.equal(resolves, 0);
+  assert.equal(syncLayerLazyLoad(lv, 10, source, { mediaIdle: true }), true);
+  assert.equal(lv.loaded, true);
+  assert.equal(lv.el.preload, 'metadata');
+  assert.equal(lv.el.src, '/media/layer.preview.webm');
   assert.deepEqual(calls, { play: 0, pause: 0, load: 0, removed: [] });
 });
 
-test('mediaIdle は既存 src を媒体 API なしで一度だけ解放する', () => {
+test('mediaIdle は窓の外で pause()/load() を呼ばずに解放する', () => {
   const { lv, calls } = fakeLayerVideo();
-  lv.loaded = true;
-  lv.el.preload = 'auto';
-  lv.el.src = '/media/already-loaded.webm';
+  const source = '/media/layer.preview.webm';
 
-  assert.equal(idleLayerMedia(lv), true);
-  assert.equal(idleLayerMedia(lv), false);
-  assert.equal(syncLayerLazyLoad(lv, 10, '/media/ignored.webm', { mediaIdle: true }), false);
+  assert.equal(syncLayerLazyLoad(lv, 10, source, { mediaIdle: true }), true);
+  assert.equal(syncLayerLazyLoad(lv, 14, source, { mediaIdle: true }), false);
   assert.equal(lv.loaded, false);
   assert.equal(lv.el.src, '');
   assert.equal(lv.el.preload, 'none');
   assert.deepEqual(calls, { play: 0, pause: 0, load: 0, removed: ['src'] });
+});
+
+test('mediaIdle は unplayable 層に src を割り当てない', () => {
+  const { lv, calls } = fakeLayerVideo();
+  lv.unplayable = true;
+
+  assert.equal(syncLayerLazyLoad(lv, 10, '/media/missing.preview.webm', { mediaIdle: true }), false);
+  assert.equal(lv.loaded, false);
+  assert.equal(lv.el.src, '');
+  assert.equal(lv.el.preload, 'none');
+  assert.deepEqual(calls, { play: 0, pause: 0, load: 0, removed: [] });
+});
+
+test("loadLayerMediaMetadata は preload='metadata' を src より先に設定する", () => {
+  const { lv, calls } = fakeLayerVideo();
+  const assignments = [];
+  let preload = lv.el.preload;
+  let src = lv.el.src;
+  Object.defineProperties(lv.el, {
+    preload: {
+      configurable: true,
+      get: () => preload,
+      set(value) { preload = value; assignments.push(['preload', value]); },
+    },
+    src: {
+      configurable: true,
+      get: () => src,
+      set(value) { src = value; assignments.push(['src', value]); },
+    },
+  });
+
+  assert.equal(loadLayerMediaMetadata(lv, '/media/layer.preview.webm'), true);
+  assert.equal(lv.loaded, true);
+  assert.deepEqual(assignments, [
+    ['preload', 'metadata'],
+    ['src', '/media/layer.preview.webm'],
+  ]);
+  assert.deepEqual(calls, { play: 0, pause: 0, load: 0, removed: [] });
 });
