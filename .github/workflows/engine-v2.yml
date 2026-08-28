@@ -32,6 +32,12 @@ jobs:
           npm install --workspace @akari-video/frame-engine
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save electron@39.8.7
+      - name: Expand Electron binary (npm 11 allow-scripts skips postinstall)
+        run: |
+          node node_modules/electron/install.js
+          test -x node_modules/electron/dist/electron
+          test -f node_modules/electron/dist/version
+          cat node_modules/electron/dist/version
       - name: Force Electron golden runs through SwiftShader
         shell: bash
         run: |
@@ -104,6 +110,12 @@ jobs:
           npm install --workspace @akari-video/frame-engine
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save electron@39.8.7
+      - name: Expand Electron binary (npm 11 allow-scripts skips postinstall)
+        run: |
+          node node_modules/electron/install.js
+          test -x node_modules/electron/dist/electron
+          test -f node_modules/electron/dist/version
+          cat node_modules/electron/dist/version
       - name: Force Electron golden runs through SwiftShader
         shell: bash
         run: |
@@ -139,6 +151,12 @@ jobs:
           npm install --workspace @akari-video/osr-export
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save
+      - name: Expand Electron binary (npm 11 allow-scripts skips postinstall)
+        run: |
+          node node_modules/electron/install.js
+          test -x node_modules/electron/dist/electron
+          test -f node_modules/electron/dist/version
+          cat node_modules/electron/dist/version
       - name: Assert Electron installation
         run: |
           test -x node_modules/electron/dist/electron
