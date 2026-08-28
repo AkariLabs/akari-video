@@ -84,7 +84,11 @@ test("npm prepack keeps only runnable vendored bins and marks omitted capability
       "timeline-report": "render-timeline-report.mjs",
     });
     assert.match(referenceManifest.akariVideoVendor.guidance, /~\/\.akari\/app/u);
+    assert.match(referenceManifest.akariVideoVendor.guidance, /akari doctor --json/u);
+    assert.match(referenceManifest.akariVideoVendor.guidance, /\/Applications\/AKARI Video\.app\/Contents\/Resources/u);
+    assert.match(referenceManifest.akariVideoVendor.guidance, /%LOCALAPPDATA%/u);
     assert.match(referenceManifest.description, /render-timeline-report\.mjs is reference-only/u);
+    assert.match(referenceManifest.description, /render_cut\.path/u);
 
     const runnable = run(process.execPath, [
       join(unpacked, "package", "vendor", "packages", "edit-lint", "bin", "edit-lint.mjs"),

@@ -66,7 +66,7 @@ export function readOwnVersion() {
 }
 
 /** install-ref を「有効・未記録・破損」の 3 状態で読む内部表現。 */
-function readInstalledAppVersionInfo(env = process.env) {
+export function readInstalledAppVersionInfo(env = process.env) {
   const path = resolveInstallRefPath(env);
   try {
     const raw = readFileSync(path, 'utf8').trim();

@@ -11,6 +11,8 @@ import { runCapabilityCommand } from '../src/capability-command.mjs';
 import { runStoreCommand } from '../src/store-command.mjs';
 import { runAssetsCommand } from '../src/assets-command.mjs';
 import { runMigrateCommand } from '../src/migrate-command.mjs';
+import { runDoctorCommand } from '../src/doctor-command.mjs';
+import { resolveRuntimePaths } from '../src/runtime-diagnostics.mjs';
 import { maybeApplyPendingUpdateOnLaunch, resolveInstalledVersionInfo } from '../src/update-check.mjs';
 import { describeCliHelp, describeInstalledVersions } from '../src/messages.mjs';
 
@@ -21,7 +23,7 @@ async function printVersion() {
   const versionInfo = resolveInstalledVersionInfo({ env: process.env });
   // 1 行目は update / rollback の既存機械観測契約として CLI 版だけを維持する。
   console.log(`v${versionInfo.cliVersion}`);
-  for (const line of describeInstalledVersions(versionInfo)) {
+  for (const line of describeInstalledVersions(versionInfo, resolveRuntimePaths({ env: process.env }))) {
     console.log(line);
   }
   return { exitCode: 0 };
@@ -47,13 +49,14 @@ async function printCliHelp() {
 // 読み直せば新版の内容を観測できる — 同一 argv での re-exec はしない設計判断
 // （理由は report.md 参照）)。失敗は他の起動時副作用と同じく握りつぶし、
 // claude/opencode 起動やサブコマンド実行を止めない。
+const argv = process.argv.slice(2);
+const doctorJson = argv[0] === 'doctor' && argv.includes('--json');
 try {
-  maybeApplyPendingUpdateOnLaunch({ env: process.env, log: (line) => console.log(line) });
+  maybeApplyPendingUpdateOnLaunch({ env: process.env, log: doctorJson ? () => {} : (line) => console.log(line) });
 } catch (error) {
   console.error(`自動更新の適用確認でエラーが発生しました（続行します）: ${error instanceof Error ? error.message : String(error)}`);
 }
 
-const argv = process.argv.slice(2);
 // `akari update` / `akari init` / `akari new` / `akari narration` / `akari internal` /
 // `akari sounds` / `akari status` / `akari accept` / `akari capability` / `akari store` /
 // `akari assets` は claude へ転送せず、専用のサブコマンドとして扱う（契約 §4-1 /
@@ -62,6 +65,7 @@ const argv = process.argv.slice(2);
 // それ以外の引数はすべて従来どおり claude へ転送する。
 const invoke = (argv[0] === '--version' || argv[0] === '-v') ? printVersion()
   : (argv[0] === '--help' || argv[0] === '-h') ? printCliHelp()
+  : argv[0] === 'doctor' ? runDoctorCommand(argv.slice(1))
   : argv[0] === 'update' ? runUpdateCommand(argv.slice(1))
   : argv[0] === 'init' ? runInitCommand(argv.slice(1))
   : argv[0] === 'new' ? runNewCommand(argv.slice(1))

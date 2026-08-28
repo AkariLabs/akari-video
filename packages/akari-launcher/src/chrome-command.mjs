@@ -17,9 +17,13 @@ class PublicError extends Error {
   }
 }
 
+export function resolveChromeCacheDir(homeDirectory = homedir(), cacheDir) {
+  return cacheDir ? resolve(cacheDir) : join(homeDirectory, '.cache', 'puppeteer');
+}
+
 function parseInstallArguments(argv, homeDirectory) {
   const parsed = {
-    cacheDir: join(homeDirectory, '.cache', 'puppeteer'),
+    cacheDir: resolveChromeCacheDir(homeDirectory),
     buildId: undefined,
   };
   for (let index = 1; index < argv.length; index += 1) {
@@ -32,7 +36,7 @@ function parseInstallArguments(argv, homeDirectory) {
       throw new PublicError(`${argument} の値がありません`, 2);
     }
     index += 1;
-    if (argument === '--cache-dir') parsed.cacheDir = resolve(value);
+    if (argument === '--cache-dir') parsed.cacheDir = resolveChromeCacheDir(homeDirectory, value);
     else parsed.buildId = value;
   }
   return parsed;
