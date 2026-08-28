@@ -11,6 +11,26 @@ jobs:
   # ジョブでは root devDependencies（js-yaml のみ）を入れて厳密 YAML 検証（issue #4 の
   # 再発ゲート）を CI で 1 レーン担保する。--no-workspaces で apps/shell 等の重い
   # workspace install は走らない
+  packaged-imports:
+    name: packaged-imports (extraResources を模擬 Resources に組んで入口の import グラフを検査)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+      # v0.1.25 の同梱漏れ（packages/gpu-export / skills/analyze-footage/bin/person-matte / @webav/mp4box.js）は
+      # モノレポのテストでは見えず、実ビルドのパッケージ版でだけ ERR_MODULE_NOT_FOUND になった。
+      # release.yml と同じ手順で同梱 npm 入口を staging し、extraResources どおりの模擬 Resources から
+      # 入口（packages/*/bin/*.mjs + osr-export / gpu-export の electron-main.mjs）の静的 import を辿る。
+      # 数秒・決定論。root の npm ci は要らない（同梱 CLI の入口だけを --no-save で入れる）。
+      - name: Install bundled-CLI runtime deps (repo root, --no-save)
+        run: node scripts/release/install-bundled-cli-deps.mjs
+      - name: Stage resources/cli-node-modules
+        run: node apps/shell/resources/scripts/bundle-cli-node-modules.mjs
+      - name: check-packaged-imports
+        run: node scripts/release/check-packaged-imports.mjs
+
   skills-index:
     name: skills-index (symlink 整合 + AGENTS.md drift + frontmatter YAML)
     runs-on: ubuntu-latest
