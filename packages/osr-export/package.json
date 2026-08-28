@@ -12,7 +12,9 @@
     "check:frame-engine-drift": "node scripts/bundle-frame-engine.mjs --check",
     "build-fixture": "node scripts/build-fixture.mjs",
     "assert-no-intermediates": "node scripts/assert-no-intermediates.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "ci:required": "npm test",
+    "ci:fixture": "node scripts/build-fixture.mjs"
   },
   "optionalDependencies": {
     "electron": "^39.8.7"

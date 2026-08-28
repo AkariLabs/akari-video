@@ -1,0 +1,180 @@
+name: Engine v2 required checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-v2-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frame-engine-golden:
+    name: frame-engine-golden
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+          cache: npm
+      - name: Install Linux runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg xvfb
+      - name: Install frame-engine dependencies and Electron
+        run: >-
+          npm install --workspace @akari-video/frame-engine
+          --include-workspace-root=false --include=optional
+          --no-audit --no-fund --no-save electron@39.8.7
+      - name: Force Electron golden runs through SwiftShader
+        shell: bash
+        run: |
+          electron_cli="$(pwd)/node_modules/electron/cli.js"
+          rm -f node_modules/.bin/electron
+          printf '%s\n' '#!/usr/bin/env bash' \
+            "exec node \"${electron_cli}\" --disable-gpu --enable-unsafe-swiftshader --use-angle=swiftshader \"\$@\"" \
+            > node_modules/.bin/electron
+          chmod +x node_modules/.bin/electron
+          test -x node_modules/electron/dist/electron
+          test -f node_modules/electron/dist/version
+      - name: Probe WebCodecs software decode support
+        shell: bash
+        run: |
+          probe_dir="$RUNNER_TEMP/webcodecs-probe"
+          mkdir -p "$probe_dir"
+          cat > "$probe_dir/index.html" <<'HTML'
+          <html><body>probe</body></html>
+          HTML
+          cat > "$probe_dir/main.cjs" <<'NODE'
+          const { app, BrowserWindow } = require('electron');
+          app.commandLine.appendSwitch('ignore-gpu-blocklist');
+          app.whenReady().then(async () => {
+            const win = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
+            await win.loadURL(process.env.PROBE_URL);
+            const script = `
+              (async () => {
+                const base = { codec: 'avc1.64000d', codedWidth: 320, codedHeight: 180 };
+                const out = {};
+                for (const hw of ['no-preference', 'prefer-hardware', 'prefer-software']) {
+                  try { out[hw] = (await VideoDecoder.isConfigSupported({ ...base, hardwareAcceleration: hw })).supported; }
+                  catch (e) { out[hw] = 'throw: ' + e.message; }
+                }
+                return JSON.stringify(out);
+              })()
+            `;
+            process.stdout.write('PROBE ' + (await win.webContents.executeJavaScript(script, true)) + '\n');
+            app.exit(0);
+          });
+          NODE
+          PROBE_URL="file://$probe_dir/index.html" \
+            xvfb-run -a node_modules/.bin/electron "$probe_dir/main.cjs" --no-sandbox
+      - name: Run required frame-engine suite
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a npm --prefix packages/frame-engine run ci:required
+
+  osr-export-soft:
+    name: osr-export-soft
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+          cache: npm
+      - name: Install Linux runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg xvfb
+      - name: Install osr-export dependencies with Electron postinstall
+        run: >-
+          npm install --workspace @akari-video/osr-export
+          --include-workspace-root=false --include=optional
+          --no-audit --no-fund --no-save
+      - name: Assert Electron installation
+        run: |
+          test -x node_modules/electron/dist/electron
+          test -f node_modules/electron/dist/version
+      - name: Run required osr-export tests
+        env:
+          AKARI_OSR_SOFT: "1"
+        run: npm --prefix packages/osr-export run ci:required
+      - name: Build deterministic fixture
+        run: npm --prefix packages/osr-export run ci:fixture -- "$RUNNER_TEMP/osr-fixture" --verify
+      - name: Probe WebCodecs software decode support
+        shell: bash
+        run: |
+          probe_dir="$RUNNER_TEMP/webcodecs-probe"
+          mkdir -p "$probe_dir"
+          cat > "$probe_dir/index.html" <<'HTML'
+          <html><body>probe</body></html>
+          HTML
+          cat > "$probe_dir/main.cjs" <<'NODE'
+          const { app, BrowserWindow } = require('electron');
+          app.commandLine.appendSwitch('ignore-gpu-blocklist');
+          app.whenReady().then(async () => {
+            const win = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
+            await win.loadURL(process.env.PROBE_URL);
+            const script = `
+              (async () => {
+                const base = { codec: 'avc1.64000d', codedWidth: 320, codedHeight: 180 };
+                const out = {};
+                for (const hw of ['no-preference', 'prefer-hardware', 'prefer-software']) {
+                  try { out[hw] = (await VideoDecoder.isConfigSupported({ ...base, hardwareAcceleration: hw })).supported; }
+                  catch (e) { out[hw] = 'throw: ' + e.message; }
+                }
+                return JSON.stringify(out);
+              })()
+            `;
+            process.stdout.write('PROBE ' + (await win.webContents.executeJavaScript(script, true)) + '\n');
+            app.exit(0);
+          });
+          NODE
+          PROBE_URL="file://$probe_dir/index.html" \
+            xvfb-run -a node_modules/.bin/electron "$probe_dir/main.cjs" \
+              --no-sandbox --disable-gpu --enable-unsafe-swiftshader --use-angle=swiftshader
+      - name: Run OSR soft render twice
+        env:
+          AKARI_OSR_SOFT: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          mkdir -p "$RUNNER_TEMP/osr-run-1" "$RUNNER_TEMP/osr-run-2"
+          xvfb-run -a node packages/osr-export/bin/akari-osr-export.mjs \
+            "$RUNNER_TEMP/osr-fixture" \
+            --out "$RUNNER_TEMP/osr-run-1/composite.mp4" \
+            --duration 12 --fps 30 --width 1920 --height 1080 --soft
+          xvfb-run -a node packages/osr-export/bin/akari-osr-export.mjs \
+            "$RUNNER_TEMP/osr-fixture" \
+            --out "$RUNNER_TEMP/osr-run-2/composite.mp4" \
+            --duration 12 --fps 30 --width 1920 --height 1080 --soft
+      - name: Require byte-exact frames and MP4
+        shell: bash
+        run: |
+          node --input-type=module - \
+            "$RUNNER_TEMP/osr-run-1/run.json" \
+            "$RUNNER_TEMP/osr-run-2/run.json" <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          const [leftPath, rightPath] = process.argv.slice(2);
+          const left = JSON.parse(await readFile(leftPath, "utf8"));
+          const right = JSON.parse(await readFile(rightPath, "utf8"));
+          assert.equal(left.status, "completed");
+          assert.equal(right.status, "completed");
+          assert.equal(left.mode, "soft");
+          assert.equal(right.mode, "soft");
+          assert.equal(left.framesCompleted, 360);
+          assert.equal(right.framesCompleted, 360);
+          assert.deepEqual(left.frameHashes, right.frameHashes);
+          process.stdout.write(`raw BGRA SHA-256 matched for ${left.frameHashes.length} frames\n`);
+          NODE
+          first_sha="$(sha256sum "$RUNNER_TEMP/osr-run-1/composite.mp4" | cut -d ' ' -f 1)"
+          second_sha="$(sha256sum "$RUNNER_TEMP/osr-run-2/composite.mp4" | cut -d ' ' -f 1)"
+          test "$first_sha" = "$second_sha"
+          echo "MP4 SHA-256 matched: $first_sha"

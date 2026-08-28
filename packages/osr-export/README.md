@@ -30,6 +30,16 @@ Windows は最後の項目が `electron.exe`、Linux は `electron` です。
 
 ## Fixture と検収
 
+GitHub Actions の **`osr-export-soft` は必須ジョブ**である。`npm run ci:required` で既存の
+`npm test` 全件を実行し、`npm run ci:fixture -- <dir> --verify` で 12 秒・360 コマの fixture を作る。
+続いて `AKARI_OSR_SOFT=1` / `AKARI_OSR_VERIFY=hash` で OSR を 2 走し、`run.json` の全コマ raw BGRA
+SHA-256 配列と最終 MP4 の SHA-256 の両方が一致することを要求する。Electron postinstall、Xvfb、
+SwiftShader、`VideoDecoder.configure()` のいずれかが成立しない場合も skip や `continue-on-error` にせず
+fail-closed とする。
+
+ただし、最終 MP4 の SHA-256 一致は決定論的なエンコーダで焼いた場合に限って成立し、GPU のない Ubuntu CI では `--encoder auto` が libx264 に解決されるため、この条件を満たす。
+mac では `--encoder auto` が h264_videotoolbox に解決され、同一 fixture・ソフト描画の 2 走で raw BGRA の frameHashes が 360/360 一致しても、同じ 7,496,249 B の最終 MP4 は SEI user data unregistered の 2 バイトだけ異なるため、MP4 SHA 不一致時はまずエンコーダを確認し、手元でバイト一致まで検証する場合は `--encoder x264` を明示する（実測では 2 走とも SHA-256 `3ca1b385…` で一致し、raw BGRA は videotoolbox 走と 0 コマ差）。
+
 決定論 fixture は lavfi だけから作ります。
 
 ```sh

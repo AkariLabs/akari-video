@@ -114,9 +114,10 @@ All contracts follow the
 
 | File | Contents |
 |---|---|
-| [contract-2026-08-02-preview-parity.md](./contract-2026-08-02-preview-parity.md) | Preview parity v0 — a single behavior spec for the Web UI and the shell (same edit.json / captions.json → same look, same behavior) |
+| [contract-2026-08-02-preview-parity.md](./contract-2026-08-02-preview-parity.md) | Engine v2 parity — one `T → frame` evaluator, two preview containers, one OSR exit, and a single golden-frame acceptance suite (Japanese) |
 | [contract-2026-08-01-export-nle-beta.md](./contract-2026-08-01-export-nle-beta.md) | export-nle: one-way export to other NLEs (FCPXML / FCP7 XML / SRT) — **BETA, untested against real NLEs** |
 | [contract-2026-08-28-osr-export-v0.md](./contract-2026-08-28-osr-export-v0.md) | Whole-page Electron OSR export v0 — page layers, seek/paint verification handshake, launcher fallback, and memory limits (Japanese) |
+| [contract-2026-08-28-v2-approximation-ledger.md](./contract-2026-08-28-v2-approximation-ledger.md) | Engine v2 approximation ledger — resolved items with golden or measured evidence, retained approximations, and separately tracked work (Japanese) |
 
 ### Assets & personal layer
 
@@ -142,6 +143,7 @@ managed in private internal records.
 | [notes-2026-07-13-edit-json-v1.md](./notes-2026-07-13-edit-json-v1.md) | Direction for edit.json v1 extensions (early drafts of crop, layout, audio, thumbnail slots) |
 | [notes-2026-07-14-captions-and-cut-editing.md](./notes-2026-07-14-captions-and-cut-editing.md) | Direction for captions and cut editing (word-accurate cuts, captions as first-class, karaoke display) |
 | [notes-2026-07-16-qa-lint-and-transcript-ui.md](./notes-2026-07-16-qa-lint-and-transcript-ui.md) | Direction for the self-verification loop and transcript-editing UI (the prototype of edit-lint) |
+| [notes-2026-08-28-engine-v2-open-items.md](./notes-2026-08-28-engine-v2-open-items.md) | Remaining engine v2 work — platform validation, deterministic seeking, OSR isolation, exact verification, and legacy retirement gates (Japanese) |
 
 ## For developers
 

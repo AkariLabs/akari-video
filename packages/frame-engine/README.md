@@ -34,10 +34,12 @@ npm test
 npm run bench:cuts
 ```
 
-`npm test` builds the package, runs unit tests, launches Electron, compares preview/export RGBA and PNG hashes at 28 fixed feature/transition points, proves the comparator rejects an injected one-pixel mutation, checks two freeze frames are identical, and verifies the encoded 11-second MP4 duration with ffprobe. Stage summaries are written to `test/golden/.generated/metrics.json`.
+`npm test` builds the package, runs unit tests, `test:seek`, and the complete Electron golden suite. The required coverage is base 28, layers 36, matte at least 3, transitions 90, transition semantics 30, LUT 20, GOP tail 9, B-frame 160 sampled rows, and B-frame tail 24 rows. It also covers 1,000 lifetime frames and 300 matte-sync frames with zero mismatches, and proves that an injected one-pixel mutation fails. Stage summaries are written to `test/golden/.generated/metrics.json`.
+
+The GitHub Actions job **`frame-engine-golden` is required**. It installs Electron with postinstall enabled, forces SwiftShader, and runs `npm run ci:required` under Xvfb on Ubuntu. The CI alias intentionally delegates to the unchanged `npm test` suite, so build, unit, seek, and every golden point must all pass; the job is not allowed to continue on error.
 
 `npm run bench:cuts` runs the permanent 1920×1080, 30fps, 13-second cuts benchmark. It compares decode/full-cache/fixed-frame controls, GOP-distance Warmup and Lookahead, 8MB IPC over invoke/MessagePort/shared memory, raw ffmpeg and WebCodecs encoders, and the read-only render-cut control. A successful run updates [the cuts path report](./docs/cuts-path-report.md) with measured p50/p95 values and the final `v2/render-cut` ratio.
 
-The Electron/WebCodecs test is intentionally local-only when a CI runner has no GPU/WebCodecs-capable Chromium. Unit tests and typechecking remain suitable for such CI runners.
+Local runs may use the repository Electron or the documented Chromium fallback. CI does not skip the Electron/WebCodecs path: the required Ubuntu job supplies Xvfb and SwiftShader and fails closed if Electron, WebCodecs, WebGL2, or a golden comparison is unavailable.
 
 See [av-cliper maintenance status](./docs/av-cliper-status.md) for the pinned demux/decode dependency assessment.
