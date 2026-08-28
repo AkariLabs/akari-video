@@ -32,23 +32,26 @@ jobs:
           npm install --workspace @akari-video/frame-engine
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save electron@39.8.7
-      - name: Install Electron at the repository root (explicit; npm 11 allow-scripts skips postinstall)
-        run: npm install --no-save --no-audit --no-fund electron@39.8.7
-      - name: Expand Electron binary
+      - name: Install Electron in an isolated directory (avoids monorepo native builds and npm 11 allow-scripts)
         shell: bash
         run: |
-          set -x
-          node --version
-          ls node_modules/electron | head -20
-          node -e "console.log(require.resolve('electron/package.json'))"
-          if ! node node_modules/electron/install.js; then
-            echo "electron install.js failed (exit $?)"
-            ls -la node_modules/electron/dist 2>/dev/null || echo "no dist"
-            exit 1
-          fi
+          set -e
+          pkg="$RUNNER_TEMP/electron-pkg"
+          mkdir -p "$pkg" && cd "$pkg"
+          npm init -y >/dev/null
+          npm install --no-save --no-audit --no-fund electron@39.8.7
+          node node_modules/electron/install.js
           test -x node_modules/electron/dist/electron
           test -f node_modules/electron/dist/version
           cat node_modules/electron/dist/version
+      - name: Link Electron into the repository
+        shell: bash
+        run: |
+          set -e
+          rm -rf node_modules/electron
+          ln -s "$RUNNER_TEMP/electron-pkg/node_modules/electron" node_modules/electron
+          node -e "console.log('electron =', require('electron'))"
+          test -x "$(node -e "process.stdout.write(require('electron'))")"
       - name: Force Electron golden runs through SwiftShader
         shell: bash
         run: |
@@ -121,23 +124,26 @@ jobs:
           npm install --workspace @akari-video/frame-engine
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save electron@39.8.7
-      - name: Install Electron at the repository root (explicit; npm 11 allow-scripts skips postinstall)
-        run: npm install --no-save --no-audit --no-fund electron@39.8.7
-      - name: Expand Electron binary
+      - name: Install Electron in an isolated directory (avoids monorepo native builds and npm 11 allow-scripts)
         shell: bash
         run: |
-          set -x
-          node --version
-          ls node_modules/electron | head -20
-          node -e "console.log(require.resolve('electron/package.json'))"
-          if ! node node_modules/electron/install.js; then
-            echo "electron install.js failed (exit $?)"
-            ls -la node_modules/electron/dist 2>/dev/null || echo "no dist"
-            exit 1
-          fi
+          set -e
+          pkg="$RUNNER_TEMP/electron-pkg"
+          mkdir -p "$pkg" && cd "$pkg"
+          npm init -y >/dev/null
+          npm install --no-save --no-audit --no-fund electron@39.8.7
+          node node_modules/electron/install.js
           test -x node_modules/electron/dist/electron
           test -f node_modules/electron/dist/version
           cat node_modules/electron/dist/version
+      - name: Link Electron into the repository
+        shell: bash
+        run: |
+          set -e
+          rm -rf node_modules/electron
+          ln -s "$RUNNER_TEMP/electron-pkg/node_modules/electron" node_modules/electron
+          node -e "console.log('electron =', require('electron'))"
+          test -x "$(node -e "process.stdout.write(require('electron'))")"
       - name: Force Electron golden runs through SwiftShader
         shell: bash
         run: |
@@ -173,23 +179,26 @@ jobs:
           npm install --workspace @akari-video/osr-export
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save
-      - name: Install Electron at the repository root (explicit; npm 11 allow-scripts skips postinstall)
-        run: npm install --no-save --no-audit --no-fund electron@39.8.7
-      - name: Expand Electron binary
+      - name: Install Electron in an isolated directory (avoids monorepo native builds and npm 11 allow-scripts)
         shell: bash
         run: |
-          set -x
-          node --version
-          ls node_modules/electron | head -20
-          node -e "console.log(require.resolve('electron/package.json'))"
-          if ! node node_modules/electron/install.js; then
-            echo "electron install.js failed (exit $?)"
-            ls -la node_modules/electron/dist 2>/dev/null || echo "no dist"
-            exit 1
-          fi
+          set -e
+          pkg="$RUNNER_TEMP/electron-pkg"
+          mkdir -p "$pkg" && cd "$pkg"
+          npm init -y >/dev/null
+          npm install --no-save --no-audit --no-fund electron@39.8.7
+          node node_modules/electron/install.js
           test -x node_modules/electron/dist/electron
           test -f node_modules/electron/dist/version
           cat node_modules/electron/dist/version
+      - name: Link Electron into the repository
+        shell: bash
+        run: |
+          set -e
+          rm -rf node_modules/electron
+          ln -s "$RUNNER_TEMP/electron-pkg/node_modules/electron" node_modules/electron
+          node -e "console.log('electron =', require('electron'))"
+          test -x "$(node -e "process.stdout.write(require('electron'))")"
       - name: Assert Electron installation
         run: |
           test -x node_modules/electron/dist/electron
