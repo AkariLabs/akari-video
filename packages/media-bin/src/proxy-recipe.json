@@ -1,0 +1,8 @@
+{
+  "version": "gop1s-v1",
+  "defaultFps": 30,
+  "defaultPixFmt": "yuv420p",
+  "codecArgs": ["-c:v", "libx264", "-profile:v", "high"],
+  "keyintFlags": ["-g", "-keyint_min"],
+  "constantGopArgs": ["-sc_threshold", "0", "-bf", "0"]
+}
