@@ -82,7 +82,7 @@ const CUT_KEYS = new Set([
 const OVERLAY_KEYS = new Set(['id', 'html', 'start', 'duration', 'vars', 'transform', 'track']);
 const LAYER_KEYS = new Set([
     'id', 't', 'duration', 'kind', 'src', 'transform', 'crop', 'perspective', 'opacity',
-    'keyframes', 'preset', 'params', 'track', 'blend', 'chroma_key', 'filter'
+    'keyframes', 'preset', 'params', 'track', 'blend', 'chroma_key', 'filter', 'mask'
 ]);
 const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out']);
 const NARRATION_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'script', 'reading', 'provenance']);
@@ -253,8 +253,9 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
             return;
         }
         let source: RecordValue;
+        let mask: string | undefined;
         if (value.kind === 'filter') {
-            const forbidden = ['src', 'chroma_key', 'blend', 'crop', 'transform'].filter(key => hasOwn(value, key));
+            const forbidden = ['src', 'chroma_key', 'blend', 'crop', 'transform', 'mask'].filter(key => hasOwn(value, key));
             if (forbidden.length > 0) {
                 blockers.push(`edit.json.layers[${index}] の kind filter は ${forbidden.join(' / ')} を持てません。`);
                 return;
@@ -264,6 +265,10 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
             blockers.push(`edit.json.layers[${index}].src が不正です。`);
             return;
         } else if (value.kind === 'baked' && nonEmpty(value.preset)) {
+            if (hasOwn(value, 'mask')) {
+                blockers.push(`edit.json.layers[${index}].mask は baked telop へ変換できません。`);
+                return;
+            }
             source = {
                 kind: 'telop', preset: value.preset,
                 ...copyPresent(value, ['params']), baked: value.src
@@ -277,6 +282,17 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
                 sources.push({ id: src, path: value.src, proxy: null });
             }
             source = { kind: 'media', src, in: 0, out: value.duration, ...copyPresent(value, ['chroma_key']) };
+            if (hasOwn(value, 'mask')) {
+                if (!nonEmpty(value.mask)) {
+                    blockers.push(`edit.json.layers[${index}].mask が不正です。`);
+                    return;
+                }
+                mask = sourceIdByPath.get(value.mask);
+                if (!mask) {
+                    blockers.push(`edit.json.layers[${index}].mask が sources[].path を参照していません: ${value.mask}`);
+                    return;
+                }
+            }
         }
         const keyframes = Array.isArray(value.keyframes)
             ? value.keyframes.map((entry, keyframeIndex) => {
@@ -292,7 +308,8 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
                 id: uniqueId(nonEmpty(value.id) ? value.id : `layer-${index + 1}`, usedItemIds),
                 ...frameRange(value.t, value.duration, frameRate),
                 ...copyPresent(value, ['transform', 'crop', 'perspective', 'opacity', 'blend']),
-                ...(keyframes ? { keyframes } : {}), source
+                ...(keyframes ? { keyframes } : {}),
+                ...(mask ? { mask } : {}), source
             } as unknown as ItemV2
         });
     });

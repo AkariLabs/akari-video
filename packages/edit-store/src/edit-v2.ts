@@ -107,8 +107,14 @@ export interface ItemV2Base {
     keyframes?: KeyframeV2[];
 }
 
+export type MediaItemV2 = ItemV2Base & {
+    source: MediaSourceV2;
+    /** sources[].id of a gray-h264-fullrange mask video. */
+    mask?: string;
+};
+
 export type ItemV2 =
-    | (ItemV2Base & { source: MediaSourceV2 })
+    | MediaItemV2
     | (ItemV2Base & { source: HtmlSourceV2 })
     | (ItemV2Base & { source: TelopSourceV2 })
     | (ItemV2Base & { source: FilterSourceV2 });
@@ -209,7 +215,7 @@ const BLEND_MODES = new Set<BlendModeV2>([
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ]);
 const ITEM_KEYS = new Set([
-    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'source'
+    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'mask', 'source'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'at', 'duration', 'role', 'source', 'gain_db', 'fade_in', 'fade_out', 'ducking',
@@ -420,6 +426,11 @@ function validateItem(
     if (hasOwn(value, 'perspective')) requireRecord(value.perspective, `${path}.perspective`);
     if (hasOwn(value, 'keyframes')) validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (hasOwn(value, 'mask')) {
+        if (value.source.kind !== 'media') throw invalid(`${path}.mask`, 'media item だけが指定できます');
+        requireText(value.mask, `${path}.mask`);
+        if (!sourceIds.has(value.mask)) throw invalid(`${path}.mask`, `sources[].id に存在しません: ${value.mask}`);
+    }
 }
 
 function validateItemSource(value: unknown, path: string, sourceIds: Set<string>): asserts value is SourceV2 {

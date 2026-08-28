@@ -3369,6 +3369,7 @@ ${indent}`);
         "crop",
         "perspective",
         "keyframes",
+        "mask",
         "source"
       ]);
       var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
@@ -3581,6 +3582,13 @@ ${indent}`);
         if (hasOwn(value, "keyframes"))
           validateKeyframes(value.keyframes, `${path}.keyframes`);
         validateItemSource(value.source, `${path}.source`, sourceIds);
+        if (hasOwn(value, "mask")) {
+          if (value.source.kind !== "media")
+            throw invalid(`${path}.mask`, "media item \u3060\u3051\u304C\u6307\u5B9A\u3067\u304D\u307E\u3059");
+          requireText(value.mask, `${path}.mask`);
+          if (!sourceIds.has(value.mask))
+            throw invalid(`${path}.mask`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.mask}`);
+        }
       }
       function validateItemSource(value, path, sourceIds) {
         requireRecord(value, path);
@@ -4144,6 +4152,8 @@ ${indent}`);
       function needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling = false) {
         if (item.source.kind !== "media")
           return false;
+        if ("mask" in item && item.mask !== void 0)
+          return true;
         if (item.blend !== void 0 && item.blend !== "normal")
           return true;
         if (Array.isArray(item.keyframes) && item.keyframes.some((point) => point && typeof point === "object" && "perspective" in point && point.perspective !== void 0))
@@ -4215,7 +4225,7 @@ ${indent}`);
       }
       function needsCrossTrackLayers(item, pathOf) {
         const transform = item.transform;
-        return transform?.scale !== void 0 && transform.scale !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
+        return transform?.scale !== void 0 && transform.scale !== 1 || transform?.x !== void 0 && transform.x !== 0 || transform?.y !== void 0 && transform.y !== 0 || transform?.rotate !== void 0 && transform.rotate !== 0 || item.crop !== void 0 || item.opacity !== void 0 && item.opacity < 1 || item.keyframes !== void 0 || item.source.kind === "media" && "mask" in item && item.mask !== void 0 || item.source.kind === "media" && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src));
       }
       function nextRef(counters, kind) {
         const ref = counters.get(kind) ?? 0;
@@ -4245,7 +4255,8 @@ ${indent}`);
           ...item.blend !== void 0 ? { blend: item.blend } : {},
           ...item.crop !== void 0 ? { crop: item.crop } : {},
           ...item.perspective !== void 0 ? { perspective: item.perspective } : {},
-          ...keyframes !== void 0 ? { keyframes } : {}
+          ...keyframes !== void 0 ? { keyframes } : {},
+          ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {}
         };
         switch (item.source.kind) {
           case "media": {

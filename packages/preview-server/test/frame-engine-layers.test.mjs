@@ -4,20 +4,27 @@ import path from 'node:path';
 import test from 'node:test';
 
 const source = await readFile(path.resolve(import.meta.dirname, '../src/frame-engine-client.ts'), 'utf8');
+const serverSource = await readFile(path.resolve(import.meta.dirname, '../src/server.mjs'), 'utf8');
 const browserTestSource = await readFile(
   path.resolve(import.meta.dirname, 'frame-engine-preview-browser.l1.mjs'),
   'utf8',
 );
 
 test('frame engine evaluation table supplies edit layers without an unsupported banner', () => {
-  assert.match(source, /layers:\s*\(Array\.isArray\(edit\?\.layers\)/u);
+  assert.match(source, /layers:\s*engineLayers as FrameEngineLayer\[\]/u);
   assert.match(source, /if \(layer\.mask\)/u);
+  assert.match(source, /edit\?\.frameEngine\?\.intake/u);
+  assert.match(source, /edit\?\.frameEngine\?\.skipped/u);
+  assert.match(source, /edit\?\.frameEngine\?\.warnings/u);
+  assert.doesNotMatch(source, /engine_src|engine_skip|frameEngineWarnings/u);
   assert.doesNotMatch(source, /frame-engine-unsupported-banner|未対応: layers/u);
   assert.match(source, /plan\.base\.length === 0 && plan\.layers\.length === 0/u);
   assert.match(source, /CachedStillImageSource/u);
   assert.match(source, /get\('uploadPath'\) === 'copyTo'/u);
   assert.match(source, /uploadPath: requestedUploadPath/u);
   assert.match(source, /dataset\.uploadPath = this\.compositor\.uploadPath/u);
+  assert.match(serverSource, /frameEngine:\s*\{ intake, skipped, warnings: prepared\.warnings \}/u);
+  assert.doesNotMatch(serverSource, /engine_src|engine_skip|frameEngineWarnings/u);
 });
 
 test('frame engine browser L1 covers default direct and forced copyTo upload paths', () => {

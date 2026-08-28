@@ -8,6 +8,7 @@ import { buildBaseFragment } from '../dist/index.js';
 const source = await readFile(path.resolve(import.meta.dirname, '../src/compositor/webgl2.ts'), 'utf8');
 const comparisonSource = await readFile(path.resolve(import.meta.dirname, 'golden/layers-compare.mjs'), 'utf8');
 const goldenRendererSource = await readFile(path.resolve(import.meta.dirname, 'golden/renderer.ts'), 'utf8');
+const goldenElectronMainSource = await readFile(path.resolve(import.meta.dirname, 'golden/main.cjs'), 'utf8');
 const transitionComparisonSource = await readFile(
   path.resolve(import.meta.dirname, 'golden/transitions-compare.mjs'),
   'utf8',
@@ -38,6 +39,14 @@ test('golden transition and look sections fail on GL errors and expose readable 
   assert.match(goldenRendererSource, /expectedDetail:/u);
   assert.match(goldenRendererSource, /expected,\s+expectedDetail/u);
   assert.match(goldenRendererSource, /axis=\$\{expectedDetail\.axis\}, bSide=/u);
+});
+
+test('Electron golden serves and identifies both alpha-intake H.264 fixtures', () => {
+  for (const name of ['matte-alpha.color.mp4', 'matte-alpha.mask.mp4']) {
+    const escaped = name.replaceAll('.', '\\.');
+    assert.match(goldenElectronMainSource, new RegExp(`frame-engine://fixture/${escaped}`));
+    assert.match(goldenElectronMainSource, new RegExp(`url\\.pathname === '/${escaped}'`));
+  }
 });
 
 test('transition golden samples resolve the same timeline frame grid as render-cut comparison', () => {

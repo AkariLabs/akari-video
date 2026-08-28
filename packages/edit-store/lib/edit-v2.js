@@ -6,7 +6,7 @@ const BLEND_MODES = new Set([
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ]);
 const ITEM_KEYS = new Set([
-    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'source'
+    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'mask', 'source'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
     'id', 'at', 'duration', 'role', 'source', 'gain_db', 'fade_in', 'fade_out', 'ducking',
@@ -214,6 +214,13 @@ function validateItem(value, path, ids, sourceIds) {
     if (hasOwn(value, 'keyframes'))
         validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
+    if (hasOwn(value, 'mask')) {
+        if (value.source.kind !== 'media')
+            throw invalid(`${path}.mask`, 'media item だけが指定できます');
+        requireText(value.mask, `${path}.mask`);
+        if (!sourceIds.has(value.mask))
+            throw invalid(`${path}.mask`, `sources[].id に存在しません: ${value.mask}`);
+    }
 }
 function validateItemSource(value, path, sourceIds) {
     requireRecord(value, path);

@@ -87,7 +87,14 @@ frame-engine の意味論に固定する。器や ffmpeg 固有の xfade 擬似�
 matte の frame number は完成画と同じ `T` から得て、非同期応答や前回 frame を流用しない。人物の後ろへ置く
 DOM 表現も、この alpha と同じ frame stamp へ同期する。
 
+アルファ付き WebM / MOV は器と出口の入力境界で H.264 の straight color と
+`gray-h264-fullrange` mask へ取り込み、frame-engine 自体にはこの 2 入力だけを渡す。同一素材の変換は
+冪等かつ同時呼び出しを一つへ合流し、失敗時は該当 layer を警告付きで省略して base の評価を継続する。
+互換 `<video>` と legacy filtergraph はこの変換の対象外である。
+
 **検収:** matte parity **3 点以上**、matte sync **300 コマ・mismatches 0**を要求する。
+alpha 素材の取り込み形と、事前に color + mask へ分離した形の完成画は 3 点以上で比較し、
+channel absolute difference の mean **1.0 以下**、p99.9 **3 以下**を要求する。
 
 ### 2.6 LUT と output look
 

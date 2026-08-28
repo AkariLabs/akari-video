@@ -71,6 +71,8 @@ const STILL_URL = new URL('still.png', SOURCE_URL).href;
 const MATTE_COLOR_URL = new URL('matte-color.mp4', SOURCE_URL).href;
 const MATTE_ALPHA_URL = new URL('matte-alpha.webm', SOURCE_URL).href;
 const MATTE_MASK_URL = new URL('matte-mask.mp4', SOURCE_URL).href;
+const MATTE_INTAKE_COLOR_URL = new URL('matte-alpha.color.mp4', SOURCE_URL).href;
+const MATTE_INTAKE_MASK_URL = new URL('matte-alpha.mask.mp4', SOURCE_URL).href;
 const COLOR_PATCHES_URL = new URL('color-patches.mp4', SOURCE_URL).href;
 const REQUESTED_UPLOAD_PATH = new URL(window.location.href).searchParams.get('uploadPath') === 'copyTo'
   ? 'copyTo'
@@ -1058,6 +1060,12 @@ async function run(): Promise<void> {
   const matteMaskSession = new ClipSessionPool('matte-mask', MATTE_MASK_URL, {
     onWarning: (warning) => warnings.push(warning),
   });
+  const matteIntakeColorSession = new ClipSessionPool('matte-intake-color', MATTE_INTAKE_COLOR_URL, {
+    onWarning: (warning) => warnings.push(warning),
+  });
+  const matteIntakeMaskSession = new ClipSessionPool('matte-intake-mask', MATTE_INTAKE_MASK_URL, {
+    onWarning: (warning) => warnings.push(warning),
+  });
   const matteDecodeCounts = new Map<string, number>();
   const countedSource = (src: string, source: NativeFrameSource): NativeFrameSource => ({
     async decode(timeUs, frameMetrics, request) {
@@ -1072,7 +1080,16 @@ async function run(): Promise<void> {
   const matteSources = new Map<string, NativeFrameSource>([
     [MATTE_COLOR_URL, countedSource(MATTE_COLOR_URL, matteColorSession)],
     [MATTE_MASK_URL, countedSource(MATTE_MASK_URL, matteMaskSession)],
+    [MATTE_INTAKE_COLOR_URL, countedSource(MATTE_INTAKE_COLOR_URL, matteIntakeColorSession)],
+    [MATTE_INTAKE_MASK_URL, countedSource(MATTE_INTAKE_MASK_URL, matteIntakeMaskSession)],
   ]);
+  const matteIntakeEdit = structuredClone(matteEdit);
+  matteIntakeEdit.layers[0]!.src = MATTE_INTAKE_COLOR_URL;
+  matteIntakeEdit.layers[0]!.mask = MATTE_INTAKE_MASK_URL;
+  const matteIntakeTimeline = buildResolvedTimelinePlan(
+    matteIntakeEdit.cuts as FrameEngineCut[],
+    { fps: FPS, layers: matteIntakeEdit.layers as FrameEngineLayer[] },
+  );
   const frameMidpointUs = (frameNumber: number) =>
     Math.round(((frameNumber + 0.5) / FPS) * 1e6);
   const layerSamplePoints = [
@@ -1220,6 +1237,7 @@ async function run(): Promise<void> {
   ] as const;
   const matteGlErrorsBefore = compositor.stats.glErrors;
   const matteParity: Array<Record<string, unknown>> = [];
+  const alphaIntakeParity: Array<Record<string, unknown>> = [];
   let matteNegativeSeed: { preview: Uint8Array; exported: Uint8Array } | null = null;
   for (const [label, timeUs] of matteSamplePoints) {
     const plan = evaluationPlanFromResolvedTimeline(
@@ -1248,6 +1266,23 @@ async function run(): Promise<void> {
     await window.goldenHarness.writeArtifact(`matte-${label}-export.png`, exportPng);
     matteNegativeSeed ??= { preview: previewRgba, exported: exportRgba };
     frame.close();
+
+    const intakeRgba = await renderRgba(evaluationPlanFromResolvedTimeline(
+      matteIntakeTimeline, timeUs, matteSources, output,
+    ));
+    const deltas: number[] = [];
+    let totalDelta = 0;
+    for (let offset = 0; offset < previewRgba.length; offset += 4) {
+      for (let channel = 0; channel < 4; channel += 1) {
+        const delta = Math.abs(previewRgba[offset + channel]! - intakeRgba[offset + channel]!);
+        deltas.push(delta);
+        totalDelta += delta;
+      }
+    }
+    deltas.sort((left, right) => left - right);
+    const meanAbs = totalDelta / deltas.length;
+    const p999 = deltas[Math.min(deltas.length - 1, Math.ceil(deltas.length * 0.999) - 1)] ?? 0;
+    alphaIntakeParity.push({ label, timeUs, meanAbs, p999, pass: meanAbs <= 1 && p999 <= 3 });
   }
 
   if (!matteNegativeSeed) throw new Error('matte negative test has no source frame');
@@ -1339,7 +1374,9 @@ async function run(): Promise<void> {
     frame.close();
   }
   const matteSync = { frames: 300, mismatches, maxDeltaUs, maxFrameLag, laggedFrames };
-  const codecSources = [MATTE_COLOR_URL, MATTE_MASK_URL, MATTE_ALPHA_URL].map(src => ({
+  const codecSources = [
+    MATTE_COLOR_URL, MATTE_MASK_URL, MATTE_ALPHA_URL, MATTE_INTAKE_COLOR_URL, MATTE_INTAKE_MASK_URL,
+  ].map(src => ({
     src,
     codec: window.goldenHarness.fixtureCodecs[src] ?? 'unknown',
     decodes: matteDecodeCounts.get(src) ?? 0,
@@ -1710,6 +1747,8 @@ async function run(): Promise<void> {
     layerStats.pass &&
     matteParity.length === matteSamplePoints.length &&
     matteParity.every((sample) => sample.pass === true) &&
+    alphaIntakeParity.length === matteSamplePoints.length &&
+    alphaIntakeParity.every((sample) => sample.pass === true) &&
     matteNegative.comparatorPassed === false &&
     matteNegative.differingPixels === 1 &&
     matteSemantic.pass &&
@@ -1737,6 +1776,8 @@ async function run(): Promise<void> {
   layerSession.destroy();
   matteColorSession.destroy();
   matteMaskSession.destroy();
+  matteIntakeColorSession.destroy();
+  matteIntakeMaskSession.destroy();
   stillSource.destroy();
   compositor.dispose();
   await window.goldenHarness.complete({
@@ -1761,6 +1802,7 @@ async function run(): Promise<void> {
     parity,
     layerParity,
     matteParity,
+    alphaIntakeParity,
     negative,
     layerNegative,
     matteNegative,

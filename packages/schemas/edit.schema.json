@@ -714,8 +714,10 @@
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
+        "mask": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "source": { "$ref": "#/$defs/itemSourceMediaV2" }
-      }
+      },
+      "$comment": "mask は sources[].id を参照する任意のグレースケール動画（gray-h264-fullrange）。省略時の media item の意味論は従来どおり。"
     },
     "itemV2Html": {
       "type": "object",

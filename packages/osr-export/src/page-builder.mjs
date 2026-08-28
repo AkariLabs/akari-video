@@ -7,6 +7,7 @@ import { generateCaptionOverlays } from "../../render-cut/src/captions.mjs";
 import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
 import { resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
 import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
+import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { stampFunctionSource } from "./stamp.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -92,7 +93,9 @@ export function buildOsrPage({
 
 export async function loadAndBuildOsrPage({ projectRoot, plan = null, fps, width, height, duration, stampRow = true }) {
   const editText = await readFile(join(projectRoot, "edit.json"), "utf8");
-  const edit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "osr-page")).edit;
+  const projectedEdit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "osr-page")).edit;
+  const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
+  const edit = prepared.edit;
   const captions = await readJsonIfPresent(join(projectRoot, "captions.json"), []);
   const overlays = await Promise.all((edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false).map(async (overlay) => ({
     ...overlay,
@@ -105,7 +108,7 @@ export async function loadAndBuildOsrPage({ projectRoot, plan = null, fps, width
   if (typeof lutRef === "string" && lutRef !== "") {
     lutCubeText = await readFile(resolveLutPath(projectRoot, lutRef), "utf8");
   }
-  return buildOsrPage({
+  const page = buildOsrPage({
     edit,
     captions,
     overlays,
@@ -118,6 +121,7 @@ export async function loadAndBuildOsrPage({ projectRoot, plan = null, fps, width
     stampRow,
     lutCubeText,
   });
+  return { ...page, warnings: prepared.warnings };
 }
 
 function inferDuration(edit) {

@@ -267,6 +267,20 @@ WebM の生成と既存消費は不変であり、`mask_path` は v2 frame-engin
 `mask_path` が無い、または解決・検証できない場合、消費側は `path` の VP9 alpha WebM から一度だけ
 同規格のマスクへ取り込み変換する。それも失敗した場合は人物演出を諦め、映像本体の処理は止めない。
 
+### 8.1 edit.json v2 のマスク参照とアルファ素材の取り込み
+
+v2 の visual media item は任意の `mask` を持てる。値は `sources[].id` への参照であり、参照先は
+`gray-h264-fullrange` の動画とする。`mask` を省略した item の意味論は従来と同一である。
+
+frame-engine を使う消費側は、VP9 alpha WebM または alpha pixel format を持つ MOV が layer の
+`src` へ射影された場合、元素材と同じディレクトリへ `<basename>.color.mp4` と
+`<basename>.mask.mp4` を一度だけ生成する。color は straight color の H.264 / yuv420p、mask は
+本節の `gray-h264-fullrange` とし、解像度、fps、尺、フレーム数、先頭 PTS を一致させる。
+明示 `mask` がある場合も color / mask の取り込みは行い、frame-engine のマスク入力には明示参照を優先する。
+
+変換失敗は非致命警告とし、該当 layer だけを frame-engine から外す。旧 `<video>` プレビューは
+元素材の `src` を維持し、legacy 書き出しの alpha filtergraph もこの取り込み変換を使わない。
+
 ## 9. 既知の追随事項（本契約が作る宿題）
 
 - **`packages/analysis-report`** の軽量チェックは `tracks.person_matte` を「string か null」に

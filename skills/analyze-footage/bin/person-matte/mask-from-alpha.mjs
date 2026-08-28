@@ -42,6 +42,13 @@ function alphaPixelFormat(pixelFormat) {
   return /^(?:yuva|gbrap|rgba|bgra|argb|abgr|ya)/u.test(String(pixelFormat ?? ""));
 }
 
+function alphaInputDecoderArguments(source) {
+  if (!source.alpha_mode) return [];
+  if (source.codec_name === "vp9") return ["-c:v", "libvpx-vp9"];
+  if (source.codec_name === "vp8") return ["-c:v", "libvpx"];
+  return [];
+}
+
 export function maskPathFor(webmPath) {
   const parsed = path.parse(path.resolve(webmPath));
   return path.join(parsed.dir, `${parsed.name}.mask.mp4`);
@@ -147,15 +154,12 @@ export function ensureMask(webmPath, options = {}) {
     if (!source.has_alpha) {
       throw new Error(`入力にアルファがありません（alpha_mode=${source.alpha_mode ?? "none"}, pix_fmt=${source.pix_fmt}）`);
     }
-    if (source.codec_name !== "vp9") {
-      throw new Error(`入力 codec は vp9 である必要があります（${source.codec_name}）`);
-    }
     fs.mkdirSync(path.dirname(output), { recursive: true });
     const temporary = path.join(path.dirname(output), `.${path.basename(output)}.${process.pid}.${Date.now()}.tmp.mp4`);
     try {
       const converted = run(ffmpeg, [
         "-hide_banner", "-nostdin", "-loglevel", "error",
-        "-c:v", "libvpx-vp9",
+        ...alphaInputDecoderArguments(source),
         "-i", input,
         ...maskOutputArguments({ fps: source.fps, output: temporary }),
       ]);
