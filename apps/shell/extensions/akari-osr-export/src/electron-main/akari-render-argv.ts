@@ -47,7 +47,7 @@ export function parseRenderArgv(argv: readonly string[]): AkariRenderArgv {
       else if (argument === '--duration') result.duration = positiveNumber(next(), '--duration');
       else if (argument === '--frames') result.frames = positiveInteger(next(), '--frames');
       else if (argument === '--quality') result.quality = choice(next(), '--quality', ['master', 'high', 'standard', 'light']);
-      else if (argument === '--encoder') result.encoder = choice(next(), '--encoder', ['auto', 'videotoolbox', 'x264']);
+      else if (argument === '--encoder') result.encoder = choice(next(), '--encoder', ['auto', 'videotoolbox', 'nvenc', 'qsv', 'amf', 'mf', 'x264']);
       else if (argument === '--verify') result.verify = choice(next(), '--verify', ['stamp', 'hash', 'off']);
       else if (argument === '--queue-depth') result.queueDepth = positiveInteger(next(), '--queue-depth');
       else if (argument === '--dump-frames') result.dumpFrames = frameList(next());

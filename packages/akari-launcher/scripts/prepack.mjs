@@ -164,7 +164,8 @@ function rewriteReferenceOnlyPackageManifests(selectedFiles) {
     } else {
       manifest.bin = Object.fromEntries(included.map(({ command, target }) => [command, target]));
     }
-    const guidance = 'These CLI entrypoints are not included in the akari-video npm package. Use `akari doctor --json` and run the path reported in `render_cut.path`. Full installations provide it in a monorepo checkout, ~/.akari/app, /Applications/AKARI Video.app/Contents/Resources/packages, or %LOCALAPPDATA%\\Programs\\AKARI Video\\resources\\packages.';
+    // electron-builder NSIS per-user 既定 = sanitize-filename(`apps/shell/package.json` の `name`)。
+    const guidance = 'These CLI entrypoints are not included in the akari-video npm package. Use `akari doctor --json` and run the path reported in `render_cut.path`. Full installations provide it in a monorepo checkout, ~/.akari/app, /Applications/AKARI Video.app/Contents/Resources/packages, or %LOCALAPPDATA%\\Programs\\@akari-videoshell\\resources\\packages.';
     const referenceOnlyTargets = omitted.map(({ target }) => `${target} is reference-only`).join('; ');
     // capability.mjs は package description を検索結果の見出しに使う。bin path を検索した
     // ユーザーが上位結果だけを見ても、古い実行例より先に配布形態と導線を読めるようにする。

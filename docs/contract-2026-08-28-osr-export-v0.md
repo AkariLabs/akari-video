@@ -79,6 +79,8 @@ seek → ready → invalidate → paint → verify → write
 
 第1段・第2段とも、実プロセスのコマンドラインに`--force-device-scale-factor=1`、`--force-color-profile=srgb`、background throttling無効化スイッチを渡す。npm Electronではスクリプトパスを`argv[1]`に保ち、その後へChromiumスイッチを置く。ソフト描画時は加えてGPU無効化とSwiftShaderスイッチを渡す。
 
+第1段・第2段とも`--user-data-dir=<run 一時ディレクトリ>/electron-user-data`を渡し、本体アプリの単一インスタンスロック（userData単位）と分離する。これによりアプリ起動中でも書き出せる。子がexit 0で終了して出力を作らなかった場合は、launcherが失敗として扱う。
+
 パッケージ版のTheiaではelectron-main contributionが`--render`を捕捉する。contribution開始は初期ウィンドウ表示とbackend起動の後なので、v0ではスプラッシュが一瞬表示され得る。通常起動で`--render`が無い場合、contributionは何もしない。
 
 Linux v0は第3段を使用する。将来の差し替え席として、Chrome headlessと`HeadlessExperimental.beginFrame`を使うlauncherを第1段と第2段の間へ追加できるものとする。この契約では実装しない。
@@ -141,6 +143,10 @@ media time に合わせて評価するため、従来の一定 2 コマ手前に
 ### 11.3 ソフト描画の前提（2026-08-28 追記）
 
 ソフト描画（`AKARI_OSR_SOFT=1`）は Electron 同梱 `libffmpeg.dylib` に H.264 デコーダが含まれていることを前提とする。`apps/shell` のビルドは `@theia/ffmpeg` によって非プロプライエタリ版へ差し替えるため、ビルド済みの作業ツリーではソフト描画の `VideoDecoder.configure` が全指定で失敗する（GPU 描画は VideoToolbox を使うので影響しない）。ソフト描画の diff 0 条件はこの前提のもとでのみ成立する。判定は `libffmpeg.dylib` に `H264 Decoder` 文字列があるかで行う（`isConfigSupported()` は差し替え版でも true を返すため当てにならない）。
+
+### 11.4 アプリ起動中の第1段（2026-08-28 根治）
+
+v0.1.24以前はTheiaの`singleInstance`により、AKARI Videoデスクトップアプリの起動中に第1段を開始すると、子プロセスがexit 0・無出力で終了していた。launcherが出力を検査しなかったため、後続処理ではこの失敗がffmpegのENOENTに化けていた。runごとにuserDataを分離し、exit 0でも出力が無い場合を失敗として扱うことで根治した。Windowsのelectron-builder NSIS per-user既定導入先は`%LOCALAPPDATA%\Programs\@akari-videoshell`である。
 
 ## 12. GPU 直結出口との共有境界（2026-08-28 追記）
 
