@@ -5917,6 +5917,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 boundaryBefore: { total: 0, late: 0 },
                 boundaryAfter: { total: 0, late: 0 }, warmupMs: []
             };
+            let scheduler = null;
             const percentile = values => {
                 if (values.length === 0) return null;
                 const sorted = [...values].sort((left, right) => left - right);
@@ -5927,6 +5928,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 const before = percentile(measurements.seekBeforeMs);
                 const after = percentile(measurements.seekAfterMs);
                 const presentedFps = measurements.presentedAt.length;
+                const schedulerState = scheduler ? scheduler.state() : {
+                    leadInSeconds: 2.5, liveDecoders: 0, maxLiveDecoders: 8,
+                    coverage: { warmed: 0, needed: 0 }
+                };
                 metrics.dataset.fps = String(presentedFps);
                 metrics.dataset.lateFrames = String(measurements.lateFrames);
                 metrics.dataset.renderErrors = String(measurements.renderErrors);
@@ -5938,6 +5943,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     + '/' + measurements.boundaryBefore.total;
                 metrics.dataset.boundaryLateAfter = measurements.boundaryAfter.late
                     + '/' + measurements.boundaryAfter.total;
+                metrics.dataset.warmupCoverage = schedulerState.coverage.warmed
+                    + '/' + schedulerState.coverage.needed;
+                metrics.dataset.liveDecoders = schedulerState.liveDecoders
+                    + '/' + schedulerState.maxLiveDecoders;
+                metrics.dataset.leadInSec = schedulerState.leadInSeconds.toFixed(2);
                 metrics.textContent = [
                     'fps (presented/1s)  ' + presentedFps,
                     'late frame          ' + measurements.lateFrames,
@@ -5949,7 +5959,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     '                    after  ' + measurements.boundaryAfter.late
                         + '/' + measurements.boundaryAfter.total,
                     'warmup median       ' + formatMetric(percentile(measurements.warmupMs)) + ' ms',
-                    'render error       ' + measurements.renderErrors
+                    'render error       ' + measurements.renderErrors,
+                    'warmup coverage     ' + schedulerState.coverage.warmed
+                        + '/' + schedulerState.coverage.needed,
+                    'live decoders       ' + schedulerState.liveDecoders
+                        + '/' + schedulerState.maxLiveDecoders,
+                    'lead-in             ' + schedulerState.leadInSeconds.toFixed(2) + ' s'
                 ].join('\\n');
             };
             const showError = (value, fatal) => {
@@ -6275,9 +6290,20 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 可視 canvas を WebGL2Compositor が直接所有する。毎フレームの 2D 読み戻しは行わない。
                 const compositor = new engine.WebGL2Compositor(canvas, { synchronization: 'flush' });
                 const frameMetrics = new engine.FrameMetrics();
-                const warmup = new engine.WarmupManager(1.5);
-                const warmedStreams = new Set();
-                const warmupRequests = new Set();
+                scheduler = engine.createPreviewScheduler({
+                    timeline,
+                    sources,
+                    output,
+                    fps,
+                    pools,
+                    lookahead,
+                    metrics: {
+                        warmupMs: measurements.warmupMs,
+                        onChanged: updateMetrics,
+                        onWarning: message => showError(message, false)
+                    }
+                });
+                scheduler.primeHeaders();
                 let rendering = null;
                 let lastPlaybackFrame = -1;
                 let lastPresentedSec = 0;
@@ -6287,49 +6313,6 @@ body { display: grid; place-items: center; padding: 32px; }
 
                 const waitForRender = async () => {
                     if (rendering) await rendering;
-                };
-                const prefetch = timeUs => {
-                    for (let offset = 1; offset <= 3; offset += 1) {
-                        const futureUs = Math.min(
-                            Math.round(totalDuration * 1e6),
-                            timeUs + Math.round(offset * 1e6 / fps)
-                        );
-                        const plan = engine.evaluationPlanFromResolvedTimeline(
-                            timeline, futureUs, sources, output
-                        );
-                        for (const layer of plan.base) {
-                            const placement = timeline.cuts[Number(layer.id.replace('cut-', ''))];
-                            const source = placement && lookahead.get(placement.cut.src);
-                            if (source) {
-                                void source.prefetch(layer.sourceTimeUs, { streamId: layer.id })
-                                    .catch(() => undefined);
-                            }
-                        }
-                    }
-                };
-                const scheduleWarmup = seconds => {
-                    const nextIndex = timeline.cuts.findIndex(placement => placement.at > seconds);
-                    if (nextIndex < 0) return;
-                    const next = timeline.cuts[nextIndex];
-                    const secondsToBoundary = next.at - seconds;
-                    if (secondsToBoundary > 1.5) return;
-                    const streamId = 'cut-' + nextIndex;
-                    if (warmupRequests.has(streamId)) return;
-                    const pool = pools.get(next.cut.src);
-                    if (!pool) return;
-                    warmupRequests.add(streamId);
-                    void pool.getSession(streamId).then(session => {
-                        warmup.maybeWarmup(
-                            secondsToBoundary,
-                            session,
-                            Math.round(Number(next.cut.in || 0) * 1e6),
-                            (_clipId, elapsedMs) => {
-                                warmedStreams.add(streamId);
-                                measurements.warmupMs.push(elapsedMs);
-                                updateMetrics();
-                            }
-                        );
-                    }).catch(reason => showError('warmup: ' + String(reason), false));
                 };
                 const renderFrame = async (seconds, reason, requestedAt = performance.now()) => {
                     if (disposed) return;
@@ -6349,7 +6332,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     const cutIndex = Number(plan.base[0] && plan.base[0].id.replace('cut-', ''));
                     if (Number.isInteger(cutIndex) && cutIndex !== lastCutIndex) {
                         const streamId = 'cut-' + cutIndex;
-                        const bucket = warmedStreams.has(streamId)
+                        const bucket = scheduler.isWarmed(streamId)
                             ? measurements.boundaryAfter : measurements.boundaryBefore;
                         bucket.total += 1;
                         if (late) bucket.late += 1;
@@ -6367,8 +6350,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     measurements.presentedAt.push(presented);
                     measurements.presentedAt = measurements.presentedAt
                         .filter(value => value >= presented - 1000);
-                    prefetch(timeUs);
-                    scheduleWarmup(timeUs / 1e6);
+                    scheduler.notePresented(timeUs);
                     currentAccesses = null;
                     audioSupply.noteRendered(timeUs / 1e6);
                     updateMetrics();
@@ -6474,7 +6456,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     disposed = true;
                     scrub.dispose();
-                    warmup.reset();
+                    scheduler.dispose();
                     for (const source of lookahead.values()) source.clear();
                     for (const image of images.values()) image.destroy();
                     for (const pool of pools.values()) pool.destroy();

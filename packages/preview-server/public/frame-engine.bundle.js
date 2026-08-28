@@ -2598,9 +2598,9 @@ var require_caption_display = __commonJS({
         fail("INVALID_POLICY", `display_policy.algorithm must be ${exports.CAPTION_DISPLAY_ALGORITHM}`);
       if (value.unit_metric !== exports.CAPTION_UNIT_METRIC)
         fail("INVALID_POLICY", `display_policy.unit_metric must be ${exports.CAPTION_UNIT_METRIC}`);
-      if (!finitePositive2(value.max_line_units))
+      if (!finitePositive3(value.max_line_units))
         fail("INVALID_POLICY", "display_policy.max_line_units must be a positive finite number");
-      if (!finitePositive2(value.minimum_fragment_duration_seconds))
+      if (!finitePositive3(value.minimum_fragment_duration_seconds))
         fail("INVALID_POLICY", "display_policy.minimum_fragment_duration_seconds must be a positive finite number");
       if (!strictText(value.locale)) {
         fail("INVALID_POLICY", "display_policy.locale must be a non-empty NFC trimmed string");
@@ -2735,13 +2735,13 @@ var require_caption_display = __commonJS({
       rejectStyleUnknown(value, CAPTION_STYLE_KEYS, label);
       if (Object.prototype.hasOwnProperty.call(value, "color"))
         validateHexColor(value.color, `${label}.color`);
-      if (Object.prototype.hasOwnProperty.call(value, "size_px") && !finitePositive2(value.size_px)) {
+      if (Object.prototype.hasOwnProperty.call(value, "size_px") && !finitePositive3(value.size_px)) {
         fail("INVALID_TEXT_STYLE", `${label}.size_px must be a positive finite number`);
       }
       if (Object.prototype.hasOwnProperty.call(value, "font_weight") && (!Number.isInteger(value.font_weight) || value.font_weight < 1 || value.font_weight > 1e3)) {
         fail("INVALID_TEXT_STYLE", `${label}.font_weight must be an integer within [1, 1000]`);
       }
-      if (Object.prototype.hasOwnProperty.call(value, "line_height") && !finitePositive2(value.line_height)) {
+      if (Object.prototype.hasOwnProperty.call(value, "line_height") && !finitePositive3(value.line_height)) {
         fail("INVALID_TEXT_STYLE", `${label}.line_height must be a positive finite number`);
       }
       validateTextStyleV0(value, label);
@@ -2807,7 +2807,7 @@ var require_caption_display = __commonJS({
           fail("INVALID_TEXT_STYLE", `${label}.${key} is required`);
         }
       }
-      if (value.mode !== "reference-pixel" || !Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative2(value.left_px) || !finitePositive2(value.width_px) || value.left_px + value.width_px > value.reference_width_px || !finiteNonNegative2(value.bottom_px) || value.text_align !== "center" || value.max_lines !== 1) {
+      if (value.mode !== "reference-pixel" || !Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative2(value.left_px) || !finitePositive3(value.width_px) || value.left_px + value.width_px > value.reference_width_px || !finiteNonNegative2(value.bottom_px) || value.text_align !== "center" || value.max_lines !== 1) {
         fail("INVALID_TEXT_STYLE", `${label} must be a bounded reference-pixel layout with center/max_lines=1`);
       }
     }
@@ -2868,13 +2868,13 @@ var require_caption_display = __commonJS({
           if (typeof entry.id !== "string" || entry.id === "") {
             fail("INVALID_TEXT_STYLE", `${slotLabel}.id must be a non-empty string`);
           }
-          if (Object.prototype.hasOwnProperty.call(entry, "duration_sec") && !finitePositive2(entry.duration_sec)) {
+          if (Object.prototype.hasOwnProperty.call(entry, "duration_sec") && !finitePositive3(entry.duration_sec)) {
             fail("INVALID_TEXT_STYLE", `${slotLabel}.duration_sec must be a positive finite number`);
           }
           if (Object.prototype.hasOwnProperty.call(entry, "ease") && (typeof entry.ease !== "string" || entry.ease === "")) {
             fail("INVALID_TEXT_STYLE", `${slotLabel}.ease must be a non-empty string`);
           }
-          if (Object.prototype.hasOwnProperty.call(entry, "amp") && !finitePositive2(entry.amp)) {
+          if (Object.prototype.hasOwnProperty.call(entry, "amp") && !finitePositive3(entry.amp)) {
             fail("INVALID_TEXT_STYLE", `${slotLabel}.amp must be a positive finite number`);
           }
         }
@@ -2938,13 +2938,13 @@ var require_caption_display = __commonJS({
     }
     function validateLinearCuts(cuts, edit) {
       cuts.forEach((cut, index) => {
-        if (!isRecord(cut) || !finiteNonNegative2(cut.in) || !finitePositive2(cut.out) || cut.out <= cut.in) {
+        if (!isRecord(cut) || !finiteNonNegative2(cut.in) || !finitePositive3(cut.out) || cut.out <= cut.in) {
           fail("INVALID_CUT", `edit.json cuts[${index}] must satisfy 0 <= in < out`);
         }
         if (Object.prototype.hasOwnProperty.call(cut, "at") || Object.prototype.hasOwnProperty.call(cut, "track") || Object.prototype.hasOwnProperty.call(cut, "transition_out") || Object.prototype.hasOwnProperty.call(cut, "transitionOut")) {
           fail("UNSUPPORTED_TIMELINE", `display_policy does not support cuts[${index}].at/track/transition_out`);
         }
-        if (cut.speed !== void 0 && !finitePositive2(cut.speed))
+        if (cut.speed !== void 0 && !finitePositive3(cut.speed))
           fail("INVALID_CUT", `edit.json cuts[${index}].speed must be positive`);
       });
       if (Array.isArray(edit?.timeline?.tracks) && edit.timeline.tracks.some((track) => track?.kind === "cuts")) {
@@ -2955,7 +2955,7 @@ var require_caption_display = __commonJS({
       const occurrences = [];
       let cursor = 0;
       const segments = cuts.map((cut, cutIndex) => {
-        const speed = finitePositive2(cut.speed) ? cut.speed : 1;
+        const speed = finitePositive3(cut.speed) ? cut.speed : 1;
         const duration = (cut.out - cut.in) / speed;
         const segment = { cut, cutIndex, speed, start: cursor, end: cursor + duration };
         cursor += duration;
@@ -2987,7 +2987,7 @@ var require_caption_display = __commonJS({
           if (caption?.time_domain === "output")
             return;
           const text = caption?.display_text ?? caption?.text;
-          if (isRecord(caption) && finiteNonNegative2(caption.start) && finitePositive2(caption.end) && caption.end > caption.start && typeof text === "string") {
+          if (isRecord(caption) && finiteNonNegative2(caption.start) && finitePositive3(caption.end) && caption.end > caption.start && typeof text === "string") {
             occurrences.push({
               source_cue_id: caption.id,
               src: typeof caption.src === "string" ? caption.src : null,
@@ -3041,7 +3041,7 @@ var require_caption_display = __commonJS({
     function validateSourceCaption(caption, index, policy) {
       if (!isRecord(caption) || !strictText(caption.id))
         fail("INVALID_CAPTION", `captions[${index}].id must be a non-empty string`);
-      if (!finiteNonNegative2(caption.start) || !finitePositive2(caption.end) || caption.end <= caption.start) {
+      if (!finiteNonNegative2(caption.start) || !finitePositive3(caption.end) || caption.end <= caption.start) {
         fail("INVALID_CAPTION", `captions[${index}] must satisfy 0 <= start < end`);
       }
       if (caption.src !== void 0 && !strictText(caption.src)) {
@@ -3069,7 +3069,7 @@ var require_caption_display = __commonJS({
       captions.forEach((caption, index) => {
         if (caption.time_domain === "output")
           return;
-        const conflict = emphasisValue.some((value) => isRecord(value) && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src) && finiteNonNegative2(value.t_start) && finitePositive2(value.t_end) && value.t_end > caption.start && value.t_start < caption.end);
+        const conflict = emphasisValue.some((value) => isRecord(value) && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src) && finiteNonNegative2(value.t_start) && finitePositive3(value.t_end) && value.t_end > caption.start && value.t_start < caption.end);
         if (conflict)
           fail("EMPHASIS_CONFLICT", `edit.emphasis_words cannot act on captions[${index}] under display_policy`);
       });
@@ -3220,7 +3220,7 @@ var require_caption_display = __commonJS({
       let layout;
       let scale = 1;
       if (style.layout !== void 0) {
-        if (!output || !finitePositive2(output.width) || !finitePositive2(output.height))
+        if (!output || !finitePositive3(output.width) || !finitePositive3(output.height))
           fail("INVALID_OUTPUT_GEOMETRY", "output width/height are required for reference-pixel caption layout");
         layout = resolveReferencePixelLayout(style.layout, output);
         scale = layout.scale;
@@ -3232,14 +3232,14 @@ var require_caption_display = __commonJS({
       }
       if (typeof style.color === "string")
         vars["--caption-color"] = style.color;
-      if (finitePositive2(style.size_px))
+      if (finitePositive3(style.size_px))
         vars["--caption-font-size"] = `${formatCssNumber(style.size_px * scale)}px`;
       if (Number.isInteger(style.weight) && style.weight >= 100 && style.weight <= 900) {
         vars["--caption-font-weight"] = String(style.weight);
       } else if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1e3) {
         vars["--caption-font-weight"] = String(style.font_weight);
       }
-      if (finitePositive2(style.line_height))
+      if (finitePositive3(style.line_height))
         vars["--caption-line-height"] = formatCssNumber(style.line_height);
       if (isRecord(style.stroke)) {
         const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)";
@@ -3268,7 +3268,7 @@ var require_caption_display = __commonJS({
       for (const key of required)
         if (!Object.prototype.hasOwnProperty.call(value, key))
           fail("INVALID_LAYOUT", `caption layout.${key} is required`);
-      if (!Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative2(value.left_px) || !finitePositive2(value.width_px) || !finiteNonNegative2(value.bottom_px) || value.left_px + value.width_px > value.reference_width_px || value.text_align !== "center" || value.max_lines !== 1) {
+      if (!Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative2(value.left_px) || !finitePositive3(value.width_px) || !finiteNonNegative2(value.bottom_px) || value.left_px + value.width_px > value.reference_width_px || value.text_align !== "center" || value.max_lines !== 1) {
         fail("INVALID_LAYOUT", "caption reference-pixel layout fields are invalid");
       }
       const widthScale = output.width / value.reference_width_px;
@@ -3313,7 +3313,7 @@ var require_caption_display = __commonJS({
     function finiteNumber(value) {
       return typeof value === "number" && Number.isFinite(value);
     }
-    function finitePositive2(value) {
+    function finitePositive3(value) {
       return typeof value === "number" && Number.isFinite(value) && value > 0;
     }
     function finiteNonNegative2(value) {
@@ -5190,7 +5190,7 @@ var require_audio_schedule = __commonJS({
     var ducking_1 = require_ducking();
     function buildWebAudioSchedule2(input) {
       const warnings = [];
-      const timelineDurationSec = finitePositive2(input.timelineDurationSec) ? input.timelineDurationSec : 0;
+      const timelineDurationSec = finitePositive3(input.timelineDurationSec) ? input.timelineDurationSec : 0;
       const startAtSec = Math.max(0, Math.min(timelineDurationSec, Number.isFinite(input.startAtSec) ? input.startAtSec : 0));
       const audio = input.audio;
       if (!audio || timelineDurationSec <= 0 || startAtSec >= timelineDurationSec) {
@@ -5229,7 +5229,7 @@ var require_audio_schedule = __commonJS({
         const spec = specs[index];
         const id = typeof spec?.id === "string" && spec.id ? spec.id : `${kind}-${index + 1}`;
         const label = `${kind} ${id}`;
-        if (!spec || !finitePositive2(spec.durationSec)) {
+        if (!spec || !finitePositive3(spec.durationSec)) {
           warnings.push(`${label}: decoded duration is invalid; skipped`);
           continue;
         }
@@ -5268,7 +5268,7 @@ var require_audio_schedule = __commonJS({
         warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
         sourceOffsetSec = 0;
       }
-      let outSec = finitePositive2(spec.out) ? spec.out : materialDurationSec;
+      let outSec = finitePositive3(spec.out) ? spec.out : materialDurationSec;
       if (outSec > materialDurationSec) {
         warnings.push(`${label}: out exceeds decoded duration; clamped to material end`);
         outSec = materialDurationSec;
@@ -5308,7 +5308,7 @@ var require_audio_schedule = __commonJS({
     }
     function scheduleBgm2(spec, timelineDurationSec, startAtSec, duckIntervals, warnings) {
       const label = "bgm";
-      if (!finitePositive2(spec.durationSec)) {
+      if (!finitePositive3(spec.durationSec)) {
         warnings.push(`${label}: decoded duration is invalid; skipped`);
         return null;
       }
@@ -5368,8 +5368,8 @@ var require_audio_schedule = __commonJS({
     }
     function fadeGainEvents2(rawFadeIn, rawFadeOut, itemDurationSec, elapsedIntoItemSec, availableSec, baseGain) {
       const ceiling = itemDurationSec / 2;
-      const fadeIn = finitePositive2(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
-      const fadeOut = finitePositive2(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
+      const fadeIn = finitePositive3(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
+      const fadeOut = finitePositive3(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
       const multiplierAt = (localSec) => {
         let multiplier = 1;
         if (fadeIn > 0 && localSec < fadeIn)
@@ -5397,8 +5397,8 @@ var require_audio_schedule = __commonJS({
     }
     function bgmFadeGainEvents2(rawFadeIn, rawFadeOut, timelineDurationSec, timelineStartSec, availableSec, baseGain) {
       const ceiling = timelineDurationSec / 2;
-      const fadeIn = finitePositive2(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
-      const fadeOut = finitePositive2(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
+      const fadeIn = finitePositive3(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
+      const fadeOut = finitePositive3(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
       if (fadeIn <= 0 && fadeOut <= 0) {
         return [{ offsetSec: 0, value: baseGain, method: "set" }];
       }
@@ -5442,7 +5442,7 @@ var require_audio_schedule = __commonJS({
     function normalizedTrack2(value) {
       return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
     }
-    function finitePositive2(value) {
+    function finitePositive3(value) {
       return typeof value === "number" && Number.isFinite(value) && value > 0;
     }
     function finiteNonNegative2(value) {
@@ -17215,6 +17215,10 @@ var ClipSession = class _ClipSession {
   lastTickTargetUs = null;
   coverage = new DecodedFrameCoverageCache();
   loadPromise = null;
+  preparePromise = null;
+  preparedCandidate = null;
+  preparedKeyframes = null;
+  prepareGeneration = 0;
   queue = Promise.resolve();
   options;
   constructor(id, src, options = {}) {
@@ -17223,72 +17227,136 @@ var ClipSession = class _ClipSession {
     this.options = {
       loadTimeoutMs: options.loadTimeoutMs ?? 1e4,
       tickTimeoutMs: options.tickTimeoutMs ?? 1e4,
-      onWarning: options.onWarning
+      hardwareAcceleration: options.hardwareAcceleration,
+      onWarning: options.onWarning,
+      onDecoderDegraded: options.onDecoderDegraded
     };
   }
   load() {
     this.loadPromise ??= this.doLoad();
     return this.loadPromise;
   }
+  /** Parses the MP4 header and keyframe table without creating a VideoDecoder. */
+  prepare() {
+    if (this.clip || this.loadPromise || this.preparedCandidate) return Promise.resolve();
+    if (this.preparePromise) return this.preparePromise;
+    const generation = this.prepareGeneration;
+    let tracked;
+    tracked = this.doPrepare(generation).finally(() => {
+      if (this.preparePromise === tracked) this.preparePromise = null;
+    });
+    this.preparePromise = tracked;
+    return tracked;
+  }
+  async doPrepare(generation) {
+    let candidate = null;
+    try {
+      const response = await fetch(this.src);
+      if (!response.ok || !response.body) throw new Error(`fetch failed: ${response.status}`);
+      candidate = new I2(response.body, {
+        audio: false,
+        __unsafe_hardwareAcceleration__: this.options.hardwareAcceleration ?? "prefer-hardware"
+      });
+      await withTimeout(candidate.ready, this.options.loadTimeoutMs, `prepare ${this.id}`);
+      const keyframes = await this.readKeyframes(candidate);
+      if (generation !== this.prepareGeneration) {
+        candidate.destroy();
+        candidate = null;
+        return;
+      }
+      this.preparedKeyframes = keyframes;
+      this.preparedCandidate = candidate;
+      candidate = null;
+    } catch (error) {
+      candidate?.destroy();
+      if (generation === this.prepareGeneration) {
+        this.preparedCandidate = null;
+        this.preparedKeyframes = null;
+        this.options.onWarning?.(`${this.id}: prepare failed: ${String(error)}`);
+      }
+    }
+  }
   async doLoad() {
     this.state = "loading";
     this.coverage.clear();
     let lastError;
-    const attempts = [
-      { hardwareAcceleration: "prefer-hardware", state: "ready" },
-      { hardwareAcceleration: "prefer-software", state: "degraded" }
-    ];
-    for (const attempt of attempts) {
-      let candidate = null;
-      try {
-        const response = await fetch(this.src);
-        if (!response.ok || !response.body) throw new Error(`fetch failed: ${response.status}`);
-        candidate = new I2(response.body, {
-          audio: false,
-          __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
-        });
-        let rejectDecoder = null;
-        const decoderError = new Promise((_resolve, reject) => {
-          rejectDecoder = (message) => reject(new Error(`decoder error: ${message}`));
-        });
-        decoderError.catch(() => void 0);
-        const stopWatching = watchDecoderErrors((message) => rejectDecoder?.(message));
+    const accelerations = this.options.hardwareAcceleration ? [this.options.hardwareAcceleration] : ["prefer-hardware", "prefer-software"];
+    const attempts = accelerations.map((hardwareAcceleration) => ({
+      hardwareAcceleration,
+      state: hardwareAcceleration === "prefer-software" ? "degraded" : "ready"
+    }));
+    for (let round = 0; round < 2; round += 1) {
+      for (const attempt of attempts) {
+        let candidate = null;
         try {
-          await withTimeout(
-            Promise.race([candidate.ready, decoderError]),
-            this.options.loadTimeoutMs,
-            `ready ${this.id}`
-          );
-          await this.loadKeyframes(candidate);
-          const primeTarget = this.toDecoderTime(0);
-          const rawPrimed = await withTimeout(
-            Promise.race([candidate.tick(primeTarget), decoderError]),
-            this.options.tickTimeoutMs,
-            `prime ${this.id}`
-          );
-          const primed = this.normalizeTickResult(rawPrimed);
-          this.lastTickTargetUs = primeTarget;
-          if (primed.video) this.coverage.adopt(primed.video);
-        } finally {
-          stopWatching();
+          let usedPrepared = false;
+          if (attempt.hardwareAcceleration === (this.options.hardwareAcceleration ?? "prefer-hardware")) {
+            await this.preparePromise;
+            if (this.preparedCandidate) {
+              candidate = this.preparedCandidate;
+              this.preparedCandidate = null;
+              this.applyKeyframes(this.preparedKeyframes);
+              this.preparedKeyframes = null;
+              usedPrepared = true;
+            }
+          }
+          if (!candidate) {
+            const response = await fetch(this.src);
+            if (!response.ok || !response.body) throw new Error(`fetch failed: ${response.status}`);
+            candidate = new I2(response.body, {
+              audio: false,
+              __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
+            });
+          }
+          let rejectDecoder = null;
+          const decoderError = new Promise((_resolve, reject) => {
+            rejectDecoder = (message) => reject(new Error(`decoder error: ${message}`));
+          });
+          decoderError.catch(() => void 0);
+          const stopWatching = watchDecoderErrors((message) => rejectDecoder?.(message));
+          try {
+            if (!usedPrepared) {
+              await withTimeout(
+                Promise.race([candidate.ready, decoderError]),
+                this.options.loadTimeoutMs,
+                `ready ${this.id}`
+              );
+              this.applyKeyframes(await this.readKeyframes(candidate));
+            }
+            const primeTarget = this.toDecoderTime(0);
+            const rawPrimed = await withTimeout(
+              Promise.race([candidate.tick(primeTarget), decoderError]),
+              this.options.tickTimeoutMs,
+              `prime ${this.id}`
+            );
+            const primed = this.normalizeTickResult(rawPrimed);
+            this.lastTickTargetUs = primeTarget;
+            if (primed.video) this.coverage.adopt(primed.video);
+          } finally {
+            stopWatching();
+          }
+          this.clip = candidate;
+          this.meta = {
+            ...candidate.meta,
+            duration: this.keyframes?.presentationDurationUs ?? Math.max(0, candidate.meta.duration - this.decoderTimestampOffsetUs)
+          };
+          this.state = attempt.state;
+          if (attempt.state === "degraded") {
+            this.options.onDecoderDegraded?.();
+            this.options.onWarning?.(`${this.id}: software decoder fallback active`);
+          }
+          return;
+        } catch (error) {
+          this.coverage.clear();
+          this.keyframes = null;
+          this.lastFrameStartUs = null;
+          this.decoderTimestampOffsetUs = 0;
+          candidate?.destroy();
+          lastError = error;
+          this.options.onWarning?.(`${this.id}: ${String(error)}`);
         }
-        this.clip = candidate;
-        this.meta = {
-          ...candidate.meta,
-          duration: this.keyframes?.presentationDurationUs ?? Math.max(0, candidate.meta.duration - this.decoderTimestampOffsetUs)
-        };
-        this.state = attempt.state;
-        if (attempt.state === "degraded") this.options.onWarning?.(`${this.id}: software decoder fallback active`);
-        return;
-      } catch (error) {
-        this.coverage.clear();
-        this.keyframes = null;
-        this.lastFrameStartUs = null;
-        this.decoderTimestampOffsetUs = 0;
-        candidate?.destroy();
-        lastError = error;
-        this.options.onWarning?.(`${this.id}: ${String(error)}`);
       }
+      if (!isDecoderErrorMessage(lastError)) break;
     }
     this.state = "unavailable";
     const lastMessage = lastError instanceof Error ? lastError.message : String(lastError);
@@ -17300,18 +17368,38 @@ var ClipSession = class _ClipSession {
     if (diagnostic) throw new Error(diagnostic, { cause: lastError });
     throw lastError instanceof Error ? lastError : new Error(lastMessage);
   }
-  async loadKeyframes(clip) {
+  async readKeyframes(clip) {
     try {
       const header = await withTimeout(clip.getFileHeaderBinData(), 2e3, `header ${this.id}`);
-      this.keyframes = await withTimeout(buildKeyframeIndexFromHeader(header), 2e3, `keyframes ${this.id}`);
-      this.lastFrameStartUs = this.keyframes.lastFrameStartUs;
-      this.decoderTimestampOffsetUs = this.keyframes.decoderTimestampOffsetUs;
+      return await withTimeout(buildKeyframeIndexFromHeader(header), 2e3, `keyframes ${this.id}`);
     } catch (error) {
-      this.keyframes = null;
-      this.lastFrameStartUs = null;
-      this.decoderTimestampOffsetUs = 0;
       this.options.onWarning?.(`${this.id}: keyframe index unavailable: ${String(error)}`);
+      return null;
     }
+  }
+  applyKeyframes(keyframes) {
+    this.keyframes = keyframes;
+    this.lastFrameStartUs = keyframes?.lastFrameStartUs ?? null;
+    this.decoderTimestampOffsetUs = keyframes?.decoderTimestampOffsetUs ?? 0;
+  }
+  async ensureParsed() {
+    if (this.clip) return;
+    await this.prepare();
+    if (this.preparedCandidate) {
+      this.clip = this.preparedCandidate;
+      this.preparedCandidate = null;
+      this.applyKeyframes(this.preparedKeyframes);
+      this.preparedKeyframes = null;
+      this.meta = {
+        ...this.clip.meta,
+        duration: this.keyframes?.presentationDurationUs ?? Math.max(0, this.clip.meta.duration - this.decoderTimestampOffsetUs)
+      };
+      this.state = this.options.hardwareAcceleration === "prefer-software" ? "degraded" : "ready";
+      this.lastTickTargetUs = null;
+      this.loadPromise = Promise.resolve();
+      return;
+    }
+    await this.load();
   }
   async decode(timeUs, metrics) {
     await this.load();
@@ -17367,7 +17455,7 @@ var ClipSession = class _ClipSession {
   }
   /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */
   async fork(id) {
-    await this.load();
+    await this.ensureParsed();
     if (!this.clip || !this.meta || this.state === "unavailable") {
       throw new Error(`clip ${this.id} cannot be forked while unavailable`);
     }
@@ -17386,7 +17474,12 @@ var ClipSession = class _ClipSession {
   }
   destroy() {
     this.clip?.destroy();
+    this.preparedCandidate?.destroy();
     this.clip = null;
+    this.preparedCandidate = null;
+    this.preparedKeyframes = null;
+    this.preparePromise = null;
+    this.prepareGeneration += 1;
     this.meta = null;
     this.coverage.clear();
     this.keyframes = null;
@@ -17530,6 +17623,7 @@ var ClipSessionPool = class {
   }
   sessions = /* @__PURE__ */ new Map();
   base = null;
+  acceleration;
   stopDecoderWatch;
   async decode(timeUs, metrics, request) {
     const streamId = request?.streamId ?? "default";
@@ -17538,26 +17632,58 @@ var ClipSessionPool = class {
   getSession(streamId = "default") {
     let sessionPromise = this.sessions.get(streamId);
     if (!sessionPromise) {
-      if (!this.base) {
-        this.base = new ClipSession(`${this.id}:${streamId}`, this.src, this.options);
-        sessionPromise = Promise.resolve(this.base);
-      } else {
-        sessionPromise = this.base.fork(`${this.id}:${streamId}`);
-      }
+      sessionPromise = this.ensureBase().fork(`${this.id}:${streamId}`);
       this.sessions.set(streamId, sessionPromise);
     }
     return sessionPromise;
+  }
+  prepareHeader() {
+    return this.ensureBase().prepare();
+  }
+  releaseSession(streamId) {
+    const session = this.sessions.get(streamId);
+    if (!session) return false;
+    this.sessions.delete(streamId);
+    void session.then((value) => value.destroy(), () => void 0);
+    return true;
+  }
+  liveStreamIds() {
+    return [...this.sessions.keys()];
   }
   get size() {
     return this.sessions.size;
   }
   destroy() {
     this.stopDecoderWatch();
+    const destroyed = /* @__PURE__ */ new Set();
+    if (this.base) {
+      destroyed.add(this.base);
+      this.base.destroy();
+    }
     for (const session of this.sessions.values()) {
-      void session.then((value) => value.destroy(), () => void 0);
+      void session.then((value) => {
+        if (destroyed.has(value)) return;
+        destroyed.add(value);
+        value.destroy();
+      }, () => void 0);
     }
     this.sessions.clear();
     this.base = null;
+  }
+  ensureBase() {
+    this.base ??= new ClipSession(`${this.id}:base`, this.src, {
+      ...this.options,
+      hardwareAcceleration: this.acceleration,
+      onDecoderDegraded: () => this.noteDegraded()
+    });
+    return this.base;
+  }
+  noteDegraded() {
+    if (this.acceleration === "prefer-software") return;
+    this.acceleration = "prefer-software";
+    this.base?.destroy();
+    this.base = null;
+    this.options.onDecoderDegraded?.();
   }
 };
 
@@ -17694,34 +17820,345 @@ var LookaheadFrameSource = class {
   }
 };
 
-// ../frame-engine/src/cache/warmup-manager.ts
-var WarmupManager = class {
-  constructor(leadInSeconds) {
-    this.leadInSeconds = leadInSeconds;
-  }
-  warmed = /* @__PURE__ */ new Set();
-  inFlight = /* @__PURE__ */ new Map();
-  maybeWarmup(secondsToBoundary, session, sourceInUs, onWarmed) {
-    if (secondsToBoundary == null || secondsToBoundary > this.leadInSeconds || !session) return;
-    if (this.warmed.has(session.id) || this.inFlight.has(session.id)) return;
-    const operation = session.warmup(sourceInUs);
-    this.inFlight.set(session.id, operation);
-    void operation.then((elapsedMs) => {
-      this.inFlight.delete(session.id);
-      this.warmed.add(session.id);
-      onWarmed(session.id, elapsedMs);
-    }, () => {
-      this.inFlight.delete(session.id);
+// ../frame-engine/src/cache/preview-scheduler.ts
+var DEFAULT_MAX_LIVE_DECODERS = 8;
+var DEFAULT_MIN_LEAD_IN_SECONDS = 1.5;
+var DEFAULT_MAX_LEAD_IN_SECONDS = 4;
+var DEFAULT_INITIAL_LEAD_IN_SECONDS = 2.5;
+var DEFAULT_PREFETCH_FRAMES = 3;
+var DEFAULT_HEADER_CONCURRENCY = 2;
+function finitePositive(value, fallback) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
+}
+function integerAtLeastOne(value, fallback) {
+  return Math.max(1, Math.floor(finitePositive(value, fallback)));
+}
+function percentile90(values) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.9) - 1)] ?? 0;
+}
+function clamp2(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+function createPreviewScheduler({
+  timeline,
+  sources,
+  output,
+  fps: requestedFps,
+  pools,
+  lookahead,
+  metrics,
+  options = {}
+}) {
+  const fps = finitePositive(requestedFps, finitePositive(timeline.fps, 30));
+  const maxLiveDecoders = integerAtLeastOne(options.maxLiveDecoders, DEFAULT_MAX_LIVE_DECODERS);
+  const minLeadInSeconds = finitePositive(options.minLeadInSeconds, DEFAULT_MIN_LEAD_IN_SECONDS);
+  const maxLeadInSeconds = Math.max(
+    minLeadInSeconds,
+    finitePositive(options.maxLeadInSeconds, DEFAULT_MAX_LEAD_IN_SECONDS)
+  );
+  const initialLeadInSeconds = clamp2(
+    finitePositive(options.initialLeadInSeconds, DEFAULT_INITIAL_LEAD_IN_SECONDS),
+    minLeadInSeconds,
+    maxLeadInSeconds
+  );
+  const prefetchFrames = integerAtLeastOne(options.prefetchFrames, DEFAULT_PREFETCH_FRAMES);
+  const headerConcurrency = integerAtLeastOne(options.headerConcurrency, DEFAULT_HEADER_CONCURRENCY);
+  const now = options.now ?? (() => performance.now());
+  const totalDurationUs = Math.round(Math.max(0, timeline.totalDuration) * 1e6);
+  const boundaries = [...timeline.cuts.map((placement) => placement.at), ...timeline.layers.filter((layer) => Boolean(layer.src)).map((layer) => layer.t)].filter((value) => Number.isFinite(value) && value >= 0 && value <= timeline.totalDuration).sort((left, right) => left - right).filter((value, index, values) => index === 0 || value !== values[index - 1]);
+  const layerSources = /* @__PURE__ */ new Map();
+  timeline.layers.forEach((layer, index) => {
+    if (!layer.src) return;
+    const id = String(layer.id ?? `layer-${index}`);
+    layerSources.set(id, {
+      src: layer.src,
+      mask: layer.mask ?? timeline.maskSources.get(layer.src) ?? null
     });
+  });
+  const headerSourceUses = /* @__PURE__ */ new Map();
+  let sourceDeclarationOrder = 0;
+  const noteHeaderSource = (sourceId, firstUseSeconds) => {
+    const order = sourceDeclarationOrder++;
+    if (!sourceId || !pools.has(sourceId)) return;
+    const normalizedTime = Number.isFinite(firstUseSeconds) ? Math.max(0, firstUseSeconds) : Number.POSITIVE_INFINITY;
+    const existing = headerSourceUses.get(sourceId);
+    if (!existing || normalizedTime < existing.firstUseSeconds) {
+      headerSourceUses.set(sourceId, { firstUseSeconds: normalizedTime, order });
+    }
+  };
+  for (const placement of timeline.cuts) {
+    noteHeaderSource(placement.cut.src, placement.at);
   }
-  notifyClipChanged(clipId) {
-    this.warmed.delete(clipId);
+  for (const layer of timeline.layers) {
+    noteHeaderSource(layer.src, layer.t);
+    if (layer.src) {
+      noteHeaderSource(layer.mask ?? timeline.maskSources.get(layer.src) ?? null, layer.t);
+    }
   }
-  reset() {
-    this.warmed.clear();
-    this.inFlight.clear();
+  for (const maskSource of timeline.maskSources.values()) {
+    noteHeaderSource(maskSource, Number.POSITIVE_INFINITY);
   }
-};
+  const headerQueue = [...headerSourceUses.entries()].sort((left, right) => left[1].firstUseSeconds - right[1].firstUseSeconds || left[1].order - right[1].order).map(([sourceId]) => [sourceId, pools.get(sourceId)]).filter(([, pool]) => typeof pool.prepareHeader === "function");
+  const boundaryRequirements = /* @__PURE__ */ new Map();
+  const warned = /* @__PURE__ */ new Set();
+  const warmed = /* @__PURE__ */ new Set();
+  const inFlight = /* @__PURE__ */ new Set();
+  const live = /* @__PURE__ */ new Map();
+  const headerMs = [];
+  let latestTimeSeconds = 0;
+  let evictions = 0;
+  let decoderLimitHits = 0;
+  let headersRequested = false;
+  let headerWorkersStarted = false;
+  let headerLaunchQueued = false;
+  let firstPresentationNoted = false;
+  let disposed = false;
+  const warnOnce = (message) => {
+    if (warned.has(message)) return;
+    warned.add(message);
+    metrics.onWarning?.(message);
+  };
+  const requirementsFromPlan = (plan) => {
+    const requirements = [];
+    const seen = /* @__PURE__ */ new Set();
+    const append = (sourceId, streamId, sourceTimeUs) => {
+      if (!sourceId || !pools.has(sourceId)) return;
+      const key = `${sourceId}::${streamId}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      requirements.push({ sourceId, streamId, sourceTimeUs, key });
+    };
+    for (const base of plan.base) {
+      const cutIndex = Number(base.id.slice("cut-".length));
+      append(timeline.cuts[cutIndex]?.cut.src, base.id, base.sourceTimeUs);
+    }
+    for (const layer of plan.layers) {
+      if (layer.kind === "image") continue;
+      const declared = layerSources.get(layer.id);
+      append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0);
+      if (layer.mask) {
+        append(declared?.mask, `layer-${layer.id}-mask`, layer.mask.sourceTimeUs);
+      }
+    }
+    return requirements;
+  };
+  const requirementsAtTime = (timeUs, warningContext) => {
+    try {
+      return requirementsFromPlan(evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output));
+    } catch (error) {
+      warnOnce(`${warningContext}: ${error instanceof Error ? error.message : String(error)}`);
+      return [];
+    }
+  };
+  const requirementsAtBoundary = (boundarySeconds) => {
+    const cached = boundaryRequirements.get(boundarySeconds);
+    if (cached) return cached;
+    const timeUs = Math.min(
+      totalDurationUs,
+      Math.round((boundarySeconds + 1 / fps) * 1e6)
+    );
+    const requirements = requirementsAtTime(timeUs, `preview warmup plan failed at ${boundarySeconds}s`);
+    boundaryRequirements.set(boundarySeconds, requirements);
+    return requirements;
+  };
+  const leadInSeconds = () => {
+    if (metrics.warmupMs.length === 0) return initialLeadInSeconds;
+    const recentWarmups = metrics.warmupMs.slice(-20);
+    return clamp2(
+      percentile90(recentWarmups) * 1.5 / 1e3 + percentile90(headerMs) / 1e3,
+      minLeadInSeconds,
+      maxLeadInSeconds
+    );
+  };
+  const refreshNextUses = (currentKeys) => {
+    for (const [key, entry] of live) {
+      if (currentKeys.has(key)) {
+        entry.nextUseSeconds = latestTimeSeconds;
+        continue;
+      }
+      if (entry.nextUseSeconds <= latestTimeSeconds) {
+        entry.nextUseSeconds = Number.POSITIVE_INFINITY;
+      }
+    }
+  };
+  const evictFor = (incoming, currentKeys) => {
+    if (live.has(incoming.key) || live.size < maxLiveDecoders) return true;
+    decoderLimitHits += 1;
+    const candidates = [...live.entries()].filter(([key]) => key !== incoming.key && !currentKeys.has(key)).sort((left, right) => right[1].nextUseSeconds - left[1].nextUseSeconds);
+    for (const [key, candidate] of candidates) {
+      const pool = pools.get(candidate.sourceId);
+      const didRelease = pool?.releaseSession?.(candidate.streamId) === true;
+      live.delete(key);
+      warmed.delete(key);
+      inFlight.delete(key);
+      if (didRelease) evictions += 1;
+      metrics.onChanged?.();
+      return true;
+    }
+    metrics.onChanged?.();
+    return false;
+  };
+  const trimToDecoderLimit = (currentKeys) => {
+    while (live.size > maxLiveDecoders) {
+      decoderLimitHits += 1;
+      const candidates = [...live.entries()].filter(([key]) => !currentKeys.has(key)).sort((left, right) => right[1].nextUseSeconds - left[1].nextUseSeconds);
+      let released = false;
+      for (const [key, candidate] of candidates) {
+        const didRelease = pools.get(candidate.sourceId)?.releaseSession?.(candidate.streamId) === true;
+        live.delete(key);
+        warmed.delete(key);
+        inFlight.delete(key);
+        if (didRelease) evictions += 1;
+        released = true;
+        break;
+      }
+      if (!released) break;
+    }
+  };
+  const startWarmup = (requirement, boundarySeconds, currentKeys) => {
+    if (warmed.has(requirement.key) || inFlight.has(requirement.key)) return;
+    if (!evictFor(requirement, currentKeys)) return;
+    const pool = pools.get(requirement.sourceId);
+    if (!pool) return;
+    live.set(requirement.key, {
+      sourceId: requirement.sourceId,
+      streamId: requirement.streamId,
+      nextUseSeconds: boundarySeconds
+    });
+    inFlight.add(requirement.key);
+    metrics.onChanged?.();
+    void pool.getSession(requirement.streamId).then((session) => session.warmup(requirement.sourceTimeUs, 1e6 / fps)).then((elapsedMs) => {
+      if (disposed) return;
+      inFlight.delete(requirement.key);
+      if (!live.has(requirement.key)) return;
+      warmed.add(requirement.key);
+      metrics.warmupMs.push(elapsedMs);
+      metrics.onWarmed?.(requirement.streamId, elapsedMs);
+      metrics.onChanged?.();
+    }, (error) => {
+      inFlight.delete(requirement.key);
+      live.delete(requirement.key);
+      warnOnce(`warmup ${requirement.streamId}: ${error instanceof Error ? error.message : String(error)}`);
+      metrics.onChanged?.();
+    });
+  };
+  const notePresented = (timeUs) => {
+    if (disposed) return;
+    firstPresentationNoted = true;
+    if (headersRequested && !headerWorkersStarted && !headerLaunchQueued) {
+      headerLaunchQueued = true;
+      queueMicrotask(() => {
+        headerLaunchQueued = false;
+        startHeaderWorkers();
+      });
+    }
+    const safeTimeUs = Math.max(0, Math.min(totalDurationUs, Math.round(timeUs)));
+    latestTimeSeconds = safeTimeUs / 1e6;
+    const current = requirementsAtTime(safeTimeUs, `preview current plan failed at ${safeTimeUs}us`);
+    const currentKeys = new Set(current.map((requirement) => requirement.key));
+    for (const requirement of current) {
+      live.set(requirement.key, {
+        sourceId: requirement.sourceId,
+        streamId: requirement.streamId,
+        nextUseSeconds: latestTimeSeconds
+      });
+    }
+    refreshNextUses(currentKeys);
+    trimToDecoderLimit(currentKeys);
+    for (let offset = 1; offset <= prefetchFrames; offset += 1) {
+      const futureUs = Math.min(totalDurationUs, safeTimeUs + Math.round(offset * 1e6 / fps));
+      const requirements = requirementsAtTime(futureUs, `preview prefetch plan failed at ${futureUs}us`);
+      for (const requirement of requirements) {
+        if (!evictFor(requirement, currentKeys)) continue;
+        live.set(requirement.key, {
+          sourceId: requirement.sourceId,
+          streamId: requirement.streamId,
+          nextUseSeconds: futureUs / 1e6
+        });
+        void lookahead.get(requirement.sourceId)?.prefetch(requirement.sourceTimeUs, { streamId: requirement.streamId }).catch(() => void 0);
+      }
+    }
+    const leadIn = leadInSeconds();
+    for (const boundary of boundaries) {
+      if (boundary <= latestTimeSeconds || boundary > latestTimeSeconds + leadIn) continue;
+      for (const requirement of requirementsAtBoundary(boundary)) {
+        startWarmup(requirement, boundary, currentKeys);
+      }
+    }
+    metrics.onChanged?.();
+  };
+  const state = () => {
+    const nextBoundary = boundaries.find((boundary) => boundary > latestTimeSeconds) ?? null;
+    const requirements = nextBoundary == null ? [] : requirementsAtBoundary(nextBoundary);
+    return {
+      leadInSeconds: leadInSeconds(),
+      liveDecoders: live.size,
+      maxLiveDecoders,
+      evictions,
+      decoderLimitHits,
+      coverage: {
+        warmed: requirements.filter((requirement) => warmed.has(requirement.key)).length,
+        needed: requirements.length,
+        boundarySeconds: nextBoundary
+      }
+    };
+  };
+  function startHeaderWorkers() {
+    if (disposed || headerWorkersStarted || !headersRequested || !firstPresentationNoted) return;
+    headerWorkersStarted = true;
+    let cursor = 0;
+    const worker = async () => {
+      while (!disposed) {
+        const item = headerQueue[cursor++];
+        if (!item) return;
+        const [sourceId, pool] = item;
+        const started = now();
+        try {
+          await pool.prepareHeader?.();
+          headerMs.push(Math.max(0, now() - started));
+        } catch (error) {
+          warnOnce(`prepare header ${sourceId}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+        metrics.onChanged?.();
+      }
+    };
+    for (let index = 0; index < Math.min(headerConcurrency, headerQueue.length); index += 1) void worker();
+  }
+  const primeHeaders = () => {
+    if (disposed || headersRequested) return;
+    headersRequested = true;
+    if (firstPresentationNoted && !headerLaunchQueued) {
+      headerLaunchQueued = true;
+      queueMicrotask(() => {
+        headerLaunchQueued = false;
+        startHeaderWorkers();
+      });
+    }
+  };
+  const reset = () => {
+    warmed.clear();
+    inFlight.clear();
+    live.clear();
+    latestTimeSeconds = 0;
+    evictions = 0;
+    decoderLimitHits = 0;
+    metrics.onChanged?.();
+  };
+  return {
+    notePresented,
+    primeHeaders,
+    isWarmed: (streamId) => [...warmed].some((key) => key.endsWith(`::${streamId}`)),
+    state,
+    reset,
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      reset();
+    }
+  };
+}
 
 // ../frame-engine/src/cache/scrub-controller.ts
 var ScrubController = class {
@@ -18034,7 +18471,7 @@ function computeBgmDuckGainDb(intervals, duckingEnabled, atSec) {
 // ../edit-store/src/audio-schedule.ts
 function buildWebAudioSchedule(input) {
   const warnings = [];
-  const timelineDurationSec = finitePositive(input.timelineDurationSec) ? input.timelineDurationSec : 0;
+  const timelineDurationSec = finitePositive2(input.timelineDurationSec) ? input.timelineDurationSec : 0;
   const startAtSec = Math.max(0, Math.min(
     timelineDurationSec,
     Number.isFinite(input.startAtSec) ? input.startAtSec : 0
@@ -18072,7 +18509,7 @@ function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
     const spec = specs[index];
     const id = typeof spec?.id === "string" && spec.id ? spec.id : `${kind}-${index + 1}`;
     const label = `${kind} ${id}`;
-    if (!spec || !finitePositive(spec.durationSec)) {
+    if (!spec || !finitePositive2(spec.durationSec)) {
       warnings.push(`${label}: decoded duration is invalid; skipped`);
       continue;
     }
@@ -18109,7 +18546,7 @@ function resolveTrim(kind, spec, label, warnings) {
     warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
     sourceOffsetSec = 0;
   }
-  let outSec = finitePositive(spec.out) ? spec.out : materialDurationSec;
+  let outSec = finitePositive2(spec.out) ? spec.out : materialDurationSec;
   if (outSec > materialDurationSec) {
     warnings.push(`${label}: out exceeds decoded duration; clamped to material end`);
     outSec = materialDurationSec;
@@ -18157,7 +18594,7 @@ function scheduleTimed(item, timelineDurationSec, startAtSec) {
 }
 function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warnings) {
   const label = "bgm";
-  if (!finitePositive(spec.durationSec)) {
+  if (!finitePositive2(spec.durationSec)) {
     warnings.push(`${label}: decoded duration is invalid; skipped`);
     return null;
   }
@@ -18227,8 +18664,8 @@ function normalizedGainDb(spec, label, warnings) {
 }
 function fadeGainEvents(rawFadeIn, rawFadeOut, itemDurationSec, elapsedIntoItemSec, availableSec, baseGain) {
   const ceiling = itemDurationSec / 2;
-  const fadeIn = finitePositive(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
-  const fadeOut = finitePositive(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
+  const fadeIn = finitePositive2(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
+  const fadeOut = finitePositive2(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
   const multiplierAt = (localSec) => {
     let multiplier = 1;
     if (fadeIn > 0 && localSec < fadeIn) multiplier = Math.min(multiplier, localSec / fadeIn);
@@ -18255,8 +18692,8 @@ function fadeGainEvents(rawFadeIn, rawFadeOut, itemDurationSec, elapsedIntoItemS
 }
 function bgmFadeGainEvents(rawFadeIn, rawFadeOut, timelineDurationSec, timelineStartSec, availableSec, baseGain) {
   const ceiling = timelineDurationSec / 2;
-  const fadeIn = finitePositive(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
-  const fadeOut = finitePositive(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
+  const fadeIn = finitePositive2(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
+  const fadeOut = finitePositive2(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
   if (fadeIn <= 0 && fadeOut <= 0) {
     return [{ offsetSec: 0, value: baseGain, method: "set" }];
   }
@@ -18299,7 +18736,7 @@ function rectangularDuckEvents(intervals, enabled, timelineStartSec, availableSe
 function normalizedTrack(value) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
 }
-function finitePositive(value) {
+function finitePositive2(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 function finiteNonNegative(value) {
@@ -18765,6 +19202,19 @@ var FrameEngineRuntime = class {
         intensity: Math.max(0, Math.min(1, Number.isFinite(intensity) ? intensity : 1))
       } : null
     };
+    this.scheduler = createPreviewScheduler({
+      timeline: this.timeline,
+      sources: this.sources,
+      output: this.output,
+      fps,
+      pools: this.pools,
+      lookahead: this.lookahead,
+      metrics: {
+        warmupMs: this.measurements.warmupMs,
+        onChanged: () => this.updateMetrics(),
+        onWarning: (message) => this.showError(message, false)
+      }
+    });
     this.scrub = new ScrubController(Math.min(24, 1e3 / fps), async (frameNumber, generation) => {
       const started = performance.now();
       await this.waitForRender();
@@ -18777,6 +19227,7 @@ var FrameEngineRuntime = class {
         if (this.rendering === operation) this.rendering = null;
       }
     });
+    this.scheduler.primeHeaders();
     this.updateMetrics();
   }
   totalDuration;
@@ -18788,7 +19239,7 @@ var FrameEngineRuntime = class {
   timeline;
   compositor;
   frameMetrics = new FrameMetrics();
-  warmup = new WarmupManager(1.5);
+  scheduler;
   scrub;
   output;
   audio;
@@ -18802,8 +19253,6 @@ var FrameEngineRuntime = class {
     boundaryAfter: { total: 0, late: 0 },
     warmupMs: []
   };
-  warmedStreams = /* @__PURE__ */ new Set();
-  warmupRequests = /* @__PURE__ */ new Set();
   rendering = null;
   lastPlaybackFrame = -1;
   lastPresentedSec = 0;
@@ -18854,7 +19303,7 @@ var FrameEngineRuntime = class {
     this.disposed = true;
     this.scrub.dispose();
     this.audio.dispose();
-    this.warmup.reset();
+    this.scheduler.dispose();
     for (const source of this.lookahead.values()) source.clear();
     for (const image of this.images.values()) image.destroy();
     for (const pool of this.pools.values()) pool.destroy();
@@ -18890,7 +19339,7 @@ var FrameEngineRuntime = class {
     const cutIndex = Number(plan.base[0]?.id.replace("cut-", ""));
     if (Number.isInteger(cutIndex) && cutIndex !== this.lastCutIndex) {
       const streamId = `cut-${cutIndex}`;
-      const bucket = this.warmedStreams.has(streamId) ? this.measurements.boundaryAfter : this.measurements.boundaryBefore;
+      const bucket = this.scheduler.isWarmed(streamId) ? this.measurements.boundaryAfter : this.measurements.boundaryBefore;
       bucket.total += 1;
       if (late) bucket.late += 1;
       this.lastCutIndex = cutIndex;
@@ -18905,47 +19354,10 @@ var FrameEngineRuntime = class {
     this.lastPresentedSec = timeUs / 1e6;
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter((value) => value >= presented - 1e3);
-    this.prefetch(timeUs);
-    this.scheduleWarmup(timeUs / 1e6);
+    this.scheduler.notePresented(timeUs);
     this.currentAccesses = null;
     this.currentDecodedFrames = null;
     this.updateMetrics();
-  }
-  prefetch(timeUs) {
-    for (let offset = 1; offset <= 3; offset += 1) {
-      const futureUs = Math.min(Math.round(this.totalDuration * 1e6), timeUs + Math.round(offset * 1e6 / this.fps));
-      const plan = evaluationPlanFromResolvedTimeline(this.timeline, futureUs, this.sources, this.output);
-      for (const layer of plan.base) {
-        const sourceId = this.timeline.cuts[Number(layer.id.replace("cut-", ""))]?.cut?.src;
-        const source = sourceId ? this.lookahead.get(sourceId) : null;
-        void source?.prefetch(layer.sourceTimeUs, { streamId: layer.id }).catch(() => void 0);
-      }
-    }
-  }
-  scheduleWarmup(seconds) {
-    const placements = this.timeline.cuts;
-    const nextIndex = placements.findIndex((placement) => placement.at > seconds);
-    if (nextIndex < 0) return;
-    const next = placements[nextIndex];
-    const secondsToBoundary = next.at - seconds;
-    if (secondsToBoundary > 1.5) return;
-    const streamId = `cut-${nextIndex}`;
-    if (this.warmupRequests.has(streamId)) return;
-    const pool = this.pools.get(next.cut.src);
-    if (!pool) return;
-    this.warmupRequests.add(streamId);
-    void pool.getSession(streamId).then((session) => {
-      this.warmup.maybeWarmup(
-        secondsToBoundary,
-        session,
-        Math.round(Number(next.cut.in ?? 0) * 1e6),
-        (_clipId, elapsedMs) => {
-          this.warmedStreams.add(streamId);
-          this.measurements.warmupMs.push(elapsedMs);
-          this.updateMetrics();
-        }
-      );
-    }).catch((error) => this.showError(`warmup: ${String(error)}`, false));
   }
   updateMetrics() {
     const m2 = this.measurements;
@@ -18953,6 +19365,7 @@ var FrameEngineRuntime = class {
     const after = percentile2(m2.seekAfterMs);
     const fps = m2.presentedAt.length;
     const format = (value) => value == null ? "\u2014" : value.toFixed(1);
+    const scheduler = this.scheduler.state();
     this.ui.metrics.dataset.fps = String(fps);
     this.ui.metrics.dataset.lateFrames = String(m2.lateFrames);
     this.ui.metrics.dataset.seekMs = m2.seekLatestMs == null ? "" : m2.seekLatestMs.toFixed(3);
@@ -18964,6 +19377,9 @@ var FrameEngineRuntime = class {
     this.ui.metrics.dataset.requestedTimeUs = this.lastRequestedTimeUs == null ? "" : String(this.lastRequestedTimeUs);
     this.ui.metrics.dataset.baseFrameTimestampUs = this.lastBaseFrame == null ? "" : String(this.lastBaseFrame.timestampUs);
     this.ui.metrics.dataset.baseFrameDurationUs = this.lastBaseFrame?.durationUs == null ? "" : String(this.lastBaseFrame.durationUs);
+    this.ui.metrics.dataset.warmupCoverage = `${scheduler.coverage.warmed}/${scheduler.coverage.needed}`;
+    this.ui.metrics.dataset.liveDecoders = `${scheduler.liveDecoders}/${scheduler.maxLiveDecoders}`;
+    this.ui.metrics.dataset.leadInSec = scheduler.leadInSeconds.toFixed(2);
     this.ui.metrics.textContent = [
       `fps (presented/1s)  ${fps}`,
       `late frame          ${m2.lateFrames}`,
@@ -18973,7 +19389,10 @@ var FrameEngineRuntime = class {
       `boundary late       before ${m2.boundaryBefore.late}/${m2.boundaryBefore.total}`,
       `                    after  ${m2.boundaryAfter.late}/${m2.boundaryAfter.total}`,
       `warmup median       ${format(percentile2(m2.warmupMs))} ms`,
-      `upload path         ${this.compositor.uploadPath}`
+      `upload path         ${this.compositor.uploadPath}`,
+      `warmup coverage     ${scheduler.coverage.warmed}/${scheduler.coverage.needed}`,
+      `live decoders       ${scheduler.liveDecoders}/${scheduler.maxLiveDecoders}`,
+      `lead-in             ${scheduler.leadInSeconds.toFixed(2)} s`
     ].join("\n");
   }
   showError(message, fatal) {

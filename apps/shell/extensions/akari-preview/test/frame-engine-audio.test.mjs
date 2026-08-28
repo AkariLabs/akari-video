@@ -74,16 +74,13 @@ test('shell の既存 transport は frame-engine clock と AudioContext.currentT
 });
 
 test('shell cuts 評価は EvaluationPlan.base を参照する', () => {
-  // EvaluationPlan.base が cuts、layers は layers[] 専用。cuts-only 評価台でも描画と先読みを行う。
-  const prefetch = bootstrap.slice(
-    bootstrap.indexOf('const prefetch = timeUs =>'),
-    bootstrap.indexOf('const scheduleWarmup = seconds =>'),
-  );
+  // EvaluationPlan.base が cuts、layers は layers[] 専用。先読みは共有 scheduler が担う。
   const renderFrame = bootstrap.slice(
     bootstrap.indexOf('const renderFrame = async'),
     bootstrap.indexOf('scrub = new engine.ScrubController'),
   );
-  assert.match(prefetch, /for \(const layer of plan\.base\)/u);
+  assert.match(bootstrap, /engine\.createPreviewScheduler\(/u);
+  assert.match(renderFrame, /scheduler\.notePresented\(timeUs\)/u);
   assert.match(renderFrame, /plan\.base\.length === 0 && plan\.layers\.length === 0/u);
   assert.match(
     renderFrame,

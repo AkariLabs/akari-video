@@ -2,13 +2,13 @@ import {
   buildResolvedTimelinePlan,
   CachedStillImageSource,
   ClipSessionPool,
+  createPreviewScheduler,
   evaluationPlanFromResolvedTimeline,
   evaluateFrame,
   FrameMetrics,
   LookaheadFrameSource,
   parseCube,
   ScrubController,
-  WarmupManager,
   WebGL2Compositor,
 } from '../../frame-engine/src/index.ts';
 import type {
@@ -17,6 +17,7 @@ import type {
   FrameEngineLayer,
   LookaheadAccess,
   NativeFrameSource,
+  PreviewScheduler,
   ResolvedTimelinePlan,
   TimelineSourceRegistry,
 } from '../../frame-engine/src/index.ts';
@@ -482,7 +483,7 @@ class FrameEngineRuntime {
   private readonly timeline: ResolvedTimelinePlan;
   private readonly compositor: WebGL2Compositor;
   private readonly frameMetrics = new FrameMetrics();
-  private readonly warmup = new WarmupManager(1.5);
+  private readonly scheduler: PreviewScheduler;
   private readonly scrub: ScrubController;
   private readonly output: EvaluationPlan['output'];
   private readonly audio: FrameEngineAudioSupply;
@@ -490,8 +491,6 @@ class FrameEngineRuntime {
     presentedAt: [], lateFrames: 0, seekLatestMs: null, seekBeforeMs: [], seekAfterMs: [],
     boundaryBefore: { total: 0, late: 0 }, boundaryAfter: { total: 0, late: 0 }, warmupMs: [],
   };
-  private readonly warmedStreams = new Set<string>();
-  private readonly warmupRequests = new Set<string>();
   private rendering: Promise<void> | null = null;
   private lastPlaybackFrame = -1;
   private lastPresentedSec = 0;
@@ -603,6 +602,19 @@ class FrameEngineRuntime {
           }
         : null,
     };
+    this.scheduler = createPreviewScheduler({
+      timeline: this.timeline,
+      sources: this.sources,
+      output: this.output,
+      fps,
+      pools: this.pools,
+      lookahead: this.lookahead,
+      metrics: {
+        warmupMs: this.measurements.warmupMs,
+        onChanged: () => this.updateMetrics(),
+        onWarning: message => this.showError(message, false),
+      },
+    });
     this.scrub = new ScrubController(Math.min(24, 1000 / fps), async (frameNumber, generation) => {
       const started = performance.now();
       await this.waitForRender();
@@ -616,6 +628,7 @@ class FrameEngineRuntime {
         if (this.rendering === operation) this.rendering = null;
       }
     });
+    this.scheduler.primeHeaders();
     this.updateMetrics();
   }
 
@@ -666,7 +679,7 @@ class FrameEngineRuntime {
     this.disposed = true;
     this.scrub.dispose();
     this.audio.dispose();
-    this.warmup.reset();
+    this.scheduler.dispose();
     for (const source of this.lookahead.values()) source.clear();
     for (const image of this.images.values()) image.destroy();
     for (const pool of this.pools.values()) pool.destroy();
@@ -705,7 +718,7 @@ class FrameEngineRuntime {
     const cutIndex = Number(plan.base[0]?.id.replace('cut-', ''));
     if (Number.isInteger(cutIndex) && cutIndex !== this.lastCutIndex) {
       const streamId = `cut-${cutIndex}`;
-      const bucket = this.warmedStreams.has(streamId)
+      const bucket = this.scheduler.isWarmed(streamId)
         ? this.measurements.boundaryAfter : this.measurements.boundaryBefore;
       bucket.total += 1;
       if (late) bucket.late += 1;
@@ -721,45 +734,10 @@ class FrameEngineRuntime {
     this.lastPresentedSec = timeUs / 1e6;
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter(value => value >= presented - 1000);
-    this.prefetch(timeUs);
-    this.scheduleWarmup(timeUs / 1e6);
+    this.scheduler.notePresented(timeUs);
     this.currentAccesses = null;
     this.currentDecodedFrames = null;
     this.updateMetrics();
-  }
-
-  private prefetch(timeUs: number): void {
-    for (let offset = 1; offset <= 3; offset += 1) {
-      const futureUs = Math.min(Math.round(this.totalDuration * 1e6), timeUs + Math.round(offset * 1e6 / this.fps));
-      const plan = evaluationPlanFromResolvedTimeline(this.timeline, futureUs, this.sources, this.output);
-      for (const layer of plan.base) {
-        const sourceId = (this.timeline as any).cuts[Number(layer.id.replace('cut-', ''))]?.cut?.src;
-        const source = sourceId ? this.lookahead.get(sourceId) : null;
-        void source?.prefetch(layer.sourceTimeUs, { streamId: layer.id }).catch(() => undefined);
-      }
-    }
-  }
-
-  private scheduleWarmup(seconds: number): void {
-    const placements = (this.timeline as any).cuts as any[];
-    const nextIndex = placements.findIndex(placement => placement.at > seconds);
-    if (nextIndex < 0) return;
-    const next = placements[nextIndex];
-    const secondsToBoundary = next.at - seconds;
-    if (secondsToBoundary > 1.5) return;
-    const streamId = `cut-${nextIndex}`;
-    if (this.warmupRequests.has(streamId)) return;
-    const pool = this.pools.get(next.cut.src);
-    if (!pool) return;
-    this.warmupRequests.add(streamId);
-    void pool.getSession(streamId).then(session => {
-      this.warmup.maybeWarmup(secondsToBoundary, session, Math.round(Number(next.cut.in ?? 0) * 1e6),
-        (_clipId, elapsedMs) => {
-          this.warmedStreams.add(streamId);
-          this.measurements.warmupMs.push(elapsedMs);
-          this.updateMetrics();
-        });
-    }).catch(error => this.showError(`warmup: ${String(error)}`, false));
   }
 
   private updateMetrics(): void {
@@ -768,6 +746,7 @@ class FrameEngineRuntime {
     const after = percentile(m.seekAfterMs);
     const fps = m.presentedAt.length;
     const format = (value: number | null) => value == null ? '—' : value.toFixed(1);
+    const scheduler = this.scheduler.state();
     this.ui.metrics.dataset.fps = String(fps);
     this.ui.metrics.dataset.lateFrames = String(m.lateFrames);
     this.ui.metrics.dataset.seekMs = m.seekLatestMs == null ? '' : m.seekLatestMs.toFixed(3);
@@ -782,6 +761,9 @@ class FrameEngineRuntime {
       ? '' : String(this.lastBaseFrame.timestampUs);
     this.ui.metrics.dataset.baseFrameDurationUs = this.lastBaseFrame?.durationUs == null
       ? '' : String(this.lastBaseFrame.durationUs);
+    this.ui.metrics.dataset.warmupCoverage = `${scheduler.coverage.warmed}/${scheduler.coverage.needed}`;
+    this.ui.metrics.dataset.liveDecoders = `${scheduler.liveDecoders}/${scheduler.maxLiveDecoders}`;
+    this.ui.metrics.dataset.leadInSec = scheduler.leadInSeconds.toFixed(2);
     this.ui.metrics.textContent = [
       `fps (presented/1s)  ${fps}`,
       `late frame          ${m.lateFrames}`,
@@ -792,6 +774,9 @@ class FrameEngineRuntime {
       `                    after  ${m.boundaryAfter.late}/${m.boundaryAfter.total}`,
       `warmup median       ${format(percentile(m.warmupMs))} ms`,
       `upload path         ${this.compositor.uploadPath}`,
+      `warmup coverage     ${scheduler.coverage.warmed}/${scheduler.coverage.needed}`,
+      `live decoders       ${scheduler.liveDecoders}/${scheduler.maxLiveDecoders}`,
+      `lead-in             ${scheduler.leadInSeconds.toFixed(2)} s`,
     ].join('\n');
   }
 
