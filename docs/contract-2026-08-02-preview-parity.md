@@ -260,6 +260,7 @@ frame-engine がランダムアクセスするプレビュー用プロキシは�
 `yuv420p`、GOP 1 秒以下、B フレームなし、faststart とする。GOP はソースの実測 fps を丸めた
 フレーム数を使い、`-g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0` を指定する。変換後も尺と
 コマ数はソースと一致させる。
+29.97 fps の GOP は 30 コマで 1.001 秒になるため、doctor / lint などで機械照合するときの閾値は 1.05 秒に置く。
 
 生成経路は shell の HEVC フォールバックと preview-server の HEVC プロキシの 2 系統であり、
 いずれも `packages/media-bin/src/proxy-recipe.mjs` を唯一の定義として使う。レシピ版

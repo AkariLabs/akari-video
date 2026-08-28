@@ -4340,20 +4340,24 @@ function probeProxyGop(filePath, command) {
   const result = spawnSync(command, [
     "-v", "error",
     "-select_streams", "v:0",
-    "-skip_frame", "nokey",
-    "-show_entries", "frame=pts_time:format=duration",
+    "-show_entries", "packet=pts_time,flags:format=duration",
     "-of", "csv=p=0",
     filePath,
   ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
   if (result.error || result.status !== 0) return undefined;
-  const values = String(result.stdout ?? "")
-    .split(/\r?\n/u)
-    .map(line => Number.parseFloat(line.split(",", 1)[0]))
-    .filter(Number.isFinite);
-  if (values.length < 2) return undefined;
-  const duration = values.at(-1);
-  const keyframes = values.slice(0, -1);
+  const keyframes = [];
+  let duration;
+  for (const line of String(result.stdout ?? "").split(/\r?\n/u)) {
+    if (line.includes(",")) {
+      const [ptsTime, flags] = line.split(",", 2);
+      const pts = Number.parseFloat(ptsTime);
+      if (flags.includes("K") && Number.isFinite(pts)) keyframes.push(pts);
+    } else if (line.length > 0) {
+      duration = Number.parseFloat(line);
+    }
+  }
   if (keyframes.length < 1 || !isFiniteNumber(duration)) return undefined;
+  keyframes.sort((left, right) => left - right);
   let maximum = Math.max(0, duration - keyframes.at(-1));
   for (let index = 1; index < keyframes.length; index += 1) {
     maximum = Math.max(maximum, keyframes[index] - keyframes[index - 1]);
