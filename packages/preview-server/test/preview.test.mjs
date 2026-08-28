@@ -164,7 +164,7 @@ async function main() {
       if (response.status() >= 400) failedResponses.push(`HTTP ${response.status()} ${response.url()}`);
     });
 
-    const resp = await page.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    const resp = await page.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     if (!resp) { throw new Error('No response from server'); }
     if (resp.status() !== 200) { throw new Error(`HTTP ${resp.status()}`); }
     const bodyPreview = await page.evaluate(() => document.body?.innerHTML?.substring(0, 200) || 'EMPTY_BODY');
@@ -331,7 +331,7 @@ async function main() {
   console.log('\n▶️  Playback does not reload the video element');
   try {
     const pp = await context.newPage();
-    await pp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await pp.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await pp.waitForTimeout(2500);
     await pp.evaluate(() => {
       window.__reloads = 0;
@@ -393,7 +393,7 @@ async function main() {
     cssRes.ok ? ok('/overlay-interaction.css served') : ng('/overlay-interaction.css', `HTTP ${cssRes.status}`);
 
     const cp = await context.newPage();
-    await cp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await cp.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await cp.waitForTimeout(1500);
     const probe = await cp.evaluate(() => {
       const before = getComputedStyle(document.body).gridTemplateRows;
@@ -465,7 +465,7 @@ async function main() {
   console.log('\n⌨️  Editing keys are not stolen by transport shortcuts');
   try {
     const kp = await context.newPage();
-    await kp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await kp.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await kp.waitForTimeout(2000);
     const r = await kp.evaluate(() => {
       const host = document.createElement('div');
@@ -508,7 +508,7 @@ async function main() {
     ], null, 2));
 
     const zp = await context.newPage();
-    await zp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await zp.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await zp.waitForTimeout(2500);
     // 期待する字幕が実際に出るまで待ってから測る。行の有無だけで待つと、シーク直後の
     // 過渡状態（前の字幕が残っている）を拾って測定が入れ替わる
@@ -567,7 +567,7 @@ async function main() {
   try {
     const wide = await context.newPage();
     await wide.setViewportSize({ width: 1600, height: 500 });
-    await wide.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await wide.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await wide.waitForTimeout(1200);
     const geom = await wide.evaluate(() => {
       const wrapperEl = document.getElementById('preview-wrapper');
@@ -604,7 +604,7 @@ async function main() {
   try {
     const outPage = await context.newPage();
     outPage.on('console', msg => { if (msg.type() === 'error' && !msg.text().includes('WebSocket')) console.log(`[out] ${msg.text()}`); });
-    await outPage.goto(`${BASE}/?mode=output`, { waitUntil: 'load', timeout: 15000 });
+    await outPage.goto(`${BASE}/?mode=output&frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
 
     const outTitle = await outPage.title();
     outTitle.includes('出力') ? ok('Output page title') : ng('Output page title', `got "${outTitle}"`);
@@ -643,7 +643,7 @@ async function main() {
     const sfxPage = await context.newPage();
     const hits = [];
     sfxPage.on('request', r => { if (SFX_FILES.some(f => r.url().includes(f))) hits.push(r.url()); });
-    await sfxPage.goto(`${BASE}/?mode=output`, { waitUntil: 'load', timeout: 15000 });
+    await sfxPage.goto(`${BASE}/?mode=output&frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await sfxPage.waitForSelector('#play-toggle', { timeout: 10000 });
     // 波形パネルも開く（ここでも同じ音源を落とし直していた経路）
     await sfxPage.click('#waveform-toggle');
@@ -701,7 +701,7 @@ async function main() {
   console.log('\n⏱️  Per-frame work while playing');
   try {
     const perfPage = await context.newPage();
-    await perfPage.goto(`${BASE}/`, { waitUntil: 'load', timeout: 15000 });
+    await perfPage.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await perfPage.waitForSelector('#play-toggle', { timeout: 10000 });
     await perfPage.waitForTimeout(1200);
 
@@ -825,7 +825,7 @@ async function main() {
       const p = await context.newPage();
       const hits = [];
       p.on('request', r => { if (/three-bundle\.js|three-runtime\.js/.test(r.url())) hits.push(r.url()); });
-      await p.goto(`${BASE}/?mode=output`, { waitUntil: 'load', timeout: 15000 });
+      await p.goto(`${BASE}/?mode=output&frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
       await p.waitForSelector('#play-toggle', { timeout: 10000 });
       await p.waitForTimeout(1800);
       const hasRuntime = await p.evaluate(() => Boolean(window.akari?.threeRuntime?.render));
@@ -869,7 +869,7 @@ async function main() {
   try {
     const page2 = await context.newPage();
     page2.on('console', msg => { if (msg.type() === 'error' && !msg.text().includes('WebSocket')) console.log(`[ws] ${msg.text()}`); });
-    await page2.goto(`${BASE}/?mode=output`, { waitUntil: 'load', timeout: 15000 });
+    await page2.goto(`${BASE}/?mode=output&frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await page2.waitForSelector('#play-toggle', { timeout: 5000 });
 
     // Use page2 to send a WS message directly; observe effect on page1
@@ -1037,7 +1037,7 @@ async function main() {
       text_style: { size_px: 40, background: { color: '#101828', opacity: 0.7, radius_px: 14, mode: 'block' } }
     }]));
     const cp = await context.newPage();
-    await cp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await cp.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await cp.waitForTimeout(2000);
     await cp.evaluate(() => {
       const el = document.getElementById('seek');
@@ -1173,7 +1173,7 @@ async function main() {
     fs.writeFileSync(editJsonPath, JSON.stringify(withBg, null, 2));
 
     const bp = await context.newPage();
-    await bp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await bp.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await bp.waitForTimeout(2000);
     await bp.click('#edit-toggle');
     await bp.waitForTimeout(300);
@@ -1318,7 +1318,7 @@ async function main() {
     fs.writeFileSync(editJsonPath, JSON.stringify(withPerspective, null, 2));
 
     const pp = await context.newPage();
-    await pp.goto(BASE, { waitUntil: 'load', timeout: 15000 });
+    await pp.goto(`${BASE}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await pp.waitForTimeout(2500);
     const state = await pp.evaluate(() => {
       const v = document.querySelector('#layer-container video[data-layer-id="l-perspective-test"]');

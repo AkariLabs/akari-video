@@ -55,8 +55,8 @@ function saveSettings(partial) {
 const savedSettings = loadSettings();
 
 const isOutputMode = new URLSearchParams(location.search).get('mode') === 'output';
-// 明示フラグ時だけ bundle を dynamic import する。既定経路では request も DOM 追加も発生しない。
-const frameEngineEnabled = new URLSearchParams(location.search).get('frameEngine') === '1';
+// frame-engine が製品プレビューの既定。明示 off は従来 DOM プレビューをバイト等価で保つ。
+const frameEngineEnabled = new URLSearchParams(location.search).get('frameEngine') !== '0';
 const api = {
   timeline: isOutputMode ? '/api/output/timeline' : '/api/timeline',
   summary: isOutputMode ? '/api/output/summary' : '/api/summary',
@@ -171,6 +171,7 @@ let reviewEvents = [];
 let trackWaveforms = { bgm: null, narration: null, sfx: null };
 let captionsData = null;
 let frameEnginePreview = null;
+let frameEngineRequestedTime = 0;
 const cutFx = createCutFxController(() => ({ summary, segment: getActiveSegment(outputTime), outputTime }));
 let captionsResolvedTimeline = false;
 let captionStylesInjected = false;
@@ -227,19 +228,10 @@ async function init() {
       captionsData = [];
     }
     fps = timelineData.fps || 30;
-
-    if (frameEngineEnabled) {
-      const { createFrameEnginePreview } = await import('/frame-engine.bundle.js');
-      frameEnginePreview = await createFrameEnginePreview({ edit: summary, timelineData, stage: previewStage, fps });
-      applyFrameEngineSnapshot();
-      updateStageScale();
-      window.akariFrameEngine = frameEnginePreview;
-      showMessage(null);
-      return;
-    }
+    if (frameEngineEnabled) previewStage.dataset.frameEngineActive = 'true';
 
     buildSegments();
-    if (summary?.cuts?.length > 0) {
+    if (!frameEngineEnabled && summary?.cuts?.length > 0) {
       // 先頭カットが静止画ソースのときは <img> を初期表示にする（0秒地点で <video> に
       // その src を割り当てても再生できないだけで実害は無いが、表示の出し分けを合わせておく）。
       const seg0 = getActiveSegment(0);
@@ -254,11 +246,11 @@ async function init() {
     setupLayers();
     setupPenCanvas();
     initPenSprites();
-    setupAudioGraph();
+    if (!frameEngineEnabled) setupAudioGraph();
     // 波形パネルは既定で hidden。開いた時（下の Restore settings / トグル）に初めて組む。
     // 無条件に組むと、閉じたままのパネルのために全音源をもう 1 周ダウンロードしていた。
     scheduleTransitions();
-    setupMinimap();
+    if (!frameEngineEnabled) setupMinimap();
 
     window.akari = window.akari || {};
     window.akari.runtime = createOverlayRuntime();
@@ -273,7 +265,19 @@ async function init() {
     // 固定のため名目値でよい（PUT /api/edit.json に届く）。
     window.akari.state = { editPath: 'edit.json', summary };
     window.akari.engine = { overlayWrite: overlayWriteViaPut };
-    setupVideoFx();
+    if (!frameEngineEnabled) setupVideoFx();
+
+    if (frameEngineEnabled) {
+      const { createFrameEnginePreview } = await import('/frame-engine.bundle.js');
+      frameEnginePreview = await createFrameEnginePreview({ edit: summary, timelineData, stage: previewStage, fps });
+      applyFrameEngineSnapshot();
+      window.akariFrameEngine = frameEnginePreview;
+      outputTime = frameEnginePreview.seek(outputTime);
+      updateCaption();
+      syncCaptionAnimations();
+      updateOverlays();
+      syncLayers(outputTime);
+    }
 
     // Restore settings
     if (savedSettings.zoom && savedSettings.zoom >= ZOOM_MIN && savedSettings.zoom <= ZOOM_MAX) {
@@ -304,6 +308,7 @@ function applyFrameEngineSnapshot() {
   segments = snapshot.segments;
   seek.max = totalDuration;
   outputTime = Math.max(0, Math.min(outputTime, totalDuration));
+  frameEngineRequestedTime = outputTime;
   seek.value = outputTime;
   updateTimeLabel();
   updateSeekVisual();
@@ -1581,6 +1586,16 @@ function findLayerHit(e) {
       continue;
     }
   }
+  // engine 面では legacy media は visibility:hidden だが、選択・ドラッグ用の幾何は同じ DOM に残す。
+  if (frameEngineEnabled) {
+    for (const lv of [...layerVideos].reverse()) {
+      const el = lv.el;
+      if (lv.isFilter || el.style.display === 'none') continue;
+      const rect = el.getBoundingClientRect();
+      if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) continue;
+      if (layerAlphaAt(el, e.clientX, e.clientY) > 16) return el;
+    }
+  }
   return null;
 }
 
@@ -2375,10 +2390,16 @@ function seekTo(t) {
   outputTime = Math.max(0, Math.min(t, totalDuration));
   if (Math.abs(outputTime - prev) > 0.05) logReviewEvent('seek', { from: +prev.toFixed(3), to: +outputTime.toFixed(3) });
   if (frameEngineEnabled) {
-    frameEnginePreview?.seek(outputTime);
+    frameEngineRequestedTime = outputTime;
+    outputTime = frameEnginePreview?.seek(frameEngineRequestedTime) ?? frameEngineRequestedTime;
     seek.value = outputTime;
     updateTimeLabel();
     updateStatusBar();
+    updateCaption();
+    syncCaptionAnimations();
+    updateOverlays();
+    syncLayers(outputTime);
+    updateLayerSelectBox();
     return;
   }
   const vt = getVideoTimeForOutput(outputTime);
@@ -2486,12 +2507,16 @@ function playbackLoop() {
   if (frameEngineEnabled) {
     const dt = lastWallMs > 0 ? (now - lastWallMs) / 1000 : 0;
     lastWallMs = now;
-    outputTime += dt;
-    if (outputTime >= totalDuration) { outputTime = totalDuration; pause(); return; }
-    frameEnginePreview?.renderPlayback(outputTime);
+    frameEngineRequestedTime += dt;
+    if (frameEngineRequestedTime >= totalDuration) { outputTime = totalDuration; pause(); return; }
+    outputTime = frameEnginePreview?.renderPlayback(frameEngineRequestedTime) ?? frameEngineRequestedTime;
     seek.value = outputTime;
     updateTimeLabel();
     updateStatusBar();
+    updateOverlays();
+    updateCaption();
+    syncCaptionAnimations();
+    updateLayerSelectBox();
     const tickNow = performance.now();
     if (tickNow - wsTickLast > 200) { sendWsTick(); wsTickLast = tickNow; }
     requestAnimationFrame(playbackLoop);
@@ -2750,14 +2775,28 @@ async function applySoftReload() {
   if (captionsRes.ok) {
     const body = await captionsRes.json();
     captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
+    captionsResolvedTimeline = !Array.isArray(body) && body?.schema === 'caption-layout/v1';
   } else {
     captionsData = [];
+    captionsResolvedTimeline = false;
   }
   fps = timelineData.fps || 30;
 
   if (frameEngineEnabled) {
     await frameEnginePreview.rebuild(summary, timelineData, fps);
     applyFrameEngineSnapshot();
+    updateStageScale();
+    setupPenCanvas();
+    if (overlaySignature(summary) === signatureBefore) {
+      window.akari.runtime?.applyProps?.(summary);
+    } else {
+      window.akari.interaction?.clearSelection?.();
+      window.akari.runtime?.mount?.(summary);
+    }
+    window.akari.state = { editPath: 'edit.json', summary };
+    for (const lv of layerVideos) lv.el.remove();
+    layerVideos = [];
+    setupLayers();
     seekTo(Math.min(keep.t, totalDuration));
     if (keep.playing) play();
     return;
@@ -3149,7 +3188,8 @@ indicatorBtn.addEventListener('click', () => {
 });
 function renderIndicators() {
   const declared = Array.isArray(summary?.indicators) ? summary.indicators : [];
-  const ind = [...new Set([...declared, ...videoFxFailedIndicators])];
+  const approximation = frameEngineEnabled ? ['プレビューは近似・最終音声は書き出しで確認'] : [];
+  const ind = [...new Set([...declared, ...videoFxFailedIndicators, ...approximation])];
   if (!Array.isArray(ind) || !ind.length) {
     indicatorPopup.innerHTML = '<div class="indicator-item"><span class="val">指標なし</span></div>';
     return;

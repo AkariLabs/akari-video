@@ -175,7 +175,7 @@ test('refresh-ok と再構築の双方で解消済み表示を消す', () => {
     assert.equal(rebuilt.compositeErrorBanner.hidden, true);
 
     assert.match(bootstrap, /akari-preview-refresh-ok[\s\S]*hideReloadError\(\);[\s\S]*applyCompositeError\(message\.compositeError\)/u);
-    assert.match(compiled, /const reloadNotice = widget\.akariPreviewModelSnapshot !== undefined;\s*widget\.setHTML/u);
+    assert.match(compiled, /const reloadNotice = widget\.akariPreviewModelSnapshot !== undefined;[\s\S]*?widget\.setHTML/u);
 });
 
 test('失敗・成功・再試行のホスト配線と z-index 優先順位を維持する', () => {

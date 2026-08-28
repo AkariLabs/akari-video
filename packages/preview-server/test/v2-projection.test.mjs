@@ -251,7 +251,7 @@ test('v2 WebUI renders projected DOM, track winner, transition, speed and trimme
 
   const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
   if (!server) await installProjectRoutes(page, project);
-  await page.goto(server?.base ?? 'http://example.test/', { waitUntil: 'load' });
+  await page.goto(`${server?.base ?? 'http://example.test'}/?frameEngine=0`, { waitUntil: 'load' });
   await page.waitForFunction(() => document.getElementById('preview-message').hidden === true);
   await page.waitForSelector('[data-overlay-id="html-1"]', { state: 'attached' });
   await page.waitForSelector('[data-layer-id="telop-1"]', { state: 'attached' });
@@ -366,7 +366,7 @@ test('raw v1 fails loudly in HTTP and the Japanese UI migration message', async 
 
   const page = await browser.newPage();
   if (!server) await installProjectRoutes(page, project, { legacy: true });
-  await page.goto(server?.base ?? 'http://example.test/', { waitUntil: 'load' });
+  await page.goto(`${server?.base ?? 'http://example.test'}/?frameEngine=0`, { waitUntil: 'load' });
   await page.waitForFunction(() => document.getElementById('preview-message').hidden === false);
   assert.match(await page.locator('#preview-message-text').textContent(), /akari migrate/);
 });

@@ -15,7 +15,7 @@ export interface OverlayRuntimeAssets {
     // webview は sandbox 制約で import できないため、IIFE バンドル
     // （edit-store lib/webview-kernel.js、global: AkariEditKernel）をインライン注入する。
     webviewKernelJavaScript: string;
-    // packages/frame-engine/src から生成した評価台用 IIFE。明示的に要求されたときだけ返す。
+    // packages/frame-engine/src から生成した製品プレビュー用 IIFE。legacy 明示時は返さない。
     frameEngineJavaScript?: string;
     // win2-fonts-wire: render-cut の焼き込みキャプション（packages/render-cut/src/captions.mjs）と
     // 同じ Noto Sans JP を字幕表示に固定するための @font-face src。prepareHtml() の webview は

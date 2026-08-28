@@ -96,7 +96,7 @@ test.describe('Preview Server', () => {
   });
 
   test('index.html loads with correct structure', async ({ page }) => {
-    await page.goto(BASE);
+    await page.goto(`${BASE}/?frameEngine=0`);
     await expect(page).toHaveTitle(/AKARI Video Preview/);
     await expect(page.locator('#preview-video')).toBeAttached();
     await expect(page.locator('#overlay-stage')).toBeAttached();
@@ -106,7 +106,7 @@ test.describe('Preview Server', () => {
   });
 
   test('transport controls have correct IDs', async ({ page }) => {
-    await page.goto(BASE);
+    await page.goto(`${BASE}/?frameEngine=0`);
     await expect(page.locator('#skip-back')).toBeAttached();
     await expect(page.locator('#frame-back')).toBeAttached();
     await expect(page.locator('#play-toggle')).toBeAttached();
@@ -117,7 +117,7 @@ test.describe('Preview Server', () => {
   });
 
   test('WebSocket connects successfully', async ({ page }) => {
-    await page.goto(BASE);
+    await page.goto(`${BASE}/?frameEngine=0`);
     const connected = await page.evaluate(() => {
       return new Promise((resolve) => {
         const ws = new WebSocket(`ws://${location.host}`);

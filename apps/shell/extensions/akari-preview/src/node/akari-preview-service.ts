@@ -1136,7 +1136,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     }
 
     // frame-engine の webview 用 IIFE。配布時は overlay-runtime と同居し、開発時は
-    // akari-preview の追跡済み generated/ を読む。評価台が無効なら呼ばれない任意資産。
+    // akari-preview の追跡済み generated/ を読む。legacy 明示時は呼ばれない任意資産。
     protected findFrameEngineBundle(): string | undefined {
         const fileName = 'frame-engine.js';
         const packagedCandidate = resolve(__dirname, '../overlay-runtime', fileName);

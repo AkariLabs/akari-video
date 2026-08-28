@@ -863,7 +863,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected readonly lifecycleDisposables = new DisposableCollection();
     /** バックエンドでプロセス寿命中不変の約 13MB ランタイム資産を、frontend でも RPC 1 回に畳む。 */
     protected overlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssets> | undefined;
-    /** frame-engine 込みは巨大かつ既定オフなので、通常資産とは別の RPC キャッシュにする。 */
+    /** frame-engine 込みは巨大なので、legacy 用の通常資産とは別の RPC キャッシュにする。 */
     protected frameEngineOverlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssets> | undefined;
     /** 環境変数はセッション中に変わらないため、backend RPC は最初の 1 回だけにする。 */
     protected frameEngineEnvOverridePromise: Promise<string | undefined> | undefined;
@@ -2665,7 +2665,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const override = await this.frameEngineEnvOverridePromise;
         if (override === '1' || override === 'true') return true;
         if (override === '0' || override === 'false') return false;
-        return this.preferences.get<boolean>('akari.preview.frameEngine', false);
+        return this.preferences.get<boolean>('akari.preview.frameEngine', true);
     }
 
     protected async refreshPreview(
@@ -2944,6 +2944,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             });
         }
         const reloadNotice = widget.akariPreviewModelSnapshot !== undefined;
+        const frameEngineMetricsEnabled = frameEngineEnabled
+            && this.preferences.get<boolean>('akari.developerMode', false);
         widget.setHTML(this.prepareHtml(
             videoUri,
             videoStream.url,
@@ -2956,7 +2958,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             primaryIsStillImage,
             kind,
             reloadNotice,
-            frameEngineEnabled
+            frameEngineEnabled,
+            frameEngineMetricsEnabled
         ));
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
@@ -4611,7 +4614,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         primaryIsStillImage = false,
         kind: 'raw' | 'output' = 'output',
         reloadNotice = false,
-        frameEngineEnabled = false
+        frameEngineEnabled = false,
+        frameEngineMetricsEnabled = false
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
@@ -4655,6 +4659,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             hasSourceAudio: hasSourceAudio ?? null,
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
             reloadNotice,
+            frameEngineMetricsEnabled,
             compositeError: model.compositeError ?? null,
             muted: model.session?.muted ?? false,
             captionsVisible: model.session?.captionsVisible ?? true,
@@ -4705,6 +4710,17 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #preview-layers > video, #preview-layers > img { position: absolute; max-width: none; max-height: none; transform-origin: 50% 50%; pointer-events: auto; cursor: pointer; }
 #preview-layers > [data-akari-layer-id] { display: none; }
 #preview-layers > [data-akari-deferred-telop-id] { position: absolute; inset: 0; display: none; place-items: center; pointer-events: none; }
+#preview-stage[data-frame-engine-active="true"] #preview-video,
+#preview-stage[data-frame-engine-active="true"] #standby-video,
+#preview-stage[data-frame-engine-active="true"] #transition-video,
+#preview-stage[data-frame-engine-active="true"] #transition-still,
+#preview-stage[data-frame-engine-active="true"] #preview-still,
+#preview-stage[data-frame-engine-active="true"] #preview-layers > [data-akari-layer-id],
+#preview-stage[data-frame-engine-active="true"] #preview-layers > [data-akari-filter-id],
+#preview-stage[data-frame-engine-active="true"] #preview-layers > [data-akari-deferred-telop-id],
+#preview-stage[data-frame-engine-active="true"] .akari-video-fx-rail {
+  visibility: hidden !important;
+}
 .akari-deferred-telop-placeholder__label { display: inline-flex; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.22); border-radius: 999px; background: rgba(20,20,20,0.82); color: #f2f2f2; font-size: 14px; font-weight: 600; letter-spacing: 0.02em; box-shadow: 0 6px 22px rgba(0,0,0,0.35); }
 .akari-deferred-telop-placeholder__label::before { content: ''; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: akari-deferred-telop-spin 0.8s linear infinite; }
 @keyframes akari-deferred-telop-spin { to { transform: rotate(360deg); } }
@@ -5824,8 +5840,9 @@ body { display: grid; place-items: center; padding: 32px; }
             const summary = initial.summary || {};
             const engine = window.AkariFrameEngine;
             const stage = document.getElementById('preview-stage');
-            if (!engine || !stage) {
-                console.warn('[frame-engine] 評価台の初期化に必要な runtime または stage がありません');
+            const layersStage = document.getElementById('preview-layers');
+            if (!engine || !stage || !layersStage) {
+                console.warn('[frame-engine] 初期化に必要な runtime または stage がありません');
                 return;
             }
 
@@ -5849,19 +5866,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
             });
 
-            for (const child of Array.from(stage.children)) {
-                child.style.display = 'none';
+            stage.dataset.frameEngineActive = 'true';
+            for (const media of layersStage.querySelectorAll('video, img')) {
+                if (typeof media.pause === 'function') media.pause();
+                if ('muted' in media) media.muted = true;
             }
-            for (const id of ['preview-video', 'standby-video', 'transition-video']) {
-                const media = document.getElementById(id);
-                if (!media) continue;
-                media.pause();
-                media.muted = true;
-                media.removeAttribute('src');
-                media.load();
-            }
-            const legacyTransport = document.querySelector('.transport');
-            if (legacyTransport) legacyTransport.style.display = 'none';
             if (window.akari && window.akari.previewAudio) {
                 window.akari.previewAudio.pause();
                 window.akari.previewAudio = null;
@@ -5871,7 +5880,7 @@ body { display: grid; place-items: center; padding: 32px; }
             root.id = 'frame-engine-preview';
             root.dataset.frameEngineReady = 'false';
             Object.assign(root.style, {
-                position: 'absolute', inset: '0', zIndex: '1', background: '#000'
+                position: 'absolute', inset: '0', background: '#000', pointerEvents: 'none'
             });
 
             const canvas = document.createElement('canvas');
@@ -5881,21 +5890,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 width: '100%', height: '100%', display: 'block', objectFit: 'contain'
             });
 
-            const banner = document.createElement('div');
-            banner.id = 'frame-engine-unsupported-banner';
-            banner.setAttribute('role', 'status');
-            banner.textContent = 'Frame engine 評価台（cuts + 音声）— 未対応: layers / overlays / 字幕';
-            Object.assign(banner.style, {
-                position: 'absolute', left: '8px', top: '8px', maxWidth: 'calc(100% - 270px)',
-                padding: '5px 8px', border: '1px solid rgba(255,209,102,.65)', borderRadius: '4px',
-                background: 'rgba(30,24,8,.88)', color: '#ffd166',
-                font: '11px/1.45 system-ui,sans-serif'
-            });
-
             const metrics = document.createElement('div');
             metrics.id = 'frame-engine-metrics';
+            metrics.hidden = initial.frameEngineMetricsEnabled !== true;
             Object.assign(metrics.style, {
-                position: 'absolute', right: '8px', top: '8px', minWidth: '250px', padding: '7px 9px',
+                position: 'absolute', zIndex: '2080', right: '8px', top: '8px', minWidth: '250px', padding: '7px 9px',
                 border: '1px solid rgba(116,192,252,.65)', borderRadius: '4px',
                 background: 'rgba(4,12,20,.88)', color: '#d8efff',
                 font: '11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace', whiteSpace: 'pre'
@@ -5905,32 +5904,12 @@ body { display: grid; place-items: center; padding: 32px; }
             error.id = 'frame-engine-error';
             error.hidden = true;
             Object.assign(error.style, {
-                position: 'absolute', inset: '40% 10% auto', padding: '12px', borderRadius: '6px',
+                position: 'absolute', zIndex: '2090', inset: '40% 10% auto', padding: '12px', borderRadius: '6px',
                 background: 'rgba(80,0,0,.9)', color: '#fff', textAlign: 'center'
             });
 
-            const transport = document.createElement('div');
-            Object.assign(transport.style, {
-                position: 'absolute', left: '12px', right: '12px', bottom: '12px', display: 'grid',
-                gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', gap: '10px', padding: '8px 10px',
-                borderRadius: '6px', background: 'rgba(4,12,20,.9)', color: '#fff',
-                font: '12px/1.4 system-ui,sans-serif'
-            });
-            const play = document.createElement('button');
-            play.id = 'frame-engine-play';
-            play.type = 'button';
-            play.textContent = '再生';
-            const seek = document.createElement('input');
-            seek.id = 'frame-engine-seek';
-            seek.type = 'range';
-            seek.min = '0';
-            seek.value = '0';
-            const time = document.createElement('span');
-            time.id = 'frame-engine-time';
-            time.textContent = '0:00 / 0:00';
-            transport.append(play, seek, time);
-            root.append(canvas, banner, metrics, error, transport);
-            stage.append(root);
+            root.append(canvas, metrics, error);
+            layersStage.prepend(root);
 
             const measurements = {
                 presentedAt: [], lateFrames: 0, renderErrors: 0, seekLatestMs: null,
@@ -5991,7 +5970,32 @@ body { display: grid; place-items: center; padding: 32px; }
                 const sourceUrls = new Map(Object.entries(initial.videoSources || {}));
                 const pools = new Map();
                 const lookahead = new Map();
+                const images = new Map();
                 let currentAccesses = null;
+                for (const [id, url] of Object.entries(initial.imageSources || {})) {
+                    if (typeof url !== 'string' || !url) continue;
+                    images.set(id, new engine.CachedStillImageSource(url));
+                }
+                const engineLayers = (Array.isArray(summary.layers) ? summary.layers : [])
+                    .map((layer, index) => {
+                        if (!layer || typeof layer.src !== 'string' || !layer.src) return layer;
+                        if (layer.isImage === true) {
+                            // frame-engine v0 recognizes a still layer from its registry key suffix.
+                            // Shell asset URLs are extensionless, so keep fetching the original URL
+                            // while giving the resolved timeline an explicitly typed key.
+                            const sourceId = 'akari-image-layer-' + index + '.png';
+                            images.set(sourceId, new engine.CachedStillImageSource(layer.src));
+                            return { ...layer, src: sourceId };
+                        }
+                        if (!sourceUrls.has(layer.src)) sourceUrls.set(layer.src, layer.src);
+                        return layer;
+                    });
+                for (const layer of engineLayers) {
+                    const maskUrl = layer && layer.mask;
+                    if (typeof maskUrl === 'string' && maskUrl && !sourceUrls.has(maskUrl)) {
+                        sourceUrls.set(maskUrl, maskUrl);
+                    }
+                }
                 for (const [id, url] of sourceUrls) {
                     const pool = new engine.ClipSessionPool(id, url, {
                         onWarning: message => showError(message, false)
@@ -6006,8 +6010,12 @@ body { display: grid; place-items: center; padding: 32px; }
                     pools.set(id, pool);
                     lookahead.set(id, source);
                 }
+                const sources = new Map([...lookahead, ...images]);
 
-                const timeline = engine.buildResolvedTimelinePlan(normalizedCuts);
+                const timeline = ((summary) => engine.buildResolvedTimelinePlan(normalizedCuts, {
+                    fps,
+                    layers: Array.isArray(summary.layers) ? summary.layers : []
+                }))({ layers: engineLayers });
                 const totalDuration = timeline.totalDuration;
                 const createFrameEngineAudioSupply = () => {
                     const audio = summary.audio;
@@ -6243,12 +6251,26 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
                 const audioSupply = createFrameEngineAudioSupply();
                 window.akariFrameEngineAudioDebug = () => audioSupply.debug();
+                const projectedLook = summary.videoFx && summary.videoFx.look;
+                let look = null;
+                if (projectedLook && typeof projectedLook.cubeText === 'string') {
+                    try {
+                        const intensity = Number(projectedLook.intensity ?? 1);
+                        look = {
+                            lut: engine.parseCube(projectedLook.cubeText),
+                            intensity: Math.max(0, Math.min(1, Number.isFinite(intensity) ? intensity : 1))
+                        };
+                    } catch (reason) {
+                        console.warn('[frame-engine] LUT parse failed; continuing without look', reason);
+                    }
+                }
                 const output = {
                     width: Number(summary.output && summary.output.width) > 0
                         ? Number(summary.output.width) : 1280,
                     height: Number(summary.output && summary.output.height) > 0
                         ? Number(summary.output.height) : 720,
-                    colorSpace: 'bt709-limited'
+                    colorSpace: 'bt709-limited',
+                    look
                 };
                 // 可視 canvas を WebGL2Compositor が直接所有する。毎フレームの 2D 読み戻しは行わない。
                 const compositor = new engine.WebGL2Compositor(canvas, { synchronization: 'flush' });
@@ -6258,6 +6280,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const warmupRequests = new Set();
                 let rendering = null;
                 let lastPlaybackFrame = -1;
+                let lastPresentedSec = 0;
                 let lastCutIndex = null;
                 let disposed = false;
                 let scrub;
@@ -6272,7 +6295,7 @@ body { display: grid; place-items: center; padding: 32px; }
                             timeUs + Math.round(offset * 1e6 / fps)
                         );
                         const plan = engine.evaluationPlanFromResolvedTimeline(
-                            timeline, futureUs, lookahead, output
+                            timeline, futureUs, sources, output
                         );
                         for (const layer of plan.base) {
                             const placement = timeline.cuts[Number(layer.id.replace('cut-', ''))];
@@ -6311,7 +6334,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const renderFrame = async (seconds, reason, requestedAt = performance.now()) => {
                     if (disposed) return;
                     const timeUs = Math.round(Math.max(0, Math.min(seconds, totalDuration)) * 1e6);
-                    const plan = engine.evaluationPlanFromResolvedTimeline(timeline, timeUs, lookahead, output);
+                    const plan = engine.evaluationPlanFromResolvedTimeline(timeline, timeUs, sources, output);
                     if (plan.base.length === 0 && plan.layers.length === 0) return;
                     currentAccesses = [];
                     const started = performance.now();
@@ -6340,6 +6363,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         (allHit ? measurements.seekAfterMs : measurements.seekBeforeMs).push(reached);
                     }
                     const presented = performance.now();
+                    lastPresentedSec = timeUs / 1e6;
                     measurements.presentedAt.push(presented);
                     measurements.presentedAt = measurements.presentedAt
                         .filter(value => value >= presented - 1000);
@@ -6369,16 +6393,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 });
                 const requestSeek = seconds => {
                     const clamped = Math.max(0, Math.min(seconds, totalDuration));
-                    scrub.requestScrub(Math.round(clamped * fps));
+                    const frameNumber = Math.round(clamped * fps);
+                    scrub.requestScrub(frameNumber);
+                    return frameNumber / fps;
                 };
                 const renderPlayback = seconds => {
                     const frameNumber = Math.round(seconds * fps);
-                    if (frameNumber === lastPlaybackFrame) return;
+                    if (frameNumber === lastPlaybackFrame) return lastPresentedSec;
                     lastPlaybackFrame = frameNumber;
                     if (rendering) {
                         measurements.lateFrames += 1;
                         updateMetrics();
-                        return;
+                        return lastPresentedSec;
                     }
                     const operation = renderFrame(frameNumber / fps, 'playback')
                         .catch(reason => showError(reason, true));
@@ -6386,21 +6412,14 @@ body { display: grid; place-items: center; padding: 32px; }
                     void operation.finally(() => {
                         if (rendering === operation) rendering = null;
                     });
-                };
-                const formatTime = seconds => {
-                    const whole = Math.max(0, Math.floor(seconds));
-                    return Math.floor(whole / 60) + ':' + String(whole % 60).padStart(2, '0');
+                    return lastPresentedSec;
                 };
                 let position = 0;
                 let playing = false;
                 let playAnchorMs = 0;
                 let playAnchorPosition = 0;
-                const updateTransport = () => {
-                    seek.value = String(position);
-                    time.textContent = formatTime(position) + ' / ' + formatTime(totalDuration);
-                    play.textContent = playing ? '一時停止' : '再生';
-                };
-                const setPlaying = next => {
+                const setPlaying = (next, requestedPosition = position) => {
+                    position = Math.max(0, Math.min(Number(requestedPosition) || 0, totalDuration));
                     if (!next && playing) {
                         position = audioSupply.position(position);
                         audioSupply.pause();
@@ -6409,54 +6428,55 @@ body { display: grid; place-items: center; padding: 32px; }
                     playAnchorMs = performance.now();
                     playAnchorPosition = position;
                     if (playing) audioSupply.playFrom(position);
-                    updateTransport();
                 };
-
-                seek.max = String(totalDuration);
-                seek.step = String(1 / fps);
-                seek.addEventListener('input', () => {
-                    position = Math.max(0, Math.min(Number(seek.value) || 0, totalDuration));
-                    playAnchorMs = performance.now();
-                    playAnchorPosition = position;
-                    audioSupply.seek(position, playing);
-                    requestSeek(position);
-                    updateTransport();
-                });
-                play.addEventListener('click', () => {
-                    if (!playing && position >= totalDuration) {
-                        position = 0;
-                        requestSeek(0);
+                const clock = {
+                    totalDuration,
+                    seek(seconds, continuePlaying = playing) {
+                        position = requestSeek(seconds);
+                        audioSupply.seek(position, continuePlaying);
+                        playing = continuePlaying && position < totalDuration;
+                        playAnchorMs = performance.now();
+                        playAnchorPosition = position;
+                        return position;
+                    },
+                    play(seconds) {
+                        setPlaying(true, seconds);
+                    },
+                    pause(seconds) {
+                        setPlaying(false, seconds);
+                    },
+                    tick(legacyPosition, legacyPlaying) {
+                        if (legacyPlaying !== playing) setPlaying(legacyPlaying, legacyPosition);
+                        if (!playing) return position;
+                        const fallbackPosition = Math.min(
+                            totalDuration,
+                            playAnchorPosition + (performance.now() - playAnchorMs) / 1000
+                        );
+                        position = audioSupply.position(fallbackPosition);
+                        position = renderPlayback(position);
+                        if (position >= totalDuration) setPlaying(false, totalDuration);
+                        return position;
                     }
-                    setPlaying(!playing);
-                });
+                };
+                window.akari = window.akari || {};
+                window.akari.frameEngineClock = clock;
 
                 updateMetrics();
                 await renderFrame(0, 'seek', performance.now());
                 await renderFrame(0, 'seek', performance.now());
                 root.dataset.frameEngineReady = 'true';
-                updateTransport();
-
-                const tick = now => {
-                    if (disposed) return;
-                    if (playing) {
-                        const fallbackPosition = Math.min(
-                            totalDuration,
-                            playAnchorPosition + (now - playAnchorMs) / 1000
-                        );
-                        position = audioSupply.position(fallbackPosition);
-                        renderPlayback(position);
-                        if (position >= totalDuration) setPlaying(false);
-                        else updateTransport();
-                    }
-                    requestAnimationFrame(tick);
-                };
-                requestAnimationFrame(tick);
+                clock.seek(Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0, false);
+                window.dispatchEvent(new Event('akari-frame-engine-ready'));
 
                 window.addEventListener('beforeunload', () => {
+                    if (window.akari && window.akari.frameEngineClock === clock) {
+                        delete window.akari.frameEngineClock;
+                    }
                     disposed = true;
                     scrub.dispose();
                     warmup.reset();
                     for (const source of lookahead.values()) source.clear();
+                    for (const image of images.values()) image.destroy();
                     for (const pool of pools.values()) pool.destroy();
                     audioSupply.dispose();
                     compositor.dispose();
@@ -6494,7 +6514,9 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const refreshIndicators = () => {
                 const declared = Array.isArray(summary.indicators) ? summary.indicators : [];
-                const indicators = [...new Set([...declared, ...videoFxFailedIndicators])];
+                const approximation = document.getElementById('preview-stage')?.dataset.frameEngineActive === 'true'
+                    ? ['プレビューは近似・最終音声は書き出しで確認'] : [];
+                const indicators = [...new Set([...declared, ...videoFxFailedIndicators, ...approximation])];
                 indicatorToggle.hidden = indicators.length === 0;
                 if (indicators.length === 0) {
                     indicatorPopup.hidden = true;
@@ -6506,6 +6528,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     : item).join(' / ');
                 indicatorPopup.textContent = 'プレビュー未対応: ' + items;
             };
+            window.addEventListener('akari-frame-engine-ready', refreshIndicators);
             const penToggle = document.getElementById('pen-toggle');
             const zoomToggle = document.getElementById('zoom-toggle');
             const fullscreenToggle = document.getElementById('fullscreen-toggle');
@@ -8212,7 +8235,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 // オーバーレイ / 字幕の実体をクリックした場合は各ランタイムの操作を優先する。
                 if (event.button !== 0 || cropModeActive
                     || (!targetIsVisualMedia && target !== layersStage && target !== stage)) return;
-                const hit = document.elementsFromPoint(event.clientX, event.clientY)
+                let hit = document.elementsFromPoint(event.clientX, event.clientY)
                     .find(candidate => {
                         if (candidate === video) return true;
                         // 静止画セグメント中は #preview-still が本編（cut）の当たり判定を担う
@@ -8224,6 +8247,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         const candidateEntry = findLayerEntry(candidate.dataset.akariLayerId);
                         return !candidateEntry || layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
                     });
+                if (!hit && window.akari.frameEngineClock) {
+                    const candidates = [...layerEntries].reverse().filter(candidate => {
+                        const element = candidate.video;
+                        if (element.style.display === 'none') return false;
+                        const rect = element.getBoundingClientRect();
+                        return event.clientX >= rect.left && event.clientX <= rect.right
+                            && event.clientY >= rect.top && event.clientY <= rect.bottom
+                            && layerAlphaAtPoint(candidate, event.clientX, event.clientY) > 16;
+                    });
+                    hit = candidates[0]?.video || video;
+                }
                 if (!hit) return;
                 if (hit === video || hit === stillImage) {
                     if (video.dataset.akariCutIndex === '' || video.dataset.akariCutIndex === undefined) return;
@@ -8463,6 +8497,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         || event.target.closest('#layer-perspective-toggle') || event.target.closest('#layer-perspective-panel'))) {
                     return;
                 }
+                if (window.akari.frameEngineClock && layersStage.contains(event.target)) return;
                 // 全面透明 mov の可視画素判定を含め、実際の z 順を elementsFromPoint で再確認する。
                 const hitSelectable = document.elementsFromPoint(event.clientX, event.clientY)
                     .some(candidate => {
@@ -9408,6 +9443,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                 isPlaying = false;
                 freezeHoldUntilMs = 0;
+                if (window.akari.frameEngineClock) {
+                    window.akari.frameEngineClock.pause(outputTime);
+                    return;
+                }
                 video.pause();
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
             };
@@ -9465,11 +9504,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 // 末尾に数フレーム分の再生余地を残すようクランプすることで、再生開始が必ず
                 // 観測可能な進行を1回は生む（自然再生が末尾へ到達して止まる経路 = tick() 内の
                 // 別クランプは無改造のため、そちらの停止挙動は従来通り）。
-                const seekableDuration = totalTimelineDuration || videoDuration();
+                const seekableDuration = window.akari.frameEngineClock?.totalDuration
+                    || totalTimelineDuration || videoDuration();
                 const endSafetyMargin = Math.min(2 / fps, seekableDuration);
                 const seekableMax = Math.max(0, seekableDuration - endSafetyMargin);
                 outputTime = clamp(Math.max(0, timelineValue), 0, seekableMax);
                 window.akari.reviewTransport({ type: 'seek', from: previousOutputTime, to: outputTime });
+                if (window.akari.frameEngineClock) {
+                    outputTime = window.akari.frameEngineClock.seek(outputTime, isPlaying);
+                    return;
+                }
                 const mapped = timelineToSource(outputTime);
                 enterSegment(mapped.index);
                 if (mapped.kind === 'src' && !isStillSegment(segments[mapped.index])) {
@@ -9567,7 +9611,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 return minutes + ':' + String(Math.floor(seconds % 60)).padStart(2, '0');
             };
             const updateTransport = () => {
-                const timelineDuration = segments.length > 0 ? totalTimelineDuration : videoDuration();
+                const timelineDuration = window.akari.frameEngineClock?.totalDuration
+                    || (segments.length > 0 ? totalTimelineDuration : videoDuration());
                 const timelinePosition = segments.length > 0 ? outputTime : (video.currentTime || 0);
                 seek.max = String(timelineDuration);
                 seek.value = String(clamp(timelinePosition, 0, timelineDuration));
@@ -10809,6 +10854,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             const tick = (immediatePlaybackTick = false) => {
+                const frameEngineClock = window.akari && window.akari.frameEngineClock;
+                if (frameEngineClock) {
+                    outputTime = frameEngineClock.tick(outputTime, isPlaying);
+                    renderLayers(outputTime);
+                    updateLayerSelectBox();
+                    window.akari.runtime.tick(outputTime, isPlaying);
+                    window.akari.playbackTick(outputTime, isPlaying, immediatePlaybackTick);
+                    renderCaption();
+                    updateTransport();
+                    updateWaveformPlayhead();
+                    return;
+                }
                 // ㉕ cuts[].freeze の一時停止ホールド中（contract-2026-08-02-preview-parity.md
                 // §2.4.3 の近似実装 — 尺は伸ばさない）: video / previewAudio を実時間で
                 // 一時停止したまま outputTime を進めず、rAF の連鎖だけ生かしておく。
@@ -11050,6 +11107,11 @@ body { display: grid; place-items: center; padding: 32px; }
                         setRectModeActive(false);
                     }
                     window.akari.reviewTransport({ type: 'play', timelineT: outputTime });
+                    if (window.akari.frameEngineClock) {
+                        window.akari.frameEngineClock.play(outputTime);
+                        startAnimation();
+                        return;
+                    }
                     if (window.akari.previewAudio) void window.akari.previewAudio.resume();
                     const segment = segments[activeSegmentIndex];
                     if (segment && (segment.kind === 'gap' || isStillSegment(segment))) {
@@ -11067,6 +11129,11 @@ body { display: grid; place-items: center; padding: 32px; }
                     // 次の再開で誤って再一時停止しない — contract-2026-08-02-preview-parity.md §2.4.3）。
                     freezeHoldUntilMs = 0;
                     window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
+                    if (window.akari.frameEngineClock) {
+                        window.akari.frameEngineClock.pause(outputTime);
+                        stopAnimation();
+                        return;
+                    }
                     if (window.akari.previewAudio) window.akari.previewAudio.pause();
                     video.pause();
                     stopAnimation();
@@ -11092,6 +11159,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                 }
                 isPlaying = false;
+                if (window.akari.frameEngineClock) window.akari.frameEngineClock.pause(outputTime);
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 video.pause();
                 seekTimelineTime(outputTime + direction / fps);

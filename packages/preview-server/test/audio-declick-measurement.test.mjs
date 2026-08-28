@@ -95,7 +95,7 @@ test('実 preview: seeked までミュートを維持して 5s→15s 境界の�
 
     browser = await chromium.launch({ headless: true, executablePath: SYSTEM_CHROME });
     const page = await browser.newPage();
-    await page.goto(base, { waitUntil: 'load', timeout: 15000 });
+    await page.goto(`${base}/?frameEngine=0`, { waitUntil: 'load', timeout: 15000 });
     await page.waitForFunction(() => Boolean(window.akari?.baseAudioDebug));
 
     await page.evaluate(() => {

@@ -37,9 +37,16 @@ interface PreviewOptions {
 interface TimelineUiSegment {
   index: number;
   isGap: false;
+  inSec: number;
+  outSec: number;
+  speed: number;
   outStart: number;
   outEnd: number;
   durationSec: number;
+  framing?: unknown;
+  freeze?: unknown;
+  transform?: unknown;
+  opacity?: number;
 }
 
 interface PreviewSnapshot {
@@ -427,32 +434,21 @@ function createUi(stage: HTMLElement): {
   metrics: HTMLDivElement;
   error: HTMLDivElement;
 } {
-  for (const child of Array.from(stage.children) as HTMLElement[]) child.style.display = 'none';
-
   const root = document.createElement('div');
   root.id = 'frame-engine-preview';
   root.dataset.frameEngineReady = 'false';
-  Object.assign(root.style, { position: 'absolute', inset: '0', zIndex: '2147483647' });
+  Object.assign(root.style, { position: 'absolute', inset: '0', background: '#000' });
 
   const canvas = document.createElement('canvas');
   canvas.id = 'frame-engine-canvas';
   canvas.setAttribute('aria-label', 'Frame engine canvas preview');
   Object.assign(canvas.style, { width: '100%', height: '100%', display: 'block', objectFit: 'contain' });
 
-  const banner = document.createElement('div');
-  banner.id = 'frame-engine-unsupported-banner';
-  banner.setAttribute('role', 'status');
-  banner.textContent = 'Frame engine 評価台（cuts + layers + matte + 音声）— 未対応: overlays / 字幕';
-  Object.assign(banner.style, {
-    position: 'absolute', left: '8px', top: '8px', maxWidth: 'calc(100% - 270px)',
-    padding: '5px 8px', border: '1px solid rgba(255,209,102,.65)', borderRadius: '4px',
-    background: 'rgba(30,24,8,.88)', color: '#ffd166', font: '11px/1.45 system-ui,sans-serif',
-  });
-
   const metrics = document.createElement('div');
   metrics.id = 'frame-engine-metrics';
+  metrics.hidden = new URLSearchParams(window.location.search).get('frameEngineMetrics') !== '1';
   Object.assign(metrics.style, {
-    position: 'absolute', right: '8px', top: '8px', minWidth: '250px', padding: '7px 9px',
+    position: 'absolute', zIndex: '2147483647', right: '8px', top: '8px', minWidth: '250px', padding: '7px 9px',
     border: '1px solid rgba(116,192,252,.65)', borderRadius: '4px', background: 'rgba(4,12,20,.88)',
     color: '#d8efff', font: '11px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace', whiteSpace: 'pre',
   });
@@ -461,12 +457,12 @@ function createUi(stage: HTMLElement): {
   error.id = 'frame-engine-error';
   error.hidden = true;
   Object.assign(error.style, {
-    position: 'absolute', inset: '40% 10% auto', padding: '12px', borderRadius: '6px',
+    position: 'absolute', zIndex: '2147483647', inset: '40% 10% auto', padding: '12px', borderRadius: '6px',
     background: 'rgba(80,0,0,.9)', color: '#fff', textAlign: 'center',
   });
 
-  root.append(canvas, banner, metrics, error);
-  stage.append(root);
+  root.append(canvas, metrics, error);
+  stage.prepend(root);
   return { root, canvas, metrics, error };
 }
 
@@ -498,6 +494,7 @@ class FrameEngineRuntime {
   private readonly warmupRequests = new Set<string>();
   private rendering: Promise<void> | null = null;
   private lastPlaybackFrame = -1;
+  private lastPresentedSec = 0;
   private lastCutIndex: number | null = null;
   private currentAccesses: LookaheadAccess[] | null = null;
   private currentDecodedFrames: DecodedFrameObservation[] | null = null;
@@ -562,13 +559,23 @@ class FrameEngineRuntime {
     });
     this.totalDuration = this.timeline.totalDuration;
     this.audio = new FrameEngineAudioSupply(edit, this.totalDuration);
-    this.segments = (this.timeline as any).cuts.map((placement: any, index: number) => ({
-      index,
-      isGap: false as const,
-      outStart: placement.at,
-      outEnd: placement.end,
-      durationSec: placement.end - placement.at,
-    }));
+    this.segments = (this.timeline as any).cuts.map((placement: any, index: number) => {
+      const cut = placement.cut ?? cuts[index] ?? {};
+      return {
+        index,
+        isGap: false as const,
+        inSec: Number(cut.in ?? 0),
+        outSec: Number(cut.out ?? cut.in ?? 0),
+        speed: Number(cut.speed) > 0 ? Number(cut.speed) : 1,
+        outStart: placement.at,
+        outEnd: placement.end,
+        durationSec: placement.end - placement.at,
+        framing: cut.framing,
+        freeze: cut.freeze,
+        transform: cut.transform,
+        opacity: Number.isFinite(cut.opacity) ? Number(cut.opacity) : undefined,
+      };
+    });
     const size = edit?.output ?? {};
     const projectedLook = edit?.videoFx?.look;
     const intensity = Number(projectedLook?.intensity ?? 1);
@@ -607,21 +614,23 @@ class FrameEngineRuntime {
     this.ui.root.dataset.frameEngineReady = 'true';
   }
 
-  seek(seconds: number): void {
+  seek(seconds: number): number {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
     this.audio.seek(clamped);
-    this.scrub.requestScrub(Math.round(clamped * this.fps));
+    const frameNumber = Math.round(clamped * this.fps);
+    this.scrub.requestScrub(frameNumber);
+    return frameNumber / this.fps;
   }
 
-  renderPlayback(seconds: number): void {
+  renderPlayback(seconds: number): number {
     const audioClockSeconds = this.audio.playbackTime(seconds);
     const frameNumber = Math.round(audioClockSeconds * this.fps);
-    if (frameNumber === this.lastPlaybackFrame) return;
+    if (frameNumber === this.lastPlaybackFrame) return this.lastPresentedSec;
     this.lastPlaybackFrame = frameNumber;
     if (this.rendering) {
       this.measurements.lateFrames += 1;
       this.updateMetrics();
-      return;
+      return this.lastPresentedSec;
     }
     const operation = this.renderFrame(frameNumber / this.fps, 'playback')
       .catch(error => this.showError(String(error), true));
@@ -629,6 +638,7 @@ class FrameEngineRuntime {
     void operation.finally(() => {
       if (this.rendering === operation) this.rendering = null;
     });
+    return this.lastPresentedSec;
   }
 
   snapshot(): PreviewSnapshot {
@@ -695,6 +705,7 @@ class FrameEngineRuntime {
       (allHit ? this.measurements.seekAfterMs : this.measurements.seekBeforeMs).push(reached);
     }
     const presented = performance.now();
+    this.lastPresentedSec = timeUs / 1e6;
     this.measurements.presentedAt.push(presented);
     this.measurements.presentedAt = this.measurements.presentedAt.filter(value => value >= presented - 1000);
     this.prefetch(timeUs);
@@ -783,8 +794,8 @@ class FrameEngineRuntime {
 
 export async function createFrameEnginePreview(options: PreviewOptions): Promise<{
   snapshot(): PreviewSnapshot;
-  seek(seconds: number): void;
-  renderPlayback(seconds: number): void;
+  seek(seconds: number): number;
+  renderPlayback(seconds: number): number;
   rebuild(edit: any, timelineData: any, fps: number): Promise<void>;
   dispose(): void;
   audioDebug(): FrameEngineAudioDebug;

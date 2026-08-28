@@ -89,7 +89,7 @@ test('worker CSP は frame-engine 有効時だけ blob と data を許可する'
 test('AKARI_FRAME_ENGINE の backend RPC はインスタンスで 1 回だけキャッシュする', () => {
     assert.match(compiledHandler, /frameEngineEnvOverridePromise \?\?=/);
     assert.match(compiledHandler, /getValue\('AKARI_FRAME_ENGINE'\)/);
-    assert.match(compiledHandler, /preferences\.get\('akari\.preview\.frameEngine', false\)/);
+    assert.match(compiledHandler, /preferences\.get\('akari\.preview\.frameEngine', true\)/);
 });
 
 test('frame-engine 有効時は差分更新を使わず最新 summary で HTML を再構築する', () => {
@@ -110,19 +110,54 @@ test('追跡済み frame-engine IIFE は必要な engine 部品を含む', () =>
 
 test('preference と環境変数 override が登録されている', () => {
     assert.match(compiledFrontendModule, /akari\.preview\.frameEngine/);
-    assert.match(compiledFrontendModule, /default: false/);
+    assert.match(compiledFrontendModule, /default: true/);
     assert.match(compiledHandler, /AKARI_FRAME_ENGINE/);
     assert.match(compiledHandler, /override === '1' \|\| override === 'true'/);
     assert.match(compiledHandler, /override === '0' \|\| override === 'false'/);
 });
 
-test('glue は従来 video と transport を止めて stage を排他化する', () => {
-    assert.match(bootstrap, /\['preview-video', 'standby-video', 'transition-video'\]/);
-    assert.match(bootstrap, /media\.pause\(\)/);
-    assert.match(bootstrap, /media\.removeAttribute\('src'\)/);
-    assert.match(bootstrap, /document\.querySelector\('\.transport'\)/);
-    assert.match(bootstrap, /for \(const child of Array\.from\(stage\.children\)\)/);
-    assert.match(bootstrap, /child\.style\.display = 'none'/);
+test('glue は video 系だけを隠し、既存 transport と overlay DOM を残す', () => {
+    assert.match(bootstrap, /layersStage\.querySelectorAll\('video, img'\)/);
+    const activeVisibilityRule = compiledHandler.match(
+        /#preview-stage\[data-frame-engine-active="true"\] #preview-video,[\s\S]*?#preview-stage\[data-frame-engine-active="true"\] \.akari-video-fx-rail \{[\s\S]*?visibility: hidden !important;\s*\}/
+    )?.[0];
+    assert.ok(activeVisibilityRule, 'frame-engine active 時の CSS 排他ルールが compiled handler に無い');
+    for (const selector of [
+        '#preview-video', '#standby-video', '#transition-video', '#transition-still', '#preview-still',
+        '[data-akari-layer-id]', '[data-akari-filter-id]', '[data-akari-deferred-telop-id]',
+        '.akari-video-fx-rail'
+    ]) {
+        assert.match(activeVisibilityRule, new RegExp(selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+    }
+    for (const selector of ['#overlay-stage', '#caption-plate', '#pen-layer', '#layer-select-box']) {
+        assert.doesNotMatch(activeVisibilityRule, new RegExp(selector));
+    }
+    assert.doesNotMatch(bootstrap, /\.style\.visibility = 'hidden'/);
+    assert.doesNotMatch(bootstrap, /media\.removeAttribute\('src'\)/);
+    assert.doesNotMatch(bootstrap, /document\.querySelector\('\.transport'\)/);
+    assert.doesNotMatch(bootstrap, /stage\.children/);
+    assert.match(bootstrap, /layersStage\.prepend\(root\)/);
+    assert.match(compiledHandler, /frameEngineClock\.tick\(outputTime, isPlaying\)[\s\S]*runtime\.tick\(outputTime, isPlaying\)[\s\S]*renderCaption\(\)/);
+    assert.match(bootstrap, /metrics\.hidden = initial\.frameEngineMetricsEnabled !== true/);
+});
+
+test('glue は宣言された source 種別で frame source registry を構築して静止画も破棄する', () => {
+    assert.match(bootstrap, /Object\.entries\(initial\.imageSources \|\| \{\}\)/);
+    assert.match(bootstrap, /images\.set\(id, new engine\.CachedStillImageSource\(url\)\)/);
+    assert.match(bootstrap, /layer\.isImage === true/);
+    assert.match(bootstrap, /new engine\.CachedStillImageSource\(layer\.src\)/);
+    assert.match(bootstrap, /\}\)\)\(\{ layers: engineLayers \}\)/);
+    assert.doesNotMatch(bootstrap, /\\\.\(png\|jpe\?g\|webp\|bmp\|gif\)/);
+    assert.match(bootstrap, /const sources = new Map\(\[\.\.\.lookahead, \.\.\.images\]\)/);
+    assert.match(bootstrap, /for \(const image of images\.values\(\)\) image\.destroy\(\)/);
+});
+
+test('glue は LUT を parseCube して output.look へ渡し、失敗時は描画を継続する', () => {
+    assert.match(bootstrap, /typeof projectedLook\.cubeText === 'string'/);
+    assert.match(bootstrap, /lut: engine\.parseCube\(projectedLook\.cubeText\)/);
+    assert.match(bootstrap, /Math\.max\(0, Math\.min\(1, Number\.isFinite\(intensity\) \? intensity : 1\)\)/);
+    assert.match(bootstrap, /catch \(reason\) \{\s*console\.warn\([^;]+, reason\);\s*\}/);
+    assert.match(bootstrap, /colorSpace: 'bt709-limited',\s*look\s*\}/);
 });
 
 test('glue は計測 dataset と可視 canvas 直結 compositor を持つ', () => {

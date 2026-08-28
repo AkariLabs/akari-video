@@ -64,11 +64,13 @@ test('shell 評価台は旧音声を停止し、共有予定表と Web Audio を
   assert.doesNotMatch(bootstrap, /\b-12\b/u, 'glue に ducking 値を再定義しない');
 });
 
-test('shell transport は AudioContext.currentTime に追従し、同期観測窓を公開する', () => {
+test('shell の既存 transport は frame-engine clock と AudioContext.currentTime に追従する', () => {
   assert.match(bootstrap, /context\.currentTime - anchorContextSec/u);
   assert.match(bootstrap, /position = audioSupply\.position\(fallbackPosition\)/u);
   assert.match(bootstrap, /window\.akariFrameEngineAudioDebug/u);
   assert.match(bootstrap, /renderedTimelineSec - audioPositionSec/u);
+  assert.match(bootstrap, /window\.akari\.frameEngineClock = clock/u);
+  assert.doesNotMatch(bootstrap, /frame-engine-play/u);
 });
 
 test('shell cuts 評価は EvaluationPlan.base を参照する', () => {
@@ -90,9 +92,7 @@ test('shell cuts 評価は EvaluationPlan.base を参照する', () => {
   assert.doesNotMatch(renderFrame, /if \(plan\.layers\.length === 0\) return/u);
 });
 
-test('shell バナーは音声だけを対応済みに移し layers / overlays / 字幕を残す', () => {
-  const banner = bootstrap.split('\n').find(line => line.includes('Frame engine 評価台')) ?? '';
-  assert.match(banner, /cuts \+ 音声/u);
-  assert.match(banner, /未対応: layers \/ overlays \/ 字幕/u);
-  assert.doesNotMatch(banner, /字幕 \/ 音声/u);
+test('評価台バナーを撤去し、layers を frame-engine 評価へ渡す', () => {
+  assert.doesNotMatch(bootstrap, /frame-engine-unsupported-banner|Frame engine 評価台/u);
+  assert.match(bootstrap, /layers: Array\.isArray\(summary\.layers\) \? summary\.layers : \[\]/u);
 });
