@@ -143,7 +143,8 @@ async function writeProject(edit) {
 }
 
 async function renderAndGetOutputPath(root) {
-  const state = await renderProject(root, {});
+  // This suite measures legacy composition parity; engine resolution has separate unit coverage.
+  const state = await renderProject(root, { engine: "legacy" });
   assert.equal(state.verify.verdict, "pass", JSON.stringify(state.verify.findings));
   return join(root, state.plan.output);
 }

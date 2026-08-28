@@ -344,7 +344,8 @@ process.exit(result.status ?? 2);
     process.env.CHROME_PATH = chromePath;
     let state;
     try {
-      state = await renderProject(project);
+      // This suite measures legacy track-stack composition; engine resolution has separate unit coverage.
+      state = await renderProject(project, { engine: "legacy" });
     } finally {
       if (previousFfmpeg === undefined) delete process.env.FFMPEG; else process.env.FFMPEG = previousFfmpeg;
       if (previousLog === undefined) delete process.env.AKARI_FFMPEG_LOG; else process.env.AKARI_FFMPEG_LOG = previousLog;
@@ -489,8 +490,8 @@ test("renderProject composites implied captions above a non-default stack and ho
     let impliedState;
     let explicitBottomState;
     try {
-      impliedState = await renderProject(impliedProject);
-      explicitBottomState = await renderProject(explicitBottomProject);
+      impliedState = await renderProject(impliedProject, { engine: "legacy" });
+      explicitBottomState = await renderProject(explicitBottomProject, { engine: "legacy" });
     } catch (error) {
       if (await isSandboxRasterizerFailure([impliedProject, explicitBottomProject], error)) {
         return t.skip("sandbox environment cannot launch an overlay rasterizer");
@@ -605,7 +606,7 @@ async function renderFixture(order) {
     timeline: { tracks: order.map(key => byKey[key]) },
   }, null, 2)}\n`);
   process.env.CHROME_PATH = chromePath;
-  const state = await renderProject(project);
+  const state = await renderProject(project, { engine: "legacy" });
   assert.equal(state.verify.verdict, "pass", JSON.stringify(state.verify.findings));
   return { project, outputPath: join(project, state.plan.output) };
 }
@@ -627,7 +628,7 @@ async function renderDefaultOrderFixture(explicitTimeline) {
   const previousChrome = process.env.CHROME_PATH;
   process.env.CHROME_PATH = chromePath;
   try {
-    const state = await renderProject(project);
+    const state = await renderProject(project, { engine: "legacy" });
     assert.equal(state.verify.verdict, "pass", JSON.stringify(state.verify.findings));
     return { project, state, outputPath: join(project, state.plan.output) };
   } catch (error) {

@@ -177,8 +177,9 @@ test("P0 2026-08-20 track-identity-and-duration r2: 既存の crop 付き PiP �
     const movedItem = trackB.items.find(item => item.id === "c1");
     assert.equal(renderItemKind(movedItem), "cut", "the moved plain clip should still become the new main-track cut");
 
-    const beforeState = await renderProject(before, {});
-    const afterState = await renderProject(after, {});
+    // This suite measures legacy track composition; engine resolution has separate unit coverage.
+    const beforeState = await renderProject(before, { engine: "legacy" });
+    const afterState = await renderProject(after, { engine: "legacy" });
     assert.equal(beforeState.verify.verdict, "pass", JSON.stringify(beforeState.verify.findings));
     assert.equal(afterState.verify.verdict, "pass", JSON.stringify(afterState.verify.findings));
 
@@ -238,8 +239,8 @@ test("P0 2026-08-20 track-identity-and-duration: 本編クリップを新設ト�
     assert.equal(renderItemKind(movedTrack.items[0]), "cut", "moved clip should still dispatch through the cut path");
 
     // 実レンダー本体: (a) 出力バイトが一致する (b) 総尺が変わらない。
-    const beforeState = await renderProject(before, {});
-    const afterState = await renderProject(after, {});
+    const beforeState = await renderProject(before, { engine: "legacy" });
+    const afterState = await renderProject(after, { engine: "legacy" });
     assert.equal(beforeState.verify.verdict, "pass", JSON.stringify(beforeState.verify.findings));
     assert.equal(afterState.verify.verdict, "pass", JSON.stringify(afterState.verify.findings));
 

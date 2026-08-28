@@ -312,7 +312,8 @@ test("a legacy edit.json with output.look (LUT) + cuts[].fx (retired v0 id) comp
     await mkdir(join(root, ".akari"));
     await writeFile(join(root, ".akari", "lint.json"), '{"version":1,"verdict":"pass"}\n');
 
-    const executed = spawnSync(process.execPath, [cliPath, root], { encoding: "utf8" });
+    // This assertion measures the legacy CLI/filtergraph path; engine resolution is tested separately.
+    const executed = spawnSync(process.execPath, [cliPath, root, "--engine", "legacy"], { encoding: "utf8" });
     assert.equal(executed.status, 0, executed.stderr);
     assert.match(
       executed.stderr ?? "",

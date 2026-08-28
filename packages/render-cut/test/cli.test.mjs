@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+import { legacyRenderArgs } from "./helpers/render-engine.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
@@ -18,7 +19,8 @@ const cliPath = join(packageRoot, "bin", "render-cut.mjs");
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 function run(project, args = []) {
-  return spawnSync(process.execPath, [cliPath, project, ...args], {
+  // Real renders exercise legacy composition; plan-only keeps the default engine observable.
+  return spawnSync(process.execPath, [cliPath, project, ...legacyRenderArgs(args)], {
     encoding: "utf8",
     env: { ...process.env, CHROME_PATH: chromePath },
   });
@@ -362,7 +364,7 @@ test("a verified overlay render keeps exit 0 and records a profile cleanup warni
   try {
     const executed = spawnSync(
       process.execPath,
-      [cliPath, project, "--out", outputPath],
+      [cliPath, project, "--out", outputPath, "--engine", "legacy"],
       {
         encoding: "utf8",
         env: {

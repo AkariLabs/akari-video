@@ -17,6 +17,7 @@ const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import { appendFreezeAwareAudioTrim, freezeDurationSeconds, hasCutFreeze } from "../src/cut-freeze.mjs";
 import { buildGapAwareMultiSourceCutCommand, buildMultiSourceCutCommand } from "../src/plan.mjs";
+import { legacyRenderArgs } from "./helpers/render-engine.mjs";
 import { buildCutCommand } from "./helpers/v2-fixture.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -29,7 +30,8 @@ function run(command, args) {
 }
 
 function runCli(project, args = []) {
-  return spawnSync(process.execPath, [cliPath, project, ...args], { encoding: "utf8" });
+  // This suite measures legacy cut/filtergraph output; engine resolution has separate unit coverage.
+  return spawnSync(process.execPath, [cliPath, project, ...legacyRenderArgs(args)], { encoding: "utf8" });
 }
 
 function ffmpegAvailable() {

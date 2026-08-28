@@ -18,6 +18,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+import { legacyRenderArgs } from "./helpers/render-engine.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
@@ -27,7 +28,8 @@ const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 const FPS = 10;
 
 function run(project, args = []) {
-  return spawnSync(process.execPath, [cliPath, project, ...args], {
+  // This suite measures legacy timeline composition; engine resolution has separate unit coverage.
+  return spawnSync(process.execPath, [cliPath, project, ...legacyRenderArgs(args)], {
     encoding: "utf8",
     env: { ...process.env, CHROME_PATH: chromePath },
   });

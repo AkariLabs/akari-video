@@ -89,7 +89,8 @@ async function renderStillProject(fps, output = "exports/render.mp4") {
   });
   makeStill(join(root, "still.png"));
   const originalEdit = await readFile(join(root, "edit.json"), "utf8");
-  const state = await renderProject(root, { out: output });
+  // This suite measures legacy still-image timing; engine resolution has separate unit coverage.
+  const state = await renderProject(root, { out: output, engine: "legacy" });
   assert.equal(state.verify.verdict, "pass", JSON.stringify(state.verify.findings));
   return { root, outputPath: join(root, state.plan.output), originalEdit };
 }
@@ -113,7 +114,7 @@ test("five still-image cuts render end-to-end with exactly the planned frames at
     const root = await makeProject({ fps, sources, cuts });
     try {
       for (const source of sources) makeStill(join(root, source.file));
-      const state = await renderProject(root, { out: "exports/render.mp4" });
+      const state = await renderProject(root, { out: "exports/render.mp4", engine: "legacy" });
       assert.equal(state.verify.verdict, "pass", JSON.stringify(state.verify.findings));
       const outputPath = join(root, state.plan.output);
       const video = probeMedia(outputPath).streams.find((stream) => stream.codec_type === "video");
@@ -207,7 +208,7 @@ test("mixed still-image and video render keeps planned frame count, duration, an
   try {
     makeStill(join(root, "still.png"));
     makeVideo(join(root, "video.mp4"), { duration: videoDuration, fps });
-    const state = await renderProject(root, { out: "exports/mixed.mp4" });
+    const state = await renderProject(root, { out: "exports/mixed.mp4", engine: "legacy" });
     assert.equal(state.verify.verdict, "pass", JSON.stringify(state.verify.findings));
     const measured = probeMedia(join(root, state.plan.output));
     const video = measured.streams.find((stream) => stream.codec_type === "video");
@@ -232,7 +233,7 @@ test("rendering the same still-image input twice is pixel-equivalent", async (t)
     // renderProject records its output as a reusable source. Restore the same declared input before
     // the second run so this assertion exercises identical project input, not the updated receipt.
     await writeFile(join(root, "edit.json"), originalEdit);
-    const second = await renderProject(root, { out: "exports/second.mp4" });
+    const second = await renderProject(root, { out: "exports/second.mp4", engine: "legacy" });
     assert.equal(second.verify.verdict, "pass", JSON.stringify(second.verify.findings));
     assert.equal(
       decodedVideoFramemd5(join(root, second.plan.output)),
