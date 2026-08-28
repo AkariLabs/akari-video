@@ -6,7 +6,7 @@ const cases = [
     {
         name: 'posix',
         delimiter: ':',
-        shimDir: '/home/test/.akari/cli/bin',
+        shimDir: '/opt/akari-test/.akari/cli/bin',
         otherEntries: ['/usr/local/bin', '/usr/bin']
     },
     {
