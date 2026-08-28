@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as MP4BoxNamespace from '@webav/mp4box.js';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const output = resolve(directory, '.generated/source.mp4');
@@ -18,6 +19,13 @@ const bFrameFixtures = [
   { name: 'bframe-bf3-30.mp4', bFrames: 3, fps: 30, reorderFrames: 2 },
   { name: 'bframe-bf2-60.mp4', bFrames: 2, fps: 60, reorderFrames: 2 },
 ].map(spec => ({ ...spec, path: resolve(directory, '.generated', spec.name) }));
+const bFrameTailFixtures = [
+  { name: 'bframe-tail-bf2-30.mp4', bFrames: 2, hasAudio: false },
+  { name: 'bframe-tail-bf0-30.mp4', bFrames: 0, hasAudio: false },
+  { name: 'bframe-tail-bf2-30-aac.mp4', bFrames: 2, hasAudio: true },
+  { name: 'bframe-tail-bf0-30-aac.mp4', bFrames: 0, hasAudio: true },
+].map(spec => ({ ...spec, path: resolve(directory, '.generated', spec.name) }));
+const MP4Box = MP4BoxNamespace.default ?? MP4BoxNamespace;
 mkdirSync(dirname(output), { recursive: true });
 
 function tool(name) {
@@ -294,6 +302,87 @@ function encodedFrameNumbersMatch(file) {
   }
 }
 
+function encodedTailFrameNumbersMatch(file) {
+  try {
+    const frames = 4;
+    const width = 320;
+    const height = 180;
+    const raw = execFileSync(ffmpeg, [
+      '-hide_banner', '-loglevel', 'error', '-i', file,
+      '-frames:v', String(frames), '-fps_mode', 'passthrough',
+      '-f', 'rawvideo', '-pix_fmt', 'gray', 'pipe:1',
+    ], { maxBuffer: width * height * (frames + 1) });
+    const stride = width * height;
+    if (raw.length !== stride * frames) return false;
+    for (let frame = 0; frame < frames; frame += 1) {
+      let decoded = 0;
+      for (let bit = 0; bit < 16; bit += 1) {
+        const x = bit * 20 + 10;
+        const value = raw[frame * stride + Math.floor(height / 2) * width + x];
+        if (value > 128) decoded |= 1 << bit;
+      }
+      if (decoded !== frame) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function parseVideoSamples(file) {
+  return new Promise((resolveParse, rejectParse) => {
+    const bytes = readFileSync(file);
+    const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    buffer.fileStart = 0;
+    const mp4 = MP4Box.createFile();
+    mp4.onError = message => rejectParse(new Error(`mp4box parse error: ${message}`));
+    mp4.onReady = info => {
+      const track = info.videoTracks[0];
+      if (!track) return rejectParse(new Error(`${file} has no video track`));
+      resolveParse(mp4.getTrackSamplesInfo(track.id));
+    };
+    mp4.appendBuffer(buffer);
+    mp4.flush();
+  });
+}
+
+async function bFrameTailFixtureValid(spec) {
+  if (!existsSync(spec.path) || !encodedTailFrameNumbersMatch(spec.path)) return false;
+  try {
+    const streams = JSON.parse(execFileSync(ffprobe, [
+      '-v', 'error', '-show_entries',
+      'stream=codec_type,codec_name,has_b_frames,avg_frame_rate,nb_frames,width,height',
+      '-of', 'json', spec.path,
+    ], { encoding: 'utf8' })).streams ?? [];
+    const video = streams.find(stream => stream.codec_type === 'video');
+    const audio = streams.find(stream => stream.codec_type === 'audio');
+    if (video?.codec_name !== 'h264'
+      || video?.width !== 320
+      || video?.height !== 180
+      || video?.avg_frame_rate !== '30/1'
+      || Number(video?.nb_frames) !== 360
+      || Number(video?.has_b_frames) !== spec.bFrames
+      || (spec.hasAudio ? audio?.codec_name !== 'aac' : audio != null)) return false;
+
+    const keyframeTimes = execFileSync(ffprobe, [
+      '-v', 'error', '-skip_frame', 'nokey', '-select_streams', 'v:0',
+      '-show_entries', 'frame=best_effort_timestamp_time', '-of', 'csv=p=0', spec.path,
+    ], { encoding: 'utf8' })
+      .trim().split(/[\s,]+/u).map(Number).filter(Number.isFinite);
+    if (keyframeTimes.length !== 12 || Math.abs(keyframeTimes.at(-1) - 11) > 0.1) return false;
+
+    const samples = await parseVideoSamples(spec.path);
+    if (samples.length !== 360) return false;
+    const decodeTailEnd = samples.at(-1).cts + samples.at(-1).duration;
+    const presentationTailEnd = Math.max(...samples.map(sample => sample.cts + sample.duration));
+    return spec.bFrames === 2
+      ? decodeTailEnd < presentationTailEnd
+      : decodeTailEnd === presentationTailEnd;
+  } catch {
+    return false;
+  }
+}
+
 function bFrameFixtureValid(spec) {
   if (!existsSync(spec.path) || !encodedFrameNumbersMatch(spec.path)) return false;
   try {
@@ -336,7 +425,35 @@ for (const spec of bFrameFixtures) {
   }
 }
 
+for (const spec of bFrameTailFixtures) {
+  if (!(await bFrameTailFixtureValid(spec))) {
+    const audioInput = spec.hasAudio
+      ? ['-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=12']
+      : [];
+    const audioOutput = spec.hasAudio
+      ? ['-c:a', 'aac', '-b:a', '96k', '-shortest']
+      : ['-an'];
+    execFileSync(ffmpeg, [
+      '-hide_banner', '-loglevel', 'error', '-y',
+      '-f', 'lavfi', '-i',
+      "nullsrc=size=320x180:rate=30,geq=lum='if(bitand(N,pow(2,floor(X/20))),220,32)':cb='128':cr='128'",
+      ...audioInput,
+      '-t', '12', ...audioOutput,
+      '-c:v', 'libx264', '-preset', 'medium', '-crf', '10', '-threads', '1',
+      '-g', '30', '-keyint_min', '30', '-sc_threshold', '0',
+      '-bf', String(spec.bFrames), '-pix_fmt', 'yuv420p',
+      '-color_range', 'tv', '-color_primaries', 'bt709', '-color_trc', 'bt709',
+      '-colorspace', 'bt709', '-avoid_negative_ts', 'make_non_negative',
+      '-movflags', '+faststart', spec.path,
+    ], { stdio: 'inherit' });
+  }
+  if (!(await bFrameTailFixtureValid(spec))) {
+    throw new Error(`${spec.name} failed B-frame tail fixture self-verification`);
+  }
+}
+
 process.stdout.write(`${[
   output, sourceB, still, matteColor, matteAlpha, matteMask, colorPatches,
   ...bFrameFixtures.map(spec => spec.path),
+  ...bFrameTailFixtures.map(spec => spec.path),
 ].join('\n')}\n`);

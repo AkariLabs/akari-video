@@ -1,5 +1,5 @@
 // Adapted from packages/preview-engine/src/clipSession.ts.
-import { MP4Clip } from '@webav/av-cliper';
+import { MP4Clip } from '../../vendor/av-cliper/av-cliper.js';
 import type { FrameMetricsRecorder, NativeFrameSource } from '../types.js';
 import { isDecoderErrorMessage, withTimeout, watchDecoderErrors } from './guard.js';
 import { buildKeyframeIndexFromHeader, type KeyframeIndex } from './keyframe-index.js';

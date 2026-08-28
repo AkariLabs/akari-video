@@ -13,6 +13,10 @@ const bFrameFixtures = new Set([
   'bframe-bf2-30.mp4',
   'bframe-bf3-30.mp4',
   'bframe-bf2-60.mp4',
+  'bframe-tail-bf2-30.mp4',
+  'bframe-tail-bf0-30.mp4',
+  'bframe-tail-bf2-30-aac.mp4',
+  'bframe-tail-bf0-30-aac.mp4',
 ]);
 let finished = false;
 mkdirSync(generated, { recursive: true });

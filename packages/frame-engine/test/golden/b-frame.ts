@@ -8,6 +8,14 @@ export const B_FRAME_VARIANTS = [
   { id: 'bf2-60', file: 'bframe-bf2-60.mp4', bFrames: 2, reorderFrames: 2, fps: 60 },
 ] as const;
 
+const B_FRAME_TAIL_VARIANTS = [
+  { id: 'tail-bf2-30', file: 'bframe-tail-bf2-30.mp4', bFrames: 2, hasAudio: false, fps: 30 },
+  { id: 'tail-bf0-30', file: 'bframe-tail-bf0-30.mp4', bFrames: 0, hasAudio: false, fps: 30 },
+  { id: 'tail-bf2-30-aac', file: 'bframe-tail-bf2-30-aac.mp4', bFrames: 2, hasAudio: true, fps: 30 },
+  { id: 'tail-bf0-30-aac', file: 'bframe-tail-bf0-30-aac.mp4', bFrames: 0, hasAudio: true, fps: 30 },
+] as const;
+const B_FRAME_TAIL_TARGETS = [0, 1, 180, 357, 358, 359] as const;
+
 type Coverage = 'full' | 'sampled';
 
 const frameMidpointUs = (frameNumber: number, fps: number) =>
@@ -44,6 +52,29 @@ class FrameNumberReader {
     let value = 0;
     for (let bit = 0; bit < 8; bit += 1) {
       const pixel = this.context.getImageData(bit * 40 + 20, 90, 1, 1).data;
+      if (pixel[0]! + pixel[1]! + pixel[2]! > 128 * 3) value |= 1 << bit;
+    }
+    return value;
+  }
+}
+
+class TailFrameNumberReader {
+  private readonly canvas = document.createElement('canvas');
+  private readonly context: CanvasRenderingContext2D;
+
+  constructor() {
+    this.canvas.width = 320;
+    this.canvas.height = 180;
+    const context = this.canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) throw new Error('B-frame tail number canvas unavailable');
+    this.context = context;
+  }
+
+  read(frame: VideoFrame): number {
+    this.context.drawImage(frame, 0, 0, this.canvas.width, this.canvas.height);
+    let value = 0;
+    for (let bit = 0; bit < 16; bit += 1) {
+      const pixel = this.context.getImageData(bit * 20 + 10, 90, 1, 1).data;
       if (pixel[0]! + pixel[1]! + pixel[2]! > 128 * 3) value |= 1 << bit;
     }
     return value;
@@ -158,5 +189,46 @@ export async function inspectBFrameAccess(
       && rows.every(row => row.pass)
       && offsets.every(offset => offset.pass)
       && summaries.every(summary => summary.requests > 0 && summary.mismatches === 0),
+  };
+}
+
+export async function inspectBFrameTailAccess(fixtureRootUrl: string) {
+  const reader = new TailFrameNumberReader();
+  const rows: Array<Record<string, unknown>> = [];
+
+  for (const variant of B_FRAME_TAIL_VARIANTS) {
+    const source = new URL(variant.file, fixtureRootUrl).href;
+    const session = new ClipSession(`bframe-${variant.id}`, source);
+    try {
+      for (const requestedFrame of B_FRAME_TAIL_TARGETS) {
+        const requestedPtsUs = Math.round((requestedFrame / variant.fps) * 1e6);
+        const frame = await session.decode(requestedPtsUs);
+        try {
+          const decodedFrame = reader.read(frame);
+          const timestampFrame = Math.round(frame.timestamp * variant.fps / 1e6);
+          rows.push({
+            variant: variant.id,
+            bFrames: variant.bFrames,
+            hasAudio: variant.hasAudio,
+            requestedFrame,
+            requestedPtsUs,
+            decodedFrame,
+            timestampFrame,
+            timestampUs: frame.timestamp,
+            pass: decodedFrame === requestedFrame && timestampFrame === requestedFrame,
+          });
+        } finally {
+          frame.close();
+        }
+      }
+    } finally {
+      session.destroy();
+    }
+  }
+
+  return {
+    rows,
+    pass: rows.length === B_FRAME_TAIL_VARIANTS.length * B_FRAME_TAIL_TARGETS.length
+      && rows.every(row => row.pass === true),
   };
 }

@@ -1,4 +1,4 @@
-import { MP4Clip } from '@webav/av-cliper';
+import { MP4Clip } from '../../vendor/av-cliper/av-cliper.js';
 import {
   ClipSessionPool,
   FrameMetrics,
@@ -9,7 +9,7 @@ import {
   evaluateFrame,
 } from '../../src/index.js';
 import type { EvaluationPlan, NativeFrameSource } from '../../src/index.js';
-import { inspectBFrameAccess } from './b-frame.js';
+import { inspectBFrameAccess, inspectBFrameTailAccess } from './b-frame.js';
 
 interface SeekHarness {
   fixtureUrl: string;
@@ -383,6 +383,7 @@ async function run(): Promise<void> {
     rawVendor.push({ ...request, ...await rawDecode(request.frameNumber, request.targetUs) });
   }
   const bFrame = await inspectBFrameAccess(window.seekHarness.fixtureUrl, 'full');
+  const bFrameTail = await inspectBFrameTailAccess(window.seekHarness.fixtureUrl);
 
   const profileFrames = {
     head: 120,
@@ -411,6 +412,7 @@ async function run(): Promise<void> {
     && clipSession.every(row => row.decodedFrame === row.frameNumber)
     && clipSession.filter(row => row.requestedFrame === finalFrameNumber).length === 2
     && bFrame.pass
+    && bFrameTail.pass
     && lookahead.every(row => row.hit);
   await window.seekHarness.complete({
     pass,
@@ -424,6 +426,7 @@ async function run(): Promise<void> {
     clipSession,
     rawVendor,
     bFrame,
+    bFrameTail,
     performance: {
       cold: Object.fromEntries(Object.entries(cold).map(([position, values]) => [position, summarize(values)])),
       warm: Object.fromEntries(Object.entries(warm).map(([position, values]) => [position, summarize(values)])),
