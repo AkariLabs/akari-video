@@ -133,3 +133,7 @@ media time に合わせて評価するため、従来の一定 2 コマ手前に
 **G3 裁定（2026-08-28）:** v2 の `bt709-limited` を正とし、legacy の bt601 換算側を近似として扱う。
 
 ベースを単色にしたfixtureでlegacyとOSRの最終MP4を比較すると、MAD 0.019〜0.345 / maxDelta 7〜78であった。字幕・自由HTML・3Dの描画は一致し、全画面差の主因はベース映像のYUV→RGB変換である。オーバーレイ層の突き合わせは単色ベースで行う。
+
+### 11.3 ソフト描画の前提（2026-08-28 追記）
+
+ソフト描画（`AKARI_OSR_SOFT=1`）は Electron 同梱 `libffmpeg.dylib` に H.264 デコーダが含まれていることを前提とする。`apps/shell` のビルドは `@theia/ffmpeg` によって非プロプライエタリ版へ差し替えるため、ビルド済みの作業ツリーではソフト描画の `VideoDecoder.configure` が全指定で失敗する（GPU 描画は VideoToolbox を使うので影響しない）。ソフト描画の diff 0 条件はこの前提のもとでのみ成立する。判定は `libffmpeg.dylib` に `H264 Decoder` 文字列があるかで行う（`isConfigSupported()` は差し替え版でも true を返すため当てにならない）。
