@@ -1,4 +1,5 @@
 import { resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
+import { normalizeGpuCaptionReceiptEntries } from "../../render-cut/src/render-receipt.mjs";
 
 export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility = { entries: [] }, finalVerify = null, profile = "gpu" } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
@@ -20,6 +21,8 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       queueWaits: run?.gpu?.queueWaits ?? null,
       rss_peak: memory.peakBytes ?? null,
       readback: run?.gpu?.readbackCounters ?? {},
+      captions: normalizeGpuCaptionReceiptEntries(run?.gpu?.captions),
+      captionLayoutMaxDeltaPx: finiteNonNegative(run?.gpu?.captionLayoutMaxDeltaPx),
       eligibility: [...(eligibility?.entries ?? [])],
     },
     memory: {
@@ -34,4 +37,9 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
     run: run?.persistentPath ?? null,
     finalVerify,
   };
+}
+
+function finiteNonNegative(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
 }

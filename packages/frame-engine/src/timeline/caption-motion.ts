@@ -302,3 +302,19 @@ function lerp(left: number, right: number, progress: number): number {
 function finiteNumber(value: number, fallback: number): number {
   return Number.isFinite(value) ? value : fallback;
 }
+
+export {
+  buildCaptionWordTiles,
+  captionRevealGroupStateAt,
+  captionWordTextureRect,
+  captionWordStateAt
+} from './caption-words.js';
+export type {
+  CaptionWordRect,
+  CaptionWordRole,
+  CaptionWordState,
+  CaptionWordTile,
+  CaptionWordTileMeasurement,
+  CaptionWordTileToken,
+  CaptionWordTiming
+} from './caption-words.js';

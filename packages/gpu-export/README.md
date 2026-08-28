@@ -10,8 +10,23 @@ directly to MP4 with mp4box. Raw frame pixels are not transferred to Node or pip
 ## Eligibility
 
 The GPU path accepts static HTML sprites, supported caption motion, declarative Three.js scenes,
-and frame-engine layers. Karaoke and other word-level captions, emphasis words, dynamic HTML,
-embedded contexts, external resources, and clip-path caption motion are not supported in v0.
+and frame-engine layers. Dynamic HTML, embedded contexts, external resources, and clip-path caption
+motion are not supported.
+
+### Word-level captions (v2)
+
+Karaoke, pop, reveal, reveal-word, and supported `emphasis_words` are GPU-native. Each caption unit
+is rasterized on first activation into at most two states, while word rectangles measured from the canonical
+caption DOM drive per-frame color mixing, visibility, and affine transforms. Karaoke follows the DOM
+color interpolation rather than a left-to-right wipe. Receipts report `sprite` or `words-native`
+along with unit, word, raster, tile, and two-state layout-delta measurements.
+
+Raster textures keep the full output width but crop vertically to the caption band. They are created
+when a unit first becomes active, the CPU canvas is discarded after upload, and the GPU texture is
+released when the unit ends.
+
+Mixed karaoke color and geometric emphasis, vertical word captions, and unknown word styles remain
+ineligible and fail closed with a concrete reason.
 
 `render-cut --engine auto` uses GPU export on macOS only when the complete project is eligible;
 otherwise it uses OSR. Explicit `--engine gpu` fails closed and prints every ineligibility reason.

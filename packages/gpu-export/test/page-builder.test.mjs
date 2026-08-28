@@ -33,3 +33,36 @@ test("GPU page omits the 3D sheet and exposes sprite/LUT declarations", () => {
   assert.doesNotMatch(result.html, /akari-stamp/);
   assert.doesNotMatch(result.html, /\/Users\//);
 });
+
+test("GPU page manifest declares word mode, style, and emphasis from each cue", () => {
+  const captions = {
+    emphasis_words: [{ id: "e-0001", t_start: 1, t_end: 2, word: "強調", emotion: "pain" }],
+    captions: [
+      {
+        id: "c-karaoke", start: 0, end: 1, text: "字幕", style: "karaoke", time_domain: "output",
+        words: [{ text: "字幕", start: 0, end: 1 }],
+      },
+      {
+        id: "c-emphasis", start: 1, end: 2, text: "強調", time_domain: "output",
+        words: [{ text: "強調", start: 1, end: 2 }],
+      },
+    ],
+  };
+  const result = buildGpuPage({
+    edit,
+    overlays: [],
+    captions,
+    projectRoot: "/unused",
+    duration: 2,
+    frameEngineBundle: "window.AkariFrameEngine={};",
+    pageRuntime: "void 0;",
+  });
+  assert.deepEqual(result.spriteManifest.captions.map((caption) => ({
+    wordMode: caption.wordMode,
+    styleId: caption.styleId,
+    emphasisStyles: caption.emphasisStyles,
+  })), [
+    { wordMode: "karaoke", styleId: "karaoke", emphasisStyles: [] },
+    { wordMode: "geometry", styleId: null, emphasisStyles: ["one-char-bang"] },
+  ]);
+});

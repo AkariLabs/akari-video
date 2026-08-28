@@ -10,8 +10,21 @@ Annex B sample は mp4box で MP4 へ直接格納します。raw frame の Node 
 ## 適格性
 
 GPU 経路は、静的 HTML スプライト、対応済み字幕モーション、宣言型 Three.js scene、frame-engine
-layer を扱います。v0 では karaoke などの語単位字幕、強調語、動的 HTML、埋め込み context、
-外部 resource、clip-path を使う字幕モーションは扱いません。
+layer を扱います。動的 HTML、埋め込み context、外部 resource、clip-path を使う字幕モーションは
+扱いません。
+
+### 語単位字幕（v2）
+
+karaoke、pop、reveal、reveal-word と対応済み `emphasis_words` は GPU-native です。字幕 unit は
+初回活性時に最大 2 状態だけラスタライズし、正本の字幕 DOM から採寸した語矩形により、毎コマの色補間、
+表示、アフィン変形を駆動します。karaoke は左から右へのワイプではなく、DOM と同じ語全体の色補間です。
+receipt には `sprite` / `words-native` と unit・語・ラスタ・タイル数、2 状態のレイアウト差を記録します。
+
+ラスタ texture は出力幅を維持したまま字幕帯だけを縦方向に crop します。unit が初めて活性化したときに
+生成し、upload 後は CPU canvas を手放し、unit の終了時に GPU texture も解放します。
+
+karaoke の色変化と幾何 emphasis の混在、縦書きの語単位字幕、未知の word style は引き続き不適格で、
+具体的な理由を付けて fail-closed になります。
 
 `render-cut --engine auto` は macOS でプロジェクト全体が適格な場合だけ GPU を使い、それ以外は
 OSR を使います。`--engine gpu` の明示指定は fail-closed で、全ての不適格理由を表示します。

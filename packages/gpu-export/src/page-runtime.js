@@ -8,6 +8,7 @@
   const pools = new Map();
   const lookahead = new Map();
   const images = new Map();
+  let captionFontDataUrlPromise = null;
 
   const macrotaskResolvers = [];
   const macrotaskChannel = new MessageChannel();
@@ -164,15 +165,362 @@
     return canvas;
   }
 
-  async function embeddedCaptionFont() {
-    const response = await fetch("/caption-font.ttf");
-    if (!response.ok) throw new Error(`caption font fetch failed: ${response.status}`);
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    let binary = "";
-    for (let index = 0; index < bytes.length; index += 0x8000) {
-      binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  const CAPTION_WORD_FREEZE_CSS = `
+    .akari-caption__tok--karaoke{animation:none!important}
+    .akari-caption__tok--pop{animation:none!important}
+    .akari-caption__tok--reveal-word{animation:none!important;opacity:1!important}
+    .akari-caption__emphasis-char{animation:none!important;opacity:1!important}
+    .akari-caption__tok--size-pulse{animation:none!important}
+    .akari-caption__reveal-group{animation:none!important;opacity:1!important}`;
+
+  function captionHtmlWithUnitMarkers(html) {
+    if (!html.includes("akari-caption__reveal-group")) return html;
+    const parsed = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+    for (const [index, group] of [...parsed.body.querySelectorAll(".akari-caption__reveal-group")].entries()) {
+      group.setAttribute("data-akari-unit", String(index));
     }
-    return `data:font/ttf;base64,${btoa(binary)}`;
+    return parsed.body.innerHTML;
+  }
+
+  function captionUnitCss(unitIndex) {
+    return unitIndex === null ? "" : `
+      .akari-caption__reveal-group[data-akari-unit]:not([data-akari-unit="${unitIndex}"]){visibility:hidden!important}`;
+  }
+
+  function captionRoot(value, config, html, extraCss) {
+    const root = document.createElement("div");
+    root.className = "akari-measure-root";
+    root.style.cssText = `position:fixed;left:0;top:0;width:${config.width}px;height:${config.height}px;overflow:hidden;`
+      + `background:transparent;container-type:size;visibility:hidden;pointer-events:none;${varsCss(value.vars)}`;
+    root.innerHTML = `<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${html}`;
+    document.body.appendChild(root);
+    return root;
+  }
+
+  function relativeRect(rect, origin) {
+    return {
+      x: rect.left - origin.left,
+      y: rect.top - origin.top,
+      width: rect.width,
+      height: rect.height,
+      right: rect.right - origin.left,
+      bottom: rect.bottom - origin.top,
+    };
+  }
+
+  function tokenRole(element) {
+    if (element.classList.contains("akari-caption__emphasis-char")) return "emphasis-bang";
+    if (element.classList.contains("akari-caption__tok--size-pulse")) return "emphasis-pulse";
+    if (element.classList.contains("akari-caption__tok--karaoke")) return "karaoke";
+    if (element.classList.contains("akari-caption__tok--pop")) return "pop";
+    if (element.classList.contains("akari-caption__tok--reveal-word")) return "reveal-word";
+    return "plain";
+  }
+
+  function tokenStyle(element, role) {
+    if (role === "karaoke" || role === "pop" || role === "reveal-word") return role;
+    const token = element.closest(".akari-caption__tok") ?? element;
+    for (const style of [
+      "one-char-bang", "one-char-jumble", "size-pulse", "color-accent", "color-only",
+      "outline-bold", "danger", "positive", "highlight",
+    ]) {
+      if (token.classList.contains(`akari-caption__tok--${style}`)) return style;
+    }
+    return null;
+  }
+
+  function cssSeconds(element, property, fallback) {
+    const value = Number.parseFloat(element.style.getPropertyValue(property).replace(/s$/u, ""));
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  function tokenTiming(element, role, emPx) {
+    if (role === "plain") return null;
+    if (role === "karaoke") return {
+      role, delaySec: cssSeconds(element, "--akari-tok-delay", 0),
+      durationSec: cssSeconds(element, "--akari-tok-dur", 0.2), emPx,
+    };
+    if (role === "pop") return {
+      role, delaySec: cssSeconds(element, "--akari-tok-delay", 0), durationSec: 0.2, emPx,
+    };
+    if (role === "reveal-word") return {
+      role, delaySec: cssSeconds(element, "--akari-tok-delay", 0), durationSec: 0.01, emPx,
+    };
+    return {
+      role,
+      delaySec: cssSeconds(element, "--akari-emphasis-delay", 0),
+      durationSec: cssSeconds(element, "--akari-emphasis-dur", role === "emphasis-bang" ? 0.1 : 0.2),
+      emPx,
+    };
+  }
+
+  function measureCaptionUnit(root, unitIndex) {
+    const origin = root.getBoundingClientRect();
+    const groups = [...root.querySelectorAll(".akari-caption__reveal-group")];
+    const unitElement = groups.length > 0 ? groups[unitIndex] : root;
+    if (!unitElement) throw new Error(`caption reveal unit is missing: ${unitIndex}`);
+    const typographyElement = groups.length > 0
+      ? unitElement
+      : unitElement.querySelector(".akari-caption") ?? unitElement;
+    const emPx = Number.parseFloat(getComputedStyle(typographyElement).fontSize) || 0;
+    const elements = [...unitElement.querySelectorAll(".akari-caption__tok, .akari-caption__emphasis-char")]
+      .filter((element) => !(element.classList.contains("akari-caption__tok")
+        && element.querySelector(".akari-caption__emphasis-char")));
+    const tokens = elements.flatMap((element, tokenIndex) => {
+      const role = tokenRole(element);
+      const line = element.closest(".akari-caption__line");
+      const lineIndex = line ? [...unitElement.querySelectorAll(".akari-caption__line")].indexOf(line) : 0;
+      return [...element.getClientRects()].map((rect, rectIndex) => ({
+        tokenIndex,
+        rectIndex,
+        role,
+        style: tokenStyle(element, role),
+        timing: tokenTiming(element, role, emPx),
+        rect: relativeRect(rect, origin),
+        lineIndex: Math.max(0, lineIndex),
+      }));
+    });
+    const lines = [...unitElement.querySelectorAll(".akari-caption__line")]
+      .map((line) => relativeRect(line.getBoundingClientRect(), origin));
+    const plateElement = root.querySelector(".akari-caption__plate");
+    const plate = plateElement ? relativeRect(plateElement.getBoundingClientRect(), origin) : null;
+    const revealDelay = groups.length > 0 ? cssSeconds(unitElement, "--akari-reveal-delay", 0) : 0;
+    const revealDuration = groups.length > 0 ? cssSeconds(unitElement, "--akari-reveal-dur", 0.2) : 0;
+    const wordCount = unitElement.querySelectorAll(".akari-caption__tok").length;
+    return { tokens, lines, plate, emPx, wordCount, reveal: groups.length > 0, revealDelay, revealDuration };
+  }
+
+  function compareCaptionLayouts(left, right, id) {
+    if (left.tokens.length !== right.tokens.length) throw new Error(`caption ${id} layout token count mismatch`);
+    let maximum = 0;
+    for (let index = 0; index < left.tokens.length; index += 1) {
+      const a = left.tokens[index].rect;
+      const b = right.tokens[index].rect;
+      for (const key of ["x", "y", "width", "height"]) maximum = Math.max(maximum, Math.abs(a[key] - b[key]));
+    }
+    if (maximum > 0.01) throw new Error(`caption ${id} two-raster layout mismatch: ${maximum}px`);
+    return maximum;
+  }
+
+  async function measureCaptionVariants(value, config, html, cssVariants, unitIndex) {
+    const root = captionRoot(value, config, html, cssVariants[0]);
+    try {
+      const styleElement = root.querySelector("style");
+      if (!styleElement) throw new Error(`caption ${value.id} measurement style is missing`);
+      const typography = root.querySelector(".akari-caption");
+      let fontDeclaration = null;
+      let fontSample = "字幕";
+      if (typography && typeof document.fonts.load === "function") {
+        const computed = getComputedStyle(typography);
+        fontDeclaration = `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
+        fontSample = typography.textContent || fontSample;
+        await document.fonts.load(fontDeclaration, fontSample);
+      }
+      await document.fonts.ready;
+      if (fontDeclaration !== null && !document.fonts.check(fontDeclaration, fontSample)) {
+        throw new Error(`caption ${value.id} font is not ready for measurement`);
+      }
+      const measurements = [];
+      for (const css of cssVariants) {
+        styleElement.textContent = `html,body{margin:0;width:100%;height:100%;overflow:hidden}${css}`;
+        void root.getBoundingClientRect();
+        measurements.push(measureCaptionUnit(root, unitIndex));
+      }
+      return measurements;
+    } finally {
+      root.remove();
+    }
+  }
+
+  function captionRasterSvg(value, config, html, extraCss) {
+    const xhtml = serializeHtmlToXhtml(html);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${config.width}" height="${config.height}" viewBox="0 0 ${config.width} ${config.height}">
+      <foreignObject width="100%" height="100%">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="akari-sprite-root" style="position:relative;width:${config.width}px;height:${config.height}px;overflow:hidden;background:transparent;container-type:size;${varsCss(value.vars)}">
+          <style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${xhtml}
+        </div>
+      </foreignObject>
+    </svg>`;
+  }
+
+  function assertCaptionSvg(svg, id) {
+    const parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
+    const parserError = parsed.querySelector("parsererror");
+    if (parserError) throw new Error(`caption ${id} SVG parsererror: ${parserError.textContent}`);
+  }
+
+  function assignCaptionImageSource(image, svg, fontDataUrl) {
+    const embeddedSvg = svg.replaceAll("/caption-font.ttf", fontDataUrl);
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(embeddedSvg)}`;
+  }
+
+  async function decodeCaptionSvg(svg, id) {
+    const image = new Image();
+    image.decoding = "sync";
+    const loaded = new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error(`caption ${id} image load failed`));
+    });
+    assignCaptionImageSource(image, svg, await embeddedCaptionFont());
+    await loaded;
+    if (image.naturalWidth === 0 || image.naturalHeight === 0) {
+      throw new Error(`caption ${id} decoded empty`);
+    }
+    return image;
+  }
+
+  async function rasterizeCaptionState(value, config, html, extraCss, textureRect) {
+    const settled = value.motion?.in?.duration_sec ?? value.motion?.in?.durationSec ?? 0.18;
+    const settleCss = `.akari-sprite-root,.akari-sprite-root *{animation-play-state:paused!important;animation-delay:-${Math.max(0, Number(settled) || 0)}s!important}`;
+    const svg = captionRasterSvg(value, config, html, `${settleCss}${extraCss}`);
+    assertCaptionSvg(svg, value.id);
+    const image = await decodeCaptionSvg(svg, value.id);
+    const canvas = document.createElement("canvas");
+    canvas.width = textureRect.width;
+    canvas.height = textureRect.height;
+    const context = canvas.getContext("2d", { alpha: true });
+    if (!context) throw new Error("caption 2D canvas is unavailable");
+    context.clearRect(0, 0, textureRect.width, textureRect.height);
+    context.drawImage(image, 0, -textureRect.y);
+    image.src = "";
+    return canvas;
+  }
+
+  async function registerCaptionUnit(unit, config, spriteCompositor) {
+    if (unit.registered || unit.released) throw new Error(`caption unit cannot be registered: ${unit.id}`);
+    for (const [index, css] of unit.rasterCss.entries()) {
+      const canvas = await rasterizeCaptionState(unit.value, config, unit.html, css, unit.textureRect);
+      const id = index === 0 ? unit.id : unit.secondaryId;
+      if (!id) throw new Error(`caption unit secondary id is missing: ${unit.id}`);
+      spriteCompositor.registerSprite(id, canvas);
+      canvas.width = 0;
+      canvas.height = 0;
+      await yieldMacrotask();
+    }
+    unit.registered = true;
+    unit.html = "";
+    unit.rasterCss = [];
+    unit.value = null;
+  }
+
+  function releaseCaptionUnit(unit, spriteCompositor) {
+    if (unit.released) return;
+    if (unit.registered) {
+      spriteCompositor.releaseSprite(unit.id);
+      if (unit.secondaryId) spriteCompositor.releaseSprite(unit.secondaryId);
+    }
+    unit.registered = false;
+    unit.released = true;
+    unit.html = "";
+    unit.rasterCss = [];
+    unit.value = null;
+  }
+
+  async function buildCaptionUnits(value, config) {
+    const html = captionHtmlWithUnitMarkers(value.html);
+    const probe = captionRoot(value, config, html, CAPTION_WORD_FREEZE_CSS);
+    let unitCount;
+    try {
+      await document.fonts.ready;
+      unitCount = Math.max(1, probe.querySelectorAll(".akari-caption__reveal-group").length);
+    } finally {
+      probe.remove();
+    }
+    const units = [];
+    let layoutMaxDeltaPx = 0;
+    for (let unitIndex = 0; unitIndex < unitCount; unitIndex += 1) {
+      const revealIndex = unitCount > 1 || html.includes("akari-caption__reveal-group") ? unitIndex : null;
+      const unitCss = `${CAPTION_WORD_FREEZE_CSS}${captionUnitCss(revealIndex)}`;
+      const [probeMeasurement] = await measureCaptionVariants(value, config, html, [unitCss], unitIndex);
+      const roles = new Set(probeMeasurement.tokens.map((token) => token.role));
+      const hasColor = roles.has("karaoke");
+      const hasGeometry = ["pop", "reveal-word", "emphasis-bang", "emphasis-pulse"].some((role) => roles.has(role));
+      if (hasColor && hasGeometry) throw new Error(`caption ${value.id} contains mixed color and geometry word roles`);
+      const mode = hasColor ? "color" : hasGeometry ? "geometry" : "sprite";
+      const id = `${value.id}::unit-${unitIndex}`;
+      let secondaryId = null;
+      let rasterCss;
+      let tiles = null;
+      let unitMeasurement = probeMeasurement;
+      if (mode === "color") {
+        const baseCss = `${unitCss}.akari-caption__tok--karaoke{color:var(--caption-color,#fff)!important}`;
+        const highlightCss = `${unitCss}.akari-caption__tok--karaoke{color:var(--caption-highlight-color,#ffd94a)!important}`;
+        const [baseMeasurement, highlightMeasurement] = await measureCaptionVariants(
+          value,
+          config,
+          html,
+          [baseCss, highlightCss],
+          unitIndex,
+        );
+        // Keep the strict threshold: measuring variants in one root removes insertion jitter
+        // instead of hiding a real layout mismatch by widening the tolerance.
+        layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(baseMeasurement, highlightMeasurement, id));
+        unitMeasurement = baseMeasurement;
+        rasterCss = [baseCss, highlightCss];
+        secondaryId = `${id}::b`;
+      } else if (mode === "geometry") {
+        const plateCss = `${unitCss}.akari-caption__tok,.akari-caption__emphasis-char{visibility:hidden!important}`;
+        const textCss = `${unitCss}.akari-caption__line,.akari-caption__block{background:transparent!important}`
+          + `.akari-caption__line::before{background:transparent!important}`;
+        const [plateMeasurement, textMeasurement] = await measureCaptionVariants(
+          value,
+          config,
+          html,
+          [plateCss, textCss],
+          unitIndex,
+        );
+        layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(plateMeasurement, textMeasurement, id));
+        unitMeasurement = plateMeasurement;
+        rasterCss = [plateCss, textCss];
+        secondaryId = `${id}::b`;
+      } else {
+        rasterCss = [unitCss];
+      }
+      const textureRect = FE.captionWordTextureRect(unitMeasurement, config);
+      tiles = mode === "sprite"
+        ? null
+        : FE.buildCaptionWordTiles(unitMeasurement, { ...config, textureRect });
+      units.push({
+        id,
+        secondaryId,
+        value: { id: value.id, motion: value.motion, vars: value.vars },
+        html,
+        rasterCss,
+        textureRect,
+        tiles,
+        mode,
+        cueId: value.id,
+        cueStart: value.start,
+        cueDuration: value.duration,
+        motion: value.motion,
+        emPx: unitMeasurement.emPx || value.emPx,
+        wordCount: unitMeasurement.wordCount,
+        style: [...new Set([
+          ...(unitMeasurement.reveal ? ["reveal"] : []),
+          ...unitMeasurement.tokens.map((token) => token.style).filter(Boolean),
+        ])],
+        reveal: unitMeasurement.reveal,
+        revealDelay: unitMeasurement.revealDelay,
+        revealDuration: unitMeasurement.revealDuration,
+        registered: false,
+        released: false,
+      });
+    }
+    return { units, layoutMaxDeltaPx };
+  }
+
+  function embeddedCaptionFont() {
+    captionFontDataUrlPromise ??= (async () => {
+      const response = await fetch("/caption-font.ttf");
+      if (!response.ok) throw new Error(`caption font fetch failed: ${response.status}`);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      let binary = "";
+      for (let index = 0; index < bytes.length; index += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+      }
+      return `data:font/ttf;base64,${btoa(binary)}`;
+    })();
+    return captionFontDataUrlPromise;
   }
 
   function installReadbackTraps(counters) {
@@ -236,9 +584,12 @@
     const engine = new GpuFrameEngineRuntime(config);
     const finalCanvas = document.getElementById("akari-final");
     const spriteCompositor = new FE.SpriteCompositor(finalCanvas, { width: config.width, height: config.height });
-    const stages = { evaluate: [], three: [], composite: [], encode: [], backpressure: [] };
+    const stages = { evaluate: [], three: [], captionRaster: [], captions: [], composite: [], encode: [], backpressure: [] };
     const frameHashes = [];
     const threeRecords = new Map();
+    const captionUnits = [];
+    const captionRecords = [];
+    let captionLayoutMaxDeltaPx = 0;
     let threeRuntime = null;
     let queueWaits = 0;
     let encoder = null;
@@ -246,12 +597,32 @@
     let hashFrame = null;
     const started = performance.now();
     try {
-      if (config.spriteManifest.captions.length > 0) {
-        const font = await embeddedCaptionFont();
-        for (const caption of config.spriteManifest.captions) caption.html = caption.html.replaceAll("/caption-font.ttf", font);
-      }
-      for (const value of [...config.spriteManifest.statics, ...config.spriteManifest.captions]) {
+      for (const value of config.spriteManifest.statics) {
         spriteCompositor.registerSprite(value.id, await rasterizeSprite(value, config));
+      }
+      for (const value of config.spriteManifest.captions) {
+        const built = await buildCaptionUnits(value, config);
+        captionLayoutMaxDeltaPx = Math.max(captionLayoutMaxDeltaPx, built.layoutMaxDeltaPx);
+        let rasters = 0;
+        let tiles = 0;
+        let words = 0;
+        for (const unit of built.units) {
+          rasters += unit.rasterCss.length;
+          tiles += unit.tiles?.length ?? 0;
+          words += unit.wordCount;
+          captionUnits.push(unit);
+        }
+        const usedStyles = [...new Set(built.units.flatMap((unit) => unit.style))];
+        captionRecords.push({
+          id: value.id,
+          mode: built.units.some((unit) => unit.tiles !== null) ? "words-native" : "sprite",
+          style: usedStyles.length > 0 ? usedStyles.join("+") : null,
+          units: built.units.length,
+          words,
+          rasters,
+          tiles,
+        });
+        value.html = "";
       }
       const overlayFrame = document.getElementById("akari-overlays");
       if (overlayFrame) {
@@ -323,14 +694,70 @@
           const draws = [];
           for (const value of config.spriteManifest.statics) if (activeAt(value, seconds)) draws.push({ id: value.id, opacity: 1 });
           for (const value of config.spriteManifest.three) if (activeAt(value, seconds)) draws.push({ id: value.id, opacity: 1 });
-          for (const value of config.spriteManifest.captions) {
-            if (!activeAt(value, seconds)) continue;
-            const state = FE.captionMotionAt(value.motion, seconds - value.start, value.duration, value.emPx);
-            draws.push({ id: value.id, ...state });
+          for (const unit of captionUnits) {
+            if (seconds >= unit.cueStart + unit.cueDuration) {
+              releaseCaptionUnit(unit, spriteCompositor);
+            }
+            if (seconds < unit.cueStart || seconds >= unit.cueStart + unit.cueDuration) continue;
+            if (!unit.registered) {
+              const rasterStarted = performance.now();
+              await registerCaptionUnit(unit, config, spriteCompositor);
+              stages.captionRaster.push(performance.now() - rasterStarted);
+            }
+          }
+          const captionStarted = performance.now();
+          for (const unit of captionUnits) {
+            if (seconds < unit.cueStart || seconds >= unit.cueStart + unit.cueDuration) continue;
+            const localSeconds = seconds - unit.cueStart;
+            const revealState = unit.reveal
+              ? FE.captionRevealGroupStateAt(unit.revealDelay, unit.revealDuration, localSeconds, unit.emPx)
+              : null;
+            const state = revealState
+              ? {
+                  opacity: revealState.opacity,
+                  translateY: revealState.translateY,
+                  translateX: 0,
+                  scaleX: 1,
+                  scaleY: 1,
+                  rotateDeg: 0,
+                }
+              : FE.captionMotionAt(unit.motion, localSeconds, unit.cueDuration, unit.emPx);
+            if (state.opacity <= 0) continue;
+            if (unit.tiles === null) {
+              draws.push({ id: unit.id, textureRect: unit.textureRect, ...state });
+              continue;
+            }
+            const tiles = unit.tiles.map((tile) => {
+              if (tile.timing === null) return tile.static;
+              const wordState = FE.captionWordStateAt(tile.timing, localSeconds);
+              return {
+                ...tile.static,
+                mix: wordState.mix,
+                visible: wordState.visible,
+                opacity: wordState.opacity,
+                translateX: wordState.translateX,
+                translateY: wordState.translateY,
+                scaleX: wordState.scaleX,
+                scaleY: wordState.scaleY,
+              };
+            });
+            if (unit.mode === "geometry") {
+              draws.push({ id: unit.id, textureRect: unit.textureRect, ...state });
+              draws.push({ id: unit.secondaryId, textureRect: unit.textureRect, tiles, ...state });
+            } else {
+              draws.push({
+                id: unit.id,
+                secondaryId: unit.secondaryId,
+                textureRect: unit.textureRect,
+                tiles,
+                ...state,
+              });
+            }
           }
           const compositeStarted = performance.now();
           spriteCompositor.compose(frame.surface.canvas, draws);
           stages.composite.push(performance.now() - compositeStarted);
+          if (captionUnits.length > 0) stages.captions.push(compositeStarted - captionStarted);
           if (hashFrame) frameHashes.push(await hashFrame(finalCanvas));
           if (encoder) {
             const encodeStarted = performance.now();
@@ -359,6 +786,8 @@
               queueDepth: config.queueDepth,
               queueWaits,
               readbackCounters: counters,
+              captions: captionRecords,
+              captionLayoutMaxDeltaPx,
             },
           });
         }
@@ -383,6 +812,8 @@
           queueWaits,
           trapReadback: Boolean(config.trapReadback),
           readbackCounters: counters,
+          captions: captionRecords,
+          captionLayoutMaxDeltaPx,
         },
         mux,
         eligibility: config.eligibility,

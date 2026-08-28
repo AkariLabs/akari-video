@@ -5026,8 +5026,8 @@ ${indent}`);
       Object.defineProperty(exports, "__esModule", { value: true });
       exports.computeTransitionVisual = computeTransitionVisual;
       function computeTransitionVisual(previewKind, rawProgress, fallbackName = "") {
-        const clamp01 = (value) => Math.max(0, Math.min(1, value));
-        const progress = clamp01(Number.isFinite(rawProgress) ? rawProgress : 0);
+        const clamp012 = (value) => Math.max(0, Math.min(1, value));
+        const progress = clamp012(Number.isFinite(rawProgress) ? rawProgress : 0);
         const mid = 1 - Math.abs(2 * progress - 1);
         const percent = (value) => `${value * 100}%`;
         const translateX = (value) => `translateX(${percent(value)})`;
@@ -5071,7 +5071,7 @@ ${indent}`);
         if (previewKind === "fade-black" || previewKind === "fade-white") {
           return {
             ...cross(),
-            plateOpacity: clamp01(Math.min(progress / 0.18, (1 - progress) / 0.7)),
+            plateOpacity: clamp012(Math.min(progress / 0.18, (1 - progress) / 0.7)),
             plateColor: previewKind === "fade-white" ? "#fff" : "#000"
           };
         }
@@ -13024,10 +13024,14 @@ ${indent}`);
     WebGL2Compositor: () => WebGL2Compositor,
     applyHomography: () => applyHomography,
     buildBaseFragment: () => buildBaseFragment,
+    buildCaptionWordTiles: () => buildCaptionWordTiles,
     buildKeyframeIndexFromHeader: () => buildKeyframeIndexFromHeader,
     buildResolvedTimelinePlan: () => buildResolvedTimelinePlan,
     calculateDecoderTimestampOffsetUs: () => calculateDecoderTimestampOffsetUs,
     captionMotionAt: () => captionMotionAt,
+    captionRevealGroupStateAt: () => captionRevealGroupStateAt,
+    captionWordStateAt: () => captionWordStateAt,
+    captionWordTextureRect: () => captionWordTextureRect,
     capturePresentedRgba: () => capturePresentedRgba,
     compareRgba: () => compareRgba,
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
@@ -13045,12 +13049,16 @@ ${indent}`);
     isDecoderErrorMessage: () => isDecoderErrorMessage,
     isLayerActiveAt: () => isLayerActiveAt,
     normalizeSpriteDraw: () => normalizeSpriteDraw,
+    normalizeSpriteTextureRect: () => normalizeSpriteTextureRect,
+    normalizeSpriteTile: () => normalizeSpriteTile,
     parseCube: () => parseCube,
     presentFrame: () => presentFrame,
     presentationFrameTiming: () => presentationFrameTiming,
     readbackFrame: () => readbackFrame,
     resolveLookLutPath: () => resolveLookLutPath,
     sampleLutTrilinear: () => sampleLutTrilinear,
+    spriteTileMatrix: () => spriteTileMatrix,
+    spriteTileSourceRect: () => spriteTileSourceRect,
     spriteTransformMatrix: () => spriteTransformMatrix,
     watchDecoderErrors: () => watchDecoderErrors,
     withTimeout: () => withTimeout
@@ -14783,11 +14791,11 @@ void main() {
       }
     }
     const amount = right.t > left.t ? clamp((playbackSeconds - left.t) / (right.t - left.t), 0, 1) : 0;
-    const lerp2 = (a, b) => a + (b - a) * amount;
+    const lerp3 = (a, b) => a + (b - a) * amount;
     return {
-      scale: Math.max(1, lerp2(finite2(left.scale, 1), finite2(right.scale, 1))),
-      centerX: clamp(lerp2(finite2(left.cx, 0.5), finite2(right.cx, 0.5)), 0, 1),
-      centerY: clamp(lerp2(finite2(left.cy, 0.5), finite2(right.cy, 0.5)), 0, 1)
+      scale: Math.max(1, lerp3(finite2(left.scale, 1), finite2(right.scale, 1))),
+      centerX: clamp(lerp3(finite2(left.cx, 0.5), finite2(right.cx, 0.5)), 0, 1),
+      centerY: clamp(lerp3(finite2(left.cy, 0.5), finite2(right.cy, 0.5)), 0, 1)
     };
   }
   function visualAt(cut, playbackSeconds) {
@@ -18228,6 +18236,45 @@ void main() {
       rotateDeg: finite4(draw.rotateDeg, 0, "rotateDeg")
     };
   }
+  function normalizeSpriteTile(tile) {
+    if (!tile || !Number.isInteger(tile.x) || !Number.isInteger(tile.y) || !Number.isInteger(tile.width) || !Number.isInteger(tile.height) || tile.width <= 0 || tile.height <= 0) {
+      throw new Error("sprite tile rectangle must use positive integer dimensions");
+    }
+    return {
+      x: tile.x,
+      y: tile.y,
+      width: tile.width,
+      height: tile.height,
+      mix: Math.max(0, Math.min(1, finite4(tile.mix, 0, "tile mix"))),
+      visible: tile.visible ?? true,
+      opacity: Math.max(0, Math.min(1, finite4(tile.opacity, 1, "tile opacity"))),
+      translateX: finite4(tile.translateX, 0, "tile translateX"),
+      translateY: finite4(tile.translateY, 0, "tile translateY"),
+      scaleX: finite4(tile.scaleX, 1, "tile scaleX"),
+      scaleY: finite4(tile.scaleY, 1, "tile scaleY"),
+      rotateDeg: finite4(tile.rotateDeg, 0, "tile rotateDeg")
+    };
+  }
+  function normalizeSpriteTextureRect(rect, canvasWidth, canvasHeight) {
+    if (!Number.isFinite(canvasWidth) || canvasWidth <= 0 || !Number.isFinite(canvasHeight) || canvasHeight <= 0) {
+      throw new Error("sprite compositor dimensions must be positive");
+    }
+    const value = rect ?? { x: 0, y: 0, width: canvasWidth, height: canvasHeight };
+    if (!Number.isFinite(value.x) || !Number.isFinite(value.y) || !Number.isFinite(value.width) || !Number.isFinite(value.height) || value.width <= 0 || value.height <= 0) {
+      throw new Error("sprite texture rectangle must use finite positive dimensions");
+    }
+    return { x: value.x, y: value.y, width: value.width, height: value.height };
+  }
+  function spriteTileSourceRect(tile, textureRect, canvasWidth, canvasHeight) {
+    const value = normalizeSpriteTile(tile);
+    const texture = normalizeSpriteTextureRect(textureRect, canvasWidth, canvasHeight);
+    return new Float32Array([
+      (value.x - texture.x) / texture.width,
+      (value.y - texture.y) / texture.height,
+      value.width / texture.width,
+      value.height / texture.height
+    ]);
+  }
   function spriteTransformMatrix(draw, width, height) {
     if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
       throw new Error("sprite compositor dimensions must be positive");
@@ -18247,6 +18294,34 @@ void main() {
       0,
       translateX,
       translateY,
+      1
+    ]);
+  }
+  function spriteTileMatrix(tile, width, height) {
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+      throw new Error("sprite compositor dimensions must be positive");
+    }
+    const value = normalizeSpriteTile(tile);
+    const radians = value.rotateDeg * Math.PI / 180;
+    const cosine = Math.cos(radians);
+    const sine = Math.sin(radians);
+    const a = cosine * value.scaleX;
+    const b = sine * value.scaleX;
+    const c = -sine * value.scaleY;
+    const d2 = cosine * value.scaleY;
+    const centerX = (value.x + value.width / 2) * 2 / width - 1;
+    const centerY = 1 - (value.y + value.height / 2) * 2 / height;
+    const translatedCenterX = centerX + value.translateX * 2 / width;
+    const translatedCenterY = centerY - value.translateY * 2 / height;
+    return new Float32Array([
+      a,
+      b,
+      0,
+      c,
+      d2,
+      0,
+      translatedCenterX - a * centerX - c * centerY,
+      translatedCenterY - b * centerX - d2 * centerY,
       1
     ]);
   }
@@ -18279,6 +18354,17 @@ void main() {
     program;
     matrixLocation;
     opacityLocation;
+    positionLocation;
+    vertexBuffer;
+    tileProgram;
+    tilePositionLocation;
+    tileVertexBuffer;
+    tileUnitLocation;
+    tileTransformLocation;
+    tileSourceLocation;
+    tileDestinationLocation;
+    tileMixLocation;
+    tileOpacityLocation;
     baseTexture;
     sprites = /* @__PURE__ */ new Map();
     disposed = false;
@@ -18328,9 +18414,11 @@ void main() {
       gl.useProgram(program);
       const buffer = gl.createBuffer();
       if (!buffer) throw new Error("sprite compositor could not create vertex buffer");
+      this.vertexBuffer = buffer;
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
       const position = gl.getAttribLocation(program, "position");
+      this.positionLocation = position;
       gl.enableVertexAttribArray(position);
       gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
       const matrixLocation = gl.getUniformLocation(program, "transform");
@@ -18339,6 +18427,67 @@ void main() {
       this.matrixLocation = matrixLocation;
       this.opacityLocation = opacityLocation;
       gl.uniform1i(gl.getUniformLocation(program, "image"), 0);
+      const tileVertex = compileShader2(gl, gl.VERTEX_SHADER, `#version 300 es
+      in vec2 position;
+      out vec2 uv;
+      uniform vec4 uSrc;
+      uniform vec4 uDst;
+      uniform vec2 uCanvas;
+      uniform mat3 uUnit;
+      uniform mat3 uTile;
+      void main() {
+        vec2 ratio = vec2(position.x * .5 + .5, .5 - position.y * .5);
+        uv = uSrc.xy + ratio * uSrc.zw;
+        vec2 pixel = uDst.xy + ratio * uDst.zw;
+        vec2 clip = vec2(pixel.x * 2. / uCanvas.x - 1., 1. - pixel.y * 2. / uCanvas.y);
+        vec3 point = uUnit * uTile * vec3(clip, 1.);
+        gl_Position = vec4(point.xy, 0., 1.);
+      }`);
+      const tileFragment = compileShader2(gl, gl.FRAGMENT_SHADER, `#version 300 es
+      precision highp float;
+      in vec2 uv;
+      out vec4 color;
+      uniform sampler2D baseImage;
+      uniform sampler2D highlightImage;
+      uniform float uMix;
+      uniform float uOpacity;
+      void main() {
+        vec4 base = texture(baseImage, uv);
+        vec4 highlight = texture(highlightImage, uv);
+        color = vec4(mix(base.rgb, highlight.rgb, uMix), base.a * uOpacity);
+      }`);
+      const tileProgram = gl.createProgram();
+      if (!tileProgram) throw new Error("sprite compositor could not create tile program");
+      gl.attachShader(tileProgram, tileVertex);
+      gl.attachShader(tileProgram, tileFragment);
+      gl.linkProgram(tileProgram);
+      gl.deleteShader(tileVertex);
+      gl.deleteShader(tileFragment);
+      if (!gl.getProgramParameter(tileProgram, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(tileProgram) ?? "sprite tile compositor link failed");
+      }
+      this.tileProgram = tileProgram;
+      const tileBuffer = gl.createBuffer();
+      if (!tileBuffer) throw new Error("sprite compositor could not create tile vertex buffer");
+      this.tileVertexBuffer = tileBuffer;
+      gl.bindBuffer(gl.ARRAY_BUFFER, tileBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      this.tilePositionLocation = gl.getAttribLocation(tileProgram, "position");
+      const requiredUniform = (name) => {
+        const location = gl.getUniformLocation(tileProgram, name);
+        if (!location) throw new Error(`sprite tile compositor uniform is unavailable: ${name}`);
+        return location;
+      };
+      this.tileUnitLocation = requiredUniform("uUnit");
+      this.tileTransformLocation = requiredUniform("uTile");
+      this.tileSourceLocation = requiredUniform("uSrc");
+      this.tileDestinationLocation = requiredUniform("uDst");
+      this.tileMixLocation = requiredUniform("uMix");
+      this.tileOpacityLocation = requiredUniform("uOpacity");
+      gl.useProgram(tileProgram);
+      gl.uniform1i(gl.getUniformLocation(tileProgram, "baseImage"), 0);
+      gl.uniform1i(gl.getUniformLocation(tileProgram, "highlightImage"), 1);
+      gl.uniform2f(gl.getUniformLocation(tileProgram, "uCanvas"), canvas.width, canvas.height);
       this.baseTexture = createTexture(gl);
       gl.viewport(0, 0, canvas.width, canvas.height);
     }
@@ -18356,6 +18505,13 @@ void main() {
       if (!texture) throw new Error(`unknown sprite: ${id}`);
       this.upload(texture, source);
     }
+    releaseSprite(id) {
+      this.assertUsable();
+      const texture = this.sprites.get(id);
+      if (!texture) throw new Error(`unknown sprite: ${id}`);
+      this.gl.deleteTexture(texture);
+      this.sprites.delete(id);
+    }
     compose(base, draws) {
       this.assertUsable();
       const gl = this.gl;
@@ -18368,7 +18524,18 @@ void main() {
       for (const draw of draws) {
         const texture = this.sprites.get(draw.id);
         if (!texture) throw new Error(`unknown sprite: ${draw.id}`);
-        this.draw(texture, draw, true);
+        if (draw.tiles !== void 0) {
+          const secondary = draw.secondaryId === void 0 ? texture : this.sprites.get(draw.secondaryId);
+          if (!secondary) throw new Error(`unknown secondary sprite: ${draw.secondaryId}`);
+          this.drawTiles(texture, secondary, draw);
+        } else if (draw.textureRect !== void 0) {
+          this.drawTiles(texture, texture, {
+            ...draw,
+            tiles: [{ ...draw.textureRect }]
+          });
+        } else {
+          this.draw(texture, draw, true);
+        }
       }
       gl.flush();
     }
@@ -18378,7 +18545,10 @@ void main() {
       this.gl.deleteTexture(this.baseTexture);
       for (const texture of this.sprites.values()) this.gl.deleteTexture(texture);
       this.sprites.clear();
+      this.gl.deleteBuffer(this.vertexBuffer);
+      this.gl.deleteBuffer(this.tileVertexBuffer);
       this.gl.deleteProgram(this.program);
+      this.gl.deleteProgram(this.tileProgram);
     }
     upload(texture, source) {
       const gl = this.gl;
@@ -18391,6 +18561,11 @@ void main() {
     draw(texture, draw, blend) {
       const gl = this.gl;
       const value = normalizeSpriteDraw(draw);
+      gl.useProgram(this.program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+      gl.enableVertexAttribArray(this.positionLocation);
+      gl.vertexAttribPointer(this.positionLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.uniformMatrix3fv(this.matrixLocation, false, spriteTransformMatrix(value, this.canvas.width, this.canvas.height));
       gl.uniform1f(this.opacityLocation, value.opacity);
@@ -18402,13 +18577,236 @@ void main() {
       }
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
+    drawTiles(base, secondary, draw) {
+      const gl = this.gl;
+      const unit = normalizeSpriteDraw(draw);
+      const textureRect = normalizeSpriteTextureRect(
+        draw.textureRect,
+        this.canvas.width,
+        this.canvas.height
+      );
+      gl.useProgram(this.tileProgram);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.tileVertexBuffer);
+      gl.enableVertexAttribArray(this.tilePositionLocation);
+      gl.vertexAttribPointer(this.tilePositionLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, base);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, secondary);
+      gl.uniformMatrix3fv(this.tileUnitLocation, false, spriteTransformMatrix(unit, this.canvas.width, this.canvas.height));
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      for (const tile of draw.tiles ?? []) {
+        const value = normalizeSpriteTile(tile);
+        if (!value.visible) continue;
+        const source = spriteTileSourceRect(value, textureRect, this.canvas.width, this.canvas.height);
+        gl.uniform4f(this.tileSourceLocation, source[0], source[1], source[2], source[3]);
+        gl.uniform4f(this.tileDestinationLocation, value.x, value.y, value.width, value.height);
+        gl.uniformMatrix3fv(this.tileTransformLocation, false, spriteTileMatrix(value, this.canvas.width, this.canvas.height));
+        gl.uniform1f(this.tileMixLocation, value.mix);
+        gl.uniform1f(this.tileOpacityLocation, unit.opacity * value.opacity);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      }
+      gl.activeTexture(gl.TEXTURE0);
+    }
     assertUsable() {
       if (this.disposed) throw new Error("sprite compositor is disposed");
     }
   };
 
-  // packages/frame-engine/src/timeline/caption-motion.ts
+  // packages/frame-engine/src/timeline/caption-words.ts
   var identity = () => ({
+    mix: 0,
+    visible: true,
+    opacity: 1,
+    translateX: 0,
+    translateY: 0,
+    scaleX: 1,
+    scaleY: 1
+  });
+  var clamp01 = (value) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
+  var lerp = (left, right, progress) => left + (right - left) * clamp01(progress);
+  var easeOut = (progress) => cubicBezierAt(clamp01(progress), 0, 0, 0.58, 1);
+  var easeInOut = (progress) => cubicBezierAt(clamp01(progress), 0.42, 0, 0.58, 1);
+  function progressAt(timing, localSeconds) {
+    const local = Number.isFinite(localSeconds) ? localSeconds : 0;
+    const delay = Number.isFinite(timing.delaySec) ? timing.delaySec : 0;
+    const duration = Math.max(Number.isFinite(timing.durationSec) ? timing.durationSec : 0, 1e-9);
+    return clamp01((local - delay) / duration);
+  }
+  function twoSegment(progress, start, middle, end, ease2) {
+    if (progress <= 0.5) return lerp(start, middle, ease2(progress * 2));
+    return lerp(middle, end, ease2((progress - 0.5) * 2));
+  }
+  function captionWordStateAt(timing, localSeconds) {
+    const state = identity();
+    const progress = progressAt(timing, localSeconds);
+    const emPx = Math.max(0, Number.isFinite(timing.emPx) ? Number(timing.emPx) : 0);
+    switch (timing.role) {
+      case "karaoke":
+        return { ...state, mix: progress };
+      case "pop": {
+        const scale = twoSegment(progress, 1, 1.12, 1, easeOut);
+        const translateY = twoSegment(progress, 0, -0.08 * emPx, 0, easeOut);
+        return { ...state, scaleX: scale, scaleY: scale, translateY };
+      }
+      case "reveal-word":
+        return { ...state, visible: progress > 0, opacity: progress };
+      case "emphasis-bang": {
+        const eased = easeOut(progress);
+        const opacity = eased;
+        const scale = lerp(1.6, 1, eased);
+        return { ...state, visible: opacity > 0, opacity, scaleX: scale, scaleY: scale };
+      }
+      case "emphasis-pulse": {
+        const scale = twoSegment(progress, 1, 1.25, 1, easeInOut);
+        return { ...state, scaleX: scale, scaleY: scale };
+      }
+      case "plain":
+      default:
+        return state;
+    }
+  }
+  function captionRevealGroupStateAt(delaySec, durationSec, localSeconds, emPx) {
+    const progress = progressAt({ role: "plain", delaySec, durationSec }, localSeconds);
+    const em = Math.max(0, Number.isFinite(emPx) ? emPx : 0);
+    if (progress <= 0.12) {
+      const interval = progress / 0.12;
+      return { opacity: interval, translateY: lerp(0.18 * em, 0, interval) };
+    }
+    if (progress <= 0.9999) return { opacity: 1, translateY: 0 };
+    if (progress >= 1) return { opacity: 0, translateY: 0 };
+    return { opacity: lerp(1, 0, (progress - 0.9999) / 1e-4), translateY: 0 };
+  }
+  function integerTile(x3, y2, width, height) {
+    return { x: x3, y: y2, width, height, mix: 0, visible: true, opacity: 1 };
+  }
+  function buildCaptionWordTiles(measurement, size) {
+    const width = Number(size.width);
+    const height = Number(size.height);
+    if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
+      throw new Error("caption tile dimensions must be positive integers");
+    }
+    if (!measurement || measurement.tokens.length === 0) return null;
+    const textureRect = size.textureRect ?? {
+      x: 0,
+      y: 0,
+      width,
+      height,
+      right: width,
+      bottom: height
+    };
+    const cropLeft = Math.max(0, Math.floor(textureRect.x));
+    const cropTop = Math.max(0, Math.floor(textureRect.y));
+    const cropRight = Math.min(width, Math.ceil(textureRect.right));
+    const cropBottom = Math.min(height, Math.ceil(textureRect.bottom));
+    if (cropRight <= cropLeft || cropBottom <= cropTop) {
+      throw new Error("caption texture rectangle must overlap the frame");
+    }
+    const margin = Math.ceil(0.35 * Math.max(0, Number(measurement.emPx) || 0));
+    const byLine = /* @__PURE__ */ new Map();
+    for (const token of measurement.tokens) {
+      const list = byLine.get(token.lineIndex) ?? [];
+      list.push(token);
+      byLine.set(token.lineIndex, list);
+    }
+    const strips = [...byLine.entries()].map(([lineIndex, tokens]) => {
+      const line = measurement.lines[lineIndex] ?? {
+        x: 0,
+        width,
+        right: width,
+        y: Math.min(...tokens.map((token) => token.rect.y)),
+        height: 0,
+        bottom: Math.max(...tokens.map((token) => token.rect.bottom))
+      };
+      return {
+        lineIndex,
+        tokens: tokens.sort((left, right) => left.rect.x - right.rect.x || (left.tokenIndex ?? 0) - (right.tokenIndex ?? 0)),
+        top: Math.max(cropTop, Math.floor(line.y - margin)),
+        bottom: Math.min(cropBottom, Math.ceil(line.bottom + margin))
+      };
+    }).sort((left, right) => left.top - right.top || left.lineIndex - right.lineIndex);
+    for (let index = 0; index + 1 < strips.length; index += 1) {
+      const current = strips[index];
+      const next = strips[index + 1];
+      if (current.bottom > next.top) {
+        const boundary = Math.round((current.bottom + next.top) / 2);
+        current.bottom = boundary;
+        next.top = boundary;
+      }
+    }
+    const tiles = [];
+    let cursorY = cropTop;
+    for (const strip of strips) {
+      if (strip.top > cursorY) {
+        tiles.push({
+          static: integerTile(cropLeft, cursorY, cropRight - cropLeft, strip.top - cursorY),
+          timing: null
+        });
+      }
+      const starts = strip.tokens.map((token, index) => index === 0 ? Math.max(cropLeft, Math.round(token.rect.x) - margin) : Math.max(cropLeft, Math.min(cropRight, Math.round(
+        (strip.tokens[index - 1].rect.right + token.rect.x) / 2
+      ))));
+      const tokenEnd = Math.min(cropRight, Math.round(strip.tokens.at(-1).rect.right) + margin);
+      const stripHeight = strip.bottom - strip.top;
+      if (starts[0] > cropLeft && stripHeight > 0) {
+        tiles.push({
+          static: integerTile(cropLeft, strip.top, starts[0] - cropLeft, stripHeight),
+          timing: null
+        });
+      }
+      for (const [index, token] of strip.tokens.entries()) {
+        const start = starts[index];
+        const end = index + 1 < starts.length ? starts[index + 1] : tokenEnd;
+        if (end <= start || stripHeight <= 0) continue;
+        tiles.push({ static: integerTile(start, strip.top, end - start, stripHeight), timing: token.timing });
+      }
+      if (tokenEnd < cropRight && stripHeight > 0) {
+        tiles.push({
+          static: integerTile(tokenEnd, strip.top, cropRight - tokenEnd, stripHeight),
+          timing: null
+        });
+      }
+      cursorY = strip.bottom;
+    }
+    if (cursorY < cropBottom) {
+      tiles.push({
+        static: integerTile(cropLeft, cursorY, cropRight - cropLeft, cropBottom - cursorY),
+        timing: null
+      });
+    }
+    const area = tiles.reduce((sum, tile) => sum + tile.static.width * tile.static.height, 0);
+    const cropArea = (cropRight - cropLeft) * (cropBottom - cropTop);
+    if (area !== cropArea) {
+      throw new Error(`caption tile partition does not cover the texture rectangle: ${area}/${cropArea}`);
+    }
+    return tiles;
+  }
+  function captionWordTextureRect(measurement, size) {
+    const width = Number(size.width);
+    const height = Number(size.height);
+    if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
+      throw new Error("caption texture dimensions must be positive integers");
+    }
+    const rectangles = [
+      ...measurement.lines,
+      ...measurement.tokens.map((token) => token.rect),
+      ...measurement.plate ? [measurement.plate] : []
+    ];
+    if (rectangles.length === 0) {
+      return { x: 0, y: 0, width, height, right: width, bottom: height };
+    }
+    const marginY = Math.max(24, Math.ceil(Math.max(0, Number(measurement.emPx) || 0)));
+    const y2 = Math.max(0, Math.floor(Math.min(...rectangles.map((rect) => rect.y)) - marginY));
+    const bottom = Math.min(
+      height,
+      Math.ceil(Math.max(...rectangles.map((rect) => rect.bottom)) + marginY)
+    );
+    return { x: 0, y: y2, width, height: bottom - y2, right: width, bottom };
+  }
+
+  // packages/frame-engine/src/timeline/caption-motion.ts
+  var identity2 = () => ({
     opacity: 1,
     translateX: 0,
     translateY: 0,
@@ -18580,7 +18978,7 @@ void main() {
       const progress = Math.max(0, Math.min(1, local / 0.18));
       const eased = applyEase(progress, "ease-out");
       return {
-        ...identity(),
+        ...identity2(),
         opacity: eased,
         translateY: 0.18 * em * (1 - eased)
       };
@@ -18601,7 +18999,7 @@ void main() {
       const delay = Math.max(0, cueDuration - duration);
       if (local >= delay) states.push(sampleSlot(declaration.out, 1 - Math.min(1, (local - delay) / duration), em));
     }
-    return states.reduce(combine, identity());
+    return states.reduce(combine, identity2());
   }
   function slotDuration(slot, cueDuration, fallback) {
     return Math.min(positiveDuration(slot.durationSec ?? slot.duration_sec, fallback), Math.max(0.05, cueDuration));
@@ -18629,12 +19027,12 @@ void main() {
     const a = pointState(left, emPx, amp);
     const b = pointState(right, emPx, amp);
     return {
-      opacity: lerp(a.opacity, b.opacity, fraction),
-      translateX: lerp(a.translateX, b.translateX, fraction),
-      translateY: lerp(a.translateY, b.translateY, fraction),
-      scaleX: lerp(a.scaleX, b.scaleX, fraction),
-      scaleY: lerp(a.scaleY, b.scaleY, fraction),
-      rotateDeg: lerp(a.rotateDeg, b.rotateDeg, fraction)
+      opacity: lerp2(a.opacity, b.opacity, fraction),
+      translateX: lerp2(a.translateX, b.translateX, fraction),
+      translateY: lerp2(a.translateY, b.translateY, fraction),
+      scaleX: lerp2(a.scaleX, b.scaleX, fraction),
+      scaleY: lerp2(a.scaleY, b.scaleY, fraction),
+      rotateDeg: lerp2(a.rotateDeg, b.rotateDeg, fraction)
     };
   }
   function pointState(point, emPx, amp) {
@@ -18678,7 +19076,7 @@ void main() {
     }
     return sample(t, y1, y2);
   }
-  function lerp(left, right, progress) {
+  function lerp2(left, right, progress) {
     return left + (right - left) * Math.max(0, Math.min(1, progress));
   }
   function finiteNumber(value, fallback) {

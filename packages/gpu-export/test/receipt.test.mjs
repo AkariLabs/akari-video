@@ -22,3 +22,9 @@ test("GPU receipt records direct mux, no re-encode, and every eligibility row", 
   assert.equal(receipt.gpu.quality, "high");
   assert.equal(receipt.gpu.bitrate, 12_000_000);
 });
+
+test("GPU receipt rejects caption modes outside sprite and words-native", () => {
+  assert.throws(() => buildGpuReceipt({
+    run: { gpu: { captions: [{ id: "c-0001-01", mode: "karaoke", units: 1, words: 1, rasters: 2, tiles: 3 }] } },
+  }), /sprite\|words-native/u);
+});

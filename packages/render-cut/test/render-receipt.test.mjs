@@ -8,7 +8,11 @@ import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs, RenderInputError } from "../src/render-inputs.mjs";
-import { createImmutableRenderReceipt } from "../src/render-receipt.mjs";
+import {
+  createImmutableRenderReceipt,
+  GPU_CAPTION_RECEIPT_MODES,
+  normalizeGpuCaptionReceiptEntries,
+} from "../src/render-receipt.mjs";
 import { readRenderEdit } from "../src/internal-render.mjs";
 import {
   CAPTION_FONT_FILE_URL,
@@ -53,6 +57,18 @@ function fixtureEdit() {
     thumbnail: { path: "assets/thumb.png" },
   };
 }
+
+test("GPU caption receipt vocabulary accepts only sprite and words-native", () => {
+  assert.deepEqual(GPU_CAPTION_RECEIPT_MODES, ["sprite", "words-native"]);
+  assert.deepEqual(normalizeGpuCaptionReceiptEntries([{
+    id: "c-0001-01", mode: "words-native", style: "karaoke", units: 1, words: 2, rasters: 2, tiles: 5,
+  }]), [{
+    id: "c-0001-01", mode: "words-native", style: "karaoke", units: 1, words: 2, rasters: 2, tiles: 5,
+  }]);
+  assert.throws(() => normalizeGpuCaptionReceiptEntries([{
+    id: "c-0001-01", mode: "karaoke", units: 1, words: 2, rasters: 2, tiles: 5,
+  }]), /sprite\|words-native/u);
+});
 
 async function prepareInputs(root, edit) {
   for (const relative of [

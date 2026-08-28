@@ -360,7 +360,14 @@ jobs:
           const edit = JSON.parse(await readFile(path, "utf8"));
           edit.tracks = edit.tracks.filter((track) => track.lane === "audio" || track.id === "v-main");
           await writeFile(path, JSON.stringify(edit, null, 2) + "\n");
-          await writeFile(join(root, "captions.json"), JSON.stringify({ captions: [] }, null, 2) + "\n");
+          await writeFile(join(root, "captions.json"), JSON.stringify({ captions: [{
+            id: "c-0001", start: 2, end: 5, text: "カラオケ字幕", style: "karaoke",
+            speaker: null, sourceRef: null, edited: false, time_domain: "output",
+            words: [
+              { start: 2, end: 3, text: "カラオケ" },
+              { start: 3, end: 5, text: "字幕" },
+            ],
+          }] }, null, 2) + "\n");
           NODE
       - name: Probe WebCodecs H.264 software encode support
         shell: bash
