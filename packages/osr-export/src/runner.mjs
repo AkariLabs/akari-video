@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { stat } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -47,13 +48,30 @@ export async function resolveElectronLauncher({
 export async function launchElectronExport(launcher, options, { spawnImpl = spawn } = {}) {
   if (launcher.tier === 3) return { fellBackToLegacy: true, launcher };
   const args = buildElectronArguments(launcher, options);
-  await spawnAndWait(launcher.executable, args, { spawnImpl, onStdout: options.onStdout, onStderr: options.onStderr });
+  let progressLines = 0;
+  let pendingStdout = "";
+  const onStdout = (text) => {
+    pendingStdout += text;
+    const lines = pendingStdout.split(/\r?\n/);
+    pendingStdout = lines.pop() ?? "";
+    progressLines += lines.filter((line) => line.startsWith("PROGRESS frame=")).length;
+    options.onStdout?.(text);
+  };
+  await spawnAndWait(launcher.executable, args, { spawnImpl, onStdout, onStderr: options.onStderr });
+  if (pendingStdout.startsWith("PROGRESS frame=")) progressLines += 1;
+  const output = await stat(options.out).catch(() => null);
+  if (!output || output.size === 0) {
+    throw new Error(`osr-export error: OSR Electron は exit 0 で終了しましたが出力がありません（PROGRESS 行 ${progressLines}）。起動中の AKARI Video デスクトップアプリの単一インスタンスロックに弾かれた可能性があります（--user-data-dir の伝播を確認）: ${options.out}`);
+  }
   return { fellBackToLegacy: false, launcher };
 }
 
 export function buildElectronArguments(launcher, options) {
+  const userDataDir = options.userDataDir ?? join(dirname(options.out), "electron-user-data");
   const chromiumSwitches = [
-    ...CHROMIUM_SWITCHES,
+    CHROMIUM_SWITCHES[0],
+    `--user-data-dir=${userDataDir}`,
+    ...CHROMIUM_SWITCHES.slice(1),
     ...(options.soft ? SOFT_CHROMIUM_SWITCHES : []),
   ];
   const common = [
@@ -77,7 +95,11 @@ export function desktopCandidates({ env, platform, homeDirectory }) {
   if (platform === "darwin") {
     candidates.push("/Applications/AKARI Video.app/Contents/MacOS/AKARI Video", join(homeDirectory, "Applications", "AKARI Video.app", "Contents", "MacOS", "AKARI Video"));
   } else if (platform === "win32") {
-    candidates.push(env.LOCALAPPDATA && join(env.LOCALAPPDATA, "Programs", "AKARI Video", "AKARI Video.exe"));
+    // electron-builder NSIS per-user 既定 = sanitize-filename(`apps/shell/package.json` の `name`)。
+    candidates.push(
+      env.LOCALAPPDATA && join(env.LOCALAPPDATA, "Programs", "@akari-videoshell", "AKARI Video.exe"),
+      env.LOCALAPPDATA && join(env.LOCALAPPDATA, "Programs", "AKARI Video", "AKARI Video.exe"),
+    );
   } else {
     candidates.push("/opt/AKARI Video/akari-video", join(homeDirectory, ".local", "bin", "akari-video"));
   }
