@@ -32,9 +32,20 @@ jobs:
           npm install --workspace @akari-video/frame-engine
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save electron@39.8.7
-      - name: Expand Electron binary (npm 11 allow-scripts skips postinstall)
+      - name: Install Electron at the repository root (explicit; npm 11 allow-scripts skips postinstall)
+        run: npm install --no-save --no-audit --no-fund electron@39.8.7
+      - name: Expand Electron binary
+        shell: bash
         run: |
-          node node_modules/electron/install.js
+          set -x
+          node --version
+          ls node_modules/electron | head -20
+          node -e "console.log(require.resolve('electron/package.json'))"
+          if ! node node_modules/electron/install.js; then
+            echo "electron install.js failed (exit $?)"
+            ls -la node_modules/electron/dist 2>/dev/null || echo "no dist"
+            exit 1
+          fi
           test -x node_modules/electron/dist/electron
           test -f node_modules/electron/dist/version
           cat node_modules/electron/dist/version
@@ -110,9 +121,20 @@ jobs:
           npm install --workspace @akari-video/frame-engine
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save electron@39.8.7
-      - name: Expand Electron binary (npm 11 allow-scripts skips postinstall)
+      - name: Install Electron at the repository root (explicit; npm 11 allow-scripts skips postinstall)
+        run: npm install --no-save --no-audit --no-fund electron@39.8.7
+      - name: Expand Electron binary
+        shell: bash
         run: |
-          node node_modules/electron/install.js
+          set -x
+          node --version
+          ls node_modules/electron | head -20
+          node -e "console.log(require.resolve('electron/package.json'))"
+          if ! node node_modules/electron/install.js; then
+            echo "electron install.js failed (exit $?)"
+            ls -la node_modules/electron/dist 2>/dev/null || echo "no dist"
+            exit 1
+          fi
           test -x node_modules/electron/dist/electron
           test -f node_modules/electron/dist/version
           cat node_modules/electron/dist/version
@@ -151,9 +173,20 @@ jobs:
           npm install --workspace @akari-video/osr-export
           --include-workspace-root=false --include=optional
           --no-audit --no-fund --no-save
-      - name: Expand Electron binary (npm 11 allow-scripts skips postinstall)
+      - name: Install Electron at the repository root (explicit; npm 11 allow-scripts skips postinstall)
+        run: npm install --no-save --no-audit --no-fund electron@39.8.7
+      - name: Expand Electron binary
+        shell: bash
         run: |
-          node node_modules/electron/install.js
+          set -x
+          node --version
+          ls node_modules/electron | head -20
+          node -e "console.log(require.resolve('electron/package.json'))"
+          if ! node node_modules/electron/install.js; then
+            echo "electron install.js failed (exit $?)"
+            ls -la node_modules/electron/dist 2>/dev/null || echo "no dist"
+            exit 1
+          fi
           test -x node_modules/electron/dist/electron
           test -f node_modules/electron/dist/version
           cat node_modules/electron/dist/version
