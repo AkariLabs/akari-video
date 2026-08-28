@@ -27,8 +27,30 @@
 購入していれば使え、未購入のものは価格付きの `locked` と表示されます。ライブラリの実体は
 `~/.akari/assets/` に置かれますが、直接編集せず上記コマンド経由で操作してください。
 
-編集スキルは `.claude/skills/` に入っています。`/analyze-footage`、`/edit-plan`、
-`/overlay-authoring`、`/setup-library`、`/harvest-asset`、`/bake-3d` の素の名前で使えます。
+## AKARI Video の在処
+
+- `~/.akari/cli` … コマンド操作の本体と入口（`~/.akari/cli/bin/akari`）です。パートナー接続時に配備されます。
+- `~/.akari/app` … `install.sh` から入れた AKARI Video 本体です。デスクトップアプリだけを使っている場合は、存在しなくて構いません。
+- アプリ同梱の `<App>/Contents/Resources/packages/` … render-cut・edit-lint など、編集や検査を実行するコマンドの実体です。Windows では `<install dir>\resources\packages\` にあります。
+- アプリ同梱の `<App>/Contents/Resources/media-bin/` … ffmpeg・ffprobe があります。whisper-cli はビルドによって同梱されないことがあります。Windows では `<install dir>\resources\media-bin\` にあります。
+- `~/.akari/assets` … 素材ライブラリの実体です。
+
+どれも PATH には無い前提です。パートナー PTY 以外の端末では、
+`~/.akari/cli/bin/akari` をフルパスで実行してください。
+
+## 編集スキル
+
+`.claude/skills/` 配下の全ディレクトリがそのまま使えます。主なもの:
+
+- `/analyze-footage` … 素材ごとの内容を分析します。
+- `/analyze-project` … 複数の素材とプロジェクト全体の文脈をまとめて分析します。
+- `/edit-plan` … 編集計画を作り、レポートと承認を経て編集内容へ反映します。
+- `/overlay-authoring` … テロップ、図、3D などの画面要素を制作します。
+- `/edit-lint` … 編集結果を機械的に検査し、仕上がりの確認を支えます。
+- `/render-cut` … 承認済みの編集を書き出し、完成ファイルを検証します。
+- `/setup-library` … 利用できる素材を準備します。
+- `/address-review` … 未対応のレビュー指摘を編集へ反映します。
+
 Codex や Cursor など他の AI エージェント用の入り口が `.agents/skills/`、`.cursor/skills/`、`.codex/skills/` にあります
 （中身は `.claude/skills/` へのリンクです）。
 詳しい進め方と、スキル文書を直接読む場合の場所は `AGENTS.md` を参照してください。
@@ -38,6 +60,8 @@ Codex や Cursor など他の AI エージェント用の入り口が `.agents/s
 
 プロジェクトルート直下に新規ファイルを作らない（`edit.json` 等の既存契約ファイルを除く）。
 生成物は `.akari/work/`、証跡は `.akari/reports/`、キャッシュは `.akari/cache/` に置く。
-詳しい層の定義は `docs/contract-2026-07-25-project-structure-v0.md`（本モノレポ側）を参照します。
+詳しい層の定義は[公開リポの正典](https://github.com/AkariLabs/akari-video/blob/main/docs/contract-2026-07-25-project-structure-v0.md)を参照します。
+ローカルでは (b) `install.sh` から入れた場合の `~/.akari/app/docs/contract-2026-07-25-project-structure-v0.md`、
+(c) モノレポを持っている場合の `<repo>/docs/contract-2026-07-25-project-structure-v0.md` からも確認できます。
 
 このファイルはあなたのプロジェクトのものです。運用に合わせて自由に書き換えて構いません。

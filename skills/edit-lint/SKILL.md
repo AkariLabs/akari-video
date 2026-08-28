@@ -26,10 +26,30 @@ description: edit.json と任意の analysis.json / captions.json / メディア
 
 ## 実行手順
 
-1. edit.json を保存した直後に、リポジトリルートから次を実行する。
+### 実行体の解決
+
+第一手として `akari doctor --json` を実行し、`edit_lint.path` を `<edit-lint>`、
+`cli.node.exec_path` を node の実行体として使う。まだこれらのフィールドを出力しない版なら、
+次の探索へ進む。
+
+次の 3 形態を表の上から `ls` し、最初に存在した `<edit-lint>` を使う。
+
+| 形態 | macOS | Windows |
+|---|---|---|
+| (a) デスクトップアプリ同梱 | `<App>/Contents/Resources/packages/edit-lint/bin/edit-lint.mjs`（`<App>` の既定は `/Applications/AKARI Video.app`） | `<install dir>\resources\packages\edit-lint\bin\edit-lint.mjs` |
+| (b) `install.sh` 経路 | `~/.akari/app/packages/edit-lint/bin/edit-lint.mjs` | `%USERPROFILE%\.akari\app\packages\edit-lint\bin\edit-lint.mjs` |
+| (c) モノレポ | `<repo>/packages/edit-lint/bin/edit-lint.mjs` | `<repo>\packages\edit-lint\bin\edit-lint.mjs` |
+
+(a) のデスクトップアプリだけを使う利用者には `~/.akari/app` は存在しない。
+
+node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱 Electron を
+`ELECTRON_RUN_AS_NODE=1` で node として使う、の順とする。以下の `node` はこの手順で解決した
+実行体、`<edit-lint>` は上で解決した実行体パスを表す。
+
+1. edit.json を保存した直後に、次を実行する。
 
    ```sh
-   node packages/edit-lint/bin/edit-lint.mjs <project-root|edit.json>
+   node <edit-lint> <project-root|edit.json>
    ```
 
 2. exit code と `<project>/.akari/lint.json` を確認する。`0` は PASS、`1` は FAIL、`2` は入力や実行環境のエラーを表す。
@@ -41,11 +61,12 @@ description: edit.json と任意の analysis.json / captions.json / メディア
 音声も確認するときだけ `--media` を追加する。無音区間と音量値は既定で warning になり、次の明示閾値を指定した検査だけが FAIL になり得る。
 
 ```sh
-node packages/edit-lint/bin/edit-lint.mjs <project> --media
-node packages/edit-lint/bin/edit-lint.mjs <project> --media --silence-error-seconds 2 --max-volume-error-db -0.1
+node <edit-lint> <project> --media
+node <edit-lint> <project> --media --silence-error-seconds 2 --max-volume-error-db -0.1
 ```
 
-機械向けの標準出力が必要なら `--json` を追加する。状態の正本は常に `.akari/lint.json` とし、HTML は可視化にだけ使う。
+機械向けの標準出力が必要なら `node <edit-lint> <project> --json` のように `--json` を追加する。
+状態の正本は常に `.akari/lint.json` とし、HTML は可視化にだけ使う。
 
 `.akari/intake.json`（進め方フォームの保存先。契約: `packages/schemas/intake.schema.json`）が存在すれば、schema 検証と整合検査（未知の task ID・`duration_s`/`keep_length` の同時指定・`status: submitted` なのに `submitted_at` 欠落 等）を合わせて行う。不正値は error（FAIL）、`status: "draft"`（進め方が未確定）は warning に留める。
 
