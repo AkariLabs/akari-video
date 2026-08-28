@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@akari-video/shell",
-  "version": "0.1.25",
+  "version": "0.1.27",
   "description": "AKARI Video shell — Theia Electron app, S-A shell foundation (tabshell v0 contract).",
   "dependencies": {
     "@theia/core": "1.73.1",
@@ -171,6 +171,23 @@
           "bin/**/*",
           "src/**/*",
           "generated/**/*"
+        ]
+      },
+      {
+        "from": "../../packages/gpu-export",
+        "to": "packages/gpu-export",
+        "filter": [
+          "package.json",
+          "bin/**/*",
+          "src/**/*",
+          "generated/**/*"
+        ]
+      },
+      {
+        "from": "../../skills/analyze-footage/bin/person-matte",
+        "to": "skills/analyze-footage/bin/person-matte",
+        "filter": [
+          "*.mjs"
         ]
       },
       {

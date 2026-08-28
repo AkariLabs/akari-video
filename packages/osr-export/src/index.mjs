@@ -90,8 +90,11 @@ export async function exportWithOsr({
   }
 }
 
-export function resolveOsrLauncher(options) {
-  return resolveElectronLauncher(options);
+// 製品入口。インストール済みデスクトップアプリ（tier 1 の既定候補）は、その --render が Theia の起動処理と
+// 競合して落ちる（v0.1.26 実ビルドで実証・契約 §11.5）ため既定で候補から外し、tier 2（npm Electron）が無い
+// パッケージ版では警告付きで legacy へ落とす。AKARI_OSR_ELECTRON の明示指定は従来どおり tier 1。
+export function resolveOsrLauncher(options = {}) {
+  return resolveElectronLauncher({ ...options, allowInstalledDesktop: options.allowInstalledDesktop ?? false });
 }
 
 export function resolveOsrRuntimeOptions({ env = process.env, soft = false, verify = "stamp" } = {}) {
