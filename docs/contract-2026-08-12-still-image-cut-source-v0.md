@@ -135,15 +135,10 @@ edit-cuts-still-image-source-valid/` に mp4 + png 混在の v1 valid 例を追�
 
 ## 5. プレビュー（Web UI）
 
-### 5.1 preview-engine（`packages/preview-engine`）
+### 5.1 preview-engine（2026-08-28 改訂）
 
-`TimelineClip.mediaType`（既存の予約フィールド。`'video' | 'image'`）を実際に使う経路を実装した。
-`ClipSession` はコンストラクタで `src` の拡張子から静止画かどうかを判定し、静止画なら
-`MP4Clip`/WebCodecs デコーダを一切使わず `fetch` + `createImageBitmap` だけで読み込む。
-`tickExact`/`tickApprox`/`tickBackground` は毎回同じ `ImageBitmap` から `new VideoFrame(bitmap,
-{timestamp, duration})` を合成して返す。呼び出し側（`PreviewEngine.renderFrame`・
-`ThumbnailTrack`）は返る `VideoFrame` を `drawImage` して `close()` するだけなので、動画由来か
-ここで合成したものかを区別しない — 既存コードは無改修
+`packages/preview-engine` は 2026-08-28 に削除済み。後継のプレビュー合成基盤は
+`packages/frame-engine` とし、静止画 cut の現行プレビュー実装は §5.2 を正とする。
 
 ### 5.2 preview-server（Web UI 本体）
 

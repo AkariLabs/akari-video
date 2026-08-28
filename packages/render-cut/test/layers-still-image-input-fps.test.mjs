@@ -211,7 +211,8 @@ test("30/60fps product renders keep planned frames, maskedmerge window, and scal
   for (const fps of [30, 60]) {
     const root = await makeProject(fps);
     try {
-      const state = await renderProject(root, { out: "exports/render.mp4" });
+      // This suite measures legacy layers composition; engine resolution has separate unit coverage.
+      const state = await renderProject(root, { out: "exports/render.mp4", engine: "legacy" });
       assert.equal(state.verify.verdict, "pass", JSON.stringify(state.verify.findings));
       const outputPath = join(root, state.plan.output);
       const frames = decodeRgbFrames(outputPath);

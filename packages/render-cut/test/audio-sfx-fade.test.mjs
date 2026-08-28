@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { legacyRenderArgs } from "./helpers/render-engine.mjs";
 import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
@@ -22,7 +23,8 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");
 
 function run(project, args = []) {
-  return spawnSync(process.execPath, [cliPath, project, ...args], { encoding: "utf8" });
+  // This suite measures the legacy audio pipeline; engine resolution has separate unit coverage.
+  return spawnSync(process.execPath, [cliPath, project, ...legacyRenderArgs(args)], { encoding: "utf8" });
 }
 
 function ffmpeg(args) {

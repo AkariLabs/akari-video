@@ -7,13 +7,15 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+import { legacyRenderArgs } from "./helpers/render-engine.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");
 
 function run(project) {
-  return spawnSync(process.execPath, [cliPath, project], { encoding: "utf8" });
+  // This suite measures legacy xfade output; engine resolution has separate unit coverage.
+  return spawnSync(process.execPath, [cliPath, project, ...legacyRenderArgs()], { encoding: "utf8" });
 }
 
 function ffmpeg(args) {

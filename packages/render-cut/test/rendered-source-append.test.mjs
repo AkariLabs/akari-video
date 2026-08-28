@@ -44,7 +44,8 @@ test("a verified render appends its v2 source once and a second render is byte-s
     const editPath = join(project, "edit.json");
     await writeFile(editPath, original);
 
-    const first = run(process.execPath, [cliPath, project, "--out", "exports/render.mp4"]);
+    // This suite measures legacy render/edit persistence; engine resolution is tested separately.
+    const first = run(process.execPath, [cliPath, project, "--out", "exports/render.mp4", "--engine", "legacy"]);
     assert.equal(first.status, 0, first.stderr);
     const afterFirst = await readFile(editPath, "utf8");
     const firstState = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
@@ -57,7 +58,7 @@ test("a verified render appends its v2 source once and a second render is byte-s
       createHash("sha256").update(afterFirst).digest("hex"),
       "completed edit.json must match the receipt-bound edit input",
     );
-    const second = run(process.execPath, [cliPath, project, "--out", "exports/render.mp4"]);
+    const second = run(process.execPath, [cliPath, project, "--out", "exports/render.mp4", "--engine", "legacy"]);
     assert.equal(second.status, 0, second.stderr);
 
     const actual = await readFile(editPath, "utf8");
@@ -93,7 +94,8 @@ test("a verified v0 render does not warn that sources[] is unavailable", async (
       overlays: [],
     }, null, 2)}\n`);
 
-    const rendered = run(process.execPath, [cliPath, project, "--out", "exports/render.mp4"]);
+    // This assertion measures the legacy CLI path; engine resolution is tested separately.
+    const rendered = run(process.execPath, [cliPath, project, "--out", "exports/render.mp4", "--engine", "legacy"]);
     assert.equal(rendered.status, 0, rendered.stderr);
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(

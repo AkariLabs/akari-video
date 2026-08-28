@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+import { legacyRenderArgs } from "./helpers/render-engine.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
@@ -18,7 +19,8 @@ const cliPath = join(packageRoot, "bin", "render-cut.mjs");
 
 function runAsync(project, args) {
   return new Promise((resolvePromise) => {
-    const child = spawn(process.execPath, [cliPath, project, ...args]);
+    // This suite measures legacy render isolation; engine resolution has separate unit coverage.
+    const child = spawn(process.execPath, [cliPath, project, ...legacyRenderArgs(args)]);
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
     let stdout = "";

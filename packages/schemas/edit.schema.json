@@ -54,7 +54,7 @@
           "additionalProperties": false,
           "properties": {
             "quality": { "enum": ["master", "high", "standard", "light"] },
-            "encoder": { "enum": ["auto", "videotoolbox", "x264"] }
+            "encoder": { "enum": ["auto", "videotoolbox", "nvenc", "qsv", "amf", "mf", "x264"] }
           }
         }
       }
@@ -73,7 +73,7 @@
           "additionalProperties": false,
           "properties": {
             "quality": { "enum": ["master", "high", "standard", "light"] },
-            "encoder": { "enum": ["auto", "videotoolbox", "x264"] }
+            "encoder": { "enum": ["auto", "videotoolbox", "nvenc", "qsv", "amf", "mf", "x264"] }
           }
         }
       },

@@ -50,12 +50,12 @@ continues to disable caption animation as specified above.
 ## 2. Encoding resolution
 
 `output.encoding` accepts `quality: master|high|standard|light` and
-`encoder: auto|videotoolbox|x264`. Resolution is once per render with field precedence
+`encoder: auto|videotoolbox|nvenc|qsv|amf|mf|x264`. Resolution is once per render with field precedence
 CLI flag > edit field > legacy default. The returned `requested` and `effective` values retain an
 `origin`. With neither CLI nor edit opt-in, the legacy plan and command bytes remain unchanged.
 
 `master` means x264, High profile, preset slow, CRF 15. Omitted encoder becomes x264 with origin
-`master-required`; explicit `auto` or `videotoolbox` is rejected. The same effective argument array
+`master-required`; explicit `auto`, `videotoolbox`, `nvenc`, `qsv`, `amf`, or `mf` is rejected. The same effective argument array
 is used by every video-encoding stage. The audio-only final mix/mux records its reason and uses
 `-c:v copy`.
 

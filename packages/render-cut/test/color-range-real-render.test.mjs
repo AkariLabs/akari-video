@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
+import { legacyRenderArgs } from "./helpers/render-engine.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
@@ -20,7 +21,8 @@ const toolsAvailable = spawnSync("ffmpeg", ["-version"]).status === 0
   && existsSync(chromePath);
 
 function runRender(projectRoot) {
-  return spawnSync(process.execPath, [cliPath, projectRoot], {
+  // This suite measures legacy color conversion; engine resolution has separate unit coverage.
+  return spawnSync(process.execPath, [cliPath, projectRoot, ...legacyRenderArgs()], {
     encoding: "utf8",
     env: { ...process.env, CHROME_PATH: chromePath },
     timeout: 120_000,

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { legacyRenderArgs } from "./helpers/render-engine.mjs";
 import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
@@ -16,7 +17,8 @@ const cliPath = join(packageRoot, "bin", "render-cut.mjs");
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 function run(project, args = []) {
-  return spawnSync(process.execPath, [cliPath, project, ...args], {
+  // Real renders exercise legacy composition; plan-only keeps the default engine observable.
+  return spawnSync(process.execPath, [cliPath, project, ...legacyRenderArgs(args)], {
     encoding: "utf8",
     env: { ...process.env, CHROME_PATH: chromePath },
   });
