@@ -43,7 +43,7 @@ test('frame engine remains a dynamic bundle with no unconditional index DOM', as
   assert.match(source, /stage\.prepend\(root\)/u);
   assert.match(packageJson, /frame-engine-client\.ts[^\n]+frame-engine\.bundle\.js/u);
   assert.match(bundle, /ScrubController = class/u);
-  assert.match(bundle, /WarmupManager = class/u);
+  assert.match(bundle, /function createPreviewScheduler/u);
   assert.match(bundle, /LookaheadFrameSource = class/u);
   assert.match(bundle, /async function evaluateFrame/u);
   assert.match(bundle, /uniform sampler3D lut/u);
