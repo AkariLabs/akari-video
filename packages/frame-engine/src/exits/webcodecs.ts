@@ -24,6 +24,7 @@ export class WebCodecsH264Encoder {
   private failure: Error | null = null;
   private frameNumber = 0;
   private closed = false;
+  private readonly queueWaiters = new Set<() => void>();
 
   constructor(
     private readonly sink: EncodedVideoChunkSink,
@@ -49,7 +50,10 @@ export class WebCodecsH264Encoder {
           duration: chunk.duration
         })));
       },
-      error: error => { this.failure = error; }
+      error: error => {
+        this.failure = error;
+        this.notifyQueueWaiters();
+      }
     });
     this.encoder.configure(this.config);
   }
@@ -73,6 +77,38 @@ export class WebCodecsH264Encoder {
     return this.encoder.encodeQueueSize;
   }
 
+  async waitForQueueBelow(limit: number): Promise<void> {
+    if (!Number.isFinite(limit) || limit < 0) throw new Error('WebCodecs queue limit must be a non-negative number');
+    this.assertOpen();
+    if (this.encoder.encodeQueueSize <= limit) return;
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        this.encoder.removeEventListener('dequeue', check);
+        this.queueWaiters.delete(check);
+      };
+      const check = () => {
+        if (settled) return;
+        if (this.failure) {
+          settled = true;
+          cleanup();
+          reject(this.failure);
+        } else if (this.closed) {
+          settled = true;
+          cleanup();
+          reject(new Error('WebCodecs encoder is closed'));
+        } else if (this.encoder.encodeQueueSize <= limit) {
+          settled = true;
+          cleanup();
+          resolve();
+        }
+      };
+      this.queueWaiters.add(check);
+      this.encoder.addEventListener('dequeue', check);
+      check();
+    });
+  }
+
   encode(frame: CompositedFrame): void {
     if (this.closed) throw new Error('WebCodecs encoder is closed');
     if (this.failure) throw this.failure;
@@ -88,12 +124,13 @@ export class WebCodecsH264Encoder {
   }
 
   async finish(): Promise<{ frames: number }> {
-    if (this.closed) throw new Error('WebCodecs encoder is closed');
+    this.assertOpen();
     await this.encoder.flush();
     await Promise.all(this.writes);
     if (this.failure) throw this.failure;
     this.encoder.close();
     this.closed = true;
+    this.notifyQueueWaiters();
     return { frames: this.frameNumber };
   }
 
@@ -101,5 +138,15 @@ export class WebCodecsH264Encoder {
     if (this.closed) return;
     this.closed = true;
     this.encoder.close();
+    this.notifyQueueWaiters();
+  }
+
+  private assertOpen(): void {
+    if (this.failure) throw this.failure;
+    if (this.closed) throw new Error('WebCodecs encoder is closed');
+  }
+
+  private notifyQueueWaiters(): void {
+    for (const waiter of [...this.queueWaiters]) waiter();
   }
 }

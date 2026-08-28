@@ -27,10 +27,11 @@ export async function resolveElectronLauncher({
   homeDirectory = homedir(),
   probe = defaultProbe,
   resolveElectron = defaultResolveElectron,
+  runtimePathResolver = desktopRuntimePath,
 } = {}) {
   for (const executable of desktopCandidates({ env, platform, homeDirectory })) {
     const explicit = executable === env.AKARI_OSR_ELECTRON;
-    const runtime = desktopRuntimePath(executable, platform);
+    const runtime = runtimePathResolver(executable, platform);
     if (executable && await probe(executable, { kind: "desktop" })
       && (explicit || await probe(runtime, { kind: "desktop-runtime" }))) {
       return { tier: 1, kind: "desktop", executable, reason: env.AKARI_OSR_ELECTRON ? "environment override" : "installed desktop app" };
@@ -44,9 +45,12 @@ export async function resolveElectronLauncher({
   return { tier: 3, kind: "legacy", executable: null, reason: platform === "linux" ? "Linux uses the compatibility path in v0" : "Electron unavailable", warning: FALLBACK_WARNING };
 }
 
-export async function launchElectronExport(launcher, options, { spawnImpl = spawn } = {}) {
+export async function launchElectronExport(launcher, options, {
+  spawnImpl = spawn,
+  argumentBuilder = buildElectronArguments,
+} = {}) {
   if (launcher.tier === 3) return { fellBackToLegacy: true, launcher };
-  const args = buildElectronArguments(launcher, options);
+  const args = argumentBuilder(launcher, options);
   await spawnAndWait(launcher.executable, args, { spawnImpl, onStdout: options.onStdout, onStderr: options.onStderr });
   return { fellBackToLegacy: false, launcher };
 }
@@ -65,9 +69,10 @@ export function buildElectronArguments(launcher, options) {
     "--queue-depth", String(options.queueDepth ?? 3),
     ...(options.dumpFrames?.length > 0 ? ["--dump-frames", options.dumpFrames.join(",")] : []),
     ...(options.soft ? ["--soft"] : []),
+    ...(options.extraArgs ?? []),
   ];
   const args = launcher.tier === 2
-    ? [join(PACKAGE_ROOT, "src", "electron-main.mjs"), ...chromiumSwitches, ...common]
+    ? [options.mainScript ?? join(PACKAGE_ROOT, "src", "electron-main.mjs"), ...chromiumSwitches, ...common]
     : [...chromiumSwitches, ...common];
   return args;
 }

@@ -17885,6 +17885,137 @@ function parseCube(text) {
   });
 }
 
+// ../frame-engine/src/timeline/caption-motion.ts
+var motion = (...keyframes) => ({ keyframes });
+var fromTo = (from, to = {}) => motion({ at: 0, ...from }, { at: 1, ...to });
+var CAPTION_SPRITE_MOTIONS = {
+  "fade-in-out": fromTo({ opacity: 0 }),
+  "soft-fade": fromTo({ opacity: 0, scaleX: 1.04, scaleY: 1.04 }),
+  "fade-up": fromTo({ opacity: 0, yEm: 0.6 }),
+  "fade-down": fromTo({ opacity: 0, yEm: -0.6 }),
+  "cinematic-fade": fromTo({ opacity: 0, scaleX: 0.94, scaleY: 0.94 }),
+  "slide-left": fromTo({ opacity: 0, xEm: 1.2 }),
+  "slide-right": fromTo({ opacity: 0, xEm: -1.2 }),
+  "slide-up": fromTo({ opacity: 0, yEm: 1.2 }),
+  "slide-down": fromTo({ opacity: 0, yEm: -1.2 }),
+  "rise-soft": fromTo({ opacity: 0, yEm: 0.35, scaleX: 0.98, scaleY: 0.98 }),
+  "drop-in": motion(
+    { at: 0, opacity: 0, yEm: -1.6 },
+    { at: 0.7, opacity: 1, yEm: 0.12 },
+    { at: 1, opacity: 1 }
+  ),
+  "zoom-in-out": fromTo({ opacity: 0, scaleX: 0.6, scaleY: 0.6 }),
+  "zoom-pop": motion(
+    { at: 0, opacity: 0, scaleX: 0.4, scaleY: 0.4 },
+    { at: 0.7, opacity: 1, scaleX: 1.12, scaleY: 1.12 },
+    { at: 1, opacity: 1 }
+  ),
+  "zoom-pulse": motion(
+    { at: 0, opacity: 0, scaleX: 0.7, scaleY: 0.7 },
+    { at: 0.55, opacity: 1, scaleX: 1.06, scaleY: 1.06 },
+    { at: 1, opacity: 1 }
+  ),
+  pop: motion(
+    { at: 0, opacity: 0, scaleX: 0.5, scaleY: 0.5 },
+    { at: 0.65, opacity: 1, scaleX: 1.18, scaleY: 1.18 },
+    { at: 1, opacity: 1 }
+  ),
+  bounce: motion(
+    { at: 0, opacity: 0, yEm: -1.2 },
+    { at: 0.55, opacity: 1, yEm: 0.22 },
+    { at: 0.75, yEm: -0.1 },
+    { at: 1, opacity: 1 }
+  ),
+  "squash-pop": motion(
+    { at: 0, opacity: 0, scaleX: 1.4, scaleY: 0.4 },
+    { at: 0.6, opacity: 1, scaleX: 0.92, scaleY: 1.1 },
+    { at: 1, opacity: 1 }
+  ),
+  "stretch-in": motion(
+    { at: 0, opacity: 0, scaleX: 0.2 },
+    { at: 0.7, opacity: 1, scaleX: 1.08 },
+    { at: 1, opacity: 1 }
+  ),
+  stomp: motion(
+    { at: 0, opacity: 0, scaleX: 1.9, scaleY: 1.9 },
+    { at: 0.6, opacity: 1, scaleX: 0.96, scaleY: 0.96 },
+    { at: 1, opacity: 1 }
+  ),
+  snap: motion(
+    { at: 0, opacity: 0, rotateDeg: -6, scaleX: 0.8, scaleY: 0.8 },
+    { at: 0.7, opacity: 1, rotateDeg: 2, scaleX: 1.04, scaleY: 1.04 },
+    { at: 1, opacity: 1 }
+  ),
+  "rotate-in": fromTo({ opacity: 0, rotateDeg: -12, scaleX: 0.9, scaleY: 0.9 }),
+  "spin-in": fromTo({ opacity: 0, rotateDeg: -180, scaleX: 0.5, scaleY: 0.5 }),
+  "roll-in": fromTo({ opacity: 0, xEm: -2, rotateDeg: -120 }),
+  "spiral-in": fromTo({ opacity: 0, rotateDeg: 240, scaleX: 0.2, scaleY: 0.2 }),
+  shake: motion(
+    { at: 0 },
+    { at: 0.2, xEm: -0.16 },
+    { at: 0.4, xEm: 0.14 },
+    { at: 0.6, xEm: -0.1 },
+    { at: 0.8, xEm: 0.06 },
+    { at: 1 }
+  ),
+  jitter: motion(
+    { at: 0 },
+    { at: 0.25, xEm: 0.05, yEm: -0.04 },
+    { at: 0.5, xEm: -0.05, yEm: 0.04 },
+    { at: 0.75, xEm: 0.03, yEm: 0.05 },
+    { at: 1 }
+  ),
+  flash: motion(
+    { at: 0, opacity: 0 },
+    { at: 0.3, opacity: 1 },
+    { at: 0.45, opacity: 0.2 },
+    { at: 0.6, opacity: 1 },
+    { at: 0.75, opacity: 0.5 },
+    { at: 1, opacity: 1 }
+  ),
+  heartbeat: motion(
+    { at: 0 },
+    { at: 0.25, scaleX: 1.12, scaleY: 1.12 },
+    { at: 0.45 },
+    { at: 0.65, scaleX: 1.08, scaleY: 1.08 },
+    { at: 1 }
+  ),
+  wobble: motion({ at: 0, rotateDeg: -1.6 }, { at: 0.5, rotateDeg: 1.6 }, { at: 1, rotateDeg: -1.6 }),
+  float: motion({ at: 0 }, { at: 0.5, yEm: -0.22 }, { at: 1 }),
+  breath: motion(
+    { at: 0, opacity: 1 },
+    { at: 0.5, opacity: 0.92, scaleX: 1.03, scaleY: 1.03 },
+    { at: 1, opacity: 1 }
+  ),
+  "neon-flicker": motion(
+    { at: 0, opacity: 1 },
+    { at: 0.08, opacity: 0.6 },
+    { at: 0.12, opacity: 1 },
+    { at: 0.4, opacity: 0.85 },
+    { at: 0.44, opacity: 1 },
+    { at: 0.7, opacity: 0.4 },
+    { at: 0.74, opacity: 1 },
+    { at: 1, opacity: 1 }
+  ),
+  hologram: motion(
+    { at: 0, opacity: 1 },
+    { at: 0.3, opacity: 0.75, xEm: 0.03 },
+    { at: 0.6, opacity: 0.9, xEm: -0.03 },
+    { at: 1, opacity: 1 }
+  ),
+  "retro-flicker": motion(
+    { at: 0, opacity: 1 },
+    { at: 0.25, opacity: 0.7 },
+    { at: 0.5, opacity: 1 },
+    { at: 0.75, opacity: 0.8 },
+    { at: 1, opacity: 1 }
+  ),
+  "caption-rise": fromTo({ opacity: 0, yEm: 0.5 }),
+  "news-ticker": fromTo({ xPercent: 1 }, { xPercent: -1 }),
+  "marquee-left": fromTo({ xPercent: 1 }, { xPercent: -1 }),
+  "crawl-up": fromTo({ yPercent: 1 }, { yPercent: -1 })
+};
+
 // ../edit-store/src/ducking.ts
 var STATIC_DUCK_GAIN_DB = -12;
 function computeDuckIntervals(sources) {

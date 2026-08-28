@@ -130,6 +130,7 @@ export async function resolveDoctorReport(options = {}) {
   const runtime = resolveRuntimePaths(options);
   const mediaBin = await resolveMediaTools({ ...options, env, platform, pathEnv, pathExt });
   const chrome = await resolveChromeInstallation({ ...options, env });
+  const gpuExport = await resolveGpuExportAvailability({ ...options, env, platform });
   const akariHome = resolveAkariHome(env);
   const cliShimDir = join(akariHome, 'cli', 'bin');
   const report = {
@@ -146,6 +147,7 @@ export async function resolveDoctorReport(options = {}) {
     ffmpeg: mediaBin.ffmpeg,
     ffprobe: mediaBin.ffprobe,
     chrome,
+    gpu_export: gpuExport,
     path: {
       cli_shim_dir: cliShimDir,
       on_path: pathContains(pathEnv, cliShimDir, platform),
@@ -154,6 +156,30 @@ export async function resolveDoctorReport(options = {}) {
   report.verdict = determineDoctorVerdict(report);
   report.next_steps = doctorNextSteps(report);
   return report;
+}
+
+export async function resolveGpuExportAvailability(options = {}) {
+  const platform = options.platform ?? process.platform;
+  if (platform !== 'darwin') {
+    return { available: false, reason: 'GPU hardware export v0 is available on macOS only', launcher_tier: null };
+  }
+  try {
+    const resolver = options.resolveGpuLauncher
+      ?? (await import('../../gpu-export/src/runner.mjs')).resolveGpuLauncher;
+    const launcher = options.gpuLauncher ?? await resolver({
+      env: options.env ?? process.env,
+      platform,
+      homeDirectory: options.homeDirectory,
+    });
+    const available = launcher?.tier === 1 || launcher?.tier === 2;
+    return {
+      available,
+      reason: available ? `${launcher.kind} launcher tier ${launcher.tier}` : launcher?.reason ?? 'Electron launcher unavailable',
+      launcher_tier: launcher?.tier ?? null,
+    };
+  } catch (error) {
+    return { available: false, reason: String(error?.message ?? error), launcher_tier: null };
+  }
 }
 
 async function resolveMediaTools(options) {

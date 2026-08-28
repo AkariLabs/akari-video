@@ -141,3 +141,12 @@ media time に合わせて評価するため、従来の一定 2 コマ手前に
 ### 11.3 ソフト描画の前提（2026-08-28 追記）
 
 ソフト描画（`AKARI_OSR_SOFT=1`）は Electron 同梱 `libffmpeg.dylib` に H.264 デコーダが含まれていることを前提とする。`apps/shell` のビルドは `@theia/ffmpeg` によって非プロプライエタリ版へ差し替えるため、ビルド済みの作業ツリーではソフト描画の `VideoDecoder.configure` が全指定で失敗する（GPU 描画は VideoToolbox を使うので影響しない）。ソフト描画の diff 0 条件はこの前提のもとでのみ成立する。判定は `libffmpeg.dylib` に `H264 Decoder` 文字列があるかで行う（`isConfigSupported()` は差し替え版でも true を返すため当てにならない）。
+
+## 12. GPU 直結出口との共有境界（2026-08-28 追記）
+
+[GPU 直結書き出し v0](./contract-2026-08-28-gpu-export-v0.md) は、本契約の launcher 3 段、static
+server、page builder の入力解決、memory guard、ffprobe、音声 mux、receipt の語彙を再利用する。
+省略可能引数の既定値は本契約の OSR 挙動を維持する。GPU 出口の適格性、readback 禁止、mp4box direct
+mux、fail-closed 条件は GPU 契約を正本とし、OSR の seek/paint/stamp 経路へ逆流させない。
+§1 の darwin `auto → osr` は GPU 出口追加前の記述であり、GPU 契約の適格性を満たさない場合、
+または GPU launcher が利用できない場合の選択として読む。適格時の `auto → gpu` は GPU 契約を優先する。

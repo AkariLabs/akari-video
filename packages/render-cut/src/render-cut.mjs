@@ -47,6 +47,9 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { resolveCanonicalCaptionFontAsset } from "./caption-font.mjs";
 import { exportWithOsr, resolveOsrLauncher } from "../../osr-export/src/index.mjs";
+import { exportWithGpu } from "../../gpu-export/src/index.mjs";
+import { evaluateGpuEligibility } from "../../gpu-export/src/eligibility.mjs";
+import { resolveGpuLauncher } from "../../gpu-export/src/runner.mjs";
 import {
   projectRendererCompatibilityEdit,
   readRenderEdit,
@@ -60,17 +63,17 @@ const { resolveCaptionDisplay } = packageRequire("../../edit-store/lib/index.js"
 // itself. 24h gives ample time for a same-day retry/inspection before we reclaim the space, while
 // never touching a directory an active concurrent run still owns (see createRunTemporaryDirectory).
 const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
-const ENGINE_CHOICES = ["auto", "legacy", "osr"];
+const ENGINE_CHOICES = ["auto", "legacy", "osr", "gpu"];
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
-  [--fps <number>] [--capture-workers <n>] [--engine auto|legacy|osr] [--progress]
+  [--fps <number>] [--capture-workers <n>] [--engine auto|legacy|osr|gpu] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
 when explicitly passed as (or defaulted to) "standard"/"x264"; --fps defaults to edit.json's
 output.fps; --progress emits "PROGRESS out_time_ms=<n> total_ms=<n>" lines to stdout while
 encoding, followed by "PROGRESS done total_ms=<n>".
---engine defaults to auto, which resolves to osr on darwin and legacy on other platforms.
+--engine defaults to auto; on darwin eligible projects use gpu and other projects use osr.
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
 
@@ -114,7 +117,10 @@ export async function runCli(argv, io = console) {
 
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
-  const resolvedEngine = resolveEngineChoice(engineRequested, process.platform);
+  if (engineRequested === "gpu" && process.platform !== "darwin") {
+    throw new RefusalError("--engine gpu hardware export v0 is available on macOS only");
+  }
+  let resolvedEngine = resolveEngineChoice(engineRequested, process.platform);
   const projectRoot = resolve(input);
   const editPath = join(projectRoot, "edit.json");
   const editText = await readRequired(editPath, "edit.json");
@@ -153,6 +159,18 @@ export async function renderProject(input, options = {}, io = console) {
     ? await persistCaptionLayout(projectRoot, plannedCaptions.layout, capabilities)
     : null;
   const loadedOverlays = await loadOverlays(projectRoot, edit);
+  const shouldEvaluateGpu = engineRequested === "gpu"
+    || (engineRequested === "auto" && process.platform === "darwin");
+  const gpuEligibility = shouldEvaluateGpu
+    ? evaluateGpuEligibility({
+        edit: { ...edit, overlays: loadedOverlays },
+        captions: plannedCaptions.captions,
+        defaultTextStyle: plannedCaptions.defaultTextStyle,
+        emphasisWords: plannedCaptions.emphasisWords,
+      })
+    : null;
+  assertGpuEligibility(engineRequested, gpuEligibility);
+  resolvedEngine = resolveEngineChoice(engineRequested, process.platform, gpuEligibility);
   const hasThreeDimensionalOverlay = loadedOverlays.some((overlay) =>
     overlay.html.includes("data-akari-3d-scene"),
   );
@@ -235,12 +253,15 @@ export async function renderProject(input, options = {}, io = console) {
         hyperframes: capabilities.hyperframesVersion,
         puppeteer_core: capabilities.puppeteerVersion,
       },
-      ...buildEngineProvenance(engineRequested, process.platform),
+      ...buildEngineProvenance(engineRequested, process.platform, undefined, gpuEligibility),
     },
     artifacts: [],
     verify: null,
     ...(captionLayout ? { caption_layout: captionLayout } : {}),
   };
+  if (engineRequested === "auto" && process.platform === "darwin" && gpuEligibility?.eligible === false) {
+    addWarning(state, `GPU export is ineligible; using OSR: ${formatGpuEligibilityFailures(gpuEligibility)}`);
+  }
   for (const warning of plannedCaptions.warnings) addWarning(state, warning);
 
   const statePath = join(projectRoot, ".akari", "render.json");
@@ -248,11 +269,23 @@ export async function renderProject(input, options = {}, io = console) {
   await writeState(state, statePath, reportPath, projectRoot);
   if (options.planOnly) return state;
 
-  const osrLauncher = resolvedEngine === "osr" ? await resolveOsrLauncher() : null;
-  const engineExecution = selectRenderEngineExecution(resolvedEngine, osrLauncher);
+  let osrLauncher = resolvedEngine === "osr" ? await resolveOsrLauncher() : null;
+  let gpuLauncher = resolvedEngine === "gpu" ? await resolveGpuLauncher() : null;
+  if (resolvedEngine === "gpu" && gpuLauncher?.tier === 3) {
+    if (engineRequested === "gpu") throw new RefusalError(`GPU export is unavailable: ${gpuLauncher.reason}`);
+    addWarning(state, `GPU export is unavailable; using OSR: ${gpuLauncher.reason}`);
+    resolvedEngine = "osr";
+    osrLauncher = await resolveOsrLauncher();
+    gpuLauncher = null;
+    state.provenance.engine = "osr";
+    state.provenance.engine_fallback = { from: "gpu", reason: "GPU Electron launcher unavailable" };
+  }
+  const activeLauncher = resolvedEngine === "gpu" ? gpuLauncher : osrLauncher;
+  const engineExecution = selectRenderEngineExecution(resolvedEngine, activeLauncher);
   const useOsr = engineExecution.useOsr;
+  const useGpu = engineExecution.useGpu;
   if (osrLauncher?.tier === 3) {
-    Object.assign(state.provenance, buildEngineProvenance(engineRequested, process.platform, osrLauncher));
+    Object.assign(state.provenance, buildEngineProvenance(engineRequested, process.platform, osrLauncher, gpuEligibility));
     addWarning(state, osrLauncher.warning);
   }
 
@@ -361,10 +394,33 @@ export async function renderProject(input, options = {}, io = console) {
       runChecked(layersCommand.command, layersCommand.args, { cwd: projectRoot });
     }
     const cutOutputPath = tailPadCommand ? tailPaddedPath : cutPath;
-    const baseVideoPath = useOsr ? cutOutputPath : (trackStack?.outputPath ?? (layersCommand ? layeredPath : cutOutputPath));
+    const baseVideoPath = useOsr || useGpu ? cutOutputPath : (trackStack?.outputPath ?? (layersCommand ? layeredPath : cutOutputPath));
 
     const compositePath = join(temporaryDirectory, "composite.mp4");
-    if (useOsr) {
+    if (useGpu) {
+      const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
+      for (const warning of alphaLayers.warnings) addWarning(state, warning);
+      const gpu = await exportWithGpu({
+        projectRoot,
+        out: compositePath,
+        audioSourcePath: cutOutputPath,
+        fps: plan.preset.fps,
+        width: edit.output.width,
+        height: edit.output.height,
+        duration: plan.predicted_duration_seconds,
+        frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
+        quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
+        eligibility: gpuEligibility,
+        ffmpegCommand: capabilities.ffmpegCommand,
+        ffprobeCommand: capabilities.ffprobeCommand,
+        io,
+        launcher: gpuLauncher,
+      });
+      state.provenance.gpu = gpu.receipt;
+      state.provenance.rasterizer.adopted = "gpu";
+      state.provenance.rasterizer.attempts.push({ method: "gpu", status: "adopted", reason: null });
+      emitProgress("composite", plan.predicted_duration_seconds);
+    } else if (useOsr) {
       const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
       for (const warning of alphaLayers.warnings) addWarning(state, warning);
       const osr = await exportWithOsr({
@@ -648,26 +704,30 @@ export function parseArguments(argv, env = process.env) {
 
 export function selectRenderEngineExecution(engine, launcher) {
   const useOsr = engine === "osr" && launcher !== null && launcher?.tier !== 3;
-  const engineFallback = engine === "osr" && launcher?.tier === 3
-    ? { from: "osr", reason: launcher.reason }
+  const useGpu = engine === "gpu" && launcher !== null && launcher?.tier !== 3;
+  const engineFallback = (engine === "osr" || engine === "gpu") && launcher?.tier === 3
+    ? { from: engine, reason: launcher.reason }
     : undefined;
-  return {
+  const execution = {
     useOsr,
-    engine: useOsr ? "osr" : "legacy",
+    engine: useGpu ? "gpu" : useOsr ? "osr" : "legacy",
     engineFallback,
-    runLegacyTrackStack: !useOsr,
-    runLegacyLayers: !useOsr,
-    runLegacyRasterize: !useOsr,
+    runLegacyTrackStack: !useOsr && !useGpu,
+    runLegacyLayers: !useOsr && !useGpu,
+    runLegacyRasterize: !useOsr && !useGpu,
   };
+  if (engine === "gpu") execution.useGpu = useGpu;
+  return execution;
 }
 
-export function resolveEngineChoice(requested, platform) {
+export function resolveEngineChoice(requested, platform, eligibility = null) {
   if (requested !== "auto") return requested;
+  if (platform === "darwin" && eligibility?.eligible === true) return "gpu";
   return platform === "darwin" ? "osr" : "legacy";
 }
 
-export function buildEngineProvenance(requested, platform, launcher = undefined) {
-  const resolvedEngine = resolveEngineChoice(requested, platform);
+export function buildEngineProvenance(requested, platform, launcher = undefined, eligibility = null) {
+  const resolvedEngine = resolveEngineChoice(requested, platform, eligibility);
   if (launcher === undefined) {
     return { engine_requested: requested, engine: resolvedEngine };
   }
@@ -677,6 +737,17 @@ export function buildEngineProvenance(requested, platform, launcher = undefined)
     engine: execution.engine,
     ...(execution.engineFallback ? { engine_fallback: execution.engineFallback } : {}),
   };
+}
+
+export function assertGpuEligibility(requested, eligibility) {
+  if (requested !== "gpu" || eligibility?.eligible === true) return;
+  throw new RefusalError(`GPU export is ineligible: ${formatGpuEligibilityFailures(eligibility)}`);
+}
+
+function formatGpuEligibilityFailures(eligibility) {
+  if (!eligibility?.entries) return "eligibility result is missing";
+  return eligibility.entries.filter((entry) => ["degraded", "unsupported"].includes(entry.classification))
+    .map((entry) => `${entry.kind}:${entry.id}:${entry.reason}`).join("; ") || "unknown reason";
 }
 
 function parseEngineValue(value) {
@@ -847,7 +918,7 @@ async function loadOverlays(projectRoot, edit) {
 export async function loadCaptions(projectRoot, edit) {
   const captionsPath = join(projectRoot, "captions.json");
   if (!(await isRegularFile(captionsPath))) {
-    return { overlays: [], warnings: [], layout: null };
+    return { overlays: [], warnings: [], layout: null, captions: [], defaultTextStyle: null, emphasisWords: [] };
   }
   const captionsRoot = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
   const captions = Array.isArray(captionsRoot)
@@ -860,7 +931,11 @@ export async function loadCaptions(projectRoot, edit) {
   }
   const resolved = resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit), { output: edit.output });
   if (resolved) {
-    return { overlays: generateResolvedCaptionOverlays(resolved), warnings: [], layout: resolved };
+    return {
+      overlays: generateResolvedCaptionOverlays(resolved), warnings: [], layout: resolved,
+      captions, defaultTextStyle: Array.isArray(captionsRoot) ? null : captionsRoot.default_text_style ?? null,
+      emphasisWords: Array.isArray(captionsRoot) ? edit.emphasis_words ?? [] : captionsRoot.emphasis_words ?? edit.emphasis_words ?? [],
+    };
   }
   const defaultTextStyle = Array.isArray(captionsRoot)
     ? undefined
@@ -877,7 +952,7 @@ export async function loadCaptions(projectRoot, edit) {
     sourceCount: edit.sources.length,
     onWarning: (warning) => warnings.push(warning),
   });
-  return { overlays, warnings, layout: null };
+  return { overlays, warnings, layout: null, captions, defaultTextStyle: defaultTextStyle ?? null, emphasisWords: emphasisWords ?? [] };
 }
 
 function captionDisplayEdit(edit) {

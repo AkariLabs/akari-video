@@ -125,7 +125,7 @@ function nonNegativeInteger(value, label) {
   return number;
 }
 
-async function muxSourceAudio({ ffmpegCommand, ffprobeCommand, videoPath, audioPath, outputPath, frames, fps }) {
+export async function muxSourceAudio({ ffmpegCommand, ffprobeCommand, videoPath, audioPath, outputPath, frames, fps }) {
   const sourceHasAudio = (await capture(ffprobeCommand, [
     "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=index", "-of", "csv=p=0", audioPath,
   ])).trim() !== "";

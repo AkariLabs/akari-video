@@ -113,6 +113,7 @@
 | [contract-2026-08-02-preview-parity.md](./contract-2026-08-02-preview-parity.md) | エンジン v2 パリティ契約 — `T → frame` 評価関数 1 個・プレビューの器 2 個・OSR 出口 1 個・golden frame 検収 1 本 |
 | [contract-2026-08-01-export-nle-beta.md](./contract-2026-08-01-export-nle-beta.md) | export-nle: 他社 NLE への片道書き出し（FCPXML / FCP7 XML / SRT）— **BETA・実 NLE 取り込み未確認** |
 | [contract-2026-08-28-osr-export-v0.md](./contract-2026-08-28-osr-export-v0.md) | ページ全体 Electron OSR 書き出し v0 — 4層ページ、seek/paint検証、器のフォールバック、メモリ上限 |
+| [contract-2026-08-28-gpu-export-v0.md](./contract-2026-08-28-gpu-export-v0.md) | GPU 直結書き出し v0 — 適格性、読み戻しゼロの WebCodecs 経路、mp4box mux、fallback、決定論 gate |
 | [contract-2026-08-28-v2-approximation-ledger.md](./contract-2026-08-28-v2-approximation-ledger.md) | エンジン v2 恒久近似清算表 — golden / 実測で解消した項目、残す近似、別票を一件ずつ記録する正本 |
 
 ### 素材・個人層

@@ -117,6 +117,7 @@ All contracts follow the
 | [contract-2026-08-02-preview-parity.md](./contract-2026-08-02-preview-parity.md) | Engine v2 parity — one `T → frame` evaluator, two preview containers, one OSR exit, and a single golden-frame acceptance suite (Japanese) |
 | [contract-2026-08-01-export-nle-beta.md](./contract-2026-08-01-export-nle-beta.md) | export-nle: one-way export to other NLEs (FCPXML / FCP7 XML / SRT) — **BETA, untested against real NLEs** |
 | [contract-2026-08-28-osr-export-v0.md](./contract-2026-08-28-osr-export-v0.md) | Whole-page Electron OSR export v0 — page layers, seek/paint verification handshake, launcher fallback, and memory limits (Japanese) |
+| [contract-2026-08-28-gpu-export-v0.md](./contract-2026-08-28-gpu-export-v0.md) | GPU-direct export v0 — eligibility, zero-readback WebCodecs path, mp4box mux, fallback, and determinism gates (Japanese) |
 | [contract-2026-08-28-v2-approximation-ledger.md](./contract-2026-08-28-v2-approximation-ledger.md) | Engine v2 approximation ledger — resolved items with golden or measured evidence, retained approximations, and separately tracked work (Japanese) |
 
 ### Assets & personal layer
