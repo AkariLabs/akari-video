@@ -80,8 +80,9 @@ you quit and relaunch the app normally. It never force-restarts you mid-session.
 command (agent workflow bundled; the browser preview server is not included — use the
 installer above for the full setup). This never uses sudo; if it fails with `EACCES`
 (permission error), prefer `install.sh` above (user-space, no admin password needed) or
-configure an npm user prefix instead. The desktop app provisions its own `akari` CLI
-automatically — no separate install needed there.
+configure an npm user prefix instead. On first launch, the desktop app automatically
+provisions the `akari` CLI so it is ready to use in the app's terminals. To use it from an
+OS terminal, add `~/.akari/cli/bin` to PATH or run `install.sh` above.
 
 **For manual installation**, see below:
 
