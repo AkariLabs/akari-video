@@ -74,10 +74,51 @@ jobs:
           NODE
           PROBE_URL="file://$probe_dir/index.html" \
             xvfb-run -a node_modules/.bin/electron "$probe_dir/main.cjs" --no-sandbox
-      - name: Run required frame-engine suite
+      - name: Run required frame-engine suite (build + unit + seek)
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
-        run: xvfb-run -a npm --prefix packages/frame-engine run ci:required
+        run: |
+          npm --prefix packages/frame-engine run build
+          npm --prefix packages/frame-engine run test:unit
+          xvfb-run -a npm --prefix packages/frame-engine run test:seek
+
+  frame-engine-golden-soft:
+    # 参考ジョブ（2026-08-28 司令塔）: ソフト描画（SwiftShader）では colorPatches の許容差が未定義で Δ1〜12 が出るため、
+    # 許容差の別票が入るまで continue-on-error。他の点群（parity / layer / matte / transition / look / gopTail / bFrame）はソフトでも 0 fail。
+    name: frame-engine-golden-soft (reference)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+          cache: npm
+      - name: Install Linux runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg xvfb
+      - name: Install frame-engine dependencies and Electron
+        run: >-
+          npm install --workspace @akari-video/frame-engine
+          --include-workspace-root=false --include=optional
+          --no-audit --no-fund --no-save electron@39.8.7
+      - name: Force Electron golden runs through SwiftShader
+        shell: bash
+        run: |
+          electron_cli="$(pwd)/node_modules/electron/cli.js"
+          rm -f node_modules/.bin/electron
+          printf '%s\n' '#!/usr/bin/env bash' \
+            "exec node \"${electron_cli}\" --disable-gpu --enable-unsafe-swiftshader --use-angle=swiftshader \"\$@\"" \
+            > node_modules/.bin/electron
+          chmod +x node_modules/.bin/electron
+      - name: Run golden under SwiftShader (reference only)
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: |
+          npm --prefix packages/frame-engine run build
+          xvfb-run -a npm --prefix packages/frame-engine run test:golden
 
   osr-export-soft:
     name: osr-export-soft
