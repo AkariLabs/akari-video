@@ -13,6 +13,8 @@ const fixture = resolve(generated, 'source.mp4');
 const matteColor = resolve(generated, 'matte-color.mp4');
 const matteAlpha = resolve(generated, 'matte-alpha.webm');
 const matteMask = resolve(generated, 'matte-mask.mp4');
+const matteIntakeColor = resolve(generated, 'matte-alpha.color.mp4');
+const matteIntakeMask = resolve(generated, 'matte-alpha.mask.mp4');
 const bundle = resolve(generated, 'renderer.js');
 const resultsFile = resolve(generated, 'results.json');
 const lutsRoot = resolve(directory, '../../../../presets/luts');
@@ -108,7 +110,9 @@ const codecName = file => JSON.parse(execFileSync(ffprobe, [
 const fixtureCodecs = {
   [pathToFileURL(matteColor).toString()]: codecName(matteColor),
   [pathToFileURL(matteAlpha).toString()]: codecName(matteAlpha),
-  [pathToFileURL(matteMask).toString()]: codecName(matteMask)
+  [pathToFileURL(matteMask).toString()]: codecName(matteMask),
+  [pathToFileURL(matteIntakeColor).toString()]: codecName(matteIntakeColor),
+  [pathToFileURL(matteIntakeMask).toString()]: codecName(matteIntakeMask)
 };
 
 let resolveCompletion;

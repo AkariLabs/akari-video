@@ -14,6 +14,8 @@ const STILL = resolve(GENERATED, 'still.png');
 const MATTE_COLOR = resolve(GENERATED, 'matte-color.mp4');
 const MATTE_ALPHA = resolve(GENERATED, 'matte-alpha.webm');
 const MATTE_MASK = resolve(GENERATED, 'matte-mask.mp4');
+const MATTE_INTAKE_COLOR = resolve(GENERATED, 'matte-alpha.color.mp4');
+const MATTE_INTAKE_MASK = resolve(GENERATED, 'matte-alpha.mask.mp4');
 const COLOR_PATCHES = resolve(GENERATED, 'color-patches.mp4');
 const B_FRAME_FIXTURES = new Set([
   'bframe-bf0-30.mp4',
@@ -48,7 +50,9 @@ const codecName = file => JSON.parse(execFileSync(ffprobe, [
 const fixtureCodecs = {
   'frame-engine://fixture/matte-color.mp4': codecName(MATTE_COLOR),
   'frame-engine://fixture/matte-alpha.webm': codecName(MATTE_ALPHA),
-  'frame-engine://fixture/matte-mask.mp4': codecName(MATTE_MASK)
+  'frame-engine://fixture/matte-mask.mp4': codecName(MATTE_MASK),
+  'frame-engine://fixture/matte-alpha.color.mp4': codecName(MATTE_INTAKE_COLOR),
+  'frame-engine://fixture/matte-alpha.mask.mp4': codecName(MATTE_INTAKE_MASK)
 };
 
 function artifactPath(name) {
@@ -165,6 +169,8 @@ app.whenReady().then(async () => {
     else if (url.hostname === 'fixture' && url.pathname === '/matte-color.mp4') file = MATTE_COLOR;
     else if (url.hostname === 'fixture' && url.pathname === '/matte-alpha.webm') file = MATTE_ALPHA;
     else if (url.hostname === 'fixture' && url.pathname === '/matte-mask.mp4') file = MATTE_MASK;
+    else if (url.hostname === 'fixture' && url.pathname === '/matte-alpha.color.mp4') file = MATTE_INTAKE_COLOR;
+    else if (url.hostname === 'fixture' && url.pathname === '/matte-alpha.mask.mp4') file = MATTE_INTAKE_MASK;
     else if (url.hostname === 'fixture' && url.pathname === '/color-patches.mp4') file = COLOR_PATCHES;
     else if (url.hostname === 'fixture' && B_FRAME_FIXTURES.has(url.pathname.slice(1))) {
       file = resolve(GENERATED, url.pathname.slice(1));

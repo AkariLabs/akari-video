@@ -703,6 +703,7 @@ function validateEditV2(edit, findings) {
   }
 
   const sourceIds = new Map();
+  const sourcePaths = new Map();
   const trackIds = new Map();
   const itemIds = new Map();
   const registerId = (ids, id, path, label) => {
@@ -730,7 +731,10 @@ function validateEditV2(edit, findings) {
 
   if (Array.isArray(edit.sources)) {
     for (const [index, source] of edit.sources.entries()) {
-      if (isRecord(source)) registerId(sourceIds, source.id, `edit.json#sources[${index}].id`, "source");
+      if (isRecord(source)) {
+        registerId(sourceIds, source.id, `edit.json#sources[${index}].id`, "source");
+        if (isNonEmptyString(source.id)) sourcePaths.set(source.id, source.path);
+      }
     }
   }
 
@@ -813,6 +817,25 @@ function validateEditV2(edit, findings) {
           message: `source kind ${String(kind)} is not compatible with lane ${String(track.lane)}`,
           path: `${itemPath}.source.kind`,
         });
+      }
+
+      if (Object.hasOwn(item, "mask")) {
+        const maskPath = `${itemPath}.mask`;
+        if (!isNonEmptyString(item.mask) || !sourceIds.has(item.mask)) {
+          addFinding(findings, {
+            severity: "error",
+            check: "v2.mask-reference",
+            message: `mask does not reference sources[].id: ${String(item.mask)}`,
+            path: maskPath,
+          });
+        } else if (!isVideoSourcePath(sourcePaths.get(item.mask))) {
+          addFinding(findings, {
+            severity: "error",
+            check: "v2.mask-video",
+            message: `mask source must be a video: ${String(sourcePaths.get(item.mask))}`,
+            path: maskPath,
+          });
+        }
       }
 
       if (kind === "html" && Object.hasOwn(item.source, "params")) {
@@ -921,6 +944,11 @@ function validateEditV2(edit, findings) {
       if (!furthest || interval.end > furthest.end) furthest = interval;
     }
   }
+}
+
+function isVideoSourcePath(value) {
+  return isNonEmptyString(value)
+    && /\.(?:mp4|m4v|mov|webm|mkv|avi|mpeg|mpg|ogv)(?:[?#].*)?$/iu.test(value);
 }
 
 // docs/contract-2026-07-22-render-basics.md #4/#2。output.look / source.chroma_key の構造検証は

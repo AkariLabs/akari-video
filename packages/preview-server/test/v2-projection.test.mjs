@@ -9,6 +9,7 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import { editToTimeline } from '../src/edit-to-timeline.mjs';
 import { migratePreviewCompatibility, previewReadError, projectPreviewEdit } from '../src/preview-edit.mjs';
+import { editForPut } from '../public/transition-write-guard.js';
 
 const require = createRequire(import.meta.url);
 const { buildTimelineMap } = require('../../edit-store/lib/timeline-map.js');
@@ -227,6 +228,41 @@ test('v2 summary/timeline use renderer projection and preserve all transition en
       fs.rmSync(project, { recursive: true, force: true });
     }
   }
+});
+
+test('alpha intake metadata stays top-level and cannot poison summary-to-PUT migration', () => {
+  const summary = {
+    version: 2,
+    output: { width: 320, height: 180, fps: 30 },
+    sources: [
+      { id: 'main', path: 'main.mp4', proxy: null },
+      { id: 'person', path: 'person.webm', proxy: null },
+    ],
+    cuts: [{ id: 'main-cut', src: 'main', in: 0, out: 1, at: 0, track: 0 }],
+    overlays: [],
+    layers: [{ id: 'person-layer', t: 0, duration: 1, kind: 'video', src: 'person.webm', track: 0 }],
+    audio: { sfx: [], narration: [] },
+    frameEngine: {
+      intake: { 'person-layer': { src: 'person.color.mp4', mask: 'person.mask.mp4' } },
+      skipped: [],
+      warnings: [],
+    },
+  };
+  const put = editForPut(structuredClone(summary));
+  assert.deepEqual(put.layers, summary.layers);
+  assert.doesNotThrow(() => migratePreviewCompatibility(put));
+  const migrated = migratePreviewCompatibility(put);
+  assert.equal(migrated.version, 2);
+  assert.equal(Object.hasOwn(migrated, 'frameEngine'), false);
+
+  const explicitMask = structuredClone(summary);
+  explicitMask.sources.push({ id: 'person-mask', path: 'declared.mask.mp4', proxy: null });
+  explicitMask.layers[0].mask = 'declared.mask.mp4';
+  explicitMask.frameEngine.intake['person-layer'].mask = 'declared.mask.mp4';
+  const migratedExplicit = migratePreviewCompatibility(editForPut(explicitMask));
+  const item = migratedExplicit.tracks.flatMap(track => track.items ?? [])
+    .find(candidate => candidate.id === 'person-layer');
+  assert.equal(item.mask, 'person-mask');
 });
 
 test('v2 WebUI renders projected DOM, track winner, transition, speed and trimmed audio', async (t) => {

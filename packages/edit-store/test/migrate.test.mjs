@@ -61,6 +61,50 @@ test('レイヤー動画の素材表追加・baked telop・audio を音声先頭
   assert.equal(result.doc.tracks[0].items[0].source.out, undefined);
 });
 
+test('v2 media mask survives projection to a path-backed legacy layer and migration back to its source id', () => {
+  const original = {
+    version: 2,
+    output: { width: 1920, height: 1080, fps: 30 },
+    sources: [
+      { id: 'main', path: 'main.mp4', proxy: null },
+      { id: 'person', path: 'person.color.mp4', proxy: null },
+      { id: 'person-mask', path: 'person.mask.mp4', proxy: null },
+    ],
+    tracks: [
+      { id: 'base', lane: 'visual', items: [
+        { id: 'main-cut', at: 0, duration: 30, source: { kind: 'media', src: 'main', in: 0, out: 1 } },
+      ] },
+      { id: 'person-track', lane: 'visual', items: [
+        { id: 'person-layer', at: 0, duration: 30, mask: 'person-mask',
+          source: { kind: 'media', src: 'person', in: 0, out: 1 } },
+      ] },
+    ],
+  };
+  const projected = projectLegacyEdit(readInternalEdit(original));
+  assert.equal(projected.layers[0].mask, 'person.mask.mp4');
+  const result = migrateEditToV2({
+    version: 1,
+    output: original.output,
+    sources: original.sources,
+    cuts: projected.cuts,
+    overlays: projected.overlays,
+    layers: projected.layers,
+  });
+  assert.equal(result.ok, true, result.blockers?.join('\n'));
+  const item = result.doc.tracks.flatMap(track => track.items ?? [])
+    .find(candidate => candidate.id === 'person-layer');
+  assert.equal(item.mask, 'person-mask');
+  assert.equal(projectLegacyEdit(readInternalEdit(result.doc)).layers[0].mask, 'person.mask.mp4');
+});
+
+test('legacy layer mask that cannot be resolved through sources[].path fails loudly', () => {
+  const doc = base(1);
+  doc.layers = [{ id: 'person', t: 0, duration: 1, kind: 'video', src: 'person.mp4', mask: 'missing.mask.mp4' }];
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, false);
+  assert.match(result.blockers.join('\n'), /layers\[0\]\.mask.*sources\[\]\.path/u);
+});
+
 test('v1 audio は用途別 audio track へ移り、時刻・尺と音声属性を契約どおり変換する', () => {
   const doc = base(1);
   doc.audio = {

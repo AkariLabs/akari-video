@@ -36,7 +36,10 @@ const v2 = () => ({
 });
 
 test('v2 transform patch persists on tracks[].items[].transform', () => {
-  const result = resolvePreviewItemWrite(JSON.stringify(v2()), {
+  const value = v2();
+  value.sources.push({ id: 'mask', path: 'assets/mask.mp4' });
+  value.tracks[0].items[0].mask = 'mask';
+  const result = resolvePreviewItemWrite(JSON.stringify(value), {
     kind: 'overlay',
     itemId: 'title-1',
     patch: { transform: { x: 32, y: -18, scale: 1.25, rotate: 4 } },
@@ -50,6 +53,7 @@ test('v2 transform patch persists on tracks[].items[].transform', () => {
     rotate: 4,
   });
   assert.equal(written.cuts, undefined);
+  assert.equal(written.tracks[0].items[0].mask, 'mask');
 });
 
 test('v2 html patch resolves its referenced fragment and never embeds html in edit.json', () => {

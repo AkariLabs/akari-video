@@ -292,6 +292,8 @@ function legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds) {
 function needsLayersEngine(item, chromaKeyOf, hasOverlappingSibling = false) {
     if (item.source.kind !== 'media')
         return false;
+    if ('mask' in item && item.mask !== undefined)
+        return true;
     if (item.blend !== undefined && item.blend !== 'normal')
         return true;
     if (Array.isArray(item.keyframes) && item.keyframes.some(point => point && typeof point === 'object' && 'perspective' in point && point.perspective !== undefined))
@@ -402,6 +404,7 @@ function needsCrossTrackLayers(item, pathOf) {
         || item.crop !== undefined
         || (item.opacity !== undefined && item.opacity < 1)
         || item.keyframes !== undefined
+        || (item.source.kind === 'media' && 'mask' in item && item.mask !== undefined)
         || (item.source.kind === 'media' && isAlphaCapableMediaSourcePath(pathOf?.(item.source.src)));
 }
 function nextRef(counters, kind) {
@@ -435,7 +438,9 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
         ...(item.blend !== undefined ? { blend: item.blend } : {}),
         ...(item.crop !== undefined ? { crop: item.crop } : {}),
         ...(item.perspective !== undefined ? { perspective: item.perspective } : {}),
-        ...(keyframes !== undefined ? { keyframes } : {})
+        ...(keyframes !== undefined ? { keyframes } : {}),
+        ...(item.source.kind === 'media' && 'mask' in item && item.mask !== undefined
+            ? { mask: pathOf(item.mask) ?? item.mask } : {})
     };
     switch (item.source.kind) {
         case 'media': {

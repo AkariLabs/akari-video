@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as MP4BoxNamespace from '@webav/mp4box.js';
+import { ensureAlphaIntake } from '../../../media-bin/src/alpha-intake.mjs';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const output = resolve(directory, '.generated/source.mp4');
@@ -11,6 +12,8 @@ const still = resolve(directory, '.generated/still.png');
 const matteColor = resolve(directory, '.generated/matte-color.mp4');
 const matteAlpha = resolve(directory, '.generated/matte-alpha.webm');
 const matteMask = resolve(directory, '.generated/matte-mask.mp4');
+const matteIntakeColor = resolve(directory, '.generated/matte-alpha.color.mp4');
+const matteIntakeMask = resolve(directory, '.generated/matte-alpha.mask.mp4');
 const colorPatches = resolve(directory, '.generated/color-patches.mp4');
 const bFrameFixtures = [
   { name: 'bframe-bf0-30.mp4', bFrames: 0, fps: 30, reorderFrames: 0 },
@@ -133,11 +136,24 @@ if (!matteColorValid) {
   execFileSync(ffmpeg, [
     '-hide_banner', '-loglevel', 'error', '-y',
     '-f', 'lavfi', '-i', "nullsrc=size=320x180:rate=30,geq=lum='48+mod(2*X+3*Y+7*N,160)':cb='96+mod(N,48)':cr='160-mod(N,48)'",
-    '-t', '13', '-an', '-c:v', 'libx264', '-preset', 'medium', '-crf', '14', '-threads', '1',
+    '-t', '13', '-an', '-c:v', 'libx264', '-preset', 'medium', '-crf', '6', '-threads', '1',
     '-g', '30', '-keyint_min', '30', '-sc_threshold', '0', '-bf', '0',
     '-pix_fmt', 'yuv420p', '-color_range', 'tv', '-color_primaries', 'bt709',
     '-color_trc', 'bt709', '-colorspace', 'bt709', '-movflags', '+faststart', matteColor
   ], { stdio: 'inherit' });
+}
+
+function firstFrameMeanAbs(left, right) {
+  const decode = file => execFileSync(ffmpeg, [
+    '-hide_banner', '-loglevel', 'error', '-i', file, '-frames:v', '1',
+    '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1'
+  ], { maxBuffer: 320 * 180 * 3 + 1024 });
+  const a = decode(left);
+  const b = decode(right);
+  if (a.length !== b.length || a.length === 0) return Infinity;
+  let total = 0;
+  for (let index = 0; index < a.length; index += 1) total += Math.abs(a[index] - b[index]);
+  return total / a.length;
 }
 
 let alphaValid = false;
@@ -148,15 +164,18 @@ try {
   ], { encoding: 'utf8' })).streams?.[0];
   const alphaMode = Object.entries(stream?.tags ?? {}).find(([key]) => key.toLowerCase() === 'alpha_mode')?.[1];
   alphaValid = stream?.codec_name === 'vp9' && String(alphaMode) === '1' && Number(stream.nb_read_frames) === 390;
+  alphaValid = alphaValid && firstFrameMeanAbs(matteColor, matteAlpha) <= 1;
 } catch { alphaValid = false; }
 if (!alphaValid) {
   execFileSync(ffmpeg, [
     '-hide_banner', '-loglevel', 'error', '-y',
-    '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=30:duration=13',
+    '-f', 'lavfi', '-i', "nullsrc=size=320x180:rate=30,geq=lum='48+mod(2*X+3*Y+7*N,160)':cb='96+mod(N,48)':cr='160-mod(N,48)'",
     '-f', 'lavfi', '-i', "nullsrc=size=320x180:rate=30:duration=13,geq=lum='if(between(X,mod(5*N,288),mod(5*N,288)+31),255,0)'",
     '-filter_complex', '[0:v][1:v]alphamerge,format=yuva420p',
     '-an', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-auto-alt-ref', '0',
-    '-b:v', '0', '-crf', '20', '-g', '30', '-row-mt', '1', '-threads', '4', matteAlpha
+    '-lossless', '1', '-g', '30', '-row-mt', '1', '-threads', '4',
+    '-color_range', 'tv', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709',
+    '-t', '13', matteAlpha
   ], { stdio: 'inherit' });
 }
 
@@ -165,6 +184,11 @@ const converted = JSON.parse(execFileSync(process.execPath, [
   maskScript, '--input', matteAlpha, '--out', matteMask, '--force'
 ], { encoding: 'utf8' }).trim());
 if (!converted.ok) throw new Error(`matte mask conversion failed: ${converted.reason}`);
+const intake = await ensureAlphaIntake(matteAlpha, { ffmpeg, ffprobe });
+if (!intake.ok) throw new Error(`matte alpha intake failed: ${intake.reason}`);
+if (intake.colorPath !== matteIntakeColor || intake.maskPath !== matteIntakeMask) {
+  throw new Error(`matte alpha intake paths are unexpected: ${JSON.stringify(intake)}`);
+}
 const colorProbe = probeStream(matteColor);
 const maskProbe = probeStream(matteMask);
 if (maskProbe.codec_name !== 'h264'
@@ -453,7 +477,7 @@ for (const spec of bFrameTailFixtures) {
 }
 
 process.stdout.write(`${[
-  output, sourceB, still, matteColor, matteAlpha, matteMask, colorPatches,
+  output, sourceB, still, matteColor, matteAlpha, matteMask, matteIntakeColor, matteIntakeMask, colorPatches,
   ...bFrameFixtures.map(spec => spec.path),
   ...bFrameTailFixtures.map(spec => spec.path),
 ].join('\n')}\n`);

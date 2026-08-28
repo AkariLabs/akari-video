@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -40,6 +40,23 @@ test('v2 is projected to the single compatibility view and passes existing check
   const root = await project();
   const result = await lintProject(root, { writeReports: false });
   assert.equal(result.verdict, 'pass', JSON.stringify(result.findings));
+});
+
+test('v2 mask must reference an existing video source', async () => {
+  const root = await project();
+  const editPath = join(root, 'edit.json');
+  const edit = JSON.parse(await readFile(editPath, 'utf8'));
+  edit.tracks[1].items[0].mask = 'missing';
+  await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`);
+  let result = await lintProject(root, { writeReports: false });
+  assert.ok(result.findings.some(finding => finding.check === 'v2.mask-reference'));
+
+  await writeFile(join(root, 'assets', 'mask.png'), 'fixture');
+  edit.sources.push({ id: 'mask-image', path: 'assets/mask.png', proxy: null });
+  edit.tracks[1].items[0].mask = 'mask-image';
+  await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`);
+  result = await lintProject(root, { writeReports: false });
+  assert.ok(result.findings.some(finding => finding.check === 'v2.mask-video'));
 });
 
 test('legacy edit.json is rejected by the v2-only reader', async () => {

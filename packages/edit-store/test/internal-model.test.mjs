@@ -33,6 +33,15 @@ test('readInternalEdit accepts v2 and keeps integer frames authoritative', () =>
   assert.equal(internal.tracks[0].items[0].duration, 2);
 });
 
+test('v2 media mask resolves through sources and forces layers projection', () => {
+  const edit = base();
+  edit.sources.push({ id: 'person-mask', path: 'matte/person.mask.mp4', proxy: null });
+  edit.tracks[0].items[0].mask = 'person-mask';
+  const internal = readInternalEdit(edit);
+  assert.equal(internal.tracks[0].items[0].legacy.collection, 'layers');
+  assert.equal(projectLegacyEdit(internal).layers[0].mask, 'matte/person.mask.mp4');
+});
+
 test('readInternalEdit and readInternalSources reject legacy versions', () => {
   for (const version of [0, 1]) {
     assert.throws(() => readInternalEdit({ version }), LegacyEditVersionError);

@@ -96,9 +96,12 @@ export interface ItemV2Base {
     perspective?: Record<string, unknown>;
     keyframes?: KeyframeV2[];
 }
-export type ItemV2 = (ItemV2Base & {
+export type MediaItemV2 = ItemV2Base & {
     source: MediaSourceV2;
-}) | (ItemV2Base & {
+    /** sources[].id of a gray-h264-fullrange mask video. */
+    mask?: string;
+};
+export type ItemV2 = MediaItemV2 | (ItemV2Base & {
     source: HtmlSourceV2;
 }) | (ItemV2Base & {
     source: TelopSourceV2;

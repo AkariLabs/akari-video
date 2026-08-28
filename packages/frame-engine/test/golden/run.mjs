@@ -116,6 +116,8 @@ assert.equal(results.layerStats.disposeRecreateDifferingPixels, 0);
 assert.equal(results.layerStats.glErrors, 0);
 assert.equal(results.matteParity.length >= 3, true);
 assert.equal(results.matteParity.every(sample => sample.pass), true);
+assert.equal(results.alphaIntakeParity.length >= 3, true);
+assert.equal(results.alphaIntakeParity.every(sample => sample.meanAbs <= 1 && sample.p999 <= 3), true);
 assert.equal(results.matteNegative.injectedPixelMutation, true);
 assert.equal(results.matteNegative.comparatorPassed, false);
 assert.equal(results.matteNegative.differingPixels, 1);

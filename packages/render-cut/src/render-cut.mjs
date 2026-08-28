@@ -44,6 +44,7 @@ import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs } from "./rende
 import { createImmutableRenderReceipt, prepareContainedReportDirectory } from "./render-receipt.mjs";
 import { buildAudioQc, measurementErrorAudioQc, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { resolveCanonicalCaptionFontAsset } from "./caption-font.mjs";
 import { exportWithOsr, resolveOsrLauncher } from "../../osr-export/src/index.mjs";
 import {
@@ -364,6 +365,8 @@ export async function renderProject(input, options = {}, io = console) {
 
     const compositePath = join(temporaryDirectory, "composite.mp4");
     if (useOsr) {
+      const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
+      for (const warning of alphaLayers.warnings) addWarning(state, warning);
       const osr = await exportWithOsr({
         projectRoot,
         out: compositePath,

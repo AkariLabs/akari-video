@@ -516,7 +516,20 @@ class FrameEngineRuntime {
     const cuts = normalizedCuts(edit);
     const urls = sourceUrls(edit, timelineData, cuts);
     const videoSources = new Map<string, NativeFrameSource>();
-    for (const layer of Array.isArray(edit?.layers) ? edit.layers : []) {
+    const frameEngineIntake = edit?.frameEngine?.intake ?? {};
+    const skippedLayers = new Set(Array.isArray(edit?.frameEngine?.skipped) ? edit.frameEngine.skipped : []);
+    const engineLayers = (Array.isArray(edit?.layers) ? edit.layers : [])
+      .map((layer: any, index: number) => {
+        const key = String(layer?.id ?? layer?.src ?? index);
+        if (skippedLayers.has(key)) return null;
+        const prepared = frameEngineIntake[key];
+        return prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+      })
+      .filter(Boolean);
+    for (const warning of Array.isArray(edit?.frameEngine?.warnings) ? edit.frameEngine.warnings : []) {
+      this.showError(String(warning), false);
+    }
+    for (const layer of engineLayers) {
       if (!layer?.src) continue;
       const key = String(layer.src);
       urls.set(key, mediaUrl(key));
@@ -555,7 +568,7 @@ class FrameEngineRuntime {
     this.sources = new Map([...videoSources, ...this.images]);
     this.timeline = buildResolvedTimelinePlan(cuts, {
       fps,
-      layers: (Array.isArray(edit?.layers) ? edit.layers : []) as FrameEngineLayer[],
+      layers: engineLayers as FrameEngineLayer[],
     });
     this.totalDuration = this.timeline.totalDuration;
     this.audio = new FrameEngineAudioSupply(edit, this.totalDuration);

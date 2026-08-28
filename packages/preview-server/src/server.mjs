@@ -13,6 +13,7 @@ import { migratePreviewCompatibility, previewReadError, projectPreviewEdit } fro
 // lint 実行系が見つからない場合は fail-open（オーナー裁定 2026-08-02 — shell と同一挙動に統一）。
 import { lintProjectCandidates, writeAtomic } from '../../edit-store/lib/write-gate.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
+import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import { resolveCaptionApiPayload } from './caption-api.mjs';
 
 const args = process.argv.slice(2);
@@ -264,6 +265,34 @@ function readPreviewEdit(filePath) {
   }
 }
 
+async function readFrameEnginePreviewEdit(filePath) {
+  const read = readPreviewEdit(filePath);
+  if (read.error) return read;
+  const prepared = await prepareAlphaLayers(read.data, { projectRoot });
+  const intake = {};
+  const skipped = [];
+  prepared.layerResults.forEach((result, index) => {
+    const layer = read.data.layers?.[index];
+    const key = String(layer?.id ?? layer?.src ?? index);
+    if (!result?.candidate) return;
+    if (!result.ok) {
+      skipped.push(key);
+      return;
+    }
+    if (!result.intake?.alpha) return;
+    intake[key] = { src: result.layer.src, mask: result.layer.mask };
+  });
+  const hasFrameEngineIntake = prepared.layerResults.some(result => result?.candidate);
+  return {
+    data: {
+      ...read.data,
+      ...(hasFrameEngineIntake ? {
+        frameEngine: { intake, skipped, warnings: prepared.warnings },
+      } : {}),
+    },
+  };
+}
+
 function respondPreviewReadError(res, error) {
   const failure = previewReadError(error);
   respond(res, failure.status, failure.body);
@@ -341,8 +370,8 @@ const router = {
       respond(res, 500, { error: e.message });
     }
   },
-  'GET /api/summary': (req, res) => {
-    const r = readPreviewEdit(path.join(projectRoot, 'edit.json'));
+  'GET /api/summary': async (req, res) => {
+    const r = await readFrameEnginePreviewEdit(path.join(projectRoot, 'edit.json'));
     if (r.error) return respondPreviewReadError(res, r.error);
     respond(res, 200, r.data);
   },

@@ -45,6 +45,7 @@ export interface EditLayer {
     duration: number;
     kind: 'baked' | 'video';
     src: string;
+    mask?: string;
     track?: number;
     preset?: string;
     transform?: {
