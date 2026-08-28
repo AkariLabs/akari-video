@@ -87,6 +87,7 @@ test("npm prepack keeps only runnable vendored bins and marks omitted capability
     assert.match(referenceManifest.akariVideoVendor.guidance, /akari doctor --json/u);
     assert.match(referenceManifest.akariVideoVendor.guidance, /\/Applications\/AKARI Video\.app\/Contents\/Resources/u);
     assert.match(referenceManifest.akariVideoVendor.guidance, /%LOCALAPPDATA%/u);
+    assert.match(referenceManifest.akariVideoVendor.guidance, /Programs\\@akari-videoshell\\resources\\packages/u);
     assert.match(referenceManifest.description, /render-timeline-report\.mjs is reference-only/u);
     assert.match(referenceManifest.description, /render_cut\.path/u);
 

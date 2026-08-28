@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { access, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { promisify } from "node:util";
 import test from "node:test";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { verifyFinalVideo } from "../src/ffprobe.mjs";
 import { exportWithOsr, resolveOsrRuntimeOptions } from "../src/index.mjs";
+import { launchElectronExport } from "../src/runner.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -21,6 +24,39 @@ test("OSR 環境変数を renderer オプションへ正規化する", () => {
   } }), { soft: true, verify: "hash", queueDepth: 2, dumpFrames: [0, 150, 359] });
   assert.throws(() => resolveOsrRuntimeOptions({ env: { AKARI_OSR_QUEUE_DEPTH: "0" } }), /positive integer/);
   assert.throws(() => resolveOsrRuntimeOptions({ env: { AKARI_OSR_VERIFY: "bad" } }), /stamp\|hash\|off/);
+});
+
+test("Electron が exit 0 でも出力しない経路は mux 前に launcher エラーで止まる", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "osr-index-launcher-"));
+  try {
+    const out = join(projectRoot, "render", "composite.mp4");
+    await mkdir(join(projectRoot, "render"), { recursive: true });
+    const spawnImpl = () => {
+      const child = new EventEmitter();
+      child.stdout = new PassThrough();
+      child.stderr = new PassThrough();
+      setImmediate(() => child.emit("close", 0, null));
+      return child;
+    };
+    await assert.rejects(exportWithOsr({
+      projectRoot,
+      out,
+      fps: 30,
+      width: 64,
+      height: 64,
+      duration: 1,
+      frames: 30,
+      launcher: { tier: 1, kind: "desktop", executable: "/electron" },
+      launcherRunner: (launcher, options) => launchElectronExport(launcher, options, { spawnImpl }),
+    }), (error) => {
+      assert.match(error.message, /osr-export error: OSR Electron/);
+      assert.match(error.message, /単一インスタンスロック/);
+      assert.doesNotMatch(error.message, /ffmpeg mux exited/);
+      return true;
+    });
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
 });
 
 test("音声 mux は短い・長い・音声なしの全てで 90 コマを維持する", async (t) => {

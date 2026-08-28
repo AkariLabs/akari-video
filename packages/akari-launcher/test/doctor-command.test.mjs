@@ -72,6 +72,25 @@ test('app bundle は AKARI_APP_RESOURCES と launcher manifest から版を読�
   });
 });
 
+test('Windows app bundle は NSIS 既定を従来導入先より先に探索する', () => {
+  const localAppData = join('drive', 'Users', 'test', 'AppData', 'Local');
+  const nsisDefault = join(localAppData, 'Programs', '@akari-videoshell', 'resources');
+  const legacyCandidate = join(localAppData, 'Programs', 'AKARI Video', 'resources');
+  const common = {
+    platform: 'win32',
+    env: { LOCALAPPDATA: localAppData },
+    execPath: join('drive', 'cli', 'node.exe'),
+  };
+  assert.equal(resolveAppBundle({
+    ...common,
+    exists: (candidate) => candidate === nsisDefault || candidate === legacyCandidate,
+  }).path, nsisDefault);
+  assert.equal(resolveAppBundle({
+    ...common,
+    exists: (candidate) => candidate === legacyCandidate,
+  }).path, legacyCandidate);
+});
+
 test('media-bin と puppeteer が import 不能でも PATH / cache 探索へ安全に縮退する', async () => {
   await withFixture(async (root) => {
     const binDirectory = join(root, 'bin');

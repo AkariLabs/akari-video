@@ -84,7 +84,11 @@ function resourcesFromExecutable(execPath, platform) {
 function defaultAppResources(platform, env) {
   if (platform === 'darwin') return ['/Applications/AKARI Video.app/Contents/Resources'];
   if (platform === 'win32' && env.LOCALAPPDATA) {
-    return [join(env.LOCALAPPDATA, 'Programs', 'AKARI Video', 'resources')];
+    // electron-builder NSIS per-user 既定 = sanitize-filename(`apps/shell/package.json` の `name`)。
+    return [
+      join(env.LOCALAPPDATA, 'Programs', '@akari-videoshell', 'resources'),
+      join(env.LOCALAPPDATA, 'Programs', 'AKARI Video', 'resources'),
+    ];
   }
   return [];
 }
