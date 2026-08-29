@@ -165,8 +165,10 @@ ffmpeg / ffprobe / whisper.cpp を直接叩いている。本契約はそれを 
 
 ### 3.2 何を書くか（スキーマは additive・`version: 0` 据え置き）
 
-`packages/schemas/analysis.schema.json` と、その写し `apps/shell/lib/schemas/analysis.schema.json` に**同じ変更**を入れる
-（`additionalProperties: false` のため、追加キーはスキーマ側に宣言しないと analyze-footage の検証で落ちる）。
+正本は `packages/schemas/analysis.schema.json` のみを変える（`additionalProperties: false` のため、追加キーはスキーマ側に
+宣言しないと analyze-footage の検証で落ちる）。`apps/shell/lib/schemas/analysis.schema.json` は**追跡対象外のビルド生成物**
+（`apps/shell/.gitignore` の `/lib/`）で、ビルドが正本から生成する。手で写しを編集・コミットしない
+（2026-08-29 訂正: 起草時は「両写しに同じ変更」と書いていたが、写しは git に無い。実装レーンの実測による）。
 
 | コマンド | 書き先 | 形 |
 |---|---|---|
@@ -223,7 +225,7 @@ ffmpeg / ffprobe / whisper.cpp を直接叩いている。本契約はそれを 
 - コンタクトシートの割付（コマ数 → グリッド・均等割り・寸法上限）に**純関数のユニットテスト**がある
 - waveform: 合成 wav（無音 2 秒 + トーン 3 秒 + 無音 1 秒）で `silences` が期待区間 ±1 フレームに収まる
 - transcribe: 同じファイルの 2 回目がキャッシュヒット（`cache.hit: true`・バックエンド未起動）。バックエンド不在で exit 1
-- 帳面: プロジェクト内で `probe` → `waveform` → `transcribe` の順に実行した analysis.json が両方のスキーマ写しで妥当。
+- 帳面: プロジェクト内で `probe` → `waveform` → `transcribe` の順に実行した analysis.json が正本スキーマで妥当（ビルド生成の shell 写しがあればそれでも）。
   `--no-record` で無変更。プロジェクト外で `.akari/` を作らない
 - launcher: `akari media --help` が 5 サブコマンドを列挙し、akari-tools 不在時は「インストール方法」を示して exit 1
 - 既存テスト（akari-launcher / akari-tools / schemas）が全緑
@@ -231,3 +233,4 @@ ffmpeg / ffprobe / whisper.cpp を直接叩いている。本契約はそれを 
 ## 7. 変更履歴
 
 - 2026-08-29: v0 起草（内部の判断メモ「分析をプル駆動にする」のオーナー裁定を反映。裁定内容は非公開の内部記録で管理）
+- 2026-08-29: §3.2 / §6 訂正 — shell 側スキーマは追跡外のビルド生成物なので正本 1 本だけを変える（実装レーン `2026-08-29-media-inspect-cli` の実測）
