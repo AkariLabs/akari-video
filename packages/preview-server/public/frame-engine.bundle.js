@@ -13552,6 +13552,30 @@ var DirectUploadFallbackError = class extends Error {
     this.name = "DirectUploadFallbackError";
   }
 };
+var DIRECT_UPLOADABLE_VIDEO_FORMATS = /* @__PURE__ */ new Set([
+  null,
+  "NV12",
+  "I420",
+  "RGBA",
+  "BGRA",
+  "RGBX",
+  "BGRX"
+]);
+var PACKED_RGB_VIDEO_FORMATS = /* @__PURE__ */ new Set([
+  "RGBA",
+  "BGRA",
+  "RGBX",
+  "BGRX"
+]);
+function isDirectUploadableFormat(format) {
+  return DIRECT_UPLOADABLE_VIDEO_FORMATS.has(format);
+}
+function isPackedRgbVideoFormat(format) {
+  return format !== null && PACKED_RGB_VIDEO_FORMATS.has(format);
+}
+function isCopyToPassthroughVideoFormat(format) {
+  return format === null || isPackedRgbVideoFormat(format);
+}
 var YUV_GLSL = `
 vec3 yuv709Unclamped(float y, vec2 chroma) {
   y -= 16.0 / 255.0;
@@ -14198,9 +14222,9 @@ var WebGL2Compositor = class {
     throw new DirectUploadFallbackError(reason);
   }
   uploadVideoFrameTexture(texture, unit, frame, uniforms) {
-    if (this.directUploadDisabled)
+    if (this.directUploadDisabled && !isCopyToPassthroughVideoFormat(frame.format))
       this.failDirectUpload("direct upload is disabled for this session");
-    if (frame.format !== null && frame.format !== "NV12" && frame.format !== "I420")
+    if (!isDirectUploadableFormat(frame.format))
       this.failDirectUpload(`unsupported VideoFrame format: ${String(frame.format)}`);
     const width = frame.displayWidth;
     const height = frame.displayHeight;
@@ -14462,8 +14486,8 @@ var WebGL2Compositor = class {
       throw new Error("layer inputs must match plan.layers");
     if (base.length === 0 && layers.length === 0)
       throw new Error("cannot compose an empty plan");
-    const hasDirectInput = base.some(isVideoFrame) || layers.some((input) => isVideoFrame(input.color) || Boolean(input.mask && isVideoFrame(input.mask)));
-    if (hasDirectInput && this.directUploadDisabled)
+    const hasBlockedDirectInput = base.some((frame) => isVideoFrame(frame) && !isCopyToPassthroughVideoFormat(frame.format)) || layers.some((input) => isVideoFrame(input.color) && !isCopyToPassthroughVideoFormat(input.color.format) || Boolean(input.mask && isVideoFrame(input.mask) && !isCopyToPassthroughVideoFormat(input.mask.format)));
+    if (hasBlockedDirectInput && this.directUploadDisabled)
       this.failDirectUpload("direct upload is disabled for this session");
     if (this.canvas.width !== output.width) this.canvas.width = output.width;
     if (this.canvas.height !== output.height)
@@ -14745,6 +14769,7 @@ async function evaluateFrame(plan, context) {
       layerFrames.push({ color: frame, mask });
     }
     const copyFrame = async (frame) => {
+      if (frame.format !== "NV12" && frame.format !== "I420") return frame;
       const started = performance.now();
       const copied = await copyNativeYuvFrame(frame, context.metrics);
       context.metrics.record("copy", performance.now() - started);
@@ -17226,6 +17251,272 @@ function at() {
   }
 }
 
+// ../frame-engine/src/decode/codec-probe.ts
+var supportCache = /* @__PURE__ */ new Map();
+var sourceCache = /* @__PURE__ */ new Map();
+var forceSoftwareDecode = false;
+function uint32(bytes, offset) {
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
+}
+function uint64(bytes, offset) {
+  const value = new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigUint64(0);
+  return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : null;
+}
+function typeAt(bytes, offset) {
+  return String.fromCharCode(...bytes.subarray(offset, offset + 4));
+}
+function boxAt(bytes, start, parentEnd) {
+  if (start < 0 || start + 8 > parentEnd || parentEnd > bytes.byteLength) return null;
+  let size = uint32(bytes, start);
+  const type = typeAt(bytes, start + 4);
+  let headerSize = 8;
+  if (size === 1) {
+    if (start + 16 > parentEnd) return null;
+    const large = uint64(bytes, start + 8);
+    if (large == null) return null;
+    size = large;
+    headerSize = 16;
+  } else if (size === 0) {
+    size = parentEnd - start;
+  }
+  if (size < headerSize || start + size > parentEnd) return null;
+  return { type, start, end: start + size, size, headerSize, dataStart: start + headerSize };
+}
+function topLevelHeader(bytes) {
+  if (bytes.byteLength < 8) return null;
+  let size = uint32(bytes, 0);
+  const type = typeAt(bytes, 4);
+  if (size === 1) {
+    if (bytes.byteLength < 16) return null;
+    const large = uint64(bytes, 8);
+    if (large == null) return null;
+    size = large;
+  }
+  return size >= 8 ? { type, size } : null;
+}
+function childBoxes(bytes, start, end) {
+  const boxes = [];
+  let cursor = start;
+  while (cursor + 8 <= end) {
+    const box2 = boxAt(bytes, cursor, end);
+    if (!box2) break;
+    boxes.push(box2);
+    cursor = box2.end;
+  }
+  return boxes;
+}
+function reverseBits32(value) {
+  let source = value >>> 0;
+  let reversed = 0;
+  for (let bit = 0; bit < 32; bit += 1) {
+    reversed = (reversed << 1 | source & 1) >>> 0;
+    source >>>= 1;
+  }
+  return reversed >>> 0;
+}
+function hevcCodecString(fourcc, hvcc) {
+  if (hvcc.length < 13 || hvcc[0] !== 1) return null;
+  const profileSpace = ["", "A", "B", "C"][hvcc[1] >>> 6 & 3] ?? "";
+  const tier = (hvcc[1] & 32) === 0 ? "L" : "H";
+  const profileIdc = hvcc[1] & 31;
+  const compatibility = reverseBits32(uint32(hvcc, 2)).toString(16).toUpperCase();
+  const constraints = [...hvcc.subarray(6, 12)];
+  while (constraints.at(-1) === 0) constraints.pop();
+  const suffix = constraints.length ? `.${constraints.map((value) => value.toString(16).toUpperCase().padStart(2, "0")).join(".")}` : "";
+  return `${fourcc}.${profileSpace}${profileIdc}.${compatibility}.${tier}${hvcc[12]}${suffix}`;
+}
+function avcCodecString(fourcc, avcc) {
+  if (avcc.length < 4 || avcc[0] !== 1) return null;
+  return `${fourcc}.${[...avcc.subarray(1, 4)].map((value) => value.toString(16).toUpperCase().padStart(2, "0")).join("")}`;
+}
+function parseStsd(bytes, stsd) {
+  if (stsd.dataStart + 8 > stsd.end) return null;
+  const entryCount = uint32(bytes, stsd.dataStart + 4);
+  let cursor = stsd.dataStart + 8;
+  for (let index = 0; index < entryCount; index += 1) {
+    const entry = boxAt(bytes, cursor, stsd.end);
+    if (!entry) return null;
+    cursor = entry.end;
+    if (!["hvc1", "hev1", "avc1"].includes(entry.type)) continue;
+    if (entry.dataStart + 78 > entry.end) return null;
+    const codedWidth = new DataView(bytes.buffer, bytes.byteOffset + entry.dataStart + 24, 2).getUint16(0);
+    const codedHeight = new DataView(bytes.buffer, bytes.byteOffset + entry.dataStart + 26, 2).getUint16(0);
+    const configType = entry.type === "avc1" ? "avcC" : "hvcC";
+    const config = childBoxes(bytes, entry.dataStart + 78, entry.end).find((box2) => box2.type === configType);
+    if (!config) return null;
+    const payload = bytes.subarray(config.dataStart, config.end);
+    const codec = entry.type === "avc1" ? avcCodecString(entry.type, payload) : hevcCodecString(entry.type, payload);
+    return codec ? { fourcc: entry.type, codec, codedWidth, codedHeight } : null;
+  }
+  return null;
+}
+function readVideoCodecFromMoov(input) {
+  try {
+    const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+    const top = childBoxes(bytes, 0, bytes.byteLength);
+    const moov = top.find((box2) => box2.type === "moov");
+    if (!moov) return null;
+    for (const trak of childBoxes(bytes, moov.dataStart, moov.end).filter((box2) => box2.type === "trak")) {
+      const mdia = childBoxes(bytes, trak.dataStart, trak.end).find((box2) => box2.type === "mdia");
+      if (!mdia) continue;
+      const mdiaChildren = childBoxes(bytes, mdia.dataStart, mdia.end);
+      const hdlr = mdiaChildren.find((box2) => box2.type === "hdlr");
+      if (!hdlr || hdlr.dataStart + 12 > hdlr.end || typeAt(bytes, hdlr.dataStart + 8) !== "vide") continue;
+      const minf = mdiaChildren.find((box2) => box2.type === "minf");
+      if (!minf) continue;
+      const stbl = childBoxes(bytes, minf.dataStart, minf.end).find((box2) => box2.type === "stbl");
+      if (!stbl) continue;
+      const stsd = childBoxes(bytes, stbl.dataStart, stbl.end).find((box2) => box2.type === "stsd");
+      if (!stsd) continue;
+      const result = parseStsd(bytes, stsd);
+      if (result) return result;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+async function configSupported(config) {
+  try {
+    return (await VideoDecoder.isConfigSupported(config)).supported === true;
+  } catch {
+    return false;
+  }
+}
+function evaluateCodecSupport(codec, init = {}) {
+  let cached = supportCache.get(codec);
+  if (!cached) {
+    cached = (async () => {
+      const base = {
+        codec,
+        ...init.codedWidth ? { codedWidth: init.codedWidth } : {},
+        ...init.codedHeight ? { codedHeight: init.codedHeight } : {}
+      };
+      const [rawHw, sw, rawAny] = await Promise.all([
+        configSupported({ ...base, hardwareAcceleration: "prefer-hardware" }),
+        configSupported({ ...base, hardwareAcceleration: "prefer-software" }),
+        configSupported(base)
+      ]);
+      return {
+        codec,
+        hw: forceSoftwareDecode ? false : rawHw,
+        sw,
+        any: forceSoftwareDecode ? sw : rawAny
+      };
+    })();
+    supportCache.set(codec, cached);
+  }
+  return cached;
+}
+function queryUrl(url, query) {
+  if (!query || Object.keys(query).length === 0) return url;
+  const parsed = new URL(url, typeof location === "undefined" ? "http://localhost/" : location.href);
+  for (const [key, value] of Object.entries(query)) parsed.searchParams.set(key, value);
+  return /^[a-z][a-z\d+.-]*:/iu.test(url) ? parsed.href : `${parsed.pathname}${parsed.search}${parsed.hash}`;
+}
+async function readResponseLimited(response, limit) {
+  if (!response.body) throw new Error(`probe response has no body (${response.status})`);
+  const reader = response.body.getReader();
+  const chunks = [];
+  let length = 0;
+  try {
+    while (length < limit) {
+      const next = await reader.read();
+      if (next.done) break;
+      const remaining = limit - length;
+      const chunk = next.value.byteLength > remaining ? next.value.subarray(0, remaining) : next.value;
+      chunks.push(chunk.slice());
+      length += chunk.byteLength;
+      if (next.value.byteLength > remaining) break;
+    }
+  } finally {
+    if (length >= limit) await reader.cancel().catch(() => void 0);
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
+function responseTotal(response) {
+  const contentRange = response.headers.get("content-range");
+  const match = contentRange?.match(/\/(\d+)$/u);
+  if (match) return Number(match[1]);
+  const contentLength = Number(response.headers.get("content-length"));
+  return Number.isFinite(contentLength) && contentLength >= 0 ? contentLength : null;
+}
+async function doProbeSourceCodec(url, options) {
+  try {
+    const fetchImpl = options.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
+    const maxProbeBytes = options.maxProbeBytes ?? 8 * 1024 * 1024;
+    const requestUrl = queryUrl(url, options.query);
+    const initialLimit = Math.min(1024 * 1024, maxProbeBytes);
+    const initialResponse = await fetchImpl(requestUrl, { headers: { Range: `bytes=0-${initialLimit - 1}` } });
+    if (!initialResponse.ok) throw new Error(`probe fetch failed: ${initialResponse.status}`);
+    const total = responseTotal(initialResponse);
+    const initial = await readResponseLimited(initialResponse, initialLimit);
+    let cursor = 0;
+    let moovBytes = null;
+    for (let boxes = 0; boxes < 32; boxes += 1) {
+      let header;
+      if (cursor + 16 <= initial.byteLength) {
+        header = initial.subarray(cursor, cursor + 16);
+      } else {
+        if (total == null || cursor >= total) break;
+        const response = await fetchImpl(requestUrl, { headers: { Range: `bytes=${cursor}-${cursor + 15}` } });
+        if (!response.ok) throw new Error(`probe box fetch failed: ${response.status}`);
+        header = await readResponseLimited(response, 16);
+      }
+      const box2 = topLevelHeader(header);
+      if (!box2) throw new Error(`invalid MP4 box header at ${cursor}`);
+      const boxSize = box2.size;
+      if (box2.type === "moov") {
+        if (boxSize > maxProbeBytes) throw new Error(`moov exceeds probe budget (${boxSize} B)`);
+        if (cursor + boxSize <= initial.byteLength) {
+          moovBytes = initial.slice(cursor, cursor + boxSize);
+        } else {
+          const response = await fetchImpl(requestUrl, { headers: { Range: `bytes=${cursor}-${cursor + boxSize - 1}` } });
+          if (!response.ok) throw new Error(`moov fetch failed: ${response.status}`);
+          moovBytes = await readResponseLimited(response, boxSize);
+          if (moovBytes.byteLength !== boxSize) throw new Error("truncated moov response");
+        }
+        break;
+      }
+      if (boxSize <= 0) break;
+      cursor += boxSize;
+      if (total != null && cursor >= total) break;
+    }
+    if (!moovBytes) throw new Error("moov box not found within probe scan limit");
+    const info = readVideoCodecFromMoov(moovBytes);
+    if (!info) return { info: null, support: null, error: "video codec sample description not found" };
+    if (typeof VideoDecoder === "undefined") return { info, support: null };
+    const support = await evaluateCodecSupport(info.codec, info);
+    return { info, support };
+  } catch (error) {
+    return { info: null, support: null, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+function probeSourceCodec(url, options = {}) {
+  const key = `${queryUrl(url, options.query)}\0${options.maxProbeBytes ?? 8 * 1024 * 1024}`;
+  let cached = sourceCache.get(key);
+  if (!cached) {
+    cached = doProbeSourceCodec(url, options);
+    sourceCache.set(key, cached);
+  }
+  return cached;
+}
+function setForceSoftwareDecode(value) {
+  if (forceSoftwareDecode === value) return;
+  forceSoftwareDecode = value;
+  resetCodecProbeCache();
+}
+function resetCodecProbeCache() {
+  supportCache.clear();
+  sourceCache.clear();
+}
+
 // ../frame-engine/src/decode/guard.ts
 var TimeoutError = class extends Error {
   constructor(label, timeoutMs) {
@@ -17242,6 +17533,30 @@ async function withTimeout(promise, timeoutMs, label) {
     return await Promise.race([promise, timeout]);
   } finally {
     if (timer) clearTimeout(timer);
+  }
+}
+async function withProgressBudget(promise, options) {
+  const startedAt = performance.now();
+  let lastProgressAt = startedAt;
+  let lastProgress = options.progress();
+  let timer;
+  const timeout = new Promise((_resolve, reject) => {
+    timer = setInterval(() => {
+      const now = performance.now();
+      const nextProgress = options.progress();
+      if (nextProgress > lastProgress) {
+        lastProgress = nextProgress;
+        lastProgressAt = now;
+      }
+      if (now - startedAt >= options.budgetMs && now - lastProgressAt >= options.stallMs) {
+        reject(new TimeoutError(options.label, options.budgetMs));
+      }
+    }, options.pollMs ?? 250);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearInterval(timer);
   }
 }
 var DECODER_ERROR = /Unsupported configuration|AudioDecoder err|VideoDecoder err|VideoFinder VideoDecoder|decode.*error/i;
@@ -17389,6 +17704,162 @@ async function buildKeyframeIndexFromHeader(header) {
   });
 }
 
+// ../frame-engine/src/decode/source-bytes.ts
+var DEFAULT_RETAIN_BUDGET_BYTES = 512 * 1024 * 1024;
+var DEFAULT_LOAD_BYTES_PER_SECOND = 8 * 1024 * 1024;
+function calculateLoadBudgetMs(totalBytes, bytesPerSecond = DEFAULT_LOAD_BYTES_PER_SECOND) {
+  if (totalBytes == null || !Number.isFinite(totalBytes) || totalBytes < 0) return 1e4;
+  const rate = Number.isFinite(bytesPerSecond) && bytesPerSecond > 0 ? bytesPerSecond : DEFAULT_LOAD_BYTES_PER_SECOND;
+  return Math.max(1e4, Math.ceil(totalBytes / rate * 1e3));
+}
+function measuredStream(stream, onBytes) {
+  return stream.pipeThrough(new TransformStream({
+    transform(chunk, controller) {
+      onBytes(chunk.byteLength);
+      controller.enqueue(chunk);
+    }
+  }));
+}
+function oneShotStream(chunks, onBytes) {
+  let index = 0;
+  return new ReadableStream({
+    pull(controller) {
+      const chunk = chunks[index];
+      if (!chunk) {
+        chunks.length = 0;
+        controller.close();
+        return;
+      }
+      index += 1;
+      const bytes = new Uint8Array(chunk);
+      onBytes(bytes.byteLength);
+      controller.enqueue(bytes);
+    },
+    cancel() {
+      chunks.length = 0;
+    }
+  });
+}
+var RetainedSourceBytes = class {
+  constructor(url, options = {}) {
+    this.url = url;
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
+    this.retainBudgetBytes = options.retainBudgetBytes ?? DEFAULT_RETAIN_BUDGET_BYTES;
+    this.loadBudgetMs = options.loadBudgetMs;
+    this.loadStallMs = options.loadStallMs ?? 5e3;
+    this.loadBytesPerSecond = options.loadBytesPerSecond ?? DEFAULT_LOAD_BYTES_PER_SECOND;
+    this.onWarning = options.onWarning;
+    this.label = options.label ?? url;
+  }
+  sourceBlob = null;
+  sourceBytesTotal = null;
+  fetchCount = 0;
+  retainDisabled = false;
+  openedNetworkSource = false;
+  overflowRefetchUsed = false;
+  warnedRetainBudget = false;
+  warnedOverflowRefetch = false;
+  progressBytes = 0;
+  fetchImpl;
+  retainBudgetBytes;
+  loadBudgetMs;
+  loadStallMs;
+  loadBytesPerSecond;
+  onWarning;
+  label;
+  async open() {
+    if (this.sourceBlob) {
+      return {
+        stream: measuredStream(this.sourceBlob.stream(), (bytes) => {
+          this.progressBytes += bytes;
+        }),
+        totalBytes: this.sourceBlob.size,
+        progress: () => this.progressBytes
+      };
+    }
+    if (this.openedNetworkSource) {
+      if (!this.retainDisabled || this.overflowRefetchUsed) {
+        this.onWarning?.(
+          `${this.label}: retained source bytes are unavailable; falling back to proxy is recommended`
+        );
+        throw new Error(
+          `${this.label}: retained source bytes are unavailable; falling back to proxy is recommended`
+        );
+      }
+      this.overflowRefetchUsed = true;
+      if (!this.warnedOverflowRefetch) {
+        this.warnedOverflowRefetch = true;
+        this.onWarning?.(`${this.label}: retained source bytes are unavailable; refetching once`);
+      }
+    }
+    this.openedNetworkSource = true;
+    this.fetchCount += 1;
+    const response = await this.fetchImpl(this.url);
+    if (!response.ok || !response.body) throw new Error(`fetch failed: ${response.status}`);
+    const rawLength = response.headers.get("content-length");
+    const parsedLength = rawLength == null ? Number.NaN : Number(rawLength);
+    this.sourceBytesTotal = Number.isFinite(parsedLength) && parsedLength >= 0 ? parsedLength : null;
+    const chunks = [];
+    let retainedBytes = 0;
+    const reader = response.body.getReader();
+    const readBody = async () => {
+      while (true) {
+        const result = await reader.read();
+        if (result.done) break;
+        const chunk = result.value.slice();
+        retainedBytes += chunk.byteLength;
+        this.progressBytes += chunk.byteLength;
+        chunks.push(chunk.buffer);
+        if (!this.retainDisabled && retainedBytes > this.retainBudgetBytes) {
+          this.retainDisabled = true;
+          if (!this.warnedRetainBudget) {
+            this.warnedRetainBudget = true;
+            this.onWarning?.(
+              `${this.label}: source exceeds retain budget (${retainedBytes} B); falling back to proxy is recommended`
+            );
+          }
+        }
+      }
+    };
+    const budgetMs = this.loadBudgetMs ?? calculateLoadBudgetMs(this.sourceBytesTotal, this.loadBytesPerSecond);
+    try {
+      await withProgressBudget(readBody(), {
+        budgetMs,
+        stallMs: this.loadStallMs,
+        progress: () => this.progressBytes,
+        label: `download ${this.label}`,
+        pollMs: Math.min(250, Math.max(5, Math.min(budgetMs, this.loadStallMs) / 2))
+      });
+    } catch (error) {
+      await reader.cancel(error).catch(() => void 0);
+      throw error;
+    } finally {
+      reader.releaseLock();
+    }
+    this.sourceBytesTotal ??= retainedBytes;
+    if (!this.retainDisabled) this.sourceBlob = new Blob(chunks);
+    return {
+      stream: this.sourceBlob ? measuredStream(this.sourceBlob.stream(), (bytes) => {
+        this.progressBytes += bytes;
+      }) : oneShotStream(chunks, (bytes) => {
+        this.progressBytes += bytes;
+      }),
+      totalBytes: this.sourceBytesTotal,
+      progress: () => this.progressBytes
+    };
+  }
+  getFetchCount() {
+    return this.fetchCount;
+  }
+  isRetentionDisabled() {
+    return this.retainDisabled;
+  }
+  destroy() {
+    this.sourceBlob = null;
+    this.sourceBytesTotal = null;
+  }
+};
+
 // ../frame-engine/src/decode/clip-session.ts
 var DecoderGuardError = class extends Error {
   constructor(message) {
@@ -17442,19 +17913,43 @@ var ClipSession = class _ClipSession {
   preparePromise = null;
   preparedCandidate = null;
   preparedKeyframes = null;
+  cachedHeader = null;
+  cachedKeyframes = null;
+  learnedSupport = null;
+  codecLearningStarted = false;
+  softwareFallbackWarningShown = false;
   prepareGeneration = 0;
   queue = Promise.resolve();
+  sourceBytes;
+  ownsSourceBytes = true;
   options;
   constructor(id, src, options = {}) {
     this.id = id;
     this.src = src;
     this.options = {
-      loadTimeoutMs: options.loadTimeoutMs ?? 1e4,
+      loadTimeoutMs: options.loadTimeoutMs,
+      loadBudgetMs: options.loadBudgetMs,
+      loadStallMs: options.loadStallMs ?? 5e3,
+      loadBytesPerSecond: options.loadBytesPerSecond ?? DEFAULT_LOAD_BYTES_PER_SECOND,
       tickTimeoutMs: options.tickTimeoutMs ?? 1e4,
       hardwareAcceleration: options.hardwareAcceleration,
+      codecSupport: options.codecSupport,
       onWarning: options.onWarning,
-      onDecoderDegraded: options.onDecoderDegraded
+      onDecoderDegraded: options.onDecoderDegraded,
+      onCodecSupport: options.onCodecSupport,
+      onSoftwareFallbackDenied: options.onSoftwareFallbackDenied
     };
+    this.sourceBytes = new RetainedSourceBytes(src, {
+      retainBudgetBytes: options.retainBudgetBytes,
+      loadBudgetMs: options.loadBudgetMs ?? options.loadTimeoutMs,
+      loadStallMs: options.loadStallMs,
+      loadBytesPerSecond: options.loadBytesPerSecond,
+      onWarning: options.onWarning,
+      label: id
+    });
+  }
+  getFetchCount() {
+    return this.sourceBytes.getFetchCount();
   }
   load() {
     this.loadPromise ??= this.doLoad();
@@ -17475,13 +17970,12 @@ var ClipSession = class _ClipSession {
   async doPrepare(generation) {
     let candidate = null;
     try {
-      const response = await fetch(this.src);
-      if (!response.ok || !response.body) throw new Error(`fetch failed: ${response.status}`);
-      candidate = new I2(response.body, {
+      const source = await this.sourceBytes.open();
+      candidate = new I2(source.stream, {
         audio: false,
         __unsafe_hardwareAcceleration__: this.options.hardwareAcceleration ?? "prefer-hardware"
       });
-      await withTimeout(candidate.ready, this.options.loadTimeoutMs, `prepare ${this.id}`);
+      await this.waitForReady(candidate.ready, source, `prepare ${this.id}`);
       const keyframes = await this.readKeyframes(candidate);
       if (generation !== this.prepareGeneration) {
         candidate.destroy();
@@ -17504,50 +17998,46 @@ var ClipSession = class _ClipSession {
     this.state = "loading";
     this.coverage.clear();
     let lastError;
-    const accelerations = this.options.hardwareAcceleration ? [this.options.hardwareAcceleration] : ["prefer-hardware", "prefer-software"];
-    const attempts = accelerations.map((hardwareAcceleration) => ({
-      hardwareAcceleration,
-      state: hardwareAcceleration === "prefer-software" ? "degraded" : "ready"
-    }));
+    const attemptedAccelerations = [];
     for (let round = 0; round < 3; round += 1) {
       if (round > 0) {
         await new Promise((resolve) => setTimeout(resolve, round * 150));
       }
-      for (const attempt of attempts) {
+      for (const attempt of this.loadAttempts()) {
+        attemptedAccelerations.push(attempt.hardwareAcceleration);
         let candidate = null;
         try {
-          let usedPrepared = false;
-          if (attempt.hardwareAcceleration === (this.options.hardwareAcceleration ?? "prefer-hardware")) {
-            await this.preparePromise;
-            if (this.preparedCandidate) {
-              candidate = this.preparedCandidate;
-              this.preparedCandidate = null;
-              this.applyKeyframes(this.preparedKeyframes);
-              this.preparedKeyframes = null;
-              usedPrepared = true;
-            }
-          }
-          if (!candidate) {
-            const response = await fetch(this.src);
-            if (!response.ok || !response.body) throw new Error(`fetch failed: ${response.status}`);
-            candidate = new I2(response.body, {
-              audio: false,
-              __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
-            });
-          }
           let rejectDecoder = null;
           const decoderError = new Promise((_resolve, reject) => {
             rejectDecoder = (message) => reject(new Error(`decoder error: ${message}`));
           });
           decoderError.catch(() => void 0);
           const stopWatching = watchDecoderErrors((message) => rejectDecoder?.(message));
+          let usedPrepared = false;
           try {
-            if (!usedPrepared) {
-              await withTimeout(
+            if (attempt.hardwareAcceleration === (this.options.hardwareAcceleration ?? "prefer-hardware")) {
+              await this.preparePromise;
+              if (this.preparedCandidate) {
+                candidate = this.preparedCandidate;
+                this.preparedCandidate = null;
+                this.applyKeyframes(this.preparedKeyframes);
+                this.preparedKeyframes = null;
+                usedPrepared = true;
+              }
+            }
+            if (!candidate) {
+              const source = await this.sourceBytes.open();
+              candidate = new I2(source.stream, {
+                audio: false,
+                __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
+              });
+              await this.waitForReady(
                 Promise.race([candidate.ready, decoderError]),
-                this.options.loadTimeoutMs,
+                source,
                 `ready ${this.id}`
               );
+            }
+            if (!usedPrepared) {
               this.applyKeyframes(await this.readKeyframes(candidate));
             }
             const primeTarget = this.toDecoderTime(0);
@@ -17589,20 +18079,74 @@ var ClipSession = class _ClipSession {
     const lastMessage = lastError instanceof Error ? lastError.message : String(lastError);
     const diagnostic = describeUnusableDecoder(
       this.id,
-      attempts.map((attempt) => attempt.hardwareAcceleration),
+      attemptedAccelerations,
       lastMessage
     );
     if (diagnostic) throw new Error(diagnostic, { cause: lastError });
     throw lastError instanceof Error ? lastError : new Error(lastMessage);
   }
   async readKeyframes(clip) {
+    if (this.cachedKeyframes) return this.cachedKeyframes;
     try {
-      const header = await withTimeout(clip.getFileHeaderBinData(), 2e3, `header ${this.id}`);
-      return await withTimeout(buildKeyframeIndexFromHeader(header), 2e3, `keyframes ${this.id}`);
+      const header = this.cachedHeader ?? await withTimeout(clip.getFileHeaderBinData(), 2e3, `header ${this.id}`);
+      if (!this.cachedHeader) {
+        this.cachedHeader = header;
+        this.learnCodecSupport(header);
+      }
+      const keyframes = await withTimeout(buildKeyframeIndexFromHeader(header), 2e3, `keyframes ${this.id}`);
+      this.cachedKeyframes = keyframes;
+      return keyframes;
     } catch (error) {
       this.options.onWarning?.(`${this.id}: keyframe index unavailable: ${String(error)}`);
       return null;
     }
+  }
+  waitForReady(promise, source, label) {
+    const budgetMs = this.options.loadBudgetMs ?? this.options.loadTimeoutMs ?? calculateLoadBudgetMs(source.totalBytes, this.options.loadBytesPerSecond);
+    return withProgressBudget(promise, {
+      budgetMs,
+      stallMs: this.options.loadStallMs,
+      progress: source.progress,
+      label
+    });
+  }
+  effectiveSupport() {
+    return this.options.codecSupport ?? this.learnedSupport;
+  }
+  loadAttempts() {
+    if (this.options.hardwareAcceleration) {
+      return [{
+        hardwareAcceleration: this.options.hardwareAcceleration,
+        state: this.options.hardwareAcceleration === "prefer-software" ? "degraded" : "ready"
+      }];
+    }
+    const support = this.effectiveSupport();
+    if (support?.sw === false) {
+      if (!this.softwareFallbackWarningShown) {
+        this.softwareFallbackWarningShown = true;
+        this.options.onWarning?.(
+          `${this.id}: software decoder fallback is unavailable for ${support.codec}`
+        );
+        this.options.onSoftwareFallbackDenied?.(support);
+      }
+      return [{ hardwareAcceleration: "prefer-hardware", state: "ready" }];
+    }
+    return [
+      { hardwareAcceleration: "prefer-hardware", state: "ready" },
+      { hardwareAcceleration: "prefer-software", state: "degraded" }
+    ];
+  }
+  learnCodecSupport(header) {
+    if (this.codecLearningStarted || this.options.codecSupport) return;
+    const info = readVideoCodecFromMoov(header);
+    if (!info || typeof VideoDecoder === "undefined") return;
+    this.codecLearningStarted = true;
+    void evaluateCodecSupport(info.codec, info).then((support) => {
+      this.learnedSupport = support;
+      this.options.onCodecSupport?.(support);
+    }, (error) => {
+      this.options.onWarning?.(`${this.id}: codec support probe failed: ${String(error)}`);
+    });
   }
   applyKeyframes(keyframes) {
     this.keyframes = keyframes;
@@ -17687,12 +18231,18 @@ var ClipSession = class _ClipSession {
       throw new Error(`clip ${this.id} cannot be forked while unavailable`);
     }
     const fork = new _ClipSession(id, this.src, this.options);
+    fork.sourceBytes = this.sourceBytes;
+    fork.ownsSourceBytes = false;
     fork.clip = await this.clip.clone();
     fork.meta = { ...this.meta };
     fork.state = this.state;
     fork.keyframes = this.keyframes;
     fork.lastFrameStartUs = this.lastFrameStartUs;
     fork.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
+    fork.cachedHeader = this.cachedHeader;
+    fork.cachedKeyframes = this.cachedKeyframes;
+    fork.learnedSupport = this.learnedSupport;
+    fork.codecLearningStarted = this.codecLearningStarted;
     fork.lastTickTargetUs = null;
     const coverageSeed = this.coverage.cloneStored();
     if (coverageSeed) fork.coverage.adopt(coverageSeed);
@@ -17714,6 +18264,11 @@ var ClipSession = class _ClipSession {
     this.decoderTimestampOffsetUs = 0;
     this.lastTickTargetUs = null;
     this.loadPromise = null;
+    this.cachedHeader = null;
+    this.cachedKeyframes = null;
+    this.learnedSupport = null;
+    this.codecLearningStarted = false;
+    if (this.ownsSourceBytes) this.sourceBytes.destroy();
     this.state = "idle";
   }
   async guardedTick(target) {
@@ -17844,6 +18399,7 @@ var ClipSessionPool = class {
     this.id = id;
     this.src = src;
     this.options = options;
+    this.learnedCodecSupport = options.codecSupport ?? null;
     this.stopDecoderWatch = watchDecoderErrors((message) => {
       this.options.onWarning?.(`${this.id}: decoder runtime error: ${message}`);
     });
@@ -17851,6 +18407,7 @@ var ClipSessionPool = class {
   sessions = /* @__PURE__ */ new Map();
   base = null;
   acceleration;
+  learnedCodecSupport;
   stopDecoderWatch;
   async decode(timeUs, metrics, request) {
     const streamId = request?.streamId ?? "default";
@@ -17880,6 +18437,9 @@ var ClipSessionPool = class {
   get size() {
     return this.sessions.size;
   }
+  codecSupport() {
+    return this.learnedCodecSupport;
+  }
   destroy() {
     this.stopDecoderWatch();
     const destroyed = /* @__PURE__ */ new Set();
@@ -17901,12 +18461,24 @@ var ClipSessionPool = class {
     this.base ??= new ClipSession(`${this.id}:base`, this.src, {
       ...this.options,
       hardwareAcceleration: this.acceleration,
+      codecSupport: this.learnedCodecSupport,
+      onCodecSupport: (support) => {
+        this.learnedCodecSupport = support;
+        this.options.onCodecSupport?.(support);
+      },
       onDecoderDegraded: () => this.noteDegraded()
     });
     return this.base;
   }
   noteDegraded() {
     if (this.acceleration === "prefer-software") return;
+    if (this.learnedCodecSupport?.sw === false) {
+      this.options.onWarning?.(
+        `${this.id}: software decoder fallback is unavailable for ${this.learnedCodecSupport.codec}`
+      );
+      this.options.onSoftwareFallbackDenied?.(this.learnedCodecSupport);
+      return;
+    }
     this.acceleration = "prefer-software";
     this.base?.destroy();
     this.base = null;
@@ -19211,23 +19783,161 @@ function normalizedCuts(edit) {
     };
   });
 }
-function sourceUrls(edit, timelineData, cuts) {
-  const urls = /* @__PURE__ */ new Map();
+function resolvedEngineLayers(edit) {
+  const frameEngineIntake = edit?.frameEngine?.intake ?? {};
+  const skippedLayers = new Set(Array.isArray(edit?.frameEngine?.skipped) ? edit.frameEngine.skipped : []);
+  return (Array.isArray(edit?.layers) ? edit.layers : []).map((layer, index) => {
+    const key = String(layer?.id ?? layer?.src ?? index);
+    if (skippedLayers.has(key)) return null;
+    const prepared = frameEngineIntake[key];
+    return prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+  }).filter(Boolean);
+}
+function sourceCandidates(edit, timelineData, cuts, engineLayers = []) {
+  const candidates = /* @__PURE__ */ new Map();
   if (Array.isArray(edit?.sources)) {
     for (const source of edit.sources) {
-      if (source?.id && (source.proxy || source.path)) {
-        urls.set(String(source.id), mediaUrl(source.proxy || source.path));
+      if (source?.id && source.path) {
+        const id = String(source.id);
+        candidates.set(id, {
+          id,
+          originalUrl: mediaUrl(source.path),
+          proxyUrl: source.proxy ? mediaUrl(source.proxy) : null
+        });
       }
     }
   } else if (edit?.source?.path) {
-    urls.set("default", mediaUrl(edit.source.path));
+    candidates.set("default", {
+      id: "default",
+      originalUrl: mediaUrl(edit.source.path),
+      proxyUrl: null
+    });
   }
   for (let index = 0; index < cuts.length; index += 1) {
     const clip = timelineData?.clips?.find((item) => item.id === `cut-${index}`);
     const sourceId = cuts[index]?.src;
-    if (clip?.src && sourceId) urls.set(sourceId, mediaUrl(clip.src));
+    if (clip?.src && sourceId) {
+      const clipUrl = mediaUrl(clip.src);
+      const declared = candidates.get(sourceId);
+      if (!declared || clipUrl !== declared.originalUrl && clipUrl !== declared.proxyUrl) {
+        candidates.set(sourceId, { id: sourceId, originalUrl: clipUrl, proxyUrl: null });
+      }
+    }
   }
-  return urls;
+  for (const layer of engineLayers) {
+    for (const value of [layer?.src, layer?.mask]) {
+      if (typeof value !== "string" || !value) continue;
+      candidates.set(value, { id: value, originalUrl: mediaUrl(value), proxyUrl: null });
+    }
+  }
+  return candidates;
+}
+function autoProxyPath(url) {
+  const parsed = new URL(url, window.location.href);
+  return decodeURIComponent(parsed.pathname).replace(/^\/+/, "");
+}
+async function requestAutoProxy(candidate, ui) {
+  const path = autoProxyPath(candidate.originalUrl);
+  ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u751F\u6210\u4E2D\u2026\uFF08${candidate.id}\uFF09`);
+  try {
+    const start = await fetch("/api/auto-proxy", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path })
+    });
+    if (!start.ok) return null;
+    const deadline = Date.now() + 3e5;
+    while (Date.now() < deadline) {
+      const response = await fetch(`/api/auto-proxy?path=${encodeURIComponent(path)}`);
+      if (!response.ok) return null;
+      const result = await response.json();
+      if (result.status === "ready" && typeof result.url === "string") return result.url;
+      if (result.status === "failed" || result.status === "unavailable") return null;
+      await new Promise((resolve) => setTimeout(resolve, 1e3));
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+async function resolveSourceChoices(candidates, context) {
+  const choices = /* @__PURE__ */ new Map();
+  for (const candidate of candidates.values()) {
+    if (!context.cutSourceIds.has(candidate.id)) {
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: candidate.originalUrl,
+        chosen: "original",
+        reason: "not-a-cut-source",
+        support: null
+      });
+      continue;
+    }
+    const isImage = /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
+    if (isImage) {
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: candidate.originalUrl,
+        chosen: "image",
+        reason: "still-image"
+      });
+      continue;
+    }
+    if (context.mode === "proxy") {
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: candidate.proxyUrl ?? candidate.originalUrl,
+        chosen: candidate.proxyUrl ? "proxy" : "original",
+        reason: "preference:proxy"
+      });
+      continue;
+    }
+    const probe = await probeSourceCodec(candidate.originalUrl, { query: { akariNoProxy: "1" } });
+    const codec = probe.info?.codec;
+    if (probe.support == null) {
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: candidate.originalUrl,
+        chosen: "original",
+        reason: "probe-unavailable",
+        ...codec ? { codec } : {},
+        support: null
+      });
+    } else if (probe.support.hw || probe.support.any) {
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: candidate.originalUrl,
+        chosen: "original",
+        reason: probe.support.hw ? "hardware-ok" : "decoder-ok",
+        codec: probe.support.codec,
+        support: probe.support
+      });
+    } else if (candidate.proxyUrl) {
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: candidate.proxyUrl,
+        chosen: "proxy",
+        reason: "codec-unsupported",
+        codec: probe.support.codec,
+        support: null
+      });
+    } else {
+      const proxyUrl = await requestAutoProxy(candidate, context.ui);
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: proxyUrl ?? candidate.originalUrl,
+        chosen: proxyUrl ? "auto-proxy" : "original",
+        reason: proxyUrl ? "auto-proxy" : "auto-proxy-failed",
+        codec: probe.support.codec,
+        support: proxyUrl ? null : probe.support
+      });
+      if (!proxyUrl) context.ui.showNotice(`\u30D7\u30ED\u30AD\u30B7\u3092\u751F\u6210\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\uFF08${candidate.id}\uFF09`);
+    }
+  }
+  if (![...choices.values()].some((choice) => choice.reason === "auto-proxy-failed")) {
+    context.ui.clearNotice();
+  }
+  return choices;
 }
 function createUi(stage) {
   const root = document.createElement("div");
@@ -19268,9 +19978,33 @@ function createUi(stage) {
     color: "#fff",
     textAlign: "center"
   });
-  root.append(canvas, metrics, error);
+  const notice = document.createElement("div");
+  notice.id = "frame-engine-notice";
+  notice.hidden = true;
+  Object.assign(notice.style, {
+    position: "absolute",
+    zIndex: "2147483646",
+    inset: "auto 10% 10%",
+    padding: "10px 12px",
+    borderRadius: "6px",
+    border: "1px solid rgba(116,192,252,.65)",
+    background: "rgba(8,32,56,.92)",
+    color: "#d8efff",
+    textAlign: "center"
+  });
+  const showNotice = (message) => {
+    notice.hidden = false;
+    notice.textContent = message;
+    root.dataset.frameEngineNotice = message;
+  };
+  const clearNotice = () => {
+    notice.hidden = true;
+    notice.textContent = "";
+    delete root.dataset.frameEngineNotice;
+  };
+  root.append(canvas, metrics, notice, error);
   stage.prepend(root);
-  return { root, canvas, metrics, error };
+  return { root, canvas, metrics, error, notice, showNotice, clearNotice };
 }
 function replaceCanvas(ui) {
   const canvas = ui.canvas.cloneNode(false);
@@ -19278,36 +20012,30 @@ function replaceCanvas(ui) {
   ui.canvas = canvas;
 }
 var FrameEngineRuntime = class {
-  constructor(ui, edit, timelineData, fps) {
+  constructor(ui, edit, timelineData, fps, sourceChoices) {
     this.ui = ui;
     this.edit = edit;
     this.timelineData = timelineData;
     this.fps = fps;
+    this.sourceChoices = sourceChoices;
     this.compositor = new WebGL2Compositor(ui.canvas, {
       synchronization: "flush",
       uploadPath: requestedUploadPath
     });
     const cuts = normalizedCuts(edit);
-    const urls = sourceUrls(edit, timelineData, cuts);
+    const urls = new Map([...sourceChoices].map(([id, choice]) => [id, choice.url]));
     const videoSources = /* @__PURE__ */ new Map();
-    const frameEngineIntake = edit?.frameEngine?.intake ?? {};
-    const skippedLayers = new Set(Array.isArray(edit?.frameEngine?.skipped) ? edit.frameEngine.skipped : []);
-    const engineLayers = (Array.isArray(edit?.layers) ? edit.layers : []).map((layer, index) => {
-      const key = String(layer?.id ?? layer?.src ?? index);
-      if (skippedLayers.has(key)) return null;
-      const prepared = frameEngineIntake[key];
-      return prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
-    }).filter(Boolean);
+    const engineLayers = resolvedEngineLayers(edit);
     for (const warning of Array.isArray(edit?.frameEngine?.warnings) ? edit.frameEngine.warnings : []) {
       this.showError(String(warning), false);
     }
     for (const layer of engineLayers) {
       if (!layer?.src) continue;
       const key = String(layer.src);
-      urls.set(key, mediaUrl(key));
+      if (!urls.has(key)) urls.set(key, mediaUrl(key));
       if (layer.mask) {
         const maskKey = String(layer.mask);
-        urls.set(maskKey, mediaUrl(maskKey));
+        if (!urls.has(maskKey)) urls.set(maskKey, mediaUrl(maskKey));
       }
     }
     for (const [id, url] of urls) {
@@ -19315,7 +20043,16 @@ var FrameEngineRuntime = class {
         this.images.set(id, new CachedStillImageSource(url));
         continue;
       }
-      const pool = new ClipSessionPool(id, url, { onWarning: (message) => this.showError(message, false) });
+      const choice = sourceChoices.get(id);
+      const pool = new ClipSessionPool(id, url, {
+        codecSupport: choice?.support,
+        onWarning: (message) => this.showError(message, false),
+        onSoftwareFallbackDenied: (support) => {
+          if (!(choice?.support?.hw || choice?.support?.any)) {
+            this.ui.showNotice(`\u30BD\u30D5\u30C8\u30A6\u30A7\u30A2\u30C7\u30B3\u30FC\u30C9\u975E\u5BFE\u5FDC: ${support.codec}`);
+          }
+        }
+      });
       const source = new LookaheadFrameSource(pool, {
         fps,
         capacity: 12,
@@ -19485,7 +20222,11 @@ var FrameEngineRuntime = class {
     return this.lastPresentedSec;
   }
   snapshot() {
-    return { totalDuration: this.totalDuration, segments: this.segments };
+    return {
+      totalDuration: this.totalDuration,
+      segments: this.segments,
+      sources: [...this.sourceChoices.values()].map(({ support: _support, ...choice }) => choice)
+    };
   }
   audioDebug() {
     return this.audio.debug();
@@ -19604,7 +20345,27 @@ var FrameEngineRuntime = class {
 };
 async function createFrameEnginePreview(options) {
   const ui = createUi(options.stage);
-  let runtime = new FrameEngineRuntime(ui, options.edit, options.timelineData, options.fps);
+  const prepareRuntime = async (edit, timelineData, fps) => {
+    ui.clearNotice();
+    const params = new URLSearchParams(window.location.search);
+    let forceSoftware = params.get("frameEngineForceSw") === "1";
+    try {
+      const response = await fetch("/api/codec-info");
+      if (response.ok) forceSoftware ||= (await response.json()).forceSoftwareDecode === true;
+    } catch {
+    }
+    setForceSoftwareDecode(forceSoftware);
+    const cuts = normalizedCuts(edit);
+    const layers = resolvedEngineLayers(edit);
+    const candidates = sourceCandidates(edit, timelineData, cuts, layers);
+    const choices = await resolveSourceChoices(candidates, {
+      mode: params.get("frameEngineSource") === "proxy" ? "proxy" : "auto",
+      ui,
+      cutSourceIds: new Set(cuts.map((cut) => String(cut.src)))
+    });
+    return new FrameEngineRuntime(ui, edit, timelineData, fps, choices);
+  };
+  let runtime = await prepareRuntime(options.edit, options.timelineData, options.fps);
   await runtime.prime();
   const preview = {
     snapshot: () => runtime.snapshot(),
@@ -19615,7 +20376,7 @@ async function createFrameEnginePreview(options) {
       replaceCanvas(ui);
       ui.error.hidden = true;
       ui.root.dataset.frameEngineReady = "false";
-      runtime = new FrameEngineRuntime(ui, edit, timelineData, fps);
+      runtime = await prepareRuntime(edit, timelineData, fps);
       await runtime.prime();
     },
     dispose() {

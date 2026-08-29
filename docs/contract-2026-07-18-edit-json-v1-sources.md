@@ -44,6 +44,12 @@
 
 `sources[].proxy` の生成規格は [プレビュー用プロキシの規格](./contract-2026-08-02-preview-parity.md#55-プレビュー用プロキシの規格) に従う。
 
+v2 プレビューでは `sources[].proxy` は任意である。起動時に
+`VideoDecoder.isConfigSupported` で器の実力を調べ、原本を扱える場合は原本を選び、扱えない場合は
+宣言済み proxy を退路として選ぶ。特に HEVC がハードウェアデコードでしか通らない器では proxy が
+安全弁になる。proxy が無く、かつ器が原本を扱えない場合は preview-server が同じプロキシ規格で
+自動生成する。
+
 参照は path ではなく安定した `id` で行う。これにより素材の差し替えや path 変更で cut や
 サイドカーの参照が壊れない。JSON Schema は将来の任意フィールドを許容する tolerant reader とし、
 既知フィールドの型、version ごとの必須形、`source` / `sources[]` の排他を検証する。

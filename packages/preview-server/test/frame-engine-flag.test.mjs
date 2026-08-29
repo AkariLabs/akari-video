@@ -51,3 +51,17 @@ test('frame engine remains a dynamic bundle with no unconditional index DOM', as
   assert.match(source, /lut: parseCube\(projectedLook\.cubeText\)/u);
   assert.match(source, /Math\.max\(0, Math\.min\(1/u);
 });
+
+test('codec probing is limited to cut-referenced sources', async () => {
+  const source = await readFile(path.join(root, 'src/frame-engine-client.ts'), 'utf8');
+  assert.match(source, /cutSourceIds: ReadonlySet<string>/u);
+  assert.match(source, /reason: 'not-a-cut-source'/u);
+  const resolver = source.slice(
+    source.indexOf('async function resolveSourceChoices'),
+    source.indexOf('function createUi'),
+  );
+  assert.ok(
+    resolver.indexOf("context.cutSourceIds.has(candidate.id)") < resolver.indexOf('probeSourceCodec('),
+    'non-cut sources must exit before codec probing',
+  );
+});
