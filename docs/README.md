@@ -133,6 +133,8 @@ All contracts follow the
 | [contract-2026-08-14-avatar-vrm-v0.md](./contract-2026-08-14-avatar-vrm-v0.md) | VRM avatar backend v0 (VRM 0.x/1.0 expressions / headless baked alpha clip) (Japanese) |
 | [contract-2026-08-18-v1-render-parity.md](./contract-2026-08-18-v1-render-parity.md) | v1 render path parity — cuts[].at explicit placement (gaps) and cuts[].track compositing on the sources[] path (Japanese) |
 | [contract-2026-08-28-v2-audio-roles-v0.md](./contract-2026-08-28-v2-audio-roles-v0.md) | v2 audio roles v0 — Web Audio supplies the frame-engine preview (bgm / narration / sfx, kernel ducking, AudioContext clock as master); ffmpeg mastering stays the export truth; measured preview-vs-export deltas and the items to settle before the default switch |
+| [contract-2026-08-29-media-inspect-cli-v0.md](./contract-2026-08-29-media-inspect-cli-v0.md) | `akari media` observation commands v0 — probe / grab / filmstrip / waveform / transcribe (pull-driven analysis: look when you want to, results stay on disk) |
+| [contract-2026-08-29-capture-v0.md](./contract-2026-08-29-capture-v0.md) | `akari capture` v0 — render finished frames of the current edit.json without exporting |
 
 ### Direction notes
 

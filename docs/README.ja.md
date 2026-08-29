@@ -129,6 +129,8 @@
 | [contract-2026-08-14-avatar-vrm-v0.md](./contract-2026-08-14-avatar-vrm-v0.md) | VRM アバター駆動バックエンド v0（VRM 0.x/1.0 Expressions・アルファ付きベイク） |
 | [contract-2026-08-18-v1-render-parity.md](./contract-2026-08-18-v1-render-parity.md) | v1 レンダー経路パリティ — sources[] 経路での cuts[].at 明示配置（ギャップ）と cuts[].track 多段合成 |
 | [contract-2026-08-28-v2-audio-roles-v0.md](./contract-2026-08-28-v2-audio-roles-v0.md) | v2 音声の役割整理 v0 — frame-engine 評価台へ Web Audio で bgm / narration / sfx を供給（ducking はカーネル・AudioContext の時計が master）。書き出しは ffmpeg のマスター処理が正。プレビュー vs 書き出しの差分実測と既定切替までに詰める項目 |
+| [contract-2026-08-29-media-inspect-cli-v0.md](./contract-2026-08-29-media-inspect-cli-v0.md) | `akari media` 観察コマンド契約 v0 — probe / grab / filmstrip / waveform / transcribe（分析をプル駆動に: 見たいときに見る・見た結果はディスクに残る） |
+| [contract-2026-08-29-capture-v0.md](./contract-2026-08-29-capture-v0.md) | `akari capture` 契約 v0 — 今の edit.json の完成フレームを、書き出さずに見る |
 
 ### 方向性メモ
 
