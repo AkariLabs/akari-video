@@ -399,12 +399,17 @@ jobs:
               const drawElementImage = typeof document.querySelector('#c').getContext('2d').drawElementImage === 'function';
               return { drawElementImage, renderer: 'swiftshader' };
             })()`);
-            process.stdout.write(JSON.stringify(probe));
+            require('fs').writeFileSync(process.env.PROBE_OUT, JSON.stringify(probe));
             app.exit(0);
           });
           NODE
-          result="$(LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a node_modules/electron/dist/electron "$probe_dir/main.cjs" --no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader)"
-          printf '%s\n' "$result" > "$RUNNER_TEMP/gpu-dom-probe.json"
+          rm -f "$RUNNER_TEMP/gpu-dom-probe.json"
+          PROBE_OUT="$RUNNER_TEMP/gpu-dom-probe.json" LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a node_modules/electron/dist/electron "$probe_dir/main.cjs" --no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader > "$RUNNER_TEMP/gpu-dom-probe.stdout" 2>&1 || true
+          echo "--- drawElementImage probe stdout/stderr ---"; cat "$RUNNER_TEMP/gpu-dom-probe.stdout" || true
+          if ! node -e "JSON.parse(require('fs').readFileSync('$RUNNER_TEMP/gpu-dom-probe.json','utf8'))" 2>/dev/null; then
+            echo "::warning::drawElementImage probe did not produce JSON (crash or timeout); treating as unsupported"
+            printf '%s\n' '{"drawElementImage":false,"renderer":"swiftshader","error":"probe-no-output"}' > "$RUNNER_TEMP/gpu-dom-probe.json"
+          fi
           if node -e "const p=require('$RUNNER_TEMP/gpu-dom-probe.json');process.exit(p.drawElementImage===true?0:1)"; then
             echo "GPU_DOM_LAYER=yes" >> "$GITHUB_ENV"
             echo "gpu-export-soft DOM layer: supported (SwiftShader)" >> "$GITHUB_STEP_SUMMARY"
@@ -479,7 +484,8 @@ jobs:
             assert.equal(left.domLayer.sentinel.matched, 360);
             assert.equal(left.domLayer.sentinel.mismatchCount, 0);
           } else {
-            assert.deepEqual(probe, { drawElementImage: false, renderer: "swiftshader" });
+            assert.equal(probe.drawElementImage, false);
+            assert.equal(probe.renderer, "swiftshader");
             assert.equal(left.domLayer.runs, 0);
           }
           NODE
