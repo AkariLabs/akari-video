@@ -205,6 +205,7 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
   }
 
   const requiredFiles = [
+    '/electron-entry.js',
     '/lib/skills/analyze-footage/SKILL.md',
     '/lib/schemas/analysis.schema.json',
     // フラグ on の frame-engine 評価台へ注入する正本。欠けると canvas 面を起動できない。
@@ -223,6 +224,21 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
       console.error(`❌ MISSING: ${required}`);
       failed = true;
     }
+  }
+  try {
+    const bundledPackageJson = JSON.parse(extractFile(asar, 'package.json').toString('utf8'));
+    if (bundledPackageJson.main === 'electron-entry.js') {
+      console.log("✅ package.json main === 'electron-entry.js'");
+    } else {
+      console.error(`❌ package.json main: ${String(bundledPackageJson.main)}（expected electron-entry.js）`);
+      failed = true;
+    }
+  } catch (error) {
+    console.error(
+      '❌ asar 内 package.json の main 検査に失敗:',
+      error instanceof Error ? error.message : String(error)
+    );
+    failed = true;
   }
   if (entries.some(entry => entry.startsWith('/lib/templates/project-default'))) {
     console.log('✅ /lib/templates/project-default');

@@ -81,7 +81,7 @@ seek → ready → invalidate → paint → verify → write
 
 第1段・第2段とも`--user-data-dir=<run 一時ディレクトリ>/electron-user-data`を渡し、本体アプリの単一インスタンスロック（userData単位）と分離する。これによりアプリ起動中でも書き出せる。子がexit 0で終了して出力を作らなかった場合は、launcherが失敗として扱う。
 
-パッケージ版のTheiaではelectron-main contributionが`--render`を捕捉する。contribution開始は初期ウィンドウ表示とbackend起動の後なので、v0ではスプラッシュが一瞬表示され得る。通常起動で`--render`が無い場合、contributionは何もしない。
+`--render`は`package.json`の`main`（`electron-entry.js`）がTheiaより前に捕捉する。backend fork・初期ウィンドウ・contribution・単一インスタンスロックを起動せず、`--akari-main`で指定したランタイム（既定はosr-export、gpu-exportも指定可能）へ直行するため、スプラッシュは表示されない。通常起動で`--render`が無い場合は従来どおりTheiaを起動する。
 
 Linux v0は第3段を使用する。将来の差し替え席として、Chrome headlessと`HeadlessExperimental.beginFrame`を使うlauncherを第1段と第2段の間へ追加できるものとする。この契約では実装しない。
 
@@ -147,6 +147,8 @@ media time に合わせて評価するため、従来の一定 2 コマ手前に
 ### 11.4 アプリ起動中の第1段（2026-08-28 根治）
 
 v0.1.24以前はTheiaの`singleInstance`により、AKARI Videoデスクトップアプリの起動中に第1段を開始すると、子プロセスがexit 0・無出力で終了していた。launcherが出力を検査しなかったため、後続処理ではこの失敗がffmpegのENOENTに化けていた。runごとにuserDataを分離し、exit 0でも出力が無い場合を失敗として扱うことで根治した。Windowsのelectron-builder NSIS per-user既定導入先は`%LOCALAPPDATA%\Programs\@akari-videoshell`である。
+
+v0.1.25では、contribution方式がランタイムの同梱漏れに遭遇すると、起動途中の`app.exit(1)`がSIGTRAP / Windowsの`0x80000003`に化けた。同梱が揃っていても、Theiaの`window-all-closed`から始まるquitとOSRランタイムのウィンドウ生成が競合し得る構造だった。2026-08-29に`electron-entry.js`方式へ移行し、`--render`をTheia起動前に捕捉してこの競合を除去した。
 
 ### 11.5 インストール済みアプリ経由の第 1 段は起動処理と競合して落ちる（2026-08-29 追記）
 

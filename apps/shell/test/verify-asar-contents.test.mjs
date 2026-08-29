@@ -20,7 +20,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createPackage, extractFile } from '@electron/asar';
+import { createPackage, extractFile, listPackage } from '@electron/asar';
 
 const scriptsDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../resources/scripts');
 const verifyScriptPath = path.join(scriptsDir, 'verify-asar-contents.mjs');
@@ -92,6 +92,33 @@ test('extractFile は path.join のキーで取り出せ、区切り二重化で
       /was not found in this archive/,
       '区切り二重化キーが通ってしまうと、この回帰テストは機構を捉えていない'
     );
+  } finally {
+    await rm(workDir, { recursive: true, force: true });
+  }
+});
+
+test('検収スクリプトは専用 entry の存在と package.json main を asar 内で検査する', async () => {
+  const source = await readFile(verifyScriptPath, 'utf8');
+  assert.match(source, /['"]\/electron-entry\.js['"]/);
+  assert.match(source, /bundledPackageJson\.main === ['"]electron-entry\.js['"]/);
+
+  const workDir = await mkdtemp(path.join(os.tmpdir(), 'akari-asar-entry-test-'));
+  try {
+    const srcDir = path.join(workDir, 'src');
+    await mkdir(srcDir, { recursive: true });
+    await writeFile(path.join(srcDir, 'electron-entry.js'), 'module.exports = {};\n', 'utf8');
+    await writeFile(
+      path.join(srcDir, 'package.json'),
+      JSON.stringify({ main: 'electron-entry.js' }),
+      'utf8'
+    );
+    const archive = path.join(workDir, 'app.asar');
+    await createPackage(srcDir, archive);
+
+    const entries = listPackage(archive, { isPack: false }).map(entry => entry.replace(/\\/g, '/'));
+    const bundledPackageJson = JSON.parse(extractFile(archive, 'package.json').toString('utf8'));
+    assert.ok(entries.includes('/electron-entry.js'));
+    assert.equal(bundledPackageJson.main, 'electron-entry.js');
   } finally {
     await rm(workDir, { recursive: true, force: true });
   }
