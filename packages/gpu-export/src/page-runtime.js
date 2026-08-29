@@ -1120,6 +1120,7 @@
     let encoder = null;
     let supported = false;
     let hashFrame = null;
+    let drawTimingProbe = null;
     let domRuntime = null;
     const renderer = collectRendererInfo(engine.canvas);
     let encoderSupport = null;
@@ -1182,6 +1183,12 @@
         const moduleUrl = `data:text/javascript;charset=utf-8,${encodeURIComponent(config.verifyReadbackModule)}`;
         verifyModule = await import(moduleUrl);
         hashFrame = verifyModule.hashCanvasFrame;
+        if (typeof verifyModule.createSpriteDrawTimingProbe === "function") {
+          const timingGl = finalCanvas.getContext("webgl2");
+          if (!timingGl) throw new Error("sprite draw timing WebGL2 context is unavailable");
+          drawTimingProbe = verifyModule.createSpriteDrawTimingProbe(timingGl);
+          spriteCompositor.setDrawProbe(drawTimingProbe);
+        }
       }
       const sentinelVerifier = config.verifyFrames && config.spriteManifest.dom?.length > 0
         ? verifyModule.createDomLayerSentinelVerifier(config.width, config.height)
@@ -1349,6 +1356,7 @@
               bitrate: config.bitrate,
               queueDepth: config.queueDepth,
               queueWaits,
+              glTiming: drawTimingProbe ? drawTimingProbe.summary() : null,
               readbackCounters: counters,
               captions: captionRecords,
               captionLayoutMaxDeltaPx,
@@ -1380,6 +1388,7 @@
           bitrate: config.bitrate,
           queueDepth: config.queueDepth,
           queueWaits,
+          glTiming: drawTimingProbe ? drawTimingProbe.summary() : null,
           trapReadback: Boolean(config.trapReadback),
           readbackCounters: counters,
           captions: captionRecords,

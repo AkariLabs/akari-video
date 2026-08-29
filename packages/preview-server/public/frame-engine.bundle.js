@@ -18832,6 +18832,12 @@ function parseCube(text) {
   });
 }
 
+// ../frame-engine/src/exits/sprite-compositor.ts
+var TILE_INSTANCE_FLOATS = 30;
+var TILE_INSTANCE_STRIDE_BYTES = TILE_INSTANCE_FLOATS * Float32Array.BYTES_PER_ELEMENT;
+var PLAIN_INSTANCE_FLOATS = 11;
+var PLAIN_INSTANCE_STRIDE_BYTES = PLAIN_INSTANCE_FLOATS * Float32Array.BYTES_PER_ELEMENT;
+
 // ../frame-engine/src/timeline/caption-motion.ts
 var motion = (...keyframes) => ({ keyframes });
 var fromTo = (from, to = {}) => motion({ at: 0, ...from }, { at: 1, ...to });
