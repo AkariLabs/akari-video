@@ -10,6 +10,7 @@ import { buildWebAudioSchedule, projectSpeechDeclarations } from '../../edit-sto
 const FPS = 30;
 const SAMPLE_RATE = 48_000;
 const DURATION_SEC = 6;
+const FIXTURE_ORIGIN = 'http://akari-fixture.test';
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, {
@@ -96,6 +97,25 @@ function correlation(left, right) {
   return numerator / Math.sqrt(leftSquares * rightSquares);
 }
 
+async function routeMediaFixtures(page, fixtures) {
+  const urls = Object.fromEntries(Object.keys(fixtures).map(key => [
+    key,
+    `${FIXTURE_ORIGIN}/${encodeURIComponent(key)}`,
+  ]));
+  const pathsByUrl = new Map(Object.entries(urls).map(([key, url]) => [url, fixtures[key]]));
+  await page.route(`${FIXTURE_ORIGIN}/**`, async route => {
+    const filePath = pathsByUrl.get(route.request().url());
+    if (!filePath) return route.fulfill({ status: 404, body: 'fixture not found' });
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/octet-stream',
+      headers: { 'access-control-allow-origin': '*' },
+      body: fs.readFileSync(filePath),
+    });
+  });
+  return urls;
+}
+
 function editDocument() {
   return {
     version: 2,
@@ -133,18 +153,14 @@ function editDocument() {
   };
 }
 
-async function offlineRender(page, schedule, encoded, speechById) {
+async function offlineRender(page, schedule, files, speechById) {
   return await page.evaluate(async ({ scheduleValue, files, speechSources }) => {
-    const bytes = base64 => {
-      const binary = atob(base64);
-      const value = new Uint8Array(binary.length);
-      for (let index = 0; index < binary.length; index += 1) value[index] = binary.charCodeAt(index);
-      return value.buffer;
-    };
     const decode = new AudioContext({ sampleRate: 48_000 });
     const buffers = {};
-    for (const [key, base64] of Object.entries(files)) {
-      buffers[key] = await decode.decodeAudioData(bytes(base64));
+    for (const [key, url] of Object.entries(files)) {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`fixture fetch failed: ${response.status} ${url}`);
+      buffers[key] = await decode.decodeAudioData(await response.arrayBuffer());
     }
     await decode.close();
     const offline = new OfflineAudioContext(1, 6 * 48_000, 48_000);
@@ -168,7 +184,7 @@ async function offlineRender(page, schedule, encoded, speechById) {
     }
     const rendered = await offline.startRendering();
     return Array.from(rendered.getChannelData(0));
-  }, { scheduleValue: schedule, files: encoded, speechSources: speechById });
+  }, { scheduleValue: schedule, files, speechSources: speechById });
 }
 
 test('speech 2 sources / 3 cuts の OfflineAudioContext 包絡は render-cut と一致する', {
@@ -240,14 +256,14 @@ test('speech 2 sources / 3 cuts の OfflineAudioContext 包絡は render-cut と
     assert.equal(schedule.warnings.length, 0, schedule.warnings.join('\n'));
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
-    const encoded = {
-      'source-a': fs.readFileSync(sourceA).toString('base64'),
-      'source-b': fs.readFileSync(sourceB).toString('base64'),
-      bed: fs.readFileSync(bgm).toString('base64'),
-      hit: fs.readFileSync(sfx).toString('base64'),
-    };
+    const files = await routeMediaFixtures(page, {
+      'source-a': sourceA,
+      'source-b': sourceB,
+      bed: bgm,
+      hit: sfx,
+    });
     const speechById = Object.fromEntries(projected.map(item => [item.id, item.src]));
-    writeMonoWav(preview, await offlineRender(page, schedule, encoded, speechById));
+    writeMonoWav(preview, await offlineRender(page, schedule, files, speechById));
 
     const renderCut = path.resolve(import.meta.dirname, '../../render-cut/bin/render-cut.mjs');
     const rendered = run(process.execPath, [
@@ -266,29 +282,28 @@ test('speech 2 sources / 3 cuts の OfflineAudioContext 包絡は render-cut と
     const runtimeBundle = path.resolve(import.meta.dirname,
       '../../../apps/shell/extensions/akari-preview/generated/frame-engine.js');
     const probe = await browser.newPage();
+    const probeFiles = await routeMediaFixtures(probe, {
+      silent,
+      good: sourceA,
+      bgm,
+    });
     await probe.setContent('<button id="start" type="button">start</button>');
     await probe.addScriptTag({ path: runtimeBundle });
     await probe.evaluate(files => {
-      const decode = base64 => {
-        const binary = atob(base64);
-        const value = new Uint8Array(binary.length);
-        for (let index = 0; index < binary.length; index += 1) value[index] = binary.charCodeAt(index);
-        return value.buffer;
-      };
       document.querySelector('#start').addEventListener('click', async () => {
         const warnings = [];
         const supply = window.AkariFrameEngine.createPreviewAudioSupply({
           timelineDurationSec: 1,
           contextFactory: () => new AudioContext(),
-          fetchImpl: async url => new Response(decode(files[url])),
+          fetchImpl: url => fetch(url),
           onWarning: message => warnings.push(message),
-          declarations: [{ kind: 'bgm', id: 'bed', url: 'bgm', spec: { durationSec: 0 } }],
+          declarations: [{ kind: 'bgm', id: 'bed', url: files.bgm, spec: { durationSec: 0 } }],
           speech: [
-            { id: 'silent-1', src: 'silent', url: 'silent', atSec: 0, durationSec: 0.5,
+            { id: 'silent-1', src: 'silent', url: files.silent, atSec: 0, durationSec: 0.5,
               inSec: 0, outSec: 0.5, speed: 1, materialDurationSec: 1 },
-            { id: 'silent-2', src: 'silent', url: 'silent', atSec: 0.5, durationSec: 0.5,
+            { id: 'silent-2', src: 'silent', url: files.silent, atSec: 0.5, durationSec: 0.5,
               inSec: 0, outSec: 0.5, speed: 1, materialDurationSec: 1 },
-            { id: 'good', src: 'good', url: 'good', atSec: 0, durationSec: 1,
+            { id: 'good', src: 'good', url: files.good, atSec: 0, durationSec: 1,
               inSec: 0, outSec: 1, speed: 1, materialDurationSec: 5 },
           ],
         });
@@ -301,11 +316,7 @@ test('speech 2 sources / 3 cuts の OfflineAudioContext 包絡は render-cut と
         supply.dispose();
         window.noAudioResult = { warnings, debug };
       }, { once: true });
-    }, {
-      silent: fs.readFileSync(silent).toString('base64'),
-      good: fs.readFileSync(sourceA).toString('base64'),
-      bgm: fs.readFileSync(bgm).toString('base64'),
-    });
+    }, probeFiles);
     await probe.click('#start');
     await probe.waitForFunction(() => window.noAudioResult, null, { timeout: 15_000 });
     const noAudioResult = await probe.evaluate(() => window.noAudioResult);
