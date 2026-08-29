@@ -326,6 +326,14 @@ export async function renderProject(input, options = {}, io = console) {
     // buildMultiSourceCommandResult); surface the same "composited fully opaque" warning
     // layers[] already surfaces instead of silently hiding whatever was supposed to show through.
     for (const warning of cutCommand.warnings ?? []) addWarning(state, warning);
+    if (usesV2Export && cutCommand.concat_list) {
+      await writeFile(cutCommand.concat_list.path, cutCommand.concat_list.content, "utf8");
+    }
+    if (usesV2Export) {
+      for (const chunk of cutCommand.chunks ?? []) {
+        runChecked(capabilities.ffmpegCommand, chunk.args, { cwd: projectRoot });
+      }
+    }
     if (progressEnabled) {
       await runCheckedWithProgress(capabilities.ffmpegCommand, cutCommand.args, {
         cwd: projectRoot,

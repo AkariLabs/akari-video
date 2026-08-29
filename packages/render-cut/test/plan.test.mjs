@@ -67,6 +67,27 @@ test("audio-only tail padding is planned under the exact legacy tail condition",
   ]);
 });
 
+test("audio-only chunk artifacts are registered immediately after the cut output", () => {
+  const plan = buildV2Plan({
+    edit: {
+      ...edit,
+      cuts: Array.from({ length: 201 }, (_, index) => ({ in: index, out: index + 1 })),
+    },
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+  });
+  assert.equal(plan.commands.cut_audio.chunks.length, 2);
+  assert.deepEqual(plan.intermediates.slice(0, 5), [
+    ".akari/render-tmp/cut.mp4",
+    ".akari/render-tmp/cut-audio.mp4",
+    ".akari/render-tmp/cut-audio-chunk-0001.wav",
+    ".akari/render-tmp/cut-audio-chunk-0002.wav",
+    ".akari/render-tmp/cut-audio-chunks.txt",
+  ]);
+});
+
 test("default output names are numbered rather than overwritten", () => {
   const existing = new Set(["/project/exports/source.mp4", "/project/exports/source-2.mp4"]);
   assert.equal(
