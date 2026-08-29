@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 10 },
+  "sources": [
+    { "id": "main", "path": "media/source.mp4", "proxy": null },
+    { "id": "pip", "path": "media/layer.mp4", "proxy": null }
+  ],
+  "tracks": [
+    {
+      "id": "main-video",
+      "lane": "visual",
+      "items": [
+        { "id": "cut-1", "at": 0, "duration": 40, "source": { "kind": "media", "src": "main", "in": 0, "out": 4 } },
+        { "id": "cut-2", "at": 40, "duration": 40, "source": { "kind": "media", "src": "main", "in": 4, "out": 8, "fx": [{ "id": "capture-fixture-fx", "intensity": 0.5 }] } },
+        { "id": "cut-3", "at": 80, "duration": 40, "source": { "kind": "media", "src": "main", "in": 8, "out": 12 } }
+      ]
+    },
+    {
+      "id": "pip-video",
+      "lane": "visual",
+      "items": [
+        { "id": "capture-pip", "at": 0, "duration": 120, "transform": { "x": 90, "y": -45, "scale": 0.7, "rotate": 0 }, "source": { "kind": "media", "src": "pip", "in": 0, "out": 12 } }
+      ]
+    },
+    {
+      "id": "title-overlay",
+      "lane": "visual",
+      "items": [
+        { "id": "capture-title", "at": 0, "duration": 120, "source": { "kind": "html", "path": "overlay.html" } }
+      ]
+    }
+  ]
+}
