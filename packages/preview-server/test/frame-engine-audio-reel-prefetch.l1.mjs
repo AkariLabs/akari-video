@@ -12,12 +12,13 @@ import {
 } from '../../media-bin/src/preview-audio-sidecar.mjs';
 import { projectPreviewEdit } from '../src/preview-edit.mjs';
 
-const PROJECT = '/Users/ryoma/Akari/channels/my-channel/videos/2026-08-07-akari-reel';
+// オーナー実案件での L1。案件の場所は環境変数で渡す（リポにローカル絶対パスを置かない — Governance の leak scan 対象）。
+const PROJECT = process.env.AKARI_REEL_PROJECT || '';
 
 test('akari-reel は ready 後に全 speech を先読みし、再生開始を 300ms 以内に予定する', {
   timeout: 4 * 60_000,
 }, async t => {
-  if (!fs.existsSync(path.join(PROJECT, 'edit.json'))) return t.skip('owner fixture unavailable');
+  if (!PROJECT || !fs.existsSync(path.join(PROJECT, 'edit.json'))) return t.skip('owner fixture unavailable (set AKARI_REEL_PROJECT)');
   let chromium;
   try { ({ chromium } = await import('playwright')); } catch { return t.skip('playwright unavailable'); }
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'akari-reel-prefetch-'));
