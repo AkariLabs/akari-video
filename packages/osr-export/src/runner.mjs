@@ -29,9 +29,18 @@ export async function resolveElectronLauncher({
   probe = defaultProbe,
   resolveElectron = defaultResolveElectron,
   runtimePathResolver = desktopRuntimePath,
+  // false のとき tier 1（インストール済みデスクトップアプリ）を候補から外す。
+  // gpu-export が使う: shell の --render は OSR ランタイムしか読まないため、GPU 用 main を tier 1 に渡せない（v0.1.25 で判明）。
+  allowDesktop = true,
+  // false のとき「インストール済みデスクトップアプリ」（/Applications 等の既定候補）だけを候補から外す。
+  // env.AKARI_OSR_ELECTRON の明示指定は尊重する。resolveOsrLauncher（製品入口）が使う:
+  // インストール済みアプリの --render は Theia の起動処理と競合して落ちる（v0.1.26 実ビルドで実証・osr 契約 §11.5）。
+  allowInstalledDesktop = true,
 } = {}) {
-  for (const executable of desktopCandidates({ env, platform, homeDirectory })) {
+  let skippedInstalledDesktop = false;
+  for (const executable of allowDesktop ? desktopCandidates({ env, platform, homeDirectory }) : []) {
     const explicit = executable === env.AKARI_OSR_ELECTRON;
+    if (!allowInstalledDesktop && !explicit) { skippedInstalledDesktop = true; continue; }
     const runtime = runtimePathResolver(executable, platform);
     if (executable && await probe(executable, { kind: "desktop" })
       && (explicit || await probe(runtime, { kind: "desktop-runtime" }))) {
@@ -43,7 +52,15 @@ export async function resolveElectronLauncher({
   if (executable && await probeElectronDist(executable, probe, platform)) {
     return { tier: 2, kind: "npm-electron", executable, reason: "package optionalDependency" };
   }
-  return { tier: 3, kind: "legacy", executable: null, reason: platform === "linux" ? "Linux uses the compatibility path in v0" : "Electron unavailable", warning: FALLBACK_WARNING };
+  const reason = platform === "linux" ? "Linux uses the compatibility path in v0" : "Electron unavailable";
+  if (skippedInstalledDesktop) {
+    return {
+      tier: 3, kind: "legacy", executable: null, skippedInstalledDesktop: true,
+      reason: `${reason}; the installed desktop app is skipped because its --render entry crashes (osr contract §11.5)`,
+      warning: `${FALLBACK_WARNING}（インストール済みデスクトップアプリ経由は修正中のため候補から外しています）`,
+    };
+  }
+  return { tier: 3, kind: "legacy", executable: null, reason, warning: FALLBACK_WARNING };
 }
 
 export async function launchElectronExport(launcher, options, {

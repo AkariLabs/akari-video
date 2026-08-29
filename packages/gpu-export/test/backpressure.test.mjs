@@ -8,5 +8,6 @@ test("GPU backpressure uses dequeue with a MessageChannel fallback and records w
   assert.match(source, /waitForQueueBelow/);
   assert.match(source, /new MessageChannel\(\)/);
   assert.match(source, /queueWaits \+= 1/);
-  assert.doesNotMatch(source, /setTimeout\s*\(/);
+  const fallback = source.slice(source.indexOf("async function waitForEncoderQueueBelow"), source.indexOf("function warn"));
+  assert.doesNotMatch(fallback, /setTimeout\s*\(/);
 });

@@ -26,6 +26,16 @@ export function loadLayerMedia(lv, sourceUrl) {
   return true;
 }
 
+export function loadLayerMediaMetadata(lv, sourceUrl) {
+  if (lv.loaded || lv.unplayable) return false;
+  // engine 面の legacy 要素は配置・選択に必要な実寸だけを読む。src より先に metadata を
+  // 宣言し、ブラウザが既定の auto として媒体本体まで先読みする競合を避ける。
+  lv.el.preload = 'metadata';
+  lv.el.src = sourceUrl;
+  lv.loaded = true;
+  return true;
+}
+
 export function releaseLayerMedia(lv) {
   if (!lv.loaded) return false;
   // loaded を先に落とす。removeAttribute + load が中断中リクエスト由来のイベントを
@@ -38,12 +48,41 @@ export function releaseLayerMedia(lv) {
   return true;
 }
 
+export function idleLayerMedia(lv) {
+  const el = lv.el;
+  const hasSrcAttribute = typeof el.hasAttribute === 'function' && el.hasAttribute('src');
+  // テスト用の簡易要素は hasAttribute を持たないため、src プロパティも防御的に見る。
+  const hasFallbackSrc = typeof el.hasAttribute !== 'function'
+    && typeof el.src === 'string' && el.src !== '';
+  const shouldRelease = Boolean(lv.loaded || hasSrcAttribute || hasFallbackSrc);
+  lv.loaded = false;
+  if (shouldRelease && typeof el.removeAttribute === 'function') el.removeAttribute('src');
+  el.preload = 'none';
+  return shouldRelease;
+}
+
 export function markLayerUnplayable(lv) {
   lv.unplayable = true;
   releaseLayerMedia(lv);
 }
 
-export function syncLayerLazyLoad(lv, outputTime, sourceUrl) {
+export function syncLayerLazyLoad(lv, outputTime, sourceUrl, options = {}) {
+  if (options.mediaIdle === true) {
+    // mediaIdle はデコーダを再生・シークさせない engine 面の契約。配置に要る実寸まで
+    // 捨てると選択不能になるため、時間窓内ではメタデータだけを遅延ロードする。
+    if (lv.unplayable) {
+      idleLayerMedia(lv);
+      return false;
+    }
+    if (isLayerInLoadWindow(lv.layer, outputTime)) {
+      if (!lv.loaded) {
+        loadLayerMediaMetadata(lv, typeof sourceUrl === 'function' ? sourceUrl() : sourceUrl);
+      }
+    } else {
+      idleLayerMedia(lv);
+    }
+    return lv.loaded;
+  }
   if (lv.unplayable) {
     releaseLayerMedia(lv);
     return false;

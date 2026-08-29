@@ -11,7 +11,7 @@ test("GPU receipt records direct mux, no re-encode, and every eligibility row", 
   const receipt = buildGpuReceipt({
     tier: 2,
     eligibility: { entries },
-    run: { gpu: { encoder: "WebCodecsH264Encoder", hardware: "prefer-hardware", uploadPath: "direct", quality: "high", bitrate: 12_000_000, queueDepth: 4, queueWaits: 7 }, memory: { peakBytes: 42 } },
+    run: { gpu: { encoder: "WebCodecsH264Encoder", hardware: "prefer-hardware", uploadPath: "direct", quality: "high", bitrate: 12_000_000, queueDepth: 4, queueWaits: 7 }, domLayer: { runs: 1, overlays: 2, policy: "sync-layout" }, memory: { peakBytes: 42 } },
   });
   assert.equal(receipt.provenance.engine, "gpu");
   assert.equal(receipt.provenance.video_reencode, false);
@@ -21,6 +21,7 @@ test("GPU receipt records direct mux, no re-encode, and every eligibility row", 
   assert.equal(receipt.gpu.queueWaits, 7);
   assert.equal(receipt.gpu.quality, "high");
   assert.equal(receipt.gpu.bitrate, 12_000_000);
+  assert.deepEqual(receipt.gpu.domLayer, { runs: 1, overlays: 2, policy: "sync-layout" });
 });
 
 test("GPU receipt carries caption measurement and raster batch diagnostics", () => {

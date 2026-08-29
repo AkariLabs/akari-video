@@ -29,9 +29,30 @@ test("runner resolves quality bitrate and keeps master fail-closed", () => {
   }), /master は GPU 出口では --bitrate の明示が必要/);
 });
 
-test("GPU launcher uses the GPU desktop runtime probe", async () => {
+test("GPU launcher skips the desktop tier (tier 1) until the shell can run the GPU main", async () => {
   const result = await resolveGpuLauncher({
-    env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/home/test",
+    env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/opt/akari-test",
+    probe: async (path) => path === "/desktop" || path.endsWith("resources/packages/gpu-export/src/electron-main.mjs"),
+    resolveElectron: () => null,
+  });
+  assert.equal(result.tier, 3);
+  assert.match(result.reason, /desktop app \(launcher tier 1\) is not wired/);
+});
+
+test("GPU launcher still resolves npm Electron (tier 2) when the desktop tier is skipped", async () => {
+  const result = await resolveGpuLauncher({
+    env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/opt/akari-test",
+    probe: async () => true,
+    resolveElectron: () => "/electron",
+  });
+  assert.equal(result.tier, 2);
+  assert.equal(result.executable, "/electron");
+});
+
+test("GPU launcher honours an explicit allowDesktop: true (for the future tier 1 wiring)", async () => {
+  const result = await resolveGpuLauncher({
+    allowDesktop: true,
+    env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/opt/akari-test",
     probe: async (path) => path === "/desktop" || path.endsWith("resources/packages/gpu-export/src/electron-main.mjs"),
     resolveElectron: () => null,
   });

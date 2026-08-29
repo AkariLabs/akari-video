@@ -28,6 +28,7 @@ const { BUNDLED_CLI_NPM_ENTRIES } = await import(
 const manifestPaths = [
     'packages/render-cut/package.json',
     'packages/bake-layer/package.json',
+    'packages/frame-engine/package.json', // @webav/mp4box.js の版（gpu-export が直接 import・宣言は frame-engine）
 ];
 const manifests = manifestPaths.map(p => JSON.parse(readFileSync(join(REPO_ROOT, p), 'utf8')));
 

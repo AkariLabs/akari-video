@@ -59,7 +59,7 @@ const CAPTION_TEXTANIM_IDS = new Set(
 const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json]
        [--silence-error-seconds N] [--max-volume-error-db N]
        [--caption-silence-warn-percent N]
-       [--declarations PATH]
+       [--declarations PATH] [--ffprobe PATH]
 
 Exit codes: 0 PASS, 1 FAIL, 2 execution error`;
 
@@ -248,6 +248,7 @@ export async function lintProject(input, options = {}) {
   const sourcePath = structure.sourcePath;
   const audioOnlySourceIds = collectAudioOnlySourceIds(rawEdit);
   const referenceState = await validateReferences(edit, findings, paths, audioOnlySourceIds);
+  await validateProxyGops(rawEdit, findings, paths, options);
   const sourceDuration = null;
 
   const cutsStructureResult = validateCuts(
@@ -545,6 +546,7 @@ export function parseArguments(argv) {
     maxVolumeErrorDb: null,
     captionSilenceWarnPercent: null,
     declarationsPath: null,
+    ffprobeCommand: null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -605,6 +607,22 @@ export function parseArguments(argv) {
         throw new ExecutionError("--declarations requires a path");
       }
       options.declarationsPath = resolve(value);
+      continue;
+    }
+    if (argument === "--ffprobe") {
+      const value = argv[++index];
+      if (!isNonEmptyString(value)) {
+        throw new ExecutionError("--ffprobe requires a path");
+      }
+      options.ffprobeCommand = value;
+      continue;
+    }
+    if (argument.startsWith("--ffprobe=")) {
+      const value = argument.slice("--ffprobe=".length);
+      if (!isNonEmptyString(value)) {
+        throw new ExecutionError("--ffprobe requires a path");
+      }
+      options.ffprobeCommand = value;
       continue;
     }
     if (argument.startsWith("-")) {
@@ -4230,6 +4248,121 @@ function probeMediaAudio(sourcePath, configuredCommand) {
     duration: isPositiveNumber(duration) ? duration : null,
     reason: isPositiveNumber(duration) ? null : "audio stream duration is unavailable",
   };
+}
+
+async function validateProxyGops(rawEdit, findings, paths, options) {
+  const declarations = [];
+  if (isRecord(rawEdit?.source) && isNonEmptyString(rawEdit.source.proxy)) {
+    declarations.push({ value: rawEdit.source.proxy, path: "edit.json#source.proxy" });
+  }
+  if (Array.isArray(rawEdit?.sources)) {
+    for (const [index, source] of rawEdit.sources.entries()) {
+      if (isRecord(source) && isNonEmptyString(source.proxy)) {
+        declarations.push({ value: source.proxy, path: `edit.json#sources[${index}].proxy` });
+      }
+    }
+  }
+  if (declarations.length === 0) return;
+
+  let command;
+  try {
+    command = options.ffprobeCommand ?? process.env.FFPROBE ?? resolveFfprobe();
+  } catch {
+    return;
+  }
+
+  const cachePath = join(paths.projectRoot, ".akari", "cache", "proxy-gop.json");
+  let cache = {};
+  try {
+    const parsed = JSON.parse(await readFile(cachePath, "utf8"));
+    if (isRecord(parsed)) cache = parsed;
+  } catch {
+    // A missing or malformed best-effort cache is equivalent to a cold probe.
+  }
+  let cacheChanged = false;
+  const probeByPath = new Map();
+
+  for (const declaration of declarations) {
+    const filePath = resolveReference(paths.editPath, declaration.value);
+    let fileStat;
+    try {
+      fileStat = await stat(filePath);
+      if (!fileStat.isFile()) continue;
+    } catch {
+      continue;
+    }
+
+    let maxKeyframeIntervalSeconds;
+    if (probeByPath.has(filePath)) {
+      maxKeyframeIntervalSeconds = probeByPath.get(filePath);
+    } else {
+      const cached = isRecord(cache[filePath]) ? cache[filePath] : null;
+      if (cached
+        && cached.size === fileStat.size
+        && cached.mtimeMs === fileStat.mtimeMs
+        && isFiniteNumber(cached.maxKeyframeIntervalSeconds)) {
+        maxKeyframeIntervalSeconds = cached.maxKeyframeIntervalSeconds;
+      } else {
+        maxKeyframeIntervalSeconds = probeProxyGop(filePath, command);
+        if (isFiniteNumber(maxKeyframeIntervalSeconds)) {
+          cache[filePath] = {
+            size: fileStat.size,
+            mtimeMs: fileStat.mtimeMs,
+            maxKeyframeIntervalSeconds,
+          };
+          cacheChanged = true;
+        }
+      }
+      probeByPath.set(filePath, maxKeyframeIntervalSeconds);
+    }
+
+    if (isFiniteNumber(maxKeyframeIntervalSeconds) && maxKeyframeIntervalSeconds > 2) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "source.proxy-long-gop",
+        message: `プロキシの最大キーフレーム間隔が ${maxKeyframeIntervalSeconds.toFixed(3)} 秒のため、プレビューのカット切り替えが遅くなります。GOP 1 秒以下で焼き直してください: ffmpeg -i <input> … -g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0 <output>`,
+        path: declaration.path,
+      });
+    }
+  }
+
+  if (cacheChanged && options.writeReports !== false) {
+    try {
+      await mkdir(dirname(cachePath), { recursive: true });
+      await writeFile(cachePath, `${JSON.stringify(cache, null, 2)}\n`, "utf8");
+    } catch {
+      // Cache persistence must never change the lint verdict or exit code.
+    }
+  }
+}
+
+function probeProxyGop(filePath, command) {
+  const result = spawnSync(command, [
+    "-v", "error",
+    "-select_streams", "v:0",
+    "-show_entries", "packet=pts_time,flags:format=duration",
+    "-of", "csv=p=0",
+    filePath,
+  ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+  if (result.error || result.status !== 0) return undefined;
+  const keyframes = [];
+  let duration;
+  for (const line of String(result.stdout ?? "").split(/\r?\n/u)) {
+    if (line.includes(",")) {
+      const [ptsTime, flags] = line.split(",", 2);
+      const pts = Number.parseFloat(ptsTime);
+      if (flags.includes("K") && Number.isFinite(pts)) keyframes.push(pts);
+    } else if (line.length > 0) {
+      duration = Number.parseFloat(line);
+    }
+  }
+  if (keyframes.length < 1 || !isFiniteNumber(duration)) return undefined;
+  keyframes.sort((left, right) => left - right);
+  let maximum = Math.max(0, duration - keyframes.at(-1));
+  for (let index = 1; index < keyframes.length; index += 1) {
+    maximum = Math.max(maximum, keyframes[index] - keyframes[index - 1]);
+  }
+  return Number.isFinite(maximum) ? maximum : undefined;
 }
 
 function probeDuration(sourcePath, configuredCommand) {

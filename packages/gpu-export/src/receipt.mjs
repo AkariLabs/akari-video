@@ -26,6 +26,7 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       captionMeasureAttempts: normalizeAttemptSummary(run?.gpu?.captionMeasureAttempts),
       captionRasterTotalMs: finiteNonNegative(run?.gpu?.captionRasterTotalMs),
       captionRasterBatches: normalizeBatchSummary(run?.gpu?.captionRasterBatches),
+      domLayer: run?.domLayer ?? null,
       eligibility: [...(eligibility?.entries ?? [])],
     },
     memory: {

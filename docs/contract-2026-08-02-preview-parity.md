@@ -195,6 +195,7 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 | GPU 直結・engine 区間 | OSR decode 比較の per-frame MAD ≤ 1.0 | 超過は不合格 |
 | GPU 直結・字幕 | cue 代表 5 時刻の下半分 MAD ≤ 1.0 | 超過は不合格 |
 | GPU 直結・3D | 3D active 区間 MAD ≤ 1.0 | 超過は不合格 |
+| GPU 直結・DOM 層 | overlay 外接矩形内 MAD ≤ 1.0、t=0 を含む代表 5 時刻 | いずれかの超過または sentinel 不一致は不合格 |
 
 OSR の比較は H.264 を再 decode した画像ではなく捕捉時の raw BGRA を使う。ソフト描画の検収と GPU の
 診断値を混同しない。
@@ -253,3 +254,16 @@ lint 実行系が見つからない場合は **fail-open**（2026-08-02 オー�
 ペン描画の単一正本は `packages/pen-visuals` の `PEN_TUNING` と描画プリミティブである。器や overlay
 sheet が独自の補間、太さ、透明度、消去規則を持ってはならない。フェード時間は **600ms** を正とする
 （2026-08-02 オーナー裁定）。
+
+### 5.5 プレビュー用プロキシの規格
+
+frame-engine がランダムアクセスするプレビュー用プロキシは、H.264 High Profile の 8bit
+`yuv420p`、GOP 1 秒以下、B フレームなし、faststart とする。GOP はソースの実測 fps を丸めた
+フレーム数を使い、`-g <fps> -keyint_min <fps> -sc_threshold 0 -bf 0` を指定する。変換後も尺と
+コマ数はソースと一致させる。
+29.97 fps の GOP は 30 コマで 1.001 秒になるため、doctor / lint などで機械照合するときの閾値は 1.05 秒に置く。
+
+生成経路は shell の HEVC フォールバックと preview-server の HEVC プロキシの 2 系統であり、
+いずれも `packages/media-bin/src/proxy-recipe.mjs` を唯一の定義として使う。レシピ版
+`gop1s-v1` は shell のキャッシュキーと preview-server の出力名へ含め、旧規格のキャッシュを
+次回参照時に再利用しない。

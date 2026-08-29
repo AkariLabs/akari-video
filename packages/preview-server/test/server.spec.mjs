@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const PORT = 3456;
@@ -39,6 +40,14 @@ test.afterAll(async () => {
 });
 
 test.describe('Preview Server', () => {
+
+  test('HEVC proxy uses the shared versioned one-second GOP recipe', async () => {
+    const source = readFileSync(new URL('../src/server.mjs', import.meta.url), 'utf8');
+    expect(source).toContain("from '../../media-bin/src/proxy-recipe.mjs'");
+    expect(source).toContain("...previewProxyVideoArgs({ fps, pixFmt: 'yuv420p', preset: 'fast', crf: 23 })");
+    expect(source).toContain("'-movflags', '+faststart'");
+    expect(source).toContain("rel + `.h264-${PROXY_RECIPE_VERSION}.mp4`");
+  });
 
   test('GET /api/timeline returns valid TimelineSpec', async ({ request }) => {
     const res = await request.get(`${BASE}/api/timeline`);

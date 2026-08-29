@@ -148,6 +148,20 @@ media time に合わせて評価するため、従来の一定 2 コマ手前に
 
 v0.1.24以前はTheiaの`singleInstance`により、AKARI Videoデスクトップアプリの起動中に第1段を開始すると、子プロセスがexit 0・無出力で終了していた。launcherが出力を検査しなかったため、後続処理ではこの失敗がffmpegのENOENTに化けていた。runごとにuserDataを分離し、exit 0でも出力が無い場合を失敗として扱うことで根治した。Windowsのelectron-builder NSIS per-user既定導入先は`%LOCALAPPDATA%\Programs\@akari-videoshell`である。
 
+### 11.5 インストール済みアプリ経由の第 1 段は起動処理と競合して落ちる（2026-08-29 追記）
+
+v0.1.26 の実ビルド（署名有効・未改変）で実証: インストール済みの AKARI Video を `--render` 付きで起動すると、
+`akari-osr-export` contribution が初期ウィンドウを destroy した直後に Theia の `handleMainCommand` →
+`openDefaultWindow` が destroy 済みウィンドウへ `loadURL` して `TypeError: Object has been destroyed`（未処理 rejection）→
+V8 fatal → SIGTRAP（exit 133 / Windows `0x80000003`）となり、PROGRESS 0 行で終わる。§11.4 の単一インスタンスロック解消後も
+残る、contribution 方式の構造的な競合（`window-all-closed` → `app.quit()` とも競合し得る）。この経路（tier 1 の既定候補）は
+fieldtest / 検収に receipt が 1 件も無く、一度も動いていない。
+
+v0.1.27 からの挙動: `resolveOsrLauncher`（製品入口）はインストール済みアプリを既定で候補から外す
+（`allowInstalledDesktop: false`）。`AKARI_OSR_ELECTRON` の明示指定は従来どおり tier 1。npm Electron（tier 2）が無い
+パッケージ版では tier 3 = legacy へ警告付きで落ち、provenance に `engine_fallback` と理由が残る（`auto` / `osr` とも）。
+根本修正 = `--render` を Theia より前に捕捉する書き出し専用の Electron 入口（別票）。入口が入ったら既定を戻す。
+
 ## 12. GPU 直結出口との共有境界（2026-08-28 追記）
 
 [GPU 直結書き出し v0](./contract-2026-08-28-gpu-export-v0.md) は、本契約の launcher 3 段、static

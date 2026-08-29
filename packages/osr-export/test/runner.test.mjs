@@ -54,6 +54,28 @@ test("器は desktop を npm electron より優先する", async () => {
   assert.equal(result.tier, 1);
 });
 
+test("allowInstalledDesktop:false はインストール済みアプリ候補を飛ばし、tier 3 に理由と警告を残す", async () => {
+  const result = await resolveElectronLauncher({
+    allowInstalledDesktop: false,
+    env: {}, platform: "darwin", homeDirectory: "/opt/akari-test",
+    probe: async () => true, resolveElectron: () => null,
+  });
+  assert.equal(result.tier, 3);
+  assert.equal(result.skippedInstalledDesktop, true);
+  assert.match(result.reason, /installed desktop app is skipped/);
+  assert.match(result.warning, /候補から外しています/);
+});
+
+test("allowInstalledDesktop:false でも AKARI_OSR_ELECTRON の明示指定は tier 1 になる", async () => {
+  const result = await resolveElectronLauncher({
+    allowInstalledDesktop: false,
+    env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "darwin", homeDirectory: "/opt/akari-test",
+    probe: async (path) => path === "/desktop", resolveElectron: () => null,
+  });
+  assert.equal(result.tier, 1);
+  assert.equal(result.reason, "environment override");
+});
+
 test("器は健全な npm electron dist を tier 2 にする", async () => {
   const required = new Set(["/npm/LICENSE", "/npm/LICENSES.chromium.html", "/npm/version", "/npm/electron"]);
   const result = await resolveElectronLauncher({
