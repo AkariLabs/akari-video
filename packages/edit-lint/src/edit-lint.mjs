@@ -2500,7 +2500,10 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
       return;
     }
     for (const field of Object.keys(captions)) {
-      if (field !== "default_text_style" && field !== "display_policy" && field !== "captions") {
+      if (field !== "default_text_style"
+        && field !== "display_policy"
+        && field !== "emphasis_words"
+        && field !== "captions") {
         captionFinding(
           findings,
           "captions.schema",
@@ -2517,6 +2520,9 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
         findings,
         captionPath,
       );
+    }
+    if (Object.hasOwn(captions, "emphasis_words")) {
+      validateEmphasisWords(captions.emphasis_words, findings, captionPath);
     }
     if (!Array.isArray(captions.captions)) {
       captionFinding(
@@ -2538,9 +2544,10 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
   // 意図を説明する記述がなく、テストも 1 件も無い（= 消しても何も落ちない）状態だった。
   // 常に全件発火する警告は本物の指摘を埋めるだけなので、規則ごと落とすのが正しい。
   // 撤去の証跡は edit-lint.test.mjs の "captions.overlay-link は発火しない" で固定してある。
-  let previousStart = -Infinity;
-  let furthestEnd = -Infinity;
-  let furthestCaption = null;
+  const outputTimeGroup = Symbol("output-time");
+  const previousStart = new Map();
+  const furthestEnd = new Map();
+  const furthestCaption = new Map();
 
   for (const [index, caption] of captions.entries()) {
     const itemPath = `captions.json#[${index}]`;
@@ -2662,7 +2669,11 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
         itemPath,
       );
     } else {
-      if (caption.start < previousStart - EPSILON) {
+      const timeGroup = caption.time_domain === "output" ? outputTimeGroup : caption.src;
+      const groupPreviousStart = previousStart.get(timeGroup) ?? -Infinity;
+      const groupFurthestEnd = furthestEnd.get(timeGroup) ?? -Infinity;
+      const groupFurthestCaption = furthestCaption.get(timeGroup) ?? null;
+      if (caption.start < groupPreviousStart - EPSILON) {
         captionFinding(
           findings,
           "captions.order",
@@ -2670,19 +2681,19 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
           itemPath,
         );
       }
-      previousStart = caption.start;
-      if (caption.start < furthestEnd - EPSILON) {
+      previousStart.set(timeGroup, caption.start);
+      if (caption.start < groupFurthestEnd - EPSILON) {
         addFinding(findings, {
           severity: "error",
           check: "captions.overlap",
-          message: `caption overlaps ${furthestCaption.id ?? furthestCaption.path} on the same track`,
+          message: `caption overlaps ${groupFurthestCaption.id ?? groupFurthestCaption.path} on the same track`,
           path: itemPath,
           range: { start: caption.start, end: caption.end },
         });
       }
-      if (caption.end > furthestEnd) {
-        furthestEnd = caption.end;
-        furthestCaption = { id: caption.id, path: itemPath };
+      if (caption.end > groupFurthestEnd) {
+        furthestEnd.set(timeGroup, caption.end);
+        furthestCaption.set(timeGroup, { id: caption.id, path: itemPath });
       }
       const displaySeconds = caption.end - caption.start;
       if (displaySeconds < 1.0 - EPSILON) {
@@ -2754,6 +2765,63 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
       captionFinding(findings, "captions.display-policy", error instanceof Error ? error.message : String(error), captionPath);
     }
   }
+}
+
+function validateEmphasisWords(emphasisWords, findings, captionPath) {
+  if (!Array.isArray(emphasisWords)) {
+    captionFinding(findings, "captions.schema", "emphasis_words must be an array", captionPath);
+    return;
+  }
+  emphasisWords.forEach((item, index) => {
+    const itemPath = `${captionPath}#emphasis_words[${index}]`;
+    if (!isRecord(item)) {
+      captionFinding(findings, "captions.schema", "emphasis word must be an object", itemPath);
+      return;
+    }
+    if (typeof item.id !== "string" || !/^e-\d{4}$/.test(item.id)) {
+      captionFinding(
+        findings,
+        "captions.schema",
+        "id must match e- followed by four digits",
+        itemPath,
+      );
+    }
+    const timesValid =
+      isFiniteNumber(item.t_start) &&
+      isFiniteNumber(item.t_end) &&
+      item.t_start >= 0 &&
+      item.t_end > item.t_start;
+    if (!timesValid) {
+      captionFinding(
+        findings,
+        "captions.schema",
+        "emphasis word must satisfy 0 <= t_start < t_end",
+        itemPath,
+      );
+    }
+    if (!isNonEmptyString(item.word)) {
+      captionFinding(findings, "captions.schema", "word must be a non-empty string", itemPath);
+    }
+    if (!isNonEmptyString(item.emotion)) {
+      captionFinding(findings, "captions.schema", "emotion must be a non-empty string", itemPath);
+    }
+    if (Object.hasOwn(item, "src") && !isNonEmptyString(item.src)) {
+      captionFinding(
+        findings,
+        "captions.schema",
+        "src must be a non-empty string when present",
+        itemPath,
+      );
+    }
+    if (Object.hasOwn(item, "style_hint") && typeof item.style_hint !== "string") {
+      captionFinding(
+        findings,
+        "captions.schema",
+        "style_hint must be a string when present",
+        itemPath,
+      );
+    }
+  });
 }
 
 function captionDisplayEdit(edit) {
