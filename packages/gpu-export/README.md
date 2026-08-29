@@ -52,9 +52,10 @@ directions, rotate/skew/3D transforms, filter, and clip-path fail closed with a 
 `three-entrance-*` reason. A declarative 3D scene without CSS animation retains the existing
 `three-scene-canvas-direct` manifest shape and behavior.
 
-`render-cut --engine auto` considers GPU export on macOS only, using it when the complete project is
-eligible and otherwise using OSR. On Windows and Linux, GPU export is evaluated only for an explicit
-`--engine gpu`. Explicit selection fails closed and prints every ineligibility or launcher reason.
+`render-cut --engine auto` considers GPU export on macOS and Windows, using it when the complete
+project is eligible and otherwise using OSR. On Linux, `auto` remains legacy and GPU export is
+evaluated only for an explicit `--engine gpu`. Explicit selection fails closed and prints every
+ineligibility or launcher reason.
 
 The DOM layer launches with `--enable-features=CanvasDrawElement`, `--disable-gpu-vsync`, and
 `--disable-frame-rate-limit`. Two-run frame and MP4 hashes matched for 450/678/900-frame exports,
@@ -91,8 +92,8 @@ The expected doctor row is `gpu_export ok (npm-electron launcher tier 2)`. The o
 
 The installed desktop app launcher (tier 1) is currently excluded fail-closed; see
 `GPU_DESKTOP_TIER_UNWIRED_REASON`. Packaged tier 1 support also requires `packages/gpu-export` to be
-bundled through the shell's `extraResources`. Windows and Linux may use GPU export only by explicitly
-passing `--engine gpu`; `auto` considers GPU only on macOS.
+bundled through the shell's `extraResources`. Starting with v0.1.29, Windows `--engine auto` uses GPU
+when eligible and OSR otherwise; Linux still requires explicit `--engine gpu` selection.
 
 ## Development
 

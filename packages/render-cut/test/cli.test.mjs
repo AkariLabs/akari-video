@@ -11,7 +11,7 @@ import { legacyRenderArgs } from "./helpers/render-engine.mjs";
 
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
-import { resolvePuppeteerPackagePath } from "../src/render-cut.mjs";
+import { renderProject, resolvePuppeteerPackagePath } from "../src/render-cut.mjs";
 import { ABSENT_LINT_SENTINEL } from "../src/render-receipt.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -222,6 +222,36 @@ test("plan-only records resolved Puppeteer capture workers", async () => {
     assert.equal(state.plan.commands.rasterize["puppeteer-core"].workers_source, "cli");
   } finally {
     await rm(project, { recursive: true, force: true });
+  }
+});
+
+test("win32 plan-only records GPU for eligible projects and OSR for ineligible projects", async () => {
+  const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+  const hadChromePath = Object.hasOwn(process.env, "CHROME_PATH");
+  const originalChromePath = process.env.CHROME_PATH;
+  const eligibleProject = await makeProject({ overlays: false });
+  const ineligibleProject = await makeProject();
+  try {
+    await writeFile(
+      join(ineligibleProject, "overlays", "label.html"),
+      "<script>setInterval(() => {}, 1000)</script>\n",
+    );
+    process.env.CHROME_PATH = process.execPath;
+    Object.defineProperty(process, "platform", { ...platformDescriptor, value: "win32" });
+
+    const eligible = await renderProject(eligibleProject, { planOnly: true, writeState: false });
+    assert.equal(eligible.provenance.engine, "gpu");
+    assert.equal(eligible.warnings.some((warning) => warning.includes("GPU export is ineligible")), false);
+
+    const ineligible = await renderProject(ineligibleProject, { planOnly: true, writeState: false });
+    assert.equal(ineligible.provenance.engine, "osr");
+    assert.match(ineligible.warnings.join("\n"), /GPU export is ineligible; using OSR/u);
+  } finally {
+    Object.defineProperty(process, "platform", platformDescriptor);
+    if (hadChromePath) process.env.CHROME_PATH = originalChromePath;
+    else delete process.env.CHROME_PATH;
+    await rm(eligibleProject, { recursive: true, force: true });
+    await rm(ineligibleProject, { recursive: true, force: true });
   }
 });
 

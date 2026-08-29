@@ -74,7 +74,7 @@ when explicitly passed as (or defaulted to) "standard"/"x264"; --fps defaults to
 output.fps; --progress emits "PROGRESS out_time_ms=<n> total_ms=<n>" lines to stdout while
 encoding, followed by "PROGRESS done total_ms=<n>".
 --engine defaults to auto; --engine gpu requests hardware export on every platform.
-Windows and Linux require explicit gpu selection; auto considers gpu on macOS only.
+Auto considers gpu on macOS and Windows; Linux stays legacy until the v2 default switch.
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
 
@@ -158,7 +158,7 @@ export async function renderProject(input, options = {}, io = console) {
     : null;
   const loadedOverlays = await loadOverlays(projectRoot, edit);
   const shouldEvaluateGpu = engineRequested === "gpu"
-    || (engineRequested === "auto" && process.platform === "darwin");
+    || (engineRequested === "auto" && autoConsidersGpu(process.platform));
   const gpuEligibility = shouldEvaluateGpu
     ? evaluateGpuEligibility({
         edit: { ...edit, overlays: loadedOverlays },
@@ -259,7 +259,7 @@ export async function renderProject(input, options = {}, io = console) {
     verify: null,
     ...(captionLayout ? { caption_layout: captionLayout } : {}),
   };
-  if (engineRequested === "auto" && process.platform === "darwin" && gpuEligibility?.eligible === false) {
+  if (engineRequested === "auto" && autoConsidersGpu(process.platform) && gpuEligibility?.eligible === false) {
     addWarning(state, `GPU export is ineligible; using OSR: ${formatGpuEligibilityFailures(gpuEligibility)}`);
   }
   for (const warning of plannedCaptions.warnings) addWarning(state, warning);
@@ -756,8 +756,12 @@ export function selectExecutionIntermediates({
 
 export function resolveEngineChoice(requested, platform, eligibility = null) {
   if (requested !== "auto") return requested;
-  if (platform === "darwin" && eligibility?.eligible === true) return "gpu";
-  return platform === "darwin" ? "osr" : "legacy";
+  if (!autoConsidersGpu(platform)) return "legacy";
+  return eligibility?.eligible === true ? "gpu" : "osr";
+}
+
+export function autoConsidersGpu(platform) {
+  return platform === "darwin" || platform === "win32";
 }
 
 export function buildEngineProvenance(requested, platform, launcher = undefined, eligibility = null) {

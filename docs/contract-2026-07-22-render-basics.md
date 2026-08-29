@@ -40,7 +40,7 @@
    素の色のまま合成されて、窓の継ぎ目で肌色が食い違った。「プロジェクト全体の色」だと
    誤解しやすいため、ここに明記する。
 4. **書き出しエンジンの既定（2026-08-28 改訂）**: `--engine` 省略時は `auto`。
-   darwin では v2（OSR）、win32 / linux では legacy に解決する。従来経路へ戻す場合は
+   darwin / win32 では適格なら GPU、不適格なら OSR、linux では legacy に解決する。従来経路へ戻す場合は
    `render-cut --engine legacy` を明示する。
 
 ### 2-4. reveal 系トランジション（`reveal-down` / `reveal-up`。2026-08-14 追加）

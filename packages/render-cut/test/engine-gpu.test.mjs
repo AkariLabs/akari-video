@@ -11,6 +11,7 @@ import { resolveGpuLauncher } from "../../gpu-export/src/runner.mjs";
 import {
   RefusalError,
   assertGpuEligibility,
+  buildEngineProvenance,
   parseArguments,
   renderProject,
   resolveEngineChoice,
@@ -22,21 +23,27 @@ test("render-cut parses explicit GPU engine", () => {
   assert.equal(parseArguments(["/project", "--engine=gpu"]).engine, "gpu");
 });
 
-test("auto selects GPU only for eligible darwin projects", () => {
+test("auto selects GPU for eligible darwin and win32 projects", () => {
   assert.equal(resolveEngineChoice("auto", "darwin", { eligible: true }), "gpu");
   assert.equal(resolveEngineChoice("auto", "darwin", { eligible: false }), "osr");
+  assert.equal(resolveEngineChoice("auto", "win32", { eligible: true }), "gpu");
+  assert.equal(resolveEngineChoice("auto", "win32", { eligible: false }), "osr");
   assert.equal(resolveEngineChoice("auto", "linux", { eligible: true }), "legacy");
-  assert.equal(resolveEngineChoice("auto", "win32", { eligible: true }), "legacy");
+  assert.equal(resolveEngineChoice("auto", "linux", { eligible: false }), "legacy");
   assert.equal(resolveEngineChoice("auto", "darwin"), "osr");
+  assert.equal(resolveEngineChoice("auto", "win32"), "osr");
 });
 
-test("explicit GPU reaches launcher resolution on win32 and linux while auto remains unchanged", async () => {
+test("explicit GPU reaches launcher resolution on win32 and linux", async () => {
   const descriptor = Object.getOwnPropertyDescriptor(process, "platform");
   try {
     for (const platform of ["win32", "linux"]) {
       Object.defineProperty(process, "platform", { ...descriptor, value: platform });
       assert.equal(resolveEngineChoice("gpu", process.platform, { eligible: true }), "gpu");
-      assert.equal(resolveEngineChoice("auto", process.platform, { eligible: true }), "legacy");
+      assert.equal(
+        resolveEngineChoice("auto", process.platform, { eligible: true }),
+        platform === "win32" ? "gpu" : "legacy",
+      );
       await assert.rejects(
         renderProject("/missing-gpu-platform-fixture", { engine: "gpu" }),
         (error) => /edit\.json could not be read/u.test(error.message)
@@ -56,6 +63,69 @@ test("explicit GPU reaches launcher resolution on win32 and linux while auto rem
   } finally {
     Object.defineProperty(process, "platform", descriptor);
   }
+});
+
+test("win32 auto provenance records eligible and ineligible launcher tiers", () => {
+  const eligible = { eligible: true };
+  for (const tier of [1, 2]) {
+    assert.deepEqual(buildEngineProvenance("auto", "win32", { tier }, eligible), {
+      engine_requested: "auto",
+      engine: "gpu",
+    });
+  }
+  assert.deepEqual(
+    buildEngineProvenance("auto", "win32", { tier: 3, reason: "GPU Electron launcher unavailable" }, eligible),
+    {
+      engine_requested: "auto",
+      engine: "legacy",
+      engine_fallback: { from: "gpu", reason: "GPU Electron launcher unavailable" },
+    },
+  );
+
+  const ineligible = { eligible: false };
+  for (const tier of [1, 2]) {
+    assert.deepEqual(buildEngineProvenance("auto", "win32", { tier }, ineligible), {
+      engine_requested: "auto",
+      engine: "osr",
+    });
+  }
+  assert.deepEqual(
+    buildEngineProvenance("auto", "win32", { tier: 3, reason: "OSR Electron launcher unavailable" }, ineligible),
+    {
+      engine_requested: "auto",
+      engine: "legacy",
+      engine_fallback: { from: "osr", reason: "OSR Electron launcher unavailable" },
+    },
+  );
+});
+
+test("win32 auto keeps the GPU to OSR to legacy fallback chain non-fatal", () => {
+  const gpuEngine = resolveEngineChoice("auto", "win32", { eligible: true });
+  assert.equal(gpuEngine, "gpu");
+  const gpuUnavailable = selectRenderEngineExecution(gpuEngine, {
+    tier: 3,
+    reason: "GPU Electron launcher unavailable",
+  });
+  assert.deepEqual(gpuUnavailable.engineFallback, {
+    from: "gpu",
+    reason: "GPU Electron launcher unavailable",
+  });
+
+  const osrEngine = resolveEngineChoice("auto", "win32", { eligible: false });
+  assert.equal(osrEngine, "osr");
+  const osrAvailable = selectRenderEngineExecution(osrEngine, { tier: 2 });
+  assert.equal(osrAvailable.engine, "osr");
+  assert.equal(osrAvailable.engineFallback, undefined);
+
+  const osrUnavailable = selectRenderEngineExecution(osrEngine, {
+    tier: 3,
+    reason: "OSR Electron launcher unavailable",
+  });
+  assert.equal(osrUnavailable.engine, "legacy");
+  assert.deepEqual(osrUnavailable.engineFallback, {
+    from: "osr",
+    reason: "OSR Electron launcher unavailable",
+  });
 });
 
 test("explicit GPU keeps tier 3 launcher failure as a RefusalError", { timeout: 60_000 }, async () => {
