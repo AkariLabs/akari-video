@@ -45,7 +45,6 @@ export class CliPathStartupContribution implements BackendApplicationContributio
 
         // backend 起動を待たせない。配備失敗はログだけに留め、アプリ本体は起動を続ける。
         void ensureCli({
-            preferBundled: true,
             resourcesPath: (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
         }).then(result => {
             for (const line of result.log) {

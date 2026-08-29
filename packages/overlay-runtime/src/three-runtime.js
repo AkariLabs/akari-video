@@ -4,6 +4,22 @@ window.akari = window.akari || {};
 window.akari.threeRuntime = (() => {
   const instances = new WeakMap();
   const failedContainers = new WeakSet();
+  // --- ライブプレビュー専用の事前マウント（premount）。task 2026-08-29-overlay-3d-premount ---
+  // 既定は無効。書き出し（render-cut の rasterize / osr-export / gpu-export）は
+  // configurePremount() を呼ばないので、以下の分岐はすべて素通りし、生成される絵は 1 バイトも
+  // 変わらない（決定論の維持 = 契約 指示 5）。
+  const PREMOUNT_DEFAULT_LEAD_SECONDS = 2.0;
+  const PREMOUNT_DEFAULT_MAX_INSTANCES = 4;
+  const GLTF_CACHE_LIMIT = 8;
+  let premountPolicy = null;
+  const liveInstanceContainers = new Set();
+  let hostDisposeDeferralDepth = 0;
+  let lastLiveMaxRenderSize;
+  const premountStats = { created: 0, disposed: 0, prepared: 0 };
+  // ライブ専用。premount 無効（= 書き出し）のときはキャッシュ分岐を通らない。
+  const gltfCache = new Map();
+  const textureCache = new Map();
+  const stageEntryCaches = new WeakMap();
   const ALLOWED_SCENE_KEYS = new Set([
     "model",
     "camera",
@@ -622,8 +638,22 @@ window.akari.threeRuntime = (() => {
   }
 
   function loadTexture(THREE, instance, textureLoader, url) {
-    if (!VIDEO_TEXTURE_PATTERN.test(url)) return textureLoader.loadAsync(url);
-    return loadVideoTexture(THREE, instance, url);
+    if (VIDEO_TEXTURE_PATTERN.test(url)) return loadVideoTexture(THREE, instance, url);
+    if (!premountPolicy) return textureLoader.loadAsync(url);
+    let pending = textureCache.get(url);
+    if (!pending) {
+      pending = textureLoader.loadAsync(url);
+      if (textureCache.size >= GLTF_CACHE_LIMIT) {
+        textureCache.delete(textureCache.keys().next().value);
+      }
+      textureCache.set(url, pending);
+    }
+    // master は instance の disposeObject() に渡さず、デコード済み Source だけを clone 経由で共有する。
+    return pending.then((master) => {
+      const copy = master.clone();
+      copy.needsUpdate = true;
+      return copy;
+    });
   }
 
   async function applyMaterialOverrides(THREE, instance, root, overrides) {
@@ -1624,12 +1654,119 @@ window.akari.threeRuntime = (() => {
     setFallback(instance.container, true);
   }
 
-  function dispose(container) {
+  function disposeNow(container) {
     failedContainers.delete(container);
     const instance = instances.get(container);
+    // instance の有無にかかわらず集合を必ず縮める。premountTick() の上限破棄ループが
+    // stale container を選び続けても、各反復が必ず前進することをここで保証する。
+    liveInstanceContainers.delete(container);
     if (!instance) return;
     instances.delete(container);
+    premountStats.disposed += 1;
     disposeInstance(instance);
+  }
+
+  function dispose(container) {
+    // ライブプレビューのホストは非表示になった tick で dispose() を呼ぶ。driver の tick 中だけ
+    // その要求を握り潰し、実破棄は premountTick() の距離・上限判定へ一本化する。
+    // tick 外の unmount や切断済み DOM は従来どおり即時破棄する。
+    if (premountPolicy && hostDisposeDeferralDepth > 0 && container?.isConnected) return;
+    disposeNow(container);
+  }
+
+  function configurePremount(policy) {
+    if (!policy) {
+      premountPolicy = null;
+      gltfCache.clear();
+      textureCache.clear();
+      return null;
+    }
+    premountPolicy = {
+      leadSeconds: Math.max(
+        0,
+        finiteNumber(policy.leadSeconds, PREMOUNT_DEFAULT_LEAD_SECONDS),
+      ),
+      maxInstances: Math.max(
+        1,
+        Math.round(finiteNumber(policy.maxInstances, PREMOUNT_DEFAULT_MAX_INSTANCES)),
+      ),
+      maxRenderSize: Number.isFinite(Number(policy.maxRenderSize))
+        ? Number(policy.maxRenderSize)
+        : undefined,
+    };
+    return { ...premountPolicy };
+  }
+
+  function materialHasVideoTexture(material) {
+    const materials = Array.isArray(material) ? material : material ? [material] : [];
+    return materials.some((entry) => Object.values(entry).some((value) => value?.isVideoTexture));
+  }
+
+  function cloneSceneForInstance(source) {
+    const copy = source.clone(true);
+    const geometries = new Map();
+    const materials = new Map();
+    const textures = new Map();
+
+    function cloneTexture(texture) {
+      if (texture.isVideoTexture) return texture;
+      let cloned = textures.get(texture);
+      if (!cloned) {
+        cloned = texture.clone();
+        cloned.needsUpdate = true;
+        textures.set(texture, cloned);
+      }
+      return cloned;
+    }
+
+    function cloneMaterial(material) {
+      let cloned = materials.get(material);
+      if (!cloned) {
+        cloned = material.clone();
+        for (const [key, value] of Object.entries(cloned)) {
+          if (value?.isTexture && !value.isVideoTexture) cloned[key] = cloneTexture(value);
+        }
+        materials.set(material, cloned);
+      }
+      return cloned;
+    }
+
+    copy.traverse((object) => {
+      if (object.geometry) {
+        let geometry = geometries.get(object.geometry);
+        if (!geometry) {
+          geometry = object.geometry.clone();
+          geometries.set(object.geometry, geometry);
+        }
+        object.geometry = geometry;
+      }
+      if (Array.isArray(object.material)) {
+        object.material = object.material.map(cloneMaterial);
+      } else if (object.material) {
+        object.material = cloneMaterial(object.material);
+      }
+    });
+    return copy;
+  }
+
+  async function loadGltfShared(THREE, loader, url) {
+    if (!premountPolicy) return loader.loadAsync(url);
+    let pending = gltfCache.get(url);
+    if (!pending) {
+      pending = loader.loadAsync(url);
+      if (gltfCache.size >= GLTF_CACHE_LIMIT) gltfCache.delete(gltfCache.keys().next().value);
+      gltfCache.set(url, pending);
+    }
+    const master = await pending;
+    let unsupported = false;
+    master.scene.traverse((object) => {
+      if (object.isSkinnedMesh || materialHasVideoTexture(object.material)) unsupported = true;
+    });
+    if (unsupported) {
+      gltfCache.delete(url);
+      return loader.loadAsync(url);
+    }
+    return { ...master, scene: cloneSceneForInstance(master.scene) };
   }
 
   function createInstance(container) {
@@ -1730,6 +1867,8 @@ window.akari.threeRuntime = (() => {
       // model 読み込み（宣言時のみ）+ 全 texts sync() 完了の両方が揃うまで false。
       // draw() はこれを ready 条件に使う（読み込み中フレームが書き出しに混入しないため）
       contentReady: false,
+      premounted: false,
+      premountPromise: null,
       // 標準ツマミ 3 種の直近適用値（memo）。null は「まだ一度も適用していない」の意
       projection: { panX: null, panY: null, zoom: null, width: null, height: null },
       renderer,
@@ -1740,6 +1879,8 @@ window.akari.threeRuntime = (() => {
       videoTextures: new Set(),
     };
     instances.set(container, instance);
+    liveInstanceContainers.add(container);
+    premountStats.created += 1;
     instance.scene.add(instance.textsGroup);
     setFallback(container, true);
 
@@ -1747,7 +1888,7 @@ window.akari.threeRuntime = (() => {
     const loader = hasModel ? new GLTFLoader() : null;
 
     async function loadModel() {
-      const gltf = await loader.loadAsync(descriptor.model);
+      const gltf = await loadGltfShared(THREE, loader, descriptor.model);
       if (instances.get(container) !== instance || !instance.active) {
         disposeObject(gltf.scene);
         return;
@@ -1811,6 +1952,112 @@ window.akari.threeRuntime = (() => {
     return instance;
   }
 
+  // 可視になる前にロードとシーン構築を済ませ、非表示のまま 1 回 draw して shader compile / GPU
+  // upload を開始時刻より前へ追い出す。visibility:hidden は寸法を保つため rendererSize も有効。
+  function prepare(container, options) {
+    if (failedContainers.has(container)) return Promise.resolve(false);
+    let instance = instances.get(container);
+    if (!instance) {
+      try {
+        instance = createInstance(container);
+      } catch (error) {
+        failedContainers.add(container);
+        console.error("[akari-three] 3D scene の初期化に失敗しました", error);
+        setFallback(container, true);
+        return Promise.resolve(false);
+      }
+    }
+    if (instance.premountPromise) return instance.premountPromise;
+    instance.premounted = true;
+    if (instance.maxRenderSize === undefined) {
+      instance.maxRenderSize = options?.maxRenderSize
+        ?? premountPolicy?.maxRenderSize
+        ?? lastLiveMaxRenderSize;
+    }
+    instance.premountPromise = (async () => {
+      await instance.loading;
+      if (instances.get(container) !== instance || !instance.active) return false;
+      draw(instance, instance.lastTime);
+      premountStats.prepared += 1;
+      return true;
+    })();
+    return instance.premountPromise;
+  }
+
+  // 可視窓までの前後対称距離で、事前マウントと遅延破棄を同じ規則から決める。
+  function premountTick(entries, timelineSeconds) {
+    if (!premountPolicy) return { prepared: 0, disposed: 0, live: 0 };
+    const preparedBefore = premountStats.prepared;
+    const disposedBefore = premountStats.disposed;
+    const timelineTime = finiteNumber(timelineSeconds, 0);
+    const byContainer = new Map();
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      const container = entry?.container;
+      if (!container) continue;
+      const start = finiteNumber(entry.start, 0);
+      const duration = Math.max(0, finiteNumber(entry.duration, 0));
+      const end = start + duration;
+      const distance = Math.max(start - timelineTime, timelineTime - end, 0);
+      byContainer.set(container, { container, distance });
+    }
+
+    // 顔ぶれから消えたもの、DOM から切断されたものはライブ保持の対象外。
+    for (const container of [...liveInstanceContainers]) {
+      if (!byContainer.has(container) || !container.isConnected) disposeNow(container);
+    }
+
+    // 可視な instance（distance=0）は距離・上限のどちらでも破棄しない。
+    const retentionDistance = premountPolicy.leadSeconds * 2;
+    for (const { container, distance } of byContainer.values()) {
+      if (distance !== 0 && distance >= retentionDistance && instances.has(container)) {
+        disposeNow(container);
+      }
+    }
+
+    while (liveInstanceContainers.size > premountPolicy.maxInstances) {
+      const candidate = [...liveInstanceContainers]
+        .map((container) => byContainer.get(container))
+        .filter((entry) => entry && entry.distance !== 0)
+        .sort((left, right) => right.distance - left.distance)[0];
+      if (!candidate) break;
+      disposeNow(candidate.container);
+    }
+
+    const candidates = [...byContainer.values()]
+      .filter(({ container, distance }) =>
+        !instances.has(container)
+        && !failedContainers.has(container)
+        && distance > 0
+        && distance <= premountPolicy.leadSeconds)
+      .sort((left, right) => left.distance - right.distance);
+    for (const { container } of candidates) {
+      if (liveInstanceContainers.size >= premountPolicy.maxInstances) break;
+      prepare(container);
+    }
+
+    return {
+      prepared: premountStats.prepared - preparedBefore,
+      disposed: premountStats.disposed - disposedBefore,
+      live: liveInstanceContainers.size,
+    };
+  }
+
+  function premountState() {
+    return {
+      enabled: Boolean(premountPolicy),
+      leadSeconds: premountPolicy?.leadSeconds ?? null,
+      maxInstances: premountPolicy?.maxInstances ?? null,
+      created: premountStats.created,
+      disposed: premountStats.disposed,
+      prepared: premountStats.prepared,
+      live: [...liveInstanceContainers].map((container) => ({
+        overlayId: container.dataset?.overlayId ?? null,
+        status: instances.get(container)?.status ?? "disposed",
+        premounted: Boolean(instances.get(container)?.premounted),
+      })),
+    };
+  }
+
   function render(container, localTimeSeconds, options) {
     if (failedContainers.has(container)) return;
     let instance = instances.get(container);
@@ -1832,6 +2079,9 @@ window.akari.threeRuntime = (() => {
     // maxRenderSize もライブプレビュー専用の opt-in（未指定なら等倍 = 書き出しは不変）。
     // instance に持たせるのは、モデル読み込み完了直後の draw（呼び出し側を経由しない）にも
     // 同じ上限を効かせるため
+    if (Number.isFinite(Number(options?.maxRenderSize))) {
+      lastLiveMaxRenderSize = Number(options.maxRenderSize);
+    }
     instance.maxRenderSize = options?.maxRenderSize;
     draw(instance, instance.lastTime);
   }
@@ -1895,5 +2145,70 @@ window.akari.threeRuntime = (() => {
     };
   }
 
-  return { dispose, inspect, render };
+  function collectStageThreeEntries(stage) {
+    let cache = stageEntryCaches.get(stage);
+    if (!cache) {
+      cache = { dirty: true, containers: [] };
+      const observer = new MutationObserver(() => {
+        cache.dirty = true;
+      });
+      observer.observe(stage, { childList: true, subtree: true });
+      cache.observer = observer;
+      stageEntryCaches.set(stage, cache);
+    }
+    if (cache.dirty) {
+      const containers = new Set();
+      for (const script of stage.querySelectorAll(
+        'script[type="application/json"][data-akari-3d-scene]',
+      )) {
+        const container = script.closest("[data-overlay-id]");
+        if (container) containers.add(container);
+      }
+      cache.containers = [...containers];
+      cache.dirty = false;
+    }
+    return cache.containers.map((container) => ({
+      container,
+      start: finiteNumber(container.dataset.start, 0),
+      duration: finiteNumber(container.dataset.duration, 0),
+    }));
+  }
+
+  // preview-server の Web UI は app.js 内のフォークで tick するため、所有ファイルだけで
+  // premount を届けるには three-runtime 側から host tick を装飾する必要がある。
+  function attachHostPremountDriver() {
+    const runtime = window.akari?.runtime;
+    if (!runtime || typeof runtime !== "object" || typeof runtime.tick !== "function") return false;
+    if (typeof runtime.version === "string" || runtime.__akariPremountDriven === true) return false;
+    const stage = document.getElementById("overlay-stage");
+    if (!stage) return false;
+
+    configurePremount({});
+    const hostTick = runtime.tick;
+    runtime.tick = function akariPremountDrivenTick(timelineSeconds, playing) {
+      const entries = collectStageThreeEntries(stage);
+      hostDisposeDeferralDepth += 1;
+      try {
+        return hostTick.call(this, timelineSeconds, playing);
+      } finally {
+        hostDisposeDeferralDepth -= 1;
+        premountTick(entries, finiteNumber(timelineSeconds, 0));
+      }
+    };
+    runtime.__akariPremountDriven = true;
+    return true;
+  }
+
+  attachHostPremountDriver();
+
+  return {
+    dispose,
+    inspect,
+    render,
+    prepare,
+    configurePremount,
+    premountTick,
+    premountState,
+    attachHostPremountDriver,
+  };
 })();

@@ -2,9 +2,28 @@
 // 契約: docs/planning/contract-2026-07-13-m1-m4.md §M2
 window.akari = window.akari || {};
 
-window.akari.runtime = (() => {
+(() => {
+// premount（task 2026-08-29-overlay-3d-premount）: ライブプレビューだけで 3D を先読みする。
+// 既定 auto は #overlay-stage があるホストで有効。明示的に切る場合は premount:false を渡す。
+const PREMOUNT_DEFAULTS = { leadSeconds: 2.0, maxInstances: 4 };
+
+function resolvePremount(value) {
+  if (value === false || value === null) return null;
+  if (value === true || value === undefined) {
+    return document.getElementById("overlay-stage") ? { ...PREMOUNT_DEFAULTS } : null;
+  }
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return { ...PREMOUNT_DEFAULTS, ...value };
+  }
+  return null;
+}
+
+function createOverlayRuntime(options = {}) {
   const mountedOverlays = [];
+  const mountedThreeOverlays = [];
   let mountedStage = null;
+  let premount = resolvePremount(options.premount);
+  let premountConfigured = false;
 
   // packages/overlay-runtime/package.json の version と同期させる。ブラウザに
   // <script> で直接読み込まれるホスト（npm 解決を経ない）が、mount 済みの
@@ -15,6 +34,27 @@ window.akari.runtime = (() => {
   function finiteNumber(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
+  }
+
+  function applyPremountConfiguration() {
+    if (!premount || typeof window.akari.threeRuntime?.configurePremount !== "function") {
+      return false;
+    }
+    window.akari.threeRuntime.configurePremount(premount);
+    premountConfigured = true;
+    return true;
+  }
+
+  applyPremountConfiguration();
+
+  function configure(next = {}) {
+    if (Object.prototype.hasOwnProperty.call(next, "premount")) {
+      premount = resolvePremount(next.premount);
+      premountConfigured = false;
+      window.akari.threeRuntime?.configurePremount?.(premount);
+      premountConfigured = typeof window.akari.threeRuntime?.configurePremount === "function";
+    }
+    return { premount: premount ? { ...premount } : null };
   }
 
   // 入場アニメが現在時刻で確定姿勢に達したか。装飾用の無限ループ（spark 等）は
@@ -39,6 +79,7 @@ window.akari.runtime = (() => {
     if (stage) stage.replaceChildren();
 
     mountedOverlays.length = 0;
+    mountedThreeOverlays.length = 0;
     mountedStage = null;
   }
 
@@ -112,7 +153,7 @@ window.akari.runtime = (() => {
       }
 
       fragment.appendChild(container);
-      mountedOverlays.push({
+      const mountedOverlay = {
         container,
         start,
         duration,
@@ -123,7 +164,9 @@ window.akari.runtime = (() => {
             'script[type="application/json"][data-akari-3d-scene]'
           )
         ),
-      });
+      };
+      mountedOverlays.push(mountedOverlay);
+      if (mountedOverlay.isThreeDimensional) mountedThreeOverlays.push(mountedOverlay);
     }
 
     stage.replaceChildren(fragment);
@@ -132,6 +175,7 @@ window.akari.runtime = (() => {
 
   function tick(t, _playing) {
     const timelineTime = finiteNumber(t, 0);
+    if (premount && !premountConfigured) applyPremountConfiguration();
 
     for (const overlay of mountedOverlays) {
       const visible =
@@ -151,7 +195,7 @@ window.akari.runtime = (() => {
         // 抑え、この地雷を踏まない。
         overlay.container.toggleAttribute("data-akari-active", visible);
         overlay.hitPolicyPending = visible;
-        if (!visible && overlay.isThreeDimensional) {
+        if (!visible && overlay.isThreeDimensional && !premount) {
           window.akari.threeRuntime?.dispose(overlay.container);
         }
         overlay.visible = visible;
@@ -211,7 +255,15 @@ window.akari.runtime = (() => {
         }
       }
     }
+
+    if (premount && mountedThreeOverlays.length > 0) {
+      window.akari.threeRuntime?.premountTick?.(mountedThreeOverlays, timelineTime);
+    }
   }
 
-  return { mount, tick, unmount, version: RUNTIME_VERSION };
+  return { mount, tick, unmount, configure, version: RUNTIME_VERSION };
+}
+
+window.akari.createOverlayRuntime = createOverlayRuntime;
+window.akari.runtime = createOverlayRuntime();
 })();

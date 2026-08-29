@@ -14,6 +14,11 @@ import { migratePreviewCompatibility, previewReadError, projectPreviewEdit } fro
 import { lintProjectCandidates, writeAtomic } from '../../edit-store/lib/write-gate.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
+import {
+  parseFrameRate,
+  previewProxyVideoArgs,
+  PROXY_RECIPE_VERSION,
+} from '../../media-bin/src/proxy-recipe.mjs';
 import { resolveCaptionApiPayload } from './caption-api.mjs';
 
 const args = process.argv.slice(2);
@@ -83,6 +88,7 @@ const ffmpegPath = tryResolve(resolveFfmpeg);
 const hasFfprobe = ffprobePath !== null;
 const hasFfmpeg = ffmpegPath !== null;
 const codecCache = new Map();
+const frameRateCache = new Map();
 
 function detectCodec(filePath) {
   if (!hasFfprobe || codecCache.has(filePath)) return codecCache.get(filePath);
@@ -98,9 +104,23 @@ function detectCodec(filePath) {
   } catch { codecCache.set(filePath, null); return null; }
 }
 
+function detectFrameRate(filePath) {
+  if (!hasFfprobe || frameRateCache.has(filePath)) return frameRateCache.get(filePath);
+  try {
+    const r = spawnSync(ffprobePath, [
+      '-v', 'error', '-select_streams', 'v:0',
+      '-show_entries', 'stream=r_frame_rate',
+      '-of', 'csv=p=0', filePath,
+    ], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 5000 });
+    const frameRate = r.status === 0 ? parseFrameRate(r.stdout.toString().trim()) : undefined;
+    frameRateCache.set(filePath, frameRate);
+    return frameRate;
+  } catch { frameRateCache.set(filePath, undefined); return undefined; }
+}
+
 function proxyPathFor(filePath) {
   const rel = path.relative(projectRoot, filePath);
-  return path.join(PROXY_DIR, rel + '.h264.mp4');
+  return path.join(PROXY_DIR, rel + `.h264-${PROXY_RECIPE_VERSION}.mp4`);
 }
 
 function ensureProxy(filePath) {
@@ -109,10 +129,12 @@ function ensureProxy(filePath) {
   if (fs.existsSync(proxy)) return proxy;
   const dir = path.dirname(proxy);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const fps = detectFrameRate(filePath);
   const r = spawnSync(ffmpegPath, [
     '-i', filePath,
-    '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
+    ...previewProxyVideoArgs({ fps, pixFmt: 'yuv420p', preset: 'fast', crf: 23 }),
     '-c:a', 'aac',
+    '-movflags', '+faststart',
     '-y', proxy,
   ], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 300000 });
   if (r.status === 0) { console.log(`[proxy] generated ${proxy}`); return proxy; }

@@ -14,6 +14,7 @@ export * from './decode/still-image.js';
 export * from './cache/lookahead-cache.js';
 export * from './cache/lookahead-source.js';
 export * from './cache/warmup-manager.js';
+export * from './cache/preview-scheduler.js';
 export * from './cache/scrub-controller.js';
 export * from './metrics/collector.js';
 export * from './metrics/frame-diff.js';

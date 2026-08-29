@@ -9,10 +9,11 @@ import { watchDecoderErrors } from './guard.js';
 export class ClipSessionPool implements NativeFrameSource {
   private readonly sessions = new Map<string, Promise<ClipSession>>();
   private base: ClipSession | null = null;
+  private acceleration: HardwarePreference | undefined;
   private readonly stopDecoderWatch: () => void;
 
   constructor(
-    private readonly id: string,
+    readonly id: string,
     private readonly src: string,
     private readonly options: ClipSessionOptions = {}
   ) {
@@ -35,15 +36,26 @@ export class ClipSessionPool implements NativeFrameSource {
   getSession(streamId = 'default'): Promise<ClipSession> {
     let sessionPromise = this.sessions.get(streamId);
     if (!sessionPromise) {
-      if (!this.base) {
-        this.base = new ClipSession(`${this.id}:${streamId}`, this.src, this.options);
-        sessionPromise = Promise.resolve(this.base);
-      } else {
-        sessionPromise = this.base.fork(`${this.id}:${streamId}`);
-      }
+      sessionPromise = this.ensureBase().fork(`${this.id}:${streamId}`);
       this.sessions.set(streamId, sessionPromise);
     }
     return sessionPromise;
+  }
+
+  prepareHeader(): Promise<void> {
+    return this.ensureBase().prepare();
+  }
+
+  releaseSession(streamId: string): boolean {
+    const session = this.sessions.get(streamId);
+    if (!session) return false;
+    this.sessions.delete(streamId);
+    void session.then(value => value.destroy(), () => undefined);
+    return true;
+  }
+
+  liveStreamIds(): readonly string[] {
+    return [...this.sessions.keys()];
   }
 
   get size(): number {
@@ -52,10 +64,36 @@ export class ClipSessionPool implements NativeFrameSource {
 
   destroy(): void {
     this.stopDecoderWatch();
+    const destroyed = new Set<ClipSession>();
+    if (this.base) {
+      destroyed.add(this.base);
+      this.base.destroy();
+    }
     for (const session of this.sessions.values()) {
-      void session.then(value => value.destroy(), () => undefined);
+      void session.then(value => {
+        if (destroyed.has(value)) return;
+        destroyed.add(value);
+        value.destroy();
+      }, () => undefined);
     }
     this.sessions.clear();
     this.base = null;
+  }
+
+  private ensureBase(): ClipSession {
+    this.base ??= new ClipSession(`${this.id}:base`, this.src, {
+      ...this.options,
+      hardwareAcceleration: this.acceleration,
+      onDecoderDegraded: () => this.noteDegraded()
+    });
+    return this.base;
+  }
+
+  private noteDegraded(): void {
+    if (this.acceleration === 'prefer-software') return;
+    this.acceleration = 'prefer-software';
+    this.base?.destroy();
+    this.base = null;
+    this.options.onDecoderDegraded?.();
   }
 }

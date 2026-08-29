@@ -163,13 +163,17 @@ test('glue は LUT を parseCube して output.look へ渡し、失敗時は描�
 test('glue は計測 dataset と可視 canvas 直結 compositor を持つ', () => {
     for (const key of [
         'fps', 'lateFrames', 'seekMs', 'seekBeforeMs', 'seekAfterMs',
-        'boundaryLateBefore', 'boundaryLateAfter'
+        'boundaryLateBefore', 'boundaryLateAfter', 'warmupCoverage',
+        'liveDecoders', 'leadInSec'
     ]) {
         assert.match(bootstrap, new RegExp(`metrics\\.dataset\\.${key}`));
     }
     assert.match(bootstrap, /new engine\.WebGL2Compositor\(canvas/);
     assert.doesNotMatch(bootstrap, /willReadFrequently/);
-    assert.match(bootstrap, /new engine\.WarmupManager\(1\.5\)/);
+    assert.match(bootstrap, /engine\.createPreviewScheduler\(/);
+    assert.match(bootstrap, /scheduler\.notePresented\(timeUs, \{ reason \}\)/);
+    assert.match(bootstrap, /scheduler\.primeHeaders\(\)/);
+    assert.doesNotMatch(bootstrap, /const scheduleWarmup|const prefetch =/);
     assert.match(bootstrap, /new engine\.ScrubController/);
 });
 

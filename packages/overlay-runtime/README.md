@@ -129,6 +129,35 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
   自動登録され、`selftest` 以外は公開 API を持たない）
 - `window.akari.minimap.update()` / `.state()`（`src/minimap.js`）
 
+### ライブプレビュー向け 3D premount
+
+`three-runtime.js` は、3D オーバーレイを可視化前にロードして一度描画するための
+`configurePremount(policy)` / `prepare(container, options)` /
+`premountTick(entries, timelineSeconds)` / `premountState()` を公開する。低レベル API の既定は
+**無効**で、ライブプレビューのホストが `configurePremount()` を呼んだときだけ有効になる。
+既定値は `leadSeconds: 2.0`、`maxInstances: 4`。書き出し側は有効化しないため、従来の
+ロード・描画・破棄経路と生成画素を保つ。
+
+本パッケージの DOM ランタイムは factory としても利用できる。
+
+```js
+const runtime = window.akari.createOverlayRuntime({
+  premount: { leadSeconds: 2, maxInstances: 4 },
+});
+runtime.configure({ premount: { leadSeconds: 1.5, maxInstances: 3 } });
+runtime.configure({ premount: false }); // 無効化
+```
+
+`createOverlayRuntime()` の `premount` 未指定時は auto で、`#overlay-stage` があるライブホストだけ
+既定値を有効化する。preview-server の Web UI は `app.js` 内に別実装の runtime を持つため、
+`three-runtime.js` がその `tick()` を自動装飾する。装飾は runtime に `tick` があり、文字列の
+`version` と `__akariPremountDriven` がなく、かつ `#overlay-stage` が存在するときだけ一度行う。
+
+保持距離は `max(start - t, t - (start + duration), 0)`、すなわち可視窓までの前後対称距離で
+求める。距離が `leadSeconds` 以下なら事前マウントし、`leadSeconds × 2` 以上離れた instance は
+破棄する。`maxInstances` を超えた場合は可視中のものを除き、距離が最も遠い instance から
+破棄する。これにより短い非表示や近距離のシークでは同じ instance を再利用する。
+
 ### 多層テキスト断片のミラー同期（`data-mirror="text"`、v0.2.0〜）
 
 縁取り・影・裏打ち等で同一テキストを複数層重ねる断片（`skills/overlay-authoring/telop.md`

@@ -17,20 +17,17 @@ import { resolveAkariHomeDir } from './partner-connection-writer';
 /**
  * task/2026-08-17-shell-managed-cli: アプリ管理の `akari` CLI 自動配備。
  *
- * パッケージ実行時: npm パッケージ `akari-video`（= `packages/akari-launcher`、
- * self-contained・外部 npm 依存ゼロ）の版固定 tarball を公式レジストリから取得し、
- * `dist.integrity`（SRI 形式・既定 sha512）で検証してから `<akariHome>/cli/<version>/`
- * へ展開する（npm install という工程自体が不要 — 展開するだけで動く）。展開は自前の
- * tar 実装を書かずシステム tar を絶対パスで spawn する。npm tarball の `package/`
- * プレフィックスは剥がさず、シム側がそのパスを踏まえて `<version>/package/bin/akari.mjs`
- * を直接指す。
+ * パッケージ実行時: Resources 配下の同梱 `akari-video`（= `packages/akari-launcher`）を
+ * 常にシム target にする。同梱物が無い旧構成だけは、版固定 tarball を公式レジストリから
+ * 取得し、`dist.integrity`（SRI 形式・既定 sha512）で検証してから
+ * `<akariHome>/cli/<version>/` へ展開する従来経路を使う。
  *
  * dev 実行時（このアプリ自身が Electron 実行体として動いていない場合）はダウンロードせず、
  * リポ上方探索で `packages/akari-launcher/bin/akari.mjs` を直接シムに焼き込む
  * （akari-surfaces の `findUpwardFile` と同型の探索をここで自前実装 — 依存を増やさない）。
  *
- * 冪等: 対象版が既に展開済み（`<version>/package/bin/akari.mjs` が存在）なら再取得しない。
- * シムは毎回書き直す（安価・idempotent）。新版を配備したら旧版は直近 1 世代だけ残して削除する。
+ * 冪等: シムは毎回書き直す（安価・idempotent）。同梱 CLI 使用時は過去の registry 配備物を
+ * 全削除し、registry 経路では対象版が展開済みなら再取得せず旧版を直近 1 世代だけ残す。
  *
  * 失敗は全経路で fail-soft: 例外を投げず `{ status: 'failed' | 'skipped', log }` を返す
  * （呼び出し側 = パートナー接続フローを止めないため）。
@@ -52,8 +49,6 @@ export interface EnsureCliOptions {
     env?: NodeJS.ProcessEnv;
     /** Electron の `process.resourcesPath`（packaged 時のみ設定される）。 */
     resourcesPath?: string;
-    /** packaged 実行時に、存在する同梱 CLI を registry より優先する。既定は従来どおり false。 */
-    preferBundled?: boolean;
     fetchImpl?: typeof fetch;
     registryBaseUrl?: string;
     /** `apps/shell/package.json`（版の出所）の探索起点。テスト用に上書き可能。 */
@@ -111,22 +106,30 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
             push(`版のずれ: CLI v${shellVersion} / 本体 v${appVersion} → CLI と本体の版が不一致です。`);
         }
 
-        const versionDir = join(cliRoot, shellVersion);
-        const mjsPath = join(versionDir, 'package', 'bin', 'akari.mjs');
         // extraResources が同梱する `Contents/Resources/packages/akari-launcher/bin/akari.mjs`
-        // （task/2026-08-20-packaged-cli-bundling。外部依存ゼロ・約 700K）。registry へ到達
-        // できない配布先でも CLI シム配備を成立させるため、レジストリ到達不可時のフォールバック
-        // として使う（task/2026-08-20-cli-provisioner-resources）。
+        // を packaged 実行の唯一の正とする。同じ Resources / Electron 実行体パスなら、
+        // shellVersion が変わってもシム内容は変わらず、アプリ更新後の同梱実体へ追随する。
         const bundledMjsPath = options.resourcesPath
             ? join(options.resourcesPath, 'packages', 'akari-launcher', 'bin', 'akari.mjs')
             : undefined;
+        if (bundledMjsPath && existsSync(bundledMjsPath)) {
+            push(`同梱 CLI を使用します（アプリ更新をまたいでシムは不変）: ${bundledMjsPath}`);
+            const shimPath = writeShimFile(
+                shimDir,
+                platform,
+                buildShimScript({ platform, targetMjsPath: bundledMjsPath, bakedNodeExecPath: execPath })
+            );
+            push(`シム生成: ${shimPath}`);
+            pruneBundledCliArtifacts(cliRoot, push);
+            return { status: 'ready', version: shellVersion, ...versionDetails, shimDir, log };
+        }
+
+        const versionDir = join(cliRoot, shellVersion);
+        const mjsPath = join(versionDir, 'package', 'bin', 'akari.mjs');
         let targetMjsPath: string;
         if (existsSync(mjsPath)) {
             push(`v${shellVersion} は配備済みです（${versionDir}）`);
             targetMjsPath = mjsPath;
-        } else if (options.preferBundled && bundledMjsPath && existsSync(bundledMjsPath)) {
-            push(`同梱 CLI（Resources 配下）を優先して使用します: ${bundledMjsPath}`);
-            targetMjsPath = bundledMjsPath;
         } else {
             const outcome = await fetchAndExtractVersion({
                 version: shellVersion,
@@ -140,25 +143,6 @@ export async function ensureCli(options: EnsureCliOptions = {}): Promise<EnsureC
             });
             if (outcome === 'fetched') {
                 targetMjsPath = mjsPath;
-            } else if (bundledMjsPath && existsSync(bundledMjsPath)) {
-                // 同梱物は tarball の `dist.integrity`（SRI）検証の対象にしない: 検証の目的は
-                // レジストリ〜ローカル間のネットワーク越し改ざん・破損を検出することで、
-                // ここで読むのはネットワークを一切経由しない、アプリ本体と同じ
-                // 署名済み .app バンドル内のファイル（他の同梱 CLI — edit-lint / render-cut /
-                // bake-layer — も同じ Resources 配下から検証なしに spawn している）。
-                // 改ざんできる攻撃者は app.asar 自体も書き換えられる立場にあり、
-                // ここだけ SRI を足しても守れる脅威モデルが無い。
-                //
-                // ただし `integrity-mismatch`（＝取得はできたが SRI が一致しない = 改ざんの
-                // 疑い）は `unavailable`（＝単に到達できなかった）と同列に扱わない。フォール
-                // バック自体は許容する（実行するのは検証済みの同梱物であり tampered tarball
-                // ではない）が、ログは何が起きたかを正確に言う（r2: 旧実装は
-                // `fetchAndExtractVersion` 内で先に「CLI は未配備のままです」と書いてから
-                // 直後にシムを生成しており、文言と実挙動が食い違っていた）。
-                push(outcome === 'integrity-mismatch'
-                    ? `⚠️ registry の tarball が integrity 検証に失敗した（改ざんの疑い）ため、同梱 CLI（Resources 配下）を使用します: ${bundledMjsPath}`
-                    : `registry に到達できないため、同梱 CLI（Resources 配下）を使用します: ${bundledMjsPath}`);
-                targetMjsPath = bundledMjsPath;
             } else {
                 push('CLI は未配備のままです。');
                 return { status: 'failed', version: shellVersion, ...versionDetails, log };
@@ -400,10 +384,8 @@ interface FetchAndExtractOptions {
 /**
  * `fetched`（成功）と `unavailable`（registry 未到達 / 未公開版 / 応答不正 / 展開失敗など
  * ネットワーク・可用性起因）を `integrity-mismatch`（取得はできたが SRI 不一致 = 改ざんの疑い）
- * で区別する。呼び出し側（`ensureCli`）は同梱 CLI へフォールバックするかどうかとログ文言を
- * この区別で決めるため、真因を握りつぶしてはいけない
- * （task/2026-08-20-cli-provisioner-resources r2: 旧実装は両方とも単一の `boolean` に
- * つぶしており、integrity 不一致でも無警告で同梱版へフォールバックしていた）。
+ * で区別する。旧構成の registry 経路でも真因を握りつぶさず、integrity 不一致は
+ * 改ざんの疑いとしてログに残す。
  */
 type FetchAndExtractOutcome = 'fetched' | 'unavailable' | 'integrity-mismatch';
 
@@ -562,6 +544,37 @@ function writeShimFile(shimDir: string, platform: NodeJS.Platform, content: stri
         chmodSync(target, 0o755);
     }
     return target;
+}
+
+// --- 同梱 CLI への切り替え後の掃除 ---------------------------------------------
+
+/**
+ * 同梱 CLI のシムから参照されない registry 配備物と途中生成物を全て削除する。
+ * 掃除の失敗はシムの利用可否に影響させず、対象ごとにログへ残して続行する。
+ */
+function pruneBundledCliArtifacts(cliRoot: string, push: (line: string) => void): void {
+    let entries: import('fs').Dirent[];
+    try {
+        entries = readdirSync(cliRoot, { withFileTypes: true });
+    } catch (error) {
+        push(`同梱 CLI 切り替え後の遺物確認に失敗しました: ${errorMessage(error)}`);
+        return;
+    }
+
+    for (const entry of entries) {
+        const isVersionDir = entry.isDirectory() && entry.name !== 'bin' && !entry.name.startsWith('.');
+        const isDownload = /^\.download-.*\.tgz$/.test(entry.name);
+        const isStaging = entry.name.includes('.staging-');
+        if (!isVersionDir && !isDownload && !isStaging) {
+            continue;
+        }
+        const target = join(cliRoot, entry.name);
+        try {
+            rmSync(target, { recursive: true, force: true });
+        } catch (error) {
+            push(`同梱 CLI 切り替え後の遺物削除に失敗しました（${target}）: ${errorMessage(error)}`);
+        }
+    }
 }
 
 // --- 旧版掃除（直近 1 世代だけ残す） ---------------------------------------------

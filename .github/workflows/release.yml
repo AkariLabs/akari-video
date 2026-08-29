@@ -11,13 +11,16 @@ name: Release
 # 流れ: 版整合ゲート → mac シェルビルド ∥ win シェルビルド ∥ CLI tarball ∥
 #       app tarball（CLI self-update 用フル構成ソース、並列）
 #       → latest.json 生成 → draft + prerelease Release 作成・asset 添付
-#       → updates フィード（固定タグ Release）への latest.json 差し替え
+#       （updates フィードはここでは触らない — 2026-08-29 改訂・下記 feed_only）
 #
 # dry_run: true のときは版整合ゲート〜ビルドまでは通常どおり走らせ、Release 作成と
 # フィード更新だけをスキップして成果物一式を artifact upload に留める。
 # feed_only: true のときはビルド・Release 作成を全てスキップし、指定タグの既存 Release から
-# 成果物を取得して latest.json を作り直し、updates フィードだけを差し替える
-# （本体 Release の draft を司令塔が公開した後、フィードだけ再送したい場合に使う）。
+# 成果物を取得して latest.json を作り直し、updates フィードだけを差し替える。
+# 2026-08-29 改訂: タグ push 時の自動フィード更新（旧 feed-update ジョブ）は廃止した。draft の段階で
+# フィードが新版を指してしまい、自動更新クライアントが draft の asset を落とせない窓が開くため
+# （v0.1.26 / v0.1.27 で実際に発生）。フィード更新は司令塔が本体 Release を公開した後に
+# `gh workflow run release.yml -f tag=vX.Y.Z -f feed_only=true` で行う（release-train Phase 4）。
 
 on:
   push:
@@ -40,7 +43,7 @@ on:
         type: boolean
         default: false
       feed_only:
-        description: 'true ならビルド・Release 作成を全てスキップし、対象タグの既存 Release から updates フィードだけを再生成・差し替える'
+        description: 'true ならビルド・Release 作成を全てスキップし、対象タグの既存 Release から updates フィードだけを再生成・差し替える（本体 Release を公開した後に司令塔が発火する唯一のフィード更新経路・2026-08-29〜）'
         type: boolean
         default: false
 
@@ -100,9 +103,25 @@ jobs:
       - name: 版整合ゲート（タグ ↔ shell/cli/plugin の version）
         run: node scripts/release/check-release-versions.mjs "${{ needs.resolve-tag.outputs.tag }}"
 
+  # 同梱漏れゲート（v0.1.25 の再発防止）: extraResources どおりの模擬 Resources を組み、入口の静的 import を
+  # 辿って欠けがあればビルド前に落とす。ci.yml の packaged-imports と同じ手順。
+  packaged-imports-gate:
+    name: packaged-imports-gate (同梱漏れ検査)
+    needs: [resolve-tag, version-gate]
+    if: ${{ !inputs.feed_only }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+      - run: node scripts/release/install-bundled-cli-deps.mjs
+      - run: node apps/shell/resources/scripts/bundle-cli-node-modules.mjs
+      - run: node scripts/release/check-packaged-imports.mjs
+
   build-mac:
     name: build-mac (theia build + electron-builder zip/dmg + 署名/公証)
-    needs: [resolve-tag, version-gate]
+    needs: [resolve-tag, version-gate, packaged-imports-gate]
     if: ${{ !inputs.feed_only }}
     runs-on: macos-14
     timeout-minutes: 90
@@ -369,7 +388,7 @@ jobs:
 
   build-win:
     name: build-win (windows-build.yml の手順を踏襲)
-    needs: [resolve-tag, version-gate]
+    needs: [resolve-tag, version-gate, packaged-imports-gate]
     if: ${{ !inputs.feed_only }}
     runs-on: windows-latest
     timeout-minutes: 90
@@ -511,7 +530,7 @@ jobs:
 
   build-cli:
     name: build-cli (npm pack)
-    needs: [resolve-tag, version-gate]
+    needs: [resolve-tag, version-gate, packaged-imports-gate]
     if: ${{ !inputs.feed_only }}
     runs-on: ubuntu-latest
     steps:
@@ -533,7 +552,7 @@ jobs:
 
   build-app:
     name: build-app (git archive — CLI self-update 用フル構成ソース tarball)
-    needs: [resolve-tag, version-gate]
+    needs: [resolve-tag, version-gate, packaged-imports-gate]
     if: ${{ !inputs.feed_only }}
     runs-on: ubuntu-latest
     steps:
@@ -710,31 +729,6 @@ jobs:
         if: ${{ !inputs.dry_run }}
         working-directory: packages/akari-launcher
         run: npm publish --provenance --access public
-
-  feed-update:
-    name: feed-update (updates フィードへ latest.json を差し替え)
-    needs: [resolve-tag, release]
-    if: ${{ !inputs.feed_only && !inputs.dry_run }}
-    runs-on: ubuntu-latest
-    steps:
-      # 契約 §3: updates は固定タグ Release。無ければ prerelease フラグ付き +
-      # 「機械用フィードです」本文で冪等に作成する。既にあれば作成をスキップして
-      # asset だけ --clobber で差し替える
-      #
-      # GH_REPO 必須: このジョブは checkout を持たないため、無いと gh CLI が
-      # 「not a git repository」で対象リポを特定できず即死する（run 30524056952 実測）
-      - env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          gh release download "${{ needs.resolve-tag.outputs.tag }}" --pattern latest.json --dir .
-          if ! gh release view updates >/dev/null 2>&1; then
-            gh release create updates \
-              --prerelease \
-              --title "updates (machine feed)" \
-              --notes "機械用フィードです。akari / シェルの更新確認が参照する latest.json 専用の固定タグ Release です。人間向けの changelog はここに書きません。"
-          fi
-          gh release upload updates latest.json --clobber
 
   feed-only:
     name: feed-only (workflow_dispatch feed_only 単独実行)

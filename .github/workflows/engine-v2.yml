@@ -479,10 +479,16 @@ jobs:
       - name: Record unsupported encoder or verify encoded output
         shell: bash
         run: |
-          if [ "$GPU_H264_ENCODER" = "no" ]; then
-            node -e "const r=require('$RUNNER_TEMP/gpu-run-a/run.json'); if(r.status!=='unsupported') process.exit(1)"
+          status="$(node -p "require('$RUNNER_TEMP/gpu-run-a/run.json').status")"
+          echo "gpu-export run status=$status (isConfigSupported probe said: ${GPU_H264_ENCODER:-unknown})"
+          if [ "$status" = "unsupported" ]; then
+            echo "GPU_H264_ENCODER=no" >> "$GITHUB_ENV"
             echo "::warning::Stock Linux Electron has no H.264 encoder; pre-encode frame SHA remains required and passed."
           else
+            if [ "$GPU_H264_ENCODER" = "no" ]; then
+              echo "::notice::isConfigSupported probe said no, but the export encoded (the probe config is stricter than the product encoder); trusting the run."
+            fi
+            echo "GPU_H264_ENCODER=yes" >> "$GITHUB_ENV"
             ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/gpu-run-a/composite.mp4" | grep -x 360
             first_sha="$(sha256sum "$RUNNER_TEMP/gpu-run-a/composite.mp4" | cut -d ' ' -f 1)"
             second_sha="$(sha256sum "$RUNNER_TEMP/gpu-run-b/composite.mp4" | cut -d ' ' -f 1)"

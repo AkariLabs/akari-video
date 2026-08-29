@@ -59,6 +59,7 @@ test('10-bit HEVC proxy is 8-bit H.264 and preserves stable cache-key evidence',
     const metaPath = join(dirname(first.proxyPath), `${cacheKey}.json`);
     const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
     assert.equal(meta.proxyPixelFormat, 'yuv420p');
+    assert.equal(meta.recipeVersion, 'gop1s-v1');
 
     const sourceStat = statSync(source);
     assert.equal(meta.sourcePath, source);
@@ -72,7 +73,8 @@ test('10-bit HEVC proxy is 8-bit H.264 and preserves stable cache-key evidence',
         source,
         String(sourceStat.size),
         String(sourceStat.mtimeMs),
-        'h264-proxy'
+        'h264-proxy',
+        'gop1s-v1'
     ], { encoding: 'utf8' });
     assert.equal(independentlyComputedKey, meta.cacheKey);
 

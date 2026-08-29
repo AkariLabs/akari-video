@@ -10,6 +10,7 @@ import test from "node:test";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { verifyFinalVideo } from "../src/ffprobe.mjs";
+import { resolveOsrLauncher } from "../src/index.mjs";
 import { exportWithOsr, resolveOsrRuntimeOptions } from "../src/index.mjs";
 import { launchElectronExport } from "../src/runner.mjs";
 
@@ -277,4 +278,18 @@ test("60 fps・196 コマ・音声 3.4 秒の copy mux を許容する", async (
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
+});
+
+test("resolveOsrLauncher はインストール済みデスクトップアプリを既定で候補から外す（明示 env は尊重）", async () => {
+  const skipped = await resolveOsrLauncher({
+    env: {}, platform: "darwin", homeDirectory: "/opt/akari-test",
+    probe: async () => true, resolveElectron: () => null,
+  });
+  assert.equal(skipped.tier, 3);
+  assert.equal(skipped.skippedInstalledDesktop, true);
+  const explicit = await resolveOsrLauncher({
+    env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "darwin", homeDirectory: "/opt/akari-test",
+    probe: async (path) => path === "/desktop", resolveElectron: () => null,
+  });
+  assert.equal(explicit.tier, 1);
 });

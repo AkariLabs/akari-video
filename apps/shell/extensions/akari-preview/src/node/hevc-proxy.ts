@@ -1,6 +1,6 @@
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
-import { existsSync, promises as fs } from 'fs';
+import { existsSync, promises as fs, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { promisify } from 'util';
 
@@ -20,6 +20,91 @@ import { promisify } from 'util';
 // only on the exceptional path, never on ordinary open.
 
 const execFileAsync = promisify(execFile);
+
+interface ProxyRecipe {
+    version: string;
+    defaultFps: number;
+    defaultPixFmt: string;
+    codecArgs: string[];
+    keyintFlags: [string, string];
+    constantGopArgs: string[];
+}
+
+let proxyRecipe: ProxyRecipe | undefined;
+
+function loadProxyRecipe(): ProxyRecipe {
+    if (proxyRecipe) {
+        return proxyRecipe;
+    }
+    const candidates: string[] = [];
+    const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+    if (resourcesPath) {
+        candidates.push(join(resourcesPath, 'packages', 'media-bin', 'src', 'proxy-recipe.json'));
+    }
+    for (let cursor = __dirname; ;) {
+        candidates.push(join(cursor, 'packages', 'media-bin', 'src', 'proxy-recipe.json'));
+        const parent = dirname(cursor);
+        if (parent === cursor) {
+            break;
+        }
+        cursor = parent;
+    }
+    for (const candidate of candidates) {
+        try {
+            const parsed = JSON.parse(readFileSync(candidate, 'utf8')) as ProxyRecipe;
+            if (typeof parsed.version !== 'string'
+                || !Number.isFinite(parsed.defaultFps)
+                || typeof parsed.defaultPixFmt !== 'string'
+                || !Array.isArray(parsed.codecArgs)
+                || !Array.isArray(parsed.keyintFlags)
+                || parsed.keyintFlags.length !== 2
+                || !Array.isArray(parsed.constantGopArgs)) {
+                throw new Error(`invalid proxy recipe: ${candidate}`);
+            }
+            proxyRecipe = parsed;
+            return parsed;
+        } catch {
+            // Try the next development, asar, or packaged-resource location.
+        }
+    }
+    console.warn('[akari-preview] proxy recipe could not be loaded', candidates);
+    throw new Error('proxy recipe could not be loaded');
+}
+
+function parseFrameRate(value: unknown): number | undefined {
+    if (typeof value !== 'string' || value.trim() === '') {
+        return undefined;
+    }
+    const parts = value.trim().split('/');
+    const parsed = parts.length === 2
+        ? Number(parts[0]) / Number(parts[1])
+        : Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function proxyGopArgs(recipe: ProxyRecipe, fps: number | undefined): string[] {
+    const resolvedFps = typeof fps === 'number' && Number.isFinite(fps) && fps > 0
+        ? fps : recipe.defaultFps;
+    const frames = String(Math.max(1, Math.round(resolvedFps)));
+    return [
+        recipe.keyintFlags[0], frames,
+        recipe.keyintFlags[1], frames,
+        ...recipe.constantGopArgs
+    ];
+}
+
+function proxyVideoArgs(
+    recipe: ProxyRecipe,
+    options: { fps: number | undefined; pixFmt?: string; preset: string; crf: string }
+): string[] {
+    return [
+        ...recipe.codecArgs,
+        '-preset', String(options.preset),
+        '-crf', String(options.crf),
+        '-pix_fmt', String(options.pixFmt ?? recipe.defaultPixFmt),
+        ...proxyGopArgs(recipe, options.fps)
+    ];
+}
 
 // task/2026-07-31-shell-ffmpeg-bundle: PATH に ffmpeg/ffprobe が無い環境向けのフォールバック。
 // 優先順位は packages/media-bin の resolveFfmpeg/resolveFfprobe と揃える（明示指定 env → PATH →
@@ -93,7 +178,7 @@ async function ensureCacheDirectory(directory: string, projectRoot: string): Pro
 }
 
 interface FfprobeStreamsResult {
-    streams?: Array<{ codec_name?: string; pix_fmt?: string }>;
+    streams?: Array<{ codec_name?: string; pix_fmt?: string; r_frame_rate?: string }>;
 }
 
 /**
@@ -126,6 +211,24 @@ export async function probeVideoPixelFormat(videoPath: string): Promise<string |
     ]);
     const parsed = JSON.parse(stdout) as FfprobeStreamsResult;
     return parsed.streams?.[0]?.pix_fmt;
+}
+
+/** Returns the first video stream's frame rate as a positive finite number. */
+export async function probeVideoFrameRate(videoPath: string): Promise<number | undefined> {
+    try {
+        const ffprobePath = await resolveFfprobePath() ?? 'ffprobe';
+        const { stdout } = await execFileAsync(ffprobePath, [
+            '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=r_frame_rate',
+            '-of', 'json',
+            videoPath
+        ]);
+        const parsed = JSON.parse(stdout) as FfprobeStreamsResult;
+        return parseFrameRate(parsed.streams?.[0]?.r_frame_rate);
+    } catch {
+        return undefined;
+    }
 }
 
 // task/2026-08-10-preview-bug-sweep (B1): <video>.webkitAudioDecodedByteCount stays 0 for the
@@ -176,6 +279,7 @@ interface ProxyMeta {
     sourceMtimeMs: number;
     proxyCodec: string;
     proxyPixelFormat?: string;
+    recipeVersion: string;
     generatedAt: string;
 }
 
@@ -197,10 +301,12 @@ export async function getH264Proxy(projectRoot: string, videoPath: string): Prom
     }
     let codecName: string | undefined;
     let pixelFormat: string | undefined;
+    let frameRate: number | undefined;
     try {
-        [codecName, pixelFormat] = await Promise.all([
+        [codecName, pixelFormat, frameRate] = await Promise.all([
             probeVideoCodecName(videoPath),
-            probeVideoPixelFormat(videoPath)
+            probeVideoPixelFormat(videoPath),
+            probeVideoFrameRate(videoPath)
         ]);
     } catch {
         return { status: 'unavailable', reason: 'probe-failed' };
@@ -213,9 +319,16 @@ export async function getH264Proxy(projectRoot: string, videoPath: string): Prom
         return { status: 'unavailable', reason: 'ffmpeg-not-found' };
     }
 
+    let recipe: ProxyRecipe;
+    try {
+        recipe = loadProxyRecipe();
+    } catch {
+        return { status: 'unavailable', reason: 'proxy-generation-failed' };
+    }
+
     const directory = join(projectRoot, 'cache', 'media-proxy');
     const proxyKind = hasAlpha ? 'vp9-alpha-proxy' : 'h264-proxy';
-    const hash = cacheHash([videoPath, stat.size, stat.mtimeMs, proxyKind]);
+    const hash = cacheHash([videoPath, stat.size, stat.mtimeMs, proxyKind, recipe.version]);
     const destination = join(directory, `${hash}.${hasAlpha ? 'webm' : 'mp4'}`);
     const metaDestination = join(directory, `${hash}.json`);
 
@@ -235,15 +348,18 @@ export async function getH264Proxy(projectRoot: string, videoPath: string): Prom
                 '-pix_fmt', 'yuva420p',
                 '-deadline', 'realtime',
                 '-cpu-used', '8',
+                ...proxyGopArgs(recipe, frameRate),
                 '-c:a', 'libopus',
                 '-f', 'webm'
             ] : [
-                '-c:v', 'libx264',
                 // Preserving yuv420p10le would produce H.264 High 10, which Chromium does not
                 // guarantee it can decode. The opaque fallback must always be 8-bit yuv420p.
-                '-pix_fmt', 'yuv420p',
-                '-preset', 'veryfast',
-                '-crf', '20',
+                ...proxyVideoArgs(recipe, {
+                    fps: frameRate,
+                    pixFmt: 'yuv420p',
+                    preset: 'veryfast',
+                    crf: '20'
+                }),
                 '-c:a', 'aac',
                 '-movflags', '+faststart',
                 '-f', 'mp4'
@@ -271,6 +387,7 @@ export async function getH264Proxy(projectRoot: string, videoPath: string): Prom
             sourceMtimeMs: stat.mtimeMs,
             proxyCodec: hasAlpha ? 'vp9' : 'h264',
             proxyPixelFormat: hasAlpha ? 'yuva420p' : 'yuv420p',
+            recipeVersion: recipe.version,
             generatedAt: new Date().toISOString()
         };
         await writeAtomicJson(metaDestination, meta);

@@ -23,6 +23,11 @@ test('frame engine evaluation table supplies edit layers without an unsupported 
   assert.match(source, /get\('uploadPath'\) === 'copyTo'/u);
   assert.match(source, /uploadPath: requestedUploadPath/u);
   assert.match(source, /dataset\.uploadPath = this\.compositor\.uploadPath/u);
+  assert.match(source, /createPreviewScheduler/u);
+  assert.match(source, /dataset\.warmupCoverage/u);
+  assert.match(source, /dataset\.liveDecoders/u);
+  assert.match(source, /dataset\.leadInSec/u);
+  assert.doesNotMatch(source, /private prefetch\(|private scheduleWarmup\(/u);
   assert.match(serverSource, /frameEngine:\s*\{ intake, skipped, warnings: prepared\.warnings \}/u);
   assert.doesNotMatch(serverSource, /engine_src|engine_skip|frameEngineWarnings/u);
 });
