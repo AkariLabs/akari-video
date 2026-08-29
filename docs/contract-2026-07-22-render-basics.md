@@ -168,3 +168,10 @@ x264、その他の環境で x264 の順に解決する。ハードウェア対�
 誤判定を避けるため 256x144 で試し焼きし、`AKARI_EXPORT_FORCE_X264=1` のときは試し焼きせず
 すべて不採用とする。明示指定した Windows 向け方式が利用不能なら x264 へ暗黙移行せず停止する。
 `AKARI_EXPORT_FORCE_X264=1` のときに Windows 向け方式を明示指定した場合も、同じく停止する。
+
+## 7. v2 書き出しの cut 中間物（2026-08-29 追記）
+
+OSR / GPU の v2 書き出しでは、映像エンジンが `edit.sources` から直接描画するため、cut 段と
+tail-pad 段は音声専用中間物だけを生成する。通常は `cut-audio.mp4`、最終尺までの音声 padding が
+必要な場合は `cut-audio-tail-padded.mp4` を使用し、どちらも `-vn` で映像を処理しない。
+legacy 書き出しは従来どおり `cut.mp4` と必要時の `cut-tail-padded.mp4` を使用する。

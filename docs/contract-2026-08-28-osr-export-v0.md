@@ -188,3 +188,11 @@ server、page builder の入力解決、memory guard、ffprobe、音声 mux、re
 mux、fail-closed 条件は GPU 契約を正本とし、OSR の seek/paint/stamp 経路へ逆流させない。
 §1 の darwin `auto → osr` は GPU 出口追加前の記述であり、GPU 契約の適格性を満たさない場合、
 または GPU launcher が利用できない場合の選択として読む。適格時の `auto → gpu` は GPU 契約を優先する。
+
+## 13. v2 の cut 音声中間物（2026-08-29 追記）
+
+OSR 経路の映像は `edit.sources` をページ側で直接読み、`cut.mp4` の映像を使用しない。そのため
+cut 段は `cut-audio.mp4`、尺延長が必要な場合は続けて `cut-audio-tail-padded.mp4` を生成し、
+音声ストリームだけを最終 mux へ渡す。両コマンドは `-vn` とし、映像のデコード・フィルタ・
+エンコードを行わない。音声の trim、速度、freeze 無音、transition、gap、AAC 48 kHz の意味論は
+従来の映像込み cut / tail-pad と同じである。legacy 経路は従来どおり映像込み中間物を使用する。

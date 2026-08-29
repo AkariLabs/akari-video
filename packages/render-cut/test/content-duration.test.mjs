@@ -8,6 +8,7 @@ import { createMigratingWriteFile } from "./helpers/v2-fixture.mjs";
 const writeFile = createMigratingWriteFile(rawWriteFile);
 
 import {
+  buildAudioTailPadCommand,
   buildTailPadCommand,
   computeContentDurationSeconds,
 } from "../src/content-duration.mjs";
@@ -148,4 +149,37 @@ test("tail padding adds black video and silent audio through the final duration"
     "13.25",
     "/tmp/cut-tail-padded.mp4",
   ]);
+});
+
+test("audio-only tail padding preserves the second AAC generation without video work", () => {
+  const command = buildAudioTailPadCommand({
+    ffmpegCommand: "custom-ffmpeg",
+    inputPath: "/tmp/cut-audio.mp4",
+    outputPath: "/tmp/cut-audio-tail-padded.mp4",
+    finalDurationSeconds: 13.25,
+  });
+  assert.deepEqual(command, {
+    command: "custom-ffmpeg",
+    args: [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-nostdin",
+      "-y",
+      "-i",
+      "/tmp/cut-audio.mp4",
+      "-filter_complex",
+      "[0:a]apad=whole_dur=13.25[pada]",
+      "-map",
+      "[pada]",
+      "-vn",
+      "-c:a",
+      "aac",
+      "-ar",
+      "48000",
+      "-t",
+      "13.25",
+      "/tmp/cut-audio-tail-padded.mp4",
+    ],
+  });
 });

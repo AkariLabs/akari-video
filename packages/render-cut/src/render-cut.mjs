@@ -288,13 +288,20 @@ export async function renderProject(input, options = {}, io = console) {
     Object.assign(state.provenance, buildEngineProvenance(engineRequested, process.platform, osrLauncher, gpuEligibility));
     addWarning(state, osrLauncher.warning);
   }
+  const usesV2Export = useOsr || useGpu;
+  state.plan.intermediates = selectExecutionIntermediates({
+    intermediates: state.plan.intermediates,
+    projectRoot,
+    temporaryDirectory,
+    usesV2Export,
+  });
 
   // --progress (task 2026-07-25-export-options): "cut" always runs; "composite" only exists when
   // there is overlay/caption HTML to rasterize onto the base video (mirrors the allOverlays.length
   // check below, decided before entering the try block since both loadedOverlays and
-  // captionOverlays are already resolved here). Each phase is weighted equally by the timeline's
-  // own predicted duration (both phases fully re-encode ~the same duration), so progress is
-  // monotonic even though neither phase's real wall-clock cost is known ahead of time.
+  // captionOverlays are already resolved here). Each phase remains weighted equally by the
+  // timeline's predicted duration for progress compatibility; v2's audio-only cut is expected to
+  // finish much earlier than the engine export, but both phases stay monotonic.
   const progressEnabled = options.progress === true;
   const progressPhases = loadedOverlays.length + captionOverlays.length > 0 ? ["cut", "composite"] : ["cut"];
   const progressPhaseDurationMs = Math.max(0, Math.round(plan.predicted_duration_seconds * 1000));
@@ -312,7 +319,8 @@ export async function renderProject(input, options = {}, io = console) {
       runChecked(command.command, command.args, { cwd: projectRoot });
     }
     const cutPath = join(temporaryDirectory, "cut.mp4");
-    const cutCommand = plan.commands.cut;
+    const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");
+    const cutCommand = usesV2Export ? plan.commands.cut_audio : plan.commands.cut;
     // P0 2026-08-21 render-path-unification: cuts[] can now hit a VP9/VP8 alpha-side-channel
     // source that needs an explicit libvpx decoder (buildMultiSourceCutCommand /
     // buildMultiSourceCommandResult); surface the same "composited fully opaque" warning
@@ -327,8 +335,9 @@ export async function renderProject(input, options = {}, io = console) {
       runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
     }
 
-    const tailPadCommand = plan.commands.tail_pad;
+    const tailPadCommand = usesV2Export ? plan.commands.tail_pad_audio : plan.commands.tail_pad;
     const tailPaddedPath = join(temporaryDirectory, "cut-tail-padded.mp4");
+    const tailPaddedAudioPath = join(temporaryDirectory, "cut-audio-tail-padded.mp4");
     if (tailPadCommand) {
       runChecked(tailPadCommand.command, tailPadCommand.args, { cwd: projectRoot });
     }
@@ -393,8 +402,11 @@ export async function renderProject(input, options = {}, io = console) {
       for (const warning of layersCommand.warnings ?? []) addWarning(state, warning);
       runChecked(layersCommand.command, layersCommand.args, { cwd: projectRoot });
     }
-    const cutOutputPath = tailPadCommand ? tailPaddedPath : cutPath;
-    const baseVideoPath = useOsr || useGpu ? cutOutputPath : (trackStack?.outputPath ?? (layersCommand ? layeredPath : cutOutputPath));
+    const cutOutputPath = plan.commands.tail_pad ? tailPaddedPath : cutPath;
+    const audioSourcePath = usesV2Export
+      ? (plan.commands.tail_pad_audio ? tailPaddedAudioPath : cutAudioPath)
+      : cutOutputPath;
+    const baseVideoPath = trackStack?.outputPath ?? (layersCommand ? layeredPath : cutOutputPath);
 
     const compositePath = join(temporaryDirectory, "composite.mp4");
     if (useGpu) {
@@ -403,7 +415,7 @@ export async function renderProject(input, options = {}, io = console) {
       const gpu = await exportWithGpu({
         projectRoot,
         out: compositePath,
-        audioSourcePath: cutOutputPath,
+        audioSourcePath,
         fps: plan.preset.fps,
         width: edit.output.width,
         height: edit.output.height,
@@ -426,7 +438,7 @@ export async function renderProject(input, options = {}, io = console) {
       const osr = await exportWithOsr({
         projectRoot,
         out: compositePath,
-        audioSourcePath: cutOutputPath,
+        audioSourcePath,
         fps: plan.preset.fps,
         width: edit.output.width,
         height: edit.output.height,
@@ -718,6 +730,20 @@ export function selectRenderEngineExecution(engine, launcher) {
   };
   if (engine === "gpu") execution.useGpu = useGpu;
   return execution;
+}
+
+export function selectExecutionIntermediates({
+  intermediates,
+  projectRoot,
+  temporaryDirectory,
+  usesV2Export,
+}) {
+  if (!usesV2Export) return intermediates;
+  const videoCutIntermediates = new Set([
+    relative(projectRoot, join(temporaryDirectory, "cut.mp4")),
+    relative(projectRoot, join(temporaryDirectory, "cut-tail-padded.mp4")),
+  ]);
+  return intermediates.filter((path) => !videoCutIntermediates.has(path));
 }
 
 export function resolveEngineChoice(requested, platform, eligibility = null) {
