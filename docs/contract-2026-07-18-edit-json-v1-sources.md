@@ -78,6 +78,7 @@ source 秒アンカー規則の対象外である。
 - `review.json` の `annotations[]` は任意フィールド `src` を持てる。値は `sources[].id` への参照で、
   `sourceT` または `sourceRange` と組にして source 座標を表す
 - `src` の省略は単一ソース互換を意味する
+- 字幕の重なり（`captions.overlap`）と並び順（`captions.order`）の判定は `src` ごとに行う
 
 analysis サイドカーは素材単位のままとし、構造は変更しない。参照時に `src` から source path を
 解決する。

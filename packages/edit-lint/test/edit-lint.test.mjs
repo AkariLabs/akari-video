@@ -793,6 +793,106 @@ test("captions-overlap-adjacent-valid permits captions whose boundaries only tou
   });
 });
 
+test("captions root emphasis_words accepts valid items and reports invalid item paths", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    const captionsPath = join(project, "captions.json");
+    const validItem = {
+      id: "e-0001",
+      src: "s1",
+      t_start: 2,
+      t_end: 2.5,
+      word: "強調",
+      emotion: "emphasis",
+      style_hint: "size-pulse",
+    };
+    await writeFile(
+      captionsPath,
+      `${JSON.stringify({ emphasis_words: [validItem], captions: [] })}\n`,
+      "utf8",
+    );
+    const validResult = parseResult(run(project));
+    assert.equal(
+      validResult.findings.filter((finding) => finding.severity === "error").length,
+      0,
+      JSON.stringify(validResult.findings, null, 2),
+    );
+
+    await writeFile(
+      captionsPath,
+      `${JSON.stringify({ emphasis_words: [{ ...validItem, id: "invalid" }], captions: [] })}\n`,
+      "utf8",
+    );
+    const invalidResult = parseResult(run(project));
+    const schemaErrors = invalidResult.findings.filter(
+      (finding) => finding.severity === "error" && finding.check === "captions.schema",
+    );
+    assert.equal(schemaErrors.length, 1, JSON.stringify(invalidResult.findings, null, 2));
+    assert.equal(schemaErrors[0].path, "captions.json#emphasis_words[0]");
+  });
+});
+
+test("captions overlap and order are isolated by source", async () => {
+  await withFixtures(async (_fixtures, root) => {
+    const project = join(root, "multisource-captions");
+    await cp(join(fixtureRoot, "v1-valid"), project, { recursive: true });
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.cuts = [
+      { src: "s1", in: 0, out: 10 },
+      { src: "s2", in: 0, out: 10 },
+    ];
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await migrateFixtureTree(project);
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([
+      { id: "c-0001", src: "s1", start: 0, end: 2, text: "A1", speaker: null, sourceRef: null, edited: false },
+      { id: "c-0002", src: "s2", start: 1, end: 3, text: "B1", speaker: null, sourceRef: null, edited: false },
+      { id: "c-0003", src: "s1", start: 2, end: 4, text: "A2", speaker: null, sourceRef: null, edited: false },
+      { id: "c-0004", src: "s2", start: 3, end: 5, text: "B2", speaker: null, sourceRef: null, edited: false },
+    ])}\n`, "utf8");
+    const result = parseResult(run(project));
+    assert.equal(
+      result.findings.filter(
+        (finding) => finding.check === "captions.overlap" || finding.check === "captions.order",
+      ).length,
+      0,
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("captions overlap remains an error within the same source", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([
+      { id: "c-0001", src: "s1", start: 2, end: 4, text: "A1", speaker: null, sourceRef: null, edited: false },
+      { id: "c-0002", src: "s1", start: 3, end: 5, text: "A2", speaker: null, sourceRef: null, edited: false },
+    ])}\n`, "utf8");
+    const result = parseResult(run(project));
+    assert.equal(
+      result.findings.filter((finding) => finding.check === "captions.overlap").length,
+      1,
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
+test("captions overlap remains an error for array-root captions without src", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "captions-overlap-adjacent-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([
+      { id: "c-0001", start: 0, end: 2, text: "A", speaker: null, sourceRef: null, edited: false },
+      { id: "c-0002", start: 1, end: 3, text: "B", speaker: null, sourceRef: null, edited: false },
+    ])}\n`, "utf8");
+    const result = parseResult(run(project));
+    assert.equal(
+      result.findings.filter((finding) => finding.check === "captions.overlap").length,
+      1,
+      JSON.stringify(result.findings, null, 2),
+    );
+  });
+});
+
 test("words[] rejects unknown fields, requires 0 <= start <= end, and non-empty text", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "captions-words-valid");

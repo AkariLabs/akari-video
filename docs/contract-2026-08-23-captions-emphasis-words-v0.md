@@ -74,3 +74,4 @@
 比較できない `t_end > t_start` と、配列内の `id` 一意性は `validate-captions.mjs` が検査する。
 語と `captions[].words[]` の実測値の突き合わせは v1 契約と同じく書き手の規律であり、静的検証では
 行わない。
+edit-lint は object ルートの `emphasis_words` を受理し、同じ規則で検証する。
