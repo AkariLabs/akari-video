@@ -49,8 +49,9 @@ rotate / skew / 3D transform、filter、clip-path は、具体的な `three-entr
 になります。CSS animation のない宣言型 3D は、既存の `three-scene-canvas-direct` manifest 形と
 挙動を維持します。
 
-`render-cut --engine auto` は macOS でプロジェクト全体が適格な場合だけ GPU を使い、それ以外は
-OSR を使います。`--engine gpu` の明示指定は fail-closed で、全ての不適格理由を表示します。
+`render-cut --engine auto` が GPU を候補にするのは macOS だけで、プロジェクト全体が適格なら GPU、
+それ以外は OSR を使います。Windows / Linux では `--engine gpu` を明示した場合だけ GPU を評価します。
+明示指定は fail-closed で、全ての不適格理由または launcher の理由を表示します。
 
 DOM 層は `--enable-features=CanvasDrawElement`、`--disable-gpu-vsync`、
 `--disable-frame-rate-limit` の 3 フラグで起動します。450 / 678 / 900 コマの書き出しは 2 走の全コマ SHA と
@@ -61,6 +62,28 @@ MP4 SHA が一致しましたが、大きな文字 overlay を多数含む 5,400
 字幕 cue はページ起動時に 1 枚ずつ SVG sprite へ焼くため、30 cue では 900 コマに約 47 秒
 （約 52 ms/コマ相当）が加わり、字幕付き短尺の GPU 出口は OSR より遅くなります。字幕を外した同じ題材は
 GPU 19.2 ms/コマ、OSR 40.9 ms/コマでした。
+
+## Windows でのセットアップ
+
+Windows での計測には npm Electron launcher（tier 2）を使います。
+
+```sh
+git clone https://github.com/AkariLabs/akari-video
+cd akari-video
+npm install --ignore-scripts
+node node_modules/electron/install.js
+node -e "require('node:fs').writeFileSync('node_modules/electron/path.txt', 'electron.exe')"
+node packages/akari-launcher/bin/akari.mjs doctor
+```
+
+doctor の期待行は `gpu_export ok (npm-electron launcher tier 2)` です。
+`node_modules/electron/path.txt` の 1 行は platform 別で、Windows は `electron.exe`、macOS は
+`Electron.app/Contents/MacOS/Electron`、Linux は `electron` とします。
+
+インストール済みデスクトップアプリ launcher（tier 1）は現状 fail-closed で候補から外れます
+（`GPU_DESKTOP_TIER_UNWIRED_REASON` を参照）。パッケージ版 tier 1 では shell の `extraResources` に
+`packages/gpu-export` が同梱されることも前提です。Windows / Linux は `--engine gpu` 明示時だけ利用でき、
+`auto` が GPU を候補にするのは macOS だけです。
 
 ## 開発
 

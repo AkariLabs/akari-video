@@ -52,8 +52,9 @@ directions, rotate/skew/3D transforms, filter, and clip-path fail closed with a 
 `three-entrance-*` reason. A declarative 3D scene without CSS animation retains the existing
 `three-scene-canvas-direct` manifest shape and behavior.
 
-`render-cut --engine auto` uses GPU export on macOS only when the complete project is eligible;
-otherwise it uses OSR. Explicit `--engine gpu` fails closed and prints every ineligibility reason.
+`render-cut --engine auto` considers GPU export on macOS only, using it when the complete project is
+eligible and otherwise using OSR. On Windows and Linux, GPU export is evaluated only for an explicit
+`--engine gpu`. Explicit selection fails closed and prints every ineligibility or launcher reason.
 
 The DOM layer launches with `--enable-features=CanvasDrawElement`, `--disable-gpu-vsync`, and
 `--disable-frame-rate-limit`. Two-run frame and MP4 hashes matched for 450/678/900-frame exports,
@@ -64,6 +65,28 @@ still matched, and rasterization flags did not remove the variance.
 Caption cues are baked to individual SVG sprites at page startup: 30 cues added about 47 seconds
 (roughly 52 ms/frame over 900 frames), making a short captioned GPU export slower than OSR; without
 captions, the same material measured 19.2 ms/frame on GPU versus 40.9 ms/frame on OSR.
+
+## Windows setup
+
+The npm Electron launcher (tier 2) is the supported measurement path on Windows:
+
+```sh
+git clone https://github.com/AkariLabs/akari-video
+cd akari-video
+npm install --ignore-scripts
+node node_modules/electron/install.js
+node -e "require('node:fs').writeFileSync('node_modules/electron/path.txt', 'electron.exe')"
+node packages/akari-launcher/bin/akari.mjs doctor
+```
+
+The expected doctor row is `gpu_export ok (npm-electron launcher tier 2)`. The one-line
+`node_modules/electron/path.txt` value is platform-specific: `electron.exe` on Windows,
+`Electron.app/Contents/MacOS/Electron` on macOS, and `electron` on Linux.
+
+The installed desktop app launcher (tier 1) is currently excluded fail-closed; see
+`GPU_DESKTOP_TIER_UNWIRED_REASON`. Packaged tier 1 support also requires `packages/gpu-export` to be
+bundled through the shell's `extraResources`. Windows and Linux may use GPU export only by explicitly
+passing `--engine gpu`; `auto` considers GPU only on macOS.
 
 ## Development
 

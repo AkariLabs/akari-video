@@ -73,7 +73,8 @@ before this flag set existed. --quality/--encoder default to today's plain libx2
 when explicitly passed as (or defaulted to) "standard"/"x264"; --fps defaults to edit.json's
 output.fps; --progress emits "PROGRESS out_time_ms=<n> total_ms=<n>" lines to stdout while
 encoding, followed by "PROGRESS done total_ms=<n>".
---engine defaults to auto; on darwin eligible projects use gpu and other projects use osr.
+--engine defaults to auto; --engine gpu requests hardware export on every platform.
+Windows and Linux require explicit gpu selection; auto considers gpu on macOS only.
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
 
@@ -117,9 +118,6 @@ export async function runCli(argv, io = console) {
 
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
-  if (engineRequested === "gpu" && process.platform !== "darwin") {
-    throw new RefusalError("--engine gpu hardware export v0 is available on macOS only");
-  }
   let resolvedEngine = resolveEngineChoice(engineRequested, process.platform);
   const projectRoot = resolve(input);
   const editPath = join(projectRoot, "edit.json");

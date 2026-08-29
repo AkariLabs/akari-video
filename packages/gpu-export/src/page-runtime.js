@@ -40,6 +40,36 @@
     console.warn("[akari-gpu]", message);
   }
 
+  function collectRendererInfo(canvas) {
+    const gl = canvas.getContext("webgl2");
+    if (!gl) return null;
+    try {
+      const extension = gl.getExtension("WEBGL_debug_renderer_info");
+      if (!extension) return null;
+      const vendor = gl.getParameter(extension.UNMASKED_VENDOR_WEBGL);
+      const renderer = gl.getParameter(extension.UNMASKED_RENDERER_WEBGL);
+      return typeof vendor === "string" && typeof renderer === "string" ? { vendor, renderer } : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function collectEncoderSupport(config) {
+    const base = { width: config.width, height: config.height, fps: config.fps, bitrate: config.bitrate };
+    const probe = async (hardwareAcceleration) => {
+      try {
+        return await FE.WebCodecsH264Encoder.isSupported({ ...base, hardwareAcceleration });
+      } catch {
+        return false;
+      }
+    };
+    const [hardware, software] = await Promise.all([
+      probe("prefer-hardware"),
+      probe("prefer-software"),
+    ]);
+    return { "prefer-hardware": hardware, "prefer-software": software };
+  }
+
   function mediaUrl(value) {
     return "/media/" + String(value).replace(/^\/+/, "").split("/").map(encodeURIComponent).join("/");
   }
@@ -1091,6 +1121,8 @@
     let supported = false;
     let hashFrame = null;
     let domRuntime = null;
+    const renderer = collectRendererInfo(engine.canvas);
+    let encoderSupport = null;
     const started = performance.now();
     try {
       for (const value of config.spriteManifest.statics) {
@@ -1157,10 +1189,8 @@
       domRuntime = new DomLayerRuntime(config, config.spriteManifest.dom, spriteCompositor, sentinelVerifier);
       await domRuntime.mount();
       const hardwareAcceleration = config.soft ? "prefer-software" : "prefer-hardware";
-      supported = await FE.WebCodecsH264Encoder.isSupported({
-        width: config.width, height: config.height, fps: config.fps, bitrate: config.bitrate,
-        hardwareAcceleration,
-      });
+      encoderSupport = await collectEncoderSupport(config);
+      supported = encoderSupport[hardwareAcceleration];
       if (supported) {
         await bridge.startChunks({ width: config.width, height: config.height, fps: config.fps, frames: config.frames });
         encoder = new FE.WebCodecsH264Encoder({
@@ -1312,6 +1342,8 @@
             framesRequested: config.frames,
             stages: Object.fromEntries(Object.entries(stages).map(([name, values]) => [name, summarize(values)])),
             gpu: {
+              renderer,
+              encoder_support: encoderSupport,
               uploadPath: spriteCompositor.uploadPath,
               quality: config.quality,
               bitrate: config.bitrate,
@@ -1341,6 +1373,8 @@
         gpu: {
           encoder: supported ? "WebCodecsH264Encoder" : "unsupported",
           hardware: hardwareAcceleration,
+          renderer,
+          encoder_support: encoderSupport,
           uploadPath: spriteCompositor.uploadPath,
           quality: config.quality,
           bitrate: config.bitrate,
