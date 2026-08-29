@@ -240,3 +240,59 @@ MP4 SHA が一致した。一方、大きな文字を持つ DOM overlay を多�
 30 cue の焼き込みが 900 コマの書き出しに約 47 秒（約 52 ms/コマ相当）を上乗せし、字幕を含む短い
 書き出しでは GPU 出口が OSR より遅くなった。同じ題材から字幕を外すと GPU は 19.2 ms/コマ、OSR は
 40.9 ms/コマだった。
+
+## 10. v3 — 宣言型 3D の登場曲線
+
+v3 は、宣言型 Three.js scene のルート要素にある 1 回きりの登場 CSS animation を時刻の関数へ解析し、
+3D canvas の sprite draw state として GPU-native に合成する。Three.js 自体は従来どおり engine clock の
+local seconds を `threeRuntime.render(container, t)` へ直接渡す。scene 内部の animation、動画 texture、
+ready 判定は変更しない。
+
+`three` 分類・理由 `three-scene-entrance-curve` にできるのは、次の条件をすべて満たす overlay だけである。
+
+- `<script type="application/json" data-akari-3d-scene>` が属性順にかかわらずちょうど 1 個あり、他の
+  script がない。
+- animation を持つのは HTML のルート要素 1 個だけで、selector は
+  `[data-akari-active] .root, [data-no-timeline] .root` の対である。canvas と fallback は動かさない。
+- animation は 1 本、iteration count は 1、direction は normal、delay は 0 以上、fill mode は
+  `both` または `forwards` である。timing は `linear`、`ease`、`ease-in`、`ease-out`、`ease-in-out`、
+  または妥当な `cubic-bezier(x1,y1,x2,y2)` に限る。
+- keyframe は `from` / `to` または 0% / 100% の 2 点だけで、両端に opacity と transform がある。
+  transform は `translate()` / `translateX()` / `translateY()` / `scale()` / `scaleX()` / `scaleY()`
+  だけを使う。px 平行移動と単位なし scale に加え、`var(--name, fallback)`、
+  `calc(var(--name) + Npx)`、`calc(var(--name) * N)` を受理する。
+
+transition、`@property`、複数 animation、複数の animated element、中間 keyframe、iteration count が
+1 以外、alternate / reverse、負の delay、fill mode の欠落、未知の timing、rotate / skew / 3D transform、
+filter、clip-path、解決不能な値は不可とし、`three-entrance-*` の具体的な理由で fail-closed にする。
+animation のない従来の宣言型 3D は理由 `three-scene-canvas-direct` と manifest 形を変えない。
+
+解析時は overlay の `vars` と `transform.x / y / scale` を CSS 変数へ解決する。未定義変数の既定値は
+平行移動が 0 px、scale が 1 である。manifest の `entrance` は次の additive な形を持ち、from / to は
+変数解決後の絶対値である。
+
+```json
+{
+  "durationSec": 1.1,
+  "delaySec": 0.05,
+  "timing": { "x1": 0.16, "y1": 1, "x2": 0.3, "y2": 1 },
+  "fill": "both",
+  "from": { "opacity": 0, "tx": -380, "ty": 140, "sx": 0.817, "sy": 0.817 },
+  "to": { "opacity": 1, "tx": 0, "ty": 0, "sx": 0.95, "sy": 0.95 }
+}
+```
+
+毎コマの意味論は次式を正本とする。delay 前は from、終了後は to とし、opacity / tx / ty / sx / sy の
+すべてへ同じ eased progress を線形補間で適用する。
+
+```text
+local    = seconds - overlay.start
+progress = clamp((local - delaySec) / durationSec, 0, 1)
+eased    = timing == linear ? progress : cubicBezierAt(progress, x1, y1, x2, y2)
+value    = from + (to - from) * eased
+```
+
+`cubicBezierAt` は frame-engine の既存 export を使用する。実素材 3 種を Chrome headless の
+`getComputedStyle` と delay 前・登場中 3 点・終了後の 5 時刻で突き合わせた実測差は、translate 最大
+0.00043 px、scale 最大 0.000001、opacity 0 だった。検収閾値は translate 0.5 px 以下、opacity 0.005
+以下、3D 登場区間の GPU / OSR 外接矩形内 MAD 1.0 以下とする。

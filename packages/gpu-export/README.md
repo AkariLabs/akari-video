@@ -36,6 +36,22 @@ Blob and HTTP SVG URLs are forbidden because they taint the canvas and WebGL upl
 Mixed karaoke color and geometric emphasis, vertical word captions, and unknown word styles remain
 ineligible and fail closed with a concrete reason.
 
+### Declarative 3D entrance curves (v3)
+
+A declarative Three.js scene may keep one root-element entrance animation on the GPU path. It must
+use the paired `[data-akari-active] .root, [data-no-timeline] .root` selector, exactly one two-endpoint
+keyframe animation, a known CSS timing function, a non-negative delay, one iteration, normal direction,
+and `both` or `forwards` fill. Keyframes may animate only opacity and 2D translate/scale; supported CSS
+variables and `calc(var(...) + Npx)` / `calc(var(...) * N)` are resolved from overlay variables and
+x/y/scale transforms before export. The manifest records absolute opacity, translation, and scale
+endpoints, and the compositor evaluates the same curve on every frame while Three.js continues to use
+the engine's local clock.
+
+Transitions, `@property`, multiple animations or animated elements, intermediate keyframes, alternate
+directions, rotate/skew/3D transforms, filter, and clip-path fail closed with a concrete
+`three-entrance-*` reason. A declarative 3D scene without CSS animation retains the existing
+`three-scene-canvas-direct` manifest shape and behavior.
+
 `render-cut --engine auto` uses GPU export on macOS only when the complete project is eligible;
 otherwise it uses OSR. Explicit `--engine gpu` fails closed and prints every ineligibility reason.
 

@@ -773,19 +773,46 @@
     return run.entries.some((value) => activeAt(value, seconds));
   }
 
+  function threeEntranceStateAt(entrance, localSeconds) {
+    const duration = Number(entrance.durationSec);
+    const delay = Number(entrance.delaySec);
+    const progress = Math.max(0, Math.min(1, (localSeconds - delay) / duration));
+    const eased = entrance.timing === "linear"
+      ? progress
+      : FE.cubicBezierAt(
+        progress,
+        entrance.timing.x1,
+        entrance.timing.y1,
+        entrance.timing.x2,
+        entrance.timing.y2,
+      );
+    const interpolate = (key) => entrance.from[key] + (entrance.to[key] - entrance.from[key]) * eased;
+    return {
+      opacity: interpolate("opacity"),
+      translateX: interpolate("tx"),
+      translateY: interpolate("ty"),
+      scaleX: interpolate("sx"),
+      scaleY: interpolate("sy"),
+    };
+  }
+
   function orderedSpriteDraws(manifest, seconds, domRuntime) {
     const values = [];
     for (const value of manifest.statics) {
       if (activeAt(value, seconds)) values.push({ index: value.index, id: value.id, opacity: 1 });
     }
     for (const value of manifest.three) {
-      if (activeAt(value, seconds)) values.push({ index: value.index, id: value.id, opacity: 1 });
+      if (!activeAt(value, seconds)) continue;
+      const state = value.entrance
+        ? threeEntranceStateAt(value.entrance, seconds - value.start)
+        : { opacity: 1 };
+      values.push({ index: value.index, id: value.id, ...state });
     }
     for (const run of manifest.dom ?? []) {
       if (domRuntime.activeAt(run, seconds)) values.push({ index: run.index, id: run.runId, opacity: 1 });
     }
     return values.sort((left, right) => left.index - right.index)
-      .map(({ id, opacity }) => ({ id, opacity }));
+      .map(({ index, ...draw }) => draw);
   }
 
   function styleVariables(element, vars) {
@@ -1027,7 +1054,9 @@
     }
   }
 
-  window.__akariGpuDomInternals = { sentinelColor, chooseSettlePolicy, runActiveAt, orderedSpriteDraws };
+  window.__akariGpuDomInternals = {
+    sentinelColor, chooseSettlePolicy, runActiveAt, threeEntranceStateAt, orderedSpriteDraws,
+  };
 
   window.__akariGpuRun = async function () {
     if (!FE || !bridge) throw new Error("GPU page dependencies are unavailable");
