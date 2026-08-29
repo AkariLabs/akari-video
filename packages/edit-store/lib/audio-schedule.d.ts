@@ -36,6 +36,12 @@ export interface WebAudioSpeechDeclaration {
     track?: number;
     /** decode 後の素材実尺。 */
     materialDurationSec: number;
+    /** 速度変更を ffmpeg atempo で焼いた、区間単位のプレビュー用 WAV。 */
+    atempo?: {
+        path: string;
+        durationSec: number;
+        generatedMs?: number;
+    };
 }
 export interface WebAudioSpeechCut extends EditCut {
     id?: string;

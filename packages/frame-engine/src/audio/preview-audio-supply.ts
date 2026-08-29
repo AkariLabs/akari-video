@@ -87,6 +87,11 @@ export interface PreviewSpeechDeclaration {
   track?: number;
   materialDurationSec: number;
   url: string;
+  atempo?: {
+    path: string;
+    durationSec: number;
+    generatedMs?: number;
+  };
 }
 
 export interface PreviewAudioSupplyOptions {
@@ -125,6 +130,12 @@ export interface PreviewAudioSupplyDebug {
     bytes: number;
     perSource: Array<{ src: string; ms: number; durationSec: number; bytes: number; ok: boolean }>;
   };
+  speech: {
+    atempo: {
+      items: number;
+      generatedMs: number;
+    };
+  };
 }
 
 export interface PreviewAudioSupply {
@@ -147,6 +158,11 @@ interface SpeechCacheEntry {
   promise: Promise<AudioBuffer | null>;
   lastUsed: number;
   bytes: number;
+}
+
+interface ResolvedSpeechBuffer {
+  buffer: AudioBuffer;
+  atempo: boolean;
 }
 
 interface ActiveSource {
@@ -186,6 +202,8 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   const speechCache = new Map<string, SpeechCacheEntry>();
   const speechFailures = new Set<string>();
   const warnedSpeech = new Set<string>();
+  const atempoCache = new Map<string, Promise<AudioBuffer | null>>();
+  const warnedAtempo = new Set<string>();
   const speechMetrics = new Map<string, {
     src: string; ms: number; durationSec: number; bytes: number; ok: boolean;
   }>();
@@ -202,6 +220,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   let lastRenderedTimelineSec: number | null = null;
   let lastAudioPositionAtRenderSec: number | null = null;
   let lastSchedule: PreviewScheduledItem[] = [];
+  let lastAtempoIds = new Set<string>();
 
   const clamp = (seconds: number): number => Math.max(
     0,
@@ -305,13 +324,40 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     return entry.promise;
   };
 
-  const loadSpeech = async (): Promise<Map<string, AudioBuffer>> => {
-    const buffers = new Map<string, AudioBuffer>();
-    const unique = new Map<string, PreviewSpeechDeclaration>();
-    for (const declaration of speech) if (!unique.has(declaration.src)) unique.set(declaration.src, declaration);
-    await Promise.all([...unique].map(async ([src, declaration]) => {
-      const buffer = await getSpeechBuffer(declaration);
-      if (buffer) buffers.set(src, buffer);
+  const getAtempoBuffer = (declaration: PreviewSpeechDeclaration): Promise<AudioBuffer | null> => {
+    const atempo = declaration.atempo;
+    if (!context || !fetchImpl || !atempo) return Promise.resolve(null);
+    const cached = atempoCache.get(atempo.path);
+    if (cached) return cached;
+    const pending = (async () => {
+      try {
+        const response = await fetchImpl(atempo.path);
+        if (!response.ok) throw new Error(`fetch status=${response.status}`);
+        const buffer = await context!.decodeAudioData(await response.arrayBuffer());
+        if (!(buffer.duration > 0)) throw new Error('decoded duration is invalid');
+        return buffer;
+      } catch (reason) {
+        if (!warnedAtempo.has(atempo.path)) {
+          warnedAtempo.add(atempo.path);
+          warn(`[frame-engine] speech atempo ${declaration.id} unavailable; using source playbackRate`, reason);
+        }
+        return null;
+      }
+    })();
+    atempoCache.set(atempo.path, pending);
+    return pending;
+  };
+
+  const loadSpeech = async (): Promise<Map<string, ResolvedSpeechBuffer>> => {
+    const buffers = new Map<string, ResolvedSpeechBuffer>();
+    await Promise.all(speech.map(async declaration => {
+      const atempoBuffer = await getAtempoBuffer(declaration);
+      if (atempoBuffer) {
+        buffers.set(declaration.id, { buffer: atempoBuffer, atempo: true });
+        return;
+      }
+      const sourceBuffer = await getSpeechBuffer(declaration);
+      if (sourceBuffer) buffers.set(declaration.id, { buffer: sourceBuffer, atempo: false });
     }));
     return buffers;
   };
@@ -336,15 +382,13 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   const startItem = (
     item: PreviewScheduledItem,
     contextStart: number,
-    speechBuffers: ReadonlyMap<string, AudioBuffer>,
+    speechBuffers: ReadonlyMap<string, ResolvedSpeechBuffer>,
   ): void => {
     if (!context) return;
     const regular = item.kind === 'speech' ? undefined
       : regularDecoded.find(candidate => candidate.id === item.id && candidate.kind === item.kind);
-    const speechDeclaration = item.kind === 'speech'
-      ? speech.find(candidate => candidate.id === item.id) : undefined;
     const buffer = regular?.buffer
-      ?? (speechDeclaration ? speechBuffers.get(speechDeclaration.src) : undefined);
+      ?? (item.kind === 'speech' ? speechBuffers.get(item.id)?.buffer : undefined);
     if (!buffer) return;
     try {
       const source = context.createBufferSource();
@@ -412,10 +456,15 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       starting = false;
       return;
     }
-    const speechForSchedule = speech.filter(item => speechBuffers.has(item.src)).map(item => ({
-      ...item,
-      materialDurationSec: speechBuffers.get(item.src)!.duration,
-    }));
+    const speechForSchedule = speech.flatMap(item => {
+      const resolved = speechBuffers.get(item.id);
+      if (!resolved) return [];
+      return [{
+        ...item,
+        ...(!resolved.atempo ? { atempo: undefined } : {}),
+        materialDurationSec: resolved.buffer.duration,
+      }];
+    });
     const plan = scheduleBuilder({
       timelineDurationSec,
       startAtSec: clamp(latestRequestedSec || seconds),
@@ -431,6 +480,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     anchorTimelineSec = plan.startAtSec;
     anchorContextSec = contextStart;
     lastSchedule = plan.items;
+    lastAtempoIds = new Set(speechForSchedule.filter(item => item.atempo).map(item => item.id));
     for (const item of lastSchedule) startItem(item, contextStart, speechBuffers);
     playing = true;
     starting = false;
@@ -479,6 +529,14 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         bytes: cacheBytes,
         perSource: perSource.map(item => ({ ...item })),
       },
+      speech: {
+        atempo: {
+          items: lastSchedule.filter(item => item.kind === 'speech' && lastAtempoIds.has(item.id)).length,
+          generatedMs: speech.filter(item => lastAtempoIds.has(item.id))
+            .reduce((sum, item) => sum + (finitePositive(item.atempo?.generatedMs)
+              ? item.atempo!.generatedMs as number : 0), 0),
+        },
+      },
     };
   };
 
@@ -517,6 +575,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       pauseTimer = null;
       pause();
       speechCache.clear();
+      atempoCache.clear();
       cacheBytes = 0;
       void context?.close().catch(() => undefined);
     },

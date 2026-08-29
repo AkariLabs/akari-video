@@ -41,6 +41,12 @@ export interface WebAudioSpeechDeclaration {
     track?: number;
     /** decode 後の素材実尺。 */
     materialDurationSec: number;
+    /** 速度変更を ffmpeg atempo で焼いた、区間単位のプレビュー用 WAV。 */
+    atempo?: {
+        path: string;
+        durationSec: number;
+        generatedMs?: number;
+    };
 }
 
 export interface WebAudioSpeechCut extends EditCut {
@@ -350,18 +356,24 @@ function scheduleSpeech(
     if (spec.atSec >= timelineDurationSec) return null;
     const gainDb = normalizedGainDb(spec, label, warnings);
     if (gainDb === null) return null;
+    const atempo = spec.atempo && typeof spec.atempo.path === 'string' && spec.atempo.path
+        && finitePositive(spec.atempo.durationSec) ? spec.atempo : undefined;
+    if (spec.atempo && !atempo) warnings.push(`${label}: atempo declaration is invalid; using source playbackRate`);
     const elapsedIntoItemSec = Math.max(0, startAtSec - spec.atSec);
     if (elapsedIntoItemSec >= spec.durationSec) return null;
     const delaySec = Math.max(0, spec.atSec - startAtSec);
     const timelineStartSec = startAtSec + delaySec;
-    const sourceOffsetSec = spec.inSec + elapsedIntoItemSec * spec.speed;
-    const sourceEndSec = Math.min(spec.outSec, spec.materialDurationSec);
+    const playbackRate = atempo ? 1 : spec.speed;
+    const sourceOffsetSec = atempo ? elapsedIntoItemSec : spec.inSec + elapsedIntoItemSec * spec.speed;
+    const sourceEndSec = atempo
+        ? Math.min(atempo.durationSec, spec.materialDurationSec)
+        : Math.min(spec.outSec, spec.materialDurationSec);
     const sourceAvailableSec = sourceEndSec - sourceOffsetSec;
     if (!(sourceAvailableSec > 0)) return null;
     const durationSec = Math.min(
         spec.durationSec - elapsedIntoItemSec,
         timelineDurationSec - timelineStartSec,
-        sourceAvailableSec / spec.speed
+        sourceAvailableSec / playbackRate
     );
     if (!(durationSec > 0)) return null;
     const baseGain = dbToLinear(gainDb);
@@ -374,8 +386,8 @@ function scheduleSpeech(
         delaySec,
         sourceOffsetSec,
         durationSec,
-        playbackRate: spec.speed,
-        sourceDurationSec: durationSec * spec.speed,
+        playbackRate,
+        sourceDurationSec: durationSec * playbackRate,
         loop: false,
         gainDb,
         gainEvents: [{ offsetSec: 0, value: baseGain, method: 'set' }],

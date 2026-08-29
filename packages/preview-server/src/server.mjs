@@ -12,8 +12,10 @@ import { migratePreviewCompatibility, previewReadError, projectPreviewEdit } fro
 // 書き込み前の lint ゲートと atomic 書き込みは shell と同じ共有カーネル（packages/edit-store）。
 // lint 実行系が見つからない場合は fail-open（オーナー裁定 2026-08-02 — shell と同一挙動に統一）。
 import { lintProjectCandidates, writeAtomic } from '../../edit-store/lib/write-gate.js';
+import { projectSpeechDeclarations } from '../../edit-store/lib/index.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
+import { ensureSpeechAtempo } from '../../media-bin/src/speech-atempo.mjs';
 import {
   parseFrameRate,
   previewProxyVideoArgs,
@@ -291,6 +293,41 @@ async function readFrameEnginePreviewEdit(filePath) {
   const read = readPreviewEdit(filePath);
   if (read.error) return read;
   const prepared = await prepareAlphaLayers(read.data, { projectRoot });
+  const fps = Number(read.data?.output?.fps) > 0 ? Number(read.data.output.fps) : 30;
+  const sources = new Map((read.data?.sources ?? []).map(source => [String(source?.id ?? ''), source]));
+  const projectedSpeech = projectSpeechDeclarations(read.data?.cuts ?? [], { fps });
+  const speechWarnings = [];
+  const speech = await Promise.all(projectedSpeech.map(async declaration => {
+    if (Math.abs(declaration.speed - 1) <= 1e-6) return declaration;
+    const source = sources.get(declaration.src);
+    const declaredPath = source?.path;
+    if (typeof declaredPath !== 'string' || !declaredPath) return declaration;
+    const startedAt = performance.now();
+    const result = await ensureSpeechAtempo({
+      sourcePath: path.isAbsolute(declaredPath) ? declaredPath : path.resolve(projectRoot, declaredPath),
+      inSec: declaration.inSec,
+      outSec: declaration.outSec,
+      speed: declaration.speed,
+      ffmpeg: tryResolve(resolveFfmpeg),
+      cacheDir: path.join(projectRoot, '.akari', 'cache'),
+    });
+    const generatedMs = performance.now() - startedAt;
+    if (!result.ok) {
+      const warning = `speech atempo ${declaration.id} unavailable; using playbackRate: ${result.reason}`;
+      speechWarnings.push(warning);
+      console.warn(`[preview] ${warning}`);
+      return declaration;
+    }
+    return {
+      ...declaration,
+      atempo: {
+        path: path.relative(projectRoot, result.path).split(path.sep).join('/'),
+        durationSec: result.durationSec,
+        generatedMs,
+      },
+    };
+  }));
+  prepared.warnings.push(...speechWarnings);
   const intake = {};
   const skipped = [];
   prepared.layerResults.forEach((result, index) => {
@@ -308,8 +345,11 @@ async function readFrameEnginePreviewEdit(filePath) {
   return {
     data: {
       ...read.data,
+      audio: { ...(read.data.audio ?? {}), speech },
       ...(hasFrameEngineIntake ? {
         frameEngine: { intake, skipped, warnings: prepared.warnings },
+      } : speechWarnings.length > 0 ? {
+        frameEngine: { intake, skipped, warnings: speechWarnings },
       } : {}),
     },
   };

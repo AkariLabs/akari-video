@@ -5384,17 +5384,21 @@ ${indent}`);
         const gainDb = normalizedGainDb(spec, label, warnings);
         if (gainDb === null)
           return null;
+        const atempo = spec.atempo && typeof spec.atempo.path === "string" && spec.atempo.path && finitePositive3(spec.atempo.durationSec) ? spec.atempo : void 0;
+        if (spec.atempo && !atempo)
+          warnings.push(`${label}: atempo declaration is invalid; using source playbackRate`);
         const elapsedIntoItemSec = Math.max(0, startAtSec - spec.atSec);
         if (elapsedIntoItemSec >= spec.durationSec)
           return null;
         const delaySec = Math.max(0, spec.atSec - startAtSec);
         const timelineStartSec = startAtSec + delaySec;
-        const sourceOffsetSec = spec.inSec + elapsedIntoItemSec * spec.speed;
-        const sourceEndSec = Math.min(spec.outSec, spec.materialDurationSec);
+        const playbackRate = atempo ? 1 : spec.speed;
+        const sourceOffsetSec = atempo ? elapsedIntoItemSec : spec.inSec + elapsedIntoItemSec * spec.speed;
+        const sourceEndSec = atempo ? Math.min(atempo.durationSec, spec.materialDurationSec) : Math.min(spec.outSec, spec.materialDurationSec);
         const sourceAvailableSec = sourceEndSec - sourceOffsetSec;
         if (!(sourceAvailableSec > 0))
           return null;
-        const durationSec = Math.min(spec.durationSec - elapsedIntoItemSec, timelineDurationSec - timelineStartSec, sourceAvailableSec / spec.speed);
+        const durationSec = Math.min(spec.durationSec - elapsedIntoItemSec, timelineDurationSec - timelineStartSec, sourceAvailableSec / playbackRate);
         if (!(durationSec > 0))
           return null;
         const baseGain = dbToLinear(gainDb);
@@ -5407,8 +5411,8 @@ ${indent}`);
           delaySec,
           sourceOffsetSec,
           durationSec,
-          playbackRate: spec.speed,
-          sourceDurationSec: durationSec * spec.speed,
+          playbackRate,
+          sourceDurationSec: durationSec * playbackRate,
           loop: false,
           gainDb,
           gainEvents: [{ offsetSec: 0, value: baseGain, method: "set" }],
@@ -18529,6 +18533,8 @@ void main() {
     const speechCache = /* @__PURE__ */ new Map();
     const speechFailures = /* @__PURE__ */ new Set();
     const warnedSpeech = /* @__PURE__ */ new Set();
+    const atempoCache = /* @__PURE__ */ new Map();
+    const warnedAtempo = /* @__PURE__ */ new Set();
     const speechMetrics = /* @__PURE__ */ new Map();
     let cacheBytes = 0;
     let lruClock = 0;
@@ -18543,6 +18549,7 @@ void main() {
     let lastRenderedTimelineSec = null;
     let lastAudioPositionAtRenderSec = null;
     let lastSchedule = [];
+    let lastAtempoIds = /* @__PURE__ */ new Set();
     const clamp4 = (seconds) => Math.max(
       0,
       Math.min(Number.isFinite(seconds) ? seconds : 0, timelineDurationSec)
@@ -18645,13 +18652,39 @@ void main() {
       speechCache.set(declaration.src, entry);
       return entry.promise;
     };
+    const getAtempoBuffer = (declaration) => {
+      const atempo = declaration.atempo;
+      if (!context || !fetchImpl || !atempo) return Promise.resolve(null);
+      const cached = atempoCache.get(atempo.path);
+      if (cached) return cached;
+      const pending = (async () => {
+        try {
+          const response = await fetchImpl(atempo.path);
+          if (!response.ok) throw new Error(`fetch status=${response.status}`);
+          const buffer = await context.decodeAudioData(await response.arrayBuffer());
+          if (!(buffer.duration > 0)) throw new Error("decoded duration is invalid");
+          return buffer;
+        } catch (reason) {
+          if (!warnedAtempo.has(atempo.path)) {
+            warnedAtempo.add(atempo.path);
+            warn(`[frame-engine] speech atempo ${declaration.id} unavailable; using source playbackRate`, reason);
+          }
+          return null;
+        }
+      })();
+      atempoCache.set(atempo.path, pending);
+      return pending;
+    };
     const loadSpeech = async () => {
       const buffers = /* @__PURE__ */ new Map();
-      const unique = /* @__PURE__ */ new Map();
-      for (const declaration of speech) if (!unique.has(declaration.src)) unique.set(declaration.src, declaration);
-      await Promise.all([...unique].map(async ([src, declaration]) => {
-        const buffer = await getSpeechBuffer(declaration);
-        if (buffer) buffers.set(src, buffer);
+      await Promise.all(speech.map(async (declaration) => {
+        const atempoBuffer = await getAtempoBuffer(declaration);
+        if (atempoBuffer) {
+          buffers.set(declaration.id, { buffer: atempoBuffer, atempo: true });
+          return;
+        }
+        const sourceBuffer = await getSpeechBuffer(declaration);
+        if (sourceBuffer) buffers.set(declaration.id, { buffer: sourceBuffer, atempo: false });
       }));
       return buffers;
     };
@@ -18670,8 +18703,7 @@ void main() {
     const startItem = (item, contextStart, speechBuffers) => {
       if (!context) return;
       const regular = item.kind === "speech" ? void 0 : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind);
-      const speechDeclaration = item.kind === "speech" ? speech.find((candidate) => candidate.id === item.id) : void 0;
-      const buffer = regular?.buffer ?? (speechDeclaration ? speechBuffers.get(speechDeclaration.src) : void 0);
+      const buffer = regular?.buffer ?? (item.kind === "speech" ? speechBuffers.get(item.id)?.buffer : void 0);
       if (!buffer) return;
       try {
         const source = context.createBufferSource();
@@ -18741,10 +18773,15 @@ void main() {
         starting = false;
         return;
       }
-      const speechForSchedule = speech.filter((item) => speechBuffers.has(item.src)).map((item) => ({
-        ...item,
-        materialDurationSec: speechBuffers.get(item.src).duration
-      }));
+      const speechForSchedule = speech.flatMap((item) => {
+        const resolved = speechBuffers.get(item.id);
+        if (!resolved) return [];
+        return [{
+          ...item,
+          ...!resolved.atempo ? { atempo: void 0 } : {},
+          materialDurationSec: resolved.buffer.duration
+        }];
+      });
       const plan = scheduleBuilder({
         timelineDurationSec,
         startAtSec: clamp4(latestRequestedSec || seconds),
@@ -18760,6 +18797,7 @@ void main() {
       anchorTimelineSec = plan.startAtSec;
       anchorContextSec = contextStart;
       lastSchedule = plan.items;
+      lastAtempoIds = new Set(speechForSchedule.filter((item) => item.atempo).map((item) => item.id));
       for (const item of lastSchedule) startItem(item, contextStart, speechBuffers);
       playing = true;
       starting = false;
@@ -18803,6 +18841,12 @@ void main() {
           totalMs: perSource.reduce((sum, item) => sum + item.ms, 0),
           bytes: cacheBytes,
           perSource: perSource.map((item) => ({ ...item }))
+        },
+        speech: {
+          atempo: {
+            items: lastSchedule.filter((item) => item.kind === "speech" && lastAtempoIds.has(item.id)).length,
+            generatedMs: speech.filter((item) => lastAtempoIds.has(item.id)).reduce((sum, item) => sum + (finitePositive2(item.atempo?.generatedMs) ? item.atempo.generatedMs : 0), 0)
+          }
         }
       };
     };
@@ -18841,6 +18885,7 @@ void main() {
         pauseTimer = null;
         pause();
         speechCache.clear();
+        atempoCache.clear();
         cacheBytes = 0;
         void context?.close().catch(() => void 0);
       }
