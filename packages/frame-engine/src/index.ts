@@ -8,6 +8,8 @@ export * from './compositor/dissolve-noise.js';
 export * from './decode/native-yuv.js';
 export * from './decode/clip-session.js';
 export * from './decode/clip-session-pool.js';
+export * from './decode/codec-probe.js';
+export * from './decode/source-selection.js';
 export * from './decode/keyframe-index.js';
 export * from './decode/guard.js';
 export * from './decode/still-image.js';

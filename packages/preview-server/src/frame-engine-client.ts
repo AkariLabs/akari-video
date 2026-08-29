@@ -1,6 +1,7 @@
 import {
   buildResolvedTimelinePlan,
   CachedStillImageSource,
+  chooseSource,
   ClipSessionPool,
   createPreviewAudioSupply,
   createPreviewScheduler,
@@ -9,11 +10,16 @@ import {
   FrameMetrics,
   LookaheadFrameSource,
   parseCube,
+  parseSourceSelectionMode,
+  probeSourceCodec,
   projectSpeechDeclarations,
   ScrubController,
+  setForceSoftwareDecode,
+  needsCodecProbe,
   WebGL2Compositor,
 } from '../../frame-engine/src/index.ts';
 import type {
+  CodecSupport,
   EvaluationPlan,
   FrameEngineCut,
   FrameEngineLayer,
@@ -52,6 +58,22 @@ interface TimelineUiSegment {
 interface PreviewSnapshot {
   totalDuration: number;
   segments: TimelineUiSegment[];
+  sources: Array<Omit<SourceChoice, 'support'>>;
+}
+
+interface SourceCandidate {
+  id: string;
+  originalUrl: string;
+  proxyUrl: string | null;
+}
+
+interface SourceChoice {
+  id: string;
+  url: string;
+  chosen: 'original' | 'proxy' | 'auto-proxy' | 'image';
+  reason: string;
+  codec?: string;
+  support?: CodecSupport | null;
 }
 
 const requestedUploadPath = new URLSearchParams(window.location.search).get('uploadPath') === 'copyTo'
@@ -144,23 +166,174 @@ function normalizedCuts(edit: any): FrameEngineCut[] {
   });
 }
 
-function sourceUrls(edit: any, timelineData: any, cuts: readonly FrameEngineCut[]): Map<string, string> {
-  const urls = new Map<string, string>();
+function resolvedEngineLayers(edit: any): any[] {
+  const frameEngineIntake = edit?.frameEngine?.intake ?? {};
+  const skippedLayers = new Set(Array.isArray(edit?.frameEngine?.skipped) ? edit.frameEngine.skipped : []);
+  return (Array.isArray(edit?.layers) ? edit.layers : [])
+    .map((layer: any, index: number) => {
+      const key = String(layer?.id ?? layer?.src ?? index);
+      if (skippedLayers.has(key)) return null;
+      const prepared = frameEngineIntake[key];
+      return prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+    })
+    .filter(Boolean);
+}
+
+function sourceCandidates(
+  edit: any,
+  timelineData: any,
+  cuts: readonly FrameEngineCut[],
+  engineLayers: readonly any[] = [],
+): Map<string, SourceCandidate> {
+  const candidates = new Map<string, SourceCandidate>();
   if (Array.isArray(edit?.sources)) {
     for (const source of edit.sources) {
-      if (source?.id && (source.proxy || source.path)) {
-        urls.set(String(source.id), mediaUrl(source.proxy || source.path));
+      if (source?.id && source.path) {
+        const id = String(source.id);
+        candidates.set(id, {
+          id,
+          originalUrl: mediaUrl(source.path),
+          proxyUrl: source.proxy ? mediaUrl(source.proxy) : null,
+        });
       }
     }
   } else if (edit?.source?.path) {
-    urls.set('default', mediaUrl(edit.source.path));
+    candidates.set('default', {
+      id: 'default', originalUrl: mediaUrl(edit.source.path), proxyUrl: null,
+    });
   }
   for (let index = 0; index < cuts.length; index += 1) {
     const clip = timelineData?.clips?.find((item: any) => item.id === `cut-${index}`);
     const sourceId = cuts[index]?.src;
-    if (clip?.src && sourceId) urls.set(sourceId, mediaUrl(clip.src));
+    if (clip?.src && sourceId) {
+      const clipUrl = mediaUrl(clip.src);
+      const declared = candidates.get(sourceId);
+      // edit-to-timeline projects a declared proxy into clips[].src. That is not an override:
+      // keep the original/proxy pair so capability selection can still choose the original.
+      if (!declared || (clipUrl !== declared.originalUrl && clipUrl !== declared.proxyUrl)) {
+        candidates.set(sourceId, { id: sourceId, originalUrl: clipUrl, proxyUrl: null });
+      }
+    }
   }
-  return urls;
+  for (const layer of engineLayers) {
+    for (const value of [layer?.src, layer?.mask]) {
+      if (typeof value !== 'string' || !value) continue;
+      candidates.set(value, { id: value, originalUrl: mediaUrl(value), proxyUrl: null });
+    }
+  }
+  return candidates;
+}
+
+function autoProxyPath(url: string): string {
+  const parsed = new URL(url, window.location.href);
+  return decodeURIComponent(parsed.pathname).replace(/^\/+/, '');
+}
+
+async function requestAutoProxy(
+  candidate: SourceCandidate,
+  ui: ReturnType<typeof createUi>,
+): Promise<string | null> {
+  const path = autoProxyPath(candidate.originalUrl);
+  ui.showNotice(`プロキシ生成中…（${candidate.id}）`);
+  try {
+    const start = await fetch('/api/auto-proxy', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path }),
+    });
+    if (!start.ok) return null;
+    const deadline = Date.now() + 300_000;
+    while (Date.now() < deadline) {
+      const response = await fetch(`/api/auto-proxy?path=${encodeURIComponent(path)}`);
+      if (!response.ok) return null;
+      const result = await response.json();
+      if (result.status === 'ready' && typeof result.url === 'string') return result.url;
+      if (result.status === 'failed' || result.status === 'unavailable') return null;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveSourceChoices(
+  candidates: Map<string, SourceCandidate>,
+  context: {
+    mode: 'auto' | 'proxy' | 'original';
+    ui: ReturnType<typeof createUi>;
+    cutSourceIds: ReadonlySet<string>;
+  },
+): Promise<Map<string, SourceChoice>> {
+  const choices = new Map<string, SourceChoice>();
+  for (const candidate of candidates.values()) {
+    if (!context.cutSourceIds.has(candidate.id)) {
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: candidate.originalUrl,
+        chosen: 'original',
+        reason: 'not-a-cut-source',
+        support: null,
+      });
+      continue;
+    }
+    const isImage = /\.(png|jpe?g|webp|bmp|gif)(?:$|[?#])/iu.test(candidate.originalUrl);
+    if (isImage) {
+      choices.set(candidate.id, {
+        id: candidate.id, url: candidate.originalUrl, chosen: 'image', reason: 'still-image',
+      });
+      continue;
+    }
+    const hasProxy = candidate.proxyUrl != null;
+    if (!needsCodecProbe(context.mode, hasProxy)) {
+      const decision = chooseSource({ mode: context.mode, hasProxy, support: null });
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: decision.chosen === 'proxy' ? candidate.proxyUrl! : candidate.originalUrl,
+        chosen: decision.chosen,
+        reason: decision.reason,
+        support: null,
+      });
+      continue;
+    }
+    const probe = await probeSourceCodec(candidate.originalUrl, { query: { akariNoProxy: '1' } });
+    const codec = probe.info?.codec;
+    const decision = chooseSource({ mode: context.mode, hasProxy, support: probe.support });
+    if (decision.chosen === 'original') {
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: candidate.originalUrl,
+        chosen: 'original',
+        reason: decision.reason,
+        ...(codec ? { codec } : {}),
+        support: probe.support,
+      });
+    } else if (decision.chosen === 'proxy') {
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: candidate.proxyUrl!,
+        chosen: 'proxy',
+        reason: decision.reason,
+        ...(codec ? { codec } : {}),
+        support: null,
+      });
+    } else {
+      const proxyUrl = await requestAutoProxy(candidate, context.ui);
+      choices.set(candidate.id, {
+        id: candidate.id,
+        url: proxyUrl ?? candidate.originalUrl,
+        chosen: proxyUrl ? 'auto-proxy' : 'original',
+        reason: proxyUrl ? 'auto-proxy' : 'auto-proxy-failed',
+        codec: probe.support.codec,
+        support: proxyUrl ? null : probe.support,
+      });
+      if (!proxyUrl) context.ui.showNotice(`プロキシを生成できませんでした（${candidate.id}）`);
+    }
+  }
+  if (![...choices.values()].some(choice => choice.reason === 'auto-proxy-failed')) {
+    context.ui.clearNotice();
+  }
+  return choices;
 }
 
 function createUi(stage: HTMLElement): {
@@ -168,6 +341,9 @@ function createUi(stage: HTMLElement): {
   canvas: HTMLCanvasElement;
   metrics: HTMLDivElement;
   error: HTMLDivElement;
+  notice: HTMLDivElement;
+  showNotice(message: string): void;
+  clearNotice(): void;
 } {
   const root = document.createElement('div');
   root.id = 'frame-engine-preview';
@@ -196,9 +372,28 @@ function createUi(stage: HTMLElement): {
     background: 'rgba(80,0,0,.9)', color: '#fff', textAlign: 'center',
   });
 
-  root.append(canvas, metrics, error);
+  const notice = document.createElement('div');
+  notice.id = 'frame-engine-notice';
+  notice.hidden = true;
+  Object.assign(notice.style, {
+    position: 'absolute', zIndex: '2147483646', inset: 'auto 10% 10%', padding: '10px 12px', borderRadius: '6px',
+    border: '1px solid rgba(116,192,252,.65)', background: 'rgba(8,32,56,.92)', color: '#d8efff', textAlign: 'center',
+  });
+
+  const showNotice = (message: string) => {
+    notice.hidden = false;
+    notice.textContent = message;
+    root.dataset.frameEngineNotice = message;
+  };
+  const clearNotice = () => {
+    notice.hidden = true;
+    notice.textContent = '';
+    delete root.dataset.frameEngineNotice;
+  };
+
+  root.append(canvas, metrics, notice, error);
   stage.prepend(root);
-  return { root, canvas, metrics, error };
+  return { root, canvas, metrics, error, notice, showNotice, clearNotice };
 }
 
 function replaceCanvas(ui: ReturnType<typeof createUi>): void {
@@ -240,6 +435,7 @@ class FrameEngineRuntime {
     private readonly edit: any,
     private readonly timelineData: any,
     private readonly fps: number,
+    private readonly sourceChoices: Map<string, SourceChoice>,
   ) {
     // The compositor owns the visible canvas directly: no per-frame WebGL -> 2D readback/blit.
     this.compositor = new WebGL2Compositor(ui.canvas, {
@@ -247,28 +443,19 @@ class FrameEngineRuntime {
       uploadPath: requestedUploadPath,
     });
     const cuts = normalizedCuts(edit);
-    const urls = sourceUrls(edit, timelineData, cuts);
+    const urls = new Map([...sourceChoices].map(([id, choice]) => [id, choice.url]));
     const videoSources = new Map<string, NativeFrameSource>();
-    const frameEngineIntake = edit?.frameEngine?.intake ?? {};
-    const skippedLayers = new Set(Array.isArray(edit?.frameEngine?.skipped) ? edit.frameEngine.skipped : []);
-    const engineLayers = (Array.isArray(edit?.layers) ? edit.layers : [])
-      .map((layer: any, index: number) => {
-        const key = String(layer?.id ?? layer?.src ?? index);
-        if (skippedLayers.has(key)) return null;
-        const prepared = frameEngineIntake[key];
-        return prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
-      })
-      .filter(Boolean);
+    const engineLayers = resolvedEngineLayers(edit);
     for (const warning of Array.isArray(edit?.frameEngine?.warnings) ? edit.frameEngine.warnings : []) {
       this.showError(String(warning), false);
     }
     for (const layer of engineLayers) {
       if (!layer?.src) continue;
       const key = String(layer.src);
-      urls.set(key, mediaUrl(key));
+      if (!urls.has(key)) urls.set(key, mediaUrl(key));
       if (layer.mask) {
         const maskKey = String(layer.mask);
-        urls.set(maskKey, mediaUrl(maskKey));
+        if (!urls.has(maskKey)) urls.set(maskKey, mediaUrl(maskKey));
       }
     }
     for (const [id, url] of urls) {
@@ -276,7 +463,16 @@ class FrameEngineRuntime {
         this.images.set(id, new CachedStillImageSource(url));
         continue;
       }
-      const pool = new ClipSessionPool(id, url, { onWarning: message => this.showError(message, false) });
+      const choice = sourceChoices.get(id);
+      const pool = new ClipSessionPool(id, url, {
+        codecSupport: choice?.support,
+        onWarning: message => this.showError(message, false),
+        onSoftwareFallbackDenied: support => {
+          if (!(choice?.support?.hw || choice?.support?.any)) {
+            this.ui.showNotice(`ソフトウェアデコード非対応: ${support.codec}`);
+          }
+        },
+      });
       const source = new LookaheadFrameSource(pool, {
         fps,
         capacity: 12,
@@ -423,7 +619,11 @@ class FrameEngineRuntime {
   }
 
   snapshot(): PreviewSnapshot {
-    return { totalDuration: this.totalDuration, segments: this.segments };
+    return {
+      totalDuration: this.totalDuration,
+      segments: this.segments,
+      sources: [...this.sourceChoices.values()].map(({ support: _support, ...choice }) => choice),
+    };
   }
 
   audioDebug(): PreviewAudioSupplyDebug {
@@ -562,7 +762,28 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
   audioDebug(): PreviewAudioSupplyDebug;
 }> {
   const ui = createUi(options.stage);
-  let runtime = new FrameEngineRuntime(ui, options.edit, options.timelineData, options.fps);
+  const prepareRuntime = async (edit: any, timelineData: any, fps: number): Promise<FrameEngineRuntime> => {
+    ui.clearNotice();
+    const params = new URLSearchParams(window.location.search);
+    let forceSoftware = params.get('frameEngineForceSw') === '1';
+    try {
+      const response = await fetch('/api/codec-info');
+      if (response.ok) forceSoftware ||= (await response.json()).forceSoftwareDecode === true;
+    } catch {
+      // Codec capability probing remains optional when the server endpoint is unavailable.
+    }
+    setForceSoftwareDecode(forceSoftware);
+    const cuts = normalizedCuts(edit);
+    const layers = resolvedEngineLayers(edit);
+    const candidates = sourceCandidates(edit, timelineData, cuts, layers);
+    const choices = await resolveSourceChoices(candidates, {
+      mode: parseSourceSelectionMode(params.get('frameEngineSource')),
+      ui,
+      cutSourceIds: new Set(cuts.map(cut => String(cut.src))),
+    });
+    return new FrameEngineRuntime(ui, edit, timelineData, fps, choices);
+  };
+  let runtime = await prepareRuntime(options.edit, options.timelineData, options.fps);
   await runtime.prime();
   const preview = {
     snapshot: () => runtime.snapshot(),
@@ -573,7 +794,7 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
       replaceCanvas(ui);
       ui.error.hidden = true;
       ui.root.dataset.frameEngineReady = 'false';
-      runtime = new FrameEngineRuntime(ui, edit, timelineData, fps);
+      runtime = await prepareRuntime(edit, timelineData, fps);
       await runtime.prime();
     },
     dispose() {

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { TRANSITION_TYPE_IDS } from '@akari-video/edit-store';
-import { buildBaseFragment } from '../dist/index.js';
+import { buildBaseFragment, isDirectUploadableFormat } from '../dist/index.js';
 
 const source = await readFile(path.resolve(import.meta.dirname, '../src/compositor/webgl2.ts'), 'utf8');
 const comparisonSource = await readFile(path.resolve(import.meta.dirname, 'golden/layers-compare.mjs'), 'utf8');
@@ -147,6 +147,15 @@ test('direct upload has RGBA shader branches and a sticky copyTo fallback', () =
   assert.match(source, /get uploadPath\(\): UploadPath/u);
   assert.match(source, /displayWidth/u);
   assert.match(source, /displayHeight/u);
+});
+
+test('direct VideoFrame upload accepts native and packed RGB formats only', () => {
+  for (const format of [null, 'NV12', 'I420', 'RGBA', 'BGRA', 'RGBX', 'BGRX']) {
+    assert.equal(isDirectUploadableFormat(format), true, String(format));
+  }
+  for (const format of ['I422', 'I444', 'NV12A', 'I420A']) {
+    assert.equal(isDirectUploadableFormat(format), false, format);
+  }
 });
 
 test('failed PBO fence allocation releases its bound buffer', () => {
