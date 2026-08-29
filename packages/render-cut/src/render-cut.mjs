@@ -120,9 +120,9 @@ export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   let resolvedEngine = resolveEngineChoice(engineRequested, process.platform);
   const projectRoot = resolve(input);
-  const editPath = join(projectRoot, "edit.json");
-  const editText = await readRequired(editPath, "edit.json");
-  const parsedEdit = parseJson(editText, "edit.json");
+  const editPath = options.editPath ? resolve(projectRoot, options.editPath) : join(projectRoot, "edit.json");
+  const editText = await readRequired(editPath, options.editPath ?? "edit.json");
+  const parsedEdit = parseJson(editText, options.editPath ?? "edit.json");
   const renderTmpRoot = join(projectRoot, ".akari", "render-tmp");
   const renderRead = readRenderEdit(editText, renderTmpRoot);
   let edit = renderRead.edit;
@@ -131,7 +131,7 @@ export async function renderProject(input, options = {}, io = console) {
 
   const lint = await validateLint(projectRoot, options.force === true);
   const capabilities = await measureCapabilities(projectRoot, edit);
-  const encodingPolicy = resolveEncodingPolicy({
+  const encodingPolicy = options.encodingPolicy ?? resolveEncodingPolicy({
     cli: { quality: options.quality, encoder: options.encoder },
     edit,
     capabilities,
@@ -186,9 +186,11 @@ export async function renderProject(input, options = {}, io = console) {
   // across repeated --plan-only calls). An actual render claims its own uniquely-named
   // subdirectory so two processes racing on the same project never clobber each other's
   // intermediates; only the owning process ever writes into it.
-  const temporaryDirectory = options.planOnly
-    ? renderTmpRoot
-    : await createRunTemporaryDirectory(renderTmpRoot);
+  const temporaryDirectory = options.temporaryDirectory
+    ? resolve(options.temporaryDirectory)
+    : options.planOnly
+      ? renderTmpRoot
+      : await createRunTemporaryDirectory(renderTmpRoot);
   edit = projectRendererCompatibilityEdit(parsedEdit, internalEdit, temporaryDirectory);
 
   const plan = buildPlan({
@@ -264,7 +266,7 @@ export async function renderProject(input, options = {}, io = console) {
 
   const statePath = join(projectRoot, ".akari", "render.json");
   const reportPath = join(projectRoot, ".akari", "reports", "render-report.html");
-  await writeState(state, statePath, reportPath, projectRoot);
+  if (options.writeState !== false) await writeState(state, statePath, reportPath, projectRoot);
   if (options.planOnly) return state;
 
   let osrLauncher = resolvedEngine === "osr" ? await resolveOsrLauncher() : null;
@@ -904,7 +906,7 @@ async function collectInputReceipts(projectRoot, edit, editText) {
   return receipts;
 }
 
-async function loadOverlays(projectRoot, edit) {
+export async function loadOverlays(projectRoot, edit) {
   return Promise.all(
     edit.overlays.map(async (overlay) => ({
       ...overlay,

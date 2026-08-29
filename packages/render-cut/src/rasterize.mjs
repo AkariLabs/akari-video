@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { launchBrowser } from "./browser-launch.mjs";
+import { buildAnimatedCompositeArgs } from "./plan.mjs";
 import { enableWindowExpr } from "./enable-window.mjs";
 
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -805,27 +806,13 @@ export async function compositeAnimatedOverlay({
   videoEncodeArgs = null,
   onProgress,
 }) {
-  const args = [
-    "-hide_banner",
-    "-loglevel",
-    "error",
-    "-nostdin",
-    "-y",
-    "-i",
+  const args = buildAnimatedCompositeArgs({
     cutPath,
-    "-i",
     overlayPath,
-    "-filter_complex",
-    "[0:v][1:v]overlay=0:0:format=auto:shortest=1[composited];[composited]scale=out_range=tv[outv]",
-    "-map",
-    "[outv]",
-    ...(hasAudio ? ["-map", "0:a:0"] : []),
-    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
-    "-pix_fmt",
-    "yuv420p",
-    ...(hasAudio ? ["-c:a", "copy"] : ["-an"]),
     outputPath,
-  ];
+    hasAudio,
+    videoEncodeArgs,
+  });
   if (onProgress) {
     await runCheckedWithProgress(ffmpegCommand, args, { onProgress });
   } else {

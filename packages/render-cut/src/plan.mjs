@@ -927,32 +927,40 @@ export function probeAudioDurationSeconds(ffprobeCommand, path) {
   }
 }
 
+export function buildAnimatedCompositeArgs({
+  cutPath,
+  overlayPath,
+  outputPath,
+  hasAudio = true,
+  videoEncodeArgs = null,
+}) {
+  return [
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-nostdin",
+    "-y",
+    "-i",
+    cutPath,
+    "-i",
+    overlayPath,
+    "-filter_complex",
+    "[0:v][1:v]overlay=0:0:format=auto:shortest=1[composited];[composited]scale=out_range=tv[outv]",
+    "-map",
+    "[outv]",
+    ...(hasAudio ? ["-map", "0:a:0"] : []),
+    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
+    "-pix_fmt",
+    "yuv420p",
+    ...(hasAudio ? ["-c:a", "copy"] : ["-an"]),
+    outputPath,
+  ];
+}
+
 function buildAnimatedCompositeCommand(command, cutPath, overlayPath, outputPath, videoEncodeArgs = null) {
   return {
     command,
-    args: [
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-nostdin",
-      "-y",
-      "-i",
-      cutPath,
-      "-i",
-      overlayPath,
-      "-filter_complex",
-      "[0:v][1:v]overlay=0:0:format=auto:shortest=1[composited];[composited]scale=out_range=tv[outv]",
-      "-map",
-      "[outv]",
-      "-map",
-      "0:a:0",
-      ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
-      "-pix_fmt",
-      "yuv420p",
-      "-c:a",
-      "copy",
-      outputPath,
-    ],
+    args: buildAnimatedCompositeArgs({ cutPath, overlayPath, outputPath, videoEncodeArgs }),
   };
 }
 
