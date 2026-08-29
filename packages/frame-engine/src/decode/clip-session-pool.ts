@@ -1,6 +1,5 @@
 import type { FrameMetricsRecorder, NativeFrameSource } from '../types.js';
 import { ClipSession, type ClipSessionOptions } from './clip-session.js';
-import type { CodecSupport } from './codec-probe.js';
 import { watchDecoderErrors } from './guard.js';
 
 /**
@@ -11,7 +10,6 @@ export class ClipSessionPool implements NativeFrameSource {
   private readonly sessions = new Map<string, Promise<ClipSession>>();
   private base: ClipSession | null = null;
   private acceleration: HardwarePreference | undefined;
-  private learnedCodecSupport: CodecSupport | null;
   private readonly stopDecoderWatch: () => void;
 
   constructor(
@@ -19,7 +17,6 @@ export class ClipSessionPool implements NativeFrameSource {
     private readonly src: string,
     private readonly options: ClipSessionOptions = {}
   ) {
-    this.learnedCodecSupport = options.codecSupport ?? null;
     // av-cliper can emit decoder failures after tick() has already settled. Keep one pool-level
     // guard alive until destroy() so errors between requests are still contained and reported.
     this.stopDecoderWatch = watchDecoderErrors(message => {
@@ -65,10 +62,6 @@ export class ClipSessionPool implements NativeFrameSource {
     return this.sessions.size;
   }
 
-  codecSupport(): CodecSupport | null {
-    return this.learnedCodecSupport;
-  }
-
   destroy(): void {
     this.stopDecoderWatch();
     const destroyed = new Set<ClipSession>();
@@ -91,11 +84,6 @@ export class ClipSessionPool implements NativeFrameSource {
     this.base ??= new ClipSession(`${this.id}:base`, this.src, {
       ...this.options,
       hardwareAcceleration: this.acceleration,
-      codecSupport: this.learnedCodecSupport,
-      onCodecSupport: support => {
-        this.learnedCodecSupport = support;
-        this.options.onCodecSupport?.(support);
-      },
       onDecoderDegraded: () => this.noteDegraded()
     });
     return this.base;
@@ -103,13 +91,6 @@ export class ClipSessionPool implements NativeFrameSource {
 
   private noteDegraded(): void {
     if (this.acceleration === 'prefer-software') return;
-    if (this.learnedCodecSupport?.sw === false) {
-      this.options.onWarning?.(
-        `${this.id}: software decoder fallback is unavailable for ${this.learnedCodecSupport.codec}`,
-      );
-      this.options.onSoftwareFallbackDenied?.(this.learnedCodecSupport);
-      return;
-    }
     this.acceleration = 'prefer-software';
     this.base?.destroy();
     this.base = null;

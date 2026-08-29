@@ -191,35 +191,6 @@ export class DirectUploadFallbackError extends Error {
   }
 }
 
-const DIRECT_UPLOADABLE_VIDEO_FORMATS = new Set<string | null>([
-  null,
-  'NV12',
-  'I420',
-  'RGBA',
-  'BGRA',
-  'RGBX',
-  'BGRX',
-]);
-
-const PACKED_RGB_VIDEO_FORMATS = new Set<string>([
-  'RGBA',
-  'BGRA',
-  'RGBX',
-  'BGRX',
-]);
-
-export function isDirectUploadableFormat(format: string | null): boolean {
-  return DIRECT_UPLOADABLE_VIDEO_FORMATS.has(format);
-}
-
-function isPackedRgbVideoFormat(format: string | null): boolean {
-  return format !== null && PACKED_RGB_VIDEO_FORMATS.has(format);
-}
-
-function isCopyToPassthroughVideoFormat(format: string | null): boolean {
-  return format === null || isPackedRgbVideoFormat(format);
-}
-
 const YUV_GLSL = `
 vec3 yuv709Unclamped(float y, vec2 chroma) {
   y -= 16.0 / 255.0;
@@ -946,9 +917,9 @@ export class WebGL2Compositor implements CompositorBackend {
     frame: VideoFrame,
     uniforms?: CutUniforms,
   ): { width: number; height: number } {
-    if (this.directUploadDisabled && !isCopyToPassthroughVideoFormat(frame.format))
+    if (this.directUploadDisabled)
       this.failDirectUpload('direct upload is disabled for this session');
-    if (!isDirectUploadableFormat(frame.format))
+    if (frame.format !== null && frame.format !== 'NV12' && frame.format !== 'I420')
       this.failDirectUpload(`unsupported VideoFrame format: ${String(frame.format)}`);
     const width = frame.displayWidth;
     const height = frame.displayHeight;
@@ -1250,12 +1221,9 @@ export class WebGL2Compositor implements CompositorBackend {
       throw new Error('layer inputs must match plan.layers');
     if (base.length === 0 && layers.length === 0)
       throw new Error('cannot compose an empty plan');
-    const hasBlockedDirectInput = base.some(frame =>
-      isVideoFrame(frame) && !isCopyToPassthroughVideoFormat(frame.format)) || layers.some(input =>
-      (isVideoFrame(input.color) && !isCopyToPassthroughVideoFormat(input.color.format))
-      || Boolean(input.mask && isVideoFrame(input.mask)
-        && !isCopyToPassthroughVideoFormat(input.mask.format)));
-    if (hasBlockedDirectInput && this.directUploadDisabled)
+    const hasDirectInput = base.some(isVideoFrame) || layers.some(input =>
+      isVideoFrame(input.color) || Boolean(input.mask && isVideoFrame(input.mask)));
+    if (hasDirectInput && this.directUploadDisabled)
       this.failDirectUpload('direct upload is disabled for this session');
     if (this.canvas.width !== output.width) this.canvas.width = output.width;
     if (this.canvas.height !== output.height)

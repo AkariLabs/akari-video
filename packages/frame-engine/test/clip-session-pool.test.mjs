@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
-import { ClipSessionPool } from '../dist/index.js';
 
 const sourceRoot = path.resolve(import.meta.dirname, '../src/decode');
 const [clipSessionSource, poolSource] = await Promise.all([
@@ -37,13 +36,6 @@ test('ClipSession forks parsed media without priming the base decoder', () => {
   assert.doesNotMatch(ensureParsed, /\.tick\(/u);
   assert.match(fork, /await this\.ensureParsed\(\)/u);
   assert.doesNotMatch(fork, /await this\.load\(\)/u);
-  assert.match(fork, /fork\.sourceBytes = this\.sourceBytes/u);
-  assert.match(fork, /fork\.ownsSourceBytes = false/u);
-  const destroy = clipSessionSource.slice(
-    clipSessionSource.indexOf('destroy(): void'),
-    clipSessionSource.indexOf('private async guardedTick'),
-  );
-  assert.match(destroy, /if \(this\.ownsSourceBytes\) this\.sourceBytes\.destroy\(\)/u);
 });
 
 test('decoder acceleration degradation is learned once per pool and decoder failures get two paced retry rounds', () => {
@@ -59,26 +51,4 @@ test('decoder acceleration degradation is learned once per pool and decoder fail
   assert.match(poolSource, /onDecoderDegraded: \(\) => this\.noteDegraded\(\)/u);
   assert.match(poolSource, /this\.acceleration = 'prefer-software'/u);
   assert.match(poolSource, /this\.base\?\.destroy\(\);\s*this\.base = null/u);
-});
-
-test('HEVC support that lacks software decode denies pool degradation', () => {
-  const denied = [];
-  const pool = new ClipSessionPool('hevc', '/hevc.mp4', {
-    codecSupport: { codec: 'hvc1.2.4.H156.B0', hw: true, sw: false, any: true },
-    onSoftwareFallbackDenied: support => denied.push(support),
-  });
-  pool.noteDegraded();
-  assert.equal(pool.acceleration, undefined);
-  assert.equal(pool.codecSupport()?.sw, false);
-  assert.equal(denied.length, 1);
-  pool.destroy();
-});
-
-test('H.264 support that has software decode still learns pool degradation', () => {
-  const pool = new ClipSessionPool('h264', '/h264.mp4', {
-    codecSupport: { codec: 'avc1.640028', hw: true, sw: true, any: true },
-  });
-  pool.noteDegraded();
-  assert.equal(pool.acceleration, 'prefer-software');
-  pool.destroy();
 });

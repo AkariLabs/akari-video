@@ -1,34 +1,17 @@
 // Adapted from packages/preview-engine/src/clipSession.ts.
 import { MP4Clip } from '../../vendor/av-cliper/av-cliper.js';
 import type { FrameMetricsRecorder, NativeFrameSource } from '../types.js';
-import {
-  evaluateCodecSupport,
-  readVideoCodecFromMoov,
-  type CodecSupport,
-} from './codec-probe.js';
-import { isDecoderErrorMessage, withProgressBudget, withTimeout, watchDecoderErrors } from './guard.js';
+import { isDecoderErrorMessage, withTimeout, watchDecoderErrors } from './guard.js';
 import { buildKeyframeIndexFromHeader, type KeyframeIndex } from './keyframe-index.js';
-import {
-  calculateLoadBudgetMs,
-  DEFAULT_LOAD_BYTES_PER_SECOND,
-  RetainedSourceBytes,
-} from './source-bytes.js';
 
 export type ClipSessionState = 'idle' | 'loading' | 'ready' | 'degraded' | 'unavailable';
 
 export interface ClipSessionOptions {
   loadTimeoutMs?: number;
-  loadBudgetMs?: number;
-  loadStallMs?: number;
-  loadBytesPerSecond?: number;
-  retainBudgetBytes?: number;
   tickTimeoutMs?: number;
   hardwareAcceleration?: HardwarePreference;
-  codecSupport?: CodecSupport | null;
   onWarning?: (message: string) => void;
   onDecoderDegraded?: () => void;
-  onCodecSupport?: (support: CodecSupport) => void;
-  onSoftwareFallbackDenied?: (support: CodecSupport) => void;
 }
 
 class DecoderGuardError extends Error {
@@ -97,57 +80,26 @@ export class ClipSession implements NativeFrameSource {
   private preparePromise: Promise<void> | null = null;
   private preparedCandidate: MP4Clip | null = null;
   private preparedKeyframes: KeyframeIndex | null = null;
-  private cachedHeader: ArrayBuffer | null = null;
-  private cachedKeyframes: KeyframeIndex | null = null;
-  private learnedSupport: CodecSupport | null = null;
-  private codecLearningStarted = false;
-  private softwareFallbackWarningShown = false;
   private prepareGeneration = 0;
   private queue: Promise<unknown> = Promise.resolve();
-  private sourceBytes: RetainedSourceBytes;
-  private ownsSourceBytes = true;
   private readonly options: {
-    loadTimeoutMs?: number;
-    loadBudgetMs?: number;
-    loadStallMs: number;
-    loadBytesPerSecond: number;
+    loadTimeoutMs: number;
     tickTimeoutMs: number;
     hardwareAcceleration?: HardwarePreference;
-    codecSupport?: CodecSupport | null;
     onWarning?: (message: string) => void;
     onDecoderDegraded?: () => void;
-    onCodecSupport?: (support: CodecSupport) => void;
-    onSoftwareFallbackDenied?: (support: CodecSupport) => void;
   };
 
   constructor(id: string, src: string, options: ClipSessionOptions = {}) {
     this.id = id;
     this.src = src;
     this.options = {
-      loadTimeoutMs: options.loadTimeoutMs,
-      loadBudgetMs: options.loadBudgetMs,
-      loadStallMs: options.loadStallMs ?? 5_000,
-      loadBytesPerSecond: options.loadBytesPerSecond ?? DEFAULT_LOAD_BYTES_PER_SECOND,
+      loadTimeoutMs: options.loadTimeoutMs ?? 10_000,
       tickTimeoutMs: options.tickTimeoutMs ?? 10_000,
       hardwareAcceleration: options.hardwareAcceleration,
-      codecSupport: options.codecSupport,
       onWarning: options.onWarning,
-      onDecoderDegraded: options.onDecoderDegraded,
-      onCodecSupport: options.onCodecSupport,
-      onSoftwareFallbackDenied: options.onSoftwareFallbackDenied,
+      onDecoderDegraded: options.onDecoderDegraded
     };
-    this.sourceBytes = new RetainedSourceBytes(src, {
-      retainBudgetBytes: options.retainBudgetBytes,
-      loadBudgetMs: options.loadBudgetMs ?? options.loadTimeoutMs,
-      loadStallMs: options.loadStallMs,
-      loadBytesPerSecond: options.loadBytesPerSecond,
-      onWarning: options.onWarning,
-      label: id,
-    });
-  }
-
-  getFetchCount(): number {
-    return this.sourceBytes.getFetchCount();
   }
 
   load(): Promise<void> {
@@ -171,12 +123,13 @@ export class ClipSession implements NativeFrameSource {
   private async doPrepare(generation: number): Promise<void> {
     let candidate: MP4Clip | null = null;
     try {
-      const source = await this.sourceBytes.open();
-      candidate = new MP4Clip(source.stream, {
+      const response = await fetch(this.src);
+      if (!response.ok || !response.body) throw new Error(`fetch failed: ${response.status}`);
+      candidate = new MP4Clip(response.body, {
         audio: false,
         __unsafe_hardwareAcceleration__: this.options.hardwareAcceleration ?? 'prefer-hardware'
       });
-      await this.waitForReady(candidate.ready, source, `prepare ${this.id}`);
+      await withTimeout(candidate.ready, this.options.loadTimeoutMs, `prepare ${this.id}`);
       const keyframes = await this.readKeyframes(candidate);
       if (generation !== this.prepareGeneration) {
         candidate.destroy();
@@ -200,46 +153,52 @@ export class ClipSession implements NativeFrameSource {
     this.state = 'loading';
     this.coverage.clear();
     let lastError: unknown;
-    const attemptedAccelerations: HardwarePreference[] = [];
+    const accelerations: HardwarePreference[] = this.options.hardwareAcceleration
+      ? [this.options.hardwareAcceleration]
+      : ['prefer-hardware', 'prefer-software'];
+    const attempts = accelerations.map(hardwareAcceleration => ({
+      hardwareAcceleration,
+      state: hardwareAcceleration === 'prefer-software' ? 'degraded' as const : 'ready' as const
+    }));
     for (let round = 0; round < 3; round += 1) {
       if (round > 0) {
         await new Promise(resolve => setTimeout(resolve, round * 150));
       }
-      for (const attempt of this.loadAttempts()) {
-        attemptedAccelerations.push(attempt.hardwareAcceleration);
+      for (const attempt of attempts) {
         let candidate: MP4Clip | null = null;
         try {
+          let usedPrepared = false;
+          if (attempt.hardwareAcceleration === (this.options.hardwareAcceleration ?? 'prefer-hardware')) {
+            await this.preparePromise;
+            if (this.preparedCandidate) {
+              candidate = this.preparedCandidate;
+              this.preparedCandidate = null;
+              this.applyKeyframes(this.preparedKeyframes);
+              this.preparedKeyframes = null;
+              usedPrepared = true;
+            }
+          }
+          if (!candidate) {
+            const response = await fetch(this.src);
+            if (!response.ok || !response.body) throw new Error(`fetch failed: ${response.status}`);
+            candidate = new MP4Clip(response.body, {
+              audio: false,
+              __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
+            });
+          }
           let rejectDecoder: ((message: string) => void) | null = null;
           const decoderError = new Promise<never>((_resolve, reject) => {
             rejectDecoder = message => reject(new Error(`decoder error: ${message}`));
           });
           decoderError.catch(() => undefined);
           const stopWatching = watchDecoderErrors(message => rejectDecoder?.(message));
-          let usedPrepared = false;
           try {
-            if (attempt.hardwareAcceleration === (this.options.hardwareAcceleration ?? 'prefer-hardware')) {
-              await this.preparePromise;
-              if (this.preparedCandidate) {
-                candidate = this.preparedCandidate;
-                this.preparedCandidate = null;
-                this.applyKeyframes(this.preparedKeyframes);
-                this.preparedKeyframes = null;
-                usedPrepared = true;
-              }
-            }
-            if (!candidate) {
-              const source = await this.sourceBytes.open();
-              candidate = new MP4Clip(source.stream, {
-                audio: false,
-                __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
-              });
-              await this.waitForReady(
-                Promise.race([candidate.ready, decoderError]),
-                source,
-                `ready ${this.id}`,
-              );
-            }
             if (!usedPrepared) {
+              await withTimeout(
+                Promise.race([candidate.ready, decoderError]),
+                this.options.loadTimeoutMs,
+                `ready ${this.id}`
+              );
               this.applyKeyframes(await this.readKeyframes(candidate));
             }
             const primeTarget = this.toDecoderTime(0);
@@ -282,7 +241,7 @@ export class ClipSession implements NativeFrameSource {
     const lastMessage = lastError instanceof Error ? lastError.message : String(lastError);
     const diagnostic = describeUnusableDecoder(
       this.id,
-      attemptedAccelerations,
+      attempts.map(attempt => attempt.hardwareAcceleration),
       lastMessage,
     );
     if (diagnostic) throw new Error(diagnostic, { cause: lastError });
@@ -290,81 +249,13 @@ export class ClipSession implements NativeFrameSource {
   }
 
   private async readKeyframes(clip: MP4Clip): Promise<KeyframeIndex | null> {
-    if (this.cachedKeyframes) return this.cachedKeyframes;
     try {
-      const header = this.cachedHeader
-        ?? await withTimeout(clip.getFileHeaderBinData(), 2_000, `header ${this.id}`);
-      if (!this.cachedHeader) {
-        this.cachedHeader = header;
-        this.learnCodecSupport(header);
-      }
-      const keyframes = await withTimeout(buildKeyframeIndexFromHeader(header), 2_000, `keyframes ${this.id}`);
-      this.cachedKeyframes = keyframes;
-      return keyframes;
+      const header = await withTimeout(clip.getFileHeaderBinData(), 2_000, `header ${this.id}`);
+      return await withTimeout(buildKeyframeIndexFromHeader(header), 2_000, `keyframes ${this.id}`);
     } catch (error) {
       this.options.onWarning?.(`${this.id}: keyframe index unavailable: ${String(error)}`);
       return null;
     }
-  }
-
-  private waitForReady<T>(
-    promise: Promise<T>,
-    source: { totalBytes: number | null; progress: () => number },
-    label: string,
-  ): Promise<T> {
-    const budgetMs = this.options.loadBudgetMs
-      ?? this.options.loadTimeoutMs
-      ?? calculateLoadBudgetMs(source.totalBytes, this.options.loadBytesPerSecond);
-    return withProgressBudget(promise, {
-      budgetMs,
-      stallMs: this.options.loadStallMs,
-      progress: source.progress,
-      label,
-    });
-  }
-
-  private effectiveSupport(): CodecSupport | null {
-    return this.options.codecSupport ?? this.learnedSupport;
-  }
-
-  private loadAttempts(): Array<{
-    hardwareAcceleration: HardwarePreference;
-    state: 'ready' | 'degraded';
-  }> {
-    if (this.options.hardwareAcceleration) {
-      return [{
-        hardwareAcceleration: this.options.hardwareAcceleration,
-        state: this.options.hardwareAcceleration === 'prefer-software' ? 'degraded' : 'ready',
-      }];
-    }
-    const support = this.effectiveSupport();
-    if (support?.sw === false) {
-      if (!this.softwareFallbackWarningShown) {
-        this.softwareFallbackWarningShown = true;
-        this.options.onWarning?.(
-          `${this.id}: software decoder fallback is unavailable for ${support.codec}`,
-        );
-        this.options.onSoftwareFallbackDenied?.(support);
-      }
-      return [{ hardwareAcceleration: 'prefer-hardware', state: 'ready' }];
-    }
-    return [
-      { hardwareAcceleration: 'prefer-hardware', state: 'ready' },
-      { hardwareAcceleration: 'prefer-software', state: 'degraded' },
-    ];
-  }
-
-  private learnCodecSupport(header: ArrayBuffer): void {
-    if (this.codecLearningStarted || this.options.codecSupport) return;
-    const info = readVideoCodecFromMoov(header);
-    if (!info || typeof VideoDecoder === 'undefined') return;
-    this.codecLearningStarted = true;
-    void evaluateCodecSupport(info.codec, info).then(support => {
-      this.learnedSupport = support;
-      this.options.onCodecSupport?.(support);
-    }, error => {
-      this.options.onWarning?.(`${this.id}: codec support probe failed: ${String(error)}`);
-    });
   }
 
   private applyKeyframes(keyframes: KeyframeIndex | null): void {
@@ -459,18 +350,12 @@ export class ClipSession implements NativeFrameSource {
       throw new Error(`clip ${this.id} cannot be forked while unavailable`);
     }
     const fork = new ClipSession(id, this.src, this.options);
-    fork.sourceBytes = this.sourceBytes;
-    fork.ownsSourceBytes = false;
     fork.clip = await this.clip.clone();
     fork.meta = { ...this.meta };
     fork.state = this.state;
     fork.keyframes = this.keyframes;
     fork.lastFrameStartUs = this.lastFrameStartUs;
     fork.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
-    fork.cachedHeader = this.cachedHeader;
-    fork.cachedKeyframes = this.cachedKeyframes;
-    fork.learnedSupport = this.learnedSupport;
-    fork.codecLearningStarted = this.codecLearningStarted;
     // MP4Clip.clone() constructs a fresh, unprimed VideoFrameFinder.
     fork.lastTickTargetUs = null;
     const coverageSeed = this.coverage.cloneStored();
@@ -494,11 +379,6 @@ export class ClipSession implements NativeFrameSource {
     this.decoderTimestampOffsetUs = 0;
     this.lastTickTargetUs = null;
     this.loadPromise = null;
-    this.cachedHeader = null;
-    this.cachedKeyframes = null;
-    this.learnedSupport = null;
-    this.codecLearningStarted = false;
-    if (this.ownsSourceBytes) this.sourceBytes.destroy();
     this.state = 'idle';
   }
 
