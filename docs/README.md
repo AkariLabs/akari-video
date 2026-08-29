@@ -38,7 +38,7 @@ Task-based guides, ordered by the flow of production.
 
 ## Skills
 
-The workflow ships as 22 agent-side skills. The [Skills Catalog](./skills.md) is the
+The workflow ships as 23 agent-side skills. The [Skills Catalog](./skills.md) is the
 single map: what each skill owns, when it triggers, and which external tools and
 animation runtimes it connects to — including the two 3D paths.
 

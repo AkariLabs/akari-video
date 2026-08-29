@@ -21,7 +21,7 @@ Node ESM のエントリポイントガードは両辺を realpath で比較す�
 
 <!-- BEGIN GENERATED skills-index — scripts/gen-skills-index.mjs が生成。手で編集しない -->
 
-スキル数: 22
+スキル数: 23
 
 | スキル | 発動条件（description） | 正本 |
 |---|---|---|
@@ -32,6 +32,7 @@ Node ESM のエントリポイントガードは両辺を realpath で比較す�
 | `beat-sync-edit` | 宣言済み音源（declarations.json の BPM・頭拍・キメ・区間）を唯一の時刻ソースにして、拍にスナップした edit.json とオーバーレイ一式を「生成器」から機械生成する制作スキル。音に合わせて画面が動く PV・ハイライト・ショーケースを、手打ちの秒数ゼロで作る。「リズムに合わせて動画を作って」「この曲で PV を作って」「拍に合わせて切り替えたい」「音に反応するモーションにして」で発動。宣言づけ自体は declare-audio（別物）、素材ゼロからの企画は edit-plan（別物）。 | `skills/beat-sync-edit/SKILL.md` |
 | `compile-review-session` | 録音 review セッションの audio.wav・events.jsonl・edit.snapshot.json・session.json を、analyze-footage と同じ 3 層 STT で文字起こしし、発話区切り・軌跡からの参照解決・命令形への正規化を経て review.json の open annotation とコンパイルレポートへ着地する。喋りながら行った QA セッションをチケット化するとき、recorded / transcribed セッションをコンパイルするとき、または compiled セッションを明示的に再コンパイルするときに使う。 | `skills/compile-review-session/SKILL.md` |
 | `create-project` | AKARI Video の新規プロジェクトを headless で作成する。`templates/project-default/` を再帰コピーし、雛形バージョンを記録し、安全な場合のみ git 初期化して、作成結果レポート HTML を生成する。アプリ起動は不要。新しい動画プロジェクトを作るとき、または既存フォルダを AKARI Video プロジェクトとして補完するときに使う。 | `skills/create-project/SKILL.md` |
+| `critique-cut` | 人間が先に組んだ edit.json を読み、使われている素材の使用区間だけを観察して所見を返す読み取り専用スキル。edit.json は変更しない。「今こんな感じどう？」「このカット見て」「今のタイムラインを講評して」で発動する。 | `skills/critique-cut/SKILL.md` |
 | `declare-audio` | 手元の音源に「サビはどこか・キメはどこか・拍はどこか」を自分の耳で付ける（宣言づけ）。ブラウザで開くタイムライン画面を起動し、人が波形にサビ区間とキメのピンを打ち、BPM・頭拍を確定して declarations.json へ保存する。付けた宣言は BGM 自動提案（suggest-bgm）がそのまま読み、実測 BPM とサビ頭出し（audio.bgm.in）付きの提案になる。「この曲のサビを教えたい」「BGM の提案が雑」「拍に合わせて切りたい」「宣言を自分で作りたい」で発動。音源を増やすのは setup-audio-library（別物）。 | `skills/declare-audio/SKILL.md` |
 | `edit-lint` | edit.json と任意の analysis.json / captions.json / メディアを決定的 CLI で検査し、PASS 後のフレーム視認とレポートまで QA を完了する。edit.json を書いた、または変更した直後、書き出し前、レビュー指摘を反映した後の再確認で使う。 | `skills/edit-lint/SKILL.md` |
 | `edit-plan` | analyze-project が作る分析レポート（interpretation.json + analysis-report.html）を一次証拠として読み、方針・素材計画・実行をチャットの明示承認で確定したうえで edit.json とオーバーレイ HTML へ落とすスキル。複数素材の編集計画、素材ゼロからの生成計画（質問対話 → plan.json の仮枠タイムライン確定）、分析結果からカットや BGM・SFX・B ロールを決める依頼で使う。 | `skills/edit-plan/SKILL.md` |
