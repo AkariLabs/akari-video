@@ -2606,9 +2606,9 @@ ${indent}`);
           fail("INVALID_POLICY", `display_policy.algorithm must be ${exports.CAPTION_DISPLAY_ALGORITHM}`);
         if (value.unit_metric !== exports.CAPTION_UNIT_METRIC)
           fail("INVALID_POLICY", `display_policy.unit_metric must be ${exports.CAPTION_UNIT_METRIC}`);
-        if (!finitePositive2(value.max_line_units))
+        if (!finitePositive3(value.max_line_units))
           fail("INVALID_POLICY", "display_policy.max_line_units must be a positive finite number");
-        if (!finitePositive2(value.minimum_fragment_duration_seconds))
+        if (!finitePositive3(value.minimum_fragment_duration_seconds))
           fail("INVALID_POLICY", "display_policy.minimum_fragment_duration_seconds must be a positive finite number");
         if (!strictText(value.locale)) {
           fail("INVALID_POLICY", "display_policy.locale must be a non-empty NFC trimmed string");
@@ -2743,13 +2743,13 @@ ${indent}`);
         rejectStyleUnknown(value, CAPTION_STYLE_KEYS, label);
         if (Object.prototype.hasOwnProperty.call(value, "color"))
           validateHexColor(value.color, `${label}.color`);
-        if (Object.prototype.hasOwnProperty.call(value, "size_px") && !finitePositive2(value.size_px)) {
+        if (Object.prototype.hasOwnProperty.call(value, "size_px") && !finitePositive3(value.size_px)) {
           fail("INVALID_TEXT_STYLE", `${label}.size_px must be a positive finite number`);
         }
         if (Object.prototype.hasOwnProperty.call(value, "font_weight") && (!Number.isInteger(value.font_weight) || value.font_weight < 1 || value.font_weight > 1e3)) {
           fail("INVALID_TEXT_STYLE", `${label}.font_weight must be an integer within [1, 1000]`);
         }
-        if (Object.prototype.hasOwnProperty.call(value, "line_height") && !finitePositive2(value.line_height)) {
+        if (Object.prototype.hasOwnProperty.call(value, "line_height") && !finitePositive3(value.line_height)) {
           fail("INVALID_TEXT_STYLE", `${label}.line_height must be a positive finite number`);
         }
         validateTextStyleV0(value, label);
@@ -2815,7 +2815,7 @@ ${indent}`);
             fail("INVALID_TEXT_STYLE", `${label}.${key} is required`);
           }
         }
-        if (value.mode !== "reference-pixel" || !Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative(value.left_px) || !finitePositive2(value.width_px) || value.left_px + value.width_px > value.reference_width_px || !finiteNonNegative(value.bottom_px) || value.text_align !== "center" || value.max_lines !== 1) {
+        if (value.mode !== "reference-pixel" || !Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative(value.left_px) || !finitePositive3(value.width_px) || value.left_px + value.width_px > value.reference_width_px || !finiteNonNegative(value.bottom_px) || value.text_align !== "center" || value.max_lines !== 1) {
           fail("INVALID_TEXT_STYLE", `${label} must be a bounded reference-pixel layout with center/max_lines=1`);
         }
       }
@@ -2876,13 +2876,13 @@ ${indent}`);
             if (typeof entry.id !== "string" || entry.id === "") {
               fail("INVALID_TEXT_STYLE", `${slotLabel}.id must be a non-empty string`);
             }
-            if (Object.prototype.hasOwnProperty.call(entry, "duration_sec") && !finitePositive2(entry.duration_sec)) {
+            if (Object.prototype.hasOwnProperty.call(entry, "duration_sec") && !finitePositive3(entry.duration_sec)) {
               fail("INVALID_TEXT_STYLE", `${slotLabel}.duration_sec must be a positive finite number`);
             }
             if (Object.prototype.hasOwnProperty.call(entry, "ease") && (typeof entry.ease !== "string" || entry.ease === "")) {
               fail("INVALID_TEXT_STYLE", `${slotLabel}.ease must be a non-empty string`);
             }
-            if (Object.prototype.hasOwnProperty.call(entry, "amp") && !finitePositive2(entry.amp)) {
+            if (Object.prototype.hasOwnProperty.call(entry, "amp") && !finitePositive3(entry.amp)) {
               fail("INVALID_TEXT_STYLE", `${slotLabel}.amp must be a positive finite number`);
             }
           }
@@ -2946,13 +2946,13 @@ ${indent}`);
       }
       function validateLinearCuts(cuts, edit) {
         cuts.forEach((cut, index) => {
-          if (!isRecord(cut) || !finiteNonNegative(cut.in) || !finitePositive2(cut.out) || cut.out <= cut.in) {
+          if (!isRecord(cut) || !finiteNonNegative(cut.in) || !finitePositive3(cut.out) || cut.out <= cut.in) {
             fail("INVALID_CUT", `edit.json cuts[${index}] must satisfy 0 <= in < out`);
           }
           if (Object.prototype.hasOwnProperty.call(cut, "at") || Object.prototype.hasOwnProperty.call(cut, "track") || Object.prototype.hasOwnProperty.call(cut, "transition_out") || Object.prototype.hasOwnProperty.call(cut, "transitionOut")) {
             fail("UNSUPPORTED_TIMELINE", `display_policy does not support cuts[${index}].at/track/transition_out`);
           }
-          if (cut.speed !== void 0 && !finitePositive2(cut.speed))
+          if (cut.speed !== void 0 && !finitePositive3(cut.speed))
             fail("INVALID_CUT", `edit.json cuts[${index}].speed must be positive`);
         });
         if (Array.isArray(edit?.timeline?.tracks) && edit.timeline.tracks.some((track) => track?.kind === "cuts")) {
@@ -2963,7 +2963,7 @@ ${indent}`);
         const occurrences = [];
         let cursor = 0;
         const segments = cuts.map((cut, cutIndex) => {
-          const speed = finitePositive2(cut.speed) ? cut.speed : 1;
+          const speed = finitePositive3(cut.speed) ? cut.speed : 1;
           const duration = (cut.out - cut.in) / speed;
           const segment = { cut, cutIndex, speed, start: cursor, end: cursor + duration };
           cursor += duration;
@@ -2995,7 +2995,7 @@ ${indent}`);
             if (caption?.time_domain === "output")
               return;
             const text = caption?.display_text ?? caption?.text;
-            if (isRecord(caption) && finiteNonNegative(caption.start) && finitePositive2(caption.end) && caption.end > caption.start && typeof text === "string") {
+            if (isRecord(caption) && finiteNonNegative(caption.start) && finitePositive3(caption.end) && caption.end > caption.start && typeof text === "string") {
               occurrences.push({
                 source_cue_id: caption.id,
                 src: typeof caption.src === "string" ? caption.src : null,
@@ -3049,7 +3049,7 @@ ${indent}`);
       function validateSourceCaption(caption, index, policy) {
         if (!isRecord(caption) || !strictText(caption.id))
           fail("INVALID_CAPTION", `captions[${index}].id must be a non-empty string`);
-        if (!finiteNonNegative(caption.start) || !finitePositive2(caption.end) || caption.end <= caption.start) {
+        if (!finiteNonNegative(caption.start) || !finitePositive3(caption.end) || caption.end <= caption.start) {
           fail("INVALID_CAPTION", `captions[${index}] must satisfy 0 <= start < end`);
         }
         if (caption.src !== void 0 && !strictText(caption.src)) {
@@ -3077,7 +3077,7 @@ ${indent}`);
         captions.forEach((caption, index) => {
           if (caption.time_domain === "output")
             return;
-          const conflict = emphasisValue.some((value) => isRecord(value) && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src) && finiteNonNegative(value.t_start) && finitePositive2(value.t_end) && value.t_end > caption.start && value.t_start < caption.end);
+          const conflict = emphasisValue.some((value) => isRecord(value) && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src) && finiteNonNegative(value.t_start) && finitePositive3(value.t_end) && value.t_end > caption.start && value.t_start < caption.end);
           if (conflict)
             fail("EMPHASIS_CONFLICT", `edit.emphasis_words cannot act on captions[${index}] under display_policy`);
         });
@@ -3228,7 +3228,7 @@ ${indent}`);
         let layout;
         let scale = 1;
         if (style.layout !== void 0) {
-          if (!output || !finitePositive2(output.width) || !finitePositive2(output.height))
+          if (!output || !finitePositive3(output.width) || !finitePositive3(output.height))
             fail("INVALID_OUTPUT_GEOMETRY", "output width/height are required for reference-pixel caption layout");
           layout = resolveReferencePixelLayout(style.layout, output);
           scale = layout.scale;
@@ -3240,14 +3240,14 @@ ${indent}`);
         }
         if (typeof style.color === "string")
           vars["--caption-color"] = style.color;
-        if (finitePositive2(style.size_px))
+        if (finitePositive3(style.size_px))
           vars["--caption-font-size"] = `${formatCssNumber(style.size_px * scale)}px`;
         if (Number.isInteger(style.weight) && style.weight >= 100 && style.weight <= 900) {
           vars["--caption-font-weight"] = String(style.weight);
         } else if (Number.isInteger(style.font_weight) && style.font_weight >= 1 && style.font_weight <= 1e3) {
           vars["--caption-font-weight"] = String(style.font_weight);
         }
-        if (finitePositive2(style.line_height))
+        if (finitePositive3(style.line_height))
           vars["--caption-line-height"] = formatCssNumber(style.line_height);
         if (isRecord(style.stroke)) {
           const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)";
@@ -3276,7 +3276,7 @@ ${indent}`);
         for (const key of required)
           if (!Object.prototype.hasOwnProperty.call(value, key))
             fail("INVALID_LAYOUT", `caption layout.${key} is required`);
-        if (!Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative(value.left_px) || !finitePositive2(value.width_px) || !finiteNonNegative(value.bottom_px) || value.left_px + value.width_px > value.reference_width_px || value.text_align !== "center" || value.max_lines !== 1) {
+        if (!Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative(value.left_px) || !finitePositive3(value.width_px) || !finiteNonNegative(value.bottom_px) || value.left_px + value.width_px > value.reference_width_px || value.text_align !== "center" || value.max_lines !== 1) {
           fail("INVALID_LAYOUT", "caption reference-pixel layout fields are invalid");
         }
         const widthScale = output.width / value.reference_width_px;
@@ -3321,7 +3321,7 @@ ${indent}`);
       function finiteNumber2(value) {
         return typeof value === "number" && Number.isFinite(value);
       }
-      function finitePositive2(value) {
+      function finitePositive3(value) {
         return typeof value === "number" && Number.isFinite(value) && value > 0;
       }
       function finiteNonNegative(value) {
@@ -5194,11 +5194,13 @@ ${indent}`);
     "packages/edit-store/lib/audio-schedule.js"(exports) {
       "use strict";
       Object.defineProperty(exports, "__esModule", { value: true });
-      exports.buildWebAudioSchedule = buildWebAudioSchedule;
+      exports.buildWebAudioSchedule = buildWebAudioSchedule2;
+      exports.projectSpeechDeclarations = projectSpeechDeclarations3;
       var ducking_1 = require_ducking();
-      function buildWebAudioSchedule(input) {
+      var timeline_map_1 = require_timeline_map();
+      function buildWebAudioSchedule2(input) {
         const warnings = [];
-        const timelineDurationSec = finitePositive2(input.timelineDurationSec) ? input.timelineDurationSec : 0;
+        const timelineDurationSec = finitePositive3(input.timelineDurationSec) ? input.timelineDurationSec : 0;
         const startAtSec = Math.max(0, Math.min(timelineDurationSec, Number.isFinite(input.startAtSec) ? input.startAtSec : 0));
         const audio = input.audio;
         if (!audio || timelineDurationSec <= 0 || startAtSec >= timelineDurationSec) {
@@ -5227,6 +5229,11 @@ ${indent}`);
           if (scheduled)
             items.push(scheduled);
         }
+        for (const speech of audio.speech ?? []) {
+          const scheduled = scheduleSpeech(speech, timelineDurationSec, startAtSec, warnings);
+          if (scheduled)
+            items.push(scheduled);
+        }
         return { timelineDurationSec, startAtSec, items, duckIntervals, warnings };
       }
       function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
@@ -5237,7 +5244,7 @@ ${indent}`);
           const spec = specs[index];
           const id = typeof spec?.id === "string" && spec.id ? spec.id : `${kind}-${index + 1}`;
           const label = `${kind} ${id}`;
-          if (!spec || !finitePositive2(spec.durationSec)) {
+          if (!spec || !finitePositive3(spec.durationSec)) {
             warnings.push(`${label}: decoded duration is invalid; skipped`);
             continue;
           }
@@ -5276,7 +5283,7 @@ ${indent}`);
           warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
           sourceOffsetSec = 0;
         }
-        let outSec = finitePositive2(spec.out) ? spec.out : materialDurationSec;
+        let outSec = finitePositive3(spec.out) ? spec.out : materialDurationSec;
         if (outSec > materialDurationSec) {
           warnings.push(`${label}: out exceeds decoded duration; clamped to material end`);
           outSec = materialDurationSec;
@@ -5308,6 +5315,8 @@ ${indent}`);
           delaySec,
           sourceOffsetSec: item.sourceOffsetSec + elapsedIntoItemSec,
           durationSec,
+          playbackRate: 1,
+          sourceDurationSec: durationSec,
           loop: false,
           gainDb: item.gainDb,
           gainEvents,
@@ -5316,7 +5325,7 @@ ${indent}`);
       }
       function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warnings) {
         const label = "bgm";
-        if (!finitePositive2(spec.durationSec)) {
+        if (!finitePositive3(spec.durationSec)) {
           warnings.push(`${label}: decoded duration is invalid; skipped`);
           return null;
         }
@@ -5355,11 +5364,152 @@ ${indent}`);
           delaySec,
           sourceOffsetSec,
           durationSec,
+          playbackRate: 1,
+          sourceDurationSec: durationSec,
           loop,
           gainDb,
           gainEvents: bgmFadeGainEvents(spec.fadeIn, spec.fadeOut, timelineDurationSec, timelineStartSec, durationSec, baseGain),
           duckingEvents: rectangularDuckEvents(duckIntervals, spec.ducking === true, timelineStartSec, durationSec)
         };
+      }
+      function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
+        const id = typeof spec?.id === "string" && spec.id ? spec.id : "speech";
+        const label = `speech ${id}`;
+        if (!spec || typeof spec.src !== "string" || !spec.src || !finiteNonNegative(spec.atSec) || !finitePositive3(spec.durationSec) || !finiteNonNegative(spec.inSec) || !finitePositive3(spec.outSec) || spec.outSec <= spec.inSec || !finitePositive3(spec.speed) || !finitePositive3(spec.materialDurationSec)) {
+          warnings.push(`${label}: declaration is invalid; skipped`);
+          return null;
+        }
+        if (spec.atSec >= timelineDurationSec)
+          return null;
+        const gainDb = normalizedGainDb(spec, label, warnings);
+        if (gainDb === null)
+          return null;
+        const elapsedIntoItemSec = Math.max(0, startAtSec - spec.atSec);
+        if (elapsedIntoItemSec >= spec.durationSec)
+          return null;
+        const delaySec = Math.max(0, spec.atSec - startAtSec);
+        const timelineStartSec = startAtSec + delaySec;
+        const sourceOffsetSec = spec.inSec + elapsedIntoItemSec * spec.speed;
+        const sourceEndSec = Math.min(spec.outSec, spec.materialDurationSec);
+        const sourceAvailableSec = sourceEndSec - sourceOffsetSec;
+        if (!(sourceAvailableSec > 0))
+          return null;
+        const durationSec = Math.min(spec.durationSec - elapsedIntoItemSec, timelineDurationSec - timelineStartSec, sourceAvailableSec / spec.speed);
+        if (!(durationSec > 0))
+          return null;
+        const baseGain = dbToLinear(gainDb);
+        return {
+          kind: "speech",
+          id,
+          track: normalizedTrack(spec.track),
+          timelineStartSec,
+          timelineEndSec: timelineStartSec + durationSec,
+          delaySec,
+          sourceOffsetSec,
+          durationSec,
+          playbackRate: spec.speed,
+          sourceDurationSec: durationSec * spec.speed,
+          loop: false,
+          gainDb,
+          gainEvents: [{ offsetSec: 0, value: baseGain, method: "set" }],
+          duckingEvents: []
+        };
+      }
+      function projectSpeechDeclarations3(cuts, options) {
+        const fps = finitePositive3(options?.fps) ? options.fps : 30;
+        const virtualCuts = cuts.map((cut) => {
+          const speed = finitePositive3(cut?.speed) ? cut.speed : 1;
+          const holdSec = freezeDuration(cut?.freeze);
+          return { ...cut, out: cut.out + holdSec * speed };
+        });
+        const map = (0, timeline_map_1.buildTimelineMap)(virtualCuts, { fps });
+        const declarations = [];
+        for (const segment of map.segments) {
+          if (segment.kind !== "src" || segment.cutIndex === null)
+            continue;
+          const cut = cuts[segment.cutIndex];
+          if (!cut || typeof cut.src !== "string" || !cut.src)
+            continue;
+          const speed = finitePositive3(cut.speed) ? cut.speed : 1;
+          const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
+          const cutTimelineStart = segment.outStart - (segmentIn - cut.in) / speed;
+          const baseDurationSec = Math.max(0, cut.out - cut.in) / speed;
+          const gainDb = speechGainDb(cut);
+          const baseId = typeof cut.id === "string" && cut.id ? cut.id : `cut-${segment.cutIndex}`;
+          const holdSec = freezeDuration(cut.freeze);
+          if (!(holdSec > 0)) {
+            appendSpeechIntersection(declarations, {
+              id: `${baseId}-speech`,
+              src: cut.src,
+              gainDb,
+              speed,
+              sourceIn: cut.in,
+              outputStart: cutTimelineStart,
+              outputEnd: cutTimelineStart + baseDurationSec,
+              segmentStart: segment.outStart,
+              segmentEnd: segment.outEnd,
+              track: cut.track
+            });
+            continue;
+          }
+          const freezeAtSec = Math.max(0, Math.min(freezeAt(cut.freeze), baseDurationSec));
+          const freezeSourceIn = cut.in + freezeAtSec * speed;
+          appendSpeechIntersection(declarations, {
+            id: `${baseId}-speech-pre`,
+            src: cut.src,
+            gainDb,
+            speed,
+            sourceIn: cut.in,
+            outputStart: cutTimelineStart,
+            outputEnd: cutTimelineStart + freezeAtSec,
+            segmentStart: segment.outStart,
+            segmentEnd: segment.outEnd,
+            track: cut.track
+          });
+          appendSpeechIntersection(declarations, {
+            id: `${baseId}-speech-post`,
+            src: cut.src,
+            gainDb,
+            speed,
+            sourceIn: freezeSourceIn,
+            outputStart: cutTimelineStart + freezeAtSec + holdSec,
+            outputEnd: cutTimelineStart + baseDurationSec + holdSec,
+            segmentStart: segment.outStart,
+            segmentEnd: segment.outEnd,
+            track: cut.track
+          });
+        }
+        return declarations;
+      }
+      function appendSpeechIntersection(declarations, input) {
+        const atSec = Math.max(input.outputStart, input.segmentStart);
+        const endSec = Math.min(input.outputEnd, input.segmentEnd);
+        if (!(endSec > atSec))
+          return;
+        const inSec = input.sourceIn + (atSec - input.outputStart) * input.speed;
+        const outSec = inSec + (endSec - atSec) * input.speed;
+        declarations.push({
+          id: input.id,
+          src: input.src,
+          atSec,
+          durationSec: endSec - atSec,
+          inSec,
+          outSec,
+          speed: input.speed,
+          gainDb: input.gainDb,
+          track: normalizedTrack(input.track),
+          materialDurationSec: outSec
+        });
+      }
+      function freezeDuration(freeze) {
+        return freeze && finitePositive3(freeze.duration_sec) ? freeze.duration_sec : 0;
+      }
+      function freezeAt(freeze) {
+        return freeze && finiteNonNegative(freeze.at_sec) ? freeze.at_sec : 0;
+      }
+      function speechGainDb(cut) {
+        const raw = cut.gain_db ?? cut.gainDb ?? cut.volume_db;
+        return typeof raw === "number" && Number.isFinite(raw) ? raw : 0;
       }
       function normalizedGainDb(spec, label, warnings) {
         const raw = spec.gainDb !== void 0 ? spec.gainDb : spec.gain_db;
@@ -5376,8 +5526,8 @@ ${indent}`);
       }
       function fadeGainEvents(rawFadeIn, rawFadeOut, itemDurationSec, elapsedIntoItemSec, availableSec, baseGain) {
         const ceiling = itemDurationSec / 2;
-        const fadeIn = finitePositive2(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
-        const fadeOut = finitePositive2(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
+        const fadeIn = finitePositive3(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
+        const fadeOut = finitePositive3(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
         const multiplierAt = (localSec) => {
           let multiplier = 1;
           if (fadeIn > 0 && localSec < fadeIn)
@@ -5405,8 +5555,8 @@ ${indent}`);
       }
       function bgmFadeGainEvents(rawFadeIn, rawFadeOut, timelineDurationSec, timelineStartSec, availableSec, baseGain) {
         const ceiling = timelineDurationSec / 2;
-        const fadeIn = finitePositive2(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
-        const fadeOut = finitePositive2(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
+        const fadeIn = finitePositive3(rawFadeIn) ? Math.min(rawFadeIn, ceiling) : 0;
+        const fadeOut = finitePositive3(rawFadeOut) ? Math.min(rawFadeOut, ceiling) : 0;
         if (fadeIn <= 0 && fadeOut <= 0) {
           return [{ offsetSec: 0, value: baseGain, method: "set" }];
         }
@@ -5450,7 +5600,7 @@ ${indent}`);
       function normalizedTrack(value) {
         return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
       }
-      function finitePositive2(value) {
+      function finitePositive3(value) {
         return typeof value === "number" && Number.isFinite(value) && value > 0;
       }
       function finiteNonNegative(value) {
@@ -13038,6 +13188,7 @@ ${indent}`);
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
     copyNativeYuvFrame: () => copyNativeYuvFrame,
     cornersToHomography: () => cornersToHomography,
+    createPreviewAudioSupply: () => createPreviewAudioSupply,
     createPreviewScheduler: () => createPreviewScheduler,
     cubicBezierAt: () => cubicBezierAt,
     describeUnusableDecoder: () => describeUnusableDecoder,
@@ -13056,6 +13207,7 @@ ${indent}`);
     parseCube: () => parseCube,
     presentFrame: () => presentFrame,
     presentationFrameTiming: () => presentationFrameTiming,
+    projectSpeechDeclarations: () => projectSpeechDeclarations2,
     readbackFrame: () => readbackFrame,
     resolveLookLutPath: () => resolveLookLutPath,
     sampleLutTrilinear: () => sampleLutTrilinear,
@@ -18348,6 +18500,358 @@ void main() {
       });
     }
   };
+
+  // packages/frame-engine/src/audio/preview-audio-supply.ts
+  var import_edit_store4 = __toESM(require_lib(), 1);
+  var EditStoreKernel = __toESM(require_lib(), 1);
+  var projectSpeechDeclarations2 = EditStoreKernel.projectSpeechDeclarations;
+  var DEFAULT_DECODE_CACHE_BYTES = 60 * 1024 * 1024;
+  function createPreviewAudioSupply(options) {
+    const timelineDurationSec = finitePositive2(options.timelineDurationSec) ? options.timelineDurationSec : 0;
+    const declarations = [...options.declarations ?? []];
+    const speech = [...options.speech ?? []];
+    const sourceOrder = [...new Set(speech.map((item) => item.src))];
+    const fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
+    const scheduleBuilder = options.scheduleBuilder ?? import_edit_store4.buildWebAudioSchedule;
+    const warn = options.onWarning ?? ((message, reason) => console.warn(message, reason));
+    const cacheLimit = finitePositive2(options.decodeCacheBytes) ? options.decodeCacheBytes : DEFAULT_DECODE_CACHE_BYTES;
+    const watchdogMs = options.pauseWatchdogMs === false ? false : finitePositive2(options.pauseWatchdogMs) ? options.pauseWatchdogMs : false;
+    let context = null;
+    if (timelineDurationSec > 0 && (declarations.length > 0 || speech.length > 0)) {
+      try {
+        context = options.contextFactory ? options.contextFactory() : new (globalThis.AudioContext || globalThis.webkitAudioContext)();
+      } catch (reason) {
+        warn("[frame-engine] Web Audio unavailable; keeping wall-clock playback", reason);
+      }
+    }
+    let regularDecoded = [];
+    let regularLoadPromise = null;
+    const speechCache = /* @__PURE__ */ new Map();
+    const speechFailures = /* @__PURE__ */ new Set();
+    const warnedSpeech = /* @__PURE__ */ new Set();
+    const speechMetrics = /* @__PURE__ */ new Map();
+    let cacheBytes = 0;
+    let lruClock = 0;
+    let active = [];
+    let generation = 0;
+    let starting = false;
+    let playing = false;
+    let anchorTimelineSec = 0;
+    let anchorContextSec = 0;
+    let latestRequestedSec = 0;
+    let pauseTimer = null;
+    let lastRenderedTimelineSec = null;
+    let lastAudioPositionAtRenderSec = null;
+    let lastSchedule = [];
+    const clamp4 = (seconds) => Math.max(
+      0,
+      Math.min(Number.isFinite(seconds) ? seconds : 0, timelineDurationSec)
+    );
+    const audioPosition = () => context && playing ? clamp4(anchorTimelineSec + Math.max(0, context.currentTime - anchorContextSec)) : latestRequestedSec;
+    const stopSources = () => {
+      const sources = active;
+      active = [];
+      for (const item of sources) {
+        item.source.onended = null;
+        try {
+          item.source.stop();
+        } catch {
+        }
+        try {
+          item.source.disconnect();
+        } catch {
+        }
+        for (const gain of item.gains) try {
+          gain.disconnect();
+        } catch {
+        }
+      }
+    };
+    const loadRegular = () => {
+      if (regularLoadPromise) return regularLoadPromise;
+      if (!context || !fetchImpl) return Promise.resolve();
+      regularLoadPromise = Promise.all(declarations.map(async (declaration) => {
+        try {
+          const response = await fetchImpl(declaration.url);
+          if (!response.ok) throw new Error(`fetch status=${response.status}`);
+          const buffer = await context.decodeAudioData(await response.arrayBuffer());
+          if (!(buffer.duration > 0)) throw new Error("decoded duration is invalid");
+          return { ...declaration, buffer, durationSec: buffer.duration };
+        } catch (reason) {
+          warn(`[frame-engine] ${declaration.kind} ${declaration.id} unavailable; skipped`, reason);
+          return null;
+        }
+      })).then((items) => {
+        regularDecoded = items.filter((item) => item !== null);
+      });
+      return regularLoadPromise;
+    };
+    const evictSpeechCache = () => {
+      while (cacheBytes > cacheLimit && speechCache.size > 0) {
+        const oldest = [...speechCache].filter(([, entry]) => entry.bytes > 0).sort((left, right) => left[1].lastUsed - right[1].lastUsed)[0];
+        if (!oldest) return;
+        speechCache.delete(oldest[0]);
+        cacheBytes -= oldest[1].bytes;
+      }
+    };
+    const getSpeechBuffer = (declaration) => {
+      if (!context || !fetchImpl || speechFailures.has(declaration.src)) return Promise.resolve(null);
+      const cached = speechCache.get(declaration.src);
+      if (cached) {
+        cached.lastUsed = ++lruClock;
+        return cached.promise;
+      }
+      const started = nowMs();
+      const entry = {
+        lastUsed: ++lruClock,
+        bytes: 0,
+        promise: Promise.resolve(null)
+      };
+      entry.promise = (async () => {
+        try {
+          const response = await fetchImpl(declaration.url);
+          if (!response.ok) throw new Error(`fetch status=${response.status}`);
+          const buffer = await context.decodeAudioData(await response.arrayBuffer());
+          if (!(buffer.duration > 0)) throw new Error("decoded duration is invalid");
+          const bytes = buffer.length * buffer.numberOfChannels * 4;
+          entry.bytes = bytes;
+          cacheBytes += bytes;
+          speechMetrics.set(declaration.src, {
+            src: declaration.src,
+            ms: nowMs() - started,
+            durationSec: buffer.duration,
+            bytes,
+            ok: true
+          });
+          evictSpeechCache();
+          return buffer;
+        } catch (reason) {
+          speechCache.delete(declaration.src);
+          speechFailures.add(declaration.src);
+          speechMetrics.set(declaration.src, {
+            src: declaration.src,
+            ms: nowMs() - started,
+            durationSec: 0,
+            bytes: 0,
+            ok: false
+          });
+          if (!warnedSpeech.has(declaration.src)) {
+            warnedSpeech.add(declaration.src);
+            warn(`[frame-engine] speech ${declaration.src} unavailable; skipped`, reason);
+          }
+          return null;
+        }
+      })();
+      speechCache.set(declaration.src, entry);
+      return entry.promise;
+    };
+    const loadSpeech = async () => {
+      const buffers = /* @__PURE__ */ new Map();
+      const unique = /* @__PURE__ */ new Map();
+      for (const declaration of speech) if (!unique.has(declaration.src)) unique.set(declaration.src, declaration);
+      await Promise.all([...unique].map(async ([src, declaration]) => {
+        const buffer = await getSpeechBuffer(declaration);
+        if (buffer) buffers.set(src, buffer);
+      }));
+      return buffers;
+    };
+    const applyGainEvents = (param, events, startTime) => {
+      if (events.length === 0) {
+        param.setValueAtTime(1, startTime);
+        return;
+      }
+      param.cancelScheduledValues(startTime);
+      for (const event of events) {
+        const at2 = startTime + event.offsetSec;
+        if (event.method === "linear") param.linearRampToValueAtTime(event.value, at2);
+        else param.setValueAtTime(event.value, at2);
+      }
+    };
+    const startItem = (item, contextStart, speechBuffers) => {
+      if (!context) return;
+      const regular = item.kind === "speech" ? void 0 : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind);
+      const speechDeclaration = item.kind === "speech" ? speech.find((candidate) => candidate.id === item.id) : void 0;
+      const buffer = regular?.buffer ?? (speechDeclaration ? speechBuffers.get(speechDeclaration.src) : void 0);
+      if (!buffer) return;
+      try {
+        const source = context.createBufferSource();
+        const baseGain = context.createGain();
+        const gains = [baseGain];
+        source.buffer = buffer;
+        source.loop = item.loop;
+        source.playbackRate.value = item.playbackRate;
+        source.connect(baseGain);
+        let tail = baseGain;
+        if (item.kind === "bgm") {
+          const duckGain = context.createGain();
+          baseGain.connect(duckGain);
+          tail = duckGain;
+          gains.push(duckGain);
+          applyGainEvents(duckGain.gain, item.duckingEvents, contextStart + item.delaySec);
+        }
+        tail.connect(context.destination);
+        applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec);
+        source.start(
+          contextStart + item.delaySec,
+          item.sourceOffsetSec,
+          item.sourceDurationSec
+        );
+        const activeItem = { source, gains };
+        active.push(activeItem);
+        source.onended = () => {
+          active = active.filter((candidate) => candidate !== activeItem);
+          try {
+            source.disconnect();
+          } catch {
+          }
+          for (const gain of gains) try {
+            gain.disconnect();
+          } catch {
+          }
+        };
+      } catch (reason) {
+        warn(`[frame-engine] ${item.kind} ${item.id} could not be scheduled`, reason);
+      }
+    };
+    const regularScheduleDeclaration = () => {
+      const bgm = regularDecoded.find((item) => item.kind === "bgm");
+      return {
+        ...bgm ? { bgm: { ...bgm.spec, id: bgm.id, durationSec: bgm.durationSec } } : {},
+        sfx: regularDecoded.filter((item) => item.kind === "sfx").map((item) => ({ ...item.spec, id: item.id, durationSec: item.durationSec })),
+        narration: regularDecoded.filter((item) => item.kind === "narration").map((item) => ({ ...item.spec, id: item.id, durationSec: item.durationSec }))
+      };
+    };
+    const startFrom = async (seconds) => {
+      if (!context) return;
+      const thisGeneration = ++generation;
+      starting = true;
+      const [, speechBuffers] = await Promise.all([loadRegular(), loadSpeech()]);
+      if (thisGeneration !== generation) {
+        starting = false;
+        return;
+      }
+      try {
+        await context.resume();
+      } catch (reason) {
+        warn("[frame-engine] AudioContext resume failed; keeping wall-clock playback", reason);
+        starting = false;
+        return;
+      }
+      if (thisGeneration !== generation) {
+        starting = false;
+        return;
+      }
+      const speechForSchedule = speech.filter((item) => speechBuffers.has(item.src)).map((item) => ({
+        ...item,
+        materialDurationSec: speechBuffers.get(item.src).duration
+      }));
+      const plan = scheduleBuilder({
+        timelineDurationSec,
+        startAtSec: clamp4(latestRequestedSec || seconds),
+        audio: { ...regularScheduleDeclaration(), speech: speechForSchedule }
+      });
+      for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
+      if (plan.items.length === 0) {
+        starting = false;
+        return;
+      }
+      stopSources();
+      const contextStart = context.currentTime + 0.02;
+      anchorTimelineSec = plan.startAtSec;
+      anchorContextSec = contextStart;
+      lastSchedule = plan.items;
+      for (const item of lastSchedule) startItem(item, contextStart, speechBuffers);
+      playing = true;
+      starting = false;
+    };
+    const pause = () => {
+      if (playing) latestRequestedSec = audioPosition();
+      generation += 1;
+      playing = false;
+      starting = false;
+      stopSources();
+    };
+    const armPauseWatchdog = () => {
+      if (watchdogMs === false) return;
+      if (pauseTimer !== null) clearTimeout(pauseTimer);
+      pauseTimer = setTimeout(pause, watchdogMs);
+    };
+    const debug = () => {
+      const audioPositionSec = lastAudioPositionAtRenderSec;
+      const perSource = sourceOrder.flatMap((src) => {
+        const metric = speechMetrics.get(src);
+        return metric ? [metric] : [];
+      });
+      return {
+        contextState: context?.state ?? "unavailable",
+        renderedTimelineSec: lastRenderedTimelineSec,
+        audioPositionSec,
+        driftMs: audioPositionSec === null || lastRenderedTimelineSec === null ? null : (lastRenderedTimelineSec - audioPositionSec) * 1e3,
+        playing,
+        scheduled: {
+          startAtSec: lastSchedule.length > 0 ? anchorTimelineSec : null,
+          itemCount: lastSchedule.length,
+          bgm: lastSchedule.filter((item) => item.kind === "bgm").length,
+          sfx: lastSchedule.filter((item) => item.kind === "sfx").length,
+          narration: lastSchedule.filter((item) => item.kind === "narration").length,
+          speech: lastSchedule.filter((item) => item.kind === "speech").length
+        },
+        speechDecode: {
+          sources: sourceOrder.length,
+          okSources: perSource.filter((item) => item.ok).length,
+          skippedSources: perSource.filter((item) => !item.ok).length,
+          totalMs: perSource.reduce((sum, item) => sum + item.ms, 0),
+          bytes: cacheBytes,
+          perSource: perSource.map((item) => ({ ...item }))
+        }
+      };
+    };
+    return {
+      playFrom(seconds) {
+        latestRequestedSec = clamp4(seconds);
+        if (context && !playing && !starting) void startFrom(latestRequestedSec);
+      },
+      position(fallbackSeconds) {
+        latestRequestedSec = clamp4(fallbackSeconds);
+        return playing ? audioPosition() : latestRequestedSec;
+      },
+      playbackTime(fallbackSeconds) {
+        latestRequestedSec = clamp4(fallbackSeconds);
+        if (!context) return latestRequestedSec;
+        armPauseWatchdog();
+        if (!playing && !starting) void startFrom(latestRequestedSec);
+        return playing ? audioPosition() : latestRequestedSec;
+      },
+      seek(seconds, continuePlaying = false) {
+        latestRequestedSec = clamp4(seconds);
+        generation += 1;
+        playing = false;
+        starting = false;
+        stopSources();
+        if (continuePlaying && context) void startFrom(latestRequestedSec);
+      },
+      pause,
+      noteRendered(seconds) {
+        lastRenderedTimelineSec = clamp4(seconds);
+        lastAudioPositionAtRenderSec = context && playing ? audioPosition() : null;
+      },
+      debug,
+      dispose() {
+        if (pauseTimer !== null) clearTimeout(pauseTimer);
+        pauseTimer = null;
+        pause();
+        speechCache.clear();
+        cacheBytes = 0;
+        void context?.close().catch(() => void 0);
+      }
+    };
+  }
+  function finitePositive2(value) {
+    return typeof value === "number" && Number.isFinite(value) && value > 0;
+  }
+  function nowMs() {
+    return typeof performance !== "undefined" ? performance.now() : Date.now();
+  }
 
   // packages/frame-engine/src/metrics/collector.ts
   var STAGES = [

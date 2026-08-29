@@ -16,10 +16,10 @@ export function resolveGpuEncoding({ quality = "high", bitrate = undefined } = {
 
 export function parsePresetBitrate(value) {
   const match = /^(\d+(?:\.\d+)?)([kKmM]?)$/u.exec(String(value).trim());
-  if (!match) throw new Error(`invalid VideoToolbox bitrate preset: ${value}`);
+  if (!match) throw new Error(`invalid GPU bitrate preset: ${value}`);
   const unit = match[2].toUpperCase();
   const multiplier = unit === "M" ? 1_000_000 : unit === "K" ? 1_000 : 1;
-  return positiveBitrate(Number(match[1]) * multiplier, "VideoToolbox bitrate preset");
+  return positiveBitrate(Number(match[1]) * multiplier, "GPU bitrate preset");
 }
 
 function positiveBitrate(value, label) {

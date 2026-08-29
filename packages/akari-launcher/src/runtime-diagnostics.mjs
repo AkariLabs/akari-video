@@ -164,9 +164,6 @@ export async function resolveDoctorReport(options = {}) {
 
 export async function resolveGpuExportAvailability(options = {}) {
   const platform = options.platform ?? process.platform;
-  if (platform !== 'darwin') {
-    return { available: false, reason: 'GPU hardware export v0 is available on macOS only', launcher_tier: null };
-  }
   try {
     const resolver = options.resolveGpuLauncher
       ?? (await import('../../gpu-export/src/runner.mjs')).resolveGpuLauncher;

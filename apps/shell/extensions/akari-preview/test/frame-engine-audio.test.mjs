@@ -58,19 +58,27 @@ test('shell frame-engine 音声 glue の生成 JS は構文として妥当', () 
 
 test('shell 評価台は旧音声を停止し、共有予定表と Web Audio を使う', () => {
   assert.match(bootstrap, /previewAudio\.pause\(\)/u);
-  assert.match(bootstrap, /kernel\.buildWebAudioSchedule/u);
-  assert.match(bootstrap, /createBufferSource\(\)/u);
-  assert.match(bootstrap, /createGain\(\)/u);
+  assert.match(bootstrap, /engine\.createPreviewAudioSupply\(/u);
+  assert.match(bootstrap, /engine\.projectSpeechDeclarations\(normalizedCuts/u);
+  assert.doesNotMatch(bootstrap, /const createFrameEngineAudioSupply/u);
+  assert.doesNotMatch(bootstrap, /createBufferSource\(\)|buildWebAudioSchedule/u,
+    'bootstrap は共通供給の内部実装を複製しない');
   assert.doesNotMatch(bootstrap, /\b-12\b/u, 'glue に ducking 値を再定義しない');
 });
 
 test('shell の既存 transport は frame-engine clock と AudioContext.currentTime に追従する', () => {
-  assert.match(bootstrap, /context\.currentTime - anchorContextSec/u);
   assert.match(bootstrap, /position = audioSupply\.position\(fallbackPosition\)/u);
+  assert.match(bootstrap, /audioSupply\.playFrom\(position\)/u);
+  assert.match(bootstrap, /audioSupply\.pause\(\)/u);
   assert.match(bootstrap, /window\.akariFrameEngineAudioDebug/u);
-  assert.match(bootstrap, /renderedTimelineSec - audioPositionSec/u);
   assert.match(bootstrap, /window\.akari\.frameEngineClock = clock/u);
   assert.doesNotMatch(bootstrap, /frame-engine-play/u);
+});
+
+test('shell developer metrics は speech 件数と decode 時間を既存行へ追記する', () => {
+  assert.match(bootstrap, /metrics\.dataset\.audioSpeech/u);
+  assert.match(bootstrap, /metrics\.dataset\.speechDecodeMs/u);
+  assert.match(bootstrap, /speech\s+' \+ audioState\.scheduled\.speech/u);
 });
 
 test('shell cuts 評価は EvaluationPlan.base を参照する', () => {

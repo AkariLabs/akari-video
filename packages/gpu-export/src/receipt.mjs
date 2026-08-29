@@ -12,6 +12,10 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       video_reencode: false,
     },
     gpu: {
+      platform: run?.gpu?.platform ?? process.platform,
+      chromium: run?.gpu?.chromium ?? process.versions.chrome ?? null,
+      renderer: normalizeRenderer(run?.gpu?.renderer),
+      encoder_support: normalizeEncoderSupport(run?.gpu?.encoder_support),
       encoder: run?.gpu?.encoder ?? null,
       hardware: run?.gpu?.hardware ?? (profile === "soft" ? "prefer-software" : "prefer-hardware"),
       uploadPath: run?.gpu?.uploadPath ?? null,
@@ -41,6 +45,20 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
     run: run?.persistentPath ?? null,
     finalVerify,
   };
+}
+
+function normalizeRenderer(value) {
+  if (!value || typeof value !== "object") return null;
+  return typeof value.vendor === "string" && typeof value.renderer === "string"
+    ? { vendor: value.vendor, renderer: value.renderer }
+    : null;
+}
+
+function normalizeEncoderSupport(value) {
+  if (!value || typeof value !== "object") return null;
+  return typeof value["prefer-hardware"] === "boolean" && typeof value["prefer-software"] === "boolean"
+    ? { "prefer-hardware": value["prefer-hardware"], "prefer-software": value["prefer-software"] }
+    : null;
 }
 
 function finiteNonNegative(value) {

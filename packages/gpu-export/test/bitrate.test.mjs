@@ -28,3 +28,8 @@ test("an explicit bitrate overrides every quality preset including master", () =
     quality: "master", bitrate: 80_000_000, bitrateSource: "explicit",
   });
 });
+
+test("GPU bitrate preset errors use platform-neutral wording", () => {
+  assert.throws(() => parsePresetBitrate("not-a-rate"), /invalid GPU bitrate preset/u);
+  assert.throws(() => parsePresetBitrate("0"), /GPU bitrate preset must be a positive integer/u);
+});

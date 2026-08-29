@@ -104,7 +104,16 @@ export async function runGpuExport(options) {
   register("gpu:log", (_event, message) => { process.stdout.write(`[gpu-renderer] ${message}\n`); return true; });
   register("gpu:checkpoint", async (_event, value) => {
     if (fatalMemoryError) throw fatalMemoryError;
-    const running = { ...value, memory: memorySampler.snapshot(), eligibility: built.eligibility };
+    const running = {
+      ...value,
+      gpu: {
+        ...value?.gpu,
+        platform: process.platform,
+        chromium: process.versions.chrome,
+      },
+      memory: memorySampler.snapshot(),
+      eligibility: built.eligibility,
+    };
     await writeFile(runPath, `${JSON.stringify(running, null, 2)}\n`);
     if (Number.isInteger(value?.framesCompleted)) process.stdout.write(`PROGRESS frame=${value.framesCompleted} total=${frames}\n`);
     return true;
@@ -187,6 +196,11 @@ export async function runGpuExport(options) {
       height,
       fps,
       duration,
+      gpu: {
+        ...result?.gpu,
+        platform: process.platform,
+        chromium: process.versions.chrome,
+      },
       memory: { ...memory, warnings: memoryWarnings },
       eligibility: built.eligibility,
       ffprobe: result?.mux?.ffprobe ?? null,
@@ -201,6 +215,12 @@ export async function runGpuExport(options) {
       error: String(error?.stack ?? error),
       ...(reasonCode ? { reasonCode, warnings: [`${reasonCode}: GPU export failed closed`] } : {}),
       framesRequested: frames,
+      gpu: {
+        platform: process.platform,
+        chromium: process.versions.chrome,
+        renderer: null,
+        encoder_support: null,
+      },
       memory: memorySampler.stop("failed"),
       eligibility: built.eligibility,
     };

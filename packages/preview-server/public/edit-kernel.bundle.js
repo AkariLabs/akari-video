@@ -446,6 +446,10 @@ function buildWebAudioSchedule(input) {
     const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec);
     if (scheduled) items.push(scheduled);
   }
+  for (const speech of audio.speech ?? []) {
+    const scheduled = scheduleSpeech(speech, timelineDurationSec, startAtSec, warnings);
+    if (scheduled) items.push(scheduled);
+  }
   return { timelineDurationSec, startAtSec, items, duckIntervals, warnings };
 }
 function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
@@ -532,6 +536,8 @@ function scheduleTimed(item, timelineDurationSec, startAtSec) {
     delaySec,
     sourceOffsetSec: item.sourceOffsetSec + elapsedIntoItemSec,
     durationSec,
+    playbackRate: 1,
+    sourceDurationSec: durationSec,
     loop: false,
     gainDb: item.gainDb,
     gainEvents,
@@ -579,6 +585,8 @@ function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warni
     delaySec,
     sourceOffsetSec,
     durationSec,
+    playbackRate: 1,
+    sourceDurationSec: durationSec,
     loop,
     gainDb,
     gainEvents: bgmFadeGainEvents(
@@ -596,6 +604,141 @@ function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warni
       durationSec
     )
   };
+}
+function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
+  const id = typeof spec?.id === "string" && spec.id ? spec.id : "speech";
+  const label = `speech ${id}`;
+  if (!spec || typeof spec.src !== "string" || !spec.src || !finiteNonNegative(spec.atSec) || !finitePositive(spec.durationSec) || !finiteNonNegative(spec.inSec) || !finitePositive(spec.outSec) || spec.outSec <= spec.inSec || !finitePositive(spec.speed) || !finitePositive(spec.materialDurationSec)) {
+    warnings.push(`${label}: declaration is invalid; skipped`);
+    return null;
+  }
+  if (spec.atSec >= timelineDurationSec) return null;
+  const gainDb = normalizedGainDb(spec, label, warnings);
+  if (gainDb === null) return null;
+  const elapsedIntoItemSec = Math.max(0, startAtSec - spec.atSec);
+  if (elapsedIntoItemSec >= spec.durationSec) return null;
+  const delaySec = Math.max(0, spec.atSec - startAtSec);
+  const timelineStartSec = startAtSec + delaySec;
+  const sourceOffsetSec = spec.inSec + elapsedIntoItemSec * spec.speed;
+  const sourceEndSec = Math.min(spec.outSec, spec.materialDurationSec);
+  const sourceAvailableSec = sourceEndSec - sourceOffsetSec;
+  if (!(sourceAvailableSec > 0)) return null;
+  const durationSec = Math.min(
+    spec.durationSec - elapsedIntoItemSec,
+    timelineDurationSec - timelineStartSec,
+    sourceAvailableSec / spec.speed
+  );
+  if (!(durationSec > 0)) return null;
+  const baseGain = dbToLinear(gainDb);
+  return {
+    kind: "speech",
+    id,
+    track: normalizedTrack(spec.track),
+    timelineStartSec,
+    timelineEndSec: timelineStartSec + durationSec,
+    delaySec,
+    sourceOffsetSec,
+    durationSec,
+    playbackRate: spec.speed,
+    sourceDurationSec: durationSec * spec.speed,
+    loop: false,
+    gainDb,
+    gainEvents: [{ offsetSec: 0, value: baseGain, method: "set" }],
+    duckingEvents: []
+  };
+}
+function projectSpeechDeclarations(cuts, options) {
+  const fps = finitePositive(options?.fps) ? options.fps : 30;
+  const virtualCuts = cuts.map((cut) => {
+    const speed = finitePositive(cut?.speed) ? cut.speed : 1;
+    const holdSec = freezeDuration(cut?.freeze);
+    return { ...cut, out: cut.out + holdSec * speed };
+  });
+  const map = buildTimelineMap(virtualCuts, { fps });
+  const declarations = [];
+  for (const segment of map.segments) {
+    if (segment.kind !== "src" || segment.cutIndex === null) continue;
+    const cut = cuts[segment.cutIndex];
+    if (!cut || typeof cut.src !== "string" || !cut.src) continue;
+    const speed = finitePositive(cut.speed) ? cut.speed : 1;
+    const segmentIn = typeof segment.in === "number" ? segment.in : cut.in;
+    const cutTimelineStart = segment.outStart - (segmentIn - cut.in) / speed;
+    const baseDurationSec = Math.max(0, cut.out - cut.in) / speed;
+    const gainDb = speechGainDb(cut);
+    const baseId = typeof cut.id === "string" && cut.id ? cut.id : `cut-${segment.cutIndex}`;
+    const holdSec = freezeDuration(cut.freeze);
+    if (!(holdSec > 0)) {
+      appendSpeechIntersection(declarations, {
+        id: `${baseId}-speech`,
+        src: cut.src,
+        gainDb,
+        speed,
+        sourceIn: cut.in,
+        outputStart: cutTimelineStart,
+        outputEnd: cutTimelineStart + baseDurationSec,
+        segmentStart: segment.outStart,
+        segmentEnd: segment.outEnd,
+        track: cut.track
+      });
+      continue;
+    }
+    const freezeAtSec = Math.max(0, Math.min(freezeAt(cut.freeze), baseDurationSec));
+    const freezeSourceIn = cut.in + freezeAtSec * speed;
+    appendSpeechIntersection(declarations, {
+      id: `${baseId}-speech-pre`,
+      src: cut.src,
+      gainDb,
+      speed,
+      sourceIn: cut.in,
+      outputStart: cutTimelineStart,
+      outputEnd: cutTimelineStart + freezeAtSec,
+      segmentStart: segment.outStart,
+      segmentEnd: segment.outEnd,
+      track: cut.track
+    });
+    appendSpeechIntersection(declarations, {
+      id: `${baseId}-speech-post`,
+      src: cut.src,
+      gainDb,
+      speed,
+      sourceIn: freezeSourceIn,
+      outputStart: cutTimelineStart + freezeAtSec + holdSec,
+      outputEnd: cutTimelineStart + baseDurationSec + holdSec,
+      segmentStart: segment.outStart,
+      segmentEnd: segment.outEnd,
+      track: cut.track
+    });
+  }
+  return declarations;
+}
+function appendSpeechIntersection(declarations, input) {
+  const atSec = Math.max(input.outputStart, input.segmentStart);
+  const endSec = Math.min(input.outputEnd, input.segmentEnd);
+  if (!(endSec > atSec)) return;
+  const inSec = input.sourceIn + (atSec - input.outputStart) * input.speed;
+  const outSec = inSec + (endSec - atSec) * input.speed;
+  declarations.push({
+    id: input.id,
+    src: input.src,
+    atSec,
+    durationSec: endSec - atSec,
+    inSec,
+    outSec,
+    speed: input.speed,
+    gainDb: input.gainDb,
+    track: normalizedTrack(input.track),
+    materialDurationSec: outSec
+  });
+}
+function freezeDuration(freeze) {
+  return freeze && finitePositive(freeze.duration_sec) ? freeze.duration_sec : 0;
+}
+function freezeAt(freeze) {
+  return freeze && finiteNonNegative(freeze.at_sec) ? freeze.at_sec : 0;
+}
+function speechGainDb(cut) {
+  const raw = cut.gain_db ?? cut.gainDb ?? cut.volume_db;
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : 0;
 }
 function normalizedGainDb(spec, label, warnings) {
   const raw = spec.gainDb !== void 0 ? spec.gainDb : spec.gain_db;
@@ -719,5 +862,6 @@ export {
   isTransitionType,
   isWithinDuckInterval,
   outputToSource,
+  projectSpeechDeclarations,
   transitionProgressAt
 };
