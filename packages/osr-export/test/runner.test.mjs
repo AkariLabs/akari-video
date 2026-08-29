@@ -132,6 +132,42 @@ test("tier 2 は script を先頭に保って run 配下の user data を渡す"
   assert.ok(args.indexOf(userDataArgument) < args.indexOf("--render"));
 });
 
+test("tier 1 は GPU main を --akari-main の POSIX 相対パスとして --render より前へ渡す", () => {
+  const args = buildElectronArguments({ tier: 1 }, {
+    ...exportOptions("/out.mp4"),
+    mainScript: "/x/packages/gpu-export/src/electron-main.mjs",
+  });
+  const optionIndex = args.indexOf("--akari-main");
+  assert.ok(optionIndex >= 0);
+  assert.equal(args[optionIndex + 1], "packages/gpu-export/src/electron-main.mjs");
+  assert.ok(optionIndex < args.indexOf("--render"));
+});
+
+test("tier 1 は mainScript 未指定なら --akari-main を付けない", () => {
+  const args = buildElectronArguments({ tier: 1 }, exportOptions("/out.mp4"));
+  assert.equal(args.includes("--akari-main"), false);
+});
+
+test("tier 2 は明示 mainScript を argv[1] に保ち --akari-main を付けない", () => {
+  const mainScript = "/x/packages/gpu-export/src/electron-main.mjs";
+  const args = buildElectronArguments({ tier: 2 }, {
+    ...exportOptions("/out.mp4"),
+    mainScript,
+  });
+  assert.equal(args[0], mainScript);
+  assert.equal(args.includes("--akari-main"), false);
+});
+
+test("tier 1 は packages 配下でない mainScript を拒否する", () => {
+  assert.throws(
+    () => buildElectronArguments({ tier: 1 }, {
+      ...exportOptions("/out.mp4"),
+      mainScript: "/x/runtime/electron-main.mjs",
+    }),
+    /OSR launcher: mainScript must live under packages\/ \(got \/x\/runtime\/electron-main\.mjs\)/,
+  );
+});
+
 test("明示した user data ディレクトリは run 配下の既定より優先される", () => {
   const options = { ...exportOptions(join("render-tmp", "run-3", "video.mp4")), userDataDir: join("custom", "profile") };
   const args = buildElectronArguments({ tier: 1 }, options);

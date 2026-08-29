@@ -29,7 +29,6 @@
     "akari-transcript": "file:./extensions/akari-transcript",
     "akari-annotations": "file:./extensions/akari-annotations",
     "akari-theme": "file:./extensions/akari-theme",
-    "akari-osr-export": "file:./extensions/akari-osr-export",
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {
@@ -45,7 +44,7 @@
     "@typescript-eslint/eslint-plugin": "^7.16.0",
     "@typescript-eslint/parser": "^7.16.0"
   },
-  "main": "lib/backend/electron-main.js",
+  "main": "electron-entry.js",
   "theia": {
     "target": "electron",
     "backend": {
@@ -72,7 +71,7 @@
   "scripts": {
     "preflight": "node scripts/ensure-no-nested-extension-deps.mjs && node scripts/ensure-electron-dist.mjs",
     "prebuild": "npm run preflight && node resources/scripts/ensure-file-deps-linked.mjs",
-    "build:ext": "tsc -b extensions/akari-project extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-preview extensions/akari-annotations extensions/akari-shell-strip extensions/akari-transcript extensions/akari-theme extensions/akari-osr-export",
+    "build:ext": "tsc -b extensions/akari-project extensions/akari-surfaces extensions/akari-partner extensions/akari-tabs extensions/akari-preview extensions/akari-annotations extensions/akari-shell-strip extensions/akari-transcript extensions/akari-theme",
     "build": "npm run build:ext && theia build --mode production",
     "postbuild": "node scripts/resign-electron.mjs",
     "postinstall": "npm run preflight && node scripts/resign-electron.mjs",
@@ -93,6 +92,7 @@
       "buildResources": "resources/icons"
     },
     "files": [
+      "electron-entry.js",
       "src-gen/**/*",
       "lib/**/*",
       "package.json",

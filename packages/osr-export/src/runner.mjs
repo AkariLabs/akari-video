@@ -106,10 +106,22 @@ export function buildElectronArguments(launcher, options) {
     ...(options.soft ? ["--soft"] : []),
     ...(options.extraArgs ?? []),
   ];
+  const tierOneMain = launcher.tier === 1 && options.mainScript
+    ? ["--akari-main", packageRelativeMain(options.mainScript)]
+    : [];
   const args = launcher.tier === 2
     ? [options.mainScript ?? join(PACKAGE_ROOT, "src", "electron-main.mjs"), ...chromiumSwitches, ...common]
-    : [...chromiumSwitches, ...common];
+    : [...chromiumSwitches, ...tierOneMain, ...common];
   return args;
+}
+
+function packageRelativeMain(mainScript) {
+  const portable = mainScript.replaceAll("\\", "/");
+  const match = portable.match(/(?:^|\/)(packages\/.*)$/);
+  if (!match) {
+    throw new Error(`OSR launcher: mainScript must live under packages/ (got ${mainScript})`);
+  }
+  return match[1];
 }
 
 export function desktopCandidates({ env, platform, homeDirectory }) {
