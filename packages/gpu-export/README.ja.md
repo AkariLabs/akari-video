@@ -49,9 +49,9 @@ rotate / skew / 3D transform、filter、clip-path は、具体的な `three-entr
 になります。CSS animation のない宣言型 3D は、既存の `three-scene-canvas-direct` manifest 形と
 挙動を維持します。
 
-`render-cut --engine auto` が GPU を候補にするのは macOS だけで、プロジェクト全体が適格なら GPU、
-それ以外は OSR を使います。Windows / Linux では `--engine gpu` を明示した場合だけ GPU を評価します。
-明示指定は fail-closed で、全ての不適格理由または launcher の理由を表示します。
+`render-cut --engine auto` は macOS / Windows で GPU を候補にし、プロジェクト全体が適格なら GPU、
+不適格なら OSR を使います。Linux の `auto` は legacy のままで、`--engine gpu` を明示した場合だけ
+GPU を評価します。明示指定は fail-closed で、全ての不適格理由または launcher の理由を表示します。
 
 DOM 層は `--enable-features=CanvasDrawElement`、`--disable-gpu-vsync`、
 `--disable-frame-rate-limit` の 3 フラグで起動します。450 / 678 / 900 コマの書き出しは 2 走の全コマ SHA と
@@ -87,8 +87,8 @@ doctor の期待行は `gpu_export ok (npm-electron launcher tier 2)` です。
 
 インストール済みデスクトップアプリ launcher（tier 1）は現状 fail-closed で候補から外れます
 （`GPU_DESKTOP_TIER_UNWIRED_REASON` を参照）。パッケージ版 tier 1 では shell の `extraResources` に
-`packages/gpu-export` が同梱されることも前提です。Windows / Linux は `--engine gpu` 明示時だけ利用でき、
-`auto` が GPU を候補にするのは macOS だけです。
+`packages/gpu-export` が同梱されることも前提です。v0.1.29 以降、Windows の `--engine auto` は適格なら
+GPU、不適格なら OSR を使います。Linux は引き続き `--engine gpu` の明示が必要です。
 
 ## 開発
 

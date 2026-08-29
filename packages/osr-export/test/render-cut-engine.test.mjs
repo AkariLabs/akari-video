@@ -19,7 +19,7 @@ test("render-cut --engine は未指定を auto とし明示値も解釈する", 
 test("resolveEngineChoice は platform × requested の 9 通りを解決する", () => {
   const expected = {
     darwin: { auto: "osr", legacy: "legacy", osr: "osr" },
-    win32: { auto: "legacy", legacy: "legacy", osr: "osr" },
+    win32: { auto: "osr", legacy: "legacy", osr: "osr" },
     linux: { auto: "legacy", legacy: "legacy", osr: "osr" },
   };
   for (const [platform, choices] of Object.entries(expected)) {
@@ -31,11 +31,13 @@ test("resolveEngineChoice は platform × requested の 9 通りを解決する"
     engine_requested: "auto",
     engine: "osr",
   });
-  for (const platform of ["win32", "linux"]) {
-    const provenance = buildEngineProvenance("auto", platform);
-    assert.deepEqual(provenance, { engine_requested: "auto", engine: "legacy" });
-    assert.equal(selectRenderEngineExecution(provenance.engine, null).engineFallback, undefined);
-  }
+  const win32Provenance = buildEngineProvenance("auto", "win32");
+  assert.deepEqual(win32Provenance, { engine_requested: "auto", engine: "osr" });
+  assert.equal(selectRenderEngineExecution(win32Provenance.engine, null).engineFallback, undefined);
+
+  const linuxProvenance = buildEngineProvenance("auto", "linux");
+  assert.deepEqual(linuxProvenance, { engine_requested: "auto", engine: "legacy" });
+  assert.equal(selectRenderEngineExecution(linuxProvenance.engine, null).engineFallback, undefined);
 });
 
 test("tier 3 は legacy 実走と fallback provenance を選ぶ", () => {

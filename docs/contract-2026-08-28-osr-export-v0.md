@@ -10,7 +10,7 @@
 | platform | `auto` の解決 | 備考 |
 |---|---|---|
 | darwin | `osr` | v2 を既定とする |
-| win32 | `legacy` | Windows 実機実測 #14 が完了するまで OSR は opt-in |
+| win32 | 適格なら `gpu`、不適格なら `osr` | GPU / OSR launcher が利用不能なら順に `legacy` へフォールバック |
 | linux | `legacy` | OSR は opt-in |
 
 `.akari/render.json` の provenance は、指定値を `engine_requested`、解決後の実走値を `engine` に
