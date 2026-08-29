@@ -1,6 +1,8 @@
 import { computeBgmDuckGainDb, computeDuckIntervals, DuckInterval } from './ducking';
+import { buildTimelineMap } from './timeline-map';
+import type { EditCut } from './edit-store';
 
-export type WebAudioScheduleKind = 'bgm' | 'sfx' | 'narration';
+export type WebAudioScheduleKind = 'bgm' | 'sfx' | 'narration' | 'speech';
 
 export interface WebAudioDecodedItem {
     id?: string;
@@ -23,6 +25,30 @@ export interface WebAudioScheduleDeclaration {
     bgm?: WebAudioDecodedItem;
     sfx?: WebAudioDecodedItem[];
     narration?: WebAudioDecodedItem[];
+    speech?: WebAudioSpeechDeclaration[];
+}
+
+export interface WebAudioSpeechDeclaration {
+    id: string;
+    src: string;
+    atSec: number;
+    /** 出力タイムライン上の再生尺。 */
+    durationSec: number;
+    inSec: number;
+    outSec: number;
+    speed: number;
+    gainDb?: number;
+    track?: number;
+    /** decode 後の素材実尺。 */
+    materialDurationSec: number;
+}
+
+export interface WebAudioSpeechCut extends EditCut {
+    id?: string;
+    freeze?: { at_sec?: unknown; duration_sec?: unknown } | null;
+    gain_db?: unknown;
+    gainDb?: unknown;
+    volume_db?: unknown;
 }
 
 export interface WebAudioGainEvent {
@@ -41,6 +67,10 @@ export interface WebAudioScheduledItem {
     delaySec: number;
     sourceOffsetSec: number;
     durationSec: number;
+    /** AudioBufferSourceNode の再生速度。 */
+    playbackRate: number;
+    /** start() の duration 引数へ渡す素材時間軸の尺。 */
+    sourceDurationSec: number;
     loop: boolean;
     gainDb: number;
     gainEvents: WebAudioGainEvent[];
@@ -110,6 +140,10 @@ export function buildWebAudioSchedule(input: WebAudioScheduleInput): WebAudioSch
     }
     for (const item of narration) {
         const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec);
+        if (scheduled) items.push(scheduled);
+    }
+    for (const speech of audio.speech ?? []) {
+        const scheduled = scheduleSpeech(speech, timelineDurationSec, startAtSec, warnings);
         if (scheduled) items.push(scheduled);
     }
 
@@ -220,6 +254,8 @@ function scheduleTimed(
         delaySec,
         sourceOffsetSec: item.sourceOffsetSec + elapsedIntoItemSec,
         durationSec,
+        playbackRate: 1,
+        sourceDurationSec: durationSec,
         loop: false,
         gainDb: item.gainDb,
         gainEvents,
@@ -274,6 +310,8 @@ function scheduleBgm(
         delaySec,
         sourceOffsetSec,
         durationSec,
+        playbackRate: 1,
+        sourceDurationSec: durationSec,
         loop,
         gainDb,
         gainEvents: bgmFadeGainEvents(
@@ -291,6 +329,168 @@ function scheduleBgm(
             durationSec
         )
     };
+}
+
+function scheduleSpeech(
+    spec: WebAudioSpeechDeclaration,
+    timelineDurationSec: number,
+    startAtSec: number,
+    warnings: string[]
+): WebAudioScheduledItem | null {
+    const id = typeof spec?.id === 'string' && spec.id ? spec.id : 'speech';
+    const label = `speech ${id}`;
+    if (!spec || typeof spec.src !== 'string' || !spec.src
+        || !finiteNonNegative(spec.atSec) || !finitePositive(spec.durationSec)
+        || !finiteNonNegative(spec.inSec) || !finitePositive(spec.outSec)
+        || spec.outSec <= spec.inSec || !finitePositive(spec.speed)
+        || !finitePositive(spec.materialDurationSec)) {
+        warnings.push(`${label}: declaration is invalid; skipped`);
+        return null;
+    }
+    if (spec.atSec >= timelineDurationSec) return null;
+    const gainDb = normalizedGainDb(spec, label, warnings);
+    if (gainDb === null) return null;
+    const elapsedIntoItemSec = Math.max(0, startAtSec - spec.atSec);
+    if (elapsedIntoItemSec >= spec.durationSec) return null;
+    const delaySec = Math.max(0, spec.atSec - startAtSec);
+    const timelineStartSec = startAtSec + delaySec;
+    const sourceOffsetSec = spec.inSec + elapsedIntoItemSec * spec.speed;
+    const sourceEndSec = Math.min(spec.outSec, spec.materialDurationSec);
+    const sourceAvailableSec = sourceEndSec - sourceOffsetSec;
+    if (!(sourceAvailableSec > 0)) return null;
+    const durationSec = Math.min(
+        spec.durationSec - elapsedIntoItemSec,
+        timelineDurationSec - timelineStartSec,
+        sourceAvailableSec / spec.speed
+    );
+    if (!(durationSec > 0)) return null;
+    const baseGain = dbToLinear(gainDb);
+    return {
+        kind: 'speech',
+        id,
+        track: normalizedTrack(spec.track),
+        timelineStartSec,
+        timelineEndSec: timelineStartSec + durationSec,
+        delaySec,
+        sourceOffsetSec,
+        durationSec,
+        playbackRate: spec.speed,
+        sourceDurationSec: durationSec * spec.speed,
+        loop: false,
+        gainDb,
+        gainEvents: [{ offsetSec: 0, value: baseGain, method: 'set' }],
+        duckingEvents: []
+    };
+}
+
+/**
+ * cuts[] を出力タイムライン上の撮影素材音声へ投影する。URL 解決と decode 実尺の確定は
+ * 呼び出し側が行い、ここでは source id と時間写像だけを決定する。
+ */
+export function projectSpeechDeclarations(
+    cuts: readonly WebAudioSpeechCut[],
+    options: { fps: number }
+): WebAudioSpeechDeclaration[] {
+    const fps = finitePositive(options?.fps) ? options.fps : 30;
+    const virtualCuts: EditCut[] = cuts.map(cut => {
+        const speed = finitePositive(cut?.speed) ? cut.speed as number : 1;
+        const holdSec = freezeDuration(cut?.freeze);
+        return { ...cut, out: cut.out + holdSec * speed };
+    });
+    const map = buildTimelineMap(virtualCuts, { fps });
+    const declarations: WebAudioSpeechDeclaration[] = [];
+    for (const segment of map.segments) {
+        if (segment.kind !== 'src' || segment.cutIndex === null) continue;
+        const cut = cuts[segment.cutIndex];
+        if (!cut || typeof cut.src !== 'string' || !cut.src) continue;
+        const speed = finitePositive(cut.speed) ? cut.speed as number : 1;
+        const segmentIn = typeof segment.in === 'number' ? segment.in : cut.in;
+        const cutTimelineStart = segment.outStart - (segmentIn - cut.in) / speed;
+        const baseDurationSec = Math.max(0, cut.out - cut.in) / speed;
+        const gainDb = speechGainDb(cut);
+        const baseId = typeof cut.id === 'string' && cut.id ? cut.id : `cut-${segment.cutIndex}`;
+        const holdSec = freezeDuration(cut.freeze);
+        if (!(holdSec > 0)) {
+            appendSpeechIntersection(declarations, {
+                id: `${baseId}-speech`, src: cut.src, gainDb, speed,
+                sourceIn: cut.in,
+                outputStart: cutTimelineStart,
+                outputEnd: cutTimelineStart + baseDurationSec,
+                segmentStart: segment.outStart,
+                segmentEnd: segment.outEnd,
+                track: cut.track
+            });
+            continue;
+        }
+        const freezeAtSec = Math.max(0, Math.min(freezeAt(cut.freeze), baseDurationSec));
+        const freezeSourceIn = cut.in + freezeAtSec * speed;
+        appendSpeechIntersection(declarations, {
+            id: `${baseId}-speech-pre`, src: cut.src, gainDb, speed,
+            sourceIn: cut.in,
+            outputStart: cutTimelineStart,
+            outputEnd: cutTimelineStart + freezeAtSec,
+            segmentStart: segment.outStart,
+            segmentEnd: segment.outEnd,
+            track: cut.track
+        });
+        appendSpeechIntersection(declarations, {
+            id: `${baseId}-speech-post`, src: cut.src, gainDb, speed,
+            sourceIn: freezeSourceIn,
+            outputStart: cutTimelineStart + freezeAtSec + holdSec,
+            outputEnd: cutTimelineStart + baseDurationSec + holdSec,
+            segmentStart: segment.outStart,
+            segmentEnd: segment.outEnd,
+            track: cut.track
+        });
+    }
+    return declarations;
+}
+
+function appendSpeechIntersection(
+    declarations: WebAudioSpeechDeclaration[],
+    input: {
+        id: string;
+        src: string;
+        gainDb: number;
+        speed: number;
+        sourceIn: number;
+        outputStart: number;
+        outputEnd: number;
+        segmentStart: number;
+        segmentEnd: number;
+        track?: number;
+    }
+): void {
+    const atSec = Math.max(input.outputStart, input.segmentStart);
+    const endSec = Math.min(input.outputEnd, input.segmentEnd);
+    if (!(endSec > atSec)) return;
+    const inSec = input.sourceIn + (atSec - input.outputStart) * input.speed;
+    const outSec = inSec + (endSec - atSec) * input.speed;
+    declarations.push({
+        id: input.id,
+        src: input.src,
+        atSec,
+        durationSec: endSec - atSec,
+        inSec,
+        outSec,
+        speed: input.speed,
+        gainDb: input.gainDb,
+        track: normalizedTrack(input.track),
+        materialDurationSec: outSec
+    });
+}
+
+function freezeDuration(freeze: WebAudioSpeechCut['freeze']): number {
+    return freeze && finitePositive(freeze.duration_sec) ? freeze.duration_sec as number : 0;
+}
+
+function freezeAt(freeze: WebAudioSpeechCut['freeze']): number {
+    return freeze && finiteNonNegative(freeze.at_sec) ? freeze.at_sec as number : 0;
+}
+
+function speechGainDb(cut: WebAudioSpeechCut): number {
+    const raw = cut.gain_db ?? cut.gainDb ?? cut.volume_db;
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : 0;
 }
 
 function normalizedGainDb(spec: WebAudioDecodedItem, label: string, warnings: string[]): number | null {

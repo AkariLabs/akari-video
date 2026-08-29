@@ -1,5 +1,6 @@
 import { DuckInterval } from './ducking';
-export type WebAudioScheduleKind = 'bgm' | 'sfx' | 'narration';
+import type { EditCut } from './edit-store';
+export type WebAudioScheduleKind = 'bgm' | 'sfx' | 'narration' | 'speech';
 export interface WebAudioDecodedItem {
     id?: string;
     durationSec: number;
@@ -20,6 +21,31 @@ export interface WebAudioScheduleDeclaration {
     bgm?: WebAudioDecodedItem;
     sfx?: WebAudioDecodedItem[];
     narration?: WebAudioDecodedItem[];
+    speech?: WebAudioSpeechDeclaration[];
+}
+export interface WebAudioSpeechDeclaration {
+    id: string;
+    src: string;
+    atSec: number;
+    /** 出力タイムライン上の再生尺。 */
+    durationSec: number;
+    inSec: number;
+    outSec: number;
+    speed: number;
+    gainDb?: number;
+    track?: number;
+    /** decode 後の素材実尺。 */
+    materialDurationSec: number;
+}
+export interface WebAudioSpeechCut extends EditCut {
+    id?: string;
+    freeze?: {
+        at_sec?: unknown;
+        duration_sec?: unknown;
+    } | null;
+    gain_db?: unknown;
+    gainDb?: unknown;
+    volume_db?: unknown;
 }
 export interface WebAudioGainEvent {
     /** AudioBufferSourceNode の start 時刻からの相対秒。 */
@@ -36,6 +62,10 @@ export interface WebAudioScheduledItem {
     delaySec: number;
     sourceOffsetSec: number;
     durationSec: number;
+    /** AudioBufferSourceNode の再生速度。 */
+    playbackRate: number;
+    /** start() の duration 引数へ渡す素材時間軸の尺。 */
+    sourceDurationSec: number;
     loop: boolean;
     gainDb: number;
     gainEvents: WebAudioGainEvent[];
@@ -60,3 +90,10 @@ export interface WebAudioScheduleResult {
  * の両方で同じ結果を再生できる。
  */
 export declare function buildWebAudioSchedule(input: WebAudioScheduleInput): WebAudioScheduleResult;
+/**
+ * cuts[] を出力タイムライン上の撮影素材音声へ投影する。URL 解決と decode 実尺の確定は
+ * 呼び出し側が行い、ここでは source id と時間写像だけを決定する。
+ */
+export declare function projectSpeechDeclarations(cuts: readonly WebAudioSpeechCut[], options: {
+    fps: number;
+}): WebAudioSpeechDeclaration[];

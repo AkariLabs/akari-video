@@ -1,0 +1,221 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { createPreviewAudioSupply } from '../dist/index.js';
+
+class FakeParam {
+  value = 1;
+  cancelScheduledValues() {}
+  setValueAtTime(value) { this.value = value; }
+  linearRampToValueAtTime(value) { this.value = value; }
+}
+
+class FakeSource {
+  playbackRate = new FakeParam();
+  loop = false;
+  buffer = null;
+  onended = null;
+  starts = [];
+  connect() {}
+  disconnect() {}
+  stop() {}
+  start(...args) { this.starts.push(args); }
+}
+
+class FakeGain {
+  gain = new FakeParam();
+  connect() {}
+  disconnect() {}
+}
+
+class FakeContext {
+  currentTime = 0;
+  state = 'suspended';
+  destination = {};
+  sources = [];
+  decodeCalls = 0;
+  constructor(buffers) { this.buffers = buffers; }
+  async decodeAudioData(data) {
+    this.decodeCalls += 1;
+    const key = new Uint8Array(data)[0];
+    const value = this.buffers.get(key);
+    if (value instanceof Error) throw value;
+    return value;
+  }
+  createBufferSource() {
+    const source = new FakeSource();
+    this.sources.push(source);
+    return source;
+  }
+  createGain() { return new FakeGain(); }
+  async resume() { this.state = 'running'; }
+  async close() { this.state = 'closed'; }
+}
+
+const buffer = (duration, length = 10, numberOfChannels = 2) => ({
+  duration, length, numberOfChannels,
+});
+
+function response(key) {
+  return { ok: true, arrayBuffer: async () => Uint8Array.of(key).buffer };
+}
+
+async function settle() {
+  for (let index = 0; index < 12; index += 1) await Promise.resolve();
+}
+
+function speech(id, src, url, overrides = {}) {
+  return {
+    id, src, url, atSec: 0, durationSec: 1, inSec: 0, outSec: 1,
+    speed: 1, materialDurationSec: 1, ...overrides,
+  };
+}
+
+function scheduleBuilder({ timelineDurationSec, startAtSec, audio = {} }) {
+  const items = [];
+  const append = (kind, id, atSec, durationSec, sourceOffsetSec, playbackRate = 1) => {
+    const elapsed = Math.max(0, startAtSec - atSec);
+    const delaySec = Math.max(0, atSec - startAtSec);
+    const available = Math.min(durationSec - elapsed,
+      timelineDurationSec - startAtSec - delaySec);
+    if (!(available > 0)) return;
+    items.push({
+      kind, id, track: 0, timelineStartSec: startAtSec + delaySec,
+      timelineEndSec: startAtSec + delaySec + available, delaySec,
+      sourceOffsetSec: sourceOffsetSec + elapsed * playbackRate,
+      durationSec: available, playbackRate, sourceDurationSec: available * playbackRate,
+      loop: kind === 'bgm', gainDb: 0,
+      gainEvents: [{ offsetSec: 0, value: 1, method: 'set' }], duckingEvents: [],
+    });
+  };
+  if (audio.bgm) append('bgm', audio.bgm.id ?? 'bgm', 0, timelineDurationSec, 0);
+  for (const item of audio.speech ?? []) {
+    append('speech', item.id, item.atSec, item.durationSec, item.inSec, item.speed);
+  }
+  return { startAtSec, items, warnings: [] };
+}
+
+test('同一ソースの複数 cut は一度だけ decode し、cut ごとの速度と素材尺で start する', async () => {
+  const context = new FakeContext(new Map([[1, buffer(4, 100, 2)]]));
+  const fetches = [];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 3,
+    scheduleBuilder,
+    contextFactory: () => context,
+    fetchImpl: async url => { fetches.push(url); return response(1); },
+    speech: [
+      speech('a-1', 'source-a', '/a.mp4', { durationSec: 1, outSec: 1 }),
+      speech('a-2', 'source-a', '/a.mp4', {
+        atSec: 1, durationSec: 1, inSec: 1, outSec: 2.15, speed: 1.15,
+      }),
+    ],
+  });
+
+  supply.playFrom(0);
+  await settle();
+  assert.deepEqual(fetches, ['/a.mp4']);
+  assert.equal(context.decodeCalls, 1);
+  assert.equal(context.sources.length, 2);
+  assert.deepEqual(context.sources.map(source => source.playbackRate.value), [1, 1.15]);
+  assert.deepEqual(context.sources.map(source => source.starts[0].slice(1)), [[0, 1], [1, 1.15]]);
+  assert.equal(supply.debug().scheduled.speech, 2);
+  supply.dispose();
+});
+
+test('speech decode cache は byte 上限を越えると LRU を捨てる', async () => {
+  const context = new FakeContext(new Map([
+    [1, buffer(2, 10, 2)],
+    [2, buffer(2, 10, 2)],
+  ]));
+  const counts = new Map();
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 2,
+    scheduleBuilder,
+    contextFactory: () => context,
+    decodeCacheBytes: 100,
+    fetchImpl: async url => {
+      counts.set(url, (counts.get(url) ?? 0) + 1);
+      return response(url === '/a.mp4' ? 1 : 2);
+    },
+    speech: [
+      speech('a', 'source-a', '/a.mp4'),
+      speech('b', 'source-b', '/b.mp4', { atSec: 1 }),
+    ],
+  });
+  supply.playFrom(0);
+  await settle();
+  supply.pause();
+  supply.playFrom(0);
+  await settle();
+
+  assert.equal([...counts.values()].reduce((sum, value) => sum + value, 0), 3);
+  assert.ok([...counts.values()].some(value => value === 2), '最古の 1 ソースが再 decode される');
+  assert.equal(supply.debug().speechDecode.bytes, 80);
+  supply.dispose();
+});
+
+test('音声なしソースは警告一行で全 cut を飛ばし、他ソースと BGM は継続する', async () => {
+  const context = new FakeContext(new Map([
+    [1, new Error('no audio track')],
+    [2, buffer(2)],
+    [3, buffer(2)],
+  ]));
+  const warnings = [];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 2,
+    scheduleBuilder,
+    contextFactory: () => context,
+    fetchImpl: async url => response(url === '/silent.mp4' ? 1 : url === '/good.mp4' ? 2 : 3),
+    onWarning: message => warnings.push(message),
+    declarations: [{
+      kind: 'bgm', id: 'bed', url: '/bgm.wav', spec: { id: 'bed', durationSec: 0 },
+    }],
+    speech: [
+      speech('silent-1', 'silent', '/silent.mp4'),
+      speech('silent-2', 'silent', '/silent.mp4', { atSec: 1 }),
+      speech('good', 'good', '/good.mp4'),
+    ],
+  });
+  supply.playFrom(0);
+  await settle();
+  supply.pause();
+  supply.playFrom(0);
+  await settle();
+
+  const unavailable = warnings.filter(message => /speech silent unavailable/u.test(message));
+  assert.equal(unavailable.length, 1);
+  const debug = supply.debug();
+  assert.equal(debug.scheduled.bgm, 1);
+  assert.equal(debug.scheduled.speech, 1);
+  assert.equal(debug.speechDecode.sources, 2);
+  assert.equal(debug.speechDecode.okSources, 1);
+  assert.equal(debug.speechDecode.skippedSources, 1);
+  assert.ok(debug.speechDecode.totalMs >= 0);
+  assert.deepEqual(debug.speechDecode.perSource.map(item => item.ok), [false, true]);
+  supply.dispose();
+});
+
+test('debug は描画時に二時計を同時採取し speech decode の形を保つ', async () => {
+  const context = new FakeContext(new Map([[1, buffer(2, 12, 2)]]));
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 2,
+    scheduleBuilder,
+    contextFactory: () => context,
+    fetchImpl: async () => response(1),
+    speech: [speech('a', 'source-a', '/a.mp4')],
+  });
+  supply.playFrom(0);
+  await settle();
+  context.currentTime = 0.52;
+  supply.noteRendered(0.5);
+  const debug = supply.debug();
+  assert.ok(Number.isFinite(debug.driftMs));
+  assert.deepEqual(Object.keys(debug.speechDecode), [
+    'sources', 'okSources', 'skippedSources', 'totalMs', 'bytes', 'perSource',
+  ]);
+  assert.equal(debug.speechDecode.bytes, 96);
+  assert.deepEqual(Object.keys(debug.speechDecode.perSource[0]), [
+    'src', 'ms', 'durationSec', 'bytes', 'ok',
+  ]);
+  supply.dispose();
+});

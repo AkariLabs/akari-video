@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   STATIC_DUCK_GAIN_DB,
   buildWebAudioSchedule,
+  projectSpeechDeclarations,
 } from '../lib/index.js';
 
 const closeTo = (actual, expected, message = '') => {
@@ -148,4 +149,83 @@ test('既存 Web UI / shell の loop・timed・fade 数式と多数のシーク�
     closeTo(sfx.sourceOffsetSec, 0.5 + elapsed, `sfx offset seek=${startAtSec}`);
     closeTo(sfx.durationSec, Math.min(4 - elapsed, 12 - startAtSec - delay), `sfx duration seek=${startAtSec}`);
   }
+});
+
+test('speech は speed を素材時間軸へ適用し、シーク窓と素材末尾で出力尺も切り詰める', () => {
+  const result = buildWebAudioSchedule({
+    timelineDurationSec: 10,
+    startAtSec: 2,
+    audio: {
+      bgm: { id: 'bed', durationSec: 2 },
+      narration: [{ id: 'voice', durationSec: 1, t: 0 }],
+      speech: [{
+        id: 'cut-a-speech', src: 'source-a', atSec: 1, durationSec: 4,
+        inSec: 10, outSec: 16, speed: 1.5, gainDb: -6, materialDurationSec: 15.4,
+      }],
+    },
+  });
+  const speech = result.items.find(item => item.kind === 'speech');
+  closeTo(speech.timelineStartSec, 2);
+  closeTo(speech.sourceOffsetSec, 11.5);
+  closeTo(speech.durationSec, 2.6);
+  closeTo(speech.playbackRate, 1.5);
+  closeTo(speech.sourceDurationSec, 3.9);
+  closeTo(speech.timelineEndSec, 4.6);
+  closeTo(speech.gainEvents[0].value, Math.pow(10, -6 / 20));
+  assert.deepEqual(speech.duckingEvents, []);
+  assert.deepEqual(result.duckIntervals, [{ startSec: 0, endSec: 1 }],
+    'speech は narration だけから作る ducking 区間へ加わらない');
+
+  for (const item of result.items.filter(item => item.kind !== 'speech')) {
+    assert.equal(item.playbackRate, 1);
+    assert.equal(item.sourceDurationSec, item.durationSec);
+  }
+});
+
+test('cuts 投影は speed / gain / 暗黙配置を保ち、freeze hold を無音の二分割にする', () => {
+  const speech = projectSpeechDeclarations([
+    { id: 'fast', src: 'source-a', in: 1, out: 5, speed: 2, gain_db: -3 },
+    {
+      id: 'frozen', src: 'source-b', in: 0, out: 4, speed: 1,
+      volume_db: -9, freeze: { at_sec: 1, duration_sec: 2 },
+    },
+    { id: 'tail', src: 'source-a', in: 6, out: 7, gainDb: -1 },
+  ], { fps: 30 });
+
+  assert.deepEqual(speech.map(item => ({
+    id: item.id, src: item.src, atSec: item.atSec, durationSec: item.durationSec,
+    inSec: item.inSec, outSec: item.outSec, speed: item.speed, gainDb: item.gainDb,
+  })), [
+    {
+      id: 'fast-speech', src: 'source-a', atSec: 0, durationSec: 2,
+      inSec: 1, outSec: 5, speed: 2, gainDb: -3,
+    },
+    {
+      id: 'frozen-speech-pre', src: 'source-b', atSec: 2, durationSec: 1,
+      inSec: 0, outSec: 1, speed: 1, gainDb: -9,
+    },
+    {
+      id: 'frozen-speech-post', src: 'source-b', atSec: 5, durationSec: 3,
+      inSec: 1, outSec: 4, speed: 1, gainDb: -9,
+    },
+    {
+      id: 'tail-speech', src: 'source-a', atSec: 8, durationSec: 1,
+      inSec: 6, outSec: 7, speed: 1, gainDb: -1,
+    },
+  ]);
+});
+
+test('speech 未指定時は既存三種の予定値を保ち、新規素材軸フィールドだけ 1 倍で補う', () => {
+  const result = buildWebAudioSchedule({
+    timelineDurationSec: 8,
+    startAtSec: 1,
+    audio: {
+      bgm: { id: 'bgm', durationSec: 3 },
+      sfx: [{ id: 'sfx', durationSec: 2, t: 2 }],
+      narration: [{ id: 'narration', durationSec: 2, t: 3 }],
+    },
+  });
+  assert.deepEqual(result.items.map(item => item.kind), ['bgm', 'sfx', 'narration']);
+  assert.ok(result.items.every(item => item.playbackRate === 1));
+  assert.ok(result.items.every(item => item.sourceDurationSec === item.durationSec));
 });
