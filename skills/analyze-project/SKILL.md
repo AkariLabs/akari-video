@@ -12,6 +12,8 @@ description: プロジェクト内の素材群（analysis.json）と周辺プロ
 - **1 パス目を再実行しない**。素材ごとの事実抽出（STT・フレーム解析等の重い処理）は既存
   [analyze-footage](../analyze-footage/SKILL.md) の analysis.json に委ね、無い素材だけ 1 素材 1 実行で
   実行する。既存 analysis.json は無改修で使う。
+- **帳面に無い章は「未観察」として描く**。存在しなかったことにせず、素材や別章から推測で埋めない。
+  レポートでも該当章を省略せず「未観察」と表示し、`observations[]` があればその実行履歴を根拠にする。
 - **2 パス目は素材の再視聴をしない**。1 パス目の出力テキスト（transcript・keyframe note・events）を
   並べて読み直すテキスト推論に限る。素材へ戻るのは、2 パス目がピンポイントで必要と判断した箇所だけ。
 - **2 パス目の入力は analysis.json 群に閉じない**。プロジェクトの周辺文脈
@@ -49,6 +51,7 @@ description: プロジェクト内の素材群（analysis.json）と周辺プロ
    読み合わせ、根拠必須・捏造ゼロの規律で `interpretation.json` を作る。
 3. [validate-and-render.md](validate-and-render.md) を読み、`validate-interpretation.mjs` で
    PASS を確認してから renderer（`--analysis <ref>=<path>` 形式）でレポートを生成し、開く。
+   analysis.json に無い章はレポート上で「未観察」と表示されていることを確認する。
 4. open_questions が残る場合だけ [interview.md](interview.md) を読み、チャットで取材する
    （「どうしますか」禁止）。回答を得たら interview へ昇格し、interpretation とレポートを
    再生成する（手順 2〜3 に戻る）。

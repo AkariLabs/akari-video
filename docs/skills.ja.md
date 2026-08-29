@@ -32,7 +32,7 @@ AKARI Video のエージェント側ワークフローは **22 のスキル**に
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
-| [analyze-footage](../skills/analyze-footage/SKILL.md) | 素材 1 本の編集前分析（720p プロキシ・文字起こし・キーフレーム・編集イベント）→ analysis.json | ffmpeg、STT 3 層（macOS SpeechAnalyzer / whisper.cpp / クラウドは承認制） |
+| [analyze-footage](../skills/analyze-footage/SKILL.md) | 素材 1 本を頼まれたレベルまでプル駆動で分析（既定 L0 メタ + L1 音）→ analysis.json | `akari media`、クラウド文字起こしは承認制 |
 | [analyze-project](../skills/analyze-project/SKILL.md) | 素材横断の解釈層 interpretation.json と読み取り専用の分析レポート | — |
 
 ### 編集

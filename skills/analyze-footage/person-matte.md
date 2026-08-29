@@ -16,6 +16,8 @@
 人物マットは**人物演出（text-behind-person など）を使うと決めた素材でだけ**作る。既定の分析
 フローはマットを作らず `tracks.person_matte` に `null` を書く。データ契約は
 [docs/contract-2026-07-23-analysis-person-matte.md](../../docs/contract-2026-07-23-analysis-person-matte.md) が正本である。
+以下の `node bin/person-matte/...` は L3 サイドカー生成器の公開インターフェースであり、媒体バックエンドを
+analyze-footage の手順から直接呼ぶものではない。内部のデコード・検証は生成器自身が担う。
 
 ## 実行するかを先に決める
 
@@ -54,9 +56,9 @@ node bin/person-matte/person-matte.mjs --check
 ```
 
 `available:true` 以外なら `reason` を報告し、マットを作らずに `null` のまま進む。結果には既定の
-RVM モデルの配備状況を示す `rvm_model` も含まれる。Mac は `swiftc`、ffmpeg / ffprobe、ffmpeg の
-`libvpx-vp9` エンコーダを要求する。Windows は swiftc を要求せず、同じメディア道具に加えて RVM の
-mobilenetv3 モデルを要求する。ffmpeg / ffprobe は `packages/media-bin` の解決規則を使う。
+RVM モデルの配備状況を示す `rvm_model` も含まれる。Mac は `swiftc`、同梱メディア道具、VP9 alpha
+エンコーダを要求する。Windows は swiftc を要求せず、同じメディア道具に加えて RVM の
+mobilenetv3 モデルを要求する。メディア道具の探索はサイドカー生成器内部の解決規則に委ねる。
 ネットワークからツールを導入しない。Mac の Swift ヘルパーは初回実行時に `swiftc -O` で自動ビルドされ、
 バイナリはコミットしない（[.gitignore](.gitignore) 参照）。
 
@@ -84,7 +86,7 @@ node bin/person-matte/person-matte.mjs \
 
 成功時は 1 行の JSON が返る。`ok`、`frames`、`bytes`、`elapsed_seconds`、`engine`、
 Vision 時の `vision_ms_per_frame` または RVM 時の `rvm_ms_per_frame`、
-`alpha_transparent_ratio`（完全透明画素の割合）、`probe`（ffprobe の実測）を含む。
+`alpha_transparent_ratio`（完全透明画素の割合）、`probe`（同梱 prober の実測）を含む。
 ヘルパーは書き出した WebM が `codec_name = vp9` かつ `alpha_mode = 1` であることを確認してから
 成功を返すので、`ok: true` はアルファが落ちていないことを含意する。
 
@@ -238,7 +240,7 @@ node skills\analyze-footage\bin\person-matte\person-matte.mjs --input "$SOURCE" 
   node skills\analyze-footage\bin\person-matte\person-matte.mjs --check
   ```
 
-- ffmpeg / ffprobe 不在: `packages/media-bin` の postinstall が同梱バイナリを配備するため、
+- 同梱メディア道具不在: `packages/media-bin` の postinstall が同梱バイナリを配備するため、
   次のコマンドで配備をやり直してから `--check` を再実行する。
 
   ```powershell
@@ -248,8 +250,8 @@ node skills\analyze-footage\bin\person-matte\person-matte.mjs --input "$SOURCE" 
   node skills\analyze-footage\bin\person-matte\person-matte.mjs --check
   ```
 
-- `libvpx-vp9` 不在: 解決された ffmpeg が VP9 alpha を書けない。`reason` に従って media-bin の配備と
-  ffmpeg の解決元を確認する。
+- `libvpx-vp9` 不在: 解決された encoder が VP9 alpha を書けない。`reason` に従って media-bin の配備と
+  解決元を確認する。
 
 ## 劣化
 
@@ -264,7 +266,7 @@ node skills\analyze-footage\bin\person-matte\person-matte.mjs --input "$SOURCE" 
 
 - 人物演出を使うと決まっていない素材にも一律で実行し、分析時間を何倍にもする。
 - `fast` の出力を本番の切り抜きとして確定する。
-- 出来上がったマット動画を ffmpeg で再エンコード・再変換する（アルファが無言で落ちる）。
+- 出来上がったマット動画を別の媒体変換コマンドで再エンコードする（アルファが無言で落ちる）。
 - マットを素材の途中区間から切り出し、時刻 0 の一致を壊す。
 - `--fps` を変えたのに `analysis.json` の `fps` を書き換え忘れる。
 - ヘルパーが返した絶対パスをそのまま `path` に書く。

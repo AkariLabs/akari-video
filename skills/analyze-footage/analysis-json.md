@@ -8,7 +8,7 @@
 
 ## 原則
 
-このスキルの `references/analysis.schema.json` を唯一の構造定義として使う。トップレベルと各 object は未知フィールドを許可しないため、作業メモ、信頼度、劣化理由、生成ツール情報を勝手に追加しない。
+[packages/schemas/analysis.schema.json](../../packages/schemas/analysis.schema.json) を唯一の構造定義として使う。トップレベルと各 object は未知フィールドを許可しないため、作業メモ、信頼度、劣化理由、生成ツール情報を勝手に追加しない。
 
 ## 最小の有効形
 
@@ -27,7 +27,9 @@
 }
 ```
 
-全 6 トップレベル項目は必須である。配列が空でも省略しない。
+全 6 トップレベル項目は必須である。配列が空でも省略しない。`keyframes: []` / `events: []` は
+L2 未観察でも、観察した結果が 0 件でも妥当である。どちらかは対応する `observations[]` の種類・範囲から判定し、
+配列だけを見て「該当なし」と断定しない。
 
 ## 各要素の形
 
@@ -147,7 +149,7 @@ python3 -m json.tool "$OUT_DIR/analysis.json.tmp" >/dev/null
 Python の `jsonschema` がローカルにある場合は Draft 2020-12 として検証する。
 
 ```bash
-python3 - ".claude/skills/analyze-footage/references/analysis.schema.json" "$OUT_DIR/analysis.json.tmp" <<'PY'
+python3 - "packages/schemas/analysis.schema.json" "$OUT_DIR/analysis.json.tmp" <<'PY'
 import json
 import pathlib
 import sys
@@ -175,7 +177,7 @@ Schema 検証、意味制約、参照ファイル存在確認を通した後だ�
 ## よくある間違い
 
 - `version` を文字列 `"0"` にする。
-- whisper.cpp の raw JSON を transcript へ直接入れる。
+- 文字起こし backend の raw JSON を transcript へ直接入れる（`akari media transcribe` の正規化済み `segments[]` を使う）。
 - ハルシネーション疑いの segment を突合せず transcript に残して確定する。
 - trouble 以外の event に `note` を足す。
 - highlight の `quote` に要約・言い換えを書く（transcript の実発言に忠実にする）。

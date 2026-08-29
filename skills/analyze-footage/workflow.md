@@ -2,94 +2,93 @@
 
 ## 原則
 
-原本を証拠、`analysis.json` を機械可読な所見として扱う。自動検出は候補生成に使い、最終判断は transcript、実フレーム、ffmpeg の客観情報を突き合わせて行う。確認できない事実を埋めない。
+原本を証拠、`analysis.json` を追記可能な帳面として扱う。自動観察は候補生成に使い、確認できない事実を埋めない。キー無しは「未観察」であり、「存在しない」とは限らない。入出力と追記規約は [`akari media` 契約 §1 / §3](../../docs/contract-2026-08-29-media-inspect-cli-v0.md) を正本とする。
 
-## 1. 入力を固定する
+## 1. 入力と要求レベルを固定する
 
 次を先に確認する。
 
 - 入力が読み取り可能な通常ファイルである。
-- `ffprobe` で映像ストリーム、duration、time base を取得できる。
-- duration が有限の正数である。
-- このスキルの `references/analysis.schema.json` を読める。
+- `akari media probe <target>` が exit 0 で JSON を返し、`duration_s` が有限の正数である。
+- 正本の [analysis.schema.json](../../packages/schemas/analysis.schema.json) を読める。
 - ソースの絶対パスと、JSON に書く相対パスを混同していない。
+- 依頼または後続スキルが要求する最高レベルを L0〜L3 のどこまでとするか決まっている。指定がなければ L0 + L1 とする。
 
-映像ストリームがない、duration を確定できない、または ffmpeg がない場合は分析を完了扱いにしない。原因と止まった工程を報告する。
+`probe` が失敗した場合は分析を完了扱いにせず、stderr の理由と止まった工程を報告する。
 
 ## 2. 出力先を決める
 
-source がワークスペース内にあり、その祖先から `.akari/` を持つワークスペース root を特定できる場合は、source のワークスペース root からの相対パスを保った `.akari/sidecars/<source-relative-path>.analysis/` を正典の出力先とする。相対パスには `assets/` プレフィックスと source の拡張子を含める。
+source が `.akari/` を持つワークスペース内なら、ワークスペース root からの相対パスを保った `.akari/sidecars/<source-relative-path>.analysis/` を正典とする。
 
 ```text
 <workspace-root>/
-├── assets/
-│   └── IMG_4606.MOV
-└── .akari/
-    └── sidecars/
-        └── assets/
-            └── IMG_4606.MOV.analysis/
-                ├── analysis.json
-                ├── proxy.mp4
-                ├── whisper-input.wav
-                ├── whisper.raw.json
-                ├── keyframes/
-                └── work/
+├── assets/IMG_4606.MOV
+└── .akari/sidecars/assets/IMG_4606.MOV.analysis/
+    ├── analysis.json
+    ├── proxy.mp4          # L2 以上で必要な場合だけ
+    ├── keyframes/         # L2 で採用画像がある場合だけ
+    ├── matte/             # L3 で要求された場合だけ
+    └── vision/            # L3 で要求された場合だけ
 ```
 
-`.akari/` を持つワークスペース構造を特定できない単体実行では、後方互換の出力先を使う。
+`.akari/` を特定できない単体実行では `<source-dir>/analysis/<source-stem>/` を使う。`<source-stem>` は最後の拡張子を除いたファイル名とする。
 
-```text
-<source-dir>/
-├── <source-stem>.<ext>
-└── analysis/
-    └── <source-stem>/
-        ├── analysis.json
-        ├── proxy.mp4
-        ├── whisper-input.wav
-        ├── whisper.raw.json
-        ├── keyframes/
-        └── work/
-```
+既存出力が同じ source を指す場合だけ再利用する。別 source なら `<source-stem>-<ext>`、さらに衝突する場合は正規化絶対パスの SHA-256 先頭 8 桁を接尾辞にする。AKARI 標準配置の最終 `<name>.analysis` にも同じ規則を適用する。
 
-単体実行の `<source-stem>` は最後の拡張子を除いたファイル名とする。既存の出力ディレクトリが同じ source を指す再分析なら再利用してよい。別 source を指す場合は `<source-stem>-<ext>`、それも衝突する場合は source の正規化絶対パスの SHA-256 先頭 8 桁を接尾辞にする。AKARI プロジェクト内の正典パスでも、最終セグメントの `<name>.analysis` に同じ衝突回避規則を適用し、別 source との衝突時は `<name>-<ext>.analysis`、さらに衝突する場合は SHA-256 先頭 8 桁を接尾辞にする。既存 `analysis.json` の `source` を解決して照合し、名前だけで同一素材と判断しない。
+`source`、`keyframes[].path`、人物サイドカーの相対パスはすべて **analysis.json のあるディレクトリ**を基準に機械的に算出する。同一ファイルツリー内を表せない場合以外は絶対パスを保存しない。
 
-JSON 内の `source`、`keyframes[].path`、`tracks.person_matte`（の `path`）の相対パスは、すべて **analysis.json のあるディレクトリ**を基準にする。上の AKARI 標準配置なら `source` は `../../../../assets/IMG_4606.MOV`、キーフレームは `keyframes/<filename>.jpg` となる。単体実行の標準配置なら `source` は `../../<source-filename>` となる。固定の `../` の個数を暗記せず、analysis.json のディレクトリと参照先の実際の階層から相対パスを機械的に算出すること。source が `assets/` 配下でネストしていれば、その深さに応じて必要な階層数も増える。絶対パスは可搬性を落とすため、同一ファイルツリー内を表せない場合に限る。
+## 3. どこまで見るかを決める 4 問
 
-## 3. 工程を順番に実行する
+案件タイプを intake に追加しない。次の 4 問で必要な観察だけを引く。
 
-1. ffprobe の結果を控える。
-2. 720p プロキシを生成し、映像をデコードできることを確認する。
-3. 音声があれば [media-and-transcript.md](media-and-transcript.md) の 3 層手順（Mac 既定 = SpeechAnalyzer / 共通フォールバック = whisper.cpp / クラウド = 決定カード経由オプトイン）で文字起こしする（可能なら word タイムスタンプ込み）。いずれも使えなければ明示的に劣化する。
-4. transcript から highlight 候補（重要発言）を下書きする（transcript が空ならスキップ）。
-5. プロキシから scene 候補・interval 候補・transcript 駆動候補（highlight 下書きの時刻）を系統別に抽出する。
-6. 候補の source 時刻を回収して統合し、Read で視認する。採用 keyframe に `origin` を記録する。
-7. transcript と視認所見から event を確定する（highlight 下書きは視認結果と突合して確定・棄却する）。
-8. tracks を組み立てる。人物演出を使うと決めた素材でだけ、任意工程として人物マットを生成する（[person-matte.md](person-matte.md)）。既定は `person_matte: null` のまま進む。
-9. 一時 JSON を Schema 検証・意味検証し、成功したものだけ `analysis.json` に置き換える。
+1. **喋りがあるか** — ある、または不明なら L1。`speech_likely` が true のときだけ文字起こしへ進む。
+2. **絵を選ぶ必要があるか** — カット判断、切り抜き、B ロール選定、画面変化の根拠が要るなら L2。
+3. **人物演出を使うか** — 人物の切り抜き、瞳、指先、姿勢、表情を使う区間だけ L3。
+4. **人間が既に方向を決めたか** — 決まっているなら指定された窓だけを見る。決まっていないことだけを理由に全尺 L2 / L3 へ広げない。
 
-プロキシは時間を trim しない。プロキシと原本の時刻対応が崩れた場合は、以降の時刻を原本基準へ補正できるまで停止する。
+迷ったら質問は 1 問だけにする: **「既定の音まで（L0 + L1）で止めますか、それとも絵（L2）または人物演出（L3）まで必要ですか？」**
 
-## 4. 完了報告を出す
+## 4. どこまで見るかの例
 
-短い報告に次を含める。
+以下は判断例であって、閉じた案件タイプではない。
 
-- source と確定した `analysis.json` のパス
-- transcript、keyframe、event 各件数（keyframe は origin 系統別、event は type 別の内訳付き）
-- `words` を省略した segment 数と理由
-- 文字起こしに使用した backend（speechanalyzer/whisper-cpp/scribe/groq）と選定理由・フォールバックした場合はその理由（[media-and-transcript.md#provenancebackendの記録](media-and-transcript.md#provenancebackend-の記録)）
-- 使用した ffmpeg、whisper.cpp 実行ファイル、モデルのパス
-- `transcript: []` へ劣化した場合の理由と探索済み場所
-- 人物マットを生成した場合はその quality・処理時間・出力サイズ、生成しなかった場合は理由（既定は「人物演出を使わないため未生成」）
-- Read できなかった画像、未実施の Schema 検証、未確認の音声・人物情報
-- 初期閾値を変更した場合の値と理由
+| 例 | 目安 | 理由 |
+|---|---|---|
+| 字幕だけ | L0 + L1 | 発話と時刻が要り、絵の選定は不要。 |
+| 対談・ラジオ | L0 + L1 | 音を先に把握し、絵の判断を頼まれたときだけ L2 を足す。 |
+| 15 秒切り抜き | L0 + L1 + 指定窓の L2 | 候補発言と、その窓の画を確認する。全窓採点はしない。 |
+| B ロール PV | L0 + L1、必要なら L2 | waveform で発話なしを確認し、絵を選ぶ依頼があれば L2。 |
+| 人物演出 | L0 + L1 + 必要窓の L2 / L3 | 演出に使う人物種類と区間だけを引く。 |
+| 初見の長尺 | まず L0 + L1 | 全尺の絵を先回りで見ず、方向が決まってから該当窓へ L2 を足す。 |
+| タイムライン先行 | L0、必要窓だけ L1 / L2 | 人間が決めたカット周辺へ観察を限定する。 |
 
-劣化理由は Schema 外のフィールドとして JSON に足さず、完了報告に書く。
+## 5. レベル順に実行する
+
+1. L0: `akari media probe <target>`。
+2. L1: 音声があれば `akari media waveform <target>`。`speech_likely` が true のときだけ `akari media transcribe <target>`。
+3. L2: 要求された場合だけ `filmstrip` / `grab` で候補を作り、画像を視認して keyframe・event・hook を判断する。720p プロキシを置く場合もここからであり、L1 までは作らない。
+4. L3: 要求された人物演出のサイドカーだけを必要区間へ生成する。
+5. 各停止点で、既存の別章を消さずに一時 JSON を Schema 検証・意味検証し、成功したものだけ `analysis.json` へ原子的に反映する。
+
+プロジェクト内では各 `akari media` 呼び出しが既定で帳面へ追記する。プロジェクト外では stdout の結果から最小文書を組み立てる。再実行時は `observations[]` を削除・並べ替えず、対象範囲だけを更新する。
+
+## 6. 完了報告
+
+- source、確定した `analysis.json`、到達レベルと停止理由
+- 実行した `akari media` サブコマンド、観察範囲、stdout で得た件数
+- transcript / keyframe / event の件数。未観察章は「0 件」ではなく「未観察」と明記
+- 文字起こし backend と選定・フォールバック理由。`transcript: []` の場合は no speech / backend 不可 / 未観察を区別
+- L3 を生成した場合は種類・区間・処理時間・出力サイズ。未生成ならその旨
+- 視認できなかった画像、未実施の検証、既定値を変えたオプションと理由
+
+劣化理由を Schema 外のフィールドとして JSON に足さない。
 
 ## よくある間違い
 
+- 依頼レベルを決めず、最初から全尺の L2 / L3 を走らせる。
+- `speech_likely: false` でも全尺を文字起こしする。
+- キー無しを「該当なし」と断定し、未観察の可能性を消す。
 - 複数素材を 1 個の `analysis.json` にまとめる。
-- 素材別の `<workspace-root>/.akari/sidecars/<source-relative-path>.analysis/analysis.json`（単体実行では `<source-dir>/analysis/<source-stem>/analysis.json`）を使わず、共通の `analysis.json` を素材ごとに上書きする。
-- プロキシの連番フレーム番号を秒だとみなす。
+- 既存の未対象章や `observations[]` を再確定時に消す。
 - transcript がないのに映像だけから発話内容を創作する。
-- 一時生成物の絶対パスを JSON に固定する。
-- Schema が通っただけで `end > start` やファイル存在確認を省く。
+- Schema が通っただけで `end > start` や参照ファイル存在確認を省く。

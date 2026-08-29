@@ -32,7 +32,7 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
-| [analyze-footage](../skills/analyze-footage/SKILL.md) | Pre-edit analysis of a single clip (720p proxy, transcription, keyframes, edit events) → analysis.json | ffmpeg; three-layer STT (macOS SpeechAnalyzer / whisper.cpp / cloud behind approval) |
+| [analyze-footage](../skills/analyze-footage/SKILL.md) | Pull-driven analysis of one clip up to the requested level; defaults to L0 metadata + L1 audio → analysis.json | `akari media`; cloud transcription only with approval |
 | [analyze-project](../skills/analyze-project/SKILL.md) | Cross-clip interpretation layer (interpretation.json) and a read-only analysis report | — |
 
 ### Editing
