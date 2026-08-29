@@ -61,9 +61,15 @@ but a 5,400-frame export with many large-text overlays showed probabilistic anti
 within about 180 frames of one overlay (MAD 0.0001–0.0003, 11–41 differing pixels); every sentinel
 still matched, and rasterization flags did not remove the variance.
 
-Caption cues are baked to individual SVG sprites at page startup: 30 cues added about 47 seconds
-(roughly 52 ms/frame over 900 frames), making a short captioned GPU export slower than OSR; without
-captions, the same material measured 19.2 ms/frame on GPU versus 40.9 ms/frame on OSR.
+Per-frame composition now uses one base draw plus instanced draws for contiguous sprite kinds, so the
+draw-call count does not grow with the number of captions, DOM layers, or 3D sprites. With three
+simultaneous caption cues, incremental GPU time over no captions fell to +1.65 ms/frame: total draw GPU
+time was 3.12 ms/frame versus 1.47 ms/frame without captions.
+
+On the 5,999-frame real PV, GPU export was 7.2–8.2 times faster than OSR, peaked at 711–853 MB RSS,
+and completed with all six readback counters at zero. The remaining caption cost is startup work for
+cue measurement and SVG rasterization, not per-frame composition; caption rasterization for 30 cues
+took 9.95 seconds.
 
 ## Development
 
