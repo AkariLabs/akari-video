@@ -19,7 +19,12 @@ import {
   hasCutVisualTransform,
 } from "./cut-transform.mjs";
 import { hasCutFraming } from "./cut-framing.mjs";
-import { appendFreezeAwareAudioTrim, appendFreezeAwareVideoTrim, hasCutFreeze } from "./cut-freeze.mjs";
+import {
+  appendFreezeAwareAudioTrim,
+  appendFreezeAwareRelativeAudioTrim,
+  appendFreezeAwareVideoTrim,
+  hasCutFreeze,
+} from "./cut-freeze.mjs";
 import { buildAudioTailPadCommand, buildTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
 import { appendCutFxChain, hasCutFx } from "./fx.mjs";
 import { resolveEncodingPolicy } from "./encode-preset.mjs";
@@ -54,6 +59,10 @@ const GAIN_DB_MAX = 12;
 // encoders must keep their exact argument arrays.
 const CUT_X264_PERFORMANCE_PARAMS = "keyint=1";
 const IMPLIED_CAPTION_TRACK_ID = "t-captions-implied";
+export const MAX_AUDIO_INPUTS_PER_COMMAND = 200;
+// The first AAC frame after an input-side seek lacks overlap-add history, so start before the
+// cut and discard this preroll in the filter graph.
+export const AUDIO_SEEK_PREROLL_SECONDS = 0.5;
 
 function tuneCutVideoEncodeArgs(videoEncodeArgs) {
   if (!Array.isArray(videoEncodeArgs)) return videoEncodeArgs;
@@ -262,6 +271,7 @@ export function buildPlan({
     intermediates: [
       cutPath,
       cutAudioPath,
+      ...(cutAudio.intermediates ?? []),
       ...(tailPad ? [tailPaddedPath, tailPaddedAudioPath] : []),
       ...(layers ? [layeredPath] : []),
       ...(trackStack ? trackStack.intermediates : []),
@@ -1438,16 +1448,66 @@ export function buildMultiSourceAudioCutCommand({
   ffmpegCommand = resolveFfmpeg(),
   ffprobeCommand = resolveFfprobe(),
   audioDurationCache = new Map(),
+  maxInputsPerCommand = MAX_AUDIO_INPUTS_PER_COMMAND,
 }) {
-  const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
+  const sourcesById = new Map(sourceInputs.map((source) => [source.id, source]));
+  const inputLimit = normalizeAudioInputLimit(maxInputsPerCommand);
+  if (countAudioInputs(cuts, sourcesById) <= inputLimit) {
+    return buildSequentialAudioCutCommand({
+      sourceInputs, cutPath, cuts, ffmpegCommand, ffprobeCommand, audioDurationCache,
+    });
+  }
+
+  const groups = splitAudioCuts(cuts, sourcesById, inputLimit);
+  const { chunkPaths, listPath } = buildAudioChunkPaths(cutPath, groups.length);
+  const chunkResults = groups.map((group, index) => buildSequentialAudioCutCommand({
+    sourceInputs,
+    cutPath: chunkPaths[index],
+    cuts: group,
+    ffmpegCommand,
+    ffprobeCommand,
+    audioDurationCache,
+    audioCodecArgs: ["-c:a", "pcm_f32le", "-ar", "48000"],
+  }));
+  const concatListContent = chunkPaths
+    .map((path) => `file '${escapeConcatListPath(resolve(path))}'`)
+    .join("\n") + "\n";
+  return {
+    command: ffmpegCommand,
+    warnings: chunkResults.flatMap((result) => result.warnings),
+    args: [
+      "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+      "-f", "concat", "-safe", "0", "-i", listPath,
+      "-map", "0:a", "-vn", "-c:a", "aac", "-ar", "48000", cutPath,
+    ],
+    chunks: chunkResults.map((result, index) => ({
+      command: result.command,
+      args: result.args,
+      output: chunkPaths[index],
+    })),
+    concat_list: { path: listPath, content: concatListContent },
+    intermediates: [...chunkPaths, listPath].map((path) => resolve(path)),
+  };
+}
+
+function buildSequentialAudioCutCommand({
+  sourceInputs,
+  cutPath,
+  cuts,
+  ffmpegCommand,
+  ffprobeCommand,
+  audioDurationCache,
+  audioCodecArgs = ["-c:a", "aac", "-ar", "48000"],
+}) {
+  const { inputArgs, sourcesByCutIndex } = buildSeekedAudioInputs({ sourceInputs, cuts });
   const filters = [];
   const warnings = [];
   const audioLabels = [];
   const hasAnyTransition = cuts.slice(0, -1).some((cut) => cut.transition_out);
 
   for (const [index, cut] of cuts.entries()) {
-    const source = inputsById.get(cut.src);
-    appendMultiSourceCutAudioFilter({
+    const source = sourcesByCutIndex.get(index);
+    appendInputSeekedCutAudioFilter({
       filters, warnings, cut, source, index, ffprobeCommand, audioDurationCache,
     });
     audioLabels.push(`[a${index}]`);
@@ -1471,8 +1531,38 @@ export function buildMultiSourceAudioCutCommand({
   }
 
   return buildMultiSourceAudioCommandResult({
-    ffmpegCommand, sourceInputs, filters, cutPath, warnings,
+    ffmpegCommand, inputArgs, filters, cutPath, warnings, audioCodecArgs,
   });
+}
+
+function appendInputSeekedCutAudioFilter({
+  filters, warnings, cut, source, index, ffprobeCommand, audioDurationCache,
+}) {
+  const speed = cutSpeed(cut);
+  if (source.hasAudio === true) {
+    appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
+    const atempoSuffix = buildAtempoChain(speed)
+      .map((factor) => `,atempo=${formatNumber(factor)}`)
+      .join("");
+    appendFreezeAwareRelativeAudioTrim({
+      filters,
+      inputLabel: `[${source.inputIndex}:a]`,
+      outputLabel: `[a${index}]`,
+      sourceIn: cut.in,
+      sourceOut: cut.out,
+      preroll: source.preroll ?? 0,
+      speed,
+      atempoSuffix,
+      freeze: cut.freeze,
+      id: `v1_${index}`,
+      normalize: true,
+      padToSeconds: Number.isFinite(cut.out) ? segmentDuration(cut) : undefined,
+    });
+  } else {
+    filters.push(
+      `anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(segmentDuration(cut))},asetpts=PTS-STARTPTS[a${index}]`,
+    );
+  }
 }
 
 function appendMultiSourceCutAudioFilter({
@@ -1617,7 +1707,12 @@ function buildMultiSourceCommandResult({
 }
 
 function buildMultiSourceAudioCommandResult({
-  ffmpegCommand, sourceInputs, filters, cutPath, warnings = [],
+  ffmpegCommand,
+  inputArgs,
+  filters,
+  cutPath,
+  warnings = [],
+  audioCodecArgs = ["-c:a", "aac", "-ar", "48000"],
 }) {
   return {
     command: ffmpegCommand,
@@ -1628,19 +1723,94 @@ function buildMultiSourceAudioCommandResult({
       "error",
       "-nostdin",
       "-y",
-      ...sourceInputs.flatMap((source) => ["-i", source.path]),
+      ...inputArgs,
       "-filter_complex",
       filters.join(";"),
       "-map",
       "[joineda]",
       "-vn",
-      "-c:a",
-      "aac",
-      "-ar",
-      "48000",
+      ...audioCodecArgs,
       cutPath,
     ],
   };
+}
+
+function buildSeekedAudioInputs({ sourceInputs, cuts }) {
+  const sourcesById = new Map(sourceInputs.map((source) => [source.id, source]));
+  const sourcesByCutIndex = new Map();
+  const inputArgs = [];
+  let inputIndex = 0;
+  for (const [cutIndex, cut] of cuts.entries()) {
+    const source = sourcesById.get(cut.src);
+    if (source?.hasAudio === true) {
+      const seekStart = Math.max(0, cut.in - AUDIO_SEEK_PREROLL_SECONDS);
+      const preroll = cut.in - seekStart;
+      inputArgs.push("-ss", formatNumber(seekStart));
+      if (Number.isFinite(cut.out)) {
+        inputArgs.push("-t", formatNumber((cut.out - cut.in) + preroll));
+      }
+      inputArgs.push("-i", source.path);
+      sourcesByCutIndex.set(cutIndex, { ...source, inputIndex, preroll });
+      inputIndex += 1;
+    } else {
+      sourcesByCutIndex.set(cutIndex, source);
+    }
+  }
+  return { inputArgs, sourcesByCutIndex };
+}
+
+function countAudioInputs(cuts, sourcesById) {
+  return cuts.reduce(
+    (count, cut) => count + (sourcesById.get(cut.src)?.hasAudio === true ? 1 : 0),
+    0,
+  );
+}
+
+function normalizeAudioInputLimit(value) {
+  return Number.isInteger(value) && value > 0 ? value : MAX_AUDIO_INPUTS_PER_COMMAND;
+}
+
+function splitAudioCuts(cuts, sourcesById, inputLimit) {
+  const groups = [];
+  let start = 0;
+  while (start < cuts.length) {
+    let inputCount = 0;
+    let lastCleanBoundary = null;
+    let end = start;
+    for (; end < cuts.length; end += 1) {
+      if (sourcesById.get(cuts[end].src)?.hasAudio === true) inputCount += 1;
+      const cleanBoundary = end === cuts.length - 1 || !cuts[end].transition_out;
+      if (cleanBoundary) lastCleanBoundary = end + 1;
+      if (inputCount < inputLimit) continue;
+      if (cleanBoundary) break;
+      if (lastCleanBoundary !== null) {
+        end = lastCleanBoundary - 1;
+        break;
+      }
+      // A continuous transition chain has no safe split point. Extend past the nominal input
+      // limit until the first boundary where an acrossfade pair will not be separated.
+    }
+    const next = Math.min(lastCleanBoundary ?? cuts.length, cuts.length);
+    groups.push(cuts.slice(start, next));
+    start = next;
+  }
+  return groups;
+}
+
+function buildAudioChunkPaths(cutPath, count) {
+  const extension = extname(cutPath);
+  const stem = extension ? cutPath.slice(0, -extension.length) : cutPath;
+  return {
+    chunkPaths: Array.from(
+      { length: count },
+      (_, index) => `${stem}-chunk-${String(index + 1).padStart(4, "0")}.wav`,
+    ),
+    listPath: `${stem}-chunks.txt`,
+  };
+}
+
+function escapeConcatListPath(path) {
+  return path.replaceAll("'", "'\\''");
 }
 
 // docs/contract-2026-08-18-v1-render-parity.md §2: v1's counterpart to the removed single-source gap-aware path
@@ -1805,6 +1975,7 @@ export function buildGapAwareMultiSourceAudioCutCommand({
   ffmpegCommand = resolveFfmpeg(),
   ffprobeCommand = resolveFfprobe(),
   audioDurationCache = new Map(),
+  maxInputsPerCommand = MAX_AUDIO_INPUTS_PER_COMMAND,
 }) {
   if (hasCutFreeze(cuts)) {
     throw new Error(
@@ -1814,21 +1985,124 @@ export function buildGapAwareMultiSourceAudioCutCommand({
         + "default sequential path instead.",
     );
   }
-  const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
+  const segments = resolveCutSegments(cuts);
+  const sourcesById = new Map(sourceInputs.map((source) => [source.id, source]));
+  const inputLimit = normalizeAudioInputLimit(maxInputsPerCommand);
+  if (countAudioInputs(cuts, sourcesById) <= inputLimit) {
+    return buildGapAwareAudioCutCommand({
+      sourceInputs, cutPath, segments, duration, ffmpegCommand, ffprobeCommand, audioDurationCache,
+    });
+  }
+
+  const groups = splitAudioCuts(cuts, sourcesById, inputLimit);
+  const { chunkPaths } = buildAudioChunkPaths(cutPath, groups.length);
+  let segmentOffset = 0;
+  const chunkResults = groups.map((group, index) => {
+    const groupSegments = segments.slice(segmentOffset, segmentOffset + group.length);
+    segmentOffset += group.length;
+    return buildGapAwareAudioCutCommand({
+      sourceInputs,
+      cutPath: chunkPaths[index],
+      segments: groupSegments,
+      duration,
+      ffmpegCommand,
+      ffprobeCommand,
+      audioDurationCache,
+      audioCodecArgs: ["-c:a", "pcm_f32le", "-ar", "48000"],
+    });
+  });
+  const chunkInputArgs = chunkPaths.flatMap((path) => ["-i", path]);
+  const mixInputs = chunkPaths.map((_, index) => `[${index}:a]`).join("");
+  // Gap-aware cuts overlap on the output timeline, so concatenating chunk WAVs would change the
+  // edit. Each chunk is instead padded to full duration and the final command adds those full-size
+  // timelines together, preserving the original amix semantics across the split.
+  return {
+    command: ffmpegCommand,
+    warnings: chunkResults.flatMap((result) => result.warnings),
+    args: [
+      "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+      ...chunkInputArgs,
+      "-filter_complex",
+      `${mixInputs}amix=inputs=${chunkPaths.length}:duration=longest:normalize=0[joineda]`,
+      "-map", "[joineda]", "-vn", "-c:a", "aac", "-ar", "48000", cutPath,
+    ],
+    chunks: chunkResults.map((result, index) => ({
+      command: result.command,
+      args: result.args,
+      output: chunkPaths[index],
+    })),
+    intermediates: chunkPaths.map((path) => resolve(path)),
+  };
+}
+
+function buildGapAwareAudioCutCommand({
+  sourceInputs,
+  cutPath,
+  segments,
+  duration,
+  ffmpegCommand,
+  ffprobeCommand,
+  audioDurationCache,
+  audioCodecArgs = ["-c:a", "aac", "-ar", "48000"],
+}) {
+  const cuts = segments.map((segment) => segment.cut);
+  const { inputArgs, sourcesByCutIndex } = buildSeekedAudioInputs({ sourceInputs, cuts });
   const filters = [];
   const warnings = [];
-  appendGapAwareAudioFilters({
+  appendInputSeekedGapAwareAudioFilters({
     filters,
     warnings,
-    segments: resolveCutSegments(cuts),
-    inputsById,
+    segments,
+    sourcesByCutIndex,
     duration,
     ffprobeCommand,
     audioDurationCache,
   });
   return buildMultiSourceAudioCommandResult({
-    ffmpegCommand, sourceInputs, filters, cutPath, warnings,
+    ffmpegCommand, inputArgs, filters, cutPath, warnings, audioCodecArgs,
   });
+}
+
+function appendInputSeekedGapAwareAudioFilters({
+  filters, warnings, segments, sourcesByCutIndex, duration, ffprobeCommand, audioDurationCache,
+}) {
+  const audioLabels = [];
+  for (const [localIndex, segment] of segments.entries()) {
+    const { index, cut } = segment;
+    const source = sourcesByCutIndex.get(localIndex);
+    const speed = cutSpeed(cut);
+    if (source.hasAudio === true) {
+      appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
+      const atempoSuffix = buildAtempoChain(speed)
+        .map((factor) => `,atempo=${formatNumber(factor)}`)
+        .join("");
+      appendFreezeAwareRelativeAudioTrim({
+        filters,
+        inputLabel: `[${source.inputIndex}:a]`,
+        outputLabel: `[araw1_${index}]`,
+        sourceIn: cut.in,
+        sourceOut: cut.out,
+        preroll: source.preroll ?? 0,
+        speed,
+        atempoSuffix,
+        padToSeconds: segmentDuration(cut),
+      });
+    } else {
+      filters.push(
+        `anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(segmentDuration(cut))},asetpts=PTS-STARTPTS[araw1_${index}]`,
+      );
+    }
+    const delayMs = Math.max(0, Math.round(segment.start * 1000));
+    filters.push(`[araw1_${index}]adelay=${delayMs}:all=1[adelay1_${index}]`);
+    audioLabels.push(`[adelay1_${index}]`);
+  }
+  if (audioLabels.length === 1) {
+    filters.push(`${audioLabels[0]}apad=whole_dur=${formatNumber(duration)}[joineda]`);
+  } else {
+    filters.push(
+      `${audioLabels.join("")}amix=inputs=${audioLabels.length}:duration=longest:normalize=0,apad=whole_dur=${formatNumber(duration)}[joineda]`,
+    );
+  }
 }
 
 function appendGapAwareAudioFilters({
