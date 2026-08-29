@@ -57,11 +57,15 @@ const buffer = (duration, length = 10, numberOfChannels = 2) => ({
 });
 
 function response(key) {
-  return { ok: true, arrayBuffer: async () => Uint8Array.of(key).buffer };
+  return {
+    ok: true,
+    headers: { get: name => name.toLowerCase() === 'content-length' ? '1' : null },
+    arrayBuffer: async () => Uint8Array.of(key).buffer,
+  };
 }
 
 async function settle() {
-  for (let index = 0; index < 12; index += 1) await Promise.resolve();
+  for (let index = 0; index < 50; index += 1) await Promise.resolve();
 }
 
 function speech(id, src, url, overrides = {}) {
@@ -167,7 +171,7 @@ test('atempo decode 失敗は警告一行で元ソースの playbackRate 経路�
 
   supply.playFrom(0);
   await settle();
-  assert.equal(warnings.filter(message => /speech atempo fast unavailable/u.test(message)).length, 1);
+  assert.equal(warnings.filter(message => /speech sidecar fast unavailable/u.test(message)).length, 1);
   assert.equal(context.sources[0].playbackRate.value, 1.2);
   assert.deepEqual(supply.debug().speech.atempo, { items: 0, generatedMs: 0 });
   supply.dispose();
@@ -269,5 +273,72 @@ test('debug は描画時に二時計を同時採取し speech decode の形を�
     'src', 'ms', 'durationSec', 'bytes', 'ok',
   ]);
   assert.deepEqual(debug.speech.atempo, { items: 0, generatedMs: 0 });
+  supply.dispose();
+});
+
+test('prime は ready を待たせず全 item を同時 2 本以下で先読みし sidecar 集計を返す', async () => {
+  const context = new FakeContext(new Map([[1, buffer(1)], [2, buffer(1)], [3, buffer(1)]]));
+  let active = 0;
+  let maxActive = 0;
+  const resolvers = [];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 3,
+    scheduleBuilder,
+    contextFactory: () => context,
+    fetchImpl: async url => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise(resolve => resolvers.push(resolve));
+      active -= 1;
+      return response(url.endsWith('1.flac') ? 1 : url.endsWith('2.flac') ? 2 : 3);
+    },
+    speech: [0, 1, 2].map(index => speech(`s-${index}`, `source-${index}`, `/source-${index}.mp4`, {
+      atSec: index,
+      sidecar: {
+        path: `/s-${index + 1}.flac`, durationSec: 1,
+        padBeforeSec: 0, padAfterSec: 0, skipped: index > 0, bytes: 100 + index,
+      },
+    })),
+  });
+  supply.prime();
+  await settle();
+  assert.equal(supply.debug().prefetch.pending, 3);
+  assert.equal(maxActive, 2);
+  while (resolvers.length) resolvers.shift()();
+  await settle();
+  while (resolvers.length) resolvers.shift()();
+  await settle();
+  const debug = supply.debug();
+  assert.equal(debug.prefetch.pending, 0);
+  assert.equal(debug.prefetch.items, 3);
+  assert.deepEqual(debug.sidecars, { generated: 1, skipped: 2, bytes: 303 });
+  supply.dispose();
+});
+
+test('sidecar 失敗時も 64 MB 以上の speech source 全体は arrayBuffer 化しない', async () => {
+  const context = new FakeContext(new Map([[1, new Error('bad flac')]]));
+  const warnings = [];
+  let sourceArrayBufferCalls = 0;
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 1,
+    scheduleBuilder,
+    contextFactory: () => context,
+    onWarning: message => warnings.push(message),
+    fetchImpl: async url => url.endsWith('.flac') ? response(1) : ({
+      ok: true,
+      headers: { get: name => name.toLowerCase() === 'content-length' ? String(70 * 1024 * 1024) : null },
+      arrayBuffer: async () => { sourceArrayBufferCalls += 1; return Uint8Array.of(2).buffer; },
+    }),
+    speech: [speech('large', 'hevc', '/large.mp4', {
+      sidecar: { path: '/large.flac', durationSec: 1, padBeforeSec: 0, padAfterSec: 0 },
+    })],
+  });
+  supply.playFrom(0);
+  await settle();
+  assert.equal(sourceArrayBufferCalls, 0);
+  assert.equal(supply.debug().speechDecode.skippedSources, 1);
+  assert.equal(supply.debug().scheduled.speech, 0);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /speech sidecar large unavailable/u);
   supply.dispose();
 });

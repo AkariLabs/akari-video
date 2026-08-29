@@ -321,7 +321,23 @@ interface EditSummarySpeech {
     gainDb?: number;
     track?: number;
     materialDurationSec: number;
+    sidecar?: PreviewAudioSidecarSummary;
     atempo?: { path: string; durationSec: number; generatedMs?: number };
+    padBeforeSec?: number;
+    padAfterSec?: number;
+    crossfadeInSec?: number;
+    crossfadeOutSec?: number;
+    sidecarWarningEmitted?: boolean;
+}
+
+interface PreviewAudioSidecarSummary {
+    path: string;
+    durationSec: number;
+    padBeforeSec: number;
+    padAfterSec: number;
+    generatedMs?: number;
+    skipped?: boolean;
+    bytes?: number;
 }
 
 interface VideoFxBackground {
@@ -346,6 +362,7 @@ interface EditSummaryVideoFx {
 interface EditSummaryAudioSource {
     src: string;
     gainDb: number;
+    sidecar?: PreviewAudioSidecarSummary;
 }
 
 interface EditSummaryBgm extends EditSummaryAudioSource {
@@ -3071,6 +3088,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         // await する（loadPreviewCaptions は内部で catch して [] を返すため reject しない）。
         const captionsPromise = this.loadPreviewCaptions(captionsUri, editUri);
         const assetStreams = new Map<string, { id: string; url: string }>();
+        const previewAudioKeepKeys = new Set<string>();
         const assetUris: URI[] = [];
         let sourceUri: URI | undefined;
         let legacyEmphasisWords: unknown;
@@ -3274,48 +3292,64 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     } as EditSummaryCut);
                 }
             }
-            const speechAtempoService = this.previewService as AkariPreviewService & {
-                prepareSpeechAtempo(request: {
+            const previewAudioService = this.previewService as AkariPreviewService & {
+                preparePreviewAudioSidecar(request: {
                     sourceUri: string;
                     projectRootUri: string;
                     inSec: number;
-                    outSec: number;
+                    outSec?: number;
                     speed: number;
+                    padBeforeSec?: number;
+                    padAfterSec?: number;
+                    heavyWavOnly?: boolean;
                 }): Promise<{
                     ok: boolean;
                     skipped: boolean;
+                    eligible?: boolean;
+                    key?: string;
+                    bytes?: number;
                     durationSec: number;
                     generatedMs: number;
                     reason?: string;
                     stream?: VideoStreamReference;
                 }>;
+                sweepPreviewAudioSidecars(request: {
+                    projectRootUri: string;
+                    keepKeys: string[];
+                }): Promise<{ removed: number; bytes: number }>;
             };
             const speech = await Promise.all(projectSpeechDeclarations(cuts, {
                 fps: this.positiveNumber(internal.output.fps, 30)
             }).map(async declaration => {
-                if (Math.abs(declaration.speed - 1) <= 1e-6) return declaration;
                 const source = sourcesById.get(declaration.src);
                 if (!source) return declaration;
-                const result = await speechAtempoService.prepareSpeechAtempo({
+                const result = await previewAudioService.preparePreviewAudioSidecar({
                     sourceUri: source.uri.toString(),
                     projectRootUri: editUri.parent.toString(),
                     inSec: declaration.inSec,
                     outSec: declaration.outSec,
-                    speed: declaration.speed
+                    speed: declaration.speed,
+                    padBeforeSec: declaration.padBeforeSec ?? 0,
+                    padAfterSec: declaration.padAfterSec ?? 0
                 });
                 if (!result.ok || !result.stream) {
-                    console.warn(`[akari-preview] speech atempo ${declaration.id} unavailable; using playbackRate: ${
+                    console.warn(`[akari-preview] speech sidecar ${declaration.id} unavailable; using source fallback: ${
                         result.reason ?? 'generation failed'
                     }`);
-                    return declaration;
+                    return { ...declaration, sidecarWarningEmitted: true };
                 }
-                assetStreams.set(`speech-atempo:${declaration.id}`, result.stream);
+                if (result.key) previewAudioKeepKeys.add(result.key);
+                assetStreams.set(`preview-audio:speech:${declaration.id}`, result.stream);
                 return {
                     ...declaration,
-                    atempo: {
+                    sidecar: {
                         path: result.stream.url,
                         durationSec: result.durationSec,
-                        generatedMs: result.generatedMs
+                        padBeforeSec: declaration.padBeforeSec ?? 0,
+                        padAfterSec: declaration.padAfterSec ?? 0,
+                        generatedMs: result.generatedMs,
+                        skipped: result.skipped,
+                        bytes: result.bytes
                     }
                 };
             }));
@@ -3542,8 +3576,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const timelineTracks: EditSummaryTimelineTrack[] = captionTrackOrder.tracks;
             const captionTrackId = captionTrackOrder.captionTrackId;
             const audio = await this.resolveAudioAssets(
-                projectLegacyAudioView(internal), editUri, assetStreams, assetUris
+                projectLegacyAudioView(internal), editUri, assetStreams, assetUris,
+                previewAudioService, previewAudioKeepKeys
             );
+            await previewAudioService.sweepPreviewAudioSidecars({
+                projectRootUri: editUri.parent.toString(),
+                keepKeys: [...previewAudioKeepKeys]
+            });
             const indicators: string[] = [];
             indicators.push(...videoFxFailures);
             const missingProxyCount = layers.filter(layer => layer.kind === 'baked' && layer.proxyMissing).length;
@@ -3626,7 +3665,30 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         value: unknown,
         editUri: URI,
         assetStreams: Map<string, { id: string; url: string }>,
-        assetUris: URI[]
+        assetUris: URI[],
+        previewAudioService: AkariPreviewService & {
+            preparePreviewAudioSidecar(request: {
+                sourceUri: string;
+                projectRootUri: string;
+                inSec: number;
+                outSec?: number;
+                speed: number;
+                padBeforeSec?: number;
+                padAfterSec?: number;
+                heavyWavOnly?: boolean;
+            }): Promise<{
+                ok: boolean;
+                skipped: boolean;
+                eligible?: boolean;
+                key?: string;
+                bytes?: number;
+                durationSec: number;
+                generatedMs: number;
+                reason?: string;
+                stream?: VideoStreamReference;
+            }>;
+        },
+        previewAudioKeepKeys: Set<string>
     ): Promise<EditSummaryAudio | undefined> {
         if (!value || typeof value !== 'object' || Array.isArray(value)) {
             if (value !== undefined) {
@@ -3635,7 +3697,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return undefined;
         }
         const audio = value as { bgm?: unknown; sfx?: unknown; narration?: unknown };
-        const resolveSource = async (pathValue: unknown, label: string): Promise<string | undefined> => {
+        const resolveSource = async (
+            pathValue: unknown,
+            label: string,
+            trim: { inSec: number; outSec?: number }
+        ): Promise<{ src: string; sidecar?: PreviewAudioSidecarSummary } | undefined> => {
             if (typeof pathValue !== 'string' || !pathValue.trim()) {
                 console.warn(`[akari-preview] ${label} を無視しました（path 不正）`);
                 return undefined;
@@ -3649,7 +3715,38 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetStreams.set(key, stream);
                     assetUris.push(assetUri);
                 }
-                return stream.url;
+                const result = await previewAudioService.preparePreviewAudioSidecar({
+                    sourceUri: assetUri.toString(),
+                    projectRootUri: editUri.parent.toString(),
+                    inSec: trim.inSec,
+                    ...(trim.outSec !== undefined ? { outSec: trim.outSec } : {}),
+                    speed: 1,
+                    padBeforeSec: 0,
+                    padAfterSec: 0,
+                    heavyWavOnly: true
+                });
+                if (!result.ok || !result.stream) {
+                    if (result.eligible !== false) {
+                        console.warn(`[akari-preview] ${label} sidecar unavailable; using source: ${
+                            result.reason ?? 'generation failed'
+                        }`);
+                    }
+                    return { src: stream.url };
+                }
+                if (result.key) previewAudioKeepKeys.add(result.key);
+                assetStreams.set(`preview-audio:${label}`, result.stream);
+                return {
+                    src: stream.url,
+                    sidecar: {
+                        path: result.stream.url,
+                        durationSec: result.durationSec,
+                        padBeforeSec: 0,
+                        padAfterSec: 0,
+                        generatedMs: result.generatedMs,
+                        skipped: result.skipped,
+                        bytes: result.bytes
+                    }
+                };
             } catch (error) {
                 console.warn(`[akari-preview] ${label} を無視しました（音声ファイルを配信できません）`, error);
                 return undefined;
@@ -3709,10 +3806,6 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (normalizedGain === undefined) {
                     continue;
                 }
-                const src = await resolveSource(item.path, label);
-                if (!src) {
-                    continue;
-                }
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: sfx-only playback window
                 // (material's [in, out)). Malformed values are warned-and-ignored (treated as
                 // omitted) rather than dropping the whole item, matching gain_db/fadeIn/fadeOut's
@@ -3736,6 +3829,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         }
                     }
                 }
+                const source = await resolveSource(item.path, label, {
+                    inSec: trimIn ?? 0,
+                    ...(trimOut !== undefined ? { outSec: trimOut } : {})
+                });
+                if (!source) continue;
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
                 // (audio-clip-fades, 2026-08-18; sfx only): fade_in/fade_out. Same
                 // warned-and-ignored tolerance as bgm's fadeIn/fadeOut parsing above (this
@@ -3760,7 +3858,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 }
                 resolved.push({
                     id: kind === 'narration' ? String(item.id) : `sfx-${index + 1}`,
-                    src,
+                    src: source.src,
+                    ...(source.sidecar ? { sidecar: source.sidecar } : {}),
                     t: item.t,
                     gainDb: normalizedGain,
                     track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0,
@@ -3815,10 +3914,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                             console.warn('[akari-preview] audio.bgm.in を無視しました（0以上の有限 number ではありません）', rawBgm.in);
                         }
                     }
-                    const src = await resolveSource(rawBgm.path, 'audio.bgm');
-                    if (src) {
+                    const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 });
+                    if (source) {
                         bgm = {
-                            src,
+                            src: source.src,
+                            ...(source.sidecar ? { sidecar: source.sidecar } : {}),
                             gainDb: normalizedGain,
                             track: Number.isInteger(rawBgm.track) && (rawBgm.track as number) >= 0
                                 ? rawBgm.track as number : 0,
@@ -6006,7 +6106,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     coverage: { warmed: 0, needed: 0 }
                 };
                 const audioState = audioSupply ? audioSupply.debug() : {
-                    scheduled: { speech: 0 }, speechDecode: { totalMs: 0 }
+                    scheduled: { speech: 0 }, speechDecode: { totalMs: 0 },
+                    prefetch: { items: 0, decodedBytes: 0, elapsedMs: 0, pending: 0 }
                 };
                 metrics.dataset.fps = String(presentedFps);
                 metrics.dataset.lateFrames = String(measurements.lateFrames);
@@ -6026,6 +6127,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 metrics.dataset.leadInSec = schedulerState.leadInSeconds.toFixed(2);
                 metrics.dataset.audioSpeech = String(audioState.scheduled.speech);
                 metrics.dataset.speechDecodeMs = audioState.speechDecode.totalMs.toFixed(3);
+                metrics.dataset.audioPrefetchPending = String(audioState.prefetch.pending);
+                metrics.dataset.audioPrefetchBytes = String(audioState.prefetch.decodedBytes);
                 metrics.textContent = [
                     'fps (presented/1s)  ' + presentedFps,
                     'late frame          ' + measurements.lateFrames,
@@ -6044,7 +6147,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         + '/' + schedulerState.maxLiveDecoders,
                     'lead-in             ' + schedulerState.leadInSeconds.toFixed(2) + ' s',
                     'speech              ' + audioState.scheduled.speech
-                        + '  decode ' + formatMetric(audioState.speechDecode.totalMs) + ' ms'
+                        + '  decode ' + formatMetric(audioState.speechDecode.totalMs) + ' ms',
+                    'audio prefetch      ' + (audioState.prefetch.items - audioState.prefetch.pending)
+                        + '/' + audioState.prefetch.items + '  '
+                        + formatMetric(audioState.prefetch.elapsedMs) + ' ms'
                 ].join('\\n');
             };
             const showError = (value, fatal) => {
@@ -6116,7 +6222,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 const appendAudio = (kind, raw, fallbackId) => {
                     if (!raw || typeof raw !== 'object' || typeof raw.src !== 'string' || !raw.src) return;
                     const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
-                    declarations.push({ kind, id, url: raw.src, spec: { ...raw, id, durationSec: 0 } });
+                    const sidecar = raw.sidecar && raw.sidecar.path ? raw.sidecar : null;
+                    declarations.push({
+                        kind,
+                        id,
+                        url: sidecar ? sidecar.path : raw.src,
+                        ...(sidecar ? { sourceUrl: raw.src } : {}),
+                        spec: { ...raw, id, durationSec: 0 }
+                    });
                 };
                 const audio = summary.audio;
                 if (audio && typeof audio === 'object') {
@@ -6324,6 +6437,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 await renderFrame(0, 'seek', performance.now());
                 root.dataset.frameEngineReady = 'true';
                 scheduler.primeHeaders();
+                audioSupply.prime();
                 clock.seek(Number.isFinite(initial.initialSeekTime) ? initial.initialSeekTime : 0, false);
                 window.dispatchEvent(new Event('akari-frame-engine-ready'));
 

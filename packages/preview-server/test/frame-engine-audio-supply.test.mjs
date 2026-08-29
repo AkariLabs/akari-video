@@ -22,6 +22,9 @@ test('frame-engine Web UI は共有 audio schedule を Web Audio ノードへ供
   assert.match(supplySource, /source\.playbackRate\.value = item\.playbackRate/u);
   assert.match(supplySource, /item\.sourceDurationSec/u);
   assert.match(supplySource, /item\.duckingEvents/u);
+  assert.match(supplySource, /DEFAULT_DECODE_CACHE_BYTES = 256 \* 1024 \* 1024/u);
+  assert.match(supplySource, /await Promise\.all\(\[worker\(\), worker\(\)\]\)/u);
+  assert.match(source, /this\.audio\.prime\(\)/u);
   assert.doesNotMatch(source, /\b-12\b/u, 'glue に ducking 値を再定義しない');
   assert.match(bundle, /function buildWebAudioSchedule/u);
   assert.equal([...bundle.matchAll(/function createPreviewAudioSupply\(/gu)].length, 1,
@@ -45,6 +48,9 @@ test('評価台バナーを撤去し、計測値だけを明示フラグで表�
   assert.match(source, /metrics\.dataset\.fps/u);
   assert.match(source, /metrics\.dataset\.audioSpeech/u);
   assert.match(source, /metrics\.dataset\.speechDecodeMs/u);
+  assert.match(source, /metrics\.dataset\.audioPrefetchPending/u);
+  assert.match(supplySource, /sidecars:/u);
+  assert.match(supplySource, /crossfades/u);
 });
 
 test('L1 fixtures are tracks-first v2 and reject silent false positives', () => {

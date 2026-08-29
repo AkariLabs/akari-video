@@ -16,6 +16,17 @@ export interface WebAudioDecodedItem {
     fade_in?: unknown;
     fade_out?: unknown;
     ducking?: unknown;
+    /** 重い WAV の trim 済み FLAC。存在すると in/out はサイドカー生成時に適用済み。 */
+    sidecar?: WebAudioSidecar;
+}
+export interface WebAudioSidecar {
+    path: string;
+    durationSec: number;
+    padBeforeSec: number;
+    padAfterSec: number;
+    generatedMs?: number;
+    skipped?: boolean;
+    bytes?: number;
 }
 export interface WebAudioScheduleDeclaration {
     bgm?: WebAudioDecodedItem;
@@ -36,12 +47,18 @@ export interface WebAudioSpeechDeclaration {
     track?: number;
     /** decode 後の素材実尺。 */
     materialDurationSec: number;
-    /** 速度変更を ffmpeg atempo で焼いた、区間単位のプレビュー用 WAV。 */
+    /** trim / atempo を ffmpeg で焼いた、区間単位のプレビュー用 FLAC。 */
+    sidecar?: WebAudioSidecar;
+    /** 旧 summary の読み取り互換。新規生成は sidecar だけを使う。 */
     atempo?: {
         path: string;
         durationSec: number;
         generatedMs?: number;
     };
+    padBeforeSec?: number;
+    padAfterSec?: number;
+    crossfadeInSec?: number;
+    crossfadeOutSec?: number;
 }
 export interface WebAudioSpeechCut extends EditCut {
     id?: string;
@@ -52,6 +69,7 @@ export interface WebAudioSpeechCut extends EditCut {
     gain_db?: unknown;
     gainDb?: unknown;
     volume_db?: unknown;
+    transition_out?: EditCut['transitionOut'] | null;
 }
 export interface WebAudioGainEvent {
     /** AudioBufferSourceNode の start 時刻からの相対秒。 */

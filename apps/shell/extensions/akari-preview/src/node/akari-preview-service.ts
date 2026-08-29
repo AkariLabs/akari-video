@@ -71,8 +71,11 @@ interface PrepareSpeechAtempoRequest {
     sourceUri: string;
     projectRootUri: string;
     inSec: number;
-    outSec: number;
+    outSec?: number;
     speed: number;
+    padBeforeSec?: number;
+    padAfterSec?: number;
+    heavyWavOnly?: boolean;
     workspaceRoots?: string[];
 }
 
@@ -81,16 +84,23 @@ interface PrepareSpeechAtempoResult {
     skipped: boolean;
     durationSec: number;
     generatedMs: number;
+    eligible?: boolean;
+    key?: string;
+    bytes?: number;
+    sampleRate?: number;
+    channels?: number;
     reason?: string;
     stream?: VideoStreamReference;
 }
 
 type SpeechAtempoModule = {
-    ensureSpeechAtempo(options: {
+    ensurePreviewAudioSidecar(options: {
         sourcePath: string;
         inSec: number;
         outSec: number;
         speed: number;
+        padBeforeSec: number;
+        padAfterSec: number;
         ffmpeg?: string;
         cacheDir: string;
     }): Promise<{
@@ -99,7 +109,19 @@ type SpeechAtempoModule = {
         path: string | null;
         durationSec: number;
         reason: string | null;
+        key: string | null;
+        sampleRate: number;
+        channels: number;
     }>;
+    probePreviewAudioSource(sourcePath: string): {
+        ok: boolean;
+        durationSec: number;
+        reason?: string;
+    };
+    sweepPreviewAudioSidecars(options: { cacheDir: string; keepKeys: string[] }): {
+        removed: number;
+        bytes: number;
+    };
 };
 
 const VIDEO_MIME_TYPES = new Map<string, string>([
@@ -363,29 +385,48 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         };
     }
 
-    async prepareSpeechAtempo(request: PrepareSpeechAtempoRequest): Promise<PrepareSpeechAtempoResult> {
+    async preparePreviewAudioSidecar(request: PrepareSpeechAtempoRequest): Promise<PrepareSpeechAtempoResult> {
         const startedAt = Date.now();
         try {
             if (!request || typeof request.sourceUri !== 'string'
                 || typeof request.projectRootUri !== 'string'
                 || !Number.isFinite(request.inSec) || request.inSec < 0
-                || !Number.isFinite(request.outSec) || request.outSec <= request.inSec
-                || !Number.isFinite(request.speed) || request.speed <= 0) {
-                throw new Error('Invalid speech atempo request');
+                || (request.outSec !== undefined
+                    && (!Number.isFinite(request.outSec) || request.outSec <= request.inSec))
+                || !Number.isFinite(request.speed) || request.speed <= 0
+                || (request.padBeforeSec !== undefined
+                    && (!Number.isFinite(request.padBeforeSec) || request.padBeforeSec < 0))
+                || (request.padAfterSec !== undefined
+                    && (!Number.isFinite(request.padAfterSec) || request.padAfterSec < 0))) {
+                throw new Error('Invalid preview audio sidecar request');
             }
             const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
             const projectRoot = await realpath(this.filePath(request.projectRootUri));
             const sourcePath = await realpath(this.filePath(request.sourceUri));
             if (!roots.some(root => this.contains(root, projectRoot))
                 || !roots.some(root => this.contains(root, sourcePath))) {
-                throw new Error('Speech atempo paths must stay inside an open workspace');
+                throw new Error('Preview audio sidecar paths must stay inside an open workspace');
             }
             const module = await this.loadSpeechAtempoModule();
-            const result = await module.ensureSpeechAtempo({
+            const sourceStat = await stat(sourcePath);
+            if (request.heavyWavOnly === true
+                && (extname(sourcePath).toLowerCase() !== '.wav' || sourceStat.size <= 8 * 1024 * 1024)) {
+                return {
+                    ok: false, skipped: false, eligible: false,
+                    durationSec: 0, generatedMs: Date.now() - startedAt,
+                    reason: 'source is not a WAV over 8 MB'
+                };
+            }
+            const probe = request.outSec === undefined ? module.probePreviewAudioSource(sourcePath) : undefined;
+            if (probe && !probe.ok) throw new Error(probe.reason ?? 'audio duration probe failed');
+            const outSec = request.outSec ?? probe!.durationSec;
+            const result = await module.ensurePreviewAudioSidecar({
                 sourcePath,
                 inSec: request.inSec,
-                outSec: request.outSec,
+                outSec,
                 speed: request.speed,
+                padBeforeSec: request.padBeforeSec ?? 0,
+                padAfterSec: request.padAfterSec ?? 0,
                 ffmpeg: await resolveFfmpegPath(),
                 cacheDir: join(projectRoot, '.akari', 'cache')
             });
@@ -396,7 +437,8 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                     skipped: false,
                     durationSec: 0,
                     generatedMs,
-                    reason: result.reason ?? 'speech atempo sidecar generation failed'
+                    eligible: true,
+                    reason: result.reason ?? 'preview audio sidecar generation failed'
                 };
             }
             const stream = await this.createAssetStream({
@@ -406,6 +448,11 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             return {
                 ok: true,
                 skipped: result.skipped,
+                eligible: true,
+                key: result.key ?? undefined,
+                bytes: (await stat(result.path)).size,
+                sampleRate: result.sampleRate,
+                channels: result.channels,
                 durationSec: result.durationSec,
                 generatedMs,
                 stream
@@ -421,23 +468,47 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
         }
     }
 
+    async prepareSpeechAtempo(request: PrepareSpeechAtempoRequest): Promise<PrepareSpeechAtempoResult> {
+        return this.preparePreviewAudioSidecar({ ...request, padBeforeSec: 0, padAfterSec: 0 });
+    }
+
+    async sweepPreviewAudioSidecars(request: {
+        projectRootUri: string;
+        keepKeys: string[];
+        workspaceRoots?: string[];
+    }): Promise<{ removed: number; bytes: number }> {
+        if (!request || typeof request.projectRootUri !== 'string' || !Array.isArray(request.keepKeys)) {
+            throw new Error('Invalid preview audio sweep request');
+        }
+        const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
+        const projectRoot = await realpath(this.filePath(request.projectRootUri));
+        if (!roots.some(root => this.contains(root, projectRoot))) {
+            throw new Error('Preview audio cache must stay inside an open workspace');
+        }
+        const module = await this.loadSpeechAtempoModule();
+        return module.sweepPreviewAudioSidecars({
+            cacheDir: join(projectRoot, '.akari', 'cache'),
+            keepKeys: request.keepKeys
+        });
+    }
+
     protected loadSpeechAtempoModule(): Promise<SpeechAtempoModule> {
         if (this.speechAtempoModule) return this.speechAtempoModule;
         this.speechAtempoModule = (async () => {
             const candidates: string[] = [];
             if (typeof process.resourcesPath === 'string') {
                 candidates.push(resolve(process.resourcesPath,
-                    'packages', 'media-bin', 'src', 'speech-atempo.mjs'));
+                    'packages', 'media-bin', 'src', 'preview-audio-sidecar.mjs'));
             }
             let ancestor = resolve(__dirname);
             for (let depth = 0; depth < 10; depth += 1) {
-                candidates.push(resolve(ancestor, 'packages', 'media-bin', 'src', 'speech-atempo.mjs'));
+                candidates.push(resolve(ancestor, 'packages', 'media-bin', 'src', 'preview-audio-sidecar.mjs'));
                 const parent = dirname(ancestor);
                 if (parent === ancestor) break;
                 ancestor = parent;
             }
             const candidate = candidates.find(value => this.isFile(value));
-            if (!candidate) throw new Error('speech atempo helper could not be found');
+            if (!candidate) throw new Error('preview audio sidecar helper could not be found');
             const importModule = Function('specifier', 'return import(specifier)') as
                 (specifier: string) => Promise<SpeechAtempoModule>;
             return importModule(pathToFileURL(candidate).toString());

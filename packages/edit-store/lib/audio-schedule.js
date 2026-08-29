@@ -68,7 +68,12 @@ function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
         const gainDb = normalizedGainDb(spec, label, warnings);
         if (gainDb === null)
             continue;
-        const trim = resolveTrim(kind, spec, label, warnings);
+        const sidecar = validSidecar(spec.sidecar);
+        if (spec.sidecar && !sidecar)
+            warnings.push(`${label}: sidecar declaration is invalid; using source`);
+        const trim = sidecar
+            ? { sourceOffsetSec: 0, durationSec: Math.min(spec.durationSec, sidecar.durationSec) }
+            : resolveTrim(kind, spec, label, warnings);
         if (!trim)
             continue;
         resolved.push({
@@ -150,7 +155,10 @@ function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warni
     const timelineT = typeof spec.t === 'number' && Number.isFinite(spec.t) && spec.t > 0 ? spec.t : 0;
     if (timelineT >= timelineDurationSec)
         return null;
-    let materialInSec = finiteNonNegative(spec.in) ? spec.in : 0;
+    const sidecar = validSidecar(spec.sidecar);
+    if (spec.sidecar && !sidecar)
+        warnings.push(`${label}: sidecar declaration is invalid; using source`);
+    let materialInSec = sidecar ? 0 : finiteNonNegative(spec.in) ? spec.in : 0;
     if (materialInSec >= spec.durationSec) {
         warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
         materialInSec = 0;
@@ -204,27 +212,41 @@ function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
     const gainDb = normalizedGainDb(spec, label, warnings);
     if (gainDb === null)
         return null;
+    const sidecar = validSidecar(spec.sidecar);
+    if (spec.sidecar && !sidecar)
+        warnings.push(`${label}: sidecar declaration is invalid; using source`);
     const atempo = spec.atempo && typeof spec.atempo.path === 'string' && spec.atempo.path
         && finitePositive(spec.atempo.durationSec) ? spec.atempo : undefined;
     if (spec.atempo && !atempo)
         warnings.push(`${label}: atempo declaration is invalid; using source playbackRate`);
-    const elapsedIntoItemSec = Math.max(0, startAtSec - spec.atSec);
-    if (elapsedIntoItemSec >= spec.durationSec)
+    const baked = sidecar ?? atempo;
+    const crossfadeInSec = finitePositive(spec.crossfadeInSec) ? spec.crossfadeInSec : 0;
+    const crossfadeOutSec = finitePositive(spec.crossfadeOutSec) ? spec.crossfadeOutSec : 0;
+    const effectiveAtSec = spec.atSec - crossfadeInSec;
+    const effectiveDurationSec = spec.durationSec + crossfadeInSec;
+    const elapsedIntoItemSec = Math.max(0, startAtSec - effectiveAtSec);
+    if (elapsedIntoItemSec >= effectiveDurationSec)
         return null;
-    const delaySec = Math.max(0, spec.atSec - startAtSec);
+    const delaySec = Math.max(0, effectiveAtSec - startAtSec);
     const timelineStartSec = startAtSec + delaySec;
-    const playbackRate = atempo ? 1 : spec.speed;
-    const sourceOffsetSec = atempo ? elapsedIntoItemSec : spec.inSec + elapsedIntoItemSec * spec.speed;
-    const sourceEndSec = atempo
-        ? Math.min(atempo.durationSec, spec.materialDurationSec)
+    const playbackRate = baked ? 1 : spec.speed;
+    const padBeforeSec = sidecar && finiteNonNegative(sidecar.padBeforeSec)
+        ? sidecar.padBeforeSec : finiteNonNegative(spec.padBeforeSec) ? spec.padBeforeSec : 0;
+    const bakedContentOffsetSec = sidecar ? padBeforeSec / spec.speed : 0;
+    const sourceOffsetSec = baked
+        ? Math.max(0, bakedContentOffsetSec - crossfadeInSec + elapsedIntoItemSec)
+        : Math.max(0, spec.inSec - crossfadeInSec * spec.speed + elapsedIntoItemSec * spec.speed);
+    const sourceEndSec = baked
+        ? Math.min(baked.durationSec, spec.materialDurationSec)
         : Math.min(spec.outSec, spec.materialDurationSec);
     const sourceAvailableSec = sourceEndSec - sourceOffsetSec;
     if (!(sourceAvailableSec > 0))
         return null;
-    const durationSec = Math.min(spec.durationSec - elapsedIntoItemSec, timelineDurationSec - timelineStartSec, sourceAvailableSec / playbackRate);
+    const durationSec = Math.min(effectiveDurationSec - elapsedIntoItemSec, timelineDurationSec - timelineStartSec, sourceAvailableSec / playbackRate);
     if (!(durationSec > 0))
         return null;
     const baseGain = dbToLinear(gainDb);
+    const gainEvents = speechCrossfadeGainEvents(effectiveDurationSec, elapsedIntoItemSec, durationSec, crossfadeInSec, crossfadeOutSec, baseGain);
     return {
         kind: 'speech',
         id,
@@ -238,7 +260,7 @@ function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
         sourceDurationSec: durationSec * playbackRate,
         loop: false,
         gainDb,
-        gainEvents: [{ offsetSec: 0, value: baseGain, method: 'set' }],
+        gainEvents,
         duckingEvents: []
     };
 }
@@ -248,7 +270,11 @@ function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
  */
 function projectSpeechDeclarations(cuts, options) {
     const fps = finitePositive(options?.fps) ? options.fps : 30;
-    const virtualCuts = cuts.map(cut => {
+    const normalizedCuts = cuts.map(cut => ({
+        ...cut,
+        transitionOut: cut.transitionOut ?? cut.transition_out ?? undefined
+    }));
+    const virtualCuts = normalizedCuts.map(cut => {
         const speed = finitePositive(cut?.speed) ? cut.speed : 1;
         const holdSec = freezeDuration(cut?.freeze);
         return { ...cut, out: cut.out + holdSec * speed };
@@ -258,7 +284,7 @@ function projectSpeechDeclarations(cuts, options) {
     for (const segment of map.segments) {
         if (segment.kind !== 'src' || segment.cutIndex === null)
             continue;
-        const cut = cuts[segment.cutIndex];
+        const cut = normalizedCuts[segment.cutIndex];
         if (!cut || typeof cut.src !== 'string' || !cut.src)
             continue;
         const speed = finitePositive(cut.speed) ? cut.speed : 1;
@@ -301,7 +327,31 @@ function projectSpeechDeclarations(cuts, options) {
             track: cut.track
         });
     }
+    for (const window of map.transitionWindows) {
+        if (window.outgoing.cutIndex === null || window.incoming.cutIndex === null)
+            continue;
+        const outgoingCut = normalizedCuts[window.outgoing.cutIndex];
+        const incomingCut = normalizedCuts[window.incoming.cutIndex];
+        const outgoingBase = speechBaseId(outgoingCut, window.outgoing.cutIndex);
+        const incomingBase = speechBaseId(incomingCut, window.incoming.cutIndex);
+        const outgoing = [...declarations].reverse().find(item => item.id.startsWith(`${outgoingBase}-speech`)
+            && item.atSec <= window.start + 1e-9
+            && item.atSec + item.durationSec >= window.end - 1e-9);
+        const incoming = declarations.find(item => item.id.startsWith(`${incomingBase}-speech`)
+            && item.atSec >= window.end - 1e-9);
+        if (outgoing) {
+            outgoing.padAfterSec = Math.max(outgoing.padAfterSec ?? 0, window.duration);
+            outgoing.crossfadeOutSec = Math.max(outgoing.crossfadeOutSec ?? 0, window.duration);
+        }
+        if (incoming) {
+            incoming.padBeforeSec = Math.max(incoming.padBeforeSec ?? 0, window.duration);
+            incoming.crossfadeInSec = Math.max(incoming.crossfadeInSec ?? 0, window.duration);
+        }
+    }
     return declarations;
+}
+function speechBaseId(cut, index) {
+    return cut && typeof cut.id === 'string' && cut.id ? cut.id : `cut-${index}`;
 }
 function appendSpeechIntersection(declarations, input) {
     const atSec = Math.max(input.outputStart, input.segmentStart);
@@ -332,6 +382,37 @@ function freezeAt(freeze) {
 function speechGainDb(cut) {
     const raw = cut.gain_db ?? cut.gainDb ?? cut.volume_db;
     return typeof raw === 'number' && Number.isFinite(raw) ? raw : 0;
+}
+function validSidecar(value) {
+    return value && typeof value.path === 'string' && value.path
+        && finitePositive(value.durationSec)
+        && finiteNonNegative(value.padBeforeSec) && finiteNonNegative(value.padAfterSec)
+        ? value : undefined;
+}
+function speechCrossfadeGainEvents(itemDurationSec, elapsedIntoItemSec, availableSec, fadeInSec, fadeOutSec, baseGain) {
+    if (!(fadeInSec > 0) && !(fadeOutSec > 0)) {
+        return [{ offsetSec: 0, value: baseGain, method: 'set' }];
+    }
+    const multiplierAt = (localSec) => {
+        let value = 1;
+        if (fadeInSec > 0 && localSec < fadeInSec)
+            value = Math.min(value, localSec / fadeInSec);
+        if (fadeOutSec > 0 && localSec > itemDurationSec - fadeOutSec) {
+            value = Math.min(value, (itemDurationSec - localSec) / fadeOutSec);
+        }
+        return Math.max(0, Math.min(1, value));
+    };
+    const windowEnd = elapsedIntoItemSec + availableSec;
+    return uniqueSorted([
+        elapsedIntoItemSec,
+        fadeInSec,
+        itemDurationSec - fadeOutSec,
+        windowEnd
+    ].filter(point => point >= elapsedIntoItemSec && point <= windowEnd)).map((point, index) => ({
+        offsetSec: point - elapsedIntoItemSec,
+        value: baseGain * multiplierAt(point),
+        method: index === 0 ? 'set' : 'linear'
+    }));
 }
 function normalizedGainDb(spec, label, warnings) {
     const raw = spec.gainDb !== undefined ? spec.gainDb : spec.gain_db;

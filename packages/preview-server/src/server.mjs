@@ -15,7 +15,11 @@ import { lintProjectCandidates, writeAtomic } from '../../edit-store/lib/write-g
 import { projectSpeechDeclarations } from '../../edit-store/lib/index.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
-import { ensureSpeechAtempo } from '../../media-bin/src/speech-atempo.mjs';
+import {
+  ensurePreviewAudioSidecar,
+  probePreviewAudioSource,
+  sweepPreviewAudioSidecars,
+} from '../../media-bin/src/preview-audio-sidecar.mjs';
 import {
   parseFrameRate,
   previewProxyVideoArgs,
@@ -55,6 +59,7 @@ const MIME = {
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
   '.wav': 'audio/wav',
+  '.flac': 'audio/flac',
   '.mp3': 'audio/mpeg',
   '.ogg': 'audio/ogg',
   '.woff2': 'font/woff2',
@@ -297,36 +302,97 @@ async function readFrameEnginePreviewEdit(filePath) {
   const sources = new Map((read.data?.sources ?? []).map(source => [String(source?.id ?? ''), source]));
   const projectedSpeech = projectSpeechDeclarations(read.data?.cuts ?? [], { fps });
   const speechWarnings = [];
+  const keepKeys = new Set();
+  const cacheDir = path.join(projectRoot, '.akari', 'cache');
+  const sourcePathOf = declaredPath => path.isAbsolute(declaredPath)
+    ? declaredPath : path.resolve(projectRoot, declaredPath);
+  const sidecarDeclaration = (result, padBeforeSec, padAfterSec, generatedMs) => {
+    keepKeys.add(result.key);
+    return {
+      path: path.relative(projectRoot, result.path).split(path.sep).join('/'),
+      durationSec: result.durationSec,
+      padBeforeSec,
+      padAfterSec,
+      generatedMs,
+      skipped: result.skipped,
+      bytes: fs.statSync(result.path).size,
+    };
+  };
   const speech = await Promise.all(projectedSpeech.map(async declaration => {
-    if (Math.abs(declaration.speed - 1) <= 1e-6) return declaration;
     const source = sources.get(declaration.src);
     const declaredPath = source?.path;
     if (typeof declaredPath !== 'string' || !declaredPath) return declaration;
     const startedAt = performance.now();
-    const result = await ensureSpeechAtempo({
-      sourcePath: path.isAbsolute(declaredPath) ? declaredPath : path.resolve(projectRoot, declaredPath),
+    const padBeforeSec = declaration.padBeforeSec ?? 0;
+    const padAfterSec = declaration.padAfterSec ?? 0;
+    const result = await ensurePreviewAudioSidecar({
+      sourcePath: sourcePathOf(declaredPath),
       inSec: declaration.inSec,
       outSec: declaration.outSec,
       speed: declaration.speed,
+      padBeforeSec,
+      padAfterSec,
       ffmpeg: tryResolve(resolveFfmpeg),
-      cacheDir: path.join(projectRoot, '.akari', 'cache'),
+      cacheDir,
     });
     const generatedMs = performance.now() - startedAt;
     if (!result.ok) {
-      const warning = `speech atempo ${declaration.id} unavailable; using playbackRate: ${result.reason}`;
+      const warning = `speech sidecar ${declaration.id} unavailable; using source fallback: ${result.reason}`;
       speechWarnings.push(warning);
       console.warn(`[preview] ${warning}`);
-      return declaration;
+      return { ...declaration, sidecarWarningEmitted: true };
     }
     return {
       ...declaration,
-      atempo: {
-        path: path.relative(projectRoot, result.path).split(path.sep).join('/'),
-        durationSec: result.durationSec,
-        generatedMs,
-      },
+      sidecar: sidecarDeclaration(result, padBeforeSec, padAfterSec, generatedMs),
     };
   }));
+
+  const prepareHeavyWav = async (raw, label, kind) => {
+    if (!raw || typeof raw !== 'object' || typeof raw.path !== 'string' || !raw.path) return raw;
+    const sourcePath = sourcePathOf(raw.path);
+    let stat;
+    try { stat = fs.statSync(sourcePath); } catch { return raw; }
+    if (path.extname(sourcePath).toLowerCase() !== '.wav' || stat.size <= 8 * 1024 * 1024) return raw;
+    const probe = probePreviewAudioSource(sourcePath);
+    if (!probe.ok) {
+      const warning = `${label} sidecar unavailable; using source: ${probe.reason}`;
+      speechWarnings.push(warning);
+      console.warn(`[preview] ${warning}`);
+      return raw;
+    }
+    const inSec = (kind === 'bgm' || kind === 'sfx') && Number.isFinite(raw.in) && raw.in >= 0
+      ? raw.in : 0;
+    const outSec = kind === 'sfx' && Number.isFinite(raw.out) && raw.out > inSec
+      ? Math.min(raw.out, probe.durationSec) : probe.durationSec;
+    if (!(outSec > inSec)) return raw;
+    const startedAt = performance.now();
+    const result = await ensurePreviewAudioSidecar({
+      sourcePath, inSec, outSec, speed: 1, padBeforeSec: 0, padAfterSec: 0,
+      ffmpeg: tryResolve(resolveFfmpeg), cacheDir,
+    });
+    const generatedMs = performance.now() - startedAt;
+    if (!result.ok) {
+      const warning = `${label} sidecar unavailable; using source: ${result.reason}`;
+      speechWarnings.push(warning);
+      console.warn(`[preview] ${warning}`);
+      return raw;
+    }
+    return { ...raw, sidecar: sidecarDeclaration(result, 0, 0, generatedMs) };
+  };
+  const declaredAudio = read.data.audio ?? {};
+  const preparedAudio = {
+    ...declaredAudio,
+    ...(declaredAudio.bgm !== undefined
+      ? { bgm: await prepareHeavyWav(declaredAudio.bgm, 'bgm', 'bgm') } : {}),
+    sfx: Array.isArray(declaredAudio.sfx)
+      ? await Promise.all(declaredAudio.sfx.map((item, index) =>
+        prepareHeavyWav(item, `sfx ${item?.id ?? index + 1}`, 'sfx'))) : declaredAudio.sfx,
+    narration: Array.isArray(declaredAudio.narration)
+      ? await Promise.all(declaredAudio.narration.map((item, index) =>
+        prepareHeavyWav(item, `narration ${item?.id ?? index + 1}`, 'narration'))) : declaredAudio.narration,
+  };
+  sweepPreviewAudioSidecars({ cacheDir, keepKeys });
   prepared.warnings.push(...speechWarnings);
   const intake = {};
   const skipped = [];
@@ -345,7 +411,7 @@ async function readFrameEnginePreviewEdit(filePath) {
   return {
     data: {
       ...read.data,
-      audio: { ...(read.data.audio ?? {}), speech },
+      audio: { ...preparedAudio, speech },
       ...(hasFrameEngineIntake ? {
         frameEngine: { intake, skipped, warnings: prepared.warnings },
       } : speechWarnings.length > 0 ? {
