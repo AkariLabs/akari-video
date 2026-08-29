@@ -121,7 +121,8 @@ raw frame 読み戻しではない。
 
 映像は H.264 `avc1.640028`、2 秒ごとの keyframe とし、製品は hardware preference、
 `--soft` は software preference を指定する。ビットレートは render-cut の quality プリセットにある
-VideoToolbox 値を正本とし、`high = 12 Mbps`、`standard = 8 Mbps`、`light = 5 Mbps` とする。
+GPU ビットレート値（mac では VideoToolbox 用の値と共用）を正本とし、`high = 12 Mbps`、
+`standard = 8 Mbps`、`light = 5 Mbps` とする。
 `--bitrate` の明示値は quality より優先する。`master` は VideoToolbox ビットレートを宣言しないため、
 GPU 出口では `--bitrate` が無ければ理由付きで fail-closed にする。
 
@@ -162,6 +163,10 @@ GPU と OSR の decode 比較は、engine-only 区間の per-frame MAD 1.0 以�
     "video_reencode": false
   },
   "gpu": {
+    "platform": "win32",
+    "chromium": "140.0.0.0",
+    "renderer": { "vendor": "NVIDIA Corporation", "renderer": "ANGLE (NVIDIA GeForce RTX)" },
+    "encoder_support": { "prefer-hardware": true, "prefer-software": false },
     "encoder": "WebCodecsH264Encoder",
     "hardware": "prefer-hardware",
     "uploadPath": "direct",
@@ -179,13 +184,35 @@ GPU と OSR の decode 比較は、engine-only 区間の per-frame MAD 1.0 以�
 OSR receipt と同じ warning/hard-stop 語彙を使う。`--engine osr` と `--engine gpu` は receipt 以外の
 最終成果物パス・命名と `.akari/render.json` の置き場を共有する。
 
+`gpu.platform` と `gpu.chromium` は Electron main process の実行環境、`gpu.renderer` は renderer process
+で `WEBGL_debug_renderer_info` から取得した vendor / renderer（取得不能なら `null`）を記録する。
+`gpu.encoder_support` は製品と同じ H.264 config の `hardwareAcceleration` だけを差し替えた
+`prefer-hardware` / `prefer-software` の対応可否を記録し、取得不能なら `null` とする。WebCodecs は
+実際に使われた encoder 実装を露出しないため、「hardware encoder が使われた」という主張は
+`encoder_support` と書き出し速度を組み合わせて裏取りする。
+
 ## 8. v0 / v2 の限界
 
 - 語矩形で表せない演出、色補間と幾何変形が同居する cue、縦書きの語単位字幕は glyph atlas 等の次段が必要。
 - 動的自由 HTML は OSR または事前ベイクが必要。
-- Windows の hardware H.264 encoder は v0 の提供対象外。
+- Windows / Linux は launcher tier 1 / 2 があれば `--engine gpu` 明示で利用できる。`auto` の GPU 候補は
+  macOS のみとし、Windows の既定切替は実機実測後の別契約で扱う。
 - 長尺の区間並列、複数 process 並列は非対応。
 - **インストール済みデスクトップアプリ経由（launcher tier 1）の GPU 書き出しは未配線**（v0.1.25 で判明）。shell の `--render` は OSR ランタイムしか読まず、`buildElectronArguments` は tier 2 にしか mainScript を渡さない。v0.1.26 から `resolveGpuLauncher` は tier 1 を候補から外す（fail-closed）: `auto` は OSR へ（provenance に `engine_fallback` と理由）、`--engine gpu` 明示は拒否。tier 1 の配線（shell contribution に GPU ランタイム選択を足す）は別票。
+
+## 8.1 プラットフォーム
+
+| platform | `--engine gpu` | `--engine auto` | launcher |
+|---|---|---|---|
+| macOS | 明示利用可 | 適格なら GPU、不適格なら OSR | tier 1 / 2（ただし tier 1 は現状未配線で fail-closed） |
+| Windows | 明示利用可 | legacy のまま | tier 1 / 2（同上） |
+| Linux | 明示利用可 | legacy のまま | tier 1 / 2（同上） |
+
+npm Electron の tier 2 は `node_modules/electron/path.txt` を必須とする。値は win32 が
+`electron.exe`、darwin が `Electron.app/Contents/MacOS/Electron`、linux が `electron` である。
+インストール済みアプリの tier 1 を配布する場合は shell の `extraResources` に
+`packages/gpu-export` が同梱されていることを前提とする。ただし現行 tier 1 は
+`GPU_DESKTOP_TIER_UNWIRED_REASON` のとおり候補から外し、誤って OSR を GPU receipt として記録しない。
 
 ## 9. v1 — HTML-in-Canvas DOM 層
 

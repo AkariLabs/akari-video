@@ -67,7 +67,8 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
    GPU 直結を明示する場合は `--engine gpu` を加える。CSS animation / transition / `@keyframes` /
    Web Animations / `@property` だけで動く HTML は DOM 層として適格。`words[]` の karaoke / pop /
    reveal / reveal-word と対応済み `emphasis_words` は GPU-native 適格。不適格な字幕・HTML があれば
-   理由付きで fail-closed になり、`--engine auto` は macOS で適格時だけ GPU、それ以外は OSR を選ぶ。
+   理由付きで fail-closed になる。Windows / Linux は `--engine gpu` 明示時だけ GPU を評価し、
+   `--engine auto` が GPU を候補にするのは macOS だけ（適格時は GPU、不適格時は OSR）。
 6. exit code と `.akari/render.json` を確認する。`0` は完走して verify PASS、`1` は拒否または verify FAIL、`2` は実行エラーを表す。`provenance.rasterizer` で採用手段と上位候補を落とした理由を確認する。`verify.findings` には
    尺・フレーム数厳密一致（`verify.frame-count`）・全フレームデコード成功（`verify.decode`）・解像度・fps・コーデック等が並ぶ。
 7. verify PASS 後、CLI が `<project>/.akari/reports/contact-sheet.png` へ自動生成したコンタクトシート（plan から決定論導出した代表時刻 — 冒頭・各カット境界の直後・各オーバーレイ/字幕区間の中点・終盤 — をタイル結合した静止画。`render.json` の `contact_sheet.timestamps_seconds` に時刻列を記録）をキーフレーム視認の起点にする。これで足りない区間（コンタクトシートの上限枚数を超えて間引かれた箇所など）だけ追加でフレーム抽出して視認する。カット元時刻、文字、位置、欠落、透明合成を確認する。

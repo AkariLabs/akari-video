@@ -518,3 +518,128 @@ jobs:
             "$RUNNER_TEMP/gpu-fixture" --out "$RUNNER_TEMP/gpu-run-trap/composite.mp4" \
             --duration 12 --frames 360 --fps 30 --width 1920 --height 1080 --soft --trap-readback
           node -e "const r=require('$RUNNER_TEMP/gpu-run-trap/run.json'); if(r.status!=='completed'||Object.values(r.gpu.readbackCounters).some(Boolean)) process.exit(1)"
+
+  gpu-export-soft-windows:
+    name: gpu-export-soft-windows (reference)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    continue-on-error: true
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+          cache: npm
+      - name: Resolve ffmpeg on the Windows runner
+        run: |
+          set -e
+          if command -v ffmpeg >/dev/null 2>&1; then
+            echo "gpu-export-soft-windows ffmpeg: runner-provided ($(ffmpeg -version | head -n 1))" >> "$GITHUB_STEP_SUMMARY"
+          else
+            choco install ffmpeg -y
+            export PATH="$PATH:/c/ProgramData/chocolatey/bin"
+            echo 'C:\ProgramData\chocolatey\bin' >> "$GITHUB_PATH"
+            hash -r
+            command -v ffmpeg >/dev/null
+            echo "gpu-export-soft-windows ffmpeg: installed with Chocolatey ($(ffmpeg -version | head -n 1))" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          command -v ffprobe >/dev/null
+      - name: Install GPU export dependencies without lifecycle scripts
+        run: >-
+          npm install --ignore-scripts
+          --workspace @akari-video/gpu-export --workspace @akari-video/osr-export
+          --include-workspace-root=false --include=optional
+          --no-audit --no-fund --no-save
+      - name: Install stock Windows Electron in an isolated directory
+        run: |
+          set -e
+          pkg="$RUNNER_TEMP/electron-pkg"
+          mkdir -p "$pkg" && cd "$pkg"
+          npm init -y >/dev/null
+          npm install --no-save --no-audit --no-fund --ignore-scripts electron@39.8.7
+          ver="$(node -p "require('./node_modules/electron/package.json').version")"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/electron.zip" \
+            "https://github.com/electron/electron/releases/download/v${ver}/electron-v${ver}-win32-x64.zip"
+          rm -rf node_modules/electron/dist && mkdir -p node_modules/electron/dist
+          if command -v unzip >/dev/null 2>&1; then
+            unzip -q "$RUNNER_TEMP/electron.zip" -d node_modules/electron/dist
+          else
+            command -v 7z >/dev/null
+            7z x -y "-onode_modules/electron/dist" "$RUNNER_TEMP/electron.zip" >/dev/null
+          fi
+          printf 'electron.exe' > node_modules/electron/path.txt
+          test -f node_modules/electron/dist/electron.exe
+          test -f node_modules/electron/dist/version
+      - name: Copy Electron into the repository
+        run: |
+          set -e
+          rm -rf node_modules/electron
+          cp -r "$RUNNER_TEMP/electron-pkg/node_modules/electron" node_modules/electron
+          test -f node_modules/electron/dist/electron.exe
+          node -e "const fs=require('fs');const p=require('electron');if(!fs.existsSync(p))process.exit(1);console.log('electron =',p)"
+      - name: Run required GPU export checks
+        run: npm --prefix packages/gpu-export run ci:required
+      - name: Build deterministic 360-frame audio fixture
+        run: |
+          # The Windows reference lane keeps the base fixture; Linux separately covers DOM and captions.
+          npm --prefix packages/osr-export run ci:fixture -- "$RUNNER_TEMP/gpu-fixture" --verify
+      - name: Run software frame verification twice
+        env:
+          ELECTRON_DISABLE_SANDBOX: "1"
+        run: |
+          mkdir -p "$RUNNER_TEMP/gpu-run-a" "$RUNNER_TEMP/gpu-run-b"
+          for run in a b; do
+            node packages/gpu-export/bin/akari-gpu-export.mjs \
+              "$RUNNER_TEMP/gpu-fixture" --out "$RUNNER_TEMP/gpu-run-$run/composite.mp4" \
+              --duration 12 --frames 360 --fps 30 --width 1920 --height 1080 --soft --verify-frames
+          done
+      - name: Require 360 matching pre-encode frame hashes
+        run: |
+          node --input-type=module - "$RUNNER_TEMP/gpu-run-a/run.json" "$RUNNER_TEMP/gpu-run-b/run.json" <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          const [leftPath, rightPath] = process.argv.slice(2);
+          const left = JSON.parse(await readFile(leftPath, "utf8"));
+          const right = JSON.parse(await readFile(rightPath, "utf8"));
+          assert.equal(left.framesCompleted, 360);
+          assert.equal(right.framesCompleted, 360);
+          assert.equal(left.frameHashes.length, 360);
+          assert.equal(right.frameHashes.length, 360);
+          assert.deepEqual(left.frameHashes, right.frameHashes);
+          assert.ok(["completed", "unsupported"].includes(left.status));
+          assert.equal(left.status, right.status);
+          process.stdout.write(`pre-encode SHA-256 matched for ${left.frameHashes.length}/${right.frameHashes.length} frames\n`);
+          NODE
+      - name: Record unsupported encoder or verify encoded output
+        run: |
+          status="$(node -p "require('$RUNNER_TEMP/gpu-run-a/run.json').status")"
+          echo "gpu-export Windows run status=$status"
+          if [ "$status" = "unsupported" ]; then
+            echo "GPU_H264_ENCODER=no" >> "$GITHUB_ENV"
+            echo "gpu-export-soft-windows H.264 encoder: unsupported; pre-encode frame SHA 360/360 passed" >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Stock Windows Electron has no software H.264 encoder; pre-encode frame SHA remains required and passed."
+          else
+            echo "GPU_H264_ENCODER=yes" >> "$GITHUB_ENV"
+            ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 "$RUNNER_TEMP/gpu-run-a/composite.mp4" | grep -x 360
+            first_sha="$(node -e "const fs=require('fs'),c=require('crypto');const h=c.createHash('sha256');fs.createReadStream(process.argv[1]).on('data',v=>h.update(v)).on('end',()=>process.stdout.write(h.digest('hex')))" "$RUNNER_TEMP/gpu-run-a/composite.mp4")"
+            second_sha="$(node -e "const fs=require('fs'),c=require('crypto');const h=c.createHash('sha256');fs.createReadStream(process.argv[1]).on('data',v=>h.update(v)).on('end',()=>process.stdout.write(h.digest('hex')))" "$RUNNER_TEMP/gpu-run-b/composite.mp4")"
+            if [ "$first_sha" = "$second_sha" ]; then
+              echo "gpu-export-soft-windows MP4 SHA-256 matched: $first_sha" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::Software H.264 MP4 SHA differs; frame SHA is the required determinism gate."
+              echo "gpu-export-soft-windows MP4 SHA-256 differed (diagnostic only)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+      - name: Run readback trap when the encoder is available
+        if: env.GPU_H264_ENCODER == 'yes'
+        env:
+          ELECTRON_DISABLE_SANDBOX: "1"
+        run: |
+          mkdir -p "$RUNNER_TEMP/gpu-run-trap"
+          node packages/gpu-export/bin/akari-gpu-export.mjs \
+            "$RUNNER_TEMP/gpu-fixture" --out "$RUNNER_TEMP/gpu-run-trap/composite.mp4" \
+            --duration 12 --frames 360 --fps 30 --width 1920 --height 1080 --soft --trap-readback
+          node -e "const r=require('$RUNNER_TEMP/gpu-run-trap/run.json');if(r.status!=='completed'||Object.values(r.gpu.readbackCounters).some(Boolean))process.exit(1)"

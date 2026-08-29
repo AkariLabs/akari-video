@@ -11,7 +11,19 @@ test("GPU receipt records direct mux, no re-encode, and every eligibility row", 
   const receipt = buildGpuReceipt({
     tier: 2,
     eligibility: { entries },
-    run: { gpu: { encoder: "WebCodecsH264Encoder", hardware: "prefer-hardware", uploadPath: "direct", quality: "high", bitrate: 12_000_000, queueDepth: 4, queueWaits: 7 }, domLayer: { runs: 1, overlays: 2, policy: "sync-layout" }, memory: { peakBytes: 42 } },
+    run: { gpu: {
+      platform: "win32",
+      chromium: "140.0.0.0",
+      renderer: { vendor: "NVIDIA Corporation", renderer: "ANGLE (NVIDIA GeForce RTX)" },
+      encoder_support: { "prefer-hardware": true, "prefer-software": false },
+      encoder: "WebCodecsH264Encoder",
+      hardware: "prefer-hardware",
+      uploadPath: "direct",
+      quality: "high",
+      bitrate: 12_000_000,
+      queueDepth: 4,
+      queueWaits: 7,
+    }, domLayer: { runs: 1, overlays: 2, policy: "sync-layout" }, memory: { peakBytes: 42 } },
   });
   assert.equal(receipt.provenance.engine, "gpu");
   assert.equal(receipt.provenance.video_reencode, false);
@@ -21,7 +33,25 @@ test("GPU receipt records direct mux, no re-encode, and every eligibility row", 
   assert.equal(receipt.gpu.queueWaits, 7);
   assert.equal(receipt.gpu.quality, "high");
   assert.equal(receipt.gpu.bitrate, 12_000_000);
+  assert.equal(receipt.gpu.platform, "win32");
+  assert.equal(receipt.gpu.chromium, "140.0.0.0");
+  assert.deepEqual(receipt.gpu.renderer, {
+    vendor: "NVIDIA Corporation",
+    renderer: "ANGLE (NVIDIA GeForce RTX)",
+  });
+  assert.deepEqual(receipt.gpu.encoder_support, {
+    "prefer-hardware": true,
+    "prefer-software": false,
+  });
   assert.deepEqual(receipt.gpu.domLayer, { runs: 1, overlays: 2, policy: "sync-layout" });
+});
+
+test("GPU receipt keeps unavailable renderer and encoder support explicit", () => {
+  const receipt = buildGpuReceipt({ run: { gpu: {} } });
+  assert.equal(receipt.gpu.platform, process.platform);
+  assert.equal(receipt.gpu.chromium, process.versions.chrome ?? null);
+  assert.equal(receipt.gpu.renderer, null);
+  assert.equal(receipt.gpu.encoder_support, null);
 });
 
 test("GPU receipt carries caption measurement and raster batch diagnostics", () => {

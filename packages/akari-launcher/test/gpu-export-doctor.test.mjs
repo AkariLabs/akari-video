@@ -4,12 +4,7 @@ import test from 'node:test';
 import { formatDoctorReport } from '../src/doctor-command.mjs';
 import { resolveGpuExportAvailability } from '../src/runtime-diagnostics.mjs';
 
-test('GPU doctor requires macOS and a tier 1/2 Electron launcher', async () => {
-  assert.deepEqual(await resolveGpuExportAvailability({ platform: 'linux' }), {
-    available: false,
-    reason: 'GPU hardware export v0 is available on macOS only',
-    launcher_tier: null,
-  });
+test('GPU doctor reports the resolved tier on every platform', async () => {
   assert.deepEqual(await resolveGpuExportAvailability({
     platform: 'darwin',
     resolveGpuLauncher: async () => ({ tier: 2, kind: 'npm-electron' }),
@@ -17,6 +12,22 @@ test('GPU doctor requires macOS and a tier 1/2 Electron launcher', async () => {
     available: true,
     reason: 'npm-electron launcher tier 2',
     launcher_tier: 2,
+  });
+  assert.deepEqual(await resolveGpuExportAvailability({
+    platform: 'win32',
+    gpuLauncher: { tier: 2, kind: 'npm-electron' },
+  }), {
+    available: true,
+    reason: 'npm-electron launcher tier 2',
+    launcher_tier: 2,
+  });
+  assert.deepEqual(await resolveGpuExportAvailability({
+    platform: 'linux',
+    gpuLauncher: { tier: 3, reason: 'Electron launcher unavailable' },
+  }), {
+    available: false,
+    reason: 'Electron launcher unavailable',
+    launcher_tier: 3,
   });
 });
 
