@@ -55,7 +55,7 @@ OSRの一時ディレクトリに廃止済み中間が無いことは次で確�
 npm run assert-no-intermediates -- /path/to/project
 ```
 
-CI・検収用の環境変数として`AKARI_OSR_SOFT=1`、`AKARI_OSR_VERIFY=stamp|hash|off`、`AKARI_OSR_QUEUE_DEPTH=<n>`、`AKARI_OSR_DUMP_FRAMES=0,150,359`を使用できる。frame dumpは出力と同じディレクトリの`raw/frame-<n>.bgra`へ、スタンプ行を除いたBGRAとして保存する。
+CI・検収用の環境変数として`AKARI_OSR_SOFT=1`、`AKARI_OSR_VERIFY=stamp|hash|off`、`AKARI_OSR_QUEUE_DEPTH=<n>`、`AKARI_OSR_DUMP_FRAMES=0,150,359`を使用できる。Electron 子プロセスには親の環境をそのまま渡すが、`ELECTRON_RUN_AS_NODE` だけは外して起動する（`electronChildEnvironment`）。shell 配布の `akari` shim やアプリ内書き出しは同梱 Electron を node として使うためにこの変数を立てており、継承すると子の AKARI Video / npm Electron が Node モードで起動して書き出しが失敗する（#27）。frame dumpは出力と同じディレクトリの`raw/frame-<n>.bgra`へ、スタンプ行を除いたBGRAとして保存する。
 
 メモリ予算はGPUが警戒768 MiB / hard stop 1,024 MiB、1080pのSwiftShaderが警戒1,536 MiB / hard stop 2,048 MiBです。`AKARI_OSR_MEMORY_WARN_MIB`と`AKARI_OSR_MEMORY_HARD_STOP_MIB`で正の整数MiBへ上書きできます。1 worker = 1 GiBの並列予算はGPU前提です。
 

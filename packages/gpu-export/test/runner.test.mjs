@@ -1,4 +1,9 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 
 import { buildGpuElectronArguments, launchGpuExport, resolveGpuLauncher } from "../src/runner.mjs";
@@ -56,6 +61,39 @@ test("tier 1 GPU arguments carry --akari-main before --render", () => {
   assert.ok(mainIndex >= 0);
   assert.equal(args[mainIndex + 1], "packages/gpu-export/src/electron-main.mjs");
   assert.ok(mainIndex < args.indexOf("--render"));
+});
+
+test("GPU launcher strips ELECTRON_RUN_AS_NODE from the Electron child on tier 1 and tier 2 (#27)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gpu-runner-"));
+  try {
+    for (const launcher of [{ tier: 1, executable: "/desktop" }, { tier: 2, executable: "/npm/electron" }]) {
+      const out = join(root, `video-${launcher.tier}.mp4`);
+      const calls = [];
+      const spawnImpl = (command, args, options) => {
+        calls.push({ command, args, options });
+        const child = new EventEmitter();
+        child.stdout = new PassThrough();
+        child.stderr = new PassThrough();
+        setImmediate(async () => {
+          child.stdout.end();
+          child.stderr.end();
+          await writeFile(out, "video");
+          child.emit("close", 0, null);
+        });
+        return child;
+      };
+      await launchGpuExport(launcher, {
+        projectRoot: "/p", out, fps: 30, width: 16, height: 16, duration: 1, frames: 30, quality: "high",
+      }, { spawnImpl, env: { ELECTRON_RUN_AS_NODE: "1", AKARI_OSR_SOFT: "1" } });
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].command, launcher.executable);
+      assert.equal(calls[0].args.includes("--akari-main"), launcher.tier === 1);
+      assert.equal("ELECTRON_RUN_AS_NODE" in calls[0].options.env, false);
+      assert.equal(calls[0].options.env.AKARI_OSR_SOFT, "1");
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("tier 3 is fail-closed", async () => {
