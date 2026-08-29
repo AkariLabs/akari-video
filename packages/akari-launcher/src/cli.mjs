@@ -24,6 +24,7 @@ import {
 import { applySelfUpdate, isRunningFromAppDir, rollbackSelfUpdate } from './self-update.mjs';
 import { runChromeCommand } from './chrome-command.mjs';
 import { runCaptureCommand } from './capture-command.mjs';
+import { runMediaCommand } from './media-command.mjs';
 import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
 
 /**
@@ -38,6 +39,7 @@ import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
 export async function run(args, options = {}) {
   if (args[0] === 'chrome') return runChromeCommand(args.slice(1), options);
   if (args[0] === 'capture') return runCaptureCommand(args.slice(1), options);
+  if (args[0] === 'media') return runMediaCommand(args.slice(1), options);
 
   const log = options.log ?? ((line) => console.log(line));
   const assets = options.assets ?? resolveLauncherAssets();

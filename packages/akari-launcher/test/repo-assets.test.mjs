@@ -17,7 +17,8 @@ const ASSET_MARKERS = {
   beatmapScript: ['packages', 'akari-tools', 'bin', 'beatmap.mjs'],
   probeFrameScript: ['packages', 'akari-tools', 'bin', 'probe-frame.mjs'],
   renderWhenIdleScript: ['packages', 'akari-tools', 'bin', 'render-when-idle.sh'],
-  eyeBarScript: ['packages', 'akari-tools', 'bin', 'eye-bar.mjs']
+  eyeBarScript: ['packages', 'akari-tools', 'bin', 'eye-bar.mjs'],
+  mediaScript: ['packages', 'akari-tools', 'bin', 'media.mjs']
 };
 
 async function withRoots(run) {

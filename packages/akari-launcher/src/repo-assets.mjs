@@ -54,6 +54,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const probeFrameScript = path.join(repoRoot, PROBE_FRAME_SCRIPT_RELATIVE);
   const renderWhenIdleScript = path.join(repoRoot, RENDER_WHEN_IDLE_SCRIPT_RELATIVE);
   const eyeBarScript = path.join(repoRoot, EYE_BAR_SCRIPT_RELATIVE);
+  const mediaScript = path.join(repoRoot, 'packages', 'akari-tools', 'bin', 'media.mjs');
 
   return {
     repoRoot,
@@ -69,7 +70,8 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     probeFrameScript: existsSync(probeFrameScript) ? probeFrameScript : null,
     captureScript: existsSync(path.join(repoRoot, CAPTURE_SCRIPT_RELATIVE)) ? path.join(repoRoot, CAPTURE_SCRIPT_RELATIVE) : null,
     renderWhenIdleScript: existsSync(renderWhenIdleScript) ? renderWhenIdleScript : null,
-    eyeBarScript: existsSync(eyeBarScript) ? eyeBarScript : null
+    eyeBarScript: existsSync(eyeBarScript) ? eyeBarScript : null,
+    mediaScript: existsSync(mediaScript) ? mediaScript : null
   };
 }
 
@@ -102,6 +104,7 @@ export function resolveLauncherAssets({
     // 既存の部分資産 fixture に capture marker が無いため、未解決時だけキー自体を省く。
     ...(candidate.captureScript ?? vendor.captureScript ? { captureScript: candidate.captureScript ?? vendor.captureScript } : {}),
     renderWhenIdleScript: candidate.renderWhenIdleScript ?? vendor.renderWhenIdleScript,
-    eyeBarScript: candidate.eyeBarScript ?? vendor.eyeBarScript
+    eyeBarScript: candidate.eyeBarScript ?? vendor.eyeBarScript,
+    mediaScript: candidate.mediaScript ?? vendor.mediaScript
   };
 }

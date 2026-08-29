@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "bin": { "akari-capture": "bin/capture.mjs" },
+  "bin": { "akari-capture": "bin/capture.mjs", "akari-media": "bin/media.mjs" },
   "engines": {
     "node": ">=20"
   },
