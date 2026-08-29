@@ -29,34 +29,33 @@ test("runner resolves quality bitrate and keeps master fail-closed", () => {
   }), /master は GPU 出口では --bitrate の明示が必要/);
 });
 
-test("GPU launcher skips the desktop tier (tier 1) until the shell can run the GPU main", async () => {
+test("GPU launcher uses the GPU desktop runtime probe (tier 1 via electron-entry --akari-main)", async () => {
   const result = await resolveGpuLauncher({
-    env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/opt/akari-test",
-    probe: async (path) => path === "/desktop" || path.endsWith("resources/packages/gpu-export/src/electron-main.mjs"),
-    resolveElectron: () => null,
-  });
-  assert.equal(result.tier, 3);
-  assert.match(result.reason, /desktop app \(launcher tier 1\) is not wired/);
-});
-
-test("GPU launcher still resolves npm Electron (tier 2) when the desktop tier is skipped", async () => {
-  const result = await resolveGpuLauncher({
-    env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/opt/akari-test",
-    probe: async () => true,
-    resolveElectron: () => "/electron",
-  });
-  assert.equal(result.tier, 2);
-  assert.equal(result.executable, "/electron");
-});
-
-test("GPU launcher honours an explicit allowDesktop: true (for the future tier 1 wiring)", async () => {
-  const result = await resolveGpuLauncher({
-    allowDesktop: true,
     env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/opt/akari-test",
     probe: async (path) => path === "/desktop" || path.endsWith("resources/packages/gpu-export/src/electron-main.mjs"),
     resolveElectron: () => null,
   });
   assert.equal(result.tier, 1);
+});
+
+test("GPU launcher still honours allowDesktop: false (explicit opt-out of tier 1)", async () => {
+  const result = await resolveGpuLauncher({
+    allowDesktop: false,
+    env: { AKARI_OSR_ELECTRON: "/desktop" }, platform: "linux", homeDirectory: "/opt/akari-test",
+    probe: async (path) => path === "/desktop" || path.endsWith("resources/packages/gpu-export/src/electron-main.mjs"),
+    resolveElectron: () => null,
+  });
+  assert.equal(result.tier, 3);
+});
+
+test("tier 1 GPU arguments carry --akari-main before --render", () => {
+  const args = buildGpuElectronArguments({ tier: 1, executable: "/desktop" }, {
+    projectRoot: "/p", out: "/o/out.mp4", fps: 30, width: 16, height: 16, duration: 1, frames: 30, quality: "high",
+  });
+  const mainIndex = args.indexOf("--akari-main");
+  assert.ok(mainIndex >= 0);
+  assert.equal(args[mainIndex + 1], "packages/gpu-export/src/electron-main.mjs");
+  assert.ok(mainIndex < args.indexOf("--render"));
 });
 
 test("tier 3 is fail-closed", async () => {

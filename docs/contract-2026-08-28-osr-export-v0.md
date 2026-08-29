@@ -164,6 +164,8 @@ v0.1.27 からの挙動: `resolveOsrLauncher`（製品入口）はインスト�
 パッケージ版では tier 3 = legacy へ警告付きで落ち、provenance に `engine_fallback` と理由が残る（`auto` / `osr` とも）。
 根本修正 = `--render` を Theia より前に捕捉する書き出し専用の Electron 入口（別票）。入口が入ったら既定を戻す。
 
+**2026-08-29 追記（根治）**: 書き出し専用の入口 `apps/shell/electron-entry.js` が合流した（§6 / §11.4）。`resolveOsrLauncher` の既定を戻し、インストール済みアプリを再び tier 1 の候補にする（v0.1.28〜）。`allowInstalledDesktop: false` は明示の opt-out として残す。
+
 ## 12. GPU 直結出口との共有境界（2026-08-28 追記）
 
 [GPU 直結書き出し v0](./contract-2026-08-28-gpu-export-v0.md) は、本契約の launcher 3 段、static

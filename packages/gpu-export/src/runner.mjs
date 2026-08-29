@@ -16,24 +16,12 @@ export function gpuDesktopRuntimePath(executable, platform) {
   return resolve(dirname(executable), "resources/packages/gpu-export/src/electron-main.mjs");
 }
 
-export const GPU_DESKTOP_TIER_UNWIRED_REASON =
-  "GPU export via the installed desktop app (launcher tier 1) is not wired yet: the shell's --render only runs the OSR runtime";
-
-// デスクトップ tier（tier 1）は候補から外す（fail-closed）。
-// buildElectronArguments は tier 2 にしか mainScript を渡さず、shell の akari-osr-export contribution は
-// osr-export の electron-main しか読まない（--bitrate は無視）。そのまま tier 1 を使うと OSR で書き出した mp4 を
-// gpu-run.json が engine=gpu と誤記する（v0.1.25 のパッケージ版で判明）。配線されるまで tier 2（npm Electron）か
-// tier 3（不可・auto は OSR へ / --engine gpu 明示は拒否）に限定する。allowDesktop: true を明示した呼び手だけが従来どおり。
+// デスクトップ tier（tier 1 = インストール済み AKARI Video）も候補にする。shell の electron-entry.js が --render を
+// Theia より前に捕捉し、buildElectronArguments が tier 1 に --akari-main <packages/gpu-export/src/electron-main.mjs> を
+// 渡すので GPU ランタイムがそのまま走る（2026-08-29 osr-headless-entry 合流・v0.1.28〜）。v0.1.26〜v0.1.27 の間は
+// 未配線のため allowDesktop 既定 false で fail-closed にしていた。allowDesktop: false は今も明示指定で使える。
 export async function resolveGpuLauncher(options = {}) {
-  const launcher = await resolveElectronLauncher({
-    ...options,
-    allowDesktop: options.allowDesktop ?? false,
-    runtimePathResolver: options.runtimePathResolver ?? gpuDesktopRuntimePath,
-  });
-  if (launcher.tier === 3 && (options.allowDesktop ?? false) === false) {
-    return { ...launcher, reason: `${GPU_DESKTOP_TIER_UNWIRED_REASON}; ${launcher.reason}` };
-  }
-  return launcher;
+  return resolveElectronLauncher({ ...options, runtimePathResolver: options.runtimePathResolver ?? gpuDesktopRuntimePath });
 }
 
 export function buildGpuElectronArguments(launcher, options) {
