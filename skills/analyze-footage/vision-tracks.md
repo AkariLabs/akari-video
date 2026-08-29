@@ -23,6 +23,8 @@ person_matte の「キーは必須・値が null」とは扱いが違う点に�
 [docs/contract-2026-08-11-analysis-vision-tracks-v0.md](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md)
 が正本である。**分析はプル駆動**（契約 §0 原則 1）: 顔だけ要る演出なら `--kinds face` だけを
 生成し、手や 3D ボディポーズのトラックは作らない。
+以下の `node bin/...` は L3 サイドカー生成器の公開インターフェースであり、媒体バックエンドを
+analyze-footage の手順から直接呼ぶものではない。内部のデコード・検証は各生成器自身が担う。
 
 ## 実行するかを先に決める
 
@@ -31,7 +33,7 @@ person_matte の「キーは必須・値が null」とは扱いが違う点に�
 | 工程 | 実測 | 備考 |
 |---|---|---|
 | Vision 検出（顔+手 1 パス） | 13.5 ms/frame | 顔・手を同時要求しても 1 回の `perform()` で両方検出する |
-| 全体（ffmpeg デコード込み） | 実時間比 **約 0.45 倍**（26.3 秒 → 11.9 秒） | エンコード段が無いため person-matte（約 7.7 倍）より大幅に軽い |
+| 全体（同梱 decoder 込み） | 実時間比 **約 0.45 倍**（26.3 秒 → 11.9 秒） | エンコード段が無いため person-matte（約 7.7 倍）より大幅に軽い |
 
 person-matte と違い **VP9 alpha エンコードが無い**（トラックは JSON であって動画ではない）ため、
 実時間より速く終わる。それでも次のいずれにも当てはまらない素材では実行しない。
@@ -53,7 +55,7 @@ node bin/vision-tracks/vision-tracks.mjs --check
 ```
 
 `{"available":true}` 以外なら `reason` を報告し、トラックを作らずキー無しのまま進む。macOS、
-`swiftc`、`ffmpeg`／`ffprobe` のいずれかが欠けていれば作れない（person-matte と違い
+`swiftc`、同梱 decoder / prober のいずれかが欠けていれば作れない（person-matte と違い
 `libvpx-vp9` エンコーダは不要 — 動画を書き出さないため）。ネットワークからツールを導入しない。
 `--check` も指定された `--kinds` だけを検査し、macOS 14 未満では `body-pose-3d` のみ利用不可
 （`face` / `hand` には影響しない）。
@@ -76,7 +78,7 @@ node bin/vision-tracks/vision-tracks.mjs \
 
 - `--kinds face,hand`（既定 `face,hand`）。`face` / `hand` / `body-pose-3d` をカンマ区切りで
   自由に組み合わせられ、`--kinds body-pose-3d` のように 1 種類だけでも指定できる。
-  いずれの場合も ffmpeg デコード + Vision 検出は 1 回で済ませ、要求した種類のトラックファイルだけを書く
+  いずれの場合も生成器内部のデコード + Vision 検出は 1 回で済ませ、要求した種類のトラックファイルだけを書く
 - `--fps <n>`（既定 24）。トラックのサンプリング fps。元素材と一致しなくてよい
 - `--decode-width <n>`（既定 1280）。person-matte と同じ理由で、素材が 1280 幅未満なら
   拡大せずその幅を使う
@@ -169,8 +171,8 @@ Apache-2.0 の `@mediapipe/tasks-vision@0.10.17`（vendored JS/WASM）を既存 
 node bin/face-expression/face-expression.mjs --check
 ```
 
-Chrome for Testing（または Chrome/Chromium）、既存 workspace 依存の `puppeteer-core`、ffmpeg、
-ffprobe、vendored runtime の全 SHA-256 を確認する。モデルが未取得でも runtime が揃っていれば
+Chrome for Testing（または Chrome/Chromium）、既存 workspace 依存の `puppeteer-core`、同梱の
+decoder / prober、vendored runtime の全 SHA-256 を確認する。モデルが未取得でも runtime が揃っていれば
 利用可能と判定し、初回生成時だけ公式の versioned URL から取得する。
 
 - 保存先: `${AKARI_HOME:-~/.akari}/models/mediapipe/face-landmarker/float16-1/face_landmarker.task`
@@ -190,7 +192,7 @@ node bin/face-expression/face-expression.mjs \
   --metrics "$OUT_DIR/face-expression-metrics.json"
 ```
 
-- `--fps <n>` は既定 24。ffmpeg がこの等間隔へデコードし、sample の `t` は `index / fps`
+- `--fps <n>` は既定 24。生成器内部でこの等間隔へデコードし、sample の `t` は `index / fps`
 - `--decode-width <n>` は既定 1280。入力が小さければ拡大しない
 - 出力は `<analysis-dir>/vision/face-expression.json` 1 ファイルだけ。各 sample は `t` と
   `detections[]`、各 detection は `head.{yaw,pitch,roll}`（ラジアン）、MediaPipe 固定 52 キーの
