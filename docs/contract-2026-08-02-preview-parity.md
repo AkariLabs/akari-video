@@ -277,12 +277,15 @@ frame-engine のソース読み込み予算は、`Content-Length` が得られ�
 
 v2 プレビューの既定選択は次の順序とする。
 
-1. 原本の codec が `hw || any` で扱える場合は原本を使う
-2. 扱えず宣言済み proxy がある場合は proxy を使う
-3. proxy も無い場合は preview-server に自動プロキシを要求し、生成中は非致命の通知を表示する
+1. 宣言済み proxy があれば proxy を使う（`declared`）
+2. proxy が無ければ codec をプローブし、`hw || any` で扱える場合は原本を使う
+   （`hardware-ok` / `decoder-ok`）
+3. 扱えない場合は preview-server に自動プロキシを要求し、生成中は非致命の通知を表示する
+   （`auto-proxy`）
 
-Web UI の `?frameEngineSource=proxy`、または shell の
-`AKARI_FRAME_ENGINE_SOURCE=proxy` では従来どおり proxy を優先する。
+Web UI の `?frameEngineSource=original`、または shell の
+`AKARI_FRAME_ENGINE_SOURCE=original` では 1 を飛ばして器の実力判定へ進む。`=proxy` では従来どおり
+proxy を無条件に優先する。
 `AKARI_FRAME_ENGINE_FORCE_SW=1` はハードウェアデコード不可を模擬するテスト用スイッチである。
 HEVC は `prefer-software` が通らないため、codec プローブが `sw=false` を返した系列について
 ClipSessionPool はソフトウェア退避を学習しない。ソフトウェア退避の学習対象は H.264 のみとする。

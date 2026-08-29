@@ -13258,6 +13258,7 @@ ${indent}`);
     captionWordStateAt: () => captionWordStateAt,
     captionWordTextureRect: () => captionWordTextureRect,
     capturePresentedRgba: () => capturePresentedRgba,
+    chooseSource: () => chooseSource,
     compareRgba: () => compareRgba,
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
     copyNativeYuvFrame: () => copyNativeYuvFrame,
@@ -13278,10 +13279,12 @@ ${indent}`);
     isDirectUploadableFormat: () => isDirectUploadableFormat,
     isForceSoftwareDecode: () => isForceSoftwareDecode,
     isLayerActiveAt: () => isLayerActiveAt,
+    needsCodecProbe: () => needsCodecProbe,
     normalizeSpriteDraw: () => normalizeSpriteDraw,
     normalizeSpriteTextureRect: () => normalizeSpriteTextureRect,
     normalizeSpriteTile: () => normalizeSpriteTile,
     parseCube: () => parseCube,
+    parseSourceSelectionMode: () => parseSourceSelectionMode,
     presentFrame: () => presentFrame,
     presentationFrameTiming: () => presentationFrameTiming,
     probeSourceCodec: () => probeSourceCodec,
@@ -18603,6 +18606,37 @@ void main() {
       this.options.onDecoderDegraded?.();
     }
   };
+
+  // packages/frame-engine/src/decode/source-selection.ts
+  function needsCodecProbe(mode, hasProxy) {
+    return !(mode === "proxy" || mode !== "original" && hasProxy);
+  }
+  function chooseSource(input) {
+    const { mode, hasProxy, support } = input;
+    if (mode === "proxy") {
+      return { chosen: hasProxy ? "proxy" : "original", reason: "preference:proxy" };
+    }
+    if (mode !== "original" && hasProxy) {
+      return { chosen: "proxy", reason: "declared" };
+    }
+    if (support == null) {
+      return { chosen: "original", reason: "probe-unavailable" };
+    }
+    if (support.hw) {
+      return { chosen: "original", reason: "hardware-ok" };
+    }
+    if (support.any) {
+      return { chosen: "original", reason: "decoder-ok" };
+    }
+    if (hasProxy) {
+      return { chosen: "proxy", reason: "codec-unsupported" };
+    }
+    return { chosen: "auto-proxy", reason: "auto-proxy" };
+  }
+  function parseSourceSelectionMode(value) {
+    const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+    return normalized === "proxy" || normalized === "original" ? normalized : "auto";
+  }
 
   // packages/frame-engine/src/decode/still-image.ts
   var CachedStillImageSource = class {

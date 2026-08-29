@@ -1,6 +1,7 @@
 import {
   buildResolvedTimelinePlan,
   CachedStillImageSource,
+  chooseSource,
   ClipSessionPool,
   createPreviewAudioSupply,
   createPreviewScheduler,
@@ -9,10 +10,12 @@ import {
   FrameMetrics,
   LookaheadFrameSource,
   parseCube,
+  parseSourceSelectionMode,
   probeSourceCodec,
   projectSpeechDeclarations,
   ScrubController,
   setForceSoftwareDecode,
+  needsCodecProbe,
   WebGL2Compositor,
 } from '../../frame-engine/src/index.ts';
 import type {
@@ -257,7 +260,7 @@ async function requestAutoProxy(
 async function resolveSourceChoices(
   candidates: Map<string, SourceCandidate>,
   context: {
-    mode: 'auto' | 'proxy';
+    mode: 'auto' | 'proxy' | 'original';
     ui: ReturnType<typeof createUi>;
     cutSourceIds: ReadonlySet<string>;
   },
@@ -281,35 +284,38 @@ async function resolveSourceChoices(
       });
       continue;
     }
-    if (context.mode === 'proxy') {
+    const hasProxy = candidate.proxyUrl != null;
+    if (!needsCodecProbe(context.mode, hasProxy)) {
+      const decision = chooseSource({ mode: context.mode, hasProxy, support: null });
       choices.set(candidate.id, {
         id: candidate.id,
-        url: candidate.proxyUrl ?? candidate.originalUrl,
-        chosen: candidate.proxyUrl ? 'proxy' : 'original',
-        reason: 'preference:proxy',
+        url: decision.chosen === 'proxy' ? candidate.proxyUrl! : candidate.originalUrl,
+        chosen: decision.chosen,
+        reason: decision.reason,
+        support: null,
       });
       continue;
     }
     const probe = await probeSourceCodec(candidate.originalUrl, { query: { akariNoProxy: '1' } });
     const codec = probe.info?.codec;
-    if (probe.support == null) {
-      choices.set(candidate.id, {
-        id: candidate.id, url: candidate.originalUrl, chosen: 'original', reason: 'probe-unavailable',
-        ...(codec ? { codec } : {}), support: null,
-      });
-    } else if (probe.support.hw || probe.support.any) {
+    const decision = chooseSource({ mode: context.mode, hasProxy, support: probe.support });
+    if (decision.chosen === 'original') {
       choices.set(candidate.id, {
         id: candidate.id,
         url: candidate.originalUrl,
         chosen: 'original',
-        reason: probe.support.hw ? 'hardware-ok' : 'decoder-ok',
-        codec: probe.support.codec,
+        reason: decision.reason,
+        ...(codec ? { codec } : {}),
         support: probe.support,
       });
-    } else if (candidate.proxyUrl) {
+    } else if (decision.chosen === 'proxy') {
       choices.set(candidate.id, {
-        id: candidate.id, url: candidate.proxyUrl, chosen: 'proxy', reason: 'codec-unsupported',
-        codec: probe.support.codec, support: null,
+        id: candidate.id,
+        url: candidate.proxyUrl!,
+        chosen: 'proxy',
+        reason: decision.reason,
+        ...(codec ? { codec } : {}),
+        support: null,
       });
     } else {
       const proxyUrl = await requestAutoProxy(candidate, context.ui);
@@ -771,7 +777,7 @@ export async function createFrameEnginePreview(options: PreviewOptions): Promise
     const layers = resolvedEngineLayers(edit);
     const candidates = sourceCandidates(edit, timelineData, cuts, layers);
     const choices = await resolveSourceChoices(candidates, {
-      mode: params.get('frameEngineSource') === 'proxy' ? 'proxy' : 'auto',
+      mode: parseSourceSelectionMode(params.get('frameEngineSource')),
       ui,
       cutSourceIds: new Set(cuts.map(cut => String(cut.src))),
     });

@@ -12,6 +12,10 @@ test('shell frame-engine state and bootstrap include capability-based source sel
   for (const token of [
     'videoSourceOriginals',
     'frameEngineSourceMode',
+    'needsCodecProbe',
+    'chooseSource',
+    'parseSourceSelectionMode',
+    'declared',
     'probeSourceCodec',
     'setForceSoftwareDecode',
     'akariFrameEngineSources',

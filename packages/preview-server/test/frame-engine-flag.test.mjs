@@ -65,3 +65,22 @@ test('codec probing is limited to cut-referenced sources', async () => {
     'non-cut sources must exit before codec probing',
   );
 });
+
+test('declared proxies are selected by default without codec probing', async () => {
+  const source = await readFile(path.join(root, 'src/frame-engine-client.ts'), 'utf8');
+  assert.match(source, /needsCodecProbe\(/u);
+  assert.match(source, /chooseSource\(/u);
+  assert.match(source, /parseSourceSelectionMode\(params\.get\('frameEngineSource'\)\)/u);
+  assert.doesNotMatch(
+    source,
+    /params\.get\('frameEngineSource'\) === 'proxy' \? 'proxy' : 'auto'/u,
+  );
+  const resolver = source.slice(
+    source.indexOf('async function resolveSourceChoices'),
+    source.indexOf('function createUi'),
+  );
+  assert.ok(
+    resolver.indexOf('needsCodecProbe(') < resolver.indexOf('probeSourceCodec('),
+    'declared proxies must bypass codec probing',
+  );
+});

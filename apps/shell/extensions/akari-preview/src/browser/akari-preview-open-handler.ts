@@ -2999,9 +2999,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.envVariables.getValue('AKARI_FRAME_ENGINE_FORCE_SW')
                 .then(variable => variable?.value?.trim().toLowerCase())
         ]);
+        const frameEngineSourcePreference = this.preferences
+            .get<string>('akari.preview.frameEngineSource', 'auto').trim().toLowerCase();
         const frameEngineSourceMode = frameEngineSourceOverride === 'proxy'
-            ? 'proxy'
-            : this.preferences.get<string>('akari.preview.frameEngineSource', 'auto');
+            || frameEngineSourceOverride === 'original'
+            ? frameEngineSourceOverride
+            : frameEngineSourcePreference === 'proxy' || frameEngineSourcePreference === 'original'
+                ? frameEngineSourcePreference
+                : 'auto';
         const frameEngineForceSoftware = frameEngineForceSoftwareOverride === '1'
             || frameEngineForceSoftwareOverride === 'true';
         widget.setHTML(this.prepareHtml(
@@ -6223,6 +6228,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 const sourceSupports = new Map();
                 const sourceSelections = [];
                 const cutSourceIds = new Set(normalizedCuts.map(cut => String(cut.src || 'default')));
+                const mode = engine.parseSourceSelectionMode(initial.frameEngineSourceMode);
                 if (initial.frameEngineForceSoftware === true) {
                     engine.setForceSoftwareDecode(true);
                 }
@@ -6233,32 +6239,45 @@ body { display: grid; place-items: center; padding: 32px; }
                         sourceSelections.push({ id, chosen: 'original', reason: 'not-a-cut-source' });
                         continue;
                     }
-                    if (initial.frameEngineSourceMode === 'proxy' && sourceOriginals.has(id)) {
-                        sourceSelections.push({ id, chosen: 'proxy', reason: 'preference:proxy' });
+                    const hasProxy = sourceOriginals.has(id);
+                    if (!engine.needsCodecProbe(mode, hasProxy)) {
+                        const decision = engine.chooseSource({ mode, hasProxy, support: null });
+                        if (decision.chosen === 'original') sourceUrls.set(id, originalUrl);
+                        sourceSelections.push({ id, chosen: decision.chosen, reason: decision.reason });
                         continue;
                     }
                     const probe = await engine.probeSourceCodec(originalUrl);
                     const support = probe && probe.support;
                     const codec = probe && probe.info && probe.info.codec;
-                    if (support == null || support.hw || support.any) {
+                    const decision = engine.chooseSource({ mode, hasProxy, support });
+                    if (decision.chosen === 'original') {
                         sourceUrls.set(id, originalUrl);
                         sourceSupports.set(id, support || null);
                         sourceSelections.push({
                             id,
                             chosen: 'original',
-                            reason: support == null ? 'probe-unavailable'
-                                : support.hw ? 'hardware-ok' : 'decoder-ok',
+                            reason: decision.reason,
                             ...(codec ? { codec } : {})
                         });
                         continue;
                     }
-                    if (sourceOriginals.has(id)) {
-                        sourceSelections.push({ id, chosen: 'proxy', reason: 'codec-unsupported', codec });
+                    if (decision.chosen === 'proxy') {
+                        sourceSelections.push({
+                            id,
+                            chosen: 'proxy',
+                            reason: decision.reason,
+                            ...(codec ? { codec } : {})
+                        });
                         continue;
                     }
                     showNotice('プロキシ生成中…（' + id + '）');
                     console.warn('[frame-engine] codec unsupported; requesting proxy', id, codec);
-                    sourceSelections.push({ id, chosen: 'auto-proxy', reason: 'auto-proxy', codec });
+                    sourceSelections.push({
+                        id,
+                        chosen: 'auto-proxy',
+                        reason: decision.reason,
+                        ...(codec ? { codec } : {})
+                    });
                     const videoUri = initial.videoSourceUris && initial.videoSourceUris[id];
                     if (window.akari && window.akari.engine && videoUri) {
                         void window.akari.engine.resolveHevcFallback(0, videoUri).catch(reason => {
