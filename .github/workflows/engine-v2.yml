@@ -353,15 +353,66 @@ jobs:
         run: |
           npm --prefix packages/osr-export run ci:fixture -- "$RUNNER_TEMP/gpu-fixture" --verify
           node --input-type=module - "$RUNNER_TEMP/gpu-fixture" <<'NODE'
-          import { readFile, writeFile } from "node:fs/promises";
+          import { mkdir, readFile, writeFile } from "node:fs/promises";
           import { join } from "node:path";
           const root = process.argv[2];
           const path = join(root, "edit.json");
           const edit = JSON.parse(await readFile(path, "utf8"));
           edit.tracks = edit.tracks.filter((track) => track.lane === "audio" || track.id === "v-main");
+          edit.tracks.push({
+            id: "v-dom-dynamic",
+            lane: "visual",
+            items: [{ id: "dom-dynamic", at: 0, duration: 360, source: { kind: "html", path: "overlays/dom-dynamic.html" } }],
+          });
+          await mkdir(join(root, "overlays"), { recursive: true });
+          await writeFile(join(root, "overlays", "dom-dynamic.html"), `
+            <style>
+              @property --bench-frame { syntax: "<integer>"; inherits: false; initial-value: 0; }
+              .dom-fixture { position:absolute;left:48px;top:48px;width:360px;height:120px;background:#155e75;color:white;animation:move 12s linear both;counter-reset:x var(--bench-frame); }
+              .dom-fixture::after { content:counter(x);font:700 48px sans-serif; }
+              @keyframes move { from { --bench-frame:0; transform:translateX(0); } to { --bench-frame:360; transform:translateX(240px); } }
+            </style><div class="dom-fixture">DOM </div>\n`);
           await writeFile(path, JSON.stringify(edit, null, 2) + "\n");
           await writeFile(join(root, "captions.json"), JSON.stringify({ captions: [] }, null, 2) + "\n");
           NODE
+      - name: Probe SwiftShader drawElementImage support
+        shell: bash
+        run: |
+          probe_dir="$RUNNER_TEMP/gpu-dom-probe"
+          mkdir -p "$probe_dir"
+          cat > "$probe_dir/main.cjs" <<'NODE'
+          const { app, BrowserWindow } = require('electron');
+          app.commandLine.appendSwitch('enable-features', 'CanvasDrawElement');
+          app.commandLine.appendSwitch('enable-unsafe-swiftshader');
+          app.commandLine.appendSwitch('use-angle', 'swiftshader');
+          app.whenReady().then(async () => {
+            const win = new BrowserWindow({ show: false });
+            await win.loadURL('data:text/html,<canvas id=c></canvas>');
+            const probe = await win.webContents.executeJavaScript(`(() => {
+              const drawElementImage = typeof document.querySelector('#c').getContext('2d').drawElementImage === 'function';
+              return { drawElementImage, renderer: 'swiftshader' };
+            })()`);
+            process.stdout.write(JSON.stringify(probe));
+            app.exit(0);
+          });
+          NODE
+          result="$(LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a node_modules/electron/dist/electron "$probe_dir/main.cjs" --no-sandbox --enable-unsafe-swiftshader --use-angle=swiftshader)"
+          printf '%s\n' "$result" > "$RUNNER_TEMP/gpu-dom-probe.json"
+          if node -e "const p=require('$RUNNER_TEMP/gpu-dom-probe.json');process.exit(p.drawElementImage===true?0:1)"; then
+            echo "GPU_DOM_LAYER=yes" >> "$GITHUB_ENV"
+            echo "gpu-export-soft DOM layer: supported (SwiftShader)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "GPU_DOM_LAYER=no" >> "$GITHUB_ENV"
+            echo "gpu-export-soft DOM layer: unsupported (SwiftShader)" >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::drawElementImage unsupported on SwiftShader; DOM fixture will be removed."
+            node --input-type=module - "$RUNNER_TEMP/gpu-fixture/edit.json" <<'NODE'
+          import { readFile, writeFile } from "node:fs/promises";
+          const path = process.argv[2];
+          const edit = JSON.parse(await readFile(path, "utf8"));
+          edit.tracks = edit.tracks.filter((track) => track.id !== "v-dom-dynamic");
+          await writeFile(path, JSON.stringify(edit, null, 2) + "\n");
+          NODE
+          fi
       - name: Probe WebCodecs H.264 software encode support
         shell: bash
         run: |
@@ -402,18 +453,28 @@ jobs:
       - name: Require 360 matching pre-encode frame hashes
         shell: bash
         run: |
-          node --input-type=module - "$RUNNER_TEMP/gpu-run-a/run.json" "$RUNNER_TEMP/gpu-run-b/run.json" <<'NODE'
+          node --input-type=module - "$RUNNER_TEMP/gpu-run-a/run.json" "$RUNNER_TEMP/gpu-run-b/run.json" "$RUNNER_TEMP/gpu-dom-probe.json" <<'NODE'
           import assert from "node:assert/strict";
           import { readFile } from "node:fs/promises";
-          const [leftPath, rightPath] = process.argv.slice(2);
+          const [leftPath, rightPath, probePath] = process.argv.slice(2);
           const left = JSON.parse(await readFile(leftPath, "utf8"));
           const right = JSON.parse(await readFile(rightPath, "utf8"));
+          const probe = JSON.parse(await readFile(probePath, "utf8"));
           assert.equal(left.framesCompleted, 360);
           assert.equal(right.framesCompleted, 360);
           assert.equal(left.frameHashes.length, 360);
           assert.deepEqual(left.frameHashes, right.frameHashes);
           assert.ok(["completed", "unsupported"].includes(left.status));
           assert.equal(left.status, right.status);
+          if (process.env.GPU_DOM_LAYER === "yes") {
+            assert.deepEqual(probe, { drawElementImage: true, renderer: "swiftshader" });
+            assert.ok(left.domLayer.runs >= 1);
+            assert.equal(left.domLayer.sentinel.matched, 360);
+            assert.equal(left.domLayer.sentinel.mismatchCount, 0);
+          } else {
+            assert.deepEqual(probe, { drawElementImage: false, renderer: "swiftshader" });
+            assert.equal(left.domLayer.runs, 0);
+          }
           NODE
       - name: Record unsupported encoder or verify encoded output
         shell: bash

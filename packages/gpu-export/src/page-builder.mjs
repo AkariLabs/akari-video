@@ -47,8 +47,10 @@ export function buildGpuPage({
   const classifications = new Map(resultEligibility.entries
     .filter((entry) => entry.kind === "overlay")
     .map((entry) => [entry.id, entry.classification]));
-  const statics = enabledOverlays.filter((overlay) => classifications.get(String(overlay.id)) === "same");
-  const three = enabledOverlays.filter((overlay) => classifications.get(String(overlay.id)) === "three");
+  const indexedOverlays = enabledOverlays.map((overlay, index) => ({ overlay, index }));
+  const statics = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "same");
+  const three = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "three");
+  const dom = buildDomRuns(indexedOverlays, classifications, duration);
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
   const portrait = height > width;
   const spriteManifest = {
@@ -65,16 +67,17 @@ export function buildGpuPage({
         motion: textStyle?.animation ?? null,
       };
     }),
-    statics: statics.map((overlay) => ({
+    statics: statics.map(({ overlay, index }) => ({
       id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration),
-      html: overlay.html, vars: overlay.vars ?? {},
+      html: overlay.html, vars: resolveOverlayVars(overlay), index,
     })),
-    three: three.map((overlay, index) => ({
+    three: three.map(({ overlay, index }) => ({
       id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration), index,
     })),
+    dom,
   };
   const overlaySheetHtml = three.length > 0
-    ? renderOverlaySheet({ overlays: three, edit: projectedEdit, projectRoot, duration })
+    ? renderOverlaySheet({ overlays: three.map(({ overlay }) => overlay), edit: projectedEdit, projectRoot, duration })
     : null;
   const lookDeclaration = lutCubeText === null ? null : {
     cubeText: lutCubeText,
@@ -104,12 +107,19 @@ export function buildGpuPage({
     #akari-stage { position: relative; width: ${width}px; height: ${height}px; overflow: hidden; background: #000; }
     #akari-engine, #akari-final, #akari-overlays { position: absolute; inset: 0; width: ${width}px; height: ${height}px; border: 0; }
     #akari-engine { z-index: 0; } #akari-final { z-index: 1; } #akari-overlays { z-index: -1; visibility: hidden; }
+    #akari-dom-stage { position: absolute; inset: 0; width: ${width}px; height: ${height}px; overflow: hidden; z-index: -2; background: transparent; }
+    .akari-dom-host { position: absolute; inset: 0; width: ${width}px; height: ${height}px; }
+    .akari-dom-root { position: absolute; inset: 0; width: ${width}px; height: ${height}px; background: transparent; }
+    .akari-dom-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg)); transform-origin: center; }
+    .akari-dom-container > .scene-content { position: absolute; inset: 0; }
+    .akari-dom-sentinel { position: absolute; left: 0; top: 0; width: 8px; height: 8px; z-index: 2147483647; pointer-events: none; }
   </style>
 </head>
 <body>
   <div id="akari-stage">
     <canvas id="akari-engine" width="${width}" height="${height}"></canvas>
     <canvas id="akari-final" width="${width}" height="${height}"></canvas>
+    <div id="akari-dom-stage"></div>
     ${iframe}
   </div>
   <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};</script>
@@ -129,15 +139,57 @@ export function buildGpuPage({
       dimensions: { width, height },
       fps,
       duration,
-      layers: ["engine-canvas", "static-html-sprites", "three-canvas", "caption-sprites"],
+      layers: ["engine-canvas", "static-html-sprites", "three-canvas", "dom-layer", "caption-sprites"],
       captionSpriteCount: spriteManifest.captions.length,
       staticSpriteCount: spriteManifest.statics.length,
       threeSpriteCount: spriteManifest.three.length,
+      domRunCount: spriteManifest.dom.length,
+      domOverlayCount: spriteManifest.dom.reduce((sum, run) => sum + run.entries.length, 0),
       lutApplication: lookDeclaration ? "engine-canvas" : "none",
       stampRow: false,
     },
     warnings: [],
   };
+}
+
+function buildDomRuns(indexedOverlays, classifications, duration) {
+  const runs = [];
+  let current = null;
+  for (const { overlay, index } of indexedOverlays) {
+    if (classifications.get(String(overlay.id)) !== "dom") {
+      current = null;
+      continue;
+    }
+    if (current === null) {
+      current = { runId: `dom-${runs.length}`, index, entries: [] };
+      runs.push(current);
+    }
+    current.entries.push({
+      id: String(overlay.id),
+      start: Number(overlay.start ?? 0),
+      duration: Number(overlay.duration ?? duration),
+      html: String(overlay.html ?? "").replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf"),
+      vars: resolveOverlayVars(overlay),
+      transform: overlay.transform ?? {},
+      role: overlay.role ?? null,
+      params: overlay.params ?? null,
+    });
+  }
+  return runs;
+}
+
+function resolveOverlayVars(overlay) {
+  const transform = overlay.transform ?? {};
+  const background = overlay.role === "background";
+  const vars = {
+    "--x": background ? "0px" : `${transform.x ?? 0}px`,
+    "--y": background ? "0px" : `${transform.y ?? 0}px`,
+    "--scale": background ? "1" : String(transform.scale ?? 1),
+    "--rotate": background ? "0deg" : `${transform.rotate ?? 0}deg`,
+    ...(overlay.vars ?? {}),
+  };
+  if (background) Object.assign(vars, { "--x": "0px", "--y": "0px", "--scale": "1", "--rotate": "0deg" });
+  return vars;
 }
 
 export async function loadAndBuildGpuPage({ projectRoot, fps, width, height, duration }) {

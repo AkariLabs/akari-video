@@ -195,6 +195,7 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 | GPU 直結・engine 区間 | OSR decode 比較の per-frame MAD ≤ 1.0 | 超過は不合格 |
 | GPU 直結・字幕 | cue 代表 5 時刻の下半分 MAD ≤ 1.0 | 超過は不合格 |
 | GPU 直結・3D | 3D active 区間 MAD ≤ 1.0 | 超過は不合格 |
+| GPU 直結・DOM 層 | overlay 外接矩形内 MAD ≤ 1.0、t=0 を含む代表 5 時刻 | いずれかの超過または sentinel 不一致は不合格 |
 
 OSR の比較は H.264 を再 decode した画像ではなく捕捉時の raw BGRA を使う。ソフト描画の検収と GPU の
 診断値を混同しない。
