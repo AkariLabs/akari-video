@@ -297,9 +297,18 @@ class FrameEngineRuntime {
       layers: engineLayers as FrameEngineLayer[],
     });
     this.totalDuration = this.timeline.totalDuration;
-    const speech = projectSpeechDeclarations(cuts, { fps }).flatMap(declaration => {
+    const projectedSpeech = Array.isArray(edit?.audio?.speech)
+      ? edit.audio.speech : projectSpeechDeclarations(cuts, { fps });
+    const speech = projectedSpeech.flatMap((declaration: any) => {
       const url = urls.get(declaration.src);
-      return url ? [{ ...declaration, url }] : [];
+      if (!url) return [];
+      return [{
+        ...declaration,
+        url,
+        ...(declaration.atempo?.path ? {
+          atempo: { ...declaration.atempo, path: mediaUrl(declaration.atempo.path) },
+        } : {}),
+      }];
     });
     this.audio = createPreviewAudioSupply({
       timelineDurationSec: this.totalDuration,

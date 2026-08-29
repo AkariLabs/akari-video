@@ -6,6 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { buildWebAudioSchedule, projectSpeechDeclarations } from '../../edit-store/lib/index.js';
+import { ensureSpeechAtempo } from '../../media-bin/src/speech-atempo.mjs';
 
 const FPS = 30;
 const SAMPLE_RATE = 48_000;
@@ -97,6 +98,34 @@ function correlation(left, right) {
   return numerator / Math.sqrt(leftSquares * rightSquares);
 }
 
+function peakFrequency(filePath, startSec = 2.4, duration = 0.8) {
+  const result = run(process.env.FFMPEG_PATH || 'ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-ss', String(startSec), '-t', String(duration),
+    '-i', filePath, '-af', 'highpass=f=600,lowpass=f=1500',
+    '-f', 'f32le', '-ac', '1', '-ar', String(SAMPLE_RATE), 'pipe:1',
+  ], { binary: true });
+  assert.equal(result.status, 0, String(result.stderr));
+  const samples = new Float32Array(
+    result.stdout.buffer,
+    result.stdout.byteOffset,
+    Math.floor(result.stdout.byteLength / 4),
+  );
+  let peak = { hz: 0, power: -Infinity };
+  for (let hz = 800; hz <= 1300; hz += 2) {
+    const step = 2 * Math.PI * hz / SAMPLE_RATE;
+    let real = 0;
+    let imaginary = 0;
+    for (let index = 0; index < samples.length; index += 1) {
+      const window = 0.5 - 0.5 * Math.cos(2 * Math.PI * index / Math.max(1, samples.length - 1));
+      real += samples[index] * window * Math.cos(step * index);
+      imaginary -= samples[index] * window * Math.sin(step * index);
+    }
+    const power = real * real + imaginary * imaginary;
+    if (power > peak.power) peak = { hz, power };
+  }
+  return peak.hz;
+}
+
 async function routeMediaFixtures(page, fixtures) {
   const urls = Object.fromEntries(Object.keys(fixtures).map(key => [
     key,
@@ -132,7 +161,7 @@ function editDocument() {
           { id: 'cut-a1', at: 0, duration: 60,
             source: { kind: 'media', src: 'source-a', in: 0.5, out: 2.5 } },
           { id: 'cut-b', at: 60, duration: 60,
-            source: { kind: 'media', src: 'source-b', in: 0.5, out: 2.8, speed: 1.15 } },
+            source: { kind: 'media', src: 'source-b', in: 0.5, out: 2.9, speed: 1.2 } },
           { id: 'cut-a2', at: 120, duration: 60,
             source: { kind: 'media', src: 'source-a', in: 2.5, out: 4.5 } },
         ],
@@ -204,6 +233,7 @@ test('speech 2 sources / 3 cuts の OfflineAudioContext 包絡は render-cut と
   const bgm = path.join(root, 'bgm.wav');
   const sfx = path.join(root, 'sfx.wav');
   const preview = path.join(root, 'preview.wav');
+  const playbackRatePreview = path.join(root, 'preview-playback-rate.wav');
   const output = path.join(root, 'exports', 'master.mp4');
   let browser;
   try {
@@ -215,7 +245,7 @@ test('speech 2 sources / 3 cuts の OfflineAudioContext 包絡は render-cut と
     ], 'source A');
     generate([
       '-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=30:duration=5',
-      '-f', 'lavfi', '-i', "aevalsrc=0.3*sin(2*PI*1800*t)*if(lt(mod(t\\,0.4)\\,0.18)\\,1\\,0.1):s=48000:d=5",
+      '-f', 'lavfi', '-i', "aevalsrc=0.3*sin(2*PI*1000*t)*if(lt(mod(t\\,0.4)\\,0.18)\\,1\\,0.1):s=48000:d=5",
       '-shortest', '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p',
       '-c:a', 'aac', sourceB,
     ], 'source B');
@@ -230,7 +260,7 @@ test('speech 2 sources / 3 cuts の OfflineAudioContext 包絡は render-cut と
 
     const cuts = [
       { id: 'cut-a1', src: 'source-a', in: 0.5, out: 2.5 },
-      { id: 'cut-b', src: 'source-b', in: 0.5, out: 2.8, speed: 1.15 },
+      { id: 'cut-b', src: 'source-b', in: 0.5, out: 2.9, speed: 1.2 },
       { id: 'cut-a2', src: 'source-a', in: 2.5, out: 4.5 },
     ];
     const projected = projectSpeechDeclarations(cuts, { fps: FPS });
@@ -241,9 +271,24 @@ test('speech 2 sources / 3 cuts の OfflineAudioContext 包絡は render-cut と
       'source-a': durationSec(sourceA),
       'source-b': durationSec(sourceB),
     };
-    const speech = projected.map(item => ({
+    const sourceSpeech = projected.map(item => ({
       ...item, materialDurationSec: sourceDurations[item.src],
     }));
+    const fast = projected.find(item => item.id === 'cut-b-speech');
+    const atempoResult = await ensureSpeechAtempo({
+      sourcePath: sourceB,
+      inSec: fast.inSec,
+      outSec: fast.outSec,
+      speed: fast.speed,
+      ffmpeg: process.env.FFMPEG_PATH || 'ffmpeg',
+      cacheDir: path.join(root, '.akari', 'cache'),
+    });
+    assert.equal(atempoResult.ok, true, atempoResult.reason);
+    const speech = sourceSpeech.map(item => item.id === fast.id ? {
+      ...item,
+      atempo: { path: 'cut-b-atempo', durationSec: atempoResult.durationSec },
+      materialDurationSec: atempoResult.durationSec,
+    } : item);
     const schedule = buildWebAudioSchedule({
       timelineDurationSec: DURATION_SEC,
       startAtSec: 0,
@@ -259,11 +304,27 @@ test('speech 2 sources / 3 cuts の OfflineAudioContext 包絡は render-cut と
     const files = await routeMediaFixtures(page, {
       'source-a': sourceA,
       'source-b': sourceB,
+      'cut-b-atempo': atempoResult.path,
       bed: bgm,
       hit: sfx,
     });
-    const speechById = Object.fromEntries(projected.map(item => [item.id, item.src]));
+    const speechById = Object.fromEntries(projected.map(item => [
+      item.id, item.id === fast.id ? 'cut-b-atempo' : item.src,
+    ]));
     writeMonoWav(preview, await offlineRender(page, schedule, files, speechById));
+    const playbackRateSchedule = buildWebAudioSchedule({
+      timelineDurationSec: DURATION_SEC,
+      startAtSec: 0,
+      audio: {
+        bgm: { id: 'bed', durationSec: durationSec(bgm), gain_db: -30 },
+        sfx: [{ id: 'hit', durationSec: durationSec(sfx), t: 3, gain_db: -30 }],
+        speech: sourceSpeech,
+      },
+    });
+    const playbackFiles = { ...files, 'cut-b-atempo': files['source-b'] };
+    const playbackSpeechById = Object.fromEntries(projected.map(item => [item.id, item.src]));
+    writeMonoWav(playbackRatePreview,
+      await offlineRender(page, playbackRateSchedule, playbackFiles, playbackSpeechById));
 
     const renderCut = path.resolve(import.meta.dirname, '../../render-cut/bin/render-cut.mjs');
     const rendered = run(process.execPath, [
@@ -273,8 +334,25 @@ test('speech 2 sources / 3 cuts の OfflineAudioContext 包絡は render-cut と
     const previewEnvelope = speechEnvelope(preview);
     const exportEnvelope = speechEnvelope(output);
     const rmsCorrelation = correlation(previewEnvelope, exportEnvelope);
-    process.stdout.write(`${JSON.stringify({ rmsCorrelation, bins: previewEnvelope.length })}\n`);
+    const previewPeakHz = peakFrequency(preview);
+    const exportPeakHz = peakFrequency(output);
+    const playbackRatePeakHz = peakFrequency(playbackRatePreview);
+    const peakDifferenceRatio = Math.abs(previewPeakHz - exportPeakHz) / exportPeakHz;
+    const negativeShiftRatio = playbackRatePeakHz / exportPeakHz;
+    process.stdout.write(`${JSON.stringify({
+      rmsCorrelation,
+      bins: previewEnvelope.length,
+      previewPeakHz,
+      exportPeakHz,
+      playbackRatePeakHz,
+      peakDifferenceRatio,
+      negativeShiftRatio,
+    })}\n`);
     assert.ok(rmsCorrelation >= 0.95, `speech RMS correlation ${rmsCorrelation.toFixed(4)} < 0.95`);
+    assert.ok(peakDifferenceRatio <= 0.02,
+      `atempo preview peak ${previewPeakHz} Hz differs from export ${exportPeakHz} Hz by more than 2%`);
+    assert.ok(Math.abs(negativeShiftRatio - 1.2) <= 0.02,
+      `playbackRate negative control ratio ${negativeShiftRatio.toFixed(4)} is not +20%`);
 
     const silent = path.join(root, 'silent.mp4');
     generate(['-f', 'lavfi', '-i', 'color=size=64x64:rate=30:duration=1', '-an',

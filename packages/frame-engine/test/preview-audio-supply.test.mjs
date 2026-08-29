@@ -90,7 +90,8 @@ function scheduleBuilder({ timelineDurationSec, startAtSec, audio = {} }) {
   };
   if (audio.bgm) append('bgm', audio.bgm.id ?? 'bgm', 0, timelineDurationSec, 0);
   for (const item of audio.speech ?? []) {
-    append('speech', item.id, item.atSec, item.durationSec, item.inSec, item.speed);
+    append('speech', item.id, item.atSec, item.durationSec,
+      item.atempo ? 0 : item.inSec, item.atempo ? 1 : item.speed);
   }
   return { startAtSec, items, warnings: [] };
 }
@@ -119,6 +120,56 @@ test('同一ソースの複数 cut は一度だけ decode し、cut ごとの速
   assert.deepEqual(context.sources.map(source => source.playbackRate.value), [1, 1.15]);
   assert.deepEqual(context.sources.map(source => source.starts[0].slice(1)), [[0, 1], [1, 1.15]]);
   assert.equal(supply.debug().scheduled.speech, 2);
+  supply.dispose();
+});
+
+test('atempo WAV は元ソースと別に decode し playbackRate 1・offset 0 で鳴らす', async () => {
+  const context = new FakeContext(new Map([[1, buffer(4)], [2, buffer(1)]]));
+  const fetches = [];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 1,
+    scheduleBuilder,
+    contextFactory: () => context,
+    fetchImpl: async url => {
+      fetches.push(url);
+      return response(url === '/fast.wav' ? 2 : 1);
+    },
+    speech: [speech('fast', 'source-a', '/source.mp4', {
+      speed: 1.2,
+      atempo: { path: '/fast.wav', durationSec: 1, generatedMs: 12.5 },
+    })],
+  });
+
+  supply.playFrom(0);
+  await settle();
+  assert.deepEqual(fetches, ['/fast.wav']);
+  assert.equal(context.sources[0].playbackRate.value, 1);
+  assert.deepEqual(context.sources[0].starts[0].slice(1), [0, 1]);
+  assert.deepEqual(supply.debug().speech.atempo, { items: 1, generatedMs: 12.5 });
+  supply.dispose();
+});
+
+test('atempo decode 失敗は警告一行で元ソースの playbackRate 経路へ退避する', async () => {
+  const context = new FakeContext(new Map([[1, buffer(4)], [2, new Error('bad wav')]]));
+  const warnings = [];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 1,
+    scheduleBuilder,
+    contextFactory: () => context,
+    fetchImpl: async url => response(url === '/fast.wav' ? 2 : 1),
+    onWarning: message => warnings.push(message),
+    speech: [speech('fast', 'source-a', '/source.mp4', {
+      speed: 1.2,
+      outSec: 1.2,
+      atempo: { path: '/fast.wav', durationSec: 1 },
+    })],
+  });
+
+  supply.playFrom(0);
+  await settle();
+  assert.equal(warnings.filter(message => /speech atempo fast unavailable/u.test(message)).length, 1);
+  assert.equal(context.sources[0].playbackRate.value, 1.2);
+  assert.deepEqual(supply.debug().speech.atempo, { items: 0, generatedMs: 0 });
   supply.dispose();
 });
 
@@ -217,5 +268,6 @@ test('debug は描画時に二時計を同時採取し speech decode の形を�
   assert.deepEqual(Object.keys(debug.speechDecode.perSource[0]), [
     'src', 'ms', 'durationSec', 'bytes', 'ok',
   ]);
+  assert.deepEqual(debug.speech.atempo, { items: 0, generatedMs: 0 });
   supply.dispose();
 });

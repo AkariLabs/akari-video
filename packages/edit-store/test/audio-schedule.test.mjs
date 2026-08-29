@@ -182,6 +182,27 @@ test('speech は speed を素材時間軸へ適用し、シーク窓と素材末
   }
 });
 
+test('speech atempo は専用 WAV を 1 倍・区間先頭基準で予定する', () => {
+  const result = buildWebAudioSchedule({
+    timelineDurationSec: 10,
+    startAtSec: 2,
+    audio: {
+      speech: [{
+        id: 'fast', src: 'source-a', atSec: 1, durationSec: 4,
+        inSec: 10, outSec: 16, speed: 1.5, materialDurationSec: 4,
+        atempo: { path: '/cache/fast.wav', durationSec: 4 },
+      }],
+    },
+  });
+  assert.equal(result.warnings.length, 0);
+  const speech = result.items[0];
+  closeTo(speech.timelineStartSec, 2);
+  closeTo(speech.sourceOffsetSec, 1);
+  closeTo(speech.durationSec, 3);
+  closeTo(speech.playbackRate, 1);
+  closeTo(speech.sourceDurationSec, 3);
+});
+
 test('cuts 投影は speed / gain / 暗黙配置を保ち、freeze hold を無音の二分割にする', () => {
   const speech = projectSpeechDeclarations([
     { id: 'fast', src: 'source-a', in: 1, out: 5, speed: 2, gain_db: -3 },

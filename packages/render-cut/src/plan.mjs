@@ -31,6 +31,7 @@ import {
   resolveCutTrackRanges,
 } from "./track-compose.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { buildAtempoChain } from "../../media-bin/src/speech-atempo.mjs";
 import { enableWindowExpr } from "./enable-window.mjs";
 import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
 import {
@@ -1820,25 +1821,6 @@ const XFADE_TRANSITION_NAMES = {
   blur: "hblur",
   pixelize: "pixelize",
 };
-
-// atempo only accepts factors in [0.5, 2.0]; speeds outside that range are decomposed into a
-// chain of filters that multiply out to the requested speed (docs/contract-2026-07-22-render-basics.md
-// #1's ffmpeg column: "atempo（>2x/<0.5x の段組み）").
-function buildAtempoChain(speed) {
-  if (speed === 1) return [];
-  const factors = [];
-  let remaining = speed;
-  while (remaining > 2 + 1e-9) {
-    factors.push(2);
-    remaining /= 2;
-  }
-  while (remaining < 0.5 - 1e-9) {
-    factors.push(0.5);
-    remaining /= 0.5;
-  }
-  factors.push(remaining);
-  return factors;
-}
 
 export function selectDefaultOutput(projectRoot, edit, exists) {
   const configured = typeof edit.name === "string" && edit.name.trim() !== "" ? edit.name : null;

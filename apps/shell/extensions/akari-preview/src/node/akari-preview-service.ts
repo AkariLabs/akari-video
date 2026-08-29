@@ -67,6 +67,41 @@ interface TranscodedAudioStreamTarget extends StreamTarget {
     temporaryDirectory: string;
 }
 
+interface PrepareSpeechAtempoRequest {
+    sourceUri: string;
+    projectRootUri: string;
+    inSec: number;
+    outSec: number;
+    speed: number;
+    workspaceRoots?: string[];
+}
+
+interface PrepareSpeechAtempoResult {
+    ok: boolean;
+    skipped: boolean;
+    durationSec: number;
+    generatedMs: number;
+    reason?: string;
+    stream?: VideoStreamReference;
+}
+
+type SpeechAtempoModule = {
+    ensureSpeechAtempo(options: {
+        sourcePath: string;
+        inSec: number;
+        outSec: number;
+        speed: number;
+        ffmpeg?: string;
+        cacheDir: string;
+    }): Promise<{
+        ok: boolean;
+        skipped: boolean;
+        path: string | null;
+        durationSec: number;
+        reason: string | null;
+    }>;
+};
+
 const VIDEO_MIME_TYPES = new Map<string, string>([
     ['.mp4', 'video/mp4'],
     ['.mov', 'video/mp4'],
@@ -129,6 +164,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected readonly transcodedAudioStreams = new Map<string, TranscodedAudioStreamTarget>();
     protected readonly temporaryAudioFiles = new Map<string, string>();
     protected readonly reviewSessionWriter = new ReviewSessionWriter(() => this.resolveAllowedWorkspaceRoots());
+    protected speechAtempoModule: Promise<SpeechAtempoModule> | undefined;
 
     constructor() {
         process.once('exit', () => {
@@ -325,6 +361,88 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             id,
             url: `http://127.0.0.1:${port}/asset/${id}`
         };
+    }
+
+    async prepareSpeechAtempo(request: PrepareSpeechAtempoRequest): Promise<PrepareSpeechAtempoResult> {
+        const startedAt = Date.now();
+        try {
+            if (!request || typeof request.sourceUri !== 'string'
+                || typeof request.projectRootUri !== 'string'
+                || !Number.isFinite(request.inSec) || request.inSec < 0
+                || !Number.isFinite(request.outSec) || request.outSec <= request.inSec
+                || !Number.isFinite(request.speed) || request.speed <= 0) {
+                throw new Error('Invalid speech atempo request');
+            }
+            const roots = await this.resolveWorkspaceRoots(request.workspaceRoots);
+            const projectRoot = await realpath(this.filePath(request.projectRootUri));
+            const sourcePath = await realpath(this.filePath(request.sourceUri));
+            if (!roots.some(root => this.contains(root, projectRoot))
+                || !roots.some(root => this.contains(root, sourcePath))) {
+                throw new Error('Speech atempo paths must stay inside an open workspace');
+            }
+            const module = await this.loadSpeechAtempoModule();
+            const result = await module.ensureSpeechAtempo({
+                sourcePath,
+                inSec: request.inSec,
+                outSec: request.outSec,
+                speed: request.speed,
+                ffmpeg: await resolveFfmpegPath(),
+                cacheDir: join(projectRoot, '.akari', 'cache')
+            });
+            const generatedMs = Date.now() - startedAt;
+            if (!result.ok || !result.path) {
+                return {
+                    ok: false,
+                    skipped: false,
+                    durationSec: 0,
+                    generatedMs,
+                    reason: result.reason ?? 'speech atempo sidecar generation failed'
+                };
+            }
+            const stream = await this.createAssetStream({
+                assetUri: pathToFileURL(result.path).toString(),
+                workspaceRoots: request.workspaceRoots
+            });
+            return {
+                ok: true,
+                skipped: result.skipped,
+                durationSec: result.durationSec,
+                generatedMs,
+                stream
+            };
+        } catch (error) {
+            return {
+                ok: false,
+                skipped: false,
+                durationSec: 0,
+                generatedMs: Date.now() - startedAt,
+                reason: error instanceof Error ? error.message : String(error)
+            };
+        }
+    }
+
+    protected loadSpeechAtempoModule(): Promise<SpeechAtempoModule> {
+        if (this.speechAtempoModule) return this.speechAtempoModule;
+        this.speechAtempoModule = (async () => {
+            const candidates: string[] = [];
+            if (typeof process.resourcesPath === 'string') {
+                candidates.push(resolve(process.resourcesPath,
+                    'packages', 'media-bin', 'src', 'speech-atempo.mjs'));
+            }
+            let ancestor = resolve(__dirname);
+            for (let depth = 0; depth < 10; depth += 1) {
+                candidates.push(resolve(ancestor, 'packages', 'media-bin', 'src', 'speech-atempo.mjs'));
+                const parent = dirname(ancestor);
+                if (parent === ancestor) break;
+                ancestor = parent;
+            }
+            const candidate = candidates.find(value => this.isFile(value));
+            if (!candidate) throw new Error('speech atempo helper could not be found');
+            const importModule = Function('specifier', 'return import(specifier)') as
+                (specifier: string) => Promise<SpeechAtempoModule>;
+            return importModule(pathToFileURL(candidate).toString());
+        })();
+        return this.speechAtempoModule;
     }
 
     async disposeAssetStream(id: string): Promise<void> {

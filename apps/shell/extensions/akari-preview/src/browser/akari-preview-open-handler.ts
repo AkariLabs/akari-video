@@ -22,6 +22,7 @@ import {
     computeDuckIntervals,
     isWithinDuckInterval,
     projectLegacyAudioView,
+    projectSpeechDeclarations,
     resolveInternalTrackZ,
     resolvePreviewItemWrite,
     STATIC_DUCK_GAIN_DB,
@@ -309,6 +310,20 @@ interface EditSummaryCut {
     chromaKey?: VideoFxChromaKey;
 }
 
+interface EditSummarySpeech {
+    id: string;
+    src: string;
+    atSec: number;
+    durationSec: number;
+    inSec: number;
+    outSec: number;
+    speed: number;
+    gainDb?: number;
+    track?: number;
+    materialDurationSec: number;
+    atempo?: { path: string; durationSec: number; generatedMs?: number };
+}
+
 interface VideoFxBackground {
     type: 'color' | 'image';
     color?: string;
@@ -363,6 +378,7 @@ interface EditSummaryAudio {
     bgm?: EditSummaryBgm;
     sfx: EditSummaryTimedAudio[];
     narration: EditSummaryTimedAudio[];
+    speech?: EditSummarySpeech[];
 }
 
 interface EditSummaryEmphasisWord {
@@ -3258,6 +3274,51 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     } as EditSummaryCut);
                 }
             }
+            const speechAtempoService = this.previewService as AkariPreviewService & {
+                prepareSpeechAtempo(request: {
+                    sourceUri: string;
+                    projectRootUri: string;
+                    inSec: number;
+                    outSec: number;
+                    speed: number;
+                }): Promise<{
+                    ok: boolean;
+                    skipped: boolean;
+                    durationSec: number;
+                    generatedMs: number;
+                    reason?: string;
+                    stream?: VideoStreamReference;
+                }>;
+            };
+            const speech = await Promise.all(projectSpeechDeclarations(cuts, {
+                fps: this.positiveNumber(internal.output.fps, 30)
+            }).map(async declaration => {
+                if (Math.abs(declaration.speed - 1) <= 1e-6) return declaration;
+                const source = sourcesById.get(declaration.src);
+                if (!source) return declaration;
+                const result = await speechAtempoService.prepareSpeechAtempo({
+                    sourceUri: source.uri.toString(),
+                    projectRootUri: editUri.parent.toString(),
+                    inSec: declaration.inSec,
+                    outSec: declaration.outSec,
+                    speed: declaration.speed
+                });
+                if (!result.ok || !result.stream) {
+                    console.warn(`[akari-preview] speech atempo ${declaration.id} unavailable; using playbackRate: ${
+                        result.reason ?? 'generation failed'
+                    }`);
+                    return declaration;
+                }
+                assetStreams.set(`speech-atempo:${declaration.id}`, result.stream);
+                return {
+                    ...declaration,
+                    atempo: {
+                        path: result.stream.url,
+                        durationSec: result.durationSec,
+                        generatedMs: result.generatedMs
+                    }
+                };
+            }));
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
             const unsupportedGltfWarnings: string[] = [];
@@ -3523,7 +3584,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     filters,
                     cuts,
                     indicators,
-                    ...(audio ? { audio } : {}),
+                    ...((audio || speech.length > 0) ? {
+                        audio: { ...(audio ?? { sfx: [], narration: [] }), speech }
+                    } : {}),
                     ...(tracks ? { tracks } : {}),
                     timelineTracks,
                     ...(captionTrackId ? { captionTrackId } : {}),
@@ -6067,7 +6130,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         ));
                     }
                 }
-                const speech = engine.projectSpeechDeclarations(normalizedCuts, { fps }).flatMap(declaration => {
+                const projectedSpeech = Array.isArray(audio && audio.speech)
+                    ? audio.speech : engine.projectSpeechDeclarations(normalizedCuts, { fps });
+                const speech = projectedSpeech.flatMap(declaration => {
                     const url = sourceUrls.get(declaration.src);
                     return url ? [{ ...declaration, url }] : [];
                 });
