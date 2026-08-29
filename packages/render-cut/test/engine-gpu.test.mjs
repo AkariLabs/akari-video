@@ -42,11 +42,13 @@ test("explicit GPU reaches launcher resolution on win32 and linux while auto rem
         (error) => /edit\.json could not be read/u.test(error.message)
           && !/available on macOS only/u.test(error.message),
       );
+      // e56ff566 でインストール済みデスクトップアプリ（tier 1）が候補に戻ったため、
+      // プローブは npm electron（tier 2）だけ成功させて「門番を越えて launcher 解決に到達する」ことを固定する。
       const launcher = await resolveGpuLauncher({
         platform: process.platform,
         env: {},
         homeDirectory: "/nonexistent-akari-home",
-        probe: async () => true,
+        probe: async (executable) => executable === "/electron",
         resolveElectron: () => "/electron",
       });
       assert.equal(launcher.tier, 2);
