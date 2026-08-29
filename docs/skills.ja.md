@@ -2,7 +2,7 @@
 
 # スキルカタログ
 
-AKARI Video のエージェント側ワークフローは **22 のスキル**に分割されている（工程ごとに 1 つ + 横断 2 つ）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
+AKARI Video のエージェント側ワークフローは **23 のスキル**に分割されている（工程ごとに 1 つ + 横断 2 つ）。このページはその一枚地図 — 各スキルが何を担当し、いつ発動し、どの外部ツール・ランタイムに接続するかをまとめる。
 
 正本は各 `skills/<name>/SKILL.md`。ここは索引であり、手順・ハードルールの詳細は各 SKILL.md と関連契約（[Reference](./README.ja.md#reference)）に従う。
 
@@ -47,6 +47,7 @@ AKARI Video のエージェント側ワークフローは **22 のスキル**に
 
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
+| [critique-cut](../skills/critique-cut/SKILL.md) | 人間が先に組んだ edit.json を読み、使われている素材区間だけを観察して、現在のカットへ読み取り専用の所見を返す | `akari media` / `akari capture` |
 | [edit-lint](../skills/edit-lint/SKILL.md) | edit.json + analysis.json / captions.json / メディアの決定的検査。PASS 後のフレーム視認まで | 同梱の決定的 CLI |
 | [compile-review-session](../skills/compile-review-session/SKILL.md) | 録音レビューセッションを文字起こし → 参照解決 → review.json の open チケットへコンパイル | STT 3 層（analyze-footage と同じ） |
 | [address-review](../skills/address-review/SKILL.md) | open チケットへの実対応 → edit-lint → チケット更新の型どおり執行（状態機械） | 同梱 `bin/respond.mjs` |
