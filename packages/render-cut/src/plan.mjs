@@ -60,6 +60,9 @@ const GAIN_DB_MAX = 12;
 const CUT_X264_PERFORMANCE_PARAMS = "keyint=1";
 const IMPLIED_CAPTION_TRACK_ID = "t-captions-implied";
 export const MAX_AUDIO_INPUTS_PER_COMMAND = 200;
+// The first AAC frame after an input-side seek lacks overlap-add history, so start before the
+// cut and discard this preroll in the filter graph.
+export const AUDIO_SEEK_PREROLL_SECONDS = 0.5;
 
 function tuneCutVideoEncodeArgs(videoEncodeArgs) {
   if (!Array.isArray(videoEncodeArgs)) return videoEncodeArgs;
@@ -1464,7 +1467,7 @@ export function buildMultiSourceAudioCutCommand({
     ffmpegCommand,
     ffprobeCommand,
     audioDurationCache,
-    audioCodecArgs: ["-c:a", "pcm_s16le", "-ar", "48000"],
+    audioCodecArgs: ["-c:a", "pcm_f32le", "-ar", "48000"],
   }));
   const concatListContent = chunkPaths
     .map((path) => `file '${escapeConcatListPath(resolve(path))}'`)
@@ -1547,6 +1550,7 @@ function appendInputSeekedCutAudioFilter({
       outputLabel: `[a${index}]`,
       sourceIn: cut.in,
       sourceOut: cut.out,
+      preroll: source.preroll ?? 0,
       speed,
       atempoSuffix,
       freeze: cut.freeze,
@@ -1739,12 +1743,14 @@ function buildSeekedAudioInputs({ sourceInputs, cuts }) {
   for (const [cutIndex, cut] of cuts.entries()) {
     const source = sourcesById.get(cut.src);
     if (source?.hasAudio === true) {
-      inputArgs.push("-ss", formatNumber(cut.in));
+      const seekStart = Math.max(0, cut.in - AUDIO_SEEK_PREROLL_SECONDS);
+      const preroll = cut.in - seekStart;
+      inputArgs.push("-ss", formatNumber(seekStart));
       if (Number.isFinite(cut.out)) {
-        inputArgs.push("-t", formatNumber(cut.out - cut.in));
+        inputArgs.push("-t", formatNumber((cut.out - cut.in) + preroll));
       }
       inputArgs.push("-i", source.path);
-      sourcesByCutIndex.set(cutIndex, { ...source, inputIndex });
+      sourcesByCutIndex.set(cutIndex, { ...source, inputIndex, preroll });
       inputIndex += 1;
     } else {
       sourcesByCutIndex.set(cutIndex, source);
@@ -2002,7 +2008,7 @@ export function buildGapAwareMultiSourceAudioCutCommand({
       ffmpegCommand,
       ffprobeCommand,
       audioDurationCache,
-      audioCodecArgs: ["-c:a", "pcm_s16le", "-ar", "48000"],
+      audioCodecArgs: ["-c:a", "pcm_f32le", "-ar", "48000"],
     });
   });
   const chunkInputArgs = chunkPaths.flatMap((path) => ["-i", path]);
@@ -2070,10 +2076,17 @@ function appendInputSeekedGapAwareAudioFilters({
       const atempoSuffix = buildAtempoChain(speed)
         .map((factor) => `,atempo=${formatNumber(factor)}`)
         .join("");
-      const durationSeconds = cut.out - cut.in;
-      filters.push(
-        `[${source.inputIndex}:a]atrim=start=0:end=${formatNumber(durationSeconds)},asetpts=PTS-STARTPTS${atempoSuffix},apad=whole_dur=${formatNumber(segmentDuration(cut))}[araw1_${index}]`,
-      );
+      appendFreezeAwareRelativeAudioTrim({
+        filters,
+        inputLabel: `[${source.inputIndex}:a]`,
+        outputLabel: `[araw1_${index}]`,
+        sourceIn: cut.in,
+        sourceOut: cut.out,
+        preroll: source.preroll ?? 0,
+        speed,
+        atempoSuffix,
+        padToSeconds: segmentDuration(cut),
+      });
     } else {
       filters.push(
         `anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(segmentDuration(cut))},asetpts=PTS-STARTPTS[araw1_${index}]`,

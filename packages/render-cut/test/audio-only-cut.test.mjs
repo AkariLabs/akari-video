@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AUDIO_SEEK_PREROLL_SECONDS,
   buildGapAwareMultiSourceAudioCutCommand,
   buildGapAwareMultiSourceCutCommand,
   buildMultiSourceAudioCutCommand,
@@ -30,7 +31,70 @@ function expectedArgs(inputs, filter) {
   ];
 }
 
-function assertAudioOnly(command, legacyCommand, expectedInputCount, allowedNonZeroTrimStarts = []) {
+function formatNumber(value) {
+  return Number(Number(value).toFixed(6)).toString();
+}
+
+function expectedSeek(cut) {
+  const seekStart = Math.max(0, cut.in - AUDIO_SEEK_PREROLL_SECONDS);
+  const preroll = cut.in - seekStart;
+  return {
+    seekStart,
+    preroll,
+    duration: Number.isFinite(cut.out) ? (cut.out - cut.in) + preroll : undefined,
+  };
+}
+
+function expectedTrimStarts(cuts, sourceInputs) {
+  const sourcesById = new Map(sourceInputs.map((source) => [source.id, source]));
+  const starts = [];
+  for (const cut of cuts) {
+    if (sourcesById.get(cut.src)?.hasAudio !== true) continue;
+    const { preroll } = expectedSeek(cut);
+    starts.push(preroll);
+    const hold = cut.freeze?.duration_sec;
+    const at = cut.freeze?.at_sec;
+    if (!Number.isFinite(cut.out) || !Number.isFinite(hold) || hold <= 0 || !Number.isFinite(at) || at < 0) continue;
+    const speed = Number.isFinite(cut.speed) && cut.speed > 0 ? cut.speed : 1;
+    const playedDuration = (cut.out - cut.in) / speed;
+    const clampedAt = Math.min(Math.max(at, 0), playedDuration);
+    if (clampedAt > 1e-6 && clampedAt < playedDuration - 1e-6) {
+      starts.push(preroll + clampedAt * speed);
+    }
+  }
+  return starts.map(formatNumber).sort((a, b) => Number(a) - Number(b));
+}
+
+function assertSeekedAudioShape(command, sourceInputs, cuts) {
+  const filter = command.args[command.args.indexOf("-filter_complex") + 1];
+  const sourcesById = new Map(sourceInputs.map((source) => [source.id, source]));
+  const audioCuts = cuts.filter((cut) => sourcesById.get(cut.src)?.hasAudio === true);
+  const inputIndexes = command.args.flatMap((value, index) => value === "-i" ? [index] : []);
+  assert.equal(inputIndexes.length, audioCuts.length);
+  for (const [index, inputIndex] of inputIndexes.entries()) {
+    const cut = audioCuts[index];
+    const source = sourcesById.get(cut.src);
+    const { seekStart, duration } = expectedSeek(cut);
+    if (duration === undefined) {
+      assert.deepEqual(
+        command.args.slice(inputIndex - 2, inputIndex + 1),
+        ["-ss", formatNumber(seekStart), "-i"],
+      );
+    } else {
+      assert.deepEqual(
+        command.args.slice(inputIndex - 4, inputIndex + 1),
+        ["-ss", formatNumber(seekStart), "-t", formatNumber(duration), "-i"],
+      );
+    }
+    assert.equal(command.args[inputIndex + 1], source.path);
+  }
+  const trimStarts = [...filter.matchAll(/atrim=start=([^:;,]+)/gu)]
+    .map((match) => formatNumber(match[1]))
+    .sort((a, b) => Number(a) - Number(b));
+  assert.deepEqual(trimStarts, expectedTrimStarts(cuts, sourceInputs));
+}
+
+function assertAudioOnly(command, legacyCommand, sourceInputs, cuts) {
   const filter = command.args[command.args.indexOf("-filter_complex") + 1];
   assert.ok(command.args.includes("-vn"));
   assert.doesNotMatch(filter, /\[\d+:v\]/u);
@@ -40,16 +104,7 @@ function assertAudioOnly(command, legacyCommand, expectedInputCount, allowedNonZ
   assert.equal(command.args.includes("-pix_fmt"), false);
   assert.equal(command.args.includes("-framerate"), false);
   assert.equal(command.args.includes("-loop"), false);
-  const inputIndexes = command.args.flatMap((value, index) => value === "-i" ? [index] : []);
-  assert.equal(inputIndexes.length, expectedInputCount);
-  for (const inputIndex of inputIndexes) {
-    assert.equal(command.args[inputIndex - 4], "-ss");
-    assert.equal(Number.isFinite(Number(command.args[inputIndex - 3])), true);
-    assert.equal(command.args[inputIndex - 2], "-t");
-    assert.equal(Number.isFinite(Number(command.args[inputIndex - 1])), true);
-  }
-  const trimStarts = [...filter.matchAll(/atrim=start=([^:;,]+)/gu)].map((match) => match[1]);
-  assert.deepEqual([...new Set(trimStarts)].filter((value) => value !== "0"), allowedNonZeroTrimStarts);
+  assertSeekedAudioShape(command, sourceInputs, cuts);
 
   const audioCodecIndex = command.args.indexOf("-c:a");
   const legacyAudioCodecIndex = legacyCommand.args.indexOf("-c:a");
@@ -74,14 +129,15 @@ function buildLegacyPlain({ sourceInputs, cuts }) {
 }
 
 test("audio-only single-source cut keeps the audio chain and exact command snapshot", () => {
+  assert.equal(AUDIO_SEEK_PREROLL_SECONDS, 0.5);
   const sourceInputs = [{ id: "a", path: "/media/a.mp4", hasAudio: true }];
   const cuts = [{ src: "a", in: 1, out: 3 }];
   const command = buildMultiSourceAudioCutCommand({ ...common, sourceInputs, cuts });
   assert.deepEqual(command.args, expectedArgs(
-    [{ ss: 1, duration: 2, path: "/media/a.mp4" }],
-    "[0:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a0];[a0]concat=n=1:v=0:a=1[joineda]",
+    [{ ss: 0.5, duration: 2.5, path: "/media/a.mp4" }],
+    "[0:a]atrim=start=0.5:end=2.5,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a0];[a0]concat=n=1:v=0:a=1[joineda]",
   ));
-  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), 1);
+  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), sourceInputs, cuts);
 });
 
 test("audio-only multi-source cut keeps every input index and exact command snapshot", () => {
@@ -94,11 +150,11 @@ test("audio-only multi-source cut keeps every input index and exact command snap
   assert.deepEqual(command.args, expectedArgs(
     [
       { ss: 0, duration: 2, path: "/media/a.mp4" },
-      { ss: 1, duration: 2, path: "/media/b.mp4" },
+      { ss: 0.5, duration: 2.5, path: "/media/b.mp4" },
     ],
-    "[0:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a0];[1:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a1];[a0][a1]concat=n=2:v=0:a=1[joineda]",
+    "[0:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a0];[1:a]atrim=start=0.5:end=2.5,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a1];[a0][a1]concat=n=2:v=0:a=1[joineda]",
   ));
-  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), 2);
+  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), sourceInputs, cuts);
 });
 
 test("audio-only gap-aware cut keeps delay/mix padding and exact command snapshot", () => {
@@ -114,9 +170,9 @@ test("audio-only gap-aware cut keeps delay/mix padding and exact command snapsho
   assert.deepEqual(command.args, expectedArgs(
     [
       { ss: 0, duration: 2, path: "/media/a.mp4" },
-      { ss: 1, duration: 2, path: "/media/b.mp4" },
+      { ss: 0.5, duration: 2.5, path: "/media/b.mp4" },
     ],
-    "[0:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,apad=whole_dur=2[araw1_0];[araw1_0]adelay=0:all=1[adelay1_0];[1:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,apad=whole_dur=2[araw1_1];[araw1_1]adelay=4000:all=1[adelay1_1];[adelay1_0][adelay1_1]amix=inputs=2:duration=longest:normalize=0,apad=whole_dur=6[joineda]",
+    "[0:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,apad=whole_dur=2[araw1_0];[araw1_0]adelay=0:all=1[adelay1_0];[1:a]atrim=start=0.5:end=2.5,asetpts=PTS-STARTPTS,apad=whole_dur=2[araw1_1];[araw1_1]adelay=4000:all=1[adelay1_1];[adelay1_0][adelay1_1]amix=inputs=2:duration=longest:normalize=0,apad=whole_dur=6[joineda]",
   ));
   const legacy = buildGapAwareMultiSourceCutCommand({
     sourceInputs,
@@ -130,7 +186,7 @@ test("audio-only gap-aware cut keeps delay/mix padding and exact command snapsho
     ffprobeCommand: null,
     projectRoot: "/",
   });
-  assertAudioOnly(command, legacy, 2);
+  assertAudioOnly(command, legacy, sourceInputs, cuts);
 });
 
 test("audio-only freeze cut reuses the silence insertion chain and exact command snapshot", () => {
@@ -138,10 +194,10 @@ test("audio-only freeze cut reuses the silence insertion chain and exact command
   const cuts = [{ src: "a", in: 5, out: 8, freeze: { at_sec: 1, duration_sec: 1 } }];
   const command = buildMultiSourceAudioCutCommand({ ...common, sourceInputs, cuts });
   assert.deepEqual(command.args, expectedArgs(
-    [{ ss: 5, duration: 3, path: "/media/a.mp4" }],
-    "anullsrc=r=48000:cl=stereo,atrim=duration=1,asetpts=PTS-STARTPTS[fza_v1_0_silence];[0:a]atrim=start=0:end=1,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo[fza_v1_0_a];[0:a]atrim=start=1:end=3,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo[fza_v1_0_b];[fza_v1_0_a][fza_v1_0_silence][fza_v1_0_b]concat=n=3:v=0:a=1,apad=whole_dur=4[a0];[a0]concat=n=1:v=0:a=1[joineda]",
+    [{ ss: 4.5, duration: 3.5, path: "/media/a.mp4" }],
+    "anullsrc=r=48000:cl=stereo,atrim=duration=1,asetpts=PTS-STARTPTS[fza_v1_0_silence];[0:a]atrim=start=0.5:end=1.5,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo[fza_v1_0_a];[0:a]atrim=start=1.5:end=3.5,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo[fza_v1_0_b];[fza_v1_0_a][fza_v1_0_silence][fza_v1_0_b]concat=n=3:v=0:a=1,apad=whole_dur=4[a0];[a0]concat=n=1:v=0:a=1[joineda]",
   ));
-  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), 1, ["1"]);
+  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), sourceInputs, cuts);
 });
 
 test("audio-only transition_out cut keeps acrossfade and exact command snapshot", () => {
@@ -150,18 +206,18 @@ test("audio-only transition_out cut keeps acrossfade and exact command snapshot"
     { id: "b", path: "/media/b.mp4", hasAudio: true },
   ];
   const cuts = [
-    { src: "a", in: 0, out: 2, transition_out: { type: "dissolve", duration: 0.5 } },
-    { src: "b", in: 0, out: 2 },
+    { src: "a", in: 1, out: 3, transition_out: { type: "dissolve", duration: 0.5 } },
+    { src: "b", in: 4, out: 6 },
   ];
   const command = buildMultiSourceAudioCutCommand({ ...common, sourceInputs, cuts });
   assert.deepEqual(command.args, expectedArgs(
     [
-      { ss: 0, duration: 2, path: "/media/a.mp4" },
-      { ss: 0, duration: 2, path: "/media/b.mp4" },
+      { ss: 0.5, duration: 2.5, path: "/media/a.mp4" },
+      { ss: 3.5, duration: 2.5, path: "/media/b.mp4" },
     ],
-    "[0:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a0];[1:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a1];[a0][a1]acrossfade=d=0.5[joineda]",
+    "[0:a]atrim=start=0.5:end=2.5,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a0];[1:a]atrim=start=0.5:end=2.5,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a1];[a0][a1]acrossfade=d=0.5[joineda]",
   ));
-  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), 2);
+  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), sourceInputs, cuts);
 });
 
 test("audio-only cut always exists for a silent still source and supplies anullsrc", () => {
@@ -172,17 +228,40 @@ test("audio-only cut always exists for a silent still source and supplies anulls
     [],
     "anullsrc=r=48000:cl=stereo,atrim=duration=2,asetpts=PTS-STARTPTS[a0];[a0]concat=n=1:v=0:a=1[joineda]",
   ));
-  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), 0);
+  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), sourceInputs, cuts);
+});
+
+test("audio-only input seek clamps preroll when cut in is below the guard", () => {
+  const sourceInputs = [{ id: "a", path: "/media/a.mp4", hasAudio: true }];
+  const cuts = [{ src: "a", in: 0.2, out: 2.2 }];
+  const command = buildMultiSourceAudioCutCommand({ ...common, sourceInputs, cuts });
+  assert.deepEqual(command.args, expectedArgs(
+    [{ ss: 0, duration: 2.2, path: "/media/a.mp4" }],
+    "[0:a]atrim=start=0.2:end=2.2,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a0];[a0]concat=n=1:v=0:a=1[joineda]",
+  ));
+  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), sourceInputs, cuts);
+});
+
+test("audio-only input seek keeps zero preroll when cut starts at zero", () => {
+  const sourceInputs = [{ id: "a", path: "/media/a.mp4", hasAudio: true }];
+  const cuts = [{ src: "a", in: 0, out: 2 }];
+  const command = buildMultiSourceAudioCutCommand({ ...common, sourceInputs, cuts });
+  assert.deepEqual(command.args, expectedArgs(
+    [{ ss: 0, duration: 2, path: "/media/a.mp4" }],
+    "[0:a]atrim=start=0:end=2,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=2[a0];[a0]concat=n=1:v=0:a=1[joineda]",
+  ));
+  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), sourceInputs, cuts);
 });
 
 test("audio-only input seek omits -t for a synthetic open-ended cut", () => {
   const sourceInputs = [{ id: "a", path: "/media/a.mp4", hasAudio: true }];
   const cuts = [{ src: "a", in: 4, out: null }];
   const command = buildMultiSourceAudioCutCommand({ ...common, sourceInputs, cuts });
-  const inputIndex = command.args.indexOf("-i");
-  assert.deepEqual(command.args.slice(inputIndex - 2, inputIndex + 2), ["-ss", "4", "-i", "/media/a.mp4"]);
-  assert.equal(command.args.includes("-t"), false);
-  assert.match(command.args.join(" "), /\[0:a\]atrim=start=0,asetpts=PTS-STARTPTS/u);
+  assert.deepEqual(command.args, expectedArgs(
+    [{ ss: 3.5, path: "/media/a.mp4" }],
+    "[0:a]atrim=start=0.5,asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo[a0];[a0]concat=n=1:v=0:a=1[joineda]",
+  ));
+  assertAudioOnly(command, buildLegacyPlain({ sourceInputs, cuts }), sourceInputs, cuts);
 });
 
 function makeAudioCuts(count) {
@@ -213,8 +292,10 @@ test("audio-only sequential cuts split 201 inputs into PCM chunks and one concat
     "/tmp/cut-audio-chunk-0002.wav",
   ]);
   for (const chunk of command.chunks) {
-    assert.deepEqual(chunk.args.slice(-5), ["-c:a", "pcm_s16le", "-ar", "48000", chunk.output]);
+    assert.deepEqual(chunk.args.slice(-5), ["-c:a", "pcm_f32le", "-ar", "48000", chunk.output]);
   }
+  assertSeekedAudioShape(command.chunks[0], sourceInputs, makeAudioCuts(200));
+  assertSeekedAudioShape(command.chunks[1], sourceInputs, makeAudioCuts(201).slice(200));
   assert.deepEqual(command.args, [
     "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
     "-f", "concat", "-safe", "0", "-i", "/tmp/cut-audio-chunks.txt",
@@ -242,6 +323,8 @@ test("audio-only chunk boundary moves backward rather than splitting an acrossfa
   const secondFilter = command.chunks[1].args[command.chunks[1].args.indexOf("-filter_complex") + 1];
   assert.doesNotMatch(firstFilter, /acrossfade=/u);
   assert.match(secondFilter, /\[a0\]\[a1\]acrossfade=d=0\.25\[joineda\]/u);
+  assertSeekedAudioShape(command.chunks[0], sourceInputs, cuts.slice(0, 199));
+  assertSeekedAudioShape(command.chunks[1], sourceInputs, cuts.slice(199));
 });
 
 test("gap-aware audio chunks remain full-duration timelines and are added by the final encode", () => {
@@ -269,7 +352,10 @@ test("gap-aware audio chunks remain full-duration timelines and are added by the
     "-map", "[joineda]", "-vn", "-c:a", "aac", "-ar", "48000", "/tmp/cut-audio.mp4",
   ]);
   for (const chunk of command.chunks) {
+    assert.deepEqual(chunk.args.slice(-5), ["-c:a", "pcm_f32le", "-ar", "48000", chunk.output]);
     const filter = chunk.args[chunk.args.indexOf("-filter_complex") + 1];
     assert.match(filter, /apad=whole_dur=401\[joineda\]$/u);
   }
+  assertSeekedAudioShape(command.chunks[0], sourceInputs, cuts.slice(0, 200));
+  assertSeekedAudioShape(command.chunks[1], sourceInputs, cuts.slice(200));
 });

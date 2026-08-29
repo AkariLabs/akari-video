@@ -160,12 +160,12 @@ export function appendFreezeAwareAudioTrim({
   }
 }
 
-// Input-seeked audio starts at the beginning of the cut, so its filter timestamps are relative
-// to that cut rather than to the source file. Keep the legacy helper above source-relative and
-// adapt only the audio-only command path through this separate entry point.
+// Input-seeked audio discards its preroll, so filter timestamps use cut-relative time plus
+// preroll. Keep the legacy helper above source-relative and adapt only the audio-only path here.
 export function appendFreezeAwareRelativeAudioTrim({
   sourceIn,
   sourceOut,
+  preroll = 0,
   filters,
   inputLabel,
   outputLabel,
@@ -180,17 +180,17 @@ export function appendFreezeAwareRelativeAudioTrim({
       ? ""
       : `,apad=whole_dur=${formatNumber(padToSeconds)}`;
     filters.push(
-      `${inputLabel}atrim=start=0,asetpts=PTS-STARTPTS${atempoSuffix}${normalizeSuffix}${padSuffix}${outputLabel}`,
+      `${inputLabel}atrim=start=${formatNumber(preroll)},asetpts=PTS-STARTPTS${atempoSuffix}${normalizeSuffix}${padSuffix}${outputLabel}`,
     );
     return;
   }
-  const relativeSourceOut = Number.isFinite(sourceOut) ? sourceOut - sourceIn : sourceOut;
+  const relativeSourceOut = preroll + (sourceOut - sourceIn);
   appendFreezeAwareAudioTrim({
     ...options,
     filters,
     inputLabel,
     outputLabel,
-    sourceIn: 0,
+    sourceIn: preroll,
     sourceOut: relativeSourceOut,
     atempoSuffix,
     normalize,
