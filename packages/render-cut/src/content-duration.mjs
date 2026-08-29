@@ -96,6 +96,38 @@ export function buildTailPadCommand({
   };
 }
 
+export function buildAudioTailPadCommand({
+  ffmpegCommand = resolveFfmpeg(),
+  inputPath,
+  outputPath,
+  finalDurationSeconds,
+}) {
+  return {
+    command: ffmpegCommand,
+    args: [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-nostdin",
+      "-y",
+      "-i",
+      inputPath,
+      "-filter_complex",
+      `[0:a]apad=whole_dur=${formatNumber(finalDurationSeconds)}[pada]`,
+      "-map",
+      "[pada]",
+      "-vn",
+      "-c:a",
+      "aac",
+      "-ar",
+      "48000",
+      "-t",
+      formatNumber(finalDurationSeconds),
+      outputPath,
+    ],
+  };
+}
+
 function formatNumber(value) {
   return Number(value).toString();
 }

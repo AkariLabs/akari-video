@@ -332,3 +332,11 @@ value    = from + (to - from) * eased
 `getComputedStyle` と delay 前・登場中 3 点・終了後の 5 時刻で突き合わせた実測差は、translate 最大
 0.00043 px、scale 最大 0.000001、opacity 0 だった。検収閾値は translate 0.5 px 以下、opacity 0.005
 以下、3D 登場区間の GPU / OSR 外接矩形内 MAD 1.0 以下とする。
+
+## 11. v2 の cut 音声中間物（2026-08-29 追記）
+
+GPU 経路の映像は `edit.sources` をページ側で直接読み、`cut.mp4` の映像を使用しない。そのため
+cut 段は `cut-audio.mp4`、尺延長が必要な場合は続けて `cut-audio-tail-padded.mp4` を生成し、
+音声ストリームだけを最終 mux へ渡す。両コマンドは `-vn` とし、映像のデコード・フィルタ・
+エンコードを行わない。音声の trim、速度、freeze 無音、transition、gap、AAC 48 kHz の意味論は
+従来の映像込み cut / tail-pad と同じである。legacy 経路は従来どおり映像込み中間物を使用する。

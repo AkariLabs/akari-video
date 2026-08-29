@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { resolveOsrLauncher } from "../../osr-export/src/index.mjs";
+import { selectExecutionIntermediates } from "../src/render-cut.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "render-cut.mjs");
@@ -63,6 +64,9 @@ test("--engine osr completes one real render and records OSR provenance", { time
     assert.equal(state.provenance.osr.provenance.engine, "osr");
     assert.ok([1, 2].includes(state.provenance.osr.provenance.launcher_tier));
     assert.equal(state.provenance.rasterizer.adopted, "osr");
+    assert.equal(state.plan.intermediates.some(path => path.endsWith("cut.mp4")), false);
+    assert.equal(state.plan.intermediates.some(path => path.endsWith("cut-tail-padded.mp4")), false);
+    assert.equal(state.plan.intermediates.some(path => path.endsWith("cut-audio.mp4")), true);
 
     const outputPath = join(project, "exports", "osr.mp4");
     assert.ok((await stat(outputPath)).size > 0);
@@ -75,4 +79,26 @@ test("--engine osr completes one real render and records OSR provenance", { time
   } finally {
     await rm(project, { recursive: true, force: true });
   }
+});
+
+test("legacy execution keeps video cut intermediates while v2 removes only the exact planned paths", () => {
+  const intermediates = [
+    ".akari/render-tmp/run-1/cut.mp4",
+    ".akari/render-tmp/run-1/cut-audio.mp4",
+    ".akari/render-tmp/run-1/cut-tail-padded.mp4",
+    ".akari/render-tmp/run-1/cut-audio-tail-padded.mp4",
+    "assets/cut.mp4",
+  ];
+  const input = {
+    intermediates,
+    projectRoot: "/project",
+    temporaryDirectory: "/project/.akari/render-tmp/run-1",
+  };
+
+  assert.strictEqual(selectExecutionIntermediates({ ...input, usesV2Export: false }), intermediates);
+  assert.deepEqual(selectExecutionIntermediates({ ...input, usesV2Export: true }), [
+    ".akari/render-tmp/run-1/cut-audio.mp4",
+    ".akari/render-tmp/run-1/cut-audio-tail-padded.mp4",
+    "assets/cut.mp4",
+  ]);
 });

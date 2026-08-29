@@ -171,6 +171,9 @@ test("plan commands are stable and the report is self-contained", async (t) => {
     assert.equal(run(project, ["--plan-only"]).status, 0);
     const first = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(Object.keys(first.inputs).some(path => path.includes("NotoSansJP-Variable.ttf")), false);
+    assert.ok(first.plan.commands.cut_audio);
+    assert.ok(first.plan.commands.cut_audio.args.includes("-vn"));
+    assert.ok(first.plan.intermediates.includes(".akari/render-tmp/cut-audio.mp4"));
     assert.equal(run(project, ["--plan-only"]).status, 0);
     const second = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.deepEqual(second.plan.commands, first.plan.commands);

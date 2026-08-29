@@ -37,10 +37,34 @@ test("the same input produces the same command plan from the original source", (
   assert.deepEqual(second.commands, first.commands);
   assert.equal(first.predicted_duration_seconds, 10);
   assert.ok(first.commands.cut.args.includes("/project/source.mp4"));
+  assert.ok(first.commands.cut_audio.args.includes("/project/source.mp4"));
+  assert.ok(first.commands.cut_audio.args.includes("-vn"));
+  assert.ok(first.intermediates.includes(".akari/render-tmp/cut-audio.mp4"));
   assert.ok(!first.commands.cut.args.includes("/project/proxy.mp4"));
   assert.match(first.commands.cut.args.join(" "), /trim=start=5:end=10/);
   assert.match(first.commands.cut.args.join(" "), /concat=n=2:v=1:a=1/);
   assert.equal(first.rasterizer.selected, "hyperframes");
+});
+
+test("audio-only tail padding is planned under the exact legacy tail condition", () => {
+  const plan = buildV2Plan({
+    edit,
+    projectRoot: "/project",
+    outputPath: "/project/exports/source.mp4",
+    capabilities,
+    hasSourceAudio: true,
+    captionOverlays: [{ start: 12, duration: 1 }],
+  });
+  assert.equal(plan.predicted_duration_seconds, 13);
+  assert.ok(plan.commands.tail_pad);
+  assert.ok(plan.commands.tail_pad_audio);
+  assert.equal(plan.commands.tail_pad_audio.args.includes("-vn"), true);
+  assert.deepEqual(plan.intermediates.slice(0, 4), [
+    ".akari/render-tmp/cut.mp4",
+    ".akari/render-tmp/cut-audio.mp4",
+    ".akari/render-tmp/cut-tail-padded.mp4",
+    ".akari/render-tmp/cut-audio-tail-padded.mp4",
+  ]);
 });
 
 test("default output names are numbered rather than overwritten", () => {
@@ -422,6 +446,7 @@ test("content within the cuts skips tail padding and preserves every existing co
   });
   assert.equal(withinCuts.predicted_duration_seconds, 10);
   assert.equal(withinCuts.commands.tail_pad, null);
+  assert.equal(withinCuts.commands.tail_pad_audio, null);
   assert.deepEqual(withinCuts.commands, baseline.commands);
   assert.deepEqual(withinCuts.intermediates, baseline.intermediates);
 });
