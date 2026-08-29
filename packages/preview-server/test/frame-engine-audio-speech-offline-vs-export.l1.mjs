@@ -10,7 +10,7 @@ import { buildWebAudioSchedule, projectSpeechDeclarations } from '../../edit-sto
 const FPS = 30;
 const SAMPLE_RATE = 48_000;
 const DURATION_SEC = 6;
-const FIXTURE_ORIGIN = 'http://akari-fixture.test';
+const FIXTURE_ORIGIN = 'http://127.0.0.1';
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, {
