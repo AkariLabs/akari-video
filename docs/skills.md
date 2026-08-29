@@ -2,7 +2,7 @@
 
 # Skills Catalog
 
-The agent-side workflow of AKARI Video is split into **22 skills** (one per production stage, plus two cross-cutting ones). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
+The agent-side workflow of AKARI Video is split into **23 skills** (one per production stage, plus two cross-cutting ones). This page is the single map: what each skill owns, when it triggers, and which external tools and runtimes it connects to.
 
 The canonical source for each skill is its `skills/<name>/SKILL.md`. This page is an index; for procedures and hard rules, follow each SKILL.md and the related contracts ([Reference](./README.md#reference)).
 
@@ -47,6 +47,7 @@ The canonical source for each skill is its `skills/<name>/SKILL.md`. This page i
 
 | Skill | Owns | External tools / connections |
 |---|---|---|
+| [critique-cut](../skills/critique-cut/SKILL.md) | Reads a human-assembled edit.json, observes only the source ranges actually used, and returns a read-only critique of the current cut | `akari media` / `akari capture` |
 | [edit-lint](../skills/edit-lint/SKILL.md) | Deterministic checks of edit.json plus analysis.json / captions.json / media; frame inspection after PASS | Bundled deterministic CLI |
 | [compile-review-session](../skills/compile-review-session/SKILL.md) | Compiling recorded review sessions — transcription → reference resolution → open tickets in review.json | Three-layer STT (same as analyze-footage) |
 | [address-review](../skills/address-review/SKILL.md) | Executing open tickets by the book: fix → edit-lint → ticket update (state machine) | Bundled `bin/respond.mjs` |

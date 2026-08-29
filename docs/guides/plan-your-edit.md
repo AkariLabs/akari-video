@@ -17,6 +17,13 @@ approval, commits it to `edit.json` (the editing save file). The skill is `edit-
 "Draft an editing direction" / "Trim this down to 60 seconds based on the analysis report" /
 "Cut for pacing"
 
+If you prefer to assemble and trim the timeline yourself first, save `edit.json` and ask “How does
+this feel so far?” or “Take a look at this cut.” [critique-cut](../../skills/critique-cut/SKILL.md)
+will inspect only the source ranges used by the timeline plus one contact sheet of the composited
+result, then return observations without rewriting the edit. Route broad structural changes back
+through edit-plan; for a point fix, add an annotation and continue with
+[QA, review, and fix](./review-and-fix.md).
+
 ## Three approval gates
 
 edit-plan doesn't run straight through to the end — it pauses for chat approval at three
