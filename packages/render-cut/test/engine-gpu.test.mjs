@@ -48,7 +48,7 @@ test("explicit GPU reaches launcher resolution on win32 and linux while auto rem
         platform: process.platform,
         env: {},
         homeDirectory: "/nonexistent-akari-home",
-        probe: async (executable) => executable === "/electron",
+        probe: async (_executable, { kind } = {}) => kind !== "desktop" && kind !== "desktop-runtime",
         resolveElectron: () => "/electron",
       });
       assert.equal(launcher.tier, 2);
