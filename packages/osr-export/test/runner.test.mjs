@@ -9,13 +9,16 @@ import test from "node:test";
 import {
   buildElectronArguments,
   desktopCandidates,
+  ELECTRON_CHILD_ENV_BLOCKLIST,
+  electronChildEnvironment,
   FALLBACK_WARNING,
   launchElectronExport,
   resolveElectronLauncher,
 } from "../src/runner.mjs";
 
-function spawnMock({ code = 0, stdout = [], beforeClose } = {}) {
-  return () => {
+function spawnMock({ code = 0, stdout = [], beforeClose, calls } = {}) {
+  return (command, args, options) => {
+    calls?.push({ command, args, options });
     const child = new EventEmitter();
     child.stdout = new PassThrough();
     child.stderr = new PassThrough();
@@ -232,6 +235,78 @@ test("exit 1 は既存の Electron 終了エラーを維持する", async () => 
       /OSR Electron exited 1/,
     );
   } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("electronChildEnvironment は ELECTRON_RUN_AS_NODE だけを外し、他の変数と元の env は保つ（#27）", () => {
+  const env = { ELECTRON_RUN_AS_NODE: "1", PATH: "/usr/bin", AKARI_OSR_SOFT: "1" };
+  const child = electronChildEnvironment(env);
+  assert.deepEqual(child, { PATH: "/usr/bin", AKARI_OSR_SOFT: "1" });
+  assert.equal(env.ELECTRON_RUN_AS_NODE, "1");
+  assert.deepEqual([...ELECTRON_CHILD_ENV_BLOCKLIST], ["ELECTRON_RUN_AS_NODE"]);
+});
+
+test("electronChildEnvironment は Windows の大文字小文字違いも外す（#27）", () => {
+  const child = electronChildEnvironment({ electron_run_as_node: "1", Electron_Run_As_Node: "1", Path: "C:\\Windows" });
+  assert.deepEqual(child, { Path: "C:\\Windows" });
+});
+
+test("tier 1 の Electron 子プロセスは親の ELECTRON_RUN_AS_NODE を継承しない（#27）", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-runner-"));
+  try {
+    const out = join(root, "video.mp4");
+    const calls = [];
+    await launchElectronExport({ tier: 1, executable: "/desktop" }, exportOptions(out), {
+      spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }),
+      env: { ELECTRON_RUN_AS_NODE: "1", PATH: "/usr/bin" },
+    });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].command, "/desktop");
+    assert.equal(calls[0].args[0], "--force-device-scale-factor=1");
+    assert.equal("ELECTRON_RUN_AS_NODE" in calls[0].options.env, false);
+    assert.equal(calls[0].options.env.PATH, "/usr/bin");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("tier 2 の Electron 子プロセスも ELECTRON_RUN_AS_NODE を外して spawn する（#27）", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-runner-"));
+  try {
+    const out = join(root, "video.mp4");
+    const calls = [];
+    await launchElectronExport({ tier: 2, executable: "/npm/electron" }, exportOptions(out), {
+      spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }),
+      env: { ELECTRON_RUN_AS_NODE: "1", AKARI_OSR_VERIFY: "hash" },
+    });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].command, "/npm/electron");
+    assert.match(calls[0].args[0], /electron-main\.mjs$/);
+    assert.equal("ELECTRON_RUN_AS_NODE" in calls[0].options.env, false);
+    assert.equal(calls[0].options.env.AKARI_OSR_VERIFY, "hash");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("env 未指定なら process.env から ELECTRON_RUN_AS_NODE を外して渡す（shim 経由の CLI 起動・#27）", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-runner-"));
+  const previous = process.env.ELECTRON_RUN_AS_NODE;
+  process.env.ELECTRON_RUN_AS_NODE = "1";
+  try {
+    const out = join(root, "video.mp4");
+    const calls = [];
+    await launchElectronExport({ tier: 1, executable: "/desktop" }, exportOptions(out), {
+      spawnImpl: spawnMock({ calls, beforeClose: () => writeFile(out, "video") }),
+    });
+    assert.equal(calls.length, 1);
+    assert.equal("ELECTRON_RUN_AS_NODE" in calls[0].options.env, false);
+    assert.equal(calls[0].options.env.PATH, process.env.PATH);
+    assert.equal(process.env.ELECTRON_RUN_AS_NODE, "1");
+  } finally {
+    if (previous === undefined) delete process.env.ELECTRON_RUN_AS_NODE;
+    else process.env.ELECTRON_RUN_AS_NODE = previous;
     await rm(root, { recursive: true, force: true });
   }
 });

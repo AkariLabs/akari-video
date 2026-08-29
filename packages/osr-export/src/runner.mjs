@@ -19,6 +19,11 @@ export const SOFT_CHROMIUM_SWITCHES = Object.freeze([
   "--enable-unsafe-swiftshader",
   "--use-angle=swiftshader",
 ]);
+// Electron 子プロセスへ渡さない環境変数（refs #27）。ELECTRON_RUN_AS_NODE は shell 配布の akari shim・アプリ内書き出し・
+// パートナー CLI サーバーが「同梱 Electron を node として使う」ために親側で 1 を立てるが、そのまま継承すると
+// 子の AKARI Video / npm Electron も Node モードで起動する（tier 1 は Chromium スイッチを bad option で拒否して exit 9、
+// tier 2 は electron-main.mjs が素の Node で走り app が undefined）。名前の比較は Windows の大文字小文字非区別に合わせる。
+export const ELECTRON_CHILD_ENV_BLOCKLIST = Object.freeze(["ELECTRON_RUN_AS_NODE"]);
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRequire = createRequire(import.meta.url);
 
@@ -63,9 +68,19 @@ export async function resolveElectronLauncher({
   return { tier: 3, kind: "legacy", executable: null, reason, warning: FALLBACK_WARNING };
 }
 
+export function electronChildEnvironment(env = process.env) {
+  const blocked = new Set(ELECTRON_CHILD_ENV_BLOCKLIST.map((name) => name.toUpperCase()));
+  const child = {};
+  for (const [name, value] of Object.entries(env)) {
+    if (!blocked.has(name.toUpperCase())) child[name] = value;
+  }
+  return child;
+}
+
 export async function launchElectronExport(launcher, options, {
   spawnImpl = spawn,
   argumentBuilder = buildElectronArguments,
+  env = process.env,
 } = {}) {
   if (launcher.tier === 3) return { fellBackToLegacy: true, launcher };
   const args = argumentBuilder(launcher, options);
@@ -78,7 +93,7 @@ export async function launchElectronExport(launcher, options, {
     progressLines += lines.filter((line) => line.startsWith("PROGRESS frame=")).length;
     options.onStdout?.(text);
   };
-  await spawnAndWait(launcher.executable, args, { spawnImpl, onStdout, onStderr: options.onStderr });
+  await spawnAndWait(launcher.executable, args, { spawnImpl, env, onStdout, onStderr: options.onStderr });
   if (pendingStdout.startsWith("PROGRESS frame=")) progressLines += 1;
   const output = await stat(options.out).catch(() => null);
   if (!output || output.size === 0) {
@@ -168,9 +183,9 @@ async function defaultProbe(path) {
   return existsSync(path);
 }
 
-function spawnAndWait(command, args, { spawnImpl, onStdout, onStderr }) {
+function spawnAndWait(command, args, { spawnImpl, env, onStdout, onStderr }) {
   return new Promise((resolvePromise, rejectPromise) => {
-    const child = spawnImpl(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawnImpl(command, args, { env: electronChildEnvironment(env), stdio: ["ignore", "pipe", "pipe"] });
     child.stdout?.on("data", (chunk) => { onStdout?.(chunk.toString()); });
     child.stderr?.on("data", (chunk) => { onStderr?.(chunk.toString()); });
     child.once("error", rejectPromise);

@@ -166,6 +166,20 @@ v0.1.27 からの挙動: `resolveOsrLauncher`（製品入口）はインスト�
 
 **2026-08-29 追記（根治）**: 書き出し専用の入口 `apps/shell/electron-entry.js` が合流した（§6 / §11.4）。`resolveOsrLauncher` の既定を戻し、インストール済みアプリを再び tier 1 の候補にする（v0.1.28〜）。`allowInstalledDesktop: false` は明示の opt-out として残す。
 
+### 11.6 親の `ELECTRON_RUN_AS_NODE` が Electron 子プロセスへ継承される（2026-08-29 追記・#27）
+
+v0.1.28 実機（macOS Apple Silicon / Windows RTX 5060）で実証: shell 配布の `akari` shim
+（`ELECTRON_RUN_AS_NODE=1 exec <同梱 Electron> akari.mjs`）・アプリ内書き出し・パートナー CLI サーバーは、同梱 Electron を
+node として使うためにこの変数を立てる。`launchElectronExport` が親の環境をそのまま子へ渡していたため、tier 1 の AKARI Video は
+Chromium スイッチを `bad option` で拒否して exit 9、tier 2 の npm Electron は `electron-main.mjs` を素の Node で実行して
+`app` が undefined になり、いずれも PROGRESS 0 行で終わる。GPU 出口（§12）も同じ launcher を共有するため同時に落ちる。
+§11.4 / §11.5 の解消後に露出した、起動環境の問題。
+
+修正後: `spawnAndWait` は `electronChildEnvironment(env)` を通した環境で起動する
+（`ELECTRON_CHILD_ENV_BLOCKLIST = ["ELECTRON_RUN_AS_NODE"]`、名前は Windows に合わせ大文字小文字非区別で比較）。
+他の変数（`AKARI_OSR_*` / `AKARI_FFMPEG_BIN` / `PATH` 等）は従来どおり継承する。shim 側で変数を外す案は採らない
+（shim の外で立てられた変数には効かず、書き出し側で一律に守るのが唯一の境界）。
+
 ## 12. GPU 直結出口との共有境界（2026-08-28 追記）
 
 [GPU 直結書き出し v0](./contract-2026-08-28-gpu-export-v0.md) は、本契約の launcher 3 段、static
