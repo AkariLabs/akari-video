@@ -42,12 +42,98 @@
     },
     "tracks": {
       "$ref": "#/$defs/tracks"
+    },
+    "probe": {
+      "$ref": "#/$defs/mediaProbe"
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/observation"
+      }
     }
   },
   "$defs": {
     "seconds": {
       "type": "number",
       "minimum": 0
+    },
+    "mediaProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "size_bytes", "container", "duration_s", "video", "audio", "tool"],
+      "properties": {
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "container": { "type": "string", "minLength": 1 },
+        "duration_s": { "$ref": "#/$defs/seconds" },
+        "video": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["width", "height", "fps", "codec", "rotation"],
+              "properties": {
+                "width": { "type": "integer", "minimum": 1 },
+                "height": { "type": "integer", "minimum": 1 },
+                "fps": { "type": "number", "exclusiveMinimum": 0 },
+                "codec": { "type": "string", "minLength": 1 },
+                "rotation": { "type": "number" }
+              }
+            }
+          ]
+        },
+        "audio": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["codec", "channels", "sample_rate"],
+              "properties": {
+                "codec": { "type": "string", "minLength": 1 },
+                "channels": { "type": "integer", "minimum": 1 },
+                "sample_rate": { "type": "integer", "minimum": 1 }
+              }
+            }
+          ]
+        },
+        "tool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ffprobe"],
+          "properties": { "ffprobe": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "at", "args", "outputs", "tool"],
+      "properties": {
+        "kind": { "enum": ["probe", "grab", "filmstrip", "waveform", "transcribe"] },
+        "at": { "type": "string", "minLength": 1 },
+        "range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["in", "out"],
+          "properties": { "in": { "$ref": "#/$defs/seconds" }, "out": { "$ref": "#/$defs/seconds" } }
+        },
+        "args": { "type": "object", "additionalProperties": true },
+        "outputs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "tool": { "type": "string", "minLength": 1 }
+      }
+    },
+    "waveformTrackPointer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "tool", "generated_at"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "tool": { "type": "string", "minLength": 1 },
+        "generated_at": { "type": "string", "minLength": 1 }
+      }
     },
     "word": {
       "$comment": "M5 契約例で省略されている words の要素を、区間・本文を持つ最小形として定義する。",
@@ -535,6 +621,9 @@
         },
         "face_expression": {
           "$ref": "#/$defs/visionTrackPointer"
+        },
+        "waveform": {
+          "$ref": "#/$defs/waveformTrackPointer"
         }
       }
     }

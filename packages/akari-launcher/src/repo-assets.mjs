@@ -53,6 +53,7 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
   const probeFrameScript = path.join(repoRoot, PROBE_FRAME_SCRIPT_RELATIVE);
   const renderWhenIdleScript = path.join(repoRoot, RENDER_WHEN_IDLE_SCRIPT_RELATIVE);
   const eyeBarScript = path.join(repoRoot, EYE_BAR_SCRIPT_RELATIVE);
+  const mediaScript = path.join(repoRoot, 'packages', 'akari-tools', 'bin', 'media.mjs');
 
   return {
     repoRoot,
@@ -67,7 +68,8 @@ export function resolveRepoAssets(repoRoot = DEFAULT_REPO_ROOT_CANDIDATE) {
     beatmapScript: existsSync(beatmapScript) ? beatmapScript : null,
     probeFrameScript: existsSync(probeFrameScript) ? probeFrameScript : null,
     renderWhenIdleScript: existsSync(renderWhenIdleScript) ? renderWhenIdleScript : null,
-    eyeBarScript: existsSync(eyeBarScript) ? eyeBarScript : null
+    eyeBarScript: existsSync(eyeBarScript) ? eyeBarScript : null,
+    mediaScript: existsSync(mediaScript) ? mediaScript : null
   };
 }
 
@@ -98,6 +100,7 @@ export function resolveLauncherAssets({
     beatmapScript: candidate.beatmapScript ?? vendor.beatmapScript,
     probeFrameScript: candidate.probeFrameScript ?? vendor.probeFrameScript,
     renderWhenIdleScript: candidate.renderWhenIdleScript ?? vendor.renderWhenIdleScript,
-    eyeBarScript: candidate.eyeBarScript ?? vendor.eyeBarScript
+    eyeBarScript: candidate.eyeBarScript ?? vendor.eyeBarScript,
+    mediaScript: candidate.mediaScript ?? vendor.mediaScript
   };
 }
