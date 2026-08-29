@@ -12,6 +12,7 @@ export * from './transition-vocabulary';
 export * from './transition-visual';
 export * from './ducking';
 export * from './audio-schedule';
+export { captionAnchorPositionVars } from './caption-display';
 /** Browser selection is timeline-domain only. Segmentation stays in the Node caller. */
 export declare function findActiveResolvedCaption<T extends {
     start: number;

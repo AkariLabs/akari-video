@@ -844,6 +844,57 @@ function uniqueSorted(values) {
   return [...new Set(values)].sort((left, right) => left - right);
 }
 
+// ../edit-store/src/caption-display.ts
+var CAPTION_VERTICAL_ALIGN_VALUES = /* @__PURE__ */ new Set(["top", "middle", "bottom"]);
+var CAPTION_TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
+var CAPTION_LAYOUT_KEYS = /* @__PURE__ */ new Set([
+  "mode",
+  "reference_width_px",
+  "reference_height_px",
+  "left_px",
+  "width_px",
+  "bottom_px",
+  "text_align",
+  "max_lines"
+]);
+var CAPTION_LAYOUT_REQUIRED_KEYS = [...CAPTION_LAYOUT_KEYS];
+function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
+  const anchor = typeof anchorValue === "string" && CAPTION_TEXT_ANCHOR_VALUES.has(anchorValue) ? anchorValue : void 0;
+  const position = isRecord(positionValue) ? positionValue : void 0;
+  const verticalAlign = typeof verticalAlignValue === "string" && CAPTION_VERTICAL_ALIGN_VALUES.has(verticalAlignValue) ? verticalAlignValue : void 0;
+  if (!anchor && !position && !verticalAlign) return {};
+  const vars = {};
+  const vertical = anchor ? anchor[0] : verticalAlign === "top" ? "t" : verticalAlign === "middle" ? "m" : "b";
+  const horizontal = anchor ? anchor[1] : "c";
+  if (typeof position?.y === "number" && Number.isFinite(position.y)) {
+    const clamped = Math.min(1, Math.max(0, position.y));
+    vars["--caption-top"] = `${Math.round(clamped * 1e4) / 100}%`;
+    vars["--caption-bottom"] = "auto";
+  } else if (anchor || verticalAlign) {
+    vars["--caption-top"] = vertical === "t" ? "7%" : vertical === "m" ? "0" : "auto";
+    vars["--caption-bottom"] = vertical === "b" ? "7%" : vertical === "m" ? "0" : "auto";
+    if (vertical === "m") vars["--caption-justify-content"] = "center";
+  }
+  if (typeof position?.x === "number" && Number.isFinite(position.x)) {
+    const clamped = Math.min(1, Math.max(0, position.x));
+    vars["--caption-left"] = `${Math.round(clamped * 1e4) / 100}%`;
+    vars["--caption-right"] = "4%";
+    vars["--caption-align-items"] = "flex-start";
+    vars["--caption-line-margin"] = "0";
+  } else if (anchor) {
+    vars["--caption-left"] = "4%";
+    vars["--caption-right"] = "4%";
+    vars["--caption-align-items"] = horizontal === "l" ? "flex-start" : horizontal === "r" ? "flex-end" : "center";
+    vars["--caption-text-align"] = horizontal === "l" ? "left" : horizontal === "r" ? "right" : "center";
+    vars["--caption-line-margin"] = "0";
+    vars["--caption-line-max-width"] = "100%";
+  }
+  return vars;
+}
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 // ../edit-store/src/webview-kernel.ts
 function findActiveResolvedCaption(cues, outputTime) {
   return cues.find((cue) => cue.start <= outputTime && outputTime < cue.end);
@@ -856,6 +907,7 @@ export {
   TRANSITION_VOCABULARY,
   buildTimelineMap,
   buildWebAudioSchedule,
+  captionAnchorPositionVars,
   captionWindowSeconds,
   computeBgmDuckGainDb,
   computeDuckIntervals,

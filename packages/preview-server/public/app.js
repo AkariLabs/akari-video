@@ -4,6 +4,7 @@
 // （パリティ契約 §2.1/§2.2。書き込み側 SSOT computeCutTrackSegments と同じ意味論）。
 import {
   buildTimelineMap,
+  captionAnchorPositionVars,
   computeBgmDuckGainDb,
   computeDuckIntervals,
   computeTransitionVisual,
@@ -176,6 +177,17 @@ const cutFx = createCutFxController(() => ({ summary, segment: getActiveSegment(
 let captionsResolvedTimeline = false;
 let captionStylesInjected = false;
 
+function applyCaptionApiPayload(body) {
+  captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
+  captionsResolvedTimeline = !Array.isArray(body) && body?.schema === 'caption-layout/v1';
+  // legacy object ルートの既定スタイルは captions API から届くため、字幕描画が参照する
+  // summary へ同居させる。display_policy 経路は解決済み style_vars を持つので対象外。
+  if (!captionsResolvedTimeline && body && typeof body === 'object'
+    && Object.prototype.hasOwnProperty.call(body, 'default_text_style')) {
+    summary = { ...summary, default_text_style: body.default_text_style };
+  }
+}
+
 // All geometry/capture paths await the exact repository-owned variable font.
 // The unique family name makes a system-installed Noto unable to satisfy check().
 window.__akariCaptionFontReady = (async () => {
@@ -222,8 +234,7 @@ async function init() {
     summary = await editRes.json();
     if (captionsRes.ok) {
       const body = await captionsRes.json();
-      captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
-      captionsResolvedTimeline = body?.schema === 'caption-layout/v1';
+      applyCaptionApiPayload(body);
     } else {
       captionsData = [];
     }
@@ -2825,8 +2836,7 @@ async function applySoftReload() {
   summary = await editRes.json();
   if (captionsRes.ok) {
     const body = await captionsRes.json();
-    captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
-    captionsResolvedTimeline = !Array.isArray(body) && body?.schema === 'caption-layout/v1';
+    applyCaptionApiPayload(body);
   } else {
     captionsData = [];
     captionsResolvedTimeline = false;
@@ -3830,6 +3840,12 @@ function applyCaptionStyle(caption) {
   }
   const zone = ts?.zone || dts?.zone || 'bottom';
   Object.assign(vars, captionZoneVars(zone));
+  const textAnchor = ts?.text_anchor ?? dts?.text_anchor;
+  const position = ts?.position || dts?.position
+    ? { ...dts?.position, ...ts?.position }
+    : undefined;
+  const verticalAlign = ts?.vertical_align ?? dts?.vertical_align;
+  Object.assign(vars, captionAnchorPositionVars(textAnchor, position, verticalAlign));
   replaceCaptionStyleVariables(captionPlate.style, vars);
   captionPlate.classList.toggle('akari-caption-resolved', captionsResolvedTimeline);
   captionPlate.classList.toggle('akari-caption-styled', captionsResolvedTimeline || !!ts || !!dts);
@@ -4196,8 +4212,7 @@ function connectWs() {
           if (summaryResponse.ok) summary = await summaryResponse.json();
           if (captionsResponse.ok) {
             const body = await captionsResponse.json();
-            captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
-            captionsResolvedTimeline = body?.schema === 'caption-layout/v1';
+            applyCaptionApiPayload(body);
             _lastCaptionId = null;
             updateCaption();
           }
