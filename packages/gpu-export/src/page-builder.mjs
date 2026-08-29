@@ -8,7 +8,7 @@ import { renderOverlaySheet } from "../../render-cut/src/rasterize.mjs";
 import { resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
 import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
-import { evaluateGpuEligibility } from "./eligibility.mjs";
+import { classifyCaptionWordMode, evaluateGpuEligibility } from "./eligibility.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
@@ -53,10 +53,19 @@ export function buildGpuPage({
   const dom = buildDomRuns(indexedOverlays, classifications, duration);
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
   const portrait = height > width;
+  const resolvedEmphasisWords = Array.isArray(captions)
+    ? edit.emphasis_words ?? []
+    : captions?.emphasis_words ?? edit.emphasis_words ?? [];
   const spriteManifest = {
     captions: captionOverlays.map((overlay) => {
       const cue = cueById.get(String(overlay.generatedFrom)) ?? {};
       const textStyle = mergeTextStyle(defaultTextStyle, cue.text_style);
+      const word = classifyCaptionWordMode({
+        cue,
+        output: { width, height },
+        inheritedTextStyle: defaultTextStyle,
+        emphasisWords: resolvedEmphasisWords,
+      });
       return {
         id: String(overlay.id),
         start: Number(overlay.start),
@@ -65,6 +74,10 @@ export function buildGpuPage({
         vars: overlay.vars ?? {},
         emPx: Number(textStyle?.size_px ?? (portrait ? Math.round(width * 0.06) : 38)),
         motion: textStyle?.animation ?? null,
+        wordMode: word.wordMode,
+        styleId: word.effectiveStyle,
+        emphasisStyles: word.emphasisStyles,
+        sourceWordCount: word.wordCount,
       };
     }),
     statics: statics.map(({ overlay, index }) => ({
@@ -139,7 +152,7 @@ export function buildGpuPage({
       dimensions: { width, height },
       fps,
       duration,
-      layers: ["engine-canvas", "static-html-sprites", "three-canvas", "dom-layer", "caption-sprites"],
+      layers: ["engine-canvas", "static-html-sprites", "three-canvas", "dom-layer", "caption-sprites", "caption-word-tiles"],
       captionSpriteCount: spriteManifest.captions.length,
       staticSpriteCount: spriteManifest.statics.length,
       threeSpriteCount: spriteManifest.three.length,

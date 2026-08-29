@@ -16,7 +16,7 @@
 
 | 分類 | 適格 | 意味 |
 |---|---|---|
-| `same` | はい | 静的 HTML または対応済み字幕。起動時に 1 回だけスプライト化する |
+| `same` | はい | 静的 HTML は起動時、対応済み字幕は unit の初回活性時に 1 回だけスプライト化する |
 | `three` | はい | JSON の宣言型 3D scene と描画先 canvas を持つ overlay。毎コマ Three.js canvas を更新する |
 | `degraded` | いいえ | raster 自体は可能でも live DOM と同じ時間変化を保証できない |
 | `unsupported` | いいえ | v0 の表現範囲外であり、正しい完成画を生成できない |
@@ -27,13 +27,67 @@ CSS animation/transition/keyframes、filter/mask/clip-path 等を検出する。
 `<script type="application/json" data-akari-3d-scene>` 宣言を属性順にかかわらずちょうど 1 個持ち、
 それ以外の script と video を持たない宣言型 3D は `three` とする。3D の描画先である canvas は許可する。
 
-字幕は cue ごとに 1 回 rasterize し、出現・loop・消失を解析的な opacity と中心基準 affine 変換で
-再現する。次は v0 で `unsupported` とする。
+字幕は cue ごとに rasterize し、出現・loop・消失を解析的な opacity と中心基準 affine 変換で
+再現する。v2 では `words[]` を持つ karaoke、pop、reveal、reveal-word と `emphasis_words` も
+語矩形タイルとして GPU-native に合成する。次は引き続き `unsupported` とする。
 
-- `words[]` を持つ karaoke、pop、reveal、reveal-word 等の語単位表示。
-- `emphasis_words`。
+- 同一 unit に karaoke の色補間と、pop / one-char-bang / one-char-jumble / size-pulse の幾何変形が混在するもの。
+- 語矩形タイルで再現できない縦書きの語単位字幕。
 - 未知の motion、および clip-path を使う push/typewriter/wipe/glitch。
 - `transform-origin: top center` を必要とする swing。
+
+### 2.1 語単位字幕（v2）
+
+語単位字幕の意味論は `packages/render-cut/src/captions.mjs` が生成する DOM と CSS を正本とする。
+GPU 出口はその DOM を別実装で組み直さず、同じ DOM から `getClientRects()` で各語の矩形を採寸する。
+1 語が改行をまたいで複数矩形を返す場合は全矩形を保持する。縦長出力で style 無指定かつ
+`words[]` があり複数行になる cue は、正本と同じ行分割関数で reveal へ自動昇格する。
+採寸は独立した DOM root の挿入ごとに行い、全 variant の全測定値が 2 回連続で厳密一致するまで
+測り直す。上限は 32 回とし、収束しなければ `caption-measure-unstable` を理由コードと warning に残して
+fail-closed とする。HW で max 6、soft で max 7 だった実測に対する余裕として 32 回を採る。
+許容差、平均、丸めによって走間の揺らぎを隠さない。
+
+| 対象 | 毎コマの状態 |
+|---|---|
+| karaoke | 語の start まで基本色、start〜end は語全体の色を linear 補間、end 以後は highlight 色 |
+| pop | start から 0.2 秒、語矩形中心で `translateY(0→-0.08em→0)` と `scale(1→1.12→1)` |
+| reveal-word | start から 0.01 秒で opacity 0→1 |
+| reveal | 行群を 0/12/99.99/100% の opacity・translateY keyframe で順送りし、前群は終了時に消す |
+| one-char-bang / one-char-jumble | 文字ごとに opacity 0→1、scale 1.6→1。jumble の静的変形はラスタへ保持 |
+| size-pulse | 語矩形中心で scale 1→1.25→1 |
+| 色・太さ・縁取りだけの emphasis | 静的な基本ラスタへ焼き込み、毎コマの状態評価はしない |
+
+karaoke は左から右へのワイプではない。正本の keyframes は `color` の from/to だけなので、基本色と
+highlight 色の 2 ラスタを語タイル内で時間比率により mix する。CSS timing function は keyframe 区間ごとに
+適用し、pop と size-pulse の 0〜50% / 50〜100% をそれぞれ ease してから補間する。
+
+ラスタ単位を unit と呼ぶ。通常は cue 1 個、reveal は重なった `.akari-caption__reveal-group` 1 個を
+unit 1 個とする。unit ごとのラスタは最大 2 枚で、色モードは基本色 / highlight 色、幾何モードは
+プレート背景 / 透明背景の文字、状態なしは基本 1 枚だけを持つ。2 状態 DOM の全語矩形は各成分差
+0.01 px 以下であることを起動時に検査し、超過は fail-closed とする。ラスタは unit ごとに 1 回だけ作り、毎コマは
+行ストリップと語境界でフレームを隙間なく分割した整数タイルを配列順に合成する。3 枚目や毎コマ rasterize は行わない。
+
+ラスタ SVG はフレーム全面ではなく、出力幅を維持した字幕帯だけの `viewBox` を持つ。開始時刻順の
+連続する最大 8 unit、かつ全バンド高 4096 px 以下を 1 バッチとし、各 unit の 1〜2 状態を縦方向の
+バンドとして 1 枚の SVG に積み、デコードはバッチにつき 1 回だけ行う。variant CSS は
+`data-akari-band` ごとにスコープし、埋め込みフォントの `@font-face` は SVG 内に 1 本だけ置く。
+初めて必要になった unit のバッチをまとめて登録する一方、GPU texture は活性区間の終了時に unit ごとに
+解放し、バッチのために寿命を延ばさない。upload 後の切り出し用 CPU canvas とデコード画像も破棄する。
+
+SVG の入力は data URL に固定する。Blob URL と同一オリジン HTTP URL は SVG 内フォントを含む canvas を
+汚染し、`getImageData` だけでなく `texImage2D(canvas)` も `SecurityError` になるため使用しない。
+フォント data URL は `encodeURIComponent` 済みの文字列を 1 度だけ作って再利用し、生の base64 を
+キャッシュしない。
+
+適格な cue は理由 `words-native` とし、receipt に `mode`（`sprite` / `words-native`）、style、unit 数、
+語数、ラスタ枚数、バンド数、タイル数と `captionLayoutMaxDeltaPx`、採寸試行の count / p50 / max、
+バッチ実測、字幕ラスタ合計時間を記録する。未知 style は
+`caption-style-unsupported:<value>`、色と幾何の混在は `words-native-color-and-geometry-mixed` とする。
+
+検収は style 5 種 × 各 5 時刻について GPU / OSR decode の画面下 1/4 MAD 1.0 以下、語境界の対比画像
+6 枚以内の目視、語状態評価と合成の追加コスト中央値 1 ms/コマ以下、hardware / software の指定 fixture
+2 走一致、製品経路の読み戻し 0 を要求する。性能 gate は cue ラスタ p50 500 ms 以下、karaoke 44 cue の
+akari-video-pv 18 ms/コマ以下、小 fixture（360 コマ・3 cue）の RSS peak 900 MB 以下とする。
 
 `--engine auto` は macOS で全件適格なら `gpu`、不適格なら `osr` を選ぶ。他 OS の `auto` は従来の
 選択を維持する。明示 `--engine gpu` と不適格の組み合わせは理由を全件表示して fail-closed とし、
@@ -125,9 +179,9 @@ GPU と OSR の decode 比較は、engine-only 区間の per-frame MAD 1.0 以�
 OSR receipt と同じ warning/hard-stop 語彙を使う。`--engine osr` と `--engine gpu` は receipt 以外の
 最終成果物パス・命名と `.akari/render.json` の置き場を共有する。
 
-## 8. v0 の限界
+## 8. v0 / v2 の限界
 
-- karaoke、語単位 style、`emphasis_words` は GPU-native glyph/word texture 実装まで非対応。
+- 語矩形で表せない演出、色補間と幾何変形が同居する cue、縦書きの語単位字幕は glyph atlas 等の次段が必要。
 - 動的自由 HTML は OSR または事前ベイクが必要。
 - Windows の hardware H.264 encoder は v0 の提供対象外。
 - 長尺の区間並列、複数 process 並列は非対応。

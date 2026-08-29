@@ -65,7 +65,8 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
 
    出力を明示する場合だけ `--out <path>` を加える。CLI の validate → plan → render → verify を分解して手作業で代替しない。
    GPU 直結を明示する場合は `--engine gpu` を加える。CSS animation / transition / `@keyframes` /
-   Web Animations / `@property` だけで動く HTML は DOM 層として適格。不適格な字幕・HTML があれば
+   Web Animations / `@property` だけで動く HTML は DOM 層として適格。`words[]` の karaoke / pop /
+   reveal / reveal-word と対応済み `emphasis_words` は GPU-native 適格。不適格な字幕・HTML があれば
    理由付きで fail-closed になり、`--engine auto` は macOS で適格時だけ GPU、それ以外は OSR を選ぶ。
 6. exit code と `.akari/render.json` を確認する。`0` は完走して verify PASS、`1` は拒否または verify FAIL、`2` は実行エラーを表す。`provenance.rasterizer` で採用手段と上位候補を落とした理由を確認する。`verify.findings` には
    尺・フレーム数厳密一致（`verify.frame-count`）・全フレームデコード成功（`verify.decode`）・解像度・fps・コーデック等が並ぶ。

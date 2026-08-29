@@ -23,3 +23,24 @@ test("GPU receipt records direct mux, no re-encode, and every eligibility row", 
   assert.equal(receipt.gpu.bitrate, 12_000_000);
   assert.deepEqual(receipt.gpu.domLayer, { runs: 1, overlays: 2, policy: "sync-layout" });
 });
+
+test("GPU receipt carries caption measurement and raster batch diagnostics", () => {
+  const receipt = buildGpuReceipt({
+    run: { gpu: {
+      captionMeasureAttempts: { count: 6, p50: 2, max: 4 },
+      captionRasterTotalMs: 1234.5,
+      captionRasterBatches: { batches: 2, unitsPerBatchMax: 8, bandsMax: 16 },
+    } },
+  });
+  assert.deepEqual(receipt.gpu.captionMeasureAttempts, { count: 6, p50: 2, max: 4 });
+  assert.equal(receipt.gpu.captionRasterTotalMs, 1234.5);
+  assert.deepEqual(receipt.gpu.captionRasterBatches, { batches: 2, unitsPerBatchMax: 8, bandsMax: 16 });
+  const empty = buildGpuReceipt({ run: { gpu: { captionMeasureAttempts: { count: 0, p50: null, max: null } } } });
+  assert.deepEqual(empty.gpu.captionMeasureAttempts, { count: 0, p50: null, max: null });
+});
+
+test("GPU receipt rejects caption modes outside sprite and words-native", () => {
+  assert.throws(() => buildGpuReceipt({
+    run: { gpu: { captions: [{ id: "c-0001-01", mode: "karaoke", units: 1, words: 1, rasters: 2, tiles: 3 }] } },
+  }), /sprite\|words-native/u);
+});

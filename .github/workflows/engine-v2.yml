@@ -373,7 +373,14 @@ jobs:
               @keyframes move { from { --bench-frame:0; transform:translateX(0); } to { --bench-frame:360; transform:translateX(240px); } }
             </style><div class="dom-fixture">DOM </div>\n`);
           await writeFile(path, JSON.stringify(edit, null, 2) + "\n");
-          await writeFile(join(root, "captions.json"), JSON.stringify({ captions: [] }, null, 2) + "\n");
+          await writeFile(join(root, "captions.json"), JSON.stringify({ captions: [{
+            id: "c-0001", start: 2, end: 5, text: "カラオケ字幕", style: "karaoke",
+            speaker: null, sourceRef: null, edited: false, time_domain: "output",
+            words: [
+              { start: 2, end: 3, text: "カラオケ" },
+              { start: 3, end: 5, text: "字幕" },
+            ],
+          }] }, null, 2) + "\n");
           NODE
       - name: Probe SwiftShader drawElementImage support
         shell: bash

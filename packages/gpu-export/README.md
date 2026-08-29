@@ -19,6 +19,23 @@ Embedded contexts, CSS 3D transforms, self-driving JavaScript clocks, media elem
 scripts, and external resources fail closed. Karaoke and other word-level captions and emphasis
 words remain outside v1.
 
+### Word-level captions (v2)
+
+Karaoke, pop, reveal, reveal-word, and supported `emphasis_words` are GPU-native. Each caption unit
+is rasterized on first activation into at most two states, while word rectangles measured from the canonical
+caption DOM drive per-frame color mixing, visibility, and affine transforms. Karaoke follows the DOM
+color interpolation rather than a left-to-right wipe. Receipts report `sprite` or `words-native`
+along with unit, word, raster, tile, and two-state layout-delta measurements.
+
+Raster textures keep the full output width but crop vertically to the caption band. They are created
+in start-time-ordered batches of up to eight units / 4096 band pixels with one data-URL decode per
+batch; variant CSS is scoped per band and the embedded font occurs once per SVG. Measurements require
+two consecutive exact results (at most 32 attempts), while GPU textures are still released per unit.
+Blob and HTTP SVG URLs are forbidden because they taint the canvas and WebGL upload.
+
+Mixed karaoke color and geometric emphasis, vertical word captions, and unknown word styles remain
+ineligible and fail closed with a concrete reason.
+
 `render-cut --engine auto` uses GPU export on macOS only when the complete project is eligible;
 otherwise it uses OSR. Explicit `--engine gpu` fails closed and prints every ineligibility reason.
 

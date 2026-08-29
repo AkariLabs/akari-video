@@ -7,6 +7,31 @@ import { hashDeclaredRenderInputs } from "./render-inputs.mjs";
 
 export const ABSENT_REVIEW_SENTINEL = "AKARI_REVIEW_ABSENT/v1";
 export const ABSENT_LINT_SENTINEL = "AKARI_LINT_ABSENT/v1";
+export const GPU_CAPTION_RECEIPT_MODES = Object.freeze(["sprite", "words-native"]);
+
+export function normalizeGpuCaptionReceiptEntries(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    if (!item || typeof item.id !== "string" || !GPU_CAPTION_RECEIPT_MODES.includes(item.mode)) {
+      throw new Error("GPU caption receipt requires an id and sprite|words-native mode");
+    }
+    const integer = (name) => {
+      const number = Number(item[name]);
+      if (!Number.isInteger(number) || number < 0) throw new Error(`GPU caption receipt ${name} must be a non-negative integer`);
+      return number;
+    };
+    return {
+      id: item.id,
+      mode: item.mode,
+      style: typeof item.style === "string" ? item.style : null,
+      units: integer("units"),
+      words: integer("words"),
+      rasters: integer("rasters"),
+      bands: item.bands === undefined ? integer("rasters") : integer("bands"),
+      tiles: integer("tiles"),
+    };
+  });
+}
 
 export async function createImmutableRenderReceipt({
   projectRoot,

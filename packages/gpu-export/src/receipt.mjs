@@ -1,4 +1,5 @@
 import { resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
+import { normalizeGpuCaptionReceiptEntries } from "../../render-cut/src/render-receipt.mjs";
 
 export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility = { entries: [] }, finalVerify = null, profile = "gpu" } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
@@ -20,6 +21,11 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       queueWaits: run?.gpu?.queueWaits ?? null,
       rss_peak: memory.peakBytes ?? null,
       readback: run?.gpu?.readbackCounters ?? {},
+      captions: normalizeGpuCaptionReceiptEntries(run?.gpu?.captions),
+      captionLayoutMaxDeltaPx: finiteNonNegative(run?.gpu?.captionLayoutMaxDeltaPx),
+      captionMeasureAttempts: normalizeAttemptSummary(run?.gpu?.captionMeasureAttempts),
+      captionRasterTotalMs: finiteNonNegative(run?.gpu?.captionRasterTotalMs),
+      captionRasterBatches: normalizeBatchSummary(run?.gpu?.captionRasterBatches),
       domLayer: run?.domLayer ?? null,
       eligibility: [...(eligibility?.entries ?? [])],
     },
@@ -35,4 +41,34 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
     run: run?.persistentPath ?? null,
     finalVerify,
   };
+}
+
+function finiteNonNegative(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function normalizeAttemptSummary(value) {
+  if (!value || typeof value !== "object") return null;
+  const count = nonNegativeInteger(value.count);
+  if (count === 0 && value.p50 === null && value.max === null) return { count: 0, p50: null, max: null };
+  const p50 = nonNegativeInteger(value.p50);
+  const max = nonNegativeInteger(value.max);
+  return count === null || p50 === null || max === null ? null : { count, p50, max };
+}
+
+function normalizeBatchSummary(value) {
+  if (!value || typeof value !== "object") return null;
+  const batches = nonNegativeInteger(value.batches);
+  const unitsPerBatchMax = nonNegativeInteger(value.unitsPerBatchMax);
+  const bandsMax = nonNegativeInteger(value.bandsMax);
+  return batches === null || unitsPerBatchMax === null || bandsMax === null
+    ? null
+    : { batches, unitsPerBatchMax, bandsMax };
+}
+
+function nonNegativeInteger(value) {
+  if (value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
 }
