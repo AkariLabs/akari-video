@@ -9,6 +9,7 @@ import { resolveLutPath } from "../../render-cut/src/render-inputs.mjs";
 import { readRenderEdit } from "../../render-cut/src/internal-render.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { classifyCaptionWordMode, evaluateGpuEligibility } from "./eligibility.mjs";
+import { parseThreeEntrance } from "./three-entrance.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
@@ -84,9 +85,17 @@ export function buildGpuPage({
       id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration),
       html: overlay.html, vars: resolveOverlayVars(overlay), index,
     })),
-    three: three.map(({ overlay, index }) => ({
-      id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration), index,
-    })),
+    three: three.map(({ overlay, index }) => {
+      const parsed = parseThreeEntrance(overlay.html, {
+        vars: overlay.vars,
+        transform: overlay.transform,
+        role: overlay.role,
+      });
+      return {
+        id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration), index,
+        ...(parsed.ok ? { entrance: parsed.entrance } : {}),
+      };
+    }),
     dom,
   };
   const overlaySheetHtml = three.length > 0

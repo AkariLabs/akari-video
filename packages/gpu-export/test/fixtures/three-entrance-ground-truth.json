@@ -1,0 +1,17 @@
+[
+  { "id": "3d-lap-intro", "local": 0, "opacity": 0, "tx": -380, "ty": 140, "s": 0.817 },
+  { "id": "3d-lap-intro", "local": 0.2, "opacity": 0.610207, "tx": -148.121, "ty": 54.571, "s": 0.898158 },
+  { "id": "3d-lap-intro", "local": 0.6, "opacity": 0.971779, "tx": -10.7239, "ty": 3.95093, "s": 0.946247 },
+  { "id": "3d-lap-intro", "local": 1, "opacity": 0.999677, "tx": -0.122739, "ty": 0.0452196, "s": 0.949957 },
+  { "id": "3d-lap-intro", "local": 2, "opacity": 1, "tx": 0, "ty": 0, "s": 0.95 },
+  { "id": "3d-phone-intro", "local": 0, "opacity": 0, "tx": 340, "ty": 160, "s": 0.88 },
+  { "id": "3d-phone-intro", "local": 0.2, "opacity": 0.610207, "tx": 132.53, "ty": 62.3669, "s": 0.953225 },
+  { "id": "3d-phone-intro", "local": 0.6, "opacity": 0.971779, "tx": 9.5951, "ty": 4.51534, "s": 0.996614 },
+  { "id": "3d-phone-intro", "local": 1, "opacity": 0.999677, "tx": 0.109819, "ty": 0.0516796, "s": 0.999961 },
+  { "id": "3d-phone-intro", "local": 2, "opacity": 1, "tx": 0, "ty": 0, "s": 1 },
+  { "id": "3d-icon-store", "local": 0, "opacity": 0, "tx": 0, "ty": 210, "s": 0.68 },
+  { "id": "3d-icon-store", "local": 0.2, "opacity": 0.610207, "tx": 0, "ty": 100.163, "s": 0.783735 },
+  { "id": "3d-icon-store", "local": 0.6, "opacity": 0.971779, "tx": 0, "ty": 35.0798, "s": 0.845202 },
+  { "id": "3d-icon-store", "local": 1, "opacity": 0.999677, "tx": 0, "ty": 30.0581, "s": 0.849945 },
+  { "id": "3d-icon-store", "local": 2, "opacity": 1, "tx": 0, "ty": 30, "s": 0.85 }
+]

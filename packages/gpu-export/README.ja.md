@@ -33,6 +33,22 @@ receipt には `sprite` / `words-native` と unit・語・ラスタ・タイル�
 karaoke の色変化と幾何 emphasis の混在、縦書きの語単位字幕、未知の word style は引き続き不適格で、
 具体的な理由を付けて fail-closed になります。
 
+### 宣言型 3D の登場曲線（v3）
+
+宣言型 Three.js scene は、ルート要素 1 個の登場 animation だけを GPU 経路で扱えます。
+`[data-akari-active] .root, [data-no-timeline] .root` の対になった selector、両端だけの keyframe
+1 本、既知の CSS timing、0 以上の delay、iteration 1 回、normal direction、`both` または
+`forwards` fill が必須です。keyframe で動かせるのは opacity と 2D translate / scale だけです。
+対応する CSS 変数と `calc(var(...) + Npx)` / `calc(var(...) * N)` は、書き出し前に overlay の
+vars と x / y / scale transform から解決します。manifest は opacity・平行移動・scale の絶対的な
+両端値を保持し、Three.js の内部 animation は従来どおりエンジンの local clock で動かしたまま、
+compositor が同じ登場曲線を毎コマ評価します。
+
+transition、`@property`、複数 animation、複数の animated element、中間 keyframe、alternate、
+rotate / skew / 3D transform、filter、clip-path は、具体的な `three-entrance-*` 理由で fail-closed
+になります。CSS animation のない宣言型 3D は、既存の `three-scene-canvas-direct` manifest 形と
+挙動を維持します。
+
 `render-cut --engine auto` は macOS でプロジェクト全体が適格な場合だけ GPU を使い、それ以外は
 OSR を使います。`--engine gpu` の明示指定は fail-closed で、全ての不適格理由を表示します。
 

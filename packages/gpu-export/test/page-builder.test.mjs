@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import test from "node:test";
 
 import { buildGpuPage } from "../src/page-builder.mjs";
@@ -95,4 +96,45 @@ test("GPU page groups consecutive DOM overlays and preserves declaration z-order
   assert.equal(result.manifest.domOverlayCount, 3);
   assert.match(result.html, /id="akari-dom-stage"/);
   assert.doesNotMatch(result.html, /<canvas[^>]+layoutsubtree/iu);
+});
+
+test("GPU page adds the parsed entrance only to animated 3D manifest entries", () => {
+  const animatedHtml = `<div class="model-live">
+    <style>
+      .model-live { opacity:0; transform:translate(var(--model-x, 0px), var(--model-y, 0px)) scale(var(--model-scale, 1)); }
+      [data-akari-active] .model-live, [data-no-timeline] .model-live {
+        animation:model-live__enter 1.1s cubic-bezier(0.16, 1, 0.3, 1) .05s both;
+      }
+      @keyframes model-live__enter {
+        from { opacity:0; transform:translate(calc(var(--model-x, 0px) + -20px), calc(var(--model-y, 0px) + 10px)) scale(calc(var(--model-scale, 1) * .8)); }
+        to { opacity:1; transform:translate(var(--model-x, 0px), var(--model-y, 0px)) scale(var(--model-scale, 1)); }
+      }
+    </style>
+    <canvas></canvas><script type="application/json" data-akari-3d-scene>{"model":"assets/scene3d/smartphone-mockup/model.glb"}</script>
+  </div>`;
+  const directHtml = '<canvas></canvas><script type="application/json" data-akari-3d-scene>{"model":"assets/scene3d/smartphone-mockup/model.glb"}</script>';
+  const overlays = [
+    { id: "animated", start: 1, duration: 2, html: animatedHtml, vars: { "--model-scale": "1.25" } },
+    { id: "direct", start: 0, duration: 3, html: directHtml },
+  ];
+  const result = buildGpuPage({
+    edit: { ...edit, overlays }, overlays, projectRoot: resolve(import.meta.dirname, "../../.."), duration: 3,
+    frameEngineBundle: "window.AkariFrameEngine={};", pageRuntime: "void 0;",
+  });
+  assert.deepEqual(result.spriteManifest.three[0], {
+    id: "animated", start: 1, duration: 2, index: 0,
+    entrance: {
+      durationSec: 1.1,
+      delaySec: 0.05,
+      timing: { x1: 0.16, y1: 1, x2: 0.3, y2: 1 },
+      fill: "both",
+      from: { opacity: 0, tx: -20, ty: 10, sx: 1, sy: 1 },
+      to: { opacity: 1, tx: 0, ty: 0, sx: 1.25, sy: 1.25 },
+    },
+  });
+  assert.deepEqual(result.spriteManifest.three[1], {
+    id: "direct", start: 0, duration: 3, index: 1,
+  });
+  assert.equal(result.eligibility.entries[0].reason, "three-scene-entrance-curve");
+  assert.equal(result.eligibility.entries[1].reason, "three-scene-canvas-direct");
 });

@@ -1,4 +1,5 @@
 import { CAPTION_ANIMATION_RECIPES, splitCaptionLines } from "../../render-cut/src/captions.mjs";
+import { parseThreeEntrance } from "./three-entrance.mjs";
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 
@@ -43,8 +44,17 @@ export function evaluateGpuEligibility({
       .filter(([, pattern]) => pattern.test(html))
       .map(([condition, , kind]) => ({ condition, kind }));
     const names = conditions.map((entry) => entry.condition);
+    const entranceCandidate = names.includes("three-or-canvas-runtime")
+      && names.includes("animation-timing");
+    const entrance = entranceCandidate
+      ? parseThreeEntrance(html, { vars: overlay.vars, transform: overlay.transform, role: overlay.role })
+      : null;
     if (isThreeOnlyOverlay(html, names)) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
+    } else if (entrance?.ok && names.every((name) => ["three-or-canvas-runtime", "animation-timing"].includes(name))) {
+      entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));
+    } else if (entranceCandidate && !entrance.ok) {
+      entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "degraded", entrance.reason, names));
     } else if (names.length === 0) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "same", "static-html-sprite", []));
     } else if (names.every((name) => DOM_LAYER_CONDITIONS.has(name))) {
