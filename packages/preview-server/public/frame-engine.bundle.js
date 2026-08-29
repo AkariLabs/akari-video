@@ -2768,7 +2768,7 @@ var require_caption_display = __commonJS({
       }
       if (Object.prototype.hasOwnProperty.call(value, "color"))
         validateHexColor(value.color, `${label}.color`);
-      if (Object.prototype.hasOwnProperty.call(value, "width_px") && !finiteNonNegative(value.width_px)) {
+      if (Object.prototype.hasOwnProperty.call(value, "width_px") && !finiteNonNegative2(value.width_px)) {
         fail("INVALID_TEXT_STYLE", `${label}.width_px must be a non-negative finite number`);
       }
     }
@@ -2778,17 +2778,17 @@ var require_caption_display = __commonJS({
       rejectStyleUnknown(value, CAPTION_BACKGROUND_KEYS, label);
       if (Object.prototype.hasOwnProperty.call(value, "color"))
         validateHexColor(value.color, `${label}.color`);
-      if (Object.prototype.hasOwnProperty.call(value, "opacity") && (!finiteNonNegative(value.opacity) || value.opacity > 1)) {
+      if (Object.prototype.hasOwnProperty.call(value, "opacity") && (!finiteNonNegative2(value.opacity) || value.opacity > 1)) {
         fail("INVALID_TEXT_STYLE", `${label}.opacity must be a finite number within [0, 1]`);
       }
-      if (Object.prototype.hasOwnProperty.call(value, "radius_px") && !finiteNonNegative(value.radius_px)) {
+      if (Object.prototype.hasOwnProperty.call(value, "radius_px") && !finiteNonNegative2(value.radius_px)) {
         fail("INVALID_TEXT_STYLE", `${label}.radius_px must be a non-negative finite number`);
       }
       if (Object.prototype.hasOwnProperty.call(value, "mode") && value.mode !== "per-line" && value.mode !== "block") {
         fail("INVALID_TEXT_STYLE", `${label}.mode must be per-line or block`);
       }
       for (const key of ["padding_px", "width_pct", "height_pct"]) {
-        if (Object.prototype.hasOwnProperty.call(value, key) && !finiteNonNegative(value[key])) {
+        if (Object.prototype.hasOwnProperty.call(value, key) && !finiteNonNegative2(value[key])) {
           fail("INVALID_TEXT_STYLE", `${label}.${key} must be a non-negative finite number`);
         }
       }
@@ -2807,7 +2807,7 @@ var require_caption_display = __commonJS({
           fail("INVALID_TEXT_STYLE", `${label}.${key} is required`);
         }
       }
-      if (value.mode !== "reference-pixel" || !Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative(value.left_px) || !finitePositive3(value.width_px) || value.left_px + value.width_px > value.reference_width_px || !finiteNonNegative(value.bottom_px) || value.text_align !== "center" || value.max_lines !== 1) {
+      if (value.mode !== "reference-pixel" || !Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative2(value.left_px) || !finitePositive3(value.width_px) || value.left_px + value.width_px > value.reference_width_px || !finiteNonNegative2(value.bottom_px) || value.text_align !== "center" || value.max_lines !== 1) {
         fail("INVALID_TEXT_STYLE", `${label} must be a bounded reference-pixel layout with center/max_lines=1`);
       }
     }
@@ -2938,7 +2938,7 @@ var require_caption_display = __commonJS({
     }
     function validateLinearCuts(cuts, edit) {
       cuts.forEach((cut, index) => {
-        if (!isRecord(cut) || !finiteNonNegative(cut.in) || !finitePositive3(cut.out) || cut.out <= cut.in) {
+        if (!isRecord(cut) || !finiteNonNegative2(cut.in) || !finitePositive3(cut.out) || cut.out <= cut.in) {
           fail("INVALID_CUT", `edit.json cuts[${index}] must satisfy 0 <= in < out`);
         }
         if (Object.prototype.hasOwnProperty.call(cut, "at") || Object.prototype.hasOwnProperty.call(cut, "track") || Object.prototype.hasOwnProperty.call(cut, "transition_out") || Object.prototype.hasOwnProperty.call(cut, "transitionOut")) {
@@ -2987,7 +2987,7 @@ var require_caption_display = __commonJS({
           if (caption?.time_domain === "output")
             return;
           const text = caption?.display_text ?? caption?.text;
-          if (isRecord(caption) && finiteNonNegative(caption.start) && finitePositive3(caption.end) && caption.end > caption.start && typeof text === "string") {
+          if (isRecord(caption) && finiteNonNegative2(caption.start) && finitePositive3(caption.end) && caption.end > caption.start && typeof text === "string") {
             occurrences.push({
               source_cue_id: caption.id,
               src: typeof caption.src === "string" ? caption.src : null,
@@ -3041,7 +3041,7 @@ var require_caption_display = __commonJS({
     function validateSourceCaption(caption, index, policy) {
       if (!isRecord(caption) || !strictText(caption.id))
         fail("INVALID_CAPTION", `captions[${index}].id must be a non-empty string`);
-      if (!finiteNonNegative(caption.start) || !finitePositive3(caption.end) || caption.end <= caption.start) {
+      if (!finiteNonNegative2(caption.start) || !finitePositive3(caption.end) || caption.end <= caption.start) {
         fail("INVALID_CAPTION", `captions[${index}] must satisfy 0 <= start < end`);
       }
       if (caption.src !== void 0 && !strictText(caption.src)) {
@@ -3069,7 +3069,7 @@ var require_caption_display = __commonJS({
       captions.forEach((caption, index) => {
         if (caption.time_domain === "output")
           return;
-        const conflict = emphasisValue.some((value) => isRecord(value) && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src) && finiteNonNegative(value.t_start) && finitePositive3(value.t_end) && value.t_end > caption.start && value.t_start < caption.end);
+        const conflict = emphasisValue.some((value) => isRecord(value) && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src) && finiteNonNegative2(value.t_start) && finitePositive3(value.t_end) && value.t_end > caption.start && value.t_start < caption.end);
         if (conflict)
           fail("EMPHASIS_CONFLICT", `edit.emphasis_words cannot act on captions[${index}] under display_policy`);
       });
@@ -3243,7 +3243,7 @@ var require_caption_display = __commonJS({
         vars["--caption-line-height"] = formatCssNumber(style.line_height);
       if (isRecord(style.stroke)) {
         const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)";
-        const width = finiteNonNegative(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
+        const width = finiteNonNegative2(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
         if (style.stroke.method === "webkit-outline") {
           vars["--caption-webkit-text-stroke"] = `${formatCssNumber(width)}px ${color}`;
           vars["--caption-paint-order"] = "stroke fill";
@@ -3252,7 +3252,7 @@ var require_caption_display = __commonJS({
           vars["--caption-text-shadow"] = strokeShadow(color, width, layout !== void 0);
         }
       }
-      if (isRecord(style.background) && finiteNonNegative(style.background.radius_px)) {
+      if (isRecord(style.background) && finiteNonNegative2(style.background.radius_px)) {
         vars["--plate-radius"] = `${formatCssNumber(style.background.radius_px * scale)}px`;
         vars["--plate-block-radius"] = `${formatCssNumber(style.background.radius_px * scale)}px`;
       }
@@ -3268,7 +3268,7 @@ var require_caption_display = __commonJS({
       for (const key of required)
         if (!Object.prototype.hasOwnProperty.call(value, key))
           fail("INVALID_LAYOUT", `caption layout.${key} is required`);
-      if (!Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative(value.left_px) || !finitePositive3(value.width_px) || !finiteNonNegative(value.bottom_px) || value.left_px + value.width_px > value.reference_width_px || value.text_align !== "center" || value.max_lines !== 1) {
+      if (!Number.isInteger(value.reference_width_px) || value.reference_width_px <= 0 || !Number.isInteger(value.reference_height_px) || value.reference_height_px <= 0 || !finiteNonNegative2(value.left_px) || !finitePositive3(value.width_px) || !finiteNonNegative2(value.bottom_px) || value.left_px + value.width_px > value.reference_width_px || value.text_align !== "center" || value.max_lines !== 1) {
         fail("INVALID_LAYOUT", "caption reference-pixel layout fields are invalid");
       }
       const widthScale = output.width / value.reference_width_px;
@@ -3316,7 +3316,7 @@ var require_caption_display = __commonJS({
     function finitePositive3(value) {
       return typeof value === "number" && Number.isFinite(value) && value > 0;
     }
-    function finiteNonNegative(value) {
+    function finiteNonNegative2(value) {
       return typeof value === "number" && Number.isFinite(value) && value >= 0;
     }
     function isRecord(value) {
@@ -5247,7 +5247,10 @@ var require_audio_schedule = __commonJS({
         const gainDb = normalizedGainDb(spec, label, warnings);
         if (gainDb === null)
           continue;
-        const trim = resolveTrim(kind, spec, label, warnings);
+        const sidecar = validSidecar2(spec.sidecar);
+        if (spec.sidecar && !sidecar)
+          warnings.push(`${label}: sidecar declaration is invalid; using source`);
+        const trim = sidecar ? { sourceOffsetSec: 0, durationSec: Math.min(spec.durationSec, sidecar.durationSec) } : resolveTrim(kind, spec, label, warnings);
         if (!trim)
           continue;
         resolved.push({
@@ -5266,7 +5269,7 @@ var require_audio_schedule = __commonJS({
     }
     function resolveTrim(kind, spec, label, warnings) {
       const materialDurationSec = spec.durationSec;
-      let sourceOffsetSec = finiteNonNegative(spec.in) ? spec.in : 0;
+      let sourceOffsetSec = finiteNonNegative2(spec.in) ? spec.in : 0;
       if (sourceOffsetSec >= materialDurationSec) {
         if (kind === "sfx") {
           warnings.push(`${label}: in is at or beyond decoded duration; skipped`);
@@ -5327,7 +5330,10 @@ var require_audio_schedule = __commonJS({
       const timelineT = typeof spec.t === "number" && Number.isFinite(spec.t) && spec.t > 0 ? spec.t : 0;
       if (timelineT >= timelineDurationSec)
         return null;
-      let materialInSec = finiteNonNegative(spec.in) ? spec.in : 0;
+      const sidecar = validSidecar2(spec.sidecar);
+      if (spec.sidecar && !sidecar)
+        warnings.push(`${label}: sidecar declaration is invalid; using source`);
+      let materialInSec = sidecar ? 0 : finiteNonNegative2(spec.in) ? spec.in : 0;
       if (materialInSec >= spec.durationSec) {
         warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
         materialInSec = 0;
@@ -5367,7 +5373,7 @@ var require_audio_schedule = __commonJS({
     function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
       const id = typeof spec?.id === "string" && spec.id ? spec.id : "speech";
       const label = `speech ${id}`;
-      if (!spec || typeof spec.src !== "string" || !spec.src || !finiteNonNegative(spec.atSec) || !finitePositive3(spec.durationSec) || !finiteNonNegative(spec.inSec) || !finitePositive3(spec.outSec) || spec.outSec <= spec.inSec || !finitePositive3(spec.speed) || !finitePositive3(spec.materialDurationSec)) {
+      if (!spec || typeof spec.src !== "string" || !spec.src || !finiteNonNegative2(spec.atSec) || !finitePositive3(spec.durationSec) || !finiteNonNegative2(spec.inSec) || !finitePositive3(spec.outSec) || spec.outSec <= spec.inSec || !finitePositive3(spec.speed) || !finitePositive3(spec.materialDurationSec)) {
         warnings.push(`${label}: declaration is invalid; skipped`);
         return null;
       }
@@ -5376,24 +5382,35 @@ var require_audio_schedule = __commonJS({
       const gainDb = normalizedGainDb(spec, label, warnings);
       if (gainDb === null)
         return null;
+      const sidecar = validSidecar2(spec.sidecar);
+      if (spec.sidecar && !sidecar)
+        warnings.push(`${label}: sidecar declaration is invalid; using source`);
       const atempo = spec.atempo && typeof spec.atempo.path === "string" && spec.atempo.path && finitePositive3(spec.atempo.durationSec) ? spec.atempo : void 0;
       if (spec.atempo && !atempo)
         warnings.push(`${label}: atempo declaration is invalid; using source playbackRate`);
-      const elapsedIntoItemSec = Math.max(0, startAtSec - spec.atSec);
-      if (elapsedIntoItemSec >= spec.durationSec)
+      const baked = sidecar ?? atempo;
+      const crossfadeInSec = finitePositive3(spec.crossfadeInSec) ? spec.crossfadeInSec : 0;
+      const crossfadeOutSec = finitePositive3(spec.crossfadeOutSec) ? spec.crossfadeOutSec : 0;
+      const effectiveAtSec = spec.atSec - crossfadeInSec;
+      const effectiveDurationSec = spec.durationSec + crossfadeInSec;
+      const elapsedIntoItemSec = Math.max(0, startAtSec - effectiveAtSec);
+      if (elapsedIntoItemSec >= effectiveDurationSec)
         return null;
-      const delaySec = Math.max(0, spec.atSec - startAtSec);
+      const delaySec = Math.max(0, effectiveAtSec - startAtSec);
       const timelineStartSec = startAtSec + delaySec;
-      const playbackRate = atempo ? 1 : spec.speed;
-      const sourceOffsetSec = atempo ? elapsedIntoItemSec : spec.inSec + elapsedIntoItemSec * spec.speed;
-      const sourceEndSec = atempo ? Math.min(atempo.durationSec, spec.materialDurationSec) : Math.min(spec.outSec, spec.materialDurationSec);
+      const playbackRate = baked ? 1 : spec.speed;
+      const padBeforeSec = sidecar && finiteNonNegative2(sidecar.padBeforeSec) ? sidecar.padBeforeSec : finiteNonNegative2(spec.padBeforeSec) ? spec.padBeforeSec : 0;
+      const bakedContentOffsetSec = sidecar ? padBeforeSec / spec.speed : 0;
+      const sourceOffsetSec = baked ? Math.max(0, bakedContentOffsetSec - crossfadeInSec + elapsedIntoItemSec) : Math.max(0, spec.inSec - crossfadeInSec * spec.speed + elapsedIntoItemSec * spec.speed);
+      const sourceEndSec = baked ? Math.min(baked.durationSec, spec.materialDurationSec) : Math.min(spec.outSec, spec.materialDurationSec);
       const sourceAvailableSec = sourceEndSec - sourceOffsetSec;
       if (!(sourceAvailableSec > 0))
         return null;
-      const durationSec = Math.min(spec.durationSec - elapsedIntoItemSec, timelineDurationSec - timelineStartSec, sourceAvailableSec / playbackRate);
+      const durationSec = Math.min(effectiveDurationSec - elapsedIntoItemSec, timelineDurationSec - timelineStartSec, sourceAvailableSec / playbackRate);
       if (!(durationSec > 0))
         return null;
       const baseGain = dbToLinear(gainDb);
+      const gainEvents = speechCrossfadeGainEvents(effectiveDurationSec, elapsedIntoItemSec, durationSec, crossfadeInSec, crossfadeOutSec, baseGain);
       return {
         kind: "speech",
         id,
@@ -5407,13 +5424,17 @@ var require_audio_schedule = __commonJS({
         sourceDurationSec: durationSec * playbackRate,
         loop: false,
         gainDb,
-        gainEvents: [{ offsetSec: 0, value: baseGain, method: "set" }],
+        gainEvents,
         duckingEvents: []
       };
     }
     function projectSpeechDeclarations3(cuts, options) {
       const fps = finitePositive3(options?.fps) ? options.fps : 30;
-      const virtualCuts = cuts.map((cut) => {
+      const normalizedCuts2 = cuts.map((cut) => ({
+        ...cut,
+        transitionOut: cut.transitionOut ?? cut.transition_out ?? void 0
+      }));
+      const virtualCuts = normalizedCuts2.map((cut) => {
         const speed = finitePositive3(cut?.speed) ? cut.speed : 1;
         const holdSec = freezeDuration(cut?.freeze);
         return { ...cut, out: cut.out + holdSec * speed };
@@ -5423,7 +5444,7 @@ var require_audio_schedule = __commonJS({
       for (const segment of map.segments) {
         if (segment.kind !== "src" || segment.cutIndex === null)
           continue;
-        const cut = cuts[segment.cutIndex];
+        const cut = normalizedCuts2[segment.cutIndex];
         if (!cut || typeof cut.src !== "string" || !cut.src)
           continue;
         const speed = finitePositive3(cut.speed) ? cut.speed : 1;
@@ -5475,7 +5496,28 @@ var require_audio_schedule = __commonJS({
           track: cut.track
         });
       }
+      for (const window2 of map.transitionWindows) {
+        if (window2.outgoing.cutIndex === null || window2.incoming.cutIndex === null)
+          continue;
+        const outgoingCut = normalizedCuts2[window2.outgoing.cutIndex];
+        const incomingCut = normalizedCuts2[window2.incoming.cutIndex];
+        const outgoingBase = speechBaseId(outgoingCut, window2.outgoing.cutIndex);
+        const incomingBase = speechBaseId(incomingCut, window2.incoming.cutIndex);
+        const outgoing = [...declarations].reverse().find((item) => item.id.startsWith(`${outgoingBase}-speech`) && item.atSec <= window2.start + 1e-9 && item.atSec + item.durationSec >= window2.end - 1e-9);
+        const incoming = declarations.find((item) => item.id.startsWith(`${incomingBase}-speech`) && item.atSec >= window2.end - 1e-9);
+        if (outgoing) {
+          outgoing.padAfterSec = Math.max(outgoing.padAfterSec ?? 0, window2.duration);
+          outgoing.crossfadeOutSec = Math.max(outgoing.crossfadeOutSec ?? 0, window2.duration);
+        }
+        if (incoming) {
+          incoming.padBeforeSec = Math.max(incoming.padBeforeSec ?? 0, window2.duration);
+          incoming.crossfadeInSec = Math.max(incoming.crossfadeInSec ?? 0, window2.duration);
+        }
+      }
       return declarations;
+    }
+    function speechBaseId(cut, index) {
+      return cut && typeof cut.id === "string" && cut.id ? cut.id : `cut-${index}`;
     }
     function appendSpeechIntersection(declarations, input) {
       const atSec = Math.max(input.outputStart, input.segmentStart);
@@ -5501,11 +5543,39 @@ var require_audio_schedule = __commonJS({
       return freeze && finitePositive3(freeze.duration_sec) ? freeze.duration_sec : 0;
     }
     function freezeAt(freeze) {
-      return freeze && finiteNonNegative(freeze.at_sec) ? freeze.at_sec : 0;
+      return freeze && finiteNonNegative2(freeze.at_sec) ? freeze.at_sec : 0;
     }
     function speechGainDb(cut) {
       const raw = cut.gain_db ?? cut.gainDb ?? cut.volume_db;
       return typeof raw === "number" && Number.isFinite(raw) ? raw : 0;
+    }
+    function validSidecar2(value) {
+      return value && typeof value.path === "string" && value.path && finitePositive3(value.durationSec) && finiteNonNegative2(value.padBeforeSec) && finiteNonNegative2(value.padAfterSec) ? value : void 0;
+    }
+    function speechCrossfadeGainEvents(itemDurationSec, elapsedIntoItemSec, availableSec, fadeInSec, fadeOutSec, baseGain) {
+      if (!(fadeInSec > 0) && !(fadeOutSec > 0)) {
+        return [{ offsetSec: 0, value: baseGain, method: "set" }];
+      }
+      const multiplierAt = (localSec) => {
+        let value = 1;
+        if (fadeInSec > 0 && localSec < fadeInSec)
+          value = Math.min(value, localSec / fadeInSec);
+        if (fadeOutSec > 0 && localSec > itemDurationSec - fadeOutSec) {
+          value = Math.min(value, (itemDurationSec - localSec) / fadeOutSec);
+        }
+        return Math.max(0, Math.min(1, value));
+      };
+      const windowEnd = elapsedIntoItemSec + availableSec;
+      return uniqueSorted([
+        elapsedIntoItemSec,
+        fadeInSec,
+        itemDurationSec - fadeOutSec,
+        windowEnd
+      ].filter((point) => point >= elapsedIntoItemSec && point <= windowEnd)).map((point, index) => ({
+        offsetSec: point - elapsedIntoItemSec,
+        value: baseGain * multiplierAt(point),
+        method: index === 0 ? "set" : "linear"
+      }));
     }
     function normalizedGainDb(spec, label, warnings) {
       const raw = spec.gainDb !== void 0 ? spec.gainDb : spec.gain_db;
@@ -5599,7 +5669,7 @@ var require_audio_schedule = __commonJS({
     function finitePositive3(value) {
       return typeof value === "number" && Number.isFinite(value) && value > 0;
     }
-    function finiteNonNegative(value) {
+    function finiteNonNegative2(value) {
       return typeof value === "number" && Number.isFinite(value) && value >= 0;
     }
     function positiveModulo(value, modulus) {
@@ -18373,7 +18443,8 @@ var ScrubController = class {
 var import_edit_store4 = __toESM(require_lib(), 1);
 var EditStoreKernel = __toESM(require_lib(), 1);
 var projectSpeechDeclarations2 = EditStoreKernel.projectSpeechDeclarations;
-var DEFAULT_DECODE_CACHE_BYTES = 60 * 1024 * 1024;
+var DEFAULT_DECODE_CACHE_BYTES = 256 * 1024 * 1024;
+var MAX_SPEECH_SOURCE_FALLBACK_BYTES = 64 * 1024 * 1024;
 function createPreviewAudioSupply(options) {
   const timelineDurationSec = finitePositive2(options.timelineDurationSec) ? options.timelineDurationSec : 0;
   const declarations = [...options.declarations ?? []];
@@ -18392,16 +18463,16 @@ function createPreviewAudioSupply(options) {
       warn("[frame-engine] Web Audio unavailable; keeping wall-clock playback", reason);
     }
   }
-  let regularDecoded = [];
-  let regularLoadPromise = null;
-  const speechCache = /* @__PURE__ */ new Map();
-  const speechFailures = /* @__PURE__ */ new Set();
-  const warnedSpeech = /* @__PURE__ */ new Set();
-  const atempoCache = /* @__PURE__ */ new Map();
-  const warnedAtempo = /* @__PURE__ */ new Set();
+  const decoded = /* @__PURE__ */ new Map();
+  const warned = /* @__PURE__ */ new Set();
   const speechMetrics = /* @__PURE__ */ new Map();
-  let cacheBytes = 0;
-  let lruClock = 0;
+  let decodedBytes = 0;
+  let prefetchPromise = null;
+  let prefetchStartedAt = 0;
+  let prefetchElapsedMs = 0;
+  let prefetchPending = 0;
+  let regularDecoded = [];
+  let speechDecoded = /* @__PURE__ */ new Map();
   let active = [];
   let generation = 0;
   let starting = false;
@@ -18413,7 +18484,17 @@ function createPreviewAudioSupply(options) {
   let lastRenderedTimelineSec = null;
   let lastAudioPositionAtRenderSec = null;
   let lastSchedule = [];
-  let lastAtempoIds = /* @__PURE__ */ new Set();
+  let lastSidecarSpeechIds = /* @__PURE__ */ new Set();
+  const sidecarValues = [
+    ...declarations.map((item) => validSidecar(item.spec.sidecar) ? item.spec.sidecar : void 0),
+    ...speech.map((item) => item.sidecar)
+  ].filter((item) => Boolean(item));
+  const uniqueSidecars = [...new Map(sidecarValues.map((item) => [item.path, item])).values()];
+  const crossfades = speech.filter((item) => finitePositive2(item.crossfadeOutSec)).map((item) => ({
+    id: item.id,
+    startSec: item.atSec + item.durationSec - item.crossfadeOutSec,
+    durationSec: item.crossfadeOutSec
+  }));
   const clamp3 = (seconds) => Math.max(
     0,
     Math.min(Number.isFinite(seconds) ? seconds : 0, timelineDurationSec)
@@ -18438,119 +18519,143 @@ function createPreviewAudioSupply(options) {
       }
     }
   };
-  const loadRegular = () => {
-    if (regularLoadPromise) return regularLoadPromise;
-    if (!context || !fetchImpl) return Promise.resolve();
-    regularLoadPromise = Promise.all(declarations.map(async (declaration) => {
-      try {
-        const response = await fetchImpl(declaration.url);
-        if (!response.ok) throw new Error(`fetch status=${response.status}`);
-        const buffer = await context.decodeAudioData(await response.arrayBuffer());
-        if (!(buffer.duration > 0)) throw new Error("decoded duration is invalid");
-        return { ...declaration, buffer, durationSec: buffer.duration };
-      } catch (reason) {
-        warn(`[frame-engine] ${declaration.kind} ${declaration.id} unavailable; skipped`, reason);
-        return null;
-      }
-    })).then((items) => {
-      regularDecoded = items.filter((item) => item !== null);
-    });
-    return regularLoadPromise;
-  };
-  const evictSpeechCache = () => {
-    while (cacheBytes > cacheLimit && speechCache.size > 0) {
-      const oldest = [...speechCache].filter(([, entry]) => entry.bytes > 0).sort((left, right) => left[1].lastUsed - right[1].lastUsed)[0];
-      if (!oldest) return;
-      speechCache.delete(oldest[0]);
-      cacheBytes -= oldest[1].bytes;
+  const evictFarthest = () => {
+    while (decodedBytes > cacheLimit) {
+      const candidate = [...decoded.entries()].filter(([, entry]) => entry.bytes > 0).sort((left, right) => right[1].nextUseSec - left[1].nextUseSec)[0];
+      if (!candidate) return;
+      decoded.delete(candidate[0]);
+      decodedBytes -= candidate[1].bytes;
     }
   };
-  const getSpeechBuffer = (declaration) => {
-    if (!context || !fetchImpl || speechFailures.has(declaration.src)) return Promise.resolve(null);
-    const cached = speechCache.get(declaration.src);
+  const decodeUrl = (url, nextUseSec, label, restrictSpeechSource = false, suppressWarning = false) => {
+    if (!context || !fetchImpl) return Promise.resolve(null);
+    const cacheKey = decodeCacheKey(url, restrictSpeechSource);
+    const cached = decoded.get(cacheKey);
     if (cached) {
-      cached.lastUsed = ++lruClock;
+      cached.nextUseSec = Math.min(cached.nextUseSec, nextUseSec);
       return cached.promise;
     }
-    const started = nowMs();
-    const entry = {
-      lastUsed: ++lruClock,
-      bytes: 0,
-      promise: Promise.resolve(null)
-    };
+    const entry = { bytes: 0, nextUseSec, promise: Promise.resolve(null) };
     entry.promise = (async () => {
       try {
-        const response = await fetchImpl(declaration.url);
+        const response = await fetchImpl(url);
         if (!response.ok) throw new Error(`fetch status=${response.status}`);
-        const buffer = await context.decodeAudioData(await response.arrayBuffer());
+        const declaredBytes = Number(response.headers?.get?.("content-length"));
+        if (restrictSpeechSource && (!finitePositive2(declaredBytes) || declaredBytes >= MAX_SPEECH_SOURCE_FALLBACK_BYTES)) {
+          throw new Error(finitePositive2(declaredBytes) ? `source is ${declaredBytes} bytes (64 MB fallback limit)` : "source size is unavailable (64 MB fallback limit)");
+        }
+        const encoded = await response.arrayBuffer();
+        if (restrictSpeechSource && encoded.byteLength >= MAX_SPEECH_SOURCE_FALLBACK_BYTES) {
+          throw new Error(`source is ${encoded.byteLength} bytes (64 MB fallback limit)`);
+        }
+        const buffer = await context.decodeAudioData(encoded);
         if (!(buffer.duration > 0)) throw new Error("decoded duration is invalid");
-        const bytes = buffer.length * buffer.numberOfChannels * 4;
-        entry.bytes = bytes;
-        cacheBytes += bytes;
-        speechMetrics.set(declaration.src, {
-          src: declaration.src,
-          ms: nowMs() - started,
-          durationSec: buffer.duration,
-          bytes,
-          ok: true
-        });
-        evictSpeechCache();
+        entry.bytes = buffer.length * buffer.numberOfChannels * 4;
+        decodedBytes += entry.bytes;
+        evictFarthest();
         return buffer;
       } catch (reason) {
-        speechCache.delete(declaration.src);
-        speechFailures.add(declaration.src);
-        speechMetrics.set(declaration.src, {
-          src: declaration.src,
-          ms: nowMs() - started,
-          durationSec: 0,
-          bytes: 0,
-          ok: false
-        });
-        if (!warnedSpeech.has(declaration.src)) {
-          warnedSpeech.add(declaration.src);
-          warn(`[frame-engine] speech ${declaration.src} unavailable; skipped`, reason);
+        decoded.delete(cacheKey);
+        if (!suppressWarning && !warned.has(cacheKey)) {
+          warned.add(cacheKey);
+          warn(`[frame-engine] ${label} unavailable`, reason);
         }
         return null;
       }
     })();
-    speechCache.set(declaration.src, entry);
+    decoded.set(cacheKey, entry);
     return entry.promise;
   };
-  const getAtempoBuffer = (declaration) => {
-    const atempo = declaration.atempo;
-    if (!context || !fetchImpl || !atempo) return Promise.resolve(null);
-    const cached = atempoCache.get(atempo.path);
-    if (cached) return cached;
-    const pending = (async () => {
-      try {
-        const response = await fetchImpl(atempo.path);
-        if (!response.ok) throw new Error(`fetch status=${response.status}`);
-        const buffer = await context.decodeAudioData(await response.arrayBuffer());
-        if (!(buffer.duration > 0)) throw new Error("decoded duration is invalid");
-        return buffer;
-      } catch (reason) {
-        if (!warnedAtempo.has(atempo.path)) {
-          warnedAtempo.add(atempo.path);
-          warn(`[frame-engine] speech atempo ${declaration.id} unavailable; using source playbackRate`, reason);
-        }
-        return null;
-      }
-    })();
-    atempoCache.set(atempo.path, pending);
-    return pending;
+  const resolveRegular = async (declaration) => {
+    const sidecar = validSidecar(declaration.spec.sidecar);
+    let buffer = await decodeUrl(
+      declaration.url,
+      firstUseRegular(declaration),
+      `${declaration.kind} ${declaration.id}${sidecar ? " sidecar" : ""}`
+    );
+    let usedSidecar = Boolean(sidecar && buffer);
+    if (!buffer && sidecar && declaration.sourceUrl) {
+      buffer = await decodeUrl(
+        declaration.sourceUrl,
+        firstUseRegular(declaration),
+        `${declaration.kind} ${declaration.id}`
+      );
+      usedSidecar = false;
+    }
+    if (!buffer) return;
+    const usedUrl = usedSidecar ? declaration.url : declaration.sourceUrl ?? declaration.url;
+    regularDecoded.push({
+      ...declaration,
+      buffer,
+      durationSec: buffer.duration,
+      sidecar: usedSidecar,
+      cacheKey: decodeCacheKey(usedUrl, false)
+    });
   };
-  const loadSpeech = async () => {
-    const buffers = /* @__PURE__ */ new Map();
-    await Promise.all(speech.map(async (declaration) => {
-      const atempoBuffer = await getAtempoBuffer(declaration);
-      if (atempoBuffer) {
-        buffers.set(declaration.id, { buffer: atempoBuffer, atempo: true });
-        return;
+  const resolveSpeech = async (declaration) => {
+    const started = nowMs();
+    const sidecar = declaration.sidecar;
+    const legacy = declaration.atempo;
+    const bakedPath = sidecar?.path ?? legacy?.path;
+    let buffer = bakedPath ? await decodeUrl(bakedPath, firstUseSpeech(declaration), `speech sidecar ${declaration.id}`) : null;
+    let usedSidecar = Boolean(bakedPath && buffer);
+    if (!buffer) {
+      buffer = await decodeUrl(
+        declaration.url,
+        firstUseSpeech(declaration),
+        `speech ${declaration.src}`,
+        true,
+        Boolean(bakedPath || declaration.sidecarWarningEmitted)
+      );
+      usedSidecar = false;
+    }
+    if (buffer) speechDecoded.set(declaration.id, {
+      buffer,
+      sidecar: usedSidecar,
+      cacheKey: decodeCacheKey(usedSidecar ? bakedPath : declaration.url, !usedSidecar)
+    });
+    const bytes = buffer ? buffer.length * buffer.numberOfChannels * 4 : 0;
+    const previous = speechMetrics.get(declaration.src);
+    speechMetrics.set(declaration.src, {
+      src: declaration.src,
+      ms: (previous?.ms ?? 0) + (nowMs() - started),
+      durationSec: Math.max(previous?.durationSec ?? 0, buffer?.duration ?? 0),
+      bytes: (previous?.bytes ?? 0) + bytes,
+      ok: previous?.ok === false ? false : Boolean(buffer)
+    });
+  };
+  const tasks = [
+    ...declarations.map((item) => ({ at: firstUseRegular(item), run: () => resolveRegular(item) })),
+    ...speech.map((item) => ({ at: firstUseSpeech(item), run: () => resolveSpeech(item) }))
+  ].sort((left, right) => left.at - right.at);
+  const runPrefetch = async () => {
+    regularDecoded = [];
+    speechDecoded = /* @__PURE__ */ new Map();
+    prefetchPending = tasks.length;
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < tasks.length) {
+        const task = tasks[cursor++];
+        if (!task) break;
+        try {
+          await task.run();
+        } finally {
+          prefetchPending -= 1;
+        }
       }
-      const sourceBuffer = await getSpeechBuffer(declaration);
-      if (sourceBuffer) buffers.set(declaration.id, { buffer: sourceBuffer, atempo: false });
-    }));
-    return buffers;
+    };
+    await Promise.all([worker(), worker()]);
+    regularDecoded = regularDecoded.filter((item) => decoded.has(item.cacheKey));
+    speechDecoded = new Map([...speechDecoded].filter(([, item]) => decoded.has(item.cacheKey)));
+  };
+  const ensurePrefetch = () => {
+    if (prefetchPromise) return prefetchPromise;
+    prefetchStartedAt = nowMs();
+    prefetchPromise = runPrefetch().finally(() => {
+      prefetchElapsedMs = nowMs() - prefetchStartedAt;
+      prefetchPending = 0;
+    });
+    return prefetchPromise;
   };
   const applyGainEvents = (param, events, startTime) => {
     if (events.length === 0) {
@@ -18564,10 +18669,10 @@ function createPreviewAudioSupply(options) {
       else param.setValueAtTime(event.value, at2);
     }
   };
-  const startItem = (item, contextStart, speechBuffers) => {
+  const startItem = (item, contextStart) => {
     if (!context) return;
     const regular = item.kind === "speech" ? void 0 : regularDecoded.find((candidate) => candidate.id === item.id && candidate.kind === item.kind);
-    const buffer = regular?.buffer ?? (item.kind === "speech" ? speechBuffers.get(item.id)?.buffer : void 0);
+    const buffer = regular?.buffer ?? (item.kind === "speech" ? speechDecoded.get(item.id)?.buffer : void 0);
     if (!buffer) return;
     try {
       const source = context.createBufferSource();
@@ -18587,11 +18692,7 @@ function createPreviewAudioSupply(options) {
       }
       tail.connect(context.destination);
       applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec);
-      source.start(
-        contextStart + item.delaySec,
-        item.sourceOffsetSec,
-        item.sourceDurationSec
-      );
+      source.start(contextStart + item.delaySec, item.sourceOffsetSec, item.sourceDurationSec);
       const activeItem = { source, gains };
       active.push(activeItem);
       source.onended = () => {
@@ -18610,18 +18711,28 @@ function createPreviewAudioSupply(options) {
     }
   };
   const regularScheduleDeclaration = () => {
-    const bgm = regularDecoded.find((item) => item.kind === "bgm");
+    const normalized = regularDecoded.map((item) => ({
+      ...item.spec,
+      id: item.id,
+      durationSec: item.durationSec,
+      ...!item.sidecar ? { sidecar: void 0 } : {}
+    }));
+    const bgm = normalized.find((_3, index) => regularDecoded[index]?.kind === "bgm");
     return {
-      ...bgm ? { bgm: { ...bgm.spec, id: bgm.id, durationSec: bgm.durationSec } } : {},
-      sfx: regularDecoded.filter((item) => item.kind === "sfx").map((item) => ({ ...item.spec, id: item.id, durationSec: item.durationSec })),
-      narration: regularDecoded.filter((item) => item.kind === "narration").map((item) => ({ ...item.spec, id: item.id, durationSec: item.durationSec }))
+      ...bgm ? { bgm } : {},
+      sfx: normalized.filter((_3, index) => regularDecoded[index]?.kind === "sfx"),
+      narration: normalized.filter((_3, index) => regularDecoded[index]?.kind === "narration")
     };
   };
   const startFrom = async (seconds) => {
     if (!context) return;
     const thisGeneration = ++generation;
     starting = true;
-    const [, speechBuffers] = await Promise.all([loadRegular(), loadSpeech()]);
+    const alreadyPrefetched = prefetchPromise !== null;
+    await ensurePrefetch();
+    if (alreadyPrefetched && regularDecoded.length + speechDecoded.size < tasks.length) {
+      await runPrefetch();
+    }
     if (thisGeneration !== generation) {
       starting = false;
       return;
@@ -18638,11 +18749,11 @@ function createPreviewAudioSupply(options) {
       return;
     }
     const speechForSchedule = speech.flatMap((item) => {
-      const resolved = speechBuffers.get(item.id);
+      const resolved = speechDecoded.get(item.id);
       if (!resolved) return [];
       return [{
         ...item,
-        ...!resolved.atempo ? { atempo: void 0 } : {},
+        ...!resolved.sidecar ? { sidecar: void 0, atempo: void 0 } : {},
         materialDurationSec: resolved.buffer.duration
       }];
     });
@@ -18661,8 +18772,8 @@ function createPreviewAudioSupply(options) {
     anchorTimelineSec = plan.startAtSec;
     anchorContextSec = contextStart;
     lastSchedule = plan.items;
-    lastAtempoIds = new Set(speechForSchedule.filter((item) => item.atempo).map((item) => item.id));
-    for (const item of lastSchedule) startItem(item, contextStart, speechBuffers);
+    lastSidecarSpeechIds = new Set(speechForSchedule.filter((item) => item.sidecar || item.atempo).map((item) => item.id));
+    for (const item of lastSchedule) startItem(item, contextStart);
     playing = true;
     starting = false;
   };
@@ -18698,23 +18809,38 @@ function createPreviewAudioSupply(options) {
         narration: lastSchedule.filter((item) => item.kind === "narration").length,
         speech: lastSchedule.filter((item) => item.kind === "speech").length
       },
+      prefetch: {
+        items: tasks.length,
+        decodedBytes,
+        elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? nowMs() - prefetchStartedAt : 0),
+        pending: prefetchPending
+      },
+      sidecars: {
+        generated: uniqueSidecars.filter((item) => item.skipped === false).length,
+        skipped: uniqueSidecars.filter((item) => item.skipped === true).length,
+        bytes: uniqueSidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes : 0), 0)
+      },
+      crossfades,
       speechDecode: {
         sources: sourceOrder.length,
         okSources: perSource.filter((item) => item.ok).length,
         skippedSources: perSource.filter((item) => !item.ok).length,
         totalMs: perSource.reduce((sum, item) => sum + item.ms, 0),
-        bytes: cacheBytes,
+        bytes: decodedBytes,
         perSource: perSource.map((item) => ({ ...item }))
       },
       speech: {
         atempo: {
-          items: lastSchedule.filter((item) => item.kind === "speech" && lastAtempoIds.has(item.id)).length,
-          generatedMs: speech.filter((item) => lastAtempoIds.has(item.id)).reduce((sum, item) => sum + (finitePositive2(item.atempo?.generatedMs) ? item.atempo.generatedMs : 0), 0)
+          items: lastSchedule.filter((item) => item.kind === "speech" && lastSidecarSpeechIds.has(item.id)).length,
+          generatedMs: speech.filter((item) => lastSidecarSpeechIds.has(item.id)).reduce((sum, item) => sum + (finitePositive2(item.sidecar?.generatedMs) ? item.sidecar.generatedMs : finitePositive2(item.atempo?.generatedMs) ? item.atempo.generatedMs : 0), 0)
         }
       }
     };
   };
   return {
+    prime() {
+      void ensurePrefetch();
+    },
     playFrom(seconds) {
       latestRequestedSec = clamp3(seconds);
       if (context && !playing && !starting) void startFrom(latestRequestedSec);
@@ -18748,15 +18874,33 @@ function createPreviewAudioSupply(options) {
       if (pauseTimer !== null) clearTimeout(pauseTimer);
       pauseTimer = null;
       pause();
-      speechCache.clear();
-      atempoCache.clear();
-      cacheBytes = 0;
+      decoded.clear();
+      decodedBytes = 0;
       void context?.close().catch(() => void 0);
     }
   };
 }
+function validSidecar(value) {
+  if (!value || typeof value !== "object") return void 0;
+  const item = value;
+  return typeof item.path === "string" && item.path && finitePositive2(item.durationSec) && finiteNonNegative(item.padBeforeSec) && finiteNonNegative(item.padAfterSec) ? item : void 0;
+}
+function firstUseRegular(item) {
+  if (item.kind === "bgm") return 0;
+  return finiteNonNegative(item.spec.t) ? item.spec.t : 0;
+}
+function firstUseSpeech(item) {
+  const before = finitePositive2(item.crossfadeInSec) ? item.crossfadeInSec : 0;
+  return Math.max(0, item.atSec - before);
+}
+function decodeCacheKey(url, restricted) {
+  return `${restricted ? "small:" : "audio:"}${url}`;
+}
 function finitePositive2(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+function finiteNonNegative(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 function nowMs() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -19035,7 +19179,14 @@ function audioDeclarations(edit) {
     const source = raw.src || raw.path;
     if (typeof source !== "string" || !source) return;
     const id = typeof raw.id === "string" && raw.id ? raw.id : fallbackId;
-    declarations.push({ kind, id, url: mediaUrl(source), spec: { ...raw, id, durationSec: 0 } });
+    const sidecar = raw.sidecar?.path ? { ...raw.sidecar, path: mediaUrl(raw.sidecar.path) } : void 0;
+    declarations.push({
+      kind,
+      id,
+      url: sidecar?.path ?? mediaUrl(source),
+      ...sidecar ? { sourceUrl: mediaUrl(source) } : {},
+      spec: { ...raw, ...sidecar ? { sidecar } : {}, id, durationSec: 0 }
+    });
   };
   append("bgm", audio.bgm, "bgm");
   if (Array.isArray(audio.sfx)) {
@@ -19199,7 +19350,9 @@ var FrameEngineRuntime = class {
       return [{
         ...declaration,
         url,
-        ...declaration.atempo?.path ? {
+        ...declaration.sidecar?.path ? {
+          sidecar: { ...declaration.sidecar, path: mediaUrl(declaration.sidecar.path) }
+        } : declaration.atempo?.path ? {
           atempo: { ...declaration.atempo, path: mediaUrl(declaration.atempo.path) }
         } : {}
       }];
@@ -19305,6 +19458,7 @@ var FrameEngineRuntime = class {
     await this.renderFrame(0, "seek", second);
     this.ui.root.dataset.frameEngineReady = "true";
     this.scheduler.primeHeaders();
+    this.audio.prime();
   }
   seek(seconds) {
     const clamped = Math.max(0, Math.min(seconds, this.totalDuration));
@@ -19420,6 +19574,8 @@ var FrameEngineRuntime = class {
     this.ui.metrics.dataset.leadInSec = scheduler.leadInSeconds.toFixed(2);
     this.ui.metrics.dataset.audioSpeech = String(audio.scheduled.speech);
     this.ui.metrics.dataset.speechDecodeMs = audio.speechDecode.totalMs.toFixed(3);
+    this.ui.metrics.dataset.audioPrefetchPending = String(audio.prefetch.pending);
+    this.ui.metrics.dataset.audioPrefetchBytes = String(audio.prefetch.decodedBytes);
     this.ui.metrics.textContent = [
       `fps (presented/1s)  ${fps}`,
       `late frame          ${m2.lateFrames}`,
@@ -19433,7 +19589,8 @@ var FrameEngineRuntime = class {
       `warmup coverage     ${scheduler.coverage.warmed}/${scheduler.coverage.needed}`,
       `live decoders       ${scheduler.liveDecoders}/${scheduler.maxLiveDecoders}`,
       `lead-in             ${scheduler.leadInSeconds.toFixed(2)} s`,
-      `speech              ${audio.scheduled.speech}  decode ${format(audio.speechDecode.totalMs)} ms`
+      `speech              ${audio.scheduled.speech}  decode ${format(audio.speechDecode.totalMs)} ms`,
+      `audio prefetch      ${audio.prefetch.items - audio.prefetch.pending}/${audio.prefetch.items}  ${format(audio.prefetch.elapsedMs)} ms`
     ].join("\n");
   }
   showError(message, fatal) {

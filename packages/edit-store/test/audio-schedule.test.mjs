@@ -182,7 +182,7 @@ test('speech は speed を素材時間軸へ適用し、シーク窓と素材末
   }
 });
 
-test('speech atempo は専用 WAV を 1 倍・区間先頭基準で予定する', () => {
+test('旧 speech atempo は専用音声を 1 倍・区間先頭基準で予定する', () => {
   const result = buildWebAudioSchedule({
     timelineDurationSec: 10,
     startAtSec: 2,
@@ -201,6 +201,40 @@ test('speech atempo は専用 WAV を 1 倍・区間先頭基準で予定する'
   closeTo(speech.durationSec, 3);
   closeTo(speech.playbackRate, 1);
   closeTo(speech.sourceDurationSec, 3);
+});
+
+test('transition_out は両側 FLAC の 0.5 秒を線形 crossfade として重ねる', () => {
+  const declarations = projectSpeechDeclarations([
+    { id: 'a', src: 'source-a', in: 1, out: 5, transition_out: { type: 'dissolve', duration: 0.5 } },
+    { id: 'b', src: 'source-b', in: 2, out: 6 },
+  ], { fps: 30 });
+  assert.equal(declarations[0].padAfterSec, 0.5);
+  assert.equal(declarations[0].crossfadeOutSec, 0.5);
+  assert.equal(declarations[1].padBeforeSec, 0.5);
+  assert.equal(declarations[1].crossfadeInSec, 0.5);
+
+  const speech = declarations.map(item => ({
+    ...item,
+    sidecar: {
+      path: `/cache/${item.id}.flac`,
+      durationSec: item.outSec - item.inSec + (item.padBeforeSec ?? 0) + (item.padAfterSec ?? 0),
+      padBeforeSec: item.padBeforeSec ?? 0,
+      padAfterSec: item.padAfterSec ?? 0,
+    },
+    materialDurationSec: 10,
+  }));
+  const result = buildWebAudioSchedule({ timelineDurationSec: 7.5, startAtSec: 0, audio: { speech } });
+  assert.equal(result.warnings.length, 0);
+  assert.deepEqual(result.items.map(item => [item.id, item.timelineStartSec, item.timelineEndSec]), [
+    ['a-speech', 0, 4],
+    ['b-speech', 3.5, 7.5],
+  ]);
+  assert.deepEqual(result.items[0].gainEvents.map(event => [event.offsetSec, event.value]), [
+    [0, 1], [3.5, 1], [4, 0],
+  ]);
+  assert.deepEqual(result.items[1].gainEvents.map(event => [event.offsetSec, event.value]), [
+    [0, 0], [0.5, 1], [4, 1],
+  ]);
 });
 
 test('cuts 投影は speed / gain / 暗黙配置を保ち、freeze hold を無音の二分割にする', () => {

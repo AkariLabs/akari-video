@@ -79,6 +79,9 @@ test('shell developer metrics は speech 件数と decode 時間を既存行へ�
   assert.match(bootstrap, /metrics\.dataset\.audioSpeech/u);
   assert.match(bootstrap, /metrics\.dataset\.speechDecodeMs/u);
   assert.match(bootstrap, /speech\s+' \+ audioState\.scheduled\.speech/u);
+  assert.match(bootstrap, /metrics\.dataset\.audioPrefetchPending/u);
+  assert.match(bootstrap, /audioSupply\.prime\(\)/u);
+  assert.match(bootstrap, /sidecar \? sidecar\.path : raw\.src/u);
 });
 
 test('shell cuts 評価は EvaluationPlan.base を参照する', () => {

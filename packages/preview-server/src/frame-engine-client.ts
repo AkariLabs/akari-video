@@ -107,7 +107,14 @@ function audioDeclarations(edit: any): Array<{
     const source = raw.src || raw.path;
     if (typeof source !== 'string' || !source) return;
     const id = typeof raw.id === 'string' && raw.id ? raw.id : fallbackId;
-    declarations.push({ kind, id, url: mediaUrl(source), spec: { ...raw, id, durationSec: 0 } });
+    const sidecar = raw.sidecar?.path ? { ...raw.sidecar, path: mediaUrl(raw.sidecar.path) } : undefined;
+    declarations.push({
+      kind,
+      id,
+      url: sidecar?.path ?? mediaUrl(source),
+      ...(sidecar ? { sourceUrl: mediaUrl(source) } : {}),
+      spec: { ...raw, ...(sidecar ? { sidecar } : {}), id, durationSec: 0 },
+    });
   };
   append('bgm', audio.bgm, 'bgm');
   if (Array.isArray(audio.sfx)) {
@@ -305,7 +312,9 @@ class FrameEngineRuntime {
       return [{
         ...declaration,
         url,
-        ...(declaration.atempo?.path ? {
+        ...(declaration.sidecar?.path ? {
+          sidecar: { ...declaration.sidecar, path: mediaUrl(declaration.sidecar.path) },
+        } : declaration.atempo?.path ? {
           atempo: { ...declaration.atempo, path: mediaUrl(declaration.atempo.path) },
         } : {}),
       }];
@@ -383,6 +392,7 @@ class FrameEngineRuntime {
     await this.renderFrame(0, 'seek', second);
     this.ui.root.dataset.frameEngineReady = 'true';
     this.scheduler.primeHeaders();
+    this.audio.prime();
   }
 
   seek(seconds: number): number {
@@ -512,6 +522,8 @@ class FrameEngineRuntime {
     this.ui.metrics.dataset.leadInSec = scheduler.leadInSeconds.toFixed(2);
     this.ui.metrics.dataset.audioSpeech = String(audio.scheduled.speech);
     this.ui.metrics.dataset.speechDecodeMs = audio.speechDecode.totalMs.toFixed(3);
+    this.ui.metrics.dataset.audioPrefetchPending = String(audio.prefetch.pending);
+    this.ui.metrics.dataset.audioPrefetchBytes = String(audio.prefetch.decodedBytes);
     this.ui.metrics.textContent = [
       `fps (presented/1s)  ${fps}`,
       `late frame          ${m.lateFrames}`,
@@ -526,6 +538,8 @@ class FrameEngineRuntime {
       `live decoders       ${scheduler.liveDecoders}/${scheduler.maxLiveDecoders}`,
       `lead-in             ${scheduler.leadInSeconds.toFixed(2)} s`,
       `speech              ${audio.scheduled.speech}  decode ${format(audio.speechDecode.totalMs)} ms`,
+      `audio prefetch      ${audio.prefetch.items - audio.prefetch.pending}/${audio.prefetch.items}`
+        + `  ${format(audio.prefetch.elapsedMs)} ms`,
     ].join('\n');
   }
 

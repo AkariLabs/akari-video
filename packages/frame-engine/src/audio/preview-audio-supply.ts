@@ -12,6 +12,7 @@ export interface PreviewSpeechCut {
   at?: number;
   track?: number;
   id?: string;
+  transition_out?: { type?: unknown; duration?: unknown } | null;
   freeze?: { at_sec?: unknown; duration_sec?: unknown } | null;
   gain_db?: unknown;
   gainDb?: unknown;
@@ -68,10 +69,23 @@ export type PreviewScheduleBuilder = (input: {
   audio?: PreviewScheduleDeclaration;
 }) => PreviewScheduleResult;
 
+export interface PreviewAudioSidecar {
+  path: string;
+  durationSec: number;
+  padBeforeSec: number;
+  padAfterSec: number;
+  generatedMs?: number;
+  skipped?: boolean;
+  bytes?: number;
+}
+
 export interface PreviewAudioDeclaration {
   kind: 'bgm' | 'sfx' | 'narration';
   id: string;
+  /** 実際に先読みする URL。sidecar があれば FLAC、無ければ source。 */
   url: string;
+  /** sidecar decode 失敗時だけ使う元ファイル URL。 */
+  sourceUrl?: string;
   spec: WebAudioDecodedItem;
 }
 
@@ -87,11 +101,14 @@ export interface PreviewSpeechDeclaration {
   track?: number;
   materialDurationSec: number;
   url: string;
-  atempo?: {
-    path: string;
-    durationSec: number;
-    generatedMs?: number;
-  };
+  sidecar?: PreviewAudioSidecar;
+  /** 旧 summary の読み取り互換。新規生成は sidecar。 */
+  atempo?: { path: string; durationSec: number; generatedMs?: number };
+  padBeforeSec?: number;
+  padAfterSec?: number;
+  crossfadeInSec?: number;
+  crossfadeOutSec?: number;
+  sidecarWarningEmitted?: boolean;
 }
 
 export interface PreviewAudioSupplyOptions {
@@ -122,6 +139,9 @@ export interface PreviewAudioSupplyDebug {
     narration: number;
     speech: number;
   };
+  prefetch: { items: number; decodedBytes: number; elapsedMs: number; pending: number };
+  sidecars: { generated: number; skipped: number; bytes: number };
+  crossfades: Array<{ id: string; startSec: number; durationSec: number }>;
   speechDecode: {
     sources: number;
     okSources: number;
@@ -130,15 +150,12 @@ export interface PreviewAudioSupplyDebug {
     bytes: number;
     perSource: Array<{ src: string; ms: number; durationSec: number; bytes: number; ok: boolean }>;
   };
-  speech: {
-    atempo: {
-      items: number;
-      generatedMs: number;
-    };
-  };
+  speech: { atempo: { items: number; generatedMs: number } };
 }
 
 export interface PreviewAudioSupply {
+  /** ready 後に呼ぶ。呼び手を await させず、同時 2 本で予定表を先読みする。 */
+  prime(): void;
   playFrom(seconds: number): void;
   position(fallbackSeconds: number): number;
   playbackTime(fallbackSeconds: number): number;
@@ -152,25 +169,26 @@ export interface PreviewAudioSupply {
 interface DecodedRegular extends PreviewAudioDeclaration {
   buffer: AudioBuffer;
   durationSec: number;
-}
-
-interface SpeechCacheEntry {
-  promise: Promise<AudioBuffer | null>;
-  lastUsed: number;
-  bytes: number;
+  sidecar: boolean;
+  cacheKey: string;
 }
 
 interface ResolvedSpeechBuffer {
   buffer: AudioBuffer;
-  atempo: boolean;
+  sidecar: boolean;
+  cacheKey: string;
 }
 
-interface ActiveSource {
-  source: AudioBufferSourceNode;
-  gains: GainNode[];
+interface DecodeCacheEntry {
+  promise: Promise<AudioBuffer | null>;
+  bytes: number;
+  nextUseSec: number;
 }
 
-const DEFAULT_DECODE_CACHE_BYTES = 60 * 1024 * 1024;
+interface ActiveSource { source: AudioBufferSourceNode; gains: GainNode[] }
+
+const DEFAULT_DECODE_CACHE_BYTES = 256 * 1024 * 1024;
+const MAX_SPEECH_SOURCE_FALLBACK_BYTES = 64 * 1024 * 1024;
 
 export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): PreviewAudioSupply {
   const timelineDurationSec = finitePositive(options.timelineDurationSec) ? options.timelineDurationSec : 0;
@@ -197,18 +215,18 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     }
   }
 
-  let regularDecoded: DecodedRegular[] = [];
-  let regularLoadPromise: Promise<void> | null = null;
-  const speechCache = new Map<string, SpeechCacheEntry>();
-  const speechFailures = new Set<string>();
-  const warnedSpeech = new Set<string>();
-  const atempoCache = new Map<string, Promise<AudioBuffer | null>>();
-  const warnedAtempo = new Set<string>();
+  const decoded = new Map<string, DecodeCacheEntry>();
+  const warned = new Set<string>();
   const speechMetrics = new Map<string, {
     src: string; ms: number; durationSec: number; bytes: number; ok: boolean;
   }>();
-  let cacheBytes = 0;
-  let lruClock = 0;
+  let decodedBytes = 0;
+  let prefetchPromise: Promise<void> | null = null;
+  let prefetchStartedAt = 0;
+  let prefetchElapsedMs = 0;
+  let prefetchPending = 0;
+  let regularDecoded: DecodedRegular[] = [];
+  let speechDecoded = new Map<string, ResolvedSpeechBuffer>();
   let active: ActiveSource[] = [];
   let generation = 0;
   let starting = false;
@@ -220,7 +238,18 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   let lastRenderedTimelineSec: number | null = null;
   let lastAudioPositionAtRenderSec: number | null = null;
   let lastSchedule: PreviewScheduledItem[] = [];
-  let lastAtempoIds = new Set<string>();
+  let lastSidecarSpeechIds = new Set<string>();
+
+  const sidecarValues = [
+    ...declarations.map(item => validSidecar(item.spec.sidecar) ? item.spec.sidecar : undefined),
+    ...speech.map(item => item.sidecar),
+  ].filter((item): item is PreviewAudioSidecar => Boolean(item));
+  const uniqueSidecars = [...new Map(sidecarValues.map(item => [item.path, item])).values()];
+  const crossfades = speech.filter(item => finitePositive(item.crossfadeOutSec)).map(item => ({
+    id: item.id,
+    startSec: item.atSec + item.durationSec - (item.crossfadeOutSec as number),
+    durationSec: item.crossfadeOutSec as number,
+  }));
 
   const clamp = (seconds: number): number => Math.max(
     0,
@@ -242,131 +271,147 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     }
   };
 
-  const loadRegular = (): Promise<void> => {
-    if (regularLoadPromise) return regularLoadPromise;
-    if (!context || !fetchImpl) return Promise.resolve();
-    regularLoadPromise = Promise.all(declarations.map(async declaration => {
-      try {
-        const response = await fetchImpl(declaration.url);
-        if (!response.ok) throw new Error(`fetch status=${response.status}`);
-        const buffer = await context!.decodeAudioData(await response.arrayBuffer());
-        if (!(buffer.duration > 0)) throw new Error('decoded duration is invalid');
-        return { ...declaration, buffer, durationSec: buffer.duration };
-      } catch (reason) {
-        warn(`[frame-engine] ${declaration.kind} ${declaration.id} unavailable; skipped`, reason);
-        return null;
-      }
-    })).then(items => {
-      regularDecoded = items.filter((item): item is DecodedRegular => item !== null);
-    });
-    return regularLoadPromise;
-  };
-
-  const evictSpeechCache = (): void => {
-    while (cacheBytes > cacheLimit && speechCache.size > 0) {
-      const oldest = [...speechCache].filter(([, entry]) => entry.bytes > 0)
-        .sort((left, right) => left[1].lastUsed - right[1].lastUsed)[0];
-      if (!oldest) return;
-      speechCache.delete(oldest[0]);
-      cacheBytes -= oldest[1].bytes;
+  const evictFarthest = (): void => {
+    while (decodedBytes > cacheLimit) {
+      const candidate = [...decoded.entries()]
+        .filter(([, entry]) => entry.bytes > 0)
+        .sort((left, right) => right[1].nextUseSec - left[1].nextUseSec)[0];
+      if (!candidate) return;
+      decoded.delete(candidate[0]);
+      decodedBytes -= candidate[1].bytes;
     }
   };
 
-  const getSpeechBuffer = (declaration: PreviewSpeechDeclaration): Promise<AudioBuffer | null> => {
-    if (!context || !fetchImpl || speechFailures.has(declaration.src)) return Promise.resolve(null);
-    const cached = speechCache.get(declaration.src);
+  const decodeUrl = (
+    url: string,
+    nextUseSec: number,
+    label: string,
+    restrictSpeechSource = false,
+    suppressWarning = false,
+  ): Promise<AudioBuffer | null> => {
+    if (!context || !fetchImpl) return Promise.resolve(null);
+    const cacheKey = decodeCacheKey(url, restrictSpeechSource);
+    const cached = decoded.get(cacheKey);
     if (cached) {
-      cached.lastUsed = ++lruClock;
+      cached.nextUseSec = Math.min(cached.nextUseSec, nextUseSec);
       return cached.promise;
     }
-    const started = nowMs();
-    const entry: SpeechCacheEntry = {
-      lastUsed: ++lruClock,
-      bytes: 0,
-      promise: Promise.resolve(null),
-    };
+    const entry: DecodeCacheEntry = { bytes: 0, nextUseSec, promise: Promise.resolve(null) };
     entry.promise = (async () => {
       try {
-        const response = await fetchImpl(declaration.url);
+        const response = await fetchImpl(url);
         if (!response.ok) throw new Error(`fetch status=${response.status}`);
-        const buffer = await context!.decodeAudioData(await response.arrayBuffer());
+        const declaredBytes = Number(response.headers?.get?.('content-length'));
+        if (restrictSpeechSource && (!finitePositive(declaredBytes)
+          || declaredBytes >= MAX_SPEECH_SOURCE_FALLBACK_BYTES)) {
+          throw new Error(finitePositive(declaredBytes)
+            ? `source is ${declaredBytes} bytes (64 MB fallback limit)`
+            : 'source size is unavailable (64 MB fallback limit)');
+        }
+        const encoded = await response.arrayBuffer();
+        if (restrictSpeechSource && encoded.byteLength >= MAX_SPEECH_SOURCE_FALLBACK_BYTES) {
+          throw new Error(`source is ${encoded.byteLength} bytes (64 MB fallback limit)`);
+        }
+        const buffer = await context!.decodeAudioData(encoded);
         if (!(buffer.duration > 0)) throw new Error('decoded duration is invalid');
-        const bytes = buffer.length * buffer.numberOfChannels * 4;
-        entry.bytes = bytes;
-        cacheBytes += bytes;
-        speechMetrics.set(declaration.src, {
-          src: declaration.src,
-          ms: nowMs() - started,
-          durationSec: buffer.duration,
-          bytes,
-          ok: true,
-        });
-        evictSpeechCache();
+        entry.bytes = buffer.length * buffer.numberOfChannels * 4;
+        decodedBytes += entry.bytes;
+        evictFarthest();
         return buffer;
       } catch (reason) {
-        speechCache.delete(declaration.src);
-        speechFailures.add(declaration.src);
-        speechMetrics.set(declaration.src, {
-          src: declaration.src,
-          ms: nowMs() - started,
-          durationSec: 0,
-          bytes: 0,
-          ok: false,
-        });
-        if (!warnedSpeech.has(declaration.src)) {
-          warnedSpeech.add(declaration.src);
-          warn(`[frame-engine] speech ${declaration.src} unavailable; skipped`, reason);
+        decoded.delete(cacheKey);
+        if (!suppressWarning && !warned.has(cacheKey)) {
+          warned.add(cacheKey);
+          warn(`[frame-engine] ${label} unavailable`, reason);
         }
         return null;
       }
     })();
-    speechCache.set(declaration.src, entry);
+    decoded.set(cacheKey, entry);
     return entry.promise;
   };
 
-  const getAtempoBuffer = (declaration: PreviewSpeechDeclaration): Promise<AudioBuffer | null> => {
-    const atempo = declaration.atempo;
-    if (!context || !fetchImpl || !atempo) return Promise.resolve(null);
-    const cached = atempoCache.get(atempo.path);
-    if (cached) return cached;
-    const pending = (async () => {
-      try {
-        const response = await fetchImpl(atempo.path);
-        if (!response.ok) throw new Error(`fetch status=${response.status}`);
-        const buffer = await context!.decodeAudioData(await response.arrayBuffer());
-        if (!(buffer.duration > 0)) throw new Error('decoded duration is invalid');
-        return buffer;
-      } catch (reason) {
-        if (!warnedAtempo.has(atempo.path)) {
-          warnedAtempo.add(atempo.path);
-          warn(`[frame-engine] speech atempo ${declaration.id} unavailable; using source playbackRate`, reason);
-        }
-        return null;
-      }
-    })();
-    atempoCache.set(atempo.path, pending);
-    return pending;
+  const resolveRegular = async (declaration: PreviewAudioDeclaration): Promise<void> => {
+    const sidecar = validSidecar(declaration.spec.sidecar);
+    let buffer = await decodeUrl(declaration.url, firstUseRegular(declaration),
+      `${declaration.kind} ${declaration.id}${sidecar ? ' sidecar' : ''}`);
+    let usedSidecar = Boolean(sidecar && buffer);
+    if (!buffer && sidecar && declaration.sourceUrl) {
+      buffer = await decodeUrl(declaration.sourceUrl, firstUseRegular(declaration),
+        `${declaration.kind} ${declaration.id}`);
+      usedSidecar = false;
+    }
+    if (!buffer) return;
+    const usedUrl = usedSidecar ? declaration.url : declaration.sourceUrl ?? declaration.url;
+    regularDecoded.push({
+      ...declaration, buffer, durationSec: buffer.duration, sidecar: usedSidecar,
+      cacheKey: decodeCacheKey(usedUrl, false),
+    });
   };
 
-  const loadSpeech = async (): Promise<Map<string, ResolvedSpeechBuffer>> => {
-    const buffers = new Map<string, ResolvedSpeechBuffer>();
-    await Promise.all(speech.map(async declaration => {
-      const atempoBuffer = await getAtempoBuffer(declaration);
-      if (atempoBuffer) {
-        buffers.set(declaration.id, { buffer: atempoBuffer, atempo: true });
-        return;
-      }
-      const sourceBuffer = await getSpeechBuffer(declaration);
-      if (sourceBuffer) buffers.set(declaration.id, { buffer: sourceBuffer, atempo: false });
-    }));
-    return buffers;
+  const resolveSpeech = async (declaration: PreviewSpeechDeclaration): Promise<void> => {
+    const started = nowMs();
+    const sidecar = declaration.sidecar;
+    const legacy = declaration.atempo;
+    const bakedPath = sidecar?.path ?? legacy?.path;
+    let buffer = bakedPath
+      ? await decodeUrl(bakedPath, firstUseSpeech(declaration), `speech sidecar ${declaration.id}`)
+      : null;
+    let usedSidecar = Boolean(bakedPath && buffer);
+    if (!buffer) {
+      buffer = await decodeUrl(declaration.url, firstUseSpeech(declaration),
+        `speech ${declaration.src}`, true, Boolean(bakedPath || declaration.sidecarWarningEmitted));
+      usedSidecar = false;
+    }
+    if (buffer) speechDecoded.set(declaration.id, {
+      buffer,
+      sidecar: usedSidecar,
+      cacheKey: decodeCacheKey(usedSidecar ? bakedPath! : declaration.url, !usedSidecar),
+    });
+    const bytes = buffer ? buffer.length * buffer.numberOfChannels * 4 : 0;
+    const previous = speechMetrics.get(declaration.src);
+    speechMetrics.set(declaration.src, {
+      src: declaration.src,
+      ms: (previous?.ms ?? 0) + (nowMs() - started),
+      durationSec: Math.max(previous?.durationSec ?? 0, buffer?.duration ?? 0),
+      bytes: (previous?.bytes ?? 0) + bytes,
+      ok: previous?.ok === false ? false : Boolean(buffer),
+    });
   };
 
-  const applyGainEvents = (
-    param: AudioParam,
-    events: PreviewScheduledItem['gainEvents'],
-    startTime: number,
-  ): void => {
+  const tasks = [
+    ...declarations.map(item => ({ at: firstUseRegular(item), run: () => resolveRegular(item) })),
+    ...speech.map(item => ({ at: firstUseSpeech(item), run: () => resolveSpeech(item) })),
+  ].sort((left, right) => left.at - right.at);
+
+  const runPrefetch = async (): Promise<void> => {
+    regularDecoded = [];
+    speechDecoded = new Map();
+    prefetchPending = tasks.length;
+    let cursor = 0;
+    const worker = async (): Promise<void> => {
+      while (cursor < tasks.length) {
+        const task = tasks[cursor++];
+        if (!task) break;
+        try { await task.run(); } finally { prefetchPending -= 1; }
+      }
+    };
+    await Promise.all([worker(), worker()]);
+    regularDecoded = regularDecoded.filter(item => decoded.has(item.cacheKey));
+    speechDecoded = new Map([...speechDecoded].filter(([, item]) => decoded.has(item.cacheKey)));
+  };
+
+  const ensurePrefetch = (): Promise<void> => {
+    if (prefetchPromise) return prefetchPromise;
+    prefetchStartedAt = nowMs();
+    prefetchPromise = runPrefetch().finally(() => {
+      prefetchElapsedMs = nowMs() - prefetchStartedAt;
+      prefetchPending = 0;
+    });
+    return prefetchPromise;
+  };
+
+  const applyGainEvents = (param: AudioParam, events: PreviewGainEvent[], startTime: number): void => {
     if (events.length === 0) {
       param.setValueAtTime(1, startTime);
       return;
@@ -379,16 +424,12 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     }
   };
 
-  const startItem = (
-    item: PreviewScheduledItem,
-    contextStart: number,
-    speechBuffers: ReadonlyMap<string, ResolvedSpeechBuffer>,
-  ): void => {
+  const startItem = (item: PreviewScheduledItem, contextStart: number): void => {
     if (!context) return;
     const regular = item.kind === 'speech' ? undefined
       : regularDecoded.find(candidate => candidate.id === item.id && candidate.kind === item.kind);
     const buffer = regular?.buffer
-      ?? (item.kind === 'speech' ? speechBuffers.get(item.id)?.buffer : undefined);
+      ?? (item.kind === 'speech' ? speechDecoded.get(item.id)?.buffer : undefined);
     if (!buffer) return;
     try {
       const source = context.createBufferSource();
@@ -408,11 +449,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       }
       tail.connect(context.destination);
       applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec);
-      source.start(
-        contextStart + item.delaySec,
-        item.sourceOffsetSec,
-        item.sourceDurationSec,
-      );
+      source.start(contextStart + item.delaySec, item.sourceOffsetSec, item.sourceDurationSec);
       const activeItem = { source, gains };
       active.push(activeItem);
       source.onended = () => {
@@ -426,13 +463,17 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   };
 
   const regularScheduleDeclaration = (): PreviewScheduleDeclaration => {
-    const bgm = regularDecoded.find(item => item.kind === 'bgm');
+    const normalized = regularDecoded.map(item => ({
+      ...item.spec,
+      id: item.id,
+      durationSec: item.durationSec,
+      ...(!item.sidecar ? { sidecar: undefined } : {}),
+    }));
+    const bgm = normalized.find((_, index) => regularDecoded[index]?.kind === 'bgm');
     return {
-      ...(bgm ? { bgm: { ...bgm.spec, id: bgm.id, durationSec: bgm.durationSec } } : {}),
-      sfx: regularDecoded.filter(item => item.kind === 'sfx')
-        .map(item => ({ ...item.spec, id: item.id, durationSec: item.durationSec })),
-      narration: regularDecoded.filter(item => item.kind === 'narration')
-        .map(item => ({ ...item.spec, id: item.id, durationSec: item.durationSec })),
+      ...(bgm ? { bgm } : {}),
+      sfx: normalized.filter((_, index) => regularDecoded[index]?.kind === 'sfx'),
+      narration: normalized.filter((_, index) => regularDecoded[index]?.kind === 'narration'),
     };
   };
 
@@ -440,11 +481,12 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     if (!context) return;
     const thisGeneration = ++generation;
     starting = true;
-    const [, speechBuffers] = await Promise.all([loadRegular(), loadSpeech()]);
-    if (thisGeneration !== generation) {
-      starting = false;
-      return;
+    const alreadyPrefetched = prefetchPromise !== null;
+    await ensurePrefetch();
+    if (alreadyPrefetched && regularDecoded.length + speechDecoded.size < tasks.length) {
+      await runPrefetch();
     }
+    if (thisGeneration !== generation) { starting = false; return; }
     try {
       await context.resume();
     } catch (reason) {
@@ -452,16 +494,13 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       starting = false;
       return;
     }
-    if (thisGeneration !== generation) {
-      starting = false;
-      return;
-    }
+    if (thisGeneration !== generation) { starting = false; return; }
     const speechForSchedule = speech.flatMap(item => {
-      const resolved = speechBuffers.get(item.id);
+      const resolved = speechDecoded.get(item.id);
       if (!resolved) return [];
       return [{
         ...item,
-        ...(!resolved.atempo ? { atempo: undefined } : {}),
+        ...(!resolved.sidecar ? { sidecar: undefined, atempo: undefined } : {}),
         materialDurationSec: resolved.buffer.duration,
       }];
     });
@@ -471,17 +510,15 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       audio: { ...regularScheduleDeclaration(), speech: speechForSchedule },
     });
     for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
-    if (plan.items.length === 0) {
-      starting = false;
-      return;
-    }
+    if (plan.items.length === 0) { starting = false; return; }
     stopSources();
     const contextStart = context.currentTime + 0.02;
     anchorTimelineSec = plan.startAtSec;
     anchorContextSec = contextStart;
     lastSchedule = plan.items;
-    lastAtempoIds = new Set(speechForSchedule.filter(item => item.atempo).map(item => item.id));
-    for (const item of lastSchedule) startItem(item, contextStart, speechBuffers);
+    lastSidecarSpeechIds = new Set(speechForSchedule
+      .filter(item => item.sidecar || item.atempo).map(item => item.id));
+    for (const item of lastSchedule) startItem(item, contextStart);
     playing = true;
     starting = false;
   };
@@ -521,26 +558,40 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         narration: lastSchedule.filter(item => item.kind === 'narration').length,
         speech: lastSchedule.filter(item => item.kind === 'speech').length,
       },
+      prefetch: {
+        items: tasks.length,
+        decodedBytes,
+        elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? nowMs() - prefetchStartedAt : 0),
+        pending: prefetchPending,
+      },
+      sidecars: {
+        generated: uniqueSidecars.filter(item => item.skipped === false).length,
+        skipped: uniqueSidecars.filter(item => item.skipped === true).length,
+        bytes: uniqueSidecars.reduce((sum, item) => sum + (finiteNonNegative(item.bytes) ? item.bytes! : 0), 0),
+      },
+      crossfades,
       speechDecode: {
         sources: sourceOrder.length,
         okSources: perSource.filter(item => item.ok).length,
         skippedSources: perSource.filter(item => !item.ok).length,
         totalMs: perSource.reduce((sum, item) => sum + item.ms, 0),
-        bytes: cacheBytes,
+        bytes: decodedBytes,
         perSource: perSource.map(item => ({ ...item })),
       },
       speech: {
         atempo: {
-          items: lastSchedule.filter(item => item.kind === 'speech' && lastAtempoIds.has(item.id)).length,
-          generatedMs: speech.filter(item => lastAtempoIds.has(item.id))
-            .reduce((sum, item) => sum + (finitePositive(item.atempo?.generatedMs)
-              ? item.atempo!.generatedMs as number : 0), 0),
+          items: lastSchedule.filter(item => item.kind === 'speech' && lastSidecarSpeechIds.has(item.id)).length,
+          generatedMs: speech.filter(item => lastSidecarSpeechIds.has(item.id))
+            .reduce((sum, item) => sum + (finitePositive(item.sidecar?.generatedMs)
+              ? item.sidecar!.generatedMs! : finitePositive(item.atempo?.generatedMs)
+                ? item.atempo!.generatedMs! : 0), 0),
         },
       },
     };
   };
 
   return {
+    prime() { void ensurePrefetch(); },
     playFrom(seconds) {
       latestRequestedSec = clamp(seconds);
       if (context && !playing && !starting) void startFrom(latestRequestedSec);
@@ -574,16 +625,40 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       if (pauseTimer !== null) clearTimeout(pauseTimer);
       pauseTimer = null;
       pause();
-      speechCache.clear();
-      atempoCache.clear();
-      cacheBytes = 0;
+      decoded.clear();
+      decodedBytes = 0;
       void context?.close().catch(() => undefined);
     },
   };
 }
 
+function validSidecar(value: unknown): PreviewAudioSidecar | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const item = value as PreviewAudioSidecar;
+  return typeof item.path === 'string' && item.path && finitePositive(item.durationSec)
+    && finiteNonNegative(item.padBeforeSec) && finiteNonNegative(item.padAfterSec) ? item : undefined;
+}
+
+function firstUseRegular(item: PreviewAudioDeclaration): number {
+  if (item.kind === 'bgm') return 0;
+  return finiteNonNegative(item.spec.t) ? item.spec.t as number : 0;
+}
+
+function firstUseSpeech(item: PreviewSpeechDeclaration): number {
+  const before = finitePositive(item.crossfadeInSec) ? item.crossfadeInSec as number : 0;
+  return Math.max(0, item.atSec - before);
+}
+
+function decodeCacheKey(url: string, restricted: boolean): string {
+  return `${restricted ? 'small:' : 'audio:'}${url}`;
+}
+
 function finitePositive(value: unknown): boolean {
   return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function finiteNonNegative(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
 function nowMs(): number {
