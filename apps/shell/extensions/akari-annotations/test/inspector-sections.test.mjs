@@ -23,6 +23,12 @@ import {
   NudgeCommitSession,
   planAdjacentVisualTrackMove
 } from '../lib/browser/inspector/keyboard-shortcuts.js';
+import {
+  chromaControlValue,
+  layerSnapshotChromaKey,
+  legacyTransformOpFor,
+  telopParamControlKind
+} from '../lib/browser/inspector/field-mappings.js';
 
 const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
 
@@ -60,6 +66,66 @@ test('不透明度スライダーは内部 0..1 と表示 0..100% を往復す�
   assert.equal(sliderToDisplay(0.5, 100), 50);
   assert.equal(sliderFromDisplay(50, 100), 0.5);
   assert.equal(INSPECTOR_LIVE_PREVIEW_THROTTLE_MS, 30);
+});
+
+test('chroma は内部 0..1 と表示 0..100% を往復し、宣言の無い layer では読み取り専用になる', () => {
+  const rows = [
+    { chromaKey: { similarity: 0.3, blend: 0.2 }, field: 'similarity', fallback: 0.1, value: 0.3, display: 30, editable: true },
+    { chromaKey: { color: '#00ff00' }, field: 'similarity', fallback: 0.1, value: 0.1, display: 10, editable: true },
+    { chromaKey: { color: '#00ff00' }, field: 'blend', fallback: 0, value: 0, display: 0, editable: true },
+    { chromaKey: undefined, field: 'similarity', fallback: 0.1, value: undefined, display: undefined, editable: false }
+  ];
+  assert.deepEqual(rows.map(row => {
+    const value = chromaControlValue(row.chromaKey, row.field, row.fallback);
+    return {
+      value,
+      display: value === undefined ? undefined : sliderToDisplay(value, 100),
+      editable: value !== undefined
+    };
+  }), rows.map(({ value, display, editable }) => ({ value, display, editable })));
+  assert.equal(sliderFromDisplay(30, 100), 0.3);
+});
+
+test('layer snapshot の chromaKey は item 自身の raw source.chroma_key だけから補完する', () => {
+  const raw = { color: '#00ff00', similarity: 0.3, blend: 0.1 };
+  assert.deepEqual(layerSnapshotChromaKey(undefined, raw), raw);
+  const projected = { color: '#ffffff', similarity: 0.2 };
+  assert.equal(layerSnapshotChromaKey(projected, raw), projected);
+  for (const missing of [undefined, null, '#00ff00', ['not-an-object-map']]) {
+    assert.equal(layerSnapshotChromaKey(undefined, missing), undefined);
+  }
+});
+
+test('telop params は primitive だけを型対応部品へ写し、telop 節を外観と情報の間へ置く', () => {
+  const params = {
+    text: '第1章', size: 42, visible: true,
+    style: { color: 'red' }, choices: ['a'], empty: null
+  };
+  assert.deepEqual(Object.entries(params).flatMap(([name, value]) => {
+    const kind = telopParamControlKind(value);
+    return kind ? [[name, kind]] : [];
+  }), [
+    ['text', 'text'], ['size', 'scrub-number'], ['visible', 'boolean-select']
+  ]);
+  const sections = composeInspectorSections([
+    { id: 'info' }, { id: 'telop' }, { id: 'appearance' }
+  ]);
+  assert.deepEqual(sections.map(section => section.id), ['appearance', 'telop', 'info']);
+});
+
+test('legacy item-field は拡縮・回転だけを cut/layer の既存 op へ写像する', () => {
+  assert.deepEqual([
+    ['transform.scale', 'layer'], ['transform.scale', 'cut'],
+    ['transform.rotate', 'layer'], ['transform.rotate', 'cut']
+  ].map(([path, target]) => legacyTransformOpFor(path, target)), [
+    'layer-scale', 'cut-scale', 'layer-rotate', 'cut-rotate'
+  ]);
+  for (const path of [
+    'transform.x', 'transform.y', 'opacity', 'blend',
+    'source.vars.color', 'source.params.text', 'source.chroma_key.similarity'
+  ]) {
+    assert.equal(legacyTransformOpFor(path, 'layer'), undefined, path);
+  }
 });
 
 test('knob type は対応するインスペクター部品へ写る', () => {

@@ -1,0 +1,107 @@
+{
+  "status": "FAIL",
+  "finishedAt": "2026-08-30T06:42:16.050Z",
+  "error": "Error: assertion failed: legacy scale display persisted as internal display/100 :: {\"nextDisplay\":107,\"expectedScale\":1.07,\"actualScale\":null}\n    at assert (file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-sections-v1-followups/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:38:11)\n    at runLegacyCase (file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-sections-v1-followups/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:398:3)\n    at async main_ (file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-sections-v1-followups/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:425:5)",
+  "records": [
+    {
+      "t": "2026-08-30T06:41:53.570Z",
+      "step": "assertion-ok",
+      "message": "found electron page target",
+      "targets": [
+        "file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-sections-v1-followups/apps/shell/lib/frontend/index.html?port=60583#/private/tmp/akari-inspector-l1-legacy-workspace.XAL2ZK/project"
+      ]
+    },
+    {
+      "t": "2026-08-30T06:41:54.745Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:41:55.502Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:41:56.207Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:41:56.912Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:41:57.618Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:41:58.327Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:42:07.654Z",
+      "step": "assertion-ok",
+      "message": "timeline widget opened"
+    },
+    {
+      "t": "2026-08-30T06:42:09.869Z",
+      "step": "screenshot",
+      "name": "00-boot.png"
+    },
+    {
+      "t": "2026-08-30T06:42:10.181Z",
+      "step": "legacy-readonly-selected",
+      "clicked": 1,
+      "clickedCount": 1
+    },
+    {
+      "t": "2026-08-30T06:42:11.521Z",
+      "step": "assertion-ok",
+      "message": "legacy fixture contains a layer with an id"
+    },
+    {
+      "t": "2026-08-30T06:42:11.685Z",
+      "step": "assertion-ok",
+      "message": "timeline item telop-name-rounded has a visible rect",
+      "rect": {
+        "left": 767.515625,
+        "top": 733.5234375,
+        "width": 46.1875,
+        "height": 22,
+        "x": 790.609375,
+        "y": 741.5234375,
+        "hitSameItem": true
+      }
+    },
+    {
+      "t": "2026-08-30T06:42:14.830Z",
+      "step": "assertion-ok",
+      "message": "legacy scale input accepted text"
+    },
+    {
+      "t": "2026-08-30T06:42:16.047Z",
+      "step": "case-9-legacy-scale-result",
+      "layerId": "telop-name-rounded",
+      "beforeDisplay": 100,
+      "nextDisplay": 107,
+      "expectedScale": 1.07,
+      "actualScale": null,
+      "timelineNoticeText": "変更できません: v2 へ変換してから編集してください。×",
+      "footerText": "タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。",
+      "editJsonTextChanged": false,
+      "beforeTextLength": 6409,
+      "afterTextLength": 6409,
+      "writeCount": 0
+    },
+    {
+      "t": "2026-08-30T06:42:16.047Z",
+      "step": "ASSERTION-FAILED",
+      "message": "legacy scale display persisted as internal display/100",
+      "nextDisplay": 107,
+      "expectedScale": 1.07,
+      "actualScale": null
+    },
+    {
+      "t": "2026-08-30T06:42:16.049Z",
+      "step": "ERROR",
+      "message": "assertion failed: legacy scale display persisted as internal display/100 :: {\"nextDisplay\":107,\"expectedScale\":1.07,\"actualScale\":null}"
+    }
+  ]
+}

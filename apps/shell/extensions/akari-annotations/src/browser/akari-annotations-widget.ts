@@ -119,6 +119,7 @@ import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-ann
 import { openTimelineContextMenu } from './akari-timeline-context-menu';
 import { createAkariNoticeBanner } from './akari-notice-banner';
 import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
+import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { ReviewModel } from './review-model';
@@ -2064,14 +2065,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
             && request.kind !== 'overlay-var' && request.kind !== 'item-field') {
             return undefined;
         }
-        if (request.kind === 'item-field' && !Array.isArray(this.editDocument?.tracks)) {
-            return { ok: false, message: 'この項目の編集は edit.json v2 のみ対応です。' };
+        const legacyDocument = this.legacyReadOnly || !Array.isArray(this.editDocument?.tracks);
+        if (request.kind === 'item-field' && legacyDocument) {
+            const cutIndex = this.cutItemIds.indexOf(request.id);
+            const mappedKind = legacyTransformOpFor(request.path, cutIndex >= 0 ? 'cut' : 'layer');
+            if (!mappedKind) {
+                return { ok: false, message: 'この項目の編集は edit.json v2 のみ対応です。' };
+            }
+            return cutIndex >= 0
+                ? this.handleInspectorWriteV2({
+                    kind: mappedKind as 'cut-scale' | 'cut-rotate',
+                    index: cutIndex,
+                    value: request.value as number | null
+                })
+                : this.handleInspectorWriteV2({
+                    kind: mappedKind as 'layer-scale' | 'layer-rotate',
+                    id: request.id,
+                    value: request.value as number | null
+                });
         }
         try {
             let label = 'クリップを変更';
             let itemId: string;
             let patch: Record<string, unknown>;
             let audioPatch = false;
+            let needsTelopRebake = false;
             if (request.kind === 'item-field') {
                 itemId = request.id;
                 const raw = this.rawV2Item(itemId);
@@ -2088,6 +2106,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         source: { vars: { ...(raw.source?.vars ?? {}), [name]: request.value } }
                     };
                     label = 'クリップのパラメータを変更';
+                } else if (request.path.startsWith('source.params.')) {
+                    const name = request.path.slice('source.params.'.length);
+                    patch = {
+                        source: { params: { ...(raw.source?.params ?? {}), [name]: request.value } }
+                    };
+                    label = 'クリップのテキストを変更';
+                    needsTelopRebake = raw.source?.baked !== undefined;
+                } else if (request.path.startsWith('source.chroma_key.')) {
+                    const field = request.path.slice('source.chroma_key.'.length);
+                    const chromaKey = {
+                        ...(raw.source?.chroma_key ?? {}), [field]: request.value
+                    };
+                    if (request.value === null) delete chromaKey[field];
+                    patch = { source: { chroma_key: chromaKey } };
+                    label = 'クリップのクロマキーを変更';
                 } else {
                     patch = { [request.path]: request.value };
                     label = request.path === 'opacity'
@@ -2171,6 +2204,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 })
                 : updateV2Item(doc, { itemId, patch }));
             this.hideNotice();
+            if (needsTelopRebake) {
+                this.showNotice('テキストを変更しました。プレビューは焼成済み素材のままなので再ベイクが必要です。');
+            }
             this.footer.textContent = `${label}しました。`;
             return { ok: true };
         } catch (error) {
@@ -2358,6 +2394,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!layer) {
                 return undefined;
             }
+            const raw = this.rawV2Item(layer.id);
+            const params = raw?.source?.kind === 'telop' && raw.source.params
+                && typeof raw.source.params === 'object' && !Array.isArray(raw.source.params)
+                ? raw.source.params as Record<string, unknown> : undefined;
+            const chromaKey = layerSnapshotChromaKey(layer.chromaKey, raw?.source?.chroma_key);
             return {
                 kind: 'layer', id: layer.id, layerKind: layer.kind,
                 trackName: this.trackDisplayNameForItem(layer.id),
@@ -2365,10 +2406,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 outputStart: layer.t, duration: layer.duration,
                 ...(typeof layer.src === 'string' && layer.src.length > 0 ? { src: layer.src } : {}),
                 ...(typeof layer.preset === 'string' && layer.preset.length > 0 ? { preset: layer.preset } : {}),
+                ...(params !== undefined ? { params } : {}),
                 ...(layer.transform !== undefined ? { transform: layer.transform } : {}),
                 ...(layer.opacity !== undefined ? { opacity: layer.opacity } : {}),
                 ...(layer.blend !== undefined ? { blend: layer.blend } : {}),
-                ...(layer.chromaKey !== undefined ? { chromaKey: layer.chromaKey } : {}),
+                ...(chromaKey !== undefined ? { chromaKey } : {}),
                 ...(layer.track !== undefined ? { track: layer.track } : {})
             };
         }
