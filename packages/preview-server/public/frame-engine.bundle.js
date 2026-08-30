@@ -6451,6 +6451,7 @@ var require_tree_ops = __commonJS({
   "../edit-store/lib/tree-ops.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
+    exports.DEFAULT_CAPTION_TELOP_PRESET = void 0;
     exports.attachEditHelpers = attachEditHelpers;
     exports.updateItem = updateItem;
     exports.moveItem = moveItem;
@@ -6458,6 +6459,9 @@ var require_tree_ops = __commonJS({
     exports.removeItem = removeItem;
     exports.detachItem = detachItem;
     exports.materializeProjectedPart = materializeProjectedPart;
+    exports.convertCaptionToTelop = convertCaptionToTelop;
+    exports.collectExcludedCaptionIds = collectExcludedCaptionIds;
+    exports.filterCaptionRootByExcludedIds = filterCaptionRootByExcludedIds;
     exports.groupItems = groupItems;
     exports.ungroupItem = ungroupItem;
     exports.normalizeTracks = normalizeTracks;
@@ -6476,6 +6480,7 @@ var require_tree_ops = __commonJS({
     exports.relativeTransform = relativeTransform;
     exports.ensureChildren = ensureChildren;
     exports.clone = clone;
+    exports.DEFAULT_CAPTION_TELOP_PRESET = "ref3_particle_min";
     function attachEditHelpers(edit) {
       Object.defineProperties(edit, {
         find: { enumerable: false, value: (id) => locate(edit, id)?.item },
@@ -6553,8 +6558,8 @@ var require_tree_ops = __commonJS({
       location2.items.splice(location2.index, 1);
       return location2.item;
     }
-    function detachItem(edit, id, target) {
-      const source = locate(edit, id) ?? materializeProjectedPart(edit, id);
+    function detachItem(edit, id, target, projected) {
+      const source = locate(edit, id) ?? materializeProjectedPart(edit, id, projected);
       if (!source.parent)
         throw new Error(`\u6BB5\u76F4\u4E0B\u306E item \u306F detach \u3067\u304D\u307E\u305B\u3093: ${id}`);
       const worldAt = absoluteAt(source);
@@ -6591,7 +6596,7 @@ var require_tree_ops = __commonJS({
       requireTrackItems(destination).push(source.item);
       return source.item;
     }
-    function materializeProjectedPart(edit, id) {
+    function materializeProjectedPart(edit, id, projected) {
       const separator = id.lastIndexOf("#");
       if (separator <= 0 || separator === id.length - 1) {
         throw new Error(`item \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id}`);
@@ -6599,8 +6604,18 @@ var require_tree_ops = __commonJS({
       const bagId = id.slice(0, separator);
       const part = id.slice(separator + 1);
       const bag = requireLocation(edit, bagId);
+      if (bag.item.source.kind === "captions") {
+        const child2 = {
+          id: `cap-${part}`,
+          at: projected?.at ?? bag.item.at,
+          duration: projected?.duration ?? bag.item.duration,
+          source: { kind: "caption", path: "captions.json", id: part }
+        };
+        ensureChildren(bag.item).push(child2);
+        return requireLocation(edit, child2.id);
+      }
       if (bag.item.source.kind !== "html")
-        throw new Error(`HTML \u888B\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${bagId}`);
+        throw new Error(`\u888B\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${bagId}`);
       const source = { ...bag.item.source, part };
       delete source.exclude;
       const child = {
@@ -6611,6 +6626,65 @@ var require_tree_ops = __commonJS({
       };
       ensureChildren(bag.item).push(child);
       return requireLocation(edit, id);
+    }
+    function convertCaptionToTelop(edit, id, options) {
+      const projected = options.at !== void 0 && options.duration !== void 0 ? { at: options.at, duration: options.duration } : void 0;
+      let location2 = locate(edit, id) ?? materializeProjectedPart(edit, id, projected);
+      if (location2.item.source.kind !== "caption")
+        throw new Error(`\u5B57\u5E55\u884C\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${id}`);
+      const captionId = location2.item.source.id;
+      if (location2.parent) {
+        const detached = detachItem(edit, location2.item.id, { track: "above" }, projected);
+        location2 = requireLocation(edit, detached.id);
+      }
+      location2.item.source = {
+        kind: "telop",
+        preset: options.preset ?? exports.DEFAULT_CAPTION_TELOP_PRESET,
+        params: { text: options.text },
+        from: `captions.json#${captionId}`
+      };
+      return location2.item;
+    }
+    function collectExcludedCaptionIds(edit) {
+      const result = /* @__PURE__ */ new Set();
+      const visit = (value) => {
+        if (!isRecord(value))
+          return;
+        const source = value.source;
+        if (isRecord(source) && source.kind === "captions" && Array.isArray(source.exclude)) {
+          for (const id of source.exclude)
+            if (typeof id === "string")
+              result.add(id);
+        }
+        for (const key of ["items", "children"]) {
+          const children = value[key];
+          if (Array.isArray(children))
+            for (const child of children)
+              visit(child);
+        }
+      };
+      if (isRecord(edit) && Array.isArray(edit.tracks)) {
+        for (const track of edit.tracks) {
+          if (!isRecord(track))
+            continue;
+          for (const key of ["items", "children"]) {
+            const items = track[key];
+            if (Array.isArray(items))
+              for (const item of items)
+                visit(item);
+          }
+        }
+      }
+      return result;
+    }
+    function filterCaptionRootByExcludedIds(root, excluded) {
+      const filter = (captions) => captions.filter((caption) => !isRecord(caption) || typeof caption.id !== "string" || !excluded.has(caption.id));
+      if (Array.isArray(root))
+        return filter(root);
+      if (isRecord(root) && Array.isArray(root.captions)) {
+        return { ...root, captions: filter(root.captions) };
+      }
+      return root;
     }
     function groupItems(edit, ids, options = {}) {
       const uniqueIds = [...new Set(ids)];
@@ -6881,6 +6955,8 @@ var require_tree_ops = __commonJS({
       return result;
     }
     function partIdOf(itemId, source) {
+      if (source.kind === "caption")
+        return source.id;
       if ("part" in source && typeof source.part === "string")
         return source.part;
       const hash = itemId.lastIndexOf("#");
