@@ -1,0 +1,295 @@
+{
+  "label": "web-before",
+  "url": "http://127.0.0.1:<port>/",
+  "geo": {
+    "pane": {
+      "left": 0,
+      "top": 0,
+      "right": 1200,
+      "bottom": 820,
+      "width": 1200,
+      "height": 820
+    },
+    "stage": {
+      "left": 16,
+      "top": 81.5,
+      "right": 1184,
+      "bottom": 738.5,
+      "width": 1168,
+      "height": 657
+    },
+    "overlayStage": {
+      "left": 16,
+      "top": 81.5,
+      "right": 1184,
+      "bottom": 738.5,
+      "width": 1168,
+      "height": 657
+    },
+    "container": {
+      "left": 16,
+      "top": 81.5,
+      "right": 1184,
+      "bottom": 738.5,
+      "width": 1168,
+      "height": 657
+    },
+    "root": {
+      "left": 16,
+      "top": 81.5,
+      "right": 1184,
+      "bottom": 738.5,
+      "width": 1168,
+      "height": 657
+    },
+    "containerStyle": {
+      "clipPath": "none",
+      "transform": "matrix(1, 0, 0, 1, 0, 0)",
+      "visibility": "visible",
+      "bg": "none",
+      "w": "1920px",
+      "h": "1080px"
+    },
+    "rootStyle": {
+      "clipPath": "none",
+      "transform": "none",
+      "visibility": "visible",
+      "bg": "linear-gradient(rgb(11, 26, 58) 0%, rgb(20, 42, 92) 100%)",
+      "w": "1920px",
+      "h": "1080px"
+    },
+    "containerInline": "position: absolute; inset: 0px; pointer-events: none !important; visibility: visible; touch-action: none; --x: 0px; --y: 0px; --scale: 1; --rotate: 0deg; transform: translate(var(--x,0px), var(--y,0px)) scale(var(--scale,1)) rotate(var(--rotate,0deg));",
+    "seek": "2",
+    "time": "0:02.00 / 0:04.00"
+  },
+  "screenshot": [
+    1200,
+    900
+  ],
+  "points": [
+    {
+      "id": "top-mid:in2",
+      "rgb": [
+        14,
+        26,
+        56
+      ]
+    },
+    {
+      "id": "top-mid:out2",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "top-mid:out6",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "bottom-mid:in2",
+      "rgb": [
+        25,
+        42,
+        89
+      ]
+    },
+    {
+      "id": "bottom-mid:out2",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "bottom-mid:out6",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "left-mid:in2",
+      "rgb": [
+        20,
+        34,
+        73
+      ]
+    },
+    {
+      "id": "left-mid:out2",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "left-mid:out6",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "right-mid:in2",
+      "rgb": [
+        20,
+        34,
+        73
+      ]
+    },
+    {
+      "id": "right-mid:out2",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "right-mid:out6",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "tl:in2",
+      "rgb": [
+        14,
+        26,
+        56
+      ]
+    },
+    {
+      "id": "tl:out2",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "tl:out6",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "tr:in2",
+      "rgb": [
+        14,
+        26,
+        56
+      ]
+    },
+    {
+      "id": "tr:out2",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "tr:out6",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "bl:in2",
+      "rgb": [
+        25,
+        42,
+        89
+      ]
+    },
+    {
+      "id": "bl:out2",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "bl:out6",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "br:in2",
+      "rgb": [
+        25,
+        42,
+        89
+      ]
+    },
+    {
+      "id": "br:out2",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "id": "br:out6",
+      "rgb": [
+        9,
+        9,
+        9
+      ]
+    }
+  ],
+  "stageSamples": {
+    "corner": [
+      15,
+      26,
+      57
+    ],
+    "tr": [
+      14,
+      26,
+      56
+    ],
+    "bl": [
+      26,
+      42,
+      89
+    ],
+    "br": [
+      25,
+      42,
+      89
+    ],
+    "center": [
+      24,
+      39,
+      84
+    ],
+    "inText": [
+      19,
+      33,
+      70
+    ]
+  }
+}

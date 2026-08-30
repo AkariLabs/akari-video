@@ -369,7 +369,28 @@ window.akari.interaction = (() => {
   // 割合を求めれば、transform を打ち消して測り直さなくても正しい割合が得られる
   // （非回転の平行移動+一様拡縮は比を保存するため）。回転が乗っている場合は
   // 軸並行 bbox の比が単純な割合にならないため clip を諦め、フルコンテナのまま返す
-  // （現行 UI に回転ハンドルは無く到達しない分岐）。
+  // （現行 UI に回転ハンドルは無く到達しない分岐）。断片ルート自身が bbox 外へ
+  // 背景等を描画する場合も、その画素を消さないよう視覚クリップを諦める。
+  // 断片ルート自身が背景・枠・影・置換要素・直接テキストを描いていて、その border box が
+  // コンテンツ bbox の外まで伸びている場合、bbox で clip-path を掛けるとルートが描いた画素
+  // （全画面背景など）を消してしまう（公開 issue #36）。ヒットの素通しは
+  // applyOverlayHitPolicy の pointer-events（全画面ルートは none のまま）で足りるため、
+  // この場合は視覚クリップを諦める。
+  function fragmentRootPaintsOutside(container, contentRect) {
+    const root = fragmentRoot(container);
+    if (!root) return false;
+    const rect = root.getBoundingClientRect();
+    if (!(rect.width > 0) || !(rect.height > 0)) return false;
+    if (!drawsOwnContent(root, getComputedStyle(root))) return false;
+    const tolerance = 0.5;
+    return (
+      rect.left < contentRect.left - tolerance ||
+      rect.top < contentRect.top - tolerance ||
+      rect.right > contentRect.right + tolerance ||
+      rect.bottom > contentRect.bottom + tolerance
+    );
+  }
+
   function computeHitClipPath(container) {
     const transform = readTransform(container);
     const normalizedRotate = ((transform.rotate % 360) + 360) % 360;
@@ -380,6 +401,7 @@ window.akari.interaction = (() => {
 
     const contentRect = fragmentBounds(container);
     if (!contentRect) return null;
+    if (fragmentRootPaintsOutside(container, contentRect)) return null;
 
     const top = ((contentRect.top - containerRect.top) / containerRect.height) * 100;
     const right = ((containerRect.right - contentRect.right) / containerRect.width) * 100;
