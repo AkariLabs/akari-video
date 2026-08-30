@@ -700,6 +700,7 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 // インスペクターのスクラブドラッグ中、書き込みなしで cuts/layers の transform/opacity をプレビューへ
 // 即時反映する ephemeral イベント。
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
+const TIMELINE_LOOP_RANGE_EVENT = 'akari.timeline.loopRange';
 const PREVIEW_OVERLAY_SELECTED_EVENT = 'akari.preview.overlaySelected';
 const PREVIEW_LAYER_SELECTED_EVENT = 'akari.preview.layerSelected';
 // forwardOverlaySelection/forwardLayerSelection と同じ拡張間チャンネルの cut 版。
@@ -1192,6 +1193,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener(TIMELINE_LIVE_TRANSFORM_EVENT, onLiveTransform)
         });
+        registerTimelineSetting<{ editUri?: string; start?: number; end?: number }>(
+            TIMELINE_LOOP_RANGE_EVENT, (widget, detail, _settings) => {
+                const range = Number.isFinite(detail.start) && Number.isFinite(detail.end)
+                    && detail.end! > detail.start! ? { start: detail.start!, end: detail.end! } : null;
+                widget?.sendMessage({ type: 'akari-preview-loop-range', range });
+            }
+        );
         this.registerReviewSessionEvents();
     }
 
@@ -6856,6 +6864,7 @@ body { display: grid; place-items: center; padding: 32px; }
             let gapWallClockOriginMs = 0;
             let gapOutputOrigin = 0;
             let outputTime = 0;
+            let loopRange = null;
             let isPlaying = false;
             let playToggleRenderedIsPlaying = null;
             let pausedForGapEntry = false;
@@ -11114,6 +11123,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 const frameEngineClock = window.akari && window.akari.frameEngineClock;
                 if (frameEngineClock) {
                     outputTime = frameEngineClock.tick(outputTime, isPlaying);
+                    if (isPlaying && loopRange && outputTime >= loopRange.end) {
+                        seekTimelineTime(loopRange.start);
+                    }
                     renderLayers(outputTime);
                     updateLayerSelectBox();
                     window.akari.runtime.tick(outputTime, isPlaying);
@@ -11195,6 +11207,9 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 } else {
                     outputTime = video.currentTime || 0;
+                }
+                if (isPlaying && loopRange && outputTime >= loopRange.end) {
+                    seekTimelineTime(loopRange.start);
                 }
                 renderCutLayerStyleVisual(outputTime);
                 applyCutFramingVisual();
@@ -11992,6 +12007,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (message && message.type === 'akari-preview-seek' && Number.isFinite(message.time)) {
                     seekTimelineTime(message.time);
                     tick();
+                    return;
+                }
+                if (message && message.type === 'akari-preview-loop-range') {
+                    const range = message.range;
+                    loopRange = range && Number.isFinite(range.start) && Number.isFinite(range.end)
+                        && range.end > range.start ? { start: range.start, end: range.end } : null;
+                    if (loopRange && (outputTime < loopRange.start || outputTime >= loopRange.end)) {
+                        seekTimelineTime(loopRange.start);
+                        tick(true);
+                    }
                     return;
                 }
                 if (message && message.type === 'akari-preview-toggle-playback') {

@@ -1,5 +1,6 @@
 import URI from '@theia/core/lib/common/uri';
 import { CommandService, Disposable, MessageService } from '@theia/core/lib/common';
+import { BinaryBuffer } from '@theia/core/lib/common/buffer';
 import { ApplicationShell, BaseWidget, StorageService } from '@theia/core/lib/browser';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { inject, injectable, postConstruct } from '@theia/core/shared/inversify';
@@ -13,6 +14,7 @@ import {
     isTransitionType,
     planTransitionHandleWindow,
     removeV2TransitionOutWithHandleRetractInSource,
+    serializeMotion,
     TRANSITION_CATEGORIES,
     TRANSITION_VOCABULARY,
     unsupportedTrackTransitionTarget
@@ -77,9 +79,15 @@ import {
     splitItem as splitV2Item,
     stringifyEditV2,
     moveTreeV2Item,
+    moveV2Keyframe,
+    prepareV2KeyframeDistribution,
+    removeV2Keyframe,
+    setV2Keyframe,
+    setV2SegmentEasing,
     ungroupTreeV2Item,
     updateAudioSfxPreferV2,
     updateAudioNarrationGainPreferV2,
+    updateTreeV2Item,
     updateItem as updateV2Item
 } from '../common/edit-v2-mutations';
 import {
@@ -135,6 +143,22 @@ import {
     TimelineTreeRow,
     visibleTimelineTreeRows,
 } from './timeline/timeline-tree-model';
+import {
+    enterFocusScope,
+    exitFocusScope,
+    focusScopeAtBreadcrumb,
+    FocusScopeState,
+    initialFocusScope,
+    rowsInFocusScope,
+    timelineDoubleClickAction
+} from './focus/focus-scope';
+import {
+    aggregateKeyframeDiamonds,
+    deriveTimelineKeyframeRows,
+    keyframeValueAt,
+    KeyframeProperty,
+    TimelineKeyframePropertyRow
+} from './timeline/timeline-keyframe-rows';
 import { createAkariNoticeBanner } from './akari-notice-banner';
 import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
@@ -144,8 +168,11 @@ import { ReviewModel } from './review-model';
 import {
     InspectorWriteRequest,
     InspectorWriteResult,
+    KeyframeControlRequest,
     LivePreviewRequest,
     TimelineItemSelectionSnapshot,
+    TimelineTreeItemSelection,
+    TimelineTreeItemSnapshot,
     TimelineSelectionModel,
     captionIdForTreeSelection,
     resolveTimelineClipName
@@ -326,6 +353,7 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 // インスペクターのスクラブドラッグ中、書き込みなしで cuts/layers の transform/opacity をプレビューへ
 // 即時反映する ephemeral イベント。
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
+const TIMELINE_LOOP_RANGE_EVENT = 'akari.timeline.loopRange';
 const SHORTCUTS_HELP_TEXT = [
     'Space: 再生 / 停止', '← →: 1フレーム移動', 'Shift+← →: 1秒移動',
     'Alt+矢印: 位置を1px移動', 'Shift+Alt+矢印: 位置を10px移動',
@@ -554,6 +582,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected timelineTracks: EditTimelineTrack[] = [];
     protected timelineTreeRows: TimelineTreeRow[] = [];
     protected expandedTimelineTreeRows: TimelineTreeRow[] = [];
+    protected focusScope: FocusScopeState = { rootId: null, breadcrumbs: ['全体'], span: { at: 0, duration: 0 } };
+    protected lastTreeClick: { id: string; time: number; x: number; y: number } | undefined;
+    protected readonly keyframeRowsByItem = new Map<string, TimelineKeyframePropertyRow[]>();
+    protected readonly extraKeyframeProperties = new Map<string, Set<KeyframeProperty>>();
     protected readonly timelineCollapsedIds = new Set<string>();
     protected treeRowsByTrack = new Map<string, TimelineTreeRow[]>();
     protected timelineCollapsedState: TimelineCollapsedState | undefined;
@@ -1324,6 +1356,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.exitAudioTrimmerMode();
                 return;
             }
+            if (event.key === 'Escape' && this.focusScope.rootId !== null
+                && !this.isEditableTarget(event.target) && !this.isEditableTarget(document.activeElement)) {
+                event.preventDefault();
+                event.stopPropagation();
+                this.applyFocusScope(exitFocusScope(this.expandedTimelineTreeRows, this.focusScope));
+                return;
+            }
             if (event.key === 'Escape' && this.isAttached && (this.selection || this.multiSelection.length > 0)
                 && !this.isEditableTarget(event.target) && !this.isEditableTarget(document.activeElement)
                 && !(document.activeElement instanceof HTMLElement
@@ -1334,6 +1373,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             if (!this.isAttached || this.isEditableTarget(event.target) || this.isEditableTarget(document.activeElement)) {
+                return;
+            }
+            if ((event.key === 'Delete' || event.key === 'Backspace') && this.selectionModel.keyframeSelection) {
+                event.preventDefault();
+                event.stopPropagation();
+                void this.removeSelectedKeyframes();
                 return;
             }
             const lowerKey = event.key.toLowerCase();
@@ -1535,10 +1580,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
                 target: request.target,
                 field: request.field,
-                value: request.value
+                value: request.value,
+                ...(request.easing === undefined ? {} : { easing: request.easing })
             });
         };
         this.selectionModel.requestLivePreview = requestLivePreview;
+        const requestKeyframe = (request: KeyframeControlRequest): Promise<InspectorWriteResult> =>
+            this.handleKeyframeControl(request);
+        this.selectionModel.requestKeyframe = requestKeyframe;
         this.toDispose.push(this.selectionModel.onChanged(() => this.syncRightPane()));
         this.toDispose.push(Disposable.create(() => {
             if (this.selectionModel.requestWrite === requestWrite) {
@@ -1547,6 +1596,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             if (this.selectionModel.requestLivePreview === requestLivePreview) {
                 this.selectionModel.requestLivePreview = undefined;
+            }
+            if (this.selectionModel.requestKeyframe === requestKeyframe) {
+                this.selectionModel.requestKeyframe = undefined;
             }
         }));
 
@@ -1755,6 +1807,64 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.lastCutClick = undefined;
         }
         return isDouble;
+    }
+
+    protected detectTreeDoubleClick(id: string, clientX: number, clientY: number): boolean {
+        const now = Date.now();
+        const previous = this.lastTreeClick;
+        const isDouble = previous !== undefined && previous.id === id
+            && now - previous.time < 400
+            && Math.abs(clientX - previous.x) <= 6 && Math.abs(clientY - previous.y) <= 6;
+        this.lastTreeClick = isDouble ? undefined : { id, time: now, x: clientX, y: clientY };
+        return isDouble;
+    }
+
+    protected enterTreeItem(row: TimelineTreeRow): void {
+        if (timelineDoubleClickAction(row.itemKind, row.sourceKind) === 'trimmer') {
+            const index = this.cutItemIds.indexOf(row.id);
+            if (index >= 0) this.toggleTrimmerMode(index);
+            return;
+        }
+        this.applyFocusScope(enterFocusScope(this.expandedTimelineTreeRows, row.id));
+    }
+
+    protected applyFocusScope(scope: FocusScopeState): void {
+        this.focusScope = scope;
+        if (scope.rootId === null) {
+            this.viewStart = 0;
+            this.viewDuration = undefined;
+            this.dispatchPreviewEvent(TIMELINE_LOOP_RANGE_EVENT, {});
+        } else {
+            this.viewStart = scope.span.at;
+            this.viewDuration = Math.max(1 / this.fps, scope.span.duration);
+            this.dispatchPreviewEvent(TIMELINE_LOOP_RANGE_EVENT, {
+                start: scope.span.at, end: scope.span.at + scope.span.duration
+            });
+        }
+        this.renderFocusBreadcrumbs();
+        this.renderStrip();
+    }
+
+    protected renderFocusBreadcrumbs(): void {
+        this.toolbar.querySelector('[data-akari-ui="timeline-focus-breadcrumbs"]')?.remove();
+        if (this.focusScope.rootId === null) return;
+        const breadcrumbs = document.createElement('nav');
+        breadcrumbs.setAttribute('data-akari-ui', 'timeline-focus-breadcrumbs');
+        Object.assign(breadcrumbs.style, {
+            display: 'flex', alignItems: 'center', gap: '3px', margin: '0 6px', fontSize: '11px'
+        });
+        this.focusScope.breadcrumbs.forEach((label, index) => {
+            if (index > 0) breadcrumbs.append('›');
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = label;
+            button.dataset.akariFocusCrumb = String(index);
+            button.addEventListener('click', () => this.applyFocusScope(focusScopeAtBreadcrumb(
+                this.expandedTimelineTreeRows, this.focusScope, index
+            )));
+            breadcrumbs.appendChild(button);
+        });
+        this.toolbar.insertBefore(breadcrumbs, this.zoomHud);
     }
 
     /** クリップ dblclick によるソーストリマーモードの開始/終了トグル（R6 契約 §1 裁定 3）。 */
@@ -2189,7 +2299,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let needsTelopRebake = false;
             if (request.kind === 'item-field') {
                 itemId = request.id;
-                const raw = this.rawV2Item(itemId);
+                const raw = this.rawKeyframeItem(itemId);
                 if (!raw) throw new Error(`クリップが見つかりません: ${itemId}`);
                 if (request.path.startsWith('transform.')) {
                     const field = request.path.slice('transform.'.length);
@@ -2299,7 +2409,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 : audioPatch ? updateAudioSfxPreferV2(doc, {
                     sfxId: itemId, itemPatch: patch, legacyPatch: patch
                 })
-                : updateV2Item(doc, { itemId, patch }));
+                : request.kind === 'item-field' ? updateTreeV2Item(doc, itemId, patch)
+                    : updateV2Item(doc, { itemId, patch }));
             this.hideNotice();
             if (needsTelopRebake) {
                 this.showNotice('テキストを変更しました。プレビューは焼成済み素材のままなので再ベイクが必要です。');
@@ -2330,6 +2441,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const selected = selectedKeys.has(itemKey) || (selection !== undefined && selection.kind === kind
                 && (selection.kind === 'cut' ? String(selection.index) === id : selection.id === id));
             element.classList.toggle('akari-annotations-selected', selected);
+        }
+        const currentKey = this.selectionKey(selection);
+        for (const element of Array.from(
+            this.trackHeaders.querySelectorAll<HTMLElement>('[data-akari-tree-row-id]')
+        )) {
+            const row = this.timelineTreeRows.find(candidate => candidate.id === element.dataset.akariTreeRowId);
+            if (!row) {
+                element.classList.remove('akari-annotations-selected');
+                continue;
+            }
+            const rowKey = this.selectionKey(this.selectionForTreeRow(row));
+            element.classList.toggle(
+                'akari-annotations-selected', selectedKeys.has(rowKey) || rowKey === currentKey
+            );
         }
     }
 
@@ -2442,13 +2567,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 trackId: selection.trackId
             } as const;
             this.selectionModel.treeSelection = treeSelection;
-            const raw = this.rawV2Item(selection.id);
+            const raw = this.rawKeyframeItem(selection.id);
             const captionId = captionIdForTreeSelection(
                 treeSelection,
                 raw?.source?.kind === 'caption' ? raw.source.id : undefined
             );
             this.selectionModel.snapshot = captionId
-                ? this.snapshotForSelection({ kind: 'caption', id: captionId }) : undefined;
+                ? this.snapshotForSelection({ kind: 'caption', id: captionId })
+                : this.treeItemSnapshot(treeSelection, raw);
+            this.selectionModel.fps = this.fps;
             return;
         }
         this.selectionModel.treeSelection = undefined;
@@ -2460,6 +2587,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.selectionModel.snapshot = snapshot;
         this.selectionModel.fps = this.fps;
+    }
+
+    protected treeItemSnapshot(
+        selection: TimelineTreeItemSelection,
+        raw: Record<string, any> | undefined
+    ): TimelineTreeItemSnapshot | undefined {
+        if (!raw) return undefined;
+        const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === selection.id);
+        const transform = raw.transform && typeof raw.transform === 'object' && !Array.isArray(raw.transform)
+            ? raw.transform as TimelineTreeItemSnapshot['transform'] : undefined;
+        return {
+            ...selection,
+            outputStart: row?.at ?? (Number(raw.at) || 0) / this.fps,
+            duration: row?.duration ?? (Number(raw.duration) || 0) / this.fps,
+            durationFrames: Number.isInteger(raw.duration) ? raw.duration : Math.max(1, this.frameAt(row?.duration ?? 0)),
+            ...(transform ? { transform } : {}),
+            ...(typeof raw.opacity === 'number' ? { opacity: raw.opacity } : {}),
+            ...(raw.crop && typeof raw.crop === 'object' && !Array.isArray(raw.crop) ? { crop: raw.crop } : {}),
+            ...(raw.perspective && typeof raw.perspective === 'object' && !Array.isArray(raw.perspective)
+                ? { perspective: raw.perspective } : {}),
+            ...(Array.isArray(raw.keyframes) ? { keyframes: raw.keyframes } : {}),
+            sourceKind: typeof raw.source?.kind === 'string' ? raw.source.kind : selection.itemKind,
+            trackName: this.trackDisplayNameForItem(selection.id),
+            clipName: typeof raw.name === 'string' && raw.name.trim() ? raw.name : selection.id
+        };
     }
 
     /**
@@ -3631,6 +3783,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.timelineTreeTracks = internal.tracks;
                 this.timelineTreePartsByHtml = partsByHtml;
                 const document = JSON.parse(source) as EditV2Document;
+                await this.hydrateDocumentMotionReferences(document);
                 this.editDocument = document;
                 this.itemLocations = indexEditV2Items(document);
                 const layerCauses = new Map((document.version === 2
@@ -4205,6 +4358,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             partsByHtml: this.timelineTreePartsByHtml,
             captionsByPath
         });
+        if (this.focusScope.rootId !== null
+            && this.expandedTimelineTreeRows.some(row => row.id === this.focusScope.rootId)) {
+            this.focusScope = enterFocusScope(this.expandedTimelineTreeRows, this.focusScope.rootId);
+        } else {
+            this.focusScope = initialFocusScope(this.expandedTimelineTreeRows);
+        }
+        const scopedRows = rowsInFocusScope(this.expandedTimelineTreeRows, this.focusScope);
         // 字幕だけ既定を畳むと既存案件の行数・チップ矩形が変わるため、D と同じく
         // localStorage 未設定 = 展開を維持し、明示的に畳んだ場合だけ袋帯へ切り替える。
         const collapsed = this.timelineCollapsedState?.snapshot(
@@ -4212,8 +4372,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
         ) ?? new Set<string>();
         this.timelineCollapsedIds.clear();
         for (const id of collapsed) this.timelineCollapsedIds.add(id);
-        this.timelineTreeRows = applyTimelineCollapsedRows(this.expandedTimelineTreeRows, this.timelineCollapsedIds);
+        this.timelineTreeRows = applyTimelineCollapsedRows(scopedRows, this.timelineCollapsedIds);
         this.treeRowsByTrack = rowsByTrack(visibleTimelineTreeRows(this.timelineTreeRows));
+        this.keyframeRowsByItem.clear();
+        if (this.focusScope.rootId !== null) {
+            for (const row of visibleTimelineTreeRows(this.timelineTreeRows)) {
+                const raw = this.rawKeyframeItem(row.id);
+                if (!raw) continue;
+                const requested = new Set<KeyframeProperty>([
+                    'transform.x', 'transform.y', 'transform.scale', 'transform.rotate', 'opacity',
+                    ...(this.extraKeyframeProperties.get(row.id) ?? [])
+                ]);
+                this.keyframeRowsByItem.set(row.id, deriveTimelineKeyframeRows({
+                    id: row.id,
+                    duration: typeof raw.duration === 'number' ? raw.duration : Math.round(row.duration * this.fps),
+                    keyframes: raw.keyframes,
+                    crop: raw.crop,
+                    perspective: raw.perspective
+                }, [...requested]));
+            }
+        }
+        this.renderFocusBreadcrumbs();
         const captionRows = [...this.captionLayouts.values()].map(layout => layout.row);
         const captionRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 0;
         let nextTop = topOffset;
@@ -4233,6 +4412,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const cutTracks: TrackGroupLayout[] = [];
         const tracks: TrackGroupLayout[] = [];
         for (const timelineTrack of [...this.displayTimelineTracks].reverse()) {
+            if (this.focusScope.rootId !== null && !(this.treeRowsByTrack.get(timelineTrack.id)?.length)) continue;
             const ref = timelineTrack.ref ?? 0;
             let height = SUBROW_STRIDE;
             if (timelineTrack.kind === 'cuts') {
@@ -4288,11 +4468,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const treeRows = this.treeRowsByTrack.get(timelineTrack.id) ?? [];
             if (treeRows.length > 0 && timelineTrack.kind !== 'audio' && timelineTrack.kind !== 'captions') {
-                treeRows.forEach((row, index) => {
-                    this.overlayRows.set(row.id, index);
-                    this.layerRows.set(row.id, index);
+                let visualRow = 0;
+                treeRows.forEach(row => {
+                    this.overlayRows.set(row.id, visualRow);
+                    this.layerRows.set(row.id, visualRow);
+                    visualRow += 1 + (this.keyframeRowsByItem.get(row.id)?.length ?? 0);
                 });
-                height = Math.max(height, treeRows.length * SUBROW_STRIDE);
+                height = Math.max(height, visualRow * SUBROW_STRIDE);
             }
             const layout = {
                 id: timelineTrack.id, kind: timelineTrack.kind, track: ref, top: nextTop, height,
@@ -4516,12 +4698,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.audioNarration.map(item => item.id),
         ]);
         for (const row of visibleTimelineTreeRows(this.timelineTreeRows)) {
+            const layout = this.laneLayout.tracks.find(candidate => candidate.id === row.trackId);
+            const rowIndex = this.overlayRows.get(row.id) ?? -1;
+            if (layout && rowIndex >= 0) this.renderKeyframePropertyRows(row, layout.top, rowIndex);
             if (renderedItemIds.has(row.id)) continue;
             // 展開中の captions 袋と袋内の行は、矩形を 1px も変えない既存字幕チップが担う。
             if (row.sourceKind === 'captions' && !row.collapsed) continue;
-            const layout = this.laneLayout.tracks.find(candidate => candidate.id === row.trackId);
-            const trackRows = this.treeRowsByTrack.get(row.trackId) ?? [];
-            const rowIndex = trackRows.findIndex(candidate => candidate.id === row.id);
             if (!layout || rowIndex < 0 || !this.isRangeVisible(row.at, row.at + row.duration)) continue;
             const element = this.stripSegment(
                 row.at, row.at + row.duration, layout.top + rowIndex * SUBROW_STRIDE,
@@ -4532,7 +4714,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariTreeItemKind = row.itemKind;
             element.dataset.akariTreeParentId = row.parentId ?? '';
             element.dataset.akariTreeTrackId = row.trackId;
+            element.style.pointerEvents = 'auto';
             element.appendChild(this.segmentLabel(row.label));
+            this.appendMotionMarks(element, this.rawKeyframeItem(row.id)?.motion);
+            this.appendAggregateDiamonds(element, row);
             for (const tick of row.ticks) {
                 const marker = document.createElement('span');
                 marker.dataset.akariTreeTick = tick.id;
@@ -4545,10 +4730,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.addEventListener('click', event => {
                 event.preventDefault();
                 event.stopPropagation();
-                const selected: TimelineSelectionItem = {
-                    kind: 'item', id: row.id, itemKind: row.itemKind,
-                    parentId: row.parentId, trackId: row.trackId
-                };
+                if (this.detectTreeDoubleClick(row.id, event.clientX, event.clientY)) {
+                    this.enterTreeItem(row);
+                    return;
+                }
+                const selected = this.selectionForTreeRow(row);
                 if (event.shiftKey) this.toggleMultiSelection(selected);
                 else this.applySelection(selected);
             });
@@ -4598,6 +4784,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.appendChild(label);
         });
         this.overlays.forEach(overlay => {
+            if (!this.itemVisibleInFocus(overlay.id)) return;
             const layout = resolveItemRowLayout(
                 this.laneLayout.tracks,
                 this.itemLocations.get(overlay.id)?.trackId,
@@ -4622,6 +4809,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariLane = layout?.id ?? `track-${overlay.track}`;
             element.style.opacity = this.hiddenTracks.has(overlay.track) ? '.28' : '';
             element.appendChild(this.segmentLabel(overlay.id));
+            this.appendMotionMarks(element, this.rawKeyframeItem(overlay.id)?.motion);
+            const overlayTreeRow = this.timelineTreeRows.find(row => row.id === overlay.id);
+            if (overlayTreeRow) this.appendAggregateDiamonds(element, overlayTreeRow);
             this.installDragListeners(element, (event, rect) => ({
                 kind: 'overlay', id: overlay.id,
                 mode: rect.right - event.clientX <= EDGE_ZONE_PX ? 'resize' : 'move',
@@ -4630,6 +4820,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         });
         this.layers.forEach(layer => {
+            if (!this.itemVisibleInFocus(layer.id)) return;
             const layout = resolveItemRowLayout(
                 this.laneLayout.tracks,
                 this.itemLocations.get(layer.id)?.trackId,
@@ -4651,6 +4842,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             element.style.opacity = layout.hidden ? '.28' : '';
             element.appendChild(this.segmentLabel(layer.id));
+            this.appendMotionMarks(element, this.rawKeyframeItem(layer.id)?.motion);
+            const layerTreeRow = this.timelineTreeRows.find(row => row.id === layer.id);
+            if (layerTreeRow) this.appendAggregateDiamonds(element, layerTreeRow);
             const transitionWarning = this.layerTransitionWarnings.get(layer.id);
             if (transitionWarning) {
                 const warning = document.createElement('button');
@@ -4862,7 +5056,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const trimmerActiveIndex = this.trimmerItemId;
         const unsupportedDeclaredTransitions = this.unsupportedDeclaredTransitionIndexes();
         this.segments.forEach(segment => {
-            const itemTrackId = this.itemLocations.get(this.cutItemIds[segment.index] ?? '')?.trackId;
+            const cutItemId = this.cutItemIds[segment.index] ?? '';
+            if (!this.itemVisibleInFocus(cutItemId)) return;
+            const itemTrackId = this.itemLocations.get(cutItemId)?.trackId;
             const cutLayout = resolveItemRowLayout(
                 this.laneLayout.tracks, itemTrackId, 'cuts', segment.track
             );
@@ -4916,6 +5112,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             element.style.pointerEvents = 'auto';
+            this.appendMotionMarks(element, this.rawKeyframeItem(cutItemId)?.motion);
             if (showTrimmer) {
                 this.renderTrimmerClip(element, cut, clipWidth, segment, cutLayout.height, trimmerVideoUri, trimmerSourceDuration);
                 element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
@@ -5420,6 +5617,396 @@ export class AkariAnnotationsWidget extends BaseWidget {
             + '削除するか、映像を単一のトラックへ戻してください。';
     }
 
+    protected rawKeyframeItem(itemId: string): Record<string, any> | undefined {
+        if (!Array.isArray(this.editDocument?.tracks)) return undefined;
+        const visit = (items: unknown): Record<string, any> | undefined => {
+            if (!Array.isArray(items)) return undefined;
+            for (const candidate of items) {
+                if (!candidate || typeof candidate !== 'object') continue;
+                const item = candidate as Record<string, any>;
+                if (item.id === itemId) return item;
+                const nested = visit(item.items);
+                if (nested) return nested;
+            }
+            return undefined;
+        };
+        for (const track of this.editDocument.tracks as Array<Record<string, unknown>>) {
+            const item = visit(track.items);
+            if (item) return item;
+        }
+        return undefined;
+    }
+
+    protected selectionForTreeRow(row: TimelineTreeRow): TimelineSelectionItem {
+        if (this.overlays.some(item => item.id === row.id)) return { kind: 'overlay', id: row.id };
+        if (this.layers.some(item => item.id === row.id)) return { kind: 'layer', id: row.id };
+        const cutIndex = this.cutItemIds.indexOf(row.id);
+        if (cutIndex >= 0) return { kind: 'cut', index: cutIndex };
+        return {
+            kind: 'item', id: row.id, itemKind: row.itemKind,
+            ...(row.parentId === undefined ? {} : { parentId: row.parentId }), trackId: row.trackId
+        };
+    }
+
+    protected async hydrateDocumentMotionReferences(document: EditV2Document): Promise<void> {
+        if (!this.location?.editUri || !Array.isArray(document.tracks)) return;
+        const visit = async (items: unknown): Promise<void> => {
+            if (!Array.isArray(items)) return;
+            for (const value of items) {
+                if (!value || typeof value !== 'object') continue;
+                const item = value as Record<string, any>;
+                const reference = item.keyframes;
+                if (reference && !Array.isArray(reference) && typeof reference.path === 'string'
+                    && typeof item.id === 'string') {
+                    try {
+                        const text = (await this.fileService.readFile(
+                            this.location!.editUri.parent.resolve(reference.path)
+                        )).value.toString();
+                        const motion = JSON.parse(text) as { items?: Record<string, unknown> };
+                        const points = motion.items?.[item.id];
+                        if (Array.isArray(points)) item.keyframes = points;
+                    } catch {
+                        // 参照を解決できない場合は席だけを残し、書き込み時に明示エラーを返す。
+                    }
+                }
+                await visit(item.items);
+            }
+        };
+        for (const track of document.tracks as Array<Record<string, unknown>>) await visit(track.items);
+    }
+
+    protected itemVisibleInFocus(itemId: string): boolean {
+        return this.focusScope.rootId === null || this.timelineTreeRows.some(row => row.id === itemId);
+    }
+
+    protected renderKeyframePropertyRows(row: TimelineTreeRow, trackTop: number, itemRowIndex: number): void {
+        const raw = this.rawKeyframeItem(row.id);
+        const rows = this.keyframeRowsByItem.get(row.id) ?? [];
+        const durationFrames = typeof raw?.duration === 'number' ? raw.duration : Math.max(1, this.frameAt(row.duration));
+        rows.forEach((propertyRow, index) => {
+            if (!this.isRangeVisible(row.at, row.at + row.duration)) return;
+            const element = this.stripSegment(
+                row.at, row.at + row.duration,
+                trackTop + (itemRowIndex + index + 1) * SUBROW_STRIDE,
+                SUBROW_HEIGHT,
+                'akari-timeline-keyframe-property-row', propertyRow.label
+            );
+            element.style.pointerEvents = 'auto';
+            element.dataset.akariKeyframePropertyRow = `${row.id}:${propertyRow.property}`;
+            element.dataset.akariItemId = row.id;
+            element.dataset.akariKeyframeProperty = propertyRow.property;
+            if (propertyRow.editable) {
+                element.addEventListener('pointerdown', event => event.stopPropagation());
+                element.addEventListener('click', event => {
+                    if (event.target instanceof Element && event.target.closest('[data-akari-keyframe-t]')) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (!this.detectTreeDoubleClick(
+                        `${row.id}:${propertyRow.property}`, event.clientX, event.clientY
+                    )) return;
+                    const rect = element.getBoundingClientRect();
+                    const ratio = rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0;
+                    const t = Math.max(0, Math.min(durationFrames, Math.round(ratio * durationFrames)));
+                    void this.setTimelineKeyframe(row.id, propertyRow.property, t,
+                        this.staticKeyframeValue(raw, propertyRow.property));
+                });
+            }
+            for (const diamond of propertyRow.diamonds) {
+                const marker = document.createElement('button');
+                marker.type = 'button';
+                marker.textContent = '◆';
+                marker.dataset.akariKeyframeT = String(diamond.t);
+                marker.dataset.akariKeyframeItem = row.id;
+                marker.dataset.akariKeyframeProperty = propertyRow.property;
+                marker.dataset.akariKeyframeEndpoint = String(diamond.endpoint);
+                marker.dataset.akariKeyframeFilled = String(diamond.filled);
+                Object.assign(marker.style, {
+                    position: 'absolute', left: `${durationFrames > 0 ? diamond.t / durationFrames * 100 : 0}%`,
+                    top: '50%', transform: 'translate(-50%, -50%) rotate(45deg)', width: '9px', height: '9px',
+                    padding: '0', fontSize: '0', border: diamond.endpoint ? '1px solid #fff' : '1px solid #ddd',
+                    background: diamond.endpoint ? 'transparent' : '#fff', pointerEvents: 'auto'
+                });
+                marker.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.applySelection(this.selectionForTreeRow(row));
+                    const current = this.selectionModel.keyframeSelection;
+                    const times = event.shiftKey && current?.itemId === row.id
+                        && current.property === propertyRow.property
+                        ? [...new Set([...current.times, diamond.t])].sort((left, right) => left - right)
+                        : [diamond.t];
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId: row.id,
+                        property: propertyRow.property as KeyframeControlRequest['property'], times,
+                        easing: this.segmentEasingAt(row.id, propertyRow.property, diamond.t)
+                    };
+                });
+                marker.addEventListener('pointerdown', event => {
+                    if (event.button !== 0) return;
+                    event.stopPropagation();
+                    const startX = event.clientX;
+                    marker.setPointerCapture(event.pointerId);
+                    const finish = (up: PointerEvent): void => {
+                        marker.removeEventListener('pointerup', finish);
+                        marker.removeEventListener('pointercancel', finish);
+                        if (Math.abs(up.clientX - startX) < 2) return;
+                        const delta = Math.round((up.clientX - startX) / Math.max(1, this.strip.clientWidth)
+                            * this.visibleDuration() * this.fps);
+                        const toT = Math.max(0, Math.min(durationFrames, diamond.t + delta));
+                        void this.moveTimelineKeyframe(row.id, propertyRow.property, diamond.t, toT);
+                    };
+                    marker.addEventListener('pointerup', finish);
+                    marker.addEventListener('pointercancel', finish);
+                });
+                element.appendChild(marker);
+            }
+            this.strip.appendChild(element);
+        });
+    }
+
+    protected appendMotionMarks(element: HTMLElement, value: unknown): void {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+        const motion = value as Record<string, unknown>;
+        for (const [slot, left] of [['in', '2px'], ['loop', '50%'], ['out', 'calc(100% - 5px)']] as const) {
+            if (motion[slot] === undefined) continue;
+            const mark = document.createElement('span');
+            mark.dataset.akariMotionMark = slot;
+            mark.title = slot === 'in' ? '入り' : slot === 'out' ? '抜き' : 'ループ';
+            Object.assign(mark.style, {
+                position: 'absolute', left, bottom: '2px', width: '4px', height: '4px',
+                borderRadius: slot === 'loop' ? '50%' : '0', background: '#fff', pointerEvents: 'none'
+            });
+            element.appendChild(mark);
+        }
+    }
+
+    protected appendAggregateDiamonds(element: HTMLElement, parent: TimelineTreeRow): void {
+        if (!parent.hasChildren) return;
+        const descendants: TimelineTreeRow[] = [];
+        for (const row of this.timelineTreeRows) {
+            if (row.id !== parent.id && this.isDescendantRow(row, parent.id)) descendants.push(row);
+        }
+        const items = descendants.flatMap(row => {
+            const raw = this.rawKeyframeItem(row.id);
+            return raw ? [{ id: row.id, duration: raw.duration ?? 0, keyframes: raw.keyframes }] : [];
+        });
+        const durationFrames = this.rawKeyframeItem(parent.id)?.duration ?? Math.max(1, this.frameAt(parent.duration));
+        for (const diamond of aggregateKeyframeDiamonds(items)) {
+            const marker = document.createElement('span');
+            marker.dataset.akariAggregateKeyframeT = String(diamond.t);
+            marker.dataset.akariAggregateKeyframeFilled = String(diamond.filled);
+            Object.assign(marker.style, {
+                position: 'absolute', left: `${durationFrames > 0 ? diamond.t / durationFrames * 100 : 0}%`,
+                bottom: '-1px', width: '7px', height: '7px', transform: 'translateX(-50%) rotate(45deg)',
+                border: '1px solid #fff', background: diamond.filled ? '#fff' : 'transparent', pointerEvents: 'auto'
+            });
+            marker.addEventListener('pointerdown', event => {
+                const startX = event.clientX;
+                marker.setPointerCapture(event.pointerId);
+                const finish = (up: PointerEvent): void => {
+                    marker.removeEventListener('pointerup', finish);
+                    marker.removeEventListener('pointercancel', finish);
+                    const delta = Math.round((up.clientX - startX) / Math.max(1, this.strip.clientWidth)
+                        * this.visibleDuration() * this.fps);
+                    if (delta !== 0) void this.moveAggregateKeyframes(diamond.itemIds, diamond.t, diamond.t + delta);
+                };
+                marker.addEventListener('pointerup', finish);
+                marker.addEventListener('pointercancel', finish);
+            });
+            element.appendChild(marker);
+        }
+    }
+
+    protected isDescendantRow(row: TimelineTreeRow, ancestorId: string): boolean {
+        let parentId = row.parentId;
+        while (parentId) {
+            if (parentId === ancestorId) return true;
+            let nextParentId: string | undefined;
+            for (const candidate of this.expandedTimelineTreeRows) {
+                if (candidate.id === parentId) { nextParentId = candidate.parentId; break; }
+            }
+            parentId = nextParentId;
+        }
+        return false;
+    }
+
+    protected staticKeyframeValue(raw: Record<string, any> | undefined, property: KeyframeProperty): unknown {
+        if (property.startsWith('transform.')) {
+            const key = property.substring('transform.'.length);
+            return raw?.transform?.[key] ?? (key === 'scale' ? 1 : 0);
+        }
+        return raw?.[property] ?? (property === 'opacity' ? 1 : {});
+    }
+
+    protected hydratedKeyframes(itemId: string): readonly Record<string, unknown>[] | undefined {
+        const points = this.rawKeyframeItem(itemId)?.keyframes;
+        return Array.isArray(points) ? points : undefined;
+    }
+
+    protected segmentEasingAt(itemId: string, property: KeyframeProperty, t: number): string {
+        const points = this.hydratedKeyframes(itemId) ?? [];
+        const declaredTimes: number[] = [];
+        let target: Record<string, unknown> | undefined;
+        for (const point of points) {
+            if (keyframeValueAt(point, property) === undefined) continue;
+            declaredTimes.push(Number(point.t));
+            if (point.t === t) target = point;
+        }
+        if (!target || t === Math.min(...declaredTimes)) return 'linear';
+        if (typeof target.easing === 'string') return target.easing;
+        if (target.easing && typeof target.easing === 'object' && !Array.isArray(target.easing)) {
+            const easing = target.easing as Record<string, unknown>;
+            const value = easing[property] ?? (property.startsWith('transform.') ? easing.transform : undefined);
+            if (typeof value === 'string') return value;
+        }
+        return 'linear';
+    }
+
+    protected async setTimelineKeyframe(
+        itemId: string, property: KeyframeProperty, t: number, value: unknown
+    ): Promise<void> {
+        const hydratedPoints = this.hydratedKeyframes(itemId);
+        await this.commitEditMutation('キーフレームを打つ', doc => setV2Keyframe(doc, {
+            itemId, property, t, value, ...(hydratedPoints ? { hydratedPoints } : {})
+        }));
+        this.selectionModel.keyframeSelection = {
+            kind: 'keyframe', itemId, property: property as KeyframeControlRequest['property'], times: [t],
+            easing: this.segmentEasingAt(itemId, property, t)
+        };
+    }
+
+    protected async moveTimelineKeyframe(
+        itemId: string, property: KeyframeProperty, fromT: number, toT: number
+    ): Promise<void> {
+        const hydratedPoints = this.hydratedKeyframes(itemId);
+        await this.commitEditMutation('キーフレームを移動', doc => moveV2Keyframe(doc, {
+            itemId, property, fromT, toT, ...(hydratedPoints ? { hydratedPoints } : {})
+        }));
+        this.selectionModel.keyframeSelection = {
+            kind: 'keyframe', itemId, property: property as KeyframeControlRequest['property'], times: [toT],
+            easing: this.segmentEasingAt(itemId, property, toT)
+        };
+    }
+
+    protected async removeSelectedKeyframes(): Promise<void> {
+        const selected = this.selectionModel.keyframeSelection;
+        if (!selected) return;
+        const hydratedPoints = this.hydratedKeyframes(selected.itemId);
+        await this.commitEditMutation('キーフレームを削除', doc => selected.times.reduce(
+            (current, t) => removeV2Keyframe(current, {
+                itemId: selected.itemId, property: selected.property, t,
+                ...(hydratedPoints ? { hydratedPoints } : {})
+            }), doc
+        ));
+        this.selectionModel.keyframeSelection = undefined;
+    }
+
+    protected async moveAggregateKeyframes(itemIds: readonly string[], fromT: number, proposedToT: number): Promise<void> {
+        const hydrated = new Map(itemIds.map(id => [id, this.hydratedKeyframes(id)]));
+        await this.commitEditMutation('集約キーフレームを移動', doc => {
+            let current = doc;
+            for (const itemId of itemIds) {
+                const raw = this.rawKeyframeItem(itemId);
+                let point: Record<string, unknown> | undefined;
+                if (Array.isArray(raw?.keyframes)) {
+                    for (const candidate of raw.keyframes as Record<string, unknown>[]) {
+                        if (candidate.t === fromT) { point = candidate; break; }
+                    }
+                }
+                if (!point) continue;
+                const duration = typeof raw.duration === 'number' ? raw.duration : proposedToT;
+                const toT = Math.max(0, Math.min(duration, proposedToT));
+                for (const property of this.keyframePropertiesAt(point)) {
+                    current = moveV2Keyframe(current, {
+                        itemId, property, fromT, toT,
+                        ...(hydrated.get(itemId) ? { hydratedPoints: hydrated.get(itemId)! } : {})
+                    });
+                }
+            }
+            return current;
+        });
+    }
+
+    protected keyframePropertiesAt(point: Record<string, unknown>): KeyframeProperty[] {
+        const result: KeyframeProperty[] = [];
+        const transform = point.transform && typeof point.transform === 'object' && !Array.isArray(point.transform)
+            ? point.transform as Record<string, unknown> : {};
+        for (const key of ['x', 'y', 'scale', 'rotate']) if (key in transform) result.push(`transform.${key}` as KeyframeProperty);
+        for (const key of ['opacity', 'crop', 'perspective'] as const) if (key in point) result.push(key);
+        return result;
+    }
+
+    protected async handleKeyframeControl(request: KeyframeControlRequest): Promise<InspectorWriteResult> {
+        try {
+            const itemId = request.itemId.startsWith('cut:')
+                ? this.cutItemIds[Number(request.itemId.substring('cut:'.length))] : request.itemId;
+            if (!itemId) throw new Error('キーフレーム対象が見つかりません。');
+            let row: TimelineTreeRow | undefined;
+            for (const candidate of this.expandedTimelineTreeRows) {
+                if (candidate.id === itemId) { row = candidate; break; }
+            }
+            const raw = this.rawKeyframeItem(itemId);
+            if (!row || !raw) throw new Error('キーフレーム対象が見つかりません。');
+            const t = Math.max(0, Math.min(raw.duration,
+                Math.round((this.playheadT - row.at) * this.fps)));
+            const points = this.hydratedKeyframes(itemId) ?? [];
+            const times: number[] = [];
+            for (const point of points) {
+                if (keyframeValueAt(point, request.property) !== undefined) times.push(Number(point.t));
+            }
+            times.sort((left, right) => left - right);
+            if (request.action === 'previous' || request.action === 'next') {
+                let target: number | undefined;
+                if (request.action === 'previous') {
+                    for (let index = times.length - 1; index >= 0; index--) {
+                        if (times[index] < t) { target = times[index]; break; }
+                    }
+                } else {
+                    for (const time of times) if (time > t) { target = time; break; }
+                }
+                if (target !== undefined) {
+                    this.playheadT = row.at + target / this.fps;
+                    this.selectedSourceT = this.outputToSource(this.playheadT);
+                    await this.requestSeek(this.playheadT, { domain: 'output' });
+                    this.selectionModel.keyframeSelection = {
+                        kind: 'keyframe', itemId, property: request.property, times: [target],
+                        easing: this.segmentEasingAt(itemId, request.property, target)
+                    };
+                }
+                return { ok: true };
+            }
+            if (request.action === 'easing') {
+                const selected = this.selectionModel.keyframeSelection;
+                let toT = selected?.itemId === itemId && selected.times.length > 0
+                    ? Math.max(...selected.times) : undefined;
+                if (toT === undefined) for (const time of times) if (time > t) { toT = time; break; }
+                if (toT === undefined || !request.easing) throw new Error('イージングを設定する区間を選択してください。');
+                const hydratedPoints = this.hydratedKeyframes(itemId);
+                await this.commitEditMutation('区間イージングを変更', doc => setV2SegmentEasing(doc, {
+                    itemId, property: request.property, toT, easing: request.easing!,
+                    ...(hydratedPoints ? { hydratedPoints } : {})
+                }));
+                this.selectionModel.keyframeSelection = {
+                    kind: 'keyframe', itemId, property: request.property, times: [toT], easing: request.easing
+                };
+                return { ok: true };
+            }
+            if (times.includes(t)) {
+                this.selectionModel.keyframeSelection = {
+                    kind: 'keyframe', itemId, property: request.property, times: [t],
+                    easing: this.segmentEasingAt(itemId, request.property, t)
+                };
+                await this.removeSelectedKeyframes();
+            } else {
+                await this.setTimelineKeyframe(itemId, request.property, t,
+                    request.value ?? this.staticKeyframeValue(raw, request.property));
+            }
+            return { ok: true };
+        } catch (error) {
+            return { ok: false, message: this.errorMessage(error) };
+        }
+    }
+
     protected renderTrackHeaders(beatsTop: number, beatsHeight: number): void {
         this.trackHeaders.replaceChildren();
         if (beatsHeight > 0) {
@@ -5439,6 +6026,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const autoNames = this.computeTrackAutoNames();
         const displayedTracks = [...this.displayTimelineTracks].reverse();
         displayedTracks.forEach(track => {
+            if (this.focusScope.rootId !== null && !(this.treeRowsByTrack.get(track.id)?.length)) return;
             const layout = this.laneLayout.tracks.find(candidate => candidate.id === track.id);
             if (!layout) {
                 return;
@@ -5522,7 +6110,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 visible, toggleVisibility, audible, toggleMute, layout.track, track
             );
             const treeRows = this.treeRowsByTrack.get(track.id) ?? [];
-            if (treeRows.length > 1 || treeRows[0]?.hasChildren) {
+            if (treeRows.length > 0) {
                 this.decorateTreeTrackHeader(header, treeRows);
             }
             this.trackHeaders.appendChild(header);
@@ -5532,13 +6120,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected decorateTreeTrackHeader(header: HTMLDivElement, rows: readonly TimelineTreeRow[]): void {
         header.replaceChildren();
         header.dataset.akariTreeTrack = 'true';
-        rows.forEach((treeRow, index) => {
+        let visualIndex = 0;
+        rows.forEach(treeRow => {
             const row = document.createElement('div');
             row.dataset.akariTreeRowId = treeRow.id;
             row.dataset.akariItemId = treeRow.id;
             row.dataset.akariItemKind = 'item';
             Object.assign(row.style, {
-                position: 'absolute', left: '0', right: '0', top: `${index * SUBROW_STRIDE}px`,
+                position: 'absolute', left: '0', right: '0', top: `${visualIndex * SUBROW_STRIDE}px`,
                 height: `${SUBROW_HEIGHT}px`, display: 'flex', alignItems: 'center', gap: '3px',
                 paddingLeft: `${4 + treeRow.depth * 16}px`, boxSizing: 'border-box', overflow: 'hidden'
             });
@@ -5560,7 +6149,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (next) this.timelineCollapsedIds.add(treeRow.id);
                 else this.timelineCollapsedIds.delete(treeRow.id);
                 this.timelineTreeRows = applyTimelineCollapsedRows(
-                    this.expandedTimelineTreeRows, this.timelineCollapsedIds
+                    rowsInFocusScope(this.expandedTimelineTreeRows, this.focusScope), this.timelineCollapsedIds
                 );
                 this.treeRowsByTrack = rowsByTrack(visibleTimelineTreeRows(this.timelineTreeRows));
                 this.renderStrip();
@@ -5570,19 +6159,54 @@ export class AkariAnnotationsWidget extends BaseWidget {
             label.title = treeRow.label;
             Object.assign(label.style, { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
             row.append(toggle, label);
+            if (this.focusScope.rootId !== null) {
+                const add = document.createElement('button');
+                add.type = 'button';
+                add.textContent = '+';
+                add.title = 'プロパティ行を追加';
+                add.dataset.akariKeyframePropertyAdd = treeRow.id;
+                add.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const visible = new Set(this.keyframeRowsByItem.get(treeRow.id)?.map(entry => entry.property));
+                    const property = (['crop', 'perspective'] as KeyframeProperty[])
+                        .find(candidate => !visible.has(candidate));
+                    if (!property) return;
+                    const requested = this.extraKeyframeProperties.get(treeRow.id) ?? new Set<KeyframeProperty>();
+                    requested.add(property);
+                    this.extraKeyframeProperties.set(treeRow.id, requested);
+                    this.renderStrip();
+                });
+                row.appendChild(add);
+            }
             row.addEventListener('click', event => {
                 event.preventDefault();
                 event.stopPropagation();
-                const selected: TimelineSelectionItem = {
-                    kind: 'item', id: treeRow.id, itemKind: treeRow.itemKind,
-                    parentId: treeRow.parentId, trackId: treeRow.trackId
-                };
+                if (this.detectTreeDoubleClick(treeRow.id, event.clientX, event.clientY)) {
+                    this.enterTreeItem(treeRow);
+                    return;
+                }
+                const selected = this.selectionForTreeRow(treeRow);
                 if (event.shiftKey) this.toggleMultiSelection(selected);
                 else this.applySelection(selected);
             });
             row.addEventListener('pointerdown', event => event.stopPropagation());
             this.installTreeRowDrag(row, treeRow, rows);
             header.appendChild(row);
+            visualIndex++;
+            for (const propertyRow of this.keyframeRowsByItem.get(treeRow.id) ?? []) {
+                const property = document.createElement('div');
+                property.dataset.akariKeyframePropertyHeader = `${treeRow.id}:${propertyRow.property}`;
+                property.textContent = propertyRow.label;
+                Object.assign(property.style, {
+                    position: 'absolute', left: '0', right: '0', top: `${visualIndex * SUBROW_STRIDE}px`,
+                    height: `${SUBROW_HEIGHT}px`, paddingLeft: `${24 + treeRow.depth * 16}px`,
+                    boxSizing: 'border-box', fontSize: '10px', lineHeight: `${SUBROW_HEIGHT}px`,
+                    opacity: propertyRow.editable ? '.9' : '.55', overflow: 'hidden', textOverflow: 'ellipsis'
+                });
+                header.appendChild(property);
+                visualIndex++;
+            }
         });
     }
 
@@ -6034,17 +6658,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const before = (await this.fileService.readFile(editUri)).value.toString();
         const raw = JSON.parse(before) as EditV2Document;
         if (raw.version !== 2) throw new Error('v2 へ変換してから編集してください。');
-        const after = stringifyEditV2(mutate(raw));
+        const distribution = prepareV2KeyframeDistribution(mutate(raw));
+        const after = stringifyEditV2(distribution.document);
         if (after === before) return { before, after, result: { committed: false } };
+        const motionChanges = await this.prepareMotionChanges(distribution.writes);
+        await this.writeMotionChanges(motionChanges, 'after');
         await this.writeEditSnapshotGuarded(after);
         if (options?.history !== false) {
             this.pushHistory({
                 label,
                 undo: async () => {
+                    await this.writeMotionChanges(motionChanges, 'before');
                     await this.writeEditSnapshotGuarded(before);
                     await this.reloadEdit();
                 },
                 redo: async () => {
+                    await this.writeMotionChanges(motionChanges, 'after');
                     await this.writeEditSnapshotGuarded(after);
                     await this.reloadEdit();
                 }
@@ -6052,6 +6681,52 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         if (options?.reload !== false) await this.reloadEdit();
         return { before, after, result: { committed: false } };
+    }
+
+    protected async prepareMotionChanges(writes: readonly {
+        path: string; group: string; itemId: string; points: readonly Record<string, unknown>[];
+    }[]): Promise<Array<{ uri: URI; before?: string; after: string }>> {
+        if (!this.location?.editUri || writes.length === 0) return [];
+        const byPath = new Map<string, typeof writes>();
+        for (const write of writes) byPath.set(write.path, [...(byPath.get(write.path) ?? []), write]);
+        const changes: Array<{ uri: URI; before?: string; after: string }> = [];
+        for (const [path, entries] of byPath) {
+            const uri = this.location.editUri.parent.resolve(path);
+            let before: string | undefined;
+            try {
+                before = (await this.fileService.readFile(uri)).value.toString();
+            } catch {
+                before = undefined;
+            }
+            const parsed = before ? JSON.parse(before) as Record<string, any> : {
+                version: 0, group: entries[0].group, items: {}
+            };
+            parsed.version = 0;
+            parsed.group = entries[0].group;
+            if (!parsed.items || typeof parsed.items !== 'object' || Array.isArray(parsed.items)) parsed.items = {};
+            for (const entry of entries) parsed.items[entry.itemId] = entry.points;
+            changes.push({ uri, ...(before === undefined ? {} : { before }), after: serializeMotion(parsed) });
+        }
+        return changes;
+    }
+
+    protected async writeMotionChanges(
+        changes: readonly { uri: URI; before?: string; after: string }[],
+        side: 'before' | 'after'
+    ): Promise<void> {
+        for (const change of changes) {
+            const source = side === 'after' ? change.after : change.before;
+            if (source === undefined) {
+                try {
+                    await this.fileService.delete(change.uri);
+                } catch {
+                    // undo 対象の袋が既に無い場合は完了済みとして扱う。
+                }
+                continue;
+            }
+            await this.fileService.createFolder(change.uri.parent);
+            await this.fileService.writeFile(change.uri, BinaryBuffer.fromString(source));
+        }
     }
 
     /** v2 の整形を保つテキスト手術を 1 履歴として保存する。 */
@@ -7398,6 +8073,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     return;
                 }
                 const selected = this.selectionFromDragState(state);
+                if (selected.kind !== 'cut' && selected.kind !== 'audio') {
+                    const treeRow = this.timelineTreeRows.find(row => row.id === selected.id);
+                    if (treeRow && this.detectTreeDoubleClick(treeRow.id, event.clientX, event.clientY)) {
+                        this.enterTreeItem(treeRow);
+                        return;
+                    }
+                }
                 if (event.shiftKey) this.toggleMultiSelection(selected);
                 else this.applySelection(selected);
                 this.selectTimeAtClientX(event.clientX);
@@ -9344,7 +10026,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (next) this.timelineCollapsedIds.add(item.id);
             else this.timelineCollapsedIds.delete(item.id);
             this.timelineTreeRows = applyTimelineCollapsedRows(
-                this.expandedTimelineTreeRows, this.timelineCollapsedIds
+                rowsInFocusScope(this.expandedTimelineTreeRows, this.focusScope), this.timelineCollapsedIds
             );
             this.treeRowsByTrack = rowsByTrack(visibleTimelineTreeRows(this.timelineTreeRows));
             this.renderStrip();

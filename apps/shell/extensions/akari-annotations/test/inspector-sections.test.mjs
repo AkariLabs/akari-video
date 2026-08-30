@@ -31,6 +31,7 @@ import {
 } from '../lib/browser/inspector/field-mappings.js';
 
 const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+const inspectorWidgetSource = readFileSync(new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8');
 
 test('節合成は時間→変形→外観→種別固有→情報の順に固定する', () => {
   const sections = composeInspectorSections([
@@ -40,6 +41,39 @@ test('節合成は時間→変形→外観→種別固有→情報の順に固�
   assert.deepEqual(sections.map(section => section.id), [
     'time', 'transform', 'appearance', 'style', 'knobs:color', 'info'
   ]);
+});
+
+test('イージング節は外観の直後に入り、KF 席から disabled 属性を除く', () => {
+  const sections = composeInspectorSections([
+    { id: 'info' }, { id: 'easing' }, { id: 'appearance' }, { id: 'transform' }
+  ]);
+  assert.deepEqual(sections.map(section => section.id), ['transform', 'appearance', 'easing', 'info']);
+  const numberFieldSource = readFileSync(new URL('../src/browser/inspector/number-field.ts', import.meta.url), 'utf8');
+  assert.equal(numberFieldSource.includes('button.disabled = true'), false);
+});
+
+test('木 item snapshot がインスペクターへ時間・変形・外観を渡す', () => {
+  assert.match(widgetSource, /this\.treeItemSnapshot\(treeSelection, raw\)/u);
+  assert.match(inspectorWidgetSource, /case 'item':\s+sections = TREE_ITEM_SECTIONS/u);
+  assert.match(inspectorWidgetSource, /id: 'transform', label: '変形'/u);
+});
+
+test('イージングは選択点の実値を表示し、DOM プリセット hover を既存 throttle へ流す', () => {
+  assert.match(inspectorWidgetSource, /selectedKeyframe\.easing \?\? 'linear'/u);
+  assert.match(inspectorWidgetSource, /INSPECTOR_LIVE_PREVIEW_THROTTLE_MS/u);
+  assert.match(inspectorWidgetSource, /data\.akariEasingPreview|dataset\.akariEasingPreview/u);
+  assert.match(inspectorWidgetSource, /this\.model\.requestLivePreview/u);
+  assert.doesNotMatch(inspectorWidgetSource, /segment-easing'[\s\S]{0,120}getValue: \(\) => 'linear'/u);
+});
+
+test('プロパティ行の空白は native dblclick ではなく click の合成判定を使う', () => {
+  const start = widgetSource.indexOf('protected renderKeyframePropertyRows');
+  const end = widgetSource.indexOf('protected appendMotionMarks', start);
+  const block = widgetSource.slice(start, end);
+  assert.match(block, /addEventListener\('click'/u);
+  assert.match(block, /addEventListener\('pointerdown',[\s\S]{0,80}stopPropagation/u);
+  assert.match(block, /detectTreeDoubleClick/u);
+  assert.doesNotMatch(block, /addEventListener\('dblclick'/u);
 });
 
 test('折りたたみ状態は kind と section id ごとに記憶する', () => {

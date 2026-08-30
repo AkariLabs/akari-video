@@ -1,0 +1,150 @@
+{
+  "status": "PASS",
+  "records": [
+    {
+      "step": "step-1-focus",
+      "crumb": "全体›g1",
+      "rows": [
+        "g1",
+        "g1.first",
+        "g1.second"
+      ],
+      "zoom": "217%"
+    },
+    {
+      "step": "step-2-two-keyframes",
+      "points": [
+        {
+          "t": 0,
+          "transform": {
+            "x": 10
+          }
+        },
+        {
+          "t": 45,
+          "transform": {
+            "x": 10
+          }
+        }
+      ]
+    },
+    {
+      "step": "step-3-easing",
+      "easing": "ease-in-out",
+      "inspectorValue": "ease-in-out",
+      "hoverPreview": {
+        "editUri": "file:///private/tmp/akari-focus-mode-l1-workspace.E3asYH/project/edit.json",
+        "target": {
+          "kind": "item",
+          "id": "g1.first"
+        },
+        "field": "x",
+        "value": 10,
+        "easing": "out-cubic"
+      }
+    },
+    {
+      "step": "step-4-escape",
+      "allRows": [
+        "video",
+        "s01.C",
+        "plain",
+        "g1",
+        "g1.first",
+        "g1.second",
+        "s01",
+        "s01#A",
+        "s01.B"
+      ]
+    },
+    {
+      "step": "step-5-inline-canonical",
+      "line": "        { \"id\": \"g1.first\", \"at\": 0, \"duration\": 45, \"transform\": { \"x\": 10, \"y\": 5, \"scale\": 0.5, \"rotate\": -15 }, \"opacity\": 0.8, \"keyframes\": [{ \"t\": 0, \"transform\": { \"x\": 10 } }, { \"t\": 45, \"transform\": { \"x\": 10 }, \"easing\": \"ease-in-out\" }], \"source\": { \"kind\": \"html\", \"path\": \"overlays/plain.html\" } },"
+    },
+    {
+      "step": "step-6-motion-bag",
+      "reference": {
+        "path": "motion/g1.json",
+        "count": 9
+      },
+      "count": 9
+    },
+    {
+      "step": "step-7-osr-samples",
+      "status": "known-gap",
+      "xValues": [
+        10,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        110,
+        10
+      ],
+      "pngs": [
+        "01s03f.png",
+        "02s12f.png"
+      ],
+      "hashes": [
+        "e596b97abb341e6e877a8121036c6199ddce8871901bcb01d3503bb8312822ff",
+        "e596b97abb341e6e877a8121036c6199ddce8871901bcb01d3503bb8312822ff"
+      ],
+      "engine": {
+        "requested": "osr",
+        "resolved": "osr"
+      },
+      "osr": {
+        "launcher_tier": 2,
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 33,
+              "matched": true,
+              "decodedFrameNumber": 33,
+              "expectedFrameNumber": 33,
+              "retries": 0
+            },
+            {
+              "frameNumber": 72,
+              "matched": true,
+              "decodedFrameNumber": 72,
+              "expectedFrameNumber": 72,
+              "retries": 0
+            }
+          ]
+        }
+      },
+      "reason": "HTML 部品は overlays[] に射影され layers.mjs のキーフレーム合成を受けないため。修正には編集禁止の render-cut / osr-export が必要。"
+    },
+    {
+      "step": "step-8-video-trimmer",
+      "status": "opened-and-closed"
+    },
+    {
+      "step": "step-9-single-row-selection",
+      "selected": "plain",
+      "sections": [
+        "section:inspector-time",
+        "section:inspector-transform",
+        "section:inspector-appearance",
+        "section:inspector-easing",
+        "section:inspector-info"
+      ]
+    },
+    {
+      "step": "step-10-preview-part-selection",
+      "status": "selected",
+      "id": "s01#A"
+    },
+    {
+      "step": "step-11-row-header-dnd",
+      "from": "plain",
+      "to": "s01",
+      "savedParent": "s01"
+    }
+  ]
+}

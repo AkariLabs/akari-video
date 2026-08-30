@@ -25,6 +25,19 @@ export interface ProjectedItemTiming {
     duration: number;
 }
 
+export type KeyframeProperty =
+    | 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate'
+    | 'opacity' | 'crop' | 'perspective';
+
+export type SegmentEasing = string;
+
+const SEGMENT_EASINGS = new Set([
+    'linear', 'ease-in-out', 'in-quad', 'out-quad', 'in-out-quad',
+    'in-cubic', 'out-cubic', 'in-out-cubic', 'in-quart', 'out-quart', 'in-out-quart',
+    'in-expo', 'out-expo', 'in-out-expo', 'in-back', 'out-back', 'in-out-back',
+    'out-bounce', 'out-elastic', 'hold'
+]);
+
 export interface ConvertCaptionToTelopOptions {
     preset?: string;
     text: string;
@@ -91,6 +104,120 @@ export function updateItem(edit: EditableEditV2, id: string, patch: JsonRecord):
         }
     }
     return location.item;
+}
+
+/** inline 点列へ値を打つ。最初の点では反対側の端にも同じ値を置き minItems:2 を守る。 */
+export function setKeyframe(
+    edit: EditableEditV2,
+    id: string,
+    property: KeyframeProperty,
+    t: number,
+    value: unknown
+): ProjectItemV2 {
+    const item = requireLocation(edit, id).item;
+    const time = requireKeyframeTime(t, item.duration);
+    const points = editableKeyframes(item);
+    if (points.length === 0) {
+        const opposite = time === 0 ? item.duration : 0;
+        points.push(pointWithValue(time, property, value), pointWithValue(opposite, property, value));
+    } else {
+        const point = points.find(candidate => candidate.t === time);
+        if (point) assignKeyframeValue(point, property, value);
+        else points.push(pointWithValue(time, property, value));
+    }
+    item.keyframes = normalizeKeyframes(points);
+    return item;
+}
+
+/** 指定プロパティの点だけを消し、空点を除去する。2 点未満なら点列自体を外す。 */
+export function removeKeyframe(
+    edit: EditableEditV2,
+    id: string,
+    property: KeyframeProperty,
+    t: number
+): ProjectItemV2 {
+    const item = requireLocation(edit, id).item;
+    const points = editableKeyframes(item);
+    const point = points.find(candidate => candidate.t === t);
+    if (!point) return item;
+    deleteKeyframeValue(point, property);
+    const remaining = points.filter(hasKeyframeValue);
+    if (remaining.length < 2) delete item.keyframes;
+    else item.keyframes = normalizeKeyframes(remaining);
+    return item;
+}
+
+/** 1 プロパティの点を別時刻へ移す。同時刻の既存点があれば値をマージする。 */
+export function moveKeyframe(
+    edit: EditableEditV2,
+    id: string,
+    property: KeyframeProperty,
+    fromT: number,
+    toT: number
+): ProjectItemV2 {
+    const item = requireLocation(edit, id).item;
+    const targetTime = requireKeyframeTime(toT, item.duration);
+    const points = editableKeyframes(item);
+    const source = points.find(point => point.t === fromT);
+    const value = source ? keyframeValue(source, property) : undefined;
+    if (!source || value === undefined) throw new Error(`キーフレームが見つかりません: ${id} ${property} t=${fromT}`);
+    const easing = source.easing;
+    deleteKeyframeValue(source, property);
+    let target = points.find(point => point.t === targetTime);
+    if (!target) {
+        target = { t: targetTime };
+        points.push(target);
+    }
+    assignKeyframeValue(target, property, value);
+    if (easing !== undefined && target.easing === undefined) target.easing = clone(easing);
+    const remaining = points.filter(hasKeyframeValue);
+    if (remaining.length < 2) throw new Error('キーフレームは 2 点以上必要です。');
+    item.keyframes = normalizeKeyframes(remaining);
+    return item;
+}
+
+/** easing は「その点へ入る区間」に置く。プロパティ別指定は object 形へ正規化する。 */
+export function setSegmentEasing(
+    edit: EditableEditV2,
+    id: string,
+    property: KeyframeProperty,
+    toT: number,
+    easing: SegmentEasing
+): ProjectItemV2 {
+    requireSegmentEasing(easing);
+    const item = requireLocation(edit, id).item;
+    const points = editableKeyframes(item);
+    const index = points.findIndex(point => point.t === toT);
+    if (index <= 0 || keyframeValue(points[index], property) === undefined) {
+        throw new Error('イージングを設定する区間が見つかりません。');
+    }
+    const point = points[index];
+    const declared = keyframeProperties(point);
+    if (declared.length <= 1) {
+        point.easing = easing;
+    } else {
+        const previous = typeof point.easing === 'string' ? point.easing : 'linear';
+        const perProperty = isRecord(point.easing) ? clone(point.easing) : {};
+        for (const declaredProperty of declared) {
+            if (!(declaredProperty in perProperty)) perProperty[declaredProperty] = previous;
+        }
+        perProperty[property] = easing;
+        point.easing = perProperty as Record<string, string>;
+    }
+    item.keyframes = normalizeKeyframes(points);
+    return item;
+}
+
+/** motion 袋を読んだ UI が参照形を inline へ戻すための純関数。 */
+export function hydrateKeyframes(
+    edit: EditableEditV2,
+    id: string,
+    points: readonly KeyframeV2[]
+): ProjectItemV2 {
+    if (points.length > 0 && points.length < 2) throw new Error('キーフレームは 2 点以上必要です。');
+    const item = requireLocation(edit, id).item;
+    item.keyframes = normalizeKeyframes(points.map(point => clone(point)));
+    return item;
 }
 
 export function moveItem(edit: EditableEditV2, id: string, target: MoveTarget): ProjectItemV2 {
@@ -496,6 +623,85 @@ export function ensureChildren(item: MutableItem, create = true): MutableItem[] 
 
 export function clone<T>(value: T): T {
     return structuredClone(value);
+}
+
+function editableKeyframes(item: MutableItem): KeyframeV2[] {
+    if (item.keyframes === undefined) return [];
+    if (!Array.isArray(item.keyframes)) {
+        throw new Error('motion 袋を inline に戻してからキーフレームを編集してください。');
+    }
+    return item.keyframes.map(point => clone(point));
+}
+
+function requireSegmentEasing(value: string): void {
+    const cubic = /^cubic-bezier\(\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*\)$/u;
+    if (!SEGMENT_EASINGS.has(value) && !cubic.test(value)) throw new Error(`未対応の easing です: ${value}`);
+}
+
+function requireKeyframeTime(t: number, duration: number): number {
+    if (!Number.isInteger(t) || t < 0 || t > duration) {
+        throw new Error(`キーフレーム時刻は 0〜${duration} の整数フレームで指定してください。`);
+    }
+    return t;
+}
+
+function normalizeKeyframes(points: readonly KeyframeV2[]): KeyframeV2[] {
+    const result = points.map(point => clone(point)).sort((left, right) => left.t - right.t);
+    for (let index = 1; index < result.length; index++) {
+        if (result[index - 1].t === result[index].t) throw new Error('同じ時刻にキーフレームを重ねられません。');
+    }
+    return result;
+}
+
+function pointWithValue(t: number, property: KeyframeProperty, value: unknown): KeyframeV2 {
+    const point: KeyframeV2 = { t };
+    assignKeyframeValue(point, property, value);
+    return point;
+}
+
+function assignKeyframeValue(point: KeyframeV2, property: KeyframeProperty, value: unknown): void {
+    if (property.startsWith('transform.')) {
+        const key = property.slice('transform.'.length) as keyof TransformV2;
+        point.transform = { ...(point.transform ?? {}), [key]: clone(value) } as TransformV2;
+    } else {
+        (point as JsonRecord)[property] = clone(value);
+    }
+}
+
+function deleteKeyframeValue(point: KeyframeV2, property: KeyframeProperty): void {
+    if (property.startsWith('transform.')) {
+        const key = property.slice('transform.'.length);
+        if (point.transform) {
+            delete (point.transform as JsonRecord)[key];
+            if (Object.keys(point.transform).length === 0) delete point.transform;
+        }
+    } else {
+        delete point[property];
+    }
+    if (isRecord(point.easing)) {
+        delete point.easing[property];
+        if (Object.keys(point.easing).length === 0) delete point.easing;
+    }
+}
+
+function keyframeValue(point: KeyframeV2, property: KeyframeProperty): unknown {
+    if (!property.startsWith('transform.')) return point[property];
+    return point.transform?.[property.slice('transform.'.length) as keyof TransformV2];
+}
+
+function keyframeProperties(point: KeyframeV2): KeyframeProperty[] {
+    const result: KeyframeProperty[] = [];
+    for (const property of ['transform.x', 'transform.y', 'transform.scale', 'transform.rotate'] as const) {
+        if (keyframeValue(point, property) !== undefined) result.push(property);
+    }
+    for (const property of ['opacity', 'crop', 'perspective'] as const) {
+        if (keyframeValue(point, property) !== undefined) result.push(property);
+    }
+    return result;
+}
+
+function hasKeyframeValue(point: KeyframeV2): boolean {
+    return keyframeProperties(point).length > 0 || point.animator !== undefined;
 }
 
 function requireLocation(edit: EditableEditV2, id: string): ItemLocation {

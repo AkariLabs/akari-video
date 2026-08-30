@@ -13,9 +13,13 @@ import {
     groupItems as groupTreeItems,
     materializeProjectedPart,
     moveItem as moveTreeItem,
+    moveKeyframe as moveTreeKeyframe,
     normalizeTracks,
+    removeKeyframe as removeTreeKeyframe,
     removeItem as removeTreeItem,
     serializeEdit,
+    setKeyframe as setTreeKeyframe,
+    setSegmentEasing as setTreeSegmentEasing,
     ungroupItem as ungroupTreeItem,
     updateItem as updateTreeItem,
     type EditableEditV2,
@@ -23,6 +27,7 @@ import {
     type MoveTarget,
     type ProjectedItemTiming,
     type ProjectItemV2,
+    type KeyframeProperty,
 } from '@akari-video/edit-store';
 
 export type EditV2Document = Record<string, unknown>;
@@ -114,6 +119,20 @@ export interface TreeMutationResult<T> {
     createdTrackId?: string;
 }
 
+export interface KeyframeMutationOptions {
+    itemId: string;
+    property: KeyframeProperty;
+    /** motion 袋参照を編集するとき、shell が読み戻した inline 点列。 */
+    hydratedPoints?: readonly Record<string, unknown>[];
+}
+
+export interface KeyframeMotionWrite {
+    path: string;
+    group: string;
+    itemId: string;
+    points: readonly Record<string, unknown>[];
+}
+
 function editTree(doc: EditV2Document): EditableEditV2 {
     const value = cloneDocument(doc) as unknown as EditableEditV2;
     if (value.version !== 2 || !Array.isArray(value.tracks)) {
@@ -193,6 +212,95 @@ export function removeTreeV2Item(doc: EditV2Document, itemId: string): TreeMutat
     const edit = editTree(doc);
     const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
     return finishTreeMutation(edit, beforeTrackIds, removeTreeItem(edit, itemId));
+}
+
+export function updateTreeV2Item(
+    doc: EditV2Document,
+    itemId: string,
+    patch: Record<string, unknown>
+): EditV2Document {
+    const edit = editTree(doc);
+    updateTreeItem(edit, itemId, patch);
+    normalizeTracks(edit);
+    return edit as unknown as EditV2Document;
+}
+
+export function setV2Keyframe(
+    doc: EditV2Document,
+    options: KeyframeMutationOptions & { t: number; value: unknown }
+): EditV2Document {
+    const edit = editForKeyframes(doc, options);
+    setTreeKeyframe(edit, options.itemId, options.property, options.t, options.value);
+    return finishKeyframeMutation(edit);
+}
+
+export function removeV2Keyframe(
+    doc: EditV2Document,
+    options: KeyframeMutationOptions & { t: number }
+): EditV2Document {
+    const edit = editForKeyframes(doc, options);
+    removeTreeKeyframe(edit, options.itemId, options.property, options.t);
+    return finishKeyframeMutation(edit);
+}
+
+export function moveV2Keyframe(
+    doc: EditV2Document,
+    options: KeyframeMutationOptions & { fromT: number; toT: number }
+): EditV2Document {
+    const edit = editForKeyframes(doc, options);
+    moveTreeKeyframe(edit, options.itemId, options.property, options.fromT, options.toT);
+    return finishKeyframeMutation(edit);
+}
+
+export function setV2SegmentEasing(
+    doc: EditV2Document,
+    options: KeyframeMutationOptions & { toT: number; easing: string }
+): EditV2Document {
+    const edit = editForKeyframes(doc, options);
+    setTreeSegmentEasing(edit, options.itemId, options.property, options.toT, options.easing);
+    return finishKeyframeMutation(edit);
+}
+
+/** shell の canonical 保存前に 9 点以上を B と同じ group-id 規則で袋候補へ分ける。 */
+export function prepareV2KeyframeDistribution(doc: EditV2Document): {
+    document: EditV2Document;
+    writes: KeyframeMotionWrite[];
+} {
+    const document = cloneDocument(doc);
+    const writes: KeyframeMotionWrite[] = [];
+    const visit = (item: UnknownRecord, ancestors: UnknownRecord[]): void => {
+        if (Array.isArray(item.keyframes) && item.keyframes.length >= 9 && typeof item.id === 'string') {
+            const nearest = ancestors[ancestors.length - 1];
+            const group = typeof nearest?.id === 'string' ? nearest.id : item.id;
+            const path = `motion/${group}.json`;
+            writes.push({ path, group, itemId: item.id, points: cloneValue(item.keyframes) });
+            item.keyframes = { path, count: item.keyframes.length };
+        }
+        if (Array.isArray(item.items)) {
+            for (const child of item.items) if (isRecord(child)) visit(child, [...ancestors, item]);
+        }
+    };
+    for (const track of tracksOf(document)) {
+        if (!Array.isArray(track.items)) continue;
+        for (const item of track.items) if (isRecord(item)) visit(item, []);
+    }
+    return { document, writes };
+}
+
+function editForKeyframes(doc: EditV2Document, options: KeyframeMutationOptions): EditableEditV2 {
+    const edit = editTree(doc);
+    const item = edit.find(options.itemId);
+    if (!item) throw new Error(`item が見つかりません: ${options.itemId}`);
+    if (!Array.isArray(item.keyframes) && item.keyframes !== undefined) {
+        if (!options.hydratedPoints) throw new Error('motion 袋を読み込んでから編集してください。');
+        item.keyframes = cloneValue(options.hydratedPoints) as unknown as typeof item.keyframes;
+    }
+    return edit;
+}
+
+function finishKeyframeMutation(edit: EditableEditV2): EditV2Document {
+    normalizeTracks(edit);
+    return edit as unknown as EditV2Document;
 }
 
 export function indexEditV2Items(doc: EditV2Document): Map<string, ItemLocation> {

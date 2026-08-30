@@ -1,7 +1,9 @@
 import {
     clampNumber,
+    createKeyframeSeat,
     formatNumberStep,
-    INSPECTOR_LIVE_PREVIEW_THROTTLE_MS
+    INSPECTOR_LIVE_PREVIEW_THROTTLE_MS,
+    type KeyframeSeatOptions
 } from './number-field';
 
 export interface SliderFieldOptions {
@@ -15,6 +17,7 @@ export interface SliderFieldOptions {
     displayScale?: number;
     onPreview?: (value: number) => void;
     onCommit: (value: number) => Promise<boolean>;
+    keyframe?: KeyframeSeatOptions;
 }
 
 export function sliderToDisplay(value: number, displayScale = 1): number {
@@ -58,14 +61,7 @@ export function createSliderField(options: SliderFieldOptions): HTMLElement {
     const unit = document.createElement('span');
     unit.className = 'akari-inspector-slider-unit';
     unit.textContent = options.unit ?? '';
-    const seat = document.createElement('button');
-    seat.type = 'button';
-    seat.className = 'akari-inspector-kf-seat';
-    seat.disabled = true;
-    seat.title = 'キーフレームは次版';
-    seat.setAttribute('aria-label', 'キーフレームは次版');
-    seat.setAttribute('data-akari-ui', `inspector-kf-seat:${options.name}`);
-    seat.textContent = '◆';
+    const seat = createKeyframeSeat(options.name, options.keyframe);
 
     const updateFill = (internal: number): void => {
         container.style.setProperty('--akari-slider-fill', `${sliderFillPercent(internal, options.min, options.max)}%`);
