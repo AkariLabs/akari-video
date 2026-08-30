@@ -19,6 +19,7 @@ import { WebviewWidget } from '@theia/plugin-ext/lib/main/browser/webview/webvie
 import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     buildTimelineMap,
+    collectExcludedCaptionIds,
     computeDuckIntervals,
     isWithinDuckInterval,
     projectLegacyAudioView,
@@ -460,6 +461,7 @@ interface PreviewModel {
     assetUrlByUri?: Map<string, string>;
     captionsUri?: URI;
     captions: PreviewCaption[];
+    excludedCaptionIds?: string[];
     /**
      * まだソースが 1 つも宣言されていない edit.json（新規プロジェクト直後）。
      * `sourceUri` が無いのは「壊れている」からではなく「これから素材を入れる」からなので、
@@ -631,6 +633,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     /** Original source URIs the generated webview is allowed to request a fallback for. */
     akariPreviewFallbackSourceUris?: Set<string>;
     akariPreviewCaptionsUri?: URI;
+    akariPreviewExcludedCaptionIds?: Set<string>;
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewTrackedSuffixes?: Set<string>;
     akariPreviewStreamId?: string;
@@ -2547,7 +2550,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     widget.akariPreviewSummary?.cuts ?? [],
                     widget.akariPreviewSummary?.output?.fps
                 )
-            );
+            ).filter(caption => !widget.akariPreviewExcludedCaptionIds?.has(caption.id));
             widget.sendMessage({ type: 'akari-preview-captions-update', captions });
         }).catch(error => console.error('[akari-preview] failed to update captions', error));
     }
@@ -2742,6 +2745,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 widget.akariPreviewModelSnapshot = nextSnapshot;
                 widget.akariPreviewSummary = summary;
+                widget.akariPreviewExcludedCaptionIds = new Set(model.excludedCaptionIds ?? []);
                 // cut map の変更は source-domain 字幕の output 区間も変える。モデル差分と同じ
                 // 読込で正規化した cue を先に送り、model-update 内の同期 tick が古い字幕を
                 // 1 フレーム描く余地を残さない。
@@ -2907,6 +2911,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             ...model.summary.layers.flatMap(layer => layer.sourceUri ? [layer.sourceUri] : [])
         ]);
         widget.akariPreviewCaptionsUri = model.captionsUri;
+        widget.akariPreviewExcludedCaptionIds = new Set(model.excludedCaptionIds ?? []);
         const trackedUris = [
             ...(model.editUri ? [model.editUri] : []),
             ...(model.relatedEditUri ? [model.relatedEditUri] : []),
@@ -3175,8 +3180,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // timeline.tracks 未宣言時の captions 段は captions.json の実在に依存する。
             // 先に字幕解決を確定し、埋め込み字幕と合わせて正規化読込へ渡す。
             const loadedCaptions = await captionsPromise;
-            const captions = loadedCaptions.captions;
-            const internal = readPreviewInternalEdit(editText, captions.length > 0);
+            const internal = readPreviewInternalEdit(editText, loadedCaptions.captions.length > 0);
+            const excludedCaptionIds = collectExcludedCaptionIds(internal);
+            const captions = loadedCaptions.captions.filter(caption => !excludedCaptionIds.has(caption.id));
             const emphasisWords = this.normalizeEmphasisWords(resolvePreviewEmphasisWords(
                 loadedCaptions.emphasisWords,
                 legacyEmphasisWords
@@ -3197,6 +3203,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     assetStreamIds: [],
                     captionsUri,
                     captions: normalizePreviewCaptionClock(captions, []),
+                    excludedCaptionIds: [...excludedCaptionIds],
                     emphasisWords,
                     emptyProject: true
                 };
@@ -3676,6 +3683,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 assetUrlByUri: new Map([...assetStreams].map(([uri, stream]) => [uri, stream.url])),
                 captionsUri,
                 captions: outputCaptions,
+                excludedCaptionIds: [...excludedCaptionIds],
                 emphasisWords,
                 summary: {
                     output: { width, height, fps: this.positiveNumber(internal.output.fps, 30) },

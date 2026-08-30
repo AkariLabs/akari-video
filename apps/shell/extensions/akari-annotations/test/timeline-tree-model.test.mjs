@@ -6,6 +6,7 @@ import {
   buildTimelineTreeRows,
   childRow,
   parentRow,
+  visibleTimelineTreeRows,
 } from '../lib/browser/timeline/timeline-tree-model.js';
 
 function internalItem(id, at, duration, source, children = [], declaration = {}) {
@@ -35,7 +36,40 @@ test('折りたたむと親 1 行だけになり、子の位置を tick に保�
   const group = internalItem('g', 2, 4, { kind: 'group' }, [childA, childB]);
   const [row] = buildTimelineTreeRows([{ id: 'v1', items: [group] }], { collapsed: new Set(['g']) });
   assert.equal(row.collapsed, true);
-  assert.deepEqual(row.ticks, [{ id: 'a', position: 0 }, { id: 'b', position: 0.5 }]);
+  assert.deepEqual(row.ticks, [{ id: 'a', position: 0, row: 0 }, { id: 'b', position: 0.5, row: 0 }]);
+});
+
+test('captions 袋は行を写し、同時刻の刻みを別の段へ割り付ける', () => {
+  const bag = internalItem('captions-bag', 0, 10, {
+    kind: 'captions', path: 'captions.json', exclude: ['c-3']
+  });
+  const [row] = buildTimelineTreeRows([{ id: 'v1', items: [bag] }], {
+    collapsed: new Set(['captions-bag']),
+    captionsByPath: new Map([['captions.json', [
+      { id: 'c-1', at: 1, duration: 2 },
+      { id: 'c-2', at: 1, duration: 3 },
+      { id: 'c-3', at: 6, duration: 1 },
+    ]]])
+  });
+  assert.deepEqual(row.ticks, [
+    { id: 'captions-bag#c-1', position: 0.1, row: 0 },
+    { id: 'captions-bag#c-2', position: 0.1, row: 1 },
+  ]);
+});
+
+test('captions 袋の写しはモデルに残るが表示段は袋 1 行だけになる', () => {
+  const bag = internalItem('captions-bag', 0, 10, { kind: 'captions', path: 'captions.json' });
+  const detached = internalItem('cap-c-3', 6, 1, { kind: 'caption', path: 'captions.json', id: 'c-3' });
+  const rows = buildTimelineTreeRows([{ id: 'v1', items: [bag, detached] }], {
+    captionsByPath: new Map([['captions.json', [
+      { id: 'c-1', at: 1, duration: 2 },
+      { id: 'c-2', at: 4, duration: 1 },
+    ]]])
+  });
+  assert.deepEqual(rows.map(row => row.id), [
+    'captions-bag', 'captions-bag#c-1', 'captions-bag#c-2', 'cap-c-3'
+  ]);
+  assert.deepEqual(visibleTimelineTreeRows(rows).map(row => row.id), ['captions-bag', 'cap-c-3']);
 });
 
 test('名札無し overlay は 1 行・トグル無しのまま', () => {

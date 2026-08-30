@@ -7,6 +7,7 @@
 
 import {
     attachEditHelpers,
+    convertCaptionToTelop,
     createTrackAt,
     detachItem as detachTreeItem,
     groupItems as groupTreeItems,
@@ -20,6 +21,7 @@ import {
     type EditableEditV2,
     type GroupResult,
     type MoveTarget,
+    type ProjectedItemTiming,
     type ProjectItemV2,
 } from '@akari-video/edit-store';
 
@@ -150,11 +152,22 @@ export function moveTreeV2Item(
 
 export function detachTreeV2Item(
     doc: EditV2Document,
-    itemId: string
+    itemId: string,
+    projected?: ProjectedItemTiming
 ): TreeMutationResult<ProjectItemV2> {
     const edit = editTree(doc);
     const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
-    return finishTreeMutation(edit, beforeTrackIds, detachTreeItem(edit, itemId, { track: 'above' }));
+    return finishTreeMutation(edit, beforeTrackIds, detachTreeItem(edit, itemId, { track: 'above' }, projected));
+}
+
+export function convertCaptionToTelopV2(
+    doc: EditV2Document,
+    itemId: string,
+    options: { preset?: string; text: string; at?: number; duration?: number }
+): TreeMutationResult<ProjectItemV2> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    return finishTreeMutation(edit, beforeTrackIds, convertCaptionToTelop(edit, itemId, options));
 }
 
 export function groupTreeV2Items(

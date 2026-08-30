@@ -3,8 +3,12 @@ import test from 'node:test';
 
 import {
   attachEditHelpers,
+  collectExcludedCaptionIds,
+  convertCaptionToTelop,
   detachItem,
+  filterCaptionRootByExcludedIds,
   groupItems,
+  materializeProjectedPart,
   moveItem,
   normalizeTracks,
   ungroupItem,
@@ -43,6 +47,78 @@ test('写しの部品を出すと明示子・新しい段・part 名の exclude 
   assert.equal(detached.source.part, 'B');
   assert.deepEqual(value.find('bag').source.exclude, ['B']);
   assert.equal(value.tracks[1].items[0].id, 'bag#B');
+});
+
+test('captions の写しは参照行と出力フレームを持つ明示子になる', () => {
+  const value = edit([{ id: 'v1', lane: 'visual', items: [{
+    id: 'captions-bag', at: 0, duration: 300,
+    source: { kind: 'captions', path: 'captions.json' }, items: [],
+  }] }]);
+  const location = materializeProjectedPart(value, 'captions-bag#c-0001', { at: 42, duration: 18 });
+  assert.deepEqual(location.item, {
+    id: 'cap-c-0001', at: 42, duration: 18,
+    source: { kind: 'caption', path: 'captions.json', id: 'c-0001' },
+  });
+});
+
+test('captions の写しを出すと行 id を exclude へ積み、必ず新しい段へ置く', () => {
+  const value = edit([{ id: 'v1', lane: 'visual', items: [{
+    id: 'captions-bag', at: 0, duration: 300,
+    source: { kind: 'captions', path: 'captions.json', exclude: [] }, items: [],
+  }] }]);
+  const detached = detachItem(value, 'captions-bag#c-0001', { track: 'above' }, { at: 42, duration: 18 });
+  assert.equal(detached.id, 'cap-c-0001');
+  assert.deepEqual(value.find('captions-bag').source.exclude, ['c-0001']);
+  assert.equal(value.tracks.length, 2);
+  assert.equal(value.tracks[1].items[0], detached);
+});
+
+test('captions の写しをテロップへ変換すると来歴・本文・exclude を保つ', () => {
+  const value = edit([{ id: 'v1', lane: 'visual', items: [{
+    id: 'captions-bag', at: 0, duration: 300,
+    source: { kind: 'captions', path: 'captions.json', exclude: [] }, items: [],
+  }] }]);
+  const converted = convertCaptionToTelop(value, 'captions-bag#c-0002', {
+    at: 69, duration: 48, text: '同じ文字をテロップにする'
+  });
+  assert.deepEqual(converted.source, {
+    kind: 'telop', preset: 'ref3_particle_min',
+    params: { text: '同じ文字をテロップにする' }, from: 'captions.json#c-0002'
+  });
+  assert.deepEqual(value.find('captions-bag').source.exclude, ['c-0002']);
+  assert.equal('baked' in converted.source, false);
+});
+
+test('すでに出した caption は同じ段のまま telop へ置換する', () => {
+  const value = edit([
+    { id: 'v1', lane: 'visual', items: [{
+      id: 'captions-bag', at: 0, duration: 300,
+      source: { kind: 'captions', path: 'captions.json', exclude: ['c-0001'] }, items: [],
+    }] },
+    { id: 'v2', lane: 'visual', items: [{
+      id: 'cap-c-0001', at: 42, duration: 18,
+      source: { kind: 'caption', path: 'captions.json', id: 'c-0001' },
+    }] },
+  ]);
+  const converted = convertCaptionToTelop(value, 'cap-c-0001', { text: '出した字幕' });
+  assert.equal(value.tracks.length, 2);
+  assert.equal(value.tracks[1].items[0], converted);
+  assert.equal(converted.source.from, 'captions.json#c-0001');
+  assert.deepEqual(value.find('captions-bag').source.exclude, ['c-0001']);
+});
+
+test('字幕除外は items / children を再帰し array / object root の形を保つ', () => {
+  const excluded = collectExcludedCaptionIds({ tracks: [{ items: [{
+    source: { kind: 'group' }, children: [{
+      source: { kind: 'captions', exclude: ['c-1', 'c-2'] }, items: []
+    }]
+  }] }] });
+  assert.deepEqual([...excluded], ['c-1', 'c-2']);
+  const rows = [{ id: 'c-1' }, { id: 'c-3' }];
+  assert.deepEqual(filterCaptionRootByExcludedIds(rows, excluded), [{ id: 'c-3' }]);
+  assert.deepEqual(filterCaptionRootByExcludedIds({ captions: rows, default_text_style: { color: 'white' } }, excluded), {
+    captions: [{ id: 'c-3' }], default_text_style: { color: 'white' }
+  });
 });
 
 test('group/ungroup は tree-ops 公開入口から親相対化と焼き込みを行う', () => {

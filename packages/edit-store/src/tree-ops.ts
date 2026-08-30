@@ -20,6 +20,21 @@ export interface GroupResult {
     changedOrderIds: string[];
 }
 
+export interface ProjectedItemTiming {
+    at: number;
+    duration: number;
+}
+
+export interface ConvertCaptionToTelopOptions {
+    preset?: string;
+    text: string;
+    at?: number;
+    duration?: number;
+}
+
+// 助詞ミニマは通常字幕に近く、ワードスナップほど演出を強くしないため変換の既定にする。
+export const DEFAULT_CAPTION_TELOP_PRESET = 'ref3_particle_min';
+
 export type EditableEditV2 = Omit<EditV2, 'tracks'> & {
     tracks: ProjectTrackV2[];
     find(id: string): ProjectItemV2 | undefined;
@@ -125,8 +140,13 @@ export function removeItem(edit: EditableEditV2, id: string): ProjectItemV2 {
     return location.item;
 }
 
-export function detachItem(edit: EditableEditV2, id: string, target: { track: 'above' | string }): ProjectItemV2 {
-    const source = locate(edit, id) ?? materializeProjectedPart(edit, id);
+export function detachItem(
+    edit: EditableEditV2,
+    id: string,
+    target: { track: 'above' | string },
+    projected?: ProjectedItemTiming
+): ProjectItemV2 {
+    const source = locate(edit, id) ?? materializeProjectedPart(edit, id, projected);
     if (!source.parent) throw new Error(`段直下の item は detach できません: ${id}`);
     const worldAt = absoluteAt(source);
     const worldTransform = composeTransforms(worldTransformOfAncestors(source.ancestors), source.item.transform);
@@ -166,7 +186,11 @@ export function detachItem(edit: EditableEditV2, id: string, target: { track: 'a
 }
 
 /** 袋 projection の写しを、木操作の直前にだけ明示子へ昇格する。 */
-export function materializeProjectedPart(edit: EditableEditV2, id: string): ItemLocation {
+export function materializeProjectedPart(
+    edit: EditableEditV2,
+    id: string,
+    projected?: ProjectedItemTiming
+): ItemLocation {
     const separator = id.lastIndexOf('#');
     if (separator <= 0 || separator === id.length - 1) {
         throw new Error(`item が見つかりません: ${id}`);
@@ -174,7 +198,17 @@ export function materializeProjectedPart(edit: EditableEditV2, id: string): Item
     const bagId = id.slice(0, separator);
     const part = id.slice(separator + 1);
     const bag = requireLocation(edit, bagId);
-    if (bag.item.source.kind !== 'html') throw new Error(`HTML 袋ではありません: ${bagId}`);
+    if (bag.item.source.kind === 'captions') {
+        const child: MutableItem = {
+            id: `cap-${part}`,
+            at: projected?.at ?? bag.item.at,
+            duration: projected?.duration ?? bag.item.duration,
+            source: { kind: 'caption', path: 'captions.json', id: part },
+        } as MutableItem;
+        ensureChildren(bag.item).push(child);
+        return requireLocation(edit, child.id);
+    }
+    if (bag.item.source.kind !== 'html') throw new Error(`袋ではありません: ${bagId}`);
     const source = { ...bag.item.source, part } as MutableItem['source'] & JsonRecord;
     delete source.exclude;
     const child: MutableItem = {
@@ -185,6 +219,67 @@ export function materializeProjectedPart(edit: EditableEditV2, id: string): Item
     } as MutableItem;
     ensureChildren(bag.item).push(child);
     return requireLocation(edit, id);
+}
+
+/** captions.json は不変のまま、参照行を独立した未ベイク telop へ置き換える。 */
+export function convertCaptionToTelop(
+    edit: EditableEditV2,
+    id: string,
+    options: ConvertCaptionToTelopOptions
+): ProjectItemV2 {
+    const projected = options.at !== undefined && options.duration !== undefined
+        ? { at: options.at, duration: options.duration } : undefined;
+    let location = locate(edit, id) ?? materializeProjectedPart(edit, id, projected);
+    if (location.item.source.kind !== 'caption') throw new Error(`字幕行ではありません: ${id}`);
+    const captionId = location.item.source.id;
+    if (location.parent) {
+        const detached = detachItem(edit, location.item.id, { track: 'above' }, projected);
+        location = requireLocation(edit, detached.id);
+    }
+    location.item.source = {
+        kind: 'telop',
+        preset: options.preset ?? DEFAULT_CAPTION_TELOP_PRESET,
+        params: { text: options.text },
+        from: `captions.json#${captionId}`,
+    };
+    return location.item;
+}
+
+/** tracks[].items[] / internal children のどちらからでも captions 袋の exclude を集める。 */
+export function collectExcludedCaptionIds(edit: unknown): Set<string> {
+    const result = new Set<string>();
+    const visit = (value: unknown): void => {
+        if (!isRecord(value)) return;
+        const source = value.source;
+        if (isRecord(source) && source.kind === 'captions' && Array.isArray(source.exclude)) {
+            for (const id of source.exclude) if (typeof id === 'string') result.add(id);
+        }
+        for (const key of ['items', 'children'] as const) {
+            const children = value[key];
+            if (Array.isArray(children)) for (const child of children) visit(child);
+        }
+    };
+    if (isRecord(edit) && Array.isArray(edit.tracks)) {
+        for (const track of edit.tracks) {
+            if (!isRecord(track)) continue;
+            for (const key of ['items', 'children'] as const) {
+                const items = track[key];
+                if (Array.isArray(items)) for (const item of items) visit(item);
+            }
+        }
+    }
+    return result;
+}
+
+/** captions.json の array / object root を保ったまま除外行だけを落とす。 */
+export function filterCaptionRootByExcludedIds<T>(root: T, excluded: ReadonlySet<string>): T {
+    const filter = (captions: unknown[]): unknown[] => captions.filter(caption =>
+        !isRecord(caption) || typeof caption.id !== 'string' || !excluded.has(caption.id));
+    if (Array.isArray(root)) return filter(root) as T;
+    if (isRecord(root) && Array.isArray(root.captions)) {
+        return { ...root, captions: filter(root.captions) } as T;
+    }
+    return root;
 }
 
 export function groupItems(edit: EditableEditV2, ids: string[], options: { name?: string } = {}): GroupResult {
@@ -466,6 +561,7 @@ function mergePatch(base: JsonRecord, patch: JsonRecord): JsonRecord {
 }
 
 function partIdOf(itemId: string, source: ItemV2['source']): string {
+    if (source.kind === 'caption') return source.id;
     if ('part' in source && typeof source.part === 'string') return source.part;
     const hash = itemId.lastIndexOf('#');
     return hash >= 0 ? itemId.slice(hash + 1) : itemId;

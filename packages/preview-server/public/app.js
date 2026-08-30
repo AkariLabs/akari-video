@@ -3851,11 +3851,41 @@ function applyCaptionStyle(caption) {
   captionPlate.classList.toggle('akari-caption-styled', captionsResolvedTimeline || !!ts || !!dts);
 }
 
+function collectExcludedCaptionIds(edit) {
+  const result = new Set();
+  const visit = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+    const source = value.source;
+    if (source?.kind === 'captions' && Array.isArray(source.exclude)) {
+      for (const id of source.exclude) if (typeof id === 'string') result.add(id);
+    }
+    for (const key of ['items', 'children']) {
+      if (Array.isArray(value[key])) value[key].forEach(visit);
+    }
+  };
+  for (const track of edit?.tracks ?? []) {
+    for (const key of ['items', 'children']) {
+      if (Array.isArray(track?.[key])) track[key].forEach(visit);
+    }
+  }
+  return result;
+}
+function filterCaptionRootByExcludedIds(root, excluded) {
+  const filter = captions => captions.filter(caption => !excluded.has(caption?.id));
+  if (Array.isArray(root)) return filter(root);
+  if (root && typeof root === 'object' && Array.isArray(root.captions)) {
+    return { ...root, captions: filter(root.captions) };
+  }
+  return root;
+}
 function getActiveCaptions() {
   // captions.json が正本（shell と同一）。edit.json 埋め込みはフォールバックのみ
-  if (Array.isArray(captionsData) && captionsData.length > 0) return captionsData;
+  const excluded = collectExcludedCaptionIds(summary);
+  if (Array.isArray(captionsData) && captionsData.length > 0) {
+    return filterCaptionRootByExcludedIds(captionsData, excluded);
+  }
   const fromEdit = summary?.captions;
-  return Array.isArray(fromEdit) ? fromEdit : [];
+  return Array.isArray(fromEdit) ? filterCaptionRootByExcludedIds(fromEdit, excluded) : [];
 }
 function normalizeWords(words) {
   if (!Array.isArray(words) || !words.length) return [];

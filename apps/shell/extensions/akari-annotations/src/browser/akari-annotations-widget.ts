@@ -8,6 +8,7 @@ import {
     areCutsAdjacent,
     cutOverlapFrames,
     findCrossTrackLayerEvacuations,
+    collectExcludedCaptionIds,
     isStillImageSourcePath,
     isTransitionType,
     planTransitionHandleWindow,
@@ -16,7 +17,7 @@ import {
     TRANSITION_VOCABULARY,
     unsupportedTrackTransitionTarget
 } from '@akari-video/edit-store';
-import type { TransitionType } from '@akari-video/edit-store';
+import type { InternalTrack, TransitionType } from '@akari-video/edit-store';
 import { scanHtmlParts } from 'akari-preview/lib/common/preview-parts';
 import {
     AkariAnnotationsService,
@@ -61,6 +62,7 @@ import {
     insertAudioSfxPreferV2,
     insertItem as insertV2Item,
     insertTrack as insertV2Track,
+    convertCaptionToTelopV2,
     detachTreeV2Item,
     groupTreeV2Items,
     moveAudioSfxPreferV2,
@@ -131,6 +133,7 @@ import {
     parentRow,
     rowsByTrack,
     TimelineTreeRow,
+    visibleTimelineTreeRows,
 } from './timeline/timeline-tree-model';
 import { createAkariNoticeBanner } from './akari-notice-banner';
 import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
@@ -144,6 +147,7 @@ import {
     LivePreviewRequest,
     TimelineItemSelectionSnapshot,
     TimelineSelectionModel,
+    captionIdForTreeSelection,
     resolveTimelineClipName
 } from './timeline-selection-model';
 
@@ -666,6 +670,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly audioNarrationRows = new Map<string, number>();
     /** captions.json を正本のまま保ち、content トラック内の表示用サブ段だけを ID 単位で導出する。 */
     protected captionLayouts = new Map<string, CaptionSubrowLayout>();
+    protected timelineTreeTracks: InternalTrack[] = [];
+    protected timelineTreePartsByHtml = new Map<string, readonly { id: string; order: number }[]>();
     protected audioBgmTop = 0;
     protected captionsVisible = true;
     protected captionsMuted = false;
@@ -2430,12 +2436,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         if (selection.kind === 'item') {
-            this.selectionModel.treeSelection = {
+            const treeSelection = {
                 kind: 'item', id: selection.id, itemKind: selection.itemKind,
                 ...(selection.parentId === undefined ? {} : { parentId: selection.parentId }),
                 trackId: selection.trackId
-            };
-            this.selectionModel.snapshot = undefined;
+            } as const;
+            this.selectionModel.treeSelection = treeSelection;
+            const raw = this.rawV2Item(selection.id);
+            const captionId = captionIdForTreeSelection(
+                treeSelection,
+                raw?.source?.kind === 'caption' ? raw.source.id : undefined
+            );
+            this.selectionModel.snapshot = captionId
+                ? this.snapshotForSelection({ kind: 'caption', id: captionId }) : undefined;
             return;
         }
         this.selectionModel.treeSelection = undefined;
@@ -3580,6 +3593,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.compatibilityTimelineTracks = [];
         this.timelineTreeRows = [];
         this.expandedTimelineTreeRows = [];
+        this.timelineTreeTracks = [];
+        this.timelineTreePartsByHtml.clear();
         this.timelineCollapsedIds.clear();
         this.treeRowsByTrack.clear();
         this.fps = 30;
@@ -3613,15 +3628,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     for (const item of track.items) await loadTreeParts(item);
                 }
                 this.timelineCollapsedState = new TimelineCollapsedState(this.location.root.toString());
-                this.expandedTimelineTreeRows = buildTimelineTreeRows(internal.tracks, { partsByHtml });
-                const collapsed = this.timelineCollapsedState.snapshot(
-                    this.expandedTimelineTreeRows.filter(row => row.hasChildren).map(row => row.id)
-                );
-                for (const id of collapsed) this.timelineCollapsedIds.add(id);
-                this.timelineTreeRows = applyTimelineCollapsedRows(
-                    this.expandedTimelineTreeRows, this.timelineCollapsedIds
-                );
-                this.treeRowsByTrack = rowsByTrack(this.timelineTreeRows);
+                this.timelineTreeTracks = internal.tracks;
+                this.timelineTreePartsByHtml = partsByHtml;
                 const document = JSON.parse(source) as EditV2Document;
                 this.editDocument = document;
                 this.itemLocations = indexEditV2Items(document);
@@ -4148,6 +4156,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return this.captionSourceRangeToOutputRanges(start, end, src);
     }
 
+    protected captionTreeRow(captionId: string): TimelineTreeRow | undefined {
+        return this.expandedTimelineTreeRows.find(row => {
+            if (row.itemKind !== 'caption') return false;
+            if (row.id.endsWith(`#${captionId}`)) return true;
+            const raw = this.rawV2Item(row.id);
+            return raw?.source?.kind === 'caption' && raw.source.id === captionId;
+        });
+    }
+
     protected captionSourceRangeToOutputRanges(
         start: number, end: number, src: CaptionSourceForMapping
     ): Array<[number, number]> {
@@ -4180,6 +4197,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
             MINIMUM_ITEM_DURATION,
             (start, end, src) => this.captionSourceRangeToOutputRanges(start, end, src)
         );
+        const captionsByPath = new Map([['captions.json', this.captions.flatMap(caption => {
+            const layout = this.captionLayouts.get(caption.id);
+            return layout ? [{ id: caption.id, at: layout.start, duration: layout.end - layout.start }] : [];
+        })]]);
+        this.expandedTimelineTreeRows = buildTimelineTreeRows(this.timelineTreeTracks, {
+            partsByHtml: this.timelineTreePartsByHtml,
+            captionsByPath
+        });
+        // 字幕だけ既定を畳むと既存案件の行数・チップ矩形が変わるため、D と同じく
+        // localStorage 未設定 = 展開を維持し、明示的に畳んだ場合だけ袋帯へ切り替える。
+        const collapsed = this.timelineCollapsedState?.snapshot(
+            this.expandedTimelineTreeRows.filter(row => row.hasChildren).map(row => row.id)
+        ) ?? new Set<string>();
+        this.timelineCollapsedIds.clear();
+        for (const id of collapsed) this.timelineCollapsedIds.add(id);
+        this.timelineTreeRows = applyTimelineCollapsedRows(this.expandedTimelineTreeRows, this.timelineCollapsedIds);
+        this.treeRowsByTrack = rowsByTrack(visibleTimelineTreeRows(this.timelineTreeRows));
         const captionRows = [...this.captionLayouts.values()].map(layout => layout.row);
         const captionRowCount = captionRows.length ? Math.max(...captionRows) + 1 : 0;
         let nextTop = topOffset;
@@ -4481,8 +4515,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...this.audioSfx.map(item => item.id),
             ...this.audioNarration.map(item => item.id),
         ]);
-        for (const row of this.timelineTreeRows) {
+        for (const row of visibleTimelineTreeRows(this.timelineTreeRows)) {
             if (renderedItemIds.has(row.id)) continue;
+            // 展開中の captions 袋と袋内の行は、矩形を 1px も変えない既存字幕チップが担う。
+            if (row.sourceKind === 'captions' && !row.collapsed) continue;
             const layout = this.laneLayout.tracks.find(candidate => candidate.id === row.trackId);
             const trackRows = this.treeRowsByTrack.get(row.trackId) ?? [];
             const rowIndex = trackRows.findIndex(candidate => candidate.id === row.id);
@@ -4501,8 +4537,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const marker = document.createElement('span');
                 marker.dataset.akariTreeTick = tick.id;
                 Object.assign(marker.style, {
-                    position: 'absolute', left: `${tick.position * 100}%`, top: '2px', bottom: '2px',
-                    width: '1px', background: 'rgba(255,255,255,.72)', pointerEvents: 'none'
+                    position: 'absolute', left: `${tick.position * 100}%`, top: `${2 + tick.row * 5}px`,
+                    width: '1px', height: '4px', background: 'rgba(255,255,255,.72)', pointerEvents: 'none'
                 });
                 element.appendChild(marker);
             }
@@ -4519,7 +4555,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.strip.appendChild(element);
         }
 
+        const excludedCaptionIds = collectExcludedCaptionIds({ tracks: this.timelineTreeTracks });
+        const captionsBagCollapsed = this.timelineTreeRows.some(row =>
+            row.sourceKind === 'captions' && row.collapsed);
         this.captions.forEach(caption => {
+            if (excludedCaptionIds.has(caption.id) || captionsBagCollapsed) return;
             const captionTrackLayout = this.trackLayout('captions', 0);
             const captionLayout = this.captionLayouts.get(caption.id);
             if (!captionTrackLayout || !captionLayout) {
@@ -4537,6 +4577,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariItemKind = 'caption';
             element.dataset.akariItemId = caption.id;
             element.dataset.akariLane = captionTrackLayout.id ?? 'captions';
+            const treeRow = this.captionTreeRow(caption.id);
+            if (treeRow) element.dataset.akariTreeRowId = treeRow.id;
             element.style.opacity = this.captionsVisible ? '' : '.28';
             this.installDragListeners(element, (event, rect) => {
                 const localX = event.clientX - rect.left;
@@ -5520,7 +5562,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.timelineTreeRows = applyTimelineCollapsedRows(
                     this.expandedTimelineTreeRows, this.timelineCollapsedIds
                 );
-                this.treeRowsByTrack = rowsByTrack(this.timelineTreeRows);
+                this.treeRowsByTrack = rowsByTrack(visibleTimelineTreeRows(this.timelineTreeRows));
                 this.renderStrip();
             });
             const label = document.createElement('span');
@@ -5589,7 +5631,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const target = this.timelineTreeRows.find(row => row.id === hit!.targetId);
                 if (!target) return;
                 if (source.parentId && source.parentId !== target.parentId && hit!.mode === 'line') {
-                    void this.commitEditMutation('出す', doc => detachTreeV2Item(doc, source.id).document)
+                    void this.commitEditMutation('出す', doc => detachTreeV2Item(doc, source.id, {
+                        at: Math.round(source.at * this.fps), duration: Math.round(source.duration * this.fps)
+                    }).document)
                         .catch(error => this.showNotice(`出せません: ${this.errorMessage(error)}`));
                     return;
                 }
@@ -9180,7 +9224,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     protected openTimelineClipContextMenu(event: MouseEvent, element: HTMLElement): void {
         event.preventDefault();
-        const item = this.timelineSelectionFromElement(element);
+        const captionTreeRow = element.dataset.akariTreeRowId
+            ? this.expandedTimelineTreeRows.find(row => row.id === element.dataset.akariTreeRowId) : undefined;
+        const item: TimelineSelectionItem | undefined = captionTreeRow ? {
+            kind: 'item', id: captionTreeRow.id, itemKind: captionTreeRow.itemKind,
+            parentId: captionTreeRow.parentId, trackId: captionTreeRow.trackId
+        } : this.timelineSelectionFromElement(element);
         if (!item) {
             return;
         }
@@ -9195,6 +9244,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.clipboard !== undefined,
             row ? {
                 canDetach: row.parentId !== undefined,
+                canConvertToTelop: row.itemKind === 'caption',
                 canGroup: this.multiSelection.length >= 2,
                 canUngroup: row.itemKind === 'group' || row.itemKind === 'bag',
                 canToggleCollapse: row.hasChildren,
@@ -9238,7 +9288,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (id === 'detach' && item.kind === 'item') {
             let createdTrackId: string | undefined;
             void this.commitEditMutation('出す', doc => {
-                const result = detachTreeV2Item(doc, item.id);
+                const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === item.id);
+                const result = detachTreeV2Item(doc, item.id, row ? {
+                    at: Math.round(row.at * this.fps), duration: Math.round(row.duration * this.fps)
+                } : undefined);
                 createdTrackId = result.createdTrackId;
                 return result.document;
             }).then(() => {
@@ -9246,6 +9299,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ? this.computeTrackAutoNames().get(createdTrackId) ?? createdTrackId : '新しい段';
                 this.showNotice(`${name} を追加しました`);
             }).catch(error => this.showNotice(`出せません: ${this.errorMessage(error)}`));
+            return;
+        }
+        if (id === 'convert-to-telop' && item.kind === 'item' && item.itemKind === 'caption') {
+            const row = this.expandedTimelineTreeRows.find(candidate => candidate.id === item.id);
+            const raw = this.rawV2Item(item.id);
+            const captionId = captionIdForTreeSelection(
+                { kind: 'item', id: item.id, itemKind: item.itemKind,
+                    ...(item.parentId === undefined ? {} : { parentId: item.parentId }), trackId: item.trackId },
+                raw?.source?.kind === 'caption' ? raw.source.id : undefined
+            );
+            const caption = this.captions.find(candidate => candidate.id === captionId);
+            if (!caption || !row) return;
+            void this.commitEditMutation('テロップに変換', doc => convertCaptionToTelopV2(doc, item.id, {
+                text: caption.text,
+                at: Math.round(row.at * this.fps),
+                duration: Math.round(row.duration * this.fps)
+            }).document).catch(error => this.showNotice(`テロップに変換できません: ${this.errorMessage(error)}`));
             return;
         }
         if (id === 'group') {
@@ -9276,7 +9346,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.timelineTreeRows = applyTimelineCollapsedRows(
                 this.expandedTimelineTreeRows, this.timelineCollapsedIds
             );
-            this.treeRowsByTrack = rowsByTrack(this.timelineTreeRows);
+            this.treeRowsByTrack = rowsByTrack(visibleTimelineTreeRows(this.timelineTreeRows));
             this.renderStrip();
             return;
         }

@@ -1,5 +1,6 @@
 import type { InternalItem, InternalTrack } from '@akari-video/edit-store';
 import { projectBagChildren } from 'akari-preview/lib/common/preview-parts';
+import { computeCaptionSubrowLayout } from '../../common/caption-subrow-layout';
 
 export type TimelineTreeItemKind =
     | 'group' | 'bag' | 'part' | 'media' | 'caption' | 'captions'
@@ -8,6 +9,7 @@ export type TimelineTreeItemKind =
 export interface TimelineTreeTick {
     id: string;
     position: number;
+    row: number;
 }
 
 export interface TimelineTreeRow {
@@ -28,6 +30,7 @@ export interface TimelineTreeRow {
 export interface TimelineTreeModelOptions {
     collapsed?: ReadonlySet<string>;
     partsByHtml?: ReadonlyMap<string, readonly { id: string; order: number }[]>;
+    captionsByPath?: ReadonlyMap<string, readonly { id: string; at: number; duration: number }[]>;
 }
 
 export function buildTimelineTreeRows(
@@ -37,7 +40,7 @@ export function buildTimelineTreeRows(
     const rows: TimelineTreeRow[] = [];
     const collapsed = options.collapsed ?? new Set<string>();
     const visit = (item: InternalItem, trackId: string, depth: number, inheritedParentId?: string): void => {
-        const children = projectedChildren(item, options.partsByHtml);
+        const children = projectedChildren(item, options);
         const itemKind = kindOf(item, children.length > 0);
         const isCollapsed = children.length > 0 && collapsed.has(item.id);
         rows.push({
@@ -69,6 +72,11 @@ export function rowsByTrack(rows: readonly TimelineTreeRow[]): Map<string, Timel
     return result;
 }
 
+/** captions 袋の写しは操作モデルに残すが、タイムラインの表示段としては数えない。 */
+export function visibleTimelineTreeRows(rows: readonly TimelineTreeRow[]): TimelineTreeRow[] {
+    return rows.filter(row => !(row.itemKind === 'caption' && row.parentId !== undefined));
+}
+
 /** 展開済みの深さ優先行列へ折りたたみ集合を適用する。ファイル再読込は不要。 */
 export function applyTimelineCollapsedRows(
     expandedRows: readonly TimelineTreeRow[],
@@ -90,10 +98,7 @@ export function applyTimelineCollapsedRows(
         return [{
             ...row,
             collapsed,
-            ticks: collapsed ? children.map(child => ({
-                id: child.id,
-                position: Math.min(1, Math.max(0, (child.at - row.at) / Math.max(1e-9, row.duration)))
-            })) : []
+            ticks: collapsed ? ticksOfRows(row, children) : []
         }];
     });
 }
@@ -109,12 +114,43 @@ export function parentRow(rows: readonly TimelineTreeRow[], id: string): Timelin
 
 function projectedChildren(
     item: InternalItem,
-    partsByHtml?: ReadonlyMap<string, readonly { id: string; order: number }[]>
+    options: TimelineTreeModelOptions
 ): InternalItem[] {
     const explicitChildren = item.children ?? [];
+    if (item.source.kind === 'captions') {
+        const captions = options.captionsByPath?.get(item.source.path ?? 'captions.json') ?? [];
+        const explicitByCaption = new Map(explicitChildren.flatMap(child =>
+            child.source.kind === 'caption' ? [[child.source.id, child] as const] : []));
+        const excluded = new Set(item.source.exclude ?? []);
+        const inserted = new Set<InternalItem>();
+        const projected: InternalItem[] = [];
+        for (const caption of captions) {
+            const explicit = explicitByCaption.get(caption.id);
+            if (explicit) {
+                if (!inserted.has(explicit)) projected.push(explicit);
+                inserted.add(explicit);
+                continue;
+            }
+            if (excluded.has(caption.id)) continue;
+            projected.push({
+                ...item,
+                id: `${item.id}#${caption.id}`,
+                at: caption.at,
+                duration: caption.duration,
+                atFrames: caption.at,
+                durationFrames: caption.duration,
+                children: [],
+                parentId: item.id,
+                source: { kind: 'caption', path: 'captions.json', id: caption.id },
+                declaration: {},
+            });
+        }
+        for (const child of explicitChildren) if (!inserted.has(child)) projected.push(child);
+        return projected;
+    }
     if (item.source.kind !== 'html' || typeof item.source.html !== 'string') return explicitChildren;
     if (typeof item.source.part === 'string') return explicitChildren;
-    const parts = partsByHtml?.get(item.source.html) ?? [];
+    const parts = options.partsByHtml?.get(item.source.html) ?? [];
     const isBag = explicitChildren.length > 0
         || (item.source.exclude?.length ?? 0) > 0
         || parts.length > 0;
@@ -145,8 +181,31 @@ function labelOf(item: InternalItem): string {
 
 function ticksOf(item: InternalItem, children: readonly InternalItem[]): TimelineTreeTick[] {
     const duration = Math.max(1e-9, item.duration);
+    const rows = item.source.kind === 'captions' ? captionRows(children) : new Map<string, number>();
     return children.map(child => ({
         id: child.id,
         position: Math.min(1, Math.max(0, (child.at - item.at) / duration)),
+        row: rows.get(child.id) ?? 0,
     }));
+}
+
+function ticksOfRows(parent: TimelineTreeRow, children: readonly TimelineTreeRow[]): TimelineTreeTick[] {
+    const duration = Math.max(1e-9, parent.duration);
+    const rows = parent.sourceKind === 'captions' ? captionRows(children) : new Map<string, number>();
+    return children.map(child => ({
+        id: child.id,
+        position: Math.min(1, Math.max(0, (child.at - parent.at) / duration)),
+        row: rows.get(child.id) ?? 0,
+    }));
+}
+
+function captionRows(
+    children: readonly { id: string; at: number; duration: number }[]
+): Map<string, number> {
+    const layout = computeCaptionSubrowLayout(
+        children.map(child => ({ id: child.id, start: child.at, end: child.at + child.duration, timeDomain: 'output' })),
+        0,
+        (start, end) => [[start, end]]
+    );
+    return new Map([...layout].map(([id, value]) => [id, value.row]));
 }

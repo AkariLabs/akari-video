@@ -1,0 +1,80 @@
+{
+  "images": [
+    {
+      "kind": "sheet",
+      "timecode": "1s-1s",
+      "times_s": [
+        1
+      ],
+      "path": "<EVIDENCE>/capture/1s-1s.png"
+    }
+  ],
+  "edit_path": "edit.json",
+  "edit_sha256": "d059dffceb380163157539cfbd02236c2fd91104810d50064efd2a19cfd56332",
+  "captions_sha256": "d42d30d450f5bbe31777754667244aef89ec7d3fcf4e277bb8105085dbd18a3f",
+  "materials": [
+    {
+      "path": "assets/bgm.mp3",
+      "sha256": "8488dfc3a44dbcc497e12b46cf2441cb692a351afe6f4d77c1c6f6258fc74a23"
+    },
+    {
+      "path": "akari:assets/font/noto-sans-jp/NotoSansJP-Variable.ttf",
+      "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f"
+    },
+    {
+      "path": "akari:presets/luts/cinematic/cinematic.cube",
+      "sha256": "765d2e5340488c6f956acdbd9bcc2aec8a364d48fbbe03699c39df782ca83831"
+    },
+    {
+      "path": "overlays/3d-laptop/fragment.html",
+      "sha256": "0e78d581438a4e2b0bd5a8b449ea96474d6462d743dd7aa4ecc0da1ea9aa28e9"
+    },
+    {
+      "path": "overlays/3d-laptop/model.glb",
+      "sha256": "0205c87bc99ea1c5fa5471d271c3cb77148ed34daa9bf497d49c4065fe3cc157"
+    },
+    {
+      "path": "overlays/3d-laptop/screen.mp4",
+      "sha256": "2ba32ad807c5fea6e87c0c602a4223cbd14509c13a1d72774db0bf35cf398144"
+    },
+    {
+      "path": "overlays/lower-third.html",
+      "sha256": "48a6ffaac201a06fa6e510e3b3f5a52f3ade5eed28702985e1f6379d91081680"
+    },
+    {
+      "path": "assets/take-a.mp4",
+      "sha256": "fe6be1a3bf0a8eaca8a5b39a6253f7d6c4a623efe1e08f2f87c3fdff14a54f44"
+    },
+    {
+      "path": "assets/take-b.mp4",
+      "sha256": "2bb82288d7b1e59d21473421e34a3aef635e39671e056c046d372e7c1a8e332c"
+    },
+    {
+      "path": "akari:presets/telop/ref3_particle_min/template.json",
+      "sha256": "cec9a34ae2517f651fe8231dbce642604c0840517999e16b2bf4b84d61dc042e"
+    },
+    {
+      "path": "akari:presets/telop/ref3_chapter_tag/template.json",
+      "sha256": "b1ec8a27ebb3656ba7af6d2c5873c6f6339cef1c1021c1f4b19eec3ce1bb2e14"
+    }
+  ],
+  "engine": {
+    "requested": "osr",
+    "resolved": "osr"
+  },
+  "renderer": "osr-export@0.0.0",
+  "verify": {
+    "mode": "stamp",
+    "matched": true,
+    "frames": [
+      {
+        "frameNumber": 30,
+        "matched": true,
+        "decodedFrameNumber": 30,
+        "expectedFrameNumber": 30,
+        "retries": 0
+      }
+    ]
+  },
+  "generated_at": "2026-08-30T13:09:59.822Z"
+}

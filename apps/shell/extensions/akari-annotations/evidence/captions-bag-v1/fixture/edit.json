@@ -1,0 +1,77 @@
+{
+  "version": 2,
+  "output": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "look": { "lut": "cinematic", "intensity": 0.25 }
+  },
+  "sources": [
+    { "id": "a", "path": "assets/take-a.mp4" },
+    { "id": "b", "path": "assets/take-b.mp4" },
+    { "id": "packaged-verify", "path": "exports/packaged-verify.mp4", "proxy": null }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "cut-a", "at": 0, "duration": 180,
+          "source": { "kind": "media", "src": "a", "in": 0, "out": 6 },
+          "transform": { "x": 0, "y": 0, "scale": 1, "rotate": 0 }
+        },
+        {
+          "id": "cut-b", "at": 180, "duration": 150,
+          "source": { "kind": "media", "src": "b", "in": 0.5, "out": 5.5 }
+        }
+      ]
+    },
+    {
+      "id": "v-overlay",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "lower-third", "at": 15, "duration": 105,
+          "source": { "kind": "html", "path": "overlays/lower-third.html" },
+          "transform": {
+            "x": 5.407379608161136, "y": 5.125107457878869,
+            "scale": 1.0350088180119976, "rotate": 0
+          }
+        },
+        {
+          "id": "laptop-3d", "at": 195, "duration": 120,
+          "source": { "kind": "html", "path": "overlays/3d-laptop/fragment.html" }
+        }
+      ]
+    },
+    {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "telop-chapter", "at": 30, "duration": 90,
+          "source": {
+            "kind": "telop", "preset": "ref3_chapter_tag", "params": { "text": "第1章 検証" }
+          },
+          "transform": { "x": 41.365954777887225, "y": 0, "scale": 0.9848080971000006, "rotate": 0 }
+        }
+      ]
+    },
+    { "id": "v-telop", "lane": "visual", "items": [] },
+    {
+      "id": "captions-track",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "captions-bag", "at": 0, "duration": 330,
+          "source": { "kind": "captions", "path": "captions.json", "exclude": [] },
+          "items": []
+        }
+      ]
+    }
+  ],
+  "audio": {
+    "bgm": { "path": "assets/bgm.mp3", "gain_db": -12, "fadeIn": 1, "fadeOut": 1 }
+  }
+}

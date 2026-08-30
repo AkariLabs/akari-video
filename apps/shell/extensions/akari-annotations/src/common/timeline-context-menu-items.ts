@@ -16,6 +16,7 @@ export interface TimelineClipMenuItem {
 
 export interface TimelineTreeMenuContext {
     canDetach?: boolean;
+    canConvertToTelop?: boolean;
     canGroup?: boolean;
     canUngroup?: boolean;
     canToggleCollapse?: boolean;
@@ -44,6 +45,7 @@ export function buildTimelineClipMenuItems(
         items.push({ id: 'split', label: '分割' });
     }
     if (tree.canDetach) items.push({ id: 'detach', label: '出す' });
+    if (tree.canConvertToTelop) items.push({ id: 'convert-to-telop', label: 'テロップに変換' });
     if (tree.canGroup) items.push({ id: 'group', label: 'まとめる' });
     if (tree.canUngroup) items.push({ id: 'ungroup', label: 'ばらす' });
     if (tree.canToggleCollapse) {

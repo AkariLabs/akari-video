@@ -1,0 +1,17 @@
+[
+  {
+    "id": "c-0001", "start": 0.3, "end": 2.0,
+    "text": "パッケージ版で書き出す", "speaker": null, "sourceRef": null,
+    "edited": false, "src": "a"
+  },
+  {
+    "id": "c-0002", "start": 2.3, "end": 3.9,
+    "text": "未焼成テロップは bake される", "speaker": null, "sourceRef": null,
+    "edited": true, "src": "a"
+  },
+  {
+    "id": "c-0003", "start": 4.2, "end": 5.8,
+    "text": "3D は puppeteer-core 経路", "speaker": null, "sourceRef": null,
+    "edited": true, "src": "a"
+  }
+]

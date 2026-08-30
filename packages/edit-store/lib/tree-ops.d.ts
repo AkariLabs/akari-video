@@ -21,6 +21,17 @@ export interface GroupResult {
     group: ProjectItemV2;
     changedOrderIds: string[];
 }
+export interface ProjectedItemTiming {
+    at: number;
+    duration: number;
+}
+export interface ConvertCaptionToTelopOptions {
+    preset?: string;
+    text: string;
+    at?: number;
+    duration?: number;
+}
+export declare const DEFAULT_CAPTION_TELOP_PRESET = "ref3_particle_min";
 export type EditableEditV2 = Omit<EditV2, 'tracks'> & {
     tracks: ProjectTrackV2[];
     find(id: string): ProjectItemV2 | undefined;
@@ -54,9 +65,15 @@ export declare function insertItem(edit: EditableEditV2, target: string, item: M
 export declare function removeItem(edit: EditableEditV2, id: string): ProjectItemV2;
 export declare function detachItem(edit: EditableEditV2, id: string, target: {
     track: 'above' | string;
-}): ProjectItemV2;
+}, projected?: ProjectedItemTiming): ProjectItemV2;
 /** 袋 projection の写しを、木操作の直前にだけ明示子へ昇格する。 */
-export declare function materializeProjectedPart(edit: EditableEditV2, id: string): ItemLocation;
+export declare function materializeProjectedPart(edit: EditableEditV2, id: string, projected?: ProjectedItemTiming): ItemLocation;
+/** captions.json は不変のまま、参照行を独立した未ベイク telop へ置き換える。 */
+export declare function convertCaptionToTelop(edit: EditableEditV2, id: string, options: ConvertCaptionToTelopOptions): ProjectItemV2;
+/** tracks[].items[] / internal children のどちらからでも captions 袋の exclude を集める。 */
+export declare function collectExcludedCaptionIds(edit: unknown): Set<string>;
+/** captions.json の array / object root を保ったまま除外行だけを落とす。 */
+export declare function filterCaptionRootByExcludedIds<T>(root: T, excluded: ReadonlySet<string>): T;
 export declare function groupItems(edit: EditableEditV2, ids: string[], options?: {
     name?: string;
 }): GroupResult;
