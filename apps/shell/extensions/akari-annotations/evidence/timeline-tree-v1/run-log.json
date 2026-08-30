@@ -36,7 +36,7 @@
       "t": "2026-08-30T10:36:06.710Z",
       "step": "collapse-debug",
       "stored": {
-        "akari.timeline.collapsed.v1:file:///private/tmp/akari-timeline-tree-l1-workspace.6OZf1a/project:s01": "1"
+        "akari.timeline.collapsed.v1:file://<SCRATCH>/project:s01": "1"
       },
       "toggle": "<button type=\"button\" data-akari-tree-toggle=\"s01\" style=\"width: 16px; min-width: 16px; padding: 0px; border: 0px; background: transparent; color: inherit; cursor: pointer;\">▸</button>",
       "rows": [
