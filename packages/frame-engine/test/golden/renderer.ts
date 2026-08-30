@@ -7,6 +7,7 @@ import {
   CachedStillImageSource,
   ClipSessionPool,
   FrameMetrics,
+  LookaheadFrameSource,
   parseCube,
   WebGL2Compositor,
   capturePresentedRgba,
@@ -219,9 +220,12 @@ function meanAbsoluteRgbDiff(left: Uint8Array, right: Uint8Array): number {
   return total / channels;
 }
 
+// The existing nine samples use bare ClipSessionPool sources, so they never exercise
+// the LookaheadFrameSource cache-hit path that preview and export put on screen.
 async function inspectRotationParity(output: EvaluationPlan['output']) {
   const rows: Array<Record<string, unknown>> = [];
   const metadata: Array<Record<string, unknown>> = [];
+  const coldSeekRows: Array<Record<string, unknown>> = [];
   for (const fixture of ROTATION_FIXTURES) {
     const cpuSource = new ClipSessionPool(`rotation-${fixture.rotationDeg}-cpu`, fixture.url, {
       skipSourceRotation: false,
@@ -283,6 +287,56 @@ async function inspectRotationParity(output: EvaluationPlan['output']) {
           gpuFrame.close();
         }
       }
+      const coldCpuPool = new ClipSessionPool(`rotation-${fixture.rotationDeg}-cold-cpu`, fixture.url, {
+        skipSourceRotation: false,
+      });
+      const coldGpuPool = new ClipSessionPool(`rotation-${fixture.rotationDeg}-cold-gpu`, fixture.url);
+      const coldGpuSource = new LookaheadFrameSource(coldGpuPool, { fps: FPS, capacity: 12 });
+      const coldTimeUs = 250_000;
+      const coldPlanFor = (source: NativeFrameSource, id: string): EvaluationPlan => ({
+        timeUs: coldTimeUs,
+        base: [{ id, source, sourceTimeUs: coldTimeUs, visual: fullFrameVisual }],
+        layers: [],
+        transition: { type: 'hard-cut', progress: 0 },
+        output,
+      });
+      try {
+        const firstGpuFrame = await evaluateFrame(
+          coldPlanFor(coldGpuSource, `rotation-${fixture.rotationDeg}-cold-gpu`),
+          { compositor: gpuCompositor, metrics: gpuMetrics },
+        );
+        firstGpuFrame.close();
+        const secondGpuFrame = await evaluateFrame(
+          coldPlanFor(coldGpuSource, `rotation-${fixture.rotationDeg}-cold-gpu`),
+          { compositor: gpuCompositor, metrics: gpuMetrics },
+        );
+        const cpuFrame = await evaluateFrame(
+          coldPlanFor(coldCpuPool, `rotation-${fixture.rotationDeg}-cold-cpu`),
+          { compositor: cpuCompositor, metrics: cpuMetrics },
+        );
+        try {
+          const cpuRgba = await cpuFrame.surface.readRgba();
+          const gpuRgba = await secondGpuFrame.surface.readRgba();
+          const deltas = Array.from(cpuRgba, (value, index) => Math.abs(value - gpuRgba[index]!))
+            .sort((left, right) => left - right);
+          const meanAbs = deltas.reduce((sum, value) => sum + value, 0) / deltas.length;
+          const p999 = deltas[Math.min(deltas.length - 1, Math.ceil(deltas.length * 0.999) - 1)] ?? 0;
+          coldSeekRows.push({
+            rotationDeg: fixture.rotationDeg,
+            timeUs: coldTimeUs,
+            meanAbs,
+            p999,
+            pass: meanAbs <= 1 && p999 <= 3,
+          });
+        } finally {
+          cpuFrame.close();
+          secondGpuFrame.close();
+        }
+      } finally {
+        coldGpuSource.clear();
+        coldCpuPool.destroy();
+        coldGpuPool.destroy();
+      }
     } finally {
       cpuSource.destroy();
       gpuSource.destroy();
@@ -293,8 +347,10 @@ async function inspectRotationParity(output: EvaluationPlan['output']) {
   return {
     rows,
     metadata,
+    coldSeekRows,
     pass: rows.length === 9 && rows.every(row => row.pass === true)
-      && metadata.length === 3 && metadata.every(row => row.pass === true),
+      && metadata.length === 3 && metadata.every(row => row.pass === true)
+      && coldSeekRows.length === 3 && coldSeekRows.every(row => row.pass === true),
   };
 }
 

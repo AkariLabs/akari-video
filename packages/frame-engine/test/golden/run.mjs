@@ -123,6 +123,8 @@ assert.equal(results.rotationParity.rows.every(sample => sample.meanAbs <= 1 && 
 assert.equal(results.rotationParity.rows.every(sample => sample.nativeDecoderOutput), true);
 assert.equal(results.rotationParity.metadata.length, 3);
 assert.equal(results.rotationParity.metadata.every(sample => sample.pass), true);
+assert.equal(results.rotationParity.coldSeekRows.length, 3);
+assert.equal(results.rotationParity.coldSeekRows.every(sample => sample.pass), true);
 assert.equal(results.rotationParity.pass, true);
 assert.equal(results.matteNegative.injectedPixelMutation, true);
 assert.equal(results.matteNegative.comparatorPassed, false);
