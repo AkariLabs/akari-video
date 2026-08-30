@@ -196,7 +196,7 @@ test("valid v2 fixture passes the Phase 0 track checks", async () => {
       id: "F001",
       severity: "warning",
       check: "v2.captions-content-deprecated",
-      message: "tracks[].content is deprecated; use a captions bag item",
+      message: "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
       path: "edit.json#tracks[2].content",
     }]);
     assert.ok(!result.skipped.some((item) => item.check === "edit.v2.extended-validation"));
@@ -226,7 +226,7 @@ test("v2 captions track warning covers undeclared, declared, empty cues, and v1 
     assert.equal(undeclared.length, 1);
     assert.equal(undeclared[0].severity, "warning");
     assert.match(undeclared[0].message, /暗黙補完で表示自体はされています/u);
-    assert.match(undeclared[0].message, /\{ "id": "captions", "lane": "visual", "content": \{ "from": "captions\.json" \} \}/u);
+    assert.match(undeclared[0].message, /\{ "id": "captions", "name": "字幕", "at": 0, "duration": <出力尺>, "source": \{ "kind": "captions", "path": "captions\.json" \}, "items": \[\] \}/u);
 
     await writeFile(editPath, `${JSON.stringify(declaredEdit, null, 2)}\n`, "utf8");
     assert.equal(parseResult(run(project)).findings.filter(
