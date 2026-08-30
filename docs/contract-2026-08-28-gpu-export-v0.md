@@ -391,3 +391,26 @@ cut 段は `cut-audio.mp4`、尺延長が必要な場合は続けて `cut-audio-
 - `--dump-frames` で取った raw と `capture --engine gpu` の PNG が bit 一致（MAD 0・3 フレーム）
 - フォールバックが発火しない既存フィクスチャの mp4 SHA は不変。`assert-zero-readback` PASS・`--trap-readback` 完走
 - 明示 `--engine gpu` の fail-closed 挙動と exit code は不変（テストで固定）
+
+### 12.6 実装レーンの実測による追記（2026-08-30・検収後）
+
+- **原因（確定）**: `captions.mjs` の `.akari-caption__plate` に付く entrance fade（`akari-caption-fade 180ms ease-out`・
+  `translateY(0.18em → 0)` = 既定 38 px で 6.84 px）を、ラスタ側は `settleCss` で停止していたが**採寸 root には当てていなかった**
+  （`CAPTION_WORD_FREEZE_CSS` が止めるのは語単位の 6 セレクタのみ）。採寸は生きている transform を任意時点でサンプルしていたため、
+  `ease-out` 終端の 0〜0.5 px の残差が毎回違い、許容差ゼロの連続 2 回一致が 32 回でも成立しなかった。#120c r0 の「語矩形 y が
+  最大 1.71 px 揺れる」も同じ現象。差分ログの実測: 31 対すべて不一致・揺れたフィールドは `plate.y/bottom` `line[0].y/bottom` の 4 つだけ・
+  試行 1→2 で −6.33〜−6.43 px（= 0.18em）
+- **原則（§2.1 に追加）**: **採寸 root に適用する CSS は、ラスタ band に適用する CSS と同一集合でなければならない**
+  （採寸 = ラスタされる幾何、を構成上保証する）。実装は `measureCss = CAPTION_WORD_FREEZE_CSS + settleCss` で採寸・probe・両 variant を揃え、
+  静的テスト「caption measurement roots are frozen in the same settled state the raster uses」で固定。許容差・丸め・平均は入れていない
+- **根治の実測**: fieldtest 案件で `captionMeasureAttempts = {count 3, p50 2, max 2}`（理論下限）・diffs 0・`captionLayoutMaxDeltaPx` 0・
+  gpu 2 走 mp4 SHA 一致。§12.1 の「32 回で収束せず」は正確には**高確率で**（base では確率的に収束することもある）
+- **32 回の上限**は据え置く。根治後は 2 回で確定するため上限は実質保険。下げるなら揺らぎが残る条件を別途観測してから
+- **`--dump-frames` の形**: 行順は上から下で osr と同規約。チャネル順はエンジンが本来読み戻す形式のまま（gpu = RGBA `raw/frame-N.rgba` /
+  osr = BGRA `raw/frame-N.bgra`）で拡張子が表す。`--trap-readback` とは相互排他
+- **receipt / provenance のキー**: フォールバック時は `provenance.engine = "osr"`・`engine_fallback = { from: "gpu", reason }`・
+  **`provenance.gpu_failure_run`**（gpu 失敗 run.json のプロジェクト相対パス）。capture は `capture.json.engine.fallback` に同じ内容
+- **capture の parity ガード**: render-cut がフォールバックした receipt（`provenance.engine = "osr"`）に対し、capture 側の解決が `"gpu"` でも
+  `engine_fallback.from` が一致すれば parity として受ける（これが無いと capture がフォールバックに到達する前に落ちる。launcher tier 3 由来の
+  既存フォールバックにも同じ穴があり同時に塞いだ）
+- 判定は構造化された `error.reasonCode` だけを見る（メッセージ文字列一致では発火しない）
