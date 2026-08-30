@@ -20,5 +20,6 @@ export * from './transition-vocabulary';
 export * from './transition-visual';
 export * from './ducking';
 export * from './audio-schedule';
+export * from './canonical';
 export { parseEdit } from './migrate/legacy-parse';
 export { LegacyEditVersionError } from './migrate/error';

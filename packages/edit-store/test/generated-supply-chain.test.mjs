@@ -11,6 +11,7 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = join(packageRoot, '../..');
 const expectedSources = [
   'audio-schedule.ts',
+  'canonical.ts',
   'caption-display.ts',
   'caption-store.ts',
   'caption-window.ts',
@@ -22,6 +23,7 @@ const expectedSources = [
   'index.ts',
   'internal-model.ts',
   'legacy-audio-view.ts',
+  'project.ts',
   'retime.ts',
   'timeline-map.ts',
   'track-order.ts',

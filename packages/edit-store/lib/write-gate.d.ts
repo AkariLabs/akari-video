@@ -48,6 +48,12 @@ export interface DeferredLintOptions {
  * 既存 export のシグネチャは維持し、preview-server の保存前検査にも使える。
  */
 export declare function lintProjectCandidates(projectRoot: string, candidates: LintCandidates): Promise<EditLintGateResult>;
+/**
+ * 実ディスクを直接読む lint check（motion 袋参照等）を含め、候補一式を保存前に検証する。
+ * 元プロジェクトの直下エントリは影プロジェクトへ symlink し、候補の祖先だけを実体化する。
+ * 既存 lintProjectCandidates の inputOverrides 契約は変更せず、Project API だけがこの入口を使う。
+ */
+export declare function lintProjectCandidatesOnDisk(projectRoot: string, candidates: LintCandidates): Promise<EditLintGateResult>;
 /** 互換 API。保存後 lint への移行後も、明示的に検証したい呼び出し側向けに残す。 */
 export declare function assertLintPasses(projectRoot: string, candidates: LintCandidates): Promise<void>;
 /** atomic 保存を即時完了し、lint は末尾 debounce で非同期に実行する。 */
