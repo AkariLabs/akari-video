@@ -5,10 +5,12 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { expandBagOverlays } from "../../overlay-runtime/src/parts.mjs";
+import { generateCaptionOverlays } from "./captions.mjs";
 
 const require = createRequire(import.meta.url);
 const { readInternalEdit, resolveInternalTrackZ } = require("../../edit-store/lib/index.js");
 const projectRoots = new WeakMap();
+const hiddenItemIds = new WeakMap();
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 export const BAKE_LAYER_ENTRY = join(REPOSITORY_ROOT, "packages", "bake-layer", "bin", "bake-layer.mjs");
@@ -18,9 +20,10 @@ export const BAKE_LAYER_ENTRY = join(REPOSITORY_ROOT, "packages", "bake-layer", 
  * expandParts は既定 true。legacy / osr / gpu / preview の全経路で同じ袋展開を使い、
  * 非展開は互換性を明示的に調べる呼び出しだけが `{ expandParts: false }` で選ぶ。
  */
-export function readRenderEdit(source, temporaryDirectory, { projectRoot, expandParts } = {}) {
+export function readRenderEdit(source, temporaryDirectory, { projectRoot, expandParts, onWarning } = {}) {
   const raw = typeof source === "string" ? JSON.parse(source) : source;
   const internal = readInternalEdit(source);
+  hiddenItemIds.set(internal, collectHiddenItemIds(raw));
   projectRoots.set(internal, projectRoot === undefined
     ? projectRootFromTemporaryDirectory(temporaryDirectory)
     : resolve(projectRoot));
@@ -29,6 +32,7 @@ export function readRenderEdit(source, temporaryDirectory, { projectRoot, expand
     internal,
     edit: projectRendererCompatibilityEdit(raw, internal, temporaryDirectory, projectRoot, {
       expandParts: expandParts ?? true,
+      onWarning,
     }),
   };
 }
@@ -42,7 +46,7 @@ export function projectRendererCompatibilityEdit(
   internal,
   temporaryDirectory,
   projectRootOverride,
-  { expandParts = true } = {},
+  { expandParts = true, onWarning } = {},
 ) {
   const ordered = internal.tracks.flatMap(track => track.items)
     .sort((left, right) => left.legacy.index - right.legacy.index);
@@ -50,7 +54,7 @@ export function projectRendererCompatibilityEdit(
   const projectRoot = projectRootOverride === undefined
     ? projectRoots.get(internal) ?? projectRootFromTemporaryDirectory(temporaryDirectory)
     : resolve(projectRootOverride);
-  const overlays = expandParts
+  const htmlOverlays = expandParts
     ? expandedHtmlOverlays(internal, projectRoot)
     : unexpandedHtmlOverlays(internal, temporaryDirectory);
   const layers = [];
@@ -97,6 +101,16 @@ export function projectRendererCompatibilityEdit(
     ...(bgm !== undefined ? { bgm } : {}),
     ...(master !== undefined ? { master } : {}),
   };
+  const captionOverlays = captionItemOverlays(internal, projectRoot, {
+    cuts,
+    output: { width: internal.output.width, height: internal.output.height },
+    sourceCount: sources.length,
+    emphasisWords: raw?.emphasis_words,
+    onWarning,
+  });
+  const overlays = captionOverlays.length === 0
+    ? htmlOverlays
+    : mergeItemOverlays(internal, htmlOverlays, captionOverlays);
   return {
     ...(isRecord(raw) ? raw : {}),
     // v2 is projected into the sole multi-source compatibility shape consumed below.
@@ -108,6 +122,109 @@ export function projectRendererCompatibilityEdit(
     sources,
     audio,
   };
+}
+
+/** 分離された字幕行を、既存 renderer が消費する inline HTML overlay へ射影する。 */
+export function captionItemOverlays(
+  internal,
+  projectRoot,
+  { cuts = [], output, sourceCount = 1, emphasisWords: editEmphasisWords, onWarning = console.warn } = {},
+) {
+  const items = [];
+  const visit = (item, hidden = false) => {
+    const itemIsHidden = hidden
+      || hiddenItemIds.get(internal)?.has(String(item?.id)) === true
+      || item?.hidden === true
+      || item?.declaration?.hidden === true;
+    if (!itemIsHidden && item?.source?.kind === "caption") items.push(item);
+    for (const child of item?.children ?? []) visit(child, itemIsHidden);
+  };
+  for (const track of internal?.tracks ?? []) {
+    for (const item of track.items ?? []) visit(item);
+  }
+  if (items.length === 0) return [];
+
+  let root;
+  try {
+    root = JSON.parse(readFileSync(resolve(projectRoot, "captions.json"), "utf8"));
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+    onWarning?.("captions.json was not found; caption items were skipped");
+    return [];
+  }
+  const captions = Array.isArray(root) ? root : Array.isArray(root?.captions) ? root.captions : [];
+  const byId = new Map(captions.map(caption => [String(caption?.id), caption]));
+  const defaultTextStyle = Array.isArray(root) ? undefined : root?.default_text_style;
+  const emphasisWords = Array.isArray(root)
+    ? editEmphasisWords
+    : root?.emphasis_words ?? editEmphasisWords;
+  const overlays = [];
+
+  for (const item of items) {
+    const captionId = String(item.source.id);
+    const row = byId.get(captionId);
+    if (row === undefined) {
+      onWarning?.(`captions.json item ${captionId} was not found; caption item ${item.id} was skipped`);
+      continue;
+    }
+    const generated = generateCaptionOverlays([{
+      ...row,
+      start: item.at,
+      end: item.at + item.duration,
+      time_domain: "output",
+      src: undefined,
+    }], cuts, {
+      output,
+      sourceCount,
+      defaultTextStyle,
+      emphasisWords,
+      onWarning,
+    });
+    for (const record of generated) {
+      overlays.push({
+        ...record,
+        id: item.id,
+        transform: { x: 0, y: 0, scale: 1, rotate: 0, ...item.declaration?.transform },
+        ...(item.declaration?.opacity !== undefined ? { opacity: item.declaration.opacity } : {}),
+        generatedFrom: captionId,
+        captionId,
+        htmlPath: "captions.json",
+      });
+    }
+  }
+  return overlays;
+}
+
+function collectHiddenItemIds(raw) {
+  const ids = new Set();
+  const visit = (item, hidden = false) => {
+    const itemIsHidden = hidden || item?.hidden === true;
+    if (itemIsHidden && item?.id !== undefined) ids.add(String(item.id));
+    for (const child of item?.items ?? []) visit(child, itemIsHidden);
+  };
+  for (const track of raw?.tracks ?? []) {
+    for (const item of track?.items ?? []) visit(item);
+  }
+  return ids;
+}
+
+function mergeItemOverlays(internal, htmlOverlays, captionOverlays) {
+  const order = new Map();
+  let sequence = 0;
+  const visit = (item) => {
+    order.set(String(item?.id), sequence++);
+    for (const child of item?.children ?? []) visit(child);
+  };
+  for (const track of internal?.tracks ?? []) {
+    for (const item of track.items ?? []) visit(item);
+  }
+  const combined = [...htmlOverlays, ...captionOverlays];
+  const originalOrder = new Map(combined.map((overlay, index) => [overlay, index]));
+  const itemOrder = overlay => order.get(String(overlay?.id))
+    ?? order.get(String(overlay?.parentId))
+    ?? Number.POSITIVE_INFINITY;
+  return combined.sort((left, right) => itemOrder(left) - itemOrder(right)
+    || originalOrder.get(left) - originalOrder.get(right));
 }
 
 function expandedHtmlOverlays(internal, projectRoot) {
@@ -197,6 +314,7 @@ export function renderItemKind(item) {
       return item.legacy.collection === "layers" ? "layer"
         : item.legacy.collection === "cuts" ? "cut" : "audio";
     case "html": return "html";
+    case "caption": return "caption";
     case "telop":
     case "filter": return "layer";
     default: return "unknown";
@@ -225,6 +343,14 @@ export function renderItemDeclaration(item, temporaryDirectory) {
         html: item.source.html,
         start: item.at,
         duration: item.duration,
+      };
+    case "caption":
+      return {
+        ...declaration,
+        id: item.id,
+        start: item.at,
+        duration: item.duration,
+        captionId: item.source.id,
       };
     case "telop":
       return {

@@ -1,0 +1,87 @@
+{
+  "version": 2,
+  "output": {
+    "width": 640,
+    "height": 360,
+    "fps": 30
+  },
+  "sources": [
+    {
+      "id": "main",
+      "path": "assets/source.mp4",
+      "proxy": null
+    }
+  ],
+  "tracks": [
+    {
+      "id": "video",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "cut-1",
+          "at": 0,
+          "duration": 150,
+          "source": {
+            "kind": "media",
+            "src": "main",
+            "in": 0,
+            "out": 5
+          }
+        }
+      ]
+    },
+    {
+      "id": "caption-bag-track",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "caption-bag",
+          "at": 0,
+          "duration": 150,
+          "source": {
+            "kind": "captions",
+            "path": "captions.json",
+            "exclude": [
+              "c2"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "detached-caption-track",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "c2-out",
+          "at": 61,
+          "duration": 30,
+          "transform": {
+            "y": -200
+          },
+          "opacity": 0.8,
+          "source": {
+            "kind": "caption",
+            "path": "captions.json",
+            "id": "c2"
+          }
+        }
+      ]
+    },
+    {
+      "id": "html-track",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "order-html",
+          "at": 0,
+          "duration": 150,
+          "source": {
+            "kind": "html",
+            "path": "overlays/order.html"
+          }
+        }
+      ]
+    }
+  ]
+}
