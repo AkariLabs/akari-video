@@ -20,6 +20,7 @@
 import { promises as fs, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { pathToFileURL } from 'url';
+import { tmpdir } from 'os';
 
 export interface EditLintFinding {
     severity?: string;
@@ -75,6 +76,71 @@ export async function lintProjectCandidates(
     candidates: LintCandidates
 ): Promise<EditLintGateResult> {
     return runEditLint(projectRoot, candidates, false);
+}
+
+/**
+ * 実ディスクを直接読む lint check（motion 袋参照等）を含め、候補一式を保存前に検証する。
+ * 元プロジェクトの直下エントリは影プロジェクトへ symlink し、候補の祖先だけを実体化する。
+ * 既存 lintProjectCandidates の inputOverrides 契約は変更せず、Project API だけがこの入口を使う。
+ */
+export async function lintProjectCandidatesOnDisk(
+    projectRoot: string,
+    candidates: LintCandidates
+): Promise<EditLintGateResult> {
+    const shadowRoot = await fs.mkdtemp(join(tmpdir(), 'akari-edit-store-lint-'));
+    try {
+        for (const entry of await fs.readdir(projectRoot, { withFileTypes: true })) {
+            await fs.symlink(
+                resolve(projectRoot, entry.name),
+                join(shadowRoot, entry.name),
+                entry.isDirectory() ? 'junction' : 'file'
+            );
+        }
+        for (const [relativePath, text] of Object.entries(candidates)) {
+            const segments = candidateSegments(relativePath);
+            const destination = join(shadowRoot, ...segments);
+            await materializeShadowDirectory(shadowRoot, dirname(destination));
+            await fs.rm(destination, { recursive: true, force: true });
+            if (text !== null) await fs.writeFile(destination, text, 'utf8');
+        }
+        return await runEditLint(shadowRoot, undefined, false);
+    } finally {
+        await fs.rm(shadowRoot, { recursive: true, force: true });
+    }
+}
+
+function candidateSegments(relativePath: string): string[] {
+    const segments = relativePath.split('/');
+    if (relativePath.length === 0 || relativePath.startsWith('/') || relativePath.includes('\\')
+        || segments.some(segment => segment.length === 0 || segment === '.' || segment === '..')) {
+        throw new Error(`候補パスはプロジェクト相対の安全な / 区切りで指定してください: ${relativePath}`);
+    }
+    return segments;
+}
+
+async function materializeShadowDirectory(shadowRoot: string, directory: string): Promise<void> {
+    if (directory === shadowRoot) return;
+    await materializeShadowDirectory(shadowRoot, dirname(directory));
+    try {
+        const stat = await fs.lstat(directory);
+        if (!stat.isSymbolicLink()) {
+            if (!stat.isDirectory()) throw new Error(`候補の親パスがディレクトリではありません: ${directory}`);
+            return;
+        }
+        const source = await fs.realpath(directory);
+        await fs.unlink(directory);
+        await fs.mkdir(directory);
+        for (const entry of await fs.readdir(source, { withFileTypes: true })) {
+            await fs.symlink(
+                resolve(source, entry.name),
+                join(directory, entry.name),
+                entry.isDirectory() ? 'junction' : 'file'
+            );
+        }
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        await fs.mkdir(directory);
+    }
 }
 
 /** 互換 API。保存後 lint への移行後も、明示的に検証したい呼び出し側向けに残す。 */

@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "output": { "width": 1920, "height": 1080, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "assets/talk.mp4" }
+  ],
+  "tracks": [
+    { "id": "v1", "lane": "visual", "items": [
+      { "id": "c1", "at": 0, "duration": 195, "source": { "kind": "media", "src": "main", "in": 12, "out": 18.5 } },
+      { "id": "c2", "at": 195, "duration": 210, "source": { "kind": "media", "src": "main", "in": 40, "out": 47 } }
+    ] },
+    { "id": "v2", "lane": "visual", "items": [
+      { "id": "s01", "name": "オープニング", "at": 0, "duration": 120, "source": { "kind": "html", "path": "overlays/s01.html", "exclude": ["C"] }, "items": [
+        { "id": "s01.B", "at": 6, "duration": 114, "transform": { "y": -40 }, "source": { "kind": "html", "path": "overlays/s01.html", "part": "B" } }
+      ] }
+    ] },
+    { "id": "v3", "lane": "visual", "items": [
+      { "id": "s01.C", "at": 30, "duration": 60, "keyframes": { "path": "motion/s01.json", "count": 14 }, "source": { "kind": "html", "path": "overlays/s01.html", "part": "C" } }
+    ] },
+    { "id": "v4", "lane": "visual", "items": [
+      { "id": "captions", "name": "字幕", "at": 0, "duration": 405, "source": { "kind": "captions", "path": "captions.json", "exclude": [] }, "items": [] }
+    ] }
+  ]
+}

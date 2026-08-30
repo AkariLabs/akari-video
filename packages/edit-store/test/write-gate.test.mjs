@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   lintProjectCandidates,
+  lintProjectCandidatesOnDisk,
   assertNoCamelCaseTransitionOut,
   scheduleProjectLint,
   writeProjectFilesGuarded,
@@ -128,6 +129,47 @@ test('lintProjectCandidates は候補を実ファイルへ書かずメモリ上�
       'edit.json': JSON.stringify({ version: 0, cuts: [{ in: 5, out: 1 }] })
     });
     assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'edit.json'), 'utf8')), before);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('lintProjectCandidatesOnDisk は入れ子候補と symlink 越しの assets / overlays / captions を検証する', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'edit-store-shadow-lint-'));
+  const edit = {
+    version: 2,
+    output: { width: 640, height: 360, fps: 30 },
+    sources: [{ id: 'unused', path: 'assets/unused.bin' }],
+    tracks: [{ id: 'v1', lane: 'visual', items: [{
+      id: 'bag', at: 0, duration: 30,
+      source: { kind: 'html', path: 'overlays/bag.html', exclude: ['title'] },
+      items: [{
+        id: 'title', at: 0, duration: 30,
+        keyframes: { path: 'motion/bag.json', count: 2 },
+        source: { kind: 'html', path: 'overlays/bag.html', part: 'title' }
+      }]
+    }, {
+      id: 'captions', at: 30, duration: 30,
+      source: { kind: 'captions', path: 'captions.json', exclude: ['c-0001'] }, items: []
+    }] }, { id: 'v2', lane: 'visual', items: [{
+      id: 'duration-base', at: 0, duration: 60, source: { kind: 'filter', filter: { type: 'invert' } }
+    }] }]
+  };
+  try {
+    fs.mkdirSync(path.join(root, 'assets'));
+    fs.mkdirSync(path.join(root, 'overlays'));
+    fs.writeFileSync(path.join(root, 'assets/unused.bin'), 'asset');
+    fs.writeFileSync(path.join(root, 'overlays/bag.html'), '<div data-akari-part="title"></div>');
+    fs.writeFileSync(path.join(root, 'captions.json'), JSON.stringify([{ id: 'c-0001', start: 0, end: 1, text: 'x', speaker: null, sourceRef: null, edited: false }]));
+    fs.writeFileSync(path.join(root, 'edit.json'), JSON.stringify({ ...edit, tracks: [] }));
+    const motion = JSON.stringify({ version: 0, group: 'bag', items: { title: [{ t: 0 }, { t: 29 }] } });
+    const result = await lintProjectCandidatesOnDisk(root, {
+      'edit.json': JSON.stringify(edit),
+      'motion/bag.json': motion,
+    });
+    assert.equal(result.pass, true, JSON.stringify(result.findings, null, 2));
+    assert.equal(fs.existsSync(path.join(root, 'motion/bag.json')), false);
+    assert.notEqual(fs.readFileSync(path.join(root, 'edit.json'), 'utf8'), JSON.stringify(edit));
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

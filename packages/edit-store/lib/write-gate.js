@@ -19,6 +19,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.lintProjectCandidates = lintProjectCandidates;
+exports.lintProjectCandidatesOnDisk = lintProjectCandidatesOnDisk;
 exports.assertLintPasses = assertLintPasses;
 exports.writeProjectFilesGuarded = writeProjectFilesGuarded;
 exports.assertNoCamelCaseTransitionOut = assertNoCamelCaseTransitionOut;
@@ -30,6 +31,7 @@ exports.findEditLintBinPath = findEditLintBinPath;
 const fs_1 = require("fs");
 const path_1 = require("path");
 const url_1 = require("url");
+const os_1 = require("os");
 const DEFAULT_LINT_DEBOUNCE_MS = 400;
 const lintTimers = new Map();
 const lintRevisions = new Map();
@@ -41,6 +43,63 @@ const dynamicImport = new Function('specifier', 'return import(specifier)');
  */
 async function lintProjectCandidates(projectRoot, candidates) {
     return runEditLint(projectRoot, candidates, false);
+}
+/**
+ * 実ディスクを直接読む lint check（motion 袋参照等）を含め、候補一式を保存前に検証する。
+ * 元プロジェクトの直下エントリは影プロジェクトへ symlink し、候補の祖先だけを実体化する。
+ * 既存 lintProjectCandidates の inputOverrides 契約は変更せず、Project API だけがこの入口を使う。
+ */
+async function lintProjectCandidatesOnDisk(projectRoot, candidates) {
+    const shadowRoot = await fs_1.promises.mkdtemp((0, path_1.join)((0, os_1.tmpdir)(), 'akari-edit-store-lint-'));
+    try {
+        for (const entry of await fs_1.promises.readdir(projectRoot, { withFileTypes: true })) {
+            await fs_1.promises.symlink((0, path_1.resolve)(projectRoot, entry.name), (0, path_1.join)(shadowRoot, entry.name), entry.isDirectory() ? 'junction' : 'file');
+        }
+        for (const [relativePath, text] of Object.entries(candidates)) {
+            const segments = candidateSegments(relativePath);
+            const destination = (0, path_1.join)(shadowRoot, ...segments);
+            await materializeShadowDirectory(shadowRoot, (0, path_1.dirname)(destination));
+            await fs_1.promises.rm(destination, { recursive: true, force: true });
+            if (text !== null)
+                await fs_1.promises.writeFile(destination, text, 'utf8');
+        }
+        return await runEditLint(shadowRoot, undefined, false);
+    }
+    finally {
+        await fs_1.promises.rm(shadowRoot, { recursive: true, force: true });
+    }
+}
+function candidateSegments(relativePath) {
+    const segments = relativePath.split('/');
+    if (relativePath.length === 0 || relativePath.startsWith('/') || relativePath.includes('\\')
+        || segments.some(segment => segment.length === 0 || segment === '.' || segment === '..')) {
+        throw new Error(`候補パスはプロジェクト相対の安全な / 区切りで指定してください: ${relativePath}`);
+    }
+    return segments;
+}
+async function materializeShadowDirectory(shadowRoot, directory) {
+    if (directory === shadowRoot)
+        return;
+    await materializeShadowDirectory(shadowRoot, (0, path_1.dirname)(directory));
+    try {
+        const stat = await fs_1.promises.lstat(directory);
+        if (!stat.isSymbolicLink()) {
+            if (!stat.isDirectory())
+                throw new Error(`候補の親パスがディレクトリではありません: ${directory}`);
+            return;
+        }
+        const source = await fs_1.promises.realpath(directory);
+        await fs_1.promises.unlink(directory);
+        await fs_1.promises.mkdir(directory);
+        for (const entry of await fs_1.promises.readdir(source, { withFileTypes: true })) {
+            await fs_1.promises.symlink((0, path_1.resolve)(source, entry.name), (0, path_1.join)(directory, entry.name), entry.isDirectory() ? 'junction' : 'file');
+        }
+    }
+    catch (error) {
+        if (error.code !== 'ENOENT')
+            throw error;
+        await fs_1.promises.mkdir(directory);
+    }
 }
 /** 互換 API。保存後 lint への移行後も、明示的に検証したい呼び出し側向けに残す。 */
 async function assertLintPasses(projectRoot, candidates) {
