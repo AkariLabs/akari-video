@@ -1,0 +1,91 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "sources": [],
+  "tracks": [
+    {
+      "id": "v1",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "s01",
+          "at": 0,
+          "duration": 120,
+          "source": { "kind": "html", "path": "overlays/card.html", "exclude": ["C"] },
+          "items": [
+            {
+              "id": "s01.B",
+              "at": 6,
+              "duration": 114,
+              "transform": { "y": -40 },
+              "source": {
+                "kind": "html",
+                "path": "overlays/card.html",
+                "part": "B",
+                "style": { "color": "red" },
+                "text": "差し替え",
+                "derivedFrom": "overlays/card.html#B"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "g1",
+          "at": 30,
+          "duration": 90,
+          "transform": { "x": 100, "y": 50, "scale": 2, "rotate": 90 },
+          "opacity": 0.5,
+          "blend": "screen",
+          "source": { "kind": "group" },
+          "items": [
+            {
+              "id": "g1.first",
+              "at": 0,
+              "duration": 45,
+              "transform": { "x": 10, "y": 5, "scale": 0.5, "rotate": -15 },
+              "opacity": 0.8,
+              "source": { "kind": "html", "path": "overlays/plain.html" }
+            },
+            {
+              "id": "g1.second",
+              "at": 45,
+              "duration": 45,
+              "transform": { "x": -10, "y": 0 },
+              "source": { "kind": "html", "path": "overlays/plain.html" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "plain",
+          "at": 0,
+          "duration": 120,
+          "source": { "kind": "html", "path": "overlays/plain.html" }
+        }
+      ]
+    },
+    {
+      "id": "v4",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "s01.C",
+          "at": 0,
+          "duration": 120,
+          "source": { "kind": "html", "path": "overlays/card.html", "part": "C", "derivedFrom": "overlays/card.html#C" }
+        }
+      ]
+    }
+  ]
+}

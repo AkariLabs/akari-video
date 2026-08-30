@@ -1,22 +1,40 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { expandBagOverlays } from "../../overlay-runtime/src/parts.mjs";
 
 const require = createRequire(import.meta.url);
 const { readInternalEdit, resolveInternalTrackZ } = require("../../edit-store/lib/index.js");
+const projectRoots = new WeakMap();
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 export const BAKE_LAYER_ENTRY = join(REPOSITORY_ROOT, "packages", "bake-layer", "bin", "bake-layer.mjs");
 
-/** edit.json の版差を読み込み層で吸収し、renderer が消費する組を作る。 */
-export function readRenderEdit(source, temporaryDirectory) {
+/**
+ * edit.json の版差を読み込み層で吸収し、renderer が消費する組を作る。
+ * expandParts 未指定時の継ぎ目:
+ * - `.akari/render-tmp` = render-cut の plan / 宣言入力列挙前なので非展開
+ * - `osr-page` / `gpu-page` = v2 page runtime へ渡すため展開
+ * - `preview-projection` = preview-server へ渡すため展開
+ * - その他（単体テストを含む）= 完成した renderer 互換ビューとして展開
+ */
+export function readRenderEdit(source, temporaryDirectory, { projectRoot, expandParts } = {}) {
   const raw = typeof source === "string" ? JSON.parse(source) : source;
   const internal = readInternalEdit(source);
+  projectRoots.set(internal, projectRoot === undefined
+    ? projectRootFromTemporaryDirectory(temporaryDirectory)
+    : resolve(projectRoot));
   return {
     raw,
     internal,
-    edit: projectRendererCompatibilityEdit(raw, internal, temporaryDirectory),
+    edit: projectRendererCompatibilityEdit(raw, internal, temporaryDirectory, projectRoot, {
+      // renderProject は入力ハッシュ固定後にこの射影をもう一度呼ぶ。初回だけ原ファイル参照を
+      // 保ち、render-inputs が inline マスクをパスと誤認せず元断片を列挙できるようにする。
+      expandParts: expandParts ?? (basename(resolve(temporaryDirectory ?? ".")) !== "render-tmp"),
+    }),
   };
 }
 
@@ -24,11 +42,22 @@ export function readRenderEdit(source, temporaryDirectory) {
  * 既存の cut/audio/rasterize 実装へ渡す薄い互換ビュー。
  * visual 配列は生 JSON から再読出しせず、正規化済み tracks[].items[] だけから作る。
  */
-export function projectRendererCompatibilityEdit(raw, internal, temporaryDirectory) {
+export function projectRendererCompatibilityEdit(
+  raw,
+  internal,
+  temporaryDirectory,
+  projectRootOverride,
+  { expandParts = true } = {},
+) {
   const ordered = internal.tracks.flatMap(track => track.items)
     .sort((left, right) => left.legacy.index - right.legacy.index);
   const cuts = [];
-  const overlays = [];
+  const projectRoot = projectRootOverride === undefined
+    ? projectRoots.get(internal) ?? projectRootFromTemporaryDirectory(temporaryDirectory)
+    : resolve(projectRootOverride);
+  const overlays = expandParts
+    ? expandedHtmlOverlays(internal, projectRoot)
+    : unexpandedHtmlOverlays(internal, temporaryDirectory);
   const layers = [];
   const sfx = [];
   const narration = [];
@@ -44,7 +73,7 @@ export function projectRendererCompatibilityEdit(raw, internal, temporaryDirecto
     }
     switch (renderItemKind(item)) {
       case "cut": cuts.push(renderItemDeclaration(item, temporaryDirectory)); break;
-      case "html": overlays.push(renderItemDeclaration(item, temporaryDirectory)); break;
+      case "html": break;
       case "layer": layers.push(renderItemDeclaration(item, temporaryDirectory)); break;
       default: break;
     }
@@ -84,6 +113,52 @@ export function projectRendererCompatibilityEdit(raw, internal, temporaryDirecto
     sources,
     audio,
   };
+}
+
+function expandedHtmlOverlays(internal, projectRoot) {
+  const htmlCache = new Map();
+  return expandBagOverlays(internal, (reference) => {
+    if (reference.trimStart().startsWith("<")) return reference;
+    if (!htmlCache.has(reference)) {
+      try {
+        htmlCache.set(reference, readFileSync(resolve(projectRoot, reference), "utf8"));
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+        // Plan-only unit inputs historically use unresolved placeholder paths. Keep their
+        // compatibility record byte-identical; real render input validation remains fail-closed.
+        htmlCache.set(reference, reference);
+      }
+    }
+    return htmlCache.get(reference);
+  });
+}
+
+function unexpandedHtmlOverlays(internal, temporaryDirectory) {
+  const overlays = [];
+  const visit = (item) => {
+    if (item?.declaration?.hidden === true) return;
+    if (item?.source?.kind === "html") {
+      overlays.push({
+        ...renderItemDeclaration(item, temporaryDirectory),
+        ...(item.source.part !== undefined ? { part: item.source.part } : {}),
+        ...(item.parentId !== undefined ? { parentId: item.parentId } : {}),
+      });
+    }
+    for (const child of item?.children ?? []) visit(child);
+  };
+  for (const track of internal.tracks ?? []) {
+    for (const item of track.items ?? []) visit(item);
+  }
+  return overlays;
+}
+
+function projectRootFromTemporaryDirectory(temporaryDirectory) {
+  let cursor = resolve(temporaryDirectory ?? ".");
+  while (dirname(cursor) !== cursor) {
+    if (basename(cursor) === ".akari") return dirname(cursor);
+    cursor = dirname(cursor);
+  }
+  return process.cwd();
 }
 
 // Internal legacy values use edit-store's camelCase display model. The renderer compatibility

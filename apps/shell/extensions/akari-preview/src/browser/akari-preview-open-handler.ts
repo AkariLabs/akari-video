@@ -56,6 +56,7 @@ import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
 import { persistCaptionText, persistCaptionZone } from '../common/caption-zone-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
+import { expandBagOverlays } from '../common/preview-parts';
 import {
     CAPTION_FONT_FAMILY,
     CAPTION_FONT_LOAD_DESCRIPTOR,
@@ -140,6 +141,8 @@ interface EditSummaryOverlay {
     transform: OverlayTransform;
     vars: Record<string, string>;
     params: Record<string, string>;
+    part?: string;
+    parentId?: string;
 }
 
 interface EditSummaryLayer {
@@ -3387,23 +3390,47 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const overlayUris: URI[] = [];
             const unsupportedGltfWarnings: string[] = [];
             // 宣言レコードは読み込み層が版差を吸収済み。フィールドの検証は従来どおりここで行う。
-            for (const item of collectItems(internal, 'overlays')) {
-                const value = item.declaration as any;
+            const overlayHtml = new Map<string, string>();
+            const overlayTrackIds = new Map<string, string>();
+            const seenOverlayUris = new Set<string>();
+            const loadOverlayTree = async (item: typeof internal.tracks[number]['items'][number], trackId: string): Promise<void> => {
+                overlayTrackIds.set(item.id, trackId);
+                if (item.source.kind === 'html') {
+                    const rawHtml = item.source.html;
+                    if (rawHtml && !rawHtml.trimStart().startsWith('<') && !overlayHtml.has(rawHtml)) {
+                        const fragmentUri = editUri.parent.resolve(rawHtml);
+                        const uriKey = fragmentUri.toString();
+                        if (!seenOverlayUris.has(uriKey)) {
+                            overlayUris.push(fragmentUri);
+                            seenOverlayUris.add(uriKey);
+                        }
+                        try {
+                            overlayHtml.set(rawHtml, await this.readText(fragmentUri));
+                        } catch (error) {
+                            overlayHtml.set(rawHtml, '');
+                            console.warn(`[akari-preview] failed to read overlay fragment ${fragmentUri.toString()}`, error);
+                        }
+                    } else if (rawHtml.trimStart().startsWith('<')) {
+                        overlayHtml.set(rawHtml, rawHtml);
+                    }
+                }
+                for (const child of item.children) await loadOverlayTree(child, trackId);
+            };
+            for (const track of internal.tracks) {
+                for (const item of track.items) await loadOverlayTree(item, track.id);
+            }
+            const projectedOverlays = expandBagOverlays(
+                internal,
+                reference => overlayHtml.get(reference) ?? reference
+            );
+            for (const value of projectedOverlays) {
                 if (value?.track !== undefined && (!Number.isInteger(value.track) || value.track < 0)) {
                     console.warn('[akari-preview] overlay track が不正なため track 0 として表示します', value?.id);
                 }
                 const rawHtml = typeof value?.html === 'string' ? value.html : '';
-                let html = rawHtml;
-                if (rawHtml && !rawHtml.trimStart().startsWith('<')) {
-                    const fragmentUri = editUri.parent.resolve(rawHtml);
-                    overlayUris.push(fragmentUri);
-                    try {
-                        html = await this.readText(fragmentUri);
-                    } catch (error) {
-                        html = '';
-                        console.warn(`[akari-preview] failed to read overlay fragment ${fragmentUri.toString()}`, error);
-                    }
-                }
+                let html = rawHtml && !rawHtml.trimStart().startsWith('<')
+                    ? overlayHtml.get(rawHtml) ?? ''
+                    : rawHtml;
                 html = await this.resolveThreeSceneAssets(html, editUri, assetStreams, assetUris, unsupportedGltfWarnings);
                 overlays.push({
                     id: String(value?.id ?? ''),
@@ -3411,10 +3438,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     start: this.finiteNumber(value?.start, 0),
                     duration: this.finiteNumber(value?.duration, 0),
                     track: Number.isInteger(value?.track) && value.track >= 0 ? value.track : 0,
-                    trackId: String(trackIdByItem.get(item) ?? ''),
+                    trackId: overlayTrackIds.get(String(value?.id ?? ''))
+                        ?? overlayTrackIds.get(String(value?.parentId ?? ''))
+                        ?? '',
                     transform: this.transform(value?.transform),
                     vars: this.stringRecord(value?.vars),
-                    params: this.stringRecord(value?.params)
+                    params: this.stringRecord(value?.params),
+                    ...(typeof value?.part === 'string' ? { part: value.part } : {}),
+                    ...(typeof value?.parentId === 'string' ? { parentId: value.parentId } : {})
                 });
             }
             const layers: EditSummaryLayer[] = [];
