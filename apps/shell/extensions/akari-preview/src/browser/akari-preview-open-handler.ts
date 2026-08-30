@@ -4898,6 +4898,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             hasSourceAudio: hasSourceAudio ?? null,
             initialSeekTime: Number.isFinite(initialSeekTime) ? initialSeekTime : null,
             reloadNotice,
+            frameEngineEnabled: Boolean(frameEngineScripts),
             frameEngineMetricsEnabled,
             compositeError: model.compositeError ?? null,
             muted: model.session?.muted ?? false,
@@ -4973,6 +4974,9 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #layer-select-box .akari-layer-handle-se { top: 100%; left: 100%; cursor: nwse-resize; }
 #layer-select-box .akari-layer-handle-rotate { top: 0; left: 50%; margin-top: -34px; border-radius: 50%; cursor: grab; }
 #layer-select-box .akari-layer-rotate-stem { position: absolute; top: -28px; left: 50%; width: 1.5px; height: 28px; background: #4da3ff; transform: translateX(-50%); pointer-events: none; }
+#preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active { pointer-events: none; }
+#preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active .akari-layer-handle,
+#preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active .akari-layer-rotate-stem { pointer-events: auto; }
 /* クロップモード: 移動/リサイズ/回転ハンドルと衝突しないよう select box 側の操作系だけ隠す
    （枠自体は #layer-crop-box が別枠として表示する）。 */
 #layer-select-box.akari-crop-mode-hide-handles .akari-layer-handle,
@@ -5104,7 +5108,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
       <div id="zoom-layer">
         <div id="preview-stage">
           <div id="preview-layers">
-            <video id="preview-video" data-akari-transition-role="outgoing"${primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="auto" crossorigin="anonymous"></video>
+            <video id="preview-video" data-akari-transition-role="outgoing"${frameEngineScripts || primaryIsStillImage ? '' : ` src="${this.escapeHtml(videoSource)}"`} preload="${frameEngineScripts ? 'none' : 'auto'}" crossorigin="anonymous"></video>
             <video id="standby-video" data-akari-playback-role="standby" preload="auto" crossorigin="anonymous"></video>
             <img id="preview-still" alt="" draggable="false">
             <video id="transition-video" data-akari-transition-role="incoming" preload="auto" crossorigin="anonymous"></video>
@@ -6618,6 +6622,7 @@ body { display: grid; place-items: center; padding: 32px; }
     protected previewBootstrapScript(): string {
         return `(() => {
             const initial = window.__akariPreview;
+            const frameEngineMediaIdle = initial.frameEngineEnabled === true;
             let summary = initial.summary;
             let video = document.getElementById('preview-video');
             let standbyVideo = document.getElementById('standby-video');
@@ -7461,7 +7466,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 } else {
                     layerVideo.muted = true;
                     layerVideo.playsInline = true;
-                    layerVideo.preload = 'auto';
+                    // engine 面は配置・選択に必要な媒体実寸だけを取得する。src より先に
+                    // metadata を宣言し、既定の auto として本体を読み始める競合を避ける。
+                    layerVideo.preload = frameEngineMediaIdle ? 'metadata' : 'auto';
                     layerVideo.disablePictureInPicture = true;
                 }
                 layerVideo.tabIndex = -1;
@@ -7529,6 +7536,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 });
                 if (typeof layer.src === 'string' && layer.src) {
+                    if (!layerIsImage && frameEngineMediaIdle) layerVideo.preload = 'metadata';
                     layerVideo.src = layer.src;
                 }
                 layersStage.appendChild(layerVideo);
@@ -7573,7 +7581,8 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             const cutHasChroma = (Array.isArray(summary.cuts) ? summary.cuts : []).some(cut => cut.chromaKey);
             const hasBaseVideoFx = Boolean(videoFxConfig && (videoFxConfig.look
-                || Object.keys(videoFxConfig.sources || {}).length > 0 || cutHasChroma));
+                || Object.keys(videoFxConfig.sources || {}).length > 0 || cutHasChroma))
+                && !frameEngineMediaIdle;
             const representativeChroma = hasBaseVideoFx && (
                 Object.values(videoFxConfig.sources || {})[0]
                 || (Array.isArray(summary.cuts) ? summary.cuts.find(cut => cut.chromaKey)?.chromaKey : null)
@@ -7605,7 +7614,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             syncDoubleBufferVideoFxVisibility();
             for (const entry of layerEntries) {
-                entry.fxRail = entry.spec.chromaKey
+                entry.fxRail = !frameEngineMediaIdle && entry.spec.chromaKey
                     ? mountVideoFxRail(entry.video, 'layer:' + entry.spec.id, { chromaKey: entry.spec.chromaKey })
                     : null;
                 if (entry.fxRail) configureVideoFxRail(
@@ -7623,6 +7632,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 };
             };
             const renderVideoFx = timelineTime => {
+                if (frameEngineMediaIdle) return;
                 if (!hasBaseVideoFx && !layerEntries.some(entry => entry.fxRail)) return;
                 syncDoubleBufferVideoFxVisibility();
                 const segment = segments[activeSegmentIndex];
@@ -7685,6 +7695,9 @@ body { display: grid; place-items: center; padding: 32px; }
                         entry.deferredMediaLoading = true;
                         entry.deferredSeekPending = false;
                         entry.deferredSeekTarget = null;
+                    }
+                    if (layerVideo.tagName === 'VIDEO' && frameEngineMediaIdle) {
+                        layerVideo.preload = 'metadata';
                     }
                     layerVideo.src = layer.src;
                     entry.opaqueBox = undefined;
@@ -7843,6 +7856,23 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!(vx >= 0) || !(vy >= 0) || vx >= entry.video.videoWidth || vy >= entry.video.videoHeight) return null;
                 return { x: Math.floor(vx), y: Math.floor(vy) };
             };
+            const layerGeometryHitAt = (entry, clientX, clientY) => {
+                const width = Number(entry.video.videoWidth) || 0;
+                const height = Number(entry.video.videoHeight) || 0;
+                if (!(width > 0) || !(height > 0)) return false;
+                const transform = layerTransformNow(entry);
+                const crop = layerCropNow(entry);
+                const pivotPx = {
+                    x: (crop.x + crop.w / 2) * width,
+                    y: (crop.y + crop.h / 2) * height
+                };
+                const point = layerVideoPointForPivot(entry, transform, pivotPx, clientX, clientY);
+                if (!point) return false;
+                return point.x >= crop.x * width
+                    && point.x < (crop.x + crop.w) * width
+                    && point.y >= crop.y * height
+                    && point.y < (crop.y + crop.h) * height;
+            };
             // 画面座標への正写像（layerVideoPointForPivot の逆）。videoRect はソース px 空間の矩形
             // （全面フレーム or クロップ矩形）、pivotPx は回転・平行移動の基準点（同じくソース px）。
             // updateLayerSelectBox（pivot=クロップ中心）とクロップモードの外枠/内枠描画
@@ -7922,6 +7952,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
             };
             const syncLayerHitRegion = (entry, forceMeasure = false) => {
+                if (frameEngineMediaIdle) {
+                    entry.opaqueBox = null;
+                    delete entry.video.dataset.akariOpaqueX;
+                    delete entry.video.dataset.akariOpaqueY;
+                    delete entry.video.dataset.akariOpaqueW;
+                    delete entry.video.dataset.akariOpaqueH;
+                    entry.video.style.pointerEvents = entry.spec.kind === 'baked' ? 'none' : 'auto';
+                    if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                    return null;
+                }
                 if (forceMeasure) entry.opaqueBox = undefined;
                 if (entry.opaqueBox === undefined) entry.opaqueBox = measureLayerOpaqueBox(entry);
                 const box = entry.opaqueBox;
@@ -7955,6 +7995,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const transform = layerTransformNow(entry);
                 const crop = layerCropNow(entry);
+                if (frameEngineMediaIdle) {
+                    if (!(entry.video.videoHeight > 0)) {
+                        layerSelectBox.classList.remove('is-active');
+                        positionLayerCropToggle(null);
+                        positionLayerPerspectiveToggle(null);
+                        return;
+                    }
+                    // legacy 媒体の画素は読まず、クロップ窓そのものを選択枠にする。
+                    entry.opaqueBox = null;
+                }
                 // 枠は要素の箱ではなく不透明領域（コンテンツ）にフィットさせる（未計測なら計測）。
                 // フレーム未着で測れないうちは全面フォールバック枠を一瞬見せず、届いてから出す
                 if (entry.opaqueBox === undefined) {
@@ -8352,42 +8402,56 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (!entry) return;
                 beginLayerMoveDrag(entry, event);
             });
+            const findVisualMediaHitAt = event => {
+                if (frameEngineMediaIdle || window.akari.frameEngineClock) {
+                    // visibility:hidden の legacy 要素は elementsFromPoint に現れない。媒体実寸が
+                    // 確定した層だけを DOM 上位から 1 パスで、逆写像したクロップ窓に当てる。
+                    for (const entry of [...layerEntries].reverse()) {
+                        if (entry.video.style.display === 'none') continue;
+                        if (!(entry.video.videoWidth > 0) || !(entry.video.videoHeight > 0)) continue;
+                        if (layerGeometryHitAt(entry, event.clientX, event.clientY)) return entry.video;
+                    }
+                    const stageRect = previewStage.getBoundingClientRect();
+                    return event.clientX >= stageRect.left && event.clientX <= stageRect.right
+                        && event.clientY >= stageRect.top && event.clientY <= stageRect.bottom ? video : null;
+                }
+                return document.elementsFromPoint(event.clientX, event.clientY)
+                    .find(candidate => {
+                        if (candidate === video) return true;
+                        if (candidate === stillImage) return true;
+                        if (!((candidate.tagName === 'VIDEO' || candidate.tagName === 'IMG') && candidate.dataset
+                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none')) return false;
+                        const candidateEntry = findLayerEntry(candidate.dataset.akariLayerId);
+                        return !candidateEntry || layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
+                    }) || null;
+            };
             // cuts / layers / overlays / captions は同じ #preview-layers 内で z を競う。
             // 箱は pointer-events:none、実体だけ auto なので、共通祖先から委譲しつつ
             // 全面透明 mov のアルファ実測だけは elementsFromPoint で下へ素通しする。
-            layersStage.addEventListener('pointerdown', event => {
+            const handledVisualPointerDownEvents = new WeakSet();
+            const handleVisualMediaPointerDown = event => {
                 // ㉔ クロップモード中は移動/選択切り替えと操作が衝突しないよう、選択中レイヤーの
                 // ボディドラッグを含め本編ステージの通常操作を止める（ハンドルは別要素なので
                 // このガードの影響を受けない）。
                 const target = event.target;
+                if (frameEngineMediaIdle) {
+                    if (handledVisualPointerDownEvents.has(event)) return;
+                    handledVisualPointerDownEvents.add(event);
+                    const interactiveTarget = target?.closest?.(
+                        '[data-akari-interaction], [data-overlay-id], #overlay-stage, #caption-plate, '
+                        + '#layer-select-box, #layer-crop-box, #layer-crop-toggle, '
+                        + '#layer-perspective-toggle, #layer-perspective-panel, #cut-select-box, #pen-layer'
+                    );
+                    if (penModeActive || rectModeActive || interactiveTarget) return;
+                }
                 const targetIsVisualMedia = target === video || target === stillImage
                     || Boolean(target?.dataset?.akariLayerId);
+                const targetIsEngineStage = frameEngineMediaIdle && target === previewStage;
                 // オーバーレイ / 字幕の実体をクリックした場合は各ランタイムの操作を優先する。
                 if (event.button !== 0 || cropModeActive
-                    || (!targetIsVisualMedia && target !== layersStage && target !== stage)) return;
-                let hit = document.elementsFromPoint(event.clientX, event.clientY)
-                    .find(candidate => {
-                        if (candidate === video) return true;
-                        // 静止画セグメント中は #preview-still が本編（cut）の当たり判定を担う
-                        if (candidate === stillImage) return true;
-                        if (!((candidate.tagName === 'VIDEO' || candidate.tagName === 'IMG') && candidate.dataset
-                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none')) return false;
-                        // 全面サイズの透明動画（ベイクテロップ）は箱で当てると画面全部が当たりになる。
-                        // クリック地点のアルファを実測し、透明部分は下（別レイヤー / 本編）へ素通し
-                        const candidateEntry = findLayerEntry(candidate.dataset.akariLayerId);
-                        return !candidateEntry || layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
-                    });
-                if (!hit && window.akari.frameEngineClock) {
-                    const candidates = [...layerEntries].reverse().filter(candidate => {
-                        const element = candidate.video;
-                        if (element.style.display === 'none') return false;
-                        const rect = element.getBoundingClientRect();
-                        return event.clientX >= rect.left && event.clientX <= rect.right
-                            && event.clientY >= rect.top && event.clientY <= rect.bottom
-                            && layerAlphaAtPoint(candidate, event.clientX, event.clientY) > 16;
-                    });
-                    hit = candidates[0]?.video || video;
-                }
+                    || (!targetIsVisualMedia && target !== layersStage && target !== stage
+                        && !targetIsEngineStage)) return;
+                const hit = findVisualMediaHitAt(event);
                 if (!hit) return;
                 if (hit === video || hit === stillImage) {
                     if (video.dataset.akariCutIndex === '' || video.dataset.akariCutIndex === undefined) return;
@@ -8431,7 +8495,11 @@ body { display: grid; place-items: center; padding: 32px; }
                 selectLayer(entry.spec.id);
                 // stageLocalPoint は親の frameScale と #zoom-layer の scale を実測して変換する。
                 beginLayerMoveDrag(entry, event);
-            });
+            };
+            layersStage.addEventListener('pointerdown', handleVisualMediaPointerDown);
+            if (frameEngineMediaIdle) {
+                previewStage.addEventListener('pointerdown', handleVisualMediaPointerDown);
+            }
             for (const handle of layerHandleElements) {
                 handle.addEventListener('pointerdown', event => {
                     if (event.button !== 0 || !selectedLayerId || cropModeActive) return;
@@ -8627,17 +8695,8 @@ body { display: grid; place-items: center; padding: 32px; }
                         || event.target.closest('#layer-perspective-toggle') || event.target.closest('#layer-perspective-panel'))) {
                     return;
                 }
-                if (window.akari.frameEngineClock && layersStage.contains(event.target)) return;
                 // 全面透明 mov の可視画素判定を含め、実際の z 順を elementsFromPoint で再確認する。
-                const hitSelectable = document.elementsFromPoint(event.clientX, event.clientY)
-                    .some(candidate => {
-                        if (candidate === video) return true;
-                        if (candidate === stillImage) return true;
-                        if (!((candidate.tagName === 'VIDEO' || candidate.tagName === 'IMG') && candidate.dataset
-                            && candidate.dataset.akariLayerId && candidate.style.display !== 'none')) return false;
-                        const candidateEntry = findLayerEntry(candidate.dataset.akariLayerId);
-                        return !candidateEntry || layerAlphaAtPoint(candidateEntry, event.clientX, event.clientY) > 16;
-                    });
+                const hitSelectable = Boolean(findVisualMediaHitAt(event));
                 if (hitSelectable) return;
                 if (selectedLayerId) selectLayer(null);
                 if (cutSelected) deselectCut();
@@ -9220,6 +9279,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 preloadUpcomingCut(outputTime);
             };
             const syncSegmentPlaybackRate = () => {
+                if (frameEngineMediaIdle) return;
                 const segment = segments[activeSegmentIndex];
                 const speed = segment && segment.kind === 'src'
                     && Number.isFinite(segment.speed) && segment.speed > 0 ? segment.speed : 1;
@@ -9248,6 +9308,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 + String(segment && segment.src) + ':' + String(segment && segment.in);
             // 差し替えたときだけ true を返す（呼び出し側は false なら即座に続行する）
             const applySegmentSource = (segment, onReady) => {
+                if (frameEngineMediaIdle) return false;
                 const nextId = segment && segment.src;
                 if (!nextId || nextId === currentVideoSourceId) return false;
                 const nextUrl = videoSources[nextId];
@@ -9267,6 +9328,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 return true;
             };
             const primeStandbySegment = (index, segment) => {
+                if (frameEngineMediaIdle) return;
                 const nextId = segment && segment.kind === 'src' ? segment.src : null;
                 const nextUrl = nextId && videoSources[nextId];
                 if (!nextId || !nextUrl || isStillSegment(segment)) return;
@@ -9315,6 +9377,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 standbyVideo.load();
             };
             preloadUpcomingCut = timelineTime => {
+                if (frameEngineMediaIdle) return;
                 const current = segments[activeSegmentIndex];
                 const nextIndex = activeSegmentIndex + 1;
                 const next = segments[nextIndex];
@@ -9362,6 +9425,7 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             let currentTransitionVideoSourceId = null;
             const applyTransitionSegmentSource = (segment, onReady) => {
+                if (frameEngineMediaIdle) return false;
                 const nextId = segment && segment.src;
                 if (!nextId) return false;
                 const nextUrl = videoSources[nextId];
@@ -9380,6 +9444,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // （gapWallClockOriginMs / gapOutputOrigin をそのまま共用）で進める。
             const imageSources = initial.imageSources || {};
             preloadUpcomingTransition = timelineTime => {
+                if (frameEngineMediaIdle) return;
                 const upcoming = transitionWindows.find(candidate => timelineTime < candidate.end);
                 if (!upcoming) return;
                 const key = upcoming.start + ':' + upcoming.end + ':' + upcoming.incoming.cutIndex;
@@ -9445,6 +9510,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 stillImage.style.zIndex = video.style.zIndex;
             };
             const showStillImage = url => {
+                if (frameEngineMediaIdle) {
+                    hideStillImage();
+                    return;
+                }
                 if (stillImage.getAttribute('src') !== url) stillImage.setAttribute('src', url);
                 stillImage.style.display = 'block';
                 syncStillImageVisual();
@@ -9512,6 +9581,21 @@ body { display: grid; place-items: center; padding: 32px; }
                 freezeHoldConsumedForSegmentIndex = null;
                 activeSegmentIndex = index;
                 const segment = segments[index];
+                if (frameEngineMediaIdle) {
+                    applyCutVisual(segment);
+                    // engine 面では frame engine 起動前の tick() → applyCutsMuteState() が
+                    // インライン visibility='hidden' を書き残す（起動後の tick() は
+                    // frameEngineClock があると早期 return するので二度と上書きされない）。
+                    // 残留値を空へ戻さないと cutVisualHidden が常時 true のままになり、
+                    // カット選択枠（#cut-select-box）が出せない。画面上は生成 CSS
+                    // #preview-stage[data-frame-engine-active="true"] #preview-video の
+                    // visibility: hidden !important が隠し続けるので土台 video は出ない。
+                    video.style.visibility = '';
+                    hideStillImage();
+                    gapWallClockOriginMs = performance.now();
+                    gapOutputOrigin = outputTime;
+                    return;
+                }
                 if (segment.kind === 'gap') {
                     applyCutVisual(segment);
                     // video.pause() は既に一時停止中だと 'pause' イベントを発火しない
@@ -9577,6 +9661,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     window.akari.frameEngineClock.pause(outputTime);
                     return;
                 }
+                if (frameEngineMediaIdle) return;
                 video.pause();
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
             };
@@ -9646,6 +9731,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const mapped = timelineToSource(outputTime);
                 enterSegment(mapped.index);
+                if (frameEngineMediaIdle) return;
                 if (mapped.kind === 'src' && !isStillSegment(segments[mapped.index])) {
                     video.currentTime = mapped.time;
                 } else if (isPlaying && window.akari.previewAudio) {
@@ -10577,6 +10663,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 transitionFallbackLabel.dataset.akariTransitionFallback = '';
             };
             const renderTransitionComposite = timelineTime => {
+                if (frameEngineMediaIdle) {
+                    resetTransitionComposite();
+                    return;
+                }
                 const window = transitionWindows.find(candidate =>
                     timelineTime >= candidate.start && timelineTime < candidate.end);
                 const incomingHidden = window && (allTracksHiddenByScope.cuts
@@ -10802,7 +10892,16 @@ body { display: grid; place-items: center; padding: 32px; }
                         : layer.duration;
                     const target = Math.min(localTime, mediaEnd);
                     let deferredPlaybackRate = 1;
-                    if (entry.deferredTelop) {
+                    if (entry.deferredTelop && frameEngineMediaIdle) {
+                        const bakePending = layer.proxyMissing
+                            || !(typeof layer.src === 'string' && layer.src);
+                        const deferredState = !activeWindow ? 'inactive'
+                            : bakePending ? 'baking'
+                                : layerVideo.readyState < HTMLMediaElement.HAVE_METADATA ? 'loading' : 'ready';
+                        entry.deferredPlaceholder.style.display = deferredState === 'baking' ? 'grid' : 'none';
+                        entry.deferredPlaceholder.dataset.akariDeferredState = deferredState;
+                    }
+                    if (entry.deferredTelop && !frameEngineMediaIdle) {
                         if (entry.deferredMediaLoading
                             && layerVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
                             entry.deferredMediaLoading = false;
@@ -10882,7 +10981,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         && typeof layer.src === 'string' && layer.src;
                     if (!active) {
                         layerVideo.style.display = 'none';
-                        if (!layerVideo.paused) layerVideo.pause();
+                        if (!frameEngineMediaIdle && !layerVideo.paused) layerVideo.pause();
                         continue;
                     }
                     if (layerVideo.readyState < HTMLMediaElement.HAVE_METADATA) {
@@ -10919,6 +11018,9 @@ body { display: grid; place-items: center; padding: 32px; }
                             console.warn('[akari-preview] layer keyframes visual failed; rendering without them', layer.id, error);
                         }
                     }
+                    // engine 面では legacy media を表示幾何の台帳としてだけ使う。ここまでの
+                    // display / dataset 更新は維持し、再生・シーク・画素走査へは進めない。
+                    if (frameEngineMediaIdle) continue;
                     if (entry.deferredTelop) {
                         if (Math.abs(layerVideo.playbackRate - deferredPlaybackRate) > 0.001) {
                             layerVideo.playbackRate = deferredPlaybackRate;
@@ -11146,7 +11248,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 isPlaying = false;
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
                 stopAnimation();
-                video.pause();
+                if (!frameEngineMediaIdle) video.pause();
                 video.hidden = true;
                 hideStillImage();
                 layersStage.hidden = true;
@@ -11218,7 +11320,9 @@ body { display: grid; place-items: center; padding: 32px; }
                 hevcFallbackQueue.push({ errorCode, requestKey });
                 processNextHevcFallback();
             };
-            previewMessageReload.addEventListener('click', () => video.load());
+            previewMessageReload.addEventListener('click', () => {
+                if (!frameEngineMediaIdle) video.load();
+            });
             const togglePlayback = () => {
                 if (playToggle.disabled) return;
                 if (!isPlaying) {
@@ -11242,6 +11346,10 @@ body { display: grid; place-items: center; padding: 32px; }
                         startAnimation();
                         return;
                     }
+                    if (frameEngineMediaIdle) {
+                        startAnimation();
+                        return;
+                    }
                     if (window.akari.previewAudio) void window.akari.previewAudio.resume();
                     const segment = segments[activeSegmentIndex];
                     if (segment && (segment.kind === 'gap' || isStillSegment(segment))) {
@@ -11261,6 +11369,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     window.akari.reviewTransport({ type: 'pause', timelineT: outputTime });
                     if (window.akari.frameEngineClock) {
                         window.akari.frameEngineClock.pause(outputTime);
+                        stopAnimation();
+                        return;
+                    }
+                    if (frameEngineMediaIdle) {
                         stopAnimation();
                         return;
                     }
@@ -11291,7 +11403,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 isPlaying = false;
                 if (window.akari.frameEngineClock) window.akari.frameEngineClock.pause(outputTime);
                 if (window.akari.previewAudio) window.akari.previewAudio.pause();
-                video.pause();
+                if (!frameEngineMediaIdle) video.pause();
                 seekTimelineTime(outputTime + direction / fps);
                 stopAnimation();
             };
