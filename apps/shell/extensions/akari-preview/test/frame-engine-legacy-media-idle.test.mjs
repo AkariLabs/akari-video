@@ -32,6 +32,12 @@ test('engine 面の生成 HTML は土台 video に src を持たせない', () =
     assert.match(compiledHandler, /const frameEngineMediaIdle = initial\.frameEngineEnabled === true;/u);
 });
 
+test('engine 面の enterSegment は土台 video にインライン visibility=hidden を書かない', () => {
+    const enterSegment = section('const enterSegment = index =>', 'const stopAtNaturalEnd =');
+    const engineBranch = enterSegment.slice(0, enterSegment.indexOf("if (segment.kind === 'gap')"));
+    assert.doesNotMatch(engineBranch, /video\.style\.visibility = 'hidden'/u);
+});
+
 test('engine 面の layer video は src より先に metadata-only を宣言する', () => {
     const layerSetup = section('const layerEntries =', '// video FX rail');
     const preloadAt = layerSetup.indexOf("layerVideo.preload = frameEngineMediaIdle ? 'metadata' : 'auto';");

@@ -9552,7 +9552,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segment = segments[index];
                 if (frameEngineMediaIdle) {
                     applyCutVisual(segment);
-                    video.style.visibility = 'hidden';
+                    // engine 面は生成 CSS が土台 video を隠す。インライン指定は
+                    // cutVisualHidden を常時 true にするため、ここでは設定しない。
                     hideStillImage();
                     gapWallClockOriginMs = performance.now();
                     gapOutputOrigin = outputTime;
