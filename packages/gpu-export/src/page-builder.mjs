@@ -214,8 +214,16 @@ function resolveOverlayVars(overlay) {
   return vars;
 }
 
-export async function loadAndBuildGpuPage({ projectRoot, fps, width, height, duration }) {
-  const editText = await readFile(join(projectRoot, "edit.json"), "utf8");
+export async function loadAndBuildGpuPage({
+  projectRoot,
+  editPath = join(projectRoot, "edit.json"),
+  fps,
+  width,
+  height,
+  duration,
+}) {
+  const resolvedEditPath = editPath ?? join(projectRoot, "edit.json");
+  const editText = await readFile(resolvedEditPath, "utf8");
   const projectedEdit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "gpu-page")).edit;
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
   const captions = await readJsonIfPresent(join(projectRoot, "captions.json"), []);

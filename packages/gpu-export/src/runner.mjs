@@ -28,8 +28,11 @@ export function buildGpuElectronArguments(launcher, options) {
   const encoding = resolveGpuEncoding({ quality: options.quality ?? "high", bitrate: options.bitrate });
   const extraArgs = [
     "--bitrate", String(encoding.bitrate),
+    ...(options.editPath ? ["--edit", options.editPath] : []),
     ...(options.trapReadback ? ["--trap-readback"] : []),
     ...(options.verifyFrames ? ["--verify-frames"] : []),
+    ...(options.captureFrames?.length > 0 ? ["--capture-frames", options.captureFrames.join(",")] : []),
+    ...(options.captureOutputDirectory ? ["--capture-output-dir", options.captureOutputDirectory] : []),
   ];
   return buildElectronArguments(launcher, {
     ...options,

@@ -4,7 +4,8 @@ import { dirname, parse, resolve } from "node:path";
 import { CONTACT_SHEET_MAX_FRAMES } from "../../../render-cut/src/contact-sheet.mjs";
 
 export const CAPTURE_USAGE = `Usage: akari capture [-p <project>] (-t <time...> | --auto)
-  [--separate] [--full] [--per-sheet <1-12>] [--out <dir>] [--edit <path>]
+  [--engine auto|osr|gpu|legacy] [--separate] [--full]
+  [--per-sheet <1-12>] [--out <dir>] [--edit <path>]
 
 Times are timeline seconds or MM:SS(.fff).`;
 
@@ -13,6 +14,7 @@ export function parseCaptureArguments(argv, { cwd = process.cwd() } = {}) {
     projectRoot: null,
     times: [],
     auto: false,
+    engine: "auto",
     separate: false,
     full: false,
     perSheet: CONTACT_SHEET_MAX_FRAMES,
@@ -30,14 +32,17 @@ export function parseCaptureArguments(argv, { cwd = process.cwd() } = {}) {
       result.separate = true;
     } else if (argument === "--full") {
       result.full = true;
-    } else if (argument === "-p" || argument === "--out" || argument === "--edit" || argument === "--per-sheet") {
+    } else if (argument === "-p" || argument === "--out" || argument === "--edit" || argument === "--per-sheet" || argument === "--engine") {
       const value = argv[index + 1];
       if (value === undefined || value.startsWith("-")) throw new Error(`${argument} requires a value`);
       index += 1;
       if (argument === "-p") result.projectRoot = resolve(cwd, value);
       else if (argument === "--out") result.out = value;
       else if (argument === "--edit") result.edit = value;
+      else if (argument === "--engine") result.engine = parseEngine(value);
       else result.perSheet = parsePerSheet(value);
+    } else if (argument.startsWith("--engine=")) {
+      result.engine = parseEngine(argument.slice("--engine=".length));
     } else if (argument === "-t") {
       const start = result.times.length;
       while (index + 1 < argv.length && !argv[index + 1].startsWith("-")) {
@@ -75,6 +80,13 @@ function parsePerSheet(value) {
     throw new Error(`--per-sheet must be an integer from 1 to ${CONTACT_SHEET_MAX_FRAMES}`);
   }
   return parsed;
+}
+
+function parseEngine(value) {
+  if (!["auto", "osr", "gpu", "legacy"].includes(value)) {
+    throw new Error(`--engine must be auto|osr|gpu|legacy, got: ${value}`);
+  }
+  return value;
 }
 
 function findProjectRoot(cwd) {

@@ -14,7 +14,7 @@ export async function runCaptureCommand(argv, options = {}) {
   }
 
   const isHelp = argv.includes("--help") || argv.includes("-h");
-  if (!isHelp) {
+  if (!isHelp && captureNeedsChrome(argv, options.platform ?? process.platform)) {
     const browser = await resolveBrowserDiagnostics(assets, options);
     if (!await browser.findChromePath()) {
       logError(await browser.describeChromeNotFound());
@@ -28,6 +28,15 @@ export async function runCaptureCommand(argv, options = {}) {
     cwd: options.cwd ?? process.cwd(),
   });
   return { exitCode: typeof result.status === "number" ? result.status : 1 };
+}
+
+export function captureNeedsChrome(argv, platform = process.platform) {
+  let engine = "auto";
+  for (let index = 0; index < argv.length; index += 1) {
+    if (argv[index] === "--engine" && argv[index + 1] !== undefined) engine = argv[index + 1];
+    else if (argv[index].startsWith("--engine=")) engine = argv[index].slice("--engine=".length);
+  }
+  return engine === "legacy" || (engine === "auto" && !["darwin", "win32"].includes(platform));
 }
 
 async function resolveBrowserDiagnostics(assets, options) {

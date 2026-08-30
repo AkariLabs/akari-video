@@ -7,4 +7,5 @@ contextBridge.exposeInMainWorld("akariGpu", {
   startChunks: (value) => ipcRenderer.invoke("gpu:chunks-start", value),
   writeChunk: (value) => ipcRenderer.invoke("gpu:chunk", value),
   finishChunks: (value) => ipcRenderer.invoke("gpu:chunks-finish", value),
+  writeCaptureFrame: (value) => ipcRenderer.invoke("gpu:capture-frame", value),
 });
