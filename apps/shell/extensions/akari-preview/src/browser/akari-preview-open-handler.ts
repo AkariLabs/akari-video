@@ -655,6 +655,7 @@ interface PreviewWidgetMarker extends WebviewWidget {
     /** forwardPlaybackTick が常時更新する直近再生位置。HEVC フォールバックのリロード時の
      *  再生位置復元に使う（raw kind は reviewTransportByEdit に乗らないため別経路が要る）。 */
     akariPreviewLastKnownTime?: number;
+    akariPreviewFrameEngineOptOut?: boolean;
 }
 
 // akari-transcript の AKARI_TRANSCRIPT_SEEK_REQUESTED.id（akari-transcript-commands.ts）とミラー。
@@ -910,6 +911,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected frameEngineOverlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssets> | undefined;
     /** 環境変数はセッション中に変わらないため、backend RPC は最初の 1 回だけにする。 */
     protected frameEngineEnvOverridePromise: Promise<string | undefined> | undefined;
+    protected frameEngineReadyTimeoutMsPromise: Promise<number | undefined> | undefined;
     protected reviewSessionRecorder: ReviewSessionRecorder | undefined;
     protected reviewSessionRecordingIndicator: ReviewSessionRecordingIndicator | undefined;
     protected readonly reviewSessionStateByEdit = new Map<string, ReviewSessionUiState>();
@@ -2053,6 +2055,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     active: this.fullscreenPreviewWidget === widget
                 });
             }
+            if (message?.type === 'akari-preview-frame-engine-fallback') {
+                widget.akariPreviewFrameEngineOptOut = true;
+                this.queueRefresh(widget, identityUri, kind, widget.akariPreviewLastKnownTime, true);
+            }
             if (this.isPlaybackTickRequest(message)) {
                 this.forwardPlaybackTick(widget, message);
             }
@@ -2718,6 +2724,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return this.preferences.get<boolean>('akari.preview.frameEngine', true);
     }
 
+    protected async resolveFrameEngineReadyTimeoutMs(): Promise<number | undefined> {
+        this.frameEngineReadyTimeoutMsPromise ??= this.envVariables
+            .getValue('AKARI_FRAME_ENGINE_READY_TIMEOUT_MS')
+            .then(variable => {
+                const value = Number(variable?.value?.trim());
+                return Number.isFinite(value) && value > 0 ? value : undefined;
+            });
+        return this.frameEngineReadyTimeoutMsPromise;
+    }
+
     protected async refreshPreview(
         widget: PreviewWidgetMarker,
         identityUri: URI,
@@ -2730,7 +2746,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return;
         }
         // raw は edit タイムラインを持たない素材単体プレビューなので、cuts 評価台の対象にしない。
-        const frameEngineEnabled = kind === 'output' && await this.resolveFrameEngineEnabled();
+        const frameEngineEnabled = kind === 'output'
+            && widget.akariPreviewFrameEngineOptOut !== true
+            && await this.resolveFrameEngineEnabled();
         const [model, assets] = await Promise.all([
             kind === 'output' ? this.loadPreviewModel(identityUri, editSource) : this.loadRawPreviewModel(identityUri),
             this.getOverlayRuntimeAssets(frameEngineEnabled)
@@ -3009,11 +3027,16 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const reloadNotice = widget.akariPreviewModelSnapshot !== undefined;
         const frameEngineMetricsEnabled = frameEngineEnabled
             && this.preferences.get<boolean>('akari.developerMode', false);
-        const [frameEngineSourceOverride, frameEngineForceSoftwareOverride] = await Promise.all([
+        const [
+            frameEngineSourceOverride,
+            frameEngineForceSoftwareOverride,
+            frameEngineReadyTimeoutMs
+        ] = await Promise.all([
             this.envVariables.getValue('AKARI_FRAME_ENGINE_SOURCE')
                 .then(variable => variable?.value?.trim().toLowerCase()),
             this.envVariables.getValue('AKARI_FRAME_ENGINE_FORCE_SW')
-                .then(variable => variable?.value?.trim().toLowerCase())
+                .then(variable => variable?.value?.trim().toLowerCase()),
+            frameEngineEnabled ? this.resolveFrameEngineReadyTimeoutMs() : Promise.resolve(undefined)
         ]);
         const frameEngineSourcePreference = this.preferences
             .get<string>('akari.preview.frameEngineSource', 'auto').trim().toLowerCase();
@@ -3041,7 +3064,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             frameEngineMetricsEnabled,
             originalSourceUrlById,
             frameEngineSourceMode,
-            frameEngineForceSoftware
+            frameEngineForceSoftware,
+            frameEngineReadyTimeoutMs
         ));
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
@@ -4867,14 +4891,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         frameEngineMetricsEnabled = false,
         originalSourceUrlById: Record<string, string> = {},
         frameEngineSourceMode = 'auto',
-        frameEngineForceSoftware = false
+        frameEngineForceSoftware = false,
+        frameEngineReadyTimeoutMs?: number
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
             ? `<script>${this.inlineScript(assets.threeTextJavaScript)}</script>\n`
             : '';
         const frameEngineScripts = frameEngineEnabled && assets.frameEngineJavaScript
-            ? `<script>${this.inlineScript(assets.frameEngineJavaScript)}</script>\n<script>${this.frameEngineBootstrapScript()}</script>\n`
+            ? `<script>${this.frameEngineWatchdogScript()}</script>\n<script>${this.inlineScript(assets.frameEngineJavaScript)}</script>\n<script>${this.frameEngineBootstrapScript()}</script>\n`
             : '';
         // frame-engine の素材デコード（av-cliper / MP4Clip）は OPFS ファイルストアと
         // タイマーを blob / data URL の Worker で動かす。既定 CSP では生成を拒否されるため、
@@ -4916,6 +4941,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             reloadNotice,
             frameEngineEnabled: Boolean(frameEngineScripts),
             frameEngineMetricsEnabled,
+            ...(frameEngineReadyTimeoutMs === undefined ? {} : { frameEngineReadyTimeoutMs }),
             compositeError: model.compositeError ?? null,
             muted: model.session?.muted ?? false,
             captionsVisible: model.session?.captionsVisible ?? true,
@@ -5745,6 +5771,7 @@ body { display: grid; place-items: center; padding: 32px; }
             window.akari.previewAudioDebug = () => window.akari.previewAudio
                 ? window.akari.previewAudio.debugState()
                 : { disabled: true };
+            window.akari.requestFrameEngineFallback = () => vscode.postMessage({ type: 'akari-preview-frame-engine-fallback' });
             window.akari.stageScale = () => frameScale;
             window.akari.playbackTick = (time, playing, immediate = false) => {
                 const now = performance.now();
@@ -6093,6 +6120,118 @@ body { display: grid; place-items: center; padding: 32px; }
         })();`;
     }
 
+    protected frameEngineWatchdogScript(): string {
+        return `(() => {
+            const initial = window.__akariPreview || {};
+            const errors = [];
+            const rejections = [];
+            const record = (target, type, event) => {
+                if (target.length >= 5) return;
+                const reason = type === 'rejection' && event && event.reason;
+                const message = type === 'error' && event && event.message
+                    ? event.message
+                    : reason && reason.message
+                        ? reason.message
+                        : String(reason || '不明なエラー');
+                const detail = {
+                    message: String(message),
+                    filename: String(event && event.filename || ''),
+                    lineno: Number(event && event.lineno || 0),
+                    colno: Number(event && event.colno || 0)
+                };
+                target.push(detail);
+            };
+            const recordError = event => record(errors, 'error', event);
+            const recordRejection = event => record(rejections, 'rejection', event);
+            window.addEventListener('error', recordError, true);
+            window.addEventListener('unhandledrejection', recordRejection, true);
+
+            const isReady = () => {
+                if (window.akari && window.akari.frameEngineClock) return true;
+                const root = document.getElementById('frame-engine-preview');
+                return Boolean(root && root.dataset.frameEngineReady === 'true');
+            };
+            const clearFailure = () => {
+                const card = document.getElementById('frame-engine-boot-error');
+                if (card) card.remove();
+                delete document.documentElement.dataset.frameEngineBootFailure;
+                delete document.documentElement.dataset.frameEngineBootErrors;
+            };
+            window.addEventListener('akari-frame-engine-ready', () => {
+                if (isReady()) clearFailure();
+            });
+
+            const configuredTimeout = Number(initial.frameEngineReadyTimeoutMs);
+            const timeout = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+                ? configuredTimeout
+                : 15000;
+            window.setTimeout(() => {
+                if (isReady()) return;
+                const root = document.getElementById('frame-engine-preview');
+                let cause;
+                if (errors.length > 0) {
+                    const first = errors[0];
+                    cause = '最初のエラー: ' + first.message + ' ('
+                        + (first.filename || '<inline>') + ':' + first.lineno + ')';
+                } else if (typeof window.AkariFrameEngine === 'undefined') {
+                    cause = 'frame-engine バンドルが読み込まれていません (window.AkariFrameEngine undefined)';
+                } else if (!root) {
+                    cause = '初期化スクリプトが実行されていません (#frame-engine-preview 未生成)';
+                } else {
+                    cause = '初期化が ' + timeout + ' ms 以内に完了しませんでした '
+                        + '(data-frame-engine-ready=' + String(root.dataset.frameEngineReady) + ')';
+                    const engineError = document.getElementById('frame-engine-error');
+                    const engineErrorText = engineError && engineError.textContent
+                        ? engineError.textContent.trim()
+                        : '';
+                    if (engineErrorText) cause += ' / engine エラー: ' + engineErrorText;
+                }
+                if (errors.length === 0 && rejections.length > 0) {
+                    cause += '（未処理の Promise 拒否: ' + rejections[0].message + '）';
+                }
+                document.documentElement.dataset.frameEngineBootFailure = cause;
+                const allDiagnostics = [
+                    ...errors.map(detail => ({ type: 'error', ...detail })),
+                    ...rejections.map(detail => ({ type: 'rejection', ...detail }))
+                ];
+                const diagnostics = {
+                    events: allDiagnostics.slice(0, 5),
+                    truncated: allDiagnostics.length > 5
+                };
+                let diagnosticsJson = JSON.stringify(diagnostics);
+                while (diagnosticsJson.length > 2000 && diagnostics.events.length > 0) {
+                    diagnostics.events.pop();
+                    diagnostics.truncated = true;
+                    diagnosticsJson = JSON.stringify(diagnostics);
+                }
+                document.documentElement.dataset.frameEngineBootErrors = diagnosticsJson.slice(0, 2000);
+                if (document.getElementById('frame-engine-boot-error')) return;
+                const previewMessage = document.getElementById('preview-message');
+                if (!previewMessage || !previewMessage.parentElement) return;
+                const card = document.createElement('div');
+                card.id = 'frame-engine-boot-error';
+                card.className = 'message-card';
+                card.setAttribute('role', 'alert');
+                card.dataset.frameEngineBootError = 'true';
+                const text = document.createElement('p');
+                text.id = 'frame-engine-boot-error-text';
+                text.textContent = 'プレビュー（frame engine）を初期化できませんでした。' + cause;
+                const button = document.createElement('button');
+                button.id = 'frame-engine-boot-fallback';
+                button.className = 'message-card-reload';
+                button.type = 'button';
+                button.textContent = '旧経路で開き直す';
+                button.addEventListener('click', () => {
+                    if (window.akari && typeof window.akari.requestFrameEngineFallback === 'function') {
+                        window.akari.requestFrameEngineFallback();
+                    }
+                });
+                card.append(text, button);
+                previewMessage.parentElement.append(card);
+            }, timeout);
+        })();`;
+    }
+
     protected frameEngineBootstrapScript(): string {
         return `(() => {
             const initial = window.__akariPreview || {};
@@ -6114,7 +6253,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const summaryCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
             const renderTracks = summaryCuts
                 .map(cut => cut.renderTrack)
-                .filter((value): value is number => Number.isInteger(value) && value >= 0);
+                .filter(value => Number.isInteger(value) && value >= 0);
             const baseRenderTrack = renderTracks.length > 0 ? Math.min(...renderTracks) : 0;
             const normalizedCuts = summaryCuts.map((cut, index) => {
                 const {
