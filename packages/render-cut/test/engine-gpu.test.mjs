@@ -15,12 +15,50 @@ import {
   parseArguments,
   renderProject,
   resolveEngineChoice,
+  runGpuWithRuntimeFallback,
   selectRenderEngineExecution,
 } from "../src/render-cut.mjs";
 
 test("render-cut parses explicit GPU engine", () => {
   assert.equal(parseArguments(["/project", "--engine", "gpu"]).engine, "gpu");
   assert.equal(parseArguments(["/project", "--engine=gpu"]).engine, "gpu");
+});
+
+test("auto retries an allowlisted GPU runtime failure from the start with OSR", async () => {
+  const calls = [];
+  const error = Object.assign(new Error("caption-measure-unstable"), {
+    reasonCode: "caption-measure-unstable",
+    gpuFailureRunPath: ".akari/gpu-run-failed.json",
+  });
+  const result = await runGpuWithRuntimeFallback({
+    engineRequested: "auto",
+    runGpu: async () => { calls.push("gpu"); throw error; },
+    runOsr: async () => { calls.push("osr"); return { receipt: { provenance: { engine: "osr" } } }; },
+  });
+  assert.deepEqual(calls, ["gpu", "osr"]);
+  assert.equal(result.engine, "osr");
+  assert.deepEqual(result.fallback, { from: "gpu", reason: "caption-measure-unstable" });
+  assert.equal(result.gpuFailureRunPath, ".akari/gpu-run-failed.json");
+});
+
+test("explicit GPU keeps allowlisted runtime failure fail-closed", async () => {
+  let osrCalls = 0;
+  await assert.rejects(runGpuWithRuntimeFallback({
+    engineRequested: "gpu",
+    runGpu: async () => { throw Object.assign(new Error("unstable"), { reasonCode: "caption-measure-unstable" }); },
+    runOsr: async () => { osrCalls += 1; },
+  }), /unstable/u);
+  assert.equal(osrCalls, 0);
+});
+
+test("auto does not fallback from message text without a structured reasonCode", async () => {
+  let osrCalls = 0;
+  await assert.rejects(runGpuWithRuntimeFallback({
+    engineRequested: "auto",
+    runGpu: async () => { throw new Error("caption-measure-unstable appeared only in text"); },
+    runOsr: async () => { osrCalls += 1; },
+  }), /appeared only in text/u);
+  assert.equal(osrCalls, 0);
 });
 
 test("auto selects GPU for eligible darwin and win32 projects", () => {

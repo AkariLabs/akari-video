@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 
-import { parseElectronArguments } from "../src/electron-main.mjs";
+import { extractCaptionMeasureDiffs, gpuRawFramePath, parseElectronArguments } from "../src/electron-main.mjs";
 import { buildGpuPage, loadAndBuildGpuPage } from "../src/page-builder.mjs";
 
 const edit = {
@@ -71,6 +71,25 @@ test("--edit 未指定の Electron 引数は null のままでも projectRoot/ed
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
+});
+
+test("GPU Electron parses dump frames and uses raw/frame-N.rgba", () => {
+  const parsed = parseElectronArguments([
+    "--render", "/project", "--out", "/tmp/export/video.mp4", "--duration", "1",
+    "--dump-frames", "29,0,12,12",
+  ]);
+  assert.deepEqual(parsed.dumpFrames, [0, 12, 29]);
+  assert.equal(gpuRawFramePath(parsed.out, 12), "/tmp/export/raw/frame-12.rgba");
+  assert.throws(() => parseElectronArguments([
+    "--render", "/project", "--out", "/tmp/export/video.mp4", "--duration", "1",
+    "--trap-readback", "--dump-frames", "0",
+  ]), /cannot be combined/u);
+});
+
+test("GPU Electron recovers structured caption differences from renderer errors", () => {
+  const summary = { totalCount: 1, shownCount: 1, truncated: false, entries: [{ field: "y", delta: 0.5 }] };
+  const error = new Error(`caption-measure-unstable AKARI_CAPTION_MEASURE_DIFFS:${encodeURIComponent(JSON.stringify(summary))}`);
+  assert.deepEqual(extractCaptionMeasureDiffs(error), summary);
 });
 
 test("GPU page manifest declares word mode, style, and emphasis from each cue", () => {

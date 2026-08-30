@@ -31,6 +31,7 @@ export function buildGpuElectronArguments(launcher, options) {
     ...(options.editPath ? ["--edit", options.editPath] : []),
     ...(options.trapReadback ? ["--trap-readback"] : []),
     ...(options.verifyFrames ? ["--verify-frames"] : []),
+    ...(options.dumpFrames?.length > 0 ? ["--dump-frames", options.dumpFrames.join(",")] : []),
     ...(options.captureFrames?.length > 0 ? ["--capture-frames", options.captureFrames.join(",")] : []),
     ...(options.captureOutputDirectory ? ["--capture-output-dir", options.captureOutputDirectory] : []),
   ];

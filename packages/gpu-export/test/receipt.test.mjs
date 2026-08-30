@@ -58,11 +58,16 @@ test("GPU receipt carries caption measurement and raster batch diagnostics", () 
   const receipt = buildGpuReceipt({
     run: { gpu: {
       captionMeasureAttempts: { count: 6, p50: 2, max: 4 },
+      captionMeasureDiffs: {
+        totalCount: 1, shownCount: 1, truncated: false,
+        entries: [{ cueId: "c-1", unitIndex: 0, variantIndex: 0, tokenIndex: 0, rectIndex: 0, role: "plain", field: "y", previous: 2, current: 2.5, delta: 0.5 }],
+      },
       captionRasterTotalMs: 1234.5,
       captionRasterBatches: { batches: 2, unitsPerBatchMax: 8, bandsMax: 16 },
     } },
   });
   assert.deepEqual(receipt.gpu.captionMeasureAttempts, { count: 6, p50: 2, max: 4 });
+  assert.equal(receipt.gpu.captionMeasureDiffs.entries[0].delta, 0.5);
   assert.equal(receipt.gpu.captionRasterTotalMs, 1234.5);
   assert.deepEqual(receipt.gpu.captionRasterBatches, { batches: 2, unitsPerBatchMax: 8, bandsMax: 16 });
   const empty = buildGpuReceipt({ run: { gpu: { captionMeasureAttempts: { count: 0, p50: null, max: null } } } });

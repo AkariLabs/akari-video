@@ -12,6 +12,9 @@
 
   const CAPTION_MEASURE_MAX_ATTEMPTS = 32;
   const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
+  const CAPTION_MEASURE_DIFF_LIMIT = 20;
+  const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";
+  const CAPTION_RECT_KEYS = ["x", "y", "width", "height", "right", "bottom"];
   const CAPTION_BATCH_MAX_UNITS = 8;
   const CAPTION_BATCH_MAX_HEIGHT_PX = 4096;
   const CAPTION_FONT_PLACEHOLDER = "/caption-font.ttf";
@@ -373,22 +376,132 @@
       && left.every((measurement, index) => FE.captionMeasurementsEqual(measurement, right[index]));
   }
 
-  function resolveStableMeasurement(sequence, maxAttempts, equal) {
-    const limit = Math.min(sequence.length, maxAttempts);
-    for (let index = 1; index < limit; index += 1) {
-      if (equal(sequence[index - 1], sequence[index])) {
-        return { measurement: sequence[index], attempts: index + 1 };
+  function captionMeasurementVariantsDiff(left, right, context = {}) {
+    const differences = [];
+    const add = (location, field, previous, current) => {
+      if (previous === current) return;
+      differences.push({
+        cueId: context.cueId ?? null,
+        unitIndex: context.unitIndex ?? null,
+        variantIndex: location.variantIndex ?? null,
+        tokenIndex: location.tokenIndex ?? null,
+        rectIndex: location.rectIndex ?? null,
+        role: location.role ?? "measurement",
+        field,
+        previous: serializableMeasurementValue(previous),
+        current: serializableMeasurementValue(current),
+        delta: typeof previous === "number" && typeof current === "number" ? current - previous : null,
+      });
+    };
+    const diffRect = (previous, current, location) => {
+      for (const key of CAPTION_RECT_KEYS) add(location, key, previous[key], current[key]);
+    };
+    const diffMeasurement = (previous, current, variantIndex) => {
+      const measurement = { variantIndex, role: "measurement" };
+      add(measurement, "tokens.length", previous.tokens.length, current.tokens.length);
+      add(measurement, "lines.length", previous.lines.length, current.lines.length);
+      for (const field of ["emPx", "wordCount", "reveal", "revealDelay", "revealDuration"]) {
+        add(measurement, field, previous[field], current[field]);
       }
+      if (previous.plate === null || previous.plate === undefined
+          || current.plate === null || current.plate === undefined) {
+        add({ variantIndex, role: "plate" }, "plate", previous.plate, current.plate);
+      } else {
+        diffRect(previous.plate, current.plate, { variantIndex, role: "plate" });
+      }
+      const lineCount = Math.min(previous.lines.length, current.lines.length);
+      for (let lineIndex = 0; lineIndex < lineCount; lineIndex += 1) {
+        diffRect(previous.lines[lineIndex], current.lines[lineIndex], {
+          variantIndex, role: "line", rectIndex: lineIndex,
+        });
+      }
+      const tokenCount = Math.min(previous.tokens.length, current.tokens.length);
+      for (let index = 0; index < tokenCount; index += 1) {
+        const before = previous.tokens[index];
+        const after = current.tokens[index];
+        const location = {
+          variantIndex,
+          tokenIndex: after.tokenIndex ?? before.tokenIndex ?? index,
+          rectIndex: after.rectIndex ?? before.rectIndex ?? null,
+          role: after.role ?? before.role ?? "token",
+        };
+        for (const field of ["tokenIndex", "rectIndex", "role", "style", "lineIndex"]) {
+          add(location, field, before[field], after[field]);
+        }
+        diffRect(before.rect, after.rect, location);
+        if (before.timing === null || after.timing === null) {
+          add(location, "timing", before.timing, after.timing);
+        } else {
+          for (const field of ["role", "delaySec", "durationSec", "emPx"]) {
+            add(location, `timing.${field}`, before.timing[field], after.timing[field]);
+          }
+        }
+      }
+    };
+    add({ role: "variants" }, "variants.length", left.length, right.length);
+    const variantCount = Math.min(left.length, right.length);
+    for (let variantIndex = 0; variantIndex < variantCount; variantIndex += 1) {
+      diffMeasurement(left[variantIndex], right[variantIndex], variantIndex);
+    }
+    return differences;
+  }
+
+  function serializableMeasurementValue(value) {
+    if (value === undefined) return "__undefined__";
+    if (typeof value === "number" && !Number.isFinite(value)) return String(value);
+    return value;
+  }
+
+  function summarizeCaptionMeasurementDiffs(differences, limit = CAPTION_MEASURE_DIFF_LIMIT) {
+    const sorted = [...differences].sort((left, right) => {
+      const leftMagnitude = typeof left.delta === "number" && Number.isFinite(left.delta)
+        ? Math.abs(left.delta) : Number.NEGATIVE_INFINITY;
+      const rightMagnitude = typeof right.delta === "number" && Number.isFinite(right.delta)
+        ? Math.abs(right.delta) : Number.NEGATIVE_INFINITY;
+      if (leftMagnitude !== rightMagnitude) return rightMagnitude - leftMagnitude;
+      return measurementDiffSortKey(left).localeCompare(measurementDiffSortKey(right));
+    });
+    const entries = sorted.slice(0, limit);
+    return {
+      totalCount: differences.length,
+      shownCount: entries.length,
+      truncated: differences.length > entries.length,
+      entries,
+    };
+  }
+
+  function measurementDiffSortKey(value) {
+    return [
+      value.cueId ?? "", value.unitIndex ?? -1, value.variantIndex ?? -1,
+      value.tokenIndex ?? -1, value.rectIndex ?? -1, value.role ?? "", value.field ?? "",
+      JSON.stringify(value.previous), JSON.stringify(value.current),
+    ].join("\u0000");
+  }
+
+  function resolveStableMeasurement(sequence, maxAttempts, diff) {
+    const limit = Math.min(sequence.length, maxAttempts);
+    const differences = [];
+    for (let index = 1; index < limit; index += 1) {
+      const attemptDifferences = diff(sequence[index - 1], sequence[index]);
+      if (attemptDifferences.length === 0) {
+        return { measurement: sequence[index], attempts: index + 1, differences };
+      }
+      differences.push(...attemptDifferences.map((entry) => ({
+        ...entry,
+        previousAttempt: index,
+        currentAttempt: index + 1,
+      })));
     }
     if (sequence.length >= maxAttempts) {
       const error = new Error(`caption word measurement is unstable after ${maxAttempts} attempts: ${CAPTION_MEASURE_UNSTABLE_REASON}`);
       error.code = CAPTION_MEASURE_UNSTABLE_REASON;
+      error.differences = differences;
       throw error;
     }
     return null;
   }
 
-  async function measureCaptionVariantsStable(value, config, html, cssVariants, unitIndex, attemptsLog) {
+  async function measureCaptionVariantsStable(value, config, html, cssVariants, unitIndex, attemptsLog, differencesLog) {
     const sequence = [];
     for (let attempt = 1; attempt <= CAPTION_MEASURE_MAX_ATTEMPTS; attempt += 1) {
       sequence.push(await measureCaptionVariants(value, config, html, cssVariants, unitIndex));
@@ -396,17 +509,31 @@
         const stable = resolveStableMeasurement(
           sequence,
           CAPTION_MEASURE_MAX_ATTEMPTS,
-          captionMeasurementVariantsEqual,
+          (previous, current) => {
+            const differences = captionMeasurementVariantsDiff(previous, current, {
+              cueId: value.id,
+              unitIndex,
+            });
+            if ((differences.length === 0) !== captionMeasurementVariantsEqual(previous, current)) {
+              throw new Error("caption measurement diff drifted from frame-engine strict equality");
+            }
+            return differences;
+          },
         );
         if (stable) {
           attemptsLog.push(stable.attempts);
+          differencesLog.push(...stable.differences);
           return stable.measurement;
         }
       } catch (error) {
+        if (error?.code !== CAPTION_MEASURE_UNSTABLE_REASON) throw error;
+        differencesLog.push(...(error.differences ?? []));
+        const summary = summarizeCaptionMeasurementDiffs(error.differences ?? []);
         const message = `caption ${value.id} word measurement is unstable after ${CAPTION_MEASURE_MAX_ATTEMPTS} attempts: ${CAPTION_MEASURE_UNSTABLE_REASON}`;
         warn(message);
-        error.message = message;
+        error.message = `${message} ${CAPTION_MEASURE_DIFF_MARKER}${encodeURIComponent(JSON.stringify(summary))}`;
         error.code = CAPTION_MEASURE_UNSTABLE_REASON;
+        error.captionMeasureDiffs = summary;
         throw error;
       }
     }
@@ -598,11 +725,16 @@
     unit.value = null;
   }
 
-  async function buildCaptionUnits(value, config, attemptsLog) {
+  async function buildCaptionUnits(value, config, attemptsLog, differencesLog) {
     const html = captionHtmlWithUnitMarkers(value.html);
     const settled = value.motion?.in?.duration_sec ?? value.motion?.in?.durationSec ?? 0.18;
     const settleCss = `*{animation-play-state:paused!important;animation-delay:-${Math.max(0, Number(settled) || 0)}s!important}`;
-    const probe = captionRoot(value, config, html, CAPTION_WORD_FREEZE_CSS);
+    // Measure in the exact state the raster is taken in. Without settleCss the plate keeps running
+    // its entrance animation (akari-caption-fade translates the plate by 0.18em), so every fresh
+    // measurement root samples the transform at a different point and the strict equality never
+    // converges. Freezing the animation removes the jitter at its source, not by widening tolerance.
+    const measureCss = `${CAPTION_WORD_FREEZE_CSS}${settleCss}`;
+    const probe = captionRoot(value, config, html, measureCss);
     let unitCount;
     try {
       await document.fonts.ready;
@@ -614,8 +746,8 @@
     let layoutMaxDeltaPx = 0;
     for (let unitIndex = 0; unitIndex < unitCount; unitIndex += 1) {
       const revealIndex = unitCount > 1 || html.includes("akari-caption__reveal-group") ? unitIndex : null;
-      const unitCss = `${CAPTION_WORD_FREEZE_CSS}${captionUnitCss(revealIndex)}`;
-      const [probeMeasurement] = await measureCaptionVariantsStable(value, config, html, [unitCss], unitIndex, attemptsLog);
+      const unitCss = `${measureCss}${captionUnitCss(revealIndex)}`;
+      const [probeMeasurement] = await measureCaptionVariantsStable(value, config, html, [unitCss], unitIndex, attemptsLog, differencesLog);
       const roles = new Set(probeMeasurement.tokens.map((token) => token.role));
       const hasColor = roles.has("karaoke");
       const hasGeometry = ["pop", "reveal-word", "emphasis-bang", "emphasis-pulse"].some((role) => roles.has(role));
@@ -633,9 +765,10 @@
           value,
           config,
           html,
-          [`${CAPTION_WORD_FREEZE_CSS}${baseCss}`, `${CAPTION_WORD_FREEZE_CSS}${highlightCss}`],
+          [`${measureCss}${baseCss}`, `${measureCss}${highlightCss}`],
           unitIndex,
           attemptsLog,
+          differencesLog,
         );
         // Keep the strict threshold: measuring variants in one root removes insertion jitter
         // instead of hiding a real layout mismatch by widening the tolerance.
@@ -651,9 +784,10 @@
           value,
           config,
           html,
-          [`${CAPTION_WORD_FREEZE_CSS}${plateCss}`, `${CAPTION_WORD_FREEZE_CSS}${textCss}`],
+          [`${measureCss}${plateCss}`, `${measureCss}${textCss}`],
           unitIndex,
           attemptsLog,
+          differencesLog,
         );
         layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(plateMeasurement, textMeasurement, id));
         unitMeasurement = plateMeasurement;
@@ -1093,9 +1227,12 @@
     const runtimeConfig = await bridge.config();
     const config = { ...pageConfig, ...runtimeConfig };
     const captureMode = Array.isArray(config.captureFrames);
+    const dumpFrameNumbers = new Set(config.dumpFrames ?? []);
     const frameSequence = captureMode ? [...config.captureFrames] : null;
     const sequenceLength = captureMode ? frameSequence.length : config.frames;
-    if (config.trapReadback && config.verifyFrames) throw new Error("trapReadback and verifyFrames are mutually exclusive");
+    if (config.trapReadback && (config.verifyFrames || dumpFrameNumbers.size > 0)) {
+      throw new Error("trapReadback and verification readback are mutually exclusive");
+    }
     if (captureMode && config.trapReadback) throw new Error("GPU capture cannot trap its required readback");
     const counters = {
       webglReadbackCalls: 0,
@@ -1115,6 +1252,7 @@
     const captionUnits = [];
     const captionRecords = [];
     const captionMeasureAttemptValues = [];
+    const captionMeasurementDifferences = [];
     let captionBatches = [];
     let captionRasterTotalMs = 0;
     const captionRasterBatchMetrics = { batches: 0, unitsPerBatchMax: 0, bandsMax: 0 };
@@ -1136,7 +1274,12 @@
         spriteCompositor.registerSprite(value.id, await rasterizeSprite(value, config));
       }
       for (const value of config.spriteManifest.captions) {
-        const built = await buildCaptionUnits(value, config, captionMeasureAttemptValues);
+        const built = await buildCaptionUnits(
+          value,
+          config,
+          captionMeasureAttemptValues,
+          captionMeasurementDifferences,
+        );
         captionLayoutMaxDeltaPx = Math.max(captionLayoutMaxDeltaPx, built.layoutMaxDeltaPx);
         let rasters = 0;
         let tiles = 0;
@@ -1185,7 +1328,7 @@
         }
       }
       let verifyModule = null;
-      if (config.verifyFrames || captureMode) {
+      if (config.verifyFrames || captureMode || dumpFrameNumbers.size > 0) {
         const moduleUrl = `data:text/javascript;charset=utf-8,${encodeURIComponent(config.verifyReadbackModule)}`;
         verifyModule = await import(moduleUrl);
         captureFrame = verifyModule.readbackCanvasFrame;
@@ -1342,6 +1485,12 @@
             captureOutputs.push(await bridge.writeCaptureFrame({ frameNumber, rgba }));
           }
           if (encoder) {
+            if (dumpFrameNumbers.has(frameNumber)) {
+              if (typeof captureFrame !== "function") throw new Error("GPU dump readback module is unavailable");
+              // readbackCanvasFrame converts WebGL's bottom-up rows to top-to-bottom RGBA8.
+              const rgba = await captureFrame(FE, frame, finalCanvas);
+              await bridge.writeDumpFrame({ frameNumber, rgba });
+            }
             const encodeStarted = performance.now();
             encoder.encode({ ...frame, surface: { ...frame.surface, canvas: finalCanvas } });
             stages.encode.push(performance.now() - encodeStarted);
@@ -1374,6 +1523,7 @@
               captions: captionRecords,
               captionLayoutMaxDeltaPx,
               captionMeasureAttempts: summarizeAttempts(captionMeasureAttemptValues),
+              captionMeasureDiffs: summarizeCaptionMeasurementDiffs(captionMeasurementDifferences),
               captionRasterTotalMs,
               captionRasterBatches: captionRasterBatchMetrics,
             },
@@ -1416,6 +1566,7 @@
           captions: captionRecords,
           captionLayoutMaxDeltaPx,
           captionMeasureAttempts: summarizeAttempts(captionMeasureAttemptValues),
+          captionMeasureDiffs: summarizeCaptionMeasurementDiffs(captionMeasurementDifferences),
           captionRasterTotalMs,
           captionRasterBatches: captionRasterBatchMetrics,
         },

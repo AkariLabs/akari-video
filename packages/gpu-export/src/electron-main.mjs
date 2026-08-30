@@ -17,6 +17,7 @@ import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
 const { app, BrowserWindow, ipcMain } = electron;
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const VERIFY_READBACK_PATH = join(SOURCE_DIRECTORY, "verify-readback.js");
+const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";
 const DOM_LAYER_SWITCHES = Object.freeze([
   ["enable-features", "CanvasDrawElement"],
   ["disable-gpu-vsync", null],
@@ -39,6 +40,7 @@ export async function runGpuExport(options) {
     soft = false,
     trapReadback = false,
     verifyFrames = false,
+    dumpFrames = [],
     captureFrames = null,
     captureOutputDirectory = null,
     processTimeoutMs = Math.max(300_000, frames * 1_000),
@@ -49,10 +51,13 @@ export async function runGpuExport(options) {
     throw new Error("GPU duration and frame count must be positive");
   }
   const requestedCaptureFrames = captureMode ? normalizeCaptureFrames(captureFrames, frames) : null;
+  const requestedDumpFrames = normalizeOptionalFrameList(dumpFrames, frames, "GPU dump");
   if (captureMode && !captureOutputDirectory) {
     throw new Error("GPU capture requires captureOutputDirectory");
   }
-  if (trapReadback && verifyFrames) throw new Error("--trap-readback and --verify-frames are mutually exclusive");
+  if (trapReadback && (verifyFrames || requestedDumpFrames.length > 0)) {
+    throw new Error("--trap-readback cannot be combined with --verify-frames or --dump-frames");
+  }
   const encoding = resolveGpuEncoding({ quality, bitrate });
   if (soft && !app.isReady()) app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("force-color-profile", "srgb");
@@ -107,9 +112,12 @@ export async function runGpuExport(options) {
     soft,
     trapReadback,
     verifyFrames,
+    dumpFrames: requestedDumpFrames,
     captureFrames: requestedCaptureFrames,
     domLayerFlags,
-    ...(verifyFrames || captureMode ? { verifyReadbackModule: await readFile(VERIFY_READBACK_PATH, "utf8") } : {}),
+    ...(verifyFrames || captureMode || requestedDumpFrames.length > 0
+      ? { verifyReadbackModule: await readFile(VERIFY_READBACK_PATH, "utf8") }
+      : {}),
   };
   let windowRef = null;
   let chunkState = null;
@@ -117,6 +125,7 @@ export async function runGpuExport(options) {
   const channels = [
     "gpu:config", "gpu:log", "gpu:checkpoint", "gpu:chunks-start", "gpu:chunk", "gpu:chunks-finish",
     "gpu:capture-frame",
+    "gpu:dump-frame",
   ];
 
   const register = (channel, handler) => ipcMain.handle(channel, handler);
@@ -194,6 +203,18 @@ export async function runGpuExport(options) {
     await writeFile(outputPath, encodeRgbaPng(rgba, width, height));
     return { frameNumber, path: outputPath, bytes: rgba.length };
   });
+  register("gpu:dump-frame", async (_event, value) => {
+    const frameNumber = Number(value?.frameNumber);
+    if (!requestedDumpFrames.includes(frameNumber)) {
+      throw new Error(`unexpected GPU dump frame: ${value?.frameNumber}`);
+    }
+    const rgba = Buffer.from(value.rgba);
+    const outputPath = gpuRawFramePath(out, frameNumber);
+    await mkdir(dirname(outputPath), { recursive: true });
+    // Raw bytes are top-to-bottom rows, with RGBA channel order and 8 bits per channel.
+    await writeFile(outputPath, rgba);
+    return { frameNumber, path: outputPath, bytes: rgba.length };
+  });
 
   try {
     windowRef = new BrowserWindow({
@@ -244,6 +265,7 @@ export async function runGpuExport(options) {
     return run;
   } catch (error) {
     const reasonCode = gpuFailureReasonCode(error);
+    const captionMeasureDiffs = extractCaptionMeasureDiffs(error);
     const failed = {
       version: 1,
       status: "failed",
@@ -255,6 +277,7 @@ export async function runGpuExport(options) {
         chromium: process.versions.chrome,
         renderer: null,
         encoder_support: null,
+        ...(captionMeasureDiffs ? { captionMeasureDiffs } : {}),
       },
       memory: memorySampler.stop("failed"),
       eligibility: built.eligibility,
@@ -273,6 +296,22 @@ export function gpuFailureReasonCode(error) {
   return message.includes(CAPTION_MEASURE_UNSTABLE_REASON) ? CAPTION_MEASURE_UNSTABLE_REASON : null;
 }
 
+export function extractCaptionMeasureDiffs(error) {
+  if (error?.captionMeasureDiffs && typeof error.captionMeasureDiffs === "object") {
+    return error.captionMeasureDiffs;
+  }
+  const message = String(error?.stack ?? error);
+  const start = message.indexOf(CAPTION_MEASURE_DIFF_MARKER);
+  if (start < 0) return null;
+  const encoded = message.slice(start + CAPTION_MEASURE_DIFF_MARKER.length).split(/\s/u, 1)[0];
+  try { return JSON.parse(decodeURIComponent(encoded)); }
+  catch { return null; }
+}
+
+export function gpuRawFramePath(out, frameNumber) {
+  return join(dirname(out), "raw", `frame-${frameNumber}.rgba`);
+}
+
 export function parseElectronArguments(argv) {
   const options = {
     projectRoot: null,
@@ -289,6 +328,7 @@ export function parseElectronArguments(argv) {
     soft: false,
     trapReadback: false,
     verifyFrames: false,
+    dumpFrames: [],
     captureFrames: null,
     captureOutputDirectory: null,
   };
@@ -308,13 +348,16 @@ export function parseElectronArguments(argv) {
     else if (argument === "--soft") options.soft = true;
     else if (argument === "--trap-readback") options.trapReadback = true;
     else if (argument === "--verify-frames") options.verifyFrames = true;
+    else if (argument === "--dump-frames") options.dumpFrames = parseFrameList(required(argv, ++index, "--dump-frames"), "--dump-frames");
     else if (argument === "--capture-frames") options.captureFrames = parseFrameList(required(argv, ++index, "--capture-frames"));
     else if (argument === "--capture-output-dir") options.captureOutputDirectory = required(argv, ++index, "--capture-output-dir");
   }
   if (!options.projectRoot || !options.out) throw new Error("--render and --out are required");
   if (options.duration === null && options.frames !== null) options.duration = options.frames / options.fps;
   if (options.frames === null && options.duration !== null) options.frames = Math.round(options.duration * options.fps);
-  if (options.trapReadback && options.verifyFrames) throw new Error("--trap-readback and --verify-frames are mutually exclusive");
+  if (options.trapReadback && (options.verifyFrames || options.dumpFrames.length > 0)) {
+    throw new Error("--trap-readback cannot be combined with --verify-frames or --dump-frames");
+  }
   if (options.captureFrames !== null && (options.captureFrames.length === 0 || !options.captureOutputDirectory)) {
     throw new Error("--capture-frames requires at least one frame and --capture-output-dir");
   }
@@ -363,12 +406,22 @@ function positiveInteger(value, label) {
   return number;
 }
 
-function parseFrameList(value) {
+function parseFrameList(value, label = "--capture-frames") {
   if (value === "") return [];
   return [...new Set(value.split(",").map((entry) => {
     const frame = Number(entry);
     if (!Number.isInteger(frame) || frame < 0) {
-      throw new Error(`--capture-frames requires non-negative integers, got: ${entry}`);
+      throw new Error(`${label} requires non-negative integers, got: ${entry}`);
+    }
+    return frame;
+  }))].sort((left, right) => left - right);
+}
+
+function normalizeOptionalFrameList(frameNumbers, totalFrames, label) {
+  if (!Array.isArray(frameNumbers) || frameNumbers.length === 0) return [];
+  return [...new Set(frameNumbers.map((frame) => {
+    if (!Number.isInteger(frame) || frame < 0 || frame >= totalFrames) {
+      throw new Error(`${label} frame ${frame} is outside 0..${totalFrames - 1}`);
     }
     return frame;
   }))].sort((left, right) => left - right);

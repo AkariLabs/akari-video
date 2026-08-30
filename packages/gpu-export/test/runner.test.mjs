@@ -21,6 +21,14 @@ test("tier 2 uses the GPU main and product flags", () => {
   assert.ok(args.includes("--soft"));
 });
 
+test("runner forwards sorted dump frame numbers", () => {
+  const args = buildGpuElectronArguments({ tier: 2 }, {
+    projectRoot: "/project", out: "/out.mp4", fps: 30, width: 320, height: 180,
+    duration: 1, frames: 30, bitrate: 1234, dumpFrames: [0, 12, 29],
+  });
+  assert.equal(args[args.indexOf("--dump-frames") + 1], "0,12,29");
+});
+
 test("runner resolves quality bitrate and keeps master fail-closed", () => {
   const args = buildGpuElectronArguments({ tier: 2 }, {
     projectRoot: "/project", out: "/out.mp4", fps: 30, width: 320, height: 180,
