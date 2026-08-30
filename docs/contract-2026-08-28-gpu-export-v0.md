@@ -272,10 +272,35 @@ OSR より遅く、同じ題材から字幕を外した実測は GPU 19.2 ms/コ
 +23.4 ms/コマから +1.65 ms/コマへ縮小した。毎コマの字幕描画費用という限界は解消し、実素材
 `akari-video-pv`（5,999 コマ）では GPU / OSR 7.2〜8.2 倍へ到達した。
 
-残る字幕差は毎コマの合成費用ではなく、cue 採寸と SVG ラスタの起動費用である。実素材 PV の字幕ありは
+（2026-08-29 #120f 時点の記述）残る字幕差は毎コマの合成費用ではなく、cue 採寸と SVG ラスタの起動費用である。実素材 PV の字幕ありは
 150.7 秒（25.1 ms/コマ）、字幕なし対照は 88.0 秒（14.7 ms/コマ）で 1.71 倍だった。30 cue の
 `akari-project/dynamic` では字幕ラスタが約 47 秒から 9.95 秒へ短縮したが、30 秒級の短い題材では
 起動費用の比率が大きく、GPU / OSR は 1.07〜1.14 倍にとどまる。
+
+2026-08-30 の #120h では、実素材 `akari-video-pv`（5,999 コマ・44 cue・88 band / 6 batch）の
+receipt `gpu.captionStartup` をラッパーが 5 走実測した。#120f 時点で約 63 秒だった字幕の起動費用
+（SVG ラスタ 20.5〜21.3 秒 + cue 採寸 88 variant）は、`captionStartup.totalMs` 2.75〜5.01 秒と
+`captionRasterTotalMs` 5.90〜7.34 秒、合計 **8.7〜12.3 秒**になった。代表する 1 走の内訳は、
+フォントの base64 符号化 0.66 秒（符号化後 13.6 MB・走に 1 回だけ）、cue 採寸 1.54 秒
+（88 stable call / 176 pass / 264 variant・うちフォント待ち 0.75 秒・レイアウト 0.073 秒）、
+SVG ラスタ 5.90 秒（SVG 組み立て 0.046 秒、data URL 割り当て 0.52 秒、decode 2.80 秒、
+中間 sheet への描画 1.72 秒、band の blit 0.11 秒、テクスチャ登録 0.004 秒）である。
+
+frame loop 中の `stages.captionRasterBatch` は **0 回**で、6 バッチすべてが書き出し開始前に焼き終わる。
+frame loop の `stages.captions` は p50 0 ms / p95 0.1 ms である。採寸の使い回しは cue の内容
+（出力寸法・CSS 変数・cue の HTML・unit index・CSS 変種列）が完全に一致したときだけ効く。PV の
+44 cue は本文がすべて異なるため `reusedStableCalls` は 0 で、88 stable call は 88 distinct key の
+ままである。同じ本文を共有する 3 cue の fixture では、6 stable call のうち 4 が使い回され、
+distinct key は 2 へ落ちる。採寸が 32 回で収束しない unit は、その unit だけ sprite へ降格し、
+receipt の `gpu.captions[].mode = "sprite"` と warning に出して書き出しは完走する（fail-closed にしない）。
+
+速度の絶対値は 2026-08-30 の測定では取れていない。1 分 load < 20 の静かな窓を 40 分 × 3 回待っても
+来ず、観測した最小 load は 52 だった。PV は load 77〜421 の下で 250.6〜687.4 秒、同じ高負荷下の
+字幕なし対照は 220.4〜785.4 秒で、字幕ありとの差は走ごとの 3 倍以上の load 変動に埋もれ、対照より
+速い走もあった。したがって、静かな窓での「PV ≤ 110 秒」「dynamic ≥ 2×（OSR 比）」は未検証である。
+参考値として、高負荷下の `akari-project/dynamic` は GPU 71.1〜80.7 秒 / OSR 93.6〜97.8 秒
+（1.2〜1.3 倍）で、#120f 時点の 1.07〜1.14 倍からは改善している。RSS の上限は 531〜914 MB
+（1 GB 以内）、`--trap-readback` の読み戻しは 0 だった。
 
 ## 10. v3 — 宣言型 3D の登場曲線
 

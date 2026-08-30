@@ -22,16 +22,28 @@ words remain outside v1.
 ### Word-level captions (v2)
 
 Karaoke, pop, reveal, reveal-word, and supported `emphasis_words` are GPU-native. Each caption unit
-is rasterized on first activation into at most two states, while word rectangles measured from the canonical
+is rasterized into at most two states, while word rectangles measured from the canonical
 caption DOM drive per-frame color mixing, visibility, and affine transforms. Karaoke follows the DOM
 color interpolation rather than a left-to-right wipe. Receipts report `sprite` or `words-native`
-along with unit, word, raster, tile, and two-state layout-delta measurements.
+along with unit, word, raster, tile, and two-state layout-delta measurements. They also include
+`gpu.captionStartup`, with `totalMs`, `fontEncodeMs`, `fontBase64Bytes`, and detailed `measure.*` and
+`raster.*` startup timings and counts.
 
 Raster textures keep the full output width but crop vertically to the caption band. They are created
-in start-time-ordered batches of up to eight units / 4096 band pixels with one data-URL decode per
-batch; variant CSS is scoped per band and the embedded font occurs once per SVG. Measurements require
-two consecutive exact results (at most 32 attempts), while GPU textures are still released per unit.
-Blob and HTTP SVG URLs are forbidden because they taint the canvas and WebGL upload.
+in start-time-ordered batches of up to eight units / 4096 band pixels. Batches are prefetched before
+export starts, with one data-URL decode into an intermediate sheet canvas followed by band blits;
+only batches beyond the 256 MB `CAPTION_PREFETCH_MAX_BYTES` budget remain for deferred rasterization
+inside the frame loop. Variant CSS is scoped per band and the embedded font occurs once per SVG.
+GPU textures are still released per unit. Blob and HTTP SVG URLs are forbidden because they taint
+the canvas and WebGL upload.
+
+Stable measurements are reused only for an exact normalized content key: output width and height,
+the cue CSS variables, cue HTML, unit index, and the ordered CSS variants. Results from
+`document.fonts.check` are cached. The measurement path applies the same settle CSS as rasterization,
+scoped to `.akari-measure-root`, so measurements no longer depend on wall-clock animation progress.
+Measurements require two consecutive exact results in at most 32 attempts. If one unit does not
+converge, only that unit degrades to a sprite; export completes with `gpu.captions[].mode = "sprite"`
+and a receipt warning rather than failing closed.
 
 Mixed karaoke color and geometric emphasis, vertical word captions, and unknown word styles remain
 ineligible and fail closed with a concrete reason.
@@ -68,10 +80,13 @@ draw-call count does not grow with the number of captions, DOM layers, or 3D spr
 simultaneous caption cues, incremental GPU time over no captions fell to +1.65 ms/frame: total draw GPU
 time was 3.12 ms/frame versus 1.47 ms/frame without captions.
 
-On the 5,999-frame real PV, GPU export was 7.2–8.2 times faster than OSR, peaked at 711–853 MB RSS,
-and completed with all six readback counters at zero. The remaining caption cost is startup work for
-cue measurement and SVG rasterization, not per-frame composition; caption rasterization for 30 cues
-took 9.95 seconds.
+On the 5,999-frame real PV (44 cues, 88 bands, six batches), five #120h runs measured caption startup
+at 8.7–12.3 seconds total: `captionStartup.totalMs` was 2.75–5.01 seconds and
+`captionRasterTotalMs` was 5.90–7.34 seconds. All six batches completed before export, so the frame
+loop recorded zero `captionRasterBatch` stages and `stages.captions` was p50 0 ms / p95 0.1 ms.
+Absolute export speed under a quiet load remains unverified: the 2026-08-30 runs never observed the
+required one-minute load below 20. Under high load, the dynamic fixture measured GPU 71.1–80.7 seconds
+versus OSR 93.6–97.8 seconds (1.2–1.3 times), RSS stayed within 531–914 MB, and trapped readbacks were zero.
 
 ## Windows setup
 

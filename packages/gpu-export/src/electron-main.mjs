@@ -109,6 +109,9 @@ export async function runGpuExport(options) {
     verifyFrames,
     captureFrames: requestedCaptureFrames,
     domLayerFlags,
+    ...(process.env.AKARI_GPU_CAPTION_MEASURE_FAULT
+      ? { captionMeasureFault: process.env.AKARI_GPU_CAPTION_MEASURE_FAULT }
+      : {}),
     ...(verifyFrames || captureMode ? { verifyReadbackModule: await readFile(VERIFY_READBACK_PATH, "utf8") } : {}),
   };
   let windowRef = null;
