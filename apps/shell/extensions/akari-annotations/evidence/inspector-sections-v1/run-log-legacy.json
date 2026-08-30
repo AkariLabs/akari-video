@@ -1,14 +1,14 @@
 {
   "status": "FAIL",
   "finishedAt": "2026-08-30T06:42:16.050Z",
-  "error": "Error: assertion failed: legacy scale display persisted as internal display/100 :: {\"nextDisplay\":107,\"expectedScale\":1.07,\"actualScale\":null}\n    at assert (file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-sections-v1-followups/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:38:11)\n    at runLegacyCase (file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-sections-v1-followups/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:398:3)\n    at async main_ (file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-sections-v1-followups/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:425:5)",
+  "error": "Error: assertion failed: legacy scale display persisted as internal display/100 :: {\"nextDisplay\":107,\"expectedScale\":1.07,\"actualScale\":null}\n    at assert (file://<repo>/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:38:11)\n    at runLegacyCase (file://<repo>/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:398:3)\n    at async main_ (file://<repo>/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:425:5)",
   "records": [
     {
       "t": "2026-08-30T06:41:53.570Z",
       "step": "assertion-ok",
       "message": "found electron page target",
       "targets": [
-        "file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-sections-v1-followups/apps/shell/lib/frontend/index.html?port=60583#/private/tmp/akari-inspector-l1-legacy-workspace.XAL2ZK/project"
+        "file://<repo>/apps/shell/lib/frontend/index.html?port=60583#<tmp>/akari-inspector-l1-legacy-workspace.XAL2ZK/project"
       ]
     },
     {
