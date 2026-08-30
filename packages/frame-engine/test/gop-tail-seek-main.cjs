@@ -6,7 +6,7 @@ const { resolve } = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const generated = resolve(__dirname, 'golden/.generated');
-const results = resolve(generated, 'gop-tail-seek-results.json');
+const results = resolve(generated, process.env.AKARI_SEEK_RESULTS_NAME ?? 'gop-tail-seek-results.json');
 const bFrameFixtures = new Set([
   'bframe-bf0-30.mp4',
   'bframe-bf1-30.mp4',
