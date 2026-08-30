@@ -26,7 +26,9 @@ test('layer compositor keeps the no-FBO base path and guards projective w', () =
   assert.doesNotMatch(directPath, /this\.bind\(0, this\.baseTextures\[0\]!\)/u);
   assert.match(source, /homogeneous\.z <= 0\.000001/u);
   assert.match(source, /mix\(dst\.rgb, blend\(dst\.rgb, src\.rgb\), alpha\)/u);
-  assert.match(source, /texture\(maskY, sourceUv\)\.r/u);
+  assert.match(source, /texture\(maskY, matteUv\)\.r/u);
+  assert.match(source, /vec2 colorUv = unrotate\(sourceUv, layerRotation\)/u);
+  assert.match(source, /vec2 matteUv = unrotate\(sourceUv, maskRotation\)/u);
   assert.match(source, /src\.a \* maskA \* opacity/u);
   assert.match(source, /\['maskY', 5\]/u);
   assert.match(source, /const FBO_SCRATCH_UNIT = 9/u);
@@ -133,8 +135,8 @@ test('GPU timing uses timer queries and dispose does not lose the canvas context
 
 test('direct upload has RGBA shader branches and a sticky copyTo fallback', () => {
   assert.match(source, /format0 == 2[\s\S]+texture\(rgba0, q\)/u);
-  assert.match(source, /yuvFormat == 2[\s\S]+texture\(lrgba, sourceUv\)/u);
-  assert.match(source, /maskFormat == 2[\s\S]+texture\(maskRgba, sourceUv\)\.r/u);
+  assert.match(source, /yuvFormat == 2[\s\S]+texture\(lrgba, colorUv\)/u);
+  assert.match(source, /maskFormat == 2[\s\S]+texture\(maskRgba, matteUv\)\.r/u);
   assert.match(source, /UNPACK_ALIGNMENT, 1/u);
   assert.match(source, /UNPACK_FLIP_Y_WEBGL, 0/u);
   assert.match(source, /UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0/u);

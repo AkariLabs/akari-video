@@ -13709,6 +13709,8 @@ uniform float opacity1;
 uniform vec2 outputSize;
 uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
+uniform int rotation0;
+uniform int rotation1;
 uniform float transitionProgress;
 ${type === "dissolve" ? "uniform sampler2D dissolveNoise;" : ""}
 ${YUV_GLSL}
@@ -13726,11 +13728,18 @@ vec2 canvasToSource(vec2 canvasPoint, vec2 sourceSize) {
   vec2 offset = (outputSize - fitted) * 0.5;
   return (canvasPoint * outputSize - offset) / fitted;
 }
+vec2 unrotate(vec2 q, int rotation) {
+  if (rotation == 0) return q;
+  if (rotation == 1) return vec2(1.0 - q.y, q.x);
+  if (rotation == 2) return vec2(1.0 - q.x, 1.0 - q.y);
+  return vec2(q.y, 1.0 - q.x);
+}
 vec4 sample0(vec2 p) {
   vec2 canvasPoint = inverseVisual(p, transform0, framing0);
   if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
   vec2 q = canvasToSource(canvasPoint, sourceSize0);
   if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  q = unrotate(q, rotation0);
   if (format0 == 2) return vec4(texture(rgba0, q).rgb, opacity0);
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
   return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
@@ -13740,6 +13749,7 @@ vec4 sample1(vec2 p) {
   if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
   vec2 q = canvasToSource(canvasPoint, sourceSize1);
   if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  q = unrotate(q, rotation1);
   if (format1 == 2) return vec4(texture(rgba1, q).rgb, opacity1);
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
   return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
@@ -13927,12 +13937,20 @@ uniform int inputKind;
 uniform int yuvFormat;
 uniform int hasMask;
 uniform int maskFormat;
+uniform int layerRotation;
+uniform int maskRotation;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
 uniform float opacity;
 uniform int blendMode;
 ${YUV_GLSL}
+vec2 unrotate(vec2 q, int rotation) {
+  if (rotation == 0) return q;
+  if (rotation == 1) return vec2(1.0 - q.y, q.x);
+  if (rotation == 2) return vec2(1.0 - q.x, 1.0 - q.y);
+  return vec2(q.y, 1.0 - q.x);
+}
 vec3 blend(vec3 dst, vec3 src) {
   if (blendMode == 1) return 1.0 - (1.0 - dst) * (1.0 - src);
   if (blendMode == 2) return dst * src;
@@ -13966,19 +13984,21 @@ void main() {
     return;
   }
   vec2 sourceUv = cropRect.xy + local * cropRect.zw;
+  vec2 colorUv = unrotate(sourceUv, layerRotation);
+  vec2 matteUv = unrotate(sourceUv, maskRotation);
   vec4 src;
   if (inputKind == 1) {
-    src = texture(image, sourceUv);
+    src = texture(image, colorUv);
   } else if (yuvFormat == 2) {
-    src = vec4(texture(lrgba, sourceUv).rgb, 1.0);
+    src = vec4(texture(lrgba, colorUv).rgb, 1.0);
   } else {
     vec2 chroma = yuvFormat == 1
-      ? texture(lu, sourceUv).rg
-      : vec2(texture(lu, sourceUv).r, texture(lv, sourceUv).r);
-    src = vec4(yuv709(texture(ly, sourceUv).r, chroma), 1.0);
+      ? texture(lu, colorUv).rg
+      : vec2(texture(lu, colorUv).r, texture(lv, colorUv).r);
+    src = vec4(yuv709(texture(ly, colorUv).r, chroma), 1.0);
   }
   float maskA = hasMask == 1
-    ? (maskFormat == 2 ? texture(maskRgba, sourceUv).r : texture(maskY, sourceUv).r)
+    ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
   float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
   color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
@@ -14076,6 +14096,14 @@ void main() {
       inv[5],
       inv[8]
     ]);
+  }
+  function rotationQuarterTurns(frame) {
+    const value = Number(frame.rotationDeg ?? 0);
+    if (!Number.isFinite(value)) return 0;
+    return (Math.round(value / 90) % 4 + 4) % 4;
+  }
+  function logicalSize(width, height, rotation) {
+    return rotation === 1 || rotation === 3 ? { width: height, height: width } : { width, height };
   }
   var WebGL2Compositor = class {
     constructor(canvas = document.createElement("canvas"), options = {}) {
@@ -14229,7 +14257,8 @@ void main() {
         transform: gl.getUniformLocation(program, `transform${index}`),
         opacity: gl.getUniformLocation(program, `opacity${index}`),
         format: gl.getUniformLocation(program, `format${index}`),
-        sourceSize: gl.getUniformLocation(program, `sourceSize${index}`)
+        sourceSize: gl.getUniformLocation(program, `sourceSize${index}`),
+        rotation: gl.getUniformLocation(program, `rotation${index}`)
       }));
       const state = {
         program,
@@ -14323,6 +14352,8 @@ void main() {
         this.failDirectUpload(`unsupported VideoFrame format: ${String(frame.format)}`);
       const width = frame.displayWidth;
       const height = frame.displayHeight;
+      const rotation = rotationQuarterTurns(frame);
+      const logical = logicalSize(width, height, rotation);
       if (width <= 0 || height <= 0)
         this.failDirectUpload(`invalid display size ${width}x${height}`);
       const gl = this.gl;
@@ -14370,9 +14401,10 @@ void main() {
       }
       if (uniforms) {
         gl.uniform1i(uniforms.format, 2);
-        gl.uniform2f(uniforms.sourceSize, width, height);
+        gl.uniform2f(uniforms.sourceSize, logical.width, logical.height);
+        gl.uniform1i(uniforms.rotation, rotation);
       }
-      return { width, height };
+      return logical;
     }
     upload(texture, shapeIndex, data, w, h, channels = 1) {
       this.bind(shapeIndex, texture);
@@ -14407,6 +14439,8 @@ void main() {
       }
     }
     uploadYuv(frame, textures, unitBase, shapeBase, uniforms) {
+      const rotation = rotationQuarterTurns(frame);
+      const logical = logicalSize(frame.width, frame.height, rotation);
       const cw = Math.ceil(frame.width / 2), ch = Math.ceil(frame.height / 2);
       this.upload(textures[0], shapeBase, frame.y, frame.width, frame.height);
       if (frame.format === "NV12") {
@@ -14418,9 +14452,12 @@ void main() {
         this.upload(textures[2], shapeBase + 2, frame.v, cw, ch);
         if (uniforms) this.gl.uniform1i(uniforms.format, 0);
       }
-      if (uniforms)
-        this.gl.uniform2f(uniforms.sourceSize, frame.width, frame.height);
+      if (uniforms) {
+        this.gl.uniform2f(uniforms.sourceSize, logical.width, logical.height);
+        this.gl.uniform1i(uniforms.rotation, rotation);
+      }
       for (let i2 = 0; i2 < 3; i2++) this.bind(unitBase + i2, textures[i2]);
+      return logical;
     }
     setCut(u2, v2) {
       this.gl.uniform4f(
@@ -14528,13 +14565,16 @@ void main() {
       if (frames.length === 1 && !baseProgram.secondary) {
         const frame = frames[0];
         if (isVideoFrame(frame)) {
+          const rotation = rotationQuarterTurns(frame);
+          const logical = logicalSize(frame.displayWidth, frame.displayHeight, rotation);
           this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[0]);
           this.gl.uniform1i(baseProgram.cutUniforms[1].format, 2);
           this.gl.uniform2f(
             baseProgram.cutUniforms[1].sourceSize,
-            frame.displayWidth,
-            frame.displayHeight
+            logical.width,
+            logical.height
           );
+          this.gl.uniform1i(baseProgram.cutUniforms[1].rotation, rotation);
         } else {
           this.uploadYuv(
             frame,
@@ -14647,6 +14687,8 @@ void main() {
       const formatLoc = uniform(gl, this.layerProgram, "yuvFormat");
       const hasMaskLoc = uniform(gl, this.layerProgram, "hasMask");
       const maskFormatLoc = uniform(gl, this.layerProgram, "maskFormat");
+      const layerRotationLoc = uniform(gl, this.layerProgram, "layerRotation");
+      const maskRotationLoc = uniform(gl, this.layerProgram, "maskRotation");
       const blendLoc = uniform(gl, this.layerProgram, "blendMode");
       const blendModes = [
         "normal",
@@ -14677,6 +14719,7 @@ void main() {
           height = color.height;
           this.bind(4, this.stillTexture(color));
           gl.uniform1i(kindLoc, 1);
+          gl.uniform1i(layerRotationLoc, 0);
         } else if (isVideoFrame(color)) {
           const size = this.uploadVideoFrameTexture(
             this.layerRgbaTextures[0],
@@ -14687,12 +14730,14 @@ void main() {
           height = size.height;
           gl.uniform1i(kindLoc, 0);
           gl.uniform1i(formatLoc, 2);
+          gl.uniform1i(layerRotationLoc, rotationQuarterTurns(color));
         } else {
-          width = color.width;
-          height = color.height;
-          this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
+          const size = this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
+          width = size.width;
+          height = size.height;
           gl.uniform1i(kindLoc, 0);
           gl.uniform1i(formatLoc, color.format === "NV12" ? 1 : 0);
+          gl.uniform1i(layerRotationLoc, rotationQuarterTurns(color));
         }
         if (input.mask) {
           if (isVideoFrame(input.mask)) {
@@ -14702,6 +14747,7 @@ void main() {
               input.mask
             );
             gl.uniform1i(maskFormatLoc, 2);
+            gl.uniform1i(maskRotationLoc, rotationQuarterTurns(input.mask));
           } else {
             this.upload(
               this.layerTextures[3],
@@ -14712,11 +14758,13 @@ void main() {
             );
             this.bind(5, this.layerTextures[3]);
             gl.uniform1i(maskFormatLoc, input.mask.format === "NV12" ? 1 : 0);
+            gl.uniform1i(maskRotationLoc, rotationQuarterTurns(input.mask));
           }
           gl.uniform1i(hasMaskLoc, 1);
         } else {
           gl.uniform1i(hasMaskLoc, 0);
           gl.uniform1i(maskFormatLoc, 0);
+          gl.uniform1i(maskRotationLoc, 0);
         }
         uploadElapsedMs += performance.now() - uploadStarted;
         gl.uniform2f(outLoc, output.width, output.height);
@@ -14875,6 +14923,7 @@ void main() {
         if (frame.format !== "NV12" && frame.format !== "I420") return frame;
         const started = performance.now();
         const copied = await copyNativeYuvFrame(frame, context.metrics);
+        copied.rotationDeg = frame.rotationDeg;
         context.metrics.record("copy", performance.now() - started);
         return copied;
       };
@@ -16511,16 +16560,16 @@ void main() {
           );
           this.#m = l2, this.#u = h;
           const { codedWidth: u2, codedHeight: d2 } = r.video ?? {};
-          return u2 && d2 && (this.#o = Vt(
+          return u2 && d2 && !this.#h.__unsafe_skipRotation__ && (this.#o = Vt(
             u2,
             d2,
             c.rotationDeg
-          )), this.#s = Lt(
+          )), this.#s = Object.assign(Lt(
             r,
             n2,
             a,
             c.rotationDeg
-          ), this.#n.info("MP4Clip meta:", this.#s), { ...this.#s };
+          ), { rotationDeg: c.rotationDeg }), this.#n.info("MP4Clip meta:", this.#s), { ...this.#s };
         }
       );
     }
@@ -17382,6 +17431,9 @@ void main() {
     const value = new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigUint64(0);
     return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : null;
   }
+  function int32(bytes, offset) {
+    return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getInt32(0);
+  }
   function typeAt(bytes, offset) {
     return String.fromCharCode(...bytes.subarray(offset, offset + 4));
   }
@@ -17466,9 +17518,20 @@ void main() {
       if (!config) return null;
       const payload = bytes.subarray(config.dataStart, config.end);
       const codec = entry.type === "avc1" ? avcCodecString(entry.type, payload) : hevcCodecString(entry.type, payload);
-      return codec ? { fourcc: entry.type, codec, codedWidth, codedHeight } : null;
+      return codec ? { fourcc: entry.type, codec, codedWidth, codedHeight, rotationDeg: 0 } : null;
     }
     return null;
+  }
+  function rotationFromTkhd(bytes, trak) {
+    const tkhd = childBoxes(bytes, trak.dataStart, trak.end).find((box2) => box2.type === "tkhd");
+    if (!tkhd || tkhd.dataStart >= tkhd.end) return 0;
+    const matrixOffset = tkhd.dataStart + 4 + (bytes[tkhd.dataStart] === 1 ? 32 : 20) + 16;
+    if (matrixOffset + 36 > tkhd.end) return 0;
+    const a = int32(bytes, matrixOffset) / 65536;
+    const c = int32(bytes, matrixOffset + 12) / 65536;
+    if (!Number.isFinite(a) || !Number.isFinite(c) || a === 0 && c === 0) return 0;
+    const degrees = Math.atan2(c, a) * 180 / Math.PI;
+    return (Math.round(degrees / 90) * 90 + 360) % 360;
   }
   function readVideoCodecFromMoov(input) {
     try {
@@ -17489,7 +17552,7 @@ void main() {
         const stsd = childBoxes(bytes, stbl.dataStart, stbl.end).find((box2) => box2.type === "stsd");
         if (!stsd) continue;
         const result = parseStsd(bytes, stsd);
-        if (result) return result;
+        if (result) return { ...result, rotationDeg: rotationFromTkhd(bytes, trak) };
       }
       return null;
     } catch {
@@ -18058,6 +18121,10 @@ void main() {
   };
   var AV_CLIPER_RESET_WINDOW_US = 3e6;
   var MAX_EXACT_FRAME_TICKS = 4;
+  function normalizeRotationDeg(value) {
+    if (!Number.isFinite(value)) return 0;
+    return (Math.round((value ?? 0) / 90) * 90 + 360) % 360;
+  }
   function describeUnusableDecoder(clipId, attempted, lastMessage) {
     if (!lastMessage.includes("Unsupported configuration")) return null;
     return [
@@ -18096,6 +18163,7 @@ void main() {
     keyframes = null;
     lastFrameStartUs = null;
     decoderTimestampOffsetUs = 0;
+    rotationDeg = 0;
     lastTickTargetUs = null;
     activeAcceleration;
     coverage = new DecodedFrameCoverageCache();
@@ -18117,6 +18185,7 @@ void main() {
       this.id = id;
       this.src = src;
       this.options = {
+        skipSourceRotation: options.skipSourceRotation !== false,
         loadTimeoutMs: options.loadTimeoutMs,
         loadBudgetMs: options.loadBudgetMs,
         loadStallMs: options.loadStallMs ?? 5e3,
@@ -18164,7 +18233,8 @@ void main() {
         const source = await this.sourceBytes.open();
         candidate = new I2(source.stream, {
           audio: false,
-          __unsafe_hardwareAcceleration__: this.options.hardwareAcceleration ?? "prefer-hardware"
+          __unsafe_hardwareAcceleration__: this.options.hardwareAcceleration ?? "prefer-hardware",
+          __unsafe_skipRotation__: this.options.skipSourceRotation
         });
         await this.waitForReady(candidate.ready, source, `prepare ${this.id}`);
         const keyframes = await this.readKeyframes(candidate);
@@ -18218,7 +18288,8 @@ void main() {
                 const source = await this.sourceBytes.open();
                 candidate = new I2(source.stream, {
                   audio: false,
-                  __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
+                  __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration,
+                  __unsafe_skipRotation__: this.options.skipSourceRotation
                 });
                 await this.waitForReady(
                   Promise.race([candidate.ready, guard.failure]),
@@ -18247,8 +18318,10 @@ void main() {
             }
             this.clip = candidate;
             this.activeAcceleration = attempt.hardwareAcceleration;
+            this.rotationDeg = this.options.skipSourceRotation ? normalizeRotationDeg(candidate.meta.rotationDeg) : 0;
             this.meta = {
               ...candidate.meta,
+              rotationDeg: this.rotationDeg,
               duration: this.keyframes?.presentationDurationUs ?? Math.max(0, candidate.meta.duration - this.decoderTimestampOffsetUs)
             };
             this.state = attempt.state;
@@ -18262,6 +18335,7 @@ void main() {
             this.keyframes = null;
             this.lastFrameStartUs = null;
             this.decoderTimestampOffsetUs = 0;
+            this.rotationDeg = 0;
             candidate?.destroy();
             lastError = error;
             this.options.onWarning?.(`${this.id}: ${String(error)}`);
@@ -18355,8 +18429,10 @@ void main() {
         this.preparedCandidate = null;
         this.applyKeyframes(this.preparedKeyframes);
         this.preparedKeyframes = null;
+        this.rotationDeg = this.options.skipSourceRotation ? normalizeRotationDeg(this.clip.meta.rotationDeg) : 0;
         this.meta = {
           ...this.clip.meta,
+          rotationDeg: this.rotationDeg,
           duration: this.keyframes?.presentationDurationUs ?? Math.max(0, this.clip.meta.duration - this.decoderTimestampOffsetUs)
         };
         this.state = this.options.hardwareAcceleration === "prefer-software" ? "degraded" : "ready";
@@ -18375,7 +18451,7 @@ void main() {
       const safeLimit = this.lastFrameStartUs ?? fallbackLimit;
       const target = Math.max(0, Math.min(Math.floor(timeUs), safeLimit));
       const covered = this.coverage.cloneAt(target);
-      if (covered) return covered;
+      if (covered) return this.attachRotation(covered);
       const tickStarted = performance.now();
       const result = await this.serialize(async () => {
         try {
@@ -18392,11 +18468,11 @@ void main() {
       metrics?.record("tick", performance.now() - tickStarted);
       if (!result.video) {
         const coveredAfterTick = this.coverage.cloneAt(target);
-        if (coveredAfterTick) return coveredAfterTick;
+        if (coveredAfterTick) return this.attachRotation(coveredAfterTick);
         throw new Error(`clip ${this.id} returned no video frame at ${target}us`);
       }
       this.coverage.remember(result.video);
-      return result.video;
+      return this.attachRotation(result.video);
     }
     async decodeApprox(timeUs, toleranceUs, snapBeyondTolerance = true) {
       await this.load();
@@ -18435,6 +18511,7 @@ void main() {
       fork.keyframes = this.keyframes;
       fork.lastFrameStartUs = this.lastFrameStartUs;
       fork.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
+      fork.rotationDeg = this.rotationDeg;
       fork.cachedHeader = this.cachedHeader;
       fork.cachedKeyframes = this.cachedKeyframes;
       fork.learnedSupport = this.learnedSupport;
@@ -18458,6 +18535,7 @@ void main() {
       this.keyframes = null;
       this.lastFrameStartUs = null;
       this.decoderTimestampOffsetUs = 0;
+      this.rotationDeg = 0;
       this.lastTickTargetUs = null;
       this.activeAcceleration = void 0;
       this.loadPromise = null;
@@ -18546,6 +18624,7 @@ void main() {
       this.keyframes = null;
       this.lastFrameStartUs = null;
       this.decoderTimestampOffsetUs = 0;
+      this.rotationDeg = 0;
       this.lastTickTargetUs = null;
       this.activeAcceleration = void 0;
       this.loadPromise = null;
@@ -18554,6 +18633,10 @@ void main() {
     }
     toDecoderTime(presentationTimeUs) {
       return Math.max(0, presentationTimeUs + this.decoderTimestampOffsetUs);
+    }
+    attachRotation(frame) {
+      frame.rotationDeg = this.rotationDeg;
+      return frame;
     }
     normalizeTickResult(result) {
       if (!result.video) return result;

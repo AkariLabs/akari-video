@@ -164,6 +164,7 @@ interface CutUniforms {
   opacity: WebGLUniformLocation | null;
   format: WebGLUniformLocation | null;
   sourceSize: WebGLUniformLocation | null;
+  rotation: WebGLUniformLocation | null;
 }
 
 interface BaseProgramState {
@@ -258,6 +259,8 @@ uniform float opacity1;
 uniform vec2 outputSize;
 uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
+uniform int rotation0;
+uniform int rotation1;
 uniform float transitionProgress;
 ${type === 'dissolve' ? 'uniform sampler2D dissolveNoise;' : ''}
 ${YUV_GLSL}
@@ -275,11 +278,18 @@ vec2 canvasToSource(vec2 canvasPoint, vec2 sourceSize) {
   vec2 offset = (outputSize - fitted) * 0.5;
   return (canvasPoint * outputSize - offset) / fitted;
 }
+vec2 unrotate(vec2 q, int rotation) {
+  if (rotation == 0) return q;
+  if (rotation == 1) return vec2(1.0 - q.y, q.x);
+  if (rotation == 2) return vec2(1.0 - q.x, 1.0 - q.y);
+  return vec2(q.y, 1.0 - q.x);
+}
 vec4 sample0(vec2 p) {
   vec2 canvasPoint = inverseVisual(p, transform0, framing0);
   if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
   vec2 q = canvasToSource(canvasPoint, sourceSize0);
   if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  q = unrotate(q, rotation0);
   if (format0 == 2) return vec4(texture(rgba0, q).rgb, opacity0);
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
   return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
@@ -289,6 +299,7 @@ vec4 sample1(vec2 p) {
   if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
   vec2 q = canvasToSource(canvasPoint, sourceSize1);
   if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  q = unrotate(q, rotation1);
   if (format1 == 2) return vec4(texture(rgba1, q).rgb, opacity1);
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
   return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
@@ -495,12 +506,20 @@ uniform int inputKind;
 uniform int yuvFormat;
 uniform int hasMask;
 uniform int maskFormat;
+uniform int layerRotation;
+uniform int maskRotation;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
 uniform float opacity;
 uniform int blendMode;
 ${YUV_GLSL}
+vec2 unrotate(vec2 q, int rotation) {
+  if (rotation == 0) return q;
+  if (rotation == 1) return vec2(1.0 - q.y, q.x);
+  if (rotation == 2) return vec2(1.0 - q.x, 1.0 - q.y);
+  return vec2(q.y, 1.0 - q.x);
+}
 vec3 blend(vec3 dst, vec3 src) {
   if (blendMode == 1) return 1.0 - (1.0 - dst) * (1.0 - src);
   if (blendMode == 2) return dst * src;
@@ -534,19 +553,21 @@ void main() {
     return;
   }
   vec2 sourceUv = cropRect.xy + local * cropRect.zw;
+  vec2 colorUv = unrotate(sourceUv, layerRotation);
+  vec2 matteUv = unrotate(sourceUv, maskRotation);
   vec4 src;
   if (inputKind == 1) {
-    src = texture(image, sourceUv);
+    src = texture(image, colorUv);
   } else if (yuvFormat == 2) {
-    src = vec4(texture(lrgba, sourceUv).rgb, 1.0);
+    src = vec4(texture(lrgba, colorUv).rgb, 1.0);
   } else {
     vec2 chroma = yuvFormat == 1
-      ? texture(lu, sourceUv).rg
-      : vec2(texture(lu, sourceUv).r, texture(lv, sourceUv).r);
-    src = vec4(yuv709(texture(ly, sourceUv).r, chroma), 1.0);
+      ? texture(lu, colorUv).rg
+      : vec2(texture(lu, colorUv).r, texture(lv, colorUv).r);
+    src = vec4(yuv709(texture(ly, colorUv).r, chroma), 1.0);
   }
   float maskA = hasMask == 1
-    ? (maskFormat == 2 ? texture(maskRgba, sourceUv).r : texture(maskY, sourceUv).r)
+    ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
   float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
   color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
@@ -671,6 +692,18 @@ function forwardInverse(
     inv[5]!,
     inv[8]!,
   ]);
+}
+
+function rotationQuarterTurns(frame: NativeYuvFrame | VideoFrame): number {
+  const value = Number((frame as { rotationDeg?: number }).rotationDeg ?? 0);
+  if (!Number.isFinite(value)) return 0;
+  return ((Math.round(value / 90) % 4) + 4) % 4;
+}
+
+function logicalSize(width: number, height: number, rotation: number): { width: number; height: number } {
+  return rotation === 1 || rotation === 3
+    ? { width: height, height: width }
+    : { width, height };
 }
 
 /** WebGL2 limited-range BT.709 compositor for cuts, transitions, and an arbitrary layer stack. */
@@ -852,6 +885,7 @@ export class WebGL2Compositor implements CompositorBackend {
       opacity: gl.getUniformLocation(program, `opacity${index}`),
       format: gl.getUniformLocation(program, `format${index}`),
       sourceSize: gl.getUniformLocation(program, `sourceSize${index}`),
+      rotation: gl.getUniformLocation(program, `rotation${index}`),
     }));
     const state: BaseProgramState = {
       program,
@@ -952,6 +986,8 @@ export class WebGL2Compositor implements CompositorBackend {
       this.failDirectUpload(`unsupported VideoFrame format: ${String(frame.format)}`);
     const width = frame.displayWidth;
     const height = frame.displayHeight;
+    const rotation = rotationQuarterTurns(frame);
+    const logical = logicalSize(width, height, rotation);
     if (width <= 0 || height <= 0)
       this.failDirectUpload(`invalid display size ${width}x${height}`);
     const gl = this.gl;
@@ -1001,9 +1037,10 @@ export class WebGL2Compositor implements CompositorBackend {
     }
     if (uniforms) {
       gl.uniform1i(uniforms.format, 2);
-      gl.uniform2f(uniforms.sourceSize, width, height);
+      gl.uniform2f(uniforms.sourceSize, logical.width, logical.height);
+      gl.uniform1i(uniforms.rotation, rotation);
     }
-    return { width, height };
+    return logical;
   }
   private upload(
     texture: WebGLTexture,
@@ -1052,6 +1089,8 @@ export class WebGL2Compositor implements CompositorBackend {
     shapeBase: number,
     uniforms?: CutUniforms,
   ) {
+    const rotation = rotationQuarterTurns(frame);
+    const logical = logicalSize(frame.width, frame.height, rotation);
     const cw = Math.ceil(frame.width / 2),
       ch = Math.ceil(frame.height / 2);
     this.upload(textures[0]!, shapeBase, frame.y, frame.width, frame.height);
@@ -1064,9 +1103,12 @@ export class WebGL2Compositor implements CompositorBackend {
       this.upload(textures[2]!, shapeBase + 2, frame.v, cw, ch);
       if (uniforms) this.gl.uniform1i(uniforms.format, 0);
     }
-    if (uniforms)
-      this.gl.uniform2f(uniforms.sourceSize, frame.width, frame.height);
+    if (uniforms) {
+      this.gl.uniform2f(uniforms.sourceSize, logical.width, logical.height);
+      this.gl.uniform1i(uniforms.rotation, rotation);
+    }
     for (let i = 0; i < 3; i++) this.bind(unitBase + i, textures[i]!);
+    return logical;
   }
   private setCut(u: CutUniforms, v: ResolvedCutVisual) {
     this.gl.uniform4f(
@@ -1182,13 +1224,16 @@ export class WebGL2Compositor implements CompositorBackend {
     if (frames.length === 1 && !baseProgram.secondary) {
       const frame = frames[0]!;
       if (isVideoFrame(frame)) {
+        const rotation = rotationQuarterTurns(frame);
+        const logical = logicalSize(frame.displayWidth, frame.displayHeight, rotation);
         this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[0]!);
         this.gl.uniform1i(baseProgram.cutUniforms[1]!.format, 2);
         this.gl.uniform2f(
           baseProgram.cutUniforms[1]!.sourceSize,
-          frame.displayWidth,
-          frame.displayHeight,
+          logical.width,
+          logical.height,
         );
+        this.gl.uniform1i(baseProgram.cutUniforms[1]!.rotation, rotation);
       } else {
         this.uploadYuv(
           frame,
@@ -1334,6 +1379,8 @@ export class WebGL2Compositor implements CompositorBackend {
     const formatLoc = uniform(gl, this.layerProgram, 'yuvFormat');
     const hasMaskLoc = uniform(gl, this.layerProgram, 'hasMask');
     const maskFormatLoc = uniform(gl, this.layerProgram, 'maskFormat');
+    const layerRotationLoc = uniform(gl, this.layerProgram, 'layerRotation');
+    const maskRotationLoc = uniform(gl, this.layerProgram, 'maskRotation');
     const blendLoc = uniform(gl, this.layerProgram, 'blendMode');
     const blendModes = [
       'normal',
@@ -1368,6 +1415,7 @@ export class WebGL2Compositor implements CompositorBackend {
         height = color.height;
         this.bind(4, this.stillTexture(color));
         gl.uniform1i(kindLoc, 1);
+        gl.uniform1i(layerRotationLoc, 0);
       } else if (isVideoFrame(color)) {
         const size = this.uploadVideoFrameTexture(
           this.layerRgbaTextures[0]!,
@@ -1378,12 +1426,14 @@ export class WebGL2Compositor implements CompositorBackend {
         height = size.height;
         gl.uniform1i(kindLoc, 0);
         gl.uniform1i(formatLoc, 2);
+        gl.uniform1i(layerRotationLoc, rotationQuarterTurns(color));
       } else {
-        width = color.width;
-        height = color.height;
-        this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
+        const size = this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
+        width = size.width;
+        height = size.height;
         gl.uniform1i(kindLoc, 0);
         gl.uniform1i(formatLoc, color.format === 'NV12' ? 1 : 0);
+        gl.uniform1i(layerRotationLoc, rotationQuarterTurns(color));
       }
       if (input.mask) {
         if (isVideoFrame(input.mask)) {
@@ -1393,6 +1443,7 @@ export class WebGL2Compositor implements CompositorBackend {
             input.mask,
           );
           gl.uniform1i(maskFormatLoc, 2);
+          gl.uniform1i(maskRotationLoc, rotationQuarterTurns(input.mask));
         } else {
           this.upload(
             this.layerTextures[3]!,
@@ -1403,11 +1454,13 @@ export class WebGL2Compositor implements CompositorBackend {
           );
           this.bind(5, this.layerTextures[3]!);
           gl.uniform1i(maskFormatLoc, input.mask.format === 'NV12' ? 1 : 0);
+          gl.uniform1i(maskRotationLoc, rotationQuarterTurns(input.mask));
         }
         gl.uniform1i(hasMaskLoc, 1);
       } else {
         gl.uniform1i(hasMaskLoc, 0);
         gl.uniform1i(maskFormatLoc, 0);
+        gl.uniform1i(maskRotationLoc, 0);
       }
       uploadElapsedMs += performance.now() - uploadStarted;
       gl.uniform2f(outLoc, output.width, output.height);

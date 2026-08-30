@@ -28,6 +28,7 @@ const B_FRAME_FIXTURES = new Set([
   'bframe-tail-bf2-30-aac.mp4',
   'bframe-tail-bf0-30-aac.mp4',
 ]);
+const ROTATION_FIXTURES = new Set(['rotate-90.mp4', 'rotate-180.mp4', 'rotate-270.mp4']);
 const RESULTS = resolve(GENERATED, 'results.json');
 const LUTS = resolve(__dirname, '../../../../presets/luts');
 mkdirSync(GENERATED, { recursive: true });
@@ -173,6 +174,9 @@ app.whenReady().then(async () => {
     else if (url.hostname === 'fixture' && url.pathname === '/matte-alpha.mask.mp4') file = MATTE_INTAKE_MASK;
     else if (url.hostname === 'fixture' && url.pathname === '/color-patches.mp4') file = COLOR_PATCHES;
     else if (url.hostname === 'fixture' && B_FRAME_FIXTURES.has(url.pathname.slice(1))) {
+      file = resolve(GENERATED, url.pathname.slice(1));
+    }
+    else if (url.hostname === 'fixture' && ROTATION_FIXTURES.has(url.pathname.slice(1))) {
       file = resolve(GENERATED, url.pathname.slice(1));
     }
     else return new Response('not found', { status: 404 });

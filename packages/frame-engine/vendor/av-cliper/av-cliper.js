@@ -563,16 +563,16 @@ class I {
         );
         this.#m = l, this.#u = h;
         const { codedWidth: u, codedHeight: d } = r.video ?? {};
-        return u && d && (this.#o = Vt(
+        return u && d && !this.#h.__unsafe_skipRotation__ && (this.#o = Vt(
           u,
           d,
           c.rotationDeg
-        )), this.#s = Lt(
+        )), this.#s = Object.assign(Lt(
           r,
           n,
           a,
           c.rotationDeg
-        ), this.#n.info("MP4Clip meta:", this.#s), { ...this.#s };
+        ), { rotationDeg: c.rotationDeg }), this.#n.info("MP4Clip meta:", this.#s), { ...this.#s };
       }
     );
   }

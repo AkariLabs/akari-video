@@ -24,3 +24,19 @@
 ```
 
 上流へ戻すときは、この max 算出が取り込まれた版へ更新して vendor と相対 import を外す。`videoDeltaTS = samples[0].dts` を `elst.media_time` にする件は別問題として扱う。
+
+`__unsafe_skipRotation__` 指定時は、tkhd 回転を毎フレームの OffscreenCanvas へ焼かず、
+デコーダ出力をそのまま返す。表示回転は呼び出し側が一度だけ適用できるよう、回転を行うかに
+かかわらず生の `rotationDeg` を `meta` に残す。
+
+```diff
+@@
+-        return u && d && (this.#o = Vt(
++        return u && d && !this.#h.__unsafe_skipRotation__ && (this.#o = Vt(
+@@
+-        )), this.#s = Lt(
++        )), this.#s = Object.assign(Lt(
+@@
+-        ), this.#n.info("MP4Clip meta:", this.#s), { ...this.#s };
++        ), { rotationDeg: c.rotationDeg }), this.#n.info("MP4Clip meta:", this.#s), { ...this.#s };
+```
