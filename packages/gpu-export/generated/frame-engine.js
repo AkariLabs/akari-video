@@ -16878,13 +16878,43 @@ void main() {
     #l = 0;
     #c = 0;
     #d = false;
+    /* AKARI patch: expose opt-in VideoFrameFinder null-return diagnostics. */
     #m = async (t, e, i2) => {
-      if (e == null || e.state === "closed" || i2.abort) return null;
+      if (e == null || e.state === "closed" || i2.abort) {
+        const n2 = globalThis.__akariFinderTrace;
+        if (typeof n2 === "function") try {
+          const { memInfo: a, ...r } = this.#p();
+          n2({
+            reason: "decoder-unavailable",
+            ...r,
+            decoderNull: e == null,
+            decoderClosed: e?.state === "closed",
+            aborted: i2.abort,
+            at: performance.now()
+          });
+        } catch {
+        }
+        return null;
+      }
       if (this.#i.length > 0) {
         const n2 = this.#i[0];
-        return t < n2.timestamp ? null : (this.#i.shift(), t > n2.timestamp + (n2.duration ?? 0) ? (n2.close(), await this.#m(t, e, i2)) : (!this.#d && this.#i.length < 10 && this.#f(e).catch((a) => {
+        if (t < n2.timestamp) {
+          const a = globalThis.__akariFinderTrace;
+          if (typeof a === "function") try {
+            const { memInfo: r, ...o2 } = this.#p();
+            a({
+              reason: "cache-head-after-target",
+              ...o2,
+              headTimestamp: n2.timestamp,
+              at: performance.now()
+            });
+          } catch {
+          }
+          return null;
+        }
+        return this.#i.shift(), t > n2.timestamp + (n2.duration ?? 0) ? (n2.close(), await this.#m(t, e, i2)) : (!this.#d && this.#i.length < 10 && this.#f(e).catch((a) => {
           throw this.#d = true, this.#h(t), a;
-        }), n2));
+        }), n2);
       }
       if (this.#u || this.#o < this.#l && e.decodeQueueSize > 0) {
         if (performance.now() - i2.st > 6e3)
@@ -16893,8 +16923,55 @@ void main() {
           );
         this.#c += 1, await H2(15);
       } else {
-        if (this.#r >= this.samples.length)
+        if (this.#r >= this.samples.length) {
+          if (!i2.drained && e.state === "configured" && this.#o < this.#l) {
+            i2.drained = true;
+            const n3 = globalThis.__akariFinderTrace;
+            if (typeof n3 === "function") try {
+              const { memInfo: a, ...r } = this.#p();
+              n3({
+                reason: "eos-drain",
+                ...r,
+                at: performance.now()
+              });
+            } catch {
+            }
+            try {
+              await e.flush();
+            } catch (a) {
+              if (!(a instanceof Error) || !a.message.includes("Aborted due to close"))
+                throw a;
+            }
+            if (i2.abort || e.state === "closed") {
+              const a = globalThis.__akariFinderTrace;
+              if (typeof a === "function") try {
+                const { memInfo: r, ...o2 } = this.#p();
+                a({
+                  reason: "decoder-unavailable",
+                  ...o2,
+                  decoderNull: false,
+                  decoderClosed: e.state === "closed",
+                  aborted: i2.abort,
+                  at: performance.now()
+                });
+              } catch {
+              }
+              return null;
+            }
+            return await this.#m(t, e, i2);
+          }
+          const n2 = globalThis.__akariFinderTrace;
+          if (typeof n2 === "function") try {
+            const { memInfo: a, ...r } = this.#p();
+            n2({
+              reason: "eos-no-more-samples",
+              ...r,
+              at: performance.now()
+            });
+          } catch {
+          }
           return null;
+        }
         try {
           await this.#f(e);
         } catch (n2) {

@@ -5,6 +5,9 @@ const { mkdirSync, writeFileSync } = require('node:fs');
 const { resolve } = require('node:path');
 const { pathToFileURL } = require('node:url');
 
+const userDataDir = process.env.AKARI_ELECTRON_USER_DATA_DIR;
+if (userDataDir) app.setPath('userData', userDataDir);
+
 const generated = resolve(__dirname, 'golden/.generated');
 const results = resolve(generated, process.env.AKARI_SEEK_RESULTS_NAME ?? 'gop-tail-seek-results.json');
 const bFrameFixtures = new Set([
@@ -24,7 +27,9 @@ mkdirSync(generated, { recursive: true });
 function stop(code) {
   if (finished) return;
   finished = true;
-  setTimeout(() => app.exit(code), 50);
+  // Electron が終了しない場合も、確定済みの終了コードでプロセスを閉じる。
+  setTimeout(() => process.exit(code), 2_000);
+  app.exit(code);
 }
 
 function writeResult(value) {

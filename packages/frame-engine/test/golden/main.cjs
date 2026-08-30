@@ -7,6 +7,9 @@ const { dirname, resolve } = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { execFileSync, spawn, spawnSync } = require('node:child_process');
 
+const userDataDir = process.env.AKARI_ELECTRON_USER_DATA_DIR;
+if (userDataDir) app.setPath('userData', userDataDir);
+
 const GENERATED = resolve(__dirname, '.generated');
 const FIXTURE = resolve(GENERATED, 'source.mp4');
 const FIXTURE_B = resolve(GENERATED, 'source-b.mp4');
@@ -65,7 +68,9 @@ function artifactPath(name) {
 function stop(code) {
   if (finished) return;
   finished = true;
-  setTimeout(() => app.exit(code), 50);
+  // Electron が終了しない場合も、確定済みの終了コードでプロセスを閉じる。
+  setTimeout(() => process.exit(code), 2_000);
+  app.exit(code);
 }
 
 protocol.registerSchemesAsPrivileged([{
