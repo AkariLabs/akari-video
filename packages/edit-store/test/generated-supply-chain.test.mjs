@@ -30,6 +30,7 @@ const expectedSources = [
   'track-transition-compatibility.ts',
   'transition-visual.ts',
   'transition-vocabulary.ts',
+  'tree-ops.ts',
   'webview-kernel.ts',
   'write-gate.ts',
 ];
