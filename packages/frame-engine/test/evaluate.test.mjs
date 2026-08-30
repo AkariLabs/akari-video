@@ -12,11 +12,11 @@ const visual = {
   opacity: 1
 };
 
-function fakeFrame(timestamp = 0) {
+function fakeFrame(timestamp = 0, format = 'NV12') {
   let closed = false;
   let copies = 0;
   return {
-    format: 'NV12',
+    format,
     timestamp,
     codedWidth: 2,
     codedHeight: 2,
@@ -104,6 +104,43 @@ test('evaluateFrame passes VideoFrame through direct upload and closes it', asyn
   assert.equal(decoded.closed, true);
   assert.equal(frame.uploadPath, 'direct');
   assert.equal(metrics.toJSON().uploadPath, 'direct');
+  frame.close();
+});
+
+test('copyTo path passes packed RGB VideoFrame through without native YUV copy', async () => {
+  const decoded = fakeFrame(456, 'RGBA');
+  let received;
+  const compositor = {
+    kind: 'webgl2',
+    uploadPath: 'copyTo',
+    async compose(base) {
+      received = base[0];
+      return {
+        canvas: {}, width: 2, height: 2,
+        async readRgba() { return new Uint8Array(16); },
+        recordSink() {}, close() {},
+      };
+    },
+    dispose() {},
+  };
+  const metrics = new FrameMetrics();
+  const frame = await evaluateFrame({
+    timeUs: 456,
+    base: [{
+      id: 'rotated-cut',
+      source: { async decode() { return decoded; } },
+      sourceTimeUs: 456,
+      visual,
+    }],
+    layers: [],
+    output: { width: 2, height: 2, colorSpace: 'bt709-limited' },
+  }, { compositor, metrics });
+
+  assert.equal(received, decoded);
+  assert.equal(decoded.copies, 0);
+  assert.equal(decoded.closed, true);
+  assert.deepEqual(frame.nativeFormats, []);
+  assert.equal(frame.uploadPath, 'copyTo');
   frame.close();
 });
 

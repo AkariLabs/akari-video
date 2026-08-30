@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { MiniWSServer } from './mini-ws.mjs';
 import { editToTimeline } from './edit-to-timeline.mjs';
 import { migratePreviewCompatibility, previewReadError, projectPreviewEdit } from './preview-edit.mjs';
@@ -96,6 +96,7 @@ const hasFfprobe = ffprobePath !== null;
 const hasFfmpeg = ffmpegPath !== null;
 const codecCache = new Map();
 const frameRateCache = new Map();
+const autoProxyJobs = new Map();
 
 function detectCodec(filePath) {
   if (!hasFfprobe || codecCache.has(filePath)) return codecCache.get(filePath);
@@ -105,7 +106,7 @@ function detectCodec(filePath) {
       '-show_entries', 'stream=codec_name',
       '-of', 'csv=p=0', filePath,
     ], { stdio: ['ignore', 'pipe', 'pipe'], timeout: 5000 });
-    const codec = r.stdout.toString().trim();
+    const codec = r.stdout.toString().trim().split(/[\r\n,]+/)[0]?.trim().toLowerCase() || null;
     codecCache.set(filePath, codec);
     return codec;
   } catch { codecCache.set(filePath, null); return null; }
@@ -148,6 +149,77 @@ function ensureProxy(filePath) {
   console.error(`[proxy] ffmpeg failed for ${filePath}`);
   try { fs.unlinkSync(proxy); } catch {}
   return null;
+}
+
+function proxyUrlFor(proxyPath) {
+  const relative = path.relative(projectRoot, proxyPath);
+  return `/${relative.split(path.sep).map(encodeURIComponent).join('/')}`;
+}
+
+function autoProxyStatus(filePath) {
+  const job = autoProxyJobs.get(filePath);
+  if (job) return job;
+  const proxy = proxyPathFor(filePath);
+  if (fs.existsSync(proxy)) return { status: 'ready', url: proxyUrlFor(proxy) };
+  return null;
+}
+
+function startAutoProxy(filePath) {
+  const current = autoProxyStatus(filePath);
+  if (current) return current;
+  if (!hasFfmpeg) return { status: 'unavailable', reason: 'ffmpeg-missing' };
+  const proxy = proxyPathFor(filePath);
+  const temporaryProxy = `${proxy}.tmp-${process.pid}-${crypto.randomBytes(6).toString('hex')}.mp4`;
+  fs.mkdirSync(path.dirname(proxy), { recursive: true });
+  const fps = detectFrameRate(filePath);
+  const pending = { status: 'pending' };
+  autoProxyJobs.set(filePath, pending);
+  const child = spawn(ffmpegPath, [
+    '-i', filePath,
+    ...previewProxyVideoArgs({ fps, pixFmt: 'yuv420p', preset: 'fast', crf: 23 }),
+    '-c:a', 'aac',
+    '-movflags', '+faststart',
+    '-y', temporaryProxy,
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '';
+  let settled = false;
+  const fail = reason => {
+    if (settled) return;
+    settled = true;
+    try { fs.unlinkSync(temporaryProxy); } catch {}
+    autoProxyJobs.set(filePath, { status: 'failed', reason });
+  };
+  child.stderr?.setEncoding('utf8');
+  child.stderr?.on('data', chunk => {
+    if (stderr.length < 4096) stderr += chunk;
+  });
+  child.once('error', error => {
+    fail(error.message);
+  });
+  child.once('close', code => {
+    if (settled) return;
+    if (code === 0 && fs.existsSync(temporaryProxy)) {
+      try {
+        fs.renameSync(temporaryProxy, proxy);
+        settled = true;
+        autoProxyJobs.set(filePath, { status: 'ready', url: proxyUrlFor(proxy) });
+        return;
+      } catch (error) {
+        fail(error instanceof Error ? error.message : String(error));
+        return;
+      }
+    }
+    const reason = stderr.trim().split(/\r?\n/u).at(-1) || `ffmpeg-exit-${code}`;
+    fail(reason);
+  });
+  return pending;
+}
+
+function resolveAutoProxySource(userPath) {
+  if (typeof userPath !== 'string' || !userPath) return null;
+  const source = resolveSafe(projectRoot, userPath);
+  if (!source || !fs.existsSync(source) || !fs.statSync(source).isFile()) return null;
+  return source;
 }
 
 function resolveSafe(base, userPath) {
@@ -644,7 +716,22 @@ const router = {
       ffprobe: hasFfprobe,
       ffmpeg: hasFfmpeg,
       proxyDir: PROXY_DIR,
+      forceSoftwareDecode: process.env.AKARI_FRAME_ENGINE_FORCE_SW === '1',
     });
+  },
+  'POST /api/auto-proxy': async (req, res) => {
+    let body;
+    try { body = JSON.parse(await collectBody(req)); }
+    catch (error) { return respond(res, 400, { error: `Invalid JSON: ${error.message}` }); }
+    const source = resolveAutoProxySource(body?.path);
+    if (!source) return respond(res, 404, { error: 'Source not found' });
+    respond(res, 200, startAutoProxy(source));
+  },
+  'GET /api/auto-proxy': (req, res) => {
+    const url = new URL(req.url, `http://localhost:${port}`);
+    const source = resolveAutoProxySource(url.searchParams.get('path'));
+    if (!source) return respond(res, 404, { error: 'Source not found' });
+    respond(res, 200, autoProxyStatus(source) ?? { status: 'pending' });
   },
   // Review session recording
   'POST /api/review/start': async (req, res) => {
@@ -727,7 +814,7 @@ function servePublicFile(res, pathname, reqHeaders = null) {
   return false;
 }
 
-function serveProjectFile(res, pathname, reqHeaders = null) {
+function serveProjectFile(res, pathname, reqHeaders = null, options = {}) {
   const rangeHeader = reqHeaders?.range;
   const safe = resolveSafe(projectRoot, pathname);
   if (!safe || !fs.existsSync(safe) || !fs.statSync(safe).isFile()) return false;
@@ -735,7 +822,7 @@ function serveProjectFile(res, pathname, reqHeaders = null) {
   const mime = MIME[ext] ?? 'application/octet-stream';
   if (rangeHeader && mime.startsWith('video/')) {
     const codec = detectCodec(safe);
-    if (codec === 'hevc') {
+    if (codec === 'hevc' && options.noProxy !== true) {
       const proxy = ensureProxy(safe);
       if (proxy) {
         console.log(`[proxy] serving ${path.basename(proxy)} for HEVC ${path.basename(safe)}`);
@@ -808,12 +895,16 @@ const server = http.createServer(async (req, res) => {
   const prefixMatch = pathname.match(/^\/api\/asset\/(.+)/);
   if (prefixMatch) {
     const assetPath = prefixMatch[1];
-    if (serveProjectFile(res, assetPath, req.headers)) return;
+    if (serveProjectFile(res, assetPath, req.headers, {
+      noProxy: url.searchParams.get('akariNoProxy') === '1',
+    })) return;
     return respond(res, 404, { error: 'Asset not found' });
   }
 
   if (servePublicFile(res, pathname, req.headers)) return;
-  if (serveProjectFile(res, pathname, req.headers)) return;
+  if (serveProjectFile(res, pathname, req.headers, {
+    noProxy: url.searchParams.get('akariNoProxy') === '1',
+  })) return;
 
   respond(res, 404, { error: 'Not found' });
 });

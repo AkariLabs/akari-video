@@ -81,7 +81,8 @@ export async function evaluateFrame(
       layerFrames.push({ color: frame, mask });
     }
 
-    const copyFrame = async (frame: VideoFrame): Promise<NativeYuvFrame> => {
+    const copyFrame = async (frame: VideoFrame): Promise<NativeYuvFrame | VideoFrame> => {
+      if (frame.format !== 'NV12' && frame.format !== 'I420') return frame;
       const started = performance.now();
       const copied = await copyNativeYuvFrame(frame, context.metrics);
       context.metrics.record('copy', performance.now() - started);
@@ -89,11 +90,11 @@ export async function evaluateFrame(
     };
     const buildInputs = async (path: UploadPath) => {
       if (path === 'direct') return { base: baseFrames, layers: layerFrames };
-      const base: NativeYuvFrame[] = [];
+      const base: Array<NativeYuvFrame | VideoFrame> = [];
       for (const frame of baseFrames) base.push(await copyFrame(frame));
       const layers: Array<{
-        color: NativeYuvFrame | StillImageBitmap;
-        mask?: NativeYuvFrame | null;
+        color: NativeYuvFrame | StillImageBitmap | VideoFrame;
+        mask?: NativeYuvFrame | VideoFrame | null;
       }> = [];
       for (const input of layerFrames) {
         const color = 'bitmap' in input.color

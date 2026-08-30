@@ -2818,6 +2818,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const extraVideoStreams = new Map<string, { id: string; url: string }>();
         const imageAssetStreams = new Map<string, { id: string; url: string }>();
         const sourceUrlById: Record<string, string> = {};
+        const originalSourceUrlById: Record<string, string> = {};
         const imageSourceUrlById: Record<string, string> = {};
         if (kind === 'output' && model.sourcesById) {
             for (const [sourceId, entry] of model.sourcesById) {
@@ -2826,6 +2827,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         imageSourceUrlById[sourceId] = videoStream.url;
                     } else {
                         sourceUrlById[sourceId] = videoStream.url;
+                        if (frameEngineEnabled && streamVideoUri.toString() !== videoUri.toString()) {
+                            const originalStream = await this.createVideoStream({ videoUri: videoUri.toString() });
+                            extraVideoStreams.set(`original:${sourceId}`, originalStream);
+                            originalSourceUrlById[sourceId] = originalStream.url;
+                        }
                     }
                     continue;
                 }
@@ -2851,6 +2857,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     const stream = await this.createVideoStream({ videoUri: streamUri.toString() });
                     extraVideoStreams.set(sourceId, stream);
                     sourceUrlById[sourceId] = stream.url;
+                    if (frameEngineEnabled && streamUri.toString() !== entry.uri.toString()) {
+                        const originalStream = await this.createVideoStream({ videoUri: entry.uri.toString() });
+                        extraVideoStreams.set(`original:${sourceId}`, originalStream);
+                        originalSourceUrlById[sourceId] = originalStream.url;
+                    }
                 } catch (error) {
                     console.warn('[akari-preview] sources[] のストリームを開けませんでした', entry.uri.toString(), error);
                 }
@@ -2982,6 +2993,22 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const reloadNotice = widget.akariPreviewModelSnapshot !== undefined;
         const frameEngineMetricsEnabled = frameEngineEnabled
             && this.preferences.get<boolean>('akari.developerMode', false);
+        const [frameEngineSourceOverride, frameEngineForceSoftwareOverride] = await Promise.all([
+            this.envVariables.getValue('AKARI_FRAME_ENGINE_SOURCE')
+                .then(variable => variable?.value?.trim().toLowerCase()),
+            this.envVariables.getValue('AKARI_FRAME_ENGINE_FORCE_SW')
+                .then(variable => variable?.value?.trim().toLowerCase())
+        ]);
+        const frameEngineSourcePreference = this.preferences
+            .get<string>('akari.preview.frameEngineSource', 'auto').trim().toLowerCase();
+        const frameEngineSourceMode = frameEngineSourceOverride === 'proxy'
+            || frameEngineSourceOverride === 'original'
+            ? frameEngineSourceOverride
+            : frameEngineSourcePreference === 'proxy' || frameEngineSourcePreference === 'original'
+                ? frameEngineSourcePreference
+                : 'auto';
+        const frameEngineForceSoftware = frameEngineForceSoftwareOverride === '1'
+            || frameEngineForceSoftwareOverride === 'true';
         widget.setHTML(this.prepareHtml(
             videoUri,
             videoStream.url,
@@ -2995,7 +3022,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             kind,
             reloadNotice,
             frameEngineEnabled,
-            frameEngineMetricsEnabled
+            frameEngineMetricsEnabled,
+            originalSourceUrlById,
+            frameEngineSourceMode,
+            frameEngineForceSoftware
         ));
         widget.akariPreviewModelSnapshot = nextSnapshot;
         widget.akariPreviewAssetUrlByUri = new Map(model.assetUrlByUri ? [...model.assetUrlByUri] : []);
@@ -4787,7 +4817,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         kind: 'raw' | 'output' = 'output',
         reloadNotice = false,
         frameEngineEnabled = false,
-        frameEngineMetricsEnabled = false
+        frameEngineMetricsEnabled = false,
+        originalSourceUrlById: Record<string, string> = {},
+        frameEngineSourceMode = 'auto',
+        frameEngineForceSoftware = false
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
@@ -4816,6 +4849,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             // v1 マルチソース: ソース id → ストリーム URL。webview は cuts[].src が
             // 変わる継ぎ目で <video> をこの表から差し替える（v0 は 1 件のみの表）
             videoSources: sourceUrlById,
+            videoSourceOriginals: originalSourceUrlById,
+            frameEngineSourceMode,
+            frameEngineForceSoftware,
             // フォールバック要求は配信 URL ではなく原本 URI をキーにする。v2 media item も
             // source.src の id からこの表を引き、失敗した正確なソースだけを変換する。
             videoSourceUris: Object.fromEntries([...(model.sourcesById ?? new Map())]
@@ -6080,7 +6116,26 @@ body { display: grid; place-items: center; padding: 32px; }
                 background: 'rgba(80,0,0,.9)', color: '#fff', textAlign: 'center'
             });
 
-            root.append(canvas, metrics, error);
+            const notice = document.createElement('div');
+            notice.id = 'frame-engine-notice';
+            notice.hidden = true;
+            Object.assign(notice.style, {
+                position: 'absolute', zIndex: '2085', inset: 'auto 10% 10%', padding: '10px 12px',
+                border: '1px solid rgba(116,192,252,.65)', borderRadius: '6px',
+                background: 'rgba(8,32,56,.92)', color: '#d8efff', textAlign: 'center'
+            });
+            const showNotice = message => {
+                notice.hidden = false;
+                notice.textContent = String(message);
+                root.dataset.frameEngineNotice = String(message);
+            };
+            const clearNotice = () => {
+                notice.hidden = true;
+                notice.textContent = '';
+                delete root.dataset.frameEngineNotice;
+            };
+
+            root.append(canvas, metrics, notice, error);
             layersStage.prepend(root);
 
             const measurements = {
@@ -6169,6 +6224,70 @@ body { display: grid; place-items: center; padding: 32px; }
                 const fps = Number(summary.output && summary.output.fps) > 0
                     ? Number(summary.output.fps) : 30;
                 const sourceUrls = new Map(Object.entries(initial.videoSources || {}));
+                const sourceOriginals = new Map(Object.entries(initial.videoSourceOriginals || {}));
+                const sourceSupports = new Map();
+                const sourceSelections = [];
+                const cutSourceIds = new Set(normalizedCuts.map(cut => String(cut.src || 'default')));
+                const mode = engine.parseSourceSelectionMode(initial.frameEngineSourceMode);
+                if (initial.frameEngineForceSoftware === true) {
+                    engine.setForceSoftwareDecode(true);
+                }
+                for (const [id, selectedUrl] of sourceUrls) {
+                    const originalUrl = sourceOriginals.get(id) || selectedUrl;
+                    if (!cutSourceIds.has(String(id))) {
+                        sourceUrls.set(id, originalUrl);
+                        sourceSelections.push({ id, chosen: 'original', reason: 'not-a-cut-source' });
+                        continue;
+                    }
+                    const hasProxy = sourceOriginals.has(id);
+                    if (!engine.needsCodecProbe(mode, hasProxy)) {
+                        const decision = engine.chooseSource({ mode, hasProxy, support: null });
+                        if (decision.chosen === 'original') sourceUrls.set(id, originalUrl);
+                        sourceSelections.push({ id, chosen: decision.chosen, reason: decision.reason });
+                        continue;
+                    }
+                    const probe = await engine.probeSourceCodec(originalUrl);
+                    const support = probe && probe.support;
+                    const codec = probe && probe.info && probe.info.codec;
+                    const decision = engine.chooseSource({ mode, hasProxy, support });
+                    if (decision.chosen === 'original') {
+                        sourceUrls.set(id, originalUrl);
+                        sourceSupports.set(id, support || null);
+                        sourceSelections.push({
+                            id,
+                            chosen: 'original',
+                            reason: decision.reason,
+                            ...(codec ? { codec } : {})
+                        });
+                        continue;
+                    }
+                    if (decision.chosen === 'proxy') {
+                        sourceSelections.push({
+                            id,
+                            chosen: 'proxy',
+                            reason: decision.reason,
+                            ...(codec ? { codec } : {})
+                        });
+                        continue;
+                    }
+                    showNotice('プロキシ生成中…（' + id + '）');
+                    console.warn('[frame-engine] codec unsupported; requesting proxy', id, codec);
+                    sourceSelections.push({
+                        id,
+                        chosen: 'auto-proxy',
+                        reason: decision.reason,
+                        ...(codec ? { codec } : {})
+                    });
+                    const videoUri = initial.videoSourceUris && initial.videoSourceUris[id];
+                    if (window.akari && window.akari.engine && videoUri) {
+                        void window.akari.engine.resolveHevcFallback(0, videoUri).catch(reason => {
+                            console.warn('[frame-engine] proxy request failed', reason);
+                            showNotice('プロキシを生成できませんでした（' + id + '）');
+                        });
+                    }
+                }
+                window.akariFrameEngineSources = sourceSelections;
+                if (!sourceSelections.some(selection => selection.chosen === 'auto-proxy')) clearNotice();
                 const pools = new Map();
                 const lookahead = new Map();
                 const images = new Map();
@@ -6199,7 +6318,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 for (const [id, url] of sourceUrls) {
                     const pool = new engine.ClipSessionPool(id, url, {
-                        onWarning: message => showError(message, false)
+                        codecSupport: sourceSupports.get(id) || null,
+                        onWarning: message => showError(message, false),
+                        onSoftwareFallbackDenied: support => {
+                            const known = sourceSupports.get(id);
+                            if (!(known && (known.hw || known.any))) {
+                                showNotice('ソフトウェアデコード非対応: ' + support.codec);
+                            }
+                        }
                     });
                     const source = new engine.LookaheadFrameSource(pool, {
                         fps,

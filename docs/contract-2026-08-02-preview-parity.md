@@ -267,3 +267,25 @@ frame-engine がランダムアクセスするプレビュー用プロキシは�
 いずれも `packages/media-bin/src/proxy-recipe.mjs` を唯一の定義として使う。レシピ版
 `gop1s-v1` は shell のキャッシュキーと preview-server の出力名へ含め、旧規格のキャッシュを
 次回参照時に再利用しない。
+
+### 5.6 読み込み予算と原本 / proxy の選択規則
+
+frame-engine のソース読み込み予算は、`Content-Length` が得られる場合
+`max(10 秒, bytes / 8 MiB毎秒)` とする。予算を超えても受信進捗が続く間は打ち切らず、進捗が
+5 秒間止まった場合に失敗とする。同一 URL の fetch はセッションにつき 1 回に限り、再試行では
+取得済みバイトと解析済み moov / キーフレーム索引を再利用する。
+
+v2 プレビューの既定選択は次の順序とする。
+
+1. 宣言済み proxy があれば proxy を使う（`declared`）
+2. proxy が無ければ codec をプローブし、`hw || any` で扱える場合は原本を使う
+   （`hardware-ok` / `decoder-ok`）
+3. 扱えない場合は preview-server に自動プロキシを要求し、生成中は非致命の通知を表示する
+   （`auto-proxy`）
+
+Web UI の `?frameEngineSource=original`、または shell の
+`AKARI_FRAME_ENGINE_SOURCE=original` では 1 を飛ばして器の実力判定へ進む。`=proxy` では従来どおり
+proxy を無条件に優先する。
+`AKARI_FRAME_ENGINE_FORCE_SW=1` はハードウェアデコード不可を模擬するテスト用スイッチである。
+HEVC は `prefer-software` が通らないため、codec プローブが `sw=false` を返した系列について
+ClipSessionPool はソフトウェア退避を学習しない。ソフトウェア退避の学習対象は H.264 のみとする。
