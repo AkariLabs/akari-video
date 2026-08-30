@@ -87,11 +87,16 @@ export interface ProjectSaveResult {
     findings: EditLintFinding[];
 }
 
+export interface ProjectSaveOptions {
+    /** false は呼び出し元が明示した lint bypass。正規化と atomic 保存は常に行う。 */
+    lint?: boolean;
+}
+
 export interface Project {
     edit: EditableEditV2;
     captions: ProjectCaptions;
     motion(groupId: string): Promise<MotionFileV0>;
-    save(): Promise<ProjectSaveResult>;
+    save(options?: ProjectSaveOptions): Promise<ProjectSaveResult>;
 }
 
 export interface OpenProjectOptions {
@@ -167,7 +172,7 @@ export async function openProject(dir: string, opts: OpenProjectOptions = {}): P
             requireGroupId(groupId);
             return (await loadMotionPath(`motion/${groupId}.json`, groupId)).doc;
         },
-        async save(): Promise<ProjectSaveResult> {
+        async save(options: ProjectSaveOptions = {}): Promise<ProjectSaveResult> {
             normalizeTracks(edit);
             await distributeKeyframes(edit, loadMotionPath);
 
@@ -189,13 +194,17 @@ export async function openProject(dir: string, opts: OpenProjectOptions = {}): P
             const written = Object.keys(candidates);
             if (written.length === 0) return { written: [], findings: [] };
 
-            const lint = await lintProjectCandidatesOnDisk(dir, candidates);
-            if (!lint.pass) {
-                const error = new Error(lint.errors[0] ?? 'edit-lint が変更を拒否しました') as Error & {
-                    findings?: EditLintFinding[];
-                };
-                error.findings = lint.findings;
-                throw error;
+            let findings: EditLintFinding[] = [];
+            if (options.lint !== false) {
+                const lint = await lintProjectCandidatesOnDisk(dir, candidates);
+                if (!lint.pass) {
+                    const error = new Error(lint.errors[0] ?? 'edit-lint が変更を拒否しました') as Error & {
+                        findings?: EditLintFinding[];
+                    };
+                    error.findings = lint.findings;
+                    throw error;
+                }
+                findings = lint.findings;
             }
             await writeProjectFilesGuarded(dir, candidates);
             for (const key of written) {
@@ -206,7 +215,7 @@ export async function openProject(dir: string, opts: OpenProjectOptions = {}): P
                 if (state.path in candidates) state.originalText = candidates[state.path] as string;
                 state.originalState = stableJson(state.doc);
             }
-            return { written, findings: lint.findings };
+            return { written, findings };
         }
     };
     return project;

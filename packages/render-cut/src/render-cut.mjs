@@ -366,9 +366,7 @@ export async function renderProject(input, options = {}, io = console) {
           runChecked(stage.command.command, stage.command.args, { cwd: projectRoot });
           continue;
         }
-        const ids = new Set(stage.overlayIds);
-        const stageOverlays = (stage.kind === "captions" ? captions : overlays)
-          .filter(overlay => ids.has(String(overlay.id)));
+        const stageOverlays = selectTrackStackStageOverlays(stage, overlays, captions);
         if (stageOverlays.length === 0) {
           await copyFile(stage.inputPath, stage.outputPath);
           continue;
@@ -918,7 +916,7 @@ async function collectInputReceipts(projectRoot, edit, editText) {
     addReference(files, projectRoot, `source:${source.id}`, source.path);
   }
   for (const [index, overlay] of edit.overlays.entries()) {
-    addReference(files, projectRoot, `overlay:${index}`, overlay.html);
+    addReference(files, projectRoot, `overlay:${index}`, overlaySourcePath(overlay));
   }
   const captionsPath = join(projectRoot, "captions.json");
   if (await isRegularFile(captionsPath)) files.set("captions.json", { path: captionsPath });
@@ -946,10 +944,22 @@ async function collectInputReceipts(projectRoot, edit, editText) {
 
 export async function loadOverlays(projectRoot, edit) {
   return Promise.all(
-    edit.overlays.map(async (overlay) => ({
-      ...overlay,
-      html: await readRequired(resolve(projectRoot, overlay.html), overlay.html),
-    })),
+    edit.overlays.map(async (overlay) => {
+      const sourcePath = overlaySourcePath(overlay);
+      const sourceHtml = await readRequired(resolve(projectRoot, sourcePath), sourcePath);
+      return {
+        ...overlay,
+        html: isInlineHtml(overlay.html) ? overlay.html : sourceHtml,
+      };
+    }),
+  );
+}
+
+/** 袋 id の stage 宣言を、展開後の写し（parentId = 袋 id）まで含めて解決する。 */
+export function selectTrackStackStageOverlays(stage, overlays, captions) {
+  const ids = new Set(stage?.overlayIds ?? []);
+  return (stage?.kind === "captions" ? captions : overlays).filter(overlay =>
+    ids.has(String(overlay?.id)) || ids.has(String(overlay?.parentId ?? "")),
   );
 }
 
@@ -1776,6 +1786,20 @@ function addReference(map, root, label, path) {
   map.set(label, { path: resolve(root, path) });
 }
 
+function isInlineHtml(value) {
+  return typeof value === "string" && value.trimStart().startsWith("<");
+}
+
+function overlaySourcePath(overlay) {
+  if (isInlineHtml(overlay?.html)) {
+    if (typeof overlay?.htmlPath !== "string" || overlay.htmlPath === "") {
+      throw new ExecutionError("inline overlay html requires htmlPath");
+    }
+    return overlay.htmlPath;
+  }
+  return overlay?.html;
+}
+
 function audioPath(value) {
   return typeof value === "string" ? value : value?.path;
 }
@@ -1788,7 +1812,7 @@ function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
   const inputs = [
     resolve(projectRoot, "edit.json"),
     ...usedSources(edit).map((source) => resolve(projectRoot, source.path)),
-    ...edit.overlays.map((overlay) => resolve(projectRoot, overlay.html)),
+    ...edit.overlays.map((overlay) => resolve(projectRoot, overlaySourcePath(overlay))),
   ];
   const captions = resolve(projectRoot, "captions.json");
   if (existsSync(captions)) inputs.push(captions);

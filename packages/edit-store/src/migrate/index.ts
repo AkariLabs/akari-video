@@ -7,8 +7,9 @@
  */
 
 import { promises as fs } from 'fs';
-import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { basename, join, resolve } from 'path';
+import { serializeCaptions, serializeEdit, serializeMotion } from '../canonical';
 import { writeAtomic } from '../write-gate';
 import { readEditV2 } from '../edit-v2';
 import type { AudioMediaItemV2, EditV2, FilterV2, ItemV2, TrackV2 } from '../edit-v2';
@@ -41,6 +42,34 @@ export interface MigrationProposal {
         previousText: string;
         backupPath: string;
     };
+}
+
+export interface V2NormalizationProposal {
+    filePath: string;
+    version: 2;
+    changes: MigrateChange[];
+    warnings: string[];
+    nextText: string;
+    previousText: string;
+    backupPath: string;
+    captions?: {
+        filePath: string;
+        nextText: string;
+        previousText: string;
+        backupPath: string;
+    };
+    motion?: Array<{
+        filePath: string;
+        nextText: string;
+        previousText: string;
+        backupPath: string;
+    }>;
+}
+
+export interface MigrationNoop extends V2NormalizationProposal {
+    ok: true;
+    noop: true;
+    version: 2;
 }
 
 export interface MigrationBlocked {
@@ -588,21 +617,180 @@ export function planMigration(
 }
 
 /** 承認後のみ実行する。先に全原文を .akari/backup/ へ退避し、次に atomic rename する。 */
-export async function applyMigration(proposal: MigrationProposal): Promise<void> {
-    await writeAtomic(proposal.backupPath, proposal.previousText);
-    if (proposal.captions) await writeAtomic(proposal.captions.backupPath, proposal.captions.previousText);
-    await writeAtomic(proposal.filePath, proposal.nextText);
-    if (proposal.captions) await writeAtomic(proposal.captions.filePath, proposal.captions.nextText);
+export async function applyMigration(proposal: MigrationProposal | V2NormalizationProposal): Promise<void> {
+    if (proposal.nextText !== proposal.previousText) {
+        await writeAtomic(proposal.backupPath, proposal.previousText);
+    }
+    if (proposal.captions && proposal.captions.nextText !== proposal.captions.previousText) {
+        await writeAtomic(proposal.captions.backupPath, proposal.captions.previousText);
+    }
+    const motionFiles = 'motion' in proposal ? proposal.motion ?? [] : [];
+    for (const motion of motionFiles) {
+        await writeAtomic(motion.backupPath, motion.previousText);
+    }
+    if (proposal.nextText !== proposal.previousText) await writeAtomic(proposal.filePath, proposal.nextText);
+    if (proposal.captions && proposal.captions.nextText !== proposal.captions.previousText) {
+        await writeAtomic(proposal.captions.filePath, proposal.captions.nextText);
+    }
+    for (const motion of motionFiles) await writeAtomic(motion.filePath, motion.nextText);
 }
 
 /** 退避した原文を 1 手で edit.json / captions.json へ戻す。backup 自体は監査記録として残す。 */
-export async function revertMigration(proposal: MigrationProposal): Promise<void> {
-    const original = await fs.readFile(proposal.backupPath, 'utf8');
+export async function revertMigration(proposal: MigrationProposal | V2NormalizationProposal): Promise<void> {
+    const original = proposal.nextText !== proposal.previousText
+        ? await fs.readFile(proposal.backupPath, 'utf8') : undefined;
     const captionsOriginal = proposal.captions
+        && proposal.captions.nextText !== proposal.captions.previousText
         ? await fs.readFile(proposal.captions.backupPath, 'utf8') : undefined;
-    await writeAtomic(proposal.filePath, original);
+    const motionFiles = 'motion' in proposal ? proposal.motion ?? [] : [];
+    const motionOriginals = await Promise.all(motionFiles.map(async motion => ({
+        filePath: motion.filePath,
+        text: await fs.readFile(motion.backupPath, 'utf8')
+    })));
+    if (original !== undefined) await writeAtomic(proposal.filePath, original);
     if (proposal.captions && captionsOriginal !== undefined) {
         await writeAtomic(proposal.captions.filePath, captionsOriginal);
+    }
+    for (const motion of motionOriginals) await writeAtomic(motion.filePath, motion.text);
+}
+
+export function planV2Normalization(
+    projectRoot: string,
+    editPath: string,
+    previousText: string,
+    options: { now?: Date } = {}
+): V2NormalizationProposal | MigrationBlocked | MigrationNoop {
+    let raw: unknown;
+    try {
+        raw = JSON.parse(previousText);
+    } catch (error) {
+        return { ok: false, version: -1, blockers: [`edit.json を JSON として読めません: ${messageOf(error)}`] };
+    }
+    if (detectEditVersion(raw) !== 2) {
+        return { ok: false, version: detectEditVersion(raw) ?? -1, blockers: ['edit.json.version が 2 ではありません。'] };
+    }
+    const resolvedProjectRoot = resolve(projectRoot);
+    const resolvedEditPath = resolve(editPath);
+    if (!isRecord(raw) || !Array.isArray(raw.tracks)) {
+        return { ok: false, version: 2, blockers: ['version 2 の edit.json.tracks[] がありません。'] };
+    }
+    const normalized = clone(raw) as RecordValue;
+    const tracks = normalized.tracks as unknown[];
+    const usedIds = new Set<string>();
+    for (const track of tracks) {
+        if (!isRecord(track) || !Array.isArray(track.items)) continue;
+        collectItemIds(track.items, usedIds);
+    }
+    const duration = tracks.reduce((maximum, track) => {
+        if (!isRecord(track) || track.lane !== 'visual' || !Array.isArray(track.items)) return maximum;
+        return track.items.reduce((trackMaximum, item) => isRecord(item)
+            && typeof item.at === 'number' && typeof item.duration === 'number'
+            ? Math.max(trackMaximum, item.at + item.duration) : trackMaximum, maximum);
+    }, 0);
+    let convertedContent = false;
+    normalized.tracks = tracks.map(track => {
+        if (!isRecord(track) || !isRecord(track.content) || track.content.from !== 'captions.json') return track;
+        convertedContent = true;
+        const { content: _content, ...rest } = track;
+        const preferredId = typeof track.id === 'string' && track.id.length > 0 ? track.id : 'captions';
+        const id = uniqueId(preferredId, usedIds);
+        return {
+            ...rest,
+            items: [{
+                id,
+                name: '字幕',
+                at: 0,
+                duration,
+                source: { kind: 'captions', path: 'captions.json', exclude: [] },
+                items: []
+            }]
+        };
+    }).filter(track => !isRecord(track) || !Array.isArray(track.items) || track.items.length > 0);
+    try {
+        readEditV2(normalized as unknown as EditV2);
+    } catch (error) {
+        return {
+            ok: false,
+            version: 2,
+            blockers: [`正規化後の v2 が自己検証に失敗しました: ${messageOf(error)}`]
+        };
+    }
+
+    const nextText = serializeEdit(normalized);
+    const iso = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
+    const captionsPath = join(resolvedProjectRoot, 'captions.json');
+    let captions: V2NormalizationProposal['captions'];
+    if (existsSync(captionsPath)) {
+        try {
+            const captionsPreviousText = readFileSync(captionsPath, 'utf8');
+            const captionsNextText = serializeCaptions(JSON.parse(captionsPreviousText));
+            if (captionsNextText !== captionsPreviousText) {
+                captions = {
+                    filePath: captionsPath,
+                    previousText: captionsPreviousText,
+                    nextText: captionsNextText,
+                    backupPath: join(resolvedProjectRoot, '.akari', 'backup', `captions-${iso}.json`)
+                };
+            }
+        } catch (error) {
+            return { ok: false, version: 2, blockers: [`captions.json を正規化できません: ${messageOf(error)}`] };
+        }
+    }
+
+    const motion: NonNullable<V2NormalizationProposal['motion']> = [];
+    const motionDirectory = join(resolvedProjectRoot, 'motion');
+    if (existsSync(motionDirectory)) {
+        try {
+            for (const name of readdirSync(motionDirectory).filter(name => name.endsWith('.json')).sort()) {
+                const filePath = join(motionDirectory, name);
+                const motionPreviousText = readFileSync(filePath, 'utf8');
+                const motionNextText = serializeMotion(JSON.parse(motionPreviousText));
+                if (motionNextText === motionPreviousText) continue;
+                motion.push({
+                    filePath,
+                    previousText: motionPreviousText,
+                    nextText: motionNextText,
+                    backupPath: join(resolvedProjectRoot, '.akari', 'backup', `motion-${basename(name, '.json')}-${iso}.json`)
+                });
+            }
+        } catch (error) {
+            return { ok: false, version: 2, blockers: [`motion/*.json を正規化できません: ${messageOf(error)}`] };
+        }
+    }
+    if (!convertedContent && nextText === previousText && captions === undefined && motion.length === 0) {
+        return {
+            ok: true,
+            noop: true,
+            version: 2,
+            filePath: resolvedEditPath,
+            changes: [],
+            warnings: [],
+            nextText,
+            previousText,
+            backupPath: join(resolvedProjectRoot, '.akari', 'backup', `edit-${iso}.json`)
+        };
+    }
+    return {
+        filePath: resolvedEditPath,
+        version: 2,
+        changes: [
+            ...(convertedContent ? [{ path: 'tracks[].content', note: 'content → captions 袋グループ' }] : []),
+            { path: 'edit.json / captions.json / motion/*.json', note: '正規直列化（書式のみ）' }
+        ],
+        warnings: [],
+        nextText,
+        previousText,
+        backupPath: join(resolvedProjectRoot, '.akari', 'backup', `edit-${iso}.json`),
+        ...(captions ? { captions } : {}),
+        ...(motion.length > 0 ? { motion } : {})
+    };
+}
+
+function collectItemIds(items: unknown[], usedIds: Set<string>): void {
+    for (const item of items) {
+        if (!isRecord(item)) continue;
+        if (typeof item.id === 'string') usedIds.add(item.id);
+        if (Array.isArray(item.items)) collectItemIds(item.items, usedIds);
     }
 }
 

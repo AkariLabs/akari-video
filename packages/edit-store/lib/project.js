@@ -59,7 +59,7 @@ async function openProject(dir, opts = {}) {
             requireGroupId(groupId);
             return (await loadMotionPath(`motion/${groupId}.json`, groupId)).doc;
         },
-        async save() {
+        async save(options = {}) {
             normalizeTracks(edit);
             await distributeKeyframes(edit, loadMotionPath);
             const candidates = {};
@@ -82,11 +82,15 @@ async function openProject(dir, opts = {}) {
             const written = Object.keys(candidates);
             if (written.length === 0)
                 return { written: [], findings: [] };
-            const lint = await (0, write_gate_1.lintProjectCandidatesOnDisk)(dir, candidates);
-            if (!lint.pass) {
-                const error = new Error(lint.errors[0] ?? 'edit-lint が変更を拒否しました');
-                error.findings = lint.findings;
-                throw error;
+            let findings = [];
+            if (options.lint !== false) {
+                const lint = await (0, write_gate_1.lintProjectCandidatesOnDisk)(dir, candidates);
+                if (!lint.pass) {
+                    const error = new Error(lint.errors[0] ?? 'edit-lint が変更を拒否しました');
+                    error.findings = lint.findings;
+                    throw error;
+                }
+                findings = lint.findings;
             }
             await (0, write_gate_1.writeProjectFilesGuarded)(dir, candidates);
             for (const key of written) {
@@ -100,7 +104,7 @@ async function openProject(dir, opts = {}) {
                     state.originalText = candidates[state.path];
                 state.originalState = stableJson(state.doc);
             }
-            return { written, findings: lint.findings };
+            return { written, findings };
         }
     };
     return project;

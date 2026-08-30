@@ -15,11 +15,8 @@ export const BAKE_LAYER_ENTRY = join(REPOSITORY_ROOT, "packages", "bake-layer", 
 
 /**
  * edit.json の版差を読み込み層で吸収し、renderer が消費する組を作る。
- * expandParts 未指定時の継ぎ目:
- * - `.akari/render-tmp` = render-cut の plan / 宣言入力列挙前なので非展開
- * - `osr-page` / `gpu-page` = v2 page runtime へ渡すため展開
- * - `preview-projection` = preview-server へ渡すため展開
- * - その他（単体テストを含む）= 完成した renderer 互換ビューとして展開
+ * expandParts は既定 true。legacy / osr / gpu / preview の全経路で同じ袋展開を使い、
+ * 非展開は互換性を明示的に調べる呼び出しだけが `{ expandParts: false }` で選ぶ。
  */
 export function readRenderEdit(source, temporaryDirectory, { projectRoot, expandParts } = {}) {
   const raw = typeof source === "string" ? JSON.parse(source) : source;
@@ -31,9 +28,7 @@ export function readRenderEdit(source, temporaryDirectory, { projectRoot, expand
     raw,
     internal,
     edit: projectRendererCompatibilityEdit(raw, internal, temporaryDirectory, projectRoot, {
-      // renderProject は入力ハッシュ固定後にこの射影をもう一度呼ぶ。初回だけ原ファイル参照を
-      // 保ち、render-inputs が inline マスクをパスと誤認せず元断片を列挙できるようにする。
-      expandParts: expandParts ?? (basename(resolve(temporaryDirectory ?? ".")) !== "render-tmp"),
+      expandParts: expandParts ?? true,
     }),
   };
 }
@@ -117,6 +112,14 @@ export function projectRendererCompatibilityEdit(
 
 function expandedHtmlOverlays(internal, projectRoot) {
   const htmlCache = new Map();
+  const sourceById = new Map();
+  const visit = (item) => {
+    if (item?.source?.kind === "html" && typeof item.source.html === "string") {
+      sourceById.set(String(item.id), item.source.html);
+    }
+    for (const child of item?.children ?? []) visit(child);
+  };
+  for (const track of internal?.tracks ?? []) for (const item of track.items ?? []) visit(item);
   return expandBagOverlays(internal, (reference) => {
     if (reference.trimStart().startsWith("<")) return reference;
     if (!htmlCache.has(reference)) {
@@ -130,6 +133,11 @@ function expandedHtmlOverlays(internal, projectRoot) {
       }
     }
     return htmlCache.get(reference);
+  }).map(overlay => {
+    if (!overlay.html.trimStart().startsWith("<")) return overlay;
+    const htmlPath = sourceById.get(String(overlay.id))
+      ?? sourceById.get(String(overlay.parentId ?? ""));
+    return htmlPath === undefined ? overlay : { ...overlay, htmlPath };
   });
 }
 

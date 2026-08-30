@@ -105,3 +105,21 @@ test('字幕トラック合成は通常出力の 1 行と --json の changes[] �
     assert.equal(payload.changes.filter(change => change.path === 'tracks[]').length, 1);
   } finally { await rm(item.root, { recursive: true, force: true }); }
 });
+
+test('正規形の v2 は「変換の必要はありません」で exit 0・バイト不変', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-launcher-migrate-v2-'));
+  const editPath = join(root, 'edit.json');
+  const text = '{\n  "version": 2,\n  "output": { "width": 1280, "height": 720, "fps": 30 },\n  "sources": [],\n  "tracks": []\n}\n';
+  try {
+    await writeFile(editPath, text);
+    const lines = [];
+    const result = await runMigrateCommand([root, '--yes'], {
+      migrate, log: line => lines.push(line), error: () => {},
+    });
+    assert.equal(result.exitCode, 0);
+    assert.match(lines.join('\n'), /変換の必要はありません/u);
+    assert.equal(await readFile(editPath, 'utf8'), text);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

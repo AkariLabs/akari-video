@@ -8,10 +8,16 @@ import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { MiniWSServer } from './mini-ws.mjs';
 import { editToTimeline } from './edit-to-timeline.mjs';
-import { migratePreviewCompatibility, previewReadError, projectPreviewEdit } from './preview-edit.mjs';
+import { applyPreviewProjection, previewReadError, projectPreviewEdit } from './preview-edit.mjs';
 // 書き込み前の lint ゲートと atomic 書き込みは shell と同じ共有カーネル（packages/edit-store）。
 // lint 実行系が見つからない場合は fail-open（オーナー裁定 2026-08-02 — shell と同一挙動に統一）。
-import { lintProjectCandidates, writeAtomic } from '../../edit-store/lib/write-gate.js';
+import {
+  lintProjectCandidates,
+  writeAtomic,
+  writeProjectFilesGuarded,
+} from '../../edit-store/lib/write-gate.js';
+import { serializeCaptions, serializeEdit } from '../../edit-store/lib/canonical.js';
+import { openProject } from '../../edit-store/lib/project.js';
 import { projectSpeechDeclarations } from '../../edit-store/lib/index.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
@@ -583,32 +589,40 @@ const router = {
     } catch (e) {
       return respond(res, 400, { error: 'Invalid JSON: ' + e.message });
     }
-    let text;
     try {
-      const candidate = req.headers['x-akari-preview-projection'] === '1'
-        ? migratePreviewCompatibility(parsed) : parsed;
-      text = JSON.stringify(candidate, null, 2);
-    } catch (e) {
-      return respond(res, 422, { error: e instanceof Error ? e.message : String(e) });
-    }
-    try {
-      if (!noLint) {
-        const lintResult = await lintProjectCandidates(projectRoot, { 'edit.json': text });
-        if (!lintResult.pass) {
-          return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
-        }
-      }
       // 上書きする前の状態を必ず 1 世代残す。ドラッグ 1 回で書き換わる編集面なので、
       // 「気づかないうちにずれていて、数日後に発見する」が現実に起きる（実機 2026-08-07:
       // 誤ドラッグ 4 件が edit.json に混入、うち 1 件は移動量 0.00004px）。
       // クライアント側の undo はリロードで消えるため、保証はここに置く。
       const snapshot = snapshotEdit();
       markSelfWrite();
-      await writeAtomic(path.join(projectRoot, 'edit.json'), text);
+      if (req.headers['x-akari-preview-projection'] === '1') {
+        const project = await openProject(projectRoot);
+        const baseline = projectPreviewEdit(
+          JSON.stringify(project.edit),
+          path.join(projectRoot, '.akari', 'preview-projection'),
+          projectRoot,
+        );
+        applyPreviewProjection(project, parsed, baseline);
+        await project.save({ lint: !noLint });
+      } else {
+        const text = serializeEdit(parsed);
+        if (!noLint) {
+          const lintResult = await lintProjectCandidates(projectRoot, { 'edit.json': text });
+          if (!lintResult.pass) {
+            return respond(res, 422, { error: 'Lint failed', findings: lintResult.findings });
+          }
+        }
+        await writeProjectFilesGuarded(projectRoot, { 'edit.json': text });
+      }
       wss.broadcast(JSON.stringify({ type: 'reload', ts: Date.now() }));
       respond(res, 200, { ok: true, snapshot });
     } catch (e) {
-      respond(res, 500, { error: e.message });
+      if (Array.isArray(e?.findings)) {
+        respond(res, 422, { error: 'Lint failed', findings: e.findings });
+      } else {
+        respond(res, 500, { error: e.message });
+      }
     }
   },
   'GET /api/edit-history': (req, res) => respond(res, 200, { entries: listHistory() }),
@@ -654,7 +668,7 @@ const router = {
     const body = await collectBody(req);
     let text;
     try {
-      text = JSON.stringify(JSON.parse(body), null, 2);
+      text = serializeCaptions(JSON.parse(body));
     } catch (e) {
       return respond(res, 400, { error: 'Invalid JSON: ' + e.message });
     }
@@ -667,7 +681,7 @@ const router = {
         }
       }
       markSelfWrite();
-      await writeAtomic(path.join(projectRoot, 'captions.json'), text);
+      await writeProjectFilesGuarded(projectRoot, { 'captions.json': text });
       wss.broadcast(JSON.stringify({ type: 'captions-reload', ts: Date.now() }));
       respond(res, 200, { ok: true });
     } catch (e) {

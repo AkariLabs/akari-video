@@ -163,8 +163,14 @@ export function migratePreviewCompatibility(source) {
     sources: parsed?.sources,
     cuts: parsed?.cuts,
     overlays: (parsed?.overlays ?? []).map(overlay => {
-      if (overlay?.role !== 'background') return overlay;
-      const { role: _previewRole, ...rest } = overlay;
+      const {
+        role: _previewRole,
+        part: _previewPart,
+        parentId: _previewParentId,
+        htmlPath: _previewHtmlPath,
+        ...rest
+      } = overlay ?? {};
+      if (overlay?.role !== 'background') return rest;
       return { ...rest, vars: { ...(rest.vars ?? {}), role: 'background' } };
     }),
     layers: parsed?.layers,
@@ -177,4 +183,102 @@ export function migratePreviewCompatibility(source) {
     throw new Error(`WebUI の編集を v2 へ反映できません: ${result.blockers.join(' / ')}`);
   }
   return result.doc;
+}
+
+/**
+ * WebUI の legacy 射影で実際に変わった値だけを正本の v2 木へ反映する。
+ * baseline は PUT 直前の /api/summary。凍結変換器は差分をフレーム単位へ確定するためだけに使い、
+ * その出力で正本全体を置き換えない。
+ */
+export function applyPreviewProjection(project, source, baseline) {
+  const before = migratePreviewCompatibility(baseline);
+  const after = migratePreviewCompatibility(source);
+  const beforeItems = indexV2Items(before);
+  const afterItems = indexV2Items(after);
+  const mutableFields = [
+    'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes',
+    'gain_db', 'fade_in', 'fade_out', 'ducking', 'script', 'reading', 'provenance',
+  ];
+  const mutableSourceFields = [
+    'in', 'out', 'vars', 'params', 'framing', 'transition_out', 'freeze', 'fx', 'speed',
+    'chroma_key', 'filter',
+  ];
+
+  for (const [id, next] of afterItems) {
+    const previous = beforeItems.get(id);
+    const current = project.edit.find(id);
+    if (!previous || !current) continue;
+    const patch = {};
+    for (const key of mutableFields) {
+      if (!sameJson(previous[key], next[key])) patch[key] = next[key] ?? null;
+    }
+    const sourcePatch = {};
+    for (const key of mutableSourceFields) {
+      if (!sameJson(previous.source?.[key], next.source?.[key])) sourcePatch[key] = next.source?.[key] ?? null;
+    }
+    if (Object.keys(sourcePatch).length > 0) patch.source = sourcePatch;
+    if (Object.keys(patch).length > 0) project.edit.update(id, patch);
+  }
+
+  // 射影上で明示的に消えた既存 item だけを削除する。袋の写し（合成 id）は正本に存在しないので
+  // find() が自然に除外し、射影に無い hidden item や袋そのものは一切対象にならない。
+  for (const id of beforeItems.keys()) {
+    if (!afterItems.has(id) && project.edit.find(id)) project.edit.remove(id);
+  }
+
+  const locations = currentLocations(project.edit);
+  for (const track of after.tracks ?? []) {
+    if (!Array.isArray(track.items) || track.items.length === 0) continue;
+    const targetTrack = chooseTargetTrack(track.items, locations, project.edit.tracks, track.lane);
+    if (!targetTrack) continue;
+    for (const [index, item] of track.items.entries()) {
+      let current = project.edit.find(item.id);
+      if (!current) {
+        if (beforeItems.has(item.id)) continue;
+        current = project.edit.insert(targetTrack.id, structuredClone(item), index);
+        locations.set(item.id, { track: targetTrack, parent: undefined });
+        continue;
+      }
+      const location = locations.get(item.id);
+      if (location?.parent) continue;
+      const targetItems = targetTrack.items ?? [];
+      const currentIndex = targetItems.findIndex(candidate => candidate.id === item.id);
+      if (location?.track.id !== targetTrack.id || currentIndex !== index) {
+        project.edit.move(item.id, { track: targetTrack.id, index });
+        locations.set(item.id, { track: targetTrack, parent: undefined });
+      }
+    }
+  }
+  return { before, after };
+}
+
+function indexV2Items(edit) {
+  const result = new Map();
+  const visit = item => {
+    result.set(String(item.id), item);
+    for (const child of item.items ?? []) visit(child);
+  };
+  for (const track of edit.tracks ?? []) for (const item of track.items ?? []) visit(item);
+  return result;
+}
+
+function currentLocations(edit) {
+  const result = new Map();
+  edit.walk((item, parent, track) => result.set(item.id, { parent, track }));
+  return result;
+}
+
+function chooseTargetTrack(items, locations, tracks, lane) {
+  const counts = new Map();
+  for (const item of items) {
+    const track = locations.get(item.id)?.track;
+    if (track) counts.set(track.id, (counts.get(track.id) ?? 0) + 1);
+  }
+  const selected = [...counts].sort((left, right) => right[1] - left[1])[0]?.[0];
+  return tracks.find(track => track.id === selected)
+    ?? tracks.find(track => track.lane === lane && Array.isArray(track.items));
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
