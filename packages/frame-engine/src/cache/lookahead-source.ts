@@ -1,4 +1,4 @@
-import type { FrameMetricsRecorder, NativeFrameSource } from '../types.js';
+import { cloneWithRotation, type FrameMetricsRecorder, type NativeFrameSource } from '../types.js';
 import { LookaheadCache } from './lookahead-cache.js';
 
 export interface LookaheadAccess {
@@ -55,7 +55,7 @@ export class LookaheadFrameSource implements NativeFrameSource {
     const started = performance.now();
     const frame = await this.source.decode(timeUs, metrics, request);
     const decodeMs = performance.now() - started;
-    cache.put(frameNumber, frame.clone(), decodeMs);
+    cache.put(frameNumber, cloneWithRotation(frame), decodeMs);
     this.options.onAccess?.({ streamId, frameNumber, hit: false, decodeMs });
     return frame;
   }

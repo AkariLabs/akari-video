@@ -49,6 +49,14 @@ export interface NativeI420Frame {
 export type NativeYuvFrame = NativeNv12Frame | NativeI420Frame;
 export type RotatedVideoFrame = VideoFrame & { rotationDeg?: number };
 
+/** VideoFrame.clone() drops expandos, so explicitly carry rotation metadata forward. */
+export function cloneWithRotation<T extends { clone(): T }>(frame: T): T {
+  const clone = frame.clone();
+  (clone as unknown as RotatedVideoFrame).rotationDeg =
+    (frame as unknown as RotatedVideoFrame).rotationDeg;
+  return clone;
+}
+
 export interface NativeFrameSource {
   decode(
     timeUs: TimelineTimeUs,

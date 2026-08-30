@@ -14469,6 +14469,7 @@ ${indent}`);
     captionWordTextureRect: () => captionWordTextureRect,
     capturePresentedRgba: () => capturePresentedRgba,
     chooseSource: () => chooseSource,
+    cloneWithRotation: () => cloneWithRotation,
     compareRgba: () => compareRgba,
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
     copyNativeYuvFrame: () => copyNativeYuvFrame,
@@ -14514,6 +14515,13 @@ ${indent}`);
     withProgressBudget: () => withProgressBudget,
     withTimeout: () => withTimeout
   });
+
+  // packages/frame-engine/src/types.ts
+  function cloneWithRotation(frame) {
+    const clone = frame.clone();
+    clone.rotationDeg = frame.rotationDeg;
+    return clone;
+  }
 
   // packages/frame-engine/src/decode/native-yuv.ts
   function compactPlane(source, layout, width, height) {
@@ -19587,6 +19595,7 @@ void main() {
               if (!usedPrepared) {
                 this.applyKeyframes(await this.readKeyframes(candidate));
               }
+              this.rotationDeg = this.options.skipSourceRotation ? normalizeRotationDeg(candidate.meta.rotationDeg) : 0;
               const primeTarget = this.toDecoderTime(0);
               const rawPrimed = await withTimeout(
                 Promise.race([candidate.tick(primeTarget), guard.failure]),
@@ -19599,13 +19608,12 @@ void main() {
                 if (observed) throw new Error(`decoder error: ${observed}`);
               }
               this.lastTickTargetUs = primeTarget;
-              if (primed.video) this.coverage.adopt(primed.video);
+              if (primed.video) this.coverage.adopt(this.attachRotation(primed.video));
             } finally {
               guard.stop();
             }
             this.clip = candidate;
             this.activeAcceleration = attempt.hardwareAcceleration;
-            this.rotationDeg = this.options.skipSourceRotation ? normalizeRotationDeg(candidate.meta.rotationDeg) : 0;
             this.meta = {
               ...candidate.meta,
               rotationDeg: this.rotationDeg,
@@ -20127,7 +20135,7 @@ void main() {
       if (!entry) return null;
       this.entries.delete(frameNumber);
       this.entries.set(frameNumber, entry);
-      return { frame: entry.frame.clone(), decodeMs: entry.decodeMs };
+      return { frame: cloneWithRotation(entry.frame), decodeMs: entry.decodeMs };
     }
     put(frameNumber, frame, decodeMs) {
       this.entries.get(frameNumber)?.frame.close();
@@ -20182,7 +20190,7 @@ void main() {
       const started = performance.now();
       const frame = await this.source.decode(timeUs, metrics, request);
       const decodeMs = performance.now() - started;
-      cache.put(frameNumber, frame.clone(), decodeMs);
+      cache.put(frameNumber, cloneWithRotation(frame), decodeMs);
       this.options.onAccess?.({ streamId, frameNumber, hit: false, decodeMs });
       return frame;
     }

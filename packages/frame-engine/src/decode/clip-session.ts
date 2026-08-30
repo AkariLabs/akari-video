@@ -260,6 +260,9 @@ export class ClipSession implements NativeFrameSource {
             if (!usedPrepared) {
               this.applyKeyframes(await this.readKeyframes(candidate));
             }
+            this.rotationDeg = this.options.skipSourceRotation
+              ? normalizeRotationDeg((candidate.meta as { rotationDeg?: number }).rotationDeg)
+              : 0;
             const primeTarget = this.toDecoderTime(0);
             const rawPrimed = await withTimeout(
               Promise.race([candidate.tick(primeTarget), guard.failure]),
@@ -272,15 +275,12 @@ export class ClipSession implements NativeFrameSource {
               if (observed) throw new Error(`decoder error: ${observed}`);
             }
             this.lastTickTargetUs = primeTarget;
-            if (primed.video) this.coverage.adopt(primed.video);
+            if (primed.video) this.coverage.adopt(this.attachRotation(primed.video));
           } finally {
             guard.stop();
           }
           this.clip = candidate;
           this.activeAcceleration = attempt.hardwareAcceleration;
-          this.rotationDeg = this.options.skipSourceRotation
-            ? normalizeRotationDeg((candidate.meta as { rotationDeg?: number }).rotationDeg)
-            : 0;
           this.meta = {
             ...candidate.meta,
             rotationDeg: this.rotationDeg,

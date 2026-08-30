@@ -1,4 +1,6 @@
 // Adapted from packages/preview-engine/src/lookaheadCache.ts.
+import { cloneWithRotation } from '../types.js';
+
 export interface CachedFrame {
   frame: VideoFrame;
   decodeMs: number;
@@ -17,7 +19,7 @@ export class LookaheadCache {
     if (!entry) return null;
     this.entries.delete(frameNumber);
     this.entries.set(frameNumber, entry);
-    return { frame: entry.frame.clone(), decodeMs: entry.decodeMs };
+    return { frame: cloneWithRotation(entry.frame), decodeMs: entry.decodeMs };
   }
 
   put(frameNumber: number, frame: VideoFrame, decodeMs: number): void {
