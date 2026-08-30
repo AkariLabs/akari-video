@@ -130,13 +130,22 @@ async function main() {
   // ---- 1. open the Explorer (file icon in the activity bar) via a real click ----
   // NOTE: the activity bar icon TOGGLES the panel - clicking it while the
   // Explorer is already open will close it. Only click if it is not visible yet.
-  const explorerState = await evalMain(main, `(() => {
-    const anyRow = document.querySelector('.theia-TreeNode');
-    const alreadyOpen = !!(anyRow && anyRow.getBoundingClientRect().width > 0);
-    const el = Array.from(document.querySelectorAll('.codicon-files')).find(e => e.getBoundingClientRect().width > 0);
-    const r = el.getBoundingClientRect();
-    return { alreadyOpen, x: r.left + r.width / 2, y: r.top + r.height / 2 };
-  })()`);
+  let explorerState;
+  for (let attempt = 0; attempt < 180 && !explorerState; attempt++) {
+    explorerState = await evalMain(main, `(() => {
+      const anyRow = document.querySelector('.theia-TreeNode');
+      const alreadyOpen = !!(anyRow && anyRow.getBoundingClientRect().width > 0);
+      const el = document.querySelector('#shell-tab-explorer-view-container .codicon-files');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) return null;
+      return { alreadyOpen, x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    })()`);
+    if (!explorerState) await sleep(500);
+  }
+  if (!explorerState) {
+    throw new Error('Explorer が見つかりません。developer mode（akari.developerMode）が有効な workspace で起動してください。');
+  }
   if (!explorerState.alreadyOpen) {
     await realClick(main, explorerState.x, explorerState.y);
     await sleep(500);
@@ -145,8 +154,8 @@ async function main() {
 
   // ---- 2. expand the folder containing the video, via a real double-click on the tree row ----
   // (idempotent: a tree row is a toggle, so only double-click while collapsed)
-  const videoDir = path.dirname(VIDEO_REL_PATH).split('/')[0];
-  const videoBase = path.basename(VIDEO_REL_PATH);
+  const videoDir = path.dirname(VIDEO_REL_PATH);
+  const editBase = 'edit.json';
   const findRow = (label) => evalMain(main, `(() => {
     const rows = Array.from(document.querySelectorAll('.theia-TreeNode, [class*="TreeNode"]'));
     const row = rows.find(r => r.textContent.trim() === ${JSON.stringify(label)});
@@ -164,20 +173,20 @@ async function main() {
   }
   record('expanded-folder', { videoDir, ...folderRow });
 
-  // ---- 3. double-click the video file row to open it in the akari-preview tab ----
-  const fileRow = await findRow(videoBase);
-  if (!fileRow.found) throw new Error(`tree row for file "${videoBase}" not found`);
+  // ---- 3. double-click edit.json to open the composited output preview tab ----
+  const fileRow = await findRow(editBase);
+  if (!fileRow.found) throw new Error(`tree row for file "${editBase}" not found`);
   await realClick(main, fileRow.x, fileRow.y, { clickCount: 2 });
   await sleep(1500);
-  record('opened-video-tab', { videoBase, ...fileRow });
+  record('opened-edit-tab', { editBase, ...fileRow });
   await screenshot(main, path.join(EVIDENCE_DIR, '01-preview-opened.png'));
 
   // ---- 4. locate the webview's outer CDP target (its own attachable "iframe" target) ----
   let outerTarget = null;
-  for (let attempt = 0; attempt < 10 && !outerTarget; attempt++) {
+  for (let attempt = 0; attempt < 30 && !outerTarget; attempt++) {
     const targets = await listTargets();
     outerTarget = targets.find(t => t.type === 'iframe' && /webview\/index\.html/.test(t.url));
-    if (!outerTarget) await sleep(300);
+    if (!outerTarget) await sleep(500);
   }
   if (!outerTarget) throw new Error('outer webview CDP target not found (double-iframe not created?)');
   record('found-outer-webview-target', { id: outerTarget.id, url: outerTarget.url });
@@ -193,8 +202,29 @@ async function main() {
   const frameTree = await outer.send('Page.getFrameTree');
   const topFrameId = frameTree.frameTree.frame.id;
   const childFrames = (frameTree.frameTree.childFrames || []).map(c => c.frame);
-  const activeCtx = contexts.find(c => c.auxData?.frameId !== topFrameId);
-  if (!activeCtx) throw new Error('inner active-frame execution context not found');
+  let activeCtx = null;
+  const activeContextDeadline = Date.now() + 30000;
+  while (!activeCtx && Date.now() < activeContextDeadline) {
+    for (const context of contexts) {
+      try {
+        const hasPreviewVideo = await evalIn(
+          outer,
+          context.id,
+          `document.getElementById('preview-video') !== null`
+        );
+        if (hasPreviewVideo) {
+          activeCtx = context;
+          break;
+        }
+      } catch {
+        // A frame can be replaced while the output preview is initializing.
+      }
+    }
+    if (!activeCtx) await sleep(500);
+  }
+  if (!activeCtx) {
+    throw new Error('inner active-frame execution context containing #preview-video not found within 30s');
+  }
   record('reached-active-frame-context', {
     outerFrameId: topFrameId,
     childFrames: childFrames.map(f => ({ id: f.id, name: f.name })),
@@ -202,10 +232,12 @@ async function main() {
   });
 
   // ---- 5. seek into the overlay's active time window and confirm it renders ----
-  const seekResult = await evalIn(outer, activeCtx.id, `(() => {
+  const seekResult = await evalIn(outer, activeCtx.id, `(async () => {
     const video = document.getElementById('preview-video');
     video.pause();
-    video.currentTime = 2;
+    if (video.readyState < 2) {
+      await new Promise(resolve => video.addEventListener('loadeddata', resolve, { once: true }));
+    }
     return new Promise(resolve => {
       video.addEventListener('seeked', function handler() {
         video.removeEventListener('seeked', handler);
@@ -213,6 +245,7 @@ async function main() {
         const container = document.querySelector('[data-overlay-id="${OVERLAY_ID}"]');
         resolve({ currentTime: video.currentTime, visibility: container ? getComputedStyle(container).visibility : 'no-container' });
       }, { once: true });
+      video.currentTime = 2;
     });
   })()`);
   record('seeked-into-overlay-window', seekResult);
@@ -231,11 +264,8 @@ async function main() {
   await sleep(300);
   const selection = await evalIn(outer, activeCtx.id, `(() => {
     const container = document.querySelector('[data-overlay-id="${OVERLAY_ID}"]');
-    const inspector = document.getElementById('inspector');
     return {
       selected: container.getAttribute('data-akari-interaction-selected'),
-      inspectorHidden: inspector.hidden,
-      inspectorFieldsText: document.getElementById('inspector-fields').textContent,
     };
   })()`);
   record('real-click-selected-overlay', { fragmentRect, clickX, clickY, selection });
@@ -249,6 +279,13 @@ async function main() {
   await screenshot(main, path.join(EVIDENCE_DIR, '03-overlay-selected-inspector-open.png'));
 
   // ---- 7. real focus + keyboard selection + real text insertion into the --color field ----
+  const inspectorState = await evalIn(outer, activeCtx.id, `(() => ({
+    inspectorExists: document.getElementById('inspector') !== null,
+    inspectorFieldsExists: document.getElementById('inspector-fields') !== null,
+  }))()`);
+  if (!inspectorState.inspectorExists || !inspectorState.inspectorFieldsExists) {
+    throw new Error('プレビュータブ内インスペクタ（#inspector / #inspector-fields）が現行シェルに存在しません。この UI は右パネルのインスペクターへ移設済みで、本台本の step 7 以降は到達できません。');
+  }
   const inputRect = await evalIn(outer, activeCtx.id, `(() => {
     const input = document.querySelector('#inspector-fields input[aria-label="${OVERLAY_VAR}"]');
     const r = input.getBoundingClientRect();

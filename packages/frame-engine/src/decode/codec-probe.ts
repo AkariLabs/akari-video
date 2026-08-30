@@ -3,6 +3,7 @@ export interface VideoCodecInfo {
   codec: string;
   codedWidth: number;
   codedHeight: number;
+  rotationDeg: number;
 }
 
 export interface CodecSupport {
@@ -36,6 +37,10 @@ function uint32(bytes: Uint8Array, offset: number): number {
 function uint64(bytes: Uint8Array, offset: number): number | null {
   const value = new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigUint64(0);
   return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : null;
+}
+
+function int32(bytes: Uint8Array, offset: number): number {
+  return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getInt32(0);
 }
 
 function typeAt(bytes: Uint8Array, offset: number): string {
@@ -132,9 +137,21 @@ function parseStsd(bytes: Uint8Array, stsd: Box): VideoCodecInfo | null {
     const payload = bytes.subarray(config.dataStart, config.end);
     const codec = entry.type === 'avc1'
       ? avcCodecString(entry.type, payload) : hevcCodecString(entry.type, payload);
-    return codec ? { fourcc: entry.type, codec, codedWidth, codedHeight } : null;
+    return codec ? { fourcc: entry.type, codec, codedWidth, codedHeight, rotationDeg: 0 } : null;
   }
   return null;
+}
+
+function rotationFromTkhd(bytes: Uint8Array, trak: Box): number {
+  const tkhd = childBoxes(bytes, trak.dataStart, trak.end).find(box => box.type === 'tkhd');
+  if (!tkhd || tkhd.dataStart >= tkhd.end) return 0;
+  const matrixOffset = tkhd.dataStart + 4 + (bytes[tkhd.dataStart] === 1 ? 32 : 20) + 16;
+  if (matrixOffset + 36 > tkhd.end) return 0;
+  const a = int32(bytes, matrixOffset) / 65536;
+  const c = int32(bytes, matrixOffset + 12) / 65536;
+  if (!Number.isFinite(a) || !Number.isFinite(c) || (a === 0 && c === 0)) return 0;
+  const degrees = Math.atan2(c, a) * 180 / Math.PI;
+  return (Math.round(degrees / 90) * 90 + 360) % 360;
 }
 
 export function readVideoCodecFromMoov(input: ArrayBuffer | Uint8Array): VideoCodecInfo | null {
@@ -156,7 +173,7 @@ export function readVideoCodecFromMoov(input: ArrayBuffer | Uint8Array): VideoCo
       const stsd = childBoxes(bytes, stbl.dataStart, stbl.end).find(box => box.type === 'stsd');
       if (!stsd) continue;
       const result = parseStsd(bytes, stsd);
-      if (result) return result;
+      if (result) return { ...result, rotationDeg: rotationFromTkhd(bytes, trak) };
     }
     return null;
   } catch {

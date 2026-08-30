@@ -62,7 +62,7 @@ test("launcher reports missing akari-tools and reuses render-cut Chrome guidance
   assert.match(errors.at(-1), /実行スクリプトが見つかりません/u);
 
   await withScript(async ({ root, script }) => {
-    const result = await runCaptureCommand(["-t", "0"], {
+    const result = await runCaptureCommand(["-t", "0", "--engine", "legacy"], {
       assets: { repoRoot: root, captureScript: script },
       findChromePath: async () => null,
       describeChromeNotFound: async () => "render-cut Chrome guidance",
@@ -71,6 +71,23 @@ test("launcher reports missing akari-tools and reuses render-cut Chrome guidance
     });
     assert.equal(result.exitCode, 1);
     assert.equal(errors.at(-1), "render-cut Chrome guidance");
+  });
+});
+
+test("v2 capture engines do not require a separately installed Chrome", async () => {
+  await withScript(async ({ root, script }) => {
+    for (const args of [["-t", "0", "--engine", "osr"], ["-t", "0", "--engine=gpu"], ["-t", "0"]]) {
+      let chromeChecked = false;
+      const result = await runCaptureCommand(args, {
+        assets: { repoRoot: root, captureScript: script },
+        platform: "darwin",
+        findChromePath: async () => { chromeChecked = true; return null; },
+        describeChromeNotFound: async () => "missing Chrome",
+        spawn: () => ({ status: 0 }),
+      });
+      assert.equal(result.exitCode, 0);
+      assert.equal(chromeChecked, false);
+    }
   });
 });
 

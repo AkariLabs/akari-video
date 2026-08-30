@@ -124,6 +124,71 @@ export async function exportWithGpu({
   }
 }
 
+export async function captureFramesWithGpu({
+  projectRoot,
+  editPath = null,
+  outputDirectory,
+  frameNumbers,
+  fps,
+  width,
+  height,
+  duration,
+  frames = Math.round(duration * fps),
+  eligibility,
+  soft = false,
+  env = process.env,
+  io = console,
+  launcher: suppliedLauncher = null,
+  launcherResolver = resolveGpuLauncher,
+  launcherRunner = launchGpuExport,
+} = {}) {
+  if (eligibility?.eligible !== true) {
+    throw new Error(`GPU eligibility failed: ${formatEligibilityFailures(eligibility)}`);
+  }
+  const requestedFrames = normalizeCaptureFrames(frameNumbers, frames);
+  if (!projectRoot || !outputDirectory) {
+    throw new Error("GPU capture requires projectRoot and outputDirectory");
+  }
+  const launcher = suppliedLauncher ?? await launcherResolver({ env });
+  if (launcher?.tier === 3) {
+    throw new Error(`GPU capture unavailable: ${launcher.reason ?? "Electron unavailable"}`);
+  }
+  await mkdir(outputDirectory, { recursive: true });
+  const runPath = join(outputDirectory, "capture-run.json");
+  await launcherRunner(launcher, {
+    projectRoot,
+    editPath,
+    out: runPath,
+    fps,
+    width,
+    height,
+    duration,
+    frames,
+    soft,
+    quality: "high",
+    captureFrames: requestedFrames,
+    captureOutputDirectory: outputDirectory,
+    onStdout: (text) => io.log?.(text.trimEnd()),
+    onStderr: (text) => io.error?.(text.trimEnd()),
+  });
+  const run = JSON.parse(await readFile(runPath, "utf8"));
+  if (run.status !== "completed" || run.operation !== "capture" || run.verify?.matched !== true) {
+    throw new Error(`GPU capture failed verification: ${run.status ?? "unknown"}`);
+  }
+  return {
+    launcher,
+    run,
+    receipt: {
+      launcherTier: launcher.tier,
+      operation: "capture",
+      verify: run.verify,
+      gpu: run.gpu,
+      eligibility: run.eligibility,
+      elapsedMs: run.elapsedMs,
+    },
+  };
+}
+
 export function resolveGpuRuntimeOptions({ env = process.env, soft = false, queueDepth = 4, quality = "high", bitrate = undefined, trapReadback = false, verifyFrames = false } = {}) {
   const encoding = resolveGpuEncoding({
     quality,
@@ -151,6 +216,19 @@ function positiveInteger(value, label) {
   const number = Number(value);
   if (!Number.isInteger(number) || number <= 0) throw new Error(`${label} must be a positive integer`);
   return number;
+}
+
+function normalizeCaptureFrames(frameNumbers, totalFrames) {
+  if (!Array.isArray(frameNumbers) || frameNumbers.length === 0) {
+    throw new Error("GPU capture requires at least one frame number");
+  }
+  return [...new Set(frameNumbers.map((frame) => {
+    const parsed = Number(frame);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed >= totalFrames) {
+      throw new Error(`GPU capture frame ${frame} is outside 0..${totalFrames - 1}`);
+    }
+    return parsed;
+  }))].sort((left, right) => left - right);
 }
 
 function measureAvTermination(finalVerify, fps) {

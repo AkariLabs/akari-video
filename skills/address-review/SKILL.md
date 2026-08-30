@@ -43,8 +43,12 @@ review-session 契約 §6（session 由来の増補フィールド）。
    session 由来（§6 増補）なら `session`（id・recRange・confidence）と `strokes`（sessionRef 付き）
    を人間可読に整形して表示する。`--all-open` は `[要確認]` annotation を自動でスキップし、
    スキップした id と件数を出力に含める。
+
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+
 2. 各チケットについて `text` の指示（source 秒・target が入っている）を読み、対応方針を決める。
-   - 対応する場合: edit.json（必要なら captions.json）を編集し、
+   - 対応する場合: edit.json（必要なら captions.json）を該当行の Edit か edit-store のスクリプト API で編集し、
      `node packages/edit-lint/bin/edit-lint.mjs <project-root> --media` を PASS させる。
    - 対応しない場合: 理由を明確にする（黙殺しない）。
 3. 判断が確定したチケットごとに状態を執行する。

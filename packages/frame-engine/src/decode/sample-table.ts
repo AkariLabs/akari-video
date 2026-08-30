@@ -1,4 +1,5 @@
 import * as MP4BoxNamespace from '@webav/mp4box.js';
+import { readVideoCodecFromMoov } from './codec-probe.js';
 import { calculateDecoderTimestampOffsetUs, type MediaEdit } from './keyframe-index.js';
 
 const MP4Box: typeof MP4BoxNamespace =
@@ -38,6 +39,7 @@ export interface Mp4VideoSampleTable {
   codedHeight: number;
   width: number;
   height: number;
+  rotationDeg: number;
   maxReorderFrames: number;
   decoderTimestampOffsetUs: number;
   presentationDurationUs: number;
@@ -279,10 +281,13 @@ export function buildVideoSampleTable(header: ArrayBuffer): Promise<Mp4VideoSamp
           ? Math.round((editDuration / info.timescale) * 1e6)
           : sampleDurationUs;
         const lastFrameStartUs = samples[presentationOrder.at(-1)!]!.timestampUs;
+        const rotationDeg = readVideoCodecFromMoov(header)?.rotationDeg ?? 0;
+        const swapsDimensions = rotationDeg === 90 || rotationDeg === 270;
         resolve({
           ...description,
-          width: track.video?.width ?? description.codedWidth,
-          height: track.video?.height ?? description.codedHeight,
+          width: swapsDimensions ? description.codedHeight : description.codedWidth,
+          height: swapsDimensions ? description.codedWidth : description.codedHeight,
+          rotationDeg,
           maxReorderFrames,
           samples,
           presentationOrder,

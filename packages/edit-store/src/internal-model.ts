@@ -16,7 +16,7 @@ import {
     LayerBlendMode,
     TimelineTrackKind,
 } from './edit-store';
-import { AudioMediaItemV2, ItemV2, TrackV2, readEditV2 } from './edit-v2';
+import { AudioMediaItemV2, ItemV2, KeyframesReferenceV2, TrackV2, readEditV2 } from './edit-v2';
 import { cutOverlapFrames, isStillImageSourcePath, planTransitionHandleWindow } from './cut-adjacency';
 import { LegacyEditVersionError } from './migrate/error';
 
@@ -39,6 +39,11 @@ export interface InternalHtmlSource {
     /** 断片ファイルのパス、またはインライン HTML。 */
     html: string;
     params?: Record<string, string>;
+    part?: string;
+    style?: Record<string, string>;
+    text?: string;
+    exclude?: string[];
+    derivedFrom?: string;
 }
 
 export interface InternalTelopSource {
@@ -50,6 +55,7 @@ export interface InternalTelopSource {
      * 焼く前後で `InternalItem.id` は変わらない（notes §9）。
      */
     baked?: string;
+    from?: string;
 }
 
 export interface InternalFilterSource {
@@ -57,11 +63,18 @@ export interface InternalFilterSource {
     filter: unknown;
 }
 
+export interface InternalGroupSource { kind: 'group' }
+export interface InternalCaptionsSource { kind: 'captions'; path: 'captions.json'; exclude?: string[] }
+export interface InternalCaptionSource { kind: 'caption'; path: 'captions.json'; id: string }
+
 export type InternalItemSource =
     | InternalMediaSource
     | InternalHtmlSource
     | InternalTelopSource
-    | InternalFilterSource;
+    | InternalFilterSource
+    | InternalGroupSource
+    | InternalCaptionsSource
+    | InternalCaptionSource;
 
 /** 旧 edit.json の種別別配列の名前。v2 の `tracks[].items[]` は 'items'。 */
 export type LegacyCollection = 'cuts' | 'overlays' | 'layers' | 'sfx' | 'narration' | 'bgm' | 'items';
@@ -88,6 +101,12 @@ export interface InternalItem {
     at: number;
     /** 出力秒（`durationFrames / output.fps`）。 */
     duration: number;
+    /** 明示された子。袋 projection は含まない。 */
+    children: InternalItem[];
+    /** 親があるときだけ宣言 id を保持する。 */
+    parentId?: string;
+    /** motion/ 袋参照。A1 ではファイルを解決しない。 */
+    keyframesRef?: KeyframesReferenceV2;
     source: InternalItemSource;
     /**
      * 内部表現の宣言レコード。深い視覚プロパティ（crop / perspective / keyframes / framing / freeze /
@@ -228,11 +247,22 @@ export function visualContentEndSeconds(internal: InternalEdit): number {
     for (const track of internal.tracks) {
         if (track.lane !== 'visual') continue;
         for (const item of track.items) {
-            if (item.source.kind === 'html') continue;
+            if (['html', 'group', 'captions', 'caption'].includes(item.source.kind)) continue;
             maxEnd = Math.max(maxEnd, item.at + item.duration);
         }
     }
     return maxEnd;
+}
+
+/** 全トラックの明示アイテムを、親→子の深さ優先で列挙する。 */
+export function* walkItems(internal: InternalEdit): Generator<InternalItem> {
+    function* walk(item: InternalItem): Generator<InternalItem> {
+        yield item;
+        for (const child of item.children) yield* walk(child);
+    }
+    for (const track of internal.tracks) {
+        for (const item of track.items) yield* walk(item);
+    }
 }
 
 function toRecord(source: string | unknown): Record<string, unknown> | undefined {
@@ -301,6 +331,9 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
     const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap(track =>
         'items' in track && track.lane === 'visual' ? [track.items] : []
     ), pathOf);
+    const contentDurationFrames = edit.tracks.reduce((maximum, track) =>
+        'items' in track && track.lane === 'visual' ? track.items.reduce((trackMaximum, item) =>
+            Math.max(trackMaximum, item.at + item.duration), maximum) : maximum, 0);
     const tracks: InternalTrack[] = edit.tracks.map(track => {
         // P0 2026-08-21 render-path-unification (実測で発覚): 'cuts' 経路（concat チェーン）は
         // 同じトラック上の複数アイテムを「順番に連結される別セグメント」として扱う構造的前提を
@@ -332,6 +365,21 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
                 }
                 items.push(built.item);
             });
+        } else {
+            const normalized = buildV2Item(
+                {
+                    id: track.id,
+                    at: 0,
+                    duration: contentDurationFrames,
+                    source: { kind: 'captions', path: 'captions.json' }
+                },
+                fps, 0, 'visual', pathOf, chromaKeyOf, legacyIndexCounters
+            ).item;
+            items.push(normalized);
+            // BEFORE の内部モデル JSON とバイト等価を保つため、旧 content 由来の派生 items は
+            // JSON 直列化へ出さない。通常の内部消費者は items[0] の captions 袋を読めるが、
+            // 非列挙 toJSON はこの派生ビューだけを空配列として直列化する。
+            Object.defineProperty(items, 'toJSON', { value: () => [], enumerable: false });
         }
         return {
             id: track.id,
@@ -348,6 +396,7 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
     // 旧 top-level audio と tracks[] 音声が同居すると、後者に加えてこの fallback も射影される。
     // どちらを優先するかは未裁定なので、旧 fixture の互換挙動を変えず二重計上の可能性を残す。
     addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
+    hideEmptyChildrenForCompatibility(tracks);
     synthesizeHiddenTransitionHandlesForRender(tracks, fps);
     return {
         output: {
@@ -367,6 +416,16 @@ function readV2Internal(raw: Record<string, unknown>): InternalEdit {
             ...(edit.captions !== undefined ? { captions: edit.captions } : {})
         }
     };
+}
+
+function hideEmptyChildrenForCompatibility(tracks: InternalTrack[]): void {
+    const visit = (item: InternalItem): void => {
+        for (const child of item.children) visit(child);
+        if (item.children.length !== 0 || !Object.prototype.propertyIsEnumerable.call(item, 'children')) return;
+        delete item.children;
+        Object.defineProperty(item, 'children', { value: [], enumerable: false, writable: true });
+    };
+    for (const track of tracks) for (const item of track.items) visit(item);
 }
 
 /**
@@ -444,8 +503,11 @@ function legacyKindOfV2Track(
     const first = track.items[0];
     switch (first?.source.kind) {
         case 'html': return 'overlays';
+        case 'captions': return 'captions';
         case 'telop':
-        case 'filter': return 'layers';
+        case 'filter':
+        case 'group':
+        case 'caption': return 'layers';
         // 空トラック（first === undefined）は中身が無く旧種別は名目上のものでしかない。'layers' を
         // 既定にする: 'cuts' にすると、このトラックも nextRef の 'cuts' カウンタを消費して
         // しまい、後続の実際に中身がある cuts トラックの ref 番号がずれる
@@ -654,14 +716,30 @@ function buildV2Item(
     pathOf: (id: string) => string | undefined,
     chromaKeyOf: (sourceId: string) => unknown,
     legacyIndexCounters: Map<string, number>,
-    hasOverlappingSibling = false
+    hasOverlappingSibling = false,
+    parentAtFrames = 0,
+    parentId?: string
 ): { item: InternalItem; warning?: string } {
-    if (lane === 'audio') {
-        return buildV2AudioItem(item as AudioMediaItemV2, fps, ref, pathOf, legacyIndexCounters);
+    const built = lane === 'audio'
+        ? buildV2AudioItem(item as AudioMediaItemV2, fps, ref, pathOf, legacyIndexCounters)
+        : buildV2VisualItem(
+            item as ItemV2, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling,
+            parentAtFrames, parentId
+        );
+    const children = lane === 'visual' && 'items' in item && Array.isArray(item.items)
+        ? item.items.map(child => buildV2Item(
+            child, fps, ref, 'visual', pathOf, chromaKeyOf, legacyIndexCounters, false,
+            built.item.atFrames, built.item.id
+        ).item)
+        : [];
+    if (children.length > 0 || ('items' in item && Array.isArray(item.items))) {
+        built.item.children = children;
+    } else {
+        delete built.item.children;
+        Object.defineProperty(built.item, 'children', { value: children, enumerable: false, writable: true });
     }
-    return buildV2VisualItem(
-        item as ItemV2, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling
-    );
+    if (parentId !== undefined) built.item.parentId = parentId;
+    return built;
 }
 
 function buildV2VisualItem(
@@ -671,22 +749,51 @@ function buildV2VisualItem(
     pathOf: (id: string) => string | undefined,
     chromaKeyOf: (sourceId: string) => unknown,
     legacyIndexCounters: Map<string, number>,
-    hasOverlappingSibling = false
+    hasOverlappingSibling = false,
+    parentAtFrames = 0,
+    parentId?: string
 ): { item: InternalItem; warning?: string } {
-    const atFrames = item.at;
+    const atFrames = parentAtFrames + item.at;
     const durationFrames = item.duration;
     const at = atFrames / fps;
     const duration = durationFrames / fps;
-    const keyframes = item.keyframes?.map(keyframe => ({ ...keyframe, t: keyframe.t / fps }));
+    const declaredKeyframes = (item as unknown as { keyframes?: ItemV2['keyframes'] | KeyframesReferenceV2 }).keyframes;
+    const keyframes = Array.isArray(declaredKeyframes)
+        ? declaredKeyframes.map(keyframe => ({ ...keyframe, t: keyframe.t / fps })) : undefined;
     const common = {
         ...(item.transform !== undefined ? { transform: item.transform } : {}),
         ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
         ...(item.blend !== undefined ? { blend: item.blend } : {}),
         ...(item.crop !== undefined ? { crop: item.crop } : {}),
         ...(item.perspective !== undefined ? { perspective: item.perspective } : {}),
+        ...(item.motion !== undefined ? { motion: structuredClone(item.motion) } : {}),
+        ...(item.animator !== undefined ? { animator: structuredClone(item.animator) } : {}),
         ...(keyframes !== undefined ? { keyframes } : {}),
         ...(item.source.kind === 'media' && 'mask' in item && item.mask !== undefined
             ? { mask: pathOf(item.mask) ?? item.mask } : {})
+    };
+    const finish = (built: { item: InternalItem; warning?: string }): { item: InternalItem; warning?: string } => {
+        if (!Array.isArray(declaredKeyframes) && declaredKeyframes !== undefined) {
+            built.item.keyframesRef = { ...declaredKeyframes };
+        }
+        if (parentId !== undefined) {
+            const relativeSeconds = item.at / fps;
+            switch (item.source.kind) {
+                case 'media':
+                    built.item.declaration = { ...built.item.declaration, at: relativeSeconds };
+                    break;
+                case 'html':
+                    built.item.declaration = { ...built.item.declaration, start: relativeSeconds };
+                    break;
+                case 'telop':
+                case 'filter':
+                    built.item.declaration = { ...built.item.declaration, t: relativeSeconds };
+                    break;
+                default:
+                    break;
+            }
+        }
+        return built;
     };
     switch (item.source.kind) {
         case 'media': {
@@ -776,13 +883,13 @@ function buildV2VisualItem(
                     track: ref, ...common, ...copyMediaSourceFields(item.source)
                 };
                 const value = declaration as unknown as EditLayer;
-                return {
+                return finish({
                     item: {
-                        id: item.id, atFrames, durationFrames, at, duration, source,
+                        id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                         declaration,
                         legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers'), value }
                     }
-                };
+                });
             }
             const value: EditCut = {
                 in: item.source.in,
@@ -795,16 +902,16 @@ function buildV2VisualItem(
                 ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
                 ...copyMediaSourceFields(item.source)
             };
-            return {
+            return finish({
                 item: {
-                    id: item.id, atFrames, durationFrames, at, duration, source,
+                    id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                     declaration: {
                         id: item.id, src: item.source.src, in: item.source.in, out: cutOut, at, track: ref,
                         ...common, ...copyMediaSourceFields(item.source), ...(speed !== undefined ? { speed } : {})
                     },
                     legacy: { collection: 'cuts', index: nextLegacyIndex(legacyIndexCounters, 'cuts'), value }
                 }
-            };
+            });
         }
         case 'html': {
             const declaration = {
@@ -819,33 +926,39 @@ function buildV2VisualItem(
                 track: ref,
                 payload: declaration as Record<string, unknown>
             };
-            return {
+            return finish({
                 item: {
-                    id: item.id, atFrames, durationFrames, at, duration,
+                    id: item.id, atFrames, durationFrames, at, duration, children: [],
                     source: {
                         kind: 'html', html: item.source.path,
-                        ...(item.source.params !== undefined ? { params: item.source.params } : {})
+                        ...(item.source.params !== undefined ? { params: item.source.params } : {}),
+                        ...(item.source.part !== undefined ? { part: item.source.part } : {}),
+                        ...(item.source.style !== undefined ? { style: item.source.style } : {}),
+                        ...(item.source.text !== undefined ? { text: item.source.text } : {}),
+                        ...(item.source.exclude !== undefined ? { exclude: item.source.exclude } : {}),
+                        ...(item.source.derivedFrom !== undefined ? { derivedFrom: item.source.derivedFrom } : {})
                     },
                     declaration,
                     legacy: { collection: 'overlays', index: nextLegacyIndex(legacyIndexCounters, 'overlays'), value }
                 }
-            };
+            });
         }
         case 'telop': {
             const source: InternalTelopSource = {
                 kind: 'telop',
                 preset: item.source.preset,
                 ...(item.source.params !== undefined ? { params: item.source.params } : {}),
-                ...(item.source.baked !== undefined ? { baked: item.source.baked } : {})
+                ...(item.source.baked !== undefined ? { baked: item.source.baked } : {}),
+                ...(item.source.from !== undefined ? { from: item.source.from } : {})
             };
             const declaration = {
                 id: item.id, t: at, duration, kind: 'baked', src: item.source.baked,
                 preset: item.source.preset, params: item.source.params, track: ref, ...common
             };
             if (item.source.baked === undefined) {
-                return {
-                    item: { id: item.id, atFrames, durationFrames, at, duration, source, declaration, legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers') } }
-                };
+                return finish({
+                    item: { id: item.id, atFrames, durationFrames, at, duration, children: [], source, declaration, legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers') } }
+                });
             }
             const value: EditLayer = {
                 id: item.id,
@@ -859,23 +972,43 @@ function buildV2VisualItem(
                 ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
                 ...(item.blend !== undefined ? { blend: item.blend as LayerBlendMode } : {})
             };
-            return {
-                item: { id: item.id, atFrames, durationFrames, at, duration, source, declaration, legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers'), value } }
-            };
+            return finish({
+                item: { id: item.id, atFrames, durationFrames, at, duration, children: [], source, declaration, legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers'), value } }
+            });
         }
-        default: {
+        case 'filter': {
             const source: InternalFilterSource = { kind: 'filter', filter: item.source.filter };
-            return {
+            return finish({
                 item: {
-                    id: item.id, atFrames, durationFrames, at, duration, source,
+                    id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                     declaration: {
                         id: item.id, t: at, duration, kind: 'filter',
                         filter: item.source.filter, track: ref, ...common
                     },
                     legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers') }
                 }
-            };
+            });
         }
+        case 'group':
+            return finish({ item: {
+                id: item.id, atFrames, durationFrames, at, duration, children: [],
+                source: { kind: 'group' }, declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+                legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
+            } });
+        case 'captions':
+            return finish({ item: {
+                id: item.id, atFrames, durationFrames, at, duration, children: [],
+                source: { kind: 'captions', path: 'captions.json', ...(item.source.exclude !== undefined ? { exclude: item.source.exclude } : {}) },
+                declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+                legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
+            } });
+        case 'caption':
+            return finish({ item: {
+                id: item.id, atFrames, durationFrames, at, duration, children: [],
+                source: { kind: 'caption', path: 'captions.json', id: item.source.id },
+                declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+                legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
+            } });
     }
 }
 
@@ -917,7 +1050,7 @@ function buildV2AudioItem(
         };
         return {
             item: {
-                id: item.id, atFrames, durationFrames, at, duration, source,
+                id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                 declaration: {
                     id: item.id, t: at, path: resolvedPath,
                     ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
@@ -948,7 +1081,7 @@ function buildV2AudioItem(
         };
         return {
             item: {
-                id: item.id, atFrames, durationFrames, at, duration, source,
+                id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                 declaration: {
                     path: resolvedPath,
                     ...(item.source.in !== undefined ? { in: item.source.in } : {}),
@@ -974,7 +1107,7 @@ function buildV2AudioItem(
     };
     return {
         item: {
-            id: item.id, atFrames, durationFrames, at, duration, source,
+            id: item.id, atFrames, durationFrames, at, duration, children: [], source,
             declaration: {
                 id: item.id, t: at, duration, path: resolvedPath, track: ref,
                 in: inSeconds,
@@ -1042,7 +1175,7 @@ function addV2AudioItems(
         ensureTrack(ref).items.push({
             id: value.id,
             atFrames: Math.round(value.t * fps), durationFrames: Math.round(duration * fps),
-            at: value.t, duration,
+            at: value.t, duration, children: [],
             source: { kind: 'media', path: value.path, in: start, out: end },
             declaration: entry,
             legacy: { collection: 'sfx', index: nextLegacyIndex(legacyIndexCounters, 'sfx'), value }
@@ -1067,7 +1200,7 @@ function addV2AudioItems(
         };
         ensureTrack(0).items.push({
             id: value.id, atFrames: Math.round(value.t * fps), durationFrames: Math.round(duration * fps),
-            at: value.t, duration,
+            at: value.t, duration, children: [],
             source: { kind: 'media', path: value.path, in: start, out: end },
             declaration: entry,
             legacy: { collection: 'narration', index: nextLegacyIndex(legacyIndexCounters, 'narration'), value }
@@ -1084,6 +1217,7 @@ function addV2AudioItems(
         };
         ensureTrack(0).items.push({
             id: 'bgm', atFrames: 0, durationFrames: 0, at: 0, duration: 0,
+            children: [],
             source: { kind: 'media', path: value.path, in: 0, out: 0 },
             declaration: entry,
             legacy: { collection: 'bgm', index: 0, value }

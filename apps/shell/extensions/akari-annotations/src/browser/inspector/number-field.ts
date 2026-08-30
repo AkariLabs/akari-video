@@ -1,0 +1,193 @@
+export interface NumberFieldOptions {
+    name: string;
+    label: string;
+    value: number;
+    step: number;
+    min?: number;
+    max?: number;
+    unit?: string;
+    onPreview?: (value: number) => void;
+    onCommit: (value: number) => Promise<boolean>;
+}
+
+export const INSPECTOR_LIVE_PREVIEW_THROTTLE_MS = 30;
+
+export function clampNumber(value: number, min?: number, max?: number): number {
+    return Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min ?? Number.NEGATIVE_INFINITY, value));
+}
+
+export function numericStep(
+    value: number,
+    direction: -1 | 1,
+    step: number,
+    shiftKey = false,
+    min?: number,
+    max?: number
+): number {
+    return clampNumber(value + direction * step * (shiftKey ? 10 : 1), min, max);
+}
+
+export function formatNumberStep(value: number, step: number): string {
+    const fraction = String(step).split('.')[1];
+    const precision = Math.min(fraction?.length ?? 0, 6);
+    return String(Number(value.toFixed(precision)));
+}
+
+function keyframeSeat(name: string): HTMLButtonElement {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'akari-inspector-kf-seat';
+    button.disabled = true;
+    button.title = 'キーフレームは次版';
+    button.setAttribute('aria-label', 'キーフレームは次版');
+    button.setAttribute('data-akari-ui', `inspector-kf-seat:${name}`);
+    button.textContent = '◆';
+    return button;
+}
+
+export function createNumberField(options: NumberFieldOptions): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'akari-inspector-number-field';
+    container.setAttribute('data-akari-ui', `field:inspector-${options.name}`);
+
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = 'akari-inspector-number-handle';
+    handle.title = '左右へドラッグして調整';
+    handle.setAttribute('aria-label', `${options.label}をドラッグして調整`);
+    handle.textContent = '↔';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'decimal';
+    input.className = 'akari-inspector-number-input';
+    input.value = formatNumberStep(options.value, options.step);
+    input.setAttribute('role', 'spinbutton');
+    input.setAttribute('aria-label', options.label);
+    if (options.min !== undefined) input.setAttribute('aria-valuemin', String(options.min));
+    if (options.max !== undefined) input.setAttribute('aria-valuemax', String(options.max));
+
+    const unit = document.createElement('span');
+    unit.className = 'akari-inspector-number-unit';
+    unit.textContent = options.unit ?? '';
+
+    const buttons = document.createElement('span');
+    buttons.className = 'akari-inspector-number-steps';
+    const up = document.createElement('button');
+    const down = document.createElement('button');
+    for (const [button, direction, label] of [[up, 1, '増やす'], [down, -1, '減らす']] as const) {
+        button.type = 'button';
+        button.textContent = direction > 0 ? '▲' : '▼';
+        button.setAttribute('aria-label', `${options.label}を${label}`);
+        button.addEventListener('click', event => {
+            const current = Number(input.value);
+            if (!Number.isFinite(current)) return;
+            const next = numericStep(current, direction, options.step, event.shiftKey, options.min, options.max);
+            input.value = formatNumberStep(next, options.step);
+            options.onPreview?.(next);
+            void options.onCommit(next).then(ok => {
+                if (!ok) input.value = formatNumberStep(options.value, options.step);
+            });
+        });
+    }
+    buttons.append(up, down);
+
+    const restore = (): void => {
+        input.value = formatNumberStep(options.value, options.step);
+        options.onPreview?.(options.value);
+    };
+    const commitInput = async (): Promise<void> => {
+        const parsed = Number(input.value);
+        if (!Number.isFinite(parsed)) {
+            restore();
+            return;
+        }
+        const next = clampNumber(parsed, options.min, options.max);
+        input.value = formatNumberStep(next, options.step);
+        if (!await options.onCommit(next)) restore();
+    };
+    input.addEventListener('blur', () => void commitInput());
+    input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            input.blur();
+        } else if (event.key === 'Escape') {
+            event.preventDefault();
+            restore();
+            input.blur();
+        } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault();
+            const current = Number(input.value);
+            if (!Number.isFinite(current)) return;
+            const next = numericStep(
+                current, event.key === 'ArrowUp' ? 1 : -1,
+                options.step, event.shiftKey, options.min, options.max
+            );
+            input.value = formatNumberStep(next, options.step);
+            options.onPreview?.(next);
+            void options.onCommit(next).then(ok => {
+                if (!ok) restore();
+            });
+        }
+    });
+
+    handle.addEventListener('pointerdown', downEvent => {
+        if (downEvent.button !== 0) return;
+        downEvent.preventDefault();
+        const pointerId = downEvent.pointerId;
+        const startX = downEvent.clientX;
+        let current = options.value;
+        let moved = false;
+        let lastPreviewAt = -Infinity;
+        handle.setPointerCapture(pointerId);
+        const cleanup = (): void => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', finish);
+            window.removeEventListener('pointercancel', cancel);
+            window.removeEventListener('keydown', keydown, true);
+            if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+        };
+        const move = (event: PointerEvent): void => {
+            if (event.pointerId !== pointerId) return;
+            const delta = event.clientX - startX;
+            moved ||= Math.abs(delta) >= 1;
+            current = clampNumber(
+                options.value + delta * options.step * (event.shiftKey ? 10 : 1),
+                options.min,
+                options.max
+            );
+            input.value = formatNumberStep(current, options.step);
+            const now = Date.now();
+            if (now - lastPreviewAt >= INSPECTOR_LIVE_PREVIEW_THROTTLE_MS) {
+                lastPreviewAt = now;
+                options.onPreview?.(current);
+            }
+        };
+        const finish = (event: PointerEvent): void => {
+            if (event.pointerId !== pointerId) return;
+            cleanup();
+            if (moved) void options.onCommit(current).then(ok => {
+                if (!ok) restore();
+            });
+        };
+        const cancel = (event: PointerEvent): void => {
+            if (event.pointerId !== pointerId) return;
+            cleanup();
+            restore();
+        };
+        const keydown = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                cleanup();
+                restore();
+            }
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', finish);
+        window.addEventListener('pointercancel', cancel);
+        window.addEventListener('keydown', keydown, true);
+    });
+
+    container.append(handle, input, unit, buttons, keyframeSeat(options.name));
+    return container;
+}

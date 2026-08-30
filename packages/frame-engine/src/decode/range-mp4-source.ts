@@ -1003,12 +1003,13 @@ export class RangeMp4Source {
     return new RangeMp4Source(id, this.src, this.options, this.shared, this.prepared);
   }
 
-  get meta(): { duration: number; width: number; height: number } {
+  get meta(): { duration: number; width: number; height: number; rotationDeg: number } {
     if (!this.prepared) throw new Error(`Range source ${this.id} is not prepared`);
     return {
       duration: this.prepared.table.presentationDurationUs,
       width: this.prepared.table.width,
       height: this.prepared.table.height,
+      rotationDeg: this.prepared.table.rotationDeg,
     };
   }
 

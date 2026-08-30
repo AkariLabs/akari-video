@@ -7,7 +7,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { findChromePath, renderProject } from "../../render-cut/src/render-cut.mjs";
+import { resolveOsrLauncher } from "../../osr-export/src/index.mjs";
+import { renderProject } from "../../render-cut/src/render-cut.mjs";
 import { generateCaptureFixture } from "../../render-cut/test/fixtures/capture-parity/generate.mjs";
 import { sha256File } from "../src/capture/output.mjs";
 
@@ -31,12 +32,7 @@ test("capture CLI emits JSONL, deterministic full PNGs, auto parity, and an audi
     await generateCaptureFixture(project, { ffmpeg });
 
     const sheetOut = join(project, "captures-sheet");
-    const sheetRun = runCapture(["-p", project, "-t", "0", "4.5", "11", "--per-sheet", "3", "--out", sheetOut]);
-    if (sheetRun.status !== 0 && /字幕レンダ用ブラウザの起動に失敗/u.test(sheetRun.stderr)) {
-      const browserLine = sheetRun.stderr.split("\n").find((line) => /字幕レンダ用ブラウザの起動に失敗/u.test(line));
-      t.skip(`production Chrome launch unavailable: ${browserLine}`);
-      return;
-    }
+    const sheetRun = runCapture(["-p", project, "-t", "0", "4.5", "11", "--engine", "osr", "--per-sheet", "3", "--out", sheetOut]);
     assert.equal(sheetRun.status, 0, sheetRun.stderr);
     const stdoutLines = sheetRun.stdout.trim().split("\n").filter(Boolean);
     assert.equal(stdoutLines.length, 1, `stdout must contain JSON Lines only: ${sheetRun.stdout}`);
@@ -47,10 +43,13 @@ test("capture CLI emits JSONL, deterministic full PNGs, auto parity, and an audi
     assert.ok(existsSync(join(project, sheetRecord.path)));
     const manifest = JSON.parse(await readFile(join(sheetOut, "capture.json"), "utf8"));
     assert.equal(manifest.edit_sha256.length, 64);
-    assert.match(manifest.renderer, /^render-cut@/u);
+    assert.match(manifest.renderer, /^osr-export@/u);
+    assert.deepEqual(manifest.engine, { requested: "osr", resolved: "osr" });
+    assert.equal(manifest.verify.mode, "stamp");
+    assert.equal(manifest.verify.matched, true);
 
     const separateRun = runCapture([
-      "-p", project, "-t", "0", "--separate", "--edit", "edit.json", "--out", join(project, "separate"),
+      "-p", project, "-t", "0", "--engine", "osr", "--separate", "--edit", "edit.json", "--out", join(project, "separate"),
     ]);
     assert.equal(separateRun.status, 0, separateRun.stderr);
     const separate = JSON.parse(separateRun.stdout.trim());
@@ -60,15 +59,15 @@ test("capture CLI emits JSONL, deterministic full PNGs, auto parity, and an audi
 
     const rendered = await renderProject(project, {
       force: true,
-      engine: "legacy",
+      engine: "osr",
       out: "exports/reference.mp4",
     });
     assert.equal(rendered.verify.verdict, "pass");
 
     const firstOut = join(project, "captures-full-a");
     const secondOut = join(project, "captures-full-b");
-    assert.equal(runCapture(["-p", project, "-t", "1.5", "--full", "--out", firstOut]).status, 0);
-    assert.equal(runCapture(["-p", project, "-t", "1.5", "--full", "--out", secondOut]).status, 0);
+    assert.equal(runCapture(["-p", project, "-t", "1.5", "--engine", "osr", "--full", "--out", firstOut]).status, 0);
+    assert.equal(runCapture(["-p", project, "-t", "1.5", "--engine", "osr", "--full", "--out", secondOut]).status, 0);
     const firstPath = join(firstOut, "01s05f-full.png");
     const secondPath = join(secondOut, "01s05f-full.png");
     assert.equal(await sha256File(firstPath), await sha256File(secondPath));
@@ -80,7 +79,7 @@ test("capture CLI emits JSONL, deterministic full PNGs, auto parity, and an audi
     assert.deepEqual(JSON.parse(imageProbe.stdout).streams[0], { width: 320, height: 180, pix_fmt: "rgb24" });
 
     const autoOut = join(project, "captures-auto");
-    const autoRun = runCapture(["-p", project, "--auto", "--full", "--out", autoOut]);
+    const autoRun = runCapture(["-p", project, "--auto", "--engine", "osr", "--full", "--out", autoOut]);
     assert.equal(autoRun.status, 0, autoRun.stderr);
     const autoTimes = autoRun.stdout.trim().split("\n").filter(Boolean).map(JSON.parse).map((record) => record.time_s);
     assert.deepEqual(autoTimes, rendered.contact_sheet.timestamps_seconds);
@@ -103,7 +102,7 @@ test("capture CLI ffmpeg-only fixture completes sheet/full/determinism/auto acce
     assert.equal(rendered.verify.verdict, "pass");
 
     const sheetOut = join(project, "sheet");
-    const sheetRun = runCapture(["-p", project, "-t", "0", "4.5", "11", "--per-sheet", "3", "--out", sheetOut]);
+    const sheetRun = runCapture(["-p", project, "-t", "0", "4.5", "11", "--engine", "legacy", "--per-sheet", "3", "--out", sheetOut]);
     assert.equal(sheetRun.status, 0, sheetRun.stderr);
     const sheetLines = sheetRun.stdout.trim().split("\n").filter(Boolean);
     assert.equal(sheetLines.length, 1);
@@ -116,7 +115,7 @@ test("capture CLI ffmpeg-only fixture completes sheet/full/determinism/auto acce
     assert.match(manifest.renderer, /^render-cut@/u);
 
     const separateRun = runCapture([
-      "-p", project, "-t", "0", "--separate", "--edit", "edit.json", "--out", join(project, "separate"),
+      "-p", project, "-t", "0", "--engine", "legacy", "--separate", "--edit", "edit.json", "--out", join(project, "separate"),
     ]);
     assert.equal(separateRun.status, 0, separateRun.stderr);
     const separate = JSON.parse(separateRun.stdout.trim());
@@ -125,8 +124,8 @@ test("capture CLI ffmpeg-only fixture completes sheet/full/determinism/auto acce
 
     const fullA = join(project, "full-a");
     const fullB = join(project, "full-b");
-    assert.equal(runCapture(["-p", project, "-t", "1.5", "--full", "--out", fullA]).status, 0);
-    assert.equal(runCapture(["-p", project, "-t", "1.5", "--full", "--out", fullB]).status, 0);
+    assert.equal(runCapture(["-p", project, "-t", "1.5", "--engine", "legacy", "--full", "--out", fullA]).status, 0);
+    assert.equal(runCapture(["-p", project, "-t", "1.5", "--engine", "legacy", "--full", "--out", fullB]).status, 0);
     const pngA = join(fullA, "01s05f-full.png");
     const pngB = join(fullB, "01s05f-full.png");
     assert.equal(await sha256File(pngA), await sha256File(pngB));
@@ -136,7 +135,7 @@ test("capture CLI ffmpeg-only fixture completes sheet/full/determinism/auto acce
     ], { encoding: "utf8" });
     assert.deepEqual(JSON.parse(probe.stdout).streams[0], { width: 320, height: 180, pix_fmt: "rgb24" });
 
-    const autoRun = runCapture(["-p", project, "--auto", "--full", "--out", join(project, "auto")]);
+    const autoRun = runCapture(["-p", project, "--auto", "--engine", "legacy", "--full", "--out", join(project, "auto")]);
     assert.equal(autoRun.status, 0, autoRun.stderr);
     const autoTimes = autoRun.stdout.trim().split("\n").filter(Boolean).map(JSON.parse).map((record) => record.time_s);
     assert.deepEqual(autoTimes, rendered.contact_sheet.timestamps_seconds);
@@ -156,6 +155,11 @@ function runCapture(args) {
 async function productionToolUnavailable() {
   if (spawnSync(ffmpeg, ["-version"]).status !== 0) return `ffmpeg unavailable: ${ffmpeg}`;
   if (spawnSync(ffprobe, ["-version"]).status !== 0) return `ffprobe unavailable: ${ffprobe}`;
-  if (!await findChromePath()) return "Chrome 実行ファイルが見つからない";
+  const launcher = await resolveOsrLauncher();
+  if (launcher.tier === 3) return "Electron launcher が見つからない";
+  const electronProbe = spawnSync(launcher.executable, ["--version"], { encoding: "utf8", timeout: 10_000 });
+  if (electronProbe.status !== 0) {
+    return `Electron launcher が起動できない: status=${electronProbe.status} signal=${electronProbe.signal ?? "none"}`;
+  }
   return null;
 }

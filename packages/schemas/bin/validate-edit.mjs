@@ -76,6 +76,7 @@ function validateEdit(value) {
     return;
   }
   if (value.version === 2) {
+    validateV2Tracks(value.tracks);
     return;
   }
   if (value.version !== 0 && value.version !== 1) {
@@ -105,6 +106,51 @@ function validateEdit(value) {
   validateDirection(value.direction);
   validateTracks(value.tracks);
   validateTimeline(value.timeline);
+}
+
+function validateV2Tracks(value) {
+  if (!Array.isArray(value)) {
+    fail("tracks は配列である必要があります");
+    return;
+  }
+  for (const [trackIndex, track] of value.entries()) {
+    if (!isPlainObject(track) || !Array.isArray(track.items)) continue;
+    for (const [itemIndex, item] of track.items.entries()) {
+      validateV2Item(item, `tracks[${trackIndex}].items[${itemIndex}]`);
+    }
+  }
+}
+
+function validateV2Item(item, label) {
+  if (!isPlainObject(item)) return;
+  if (hasOwn(item, "keyframes")) validateV2Keyframes(item.keyframes, `${label}.keyframes`);
+  if (!Array.isArray(item.items)) return;
+  for (const [index, child] of item.items.entries()) {
+    validateV2Item(child, `${label}.items[${index}]`);
+  }
+}
+
+function validateV2Keyframes(value, label) {
+  if (isPlainObject(value)) {
+    if (!isNonEmptyString(value.path) || !/^motion\/.+\.json$/u.test(value.path)) {
+      fail(`${label}.path は motion/ 配下の JSON である必要があります`);
+    }
+    return;
+  }
+  if (!Array.isArray(value) || value.length < 2) {
+    fail(`${label} は 2 点以上の配列または参照 object である必要があります`);
+    return;
+  }
+  let previous = -1;
+  for (const [index, point] of value.entries()) {
+    const pointLabel = `${label}[${index}]`;
+    if (!isPlainObject(point) || !Number.isInteger(point.t) || point.t < 0) {
+      fail(`${pointLabel}.t は 0 以上の整数フレームである必要があります`);
+      continue;
+    }
+    if (point.t <= previous) fail(`${label}[].t は昇順かつ重複禁止です（${pointLabel} で違反）`);
+    previous = point.t;
+  }
 }
 
 function validateTracks(value) {

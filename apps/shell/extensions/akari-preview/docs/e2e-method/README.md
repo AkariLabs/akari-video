@@ -3,7 +3,7 @@ layer: wiki
 tier: 30_products
 type: product
 status: active
-updated: 2026-07-16
+updated: 2026-08-30
 ---
 
 # S12 インスペクタ書き戻し e2e 検証手法（確立版）
@@ -35,7 +35,8 @@ edit.json への実書き込みまで、本物のヒットテスト付きマウ�
 ### 1. 検証用フィクスチャを作る（リポ外の scratch ディレクトリ、コミットしない）
 
 ```sh
-mkdir -p <SCRATCH>/workspace/exports/overlays
+mkdir -p <SCRATCH>/workspace/.theia <SCRATCH>/workspace/exports/overlays
+printf '%s\n' '{"akari.developerMode": true}' > <SCRATCH>/workspace/.theia/settings.json
 ffmpeg -y -f lavfi -i testsrc=size=1280x720:rate=30:duration=6 \
   -f lavfi -i sine=frequency=440:duration=6 \
   -pix_fmt yuv420p -c:v libx264 -c:a aac -shortest \
@@ -46,7 +47,8 @@ ffmpeg -y -f lavfi -i testsrc=size=1280x720:rate=30:duration=6 \
 
 ```json
 {
-  "source": { "path": "exports/sample.mp4" },
+  "version": 0,
+  "source": { "path": "sample.mp4" },
   "output": { "width": 1280, "height": 720, "fps": 30 },
   "overlays": [
     {
@@ -60,6 +62,12 @@ ffmpeg -y -f lavfi -i testsrc=size=1280x720:rate=30:duration=6 \
   ]
 }
 ```
+
+developer mode は活動バーの「素材」をカード棚ではなく Explorer に切り替えるために必要。
+`version: 0` は `prepareLegacyEdit` の版要求を満たし、`source.path` は edit.json がある
+`exports/` ディレクトリ基準で解決されるため `sample.mp4` とする。
+UI で直接開くのは `sample.mp4` ではなく `edit.json`。前者の単体プレビューには
+`[data-overlay-id="cap-a"]` が無く、後者の合成出力プレビューでだけ overlay が描画される。
 
 `<SCRATCH>/workspace/exports/overlays/cap-a.html`（`--color` を実際に消費する断片）:
 
@@ -84,29 +92,32 @@ node_modules/electron/dist/Electron.app/Contents/MacOS/Electron \
 node scripts/run-inspector-writeback-e2e.mjs 9333 <SCRATCH>/workspace exports/sample.mp4 <SCRATCH>/evidence
 ```
 
+第3引数はフィクスチャ内の `edit.json` の所在（親ディレクトリ）を決めるために使う。
+実測では `sample.mp4` を直接開くと overlay は `visibility: "no-container"` だが、
+`edit.json` を開くと実クリック選択まで成立した。
+
 スクリプトは以下を**全部 UI 操作として**実行し、各ステップの実測値を stdout と
 `<evidenceDir>/run-log.json` に記録する:
 
-1. 俯瞰タブしか無い起動直後の状態からエクスプローラーアイコンを実クリックで開く
+1. 俯瞰タブしか無い起動直後の状態から、developer mode でのみ活動バーに出る Explorer を実クリックで開く
    （既に開いていればスキップ = 開閉トグルなので二重発火させない）
 2. `exports` フォルダ行を実ダブルクリックで展開（既に展開済みならスキップ）
-3. `sample.mp4` 行を実ダブルクリックし、`akari-preview` タブを開く
+3. `edit.json` 行を実ダブルクリックし、合成プレビューの `akari-preview` タブを開く
 4. `/json/list` を polling し、二重 iframe の**外側**（`webview/index.html`）が
-   独立した CDP ターゲット（`type: "iframe"`）として現れるのを待つ
-5. その外側ターゲットへ直接 CDP 接続し、`Page.getFrameTree` + 
-   `Runtime.executionContextCreated`（`auxData.frameId` で突き合わせ）で
-   **内側の `active-frame` の実行コンテキスト**を特定する
-6. 動画を `currentTime=2`（オーバーレイの `start=1 duration=4` の範囲内）へシークし、
+   独立した CDP ターゲット（`type: "iframe"`）として現れるのを待つ。そのターゲットへ
+   直接接続し、`Runtime.executionContextCreated` で得た各 context を評価して、
+   `#preview-video` を持つ内側 context が現れるまで最大30秒待つ
+5. 動画を `currentTime=2`（オーバーレイの `start=1 duration=4` の範囲内）へシークし、
    `window.akari.runtime.tick()` を呼んでオーバーレイを描画させる
-7. オーバーレイ断片（`[data-overlay-id="cap-a"] > firstElementChild`）の実座標へ
+6. オーバーレイ断片（`[data-overlay-id="cap-a"] > firstElementChild`）の実座標へ
    `Input.dispatchMouseEvent`（mouseMoved → mousePressed → mouseReleased）を発行し、
    **実際にヒットテストされたクリック**でオーバーレイを選択させる
    （`data-akari-interaction-selected="true"` になることを確認）
-8. インスペクタの `--color` 入力欄の実座標へ実クリックでフォーカスし、
+7. インスペクタの `--color` 入力欄の実座標へ実クリックでフォーカスし、
    `Home` → `Shift+End` の実キーイベントで全選択、`Input.insertText` で
    `#00c853` を実際に入力する
-9. 動画エリアを実クリックしてフォーカスを外す（ネイティブ `change` イベント発火）
-10. `edit.json` を実ファイルとして読み、`--color` が `#ffcc00` → `#00c853` に
+8. 動画エリアを実クリックしてフォーカスを外す（ネイティブ `change` イベント発火）
+9. `edit.json` を実ファイルとして読み、`--color` が `#ffcc00` → `#00c853` に
     変わっていることを確認する
 
 ## 実測ログ（このリポジトリの evidence）
@@ -116,7 +127,7 @@ node scripts/run-inspector-writeback-e2e.mjs 9333 <SCRATCH>/workspace exports/sa
 | ファイル | 内容 |
 |---|---|
 | `00-boot.png` | 起動直後（俯瞰タブのみ） |
-| `01-preview-opened.png` | `sample.mp4` を実ダブルクリックで開いた直後（`0:00`、オーバーレイは時間窓外で非表示） |
+| `01-preview-opened.png` | `edit.json` を実ダブルクリックして合成プレビューを開いた直後（`0:00`、オーバーレイは時間窓外で非表示） |
 | `02-overlay-visible.png` | `currentTime=2` へシーク後（オーバーレイ `S12 e2e caption` が黄色 `#ffcc00` で表示） |
 | `03-overlay-selected-inspector-open.png` | オーバーレイを実クリックで選択後（選択枠+ハンドルが表示され、右にインスペクタが開き `--color: #ffcc00`） |
 | `04-value-typed.png` | `--color` 欄に実キーボード入力で `#00c853` を入力した直後（オーバーレイの文字色が即座に緑へ変化） |
@@ -265,3 +276,15 @@ node apps/shell/extensions/akari-preview/docs/e2e-method/scripts/run-inspector-w
 前提としてフィクスチャに overlay id `cap-a` と `--color` var が要る
 （本 README §1 のとおり）。別の overlay id / var 名で検証したい場合は
 スクリプト冒頭の `OVERLAY_ID` / `OVERLAY_VAR` 定数を書き換える。
+
+## 2026-08-30 時点の未達
+
+README §1 のフィクスチャを使った現行シェルでの実測では、台本の step 1〜6
+（Explorer を開く → `edit.json` の合成出力プレビューを開く → 二重 iframe へ到達 →
+シーク → overlay を実クリックで選択）は通る。一方、プレビュー webview の DOM には
+`#inspector` / `#inspector-fields` が無く（`hasInspector: false`）、step 7 以降は到達不能。
+
+この UI はコミット `b49692f1`「[akari-annotations] インスペクター編集可能化 +
+オーバーレイ編集の一本化」で撤去され、右パネルの akari-annotations インスペクターへ
+移設済み。アサーション内容を変えない本台本では右パネル経路へ置き換えず、step 7 で
+明確なエラーとして報告する。

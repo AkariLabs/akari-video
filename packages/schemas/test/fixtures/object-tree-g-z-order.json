@@ -1,0 +1,1 @@
+{"version":2,"output":{"width":640,"height":360,"fps":30},"sources":[],"tracks":[{"id":"v-back","lane":"visual","items":[{"id":"back","at":0,"duration":30,"source":{"kind":"html","path":"overlays/back.html"}}]},{"id":"v-front","lane":"visual","items":[{"id":"front","at":0,"duration":30,"source":{"kind":"telop","preset":"title"}}]}]}

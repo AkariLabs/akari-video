@@ -32,8 +32,51 @@ export interface KeyframeV2 {
     transform?: TransformV2;
     crop?: CropV2;
     perspective?: Record<string, unknown>;
-    easing?: 'linear' | 'ease-in-out';
+    opacity?: number;
+    animator?: Record<string, {
+        offset?: number;
+        start?: number;
+        end?: number;
+    }>;
+    easing?: string | Record<string, string>;
     [key: string]: unknown;
+}
+export interface KeyframesReferenceV2 {
+    path: string;
+    count: number;
+}
+export interface MotionV0 {
+    in?: {
+        preset: string;
+        duration: number;
+        ease?: string;
+        amount?: number;
+    };
+    out?: {
+        preset: string;
+        duration: number;
+        ease?: string;
+        amount?: number;
+    };
+    loop?: {
+        preset: string;
+        period: number;
+        ease?: string;
+        amount?: number;
+    };
+}
+export interface AnimatorV0 {
+    id: string;
+    basis: 'chars' | 'words' | 'lines' | 'segments';
+    shape: 'ramp' | 'triangle' | 'round' | 'smooth' | 'square' | 'ramp-down';
+    start: number;
+    end: number;
+    offset: number;
+    randomize?: {
+        seed: number;
+    };
+    amount: Record<string, number>;
+    ease?: string;
 }
 export type BlendModeV2 = 'normal' | 'screen' | 'multiply' | 'add' | 'difference' | 'darken' | 'lighten' | 'overlay' | 'hardlight' | 'softlight';
 export interface MediaSourceV2 {
@@ -59,6 +102,11 @@ export interface AudioMediaSourceV2 {
 export interface HtmlSourceV2 {
     kind: 'html';
     path: string;
+    part?: string;
+    style?: Record<string, string>;
+    text?: string;
+    exclude?: string[];
+    derivedFrom?: string;
     vars?: Record<string, unknown>;
     params?: Record<string, string>;
 }
@@ -67,6 +115,7 @@ export interface TelopSourceV2 {
     preset: string;
     params?: Record<string, unknown>;
     baked?: string;
+    from?: string;
 }
 export type FilterV2 = {
     type: 'invert';
@@ -82,9 +131,25 @@ export interface FilterSourceV2 {
     kind: 'filter';
     filter: FilterV2;
 }
-export type SourceV2 = MediaSourceV2 | HtmlSourceV2 | TelopSourceV2 | FilterSourceV2;
+export interface GroupSourceV2 {
+    kind: 'group';
+}
+export interface CaptionsSourceV2 {
+    kind: 'captions';
+    path: 'captions.json';
+    exclude?: string[];
+}
+export interface CaptionSourceV2 {
+    kind: 'caption';
+    path: 'captions.json';
+    id: string;
+}
+export type SourceV2 = MediaSourceV2 | HtmlSourceV2 | TelopSourceV2 | FilterSourceV2 | GroupSourceV2 | CaptionsSourceV2 | CaptionSourceV2;
 export interface ItemV2Base {
     id: string;
+    name?: string;
+    hidden?: boolean;
+    locked?: boolean;
     /** 出力タイムライン上の絶対位置（整数フレーム）。 */
     at: number;
     /** 表示・再生尺（整数フレーム）。 */
@@ -94,7 +159,11 @@ export interface ItemV2Base {
     blend?: BlendModeV2;
     crop?: CropV2;
     perspective?: Record<string, unknown>;
+    motion?: MotionV0;
+    animator?: AnimatorV0[];
+    /** inline keyframes. The lazy reference spelling is exposed as InternalItem.keyframesRef. */
     keyframes?: KeyframeV2[];
+    items?: ItemV2[];
 }
 export type MediaItemV2 = ItemV2Base & {
     source: MediaSourceV2;
@@ -107,6 +176,12 @@ export type ItemV2 = MediaItemV2 | (ItemV2Base & {
     source: TelopSourceV2;
 }) | (ItemV2Base & {
     source: FilterSourceV2;
+}) | (ItemV2Base & {
+    source: GroupSourceV2;
+}) | (ItemV2Base & {
+    source: CaptionsSourceV2;
+}) | (ItemV2Base & {
+    source: CaptionSourceV2;
 });
 export type AudioRoleV2 = 'sfx' | 'narration' | 'bgm';
 export interface NarrationProvenanceV2 {
@@ -119,6 +194,9 @@ export interface NarrationProvenanceV2 {
 }
 export interface AudioMediaItemV2 {
     id: string;
+    name?: string;
+    hidden?: boolean;
+    locked?: boolean;
     /** 出力タイムライン上の絶対位置（整数フレーム）。 */
     at: number;
     /** 出力尺（整数フレーム）。0 は実尺未解決のセンチネル。 */

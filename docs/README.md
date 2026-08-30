@@ -35,6 +35,7 @@ Task-based guides, ordered by the flow of production.
 | [Bake 3D scenes](./guides/bake-3d.md) | Blender headless recipes into video assets (bake-3d) |
 | [Declare your audio](./guides/declare-audio.md) | Pinning chorus / hits / beats on your music by ear → declarations.json (declare-audio) |
 | [Beat-synced edits](./guides/beat-sync.md) | Beat-snapped PVs and showcases machine-generated from declared audio (beat-sync-edit) |
+| [How the agent reads edit.json](./guides/edit-json-access.md) | Read by id without loading the whole file; write point edits or edit-store scripts |
 
 ## Skills
 

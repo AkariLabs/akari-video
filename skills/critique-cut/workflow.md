@@ -73,6 +73,9 @@ akari media transcribe <src-id-or-path> --in <source-in> --out <source-out>
 
 ## capture の時刻選び
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+本ワークフローは書き込まない。別工程で書く場合は、該当行の Edit か edit-store のスクリプト API を使う。
+
 capture の時刻は **timeline 秒**である。素材の source 秒を渡さない。出力先を今回の critique
 レポート配下に固定する。**現行 `akari capture` は edit.json v2 専用**なので、v0 / v1 では
 呼び出さない。代わりに人間へ次を勧めるが、本スキルは edit.json 読み取り専用のため実行しない。

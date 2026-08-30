@@ -7,6 +7,39 @@ export async function hashCanvasFrame(canvas) {
   return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
 }
 
+export async function readbackCanvasFrame(FE, frame, canvas) {
+  const gl = canvas.getContext("webgl2", { preserveDrawingBuffer: true });
+  if (!gl) throw new Error("GPU capture readback WebGL2 context is unavailable");
+  const flipRows = (input) => {
+    const stride = canvas.width * 4;
+    const output = new Uint8Array(input.length);
+    for (let row = 0; row < canvas.height; row += 1) {
+      output.set(input.subarray(row * stride, (row + 1) * stride), (canvas.height - row - 1) * stride);
+    }
+    return output;
+  };
+  let captured = null;
+  const surface = {
+    canvas,
+    width: canvas.width,
+    height: canvas.height,
+    async readRgba() {
+      gl.finish();
+      const raw = new Uint8Array(canvas.width * canvas.height * 4);
+      gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, raw);
+      return flipRows(raw);
+    },
+    recordSink() {},
+    close() {},
+  };
+  await FE.readbackFrame(
+    { ...frame, surface },
+    { write(rgba) { captured = rgba.slice(); } },
+  );
+  if (!(captured instanceof Uint8Array)) throw new Error("GPU capture readback returned no pixels");
+  return captured;
+}
+
 export function createDomLayerSentinelVerifier(width, height) {
   const canvas = document.createElement("canvas");
   canvas.width = width;

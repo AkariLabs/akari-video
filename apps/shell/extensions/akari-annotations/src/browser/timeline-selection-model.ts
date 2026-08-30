@@ -61,6 +61,7 @@ export interface TimelineLayerSelection {
     duration: number;
     src?: string;
     preset?: string;
+    params?: Record<string, unknown>;
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
     opacity?: number;
     blend?: 'normal' | 'screen' | 'multiply' | 'add' | 'difference' | 'darken' | 'lighten'
@@ -145,6 +146,14 @@ export type TimelineSelectionSnapshot =
     | undefined;
 
 type InspectorWriteOperation =
+    | {
+        kind: 'item-field';
+        id: string;
+        path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate'
+            | 'opacity' | 'blend' | `source.vars.${string}` | `source.params.${string}`
+            | 'source.chroma_key.similarity' | 'source.chroma_key.blend';
+        value: number | string | boolean | null;
+    }
     | { kind: 'cut-speed'; index: number; value: number | null }
     | { kind: 'cut-transform-x'; index: number; value: number | null }
     | { kind: 'cut-transform-y'; index: number; value: number | null }

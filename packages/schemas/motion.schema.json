@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:motion:v0",
+  "title": "AKARI Video motion/<group-id>.json v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "group", "items"],
+  "properties": {
+    "version": { "const": 0 },
+    "group": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "items": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 2,
+        "items": { "$ref": "urn:akari-video:schema:edit:v1#/$defs/keyframeV2" }
+      }
+    }
+  }
+}

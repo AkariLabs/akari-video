@@ -65,6 +65,10 @@ description: analyze-project が作る分析レポート（interpretation.json +
 5. Checkpoint 1 の承認後に無音短縮を検討する場合は [workflow.md](workflow.md) の専用 keep plan を組み、
    `bin/propose-cut-candidates.mjs` で review-only report を提示する。候補の採否・classification 修正を
    チャットで確認し、`decision-log.md` へ人間承認に基づき追記する。helper 自身には追記させない。
+
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+
 6. Checkpoint 3 の実行承認を得た後だけ [execution.md](execution.md) を読み、v2 の `edit.json` とオーバーレイ HTML を生成・検証する。完了処理として [recipe.md](recipe.md) の freeze 手順を確認し、そのプロジェクトで未申し出なら一度だけ（offer-once）レシピ化を人間に申し出る。
 7. 見せ場マーカーを書く工程では [beats.md](beats.md) を読み、`analysis.json` の events / transcript から
    見せ場候補を導出する（v2 の `edit.json` へは書かず、マッピング表・根拠を判断記録へ残す）。

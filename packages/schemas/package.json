@@ -6,6 +6,7 @@
   "bin": {
     "validate-asset": "bin/validate-asset.mjs",
     "validate-intake": "bin/validate-intake.mjs",
+    "validate-motion": "bin/validate-motion.mjs",
     "validate-plan": "bin/validate-plan.mjs",
     "validate-review": "bin/validate-review.mjs"
   },

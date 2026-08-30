@@ -6,6 +6,9 @@ const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs'
 const { dirname, extname, resolve } = require('node:path');
 const { execFileSync, spawn, spawnSync } = require('node:child_process');
 
+const userDataDir = process.env.AKARI_ELECTRON_USER_DATA_DIR;
+if (userDataDir) app.setPath('userData', userDataDir);
+
 const GENERATED = resolve(__dirname, '.generated');
 const FIXTURE = resolve(GENERATED, 'source.mp4');
 const FIXTURE_B = resolve(GENERATED, 'source-b.mp4');
@@ -29,6 +32,7 @@ const B_FRAME_FIXTURES = new Set([
   'endpoint-bf0-24.mp4',
   'endpoint-bf2-24.mp4',
 ]);
+const ROTATION_FIXTURES = new Set(['rotate-90.mp4', 'rotate-180.mp4', 'rotate-270.mp4']);
 const RESULTS = resolve(GENERATED, 'results.json');
 const LUTS = resolve(__dirname, '../../../../presets/luts');
 mkdirSync(GENERATED, { recursive: true });
@@ -101,7 +105,9 @@ function fileResponse(request, file) {
 function stop(code) {
   if (finished) return;
   finished = true;
-  setTimeout(() => app.exit(code), 50);
+  // Electron が終了しない場合も、確定済みの終了コードでプロセスを閉じる。
+  setTimeout(() => process.exit(code), 2_000);
+  app.exit(code);
 }
 
 protocol.registerSchemesAsPrivileged([{
@@ -209,6 +215,9 @@ app.whenReady().then(async () => {
     else if (url.hostname === 'fixture' && url.pathname === '/matte-alpha.mask.mp4') file = MATTE_INTAKE_MASK;
     else if (url.hostname === 'fixture' && url.pathname === '/color-patches.mp4') file = COLOR_PATCHES;
     else if (url.hostname === 'fixture' && B_FRAME_FIXTURES.has(url.pathname.slice(1))) {
+      file = resolve(GENERATED, url.pathname.slice(1));
+    }
+    else if (url.hostname === 'fixture' && ROTATION_FIXTURES.has(url.pathname.slice(1))) {
       file = resolve(GENERATED, url.pathname.slice(1));
     }
     else return new Response('not found', { status: 404 });

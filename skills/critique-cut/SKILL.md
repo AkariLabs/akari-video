@@ -32,7 +32,11 @@ description: 人間が先に組んだ edit.json を読み、使われている�
 
 ## 実行順
 
-1. `edit.json` を読み、v0 / v1 / v2 を判別する。v0 / v1 は `source` / `sources[]`、
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+本スキルは書き込まない。別工程で書く場合は、該当行の Edit か edit-store のスクリプト API を使う。
+
+1. `grep -n '"version"' edit.json` で版の行を読み、v0 / v1 / v2 を判別し、対象 id を grep して
+   該当行だけ読む。v0 / v1 は `source` / `sources[]`、
    `cuts[].src/in/out/at/track`、`overlays` / `layers` / `audio`、v2 は `sources[]`、
    `tracks[].lane/items[]/content`、`items[].at/duration/source`、`audio` / `captions` /
    `thumbnail` を把握する。次の補助 CLI で、重複・隣接を統合した使用区間と timeline 射影、

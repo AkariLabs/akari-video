@@ -272,10 +272,35 @@ OSR より遅く、同じ題材から字幕を外した実測は GPU 19.2 ms/コ
 +23.4 ms/コマから +1.65 ms/コマへ縮小した。毎コマの字幕描画費用という限界は解消し、実素材
 `akari-video-pv`（5,999 コマ）では GPU / OSR 7.2〜8.2 倍へ到達した。
 
-残る字幕差は毎コマの合成費用ではなく、cue 採寸と SVG ラスタの起動費用である。実素材 PV の字幕ありは
+（2026-08-29 #120f 時点の記述）残る字幕差は毎コマの合成費用ではなく、cue 採寸と SVG ラスタの起動費用である。実素材 PV の字幕ありは
 150.7 秒（25.1 ms/コマ）、字幕なし対照は 88.0 秒（14.7 ms/コマ）で 1.71 倍だった。30 cue の
 `akari-project/dynamic` では字幕ラスタが約 47 秒から 9.95 秒へ短縮したが、30 秒級の短い題材では
 起動費用の比率が大きく、GPU / OSR は 1.07〜1.14 倍にとどまる。
+
+2026-08-30 の #120h では、実素材 `akari-video-pv`（5,999 コマ・44 cue・88 band / 6 batch）の
+receipt `gpu.captionStartup` をラッパーが 5 走実測した。#120f 時点で約 63 秒だった字幕の起動費用
+（SVG ラスタ 20.5〜21.3 秒 + cue 採寸 88 variant）は、`captionStartup.totalMs` 2.75〜5.01 秒と
+`captionRasterTotalMs` 5.90〜7.34 秒、合計 **8.7〜12.3 秒**になった。代表する 1 走の内訳は、
+フォントの base64 符号化 0.66 秒（符号化後 13.6 MB・走に 1 回だけ）、cue 採寸 1.54 秒
+（88 stable call / 176 pass / 264 variant・うちフォント待ち 0.75 秒・レイアウト 0.073 秒）、
+SVG ラスタ 5.90 秒（SVG 組み立て 0.046 秒、data URL 割り当て 0.52 秒、decode 2.80 秒、
+中間 sheet への描画 1.72 秒、band の blit 0.11 秒、テクスチャ登録 0.004 秒）である。
+
+frame loop 中の `stages.captionRasterBatch` は **0 回**で、6 バッチすべてが書き出し開始前に焼き終わる。
+frame loop の `stages.captions` は p50 0 ms / p95 0.1 ms である。採寸の使い回しは cue の内容
+（出力寸法・CSS 変数・cue の HTML・unit index・CSS 変種列）が完全に一致したときだけ効く。PV の
+44 cue は本文がすべて異なるため `reusedStableCalls` は 0 で、88 stable call は 88 distinct key の
+ままである。同じ本文を共有する 3 cue の fixture では、6 stable call のうち 4 が使い回され、
+distinct key は 2 へ落ちる。採寸が 32 回で収束しない unit は、その unit だけ sprite へ降格し、
+receipt の `gpu.captions[].mode = "sprite"` と warning に出して書き出しは完走する（fail-closed にしない）。
+
+速度の絶対値は 2026-08-30 の測定では取れていない。1 分 load < 20 の静かな窓を 40 分 × 3 回待っても
+来ず、観測した最小 load は 52 だった。PV は load 77〜421 の下で 250.6〜687.4 秒、同じ高負荷下の
+字幕なし対照は 220.4〜785.4 秒で、字幕ありとの差は走ごとの 3 倍以上の load 変動に埋もれ、対照より
+速い走もあった。したがって、静かな窓での「PV ≤ 110 秒」「dynamic ≥ 2×（OSR 比）」は未検証である。
+参考値として、高負荷下の `akari-project/dynamic` は GPU 71.1〜80.7 秒 / OSR 93.6〜97.8 秒
+（1.2〜1.3 倍）で、#120f 時点の 1.07〜1.14 倍からは改善している。RSS の上限は 531〜914 MB
+（1 GB 以内）、`--trap-readback` の読み戻しは 0 だった。
 
 ## 10. v3 — 宣言型 3D の登場曲線
 
@@ -341,3 +366,91 @@ cut 段は `cut-audio.mp4`、尺延長が必要な場合は続けて `cut-audio-
 エンコードを行わない。音声の trim、速度、freeze 無音、transition、gap、AAC 48 kHz の意味論は
 従来の映像込み cut / tail-pad と同じである。legacy 経路は従来どおり映像込み中間物を使用する。
 音声入力は cut ごとに入力側シーク（`-ss` / `-t`）し、cut 頭 0.5 s の先読みガード（AAC の overlap-add 用）を設け、cut 段の費用を素材長に依存させない。
+
+## 12. 採寸不安定の根治・実行時フォールバック・生フレーム dump（2026-08-30 追記）
+
+### 12.1 事実（2026-08-30・capture-v2-engine レーンの実測と司令塔のコード確認）
+
+- 内部 fieldtest 案件（11 秒・1080p・字幕 **3 cue・`words[]` 無し・style 無指定**・HTML オーバーレイ 2・LUT）で、
+  §2.1 の採寸が **32 回で収束せず `caption-measure-unstable` で fail-closed** する。`6da9a353` 以前の main でも同じ地点で落ちる既存不良。
+  いちばん単純な字幕でも起こるため、原因は karaoke / pop の語矩形ではなく採寸の土台にある可能性が高い（未特定）
+- `render-cut.mjs` は `exportWithGpu` の**実行時失敗を捕捉しない**。`engine_fallback` が発火するのは launcher tier 3（Electron 不在）だけで、
+  page runtime が fail-closed すると書き出し全体が失敗する。`--engine auto` は事前の適格判定で gpu を選ぶが、採寸の収束は実行時にしか
+  分からないため、適格判定では弾けない
+- `akari capture --engine auto` は書き出しと同じ関数でエンジンを解決する（capture 契約 §9.2）ので、同じ案件で同じ地点で落ちる。
+  `--engine osr` 明示なら通る
+- gpu 書き出しには、エンコーダへ渡す直前のフレームを取り出す機構が無い（読み戻しゼロの設計 §4）。osr には `--dump-frames`
+  （`raw/frame-N.bgra`）があり、capture 契約 §9.3 の可逆比較は osr でだけ成立している
+
+### 12.2 要求 A — 採寸不安定の原因特定と決定論化
+
+- 収束しなかった試行について、**どの cue のどの値がどれだけ揺れたか**（variant / token / rect の差分）を run.json と receipt に残す
+  （現状は attempts の count / p50 / max だけ）。原因は推測で決めず、この差分と再現案件で特定する
+- 特定した原因に対して決定論化の手を入れる。**許容差・平均・丸めで揺らぎを隠さない**（§2.1 の原則は不変）。
+  候補は実測で選ぶ: レイアウト確定の待ち方（`getBoundingClientRect` 1 回で足りているか・rAF / フォント metrics の遅延）、
+  root の挿入位置・サイズの固定、DPR / zoom の固定、など
+- 根治できた範囲と、できなかった条件（あれば）を契約に追記できる形で報告する
+
+### 12.3 要求 B — 実行時フォールバック（必須）
+
+- `--engine auto` で gpu の page runtime が **閉じた集合の理由コード**（v0 は `caption-measure-unstable` のみ）で fail-closed したとき、
+  render-cut は **osr で再実行**し、`provenance.engine_fallback = { from: "gpu", reason: "<reasonCode>" }` と gpu 側の失敗 run.json への
+  参照を receipt に残す。中間物は捨てて osr を最初から回す（部分再利用しない）
+- 明示 `--engine gpu` は従来どおり fail-closed（理由を表示して exit ≠ 0）。フォールバックは `auto` だけ
+- `akari capture --engine auto` も同じ関数・同じ理由コード集合でフォールバックし、`capture.json.engine.fallback` に記録する
+- フォールバック対象外の失敗（デコード不可・Electron クラッシュ等）は従来どおり失敗のまま。集合を広げるときは本契約に追記する
+
+### 12.4 要求 C — gpu 書き出しの生フレーム dump（検証専用）
+
+- `--dump-frames <n,...>` を gpu 書き出しに追加。エンコーダへ渡す直前の `finalCanvas` を読み戻して `raw/frame-N.rgba`（8bit・行順は
+  osr の dump と同じ規約で明記）に書く。osr の `--dump-frames` と引数・出力先の形を揃える
+- **フラグ無しの製品経路は読み戻しゼロを維持**（`assert-zero-readback` の静的監査と `--trap-readback` の両方が引き続き通ること）。
+  dump は `--verify-frames` と同じ検証専用の枠に置く
+- capture 契約 §9.3 の可逆比較を gpu でも成立させる: `capture --engine gpu -t N` の PNG ≡ `--dump-frames N` の raw（MAD 0）
+
+### 12.5 受け入れ
+
+- fieldtest 案件（複製）で `render-cut --engine auto` が**完走**する。根治できていれば gpu で、できていなければ osr へのフォールバックで。
+  receipt にどちらだったかと理由が残る。`capture --engine auto -t 0 3 6` も同様に完走
+- 収束しなかった試行の差分ログが run.json / receipt に出る（フィクスチャで再現できなければ、揺らぎを注入したユニットテストで形を固定）
+- `--dump-frames` で取った raw と `capture --engine gpu` の PNG が bit 一致（MAD 0・3 フレーム）
+- フォールバックが発火しない既存フィクスチャの mp4 SHA は不変。`assert-zero-readback` PASS・`--trap-readback` 完走
+- 明示 `--engine gpu` の fail-closed 挙動と exit code は不変（テストで固定）
+
+### 12.6 実装レーンの実測による追記（2026-08-30・検収後）
+
+- **原因（確定）**: `captions.mjs` の `.akari-caption__plate` に付く entrance fade（`akari-caption-fade 180ms ease-out`・
+  `translateY(0.18em → 0)` = 既定 38 px で 6.84 px）を、ラスタ側は `settleCss` で停止していたが**採寸 root には当てていなかった**
+  （`CAPTION_WORD_FREEZE_CSS` が止めるのは語単位の 6 セレクタのみ）。採寸は生きている transform を任意時点でサンプルしていたため、
+  `ease-out` 終端の 0〜0.5 px の残差が毎回違い、許容差ゼロの連続 2 回一致が 32 回でも成立しなかった。#120c r0 の「語矩形 y が
+  最大 1.71 px 揺れる」も同じ現象。差分ログの実測: 31 対すべて不一致・揺れたフィールドは `plate.y/bottom` `line[0].y/bottom` の 4 つだけ・
+  試行 1→2 で −6.33〜−6.43 px（= 0.18em）
+- **原則（§2.1 に追加）**: **採寸 root に適用する CSS は、ラスタ band に適用する CSS と同一集合でなければならない**
+  （採寸 = ラスタされる幾何、を構成上保証する）。実装は `measureCss = CAPTION_WORD_FREEZE_CSS + settleCss` で採寸・probe・両 variant を揃え、
+  静的テスト「caption measurement roots are frozen in the same settled state the raster uses」で固定。許容差・丸め・平均は入れていない
+- **根治の実測**: fieldtest 案件で `captionMeasureAttempts = {count 3, p50 2, max 2}`（理論下限）・diffs 0・`captionLayoutMaxDeltaPx` 0・
+  gpu 2 走 mp4 SHA 一致。§12.1 の「32 回で収束せず」は正確には**高確率で**（base では確率的に収束することもある）
+- **32 回の上限**は据え置く。根治後は 2 回で確定するため上限は実質保険。下げるなら揺らぎが残る条件を別途観測してから
+- **`--dump-frames` の形**: 行順は上から下で osr と同規約。チャネル順はエンジンが本来読み戻す形式のまま（gpu = RGBA `raw/frame-N.rgba` /
+  osr = BGRA `raw/frame-N.bgra`）で拡張子が表す。`--trap-readback` とは相互排他
+- **receipt / provenance のキー**: フォールバック時は `provenance.engine = "osr"`・`engine_fallback = { from: "gpu", reason }`・
+  **`provenance.gpu_failure_run`**（gpu 失敗 run.json のプロジェクト相対パス）。capture は `capture.json.engine.fallback` に同じ内容
+- **capture の parity ガード**: render-cut がフォールバックした receipt（`provenance.engine = "osr"`）に対し、capture 側の解決が `"gpu"` でも
+  `engine_fallback.from` が一致すれば parity として受ける（これが無いと capture がフォールバックに到達する前に落ちる。launcher tier 3 由来の
+  既存フォールバックにも同じ穴があり同時に塞いだ）
+- 判定は構造化された `error.reasonCode` だけを見る（メッセージ文字列一致では発火しない）
+
+### 12.7 §9（#120h の「降格して完走」）との関係 — 司令塔裁定（2026-08-30・r3 合流時）
+
+- **事実**: #120h（§9 追記）は採寸が収束しない unit を **sprite へ降格して書き出しを完走**させる（語アニメが落ちる・receipt の
+  `captionStartup.measure.degradedUnits` に計上）。§12.3 は「`auto` は osr へフォールバック / 明示 `gpu` は fail-closed」を要求する。
+  r3 の合流はこれを **「実測由来の不安定 = 降格（§9）/ 故障注入 `AKARI_GPU_CAPTION_MEASURE_FAULT` = `caption-measure-unstable` を伝播
+  → `auto` は osr フォールバック・明示 `gpu` は fail-closed（§12.3）」** に分けて両方を残した。注入は「復旧不能な採寸失敗の代役」であり、
+  降格経路を撃つスイッチではなくなった
+- **裁定（v0）**: この分離を**採る**。根治（§12.6）により実測由来の不安定は理論下限 2 回で収束しており、降格経路は保険。
+  降格が起きたときは warning と `degradedUnits` で**黙らずに**記録される（§2.1「揺らぎを隠さない」に反しない）
+- **次版の候補（別票 D・小）**: `auto` で `degradedUnits > 0` になった走は「近似で完走」より「osr で正確に完走」を選ぶべきかを裁定し、
+  採るなら降格を `FALLBACK_REASONS` 相当（例 `caption-measure-degraded`）として `auto` だけ osr へ回す。明示 `gpu` は降格 + warning のまま。
+  降格経路を実機で撃つための注入モード（例: 値の接尾辞で降格を選ぶ）も同票で
+- 採寸 settle の実装は #120h の **`.akari-measure-root` にスコープした `measureSettleCss`** に一本化（§12.6 の原則を満たし、ページ全体の
+  アニメは止めない）。`contentKey` で再利用される安定結果は `cssVariants` を鍵に含むため必ず settled 状態で測ったもの（実機確認済み）

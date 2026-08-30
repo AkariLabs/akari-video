@@ -26,12 +26,15 @@ v0 に従う（未知フィールドは足さない。省略可のフィール�
 
 ## 読む文脈（周辺プロジェクト文脈）
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+本リーフは書き込まない。別工程で書く場合は、該当行の Edit か edit-store のスクリプト API を使う。
+
 2 パス目の入力は `collect.md` で集めた analysis.json 群だけに閉じない。**プロジェクトが
 既知の AKARI プロジェクト構造（`intake.json` や `edit.json` を持つディレクトリ）の中にある
 場合は、その周辺文脈も読みに行く**:
 
 - `intake.json`（あれば要約して `inputs.context.intake` へ）
-- `edit.json`（既に編集判断が下っている場合、その判断・decision_log・章立てを文脈として読む）
+- `edit.json`（既に編集判断が下っている場合、id で grep して判断・decision_log・章立ての該当行を文脈として読む）
 - `planning/`・`README.md`（案件の背景、企画意図、由来）
 - 過去 PJ・他社形式テンプレ参照（AKARI Video 形式に限らず、Premiere / DaVinci / CapCut 等の
   他社プロジェクトファイルも対象。`inputs.context.past_projects[]` へ記録）
@@ -39,7 +42,8 @@ v0 に従う（未知フィールドは足さない。省略可のフィール�
 これは実地検証（内部リポの multiasset-dogfood 実走・2026-07-22）で確定した重要な申し送りである:
 **orphan/unclear の判定は analysis.json（keyframes の note・events）だけでは確信を持てない
 ことがある**。素材だけを見て「これが何のための素材か」が分からない場合、その素材が置かれて
-いる由来プロジェクトの `edit.json`・`planning/`・`README.md`/`CLAUDE.md` を読みに行って初めて
+いる由来プロジェクトの `edit.json` は id で grep して該当行を読み、`planning/`・`README.md`/
+`CLAUDE.md` も読みに行って初めて
 判定が確定することがある。周辺文脈が無い・読んでも埋まらない場合は、無理に確信を書かず
 `open_questions` へ回すか、flags に確信度の低さを記録する。
 

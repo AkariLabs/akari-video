@@ -48,6 +48,9 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
 `ELECTRON_RUN_AS_NODE=1` で node として使う、の順とする。以下の `node` はこの手順で解決した
 実行体、`<render-cut>` は上で解決した実行体パスを表す。
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+本スキルは書き込まない。別工程で書く場合は、該当行の Edit か edit-store のスクリプト API を使う。
+
 1. 対象プロジェクトの `edit.json` が承認済みで、`.akari/lint.json` の `verdict` が `pass` であることを確認する。PASS でなければ `edit-lint` を実行して修正する。`--force` は lint 結果を上書きする明示承認を得た場合だけ使う。
 2. plan だけを生成する。
 

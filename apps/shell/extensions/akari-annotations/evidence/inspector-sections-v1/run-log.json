@@ -1,0 +1,652 @@
+{
+  "status": "PASS",
+  "finishedAt": "2026-08-30T06:40:52.576Z",
+  "records": [
+    {
+      "t": "2026-08-30T06:39:41.743Z",
+      "step": "assertion-ok",
+      "message": "found electron page target",
+      "targets": [
+        "file://<repo>/apps/shell/lib/frontend/index.html?port=60468#<tmp>/akari-inspector-l1-v2-workspace.4Uuabk/project"
+      ]
+    },
+    {
+      "t": "2026-08-30T06:39:43.875Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:39:44.646Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:39:45.378Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:39:46.115Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:39:46.846Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:39:47.589Z",
+      "step": "onboarding-modal-absent"
+    },
+    {
+      "t": "2026-08-30T06:39:50.661Z",
+      "step": "assertion-ok",
+      "message": "timeline widget opened"
+    },
+    {
+      "t": "2026-08-30T06:39:52.638Z",
+      "step": "screenshot",
+      "name": "00-boot.png"
+    },
+    {
+      "t": "2026-08-30T06:39:53.037Z",
+      "step": "assertion-ok",
+      "message": "timeline item telop-chapter has a visible rect",
+      "rect": {
+        "left": 424.9296875,
+        "top": 733.5234375,
+        "width": 204.046875,
+        "height": 22,
+        "x": 526.953125,
+        "y": 741.5234375,
+        "hitSameItem": true
+      }
+    },
+    {
+      "t": "2026-08-30T06:39:55.579Z",
+      "step": "assertion-ok",
+      "message": "telop-chapter is selected through the real layer DOM projection",
+      "telopDomKind": "layer"
+    },
+    {
+      "t": "2026-08-30T06:39:58.238Z",
+      "step": "assertion-ok",
+      "message": "scrub drag changed telop-chapter transform.x",
+      "beforeScrub": 41.365954777887225,
+      "afterScrub": 53.365954777887225
+    },
+    {
+      "t": "2026-08-30T06:39:58.238Z",
+      "step": "assertion-ok",
+      "message": "scrub drag emitted liveTransform at least once",
+      "liveCount": 11
+    },
+    {
+      "t": "2026-08-30T06:39:58.238Z",
+      "step": "assertion-ok",
+      "message": "scrub drag persisted exactly one edit.json content revision",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": \"40\"\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 41.365954777887225,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": \"40\"\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 53.365954777887225,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 1,
+      "revisionByteLengths": [
+        2763,
+        2763
+      ]
+    },
+    {
+      "t": "2026-08-30T06:39:59.400Z",
+      "step": "screenshot",
+      "name": "01-layer-x-scrub.png"
+    },
+    {
+      "t": "2026-08-30T06:39:59.796Z",
+      "step": "assertion-ok",
+      "message": "timeline item telop-chapter has a visible rect",
+      "rect": {
+        "left": 424.9296875,
+        "top": 733.5234375,
+        "width": 204.046875,
+        "height": 22,
+        "x": 526.953125,
+        "y": 741.5234375,
+        "hitSameItem": true
+      }
+    },
+    {
+      "t": "2026-08-30T06:40:00.531Z",
+      "step": "assertion-ok",
+      "message": "opacity range accepted value 50"
+    },
+    {
+      "t": "2026-08-30T06:40:09.231Z",
+      "step": "assertion-ok",
+      "message": "opacity display 50 persisted as internal 0.5",
+      "afterOpacity": 0.5
+    },
+    {
+      "t": "2026-08-30T06:40:09.231Z",
+      "step": "assertion-ok",
+      "message": "opacity slider numeric display is 50",
+      "opacityDisplay": "50"
+    },
+    {
+      "t": "2026-08-30T06:40:09.231Z",
+      "step": "assertion-ok",
+      "message": "opacity change persisted exactly one content revision",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": \"40\"\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 53.365954777887225,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": \"40\"\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 53.365954777887225,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 1,
+      "revisionByteLengths": [
+        2763,
+        2789
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:11.034Z",
+      "step": "screenshot",
+      "name": "02-opacity-50.png"
+    },
+    {
+      "t": "2026-08-30T06:40:11.376Z",
+      "step": "assertion-ok",
+      "message": "timeline item lower-third has a visible rect",
+      "rect": {
+        "left": 390.921875,
+        "top": 759.5234375,
+        "width": 238.0546875,
+        "height": 22,
+        "x": 509.94921875,
+        "y": 767.5234375,
+        "hitSameItem": true
+      }
+    },
+    {
+      "t": "2026-08-30T06:40:12.109Z",
+      "step": "assertion-ok",
+      "message": "lower-third is selected through the real overlay DOM projection",
+      "lowerThirdDomKind": "overlay"
+    },
+    {
+      "t": "2026-08-30T06:40:15.468Z",
+      "step": "assertion-ok",
+      "message": "knob group typography is visible",
+      "knobGroups": [
+        "▾ style",
+        "▾ typography",
+        "▾ layout"
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:15.471Z",
+      "step": "assertion-ok",
+      "message": "knob group style is visible",
+      "knobGroups": [
+        "▾ style",
+        "▾ typography",
+        "▾ layout"
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:15.471Z",
+      "step": "assertion-ok",
+      "message": "knob group layout is visible",
+      "knobGroups": [
+        "▾ style",
+        "▾ typography",
+        "▾ layout"
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:15.653Z",
+      "step": "assertion-ok",
+      "message": "font-size range accepted value 48"
+    },
+    {
+      "t": "2026-08-30T06:40:17.329Z",
+      "step": "assertion-ok",
+      "message": "font-size knob changed source.vars[--font-size]",
+      "beforeFontSize": "40",
+      "afterFontSize": 48
+    },
+    {
+      "t": "2026-08-30T06:40:17.335Z",
+      "step": "assertion-ok",
+      "message": "knob change persisted exactly one content revision",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": \"40\"\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 53.365954777887225,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 53.365954777887225,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 1,
+      "revisionByteLengths": [
+        2789,
+        2787
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:18.608Z",
+      "step": "screenshot",
+      "name": "03-overlay-knobs.png"
+    },
+    {
+      "t": "2026-08-30T06:40:18.867Z",
+      "step": "assertion-ok",
+      "message": "timeline item telop-chapter has a visible rect",
+      "rect": {
+        "left": 424.9296875,
+        "top": 733.5234375,
+        "width": 204.046875,
+        "height": 22,
+        "x": 526.953125,
+        "y": 741.5234375,
+        "hitSameItem": true
+      }
+    },
+    {
+      "t": "2026-08-30T06:40:21.274Z",
+      "step": "assertion-ok",
+      "message": "Alt+ArrowRight nudged transform.x by +1",
+      "beforeX": 53.365954777887225,
+      "afterX": 54.365954777887225
+    },
+    {
+      "t": "2026-08-30T06:40:21.287Z",
+      "step": "assertion-ok",
+      "message": "Alt nudge persisted once on keyup",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 53.365954777887225,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 54.365954777887225,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 1,
+      "revisionByteLengths": [
+        2787,
+        2787
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:27.779Z",
+      "step": "assertion-ok",
+      "message": "Shift+Alt+ArrowRight nudged transform.x by +10",
+      "beforeX": 54.365954777887225,
+      "afterX": 64.36595477788723
+    },
+    {
+      "t": "2026-08-30T06:40:27.807Z",
+      "step": "assertion-ok",
+      "message": "Shift+Alt nudge persisted once on keyup",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 54.365954777887225,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 64.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 1,
+      "revisionByteLengths": [
+        2787,
+        2786
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:29.984Z",
+      "step": "assertion-ok",
+      "message": "three keydowns accumulated three 1px nudges",
+      "beforeX": 64.36595477788723,
+      "afterX": 67.36595477788723
+    },
+    {
+      "t": "2026-08-30T06:40:29.986Z",
+      "step": "assertion-ok",
+      "message": "multiple nudge keydowns persisted once at the single keyup",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 64.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 1,
+      "revisionByteLengths": [
+        2786,
+        2786
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:30.592Z",
+      "step": "assertion-ok",
+      "message": "plain ArrowRight left transform.x unchanged",
+      "beforeX": 67.36595477788723,
+      "afterX": 67.36595477788723
+    },
+    {
+      "t": "2026-08-30T06:40:30.594Z",
+      "step": "assertion-ok",
+      "message": "plain ArrowRight did not write edit.json",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 0,
+      "revisionByteLengths": [
+        2786
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:30.594Z",
+      "step": "assertion-ok",
+      "message": "plain ArrowRight moved the playhead",
+      "playheadBefore": "20.732%",
+      "playheadAfter": "21.0075%"
+    },
+    {
+      "t": "2026-08-30T06:40:31.402Z",
+      "step": "screenshot",
+      "name": "04-keyboard-nudge.png"
+    },
+    {
+      "t": "2026-08-30T06:40:31.643Z",
+      "step": "assertion-ok",
+      "message": "timeline item laptop-3d has a visible rect",
+      "rect": {
+        "left": 799.015625,
+        "top": 759.5234375,
+        "width": 272.0625,
+        "height": 22,
+        "x": 935.046875,
+        "y": 767.5234375,
+        "hitSameItem": true
+      }
+    },
+    {
+      "t": "2026-08-30T06:40:37.591Z",
+      "step": "assertion-ok",
+      "message": "laptop-3d moved from v-overlay to the adjacent upper visual track v1",
+      "laptopBefore": "v-overlay",
+      "laptopAfter": "v1"
+    },
+    {
+      "t": "2026-08-30T06:40:37.594Z",
+      "step": "assertion-ok",
+      "message": "successful bracket move persisted one content revision",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 1,
+      "revisionByteLengths": [
+        2786,
+        2786
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:37.869Z",
+      "step": "assertion-ok",
+      "message": "timeline item lower-third has a visible rect",
+      "rect": {
+        "left": 390.921875,
+        "top": 759.5234375,
+        "width": 238.0546875,
+        "height": 22,
+        "x": 509.94921875,
+        "y": 767.5234375,
+        "hitSameItem": true
+      }
+    },
+    {
+      "t": "2026-08-30T06:40:39.658Z",
+      "step": "assertion-ok",
+      "message": "overlapping lower-third stayed on its source track",
+      "lowerBefore": "v-overlay",
+      "lowerAfter": "v-overlay"
+    },
+    {
+      "t": "2026-08-30T06:40:39.659Z",
+      "step": "assertion-ok",
+      "message": "blocked bracket move did not write edit.json",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 0,
+      "revisionByteLengths": [
+        2786
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:39.660Z",
+      "step": "assertion-ok",
+      "message": "overlap notice uses the timeline display track name V3",
+      "notice": "V3 に重なるアイテムがあるため移動できません×"
+    },
+    {
+      "t": "2026-08-30T06:40:40.174Z",
+      "step": "screenshot",
+      "name": "05-track-move-and-overlap.png"
+    },
+    {
+      "t": "2026-08-30T06:40:40.200Z",
+      "step": "assertion-ok",
+      "message": "legacy inspector tabs are absent",
+      "tabCount": 0,
+      "ids": [
+        "section:inspector-time",
+        "section:inspector-transform",
+        "section:inspector-appearance",
+        "section:inspector-knobs:0-style",
+        "section:inspector-knobs:1-typography",
+        "section:inspector-knobs:2-layout",
+        "section:inspector-info"
+      ],
+      "labels": [
+        "▾ 時間",
+        "▾ 変形",
+        "▾ 外観",
+        "▾ style",
+        "▾ typography",
+        "▾ layout",
+        "▸ 情報"
+      ],
+      "infoHidden": true,
+      "kindHeadingCount": 0
+    },
+    {
+      "t": "2026-08-30T06:40:40.200Z",
+      "step": "assertion-ok",
+      "message": "sections are vertically ordered time, transform, appearance, kind-specific, info",
+      "tabCount": 0,
+      "ids": [
+        "section:inspector-time",
+        "section:inspector-transform",
+        "section:inspector-appearance",
+        "section:inspector-knobs:0-style",
+        "section:inspector-knobs:1-typography",
+        "section:inspector-knobs:2-layout",
+        "section:inspector-info"
+      ],
+      "labels": [
+        "▾ 時間",
+        "▾ 変形",
+        "▾ 外観",
+        "▾ style",
+        "▾ typography",
+        "▾ layout",
+        "▸ 情報"
+      ],
+      "infoHidden": true,
+      "kindHeadingCount": 0
+    },
+    {
+      "t": "2026-08-30T06:40:40.203Z",
+      "step": "assertion-ok",
+      "message": "overlay kind-specific sections are knob groups between appearance and info",
+      "tabCount": 0,
+      "ids": [
+        "section:inspector-time",
+        "section:inspector-transform",
+        "section:inspector-appearance",
+        "section:inspector-knobs:0-style",
+        "section:inspector-knobs:1-typography",
+        "section:inspector-knobs:2-layout",
+        "section:inspector-info"
+      ],
+      "labels": [
+        "▾ 時間",
+        "▾ 変形",
+        "▾ 外観",
+        "▾ style",
+        "▾ typography",
+        "▾ layout",
+        "▸ 情報"
+      ],
+      "infoHidden": true,
+      "kindHeadingCount": 0
+    },
+    {
+      "t": "2026-08-30T06:40:40.203Z",
+      "step": "assertion-ok",
+      "message": "information section is collapsed by default",
+      "tabCount": 0,
+      "ids": [
+        "section:inspector-time",
+        "section:inspector-transform",
+        "section:inspector-appearance",
+        "section:inspector-knobs:0-style",
+        "section:inspector-knobs:1-typography",
+        "section:inspector-knobs:2-layout",
+        "section:inspector-info"
+      ],
+      "labels": [
+        "▾ 時間",
+        "▾ 変形",
+        "▾ 外観",
+        "▾ style",
+        "▾ typography",
+        "▾ layout",
+        "▸ 情報"
+      ],
+      "infoHidden": true,
+      "kindHeadingCount": 0
+    },
+    {
+      "t": "2026-08-30T06:40:40.203Z",
+      "step": "assertion-ok",
+      "message": "standalone kind heading is absent",
+      "tabCount": 0,
+      "ids": [
+        "section:inspector-time",
+        "section:inspector-transform",
+        "section:inspector-appearance",
+        "section:inspector-knobs:0-style",
+        "section:inspector-knobs:1-typography",
+        "section:inspector-knobs:2-layout",
+        "section:inspector-info"
+      ],
+      "labels": [
+        "▾ 時間",
+        "▾ 変形",
+        "▾ 外観",
+        "▾ style",
+        "▾ typography",
+        "▾ layout",
+        "▸ 情報"
+      ],
+      "infoHidden": true,
+      "kindHeadingCount": 0
+    },
+    {
+      "t": "2026-08-30T06:40:40.902Z",
+      "step": "screenshot",
+      "name": "06-section-stack.png"
+    },
+    {
+      "t": "2026-08-30T06:40:41.354Z",
+      "step": "assertion-ok",
+      "message": "timeline item cut-a has a visible rect",
+      "rect": {
+        "left": 356.9140625,
+        "top": 770.0234375,
+        "width": 403.1328125,
+        "height": 22,
+        "x": 558.48046875,
+        "y": 778.0234375,
+        "hitSameItem": true
+      }
+    },
+    {
+      "t": "2026-08-30T06:40:42.182Z",
+      "step": "assertion-ok",
+      "message": "chroma similarity range accepted value 30"
+    },
+    {
+      "t": "2026-08-30T06:40:47.453Z",
+      "step": "assertion-ok",
+      "message": "chroma display 30 persisted as internal 0.3",
+      "afterChroma": {
+        "color": "#00ff00",
+        "similarity": 0.3,
+        "blend": 0
+      }
+    },
+    {
+      "t": "2026-08-30T06:40:47.532Z",
+      "step": "assertion-ok",
+      "message": "chroma write preserved color",
+      "afterChroma": {
+        "color": "#00ff00",
+        "similarity": 0.3,
+        "blend": 0
+      }
+    },
+    {
+      "t": "2026-08-30T06:40:47.536Z",
+      "step": "assertion-ok",
+      "message": "chroma slider numeric display is 30",
+      "chromaDisplay": "30"
+    },
+    {
+      "t": "2026-08-30T06:40:47.536Z",
+      "step": "assertion-ok",
+      "message": "chroma change persisted exactly one content revision",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.1,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.3,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 1,
+      "revisionByteLengths": [
+        2786,
+        2786
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:48.370Z",
+      "step": "screenshot",
+      "name": "07-chroma-similarity.png"
+    },
+    {
+      "t": "2026-08-30T06:40:48.653Z",
+      "step": "assertion-ok",
+      "message": "timeline item telop-chapter has a visible rect",
+      "rect": {
+        "left": 424.9296875,
+        "top": 733.5234375,
+        "width": 204.046875,
+        "height": 22,
+        "x": 526.953125,
+        "y": 741.5234375,
+        "hitSameItem": true
+      }
+    },
+    {
+      "t": "2026-08-30T06:40:50.349Z",
+      "step": "assertion-ok",
+      "message": "telop text input accepted replacement text"
+    },
+    {
+      "t": "2026-08-30T06:40:52.047Z",
+      "step": "assertion-ok",
+      "message": "telop params.text persisted the replacement",
+      "afterTelopText": "第1章 追試"
+    },
+    {
+      "t": "2026-08-30T06:40:52.052Z",
+      "step": "assertion-ok",
+      "message": "telop text change persisted exactly one content revision",
+      "beforeText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.3,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 検証\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "afterText": "{\n  \"version\": 2,\n  \"output\": {\n    \"width\": 1920,\n    \"height\": 1080,\n    \"fps\": 30,\n    \"look\": {\n      \"lut\": \"cinematic\",\n      \"intensity\": 0.25\n    }\n  },\n  \"sources\": [\n    {\n      \"id\": \"a\",\n      \"path\": \"assets/take-a.mp4\"\n    },\n    {\n      \"id\": \"b\",\n      \"path\": \"assets/take-b.mp4\"\n    },\n    {\n      \"id\": \"packaged-verify\",\n      \"path\": \"exports/packaged-verify.mp4\",\n      \"proxy\": null\n    }\n  ],\n  \"tracks\": [\n    {\n      \"id\": \"v-main\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"cut-a\",\n          \"at\": 0,\n          \"duration\": 180,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"a\",\n            \"in\": 0,\n            \"out\": 6,\n            \"chroma_key\": {\n              \"color\": \"#00ff00\",\n              \"similarity\": 0.3,\n              \"blend\": 0\n            }\n          },\n          \"transform\": {\n            \"x\": 0,\n            \"y\": 0,\n            \"scale\": 1,\n            \"rotate\": 0\n          }\n        },\n        {\n          \"id\": \"cut-b\",\n          \"at\": 180,\n          \"duration\": 150,\n          \"source\": {\n            \"kind\": \"media\",\n            \"src\": \"b\",\n            \"in\": 0.5,\n            \"out\": 5.5\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-overlay\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"lower-third\",\n          \"at\": 15,\n          \"duration\": 105,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/lower-third-clean/fragment.html\",\n            \"vars\": {\n              \"--primary-color\": \"#101820\",\n              \"--font-size\": 48\n            }\n          },\n          \"transform\": {\n            \"x\": 5.407379608161136,\n            \"y\": 5.125107457878869,\n            \"scale\": 1.0350088180119976,\n            \"rotate\": 0\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v1\",\n      \"lane\": \"visual\",\n      \"items\": [\n        {\n          \"id\": \"telop-chapter\",\n          \"at\": 30,\n          \"duration\": 90,\n          \"source\": {\n            \"kind\": \"telop\",\n            \"preset\": \"ref3_chapter_tag\",\n            \"params\": {\n              \"text\": \"第1章 追試\"\n            }\n          },\n          \"transform\": {\n            \"x\": 67.36595477788723,\n            \"y\": 0,\n            \"scale\": 0.9848080971000006,\n            \"rotate\": 0\n          },\n          \"opacity\": 0.5\n        },\n        {\n          \"id\": \"laptop-3d\",\n          \"at\": 195,\n          \"duration\": 120,\n          \"source\": {\n            \"kind\": \"html\",\n            \"path\": \"overlays/3d-laptop/fragment.html\"\n          }\n        }\n      ]\n    },\n    {\n      \"id\": \"v-telop\",\n      \"lane\": \"visual\",\n      \"items\": []\n    }\n  ],\n  \"audio\": {\n    \"bgm\": {\n      \"path\": \"assets/bgm.mp3\",\n      \"gain_db\": -12,\n      \"fadeIn\": 1,\n      \"fadeOut\": 1\n    }\n  }\n}\n",
+      "writeCount": 1,
+      "revisionByteLengths": [
+        2786,
+        2786
+      ]
+    },
+    {
+      "t": "2026-08-30T06:40:52.547Z",
+      "step": "screenshot",
+      "name": "08-telop-params.png"
+    },
+    {
+      "t": "2026-08-30T06:40:52.550Z",
+      "step": "case-9-deferred",
+      "reason": "legacy case runs in a second Electron process"
+    },
+    {
+      "t": "2026-08-30T06:40:52.552Z",
+      "step": "DONE",
+      "criteria": 8,
+      "mode": "v2"
+    }
+  ]
+}

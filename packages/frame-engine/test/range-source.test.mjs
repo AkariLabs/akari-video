@@ -17,6 +17,7 @@ import {
   futureFrameTimestampsToEvict,
   hevcCodecString,
   mergeByteRanges,
+  readVideoCodecFromMoov,
   resetCodecProbeCache,
   resolveFrameEngineSourceMode,
   sampleAtPresentationTime,
@@ -310,6 +311,15 @@ test('range is the default source and the one-release MP4Clip escape hatch is ex
   assert.equal(resolveFrameEngineSourceMode({ AKARI_FRAME_ENGINE_SOURCE: 'mp4clip' }), 'mp4clip');
   const previous = process.env.AKARI_FRAME_ENGINE_SOURCE;
   try {
+    delete process.env.AKARI_FRAME_ENGINE_SOURCE;
+    const defaultSession = new ClipSession('default-range', 'unused.mp4');
+    assert.equal(defaultSession.getSourceMode(), 'range');
+    defaultSession.destroy();
+    const cpuRotatedSession = new ClipSession('cpu-rotated', 'unused.mp4', {
+      skipSourceRotation: false,
+    });
+    assert.equal(cpuRotatedSession.getSourceMode(), 'mp4clip');
+    cpuRotatedSession.destroy();
     process.env.AKARI_FRAME_ENGINE_SOURCE = 'mp4clip';
     const session = new ClipSession('escape-hatch', 'unused.mp4');
     assert.equal(session.getSourceMode(), 'mp4clip');
@@ -317,6 +327,46 @@ test('range is the default source and the one-release MP4Clip escape hatch is ex
   } finally {
     if (previous === undefined) delete process.env.AKARI_FRAME_ENGINE_SOURCE;
     else process.env.AKARI_FRAME_ENGINE_SOURCE = previous;
+  }
+});
+
+test('sample-table rotation matches the shared tkhd probe and exposes logical dimensions', async t => {
+  if (spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status !== 0) {
+    t.skip('ffmpeg is required');
+    return;
+  }
+  const directory = mkdtempSync(path.join(tmpdir(), 'akari-range-rotation-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const source = path.join(directory, 'rotate-0.mp4');
+  execFileSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=24', '-frames:v', '24',
+    '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-g', '12', '-bf', '0',
+    '-movflags', '+faststart', source,
+  ]);
+  const fixtures = [{ rotationDeg: 0, path: source }];
+  for (const rotationDeg of [90, 180, 270]) {
+    const output = path.join(directory, `rotate-${rotationDeg}.mp4`);
+    execFileSync('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-y',
+      '-display_rotation', String(rotationDeg), '-i', source,
+      '-map', '0:v:0', '-an', '-c', 'copy', '-movflags', '+faststart', output,
+    ]);
+    fixtures.push({ rotationDeg, path: output });
+  }
+  for (const fixture of fixtures) {
+    const bytes = readFileSync(fixture.path);
+    const header = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const table = await buildVideoSampleTable(header);
+    const probed = readVideoCodecFromMoov(header);
+    assert.ok(probed);
+    assert.equal(table.rotationDeg, fixture.rotationDeg);
+    assert.equal(table.rotationDeg, probed.rotationDeg);
+    assert.deepEqual([table.codedWidth, table.codedHeight], [160, 90]);
+    assert.deepEqual(
+      [table.width, table.height],
+      fixture.rotationDeg === 90 || fixture.rotationDeg === 270 ? [90, 160] : [160, 90],
+    );
   }
 });
 

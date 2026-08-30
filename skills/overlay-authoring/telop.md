@@ -54,6 +54,9 @@ YouTube の safe zone も全端末保証ではない。オーガニック投稿�
 
 ## テキストスロット（data-akari-slot）
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+
 1 本の HTML を複数アイテムで共有し、文字だけを `edit.json` に分離するときに使う。
 
 ```html

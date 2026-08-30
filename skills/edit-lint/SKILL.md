@@ -46,6 +46,9 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
 `ELECTRON_RUN_AS_NODE=1` で node として使う、の順とする。以下の `node` はこの手順で解決した
 実行体、`<edit-lint>` は上で解決した実行体パスを表す。
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+
 1. edit.json を保存した直後に、次を実行する。
 
    ```sh
@@ -53,7 +56,7 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
    ```
 
 2. exit code と `<project>/.akari/lint.json` を確認する。`0` は PASS、`1` は FAIL、`2` は入力や実行環境のエラーを表す。
-3. FAIL なら `findings[]` を上から読み、指摘された edit.json、参照ファイル、overlay HTML、captions.json を手で修正する。CLI に自動修正させない。
+3. FAIL なら `findings[]` を上から読み、指摘された edit.json、参照ファイル、overlay HTML、captions.json を該当行の Edit か edit-store のスクリプト API で修正する。CLI に自動修正させない。
 4. 同じコマンドを再実行し、error finding がなく `verdict: "pass"` になるまで繰り返す。analysis.json または captions.json が無い検査は `skipped[]` で確認する。
 5. PASS 後に、カット境界と overlay の開始・終了フレームを実際に視認する。機械検査の PASS を意味的な品質確認の代わりにしない。
 6. `<project>/.akari/reports/edit-lint-report.html` とフレーム視認結果を編集レポートへ反映し、checkpoint 状態と provenance を実態に合わせて閉じる。

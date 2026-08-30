@@ -3,15 +3,15 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 
-test("caption rasters are lazy, batched, cropped, released, and timed separately", async () => {
+test("caption rasters are prefetched with a lazy fallback, batched, cropped, released, and timed separately", async () => {
   const source = await readFile(join(import.meta.dirname, "..", "src", "page-runtime.js"), "utf8");
   const builder = source.slice(source.indexOf("async function buildCaptionUnits"), source.indexOf("async function embeddedCaptionFont"));
   assert.doesNotMatch(builder, /rasterizeCaptionState\s*\(/u);
-  assert.match(source, /await rasterizeCaptionBatch\(batch, config, spriteCompositor\)/u);
+  assert.match(source, /await rasterizeCaptionBatch\(batch, config, spriteCompositor, captionStartupMetrics\)/u);
   assert.match(source, /releaseCaptionUnit\(unit, spriteCompositor\)/u);
   assert.match(source, /spriteCompositor\.releaseSprite\(unit\.id\)/u);
   assert.match(source, /canvas\.width = 0;\s*canvas\.height = 0;/u);
-  assert.match(source, /context\.drawImage\(image, 0, band\.offsetY, config\.width, band\.height, 0, 0, config\.width, band\.height\)/u);
+  assert.match(source, /context\.drawImage\(sheet, 0, band\.offsetY, config\.width, band\.height, 0, 0, config\.width, band\.height\)/u);
   assert.match(source, /captionRaster: \[\]/u);
   assert.match(source, /captionRasterBatch: \[\]/u);
   assert.doesNotMatch(source, /unit\.canvases/u);

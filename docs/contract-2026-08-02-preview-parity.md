@@ -290,6 +290,12 @@ proxy を無条件に優先する。
 HEVC は `prefer-software` が通らないため、codec プローブが `sw=false` を返した系列について
 ClipSessionPool はソフトウェア退避を学習しない。ソフトウェア退避の学習対象は H.264 のみとする。
 
+tkhd に 90 / 180 / 270 度の回転を持つ素材は、既定でデコーダ出力を毎フレームの
+OffscreenCanvas へ焼き直さない。frame-engine は回転メタをフレームへ付帯し、compositor の
+UV 逆写像で表示回転を 1 回だけ適用する。crop、framing、keyframe、既存 transform / perspective は
+回転後の論理空間を基準とし、90 / 270 度では coded width / height を入れ替えた論理寸法を使う。
+この規則は VideoFrame の直接 upload と copyTo の両経路に共通である。
+
 デコーダエラーは window 全域イベントで飛ぶため、他クリップの失敗と区別できない。frame-engine は
 検出後 `decoderErrorGraceMs`（既定 1 秒）だけ自分の操作の成功を待ち、期限内に成功した場合はその
 エラーを無視する。prime がフレームを返さず、かつエラーを観測した場合だけ、その試行を失敗とする。

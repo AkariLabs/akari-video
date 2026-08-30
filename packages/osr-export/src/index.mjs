@@ -90,6 +90,73 @@ export async function exportWithOsr({
   }
 }
 
+export async function captureFramesWithOsr({
+  projectRoot,
+  editPath = null,
+  outputDirectory,
+  frameNumbers,
+  fps,
+  width,
+  height,
+  duration,
+  frames = Math.round(duration * fps),
+  soft = false,
+  env = process.env,
+  io = console,
+  launcherResolver = resolveElectronLauncher,
+  launcherRunner = launchElectronExport,
+  launcher: suppliedLauncher = null,
+} = {}) {
+  const requestedFrames = normalizeCaptureFrames(frameNumbers, frames);
+  if (!projectRoot || !outputDirectory) {
+    throw new Error("OSR capture requires projectRoot and outputDirectory");
+  }
+  const runtime = resolveOsrRuntimeOptions({ env, soft, verify: "stamp" });
+  const launcher = suppliedLauncher ?? await launcherResolver({ env });
+  if (launcher.tier === 3) {
+    throw new Error(`OSR capture unavailable: ${launcher.reason ?? "Electron unavailable"}`);
+  }
+  await mkdir(outputDirectory, { recursive: true });
+  const runPath = join(outputDirectory, "capture-run.json");
+  await launcherRunner(launcher, {
+    projectRoot,
+    out: runPath,
+    fps,
+    width,
+    height,
+    duration,
+    frames,
+    quality: "high",
+    encoder: "auto",
+    soft: runtime.soft,
+    verify: "stamp",
+    queueDepth: runtime.queueDepth,
+    extraArgs: [
+      ...(editPath ? ["--edit", editPath] : []),
+      "--capture-frames", requestedFrames.join(","),
+      "--capture-output-dir", outputDirectory,
+    ],
+    onStdout: (text) => io.log?.(text.trimEnd()),
+    onStderr: (text) => io.error?.(text.trimEnd()),
+  });
+  const run = JSON.parse(await readFile(runPath, "utf8"));
+  if (run.status !== "completed" || run.operation !== "capture" || run.verify?.matched !== true) {
+    throw new Error(`OSR capture failed verification: ${run.status ?? "unknown"}`);
+  }
+  return {
+    fellBackToLegacy: false,
+    launcher,
+    run,
+    receipt: {
+      launcherTier: launcher.tier,
+      operation: "capture",
+      page: run.page,
+      verify: run.verify,
+      elapsedMs: run.elapsedMs,
+    },
+  };
+}
+
 // 製品入口。インストール済みデスクトップアプリ（tier 1）は shell の electron-entry.js が --render を Theia より前に
 // 捕捉するようになった（2026-08-29 osr-headless-entry 合流・契約 §6 / §11.4 / §11.5）ため既定で候補に戻す。
 // v0.1.27 の間だけ allowInstalledDesktop 既定 false で外していた。明示の allowInstalledDesktop: false は今も使える。
@@ -126,6 +193,19 @@ function nonNegativeInteger(value, label) {
   const number = Number(value);
   if (!Number.isInteger(number) || number < 0) throw new Error(`${label} must contain non-negative integers, got: ${value}`);
   return number;
+}
+
+function normalizeCaptureFrames(frameNumbers, totalFrames) {
+  if (!Array.isArray(frameNumbers) || frameNumbers.length === 0) {
+    throw new Error("OSR capture requires at least one frame number");
+  }
+  return [...new Set(frameNumbers.map((frame) => {
+    const parsed = Number(frame);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed >= totalFrames) {
+      throw new Error(`OSR capture frame ${frame} is outside 0..${totalFrames - 1}`);
+    }
+    return parsed;
+  }))].sort((left, right) => left - right);
 }
 
 export async function muxSourceAudio({ ffmpegCommand, ffprobeCommand, videoPath, audioPath, outputPath, frames, fps }) {

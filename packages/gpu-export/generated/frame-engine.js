@@ -3361,6 +3361,9 @@ ${indent}`);
       ]);
       var ITEM_KEYS = /* @__PURE__ */ new Set([
         "id",
+        "name",
+        "hidden",
+        "locked",
         "at",
         "duration",
         "transform",
@@ -3368,12 +3371,18 @@ ${indent}`);
         "blend",
         "crop",
         "perspective",
+        "motion",
+        "animator",
         "keyframes",
+        "items",
         "mask",
         "source"
       ]);
       var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
         "id",
+        "name",
+        "hidden",
+        "locked",
         "at",
         "duration",
         "role",
@@ -3425,11 +3434,18 @@ ${indent}`);
               return {
                 ...track,
                 z: z3,
-                items: track.items.map((item) => ({ ...item, source: { ...item.source } }))
+                items: track.items.map((item) => cloneItem(item))
               };
             }
             return { ...track, z: z3, content: { ...track.content } };
           })
+        };
+      }
+      function cloneItem(item) {
+        return {
+          ...item,
+          source: { ...item.source },
+          ..."items" in item && Array.isArray(item.items) ? { items: item.items.map((child) => cloneItem(child)) } : {}
         };
       }
       function parseInput(json) {
@@ -3506,6 +3522,7 @@ ${indent}`);
         if (ids.has(value.id))
           throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
         ids.add(value.id);
+        validateItemMetadata(value, path);
         requireInteger(value.at, 0, `${path}.at`);
         requireInteger(value.duration, 0, `${path}.duration`);
         if (hasOwn(value, "role") && value.role !== "sfx" && value.role !== "narration" && value.role !== "bgm") {
@@ -3566,6 +3583,7 @@ ${indent}`);
         if (ids.has(value.id))
           throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
         ids.add(value.id);
+        validateItemMetadata(value, path);
         requireInteger(value.at, 0, `${path}.at`);
         requireInteger(value.duration, 0, `${path}.duration`);
         if (hasOwn(value, "transform"))
@@ -3579,6 +3597,10 @@ ${indent}`);
           validateCrop(value.crop, `${path}.crop`);
         if (hasOwn(value, "perspective"))
           requireRecord(value.perspective, `${path}.perspective`);
+        if (hasOwn(value, "motion"))
+          validateMotion(value.motion, `${path}.motion`);
+        if (hasOwn(value, "animator"))
+          validateAnimators(value.animator, `${path}.animator`);
         if (hasOwn(value, "keyframes"))
           validateKeyframes(value.keyframes, `${path}.keyframes`);
         validateItemSource(value.source, `${path}.source`, sourceIds);
@@ -3588,6 +3610,19 @@ ${indent}`);
           requireText(value.mask, `${path}.mask`);
           if (!sourceIds.has(value.mask))
             throw invalid(`${path}.mask`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.mask}`);
+        }
+        if (hasOwn(value, "items")) {
+          if (!Array.isArray(value.items))
+            throw invalid(`${path}.items`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          value.items.forEach((child, index) => validateItem(child, `${path}.items[${index}]`, ids, sourceIds));
+        }
+      }
+      function validateItemMetadata(value, path) {
+        if (hasOwn(value, "name") && typeof value.name !== "string")
+          throw invalid(`${path}.name`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        for (const key of ["hidden", "locked"]) {
+          if (hasOwn(value, key) && typeof value[key] !== "boolean")
+            throw invalid(`${path}.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         }
       }
       function validateItemSource(value, path, sourceIds) {
@@ -3623,8 +3658,17 @@ ${indent}`);
               requirePositiveNumber(value.speed, `${path}.speed`);
             return;
           case "html":
-            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "vars", "params"]), path);
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params"]), path);
             requireText(value.path, `${path}.path`);
+            for (const key of ["part", "derivedFrom"])
+              if (hasOwn(value, key))
+                requireText(value[key], `${path}.${key}`);
+            if (hasOwn(value, "text") && typeof value.text !== "string")
+              throw invalid(`${path}.text`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            if (hasOwn(value, "style"))
+              validateStringMap(value.style, `${path}.style`);
+            if (hasOwn(value, "exclude"))
+              validateStringList(value.exclude, `${path}.exclude`);
             if (hasOwn(value, "vars"))
               requireRecord(value.vars, `${path}.vars`);
             if (hasOwn(value, "params")) {
@@ -3636,20 +3680,56 @@ ${indent}`);
             }
             return;
           case "telop":
-            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "preset", "params", "baked"]), path);
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "preset", "params", "baked", "from"]), path);
             requireText(value.preset, `${path}.preset`);
             if (hasOwn(value, "params"))
               requireRecord(value.params, `${path}.params`);
             if (hasOwn(value, "baked"))
               requireText(value.baked, `${path}.baked`);
+            if (hasOwn(value, "from"))
+              requireText(value.from, `${path}.from`);
             return;
           case "filter":
             requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "filter"]), path);
             validateFilter(value.filter, `${path}.filter`);
             return;
+          case "group":
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind"]), path);
+            return;
+          case "captions":
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "exclude"]), path);
+            if (value.path !== "captions.json")
+              throw invalid(`${path}.path`, "captions.json \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            if (hasOwn(value, "exclude"))
+              validateStringList(value.exclude, `${path}.exclude`);
+            return;
+          case "caption":
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "id"]), path);
+            if (value.path !== "captions.json")
+              throw invalid(`${path}.path`, "captions.json \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            requireText(value.id, `${path}.id`);
+            return;
           default:
-            throw invalid(`${path}.kind`, "media/html/telop/filter \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            throw invalid(`${path}.kind`, "media/html/telop/filter/group/captions/caption \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         }
+      }
+      function validateStringMap(value, path) {
+        requireRecord(value, path);
+        for (const [key, entry] of Object.entries(value)) {
+          if (typeof entry !== "string")
+            throw invalid(`${path}.${key}`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        }
+      }
+      function validateStringList(value, path) {
+        if (!Array.isArray(value))
+          throw invalid(path, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        const seen = /* @__PURE__ */ new Set();
+        value.forEach((entry, index) => {
+          requireText(entry, `${path}[${index}]`);
+          if (seen.has(entry))
+            throw invalid(path, `\u5024\u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${entry}`);
+          seen.add(entry);
+        });
       }
       function validateFilter(value, path) {
         requireRecord(value, path);
@@ -3691,7 +3771,51 @@ ${indent}`);
             throw invalid(`${path}.${key}`, "0 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         }
       }
+      var EASINGS = /* @__PURE__ */ new Set([
+        "linear",
+        "ease-in-out",
+        "in-quad",
+        "out-quad",
+        "in-out-quad",
+        "in-cubic",
+        "out-cubic",
+        "in-out-cubic",
+        "in-quart",
+        "out-quart",
+        "in-out-quart",
+        "in-expo",
+        "out-expo",
+        "in-out-expo",
+        "in-back",
+        "out-back",
+        "in-out-back",
+        "out-bounce",
+        "out-elastic",
+        "hold"
+      ]);
+      var CUBIC_BEZIER = /^cubic-bezier\(\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$/;
+      function validateEasing(value, path) {
+        const validateOne = (entry, entryPath) => {
+          if (typeof entry !== "string" || !EASINGS.has(entry) && !CUBIC_BEZIER.test(entry)) {
+            throw invalid(entryPath, "\u672A\u5BFE\u5FDC\u306E easing \u3067\u3059");
+          }
+        };
+        if (typeof value === "string")
+          return validateOne(value, path);
+        requireRecord(value, path);
+        for (const [key, entry] of Object.entries(value))
+          validateOne(entry, `${path}.${key}`);
+      }
       function validateKeyframes(value, path) {
+        if (!Array.isArray(value)) {
+          requireRecord(value, path);
+          requireExactKeys(value, /* @__PURE__ */ new Set(["path", "count"]), path);
+          requireText(value.path, `${path}.path`);
+          if (!/^motion\/.+\.json$/.test(value.path))
+            throw invalid(`${path}.path`, "motion/ \u914D\u4E0B\u306E JSON \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          requireInteger(value.count, 2, `${path}.count`);
+          return;
+        }
         if (!Array.isArray(value) || value.length < 2)
           throw invalid(path, "2 \u8981\u7D20\u4EE5\u4E0A\u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         value.forEach((entry, index) => {
@@ -3704,9 +3828,72 @@ ${indent}`);
             validateCrop(entry.crop, `${itemPath}.crop`);
           if (hasOwn(entry, "perspective"))
             requireRecord(entry.perspective, `${itemPath}.perspective`);
-          if (hasOwn(entry, "easing") && entry.easing !== "linear" && entry.easing !== "ease-in-out") {
-            throw invalid(`${itemPath}.easing`, "linear \u307E\u305F\u306F ease-in-out \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          if (hasOwn(entry, "opacity"))
+            requireRange(entry.opacity, 0, 1, `${itemPath}.opacity`);
+          if (hasOwn(entry, "animator")) {
+            requireRecord(entry.animator, `${itemPath}.animator`);
+            for (const [id, state] of Object.entries(entry.animator)) {
+              requireRecord(state, `${itemPath}.animator.${id}`);
+              requireExactKeys(state, /* @__PURE__ */ new Set(["offset", "start", "end"]), `${itemPath}.animator.${id}`);
+              if (hasOwn(state, "offset"))
+                requireRange(state.offset, -1, 1, `${itemPath}.animator.${id}.offset`);
+              for (const key of ["start", "end"])
+                if (hasOwn(state, key))
+                  requireRange(state[key], 0, 1, `${itemPath}.animator.${id}.${key}`);
+            }
           }
+          if (hasOwn(entry, "easing"))
+            validateEasing(entry.easing, `${itemPath}.easing`);
+        });
+      }
+      function validateMotion(value, path) {
+        requireRecord(value, path);
+        requireExactKeys(value, /* @__PURE__ */ new Set(["in", "out", "loop"]), path);
+        for (const slot of ["in", "out", "loop"]) {
+          if (!hasOwn(value, slot))
+            continue;
+          const entry = value[slot];
+          requireRecord(entry, `${path}.${slot}`);
+          requireExactKeys(entry, /* @__PURE__ */ new Set(["preset", slot === "loop" ? "period" : "duration", "ease", "amount"]), `${path}.${slot}`);
+          requireText(entry.preset, `${path}.${slot}.preset`);
+          requireInteger(entry[slot === "loop" ? "period" : "duration"], slot === "loop" ? 1 : 0, `${path}.${slot}.${slot === "loop" ? "period" : "duration"}`);
+          if (hasOwn(entry, "ease"))
+            validateEasing(entry.ease, `${path}.${slot}.ease`);
+          if (hasOwn(entry, "amount"))
+            requireNumber(entry.amount, `${path}.${slot}.amount`);
+        }
+      }
+      function validateAnimators(value, path) {
+        if (!Array.isArray(value))
+          throw invalid(path, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        value.forEach((entry, index) => {
+          const entryPath = `${path}[${index}]`;
+          requireRecord(entry, entryPath);
+          requireExactKeys(entry, /* @__PURE__ */ new Set(["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"]), entryPath);
+          requireText(entry.id, `${entryPath}.id`);
+          if (!["chars", "words", "lines", "segments"].includes(String(entry.basis)))
+            throw invalid(`${entryPath}.basis`, "\u672A\u5BFE\u5FDC\u306E basis \u3067\u3059");
+          if (!["ramp", "triangle", "round", "smooth", "square", "ramp-down"].includes(String(entry.shape)))
+            throw invalid(`${entryPath}.shape`, "\u672A\u5BFE\u5FDC\u306E shape \u3067\u3059");
+          requireRange(entry.start, 0, 1, `${entryPath}.start`);
+          requireRange(entry.end, 0, 1, `${entryPath}.end`);
+          requireRange(entry.offset, -1, 1, `${entryPath}.offset`);
+          if (hasOwn(entry, "randomize")) {
+            requireRecord(entry.randomize, `${entryPath}.randomize`);
+            requireExactKeys(entry.randomize, /* @__PURE__ */ new Set(["seed"]), `${entryPath}.randomize`);
+            if (!Number.isInteger(entry.randomize.seed))
+              throw invalid(`${entryPath}.randomize.seed`, "\u6574\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          }
+          requireRecord(entry.amount, `${entryPath}.amount`);
+          requireExactKeys(entry.amount, /* @__PURE__ */ new Set(["x", "y", "scale", "rotate", "opacity", "letterSpacing", "blur"]), `${entryPath}.amount`);
+          for (const [key, amount] of Object.entries(entry.amount)) {
+            if (key === "opacity")
+              requireRange(amount, -1, 1, `${entryPath}.amount.opacity`);
+            else
+              requireNumber(amount, `${entryPath}.amount.${key}`);
+          }
+          if (hasOwn(entry, "ease"))
+            validateEasing(entry.ease, `${entryPath}.ease`);
         });
       }
       function requireRecord(value, path) {
@@ -3958,6 +4145,7 @@ ${indent}`);
       exports.readInternalEdit = readInternalEdit;
       exports.readInternalSources = readInternalSources;
       exports.visualContentEndSeconds = visualContentEndSeconds;
+      exports.walkItems = walkItems;
       exports.findCrossTrackLayerEvacuations = findCrossTrackLayerEvacuations;
       exports.projectLegacyEdit = projectLegacyEdit;
       exports.toLegacyTrack = toLegacyTrack;
@@ -3996,12 +4184,23 @@ ${indent}`);
           if (track.lane !== "visual")
             continue;
           for (const item of track.items) {
-            if (item.source.kind === "html")
+            if (["html", "group", "captions", "caption"].includes(item.source.kind))
               continue;
             maxEnd = Math.max(maxEnd, item.at + item.duration);
           }
         }
         return maxEnd;
+      }
+      function* walkItems(internal) {
+        function* walk(item) {
+          yield item;
+          for (const child of item.children)
+            yield* walk(child);
+        }
+        for (const track of internal.tracks) {
+          for (const item of track.items)
+            yield* walk(item);
+        }
       }
       function toRecord(source) {
         try {
@@ -4034,6 +4233,7 @@ ${indent}`);
         const refCounters = /* @__PURE__ */ new Map();
         const legacyIndexCounters = /* @__PURE__ */ new Map();
         const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap((track) => "items" in track && track.lane === "visual" ? [track.items] : []), pathOf);
+        const contentDurationFrames = edit.tracks.reduce((maximum, track) => "items" in track && track.lane === "visual" ? track.items.reduce((trackMaximum, item) => Math.max(trackMaximum, item.at + item.duration), maximum) : maximum, 0);
         const tracks = edit.tracks.map((track) => {
           const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
           const ref = kind === "captions" ? void 0 : nextRef(refCounters, kind);
@@ -4046,6 +4246,15 @@ ${indent}`);
               }
               items.push(built.item);
             });
+          } else {
+            const normalized = buildV2Item({
+              id: track.id,
+              at: 0,
+              duration: contentDurationFrames,
+              source: { kind: "captions", path: "captions.json" }
+            }, fps, 0, "visual", pathOf, chromaKeyOf, legacyIndexCounters).item;
+            items.push(normalized);
+            Object.defineProperty(items, "toJSON", { value: () => [], enumerable: false });
           }
           return {
             id: track.id,
@@ -4059,6 +4268,7 @@ ${indent}`);
           };
         });
         addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
+        hideEmptyChildrenForCompatibility(tracks);
         synthesizeHiddenTransitionHandlesForRender(tracks, fps);
         return {
           output: {
@@ -4078,6 +4288,19 @@ ${indent}`);
             ...edit.captions !== void 0 ? { captions: edit.captions } : {}
           }
         };
+      }
+      function hideEmptyChildrenForCompatibility(tracks) {
+        const visit = (item) => {
+          for (const child of item.children)
+            visit(child);
+          if (item.children.length !== 0 || !Object.prototype.propertyIsEnumerable.call(item, "children"))
+            return;
+          delete item.children;
+          Object.defineProperty(item, "children", { value: [], enumerable: false, writable: true });
+        };
+        for (const track of tracks)
+          for (const item of track.items)
+            visit(item);
       }
       function synthesizeHiddenTransitionHandlesForRender(tracks, fps) {
         const speedOf = (item) => {
@@ -4136,8 +4359,12 @@ ${indent}`);
         switch (first?.source.kind) {
           case "html":
             return "overlays";
+          case "captions":
+            return "captions";
           case "telop":
           case "filter":
+          case "group":
+          case "caption":
             return "layers";
           // 空トラック（first === undefined）は中身が無く旧種別は名目上のものでしかない。'layers' を
           // 既定にする: 'cuts' にすると、このトラックも nextRef の 'cuts' カウンタを消費して
@@ -4237,26 +4464,59 @@ ${indent}`);
         counters.set(collection, index + 1);
         return index;
       }
-      function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false) {
-        if (lane === "audio") {
-          return buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters);
+      function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+        const built = lane === "audio" ? buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) : buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling, parentAtFrames, parentId);
+        const children = lane === "visual" && "items" in item && Array.isArray(item.items) ? item.items.map((child) => buildV2Item(child, fps, ref, "visual", pathOf, chromaKeyOf, legacyIndexCounters, false, built.item.atFrames, built.item.id).item) : [];
+        if (children.length > 0 || "items" in item && Array.isArray(item.items)) {
+          built.item.children = children;
+        } else {
+          delete built.item.children;
+          Object.defineProperty(built.item, "children", { value: children, enumerable: false, writable: true });
         }
-        return buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling);
+        if (parentId !== void 0)
+          built.item.parentId = parentId;
+        return built;
       }
-      function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false) {
-        const atFrames = item.at;
+      function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+        const atFrames = parentAtFrames + item.at;
         const durationFrames = item.duration;
         const at2 = atFrames / fps;
         const duration = durationFrames / fps;
-        const keyframes = item.keyframes?.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps }));
+        const declaredKeyframes = item.keyframes;
+        const keyframes = Array.isArray(declaredKeyframes) ? declaredKeyframes.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps })) : void 0;
         const common = {
           ...item.transform !== void 0 ? { transform: item.transform } : {},
           ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
           ...item.blend !== void 0 ? { blend: item.blend } : {},
           ...item.crop !== void 0 ? { crop: item.crop } : {},
           ...item.perspective !== void 0 ? { perspective: item.perspective } : {},
+          ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
+          ...item.animator !== void 0 ? { animator: structuredClone(item.animator) } : {},
           ...keyframes !== void 0 ? { keyframes } : {},
           ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {}
+        };
+        const finish = (built) => {
+          if (!Array.isArray(declaredKeyframes) && declaredKeyframes !== void 0) {
+            built.item.keyframesRef = { ...declaredKeyframes };
+          }
+          if (parentId !== void 0) {
+            const relativeSeconds = item.at / fps;
+            switch (item.source.kind) {
+              case "media":
+                built.item.declaration = { ...built.item.declaration, at: relativeSeconds };
+                break;
+              case "html":
+                built.item.declaration = { ...built.item.declaration, start: relativeSeconds };
+                break;
+              case "telop":
+              case "filter":
+                built.item.declaration = { ...built.item.declaration, t: relativeSeconds };
+                break;
+              default:
+                break;
+            }
+          }
+          return built;
         };
         switch (item.source.kind) {
           case "media": {
@@ -4286,18 +4546,19 @@ ${indent}`);
                 ...copyMediaSourceFields(item.source)
               };
               const value2 = declaration;
-              return {
+              return finish({
                 item: {
                   id: item.id,
                   atFrames,
                   durationFrames,
                   at: at2,
                   duration,
+                  children: [],
                   source,
                   declaration,
                   legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers"), value: value2 }
                 }
-              };
+              });
             }
             const value = {
               in: item.source.in,
@@ -4310,13 +4571,14 @@ ${indent}`);
               ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
               ...copyMediaSourceFields(item.source)
             };
-            return {
+            return finish({
               item: {
                 id: item.id,
                 atFrames,
                 durationFrames,
                 at: at2,
                 duration,
+                children: [],
                 source,
                 declaration: {
                   id: item.id,
@@ -4331,7 +4593,7 @@ ${indent}`);
                 },
                 legacy: { collection: "cuts", index: nextLegacyIndex(legacyIndexCounters, "cuts"), value }
               }
-            };
+            });
           }
           case "html": {
             const declaration = {
@@ -4351,29 +4613,36 @@ ${indent}`);
               track: ref,
               payload: declaration
             };
-            return {
+            return finish({
               item: {
                 id: item.id,
                 atFrames,
                 durationFrames,
                 at: at2,
                 duration,
+                children: [],
                 source: {
                   kind: "html",
                   html: item.source.path,
-                  ...item.source.params !== void 0 ? { params: item.source.params } : {}
+                  ...item.source.params !== void 0 ? { params: item.source.params } : {},
+                  ...item.source.part !== void 0 ? { part: item.source.part } : {},
+                  ...item.source.style !== void 0 ? { style: item.source.style } : {},
+                  ...item.source.text !== void 0 ? { text: item.source.text } : {},
+                  ...item.source.exclude !== void 0 ? { exclude: item.source.exclude } : {},
+                  ...item.source.derivedFrom !== void 0 ? { derivedFrom: item.source.derivedFrom } : {}
                 },
                 declaration,
                 legacy: { collection: "overlays", index: nextLegacyIndex(legacyIndexCounters, "overlays"), value }
               }
-            };
+            });
           }
           case "telop": {
             const source = {
               kind: "telop",
               preset: item.source.preset,
               ...item.source.params !== void 0 ? { params: item.source.params } : {},
-              ...item.source.baked !== void 0 ? { baked: item.source.baked } : {}
+              ...item.source.baked !== void 0 ? { baked: item.source.baked } : {},
+              ...item.source.from !== void 0 ? { from: item.source.from } : {}
             };
             const declaration = {
               id: item.id,
@@ -4387,9 +4656,9 @@ ${indent}`);
               ...common
             };
             if (item.source.baked === void 0) {
-              return {
-                item: { id: item.id, atFrames, durationFrames, at: at2, duration, source, declaration, legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers") } }
-              };
+              return finish({
+                item: { id: item.id, atFrames, durationFrames, at: at2, duration, children: [], source, declaration, legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers") } }
+              });
             }
             const value = {
               id: item.id,
@@ -4403,19 +4672,20 @@ ${indent}`);
               ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
               ...item.blend !== void 0 ? { blend: item.blend } : {}
             };
-            return {
-              item: { id: item.id, atFrames, durationFrames, at: at2, duration, source, declaration, legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers"), value } }
-            };
+            return finish({
+              item: { id: item.id, atFrames, durationFrames, at: at2, duration, children: [], source, declaration, legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers"), value } }
+            });
           }
-          default: {
+          case "filter": {
             const source = { kind: "filter", filter: item.source.filter };
-            return {
+            return finish({
               item: {
                 id: item.id,
                 atFrames,
                 durationFrames,
                 at: at2,
                 duration,
+                children: [],
                 source,
                 declaration: {
                   id: item.id,
@@ -4428,8 +4698,44 @@ ${indent}`);
                 },
                 legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers") }
               }
-            };
+            });
           }
+          case "group":
+            return finish({ item: {
+              id: item.id,
+              atFrames,
+              durationFrames,
+              at: at2,
+              duration,
+              children: [],
+              source: { kind: "group" },
+              declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+              legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
+            } });
+          case "captions":
+            return finish({ item: {
+              id: item.id,
+              atFrames,
+              durationFrames,
+              at: at2,
+              duration,
+              children: [],
+              source: { kind: "captions", path: "captions.json", ...item.source.exclude !== void 0 ? { exclude: item.source.exclude } : {} },
+              declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+              legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
+            } });
+          case "caption":
+            return finish({ item: {
+              id: item.id,
+              atFrames,
+              durationFrames,
+              at: at2,
+              duration,
+              children: [],
+              source: { kind: "caption", path: "captions.json", id: item.source.id },
+              declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+              legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
+            } });
         }
       }
       function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
@@ -4468,6 +4774,7 @@ ${indent}`);
               durationFrames,
               at: at2,
               duration,
+              children: [],
               source,
               declaration: {
                 id: item.id,
@@ -4505,6 +4812,7 @@ ${indent}`);
               durationFrames,
               at: at2,
               duration,
+              children: [],
               source,
               declaration: {
                 path: resolvedPath,
@@ -4535,6 +4843,7 @@ ${indent}`);
             durationFrames,
             at: at2,
             duration,
+            children: [],
             source,
             declaration: {
               id: item.id,
@@ -4605,6 +4914,7 @@ ${indent}`);
             durationFrames: Math.round(duration * fps),
             at: value.t,
             duration,
+            children: [],
             source: { kind: "media", path: value.path, in: start, out: end },
             declaration: entry,
             legacy: { collection: "sfx", index: nextLegacyIndex(legacyIndexCounters, "sfx"), value }
@@ -4634,6 +4944,7 @@ ${indent}`);
             durationFrames: Math.round(duration * fps),
             at: value.t,
             duration,
+            children: [],
             source: { kind: "media", path: value.path, in: start, out: end },
             declaration: entry,
             legacy: { collection: "narration", index: nextLegacyIndex(legacyIndexCounters, "narration"), value }
@@ -4655,6 +4966,7 @@ ${indent}`);
             durationFrames: 0,
             at: 0,
             duration: 0,
+            children: [],
             source: { kind: "media", path: value.path, in: 0, out: 0 },
             declaration: entry,
             legacy: { collection: "bgm", index: 0, value }
@@ -5692,6 +6004,456 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/generated/edit-v2-keys.js
+  var require_edit_v2_keys = __commonJS({
+    "packages/edit-store/lib/generated/edit-v2-keys.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
+      exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "transform", "opacity", "blend", "crop", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "fade_in", "fade_out", "ducking", "script", "reading", "provenance"];
+      exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "preset", "baked", "from", "filter", "id"];
+      exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "animator", "easing"];
+      exports.MOTION_V0_KEYS = ["in", "out", "loop"];
+      exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
+      exports.MOTION_FILE_V0_KEYS = ["version", "group", "items"];
+      exports.SOURCE_KIND_V2 = ["media", "html", "telop", "filter", "group", "captions", "caption"];
+      exports.ITEM_V2_KEYS_BY_DEFINITION = {
+        "itemV2Media": [
+          "id",
+          "name",
+          "hidden",
+          "locked",
+          "at",
+          "duration",
+          "transform",
+          "opacity",
+          "blend",
+          "crop",
+          "perspective",
+          "motion",
+          "animator",
+          "keyframes",
+          "items",
+          "mask",
+          "source"
+        ],
+        "itemV2Html": [
+          "id",
+          "name",
+          "hidden",
+          "locked",
+          "at",
+          "duration",
+          "transform",
+          "opacity",
+          "blend",
+          "crop",
+          "perspective",
+          "motion",
+          "animator",
+          "keyframes",
+          "items",
+          "source"
+        ],
+        "itemV2Telop": [
+          "id",
+          "name",
+          "hidden",
+          "locked",
+          "at",
+          "duration",
+          "transform",
+          "opacity",
+          "blend",
+          "crop",
+          "perspective",
+          "motion",
+          "animator",
+          "keyframes",
+          "items",
+          "source"
+        ],
+        "itemV2Filter": [
+          "id",
+          "name",
+          "hidden",
+          "locked",
+          "at",
+          "duration",
+          "transform",
+          "opacity",
+          "blend",
+          "crop",
+          "perspective",
+          "motion",
+          "animator",
+          "keyframes",
+          "items",
+          "source"
+        ],
+        "itemV2Group": [
+          "id",
+          "name",
+          "hidden",
+          "locked",
+          "at",
+          "duration",
+          "transform",
+          "opacity",
+          "blend",
+          "crop",
+          "perspective",
+          "motion",
+          "animator",
+          "keyframes",
+          "items",
+          "source"
+        ],
+        "itemV2Captions": [
+          "id",
+          "name",
+          "hidden",
+          "locked",
+          "at",
+          "duration",
+          "transform",
+          "opacity",
+          "blend",
+          "crop",
+          "perspective",
+          "motion",
+          "animator",
+          "keyframes",
+          "items",
+          "source"
+        ],
+        "itemV2Caption": [
+          "id",
+          "name",
+          "hidden",
+          "locked",
+          "at",
+          "duration",
+          "transform",
+          "opacity",
+          "blend",
+          "crop",
+          "perspective",
+          "motion",
+          "animator",
+          "keyframes",
+          "items",
+          "source"
+        ],
+        "itemV2AudioMedia": [
+          "id",
+          "name",
+          "hidden",
+          "locked",
+          "at",
+          "duration",
+          "role",
+          "source",
+          "gain_db",
+          "fade_in",
+          "fade_out",
+          "ducking",
+          "script",
+          "reading",
+          "provenance"
+        ]
+      };
+      exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = {
+        "itemSourceMediaV2": [
+          "kind",
+          "src",
+          "in",
+          "out",
+          "framing",
+          "transition_out",
+          "freeze",
+          "fx",
+          "speed",
+          "chroma_key"
+        ],
+        "itemSourceAudioMediaV2": [
+          "kind",
+          "src",
+          "in",
+          "out"
+        ],
+        "itemSourceHtmlV2": [
+          "kind",
+          "path",
+          "part",
+          "style",
+          "text",
+          "exclude",
+          "derivedFrom",
+          "vars",
+          "params"
+        ],
+        "itemSourceTelopV2": [
+          "kind",
+          "preset",
+          "params",
+          "baked",
+          "from"
+        ],
+        "itemSourceFilterV2": [
+          "kind",
+          "filter"
+        ],
+        "itemSourceGroupV2": [
+          "kind"
+        ],
+        "itemSourceCaptionsV2": [
+          "kind",
+          "path",
+          "exclude"
+        ],
+        "itemSourceCaptionV2": [
+          "kind",
+          "path",
+          "id"
+        ]
+      };
+    }
+  });
+
+  // packages/edit-store/lib/canonical.js
+  var require_canonical = __commonJS({
+    "packages/edit-store/lib/canonical.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.serializeEdit = serializeEdit;
+      exports.serializeCaptions = serializeCaptions;
+      exports.serializeMotion = serializeMotion;
+      var edit_v2_keys_1 = require_edit_v2_keys();
+      var ITEM_KEY_ORDER = [
+        "id",
+        "name",
+        "at",
+        "duration",
+        "hidden",
+        "locked",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "source",
+        "items"
+      ];
+      var EDIT_KEY_ORDER = ["version", "output", "sources", "audio", "tracks"];
+      var TRACK_KEY_ORDER = ["id", "lane", "name", "items", "content"];
+      var CAPTION_KEY_ORDER = [
+        "id",
+        "start",
+        "end",
+        "text",
+        "speaker",
+        "sourceRef",
+        "edited",
+        "time_domain",
+        "text_style"
+      ];
+      function serializeEdit(doc) {
+        const edit = requireRecord(doc, "edit.json");
+        return `${serializeTopObject(edit, EDIT_KEY_ORDER, (key, value, indent) => {
+          if (key === "tracks" && Array.isArray(value))
+            return serializeTracks(value, indent);
+          if (key === "sources" && Array.isArray(value)) {
+            return serializeRecordArray(value, indent, (entry) => inline(entry));
+          }
+          return serializeTopValue(value, indent);
+        })}
+`;
+      }
+      function serializeCaptions(doc) {
+        if (Array.isArray(doc)) {
+          return `${serializeRecordArray(doc, 0, (entry) => inlineOrdered(entry, CAPTION_KEY_ORDER))}
+`;
+        }
+        const root = requireRecord(doc, "captions.json");
+        return `${serializeTopObject(root, Object.keys(root), (key, value, indent) => key === "captions" && Array.isArray(value) ? serializeRecordArray(value, indent, (entry) => inlineOrdered(entry, CAPTION_KEY_ORDER)) : serializeTopValue(value, indent))}
+`;
+      }
+      function serializeMotion(doc) {
+        const motion2 = requireRecord(doc, "motion/*.json");
+        return `${serializeTopObject(motion2, edit_v2_keys_1.MOTION_FILE_V0_KEYS, (key, value, indent) => {
+          if (key !== "items" || !isRecord(value))
+            return serializeTopValue(value, indent);
+          const entries = Object.entries(value);
+          if (entries.length === 0)
+            return "{}";
+          const lines = ["{"];
+          entries.forEach(([id, points], index) => {
+            const prefix = `${" ".repeat(indent + 2)}${JSON.stringify(id)}: `;
+            if (!Array.isArray(points) || points.length === 0) {
+              lines.push(`${prefix}[]${index + 1 < entries.length ? "," : ""}`);
+              return;
+            }
+            lines.push(`${prefix}[`);
+            const orderedPoints = [...points].sort((left, right) => frameOf(left) - frameOf(right));
+            orderedPoints.forEach((point, pointIndex) => {
+              lines.push(`${" ".repeat(indent + 4)}${inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)}${pointIndex + 1 < orderedPoints.length ? "," : ""}`);
+            });
+            lines.push(`${" ".repeat(indent + 2)}]${index + 1 < entries.length ? "," : ""}`);
+          });
+          lines.push(`${" ".repeat(indent)}}`);
+          return lines.join("\n");
+        })}
+`;
+      }
+      function serializeTopObject(value, preferred, render) {
+        const keys = orderedKeys(value, preferred);
+        if (keys.length === 0)
+          return "{}";
+        const lines = ["{"];
+        keys.forEach((key, index) => {
+          const rendered = render(key, value[key], 2);
+          const renderedLines = rendered.split("\n");
+          lines.push(`  ${JSON.stringify(key)}: ${renderedLines[0]}`);
+          for (const line of renderedLines.slice(1))
+            lines.push(line);
+          if (index + 1 < keys.length)
+            lines[lines.length - 1] += ",";
+        });
+        lines.push("}");
+        return lines.join("\n");
+      }
+      function serializeTopValue(value, indent) {
+        if (Array.isArray(value)) {
+          if (value.length === 0)
+            return "[]";
+          return serializeStructuredArray(value, indent);
+        }
+        if (isRecord(value) && hasNonEmptyArray(value)) {
+          return serializeStructuredObject(value, indent);
+        }
+        return inline(value);
+      }
+      function serializeStructuredArray(values, indent) {
+        const lines = ["["];
+        values.forEach((entry, index) => {
+          const rendered = serializeTopValue(entry, indent + 2).split("\n");
+          lines.push(`${" ".repeat(indent + 2)}${rendered[0]}`);
+          lines.push(...rendered.slice(1));
+          if (index + 1 < values.length)
+            lines[lines.length - 1] += ",";
+        });
+        lines.push(`${" ".repeat(indent)}]`);
+        return lines.join("\n");
+      }
+      function serializeStructuredObject(value, indent) {
+        const entries = Object.entries(value);
+        if (entries.length === 0)
+          return "{}";
+        const lines = ["{"];
+        entries.forEach(([key, entry], index) => {
+          const rendered = serializeTopValue(entry, indent + 2).split("\n");
+          lines.push(`${" ".repeat(indent + 2)}${JSON.stringify(key)}: ${rendered[0]}`);
+          lines.push(...rendered.slice(1));
+          if (index + 1 < entries.length)
+            lines[lines.length - 1] += ",";
+        });
+        lines.push(`${" ".repeat(indent)}}`);
+        return lines.join("\n");
+      }
+      function hasNonEmptyArray(value) {
+        return Object.values(value).some((entry) => Array.isArray(entry) && entry.length > 0);
+      }
+      function serializeTracks(tracks, indent) {
+        if (tracks.length === 0)
+          return "[]";
+        const lines = ["["];
+        tracks.forEach((track, index) => {
+          const record = requireRecord(track, "edit.json.tracks[]");
+          const rendered = serializeItemLike(record, indent + 2, true);
+          lines.push(...appendComma(rendered, index + 1 < tracks.length));
+        });
+        lines.push(`${" ".repeat(indent)}]`);
+        return lines.join("\n");
+      }
+      function serializeItemLike(value, indent, track = false) {
+        const children = value.items;
+        const preferred = track ? [...TRACK_KEY_ORDER] : [...ITEM_KEY_ORDER, ...edit_v2_keys_1.ITEM_V2_KEYS.filter((key) => !ITEM_KEY_ORDER.includes(key))];
+        if (!Array.isArray(children) || children.length === 0) {
+          return [`${" ".repeat(indent)}${inlineObject(value, preferred, !track)}`];
+        }
+        const keys = orderedKeys(value, preferred).filter((key) => key !== "items");
+        const body = keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], !track)}`).join(", ");
+        const lines = [`${" ".repeat(indent)}{ ${body}${body ? ", " : ""}"items": [`];
+        children.forEach((child, index) => {
+          const childRecord = requireRecord(child, "item.items[]");
+          lines.push(...appendComma(serializeItemLike(childRecord, indent + 2), index + 1 < children.length));
+        });
+        lines.push(`${" ".repeat(indent)}] }`);
+        return lines;
+      }
+      function serializeRecordArray(values, indent, render) {
+        if (values.length === 0)
+          return "[]";
+        const lines = ["["];
+        values.forEach((entry, index) => {
+          lines.push(`${" ".repeat(indent + 2)}${render(entry)}${index + 1 < values.length ? "," : ""}`);
+        });
+        lines.push(`${" ".repeat(indent)}]`);
+        return lines.join("\n");
+      }
+      function inlineField(key, value, item) {
+        if (item && key === "source" && isRecord(value))
+          return inlineObject(value, ["kind"]);
+        if (item && key === "keyframes" && Array.isArray(value)) {
+          return `[${value.map((point) => inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)).join(", ")}]`;
+        }
+        return inline(value);
+      }
+      function inlineOrdered(value, preferred) {
+        return isRecord(value) ? inlineObject(value, preferred) : inline(value);
+      }
+      function inlineObject(value, preferred, item = false) {
+        const keys = orderedKeys(value, preferred);
+        if (keys.length === 0)
+          return "{}";
+        return `{ ${keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], item)}`).join(", ")} }`;
+      }
+      function inline(value) {
+        if (Array.isArray(value))
+          return `[${value.map((entry) => inline(entry)).join(", ")}]`;
+        if (isRecord(value))
+          return inlineObject(value, Object.keys(value));
+        const serialized = JSON.stringify(value);
+        return serialized === void 0 ? "null" : serialized;
+      }
+      function orderedKeys(value, preferred) {
+        const present = new Set(Object.keys(value).filter((key) => value[key] !== void 0));
+        const keys = preferred.filter((key) => present.delete(key));
+        return [...keys, ...Object.keys(value).filter((key) => present.has(key))];
+      }
+      function appendComma(lines, comma) {
+        if (comma)
+          lines[lines.length - 1] += ",";
+        return lines;
+      }
+      function frameOf(value) {
+        return isRecord(value) && typeof value.t === "number" ? value.t : Number.POSITIVE_INFINITY;
+      }
+      function requireRecord(value, label) {
+        if (!isRecord(value))
+          throw new Error(`${label} \u306F object \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002`);
+        return value;
+      }
+      function isRecord(value) {
+        return value !== null && typeof value === "object" && !Array.isArray(value);
+      }
+    }
+  });
+
   // packages/edit-store/lib/migrate/legacy-parse.js
   var require_legacy_parse = __commonJS({
     "packages/edit-store/lib/migrate/legacy-parse.js"(exports) {
@@ -6206,6 +6968,7 @@ ${indent}`);
       __exportStar(require_transition_visual(), exports);
       __exportStar(require_ducking(), exports);
       __exportStar(require_audio_schedule(), exports);
+      __exportStar(require_canonical(), exports);
       var legacy_parse_1 = require_legacy_parse();
       Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function() {
         return legacy_parse_1.parseEdit;
@@ -13727,6 +14490,8 @@ uniform float opacity1;
 uniform vec2 outputSize;
 uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
+uniform int rotation0;
+uniform int rotation1;
 uniform float transitionProgress;
 ${type === "dissolve" ? "uniform sampler2D dissolveNoise;" : ""}
 ${YUV_GLSL}
@@ -13744,11 +14509,18 @@ vec2 canvasToSource(vec2 canvasPoint, vec2 sourceSize) {
   vec2 offset = (outputSize - fitted) * 0.5;
   return (canvasPoint * outputSize - offset) / fitted;
 }
+vec2 unrotate(vec2 q, int rotation) {
+  if (rotation == 0) return q;
+  if (rotation == 1) return vec2(1.0 - q.y, q.x);
+  if (rotation == 2) return vec2(1.0 - q.x, 1.0 - q.y);
+  return vec2(q.y, 1.0 - q.x);
+}
 vec4 sample0(vec2 p) {
   vec2 canvasPoint = inverseVisual(p, transform0, framing0);
   if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
   vec2 q = canvasToSource(canvasPoint, sourceSize0);
   if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  q = unrotate(q, rotation0);
   if (format0 == 2) return vec4(texture(rgba0, q).rgb, opacity0);
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
   return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
@@ -13758,6 +14530,7 @@ vec4 sample1(vec2 p) {
   if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
   vec2 q = canvasToSource(canvasPoint, sourceSize1);
   if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  q = unrotate(q, rotation1);
   if (format1 == 2) return vec4(texture(rgba1, q).rgb, opacity1);
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
   return vec4(yuv709(texture(y1, q).r, chroma), opacity1);
@@ -13945,12 +14718,20 @@ uniform int inputKind;
 uniform int yuvFormat;
 uniform int hasMask;
 uniform int maskFormat;
+uniform int layerRotation;
+uniform int maskRotation;
 uniform vec2 outputSize;
 uniform mat3 inverseMap;
 uniform vec4 cropRect;
 uniform float opacity;
 uniform int blendMode;
 ${YUV_GLSL}
+vec2 unrotate(vec2 q, int rotation) {
+  if (rotation == 0) return q;
+  if (rotation == 1) return vec2(1.0 - q.y, q.x);
+  if (rotation == 2) return vec2(1.0 - q.x, 1.0 - q.y);
+  return vec2(q.y, 1.0 - q.x);
+}
 vec3 blend(vec3 dst, vec3 src) {
   if (blendMode == 1) return 1.0 - (1.0 - dst) * (1.0 - src);
   if (blendMode == 2) return dst * src;
@@ -13984,19 +14765,21 @@ void main() {
     return;
   }
   vec2 sourceUv = cropRect.xy + local * cropRect.zw;
+  vec2 colorUv = unrotate(sourceUv, layerRotation);
+  vec2 matteUv = unrotate(sourceUv, maskRotation);
   vec4 src;
   if (inputKind == 1) {
-    src = texture(image, sourceUv);
+    src = texture(image, colorUv);
   } else if (yuvFormat == 2) {
-    src = vec4(texture(lrgba, sourceUv).rgb, 1.0);
+    src = vec4(texture(lrgba, colorUv).rgb, 1.0);
   } else {
     vec2 chroma = yuvFormat == 1
-      ? texture(lu, sourceUv).rg
-      : vec2(texture(lu, sourceUv).r, texture(lv, sourceUv).r);
-    src = vec4(yuv709(texture(ly, sourceUv).r, chroma), 1.0);
+      ? texture(lu, colorUv).rg
+      : vec2(texture(lu, colorUv).r, texture(lv, colorUv).r);
+    src = vec4(yuv709(texture(ly, colorUv).r, chroma), 1.0);
   }
   float maskA = hasMask == 1
-    ? (maskFormat == 2 ? texture(maskRgba, sourceUv).r : texture(maskY, sourceUv).r)
+    ? (maskFormat == 2 ? texture(maskRgba, matteUv).r : texture(maskY, matteUv).r)
     : 1.0;
   float alpha = clamp(src.a * maskA * opacity, 0.0, 1.0);
   color = vec4(mix(dst.rgb, blend(dst.rgb, src.rgb), alpha), 1.0);
@@ -14094,6 +14877,14 @@ void main() {
       inv[5],
       inv[8]
     ]);
+  }
+  function rotationQuarterTurns(frame) {
+    const value = Number(frame.rotationDeg ?? 0);
+    if (!Number.isFinite(value)) return 0;
+    return (Math.round(value / 90) % 4 + 4) % 4;
+  }
+  function logicalSize(width, height, rotation) {
+    return rotation === 1 || rotation === 3 ? { width: height, height: width } : { width, height };
   }
   var WebGL2Compositor = class {
     constructor(canvas = document.createElement("canvas"), options = {}) {
@@ -14247,7 +15038,8 @@ void main() {
         transform: gl.getUniformLocation(program, `transform${index}`),
         opacity: gl.getUniformLocation(program, `opacity${index}`),
         format: gl.getUniformLocation(program, `format${index}`),
-        sourceSize: gl.getUniformLocation(program, `sourceSize${index}`)
+        sourceSize: gl.getUniformLocation(program, `sourceSize${index}`),
+        rotation: gl.getUniformLocation(program, `rotation${index}`)
       }));
       const state = {
         program,
@@ -14341,6 +15133,8 @@ void main() {
         this.failDirectUpload(`unsupported VideoFrame format: ${String(frame.format)}`);
       const width = frame.displayWidth;
       const height = frame.displayHeight;
+      const rotation = rotationQuarterTurns(frame);
+      const logical = logicalSize(width, height, rotation);
       if (width <= 0 || height <= 0)
         this.failDirectUpload(`invalid display size ${width}x${height}`);
       const gl = this.gl;
@@ -14388,9 +15182,10 @@ void main() {
       }
       if (uniforms) {
         gl.uniform1i(uniforms.format, 2);
-        gl.uniform2f(uniforms.sourceSize, width, height);
+        gl.uniform2f(uniforms.sourceSize, logical.width, logical.height);
+        gl.uniform1i(uniforms.rotation, rotation);
       }
-      return { width, height };
+      return logical;
     }
     upload(texture, shapeIndex, data, w, h, channels = 1) {
       this.bind(shapeIndex, texture);
@@ -14425,6 +15220,8 @@ void main() {
       }
     }
     uploadYuv(frame, textures, unitBase, shapeBase, uniforms) {
+      const rotation = rotationQuarterTurns(frame);
+      const logical = logicalSize(frame.width, frame.height, rotation);
       const cw = Math.ceil(frame.width / 2), ch = Math.ceil(frame.height / 2);
       this.upload(textures[0], shapeBase, frame.y, frame.width, frame.height);
       if (frame.format === "NV12") {
@@ -14436,9 +15233,12 @@ void main() {
         this.upload(textures[2], shapeBase + 2, frame.v, cw, ch);
         if (uniforms) this.gl.uniform1i(uniforms.format, 0);
       }
-      if (uniforms)
-        this.gl.uniform2f(uniforms.sourceSize, frame.width, frame.height);
+      if (uniforms) {
+        this.gl.uniform2f(uniforms.sourceSize, logical.width, logical.height);
+        this.gl.uniform1i(uniforms.rotation, rotation);
+      }
       for (let i2 = 0; i2 < 3; i2++) this.bind(unitBase + i2, textures[i2]);
+      return logical;
     }
     setCut(u2, v2) {
       this.gl.uniform4f(
@@ -14546,13 +15346,16 @@ void main() {
       if (frames.length === 1 && !baseProgram.secondary) {
         const frame = frames[0];
         if (isVideoFrame(frame)) {
+          const rotation = rotationQuarterTurns(frame);
+          const logical = logicalSize(frame.displayWidth, frame.displayHeight, rotation);
           this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[0]);
           this.gl.uniform1i(baseProgram.cutUniforms[1].format, 2);
           this.gl.uniform2f(
             baseProgram.cutUniforms[1].sourceSize,
-            frame.displayWidth,
-            frame.displayHeight
+            logical.width,
+            logical.height
           );
+          this.gl.uniform1i(baseProgram.cutUniforms[1].rotation, rotation);
         } else {
           this.uploadYuv(
             frame,
@@ -14665,6 +15468,8 @@ void main() {
       const formatLoc = uniform(gl, this.layerProgram, "yuvFormat");
       const hasMaskLoc = uniform(gl, this.layerProgram, "hasMask");
       const maskFormatLoc = uniform(gl, this.layerProgram, "maskFormat");
+      const layerRotationLoc = uniform(gl, this.layerProgram, "layerRotation");
+      const maskRotationLoc = uniform(gl, this.layerProgram, "maskRotation");
       const blendLoc = uniform(gl, this.layerProgram, "blendMode");
       const blendModes = [
         "normal",
@@ -14695,6 +15500,7 @@ void main() {
           height = color.height;
           this.bind(4, this.stillTexture(color));
           gl.uniform1i(kindLoc, 1);
+          gl.uniform1i(layerRotationLoc, 0);
         } else if (isVideoFrame(color)) {
           const size = this.uploadVideoFrameTexture(
             this.layerRgbaTextures[0],
@@ -14705,12 +15511,14 @@ void main() {
           height = size.height;
           gl.uniform1i(kindLoc, 0);
           gl.uniform1i(formatLoc, 2);
+          gl.uniform1i(layerRotationLoc, rotationQuarterTurns(color));
         } else {
-          width = color.width;
-          height = color.height;
-          this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
+          const size = this.uploadYuv(color, this.layerTextures.slice(0, 3), 1, 6);
+          width = size.width;
+          height = size.height;
           gl.uniform1i(kindLoc, 0);
           gl.uniform1i(formatLoc, color.format === "NV12" ? 1 : 0);
+          gl.uniform1i(layerRotationLoc, rotationQuarterTurns(color));
         }
         if (input.mask) {
           if (isVideoFrame(input.mask)) {
@@ -14720,6 +15528,7 @@ void main() {
               input.mask
             );
             gl.uniform1i(maskFormatLoc, 2);
+            gl.uniform1i(maskRotationLoc, rotationQuarterTurns(input.mask));
           } else {
             this.upload(
               this.layerTextures[3],
@@ -14730,11 +15539,13 @@ void main() {
             );
             this.bind(5, this.layerTextures[3]);
             gl.uniform1i(maskFormatLoc, input.mask.format === "NV12" ? 1 : 0);
+            gl.uniform1i(maskRotationLoc, rotationQuarterTurns(input.mask));
           }
           gl.uniform1i(hasMaskLoc, 1);
         } else {
           gl.uniform1i(hasMaskLoc, 0);
           gl.uniform1i(maskFormatLoc, 0);
+          gl.uniform1i(maskRotationLoc, 0);
         }
         uploadElapsedMs += performance.now() - uploadStarted;
         gl.uniform2f(outLoc, output.width, output.height);
@@ -14893,6 +15704,7 @@ void main() {
         if (frame.format !== "NV12" && frame.format !== "I420") return frame;
         const started = performance.now();
         const copied = await copyNativeYuvFrame(frame, context.metrics);
+        copied.rotationDeg = frame.rotationDeg;
         context.metrics.record("copy", performance.now() - started);
         return copied;
       };
@@ -16529,16 +17341,16 @@ void main() {
           );
           this.#m = l2, this.#u = h;
           const { codedWidth: u2, codedHeight: d2 } = r.video ?? {};
-          return u2 && d2 && (this.#o = Vt(
+          return u2 && d2 && !this.#h.__unsafe_skipRotation__ && (this.#o = Vt(
             u2,
             d2,
             c.rotationDeg
-          )), this.#s = Lt(
+          )), this.#s = Object.assign(Lt(
             r,
             n2,
             a,
             c.rotationDeg
-          ), this.#n.info("MP4Clip meta:", this.#s), { ...this.#s };
+          ), { rotationDeg: c.rotationDeg }), this.#n.info("MP4Clip meta:", this.#s), { ...this.#s };
         }
       );
     }
@@ -16896,13 +17708,43 @@ void main() {
     #l = 0;
     #c = 0;
     #d = false;
+    /* AKARI patch: expose opt-in VideoFrameFinder null-return diagnostics. */
     #m = async (t, e, i2) => {
-      if (e == null || e.state === "closed" || i2.abort) return null;
+      if (e == null || e.state === "closed" || i2.abort) {
+        const n2 = globalThis.__akariFinderTrace;
+        if (typeof n2 === "function") try {
+          const { memInfo: a, ...r } = this.#p();
+          n2({
+            reason: "decoder-unavailable",
+            ...r,
+            decoderNull: e == null,
+            decoderClosed: e?.state === "closed",
+            aborted: i2.abort,
+            at: performance.now()
+          });
+        } catch {
+        }
+        return null;
+      }
       if (this.#i.length > 0) {
         const n2 = this.#i[0];
-        return t < n2.timestamp ? null : (this.#i.shift(), t > n2.timestamp + (n2.duration ?? 0) ? (n2.close(), await this.#m(t, e, i2)) : (!this.#d && this.#i.length < 10 && this.#f(e).catch((a) => {
+        if (t < n2.timestamp) {
+          const a = globalThis.__akariFinderTrace;
+          if (typeof a === "function") try {
+            const { memInfo: r, ...o2 } = this.#p();
+            a({
+              reason: "cache-head-after-target",
+              ...o2,
+              headTimestamp: n2.timestamp,
+              at: performance.now()
+            });
+          } catch {
+          }
+          return null;
+        }
+        return this.#i.shift(), t > n2.timestamp + (n2.duration ?? 0) ? (n2.close(), await this.#m(t, e, i2)) : (!this.#d && this.#i.length < 10 && this.#f(e).catch((a) => {
           throw this.#d = true, this.#h(t), a;
-        }), n2));
+        }), n2);
       }
       if (this.#u || this.#o < this.#l && e.decodeQueueSize > 0) {
         if (performance.now() - i2.st > 6e3)
@@ -16911,8 +17753,55 @@ void main() {
           );
         this.#c += 1, await H2(15);
       } else {
-        if (this.#r >= this.samples.length)
+        if (this.#r >= this.samples.length) {
+          if (!i2.drained && e.state === "configured" && this.#o < this.#l) {
+            i2.drained = true;
+            const n3 = globalThis.__akariFinderTrace;
+            if (typeof n3 === "function") try {
+              const { memInfo: a, ...r } = this.#p();
+              n3({
+                reason: "eos-drain",
+                ...r,
+                at: performance.now()
+              });
+            } catch {
+            }
+            try {
+              await e.flush();
+            } catch (a) {
+              if (!(a instanceof Error) || !a.message.includes("Aborted due to close"))
+                throw a;
+            }
+            if (i2.abort || e.state === "closed") {
+              const a = globalThis.__akariFinderTrace;
+              if (typeof a === "function") try {
+                const { memInfo: r, ...o2 } = this.#p();
+                a({
+                  reason: "decoder-unavailable",
+                  ...o2,
+                  decoderNull: false,
+                  decoderClosed: e.state === "closed",
+                  aborted: i2.abort,
+                  at: performance.now()
+                });
+              } catch {
+              }
+              return null;
+            }
+            return await this.#m(t, e, i2);
+          }
+          const n2 = globalThis.__akariFinderTrace;
+          if (typeof n2 === "function") try {
+            const { memInfo: a, ...r } = this.#p();
+            n2({
+              reason: "eos-no-more-samples",
+              ...r,
+              at: performance.now()
+            });
+          } catch {
+          }
           return null;
+        }
         try {
           await this.#f(e);
         } catch (n2) {
@@ -17400,6 +18289,9 @@ void main() {
     const value = new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigUint64(0);
     return value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : null;
   }
+  function int32(bytes, offset) {
+    return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getInt32(0);
+  }
   function typeAt(bytes, offset) {
     return String.fromCharCode(...bytes.subarray(offset, offset + 4));
   }
@@ -17484,9 +18376,20 @@ void main() {
       if (!config) return null;
       const payload = bytes.subarray(config.dataStart, config.end);
       const codec = entry.type === "avc1" ? avcCodecString(entry.type, payload) : hevcCodecString(entry.type, payload);
-      return codec ? { fourcc: entry.type, codec, codedWidth, codedHeight } : null;
+      return codec ? { fourcc: entry.type, codec, codedWidth, codedHeight, rotationDeg: 0 } : null;
     }
     return null;
+  }
+  function rotationFromTkhd(bytes, trak) {
+    const tkhd = childBoxes(bytes, trak.dataStart, trak.end).find((box2) => box2.type === "tkhd");
+    if (!tkhd || tkhd.dataStart >= tkhd.end) return 0;
+    const matrixOffset = tkhd.dataStart + 4 + (bytes[tkhd.dataStart] === 1 ? 32 : 20) + 16;
+    if (matrixOffset + 36 > tkhd.end) return 0;
+    const a = int32(bytes, matrixOffset) / 65536;
+    const c = int32(bytes, matrixOffset + 12) / 65536;
+    if (!Number.isFinite(a) || !Number.isFinite(c) || a === 0 && c === 0) return 0;
+    const degrees = Math.atan2(c, a) * 180 / Math.PI;
+    return (Math.round(degrees / 90) * 90 + 360) % 360;
   }
   function readVideoCodecFromMoov(input) {
     try {
@@ -17507,7 +18410,7 @@ void main() {
         const stsd = childBoxes(bytes, stbl.dataStart, stbl.end).find((box2) => box2.type === "stsd");
         if (!stsd) continue;
         const result = parseStsd(bytes, stsd);
-        if (result) return result;
+        if (result) return { ...result, rotationDeg: rotationFromTkhd(bytes, trak) };
       }
       return null;
     } catch {
@@ -18257,10 +19160,13 @@ void main() {
           const editDuration = track.edits?.reduce((sum, edit) => sum + edit.segment_duration, 0) ?? 0;
           const presentationDurationUs = editDuration > 0 && info.timescale > 0 ? Math.round(editDuration / info.timescale * 1e6) : sampleDurationUs;
           const lastFrameStartUs = samples[presentationOrder.at(-1)].timestampUs;
+          const rotationDeg = readVideoCodecFromMoov(header)?.rotationDeg ?? 0;
+          const swapsDimensions = rotationDeg === 90 || rotationDeg === 270;
           resolve({
             ...description,
-            width: track.video?.width ?? description.codedWidth,
-            height: track.video?.height ?? description.codedHeight,
+            width: swapsDimensions ? description.codedHeight : description.codedWidth,
+            height: swapsDimensions ? description.codedWidth : description.codedHeight,
+            rotationDeg,
             maxReorderFrames,
             samples,
             presentationOrder,
@@ -19119,7 +20025,8 @@ void main() {
       return {
         duration: this.prepared.table.presentationDurationUs,
         width: this.prepared.table.width,
-        height: this.prepared.table.height
+        height: this.prepared.table.height,
+        rotationDeg: this.prepared.table.rotationDeg
       };
     }
     get keyframes() {
@@ -19161,6 +20068,10 @@ void main() {
     const runtime = globalThis;
     const value = environment ? environment.AKARI_FRAME_ENGINE_SOURCE : runtime.__AKARI_FRAME_ENGINE_SOURCE__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_SOURCE;
     return value === "mp4clip" ? "mp4clip" : "range";
+  }
+  function normalizeRotationDeg(value) {
+    if (!Number.isFinite(value)) return 0;
+    return (Math.round((value ?? 0) / 90) * 90 + 360) % 360;
   }
   function describeUnusableDecoder(clipId, attempted, lastMessage) {
     if (!lastMessage.includes("Unsupported configuration")) return null;
@@ -19204,6 +20115,7 @@ void main() {
     keyframes = null;
     lastFrameStartUs = null;
     decoderTimestampOffsetUs = 0;
+    rotationDeg = 0;
     lastTickTargetUs = null;
     activeAcceleration;
     coverage = new DecodedFrameCoverageCache();
@@ -19226,8 +20138,9 @@ void main() {
     constructor(id, src, options = {}) {
       this.id = id;
       this.src = src;
-      this.sourceMode = resolveFrameEngineSourceMode();
+      this.sourceMode = options.skipSourceRotation === false ? "mp4clip" : resolveFrameEngineSourceMode();
       this.options = {
+        skipSourceRotation: options.skipSourceRotation !== false,
         loadTimeoutMs: options.loadTimeoutMs,
         loadBudgetMs: options.loadBudgetMs,
         loadStallMs: options.loadStallMs ?? 5e3,
@@ -19296,7 +20209,8 @@ void main() {
         const source = await this.sourceBytes.open();
         candidate = new I2(source.stream, {
           audio: false,
-          __unsafe_hardwareAcceleration__: this.options.hardwareAcceleration ?? "prefer-hardware"
+          __unsafe_hardwareAcceleration__: this.options.hardwareAcceleration ?? "prefer-hardware",
+          __unsafe_skipRotation__: this.options.skipSourceRotation
         });
         await this.waitForReady(candidate.ready, source, `prepare ${this.id}`);
         const keyframes = await this.readKeyframes(candidate);
@@ -19351,7 +20265,8 @@ void main() {
                 const source = await this.sourceBytes.open();
                 candidate = new I2(source.stream, {
                   audio: false,
-                  __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
+                  __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration,
+                  __unsafe_skipRotation__: this.options.skipSourceRotation
                 });
                 await this.waitForReady(
                   Promise.race([candidate.ready, guard.failure]),
@@ -19380,8 +20295,10 @@ void main() {
             }
             this.clip = candidate;
             this.activeAcceleration = attempt.hardwareAcceleration;
+            this.rotationDeg = this.options.skipSourceRotation ? normalizeRotationDeg(candidate.meta.rotationDeg) : 0;
             this.meta = {
               ...candidate.meta,
+              rotationDeg: this.rotationDeg,
               duration: this.keyframes?.presentationDurationUs ?? Math.max(0, candidate.meta.duration - this.decoderTimestampOffsetUs)
             };
             this.state = attempt.state;
@@ -19395,6 +20312,7 @@ void main() {
             this.keyframes = null;
             this.lastFrameStartUs = null;
             this.decoderTimestampOffsetUs = 0;
+            this.rotationDeg = 0;
             candidate?.destroy();
             lastError = error;
             this.options.onWarning?.(`${this.id}: ${String(error)}`);
@@ -19437,7 +20355,8 @@ void main() {
         this.range = candidate;
         candidate = null;
         this.applyKeyframes(this.range.keyframes);
-        this.meta = { ...this.range.meta };
+        this.rotationDeg = normalizeRotationDeg(this.range.meta.rotationDeg);
+        this.meta = { ...this.range.meta, rotationDeg: this.rotationDeg };
         this.state = this.range.decoderAcceleration === "prefer-software" ? "degraded" : "ready";
         if (this.state === "degraded") {
           this.options.onDecoderDegraded?.();
@@ -19527,7 +20446,8 @@ void main() {
           this.range = this.preparedRange;
           this.preparedRange = null;
           this.applyKeyframes(this.range.keyframes);
-          this.meta = { ...this.range.meta };
+          this.rotationDeg = normalizeRotationDeg(this.range.meta.rotationDeg);
+          this.meta = { ...this.range.meta, rotationDeg: this.rotationDeg };
           this.state = "ready";
           this.loadPromise = Promise.resolve();
           return;
@@ -19542,8 +20462,10 @@ void main() {
         this.preparedCandidate = null;
         this.applyKeyframes(this.preparedKeyframes);
         this.preparedKeyframes = null;
+        this.rotationDeg = this.options.skipSourceRotation ? normalizeRotationDeg(this.clip.meta.rotationDeg) : 0;
         this.meta = {
           ...this.clip.meta,
+          rotationDeg: this.rotationDeg,
           duration: this.keyframes?.presentationDurationUs ?? Math.max(0, this.clip.meta.duration - this.decoderTimestampOffsetUs)
         };
         this.state = this.options.hardwareAcceleration === "prefer-software" ? "degraded" : "ready";
@@ -19566,7 +20488,7 @@ void main() {
           this.options.onWarning?.(`${this.id}: software decoder fallback active`);
         }
         metrics?.record("tick", performance.now() - tickStarted2);
-        return frame;
+        return this.attachRotation(frame);
       }
       await this.load();
       if (!this.clip || this.state === "unavailable") throw new Error(`clip ${this.id} is unavailable`);
@@ -19575,7 +20497,7 @@ void main() {
       const safeLimit = this.lastFrameStartUs ?? fallbackLimit;
       const target = Math.max(0, Math.min(Math.floor(timeUs), safeLimit));
       const covered = this.coverage.cloneAt(target);
-      if (covered) return covered;
+      if (covered) return this.attachRotation(covered);
       const tickStarted = performance.now();
       const result = await this.serialize(async () => {
         try {
@@ -19592,15 +20514,15 @@ void main() {
       metrics?.record("tick", performance.now() - tickStarted);
       if (!result.video) {
         const coveredAfterTick = this.coverage.cloneAt(target);
-        if (coveredAfterTick) return coveredAfterTick;
+        if (coveredAfterTick) return this.attachRotation(coveredAfterTick);
         if (this.lastFrameStartUs != null && target >= this.lastFrameStartUs) {
           const nearest = this.coverage.cloneNearestAtOrBefore(target);
-          if (nearest) return nearest;
+          if (nearest) return this.attachRotation(nearest);
         }
         throw new Error(`clip ${this.id} returned no video frame at ${target}us`);
       }
       this.coverage.remember(result.video);
-      return result.video;
+      return this.attachRotation(result.video);
     }
     async decodeApprox(timeUs, toleranceUs, snapBeyondTolerance = true) {
       await this.load();
@@ -19639,6 +20561,7 @@ void main() {
         const fork2 = new _ClipSession(id, this.src, this.options);
         fork2.range = await this.range.fork(id);
         fork2.meta = { ...this.meta };
+        fork2.rotationDeg = this.rotationDeg;
         fork2.state = this.state;
         fork2.keyframes = this.keyframes;
         fork2.lastFrameStartUs = this.lastFrameStartUs;
@@ -19659,6 +20582,7 @@ void main() {
       fork.keyframes = this.keyframes;
       fork.lastFrameStartUs = this.lastFrameStartUs;
       fork.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
+      fork.rotationDeg = this.rotationDeg;
       fork.cachedHeader = this.cachedHeader;
       fork.cachedKeyframes = this.cachedKeyframes;
       fork.learnedSupport = this.learnedSupport;
@@ -19686,6 +20610,7 @@ void main() {
       this.keyframes = null;
       this.lastFrameStartUs = null;
       this.decoderTimestampOffsetUs = 0;
+      this.rotationDeg = 0;
       this.lastTickTargetUs = null;
       this.activeAcceleration = void 0;
       this.loadPromise = null;
@@ -19776,6 +20701,7 @@ void main() {
       this.keyframes = null;
       this.lastFrameStartUs = null;
       this.decoderTimestampOffsetUs = 0;
+      this.rotationDeg = 0;
       this.lastTickTargetUs = null;
       this.activeAcceleration = void 0;
       this.loadPromise = null;
@@ -19784,6 +20710,10 @@ void main() {
     }
     toDecoderTime(presentationTimeUs) {
       return Math.max(0, presentationTimeUs + this.decoderTimestampOffsetUs);
+    }
+    attachRotation(frame) {
+      frame.rotationDeg = this.rotationDeg;
+      return frame;
     }
     normalizeTickResult(result) {
       if (!result.video) return result;
