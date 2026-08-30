@@ -720,8 +720,8 @@ function mergeCaptionDisplayStyles(base, override) {
  * （プレビュー = shell captionTextStyleVars / 書き出し = render-cut captions.mjs の両消費者が
  * これを使う — 2026-08-26 akari-reel 実機: プレビュー側だけ text_anchor/position を落として
  * 明示位置付き字幕が既定の下段 7% に出る「出力とプレビューの位置不一致」の再発防止）。
- * position 未指定なら anchor は zone 相当の縁寄せとして効く。position 指定時は
- * その座標へ anchor の縦成分（t/m/b）を合わせる（m は 100% を超えないよう近似で top 配置）。
+ * position 未指定なら anchor は zone 相当の縁寄せとして効く。position.y 指定時は
+ * b は下端、t は上端をその座標へ合わせ、m は近似で top 配置する（中心合わせは未実装）。
  * 不正な anchor / vertical_align は未宣言として無視する（書き込み時検証済みが前提の防御）。
  */
 function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
@@ -739,8 +739,14 @@ function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValu
     const horizontal = anchor ? anchor[1] : 'c';
     if (typeof position?.y === 'number' && Number.isFinite(position.y)) {
         const clamped = Math.min(1, Math.max(0, position.y));
-        vars['--caption-top'] = `${Math.round(clamped * 10000) / 100}%`;
-        vars['--caption-bottom'] = 'auto';
+        if ((anchor || verticalAlign) && vertical === 'b') {
+            vars['--caption-top'] = 'auto';
+            vars['--caption-bottom'] = `${Math.round((1 - clamped) * 10000) / 100}%`;
+        }
+        else {
+            vars['--caption-top'] = `${Math.round(clamped * 10000) / 100}%`;
+            vars['--caption-bottom'] = 'auto';
+        }
     }
     else if (anchor || verticalAlign) {
         vars['--caption-top'] = vertical === 't' ? '7%' : vertical === 'm' ? '0' : 'auto';

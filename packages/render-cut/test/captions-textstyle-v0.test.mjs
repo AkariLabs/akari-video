@@ -70,6 +70,12 @@ test("align / text_anchor / position が配置変数になる", () => {
   assert.equal(positioned["--caption-bottom"], "auto");
 });
 
+test("bottom text_anchor + position.y はプレート下端基準の配置変数になる", () => {
+  const positioned = captionTextStyleVars({ text_anchor: "bc", position: { y: 0.905 } });
+  assert.equal(positioned["--caption-top"], "auto");
+  assert.equal(positioned["--caption-bottom"], "9.5%");
+});
+
 test("アニメーション: in / loop / out が合成され keyframes が埋まる", () => {
   const built = buildCaptionAnimation(
     { in: { id: "fade-up", duration_sec: 0.4 }, loop: { id: "float" }, out: { id: "fade-up" } },

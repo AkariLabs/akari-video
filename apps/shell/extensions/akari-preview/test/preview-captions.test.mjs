@@ -67,6 +67,18 @@ test('text_anchor + position は共有カーネル単一定義の位置変数に
     }
 });
 
+test('bottom text_anchor + position は共有カーネルと同じ下端基準の位置変数になる', () => {
+    const [parsed] = parsePreviewCaptions(JSON.stringify({
+        captions: [{ ...caption, text_style: { text_anchor: 'bc', position: { y: 0.905 } } }]
+    }));
+    assert.equal(parsed.textStyleVars['--caption-top'], 'auto');
+    assert.equal(parsed.textStyleVars['--caption-bottom'], '9.5%');
+    const expected = captionAnchorPositionVars('bc', { y: 0.905 }, undefined);
+    for (const [name, value] of Object.entries(expected)) {
+        assert.equal(parsed.textStyleVars[name], value, name);
+    }
+});
+
 test('default_text_style の text_anchor / position も caption 側 text_style と合成される', () => {
     const [parsed] = parsePreviewCaptions(JSON.stringify({
         default_text_style: { text_anchor: 'tc', position: { y: 0.692708 } },

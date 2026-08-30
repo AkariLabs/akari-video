@@ -37,6 +37,18 @@ test('shared kernel, render-cut, and browser bundle return the same anchor posit
   assert.equal(shared['--caption-bottom'], 'auto');
 });
 
+test('shared kernel, render-cut, and browser bundle agree on bottom-anchor position.y', () => {
+  const style = { text_anchor: 'bc', position: { y: 0.905 } };
+  const expected = captionTextStyleVars(style);
+  const shared = captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align);
+  const bundled = bundledCaptionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align);
+
+  assert.deepEqual(shared, expected);
+  assert.deepEqual(bundled, expected);
+  assert.equal(shared['--caption-top'], 'auto');
+  assert.equal(shared['--caption-bottom'], '9.5%');
+});
+
 test('zone-only and unspecified legacy cues keep exactly the existing zone variables', { timeout: 120_000 }, async () => {
   const captions = [
     legacyCue('c-zone', 0.5, 1.5, '右上', { zone: 'top-right' }),
