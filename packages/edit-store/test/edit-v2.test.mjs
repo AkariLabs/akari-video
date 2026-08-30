@@ -152,6 +152,16 @@ test("readEditV2 rejects fractional or negative v2 keyframe frames", async () =>
   assert.throws(() => readEditV2(negative), /tracks\[3\].*keyframes\[1\]\.t.*0 以上の整数/);
 });
 
+test("readEditV2 keeps unknown additive keyframe properties tolerant", async () => {
+  const value = JSON.parse(await readFile(fixturePath, "utf8"));
+  value.tracks[3].items[0].keyframes = [
+    { t: 0, future_channel: { value: 1 } },
+    { t: 10, future_channel: { value: 2 } },
+  ];
+  const edit = readEditV2(value);
+  assert.deepEqual(edit.tracks[3].items[0].keyframes[0].future_channel, { value: 1 });
+});
+
 test("readEditV2 accepts migration-only visual/audio vocabulary without relaxing frame integers", () => {
   const edit = readEditV2({
     version: 2,

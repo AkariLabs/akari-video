@@ -1,0 +1,1 @@
+{"version":2,"output":{"width":640,"height":360,"fps":30},"sources":[],"tracks":[{"id":"v1","lane":"visual","items":[{"id":"root","at":10,"duration":100,"source":{"kind":"group"},"items":[{"id":"middle","at":5,"duration":80,"source":{"kind":"group"},"items":[{"id":"leaf","at":7,"duration":20,"source":{"kind":"telop","preset":"title"}}]}]}]}]}

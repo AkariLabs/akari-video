@@ -37,8 +37,33 @@ export interface KeyframeV2 {
     transform?: TransformV2;
     crop?: CropV2;
     perspective?: Record<string, unknown>;
-    easing?: 'linear' | 'ease-in-out';
+    opacity?: number;
+    animator?: Record<string, { offset?: number; start?: number; end?: number }>;
+    easing?: string | Record<string, string>;
     [key: string]: unknown;
+}
+
+export interface KeyframesReferenceV2 {
+    path: string;
+    count: number;
+}
+
+export interface MotionV0 {
+    in?: { preset: string; duration: number; ease?: string; amount?: number };
+    out?: { preset: string; duration: number; ease?: string; amount?: number };
+    loop?: { preset: string; period: number; ease?: string; amount?: number };
+}
+
+export interface AnimatorV0 {
+    id: string;
+    basis: 'chars' | 'words' | 'lines' | 'segments';
+    shape: 'ramp' | 'triangle' | 'round' | 'smooth' | 'square' | 'ramp-down';
+    start: number;
+    end: number;
+    offset: number;
+    randomize?: { seed: number };
+    amount: Record<string, number>;
+    ease?: string;
 }
 
 export type BlendModeV2 =
@@ -70,6 +95,11 @@ export interface AudioMediaSourceV2 {
 export interface HtmlSourceV2 {
     kind: 'html';
     path: string;
+    part?: string;
+    style?: Record<string, string>;
+    text?: string;
+    exclude?: string[];
+    derivedFrom?: string;
     vars?: Record<string, unknown>;
     params?: Record<string, string>;
 }
@@ -79,6 +109,7 @@ export interface TelopSourceV2 {
     preset: string;
     params?: Record<string, unknown>;
     baked?: string;
+    from?: string;
 }
 
 export type FilterV2 =
@@ -91,10 +122,18 @@ export interface FilterSourceV2 {
     filter: FilterV2;
 }
 
-export type SourceV2 = MediaSourceV2 | HtmlSourceV2 | TelopSourceV2 | FilterSourceV2;
+export interface GroupSourceV2 { kind: 'group' }
+export interface CaptionsSourceV2 { kind: 'captions'; path: 'captions.json'; exclude?: string[] }
+export interface CaptionSourceV2 { kind: 'caption'; path: 'captions.json'; id: string }
+
+export type SourceV2 = MediaSourceV2 | HtmlSourceV2 | TelopSourceV2 | FilterSourceV2
+    | GroupSourceV2 | CaptionsSourceV2 | CaptionSourceV2;
 
 export interface ItemV2Base {
     id: string;
+    name?: string;
+    hidden?: boolean;
+    locked?: boolean;
     /** 出力タイムライン上の絶対位置（整数フレーム）。 */
     at: number;
     /** 表示・再生尺（整数フレーム）。 */
@@ -104,7 +143,11 @@ export interface ItemV2Base {
     blend?: BlendModeV2;
     crop?: CropV2;
     perspective?: Record<string, unknown>;
+    motion?: MotionV0;
+    animator?: AnimatorV0[];
+    /** inline keyframes. The lazy reference spelling is exposed as InternalItem.keyframesRef. */
     keyframes?: KeyframeV2[];
+    items?: ItemV2[];
 }
 
 export type MediaItemV2 = ItemV2Base & {
@@ -117,7 +160,10 @@ export type ItemV2 =
     | MediaItemV2
     | (ItemV2Base & { source: HtmlSourceV2 })
     | (ItemV2Base & { source: TelopSourceV2 })
-    | (ItemV2Base & { source: FilterSourceV2 });
+    | (ItemV2Base & { source: FilterSourceV2 })
+    | (ItemV2Base & { source: GroupSourceV2 })
+    | (ItemV2Base & { source: CaptionsSourceV2 })
+    | (ItemV2Base & { source: CaptionSourceV2 });
 
 export type AudioRoleV2 = 'sfx' | 'narration' | 'bgm';
 
@@ -132,6 +178,9 @@ export interface NarrationProvenanceV2 {
 
 export interface AudioMediaItemV2 {
     id: string;
+    name?: string;
+    hidden?: boolean;
+    locked?: boolean;
     /** 出力タイムライン上の絶対位置（整数フレーム）。 */
     at: number;
     /** 出力尺（整数フレーム）。0 は実尺未解決のセンチネル。 */
@@ -215,10 +264,11 @@ const BLEND_MODES = new Set<BlendModeV2>([
     'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ]);
 const ITEM_KEYS = new Set([
-    'id', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective', 'keyframes', 'mask', 'source'
+    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective',
+    'motion', 'animator', 'keyframes', 'items', 'mask', 'source'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
-    'id', 'at', 'duration', 'role', 'source', 'gain_db', 'fade_in', 'fade_out', 'ducking',
+    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'role', 'source', 'gain_db', 'fade_in', 'fade_out', 'ducking',
     'script', 'reading', 'provenance'
 ]);
 
@@ -266,12 +316,21 @@ export function readEditV2(json: unknown): InternalEditV2 {
                 return {
                     ...track,
                     z,
-                    items: track.items.map(item => ({ ...item, source: { ...item.source } }))
+                    items: track.items.map(item => cloneItem(item))
                 } as InternalTrackV2;
             }
             return { ...track, z, content: { ...track.content } } as InternalTrackV2;
         })
     };
+}
+
+function cloneItem<T extends ItemV2 | AudioMediaItemV2>(item: T): T {
+    return {
+        ...item,
+        source: { ...item.source },
+        ...('items' in item && Array.isArray(item.items)
+            ? { items: item.items.map(child => cloneItem(child)) } : {})
+    } as T;
 }
 
 function parseInput(json: unknown): unknown {
@@ -355,6 +414,7 @@ function validateAudioItem(
     requireText(value.id, `${path}.id`);
     if (ids.has(value.id)) throw invalid(`${path}.id`, `item id が重複しています: ${value.id}`);
     ids.add(value.id);
+    validateItemMetadata(value, path);
     requireInteger(value.at, 0, `${path}.at`);
     requireInteger(value.duration, 0, `${path}.duration`);
     if (hasOwn(value, 'role') && value.role !== 'sfx' && value.role !== 'narration' && value.role !== 'bgm') {
@@ -415,6 +475,7 @@ function validateItem(
     requireText(value.id, `${path}.id`);
     if (ids.has(value.id)) throw invalid(`${path}.id`, `item id が重複しています: ${value.id}`);
     ids.add(value.id);
+    validateItemMetadata(value, path);
     requireInteger(value.at, 0, `${path}.at`);
     requireInteger(value.duration, 0, `${path}.duration`);
     if (hasOwn(value, 'transform')) validateTransform(value.transform, `${path}.transform`);
@@ -424,12 +485,25 @@ function validateItem(
     }
     if (hasOwn(value, 'crop')) validateCrop(value.crop, `${path}.crop`);
     if (hasOwn(value, 'perspective')) requireRecord(value.perspective, `${path}.perspective`);
+    if (hasOwn(value, 'motion')) validateMotion(value.motion, `${path}.motion`);
+    if (hasOwn(value, 'animator')) validateAnimators(value.animator, `${path}.animator`);
     if (hasOwn(value, 'keyframes')) validateKeyframes(value.keyframes, `${path}.keyframes`);
     validateItemSource(value.source, `${path}.source`, sourceIds);
     if (hasOwn(value, 'mask')) {
         if (value.source.kind !== 'media') throw invalid(`${path}.mask`, 'media item だけが指定できます');
         requireText(value.mask, `${path}.mask`);
         if (!sourceIds.has(value.mask)) throw invalid(`${path}.mask`, `sources[].id に存在しません: ${value.mask}`);
+    }
+    if (hasOwn(value, 'items')) {
+        if (!Array.isArray(value.items)) throw invalid(`${path}.items`, '配列である必要があります');
+        value.items.forEach((child, index) => validateItem(child, `${path}.items[${index}]`, ids, sourceIds));
+    }
+}
+
+function validateItemMetadata(value: UnknownRecord, path: string): void {
+    if (hasOwn(value, 'name') && typeof value.name !== 'string') throw invalid(`${path}.name`, '文字列である必要があります');
+    for (const key of ['hidden', 'locked']) {
+        if (hasOwn(value, key) && typeof value[key] !== 'boolean') throw invalid(`${path}.${key}`, 'boolean である必要があります');
     }
 }
 
@@ -452,8 +526,12 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
             if (hasOwn(value, 'speed')) requirePositiveNumber(value.speed, `${path}.speed`);
             return;
         case 'html':
-            requireExactKeys(value, new Set(['kind', 'path', 'vars', 'params']), path);
+            requireExactKeys(value, new Set(['kind', 'path', 'part', 'style', 'text', 'exclude', 'derivedFrom', 'vars', 'params']), path);
             requireText(value.path, `${path}.path`);
+            for (const key of ['part', 'derivedFrom']) if (hasOwn(value, key)) requireText(value[key], `${path}.${key}`);
+            if (hasOwn(value, 'text') && typeof value.text !== 'string') throw invalid(`${path}.text`, '文字列である必要があります');
+            if (hasOwn(value, 'style')) validateStringMap(value.style, `${path}.style`);
+            if (hasOwn(value, 'exclude')) validateStringList(value.exclude, `${path}.exclude`);
             if (hasOwn(value, 'vars')) requireRecord(value.vars, `${path}.vars`);
             if (hasOwn(value, 'params')) {
                 requireRecord(value.params, `${path}.params`);
@@ -463,18 +541,49 @@ function validateItemSource(value: unknown, path: string, sourceIds: Set<string>
             }
             return;
         case 'telop':
-            requireExactKeys(value, new Set(['kind', 'preset', 'params', 'baked']), path);
+            requireExactKeys(value, new Set(['kind', 'preset', 'params', 'baked', 'from']), path);
             requireText(value.preset, `${path}.preset`);
             if (hasOwn(value, 'params')) requireRecord(value.params, `${path}.params`);
             if (hasOwn(value, 'baked')) requireText(value.baked, `${path}.baked`);
+            if (hasOwn(value, 'from')) requireText(value.from, `${path}.from`);
             return;
         case 'filter':
             requireExactKeys(value, new Set(['kind', 'filter']), path);
             validateFilter(value.filter, `${path}.filter`);
             return;
+        case 'group':
+            requireExactKeys(value, new Set(['kind']), path);
+            return;
+        case 'captions':
+            requireExactKeys(value, new Set(['kind', 'path', 'exclude']), path);
+            if (value.path !== 'captions.json') throw invalid(`${path}.path`, 'captions.json である必要があります');
+            if (hasOwn(value, 'exclude')) validateStringList(value.exclude, `${path}.exclude`);
+            return;
+        case 'caption':
+            requireExactKeys(value, new Set(['kind', 'path', 'id']), path);
+            if (value.path !== 'captions.json') throw invalid(`${path}.path`, 'captions.json である必要があります');
+            requireText(value.id, `${path}.id`);
+            return;
         default:
-            throw invalid(`${path}.kind`, 'media/html/telop/filter のいずれかである必要があります');
+            throw invalid(`${path}.kind`, 'media/html/telop/filter/group/captions/caption のいずれかである必要があります');
     }
+}
+
+function validateStringMap(value: unknown, path: string): void {
+    requireRecord(value, path);
+    for (const [key, entry] of Object.entries(value)) {
+        if (typeof entry !== 'string') throw invalid(`${path}.${key}`, '文字列である必要があります');
+    }
+}
+
+function validateStringList(value: unknown, path: string): void {
+    if (!Array.isArray(value)) throw invalid(path, '配列である必要があります');
+    const seen = new Set<string>();
+    value.forEach((entry, index) => {
+        requireText(entry, `${path}[${index}]`);
+        if (seen.has(entry)) throw invalid(path, `値が重複しています: ${entry}`);
+        seen.add(entry);
+    });
 }
 
 function validateFilter(value: unknown, path: string): asserts value is FilterV2 {
@@ -515,7 +624,33 @@ function validateCrop(value: unknown, path: string): asserts value is CropV2 {
     }
 }
 
-function validateKeyframes(value: unknown, path: string): asserts value is KeyframeV2[] {
+const EASINGS = new Set([
+    'linear', 'ease-in-out', 'in-quad', 'out-quad', 'in-out-quad', 'in-cubic', 'out-cubic',
+    'in-out-cubic', 'in-quart', 'out-quart', 'in-out-quart', 'in-expo', 'out-expo', 'in-out-expo',
+    'in-back', 'out-back', 'in-out-back', 'out-bounce', 'out-elastic', 'hold'
+]);
+const CUBIC_BEZIER = /^cubic-bezier\(\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$/;
+
+function validateEasing(value: unknown, path: string): void {
+    const validateOne = (entry: unknown, entryPath: string) => {
+        if (typeof entry !== 'string' || (!EASINGS.has(entry) && !CUBIC_BEZIER.test(entry))) {
+            throw invalid(entryPath, '未対応の easing です');
+        }
+    };
+    if (typeof value === 'string') return validateOne(value, path);
+    requireRecord(value, path);
+    for (const [key, entry] of Object.entries(value)) validateOne(entry, `${path}.${key}`);
+}
+
+function validateKeyframes(value: unknown, path: string): asserts value is KeyframeV2[] | KeyframesReferenceV2 {
+    if (!Array.isArray(value)) {
+        requireRecord(value, path);
+        requireExactKeys(value, new Set(['path', 'count']), path);
+        requireText(value.path, `${path}.path`);
+        if (!/^motion\/.+\.json$/.test(value.path)) throw invalid(`${path}.path`, 'motion/ 配下の JSON である必要があります');
+        requireInteger(value.count, 2, `${path}.count`);
+        return;
+    }
     if (!Array.isArray(value) || value.length < 2) throw invalid(path, '2 要素以上の配列である必要があります');
     value.forEach((entry, index) => {
         const itemPath = `${path}[${index}]`;
@@ -524,9 +659,59 @@ function validateKeyframes(value: unknown, path: string): asserts value is Keyfr
         if (hasOwn(entry, 'transform')) validateTransform(entry.transform, `${itemPath}.transform`);
         if (hasOwn(entry, 'crop')) validateCrop(entry.crop, `${itemPath}.crop`);
         if (hasOwn(entry, 'perspective')) requireRecord(entry.perspective, `${itemPath}.perspective`);
-        if (hasOwn(entry, 'easing') && entry.easing !== 'linear' && entry.easing !== 'ease-in-out') {
-            throw invalid(`${itemPath}.easing`, 'linear または ease-in-out である必要があります');
+        if (hasOwn(entry, 'opacity')) requireRange(entry.opacity, 0, 1, `${itemPath}.opacity`);
+        if (hasOwn(entry, 'animator')) {
+            requireRecord(entry.animator, `${itemPath}.animator`);
+            for (const [id, state] of Object.entries(entry.animator)) {
+                requireRecord(state, `${itemPath}.animator.${id}`);
+                requireExactKeys(state, new Set(['offset', 'start', 'end']), `${itemPath}.animator.${id}`);
+                if (hasOwn(state, 'offset')) requireRange(state.offset, -1, 1, `${itemPath}.animator.${id}.offset`);
+                for (const key of ['start', 'end']) if (hasOwn(state, key)) requireRange(state[key], 0, 1, `${itemPath}.animator.${id}.${key}`);
+            }
         }
+        if (hasOwn(entry, 'easing')) validateEasing(entry.easing, `${itemPath}.easing`);
+    });
+}
+
+function validateMotion(value: unknown, path: string): void {
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['in', 'out', 'loop']), path);
+    for (const slot of ['in', 'out', 'loop']) {
+        if (!hasOwn(value, slot)) continue;
+        const entry = value[slot];
+        requireRecord(entry, `${path}.${slot}`);
+        requireExactKeys(entry, new Set(['preset', slot === 'loop' ? 'period' : 'duration', 'ease', 'amount']), `${path}.${slot}`);
+        requireText(entry.preset, `${path}.${slot}.preset`);
+        requireInteger(entry[slot === 'loop' ? 'period' : 'duration'], slot === 'loop' ? 1 : 0, `${path}.${slot}.${slot === 'loop' ? 'period' : 'duration'}`);
+        if (hasOwn(entry, 'ease')) validateEasing(entry.ease, `${path}.${slot}.ease`);
+        if (hasOwn(entry, 'amount')) requireNumber(entry.amount, `${path}.${slot}.amount`);
+    }
+}
+
+function validateAnimators(value: unknown, path: string): void {
+    if (!Array.isArray(value)) throw invalid(path, '配列である必要があります');
+    value.forEach((entry, index) => {
+        const entryPath = `${path}[${index}]`;
+        requireRecord(entry, entryPath);
+        requireExactKeys(entry, new Set(['id', 'basis', 'shape', 'start', 'end', 'offset', 'randomize', 'amount', 'ease']), entryPath);
+        requireText(entry.id, `${entryPath}.id`);
+        if (!['chars', 'words', 'lines', 'segments'].includes(String(entry.basis))) throw invalid(`${entryPath}.basis`, '未対応の basis です');
+        if (!['ramp', 'triangle', 'round', 'smooth', 'square', 'ramp-down'].includes(String(entry.shape))) throw invalid(`${entryPath}.shape`, '未対応の shape です');
+        requireRange(entry.start, 0, 1, `${entryPath}.start`);
+        requireRange(entry.end, 0, 1, `${entryPath}.end`);
+        requireRange(entry.offset, -1, 1, `${entryPath}.offset`);
+        if (hasOwn(entry, 'randomize')) {
+            requireRecord(entry.randomize, `${entryPath}.randomize`);
+            requireExactKeys(entry.randomize, new Set(['seed']), `${entryPath}.randomize`);
+            if (!Number.isInteger(entry.randomize.seed)) throw invalid(`${entryPath}.randomize.seed`, '整数である必要があります');
+        }
+        requireRecord(entry.amount, `${entryPath}.amount`);
+        requireExactKeys(entry.amount, new Set(['x', 'y', 'scale', 'rotate', 'opacity', 'letterSpacing', 'blur']), `${entryPath}.amount`);
+        for (const [key, amount] of Object.entries(entry.amount)) {
+            if (key === 'opacity') requireRange(amount, -1, 1, `${entryPath}.amount.opacity`);
+            else requireNumber(amount, `${entryPath}.amount.${key}`);
+        }
+        if (hasOwn(entry, 'ease')) validateEasing(entry.ease, `${entryPath}.ease`);
     });
 }
 

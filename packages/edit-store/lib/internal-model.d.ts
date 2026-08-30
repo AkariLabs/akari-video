@@ -3,6 +3,7 @@
  * トラック配列順が下→上の合成順で、時刻は整数フレーム宣言を正本とする。
  */
 import { EditAudioBgm, EditAudioNarration, EditAudioSfx, EditBeat, EditCut, EditLayer, EditOverlay, EditSource, EditTimelineTrack, TimelineTrackKind } from './edit-store';
+import { KeyframesReferenceV2 } from './edit-v2';
 export type InternalLane = 'visual' | 'audio';
 /** 素材の出どころ。1 アイテム = 1 種別で、種別ごとの分岐はここ 1 軸に集約する。 */
 export interface InternalMediaSource {
@@ -20,6 +21,11 @@ export interface InternalHtmlSource {
     /** 断片ファイルのパス、またはインライン HTML。 */
     html: string;
     params?: Record<string, string>;
+    part?: string;
+    style?: Record<string, string>;
+    text?: string;
+    exclude?: string[];
+    derivedFrom?: string;
 }
 export interface InternalTelopSource {
     kind: 'telop';
@@ -30,12 +36,26 @@ export interface InternalTelopSource {
      * 焼く前後で `InternalItem.id` は変わらない（notes §9）。
      */
     baked?: string;
+    from?: string;
 }
 export interface InternalFilterSource {
     kind: 'filter';
     filter: unknown;
 }
-export type InternalItemSource = InternalMediaSource | InternalHtmlSource | InternalTelopSource | InternalFilterSource;
+export interface InternalGroupSource {
+    kind: 'group';
+}
+export interface InternalCaptionsSource {
+    kind: 'captions';
+    path: 'captions.json';
+    exclude?: string[];
+}
+export interface InternalCaptionSource {
+    kind: 'caption';
+    path: 'captions.json';
+    id: string;
+}
+export type InternalItemSource = InternalMediaSource | InternalHtmlSource | InternalTelopSource | InternalFilterSource | InternalGroupSource | InternalCaptionsSource | InternalCaptionSource;
 /** 旧 edit.json の種別別配列の名前。v2 の `tracks[].items[]` は 'items'。 */
 export type LegacyCollection = 'cuts' | 'overlays' | 'layers' | 'sfx' | 'narration' | 'bgm' | 'items';
 /**
@@ -59,6 +79,12 @@ export interface InternalItem {
     at: number;
     /** 出力秒（`durationFrames / output.fps`）。 */
     duration: number;
+    /** 明示された子。袋 projection は含まない。 */
+    children: InternalItem[];
+    /** 親があるときだけ宣言 id を保持する。 */
+    parentId?: string;
+    /** motion/ 袋参照。A1 ではファイルを解決しない。 */
+    keyframesRef?: KeyframesReferenceV2;
     source: InternalItemSource;
     /**
      * 内部表現の宣言レコード。深い視覚プロパティ（crop / perspective / keyframes / framing / freeze /
@@ -167,6 +193,8 @@ export declare function readInternalSources(source: string | unknown): InternalS
  * 検証される側であり、検証対象自身を尺の分母に混ぜると常に「収まっている」判定になってしまう。
  */
 export declare function visualContentEndSeconds(internal: InternalEdit): number;
+/** 全トラックの明示アイテムを、親→子の深さ優先で列挙する。 */
+export declare function walkItems(internal: InternalEdit): Generator<InternalItem>;
 export interface CrossTrackLayerEvacuation {
     itemId: string;
     trackId: string;

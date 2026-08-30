@@ -192,7 +192,13 @@ test("valid v2 fixture passes the Phase 0 track checks", async () => {
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.ok(!result.findings.some((finding) => finding.check.startsWith("v2.")));
+    assert.deepEqual(result.findings.filter((finding) => finding.check.startsWith("v2.")), [{
+      id: "F001",
+      severity: "warning",
+      check: "v2.captions-content-deprecated",
+      message: "tracks[].content is deprecated; use a captions bag item",
+      path: "edit.json#tracks[2].content",
+    }]);
     assert.ok(!result.skipped.some((item) => item.check === "edit.v2.extended-validation"));
   });
 });
@@ -256,8 +262,8 @@ test("HTML slot params accept string values (including unmatched future keys) an
 for (const [fixture, expectedCheck] of [
   ["v2-id-duplicate-invalid", "v2.id-unique"],
   ["v2-items-content-invalid", "v2.track-content-exclusive"],
-  ["v2-track-overlap-invalid", "v2.track-overlap"],
-  ["v2-audio-track-overlap-invalid", "v2.track-overlap"],
+  ["v2-track-overlap-invalid", "v2.track-no-overlap"],
+  ["v2-audio-track-overlap-invalid", "v2.track-no-overlap"],
   ["v2-lane-source-invalid", "v2.lane-source"],
   ["v2-item-duration-zero-invalid", "v2.item-duration"],
   ["v2-audio-bgm-multiple-invalid", "v2.audio-bgm-multiple"],
@@ -1446,7 +1452,7 @@ test("intake.json with duration_s and keep_length both set fails", async () => {
 });
 
 for (const [fixture, expectedCheck] of [
-  ["cuts-track-overlap-invalid", "v2.track-overlap"],
+  ["cuts-track-overlap-invalid", "v2.track-no-overlap"],
 ]) {
   test(`${fixture} fails with ${expectedCheck}`, async () => {
     await withFixtures(async (fixtures) => {
@@ -1513,7 +1519,7 @@ test("layers on the same v2 track overlapping fail closed", async () => {
     const executed = run(join(fixtures, "layers-track-overlap-warning"));
     assert.equal(executed.status, 1, executed.stderr);
     const result = parseResult(executed);
-    assert.ok(result.findings.some(finding => finding.check === "v2.track-overlap" && finding.severity === "error"), JSON.stringify(result.findings, null, 2));
+    assert.ok(result.findings.some(finding => finding.check === "v2.track-no-overlap" && finding.severity === "error"), JSON.stringify(result.findings, null, 2));
   });
 });
 
@@ -1553,19 +1559,24 @@ for (const fixture of [
 // timeline.tracks.ref-missing 撤去の固定（2026-08-20 cleanup-migrate-lint task）。
 // この規則は「宣言された段の ref が実データのどこにも現れなければ警告」で、v0/v1 の
 // timeline.tracks 契約導入時から入っていたが、v2 では段の ref が宣言順の連番で毎回生成し
-// 直されるため、この警告は「段の中身が 0 個」としか等価にならない。空の段は自動 prune せず
-// 残すのが正本（10番裁定 E）なので、空の段を持つ v2 プロジェクトのたびに必ず誤検知していた
-// （10番の実測: 受け入れ条件 1 直後の lint が PASS・1 findings で、その 1 件がこれ）。
+// 直されるため、この警告は「段の中身が 0 個」としか等価にならない。空の段は error ではなく、
+// 保存時に削除される旨を v2.empty-track の info で案内する。
 // timeline-tracks-empty-declared-track fixture は t2（kind: layers, ref: 9）を宣言しつつ
 // 実データに layers を 1 つも持たない、まさにこの「空の段」を再現する。ここで固定しておかないと
 // v0/v1 時代の直感から再導入されうる。
-test("空の段を持つ v2 プロジェクトは findings 0（timeline.tracks.ref-missing は撤去済み）", async () => {
+test("空の段を持つ v2 プロジェクトは v2.empty-track の info だけを返す", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "timeline-tracks-empty-declared-track"));
     assert.equal(executed.status, 0, executed.stderr);
     const result = parseResult(executed);
     assert.equal(result.verdict, "pass");
-    assert.deepEqual(result.findings, [], JSON.stringify(result.findings, null, 2));
+    assert.deepEqual(result.findings, [{
+      id: "F001",
+      severity: "info",
+      check: "v2.empty-track",
+      message: "empty track will be removed by canonical save",
+      path: "edit.json#tracks[1]",
+    }], JSON.stringify(result.findings, null, 2));
   });
 });
 
