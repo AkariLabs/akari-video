@@ -8,13 +8,16 @@
   const pools = new Map();
   const lookahead = new Map();
   const images = new Map();
+  const captionFontCheckCache = new Map();
   let captionEncodedFontPromise = null;
 
   const CAPTION_MEASURE_MAX_ATTEMPTS = 32;
   const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
   const CAPTION_BATCH_MAX_UNITS = 8;
   const CAPTION_BATCH_MAX_HEIGHT_PX = 4096;
+  const CAPTION_PREFETCH_MAX_BYTES = 256 * 1024 * 1024;
   const CAPTION_FONT_PLACEHOLDER = "/caption-font.ttf";
+  const CAPTION_MEASURE_ROOT_CLASS = "akari-measure-root";
 
   const macrotaskResolvers = [];
   const macrotaskChannel = new MessageChannel();
@@ -164,6 +167,11 @@
       .join(";");
   }
 
+  function dedupeFontSample(text) {
+    const sample = [...new Set(Array.from(text || ""))].join("");
+    return sample || "字幕";
+  }
+
   function foreignObjectSvg(html, width, height, extraCss, vars) {
     const xhtml = serializeHtmlToXhtml(html);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -225,12 +233,23 @@
 
   function captionRoot(value, config, html, extraCss) {
     const root = document.createElement("div");
-    root.className = "akari-measure-root";
+    root.className = CAPTION_MEASURE_ROOT_CLASS;
     root.style.cssText = `position:fixed;left:0;top:0;width:${config.width}px;height:${config.height}px;overflow:hidden;`
       + `background:transparent;container-type:size;visibility:hidden;pointer-events:none;${varsCss(value.vars)}`;
     root.innerHTML = `<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}${extraCss}</style>${html}`;
     document.body.appendChild(root);
     return root;
+  }
+
+  function captionMeasurementKey(value, config, html, cssVariants, unitIndex) {
+    return JSON.stringify([
+      config.width,
+      config.height,
+      varsCss(value.vars),
+      html,
+      unitIndex,
+      cssVariants,
+    ]);
   }
 
   function relativeRect(rect, origin) {
@@ -338,8 +357,14 @@
     return maximum;
   }
 
-  async function measureCaptionVariants(value, config, html, cssVariants, unitIndex) {
+  async function measureCaptionVariants(value, config, html, cssVariants, unitIndex, startupMetrics) {
+    const contentKey = captionMeasurementKey(value, config, html, cssVariants, unitIndex);
+    if (startupMetrics.measure.distinctKeys.has(contentKey)) startupMetrics.measure.duplicatePasses += 1;
+    else startupMetrics.measure.distinctKeys.add(contentKey);
+    const passStarted = performance.now();
+    const rootStarted = performance.now();
     const root = captionRoot(value, config, html, cssVariants[0]);
+    startupMetrics.measure.rootMs += performance.now() - rootStarted;
     try {
       const styleElement = root.querySelector("style");
       if (!styleElement) throw new Error(`caption ${value.id} measurement style is missing`);
@@ -349,28 +374,48 @@
       if (typography && typeof document.fonts.load === "function") {
         const computed = getComputedStyle(typography);
         fontDeclaration = `${computed.fontStyle} ${computed.fontWeight} ${computed.fontSize} ${computed.fontFamily}`;
-        fontSample = typography.textContent || fontSample;
+        fontSample = dedupeFontSample(typography.textContent);
+        const fontLoadStarted = performance.now();
         await document.fonts.load(fontDeclaration, fontSample);
+        startupMetrics.measure.fontWaitMs += performance.now() - fontLoadStarted;
       }
+      const fontReadyStarted = performance.now();
       await document.fonts.ready;
-      if (fontDeclaration !== null && !document.fonts.check(fontDeclaration, fontSample)) {
-        throw new Error(`caption ${value.id} font is not ready for measurement`);
+      startupMetrics.measure.fontWaitMs += performance.now() - fontReadyStarted;
+      if (fontDeclaration !== null) {
+        const fontCheckKey = `${fontDeclaration}\0${fontSample}`;
+        if (!captionFontCheckCache.has(fontCheckKey)) {
+          if (!document.fonts.check(fontDeclaration, fontSample)) {
+            throw new Error(`caption ${value.id} font is not ready for measurement`);
+          }
+          captionFontCheckCache.set(fontCheckKey, true);
+        }
       }
       const measurements = [];
       for (const css of cssVariants) {
+        const layoutStarted = performance.now();
         styleElement.textContent = `html,body{margin:0;width:100%;height:100%;overflow:hidden}${css}`;
         void root.getBoundingClientRect();
+        startupMetrics.measure.variantMeasurements += 1;
         measurements.push(measureCaptionUnit(root, unitIndex));
+        startupMetrics.measure.layoutMs += performance.now() - layoutStarted;
       }
       return measurements;
     } finally {
+      const rootRemoveStarted = performance.now();
       root.remove();
+      startupMetrics.measure.rootMs += performance.now() - rootRemoveStarted;
+      startupMetrics.measure.passMs.push(performance.now() - passStarted);
     }
   }
 
   function captionMeasurementVariantsEqual(left, right) {
     return left.length === right.length
       && left.every((measurement, index) => FE.captionMeasurementsEqual(measurement, right[index]));
+  }
+
+  function captionMeasureFaultMatches(fault, id) {
+    return fault === "all" || id.startsWith(fault);
   }
 
   function resolveStableMeasurement(sequence, maxAttempts, equal) {
@@ -388,18 +433,31 @@
     return null;
   }
 
-  async function measureCaptionVariantsStable(value, config, html, cssVariants, unitIndex, attemptsLog) {
+  async function measureCaptionVariantsStable(value, config, html, cssVariants, unitIndex, attemptsLog, startupMetrics) {
+    startupMetrics.measure.stableCalls += 1;
+    const contentKey = captionMeasurementKey(value, config, html, cssVariants, unitIndex);
+    const faultInjected = config.captionMeasureFault
+      ? captionMeasureFaultMatches(config.captionMeasureFault, value.id)
+      : false;
+    if (!faultInjected && startupMetrics.measure.stableResults.has(contentKey)) {
+      startupMetrics.measure.reusedStableCalls += 1;
+      return startupMetrics.measure.stableResults.get(contentKey);
+    }
+    const equal = config.captionMeasureFault
+      ? (faultInjected ? () => false : captionMeasurementVariantsEqual)
+      : captionMeasurementVariantsEqual;
     const sequence = [];
     for (let attempt = 1; attempt <= CAPTION_MEASURE_MAX_ATTEMPTS; attempt += 1) {
-      sequence.push(await measureCaptionVariants(value, config, html, cssVariants, unitIndex));
+      sequence.push(await measureCaptionVariants(value, config, html, cssVariants, unitIndex, startupMetrics));
       try {
         const stable = resolveStableMeasurement(
           sequence,
           CAPTION_MEASURE_MAX_ATTEMPTS,
-          captionMeasurementVariantsEqual,
+          equal,
         );
         if (stable) {
           attemptsLog.push(stable.attempts);
+          startupMetrics.measure.stableResults.set(contentKey, stable.measurement);
           return stable.measurement;
         }
       } catch (error) {
@@ -407,6 +465,7 @@
         warn(message);
         error.message = message;
         error.code = CAPTION_MEASURE_UNSTABLE_REASON;
+        error.lastMeasurement = sequence.at(-1);
         throw error;
       }
     }
@@ -534,44 +593,69 @@
     image.src = "data:image/svg+xml;charset=utf-8," + parts.map(encodeURIComponent).join(encodedFont);
   }
 
-  async function decodeCaptionSvg(svg, id) {
+  async function decodeCaptionSvg(svg, id, startupMetrics) {
     const image = new Image();
     image.decoding = "sync";
     const loaded = new Promise((resolve, reject) => {
       image.onload = resolve;
       image.onerror = () => reject(new Error(`caption ${id} image load failed`));
     });
-    assignCaptionImageSource(image, svg, await embeddedCaptionFont());
+    const encodedFont = await embeddedCaptionFont(startupMetrics);
+    const srcAssignStarted = performance.now();
+    assignCaptionImageSource(image, svg, encodedFont);
+    startupMetrics.raster.srcAssignMs += performance.now() - srcAssignStarted;
+    const decodeStarted = performance.now();
     await loaded;
+    startupMetrics.raster.decodeMs += performance.now() - decodeStarted;
     if (image.naturalWidth === 0 || image.naturalHeight === 0) {
       throw new Error(`caption ${id} decoded empty`);
     }
     return image;
   }
 
-  async function rasterizeCaptionBatch(batch, config, spriteCompositor) {
+  async function rasterizeCaptionBatch(batch, config, spriteCompositor, startupMetrics) {
     if (batch.registered) throw new Error(`caption batch cannot be registered twice: ${batch.index}`);
+    const svgBuildStarted = performance.now();
     const raster = captionBatchRasterSvg(batch, config);
+    startupMetrics.raster.svgBuildMs += performance.now() - svgBuildStarted;
+    startupMetrics.raster.svgChars += raster.svg.length;
+    const assertStarted = performance.now();
     assertCaptionSvg(raster.svg, `batch-${batch.index}`);
-    const image = await decodeCaptionSvg(raster.svg, `batch-${batch.index}`);
+    startupMetrics.raster.assertMs += performance.now() - assertStarted;
+    const image = await decodeCaptionSvg(raster.svg, `batch-${batch.index}`, startupMetrics);
+    const sheetDrawStarted = performance.now();
+    const sheet = document.createElement("canvas");
+    sheet.width = config.width;
+    sheet.height = raster.height;
+    const sheetContext = sheet.getContext("2d", { alpha: true });
+    if (!sheetContext) throw new Error("caption sheet 2D canvas is unavailable");
+    sheetContext.clearRect(0, 0, sheet.width, sheet.height);
+    sheetContext.drawImage(image, 0, 0);
+    startupMetrics.raster.sheetDrawMs += performance.now() - sheetDrawStarted;
     const registeredUnits = new Set();
     for (const band of raster.bands) {
       const unit = band.unit;
       if (unit.released) continue;
       const id = band.stateIndex === 0 ? unit.id : unit.secondaryId;
       if (!id) throw new Error(`caption unit secondary id is missing: ${unit.id}`);
+      const drawImageStarted = performance.now();
       const canvas = document.createElement("canvas");
       canvas.width = config.width;
       canvas.height = band.height;
       const context = canvas.getContext("2d", { alpha: true });
       if (!context) throw new Error("caption 2D canvas is unavailable");
       context.clearRect(0, 0, config.width, band.height);
-      context.drawImage(image, 0, band.offsetY, config.width, band.height, 0, 0, config.width, band.height);
+      context.drawImage(sheet, 0, band.offsetY, config.width, band.height, 0, 0, config.width, band.height);
+      startupMetrics.raster.drawImageMs += performance.now() - drawImageStarted;
+      const registerStarted = performance.now();
       spriteCompositor.registerSprite(id, canvas);
+      startupMetrics.raster.registerMs += performance.now() - registerStarted;
       canvas.width = 0;
       canvas.height = 0;
       registeredUnits.add(unit);
     }
+    sheet.width = 0;
+    sheet.height = 0;
     image.src = "";
     for (const unit of batch.units) {
       if (registeredUnits.has(unit)) unit.registered = true;
@@ -598,11 +682,12 @@
     unit.value = null;
   }
 
-  async function buildCaptionUnits(value, config, attemptsLog) {
+  async function buildCaptionUnits(value, config, attemptsLog, startupMetrics) {
     const html = captionHtmlWithUnitMarkers(value.html);
     const settled = value.motion?.in?.duration_sec ?? value.motion?.in?.durationSec ?? 0.18;
     const settleCss = `*{animation-play-state:paused!important;animation-delay:-${Math.max(0, Number(settled) || 0)}s!important}`;
-    const probe = captionRoot(value, config, html, CAPTION_WORD_FREEZE_CSS);
+    const measureSettleCss = `.${CAPTION_MEASURE_ROOT_CLASS} *{animation-play-state:paused!important;animation-delay:-${Math.max(0, Number(settled) || 0)}s!important}`;
+    const probe = captionRoot(value, config, html, `${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}`);
     let unitCount;
     try {
       await document.fonts.ready;
@@ -614,53 +699,72 @@
     let layoutMaxDeltaPx = 0;
     for (let unitIndex = 0; unitIndex < unitCount; unitIndex += 1) {
       const revealIndex = unitCount > 1 || html.includes("akari-caption__reveal-group") ? unitIndex : null;
-      const unitCss = `${CAPTION_WORD_FREEZE_CSS}${captionUnitCss(revealIndex)}`;
-      const [probeMeasurement] = await measureCaptionVariantsStable(value, config, html, [unitCss], unitIndex, attemptsLog);
-      const roles = new Set(probeMeasurement.tokens.map((token) => token.role));
-      const hasColor = roles.has("karaoke");
-      const hasGeometry = ["pop", "reveal-word", "emphasis-bang", "emphasis-pulse"].some((role) => roles.has(role));
-      if (hasColor && hasGeometry) throw new Error(`caption ${value.id} contains mixed color and geometry word roles`);
-      const mode = hasColor ? "color" : hasGeometry ? "geometry" : "sprite";
+      const unitCss = `${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}${captionUnitCss(revealIndex)}`;
       const id = `${value.id}::unit-${unitIndex}`;
       let secondaryId = null;
       let bandCss;
       let tiles = null;
-      let unitMeasurement = probeMeasurement;
-      if (mode === "color") {
-        const baseCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-color,#fff)!important}`;
-        const highlightCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-highlight-color,#ffd94a)!important}`;
-        const [baseMeasurement, highlightMeasurement] = await measureCaptionVariantsStable(
-          value,
-          config,
-          html,
-          [`${CAPTION_WORD_FREEZE_CSS}${baseCss}`, `${CAPTION_WORD_FREEZE_CSS}${highlightCss}`],
-          unitIndex,
-          attemptsLog,
+      let unitMeasurement = null;
+      let mode = "sprite";
+      let degraded = false;
+      try {
+        const [probeMeasurement] = await measureCaptionVariantsStable(
+          value, config, html, [unitCss], unitIndex, attemptsLog, startupMetrics,
         );
-        // Keep the strict threshold: measuring variants in one root removes insertion jitter
-        // instead of hiding a real layout mismatch by widening the tolerance.
-        layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(baseMeasurement, highlightMeasurement, id));
-        unitMeasurement = baseMeasurement;
-        bandCss = [`${settleCss}${baseCss}`, `${settleCss}${highlightCss}`];
-        secondaryId = `${id}::b`;
-      } else if (mode === "geometry") {
-        const plateCss = `${captionUnitCss(revealIndex)}.akari-caption__tok,.akari-caption__emphasis-char{visibility:hidden!important}`;
-        const textCss = `${captionUnitCss(revealIndex)}.akari-caption__line,.akari-caption__block{background:transparent!important}`
-          + `.akari-caption__line::before{background:transparent!important}`;
-        const [plateMeasurement, textMeasurement] = await measureCaptionVariantsStable(
-          value,
-          config,
-          html,
-          [`${CAPTION_WORD_FREEZE_CSS}${plateCss}`, `${CAPTION_WORD_FREEZE_CSS}${textCss}`],
-          unitIndex,
-          attemptsLog,
-        );
-        layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(plateMeasurement, textMeasurement, id));
-        unitMeasurement = plateMeasurement;
-        bandCss = [`${settleCss}${plateCss}`, `${settleCss}${textCss}`];
-        secondaryId = `${id}::b`;
-      } else {
+        unitMeasurement = probeMeasurement;
+        const roles = new Set(probeMeasurement.tokens.map((token) => token.role));
+        const hasColor = roles.has("karaoke");
+        const hasGeometry = ["pop", "reveal-word", "emphasis-bang", "emphasis-pulse"].some((role) => roles.has(role));
+        if (hasColor && hasGeometry) throw new Error(`caption ${value.id} contains mixed color and geometry word roles`);
+        mode = hasColor ? "color" : hasGeometry ? "geometry" : "sprite";
+        if (mode === "color") {
+          const baseCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-color,#fff)!important}`;
+          const highlightCss = `${captionUnitCss(revealIndex)}.akari-caption__tok--karaoke{color:var(--caption-highlight-color,#ffd94a)!important}`;
+          const [baseMeasurement, highlightMeasurement] = await measureCaptionVariantsStable(
+            value,
+            config,
+            html,
+            [`${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}${baseCss}`, `${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}${highlightCss}`],
+            unitIndex,
+            attemptsLog,
+            startupMetrics,
+          );
+          // Keep the strict threshold: measuring variants in one root removes insertion jitter
+          // instead of hiding a real layout mismatch by widening the tolerance.
+          layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(baseMeasurement, highlightMeasurement, id));
+          unitMeasurement = baseMeasurement;
+          bandCss = [`${settleCss}${baseCss}`, `${settleCss}${highlightCss}`];
+          secondaryId = `${id}::b`;
+        } else if (mode === "geometry") {
+          const plateCss = `${captionUnitCss(revealIndex)}.akari-caption__tok,.akari-caption__emphasis-char{visibility:hidden!important}`;
+          const textCss = `${captionUnitCss(revealIndex)}.akari-caption__line,.akari-caption__block{background:transparent!important}`
+            + `.akari-caption__line::before{background:transparent!important}`;
+          const [plateMeasurement, textMeasurement] = await measureCaptionVariantsStable(
+            value,
+            config,
+            html,
+            [`${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}${plateCss}`, `${CAPTION_WORD_FREEZE_CSS}${measureSettleCss}${textCss}`],
+            unitIndex,
+            attemptsLog,
+            startupMetrics,
+          );
+          layoutMaxDeltaPx = Math.max(layoutMaxDeltaPx, compareCaptionLayouts(plateMeasurement, textMeasurement, id));
+          unitMeasurement = plateMeasurement;
+          bandCss = [`${settleCss}${plateCss}`, `${settleCss}${textCss}`];
+          secondaryId = `${id}::b`;
+        } else {
+          bandCss = [`${settleCss}${captionUnitCss(revealIndex)}`];
+        }
+      } catch (error) {
+        if (error?.code !== CAPTION_MEASURE_UNSTABLE_REASON) throw error;
+        unitMeasurement = error.lastMeasurement?.[0] ?? unitMeasurement;
+        if (!unitMeasurement) throw error;
+        mode = "sprite";
+        secondaryId = null;
         bandCss = [`${settleCss}${captionUnitCss(revealIndex)}`];
+        degraded = true;
+        startupMetrics.measure.degradedUnits += 1;
+        warn(`caption ${value.id} unit ${unitIndex} degraded to sprite: ${CAPTION_MEASURE_UNSTABLE_REASON}`);
       }
       const textureRect = FE.captionWordTextureRect(unitMeasurement, config);
       tiles = mode === "sprite"
@@ -689,6 +793,7 @@
         reveal: unitMeasurement.reveal,
         revealDelay: unitMeasurement.revealDelay,
         revealDuration: unitMeasurement.revealDuration,
+        degraded,
         registered: false,
         released: false,
       });
@@ -713,7 +818,8 @@
     return batches;
   }
 
-  function embeddedCaptionFont() {
+  function embeddedCaptionFont(startupMetrics) {
+    const encodeStarted = captionEncodedFontPromise === null ? performance.now() : null;
     captionEncodedFontPromise ??= (async () => {
       const response = await fetch("/caption-font.ttf");
       if (!response.ok) throw new Error(`caption font fetch failed: ${response.status}`);
@@ -722,7 +828,10 @@
       for (let index = 0; index < bytes.length; index += 0x8000) {
         binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
       }
-      return encodeURIComponent(`data:font/ttf;base64,${btoa(binary)}`);
+      const encoded = encodeURIComponent(`data:font/ttf;base64,${btoa(binary)}`);
+      startupMetrics.fontEncodeMs = performance.now() - encodeStarted;
+      startupMetrics.fontBase64Bytes = encoded.length;
+      return encoded;
     })();
     return captionEncodedFontPromise;
   }
@@ -775,6 +884,71 @@
     if (values.length === 0) return { count: 0, p50: null, max: null };
     const sorted = [...values].sort((left, right) => left - right);
     return { count: values.length, p50: sorted[Math.floor((sorted.length - 1) * 0.5)], max: sorted.at(-1) };
+  }
+
+  function createCaptionStartupMetrics(faultInjected) {
+    return {
+      totalMs: 0,
+      fontEncodeMs: 0,
+      fontBase64Bytes: 0,
+      measure: {
+        stableCalls: 0,
+        reusedStableCalls: 0,
+        passMs: [],
+        variantMeasurements: 0,
+        fontWaitMs: 0,
+        layoutMs: 0,
+        rootMs: 0,
+        distinctKeys: new Set(),
+        duplicatePasses: 0,
+        degradedUnits: 0,
+        faultInjected,
+        stableResults: new Map(),
+      },
+      raster: {
+        batches: 0,
+        bands: 0,
+        units: 0,
+        svgBuildMs: 0,
+        svgChars: 0,
+        assertMs: 0,
+        srcAssignMs: 0,
+        decodeMs: 0,
+        sheetDrawMs: 0,
+        drawImageMs: 0,
+        registerMs: 0,
+        totalMs: 0,
+        prefetchedBatches: 0,
+        prefetchMs: 0,
+      },
+    };
+  }
+
+  function summarizeCaptionStartup(metrics) {
+    const passes = summarize(metrics.measure.passMs);
+    return {
+      totalMs: metrics.totalMs,
+      fontEncodeMs: metrics.fontEncodeMs,
+      fontBase64Bytes: metrics.fontBase64Bytes,
+      measure: {
+        stableCalls: metrics.measure.stableCalls,
+        reusedStableCalls: metrics.measure.reusedStableCalls,
+        passes: passes.count,
+        variantMeasurements: metrics.measure.variantMeasurements,
+        totalMs: metrics.measure.passMs.reduce((total, value) => total + value, 0),
+        p50: passes.p50,
+        p95: passes.p95,
+        max: metrics.measure.passMs.length > 0 ? Math.max(...metrics.measure.passMs) : null,
+        fontWaitMs: metrics.measure.fontWaitMs,
+        layoutMs: metrics.measure.layoutMs,
+        rootMs: metrics.measure.rootMs,
+        distinctKeys: metrics.measure.distinctKeys.size,
+        duplicatePasses: metrics.measure.duplicatePasses,
+        degradedUnits: metrics.measure.degradedUnits,
+        faultInjected: metrics.measure.faultInjected,
+      },
+      raster: { ...metrics.raster },
+    };
   }
 
   function sentinelColor(frameNumber) {
@@ -1111,6 +1285,7 @@
     const captionUnits = [];
     const captionRecords = [];
     const captionMeasureAttemptValues = [];
+    const captionStartupMetrics = createCaptionStartupMetrics(Boolean(config.captionMeasureFault));
     let captionBatches = [];
     let captionRasterTotalMs = 0;
     const captionRasterBatchMetrics = { batches: 0, unitsPerBatchMax: 0, bandsMax: 0 };
@@ -1130,15 +1305,19 @@
         spriteCompositor.registerSprite(value.id, await rasterizeSprite(value, config));
       }
       for (const value of config.spriteManifest.captions) {
-        const built = await buildCaptionUnits(value, config, captionMeasureAttemptValues);
+        const captionBuildStarted = performance.now();
+        const built = await buildCaptionUnits(value, config, captionMeasureAttemptValues, captionStartupMetrics);
+        captionStartupMetrics.totalMs += performance.now() - captionBuildStarted;
         captionLayoutMaxDeltaPx = Math.max(captionLayoutMaxDeltaPx, built.layoutMaxDeltaPx);
         let rasters = 0;
         let tiles = 0;
         let words = 0;
+        let degradedUnits = 0;
         for (const unit of built.units) {
           rasters += unit.bandCss.length;
           tiles += unit.tiles?.length ?? 0;
           words += unit.wordCount;
+          if (unit.degraded) degradedUnits += 1;
           captionUnits.push(unit);
         }
         const usedStyles = [...new Set(built.units.flatMap((unit) => unit.style))];
@@ -1151,11 +1330,41 @@
           rasters,
           bands: rasters,
           tiles,
+          degradedUnits,
         });
         value.html = "";
       }
       captionUnits.sort((left, right) => left.cueStart - right.cueStart);
+      const captionBatchBuildStarted = performance.now();
       captionBatches = buildCaptionBatches(captionUnits);
+      captionStartupMetrics.totalMs += performance.now() - captionBatchBuildStarted;
+      let captionPrefetchBytes = 0;
+      for (const batch of captionBatches) {
+        const estimatedBytes = batch.units.reduce(
+          (total, unit) => total + config.width * unit.textureRect.height * unit.bandCss.length * 4,
+          0,
+        );
+        if (captionPrefetchBytes + estimatedBytes > CAPTION_PREFETCH_MAX_BYTES) continue;
+        captionPrefetchBytes += estimatedBytes;
+        const prefetchStarted = performance.now();
+        const registered = await rasterizeCaptionBatch(batch, config, spriteCompositor, captionStartupMetrics);
+        const elapsed = performance.now() - prefetchStarted;
+        captionRasterTotalMs += elapsed;
+        captionRasterBatchMetrics.batches += 1;
+        captionRasterBatchMetrics.unitsPerBatchMax = Math.max(
+          captionRasterBatchMetrics.unitsPerBatchMax,
+          registered.units,
+        );
+        captionRasterBatchMetrics.bandsMax = Math.max(captionRasterBatchMetrics.bandsMax, registered.bands);
+        captionStartupMetrics.raster.batches += 1;
+        captionStartupMetrics.raster.bands += registered.bands;
+        captionStartupMetrics.raster.units += registered.units;
+        captionStartupMetrics.raster.totalMs += elapsed;
+        captionStartupMetrics.raster.prefetchedBatches += 1;
+        captionStartupMetrics.raster.prefetchMs += elapsed;
+        if (registered.units <= 0) throw new Error(`caption batch registered no units: ${batch.index}`);
+        await yieldMacrotask();
+      }
       const overlayFrame = document.getElementById("akari-overlays");
       if (overlayFrame) {
         await new Promise((resolve) => {
@@ -1255,7 +1464,7 @@
               if (!batch) throw new Error(`caption batch is missing: ${unit.batchIndex}`);
               if (!batch.registered) {
                 const rasterStarted = performance.now();
-                const registered = await rasterizeCaptionBatch(batch, config, spriteCompositor);
+                const registered = await rasterizeCaptionBatch(batch, config, spriteCompositor, captionStartupMetrics);
                 const elapsed = performance.now() - rasterStarted;
                 stages.captionRasterBatch.push(elapsed);
                 captionRasterTotalMs += elapsed;
@@ -1265,6 +1474,10 @@
                   registered.units,
                 );
                 captionRasterBatchMetrics.bandsMax = Math.max(captionRasterBatchMetrics.bandsMax, registered.bands);
+                captionStartupMetrics.raster.batches += 1;
+                captionStartupMetrics.raster.bands += registered.bands;
+                captionStartupMetrics.raster.units += registered.units;
+                captionStartupMetrics.raster.totalMs += elapsed;
                 if (registered.units <= 0) throw new Error(`caption batch registered no units: ${batch.index}`);
                 for (let index = 0; index < registered.units; index += 1) {
                   stages.captionRaster.push(elapsed / registered.units);
@@ -1363,6 +1576,7 @@
               captionMeasureAttempts: summarizeAttempts(captionMeasureAttemptValues),
               captionRasterTotalMs,
               captionRasterBatches: captionRasterBatchMetrics,
+              captionStartup: summarizeCaptionStartup(captionStartupMetrics),
             },
             domLayer: domRuntime.summary(),
           });
@@ -1396,6 +1610,7 @@
           captionMeasureAttempts: summarizeAttempts(captionMeasureAttemptValues),
           captionRasterTotalMs,
           captionRasterBatches: captionRasterBatchMetrics,
+          captionStartup: summarizeCaptionStartup(captionStartupMetrics),
         },
         domLayer: domRuntime.summary(),
         mux,

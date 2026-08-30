@@ -20,15 +20,25 @@ resource は fail-closed です。karaoke などの語単位字幕と強調語�
 ### 語単位字幕（v2）
 
 karaoke、pop、reveal、reveal-word と対応済み `emphasis_words` は GPU-native です。字幕 unit は
-初回活性時に最大 2 状態だけラスタライズし、正本の字幕 DOM から採寸した語矩形により、毎コマの色補間、
+最大 2 状態だけラスタライズし、正本の字幕 DOM から採寸した語矩形により、毎コマの色補間、
 表示、アフィン変形を駆動します。karaoke は左から右へのワイプではなく、DOM と同じ語全体の色補間です。
 receipt には `sprite` / `words-native` と unit・語・ラスタ・タイル数、2 状態のレイアウト差を記録します。
+さらに `gpu.captionStartup` に `totalMs`、`fontEncodeMs`、`fontBase64Bytes` と詳細な `measure.*`・
+`raster.*` の起動時間および件数を記録します。
 
-ラスタ texture は出力幅を維持したまま字幕帯だけを縦方向に crop します。unit が初めて活性化したときに
-開始時刻順の最大 8 unit / バンド高 4096 px のバッチを data URL で 1 回だけ decode し、variant CSS は
-バンド単位にスコープ、埋め込み font は SVG 内 1 本にします。採寸は厳密一致が 2 回続くまで最大 32 回
-行い、GPU texture は従来どおり unit 終了時に解放します。canvas / WebGL を汚染する Blob・HTTP URL は
-使用しません。
+ラスタ texture は出力幅を維持したまま字幕帯だけを縦方向に crop します。開始時刻順の最大 8 unit /
+バンド高 4096 px のバッチを、書き出し開始前に一括ラスタします。各バッチは data URL を 1 回だけ
+中間 sheet canvas へ decode し、そこから band を blit します。256 MB の
+`CAPTION_PREFETCH_MAX_BYTES` 予算を超えるバッチだけが frame loop 中の遅延ラスタに残ります。
+variant CSS はバンド単位にスコープし、埋め込み font は SVG 内 1 本にします。GPU texture は従来どおり
+unit 終了時に解放します。canvas / WebGL を汚染する Blob・HTTP URL は使用しません。
+
+安定した採寸結果は、正規化した内容キー（出力幅・高さ、cue の CSS 変数、cue の HTML、unit index、
+順序を保った CSS 変種列）が完全に一致するときだけ使い回します。`document.fonts.check` の結果も
+キャッシュします。採寸ルートにはラスタと同じ settle CSS を `.akari-measure-root` にスコープして適用し、
+採寸が壁時計上の animation 進行に依存しないようにします。採寸は厳密一致が 2 回続くまで最大 32 回行い、
+収束しない unit はその unit だけ sprite へ降格します。書き出しは fail-closed にせず完走し、receipt の
+`gpu.captions[].mode = "sprite"` と warning に記録します。
 
 karaoke の色変化と幾何 emphasis の混在、縦書きの語単位字幕、未知の word style は引き続き不適格で、
 具体的な理由を付けて fail-closed になります。
@@ -64,9 +74,13 @@ MP4 SHA が一致しましたが、大きな文字 overlay を多数含む 5,400
 追加 GPU 時間が +1.65 ms/コマまで縮小し、`drawArrays` の合計 GPU 時間は字幕あり 3.12 ms/コマ、
 字幕なし 1.47 ms/コマでした。
 
-5,999 コマの実素材 PV では GPU 書き出しが OSR の 7.2〜8.2 倍、RSS ピークは 711〜853 MB で、
-6 個の readback カウンタはすべて 0 のまま完走しました。残る字幕費用は毎コマの合成ではなく、cue 採寸と
-SVG ラスタライズの起動費用です。30 cue の字幕ラスタライズには 9.95 秒かかりました。
+5,999 コマの実素材 PV（44 cue・88 band・6 batch）では、#120h の 5 走で字幕起動費用の合計が
+8.7〜12.3 秒でした。内訳は `captionStartup.totalMs` 2.75〜5.01 秒と
+`captionRasterTotalMs` 5.90〜7.34 秒です。6 バッチすべてが書き出し開始前に完了したため、frame loop の
+`captionRasterBatch` stage は 0 回、`stages.captions` は p50 0 ms / p95 0.1 ms でした。静かな負荷での
+絶対速度は未検証です。2026-08-30 の測定では必要な 1 分 load < 20 を一度も観測できませんでした。
+高負荷下の dynamic fixture は GPU 71.1〜80.7 秒 / OSR 93.6〜97.8 秒（1.2〜1.3 倍）、RSS は
+531〜914 MB 以内で、`--trap-readback` の読み戻しは 0 でした。
 
 ## Windows でのセットアップ
 
