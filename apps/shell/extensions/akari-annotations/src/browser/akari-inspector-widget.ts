@@ -32,6 +32,7 @@ import {
     overlayMetaPath,
     parseInspectorKnobs
 } from './inspector/knob-resolver';
+import { chromaControlValue, telopParamControlKind } from './inspector/field-mappings';
 
 type InspectorSnapshot = TimelineItemSelectionSnapshot;
 
@@ -294,6 +295,8 @@ function LAYER_SECTIONS(
     snapshot: TimelineLayerSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorSection[] {
+    const chromaSimilarity = chromaControlValue(snapshot.chromaKey, 'similarity', 0.1);
+    const chromaBlend = chromaControlValue(snapshot.chromaKey, 'blend', 0);
     const transformFields: InspectorFieldDef<TimelineLayerSelection>[] = [
         {
             name: 'transform-x', label: 'X', unit: 'px', getValue: () => String(snapshot.transform?.x ?? 0),
@@ -324,6 +327,25 @@ function LAYER_SECTIONS(
             reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.rotate', value: null })
         }
     ];
+    const telopFields: InspectorFieldDef<TimelineLayerSelection>[] = Object.entries(snapshot.params ?? {})
+        .flatMap(([name, value]) => {
+            const inputKind = telopParamControlKind(value);
+            if (!inputKind) return [];
+            return [{
+                name: `telop-param-${name}`,
+                label: name,
+                getValue: () => String(value),
+                getEditValue: () => String(value),
+                inputKind,
+                ...(inputKind === 'scrub-number' ? { scrubStep: 1 } : {}),
+                write: async (_snapshot: TimelineLayerSelection, nextValue: string) => requestWrite({
+                    kind: 'item-field', id: snapshot.id, path: `source.params.${name}`,
+                    value: inputKind === 'scrub-number'
+                        ? Number(nextValue) : inputKind === 'boolean-select'
+                            ? nextValue === 'true' : nextValue
+                })
+            }];
+        });
     return composeInspectorSections([
         {
             id: 'time', label: '時間', fields: [
@@ -357,17 +379,40 @@ function LAYER_SECTIONS(
                 },
                 { name: 'chroma-color', label: 'クロマキー色', getValue: () => orDash(snapshot.chromaKey?.color, value => value) },
                 {
-                    name: 'chroma-similarity', label: '類似度',
-                    getValue: () => snapshot.chromaKey
-                        ? withDefaultNumber(snapshot.chromaKey.similarity, 0.1, formatDecimal1) : '—'
+                    name: 'chroma-similarity', label: '類似度', unit: '%', displayScale: 100,
+                    getValue: () => chromaSimilarity === undefined ? '—' : String(chromaSimilarity),
+                    ...(chromaSimilarity === undefined ? {} : {
+                        getEditValue: () => String(chromaSimilarity),
+                        inputKind: 'scrub-number' as const, scrubStep: 0.01, min: 0, max: 1,
+                        write: async (_snapshot: TimelineLayerSelection, nextValue: string) => requestWrite({
+                            kind: 'item-field', id: snapshot.id,
+                            path: 'source.chroma_key.similarity', value: Number(nextValue)
+                        }),
+                        reset: () => requestWrite({
+                            kind: 'item-field', id: snapshot.id,
+                            path: 'source.chroma_key.similarity', value: null
+                        })
+                    })
                 },
                 {
-                    name: 'chroma-blend', label: '境界ぼかし',
-                    getValue: () => snapshot.chromaKey
-                        ? withDefaultNumber(snapshot.chromaKey.blend, 0, formatDecimal1) : '—'
+                    name: 'chroma-blend', label: '境界ぼかし', unit: '%', displayScale: 100,
+                    getValue: () => chromaBlend === undefined ? '—' : String(chromaBlend),
+                    ...(chromaBlend === undefined ? {} : {
+                        getEditValue: () => String(chromaBlend),
+                        inputKind: 'scrub-number' as const, scrubStep: 0.01, min: 0, max: 1,
+                        write: async (_snapshot: TimelineLayerSelection, nextValue: string) => requestWrite({
+                            kind: 'item-field', id: snapshot.id,
+                            path: 'source.chroma_key.blend', value: Number(nextValue)
+                        }),
+                        reset: () => requestWrite({
+                            kind: 'item-field', id: snapshot.id,
+                            path: 'source.chroma_key.blend', value: null
+                        })
+                    })
                 }
             ]
         },
+        ...(telopFields.length > 0 ? [{ id: 'telop', label: 'テキスト', fields: telopFields }] : []),
         {
             id: 'info', label: '情報', collapsedByDefault: true,
             fields: [
