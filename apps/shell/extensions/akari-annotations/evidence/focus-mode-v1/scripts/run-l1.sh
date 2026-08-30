@@ -4,8 +4,9 @@ set -uo pipefail
 SCRIPTS_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 EVIDENCE_DIR=$(CDPATH= cd -- "$SCRIPTS_DIR/.." && pwd)
 SHELL_DIR=$(CDPATH= cd -- "$SCRIPTS_DIR/../../../../.." && pwd)
-WORKSPACE=$(mktemp -d "/tmp/akari-focus-mode-l1-workspace.XXXXXX")
-USERDATA=$(mktemp -d "/tmp/akari-focus-mode-l1-userdata.XXXXXX")
+# macOS の /tmp → /private/tmp symlink を解決し、isInsideWorkspace の URI 前方一致を揃える。
+WORKSPACE=$(cd "$(mktemp -d "/tmp/akari-focus-mode-l1-workspace.XXXXXX")" && pwd -P)
+USERDATA=$(cd "$(mktemp -d "/tmp/akari-focus-mode-l1-userdata.XXXXXX")" && pwd -P)
 PORT=${AKARI_CDP_PORT:-9633}
 ELECTRON_BIN="$SHELL_DIR/../../node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
 ELECTRON_LOG="$WORKSPACE/electron.log"

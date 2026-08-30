@@ -1,6 +1,5 @@
 {
-  "status": "FAIL",
-  "error": "Error: timed out: single row inspector\n    at waitFor (file:///Users/ryoma/_edit/30_products/akari-video-wt/focus-mode-keyframes/apps/shell/extensions/akari-annotations/evidence/focus-mode-v1/scripts/run-l1.mjs:30:9)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/focus-mode-keyframes/apps/shell/extensions/akari-annotations/evidence/focus-mode-v1/scripts/run-l1.mjs:219:3",
+  "status": "PASS",
   "records": [
     {
       "step": "step-1-focus",
@@ -34,7 +33,7 @@
       "easing": "ease-in-out",
       "inspectorValue": "ease-in-out",
       "hoverPreview": {
-        "editUri": "file:///private/tmp/akari-focus-mode-l1-workspace.oUgeAN/project/edit.json",
+        "editUri": "file:///private/tmp/akari-focus-mode-l1-workspace.ZYutDN/project/edit.json",
         "target": {
           "kind": "item",
           "id": "g1.first"
@@ -107,7 +106,7 @@
               "matched": true,
               "decodedFrameNumber": 33,
               "expectedFrameNumber": 33,
-              "retries": 0
+              "retries": 1
             },
             {
               "frameNumber": 72,
@@ -124,6 +123,28 @@
     {
       "step": "step-8-video-trimmer",
       "status": "opened-and-closed"
+    },
+    {
+      "step": "step-9-single-row-selection",
+      "selected": "plain",
+      "sections": [
+        "section:inspector-time",
+        "section:inspector-transform",
+        "section:inspector-appearance",
+        "section:inspector-easing",
+        "section:inspector-info"
+      ]
+    },
+    {
+      "step": "step-10-preview-part-selection",
+      "status": "selected",
+      "id": "s01#A"
+    },
+    {
+      "step": "step-11-row-header-dnd",
+      "from": "plain",
+      "to": "s01",
+      "savedParent": "s01"
     }
   ]
 }

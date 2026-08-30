@@ -7,7 +7,7 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
-import { CDP, evalOn, keyPress, listTargets, realClick, realDrag, screenshot } from '../../timeline-tracks/scripts/cdp-lib.mjs';
+import { CDP, evalOn as rawEvalOn, keyPress, listTargets, realClick, realDrag, screenshot } from '../../timeline-tracks/scripts/cdp-lib.mjs';
 import { resolveOsrLauncher } from '../../../../../../../packages/osr-export/src/index.mjs';
 
 const [, , portArg, workspaceDir, evidenceDir] = process.argv;
@@ -21,6 +21,27 @@ let main;
 const record = (step, data = {}) => { records.push({ step, ...data }); console.log(`[${step}]`, JSON.stringify(data)); };
 const assert = (condition, message, data = {}) => { if (!condition) throw new Error(`${message}: ${JSON.stringify(data)}`); };
 const edit = async () => JSON.parse(await readFile(editPath, 'utf8'));
+const withTimeout = async (promise, ms, label) => {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms: ${label}`)), ms);
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
+const guardCdp = (cdp, ms = 20000) => {
+  const rawSend = cdp.send.bind(cdp);
+  cdp.send = (method, params) => withTimeout(rawSend(method, params), ms, `CDP.send(${method})`);
+  return cdp;
+};
+const evalOn = (cdp, expression, contextId) => withTimeout(
+  rawEvalOn(cdp, expression, contextId), 20000, 'Runtime.evaluate'
+);
 const waitFor = async (description, predicate, timeout = 30000) => {
   const started = Date.now();
   while (Date.now() - started < timeout) {
@@ -59,49 +80,76 @@ const locate = (doc, id) => {
 const shot = async name => { await screenshot(main, path.join(evidenceDir, name)); };
 
 async function clickPreviewPart(partId) {
-  const editUri = `file://${editPath}`;
-  const opened = await evalOn(main, `(async () => {
-    const bindings=window.theia.container._bindingDictionary;
-    const C=[...bindings._map.keys()].find(key=>typeof key==='function'
-      && typeof key.prototype?.executeCommand==='function' && typeof key.prototype?.registerCommand==='function');
-    if(!C)return false; await window.theia.container.get(C).executeCommand('akari.preview.ensureVisible',
-      {editUri:${JSON.stringify(editUri)}}); return true;
-  })()`);
-  assert(opened, 'output preview opened');
-  let target;
-  await waitFor('output preview target', async () => {
-    target = (await listTargets(port)).find(entry => entry.type === 'iframe' && /webview\/index\.html/u.test(entry.url));
-    return Boolean(target);
-  });
-  const preview = new CDP(target.webSocketDebuggerUrl);
-  await preview.connect();
-  const contexts = [];
-  preview.on('Runtime.executionContextCreated', params => contexts.push(params.context));
-  await preview.send('Page.enable'); await preview.send('Runtime.enable');
-  let context;
-  await waitFor('preview part mount', async () => {
-    for (const candidate of contexts) {
+  return withTimeout((async () => {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      let preview;
       try {
-        if (await evalOn(preview, `Boolean(document.querySelector('[data-overlay-id=${JSON.stringify(partId)}]'))`, candidate.id)) {
-          context = candidate; return true;
-        }
-      } catch {}
+        const editUri = `file://${editPath}`;
+        const opened = await evalOn(main, `(async () => {
+          const bindings=window.theia.container._bindingDictionary;
+          const C=[...bindings._map.keys()].find(key=>typeof key==='function'
+            && typeof key.prototype?.executeCommand==='function' && typeof key.prototype?.registerCommand==='function');
+          if(!C)return false; await window.theia.container.get(C).executeCommand('akari.preview.ensureVisible',
+            {editUri:${JSON.stringify(editUri)}}); return true;
+        })()`);
+        assert(opened, 'output preview opened');
+        let target;
+        await waitFor('output preview target', async () => {
+          target = (await listTargets(port)).find(entry => entry.type === 'iframe' && /webview\/index\.html/u.test(entry.url));
+          return Boolean(target);
+        });
+        preview = guardCdp(new CDP(target.webSocketDebuggerUrl));
+        await preview.connect();
+        const contexts = [];
+        preview.on('Runtime.executionContextCreated', params => contexts.push(params.context));
+        await preview.send('Page.enable'); await preview.send('Runtime.enable');
+        let context;
+        await waitFor('preview stage mount', async () => {
+          for (const candidate of contexts) {
+            try {
+              if (await evalOn(preview, `Boolean(document.querySelector('[data-overlay-id]'))`, candidate.id)) {
+                context = candidate; return true;
+              }
+            } catch {}
+          }
+          return false;
+        }, 60000);
+        await waitFor('preview part mount', async () => {
+          for (const candidate of contexts) {
+            try {
+              if (await evalOn(preview, `Boolean(document.querySelector('[data-overlay-id=${JSON.stringify(partId)}]'))`, candidate.id)) {
+                context = candidate; return true;
+              }
+            } catch {}
+          }
+          return false;
+        }, 60000);
+        const partName = partId.includes('#') ? partId.substring(partId.lastIndexOf('#') + 1) : partId;
+        const part = await evalOn(preview, `(() => {
+          const mount=document.querySelector('[data-overlay-id=${JSON.stringify(partId)}]');
+          const hit=Array.from(mount?.querySelectorAll('*') ?? []).find(e=>{
+            const r=e.getBoundingClientRect();
+            return getComputedStyle(e).pointerEvents==='auto'
+              && r.width>2 && r.height>2 && r.left>=0 && r.top>=0;
+          });
+          const e=hit ?? mount?.querySelector('[data-akari-part=${JSON.stringify(partName)}]')
+            ?? mount?.firstElementChild ?? mount;
+          const r=e?.getBoundingClientRect();
+          return r?{x:r.left+r.width/2,y:r.top+r.height/2,width:r.width,height:r.height}:null;
+        })()`, context.id);
+        assert(part?.width > 0 && part?.height > 0, 'preview part visible', { part });
+        await realClick(preview, part.x, part.y);
+        await domWait('preview click selects timeline row',
+          `document.querySelector('[data-akari-item-id=${JSON.stringify(partId)}]')?.classList.contains('akari-annotations-selected')`);
+        return partId;
+      } catch (error) {
+        if (attempt === 2) throw error;
+      } finally {
+        try { preview?.close(); } catch {}
+      }
     }
-    return false;
-  });
-  const partName = partId.includes('#') ? partId.substring(partId.lastIndexOf('#') + 1) : partId;
-  const part = await evalOn(preview, `(() => {
-    const mount=document.querySelector('[data-overlay-id=${JSON.stringify(partId)}]');
-    const e=mount?.querySelector('[data-akari-part=${JSON.stringify(partName)}]') ?? mount?.firstElementChild ?? mount;
-    const r=e?.getBoundingClientRect();
-    return r?{x:r.left+r.width/2,y:r.top+r.height/2,width:r.width,height:r.height}:null;
-  })()`, context.id);
-  assert(part?.width > 0 && part?.height > 0, 'preview part visible', { part });
-  await realClick(preview, part.x, part.y);
-  await domWait('preview click selects timeline row',
-    `document.querySelector('[data-akari-item-id=${JSON.stringify(partId)}]')?.classList.contains('akari-annotations-selected')`);
-  preview.close();
-  return partId;
+    throw new Error(`clickPreviewPart(${partId}) failed after retry`);
+  })(), 180000, `clickPreviewPart(${partId})`);
 }
 
 try {
@@ -110,7 +158,7 @@ try {
   const target = targets.find(entry => entry.type === 'page' && /localhost/u.test(entry.url))
     ?? targets.find(entry => entry.type === 'page');
   if (!target) throw new Error('Theia page target not found');
-  main = new CDP(target.webSocketDebuggerUrl);
+  main = guardCdp(new CDP(target.webSocketDebuggerUrl));
   await main.connect(); await main.send('Runtime.enable'); await main.send('Page.enable');
   await main.send('Emulation.setDeviceMetricsOverride', {
     width: 1600, height: 1400, deviceScaleFactor: 1, mobile: false
@@ -232,7 +280,7 @@ try {
   const from = await rect('[data-akari-tree-row-id="plain"]');
   const to = await rect('[data-akari-tree-row-id="s01"]');
   assert(from?.width > 0 && to?.width > 0, 'row header D&D targets visible', { from, to });
-  await realDrag(main, [{ x: from.x, y: from.y }, { x: to.x, y: to.y }]);
+  await realDrag(main, [{ x: from.left + from.width * 0.6, y: from.y }, { x: to.x, y: to.y }]);
   await waitFor('row header D&D saved', async () => locate(await edit(), 'plain')?.parentId === 's01');
   const moved = locate(await edit(), 'plain');
   assert(moved?.parentId === 's01', 'row header D&D reparents the item', { movedParent: moved?.parentId });

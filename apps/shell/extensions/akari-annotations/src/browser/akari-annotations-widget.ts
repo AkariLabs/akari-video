@@ -2442,6 +2442,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 && (selection.kind === 'cut' ? String(selection.index) === id : selection.id === id));
             element.classList.toggle('akari-annotations-selected', selected);
         }
+        const currentKey = this.selectionKey(selection);
+        for (const element of Array.from(
+            this.trackHeaders.querySelectorAll<HTMLElement>('[data-akari-tree-row-id]')
+        )) {
+            const row = this.timelineTreeRows.find(candidate => candidate.id === element.dataset.akariTreeRowId);
+            if (!row) {
+                element.classList.remove('akari-annotations-selected');
+                continue;
+            }
+            const rowKey = this.selectionKey(this.selectionForTreeRow(row));
+            element.classList.toggle(
+                'akari-annotations-selected', selectedKeys.has(rowKey) || rowKey === currentKey
+            );
+        }
     }
 
     handleOverlaySelection(editUri: string, overlayId: string | null): void {
