@@ -181,7 +181,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -211,7 +211,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -241,7 +241,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -295,7 +295,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -329,7 +329,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -369,7 +369,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -405,7 +405,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -441,7 +441,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -477,7 +477,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -513,7 +513,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -543,7 +543,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -579,7 +579,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -615,7 +615,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -655,7 +655,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -685,7 +685,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         }
       ],
@@ -2477,13 +2477,13 @@
         {
           "severity": "warning",
           "check": "v2.captions-content-deprecated",
-          "message": "tracks[].content is deprecated; use a captions bag item",
+          "message": "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
           "path": "edit.json#tracks[3].content"
         },
         {
           "severity": "warning",
           "check": "v2.captions-content-deprecated",
-          "message": "tracks[].content is deprecated; use a captions bag item",
+          "message": "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
           "path": "edit.json#tracks[4].content"
         }
       ],
@@ -2745,7 +2745,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-content-deprecated",
-          "message": "tracks[].content is deprecated; use a captions bag item",
+          "message": "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
           "path": "edit.json#tracks[0].content"
         },
         {
@@ -2856,7 +2856,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-track-undeclared",
-          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
+          "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { \"id\": \"captions\", \"name\": \"字幕\", \"at\": 0, \"duration\": <出力尺>, \"source\": { \"kind\": \"captions\", \"path\": \"captions.json\" }, \"items\": [] } を追加してください。",
           "path": "edit.json#tracks"
         },
         {
@@ -2944,7 +2944,7 @@
         {
           "severity": "warning",
           "check": "v2.captions-content-deprecated",
-          "message": "tracks[].content is deprecated; use a captions bag item",
+          "message": "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
           "path": "edit.json#tracks[2].content"
         }
       ],

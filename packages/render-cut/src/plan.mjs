@@ -384,6 +384,11 @@ export function buildPlan({
  * cuts -> layers -> overlays -> captions -> audio（同種は ref 昇順）かを判定する。
  * edit.json の版や生の timeline 宣言には依存しない。
  */
+function isDeclaredCaptionTrack(track) {
+  return track?.content?.from === "captions.json"
+    || (track?.items ?? []).some(item => item?.source?.kind === "captions");
+}
+
 export function usesDefaultInternalTrackOrder(internalEdit) {
   const rank = new Map([
     ["cuts", 0],
@@ -397,7 +402,7 @@ export function usesDefaultInternalTrackOrder(internalEdit) {
   // 空トラックの存在・位置が「既定順かどうか」を左右しないようにする
   // （P0 2026-08-20 track-identity-and-duration）。
   const keys = (internalEdit?.tracks ?? [])
-    .filter(track => track?.content !== undefined || (track?.items?.length ?? 0) > 0)
+    .filter(track => isDeclaredCaptionTrack(track) || (track?.items?.length ?? 0) > 0)
     .map((track, index) => ({
       kind: track?.legacy?.kind,
       ref: Number.isInteger(track?.legacy?.ref) ? track.legacy.ref : -1,
@@ -446,19 +451,24 @@ function buildTrackStackPlan({
   let hasDeclaredCaptionTrack = false;
   for (const track of internalEdit.tracks) {
     const orderIndex = internalTrackZ(internalEdit, track);
-    if (track.content?.from === "captions.json") {
+    if (isDeclaredCaptionTrack(track)) {
       hasDeclaredCaptionTrack = true;
       if (captionOverlays.length > 0) {
-        ordered.push({ kind: "captions", ref: null, orderIndex, items: captionOverlays });
+        ordered.push({
+          kind: "captions",
+          ref: null,
+          orderIndex,
+          items: captionOverlays,
+          overlayIds: captionOverlays.map(item => String(item.id)),
+        });
       }
-      continue;
     }
     let current = null;
     for (const item of track.items) {
       const route = renderItemKind(item);
       const kind = route === "cut" ? "cuts"
         : route === "layer" ? "layers"
-          : route === "html" ? "overlays" : null;
+          : (route === "html" || item?.source?.kind === "group") ? "overlays" : null;
       if (!kind) continue;
       if (!current || current.kind !== kind) {
         current = {
@@ -466,11 +476,13 @@ function buildTrackStackPlan({
           ref: track.legacy.ref ?? null,
           orderIndex,
           items: [],
+          overlayIds: [],
           sequence: ordered.length,
         };
         ordered.push(current);
       }
       current.items.push(renderItemDeclaration(item, temporary));
+      current.overlayIds.push(...overlayIdsForTrackItem(item));
     }
   }
 
@@ -484,6 +496,7 @@ function buildTrackStackPlan({
       ref: null,
       orderIndex: internalEdit.tracks.length,
       items: captionOverlays,
+      overlayIds: captionOverlays.map(item => String(item.id)),
       impliedTrackId: IMPLIED_CAPTION_TRACK_ID,
     });
   }
@@ -635,7 +648,7 @@ function buildTrackStackPlan({
       stages.push({
         ...stageBase,
         command: null,
-        overlayIds: track.items.map(item => String(item.id)),
+        overlayIds: track.overlayIds,
       });
     }
     previousPath = outputPath;
@@ -652,6 +665,15 @@ function buildTrackStackPlan({
       ...stages.map(stage => stage.outputPath),
     ],
   };
+}
+
+function overlayIdsForTrackItem(item) {
+  const ids = [String(item.id)];
+  if (item?.source?.kind !== "group") return ids;
+  for (const child of item.children ?? []) {
+    ids.push(...overlayIdsForTrackItem(child));
+  }
+  return ids;
 }
 
 export function buildAudioMixCommand({

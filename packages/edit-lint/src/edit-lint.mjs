@@ -448,16 +448,24 @@ export function validateCaptionTrackDeclaration(rawEdit, captionsRoot, findings)
   if (!isRecord(rawEdit) || rawEdit.version !== 2
     || !captionsHaveRenderableCues(captionsRoot)) return;
   const declared = Array.isArray(rawEdit.tracks) && rawEdit.tracks.some(
-    track => isRecord(track) && isRecord(track.content)
-      && track.content.from === "captions.json",
+    track => isDeclaredCaptionTrack(track),
   );
   if (declared) return;
   addFinding(findings, {
     severity: "warning",
     check: "v2.captions-track-undeclared",
-    message: 'captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { "id": "captions", "lane": "visual", "content": { "from": "captions.json" } } を追加してください。',
+    message: 'captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。visual トラックの items[] に { "id": "captions", "name": "字幕", "at": 0, "duration": <出力尺>, "source": { "kind": "captions", "path": "captions.json" }, "items": [] } を追加してください。',
     path: "edit.json#tracks",
   });
+}
+
+function isDeclaredCaptionTrack(track) {
+  return isRecord(track) && (
+    (isRecord(track.content) && track.content.from === "captions.json")
+    || (Array.isArray(track.items) && track.items.some(
+      item => isRecord(item) && isRecord(item.source) && item.source.kind === "captions",
+    ))
+  );
 }
 
 function projectAudioForLint(internalEdit) {
@@ -849,7 +857,7 @@ function validateEditV2(edit, findings) {
       addFinding(findings, {
         severity: "warning",
         check: "v2.captions-content-deprecated",
-        message: "tracks[].content is deprecated; use a captions bag item",
+        message: "tracks[].content は deprecated です。visual トラックの items[] に字幕の袋グループ item を置いてください（akari migrate で正規化できます）。",
         path: `${trackPath}.content`,
       });
     }

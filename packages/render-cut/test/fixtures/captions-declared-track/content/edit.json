@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "sources": [{ "id": "main", "path": "main.mp4", "proxy": null }],
+  "tracks": [
+    { "id": "captions", "lane": "visual", "content": { "from": "captions.json" } },
+    {
+      "id": "overlay",
+      "lane": "visual",
+      "items": [
+        { "id": "title", "at": 0, "duration": 60, "source": { "kind": "html", "path": "title.html" } }
+      ]
+    },
+    {
+      "id": "main",
+      "lane": "visual",
+      "items": [
+        { "id": "main-01", "at": 0, "duration": 60, "source": { "kind": "media", "src": "main", "in": 0, "out": 2 } }
+      ]
+    }
+  ]
+}
