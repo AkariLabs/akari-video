@@ -5,8 +5,17 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { muxSourceAudio } from "../../osr-export/src/index.mjs";
 import { verifyFinalVideo } from "../../osr-export/src/ffprobe.mjs";
 import { resolveGpuEncoding } from "./bitrate.mjs";
+import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
 import { buildGpuReceipt } from "./receipt.mjs";
 import { launchGpuExport, resolveGpuLauncher } from "./runner.mjs";
+
+export const FALLBACK_REASONS = Object.freeze([CAPTION_MEASURE_UNSTABLE_REASON]);
+
+export function gpuRuntimeFallbackReason(error, fallbackReasons = FALLBACK_REASONS) {
+  const reasonCode = typeof error?.reasonCode === "string" ? error.reasonCode : null;
+  if (reasonCode && fallbackReasons.includes(reasonCode)) return reasonCode;
+  return null;
+}
 
 export async function exportWithGpu({
   projectRoot,
@@ -23,6 +32,7 @@ export async function exportWithGpu({
   bitrate = undefined,
   trapReadback = false,
   verifyFrames = false,
+  dumpFrames = [],
   eligibility,
   ffmpegCommand = null,
   ffprobeCommand = null,
@@ -44,6 +54,7 @@ export async function exportWithGpu({
   const launcher = suppliedLauncher ?? await launcherResolver({ env });
   if (launcher?.tier === 3) throw new Error(`GPU export unavailable: ${launcher.reason ?? "Electron unavailable"}`);
   const videoOnlyPath = `${out}.gpu-video.mp4`;
+  const runPath = join(dirname(videoOnlyPath), "run.json");
   try {
     await launcherRunner(launcher, {
       projectRoot,
@@ -59,10 +70,10 @@ export async function exportWithGpu({
       bitrate: encoding.bitrate,
       trapReadback,
       verifyFrames,
+      dumpFrames,
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
-    const runPath = join(dirname(videoOnlyPath), "run.json");
     const run = JSON.parse(await readFile(runPath, "utf8"));
     if (run.status === "unsupported" && verifyFrames) {
       const persistentRunPath = join(projectRoot, ".akari", "gpu-run.json");
@@ -119,6 +130,9 @@ export async function exportWithGpu({
         profile: soft ? "soft" : "gpu",
       }),
     };
+  } catch (error) {
+    await attachGpuFailureContext(error, runPath, projectRoot);
+    throw error;
   } finally {
     await rm(videoOnlyPath, { force: true }).catch(() => {});
   }
@@ -155,22 +169,27 @@ export async function captureFramesWithGpu({
   }
   await mkdir(outputDirectory, { recursive: true });
   const runPath = join(outputDirectory, "capture-run.json");
-  await launcherRunner(launcher, {
-    projectRoot,
-    editPath,
-    out: runPath,
-    fps,
-    width,
-    height,
-    duration,
-    frames,
-    soft,
-    quality: "high",
-    captureFrames: requestedFrames,
-    captureOutputDirectory: outputDirectory,
-    onStdout: (text) => io.log?.(text.trimEnd()),
-    onStderr: (text) => io.error?.(text.trimEnd()),
-  });
+  try {
+    await launcherRunner(launcher, {
+      projectRoot,
+      editPath,
+      out: runPath,
+      fps,
+      width,
+      height,
+      duration,
+      frames,
+      soft,
+      quality: "high",
+      captureFrames: requestedFrames,
+      captureOutputDirectory: outputDirectory,
+      onStdout: (text) => io.log?.(text.trimEnd()),
+      onStderr: (text) => io.error?.(text.trimEnd()),
+    });
+  } catch (error) {
+    await attachGpuFailureContext(error, runPath, projectRoot);
+    throw error;
+  }
   const run = JSON.parse(await readFile(runPath, "utf8"));
   if (run.status !== "completed" || run.operation !== "capture" || run.verify?.matched !== true) {
     throw new Error(`GPU capture failed verification: ${run.status ?? "unknown"}`);
@@ -242,4 +261,15 @@ function measureAvTermination(finalVerify, fps) {
     : Number.POSITIVE_INFINITY;
   const toleranceSeconds = 1 / fps;
   return { matched: deltaSeconds <= toleranceSeconds, deltaSeconds, toleranceSeconds, videoDuration, audioDuration };
+}
+
+async function attachGpuFailureContext(error, runPath, projectRoot) {
+  const run = await readFile(runPath, "utf8").then(JSON.parse).catch(() => null);
+  if (run?.status !== "failed") return;
+  const persistentRunPath = join(projectRoot, ".akari", "gpu-run-failed.json");
+  await mkdir(dirname(persistentRunPath), { recursive: true });
+  await copyFile(runPath, persistentRunPath);
+  error.reasonCode = run.reasonCode ?? gpuRuntimeFallbackReason(error);
+  error.gpuFailureRunPath = relative(projectRoot, persistentRunPath).split("\\").join("/");
+  error.gpuFailureRun = run;
 }

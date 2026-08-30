@@ -47,7 +47,7 @@ import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { prepareAlphaLayers } from "../../media-bin/src/alpha-intake.mjs";
 import { resolveCanonicalCaptionFontAsset } from "./caption-font.mjs";
 import { exportWithOsr, resolveOsrLauncher } from "../../osr-export/src/index.mjs";
-import { exportWithGpu } from "../../gpu-export/src/index.mjs";
+import { FALLBACK_REASONS, exportWithGpu, gpuRuntimeFallbackReason } from "../../gpu-export/src/index.mjs";
 import { evaluateGpuEligibility } from "../../gpu-export/src/eligibility.mjs";
 import { resolveGpuLauncher } from "../../gpu-export/src/runner.mjs";
 import {
@@ -80,6 +80,21 @@ Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 executi
 
 export class RefusalError extends Error {}
 export class ExecutionError extends Error {}
+
+export async function runGpuWithRuntimeFallback({ engineRequested, runGpu, runOsr }) {
+  try {
+    return { engine: "gpu", result: await runGpu() };
+  } catch (error) {
+    const reason = gpuRuntimeFallbackReason(error, FALLBACK_REASONS);
+    if (engineRequested !== "auto" || reason === null) throw error;
+    return {
+      engine: "osr",
+      result: await runOsr(),
+      fallback: { from: "gpu", reason },
+      gpuFailureRunPath: error?.gpuFailureRunPath ?? null,
+    };
+  }
+}
 
 export async function runCli(argv, io = console) {
   let options;
@@ -420,25 +435,48 @@ export async function renderProject(input, options = {}, io = console) {
     if (useGpu) {
       const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
       for (const warning of alphaLayers.warnings) addWarning(state, warning);
-      const gpu = await exportWithGpu({
-        projectRoot,
-        out: compositePath,
-        audioSourcePath,
-        fps: plan.preset.fps,
-        width: edit.output.width,
-        height: edit.output.height,
+      const commonV2Options = {
+        projectRoot, out: compositePath, audioSourcePath,
+        fps: plan.preset.fps, width: edit.output.width, height: edit.output.height,
         duration: plan.predicted_duration_seconds,
         frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
         quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
-        eligibility: gpuEligibility,
-        ffmpegCommand: capabilities.ffmpegCommand,
-        ffprobeCommand: capabilities.ffprobeCommand,
-        io,
-        launcher: gpuLauncher,
+        ffmpegCommand: capabilities.ffmpegCommand, ffprobeCommand: capabilities.ffprobeCommand, io,
+      };
+      const execution = await runGpuWithRuntimeFallback({
+        engineRequested,
+        runGpu: () => exportWithGpu({
+          ...commonV2Options,
+          eligibility: gpuEligibility,
+          launcher: gpuLauncher,
+        }),
+        runOsr: async () => {
+          osrLauncher = await resolveOsrLauncher();
+          if (osrLauncher?.tier === 3) {
+            throw new Error(`OSR export unavailable after GPU fallback: ${osrLauncher.reason ?? "Electron unavailable"}`);
+          }
+          return exportWithOsr({
+            ...commonV2Options,
+            encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
+            launcher: osrLauncher,
+          });
+        },
       });
-      state.provenance.gpu = gpu.receipt;
-      state.provenance.rasterizer.adopted = "gpu";
-      state.provenance.rasterizer.attempts.push({ method: "gpu", status: "adopted", reason: null });
+      if (execution.engine === "gpu") {
+        state.provenance.gpu = execution.result.receipt;
+        state.provenance.rasterizer.adopted = "gpu";
+        state.provenance.rasterizer.attempts.push({ method: "gpu", status: "adopted", reason: null });
+      } else {
+        resolvedEngine = "osr";
+        state.provenance.engine = "osr";
+        state.provenance.engine_fallback = execution.fallback;
+        if (execution.gpuFailureRunPath) state.provenance.gpu_failure_run = execution.gpuFailureRunPath;
+        state.provenance.osr = execution.result.receipt;
+        state.provenance.rasterizer.adopted = "osr";
+        state.provenance.rasterizer.attempts.push({ method: "gpu", status: "failed", reason: execution.fallback.reason });
+        state.provenance.rasterizer.attempts.push({ method: "osr", status: "adopted", reason: null });
+        addWarning(state, `GPU export failed closed; using OSR: ${execution.fallback.reason}`);
+      }
       emitProgress("composite", plan.predicted_duration_seconds);
     } else if (useOsr) {
       const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });

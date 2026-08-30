@@ -28,6 +28,7 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       captions: normalizeGpuCaptionReceiptEntries(run?.gpu?.captions),
       captionLayoutMaxDeltaPx: finiteNonNegative(run?.gpu?.captionLayoutMaxDeltaPx),
       captionMeasureAttempts: normalizeAttemptSummary(run?.gpu?.captionMeasureAttempts),
+      captionMeasureDiffs: normalizeCaptionMeasureDiffSummary(run?.gpu?.captionMeasureDiffs),
       captionRasterTotalMs: finiteNonNegative(run?.gpu?.captionRasterTotalMs),
       captionRasterBatches: normalizeBatchSummary(run?.gpu?.captionRasterBatches),
       captionStartup: normalizeCaptionStartup(run?.gpu?.captionStartup),
@@ -84,6 +85,19 @@ function normalizeBatchSummary(value) {
   return batches === null || unitsPerBatchMax === null || bandsMax === null
     ? null
     : { batches, unitsPerBatchMax, bandsMax };
+}
+
+function normalizeCaptionMeasureDiffSummary(value) {
+  if (!value || typeof value !== "object" || !Array.isArray(value.entries)) return null;
+  const totalCount = nonNegativeInteger(value.totalCount);
+  const shownCount = nonNegativeInteger(value.shownCount);
+  if (totalCount === null || shownCount === null || shownCount !== value.entries.length) return null;
+  return {
+    totalCount,
+    shownCount,
+    truncated: Boolean(value.truncated),
+    entries: value.entries.map((entry) => ({ ...entry })),
+  };
 }
 
 function normalizeCaptionStartup(value) {

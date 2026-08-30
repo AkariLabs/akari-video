@@ -60,3 +60,15 @@ test("GPU capture readback is isolated from export and delegates to frame-engine
   assert.doesNotMatch(runtime, /\.readPixels\s*\(/u);
   assert.match(readback, /FE\.readbackFrame/u);
 });
+
+test("GPU dump readback is verification-only and immediately precedes encoder input", async () => {
+  const runtime = await readFile(new URL("../src/page-runtime.js", import.meta.url), "utf8");
+  const dumpBranch = runtime.slice(
+    runtime.indexOf("if (dumpFrameNumbers.has(frameNumber))"),
+    runtime.indexOf("stages.encode.push", runtime.indexOf("if (dumpFrameNumbers.has(frameNumber))")),
+  );
+  assert.match(dumpBranch, /captureFrame\(FE, frame, finalCanvas\)/u);
+  assert.match(dumpBranch, /bridge\.writeDumpFrame/u);
+  assert.ok(dumpBranch.indexOf("writeDumpFrame") < dumpBranch.indexOf("encoder.encode"));
+  assert.match(runtime, /if \(config\.verifyFrames \|\| captureMode \|\| dumpFrameNumbers\.size > 0\)/u);
+});

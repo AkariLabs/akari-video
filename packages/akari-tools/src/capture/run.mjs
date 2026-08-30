@@ -2,7 +2,7 @@ import { readFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { captureFramesWithGpu } from "../../../gpu-export/src/index.mjs";
+import { FALLBACK_REASONS, captureFramesWithGpu, gpuRuntimeFallbackReason } from "../../../gpu-export/src/index.mjs";
 import { evaluateGpuEligibility } from "../../../gpu-export/src/eligibility.mjs";
 import { resolveGpuLauncher } from "../../../gpu-export/src/runner.mjs";
 import { resolveFfmpeg } from "../../../media-bin/src/index.mjs";
@@ -107,7 +107,7 @@ export async function runCapture(argv, options = {}) {
       : null;
     const initialEngine = resolveEngineChoice(parsed.engine, process.platform, gpuEligibility);
     assertCaptureEngineParity(initialEngine, state.provenance);
-    const engine = await resolveCaptureEngine({
+    let engine = await resolveCaptureEngine({
       requested: parsed.engine,
       platform: process.platform,
       eligibility: gpuEligibility,
@@ -118,48 +118,47 @@ export async function runCapture(argv, options = {}) {
     const fullFrames = [];
     let engineReceipt;
 
-    if (engine.resolved === "osr") {
-      const captured = await captureFramesWithOsr({
+    if (engine.resolved === "osr" || engine.resolved === "gpu") {
+      const commonCaptureOptions = {
         projectRoot,
         editPath: parsed.edit,
-        outputDirectory: join(work, "osr-frames"),
         frameNumbers,
         fps,
         width: edit.output.width,
         height: edit.output.height,
         duration,
         frames: totalFrames,
-        launcher: engine.launcher,
-        launcherRunner: options.osrLauncherRunner,
         io: { log() {}, error: options.warn ?? ((line) => console.error(line)) },
+      };
+      const execution = await runCaptureV2WithRuntimeFallback({
+        requested: parsed.engine,
+        engine,
+        runGpu: () => captureFramesWithGpu({
+          ...commonCaptureOptions,
+          outputDirectory: join(work, "gpu-frames"),
+          eligibility: gpuEligibility,
+          launcher: engine.launcher,
+          launcherRunner: options.gpuLauncherRunner,
+        }),
+        runOsr: async () => {
+          const launcher = engine.resolved === "osr"
+            ? engine.launcher
+            : await (options.resolveOsrLauncher ?? resolveOsrLauncher)();
+          if (launcher?.tier === 3) {
+            throw new Error(`OSR capture unavailable: ${launcher.reason ?? "Electron unavailable"}`);
+          }
+          const captured = await captureFramesWithOsr({
+            ...commonCaptureOptions,
+            outputDirectory: join(work, "osr-frames"),
+            launcher,
+            launcherRunner: options.osrLauncherRunner,
+          });
+          if (captured.fellBackToLegacy) throw new Error("OSR launcher changed after engine resolution");
+          return { captured, launcher };
+        },
       });
-      if (captured.fellBackToLegacy) throw new Error("OSR launcher changed after engine resolution");
-      engineReceipt = captured.receipt;
-      const outputs = new Map(captured.run.outputs.map((entry) => [entry.frameNumber, entry.path]));
-      for (const [index, frameNumber] of frameNumbers.entries()) {
-        fullFrames.push({
-          path: outputs.get(frameNumber),
-          timeS: times[index],
-          timecode: timecodeFor(times[index], fps),
-          frameNumber,
-        });
-      }
-    } else if (engine.resolved === "gpu") {
-      const captured = await captureFramesWithGpu({
-        projectRoot,
-        editPath: parsed.edit,
-        outputDirectory: join(work, "gpu-frames"),
-        frameNumbers,
-        fps,
-        width: edit.output.width,
-        height: edit.output.height,
-        duration,
-        frames: totalFrames,
-        eligibility: gpuEligibility,
-        launcher: engine.launcher,
-        launcherRunner: options.gpuLauncherRunner,
-        io: { log() {}, error: options.warn ?? ((line) => console.error(line)) },
-      });
+      engine = execution.engine;
+      const captured = execution.result.captured ?? execution.result;
       engineReceipt = captured.receipt;
       const outputs = new Map(captured.run.outputs.map((entry) => [entry.frameNumber, entry.path]));
       for (const [index, frameNumber] of frameNumbers.entries()) {
@@ -333,12 +332,37 @@ export async function resolveCaptureEngine({
   return { requested, resolved, ...(fallback ? { fallback } : {}), launcher };
 }
 
-export function assertCaptureEngineParity(resolvedEngine, renderProvenance) {
-  if (renderProvenance?.engine !== resolvedEngine) {
-    throw new Error(
-      `capture engine resolution drifted from render-cut: ${resolvedEngine} != ${renderProvenance?.engine ?? "missing"}`,
-    );
+export async function runCaptureV2WithRuntimeFallback({ requested, engine, runGpu, runOsr }) {
+  if (engine.resolved === "osr") {
+    return { engine, result: await runOsr() };
   }
+  try {
+    return { engine, result: await runGpu() };
+  } catch (error) {
+    const reason = gpuRuntimeFallbackReason(error, FALLBACK_REASONS);
+    if (requested !== "auto" || reason === null) throw error;
+    const result = await runOsr();
+    return {
+      engine: {
+        requested,
+        resolved: "osr",
+        fallback: { from: "gpu", reason },
+        launcher: result.launcher ?? null,
+      },
+      result,
+    };
+  }
+}
+
+export function assertCaptureEngineParity(resolvedEngine, renderProvenance) {
+  // render-cut records the engine it finished on. When it fell back (launcher tier 3 or a closed
+  // runtime reason code) the recorded engine is the fallback target while capture still resolves the
+  // engine render-cut started from, so accept that pair too and let capture re-derive the fallback.
+  if (renderProvenance?.engine === resolvedEngine) return;
+  if (renderProvenance?.engine_fallback?.from === resolvedEngine) return;
+  throw new Error(
+    `capture engine resolution drifted from render-cut: ${resolvedEngine} != ${renderProvenance?.engine ?? "missing"}`,
+  );
 }
 
 export function unionOnFrameGrid(times, fps, duration, { onWarning } = {}) {
