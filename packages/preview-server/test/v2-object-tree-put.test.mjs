@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { copyFile, cp, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { copyFile, cp, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -18,6 +18,7 @@ test('射影差分の純粋な適用は Project API 保存後も v2 専用フィ
   const projectRoot = await mkdtemp(path.join(tmpdir(), 'akari-preview-v2-apply-'));
   try {
     await cp(fixtureRoot, projectRoot, { recursive: true });
+    await mkdir(path.join(projectRoot, 'assets'), { recursive: true });
     await copyFile(sourceMedia, path.join(projectRoot, 'assets', 'source.mp4'));
     const before = JSON.parse(await readFile(path.join(projectRoot, 'edit.json'), 'utf8'));
     const project = await openProject(projectRoot);
@@ -57,6 +58,7 @@ test('projection PUT は v2 木を保持し、cut/layer/overlay と captions だ
   let child;
   try {
     await cp(fixtureRoot, project, { recursive: true });
+    await mkdir(path.join(project, 'assets'), { recursive: true });
     await copyFile(sourceMedia, path.join(project, 'assets', 'source.mp4'));
     const beforeText = await readFile(path.join(project, 'edit.json'), 'utf8');
     const before = JSON.parse(beforeText);
