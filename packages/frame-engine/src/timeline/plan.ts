@@ -82,8 +82,9 @@ export interface ResolvedTimelinePlan {
  * track ref を配列順に採番するため、番号が大きいトラックほど前面に置く。edit-store の
  * buildTimelineMap 既定（-track = 番号が小さいほど前面）は逆向きで、GPU / OSR の書き出しが
  * 2 本目以降の visual トラックの映像クリップを無言で落としていた（issue #31）。シェルの
- * プレビューは同じ向きを明示しており（akari-preview-open-handler.ts）、呼び出し側が options.trackZ を
- * 渡せば従来どおりそちらが優先される。
+ * タイムライン UI（akari-preview-open-handler.ts の buildTimelineMap 直呼び）は同じ向きを明示しており、
+ * frame-engine へ cuts を渡す 4 消費者（gpu / osr / preview-server / シェルのプレビュー）は本既定に依る。
+ * 呼び出し側が options.trackZ を渡せば従来どおりそちらが優先される。
  */
 const DEFAULT_TRACK_Z = (track: number): number => track;
 

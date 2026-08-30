@@ -39,7 +39,9 @@ frame-engine のメイン時間軸（cuts）は静止画ソース（edit-store �
 トラックの映像クリップは `at` / `track` を保持して絶対配置し、番号が大きいトラックが前面（v2 の `tracks[]` 配列順）。
 track 0 は従来どおり連結チェーン（freeze で伸び、トランジション重なりは宣言から再計算）のまま
 （2026-08-31・issue #31。それまでは GPU / OSR の runtime が導出 `at` / `track` を全 cut から外していたため、
-上段のクリップが直列に連結されて出力尺の外へ押し出され、PASS のまま絵が消えていた）。
+上段のクリップが直列に連結されて出力尺の外へ押し出され、PASS のまま絵が消えていた）。同じ規則を
+frame-engine へ cuts を渡す残り 2 面（preview-server の Web UI プレビュー・シェルのプレビュー）にも適用し、
+プレビューと書き出しが同じ絵を出す（preview parity。シェルは `renderTrack` の最小値を最下段とみなす）。
 
 字幕は cue ごとに rasterize し、出現・loop・消失を解析的な opacity と中心基準 affine 変換で
 再現する。v2 では `words[]` を持つ karaoke、pop、reveal、reveal-word と `emphasis_words` も
@@ -249,7 +251,9 @@ GPU 出口だけに `--enable-features=CanvasDrawElement`、`--disable-gpu-vsync
   将来はこの粒度まで緩和できる余地があるが、v1 では緩和しない。
   **例外（2026-08-31・issue #34）**: Z 成分がリテラル 0 の `translateZ(0)` / `translate3d(x, y, 0)` は
   2D の `translate` と描画結果が同一（実測: 静的スプライトで全コマ YMAX=0）なので検出しない。
-  Z が 0 以外、引数が 3 個でない、`var()` / `calc()` 等でリテラルとして読めない場合は従来どおり `degraded`。
+  Z が 0 以外、引数の個数が違う、Z が `var()` / `calc()` 等でリテラルとして読めない場合は従来どおり `degraded`。
+  引数の切り出しは括弧の入れ子を数えるので、`translate3d(var(--x), calc(1px + 2px), 0)` のように X / Y が
+  CSS 変数・calc 駆動でも Z のリテラル 0 を読める（オーバーレイ規約は調整値を CSS 変数に出すため自然に現れる形）。
 - `requestAnimationFrame`、`setTimeout`、`setInterval`、`Date.now`、`performance.now` で自走する時計。
 - `video`、`audio`、canvas/宣言型 3D 以外の runtime、JSON 以外の script。
 - 絶対 URL と外部 font/image/background resource。`background(-image)` の `url(` 走査は宣言の区切り

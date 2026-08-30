@@ -183,6 +183,8 @@ test("flat translate3d/translateZ and same-document url(#) references stay eligi
     ["translate3d-zero-px", "<style>.x{transform:translate3d(1px, 2px, 0px)}</style>"],
     ["translate3d-negative-zero", "<style>.x{transform:translate3d(1px,2px,-0.0em)}</style>"],
     ["translateZ-zero", "<style>.x{transform:translateZ(0)}</style>"],
+    ["translate3d-var-xy", "<style>.x{transform:translate3d(var(--x, 10px), var(--y), 0)}</style>"],
+    ["translate3d-calc-x", "<style>.x{transform:translate3d(calc(1px + 2px), 0, 0px)}</style>"],
     ["fragment-url", "<style>.x{background:url(#grad)}</style>"],
     ["inline-no-semicolon", '<span style="background: var(--tsukui, #F2B441)"></span>'
       + '<svg><defs><linearGradient id="land"></linearGradient></defs><path fill="url(#land)"/></svg>'],
@@ -192,10 +194,18 @@ test("flat translate3d/translateZ and same-document url(#) references stay eligi
     assert.equal(result.entries[0].classification, "same", html);
     assert.deepEqual(result.entries[0].conditions, [], html);
   }
+  // 入場アニメーションの keyframes 内の flat translate3d は DOM 層のまま（3D 条件が付かない）
+  const keyframes = evaluate([{ id: "keyframes", html: "<style>@keyframes a{from{transform:translate3d(0,0,0)}to{transform:TRANSLATE3D(0, -20px, 0)}}</style>" }]);
+  assert.equal(keyframes.entries[0].classification, "dom");
+  assert.deepEqual(keyframes.entries[0].conditions, ["animation-timing"]);
   const degraded = [
     ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px,3px)}</style>"],
     ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px,var(--z))}</style>"],
     ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px)}</style>"],
+    ["css-3d-transform", "<style>.x{transform:translate3d(var(--x), 0, var(--z))}</style>"],
+    ["css-3d-transform", "<style>.x{transform:translate3d(calc(1px + 2px), 0, calc(0px + 1px))}</style>"],
+    ["css-3d-transform", "<style>.x{transform:translateZ(var(--z, 0))}</style>"],
+    ["css-3d-transform", "<style>.x{transform:translate3d(1px, 2px, 0</style>"],
     ["css-3d-transform", "<style>.x{transform:translateZ(2px)}</style>"],
     ["background-image-external-resource", "<style>.x{background-image: url(foo.png)}</style>"],
     ["background-image-external-resource", "<div style=\"background: url('assets/bg.png')\"></div>"],

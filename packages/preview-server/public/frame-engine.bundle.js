@@ -22576,8 +22576,11 @@ function normalizedCuts(edit) {
   const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
   return cuts.map((cut, index) => {
     const { at: _derivedAt, track: _derivedTrack, ...sequential } = cut;
+    const track = Number.isInteger(cut.track) && cut.track > 0 ? Number(cut.track) : 0;
+    const placement = track > 0 ? { track, ...Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {} } : {};
     return {
       ...sequential,
+      ...placement,
       src: cut.src ?? (Array.isArray(edit?.sources) ? edit.sources[0]?.id : "default"),
       in: Number(cut.in ?? 0),
       out: Number(cut.out ?? cut.in ?? 0),

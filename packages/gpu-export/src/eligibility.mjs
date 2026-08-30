@@ -7,22 +7,47 @@ export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 // 同一なので不適格にしない（issue #34。GPU レイヤー化の定石として広く使われる）。Z が 0 以外、
 // または値がリテラルで読めない（var() / calc() 等）ときだけ 3D とみなす。
 const CSS_3D_TRANSFORM_PATTERN = /perspective\s*:|perspective\s*\(|transform-style\s*:\s*preserve-3d|rotateX\s*\(|rotateY\s*\(|rotate3d\s*\(|matrix3d\s*\(/iu;
-const TRANSLATE_Z_PATTERN = /translateZ\s*\(([^)]*)\)/giu;
-const TRANSLATE_3D_PATTERN = /translate3d\s*\(([^)]*)\)/giu;
+const TRANSLATE_FUNCTION_PATTERN = /\b(translateZ|translate3d)\s*\(/giu;
 const ZERO_LENGTH_PATTERN = /^[+-]?(?:0+(?:\.0*)?|\.0+)(?:[a-z]+|%)?$/iu;
 
 function isZeroLength(value) {
   return ZERO_LENGTH_PATTERN.test(String(value ?? "").trim());
 }
 
+/**
+ * `name(` の直後から対応する `)` までを、入れ子の括弧（`var()` / `calc()` 等）を数えながら切り出し、
+ * 最上位のカンマで引数へ分ける。`translate3d(var(--x), var(--y), 0)` のように X / Y が CSS 変数駆動でも
+ * Z のリテラル 0 を読めるようにする（オーバーレイ規約は調整値を CSS 変数に出すので自然に現れる形）。
+ * 閉じ括弧が見つからなければ null（= 読めないので 3D 扱い）。
+ */
+function readTopLevelArguments(html, openIndex) {
+  const parts = [];
+  let depth = 0;
+  let start = openIndex;
+  for (let index = openIndex; index < html.length; index += 1) {
+    const character = html[index];
+    if (character === "(") depth += 1;
+    else if (character === ")") {
+      if (depth === 0) {
+        parts.push(html.slice(start, index));
+        return parts;
+      }
+      depth -= 1;
+    } else if (character === "," && depth === 0) {
+      parts.push(html.slice(start, index));
+      start = index + 1;
+    }
+  }
+  return null;
+}
+
 function hasDepthTransform(html) {
   if (CSS_3D_TRANSFORM_PATTERN.test(html)) return true;
-  for (const match of html.matchAll(TRANSLATE_Z_PATTERN)) {
-    if (!isZeroLength(match[1])) return true;
-  }
-  for (const match of html.matchAll(TRANSLATE_3D_PATTERN)) {
-    const parts = match[1].split(",");
-    if (parts.length !== 3 || !isZeroLength(parts[2])) return true;
+  for (const match of html.matchAll(TRANSLATE_FUNCTION_PATTERN)) {
+    const parts = readTopLevelArguments(html, match.index + match[0].length);
+    if (parts === null) return true;
+    const expectedArity = match[1].toLowerCase() === "translatez" ? 1 : 3;
+    if (parts.length !== expectedArity || !isZeroLength(parts[parts.length - 1])) return true;
   }
   return false;
 }

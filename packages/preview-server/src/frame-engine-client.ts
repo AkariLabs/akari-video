@@ -151,12 +151,20 @@ function audioDeclarations(edit: any): Array<{
 function normalizedCuts(edit: any): FrameEngineCut[] {
   const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
   return cuts.map((cut: any, index: number) => {
-    // The v0 frame-engine timeline is the sequential cuts path. Renderer projection includes
-    // derived at/track fields even for that path; remove them so freeze can extend the timeline
-    // and transition overlap is recomputed from the declared transition itself.
+    // Track 0 (the main cuts chain) stays on the sequential frame-engine timeline: renderer
+    // projection includes derived at/track fields even for that path; remove them so freeze can
+    // extend the timeline and transition overlap is recomputed from the declared transition itself.
+    // Cuts on upper visual tracks (track >= 1) keep at/track so they are placed absolutely; stripping
+    // them chained the clip after the main track and silently dropped it past the end (issue #31).
+    // Z order is the frame-engine default (higher track number in front), same as the export runtimes.
     const { at: _derivedAt, track: _derivedTrack, ...sequential } = cut;
+    const track = Number.isInteger(cut.track) && cut.track > 0 ? Number(cut.track) : 0;
+    const placement = track > 0
+      ? { track, ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {}) }
+      : {};
     return {
       ...sequential,
+      ...placement,
       src: cut.src ?? (Array.isArray(edit?.sources) ? edit.sources[0]?.id : 'default'),
       in: Number(cut.in ?? 0),
       out: Number(cut.out ?? cut.in ?? 0),
