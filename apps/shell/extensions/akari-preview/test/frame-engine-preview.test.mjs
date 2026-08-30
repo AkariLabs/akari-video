@@ -19,6 +19,10 @@ const compiledFrontendModule = readFileSync(
     join(extensionRoot, 'lib', 'browser', 'akari-preview-frontend-module.js'),
     'utf8'
 );
+const sourceHandler = readFileSync(
+    join(extensionRoot, 'src', 'browser', 'akari-preview-open-handler.ts'),
+    'utf8'
+);
 const generatedBundle = join(extensionRoot, 'generated', 'frame-engine.js');
 
 // webview 内で実行する文字列は tsc の構文検査外なので、compiled lib のテンプレートを
@@ -150,6 +154,11 @@ test('glue は宣言された source 種別で frame source registry を構築�
     assert.doesNotMatch(bootstrap, /\\\.\(png\|jpe\?g\|webp\|bmp\|gif\)/);
     assert.match(bootstrap, /const sources = new Map\(\[\.\.\.lookahead, \.\.\.images\]\)/);
     assert.match(bootstrap, /for \(const image of images\.values\(\)\) image\.destroy\(\)/);
+});
+
+test('glue は src の無い layer を frame-engine 評価前に fail-open で除外する', () => {
+    assert.match(sourceHandler, /filterRenderableFrameEngineLayers\.toString\(\)/u);
+    assert.match(sourceHandler, /filterRenderableFrameEngineLayersFn\([\s\S]*?summary\.layers/u);
 });
 
 test('glue は LUT を parseCube して output.look へ渡し、失敗時は描画を継続する', () => {
