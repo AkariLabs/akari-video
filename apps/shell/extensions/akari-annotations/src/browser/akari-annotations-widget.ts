@@ -30,6 +30,7 @@ import {
     WriteBackResult
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
+import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../common/edit-load-failure';
 import { filmstripChunkIndexFor, waveformBucketForLocalPx } from '../common/filmstrip-geometry';
 import {
     CaptionRecord,
@@ -3755,7 +3756,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 const diskSource = (await this.fileService.readFile(this.location.editUri)).value.toString();
                 const source = await this.resolveLegacyEditForOpen(diskSource);
                 if (!source) {
-                    throw new Error('古い edit.json を読み取り専用で開けません。');
+                    throw new ReportedEditLoadFailure('古い edit.json を読み取り専用で開けません。');
                 }
                 // 版を知るのはここ（読み込み層）だけ。以降は内部表現（tracks[].items[]）と
                 // その射影しか見ない。
@@ -3831,8 +3832,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (view.warnings.length > 0) {
                     this.showWarnings(view.warnings);
                 }
-            } catch {
-                // A missing or unreadable edit.json means no clips or overlays are drawn.
+            } catch (error) {
+                const failure = classifyEditLoadFailure(error);
+                if (failure.kind === 'invalid') {
+                    this.showNotice(failure.notice);
+                    console.error('[akari-annotations] edit.json を読み込めませんでした', error);
+                }
             }
         }
         this.rebuildSegments();
