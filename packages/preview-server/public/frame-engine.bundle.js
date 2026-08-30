@@ -3191,8 +3191,13 @@ var require_caption_display = __commonJS({
       const horizontal = anchor ? anchor[1] : "c";
       if (typeof position?.y === "number" && Number.isFinite(position.y)) {
         const clamped = Math.min(1, Math.max(0, position.y));
-        vars["--caption-top"] = `${Math.round(clamped * 1e4) / 100}%`;
-        vars["--caption-bottom"] = "auto";
+        if ((anchor || verticalAlign) && vertical === "b") {
+          vars["--caption-top"] = "auto";
+          vars["--caption-bottom"] = `${Math.round((1 - clamped) * 1e4) / 100}%`;
+        } else {
+          vars["--caption-top"] = `${Math.round(clamped * 1e4) / 100}%`;
+          vars["--caption-bottom"] = "auto";
+        }
       } else if (anchor || verticalAlign) {
         vars["--caption-top"] = vertical === "t" ? "7%" : vertical === "m" ? "0" : "auto";
         vars["--caption-bottom"] = vertical === "b" ? "7%" : vertical === "m" ? "0" : "auto";
