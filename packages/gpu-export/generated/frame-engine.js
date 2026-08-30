@@ -13263,6 +13263,7 @@ ${indent}`);
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
     copyNativeYuvFrame: () => copyNativeYuvFrame,
     cornersToHomography: () => cornersToHomography,
+    createDecoderErrorGuard: () => createDecoderErrorGuard,
     createPreviewAudioSupply: () => createPreviewAudioSupply,
     createPreviewScheduler: () => createPreviewScheduler,
     cubicBezierAt: () => cubicBezierAt,
@@ -13289,6 +13290,7 @@ ${indent}`);
     presentationFrameTiming: () => presentationFrameTiming,
     probeSourceCodec: () => probeSourceCodec,
     projectSpeechDeclarations: () => projectSpeechDeclarations2,
+    readDeclaredAcceleration: () => readDeclaredAcceleration,
     readVideoCodecFromMoov: () => readVideoCodecFromMoov,
     readbackFrame: () => readbackFrame,
     resetCodecProbeCache: () => resetCodecProbeCache,
@@ -17681,29 +17683,72 @@ void main() {
     }
   }
   var DECODER_ERROR = /Unsupported configuration|AudioDecoder err|VideoDecoder err|VideoFinder VideoDecoder|decode.*error/i;
+  var DECLARED_ACCELERATION = /"hardwareAcceleration"\s*:\s*"([^"]+)"/;
   function isDecoderErrorMessage(value) {
     const message = value instanceof Error ? `${value.name}: ${value.message}` : String(value);
     return DECODER_ERROR.test(message);
   }
-  function watchDecoderErrors(onDetect) {
+  function readDeclaredAcceleration(message) {
+    const value = DECLARED_ACCELERATION.exec(message)?.[1];
+    return value === "prefer-hardware" || value === "prefer-software" || value === "no-preference" ? value : null;
+  }
+  function watchDecoderErrors(onDetect, options = {}) {
     if (typeof window === "undefined") return () => void 0;
-    const onError = (event) => {
-      const message = event.message || String(event.error ?? event);
+    const detect = (message, event) => {
       if (!isDecoderErrorMessage(message)) return;
+      const declared = readDeclaredAcceleration(message);
+      if (options.acceleration && declared && declared !== options.acceleration) return;
       event.preventDefault();
       onDetect(message);
     };
+    const onError = (event) => {
+      const message = event.message || String(event.error ?? event);
+      detect(message, event);
+    };
     const onRejection = (event) => {
       const message = event.reason?.message ? String(event.reason.message) : String(event.reason);
-      if (!isDecoderErrorMessage(message)) return;
-      event.preventDefault();
-      onDetect(message);
+      detect(message, event);
     };
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);
     return () => {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }
+  function createDecoderErrorGuard(options = {}) {
+    let firstMessage = null;
+    let timer;
+    let stopped = false;
+    let rejectFailure = null;
+    const failure = new Promise((_resolve, reject) => {
+      rejectFailure = reject;
+    });
+    failure.catch(() => void 0);
+    const stopWatching = watchDecoderErrors((message) => {
+      if (stopped || firstMessage != null) return;
+      firstMessage = message;
+      options.onDetect?.(message);
+      timer = setTimeout(() => {
+        timer = void 0;
+        if (stopped) return;
+        rejectFailure?.(
+          (options.createError ?? ((value) => new Error(`decoder error: ${value}`)))(message)
+        );
+      }, options.graceMs ?? 1e3);
+    }, { acceleration: options.acceleration });
+    return {
+      failure,
+      observed: () => firstMessage,
+      stop() {
+        if (stopped) return;
+        stopped = true;
+        stopWatching();
+        if (timer) {
+          clearTimeout(timer);
+          timer = void 0;
+        }
+      }
     };
   }
 
@@ -17873,6 +17918,7 @@ void main() {
       this.label = options.label ?? url;
     }
     sourceBlob = null;
+    pendingFill = null;
     sourceBytesTotal = null;
     fetchCount = 0;
     retainDisabled = false;
@@ -17898,6 +17944,10 @@ void main() {
           progress: () => this.progressBytes
         };
       }
+      if (this.pendingFill) {
+        await this.pendingFill;
+        return this.open();
+      }
       if (this.openedNetworkSource) {
         if (!this.retainDisabled || this.overflowRefetchUsed) {
           this.onWarning?.(
@@ -17914,6 +17964,19 @@ void main() {
         }
       }
       this.openedNetworkSource = true;
+      let opened = null;
+      this.pendingFill = this.fillSource().then((value) => {
+        opened = value;
+      });
+      try {
+        await this.pendingFill;
+        if (!opened) throw new Error(`${this.label}: source fill completed without bytes`);
+        return opened;
+      } finally {
+        this.pendingFill = null;
+      }
+    }
+    async fillSource() {
       this.fetchCount += 1;
       const response = await this.fetchImpl(this.url);
       if (!response.ok || !response.body) throw new Error(`fetch failed: ${response.status}`);
@@ -17958,6 +18021,11 @@ void main() {
         reader.releaseLock();
       }
       this.sourceBytesTotal ??= retainedBytes;
+      if (this.sourceBytesTotal !== retainedBytes) {
+        const message = `${this.label}: source body length ${retainedBytes} B does not match content-length ${this.sourceBytesTotal} B`;
+        this.onWarning?.(message);
+        throw new Error(message);
+      }
       if (!this.retainDisabled) this.sourceBlob = new Blob(chunks);
       return {
         stream: this.sourceBlob ? measuredStream(this.sourceBlob.stream(), (bytes) => {
@@ -18029,6 +18097,7 @@ void main() {
     lastFrameStartUs = null;
     decoderTimestampOffsetUs = 0;
     lastTickTargetUs = null;
+    activeAcceleration;
     coverage = new DecodedFrameCoverageCache();
     loadPromise = null;
     preparePromise = null;
@@ -18053,6 +18122,7 @@ void main() {
         loadStallMs: options.loadStallMs ?? 5e3,
         loadBytesPerSecond: options.loadBytesPerSecond ?? DEFAULT_LOAD_BYTES_PER_SECOND,
         tickTimeoutMs: options.tickTimeoutMs ?? 1e4,
+        decoderErrorGraceMs: options.decoderErrorGraceMs ?? 1e3,
         hardwareAcceleration: options.hardwareAcceleration,
         codecSupport: options.codecSupport,
         onWarning: options.onWarning,
@@ -18128,12 +18198,10 @@ void main() {
           attemptedAccelerations.push(attempt.hardwareAcceleration);
           let candidate = null;
           try {
-            let rejectDecoder = null;
-            const decoderError = new Promise((_resolve, reject) => {
-              rejectDecoder = (message) => reject(new Error(`decoder error: ${message}`));
+            const guard = createDecoderErrorGuard({
+              acceleration: attempt.hardwareAcceleration,
+              graceMs: this.options.decoderErrorGraceMs
             });
-            decoderError.catch(() => void 0);
-            const stopWatching = watchDecoderErrors((message) => rejectDecoder?.(message));
             let usedPrepared = false;
             try {
               if (attempt.hardwareAcceleration === (this.options.hardwareAcceleration ?? "prefer-hardware")) {
@@ -18153,7 +18221,7 @@ void main() {
                   __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
                 });
                 await this.waitForReady(
-                  Promise.race([candidate.ready, decoderError]),
+                  Promise.race([candidate.ready, guard.failure]),
                   source,
                   `ready ${this.id}`
                 );
@@ -18163,17 +18231,22 @@ void main() {
               }
               const primeTarget = this.toDecoderTime(0);
               const rawPrimed = await withTimeout(
-                Promise.race([candidate.tick(primeTarget), decoderError]),
+                Promise.race([candidate.tick(primeTarget), guard.failure]),
                 this.options.tickTimeoutMs,
                 `prime ${this.id}`
               );
               const primed = this.normalizeTickResult(rawPrimed);
+              if (!primed.video) {
+                const observed = guard.observed();
+                if (observed) throw new Error(`decoder error: ${observed}`);
+              }
               this.lastTickTargetUs = primeTarget;
               if (primed.video) this.coverage.adopt(primed.video);
             } finally {
-              stopWatching();
+              guard.stop();
             }
             this.clip = candidate;
+            this.activeAcceleration = attempt.hardwareAcceleration;
             this.meta = {
               ...candidate.meta,
               duration: this.keyframes?.presentationDurationUs ?? Math.max(0, candidate.meta.duration - this.decoderTimestampOffsetUs)
@@ -18287,6 +18360,7 @@ void main() {
           duration: this.keyframes?.presentationDurationUs ?? Math.max(0, this.clip.meta.duration - this.decoderTimestampOffsetUs)
         };
         this.state = this.options.hardwareAcceleration === "prefer-software" ? "degraded" : "ready";
+        this.activeAcceleration = this.options.hardwareAcceleration ?? "prefer-hardware";
         this.lastTickTargetUs = null;
         this.loadPromise = Promise.resolve();
         return;
@@ -18357,6 +18431,7 @@ void main() {
       fork.clip = await this.clip.clone();
       fork.meta = { ...this.meta };
       fork.state = this.state;
+      fork.activeAcceleration = this.activeAcceleration;
       fork.keyframes = this.keyframes;
       fork.lastFrameStartUs = this.lastFrameStartUs;
       fork.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
@@ -18384,6 +18459,7 @@ void main() {
       this.lastFrameStartUs = null;
       this.decoderTimestampOffsetUs = 0;
       this.lastTickTargetUs = null;
+      this.activeAcceleration = void 0;
       this.loadPromise = null;
       this.cachedHeader = null;
       this.cachedKeyframes = null;
@@ -18394,26 +18470,28 @@ void main() {
     }
     async guardedTick(target) {
       if (!this.clip) throw new Error(`clip ${this.id} is unavailable`);
-      let rejectDecoder = null;
-      const decoderError = new Promise((_resolve, reject) => {
-        rejectDecoder = (message) => reject(new DecoderGuardError(message));
-      });
-      decoderError.catch(() => void 0);
-      const stopWatching = watchDecoderErrors((message) => {
-        this.options.onWarning?.(`${this.id}: decoder runtime error: ${message}`);
-        rejectDecoder?.(message);
+      const guard = createDecoderErrorGuard({
+        acceleration: this.activeAcceleration,
+        graceMs: this.options.decoderErrorGraceMs,
+        createError: (message) => new DecoderGuardError(message),
+        onDetect: (message) => this.options.onWarning?.(`${this.id}: decoder runtime error: ${message}`)
       });
       try {
         const decoderTarget = this.toDecoderTime(target);
-        const result = await withTimeout(
-          Promise.race([this.clip.tick(decoderTarget), decoderError]),
+        const rawResult = await withTimeout(
+          Promise.race([this.clip.tick(decoderTarget), guard.failure]),
           this.options.tickTimeoutMs,
           `tick ${this.id}`
         );
+        const result = this.normalizeTickResult(rawResult);
+        if (!result.video) {
+          const observed = guard.observed();
+          if (observed) throw new DecoderGuardError(observed);
+        }
         this.lastTickTargetUs = decoderTarget;
-        return this.normalizeTickResult(result);
+        return result;
       } finally {
-        stopWatching();
+        guard.stop();
       }
     }
     async guardedExactTick(target) {
@@ -18469,6 +18547,7 @@ void main() {
       this.lastFrameStartUs = null;
       this.decoderTimestampOffsetUs = 0;
       this.lastTickTargetUs = null;
+      this.activeAcceleration = void 0;
       this.loadPromise = null;
       this.state = "idle";
       await this.load();

@@ -6,7 +6,12 @@ import {
   readVideoCodecFromMoov,
   type CodecSupport,
 } from './codec-probe.js';
-import { isDecoderErrorMessage, withProgressBudget, withTimeout, watchDecoderErrors } from './guard.js';
+import {
+  createDecoderErrorGuard,
+  isDecoderErrorMessage,
+  withProgressBudget,
+  withTimeout,
+} from './guard.js';
 import { buildKeyframeIndexFromHeader, type KeyframeIndex } from './keyframe-index.js';
 import {
   calculateLoadBudgetMs,
@@ -23,6 +28,7 @@ export interface ClipSessionOptions {
   loadBytesPerSecond?: number;
   retainBudgetBytes?: number;
   tickTimeoutMs?: number;
+  decoderErrorGraceMs?: number;
   hardwareAcceleration?: HardwarePreference;
   codecSupport?: CodecSupport | null;
   onWarning?: (message: string) => void;
@@ -92,6 +98,7 @@ export class ClipSession implements NativeFrameSource {
   private lastFrameStartUs: number | null = null;
   private decoderTimestampOffsetUs = 0;
   private lastTickTargetUs: number | null = null;
+  private activeAcceleration: HardwarePreference | undefined;
   private readonly coverage = new DecodedFrameCoverageCache();
   private loadPromise: Promise<void> | null = null;
   private preparePromise: Promise<void> | null = null;
@@ -112,6 +119,7 @@ export class ClipSession implements NativeFrameSource {
     loadStallMs: number;
     loadBytesPerSecond: number;
     tickTimeoutMs: number;
+    decoderErrorGraceMs: number;
     hardwareAcceleration?: HardwarePreference;
     codecSupport?: CodecSupport | null;
     onWarning?: (message: string) => void;
@@ -129,6 +137,7 @@ export class ClipSession implements NativeFrameSource {
       loadStallMs: options.loadStallMs ?? 5_000,
       loadBytesPerSecond: options.loadBytesPerSecond ?? DEFAULT_LOAD_BYTES_PER_SECOND,
       tickTimeoutMs: options.tickTimeoutMs ?? 10_000,
+      decoderErrorGraceMs: options.decoderErrorGraceMs ?? 1_000,
       hardwareAcceleration: options.hardwareAcceleration,
       codecSupport: options.codecSupport,
       onWarning: options.onWarning,
@@ -209,12 +218,10 @@ export class ClipSession implements NativeFrameSource {
         attemptedAccelerations.push(attempt.hardwareAcceleration);
         let candidate: MP4Clip | null = null;
         try {
-          let rejectDecoder: ((message: string) => void) | null = null;
-          const decoderError = new Promise<never>((_resolve, reject) => {
-            rejectDecoder = message => reject(new Error(`decoder error: ${message}`));
+          const guard = createDecoderErrorGuard({
+            acceleration: attempt.hardwareAcceleration,
+            graceMs: this.options.decoderErrorGraceMs,
           });
-          decoderError.catch(() => undefined);
-          const stopWatching = watchDecoderErrors(message => rejectDecoder?.(message));
           let usedPrepared = false;
           try {
             if (attempt.hardwareAcceleration === (this.options.hardwareAcceleration ?? 'prefer-hardware')) {
@@ -234,7 +241,7 @@ export class ClipSession implements NativeFrameSource {
                 __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
               });
               await this.waitForReady(
-                Promise.race([candidate.ready, decoderError]),
+                Promise.race([candidate.ready, guard.failure]),
                 source,
                 `ready ${this.id}`,
               );
@@ -244,17 +251,22 @@ export class ClipSession implements NativeFrameSource {
             }
             const primeTarget = this.toDecoderTime(0);
             const rawPrimed = await withTimeout(
-              Promise.race([candidate.tick(primeTarget), decoderError]),
+              Promise.race([candidate.tick(primeTarget), guard.failure]),
               this.options.tickTimeoutMs,
               `prime ${this.id}`
             );
             const primed = this.normalizeTickResult(rawPrimed);
+            if (!primed.video) {
+              const observed = guard.observed();
+              if (observed) throw new Error(`decoder error: ${observed}`);
+            }
             this.lastTickTargetUs = primeTarget;
             if (primed.video) this.coverage.adopt(primed.video);
           } finally {
-            stopWatching();
+            guard.stop();
           }
           this.clip = candidate;
+          this.activeAcceleration = attempt.hardwareAcceleration;
           this.meta = {
             ...candidate.meta,
             duration: this.keyframes?.presentationDurationUs
@@ -387,6 +399,7 @@ export class ClipSession implements NativeFrameSource {
           ?? Math.max(0, this.clip.meta.duration - this.decoderTimestampOffsetUs)
       };
       this.state = this.options.hardwareAcceleration === 'prefer-software' ? 'degraded' : 'ready';
+      this.activeAcceleration = this.options.hardwareAcceleration ?? 'prefer-hardware';
       this.lastTickTargetUs = null;
       this.loadPromise = Promise.resolve();
       return;
@@ -464,6 +477,7 @@ export class ClipSession implements NativeFrameSource {
     fork.clip = await this.clip.clone();
     fork.meta = { ...this.meta };
     fork.state = this.state;
+    fork.activeAcceleration = this.activeAcceleration;
     fork.keyframes = this.keyframes;
     fork.lastFrameStartUs = this.lastFrameStartUs;
     fork.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
@@ -493,6 +507,7 @@ export class ClipSession implements NativeFrameSource {
     this.lastFrameStartUs = null;
     this.decoderTimestampOffsetUs = 0;
     this.lastTickTargetUs = null;
+    this.activeAcceleration = undefined;
     this.loadPromise = null;
     this.cachedHeader = null;
     this.cachedKeyframes = null;
@@ -504,26 +519,28 @@ export class ClipSession implements NativeFrameSource {
 
   private async guardedTick(target: number): Promise<{ video?: VideoFrame }> {
     if (!this.clip) throw new Error(`clip ${this.id} is unavailable`);
-    let rejectDecoder: ((message: string) => void) | null = null;
-    const decoderError = new Promise<never>((_resolve, reject) => {
-      rejectDecoder = message => reject(new DecoderGuardError(message));
-    });
-    decoderError.catch(() => undefined);
-    const stopWatching = watchDecoderErrors(message => {
-      this.options.onWarning?.(`${this.id}: decoder runtime error: ${message}`);
-      rejectDecoder?.(message);
+    const guard = createDecoderErrorGuard({
+      acceleration: this.activeAcceleration,
+      graceMs: this.options.decoderErrorGraceMs,
+      createError: message => new DecoderGuardError(message),
+      onDetect: message => this.options.onWarning?.(`${this.id}: decoder runtime error: ${message}`),
     });
     try {
       const decoderTarget = this.toDecoderTime(target);
-      const result = await withTimeout(
-        Promise.race([this.clip.tick(decoderTarget), decoderError]),
+      const rawResult = await withTimeout(
+        Promise.race([this.clip.tick(decoderTarget), guard.failure]),
         this.options.tickTimeoutMs,
         `tick ${this.id}`
       );
+      const result = this.normalizeTickResult(rawResult);
+      if (!result.video) {
+        const observed = guard.observed();
+        if (observed) throw new DecoderGuardError(observed);
+      }
       this.lastTickTargetUs = decoderTarget;
-      return this.normalizeTickResult(result);
+      return result;
     } finally {
-      stopWatching();
+      guard.stop();
     }
   }
 
@@ -598,6 +615,7 @@ export class ClipSession implements NativeFrameSource {
     this.lastFrameStartUs = null;
     this.decoderTimestampOffsetUs = 0;
     this.lastTickTargetUs = null;
+    this.activeAcceleration = undefined;
     this.loadPromise = null;
     this.state = 'idle';
     await this.load();
