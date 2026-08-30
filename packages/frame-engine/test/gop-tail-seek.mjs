@@ -65,6 +65,13 @@ assert.equal(results.bFrameTail.rows.length, 24);
 assert.equal(results.bFrameTail.rows.every(row => row.pass), true);
 assert.equal(new Set(results.bFrameTail.rows.map(row => row.variant)).size, 4);
 assert.equal(results.bFrameTail.rows.filter(row => [357, 358, 359].includes(row.requestedFrame)).length, 12);
+assert.equal(results.endpointTail.rows.length, 24);
+assert.equal(results.endpointTail.rows.every(row => row.pass), true);
+assert.deepEqual([...new Set(results.endpointTail.rows.map(row => row.sourceMode))].sort(), ['mp4clip', 'range']);
+assert.deepEqual(
+  [...new Set(results.endpointTail.rows.map(row => row.condition))].sort(),
+  ['hardware-default', 'software'],
+);
 assert.deepEqual(Object.keys(results.performance.warm).sort(), ['head', 'middle', 'tail']);
 assert.equal(Object.values(results.performance.warm).every(position =>
   position.samples.length >= 8 && Number.isFinite(position.p50Ms) && Number.isFinite(position.p95Ms)), true);

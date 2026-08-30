@@ -6,6 +6,10 @@
 
 The cuts path supports hard cuts, speed, static crop and linearly interpolated zoom framing, cut transform/opacity, duration-extending freeze frames, and five GPU transitions (`dissolve`, `fade-black`, `fade-white`, `reveal-down`, and `reveal-up`). Freeze expansion lives in the resolved timeline layer and shifts every later sequential cut before transition overlap is resolved.
 
+## MP4 source loading
+
+The default video source reads only `ftyp`/`moov` metadata and the compressed sample byte ranges needed by the current GOP. It builds the sample index with mp4box, shares a bounded 64 MiB Range cache across decoder forks, and sends indexed AVC/HEVC chunks directly to WebCodecs. Opening a source therefore does not copy the complete asset into OPFS. Set `AKARI_FRAME_ENGINE_SOURCE=mp4clip` to retain the previous whole-stream MP4Clip path as a one-release escape hatch.
+
 ## Web preview evaluation mode
 
 Open preview-server with `?frameEngine=1` to use the frame-engine canvas. The flag is off by default; without it, the existing Web UI and its network/DOM behavior remain byte-equivalent. The engine canvas is a cuts-path evaluation surface only. Layers, overlays, captions, and audio are not rendered, and the UI always shows an unsupported-features banner rather than silently omitting them.

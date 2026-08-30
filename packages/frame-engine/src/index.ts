@@ -11,6 +11,8 @@ export * from './decode/clip-session-pool.js';
 export * from './decode/codec-probe.js';
 export * from './decode/source-selection.js';
 export * from './decode/keyframe-index.js';
+export * from './decode/sample-table.js';
+export * from './decode/range-mp4-source.js';
 export * from './decode/guard.js';
 export * from './decode/still-image.js';
 export * from './cache/lookahead-cache.js';

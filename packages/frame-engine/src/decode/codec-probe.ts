@@ -200,6 +200,7 @@ export function evaluateCodecSupport(
         codec,
         ...(init.codedWidth ? { codedWidth: init.codedWidth } : {}),
         ...(init.codedHeight ? { codedHeight: init.codedHeight } : {}),
+        ...(init.description ? { description: init.description } : {}),
       };
       const [rawHw, sw, rawAny] = await Promise.all([
         configSupported({ ...base, hardwareAcceleration: 'prefer-hardware' }),
@@ -256,7 +257,9 @@ function responseTotal(response: Response): number | null {
   const contentRange = response.headers.get('content-range');
   const match = contentRange?.match(/\/(\d+)$/u);
   if (match) return Number(match[1]);
-  const contentLength = Number(response.headers.get('content-length'));
+  const rawContentLength = response.headers.get('content-length');
+  if (rawContentLength == null || rawContentLength.trim() === '') return null;
+  const contentLength = Number(rawContentLength);
   return Number.isFinite(contentLength) && contentLength >= 0 ? contentLength : null;
 }
 

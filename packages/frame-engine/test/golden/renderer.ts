@@ -1,5 +1,5 @@
 import './decoder-instrumentation.js';
-import { inspectBFrameAccess, inspectBFrameTailAccess } from './b-frame.js';
+import { inspectBFrameAccess, inspectBFrameTailAccess, inspectEndpointTailAccess } from './b-frame.js';
 import { inspectGopTailGolden } from './gop-tail.js';
 import {
   BufferedRawFrameSink,
@@ -1733,6 +1733,7 @@ async function run(): Promise<void> {
   });
   const bFrame = await inspectBFrameAccess(SOURCE_URL, 'sampled');
   const bFrameTail = await inspectBFrameTailAccess(SOURCE_URL);
+  const endpointTail = await inspectEndpointTailAccess(SOURCE_URL);
   const metricJson = metrics.toJSON();
   const semanticPlans = Object.fromEntries(
     SAMPLE_POINTS.map(([label, timeUs]) => {
@@ -1912,6 +1913,7 @@ async function run(): Promise<void> {
     gopTail.pass &&
     bFrame.pass &&
     bFrameTail.pass &&
+    endpointTail.pass &&
     compositor.uploadPath === REQUESTED_UPLOAD_PATH;
 
   session.destroy();
@@ -1973,6 +1975,7 @@ async function run(): Promise<void> {
     gopTail,
     bFrame,
     bFrameTail,
+    endpointTail,
     metrics: metricJson,
     warnings,
   });

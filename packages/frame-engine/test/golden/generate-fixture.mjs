@@ -33,6 +33,10 @@ const bFrameTailFixtures = [
   { name: 'bframe-tail-bf2-30-aac.mp4', bFrames: 2, hasAudio: true },
   { name: 'bframe-tail-bf0-30-aac.mp4', bFrames: 0, hasAudio: true },
 ].map(spec => ({ ...spec, path: resolve(directory, '.generated', spec.name) }));
+const endpointFixtures = [
+  { name: 'endpoint-bf0-24.mp4', bFrames: 0 },
+  { name: 'endpoint-bf2-24.mp4', bFrames: 2 },
+].map(spec => ({ ...spec, path: resolve(directory, '.generated', spec.name) }));
 const MP4Box = MP4BoxNamespace.default ?? MP4BoxNamespace;
 mkdirSync(dirname(output), { recursive: true });
 
@@ -443,6 +447,32 @@ async function bFrameTailFixtureValid(spec) {
   }
 }
 
+async function endpointFixtureValid(spec) {
+  if (!existsSync(spec.path) || !encodedTailFrameNumbersMatch(spec.path)) return false;
+  try {
+    const stream = JSON.parse(execFileSync(ffprobe, [
+      '-v', 'error', '-select_streams', 'v:0',
+      '-show_entries', 'stream=codec_name,has_b_frames,avg_frame_rate,nb_frames,width,height',
+      '-of', 'json', spec.path,
+    ], { encoding: 'utf8' })).streams?.[0];
+    const duration = Number(execFileSync(ffprobe, [
+      '-v', 'error', '-show_entries', 'format=duration',
+      '-of', 'default=nw=1:nk=1', spec.path,
+    ], { encoding: 'utf8' }).trim());
+    const samples = await parseVideoSamples(spec.path);
+    return stream?.codec_name === 'h264'
+      && stream?.width === 320
+      && stream?.height === 180
+      && stream?.avg_frame_rate === '24/1'
+      && Number(stream?.nb_frames) === 249
+      && Number(stream?.has_b_frames) === spec.bFrames
+      && Math.abs(duration - 10.375) < 0.001
+      && samples.length === 249;
+  } catch {
+    return false;
+  }
+}
+
 function bFrameFixtureValid(spec) {
   if (!existsSync(spec.path) || !encodedFrameNumbersMatch(spec.path)) return false;
   try {
@@ -512,9 +542,29 @@ for (const spec of bFrameTailFixtures) {
   }
 }
 
+for (const spec of endpointFixtures) {
+  if (!(await endpointFixtureValid(spec))) {
+    execFileSync(ffmpeg, [
+      '-hide_banner', '-loglevel', 'error', '-y',
+      '-f', 'lavfi', '-i',
+      "nullsrc=size=320x180:rate=24,geq=lum='if(bitand(N,pow(2,floor(X/20))),220,32)':cb='128':cr='128'",
+      '-frames:v', '249', '-an', '-c:v', 'libx264', '-preset', 'medium', '-crf', '10',
+      '-threads', '1', '-g', '48', '-keyint_min', '48', '-sc_threshold', '0',
+      '-bf', String(spec.bFrames), '-pix_fmt', 'yuv420p',
+      '-color_range', 'tv', '-color_primaries', 'bt709', '-color_trc', 'bt709',
+      '-colorspace', 'bt709', '-avoid_negative_ts', 'make_non_negative',
+      '-movflags', '+faststart', spec.path,
+    ], { stdio: 'inherit' });
+  }
+  if (!(await endpointFixtureValid(spec))) {
+    throw new Error(`${spec.name} failed endpoint fixture self-verification`);
+  }
+}
+
 process.stdout.write(`${[
   output, sourceB, still, matteColor, matteAlpha, matteMask, matteIntakeColor, matteIntakeMask, colorPatches,
   ...bFrameFixtures.map(spec => spec.path),
   ...bFrameTailFixtures.map(spec => spec.path),
+  ...endpointFixtures.map(spec => spec.path),
   ...rotationFixtures.map(spec => spec.path),
 ].join('\n')}\n`);
