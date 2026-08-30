@@ -14,7 +14,7 @@ updated: 2026-08-30
   - `contract-2026-08-09-transform-keyframes-v0.md`（v0 の意味論。本日**復元**。本契約 §2 が後継）
   - `contract-2026-07-25-project-structure-v0.md`（`motion/` を本日追記）
 - スコープ: edit.json v2 アイテムの動きの置き場と形式（L0〜L3）、`motion/<group-id>.json` 袋、L2 アニメーターのデータ模型、「キーフレームに展開」、タイムライン / インスペクター表示の**規則**（UI の実装は別契約）
-- 設計の正本（非公開）: `akari-video-internal/planning/notes-2026-08-29-object-tree-timeline-and-inspector.md` §6.9〜6.15。
+- 設計の正本（非公開）: 内部リポ `akari-video-internal` の判断メモ「オブジェクトツリー / タイムライン / インスペクター設計ラウンド（2026-08-29）」§6.9〜6.15。
   Theatre.js / Lottie / Diffusion Studio / HyperFrames Studio は**設計参照のみ・コード移植なし**（Theatre.js studio は AGPL-3.0）
 
 ## 0. 位置づけ — 動きは 4 段階に分かれ、粒度は名札の粒度

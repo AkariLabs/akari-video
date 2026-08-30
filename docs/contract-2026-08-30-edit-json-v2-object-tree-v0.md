@@ -16,7 +16,7 @@ updated: 2026-08-30
   - `contract-2026-07-22-render-basics.md` §4-4（`keyframes` の既存意味論）
 - スコープ: edit.json v2 の**木の再帰（グループ）・袋（HTML / captions.json / motion/）からの写し・部品アイテム・段の不変条件・保存形式・読み書き規約・edit-store のスクリプト API**。UI（タイムラインの木行・インスペクター・フォーカスモード）は別契約
 - 姉妹契約: `contract-2026-08-30-motion-and-keyframes-v0.md`（動きの 4 段階・`motion/` 袋・L2 アニメーター）
-- 設計の正本（非公開）: `akari-video-internal/planning/notes-2026-08-29-object-tree-timeline-and-inspector.md`。
+- 設計の正本（非公開）: 内部リポ `akari-video-internal` の判断メモ「オブジェクトツリー / タイムライン / インスペクター設計ラウンド（2026-08-29）」。
   他エディタ（Diffusion Studio・HyperFrames Studio・Theatre.js・Lottie）は**設計参照のみ・コード移植なし**
 
 ## 0. 位置づけ — 一言で言い切る
