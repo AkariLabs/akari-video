@@ -1,0 +1,35 @@
+{
+  "noSelection": {
+    "clipPathInline": "none",
+    "clipPathComputed": "none",
+    "selected": null,
+    "frames": [],
+    "visibleFrames": 0
+  },
+  "afterSelect": {
+    "clipPathInline": "none",
+    "clipPathComputed": "none",
+    "selected": "true",
+    "frames": [
+      {
+        "hidden": false,
+        "display": "block",
+        "border": "1px solid rgba(255, 157, 66, 0.98)",
+        "rect": {
+          "l": 104.4,
+          "t": 488.7,
+          "w": 534.3,
+          "h": 85.5
+        }
+      }
+    ],
+    "visibleFrames": 1
+  },
+  "afterDeselect": {
+    "clipPathInline": "none",
+    "clipPathComputed": "none",
+    "selected": null,
+    "frames": [],
+    "visibleFrames": 0
+  }
+}

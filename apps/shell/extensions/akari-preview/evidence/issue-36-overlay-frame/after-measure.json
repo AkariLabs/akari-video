@@ -1,0 +1,3312 @@
+{
+  "label": "after",
+  "seekTime": 2,
+  "options": {},
+  "generatedBy": "issue-36 L1 probe",
+  "viewport": {
+    "width": 1600,
+    "height": 1200,
+    "screenshot": [
+      1600,
+      1200
+    ]
+  },
+  "iframeRect": {
+    "left": 213.9140625,
+    "top": 35,
+    "width": 893,
+    "height": 1143,
+    "src": "<redacted>"
+  },
+  "rects": {
+    "devicePixelRatio": 2,
+    "previewPane": {
+      "left": 20,
+      "top": 0,
+      "right": 873,
+      "bottom": 1063,
+      "width": 853,
+      "height": 1063
+    },
+    "previewWrapper": {
+      "left": 36,
+      "top": 16,
+      "right": 857,
+      "bottom": 1047,
+      "width": 821,
+      "height": 1031
+    },
+    "zoomLayer": {
+      "left": 36,
+      "top": 16,
+      "right": 857,
+      "bottom": 1047,
+      "width": 821,
+      "height": 1031
+    },
+    "previewStage": {
+      "left": 36,
+      "top": 300.59375,
+      "right": 857,
+      "bottom": 762.40625,
+      "width": 821,
+      "height": 461.8125
+    },
+    "previewLayers": {
+      "left": 36,
+      "top": 300.59375,
+      "right": 857,
+      "bottom": 762.40625,
+      "width": 821,
+      "height": 461.8125
+    },
+    "overlayStage": {
+      "left": 36,
+      "top": 300.59375,
+      "right": 857,
+      "bottom": 762.40625,
+      "width": 821,
+      "height": 461.8125
+    },
+    "overlayContainer": {
+      "left": 36,
+      "top": 300.59375,
+      "right": 857,
+      "bottom": 762.40625,
+      "width": 821,
+      "height": 461.8125
+    },
+    "fragmentRoot": {
+      "left": 36,
+      "top": 300.59375,
+      "right": 857,
+      "bottom": 762.40625,
+      "width": 821,
+      "height": 461.8125
+    },
+    "fragmentRootSelector": ".s-issue-36",
+    "frameEngineActive": null,
+    "zoomValue": "100%",
+    "styles": {
+      "previewPane": {
+        "background": "rgb(43, 45, 48)",
+        "backgroundImage": "none",
+        "border": "0px none rgb(238, 238, 238)",
+        "outline": "rgb(238, 238, 238) none 0px",
+        "boxShadow": "none",
+        "transform": "none",
+        "overflow": "hidden",
+        "width": "853px",
+        "height": "1063px"
+      },
+      "previewStage": {
+        "background": "rgb(0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px none rgb(238, 238, 238)",
+        "outline": "rgb(238, 238, 238) none 0px",
+        "boxShadow": "none",
+        "transform": "matrix(1, 0, 0, 1, -410.5, -230.906)",
+        "overflow": "hidden",
+        "width": "821px",
+        "height": "461.812px"
+      },
+      "previewLayers": {
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px none rgb(238, 238, 238)",
+        "outline": "rgb(238, 238, 238) none 0px",
+        "boxShadow": "none",
+        "transform": "matrix(0.427604, 0, 0, 0.427604, 0, 0)",
+        "overflow": "hidden",
+        "width": "1920px",
+        "height": "1080px"
+      },
+      "overlayStage": {
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px none rgb(238, 238, 238)",
+        "outline": "rgb(238, 238, 238) none 0px",
+        "boxShadow": "none",
+        "transform": "none",
+        "overflow": "hidden",
+        "width": "1920px",
+        "height": "1080px"
+      },
+      "overlayContainer": {
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "none",
+        "border": "0px none rgb(238, 238, 238)",
+        "outline": "rgb(238, 238, 238) none 0px",
+        "boxShadow": "none",
+        "transform": "matrix(1, 0, 0, 1, 0, 0)",
+        "overflow": "visible",
+        "width": "1920px",
+        "height": "1080px"
+      },
+      "fragmentRoot": {
+        "background": "rgba(0, 0, 0, 0)",
+        "backgroundImage": "linear-gradient(rgb(11, 26, 58) 0%, rgb(20, 42, 92) 100%)",
+        "border": "0px none rgb(244, 247, 255)",
+        "outline": "rgb(244, 247, 255) none 0px",
+        "boxShadow": "none",
+        "transform": "none",
+        "overflow": "visible",
+        "width": "1920px",
+        "height": "1080px"
+      }
+    },
+    "stageChildren": [
+      {
+        "id": "preview-layers",
+        "cls": null,
+        "display": "block",
+        "visibility": "visible",
+        "rect": {
+          "left": 36,
+          "top": 300.59375,
+          "width": 821,
+          "height": 461.8125
+        }
+      },
+      {
+        "id": "layer-select-box",
+        "cls": null,
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "layer-crop-box",
+        "cls": null,
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "layer-crop-toggle",
+        "cls": null,
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "layer-perspective-toggle",
+        "cls": null,
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "layer-perspective-panel",
+        "cls": null,
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "cut-select-box",
+        "cls": null,
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "caption-select-box",
+        "cls": null,
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "pen-layer",
+        "cls": null,
+        "display": "block",
+        "visibility": "visible",
+        "rect": {
+          "left": 36,
+          "top": 300.59375,
+          "width": 821,
+          "height": 461.8125
+        }
+      }
+    ],
+    "layerChildren": [
+      {
+        "id": "preview-video",
+        "tag": "VIDEO",
+        "display": "block",
+        "visibility": "hidden",
+        "rect": {
+          "left": 36,
+          "top": 300.59375,
+          "width": 821,
+          "height": 461.8125
+        }
+      },
+      {
+        "id": "standby-video",
+        "tag": "VIDEO",
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "preview-still",
+        "tag": "IMG",
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "transition-video",
+        "tag": "VIDEO",
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "transition-still",
+        "tag": "IMG",
+        "display": "none",
+        "visibility": "visible",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "id": "overlay-stage",
+        "tag": "DIV",
+        "display": "block",
+        "visibility": "visible",
+        "rect": {
+          "left": 36,
+          "top": 300.59375,
+          "width": 821,
+          "height": 461.8125
+        }
+      }
+    ],
+    "interactionArtifacts": [],
+    "selectBoxes": [
+      {
+        "sel": "#cut-select-box",
+        "present": true,
+        "active": false,
+        "display": "none",
+        "border": "1.5px solid rgb(77, 163, 255)",
+        "boxShadow": "rgba(0, 0, 0, 0.35) 0px 0px 0px 1px",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "sel": "#layer-select-box",
+        "present": true,
+        "active": false,
+        "display": "none",
+        "border": "1.5px solid rgb(77, 163, 255)",
+        "boxShadow": "rgba(0, 0, 0, 0.35) 0px 0px 0px 1px",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "sel": "#caption-select-box",
+        "present": true,
+        "active": false,
+        "display": "none",
+        "border": "1.5px dashed rgb(77, 163, 255)",
+        "boxShadow": "rgba(0, 0, 0, 0.35) 0px 0px 0px 1px",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "sel": "#layer-crop-box",
+        "present": true,
+        "active": false,
+        "display": "none",
+        "border": "0px none rgb(238, 238, 238)",
+        "boxShadow": "none",
+        "rect": {
+          "left": 0,
+          "top": 0,
+          "width": 0,
+          "height": 0
+        }
+      }
+    ]
+  },
+  "playState": {
+    "paused": true,
+    "seek": "2",
+    "time": "0:02 / 0:04"
+  },
+  "pasteboard": [
+    44,
+    45,
+    48
+  ],
+  "stageOutside": {
+    "top": [
+      44,
+      45,
+      48
+    ],
+    "bottom": [
+      44,
+      45,
+      48
+    ],
+    "left": [
+      44,
+      45,
+      48
+    ],
+    "right": [
+      44,
+      45,
+      48
+    ]
+  },
+  "geometry": {
+    "stageVsLayers": {
+      "dLeft": 0,
+      "dTop": 0,
+      "dRight": 0,
+      "dBottom": 0,
+      "dWidth": 0,
+      "dHeight": 0
+    },
+    "layersVsFragment": {
+      "dLeft": 0,
+      "dTop": 0,
+      "dRight": 0,
+      "dBottom": 0
+    }
+  },
+  "points": [
+    {
+      "id": "top-mid:in2",
+      "webview": [
+        446.5,
+        302.59
+      ],
+      "rgb": [
+        14,
+        26,
+        56
+      ],
+      "fragmentRef": [
+        14,
+        26,
+        57
+      ],
+      "deltaToFragment": 1,
+      "deltaToPasteboard": 30
+    },
+    {
+      "id": "top-mid:out2",
+      "webview": [
+        446.5,
+        298.59
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        14,
+        26,
+        57
+      ],
+      "deltaToFragment": 30,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "top-mid:out6",
+      "webview": [
+        446.5,
+        294.59
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        14,
+        26,
+        57
+      ],
+      "deltaToFragment": 30,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "bottom-mid:in2",
+      "webview": [
+        446.5,
+        760.41
+      ],
+      "rgb": [
+        25,
+        42,
+        89
+      ],
+      "fragmentRef": [
+        25,
+        42,
+        89
+      ],
+      "deltaToFragment": 0,
+      "deltaToPasteboard": 41
+    },
+    {
+      "id": "bottom-mid:out2",
+      "webview": [
+        446.5,
+        764.41
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        25,
+        42,
+        89
+      ],
+      "deltaToFragment": 41,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "bottom-mid:out6",
+      "webview": [
+        446.5,
+        768.41
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        25,
+        42,
+        89
+      ],
+      "deltaToFragment": 41,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "left-mid:in2",
+      "webview": [
+        38,
+        531.5
+      ],
+      "rgb": [
+        20,
+        34,
+        73
+      ],
+      "fragmentRef": [
+        20,
+        34,
+        73
+      ],
+      "deltaToFragment": 0,
+      "deltaToPasteboard": 25
+    },
+    {
+      "id": "left-mid:out2",
+      "webview": [
+        34,
+        531.5
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        20,
+        34,
+        73
+      ],
+      "deltaToFragment": 25,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "left-mid:out6",
+      "webview": [
+        30,
+        531.5
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        20,
+        34,
+        73
+      ],
+      "deltaToFragment": 25,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "right-mid:in2",
+      "webview": [
+        855,
+        531.5
+      ],
+      "rgb": [
+        20,
+        34,
+        73
+      ],
+      "fragmentRef": [
+        20,
+        34,
+        73
+      ],
+      "deltaToFragment": 0,
+      "deltaToPasteboard": 25
+    },
+    {
+      "id": "right-mid:out2",
+      "webview": [
+        859,
+        531.5
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        20,
+        34,
+        73
+      ],
+      "deltaToFragment": 25,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "right-mid:out6",
+      "webview": [
+        863,
+        531.5
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        20,
+        34,
+        73
+      ],
+      "deltaToFragment": 25,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "tl:in2",
+      "webview": [
+        38,
+        302.59
+      ],
+      "rgb": [
+        14,
+        26,
+        56
+      ],
+      "fragmentRef": [
+        14,
+        26,
+        57
+      ],
+      "deltaToFragment": 1,
+      "deltaToPasteboard": 30
+    },
+    {
+      "id": "tl:out2",
+      "webview": [
+        34,
+        298.59
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        14,
+        26,
+        57
+      ],
+      "deltaToFragment": 30,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "tl:out6",
+      "webview": [
+        30,
+        294.59
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        14,
+        26,
+        57
+      ],
+      "deltaToFragment": 30,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "tr:in2",
+      "webview": [
+        855,
+        302.59
+      ],
+      "rgb": [
+        14,
+        26,
+        56
+      ],
+      "fragmentRef": [
+        14,
+        26,
+        57
+      ],
+      "deltaToFragment": 1,
+      "deltaToPasteboard": 30
+    },
+    {
+      "id": "tr:out2",
+      "webview": [
+        859,
+        298.59
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        14,
+        26,
+        57
+      ],
+      "deltaToFragment": 30,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "tr:out6",
+      "webview": [
+        863,
+        294.59
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        14,
+        26,
+        57
+      ],
+      "deltaToFragment": 30,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "bl:in2",
+      "webview": [
+        38,
+        760.41
+      ],
+      "rgb": [
+        25,
+        42,
+        89
+      ],
+      "fragmentRef": [
+        25,
+        41,
+        89
+      ],
+      "deltaToFragment": 1,
+      "deltaToPasteboard": 41
+    },
+    {
+      "id": "bl:out2",
+      "webview": [
+        34,
+        764.41
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        25,
+        41,
+        89
+      ],
+      "deltaToFragment": 41,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "bl:out6",
+      "webview": [
+        30,
+        768.41
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        25,
+        41,
+        89
+      ],
+      "deltaToFragment": 41,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "br:in2",
+      "webview": [
+        855,
+        760.41
+      ],
+      "rgb": [
+        25,
+        42,
+        89
+      ],
+      "fragmentRef": [
+        25,
+        42,
+        89
+      ],
+      "deltaToFragment": 0,
+      "deltaToPasteboard": 41
+    },
+    {
+      "id": "br:out2",
+      "webview": [
+        859,
+        764.41
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        25,
+        42,
+        89
+      ],
+      "deltaToFragment": 41,
+      "deltaToPasteboard": 0
+    },
+    {
+      "id": "br:out6",
+      "webview": [
+        863,
+        768.41
+      ],
+      "rgb": [
+        44,
+        45,
+        48
+      ],
+      "fragmentRef": [
+        25,
+        42,
+        89
+      ],
+      "deltaToFragment": 41,
+      "deltaToPasteboard": 0
+    }
+  ],
+  "pointElements": [
+    {
+      "id": "top-mid:in2",
+      "x": 446.5,
+      "y": 302.59375,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "preview-stage",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "top-mid:out2",
+      "x": 446.5,
+      "y": 298.59375,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "top-mid:out6",
+      "x": 446.5,
+      "y": 294.59375,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "bottom-mid:in2",
+      "x": 446.5,
+      "y": 760.40625,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "preview-stage",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "bottom-mid:out2",
+      "x": 446.5,
+      "y": 764.40625,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "bottom-mid:out6",
+      "x": 446.5,
+      "y": 768.40625,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "left-mid:in2",
+      "x": 38,
+      "y": 531.5,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "preview-stage",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "left-mid:out2",
+      "x": 34,
+      "y": 531.5,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "left-mid:out6",
+      "x": 30,
+      "y": 531.5,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "right-mid:in2",
+      "x": 855,
+      "y": 531.5,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "preview-stage",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "right-mid:out2",
+      "x": 859,
+      "y": 531.5,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "right-mid:out6",
+      "x": 863,
+      "y": 531.5,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "tl:in2",
+      "x": 38,
+      "y": 302.59375,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "preview-stage",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "tl:out2",
+      "x": 34,
+      "y": 298.59375,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "tl:out6",
+      "x": 30,
+      "y": 294.59375,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "tr:in2",
+      "x": 855,
+      "y": 302.59375,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "preview-stage",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "tr:out2",
+      "x": 859,
+      "y": 298.59375,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "tr:out6",
+      "x": 863,
+      "y": 294.59375,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "bl:in2",
+      "x": 38,
+      "y": 760.40625,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "preview-stage",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "bl:out2",
+      "x": 34,
+      "y": 764.40625,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "bl:out6",
+      "x": 30,
+      "y": 768.40625,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "br:in2",
+      "x": 855,
+      "y": 760.40625,
+      "elements": [
+        {
+          "tag": "DIV",
+          "id": "preview-stage",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "zoom-layer",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "DIV",
+          "id": "preview-wrapper",
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "br:out2",
+      "x": 859,
+      "y": 764.40625,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    },
+    {
+      "id": "br:out6",
+      "x": 863,
+      "y": 768.40625,
+      "elements": [
+        {
+          "tag": "SECTION",
+          "id": null,
+          "cls": "preview-pane",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(43, 45, 48)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "MAIN",
+          "id": null,
+          "cls": "workspace",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgba(0, 0, 0, 0)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "BODY",
+          "id": null,
+          "cls": "vscode-dark",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "grid",
+          "zIndex": "auto"
+        },
+        {
+          "tag": "HTML",
+          "id": null,
+          "cls": "",
+          "overlayId": null,
+          "border": "0px none rgb(238, 238, 238)",
+          "borderTop": "0px none rgb(238, 238, 238)",
+          "outline": "rgb(238, 238, 238) none 0px",
+          "outlineOffset": "0px",
+          "boxShadow": "none",
+          "background": "rgb(20, 20, 20)",
+          "backgroundImage": "none",
+          "visibility": "visible",
+          "display": "block",
+          "zIndex": "auto"
+        }
+      ]
+    }
+  ],
+  "scanSummary": {
+    "top": {
+      "length": 822,
+      "foreignPixels": 0,
+      "longestForeignRun": 0,
+      "runs": [],
+      "maxDeltaToFragment": 30,
+      "samples": [
+        {
+          "x": 36,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 30,
+          "dPaste": 0
+        },
+        {
+          "x": 241,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 30,
+          "dPaste": 0
+        },
+        {
+          "x": 447,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 30,
+          "dPaste": 0
+        },
+        {
+          "x": 652,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 30,
+          "dPaste": 0
+        },
+        {
+          "x": 857,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 0,
+          "dPaste": 0
+        }
+      ]
+    },
+    "bottom": {
+      "length": 822,
+      "foreignPixels": 0,
+      "longestForeignRun": 0,
+      "runs": [],
+      "maxDeltaToFragment": 41,
+      "samples": [
+        {
+          "x": 36,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 41,
+          "dPaste": 0
+        },
+        {
+          "x": 241,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 41,
+          "dPaste": 0
+        },
+        {
+          "x": 447,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 41,
+          "dPaste": 0
+        },
+        {
+          "x": 652,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 41,
+          "dPaste": 0
+        },
+        {
+          "x": 857,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 0,
+          "dPaste": 0
+        }
+      ]
+    },
+    "left": {
+      "length": 462,
+      "foreignPixels": 0,
+      "longestForeignRun": 0,
+      "runs": [],
+      "maxDeltaToFragment": 41,
+      "samples": [
+        {
+          "y": 301,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 30,
+          "dPaste": 0
+        },
+        {
+          "y": 416,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 27,
+          "dPaste": 0
+        },
+        {
+          "y": 532,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 25,
+          "dPaste": 0
+        },
+        {
+          "y": 647,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 33,
+          "dPaste": 0
+        },
+        {
+          "y": 762,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 16,
+          "dPaste": 0
+        }
+      ]
+    },
+    "right": {
+      "length": 462,
+      "foreignPixels": 0,
+      "longestForeignRun": 0,
+      "runs": [],
+      "maxDeltaToFragment": 41,
+      "samples": [
+        {
+          "y": 301,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 30,
+          "dPaste": 0
+        },
+        {
+          "y": 416,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 27,
+          "dPaste": 0
+        },
+        {
+          "y": 532,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 25,
+          "dPaste": 0
+        },
+        {
+          "y": 647,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 33,
+          "dPaste": 0
+        },
+        {
+          "y": 762,
+          "rgb": [
+            44,
+            45,
+            48
+          ],
+          "dFrag": 16,
+          "dPaste": 0
+        }
+      ]
+    }
+  },
+  "verdict": {
+    "frameDetected": false,
+    "insideMaxDelta": 1,
+    "stageOutsideIsPasteboard": {
+      "top": 0,
+      "bottom": 0,
+      "left": 0,
+      "right": 0
+    }
+  },
+  "log": [
+    {
+      "step": "open-preview",
+      "result": "opened"
+    },
+    {
+      "step": "play-state",
+      "paused": true,
+      "seek": "2",
+      "time": "0:02 / 0:04"
+    },
+    {
+      "step": "rects",
+      "previewStage": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "previewLayers": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "overlayContainer": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "fragmentRoot": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "frameEngineActive": null
+    },
+    {
+      "step": "iframe-rect",
+      "left": 213.9140625,
+      "top": 35,
+      "width": 893,
+      "height": 1143,
+      "src": "<redacted>"
+    },
+    {
+      "step": "screenshot",
+      "pngPath": "<out>/after-window.png",
+      "shotW": 1600,
+      "shotH": 1200,
+      "viewport": [
+        1600,
+        1200
+      ]
+    }
+  ]
+}

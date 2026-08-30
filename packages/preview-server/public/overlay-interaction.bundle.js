@@ -249,6 +249,15 @@
         }
       }
     }
+    function fragmentRootPaintsOutside(container, contentRect) {
+      const root = fragmentRoot(container);
+      if (!root) return false;
+      const rect = root.getBoundingClientRect();
+      if (!(rect.width > 0) || !(rect.height > 0)) return false;
+      if (!drawsOwnContent(root, getComputedStyle(root))) return false;
+      const tolerance = 0.5;
+      return rect.left < contentRect.left - tolerance || rect.top < contentRect.top - tolerance || rect.right > contentRect.right + tolerance || rect.bottom > contentRect.bottom + tolerance;
+    }
     function computeHitClipPath(container) {
       const transform = readTransform(container);
       const normalizedRotate = (transform.rotate % 360 + 360) % 360;
@@ -257,6 +266,7 @@
       if (!(containerRect.width > 0) || !(containerRect.height > 0)) return null;
       const contentRect = fragmentBounds(container);
       if (!contentRect) return null;
+      if (fragmentRootPaintsOutside(container, contentRect)) return null;
       const top = (contentRect.top - containerRect.top) / containerRect.height * 100;
       const right = (containerRect.right - contentRect.right) / containerRect.width * 100;
       const bottom = (containerRect.bottom - contentRect.bottom) / containerRect.height * 100;
