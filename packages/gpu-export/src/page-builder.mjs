@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,6 +13,8 @@ import { classifyCaptionWordMode, evaluateGpuEligibility } from "./eligibility.m
 import { parseThreeEntrance } from "./three-entrance.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const require = createRequire(import.meta.url);
+const { collectExcludedCaptionIds, filterCaptionRootByExcludedIds } = require("../../edit-store/lib/index.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 
@@ -226,7 +229,10 @@ export async function loadAndBuildGpuPage({
   const editText = await readFile(resolvedEditPath, "utf8");
   const projectedEdit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "gpu-page")).edit;
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
-  const captions = await readJsonIfPresent(join(projectRoot, "captions.json"), []);
+  const captions = filterCaptionRootByExcludedIds(
+    await readJsonIfPresent(join(projectRoot, "captions.json"), []),
+    collectExcludedCaptionIds(prepared.edit),
+  );
   const overlays = await Promise.all((prepared.edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false).map(async (overlay) => ({
     ...overlay,
     html: typeof overlay.html === "string" && overlay.html.trimStart().startsWith("<")

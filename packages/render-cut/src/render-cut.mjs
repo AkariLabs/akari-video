@@ -58,7 +58,11 @@ import {
 const VERSION = 1;
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRequire = createRequire(import.meta.url);
-const { resolveCaptionDisplay } = packageRequire("../../edit-store/lib/index.js");
+const {
+  collectExcludedCaptionIds,
+  filterCaptionRootByExcludedIds,
+  resolveCaptionDisplay,
+} = packageRequire("../../edit-store/lib/index.js");
 // A stale run directory belongs to a process that crashed/was killed without cleaning up after
 // itself. 24h gives ample time for a same-day retry/inspection before we reclaim the space, while
 // never touching a directory an active concurrent run still owns (see createRunTemporaryDirectory).
@@ -1006,7 +1010,10 @@ export async function loadCaptions(projectRoot, edit) {
   if (!(await isRegularFile(captionsPath))) {
     return { overlays: [], warnings: [], layout: null, captions: [], defaultTextStyle: null, emphasisWords: [] };
   }
-  const captionsRoot = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
+  const captionsRoot = filterCaptionRootByExcludedIds(
+    parseJson(await readFile(captionsPath, "utf8"), "captions.json"),
+    collectExcludedCaptionIds(edit),
+  );
   const captions = Array.isArray(captionsRoot)
     ? captionsRoot
     : captionsRoot && typeof captionsRoot === "object" && Array.isArray(captionsRoot.captions)

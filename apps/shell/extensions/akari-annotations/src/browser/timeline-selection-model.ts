@@ -81,6 +81,17 @@ export interface TimelineTreeItemSelection {
     trackId: string;
 }
 
+/** captions 袋の写し / 明示子 / 出した行を captions.json の同じ行選択へ結ぶ。 */
+export function captionIdForTreeSelection(
+    selection: TimelineTreeItemSelection,
+    declaredCaptionId?: string
+): string | undefined {
+    if (selection.itemKind !== 'caption') return undefined;
+    if (declaredCaptionId) return declaredCaptionId;
+    const separator = selection.id.lastIndexOf('#');
+    return separator >= 0 ? selection.id.slice(separator + 1) : undefined;
+}
+
 export interface TimelineClipNameInput {
     id: string;
     src?: unknown;

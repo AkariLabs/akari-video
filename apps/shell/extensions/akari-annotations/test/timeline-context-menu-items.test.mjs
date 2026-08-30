@@ -65,6 +65,13 @@ test('木アイテムには出す・まとめる・ばらす・折りたたみ�
     ]);
 });
 
+test('字幕の木アイテムだけにテロップ変換を既存項目順を崩さず足す', () => {
+    const items = buildTimelineClipMenuItems('overlay', false, {
+        canDetach: true, canConvertToTelop: true
+    });
+    assert.deepEqual(items.map(item => item.id), ['copy', 'detach', 'convert-to-telop', 'delete']);
+});
+
 test('司令塔裁定3: 並びは常にコピー → ペースト → 分割 → 削除の順序を守る', () => {
     const order = { copy: 0, paste: 1, split: 2, delete: 3 };
     for (const kind of ['cut', 'overlay', 'caption', 'layer', 'audio']) {

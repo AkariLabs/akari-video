@@ -1,0 +1,245 @@
+{
+  "status": "PASS",
+  "mode": "all",
+  "records": [
+    {
+      "t": "2026-08-30T13:09:58.666Z",
+      "step": "assertion-ok",
+      "message": "step1 captions bag header and projected caption chips are bound to tree ids",
+      "bindings": [
+        {
+          "id": "captions-bag",
+          "itemId": "captions-bag",
+          "inStrip": false
+        },
+        {
+          "id": "captions-bag#c-0001",
+          "itemId": "c-0001",
+          "inStrip": true
+        },
+        {
+          "id": "captions-bag#c-0002",
+          "itemId": "c-0002",
+          "inStrip": true
+        },
+        {
+          "id": "captions-bag#c-0003",
+          "itemId": "c-0003",
+          "inStrip": true
+        }
+      ]
+    },
+    {
+      "t": "2026-08-30T13:09:58.668Z",
+      "step": "step-1-expand",
+      "rows": [
+        "captions-bag",
+        "captions-bag#c-0001",
+        "captions-bag#c-0002",
+        "captions-bag#c-0003"
+      ],
+      "bindings": [
+        {
+          "id": "captions-bag",
+          "itemId": "captions-bag",
+          "inStrip": false
+        },
+        {
+          "id": "captions-bag#c-0001",
+          "itemId": "c-0001",
+          "inStrip": true
+        },
+        {
+          "id": "captions-bag#c-0002",
+          "itemId": "c-0002",
+          "inStrip": true
+        },
+        {
+          "id": "captions-bag#c-0003",
+          "itemId": "c-0003",
+          "inStrip": true
+        }
+      ]
+    },
+    {
+      "t": "2026-08-30T13:09:58.884Z",
+      "step": "step-2-detach",
+      "trackId": "v2"
+    },
+    {
+      "t": "2026-08-30T13:09:59.102Z",
+      "step": "assertion-ok",
+      "message": "step3 detached caption is selected before nudge"
+    },
+    {
+      "t": "2026-08-30T13:09:59.229Z",
+      "step": "step-3-transform-y",
+      "y": 10
+    },
+    {
+      "t": "2026-08-30T13:09:59.426Z",
+      "step": "step-4-convert",
+      "source": {
+        "kind": "telop",
+        "preset": "ref3_particle_min",
+        "params": {
+          "text": "未焼成テロップは bake される"
+        },
+        "from": "captions.json#c-0002"
+      }
+    },
+    {
+      "t": "2026-08-30T13:09:59.522Z",
+      "step": "assertion-ok",
+      "message": "captions.json bytes stay unchanged",
+      "sha256": "d42d30d450f5bbe31777754667244aef89ec7d3fcf4e277bb8105085dbd18a3f"
+    },
+    {
+      "t": "2026-08-30T13:09:59.524Z",
+      "step": "assertion-ok",
+      "message": "step5 detached caption item exists",
+      "item": {
+        "id": "cap-c-0001",
+        "at": 9,
+        "duration": 51,
+        "transform": {
+          "y": 10
+        },
+        "source": {
+          "kind": "caption",
+          "path": "captions.json",
+          "id": "c-0001"
+        }
+      }
+    },
+    {
+      "t": "2026-08-30T13:09:59.524Z",
+      "step": "assertion-ok",
+      "message": "step5 converted telop item exists",
+      "item": {
+        "id": "cap-c-0002",
+        "at": 69,
+        "duration": 48,
+        "source": {
+          "kind": "telop",
+          "preset": "ref3_particle_min",
+          "params": {
+            "text": "未焼成テロップは bake される"
+          },
+          "from": "captions.json#c-0002"
+        }
+      }
+    },
+    {
+      "t": "2026-08-30T13:09:59.608Z",
+      "step": "assertion-ok",
+      "message": "step5 c-0001 text exists"
+    },
+    {
+      "t": "2026-08-30T13:09:59.609Z",
+      "step": "assertion-ok",
+      "message": "step5 c-0002 text exists"
+    },
+    {
+      "t": "2026-08-30T13:09:59.612Z",
+      "step": "assertion-ok",
+      "message": "step5 c-0003 text exists"
+    },
+    {
+      "t": "2026-08-30T13:09:59.613Z",
+      "step": "assertion-ok",
+      "message": "step5 excluded c-0001 has no caption plate",
+      "excludedCaptionAbsent": true,
+      "convertedCaptionAbsent": true,
+      "convertedTelopPresent": true,
+      "remainingCaptionPresent": true
+    },
+    {
+      "t": "2026-08-30T13:09:59.613Z",
+      "step": "assertion-ok",
+      "message": "step5 c-0002 is a telop rather than a caption plate",
+      "excludedCaptionAbsent": true,
+      "convertedCaptionAbsent": true,
+      "convertedTelopPresent": true,
+      "remainingCaptionPresent": true
+    },
+    {
+      "t": "2026-08-30T13:09:59.613Z",
+      "step": "assertion-ok",
+      "message": "step5 c-0003 remains a caption plate",
+      "excludedCaptionAbsent": true,
+      "convertedCaptionAbsent": true,
+      "convertedTelopPresent": true,
+      "remainingCaptionPresent": true
+    },
+    {
+      "t": "2026-08-30T13:09:59.613Z",
+      "step": "step-5-osr-page",
+      "excludedCaptionAbsent": true,
+      "convertedCaptionAbsent": true,
+      "convertedTelopPresent": true,
+      "remainingCaptionPresent": true
+    },
+    {
+      "t": "2026-08-30T13:10:02.501Z",
+      "step": "assertion-ok",
+      "message": "step5 osr capture writes PNG",
+      "files": [
+        "1s-1s.png",
+        "capture.json"
+      ]
+    },
+    {
+      "t": "2026-08-30T13:10:02.501Z",
+      "step": "assertion-ok",
+      "message": "step5 osr capture writes capture.json",
+      "files": [
+        "1s-1s.png",
+        "capture.json"
+      ]
+    },
+    {
+      "t": "2026-08-30T13:10:02.503Z",
+      "step": "assertion-ok",
+      "message": "step5 capture stays on the osr engine",
+      "engine": {
+        "requested": "osr",
+        "resolved": "osr"
+      },
+      "renderer": "osr-export@0.0.0"
+    },
+    {
+      "t": "2026-08-30T13:10:02.503Z",
+      "step": "step-5-osr-capture",
+      "files": [
+        "1s-1s.png",
+        "capture.json"
+      ],
+      "stdout": "{\"kind\":\"sheet\",\"timecode\":\"1s-1s\",\"times_s\":[1],\"path\":\"<EVIDENCE>/capture/1s-1s.png\"}",
+      "stderr": "sysctlbyname for kern.hv_vmm_present failed with status -1",
+      "launcherTier": null,
+      "manifest": {
+        "engine": {
+          "requested": "osr",
+          "resolved": "osr"
+        },
+        "renderer": "osr-export@0.0.0",
+        "verify": {
+          "mode": "stamp",
+          "matched": true,
+          "frames": [
+            {
+              "frameNumber": 30,
+              "matched": true,
+              "decodedFrameNumber": 30,
+              "expectedFrameNumber": 30,
+              "retries": 0
+            }
+          ]
+        },
+        "provenance": null,
+        "receipt": null
+      }
+    }
+  ]
+}
