@@ -18163,6 +18163,7 @@ function precedingSyncSample(table, decodeIndex) {
 var DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
 var INITIAL_HEADER_BYTES = 16;
 var MAX_TOP_LEVEL_BOXES = 64;
+var OUTPUT_GRACE_MS = 250;
 function uint323(bytes, offset) {
   return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
 }
@@ -18769,6 +18770,7 @@ var RangeMp4Source = class _RangeMp4Source {
       1,
       this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1
     );
+    let outputGraceExpired = false;
     try {
       const atEnd = targetSample.timestampUs >= table.lastFrameStartUs;
       try {
@@ -18803,15 +18805,24 @@ var RangeMp4Source = class _RangeMp4Source {
               this.submitSample(decoder, sample, data);
               this.nextDecodeIndex = Math.max(this.nextDecodeIndex, sample.decodeIndex + 1);
             }
-            while (!waiter.isSettled() && decoder.decodeQueueSize > 0) {
-              await this.waitForTargetOrProgress(decoder, waiter);
+            while (!waiter.isSettled()) {
+              const waitResult = await this.waitForTargetOrProgress(
+                decoder,
+                waiter,
+                this.nextDecodeIndex <= decodeCeiling
+              );
+              if (waitResult === "needs-supply") break;
+              if (waitResult === "grace-expired") {
+                outputGraceExpired = true;
+                break;
+              }
             }
             initialRound = false;
-            if (waiter.isSettled() || this.nextDecodeIndex > decodeCeiling) break;
+            if (waiter.isSettled() || outputGraceExpired || this.nextDecodeIndex > decodeCeiling) break;
             postTargetBudget += postTargetLimit;
           }
         })(), this.options.decodeTimeoutMs ?? 1e4, `Range decode ${this.id} at ${targetUs}us`);
-        if (!waiter.isSettled() && (this.nextDecodeIndex >= table.samples.length || atEnd)) {
+        if (!waiter.isSettled() && outputGraceExpired) {
           await decoder.flush();
           this.flushedSinceSeek = true;
         }
@@ -18867,8 +18878,26 @@ var RangeMp4Source = class _RangeMp4Source {
       decoder.decodeQueueSize
     );
   }
-  async waitForTargetOrProgress(decoder, waiter) {
-    if (waiter.isSettled() || decoder.decodeQueueSize === 0) return;
+  async waitForTargetOrProgress(decoder, waiter, canSupply) {
+    if (waiter.isSettled()) return "target-or-dequeue";
+    if (decoder.decodeQueueSize === 0) {
+      if (canSupply) return "needs-supply";
+      let graceTimer = null;
+      const graceExpired = new Promise((resolve) => {
+        graceTimer = setTimeout(() => resolve("grace-expired"), OUTPUT_GRACE_MS);
+      });
+      try {
+        return await Promise.race([
+          waiter.promise.then(() => "target-or-dequeue"),
+          graceExpired,
+          this.decoderFailure ?? new Promise(() => void 0)
+        ]);
+      } catch (error) {
+        throw error instanceof DecoderExecutionError ? error : new DecoderExecutionError(`decoder output grace failed for target ${waiter.targetUs}us`, error);
+      } finally {
+        if (graceTimer) clearTimeout(graceTimer);
+      }
+    }
     let onDequeue = null;
     const dequeued = new Promise((resolve) => {
       onDequeue = () => {
@@ -18887,6 +18916,7 @@ var RangeMp4Source = class _RangeMp4Source {
         this.options.decodeTimeoutMs ?? 1e4,
         `Range decoder progress ${this.id}`
       );
+      return "target-or-dequeue";
     } catch (error) {
       throw error instanceof DecoderExecutionError ? error : new DecoderExecutionError(`decoder made no progress for target ${waiter.targetUs}us`, error);
     } finally {

@@ -565,6 +565,325 @@ test('Range source pads all in-duration tail requests with the final presentatio
   }
 });
 
+test('Range source waits for delayed output after dequeue across all seek orders', {
+  timeout: 30_000,
+}, async t => {
+  if (spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status !== 0) {
+    t.skip('ffmpeg is required');
+    return;
+  }
+  const directory = mkdtempSync(path.join(tmpdir(), 'akari-range-delayed-output-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const fixture = path.join(directory, 'delayed-output.mp4');
+  execFileSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-f', 'lavfi', '-i', 'testsrc2=size=96x64:rate=24', '-frames:v', '36',
+    '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-g', '12',
+    '-keyint_min', '12', '-sc_threshold', '0', '-bf', '2',
+    '-movflags', '+faststart', fixture,
+  ]);
+  const file = readFileSync(fixture);
+  const table = await buildVideoSampleTable(
+    file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength),
+  );
+  assert.equal(table.samples.length, 36);
+  assert.ok(table.maxReorderFrames > 0, 'fixture must exercise reordered presentation');
+
+  const original = {
+    VideoDecoder: globalThis.VideoDecoder,
+    VideoFrame: globalThis.VideoFrame,
+    EncodedVideoChunk: globalThis.EncodedVideoChunk,
+  };
+  class DelayedFrame {
+    constructor(timestamp, duration) {
+      this.timestamp = timestamp;
+      this.duration = duration;
+      this.closed = false;
+    }
+    clone() { return new DelayedFrame(this.timestamp, this.duration); }
+    close() { this.closed = true; }
+  }
+  class DelayedChunk {
+    constructor(init) { Object.assign(this, init); }
+  }
+  class DelayedVideoDecoder {
+    static instances = [];
+    static flushCalls = 0;
+    static outputBatches = [];
+    static deliverySequence = 0;
+    static withheldTimestamp = null;
+    static async isConfigSupported(config) { return { supported: true, config }; }
+    constructor(init) {
+      this.init = init;
+      this.pending = [];
+      this.decodeQueueSize = 0;
+      this.listeners = new Set();
+      this.closed = false;
+      this.deliveryTimer = null;
+      DelayedVideoDecoder.instances.push(this);
+    }
+    configure() {}
+    decode(chunk) {
+      if (this.closed) throw new Error('decode called after close');
+      this.pending.push(chunk);
+      this.decodeQueueSize += 1;
+      queueMicrotask(() => {
+        if (this.closed) return;
+        this.decodeQueueSize = Math.max(0, this.decodeQueueSize - 1);
+        for (const listener of this.listeners) listener();
+        if (this.decodeQueueSize === 0) this.schedulePresentationBatch();
+      });
+    }
+    schedulePresentationBatch() {
+      if (this.deliveryTimer || this.pending.length === 0) return;
+      const delayMs = 50 + (DelayedVideoDecoder.deliverySequence % 3) * 50;
+      DelayedVideoDecoder.deliverySequence += 1;
+      this.deliveryTimer = setTimeout(() => {
+        this.deliveryTimer = null;
+        if (this.closed) return;
+        const sorted = this.pending.splice(0).sort((left, right) => left.timestamp - right.timestamp);
+        const batch = [];
+        for (const chunk of sorted) {
+          if (chunk.timestamp === DelayedVideoDecoder.withheldTimestamp) this.pending.push(chunk);
+          else batch.push(chunk);
+        }
+        DelayedVideoDecoder.outputBatches.push(batch.map(chunk => chunk.timestamp));
+        for (const chunk of batch) {
+          this.init.output(new DelayedFrame(chunk.timestamp, chunk.duration));
+        }
+      }, delayMs);
+    }
+    async flush() {
+      DelayedVideoDecoder.flushCalls += 1;
+      if (this.deliveryTimer) clearTimeout(this.deliveryTimer);
+      this.deliveryTimer = null;
+      const batch = this.pending.splice(0).sort((left, right) => left.timestamp - right.timestamp);
+      DelayedVideoDecoder.outputBatches.push(batch.map(chunk => chunk.timestamp));
+      for (const chunk of batch) {
+        this.init.output(new DelayedFrame(chunk.timestamp, chunk.duration));
+      }
+      this.decodeQueueSize = 0;
+      for (const listener of this.listeners) listener();
+    }
+    addEventListener(type, listener) { if (type === 'dequeue') this.listeners.add(listener); }
+    removeEventListener(type, listener) { if (type === 'dequeue') this.listeners.delete(listener); }
+    close() {
+      this.closed = true;
+      if (this.deliveryTimer) clearTimeout(this.deliveryTimer);
+      this.deliveryTimer = null;
+      this.pending.length = 0;
+      this.decodeQueueSize = 0;
+    }
+  }
+
+  globalThis.VideoDecoder = DelayedVideoDecoder;
+  globalThis.VideoFrame = DelayedFrame;
+  globalThis.EncodedVideoChunk = DelayedChunk;
+  try {
+    const source = new RangeMp4Source('delayed-output', 'delayed-output.mp4', {
+      fetchImpl: rangeFetch(new Uint8Array(file.buffer, file.byteOffset, file.byteLength)),
+    });
+    await source.prepare();
+    const presentation = table.presentationOrder.map(index => table.samples[index].timestampUs);
+    const random = presentation
+      .map((timestamp, index) => ({ timestamp, order: (index * 17) % presentation.length }))
+      .sort((left, right) => left.order - right.order)
+      .map(entry => entry.timestamp);
+    const gopPingPong = [];
+    for (let start = 0; start < presentation.length; start += 12) {
+      let left = start;
+      let right = Math.min(start + 11, presentation.length - 1);
+      while (left <= right) {
+        gopPingPong.push(presentation[left]);
+        left += 1;
+        if (left <= right) {
+          gopPingPong.push(presentation[right]);
+          right -= 1;
+        }
+      }
+    }
+    const patterns = [
+      ['forward', presentation],
+      ['random', random],
+      ['reverse', presentation.slice().reverse()],
+      ['same-gop-ping-pong', gopPingPong],
+    ];
+    for (const [name, timestamps] of patterns) {
+      assert.equal(timestamps.length, presentation.length, `${name}: every frame is requested`);
+      const session = await source.fork(`delayed-output:${name}`);
+      for (let requestIndex = 0; requestIndex < timestamps.length; requestIndex += 1) {
+        const timestamp = timestamps[requestIndex];
+        const frame = await session.decode(timestamp);
+        assert.equal(frame.timestamp, timestamp, `${name}: exact frame at ${timestamp}us`);
+        frame.close();
+        if (name === 'forward' && requestIndex < timestamps.length - 1) {
+          assert.equal(DelayedVideoDecoder.flushCalls, 0,
+            'forward non-terminal delayed output must not flush');
+        }
+      }
+      session.destroy();
+    }
+    for (const batch of DelayedVideoDecoder.outputBatches) {
+      assert.deepEqual(batch, [...batch].sort((left, right) => left - right));
+    }
+
+    const flushTarget = presentation[5];
+    const afterFlushTarget = presentation[13];
+    const flushCallsBeforeWithholding = DelayedVideoDecoder.flushCalls;
+    DelayedVideoDecoder.withheldTimestamp = flushTarget;
+    const flushSession = await source.fork('delayed-output:flush-recovery');
+    const flushedFrame = await flushSession.decode(flushTarget);
+    assert.equal(flushedFrame.timestamp, flushTarget);
+    flushedFrame.close();
+    assert.ok(DelayedVideoDecoder.flushCalls > flushCallsBeforeWithholding,
+      'grace expiry flushes the reorder buffer as a last resort');
+    DelayedVideoDecoder.withheldTimestamp = null;
+    const instancesBeforeContinuation = DelayedVideoDecoder.instances.length;
+    const continuedFrame = await flushSession.decode(afterFlushTarget);
+    assert.equal(continuedFrame.timestamp, afterFlushTarget);
+    continuedFrame.close();
+    assert.ok(DelayedVideoDecoder.instances.length > instancesBeforeContinuation,
+      'a flushed source reseeks and submits again from sync on the next decode');
+    flushSession.destroy();
+
+    const directOutputs = [];
+    const direct = new DelayedVideoDecoder({
+      output: frame => directOutputs.push(frame.timestamp),
+      error: error => { throw error; },
+    });
+    direct.configure({});
+    direct.decode(new DelayedChunk({ timestamp: 0, duration: 1, type: 'key', data: new Uint8Array() }));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await direct.flush();
+    direct.decode(new DelayedChunk({ timestamp: 1, duration: 1, type: 'key', data: new Uint8Array() }));
+    await new Promise(resolve => setTimeout(resolve, 160));
+    assert.deepEqual(directOutputs, [0, 1], 'flush keeps the decoder usable for a new sync input');
+    direct.close();
+    source.destroy();
+  } finally {
+    for (const instance of DelayedVideoDecoder.instances) instance.close();
+    for (const [name, value] of Object.entries(original)) {
+      if (value === undefined) delete globalThis[name];
+      else globalThis[name] = value;
+    }
+  }
+});
+
+test('six-stage decoder pipeline continues supplying without per-frame grace or flush', {
+  timeout: 20_000,
+}, async t => {
+  if (spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status !== 0) {
+    t.skip('ffmpeg is required');
+    return;
+  }
+  const directory = mkdtempSync(path.join(tmpdir(), 'akari-range-pipeline-six-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const fixture = path.join(directory, 'pipeline-six.mp4');
+  execFileSync('ffmpeg', [
+    '-hide_banner', '-loglevel', 'error', '-y',
+    '-f', 'lavfi', '-i', 'testsrc2=size=96x64:rate=24', '-frames:v', '72',
+    '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-g', '72',
+    '-keyint_min', '72', '-sc_threshold', '0', '-bf', '0',
+    '-movflags', '+faststart', fixture,
+  ]);
+  const file = readFileSync(fixture);
+  const table = await buildVideoSampleTable(
+    file.buffer.slice(file.byteOffset, file.byteOffset + file.byteLength),
+  );
+  assert.equal(table.samples.length, 72);
+  assert.equal(table.maxReorderFrames, 0);
+
+  const original = {
+    VideoDecoder: globalThis.VideoDecoder,
+    VideoFrame: globalThis.VideoFrame,
+    EncodedVideoChunk: globalThis.EncodedVideoChunk,
+  };
+  class PipelineFrame {
+    constructor(timestamp, duration) {
+      this.timestamp = timestamp;
+      this.duration = duration;
+      this.closed = false;
+    }
+    clone() { return new PipelineFrame(this.timestamp, this.duration); }
+    close() { this.closed = true; }
+  }
+  class PipelineChunk {
+    constructor(init) { Object.assign(this, init); }
+  }
+  class PipelineVideoDecoder {
+    static configureCalls = 0;
+    static flushCalls = 0;
+    static async isConfigSupported(config) { return { supported: true, config }; }
+    constructor(init) {
+      this.init = init;
+      this.pipeline = [];
+      this.decodeQueueSize = 0;
+      this.listeners = new Set();
+      this.closed = false;
+    }
+    configure() { PipelineVideoDecoder.configureCalls += 1; }
+    decode(chunk) {
+      if (this.closed) throw new Error('decode called after close');
+      this.decodeQueueSize += 1;
+      this.pipeline.push(chunk);
+      queueMicrotask(() => {
+        if (this.closed) return;
+        this.decodeQueueSize = Math.max(0, this.decodeQueueSize - 1);
+        if (this.pipeline.length >= 6) {
+          const next = this.pipeline.shift();
+          this.init.output(new PipelineFrame(next.timestamp, next.duration));
+        }
+        for (const listener of this.listeners) listener();
+      });
+    }
+    async flush() {
+      PipelineVideoDecoder.flushCalls += 1;
+      for (const chunk of this.pipeline.splice(0)) {
+        this.init.output(new PipelineFrame(chunk.timestamp, chunk.duration));
+      }
+      this.decodeQueueSize = 0;
+      for (const listener of this.listeners) listener();
+    }
+    addEventListener(type, listener) { if (type === 'dequeue') this.listeners.add(listener); }
+    removeEventListener(type, listener) { if (type === 'dequeue') this.listeners.delete(listener); }
+    close() {
+      this.closed = true;
+      this.pipeline.length = 0;
+      this.decodeQueueSize = 0;
+    }
+  }
+
+  globalThis.VideoDecoder = PipelineVideoDecoder;
+  globalThis.VideoFrame = PipelineFrame;
+  globalThis.EncodedVideoChunk = PipelineChunk;
+  try {
+    const source = new RangeMp4Source('pipeline-six', 'pipeline-six.mp4', {
+      fetchImpl: rangeFetch(new Uint8Array(file.buffer, file.byteOffset, file.byteLength)),
+    });
+    await source.prepare();
+    const timestamps = table.presentationOrder
+      .slice(0, 60)
+      .map(index => table.samples[index].timestampUs);
+    const startedAt = performance.now();
+    for (const timestamp of timestamps) {
+      const frame = await source.decode(timestamp);
+      assert.equal(frame.timestamp, timestamp);
+      frame.close();
+    }
+    const elapsedMs = performance.now() - startedAt;
+    assert.equal(PipelineVideoDecoder.flushCalls, 0, 'pipeline fill must not flush');
+    assert.equal(PipelineVideoDecoder.configureCalls, 1, 'forward decode keeps one decoder');
+    assert.ok(elapsedMs < 3_000, `60 forward frames took ${elapsedMs.toFixed(1)}ms`);
+    assert.ok(source.stats.maxDecodeQueueSize <= 72 * 2);
+    source.destroy();
+  } finally {
+    for (const [name, value] of Object.entries(original)) {
+      if (value === undefined) delete globalThis[name];
+      else globalThis[name] = value;
+    }
+  }
+});
+
 test('five one-minute cuts from a five-minute source stay within sample plus preceding-GOP byte budget', async t => {
   if (spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status !== 0) {
     t.skip('ffmpeg is required');
