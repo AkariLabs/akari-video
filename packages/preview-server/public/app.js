@@ -3858,6 +3858,7 @@ const CAPTION_STYLE_VARS = [
   '--caption-color', '--caption-font-size', '--caption-text-shadow',
   '--plate-bg', '--plate-radius', '--plate-block-bg', '--plate-block-radius',
   '--caption-top', '--caption-bottom', '--caption-left', '--caption-right',
+  '--caption-translate',
   '--caption-justify-content', '--caption-align-items',
   '--caption-line-margin', '--caption-line-max-width', '--caption-text-align'
 ];
@@ -4153,7 +4154,7 @@ function injectCaptionStyles() {
   100% { transform: scale(1); }
 }
 .akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); -webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9)); paint-order:stroke fill; text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35)); font-family:"Noto Sans JP",sans-serif; font-size:var(--caption-font-size,38px); font-weight:700; line-height:1.42; text-align:center; }
-.akari-caption__plate { position:absolute; top:var(--caption-top,auto); left:var(--caption-left,0); right:var(--caption-right,0); bottom:var(--caption-bottom,7%); display:flex; flex-direction:column; justify-content:var(--caption-justify-content,flex-start); align-items:var(--caption-align-items,stretch); gap:4px; }
+.akari-caption__plate { position:absolute; top:var(--caption-top,auto); translate:var(--caption-translate,none); left:var(--caption-left,0); right:var(--caption-right,0); bottom:var(--caption-bottom,7%); display:flex; flex-direction:column; justify-content:var(--caption-justify-content,flex-start); align-items:var(--caption-align-items,stretch); gap:4px; }
 .akari-caption__line { width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); padding:0.08em 0.42em; border-radius:10px; background:var(--plate-bg,transparent); text-align:var(--caption-text-align,center); white-space:pre; }
 .akari-caption__block { display:flex; flex-direction:column; width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); gap:var(--plate-gap,4px); padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em); border-radius:var(--plate-block-radius,10px); background:var(--plate-block-bg,transparent); }
 .akari-caption__block .akari-caption__line { width:auto; max-width:none; margin:0; padding:0; border-radius:0; background:transparent; }

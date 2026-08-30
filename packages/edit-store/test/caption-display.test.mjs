@@ -342,16 +342,25 @@ test('captionAnchorPositionVars keeps position-only y top-based', () => {
   });
 });
 
-test('captionAnchorPositionVars keeps middle-anchor y as the top approximation', () => {
+test('captionAnchorPositionVars centers middle-anchor y and leaves other anchor modes unchanged', () => {
   assert.deepEqual(captionAnchorPositionVars('mc', { y: 0.5 }, undefined), {
     '--caption-top': '50%',
     '--caption-bottom': 'auto',
+    '--caption-translate': '0 -50%',
     '--caption-left': '4%',
     '--caption-right': '4%',
     '--caption-align-items': 'center',
     '--caption-text-align': 'center',
     '--caption-line-margin': '0',
     '--caption-line-max-width': '100%',
+  });
+  assert.equal(captionAnchorPositionVars('mc', undefined, undefined)['--caption-translate'], undefined);
+  assert.equal(captionAnchorPositionVars('tc', { y: 0.5 }, undefined)['--caption-translate'], undefined);
+  assert.equal(captionAnchorPositionVars('bc', { y: 0.5 }, undefined)['--caption-translate'], undefined);
+  assert.deepEqual(captionAnchorPositionVars(undefined, { y: 0.5 }, 'middle'), {
+    '--caption-top': '50%',
+    '--caption-bottom': 'auto',
+    '--caption-translate': '0 -50%',
   });
 });
 

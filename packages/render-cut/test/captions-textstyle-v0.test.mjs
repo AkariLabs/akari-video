@@ -76,6 +76,31 @@ test("bottom text_anchor + position.y はプレート下端基準の配置変数
   assert.equal(positioned["--caption-bottom"], "9.5%");
 });
 
+test("middle text_anchor + position.y はプレート中心基準の配置変数になる", () => {
+  const positioned = captionTextStyleVars({ text_anchor: "mc", position: { y: 0.5 } });
+  assert.equal(positioned["--caption-top"], "50%");
+  assert.equal(positioned["--caption-bottom"], "auto");
+  assert.equal(positioned["--caption-translate"], "0 -50%");
+  assert.equal(captionTextStyleVars({ text_anchor: "mc" })["--caption-translate"], undefined);
+  assert.equal(captionTextStyleVars({ text_anchor: "tc", position: { y: 0.5 } })["--caption-translate"], undefined);
+  assert.equal(captionTextStyleVars({ text_anchor: "bc", position: { y: 0.5 } })["--caption-translate"], undefined);
+});
+
+test("textstyle 有効時の両プレート系だけが独立 translate を消費する", () => {
+  const [staticStyled] = overlaysWith({ text_anchor: "mc", position: { y: 0.5 } });
+  assert.match(staticStyled.html, /translate: var\(--caption-translate, none\);/);
+
+  const [timedStyled] = generateCaptionOverlays([{
+    ...CAPTIONS[0],
+    style: "karaoke",
+    words: [{ text: CAPTIONS[0].text, start: 0, end: 3 }],
+  }], CUTS, { defaultTextStyle: { text_anchor: "mc", position: { y: 0.5 } } });
+  assert.match(timedStyled.html, /translate: var\(--caption-translate, none\);/);
+
+  const [plain] = generateCaptionOverlays(CAPTIONS, CUTS, {});
+  assert.doesNotMatch(plain.html, /caption-translate/);
+});
+
 test("アニメーション: in / loop / out が合成され keyframes が埋まる", () => {
   const built = buildCaptionAnimation(
     { in: { id: "fade-up", duration_sec: 0.4 }, loop: { id: "float" }, out: { id: "fade-up" } },

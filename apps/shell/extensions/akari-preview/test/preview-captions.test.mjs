@@ -79,6 +79,23 @@ test('bottom text_anchor + position は共有カーネルと同じ下端基準�
     }
 });
 
+test('middle text_anchor + position は共有カーネルと同じ中心基準の位置変数になる', () => {
+    const [parsed] = parsePreviewCaptions(JSON.stringify({
+        captions: [{ ...caption, text_style: { text_anchor: 'mc', position: { y: 0.5 } } }]
+    }));
+    assert.equal(parsed.textStyleVars['--caption-top'], '50%');
+    assert.equal(parsed.textStyleVars['--caption-bottom'], 'auto');
+    assert.equal(parsed.textStyleVars['--caption-translate'], '0 -50%');
+    const expected = captionAnchorPositionVars('mc', { y: 0.5 }, undefined);
+    for (const [name, value] of Object.entries(expected)) {
+        assert.equal(parsed.textStyleVars[name], value, name);
+    }
+
+    assert.equal(captionAnchorPositionVars('mc', undefined, undefined)['--caption-translate'], undefined);
+    assert.equal(captionAnchorPositionVars('tc', { y: 0.5 }, undefined)['--caption-translate'], undefined);
+    assert.equal(captionAnchorPositionVars('bc', { y: 0.5 }, undefined)['--caption-translate'], undefined);
+});
+
 test('default_text_style の text_anchor / position も caption 側 text_style と合成される', () => {
     const [parsed] = parsePreviewCaptions(JSON.stringify({
         default_text_style: { text_anchor: 'tc', position: { y: 0.692708 } },
