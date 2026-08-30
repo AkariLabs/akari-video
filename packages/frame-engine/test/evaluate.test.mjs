@@ -252,3 +252,36 @@ test('evaluateFrame decodes matte color and mask at one time on independent stre
   }]);
   frame.close();
 });
+
+test('evaluateFrame loads a still image base without decoding and passes the bitmap through both upload paths (issue #30)', async () => {
+  const bitmap = { bitmap: { close() {} }, width: 2, height: 2 };
+  let loads = 0;
+  const image = { async load() { loads += 1; return bitmap; }, destroy() {} };
+  const surface = {
+    canvas: {}, width: 2, height: 2,
+    async readRgba() { return new Uint8Array(16); },
+    recordSink() {}, close() {}
+  };
+  for (const uploadPath of ['direct', 'copyTo']) {
+    let received;
+    const compositor = {
+      kind: 'webgl2',
+      uploadPath,
+      async compose(base) { received = base; return surface; },
+      dispose() {}
+    };
+    const frame = await evaluateFrame({
+      timeUs: 0,
+      base: [{ kind: 'image', id: 'cut-0', image, sourceTimeUs: 0, visual }],
+      layers: [],
+      transition: { type: 'hard-cut', progress: 0 },
+      output: { width: 2, height: 2, colorSpace: 'bt709-limited' }
+    }, { compositor, metrics: new FrameMetrics() });
+    assert.equal(received.length, 1);
+    assert.equal(received[0], bitmap);
+    assert.equal(frame.uploadPath, uploadPath);
+    assert.deepEqual(frame.nativeFormats, []);
+    frame.close();
+  }
+  assert.equal(loads, 2);
+});

@@ -194,3 +194,41 @@ test("GPU page adds the parsed entrance only to animated 3D manifest entries", (
   assert.equal(result.eligibility.entries[0].reason, "three-scene-entrance-curve");
   assert.equal(result.eligibility.entries[1].reason, "three-scene-canvas-direct");
 });
+
+test("GPU page carries text slot params to static sprites and DOM runs and inlines the slot runtime (#32)", () => {
+  const overlays = [
+    { id: "static", start: 0, duration: 1, html: '<div><span data-akari-slot="credit">x</span></div>', params: { credit: "A" } },
+    { id: "dom", start: 1, duration: 1, html: '<style>.x{transition:opacity 1s}</style><span data-akari-slot="credit">x</span>', params: { credit: "B" } },
+    { id: "plain", start: 2, duration: 1, html: "<div>plain</div>", params: {} },
+  ];
+  const result = buildGpuPage({
+    edit: { ...edit, overlays },
+    overlays,
+    projectRoot: "/unused",
+    duration: 3,
+    frameEngineBundle: "window.AkariFrameEngine={};",
+    pageRuntime: "void 0;",
+    slotParamsRuntime: "window.akari={slotParams:{}};/*SLOT-RUNTIME*/",
+  });
+  assert.deepEqual(result.spriteManifest.statics.map((sprite) => [sprite.id, sprite.params]), [
+    ["static", { credit: "A" }], ["plain", null],
+  ]);
+  assert.deepEqual(result.spriteManifest.dom.map((run) => run.entries.map((entry) => [entry.id, entry.params])), [
+    [["dom", { credit: "B" }]],
+  ]);
+  assert.equal(result.manifest.textSlotOverlayCount, 2);
+  assert.match(result.html, /SLOT-RUNTIME/u);
+  assert.ok(result.html.indexOf("SLOT-RUNTIME") < result.html.indexOf("void 0;"), "slot runtime loads before the page runtime");
+
+  const without = buildGpuPage({
+    edit: { ...edit, overlays: [overlays[2]] },
+    overlays: [overlays[2]],
+    projectRoot: "/unused",
+    duration: 3,
+    frameEngineBundle: "window.AkariFrameEngine={};",
+    pageRuntime: "void 0;",
+    slotParamsRuntime: "/*SLOT-RUNTIME*/",
+  });
+  assert.equal(without.manifest.textSlotOverlayCount, 0);
+  assert.doesNotMatch(without.html, /SLOT-RUNTIME/u);
+});

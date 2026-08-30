@@ -1193,8 +1193,22 @@ export class WebGL2Compositor implements CompositorBackend {
     this.stats.imageUploads += 1;
     return texture;
   }
+  /** 静止画 cut（issue #30）: layers と同じ texture cache を base の RGBA unit へ結び、format 2 で標本化する。 */
+  private uploadStillBaseTexture(
+    value: StillImageBitmap,
+    unit: number,
+    uniforms?: CutUniforms,
+  ): void {
+    const texture = this.stillTexture(value);
+    this.bind(unit, texture);
+    if (uniforms) {
+      this.gl.uniform1i(uniforms.format, 2);
+      this.gl.uniform2f(uniforms.sourceSize, value.width, value.height);
+      this.gl.uniform1i(uniforms.rotation, 0);
+    }
+  }
   private prepareBase(
-    frames: readonly (NativeYuvFrame | VideoFrame)[],
+    frames: readonly (NativeYuvFrame | StillImageBitmap | VideoFrame)[],
     plan: EvaluationPlan,
     output: EvaluationPlan['output'],
     baseProgram: BaseProgramState,
@@ -1204,7 +1218,9 @@ export class WebGL2Compositor implements CompositorBackend {
     gl.uniform2f(baseProgram.output, output.width, output.height);
     const started = performance.now();
     frames.forEach((frame, index) => {
-      if (isVideoFrame(frame)) {
+      if ('bitmap' in frame) {
+        this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[index]!, baseProgram.cutUniforms[index]);
+      } else if (isVideoFrame(frame)) {
         this.uploadVideoFrameTexture(
           this.baseRgbaTextures[index]!,
           BASE_RGBA_UNITS[index]!,
@@ -1223,7 +1239,9 @@ export class WebGL2Compositor implements CompositorBackend {
     });
     if (frames.length === 1 && !baseProgram.secondary) {
       const frame = frames[0]!;
-      if (isVideoFrame(frame)) {
+      if ('bitmap' in frame) {
+        this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[1], baseProgram.cutUniforms[1]);
+      } else if (isVideoFrame(frame)) {
         const rotation = rotationQuarterTurns(frame);
         const logical = logicalSize(frame.displayWidth, frame.displayHeight, rotation);
         this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[0]!);
@@ -1274,7 +1292,7 @@ export class WebGL2Compositor implements CompositorBackend {
   }
 
   async compose(
-    base: readonly (NativeYuvFrame | VideoFrame)[],
+    base: readonly (NativeYuvFrame | StillImageBitmap | VideoFrame)[],
     layers: readonly {
       color: NativeYuvFrame | StillImageBitmap | VideoFrame;
       mask?: NativeYuvFrame | VideoFrame | null;

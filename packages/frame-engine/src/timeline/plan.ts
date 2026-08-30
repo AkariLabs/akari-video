@@ -77,6 +77,17 @@ export interface ResolvedTimelinePlan {
   readonly fps: number;
 }
 
+/**
+ * cuts[].track の z 既定。v2 の tracks[] は配列順 = z 順（後ろが前面）で、内部モデルは cuts の
+ * track ref を配列順に採番するため、番号が大きいトラックほど前面に置く。edit-store の
+ * buildTimelineMap 既定（-track = 番号が小さいほど前面）は逆向きで、GPU / OSR の書き出しが
+ * 2 本目以降の visual トラックの映像クリップを無言で落としていた（issue #31）。シェルの
+ * タイムライン UI（akari-preview-open-handler.ts の buildTimelineMap 直呼び）は同じ向きを明示しており、
+ * frame-engine へ cuts を渡す 4 消費者（gpu / osr / preview-server / シェルのプレビュー）は本既定に依る。
+ * 呼び出し側が options.trackZ を渡せば従来どおりそちらが優先される。
+ */
+const DEFAULT_TRACK_Z = (track: number): number => track;
+
 const DEFAULT_VISUAL: ResolvedCutVisual = {
   framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
   transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
@@ -117,7 +128,7 @@ export function buildResolvedTimelinePlan(
     };
   });
   const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
-  const map = buildTimelineMap(virtualCuts, timelineOptions);
+  const map = buildTimelineMap(virtualCuts, { trackZ: DEFAULT_TRACK_Z, ...timelineOptions });
   const trackSegments = computeCutTrackSegments(virtualCuts);
   const placements = cuts.map((cut, index): ResolvedCutPlacement => {
     const segment = trackSegments[index];
@@ -163,8 +174,13 @@ export function buildResolvedTimelinePlan(
       maskSources.set(layer.src, null);
     }
   }
+  // 総尺は cuts の終端と layers の終端の大きい方（edit-store の visualContentEndSeconds と同じ定義）。
+  // cuts が空で layers だけの時間軸（同一トラック内の重なりで全 media アイテムが layers へ退避した
+  // 場合など）で総尺 0 になると、書き出しランタイムは全コマを t=0 に丸めて layers を評価できない。
+  const layersEnd = visibleLayers.reduce((maximum, layer) =>
+    Math.max(maximum, finite(layer.t, 0) + Math.max(0, finite(layer.duration, 0))), 0);
   return {
-    map, cuts: placements, totalDuration: map.totalDuration,
+    map, cuts: placements, totalDuration: Math.max(map.totalDuration, layersEnd),
     layers: visibleLayers,
     maskSources,
     warn,
@@ -274,8 +290,10 @@ function layerFromPlacement(
   const cut = placement.cut;
   if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
   const source = sources.get(cut.src);
-  if (!source || !('decode' in source)) throw new Error(`no video frame source registered for ${cut.src}`);
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
+  const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visualAt(cut, playbackSeconds));
+  if (image) return image;
+  if (!source || !('decode' in source)) throw new Error(`no video frame source registered for ${cut.src}`);
   const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
   return {
     id: `cut-${cutIndex}`,
@@ -283,6 +301,22 @@ function layerFromPlacement(
     sourceTimeUs: Math.round((cut.in + playbackSeconds * speed) * 1e6),
     visual: visualAt(cut, playbackSeconds)
   };
+}
+
+/**
+ * 静止画ソースが登録されていればそれを base 層として返す（issue #30）。レジストリの型で判定するので、
+ * 呼び出し側（GPU / OSR / プレビュー）が拡張子で CachedStillImageSource を登録した素材だけが対象。
+ * 静止画には「ソース時刻」が無く、at / duration / transform / crop / keyframes は動画 cut と同じに効く。
+ */
+function stillImageBaseLayer(
+  source: NativeFrameSource | StillImageSource | undefined,
+  src: string,
+  id: string,
+  visual: ResolvedCutVisual
+): EvaluationPlan['base'][number] | null {
+  if (!source || 'decode' in source) return null;
+  if (!('load' in source)) throw new Error(`no video frame source registered for ${src}`);
+  return { kind: 'image', id, image: source, sourceTimeUs: 0, visual };
 }
 
 const BLENDS = new Set<ResolvedLayerBlendMode>([
@@ -420,6 +454,8 @@ function legacyLayerFromSegment(
 ): EvaluationPlan['base'][number] {
   if (!segment.src) throw new Error(`resolved cut ${segment.cutIndex ?? 'unknown'} has no src`);
   const source = sources.get(segment.src);
+  const image = stillImageBaseLayer(source, segment.src, `cut-${segment.cutIndex ?? 'unknown'}`, DEFAULT_VISUAL);
+  if (image) return image;
   if (!source || !('decode' in source)) throw new Error(`no video frame source registered for ${segment.src}`);
   return {
     id: `cut-${segment.cutIndex ?? 'unknown'}`,

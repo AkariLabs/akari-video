@@ -6097,9 +6097,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 return;
             }
 
-            // summary.cuts は表示用の派生配置を含む。逐次 cuts へ戻すことで freeze による
-            // 尺の伸長と transition の重なりを frame-engine 自身に再計算させる。
-            const normalizedCuts = (Array.isArray(summary.cuts) ? summary.cuts : []).map((cut, index) => {
+            // summary.cuts は表示用の派生配置を含む。最下段（renderTrack が最小）の visual トラックは
+            // 逐次 cuts へ戻すことで freeze による尺の伸長と transition の重なりを frame-engine 自身に
+            // 再計算させる。上段の visual トラックの cut は at / track（= renderTrack）を保持して絶対配置する。
+            // 外すと最下段の後ろへ直列に連結され、出力尺の外へ押し出されて無言で消える（issue #31。
+            // gpu / osr / preview-server の normalizedCuts と同じ規則。前後関係は frame-engine の既定 =
+            // 番号が大きいトラックが前面で、buildTimelineMap 直呼びの trackZ: track => track と同じ向き）。
+            const summaryCuts = Array.isArray(summary.cuts) ? summary.cuts : [];
+            const renderTracks = summaryCuts
+                .map(cut => cut.renderTrack)
+                .filter((value): value is number => Number.isInteger(value) && value >= 0);
+            const baseRenderTrack = renderTracks.length > 0 ? Math.min(...renderTracks) : 0;
+            const normalizedCuts = summaryCuts.map((cut, index) => {
                 const {
                     at: _derivedAt,
                     track: _derivedTrack,
@@ -6107,8 +6116,16 @@ body { display: grid; place-items: center; padding: 32px; }
                     renderTrack: _derivedRenderTrack,
                     ...sequential
                 } = cut;
+                const upperTrack = Number.isInteger(cut.renderTrack) && cut.renderTrack > baseRenderTrack;
+                const placement = upperTrack
+                    ? {
+                        track: cut.renderTrack,
+                        ...(Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {})
+                    }
+                    : {};
                 return {
                     ...sequential,
+                    ...placement,
                     src: cut.src || 'default',
                     in: Number(cut.in || 0),
                     out: Number(cut.out == null ? cut.in || 0 : cut.out),

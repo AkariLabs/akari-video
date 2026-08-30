@@ -21,8 +21,18 @@
     const cuts = Array.isArray(edit.cuts) ? edit.cuts : [];
     return cuts.map((cut, index) => {
       const copy = Object.assign({}, cut);
+      // track 0（本編の連結チェーン）は投影が導出した at を外して連続配置に任せる: freeze で
+      // 時間軸を伸ばし、トランジションの重なりは宣言から再計算する（preview-server と同じ）。
+      // 2 本目以降の visual トラック（track >= 1）は at / track を保持して絶対配置する。外すと
+      // 直列に連結されて出力尺の外へ押し出され、無言で消える（issue #31）。前後関係は
+      // frame-engine の既定 trackZ（番号が大きいトラックが前面）。
+      const track = Number.isInteger(cut.track) && cut.track > 0 ? cut.track : 0;
       delete copy.at;
       delete copy.track;
+      if (track > 0) {
+        copy.track = track;
+        if (Number.isFinite(cut.at) && cut.at >= 0) copy.at = Number(cut.at);
+      }
       copy.src = cut.src || (Array.isArray(edit.sources) ? edit.sources[0] && edit.sources[0].id : "default") || "default";
       copy.in = Number(cut.in || 0);
       copy.out = Number(cut.out ?? cut.in ?? 0);

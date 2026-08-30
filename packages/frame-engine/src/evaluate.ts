@@ -31,7 +31,7 @@ export async function evaluateFrame(
   context: EvaluationContext
 ): Promise<CompositedFrame> {
   const decoded: VideoFrame[] = [];
-  const baseFrames: VideoFrame[] = [];
+  const baseFrames: Array<VideoFrame | StillImageBitmap> = [];
   const layerFrames: Array<{
     color: VideoFrame | StillImageBitmap;
     mask?: VideoFrame | null;
@@ -44,6 +44,11 @@ export async function evaluateFrame(
   }> = [];
   try {
     for (const layer of plan.base) {
+      if (layer.kind === 'image') {
+        // 静止画 cut（issue #30）: デコードは無く、ビットマップは source が保持するので閉じない
+        baseFrames.push(await layer.image.load());
+        continue;
+      }
       const decodeStarted = performance.now();
       const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: layer.id });
       context.metrics.record('decode', performance.now() - decodeStarted);
@@ -92,8 +97,8 @@ export async function evaluateFrame(
     };
     const buildInputs = async (path: UploadPath) => {
       if (path === 'direct') return { base: baseFrames, layers: layerFrames };
-      const base: Array<NativeYuvFrame | VideoFrame> = [];
-      for (const frame of baseFrames) base.push(await copyFrame(frame));
+      const base: Array<NativeYuvFrame | StillImageBitmap | VideoFrame> = [];
+      for (const frame of baseFrames) base.push('bitmap' in frame ? frame : await copyFrame(frame));
       const layers: Array<{
         color: NativeYuvFrame | StillImageBitmap | VideoFrame;
         mask?: NativeYuvFrame | VideoFrame | null;

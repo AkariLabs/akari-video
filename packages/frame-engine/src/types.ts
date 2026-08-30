@@ -99,11 +99,27 @@ export interface ResolvedCutVisual {
 }
 
 export interface ResolvedVideoLayer {
+  kind?: 'video';
   id: string;
   source: NativeFrameSource;
   sourceTimeUs: TimelineTimeUs;
   visual: ResolvedCutVisual;
 }
+
+/**
+ * 静止画ソース（edit-store の isStillImageSourcePath）をメイン時間軸（cuts）へ置いた base 層。
+ * 表示尺は cut の out - in で決まり、ソース時刻という概念が無いため sourceTimeUs は常に 0
+ * （docs/contract-2026-08-12-still-image-cut-source-v0.md。issue #30）。
+ */
+export interface ResolvedImageBaseLayer {
+  kind: 'image';
+  id: string;
+  image: StillImageSource;
+  sourceTimeUs: 0;
+  visual: ResolvedCutVisual;
+}
+
+export type ResolvedBaseLayer = ResolvedVideoLayer | ResolvedImageBaseLayer;
 
 export interface ResolvedLayerVisual {
   crop: { x: number; y: number; width: number; height: number };
@@ -145,7 +161,7 @@ export interface ResolvedLook {
 
 export interface EvaluationPlan {
   timeUs: TimelineTimeUs;
-  base: readonly ResolvedVideoLayer[];
+  base: readonly ResolvedBaseLayer[];
   layers: readonly ResolvedCompositeLayer[];
   transition?: ResolvedTransition;
   output: {
@@ -187,7 +203,7 @@ export interface CompositorBackend {
   readonly kind: 'webgl2';
   readonly uploadPath?: UploadPath;
   compose(
-    base: readonly (NativeYuvFrame | VideoFrame)[],
+    base: readonly (NativeYuvFrame | StillImageBitmap | VideoFrame)[],
     layers: readonly {
       color: NativeYuvFrame | StillImageBitmap | VideoFrame;
       mask?: NativeYuvFrame | VideoFrame | null;

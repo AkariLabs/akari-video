@@ -15737,13 +15737,25 @@ var WebGL2Compositor = class {
     this.stats.imageUploads += 1;
     return texture;
   }
+  /** 静止画 cut（issue #30）: layers と同じ texture cache を base の RGBA unit へ結び、format 2 で標本化する。 */
+  uploadStillBaseTexture(value, unit, uniforms) {
+    const texture = this.stillTexture(value);
+    this.bind(unit, texture);
+    if (uniforms) {
+      this.gl.uniform1i(uniforms.format, 2);
+      this.gl.uniform2f(uniforms.sourceSize, value.width, value.height);
+      this.gl.uniform1i(uniforms.rotation, 0);
+    }
+  }
   prepareBase(frames, plan, output, baseProgram) {
     const gl = this.gl;
     gl.useProgram(baseProgram.program);
     gl.uniform2f(baseProgram.output, output.width, output.height);
     const started = performance.now();
     frames.forEach((frame, index) => {
-      if (isVideoFrame(frame)) {
+      if ("bitmap" in frame) {
+        this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[index], baseProgram.cutUniforms[index]);
+      } else if (isVideoFrame(frame)) {
         this.uploadVideoFrameTexture(
           this.baseRgbaTextures[index],
           BASE_RGBA_UNITS[index],
@@ -15762,7 +15774,9 @@ var WebGL2Compositor = class {
     });
     if (frames.length === 1 && !baseProgram.secondary) {
       const frame = frames[0];
-      if (isVideoFrame(frame)) {
+      if ("bitmap" in frame) {
+        this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[1], baseProgram.cutUniforms[1]);
+      } else if (isVideoFrame(frame)) {
         const rotation = rotationQuarterTurns(frame);
         const logical = logicalSize(frame.displayWidth, frame.displayHeight, rotation);
         this.bind(BASE_RGBA_UNITS[1], this.baseRgbaTextures[0]);
@@ -16072,6 +16086,10 @@ async function evaluateFrame(plan, context) {
   const maskSync = [];
   try {
     for (const layer of plan.base) {
+      if (layer.kind === "image") {
+        baseFrames.push(await layer.image.load());
+        continue;
+      }
       const decodeStarted = performance.now();
       const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: layer.id });
       context.metrics.record("decode", performance.now() - decodeStarted);
@@ -16120,7 +16138,7 @@ async function evaluateFrame(plan, context) {
     const buildInputs = async (path) => {
       if (path === "direct") return { base: baseFrames, layers: layerFrames };
       const base = [];
-      for (const frame of baseFrames) base.push(await copyFrame(frame));
+      for (const frame of baseFrames) base.push("bitmap" in frame ? frame : await copyFrame(frame));
       const layers = [];
       for (const input of layerFrames) {
         const color = "bitmap" in input.color ? input.color : await copyFrame(input.color);
@@ -16178,6 +16196,7 @@ async function evaluateFrame(plan, context) {
 // ../frame-engine/src/timeline/plan.ts
 var import_edit_store2 = __toESM(require_lib(), 1);
 var import_edit_store3 = __toESM(require_lib(), 1);
+var DEFAULT_TRACK_Z = (track) => track;
 var DEFAULT_VISUAL = {
   framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
   transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 },
@@ -16206,7 +16225,7 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     };
   });
   const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
-  const map = (0, import_edit_store2.buildTimelineMap)(virtualCuts, timelineOptions);
+  const map = (0, import_edit_store2.buildTimelineMap)(virtualCuts, { trackZ: DEFAULT_TRACK_Z, ...timelineOptions });
   const trackSegments = (0, import_edit_store2.computeCutTrackSegments)(virtualCuts);
   const placements = cuts.map((cut, index) => {
     const segment = trackSegments[index];
@@ -16250,10 +16269,11 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
       maskSources.set(layer.src, null);
     }
   }
+  const layersEnd = visibleLayers.reduce((maximum, layer) => Math.max(maximum, finite2(layer.t, 0) + Math.max(0, finite2(layer.duration, 0))), 0);
   return {
     map,
     cuts: placements,
-    totalDuration: map.totalDuration,
+    totalDuration: Math.max(map.totalDuration, layersEnd),
     layers: visibleLayers,
     maskSources,
     warn,
@@ -16346,8 +16366,10 @@ function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
   const cut = placement.cut;
   if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
   const source = sources.get(cut.src);
-  if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
+  const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visualAt(cut, playbackSeconds));
+  if (image) return image;
+  if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
   const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
   return {
     id: `cut-${cutIndex}`,
@@ -16355,6 +16377,11 @@ function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
     sourceTimeUs: Math.round((cut.in + playbackSeconds * speed) * 1e6),
     visual: visualAt(cut, playbackSeconds)
   };
+}
+function stillImageBaseLayer(source, src, id, visual) {
+  if (!source || "decode" in source) return null;
+  if (!("load" in source)) throw new Error(`no video frame source registered for ${src}`);
+  return { kind: "image", id, image: source, sourceTimeUs: 0, visual };
 }
 var BLENDS = /* @__PURE__ */ new Set([
   "normal",
@@ -21505,6 +21532,7 @@ function createPreviewScheduler({
       requirements.push({ sourceId, streamId, sourceTimeUs, key, kind });
     };
     for (const base of plan.base) {
+      if (base.kind === "image") continue;
       const cutIndex = Number(base.id.slice("cut-".length));
       append(timeline.cuts[cutIndex]?.cut.src, base.id, base.sourceTimeUs, "base");
     }
@@ -22548,8 +22576,11 @@ function normalizedCuts(edit) {
   const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
   return cuts.map((cut, index) => {
     const { at: _derivedAt, track: _derivedTrack, ...sequential } = cut;
+    const track = Number.isInteger(cut.track) && cut.track > 0 ? Number(cut.track) : 0;
+    const placement = track > 0 ? { track, ...Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {} } : {};
     return {
       ...sequential,
+      ...placement,
       src: cut.src ?? (Array.isArray(edit?.sources) ? edit.sources[0]?.id : "default"),
       in: Number(cut.in ?? 0),
       out: Number(cut.out ?? cut.in ?? 0),

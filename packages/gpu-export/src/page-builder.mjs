@@ -17,6 +17,9 @@ const require = createRequire(import.meta.url);
 const { collectExcludedCaptionIds, filterCaptionRootByExcludedIds } = require("../../edit-store/lib/index.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
+// data-akari-slot への文言注入。legacy（render-cut rasterize）・プレビュー（overlay-runtime）と同じ
+// 1 実装をページへ読み込み、静的スプライトと DOM 層の両方で source.params を適用する（issue #32）。
+const SLOT_PARAMS_RUNTIME = join(PACKAGE_ROOT, "..", "overlay-runtime", "src", "slot-params.js");
 
 export function buildGpuPage({
   edit,
@@ -31,8 +34,10 @@ export function buildGpuPage({
   eligibility = null,
   frameEngineBundle = readFileSync(FRAME_ENGINE_BUNDLE, "utf8"),
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
+  slotParamsRuntime = readFileSync(SLOT_PARAMS_RUNTIME, "utf8"),
 } = {}) {
   const enabledOverlays = overlays.filter((overlay) => overlay?.enabled !== false);
+  const textSlotOverlayCount = enabledOverlays.filter((overlay) => overlayTextSlotParams(overlay) !== null).length;
   const projectedEdit = { ...edit, overlays: enabledOverlays, output: { ...edit.output, width, height, fps } };
   const captionRoot = Array.isArray(captions) ? captions : captions?.captions ?? [];
   const defaultTextStyle = Array.isArray(captions) ? null : captions?.default_text_style ?? null;
@@ -87,6 +92,7 @@ export function buildGpuPage({
     statics: statics.map(({ overlay, index }) => ({
       id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration),
       html: overlay.html, vars: resolveOverlayVars(overlay), index,
+      params: overlayTextSlotParams(overlay),
     })),
     three: three.map(({ overlay, index }) => {
       const parsed = parseThreeEntrance(overlay.html, {
@@ -148,7 +154,8 @@ export function buildGpuPage({
     ${iframe}
   </div>
   <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};</script>
-  <script>${inlineScript(frameEngineBundle)}</script>
+  <script>${inlineScript(frameEngineBundle)}</script>${textSlotOverlayCount > 0 ? `
+  <script>${inlineScript(slotParamsRuntime)}</script>` : ""}
   <script>${inlineScript(pageRuntime)}</script>
 </body>
 </html>
@@ -170,6 +177,7 @@ export function buildGpuPage({
       threeSpriteCount: spriteManifest.three.length,
       domRunCount: spriteManifest.dom.length,
       domOverlayCount: spriteManifest.dom.reduce((sum, run) => sum + run.entries.length, 0),
+      textSlotOverlayCount,
       lutApplication: lookDeclaration ? "engine-canvas" : "none",
       stampRow: false,
     },
@@ -197,10 +205,18 @@ function buildDomRuns(indexedOverlays, classifications, duration) {
       vars: resolveOverlayVars(overlay),
       transform: overlay.transform ?? {},
       role: overlay.role ?? null,
-      params: overlay.params ?? null,
+      params: overlayTextSlotParams(overlay),
     });
   }
   return runs;
+}
+
+/** rasterize.mjs の hasTextSlotParams と同じ判定: 空でないプレーンオブジェクトだけを params とみなす。 */
+function overlayTextSlotParams(overlay) {
+  const params = overlay?.params;
+  return params && typeof params === "object" && !Array.isArray(params) && Object.keys(params).length > 0
+    ? params
+    : null;
 }
 
 function resolveOverlayVars(overlay) {
