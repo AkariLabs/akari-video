@@ -7,6 +7,7 @@ import electron from "electron";
 
 import { verifyEncodedVideo } from "../../osr-export/src/ffprobe.mjs";
 import { createMemorySampler, resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
+import { encodeRgbaPng } from "../../osr-export/src/png.mjs";
 import { startStaticServer } from "../../osr-export/src/static-server.mjs";
 import { loadAndBuildGpuPage } from "./page-builder.mjs";
 import { muxMp4boxDirect } from "./mp4-mux.mjs";
@@ -25,6 +26,7 @@ const DOM_LAYER_SWITCHES = Object.freeze([
 export async function runGpuExport(options) {
   const {
     projectRoot,
+    editPath = null,
     out,
     fps = 30,
     width = 1920,
@@ -37,11 +39,18 @@ export async function runGpuExport(options) {
     soft = false,
     trapReadback = false,
     verifyFrames = false,
+    captureFrames = null,
+    captureOutputDirectory = null,
     processTimeoutMs = Math.max(300_000, frames * 1_000),
     ffprobeCommand = process.env.FFPROBE ?? process.env.AKARI_FFPROBE_BIN ?? "ffprobe",
   } = options;
+  const captureMode = captureFrames !== null;
   if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(frames) || frames <= 0) {
     throw new Error("GPU duration and frame count must be positive");
+  }
+  const requestedCaptureFrames = captureMode ? normalizeCaptureFrames(captureFrames, frames) : null;
+  if (captureMode && !captureOutputDirectory) {
+    throw new Error("GPU capture requires captureOutputDirectory");
   }
   if (trapReadback && verifyFrames) throw new Error("--trap-readback and --verify-frames are mutually exclusive");
   const encoding = resolveGpuEncoding({ quality, bitrate });
@@ -59,7 +68,14 @@ export async function runGpuExport(options) {
   app.on("window-all-closed", () => {});
   if (!app.isReady()) await app.whenReady();
 
-  const built = await loadAndBuildGpuPage({ projectRoot, fps, width, height, duration });
+  const built = await loadAndBuildGpuPage({
+    projectRoot,
+    editPath: editPath ?? join(projectRoot, "edit.json"),
+    fps,
+    width,
+    height,
+    duration,
+  });
   if (!built.eligibility.eligible) {
     throw new Error(`GPU eligibility failed: ${formatEligibilityFailures(built.eligibility)}`);
   }
@@ -81,7 +97,7 @@ export async function runGpuExport(options) {
     onWarning: (bytes) => memoryWarnings.push(`RSS warning: ${bytes} bytes`),
     onHardStop: (bytes) => { fatalMemoryError = new Error(`RSS hard stop: ${bytes} bytes`); },
   });
-  const runPath = join(dirname(out), "run.json");
+  const runPath = captureMode ? out : join(dirname(out), "run.json");
   const annexBPath = join(dirname(out), "encoded.h264");
   const runtimeConfig = {
     frames,
@@ -91,13 +107,17 @@ export async function runGpuExport(options) {
     soft,
     trapReadback,
     verifyFrames,
+    captureFrames: requestedCaptureFrames,
     domLayerFlags,
-    ...(verifyFrames ? { verifyReadbackModule: await readFile(VERIFY_READBACK_PATH, "utf8") } : {}),
+    ...(verifyFrames || captureMode ? { verifyReadbackModule: await readFile(VERIFY_READBACK_PATH, "utf8") } : {}),
   };
   let windowRef = null;
   let chunkState = null;
   let rendererFailure = null;
-  const channels = ["gpu:config", "gpu:log", "gpu:checkpoint", "gpu:chunks-start", "gpu:chunk", "gpu:chunks-finish"];
+  const channels = [
+    "gpu:config", "gpu:log", "gpu:checkpoint", "gpu:chunks-start", "gpu:chunk", "gpu:chunks-finish",
+    "gpu:capture-frame",
+  ];
 
   const register = (channel, handler) => ipcMain.handle(channel, handler);
   register("gpu:config", () => runtimeConfig);
@@ -115,7 +135,10 @@ export async function runGpuExport(options) {
       eligibility: built.eligibility,
     };
     await writeFile(runPath, `${JSON.stringify(running, null, 2)}\n`);
-    if (Number.isInteger(value?.framesCompleted)) process.stdout.write(`PROGRESS frame=${value.framesCompleted} total=${frames}\n`);
+    if (Number.isInteger(value?.framesCompleted)) {
+      const total = captureMode ? requestedCaptureFrames.length : frames;
+      process.stdout.write(`PROGRESS frame=${value.framesCompleted} total=${total}\n`);
+    }
     return true;
   });
   register("gpu:chunks-start", async () => {
@@ -158,6 +181,18 @@ export async function runGpuExport(options) {
     const ffprobe = await verifyEncodedVideo({ command: ffprobeCommand, path: out, frames, fps, width, height });
     if (!ffprobe.matched) throw new Error(`GPU ffprobe verification failed: ${JSON.stringify(ffprobe.checks)}`);
     return { ...mux, ffprobe };
+  });
+  register("gpu:capture-frame", async (_event, value) => {
+    if (!captureMode) throw new Error("GPU capture frame received during export");
+    const frameNumber = Number(value?.frameNumber);
+    if (!requestedCaptureFrames.includes(frameNumber)) {
+      throw new Error(`unexpected GPU capture frame: ${value?.frameNumber}`);
+    }
+    const rgba = Buffer.from(value.rgba);
+    const outputPath = join(captureOutputDirectory, `frame-${frameNumber}.png`);
+    await mkdir(captureOutputDirectory, { recursive: true });
+    await writeFile(outputPath, encodeRgbaPng(rgba, width, height));
+    return { frameNumber, path: outputPath, bytes: rgba.length };
   });
 
   try {
@@ -241,6 +276,7 @@ export function gpuFailureReasonCode(error) {
 export function parseElectronArguments(argv) {
   const options = {
     projectRoot: null,
+    editPath: null,
     out: null,
     fps: 30,
     width: 1920,
@@ -253,10 +289,13 @@ export function parseElectronArguments(argv) {
     soft: false,
     trapReadback: false,
     verifyFrames: false,
+    captureFrames: null,
+    captureOutputDirectory: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--render") options.projectRoot = required(argv, ++index, "--render");
+    else if (argument === "--edit") options.editPath = required(argv, ++index, "--edit");
     else if (argument === "--out") options.out = required(argv, ++index, "--out");
     else if (argument === "--fps") options.fps = positiveNumber(required(argv, ++index, "--fps"), "--fps");
     else if (argument === "--width") options.width = positiveInteger(required(argv, ++index, "--width"), "--width");
@@ -269,11 +308,16 @@ export function parseElectronArguments(argv) {
     else if (argument === "--soft") options.soft = true;
     else if (argument === "--trap-readback") options.trapReadback = true;
     else if (argument === "--verify-frames") options.verifyFrames = true;
+    else if (argument === "--capture-frames") options.captureFrames = parseFrameList(required(argv, ++index, "--capture-frames"));
+    else if (argument === "--capture-output-dir") options.captureOutputDirectory = required(argv, ++index, "--capture-output-dir");
   }
   if (!options.projectRoot || !options.out) throw new Error("--render and --out are required");
   if (options.duration === null && options.frames !== null) options.duration = options.frames / options.fps;
   if (options.frames === null && options.duration !== null) options.frames = Math.round(options.duration * options.fps);
   if (options.trapReadback && options.verifyFrames) throw new Error("--trap-readback and --verify-frames are mutually exclusive");
+  if (options.captureFrames !== null && (options.captureFrames.length === 0 || !options.captureOutputDirectory)) {
+    throw new Error("--capture-frames requires at least one frame and --capture-output-dir");
+  }
   return options;
 }
 
@@ -317,6 +361,29 @@ function positiveInteger(value, label) {
   const number = positiveNumber(value, label);
   if (!Number.isInteger(number)) throw new Error(`${label} requires an integer`);
   return number;
+}
+
+function parseFrameList(value) {
+  if (value === "") return [];
+  return [...new Set(value.split(",").map((entry) => {
+    const frame = Number(entry);
+    if (!Number.isInteger(frame) || frame < 0) {
+      throw new Error(`--capture-frames requires non-negative integers, got: ${entry}`);
+    }
+    return frame;
+  }))].sort((left, right) => left - right);
+}
+
+function normalizeCaptureFrames(frameNumbers, totalFrames) {
+  if (!Array.isArray(frameNumbers) || frameNumbers.length === 0) {
+    throw new Error("GPU capture requires at least one frame number");
+  }
+  return [...new Set(frameNumbers.map((frame) => {
+    if (!Number.isInteger(frame) || frame < 0 || frame >= totalFrames) {
+      throw new Error(`GPU capture frame ${frame} is outside 0..${totalFrames - 1}`);
+    }
+    return frame;
+  }))].sort((left, right) => left - right);
 }
 
 async function runCli() {

@@ -3,7 +3,7 @@ import { createReadStream, existsSync } from "node:fs";
 import { copyFile, mkdir } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
-import { contactSheetGridDimensions } from "../../../render-cut/src/contact-sheet.mjs";
+import { renderLabeledContactSheet } from "../../../render-cut/src/contact-sheet.mjs";
 import { runChecked } from "../../../render-cut/src/rasterize.mjs";
 
 export function timecodeFor(seconds, fps) {
@@ -29,9 +29,10 @@ export async function renderSeparateFrame({ ffmpegCommand, source, output, width
   return { width: outputWidth, height: 720 };
 }
 
-export async function renderContactSheetFromPngs({
+export async function renderLabeledContactSheetFromPngs({
   ffmpegCommand,
   frames,
+  labels,
   output,
   directory,
   width,
@@ -39,23 +40,32 @@ export async function renderContactSheetFromPngs({
   cwd,
 }) {
   await mkdir(directory, { recursive: true });
-  const tileWidth = Math.max(2, Math.round((width * 720) / height / 2) * 2);
   for (let index = 0; index < frames.length; index += 1) {
     const staged = resolve(directory, `frame-${String(index + 1).padStart(3, "0")}.png`);
-    runChecked(ffmpegCommand, [
-      "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", frames[index],
-      "-vf", `scale=${tileWidth}:720:flags=lanczos`,
-      "-frames:v", "1", "-c:v", "png", "-pix_fmt", "rgb24", staged,
-    ], { cwd });
+    await copyFile(frames[index], staged);
   }
-  const { cols, rows } = contactSheetGridDimensions(frames.length);
+  const sequencePath = resolve(directory, "capture-frames.mkv");
   runChecked(ffmpegCommand, [
     "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
     "-framerate", "1", "-start_number", "1", "-i", resolve(directory, "frame-%03d.png"),
-    "-vf", `tile=${cols}x${rows}:padding=0:margin=0:color=black`,
+    "-frames:v", String(frames.length), "-c:v", "ffv1", "-pix_fmt", "rgb24", sequencePath,
+  ], { cwd });
+  const labeledPath = resolve(directory, "labeled-contact-sheet.png");
+  await renderLabeledContactSheet({
+    ffmpegCommand,
+    videoPath: sequencePath,
+    timestamps: frames.map((_frame, index) => index),
+    labels,
+    sourceWidth: width,
+    sourceHeight: height,
+    temporaryDirectory: resolve(directory, "shared-contact-sheet"),
+    outputPath: labeledPath,
+  });
+  runChecked(ffmpegCommand, [
+    "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", labeledPath,
     "-frames:v", "1", "-c:v", "png", "-pix_fmt", "rgb24", output,
   ], { cwd });
-  return { width: tileWidth * cols, height: 720 * rows };
+  return output;
 }
 
 export async function copyFullFrame(source, output) {

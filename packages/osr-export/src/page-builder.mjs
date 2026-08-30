@@ -91,8 +91,18 @@ export function buildOsrPage({
   };
 }
 
-export async function loadAndBuildOsrPage({ projectRoot, plan = null, fps, width, height, duration, stampRow = true }) {
-  const editText = await readFile(join(projectRoot, "edit.json"), "utf8");
+export async function loadAndBuildOsrPage({
+  projectRoot,
+  editPath = join(projectRoot, "edit.json"),
+  plan = null,
+  fps,
+  width,
+  height,
+  duration,
+  stampRow = true,
+}) {
+  const resolvedEditPath = editPath ?? join(projectRoot, "edit.json");
+  const editText = await readFile(resolvedEditPath, "utf8");
   const projectedEdit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "osr-page")).edit;
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
   const edit = prepared.edit;
