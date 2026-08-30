@@ -145,6 +145,16 @@ function locateItem(edit, itemId) {
   return undefined;
 }
 
+function stableJson(value) {
+  const sortKeys = candidate => {
+    if (Array.isArray(candidate)) return candidate.map(sortKeys);
+    if (!candidate || typeof candidate !== 'object') return candidate;
+    return Object.fromEntries(Object.keys(candidate).sort()
+      .map(key => [key, sortKeys(candidate[key])]));
+  };
+  return JSON.stringify(sortKeys(value));
+}
+
 async function observeEditRevisions(action, options = 900) {
   const {
     settleMs = 900,
@@ -502,12 +512,45 @@ async function main_() {
     assert(knobGroups.some(label => label.includes(group)), `knob group ${group} is visible`, { knobGroups });
   }
   const beforeFontSize = locateItem(await readEdit(), 'lower-third').item.source.vars['--font-size'];
+  const knobEditBefore = await readEdit();
   const knobRevisions = await observeEditRevisions(async () => {
     assert(await setRangeValue(fontSizeSelector, 48), 'font-size range accepted value 48');
   }, {
     until: edit => locateItem(edit, 'lower-third')?.item?.source?.vars?.['--font-size'] === 48
   });
-  const afterFontSize = locateItem(await readEdit(), 'lower-third').item.source.vars['--font-size'];
+  const knobEditAfter = await readEdit();
+  const afterFontSize = locateItem(knobEditAfter, 'lower-third').item.source.vars['--font-size'];
+  const emptyTrackIdsBefore = (knobEditBefore.tracks ?? [])
+    .filter(track => Array.isArray(track.items) && track.items.length === 0)
+    .map(track => track.id);
+  const emptyTrackIdsAfter = (knobEditAfter.tracks ?? [])
+    .filter(track => Array.isArray(track.items) && track.items.length === 0)
+    .map(track => track.id);
+  const trackIdsAfter = new Set((knobEditAfter.tracks ?? []).map(track => track.id));
+  const removedEmptyTrackIds = emptyTrackIdsBefore.filter(trackId => !trackIdsAfter.has(trackId));
+  const expectedKnobEditAfter = JSON.parse(JSON.stringify(knobEditBefore));
+  locateItem(expectedKnobEditAfter, 'lower-third').item.source.vars['--font-size'] = 48;
+  expectedKnobEditAfter.tracks = (expectedKnobEditAfter.tracks ?? [])
+    .filter(track => !Array.isArray(track.items) || track.items.length > 0);
+  const expectedStableJson = stableJson(expectedKnobEditAfter);
+  const actualStableJson = stableJson(knobEditAfter);
+  const knobWriteMatchesNormalization = expectedStableJson === actualStableJson;
+  record('knob-write-normalization', {
+    removedEmptyTrackIds,
+    emptyTrackIdsBefore,
+    emptyTrackIdsAfter
+  });
+  assert(emptyTrackIdsBefore.length >= 1,
+    'fixture had at least one empty track before the knob write', { emptyTrackIdsBefore });
+  assert(emptyTrackIdsAfter.length === 0,
+    'item-field write normalized away every empty track', {
+      removedEmptyTrackIds,
+      emptyTrackIdsBefore,
+      emptyTrackIdsAfter
+    });
+  assert(knobWriteMatchesNormalization,
+    'knob write changed only source.vars[--font-size] plus the empty-track normalization',
+    knobWriteMatchesNormalization ? {} : { expectedStableJson, actualStableJson });
   assert(afterFontSize !== beforeFontSize && afterFontSize === 48,
     'font-size knob changed source.vars[--font-size]', { beforeFontSize, afterFontSize });
   assert(knobRevisions.writeCount === 1, 'knob change persisted exactly one content revision', knobRevisions);

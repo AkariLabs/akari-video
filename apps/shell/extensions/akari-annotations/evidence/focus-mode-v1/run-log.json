@@ -33,7 +33,7 @@
       "easing": "ease-in-out",
       "inspectorValue": "ease-in-out",
       "hoverPreview": {
-        "editUri": "file:///private/tmp/akari-focus-mode-l1-workspace.ZYutDN/project/edit.json",
+        "editUri": "file:///private/tmp/akari-focus-mode-l1-workspace.E3asYH/project/edit.json",
         "target": {
           "kind": "item",
           "id": "g1.first"
@@ -106,7 +106,7 @@
               "matched": true,
               "decodedFrameNumber": 33,
               "expectedFrameNumber": 33,
-              "retries": 1
+              "retries": 0
             },
             {
               "frameNumber": 72,
