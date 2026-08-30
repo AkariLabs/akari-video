@@ -439,3 +439,18 @@ cut 段は `cut-audio.mp4`、尺延長が必要な場合は続けて `cut-audio-
   `engine_fallback.from` が一致すれば parity として受ける（これが無いと capture がフォールバックに到達する前に落ちる。launcher tier 3 由来の
   既存フォールバックにも同じ穴があり同時に塞いだ）
 - 判定は構造化された `error.reasonCode` だけを見る（メッセージ文字列一致では発火しない）
+
+### 12.7 §9（#120h の「降格して完走」）との関係 — 司令塔裁定（2026-08-30・r3 合流時）
+
+- **事実**: #120h（§9 追記）は採寸が収束しない unit を **sprite へ降格して書き出しを完走**させる（語アニメが落ちる・receipt の
+  `captionStartup.measure.degradedUnits` に計上）。§12.3 は「`auto` は osr へフォールバック / 明示 `gpu` は fail-closed」を要求する。
+  r3 の合流はこれを **「実測由来の不安定 = 降格（§9）/ 故障注入 `AKARI_GPU_CAPTION_MEASURE_FAULT` = `caption-measure-unstable` を伝播
+  → `auto` は osr フォールバック・明示 `gpu` は fail-closed（§12.3）」** に分けて両方を残した。注入は「復旧不能な採寸失敗の代役」であり、
+  降格経路を撃つスイッチではなくなった
+- **裁定（v0）**: この分離を**採る**。根治（§12.6）により実測由来の不安定は理論下限 2 回で収束しており、降格経路は保険。
+  降格が起きたときは warning と `degradedUnits` で**黙らずに**記録される（§2.1「揺らぎを隠さない」に反しない）
+- **次版の候補（別票 D・小）**: `auto` で `degradedUnits > 0` になった走は「近似で完走」より「osr で正確に完走」を選ぶべきかを裁定し、
+  採るなら降格を `FALLBACK_REASONS` 相当（例 `caption-measure-degraded`）として `auto` だけ osr へ回す。明示 `gpu` は降格 + warning のまま。
+  降格経路を実機で撃つための注入モード（例: 値の接尾辞で降格を選ぶ）も同票で
+- 採寸 settle の実装は #120h の **`.akari-measure-root` にスコープした `measureSettleCss`** に一本化（§12.6 の原則を満たし、ページ全体の
+  アニメは止めない）。`contentKey` で再利用される安定結果は `cssVariants` を鍵に含むため必ず settled 状態で測ったもの（実機確認済み）
