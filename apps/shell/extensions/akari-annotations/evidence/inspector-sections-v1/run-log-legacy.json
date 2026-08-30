@@ -1,63 +1,62 @@
 {
-  "status": "FAIL",
-  "finishedAt": "2026-08-30T06:42:16.050Z",
-  "error": "Error: assertion failed: legacy scale display persisted as internal display/100 :: {\"nextDisplay\":107,\"expectedScale\":1.07,\"actualScale\":null}\n    at assert (file://<repo>/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:38:11)\n    at runLegacyCase (file://<repo>/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:398:3)\n    at async main_ (file://<repo>/apps/shell/extensions/akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.mjs:425:5)",
+  "status": "PASS",
+  "finishedAt": "2026-08-30T11:39:13.025Z",
   "records": [
     {
-      "t": "2026-08-30T06:41:53.570Z",
+      "t": "2026-08-30T11:38:49.451Z",
       "step": "assertion-ok",
       "message": "found electron page target",
       "targets": [
-        "file://<repo>/apps/shell/lib/frontend/index.html?port=60583#<tmp>/akari-inspector-l1-legacy-workspace.XAL2ZK/project"
+        "file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-e2e-hygiene/apps/shell/lib/frontend/index.html?port=56101#/private/tmp/akari-inspector-l1-legacy-workspace.RBLZiW/project"
       ]
     },
     {
-      "t": "2026-08-30T06:41:54.745Z",
+      "t": "2026-08-30T11:38:50.355Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T06:41:55.502Z",
+      "t": "2026-08-30T11:38:51.060Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T06:41:56.207Z",
+      "t": "2026-08-30T11:38:51.763Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T06:41:56.912Z",
+      "t": "2026-08-30T11:38:52.466Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T06:41:57.618Z",
+      "t": "2026-08-30T11:38:53.171Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T06:41:58.327Z",
+      "t": "2026-08-30T11:38:53.876Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T06:42:07.654Z",
+      "t": "2026-08-30T11:39:05.658Z",
       "step": "assertion-ok",
       "message": "timeline widget opened"
     },
     {
-      "t": "2026-08-30T06:42:09.869Z",
+      "t": "2026-08-30T11:39:07.845Z",
       "step": "screenshot",
       "name": "00-boot.png"
     },
     {
-      "t": "2026-08-30T06:42:10.181Z",
+      "t": "2026-08-30T11:39:08.083Z",
       "step": "legacy-readonly-selected",
       "clicked": 1,
       "clickedCount": 1
     },
     {
-      "t": "2026-08-30T06:42:11.521Z",
+      "t": "2026-08-30T11:39:09.442Z",
       "step": "assertion-ok",
       "message": "legacy fixture contains a layer with an id"
     },
     {
-      "t": "2026-08-30T06:42:11.685Z",
+      "t": "2026-08-30T11:39:09.683Z",
       "step": "assertion-ok",
       "message": "timeline item telop-name-rounded has a visible rect",
       "rect": {
@@ -71,12 +70,12 @@
       }
     },
     {
-      "t": "2026-08-30T06:42:14.830Z",
+      "t": "2026-08-30T11:39:11.824Z",
       "step": "assertion-ok",
       "message": "legacy scale input accepted text"
     },
     {
-      "t": "2026-08-30T06:42:16.047Z",
+      "t": "2026-08-30T11:39:12.741Z",
       "step": "case-9-legacy-scale-result",
       "layerId": "telop-name-rounded",
       "beforeDisplay": 100,
@@ -84,24 +83,38 @@
       "expectedScale": 1.07,
       "actualScale": null,
       "timelineNoticeText": "変更できません: v2 へ変換してから編集してください。×",
-      "footerText": "タイムラインをクリックすると時刻を選べます。プレビューを開いていればその場でシークします。",
+      "footerText": "00:00:42.243 にプレビューをシークしました。",
       "editJsonTextChanged": false,
       "beforeTextLength": 6409,
       "afterTextLength": 6409,
+      "beforeByteLength": 6519,
+      "afterByteLength": 6519,
       "writeCount": 0
     },
     {
-      "t": "2026-08-30T06:42:16.047Z",
-      "step": "ASSERTION-FAILED",
-      "message": "legacy scale display persisted as internal display/100",
-      "nextDisplay": 107,
-      "expectedScale": 1.07,
-      "actualScale": null
+      "t": "2026-08-30T11:39:12.742Z",
+      "step": "assertion-ok",
+      "message": "legacy edit.json remained byte-for-byte unchanged",
+      "beforeByteLength": 6519,
+      "afterByteLength": 6519,
+      "writeCount": 0
     },
     {
-      "t": "2026-08-30T06:42:16.049Z",
-      "step": "ERROR",
-      "message": "assertion failed: legacy scale display persisted as internal display/100 :: {\"nextDisplay\":107,\"expectedScale\":1.07,\"actualScale\":null}"
+      "t": "2026-08-30T11:39:12.742Z",
+      "step": "assertion-ok",
+      "message": "legacy edit rejection notice prompts v2 conversion",
+      "notice": "変更できません: v2 へ変換してから編集してください。×"
+    },
+    {
+      "t": "2026-08-30T11:39:13.024Z",
+      "step": "screenshot",
+      "name": "09-legacy-scale.png"
+    },
+    {
+      "t": "2026-08-30T11:39:13.024Z",
+      "step": "DONE",
+      "criteria": 1,
+      "mode": "legacy"
     }
   ]
 }

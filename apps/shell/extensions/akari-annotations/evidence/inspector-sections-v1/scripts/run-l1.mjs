@@ -209,8 +209,12 @@ async function selectorRect(selector) {
   })()`);
 }
 
+function itemSelector(itemId) {
+  return `[data-akari-item-id=${JSON.stringify(itemId)}]:not([data-akari-tree-row-id])`;
+}
+
 async function selectItem(itemId) {
-  const selector = `[data-akari-item-id=${JSON.stringify(itemId)}]`;
+  const selector = itemSelector(itemId);
   const encodedSelector = JSON.stringify(selector);
   await waitFor(`timeline item ${itemId}`, `Boolean(document.querySelector(${encodedSelector}))`);
   let rect = null;
@@ -370,9 +374,11 @@ async function runLegacyCase() {
     })()`);
     return true;
   };
+  const beforeBytes = await readFile(editPath);
   const revisions = await observeEditRevisions(async () => {
     assert(await replaceLegacyScaleInput(), 'legacy scale input accepted text');
   });
+  const afterBytes = await readFile(editPath);
   const afterEdit = await readEdit();
   const afterLayer = Array.isArray(afterEdit.layers)
     ? afterEdit.layers.find(candidate => candidate?.id === layer.id) : undefined;
@@ -382,6 +388,8 @@ async function runLegacyCase() {
     `document.querySelector('[data-akari-timeline-notice]')?.nextElementSibling?.textContent ?? ''`);
   const expectedScale = nextDisplay / 100;
   const actualScale = afterLayer?.transform?.scale ?? null;
+  const editJsonBytesUnchanged = beforeBytes.equals(afterBytes);
+  const noticePromptsV2 = notice.includes('v2 へ変換') || notice.includes('v2 のみ対応');
   record('case-9-legacy-scale-result', {
     layerId: layer.id,
     beforeDisplay,
@@ -390,13 +398,19 @@ async function runLegacyCase() {
     actualScale,
     timelineNoticeText: notice,
     footerText: footer,
-    editJsonTextChanged: revisions.beforeText !== revisions.afterText,
+    editJsonTextChanged: !editJsonBytesUnchanged,
     beforeTextLength: revisions.beforeText.length,
     afterTextLength: revisions.afterText.length,
+    beforeByteLength: beforeBytes.length,
+    afterByteLength: afterBytes.length,
     writeCount: revisions.writeCount
   });
-  assert(actualScale === expectedScale,
-    'legacy scale display persisted as internal display/100', { nextDisplay, expectedScale, actualScale });
+  assert(editJsonBytesUnchanged, 'legacy edit.json remained byte-for-byte unchanged', {
+    beforeByteLength: beforeBytes.length,
+    afterByteLength: afterBytes.length,
+    writeCount: revisions.writeCount
+  });
+  assert(noticePromptsV2, 'legacy edit rejection notice prompts v2 conversion', { notice });
   await shot('09-legacy-scale.png');
   record('DONE', { criteria: 1, mode: 'legacy' });
 }
@@ -434,7 +448,7 @@ async function main_() {
   })()`);
   await selectItem('telop-chapter');
   const telopDomKind = await evalOn(main,
-    `document.querySelector('[data-akari-item-id="telop-chapter"]')?.dataset.akariItemKind`);
+    `document.querySelector(${JSON.stringify(itemSelector('telop-chapter'))})?.dataset.akariItemKind`);
   assert(telopDomKind === 'layer', 'telop-chapter is selected through the real layer DOM projection', { telopDomKind });
   const xHandleSelector = '[data-akari-ui="field:inspector-transform-x"] .akari-inspector-number-handle';
   await waitFor('transform X scrub handle', `Boolean(document.querySelector(${JSON.stringify(xHandleSelector)}))`);
@@ -476,7 +490,7 @@ async function main_() {
   // 3. meta.json knobs become grouped typed controls and write through source.vars.
   await selectItem('lower-third');
   const lowerThirdDomKind = await evalOn(main,
-    `document.querySelector('[data-akari-item-id="lower-third"]')?.dataset.akariItemKind`);
+    `document.querySelector(${JSON.stringify(itemSelector('lower-third'))})?.dataset.akariItemKind`);
   assert(lowerThirdDomKind === 'overlay', 'lower-third is selected through the real overlay DOM projection', { lowerThirdDomKind });
   const knobSectionSelector = '[data-akari-ui^="section:inspector-knobs:"]';
   const fontSizeSelector = '[data-akari-ui="slider:inspector-var---font-size"]';

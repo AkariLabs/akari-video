@@ -6,20 +6,26 @@ status: active
 updated: 2026-08-30
 ---
 
-# S12 インスペクタ書き戻し e2e 検証手法（確立版）
+# S12 インスペクタ書き戻し e2e 検証手法（退役済み）
+
+> **退役（2026-08-30）**: 本台本が操作していたプレビュー内インスペクターは
+> コミット `b49692f1` で撤去されたため、台本を退役した。現行のインスペクター e2e は
+> [`run-l1.sh`](../../../akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.sh) を使う。
+> 以下は CDP・ターゲット選び・既知の地雷を再利用できる技術記録として残す。
 
 タスク: `2026-07-16-s12-e2e-method`。3 サイクル連続で `unverified_risks` に残っていた
 「プレビュータブのインスペクタで値を触ると edit.json に書き戻る」の end-to-end 検証を、
 **実際に UI 操作（ダブルクリックでファイルを開く → 動画をシーク → オーバーレイをクリックして
 選択 → インスペクタのフィールドにキーボードで値を入力 → フォーカスを外す）から
 edit.json への実書き込みまで、本物のヒットテスト付きマウス/キーボードイベントで貫通させる**
-手法として確立した。
+手法として 2026-07-16 に確立した記録である。
 
 **結論を先に書く: 貫けた。** Theia の `WebviewWidget` が作る二重 iframe
 （外側 `webview/index.html` → 内側 `active-frame`）の内部まで、Chrome DevTools Protocol
 （以下 CDP）の生クライアントで到達し、実際にオーバーレイを選択・値を書き換え・
-`edit.json` の実ファイル diff を確認した。手順は `scripts/run-inspector-writeback-e2e.mjs`
-としてスクリプト化済みで、依存追加なし（Node.js 22+ 組み込みの `fetch`/`WebSocket` のみ）。
+`edit.json` の実ファイル diff を確認した。当時の手順は
+[`retired/run-inspector-writeback-e2e.mjs`](./retired/run-inspector-writeback-e2e.mjs)
+として保存してあり、依存追加なし（Node.js 22+ 組み込みの `fetch`/`WebSocket` のみ）。
 
 ## 前提・環境
 
@@ -86,10 +92,14 @@ node_modules/electron/dist/Electron.app/Contents/MacOS/Electron \
   --remote-debugging-port=9333 --user-data-dir=<SCRATCH>/userdata --no-sandbox
 ```
 
-### 3. 検証スクリプトを実行する
+### 3. 退役済み検証スクリプトの実行記録
+
+> このコマンドは 2026-07-16 時点の再現記録であり、現行シェルでは step 7 以降へ
+> 到達できない。現行の検証には
+> [`run-l1.sh`](../../../akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.sh) を使う。
 
 ```sh
-node scripts/run-inspector-writeback-e2e.mjs 9333 <SCRATCH>/workspace exports/sample.mp4 <SCRATCH>/evidence
+node retired/run-inspector-writeback-e2e.mjs 9333 <SCRATCH>/workspace exports/sample.mp4 <SCRATCH>/evidence
 ```
 
 第3引数はフィクスチャ内の `edit.json` の所在（親ディレクトリ）を決めるために使う。
@@ -124,19 +134,22 @@ node scripts/run-inspector-writeback-e2e.mjs 9333 <SCRATCH>/workspace exports/sa
 
 `../../evidence/e2e-method/` 配下:
 
-| ファイル | 内容 |
-|---|---|
-| `00-boot.png` | 起動直後（俯瞰タブのみ） |
-| `01-preview-opened.png` | `edit.json` を実ダブルクリックして合成プレビューを開いた直後（`0:00`、オーバーレイは時間窓外で非表示） |
-| `02-overlay-visible.png` | `currentTime=2` へシーク後（オーバーレイ `S12 e2e caption` が黄色 `#ffcc00` で表示） |
-| `03-overlay-selected-inspector-open.png` | オーバーレイを実クリックで選択後（選択枠+ハンドルが表示され、右にインスペクタが開き `--color: #ffcc00`） |
-| `04-value-typed.png` | `--color` 欄に実キーボード入力で `#00c853` を入力した直後（オーバーレイの文字色が即座に緑へ変化） |
-| `05-after-blur-writeback.png` | 動画エリアをクリックしてフォーカスを外した後（値は `#00c853` のまま維持） |
-| `edit-before.json` / `edit-after.json` | 操作前後の `edit.json` 全文 |
-| `edit-json.diff` | 上記の unified diff（`vars["--color"]` のみが変化し、他フィールド非破壊であることを確認） |
-| `run-log.json` | 上記手順 1〜10 の各ステップの実測値（座標・タイムスタンプ・DOM 状態）の構造化ログ |
-| `repro-playwright-frame-flakiness.json` | 後述「試して駄目だった方向 1」の実測ログ |
-| `negative-control-toplevel-click.json` | 後述「試して駄目だった方向 2 / 補足知見」の実測ログ |
+以下の evidence PNG はすべて **retired（2026-07-16 時点の記録）** であり、
+現行 UI の合格証跡ではない。
+
+| ファイル | 内容 | 状態 |
+|---|---|---|
+| `00-boot.png` | 起動直後（俯瞰タブのみ） | retired（2026-07-16 時点の記録） |
+| `01-preview-opened.png` | `edit.json` を実ダブルクリックして合成プレビューを開いた直後（`0:00`、オーバーレイは時間窓外で非表示） | retired（2026-07-16 時点の記録） |
+| `02-overlay-visible.png` | `currentTime=2` へシーク後（オーバーレイ `S12 e2e caption` が黄色 `#ffcc00` で表示） | retired（2026-07-16 時点の記録） |
+| `03-overlay-selected-inspector-open.png` | オーバーレイを実クリックで選択後（選択枠+ハンドルが表示され、右にインスペクタが開き `--color: #ffcc00`） | retired（2026-07-16 時点の記録） |
+| `04-value-typed.png` | `--color` 欄に実キーボード入力で `#00c853` を入力した直後（オーバーレイの文字色が即座に緑へ変化） | retired（2026-07-16 時点の記録） |
+| `05-after-blur-writeback.png` | 動画エリアをクリックしてフォーカスを外した後（値は `#00c853` のまま維持） | retired（2026-07-16 時点の記録） |
+| `edit-before.json` / `edit-after.json` | 操作前後の `edit.json` 全文 | 2026-07-16 時点の記録 |
+| `edit-json.diff` | 上記の unified diff（`vars["--color"]` のみが変化し、他フィールド非破壊であることを確認） | 2026-07-16 時点の記録 |
+| `run-log.json` | 上記手順 1〜10 の各ステップの実測値（座標・タイムスタンプ・DOM 状態）の構造化ログ | 2026-07-16 時点の記録 |
+| `repro-playwright-frame-flakiness.json` | 後述「試して駄目だった方向 1」の実測ログ | 2026-07-16 時点の記録 |
+| `negative-control-toplevel-click.json` | 後述「試して駄目だった方向 2 / 補足知見」の実測ログ | 2026-07-16 時点の記録 |
 
 実際の diff（`edit-json.diff` の要旨）:
 
@@ -237,7 +250,7 @@ node scripts/run-inspector-writeback-e2e.mjs 9333 <SCRATCH>/workspace exports/sa
 これができれば、DOM 読み取り・状態確認は内側コンテキストへの `Runtime.evaluate`
 で行い、入力はどちらのターゲットに投げても（本環境では）到達する。移植先の
 Chromium バージョンで後者が効かない場合は、外側ターゲットへ直接つなぎ直す
-本スクリプトの方式（`run-inspector-writeback-e2e.mjs` が実際に採用している方式）
+退役済みスクリプトの方式（`run-inspector-writeback-e2e.mjs` が実際に採用している方式）
 を使えば良い。
 
 ### 4. 地雷（実装中に踏んだ・スクリプトで回避済み）
@@ -265,19 +278,19 @@ Chromium バージョンで後者が効かない場合は、外側ターゲッ�
 
 ## 後続タスクへの示唆
 
-`scripts/run-inspector-writeback-e2e.mjs` は依存追加なし・引数だけで再実行できる
-形にしてある。後続タスクが `verify` スキルの L1 として叩く場合:
+`run-inspector-writeback-e2e.mjs` 自体は退役済みであり、後続タスクが `verify` スキルの
+L1 として現行インスペクターを検証する場合は後継の
+[`run-l1.sh`](../../../akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.sh) を使う:
 
 ```sh
-node apps/shell/extensions/akari-preview/docs/e2e-method/scripts/run-inspector-writeback-e2e.mjs \
-  <cdpPort> <workspaceDir> <videoRelPathRelativeToWorkspace> <evidenceOutDir>
+AKARI_FIELDTEST_DIR=<v2-project> AKARI_FIELDTEST_V1_DIR=<v1-project> \
+  bash ../../../akari-annotations/evidence/inspector-sections-v1/scripts/run-l1.sh
 ```
 
-前提としてフィクスチャに overlay id `cap-a` と `--color` var が要る
-（本 README §1 のとおり）。別の overlay id / var 名で検証したい場合は
-スクリプト冒頭の `OVERLAY_ID` / `OVERLAY_VAR` 定数を書き換える。
+退役済み台本の再現条件は、フィクスチャに overlay id `cap-a` と `--color` var があること
+（本 README §1 のとおり）。これは現行 L1 の前提ではない。
 
-## 2026-08-30 時点の未達
+## 退役理由（2026-08-30）
 
 README §1 のフィクスチャを使った現行シェルでの実測では、台本の step 1〜6
 （Explorer を開く → `edit.json` の合成出力プレビューを開く → 二重 iframe へ到達 →
