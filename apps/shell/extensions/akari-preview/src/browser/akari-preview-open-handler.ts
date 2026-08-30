@@ -10286,7 +10286,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     + 'paint-order:var(--caption-paint-order,stroke fill);'
                     + 'text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));'
                     + 'font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
-                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
+                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
                     + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + blockCss
                     + '.akari-caption__tok{display:inline-block;will-change:transform,color;}'
@@ -10322,7 +10322,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     : '';
                 return '<div class="akari-caption"><style>'
                     + '.akari-caption{position:absolute;inset:0;pointer-events:none;color:var(--caption-color,#fff);-webkit-text-stroke:var(--caption-webkit-text-stroke,var(--caption-stroke,0.14em rgba(0,0,0,.9)));paint-order:var(--caption-paint-order,stroke fill);text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35));font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif;font-size:var(--caption-font-size,38px);font-weight:700;line-height:1.42;text-align:center;}'
-                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
+                    + '.akari-caption__plate{position:absolute;top:var(--caption-top,auto);translate:var(--caption-translate,none);left:var(--caption-left,0);right:var(--caption-right,0);bottom:var(--caption-bottom,7%);display:flex;flex-direction:column;justify-content:var(--caption-justify-content,flex-start);align-items:var(--caption-align-items,stretch);gap:var(--plate-gap,4px);}'
                     + '.akari-caption__line{width:max-content;max-width:var(--caption-line-max-width,92%);margin:var(--caption-line-margin,0 auto);padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em);border-radius:var(--plate-radius,10px);background:var(--plate-bg,transparent);text-align:var(--caption-text-align,center);white-space:pre;}'
                     + blockCss
                     + '</style><div class="akari-caption__plate">' + plateMarkup + '</div></div>';

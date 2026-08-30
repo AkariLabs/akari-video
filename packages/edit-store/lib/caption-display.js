@@ -721,7 +721,7 @@ function mergeCaptionDisplayStyles(base, override) {
  * これを使う — 2026-08-26 akari-reel 実機: プレビュー側だけ text_anchor/position を落として
  * 明示位置付き字幕が既定の下段 7% に出る「出力とプレビューの位置不一致」の再発防止）。
  * position 未指定なら anchor は zone 相当の縁寄せとして効く。position.y 指定時は
- * b は下端、t は上端をその座標へ合わせ、m は近似で top 配置する（中心合わせは未実装）。
+ * b は下端、t は上端、m は中心をその座標へ合わせる。
  * 不正な anchor / vertical_align は未宣言として無視する（書き込み時検証済みが前提の防御）。
  */
 function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
@@ -746,6 +746,9 @@ function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValu
         else {
             vars['--caption-top'] = `${Math.round(clamped * 10000) / 100}%`;
             vars['--caption-bottom'] = 'auto';
+            if ((anchor || verticalAlign) && vertical === 'm') {
+                vars['--caption-translate'] = '0 -50%';
+            }
         }
     }
     else if (anchor || verticalAlign) {

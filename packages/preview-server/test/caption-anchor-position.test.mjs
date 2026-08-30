@@ -21,6 +21,7 @@ const sourceProject = join(repositoryRoot, 'test-project');
 
 const POSITION_VARS = [
   '--caption-top', '--caption-bottom', '--caption-left', '--caption-right',
+  '--caption-translate',
   '--caption-justify-content', '--caption-align-items',
   '--caption-line-margin', '--caption-line-max-width', '--caption-text-align',
 ];
@@ -47,6 +48,19 @@ test('shared kernel, render-cut, and browser bundle agree on bottom-anchor posit
   assert.deepEqual(bundled, expected);
   assert.equal(shared['--caption-top'], 'auto');
   assert.equal(shared['--caption-bottom'], '9.5%');
+});
+
+test('shared kernel, render-cut, and browser bundle agree on middle-anchor position.y', () => {
+  const style = { text_anchor: 'mc', position: { y: 0.5 } };
+  const expected = captionTextStyleVars(style);
+  const shared = captionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align);
+  const bundled = bundledCaptionAnchorPositionVars(style.text_anchor, style.position, style.vertical_align);
+
+  assert.deepEqual(shared, expected);
+  assert.deepEqual(bundled, expected);
+  assert.equal(shared['--caption-top'], '50%');
+  assert.equal(shared['--caption-bottom'], 'auto');
+  assert.equal(shared['--caption-translate'], '0 -50%');
 });
 
 test('zone-only and unspecified legacy cues keep exactly the existing zone variables', { timeout: 120_000 }, async () => {

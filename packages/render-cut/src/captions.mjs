@@ -839,6 +839,7 @@ export function renderCaptionFragment(text, options = {}) {
   const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
   const platePlacementCss = options.textStyleActive
     ? `      top: var(--caption-top, auto);
+      translate: var(--caption-translate, none);
       left: var(--caption-left, 0);
       right: var(--caption-right, 0);`
     : `      left: 0;
@@ -983,6 +984,7 @@ export function renderStyledCaptionFragment(words, style, options = {}) {
   const baseFontSize = options.baseFontSize ?? DEFAULT_FONT_SIZE_PX;
   const platePlacementCss = options.textStyleActive
     ? `      top: var(--caption-top, auto);
+      translate: var(--caption-translate, none);
       left: var(--caption-left, 0);
       right: var(--caption-right, 0);`
     : `      left: 0;

@@ -8,6 +8,7 @@ export const MANAGED_CAPTION_STYLE_VARIABLES = Object.freeze([
   '--caption-paint-order',
   '--caption-top',
   '--caption-bottom',
+  '--caption-translate',
   '--caption-left',
   '--caption-right',
   '--caption-width',
