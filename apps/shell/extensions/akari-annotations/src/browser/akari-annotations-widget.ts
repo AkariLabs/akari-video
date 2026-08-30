@@ -118,6 +118,7 @@ import {
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { openTimelineContextMenu } from './akari-timeline-context-menu';
 import { createAkariNoticeBanner } from './akari-notice-banner';
+import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { ReviewModel } from './review-model';
@@ -304,6 +305,11 @@ const TIMELINE_SYNC_TRACK_TOGGLES_EVENT = 'akari.timeline.syncTrackToggles';
 // インスペクターのスクラブドラッグ中、書き込みなしで cuts/layers の transform/opacity をプレビューへ
 // 即時反映する ephemeral イベント。
 const TIMELINE_LIVE_TRANSFORM_EVENT = 'akari.timeline.liveTransform';
+const SHORTCUTS_HELP_TEXT = [
+    'Space: 再生 / 停止', '← →: 1フレーム移動', 'Shift+← →: 1秒移動',
+    'Alt+矢印: 位置を1px移動', 'Shift+Alt+矢印: 位置を10px移動',
+    ']: 1つ前へ', '[: 1つ後ろへ'
+].join('\n');
 
 // 素材カード D&D（task 2026-08-10-material-dnd-timeline 司令塔裁定4）。mime 文字列・イベント名は
 // 送信側（akari-role-buckets-widget.tsx）と独立にリテラル宣言する（PREVIEW_PLAYBACK_TICK_EVENT と
@@ -1262,6 +1268,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
 `;
         this.node.appendChild(style);
 
+        this.toolbar.title = SHORTCUTS_HELP_TEXT;
+        const nudgeSession = new NudgeCommitSession();
+        let nudgeValue: { id: string; path: 'transform.x' | 'transform.y'; value: number } | undefined;
+        const selectedVisualItemId = (): string | undefined => {
+            if (!this.selection || (this.selection.kind !== 'cut' && this.selection.kind !== 'layer'
+                && this.selection.kind !== 'overlay')) return undefined;
+            return this.selection.kind === 'cut' ? this.cutItemId(this.selection.index) : this.selection.id;
+        };
+        const keyup = (event: KeyboardEvent): void => {
+            if (!event.key.startsWith('Arrow')) return;
+            nudgeSession.release(value => {
+                void this.handleInspectorWrite({ kind: 'item-field', ...value });
+            });
+            nudgeValue = undefined;
+        };
         const keydown = (event: KeyboardEvent): void => {
             if (event.key === 'Escape' && this.dragState) {
                 event.preventDefault();
@@ -1285,6 +1306,67 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             if (!this.isAttached || this.isEditableTarget(event.target) || this.isEditableTarget(document.activeElement)) {
+                return;
+            }
+            const lowerKey = event.key.toLowerCase();
+            if (event.altKey && !event.metaKey && !event.ctrlKey
+                && ['arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(lowerKey)) {
+                const id = selectedVisualItemId();
+                const raw = id ? this.rawV2Item(id) : undefined;
+                if (!id || !raw) {
+                    if (this.selection) this.showNotice('この操作は v2 のみです。');
+                    return;
+                }
+                event.preventDefault();
+                event.stopPropagation();
+                const path: 'transform.x' | 'transform.y' = lowerKey === 'arrowleft' || lowerKey === 'arrowright'
+                    ? 'transform.x' : 'transform.y';
+                const field = path.endsWith('.x') ? 'x' : 'y';
+                const initial = raw.transform && typeof raw.transform === 'object'
+                    && typeof raw.transform[field] === 'number' ? raw.transform[field] as number : 0;
+                const current = nudgeValue?.id === id && nudgeValue.path === path ? nudgeValue.value : initial;
+                const direction = lowerKey === 'arrowright' || lowerKey === 'arrowdown' ? 1 : -1;
+                const value = current + direction * (event.shiftKey ? 10 : 1);
+                nudgeValue = { id, path, value };
+                nudgeSession.apply(id, path, value);
+                if (this.selection?.kind === 'cut') {
+                    this.selectionModel.requestLivePreview?.({
+                        target: { kind: 'cut', index: this.selection.index }, field, value
+                    });
+                } else if (this.selection?.kind === 'layer') {
+                    this.selectionModel.requestLivePreview?.({
+                        target: { kind: 'layer', id: this.selection.id }, field, value
+                    });
+                }
+                return;
+            }
+            if (!event.altKey && !event.metaKey && !event.ctrlKey && (event.key === ']' || event.key === '[')) {
+                event.preventDefault();
+                event.stopPropagation();
+                const id = selectedVisualItemId();
+                if (!id || !Array.isArray(this.editDocument?.tracks)) {
+                    if (this.selection) this.showNotice('この操作は v2 のみです。');
+                    return;
+                }
+                const tracks = (this.editDocument.tracks as Array<Record<string, unknown>>).flatMap(track =>
+                    typeof track.id === 'string' ? [{
+                        id: track.id, lane: track.lane, name: track.name, items: track.items
+                    }] : []);
+                const plan = planAdjacentVisualTrackMove(tracks, id, event.key === ']' ? 1 : -1);
+                if (!plan.targetTrackId || plan.atFrames === undefined) return;
+                if (plan.blockedByOverlap) {
+                    const targetTrack = this.timelineTracks.find(track => track.id === plan.targetTrackId);
+                    const displayName = this.computeTrackAutoNames().get(plan.targetTrackId)
+                        ?? targetTrack?.label ?? plan.targetTrackId;
+                    this.showNotice(`${displayName} に重なるアイテムがあるため移動できません`);
+                    return;
+                }
+                void this.commitEditMutation('クリップを前後へ移動', doc => moveV2Item(doc, {
+                    itemId: id, toTrackId: plan.targetTrackId!, atFrames: plan.atFrames!
+                })).then(() => {
+                    this.hideNotice();
+                    this.footer.textContent = 'クリップを前後へ移動しました。';
+                }).catch(error => this.showNotice(`移動できません: ${this.errorMessage(error)}`));
                 return;
             }
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
@@ -1387,8 +1469,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }));
 
         window.addEventListener('keydown', keydown, true);
+        window.addEventListener('keyup', keyup, true);
         this.toDispose.push(Disposable.create(() => {
             window.removeEventListener('keydown', keydown, true);
+            window.removeEventListener('keyup', keyup, true);
             this.closeAnnotationPopup();
             if (this.dragState) {
                 this.cancelDrag(this.dragState);
@@ -1472,6 +1556,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected isEditableTarget(target: EventTarget | null): boolean {
+        const element = target instanceof HTMLElement ? target : null;
+        if (element?.closest('.akari-inspector-widget')) return true;
         return isEditableEventTarget(target as HTMLElement | null);
     }
 
@@ -1975,15 +2061,39 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!cutKinds.has(request.kind) && !layerKinds.has(request.kind)
             && request.kind !== 'sfx-gain' && request.kind !== 'sfx-fade-in'
             && request.kind !== 'sfx-fade-out' && request.kind !== 'narration-gain'
-            && request.kind !== 'overlay-var') {
+            && request.kind !== 'overlay-var' && request.kind !== 'item-field') {
             return undefined;
+        }
+        if (request.kind === 'item-field' && !Array.isArray(this.editDocument?.tracks)) {
+            return { ok: false, message: 'この項目の編集は edit.json v2 のみ対応です。' };
         }
         try {
             let label = 'クリップを変更';
             let itemId: string;
             let patch: Record<string, unknown>;
             let audioPatch = false;
-            if (cutKinds.has(request.kind)) {
+            if (request.kind === 'item-field') {
+                itemId = request.id;
+                const raw = this.rawV2Item(itemId);
+                if (!raw) throw new Error(`クリップが見つかりません: ${itemId}`);
+                if (request.path.startsWith('transform.')) {
+                    const field = request.path.slice('transform.'.length);
+                    const transform = { ...(raw.transform ?? {}), [field]: request.value };
+                    if (request.value === null) delete transform[field];
+                    patch = { transform };
+                    label = 'クリップの変形を変更';
+                } else if (request.path.startsWith('source.vars.')) {
+                    const name = request.path.slice('source.vars.'.length);
+                    patch = {
+                        source: { vars: { ...(raw.source?.vars ?? {}), [name]: request.value } }
+                    };
+                    label = 'クリップのパラメータを変更';
+                } else {
+                    patch = { [request.path]: request.value };
+                    label = request.path === 'opacity'
+                        ? 'クリップの不透明度を変更' : 'クリップの合成を変更';
+                }
+            } else if (cutKinds.has(request.kind)) {
                 const indexed = request as Extract<InspectorWriteRequest, { index: number }>;
                 itemId = this.cutItemId(indexed.index);
                 const cut = this.cuts[indexed.index];

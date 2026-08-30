@@ -145,6 +145,13 @@ export type TimelineSelectionSnapshot =
     | undefined;
 
 type InspectorWriteOperation =
+    | {
+        kind: 'item-field';
+        id: string;
+        path: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate'
+            | 'opacity' | 'blend' | `source.vars.${string}`;
+        value: number | string | boolean | null;
+    }
     | { kind: 'cut-speed'; index: number; value: number | null }
     | { kind: 'cut-transform-x'; index: number; value: number | null }
     | { kind: 'cut-transform-y'; index: number; value: number | null }
