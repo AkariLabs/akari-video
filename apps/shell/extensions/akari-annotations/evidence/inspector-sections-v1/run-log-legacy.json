@@ -1,62 +1,62 @@
 {
   "status": "PASS",
-  "finishedAt": "2026-08-30T11:39:13.025Z",
+  "finishedAt": "2026-08-30T11:52:17.171Z",
   "records": [
     {
-      "t": "2026-08-30T11:38:49.451Z",
+      "t": "2026-08-30T11:51:57.507Z",
       "step": "assertion-ok",
       "message": "found electron page target",
       "targets": [
-        "file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-e2e-hygiene/apps/shell/lib/frontend/index.html?port=56101#/private/tmp/akari-inspector-l1-legacy-workspace.RBLZiW/project"
+        "file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-e2e-hygiene/apps/shell/lib/frontend/index.html?port=57410#/private/tmp/akari-inspector-l1-legacy-workspace.qN2Qru/project"
       ]
     },
     {
-      "t": "2026-08-30T11:38:50.355Z",
+      "t": "2026-08-30T11:51:58.602Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T11:38:51.060Z",
+      "t": "2026-08-30T11:51:59.306Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T11:38:51.763Z",
+      "t": "2026-08-30T11:52:00.012Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T11:38:52.466Z",
+      "t": "2026-08-30T11:52:00.728Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T11:38:53.171Z",
+      "t": "2026-08-30T11:52:01.434Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T11:38:53.876Z",
+      "t": "2026-08-30T11:52:02.137Z",
       "step": "onboarding-modal-absent"
     },
     {
-      "t": "2026-08-30T11:39:05.658Z",
+      "t": "2026-08-30T11:52:10.636Z",
       "step": "assertion-ok",
       "message": "timeline widget opened"
     },
     {
-      "t": "2026-08-30T11:39:07.845Z",
+      "t": "2026-08-30T11:52:12.229Z",
       "step": "screenshot",
       "name": "00-boot.png"
     },
     {
-      "t": "2026-08-30T11:39:08.083Z",
+      "t": "2026-08-30T11:52:12.247Z",
       "step": "legacy-readonly-selected",
       "clicked": 1,
       "clickedCount": 1
     },
     {
-      "t": "2026-08-30T11:39:09.442Z",
+      "t": "2026-08-30T11:52:13.468Z",
       "step": "assertion-ok",
       "message": "legacy fixture contains a layer with an id"
     },
     {
-      "t": "2026-08-30T11:39:09.683Z",
+      "t": "2026-08-30T11:52:13.596Z",
       "step": "assertion-ok",
       "message": "timeline item telop-name-rounded has a visible rect",
       "rect": {
@@ -70,12 +70,12 @@
       }
     },
     {
-      "t": "2026-08-30T11:39:11.824Z",
+      "t": "2026-08-30T11:52:15.844Z",
       "step": "assertion-ok",
       "message": "legacy scale input accepted text"
     },
     {
-      "t": "2026-08-30T11:39:12.741Z",
+      "t": "2026-08-30T11:52:16.790Z",
       "step": "case-9-legacy-scale-result",
       "layerId": "telop-name-rounded",
       "beforeDisplay": 100,
@@ -92,7 +92,7 @@
       "writeCount": 0
     },
     {
-      "t": "2026-08-30T11:39:12.742Z",
+      "t": "2026-08-30T11:52:16.790Z",
       "step": "assertion-ok",
       "message": "legacy edit.json remained byte-for-byte unchanged",
       "beforeByteLength": 6519,
@@ -100,18 +100,18 @@
       "writeCount": 0
     },
     {
-      "t": "2026-08-30T11:39:12.742Z",
+      "t": "2026-08-30T11:52:16.790Z",
       "step": "assertion-ok",
       "message": "legacy edit rejection notice prompts v2 conversion",
       "notice": "変更できません: v2 へ変換してから編集してください。×"
     },
     {
-      "t": "2026-08-30T11:39:13.024Z",
+      "t": "2026-08-30T11:52:17.170Z",
       "step": "screenshot",
       "name": "09-legacy-scale.png"
     },
     {
-      "t": "2026-08-30T11:39:13.024Z",
+      "t": "2026-08-30T11:52:17.170Z",
       "step": "DONE",
       "criteria": 1,
       "mode": "legacy"

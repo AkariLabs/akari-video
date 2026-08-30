@@ -557,7 +557,7 @@ async function main_() {
   assert(playheadAfter !== playheadBefore, 'plain ArrowRight moved the playhead', { playheadBefore, playheadAfter });
   await shot('04-keyboard-nudge.png');
 
-  // 5. Bracket moves to the adjacent visual track, but overlap is rejected with the display name.
+  // 5. Bracket moves to the adjacent visual track, creating a new track when items would overlap.
   await selectItem('laptop-3d');
   const laptopBefore = locateItem(await readEdit(), 'laptop-3d').track.id;
   const laptopMove = await observeEditRevisions(() => dispatchKey({
@@ -571,18 +571,36 @@ async function main_() {
   assert(laptopMove.writeCount === 1, 'successful bracket move persisted one content revision', laptopMove);
 
   await selectItem('lower-third');
-  const lowerBefore = locateItem(await readEdit(), 'lower-third').track.id;
-  const blockedMove = await observeEditRevisions(() => dispatchKey({
+  const lowerEditBefore = await readEdit();
+  const lowerBefore = locateItem(lowerEditBefore, 'lower-third').track.id;
+  const lowerTrackIdsBefore = new Set((lowerEditBefore.tracks ?? []).map(track => track.id));
+  let nextVisualSerial = 1;
+  while (lowerTrackIdsBefore.has(`v${nextVisualSerial}`)) nextVisualSerial++;
+  const expectedNewTrackId = `v${nextVisualSerial}`;
+  const overlappingMove = await observeEditRevisions(() => dispatchKey({
     key: ']', code: 'BracketRight', windowsVirtualKeyCode: 221
-  }), 450);
-  const lowerAfter = locateItem(await readEdit(), 'lower-third').track.id;
-  await waitFor('overlap rejection notice', `document.querySelector('[data-akari-timeline-notice]')
-    ?.textContent?.includes('重なるアイテムがあるため移動できません') === true`);
+  }), {
+    until: edit => locateItem(edit, 'lower-third')?.track?.id !== lowerBefore
+  });
+  const lowerEditAfter = await readEdit();
+  const lowerAfter = locateItem(lowerEditAfter, 'lower-third').track.id;
+  const lowerTrackIdsAfter = new Set((lowerEditAfter.tracks ?? []).map(track => track.id));
+  const emptyTrackIds = (lowerEditAfter.tracks ?? [])
+    .filter(track => Array.isArray(track.items) && track.items.length === 0)
+    .map(track => track.id);
+  await waitFor('new track notice', `document.querySelector('[data-akari-timeline-notice]')
+    ?.textContent?.includes('を追加しました') === true`);
   const notice = await evalOn(main, `document.querySelector('[data-akari-timeline-notice]')?.textContent ?? ''`);
-  assert(lowerBefore === lowerAfter, 'overlapping lower-third stayed on its source track', { lowerBefore, lowerAfter });
-  assert(blockedMove.writeCount === 0, 'blocked bracket move did not write edit.json', blockedMove);
-  assert(notice.includes('V3 に重なるアイテムがあるため移動できません'),
-    'overlap notice uses the timeline display track name V3', { notice });
+  assert(lowerAfter === expectedNewTrackId && !lowerTrackIdsBefore.has(lowerAfter),
+    'overlapping lower-third moved to the next newly created visual track',
+    { lowerBefore, lowerAfter, expectedNewTrackId, lowerTrackIdsBefore: [...lowerTrackIdsBefore] });
+  assert(overlappingMove.writeCount === 1,
+    'overlapping bracket move persisted exactly one content revision', overlappingMove);
+  assert(/V\d+ を追加しました/.test(notice),
+    'new visual track notice uses a V-number display name', { notice });
+  assert(emptyTrackIds.length === 0 && !lowerTrackIdsAfter.has(lowerBefore),
+    'track normalization removed the emptied source track and left no empty tracks',
+    { lowerBefore, lowerTrackIdsAfter: [...lowerTrackIdsAfter], emptyTrackIds });
   await shot('05-track-move-and-overlap.png');
 
   // 6. Sections replace tabs, follow the fixed order, and info starts collapsed.
