@@ -7,6 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.readInternalEdit = readInternalEdit;
 exports.readInternalSources = readInternalSources;
 exports.visualContentEndSeconds = visualContentEndSeconds;
+exports.walkItems = walkItems;
 exports.findCrossTrackLayerEvacuations = findCrossTrackLayerEvacuations;
 exports.projectLegacyEdit = projectLegacyEdit;
 exports.toLegacyTrack = toLegacyTrack;
@@ -61,12 +62,24 @@ function visualContentEndSeconds(internal) {
         if (track.lane !== 'visual')
             continue;
         for (const item of track.items) {
-            if (item.source.kind === 'html')
+            if (['html', 'group', 'captions', 'caption'].includes(item.source.kind))
                 continue;
             maxEnd = Math.max(maxEnd, item.at + item.duration);
         }
     }
     return maxEnd;
+}
+/** 全トラックの明示アイテムを、親→子の深さ優先で列挙する。 */
+function* walkItems(internal) {
+    function* walk(item) {
+        yield item;
+        for (const child of item.children)
+            yield* walk(child);
+    }
+    for (const track of internal.tracks) {
+        for (const item of track.items)
+            yield* walk(item);
+    }
 }
 function toRecord(source) {
     try {
@@ -130,6 +143,7 @@ function readV2Internal(raw) {
     // 参加したアイテムを各トラックの build へ同じ集合として渡す。これにより preview / render
     // の両方が、トラックごとに独立した要素を合成できる layers 経路を選ぶ。
     const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap(track => 'items' in track && track.lane === 'visual' ? [track.items] : []), pathOf);
+    const contentDurationFrames = edit.tracks.reduce((maximum, track) => 'items' in track && track.lane === 'visual' ? track.items.reduce((trackMaximum, item) => Math.max(trackMaximum, item.at + item.duration), maximum) : maximum, 0);
     const tracks = edit.tracks.map(track => {
         // P0 2026-08-21 render-path-unification (実測で発覚): 'cuts' 経路（concat チェーン）は
         // 同じトラック上の複数アイテムを「順番に連結される別セグメント」として扱う構造的前提を
@@ -159,6 +173,19 @@ function readV2Internal(raw) {
                 items.push(built.item);
             });
         }
+        else {
+            const normalized = buildV2Item({
+                id: track.id,
+                at: 0,
+                duration: contentDurationFrames,
+                source: { kind: 'captions', path: 'captions.json' }
+            }, fps, 0, 'visual', pathOf, chromaKeyOf, legacyIndexCounters).item;
+            items.push(normalized);
+            // BEFORE の内部モデル JSON とバイト等価を保つため、旧 content 由来の派生 items は
+            // JSON 直列化へ出さない。通常の内部消費者は items[0] の captions 袋を読めるが、
+            // 非列挙 toJSON はこの派生ビューだけを空配列として直列化する。
+            Object.defineProperty(items, 'toJSON', { value: () => [], enumerable: false });
+        }
         return {
             id: track.id,
             lane: track.lane,
@@ -173,6 +200,7 @@ function readV2Internal(raw) {
     // 旧 top-level audio と tracks[] 音声が同居すると、後者に加えてこの fallback も射影される。
     // どちらを優先するかは未裁定なので、旧 fixture の互換挙動を変えず二重計上の可能性を残す。
     addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
+    hideEmptyChildrenForCompatibility(tracks);
     synthesizeHiddenTransitionHandlesForRender(tracks, fps);
     return {
         output: {
@@ -192,6 +220,19 @@ function readV2Internal(raw) {
             ...(edit.captions !== undefined ? { captions: edit.captions } : {})
         }
     };
+}
+function hideEmptyChildrenForCompatibility(tracks) {
+    const visit = (item) => {
+        for (const child of item.children)
+            visit(child);
+        if (item.children.length !== 0 || !Object.prototype.propertyIsEnumerable.call(item, 'children'))
+            return;
+        delete item.children;
+        Object.defineProperty(item, 'children', { value: [], enumerable: false, writable: true });
+    };
+    for (const track of tracks)
+        for (const item of track.items)
+            visit(item);
 }
 /**
  * render-cut に加え shell プレビューの summary と Web UI の readRenderEdit も
@@ -263,8 +304,11 @@ function legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds) {
     const first = track.items[0];
     switch (first?.source.kind) {
         case 'html': return 'overlays';
+        case 'captions': return 'captions';
         case 'telop':
-        case 'filter': return 'layers';
+        case 'filter':
+        case 'group':
+        case 'caption': return 'layers';
         // 空トラック（first === undefined）は中身が無く旧種別は名目上のものでしかない。'layers' を
         // 既定にする: 'cuts' にすると、このトラックも nextRef の 'cuts' カウンタを消費して
         // しまい、後続の実際に中身がある cuts トラックの ref 番号がずれる
@@ -420,27 +464,66 @@ function nextLegacyIndex(counters, collection) {
     counters.set(collection, index + 1);
     return index;
 }
-function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false) {
-    if (lane === 'audio') {
-        return buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters);
+function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+    const built = lane === 'audio'
+        ? buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters)
+        : buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling, parentAtFrames, parentId);
+    const children = lane === 'visual' && 'items' in item && Array.isArray(item.items)
+        ? item.items.map(child => buildV2Item(child, fps, ref, 'visual', pathOf, chromaKeyOf, legacyIndexCounters, false, built.item.atFrames, built.item.id).item)
+        : [];
+    if (children.length > 0 || ('items' in item && Array.isArray(item.items))) {
+        built.item.children = children;
     }
-    return buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling);
+    else {
+        delete built.item.children;
+        Object.defineProperty(built.item, 'children', { value: children, enumerable: false, writable: true });
+    }
+    if (parentId !== undefined)
+        built.item.parentId = parentId;
+    return built;
 }
-function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false) {
-    const atFrames = item.at;
+function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+    const atFrames = parentAtFrames + item.at;
     const durationFrames = item.duration;
     const at = atFrames / fps;
     const duration = durationFrames / fps;
-    const keyframes = item.keyframes?.map(keyframe => ({ ...keyframe, t: keyframe.t / fps }));
+    const declaredKeyframes = item.keyframes;
+    const keyframes = Array.isArray(declaredKeyframes)
+        ? declaredKeyframes.map(keyframe => ({ ...keyframe, t: keyframe.t / fps })) : undefined;
     const common = {
         ...(item.transform !== undefined ? { transform: item.transform } : {}),
         ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
         ...(item.blend !== undefined ? { blend: item.blend } : {}),
         ...(item.crop !== undefined ? { crop: item.crop } : {}),
         ...(item.perspective !== undefined ? { perspective: item.perspective } : {}),
+        ...(item.motion !== undefined ? { motion: structuredClone(item.motion) } : {}),
+        ...(item.animator !== undefined ? { animator: structuredClone(item.animator) } : {}),
         ...(keyframes !== undefined ? { keyframes } : {}),
         ...(item.source.kind === 'media' && 'mask' in item && item.mask !== undefined
             ? { mask: pathOf(item.mask) ?? item.mask } : {})
+    };
+    const finish = (built) => {
+        if (!Array.isArray(declaredKeyframes) && declaredKeyframes !== undefined) {
+            built.item.keyframesRef = { ...declaredKeyframes };
+        }
+        if (parentId !== undefined) {
+            const relativeSeconds = item.at / fps;
+            switch (item.source.kind) {
+                case 'media':
+                    built.item.declaration = { ...built.item.declaration, at: relativeSeconds };
+                    break;
+                case 'html':
+                    built.item.declaration = { ...built.item.declaration, start: relativeSeconds };
+                    break;
+                case 'telop':
+                case 'filter':
+                    built.item.declaration = { ...built.item.declaration, t: relativeSeconds };
+                    break;
+                default:
+                    break;
+            }
+        }
+        return built;
     };
     switch (item.source.kind) {
         case 'media': {
@@ -530,13 +613,13 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
                     track: ref, ...common, ...copyMediaSourceFields(item.source)
                 };
                 const value = declaration;
-                return {
+                return finish({
                     item: {
-                        id: item.id, atFrames, durationFrames, at, duration, source,
+                        id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                         declaration,
                         legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers'), value }
                     }
-                };
+                });
             }
             const value = {
                 in: item.source.in,
@@ -549,16 +632,16 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
                 ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
                 ...copyMediaSourceFields(item.source)
             };
-            return {
+            return finish({
                 item: {
-                    id: item.id, atFrames, durationFrames, at, duration, source,
+                    id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                     declaration: {
                         id: item.id, src: item.source.src, in: item.source.in, out: cutOut, at, track: ref,
                         ...common, ...copyMediaSourceFields(item.source), ...(speed !== undefined ? { speed } : {})
                     },
                     legacy: { collection: 'cuts', index: nextLegacyIndex(legacyIndexCounters, 'cuts'), value }
                 }
-            };
+            });
         }
         case 'html': {
             const declaration = {
@@ -573,33 +656,39 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
                 track: ref,
                 payload: declaration
             };
-            return {
+            return finish({
                 item: {
-                    id: item.id, atFrames, durationFrames, at, duration,
+                    id: item.id, atFrames, durationFrames, at, duration, children: [],
                     source: {
                         kind: 'html', html: item.source.path,
-                        ...(item.source.params !== undefined ? { params: item.source.params } : {})
+                        ...(item.source.params !== undefined ? { params: item.source.params } : {}),
+                        ...(item.source.part !== undefined ? { part: item.source.part } : {}),
+                        ...(item.source.style !== undefined ? { style: item.source.style } : {}),
+                        ...(item.source.text !== undefined ? { text: item.source.text } : {}),
+                        ...(item.source.exclude !== undefined ? { exclude: item.source.exclude } : {}),
+                        ...(item.source.derivedFrom !== undefined ? { derivedFrom: item.source.derivedFrom } : {})
                     },
                     declaration,
                     legacy: { collection: 'overlays', index: nextLegacyIndex(legacyIndexCounters, 'overlays'), value }
                 }
-            };
+            });
         }
         case 'telop': {
             const source = {
                 kind: 'telop',
                 preset: item.source.preset,
                 ...(item.source.params !== undefined ? { params: item.source.params } : {}),
-                ...(item.source.baked !== undefined ? { baked: item.source.baked } : {})
+                ...(item.source.baked !== undefined ? { baked: item.source.baked } : {}),
+                ...(item.source.from !== undefined ? { from: item.source.from } : {})
             };
             const declaration = {
                 id: item.id, t: at, duration, kind: 'baked', src: item.source.baked,
                 preset: item.source.preset, params: item.source.params, track: ref, ...common
             };
             if (item.source.baked === undefined) {
-                return {
-                    item: { id: item.id, atFrames, durationFrames, at, duration, source, declaration, legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers') } }
-                };
+                return finish({
+                    item: { id: item.id, atFrames, durationFrames, at, duration, children: [], source, declaration, legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers') } }
+                });
             }
             const value = {
                 id: item.id,
@@ -613,23 +702,43 @@ function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCount
                 ...(item.opacity !== undefined ? { opacity: item.opacity } : {}),
                 ...(item.blend !== undefined ? { blend: item.blend } : {})
             };
-            return {
-                item: { id: item.id, atFrames, durationFrames, at, duration, source, declaration, legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers'), value } }
-            };
+            return finish({
+                item: { id: item.id, atFrames, durationFrames, at, duration, children: [], source, declaration, legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers'), value } }
+            });
         }
-        default: {
+        case 'filter': {
             const source = { kind: 'filter', filter: item.source.filter };
-            return {
+            return finish({
                 item: {
-                    id: item.id, atFrames, durationFrames, at, duration, source,
+                    id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                     declaration: {
                         id: item.id, t: at, duration, kind: 'filter',
                         filter: item.source.filter, track: ref, ...common
                     },
                     legacy: { collection: 'layers', index: nextLegacyIndex(legacyIndexCounters, 'layers') }
                 }
-            };
+            });
         }
+        case 'group':
+            return finish({ item: {
+                    id: item.id, atFrames, durationFrames, at, duration, children: [],
+                    source: { kind: 'group' }, declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+                    legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
+                } });
+        case 'captions':
+            return finish({ item: {
+                    id: item.id, atFrames, durationFrames, at, duration, children: [],
+                    source: { kind: 'captions', path: 'captions.json', ...(item.source.exclude !== undefined ? { exclude: item.source.exclude } : {}) },
+                    declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+                    legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
+                } });
+        case 'caption':
+            return finish({ item: {
+                    id: item.id, atFrames, durationFrames, at, duration, children: [],
+                    source: { kind: 'caption', path: 'captions.json', id: item.source.id },
+                    declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+                    legacy: { collection: 'items', index: nextLegacyIndex(legacyIndexCounters, 'items') }
+                } });
     }
 }
 function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
@@ -663,7 +772,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
         };
         return {
             item: {
-                id: item.id, atFrames, durationFrames, at, duration, source,
+                id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                 declaration: {
                     id: item.id, t: at, path: resolvedPath,
                     ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
@@ -693,7 +802,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
         };
         return {
             item: {
-                id: item.id, atFrames, durationFrames, at, duration, source,
+                id: item.id, atFrames, durationFrames, at, duration, children: [], source,
                 declaration: {
                     path: resolvedPath,
                     ...(item.source.in !== undefined ? { in: item.source.in } : {}),
@@ -718,7 +827,7 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
     };
     return {
         item: {
-            id: item.id, atFrames, durationFrames, at, duration, source,
+            id: item.id, atFrames, durationFrames, at, duration, children: [], source,
             declaration: {
                 id: item.id, t: at, duration, path: resolvedPath, track: ref,
                 in: inSeconds,
@@ -784,7 +893,7 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
         ensureTrack(ref).items.push({
             id: value.id,
             atFrames: Math.round(value.t * fps), durationFrames: Math.round(duration * fps),
-            at: value.t, duration,
+            at: value.t, duration, children: [],
             source: { kind: 'media', path: value.path, in: start, out: end },
             declaration: entry,
             legacy: { collection: 'sfx', index: nextLegacyIndex(legacyIndexCounters, 'sfx'), value }
@@ -810,7 +919,7 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
         };
         ensureTrack(0).items.push({
             id: value.id, atFrames: Math.round(value.t * fps), durationFrames: Math.round(duration * fps),
-            at: value.t, duration,
+            at: value.t, duration, children: [],
             source: { kind: 'media', path: value.path, in: start, out: end },
             declaration: entry,
             legacy: { collection: 'narration', index: nextLegacyIndex(legacyIndexCounters, 'narration'), value }
@@ -827,6 +936,7 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
         };
         ensureTrack(0).items.push({
             id: 'bgm', atFrames: 0, durationFrames: 0, at: 0, duration: 0,
+            children: [],
             source: { kind: 'media', path: value.path, in: 0, out: 0 },
             declaration: entry,
             legacy: { collection: 'bgm', index: 0, value }

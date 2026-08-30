@@ -5,6 +5,7 @@ import {
   access,
   mkdir,
   readFile,
+  readdir,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -137,6 +138,9 @@ export async function lintProject(input, options = {}) {
 
   if (isRecord(edit) && edit.version !== 2) readInternalEdit(edit);
   validateEditV2(edit, findings);
+  if (isRecord(edit) && edit.version === 2) {
+    await validateV2ObjectTreeFiles(edit, findings, paths);
+  }
   if (findings.some(finding => finding.severity === "error")) {
     return writeResult(findings, skipped, inputs, paths, options);
   }
@@ -756,6 +760,43 @@ function validateEditV2(edit, findings) {
     }
   }
 
+  for (const [trackIndex, track] of edit.tracks.entries()) {
+    if (!isRecord(track) || !Array.isArray(track.items)) continue;
+    const visit = (items, parent, parentPath) => {
+      for (const [index, item] of items.entries()) {
+        const itemPath = `${parentPath}[${index}]`;
+        if (!isRecord(item)) continue;
+        registerId(itemIds, item.id, `${itemPath}.id`, "item");
+        if (parent && Number.isInteger(item.at) && Number.isInteger(item.duration)
+          && (item.at < 0 || item.at + item.duration > parent.duration)) {
+          addFinding(findings, {
+            severity: "error",
+            check: "v2.child-in-parent",
+            message: `child interval [${item.at}, ${item.at + item.duration}) exceeds parent ${String(parent.id)} interval [0, ${parent.duration})`,
+            path: itemPath,
+            range: { start: item.at, end: item.at + item.duration },
+          });
+        }
+        if (isRecord(item.motion)) {
+          const inDuration = isRecord(item.motion.in) && Number.isInteger(item.motion.in.duration)
+            ? item.motion.in.duration : 0;
+          const outDuration = isRecord(item.motion.out) && Number.isInteger(item.motion.out.duration)
+            ? item.motion.out.duration : 0;
+          if (Number.isInteger(item.duration) && inDuration + outDuration > item.duration) {
+            addFinding(findings, {
+              severity: "error",
+              check: "motion.in-out-exceeds",
+              message: `motion in/out total ${inDuration + outDuration} exceeds item duration ${item.duration}`,
+              path: `${itemPath}.motion`,
+            });
+          }
+        }
+        if (Array.isArray(item.items)) visit(item.items, item, `${itemPath}.items`);
+      }
+    };
+    visit(track.items, null, `edit.json#tracks[${trackIndex}].items`);
+  }
+
   const bgmItems = edit.tracks.flatMap((track, trackIndex) =>
     isRecord(track) && track.lane === "audio" && Array.isArray(track.items)
       ? track.items.flatMap((item, itemIndex) =>
@@ -804,14 +845,29 @@ function validateEditV2(edit, findings) {
       });
     }
 
+    if (hasContent) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "v2.captions-content-deprecated",
+        message: "tracks[].content is deprecated; use a captions bag item",
+        path: `${trackPath}.content`,
+      });
+    }
+
     if (!Array.isArray(track.items)) continue;
+    if (track.items.length === 0) {
+      addFinding(findings, {
+        severity: "info",
+        check: "v2.empty-track",
+        message: "empty track will be removed by canonical save",
+        path: trackPath,
+      });
+    }
     const intervals = [];
     let previousTimedItem = null;
     for (const [itemIndex, item] of track.items.entries()) {
       const itemPath = `${trackPath}.items[${itemIndex}]`;
       if (!isRecord(item)) continue;
-      registerId(itemIds, item.id, `${itemPath}.id`, "item");
-
       if (isFiniteNumber(item.at)) {
         if (previousTimedItem && item.at < previousTimedItem.at) {
           addFinding(findings, {
@@ -827,7 +883,7 @@ function validateEditV2(edit, findings) {
       const kind = isRecord(item.source) ? item.source.kind : undefined;
       const compatible = track.lane === "audio"
         ? kind === "media"
-        : track.lane === "visual" && ["media", "html", "telop", "filter"].includes(kind);
+        : track.lane === "visual" && ["media", "html", "telop", "filter", "group", "captions", "caption"].includes(kind);
       if (!compatible) {
         addFinding(findings, {
           severity: "error",
@@ -953,7 +1009,7 @@ function validateEditV2(edit, findings) {
         && overlap > furthest.transitionFrames) {
         addFinding(findings, {
           severity: "error",
-          check: "v2.track-overlap",
+          check: "v2.track-no-overlap",
           message: `item overlaps ${furthest.index} on the same track`,
           path: `${trackPath}.items[${interval.index}]`,
           range: { start: interval.start, end: interval.end },
@@ -961,6 +1017,128 @@ function validateEditV2(edit, findings) {
       }
       if (!furthest || interval.end > furthest.end) furthest = interval;
     }
+  }
+}
+
+async function validateV2ObjectTreeFiles(edit, findings, paths) {
+  const entries = [];
+  const visit = (items, itemPath) => {
+    if (!Array.isArray(items)) return;
+    for (const [index, item] of items.entries()) {
+      if (!isRecord(item)) continue;
+      const path = `${itemPath}[${index}]`;
+      entries.push({ item, path });
+      visit(item.items, `${path}.items`);
+    }
+  };
+  for (const [trackIndex, track] of (Array.isArray(edit.tracks) ? edit.tracks : []).entries()) {
+    if (isRecord(track)) visit(track.items, `edit.json#tracks[${trackIndex}].items`);
+  }
+
+  const referencedMotion = new Set();
+  for (const { item, path: itemPath } of entries) {
+    if (isRecord(item.keyframes) && isNonEmptyString(item.keyframes.path)) {
+      referencedMotion.add(item.keyframes.path);
+      const filePath = resolve(paths.projectRoot, item.keyframes.path);
+      let bag;
+      try {
+        bag = JSON.parse(await readFile(filePath, "utf8"));
+      } catch {
+        addFinding(findings, {
+          severity: "error",
+          check: "v2.keyframes-ref",
+          message: `keyframes bag does not exist or is not valid JSON: ${item.keyframes.path}`,
+          path: `${itemPath}.keyframes`,
+        });
+        continue;
+      }
+      const points = isRecord(bag.items) ? bag.items[item.id] : undefined;
+      if (!Array.isArray(points) || points.length !== item.keyframes.count) {
+        addFinding(findings, {
+          severity: "error",
+          check: "v2.keyframes-ref",
+          message: `keyframes count ${String(item.keyframes.count)} does not match bag item count ${Array.isArray(points) ? points.length : "missing"}`,
+          path: `${itemPath}.keyframes`,
+        });
+      }
+    }
+  }
+
+  let captionsIds;
+  const loadCaptionsIds = async () => {
+    if (captionsIds !== undefined) return captionsIds;
+    captionsIds = new Set();
+    try {
+      const parsed = JSON.parse(await readFile(paths.captionsPath, "utf8"));
+      const rows = Array.isArray(parsed) ? parsed
+        : Array.isArray(parsed?.rows) ? parsed.rows
+          : Array.isArray(parsed?.captions) ? parsed.captions : [];
+      for (const row of rows) if (isRecord(row) && isNonEmptyString(row.id)) captionsIds.add(row.id);
+    } catch {
+      // Missing captions.json is reported by the existing captions checks. part-ref remains a warning.
+    }
+    return captionsIds;
+  };
+
+  for (const { item, path: itemPath } of entries) {
+    if (!isRecord(item.source)) continue;
+    const source = item.source;
+    if (source.kind === "html" && (isNonEmptyString(source.part) || Array.isArray(source.exclude))) {
+      let html = "";
+      try {
+        html = await readFile(resolve(paths.projectRoot, source.path), "utf8");
+      } catch {
+        // The existing overlay file check reports the missing file; every requested part is absent here.
+      }
+      const requested = [
+        ...(isNonEmptyString(source.part) ? [source.part] : []),
+        ...(Array.isArray(source.exclude) ? source.exclude.filter(isNonEmptyString) : []),
+      ];
+      for (const id of requested) {
+        const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        if (new RegExp(`data-akari-part="${escaped}"`, "u").test(html)) continue;
+        addFinding(findings, {
+          severity: "warning",
+          check: "v2.part-ref",
+          message: `HTML part id was not found at string level: ${id}`,
+          path: `${itemPath}.source`,
+        });
+      }
+    }
+    if (source.kind === "captions" || source.kind === "caption") {
+      const ids = await loadCaptionsIds();
+      const requested = source.kind === "caption"
+        ? [source.id]
+        : Array.isArray(source.exclude) ? source.exclude.filter(isNonEmptyString) : [];
+      for (const id of requested) {
+        if (ids.has(id)) continue;
+        addFinding(findings, {
+          severity: "warning",
+          check: "v2.part-ref",
+          message: `captions row id was not found: ${String(id)}`,
+          path: `${itemPath}.source`,
+        });
+      }
+    }
+  }
+
+  const motionDirectory = join(paths.projectRoot, "motion");
+  let motionFiles = [];
+  try {
+    motionFiles = (await readdir(motionDirectory, { withFileTypes: true }))
+      .filter(entry => entry.isFile() && entry.name.endsWith(".json"))
+      .map(entry => `motion/${entry.name}`);
+  } catch {
+    motionFiles = [];
+  }
+  for (const motionPath of motionFiles) {
+    if (referencedMotion.has(motionPath)) continue;
+    addFinding(findings, {
+      severity: "warning",
+      check: "motion.orphan",
+      message: `motion bag is not referenced by edit.json: ${motionPath}`,
+      path: motionPath,
+    });
   }
 }
 

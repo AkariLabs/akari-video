@@ -1,0 +1,1 @@
+{"version":2,"output":{"width":640,"height":360,"fps":30},"sources":[],"tracks":[{"id":"v1","lane":"visual","items":[{"id":"g-motion","at":0,"duration":90,"source":{"kind":"group"},"items":[{"id":"moving","at":0,"duration":90,"keyframes":{"path":"motion/g-motion.json","count":2},"source":{"kind":"telop","preset":"title"}}]}]}]}

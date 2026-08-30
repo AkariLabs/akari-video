@@ -934,7 +934,7 @@
       "findings": [
         {
           "severity": "error",
-          "check": "v2.track-overlap",
+          "check": "v2.track-no-overlap",
           "message": "item overlaps 0 on the same track",
           "path": "edit.json#tracks[0].items[1]",
           "range": {
@@ -1470,7 +1470,7 @@
       "findings": [
         {
           "severity": "error",
-          "check": "v2.track-overlap",
+          "check": "v2.track-no-overlap",
           "message": "item overlaps 0 on the same track",
           "path": "edit.json#tracks[1].items[1]",
           "range": {
@@ -2360,7 +2360,14 @@
     "timeline-tracks-empty-declared-track": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "info",
+          "check": "v2.empty-track",
+          "message": "empty track will be removed by canonical save",
+          "path": "edit.json#tracks[1]"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",
@@ -2466,6 +2473,18 @@
           "check": "timeline.tracks.singleton",
           "message": "captions timeline track is declared more than once",
           "path": "edit.json#timeline.tracks[4]"
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-content-deprecated",
+          "message": "tracks[].content is deprecated; use a captions bag item",
+          "path": "edit.json#tracks[3].content"
+        },
+        {
+          "severity": "warning",
+          "check": "v2.captions-content-deprecated",
+          "message": "tracks[].content is deprecated; use a captions bag item",
+          "path": "edit.json#tracks[4].content"
         }
       ],
       "skipped": [
@@ -2596,7 +2615,7 @@
       "findings": [
         {
           "severity": "error",
-          "check": "v2.track-overlap",
+          "check": "v2.track-no-overlap",
           "message": "item overlaps 0 on the same track",
           "path": "edit.json#tracks[0].items[1]",
           "range": {
@@ -2724,6 +2743,18 @@
       "verdict": "fail",
       "findings": [
         {
+          "severity": "warning",
+          "check": "v2.captions-content-deprecated",
+          "message": "tracks[].content is deprecated; use a captions bag item",
+          "path": "edit.json#tracks[0].content"
+        },
+        {
+          "severity": "info",
+          "check": "v2.empty-track",
+          "message": "empty track will be removed by canonical save",
+          "path": "edit.json#tracks[0]"
+        },
+        {
           "severity": "error",
           "check": "v2.track-content-exclusive",
           "message": "track must contain exactly one of items or content",
@@ -2827,6 +2858,12 @@
           "check": "v2.captions-track-undeclared",
           "message": "captions.json に描画対象 cue がありますが字幕トラックが未宣言です。現状は暗黙補完で表示自体はされています。tracks[] に { \"id\": \"captions\", \"lane\": \"visual\", \"content\": { \"from\": \"captions.json\" } } を追加してください。",
           "path": "edit.json#tracks"
+        },
+        {
+          "severity": "info",
+          "check": "v2.empty-track",
+          "message": "empty track will be removed by canonical save",
+          "path": "edit.json#tracks[2]"
         }
       ],
       "skipped": [
@@ -2889,7 +2926,7 @@
       "findings": [
         {
           "severity": "error",
-          "check": "v2.track-overlap",
+          "check": "v2.track-no-overlap",
           "message": "item overlaps 0 on the same track",
           "path": "edit.json#tracks[0].items[1]",
           "range": {
@@ -2903,7 +2940,14 @@
     "v2-valid": {
       "exit_code": 0,
       "verdict": "pass",
-      "findings": [],
+      "findings": [
+        {
+          "severity": "warning",
+          "check": "v2.captions-content-deprecated",
+          "message": "tracks[].content is deprecated; use a captions bag item",
+          "path": "edit.json#tracks[2].content"
+        }
+      ],
       "skipped": [
         {
           "check": "analysis.json",

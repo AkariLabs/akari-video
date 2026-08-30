@@ -28,8 +28,8 @@ test("editV2 is the third root branch and keeps v2 timing/output definitions sep
   assert.equal(schema.$defs.frames.minimum, 0);
   assert.deepEqual(schema.$defs.output.properties.fps, { $ref: "#/$defs/positiveNumber" });
   assert.deepEqual(schema.$defs.outputV2.properties.fps, { type: "integer", minimum: 1 });
-  assert.equal(schema.$defs.itemV2.oneOf.length, 4);
-  assert.match(schema.$defs.itemV2.$comment, /sequence/);
+  assert.equal(schema.$defs.itemV2.oneOf.length, 7);
+  assert.match(schema.$defs.itemV2.$comment, /子の at/);
   assert.match(schema.$defs.itemAtV2.$comment, /oneOf/);
 });
 
@@ -167,7 +167,7 @@ test("v2 keyframe t is an integer frame while legacy layerKeyframe stays in seco
   assert.deepEqual(schema.$defs.layerKeyframe.properties.t, { $ref: "#/$defs/seconds" });
   assert.deepEqual(schema.$defs.keyframeV2.properties.t, { $ref: "#/$defs/frames" });
   for (const definition of ["itemV2Media", "itemV2Html", "itemV2Telop", "itemV2Filter"]) {
-    assert.deepEqual(schema.$defs[definition].properties.keyframes.items, { $ref: "#/$defs/keyframeV2" });
+    assert.deepEqual(schema.$defs[definition].properties.keyframes.oneOf[0].items, { $ref: "#/$defs/keyframeV2" });
   }
 
   const value = fixture("edit-v2-valid");

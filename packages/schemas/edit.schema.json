@@ -501,9 +501,114 @@
         "transform": { "$ref": "#/$defs/layerTransform" },
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
-        "easing": { "enum": ["linear", "ease-in-out"] }
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "animator": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "offset": { "type": "number", "minimum": -1, "maximum": 1 },
+              "start": { "type": "number", "minimum": 0, "maximum": 1 },
+              "end": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        },
+        "easing": {
+          "oneOf": [
+            {
+              "type": "string",
+              "anyOf": [
+                { "enum": ["linear", "ease-in-out", "in-quad", "out-quad", "in-out-quad", "in-cubic", "out-cubic", "in-out-cubic", "in-quart", "out-quart", "in-out-quart", "in-expo", "out-expo", "in-out-expo", "in-back", "out-back", "in-out-back", "out-bounce", "out-elastic", "hold"] },
+                { "pattern": "^cubic-bezier\\(\\s*-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)\\s*,\\s*-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)\\s*,\\s*-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)\\s*,\\s*-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)\\s*\\)$" }
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string",
+                "anyOf": [
+                  { "enum": ["linear", "ease-in-out", "in-quad", "out-quad", "in-out-quad", "in-cubic", "out-cubic", "in-out-cubic", "in-quart", "out-quart", "in-out-quart", "in-expo", "out-expo", "in-out-expo", "in-back", "out-back", "in-out-back", "out-bounce", "out-elastic", "hold"] },
+                  { "pattern": "^cubic-bezier\\(\\s*-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)\\s*,\\s*-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)\\s*,\\s*-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)\\s*,\\s*-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)\\s*\\)$" }
+                ]
+              }
+            }
+          ]
+        }
       },
-      "$comment": "v2 item.keyframes の要素。t は item.at を 0 とするアイテム内の整数フレーム。transform/crop/perspective の補間・hold と easing の意味は layerKeyframe と同じ。"
+      "$comment": "v2 item.keyframes の要素。t は item.at を 0 とするアイテム内の整数フレーム。transform/crop/perspective/opacity/animator の補間・hold と easing は contract-2026-08-30-motion-and-keyframes-v0.md §2.1。"
+    },
+    "motionV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "in": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["preset", "duration"],
+          "properties": {
+            "preset": { "type": "string", "minLength": 1, "pattern": "\\S" },
+            "duration": { "$ref": "#/$defs/frames" },
+            "ease": { "type": "string", "minLength": 1 },
+            "amount": { "type": "number" }
+          }
+        },
+        "out": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["preset", "duration"],
+          "properties": {
+            "preset": { "type": "string", "minLength": 1, "pattern": "\\S" },
+            "duration": { "$ref": "#/$defs/frames" },
+            "ease": { "type": "string", "minLength": 1 },
+            "amount": { "type": "number" }
+          }
+        },
+        "loop": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["preset", "period"],
+          "properties": {
+            "preset": { "type": "string", "minLength": 1, "pattern": "\\S" },
+            "period": { "type": "integer", "minimum": 1 },
+            "ease": { "type": "string", "minLength": 1 },
+            "amount": { "type": "number" }
+          }
+        }
+      }
+    },
+    "animatorV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "basis", "shape", "start", "end", "offset", "amount"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "basis": { "enum": ["chars", "words", "lines", "segments"] },
+        "shape": { "enum": ["ramp", "triangle", "round", "smooth", "square", "ramp-down"] },
+        "start": { "type": "number", "minimum": 0, "maximum": 1 },
+        "end": { "type": "number", "minimum": 0, "maximum": 1 },
+        "offset": { "type": "number", "minimum": -1, "maximum": 1 },
+        "randomize": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["seed"],
+          "properties": { "seed": { "type": "integer" } }
+        },
+        "amount": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "scale": { "type": "number" },
+            "rotate": { "type": "number" },
+            "opacity": { "type": "number", "minimum": -1, "maximum": 1 },
+            "letterSpacing": { "type": "number" },
+            "blur": { "type": "number" }
+          }
+        },
+        "ease": { "type": "string", "minLength": 1 }
+      }
     },
     "layerFilter": {
       "type": "object",
@@ -669,6 +774,11 @@
       "properties": {
         "kind": { "const": "html" },
         "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "part": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "style": { "type": "object", "additionalProperties": { "type": "string" } },
+        "text": { "type": "string" },
+        "exclude": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "\\S" }, "uniqueItems": true },
+        "derivedFrom": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "vars": { "type": "object" },
         "params": {
           "type": "object",
@@ -676,7 +786,7 @@
           "additionalProperties": { "type": "string" }
         }
       },
-      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / contract-2026-08-22-overlay-html-slots.md §1。HTML はその場で描画する絵の出どころであり、素材トリムの in/out を持たない。params は任意のスロット名をキーにできる一方、値を string のみに閉じる。"
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / contract-2026-08-22-overlay-html-slots.md §1 / contract-2026-08-30-edit-json-v2-object-tree-v0.md §1.3-1.6。HTML はその場で描画する絵の出どころであり、素材トリムの in/out を持たない。params/style は値を string のみに閉じる。"
     },
     "itemSourceTelopV2": {
       "type": "object",
@@ -686,7 +796,8 @@
         "kind": { "const": "telop" },
         "preset": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "params": { "type": "object" },
-        "baked": { "type": "string", "minLength": 1, "pattern": "\\S" }
+        "baked": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "from": { "type": "string", "minLength": 1, "pattern": "\\S" }
       },
       "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9。baked は別種別ではなく、同じテロップを速く描くための任意キャッシュ。"
     },
@@ -700,12 +811,41 @@
       },
       "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9。既存 layerFilter の閉じた invert/lut/saturation 直和を v2 の filter source でも共有する。"
     },
+    "itemSourceGroupV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": { "kind": { "const": "group" } }
+    },
+    "itemSourceCaptionsV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": { "const": "captions" },
+        "path": { "const": "captions.json" },
+        "exclude": { "type": "array", "items": { "type": "string", "minLength": 1, "pattern": "\\S" }, "uniqueItems": true }
+      }
+    },
+    "itemSourceCaptionV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "id"],
+      "properties": {
+        "kind": { "const": "caption" },
+        "path": { "const": "captions.json" },
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" }
+      }
+    },
     "itemV2Media": {
       "type": "object",
       "additionalProperties": false,
       "required": ["id", "at", "duration", "source"],
       "properties": {
         "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "name": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
         "transform": { "$ref": "#/$defs/layerTransform" },
@@ -713,7 +853,10 @@
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
-        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
+        "motion": { "$ref": "#/$defs/motionV0" },
+        "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
+        "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
         "mask": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "source": { "$ref": "#/$defs/itemSourceMediaV2" }
       },
@@ -725,6 +868,9 @@
       "required": ["id", "at", "duration", "source"],
       "properties": {
         "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "name": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
         "transform": { "$ref": "#/$defs/layerTransform" },
@@ -732,7 +878,10 @@
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
-        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
+        "motion": { "$ref": "#/$defs/motionV0" },
+        "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
+        "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
         "source": { "$ref": "#/$defs/itemSourceHtmlV2" }
       }
     },
@@ -742,6 +891,9 @@
       "required": ["id", "at", "duration", "source"],
       "properties": {
         "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "name": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
         "transform": { "$ref": "#/$defs/layerTransform" },
@@ -749,7 +901,10 @@
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
-        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
+        "motion": { "$ref": "#/$defs/motionV0" },
+        "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
+        "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
         "source": { "$ref": "#/$defs/itemSourceTelopV2" }
       }
     },
@@ -759,6 +914,9 @@
       "required": ["id", "at", "duration", "source"],
       "properties": {
         "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "name": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
         "transform": { "$ref": "#/$defs/layerTransform" },
@@ -766,8 +924,80 @@
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
-        "keyframes": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } },
+        "motion": { "$ref": "#/$defs/motionV0" },
+        "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
+        "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
         "source": { "$ref": "#/$defs/itemSourceFilterV2" }
+      }
+    },
+    "itemV2Group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "duration", "source"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "name": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" },
+        "at": { "$ref": "#/$defs/itemAtV2" },
+        "duration": { "$ref": "#/$defs/frames" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "$ref": "#/$defs/layerBlendMode" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
+        "perspective": { "$ref": "#/$defs/layerPerspective" },
+        "motion": { "$ref": "#/$defs/motionV0" },
+        "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
+        "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
+        "source": { "$ref": "#/$defs/itemSourceGroupV2" }
+      }
+    },
+    "itemV2Captions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "duration", "source"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "name": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" },
+        "at": { "$ref": "#/$defs/itemAtV2" },
+        "duration": { "$ref": "#/$defs/frames" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "$ref": "#/$defs/layerBlendMode" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
+        "perspective": { "$ref": "#/$defs/layerPerspective" },
+        "motion": { "$ref": "#/$defs/motionV0" },
+        "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
+        "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
+        "source": { "$ref": "#/$defs/itemSourceCaptionsV2" }
+      }
+    },
+    "itemV2Caption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "duration", "source"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "name": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" },
+        "at": { "$ref": "#/$defs/itemAtV2" },
+        "duration": { "$ref": "#/$defs/frames" },
+        "transform": { "$ref": "#/$defs/layerTransform" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "blend": { "$ref": "#/$defs/layerBlendMode" },
+        "crop": { "$ref": "#/$defs/layerCrop" },
+        "perspective": { "$ref": "#/$defs/layerPerspective" },
+        "motion": { "$ref": "#/$defs/motionV0" },
+        "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
+        "keyframes": { "oneOf": [{ "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/keyframeV2" } }, { "type": "object", "additionalProperties": false, "required": ["path", "count"], "properties": { "path": { "type": "string", "pattern": "^motion/.+\\.json$" }, "count": { "type": "integer", "minimum": 2 } } }] },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/itemV2" } },
+        "source": { "$ref": "#/$defs/itemSourceCaptionV2" }
       }
     },
     "itemV2AudioMedia": {
@@ -776,6 +1006,9 @@
       "required": ["id", "at", "duration", "source"],
       "properties": {
         "id": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "name": { "type": "string" },
+        "hidden": { "type": "boolean" },
+        "locked": { "type": "boolean" },
         "at": { "$ref": "#/$defs/itemAtV2" },
         "duration": { "$ref": "#/$defs/frames" },
         "role": { "enum": ["sfx", "narration", "bgm"] },
@@ -795,9 +1028,12 @@
         { "$ref": "#/$defs/itemV2Media" },
         { "$ref": "#/$defs/itemV2Html" },
         { "$ref": "#/$defs/itemV2Telop" },
-        { "$ref": "#/$defs/itemV2Filter" }
+        { "$ref": "#/$defs/itemV2Filter" },
+        { "$ref": "#/$defs/itemV2Group" },
+        { "$ref": "#/$defs/itemV2Captions" },
+        { "$ref": "#/$defs/itemV2Caption" }
       ],
-      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。共通キーだけを item 直下に置き、絵の出どころ固有のキーは source.kind ごとの閉じた oneOf に隔離する。at/duration は整数フレーム、media の in/out は素材秒。将来の入れ子は itemSourceSequenceV2 を追加してこの oneOf へ足す（kind=sequence は Phase 0 では未実装）。"
+      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1 / contract-2026-08-30-edit-json-v2-object-tree-v0.md §1。共通キーだけを item 直下に置き、出どころ固有キーは source.kind ごとの閉じた oneOf に隔離する。at/duration は整数フレーム、子の at は親相対。"
     },
     "captionTrackContentV2": {
       "type": "object",
@@ -851,7 +1087,7 @@
           }
         }
       ],
-      "$comment": "notes-2026-08-18-timeline-latency-and-track-model.md §8 / §9。lane は visual/audio の 2 値。audio lane の items は itemV2AudioMedia、visual lane の items は itemV2 を使う。items と字幕 content は閉じた oneOf により必ず排他。"
+      "$comment": "deprecated: tracks[].content は tolerant reader のためだけに残す。lane は visual/audio の 2 値。audio lane の items は itemV2AudioMedia、visual lane の items は itemV2 を使う。items と字幕 content は閉じた oneOf により必ず排他。"
     },
     "editV0": {
       "type": "object",

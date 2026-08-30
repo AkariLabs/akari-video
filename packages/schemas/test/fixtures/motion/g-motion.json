@@ -1,0 +1,1 @@
+{"version":0,"group":"g-motion","items":{"moving":[{"t":0,"transform":{"x":-200},"opacity":0},{"t":12,"transform":{"x":0},"opacity":1,"easing":"out-cubic"}]}}
