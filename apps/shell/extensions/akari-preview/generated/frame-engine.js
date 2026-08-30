@@ -3361,6 +3361,9 @@ ${indent}`);
       ]);
       var ITEM_KEYS = /* @__PURE__ */ new Set([
         "id",
+        "name",
+        "hidden",
+        "locked",
         "at",
         "duration",
         "transform",
@@ -3368,12 +3371,18 @@ ${indent}`);
         "blend",
         "crop",
         "perspective",
+        "motion",
+        "animator",
         "keyframes",
+        "items",
         "mask",
         "source"
       ]);
       var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
         "id",
+        "name",
+        "hidden",
+        "locked",
         "at",
         "duration",
         "role",
@@ -3425,11 +3434,18 @@ ${indent}`);
               return {
                 ...track,
                 z: z3,
-                items: track.items.map((item) => ({ ...item, source: { ...item.source } }))
+                items: track.items.map((item) => cloneItem(item))
               };
             }
             return { ...track, z: z3, content: { ...track.content } };
           })
+        };
+      }
+      function cloneItem(item) {
+        return {
+          ...item,
+          source: { ...item.source },
+          ..."items" in item && Array.isArray(item.items) ? { items: item.items.map((child) => cloneItem(child)) } : {}
         };
       }
       function parseInput(json) {
@@ -3506,6 +3522,7 @@ ${indent}`);
         if (ids.has(value.id))
           throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
         ids.add(value.id);
+        validateItemMetadata(value, path);
         requireInteger(value.at, 0, `${path}.at`);
         requireInteger(value.duration, 0, `${path}.duration`);
         if (hasOwn(value, "role") && value.role !== "sfx" && value.role !== "narration" && value.role !== "bgm") {
@@ -3566,6 +3583,7 @@ ${indent}`);
         if (ids.has(value.id))
           throw invalid(`${path}.id`, `item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${value.id}`);
         ids.add(value.id);
+        validateItemMetadata(value, path);
         requireInteger(value.at, 0, `${path}.at`);
         requireInteger(value.duration, 0, `${path}.duration`);
         if (hasOwn(value, "transform"))
@@ -3579,6 +3597,10 @@ ${indent}`);
           validateCrop(value.crop, `${path}.crop`);
         if (hasOwn(value, "perspective"))
           requireRecord(value.perspective, `${path}.perspective`);
+        if (hasOwn(value, "motion"))
+          validateMotion(value.motion, `${path}.motion`);
+        if (hasOwn(value, "animator"))
+          validateAnimators(value.animator, `${path}.animator`);
         if (hasOwn(value, "keyframes"))
           validateKeyframes(value.keyframes, `${path}.keyframes`);
         validateItemSource(value.source, `${path}.source`, sourceIds);
@@ -3588,6 +3610,19 @@ ${indent}`);
           requireText(value.mask, `${path}.mask`);
           if (!sourceIds.has(value.mask))
             throw invalid(`${path}.mask`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.mask}`);
+        }
+        if (hasOwn(value, "items")) {
+          if (!Array.isArray(value.items))
+            throw invalid(`${path}.items`, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          value.items.forEach((child, index) => validateItem(child, `${path}.items[${index}]`, ids, sourceIds));
+        }
+      }
+      function validateItemMetadata(value, path) {
+        if (hasOwn(value, "name") && typeof value.name !== "string")
+          throw invalid(`${path}.name`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        for (const key of ["hidden", "locked"]) {
+          if (hasOwn(value, key) && typeof value[key] !== "boolean")
+            throw invalid(`${path}.${key}`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         }
       }
       function validateItemSource(value, path, sourceIds) {
@@ -3623,8 +3658,17 @@ ${indent}`);
               requirePositiveNumber(value.speed, `${path}.speed`);
             return;
           case "html":
-            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "vars", "params"]), path);
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params"]), path);
             requireText(value.path, `${path}.path`);
+            for (const key of ["part", "derivedFrom"])
+              if (hasOwn(value, key))
+                requireText(value[key], `${path}.${key}`);
+            if (hasOwn(value, "text") && typeof value.text !== "string")
+              throw invalid(`${path}.text`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            if (hasOwn(value, "style"))
+              validateStringMap(value.style, `${path}.style`);
+            if (hasOwn(value, "exclude"))
+              validateStringList(value.exclude, `${path}.exclude`);
             if (hasOwn(value, "vars"))
               requireRecord(value.vars, `${path}.vars`);
             if (hasOwn(value, "params")) {
@@ -3636,20 +3680,56 @@ ${indent}`);
             }
             return;
           case "telop":
-            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "preset", "params", "baked"]), path);
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "preset", "params", "baked", "from"]), path);
             requireText(value.preset, `${path}.preset`);
             if (hasOwn(value, "params"))
               requireRecord(value.params, `${path}.params`);
             if (hasOwn(value, "baked"))
               requireText(value.baked, `${path}.baked`);
+            if (hasOwn(value, "from"))
+              requireText(value.from, `${path}.from`);
             return;
           case "filter":
             requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "filter"]), path);
             validateFilter(value.filter, `${path}.filter`);
             return;
+          case "group":
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind"]), path);
+            return;
+          case "captions":
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "exclude"]), path);
+            if (value.path !== "captions.json")
+              throw invalid(`${path}.path`, "captions.json \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            if (hasOwn(value, "exclude"))
+              validateStringList(value.exclude, `${path}.exclude`);
+            return;
+          case "caption":
+            requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "path", "id"]), path);
+            if (value.path !== "captions.json")
+              throw invalid(`${path}.path`, "captions.json \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            requireText(value.id, `${path}.id`);
+            return;
           default:
-            throw invalid(`${path}.kind`, "media/html/telop/filter \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+            throw invalid(`${path}.kind`, "media/html/telop/filter/group/captions/caption \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         }
+      }
+      function validateStringMap(value, path) {
+        requireRecord(value, path);
+        for (const [key, entry] of Object.entries(value)) {
+          if (typeof entry !== "string")
+            throw invalid(`${path}.${key}`, "\u6587\u5B57\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        }
+      }
+      function validateStringList(value, path) {
+        if (!Array.isArray(value))
+          throw invalid(path, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        const seen = /* @__PURE__ */ new Set();
+        value.forEach((entry, index) => {
+          requireText(entry, `${path}[${index}]`);
+          if (seen.has(entry))
+            throw invalid(path, `\u5024\u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${entry}`);
+          seen.add(entry);
+        });
       }
       function validateFilter(value, path) {
         requireRecord(value, path);
@@ -3691,7 +3771,51 @@ ${indent}`);
             throw invalid(`${path}.${key}`, "0 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         }
       }
+      var EASINGS = /* @__PURE__ */ new Set([
+        "linear",
+        "ease-in-out",
+        "in-quad",
+        "out-quad",
+        "in-out-quad",
+        "in-cubic",
+        "out-cubic",
+        "in-out-cubic",
+        "in-quart",
+        "out-quart",
+        "in-out-quart",
+        "in-expo",
+        "out-expo",
+        "in-out-expo",
+        "in-back",
+        "out-back",
+        "in-out-back",
+        "out-bounce",
+        "out-elastic",
+        "hold"
+      ]);
+      var CUBIC_BEZIER = /^cubic-bezier\(\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$/;
+      function validateEasing(value, path) {
+        const validateOne = (entry, entryPath) => {
+          if (typeof entry !== "string" || !EASINGS.has(entry) && !CUBIC_BEZIER.test(entry)) {
+            throw invalid(entryPath, "\u672A\u5BFE\u5FDC\u306E easing \u3067\u3059");
+          }
+        };
+        if (typeof value === "string")
+          return validateOne(value, path);
+        requireRecord(value, path);
+        for (const [key, entry] of Object.entries(value))
+          validateOne(entry, `${path}.${key}`);
+      }
       function validateKeyframes(value, path) {
+        if (!Array.isArray(value)) {
+          requireRecord(value, path);
+          requireExactKeys(value, /* @__PURE__ */ new Set(["path", "count"]), path);
+          requireText(value.path, `${path}.path`);
+          if (!/^motion\/.+\.json$/.test(value.path))
+            throw invalid(`${path}.path`, "motion/ \u914D\u4E0B\u306E JSON \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          requireInteger(value.count, 2, `${path}.count`);
+          return;
+        }
         if (!Array.isArray(value) || value.length < 2)
           throw invalid(path, "2 \u8981\u7D20\u4EE5\u4E0A\u306E\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
         value.forEach((entry, index) => {
@@ -3704,9 +3828,72 @@ ${indent}`);
             validateCrop(entry.crop, `${itemPath}.crop`);
           if (hasOwn(entry, "perspective"))
             requireRecord(entry.perspective, `${itemPath}.perspective`);
-          if (hasOwn(entry, "easing") && entry.easing !== "linear" && entry.easing !== "ease-in-out") {
-            throw invalid(`${itemPath}.easing`, "linear \u307E\u305F\u306F ease-in-out \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          if (hasOwn(entry, "opacity"))
+            requireRange(entry.opacity, 0, 1, `${itemPath}.opacity`);
+          if (hasOwn(entry, "animator")) {
+            requireRecord(entry.animator, `${itemPath}.animator`);
+            for (const [id, state] of Object.entries(entry.animator)) {
+              requireRecord(state, `${itemPath}.animator.${id}`);
+              requireExactKeys(state, /* @__PURE__ */ new Set(["offset", "start", "end"]), `${itemPath}.animator.${id}`);
+              if (hasOwn(state, "offset"))
+                requireRange(state.offset, -1, 1, `${itemPath}.animator.${id}.offset`);
+              for (const key of ["start", "end"])
+                if (hasOwn(state, key))
+                  requireRange(state[key], 0, 1, `${itemPath}.animator.${id}.${key}`);
+            }
           }
+          if (hasOwn(entry, "easing"))
+            validateEasing(entry.easing, `${itemPath}.easing`);
+        });
+      }
+      function validateMotion(value, path) {
+        requireRecord(value, path);
+        requireExactKeys(value, /* @__PURE__ */ new Set(["in", "out", "loop"]), path);
+        for (const slot of ["in", "out", "loop"]) {
+          if (!hasOwn(value, slot))
+            continue;
+          const entry = value[slot];
+          requireRecord(entry, `${path}.${slot}`);
+          requireExactKeys(entry, /* @__PURE__ */ new Set(["preset", slot === "loop" ? "period" : "duration", "ease", "amount"]), `${path}.${slot}`);
+          requireText(entry.preset, `${path}.${slot}.preset`);
+          requireInteger(entry[slot === "loop" ? "period" : "duration"], slot === "loop" ? 1 : 0, `${path}.${slot}.${slot === "loop" ? "period" : "duration"}`);
+          if (hasOwn(entry, "ease"))
+            validateEasing(entry.ease, `${path}.${slot}.ease`);
+          if (hasOwn(entry, "amount"))
+            requireNumber(entry.amount, `${path}.${slot}.amount`);
+        }
+      }
+      function validateAnimators(value, path) {
+        if (!Array.isArray(value))
+          throw invalid(path, "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+        value.forEach((entry, index) => {
+          const entryPath = `${path}[${index}]`;
+          requireRecord(entry, entryPath);
+          requireExactKeys(entry, /* @__PURE__ */ new Set(["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"]), entryPath);
+          requireText(entry.id, `${entryPath}.id`);
+          if (!["chars", "words", "lines", "segments"].includes(String(entry.basis)))
+            throw invalid(`${entryPath}.basis`, "\u672A\u5BFE\u5FDC\u306E basis \u3067\u3059");
+          if (!["ramp", "triangle", "round", "smooth", "square", "ramp-down"].includes(String(entry.shape)))
+            throw invalid(`${entryPath}.shape`, "\u672A\u5BFE\u5FDC\u306E shape \u3067\u3059");
+          requireRange(entry.start, 0, 1, `${entryPath}.start`);
+          requireRange(entry.end, 0, 1, `${entryPath}.end`);
+          requireRange(entry.offset, -1, 1, `${entryPath}.offset`);
+          if (hasOwn(entry, "randomize")) {
+            requireRecord(entry.randomize, `${entryPath}.randomize`);
+            requireExactKeys(entry.randomize, /* @__PURE__ */ new Set(["seed"]), `${entryPath}.randomize`);
+            if (!Number.isInteger(entry.randomize.seed))
+              throw invalid(`${entryPath}.randomize.seed`, "\u6574\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+          }
+          requireRecord(entry.amount, `${entryPath}.amount`);
+          requireExactKeys(entry.amount, /* @__PURE__ */ new Set(["x", "y", "scale", "rotate", "opacity", "letterSpacing", "blur"]), `${entryPath}.amount`);
+          for (const [key, amount] of Object.entries(entry.amount)) {
+            if (key === "opacity")
+              requireRange(amount, -1, 1, `${entryPath}.amount.opacity`);
+            else
+              requireNumber(amount, `${entryPath}.amount.${key}`);
+          }
+          if (hasOwn(entry, "ease"))
+            validateEasing(entry.ease, `${entryPath}.ease`);
         });
       }
       function requireRecord(value, path) {
@@ -3958,6 +4145,7 @@ ${indent}`);
       exports.readInternalEdit = readInternalEdit;
       exports.readInternalSources = readInternalSources;
       exports.visualContentEndSeconds = visualContentEndSeconds;
+      exports.walkItems = walkItems;
       exports.findCrossTrackLayerEvacuations = findCrossTrackLayerEvacuations;
       exports.projectLegacyEdit = projectLegacyEdit;
       exports.toLegacyTrack = toLegacyTrack;
@@ -3996,12 +4184,23 @@ ${indent}`);
           if (track.lane !== "visual")
             continue;
           for (const item of track.items) {
-            if (item.source.kind === "html")
+            if (["html", "group", "captions", "caption"].includes(item.source.kind))
               continue;
             maxEnd = Math.max(maxEnd, item.at + item.duration);
           }
         }
         return maxEnd;
+      }
+      function* walkItems(internal) {
+        function* walk(item) {
+          yield item;
+          for (const child of item.children)
+            yield* walk(child);
+        }
+        for (const track of internal.tracks) {
+          for (const item of track.items)
+            yield* walk(item);
+        }
       }
       function toRecord(source) {
         try {
@@ -4034,6 +4233,7 @@ ${indent}`);
         const refCounters = /* @__PURE__ */ new Map();
         const legacyIndexCounters = /* @__PURE__ */ new Map();
         const overlappingItemIds = computeOverlappingItemIds(edit.tracks.flatMap((track) => "items" in track && track.lane === "visual" ? [track.items] : []), pathOf);
+        const contentDurationFrames = edit.tracks.reduce((maximum, track) => "items" in track && track.lane === "visual" ? track.items.reduce((trackMaximum, item) => Math.max(trackMaximum, item.at + item.duration), maximum) : maximum, 0);
         const tracks = edit.tracks.map((track) => {
           const kind = legacyKindOfV2Track(track, chromaKeyOf, overlappingItemIds);
           const ref = kind === "captions" ? void 0 : nextRef(refCounters, kind);
@@ -4046,6 +4246,15 @@ ${indent}`);
               }
               items.push(built.item);
             });
+          } else {
+            const normalized = buildV2Item({
+              id: track.id,
+              at: 0,
+              duration: contentDurationFrames,
+              source: { kind: "captions", path: "captions.json" }
+            }, fps, 0, "visual", pathOf, chromaKeyOf, legacyIndexCounters).item;
+            items.push(normalized);
+            Object.defineProperty(items, "toJSON", { value: () => [], enumerable: false });
           }
           return {
             id: track.id,
@@ -4059,6 +4268,7 @@ ${indent}`);
           };
         });
         addV2AudioItems(tracks, edit.audio, fps, legacyIndexCounters);
+        hideEmptyChildrenForCompatibility(tracks);
         synthesizeHiddenTransitionHandlesForRender(tracks, fps);
         return {
           output: {
@@ -4078,6 +4288,19 @@ ${indent}`);
             ...edit.captions !== void 0 ? { captions: edit.captions } : {}
           }
         };
+      }
+      function hideEmptyChildrenForCompatibility(tracks) {
+        const visit = (item) => {
+          for (const child of item.children)
+            visit(child);
+          if (item.children.length !== 0 || !Object.prototype.propertyIsEnumerable.call(item, "children"))
+            return;
+          delete item.children;
+          Object.defineProperty(item, "children", { value: [], enumerable: false, writable: true });
+        };
+        for (const track of tracks)
+          for (const item of track.items)
+            visit(item);
       }
       function synthesizeHiddenTransitionHandlesForRender(tracks, fps) {
         const speedOf = (item) => {
@@ -4136,8 +4359,12 @@ ${indent}`);
         switch (first?.source.kind) {
           case "html":
             return "overlays";
+          case "captions":
+            return "captions";
           case "telop":
           case "filter":
+          case "group":
+          case "caption":
             return "layers";
           // 空トラック（first === undefined）は中身が無く旧種別は名目上のものでしかない。'layers' を
           // 既定にする: 'cuts' にすると、このトラックも nextRef の 'cuts' カウンタを消費して
@@ -4237,26 +4464,59 @@ ${indent}`);
         counters.set(collection, index + 1);
         return index;
       }
-      function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false) {
-        if (lane === "audio") {
-          return buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters);
+      function buildV2Item(item, fps, ref, lane, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+        const built = lane === "audio" ? buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) : buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling, parentAtFrames, parentId);
+        const children = lane === "visual" && "items" in item && Array.isArray(item.items) ? item.items.map((child) => buildV2Item(child, fps, ref, "visual", pathOf, chromaKeyOf, legacyIndexCounters, false, built.item.atFrames, built.item.id).item) : [];
+        if (children.length > 0 || "items" in item && Array.isArray(item.items)) {
+          built.item.children = children;
+        } else {
+          delete built.item.children;
+          Object.defineProperty(built.item, "children", { value: children, enumerable: false, writable: true });
         }
-        return buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling);
+        if (parentId !== void 0)
+          built.item.parentId = parentId;
+        return built;
       }
-      function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false) {
-        const atFrames = item.at;
+      function buildV2VisualItem(item, fps, ref, pathOf, chromaKeyOf, legacyIndexCounters, hasOverlappingSibling = false, parentAtFrames = 0, parentId) {
+        const atFrames = parentAtFrames + item.at;
         const durationFrames = item.duration;
         const at2 = atFrames / fps;
         const duration = durationFrames / fps;
-        const keyframes = item.keyframes?.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps }));
+        const declaredKeyframes = item.keyframes;
+        const keyframes = Array.isArray(declaredKeyframes) ? declaredKeyframes.map((keyframe) => ({ ...keyframe, t: keyframe.t / fps })) : void 0;
         const common = {
           ...item.transform !== void 0 ? { transform: item.transform } : {},
           ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
           ...item.blend !== void 0 ? { blend: item.blend } : {},
           ...item.crop !== void 0 ? { crop: item.crop } : {},
           ...item.perspective !== void 0 ? { perspective: item.perspective } : {},
+          ...item.motion !== void 0 ? { motion: structuredClone(item.motion) } : {},
+          ...item.animator !== void 0 ? { animator: structuredClone(item.animator) } : {},
           ...keyframes !== void 0 ? { keyframes } : {},
           ...item.source.kind === "media" && "mask" in item && item.mask !== void 0 ? { mask: pathOf(item.mask) ?? item.mask } : {}
+        };
+        const finish = (built) => {
+          if (!Array.isArray(declaredKeyframes) && declaredKeyframes !== void 0) {
+            built.item.keyframesRef = { ...declaredKeyframes };
+          }
+          if (parentId !== void 0) {
+            const relativeSeconds = item.at / fps;
+            switch (item.source.kind) {
+              case "media":
+                built.item.declaration = { ...built.item.declaration, at: relativeSeconds };
+                break;
+              case "html":
+                built.item.declaration = { ...built.item.declaration, start: relativeSeconds };
+                break;
+              case "telop":
+              case "filter":
+                built.item.declaration = { ...built.item.declaration, t: relativeSeconds };
+                break;
+              default:
+                break;
+            }
+          }
+          return built;
         };
         switch (item.source.kind) {
           case "media": {
@@ -4286,18 +4546,19 @@ ${indent}`);
                 ...copyMediaSourceFields(item.source)
               };
               const value2 = declaration;
-              return {
+              return finish({
                 item: {
                   id: item.id,
                   atFrames,
                   durationFrames,
                   at: at2,
                   duration,
+                  children: [],
                   source,
                   declaration,
                   legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers"), value: value2 }
                 }
-              };
+              });
             }
             const value = {
               in: item.source.in,
@@ -4310,13 +4571,14 @@ ${indent}`);
               ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
               ...copyMediaSourceFields(item.source)
             };
-            return {
+            return finish({
               item: {
                 id: item.id,
                 atFrames,
                 durationFrames,
                 at: at2,
                 duration,
+                children: [],
                 source,
                 declaration: {
                   id: item.id,
@@ -4331,7 +4593,7 @@ ${indent}`);
                 },
                 legacy: { collection: "cuts", index: nextLegacyIndex(legacyIndexCounters, "cuts"), value }
               }
-            };
+            });
           }
           case "html": {
             const declaration = {
@@ -4351,29 +4613,36 @@ ${indent}`);
               track: ref,
               payload: declaration
             };
-            return {
+            return finish({
               item: {
                 id: item.id,
                 atFrames,
                 durationFrames,
                 at: at2,
                 duration,
+                children: [],
                 source: {
                   kind: "html",
                   html: item.source.path,
-                  ...item.source.params !== void 0 ? { params: item.source.params } : {}
+                  ...item.source.params !== void 0 ? { params: item.source.params } : {},
+                  ...item.source.part !== void 0 ? { part: item.source.part } : {},
+                  ...item.source.style !== void 0 ? { style: item.source.style } : {},
+                  ...item.source.text !== void 0 ? { text: item.source.text } : {},
+                  ...item.source.exclude !== void 0 ? { exclude: item.source.exclude } : {},
+                  ...item.source.derivedFrom !== void 0 ? { derivedFrom: item.source.derivedFrom } : {}
                 },
                 declaration,
                 legacy: { collection: "overlays", index: nextLegacyIndex(legacyIndexCounters, "overlays"), value }
               }
-            };
+            });
           }
           case "telop": {
             const source = {
               kind: "telop",
               preset: item.source.preset,
               ...item.source.params !== void 0 ? { params: item.source.params } : {},
-              ...item.source.baked !== void 0 ? { baked: item.source.baked } : {}
+              ...item.source.baked !== void 0 ? { baked: item.source.baked } : {},
+              ...item.source.from !== void 0 ? { from: item.source.from } : {}
             };
             const declaration = {
               id: item.id,
@@ -4387,9 +4656,9 @@ ${indent}`);
               ...common
             };
             if (item.source.baked === void 0) {
-              return {
-                item: { id: item.id, atFrames, durationFrames, at: at2, duration, source, declaration, legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers") } }
-              };
+              return finish({
+                item: { id: item.id, atFrames, durationFrames, at: at2, duration, children: [], source, declaration, legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers") } }
+              });
             }
             const value = {
               id: item.id,
@@ -4403,19 +4672,20 @@ ${indent}`);
               ...item.opacity !== void 0 ? { opacity: item.opacity } : {},
               ...item.blend !== void 0 ? { blend: item.blend } : {}
             };
-            return {
-              item: { id: item.id, atFrames, durationFrames, at: at2, duration, source, declaration, legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers"), value } }
-            };
+            return finish({
+              item: { id: item.id, atFrames, durationFrames, at: at2, duration, children: [], source, declaration, legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers"), value } }
+            });
           }
-          default: {
+          case "filter": {
             const source = { kind: "filter", filter: item.source.filter };
-            return {
+            return finish({
               item: {
                 id: item.id,
                 atFrames,
                 durationFrames,
                 at: at2,
                 duration,
+                children: [],
                 source,
                 declaration: {
                   id: item.id,
@@ -4428,8 +4698,44 @@ ${indent}`);
                 },
                 legacy: { collection: "layers", index: nextLegacyIndex(legacyIndexCounters, "layers") }
               }
-            };
+            });
           }
+          case "group":
+            return finish({ item: {
+              id: item.id,
+              atFrames,
+              durationFrames,
+              at: at2,
+              duration,
+              children: [],
+              source: { kind: "group" },
+              declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+              legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
+            } });
+          case "captions":
+            return finish({ item: {
+              id: item.id,
+              atFrames,
+              durationFrames,
+              at: at2,
+              duration,
+              children: [],
+              source: { kind: "captions", path: "captions.json", ...item.source.exclude !== void 0 ? { exclude: item.source.exclude } : {} },
+              declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+              legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
+            } });
+          case "caption":
+            return finish({ item: {
+              id: item.id,
+              atFrames,
+              durationFrames,
+              at: at2,
+              duration,
+              children: [],
+              source: { kind: "caption", path: "captions.json", id: item.source.id },
+              declaration: { id: item.id, at: item.at, duration: item.duration, ...common },
+              legacy: { collection: "items", index: nextLegacyIndex(legacyIndexCounters, "items") }
+            } });
         }
       }
       function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
@@ -4468,6 +4774,7 @@ ${indent}`);
               durationFrames,
               at: at2,
               duration,
+              children: [],
               source,
               declaration: {
                 id: item.id,
@@ -4505,6 +4812,7 @@ ${indent}`);
               durationFrames,
               at: at2,
               duration,
+              children: [],
               source,
               declaration: {
                 path: resolvedPath,
@@ -4535,6 +4843,7 @@ ${indent}`);
             durationFrames,
             at: at2,
             duration,
+            children: [],
             source,
             declaration: {
               id: item.id,
@@ -4605,6 +4914,7 @@ ${indent}`);
             durationFrames: Math.round(duration * fps),
             at: value.t,
             duration,
+            children: [],
             source: { kind: "media", path: value.path, in: start, out: end },
             declaration: entry,
             legacy: { collection: "sfx", index: nextLegacyIndex(legacyIndexCounters, "sfx"), value }
@@ -4634,6 +4944,7 @@ ${indent}`);
             durationFrames: Math.round(duration * fps),
             at: value.t,
             duration,
+            children: [],
             source: { kind: "media", path: value.path, in: start, out: end },
             declaration: entry,
             legacy: { collection: "narration", index: nextLegacyIndex(legacyIndexCounters, "narration"), value }
@@ -4655,6 +4966,7 @@ ${indent}`);
             durationFrames: 0,
             at: 0,
             duration: 0,
+            children: [],
             source: { kind: "media", path: value.path, in: 0, out: 0 },
             declaration: entry,
             legacy: { collection: "bgm", index: 0, value }
