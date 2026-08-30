@@ -4,7 +4,7 @@
   "private": true,
   "description": "Shell-agnostic overlay DOM runtime: mount/tick of edit.json overlays (#overlay-stage), pointer-driven select/drag/resize/edit interaction layer, and zoom minimap. Host-agnostic — see README.md for the window.akari.* adapter contract a hosting shell must provide.",
   "main": "src/overlay-runtime.js",
-  "exports": { ".": "./src/overlay-runtime.js", "./parts": { "types": "./src/parts.d.ts", "import": "./src/parts.mjs", "require": "./src/parts.mjs" } },
+  "exports": { ".": "./src/overlay-runtime.js", "./parts": { "types": "./src/parts.d.ts", "import": "./src/parts.mjs", "require": "./src/parts.mjs" }, "./keyframes": { "types": "./src/keyframes.d.ts", "import": "./src/keyframes.mjs" } },
   "files": [
     "src/",
     "docs/",

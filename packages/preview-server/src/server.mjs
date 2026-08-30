@@ -85,6 +85,7 @@ const THREE_ROUTES = {
   '/vendor-3d-text-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/vendor-3d-text-bundle.js', import.meta.url)),
   '/three-runtime.js': fileURLToPath(new URL('../../overlay-runtime/src/three-runtime.js', import.meta.url)),
   '/video-fx.js': fileURLToPath(new URL('../../overlay-runtime/src/video-fx.js', import.meta.url)),
+  '/keyframes.mjs': fileURLToPath(new URL('../../overlay-runtime/src/keyframes.mjs', import.meta.url)),
 };
 const PROXY_DIR = path.join(projectRoot, '.proxy');
 

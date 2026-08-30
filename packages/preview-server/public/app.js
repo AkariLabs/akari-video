@@ -239,6 +239,9 @@ async function init() {
       captionsData = [];
     }
     fps = timelineData.fps || 30;
+    if (summary?.overlays?.some(o => Array.isArray(o?.keyframes))) {
+      await ensureItemKeyframesRuntime();
+    }
     if (frameEngineEnabled) previewStage.dataset.frameEngineActive = 'true';
 
     buildSegments();
@@ -2842,6 +2845,9 @@ async function applySoftReload() {
     captionsResolvedTimeline = false;
   }
   fps = timelineData.fps || 30;
+  if (summary?.overlays?.some(o => Array.isArray(o?.keyframes))) {
+    await ensureItemKeyframesRuntime();
+  }
 
   if (frameEngineEnabled) {
     await frameEnginePreview.rebuild(summary, timelineData, fps);
@@ -3400,6 +3406,18 @@ function ensureThreeRuntime(needsText = false) {
     return false;
   });
 }
+let itemKeyframesRuntimeReady;
+function ensureItemKeyframesRuntime() {
+  if (!itemKeyframesRuntimeReady) {
+    itemKeyframesRuntimeReady = import('/keyframes.mjs').then(() => {
+      if (typeof window.akari?.keyframes?.interpolateKeyframes !== 'function') {
+        throw new Error('item keyframes runtime did not initialize');
+      }
+      return true;
+    });
+  }
+  return itemKeyframesRuntimeReady;
+}
 // プレビューの描画バッファ上限（長辺 px）。書き出しには渡さないので最終品質は不変。
 // プレビューは「位置と動きを掴む」用途なので等倍で描く必要がない。
 const PREVIEW_3D_MAX_RENDER_SIZE = 720;
@@ -3459,7 +3477,28 @@ function createOverlayRuntime() {
       }
       // html は「< で始まればインライン、それ以外はファイルパス参照」（shell と同一解釈。lint 契約はパス参照が正）
       const rawHtml = typeof o.html === 'string' ? o.html : '';
-      const rec = { el: c, start: o.start, duration: o.duration, visible: false, is3d: false, needsThreeText: false, threeReady: false, hitPolicyPending: false };
+      const rec = {
+        el: c,
+        start: o.start,
+        duration: o.duration,
+        visible: false,
+        is3d: false,
+        needsThreeText: false,
+        threeReady: false,
+        hitPolicyPending: false,
+        ...(Array.isArray(o.keyframes) ? {
+          keyframes: o.keyframes,
+          fps: Number(s?.output?.fps) || fps || 30,
+          statics: {
+            x: isBackground ? 0 : Number(t.x ?? 0),
+            y: isBackground ? 0 : Number(t.y ?? 0),
+            scale: isBackground ? 1 : Number(t.scale ?? 1),
+            rotate: isBackground ? 0 : Number(t.rotate ?? 0),
+            opacity: Number(o.opacity ?? 1),
+          },
+          isBackground,
+        } : {}),
+      };
       if (rawHtml && !rawHtml.trimStart().startsWith('<')) {
         c.innerHTML = '';
         const load = fetch(resolveMediaUrl(rawHtml))
@@ -3516,6 +3555,16 @@ function createOverlayRuntime() {
       }
       if (!v) continue;
       const ms = Math.max(0, (t - o.start) * 1000);
+      if (Array.isArray(o.keyframes)) {
+        const state = window.akari.keyframes.interpolateKeyframes(o.keyframes, ms * o.fps / 1000, {
+          statics: o.statics,
+        });
+        o.el.style.setProperty('--x', o.isBackground ? '0px' : `${state.x}px`);
+        o.el.style.setProperty('--y', o.isBackground ? '0px' : `${state.y}px`);
+        o.el.style.setProperty('--scale', o.isBackground ? '1' : String(state.scale));
+        o.el.style.setProperty('--rotate', o.isBackground ? '0deg' : `${state.rotate}deg`);
+        o.el.style.setProperty('opacity', String(state.opacity));
+      }
       if (o.is3d) {
         if (!o.threeReady) continue;
         // 3D 断片は three 側が時刻を持つ（mixer.setTime）。shell と同じく
@@ -3589,6 +3638,24 @@ function createOverlayRuntime() {
       else delete entry.el.dataset.role;
       entry.start = o.start;
       entry.duration = o.duration;
+      if (Array.isArray(o.keyframes)) {
+        entry.keyframes = o.keyframes;
+        entry.fps = Number(s?.output?.fps) || fps || 30;
+        entry.statics = {
+          x: isBackground ? 0 : Number(t.x ?? 0),
+          y: isBackground ? 0 : Number(t.y ?? 0),
+          scale: isBackground ? 1 : Number(t.scale ?? 1),
+          rotate: isBackground ? 0 : Number(t.rotate ?? 0),
+          opacity: Number(o.opacity ?? 1),
+        };
+        entry.isBackground = isBackground;
+      } else {
+        delete entry.keyframes;
+        delete entry.fps;
+        delete entry.statics;
+        delete entry.isBackground;
+        entry.el.style.removeProperty('opacity');
+      }
       entry.el.dataset.start = String(o.start);
       entry.el.dataset.duration = String(o.duration);
     }

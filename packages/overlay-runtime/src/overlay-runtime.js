@@ -159,6 +159,18 @@ function createOverlayRuntime(options = {}) {
         duration,
         visible: false,
         hitPolicyPending: false,
+        ...(Array.isArray(overlay.keyframes) ? {
+          keyframes: overlay.keyframes,
+          fps: finiteNumber(summary?.output?.fps, 30),
+          statics: {
+            x: isBackground ? 0 : finiteNumber(transform.x, 0),
+            y: isBackground ? 0 : finiteNumber(transform.y, 0),
+            scale: isBackground ? 1 : finiteNumber(transform.scale, 1),
+            rotate: isBackground ? 0 : finiteNumber(transform.rotate, 0),
+            opacity: finiteNumber(overlay.opacity, 1),
+          },
+          isBackground,
+        } : {}),
         isThreeDimensional: Boolean(
           container.querySelector(
             'script[type="application/json"][data-akari-3d-scene]'
@@ -210,6 +222,20 @@ function createOverlayRuntime(options = {}) {
       if (!visible) continue;
 
       const localTimeMs = Math.max(0, (timelineTime - overlay.start) * 1000);
+      if (Array.isArray(overlay.keyframes)) {
+        const interpolate = window.akari.keyframes?.interpolateKeyframes;
+        if (typeof interpolate !== "function") {
+          throw new Error("item keyframes runtime is not loaded");
+        }
+        const state = interpolate(overlay.keyframes, localTimeMs * overlay.fps / 1000, {
+          statics: overlay.statics,
+        });
+        overlay.container.style.setProperty("--x", overlay.isBackground ? "0px" : `${state.x}px`);
+        overlay.container.style.setProperty("--y", overlay.isBackground ? "0px" : `${state.y}px`);
+        overlay.container.style.setProperty("--scale", overlay.isBackground ? "1" : String(state.scale));
+        overlay.container.style.setProperty("--rotate", overlay.isBackground ? "0deg" : `${state.rotate}deg`);
+        overlay.container.style.setProperty("opacity", String(state.opacity));
+      }
       if (overlay.isThreeDimensional) {
         // syncVideos: ライブプレビューでは動画テクスチャの時刻を誰も進めないので、
         // ここで overlay のローカル時刻へ合わせる（書き出しは rasterize が自前で

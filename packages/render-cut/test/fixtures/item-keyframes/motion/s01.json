@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "fps": 30,
+  "items": {
+    "s01.B": [
+      { "t": 0, "transform": { "x": 0 } },
+      { "t": 60, "transform": { "x": 180 }, "easing": "ease-in-out" },
+      { "t": 120, "transform": { "x": 360 }, "easing": "out-cubic" }
+    ]
+  }
+}
