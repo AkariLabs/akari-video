@@ -23,6 +23,12 @@ updated: 2026-08-12
   - `contract-2026-07-17-data-contract-versioning.md`（version 整数・追加のみ・寛容リーダーの三原則）
 - スコープ: `edit.json` の `cuts[]` がメイン時間軸で静止画ソース（png/jpg/jpeg/webp/bmp/gif）を
   直接読めるようにする。**新しいスキーマフィールドは作らない**（判定は拡張子のみ）
+- 2026-08-31 追記（issue #30）: frame-engine 経路（`--engine gpu` / `osr`、および v2 プレビュー）でも同じ
+  意味論で描く。runtime が拡張子で `CachedStillImageSource` として登録した素材を、`plan.ts` が
+  `kind: 'image'` の base 層（`sourceTimeUs` は常に 0・尺は `out - in`・transform / crop / keyframes は
+  動画 cut と同じ・トランジションの outgoing / incoming にもなれる）として評価し、compositor は
+  layers と同じ texture cache を base の RGBA 経路へ結ぶ。それまでは `layerFromPlacement` が
+  `decode` 持ちしか受けず `no video frame source registered` で落ちていた（legacy との受理差）
 
 ## 0. 背景
 

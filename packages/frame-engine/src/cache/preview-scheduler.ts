@@ -217,6 +217,7 @@ export function createPreviewScheduler({
       requirements.push({ sourceId, streamId, sourceTimeUs, key, kind });
     };
     for (const base of plan.base) {
+      if (base.kind === 'image') continue;
       const cutIndex = Number(base.id.slice('cut-'.length));
       append(timeline.cuts[cutIndex]?.cut.src, base.id, base.sourceTimeUs, 'base');
     }

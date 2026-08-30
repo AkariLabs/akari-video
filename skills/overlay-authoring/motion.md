@@ -29,6 +29,12 @@
 - 4K 映像上の `filter: blur()` と `backdrop-filter` を使わない。ぼかしが不可欠なら事前処理した画像を使う。
 - static な背景、border、shadow は必要最小限にする。重い paint が疑われる場合は実際の出力解像度で計測し、根拠のない性能閾値を発明しない。
 - `will-change` を全要素へ常設しない。対象と有効期間を限定する。
+- GPU 書き出し（`--engine gpu` / `auto`）の適格性は HTML 文字列の静的判定で決まる
+  （`packages/gpu-export/src/eligibility.mjs`、正本 `docs/contract-2026-08-28-gpu-export-v0.md` §2 / §9）。
+  `translate3d(x, y, 0)` / `translateZ(0)` は 2D と等価として通るが、Z が 0 以外の 3D transform
+  （`perspective` / `rotateX` / `rotateY` / `rotate3d` / `matrix3d` / `translateZ(2px)` 等）は
+  `degraded` になり GPU 経路に乗らない。GPU を狙う断片では 3D transform を使わず `translate(x, y)` /
+  `scale(x, y)` で書く。`url(#id)` の同一文書内参照と data URI は外部リソース扱いにならない。
 
 ## 決定性チェック
 

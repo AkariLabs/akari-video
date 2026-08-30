@@ -3,13 +3,40 @@ import { parseThreeEntrance } from "./three-entrance.mjs";
 
 export const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
 
+// 3D transform のうち、Z 成分が 0 の translateZ / translate3d は 2D の translate と等価で描画結果が
+// 同一なので不適格にしない（issue #34。GPU レイヤー化の定石として広く使われる）。Z が 0 以外、
+// または値がリテラルで読めない（var() / calc() 等）ときだけ 3D とみなす。
+const CSS_3D_TRANSFORM_PATTERN = /perspective\s*:|perspective\s*\(|transform-style\s*:\s*preserve-3d|rotateX\s*\(|rotateY\s*\(|rotate3d\s*\(|matrix3d\s*\(/iu;
+const TRANSLATE_Z_PATTERN = /translateZ\s*\(([^)]*)\)/giu;
+const TRANSLATE_3D_PATTERN = /translate3d\s*\(([^)]*)\)/giu;
+const ZERO_LENGTH_PATTERN = /^[+-]?(?:0+(?:\.0*)?|\.0+)(?:[a-z]+|%)?$/iu;
+
+function isZeroLength(value) {
+  return ZERO_LENGTH_PATTERN.test(String(value ?? "").trim());
+}
+
+function hasDepthTransform(html) {
+  if (CSS_3D_TRANSFORM_PATTERN.test(html)) return true;
+  for (const match of html.matchAll(TRANSLATE_Z_PATTERN)) {
+    if (!isZeroLength(match[1])) return true;
+  }
+  for (const match of html.matchAll(TRANSLATE_3D_PATTERN)) {
+    const parts = match[1].split(",");
+    if (parts.length !== 3 || !isZeroLength(parts[2])) return true;
+  }
+  return false;
+}
+
 const OVERLAY_CONDITIONS = [
   ["absolute-external-url", /(?:file:\/\/\/|https?:\/\/)/iu, "external"],
   ["font-face-external-resource", /@font-face[\s\S]{0,2000}?src\s*:\s*url\((?!["']?data:)/iu, "external"],
   ["image-external-resource", /<img\b[^>]*\bsrc\s*=\s*["'](?!data:)/iu, "external"],
-  ["background-image-external-resource", /background(?:-image)?\s*:[^;}]*url\((?!["']?data:)/iu, "external"],
+  // 走査は CSS 宣言の区切り（; }）に加えて引用符とタグ境界で止める。止めないと、末尾に ; の無い
+  // インライン style から後続 SVG の fill="url(#id)" まで到達して誤検出する（issue #33）。
+  // url(#…) の同一文書内フラグメント参照は外部リソースではない。
+  ["background-image-external-resource", /background(?:-image)?\s*:[^;}"'<>]*url\((?!["']?(?:data:|#))/iu, "external"],
   ["embedded-context", /<(?:iframe|object|embed)\b/iu, "dynamic"],
-  ["css-3d-transform", /perspective\s*:|perspective\s*\(|transform-style\s*:\s*preserve-3d|rotateX\s*\(|rotateY\s*\(|rotate3d\s*\(|matrix3d\s*\(|translateZ\s*\(|translate3d\s*\(/iu, "dynamic"],
+  ["css-3d-transform", hasDepthTransform, "dynamic"],
   ["self-driving-clock", /requestAnimationFrame\s*\(|setTimeout\s*\(|setInterval\s*\(|Date\.now\s*\(|performance\.now\s*\(/iu, "dynamic"],
   ["media-element", /<(?:video|audio)\b/iu, "dynamic"],
   ["three-or-canvas-runtime", /data-akari-3d-scene|<canvas\b/iu, "dynamic"],
@@ -41,7 +68,7 @@ export function evaluateGpuEligibility({
     if (overlay?.enabled === false) continue;
     const html = typeof overlay?.html === "string" ? overlay.html : "";
     const conditions = OVERLAY_CONDITIONS
-      .filter(([, pattern]) => pattern.test(html))
+      .filter(([, pattern]) => (typeof pattern === "function" ? pattern(html) : pattern.test(html)))
       .map(([condition, , kind]) => ({ condition, kind }));
     const names = conditions.map((entry) => entry.condition);
     const entranceCandidate = names.includes("three-or-canvas-runtime")

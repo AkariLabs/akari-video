@@ -176,3 +176,33 @@ test("per-cue animation merges slots over the default style", () => {
   assert.equal(result.eligible, false);
   assert.equal(result.entries[0].reason, "caption-motion-wipe-right-unsupported");
 });
+
+test("flat translate3d/translateZ and same-document url(#) references stay eligible (#33, #34)", () => {
+  const same = [
+    ["translate3d-zero", "<style>.x{transform:translate3d(1px,2px,0)}</style>"],
+    ["translate3d-zero-px", "<style>.x{transform:translate3d(1px, 2px, 0px)}</style>"],
+    ["translate3d-negative-zero", "<style>.x{transform:translate3d(1px,2px,-0.0em)}</style>"],
+    ["translateZ-zero", "<style>.x{transform:translateZ(0)}</style>"],
+    ["fragment-url", "<style>.x{background:url(#grad)}</style>"],
+    ["inline-no-semicolon", '<span style="background: var(--tsukui, #F2B441)"></span>'
+      + '<svg><defs><linearGradient id="land"></linearGradient></defs><path fill="url(#land)"/></svg>'],
+  ];
+  for (const [id, html] of same) {
+    const result = evaluate([{ id, html }]);
+    assert.equal(result.entries[0].classification, "same", html);
+    assert.deepEqual(result.entries[0].conditions, [], html);
+  }
+  const degraded = [
+    ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px,3px)}</style>"],
+    ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px,var(--z))}</style>"],
+    ["css-3d-transform", "<style>.x{transform:translate3d(1px,2px)}</style>"],
+    ["css-3d-transform", "<style>.x{transform:translateZ(2px)}</style>"],
+    ["background-image-external-resource", "<style>.x{background-image: url(foo.png)}</style>"],
+    ["background-image-external-resource", "<div style=\"background: url('assets/bg.png')\"></div>"],
+  ];
+  for (const [condition, html] of degraded) {
+    const result = evaluate([{ id: condition, html }]);
+    assert.equal(result.entries[0].classification, "degraded", html);
+    assert.ok(result.entries[0].conditions.includes(condition), html);
+  }
+});

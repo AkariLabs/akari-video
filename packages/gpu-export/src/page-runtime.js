@@ -83,8 +83,18 @@
   function normalizedCuts(edit) {
     return (Array.isArray(edit.cuts) ? edit.cuts : []).map((cut, index) => {
       const copy = Object.assign({}, cut);
+      // track 0（本編の連結チェーン）は投影が導出した at を外して連続配置に任せる: freeze で
+      // 時間軸を伸ばし、トランジションの重なりは宣言から再計算する（preview-server と同じ）。
+      // 2 本目以降の visual トラック（track >= 1）は at / track を保持して絶対配置する。外すと
+      // 直列に連結されて出力尺の外へ押し出され、無言で消える（issue #31）。前後関係は
+      // frame-engine の既定 trackZ（番号が大きいトラックが前面）。
+      const track = Number.isInteger(cut.track) && cut.track > 0 ? cut.track : 0;
       delete copy.at;
       delete copy.track;
+      if (track > 0) {
+        copy.track = track;
+        if (Number.isFinite(cut.at) && cut.at >= 0) copy.at = Number(cut.at);
+      }
       copy.src = cut.src || (Array.isArray(edit.sources) ? edit.sources[0] && edit.sources[0].id : "default") || "default";
       copy.in = Number(cut.in || 0);
       copy.out = Number(cut.out ?? cut.in ?? 0);
@@ -175,6 +185,20 @@
     return sample || "字幕";
   }
 
+  // source.params を data-akari-slot へ注入する（issue #32）。legacy の rasterize.mjs と同じ
+  // window.akari.slotParams.renderTextSlots を通し、params の無い断片は文字列をそのまま返す
+  // （params 無しの経路のバイト同一性を保つ）。runtime が無いのに params があるのは page-builder の
+  // 取りこぼしなので、黙って既定文言を焼かず fail-closed にする。
+  function applyTextSlotParams(html, params) {
+    if (!params || typeof params !== "object" || Array.isArray(params) || Object.keys(params).length === 0) return html;
+    const slotParams = window.akari && window.akari.slotParams;
+    if (!slotParams || typeof slotParams.renderTextSlots !== "function") {
+      throw new Error("text slot params were declared but the slot-params runtime is not loaded");
+    }
+    const documentValue = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
+    return slotParams.renderTextSlots(documentValue.body, params).innerHTML;
+  }
+
   function foreignObjectSvg(html, width, height, extraCss, vars) {
     const xhtml = serializeHtmlToXhtml(html);
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -189,7 +213,7 @@
   async function rasterizeSprite(value, config) {
     const settled = value.motion?.in?.duration_sec ?? value.motion?.in?.durationSec ?? 0.18;
     const css = `.akari-sprite-root,.akari-sprite-root *{animation-play-state:paused!important;animation-delay:-${Math.max(0, Number(settled) || 0)}s!important}`;
-    const svg = foreignObjectSvg(value.html, config.width, config.height, css, value.vars);
+    const svg = foreignObjectSvg(applyTextSlotParams(value.html, value.params), config.width, config.height, css, value.vars);
     const parsed = new DOMParser().parseFromString(svg, "image/svg+xml");
     const parserError = parsed.querySelector("parsererror");
     if (parserError) throw new Error(`sprite ${value.id} SVG parsererror: ${parserError.textContent}`);
@@ -1256,7 +1280,7 @@
           styleVariables(container, entry.vars);
           const content = document.createElement("div");
           content.className = "scene-content";
-          content.insertAdjacentHTML("beforeend", entry.html);
+          content.insertAdjacentHTML("beforeend", applyTextSlotParams(entry.html, entry.params));
           container.appendChild(content);
           root.appendChild(container);
           containers.push({ entry, container });

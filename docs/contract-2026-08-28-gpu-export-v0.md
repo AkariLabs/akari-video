@@ -27,6 +27,20 @@ CSS animation/transition/keyframes、filter/mask/clip-path 等を検出する。
 `<script type="application/json" data-akari-3d-scene>` 宣言を属性順にかかわらずちょうど 1 個持ち、
 それ以外の script と video を持たない宣言型 3D は `three` とする。3D の描画先である canvas は許可する。
 
+`data-akari-slot` への文言注入（`source.params`。正本 `contract-2026-08-22-overlay-html-slots.md`）は、
+静的 HTML のスプライト化の直前と DOM 層の mount 時に、legacy の rasterize / プレビューの overlay-runtime と
+同じ `packages/overlay-runtime/src/slot-params.js` の `renderTextSlots` で適用する。params を持つ overlay が
+1 件でもあればページに同 runtime を inline し、receipt の manifest に `textSlotOverlayCount` を残す。
+params があるのに runtime が無い状態は既定文言を黙って焼かず fail-closed にする（2026-08-31・issue #32）。
+
+frame-engine のメイン時間軸（cuts）は静止画ソース（edit-store の `isStillImageSourcePath`）を
+`kind: 'image'` の base 層として描く（尺は `out - in`・ソース時刻なし・transform / crop / keyframes は動画 cut と
+同じ。正本 `contract-2026-08-12-still-image-cut-source-v0.md`。2026-08-31・issue #30）。2 本目以降の visual
+トラックの映像クリップは `at` / `track` を保持して絶対配置し、番号が大きいトラックが前面（v2 の `tracks[]` 配列順）。
+track 0 は従来どおり連結チェーン（freeze で伸び、トランジション重なりは宣言から再計算）のまま
+（2026-08-31・issue #31。それまでは GPU / OSR の runtime が導出 `at` / `track` を全 cut から外していたため、
+上段のクリップが直列に連結されて出力尺の外へ押し出され、PASS のまま絵が消えていた）。
+
 字幕は cue ごとに rasterize し、出現・loop・消失を解析的な opacity と中心基準 affine 変換で
 再現する。v2 では `words[]` を持つ karaoke、pop、reveal、reveal-word と `emphasis_words` も
 語矩形タイルとして GPU-native に合成する。次は引き続き `unsupported` とする。
@@ -233,9 +247,15 @@ GPU 出口だけに `--enable-features=CanvasDrawElement`、`--disable-gpu-vsync
 - `perspective`、`preserve-3d`、`rotateX/Y/3d`、`matrix3d`、`translateZ/3d` のいずれかを含む
   CSS 3D transform。先行実験では `translateZ` 単独・`perspective` 単独は正しく転写できたため、
   将来はこの粒度まで緩和できる余地があるが、v1 では緩和しない。
+  **例外（2026-08-31・issue #34）**: Z 成分がリテラル 0 の `translateZ(0)` / `translate3d(x, y, 0)` は
+  2D の `translate` と描画結果が同一（実測: 静的スプライトで全コマ YMAX=0）なので検出しない。
+  Z が 0 以外、引数が 3 個でない、`var()` / `calc()` 等でリテラルとして読めない場合は従来どおり `degraded`。
 - `requestAnimationFrame`、`setTimeout`、`setInterval`、`Date.now`、`performance.now` で自走する時計。
 - `video`、`audio`、canvas/宣言型 3D 以外の runtime、JSON 以外の script。
-- 絶対 URL と外部 font/image/background resource。
+- 絶対 URL と外部 font/image/background resource。`background(-image)` の `url(` 走査は宣言の区切り
+  （`;` `}`）に加えて引用符とタグ境界（`"` `'` `<` `>`）で止め、`url(#id)` の同一文書内フラグメント参照は
+  外部扱いしない（2026-08-31・issue #33。それまでは末尾に `;` の無いインライン style から後続 SVG の
+  `fill="url(#id)"` まで走査が届いて誤検出していた）。
 - `drawElementImage` が利用できない実行環境、または device pixel ratio が 1 でない環境。
 
 settle は mount 時に一度だけ決める。`canvas.requestPaint` がある Chromium では rAF 2 回の後に
