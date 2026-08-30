@@ -8,6 +8,14 @@ export interface NumberFieldOptions {
     unit?: string;
     onPreview?: (value: number) => void;
     onCommit: (value: number) => Promise<boolean>;
+    keyframe?: KeyframeSeatOptions;
+}
+
+export interface KeyframeSeatOptions {
+    active: boolean;
+    onToggle: () => void;
+    onPrevious: () => void;
+    onNext: () => void;
 }
 
 export const INSPECTOR_LIVE_PREVIEW_THROTTLE_MS = 30;
@@ -33,16 +41,31 @@ export function formatNumberStep(value: number, step: number): string {
     return String(Number(value.toFixed(precision)));
 }
 
-function keyframeSeat(name: string): HTMLButtonElement {
+export function createKeyframeSeat(name: string, options?: KeyframeSeatOptions): HTMLElement {
+    const group = document.createElement('span');
+    group.className = 'akari-inspector-kf-controls';
+    const previous = document.createElement('button');
+    previous.type = 'button';
+    previous.textContent = '◇';
+    previous.title = '前のキーフレームへ';
+    previous.setAttribute('aria-label', '前のキーフレームへ');
+    previous.addEventListener('click', () => options?.onPrevious());
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'akari-inspector-kf-seat';
-    button.disabled = true;
-    button.title = 'キーフレームは次版';
-    button.setAttribute('aria-label', 'キーフレームは次版');
+    button.title = options?.active ? '現在時刻のキーフレームを消す' : '現在時刻にキーフレームを打つ';
+    button.setAttribute('aria-label', button.title);
     button.setAttribute('data-akari-ui', `inspector-kf-seat:${name}`);
-    button.textContent = '◆';
-    return button;
+    button.textContent = options?.active ? '◆' : '◇';
+    button.addEventListener('click', () => options?.onToggle());
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.textContent = '◇';
+    next.title = '次のキーフレームへ';
+    next.setAttribute('aria-label', '次のキーフレームへ');
+    next.addEventListener('click', () => options?.onNext());
+    group.append(previous, button, next);
+    return group;
 }
 
 export function createNumberField(options: NumberFieldOptions): HTMLElement {
@@ -188,6 +211,6 @@ export function createNumberField(options: NumberFieldOptions): HTMLElement {
         window.addEventListener('keydown', keydown, true);
     });
 
-    container.append(handle, input, unit, buttons, keyframeSeat(options.name));
+    container.append(handle, input, unit, buttons, createKeyframeSeat(options.name, options.keyframe));
     return container;
 }

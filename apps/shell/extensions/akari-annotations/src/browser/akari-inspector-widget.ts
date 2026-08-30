@@ -13,12 +13,18 @@ import {
     TimelineCutSelection,
     TimelineLayerSelection,
     TimelineItemSelectionSnapshot,
+    TimelineKeyframeSelection,
     TimelineOverlaySelection,
     TimelineSelectionModel,
-    TimelineSelectionTarget
+    TimelineSelectionTarget,
+    TimelineTreeItemSnapshot
 } from './timeline-selection-model';
 import { CAPTION_ZONES, type CaptionBackgroundMode, type CaptionTextStyle } from '../common/caption-store';
-import { createNumberField } from './inspector/number-field';
+import {
+    createNumberField,
+    INSPECTOR_LIVE_PREVIEW_THROTTLE_MS,
+    type KeyframeSeatOptions
+} from './inspector/number-field';
 import { createSliderField } from './inspector/slider-field';
 import {
     composeInspectorSections,
@@ -59,7 +65,18 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
      * cuts/layers の transform/opacity のみ設定する。
      */
     liveField?: LivePreviewRequest['field'];
+    previewOption?: (value: string) => void;
 }
+
+const KEYFRAME_EASING_OPTIONS = [
+    'linear', 'ease-in-out',
+    'in-quad', 'out-quad', 'in-out-quad',
+    'in-cubic', 'out-cubic', 'in-out-cubic',
+    'in-quart', 'out-quart', 'in-out-quart',
+    'in-expo', 'out-expo', 'in-out-expo',
+    'in-back', 'out-back', 'in-out-back', 'out-bounce', 'out-elastic',
+    'cubic-bezier(0.42,0,0.58,1)', 'hold'
+] as const;
 
 type InspectorSection<TSnapshot = InspectorSnapshot> = InspectorSectionDef<InspectorFieldDef<TSnapshot>>;
 
@@ -1018,6 +1035,69 @@ function OVERLAY_SECTIONS(
     ]);
 }
 
+function TREE_ITEM_SECTIONS(
+    snapshot: TimelineTreeItemSnapshot,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorSection[] {
+    const number = (key: 'x' | 'y' | 'scale' | 'rotate', fallback: number): number =>
+        typeof snapshot.transform?.[key] === 'number' ? snapshot.transform[key]! : fallback;
+    const transformFields: InspectorFieldDef<TimelineTreeItemSnapshot>[] = [
+        {
+            name: 'transform-x', label: 'X', unit: 'px', getValue: () => String(number('x', 0)),
+            getEditValue: () => String(number('x', 0)), inputKind: 'scrub-number', scrubStep: 1,
+            liveField: 'x', write: async (_snapshot, value) => requestWrite({
+                kind: 'item-field', id: snapshot.id, path: 'transform.x', value: Number(value)
+            }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.x', value: null })
+        },
+        {
+            name: 'transform-y', label: 'Y', unit: 'px', getValue: () => String(number('y', 0)),
+            getEditValue: () => String(number('y', 0)), inputKind: 'scrub-number', scrubStep: 1,
+            liveField: 'y', write: async (_snapshot, value) => requestWrite({
+                kind: 'item-field', id: snapshot.id, path: 'transform.y', value: Number(value)
+            }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.y', value: null })
+        }
+    ];
+    const optionalFields: Array<InspectorFieldDef<TimelineTreeItemSnapshot> & { name: string }> = [
+        {
+            name: 'transform-scale', label: '拡縮', unit: '%', removable: true,
+            getValue: () => String(number('scale', 1) * 100), getEditValue: () => String(number('scale', 1) * 100),
+            inputKind: 'scrub-number', scrubStep: 1, min: 1, liveField: 'scale',
+            write: async (_snapshot, value) => requestWrite({
+                kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: Number(value) / 100
+            }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.scale', value: null })
+        },
+        {
+            name: 'transform-rotate', label: '回転', unit: '°', removable: true,
+            getValue: () => String(number('rotate', 0)), getEditValue: () => String(number('rotate', 0)),
+            inputKind: 'scrub-number', scrubStep: 0.1, liveField: 'rotate',
+            write: async (_snapshot, value) => requestWrite({
+                kind: 'item-field', id: snapshot.id, path: 'transform.rotate', value: Number(value)
+            }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'transform.rotate', value: null })
+        }
+    ];
+    const opacity = snapshot.opacity ?? 1;
+    return composeInspectorSections([
+        { id: 'time', label: '時間', fields: [
+            { name: 'item-start', label: '出力位置', getValue: () => formatTimestamp(snapshot.outputStart) },
+            { name: 'item-duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
+        ] },
+        { id: 'transform', label: '変形', fields: transformFields, optionalFields },
+        { id: 'appearance', label: '外観', fields: [{
+            name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
+            getValue: () => String(opacity), getEditValue: () => String(opacity),
+            inputKind: 'scrub-number', scrubStep: 0.01, min: 0, max: 1, liveField: 'opacity',
+            write: async (_snapshot, value) => requestWrite({
+                kind: 'item-field', id: snapshot.id, path: 'opacity', value: Number(value)
+            }), reset: () => requestWrite({ kind: 'item-field', id: snapshot.id, path: 'opacity', value: null })
+        }] },
+        { id: 'info', label: '情報', collapsedByDefault: true, fields: [
+            { name: 'item-kind', label: 'kind', getValue: () => snapshot.sourceKind },
+            { name: 'item-track', label: 'トラック', getValue: () => snapshot.trackName },
+            { name: 'item-clip', label: 'クリップ', getValue: () => snapshot.clipName }
+        ] }
+    ]);
+}
+
 /**
  * タイムラインの選択内容を表示し、安全なフィールドを編集できるパネル。
  * 一度開けば常駐し、TimelineSelectionModel の変化に追従して内容を更新する。
@@ -1040,6 +1120,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected fieldNoticeTimer: number | undefined;
     protected readonly sectionState = new InspectorSectionState(window.localStorage);
     protected readonly knobCache = new Map<string, readonly InspectorKnob[] | null>();
+    protected lastEasingPreviewAt = -Infinity;
 
     @postConstruct()
     protected init(): void {
@@ -1248,7 +1329,7 @@ export class AkariInspectorWidget extends BaseWidget {
 
         let sections: InspectorSection[];
         let rowSnapshot: InspectorSnapshot;
-        let sectionKind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay';
+        let sectionKind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item';
         if (snapshot.kind === 'multi') {
             const captions = snapshot.items.filter(
                 (item): item is TimelineCaptionSelection => item.kind === 'caption'
@@ -1278,7 +1359,38 @@ export class AkariInspectorWidget extends BaseWidget {
                 case 'overlay':
                     sections = OVERLAY_SECTIONS(snapshot, requestWrite, this.overlayKnobs(snapshot));
                     break;
+                case 'item':
+                    sections = TREE_ITEM_SECTIONS(snapshot, requestWrite);
+                    break;
             }
+        }
+        const selectedKeyframe = this.model.keyframeSelection;
+        if (selectedKeyframe) {
+            const easing = selectedKeyframe.easing ?? 'linear';
+            const easingOptions = KEYFRAME_EASING_OPTIONS.includes(easing as typeof KEYFRAME_EASING_OPTIONS[number])
+                ? KEYFRAME_EASING_OPTIONS : [...KEYFRAME_EASING_OPTIONS, easing];
+            sections = composeInspectorSections([...sections, {
+                id: 'easing', label: 'イージング', fields: [{
+                    name: 'segment-easing', label: 'プリセット', getValue: () => easing,
+                    getEditValue: () => easing, inputKind: 'select', options: easingOptions,
+                    previewOption: value => this.previewEasing(rowSnapshot, selectedKeyframe, value),
+                    write: async (_snapshot, easing) => this.model.requestKeyframe?.({
+                        action: 'easing', itemId: selectedKeyframe.itemId,
+                        property: selectedKeyframe.property, easing
+                    }) ?? { ok: false, message: 'キーフレーム編集を利用できません。' }
+                }, {
+                    name: 'segment-cubic-bezier', label: 'ベジェ',
+                    getValue: () => easing.startsWith('cubic-bezier(') ? easing : 'cubic-bezier(0.42,0,0.58,1)',
+                    getEditValue: () => easing.startsWith('cubic-bezier(') ? easing : 'cubic-bezier(0.42,0,0.58,1)',
+                    inputKind: 'text',
+                    write: async (_snapshot, easing) => /^cubic-bezier\(\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*,\s*-?\d*\.?\d+\s*\)$/u.test(easing)
+                        ? this.model.requestKeyframe?.({
+                            action: 'easing', itemId: selectedKeyframe.itemId,
+                            property: selectedKeyframe.property, easing
+                        }) ?? { ok: false, message: 'キーフレーム編集を利用できません。' }
+                        : { ok: false, message: 'cubic-bezier(x1,y1,x2,y2) の形で入力してください。' }
+                }]
+            }]);
         }
         sections.forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
     }
@@ -1313,7 +1425,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected appendSection(
         section: InspectorSection,
         snapshot: InspectorSnapshot,
-        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay'
+        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item'
     ): void {
         const container = document.createElement('section');
         container.className = 'akari-inspector-section';
@@ -1390,7 +1502,7 @@ export class AkariInspectorWidget extends BaseWidget {
         const key = `akari.inspector.optional.v1:${kind}:${field.name}`;
         const saved = window.localStorage.getItem(key);
         if (saved !== null) return saved === 'true';
-        const transform = snapshot.kind === 'cut' || snapshot.kind === 'layer'
+        const transform = snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item'
             ? snapshot.transform : snapshot.kind === 'overlay' && snapshot.payload.transform
                 && typeof snapshot.payload.transform === 'object' && !Array.isArray(snapshot.payload.transform)
                 ? snapshot.payload.transform as Record<string, unknown> : undefined;
@@ -1413,11 +1525,68 @@ export class AkariInspectorWidget extends BaseWidget {
         }
     }
 
+    protected previewEasing(
+        snapshot: InspectorSnapshot,
+        selection: TimelineKeyframeSelection,
+        easing: string
+    ): void {
+        const now = Date.now();
+        if (now - this.lastEasingPreviewAt < INSPECTOR_LIVE_PREVIEW_THROTTLE_MS) return;
+        this.lastEasingPreviewAt = now;
+        if (snapshot.kind !== 'cut' && snapshot.kind !== 'layer'
+            && snapshot.kind !== 'overlay' && snapshot.kind !== 'item') return;
+        const leaf = selection.property.startsWith('transform.')
+            ? selection.property.substring('transform.'.length) as 'x' | 'y' | 'scale' | 'rotate'
+            : 'opacity';
+        const transform = snapshot.kind === 'overlay'
+            && snapshot.payload.transform && typeof snapshot.payload.transform === 'object'
+            && !Array.isArray(snapshot.payload.transform)
+            ? snapshot.payload.transform as Record<string, unknown>
+            : snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item'
+                ? snapshot.transform : undefined;
+        const raw = leaf === 'opacity'
+            ? (snapshot.kind === 'overlay' ? snapshot.payload.opacity : snapshot.opacity)
+            : transform?.[leaf];
+        const value = typeof raw === 'number' ? raw : leaf === 'scale' || leaf === 'opacity' ? 1 : 0;
+        const target: LivePreviewTarget = snapshot.kind === 'cut'
+            ? { kind: 'cut', index: snapshot.index }
+            : snapshot.kind === 'layer' ? { kind: 'layer', id: snapshot.id }
+                : { kind: 'item', id: snapshot.id };
+        this.model.requestLivePreview?.({ target, field: leaf, value, easing });
+    }
+
+    protected keyframeSeatOptions(
+        snapshot: InspectorSnapshot,
+        fieldName: string,
+        value: number
+    ): KeyframeSeatOptions | undefined {
+        if (snapshot.kind !== 'cut' && snapshot.kind !== 'layer'
+            && snapshot.kind !== 'overlay' && snapshot.kind !== 'item') return undefined;
+        const property = fieldName === 'transform-x' ? 'transform.x'
+            : fieldName === 'transform-y' ? 'transform.y'
+                : fieldName === 'transform-scale' ? 'transform.scale'
+                    : fieldName === 'transform-rotate' ? 'transform.rotate'
+                        : fieldName === 'opacity' ? 'opacity' : undefined;
+        if (!property) return undefined;
+        const itemId = snapshot.kind === 'cut' ? `cut:${snapshot.index}` : snapshot.id;
+        const selected = this.model.keyframeSelection;
+        const keyframeValue = fieldName === 'transform-scale' ? value / 100 : value;
+        const request = (action: 'toggle' | 'previous' | 'next'): void => {
+            void this.model.requestKeyframe?.({ action, itemId, property, value: keyframeValue });
+        };
+        return {
+            active: selected?.itemId === itemId && selected.property === property,
+            onToggle: () => request('toggle'),
+            onPrevious: () => request('previous'),
+            onNext: () => request('next')
+        };
+    }
+
     protected appendRow(
         parent: HTMLElement,
         field: InspectorFieldDef,
         snapshot: InspectorSnapshot,
-        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay'
+        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item'
     ): void {
         const row = document.createElement('div');
         row.className = 'akari-inspector-row';
@@ -1459,7 +1628,8 @@ export class AkariInspectorWidget extends BaseWidget {
                     ? { kind: 'cut', index: snapshot.index }
                     : snapshot.kind === 'layer'
                         ? { kind: 'layer', id: snapshot.id }
-                        : undefined;
+                        : snapshot.kind === 'item' || snapshot.kind === 'overlay'
+                            ? { kind: 'item', id: snapshot.id } : undefined;
                 if (target) {
                     sendLive = value => this.model.requestLivePreview?.({
                         target, field: liveField,
@@ -1474,14 +1644,16 @@ export class AkariInspectorWidget extends BaseWidget {
                     min: field.min, max: field.max, step: field.scrubStep ?? 0.1,
                     unit: field.unit, displayScale: field.displayScale,
                     onPreview: sendLive,
-                    onCommit: value => commitValue(String(value), () => undefined)
+                    onCommit: value => commitValue(String(value), () => undefined),
+                    keyframe: this.keyframeSeatOptions(snapshot, fieldName, numericValue)
                 }));
             } else if (Number.isFinite(numericValue)) {
                 row.appendChild(createNumberField({
                     name: fieldName, label: field.label, value: numericValue,
                     step: field.scrubStep ?? 0.1, min: field.min, max: field.max, unit: field.unit,
                     onPreview: sendLive,
-                    onCommit: value => commitValue(String(value), () => undefined)
+                    onCommit: value => commitValue(String(value), () => undefined),
+                    keyframe: this.keyframeSeatOptions(snapshot, fieldName, numericValue)
                 }));
             }
             this.attachRowMenu(row, field, snapshot, kind);
@@ -1513,6 +1685,10 @@ export class AkariInspectorWidget extends BaseWidget {
                 option.textContent = field.inputKind === 'boolean-select'
                     ? (optionValue === 'true' ? 'ON' : 'OFF')
                     : optionValue;
+                if (field.previewOption) {
+                    option.addEventListener('mouseenter', () => field.previewOption?.(optionValue));
+                    option.addEventListener('focus', () => field.previewOption?.(optionValue));
+                }
                 select.appendChild(option);
             }
             select.value = field.inputKind === 'boolean-select'
@@ -1556,6 +1732,27 @@ export class AkariInspectorWidget extends BaseWidget {
 
         row.appendChild(input);
         input.setAttribute('data-akari-ui', `field:inspector-${fieldName}`);
+        if (field.previewOption && field.options?.length) {
+            const previews = document.createElement('div');
+            previews.setAttribute('data-akari-ui', `easing-preview:inspector-${fieldName}`);
+            Object.assign(previews.style, {
+                gridColumn: '2', display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '3px'
+            });
+            for (const optionValue of field.options) {
+                const preview = document.createElement('button');
+                preview.type = 'button';
+                preview.textContent = optionValue;
+                preview.dataset.akariEasingPreview = optionValue;
+                preview.addEventListener('mouseenter', () => field.previewOption?.(optionValue));
+                preview.addEventListener('focus', () => field.previewOption?.(optionValue));
+                preview.addEventListener('click', () => {
+                    input.value = optionValue;
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+                previews.appendChild(preview);
+            }
+            row.appendChild(previews);
+        }
         parent.appendChild(row);
     }
 

@@ -15,6 +15,7 @@ import {
   moveAudioSfx,
   moveAudioSfxPreferV2,
   moveItemToNewTrack,
+  prepareV2KeyframeDistribution,
   removeItem,
   removeAudioNarrationPreferV2,
   removeAudioSfx,
@@ -23,11 +24,13 @@ import {
   renameTrack,
   reorderTracks,
   setTrackFlag,
+  setV2Keyframe,
   splitItem,
   stringifyEditV2,
   updateAudioSfx,
   updateAudioSfxPreferV2,
   updateAudioNarrationGainPreferV2,
+  updateTreeV2Item,
   updateItem
 } from '../lib/common/edit-v2-mutations.js';
 
@@ -476,4 +479,48 @@ test('reorderTracks は narration と BGM の audio track を中身ごと入れ�
   assert.equal(result.tracks[1].items[0].id, 'music-1');
   assert.equal(result.tracks[2].items[0].role, 'narration');
   assert.equal(result.tracks[2].items[0].id, 'n-0001');
+});
+
+test('shell キーフレーム委譲器は 1 点目を両端 2 点へする', () => {
+  const source = structuredClone(fixture);
+  const item = source.tracks.find(track => track.id === 'v-main').items[0];
+  delete item.keyframes;
+  const result = setV2Keyframe(source, {
+    itemId: item.id, property: 'transform.x', t: 0, value: 12
+  });
+  assert.deepEqual(result.tracks.find(track => track.id === 'v-main').items[0].keyframes, [
+    { t: 0, transform: { x: 12 } },
+    { t: item.duration, transform: { x: 12 } }
+  ]);
+});
+
+test('shell 分配計画は 9 点を最寄り親の motion 袋へ出す', () => {
+  const source = structuredClone(fixture);
+  const nested = {
+    id: 'g', at: 0, duration: 90, source: { kind: 'group' }, items: [{
+      id: 'child', at: 0, duration: 90, source: { kind: 'filter', filter: { type: 'invert' } },
+      keyframes: Array.from({ length: 9 }, (_, t) => ({ t: t * 10, opacity: t / 8 }))
+    }]
+  };
+  source.tracks.find(track => track.lane === 'visual').items.push(nested);
+  const distributed = prepareV2KeyframeDistribution(source);
+  assert.deepEqual(distributed.document.tracks.flatMap(track => track.items)
+    .find(item => item.id === 'g').items[0].keyframes, { path: 'motion/g.json', count: 9 });
+  assert.deepEqual(distributed.writes.map(write => [write.path, write.group, write.itemId, write.points.length]), [
+    ['motion/g.json', 'g', 'child', 9]
+  ]);
+});
+
+test('木 item の数値 write は tree-ops updateItem で入れ子を更新する', () => {
+  const source = structuredClone(fixture);
+  source.tracks.find(track => track.lane === 'visual').items.push({
+    id: 'g-write', at: 0, duration: 90, source: { kind: 'group' }, items: [{
+      id: 'nested-write', at: 0, duration: 45, transform: { x: 10, y: 5 },
+      source: { kind: 'filter', filter: { type: 'invert' } }
+    }]
+  });
+  const updated = updateTreeV2Item(source, 'nested-write', { transform: { x: 110, y: 5 } });
+  const nested = updated.tracks.flatMap(track => track.items)
+    .find(item => item.id === 'g-write').items[0];
+  assert.deepEqual(nested.transform, { x: 110, y: 5 });
 });

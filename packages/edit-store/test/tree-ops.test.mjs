@@ -10,7 +10,11 @@ import {
   groupItems,
   materializeProjectedPart,
   moveItem,
+  moveKeyframe,
   normalizeTracks,
+  removeKeyframe,
+  setKeyframe,
+  setSegmentEasing,
   ungroupItem,
 } from '../lib/tree-ops.js';
 
@@ -128,4 +132,54 @@ test('group/ungroup は tree-ops 公開入口から親相対化と焼き込み�
   assert.deepEqual(grouped.group.items.map(child => child.at), [0, 10]);
   const children = ungroupItem(value, grouped.group.id);
   assert.deepEqual(children.map(child => child.at), [10, 20]);
+});
+
+test('最初のキーフレームは両端 2 点になり、同じ時刻への set は値を更新する', () => {
+  const value = edit([{ id: 'v1', lane: 'visual', items: [item('a', 0, 30, { transform: { x: 12 } })] }]);
+  setKeyframe(value, 'a', 'transform.x', 0, 12);
+  assert.deepEqual(value.find('a').keyframes, [
+    { t: 0, transform: { x: 12 } }, { t: 30, transform: { x: 12 } }
+  ]);
+  setKeyframe(value, 'a', 'transform.x', 30, 40);
+  assert.deepEqual(value.find('a').keyframes.map(point => [point.t, point.transform.x]), [[0, 12], [30, 40]]);
+});
+
+test('点の移動は整数・範囲・単調性を守り、既存時刻へはプロパティをマージする', () => {
+  const value = edit([{ id: 'v1', lane: 'visual', items: [item('a', 0, 30, {
+    keyframes: [{ t: 0, transform: { x: 0 }, opacity: 0 }, { t: 15, opacity: 0.5 }, { t: 30, transform: { x: 30 }, opacity: 1 }]
+  })] }]);
+  moveKeyframe(value, 'a', 'transform.x', 30, 15);
+  assert.deepEqual(value.find('a').keyframes.map(point => point.t), [0, 15, 30]);
+  assert.equal(value.find('a').keyframes[1].transform.x, 30);
+  assert.throws(() => moveKeyframe(value, 'a', 'transform.x', 15, 31), /0〜30/);
+  assert.throws(() => moveKeyframe(value, 'a', 'transform.x', 15, 2.5), /整数フレーム/);
+});
+
+test('削除で 2 点未満になる場合は keyframes 全体を外す', () => {
+  const value = edit([{ id: 'v1', lane: 'visual', items: [item('a', 0, 30, {
+    keyframes: [{ t: 0, opacity: 0 }, { t: 30, opacity: 1 }]
+  })] }]);
+  removeKeyframe(value, 'a', 'opacity', 30);
+  assert.equal(value.find('a').keyframes, undefined);
+});
+
+test('区間 easing は終点へ載り、複数プロパティでは property map を保つ', () => {
+  const value = edit([{ id: 'v1', lane: 'visual', items: [item('a', 0, 30, {
+    keyframes: [
+      { t: 0, transform: { x: 0 }, opacity: 0 },
+      { t: 30, transform: { x: 30 }, opacity: 1, easing: 'linear' }
+    ]
+  })] }]);
+  setSegmentEasing(value, 'a', 'transform.x', 30, 'ease-in-out');
+  assert.deepEqual(value.find('a').keyframes[1].easing, {
+    'transform.x': 'ease-in-out', opacity: 'linear'
+  });
+  assert.throws(() => setSegmentEasing(value, 'a', 'opacity', 0, 'hold'), /区間/);
+});
+
+test('参照形は hydrate 前の編集を拒む', () => {
+  const value = edit([{ id: 'v1', lane: 'visual', items: [item('a', 0, 30, {
+    keyframes: { path: 'motion/a.json', count: 9 }
+  })] }]);
+  assert.throws(() => setKeyframe(value, 'a', 'opacity', 0, 0), /inline/);
 });

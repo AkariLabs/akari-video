@@ -81,6 +81,20 @@ export interface TimelineTreeItemSelection {
     trackId: string;
 }
 
+export interface TimelineTreeItemSnapshot extends TimelineTreeItemSelection {
+    outputStart: number;
+    duration: number;
+    durationFrames: number;
+    transform?: { x?: number; y?: number; scale?: number; rotate?: number };
+    opacity?: number;
+    crop?: Record<string, unknown>;
+    perspective?: Record<string, unknown>;
+    keyframes?: readonly Record<string, unknown>[];
+    sourceKind: string;
+    trackName: string;
+    clipName: string;
+}
+
 /** captions 袋の写し / 明示子 / 出した行を captions.json の同じ行選択へ結ぶ。 */
 export function captionIdForTreeSelection(
     selection: TimelineTreeItemSelection,
@@ -147,6 +161,7 @@ export type TimelineItemSelectionSnapshot =
     | TimelineOverlaySelection
     | TimelineCaptionSelection
     | TimelineLayerSelection
+    | TimelineTreeItemSnapshot
     | TimelineAudioSelection;
 
 export interface TimelineMultiSelectionSnapshot {
@@ -223,18 +238,36 @@ export interface InspectorWriteResult {
     message?: string;
 }
 
+export interface TimelineKeyframeSelection {
+    kind: 'keyframe';
+    itemId: string;
+    property: 'transform.x' | 'transform.y' | 'transform.scale' | 'transform.rotate' | 'opacity';
+    times: number[];
+    easing?: string;
+}
+
+export interface KeyframeControlRequest {
+    action: 'toggle' | 'previous' | 'next' | 'easing';
+    itemId: string;
+    property: TimelineKeyframeSelection['property'];
+    value?: number;
+    easing?: string;
+}
+
 /**
  * インスペクターのスクラブドラッグ中に、書き込みなしでプレビューへ即時反映するための
  * ephemeral な通知。対象は cuts/layers の transform/opacity のみ。
  */
 export type LivePreviewTarget =
     | { kind: 'cut'; index: number }
-    | { kind: 'layer'; id: string };
+    | { kind: 'layer'; id: string }
+    | { kind: 'item'; id: string };
 
 export interface LivePreviewRequest {
     target: LivePreviewTarget;
     field: 'x' | 'y' | 'scale' | 'rotate' | 'opacity';
     value: number;
+    easing?: string;
 }
 
 /**
@@ -249,6 +282,7 @@ export class TimelineSelectionModel {
 
     protected _snapshot: TimelineSelectionSnapshot;
     protected _treeSelection: TimelineTreeItemSelection | undefined;
+    protected _keyframeSelection: TimelineKeyframeSelection | undefined;
     protected _fps = 30;
 
     /**
@@ -263,6 +297,7 @@ export class TimelineSelectionModel {
      * 書き込みは行わない・pointerup の requestWrite とは独立。
      */
     requestLivePreview?: (request: LivePreviewRequest) => void;
+    requestKeyframe?: (request: KeyframeControlRequest) => Promise<InspectorWriteResult>;
 
     get snapshot(): TimelineSelectionSnapshot {
         return this._snapshot;
@@ -279,6 +314,15 @@ export class TimelineSelectionModel {
 
     set treeSelection(value: TimelineTreeItemSelection | undefined) {
         this._treeSelection = value;
+        this.onChangedEmitter.fire();
+    }
+
+    get keyframeSelection(): TimelineKeyframeSelection | undefined {
+        return this._keyframeSelection;
+    }
+
+    set keyframeSelection(value: TimelineKeyframeSelection | undefined) {
+        this._keyframeSelection = value;
         this.onChangedEmitter.fire();
     }
 
