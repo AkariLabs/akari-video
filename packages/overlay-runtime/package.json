@@ -4,13 +4,14 @@
   "private": true,
   "description": "Shell-agnostic overlay DOM runtime: mount/tick of edit.json overlays (#overlay-stage), pointer-driven select/drag/resize/edit interaction layer, and zoom minimap. Host-agnostic — see README.md for the window.akari.* adapter contract a hosting shell must provide.",
   "main": "src/overlay-runtime.js",
+  "exports": { ".": "./src/overlay-runtime.js", "./parts": { "types": "./src/parts.d.ts", "import": "./src/parts.mjs", "require": "./src/parts.mjs" } },
   "files": [
     "src/",
     "docs/",
     "README.md"
   ],
   "scripts": {
-    "check": "node --check src/vendor/three-bundle.js && node --check src/vendor/vendor-3d-text-bundle.js && node --check src/three-runtime.js && node --check src/slot-params.js && node --check src/video-fx.js && node --check src/overlay-runtime.js && node --check src/interaction.js && node --check src/minimap.js",
+    "check": "node --check src/parts.mjs && node --check src/vendor/three-bundle.js && node --check src/vendor/vendor-3d-text-bundle.js && node --check src/three-runtime.js && node --check src/slot-params.js && node --check src/video-fx.js && node --check src/overlay-runtime.js && node --check src/interaction.js && node --check src/minimap.js",
     "test": "node --test test-harness/*.test.mjs"
   }
 }
