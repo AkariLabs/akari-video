@@ -7,7 +7,7 @@
       "step": "assertion-ok",
       "message": "found electron page target",
       "targets": [
-        "file:///Users/ryoma/_edit/30_products/akari-video-wt/inspector-e2e-hygiene/apps/shell/lib/frontend/index.html?port=57410#/private/tmp/akari-inspector-l1-legacy-workspace.qN2Qru/project"
+        "file://<repo>/apps/shell/lib/frontend/index.html?port=57410#<tmp>/akari-inspector-l1-legacy-workspace.qN2Qru/project"
       ]
     },
     {
