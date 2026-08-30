@@ -220,6 +220,9 @@ MediaPipe の Web API は face-presence score を結果へ公開しないため�
 
 ## 消費: 目線黒帯（eye-bar）
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+
 `face_landmarks` を生成しただけでは何も起きない。「犯罪者風の目線黒帯」を実際に映像へ乗せる
 のは別の決定論変換器 `packages/akari-tools/bin/eye-bar.mjs`（`akari internal eye-bar` からも
 起動できる）の仕事であり、本スキルの範囲外（[analysis-vision-tracks-v0 契約](../../docs/contract-2026-08-11-analysis-vision-tracks-v0.md)

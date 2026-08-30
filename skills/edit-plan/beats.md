@@ -4,6 +4,9 @@
 > 以下の導出知識は見せ場候補と根拠を判断記録へ残すために使い、v2 の `edit.json` には書かない。
 > `beats` は v2 で廃止済みであり、消費者側コードも畳んだため、今後も復活させない。
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+
 ## 原則
 
 `beats[]`（人間向けの呼称は **見せ場マーカー**）は、素材のどこに見せ場があるかという

@@ -320,6 +320,21 @@ test('examples は字幕シフトとグループ倍速を子プロセスで実�
   assert.deepEqual(group.items.map(item => [item.at, item.duration]), [[10, 10], [25, 11]]);
 });
 
+test('tree-summary example は入れ子を親子順と深さ別インデントで出力する', async t => {
+  const fixture = await readFile(path.resolve(packageRoot, '../schemas/test/fixtures/object-tree-b-nested.json'), 'utf8');
+  const root = await makeProject(fixture);
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  const result = await execFileAsync(process.execPath, ['examples/tree-summary.mjs', root], { cwd: packageRoot });
+  const lines = result.stdout.trimEnd().split('\n');
+  assert.equal(lines.length, 3);
+  assert.deepEqual(lines, [
+    'root  group  at=10  duration=100  children=1  keyframes=0  exclude=0',
+    '  middle  group  at=5  duration=80  children=1  keyframes=0  exclude=0',
+    '    leaf  telop  at=7  duration=20  children=0  keyframes=0  exclude=0',
+  ]);
+});
+
 test('generated type keys は再生成 diff 0 で edit-v2 公開 interface を包摂する', async () => {
   const generatedPath = path.join(packageRoot, 'src/generated/edit-v2-keys.ts');
   const before = await readFile(generatedPath, 'utf8');

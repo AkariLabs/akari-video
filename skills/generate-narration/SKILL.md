@@ -7,6 +7,9 @@ description: 原稿テキストから VOICEVOX（ローカル・ゼロ円の既�
 
 > **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+
 # FORBIDDEN 級ハードルール
 
 次の規則は詳細手順より常に優先する。
@@ -14,7 +17,7 @@ description: 原稿テキストから VOICEVOX（ローカル・ゼロ円の既�
 1. **人声クローンはプロファイル所有者本人の声のみ。** consent 記録が無いプロファイルは使用しない
 2. **参照音声を外部送信する前のローカル whisper 照合ガード必須。** スキップはオーナー明示指示時のみ、
    かつその旨を記録する
-3. **生成には読み原稿（かな化）を使い、script / reading を両方 edit.json に記録する**
+3. **生成には読み原稿（かな化）を使い、script / reading を該当行の Edit か edit-store のスクリプト API で両方 edit.json に記録する**
 4. **有償レーン（fal）は費用宣言 → 明示承認後のみ実行する。** ElevenLabs は凍結中 — 選択肢として
    提示すること自体をしない
 5. **API キー直叩き禁止・manage-connections 経由のみ。** doctor が `ok` でないレーンは提示しない

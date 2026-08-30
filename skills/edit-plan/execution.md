@@ -1,12 +1,18 @@
 # 承認後の実行
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+
 > **edit.json v2**: トップレベルは exact で、`version` / `output` / `sources` / `tracks` /
 > `audio` / `captions` / `thumbnail` 以外を書けない。`beats` / `emphasis_words` / `direction` は
 > v2 で廃止済みのため `edit.json` へ書かず、判断記録に置く。消費者側コードも畳んでおり、今後も復活させない。
 
 ## 原則
 
-このファイルは Checkpoint 3 の明示承認後だけ読む。承認された manifest を [M1〜M4 契約](../../docs/contract-2026-07-13-m1-m4.md) の `edit.json` と authoring 規約へ忠実に変換し、表現できない計画を独自フィールドで補わない。使ってよいのは公開契約が定めたフィールドだけである（[SKILL.md](SKILL.md) のハードルール）。
+このファイルは Checkpoint 3 の明示承認後だけ読む。承認された manifest を、該当行の Edit か
+edit-store のスクリプト API で [M1〜M4 契約](../../docs/contract-2026-07-13-m1-m4.md) の
+`edit.json` と authoring 規約へ忠実に変換し、表現できない計画を独自フィールドで補わない。使って
+よいのは公開契約が定めたフィールドだけである（[SKILL.md](SKILL.md) のハードルール）。
 
 cut candidate report がある場合も、それ自体は実行承認ではない。`decision:"REVIEW_REQUIRED"` の
 候補を直接 cuts へ写さず、人間が今回の report に対して採否を明示し、append-only decision log に
@@ -175,7 +181,7 @@ node packages/render-cut/bin/akari-apply-textstyle.mjs <project-dir> <preset-id>
 node packages/render-cut/bin/akari-apply-textstyle.mjs <project-dir> <preset-id> --caption <index|id>
 ```
 
-書き込み前に差分 JSON を確認する場合は、どちらのコマンドにも `--dry-run` を加える。preset が持つフィールドは既存の `default_text_style` または `captions[].text_style` へマージされ、preset が宣言していない既存フィールドは保持される。preset の語彙にない微調整、または preset を使わない微調整は、従来どおり `text_style` を `captions.json` に直接書いて行う。
+書き込み前に差分 JSON を確認する場合は、どちらのコマンドにも `--dry-run` を加える。preset が持つフィールドは既存の `default_text_style` または `captions[].text_style` へマージされ、preset が宣言していない既存フィールドは保持される。preset の語彙にない微調整、または preset を使わない微調整は、`text_style` の該当行の Edit か edit-store のスクリプト API で `captions.json` に書く。
 
 ## 5. 検証して判断記録を閉じる
 

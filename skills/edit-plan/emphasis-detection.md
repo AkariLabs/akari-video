@@ -5,6 +5,9 @@
 > `edit.json` には書かない。データ契約は
 > [captions.json v0 語レベル演出契約](../../docs/contract-2026-08-23-captions-emphasis-words-v0.md) を参照する。
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+
 ## 原則
 
 `emphasis_words[]`（人間向けの呼称は **語レベル演出**）は、素材のどの語を演出の対象にするかを

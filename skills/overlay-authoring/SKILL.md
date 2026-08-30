@@ -9,6 +9,9 @@ description: AKARI Video のオーバーレイ HTML、字幕、表・グラフ�
 
 次のいずれかに違反する動画オーバーレイを作成・採用しない。詳細リーフより常に優先する。
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API を使う。
+
 1. **調整値を直書きしない。** 位置、拡縮、文字サイズ、色、余白、内容など、人が調整しうる値を CSS 変数として公開する。`--font-size`、`--color`、`--block-left` のような非予約名を使い、`edit.json.overlays[].vars` から継承できるよう `var(--name, fallback)` で参照する。断片ルートで同名変数を再定義して上書きを遮らない。
    **`--x` / `--y` / `--scale` / `--rotate` はランタイム予約変数**（`packages/render-cut/src/rasterize.mjs` の `renderOverlayNode` が `.akari-overlay-container` へ必ずインライン設定する。値は `overlays[].transform` 由来、`role==="background"` なら恒等値に固定）。断片内でこの 4 変数を**参照（`var(--x, ...)`）することも自前用途で再定義することも禁止**する。継承によりフォールバックが効かず、指定値が無視されて全オーバーレイが原点（0,0・scale 1・rotate 0）へ寄る（実機バグ報告 `overlay-css-var-collision`、2026-08-17。edit-lint は PASS・レンダーも成功するため目視まで気づけない）。位置・拡縮・回転のノブは `--block-left` / `--block-scale` のような非予約名を自分で定義する。
 2. **時刻を別の仕組みに持たせない。** タイミングは `data-start` / `data-duration` とする。AKARI Video v0 では `edit.json.overlays[].start/duration` が SSOT で、ランタイムが外側コンテナの data 属性へ反映する。断片内の独立した時刻源を作らない。

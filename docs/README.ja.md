@@ -36,6 +36,7 @@
 | [3D シーンをベイクする](./guides/bake-3d.ja.md) | Blender ヘッドレスでレシピを映像素材に（bake-3d） |
 | [音源に宣言を付ける](./guides/declare-audio.ja.md) | サビ・キメ・拍を自分の耳で付けて declarations.json へ（declare-audio） |
 | [ビート同期で作る](./guides/beat-sync.ja.md) | 宣言済み音源から拍スナップの PV・ショーケースを機械生成（beat-sync-edit） |
+| [edit.json の読み方](./guides/edit-json-access.ja.md) | 全文を読まず id で探し、点の変更または edit-store スクリプトで書く |
 
 ## Skills
 
