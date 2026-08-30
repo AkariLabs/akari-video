@@ -95,13 +95,18 @@ export function evaluateGpuEligibility({
     const conditions = OVERLAY_CONDITIONS
       .filter(([, pattern]) => (typeof pattern === "function" ? pattern(html) : pattern.test(html)))
       .map(([condition, , kind]) => ({ condition, kind }));
+    if (Array.isArray(overlay?.keyframes)) {
+      conditions.unshift({ condition: "item-keyframes", kind: "dynamic" });
+    }
     const names = conditions.map((entry) => entry.condition);
     const entranceCandidate = names.includes("three-or-canvas-runtime")
       && names.includes("animation-timing");
     const entrance = entranceCandidate
       ? parseThreeEntrance(html, { vars: overlay.vars, transform: overlay.transform, role: overlay.role })
       : null;
-    if (isThreeOnlyOverlay(html, names)) {
+    if (names.includes("item-keyframes")) {
+      entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "dom", "item-keyframes", names));
+    } else if (isThreeOnlyOverlay(html, names)) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-canvas-direct", names));
     } else if (entrance?.ok && names.every((name) => ["three-or-canvas-runtime", "animation-timing"].includes(name))) {
       entries.push(entry("overlay", overlay.id ?? `overlay-${index}`, "three", "three-scene-entrance-curve", names));

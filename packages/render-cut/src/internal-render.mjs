@@ -11,6 +11,7 @@ const require = createRequire(import.meta.url);
 const { readInternalEdit, resolveInternalTrackZ } = require("../../edit-store/lib/index.js");
 const projectRoots = new WeakMap();
 const hiddenItemIds = new WeakMap();
+const frameNormalizedHtmlItems = new WeakSet();
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 export const BAKE_LAYER_ENTRY = join(REPOSITORY_ROOT, "packages", "bake-layer", "bin", "bake-layer.mjs");
@@ -54,6 +55,7 @@ export function projectRendererCompatibilityEdit(
   const projectRoot = projectRootOverride === undefined
     ? projectRoots.get(internal) ?? projectRootFromTemporaryDirectory(temporaryDirectory)
     : resolve(projectRootOverride);
+  resolveReferencedItemKeyframes(internal, projectRoot, onWarning, raw?.version === 2);
   const htmlOverlays = expandParts
     ? expandedHtmlOverlays(internal, projectRoot)
     : unexpandedHtmlOverlays(internal, temporaryDirectory);
@@ -284,6 +286,51 @@ function projectRootFromTemporaryDirectory(temporaryDirectory) {
     cursor = dirname(cursor);
   }
   return process.cwd();
+}
+
+function resolveReferencedItemKeyframes(internal, projectRoot, onWarning = console.warn, v2 = false) {
+  const bags = new Map();
+  const readBag = (path) => {
+    if (bags.has(path)) return bags.get(path);
+    let bag = null;
+    try {
+      const parsed = JSON.parse(readFileSync(resolve(projectRoot, path), "utf8"));
+      if (isRecord(parsed) && isRecord(parsed.items)) bag = parsed;
+      else onWarning?.(`item keyframes bag ${path} has no items object; referenced items stay static`);
+    } catch (error) {
+      onWarning?.(`item keyframes bag ${path} could not be read; referenced items stay static (${error?.message ?? error})`);
+    }
+    bags.set(path, bag);
+    return bag;
+  };
+  const visit = (item) => {
+    if (v2
+      && item?.source?.kind === "html"
+      && !item?.keyframesRef
+      && Array.isArray(item?.declaration?.keyframes)
+      && !frameNormalizedHtmlItems.has(item)) {
+      item.declaration = {
+        ...item.declaration,
+        keyframes: item.declaration.keyframes.map((point) => isRecord(point)
+          ? { ...point, t: typeof point.t === "number" ? Math.round(point.t * internal.output.fps) : point.t }
+          : point),
+      };
+      frameNormalizedHtmlItems.add(item);
+    }
+    if (item?.keyframesRef && !Array.isArray(item?.declaration?.keyframes)) {
+      const path = String(item.keyframesRef.path ?? "");
+      const points = readBag(path)?.items?.[String(item.id)];
+      if (Array.isArray(points)) {
+        item.declaration = { ...item.declaration, keyframes: points };
+      } else if (bags.get(path) !== null) {
+        onWarning?.(`item keyframes bag ${path} has no points for ${item.id}; item stays static`);
+      }
+    }
+    for (const child of item?.children ?? []) visit(child);
+  };
+  for (const track of internal?.tracks ?? []) {
+    for (const item of track.items ?? []) visit(item);
+  }
 }
 
 // Internal legacy values use edit-store's camelCase display model. The renderer compatibility

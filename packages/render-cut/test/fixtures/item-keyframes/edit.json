@@ -1,0 +1,44 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "sources": [{ "id": "main", "path": "source.mp4" }],
+  "tracks": [
+    {
+      "id": "base",
+      "lane": "visual",
+      "items": [{ "id": "cut", "at": 0, "duration": 150, "source": { "kind": "media", "src": "main", "in": 0, "out": 5 } }]
+    },
+    {
+      "id": "plain-track",
+      "lane": "visual",
+      "items": [{ "id": "plain", "at": 0, "duration": 150, "keyframes": [{ "t": 0, "transform": { "x": 0 } }, { "t": 120, "transform": { "x": 400 } }], "source": { "kind": "html", "path": "overlays/plain.html" } }]
+    },
+    {
+      "id": "bag-track",
+      "lane": "visual",
+      "items": [{
+        "id": "s01",
+        "at": 0,
+        "duration": 150,
+        "source": { "kind": "html", "path": "overlays/card.html", "exclude": ["C"] },
+        "items": [{ "id": "s01.B", "at": 0, "duration": 150, "keyframes": { "path": "motion/s01.json", "count": 3 }, "source": { "kind": "html", "path": "overlays/card.html", "part": "B" } }]
+      }]
+    },
+    {
+      "id": "group-track",
+      "lane": "visual",
+      "items": [{
+        "id": "g1",
+        "at": 0,
+        "duration": 150,
+        "source": { "kind": "group" },
+        "items": [{ "id": "g1.first", "at": 0, "duration": 150, "keyframes": [{ "t": 0, "transform": { "x": 0 }, "opacity": 0 }, { "t": 120, "transform": { "x": 120 }, "opacity": 1 }], "source": { "kind": "html", "path": "overlays/group.html" } }]
+      }]
+    },
+    {
+      "id": "control-track",
+      "lane": "visual",
+      "items": [{ "id": "s01.C", "at": 0, "duration": 150, "source": { "kind": "html", "path": "overlays/card.html", "part": "C" } }]
+    }
+  ]
+}

@@ -20,6 +20,7 @@ const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 // data-akari-slot への文言注入。legacy（render-cut rasterize）・プレビュー（overlay-runtime）と同じ
 // 1 実装をページへ読み込み、静的スプライトと DOM 層の両方で source.params を適用する（issue #32）。
 const SLOT_PARAMS_RUNTIME = join(PACKAGE_ROOT, "..", "overlay-runtime", "src", "slot-params.js");
+const ITEM_KEYFRAMES_RUNTIME = join(PACKAGE_ROOT, "..", "overlay-runtime", "src", "keyframes.mjs");
 
 export function buildGpuPage({
   edit,
@@ -35,6 +36,7 @@ export function buildGpuPage({
   frameEngineBundle = readFileSync(FRAME_ENGINE_BUNDLE, "utf8"),
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
   slotParamsRuntime = readFileSync(SLOT_PARAMS_RUNTIME, "utf8"),
+  itemKeyframesRuntime = readFileSync(ITEM_KEYFRAMES_RUNTIME, "utf8"),
 } = {}) {
   const enabledOverlays = overlays.filter((overlay) => overlay?.enabled !== false);
   const textSlotOverlayCount = enabledOverlays.filter((overlay) => overlayTextSlotParams(overlay) !== null).length;
@@ -60,6 +62,7 @@ export function buildGpuPage({
   const statics = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "same");
   const three = indexedOverlays.filter(({ overlay }) => classifications.get(String(overlay.id)) === "three");
   const dom = buildDomRuns(indexedOverlays, classifications, duration);
+  const hasItemKeyframes = enabledOverlays.some((overlay) => Array.isArray(overlay.keyframes));
   const cueById = new Map(captionRoot.map((cue) => [String(cue.id), cue]));
   const portrait = height > width;
   const resolvedEmphasisWords = Array.isArray(captions)
@@ -156,7 +159,7 @@ export function buildGpuPage({
   <script>window.__AKARI_GPU_CONFIG__=${safeJson(config)};</script>
   <script>${inlineScript(frameEngineBundle)}</script>${textSlotOverlayCount > 0 ? `
   <script>${inlineScript(slotParamsRuntime)}</script>` : ""}
-  <script>${inlineScript(pageRuntime)}</script>
+  ${hasItemKeyframes ? `<script>${inlineScript(itemKeyframesRuntime.replace(/\nexport \{ interpolateKeyframes \};\s*$/u, "\n"))}</script>\n  ` : ""}<script>${inlineScript(pageRuntime)}</script>
 </body>
 </html>
 `;

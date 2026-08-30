@@ -97,8 +97,44 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     overlay.html.includes("akari-caption--single-line"),
   );
   const nodes = sheetOverlays
-    .map((overlay, index) => renderOverlayNode(overlay, index))
+    .map((overlay, index) => renderOverlayNode(overlay, index, edit.output.fps))
     .join("\n");
+  const hasItemKeyframes = sheetOverlays.some((overlay) => Array.isArray(overlay.keyframes));
+  const itemKeyframesRuntimeScripts = hasItemKeyframes
+    ? `\n  <script>${inlineScript(readFileSync(
+        resolve(SOURCE_DIRECTORY, "../../overlay-runtime/src/keyframes.mjs"),
+        "utf8",
+      ).replace(/\nexport \{ interpolateKeyframes \};\s*$/u, "\n"))}</script>`
+    : "";
+  const itemKeyframesSyncBranch = hasItemKeyframes
+    ? `
+        if (container.hasAttribute('data-akari-keyframes')) {
+          const start = Number(container.dataset.start);
+          const duration = Number(container.dataset.duration);
+          const active = seconds >= start && seconds < start + duration;
+          if (active) {
+            const points = container.__akariKeyframes ??= JSON.parse(container.dataset.akariKeyframes);
+            const statics = container.__akariKeyframeStatics ??= {
+              x: Number.parseFloat(container.style.getPropertyValue('--x')),
+              y: Number.parseFloat(container.style.getPropertyValue('--y')),
+              scale: Number.parseFloat(container.style.getPropertyValue('--scale')),
+              rotate: Number.parseFloat(container.style.getPropertyValue('--rotate')),
+              opacity: Number(container.dataset.akariOpacity),
+            };
+            const state = window.akari.keyframes.interpolateKeyframes(
+              points,
+              Math.max(0, seconds - start) * Number(container.dataset.akariFps),
+              { statics },
+            );
+            const background = container.dataset.akariBackground === 'true';
+            container.style.setProperty('--x', background ? '0px' : state.x + 'px');
+            container.style.setProperty('--y', background ? '0px' : state.y + 'px');
+            container.style.setProperty('--scale', background ? '1' : String(state.scale));
+            container.style.setProperty('--rotate', background ? '0deg' : state.rotate + 'deg');
+            container.style.setProperty('opacity', String(state.opacity));
+          }
+        }`
+    : "";
   const threeTextBundleScript = hasThreeDimensionalTextOverlay
     ? `\n  <script>${inlineScript(readFileSync(THREE_TEXT_BUNDLE_PATH, "utf8"))}</script>`
     : "";
@@ -147,7 +183,7 @@ export function renderOverlaySheet({ overlays, edit, projectRoot, duration }) {
     #stage { position: relative; width: ${edit.output.width}px; height: ${edit.output.height}px; overflow: hidden; background: transparent; }
     .akari-overlay-container { position: absolute; inset: 0; visibility: hidden; pointer-events: none; transform: translate(var(--x, 0px), var(--y, 0px)) scale(var(--scale, 1)) rotate(var(--rotate, 0deg)); transform-origin: center; }
     .akari-overlay-container > .scene-content { position: absolute; inset: 0; }
-  </style>${threeRuntimeScripts}
+  </style>${itemKeyframesRuntimeScripts}${threeRuntimeScripts}
 </head>
 <body>
   <div id="stage" data-composition-id="akari-render-cut" data-start="0" data-duration="${formatNumber(duration)}" data-width="${edit.output.width}" data-height="${edit.output.height}" data-fps="${edit.output.fps}" data-no-timeline>
@@ -204,7 +240,7 @@ ${nodes}${slotRuntimeScripts}
     })();
     window.__akariSyncAnimations = function(seconds) {
       const milliseconds = seconds * 1000;
-      for (const container of document.querySelectorAll('.akari-overlay-container')) {
+      for (const container of document.querySelectorAll('.akari-overlay-container')) {${itemKeyframesSyncBranch}
         for (const animation of container.getAnimations({ subtree: true })) {
           try { animation.pause(); } catch {}
           try { animation.currentTime = milliseconds; } catch {}
@@ -950,7 +986,7 @@ export function parseFfmpegOutTime(value) {
   return Number.isFinite(total) ? total : null;
 }
 
-function renderOverlayNode(overlay, index) {
+function renderOverlayNode(overlay, index, fps) {
   const transform = overlay.transform ?? {};
   // 2026-08-07 オーナー裁定: role==="background" は
   // ずらせない・必ずフレームを埋める種別。--x/--y/--scale/--rotate を無条件で恒等値へ
@@ -978,7 +1014,10 @@ function renderOverlayNode(overlay, index) {
     && Object.keys(overlay.params).length > 0
     ? ` data-akari-params="${escapeAttribute(JSON.stringify(overlay.params))}"`
     : "";
-  return `    <div class="akari-overlay-container scene clip" data-overlay-id="${escapeAttribute(overlay.id)}" data-start="${formatNumber(overlay.start)}" data-duration="${formatNumber(overlay.duration)}" data-track-index="${index + 1}"${params} style="${escapeAttribute(style)}"><div class="scene-content">${overlay.html}</div></div>`;
+  const keyframes = Array.isArray(overlay.keyframes)
+    ? ` data-akari-keyframes="${escapeAttribute(JSON.stringify(overlay.keyframes))}" data-akari-fps="${formatNumber(fps)}" data-akari-opacity="${formatNumber(overlay.opacity ?? 1)}" data-akari-background="${isBackground}"`
+    : "";
+  return `    <div class="akari-overlay-container scene clip" data-overlay-id="${escapeAttribute(overlay.id)}" data-start="${formatNumber(overlay.start)}" data-duration="${formatNumber(overlay.duration)}" data-track-index="${index + 1}"${params}${keyframes} style="${escapeAttribute(style)}"><div class="scene-content">${overlay.html}</div></div>`;
 }
 
 function embedThreeModels(html, projectRoot, overlayId) {

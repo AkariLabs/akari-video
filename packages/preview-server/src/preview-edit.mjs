@@ -68,7 +68,7 @@ function projectSourceChromaKey(raw, projectRoot) {
 
 /** renderer と同じ front door で v2 を読み、WebUI が消費する互換ビューへ射影する。 */
 export function projectPreviewEdit(source, temporaryDirectory, projectRoot = path.resolve(temporaryDirectory, '..', '..')) {
-  const edit = readRenderEdit(source, temporaryDirectory).edit;
+  const edit = readRenderEdit(source, temporaryDirectory, { projectRoot }).edit;
   const withoutDisplayGain = value => {
     if (!value || typeof value !== 'object') return value;
     const { gainDb: _displayOnly, ...rest } = value;

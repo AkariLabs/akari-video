@@ -1271,6 +1271,8 @@
         }
         const containers = [];
         for (const entry of run.entries) {
+          const declaration = (this.config.edit?.overlays ?? [])
+            .find((overlay) => String(overlay?.id) === String(entry.id));
           const container = document.createElement("div");
           container.className = "akari-dom-container scene clip";
           container.dataset.overlayId = entry.id;
@@ -1283,7 +1285,23 @@
           content.insertAdjacentHTML("beforeend", applyTextSlotParams(entry.html, entry.params));
           container.appendChild(content);
           root.appendChild(container);
-          containers.push({ entry, container });
+          containers.push({
+            entry,
+            container,
+            ...(Array.isArray(declaration?.keyframes) ? {
+              itemKeyframes: {
+                points: declaration.keyframes,
+                statics: {
+                  x: Number(declaration.transform?.x ?? 0),
+                  y: Number(declaration.transform?.y ?? 0),
+                  scale: Number(declaration.transform?.scale ?? 1),
+                  rotate: Number(declaration.transform?.rotate ?? 0),
+                  opacity: Number(declaration.opacity ?? 1),
+                },
+                isBackground: declaration.role === "background",
+              },
+            } : {}),
+          });
         }
         this.records.set(run.runId, { host, context, root, tick, sentinel, containers });
         this.spriteCompositor.registerSprite(run.runId, host);
@@ -1353,11 +1371,24 @@
       const record = this.records.get(run.runId);
       if (!record) throw new Error(`GPU DOM layer record is missing: ${run.runId}`);
       const started = performance.now();
-      for (const { entry, container } of record.containers) {
+      for (const { entry, container, itemKeyframes } of record.containers) {
         const active = activeAt(entry, seconds);
         container.style.visibility = active ? "visible" : "hidden";
         container.toggleAttribute("data-akari-active", active);
         if (!active) continue;
+        if (itemKeyframes) {
+          const state = window.akari.keyframes.interpolateKeyframes(
+            itemKeyframes.points,
+            Math.max(0, seconds - entry.start) * Number(this.config.fps),
+            { statics: itemKeyframes.statics },
+          );
+          const background = itemKeyframes.isBackground;
+          container.style.setProperty("--x", background ? "0px" : `${state.x}px`);
+          container.style.setProperty("--y", background ? "0px" : `${state.y}px`);
+          container.style.setProperty("--scale", background ? "1" : String(state.scale));
+          container.style.setProperty("--rotate", background ? "0deg" : `${state.rotate}deg`);
+          container.style.setProperty("opacity", String(state.opacity));
+        }
         for (const animation of container.getAnimations({ subtree: true })) {
           try { animation.pause(); } catch {}
           try { animation.currentTime = Math.max(0, seconds - entry.start) * 1000; } catch {}

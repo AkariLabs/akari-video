@@ -89,6 +89,7 @@ const THREE_ROUTES = {
   // 素の vw はウィンドウ幅基準になり書き出しとずれる。app.js が mount 時に断片へ適用し、
   // updateStageScale がステージ変数（--akari-vw 等）を定義する。shell も同じ物をインライン注入する。
   '/viewport-units.js': fileURLToPath(new URL('../../overlay-runtime/src/viewport-units.js', import.meta.url)),
+  '/keyframes.mjs': fileURLToPath(new URL('../../overlay-runtime/src/keyframes.mjs', import.meta.url)),
 };
 const PROXY_DIR = path.join(projectRoot, '.proxy');
 
