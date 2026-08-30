@@ -19,11 +19,15 @@ export interface ProjectSaveResult {
     written: string[];
     findings: EditLintFinding[];
 }
+export interface ProjectSaveOptions {
+    /** false は呼び出し元が明示した lint bypass。正規化と atomic 保存は常に行う。 */
+    lint?: boolean;
+}
 export interface Project {
     edit: EditableEditV2;
     captions: ProjectCaptions;
     motion(groupId: string): Promise<MotionFileV0>;
-    save(): Promise<ProjectSaveResult>;
+    save(options?: ProjectSaveOptions): Promise<ProjectSaveResult>;
 }
 export interface OpenProjectOptions {
     editFile?: string;

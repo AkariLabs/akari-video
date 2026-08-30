@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "assets/source.mp4" }
+  ],
+  "tracks": [
+    { "id": "v1", "lane": "visual", "items": [
+      { "id": "cut-edit", "at": 0, "duration": 90, "source": { "kind": "media", "src": "main", "in": 0, "out": 3 } }
+    ] },
+    { "id": "v2", "lane": "visual", "items": [
+      { "id": "layer-edit", "name": "変形するレイヤー", "at": 30, "duration": 30, "locked": true, "transform": { "x": 10, "y": 4 }, "keyframes": { "path": "motion/layer-edit.json", "count": 2 }, "source": { "kind": "media", "src": "main", "in": 0, "out": 1 } }
+    ] },
+    { "id": "v3", "lane": "visual", "items": [
+      { "id": "bag", "name": "部品袋", "at": 0, "duration": 60, "source": { "kind": "html", "path": "overlays/card.html", "exclude": ["C"] }, "items": [
+        { "id": "bag.B", "at": 0, "duration": 60, "source": { "kind": "html", "path": "overlays/card.html", "part": "B", "style": { "color": "red" }, "text": "本文", "derivedFrom": "overlays/card.html#B" } }
+      ] }
+    ] },
+    { "id": "v4", "lane": "visual", "items": [
+      { "id": "bag.C", "name": "隠した分離部品", "at": 0, "duration": 60, "hidden": true, "source": { "kind": "html", "path": "overlays/card.html", "part": "C", "derivedFrom": "overlays/card.html#C" } }
+    ] },
+    { "id": "v5", "lane": "visual", "items": [
+      { "id": "overlay-edit", "at": 0, "duration": 60, "source": { "kind": "html", "path": "overlays/plain.html", "vars": { "label": "before" } } }
+    ] },
+    { "id": "v6", "lane": "visual", "items": [
+      { "id": "captions", "name": "字幕", "at": 0, "duration": 60, "source": { "kind": "captions", "path": "captions.json", "exclude": [] }, "items": [] }
+    ] }
+  ]
+}

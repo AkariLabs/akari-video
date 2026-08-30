@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -10,10 +10,12 @@ import {
   detectEditVersion,
   migrateEditToV2,
   planMigration,
+  planV2Normalization,
   revertMigration,
 } from '../lib/migrate/index.js';
 import { readEditV2 } from '../lib/edit-v2.js';
 import { projectLegacyEdit, readInternalEdit } from '../lib/internal-model.js';
+import { serializeCaptions, serializeEdit, serializeMotion } from '../lib/canonical.js';
 
 function base(version = 0) {
   return {
@@ -26,6 +28,65 @@ function base(version = 0) {
     overlays: [],
   };
 }
+
+test('v2 migrate は content を captions 袋へ正規化し、関連 JSON を canonical 化して冪等になる', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'akari-migrate-v2-normalize-'));
+  const editPath = join(root, 'edit.json');
+  const captionsPath = join(root, 'captions.json');
+  const motionPath = join(root, 'motion', 'g1.json');
+  const edit = {
+    version: 2,
+    output: { width: 1280, height: 720, fps: 30 },
+    sources: [{ id: 'main', path: 'main.mp4' }],
+    tracks: [
+      { id: 'v1', lane: 'visual', items: [
+        { id: 'clip-1', at: 0, duration: 90, source: { kind: 'media', src: 'main', in: 0, out: 3 } },
+      ] },
+      { id: 'captions', lane: 'visual', content: { from: 'captions.json' } },
+    ],
+  };
+  const captions = { version: 0, captions: [{ id: 'c1', start: 0, end: 1, text: '字幕' }] };
+  const motion = { version: 0, group: 'g1', items: { x: [{ t: 2, x: 2 }, { t: 1, x: 1 }] } };
+  try {
+    await mkdir(join(root, 'motion'), { recursive: true });
+    const before = JSON.stringify(edit);
+    await writeFile(editPath, before);
+    await writeFile(captionsPath, JSON.stringify(captions));
+    await writeFile(motionPath, JSON.stringify(motion));
+
+    const proposal = planV2Normalization(root, editPath, before, { now: new Date('2026-08-30T00:00:00.000Z') });
+    assert.equal('blockers' in proposal, false, proposal.blockers?.join('\n'));
+    assert.equal(proposal.version, 2);
+    assert.deepEqual(proposal.changes.map(change => change.note), [
+      'content → captions 袋グループ',
+      '正規直列化（書式のみ）',
+    ]);
+    const normalized = JSON.parse(proposal.nextText);
+    const captionTrack = normalized.tracks.find(track => track.id === 'captions');
+    assert.equal('content' in captionTrack, false);
+    assert.deepEqual(captionTrack.items, [{
+      id: 'captions', name: '字幕', at: 0, duration: 90,
+      source: { kind: 'captions', path: 'captions.json', exclude: [] }, items: [],
+    }]);
+    assert.equal(proposal.nextText, serializeEdit(normalized));
+    assert.equal(proposal.captions.nextText, serializeCaptions(captions));
+    assert.equal(proposal.motion[0].nextText, serializeMotion(motion));
+
+    await applyMigration(proposal);
+    const once = await Promise.all([editPath, captionsPath, motionPath].map(file => readFile(file, 'utf8')));
+    const second = planV2Normalization(root, editPath, once[0], { now: new Date('2026-08-31T00:00:00.000Z') });
+    assert.equal(second.ok, true);
+    assert.equal(second.noop, true);
+    assert.equal(second.version, 2);
+    assert.equal(second.nextText, once[0]);
+    assert.deepEqual(
+      await Promise.all([editPath, captionsPath, motionPath].map(file => readFile(file, 'utf8'))),
+      once,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test('v0/v1 -> v2: 暗黙 at を絶対フレームに焼き、v2 reader を通す', () => {
   for (const version of [0, 1]) {
@@ -514,6 +575,11 @@ test('v2 は再変換せず、reader 往復も差分ゼロ', () => {
   const text = `${JSON.stringify(migrated.doc, null, 2)}\n`;
   assert.equal(detectEditVersion(JSON.parse(text)), 2);
   assert.equal(migrateEditToV2(JSON.parse(text)).ok, false);
+  assert.deepEqual(planMigration('/tmp', '/tmp/edit.json', text), {
+    ok: false,
+    version: 2,
+    blockers: ['edit.json はすでに version 2 です。再変換は行いません。'],
+  });
   assert.deepEqual(readEditV2(text), readEditV2(`${JSON.stringify(JSON.parse(text), null, 2)}\n`));
 });
 

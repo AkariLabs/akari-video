@@ -40,6 +40,32 @@ export interface MigrationProposal {
         backupPath: string;
     };
 }
+export interface V2NormalizationProposal {
+    filePath: string;
+    version: 2;
+    changes: MigrateChange[];
+    warnings: string[];
+    nextText: string;
+    previousText: string;
+    backupPath: string;
+    captions?: {
+        filePath: string;
+        nextText: string;
+        previousText: string;
+        backupPath: string;
+    };
+    motion?: Array<{
+        filePath: string;
+        nextText: string;
+        previousText: string;
+        backupPath: string;
+    }>;
+}
+export interface MigrationNoop extends V2NormalizationProposal {
+    ok: true;
+    noop: true;
+    version: 2;
+}
 export interface MigrationBlocked {
     ok: false;
     version: number;
@@ -56,6 +82,9 @@ export declare function planMigration(projectRoot: string, editPath: string, tex
     now?: Date;
 }): MigrationProposal | MigrationBlocked;
 /** 承認後のみ実行する。先に全原文を .akari/backup/ へ退避し、次に atomic rename する。 */
-export declare function applyMigration(proposal: MigrationProposal): Promise<void>;
+export declare function applyMigration(proposal: MigrationProposal | V2NormalizationProposal): Promise<void>;
 /** 退避した原文を 1 手で edit.json / captions.json へ戻す。backup 自体は監査記録として残す。 */
-export declare function revertMigration(proposal: MigrationProposal): Promise<void>;
+export declare function revertMigration(proposal: MigrationProposal | V2NormalizationProposal): Promise<void>;
+export declare function planV2Normalization(projectRoot: string, editPath: string, previousText: string, options?: {
+    now?: Date;
+}): V2NormalizationProposal | MigrationBlocked | MigrationNoop;

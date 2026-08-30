@@ -39,7 +39,15 @@ export async function runMigrateCommand(args, options = {}) {
     // captions.json の不在・読み取り失敗・壊れた JSON は cue なしとして移行を続ける。
   }
   const hasCaptions = migrate.captionsHaveRenderableCues(captionsRoot);
-  const proposal = migrate.planMigration(projectRoot, editPath, text, { hasCaptions, now: options.now });
+  let editVersion;
+  try {
+    editVersion = migrate.detectEditVersion(JSON.parse(text));
+  } catch {
+    // JSON error の文言は従来どおり planMigration に一元化する。
+  }
+  const proposal = editVersion === 2
+    ? migrate.planV2Normalization(projectRoot, editPath, text, { now: options.now })
+    : migrate.planMigration(projectRoot, editPath, text, { hasCaptions, now: options.now });
   if (proposal.ok === false) {
     if (parsed.json) {
       log(JSON.stringify({ ok: false, error: 'このプロジェクトは変換できません', blockers: proposal.blockers }));
@@ -49,13 +57,18 @@ export async function runMigrateCommand(args, options = {}) {
     }
     return { exitCode: 2 };
   }
+  if (proposal.noop === true) {
+    if (parsed.json) log(JSON.stringify({ ok: true, noop: true, version: proposal.version }));
+    else log('変換の必要はありません。');
+    return { exitCode: 0, proposal };
+  }
   if (parsed.json) {
     log(JSON.stringify({
       ok: true, dryRun: parsed.dryRun, version: proposal.version,
       filePath: proposal.filePath, backupPath: proposal.backupPath, changes: proposal.changes
     }));
   } else {
-    log(`変換対象: ${proposal.filePath} (version ${proposal.version} -> 2)`);
+    log(`変換対象: ${proposal.filePath} (version ${proposal.version}${proposal.version === 2 ? ' 正規化' : ' -> 2'})`);
     for (const change of proposal.changes) log(`- ${change.path}: ${change.note}`);
     log(`変換前の退避先: ${proposal.backupPath}`);
   }
@@ -78,7 +91,11 @@ export async function runMigrateCommand(args, options = {}) {
     }
   }
   await migrate.applyMigration(proposal);
-  if (!parsed.json) log(`version 2 へ変換しました。元ファイル: ${proposal.backupPath}`);
+  if (!parsed.json) {
+    log(proposal.version === 2
+      ? `version 2 を正規化しました。元ファイル: ${proposal.backupPath}`
+      : `version 2 へ変換しました。元ファイル: ${proposal.backupPath}`);
+  }
   return { exitCode: 0, proposal };
 }
 
@@ -121,7 +138,7 @@ export function migrateHelp() {
   return [
     '使い方: akari migrate [dir] [--yes] [--dry-run] [--json]',
     '',
-    'v0/v1 の edit.json を v2 へ片道変換します。',
+    'v0/v1 の edit.json を v2 へ片道変換し、v2 は正規形へ移行します。',
     '既定は変更内容を表示して y/n で確認し、変換前の全文を .akari/backup/ へ退避します。',
     '',
     '  --yes, -y   表示後の確認を省略',

@@ -1,0 +1,10 @@
+{
+  "version": 0,
+  "group": "layer-edit",
+  "items": {
+    "layer-edit": [
+      { "t": 0, "x": 10 },
+      { "t": 29, "x": 20 }
+    ]
+  }
+}

@@ -39,7 +39,7 @@ export async function enumerateDeclaredRenderInputs({
 
   for (const [index, overlay] of (edit.overlays ?? []).entries()) {
     const role = `overlay:${overlay.id ?? index}`;
-    const entry = addProjectInput(inputs, root, role, overlay.html);
+    const entry = addProjectInput(inputs, root, role, overlaySourcePath(overlay));
     const html = readFileSync(entry.absolute_path, "utf8");
     for (const reference of extractThreeSceneAssetReferences(html, role)) {
       addProjectInput(inputs, root, `${role}:${reference.role}`, reference.path);
@@ -90,6 +90,17 @@ export async function enumerateDeclaredRenderInputs({
     (left, right) => left.role.localeCompare(right.role, "en")
       || left.path.localeCompare(right.path, "en"),
   );
+}
+
+function overlaySourcePath(overlay) {
+  const html = overlay?.html;
+  if (typeof html === "string" && html.trimStart().startsWith("<")) {
+    if (typeof overlay?.htmlPath !== "string" || overlay.htmlPath === "") {
+      throw new RenderInputError("inline overlay html requires htmlPath");
+    }
+    return overlay.htmlPath;
+  }
+  return html;
 }
 
 function addBoundCaptionFontInput(inputs, asset) {

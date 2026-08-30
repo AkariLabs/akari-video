@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { readRenderEdit } from "../src/internal-render.mjs";
+import { renderProject, selectTrackStackStageOverlays } from "../src/render-cut.mjs";
 import { renderOverlaySheet } from "../src/rasterize.mjs";
-import { enumerateDeclaredRenderInputs } from "../src/render-inputs.mjs";
+import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs } from "../src/render-inputs.mjs";
 import { loadAndBuildGpuPage } from "../../gpu-export/src/page-builder.mjs";
 
 const fixtureRoot = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "object-tree-html-bag");
@@ -31,13 +35,15 @@ test("expanded renderer projection preserves frame-derived fractional overlay ti
   assert.equal(Object.is(record.duration, 96 / 30), true);
 });
 
-test("render-cut front-door keeps source paths until declared inputs are frozen", async () => {
+test("render-cut front-door expands bags by default while receipts stay bound to source HTML", async () => {
   const source = await readFile(join(fixtureRoot, "edit.json"), "utf8");
   const { edit, internal } = readRenderEdit(source, join(fixtureRoot, ".akari", "render-tmp"));
   assert.deepEqual(edit.overlays.map(overlay => overlay.id), [
-    "s01", "s01.B", "g1.first", "g1.second", "plain", "s01.C",
+    "s01#A", "s01.B", "g1.first", "g1.second", "plain", "s01.C",
   ]);
-  assert.ok(edit.overlays.every(overlay => /^overlays\/(?:card|plain)\.html$/u.test(overlay.html)));
+  assert.equal(edit.overlays.filter(overlay => overlay.html.includes("data-akari-part-mask")).length, 3);
+  assert.ok(edit.overlays.filter(overlay => overlay.html.trimStart().startsWith("<"))
+    .every(overlay => /^overlays\/(?:card|plain)\.html$/u.test(overlay.htmlPath)));
   const inputs = await enumerateDeclaredRenderInputs({
     projectRoot: fixtureRoot,
     edit,
@@ -45,20 +51,19 @@ test("render-cut front-door keeps source paths until declared inputs are frozen"
     internalEdit: internal,
   });
   assert.equal(inputs.filter(input => input.role.startsWith("overlay:")).length, 6);
-
-  const forcedExpanded = readRenderEdit(
-    source,
-    join(fixtureRoot, ".akari", "render-tmp"),
-    { expandParts: true },
-  ).edit;
-  assert.equal(forcedExpanded.overlays[0].id, "s01#A", "explicit true overrides render-tmp inference");
+  const hashed = await hashDeclaredRenderInputs(inputs, { useConsumedText: true });
+  const cardText = await readFile(join(fixtureRoot, "overlays", "card.html"), "utf8");
+  assert.equal(
+    hashed.find(input => input.role === "overlay:s01#A").sha256,
+    createHash("sha256").update(cardText).digest("hex"),
+  );
 
   const forcedUnexpanded = readRenderEdit(
     source,
     join(fixtureRoot, ".akari", "render-tmp", "osr-page"),
     { expandParts: false },
   ).edit;
-  assert.equal(forcedUnexpanded.overlays[0].id, "s01", "explicit false overrides osr-page inference");
+  assert.equal(forcedUnexpanded.overlays[0].id, "s01", "explicit false is the only non-expanded mode");
 });
 
 test("object-tree HTML bag fixture projects six stable renderer records", async () => {
@@ -90,6 +95,46 @@ test("object-tree HTML bag fixture projects six stable renderer records", async 
 
   const plain = edit.overlays.find(overlay => overlay.id === "plain");
   assert.equal(plain.html, "overlays/plain.html", "unlabeled overlay reference stays byte-identical");
+});
+
+test("non-default track-stack stage selects every expanded clone by its bag parentId", async () => {
+  const source = await readFile(join(fixtureRoot, "edit.json"), "utf8");
+  const overlays = readRenderEdit(source, join(fixtureRoot, ".akari", "render-tmp")).edit.overlays;
+  const selected = selectTrackStackStageOverlays(
+    { kind: "overlays", overlayIds: ["s01"] }, overlays, [],
+  );
+  assert.deepEqual(selected.map(overlay => overlay.id), ["s01#A", "s01.B"]);
+  assert.ok(selected.every(overlay => overlay.html.includes("data-akari-part-mask")));
+});
+
+test("legacy plan-only path carries the same three masked overlays", { timeout: 60_000 }, async t => {
+  const probe = spawnSync("ffmpeg", ["-version"], { stdio: "ignore" });
+  if (probe.status !== 0) return t.skip("ffmpeg is unavailable");
+  const root = await mkdtemp(join(tmpdir(), "akari-render-bag-plan-"));
+  try {
+    await cp(fixtureRoot, root, { recursive: true });
+    const media = join(root, "source.mp4");
+    const generated = spawnSync("ffmpeg", [
+      "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=black:s=640x360:r=30:d=4",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-y", media,
+    ]);
+    assert.equal(generated.status, 0, generated.stderr?.toString());
+    const editPath = join(root, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.sources = [{ id: "main", path: "source.mp4" }];
+    edit.tracks.unshift({ id: "base", lane: "visual", items: [
+      { id: "cut", at: 0, duration: 120, source: { kind: "media", src: "main", in: 0, out: 4 } },
+    ] });
+    await writeFile(editPath, `${JSON.stringify(edit, null, 2)}\n`);
+    const state = await renderProject(root, {
+      planOnly: true, force: true, engine: "legacy", writeState: false,
+    });
+    assert.equal(state.plan.commands.rasterize['static-screenshot'].outputs.length, 6);
+    assert.equal(state.inputs["overlays/card.html"].sha256,
+      createHash("sha256").update(await readFile(join(root, "overlays", "card.html"))).digest("hex"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("overlay sheet escapes clone ids containing # and keeps exactly three masks", async () => {
