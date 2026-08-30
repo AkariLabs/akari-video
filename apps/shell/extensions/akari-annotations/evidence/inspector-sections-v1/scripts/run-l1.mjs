@@ -209,8 +209,12 @@ async function selectorRect(selector) {
   })()`);
 }
 
+function itemSelector(itemId) {
+  return `[data-akari-item-id=${JSON.stringify(itemId)}]:not([data-akari-tree-row-id])`;
+}
+
 async function selectItem(itemId) {
-  const selector = `[data-akari-item-id=${JSON.stringify(itemId)}]`;
+  const selector = itemSelector(itemId);
   const encodedSelector = JSON.stringify(selector);
   await waitFor(`timeline item ${itemId}`, `Boolean(document.querySelector(${encodedSelector}))`);
   let rect = null;
@@ -370,9 +374,11 @@ async function runLegacyCase() {
     })()`);
     return true;
   };
+  const beforeBytes = await readFile(editPath);
   const revisions = await observeEditRevisions(async () => {
     assert(await replaceLegacyScaleInput(), 'legacy scale input accepted text');
   });
+  const afterBytes = await readFile(editPath);
   const afterEdit = await readEdit();
   const afterLayer = Array.isArray(afterEdit.layers)
     ? afterEdit.layers.find(candidate => candidate?.id === layer.id) : undefined;
@@ -382,6 +388,8 @@ async function runLegacyCase() {
     `document.querySelector('[data-akari-timeline-notice]')?.nextElementSibling?.textContent ?? ''`);
   const expectedScale = nextDisplay / 100;
   const actualScale = afterLayer?.transform?.scale ?? null;
+  const editJsonBytesUnchanged = beforeBytes.equals(afterBytes);
+  const noticePromptsV2 = notice.includes('v2 へ変換') || notice.includes('v2 のみ対応');
   record('case-9-legacy-scale-result', {
     layerId: layer.id,
     beforeDisplay,
@@ -390,13 +398,19 @@ async function runLegacyCase() {
     actualScale,
     timelineNoticeText: notice,
     footerText: footer,
-    editJsonTextChanged: revisions.beforeText !== revisions.afterText,
+    editJsonTextChanged: !editJsonBytesUnchanged,
     beforeTextLength: revisions.beforeText.length,
     afterTextLength: revisions.afterText.length,
+    beforeByteLength: beforeBytes.length,
+    afterByteLength: afterBytes.length,
     writeCount: revisions.writeCount
   });
-  assert(actualScale === expectedScale,
-    'legacy scale display persisted as internal display/100', { nextDisplay, expectedScale, actualScale });
+  assert(editJsonBytesUnchanged, 'legacy edit.json remained byte-for-byte unchanged', {
+    beforeByteLength: beforeBytes.length,
+    afterByteLength: afterBytes.length,
+    writeCount: revisions.writeCount
+  });
+  assert(noticePromptsV2, 'legacy edit rejection notice prompts v2 conversion', { notice });
   await shot('09-legacy-scale.png');
   record('DONE', { criteria: 1, mode: 'legacy' });
 }
@@ -434,7 +448,7 @@ async function main_() {
   })()`);
   await selectItem('telop-chapter');
   const telopDomKind = await evalOn(main,
-    `document.querySelector('[data-akari-item-id="telop-chapter"]')?.dataset.akariItemKind`);
+    `document.querySelector(${JSON.stringify(itemSelector('telop-chapter'))})?.dataset.akariItemKind`);
   assert(telopDomKind === 'layer', 'telop-chapter is selected through the real layer DOM projection', { telopDomKind });
   const xHandleSelector = '[data-akari-ui="field:inspector-transform-x"] .akari-inspector-number-handle';
   await waitFor('transform X scrub handle', `Boolean(document.querySelector(${JSON.stringify(xHandleSelector)}))`);
@@ -476,7 +490,7 @@ async function main_() {
   // 3. meta.json knobs become grouped typed controls and write through source.vars.
   await selectItem('lower-third');
   const lowerThirdDomKind = await evalOn(main,
-    `document.querySelector('[data-akari-item-id="lower-third"]')?.dataset.akariItemKind`);
+    `document.querySelector(${JSON.stringify(itemSelector('lower-third'))})?.dataset.akariItemKind`);
   assert(lowerThirdDomKind === 'overlay', 'lower-third is selected through the real overlay DOM projection', { lowerThirdDomKind });
   const knobSectionSelector = '[data-akari-ui^="section:inspector-knobs:"]';
   const fontSizeSelector = '[data-akari-ui="slider:inspector-var---font-size"]';
@@ -543,7 +557,7 @@ async function main_() {
   assert(playheadAfter !== playheadBefore, 'plain ArrowRight moved the playhead', { playheadBefore, playheadAfter });
   await shot('04-keyboard-nudge.png');
 
-  // 5. Bracket moves to the adjacent visual track, but overlap is rejected with the display name.
+  // 5. Bracket moves to the adjacent visual track, creating a new track when items would overlap.
   await selectItem('laptop-3d');
   const laptopBefore = locateItem(await readEdit(), 'laptop-3d').track.id;
   const laptopMove = await observeEditRevisions(() => dispatchKey({
@@ -557,18 +571,36 @@ async function main_() {
   assert(laptopMove.writeCount === 1, 'successful bracket move persisted one content revision', laptopMove);
 
   await selectItem('lower-third');
-  const lowerBefore = locateItem(await readEdit(), 'lower-third').track.id;
-  const blockedMove = await observeEditRevisions(() => dispatchKey({
+  const lowerEditBefore = await readEdit();
+  const lowerBefore = locateItem(lowerEditBefore, 'lower-third').track.id;
+  const lowerTrackIdsBefore = new Set((lowerEditBefore.tracks ?? []).map(track => track.id));
+  let nextVisualSerial = 1;
+  while (lowerTrackIdsBefore.has(`v${nextVisualSerial}`)) nextVisualSerial++;
+  const expectedNewTrackId = `v${nextVisualSerial}`;
+  const overlappingMove = await observeEditRevisions(() => dispatchKey({
     key: ']', code: 'BracketRight', windowsVirtualKeyCode: 221
-  }), 450);
-  const lowerAfter = locateItem(await readEdit(), 'lower-third').track.id;
-  await waitFor('overlap rejection notice', `document.querySelector('[data-akari-timeline-notice]')
-    ?.textContent?.includes('重なるアイテムがあるため移動できません') === true`);
+  }), {
+    until: edit => locateItem(edit, 'lower-third')?.track?.id !== lowerBefore
+  });
+  const lowerEditAfter = await readEdit();
+  const lowerAfter = locateItem(lowerEditAfter, 'lower-third').track.id;
+  const lowerTrackIdsAfter = new Set((lowerEditAfter.tracks ?? []).map(track => track.id));
+  const emptyTrackIds = (lowerEditAfter.tracks ?? [])
+    .filter(track => Array.isArray(track.items) && track.items.length === 0)
+    .map(track => track.id);
+  await waitFor('new track notice', `document.querySelector('[data-akari-timeline-notice]')
+    ?.textContent?.includes('を追加しました') === true`);
   const notice = await evalOn(main, `document.querySelector('[data-akari-timeline-notice]')?.textContent ?? ''`);
-  assert(lowerBefore === lowerAfter, 'overlapping lower-third stayed on its source track', { lowerBefore, lowerAfter });
-  assert(blockedMove.writeCount === 0, 'blocked bracket move did not write edit.json', blockedMove);
-  assert(notice.includes('V3 に重なるアイテムがあるため移動できません'),
-    'overlap notice uses the timeline display track name V3', { notice });
+  assert(lowerAfter === expectedNewTrackId && !lowerTrackIdsBefore.has(lowerAfter),
+    'overlapping lower-third moved to the next newly created visual track',
+    { lowerBefore, lowerAfter, expectedNewTrackId, lowerTrackIdsBefore: [...lowerTrackIdsBefore] });
+  assert(overlappingMove.writeCount === 1,
+    'overlapping bracket move persisted exactly one content revision', overlappingMove);
+  assert(/V\d+ を追加しました/.test(notice),
+    'new visual track notice uses a V-number display name', { notice });
+  assert(emptyTrackIds.length === 0 && !lowerTrackIdsAfter.has(lowerBefore),
+    'track normalization removed the emptied source track and left no empty tracks',
+    { lowerBefore, lowerTrackIdsAfter: [...lowerTrackIdsAfter], emptyTrackIds });
   await shot('05-track-move-and-overlap.png');
 
   // 6. Sections replace tabs, follow the fixed order, and info starts collapsed.
