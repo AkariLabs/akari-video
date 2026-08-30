@@ -1,0 +1,292 @@
+{
+  "status": "PASS",
+  "finishedAt": "2026-08-30T10:36:10.624Z",
+  "records": [
+    {
+      "t": "2026-08-30T10:36:06.140Z",
+      "step": "assertion-ok",
+      "message": "timeline opened"
+    },
+    {
+      "t": "2026-08-30T10:36:06.174Z",
+      "step": "assertion-ok",
+      "message": "step1 bag expands to projected children in declaration order",
+      "initialBagRows": [
+        "s01",
+        "s01#A",
+        "s01.B"
+      ]
+    },
+    {
+      "t": "2026-08-30T10:36:06.334Z",
+      "step": "assertion-ok",
+      "message": "click target visible",
+      "selector": "[data-akari-tree-toggle=\"s01\"]",
+      "value": {
+        "left": 224.9140625,
+        "top": 546.9765625,
+        "width": 16,
+        "height": 16.5,
+        "x": 232.9140625,
+        "y": 555.2265625
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-08-30T10:36:06.710Z",
+      "step": "collapse-debug",
+      "stored": {
+        "akari.timeline.collapsed.v1:file:///private/tmp/akari-timeline-tree-l1-workspace.6OZf1a/project:s01": "1"
+      },
+      "toggle": "<button type=\"button\" data-akari-tree-toggle=\"s01\" style=\"width: 16px; min-width: 16px; padding: 0px; border: 0px; background: transparent; color: inherit; cursor: pointer;\">▸</button>",
+      "rows": [
+        "g1",
+        "g1.first",
+        "g1.second",
+        "s01"
+      ]
+    },
+    {
+      "t": "2026-08-30T10:36:06.850Z",
+      "step": "assertion-ok",
+      "message": "click target visible",
+      "selector": "[data-akari-tree-toggle=\"s01\"]",
+      "value": {
+        "left": 224.9140625,
+        "top": 594.9765625,
+        "width": 16,
+        "height": 16.5,
+        "x": 232.9140625,
+        "y": 603.2265625
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-08-30T10:36:07.177Z",
+      "step": "step-1-expand",
+      "rowIds": [
+        "s01",
+        "s01#A",
+        "s01.B"
+      ],
+      "diffLines": 0
+    },
+    {
+      "t": "2026-08-30T10:36:07.179Z",
+      "step": "preview-part-selection",
+      "status": "skipped",
+      "reason": "Explorer icon not found"
+    },
+    {
+      "t": "2026-08-30T10:36:07.384Z",
+      "step": "screenshot",
+      "name": "01-bag-expanded.png"
+    },
+    {
+      "t": "2026-08-30T10:36:07.541Z",
+      "step": "assertion-ok",
+      "message": "click target visible",
+      "selector": "[data-akari-tree-row-id=\"s01.B\"]",
+      "value": {
+        "left": 220.9140625,
+        "top": 592.2265625,
+        "width": 136,
+        "height": 22,
+        "x": 288.9140625,
+        "y": 603.2265625
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-08-30T10:36:07.672Z",
+      "step": "step-2-detach",
+      "trackCount": 5,
+      "exclude": [
+        "C",
+        "B"
+      ],
+      "diffLines": 20
+    },
+    {
+      "t": "2026-08-30T10:36:07.867Z",
+      "step": "screenshot",
+      "name": "02-part-detached.png"
+    },
+    {
+      "t": "2026-08-30T10:36:07.991Z",
+      "step": "assertion-ok",
+      "message": "click target visible",
+      "selector": ".akari-annotations-strip-overlay[data-akari-item-id=\"s01.B\"]",
+      "value": {
+        "left": 361.5078125,
+        "top": 522.2265625,
+        "width": 87.3984375,
+        "height": 22,
+        "x": 405.20703125,
+        "y": 533.2265625
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-08-30T10:36:08.341Z",
+      "step": "step-3-bracket",
+      "tracksBefore": 5,
+      "tracksAfter": 5,
+      "partTrackId": "v6",
+      "diffLines": 8
+    },
+    {
+      "t": "2026-08-30T10:36:08.526Z",
+      "step": "screenshot",
+      "name": "03-bracket-new-track.png"
+    },
+    {
+      "t": "2026-08-30T10:36:08.652Z",
+      "step": "assertion-ok",
+      "message": "click target visible",
+      "selector": ".akari-annotations-strip-overlay[data-akari-item-id=\"s01.B\"]",
+      "value": {
+        "left": 361.5078125,
+        "top": 522.2265625,
+        "width": 87.3984375,
+        "height": 22,
+        "x": 405.20703125,
+        "y": 533.2265625
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-08-30T10:36:09.104Z",
+      "step": "assertion-ok",
+      "message": "click target visible",
+      "selector": ".akari-annotations-strip-overlay[data-akari-item-id=\"plain\"]",
+      "value": {
+        "left": 356.9140625,
+        "top": 507.2265625,
+        "width": 92,
+        "height": 22,
+        "x": 402.9140625,
+        "y": 518.2265625
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-08-30T10:36:09.527Z",
+      "step": "assertion-ok",
+      "message": "step4 children use parent-relative at",
+      "groupId": "g-1"
+    },
+    {
+      "t": "2026-08-30T10:36:09.527Z",
+      "step": "step-4-group",
+      "groupId": "g-1",
+      "childAt": [
+        [
+          "s01.B",
+          6
+        ],
+        [
+          "plain",
+          0
+        ]
+      ],
+      "diffLines": 5
+    },
+    {
+      "t": "2026-08-30T10:36:09.729Z",
+      "step": "screenshot",
+      "name": "04-grouped.png"
+    },
+    {
+      "t": "2026-08-30T10:36:09.854Z",
+      "step": "assertion-ok",
+      "message": "click target visible",
+      "selector": "[data-akari-tree-row-id=\"g-1\"]",
+      "value": {
+        "left": 220.9140625,
+        "top": 508.2265625,
+        "width": 136,
+        "height": 22,
+        "x": 288.9140625,
+        "y": 519.2265625
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-08-30T10:36:10.190Z",
+      "step": "step-5-ungroup",
+      "trackCount": 5,
+      "childTracks": [
+        [
+          "s01.B",
+          "v3"
+        ],
+        [
+          "plain",
+          "v5"
+        ]
+      ],
+      "diffLines": 4
+    },
+    {
+      "t": "2026-08-30T10:36:10.391Z",
+      "step": "screenshot",
+      "name": "05-ungrouped.png"
+    },
+    {
+      "t": "2026-08-30T10:36:10.393Z",
+      "step": "assertion-ok",
+      "message": "step6 untagged overlay row count unchanged",
+      "initialPlainRows": 1,
+      "finalPlainRows": 1
+    },
+    {
+      "t": "2026-08-30T10:36:10.393Z",
+      "step": "assertion-ok",
+      "message": "step6 untagged overlay horizontal chip rect unchanged",
+      "plainBefore": {
+        "left": 356.9140625,
+        "top": 507.2265625,
+        "width": 92,
+        "height": 22,
+        "x": 402.9140625,
+        "y": 518.2265625
+      },
+      "plainAfter": {
+        "left": 356.9140625,
+        "top": 507.2265625,
+        "width": 92,
+        "height": 22,
+        "x": 402.9140625,
+        "y": 518.2265625
+      }
+    },
+    {
+      "t": "2026-08-30T10:36:10.393Z",
+      "step": "step-6-regression",
+      "plainBefore": {
+        "left": 356.9140625,
+        "top": 507.2265625,
+        "width": 92,
+        "height": 22,
+        "x": 402.9140625,
+        "y": 518.2265625
+      },
+      "plainAfter": {
+        "left": 356.9140625,
+        "top": 507.2265625,
+        "width": 92,
+        "height": 22,
+        "x": 402.9140625,
+        "y": 518.2265625
+      },
+      "rowCount": 1,
+      "diffLines": 0
+    },
+    {
+      "t": "2026-08-30T10:36:10.623Z",
+      "step": "screenshot",
+      "name": "06-plain-regression.png"
+    }
+  ]
+}

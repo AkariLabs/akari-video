@@ -72,6 +72,15 @@ export interface TimelineLayerSelection {
     clipName: string;
 }
 
+export interface TimelineTreeItemSelection {
+    kind: 'item';
+    id: string;
+    itemKind: 'group' | 'bag' | 'part' | 'media' | 'caption' | 'captions'
+        | 'telop' | 'filter' | 'item';
+    parentId?: string;
+    trackId: string;
+}
+
 export interface TimelineClipNameInput {
     id: string;
     src?: unknown;
@@ -138,6 +147,7 @@ export interface TimelineMultiSelectionSnapshot {
 
 export type TimelineSelectionTarget =
     | { kind: 'cut'; index: number }
+    | { kind: 'item'; id: string }
     | { kind: Exclude<TimelineItemSelectionSnapshot['kind'], 'cut'>; id: string };
 
 export type TimelineSelectionSnapshot =
@@ -227,6 +237,7 @@ export class TimelineSelectionModel {
     readonly onChanged: Event<void> = this.onChangedEmitter.event;
 
     protected _snapshot: TimelineSelectionSnapshot;
+    protected _treeSelection: TimelineTreeItemSelection | undefined;
     protected _fps = 30;
 
     /**
@@ -248,6 +259,15 @@ export class TimelineSelectionModel {
 
     set snapshot(value: TimelineSelectionSnapshot) {
         this._snapshot = value;
+        this.onChangedEmitter.fire();
+    }
+
+    get treeSelection(): TimelineTreeItemSelection | undefined {
+        return this._treeSelection;
+    }
+
+    set treeSelection(value: TimelineTreeItemSelection | undefined) {
+        this._treeSelection = value;
         this.onChangedEmitter.fire();
     }
 

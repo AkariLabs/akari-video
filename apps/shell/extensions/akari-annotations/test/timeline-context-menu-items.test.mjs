@@ -55,6 +55,16 @@ test('削除項目は常に danger: true を持つ', () => {
     }
 });
 
+test('木アイテムには出す・まとめる・ばらす・折りたたみ・親選択を既存項目の前へ足す', () => {
+    const items = buildTimelineClipMenuItems('overlay', false, {
+        canDetach: true, canGroup: true, canUngroup: true,
+        canToggleCollapse: true, collapsed: false, hasParent: true
+    });
+    assert.deepEqual(items.map(item => item.label), [
+        'コピー', '出す', 'まとめる', 'ばらす', '折りたたむ', '親を選択', '削除'
+    ]);
+});
+
 test('司令塔裁定3: 並びは常にコピー → ペースト → 分割 → 削除の順序を守る', () => {
     const order = { copy: 0, paste: 1, split: 2, delete: 3 };
     for (const kind of ['cut', 'overlay', 'caption', 'layer', 'audio']) {

@@ -9,7 +9,7 @@ export interface AdjacentTrackMove {
     targetTrackId?: string;
     targetTrackLabel?: string;
     atFrames?: number;
-    blockedByOverlap?: boolean;
+    requiresNewTrack?: boolean;
 }
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -41,7 +41,7 @@ export function planAdjacentVisualTrackMove(
         targetTrackId: target.id,
         targetTrackLabel: typeof target.name === 'string' && target.name ? target.name : target.id,
         atFrames: at,
-        blockedByOverlap: overlap
+        requiresNewTrack: overlap
     };
 }
 
