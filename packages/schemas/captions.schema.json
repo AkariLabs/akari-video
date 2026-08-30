@@ -76,7 +76,7 @@
     "textAnchor": {
       "type": "string",
       "enum": ["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"],
-      "description": "9 点アンカー。1 文字目が縦（t/m/b）、2 文字目が横（l/c/r）。"
+      "description": "9 点アンカー。1 文字目が縦（t/m/b）、2 文字目が横（l/c/r）。position.y 指定時の縦成分は b = 下端基準、t = 上端基準、m = 上端近似（中心合わせは未実装）。"
     },
     "textPosition": {
       "type": "object",
@@ -85,7 +85,7 @@
         "x": { "type": "number" },
         "y": { "type": "number" }
       },
-      "description": "フレーム比 0..1 の配置座標。指定した軸だけが効き、未指定の軸は zone / text_anchor に従う。"
+      "description": "フレーム比 0..1 の配置座標。指定した軸だけが効き、未指定の軸は zone / text_anchor に従う。position.y 指定時の text_anchor 縦成分は b = 下端基準、t = 上端基準、m = 上端近似（中心合わせは未実装）。"
     },
     "textShadowStyle": {
       "type": "object",

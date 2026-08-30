@@ -304,6 +304,61 @@ test('captionAnchorPositionVars maps the nine anchors and 0..1 positions like th
   assert.deepEqual(captionAnchorPositionVars(undefined, undefined, undefined), {});
 });
 
+test('captionAnchorPositionVars places bc position.y at the plate bottom edge', () => {
+  assert.deepEqual(captionAnchorPositionVars('bc', { y: 0.905 }, undefined), {
+    '--caption-top': 'auto',
+    '--caption-bottom': '9.5%',
+    '--caption-left': '4%',
+    '--caption-right': '4%',
+    '--caption-align-items': 'center',
+    '--caption-text-align': 'center',
+    '--caption-line-margin': '0',
+    '--caption-line-max-width': '100%',
+  });
+});
+
+test('captionAnchorPositionVars combines bl bottom-edge y with explicit x', () => {
+  assert.deepEqual(captionAnchorPositionVars('bl', { x: 0.1, y: 0.9 }, undefined), {
+    '--caption-top': 'auto',
+    '--caption-bottom': '10%',
+    '--caption-left': '10%',
+    '--caption-right': '4%',
+    '--caption-align-items': 'flex-start',
+    '--caption-line-margin': '0',
+  });
+});
+
+test('captionAnchorPositionVars uses bottom-edge y for explicit bottom vertical alignment', () => {
+  assert.deepEqual(captionAnchorPositionVars(undefined, { y: 0.905 }, 'bottom'), {
+    '--caption-top': 'auto',
+    '--caption-bottom': '9.5%',
+  });
+});
+
+test('captionAnchorPositionVars keeps position-only y top-based', () => {
+  assert.deepEqual(captionAnchorPositionVars(undefined, { y: 0.38 }, undefined), {
+    '--caption-top': '38%',
+    '--caption-bottom': 'auto',
+  });
+});
+
+test('captionAnchorPositionVars keeps middle-anchor y as the top approximation', () => {
+  assert.deepEqual(captionAnchorPositionVars('mc', { y: 0.5 }, undefined), {
+    '--caption-top': '50%',
+    '--caption-bottom': 'auto',
+    '--caption-left': '4%',
+    '--caption-right': '4%',
+    '--caption-align-items': 'center',
+    '--caption-text-align': 'center',
+    '--caption-line-margin': '0',
+    '--caption-line-max-width': '100%',
+  });
+});
+
+test('captionAnchorPositionVars clamps bottom-anchor y before computing the bottom offset', () => {
+  assert.equal(captionAnchorPositionVars('bc', { y: 1.5 }, undefined)['--caption-bottom'], '0%');
+});
+
 test('resolveCaptionStyleForOutput emits anchor/position vars unless a reference-pixel layout owns the geometry', () => {
   const anchored = resolveCaptionStyleForOutput({ text_anchor: 'tc', position: { y: 0.5 } }, undefined);
   assert.equal(anchored.vars['--caption-top'], '50%');
