@@ -135,20 +135,29 @@ test("caption difference summaries keep deterministic top 20 by absolute delta",
 
 test("caption measurement roots are frozen in the same settled state the raster uses", () => {
   const build = functionSource("buildCaptionUnits");
-  // The plate carries an entrance animation (akari-caption-fade translates it by 0.18em). The raster
-  // pins it with settleCss; measuring without settleCss samples the live transform at an arbitrary
-  // point, which is what made the strict two-in-a-row equality never converge on real projects.
+  const stable = functionSource("measureCaptionVariantsStable");
+  const key = functionSource("captionMeasurementKey");
+  // Measurement and raster must observe the same settled state, while the measurement rule stays
+  // scoped to its hidden root so it cannot pause unrelated page animation.
   assert.match(build, /const settleCss = `\*\{animation-play-state:paused!important;animation-delay:-\$\{[^`]+\}s!important\}`;/u);
-  assert.match(build, /const measureCss = `\$\{CAPTION_WORD_FREEZE_CSS\}\$\{settleCss\}`;/u);
-  assert.match(build, /captionRoot\(value, config, html, measureCss\)/u);
-  assert.match(build, /const unitCss = `\$\{measureCss\}\$\{captionUnitCss\(revealIndex\)\}`;/u);
-  const measurementCssLiterals = [...build.matchAll(/\[`\$\{(\w+)\}[^\]]*\],\n\s*unitIndex,/gu)].map((match) => match[1]);
-  assert.deepEqual(measurementCssLiterals, ["measureCss", "measureCss"]);
-  // Nothing may reach a measurement root with only the word freeze applied.
-  const withoutDefinition = build.replace(/const measureCss = `[^`]+`;/u, "");
-  assert.equal(/\$\{CAPTION_WORD_FREEZE_CSS\}\$\{/u.test(withoutDefinition), false);
-  // The raster bands keep settleCss, so measurement and raster agree by construction.
-  assert.match(build, /bandCss = \[`\$\{settleCss\}/u);
+  assert.match(build, /const measureSettleCss = `\.\$\{CAPTION_MEASURE_ROOT_CLASS\} \*\{animation-play-state:paused!important;animation-delay:-\$\{[^`]+\}s!important\}`;/u);
+
+  const freezeUses = build.match(/\$\{CAPTION_WORD_FREEZE_CSS\}/gu) ?? [];
+  const settledFreezeUses = build.match(/\$\{CAPTION_WORD_FREEZE_CSS\}\$\{measureSettleCss\}/gu) ?? [];
+  assert.equal(freezeUses.length, 6);
+  assert.equal(settledFreezeUses.length, 6);
+
+  const bandAssignments = [...build.matchAll(/bandCss = \[([^\n]+)\];/gu)].map((match) => match[1]);
+  assert.equal(bandAssignments.length, 4);
+  assert.equal(bandAssignments.every((assignment) => assignment.includes("${settleCss}")), true);
+  assert.equal(bandAssignments.some((assignment) => assignment.includes("measureSettleCss")), false);
+
+  assert.match(key, /function captionMeasurementKey\(value, config, html, cssVariants, unitIndex\)/u);
+  assert.match(key, /\n\s*cssVariants,\n/u);
+  assert.match(stable, /const contentKey = captionMeasurementKey\(value, config, html, cssVariants, unitIndex\);/u);
+  const stableResultKeys = [...stable.matchAll(/stableResults\.(?:has|get|set)\(([^,)]+)/gu)].map((match) => match[1]);
+  assert.deepEqual(stableResultKeys, ["contentKey", "contentKey", "contentKey"]);
+  assert.match(stable, /if \(!faultInjected\) error\.lastMeasurement = sequence\.at\(-1\);/u);
 });
 
 test("caption batches preserve order and split at eight units or 4096 pixels", () => {

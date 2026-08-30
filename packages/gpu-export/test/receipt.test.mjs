@@ -74,6 +74,80 @@ test("GPU receipt carries caption measurement and raster batch diagnostics", () 
   assert.deepEqual(empty.gpu.captionMeasureAttempts, { count: 0, p50: null, max: null });
 });
 
+test("GPU receipt normalizes caption startup diagnostics", () => {
+  const captionStartup = {
+    totalMs: 345.5,
+    fontEncodeMs: 12.25,
+    fontBase64Bytes: 12_800_000,
+    measure: {
+      stableCalls: 44,
+      reusedStableCalls: 6,
+      passes: 88,
+      variantMeasurements: 132,
+      totalMs: 300.5,
+      p50: 3.5,
+      p95: 7.25,
+      max: 9.5,
+      fontWaitMs: 40.5,
+      layoutMs: 240.25,
+      rootMs: 10.75,
+      distinctKeys: 42,
+      duplicatePasses: 46,
+      degradedUnits: 2,
+      faultInjected: true,
+    },
+    raster: {
+      batches: 6,
+      bands: 52,
+      units: 44,
+      svgBuildMs: 15.5,
+      svgChars: 456_789,
+      assertMs: 4.25,
+      srcAssignMs: 120.5,
+      decodeMs: 20_500.75,
+      sheetDrawMs: 1_250.5,
+      drawImageMs: 80.25,
+      registerMs: 35.75,
+      totalMs: 20_800.5,
+      prefetchedBatches: 5,
+      prefetchMs: 18_000.25,
+    },
+  };
+  const receipt = buildGpuReceipt({ run: { gpu: { captionStartup } } });
+  assert.deepEqual(receipt.gpu.captionStartup, captionStartup);
+  const emptyMeasure = { ...captionStartup, measure: {
+    stableCalls: 0,
+    reusedStableCalls: 0,
+    passes: 0,
+    variantMeasurements: 0,
+    totalMs: 0,
+    p50: null,
+    p95: null,
+    max: null,
+    fontWaitMs: 0,
+    layoutMs: 0,
+    rootMs: 0,
+    distinctKeys: 0,
+    duplicatePasses: 0,
+    degradedUnits: 0,
+    faultInjected: false,
+  } };
+  assert.deepEqual(buildGpuReceipt({ run: { gpu: { captionStartup: emptyMeasure } } }).gpu.captionStartup, emptyMeasure);
+});
+
+test("GPU receipt rejects malformed caption startup diagnostics", () => {
+  assert.equal(buildGpuReceipt({ run: { gpu: { captionStartup: "invalid" } } }).gpu.captionStartup, null);
+  assert.equal(buildGpuReceipt({
+    run: { gpu: { captionStartup: {
+      totalMs: -1,
+      fontEncodeMs: 0,
+      fontBase64Bytes: 0,
+      measure: {},
+      raster: {},
+    } } },
+  }).gpu.captionStartup, null);
+});
+
 test("GPU receipt rejects caption modes outside sprite and words-native", () => {
   assert.throws(() => buildGpuReceipt({
     run: { gpu: { captions: [{ id: "c-0001-01", mode: "karaoke", units: 1, words: 1, rasters: 2, tiles: 3 }] } },

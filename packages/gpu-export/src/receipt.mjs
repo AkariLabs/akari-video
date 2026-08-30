@@ -31,6 +31,7 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       captionMeasureDiffs: normalizeCaptionMeasureDiffSummary(run?.gpu?.captionMeasureDiffs),
       captionRasterTotalMs: finiteNonNegative(run?.gpu?.captionRasterTotalMs),
       captionRasterBatches: normalizeBatchSummary(run?.gpu?.captionRasterBatches),
+      captionStartup: normalizeCaptionStartup(run?.gpu?.captionStartup),
       domLayer: run?.domLayer ?? null,
       eligibility: [...(eligibility?.entries ?? [])],
     },
@@ -97,6 +98,73 @@ function normalizeCaptionMeasureDiffSummary(value) {
     truncated: Boolean(value.truncated),
     entries: value.entries.map((entry) => ({ ...entry })),
   };
+}
+
+function normalizeCaptionStartup(value) {
+  if (!value || typeof value !== "object") return null;
+  const totalMs = finiteNonNegative(value.totalMs);
+  const fontEncodeMs = finiteNonNegative(value.fontEncodeMs);
+  const fontBase64Bytes = nonNegativeInteger(value.fontBase64Bytes);
+  const measure = normalizeCaptionStartupMeasure(value.measure);
+  const raster = normalizeCaptionStartupRaster(value.raster);
+  return totalMs === null || fontEncodeMs === null || fontBase64Bytes === null || measure === null || raster === null
+    ? null
+    : { totalMs, fontEncodeMs, fontBase64Bytes, measure, raster };
+}
+
+function normalizeCaptionStartupMeasure(value) {
+  if (!value || typeof value !== "object") return null;
+  const stableCalls = nonNegativeInteger(value.stableCalls);
+  const reusedStableCalls = nonNegativeInteger(value.reusedStableCalls);
+  const passes = nonNegativeInteger(value.passes);
+  const variantMeasurements = nonNegativeInteger(value.variantMeasurements);
+  const totalMs = finiteNonNegative(value.totalMs);
+  const empty = passes === 0 && value.p50 === null && value.p95 === null && value.max === null;
+  const p50 = empty ? null : finiteNonNegative(value.p50);
+  const p95 = empty ? null : finiteNonNegative(value.p95);
+  const max = empty ? null : finiteNonNegative(value.max);
+  const fontWaitMs = finiteNonNegative(value.fontWaitMs);
+  const layoutMs = finiteNonNegative(value.layoutMs);
+  const rootMs = finiteNonNegative(value.rootMs);
+  const distinctKeys = nonNegativeInteger(value.distinctKeys);
+  const duplicatePasses = nonNegativeInteger(value.duplicatePasses);
+  const degradedUnits = nonNegativeInteger(value.degradedUnits);
+  const faultInjected = typeof value.faultInjected === "boolean" ? value.faultInjected : null;
+  return [stableCalls, reusedStableCalls, passes, variantMeasurements, totalMs, fontWaitMs, layoutMs, rootMs,
+    distinctKeys, duplicatePasses, degradedUnits, faultInjected]
+    .some((entry) => entry === null)
+      || (!empty && [p50, p95, max].some((entry) => entry === null))
+    ? null
+    : {
+        stableCalls, reusedStableCalls, passes, variantMeasurements, totalMs, p50, p95, max,
+        fontWaitMs, layoutMs, rootMs, distinctKeys, duplicatePasses, degradedUnits, faultInjected,
+      };
+}
+
+function normalizeCaptionStartupRaster(value) {
+  if (!value || typeof value !== "object") return null;
+  const batches = nonNegativeInteger(value.batches);
+  const bands = nonNegativeInteger(value.bands);
+  const units = nonNegativeInteger(value.units);
+  const svgBuildMs = finiteNonNegative(value.svgBuildMs);
+  const svgChars = nonNegativeInteger(value.svgChars);
+  const assertMs = finiteNonNegative(value.assertMs);
+  const srcAssignMs = finiteNonNegative(value.srcAssignMs);
+  const decodeMs = finiteNonNegative(value.decodeMs);
+  const sheetDrawMs = finiteNonNegative(value.sheetDrawMs);
+  const drawImageMs = finiteNonNegative(value.drawImageMs);
+  const registerMs = finiteNonNegative(value.registerMs);
+  const totalMs = finiteNonNegative(value.totalMs);
+  const prefetchedBatches = nonNegativeInteger(value.prefetchedBatches);
+  const prefetchMs = finiteNonNegative(value.prefetchMs);
+  return [batches, bands, units, svgBuildMs, svgChars, assertMs, srcAssignMs, decodeMs, sheetDrawMs,
+    drawImageMs, registerMs, totalMs, prefetchedBatches, prefetchMs]
+    .some((entry) => entry === null)
+    ? null
+    : {
+        batches, bands, units, svgBuildMs, svgChars, assertMs, srcAssignMs, decodeMs, sheetDrawMs,
+        drawImageMs, registerMs, totalMs, prefetchedBatches, prefetchMs,
+      };
 }
 
 function nonNegativeInteger(value) {
