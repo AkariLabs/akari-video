@@ -9552,8 +9552,14 @@ body { display: grid; place-items: center; padding: 32px; }
                 const segment = segments[index];
                 if (frameEngineMediaIdle) {
                     applyCutVisual(segment);
-                    // engine 面は生成 CSS が土台 video を隠す。インライン指定は
-                    // cutVisualHidden を常時 true にするため、ここでは設定しない。
+                    // engine 面では frame engine 起動前の tick() → applyCutsMuteState() が
+                    // インライン visibility='hidden' を書き残す（起動後の tick() は
+                    // frameEngineClock があると早期 return するので二度と上書きされない）。
+                    // 残留値を空へ戻さないと cutVisualHidden が常時 true のままになり、
+                    // カット選択枠（#cut-select-box）が出せない。画面上は生成 CSS
+                    // #preview-stage[data-frame-engine-active="true"] #preview-video の
+                    // visibility: hidden !important が隠し続けるので土台 video は出ない。
+                    video.style.visibility = '';
                     hideStillImage();
                     gapWallClockOriginMs = performance.now();
                     gapOutputOrigin = outputTime;
