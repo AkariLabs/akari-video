@@ -149,9 +149,15 @@ akari capture [-p <project>] (-t <time…> | --auto) [--separate] [--full] [--pe
 
 ### 9.3 一致の物差し（v1）
 
-- **capture(engine, N) ≡ 書き出し(同じ engine) のフレーム N**。比較先は同じ `--engine` で書き出した mp4 から `-ss` で抜いたフレーム。
-  書き出しは非可逆なので許容値は既存の v2 パリティ基準（overlay 矩形 MAD ≤ 1.0）に揃え、§4 の「平均絶対差 ≤ 2/255・最大差画素 < 0.1%」は
-  可逆比較ができる経路（gpu の読み戻し同士）でだけ要求する
+- **capture(engine, N) ≡ 書き出し(同じ engine) のフレーム N**。
+  **第一基準（2026-08-30 改訂）= 可逆比較**: 書き出しが**エンコーダへ渡す直前の生フレーム**（osr は `stripStampRow` 後の BGRA・
+  `AKARI_OSR_DUMP_FRAMES` で dump できる）と capture の PNG を突き合わせ、**MAD 0・maxDelta 0・差分画素 0%**（bit 一致）を要求する。
+  これが §0 の物差しそのもの
+- **参考値 = mp4 由来の比較**: 同じ `--engine` で書き出した mp4 からフレーム N を抜いた比較は、H.264 4:2:0 の符号化損失を
+  含むため**合否基準にしない**（実測: 彩度最大のカラーバー素材で overlay 矩形 MAD 2.9〜3.5・全画面 1.1〜1.7 が符号化損失だけで出る。
+  可逆比較は同時に MAD 0）。report には参考として載せる
+- gpu 側に生フレームの dump 機構が無い間は、①mp4 由来 MAD が osr と同レンジ ②2 走バイト一致 ③overlay 無しフレームで osr capture と
+  SHA 一致、の 3 点で代替してよい（dump 機構の新設は別票）
 - **同一性の構造的証明**: capture と書き出しが**同じ page-builder・同じ page-runtime・同じ verify**を通ることをコードで示す
   （capture 専用の合成式・専用のページを持たない）。`grep` で capture が `plan.commands` を参照しないこと（legacy 経路以外）
 - 決定論: 同じ入力で 2 回撮ってバイト一致（osr は GPU 依存の差が出うるため、既存の osr 決定論基準〔HW 2 走 SHA〕に従う）
@@ -165,5 +171,6 @@ akari capture [-p <project>] (-t <time…> | --auto) [--separate] [--full] [--pe
 
 ## 8. 変更履歴
 
+- 2026-08-30（同日 2 回目）: §9.3 の一致基準を改訂 — 可逆比較（エンコーダ入力の生フレームと bit 一致）を第一基準に、mp4 由来の MAD ≤ 1.0 は符号化損失で機能しないため参考値へ（実装レーン `2026-08-30-capture-v2-engine` の実測）
 - 2026-08-30: §9 v1 改訂 — v2 経路（osr / gpu の page runtime でフレーム N を単発評価）へ載せ替え。v0 が legacy 固定だった事実と実案件 18m50s を記録。シートは media の共用関数へ
 - 2026-08-29: v0 起草（オーナー裁定「render-cut を呼ばずに重なった完成絵を確認したい」「サムネイルにも」を反映。裁定の経緯は非公開の内部記録で管理）
