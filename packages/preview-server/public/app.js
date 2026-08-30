@@ -388,6 +388,9 @@ function updateStageScale() {
     el.style.height = `${os.height}px`;
     el.style.transformOrigin = '0 0';
     el.style.transform = `scale(${frameScale})`;
+    // 断片の vw/vh 系単位の解決先（viewport-units.js）。ステージの論理サイズ = 出力サイズを
+    // 変数として置き、書き出し（出力サイズちょうどの viewport）と同じ意味にする。
+    window.akari?.viewportUnits?.applyStageVariables(el, os);
   }
   // 出力フレームの境界線。ペインが出力比より横長／縦長だと周囲が黒帯になり、断片の背景が
   // 「途中で黒く切れている」ように見える（実機報告 2026-08-07 — 実際はレターボックス）。
@@ -3422,6 +3425,11 @@ function createOverlayRuntime() {
     rec.is3d = Boolean(scene);
     rec.needsThreeText = Boolean(scene?.textContent?.includes('"texts"'));
   }
+  // 断片の vw/vh 系単位をステージ基準へ（viewport-units.js。shell の overlay-runtime と同じ）。
+  // プレビューはステージを scale() で縮めるため、素の vw はウィンドウ幅基準となり書き出しとずれる。
+  function applyViewportUnits(el) {
+    window.akari?.viewportUnits?.applyAll(el);
+  }
   function mount(s) {
     unmount();
     if (!Array.isArray(s?.overlays)) return;
@@ -3467,6 +3475,7 @@ function createOverlayRuntime() {
           .then(html => {
             if (generation !== mountGeneration) return;
             c.innerHTML = html || '';
+            applyViewportUnits(c);
             markThreeOverlay(rec);
             window.akari.interaction?.invalidateOverlayHitPolicy?.(c);
             rec.hitPolicyPending = rec.visible;
@@ -3475,6 +3484,7 @@ function createOverlayRuntime() {
         fragmentLoads.push(load);
       } else {
         c.innerHTML = rawHtml;
+        applyViewportUnits(c);
         markThreeOverlay(rec);
       }
       frag.appendChild(c);

@@ -1189,6 +1189,42 @@
       "slot-a の編集後も同じテンプレを参照する slot-b の表示は変わらない"
     );
 
+    // ---- 7) vw/vh 系単位のステージ基準化（viewport-units.js） ----
+    // プレビューはステージを scale() で縮めるため、素の vw はウィンドウ幅基準になり
+    // 書き出し（出力サイズちょうどの viewport）とずれる。mount がステージ変数を定義し、
+    // 断片の <style> / style="" を書き換えることで、ウィンドウ幅に関係なく
+    // 1vw = output.width / 100 px（1280 → 12.8px）で解決されることを確認する。
+    assert(
+      typeof window.akari?.viewportUnits?.applyAll === "function",
+      "viewport-units.js が window.akari.viewportUnits.applyAll を公開している"
+    );
+    window.akari.runtime.tick(405, true);
+    assert(
+      stage.style.getPropertyValue("--akari-vw") === "12.8px" &&
+        stage.style.getPropertyValue("--akari-vh") === "7.2px",
+      "mount(): #overlay-stage に --akari-vw=12.8px / --akari-vh=7.2px が定義される（1280x720）"
+    );
+    const vwRoot = stage.querySelector('[data-overlay-id="cap-vw"] .cap-vw-root');
+    const vwBox = vwRoot.querySelector(".box");
+    const vwBoxStyle = getComputedStyle(vwBox);
+    const vwRootStyle = getComputedStyle(vwRoot);
+    assert(
+      vwBoxStyle.fontSize === "128px",
+      `<style> の font-size: 10vw が 128px（= 1280 × 10%）で解決される（実際: ${vwBoxStyle.fontSize}、window.innerWidth=${window.innerWidth}）`
+    );
+    assert(
+      vwBoxStyle.paddingTop === "14.4px" && vwBoxStyle.paddingLeft === "7.2px" && vwBoxStyle.marginLeft === "64px",
+      `vh / vmin / clamp() 内の vmax も出力サイズ基準（padding ${vwBoxStyle.paddingTop} ${vwBoxStyle.paddingLeft}、margin-left ${vwBoxStyle.marginLeft}）`
+    );
+    assert(
+      vwRootStyle.width === "640px" && vwRootStyle.height === "180px",
+      `style="" 属性の width: 50vw / height: 25vh も 640x180（実際: ${vwRootStyle.width} x ${vwRootStyle.height}）`
+    );
+    assert(
+      vwRoot.querySelector("style").textContent.includes("@media (min-width: 10vw)"),
+      "@media プレリュードの vw は書き換えない（var() が使えず条件式ごと無効になるため）"
+    );
+
     // CDP/L1 スクリーンショットの最終画面を resize 対象へ戻し、直近の実測ログが
     // 見える位置までスクロールする（テスト結果そのものは上の数値アサーション）。
     window.akari.runtime.tick(145, true);

@@ -128,6 +128,9 @@ Three.js + glTF シーンを決定的な時刻で描画し（`three-runtime.js`�
   `{ ok, detail }` を返す自己診断（`src/interaction.js`。リスナー自体は読み込み時に
   自動登録され、`selftest` 以外は公開 API を持たない）
 - `window.akari.minimap.update()` / `.state()`（`src/minimap.js`）
+- `window.akari.viewportUnits.rewriteCssText(css)` / `.applyAll(root)` /
+  `.stageVariables(output)` / `.applyStageVariables(stageEl, output)`（`src/viewport-units.js`）。
+  断片 CSS の `vw` / `vh` 系単位をステージ（出力サイズ）基準で解決させる書き換え（下記）
 
 ### ライブプレビュー向け 3D premount
 
@@ -175,6 +178,28 @@ runtime.configure({ premount: false }); // 無効化
 旧バージョン（`data-mirror` 未知）でも断片は全層に同一テキストを焼いて出荷される前提の
 ため初期表示は正しいが、ライブ編集の層間同期は v0.2.0 以降でのみ効く。
 
+### ビューポート単位のステージ基準化（`vw` / `vh` 系、2026-08-31〜）
+
+断片の CSS に書いた `vw` / `vh` / `vmin` / `vmax`（`dvw` 等の接頭辞付き・`vi` / `vb` も）は
+ブラウザ仕様どおり**ウィンドウの viewport** を基準に解決される。書き出し
+（`packages/render-cut/src/rasterize.mjs`）は出力サイズちょうどの viewport でシートを描くので
+正しいが、プレビューは `#overlay-stage` を出力 px の論理サイズで作り `transform: scale()` で
+ペインへ収めるため、ステージの px 寸法とウィンドウ幅が一致せず `vw` の意味が書き出しと
+ずれていた（書き出しが正しく、プレビューが嘘をつく。2026-08-31 実機報告）。
+
+ランタイム側で完結させる（断片は書き換えない・`<script>` も要らない）:
+
+| 契機 | 動作 |
+|---|---|
+| `mount()` 冒頭 | `#overlay-stage` に `--akari-vw` / `--akari-vh` / `--akari-vmin` / `--akari-vmax` を `summary.output` から定義（1280x720 → `12.8px` / `7.2px`） |
+| 断片注入直後 | `<style>` と `style=""` の `<数値><単位>` を `calc(<数値> * var(--akari-vw, 1vw))` へ書き換える（冪等） |
+
+書き換えないもの: `@media` / `@container` / `@supports` 等の at-rule プレリュード
+（`var()` が使えず、書き換えると条件式ごと無効になる）、文字列リテラル、`url(...)`、
+コメント。フォールバック `1vw` は `--akari-*` を定義しない別ホストで従来挙動へ退避するため
+のもので、本番のプレビュー（shell / Web）では必ず定義される。shell は `viewport-units.js` を
+`runtimeJavaScript`（`slot-params.js` + `overlay-runtime.js` の連結）へ同梱して注入する。
+
 ## ディレクトリ
 
 ```
@@ -187,6 +212,7 @@ src/
   vendor/matter-js-LICENSE.txt          matter-js の MIT License
   vendor/poly-decomp-LICENSE.txt        poly-decomp の MIT License
   three-runtime.js     宣言型 3D scene の load / setTime / render / dispose
+  viewport-units.js    断片 CSS の vw/vh 系単位をステージ（出力サイズ）基準へ書き換え
   overlay-runtime.js   DOM mount/tick と 3D 可視ライフサイクル
   interaction.js       legacy ui/interaction.js を無改変移送
   interaction.css       legacy ui/interaction.css を無改変移送

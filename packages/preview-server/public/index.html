@@ -223,6 +223,9 @@ input[type=range] { width: 100%; }
      esbuild バンドル。旧 391 行フォーク（overlay-interaction.js）は Phase 2-4 で廃棄 -->
 <script src="/overlay-interaction.bundle.js"></script>
 <script src="/video-fx.js"></script>
+<!-- ビューポート単位（vw/vh 系）のステージ基準化。app.js が mount 時に断片へ適用する
+     （packages/overlay-runtime/src/viewport-units.js。shell は同じ物を webview へインライン注入） -->
+<script src="/viewport-units.js"></script>
 <script type="module" src="/app.js"></script>
 </body>
 </html>

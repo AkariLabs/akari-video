@@ -85,6 +85,10 @@ const THREE_ROUTES = {
   '/vendor-3d-text-bundle.js': fileURLToPath(new URL('../../overlay-runtime/src/vendor/vendor-3d-text-bundle.js', import.meta.url)),
   '/three-runtime.js': fileURLToPath(new URL('../../overlay-runtime/src/three-runtime.js', import.meta.url)),
   '/video-fx.js': fileURLToPath(new URL('../../overlay-runtime/src/video-fx.js', import.meta.url)),
+  // ビューポート単位（vw/vh 系）のステージ基準化。プレビューはステージを scale() で縮めるので
+  // 素の vw はウィンドウ幅基準になり書き出しとずれる。app.js が mount 時に断片へ適用し、
+  // updateStageScale がステージ変数（--akari-vw 等）を定義する。shell も同じ物をインライン注入する。
+  '/viewport-units.js': fileURLToPath(new URL('../../overlay-runtime/src/viewport-units.js', import.meta.url)),
 };
 const PROXY_DIR = path.join(projectRoot, '.proxy');
 

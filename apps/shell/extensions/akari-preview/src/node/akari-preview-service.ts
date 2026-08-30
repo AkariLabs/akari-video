@@ -221,8 +221,12 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 threeRuntimeJavaScript: readFileSync(resolve(directory, 'three-runtime.js'), 'utf8'),
                 videoFxJavaScript: readFileSync(resolve(directory, 'video-fx.js'), 'utf8'),
                 // slot-params.js は preview mount と render-cut rasterize が共有する唯一の注入実装。
-                // runtimeJavaScript の先頭へ同梱し、公開プロトコルの資産フィールドは増やさない。
+                // viewport-units.js は断片 CSS の vw/vh 系単位をステージ（出力サイズ）基準で解決する
+                // 書き換え（overlay-runtime.js の mount が使う）。どちらも runtimeJavaScript の先頭へ
+                // 同梱し、公開プロトコルの資産フィールドは増やさない。
                 runtimeJavaScript: `${readFileSync(resolve(directory, 'slot-params.js'), 'utf8')}\n${
+                    readFileSync(resolve(directory, 'viewport-units.js'), 'utf8')
+                }\n${
                     readFileSync(resolve(directory, 'overlay-runtime.js'), 'utf8')
                 }`,
                 interactionJavaScript: readFileSync(resolve(directory, 'interaction.js'), 'utf8'),

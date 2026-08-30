@@ -10,6 +10,7 @@
 |---|---|---|
 | 2026-08-02 | v0 | Web UI と shell の挙動仕様を統合 |
 | 2026-08-28 | v2 | `packages/frame-engine` の意味論へ統合し、検収をゴールデンフレームへ一本化。出口を OSR と GPU 直結の 2 本に固定し、互換経路を退役節へ移動 |
+| 2026-08-31 | v2.1 | §5.2 に断片 CSS の `vw` / `vh` 系単位の出力サイズ基準化（`viewport-units.js`。プレビューがウィンドウ幅基準で解いていた実機報告の修正）を追記 |
 
 ## 1. 役割分担
 
@@ -241,6 +242,14 @@ legacy 合成経路は、移行中の既存利用者と Windows を支えるた�
 `overlays[].html` は、値が `<` で始まればインライン HTML、それ以外は
 `edit.json` のあるディレクトリからの相対ファイルパスとして解決する。`vars` は `--` で始まるキーだけを
 CSS カスタムプロパティとして overlay root へ適用し、それ以外のキーは DOM や JavaScript へ注入しない。
+
+断片 CSS の `vw` / `vh` / `vmin` / `vmax`（`dvw` 等の接頭辞付き・`vi` / `vb` 含む）は**出力サイズ基準**で
+解決する（`1vw` = `output.width / 100` px）。書き出しは出力サイズちょうどの viewport で overlay sheet を
+描くので素のままで正しいが、器のプレビューはステージを `scale()` でペインへ収めるため素の `vw` は
+ウィンドウ幅基準になってしまう。器は mount 時に `packages/overlay-runtime/src/viewport-units.js` で
+`<style>` / `style=""` の `<数値><単位>` を `calc(<数値> * var(--akari-vw, 1vw))` へ書き換え、ステージ要素に
+`--akari-vw` 等（出力サイズ / 100 px）を定義して一致させる（2026-08-31。shell / Web 共通。`@media` 等の
+プレリュード・文字列・`url()` は書き換えない）。
 
 ### 5.3 書き込み経路
 
