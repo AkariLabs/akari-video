@@ -11,6 +11,7 @@ import { verifyEncodedVideo } from "./ffprobe.mjs";
 import { createMemorySampler, resolveMemoryBudget } from "./memory.mjs";
 import { captureNonEmptyBitmap } from "./paint-bitmap.mjs";
 import { loadAndBuildOsrPage } from "./page-builder.mjs";
+import { encodeBgraPng } from "./png.mjs";
 import { startStaticServer } from "./static-server.mjs";
 import { stripStampRow, verifyStamp } from "./stamp.mjs";
 
@@ -20,6 +21,7 @@ const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 export async function runOsrExport(options) {
   const {
     projectRoot,
+    editPath = null,
     out,
     fps = 30,
     width = 1920,
@@ -51,7 +53,15 @@ export async function runOsrExport(options) {
   app.on("window-all-closed", () => {});
   if (!app.isReady()) await app.whenReady();
 
-  const built = await loadAndBuildOsrPage({ projectRoot, fps, width, height, duration, stampRow: true });
+  const built = await loadAndBuildOsrPage({
+    projectRoot,
+    editPath: editPath ?? join(projectRoot, "edit.json"),
+    fps,
+    width,
+    height,
+    duration,
+    stampRow: true,
+  });
   const server = await startStaticServer({
     pageHtml: built.html,
     overlaySheetHtml: built.overlaySheetHtml,
@@ -111,59 +121,46 @@ export async function runOsrExport(options) {
     for (let frame = 0; frame < frames; frame += 1) {
       if (fatalMemoryError) throw fatalMemoryError;
       if (rendererFailure) throw rendererFailure;
-      const seconds = frame / fps;
-      const seekStarted = performance.now();
-      await windowRef.webContents.executeJavaScript(`window.__akariSeek(${JSON.stringify(seconds)},${frame})`);
-      stages.seek.push(performance.now() - seekStarted);
-
-      let captured = await captureNonEmptyBitmap({
-        frame, width, height,
-        capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
-        settle: () => settle(windowRef),
-        onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
+      const capturedFrame = await captureFrameBitmap({
+        windowRef,
+        frame,
+        fps,
+        width,
+        height,
+        verify,
+        paintTimeoutMs,
+        paintTimeouts,
+        emptyPaints,
       });
-      stages.paint.push(captured.paintMs);
-      let bitmap = captured.bitmap;
-      stages.toBitmap.push(captured.toBitmapMs);
-
-      const verifyStarted = performance.now();
-      const preCheck = verifyStamp(bitmap, width, height, frame);
+      stages.seek.push(capturedFrame.seekMs);
+      stages.paint.push(capturedFrame.paintMs);
+      stages.toBitmap.push(capturedFrame.toBitmapMs);
+      let bitmap = capturedFrame.bitmap;
+      const preCheck = capturedFrame.preCheck;
       const delta = signedDelta(preCheck.frameNumber, preCheck.expectedFrameNumber, 65_536);
       preVerifyDeltaHistogram[String(delta)] = (preVerifyDeltaHistogram[String(delta)] ?? 0) + 1;
-      let retries = 0;
-      if (verify === "stamp") {
-        while (!verifyStamp(bitmap, width, height, frame).exact && retries < 8) {
-          await settle(windowRef);
-          captured = await captureNonEmptyBitmap({
-            frame, width, height,
-            capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
-            settle: () => settle(windowRef),
-            onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
-          });
-          bitmap = captured.bitmap;
-          retries += 1;
-        }
-        if (!verifyStamp(bitmap, width, height, frame).exact) throw new Error(`frame ${frame} stamp verify failed after ${retries} retries`);
-      } else if (verify === "hash") {
+      let retries = capturedFrame.retries;
+      const hashVerifyStarted = performance.now();
+      if (verify === "hash") {
         let hash = sha256(stripStampRow(bitmap, width, height));
         while (lastAcceptedHash !== null && hash === lastAcceptedHash && retries < 8) {
           await settle(windowRef);
-          captured = await captureNonEmptyBitmap({
+          const retryCapture = await captureNonEmptyBitmap({
             frame, width, height,
             capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
             settle: () => settle(windowRef),
             onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
           });
-          bitmap = captured.bitmap;
+          bitmap = retryCapture.bitmap;
           hash = sha256(stripStampRow(bitmap, width, height));
           retries += 1;
         }
         if (lastAcceptedHash !== null && hash === lastAcceptedHash) hashPolicyAmbiguous += 1;
         lastAcceptedHash = hash;
       }
+      stages.verify.push(capturedFrame.verifyMs + (verify === "hash" ? performance.now() - hashVerifyStarted : 0));
       retriesTotal += retries;
       retryHistogram[String(retries)] = (retryHistogram[String(retries)] ?? 0) + 1;
-      stages.verify.push(performance.now() - verifyStarted);
 
       const writeStarted = performance.now();
       const videoFrame = stripStampRow(bitmap, width, height);
@@ -231,11 +228,166 @@ export async function runOsrExport(options) {
   }
 }
 
+export async function runOsrCapture(options) {
+  const {
+    projectRoot,
+    editPath = null,
+    out,
+    outputDirectory,
+    frameNumbers,
+    fps = 30,
+    width = 1920,
+    height = 1080,
+    duration,
+    frames = Math.round(duration * fps),
+    soft = false,
+    paintTimeoutMs = 10_000,
+  } = options;
+  const requestedFrames = normalizeCaptureFrames(frameNumbers, frames);
+  if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(frames) || frames <= 0) {
+    throw new Error("OSR capture duration and frame count must be positive");
+  }
+  if (!out || !outputDirectory) throw new Error("OSR capture requires out and outputDirectory");
+
+  if (soft && !app.isReady()) app.disableHardwareAcceleration();
+  app.commandLine.appendSwitch("force-color-profile", "srgb");
+  app.commandLine.appendSwitch("force-device-scale-factor", "1");
+  app.commandLine.appendSwitch("disable-background-timer-throttling");
+  app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
+  app.commandLine.appendSwitch("disable-renderer-backgrounding");
+  app.on("window-all-closed", () => {});
+  if (!app.isReady()) await app.whenReady();
+
+  await mkdir(outputDirectory, { recursive: true });
+  await mkdir(dirname(out), { recursive: true });
+  const built = await loadAndBuildOsrPage({
+    projectRoot,
+    editPath: editPath ?? join(projectRoot, "edit.json"),
+    fps,
+    width,
+    height,
+    duration,
+    stampRow: true,
+  });
+  const server = await startStaticServer({
+    pageHtml: built.html,
+    overlaySheetHtml: built.overlaySheetHtml,
+    projectRoot,
+    captionFontPath: findCaptionFontPath(),
+  });
+  const paintTimeouts = [];
+  const emptyPaints = [];
+  const verifyFrames = [];
+  const outputs = [];
+  let windowRef = null;
+  const started = performance.now();
+  try {
+    windowRef = new BrowserWindow({
+      show: false,
+      width,
+      height: height + 1,
+      useContentSize: true,
+      webPreferences: {
+        offscreen: true,
+        backgroundThrottling: false,
+        preload: join(SOURCE_DIRECTORY, "preload.mjs"),
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false,
+      },
+    });
+    windowRef.webContents.setFrameRate(60);
+    windowRef.webContents.startPainting();
+    let rendererFailure = null;
+    windowRef.webContents.on("render-process-gone", (_event, details) => {
+      rendererFailure = new Error(`renderer process gone: ${details.reason}`);
+    });
+    await windowRef.loadURL(server.url);
+    await windowRef.webContents.executeJavaScript("window.__akariReady");
+    for (const [index, frame] of requestedFrames.entries()) {
+      if (rendererFailure) throw rendererFailure;
+      const captured = await captureFrameBitmap({
+        windowRef,
+        frame,
+        fps,
+        width,
+        height,
+        verify: "stamp",
+        paintTimeoutMs,
+        paintTimeouts,
+        emptyPaints,
+      });
+      const pixels = stripStampRow(captured.bitmap, width, height);
+      const outputPath = join(outputDirectory, `frame-${frame}.png`);
+      await writeFile(outputPath, encodeBgraPng(pixels, width, height));
+      const stamp = verifyStamp(captured.bitmap, width, height, frame);
+      verifyFrames.push({
+        frameNumber: frame,
+        matched: stamp.exact,
+        decodedFrameNumber: stamp.frameNumber,
+        expectedFrameNumber: stamp.expectedFrameNumber,
+        retries: captured.retries,
+      });
+      outputs.push({ frameNumber: frame, path: outputPath, sha256: sha256(pixels) });
+      process.stdout.write(`PROGRESS frame=${index + 1} total=${requestedFrames.length}\n`);
+    }
+    await destroyWindow(windowRef);
+    windowRef = null;
+    const run = {
+      version: 1,
+      status: "completed",
+      operation: "capture",
+      mode: soft ? "soft" : "gpu",
+      framesRequested: requestedFrames,
+      framesCompleted: requestedFrames.length,
+      width,
+      height,
+      fps,
+      duration,
+      verify: {
+        mode: "stamp",
+        matched: verifyFrames.every((entry) => entry.matched),
+        frames: verifyFrames,
+      },
+      outputs,
+      paintTimeouts,
+      emptyPaints,
+      page: built.manifest,
+      elapsedMs: performance.now() - started,
+    };
+    await writeFile(out, `${JSON.stringify(run, null, 2)}\n`, "utf8");
+    return run;
+  } catch (error) {
+    await writeFile(out, `${JSON.stringify({
+      version: 1,
+      status: "failed",
+      operation: "capture",
+      error: String(error?.stack ?? error),
+      framesRequested: requestedFrames,
+      verify: { mode: "stamp", matched: false, frames: verifyFrames },
+      paintTimeouts,
+      emptyPaints,
+    }, null, 2)}\n`, "utf8").catch(() => {});
+    throw error;
+  } finally {
+    if (windowRef && !windowRef.isDestroyed()) {
+      windowRef.webContents.destroy();
+      windowRef.destroy();
+    }
+    await server.close().catch(() => {});
+  }
+}
+
 export function parseElectronArguments(argv) {
-  const options = { projectRoot: null, out: null, fps: 30, width: 1920, height: 1080, duration: null, frames: null, quality: "high", encoder: "auto", verify: "stamp", soft: false, queueDepth: 3, dumpFrames: [] };
+  const options = {
+    projectRoot: null, editPath: null, out: null, fps: 30, width: 1920, height: 1080,
+    duration: null, frames: null, quality: "high", encoder: "auto", verify: "stamp", soft: false,
+    queueDepth: 3, dumpFrames: [], captureFrames: null, captureOutputDirectory: null,
+  };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--render") options.projectRoot = required(argv, ++index, "--render");
+    else if (argument === "--edit") options.editPath = required(argv, ++index, "--edit");
     else if (argument === "--out") options.out = required(argv, ++index, "--out");
     else if (argument === "--fps") options.fps = positiveNumber(required(argv, ++index, "--fps"), "--fps");
     else if (argument === "--width") options.width = positiveInteger(required(argv, ++index, "--width"), "--width");
@@ -247,12 +399,74 @@ export function parseElectronArguments(argv) {
     else if (argument === "--verify") options.verify = required(argv, ++index, "--verify");
     else if (argument === "--queue-depth") options.queueDepth = positiveInteger(required(argv, ++index, "--queue-depth"), "--queue-depth");
     else if (argument === "--dump-frames") options.dumpFrames = parseFrameList(required(argv, ++index, "--dump-frames"));
+    else if (argument === "--capture-frames") options.captureFrames = parseFrameList(required(argv, ++index, "--capture-frames"));
+    else if (argument === "--capture-output-dir") options.captureOutputDirectory = required(argv, ++index, "--capture-output-dir");
     else if (argument === "--soft") options.soft = true;
   }
   if (!options.projectRoot || !options.out) throw new Error("--render and --out are required");
   if (options.duration === null && options.frames !== null) options.duration = options.frames / options.fps;
   if (options.frames === null && options.duration !== null) options.frames = Math.round(options.duration * options.fps);
+  if (options.captureFrames !== null && (options.captureFrames.length === 0 || !options.captureOutputDirectory)) {
+    throw new Error("--capture-frames requires at least one frame and --capture-output-dir");
+  }
   return options;
+}
+
+async function captureFrameBitmap({
+  windowRef,
+  frame,
+  fps,
+  width,
+  height,
+  verify,
+  paintTimeoutMs,
+  paintTimeouts,
+  emptyPaints,
+}) {
+  const seekStarted = performance.now();
+  await windowRef.webContents.executeJavaScript(`window.__akariSeek(${JSON.stringify(frame / fps)},${frame})`);
+  const seekMs = performance.now() - seekStarted;
+  let captured = await captureNonEmptyBitmap({
+    frame,
+    width,
+    height,
+    capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
+    settle: () => settle(windowRef),
+    onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
+  });
+  let bitmap = captured.bitmap;
+  const paintMs = captured.paintMs;
+  const toBitmapMs = captured.toBitmapMs;
+  const verifyStarted = performance.now();
+  const preCheck = verifyStamp(bitmap, width, height, frame);
+  let retries = 0;
+  if (verify === "stamp") {
+    while (!verifyStamp(bitmap, width, height, frame).exact && retries < 8) {
+      await settle(windowRef);
+      captured = await captureNonEmptyBitmap({
+        frame,
+        width,
+        height,
+        capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
+        settle: () => settle(windowRef),
+        onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
+      });
+      bitmap = captured.bitmap;
+      retries += 1;
+    }
+    if (!verifyStamp(bitmap, width, height, frame).exact) {
+      throw new Error(`frame ${frame} stamp verify failed after ${retries} retries`);
+    }
+  }
+  return {
+    bitmap,
+    preCheck,
+    retries,
+    seekMs,
+    paintMs,
+    toBitmapMs,
+    verifyMs: performance.now() - verifyStarted,
+  };
 }
 
 async function capturePaint(webContents, timeoutMs, frame, paintTimeouts) {
@@ -340,9 +554,33 @@ function parseFrameList(value) {
   }))].sort((left, right) => left - right);
 }
 
+function normalizeCaptureFrames(frameNumbers, totalFrames) {
+  if (!Array.isArray(frameNumbers) || frameNumbers.length === 0) {
+    throw new Error("OSR capture requires at least one frame number");
+  }
+  const result = [...new Set(frameNumbers.map((frame) => {
+    if (!Number.isInteger(frame) || frame < 0 || frame >= totalFrames) {
+      throw new Error(`OSR capture frame ${frame} is outside 0..${totalFrames - 1}`);
+    }
+    return frame;
+  }))].sort((left, right) => left - right);
+  return result;
+}
+
 async function runCli() {
   let code = 0;
-  try { await runOsrExport(parseElectronArguments(process.argv.slice(2))); }
+  try {
+    const options = parseElectronArguments(process.argv.slice(2));
+    if (options.captureFrames !== null) {
+      await runOsrCapture({
+        ...options,
+        frameNumbers: options.captureFrames,
+        outputDirectory: options.captureOutputDirectory,
+      });
+    } else {
+      await runOsrExport(options);
+    }
+  }
   catch (error) { code = 1; process.stderr.write(`${String(error?.stack ?? error)}\n`); }
   finally { app.exit(code); }
 }

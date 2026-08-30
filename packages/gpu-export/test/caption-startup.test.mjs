@@ -67,7 +67,8 @@ test("each caption batch rasterizes its SVG once and blits bands from the interm
 
 test("caption batch prefetch runs before the frame loop without recording frame-loop batch stages", () => {
   const prefetchStart = source.indexOf("let captionPrefetchBytes = 0");
-  const frameLoopStart = source.indexOf("for (let frameNumber = 0;");
+  // origin/main の capture v1（da9c0a30）でフレームループが sequenceIndex 駆動になったため、目印は両方の書き方を受ける
+  const frameLoopStart = source.search(/for \(let (?:frameNumber|sequenceIndex) = 0;/u);
   assert.ok(prefetchStart >= 0 && prefetchStart < frameLoopStart);
   const prefetch = source.slice(prefetchStart, source.indexOf('const overlayFrame = document.getElementById("akari-overlays")'));
   assert.match(prefetch, /CAPTION_PREFETCH_MAX_BYTES/u);

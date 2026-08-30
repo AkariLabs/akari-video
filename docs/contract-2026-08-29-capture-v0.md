@@ -116,6 +116,61 @@ akari capture [-p <project>] (-t <time…> | --auto) [--separate] [--full] [--pe
 - 既存の render-cut テスト（295 件規模）が全緑・書き出しの成果物が変わらない（既存フィクスチャの SHA-256 不変）
 - launcher: `akari capture --help` / akari-tools 不在時の案内 / Chrome 不在時の案内（`findChromePath` の既存メッセージを再利用）
 
+## 9. v1 改訂（2026-08-30）— v2 経路への載せ替え
+
+### 9.1 なぜ改訂するか（確定事実）
+
+- v0 の実装は `packages/akari-tools/src/capture/run.mjs` が `renderProject(…, { engine: "legacy" })` を**固定**で呼び、
+  `packages/render-cut/src/frame-at.mjs` が旧 ffmpeg フィルタグラフの `plan.commands` を先頭から対象フレームまで回す
+  （オーバーレイの段は `captureWithPuppeteer` で 0..T の全コマを撮る）。**v2（osr / gpu）を通っていない**
+- 2026-08-28 #90 で**書き出しの既定は v2**になった（`resolveEngineChoice("auto")` = macOS は GPU 直結〔適格時〕/ OSR、非 macOS は legacy）。
+  §0 の物差し「capture ≡ 書き出し」は、既定の書き出し = v2 に対して取り直さなければ意味を失う
+- 実案件（v2・トラックあり・Three.js オーバーレイ入り・11 秒）で v0 は **18 分 50 秒**（critique-cut 1 周の 98.7%）。
+  §0「書き出さずに見る」の目的に反する
+
+### 9.2 v1 の仕様（§1〜§7 に対する差分。書いていない項目は v0 のまま）
+
+- **`--engine auto|osr|gpu|legacy`** を追加（既定 `auto`）。解決は render-cut の `resolveEngineChoice` / GPU 適格判定を**同じ関数で**行い、
+  書き出しの `auto` と必ず同じエンジンに落ちる（capture が書き出しと違うエンジンを選ぶことは無い）
+- **v2 経路 = 書き出しと同じページを組み、フレーム N だけを評価して 1 枚にする。0..N を回さない**
+  - ページは render-cut が `exportWithOsr` / `exportWithGpu` に渡すものと同一（`page-builder` の入力 = edit / captions / overlays / width / height / fps）
+  - osr: `osr-export/src/electron-main.mjs` のフレームループ（seek → capturePaint → verifyStamp → 書き込み）を**フレーム N の 1 回**だけ回し、
+    エンコードせずに `stripStampRow` 後のビットマップを PNG に落とす。verify（stamp 一致 = N）は省略しない
+  - gpu: `gpu-export` の page-runtime にフレーム N の単発評価（frame-engine `evaluateFrame` 1 回）+ 読み戻し（`frame-engine/src/exits/readback.ts`）→ PNG。
+    字幕スプライト・HTML-in-Canvas・3D は書き出しと同じ経路を通す（不適格なら `auto` は書き出しと同様に osr へ落ちる）
+  - 複数時刻はページ起動を 1 回にして N を順に評価する（Chrome / Electron を時刻ごとに立ち上げない）
+- **legacy 経路（frame-at.mjs）は `--engine legacy` 明示時と非 macOS のフォールバックだけ**。削除しない
+- **`capture.json`** に `engine`（requested / resolved / fallback）と `renderer`（`osr-export@<version>` / `gpu-export@<version>` / `render-cut@<version>`）を書く。
+  **同じページ・同じランタイムを通ったこと**を receipt で示す（osr / gpu の receipt から stamp / verify の結果を写す）
+- **コンタクトシートは `contact-sheet.mjs` の `renderLabeledContactSheet`（media 契約 §1.1・≤ 2576×1456）へ差し替える**。
+  v0 独自タイラー（1 コマ 720p 固定・上限なし → 4×3 で 5120×2160）は廃止
+- 性能目標（受け入れ条件）: v2 の fieldtest 案件（内部リポ `fieldtest/2026-08-29-critique-cut-v2`・11 秒・1080p・HTML オーバーレイ 2〔Three.js 含む〕・字幕・LUT）で
+  **1 枚 ≤ 10 秒、3 枚 ≤ 20 秒**（ページ起動込み）。**尺に比例しない**こと（同案件の尺を 2 倍にしても ±2 秒以内）
+
+### 9.3 一致の物差し（v1）
+
+- **capture(engine, N) ≡ 書き出し(同じ engine) のフレーム N**。
+  **第一基準（2026-08-30 改訂）= 可逆比較**: 書き出しが**エンコーダへ渡す直前の生フレーム**（osr は `stripStampRow` 後の BGRA・
+  `AKARI_OSR_DUMP_FRAMES` で dump できる）と capture の PNG を突き合わせ、**MAD 0・maxDelta 0・差分画素 0%**（bit 一致）を要求する。
+  これが §0 の物差しそのもの
+- **参考値 = mp4 由来の比較**: 同じ `--engine` で書き出した mp4 からフレーム N を抜いた比較は、H.264 4:2:0 の符号化損失を
+  含むため**合否基準にしない**（実測: 彩度最大のカラーバー素材で overlay 矩形 MAD 2.9〜3.5・全画面 1.1〜1.7 が符号化損失だけで出る。
+  可逆比較は同時に MAD 0）。report には参考として載せる
+- gpu 側に生フレームの dump 機構が無い間は、①mp4 由来 MAD が osr と同レンジ ②2 走バイト一致 ③overlay 無しフレームで osr capture と
+  SHA 一致、の 3 点で代替してよい（dump 機構の新設は別票）
+- **同一性の構造的証明**: capture と書き出しが**同じ page-builder・同じ page-runtime・同じ verify**を通ることをコードで示す
+  （capture 専用の合成式・専用のページを持たない）。`grep` で capture が `plan.commands` を参照しないこと（legacy 経路以外）
+- 決定論: 同じ入力で 2 回撮ってバイト一致（osr は GPU 依存の差が出うるため、既存の osr 決定論基準〔HW 2 走 SHA〕に従う）
+
+### 9.4 非スコープ
+
+- page-runtime の新機能（字幕・HTML・3D の到達範囲は #120b〜f の契約が決める。capture はそれに乗るだけ）
+- GPU 適格判定の変更
+- プレビュー（shell / Web UI）からのスクショ機能（エンジン v2 では同じ関数になるため不要）
+- v0 の legacy 経路の高速化（`--engine legacy` は現状維持）
+
 ## 8. 変更履歴
 
+- 2026-08-30（同日 2 回目）: §9.3 の一致基準を改訂 — 可逆比較（エンコーダ入力の生フレームと bit 一致）を第一基準に、mp4 由来の MAD ≤ 1.0 は符号化損失で機能しないため参考値へ（実装レーン `2026-08-30-capture-v2-engine` の実測）
+- 2026-08-30: §9 v1 改訂 — v2 経路（osr / gpu の page runtime でフレーム N を単発評価）へ載せ替え。v0 が legacy 固定だった事実と実案件 18m50s を記録。シートは media の共用関数へ
 - 2026-08-29: v0 起草（オーナー裁定「render-cut を呼ばずに重なった完成絵を確認したい」「サムネイルにも」を反映。裁定の経緯は非公開の内部記録で管理）

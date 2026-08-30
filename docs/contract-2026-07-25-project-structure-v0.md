@@ -149,3 +149,15 @@ updated: 2026-08-26
 - スキーマ変更（`edit.json` 等の既存契約ファイル形は不変）
 - 「paths 宣言」（プロジェクトごとの置き場所カスタマイズ UI）の導入
 - ルート直下 `cache/`（レガシー）の最終的な扱いの裁定（§3・§6）
+
+## 8. 追記（2026-08-30）— `motion/` を正本ディレクトリとして登録
+
+`contract-2026-08-30-edit-json-v2-object-tree-v0.md` / `contract-2026-08-30-motion-and-keyframes-v0.md` により、
+プロジェクト直下に **`motion/`** を追加する。
+
+| 用途 | 置き場 | 作成者 | 性質 |
+|---|---|---|---|
+| キーフレーム曲線の袋（`motion/<group-id>.json`。edit.json の `keyframes: { path, count }` から参照）| `motion/` | edit-store（保存時に inline から振り分け）| **正本**（再生成不可。`.akari/cache/` ではない）|
+
+- edit.json / captions.json と同じトランザクションで保存され、同じ lint ゲートを通る
+- §2 の「ルート直下への新規ファイル作成は正本ファイルに限る」の例外ではなく、正本ファイルの追加である

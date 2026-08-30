@@ -289,3 +289,7 @@ proxy を無条件に優先する。
 `AKARI_FRAME_ENGINE_FORCE_SW=1` はハードウェアデコード不可を模擬するテスト用スイッチである。
 HEVC は `prefer-software` が通らないため、codec プローブが `sw=false` を返した系列について
 ClipSessionPool はソフトウェア退避を学習しない。ソフトウェア退避の学習対象は H.264 のみとする。
+
+デコーダエラーは window 全域イベントで飛ぶため、他クリップの失敗と区別できない。frame-engine は
+検出後 `decoderErrorGraceMs`（既定 1 秒）だけ自分の操作の成功を待ち、期限内に成功した場合はその
+エラーを無視する。prime がフレームを返さず、かつエラーを観測した場合だけ、その試行を失敗とする。

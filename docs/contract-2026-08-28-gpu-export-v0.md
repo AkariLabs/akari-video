@@ -366,3 +366,53 @@ cut 段は `cut-audio.mp4`、尺延長が必要な場合は続けて `cut-audio-
 エンコードを行わない。音声の trim、速度、freeze 無音、transition、gap、AAC 48 kHz の意味論は
 従来の映像込み cut / tail-pad と同じである。legacy 経路は従来どおり映像込み中間物を使用する。
 音声入力は cut ごとに入力側シーク（`-ss` / `-t`）し、cut 頭 0.5 s の先読みガード（AAC の overlap-add 用）を設け、cut 段の費用を素材長に依存させない。
+
+## 12. 採寸不安定の根治・実行時フォールバック・生フレーム dump（2026-08-30 追記）
+
+### 12.1 事実（2026-08-30・capture-v2-engine レーンの実測と司令塔のコード確認）
+
+- 内部 fieldtest 案件（11 秒・1080p・字幕 **3 cue・`words[]` 無し・style 無指定**・HTML オーバーレイ 2・LUT）で、
+  §2.1 の採寸が **32 回で収束せず `caption-measure-unstable` で fail-closed** する。`6da9a353` 以前の main でも同じ地点で落ちる既存不良。
+  いちばん単純な字幕でも起こるため、原因は karaoke / pop の語矩形ではなく採寸の土台にある可能性が高い（未特定）
+- `render-cut.mjs` は `exportWithGpu` の**実行時失敗を捕捉しない**。`engine_fallback` が発火するのは launcher tier 3（Electron 不在）だけで、
+  page runtime が fail-closed すると書き出し全体が失敗する。`--engine auto` は事前の適格判定で gpu を選ぶが、採寸の収束は実行時にしか
+  分からないため、適格判定では弾けない
+- `akari capture --engine auto` は書き出しと同じ関数でエンジンを解決する（capture 契約 §9.2）ので、同じ案件で同じ地点で落ちる。
+  `--engine osr` 明示なら通る
+- gpu 書き出しには、エンコーダへ渡す直前のフレームを取り出す機構が無い（読み戻しゼロの設計 §4）。osr には `--dump-frames`
+  （`raw/frame-N.bgra`）があり、capture 契約 §9.3 の可逆比較は osr でだけ成立している
+
+### 12.2 要求 A — 採寸不安定の原因特定と決定論化
+
+- 収束しなかった試行について、**どの cue のどの値がどれだけ揺れたか**（variant / token / rect の差分）を run.json と receipt に残す
+  （現状は attempts の count / p50 / max だけ）。原因は推測で決めず、この差分と再現案件で特定する
+- 特定した原因に対して決定論化の手を入れる。**許容差・平均・丸めで揺らぎを隠さない**（§2.1 の原則は不変）。
+  候補は実測で選ぶ: レイアウト確定の待ち方（`getBoundingClientRect` 1 回で足りているか・rAF / フォント metrics の遅延）、
+  root の挿入位置・サイズの固定、DPR / zoom の固定、など
+- 根治できた範囲と、できなかった条件（あれば）を契約に追記できる形で報告する
+
+### 12.3 要求 B — 実行時フォールバック（必須）
+
+- `--engine auto` で gpu の page runtime が **閉じた集合の理由コード**（v0 は `caption-measure-unstable` のみ）で fail-closed したとき、
+  render-cut は **osr で再実行**し、`provenance.engine_fallback = { from: "gpu", reason: "<reasonCode>" }` と gpu 側の失敗 run.json への
+  参照を receipt に残す。中間物は捨てて osr を最初から回す（部分再利用しない）
+- 明示 `--engine gpu` は従来どおり fail-closed（理由を表示して exit ≠ 0）。フォールバックは `auto` だけ
+- `akari capture --engine auto` も同じ関数・同じ理由コード集合でフォールバックし、`capture.json.engine.fallback` に記録する
+- フォールバック対象外の失敗（デコード不可・Electron クラッシュ等）は従来どおり失敗のまま。集合を広げるときは本契約に追記する
+
+### 12.4 要求 C — gpu 書き出しの生フレーム dump（検証専用）
+
+- `--dump-frames <n,...>` を gpu 書き出しに追加。エンコーダへ渡す直前の `finalCanvas` を読み戻して `raw/frame-N.rgba`（8bit・行順は
+  osr の dump と同じ規約で明記）に書く。osr の `--dump-frames` と引数・出力先の形を揃える
+- **フラグ無しの製品経路は読み戻しゼロを維持**（`assert-zero-readback` の静的監査と `--trap-readback` の両方が引き続き通ること）。
+  dump は `--verify-frames` と同じ検証専用の枠に置く
+- capture 契約 §9.3 の可逆比較を gpu でも成立させる: `capture --engine gpu -t N` の PNG ≡ `--dump-frames N` の raw（MAD 0）
+
+### 12.5 受け入れ
+
+- fieldtest 案件（複製）で `render-cut --engine auto` が**完走**する。根治できていれば gpu で、できていなければ osr へのフォールバックで。
+  receipt にどちらだったかと理由が残る。`capture --engine auto -t 0 3 6` も同様に完走
+- 収束しなかった試行の差分ログが run.json / receipt に出る（フィクスチャで再現できなければ、揺らぎを注入したユニットテストで形を固定）
+- `--dump-frames` で取った raw と `capture --engine gpu` の PNG が bit 一致（MAD 0・3 フレーム）
+- フォールバックが発火しない既存フィクスチャの mp4 SHA は不変。`assert-zero-readback` PASS・`--trap-readback` 完走
+- 明示 `--engine gpu` の fail-closed 挙動と exit code は不変（テストで固定）

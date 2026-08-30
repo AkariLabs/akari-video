@@ -68,6 +68,7 @@ function oneShotStream(
 /** Retains the first completed response so decoder retries never fetch the same URL again. */
 export class RetainedSourceBytes {
   private sourceBlob: Blob | null = null;
+  private pendingFill: Promise<void> | null = null;
   private sourceBytesTotal: number | null = null;
   private fetchCount = 0;
   private retainDisabled = false;
@@ -103,6 +104,10 @@ export class RetainedSourceBytes {
         progress: () => this.progressBytes,
       };
     }
+    if (this.pendingFill) {
+      await this.pendingFill;
+      return this.open();
+    }
     if (this.openedNetworkSource) {
       if (!this.retainDisabled || this.overflowRefetchUsed) {
         this.onWarning?.(
@@ -119,6 +124,20 @@ export class RetainedSourceBytes {
       }
     }
     this.openedNetworkSource = true;
+    let opened: OpenedSourceBytes | null = null;
+    this.pendingFill = this.fillSource().then(value => {
+      opened = value;
+    });
+    try {
+      await this.pendingFill;
+      if (!opened) throw new Error(`${this.label}: source fill completed without bytes`);
+      return opened;
+    } finally {
+      this.pendingFill = null;
+    }
+  }
+
+  private async fillSource(): Promise<OpenedSourceBytes> {
     this.fetchCount += 1;
     const response = await this.fetchImpl(this.url);
     if (!response.ok || !response.body) throw new Error(`fetch failed: ${response.status}`);
@@ -165,6 +184,11 @@ export class RetainedSourceBytes {
       reader.releaseLock();
     }
     this.sourceBytesTotal ??= retainedBytes;
+    if (this.sourceBytesTotal !== retainedBytes) {
+      const message = `${this.label}: source body length ${retainedBytes} B does not match content-length ${this.sourceBytesTotal} B`;
+      this.onWarning?.(message);
+      throw new Error(message);
+    }
     if (!this.retainDisabled) this.sourceBlob = new Blob(chunks);
     return {
       stream: this.sourceBlob

@@ -1266,7 +1266,11 @@
     if (!FE || !bridge) throw new Error("GPU page dependencies are unavailable");
     const runtimeConfig = await bridge.config();
     const config = { ...pageConfig, ...runtimeConfig };
+    const captureMode = Array.isArray(config.captureFrames);
+    const frameSequence = captureMode ? [...config.captureFrames] : null;
+    const sequenceLength = captureMode ? frameSequence.length : config.frames;
     if (config.trapReadback && config.verifyFrames) throw new Error("trapReadback and verifyFrames are mutually exclusive");
+    if (captureMode && config.trapReadback) throw new Error("GPU capture cannot trap its required readback");
     const counters = {
       webglReadbackCalls: 0,
       videoFrameCopyCalls: 0,
@@ -1289,12 +1293,14 @@
     let captionBatches = [];
     let captionRasterTotalMs = 0;
     const captionRasterBatchMetrics = { batches: 0, unitsPerBatchMax: 0, bandsMax: 0 };
+    const captureOutputs = [];
     let captionLayoutMaxDeltaPx = 0;
     let threeRuntime = null;
     let queueWaits = 0;
     let encoder = null;
     let supported = false;
     let hashFrame = null;
+    let captureFrame = null;
     let drawTimingProbe = null;
     let domRuntime = null;
     const renderer = collectRendererInfo(engine.canvas);
@@ -1388,11 +1394,12 @@
         }
       }
       let verifyModule = null;
-      if (config.verifyFrames) {
+      if (config.verifyFrames || captureMode) {
         const moduleUrl = `data:text/javascript;charset=utf-8,${encodeURIComponent(config.verifyReadbackModule)}`;
         verifyModule = await import(moduleUrl);
-        hashFrame = verifyModule.hashCanvasFrame;
-        if (typeof verifyModule.createSpriteDrawTimingProbe === "function") {
+        captureFrame = verifyModule.readbackCanvasFrame;
+        if (config.verifyFrames) hashFrame = verifyModule.hashCanvasFrame;
+        if (config.verifyFrames && typeof verifyModule.createSpriteDrawTimingProbe === "function") {
           const timingGl = finalCanvas.getContext("webgl2");
           if (!timingGl) throw new Error("sprite draw timing WebGL2 context is unavailable");
           drawTimingProbe = verifyModule.createSpriteDrawTimingProbe(timingGl);
@@ -1405,9 +1412,9 @@
       domRuntime = new DomLayerRuntime(config, config.spriteManifest.dom, spriteCompositor, sentinelVerifier);
       await domRuntime.mount();
       const hardwareAcceleration = config.soft ? "prefer-software" : "prefer-hardware";
-      encoderSupport = await collectEncoderSupport(config);
-      supported = encoderSupport[hardwareAcceleration];
-      if (supported) {
+      encoderSupport = captureMode ? null : await collectEncoderSupport(config);
+      supported = captureMode || encoderSupport[hardwareAcceleration];
+      if (!captureMode && supported) {
         await bridge.startChunks({ width: config.width, height: config.height, fps: config.fps, frames: config.frames });
         encoder = new FE.WebCodecsH264Encoder({
           write: (bytes, chunk) => bridge.writeChunk({ bytes, ...chunk }),
@@ -1419,10 +1426,11 @@
           keyframeIntervalFrames: config.fps * 2,
           hardwareAcceleration,
         });
-      } else if (!config.verifyFrames) {
+      } else if (!captureMode && !config.verifyFrames) {
         throw new Error(`WebCodecs H.264 config is unsupported: ${hardwareAcceleration}`);
       }
-      for (let frameNumber = 0; frameNumber < config.frames; frameNumber += 1) {
+      for (let sequenceIndex = 0; sequenceIndex < sequenceLength; sequenceIndex += 1) {
+        const frameNumber = captureMode ? frameSequence[sequenceIndex] : sequenceIndex;
         const timeUs = Math.round(frameNumber / config.fps * 1e6);
         const seconds = timeUs / 1e6;
         const evaluateStarted = performance.now();
@@ -1541,6 +1549,11 @@
           stages.composite.push(performance.now() - compositeStarted);
           if (captionUnits.length > 0) stages.captions.push(compositeStarted - captionStarted);
           if (hashFrame) frameHashes.push(await hashFrame(finalCanvas));
+          if (captureMode) {
+            if (typeof captureFrame !== "function") throw new Error("GPU capture readback module is unavailable");
+            const rgba = await captureFrame(FE, frame, finalCanvas);
+            captureOutputs.push(await bridge.writeCaptureFrame({ frameNumber, rgba }));
+          }
           if (encoder) {
             const encodeStarted = performance.now();
             encoder.encode({ ...frame, surface: { ...frame.surface, canvas: finalCanvas } });
@@ -1555,11 +1568,11 @@
         } finally {
           frame.close();
         }
-        if ((frameNumber + 1) % 30 === 0 || frameNumber + 1 === config.frames) {
+        if ((sequenceIndex + 1) % 30 === 0 || sequenceIndex + 1 === sequenceLength) {
           await bridge.checkpoint({
             status: "running",
-            framesCompleted: frameNumber + 1,
-            framesRequested: config.frames,
+            framesCompleted: sequenceIndex + 1,
+            framesRequested: captureMode ? frameSequence : config.frames,
             stages: Object.fromEntries(Object.entries(stages).map(([name, values]) => [name, summarize(values)])),
             gpu: {
               renderer,
@@ -1586,8 +1599,17 @@
       const mux = encoder ? await bridge.finishChunks({ encoderFinish }) : null;
       return {
         status: supported ? "completed" : "unsupported",
-        framesRequested: config.frames,
-        framesCompleted: config.frames,
+        ...(captureMode ? { operation: "capture" } : {}),
+        framesRequested: captureMode ? frameSequence : config.frames,
+        framesCompleted: sequenceLength,
+        ...(captureMode ? {
+          outputs: captureOutputs,
+          verify: {
+            mode: "frame-engine-readback",
+            matched: captureOutputs.length === frameSequence.length,
+            frameNumbers: frameSequence,
+          },
+        } : {}),
         frameHashes,
         elapsedMs: performance.now() - started,
         stages: Object.fromEntries(Object.entries(stages).map(([name, values]) => [name, summarize(values)])),
