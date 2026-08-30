@@ -1,0 +1,36 @@
+{
+  "default_text_style": {
+    "weight": 700,
+    "stroke": {
+      "color": "#000000",
+      "width_px": 2
+    }
+  },
+  "captions": [
+    {
+      "id": "c1",
+      "start": 0.25,
+      "end": 0.75,
+      "text": "最初の字幕"
+    },
+    {
+      "id": "c2",
+      "start": 1.0333333333333334,
+      "end": 2.033333333333333,
+      "text": "分離された字幕",
+      "text_style": {
+        "color": "#ffcc00",
+        "size_px": 46,
+        "position": {
+          "y": 0.72
+        }
+      }
+    },
+    {
+      "id": "c3",
+      "start": 3,
+      "end": 4,
+      "text": "最後の字幕"
+    }
+  ]
+}
