@@ -142,7 +142,7 @@ test('knob type は対応するインスペクター部品へ写る', () => {
   ]);
 });
 
-test('前後移動は隣の visual トラックを選び、時間重なりを拒否する', () => {
+test('前後移動は隣の visual トラックを選び、時間重なりなら新しい段を要求する', () => {
   const tracks = [
     { id: 'V1', lane: 'visual', items: [{ id: 'selected', at: 10, duration: 20 }] },
     { id: 'A1', lane: 'audio', items: [] },
@@ -150,10 +150,10 @@ test('前後移動は隣の visual トラックを選び、時間重なりを拒
     { id: 'V3', lane: 'visual', items: [] }
   ];
   assert.deepEqual(planAdjacentVisualTrackMove(tracks, 'selected', 1), {
-    targetTrackId: 'V2', targetTrackLabel: 'V2', atFrames: 10, blockedByOverlap: true
+    targetTrackId: 'V2', targetTrackLabel: 'V2', atFrames: 10, requiresNewTrack: true
   });
   assert.deepEqual(planAdjacentVisualTrackMove(tracks, 'other', 1), {
-    targetTrackId: 'V3', targetTrackLabel: 'V3', atFrames: 20, blockedByOverlap: false
+    targetTrackId: 'V3', targetTrackLabel: 'V3', atFrames: 20, requiresNewTrack: false
   });
 });
 
@@ -168,7 +168,7 @@ test('nudge は keydown 相当の更新が複数回でも release で1回だけ�
   assert.deepEqual(writes, [{ id: 'clip-1', path: 'transform.x', value: 3 }]);
 });
 
-test('前後移動通知は自動トラック名を優先し、legacy item-field は v2 限定文言を返す', () => {
-  assert.match(widgetSource, /this\.computeTrackAutoNames\(\)\.get\(plan\.targetTrackId\)/);
+test('前後移動は重なり時も拒否せず新しい段を通知し、legacy item-field は v2 限定文言を返す', () => {
+  assert.match(widgetSource, /を追加しました/);
   assert.match(widgetSource, /この項目の編集は edit\.json v2 のみ対応です。/);
 });

@@ -5,6 +5,24 @@
  * JSON Schema の検証は保存境界に任せ、この層では操作に必要な形と値だけを検査する。
  */
 
+import {
+    attachEditHelpers,
+    createTrackAt,
+    detachItem as detachTreeItem,
+    groupItems as groupTreeItems,
+    materializeProjectedPart,
+    moveItem as moveTreeItem,
+    normalizeTracks,
+    removeItem as removeTreeItem,
+    serializeEdit,
+    ungroupItem as ungroupTreeItem,
+    updateItem as updateTreeItem,
+    type EditableEditV2,
+    type GroupResult,
+    type MoveTarget,
+    type ProjectItemV2,
+} from '@akari-video/edit-store';
+
 export type EditV2Document = Record<string, unknown>;
 export type EditV2Lane = 'visual' | 'audio';
 export type EditV2TrackFlag = 'hidden' | 'muted' | 'locked';
@@ -15,6 +33,7 @@ export interface ItemLocation {
     trackId: string;
     trackIndex: number;
     itemIndex: number;
+    parentId?: string;
 }
 
 export function moveAudioSfx(
@@ -84,18 +103,99 @@ export function insertAudioSfx(
 }
 
 export function stringifyEditV2(value: EditV2Document): string {
-    return `${JSON.stringify(value, undefined, 2)}\n`;
+    return serializeEdit(value);
+}
+
+export interface TreeMutationResult<T> {
+    document: EditV2Document;
+    value: T;
+    createdTrackId?: string;
+}
+
+function editTree(doc: EditV2Document): EditableEditV2 {
+    const value = cloneDocument(doc) as unknown as EditableEditV2;
+    if (value.version !== 2 || !Array.isArray(value.tracks)) {
+        throw new Error('木の操作は edit.json v2 のみ対応しています。');
+    }
+    attachEditHelpers(value);
+    return value;
+}
+
+function finishTreeMutation<T>(
+    edit: EditableEditV2,
+    beforeTrackIds: ReadonlySet<string>,
+    value: T
+): TreeMutationResult<T> {
+    normalizeTracks(edit);
+    const createdTrackId = edit.tracks.find(track => !beforeTrackIds.has(String(track.id)))?.id;
+    return {
+        document: edit as unknown as EditV2Document,
+        value,
+        ...(createdTrackId === undefined ? {} : { createdTrackId: String(createdTrackId) })
+    };
+}
+
+export function moveTreeV2Item(
+    doc: EditV2Document,
+    itemId: string,
+    target: MoveTarget,
+    patch?: Record<string, unknown>
+): TreeMutationResult<ProjectItemV2> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    if (!edit.find(itemId) && itemId.includes('#')) materializeProjectedPart(edit, itemId);
+    if (patch) updateTreeItem(edit, itemId, patch);
+    return finishTreeMutation(edit, beforeTrackIds, moveTreeItem(edit, itemId, target));
+}
+
+export function detachTreeV2Item(
+    doc: EditV2Document,
+    itemId: string
+): TreeMutationResult<ProjectItemV2> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    return finishTreeMutation(edit, beforeTrackIds, detachTreeItem(edit, itemId, { track: 'above' }));
+}
+
+export function groupTreeV2Items(
+    doc: EditV2Document,
+    itemIds: string[],
+    options?: { name?: string }
+): TreeMutationResult<GroupResult> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    return finishTreeMutation(edit, beforeTrackIds, groupTreeItems(edit, itemIds, options));
+}
+
+export function ungroupTreeV2Item(
+    doc: EditV2Document,
+    itemId: string
+): TreeMutationResult<ProjectItemV2[]> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    return finishTreeMutation(edit, beforeTrackIds, ungroupTreeItem(edit, itemId));
+}
+
+export function removeTreeV2Item(doc: EditV2Document, itemId: string): TreeMutationResult<ProjectItemV2> {
+    const edit = editTree(doc);
+    const beforeTrackIds = new Set(edit.tracks.map(track => String(track.id)));
+    return finishTreeMutation(edit, beforeTrackIds, removeTreeItem(edit, itemId));
 }
 
 export function indexEditV2Items(doc: EditV2Document): Map<string, ItemLocation> {
     const result = new Map<string, ItemLocation>();
     tracksOf(doc).forEach((track, trackIndex) => {
         if (!Array.isArray(track.items)) return;
-        track.items.forEach((item, itemIndex) => {
+        const visit = (items: unknown[], parentId?: string): void => items.forEach((item, itemIndex) => {
             if (!isRecord(item) || typeof item.id !== 'string') return;
             if (result.has(item.id)) throw new Error(`クリップ id が重複しています: ${item.id}`);
-            result.set(item.id, { trackId: stringId(track, 'トラック'), trackIndex, itemIndex });
+            result.set(item.id, {
+                trackId: stringId(track, 'トラック'), trackIndex, itemIndex,
+                ...(parentId === undefined ? {} : { parentId })
+            });
+            if (Array.isArray(item.items)) visit(item.items, item.id);
         });
+        visit(track.items);
     });
     return result;
 }
@@ -244,8 +344,6 @@ export function moveItem(
     }
     const [item] = found.track.items.splice(found.itemIndex, 1);
     const moved = { ...item, at: options.atFrames };
-    // items[] の宣言順は legacy 配列の順となり、合成の z と xfade の連結相手を決める。
-    // そのため同じ段で時刻だけを動かす場合は元位置を保ち、別段への移動だけ時刻順へ挿入する。
     const insertIndex = target === found.track
         ? found.itemIndex
         : atAscendingInsertIndex(target.items, options.atFrames);
@@ -269,23 +367,16 @@ export function moveItemToNewTrack(
     options: { itemId: string; insertIndex: number; atFrames: number }
 ): EditV2Document {
     requireFrame(options.atFrames, '移動先の時刻');
-    const value = cloneDocument(doc);
-    const tracks = tracksOf(value);
-    const found = findItem(tracks, options.itemId);
-    requireInsertIndex(tracks, options.insertIndex, found.track.lane as EditV2Lane);
-    const sourceIndex = tracks.indexOf(found.track);
-    const [item] = found.track.items.splice(found.itemIndex, 1);
-    const created: UnknownRecord = {
-        id: nextTrackId(tracks, found.track.lane as EditV2Lane),
-        lane: found.track.lane,
-        items: [{ ...item, at: options.atFrames }]
-    };
-    const collapsed = collapseEmptiedVisualSourceTrack(tracks, found.track);
-    const insertIndex = collapsed && sourceIndex < options.insertIndex
-        ? options.insertIndex - 1
-        : options.insertIndex;
-    tracks.splice(insertIndex, 0, created);
-    return value;
+    const edit = editTree(doc);
+    const found = indexEditV2Items(edit as unknown as EditV2Document).get(options.itemId);
+    if (!found) throw new Error(`クリップが見つかりません: ${options.itemId}`);
+    const sourceTrack = edit.tracks[found.trackIndex];
+    requireInsertIndex(edit.tracks as unknown as UnknownRecord[], options.insertIndex, sourceTrack.lane as EditV2Lane);
+    const created = createTrackAt(edit, String(sourceTrack.lane), options.insertIndex);
+    updateTreeItem(edit, options.itemId, { at: options.atFrames });
+    moveTreeItem(edit, options.itemId, { track: String(created.id) });
+    normalizeTracks(edit);
+    return edit as unknown as EditV2Document;
 }
 
 /**
