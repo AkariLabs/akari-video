@@ -1,0 +1,108 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+import {
+  composeInspectorSections,
+  InspectorSectionState
+} from '../lib/browser/inspector/section-model.js';
+import {
+  clampNumber,
+  INSPECTOR_LIVE_PREVIEW_THROTTLE_MS,
+  numericStep
+} from '../lib/browser/inspector/number-field.js';
+import {
+  sliderFromDisplay,
+  sliderToDisplay
+} from '../lib/browser/inspector/slider-field.js';
+import {
+  knobControlKind,
+  parseInspectorKnobs
+} from '../lib/browser/inspector/knob-resolver.js';
+import {
+  NudgeCommitSession,
+  planAdjacentVisualTrackMove
+} from '../lib/browser/inspector/keyboard-shortcuts.js';
+
+const widgetSource = readFileSync(new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8');
+
+test('節合成は時間→変形→外観→種別固有→情報の順に固定する', () => {
+  const sections = composeInspectorSections([
+    { id: 'info' }, { id: 'style' }, { id: 'appearance' },
+    { id: 'time' }, { id: 'transform' }, { id: 'knobs:color' }
+  ]);
+  assert.deepEqual(sections.map(section => section.id), [
+    'time', 'transform', 'appearance', 'style', 'knobs:color', 'info'
+  ]);
+});
+
+test('折りたたみ状態は kind と section id ごとに記憶する', () => {
+  const values = new Map();
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value)
+  };
+  const state = new InspectorSectionState(storage);
+  assert.equal(state.isCollapsed('layer', { id: 'info', collapsedByDefault: true }), true);
+  state.setCollapsed('layer', 'info', false);
+  assert.equal(state.isCollapsed('layer', { id: 'info', collapsedByDefault: true }), false);
+  assert.equal(state.isCollapsed('overlay', { id: 'info', collapsedByDefault: true }), true);
+});
+
+test('数値部品は step・Shift 10倍・min/max clamp を適用する', () => {
+  assert.equal(numericStep(2, 1, 0.5), 2.5);
+  assert.equal(numericStep(2, -1, 0.5, true), -3);
+  assert.equal(numericStep(9, 1, 1, true, 0, 10), 10);
+  assert.equal(clampNumber(-2, 0, 1), 0);
+});
+
+test('不透明度スライダーは内部 0..1 と表示 0..100% を往復する', () => {
+  assert.equal(sliderToDisplay(0.5, 100), 50);
+  assert.equal(sliderFromDisplay(50, 100), 0.5);
+  assert.equal(INSPECTOR_LIVE_PREVIEW_THROTTLE_MS, 30);
+});
+
+test('knob type は対応するインスペクター部品へ写る', () => {
+  assert.deepEqual(
+    ['slider', 'color', 'dropdown', 'checkbox', 'text', 'media'].map(knobControlKind),
+    ['slider', 'color', 'select', 'boolean-select', 'text', 'readonly']
+  );
+  const knobs = parseInspectorKnobs({ knobs: [
+    { cssVar: '--size', type: 'slider', group: 'layout', min: 10, max: 20, unit: 'px' },
+    { param: 'visible', type: 'checkbox', group: 'layout' }
+  ] });
+  assert.deepEqual(knobs.map(knob => [knob.name, knob.group]), [
+    ['--size', 'layout'], ['visible', 'layout']
+  ]);
+});
+
+test('前後移動は隣の visual トラックを選び、時間重なりを拒否する', () => {
+  const tracks = [
+    { id: 'V1', lane: 'visual', items: [{ id: 'selected', at: 10, duration: 20 }] },
+    { id: 'A1', lane: 'audio', items: [] },
+    { id: 'V2', lane: 'visual', items: [{ id: 'other', at: 20, duration: 20 }] },
+    { id: 'V3', lane: 'visual', items: [] }
+  ];
+  assert.deepEqual(planAdjacentVisualTrackMove(tracks, 'selected', 1), {
+    targetTrackId: 'V2', targetTrackLabel: 'V2', atFrames: 10, blockedByOverlap: true
+  });
+  assert.deepEqual(planAdjacentVisualTrackMove(tracks, 'other', 1), {
+    targetTrackId: 'V3', targetTrackLabel: 'V3', atFrames: 20, blockedByOverlap: false
+  });
+});
+
+test('nudge は keydown 相当の更新が複数回でも release で1回だけ書き戻す', () => {
+  const session = new NudgeCommitSession();
+  const writes = [];
+  session.apply('clip-1', 'transform.x', 1);
+  session.apply('clip-1', 'transform.x', 2);
+  session.apply('clip-1', 'transform.x', 3);
+  assert.equal(session.release(value => writes.push(value)), true);
+  assert.equal(session.release(value => writes.push(value)), false);
+  assert.deepEqual(writes, [{ id: 'clip-1', path: 'transform.x', value: 3 }]);
+});
+
+test('前後移動通知は自動トラック名を優先し、legacy item-field は v2 限定文言を返す', () => {
+  assert.match(widgetSource, /this\.computeTrackAutoNames\(\)\.get\(plan\.targetTrackId\)/);
+  assert.match(widgetSource, /この項目の編集は edit\.json v2 のみ対応です。/);
+});
