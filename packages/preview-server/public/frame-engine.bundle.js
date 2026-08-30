@@ -3197,6 +3197,9 @@ var require_caption_display = __commonJS({
         } else {
           vars["--caption-top"] = `${Math.round(clamped * 1e4) / 100}%`;
           vars["--caption-bottom"] = "auto";
+          if ((anchor || verticalAlign) && vertical === "m") {
+            vars["--caption-translate"] = "0 -50%";
+          }
         }
       } else if (anchor || verticalAlign) {
         vars["--caption-top"] = vertical === "t" ? "7%" : vertical === "m" ? "0" : "auto";
