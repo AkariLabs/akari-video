@@ -15,6 +15,14 @@ const B_FRAME_TAIL_VARIANTS = [
   { id: 'tail-bf0-30-aac', file: 'bframe-tail-bf0-30-aac.mp4', bFrames: 0, hasAudio: true, fps: 30 },
 ] as const;
 const B_FRAME_TAIL_TARGETS = [0, 1, 180, 357, 358, 359] as const;
+const ENDPOINT_VARIANTS = [
+  { id: 'endpoint-bf0-24', file: 'endpoint-bf0-24.mp4', bFrames: 0 },
+  { id: 'endpoint-bf2-24', file: 'endpoint-bf2-24.mp4', bFrames: 2 },
+] as const;
+
+declare global {
+  var __AKARI_FRAME_ENGINE_SOURCE__: string | undefined;
+}
 
 type Coverage = 'full' | 'sampled';
 
@@ -229,6 +237,73 @@ export async function inspectBFrameTailAccess(fixtureRootUrl: string) {
   return {
     rows,
     pass: rows.length === B_FRAME_TAIL_VARIANTS.length * B_FRAME_TAIL_TARGETS.length
+      && rows.every(row => row.pass === true),
+  };
+}
+
+export async function inspectEndpointTailAccess(fixtureRootUrl: string) {
+  const reader = new TailFrameNumberReader();
+  const rows: Array<Record<string, unknown>> = [];
+  const previousMode = globalThis.__AKARI_FRAME_ENGINE_SOURCE__;
+  try {
+    for (const variant of ENDPOINT_VARIANTS) {
+      const source = new URL(variant.file, fixtureRootUrl).href;
+      for (const sourceMode of ['range', 'mp4clip'] as const) {
+        globalThis.__AKARI_FRAME_ENGINE_SOURCE__ = sourceMode;
+        for (const condition of [
+          { id: 'hardware-default', hardwareAcceleration: undefined },
+          { id: 'software', hardwareAcceleration: 'prefer-software' as const },
+        ]) {
+          const session = new ClipSession(
+            `${variant.id}:${sourceMode}:${condition.id}`,
+            source,
+            { hardwareAcceleration: condition.hardwareAcceleration },
+          );
+          try {
+            await session.load();
+            const lastFrameStartUs = session.getLastFrameStartUs();
+            const durationUs = session.meta?.duration ?? null;
+            if (lastFrameStartUs == null || durationUs == null) {
+              throw new Error(`${variant.id} endpoint metadata unavailable`);
+            }
+            const targets = [
+              { kind: 'last-start', timeUs: lastFrameStartUs },
+              { kind: 'half-frame', timeUs: lastFrameStartUs + Math.floor(1e6 / 48) },
+              { kind: 'duration-minus-one', timeUs: durationUs - 1 },
+            ] as const;
+            for (const target of targets) {
+              const frame = await session.decode(target.timeUs);
+              try {
+                const decodedFrame = reader.read(frame);
+                rows.push({
+                  variant: variant.id,
+                  bFrames: variant.bFrames,
+                  sourceMode,
+                  condition: condition.id,
+                  target: target.kind,
+                  targetUs: target.timeUs,
+                  lastFrameStartUs,
+                  durationUs,
+                  decodedFrame,
+                  timestampUs: frame.timestamp,
+                  pass: decodedFrame === 248 && frame.timestamp === lastFrameStartUs,
+                });
+              } finally {
+                frame.close();
+              }
+            }
+          } finally {
+            session.destroy();
+          }
+        }
+      }
+    }
+  } finally {
+    globalThis.__AKARI_FRAME_ENGINE_SOURCE__ = previousMode;
+  }
+  return {
+    rows,
+    pass: rows.length === ENDPOINT_VARIANTS.length * 2 * 2 * 3
       && rows.every(row => row.pass === true),
   };
 }

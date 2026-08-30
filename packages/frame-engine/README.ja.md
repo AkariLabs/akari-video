@@ -6,6 +6,10 @@
 
 cuts パスはハードカット、速度、静的 crop と線形補間 zoom framing、cut transform/opacity、尺を伸ばす freeze、GPU で描く 5 種の transition（`dissolve` / `fade-black` / `fade-white` / `reveal-down` / `reveal-up`）に対応します。freeze 展開は resolved timeline 層で行い、transition overlap を解決する前に後続の逐次 cut をすべて後ろへずらします。
 
+## MP4 ソースの読み込み
+
+既定の映像ソースは `ftyp` / `moov` のメタデータと、現在の GOP に必要な圧縮サンプルのバイト範囲だけを読みます。mp4box でサンプル索引を作り、上限 64 MiB の Range キャッシュを decoder fork 間で共有し、索引済みの AVC / HEVC chunk を WebCodecs へ直接渡します。このため素材を開く際に全体を OPFS へコピーしません。従来の全ストリーム MP4Clip 経路は、1 リリース限りの退避として `AKARI_FRAME_ENGINE_SOURCE=mp4clip` で選べます。
+
 ## Web プレビュー評価モード
 
 preview-server を `?frameEngine=1` 付きで開くと frame-engine canvas を使用します。フラグは既定で off であり、付けない場合は現行 Web UI のネットワーク・DOM 挙動とバイト等価です。engine canvas は cuts パス専用の評価面です。layers、overlays、字幕、音声は描画せず、黙って欠落させないよう UI に未対応バナーを常時表示します。

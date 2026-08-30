@@ -1,9 +1,8 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, net, protocol } = require('electron');
-const { mkdirSync, writeFileSync } = require('node:fs');
-const { resolve } = require('node:path');
-const { pathToFileURL } = require('node:url');
+const { app, BrowserWindow, ipcMain, protocol } = require('electron');
+const { mkdirSync, readFileSync, writeFileSync } = require('node:fs');
+const { extname, resolve } = require('node:path');
 
 const generated = resolve(__dirname, 'golden/.generated');
 const results = resolve(generated, process.env.AKARI_SEEK_RESULTS_NAME ?? 'gop-tail-seek-results.json');
@@ -17,6 +16,8 @@ const bFrameFixtures = new Set([
   'bframe-tail-bf0-30.mp4',
   'bframe-tail-bf2-30-aac.mp4',
   'bframe-tail-bf0-30-aac.mp4',
+  'endpoint-bf0-24.mp4',
+  'endpoint-bf2-24.mp4',
 ]);
 let finished = false;
 mkdirSync(generated, { recursive: true });
@@ -29,6 +30,41 @@ function stop(code) {
 
 function writeResult(value) {
   writeFileSync(results, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function fileResponse(request, file) {
+  const bytes = readFileSync(file);
+  const type = new Map([
+    ['.html', 'text/html; charset=utf-8'], ['.js', 'text/javascript; charset=utf-8'],
+    ['.mp4', 'video/mp4'], ['.webm', 'video/webm'],
+  ]).get(extname(file).toLowerCase()) ?? 'application/octet-stream';
+  const range = request.headers.get('range');
+  if (!range) {
+    return new Response(bytes, {
+      status: 200,
+      headers: { 'Content-Type': type, 'Content-Length': String(bytes.byteLength), 'Accept-Ranges': 'bytes' },
+    });
+  }
+  const match = /^bytes=(\d+)-(\d+)$/u.exec(range);
+  if (!match) return new Response('invalid range', { status: 416 });
+  const start = Number(match[1]);
+  const end = Math.min(bytes.byteLength - 1, Number(match[2]));
+  if (!Number.isInteger(start) || start < 0 || start > end || start >= bytes.byteLength) {
+    return new Response('range not satisfiable', {
+      status: 416,
+      headers: { 'Content-Range': `bytes */${bytes.byteLength}`, 'Accept-Ranges': 'bytes' },
+    });
+  }
+  const body = bytes.subarray(start, end + 1);
+  return new Response(body, {
+    status: 206,
+    headers: {
+      'Content-Type': type,
+      'Content-Length': String(body.byteLength),
+      'Content-Range': `bytes ${start}-${end}/${bytes.byteLength}`,
+      'Accept-Ranges': 'bytes',
+    },
+  });
 }
 
 protocol.registerSchemesAsPrivileged([{
@@ -59,7 +95,7 @@ app.whenReady().then(async () => {
       file = resolve(generated, url.pathname.slice(1));
     }
     else return new Response('not found', { status: 404 });
-    return net.fetch(pathToFileURL(file).toString());
+    return fileResponse(request, file);
   });
   const window = new BrowserWindow({
     show: false,

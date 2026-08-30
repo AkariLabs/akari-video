@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url';
 import * as MP4BoxNamespace from '@webav/mp4box.js';
 import {
   buildKeyframeIndexFromHeader,
+  buildVideoSampleTable,
   calculateDecoderTimestampOffsetUs,
+  encodedChunkInitForSample,
 } from '../dist/index.js';
 
 const MP4Box = MP4BoxNamespace.default ?? MP4BoxNamespace;
@@ -53,6 +55,7 @@ for (const variant of variants) {
     headerBytes.byteOffset + headerBytes.byteLength,
   );
   const index = await buildKeyframeIndexFromHeader(header);
+  const rangeTable = await buildVideoSampleTable(header.slice(0));
   const first = samples[0];
   const mediaTime = track.edits?.find(edit => edit.media_time >= 0)?.media_time ?? 0;
   const firstPacketDtsUs = Math.round(Number(JSON.parse(execFileSync(ffprobe, [
@@ -88,6 +91,21 @@ for (const variant of variants) {
   assert.equal(index.presentationDurationUs, 2_000_000);
   assert.equal(index.nextFrameStartUs(penultimateStartUs), finalStartUs);
   assert.equal(variant.reorderFrames === 0 ? firstPacketDtsUs === 0 : firstPacketDtsUs < 0, true);
+  assert.equal(rangeTable.samples.length, samples.length);
+  assert.equal(rangeTable.decoderTimestampOffsetUs, index.decoderTimestampOffsetUs);
+  assert.deepEqual(
+    rangeTable.samples.map(sample => [sample.offset, sample.size, sample.cts]),
+    samples.map(sample => [sample.offset, sample.size, sample.cts]),
+  );
+  assert.deepEqual(
+    rangeTable.samples.filter(sample => sample.isSync).map(sample => sample.timestampUs),
+    index.keyframeTimesUs.map(Math.round),
+  );
+  for (const sample of rangeTable.samples) {
+    const init = encodedChunkInitForSample(sample, new Uint8Array());
+    assert.equal(init.type, sample.isSync ? 'key' : 'delta');
+    assert.equal(init.timestamp, sample.timestampUs);
+  }
 }
 
 process.stdout.write(`B-frame sample tables: ${JSON.stringify(rows)}\n`);

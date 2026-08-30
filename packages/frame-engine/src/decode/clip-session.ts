@@ -18,6 +18,7 @@ import {
   DEFAULT_LOAD_BYTES_PER_SECOND,
   RetainedSourceBytes,
 } from './source-bytes.js';
+import { RangeMp4Source, type RangeFetchStats } from './range-mp4-source.js';
 
 export type ClipSessionState = 'idle' | 'loading' | 'ready' | 'degraded' | 'unavailable';
 
@@ -46,6 +47,22 @@ class DecoderGuardError extends Error {
 
 const AV_CLIPER_RESET_WINDOW_US = 3_000_000;
 const MAX_EXACT_FRAME_TICKS = 4;
+
+export type FrameEngineSourceMode = 'range' | 'mp4clip';
+
+export function resolveFrameEngineSourceMode(
+  environment?: Readonly<Record<string, string | undefined>>,
+): FrameEngineSourceMode {
+  const runtime = globalThis as typeof globalThis & {
+    process?: { env?: Record<string, string | undefined> };
+    __AKARI_FRAME_ENGINE_SOURCE__?: string;
+  };
+  const value = environment
+    ? environment.AKARI_FRAME_ENGINE_SOURCE
+    : runtime.__AKARI_FRAME_ENGINE_SOURCE__
+      ?? runtime.process?.env?.AKARI_FRAME_ENGINE_SOURCE;
+  return value === 'mp4clip' ? 'mp4clip' : 'range';
+}
 
 export function describeUnusableDecoder(
   clipId: string,
@@ -82,6 +99,10 @@ export class DecodedFrameCoverageCache {
     return this.frame?.clone() ?? null;
   }
 
+  cloneNearestAtOrBefore(targetUs: number): VideoFrame | null {
+    return this.frame && this.frame.timestamp <= targetUs ? this.frame.clone() : null;
+  }
+
   clear(): void {
     this.frame?.close();
     this.frame = null;
@@ -94,6 +115,7 @@ export class ClipSession implements NativeFrameSource {
   state: ClipSessionState = 'idle';
   meta: { duration: number; width: number; height: number } | null = null;
   private clip: MP4Clip | null = null;
+  private range: RangeMp4Source | null = null;
   private keyframes: KeyframeIndex | null = null;
   private lastFrameStartUs: number | null = null;
   private decoderTimestampOffsetUs = 0;
@@ -103,6 +125,7 @@ export class ClipSession implements NativeFrameSource {
   private loadPromise: Promise<void> | null = null;
   private preparePromise: Promise<void> | null = null;
   private preparedCandidate: MP4Clip | null = null;
+  private preparedRange: RangeMp4Source | null = null;
   private preparedKeyframes: KeyframeIndex | null = null;
   private cachedHeader: ArrayBuffer | null = null;
   private cachedKeyframes: KeyframeIndex | null = null;
@@ -113,6 +136,7 @@ export class ClipSession implements NativeFrameSource {
   private queue: Promise<unknown> = Promise.resolve();
   private sourceBytes: RetainedSourceBytes;
   private ownsSourceBytes = true;
+  private readonly sourceMode: FrameEngineSourceMode;
   private readonly options: {
     loadTimeoutMs?: number;
     loadBudgetMs?: number;
@@ -131,6 +155,7 @@ export class ClipSession implements NativeFrameSource {
   constructor(id: string, src: string, options: ClipSessionOptions = {}) {
     this.id = id;
     this.src = src;
+    this.sourceMode = resolveFrameEngineSourceMode();
     this.options = {
       loadTimeoutMs: options.loadTimeoutMs,
       loadBudgetMs: options.loadBudgetMs,
@@ -166,7 +191,9 @@ export class ClipSession implements NativeFrameSource {
 
   /** Parses the MP4 header and keyframe table without creating a VideoDecoder. */
   prepare(): Promise<void> {
-    if (this.clip || this.loadPromise || this.preparedCandidate) return Promise.resolve();
+    if (this.clip || this.range || this.loadPromise || this.preparedCandidate || this.preparedRange) {
+      return Promise.resolve();
+    }
     if (this.preparePromise) return this.preparePromise;
     const generation = this.prepareGeneration;
     let tracked: Promise<void>;
@@ -178,6 +205,25 @@ export class ClipSession implements NativeFrameSource {
   }
 
   private async doPrepare(generation: number): Promise<void> {
+    if (this.sourceMode === 'range') {
+      let candidate: RangeMp4Source | null = null;
+      try {
+        candidate = this.createRangeSource();
+        await candidate.prepare();
+        if (generation !== this.prepareGeneration) {
+          candidate.destroy();
+          return;
+        }
+        this.preparedRange = candidate;
+      } catch (error) {
+        candidate?.destroy();
+        if (generation === this.prepareGeneration) {
+          this.preparedRange = null;
+          this.options.onWarning?.(`${this.id}: prepare failed: ${String(error)}`);
+        }
+      }
+      return;
+    }
     let candidate: MP4Clip | null = null;
     try {
       const source = await this.sourceBytes.open();
@@ -206,6 +252,7 @@ export class ClipSession implements NativeFrameSource {
   }
 
   private async doLoad(): Promise<void> {
+    if (this.sourceMode === 'range') return this.doLoadRange();
     this.state = 'loading';
     this.coverage.clear();
     let lastError: unknown;
@@ -301,6 +348,47 @@ export class ClipSession implements NativeFrameSource {
     throw lastError instanceof Error ? lastError : new Error(lastMessage);
   }
 
+  private createRangeSource(): RangeMp4Source {
+    return new RangeMp4Source(this.id, this.src, {
+      loadTimeoutMs: this.options.loadTimeoutMs,
+      decodeTimeoutMs: this.options.tickTimeoutMs,
+      hardwareAcceleration: this.options.hardwareAcceleration,
+      codecSupport: this.options.codecSupport ?? this.learnedSupport,
+      onWarning: this.options.onWarning,
+      onCodecSupport: support => {
+        this.learnedSupport = support;
+        this.options.onCodecSupport?.(support);
+      },
+      onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied,
+    });
+  }
+
+  private async doLoadRange(): Promise<void> {
+    this.state = 'loading';
+    let candidate: RangeMp4Source | null = null;
+    try {
+      await this.preparePromise;
+      candidate = this.preparedRange ?? this.createRangeSource();
+      this.preparedRange = null;
+      await candidate.load();
+      this.range = candidate;
+      candidate = null;
+      this.applyKeyframes(this.range.keyframes);
+      this.meta = { ...this.range.meta };
+      this.state = this.range.decoderAcceleration === 'prefer-software' ? 'degraded' : 'ready';
+      if (this.state === 'degraded') {
+        this.options.onDecoderDegraded?.();
+        this.options.onWarning?.(`${this.id}: software decoder fallback active`);
+      }
+    } catch (error) {
+      candidate?.destroy();
+      this.range?.destroy();
+      this.range = null;
+      this.state = 'unavailable';
+      throw error;
+    }
+  }
+
   private async readKeyframes(clip: MP4Clip): Promise<KeyframeIndex | null> {
     if (this.cachedKeyframes) return this.cachedKeyframes;
     try {
@@ -386,6 +474,21 @@ export class ClipSession implements NativeFrameSource {
   }
 
   private async ensureParsed(): Promise<void> {
+    if (this.sourceMode === 'range') {
+      if (this.range) return;
+      await this.prepare();
+      if (this.preparedRange) {
+        this.range = this.preparedRange;
+        this.preparedRange = null;
+        this.applyKeyframes(this.range.keyframes);
+        this.meta = { ...this.range.meta };
+        this.state = 'ready';
+        this.loadPromise = Promise.resolve();
+        return;
+      }
+      await this.load();
+      return;
+    }
     if (this.clip) return;
     await this.prepare();
     if (this.preparedCandidate) {
@@ -408,6 +511,19 @@ export class ClipSession implements NativeFrameSource {
   }
 
   async decode(timeUs: number, metrics?: FrameMetricsRecorder): Promise<VideoFrame> {
+    if (this.sourceMode === 'range') {
+      await this.load();
+      if (!this.range || this.state === 'unavailable') throw new Error(`clip ${this.id} is unavailable`);
+      const tickStarted = performance.now();
+      const frame = await this.serialize(() => this.range!.decode(timeUs));
+      if (this.range.decoderAcceleration === 'prefer-software' && this.state !== 'degraded') {
+        this.state = 'degraded';
+        this.options.onDecoderDegraded?.();
+        this.options.onWarning?.(`${this.id}: software decoder fallback active`);
+      }
+      metrics?.record('tick', performance.now() - tickStarted);
+      return frame;
+    }
     await this.load();
     if (!this.clip || this.state === 'unavailable') throw new Error(`clip ${this.id} is unavailable`);
     const duration = this.meta?.duration ?? Number.POSITIVE_INFINITY;
@@ -433,6 +549,10 @@ export class ClipSession implements NativeFrameSource {
     if (!result.video) {
       const coveredAfterTick = this.coverage.cloneAt(target);
       if (coveredAfterTick) return coveredAfterTick;
+      if (this.lastFrameStartUs != null && target >= this.lastFrameStartUs) {
+        const nearest = this.coverage.cloneNearestAtOrBefore(target);
+        if (nearest) return nearest;
+      }
       throw new Error(`clip ${this.id} returned no video frame at ${target}us`);
     }
     this.coverage.remember(result.video);
@@ -465,9 +585,31 @@ export class ClipSession implements NativeFrameSource {
     return this.decoderTimestampOffsetUs;
   }
 
+  getSourceMode(): FrameEngineSourceMode {
+    return this.sourceMode;
+  }
+
+  getRangeFetchStats(): RangeFetchStats | null {
+    return this.range?.stats ?? null;
+  }
+
   /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */
   async fork(id: string): Promise<ClipSession> {
     await this.ensureParsed();
+    if (this.sourceMode === 'range') {
+      if (!this.range || !this.meta || this.state === 'unavailable') {
+        throw new Error(`clip ${this.id} cannot be forked while unavailable`);
+      }
+      const fork = new ClipSession(id, this.src, this.options);
+      fork.range = await this.range.fork(id);
+      fork.meta = { ...this.meta };
+      fork.state = this.state;
+      fork.keyframes = this.keyframes;
+      fork.lastFrameStartUs = this.lastFrameStartUs;
+      fork.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
+      fork.loadPromise = Promise.resolve();
+      return fork;
+    }
     if (!this.clip || !this.meta || this.state === 'unavailable') {
       throw new Error(`clip ${this.id} cannot be forked while unavailable`);
     }
@@ -496,8 +638,12 @@ export class ClipSession implements NativeFrameSource {
   destroy(): void {
     this.clip?.destroy();
     this.preparedCandidate?.destroy();
+    this.range?.destroy();
+    this.preparedRange?.destroy();
     this.clip = null;
     this.preparedCandidate = null;
+    this.range = null;
+    this.preparedRange = null;
     this.preparedKeyframes = null;
     this.preparePromise = null;
     this.prepareGeneration += 1;
@@ -573,6 +719,7 @@ export class ClipSession implements NativeFrameSource {
       const endedBeforeTarget = frame != null
         && hasUsableDuration
         && frame.timestamp + frame.duration <= target;
+      if (frame && frame.timestamp <= target) this.coverage.remember(frame);
       frame?.close();
 
       if ((frame == null || wentPastTarget) && !seeded && this.shouldSeedFromKeyframe(target)) {
@@ -603,6 +750,7 @@ export class ClipSession implements NativeFrameSource {
     if (!this.keyframes) return;
     const anchor = this.keyframes.nearestAtOrBefore(target);
     const seeded = await this.guardedTick(anchor + 1);
+    if (seeded.video) this.coverage.remember(seeded.video);
     seeded.video?.close();
   }
 

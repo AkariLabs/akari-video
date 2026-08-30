@@ -1,5 +1,9 @@
 # @webav/av-cliper 保守現況（2026-08-27 調査）
 
+## frame-engine の読み込み層
+
+frame-engine の既定 MP4 読み込み層は MP4Clip から外れた。mp4box で `ftyp` / `moov` の索引を作り、必要な圧縮サンプルだけを Range 取得して WebCodecs へ直接渡すため、既定経路に av-cliper 依存は残らない。`AKARI_FRAME_ENGINE_SOURCE=mp4clip` の退避フラグだけを 1 リリース保持し、下記の vendoring 修正と decoder guard はその旧経路に限って維持する。
+
 - npm の最新版は **1.2.8** で、本パッケージも同版へ固定している（[npm search](https://www.npmjs.com/search?q=keywords%3Acliper)）。
 - 開発元の WebAV mono-repo は 2026 年にも更新があり、`av-cliper` は引き続き基礎 SDK として案内されている（[WebAV repository](https://github.com/WebAV-Tech/WebAV)）。
 - 公式な後継パッケージは示されていない。`@webav/av-canvas` は `av-cliper` に依存する上位 UI 層であり代替ではない（[package README](https://github.com/WebAV-Tech/WebAV/blob/main/packages/av-cliper/README.md)）。
@@ -39,7 +43,7 @@ macOS arm64、Electron 39.8.7、H.264 `avc1.640032`（1920x1080）で `VideoDeco
 | 非プロプライエタリ版 | GPU | OK | OK | OK | **NG** |
 | 非プロプライエタリ版 | ソフト | **NG** | **NG** | **NG** | **NG** |
 
-`ClipSession` は `prefer-hardware`、`prefer-software` の順に試す。このためソフト描画では 1 回目が必ず失敗し、2 回目の software fallback でロードされて `state = 'degraded'` になる。
+`ClipSession` は `VideoDecoder.isConfigSupported()` で `prefer-hardware` を先に調べ、false の場合だけ `prefer-software` を 1 回調べる。このためソフト描画では software fallback でロードされて `state = 'degraded'` になる。両方 false の場合は明示的な `Unsupported configuration` で fail-closed する。退避 MP4Clip 経路も同じ優先順を保つ。
 
 非プロプライエタリ版 libffmpeg は H.264 デコーダを持たないため、そのランタイムのソフト描画では H.264 を一切デコードできない。ソフト描画を検証するには、H.264 デコーダを含む libffmpeg を持つランタイムが必要になる。
 
