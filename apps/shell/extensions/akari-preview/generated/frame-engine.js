@@ -13212,15 +13212,15 @@ ${indent}`);
         output.log(output.indent + "width: " + this.width);
         output.log(output.indent + "height: " + this.height);
       };
-      var MP4Box2 = {};
-      MP4Box2.createFile = function(_keepMdatData, _stream) {
+      var MP4Box3 = {};
+      MP4Box3.createFile = function(_keepMdatData, _stream) {
         var keepMdatData = _keepMdatData !== void 0 ? _keepMdatData : true;
         var file = new ISOFile(_stream);
         file.discardMdatData = keepMdatData ? false : true;
         return file;
       };
       if (typeof exports !== "undefined") {
-        exports.createFile = MP4Box2.createFile;
+        exports.createFile = MP4Box3.createFile;
       }
     }
   });
@@ -13229,16 +13229,19 @@ ${indent}`);
   var index_exports = {};
   __export(index_exports, {
     BufferedRawFrameSink: () => BufferedRawFrameSink,
+    ByteRangeCache: () => ByteRangeCache,
     CAPTION_SPRITE_MOTIONS: () => CAPTION_SPRITE_MOTIONS,
     CachedStillImageSource: () => CachedStillImageSource,
     ClipSession: () => ClipSession,
     ClipSessionPool: () => ClipSessionPool,
+    DEFAULT_RANGE_CACHE_BYTES: () => DEFAULT_RANGE_CACHE_BYTES,
     DecodedFrameCoverageCache: () => DecodedFrameCoverageCache,
     DirectUploadFallbackError: () => DirectUploadFallbackError,
     FrameEvaluator: () => FrameEvaluator,
     FrameMetrics: () => FrameMetrics,
     LookaheadCache: () => LookaheadCache,
     LookaheadFrameSource: () => LookaheadFrameSource,
+    RangeMp4Source: () => RangeMp4Source,
     ScrubController: () => ScrubController,
     SpriteCompositor: () => SpriteCompositor,
     TRANSITION_BLUR_MAX_TAPS: () => TRANSITION_BLUR_MAX_TAPS,
@@ -13247,10 +13250,12 @@ ${indent}`);
     WebCodecsH264Encoder: () => WebCodecsH264Encoder,
     WebGL2Compositor: () => WebGL2Compositor,
     applyHomography: () => applyHomography,
+    avcCodecString: () => avcCodecString2,
     buildBaseFragment: () => buildBaseFragment,
     buildCaptionWordTiles: () => buildCaptionWordTiles,
     buildKeyframeIndexFromHeader: () => buildKeyframeIndexFromHeader,
     buildResolvedTimelinePlan: () => buildResolvedTimelinePlan,
+    buildVideoSampleTable: () => buildVideoSampleTable,
     calculateDecoderTimestampOffsetUs: () => calculateDecoderTimestampOffsetUs,
     captionMeasurementsEqual: () => captionMeasurementsEqual,
     captionMotionAt: () => captionMotionAt,
@@ -13258,6 +13263,7 @@ ${indent}`);
     captionWordStateAt: () => captionWordStateAt,
     captionWordTextureRect: () => captionWordTextureRect,
     capturePresentedRgba: () => capturePresentedRgba,
+    childBoxes: () => childBoxes2,
     chooseSource: () => chooseSource,
     compareRgba: () => compareRgba,
     computeLayerKeyframesVisual: () => computeLayerKeyframesVisual,
@@ -13267,39 +13273,51 @@ ${indent}`);
     createPreviewAudioSupply: () => createPreviewAudioSupply,
     createPreviewScheduler: () => createPreviewScheduler,
     cubicBezierAt: () => cubicBezierAt,
+    decodeEndForPresentationSample: () => decodeEndForPresentationSample,
     describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
+    encodedChunkInitForSample: () => encodedChunkInitForSample,
     evaluateCodecSupport: () => evaluateCodecSupport,
     evaluateFrame: () => evaluateFrame,
     evaluationPlanFromResolvedTimeline: () => evaluationPlanFromResolvedTimeline,
     evaluationPlanFromTimelineMap: () => evaluationPlanFromTimelineMap,
+    fetchMp4Header: () => fetchMp4Header,
     frameCoversTimestamp: () => frameCoversTimestamp,
+    futureFrameTimestampsToEvict: () => futureFrameTimestampsToEvict,
+    hevcCodecString: () => hevcCodecString2,
     invertMat3: () => invertMat3,
     isCaptionMotionSupported: () => isCaptionMotionSupported,
     isDecoderErrorMessage: () => isDecoderErrorMessage,
     isDirectUploadableFormat: () => isDirectUploadableFormat,
     isForceSoftwareDecode: () => isForceSoftwareDecode,
     isLayerActiveAt: () => isLayerActiveAt,
+    mergeByteRanges: () => mergeByteRanges,
     needsCodecProbe: () => needsCodecProbe,
     normalizeSpriteDraw: () => normalizeSpriteDraw,
     normalizeSpriteTextureRect: () => normalizeSpriteTextureRect,
     normalizeSpriteTile: () => normalizeSpriteTile,
     parseCube: () => parseCube,
     parseSourceSelectionMode: () => parseSourceSelectionMode,
+    precedingSyncSample: () => precedingSyncSample,
     presentFrame: () => presentFrame,
     presentationFrameTiming: () => presentationFrameTiming,
     probeSourceCodec: () => probeSourceCodec,
     projectSpeechDeclarations: () => projectSpeechDeclarations2,
+    readBoxAt: () => readBoxAt,
     readDeclaredAcceleration: () => readDeclaredAcceleration,
     readVideoCodecFromMoov: () => readVideoCodecFromMoov,
     readbackFrame: () => readbackFrame,
     resetCodecProbeCache: () => resetCodecProbeCache,
+    resolveFrameEngineSourceMode: () => resolveFrameEngineSourceMode,
     resolveLookLutPath: () => resolveLookLutPath,
+    sampleAtPresentationTime: () => sampleAtPresentationTime,
     sampleLutTrilinear: () => sampleLutTrilinear,
+    selectSupportedDecoderConfig: () => selectSupportedDecoderConfig,
     setForceSoftwareDecode: () => setForceSoftwareDecode,
     spriteTileMatrix: () => spriteTileMatrix,
     spriteTileSourceRect: () => spriteTileSourceRect,
     spriteTransformMatrix: () => spriteTransformMatrix,
+    summarizeSampleTiming: () => summarizeSampleTiming,
     watchDecoderErrors: () => watchDecoderErrors,
     withProgressBudget: () => withProgressBudget,
     withTimeout: () => withTimeout
@@ -17510,7 +17528,8 @@ void main() {
         const base = {
           codec,
           ...init.codedWidth ? { codedWidth: init.codedWidth } : {},
-          ...init.codedHeight ? { codedHeight: init.codedHeight } : {}
+          ...init.codedHeight ? { codedHeight: init.codedHeight } : {},
+          ...init.description ? { description: init.description } : {}
         };
         const [rawHw, sw, rawAny] = await Promise.all([
           configSupported({ ...base, hardwareAcceleration: "prefer-hardware" }),
@@ -17564,7 +17583,9 @@ void main() {
     const contentRange = response.headers.get("content-range");
     const match = contentRange?.match(/\/(\d+)$/u);
     if (match) return Number(match[1]);
-    const contentLength = Number(response.headers.get("content-length"));
+    const rawContentLength = response.headers.get("content-length");
+    if (rawContentLength == null || rawContentLength.trim() === "") return null;
+    const contentLength = Number(rawContentLength);
     return Number.isFinite(contentLength) && contentLength >= 0 ? contentLength : null;
   }
   async function doProbeSourceCodec(url, options) {
@@ -17822,12 +17843,12 @@ void main() {
             track.timescale,
             track.edits
           );
-          const presentationMediaTime = presentationMediaEdit(track.edits)?.media_time ?? firstDts;
+          const presentationMediaTime2 = presentationMediaEdit(track.edits)?.media_time ?? firstDts;
           const editDuration = track.edits?.reduce((sum, edit) => sum + edit.segment_duration, 0) ?? 0;
           const presentationDurationUs = editDuration > 0 && info.timescale > 0 ? Math.round(
             editDuration / info.timescale * 1e6
           ) : null;
-          const timestampUs = (sample) => (sample.cts - presentationMediaTime) / sample.timescale * 1e6;
+          const timestampUs = (sample) => (sample.cts - presentationMediaTime2) / sample.timescale * 1e6;
           let lastFrameStartUs = null;
           for (const sample of samples) {
             const startUs = Math.round(timestampUs(sample));
@@ -18049,6 +18070,1054 @@ void main() {
     }
   };
 
+  // packages/frame-engine/src/decode/sample-table.ts
+  var MP4BoxNamespace2 = __toESM(require_mp4box_all(), 1);
+  var MP4Box2 = MP4BoxNamespace2.default ?? MP4BoxNamespace2;
+  function summarizeSampleTiming(samples) {
+    let maxReorderFrames = 0;
+    let sampleDurationUs = 0;
+    for (const sample of samples) {
+      maxReorderFrames = Math.max(
+        maxReorderFrames,
+        Math.abs(sample.decodeIndex - sample.presentationIndex)
+      );
+      sampleDurationUs = Math.max(sampleDurationUs, sample.timestampUs + sample.durationUs);
+    }
+    return { maxReorderFrames, sampleDurationUs };
+  }
+  function uint322(bytes, offset) {
+    return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
+  }
+  function uint642(bytes, offset) {
+    const value = new DataView(bytes.buffer, bytes.byteOffset + offset, 8).getBigUint64(0);
+    if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("MP4 box exceeds safe integer range");
+    return Number(value);
+  }
+  function typeAt2(bytes, offset) {
+    return String.fromCharCode(...bytes.subarray(offset, offset + 4));
+  }
+  function readBoxAt(bytes, start, parentEnd = bytes.byteLength) {
+    if (start < 0 || start + 8 > parentEnd || parentEnd > bytes.byteLength) return null;
+    let size = uint322(bytes, start);
+    const type = typeAt2(bytes, start + 4);
+    let headerSize = 8;
+    if (size === 1) {
+      if (start + 16 > parentEnd) return null;
+      size = uint642(bytes, start + 8);
+      headerSize = 16;
+    } else if (size === 0) {
+      size = parentEnd - start;
+    }
+    if (size < headerSize || start + size > parentEnd) return null;
+    return { type, start, end: start + size, size, headerSize, dataStart: start + headerSize };
+  }
+  function childBoxes2(bytes, start, end) {
+    const boxes = [];
+    let cursor = start;
+    while (cursor + 8 <= end) {
+      const box2 = readBoxAt(bytes, cursor, end);
+      if (!box2) throw new Error(`invalid MP4 box at byte ${cursor}`);
+      boxes.push(box2);
+      cursor = box2.end;
+    }
+    return boxes;
+  }
+  function reverseBits322(value) {
+    let source = value >>> 0;
+    let reversed = 0;
+    for (let bit = 0; bit < 32; bit += 1) {
+      reversed = (reversed << 1 | source & 1) >>> 0;
+      source >>>= 1;
+    }
+    return reversed >>> 0;
+  }
+  function hevcCodecString2(fourcc, hvcc) {
+    if (hvcc.length < 13 || hvcc[0] !== 1) throw new Error("invalid or unsupported hvcC record");
+    const profileSpace = ["", "A", "B", "C"][hvcc[1] >>> 6 & 3] ?? "";
+    const tier = (hvcc[1] & 32) === 0 ? "L" : "H";
+    const profileIdc = hvcc[1] & 31;
+    const compatibility = reverseBits322(uint322(hvcc, 2)).toString(16).toUpperCase();
+    const constraints = [...hvcc.subarray(6, 12)];
+    while (constraints.at(-1) === 0) constraints.pop();
+    const suffix = constraints.length ? `.${constraints.map((value) => value.toString(16).toUpperCase().padStart(2, "0")).join(".")}` : "";
+    return `${fourcc}.${profileSpace}${profileIdc}.${compatibility}.${tier}${hvcc[12]}${suffix}`;
+  }
+  function avcCodecString2(fourcc, avcc) {
+    if (avcc.length < 4 || avcc[0] !== 1) throw new Error("invalid or unsupported avcC record");
+    return `${fourcc}.${[...avcc.subarray(1, 4)].map((value) => value.toString(16).toUpperCase().padStart(2, "0")).join("")}`;
+  }
+  function videoDescription(bytes) {
+    const moov = childBoxes2(bytes, 0, bytes.byteLength).find((box2) => box2.type === "moov");
+    if (!moov) throw new Error("moov box is missing");
+    for (const trak of childBoxes2(bytes, moov.dataStart, moov.end).filter((box2) => box2.type === "trak")) {
+      const mdia = childBoxes2(bytes, trak.dataStart, trak.end).find((box2) => box2.type === "mdia");
+      if (!mdia) continue;
+      const mdiaChildren = childBoxes2(bytes, mdia.dataStart, mdia.end);
+      const hdlr = mdiaChildren.find((box2) => box2.type === "hdlr");
+      if (!hdlr || hdlr.dataStart + 12 > hdlr.end || typeAt2(bytes, hdlr.dataStart + 8) !== "vide") continue;
+      const minf = mdiaChildren.find((box2) => box2.type === "minf");
+      if (!minf) continue;
+      const stbl = childBoxes2(bytes, minf.dataStart, minf.end).find((box2) => box2.type === "stbl");
+      if (!stbl) continue;
+      const stsd = childBoxes2(bytes, stbl.dataStart, stbl.end).find((box2) => box2.type === "stsd");
+      if (!stsd || stsd.dataStart + 8 > stsd.end) continue;
+      const entryCount = uint322(bytes, stsd.dataStart + 4);
+      let cursor = stsd.dataStart + 8;
+      for (let index = 0; index < entryCount; index += 1) {
+        const entry = readBoxAt(bytes, cursor, stsd.end);
+        if (!entry) throw new Error("invalid stsd video entry");
+        cursor = entry.end;
+        if (!["avc1", "avc3", "hvc1", "hev1"].includes(entry.type)) continue;
+        if (entry.dataStart + 78 > entry.end) throw new Error(`truncated ${entry.type} sample entry`);
+        const codedWidth = new DataView(
+          bytes.buffer,
+          bytes.byteOffset + entry.dataStart + 24,
+          2
+        ).getUint16(0);
+        const codedHeight = new DataView(
+          bytes.buffer,
+          bytes.byteOffset + entry.dataStart + 26,
+          2
+        ).getUint16(0);
+        const configType = entry.type.startsWith("avc") ? "avcC" : "hvcC";
+        const config = childBoxes2(bytes, entry.dataStart + 78, entry.end).find((box2) => box2.type === configType);
+        if (!config) throw new Error(`${entry.type} sample entry has no ${configType}`);
+        const description = bytes.slice(config.dataStart, config.end);
+        return {
+          fourcc: entry.type,
+          codec: configType === "avcC" ? avcCodecString2(entry.type, description) : hevcCodecString2(entry.type, description),
+          description,
+          codedWidth,
+          codedHeight
+        };
+      }
+    }
+    throw new Error("supported video sample description not found");
+  }
+  function presentationMediaTime(edits, firstDts) {
+    return edits?.find((edit) => edit.media_time >= 0 && edit.media_rate_integer === 1 && edit.media_rate_fraction === 0)?.media_time ?? firstDts;
+  }
+  function buildVideoSampleTable(header) {
+    return new Promise((resolve, reject) => {
+      const bytes = new Uint8Array(header);
+      let description;
+      try {
+        description = videoDescription(bytes);
+      } catch (error) {
+        reject(error);
+        return;
+      }
+      const file = MP4Box2.createFile();
+      file.onError = (message) => reject(new Error(`mp4box parse error: ${message}`));
+      file.onReady = (rawInfo) => {
+        try {
+          const info = rawInfo;
+          const track = info.videoTracks[0];
+          if (!track) throw new Error("MP4 has no video track");
+          const rawSamples = file.getTrackSamplesInfo(track.id);
+          if (rawSamples.length === 0) throw new Error("video sample table is empty");
+          const firstDts = rawSamples[0].dts;
+          const mediaTime = presentationMediaTime(track.edits, firstDts);
+          const decoderTimestampOffsetUs = calculateDecoderTimestampOffsetUs(
+            firstDts,
+            track.timescale,
+            track.edits
+          );
+          const samples = rawSamples.map((sample, decodeIndex) => ({
+            offset: sample.offset,
+            size: sample.size,
+            dts: sample.dts,
+            cts: sample.cts,
+            duration: sample.duration,
+            timescale: sample.timescale,
+            isSync: sample.is_sync,
+            timestampUs: Math.round((sample.cts - mediaTime) / sample.timescale * 1e6),
+            durationUs: Math.max(1, Math.round(sample.duration / sample.timescale * 1e6)),
+            decodeIndex,
+            presentationIndex: -1,
+            decodeEndIndex: decodeIndex
+          }));
+          const presentationOrder = samples.map((sample) => sample.decodeIndex).sort((left, right) => {
+            const difference = samples[left].timestampUs - samples[right].timestampUs;
+            return difference || left - right;
+          });
+          let decodeEndIndex = 0;
+          presentationOrder.forEach((decodeIndex, presentationIndex) => {
+            decodeEndIndex = Math.max(decodeEndIndex, decodeIndex);
+            samples[decodeIndex].presentationIndex = presentationIndex;
+            samples[decodeIndex].decodeEndIndex = decodeEndIndex;
+          });
+          for (let presentationIndex = 0; presentationIndex < presentationOrder.length - 1; presentationIndex += 1) {
+            const sample = samples[presentationOrder[presentationIndex]];
+            const next = samples[presentationOrder[presentationIndex + 1]];
+            const untilNextUs = next.timestampUs - sample.timestampUs;
+            if (untilNextUs > 0) sample.durationUs = Math.min(sample.durationUs, untilNextUs);
+          }
+          const { maxReorderFrames, sampleDurationUs } = summarizeSampleTiming(samples);
+          const editDuration = track.edits?.reduce((sum, edit) => sum + edit.segment_duration, 0) ?? 0;
+          const presentationDurationUs = editDuration > 0 && info.timescale > 0 ? Math.round(editDuration / info.timescale * 1e6) : sampleDurationUs;
+          const lastFrameStartUs = samples[presentationOrder.at(-1)].timestampUs;
+          resolve({
+            ...description,
+            width: track.video?.width ?? description.codedWidth,
+            height: track.video?.height ?? description.codedHeight,
+            maxReorderFrames,
+            samples,
+            presentationOrder,
+            decoderTimestampOffsetUs,
+            presentationDurationUs: Math.max(presentationDurationUs, lastFrameStartUs + 1),
+            lastFrameStartUs
+          });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      const buffer = header;
+      buffer.fileStart = 0;
+      file.appendBuffer(buffer);
+      file.flush();
+    });
+  }
+  function sampleAtPresentationTime(table, targetUs) {
+    const order = table.presentationOrder;
+    let low = 0;
+    let high = order.length - 1;
+    if (targetUs <= table.samples[order[0]].timestampUs) return table.samples[order[0]];
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      if (table.samples[order[middle]].timestampUs <= targetUs) low = middle;
+      else high = middle - 1;
+    }
+    return table.samples[order[low]];
+  }
+  function decodeEndForPresentationSample(_table, target) {
+    return target.decodeEndIndex;
+  }
+  function precedingSyncSample(table, decodeIndex) {
+    for (let index = decodeIndex; index >= 0; index -= 1) {
+      if (table.samples[index].isSync) return index;
+    }
+    return 0;
+  }
+
+  // packages/frame-engine/src/decode/range-mp4-source.ts
+  var DEFAULT_RANGE_CACHE_BYTES = 64 * 1024 * 1024;
+  var INITIAL_HEADER_BYTES = 16;
+  var MAX_TOP_LEVEL_BOXES = 64;
+  function uint323(bytes, offset) {
+    return new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0);
+  }
+  function topLevelHeader2(bytes, totalBytes, start) {
+    if (bytes.byteLength < 8) throw new Error(`truncated MP4 box header at byte ${start}`);
+    let size = uint323(bytes, 0);
+    const type = String.fromCharCode(...bytes.subarray(4, 8));
+    let headerSize = 8;
+    if (size === 1) {
+      if (bytes.byteLength < 16) throw new Error(`truncated extended-size ${type} box`);
+      const large = new DataView(bytes.buffer, bytes.byteOffset + 8, 8).getBigUint64(0);
+      if (large > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error(`${type} box is too large`);
+      size = Number(large);
+      headerSize = 16;
+    } else if (size === 0) {
+      size = totalBytes - start;
+    }
+    if (size < headerSize || start + size > totalBytes) {
+      throw new Error(`invalid ${type} box at byte ${start} (size ${size})`);
+    }
+    return { type, size, headerSize };
+  }
+  function responseTotal2(response, requestedStart) {
+    const contentRange = response.headers.get("content-range");
+    const match = contentRange?.match(/\/([0-9]+)$/u);
+    if (match) return Number(match[1]);
+    const rawContentLength = response.headers.get("content-length");
+    if (rawContentLength == null || rawContentLength.trim() === "") return null;
+    const contentLength = Number(rawContentLength);
+    if (requestedStart === 0 && response.status === 200 && Number.isFinite(contentLength) && contentLength >= 0) {
+      return contentLength;
+    }
+    return null;
+  }
+  async function readLimited(response, limit) {
+    if (!response.body) throw new Error(`Range response has no body (${response.status})`);
+    const reader = response.body.getReader();
+    const chunks = [];
+    let length = 0;
+    try {
+      while (length < limit) {
+        const next = await reader.read();
+        if (next.done) break;
+        const remaining = limit - length;
+        const chunk = next.value.byteLength > remaining ? next.value.subarray(0, remaining) : next.value;
+        chunks.push(chunk.slice());
+        length += chunk.byteLength;
+        if (next.value.byteLength > remaining) break;
+      }
+    } finally {
+      if (length >= limit) await reader.cancel().catch(() => void 0);
+      reader.releaseLock();
+    }
+    const bytes = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
+  }
+  var HttpRangeReader = class {
+    constructor(url, fetchImpl, onWarning) {
+      this.url = url;
+      this.fetchImpl = fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
+      this.onWarning = onWarning;
+    }
+    stats = {
+      requests: 0,
+      bytes: 0,
+      headerBytes: 0,
+      mediaBytes: 0,
+      maxDecodeQueueSize: 0,
+      fullBodyFallback: false,
+      fullBodyBytes: 0,
+      maxFutureFrames: 0
+    };
+    fetchImpl;
+    onWarning;
+    fullBody = null;
+    fullBodyPromise = null;
+    fallbackWarned = false;
+    warnFallback() {
+      if (this.fallbackWarned) return;
+      this.fallbackWarned = true;
+      this.onWarning?.(`${this.url}: this host does not support byte ranges; loading the full source once`);
+    }
+    recordBytes(bytes, kind) {
+      this.stats.bytes += bytes;
+      if (kind === "header") this.stats.headerBytes += bytes;
+      else this.stats.mediaBytes += bytes;
+    }
+    async loadFullBody(kind, response) {
+      this.warnFallback();
+      this.stats.fullBodyFallback = true;
+      this.fullBodyPromise ??= (async () => {
+        let fullResponse = response;
+        if (!fullResponse) {
+          fullResponse = await this.fetchImpl(this.url);
+          this.stats.requests += 1;
+          if (!fullResponse.ok) throw new Error(`full source fetch failed: ${fullResponse.status}`);
+        }
+        const bytes = new Uint8Array(await fullResponse.arrayBuffer());
+        this.recordBytes(bytes.byteLength, kind);
+        this.stats.fullBodyBytes = bytes.byteLength;
+        this.fullBody = bytes;
+        return bytes;
+      })();
+      return this.fullBodyPromise;
+    }
+    async read(start, end, kind) {
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end <= start) {
+        throw new Error(`invalid byte range [${start}, ${end})`);
+      }
+      if (this.fullBody) {
+        if (start >= this.fullBody.byteLength) {
+          throw new Error(`byte range starts beyond full source (${this.fullBody.byteLength})`);
+        }
+        return {
+          bytes: this.fullBody.subarray(start, Math.min(end, this.fullBody.byteLength)),
+          totalBytes: this.fullBody.byteLength
+        };
+      }
+      const response = await this.fetchImpl(this.url, {
+        headers: { Range: `bytes=${start}-${end - 1}` }
+      });
+      this.stats.requests += 1;
+      if (!response.ok) throw new Error(`Range fetch failed: ${response.status}`);
+      if (response.status !== 206) {
+        const full = await this.loadFullBody(kind, response);
+        if (start >= full.byteLength) throw new Error(`byte range starts beyond full source (${full.byteLength})`);
+        return { bytes: full.subarray(start, Math.min(end, full.byteLength)), totalBytes: full.byteLength };
+      }
+      const totalBytes = responseTotal2(response, start);
+      if (totalBytes == null) {
+        await response.body?.cancel().catch(() => void 0);
+        const full = await this.loadFullBody(kind);
+        if (start >= full.byteLength) throw new Error(`byte range starts beyond full source (${full.byteLength})`);
+        return { bytes: full.subarray(start, Math.min(end, full.byteLength)), totalBytes: full.byteLength };
+      }
+      const expectedLength = totalBytes == null ? end - start : Math.min(end, totalBytes) - start;
+      const bytes = await readLimited(response, expectedLength);
+      if (bytes.byteLength !== expectedLength) {
+        throw new Error(`truncated Range response [${start}, ${end}): ${bytes.byteLength} bytes`);
+      }
+      this.recordBytes(bytes.byteLength, kind);
+      return { bytes, totalBytes };
+    }
+  };
+  async function fetchMp4Header(url, options = {}) {
+    const reader = new HttpRangeReader(url, options.fetchImpl, options.onWarning);
+    const opened = await scanMp4Header(reader, options.initialBytes ?? INITIAL_HEADER_BYTES);
+    return { ...opened, stats: { ...reader.stats } };
+  }
+  async function scanMp4Header(reader, initialLimit) {
+    const probe = await reader.read(0, 16, "header");
+    const totalBytes = probe.totalBytes;
+    if (totalBytes == null) throw new Error("Range source did not report the total MP4 size");
+    const initialEnd = Math.min(totalBytes, Math.max(16, initialLimit));
+    const initial = initialEnd === probe.bytes.byteLength ? probe.bytes : (await reader.read(0, initialEnd, "header")).bytes;
+    let cursor = 0;
+    let ftyp = null;
+    let moov = null;
+    for (let count = 0; count < MAX_TOP_LEVEL_BOXES && cursor < totalBytes; count += 1) {
+      let boxHead;
+      if (cursor + 16 <= initial.byteLength) {
+        boxHead = initial.subarray(cursor, cursor + 16);
+      } else {
+        const length = Math.min(16, totalBytes - cursor);
+        boxHead = (await reader.read(cursor, cursor + length, "header")).bytes;
+      }
+      const box2 = topLevelHeader2(boxHead, totalBytes, cursor);
+      const readBox = async () => {
+        if (cursor + box2.size <= initial.byteLength) return initial.slice(cursor, cursor + box2.size);
+        const bytes = new Uint8Array(box2.size);
+        bytes.set(boxHead.subarray(0, box2.headerSize), 0);
+        if (box2.size > box2.headerSize) {
+          bytes.set((await reader.read(
+            cursor + box2.headerSize,
+            cursor + box2.size,
+            "header"
+          )).bytes, box2.headerSize);
+        }
+        return bytes;
+      };
+      if (box2.type === "ftyp") ftyp = await readBox();
+      if (box2.type === "moov") {
+        moov = await readBox();
+        break;
+      }
+      cursor += box2.size;
+    }
+    if (!moov) throw new Error("moov box not found while scanning top-level MP4 boxes");
+    const headerBytes = new Uint8Array((ftyp?.byteLength ?? 0) + moov.byteLength);
+    if (ftyp) headerBytes.set(ftyp, 0);
+    headerBytes.set(moov, ftyp?.byteLength ?? 0);
+    return { header: headerBytes.buffer, totalBytes };
+  }
+  function mergeByteRanges(ranges) {
+    const sorted = ranges.filter((range) => range.end > range.start).map((range) => ({ ...range })).sort((left, right) => left.start - right.start || left.end - right.end);
+    const merged = [];
+    for (const range of sorted) {
+      const prior = merged.at(-1);
+      if (prior && range.start <= prior.end) prior.end = Math.max(prior.end, range.end);
+      else merged.push(range);
+    }
+    return merged;
+  }
+  var ByteRangeCache = class {
+    constructor(maxBytes = DEFAULT_RANGE_CACHE_BYTES) {
+      this.maxBytes = maxBytes;
+      if (!Number.isFinite(maxBytes) || maxBytes < 0) throw new Error("cache limit must be non-negative");
+    }
+    entries = [];
+    clock = 0;
+    retainedBytes = 0;
+    get(start, end) {
+      const entry = this.entries.find((candidate) => candidate.start <= start && candidate.end >= end);
+      if (!entry) return null;
+      entry.used = ++this.clock;
+      return entry.data.subarray(start - entry.start, end - entry.start);
+    }
+    put(start, data) {
+      if (data.byteLength === 0 || data.byteLength > this.maxBytes) return;
+      const end = start + data.byteLength;
+      for (let index = this.entries.length - 1; index >= 0; index -= 1) {
+        const entry = this.entries[index];
+        if (entry.end <= start || entry.start >= end) continue;
+        this.entries.splice(index, 1);
+        this.retainedBytes -= entry.data.byteLength;
+      }
+      this.entries.push({ start, end, data: data.slice(), used: ++this.clock });
+      this.retainedBytes += data.byteLength;
+      while (this.retainedBytes > this.maxBytes) {
+        let oldestIndex = 0;
+        for (let index = 1; index < this.entries.length; index += 1) {
+          if (this.entries[index].used < this.entries[oldestIndex].used) oldestIndex = index;
+        }
+        const [removed] = this.entries.splice(oldestIndex, 1);
+        this.retainedBytes -= removed.data.byteLength;
+      }
+    }
+    get sizeBytes() {
+      return this.retainedBytes;
+    }
+    clear() {
+      this.entries.length = 0;
+      this.retainedBytes = 0;
+    }
+  };
+  var SharedRangeBytes = class {
+    cache;
+    reader;
+    constructor(url, fetchImpl, cacheBytes = DEFAULT_RANGE_CACHE_BYTES, onWarning) {
+      this.cache = new ByteRangeCache(cacheBytes);
+      this.reader = new HttpRangeReader(url, fetchImpl, onWarning);
+    }
+    async samples(samples) {
+      const result = /* @__PURE__ */ new Map();
+      const missing = [];
+      for (const sample of samples) {
+        const cached = this.cache.get(sample.offset, sample.offset + sample.size);
+        if (cached) result.set(sample.decodeIndex, cached);
+        else missing.push({ start: sample.offset, end: sample.offset + sample.size });
+      }
+      const fetched = [];
+      for (const range of mergeByteRanges(missing)) {
+        const data = (await this.reader.read(range.start, range.end, "media")).bytes;
+        fetched.push({ ...range, data, used: 0 });
+        this.cache.put(range.start, data);
+      }
+      for (const sample of samples) {
+        if (result.has(sample.decodeIndex)) continue;
+        const fetchedRange = fetched.find((range) => range.start <= sample.offset && range.end >= sample.offset + sample.size);
+        const bytes = this.cache.get(sample.offset, sample.offset + sample.size) ?? fetchedRange?.data.subarray(
+          sample.offset - fetchedRange.start,
+          sample.offset - fetchedRange.start + sample.size
+        ) ?? null;
+        if (!bytes || bytes.byteLength !== sample.size) {
+          throw new Error(`sample ${sample.decodeIndex} bytes are unavailable`);
+        }
+        result.set(sample.decodeIndex, bytes);
+      }
+      return result;
+    }
+  };
+  async function selectSupportedDecoderConfig(table, requested, knownSupport, callbacks = {}) {
+    const base = {
+      codec: table.codec,
+      description: table.description,
+      codedWidth: table.codedWidth,
+      codedHeight: table.codedHeight,
+      optimizeForLatency: true
+    };
+    const attempts = requested === "prefer-software" ? ["prefer-software"] : ["prefer-hardware", "prefer-software"];
+    const support = knownSupport ?? await evaluateCodecSupport(table.codec, {
+      codedWidth: table.codedWidth,
+      codedHeight: table.codedHeight,
+      description: table.description
+    });
+    if (!knownSupport) callbacks.onCodecSupport?.(support);
+    for (const acceleration of attempts) {
+      const supported = acceleration === "prefer-hardware" ? support.hw : support.sw;
+      if (supported) return { config: { ...base, hardwareAcceleration: acceleration }, acceleration };
+    }
+    if (attempts.includes("prefer-software") && !support.sw) callbacks.onSoftwareFallbackDenied?.(support);
+    throw new Error(
+      `Unsupported configuration for ${table.codec} after trying hardwareAcceleration [${attempts.join(", ")}]`
+    );
+  }
+  function encodedChunkInitForSample(sample, data) {
+    return {
+      type: sample.isSync ? "key" : "delta",
+      timestamp: sample.timestampUs,
+      duration: sample.durationUs,
+      data
+    };
+  }
+  function frameCovers(frame, targetUs) {
+    return typeof frame.duration === "number" && frame.duration > 0 && targetUs >= frame.timestamp && targetUs < frame.timestamp + frame.duration;
+  }
+  var DecoderExecutionError = class extends Error {
+    constructor(message, cause) {
+      super(message, { cause });
+      this.name = "DecoderExecutionError";
+    }
+  };
+  function futureFrameTimestampsToEvict(timestamps, limit, targetUs) {
+    const evicted = [];
+    let retained = timestamps.length;
+    for (const timestamp of timestamps) {
+      if (retained <= limit) break;
+      if (timestamp >= targetUs) continue;
+      evicted.push(timestamp);
+      retained -= 1;
+    }
+    return evicted;
+  }
+  var TargetFrameUnavailableError = class extends Error {
+    constructor(targetUs) {
+      super(`target frame ${targetUs}us was not produced`);
+      this.targetUs = targetUs;
+      this.name = "TargetFrameUnavailableError";
+    }
+  };
+  var RangeMp4Source = class _RangeMp4Source {
+    constructor(id, src, options = {}, shared, prepared) {
+      this.id = id;
+      this.src = src;
+      this.options = options;
+      this.shared = shared ?? new SharedRangeBytes(
+        src,
+        options.fetchImpl,
+        options.cacheBytes,
+        options.onWarning
+      );
+      this.prepared = prepared ?? null;
+    }
+    prepared = null;
+    preparePromise = null;
+    decoder = null;
+    decoderGeneration = 0;
+    decoderConfig = null;
+    acceleration = null;
+    decoderError = null;
+    decoderFailure = null;
+    rejectDecoderFailure = null;
+    outputWaiter = null;
+    activeTargetUs = null;
+    activeCandidate = null;
+    lastOutput = null;
+    futureFrames = /* @__PURE__ */ new Map();
+    currentSyncIndex = -1;
+    nextDecodeIndex = 0;
+    lastTargetUs = -1;
+    flushedSinceSeek = false;
+    destroyed = false;
+    queue = Promise.resolve();
+    shared;
+    options;
+    prepare() {
+      if (this.prepared) return Promise.resolve();
+      this.preparePromise ??= this.doPrepare();
+      return this.preparePromise;
+    }
+    async doPrepare() {
+      const opened = await withTimeout(
+        scanMp4Header(this.shared.reader, INITIAL_HEADER_BYTES),
+        this.options.loadTimeoutMs ?? 1e4,
+        `Range header ${this.id}`
+      );
+      const [table, keyframes] = await Promise.all([
+        buildVideoSampleTable(opened.header.slice(0)),
+        buildKeyframeIndexFromHeader(opened.header.slice(0))
+      ]);
+      this.prepared = { table, keyframes, totalBytes: opened.totalBytes };
+    }
+    async load() {
+      await this.prepare();
+      if (!this.decoder) await this.configureDecoder();
+    }
+    async configureDecoder() {
+      if (!this.prepared) throw new Error(`Range source ${this.id} is not prepared`);
+      const selected = this.decoderConfig && this.acceleration ? { config: this.decoderConfig, acceleration: this.acceleration } : await selectSupportedDecoderConfig(
+        this.prepared.table,
+        this.options.hardwareAcceleration,
+        this.options.codecSupport,
+        {
+          onCodecSupport: this.options.onCodecSupport,
+          onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied
+        }
+      );
+      this.decoderError = null;
+      this.decoderFailure = new Promise((_resolve, reject) => {
+        this.rejectDecoderFailure = reject;
+      });
+      this.decoderFailure.catch(() => void 0);
+      const generation = ++this.decoderGeneration;
+      this.decoder = new VideoDecoder({
+        output: (frame) => {
+          if (generation !== this.decoderGeneration) frame.close();
+          else this.handleOutput(frame);
+        },
+        error: (error) => {
+          if (generation !== this.decoderGeneration) return;
+          const wrapped = new DecoderExecutionError(`decoder error: ${error.message}`, error);
+          this.decoderError = wrapped;
+          this.rejectDecoderFailure?.(wrapped);
+        }
+      });
+      let configured = selected.config;
+      try {
+        this.decoder.configure(configured);
+      } catch (error) {
+        if (configured.optimizeForLatency !== true) {
+          this.decoder.close();
+          this.decoder = null;
+          throw error;
+        }
+        const fallback = { ...configured };
+        delete fallback.optimizeForLatency;
+        this.options.onWarning?.(
+          `${this.id}: decoder rejected optimizeForLatency; configuring once without it`
+        );
+        try {
+          this.decoder.configure(fallback);
+          configured = fallback;
+        } catch (fallbackError) {
+          this.decoder.close();
+          this.decoder = null;
+          throw fallbackError;
+        }
+      }
+      this.decoderConfig = configured;
+      this.acceleration = selected.acceleration;
+      this.currentSyncIndex = -1;
+      this.nextDecodeIndex = 0;
+      this.lastTargetUs = -1;
+      this.flushedSinceSeek = false;
+    }
+    handleOutput(frame) {
+      if ((!Number.isFinite(frame.duration) || frame.duration == null || frame.duration <= 0) && this.prepared) {
+        const timing = sampleAtPresentationTime(this.prepared.table, frame.timestamp);
+        const normalized = new VideoFrame(frame, {
+          timestamp: frame.timestamp,
+          duration: timing.durationUs
+        });
+        frame.close();
+        frame = normalized;
+      }
+      const target = this.activeTargetUs;
+      if (target == null) {
+        this.storeFutureFrame(frame);
+        return;
+      }
+      if (frame.timestamp > target) {
+        this.storeFutureFrame(frame);
+        return;
+      }
+      if (!this.activeCandidate || frame.timestamp >= this.activeCandidate.timestamp) {
+        this.activeCandidate?.close();
+        this.activeCandidate = frame;
+      } else {
+        frame.close();
+      }
+      if (this.activeCandidate && (frameCovers(this.activeCandidate, this.outputWaiter?.targetUs ?? target) || this.activeCandidate.timestamp === this.outputWaiter?.sampleTimestampUs)) {
+        this.outputWaiter?.resolve();
+      }
+    }
+    storeFutureFrame(frame) {
+      this.futureFrames.get(frame.timestamp)?.close();
+      this.futureFrames.set(frame.timestamp, frame);
+      const limit = Math.max(4, (this.prepared?.table.maxReorderFrames ?? 0) + 4);
+      const targetUs = this.activeTargetUs ?? this.lastTargetUs;
+      for (const timestamp of futureFrameTimestampsToEvict(
+        [...this.futureFrames.keys()],
+        limit,
+        targetUs
+      )) {
+        this.futureFrames.get(timestamp)?.close();
+        this.futureFrames.delete(timestamp);
+      }
+      this.shared.reader.stats.maxFutureFrames = Math.max(
+        this.shared.reader.stats.maxFutureFrames,
+        this.futureFrames.size
+      );
+    }
+    beginOutputWait(targetUs, sampleTimestampUs) {
+      let settled = false;
+      let resolvePromise = () => void 0;
+      const promise = new Promise((resolve) => {
+        resolvePromise = resolve;
+      });
+      const waiter = {
+        promise,
+        targetUs,
+        sampleTimestampUs,
+        isSettled: () => settled,
+        resolve() {
+          if (settled) return;
+          settled = true;
+          resolvePromise();
+        }
+      };
+      this.outputWaiter = waiter;
+      return waiter;
+    }
+    takeActiveCandidate() {
+      const candidate = this.activeCandidate;
+      this.activeCandidate = null;
+      return candidate;
+    }
+    async decode(timeUs) {
+      const operation = () => this.decodeWithRecovery(timeUs);
+      const result = this.queue.then(operation, operation);
+      this.queue = result.then(() => void 0, () => void 0);
+      return result;
+    }
+    async decodeWithRecovery(timeUs) {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          return await this.decodeSerialized(timeUs);
+        } catch (error) {
+          if (!(error instanceof DecoderExecutionError) || attempt > 0) throw error;
+          this.options.onWarning?.(`${this.id}: decoder runtime error; recreating once: ${error.message}`);
+          await this.resetDecoder();
+        }
+      }
+      throw new Error(`Range source ${this.id} decoder retry exhausted`);
+    }
+    async decodeSerialized(timeUs) {
+      await this.load();
+      if (this.destroyed || !this.prepared || !this.decoder) {
+        throw new Error(`Range source ${this.id} is unavailable`);
+      }
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          return await this.decodeTarget(timeUs, attempt > 0);
+        } catch (error) {
+          if (!(error instanceof TargetFrameUnavailableError)) throw error;
+          if (attempt > 0) {
+            throw new Error(`clip ${this.id} returned no video frame at ${error.targetUs}us`);
+          }
+          this.options.onWarning?.(
+            `${this.id}: target ${error.targetUs}us was not produced; reseeking from sync once`
+          );
+          await this.resetDecoder();
+        }
+      }
+      throw new Error(`clip ${this.id} returned no video frame at ${Math.max(0, Math.floor(timeUs))}us`);
+    }
+    async decodeTarget(timeUs, forceReseek) {
+      if (this.destroyed || !this.prepared || !this.decoder) {
+        throw new Error(`Range source ${this.id} is unavailable`);
+      }
+      const table = this.prepared.table;
+      const requestedTarget = Math.max(0, Math.floor(timeUs));
+      const targetUs = Math.min(requestedTarget, table.lastFrameStartUs);
+      if (this.lastOutput && frameCovers(this.lastOutput, targetUs)) return this.lastOutput.clone();
+      const targetSample = sampleAtPresentationTime(table, targetUs);
+      const buffered = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
+      if (buffered) return buffered;
+      const syncIndex = precedingSyncSample(table, targetSample.decodeIndex);
+      const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0 && targetUs > this.lastTargetUs && (syncIndex === this.currentSyncIndex || targetSample.decodeIndex < this.nextDecodeIndex);
+      if (!forward) {
+        if (this.currentSyncIndex >= 0) await this.resetDecoder();
+        this.currentSyncIndex = syncIndex;
+        this.nextDecodeIndex = syncIndex;
+        this.flushedSinceSeek = false;
+      }
+      const decoder = this.decoder;
+      if (!decoder) throw new Error(`Range source ${this.id} decoder reset failed`);
+      const targetGopEnd = this.gopEnd(table, syncIndex);
+      const minimumDecodeEnd = decodeEndForPresentationSample(table, targetSample);
+      const decodeCeiling = Math.min(
+        Math.max(targetGopEnd, minimumDecodeEnd),
+        table.samples.length - 1
+      );
+      const postTargetLimit = table.maxReorderFrames + 1;
+      let postTargetSamples = 0;
+      for (let index = syncIndex; index < this.nextDecodeIndex; index += 1) {
+        if (table.samples[index].timestampUs >= targetSample.timestampUs) postTargetSamples += 1;
+      }
+      this.activeTargetUs = targetUs;
+      this.activeCandidate?.close();
+      this.activeCandidate = null;
+      const waiter = this.beginOutputWait(targetUs, targetSample.timestampUs);
+      let queueLimit = Math.max(
+        1,
+        this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1
+      );
+      try {
+        const atEnd = targetSample.timestampUs >= table.lastFrameStartUs;
+        try {
+          await withTimeout((async () => {
+            let postTargetBudget = postTargetLimit;
+            let initialRound = true;
+            while (!waiter.isSettled()) {
+              const roundCeiling = initialRound ? table.samples.length - 1 : decodeCeiling;
+              let supplyEnd = this.nextDecodeIndex - 1;
+              for (let index = this.nextDecodeIndex; index <= roundCeiling; index += 1) {
+                const sample = table.samples[index];
+                if (sample.timestampUs >= targetSample.timestampUs) {
+                  if (postTargetSamples >= postTargetBudget) break;
+                  postTargetSamples += 1;
+                }
+                supplyEnd = index;
+              }
+              const pending = this.nextDecodeIndex <= supplyEnd ? table.samples.slice(this.nextDecodeIndex, supplyEnd + 1) : [];
+              const bytes = await this.shared.samples(pending);
+              for (const sample of pending) {
+                await this.waitForQueueBelow(decoder, queueLimit, waiter);
+                if (waiter.isSettled()) break;
+                if (sample.isSync && sample.decodeIndex !== this.currentSyncIndex) {
+                  this.currentSyncIndex = sample.decodeIndex;
+                  queueLimit = Math.max(
+                    1,
+                    this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1
+                  );
+                }
+                const data = bytes.get(sample.decodeIndex);
+                if (!data) throw new Error(`sample ${sample.decodeIndex} bytes are unavailable`);
+                this.submitSample(decoder, sample, data);
+                this.nextDecodeIndex = Math.max(this.nextDecodeIndex, sample.decodeIndex + 1);
+              }
+              while (!waiter.isSettled() && decoder.decodeQueueSize > 0) {
+                await this.waitForTargetOrProgress(decoder, waiter);
+              }
+              initialRound = false;
+              if (waiter.isSettled() || this.nextDecodeIndex > decodeCeiling) break;
+              postTargetBudget += postTargetLimit;
+            }
+          })(), this.options.decodeTimeoutMs ?? 1e4, `Range decode ${this.id} at ${targetUs}us`);
+          if (!waiter.isSettled() && (this.nextDecodeIndex >= table.samples.length || atEnd)) {
+            await decoder.flush();
+            this.flushedSinceSeek = true;
+          }
+        } catch (error) {
+          throw error instanceof DecoderExecutionError ? error : new DecoderExecutionError(`decoder did not produce target ${targetUs}us`, error);
+        }
+        if (this.decoderError) throw this.decoderError;
+        const candidate = this.takeActiveCandidate();
+        const exact = candidate && (frameCovers(candidate, targetUs) || candidate.timestamp === targetSample.timestampUs);
+        if (!exact && (!atEnd || !forceReseek)) {
+          candidate?.close();
+          throw new TargetFrameUnavailableError(targetUs);
+        }
+        const prior = this.lastOutput;
+        const result = candidate ?? (atEnd && prior && prior.timestamp <= targetUs ? prior.clone() : null);
+        if (!result) throw new TargetFrameUnavailableError(targetUs);
+        this.lastOutput?.close();
+        this.lastOutput = result.clone();
+        this.lastTargetUs = targetUs;
+        return result;
+      } finally {
+        this.activeTargetUs = null;
+        if (this.outputWaiter === waiter) this.outputWaiter = null;
+        this.takeActiveCandidate()?.close();
+      }
+    }
+    consumeFutureFrame(sampleTimestampUs, targetUs) {
+      const future = this.futureFrames.get(sampleTimestampUs);
+      if (!future || !frameCovers(future, targetUs) && future.timestamp !== sampleTimestampUs) return null;
+      this.futureFrames.delete(sampleTimestampUs);
+      const result = future.clone();
+      future.close();
+      this.lastOutput?.close();
+      this.lastOutput = result.clone();
+      this.lastTargetUs = targetUs;
+      return result;
+    }
+    gopEnd(table, syncIndex) {
+      let end = syncIndex;
+      while (end + 1 < table.samples.length && !table.samples[end + 1].isSync) end += 1;
+      return end;
+    }
+    submitSample(decoder, sample, data) {
+      try {
+        decoder.decode(new EncodedVideoChunk(
+          encodedChunkInitForSample(sample, data)
+        ));
+      } catch (error) {
+        throw new DecoderExecutionError(`decode submission failed for sample ${sample.decodeIndex}`, error);
+      }
+      this.shared.reader.stats.maxDecodeQueueSize = Math.max(
+        this.shared.reader.stats.maxDecodeQueueSize,
+        decoder.decodeQueueSize
+      );
+    }
+    async waitForTargetOrProgress(decoder, waiter) {
+      if (waiter.isSettled() || decoder.decodeQueueSize === 0) return;
+      let onDequeue = null;
+      const dequeued = new Promise((resolve) => {
+        onDequeue = () => {
+          decoder.removeEventListener("dequeue", onDequeue);
+          resolve();
+        };
+        decoder.addEventListener("dequeue", onDequeue);
+      });
+      try {
+        await withTimeout(
+          Promise.race([
+            waiter.promise,
+            dequeued,
+            this.decoderFailure ?? new Promise(() => void 0)
+          ]),
+          this.options.decodeTimeoutMs ?? 1e4,
+          `Range decoder progress ${this.id}`
+        );
+      } catch (error) {
+        throw error instanceof DecoderExecutionError ? error : new DecoderExecutionError(`decoder made no progress for target ${waiter.targetUs}us`, error);
+      } finally {
+        if (onDequeue) decoder.removeEventListener("dequeue", onDequeue);
+      }
+    }
+    async waitForQueueBelow(decoder, limit, waiter) {
+      if (decoder.decodeQueueSize < limit) return;
+      let onDequeue = null;
+      const drained = new Promise((resolve) => {
+        onDequeue = () => {
+          if (decoder.decodeQueueSize >= limit) return;
+          decoder.removeEventListener("dequeue", onDequeue);
+          resolve();
+        };
+        decoder.addEventListener("dequeue", onDequeue);
+      });
+      try {
+        await withTimeout(
+          Promise.race([
+            drained,
+            waiter?.promise ?? new Promise(() => void 0),
+            this.decoderFailure ?? new Promise(() => void 0)
+          ]),
+          this.options.decodeTimeoutMs ?? 1e4,
+          `Range decoder queue ${this.id}`
+        );
+      } catch (error) {
+        throw error instanceof DecoderExecutionError ? error : new DecoderExecutionError(`decoder queue did not drain below ${limit}`, error);
+      } finally {
+        if (onDequeue) decoder.removeEventListener("dequeue", onDequeue);
+      }
+    }
+    async resetDecoder() {
+      this.decoderGeneration += 1;
+      try {
+        this.decoder?.close();
+      } catch {
+      }
+      this.decoder = null;
+      this.decoderFailure = null;
+      this.rejectDecoderFailure = null;
+      for (const frame of this.futureFrames.values()) frame.close();
+      this.futureFrames.clear();
+      await this.configureDecoder();
+    }
+    async fork(id) {
+      await this.prepare();
+      if (!this.prepared) throw new Error(`Range source ${this.id} cannot be forked`);
+      return new _RangeMp4Source(id, this.src, this.options, this.shared, this.prepared);
+    }
+    get meta() {
+      if (!this.prepared) throw new Error(`Range source ${this.id} is not prepared`);
+      return {
+        duration: this.prepared.table.presentationDurationUs,
+        width: this.prepared.table.width,
+        height: this.prepared.table.height
+      };
+    }
+    get keyframes() {
+      return this.prepared?.keyframes ?? null;
+    }
+    get decoderAcceleration() {
+      return this.acceleration;
+    }
+    get stats() {
+      return { ...this.shared.reader.stats };
+    }
+    destroy() {
+      this.destroyed = true;
+      this.decoderGeneration += 1;
+      this.decoder?.close();
+      this.decoder = null;
+      this.decoderFailure = null;
+      this.rejectDecoderFailure = null;
+      this.outputWaiter = null;
+      this.activeCandidate?.close();
+      this.activeCandidate = null;
+      this.lastOutput?.close();
+      this.lastOutput = null;
+      for (const frame of this.futureFrames.values()) frame.close();
+      this.futureFrames.clear();
+    }
+  };
+
   // packages/frame-engine/src/decode/clip-session.ts
   var DecoderGuardError = class extends Error {
     constructor(message) {
@@ -18058,6 +19127,11 @@ void main() {
   };
   var AV_CLIPER_RESET_WINDOW_US = 3e6;
   var MAX_EXACT_FRAME_TICKS = 4;
+  function resolveFrameEngineSourceMode(environment) {
+    const runtime = globalThis;
+    const value = environment ? environment.AKARI_FRAME_ENGINE_SOURCE : runtime.__AKARI_FRAME_ENGINE_SOURCE__ ?? runtime.process?.env?.AKARI_FRAME_ENGINE_SOURCE;
+    return value === "mp4clip" ? "mp4clip" : "range";
+  }
   function describeUnusableDecoder(clipId, attempted, lastMessage) {
     if (!lastMessage.includes("Unsupported configuration")) return null;
     return [
@@ -18082,6 +19156,9 @@ void main() {
     cloneStored() {
       return this.frame?.clone() ?? null;
     }
+    cloneNearestAtOrBefore(targetUs) {
+      return this.frame && this.frame.timestamp <= targetUs ? this.frame.clone() : null;
+    }
     clear() {
       this.frame?.close();
       this.frame = null;
@@ -18093,6 +19170,7 @@ void main() {
     state = "idle";
     meta = null;
     clip = null;
+    range = null;
     keyframes = null;
     lastFrameStartUs = null;
     decoderTimestampOffsetUs = 0;
@@ -18102,6 +19180,7 @@ void main() {
     loadPromise = null;
     preparePromise = null;
     preparedCandidate = null;
+    preparedRange = null;
     preparedKeyframes = null;
     cachedHeader = null;
     cachedKeyframes = null;
@@ -18112,10 +19191,12 @@ void main() {
     queue = Promise.resolve();
     sourceBytes;
     ownsSourceBytes = true;
+    sourceMode;
     options;
     constructor(id, src, options = {}) {
       this.id = id;
       this.src = src;
+      this.sourceMode = resolveFrameEngineSourceMode();
       this.options = {
         loadTimeoutMs: options.loadTimeoutMs,
         loadBudgetMs: options.loadBudgetMs,
@@ -18148,7 +19229,9 @@ void main() {
     }
     /** Parses the MP4 header and keyframe table without creating a VideoDecoder. */
     prepare() {
-      if (this.clip || this.loadPromise || this.preparedCandidate) return Promise.resolve();
+      if (this.clip || this.range || this.loadPromise || this.preparedCandidate || this.preparedRange) {
+        return Promise.resolve();
+      }
       if (this.preparePromise) return this.preparePromise;
       const generation = this.prepareGeneration;
       let tracked;
@@ -18159,6 +19242,25 @@ void main() {
       return tracked;
     }
     async doPrepare(generation) {
+      if (this.sourceMode === "range") {
+        let candidate2 = null;
+        try {
+          candidate2 = this.createRangeSource();
+          await candidate2.prepare();
+          if (generation !== this.prepareGeneration) {
+            candidate2.destroy();
+            return;
+          }
+          this.preparedRange = candidate2;
+        } catch (error) {
+          candidate2?.destroy();
+          if (generation === this.prepareGeneration) {
+            this.preparedRange = null;
+            this.options.onWarning?.(`${this.id}: prepare failed: ${String(error)}`);
+          }
+        }
+        return;
+      }
       let candidate = null;
       try {
         const source = await this.sourceBytes.open();
@@ -18186,6 +19288,7 @@ void main() {
       }
     }
     async doLoad() {
+      if (this.sourceMode === "range") return this.doLoadRange();
       this.state = "loading";
       this.coverage.clear();
       let lastError;
@@ -18279,6 +19382,45 @@ void main() {
       if (diagnostic) throw new Error(diagnostic, { cause: lastError });
       throw lastError instanceof Error ? lastError : new Error(lastMessage);
     }
+    createRangeSource() {
+      return new RangeMp4Source(this.id, this.src, {
+        loadTimeoutMs: this.options.loadTimeoutMs,
+        decodeTimeoutMs: this.options.tickTimeoutMs,
+        hardwareAcceleration: this.options.hardwareAcceleration,
+        codecSupport: this.options.codecSupport ?? this.learnedSupport,
+        onWarning: this.options.onWarning,
+        onCodecSupport: (support) => {
+          this.learnedSupport = support;
+          this.options.onCodecSupport?.(support);
+        },
+        onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied
+      });
+    }
+    async doLoadRange() {
+      this.state = "loading";
+      let candidate = null;
+      try {
+        await this.preparePromise;
+        candidate = this.preparedRange ?? this.createRangeSource();
+        this.preparedRange = null;
+        await candidate.load();
+        this.range = candidate;
+        candidate = null;
+        this.applyKeyframes(this.range.keyframes);
+        this.meta = { ...this.range.meta };
+        this.state = this.range.decoderAcceleration === "prefer-software" ? "degraded" : "ready";
+        if (this.state === "degraded") {
+          this.options.onDecoderDegraded?.();
+          this.options.onWarning?.(`${this.id}: software decoder fallback active`);
+        }
+      } catch (error) {
+        candidate?.destroy();
+        this.range?.destroy();
+        this.range = null;
+        this.state = "unavailable";
+        throw error;
+      }
+    }
     async readKeyframes(clip) {
       if (this.cachedKeyframes) return this.cachedKeyframes;
       try {
@@ -18348,6 +19490,21 @@ void main() {
       this.decoderTimestampOffsetUs = keyframes?.decoderTimestampOffsetUs ?? 0;
     }
     async ensureParsed() {
+      if (this.sourceMode === "range") {
+        if (this.range) return;
+        await this.prepare();
+        if (this.preparedRange) {
+          this.range = this.preparedRange;
+          this.preparedRange = null;
+          this.applyKeyframes(this.range.keyframes);
+          this.meta = { ...this.range.meta };
+          this.state = "ready";
+          this.loadPromise = Promise.resolve();
+          return;
+        }
+        await this.load();
+        return;
+      }
       if (this.clip) return;
       await this.prepare();
       if (this.preparedCandidate) {
@@ -18368,6 +19525,19 @@ void main() {
       await this.load();
     }
     async decode(timeUs, metrics) {
+      if (this.sourceMode === "range") {
+        await this.load();
+        if (!this.range || this.state === "unavailable") throw new Error(`clip ${this.id} is unavailable`);
+        const tickStarted2 = performance.now();
+        const frame = await this.serialize(() => this.range.decode(timeUs));
+        if (this.range.decoderAcceleration === "prefer-software" && this.state !== "degraded") {
+          this.state = "degraded";
+          this.options.onDecoderDegraded?.();
+          this.options.onWarning?.(`${this.id}: software decoder fallback active`);
+        }
+        metrics?.record("tick", performance.now() - tickStarted2);
+        return frame;
+      }
       await this.load();
       if (!this.clip || this.state === "unavailable") throw new Error(`clip ${this.id} is unavailable`);
       const duration = this.meta?.duration ?? Number.POSITIVE_INFINITY;
@@ -18393,6 +19563,10 @@ void main() {
       if (!result.video) {
         const coveredAfterTick = this.coverage.cloneAt(target);
         if (coveredAfterTick) return coveredAfterTick;
+        if (this.lastFrameStartUs != null && target >= this.lastFrameStartUs) {
+          const nearest = this.coverage.cloneNearestAtOrBefore(target);
+          if (nearest) return nearest;
+        }
         throw new Error(`clip ${this.id} returned no video frame at ${target}us`);
       }
       this.coverage.remember(result.video);
@@ -18419,9 +19593,29 @@ void main() {
     getDecoderTimestampOffsetUs() {
       return this.decoderTimestampOffsetUs;
     }
+    getSourceMode() {
+      return this.sourceMode;
+    }
+    getRangeFetchStats() {
+      return this.range?.stats ?? null;
+    }
     /** Creates an independent decoder state while reusing the parsed local MP4 backing store. */
     async fork(id) {
       await this.ensureParsed();
+      if (this.sourceMode === "range") {
+        if (!this.range || !this.meta || this.state === "unavailable") {
+          throw new Error(`clip ${this.id} cannot be forked while unavailable`);
+        }
+        const fork2 = new _ClipSession(id, this.src, this.options);
+        fork2.range = await this.range.fork(id);
+        fork2.meta = { ...this.meta };
+        fork2.state = this.state;
+        fork2.keyframes = this.keyframes;
+        fork2.lastFrameStartUs = this.lastFrameStartUs;
+        fork2.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
+        fork2.loadPromise = Promise.resolve();
+        return fork2;
+      }
       if (!this.clip || !this.meta || this.state === "unavailable") {
         throw new Error(`clip ${this.id} cannot be forked while unavailable`);
       }
@@ -18448,8 +19642,12 @@ void main() {
     destroy() {
       this.clip?.destroy();
       this.preparedCandidate?.destroy();
+      this.range?.destroy();
+      this.preparedRange?.destroy();
       this.clip = null;
       this.preparedCandidate = null;
+      this.range = null;
+      this.preparedRange = null;
       this.preparedKeyframes = null;
       this.preparePromise = null;
       this.prepareGeneration += 1;
@@ -18511,6 +19709,7 @@ void main() {
         if (frame && !hasUsableDuration && frame.timestamp <= target) return result;
         const wentPastTarget = frame != null && frame.timestamp > target;
         const endedBeforeTarget = frame != null && hasUsableDuration && frame.timestamp + frame.duration <= target;
+        if (frame && frame.timestamp <= target) this.coverage.remember(frame);
         frame?.close();
         if ((frame == null || wentPastTarget) && !seeded && this.shouldSeedFromKeyframe(target)) {
           await this.seedFromKeyframe(target);
@@ -18536,6 +19735,7 @@ void main() {
       if (!this.keyframes) return;
       const anchor = this.keyframes.nearestAtOrBefore(target);
       const seeded = await this.guardedTick(anchor + 1);
+      if (seeded.video) this.coverage.remember(seeded.video);
       seeded.video?.close();
     }
     async recreateDecoder() {

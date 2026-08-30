@@ -44,6 +44,22 @@ export interface Mp4VideoSampleTable {
   lastFrameStartUs: number;
 }
 
+export function summarizeSampleTiming(samples: readonly Mp4VideoSample[]): {
+  maxReorderFrames: number;
+  sampleDurationUs: number;
+} {
+  let maxReorderFrames = 0;
+  let sampleDurationUs = 0;
+  for (const sample of samples) {
+    maxReorderFrames = Math.max(
+      maxReorderFrames,
+      Math.abs(sample.decodeIndex - sample.presentationIndex),
+    );
+    sampleDurationUs = Math.max(sampleDurationUs, sample.timestampUs + sample.durationUs);
+  }
+  return { maxReorderFrames, sampleDurationUs };
+}
+
 interface RawSample {
   offset: number;
   size: number;
@@ -257,12 +273,8 @@ export function buildVideoSampleTable(header: ArrayBuffer): Promise<Mp4VideoSamp
           const untilNextUs = next.timestampUs - sample.timestampUs;
           if (untilNextUs > 0) sample.durationUs = Math.min(sample.durationUs, untilNextUs);
         }
-        const maxReorderFrames = Math.max(
-          0,
-          ...samples.map(sample => Math.abs(sample.decodeIndex - sample.presentationIndex)),
-        );
+        const { maxReorderFrames, sampleDurationUs } = summarizeSampleTiming(samples);
         const editDuration = track.edits?.reduce((sum, edit) => sum + edit.segment_duration, 0) ?? 0;
-        const sampleDurationUs = Math.max(...samples.map(sample => sample.timestampUs + sample.durationUs));
         const presentationDurationUs = editDuration > 0 && info.timescale > 0
           ? Math.round((editDuration / info.timescale) * 1e6)
           : sampleDurationUs;

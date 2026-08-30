@@ -14,11 +14,13 @@ import {
   selectSupportedDecoderConfig,
   encodedChunkInitForSample,
   fetchMp4Header,
+  futureFrameTimestampsToEvict,
   hevcCodecString,
   mergeByteRanges,
   resetCodecProbeCache,
   resolveFrameEngineSourceMode,
   sampleAtPresentationTime,
+  summarizeSampleTiming,
 } from '../dist/index.js';
 
 const MP4Box = MP4BoxNamespace.default ?? MP4BoxNamespace;
@@ -203,6 +205,34 @@ test('Range cache returns subranges and evicts least-recently-used bytes at its 
   assert.equal(cache.sizeBytes, 8);
 });
 
+test('future-frame eviction never drops frames at or after the active target', () => {
+  assert.deepEqual(futureFrameTimestampsToEvict([110, 120, 130], 2, 100), []);
+  assert.deepEqual(futureFrameTimestampsToEvict([90, 110, 120], 2, 100), [90]);
+  assert.deepEqual(futureFrameTimestampsToEvict([70, 80, 110, 120], 2, 100), [70, 80]);
+});
+
+test('sample timing summary handles 200,000 samples without argument spreading', () => {
+  const sampleCount = 200_000;
+  const samples = Array.from({ length: sampleCount }, (_, decodeIndex) => ({
+    offset: decodeIndex,
+    size: 1,
+    dts: decodeIndex,
+    cts: decodeIndex,
+    duration: 1,
+    timescale: 1,
+    isSync: decodeIndex === 0,
+    timestampUs: decodeIndex * 40_000,
+    durationUs: decodeIndex === sampleCount - 1 ? 80_000 : 40_000,
+    decodeIndex,
+    presentationIndex: decodeIndex === sampleCount - 1 ? 0 : decodeIndex,
+    decodeEndIndex: decodeIndex,
+  }));
+  assert.deepEqual(summarizeSampleTiming(samples), {
+    maxReorderFrames: sampleCount - 1,
+    sampleDurationUs: sampleCount * 40_000 + 40_000,
+  });
+});
+
 test('codec strings preserve avcC and hvcC profile fields', () => {
   assert.equal(avcCodecString('avc1', new Uint8Array([1, 0x64, 0, 0x32])), 'avc1.640032');
   const hvcc = new Uint8Array(13);
@@ -241,6 +271,32 @@ test('shared codec probe selects hardware/software support once and range select
     };
     await assert.rejects(selectSupportedDecoderConfig(table), /Unsupported configuration/u);
     assert.deepEqual(calls, ['prefer-hardware', 'prefer-software', undefined]);
+  } finally {
+    resetCodecProbeCache();
+    if (original === undefined) delete globalThis.VideoDecoder;
+    else globalThis.VideoDecoder = original;
+  }
+});
+
+test('range decoder config requests low-latency output in hardware and software modes', async () => {
+  const original = globalThis.VideoDecoder;
+  globalThis.VideoDecoder = class {
+    static async isConfigSupported(config) { return { supported: true, config }; }
+  };
+  try {
+    resetCodecProbeCache();
+    const table = {
+      codec: 'avc1.640032',
+      description: new Uint8Array([1, 2, 3]),
+      codedWidth: 1920,
+      codedHeight: 1080,
+    };
+    const hardware = await selectSupportedDecoderConfig(table, 'prefer-hardware');
+    const software = await selectSupportedDecoderConfig(table, 'prefer-software');
+    assert.equal(hardware.acceleration, 'prefer-hardware');
+    assert.equal(hardware.config.optimizeForLatency, true);
+    assert.equal(software.acceleration, 'prefer-software');
+    assert.equal(software.config.optimizeForLatency, true);
   } finally {
     resetCodecProbeCache();
     if (original === undefined) delete globalThis.VideoDecoder;
@@ -416,18 +472,18 @@ test('Range source pads all in-duration tail requests with the final presentatio
         return;
       }
       this.pending.push(chunk);
-      this.decodeQueueSize = this.pending.length;
+      this.decodeQueueSize += 1;
       queueMicrotask(() => {
         if (this.closed) return;
-        if (this.pending.length <= this.reorderDepth) return;
-        let nextIndex = 0;
-        for (let index = 1; index < this.pending.length; index += 1) {
-          if (this.pending[index].timestamp < this.pending[nextIndex].timestamp) nextIndex = index;
+        this.decodeQueueSize = Math.max(0, this.decodeQueueSize - 1);
+        if (this.pending.length > this.reorderDepth) {
+          let nextIndex = 0;
+          for (let index = 1; index < this.pending.length; index += 1) {
+            if (this.pending[index].timestamp < this.pending[nextIndex].timestamp) nextIndex = index;
+          }
+          const [next] = this.pending.splice(nextIndex, 1);
+          if (next) this.init.output(new FakeFrame(next.timestamp, next.duration));
         }
-        const [next] = this.pending.splice(nextIndex, 1);
-        if (!next) return;
-        this.decodeQueueSize = this.pending.length;
-        this.init.output(new FakeFrame(next.timestamp, next.duration));
         for (const listener of this.listeners) listener();
       });
     }

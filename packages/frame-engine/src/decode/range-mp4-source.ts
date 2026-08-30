@@ -408,6 +408,7 @@ export async function selectSupportedDecoderConfig(
     description: table.description,
     codedWidth: table.codedWidth,
     codedHeight: table.codedHeight,
+    optimizeForLatency: true,
   };
   const attempts: HardwarePreference[] = requested === 'prefer-software'
     ? ['prefer-software']
@@ -460,6 +461,29 @@ interface OutputWaiter {
   resolve(): void;
 }
 
+export function futureFrameTimestampsToEvict(
+  timestamps: readonly number[],
+  limit: number,
+  targetUs: number,
+): number[] {
+  const evicted: number[] = [];
+  let retained = timestamps.length;
+  for (const timestamp of timestamps) {
+    if (retained <= limit) break;
+    if (timestamp >= targetUs) continue;
+    evicted.push(timestamp);
+    retained -= 1;
+  }
+  return evicted;
+}
+
+class TargetFrameUnavailableError extends Error {
+  constructor(readonly targetUs: number) {
+    super(`target frame ${targetUs}us was not produced`);
+    this.name = 'TargetFrameUnavailableError';
+  }
+}
+
 export class RangeMp4Source {
   private prepared: PreparedRangeSource | null = null;
   private preparePromise: Promise<void> | null = null;
@@ -478,6 +502,7 @@ export class RangeMp4Source {
   private currentSyncIndex = -1;
   private nextDecodeIndex = 0;
   private lastTargetUs = -1;
+  private flushedSinceSeek = false;
   private destroyed = false;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly shared: SharedRangeBytes;
@@ -534,8 +559,6 @@ export class RangeMp4Source {
           onSoftwareFallbackDenied: this.options.onSoftwareFallbackDenied,
         },
       );
-    this.decoderConfig = selected.config;
-    this.acceleration = selected.acceleration;
     this.decoderError = null;
     this.decoderFailure = new Promise<never>((_resolve, reject) => {
       this.rejectDecoderFailure = reject;
@@ -554,10 +577,35 @@ export class RangeMp4Source {
         this.rejectDecoderFailure?.(wrapped);
       },
     });
-    this.decoder.configure(selected.config);
+    let configured = selected.config;
+    try {
+      this.decoder.configure(configured);
+    } catch (error) {
+      if (configured.optimizeForLatency !== true) {
+        this.decoder.close();
+        this.decoder = null;
+        throw error;
+      }
+      const fallback = { ...configured };
+      delete fallback.optimizeForLatency;
+      this.options.onWarning?.(
+        `${this.id}: decoder rejected optimizeForLatency; configuring once without it`,
+      );
+      try {
+        this.decoder.configure(fallback);
+        configured = fallback;
+      } catch (fallbackError) {
+        this.decoder.close();
+        this.decoder = null;
+        throw fallbackError;
+      }
+    }
+    this.decoderConfig = configured;
+    this.acceleration = selected.acceleration;
     this.currentSyncIndex = -1;
     this.nextDecodeIndex = 0;
     this.lastTargetUs = -1;
+    this.flushedSinceSeek = false;
   }
 
   private handleOutput(frame: VideoFrame): void {
@@ -597,11 +645,14 @@ export class RangeMp4Source {
     this.futureFrames.get(frame.timestamp)?.close();
     this.futureFrames.set(frame.timestamp, frame);
     const limit = Math.max(4, (this.prepared?.table.maxReorderFrames ?? 0) + 4);
-    while (this.futureFrames.size > limit) {
-      const oldest = this.futureFrames.keys().next().value as number | undefined;
-      if (oldest == null) break;
-      this.futureFrames.get(oldest)?.close();
-      this.futureFrames.delete(oldest);
+    const targetUs = this.activeTargetUs ?? this.lastTargetUs;
+    for (const timestamp of futureFrameTimestampsToEvict(
+      [...this.futureFrames.keys()],
+      limit,
+      targetUs,
+    )) {
+      this.futureFrames.get(timestamp)?.close();
+      this.futureFrames.delete(timestamp);
     }
     this.shared.reader.stats.maxFutureFrames = Math.max(
       this.shared.reader.stats.maxFutureFrames,
@@ -659,6 +710,27 @@ export class RangeMp4Source {
     if (this.destroyed || !this.prepared || !this.decoder) {
       throw new Error(`Range source ${this.id} is unavailable`);
     }
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        return await this.decodeTarget(timeUs, attempt > 0);
+      } catch (error) {
+        if (!(error instanceof TargetFrameUnavailableError)) throw error;
+        if (attempt > 0) {
+          throw new Error(`clip ${this.id} returned no video frame at ${error.targetUs}us`);
+        }
+        this.options.onWarning?.(
+          `${this.id}: target ${error.targetUs}us was not produced; reseeking from sync once`,
+        );
+        await this.resetDecoder();
+      }
+    }
+    throw new Error(`clip ${this.id} returned no video frame at ${Math.max(0, Math.floor(timeUs))}us`);
+  }
+
+  private async decodeTarget(timeUs: number, forceReseek: boolean): Promise<VideoFrame> {
+    if (this.destroyed || !this.prepared || !this.decoder) {
+      throw new Error(`Range source ${this.id} is unavailable`);
+    }
     const table = this.prepared.table;
     const requestedTarget = Math.max(0, Math.floor(timeUs));
     const targetUs = Math.min(requestedTarget, table.lastFrameStartUs);
@@ -667,32 +739,28 @@ export class RangeMp4Source {
     const buffered = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
     if (buffered) return buffered;
     const syncIndex = precedingSyncSample(table, targetSample.decodeIndex);
-    const forward = this.currentSyncIndex >= 0
+    const forward = !forceReseek && !this.flushedSinceSeek && this.currentSyncIndex >= 0
       && targetUs > this.lastTargetUs
       && (syncIndex === this.currentSyncIndex || targetSample.decodeIndex < this.nextDecodeIndex);
     if (!forward) {
       if (this.currentSyncIndex >= 0) await this.resetDecoder();
       this.currentSyncIndex = syncIndex;
       this.nextDecodeIndex = syncIndex;
+      this.flushedSinceSeek = false;
     }
     const decoder = this.decoder;
     if (!decoder) throw new Error(`Range source ${this.id} decoder reset failed`);
     const targetGopEnd = this.gopEnd(table, syncIndex);
-    const decodeEnd = Math.min(
-      targetGopEnd,
-      decodeEndForPresentationSample(table, targetSample) + table.maxReorderFrames,
+    const minimumDecodeEnd = decodeEndForPresentationSample(table, targetSample);
+    const decodeCeiling = Math.min(
+      Math.max(targetGopEnd, minimumDecodeEnd),
+      table.samples.length - 1,
     );
-    const pending = this.nextDecodeIndex <= decodeEnd
-      ? table.samples.slice(this.nextDecodeIndex, decodeEnd + 1)
-      : [];
-    let prefetchEnd = decodeEnd;
-    while (prefetchEnd < targetGopEnd) prefetchEnd += 1;
-    const prefetched = this.nextDecodeIndex <= prefetchEnd
-      ? table.samples.slice(this.nextDecodeIndex, prefetchEnd + 1)
-      : [];
-    const bytes = await this.shared.samples(prefetched);
-    const bufferedAfterFetch = this.consumeFutureFrame(targetSample.timestampUs, targetUs);
-    if (bufferedAfterFetch) return bufferedAfterFetch;
+    const postTargetLimit = table.maxReorderFrames + 1;
+    let postTargetSamples = 0;
+    for (let index = syncIndex; index < this.nextDecodeIndex; index += 1) {
+      if (table.samples[index]!.timestampUs >= targetSample.timestampUs) postTargetSamples += 1;
+    }
     this.activeTargetUs = targetUs;
     this.activeCandidate?.close();
     this.activeCandidate = null;
@@ -702,51 +770,54 @@ export class RangeMp4Source {
       this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1,
     );
     try {
-      for (const sample of pending) {
-        await this.waitForQueueBelow(decoder, queueLimit, waiter);
-        if (waiter.isSettled()) break;
-        if (sample.isSync && sample.decodeIndex !== this.currentSyncIndex) {
-          this.currentSyncIndex = sample.decodeIndex;
-          queueLimit = Math.max(
-            1,
-            this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1,
-          );
-        }
-        const data = bytes.get(sample.decodeIndex);
-        if (!data) throw new Error(`sample ${sample.decodeIndex} bytes are unavailable`);
-        this.submitSample(decoder, sample, data);
-        this.nextDecodeIndex = Math.max(this.nextDecodeIndex, sample.decodeIndex + 1);
-      }
-      if (!waiter.isSettled() && pending.length > 0) {
-        await this.waitForTargetOrProgress(decoder, waiter);
-      }
-      while (!waiter.isSettled() && this.nextDecodeIndex < table.samples.length) {
-        await this.waitForQueueBelow(decoder, queueLimit, waiter);
-        if (waiter.isSettled()) break;
-        const sample = table.samples[this.nextDecodeIndex]!;
-        const extraBytes = await this.shared.samples([sample]);
-        const data = extraBytes.get(sample.decodeIndex);
-        if (!data) throw new Error(`sample ${sample.decodeIndex} bytes are unavailable`);
-        if (sample.isSync) {
-          this.currentSyncIndex = sample.decodeIndex;
-          queueLimit = Math.max(
-            1,
-            this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1,
-          );
-        }
-        this.submitSample(decoder, sample, data);
-        this.nextDecodeIndex = sample.decodeIndex + 1;
-        await this.waitForTargetOrProgress(decoder, waiter);
-      }
       const atEnd = targetSample.timestampUs >= table.lastFrameStartUs;
       try {
-        if (!waiter.isSettled() && this.nextDecodeIndex >= table.samples.length) {
+        await withTimeout((async () => {
+          let postTargetBudget = postTargetLimit;
+          let initialRound = true;
+          while (!waiter.isSettled()) {
+            const roundCeiling = initialRound ? table.samples.length - 1 : decodeCeiling;
+            let supplyEnd = this.nextDecodeIndex - 1;
+            for (let index = this.nextDecodeIndex; index <= roundCeiling; index += 1) {
+              const sample = table.samples[index]!;
+              if (sample.timestampUs >= targetSample.timestampUs) {
+                if (postTargetSamples >= postTargetBudget) break;
+                postTargetSamples += 1;
+              }
+              supplyEnd = index;
+            }
+            const pending = this.nextDecodeIndex <= supplyEnd
+              ? table.samples.slice(this.nextDecodeIndex, supplyEnd + 1)
+              : [];
+            const bytes = await this.shared.samples(pending);
+            for (const sample of pending) {
+              await this.waitForQueueBelow(decoder, queueLimit, waiter);
+              if (waiter.isSettled()) break;
+              if (sample.isSync && sample.decodeIndex !== this.currentSyncIndex) {
+                this.currentSyncIndex = sample.decodeIndex;
+                queueLimit = Math.max(
+                  1,
+                  this.gopEnd(table, this.currentSyncIndex) - this.currentSyncIndex + 1,
+                );
+              }
+              const data = bytes.get(sample.decodeIndex);
+              if (!data) throw new Error(`sample ${sample.decodeIndex} bytes are unavailable`);
+              this.submitSample(decoder, sample, data);
+              this.nextDecodeIndex = Math.max(this.nextDecodeIndex, sample.decodeIndex + 1);
+            }
+            while (!waiter.isSettled() && decoder.decodeQueueSize > 0) {
+              await this.waitForTargetOrProgress(decoder, waiter);
+            }
+            initialRound = false;
+            if (waiter.isSettled() || this.nextDecodeIndex > decodeCeiling) break;
+            postTargetBudget += postTargetLimit;
+          }
+        })(), this.options.decodeTimeoutMs ?? 10_000, `Range decode ${this.id} at ${targetUs}us`);
+        if (!waiter.isSettled()
+          && (this.nextDecodeIndex >= table.samples.length || atEnd)) {
           await decoder.flush();
-        } else if (!waiter.isSettled()) await withTimeout(
-          Promise.race([waiter.promise, this.decoderFailure ?? new Promise<never>(() => undefined)]),
-          this.options.decodeTimeoutMs ?? 10_000,
-          `Range decode ${this.id} at ${targetUs}us`,
-        );
+          this.flushedSinceSeek = true;
+        }
       } catch (error) {
         throw error instanceof DecoderExecutionError
           ? error
@@ -757,14 +828,14 @@ export class RangeMp4Source {
       const exact = candidate && (
         frameCovers(candidate, targetUs) || candidate.timestamp === targetSample.timestampUs
       );
-      if (!exact && !atEnd) {
+      if (!exact && (!atEnd || !forceReseek)) {
         candidate?.close();
-        throw new Error(`clip ${this.id} returned no video frame at ${targetUs}us`);
+        throw new TargetFrameUnavailableError(targetUs);
       }
       const prior = this.lastOutput;
       const result = candidate ?? (atEnd && prior && prior.timestamp <= targetUs
         ? prior.clone() : null);
-      if (!result) throw new Error(`clip ${this.id} returned no video frame at ${targetUs}us`);
+      if (!result) throw new TargetFrameUnavailableError(targetUs);
       this.lastOutput?.close();
       this.lastOutput = result.clone();
       this.lastTargetUs = targetUs;
