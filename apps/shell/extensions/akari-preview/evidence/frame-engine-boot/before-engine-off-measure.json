@@ -1,0 +1,869 @@
+{
+  "label": "before-engine-off",
+  "generatedBy": "frame-engine-boot L1 probe",
+  "openResult": "requested",
+  "timings": {
+    "totalMs": 8349,
+    "stageDetectedFromWebviewConnectMs": 952,
+    "readyAfterStageMs": null
+  },
+  "frameEngine": {
+    "frameEngineActive": null,
+    "frameEngineReady": null,
+    "frameEngineClockType": "undefined",
+    "frameEngineBootFailure": null,
+    "frameEngineBootErrors": null,
+    "bootError": {
+      "present": false,
+      "textContent": null,
+      "fallbackPresent": false
+    },
+    "frameEngineErrorText": null,
+    "frameEngineSources": null,
+    "fragmentRect": {
+      "left": 36,
+      "top": 300.59375,
+      "right": 857,
+      "bottom": 762.40625,
+      "width": 821,
+      "height": 461.8125
+    },
+    "stageRect": {
+      "left": 36,
+      "top": 300.59375,
+      "right": 857,
+      "bottom": 762.40625,
+      "width": 821,
+      "height": 461.8125
+    },
+    "timeLabel": "0:00 / 0:08",
+    "seekValue": "0"
+  },
+  "measurements": {
+    "overlay": {
+      "time": 2,
+      "state": {
+        "frameEngineActive": null,
+        "frameEngineReady": null,
+        "frameEngineClockType": "undefined",
+        "frameEngineBootFailure": null,
+        "frameEngineBootErrors": null,
+        "bootError": {
+          "present": false,
+          "textContent": null,
+          "fallbackPresent": false
+        },
+        "frameEngineErrorText": null,
+        "frameEngineSources": null,
+        "fragmentRect": {
+          "left": 36,
+          "top": 300.59375,
+          "right": 857,
+          "bottom": 762.40625,
+          "width": 821,
+          "height": 461.8125
+        },
+        "stageRect": {
+          "left": 36,
+          "top": 300.59375,
+          "right": 857,
+          "bottom": 762.40625,
+          "width": 821,
+          "height": 461.8125
+        },
+        "timeLabel": "0:02 / 0:08",
+        "seekValue": "2"
+      }
+    },
+    "canvas": {
+      "time": 6.5,
+      "state": {
+        "frameEngineActive": null,
+        "frameEngineReady": null,
+        "frameEngineClockType": "undefined",
+        "frameEngineBootFailure": null,
+        "frameEngineBootErrors": null,
+        "bootError": {
+          "present": false,
+          "textContent": null,
+          "fallbackPresent": false
+        },
+        "frameEngineErrorText": null,
+        "frameEngineSources": null,
+        "fragmentRect": {
+          "left": 36,
+          "top": 300.59375,
+          "right": 857,
+          "bottom": 762.40625,
+          "width": 821,
+          "height": 461.8125
+        },
+        "stageRect": {
+          "left": 36,
+          "top": 300.59375,
+          "right": 857,
+          "bottom": 762.40625,
+          "width": 821,
+          "height": 461.8125
+        },
+        "timeLabel": "0:06 / 0:08",
+        "seekValue": "6.5"
+      }
+    }
+  },
+  "failLoud": null,
+  "iframeRect": {
+    "left": 213.9140625,
+    "top": 35,
+    "width": 893,
+    "height": 1143
+  },
+  "screenshots": {
+    "overlay": "<out>/before-engine-off-window.png",
+    "canvas": "<out>/before-engine-off-canvas-window.png"
+  },
+  "overlayPixels": {
+    "threshold": 8,
+    "expectedRgb": [
+      0,
+      128,
+      255
+    ],
+    "samples": [
+      {
+        "name": "top-mid",
+        "inside": [
+          55,
+          126,
+          247
+        ],
+        "reference": [
+          55,
+          126,
+          247
+        ],
+        "delta": 0,
+        "absoluteDelta": 55
+      },
+      {
+        "name": "bottom-mid",
+        "inside": [
+          55,
+          126,
+          247
+        ],
+        "reference": [
+          55,
+          126,
+          247
+        ],
+        "delta": 0,
+        "absoluteDelta": 55
+      },
+      {
+        "name": "left-mid",
+        "inside": [
+          55,
+          126,
+          247
+        ],
+        "reference": [
+          55,
+          126,
+          247
+        ],
+        "delta": 0,
+        "absoluteDelta": 55
+      },
+      {
+        "name": "right-mid",
+        "inside": [
+          55,
+          126,
+          247
+        ],
+        "reference": [
+          55,
+          126,
+          247
+        ],
+        "delta": 0,
+        "absoluteDelta": 55
+      },
+      {
+        "name": "top-left",
+        "inside": [
+          55,
+          126,
+          247
+        ],
+        "reference": [
+          55,
+          126,
+          247
+        ],
+        "delta": 0,
+        "absoluteDelta": 55
+      },
+      {
+        "name": "top-right",
+        "inside": [
+          55,
+          126,
+          247
+        ],
+        "reference": [
+          55,
+          126,
+          247
+        ],
+        "delta": 0,
+        "absoluteDelta": 55
+      },
+      {
+        "name": "bottom-left",
+        "inside": [
+          55,
+          126,
+          247
+        ],
+        "reference": [
+          55,
+          126,
+          247
+        ],
+        "delta": 0,
+        "absoluteDelta": 55
+      },
+      {
+        "name": "bottom-right",
+        "inside": [
+          55,
+          126,
+          247
+        ],
+        "reference": [
+          55,
+          126,
+          247
+        ],
+        "delta": 0,
+        "absoluteDelta": 55
+      }
+    ],
+    "maxDelta": 0,
+    "maxAbsoluteDelta": 55,
+    "pass": true
+  },
+  "canvasPixels": {
+    "probeTime": 6.5,
+    "expectedRgb": [
+      230,
+      200,
+      40
+    ],
+    "samples": [
+      {
+        "name": "center",
+        "rgb": [
+          232,
+          202,
+          77
+        ],
+        "absoluteDelta": 37
+      },
+      {
+        "name": "top-left",
+        "rgb": [
+          232,
+          202,
+          77
+        ],
+        "absoluteDelta": 37
+      },
+      {
+        "name": "top-right",
+        "rgb": [
+          232,
+          202,
+          77
+        ],
+        "absoluteDelta": 37
+      },
+      {
+        "name": "bottom-left",
+        "rgb": [
+          232,
+          202,
+          77
+        ],
+        "absoluteDelta": 37
+      },
+      {
+        "name": "bottom-right",
+        "rgb": [
+          232,
+          202,
+          77
+        ],
+        "absoluteDelta": 37
+      },
+      {
+        "name": "top-mid",
+        "rgb": [
+          232,
+          202,
+          77
+        ],
+        "absoluteDelta": 37
+      },
+      {
+        "name": "bottom-mid",
+        "rgb": [
+          232,
+          202,
+          77
+        ],
+        "absoluteDelta": 37
+      }
+    ],
+    "maxAbsoluteDelta": 37
+  },
+  "webviewLogs": {
+    "console": [],
+    "exceptions": [],
+    "entries": []
+  },
+  "mainPageLogs": {
+    "console": [
+      {
+        "type": "log",
+        "timestamp": 1788130307921.783,
+        "args": [
+          "exposing theia core electron api"
+        ]
+      },
+      {
+        "type": "log",
+        "timestamp": 1788130307922.834,
+        "args": [
+          "exposing theia filesystem electron api"
+        ]
+      },
+      {
+        "type": "debug",
+        "timestamp": 1788130308428.736,
+        "args": [
+          "Frontend: loading modules... [0.737 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "debug",
+        "timestamp": 1788130308476.769,
+        "args": [
+          "Frontend: container created [0.812 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130308489.718,
+        "args": [
+          "%cElectron Security Warning (Insecure Content-Security-Policy)",
+          "font-weight: bold;",
+          "This renderer process has either no Content Security\n  Policy set or a policy with \"unsafe-eval\" enabled. This exposes users of\n  this app to unnecessary security risks.\n\nFor more information and help, consult\nhttps://electronjs.org/docs/tutorial/security.\nThis warning will not show up\nonce the app is packaged."
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130308510.794,
+        "args": [
+          "sending initial connect on Kc8YoAUsmOdbMF-BAAAB"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130308524.87,
+        "args": [
+          "initial connect received on Kc8YoAUsmOdbMF-BAAAB"
+        ]
+      },
+      {
+        "type": "debug",
+        "timestamp": 1788130308539.317,
+        "args": [
+          "Frontend: preloaded [0.874 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "debug",
+        "timestamp": 1788130309035.666,
+        "args": [
+          "Frontend: core modules loaded [1.371 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130309339.602,
+        "args": [
+          "Property with id 'akari.developerMode' already exists"
+        ]
+      },
+      {
+        "type": "error",
+        "timestamp": 1788130309400.465,
+        "args": [
+          "RangeError: Maximum call stack size exceeded\n    at Fgr (<repo>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (<repo>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Ybr (<repo>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at Xbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9111\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9028"
+        ]
+      },
+      {
+        "type": "error",
+        "timestamp": 1788130309400.996,
+        "args": [
+          "RangeError: Maximum call stack size exceeded\n    at Fgr (<repo>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (<repo>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Ybr (<repo>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at Xbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9111\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9028"
+        ]
+      },
+      {
+        "type": "error",
+        "timestamp": 1788130309401.069,
+        "args": [
+          "RangeError: Maximum call stack size exceeded\n    at Fgr (<repo>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (<repo>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Ybr (<repo>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at Xbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9111\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9028"
+        ]
+      },
+      {
+        "type": "error",
+        "timestamp": 1788130309401.123,
+        "args": [
+          "RangeError: Maximum call stack size exceeded\n    at Fgr (<repo>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (<repo>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Ybr (<repo>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at Xbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9111\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9028"
+        ]
+      },
+      {
+        "type": "error",
+        "timestamp": 1788130309401.18,
+        "args": [
+          "RangeError: Maximum call stack size exceeded\n    at Fgr (<repo>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (<repo>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Ybr (<repo>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at Xbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9111\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9028"
+        ]
+      },
+      {
+        "type": "error",
+        "timestamp": 1788130309401.236,
+        "args": [
+          "RangeError: Maximum call stack size exceeded\n    at Fgr (<repo>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (<repo>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Ybr (<repo>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at Xbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9111\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9028"
+        ]
+      },
+      {
+        "type": "error",
+        "timestamp": 1788130309401.301,
+        "args": [
+          "RangeError: Maximum call stack size exceeded\n    at Fgr (<repo>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (<repo>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9700)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Ybr (<repo>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at Xbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9111\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9041\n    at Array.map (<anonymous>)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9028"
+        ]
+      },
+      {
+        "type": "error",
+        "timestamp": 1788130309401.665,
+        "args": [
+          "Error: You are attempting to construct Symbol(WindowTitleAddOnContribution) in a synchronous way but it has asynchronous dependencies.\n    at n._getButThrowIfAsync (<repo>/apps/shell/lib/frontend/bundle.js:11:36252)\n    at n.getAll (<repo>/apps/shell/lib/frontend/bundle.js:11:32004)\n    at Xht.getContributions (<repo>/apps/shell/lib/frontend/bundle.js:11:73616)\n    at GIe.updateTitle (<repo>/apps/shell/lib/frontend/bundle.js:1709:822753)\n    at GIe.init (<repo>/apps/shell/lib/frontend/bundle.js:1709:821921)\n    at Nbr (<repo>/apps/shell/lib/frontend/bundle.js:11:7179)\n    at yvn (<repo>/apps/shell/lib/frontend/bundle.js:11:6992)\n    at jbr (<repo>/apps/shell/lib/frontend/bundle.js:11:7763)\n    at Kbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9650)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9869"
+        ]
+      },
+      {
+        "type": "debug",
+        "timestamp": 1788130309421.414,
+        "args": [
+          "Frontend: modules loaded [1.756 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "debug",
+        "timestamp": 1788130309421.484,
+        "args": [
+          "Frontend: resolving application [1.757 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "debug",
+        "timestamp": 1788130309424.873,
+        "args": [
+          "Frontend: application resolved [1.760 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130309766.958,
+        "args": [
+          "2026-08-30T22:51:49.766Z root WARN Frontend keybindings.onStart took longer than the expected maximum 100 milliseconds: 180.2 ms [2.090 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130309788.579,
+        "args": [
+          "2026-08-30T22:51:49.788Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130309788.627,
+        "args": [
+          "2026-08-30T22:51:49.788Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (<repo>/apps/shell/lib/frontend/bundle.js:430:9611)\n    at Proxy.l (<repo>/apps/shell/lib/frontend/bundle.js:434:41508)\n    at C6.init (<repo>/apps/shell/lib/frontend/bundle.js:2203:14706)\n    at Nbr (<repo>/apps/shell/lib/frontend/bundle.js:11:7179)\n    at yvn (<repo>/apps/shell/lib/frontend/bundle.js:11:6992)\n    at jbr (<repo>/apps/shell/lib/frontend/bundle.js:11:7763)\n    at Kbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9650)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9869"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310002.725,
+        "args": [
+          "2026-08-30T22:51:50.002Z root WARN Linked preference \"workbench.colorCustomizations\" not found."
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310002.771,
+        "args": [
+          "2026-08-30T22:51:50.002Z root WARN Linked preference \"editor.experimental.preferTreeSitter\" not found."
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310258.491,
+        "args": [
+          "2026-08-30T22:51:50.258Z root WARN Possible Emitter memory leak detected. 176 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (1):"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310258.549,
+        "args": [
+          "2026-08-30T22:51:50.258Z root WARN     at _event._event.Object.assign.maxListeners (<repo>/apps/shell/lib/frontend/bundle.js:430:9611)\n    at Hg.doInit (<repo>/apps/shell/lib/frontend/bundle.js:1709:1189189)"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310300.761,
+        "args": [
+          "2026-08-30T22:51:50.300Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (86):"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310300.859,
+        "args": [
+          "2026-08-30T22:51:50.300Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (<repo>/apps/shell/lib/frontend/bundle.js:430:9611)\n    at Proxy.l (<repo>/apps/shell/lib/frontend/bundle.js:434:41508)\n    at Hg.doInit (<repo>/apps/shell/lib/frontend/bundle.js:1709:1189333)"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310308.488,
+        "args": [
+          "2026-08-30T22:51:50.308Z root WARN Possible Emitter memory leak detected. 264 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (89):"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310308.535,
+        "args": [
+          "2026-08-30T22:51:50.308Z root WARN     at _event._event.Object.assign.maxListeners (<repo>/apps/shell/lib/frontend/bundle.js:430:9611)\n    at Hg.doInit (<repo>/apps/shell/lib/frontend/bundle.js:1709:1189189)"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310560.696,
+        "args": [
+          "2026-08-30T22:51:50.560Z SkillService INFO Loaded 8 skills"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310562.296,
+        "args": [
+          "2026-08-30T22:51:50.562Z root WARN Frontend Ftt.onStart took longer than the expected maximum 100 milliseconds: 746.0 ms [2.896 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310573.699,
+        "args": [
+          "2026-08-30T22:51:50.573Z root INFO [akari-shell-strip] top-level menubar items BEFORE curation:",
+          "[{\"id\":\"1_file\",\"label\":\"File\"},{\"id\":\"2_edit\",\"label\":\"Edit\"},{\"id\":\"3_selection\",\"label\":\"Selection\"},{\"id\":\"4_view\",\"label\":\"View\"},{\"id\":\"5_go\",\"label\":\"Go\"},{\"id\":\"6_debug\",\"label\":\"Run\"},{\"id\":\"7_terminal\",\"label\":\"Terminal\"},{\"id\":\"9_help\",\"label\":\"Help\"}]"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310573.756,
+        "args": [
+          "2026-08-30T22:51:50.573Z root INFO [akari-shell-strip] Edit menu command ids AFTER curation (Electron native roles):",
+          "[\"core.undo\",\"core.redo\",\"core.cut\",\"core.copy\",\"core.paste\",\"core.selectAll\",\"file.copyDownloadLink\"]"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310573.783,
+        "args": [
+          "2026-08-30T22:51:50.573Z root INFO [akari-shell-strip] top-level menubar items AFTER curation:",
+          "[{\"id\":\"1_file\",\"label\":\"File\"},{\"id\":\"2_edit\",\"label\":\"Edit\"},{\"id\":\"9_help\",\"label\":\"Help\"}]"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310599.952,
+        "args": [
+          "2026-08-30T22:51:50.599Z root INFO [1352af1f-acdd-404a-a2f7-1f299c886246] Waiting for backend deployment: 34.4 ms [2.935 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310659.265,
+        "args": [
+          "2026-08-30T22:51:50.659Z root INFO Start frontend contributions: 1214.5 ms [2.975 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310659.52,
+        "args": [
+          "2026-08-30T22:51:50.659Z root INFO Changed application state from 'init' to 'started_contributions'."
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310666.376,
+        "args": [
+          "2026-08-30T22:51:50.666Z root INFO Changed application state from 'started_contributions' to 'attached_shell'."
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310666.412,
+        "args": [
+          "2026-08-30T22:51:50.666Z root INFO >>> Restoring the layout state..."
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310666.774,
+        "args": [
+          "2026-08-30T22:51:50.666Z root INFO [1352af1f-acdd-404a-a2f7-1f299c886246] Loading plugin contributions"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310666.795,
+        "args": [
+          "2026-08-30T22:51:50.666Z root INFO <<< Nothing to restore."
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310778.548,
+        "args": [
+          "2026-08-30T22:51:50.778Z root INFO Initialize the workbench layout: 108.8 ms [3.110 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310779.701,
+        "args": [
+          "2026-08-30T22:51:50.779Z root INFO Changed application state from 'attached_shell' to 'initialized_layout'."
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310781.247,
+        "args": [
+          "2026-08-30T22:51:50.781Z root WARN Possible Emitter memory leak detected. 348 listeners added. Use event.maxListeners to increase the limit (175). MOST frequent listener (146):"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130310781.293,
+        "args": [
+          "2026-08-30T22:51:50.781Z root WARN     at _event._event.Object.assign.maxListeners [as onPreferencesChanged] (<repo>/apps/shell/lib/frontend/bundle.js:430:9611)\n    at Proxy.l (<repo>/apps/shell/lib/frontend/bundle.js:434:41508)\n    at Hg.doInit (<repo>/apps/shell/lib/frontend/bundle.js:1709:1189333)"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.491,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] closing hidden left activity bar widget (trigger=onDidInitializeLayout):",
+          "explorer-view-container"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.621,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout):",
+          "{\"id\":\"search-view-container\",\"label\":\"Search\"}"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.652,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout):",
+          "{\"id\":\"vsx-extensions-view-container\",\"label\":\"パートナー / 拡張\"}"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.67,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout):",
+          "{\"id\":\"scm-view-container\",\"label\":\"Source Control\"}"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.686,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout):",
+          "scm-view-container"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.711,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout):",
+          "{\"id\":\"akari-settings-widget\",\"label\":\"設定\"}"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.735,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout):",
+          "{\"id\":\"debug\",\"label\":\"Debug\"}"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.753,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout):",
+          "debug"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.781,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout):",
+          "{\"id\":\"akari-menu-widget\",\"label\":\"メニュー\"}"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.807,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidInitializeLayout):",
+          "{\"id\":\"test-view-container\",\"label\":\"Testing\"}"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310808.828,
+        "args": [
+          "2026-08-30T22:51:50.808Z root INFO [akari-shell-strip] hiding non-allowlisted left activity bar widget (trigger=onDidInitializeLayout):",
+          "test-view-container"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310818.898,
+        "args": [
+          "2026-08-30T22:51:50.818Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout):",
+          "{\"id\":\"outline-view\",\"label\":\"Outline\"}"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310818.946,
+        "args": [
+          "2026-08-30T22:51:50.818Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout):",
+          "{\"id\":\"akari-partner-onboarding\",\"label\":\"パートナーを追加\"}"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310819.026,
+        "args": [
+          "2026-08-30T22:51:50.819Z root INFO [akari-shell-strip] right panel widget observed (trigger=onDidInitializeLayout):",
+          "{\"id\":\"akari-review-panel-widget\",\"label\":\"注釈\"}"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310819.08,
+        "args": [
+          "2026-08-30T22:51:50.819Z root INFO [akari-shell-strip] hid right panel widget without disposing (trigger=onDidInitializeLayout):",
+          "outline-view"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130310823.372,
+        "args": [
+          "2026-08-30T22:51:50.823Z root INFO [akari-shell-strip] left activity bar widget observed (trigger=onDidAddWidget:akari-role-buckets-widget):",
+          "{\"id\":\"akari-role-buckets-widget\",\"label\":\"素材\"}"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130312626.977,
+        "args": [
+          "2026-08-30T22:51:52.626Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-partner-onboarding"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130313939.738,
+        "args": [
+          "2026-08-30T22:51:53.939Z core:ApplicationShell WARN Widget was activated, but did not accept focus after 2000ms: akari-home-widget"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130314169.139,
+        "args": [
+          "2026-08-30T22:51:54.169Z root WARN Frontend qZt.onDidInitializeLayout took longer than the expected maximum 100 milliseconds: 3357.4 ms [6.503 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130314984.16,
+        "args": [
+          "2026-08-30T22:51:54.984Z root INFO Replace loading indicator with ready workbench UI (animation): 809.4 ms [7.318 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130314984.482,
+        "args": [
+          "2026-08-30T22:51:54.984Z root INFO Changed application state from 'initialized_layout' to 'ready'."
+        ]
+      },
+      {
+        "type": "info",
+        "timestamp": 1788130314984.515,
+        "args": [
+          "2026-08-30T22:51:54.984Z root INFO All frontend contributions settled: 5558.4 ms [7.319 s since frontend page start]"
+        ]
+      },
+      {
+        "type": "warning",
+        "timestamp": 1788130317650.632,
+        "args": [
+          "2026-08-30T22:51:57.650Z root WARN [akari-preview] speech sidecar cut-base-speech unavailable; using source fallback: Stream map '' matches no streams. To ignore this, add a trailing '?' to the map. Failed to set value '0:a:0' for option 'map': Invalid argument Error parsing options for output file <workspace>/project/.akari/cache/preview-audio/.1f89a9b634a392172331188a612b46e1cd09be2e.flac.48446.1788130317587.tmp.flac. Error opening output files: Invalid argument"
+        ]
+      }
+    ],
+    "exceptions": [
+      {
+        "timestamp": 1788130309516.692,
+        "text": "Uncaught (in promise)",
+        "url": "<repo>/apps/shell/lib/frontend/bundle.js",
+        "lineNumber": 10,
+        "columnNumber": 7218,
+        "exception": "Error: @postConstruct error in class Hg: Maximum call stack size exceeded\n    at Nbr (<repo>/apps/shell/lib/frontend/bundle.js:11:7219)\n    at yvn (<repo>/apps/shell/lib/frontend/bundle.js:11:6992)\n    at jbr (<repo>/apps/shell/lib/frontend/bundle.js:11:7763)\n    at Kbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9650)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9869\n    at Ybr (<repo>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at Xbr (<repo>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at <repo>/apps/shell/lib/frontend/bundle.js:11:9111\n    at Pbr.n.reduce.constructorInjections (<repo>/apps/shell/lib/frontend/bundle.js:11:6055)\n    at Array.reduce (<anonymous>)"
+      }
+    ]
+  }
+}
