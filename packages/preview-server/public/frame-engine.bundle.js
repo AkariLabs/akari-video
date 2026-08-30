@@ -5996,6 +5996,456 @@ var require_audio_schedule = __commonJS({
   }
 });
 
+// ../edit-store/lib/generated/edit-v2-keys.js
+var require_edit_v2_keys = __commonJS({
+  "../edit-store/lib/generated/edit-v2-keys.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
+    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "transform", "opacity", "blend", "crop", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "fade_in", "fade_out", "ducking", "script", "reading", "provenance"];
+    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "preset", "baked", "from", "filter", "id"];
+    exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "animator", "easing"];
+    exports.MOTION_V0_KEYS = ["in", "out", "loop"];
+    exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
+    exports.MOTION_FILE_V0_KEYS = ["version", "group", "items"];
+    exports.SOURCE_KIND_V2 = ["media", "html", "telop", "filter", "group", "captions", "caption"];
+    exports.ITEM_V2_KEYS_BY_DEFINITION = {
+      "itemV2Media": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "mask",
+        "source"
+      ],
+      "itemV2Html": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Telop": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Filter": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Group": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Captions": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2Caption": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "transform",
+        "opacity",
+        "blend",
+        "crop",
+        "perspective",
+        "motion",
+        "animator",
+        "keyframes",
+        "items",
+        "source"
+      ],
+      "itemV2AudioMedia": [
+        "id",
+        "name",
+        "hidden",
+        "locked",
+        "at",
+        "duration",
+        "role",
+        "source",
+        "gain_db",
+        "fade_in",
+        "fade_out",
+        "ducking",
+        "script",
+        "reading",
+        "provenance"
+      ]
+    };
+    exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = {
+      "itemSourceMediaV2": [
+        "kind",
+        "src",
+        "in",
+        "out",
+        "framing",
+        "transition_out",
+        "freeze",
+        "fx",
+        "speed",
+        "chroma_key"
+      ],
+      "itemSourceAudioMediaV2": [
+        "kind",
+        "src",
+        "in",
+        "out"
+      ],
+      "itemSourceHtmlV2": [
+        "kind",
+        "path",
+        "part",
+        "style",
+        "text",
+        "exclude",
+        "derivedFrom",
+        "vars",
+        "params"
+      ],
+      "itemSourceTelopV2": [
+        "kind",
+        "preset",
+        "params",
+        "baked",
+        "from"
+      ],
+      "itemSourceFilterV2": [
+        "kind",
+        "filter"
+      ],
+      "itemSourceGroupV2": [
+        "kind"
+      ],
+      "itemSourceCaptionsV2": [
+        "kind",
+        "path",
+        "exclude"
+      ],
+      "itemSourceCaptionV2": [
+        "kind",
+        "path",
+        "id"
+      ]
+    };
+  }
+});
+
+// ../edit-store/lib/canonical.js
+var require_canonical = __commonJS({
+  "../edit-store/lib/canonical.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.serializeEdit = serializeEdit;
+    exports.serializeCaptions = serializeCaptions;
+    exports.serializeMotion = serializeMotion;
+    var edit_v2_keys_1 = require_edit_v2_keys();
+    var ITEM_KEY_ORDER = [
+      "id",
+      "name",
+      "at",
+      "duration",
+      "hidden",
+      "locked",
+      "transform",
+      "opacity",
+      "blend",
+      "crop",
+      "perspective",
+      "motion",
+      "animator",
+      "keyframes",
+      "source",
+      "items"
+    ];
+    var EDIT_KEY_ORDER = ["version", "output", "sources", "audio", "tracks"];
+    var TRACK_KEY_ORDER = ["id", "lane", "name", "items", "content"];
+    var CAPTION_KEY_ORDER = [
+      "id",
+      "start",
+      "end",
+      "text",
+      "speaker",
+      "sourceRef",
+      "edited",
+      "time_domain",
+      "text_style"
+    ];
+    function serializeEdit(doc) {
+      const edit = requireRecord(doc, "edit.json");
+      return `${serializeTopObject(edit, EDIT_KEY_ORDER, (key, value, indent) => {
+        if (key === "tracks" && Array.isArray(value))
+          return serializeTracks(value, indent);
+        if (key === "sources" && Array.isArray(value)) {
+          return serializeRecordArray(value, indent, (entry) => inline(entry));
+        }
+        return serializeTopValue(value, indent);
+      })}
+`;
+    }
+    function serializeCaptions(doc) {
+      if (Array.isArray(doc)) {
+        return `${serializeRecordArray(doc, 0, (entry) => inlineOrdered(entry, CAPTION_KEY_ORDER))}
+`;
+      }
+      const root = requireRecord(doc, "captions.json");
+      return `${serializeTopObject(root, Object.keys(root), (key, value, indent) => key === "captions" && Array.isArray(value) ? serializeRecordArray(value, indent, (entry) => inlineOrdered(entry, CAPTION_KEY_ORDER)) : serializeTopValue(value, indent))}
+`;
+    }
+    function serializeMotion(doc) {
+      const motion2 = requireRecord(doc, "motion/*.json");
+      return `${serializeTopObject(motion2, edit_v2_keys_1.MOTION_FILE_V0_KEYS, (key, value, indent) => {
+        if (key !== "items" || !isRecord(value))
+          return serializeTopValue(value, indent);
+        const entries = Object.entries(value);
+        if (entries.length === 0)
+          return "{}";
+        const lines = ["{"];
+        entries.forEach(([id, points], index) => {
+          const prefix = `${" ".repeat(indent + 2)}${JSON.stringify(id)}: `;
+          if (!Array.isArray(points) || points.length === 0) {
+            lines.push(`${prefix}[]${index + 1 < entries.length ? "," : ""}`);
+            return;
+          }
+          lines.push(`${prefix}[`);
+          const orderedPoints = [...points].sort((left, right) => frameOf(left) - frameOf(right));
+          orderedPoints.forEach((point, pointIndex) => {
+            lines.push(`${" ".repeat(indent + 4)}${inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)}${pointIndex + 1 < orderedPoints.length ? "," : ""}`);
+          });
+          lines.push(`${" ".repeat(indent + 2)}]${index + 1 < entries.length ? "," : ""}`);
+        });
+        lines.push(`${" ".repeat(indent)}}`);
+        return lines.join("\n");
+      })}
+`;
+    }
+    function serializeTopObject(value, preferred, render) {
+      const keys = orderedKeys(value, preferred);
+      if (keys.length === 0)
+        return "{}";
+      const lines = ["{"];
+      keys.forEach((key, index) => {
+        const rendered = render(key, value[key], 2);
+        const renderedLines = rendered.split("\n");
+        lines.push(`  ${JSON.stringify(key)}: ${renderedLines[0]}`);
+        for (const line of renderedLines.slice(1))
+          lines.push(line);
+        if (index + 1 < keys.length)
+          lines[lines.length - 1] += ",";
+      });
+      lines.push("}");
+      return lines.join("\n");
+    }
+    function serializeTopValue(value, indent) {
+      if (Array.isArray(value)) {
+        if (value.length === 0)
+          return "[]";
+        return serializeStructuredArray(value, indent);
+      }
+      if (isRecord(value) && hasNonEmptyArray(value)) {
+        return serializeStructuredObject(value, indent);
+      }
+      return inline(value);
+    }
+    function serializeStructuredArray(values, indent) {
+      const lines = ["["];
+      values.forEach((entry, index) => {
+        const rendered = serializeTopValue(entry, indent + 2).split("\n");
+        lines.push(`${" ".repeat(indent + 2)}${rendered[0]}`);
+        lines.push(...rendered.slice(1));
+        if (index + 1 < values.length)
+          lines[lines.length - 1] += ",";
+      });
+      lines.push(`${" ".repeat(indent)}]`);
+      return lines.join("\n");
+    }
+    function serializeStructuredObject(value, indent) {
+      const entries = Object.entries(value);
+      if (entries.length === 0)
+        return "{}";
+      const lines = ["{"];
+      entries.forEach(([key, entry], index) => {
+        const rendered = serializeTopValue(entry, indent + 2).split("\n");
+        lines.push(`${" ".repeat(indent + 2)}${JSON.stringify(key)}: ${rendered[0]}`);
+        lines.push(...rendered.slice(1));
+        if (index + 1 < entries.length)
+          lines[lines.length - 1] += ",";
+      });
+      lines.push(`${" ".repeat(indent)}}`);
+      return lines.join("\n");
+    }
+    function hasNonEmptyArray(value) {
+      return Object.values(value).some((entry) => Array.isArray(entry) && entry.length > 0);
+    }
+    function serializeTracks(tracks, indent) {
+      if (tracks.length === 0)
+        return "[]";
+      const lines = ["["];
+      tracks.forEach((track, index) => {
+        const record = requireRecord(track, "edit.json.tracks[]");
+        const rendered = serializeItemLike(record, indent + 2, true);
+        lines.push(...appendComma(rendered, index + 1 < tracks.length));
+      });
+      lines.push(`${" ".repeat(indent)}]`);
+      return lines.join("\n");
+    }
+    function serializeItemLike(value, indent, track = false) {
+      const children = value.items;
+      const preferred = track ? [...TRACK_KEY_ORDER] : [...ITEM_KEY_ORDER, ...edit_v2_keys_1.ITEM_V2_KEYS.filter((key) => !ITEM_KEY_ORDER.includes(key))];
+      if (!Array.isArray(children) || children.length === 0) {
+        return [`${" ".repeat(indent)}${inlineObject(value, preferred, !track)}`];
+      }
+      const keys = orderedKeys(value, preferred).filter((key) => key !== "items");
+      const body = keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], !track)}`).join(", ");
+      const lines = [`${" ".repeat(indent)}{ ${body}${body ? ", " : ""}"items": [`];
+      children.forEach((child, index) => {
+        const childRecord = requireRecord(child, "item.items[]");
+        lines.push(...appendComma(serializeItemLike(childRecord, indent + 2), index + 1 < children.length));
+      });
+      lines.push(`${" ".repeat(indent)}] }`);
+      return lines;
+    }
+    function serializeRecordArray(values, indent, render) {
+      if (values.length === 0)
+        return "[]";
+      const lines = ["["];
+      values.forEach((entry, index) => {
+        lines.push(`${" ".repeat(indent + 2)}${render(entry)}${index + 1 < values.length ? "," : ""}`);
+      });
+      lines.push(`${" ".repeat(indent)}]`);
+      return lines.join("\n");
+    }
+    function inlineField(key, value, item) {
+      if (item && key === "source" && isRecord(value))
+        return inlineObject(value, ["kind"]);
+      if (item && key === "keyframes" && Array.isArray(value)) {
+        return `[${value.map((point) => inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)).join(", ")}]`;
+      }
+      return inline(value);
+    }
+    function inlineOrdered(value, preferred) {
+      return isRecord(value) ? inlineObject(value, preferred) : inline(value);
+    }
+    function inlineObject(value, preferred, item = false) {
+      const keys = orderedKeys(value, preferred);
+      if (keys.length === 0)
+        return "{}";
+      return `{ ${keys.map((key) => `${JSON.stringify(key)}: ${inlineField(key, value[key], item)}`).join(", ")} }`;
+    }
+    function inline(value) {
+      if (Array.isArray(value))
+        return `[${value.map((entry) => inline(entry)).join(", ")}]`;
+      if (isRecord(value))
+        return inlineObject(value, Object.keys(value));
+      const serialized = JSON.stringify(value);
+      return serialized === void 0 ? "null" : serialized;
+    }
+    function orderedKeys(value, preferred) {
+      const present = new Set(Object.keys(value).filter((key) => value[key] !== void 0));
+      const keys = preferred.filter((key) => present.delete(key));
+      return [...keys, ...Object.keys(value).filter((key) => present.has(key))];
+    }
+    function appendComma(lines, comma) {
+      if (comma)
+        lines[lines.length - 1] += ",";
+      return lines;
+    }
+    function frameOf(value) {
+      return isRecord(value) && typeof value.t === "number" ? value.t : Number.POSITIVE_INFINITY;
+    }
+    function requireRecord(value, label) {
+      if (!isRecord(value))
+        throw new Error(`${label} \u306F object \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002`);
+      return value;
+    }
+    function isRecord(value) {
+      return value !== null && typeof value === "object" && !Array.isArray(value);
+    }
+  }
+});
+
 // ../edit-store/lib/migrate/legacy-parse.js
 var require_legacy_parse = __commonJS({
   "../edit-store/lib/migrate/legacy-parse.js"(exports) {
@@ -6510,6 +6960,7 @@ var require_lib = __commonJS({
     __exportStar(require_transition_visual(), exports);
     __exportStar(require_ducking(), exports);
     __exportStar(require_audio_schedule(), exports);
+    __exportStar(require_canonical(), exports);
     var legacy_parse_1 = require_legacy_parse();
     Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function() {
       return legacy_parse_1.parseEdit;
