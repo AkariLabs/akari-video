@@ -930,13 +930,43 @@ class nt {
   #l = 0;
   #c = 0;
   #d = !1;
+  /* AKARI patch: expose opt-in VideoFrameFinder null-return diagnostics. */
   #m = async (t, e, i) => {
-    if (e == null || e.state === "closed" || i.abort) return null;
+    if (e == null || e.state === "closed" || i.abort) {
+      const n = globalThis.__akariFinderTrace;
+      if (typeof n === "function") try {
+        const { memInfo: a, ...r } = this.#p();
+        n({
+          reason: "decoder-unavailable",
+          ...r,
+          decoderNull: e == null,
+          decoderClosed: e?.state === "closed",
+          aborted: i.abort,
+          at: performance.now()
+        });
+      } catch {
+      }
+      return null;
+    }
     if (this.#i.length > 0) {
       const n = this.#i[0];
-      return t < n.timestamp ? null : (this.#i.shift(), t > n.timestamp + (n.duration ?? 0) ? (n.close(), await this.#m(t, e, i)) : (!this.#d && this.#i.length < 10 && this.#f(e).catch((a) => {
+      if (t < n.timestamp) {
+        const a = globalThis.__akariFinderTrace;
+        if (typeof a === "function") try {
+          const { memInfo: r, ...o } = this.#p();
+          a({
+            reason: "cache-head-after-target",
+            ...o,
+            headTimestamp: n.timestamp,
+            at: performance.now()
+          });
+        } catch {
+        }
+        return null;
+      }
+      return this.#i.shift(), t > n.timestamp + (n.duration ?? 0) ? (n.close(), await this.#m(t, e, i)) : (!this.#d && this.#i.length < 10 && this.#f(e).catch((a) => {
         throw this.#d = !0, this.#h(t), a;
-      }), n));
+      }), n);
     }
     if (this.#u || this.#o < this.#l && e.decodeQueueSize > 0) {
       if (performance.now() - i.st > 6e3)
@@ -945,8 +975,56 @@ class nt {
         );
       this.#c += 1, await H(15);
     } else {
-      if (this.#r >= this.samples.length)
+      if (this.#r >= this.samples.length) {
+        /* AKARI patch: drain reordered tail frames before reporting end of stream. */
+        if (!i.drained && e.state === "configured" && this.#o < this.#l) {
+          i.drained = !0;
+          const n = globalThis.__akariFinderTrace;
+          if (typeof n === "function") try {
+            const { memInfo: a, ...r } = this.#p();
+            n({
+              reason: "eos-drain",
+              ...r,
+              at: performance.now()
+            });
+          } catch {
+          }
+          try {
+            await e.flush();
+          } catch (a) {
+            if (!(a instanceof Error) || !a.message.includes("Aborted due to close"))
+              throw a;
+          }
+          if (i.abort || e.state === "closed") {
+            const a = globalThis.__akariFinderTrace;
+            if (typeof a === "function") try {
+              const { memInfo: r, ...o } = this.#p();
+              a({
+                reason: "decoder-unavailable",
+                ...o,
+                decoderNull: !1,
+                decoderClosed: e.state === "closed",
+                aborted: i.abort,
+                at: performance.now()
+              });
+            } catch {
+            }
+            return null;
+          }
+          return await this.#m(t, e, i);
+        }
+        const n = globalThis.__akariFinderTrace;
+        if (typeof n === "function") try {
+          const { memInfo: a, ...r } = this.#p();
+          n({
+            reason: "eos-no-more-samples",
+            ...r,
+            at: performance.now()
+          });
+        } catch {
+        }
         return null;
+      }
       try {
         await this.#f(e);
       } catch (n) {
