@@ -148,6 +148,23 @@ const STUB_SUMMARY = {
       params: { title: "<b>インスタンスB</b>" },
       html: '<div class="slot-root" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:40px;color:#fff;background:#5d2817;padding:12px 24px;"><span data-akari-slot="title">既定タイトル</span></div>',
     },
+    // 7) の fixture: 断片 CSS の vw/vh 系単位（viewport-units.js がステージ基準へ書き換える）。
+    // 他の fixture の区間と重ならない 400〜410s。
+    {
+      id: "cap-vw",
+      start: 400,
+      duration: 10,
+      transform: { x: 0, y: 0, scale: 1, rotate: 0 },
+      html: [
+        '<div class="cap-vw-root" style="position:absolute;left:0;top:0;width:50vw;height:25vh;">',
+        "  <style>",
+        "    @media (min-width: 10vw) { .cap-vw-root { --vw-media: 1; } }",
+        "    .cap-vw-root .box { font-size: 10vw; padding: 2vh 1vmin; margin-left: clamp(1px, 5vmax, 999px); }",
+        "  </style>",
+        '  <span class="box">vw</span>',
+        "</div>",
+      ].join("\n"),
+    },
   ],
 };
 

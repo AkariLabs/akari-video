@@ -22,6 +22,15 @@ AKARI Video の字幕既定は 1 行 20 全角字・句読点優先分割（オ�
 
 出典: [Netflix Japanese Timed Text Style Guide](https://partnerhelp.netflixstudios.com/hc/en-us/articles/215767517-Japanese-Timed-Text-Style-Guide)
 
+## 単位 — `px` は出力 px、`vw` / `vh` は出力サイズ基準（2026-08-31）
+
+断片の座標系は **出力フレーム（`edit.json.output`、例 1280x720）の論理 px** で、`px` はその
+まま出力 px を意味する。`vw` / `vh` / `vmin` / `vmax` も**出力サイズ基準**（`1vw` =
+`output.width / 100` px）で、書き出しとプレビューで同じ意味になる（ランタイムが
+プレビュー側で書き換える。断片は何も書かなくてよい — `packages/overlay-runtime/src/viewport-units.js`）。
+`@media` / `@container` の条件式にはウィンドウ寸法が入るため、断片ではメディアクエリで
+レイアウトを分岐しない（出力サイズは `vars` か `--akari-vw` 系で受ける）。
+
 ## 配置セーフゾーン
 
 固定値を使う前に配信先、広告かオーガニックか、画角、CTA、字幕欄、LTR/RTL を確定する。同名プラットフォームでも条件が違えば数値を流用しない。

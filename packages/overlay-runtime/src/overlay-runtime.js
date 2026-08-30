@@ -89,6 +89,10 @@ function createOverlayRuntime(options = {}) {
     const stage = document.getElementById("overlay-stage");
     if (!stage) throw new Error("#overlay-stage が見つかりません");
 
+    // 断片の vw/vh 系単位の解決先（viewport-units.js）。ステージの論理サイズ = 出力サイズを
+    // 変数として置き、書き出し（出力サイズちょうどの viewport）と同じ意味にする。
+    window.akari.viewportUnits?.applyStageVariables(stage, summary?.output);
+
     const overlays = summary?.overlays;
     if (!Array.isArray(overlays)) {
       throw new TypeError("summary.overlays は配列である必要があります");
@@ -142,6 +146,11 @@ function createOverlayRuntime(options = {}) {
         overlay.params
       );
       container.replaceChildren(rendered ?? template.content.cloneNode(true));
+
+      // ビューポート単位（vw / vh / vmin / vmax 系）をステージ基準へ書き換える
+      // （viewport-units.js）。プレビューはステージを scale() で縮めるため、素の vw は
+      // ウィンドウ幅基準となり書き出しとずれる。断片は書き換えず、ランタイムが担う。
+      window.akari.viewportUnits?.applyAll(container);
 
       // 多層テキスト断片のミラー層（縁取り・影・裏打ち等でテキストを複製した層。
       // interaction.js のテキスト編集同期対象）を支援技術・検索から隠す。断片は
