@@ -7,6 +7,7 @@ import type {
   FrameMetricsRecorder,
   NativeVideoFormat,
   NativeYuvFrame,
+  RotatedVideoFrame,
   StillImageBitmap,
   UploadPath,
 } from './types.js';
@@ -85,6 +86,7 @@ export async function evaluateFrame(
       if (frame.format !== 'NV12' && frame.format !== 'I420') return frame;
       const started = performance.now();
       const copied = await copyNativeYuvFrame(frame, context.metrics);
+      copied.rotationDeg = (frame as RotatedVideoFrame).rotationDeg;
       context.metrics.record('copy', performance.now() - started);
       return copied;
     };

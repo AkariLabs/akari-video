@@ -1,6 +1,6 @@
 // Adapted from packages/preview-engine/src/clipSession.ts.
 import { MP4Clip } from '../../vendor/av-cliper/av-cliper.js';
-import type { FrameMetricsRecorder, NativeFrameSource } from '../types.js';
+import type { FrameMetricsRecorder, NativeFrameSource, RotatedVideoFrame } from '../types.js';
 import {
   evaluateCodecSupport,
   readVideoCodecFromMoov,
@@ -22,6 +22,7 @@ import {
 export type ClipSessionState = 'idle' | 'loading' | 'ready' | 'degraded' | 'unavailable';
 
 export interface ClipSessionOptions {
+  skipSourceRotation?: boolean;
   loadTimeoutMs?: number;
   loadBudgetMs?: number;
   loadStallMs?: number;
@@ -46,6 +47,11 @@ class DecoderGuardError extends Error {
 
 const AV_CLIPER_RESET_WINDOW_US = 3_000_000;
 const MAX_EXACT_FRAME_TICKS = 4;
+
+function normalizeRotationDeg(value: number | undefined): number {
+  if (!Number.isFinite(value)) return 0;
+  return (Math.round((value ?? 0) / 90) * 90 + 360) % 360;
+}
 
 export function describeUnusableDecoder(
   clipId: string,
@@ -92,11 +98,12 @@ export class ClipSession implements NativeFrameSource {
   readonly id: string;
   readonly src: string;
   state: ClipSessionState = 'idle';
-  meta: { duration: number; width: number; height: number } | null = null;
+  meta: { duration: number; width: number; height: number; rotationDeg: number } | null = null;
   private clip: MP4Clip | null = null;
   private keyframes: KeyframeIndex | null = null;
   private lastFrameStartUs: number | null = null;
   private decoderTimestampOffsetUs = 0;
+  private rotationDeg = 0;
   private lastTickTargetUs: number | null = null;
   private activeAcceleration: HardwarePreference | undefined;
   private readonly coverage = new DecodedFrameCoverageCache();
@@ -114,6 +121,7 @@ export class ClipSession implements NativeFrameSource {
   private sourceBytes: RetainedSourceBytes;
   private ownsSourceBytes = true;
   private readonly options: {
+    skipSourceRotation: boolean;
     loadTimeoutMs?: number;
     loadBudgetMs?: number;
     loadStallMs: number;
@@ -132,6 +140,7 @@ export class ClipSession implements NativeFrameSource {
     this.id = id;
     this.src = src;
     this.options = {
+      skipSourceRotation: options.skipSourceRotation !== false,
       loadTimeoutMs: options.loadTimeoutMs,
       loadBudgetMs: options.loadBudgetMs,
       loadStallMs: options.loadStallMs ?? 5_000,
@@ -183,8 +192,9 @@ export class ClipSession implements NativeFrameSource {
       const source = await this.sourceBytes.open();
       candidate = new MP4Clip(source.stream, {
         audio: false,
-        __unsafe_hardwareAcceleration__: this.options.hardwareAcceleration ?? 'prefer-hardware'
-      });
+        __unsafe_hardwareAcceleration__: this.options.hardwareAcceleration ?? 'prefer-hardware',
+        __unsafe_skipRotation__: this.options.skipSourceRotation,
+      } as ConstructorParameters<typeof MP4Clip>[1] & { __unsafe_skipRotation__: boolean });
       await this.waitForReady(candidate.ready, source, `prepare ${this.id}`);
       const keyframes = await this.readKeyframes(candidate);
       if (generation !== this.prepareGeneration) {
@@ -238,8 +248,9 @@ export class ClipSession implements NativeFrameSource {
               const source = await this.sourceBytes.open();
               candidate = new MP4Clip(source.stream, {
                 audio: false,
-                __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration
-              });
+                __unsafe_hardwareAcceleration__: attempt.hardwareAcceleration,
+                __unsafe_skipRotation__: this.options.skipSourceRotation,
+              } as ConstructorParameters<typeof MP4Clip>[1] & { __unsafe_skipRotation__: boolean });
               await this.waitForReady(
                 Promise.race([candidate.ready, guard.failure]),
                 source,
@@ -267,8 +278,12 @@ export class ClipSession implements NativeFrameSource {
           }
           this.clip = candidate;
           this.activeAcceleration = attempt.hardwareAcceleration;
+          this.rotationDeg = this.options.skipSourceRotation
+            ? normalizeRotationDeg((candidate.meta as { rotationDeg?: number }).rotationDeg)
+            : 0;
           this.meta = {
             ...candidate.meta,
+            rotationDeg: this.rotationDeg,
             duration: this.keyframes?.presentationDurationUs
               ?? Math.max(0, candidate.meta.duration - this.decoderTimestampOffsetUs),
           };
@@ -283,6 +298,7 @@ export class ClipSession implements NativeFrameSource {
           this.keyframes = null;
           this.lastFrameStartUs = null;
           this.decoderTimestampOffsetUs = 0;
+          this.rotationDeg = 0;
           candidate?.destroy();
           lastError = error;
           this.options.onWarning?.(`${this.id}: ${String(error)}`);
@@ -393,8 +409,12 @@ export class ClipSession implements NativeFrameSource {
       this.preparedCandidate = null;
       this.applyKeyframes(this.preparedKeyframes);
       this.preparedKeyframes = null;
+      this.rotationDeg = this.options.skipSourceRotation
+        ? normalizeRotationDeg((this.clip.meta as { rotationDeg?: number }).rotationDeg)
+        : 0;
       this.meta = {
         ...this.clip.meta,
+        rotationDeg: this.rotationDeg,
         duration: this.keyframes?.presentationDurationUs
           ?? Math.max(0, this.clip.meta.duration - this.decoderTimestampOffsetUs)
       };
@@ -415,7 +435,7 @@ export class ClipSession implements NativeFrameSource {
     const safeLimit = this.lastFrameStartUs ?? fallbackLimit;
     const target = Math.max(0, Math.min(Math.floor(timeUs), safeLimit));
     const covered = this.coverage.cloneAt(target);
-    if (covered) return covered;
+    if (covered) return this.attachRotation(covered);
     const tickStarted = performance.now();
     const result = await this.serialize(async () => {
       try {
@@ -432,11 +452,11 @@ export class ClipSession implements NativeFrameSource {
     metrics?.record('tick', performance.now() - tickStarted);
     if (!result.video) {
       const coveredAfterTick = this.coverage.cloneAt(target);
-      if (coveredAfterTick) return coveredAfterTick;
+      if (coveredAfterTick) return this.attachRotation(coveredAfterTick);
       throw new Error(`clip ${this.id} returned no video frame at ${target}us`);
     }
     this.coverage.remember(result.video);
-    return result.video;
+    return this.attachRotation(result.video);
   }
 
   async decodeApprox(timeUs: number, toleranceUs: number, snapBeyondTolerance = true): Promise<VideoFrame> {
@@ -481,6 +501,7 @@ export class ClipSession implements NativeFrameSource {
     fork.keyframes = this.keyframes;
     fork.lastFrameStartUs = this.lastFrameStartUs;
     fork.decoderTimestampOffsetUs = this.decoderTimestampOffsetUs;
+    fork.rotationDeg = this.rotationDeg;
     fork.cachedHeader = this.cachedHeader;
     fork.cachedKeyframes = this.cachedKeyframes;
     fork.learnedSupport = this.learnedSupport;
@@ -506,6 +527,7 @@ export class ClipSession implements NativeFrameSource {
     this.keyframes = null;
     this.lastFrameStartUs = null;
     this.decoderTimestampOffsetUs = 0;
+    this.rotationDeg = 0;
     this.lastTickTargetUs = null;
     this.activeAcceleration = undefined;
     this.loadPromise = null;
@@ -614,6 +636,7 @@ export class ClipSession implements NativeFrameSource {
     this.keyframes = null;
     this.lastFrameStartUs = null;
     this.decoderTimestampOffsetUs = 0;
+    this.rotationDeg = 0;
     this.lastTickTargetUs = null;
     this.activeAcceleration = undefined;
     this.loadPromise = null;
@@ -623,6 +646,11 @@ export class ClipSession implements NativeFrameSource {
 
   private toDecoderTime(presentationTimeUs: number): number {
     return Math.max(0, presentationTimeUs + this.decoderTimestampOffsetUs);
+  }
+
+  private attachRotation(frame: VideoFrame): VideoFrame {
+    (frame as RotatedVideoFrame).rotationDeg = this.rotationDeg;
+    return frame;
   }
 
   private normalizeTickResult<T extends { video?: VideoFrame }>(result: T): T {

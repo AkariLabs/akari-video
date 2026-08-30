@@ -14,6 +14,7 @@ import {
   evaluateFrame,
   evaluationPlanFromResolvedTimeline,
   presentFrame,
+  readVideoCodecFromMoov,
   readbackFrame,
 } from '../../src/index.js';
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
@@ -74,6 +75,10 @@ const MATTE_MASK_URL = new URL('matte-mask.mp4', SOURCE_URL).href;
 const MATTE_INTAKE_COLOR_URL = new URL('matte-alpha.color.mp4', SOURCE_URL).href;
 const MATTE_INTAKE_MASK_URL = new URL('matte-alpha.mask.mp4', SOURCE_URL).href;
 const COLOR_PATCHES_URL = new URL('color-patches.mp4', SOURCE_URL).href;
+const ROTATION_FIXTURES = [90, 180, 270].map(rotationDeg => ({
+  rotationDeg,
+  url: new URL(`rotate-${rotationDeg}.mp4`, SOURCE_URL).href,
+}));
 const REQUESTED_UPLOAD_PATH = new URL(window.location.href).searchParams.get('uploadPath') === 'copyTo'
   ? 'copyTo'
   : 'direct';
@@ -212,6 +217,85 @@ function meanAbsoluteRgbDiff(left: Uint8Array, right: Uint8Array): number {
     }
   }
   return total / channels;
+}
+
+async function inspectRotationParity(output: EvaluationPlan['output']) {
+  const rows: Array<Record<string, unknown>> = [];
+  const metadata: Array<Record<string, unknown>> = [];
+  for (const fixture of ROTATION_FIXTURES) {
+    const cpuSource = new ClipSessionPool(`rotation-${fixture.rotationDeg}-cpu`, fixture.url, {
+      skipSourceRotation: false,
+    });
+    const gpuSource = new ClipSessionPool(`rotation-${fixture.rotationDeg}-gpu`, fixture.url);
+    const cpuCompositor = new WebGL2Compositor(undefined, { uploadPath: REQUESTED_UPLOAD_PATH });
+    const gpuCompositor = new WebGL2Compositor(undefined, { uploadPath: REQUESTED_UPLOAD_PATH });
+    const cpuMetrics = new FrameMetrics();
+    const gpuMetrics = new FrameMetrics();
+    try {
+      const header = await (await fetch(fixture.url)).arrayBuffer();
+      const probedRotationDeg = readVideoCodecFromMoov(header)?.rotationDeg ?? null;
+      const gpuSession = await gpuSource.getSession('metadata');
+      const sessionRotationDeg = gpuSession.meta?.rotationDeg ?? null;
+      metadata.push({
+        rotationDeg: fixture.rotationDeg,
+        probedRotationDeg,
+        sessionRotationDeg,
+        pass: probedRotationDeg === fixture.rotationDeg && sessionRotationDeg === fixture.rotationDeg,
+      });
+      for (const timeUs of [250_000, 650_000, 1_050_000]) {
+        const planFor = (source: NativeFrameSource, id: string): EvaluationPlan => ({
+          timeUs,
+          base: [{ id, source, sourceTimeUs: timeUs, visual: fullFrameVisual }],
+          layers: [],
+          transition: { type: 'hard-cut', progress: 0 },
+          output,
+        });
+        const cpuFrame = await evaluateFrame(
+          planFor(cpuSource, `rotation-${fixture.rotationDeg}-cpu`),
+          { compositor: cpuCompositor, metrics: cpuMetrics },
+        );
+        const gpuFrame = await evaluateFrame(
+          planFor(gpuSource, `rotation-${fixture.rotationDeg}-gpu`),
+          { compositor: gpuCompositor, metrics: gpuMetrics },
+        );
+        try {
+          const cpuRgba = await cpuFrame.surface.readRgba();
+          const gpuRgba = await gpuFrame.surface.readRgba();
+          const deltas = Array.from(cpuRgba, (value, index) => Math.abs(value - gpuRgba[index]!))
+            .sort((left, right) => left - right);
+          const meanAbs = deltas.reduce((sum, value) => sum + value, 0) / deltas.length;
+          const p999 = deltas[Math.min(deltas.length - 1, Math.ceil(deltas.length * 0.999) - 1)] ?? 0;
+          const nativeDecoderOutput = gpuFrame.nativeFormats.includes('NV12')
+            || gpuFrame.nativeFormats.includes('I420')
+            || gpuFrame.uploadPath === 'direct';
+          rows.push({
+            rotationDeg: fixture.rotationDeg,
+            timeUs,
+            meanAbs,
+            p999,
+            nativeFormats: gpuFrame.nativeFormats,
+            uploadPath: gpuFrame.uploadPath,
+            nativeDecoderOutput,
+            pass: meanAbs <= 1 && p999 <= 3 && nativeDecoderOutput,
+          });
+        } finally {
+          cpuFrame.close();
+          gpuFrame.close();
+        }
+      }
+    } finally {
+      cpuSource.destroy();
+      gpuSource.destroy();
+      cpuCompositor.dispose();
+      gpuCompositor.dispose();
+    }
+  }
+  return {
+    rows,
+    metadata,
+    pass: rows.length === 9 && rows.every(row => row.pass === true)
+      && metadata.length === 3 && metadata.every(row => row.pass === true),
+  };
 }
 
 async function inspectColorPatches(output: EvaluationPlan['output']) {
@@ -1032,6 +1116,7 @@ async function run(): Promise<void> {
     height: HEIGHT,
     colorSpace: 'bt709-limited' as const,
   };
+  const rotationParity = await inspectRotationParity(output);
   const previewCanvas = document.querySelector<HTMLCanvasElement>('#preview');
   if (!previewCanvas) throw new Error('preview canvas missing');
   const parity: Array<Record<string, unknown>> = [];
@@ -1749,6 +1834,7 @@ async function run(): Promise<void> {
     matteParity.every((sample) => sample.pass === true) &&
     alphaIntakeParity.length === matteSamplePoints.length &&
     alphaIntakeParity.every((sample) => sample.pass === true) &&
+    rotationParity.pass &&
     matteNegative.comparatorPassed === false &&
     matteNegative.differingPixels === 1 &&
     matteSemantic.pass &&
@@ -1803,6 +1889,7 @@ async function run(): Promise<void> {
     layerParity,
     matteParity,
     alphaIntakeParity,
+    rotationParity,
     negative,
     layerNegative,
     matteNegative,

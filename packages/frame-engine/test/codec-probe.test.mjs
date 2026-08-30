@@ -37,15 +37,38 @@ function moovBox(bytes) {
   return null;
 }
 
+function withTkhdRotation(bytes, degrees) {
+  const output = Buffer.from(bytes);
+  const typeOffset = output.indexOf(Buffer.from('tkhd'));
+  assert.ok(typeOffset >= 4, 'fixture has no tkhd box');
+  const dataStart = typeOffset + 4;
+  const matrixOffset = dataStart + 4 + (output[dataStart] === 1 ? 32 : 20) + 16;
+  const radians = degrees * Math.PI / 180;
+  const fixed = value => Math.round(value * 65536);
+  output.writeInt32BE(fixed(Math.cos(radians)), matrixOffset);
+  output.writeInt32BE(fixed(-Math.sin(radians)), matrixOffset + 4);
+  output.writeInt32BE(fixed(Math.sin(radians)), matrixOffset + 12);
+  output.writeInt32BE(fixed(Math.cos(radians)), matrixOffset + 16);
+  return output;
+}
+
 test('reads AVC codec and dimensions from a complete MP4 and a moov-only buffer', () => {
   const bytes = readFileSync(fixture);
   const complete = readVideoCodecFromMoov(bytes);
   assert.match(complete?.codec ?? '', /^avc1\.[0-9A-F]{6}$/u);
   assert.equal(complete?.codedWidth, 320);
   assert.equal(complete?.codedHeight, 180);
+  assert.equal(complete?.rotationDeg, 0);
   const moov = moovBox(bytes);
   assert.ok(moov);
   assert.deepEqual(readVideoCodecFromMoov(moov), complete);
+});
+
+test('normalizes tkhd matrices to 0/90/180/270 degrees', () => {
+  const bytes = readFileSync(fixture);
+  for (const rotationDeg of [0, 90, 180, 270]) {
+    assert.equal(readVideoCodecFromMoov(withTkhdRotation(bytes, rotationDeg))?.rotationDeg, rotationDeg);
+  }
 });
 
 test('reads an hvc1 codec string when ffmpeg can generate HEVC', t => {

@@ -33,6 +33,7 @@ export interface NativeNv12Frame {
   height: number;
   y: Uint8Array;
   uv: Uint8Array;
+  rotationDeg?: number;
 }
 
 export interface NativeI420Frame {
@@ -42,9 +43,11 @@ export interface NativeI420Frame {
   y: Uint8Array;
   u: Uint8Array;
   v: Uint8Array;
+  rotationDeg?: number;
 }
 
 export type NativeYuvFrame = NativeNv12Frame | NativeI420Frame;
+export type RotatedVideoFrame = VideoFrame & { rotationDeg?: number };
 
 export interface NativeFrameSource {
   decode(

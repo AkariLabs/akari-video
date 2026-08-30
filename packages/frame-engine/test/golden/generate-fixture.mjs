@@ -15,6 +15,11 @@ const matteMask = resolve(directory, '.generated/matte-mask.mp4');
 const matteIntakeColor = resolve(directory, '.generated/matte-alpha.color.mp4');
 const matteIntakeMask = resolve(directory, '.generated/matte-alpha.mask.mp4');
 const colorPatches = resolve(directory, '.generated/color-patches.mp4');
+const rotationFixtures = [90, 180, 270].map(rotationDeg => ({
+  rotationDeg,
+  name: `rotate-${rotationDeg}.mp4`,
+  path: resolve(directory, '.generated', `rotate-${rotationDeg}.mp4`),
+}));
 const bFrameFixtures = [
   { name: 'bframe-bf0-30.mp4', bFrames: 0, fps: 30, reorderFrames: 0 },
   { name: 'bframe-bf1-30.mp4', bFrames: 1, fps: 30, reorderFrames: 1 },
@@ -108,6 +113,37 @@ if (!everyPixelChanges(sourceB) || !isWebCodecsCompatibleH264(sourceB)) {
   ], { stdio: 'inherit' });
   if (!everyPixelChanges(sourceB)) throw new Error('source-b.mp4 does not change every pixel between frames 0 and 1');
   if (!isWebCodecsCompatibleH264(sourceB)) throw new Error('source-b.mp4 is not baseline/main/high yuv420p H.264');
+}
+
+function normalizedDisplayRotation(path) {
+  if (!existsSync(path)) return null;
+  try {
+    const probe = JSON.parse(execFileSync(ffprobe, [
+      '-v', 'error', '-select_streams', 'v:0',
+      '-show_entries', 'stream=codec_name,width,height:stream_side_data=rotation',
+      '-of', 'json', path,
+    ], { encoding: 'utf8' }));
+    const stream = probe.streams?.[0];
+    const raw = Number(stream?.side_data_list?.find(value => Number.isFinite(Number(value.rotation)))?.rotation);
+    if (stream?.codec_name !== 'h264' || stream?.width !== 320 || stream?.height !== 180
+      || !Number.isFinite(raw)) return null;
+    return (Math.round(raw / 90) * 90 + 360) % 360;
+  } catch {
+    return null;
+  }
+}
+
+for (const fixture of rotationFixtures) {
+  if (normalizedDisplayRotation(fixture.path) !== fixture.rotationDeg) {
+    execFileSync(ffmpeg, [
+      '-hide_banner', '-loglevel', 'error', '-y',
+      '-display_rotation', String(fixture.rotationDeg), '-i', sourceB,
+      '-map', '0:v:0', '-an', '-c', 'copy', '-movflags', '+faststart', fixture.path,
+    ], { stdio: 'inherit' });
+  }
+  if (normalizedDisplayRotation(fixture.path) !== fixture.rotationDeg) {
+    throw new Error(`${fixture.name} failed display rotation self-verification`);
+  }
 }
 
 if (!existsSync(still)) {
@@ -480,4 +516,5 @@ process.stdout.write(`${[
   output, sourceB, still, matteColor, matteAlpha, matteMask, matteIntakeColor, matteIntakeMask, colorPatches,
   ...bFrameFixtures.map(spec => spec.path),
   ...bFrameTailFixtures.map(spec => spec.path),
+  ...rotationFixtures.map(spec => spec.path),
 ].join('\n')}\n`);
