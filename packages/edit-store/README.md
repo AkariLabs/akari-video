@@ -91,3 +91,11 @@ node examples/speed-up-group.mjs <project> g1
 ```
 
 どちらも最後に `save()` を呼び、書いたプロジェクト相対パスの配列を stdout へ出します。
+
+木を件数に畳み、1 アイテム 1 行の要約として読み取り専用で見ます。
+
+```sh
+node examples/tree-summary.mjs <project>
+```
+
+この例は `save()` を呼びません。

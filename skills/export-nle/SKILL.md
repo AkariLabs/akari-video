@@ -26,11 +26,14 @@ AKARI Video のセーブデータ SSOT（edit.json）には lock-in がない、
 
 **逆方向（NLE で編集した結果を edit.json へ戻す）は非対応**。スコープに含めない。
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+本スキルは書き込まない。別工程で書く場合は、該当行の Edit か edit-store のスクリプト API を使う。
+
 ## ハードルール
 
 1. **決定的であること**: 同一入力 → 同一出力。LLM 判断・乱数・現在時刻を出力に混ぜない
 2. **外部 npm 依存ゼロ**（ffprobe は media-bin 経由の本体直叩きのみ）
-3. **version 2 の edit.json だけを読み、書き換えない**。旧版は先に `akari migrate` を通す
+3. **version 2 の edit.json だけを対象にし、id で grep して該当行を読み、書き換えない**。旧版は先に `akari migrate` を通す
 4. **黙って落とさない**: 交換形式に移せないフィールド（ducking / master / LUT /
    chroma_key / direction 等）は `export-report.json` の `dropped[]` に全件列挙する
 5. **ベータ地位の明示**: ユーザーへの報告に「実 NLE での取り込みは未確認」を必ず含める。

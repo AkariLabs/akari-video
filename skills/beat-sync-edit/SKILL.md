@@ -9,6 +9,9 @@ description: 宣言済み音源（declarations.json の BPM・頭拍・キメ・
 
 次のいずれかに違反する形で進めない。詳細リーフより常に優先する。
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みは該当行の Edit か edit-store のスクリプト API とし、本スキルでは後者を生成器から使う。
+
 1. **時刻を手で打たない。** カット・オーバーレイ・SFX のすべての時刻は、宣言（BPM・頭拍・
    キメ・区間）から計算した拍位置に置く。「だいたい 12 秒くらい」で置いた瞬間に音とズレる。
 2. **`edit.json` を手で編集しない。** 生成器（`gen-timeline.mjs`）が唯一の組み立て器である。

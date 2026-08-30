@@ -7,6 +7,9 @@ description: プロジェクト内の素材群（analysis.json）と周辺プロ
 
 > **Language**: Respond in the user's language — 対話・質問・承認確認・レポートはユーザーの使用言語に合わせる（例: 英語で話しかけられたら英語で応答する）。
 
+`edit.json` / `captions.json` は全文 Read せず、id で grep して該当行だけ読む（[edit.json の読み方](../../docs/guides/edit-json-access.md)）。
+書き込みが必要な別工程では、該当行の Edit か edit-store のスクリプト API を使う。
+
 ## ハードルール
 
 - **1 パス目を再実行しない**。素材ごとの事実抽出（STT・フレーム解析等の重い処理）は既存
@@ -17,7 +20,8 @@ description: プロジェクト内の素材群（analysis.json）と周辺プロ
 - **2 パス目は素材の再視聴をしない**。1 パス目の出力テキスト（transcript・keyframe note・events）を
   並べて読み直すテキスト推論に限る。素材へ戻るのは、2 パス目がピンポイントで必要と判断した箇所だけ。
 - **2 パス目の入力は analysis.json 群に閉じない**。プロジェクトの周辺文脈
-  （intake.json・edit.json・`planning/`・README・過去 PJ 参照があればそれも）を読む。
+  （intake.json・`planning/`・README・過去 PJ 参照があればそれも）を読み、edit.json は id で
+  grep して該当行だけ読む。
   analysis.json だけでは素材の由来判定（orphan/unclear 等）に確信を持てない実例が
   実地検証（内部リポの multiasset-dogfood 実走・2026-07-22）で確認されている。
 - **周辺プロジェクト文脈の読み合わせに `memory` 接続を含める**。`.akari/connections.json` に
