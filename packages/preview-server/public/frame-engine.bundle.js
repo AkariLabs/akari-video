@@ -6446,6 +6446,452 @@ var require_canonical = __commonJS({
   }
 });
 
+// ../edit-store/lib/tree-ops.js
+var require_tree_ops = __commonJS({
+  "../edit-store/lib/tree-ops.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.attachEditHelpers = attachEditHelpers;
+    exports.updateItem = updateItem;
+    exports.moveItem = moveItem;
+    exports.insertItem = insertItem;
+    exports.removeItem = removeItem;
+    exports.detachItem = detachItem;
+    exports.materializeProjectedPart = materializeProjectedPart;
+    exports.groupItems = groupItems;
+    exports.ungroupItem = ungroupItem;
+    exports.normalizeTracks = normalizeTracks;
+    exports.allLocations = allLocations;
+    exports.locate = locate;
+    exports.createTrackAbove = createTrackAbove;
+    exports.createTrackAt = createTrackAt;
+    exports.nextTrackId = nextTrackId;
+    exports.nextGroupId = nextGroupId;
+    exports.overlapsAny = overlapsAny;
+    exports.changedZOrderIds = changedZOrderIds;
+    exports.absoluteAt = absoluteAt;
+    exports.worldTransformOfAncestors = worldTransformOfAncestors;
+    exports.opacityOfAncestors = opacityOfAncestors;
+    exports.composeTransforms = composeTransforms;
+    exports.relativeTransform = relativeTransform;
+    exports.ensureChildren = ensureChildren;
+    exports.clone = clone;
+    function attachEditHelpers(edit) {
+      Object.defineProperties(edit, {
+        find: { enumerable: false, value: (id) => locate(edit, id)?.item },
+        walk: { enumerable: false, value: (fn) => {
+          for (const location2 of allLocations(edit))
+            fn(location2.item, location2.parent, location2.track);
+        } },
+        parentOf: { enumerable: false, value: (id) => locate(edit, id)?.parent },
+        update: { enumerable: false, value: (id, patch) => updateItem(edit, id, patch) },
+        move: { enumerable: false, value: (id, target) => moveItem(edit, id, target) },
+        insert: { enumerable: false, value: (target, item, index) => insertItem(edit, target, item, index) },
+        remove: { enumerable: false, value: (id) => removeItem(edit, id) },
+        detach: { enumerable: false, value: (id, target) => detachItem(edit, id, target) },
+        group: { enumerable: false, value: (ids, options) => groupItems(edit, ids, options) },
+        ungroup: { enumerable: false, value: (id) => ungroupItem(edit, id) }
+      });
+    }
+    function updateItem(edit, id, patch) {
+      const location2 = requireLocation(edit, id);
+      for (const [key, value] of Object.entries(patch)) {
+        if (key === "source" && isRecord(value) && isRecord(location2.item.source)) {
+          location2.item.source = mergePatch(location2.item.source, value);
+        } else if (value === null || value === void 0) {
+          delete location2.item[key];
+        } else {
+          location2.item[key] = clone(value);
+        }
+      }
+      return location2.item;
+    }
+    function moveItem(edit, id, target) {
+      if (target.track === void 0 === (target.parent === void 0)) {
+        throw new Error("move \u306E\u7F6E\u304D\u5148\u306F track \u307E\u305F\u306F parent \u306E\u3069\u3061\u3089\u304B\u4E00\u65B9\u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      const source = requireLocation(edit, id);
+      let destinationItems;
+      let destinationTrack = source.track;
+      if (target.parent !== void 0) {
+        const parent = requireLocation(edit, target.parent).item;
+        if (parent.id === id || containsItem(source.item, parent.id))
+          throw new Error("\u81EA\u5206\u81EA\u8EAB\u306E\u5B50\u3078 move \u3067\u304D\u307E\u305B\u3093\u3002");
+        destinationItems = ensureChildren(parent);
+      } else {
+        destinationTrack = requireTrack(edit, target.track);
+        destinationItems = requireTrackItems(destinationTrack);
+      }
+      source.items.splice(source.index, 1);
+      if (target.track !== void 0 && overlapsAny(source.item, destinationItems)) {
+        destinationTrack = createTrackAbove(edit, destinationTrack);
+        destinationItems = requireTrackItems(destinationTrack);
+      }
+      const index = insertionIndex(target.index, destinationItems.length);
+      destinationItems.splice(index, 0, source.item);
+      return source.item;
+    }
+    function insertItem(edit, target, item, index) {
+      if (locate(edit, item.id))
+        throw new Error(`item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${item.id}`);
+      const cloned = clone(item);
+      const track = tracksOf(edit).find((candidate) => candidate.id === target);
+      if (track) {
+        let destination = requireTrackItems(track);
+        if (overlapsAny(cloned, destination))
+          destination = requireTrackItems(createTrackAbove(edit, track));
+        destination.splice(insertionIndex(index, destination.length), 0, cloned);
+        return cloned;
+      }
+      const parent = requireLocation(edit, target).item;
+      const children = ensureChildren(parent);
+      children.splice(insertionIndex(index, children.length), 0, cloned);
+      return cloned;
+    }
+    function removeItem(edit, id) {
+      const location2 = requireLocation(edit, id);
+      location2.items.splice(location2.index, 1);
+      return location2.item;
+    }
+    function detachItem(edit, id, target) {
+      const source = locate(edit, id) ?? materializeProjectedPart(edit, id);
+      if (!source.parent)
+        throw new Error(`\u6BB5\u76F4\u4E0B\u306E item \u306F detach \u3067\u304D\u307E\u305B\u3093: ${id}`);
+      const worldAt = absoluteAt(source);
+      const worldTransform = composeTransforms(worldTransformOfAncestors(source.ancestors), source.item.transform);
+      const worldOpacity = opacityOfAncestors(source.ancestors) * (source.item.opacity ?? 1);
+      if (source.parent.source.kind === "html" || source.parent.source.kind === "captions") {
+        const excluded = source.parent.source.exclude ?? [];
+        const partId = partIdOf(source.item.id, source.item.source);
+        if (!excluded.includes(partId))
+          source.parent.source.exclude = [...excluded, partId];
+      }
+      source.items.splice(source.index, 1);
+      const targetGroup = target.track === "above" ? void 0 : locate(edit, target.track);
+      if (targetGroup) {
+        const parentWorldTransform = composeTransforms(worldTransformOfAncestors(targetGroup.ancestors), targetGroup.item.transform);
+        const parentOpacity = opacityOfAncestors([...targetGroup.ancestors, targetGroup.item]);
+        source.item.at = worldAt - absoluteAt(targetGroup);
+        assignTransform(source.item, relativeTransform(parentWorldTransform, worldTransform));
+        assignOpacity(source.item, parentOpacity === 0 ? worldOpacity : worldOpacity / parentOpacity);
+        ensureChildren(targetGroup.item).push(source.item);
+        return source.item;
+      }
+      source.item.at = worldAt;
+      assignTransform(source.item, worldTransform);
+      assignOpacity(source.item, worldOpacity);
+      let destination;
+      if (target.track === "above") {
+        destination = createTrackAbove(edit, source.track);
+      } else {
+        destination = requireTrack(edit, target.track);
+        if (overlapsAny(source.item, requireTrackItems(destination)))
+          destination = createTrackAbove(edit, destination);
+      }
+      requireTrackItems(destination).push(source.item);
+      return source.item;
+    }
+    function materializeProjectedPart(edit, id) {
+      const separator = id.lastIndexOf("#");
+      if (separator <= 0 || separator === id.length - 1) {
+        throw new Error(`item \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id}`);
+      }
+      const bagId = id.slice(0, separator);
+      const part = id.slice(separator + 1);
+      const bag = requireLocation(edit, bagId);
+      if (bag.item.source.kind !== "html")
+        throw new Error(`HTML \u888B\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${bagId}`);
+      const source = { ...bag.item.source, part };
+      delete source.exclude;
+      const child = {
+        id,
+        at: 0,
+        duration: bag.item.duration,
+        source
+      };
+      ensureChildren(bag.item).push(child);
+      return requireLocation(edit, id);
+    }
+    function groupItems(edit, ids, options = {}) {
+      const uniqueIds = [...new Set(ids)];
+      if (uniqueIds.length < 2 || uniqueIds.length !== ids.length) {
+        throw new Error("group \u306F\u91CD\u8907\u3057\u306A\u3044 2 \u500B\u4EE5\u4E0A\u306E id \u3092\u5FC5\u8981\u3068\u3057\u307E\u3059\u3002");
+      }
+      const locations = uniqueIds.map((id) => requireLocation(edit, id));
+      const parentIds = new Set(locations.map((location2) => location2.parent?.id));
+      if (parentIds.size !== 1)
+        throw new Error("group \u306F\u540C\u3058\u5834\u6240\u306B\u3042\u308B item \u3060\u3051\u3092\u307E\u3068\u3081\u3089\u308C\u307E\u3059\u3002");
+      const inParent = locations[0].parent !== void 0;
+      if (inParent && new Set(locations.map((location2) => location2.items)).size !== 1) {
+        throw new Error("group \u306F\u540C\u3058\u30B0\u30EB\u30FC\u30D7\u5185\u306E item \u3060\u3051\u3092\u307E\u3068\u3081\u3089\u308C\u307E\u3059\u3002");
+      }
+      const ordered = [...locations].sort((left, right) => left.trackIndex - right.trackIndex || left.index - right.index);
+      const minimumAt = Math.min(...ordered.map((location2) => location2.item.at));
+      const maximumEnd = Math.max(...ordered.map((location2) => location2.item.at + location2.item.duration));
+      const group = {
+        id: nextGroupId(edit),
+        ...options.name === void 0 ? {} : { name: options.name },
+        at: minimumAt,
+        duration: maximumEnd - minimumAt,
+        source: { kind: "group" },
+        items: ordered.map((location2) => ({ ...location2.item, at: location2.item.at - minimumAt }))
+      };
+      const changedOrderIds = inParent ? [] : changedZOrderIds(edit, ordered, minimumAt, maximumEnd);
+      removeLocations(ordered);
+      if (inParent) {
+        const items = locations[0].items;
+        items.splice(Math.min(...locations.map((location2) => location2.index)), 0, group);
+      } else {
+        const target = ordered.reduce((front, location2) => location2.trackIndex > front.trackIndex ? location2 : front);
+        let targetTrack = target.track;
+        const targetItems = requireTrackItems(targetTrack);
+        if (overlapsAny(group, targetItems))
+          targetTrack = createTrackAbove(edit, targetTrack);
+        requireTrackItems(targetTrack).push(group);
+      }
+      return { group, changedOrderIds };
+    }
+    function ungroupItem(edit, id) {
+      const location2 = requireLocation(edit, id);
+      const group = location2.item;
+      if (group.source.kind === "html" || group.source.kind === "captions") {
+        throw new Error("\u888B\u30B0\u30EB\u30FC\u30D7\u306F ungroup \u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      if (group.source.kind !== "group")
+        throw new Error(`\u7D14\u30B0\u30EB\u30FC\u30D7\u3067\u306F\u3042\u308A\u307E\u305B\u3093: ${id}`);
+      if (group.keyframes !== void 0 || group.motion !== void 0 || group.animator !== void 0) {
+        throw new Error("v2.group-bake-blocked: keyframes / motion / animator \u3092\u6301\u3064\u30B0\u30EB\u30FC\u30D7\u306F ungroup \u3067\u304D\u307E\u305B\u3093\u3002");
+      }
+      const children = ensureChildren(group).map((child) => {
+        const item = child;
+        item.at = group.at + child.at;
+        assignTransform(item, composeTransforms(group.transform, child.transform));
+        if (group.opacity !== void 0)
+          assignOpacity(item, group.opacity * (child.opacity ?? 1));
+        return item;
+      });
+      location2.items.splice(location2.index, 1);
+      if (location2.parent) {
+        location2.items.splice(location2.index, 0, ...children);
+        return children;
+      }
+      let lastTrack = location2.track;
+      for (const child of children) {
+        const baseItems = requireTrackItems(location2.track);
+        if (overlapsAny(child, baseItems))
+          lastTrack = createTrackAbove(edit, lastTrack);
+        else
+          lastTrack = location2.track;
+        requireTrackItems(lastTrack).push(child);
+      }
+      return children;
+    }
+    function normalizeTracks(edit) {
+      edit.tracks = edit.tracks.filter((track) => !("items" in track) || !Array.isArray(track.items) || track.items.length > 0);
+    }
+    function allLocations(edit) {
+      const result = [];
+      tracksOf(edit).forEach((track, trackIndex) => {
+        if (!Array.isArray(track.items))
+          return;
+        const visit = (items, parent, ancestors) => {
+          items.forEach((item, index) => {
+            const location2 = { item, items, index, parent, ancestors, track, trackIndex };
+            result.push(location2);
+            if (Array.isArray(item.items))
+              visit(item.items, item, [...ancestors, item]);
+          });
+        };
+        visit(track.items, void 0, []);
+      });
+      const ids = /* @__PURE__ */ new Set();
+      for (const location2 of result) {
+        if (ids.has(location2.item.id))
+          throw new Error(`item id \u304C\u91CD\u8907\u3057\u3066\u3044\u307E\u3059: ${location2.item.id}`);
+        ids.add(location2.item.id);
+      }
+      return result;
+    }
+    function locate(edit, id) {
+      return allLocations(edit).find((location2) => location2.item.id === id);
+    }
+    function createTrackAbove(edit, track) {
+      const current = typeof track === "string" ? requireTrack(edit, track) : track;
+      const tracks = tracksOf(edit);
+      const index = tracks.indexOf(current);
+      const created = { id: nextTrackId(edit, String(current.lane)), lane: current.lane, items: [] };
+      tracks.splice(index + 1, 0, created);
+      return created;
+    }
+    function createTrackAt(edit, lane, index) {
+      const tracks = tracksOf(edit);
+      if (!Number.isInteger(index) || index < 0 || index > tracks.length)
+        throw new Error("track index \u304C\u7BC4\u56F2\u5916\u3067\u3059\u3002");
+      const created = { id: nextTrackId(edit, lane), lane, items: [] };
+      tracks.splice(index, 0, created);
+      return created;
+    }
+    function nextTrackId(edit, lane) {
+      const ids = new Set(tracksOf(edit).map((track) => String(track.id)));
+      const prefix = lane === "audio" ? "a" : "v";
+      let serial = 1;
+      while (ids.has(`${prefix}${serial}`))
+        serial++;
+      return `${prefix}${serial}`;
+    }
+    function nextGroupId(edit) {
+      const ids = new Set(allLocations(edit).map((location2) => location2.item.id));
+      let serial = 1;
+      while (ids.has(`g-${serial}`))
+        serial++;
+      return `g-${serial}`;
+    }
+    function overlapsAny(item, items) {
+      return items.some((other) => item.at < other.at + other.duration && other.at < item.at + item.duration);
+    }
+    function changedZOrderIds(edit, members, start, end) {
+      const memberIds = new Set(members.map((location2) => location2.item.id));
+      const minTrack = Math.min(...members.map((location2) => location2.trackIndex));
+      const maxTrack = Math.max(...members.map((location2) => location2.trackIndex));
+      return allLocations(edit).filter((location2) => location2.parent === void 0 && location2.trackIndex >= minTrack && location2.trackIndex <= maxTrack && !memberIds.has(location2.item.id) && location2.item.at < end && start < location2.item.at + location2.item.duration).map((location2) => location2.item.id);
+    }
+    function absoluteAt(location2) {
+      return location2.ancestors.reduce((sum, item) => sum + item.at, 0) + location2.item.at;
+    }
+    function worldTransformOfAncestors(ancestors) {
+      return ancestors.reduce((result, item) => composeTransforms(result, item.transform), void 0);
+    }
+    function opacityOfAncestors(ancestors) {
+      return ancestors.reduce((result, item) => result * (item.opacity ?? 1), 1);
+    }
+    function composeTransforms(parent, child) {
+      if (parent === void 0)
+        return child === void 0 ? void 0 : { ...child };
+      if (child === void 0)
+        return { ...parent };
+      const scale = parent.scale ?? 1;
+      const radians = (parent.rotate ?? 0) * Math.PI / 180;
+      const childX = child.x ?? 0;
+      const childY = child.y ?? 0;
+      const result = {};
+      if (parent.x !== void 0 || child.x !== void 0 || child.y !== void 0) {
+        result.x = (parent.x ?? 0) + scale * (childX * Math.cos(radians) - childY * Math.sin(radians));
+      }
+      if (parent.y !== void 0 || child.x !== void 0 || child.y !== void 0) {
+        result.y = (parent.y ?? 0) + scale * (childX * Math.sin(radians) + childY * Math.cos(radians));
+      }
+      if (parent.scale !== void 0 || child.scale !== void 0)
+        result.scale = scale * (child.scale ?? 1);
+      if (parent.rotate !== void 0 || child.rotate !== void 0)
+        result.rotate = (parent.rotate ?? 0) + (child.rotate ?? 0);
+      return Object.keys(result).length === 0 ? void 0 : result;
+    }
+    function relativeTransform(parent, world) {
+      if (parent === void 0)
+        return world === void 0 ? void 0 : { ...world };
+      if (world === void 0)
+        return void 0;
+      const scale = parent.scale ?? 1;
+      const radians = -(parent.rotate ?? 0) * Math.PI / 180;
+      const dx = (world.x ?? 0) - (parent.x ?? 0);
+      const dy = (world.y ?? 0) - (parent.y ?? 0);
+      const result = {};
+      if (world.x !== void 0 || world.y !== void 0 || parent.x !== void 0 || parent.y !== void 0) {
+        result.x = (dx * Math.cos(radians) - dy * Math.sin(radians)) / scale;
+        result.y = (dx * Math.sin(radians) + dy * Math.cos(radians)) / scale;
+      }
+      if (world.scale !== void 0 || parent.scale !== void 0)
+        result.scale = (world.scale ?? 1) / scale;
+      if (world.rotate !== void 0 || parent.rotate !== void 0)
+        result.rotate = (world.rotate ?? 0) - (parent.rotate ?? 0);
+      return Object.keys(result).length === 0 ? void 0 : result;
+    }
+    function ensureChildren(item, create = true) {
+      if (Array.isArray(item.items))
+        return item.items;
+      if (!create)
+        return [];
+      item.items = [];
+      return item.items;
+    }
+    function clone(value) {
+      return structuredClone(value);
+    }
+    function requireLocation(edit, id) {
+      const location2 = locate(edit, id);
+      if (!location2)
+        throw new Error(`item \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id}`);
+      return location2;
+    }
+    function tracksOf(edit) {
+      return edit.tracks;
+    }
+    function requireTrack(edit, id) {
+      const track = tracksOf(edit).find((candidate) => candidate.id === id);
+      if (!track)
+        throw new Error(`track \u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${id}`);
+      return track;
+    }
+    function requireTrackItems(track) {
+      if (!Array.isArray(track.items))
+        throw new Error(`item \u3092\u7F6E\u3051\u306A\u3044 track \u3067\u3059: ${String(track.id)}`);
+      return track.items;
+    }
+    function insertionIndex(value, length) {
+      const index = value ?? length;
+      if (!Number.isInteger(index) || index < 0 || index > length)
+        throw new Error("index \u304C\u7BC4\u56F2\u5916\u3067\u3059\u3002");
+      return index;
+    }
+    function removeLocations(locations) {
+      const containers = /* @__PURE__ */ new Map();
+      for (const location2 of locations) {
+        const entries = containers.get(location2.items) ?? [];
+        entries.push(location2);
+        containers.set(location2.items, entries);
+      }
+      for (const [items, entries] of containers) {
+        for (const location2 of entries.sort((left, right) => right.index - left.index))
+          items.splice(location2.index, 1);
+      }
+    }
+    function containsItem(item, id) {
+      return ensureChildren(item, false).some((child) => child.id === id || containsItem(child, id));
+    }
+    function assignTransform(item, transform) {
+      if (transform === void 0)
+        delete item.transform;
+      else
+        item.transform = transform;
+    }
+    function assignOpacity(item, opacity) {
+      if (opacity === 1)
+        delete item.opacity;
+      else
+        item.opacity = opacity;
+    }
+    function mergePatch(base, patch) {
+      const result = { ...base };
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null || value === void 0)
+          delete result[key];
+        else
+          result[key] = clone(value);
+      }
+      return result;
+    }
+    function partIdOf(itemId, source) {
+      if ("part" in source && typeof source.part === "string")
+        return source.part;
+      const hash = itemId.lastIndexOf("#");
+      return hash >= 0 ? itemId.slice(hash + 1) : itemId;
+    }
+    function isRecord(value) {
+      return value !== null && typeof value === "object" && !Array.isArray(value);
+    }
+  }
+});
+
 // ../edit-store/lib/migrate/legacy-parse.js
 var require_legacy_parse = __commonJS({
   "../edit-store/lib/migrate/legacy-parse.js"(exports) {
@@ -6961,6 +7407,7 @@ var require_lib = __commonJS({
     __exportStar(require_ducking(), exports);
     __exportStar(require_audio_schedule(), exports);
     __exportStar(require_canonical(), exports);
+    __exportStar(require_tree_ops(), exports);
     var legacy_parse_1 = require_legacy_parse();
     Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function() {
       return legacy_parse_1.parseEdit;
