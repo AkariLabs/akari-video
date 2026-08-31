@@ -283,6 +283,24 @@ interface OutputSegment {
     track: number;
 }
 
+interface ClipMediaGeometry {
+    clipWidth: number;
+    clipLocalOffsetPx: number;
+    fullClipWidthPx: number;
+    trackHeightPx: number;
+}
+
+function sameRenderedPx(left: number, right: number): boolean {
+    return Math.abs(left - right) < 1e-6;
+}
+
+function sameClipMediaGeometry(left: ClipMediaGeometry, right: ClipMediaGeometry): boolean {
+    return sameRenderedPx(left.clipWidth, right.clipWidth)
+        && sameRenderedPx(left.clipLocalOffsetPx, right.clipLocalOffsetPx)
+        && sameRenderedPx(left.fullClipWidthPx, right.fullClipWidthPx)
+        && sameRenderedPx(left.trackHeightPx, right.trackHeightPx);
+}
+
 interface ResolvedEditSource {
     path: string;
     videoUri: string;
@@ -645,6 +663,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected headerDesiredKeys: string[] = [];
     protected headerDesiredKeySet = new Set<string>();
     protected readonly keyedNodeKeys = new WeakMap<Element, string>();
+    protected readonly clipMediaGeometries = new WeakMap<HTMLDivElement, ClipMediaGeometry>();
     protected readonly dragListenerConfigs = new WeakMap<HTMLDivElement, {
         detail: (event: PointerEvent, rect: DOMRect) => DragDetail;
         onRazorClick?: (event: MouseEvent) => void;
@@ -5281,6 +5300,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 if (created) {
                     this.renderClipMedia(element, cut, clipWidth, segment, cutLayout.height);
                     element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+                } else {
+                    this.updateClipMediaGeometry(element, cut, clipWidth, segment, cutLayout.height);
                 }
                 if (created && cut.src !== undefined) {
                     const source = this.sourceMap.get(cut.src);
@@ -7140,6 +7161,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 位置合わせするため、ジオメトリはここで 1 回だけ計算して両方へ渡す。
         const geometry = this.clipLocalGeometry(segment);
         if (geometry) {
+            this.clipMediaGeometries.set(element, { clipWidth, ...geometry, trackHeightPx });
             const filmstripStatus = this.renderFilmstripCells(element, clipWidth, segment, videoUri, geometry, trackHeightPx);
             if (filmstripStatus === 'all-unavailable') {
                 // 可視範囲に必要な全チャンクが失敗した（ffmpeg 不在等）場合のみ、
@@ -7156,6 +7178,53 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
         } else if (waveform === undefined) {
             this.fetchWaveform(key, cut, videoUri);
+        }
+    }
+
+    /**
+     * keyed 差分で保持した通常表示 clip のメディア幾何だけを更新する。
+     * ビュー内に収まった clip はパンしてもこの 4 値が変わらないため何もしない。
+     */
+    protected updateClipMediaGeometry(
+        element: HTMLDivElement, cut: EditCut, clipWidth: number, segment: OutputSegment, trackHeightPx: number
+    ): void {
+        if (clipWidth < MIN_CLIP_WIDTH_FOR_MEDIA_PX || trackHeightPx < MIN_TRACK_HEIGHT_FOR_MEDIA_PX) {
+            return;
+        }
+        // ゲート境界や chunk 到着時は cutSignature が変わり、created 側の renderClipMedia が走る。
+        // 既存メディアノードが無い clip はレイアウト幾何を読む必要がない。
+        const filmstrip = element.querySelector<HTMLDivElement>(
+            ':scope > .akari-annotations-strip-clip-filmstrip'
+        );
+        const canvas = element.querySelector<HTMLCanvasElement>(':scope > canvas');
+        if (!filmstrip && !canvas) {
+            return;
+        }
+        const videoUri = this.cutVideoUri(cut);
+        if (!videoUri) {
+            return;
+        }
+        const geometry = this.clipLocalGeometry(segment);
+        if (!geometry) {
+            return;
+        }
+        const next = { clipWidth, ...geometry, trackHeightPx };
+        const previous = this.clipMediaGeometries.get(element);
+        if (previous && sameClipMediaGeometry(previous, next)) {
+            return;
+        }
+        this.clipMediaGeometries.set(element, next);
+
+        const filmstripStatus = this.renderFilmstripCells(
+            element, clipWidth, segment, videoUri, geometry, trackHeightPx
+        );
+        if (filmstripStatus === 'all-unavailable') {
+            this.renderSingleFrameFallback(element, cut, videoUri);
+        }
+
+        const waveform = this.waveformCache.get(`${cut.src ?? ''}:${cut.in}:${cut.out}`);
+        if (Array.isArray(waveform) && canvas) {
+            this.updateWaveformCanvas(canvas, waveform, clipWidth, geometry, trackHeightPx);
         }
     }
 
@@ -7243,12 +7312,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             i1 = i0 + FILMSTRIP_MAX_CELLS_PER_CLIP - 1;
         }
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'akari-annotations-strip-clip-filmstrip';
+        let wrapper = element.querySelector<HTMLDivElement>(':scope > .akari-annotations-strip-clip-filmstrip');
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.className = 'akari-annotations-strip-clip-filmstrip';
+            element.appendChild(wrapper);
+        }
         Object.assign(wrapper.style, {
             position: 'absolute', inset: '0', overflow: 'hidden', pointerEvents: 'none'
         });
 
+        const cells = Array.from(wrapper.children) as HTMLDivElement[];
+        let renderedCellCount = 0;
         let sawReadyOrPending = false;
         let sawUnavailable = false;
         for (let i = i0; i <= i1; i++) {
@@ -7283,8 +7358,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const cropOffsetY = (frameScaledH - clipHeightPx) / 2;
             const backgroundSize = `${chunk.cols * frameScaledW}px ${chunk.rows * frameScaledH}px`;
 
-            const cell = document.createElement('div');
-            cell.className = 'akari-annotations-strip-clip-filmstrip-cell';
+            let cell = cells[renderedCellCount];
+            if (!cell) {
+                cell = document.createElement('div');
+                cell.className = 'akari-annotations-strip-clip-filmstrip-cell';
+                wrapper.appendChild(cell);
+                cells.push(cell);
+            }
             Object.assign(cell.style, {
                 position: 'absolute',
                 left: `${i * cellWidthPx - clipLocalOffsetPx}px`,
@@ -7296,9 +7376,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 backgroundPosition: `${-(col * frameScaledW) - cropOffsetX}px ${-(row * frameScaledH) - cropOffsetY}px`,
                 backgroundSize
             });
-            wrapper.appendChild(cell);
+            renderedCellCount++;
         }
-        element.appendChild(wrapper);
+        while (cells.length > renderedCellCount) {
+            cells.pop()?.remove();
+        }
         return sawUnavailable && !sawReadyOrPending ? 'all-unavailable' : 'ok';
     }
 
@@ -8061,6 +8143,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number }, clipHeightPx: number
     ): HTMLCanvasElement {
         const canvas = document.createElement('canvas');
+        this.updateWaveformCanvas(canvas, peaks, clipWidthPx, geometry, clipHeightPx);
+        return canvas;
+    }
+
+    protected updateWaveformCanvas(
+        canvas: HTMLCanvasElement, peaks: readonly number[], clipWidthPx: number,
+        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number }, clipHeightPx: number
+    ): void {
         const visibleWidthPx = Math.max(1, Math.round(clipWidthPx));
         canvas.width = visibleWidthPx;
         canvas.height = WAVEFORM_BAND_HEIGHT_PX;
@@ -8084,7 +8174,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 context.fillRect(x, (WAVEFORM_BAND_HEIGHT_PX - barHeight) / 2, 1, barHeight);
             }
         }
-        return canvas;
     }
 
     protected segmentLabel(text: string): HTMLSpanElement {
