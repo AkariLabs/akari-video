@@ -1,5 +1,5 @@
-// 入場アニメーションを途中へシークしたとき、0% 姿勢で確定した clip-path が
-// 最終姿勢の断片を丸ごと消す回帰を headless Chrome の実描画で防ぐ。
+// 入場アニメーションを途中へシークしたときも、最終姿勢の CTA 全体が
+// pointer-events 規約だけでクリック可能なことを headless Chrome の実クリックで防ぐ。
 // 実行: node --test packages/overlay-runtime/test-harness/entry-animation-hit-region.test.mjs
 import assert from "node:assert/strict";
 import {
@@ -194,73 +194,48 @@ async function measureHitRegion(page) {
   return page.evaluate(() => {
     const container = document.querySelector('[data-overlay-id="cta"]');
     const anchor = container.querySelector(".fixture-cta__anchor");
-    const containerRect = container.getBoundingClientRect();
     const bbox = anchor.getBoundingClientRect();
-    const clipPath = container.style.clipPath;
-    const match = clipPath.match(/^inset\(([^)]+)\)$/);
-    const values = match
-      ? match[1]
-          .trim()
-          .split(/\s+/)
-          .map((value) => {
-            const percent = value.match(/^([-+\d.eE]+)%$/);
-            return percent ? Number(percent[1]) : Number.NaN;
-          })
-      : [];
-    const [top, right, bottom, left] =
-      values.length === 1
-        ? [values[0], values[0], values[0], values[0]]
-        : values.length === 2
-          ? [values[0], values[1], values[0], values[1]]
-          : values.length === 3
-            ? [values[0], values[1], values[2], values[1]]
-            : values;
-    const clip =
-      values.length >= 1 && values.length <= 4 &&
-      [top, right, bottom, left].every(Number.isFinite)
-        ? {
-            top: containerRect.top + (containerRect.height * top) / 100,
-            right: containerRect.right - (containerRect.width * right) / 100,
-            bottom: containerRect.bottom - (containerRect.height * bottom) / 100,
-            left: containerRect.left + (containerRect.width * left) / 100,
-          }
-        : null;
-    const center = { x: (bbox.left + bbox.right) / 2, y: (bbox.top + bbox.bottom) / 2 };
-    const hit = document.elementFromPoint(center.x, center.y);
 
     return {
-      clipPath,
-      clip,
       bbox: {
         top: bbox.top,
         right: bbox.right,
         bottom: bbox.bottom,
         left: bbox.left,
       },
-      hit: hit ? `${hit.tagName}.${hit.className}` : null,
-      hitIsDescendant: Boolean(hit && container.contains(hit)),
+      containerPointerEvents: container.style.pointerEvents,
+      anchorPointerEvents: anchor.style.pointerEvents,
     };
   });
 }
 
-function assertHitRegion(result) {
-  assert.ok(result.clip, `clip-path が inset(...) ではありません: ${result.clipPath}`);
-  const epsilon = 0.5;
-  assert.ok(
-    result.clip.top <= result.bbox.top + epsilon &&
-      result.clip.right >= result.bbox.right - epsilon &&
-      result.clip.bottom >= result.bbox.bottom - epsilon &&
-      result.clip.left <= result.bbox.left + epsilon,
-    `clip 矩形が現在姿勢の bbox を内包していません: ${JSON.stringify(result)}`
-  );
-  assert.equal(
-    result.hitIsDescendant,
-    true,
-    `bbox 中心の elementFromPoint が CTA の子孫ではありません: ${JSON.stringify(result)}`
-  );
+async function assertHitRegion(page, result) {
+  assert.equal(result.containerPointerEvents, "none");
+  assert.equal(result.anchorPointerEvents, "auto");
+  const inset = 4;
+  const points = [
+    { x: (result.bbox.left + result.bbox.right) / 2, y: (result.bbox.top + result.bbox.bottom) / 2 },
+    { x: result.bbox.left + inset, y: result.bbox.top + inset },
+    { x: result.bbox.right - inset, y: result.bbox.top + inset },
+    { x: result.bbox.left + inset, y: result.bbox.bottom - inset },
+    { x: result.bbox.right - inset, y: result.bbox.bottom - inset },
+  ];
+  for (const point of points) {
+    await page.evaluate(() => window.akari.interaction.clearSelection());
+    await page.mouse.click(point.x, point.y);
+    const selected = await page.evaluate(() =>
+      document.querySelector('[data-overlay-id="cta"]')
+        ?.getAttribute("data-akari-interaction-selected")
+    );
+    assert.equal(
+      selected,
+      "true",
+      `CTA 内の実クリックが選択されません: ${JSON.stringify({ point, result })}`
+    );
+  }
 }
 
-test("入場アニメを現在時刻へ合わせてから clip-path を測り、CTA 全体を残す", async (t) => {
+test("入場アニメを現在時刻へ合わせてから当たり判定を確定し、CTA 全体を残す", async (t) => {
   const page = await openHarness(t);
 
   await page.evaluate(async (html) => {
@@ -276,10 +251,10 @@ test("入場アニメを現在時刻へ合わせてから clip-path を測り、
 
   const result = await measureHitRegion(page);
 
-  assertHitRegion(result);
+  await assertHitRegion(page, result);
 });
 
-test("overlay.start を小刻みに跨ぐ連続再生でも、入場アニメ完了後の clip が現在姿勢の bbox を内包する", async (t) => {
+test("overlay.start を小刻みに跨ぐ連続再生でも、入場アニメ完了後の CTA 全体を拾う", async (t) => {
   const page = await openHarness(t);
 
   await mountAndTickContinuously(page);
@@ -287,10 +262,10 @@ test("overlay.start を小刻みに跨ぐ連続再生でも、入場アニメ完
 
   const result = await measureHitRegion(page);
 
-  assertHitRegion(result);
+  await assertHitRegion(page, result);
 });
 
-test("入場アニメ完了後は clip-path を測り直さない（可視な間ずっと測り続けない）", async (t) => {
+test("入場アニメ完了後はヒット領域同期を呼び直さない（可視な間ずっと呼び続けない）", async (t) => {
   const page = await openHarness(t);
 
   await page.evaluate(() => {
@@ -306,7 +281,7 @@ test("入場アニメ完了後は clip-path を測り直さない（可視な間
   const callsDuringEntry = await page.evaluate(() => window.__syncOverlayHitRegionCalls);
   assert.ok(
     callsDuringEntry >= 2,
-    `入場中に clip-path が複数回測定されていません: ${JSON.stringify({ callsDuringEntry })}`
+    `入場中にヒット領域同期が複数回呼ばれていません: ${JSON.stringify({ callsDuringEntry })}`
   );
 
   await page.evaluate(async () => {
@@ -321,7 +296,7 @@ test("入場アニメ完了後は clip-path を測り直さない（可視な間
   assert.equal(
     callsAfterEntry - callsDuringEntry,
     0,
-    `入場完了後も clip-path を測定しています: ${JSON.stringify({
+    `入場完了後もヒット領域同期を呼んでいます: ${JSON.stringify({
       callsDuringEntry,
       callsAfterEntry,
     })}`

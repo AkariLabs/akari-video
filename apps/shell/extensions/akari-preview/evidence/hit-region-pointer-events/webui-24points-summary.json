@@ -1,0 +1,29 @@
+{
+  "note": "preview-server Web UI（編集モード OFF・2.0s・実 Chromium・1200x900）で断片ルート 8 アンカー x 3 オフセット = 24 点の RGB を比較。before = HEAD のバンドル、after_swap = 同一サーバでバンドルだけ AFTER に差し替えた対照、after_freshserver = worktree のサーバを新規起動した測定、after_staleserver = 長時間起動したままのサーバでの測定（唯一 1/255 差が出た外れ値・原因はサーバプロセスの寿命でありコード差ではないことを after_swap が示す）。",
+  "comparisons": {
+    "before": {
+      "maxDelta": 0,
+      "differingPoints": 0,
+      "total": 24,
+      "containerClipPath": "none"
+    },
+    "after_swap": {
+      "maxDelta": 0,
+      "differingPoints": 0,
+      "total": 24,
+      "containerClipPath": "none"
+    },
+    "after_freshserver": {
+      "maxDelta": 0,
+      "differingPoints": 0,
+      "total": 24,
+      "containerClipPath": "none"
+    },
+    "after_staleserver": {
+      "maxDelta": 1,
+      "differingPoints": 3,
+      "total": 24,
+      "containerClipPath": "none"
+    }
+  }
+}

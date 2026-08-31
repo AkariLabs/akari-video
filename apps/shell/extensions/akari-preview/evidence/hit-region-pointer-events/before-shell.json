@@ -1,0 +1,627 @@
+{
+  "label": "before",
+  "verdict": {
+    "clipPathInline": "none",
+    "clipPathComputed": "none",
+    "passthroughOk": true,
+    "selectRoundtripOk": true,
+    "insideMaxDelta": 1
+  },
+  "state0": {
+    "clipPathInline": "none",
+    "clipPathComputed": "none",
+    "containerPointerEvents": "none",
+    "rootPointerEvents": "none",
+    "titlePointerEvents": "auto",
+    "subPointerEvents": "auto",
+    "selected": null,
+    "visibleSelectionFrames": 0,
+    "selectionFrameRect": null,
+    "selectionFrameBorder": null,
+    "rects": {
+      "container": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "root": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "title": {
+        "left": 104.41666412353516,
+        "top": 488.73956298828125,
+        "right": 638.6980361938477,
+        "bottom": 550.3145751953125,
+        "width": 534.2813720703125,
+        "height": 61.57501220703125
+      },
+      "sub": {
+        "left": 104.41666412353516,
+        "top": 548.6041870117188,
+        "right": 523.9197463989258,
+        "bottom": 574.2603759765625,
+        "width": 419.5030822753906,
+        "height": 25.65618896484375
+      },
+      "stage": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      }
+    }
+  },
+  "stateBlank": {
+    "clipPathInline": "none",
+    "clipPathComputed": "none",
+    "containerPointerEvents": "none",
+    "rootPointerEvents": "none",
+    "titlePointerEvents": "auto",
+    "subPointerEvents": "auto",
+    "selected": null,
+    "visibleSelectionFrames": 0,
+    "selectionFrameRect": null,
+    "selectionFrameBorder": null,
+    "rects": {
+      "container": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "root": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "title": {
+        "left": 104.41666412353516,
+        "top": 488.73956298828125,
+        "right": 638.6980361938477,
+        "bottom": 550.3145751953125,
+        "width": 534.2813720703125,
+        "height": 61.57501220703125
+      },
+      "sub": {
+        "left": 104.41666412353516,
+        "top": 548.6041870117188,
+        "right": 523.9197463989258,
+        "bottom": 574.2603759765625,
+        "width": 419.5030822753906,
+        "height": 25.65618896484375
+      },
+      "stage": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      }
+    }
+  },
+  "stateSelected": {
+    "clipPathInline": "none",
+    "clipPathComputed": "none",
+    "containerPointerEvents": "none",
+    "rootPointerEvents": "none",
+    "titlePointerEvents": "auto",
+    "subPointerEvents": "auto",
+    "selected": "true",
+    "visibleSelectionFrames": 1,
+    "selectionFrameRect": {
+      "left": 104.4140625,
+      "top": 488.734375,
+      "right": 638.6953125,
+      "bottom": 574.25,
+      "width": 534.28125,
+      "height": 85.515625
+    },
+    "selectionFrameBorder": "1px solid rgba(255, 157, 66, 0.98)",
+    "rects": {
+      "container": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "root": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "title": {
+        "left": 104.41666412353516,
+        "top": 488.73956298828125,
+        "right": 638.6980361938477,
+        "bottom": 550.3145751953125,
+        "width": 534.2813720703125,
+        "height": 61.57501220703125
+      },
+      "sub": {
+        "left": 104.41666412353516,
+        "top": 548.6041870117188,
+        "right": 523.9197463989258,
+        "bottom": 574.2603759765625,
+        "width": 419.5030822753906,
+        "height": 25.65618896484375
+      },
+      "stage": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      }
+    }
+  },
+  "stateDeselected": {
+    "clipPathInline": "none",
+    "clipPathComputed": "none",
+    "containerPointerEvents": "none",
+    "rootPointerEvents": "none",
+    "titlePointerEvents": "auto",
+    "subPointerEvents": "auto",
+    "selected": null,
+    "visibleSelectionFrames": 0,
+    "selectionFrameRect": null,
+    "selectionFrameBorder": null,
+    "rects": {
+      "container": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "root": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      },
+      "title": {
+        "left": 104.41666412353516,
+        "top": 488.73956298828125,
+        "right": 638.6980361938477,
+        "bottom": 550.3145751953125,
+        "width": 534.2813720703125,
+        "height": 61.57501220703125
+      },
+      "sub": {
+        "left": 104.41666412353516,
+        "top": 548.6041870117188,
+        "right": 523.9197463989258,
+        "bottom": 574.2603759765625,
+        "width": 419.5030822753906,
+        "height": 25.65618896484375
+      },
+      "stage": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      }
+    }
+  },
+  "points": {
+    "blank": {
+      "x": 692.8000000000001,
+      "y": 693.134375
+    },
+    "blankStack": [
+      "DIV#preview-stage",
+      "DIV#zoom-layer",
+      "DIV#preview-wrapper",
+      "SECTION.preview-pane",
+      "MAIN.workspace"
+    ],
+    "titlePoint": {
+      "x": 371.5573501586914,
+      "y": 519.5270690917969
+    },
+    "titleStack": [
+      "DIV.s-issue-36__title",
+      "DIV#preview-stage",
+      "DIV#zoom-layer",
+      "DIV#preview-wrapper",
+      "SECTION.preview-pane"
+    ]
+  },
+  "pixels": {
+    "inside": [
+      {
+        "id": "top-mid",
+        "rgb": [
+          14,
+          26,
+          56
+        ],
+        "ref": [
+          14,
+          26,
+          57
+        ],
+        "delta": 1
+      },
+      {
+        "id": "bottom-mid",
+        "rgb": [
+          25,
+          42,
+          89
+        ],
+        "ref": [
+          25,
+          42,
+          89
+        ],
+        "delta": 0
+      },
+      {
+        "id": "left-mid",
+        "rgb": [
+          20,
+          34,
+          73
+        ],
+        "ref": [
+          20,
+          34,
+          73
+        ],
+        "delta": 0
+      },
+      {
+        "id": "right-mid",
+        "rgb": [
+          20,
+          34,
+          73
+        ],
+        "ref": [
+          20,
+          34,
+          73
+        ],
+        "delta": 0
+      },
+      {
+        "id": "tl",
+        "rgb": [
+          14,
+          26,
+          56
+        ],
+        "ref": [
+          14,
+          26,
+          57
+        ],
+        "delta": 1
+      },
+      {
+        "id": "tr",
+        "rgb": [
+          14,
+          26,
+          56
+        ],
+        "ref": [
+          14,
+          26,
+          57
+        ],
+        "delta": 1
+      },
+      {
+        "id": "bl",
+        "rgb": [
+          25,
+          42,
+          89
+        ],
+        "ref": [
+          25,
+          41,
+          89
+        ],
+        "delta": 1
+      },
+      {
+        "id": "br",
+        "rgb": [
+          25,
+          42,
+          89
+        ],
+        "ref": [
+          25,
+          42,
+          89
+        ],
+        "delta": 0
+      }
+    ],
+    "stageOutside2px": {
+      "top": [
+        44,
+        45,
+        48
+      ],
+      "bottom": [
+        44,
+        45,
+        48
+      ],
+      "left": [
+        44,
+        45,
+        48
+      ],
+      "right": [
+        44,
+        45,
+        48
+      ]
+    }
+  },
+  "viewport": {
+    "width": 1600,
+    "height": 1200,
+    "screenshot": [
+      1600,
+      1200
+    ]
+  },
+  "log": [
+    {
+      "step": "open-preview",
+      "result": "opened"
+    },
+    {
+      "step": "iframe-rect",
+      "left": 213.9140625,
+      "top": 35,
+      "width": 893,
+      "height": 1143
+    },
+    {
+      "step": "state-initial",
+      "clipPathInline": "none",
+      "clipPathComputed": "none",
+      "rootPointerEvents": "none",
+      "titlePointerEvents": "auto",
+      "selected": null,
+      "visibleSelectionFrames": 0,
+      "root": {
+        "left": 36,
+        "top": 300.59375,
+        "right": 857,
+        "bottom": 762.40625,
+        "width": 821,
+        "height": 461.8125
+      }
+    },
+    {
+      "step": "b-passthrough",
+      "point": {
+        "x": 692.8000000000001,
+        "y": 693.134375
+      },
+      "hitStack": [
+        "DIV#preview-stage",
+        "DIV#zoom-layer",
+        "DIV#preview-wrapper",
+        "SECTION.preview-pane",
+        "MAIN.workspace"
+      ],
+      "selected": null,
+      "visibleSelectionFrames": 0
+    },
+    {
+      "step": "c-selected",
+      "point": {
+        "x": 371.5573501586914,
+        "y": 519.5270690917969
+      },
+      "hitStack": [
+        "DIV.s-issue-36__title",
+        "DIV#preview-stage",
+        "DIV#zoom-layer",
+        "DIV#preview-wrapper",
+        "SECTION.preview-pane"
+      ],
+      "selected": "true",
+      "visibleSelectionFrames": 1,
+      "selectionFrameRect": {
+        "left": 104.4140625,
+        "top": 488.734375,
+        "right": 638.6953125,
+        "bottom": 574.25,
+        "width": 534.28125,
+        "height": 85.515625
+      },
+      "selectionFrameBorder": "1px solid rgba(255, 157, 66, 0.98)"
+    },
+    {
+      "step": "c-deselected",
+      "selected": null,
+      "visibleSelectionFrames": 0
+    },
+    {
+      "step": "pixels",
+      "insideMaxDelta": 1,
+      "inside": [
+        {
+          "id": "top-mid",
+          "rgb": [
+            14,
+            26,
+            56
+          ],
+          "ref": [
+            14,
+            26,
+            57
+          ],
+          "delta": 1
+        },
+        {
+          "id": "bottom-mid",
+          "rgb": [
+            25,
+            42,
+            89
+          ],
+          "ref": [
+            25,
+            42,
+            89
+          ],
+          "delta": 0
+        },
+        {
+          "id": "left-mid",
+          "rgb": [
+            20,
+            34,
+            73
+          ],
+          "ref": [
+            20,
+            34,
+            73
+          ],
+          "delta": 0
+        },
+        {
+          "id": "right-mid",
+          "rgb": [
+            20,
+            34,
+            73
+          ],
+          "ref": [
+            20,
+            34,
+            73
+          ],
+          "delta": 0
+        },
+        {
+          "id": "tl",
+          "rgb": [
+            14,
+            26,
+            56
+          ],
+          "ref": [
+            14,
+            26,
+            57
+          ],
+          "delta": 1
+        },
+        {
+          "id": "tr",
+          "rgb": [
+            14,
+            26,
+            56
+          ],
+          "ref": [
+            14,
+            26,
+            57
+          ],
+          "delta": 1
+        },
+        {
+          "id": "bl",
+          "rgb": [
+            25,
+            42,
+            89
+          ],
+          "ref": [
+            25,
+            41,
+            89
+          ],
+          "delta": 1
+        },
+        {
+          "id": "br",
+          "rgb": [
+            25,
+            42,
+            89
+          ],
+          "ref": [
+            25,
+            42,
+            89
+          ],
+          "delta": 0
+        }
+      ],
+      "stageOutside2px": {
+        "top": [
+          44,
+          45,
+          48
+        ],
+        "bottom": [
+          44,
+          45,
+          48
+        ],
+        "left": [
+          44,
+          45,
+          48
+        ],
+        "right": [
+          44,
+          45,
+          48
+        ]
+      }
+    },
+    {
+      "step": "verdict",
+      "clipPathInline": "none",
+      "clipPathComputed": "none",
+      "passthroughOk": true,
+      "selectRoundtripOk": true,
+      "insideMaxDelta": 1
+    }
+  ]
+}
