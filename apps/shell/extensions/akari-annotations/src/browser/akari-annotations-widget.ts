@@ -31,6 +31,7 @@ import {
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
 import { filmstripChunkIndexFor, waveformBucketForLocalPx } from '../common/filmstrip-geometry';
+import { isRangeMounted as rangeIsMounted, planKeyedReconciliation } from './timeline-strip-reconciler';
 import {
     CaptionRecord,
     CaptionTextStyle,
@@ -631,6 +632,34 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly materialDurationCache = new Map<string, number>();
     protected readonly materialDurationPromises = new Map<string, Promise<number | undefined>>();
     protected renderStripPending = false;
+    protected readonly stripKeyedNodes = new Map<string, HTMLElement>();
+    protected readonly stripKeyedSignatures = new Map<string, string>();
+    protected stripDesiredKeys: string[] = [];
+    protected stripDesiredKeySet = new Set<string>();
+    protected readonly rulerKeyedNodes = new Map<string, HTMLElement>();
+    protected readonly rulerKeyedSignatures = new Map<string, string>();
+    protected rulerDesiredKeys: string[] = [];
+    protected rulerDesiredKeySet = new Set<string>();
+    protected readonly headerKeyedNodes = new Map<string, HTMLElement>();
+    protected readonly headerKeyedSignatures = new Map<string, string>();
+    protected headerDesiredKeys: string[] = [];
+    protected headerDesiredKeySet = new Set<string>();
+    protected readonly keyedNodeKeys = new WeakMap<Element, string>();
+    protected readonly dragListenerConfigs = new WeakMap<HTMLDivElement, {
+        detail: (event: PointerEvent, rect: DOMRect) => DragDetail;
+        onRazorClick?: (event: MouseEvent) => void;
+    }>();
+    protected readonly dragListenerInstalled = new WeakSet<HTMLDivElement>();
+    protected readonly trimmerListenerDetails = new WeakMap<HTMLDivElement,
+        (event: PointerEvent, rect: DOMRect) => DragDetail>();
+    protected readonly trimmerListenerInstalled = new WeakSet<HTMLDivElement>();
+    protected readonly audioTrimmerListenerDetails = new WeakMap<HTMLDivElement,
+        (event: PointerEvent, rect: DOMRect) => DragDetail>();
+    protected readonly audioTrimmerListenerInstalled = new WeakSet<HTMLDivElement>();
+    protected readonly treeRowDragConfigs = new WeakMap<HTMLDivElement, {
+        source: TimelineTreeRow; rows: readonly TimelineTreeRow[];
+    }>();
+    protected readonly treeRowDragInstalled = new WeakSet<HTMLDivElement>();
     protected past: HistoryEntry[] = [];
     protected future: HistoryEntry[] = [];
     protected contextPopup: HTMLDivElement | undefined;
@@ -646,6 +675,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * in/out は含まない — トリムしてもチャンクは再取得しない）。
      */
     protected filmstripChunkCache = new Map<string, ClipFilmstripChunk | 'pending' | 'unavailable'>();
+    protected filmstripContentRevision = 0;
     protected waveformCache = new Map<string, number[] | 'pending' | 'unavailable'>();
     protected audioDurationCache = new Map<string, number | 'pending' | 'unavailable'>();
     protected audioDurationPromises = new Map<string, Promise<number | 'unavailable'>>();
@@ -894,8 +924,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
         // 素材カード D&D の点線ゴースト（司令塔裁定5。旧実装 akari-video-on-os の
         // .output-timeline__ghost を意匠のみ参考にし、座標は本リポの percent() 流儀に合わせる）。
-        // renderStrip() は strip.replaceChildren() を毎回行うため、strip の子ではなく
-        // 決して消されない timelineOverlay の子として持つ（trackInsertIndicator と同じ理由）。
+        // 帯アイテムの keyed mount/unmount から独立した永続 UI なので timelineOverlay が所有する
+        // （trackInsertIndicator と同じ所有関係）。
         Object.assign(this.materialGhost.style, {
             position: 'absolute', display: 'none', border: '1px dashed #4dd0c8',
             background: 'rgba(77, 208, 200, .22)', borderRadius: '3px',
@@ -4612,8 +4642,86 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return { top, height: (last.top + last.height) - top };
     }
 
+    protected beginKeyedRender(scope: 'strip' | 'ruler' | 'header'): void {
+        if (scope === 'strip') {
+            this.stripDesiredKeys = [];
+            this.stripDesiredKeySet = new Set();
+        } else if (scope === 'ruler') {
+            this.rulerDesiredKeys = [];
+            this.rulerDesiredKeySet = new Set();
+        } else {
+            this.headerDesiredKeys = [];
+            this.headerDesiredKeySet = new Set();
+        }
+    }
+
+    protected keyedNode<T extends HTMLElement>(
+        scope: 'strip' | 'ruler' | 'header', key: string, signature: string, create: () => T
+    ): { element: T; created: boolean } {
+        const nodes = scope === 'strip' ? this.stripKeyedNodes
+            : scope === 'ruler' ? this.rulerKeyedNodes : this.headerKeyedNodes;
+        const signatures = scope === 'strip' ? this.stripKeyedSignatures
+            : scope === 'ruler' ? this.rulerKeyedSignatures : this.headerKeyedSignatures;
+        const desired = scope === 'strip' ? this.stripDesiredKeys
+            : scope === 'ruler' ? this.rulerDesiredKeys : this.headerDesiredKeys;
+        const desiredSet = scope === 'strip' ? this.stripDesiredKeySet
+            : scope === 'ruler' ? this.rulerDesiredKeySet : this.headerDesiredKeySet;
+        if (desiredSet.has(key)) throw new Error(`duplicate timeline key: ${key}`);
+        desiredSet.add(key);
+        desired.push(key);
+        const previous = nodes.get(key);
+        if (previous && signatures.get(key) === signature) {
+            return { element: previous as T, created: false };
+        }
+        if (previous) previous.remove();
+        const element = create();
+        nodes.set(key, element);
+        signatures.set(key, signature);
+        this.keyedNodeKeys.set(element, key);
+        return { element, created: true };
+    }
+
+    protected finishKeyedRender(scope: 'strip' | 'ruler' | 'header'): void {
+        const parent = scope === 'strip' ? this.strip : scope === 'ruler' ? this.rulerBar : this.trackHeaders;
+        const nodes = scope === 'strip' ? this.stripKeyedNodes
+            : scope === 'ruler' ? this.rulerKeyedNodes : this.headerKeyedNodes;
+        const signatures = scope === 'strip' ? this.stripKeyedSignatures
+            : scope === 'ruler' ? this.rulerKeyedSignatures : this.headerKeyedSignatures;
+        const desired = scope === 'strip' ? this.stripDesiredKeys
+            : scope === 'ruler' ? this.rulerDesiredKeys : this.headerDesiredKeys;
+        const current = Array.from(parent.children)
+            .map(child => this.keyedNodeKeys.get(child)).filter((key): key is string => key !== undefined);
+        const plan = planKeyedReconciliation(current, desired);
+        for (const key of plan.removals) {
+            nodes.get(key)?.remove();
+            nodes.delete(key);
+            signatures.delete(key);
+        }
+        for (const { key, beforeKey } of plan.moves) {
+            const element = nodes.get(key);
+            if (!element) continue;
+            parent.insertBefore(element, beforeKey === undefined ? null : nodes.get(beforeKey) ?? null);
+        }
+    }
+
+    protected keyedStripSegment(
+        key: string, signature: string, start: number, end: number, top: number, height: number,
+        className: string, title?: string
+    ): { element: HTMLDivElement; created: boolean } {
+        const result = this.keyedNode('strip', key, signature, () => document.createElement('div'));
+        const element = result.element;
+        element.className = className;
+        element.title = title ?? '';
+        Object.assign(element.style, {
+            position: 'absolute', top: `${top}px`, height: `${height}px`,
+            left: `${this.percent(start)}%`, width: `${Math.max(this.percent(end) - this.percent(start), 0.3)}%`,
+            pointerEvents: 'none'
+        });
+        return result;
+    }
+
     protected renderStrip(): void {
-        // DOM 再構築で pointer capture と dragState を壊さないよう、ドラッグ終了まで延期する。
+        // keyed 差分でも drag target の mount 状態を固定し、pointer capture を守るため終了まで延期する。
         if (this.dragState) {
             this.renderStripPending = true;
             return;
@@ -4628,8 +4736,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.viewStart = Math.min(Math.max(0, this.viewStart), Math.max(0, maxDuration - this.viewDuration));
             }
         }
-        this.strip.replaceChildren();
-        this.rulerBar.replaceChildren();
+        this.beginKeyedRender('strip');
+        this.beginKeyedRender('ruler');
         this.renderRuler();
 
         // レーン構造は Premiere 型配置原則（R6 契約 §1 裁定 1・2026-07-25）: 見せ場 → 字幕帯
@@ -4663,17 +4771,28 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.renderTrackHeaders(beatsBandTop, beatsBandHeight);
 
         if (beatsBandHeight > 0) {
-            const beatsBand = this.laneBand('beats', beatsBandTop, beatsBandHeight);
-            const label = document.createElement('span');
-            label.className = 'akari-beats-band-label';
-            label.textContent = '見せ場';
-            beatsBand.appendChild(label);
+            const { element: beatsBand, created } = this.keyedNode(
+                'strip', 'band:beats', 'beats', () => this.laneBand('beats', beatsBandTop, beatsBandHeight)
+            );
+            beatsBand.style.top = `${beatsBandTop}px`;
+            beatsBand.style.height = `${beatsBandHeight}px`;
+            if (created) {
+                const label = document.createElement('span');
+                label.className = 'akari-beats-band-label';
+                label.textContent = '見せ場';
+                beatsBand.appendChild(label);
+            }
             beatsBand.style.opacity = this.beatsVisible ? '1' : '.28';
-            this.strip.appendChild(beatsBand);
-            this.renderBeatMarkers(beatsBandTop, beatsBandHeight);
         }
         for (const layout of this.laneLayout.tracks) {
-            const band = this.laneBand(layout.id ?? '', layout.top, layout.height);
+            const laneId = layout.id ?? '';
+            const { element: band } = this.keyedNode(
+                'strip', `band:${laneId}`, `${layout.kind ?? ''}:${layout.track}`,
+                () => this.laneBand(laneId, layout.top, layout.height)
+            );
+            band.className = 'akari-track-band';
+            band.style.top = `${layout.top}px`;
+            band.style.height = `${layout.height}px`;
             band.dataset.akariTrack = String(layout.track);
             band.dataset.akariKind = layout.kind ?? '';
             if (layout.kind === 'overlays') {
@@ -4687,8 +4806,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             } else if (layout.kind === 'cuts') {
                 band.style.opacity = layout.hidden ? '.28' : '1';
             }
-            this.strip.appendChild(band);
         }
+        if (beatsBandHeight > 0) this.renderBeatMarkers(beatsBandTop, beatsBandHeight);
 
         const renderedItemIds = new Set([
             ...this.cutItemIds,
@@ -4704,10 +4823,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (renderedItemIds.has(row.id)) continue;
             // 展開中の captions 袋と袋内の行は、矩形を 1px も変えない既存字幕チップが担う。
             if (row.sourceKind === 'captions' && !row.collapsed) continue;
-            if (!layout || rowIndex < 0 || !this.isRangeVisible(row.at, row.at + row.duration)) continue;
-            const element = this.stripSegment(
-                row.at, row.at + row.duration, layout.top + rowIndex * SUBROW_STRIDE,
-                SUBROW_HEIGHT, 'akari-annotations-strip-overlay akari-timeline-tree-item', row.label
+            if (!layout || rowIndex < 0 || !this.isRangeMounted(row.at, row.at + row.duration)) continue;
+            const { element, created } = this.keyedStripSegment(
+                `tree:${row.id}`, JSON.stringify(row), row.at, row.at + row.duration,
+                layout.top + rowIndex * SUBROW_STRIDE, SUBROW_HEIGHT,
+                'akari-annotations-strip-overlay akari-timeline-tree-item', row.label
             );
             element.dataset.akariItemKind = 'item';
             element.dataset.akariItemId = row.id;
@@ -4715,30 +4835,31 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariTreeParentId = row.parentId ?? '';
             element.dataset.akariTreeTrackId = row.trackId;
             element.style.pointerEvents = 'auto';
-            element.appendChild(this.segmentLabel(row.label));
-            this.appendMotionMarks(element, this.rawKeyframeItem(row.id)?.motion);
-            this.appendAggregateDiamonds(element, row);
-            for (const tick of row.ticks) {
-                const marker = document.createElement('span');
-                marker.dataset.akariTreeTick = tick.id;
-                Object.assign(marker.style, {
-                    position: 'absolute', left: `${tick.position * 100}%`, top: `${2 + tick.row * 5}px`,
-                    width: '1px', height: '4px', background: 'rgba(255,255,255,.72)', pointerEvents: 'none'
-                });
-                element.appendChild(marker);
-            }
-            element.addEventListener('click', event => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (this.detectTreeDoubleClick(row.id, event.clientX, event.clientY)) {
-                    this.enterTreeItem(row);
-                    return;
+            if (created) {
+                element.appendChild(this.segmentLabel(row.label));
+                this.appendMotionMarks(element, this.rawKeyframeItem(row.id)?.motion);
+                this.appendAggregateDiamonds(element, row);
+                for (const tick of row.ticks) {
+                    const marker = document.createElement('span');
+                    marker.dataset.akariTreeTick = tick.id;
+                    Object.assign(marker.style, {
+                        position: 'absolute', left: `${tick.position * 100}%`, top: `${2 + tick.row * 5}px`,
+                        width: '1px', height: '4px', background: 'rgba(255,255,255,.72)', pointerEvents: 'none'
+                    });
+                    element.appendChild(marker);
                 }
-                const selected = this.selectionForTreeRow(row);
-                if (event.shiftKey) this.toggleMultiSelection(selected);
-                else this.applySelection(selected);
-            });
-            this.strip.appendChild(element);
+                element.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (this.detectTreeDoubleClick(row.id, event.clientX, event.clientY)) {
+                        this.enterTreeItem(row);
+                        return;
+                    }
+                    const selected = this.selectionForTreeRow(row);
+                    if (event.shiftKey) this.toggleMultiSelection(selected);
+                    else this.applySelection(selected);
+                });
+            }
         }
 
         const excludedCaptionIds = collectExcludedCaptionIds({ tracks: this.timelineTreeTracks });
@@ -4753,12 +4874,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const { start: outputStart, end: outputEnd } = captionLayout;
-            if (!this.isRangeVisible(outputStart, outputEnd)) {
+            if (!this.isRangeMounted(outputStart, outputEnd)) {
                 return;
             }
             const top = captionTrackLayout.top + captionLayout.row * SUBROW_STRIDE;
-            const element = this.stripSegment(
-                outputStart, outputEnd, top, SUBROW_HEIGHT, 'akari-annotations-strip-caption', caption.text
+            const { element, created } = this.keyedStripSegment(
+                `caption:${caption.id}`, JSON.stringify(caption), outputStart, outputEnd, top, SUBROW_HEIGHT,
+                'akari-annotations-strip-caption', caption.text
             );
             element.dataset.akariItemKind = 'caption';
             element.dataset.akariItemId = caption.id;
@@ -4778,10 +4900,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     originalEdited: caption.edited
                 };
             });
-            this.strip.appendChild(element);
-            const label = this.captionLabel(caption.text);
-            label.style.opacity = this.captionsVisible ? '' : '.28';
-            element.appendChild(label);
+            if (created) {
+                const label = this.captionLabel(caption.text);
+                label.style.opacity = this.captionsVisible ? '' : '.28';
+                element.appendChild(label);
+            }
         });
         this.overlays.forEach(overlay => {
             if (!this.itemVisibleInFocus(overlay.id)) return;
@@ -4792,12 +4915,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 overlay.track
             );
             const end = overlay.start + overlay.duration;
-            if (!layout || !this.isRangeVisible(overlay.start, end)) {
+            if (!layout || !this.isRangeMounted(overlay.start, end)) {
                 return;
             }
             const top = layout.top + (this.overlayRows.get(overlay.id) ?? 0) * SUBROW_STRIDE;
-            const element = this.stripSegment(
-                overlay.start, end, top, SUBROW_HEIGHT,
+            const { element, created } = this.keyedStripSegment(
+                `overlay:${overlay.id}`, JSON.stringify(overlay), overlay.start, end, top, SUBROW_HEIGHT,
                 'akari-annotations-strip-overlay', overlay.id
             );
             element.dataset.akariItemKind = 'overlay';
@@ -4808,16 +4931,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariTrack = String(overlay.track);
             element.dataset.akariLane = layout?.id ?? `track-${overlay.track}`;
             element.style.opacity = this.hiddenTracks.has(overlay.track) ? '.28' : '';
-            element.appendChild(this.segmentLabel(overlay.id));
-            this.appendMotionMarks(element, this.rawKeyframeItem(overlay.id)?.motion);
-            const overlayTreeRow = this.timelineTreeRows.find(row => row.id === overlay.id);
-            if (overlayTreeRow) this.appendAggregateDiamonds(element, overlayTreeRow);
+            if (created) {
+                element.appendChild(this.segmentLabel(overlay.id));
+                this.appendMotionMarks(element, this.rawKeyframeItem(overlay.id)?.motion);
+                const overlayTreeRow = this.timelineTreeRows.find(row => row.id === overlay.id);
+                if (overlayTreeRow) this.appendAggregateDiamonds(element, overlayTreeRow);
+            }
             this.installDragListeners(element, (event, rect) => ({
                 kind: 'overlay', id: overlay.id,
                 mode: rect.right - event.clientX <= EDGE_ZONE_PX ? 'resize' : 'move',
                 originalStart: overlay.start, originalDuration: overlay.duration, originalTrack: overlay.track
             }));
-            this.strip.appendChild(element);
         });
         this.layers.forEach(layer => {
             if (!this.itemVisibleInFocus(layer.id)) return;
@@ -4828,12 +4952,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 layer.track ?? 0
             );
             const end = layer.t + layer.duration;
-            if (!layout || !this.isRangeVisible(layer.t, end)) {
+            if (!layout || !this.isRangeMounted(layer.t, end)) {
                 return;
             }
             const top = layout.top + (this.layerRows.get(layer.id) ?? 0) * SUBROW_STRIDE;
-            const element = this.stripSegment(
-                layer.t, end, top, SUBROW_HEIGHT,
+            const transitionWarning = this.layerTransitionWarnings.get(layer.id);
+            const { element, created } = this.keyedStripSegment(
+                `layer:${layer.id}`, JSON.stringify([layer, transitionWarning]), layer.t, end, top, SUBROW_HEIGHT,
                 `akari-annotations-strip-layer akari-annotations-strip-layer-${layer.kind}`, layer.id
             );
             element.dataset.akariItemKind = 'layer';
@@ -4841,12 +4966,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariLane = layout?.id ?? 'layers';
             element.style.pointerEvents = 'auto';
             element.style.opacity = layout.hidden ? '.28' : '';
-            element.appendChild(this.segmentLabel(layer.id));
-            this.appendMotionMarks(element, this.rawKeyframeItem(layer.id)?.motion);
-            const layerTreeRow = this.timelineTreeRows.find(row => row.id === layer.id);
-            if (layerTreeRow) this.appendAggregateDiamonds(element, layerTreeRow);
-            const transitionWarning = this.layerTransitionWarnings.get(layer.id);
-            if (transitionWarning) {
+            if (created) {
+                element.appendChild(this.segmentLabel(layer.id));
+                this.appendMotionMarks(element, this.rawKeyframeItem(layer.id)?.motion);
+                const layerTreeRow = this.timelineTreeRows.find(row => row.id === layer.id);
+                if (layerTreeRow) this.appendAggregateDiamonds(element, layerTreeRow);
+            }
+            if (created && transitionWarning) {
                 const warning = document.createElement('button');
                 warning.type = 'button';
                 warning.dataset.akariLayerTransitionWarning = layer.id;
@@ -4879,11 +5005,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     originalT: layer.t, originalDuration: layer.duration, originalTrack: layer.track ?? 0
                 };
             });
-            this.strip.appendChild(element);
         });
         const bgmLayout = this.audioBgm
             ? this.trackLayout('audio', this.bgmDisplayTrack(this.audioBgm)) : undefined;
-        if (this.audioBgm && bgmLayout && this.isRangeVisible(0, this.contentEndDuration())) {
+        if (this.audioBgm && bgmLayout && this.isRangeMounted(0, this.contentEndDuration())) {
             const bgm = this.audioBgm;
             const label = this.pathBaseName(bgm.path);
             // バーはコンテンツ終端でトリムして描く（BGM は全編ベッドだが、書き出しで使われるのは
@@ -4891,8 +5016,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const end = this.contentEndDuration();
             const bgmSubrowCount = this.audioTrackSubrowCounts.get(bgmLayout.id) ?? 1;
             const bgmItemHeight = bgmSubrowCount <= 1 ? bgmLayout.height : SUBROW_HEIGHT;
-            const element = this.stripSegment(
-                0, end, bgmLayout.top, bgmItemHeight,
+            const { element, created } = this.keyedStripSegment(
+                `audio:${bgm.id}`, JSON.stringify(bgm), 0, end, bgmLayout.top, bgmItemHeight,
                 'akari-annotations-strip-audio akari-annotations-strip-audio-bgm', label
             );
             element.dataset.akariItemKind = 'audio';
@@ -4900,12 +5025,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariLane = bgmLayout.id ?? 'audio';
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
-            element.appendChild(this.segmentLabel(label));
-            element.addEventListener('click', event => {
-                event.stopPropagation();
-                this.applySelection({ kind: 'audio', id: bgm.id });
-            });
-            this.strip.appendChild(element);
+            if (created) {
+                element.appendChild(this.segmentLabel(label));
+                element.addEventListener('click', event => {
+                    event.stopPropagation();
+                    this.applySelection({ kind: 'audio', id: bgm.id });
+                });
+            }
         }
         // narration を実 track ref の帯に表示する。選択後の gain 更新は v2 item を優先し、
         // legacy audio.narration[] にしか無い場合も互換 mutation が同じ id へ書き戻す。
@@ -4920,15 +5046,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const durationSeconds = this.narrationDisplayDuration(narration);
             const end = narration.t + durationSeconds;
-            if (!this.isRangeVisible(narration.t, end)) {
+            if (!this.isRangeMounted(narration.t, end)) {
                 return;
             }
             const top = layout.top + (this.audioNarrationRows.get(narration.id) ?? 0) * SUBROW_STRIDE;
             const label = `${narration.id} ${this.pathBaseName(narration.path)}`;
             const subrowCount = this.audioTrackSubrowCounts.get(layout.id) ?? 1;
             const itemHeight = subrowCount <= 1 ? layout.height : SUBROW_HEIGHT;
-            const element = this.stripSegment(
-                narration.t, end, top, itemHeight,
+            const { element, created } = this.keyedStripSegment(
+                `audio:${narration.id}`, JSON.stringify(narration), narration.t, end, top, itemHeight,
                 'akari-annotations-strip-audio akari-annotations-strip-audio-narration', label
             );
             element.dataset.akariItemKind = 'audio';
@@ -4936,15 +5062,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariLane = layout.id ?? 'audio';
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
-            element.appendChild(this.segmentLabel(label));
+            if (created) element.appendChild(this.segmentLabel(label));
             if (narration.script) {
                 element.title = narration.script;
             }
-            element.addEventListener('click', event => {
+            if (created) element.addEventListener('click', event => {
                 event.stopPropagation();
                 this.applySelection({ kind: 'audio', id: narration.id });
             });
-            this.strip.appendChild(element);
         });
         // 音声クリップ版ソーストリマー（task 2026-08-18-audio-clip-trimmer-dblclick）: cuts の
         // trimmerActiveIndex と同じ「レンダーパス開始時点で固定して使い回す」流儀（下記コメント参照）。
@@ -4971,13 +5096,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const durationSeconds = this.resolveSfxDisplayDuration(sfx, inSeconds, actualDuration);
             const outSeconds = inSeconds + durationSeconds;
             const end = sfx.t + durationSeconds;
-            if (!this.isRangeVisible(sfx.t, end)) {
+            if (!this.isRangeMounted(sfx.t, end)) {
                 return;
             }
             const subrowCount = this.audioTrackSubrowCounts.get(layout.id) ?? 1;
             const itemHeight = subrowCount <= 1 ? layout.height : SUBROW_HEIGHT;
-            const element = this.stripSegment(
-                sfx.t, end, top, itemHeight,
+            const barWidthPercent = Math.max(this.percent(end) - this.percent(sfx.t), 0.3);
+            const barWidthPx = this.strip.clientWidth * barWidthPercent / 100;
+            const sfxWaveform = this.waveformCache.get(`sfxwave:${sfx.path}`);
+            const audioSignature = JSON.stringify([
+                sfx, actualDuration, this.trimmerAudioId === sfx.id, itemHeight, this.visibleDuration(), this.strip.clientWidth,
+                Array.isArray(sfxWaveform) ? `ready:${sfxWaveform.length}` : sfxWaveform,
+                barWidthPx >= MIN_CLIP_WIDTH_FOR_MEDIA_PX && itemHeight >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX
+            ]);
+            const { element, created } = this.keyedStripSegment(
+                `audio:${sfx.id}`, audioSignature, sfx.t, end, top, itemHeight,
                 'akari-annotations-strip-audio akari-annotations-strip-audio-sfx', label
             );
             element.dataset.akariItemKind = 'audio';
@@ -4987,9 +5120,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.pointerEvents = 'auto';
             const dimForAudioTrimmer = trimmerActiveAudioId !== undefined && trimmerActiveAudioId !== sfx.id;
             element.style.opacity = !this.audioVisible ? '.28' : dimForAudioTrimmer ? '.6' : '';
-            element.appendChild(this.segmentLabel(label));
-            const barWidthPercent = Math.max(this.percent(end) - this.percent(sfx.t), 0.3);
-            const barWidthPx = this.strip.clientWidth * barWidthPercent / 100;
+            if (created) element.appendChild(this.segmentLabel(label));
             // ソーストリマー（R6 契約 §3・動画クリップと同型・R6c2r2 外側延長方式）: dblclick で
             // この音声クリップが選ばれている間だけ、本体（通常表示と同一スケール）の左右に
             // in より前 / out より後の素材波形をウィングとして延長表示する。実尺
@@ -5003,7 +5134,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.showAudioDurationUnavailableNotice();
             }
             if (showAudioTrimmer) {
-                this.renderAudioTrimmerClip(element, sfx, barWidthPx, itemHeight, inSeconds, outSeconds, actualDuration);
+                if (created) this.renderAudioTrimmerClip(
+                    element, sfx, barWidthPx, itemHeight, inSeconds, outSeconds, actualDuration
+                );
                 this.installAudioTrimmerDrag(element, (event, rect) => {
                     const localX = event.clientX - rect.left;
                     const rightDistance = rect.right - event.clientX;
@@ -5025,7 +5158,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     };
                 });
             } else {
-                this.renderSfxWaveform(element, sfx, barWidthPx, itemHeight, inSeconds, outSeconds, actualDuration);
+                if (created) this.renderSfxWaveform(
+                    element, sfx, barWidthPx, itemHeight, inSeconds, outSeconds, actualDuration
+                );
                 this.installDragListeners(element, (event, rect) => {
                     const localX = event.clientX - rect.left;
                     const rightDistance = rect.right - event.clientX;
@@ -5047,7 +5182,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     };
                 });
             }
-            this.strip.appendChild(element);
         });
         // ソーストリマー（R6c2r2）: レンダーパス開始時点の trimmerItemId を固定で使い回す
         // （ループ内で対象クリップ自身の実尺未解決等により this.trimmerItemId が undefined へ
@@ -5062,15 +5196,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const cutLayout = resolveItemRowLayout(
                 this.laneLayout.tracks, itemTrackId, 'cuts', segment.track
             );
-            if (!cutLayout || !this.isRangeVisible(segment.tlStart, segment.tlEnd)) {
+            if (!cutLayout || !this.isRangeMounted(segment.tlStart, segment.tlEnd)) {
                 return;
             }
             const cut = this.cuts[segment.index];
-            const element = this.stripSegment(
-                segment.tlStart, segment.tlEnd,
-                cutLayout.top,
-                cutLayout.height,
-                'akari-annotations-strip-clip', `C${segment.index + 1}`
+            const widthPercent = Math.max(this.percent(segment.tlEnd) - this.percent(segment.tlStart), 0.3);
+            const clipWidth = this.strip.clientWidth * widthPercent / 100;
+            const cutWaveform = this.waveformCache.get(`${cut.src ?? ''}:${cut.in}:${cut.out}`);
+            const cutSignature = JSON.stringify([
+                cut, segment, cutLayout.height, this.trimmerItemId === segment.index,
+                this.visibleDuration(), this.strip.clientWidth,
+                Array.isArray(cutWaveform) ? `ready:${cutWaveform.length}` : cutWaveform,
+                unsupportedDeclaredTransitions.has(segment.index), this.filmstripContentRevision,
+                clipWidth >= MIN_CLIP_WIDTH_FOR_MEDIA_PX && cutLayout.height >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX
+            ]);
+            const { element, created } = this.keyedStripSegment(
+                `cut:${segment.index}`, cutSignature, segment.tlStart, segment.tlEnd,
+                cutLayout.top, cutLayout.height, 'akari-annotations-strip-clip', `C${segment.index + 1}`
             );
             element.dataset.akariItemKind = 'cut';
             element.dataset.akariItemId = String(segment.index);
@@ -5080,8 +5222,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariLane = cutLayout.id ?? 'clips';
             const dimForTrimmer = trimmerActiveIndex !== undefined && trimmerActiveIndex !== segment.index;
             element.style.opacity = cutLayout.hidden ? '.28' : dimForTrimmer ? '.6' : '';
-            const widthPercent = Math.max(this.percent(segment.tlEnd) - this.percent(segment.tlStart), 0.3);
-            const clipWidth = this.strip.clientWidth * widthPercent / 100;
             if (clipWidth < MICRO_CLIP_WIDTH_PX) {
                 element.classList.add('akari-annotations-strip-clip-micro');
             }
@@ -5112,10 +5252,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             }
             element.style.pointerEvents = 'auto';
-            this.appendMotionMarks(element, this.rawKeyframeItem(cutItemId)?.motion);
+            if (created) this.appendMotionMarks(element, this.rawKeyframeItem(cutItemId)?.motion);
             if (showTrimmer) {
-                this.renderTrimmerClip(element, cut, clipWidth, segment, cutLayout.height, trimmerVideoUri, trimmerSourceDuration);
-                element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+                if (created) {
+                    this.renderTrimmerClip(
+                        element, cut, clipWidth, segment, cutLayout.height, trimmerVideoUri, trimmerSourceDuration
+                    );
+                    element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+                }
                 this.installTrimmerDrag(element, (event, rect) => {
                     const localX = event.clientX - rect.left;
                     const rightDistance = rect.right - event.clientX;
@@ -5134,9 +5278,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     };
                 });
             } else {
-                this.renderClipMedia(element, cut, clipWidth, segment, cutLayout.height);
-                element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
-                if (cut.src !== undefined) {
+                if (created) {
+                    this.renderClipMedia(element, cut, clipWidth, segment, cutLayout.height);
+                    element.appendChild(this.clipHeader(`C${segment.index + 1}`, segment.tlEnd - segment.tlStart));
+                }
+                if (created && cut.src !== undefined) {
                     const source = this.sourceMap.get(cut.src);
                     if (source) {
                         const badge = document.createElement('span');
@@ -5165,7 +5311,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     element.style.cursor = 'crosshair';
                 }
             }
-            if (unsupportedDeclaredTransitions.has(segment.index)) {
+            if (created && unsupportedDeclaredTransitions.has(segment.index)) {
                 const warning = document.createElement('button');
                 warning.type = 'button';
                 warning.dataset.akariUnsupportedTransition = String(segment.index);
@@ -5188,9 +5334,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 element.appendChild(warning);
             }
-            this.strip.appendChild(element);
         });
         this.renderTransitionBoundaries(unsupportedDeclaredTransitions);
+        this.finishKeyedRender('strip');
+        this.finishKeyedRender('ruler');
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
         const scrollbarWidth = Math.max(0, this.stripScroll.offsetWidth - this.stripScroll.clientWidth);
         this.rulerBar.style.marginRight = `${scrollbarWidth}px`;
@@ -5215,7 +5362,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 beat.t, beat.t + BEAT_PROJECTION_EPSILON, beat.src
             );
             for (let occurrence = 0; occurrence < outputRanges.length; occurrence++) {
-                const marker = document.createElement('div');
+                if (!this.isRangeMounted(outputRanges[occurrence][0], outputRanges[occurrence][1])) continue;
+                const { element: marker } = this.keyedNode(
+                    'strip', `beat:${beat.id}:${occurrence}`, JSON.stringify(beat), () => document.createElement('div')
+                );
                 marker.className = 'akari-beat-marker';
                 marker.dataset.akariBeatId = beat.id;
                 marker.dataset.akariBeatKind = beat.kind;
@@ -5233,7 +5383,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 marker.style.height = `${size}px`;
                 marker.style.opacity = this.beatsVisible ? String(0.35 + beat.strength * 0.65) : '.28';
                 marker.style.background = BEAT_KIND_COLORS[beat.kind] ?? DEFAULT_BEAT_COLOR;
-                this.strip.appendChild(marker);
             }
         }
     }
@@ -5250,14 +5399,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const cutLayout = resolveItemRowLayout(
                 this.laneLayout.tracks, itemTrackId, 'cuts', boundary.track
             );
-            if (!cutLayout || !this.isRangeVisible(boundary.boundaryT, boundary.boundaryT)) {
+            if (!cutLayout || !this.isRangeMounted(boundary.boundaryT, boundary.boundaryT)) {
                 continue;
             }
-            const badge = document.createElement('button');
-            badge.type = 'button';
             const option = boundary.transitionOut
                 ? TRANSITION_TYPE_OPTIONS.find(candidate => candidate.type === boundary.transitionOut!.type)
                 : undefined;
+            const { element: badge, created } = this.keyedNode(
+                'strip', `boundary:${boundary.earlierIndex}-${boundary.laterIndex}`,
+                JSON.stringify([boundary, unsupported.has(boundary.earlierIndex), cutLayout.hidden]),
+                () => document.createElement('button')
+            );
+            badge.type = 'button';
             Object.assign(badge.style, {
                 position: 'absolute',
                 left: `${this.percent(boundary.boundaryT)}%`,
@@ -5300,14 +5453,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             badge.dataset.akariTransitionBoundary = `${boundary.earlierIndex}-${boundary.laterIndex}`;
             badge.setAttribute('aria-label', badge.title);
-            badge.addEventListener('pointerdown', event => event.stopPropagation());
-            badge.addEventListener('contextmenu', event => event.stopPropagation());
-            badge.addEventListener('click', event => {
-                event.preventDefault();
-                event.stopPropagation();
-                this.openTransitionPopup(event.clientX, event.clientY, boundary.earlierIndex, boundary.laterIndex);
-            });
-            this.strip.appendChild(badge);
+            if (created) {
+                badge.addEventListener('pointerdown', event => event.stopPropagation());
+                badge.addEventListener('contextmenu', event => event.stopPropagation());
+                badge.addEventListener('click', event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.openTransitionPopup(event.clientX, event.clientY, boundary.earlierIndex, boundary.laterIndex);
+                });
+            }
         }
     }
 
@@ -5684,18 +5838,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const rows = this.keyframeRowsByItem.get(row.id) ?? [];
         const durationFrames = typeof raw?.duration === 'number' ? raw.duration : Math.max(1, this.frameAt(row.duration));
         rows.forEach((propertyRow, index) => {
-            if (!this.isRangeVisible(row.at, row.at + row.duration)) return;
-            const element = this.stripSegment(
-                row.at, row.at + row.duration,
-                trackTop + (itemRowIndex + index + 1) * SUBROW_STRIDE,
-                SUBROW_HEIGHT,
-                'akari-timeline-keyframe-property-row', propertyRow.label
+            if (!this.isRangeMounted(row.at, row.at + row.duration)) return;
+            const { element, created } = this.keyedStripSegment(
+                `kf:${row.id}:${propertyRow.property}`, JSON.stringify([propertyRow, durationFrames]),
+                row.at, row.at + row.duration, trackTop + (itemRowIndex + index + 1) * SUBROW_STRIDE,
+                SUBROW_HEIGHT, 'akari-timeline-keyframe-property-row', propertyRow.label
             );
             element.style.pointerEvents = 'auto';
             element.dataset.akariKeyframePropertyRow = `${row.id}:${propertyRow.property}`;
             element.dataset.akariItemId = row.id;
             element.dataset.akariKeyframeProperty = propertyRow.property;
-            if (propertyRow.editable) {
+            if (created && propertyRow.editable) {
                 element.addEventListener('pointerdown', event => event.stopPropagation());
                 element.addEventListener('click', event => {
                     if (event.target instanceof Element && event.target.closest('[data-akari-keyframe-t]')) return;
@@ -5711,7 +5864,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         this.staticKeyframeValue(raw, propertyRow.property));
                 });
             }
-            for (const diamond of propertyRow.diamonds) {
+            if (created) for (const diamond of propertyRow.diamonds) {
                 const marker = document.createElement('button');
                 marker.type = 'button';
                 marker.textContent = '◆';
@@ -5760,7 +5913,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 });
                 element.appendChild(marker);
             }
-            this.strip.appendChild(element);
         });
     }
 
@@ -6008,20 +6160,22 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected renderTrackHeaders(beatsTop: number, beatsHeight: number): void {
-        this.trackHeaders.replaceChildren();
+        this.beginKeyedRender('header');
         if (beatsHeight > 0) {
-            this.trackHeaders.appendChild(this.trackHeaderRow(
-                '見せ場', 'beat', 'beats', beatsTop, beatsHeight,
-                this.beatsVisible, () => {
-                    this.beatsVisible = !this.beatsVisible;
-                    this.dispatchPreviewEvent(TIMELINE_SET_BEATS_VISIBILITY_EVENT, { visible: this.beatsVisible });
-                    this.renderStrip();
-                }, !this.beatsMuted, () => {
-                    this.beatsMuted = !this.beatsMuted;
-                    this.dispatchPreviewEvent(TIMELINE_SET_BEATS_MUTED_EVENT, { muted: this.beatsMuted });
-                    this.renderStrip();
-                }
-            ));
+            this.keyedNode('header', 'header:beats', `${this.beatsVisible}:${this.beatsMuted}`, () =>
+                this.trackHeaderRow(
+                    '見せ場', 'beat', 'beats', beatsTop, beatsHeight,
+                    this.beatsVisible, () => {
+                        this.beatsVisible = !this.beatsVisible;
+                        this.dispatchPreviewEvent(TIMELINE_SET_BEATS_VISIBILITY_EVENT, { visible: this.beatsVisible });
+                        this.renderStrip();
+                    }, !this.beatsMuted, () => {
+                        this.beatsMuted = !this.beatsMuted;
+                        this.dispatchPreviewEvent(TIMELINE_SET_BEATS_MUTED_EVENT, { muted: this.beatsMuted });
+                        this.renderStrip();
+                    }
+                )
+            );
         }
         const autoNames = this.computeTrackAutoNames();
         const displayedTracks = [...this.displayTimelineTracks].reverse();
@@ -6105,20 +6259,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     void this.toggleTimelineTrackFlag(track, 'muted');
                 };
             }
-            const header = this.trackHeaderRow(
-                name, iconKind, track.id, layout.top, layout.height,
-                visible, toggleVisibility, audible, toggleMute, layout.track, track
-            );
             const treeRows = this.treeRowsByTrack.get(track.id) ?? [];
-            if (treeRows.length > 0) {
+            const { element: header, created } = this.keyedNode(
+                'header', `header:${layout.id ?? track.id}`, JSON.stringify([track, name, visible, audible, treeRows]),
+                () => this.trackHeaderRow(
+                    name, iconKind, track.id, layout.top, layout.height,
+                    visible, toggleVisibility, audible, toggleMute, layout.track, track
+                )
+            );
+            header.style.top = `${layout.top}px`;
+            header.style.height = `${layout.height}px`;
+            if (created && treeRows.length > 0) {
                 this.decorateTreeTrackHeader(header, treeRows);
             }
-            this.trackHeaders.appendChild(header);
         });
+        this.finishKeyedRender('header');
     }
 
     protected decorateTreeTrackHeader(header: HTMLDivElement, rows: readonly TimelineTreeRow[]): void {
-        header.replaceChildren();
+        while (header.firstChild) header.firstChild.remove();
         header.dataset.akariTreeTrack = 'true';
         let visualIndex = 0;
         rows.forEach(treeRow => {
@@ -6215,8 +6374,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         source: TimelineTreeRow,
         rows: readonly TimelineTreeRow[]
     ): void {
+        this.treeRowDragConfigs.set(element, { source, rows });
+        if (this.treeRowDragInstalled.has(element)) return;
+        this.treeRowDragInstalled.add(element);
         element.style.touchAction = 'none';
         element.addEventListener('pointerdown', event => {
+            const { source, rows } = this.treeRowDragConfigs.get(element)!;
             if (event.button !== 0 || event.target instanceof Element && event.target.closest('button')) return;
             const startY = event.clientY;
             let dragged = false;
@@ -6844,13 +7007,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const ticks = this.computeRulerTicks(this.viewStart, this.visibleDuration(), this.fps);
         for (const tick of ticks) {
             const percent = this.percent(tick.time);
-            const tickLine = document.createElement('div');
+            const tickKey = Number(tick.time.toFixed(9));
+            const { element: tickLine } = this.keyedNode(
+                'ruler', `tick:${tickKey}:line`, tick.label, () => document.createElement('div')
+            );
             Object.assign(tickLine.style, {
                 position: 'absolute', top: '0', height: `${RULER_BAND_HEIGHT_PX}px`, width: '1px',
                 left: `${percent}%`, background: RULER_TICK_COLOR, pointerEvents: 'none', zIndex: '1'
             });
-            this.rulerBar.appendChild(tickLine);
-            const label = document.createElement('div');
+            const { element: label } = this.keyedNode(
+                'ruler', `tick:${tickKey}:label`, tick.label, () => document.createElement('div')
+            );
             label.textContent = tick.label;
             Object.assign(label.style, {
                 position: 'absolute', top: '0', height: `${RULER_BAND_HEIGHT_PX}px`, left: `${percent}%`,
@@ -6859,7 +7026,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 paddingLeft: '2px',
                 transform: percent <= 2 ? 'none' : percent >= 98 ? 'translateX(-100%)' : 'translateX(-50%)'
             });
-            this.rulerBar.appendChild(label);
         }
         this.renderAnnotationPins();
     }
@@ -6924,14 +7090,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     protected renderAnnotationPins(): void {
         for (const annotation of this.annotations) {
-            const pin = document.createElement('div');
+            const { element: pin, created } = this.keyedNode(
+                'ruler', `pin:${annotation.id}`, JSON.stringify(annotation), () => document.createElement('div')
+            );
             pin.className = 'akari-annotations-pin';
             pin.title = `${this.formatTimestamp(annotation.sourceT)} ${annotation.text}`;
             pin.setAttribute('data-annotation-id', annotation.id);
             pin.setAttribute('data-annotation-status', annotation.status);
             pin.style.left = `${this.percent(this.sourceToOutput(annotation.sourceT))}%`;
             pin.style.background = STATUS_COLORS[annotation.status];
-            pin.addEventListener('click', event => {
+            if (created) pin.addEventListener('click', event => {
                 event.stopPropagation();
                 this.selectedSourceT = annotation.sourceT;
                 this.renderStrip();
@@ -6939,7 +7107,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.review.reveal(annotation.id);
                 void this.commands.executeCommand(OPEN_AKARI_REVIEW_PANEL_ID);
             });
-            this.rulerBar.appendChild(pin);
         }
     }
 
@@ -6948,28 +7115,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return end > this.viewStart && start < viewEnd;
     }
 
-    protected stripSegment(
-        start: number,
-        end: number,
-        top: number,
-        height: number,
-        className: string,
-        title?: string
-    ): HTMLDivElement {
-        const element = document.createElement('div');
-        element.className = className;
-        if (title) {
-            element.title = title;
-        }
-        Object.assign(element.style, {
-            position: 'absolute',
-            top: `${top}px`,
-            height: `${height}px`,
-            left: `${this.percent(start)}%`,
-            width: `${Math.max(this.percent(end) - this.percent(start), 0.3)}%`,
-            pointerEvents: 'none'
-        });
-        return element;
+    protected isRangeMounted(start: number, end: number): boolean {
+        return rangeIsMounted(start, end, this.viewStart, this.visibleDuration());
     }
 
     protected captionLabel(text: string): HTMLDivElement {
@@ -7358,6 +7505,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element: HTMLDivElement,
         detail: (event: PointerEvent, rect: DOMRect) => DragDetail
     ): void {
+        this.trimmerListenerDetails.set(element, detail);
+        if (this.trimmerListenerInstalled.has(element)) return;
+        this.trimmerListenerInstalled.add(element);
         element.style.pointerEvents = 'auto';
         element.style.touchAction = 'none';
         element.addEventListener('click', event => event.stopPropagation());
@@ -7375,7 +7525,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const rect = element.getBoundingClientRect();
-            const hoverDetail = detail(event, rect);
+            const hoverDetail = this.trimmerListenerDetails.get(element)!(event, rect);
             element.style.cursor = hoverDetail.kind === 'cut-trim' ? 'ew-resize' : 'grab';
         });
         element.addEventListener('pointerdown', event => {
@@ -7394,7 +7544,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(ghost);
             const state = {
-                ...detail(event, element.getBoundingClientRect()),
+                ...this.trimmerListenerDetails.get(element)!(event, element.getBoundingClientRect()),
                 pointerId: event.pointerId,
                 startClientX: event.clientX,
                 startClientY: event.clientY,
@@ -7456,6 +7606,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element: HTMLDivElement,
         detail: (event: PointerEvent, rect: DOMRect) => DragDetail
     ): void {
+        this.audioTrimmerListenerDetails.set(element, detail);
+        if (this.audioTrimmerListenerInstalled.has(element)) return;
+        this.audioTrimmerListenerInstalled.add(element);
         element.style.pointerEvents = 'auto';
         element.style.touchAction = 'none';
         element.addEventListener('click', event => event.stopPropagation());
@@ -7473,7 +7626,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const rect = element.getBoundingClientRect();
-            const hoverDetail = detail(event, rect);
+            const hoverDetail = this.audioTrimmerListenerDetails.get(element)!(event, rect);
             element.style.cursor = hoverDetail.kind === 'audio-trim' ? 'ew-resize' : 'grab';
         });
         element.addEventListener('pointerdown', event => {
@@ -7492,7 +7645,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(ghost);
             const state = {
-                ...detail(event, element.getBoundingClientRect()),
+                ...this.audioTrimmerListenerDetails.get(element)!(event, element.getBoundingClientRect()),
                 pointerId: event.pointerId,
                 startClientX: event.clientX,
                 startClientY: event.clientY,
@@ -7618,9 +7771,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.thumbnailCache.set(key, 'unavailable');
                 this.showFfmpegMissingNotice(result.reason);
             }
+            this.filmstripContentRevision++;
             this.renderStrip();
         }).catch(() => {
             this.thumbnailCache.set(key, 'unavailable');
+            this.filmstripContentRevision++;
             this.renderStrip();
         });
     }
@@ -7647,9 +7802,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.filmstripChunkCache.set(key, 'unavailable');
                 this.showFfmpegMissingNotice(result.reason);
             }
+            this.filmstripContentRevision++;
             this.renderStrip();
         }).catch(() => {
             this.filmstripChunkCache.set(key, 'unavailable');
+            this.filmstripContentRevision++;
             this.renderStrip();
         });
     }
@@ -7956,13 +8113,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
         detail: (event: PointerEvent, rect: DOMRect) => DragDetail,
         onRazorClick?: (event: MouseEvent) => void
     ): void {
+        this.dragListenerConfigs.set(element, { detail, onRazorClick });
+        if (this.dragListenerInstalled.has(element)) return;
+        this.dragListenerInstalled.add(element);
         element.style.pointerEvents = 'auto';
         element.style.touchAction = 'none';
         element.style.cursor = 'default';
         element.addEventListener('click', event => {
             event.stopPropagation();
             if (this.toolMode === 'razor') {
-                onRazorClick?.(event);
+                this.dragListenerConfigs.get(element)?.onRazorClick?.(event);
             }
         });
         element.addEventListener('pointermove', event => {
@@ -7970,7 +8130,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const rect = element.getBoundingClientRect();
-            const hoverDetail = detail(event, rect);
+            const hoverDetail = this.dragListenerConfigs.get(element)!.detail(event, rect);
             const resizing = hoverDetail.kind === 'cut-trim' || hoverDetail.kind === 'audio-trim'
                 || (hoverDetail.kind === 'caption' && hoverDetail.mode !== 'move')
                 || (hoverDetail.kind === 'layer' && hoverDetail.mode !== 'move')
@@ -7998,7 +8158,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             });
             this.strip.appendChild(ghost);
             const state = {
-                ...detail(event, element.getBoundingClientRect()),
+                ...this.dragListenerConfigs.get(element)!.detail(event, element.getBoundingClientRect()),
                 pointerId: event.pointerId,
                 startClientX: event.clientX,
                 startClientY: event.clientY,
