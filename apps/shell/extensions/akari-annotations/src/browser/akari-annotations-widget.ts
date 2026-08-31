@@ -1291,6 +1291,57 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: var(--theia-button-background);
         color: var(--theia-button-foreground);
     }
+    .akari-annotations-widget .akari-timeline-focus-breadcrumbs {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        margin: 0 6px;
+        color: var(--theia-descriptionForeground);
+        font-size: 11px;
+    }
+    .akari-annotations-widget .akari-timeline-focus-breadcrumb {
+        appearance: none;
+        min-width: 0;
+        height: 24px;
+        margin: 0;
+        padding: 0 8px;
+        border: none;
+        border-radius: 3px;
+        background: transparent;
+        color: var(--theia-descriptionForeground);
+        font: inherit;
+        cursor: pointer;
+    }
+    .akari-annotations-widget .akari-timeline-focus-breadcrumb:hover {
+        background: var(--theia-toolbar-hoverBackground);
+        color: var(--theia-foreground);
+    }
+    .akari-annotations-widget .akari-timeline-focus-breadcrumb:focus-visible {
+        outline: 1px solid var(--theia-focusBorder);
+        outline-offset: -1px;
+    }
+    .akari-annotations-widget .akari-timeline-focus-breadcrumb:last-child {
+        color: var(--theia-foreground);
+        font-weight: 600;
+        pointer-events: none;
+        cursor: default;
+    }
+    .akari-annotations-widget [data-akari-keyframe-t] {
+        appearance: none;
+        outline: none;
+        cursor: pointer;
+    }
+    .akari-annotations-widget [data-akari-keyframe-t]:hover {
+        filter: brightness(1.2);
+        box-shadow: 0 0 2px var(--theia-editorWidget-background);
+    }
+    .akari-annotations-widget [data-akari-keyframe-t]:focus {
+        box-shadow: 0 0 0 2px var(--theia-focusBorder);
+    }
+    .akari-annotations-widget [data-akari-keyframe-t]:active {
+        border-color: var(--theia-button-background) !important;
+        background: var(--theia-button-background) !important;
+    }
     .akari-annotations-widget .akari-annotations-ghost-rejected {
         border-color: #f14c4c !important;
         background: rgba(241, 76, 76, .25) !important;
@@ -1850,14 +1901,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toolbar.querySelector('[data-akari-ui="timeline-focus-breadcrumbs"]')?.remove();
         if (this.focusScope.rootId === null) return;
         const breadcrumbs = document.createElement('nav');
+        breadcrumbs.className = 'akari-timeline-focus-breadcrumbs';
         breadcrumbs.setAttribute('data-akari-ui', 'timeline-focus-breadcrumbs');
-        Object.assign(breadcrumbs.style, {
-            display: 'flex', alignItems: 'center', gap: '3px', margin: '0 6px', fontSize: '11px'
-        });
         this.focusScope.breadcrumbs.forEach((label, index) => {
             if (index > 0) breadcrumbs.append('›');
             const button = document.createElement('button');
             button.type = 'button';
+            button.className = 'akari-timeline-focus-breadcrumb';
             button.textContent = label;
             button.dataset.akariFocusCrumb = String(index);
             button.addEventListener('click', () => this.applyFocusScope(focusScopeAtBreadcrumb(
@@ -5728,8 +5778,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 Object.assign(marker.style, {
                     position: 'absolute', left: `${durationFrames > 0 ? diamond.t / durationFrames * 100 : 0}%`,
                     top: '50%', transform: 'translate(-50%, -50%) rotate(45deg)', width: '9px', height: '9px',
-                    padding: '0', fontSize: '0', border: diamond.endpoint ? '1px solid #fff' : '1px solid #ddd',
-                    background: diamond.endpoint ? 'transparent' : '#fff', pointerEvents: 'auto'
+                    appearance: 'none', padding: '0', fontSize: '0', outline: 'none',
+                    border: '1px solid var(--theia-foreground)',
+                    background: diamond.endpoint ? 'transparent' : 'var(--theia-foreground)',
+                    cursor: 'pointer', pointerEvents: 'auto'
                 });
                 marker.addEventListener('click', event => {
                     event.preventDefault();
