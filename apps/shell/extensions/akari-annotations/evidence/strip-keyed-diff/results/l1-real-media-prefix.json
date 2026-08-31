@@ -1,0 +1,1087 @@
+{
+  "status": "completed",
+  "fixture": "real-media",
+  "startedAt": "2026-08-31T23:08:31.185Z",
+  "loadAverageAtStart": [
+    14.34765625,
+    15.59619140625,
+    22.9140625
+  ],
+  "shell": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell",
+  "panSteps": 20,
+  "zoomNotches": 5,
+  "steps": [
+    {
+      "step": "00 タイムラインを開く（実素材プロジェクト）",
+      "status": "ok",
+      "open": {
+        "attempts": 1,
+        "mountedItems": 18
+      },
+      "treeRows": {
+        "count": 6,
+        "rows": [
+          {
+            "id": "intro#title",
+            "kind": "part",
+            "parent": "intro",
+            "track": "v-parts",
+            "ticks": 0
+          },
+          {
+            "id": "intro#logo",
+            "kind": "part",
+            "parent": "intro",
+            "track": "v-parts",
+            "ticks": 0
+          },
+          {
+            "id": "intro#body",
+            "kind": "part",
+            "parent": "intro",
+            "track": "v-parts",
+            "ticks": 0
+          },
+          {
+            "id": "g-deco",
+            "kind": "group",
+            "parent": "",
+            "track": "v-deco",
+            "ticks": 0
+          },
+          {
+            "id": "g-title",
+            "kind": "telop",
+            "parent": "g-deco",
+            "track": "v-deco",
+            "ticks": 0
+          },
+          {
+            "id": "g-badge",
+            "kind": "item",
+            "parent": "g-deco",
+            "track": "v-deco",
+            "ticks": 0
+          }
+        ],
+        "headerToggleIds": [
+          "g-deco",
+          "g-title",
+          "g-badge",
+          "intro",
+          "intro#title",
+          "intro#logo",
+          "intro#body",
+          "telop-chapter",
+          "pip-b",
+          "caps",
+          "cut-a",
+          "cut-b"
+        ]
+      },
+      "detail": {
+        "mounted": 18,
+        "byKind": {
+          "item": 6,
+          "caption": 6,
+          "overlay": 1,
+          "layer": 2,
+          "audio": 1,
+          "cut": 2
+        },
+        "selected": [],
+        "treeRows": [
+          "g-badge",
+          "g-deco",
+          "g-title",
+          "intro#body",
+          "intro#logo",
+          "intro#title"
+        ],
+        "scrollTop": 0,
+        "imgs": 0,
+        "canvases": 2,
+        "filmstrips": 2,
+        "filmstripCells": 24,
+        "stripChildren": 26
+      },
+      "elapsedMs": 13006
+    },
+    {
+      "step": "01 ズームして実素材のサムネ・波形を出す（cache 温め）",
+      "status": "ok",
+      "beforeZoom": {
+        "stripWidth": 935,
+        "clips": [
+          {
+            "id": "0",
+            "title": "C1",
+            "leftRelStrip": 1,
+            "width": 462.64,
+            "rightRelStrip": 463.64,
+            "clippedLeft": true,
+            "clippedRight": false,
+            "cells": 13,
+            "firstCellLeftRelClip": 1,
+            "firstCellStyleLeft": "0px",
+            "canvases": 1,
+            "canvasWidthAttr": 463,
+            "canvasStyleWidth": "463px",
+            "imgs": 0,
+            "backgroundImage": ""
+          },
+          {
+            "id": "1",
+            "title": "C2",
+            "leftRelStrip": 463.64,
+            "width": 385.53,
+            "rightRelStrip": 849.17,
+            "clippedLeft": false,
+            "clippedRight": false,
+            "cells": 11,
+            "firstCellLeftRelClip": 1,
+            "firstCellStyleLeft": "0px",
+            "canvases": 1,
+            "canvasWidthAttr": 386,
+            "canvasStyleWidth": "386px",
+            "imgs": 0,
+            "backgroundImage": ""
+          }
+        ],
+        "totals": {
+          "cells": 24,
+          "filmstrips": 2,
+          "canvases": 2,
+          "imgs": 0
+        }
+      },
+      "warmup": [
+        {
+          "poll": 0,
+          "cells": 27,
+          "canvases": 2,
+          "imgs": 0,
+          "stable": 0
+        },
+        {
+          "poll": 5,
+          "cells": 27,
+          "canvases": 2,
+          "imgs": 0,
+          "stable": 5
+        },
+        {
+          "poll": 6,
+          "cells": 27,
+          "canvases": 2,
+          "imgs": 0,
+          "stable": 6
+        }
+      ],
+      "afterZoom": {
+        "stripWidth": 935,
+        "clips": [
+          {
+            "id": "0",
+            "title": "C1",
+            "leftRelStrip": 1,
+            "width": 439.95,
+            "rightRelStrip": 440.95,
+            "clippedLeft": true,
+            "clippedRight": false,
+            "cells": 13,
+            "firstCellLeftRelClip": -12.26,
+            "firstCellStyleLeft": "-13.26px",
+            "canvases": 1,
+            "canvasWidthAttr": 440,
+            "canvasStyleWidth": "440px",
+            "imgs": 0,
+            "backgroundImage": ""
+          },
+          {
+            "id": "1",
+            "title": "C2",
+            "leftRelStrip": 440.95,
+            "width": 493.05,
+            "rightRelStrip": 933.99,
+            "clippedLeft": false,
+            "clippedRight": false,
+            "cells": 14,
+            "firstCellLeftRelClip": 1,
+            "firstCellStyleLeft": "0px",
+            "canvases": 1,
+            "canvasWidthAttr": 493,
+            "canvasStyleWidth": "493px",
+            "imgs": 0,
+            "backgroundImage": ""
+          }
+        ],
+        "totals": {
+          "cells": 27,
+          "filmstrips": 2,
+          "canvases": 2,
+          "imgs": 0
+        }
+      },
+      "detail": {
+        "cells": 27,
+        "canvases": 2,
+        "imgs": 0,
+        "filmstrips": 2,
+        "clipsWithMedia": 2
+      },
+      "elapsedMs": 5103
+    },
+    {
+      "step": "02 メディアノードへ計器を仕掛ける",
+      "status": "ok",
+      "detail": {
+        "taggedMediaNodes": 31,
+        "taggedItemNodes": 13,
+        "clipsAtArm": 2
+      },
+      "elapsedMs": 1
+    },
+    {
+      "step": "03 パン 20 回（実素材・cache 温）",
+      "status": "ok",
+      "samples": [
+        {
+          "pan": 0,
+          "stripWidth": 935,
+          "clips": [
+            {
+              "id": "0",
+              "title": "C1",
+              "leftRelStrip": 1,
+              "width": 439.95,
+              "rightRelStrip": 440.95,
+              "clippedLeft": true,
+              "clippedRight": false,
+              "cells": 13,
+              "firstCellLeftRelClip": -12.26,
+              "firstCellStyleLeft": "-13.26px",
+              "canvases": 1,
+              "canvasWidthAttr": 440,
+              "canvasStyleWidth": "440px",
+              "imgs": 0,
+              "backgroundImage": ""
+            },
+            {
+              "id": "1",
+              "title": "C2",
+              "leftRelStrip": 440.95,
+              "width": 493.05,
+              "rightRelStrip": 933.99,
+              "clippedLeft": false,
+              "clippedRight": false,
+              "cells": 14,
+              "firstCellLeftRelClip": 1,
+              "firstCellStyleLeft": "0px",
+              "canvases": 1,
+              "canvasWidthAttr": 493,
+              "canvasStyleWidth": "493px",
+              "imgs": 0,
+              "backgroundImage": ""
+            }
+          ],
+          "totals": {
+            "cells": 27,
+            "filmstrips": 2,
+            "canvases": 2,
+            "imgs": 0
+          }
+        },
+        {
+          "pan": 5,
+          "stripWidth": 935,
+          "clips": [
+            {
+              "id": "0",
+              "title": "C1",
+              "leftRelStrip": 1,
+              "width": 240.38,
+              "rightRelStrip": 241.38,
+              "clippedLeft": true,
+              "clippedRight": false,
+              "cells": 13,
+              "firstCellLeftRelClip": -12.26,
+              "firstCellStyleLeft": "-13.26px",
+              "canvases": 1,
+              "canvasWidthAttr": 440,
+              "canvasStyleWidth": "440px",
+              "imgs": 0,
+              "backgroundImage": ""
+            },
+            {
+              "id": "1",
+              "title": "C2",
+              "leftRelStrip": 241.38,
+              "width": 692.62,
+              "rightRelStrip": 933.99,
+              "clippedLeft": false,
+              "clippedRight": false,
+              "cells": 14,
+              "firstCellLeftRelClip": 1,
+              "firstCellStyleLeft": "0px",
+              "canvases": 1,
+              "canvasWidthAttr": 493,
+              "canvasStyleWidth": "493px",
+              "imgs": 0,
+              "backgroundImage": ""
+            }
+          ],
+          "totals": {
+            "cells": 27,
+            "filmstrips": 2,
+            "canvases": 2,
+            "imgs": 0
+          }
+        },
+        {
+          "pan": 10,
+          "stripWidth": 935,
+          "clips": [
+            {
+              "id": "0",
+              "title": "C1",
+              "leftRelStrip": 1,
+              "width": 40.8,
+              "rightRelStrip": 41.8,
+              "clippedLeft": true,
+              "clippedRight": false,
+              "cells": 13,
+              "firstCellLeftRelClip": -12.26,
+              "firstCellStyleLeft": "-13.26px",
+              "canvases": 1,
+              "canvasWidthAttr": 440,
+              "canvasStyleWidth": "440px",
+              "imgs": 0,
+              "backgroundImage": ""
+            },
+            {
+              "id": "1",
+              "title": "C2",
+              "leftRelStrip": 41.8,
+              "width": 892.2,
+              "rightRelStrip": 933.99,
+              "clippedLeft": false,
+              "clippedRight": false,
+              "cells": 14,
+              "firstCellLeftRelClip": 1,
+              "firstCellStyleLeft": "0px",
+              "canvases": 1,
+              "canvasWidthAttr": 493,
+              "canvasStyleWidth": "493px",
+              "imgs": 0,
+              "backgroundImage": ""
+            }
+          ],
+          "totals": {
+            "cells": 27,
+            "filmstrips": 2,
+            "canvases": 2,
+            "imgs": 0
+          }
+        },
+        {
+          "pan": 15,
+          "stripWidth": 935,
+          "clips": [
+            {
+              "id": "0",
+              "title": "C1",
+              "leftRelStrip": 1,
+              "width": 3,
+              "rightRelStrip": 4,
+              "clippedLeft": true,
+              "clippedRight": false,
+              "cells": 0,
+              "firstCellLeftRelClip": null,
+              "firstCellStyleLeft": null,
+              "canvases": 0,
+              "canvasWidthAttr": null,
+              "canvasStyleWidth": null,
+              "imgs": 0,
+              "backgroundImage": ""
+            },
+            {
+              "id": "1",
+              "title": "C2",
+              "leftRelStrip": 1,
+              "width": 933,
+              "rightRelStrip": 934,
+              "clippedLeft": true,
+              "clippedRight": true,
+              "cells": 14,
+              "firstCellLeftRelClip": 1,
+              "firstCellStyleLeft": "0px",
+              "canvases": 1,
+              "canvasWidthAttr": 493,
+              "canvasStyleWidth": "493px",
+              "imgs": 0,
+              "backgroundImage": ""
+            }
+          ],
+          "totals": {
+            "cells": 14,
+            "filmstrips": 1,
+            "canvases": 1,
+            "imgs": 0
+          }
+        },
+        {
+          "pan": 20,
+          "stripWidth": 935,
+          "clips": [
+            {
+              "id": "0",
+              "title": "C1",
+              "leftRelStrip": 1,
+              "width": 3,
+              "rightRelStrip": 4,
+              "clippedLeft": true,
+              "clippedRight": false,
+              "cells": 0,
+              "firstCellLeftRelClip": null,
+              "firstCellStyleLeft": null,
+              "canvases": 0,
+              "canvasWidthAttr": null,
+              "canvasStyleWidth": null,
+              "imgs": 0,
+              "backgroundImage": ""
+            },
+            {
+              "id": "1",
+              "title": "C2",
+              "leftRelStrip": 1,
+              "width": 933,
+              "rightRelStrip": 934,
+              "clippedLeft": true,
+              "clippedRight": true,
+              "cells": 14,
+              "firstCellLeftRelClip": 1,
+              "firstCellStyleLeft": "0px",
+              "canvases": 1,
+              "canvasWidthAttr": 493,
+              "canvasStyleWidth": "493px",
+              "imgs": 0,
+              "backgroundImage": ""
+            }
+          ],
+          "totals": {
+            "cells": 14,
+            "filmstrips": 1,
+            "canvases": 1,
+            "imgs": 0
+          }
+        }
+      ],
+      "after": {
+        "mounted": 7,
+        "byKind": {
+          "item": 2,
+          "caption": 2,
+          "audio": 1,
+          "cut": 2
+        },
+        "selected": [],
+        "treeRows": [
+          "g-deco",
+          "g-title"
+        ],
+        "scrollTop": 0,
+        "imgs": 0,
+        "canvases": 1,
+        "filmstrips": 1,
+        "filmstripCells": 14,
+        "stripChildren": 15
+      },
+      "detail": {
+        "panSteps": 20,
+        "samplesTaken": 5
+      },
+      "elapsedMs": 4159
+    },
+    {
+      "step": "04 サムネ・波形ノードの identity を判定",
+      "status": "ok",
+      "detail": {
+        "mediaNodesAtArm": 31,
+        "mediaNodesNow": 16,
+        "mediaNodesReused": 16,
+        "mediaNodesRecreated": 0,
+        "canvasNow": 1,
+        "canvasReused": 1,
+        "canvasRecreated": 0,
+        "filmstripCellNow": 14,
+        "filmstripCellReused": 14,
+        "filmstripCellRecreated": 0,
+        "imgNow": 0,
+        "imgReused": 0,
+        "imgRecreated": 0,
+        "mutationAddedMediaNodes": 0,
+        "mutationRemovedMediaNodes": 15,
+        "mutationAddedMediaThatWereExisting": 0,
+        "mutationAddedMediaThatWereNew": 0,
+        "mutationAddedItemNodes": 2,
+        "mutationRemovedItemNodes": 8,
+        "itemNodesNow": 7,
+        "itemNodesReused": 5,
+        "perClip": {
+          "0": {
+            "mediaNow": 0,
+            "mediaAtArm": 15,
+            "reused": 0,
+            "fresh": 0,
+            "sameTagSet": false,
+            "clipNodeReused": false,
+            "canvasReused": null
+          },
+          "1": {
+            "mediaNow": 16,
+            "mediaAtArm": 16,
+            "reused": 16,
+            "fresh": 0,
+            "sameTagSet": true,
+            "clipNodeReused": true,
+            "canvasReused": true
+          }
+        }
+      },
+      "elapsedMs": 1
+    },
+    {
+      "step": "05 パン中のメディア幾何の追従",
+      "status": "ok",
+      "tracked": [
+        {
+          "id": "0",
+          "title": "C1",
+          "clippedLeftAtStart": true,
+          "clippedLeftAtEnd": true,
+          "clipLeftShift": 0,
+          "clipRightShift": -436.95,
+          "clipWidthDelta": -436.95,
+          "firstCellLeftRelClipBefore": -12.26,
+          "firstCellLeftRelClipAfter": null,
+          "cellShiftInsideClip": null,
+          "canvasWidthBefore": 440,
+          "canvasWidthAfter": null,
+          "clipWidthBefore": 439.95,
+          "clipWidthAfter": 3,
+          "canvasWidthMatchesClip": null
+        },
+        {
+          "id": "1",
+          "title": "C2",
+          "clippedLeftAtStart": false,
+          "clippedLeftAtEnd": true,
+          "clipLeftShift": -439.95,
+          "clipRightShift": 0.01,
+          "clipWidthDelta": 439.95,
+          "firstCellLeftRelClipBefore": 1,
+          "firstCellLeftRelClipAfter": 1,
+          "cellShiftInsideClip": 0,
+          "canvasWidthBefore": 493,
+          "canvasWidthAfter": 493,
+          "clipWidthBefore": 493.05,
+          "clipWidthAfter": 933,
+          "canvasWidthMatchesClip": false
+        }
+      ],
+      "detail": {
+        "trackedClips": 2,
+        "clipsClippedAtViewEdgeThroughout": 1,
+        "staleMediaGeometryClips": 0,
+        "stale": []
+      },
+      "elapsedMs": 0
+    },
+    {
+      "step": "06 折りたたみトグル 開閉 → 子行の mount/unmount",
+      "status": "ok",
+      "census": {
+        "total": 12,
+        "withGlyph": 3,
+        "enabled": 3,
+        "visible": 3,
+        "rows": [
+          {
+            "id": "g-deco",
+            "glyph": "▾",
+            "disabled": false,
+            "x": 233,
+            "y": 791,
+            "w": 16,
+            "h": 17
+          },
+          {
+            "id": "g-title",
+            "glyph": "",
+            "disabled": true,
+            "x": 249,
+            "y": 815,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "g-badge",
+            "glyph": "",
+            "disabled": true,
+            "x": 249,
+            "y": 839,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "intro",
+            "glyph": "▾",
+            "disabled": false,
+            "x": 233,
+            "y": 865,
+            "w": 16,
+            "h": 17
+          },
+          {
+            "id": "intro#title",
+            "glyph": "",
+            "disabled": true,
+            "x": 249,
+            "y": 889,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "intro#logo",
+            "glyph": "",
+            "disabled": true,
+            "x": 249,
+            "y": 913,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "intro#body",
+            "glyph": "",
+            "disabled": true,
+            "x": 249,
+            "y": 937,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "telop-chapter",
+            "glyph": "",
+            "disabled": true,
+            "x": 233,
+            "y": 963,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "pip-b",
+            "glyph": "",
+            "disabled": true,
+            "x": 233,
+            "y": 989,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "caps",
+            "glyph": "▾",
+            "disabled": false,
+            "x": 233,
+            "y": 1015,
+            "w": 16,
+            "h": 17
+          },
+          {
+            "id": "cut-a",
+            "glyph": "",
+            "disabled": true,
+            "x": 233,
+            "y": 1041,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "cut-b",
+            "glyph": "",
+            "disabled": true,
+            "x": 233,
+            "y": 1065,
+            "w": 16,
+            "h": 0
+          }
+        ]
+      },
+      "target": {
+        "id": "g-deco",
+        "glyph": "▾",
+        "x": 232.9140625,
+        "y": 791.1015625,
+        "candidates": 3
+      },
+      "armed": {
+        "taggedMediaNodes": 16,
+        "taggedItemNodes": 7,
+        "clipsAtArm": 2
+      },
+      "detail": {
+        "toggleId": "g-deco",
+        "glyph": {
+          "before": "▾",
+          "afterCollapse": "▸",
+          "afterExpand": "▾"
+        },
+        "childRows": {
+          "expandedBefore": [
+            "g-title"
+          ],
+          "whileCollapsed": [],
+          "expandedAfter": [
+            "g-badge",
+            "g-title"
+          ]
+        },
+        "treeRowCount": {
+          "before": 2,
+          "collapsed": 1,
+          "expanded": 3
+        },
+        "mounted": {
+          "before": 7,
+          "collapsed": 6,
+          "pannedWhileCollapsed": 7,
+          "expanded": 9,
+          "pannedAfterExpand": 7
+        },
+        "ticksOnCollapsedParent": 2,
+        "rowSetRestored": false,
+        "childRowsUnmountedOnCollapse": true,
+        "childRowsRemountedOnExpand": false,
+        "panWhileCollapsedKeptStrip": true,
+        "mediaIdentityAcrossToggle": {
+          "mediaNodesAtArm": 16,
+          "mediaNodesNow": 27,
+          "mediaNodesReused": 0,
+          "mediaNodesRecreated": 27,
+          "canvasNow": 1,
+          "canvasReused": 0,
+          "canvasRecreated": 1,
+          "filmstripCellNow": 25,
+          "filmstripCellReused": 0,
+          "filmstripCellRecreated": 25,
+          "imgNow": 0,
+          "imgReused": 0,
+          "imgRecreated": 0,
+          "mutationAddedMediaNodes": 56,
+          "mutationRemovedMediaNodes": 45,
+          "mutationAddedMediaThatWereExisting": 0,
+          "mutationAddedMediaThatWereNew": 56,
+          "mutationAddedItemNodes": 9,
+          "mutationRemovedItemNodes": 9,
+          "itemNodesNow": 7,
+          "itemNodesReused": 3,
+          "perClip": {
+            "0": {
+              "mediaNow": 0,
+              "mediaAtArm": 0,
+              "reused": 0,
+              "fresh": 0,
+              "sameTagSet": true,
+              "clipNodeReused": false,
+              "canvasReused": null
+            },
+            "1": {
+              "mediaNow": 27,
+              "mediaAtArm": 16,
+              "reused": 0,
+              "fresh": 27,
+              "sameTagSet": false,
+              "clipNodeReused": false,
+              "canvasReused": false
+            }
+          }
+        }
+      },
+      "elapsedMs": 7325
+    },
+    {
+      "step": "07 通し後の帯の状態",
+      "status": "ok",
+      "snapshot": {
+        "mounted": 7,
+        "byKind": {
+          "item": 2,
+          "caption": 2,
+          "audio": 1,
+          "cut": 2
+        },
+        "selected": [],
+        "treeRows": [
+          "g-deco",
+          "g-title"
+        ],
+        "scrollTop": 0,
+        "imgs": 0,
+        "canvases": 1,
+        "filmstrips": 1,
+        "filmstripCells": 25,
+        "stripChildren": 15
+      },
+      "media": {
+        "stripWidth": 935,
+        "clips": [
+          {
+            "id": "0",
+            "title": "C1",
+            "leftRelStrip": 1,
+            "width": 3,
+            "rightRelStrip": 4,
+            "clippedLeft": true,
+            "clippedRight": false,
+            "cells": 0,
+            "firstCellLeftRelClip": null,
+            "firstCellStyleLeft": null,
+            "canvases": 0,
+            "canvasWidthAttr": null,
+            "canvasStyleWidth": null,
+            "imgs": 0,
+            "backgroundImage": ""
+          },
+          {
+            "id": "1",
+            "title": "C2",
+            "leftRelStrip": 1,
+            "width": 933,
+            "rightRelStrip": 934,
+            "clippedLeft": true,
+            "clippedRight": true,
+            "cells": 25,
+            "firstCellLeftRelClip": 1,
+            "firstCellStyleLeft": "0px",
+            "canvases": 1,
+            "canvasWidthAttr": 896,
+            "canvasStyleWidth": "896px",
+            "imgs": 0,
+            "backgroundImage": ""
+          }
+        ],
+        "totals": {
+          "cells": 25,
+          "filmstrips": 1,
+          "canvases": 1,
+          "imgs": 0
+        }
+      },
+      "detail": {
+        "attributes": [
+          "data-akari-aggregate-keyframe-filled",
+          "data-akari-aggregate-keyframe-t",
+          "data-akari-item-id",
+          "data-akari-item-kind",
+          "data-akari-kind",
+          "data-akari-lane",
+          "data-akari-notice-close",
+          "data-akari-notice-text",
+          "data-akari-resize",
+          "data-akari-source-id",
+          "data-akari-timeline-notice",
+          "data-akari-timeline-track-id",
+          "data-akari-toggle",
+          "data-akari-track",
+          "data-akari-transition-boundary",
+          "data-akari-tree-item-kind",
+          "data-akari-tree-parent-id",
+          "data-akari-tree-row-id",
+          "data-akari-tree-toggle",
+          "data-akari-tree-track",
+          "data-akari-tree-track-id",
+          "data-akari-ui",
+          "data-akari-ui-label"
+        ],
+        "count": 23
+      },
+      "elapsedMs": 2
+    }
+  ],
+  "mediaIdentity": {
+    "mediaNodesAtArm": 31,
+    "mediaNodesNow": 16,
+    "mediaNodesReused": 16,
+    "mediaNodesRecreated": 0,
+    "canvasNow": 1,
+    "canvasReused": 1,
+    "canvasRecreated": 0,
+    "filmstripCellNow": 14,
+    "filmstripCellReused": 14,
+    "filmstripCellRecreated": 0,
+    "imgNow": 0,
+    "imgReused": 0,
+    "imgRecreated": 0,
+    "mutationAddedMediaNodes": 0,
+    "mutationRemovedMediaNodes": 15,
+    "mutationAddedMediaThatWereExisting": 0,
+    "mutationAddedMediaThatWereNew": 0,
+    "mutationAddedItemNodes": 2,
+    "mutationRemovedItemNodes": 8,
+    "itemNodesNow": 7,
+    "itemNodesReused": 5,
+    "perClip": {
+      "0": {
+        "mediaNow": 0,
+        "mediaAtArm": 15,
+        "reused": 0,
+        "fresh": 0,
+        "sameTagSet": false,
+        "clipNodeReused": false,
+        "canvasReused": null
+      },
+      "1": {
+        "mediaNow": 16,
+        "mediaAtArm": 16,
+        "reused": 16,
+        "fresh": 0,
+        "sameTagSet": true,
+        "clipNodeReused": true,
+        "canvasReused": true
+      }
+    }
+  },
+  "treeToggle": {
+    "toggleId": "g-deco",
+    "glyph": {
+      "before": "▾",
+      "afterCollapse": "▸",
+      "afterExpand": "▾"
+    },
+    "childRows": {
+      "expandedBefore": [
+        "g-title"
+      ],
+      "whileCollapsed": [],
+      "expandedAfter": [
+        "g-badge",
+        "g-title"
+      ]
+    },
+    "treeRowCount": {
+      "before": 2,
+      "collapsed": 1,
+      "expanded": 3
+    },
+    "mounted": {
+      "before": 7,
+      "collapsed": 6,
+      "pannedWhileCollapsed": 7,
+      "expanded": 9,
+      "pannedAfterExpand": 7
+    },
+    "ticksOnCollapsedParent": 2,
+    "rowSetRestored": false,
+    "childRowsUnmountedOnCollapse": true,
+    "childRowsRemountedOnExpand": false,
+    "panWhileCollapsedKeptStrip": true,
+    "mediaIdentityAcrossToggle": {
+      "mediaNodesAtArm": 16,
+      "mediaNodesNow": 27,
+      "mediaNodesReused": 0,
+      "mediaNodesRecreated": 27,
+      "canvasNow": 1,
+      "canvasReused": 0,
+      "canvasRecreated": 1,
+      "filmstripCellNow": 25,
+      "filmstripCellReused": 0,
+      "filmstripCellRecreated": 25,
+      "imgNow": 0,
+      "imgReused": 0,
+      "imgRecreated": 0,
+      "mutationAddedMediaNodes": 56,
+      "mutationRemovedMediaNodes": 45,
+      "mutationAddedMediaThatWereExisting": 0,
+      "mutationAddedMediaThatWereNew": 56,
+      "mutationAddedItemNodes": 9,
+      "mutationRemovedItemNodes": 9,
+      "itemNodesNow": 7,
+      "itemNodesReused": 3,
+      "perClip": {
+        "0": {
+          "mediaNow": 0,
+          "mediaAtArm": 0,
+          "reused": 0,
+          "fresh": 0,
+          "sameTagSet": true,
+          "clipNodeReused": false,
+          "canvasReused": null
+        },
+        "1": {
+          "mediaNow": 27,
+          "mediaAtArm": 16,
+          "reused": 0,
+          "fresh": 27,
+          "sameTagSet": false,
+          "clipNodeReused": false,
+          "canvasReused": false
+        }
+      }
+    }
+  },
+  "consoleErrors": [
+    {
+      "kind": "console.error",
+      "text": "RangeError: Maximum call stack size exceeded"
+    },
+    {
+      "kind": "console.error",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+    },
+    {
+      "kind": "console.error",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+    },
+    {
+      "kind": "console.error",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+    },
+    {
+      "kind": "console.error",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+    },
+    {
+      "kind": "console.error",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+    },
+    {
+      "kind": "console.error",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+    },
+    {
+      "kind": "console.error",
+      "text": "Error: You are attempting to construct Symbol(WindowTitleAddOnContribution) in a synchronous way but it has asynchronous dependencies.\n    at n._getButThrowIfAsync (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:36252)\n    at n.getAll (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/f"
+    },
+    {
+      "kind": "exception",
+      "text": "RangeError: Maximum call stack size exceeded\n    at kvn (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:6503)\n    at jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:6452)\n    at zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:7705)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9650)\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9869\n    at evr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9802)\n    at tvr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9850)\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9111\n    at Bbr.n.reduce.constructorInjections (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:6055)\n    at Array.reduce (<anonymous>)"
+    }
+  ],
+  "notes": [],
+  "project": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/fixtures/real-media",
+  "electronPid": 4454,
+  "stripRect": {
+    "x": 823.4140625,
+    "y": 945.1015625,
+    "left": 355.9140625,
+    "top": 778.1015625,
+    "w": 935,
+    "h": 334
+  },
+  "finishedAt": "2026-08-31T23:09:03.435Z",
+  "loadAverageAtEnd": [
+    16.30810546875,
+    15.939453125,
+    22.783203125
+  ]
+}

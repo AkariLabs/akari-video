@@ -1,0 +1,266 @@
+{
+  "status": "completed-with-failures",
+  "n": 200,
+  "startedAt": "2026-08-31T13:39:41.831Z",
+  "loadAverageAtStart": [
+    16.99853515625,
+    51.2109375,
+    44.52490234375
+  ],
+  "shell": null,
+  "steps": [
+    {
+      "step": "00 タイムラインを開く",
+      "status": "ok",
+      "open": {
+        "attempts": 1,
+        "mountedItems": 200
+      },
+      "detail": {
+        "mounted": 200,
+        "byKind": {
+          "layer": 33,
+          "audio": 33,
+          "cut": 134
+        },
+        "selected": [],
+        "scrollTop": 0,
+        "scrollLeft": 0,
+        "imgs": 0,
+        "canvases": 0,
+        "stripChildren": 206
+      },
+      "elapsedMs": 12993
+    },
+    {
+      "step": "01 identity 計器を仕掛ける",
+      "status": "ok",
+      "detail": {
+        "tagged": 200,
+        "taggedMedia": 0
+      },
+      "elapsedMs": 2
+    },
+    {
+      "step": "02 ズーム（ctrl+wheel 上下 各 5 回）",
+      "status": "ok",
+      "detail": {
+        "mounted": 200,
+        "byKind": {
+          "layer": 33,
+          "audio": 33,
+          "cut": 134
+        },
+        "selected": [],
+        "scrollTop": 0,
+        "scrollLeft": 0,
+        "imgs": 0,
+        "canvases": 0,
+        "stripChildren": 206
+      },
+      "elapsedMs": 3444
+    },
+    {
+      "step": "03 パン 20 回",
+      "status": "ok",
+      "before": {
+        "mounted": 200,
+        "byKind": {
+          "layer": 33,
+          "audio": 33,
+          "cut": 134
+        },
+        "selected": [],
+        "scrollTop": 0,
+        "scrollLeft": 0,
+        "imgs": 0,
+        "canvases": 0,
+        "stripChildren": 206
+      },
+      "after": {
+        "mounted": 200,
+        "byKind": {
+          "layer": 33,
+          "audio": 33,
+          "cut": 134
+        },
+        "selected": [],
+        "scrollTop": 0,
+        "scrollLeft": 0,
+        "imgs": 0,
+        "canvases": 0,
+        "stripChildren": 206
+      },
+      "detail": {
+        "panSteps": 20
+      },
+      "elapsedMs": 3756
+    },
+    {
+      "step": "04 ノード identity を判定",
+      "status": "ok",
+      "detail": {
+        "initialMounted": 200,
+        "survivedWithSameNode": 11,
+        "brokenIdentityCount": 0,
+        "brokenIdentitySample": [],
+        "remountedAfterLeavingRange": 189,
+        "mutationAddedItemNodes": 1419,
+        "mutationRemovedItemNodes": 1419,
+        "distinctAddedKeys": 189,
+        "distinctRemovedKeys": 189,
+        "mediaNodesNow": 0,
+        "mediaNodesReused": 0,
+        "mediaNodesRecreated": 0
+      },
+      "elapsedMs": 1
+    },
+    {
+      "step": "05 ドラッグ移動（クリップ中央から +60px）",
+      "status": "failed",
+      "reason": "Error: no visible cut clip to drag\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:202:21\n    at async step (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:30:20)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:196:5)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:361:1",
+      "elapsedMs": 1
+    },
+    {
+      "step": "06 トリム（右端を -30px）",
+      "status": "failed",
+      "reason": "Error: no visible cut clip wide enough to trim\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:220:21\n    at async step (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:30:20)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:214:5)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:361:1",
+      "elapsedMs": 2
+    },
+    {
+      "step": "07 右クリックメニュー",
+      "status": "failed",
+      "reason": "Error: no clip for contextmenu\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:237:21\n    at async step (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:30:20)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:232:5)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:361:1",
+      "elapsedMs": 1
+    },
+    {
+      "step": "08 マーキー選択（shift+click 複数選択）",
+      "status": "failed",
+      "reason": "Error: need >=2 visible clips, got 0\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:256:37\n    at async step (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:30:20)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:251:5)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:361:1",
+      "elapsedMs": 0
+    },
+    {
+      "step": "09 素材 D&D（assets/testsrc2-10s.mp4 を帯へ）",
+      "status": "ok",
+      "dispatch": {
+        "x": 828.4140625,
+        "y": 928.046875,
+        "typesSeen": [
+          "application/x-akari-material"
+        ],
+        "dragoverPrevented": true,
+        "dropPrevented": true
+      },
+      "detail": {
+        "before": {
+          "mounted": 200,
+          "byKind": {
+            "layer": 33,
+            "audio": 33,
+            "cut": 134
+          }
+        },
+        "after": {
+          "mounted": 201,
+          "byKind": {
+            "layer": 33,
+            "audio": 33,
+            "cut": 135
+          }
+        }
+      },
+      "elapsedMs": 2733
+    },
+    {
+      "step": "10 undo（⌘Z）",
+      "status": "ok",
+      "editJsonBytes": {
+        "before": 21220,
+        "after": 21120
+      },
+      "detail": {
+        "mountedBefore": 201,
+        "mountedAfter": 200,
+        "editChanged": true
+      },
+      "elapsedMs": 2938
+    },
+    {
+      "step": "11 折りたたみトグル（data-akari-tree-toggle）",
+      "status": "ok",
+      "note": "no expandable tree row in this fixture",
+      "detail": {
+        "skipped": true,
+        "reason": "data-akari-tree-toggle with children not present"
+      },
+      "elapsedMs": 28
+    },
+    {
+      "step": "12 選択・スクロール保持の確認",
+      "status": "ok",
+      "detail": {
+        "selectionBeforePan": [],
+        "selectionAfterPan": [],
+        "selectionPreserved": true,
+        "scrollTopBeforePan": 80,
+        "scrollTopAfterPan": 80,
+        "scrollPreserved": true,
+        "mountedBefore": 200,
+        "mountedAfter": 200
+      },
+      "elapsedMs": 2353
+    },
+    {
+      "step": "13 実 DOM の data-akari-* 属性集合",
+      "status": "ok",
+      "detail": [
+        "data-akari-item-id",
+        "data-akari-item-kind",
+        "data-akari-kind",
+        "data-akari-lane",
+        "data-akari-notice-close",
+        "data-akari-notice-text",
+        "data-akari-source-id",
+        "data-akari-timeline-notice",
+        "data-akari-timeline-track-id",
+        "data-akari-track",
+        "data-akari-tree-row-id",
+        "data-akari-tree-toggle",
+        "data-akari-tree-track",
+        "data-akari-ui",
+        "data-akari-ui-label"
+      ],
+      "elapsedMs": 175
+    }
+  ],
+  "identity": {
+    "initialMounted": 200,
+    "survivedWithSameNode": 11,
+    "brokenIdentityCount": 0,
+    "brokenIdentitySample": [],
+    "remountedAfterLeavingRange": 189,
+    "mutationAddedItemNodes": 1419,
+    "mutationRemovedItemNodes": 1419,
+    "distinctAddedKeys": 189,
+    "distinctRemovedKeys": 189,
+    "mediaNodesNow": 0,
+    "mediaNodesReused": 0,
+    "mediaNodesRecreated": 0
+  },
+  "notes": [],
+  "electronPid": 6694,
+  "stripRect": {
+    "x": 823.4140625,
+    "y": 978.1015625,
+    "left": 355.9140625,
+    "top": 778.1015625,
+    "w": 935,
+    "h": 4048
+  },
+  "finishedAt": "2026-08-31T13:40:12.771Z",
+  "loadAverageAtEnd": [
+    22.43408203125,
+    49.0673828125,
+    43.9677734375
+  ]
+}
