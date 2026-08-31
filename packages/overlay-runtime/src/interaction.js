@@ -360,67 +360,10 @@ window.akari.interaction = (() => {
     }
   }
 
-  // ㉑ 素通し: コンテナ（[data-overlay-id]、mount() が inset:0 で全画面付与）は
-  // pointer-events:none としつつ、clip-path で「可視コンテンツの実寸 bbox」へ
-  // 視覚クリップも合わせる。clip-path の inset() はコンテナ自身の
-  // ローカル（transform 適用前）ボックスに対する割合として解決されるため、コンテナに
-  // 掛かる translate/scale/rotate（ここでは非回転のみ対応）は clip 領域にも均一に
-  // 適用される。したがって「現在（transform 適用後）のクライアント矩形」同士の比で
-  // 割合を求めれば、transform を打ち消して測り直さなくても正しい割合が得られる
-  // （非回転の平行移動+一様拡縮は比を保存するため）。回転が乗っている場合は
-  // 軸並行 bbox の比が単純な割合にならないため clip を諦め、フルコンテナのまま返す
-  // （現行 UI に回転ハンドルは無く到達しない分岐）。断片ルート自身が bbox 外へ
-  // 背景等を描画する場合も、その画素を消さないよう視覚クリップを諦める。
-  // 断片ルート自身が背景・枠・影・置換要素・直接テキストを描いていて、その border box が
-  // コンテンツ bbox の外まで伸びている場合、bbox で clip-path を掛けるとルートが描いた画素
-  // （全画面背景など）を消してしまう（公開 issue #36）。ヒットの素通しは
-  // applyOverlayHitPolicy の pointer-events（全画面ルートは none のまま）で足りるため、
-  // この場合は視覚クリップを諦める。
-  function fragmentRootPaintsOutside(container, contentRect) {
-    const root = fragmentRoot(container);
-    if (!root) return false;
-    const rect = root.getBoundingClientRect();
-    if (!(rect.width > 0) || !(rect.height > 0)) return false;
-    if (!drawsOwnContent(root, getComputedStyle(root))) return false;
-    const tolerance = 0.5;
-    return (
-      rect.left < contentRect.left - tolerance ||
-      rect.top < contentRect.top - tolerance ||
-      rect.right > contentRect.right + tolerance ||
-      rect.bottom > contentRect.bottom + tolerance
-    );
-  }
-
-  function computeHitClipPath(container) {
-    const transform = readTransform(container);
-    const normalizedRotate = ((transform.rotate % 360) + 360) % 360;
-    if (normalizedRotate > 0.01 && normalizedRotate < 359.99) return null;
-
-    const containerRect = container.getBoundingClientRect();
-    if (!(containerRect.width > 0) || !(containerRect.height > 0)) return null;
-
-    const contentRect = fragmentBounds(container);
-    if (!contentRect) return null;
-    if (fragmentRootPaintsOutside(container, contentRect)) return null;
-
-    const top = ((contentRect.top - containerRect.top) / containerRect.height) * 100;
-    const right = ((containerRect.right - contentRect.right) / containerRect.width) * 100;
-    const bottom = ((containerRect.bottom - contentRect.bottom) / containerRect.height) * 100;
-    const left = ((contentRect.left - containerRect.left) / containerRect.width) * 100;
-    if (![top, right, bottom, left].every(Number.isFinite)) return null;
-
-    return `inset(${top}% ${right}% ${bottom}% ${left}%)`;
-  }
-
-  // mount 直後や表示区間へ入った直後（overlay-runtime.js tick()）、および断片 HTML
-  // が変わり得るタイミング（テキスト編集確定）に呼ぶ。ドラッグ/拡縮そのものは
-  // transform-invariant な割合のため、その最中は呼び直さなくてよい（性能: 可視化・
-  // 内容変化のタイミングだけに限定する運用は overlay-runtime.js 側の既存方針と同じ）。
-  function syncOverlayHitRegion(container) {
-    if (!container) return;
-    const clipPath = computeHitClipPath(container);
-    container.style.clipPath = clipPath || "none";
-  }
+  // 旧ホストとの公開 API 互換のため呼び口は残す。当たり判定は
+  // applyOverlayHitPolicy() の pointer-events 規約だけで完結し、描画を切る
+  // clip-path は一切書かない。
+  function syncOverlayHitRegion() {}
 
   function outputSize() {
     const output = window.akari.state?.summary?.output;
@@ -1616,9 +1559,7 @@ window.akari.interaction = (() => {
 
     if (blur && document.activeElement === edit.element) edit.element.blur();
 
-    // テキスト編集で断片内容の実寸が変わり得るため、当たり判定（clip-path）を
-    // 最新の bbox に合わせ直す（refreshSelectionFrame は毎フレーム再計算されるが、
-    // clip-path は内容変化時のみの明示同期が必要）。
+    // テキスト編集で描画要素が変わり得るため、pointer-events 規約を適用し直す。
     invalidateOverlayHitPolicy(edit.container);
     applyOverlayHitPolicy(edit.container);
     syncOverlayHitRegion(edit.container);

@@ -190,7 +190,7 @@ test("全画面断片ルートの背景を子要素 bbox でクリップしな�
     };
   }, FULL_FRAME_FRAGMENT);
 
-  assert.equal(result.clipPath, "none");
+  assert.equal(result.clipPath, "");
   const pixels = await screenshotPixels(page, result.corners);
   for (const [index, pixel] of pixels.entries()) {
     const maximumChannelDifference = Math.max(
