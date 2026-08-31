@@ -1,0 +1,1379 @@
+{
+  "status": "completed",
+  "fixture": "real-media",
+  "label": "before",
+  "startedAt": "2026-08-31T23:28:21.763Z",
+  "loadAverageAtStart": [
+    18.12744140625,
+    18.41796875,
+    18.66259765625
+  ],
+  "shell": "/Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell",
+  "panSteps": 20,
+  "zoomNotches": 5,
+  "steps": [
+    {
+      "step": "00 タイムラインを開く（実素材プロジェクト）",
+      "status": "ok",
+      "open": {
+        "attempts": 1,
+        "mountedItems": 18
+      },
+      "treeRows": {
+        "count": 12,
+        "treeRowCount": 6,
+        "captionRowCount": 6,
+        "rows": [
+          {
+            "id": "intro#title",
+            "kind": "part",
+            "parent": "intro",
+            "track": "v-parts",
+            "ticks": 0
+          },
+          {
+            "id": "intro#logo",
+            "kind": "part",
+            "parent": "intro",
+            "track": "v-parts",
+            "ticks": 0
+          },
+          {
+            "id": "intro#body",
+            "kind": "part",
+            "parent": "intro",
+            "track": "v-parts",
+            "ticks": 0
+          },
+          {
+            "id": "g-deco",
+            "kind": "group",
+            "parent": "",
+            "track": "v-deco",
+            "ticks": 0
+          },
+          {
+            "id": "g-title",
+            "kind": "telop",
+            "parent": "g-deco",
+            "track": "v-deco",
+            "ticks": 0
+          },
+          {
+            "id": "g-badge",
+            "kind": "item",
+            "parent": "g-deco",
+            "track": "v-deco",
+            "ticks": 0
+          },
+          {
+            "id": "caps#c-0001",
+            "kind": "caption",
+            "parent": "caps",
+            "track": "",
+            "ticks": 0
+          },
+          {
+            "id": "caps#c-0002",
+            "kind": "caption",
+            "parent": "caps",
+            "track": "",
+            "ticks": 0
+          },
+          {
+            "id": "caps#c-0003",
+            "kind": "caption",
+            "parent": "caps",
+            "track": "",
+            "ticks": 0
+          },
+          {
+            "id": "caps#c-0004",
+            "kind": "caption",
+            "parent": "caps",
+            "track": "",
+            "ticks": 0
+          },
+          {
+            "id": "caps#c-0005",
+            "kind": "caption",
+            "parent": "caps",
+            "track": "",
+            "ticks": 0
+          },
+          {
+            "id": "caps#c-0006",
+            "kind": "caption",
+            "parent": "caps",
+            "track": "",
+            "ticks": 0
+          }
+        ],
+        "headerToggleIds": [
+          "g-deco",
+          "g-title",
+          "g-badge",
+          "intro",
+          "intro#title",
+          "intro#logo",
+          "intro#body",
+          "telop-chapter",
+          "pip-b",
+          "caps",
+          "cut-a",
+          "cut-b"
+        ]
+      },
+      "detail": {
+        "mounted": 18,
+        "byKind": {
+          "item": 6,
+          "caption": 6,
+          "overlay": 1,
+          "layer": 2,
+          "audio": 1,
+          "cut": 2
+        },
+        "selected": [],
+        "treeRows": [
+          "g-badge",
+          "g-deco",
+          "g-title",
+          "intro#body",
+          "intro#logo",
+          "intro#title"
+        ],
+        "scrollTop": 0,
+        "imgs": 0,
+        "canvases": 2,
+        "filmstrips": 2,
+        "filmstripCells": 24,
+        "stripChildren": 26
+      },
+      "elapsedMs": 12886
+    },
+    {
+      "step": "01 ズームして実素材のサムネ・波形を出す（cache 温め）",
+      "status": "ok",
+      "beforeZoom": {
+        "stripWidth": 935,
+        "clips": [
+          {
+            "id": "0",
+            "title": "C1",
+            "leftRelStrip": 1,
+            "width": 462.64,
+            "rightRelStrip": 463.64,
+            "clippedLeft": true,
+            "clippedRight": false,
+            "cells": 13,
+            "firstCellLeftRelClip": 1,
+            "firstCellStyleLeft": "0px",
+            "lastCellRightRelClip": 469,
+            "canvases": 1,
+            "canvasWidthAttr": 463,
+            "canvasStyleWidth": "463px",
+            "imgs": 0,
+            "backgroundImage": ""
+          },
+          {
+            "id": "1",
+            "title": "C2",
+            "leftRelStrip": 463.64,
+            "width": 385.53,
+            "rightRelStrip": 849.17,
+            "clippedLeft": false,
+            "clippedRight": false,
+            "cells": 11,
+            "firstCellLeftRelClip": 1,
+            "firstCellStyleLeft": "0px",
+            "lastCellRightRelClip": 397,
+            "canvases": 1,
+            "canvasWidthAttr": 386,
+            "canvasStyleWidth": "386px",
+            "imgs": 0,
+            "backgroundImage": ""
+          }
+        ],
+        "totals": {
+          "cells": 24,
+          "filmstrips": 2,
+          "canvases": 2,
+          "imgs": 0
+        }
+      },
+      "warmup": [
+        {
+          "poll": 0,
+          "cells": 27,
+          "canvases": 2,
+          "imgs": 0,
+          "stable": 0
+        },
+        {
+          "poll": 5,
+          "cells": 27,
+          "canvases": 2,
+          "imgs": 0,
+          "stable": 5
+        },
+        {
+          "poll": 6,
+          "cells": 27,
+          "canvases": 2,
+          "imgs": 0,
+          "stable": 6
+        }
+      ],
+      "afterZoom": {
+        "stripWidth": 935,
+        "clips": [
+          {
+            "id": "0",
+            "title": "C1",
+            "leftRelStrip": 1,
+            "width": 439.95,
+            "rightRelStrip": 440.95,
+            "clippedLeft": true,
+            "clippedRight": false,
+            "cells": 13,
+            "firstCellLeftRelClip": -12.26,
+            "firstCellStyleLeft": "-13.26px",
+            "lastCellRightRelClip": 455.73,
+            "canvases": 1,
+            "canvasWidthAttr": 440,
+            "canvasStyleWidth": "440px",
+            "imgs": 0,
+            "backgroundImage": ""
+          },
+          {
+            "id": "1",
+            "title": "C2",
+            "leftRelStrip": 440.95,
+            "width": 493.05,
+            "rightRelStrip": 933.99,
+            "clippedLeft": false,
+            "clippedRight": false,
+            "cells": 14,
+            "firstCellLeftRelClip": 1,
+            "firstCellStyleLeft": "0px",
+            "lastCellRightRelClip": 505,
+            "canvases": 1,
+            "canvasWidthAttr": 493,
+            "canvasStyleWidth": "493px",
+            "imgs": 0,
+            "backgroundImage": ""
+          }
+        ],
+        "totals": {
+          "cells": 27,
+          "filmstrips": 2,
+          "canvases": 2,
+          "imgs": 0
+        }
+      },
+      "detail": {
+        "cells": 27,
+        "canvases": 2,
+        "imgs": 0,
+        "filmstrips": 2,
+        "clipsWithMedia": 2
+      },
+      "elapsedMs": 5172
+    },
+    {
+      "step": "02 メディアノードへ計器を仕掛ける",
+      "status": "ok",
+      "detail": {
+        "taggedMediaNodes": 31,
+        "taggedItemNodes": 8,
+        "clipsAtArm": 2
+      },
+      "elapsedMs": 2
+    },
+    {
+      "step": "03 パン 20 回（実素材・cache 温）",
+      "status": "ok",
+      "samples": [
+        {
+          "pan": 0,
+          "stripWidth": 935,
+          "clips": [
+            {
+              "id": "0",
+              "title": "C1",
+              "leftRelStrip": 1,
+              "width": 439.95,
+              "rightRelStrip": 440.95,
+              "clippedLeft": true,
+              "clippedRight": false,
+              "cells": 13,
+              "firstCellLeftRelClip": -12.26,
+              "firstCellStyleLeft": "-13.26px",
+              "lastCellRightRelClip": 455.73,
+              "canvases": 1,
+              "canvasWidthAttr": 440,
+              "canvasStyleWidth": "440px",
+              "imgs": 0,
+              "backgroundImage": ""
+            },
+            {
+              "id": "1",
+              "title": "C2",
+              "leftRelStrip": 440.95,
+              "width": 493.05,
+              "rightRelStrip": 933.99,
+              "clippedLeft": false,
+              "clippedRight": false,
+              "cells": 14,
+              "firstCellLeftRelClip": 1,
+              "firstCellStyleLeft": "0px",
+              "lastCellRightRelClip": 505,
+              "canvases": 1,
+              "canvasWidthAttr": 493,
+              "canvasStyleWidth": "493px",
+              "imgs": 0,
+              "backgroundImage": ""
+            }
+          ],
+          "totals": {
+            "cells": 27,
+            "filmstrips": 2,
+            "canvases": 2,
+            "imgs": 0
+          }
+        },
+        {
+          "pan": 5,
+          "stripWidth": 935,
+          "clips": [
+            {
+              "id": "0",
+              "title": "C1",
+              "leftRelStrip": 1,
+              "width": 240.38,
+              "rightRelStrip": 241.38,
+              "clippedLeft": true,
+              "clippedRight": false,
+              "cells": 8,
+              "firstCellLeftRelClip": -31.83,
+              "firstCellStyleLeft": "-32.8322px",
+              "lastCellRightRelClip": 256.16,
+              "canvases": 1,
+              "canvasWidthAttr": 240,
+              "canvasStyleWidth": "240px",
+              "imgs": 0,
+              "backgroundImage": ""
+            },
+            {
+              "id": "1",
+              "title": "C2",
+              "leftRelStrip": 241.38,
+              "width": 692.62,
+              "rightRelStrip": 933.99,
+              "clippedLeft": false,
+              "clippedRight": false,
+              "cells": 20,
+              "firstCellLeftRelClip": 1,
+              "firstCellStyleLeft": "0px",
+              "lastCellRightRelClip": 721,
+              "canvases": 1,
+              "canvasWidthAttr": 693,
+              "canvasStyleWidth": "693px",
+              "imgs": 0,
+              "backgroundImage": ""
+            }
+          ],
+          "totals": {
+            "cells": 28,
+            "filmstrips": 2,
+            "canvases": 2,
+            "imgs": 0
+          }
+        },
+        {
+          "pan": 10,
+          "stripWidth": 935,
+          "clips": [
+            {
+              "id": "0",
+              "title": "C1",
+              "leftRelStrip": 1,
+              "width": 40.8,
+              "rightRelStrip": 41.8,
+              "clippedLeft": true,
+              "clippedRight": false,
+              "cells": 2,
+              "firstCellLeftRelClip": -15.4,
+              "firstCellStyleLeft": "-16.4044px",
+              "lastCellRightRelClip": 56.59,
+              "canvases": 1,
+              "canvasWidthAttr": 41,
+              "canvasStyleWidth": "41px",
+              "imgs": 0,
+              "backgroundImage": ""
+            },
+            {
+              "id": "1",
+              "title": "C2",
+              "leftRelStrip": 41.8,
+              "width": 892.2,
+              "rightRelStrip": 933.99,
+              "clippedLeft": false,
+              "clippedRight": false,
+              "cells": 25,
+              "firstCellLeftRelClip": 1,
+              "firstCellStyleLeft": "0px",
+              "lastCellRightRelClip": 901,
+              "canvases": 1,
+              "canvasWidthAttr": 892,
+              "canvasStyleWidth": "892px",
+              "imgs": 0,
+              "backgroundImage": ""
+            }
+          ],
+          "totals": {
+            "cells": 27,
+            "filmstrips": 2,
+            "canvases": 2,
+            "imgs": 0
+          }
+        },
+        {
+          "pan": 15,
+          "stripWidth": 935,
+          "clips": [
+            {
+              "id": "1",
+              "title": "C2",
+              "leftRelStrip": 1,
+              "width": 933,
+              "rightRelStrip": 934,
+              "clippedLeft": true,
+              "clippedRight": true,
+              "cells": 27,
+              "firstCellLeftRelClip": -13.77,
+              "firstCellStyleLeft": "-14.7689px",
+              "lastCellRightRelClip": 958.23,
+              "canvases": 1,
+              "canvasWidthAttr": 933,
+              "canvasStyleWidth": "933px",
+              "imgs": 0,
+              "backgroundImage": ""
+            }
+          ],
+          "totals": {
+            "cells": 27,
+            "filmstrips": 1,
+            "canvases": 1,
+            "imgs": 0
+          }
+        },
+        {
+          "pan": 20,
+          "stripWidth": 935,
+          "clips": [
+            {
+              "id": "1",
+              "title": "C2",
+              "leftRelStrip": 1,
+              "width": 933,
+              "rightRelStrip": 934,
+              "clippedLeft": true,
+              "clippedRight": true,
+              "cells": 27,
+              "firstCellLeftRelClip": -33.34,
+              "firstCellStyleLeft": "-34.3411px",
+              "lastCellRightRelClip": 938.66,
+              "canvases": 1,
+              "canvasWidthAttr": 933,
+              "canvasStyleWidth": "933px",
+              "imgs": 0,
+              "backgroundImage": ""
+            }
+          ],
+          "totals": {
+            "cells": 27,
+            "filmstrips": 1,
+            "canvases": 1,
+            "imgs": 0
+          }
+        }
+      ],
+      "after": {
+        "mounted": 4,
+        "byKind": {
+          "caption": 2,
+          "audio": 1,
+          "cut": 1
+        },
+        "selected": [],
+        "treeRows": [],
+        "scrollTop": 0,
+        "imgs": 0,
+        "canvases": 1,
+        "filmstrips": 1,
+        "filmstripCells": 27,
+        "stripChildren": 11
+      },
+      "detail": {
+        "panSteps": 20,
+        "samplesTaken": 5
+      },
+      "elapsedMs": 4222
+    },
+    {
+      "step": "04 サムネ・波形ノードの identity を判定",
+      "status": "ok",
+      "detail": {
+        "mediaNodesAtArm": 31,
+        "mediaNodesNow": 29,
+        "mediaNodesReused": 0,
+        "mediaNodesRecreated": 29,
+        "canvasNow": 1,
+        "canvasReused": 0,
+        "canvasRecreated": 1,
+        "filmstripCellNow": 27,
+        "filmstripCellReused": 0,
+        "filmstripCellRecreated": 27,
+        "imgNow": 0,
+        "imgReused": 0,
+        "imgRecreated": 0,
+        "mutationAddedMediaNodes": 602,
+        "mutationRemovedMediaNodes": 604,
+        "mutationAddedMediaThatWereExisting": 0,
+        "mutationAddedMediaThatWereNew": 602,
+        "mutationAddedItemNodes": 105,
+        "mutationRemovedItemNodes": 109,
+        "itemNodesNow": 4,
+        "itemNodesReused": 0,
+        "perClip": {
+          "1": {
+            "mediaNow": 29,
+            "mediaAtArm": 16,
+            "reused": 0,
+            "fresh": 29,
+            "sameTagSet": false,
+            "clipNodeReused": false,
+            "canvasReused": false
+          }
+        }
+      },
+      "elapsedMs": 1
+    },
+    {
+      "step": "05 パン中のメディア幾何の追従",
+      "status": "ok",
+      "tracked": [
+        {
+          "id": "1",
+          "title": "C2",
+          "clippedLeft": {
+            "start": false,
+            "end": true
+          },
+          "clipLeftShift": -439.95,
+          "clipRightShift": 0.01,
+          "clipWidth": {
+            "start": 493.05,
+            "end": 933
+          },
+          "firstCellLeftRelClip": {
+            "start": 1,
+            "end": -33.34
+          },
+          "cellShiftInsideClip": -34.34,
+          "canvasWidthAttr": {
+            "start": 493,
+            "end": 933
+          }
+        }
+      ],
+      "violations": [],
+      "detail": {
+        "samples": 5,
+        "clipsWithMediaTracked": 1,
+        "geometryViolations": 0,
+        "violatingClipIds": [],
+        "verdict": "media-follows-geometry"
+      },
+      "elapsedMs": 0
+    },
+    {
+      "step": "06 折りたたみトグル 開閉 → 子行の mount/unmount → 再度パン",
+      "status": "ok",
+      "census": {
+        "total": 12,
+        "withGlyph": 3,
+        "enabled": 3,
+        "visible": 3,
+        "rows": [
+          {
+            "id": "g-deco",
+            "glyph": "▾",
+            "disabled": false,
+            "x": 233,
+            "y": 791,
+            "w": 16,
+            "h": 17
+          },
+          {
+            "id": "g-title",
+            "glyph": "",
+            "disabled": true,
+            "x": 249,
+            "y": 815,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "g-badge",
+            "glyph": "",
+            "disabled": true,
+            "x": 249,
+            "y": 839,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "intro",
+            "glyph": "▾",
+            "disabled": false,
+            "x": 233,
+            "y": 865,
+            "w": 16,
+            "h": 17
+          },
+          {
+            "id": "intro#title",
+            "glyph": "",
+            "disabled": true,
+            "x": 249,
+            "y": 889,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "intro#logo",
+            "glyph": "",
+            "disabled": true,
+            "x": 249,
+            "y": 913,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "intro#body",
+            "glyph": "",
+            "disabled": true,
+            "x": 249,
+            "y": 937,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "telop-chapter",
+            "glyph": "",
+            "disabled": true,
+            "x": 233,
+            "y": 963,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "pip-b",
+            "glyph": "",
+            "disabled": true,
+            "x": 233,
+            "y": 989,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "caps",
+            "glyph": "▾",
+            "disabled": false,
+            "x": 233,
+            "y": 1015,
+            "w": 16,
+            "h": 17
+          },
+          {
+            "id": "cut-a",
+            "glyph": "",
+            "disabled": true,
+            "x": 233,
+            "y": 1041,
+            "w": 16,
+            "h": 0
+          },
+          {
+            "id": "cut-b",
+            "glyph": "",
+            "disabled": true,
+            "x": 233,
+            "y": 1065,
+            "w": 16,
+            "h": 0
+          }
+        ]
+      },
+      "rowsAtHome": {
+        "count": 7,
+        "treeRowCount": 6,
+        "captionRowCount": 1,
+        "rows": [
+          {
+            "id": "intro#title",
+            "kind": "part",
+            "parent": "intro",
+            "track": "v-parts",
+            "ticks": 0
+          },
+          {
+            "id": "intro#logo",
+            "kind": "part",
+            "parent": "intro",
+            "track": "v-parts",
+            "ticks": 0
+          },
+          {
+            "id": "intro#body",
+            "kind": "part",
+            "parent": "intro",
+            "track": "v-parts",
+            "ticks": 0
+          },
+          {
+            "id": "g-deco",
+            "kind": "group",
+            "parent": "",
+            "track": "v-deco",
+            "ticks": 0
+          },
+          {
+            "id": "g-title",
+            "kind": "telop",
+            "parent": "g-deco",
+            "track": "v-deco",
+            "ticks": 0
+          },
+          {
+            "id": "g-badge",
+            "kind": "item",
+            "parent": "g-deco",
+            "track": "v-deco",
+            "ticks": 0
+          },
+          {
+            "id": "caps#c-0003",
+            "kind": "caption",
+            "parent": "caps",
+            "track": "",
+            "ticks": 0
+          }
+        ],
+        "headerToggleIds": [
+          "g-deco",
+          "g-title",
+          "g-badge",
+          "intro",
+          "intro#title",
+          "intro#logo",
+          "intro#body",
+          "telop-chapter",
+          "pip-b",
+          "caps",
+          "cut-a",
+          "cut-b"
+        ]
+      },
+      "candidates": [
+        "g-deco",
+        "intro",
+        "caps"
+      ],
+      "detail": {
+        "candidates": [
+          "g-deco",
+          "intro",
+          "caps"
+        ],
+        "perToggleGreen": [
+          {
+            "id": "g-deco",
+            "checks": {
+              "hadChildRowsMounted": true,
+              "clicksLanded": true,
+              "glyphToggles": true,
+              "childRowsUnmountedOnCollapse": true,
+              "childRowsRemountedOnExpand": true,
+              "rowSetRestoredOnExpand": true
+            }
+          },
+          {
+            "id": "intro",
+            "checks": {
+              "hadChildRowsMounted": true,
+              "clicksLanded": true,
+              "glyphToggles": true,
+              "childRowsUnmountedOnCollapse": true,
+              "childRowsRemountedOnExpand": true,
+              "rowSetRestoredOnExpand": true
+            }
+          },
+          {
+            "id": "caps",
+            "checks": {
+              "hadChildRowsMounted": true,
+              "clicksLanded": true,
+              "glyphToggles": true,
+              "childRowsUnmountedOnCollapse": true,
+              "childRowsRemountedOnExpand": true,
+              "rowSetRestoredOnExpand": true
+            }
+          }
+        ],
+        "walkthroughChecks": {
+          "clicksLanded": true,
+          "collapsedRowSetSurvivesPan": true,
+          "expandedRowSetSurvivesPan": true,
+          "expandedRowSetMatchesStart": true,
+          "childRowsBackAfterPan": true,
+          "stripAliveThroughout": true
+        },
+        "allGreen": true
+      },
+      "elapsedMs": 18361
+    },
+    {
+      "step": "07 通し後の帯の状態",
+      "status": "ok",
+      "snapshot": {
+        "mounted": 12,
+        "byKind": {
+          "item": 6,
+          "caption": 1,
+          "overlay": 1,
+          "layer": 1,
+          "audio": 1,
+          "cut": 2
+        },
+        "selected": [],
+        "treeRows": [
+          "g-badge",
+          "g-deco",
+          "g-title",
+          "intro#body",
+          "intro#logo",
+          "intro#title"
+        ],
+        "scrollTop": 0,
+        "imgs": 0,
+        "canvases": 2,
+        "filmstrips": 2,
+        "filmstripCells": 27,
+        "stripChildren": 20
+      },
+      "media": {
+        "stripWidth": 935,
+        "clips": [
+          {
+            "id": "0",
+            "title": "C1",
+            "leftRelStrip": 1,
+            "width": 839.09,
+            "rightRelStrip": 840.09,
+            "clippedLeft": true,
+            "clippedRight": false,
+            "cells": 24,
+            "firstCellLeftRelClip": -9.11,
+            "firstCellStyleLeft": "-10.1156px",
+            "lastCellRightRelClip": 854.88,
+            "canvases": 1,
+            "canvasWidthAttr": 839,
+            "canvasStyleWidth": "839px",
+            "imgs": 0,
+            "backgroundImage": ""
+          },
+          {
+            "id": "1",
+            "title": "C2",
+            "leftRelStrip": 840.09,
+            "width": 93.91,
+            "rightRelStrip": 933.99,
+            "clippedLeft": false,
+            "clippedRight": false,
+            "cells": 3,
+            "firstCellLeftRelClip": 1,
+            "firstCellStyleLeft": "0px",
+            "lastCellRightRelClip": 109,
+            "canvases": 1,
+            "canvasWidthAttr": 94,
+            "canvasStyleWidth": "94px",
+            "imgs": 0,
+            "backgroundImage": ""
+          }
+        ],
+        "totals": {
+          "cells": 27,
+          "filmstrips": 2,
+          "canvases": 2,
+          "imgs": 0
+        }
+      },
+      "detail": {
+        "attributes": [
+          "data-akari-aggregate-keyframe-filled",
+          "data-akari-aggregate-keyframe-t",
+          "data-akari-item-id",
+          "data-akari-item-kind",
+          "data-akari-kind",
+          "data-akari-lane",
+          "data-akari-notice-close",
+          "data-akari-notice-text",
+          "data-akari-resize",
+          "data-akari-source-id",
+          "data-akari-timeline-notice",
+          "data-akari-timeline-track-id",
+          "data-akari-toggle",
+          "data-akari-track",
+          "data-akari-transition-boundary",
+          "data-akari-tree-item-kind",
+          "data-akari-tree-parent-id",
+          "data-akari-tree-row-id",
+          "data-akari-tree-toggle",
+          "data-akari-tree-track",
+          "data-akari-tree-track-id",
+          "data-akari-ui",
+          "data-akari-ui-label"
+        ],
+        "count": 23
+      },
+      "elapsedMs": 3
+    }
+  ],
+  "mediaIdentity": {
+    "mediaNodesAtArm": 31,
+    "mediaNodesNow": 29,
+    "mediaNodesReused": 0,
+    "mediaNodesRecreated": 29,
+    "canvasNow": 1,
+    "canvasReused": 0,
+    "canvasRecreated": 1,
+    "filmstripCellNow": 27,
+    "filmstripCellReused": 0,
+    "filmstripCellRecreated": 27,
+    "imgNow": 0,
+    "imgReused": 0,
+    "imgRecreated": 0,
+    "mutationAddedMediaNodes": 602,
+    "mutationRemovedMediaNodes": 604,
+    "mutationAddedMediaThatWereExisting": 0,
+    "mutationAddedMediaThatWereNew": 602,
+    "mutationAddedItemNodes": 105,
+    "mutationRemovedItemNodes": 109,
+    "itemNodesNow": 4,
+    "itemNodesReused": 0,
+    "perClip": {
+      "1": {
+        "mediaNow": 29,
+        "mediaAtArm": 16,
+        "reused": 0,
+        "fresh": 29,
+        "sameTagSet": false,
+        "clipNodeReused": false,
+        "canvasReused": false
+      }
+    }
+  },
+  "treeToggle": {
+    "candidates": [
+      "g-deco",
+      "intro",
+      "caps"
+    ],
+    "perToggle": [
+      {
+        "id": "g-deco",
+        "clicks": {
+          "collapse": {
+            "ok": true,
+            "attempts": 1,
+            "clickedAt": {
+              "x": 232.9140625,
+              "y": 791.1015625,
+              "glyph": "▾",
+              "disabled": false
+            }
+          },
+          "expand": {
+            "ok": true,
+            "attempts": 1,
+            "clickedAt": {
+              "x": 232.9140625,
+              "y": 799.1015625,
+              "glyph": "▸",
+              "disabled": false
+            }
+          }
+        },
+        "glyph": {
+          "collapsed": "▸",
+          "expanded": "▾"
+        },
+        "children": {
+          "before": [
+            "g-badge",
+            "g-title"
+          ],
+          "whileCollapsed": [],
+          "afterExpand": [
+            "g-badge",
+            "g-title"
+          ]
+        },
+        "rowCount": {
+          "before": 7,
+          "collapsed": 5,
+          "expanded": 7
+        },
+        "mounted": {
+          "before": 12,
+          "collapsed": 10,
+          "expanded": 12
+        },
+        "ticksOnCollapsedParent": 2,
+        "checks": {
+          "hadChildRowsMounted": true,
+          "clicksLanded": true,
+          "glyphToggles": true,
+          "childRowsUnmountedOnCollapse": true,
+          "childRowsRemountedOnExpand": true,
+          "rowSetRestoredOnExpand": true
+        },
+        "observations": {
+          "parentRowMountedWhileCollapsed": true,
+          "ticksOnCollapsedParent": 2
+        }
+      },
+      {
+        "id": "intro",
+        "clicks": {
+          "collapse": {
+            "ok": true,
+            "attempts": 1,
+            "clickedAt": {
+              "x": 232.9140625,
+              "y": 865.1015625,
+              "glyph": "▾",
+              "disabled": false
+            }
+          },
+          "expand": {
+            "ok": true,
+            "attempts": 1,
+            "clickedAt": {
+              "x": 232.9140625,
+              "y": 885.1015625,
+              "glyph": "▸",
+              "disabled": false
+            }
+          }
+        },
+        "glyph": {
+          "collapsed": "▸",
+          "expanded": "▾"
+        },
+        "children": {
+          "before": [
+            "intro#body",
+            "intro#logo",
+            "intro#title"
+          ],
+          "whileCollapsed": [],
+          "afterExpand": [
+            "intro#body",
+            "intro#logo",
+            "intro#title"
+          ]
+        },
+        "rowCount": {
+          "before": 7,
+          "collapsed": 4,
+          "expanded": 7
+        },
+        "mounted": {
+          "before": 12,
+          "collapsed": 9,
+          "expanded": 12
+        },
+        "ticksOnCollapsedParent": null,
+        "checks": {
+          "hadChildRowsMounted": true,
+          "clicksLanded": true,
+          "glyphToggles": true,
+          "childRowsUnmountedOnCollapse": true,
+          "childRowsRemountedOnExpand": true,
+          "rowSetRestoredOnExpand": true
+        },
+        "observations": {
+          "parentRowMountedWhileCollapsed": false,
+          "ticksOnCollapsedParent": null
+        }
+      },
+      {
+        "id": "caps",
+        "clicks": {
+          "collapse": {
+            "ok": true,
+            "attempts": 1,
+            "clickedAt": {
+              "x": 232.9140625,
+              "y": 1015.1015625,
+              "glyph": "▾",
+              "disabled": false
+            }
+          },
+          "expand": {
+            "ok": true,
+            "attempts": 1,
+            "clickedAt": {
+              "x": 232.9140625,
+              "y": 1015.1015625,
+              "glyph": "▸",
+              "disabled": false
+            }
+          }
+        },
+        "glyph": {
+          "collapsed": "▸",
+          "expanded": "▾"
+        },
+        "children": {
+          "before": [
+            "caps#c-0003"
+          ],
+          "whileCollapsed": [],
+          "afterExpand": [
+            "caps#c-0003"
+          ]
+        },
+        "rowCount": {
+          "before": 7,
+          "collapsed": 6,
+          "expanded": 7
+        },
+        "mounted": {
+          "before": 12,
+          "collapsed": 11,
+          "expanded": 12
+        },
+        "ticksOnCollapsedParent": null,
+        "checks": {
+          "hadChildRowsMounted": true,
+          "clicksLanded": true,
+          "glyphToggles": true,
+          "childRowsUnmountedOnCollapse": true,
+          "childRowsRemountedOnExpand": true,
+          "rowSetRestoredOnExpand": true
+        },
+        "observations": {
+          "parentRowMountedWhileCollapsed": false,
+          "ticksOnCollapsedParent": null
+        }
+      }
+    ],
+    "walkthrough": {
+      "toggleId": "g-deco",
+      "rowIds": {
+        "expandedA": [
+          "caps#c-0003",
+          "g-badge",
+          "g-deco",
+          "g-title",
+          "intro#body",
+          "intro#logo",
+          "intro#title"
+        ],
+        "collapsedBeforePan": [
+          "caps#c-0003",
+          "g-deco",
+          "intro#body",
+          "intro#logo",
+          "intro#title"
+        ],
+        "collapsedAfterPan": [
+          "caps#c-0003",
+          "g-deco",
+          "intro#body",
+          "intro#logo",
+          "intro#title"
+        ],
+        "expandedBeforePan": [
+          "caps#c-0003",
+          "g-badge",
+          "g-deco",
+          "g-title",
+          "intro#body",
+          "intro#logo",
+          "intro#title"
+        ],
+        "expandedAfterPan": [
+          "caps#c-0003",
+          "g-badge",
+          "g-deco",
+          "g-title",
+          "intro#body",
+          "intro#logo",
+          "intro#title"
+        ]
+      },
+      "mounted": {
+        "collapsedPanned": 10,
+        "expandedPanned": 12
+      },
+      "clicks": {
+        "collapse": {
+          "ok": true,
+          "attempts": 1,
+          "clickedAt": {
+            "x": 232.9140625,
+            "y": 791.1015625,
+            "glyph": "▾",
+            "disabled": false
+          }
+        },
+        "expand": {
+          "ok": true,
+          "attempts": 1,
+          "clickedAt": {
+            "x": 232.9140625,
+            "y": 799.1015625,
+            "glyph": "▸",
+            "disabled": false
+          }
+        }
+      },
+      "checks": {
+        "clicksLanded": true,
+        "collapsedRowSetSurvivesPan": true,
+        "expandedRowSetSurvivesPan": true,
+        "expandedRowSetMatchesStart": true,
+        "childRowsBackAfterPan": true,
+        "stripAliveThroughout": true
+      }
+    },
+    "mediaIdentityAcrossToggle": {
+      "mediaNodesAtArm": 31,
+      "mediaNodesNow": 31,
+      "mediaNodesReused": 0,
+      "mediaNodesRecreated": 31,
+      "canvasNow": 2,
+      "canvasReused": 0,
+      "canvasRecreated": 2,
+      "filmstripCellNow": 27,
+      "filmstripCellReused": 0,
+      "filmstripCellRecreated": 27,
+      "imgNow": 0,
+      "imgReused": 0,
+      "imgRecreated": 0,
+      "mutationAddedMediaNodes": 3209,
+      "mutationRemovedMediaNodes": 3209,
+      "mutationAddedMediaThatWereExisting": 0,
+      "mutationAddedMediaThatWereNew": 3209,
+      "mutationAddedItemNodes": 867,
+      "mutationRemovedItemNodes": 863,
+      "itemNodesNow": 12,
+      "itemNodesReused": 0,
+      "perClip": {
+        "0": {
+          "mediaNow": 26,
+          "mediaAtArm": 15,
+          "reused": 0,
+          "fresh": 26,
+          "sameTagSet": false,
+          "clipNodeReused": false,
+          "canvasReused": false
+        },
+        "1": {
+          "mediaNow": 5,
+          "mediaAtArm": 16,
+          "reused": 0,
+          "fresh": 5,
+          "sameTagSet": false,
+          "clipNodeReused": false,
+          "canvasReused": false
+        }
+      }
+    },
+    "allGreen": true
+  },
+  "consoleErrors": [
+    {
+      "kind": "console.error",
+      "duringStep": "00 タイムラインを開く（実素材プロジェクト）",
+      "at": "2026-08-31T23:28:24.195Z",
+      "text": "RangeError: Maximum call stack size exceeded"
+    },
+    {
+      "kind": "console.error",
+      "duringStep": "00 タイムラインを開く（実素材プロジェクト）",
+      "at": "2026-08-31T23:28:24.196Z",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Fgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9700)\n "
+    },
+    {
+      "kind": "console.error",
+      "duringStep": "00 タイムラインを開く（実素材プロジェクト）",
+      "at": "2026-08-31T23:28:24.196Z",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Fgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9700)\n "
+    },
+    {
+      "kind": "console.error",
+      "duringStep": "00 タイムラインを開く（実素材プロジェクト）",
+      "at": "2026-08-31T23:28:24.197Z",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Fgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9700)\n "
+    },
+    {
+      "kind": "console.error",
+      "duringStep": "00 タイムラインを開く（実素材プロジェクト）",
+      "at": "2026-08-31T23:28:24.198Z",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Fgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9700)\n "
+    },
+    {
+      "kind": "console.error",
+      "duringStep": "00 タイムラインを開く（実素材プロジェクト）",
+      "at": "2026-08-31T23:28:24.199Z",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Fgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9700)\n "
+    },
+    {
+      "kind": "console.error",
+      "duringStep": "00 タイムラインを開く（実素材プロジェクト）",
+      "at": "2026-08-31T23:28:24.199Z",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Fgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:5:12899)\n    at $br (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Kbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9700)\n "
+    },
+    {
+      "kind": "exception",
+      "duringStep": "00 タイムラインを開く（実素材プロジェクト）",
+      "at": "2026-08-31T23:28:24.271Z",
+      "text": "RangeError: Maximum call stack size exceeded\n    at Hg.doInit (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:1709:1188558)\n    at Hg.init (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:1709:1188517)\n    at Nbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:7179)\n    at yvn (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:6992)\n    at jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:7763)\n    at Kbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9650)\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9869\n    at Ybr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9802)\n    at Xbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9850)\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell/lib/frontend/bundle.js:11:9111"
+    }
+  ],
+  "notes": [],
+  "project": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/fixtures/real-media",
+  "electronPid": 18402,
+  "stripRect": {
+    "x": 823.4140625,
+    "y": 945.1015625,
+    "left": 355.9140625,
+    "top": 778.1015625,
+    "w": 935,
+    "h": 334
+  },
+  "finishedAt": "2026-08-31T23:29:04.784Z",
+  "loadAverageAtEnd": [
+    16.9892578125,
+    18.1455078125,
+    18.55419921875
+  ]
+}
