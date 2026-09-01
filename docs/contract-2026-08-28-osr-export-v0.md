@@ -93,9 +93,15 @@ ffprobe timeoutは `max(120000, frames × 100)` msとする。尺、フレーム
 
 ## 8. メモリと長尺
 
-- GPU描画の警戒線: 768 MiB / export、hard stop: 1,024 MiB / export。
+- GPU描画の警戒線: 768 MiB / export、hard stop: 1,024 MiB / export（1080p 基準）。
 - ソフト描画（SwiftShader）は1080pで1.1 GiB台に達するため、警戒線1,536 MiB / hard stop 2,048 MiBの別枠を使う。
-- `AKARI_OSR_MEMORY_WARN_MIB` / `AKARI_OSR_MEMORY_HARD_STOP_MIB`で正の整数MiBへ上書きでき、適用値はwarning < hard stopを必須とする。
+- 出力ピクセル数が 1080p（1920×1080）を超えるときは既定値をその比で増やす（4K = 4 倍、MiB 切り上げ）。
+  ただしスケール後の hard stop は物理メモリの 50% を上限とし、超えるときは切り詰めて warning を hard stop の
+  75% に置く（`memory.machine_capped` を receipt に残す）。1080p 以下の既定値は機種に関係なく変えない
+  （2026-09-01 改訂。4K の係数は予測値で未較正 — 初回の実測 peak で較正する）。
+- `AKARI_OSR_MEMORY_WARN_MIB` / `AKARI_OSR_MEMORY_HARD_STOP_MIB`で正の整数MiBへ上書きでき（絶対値・スケールと上限を受けない）、
+  適用値はwarning < hard stopを必須とする。hard stop だけを上書きし既定 warning がそれ以上になるときは warning を hard stop の 75% に追従させる。
+  同じ変数を GPU 直結出口（gpu-export）も読む。
 - 並列予算1 worker = 1 GiBはGPU前提の値である。v0のworker数は1。
 - 10秒ごとにRSSを記録し、ウィンドウ破棄後も採る。
 - 固定Nコマごとのページ再生成は行わない。再生成を許すのはページ境界、renderer crash、watchdog回復時だけである。

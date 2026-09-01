@@ -42,7 +42,7 @@ export async function runOsrExport(options) {
   if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(frames) || frames <= 0) {
     throw new Error("OSR duration and frame count must be positive");
   }
-  const memoryBudget = resolveMemoryBudget({ soft, env: process.env });
+  const memoryBudget = resolveMemoryBudget({ soft, env: process.env, width, height });
 
   if (soft && !app.isReady()) app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("force-color-profile", "srgb");

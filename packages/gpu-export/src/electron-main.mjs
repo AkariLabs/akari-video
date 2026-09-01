@@ -90,7 +90,7 @@ export async function runGpuExport(options) {
     projectRoot,
     captionFontPath: findCaptionFontPath(),
   });
-  const memoryBudget = resolveMemoryBudget({ soft, env: process.env });
+  const memoryBudget = resolveMemoryBudget({ soft, env: process.env, width, height });
   let fatalMemoryError = null;
   const memoryWarnings = [];
   const memorySampler = createMemorySampler({
