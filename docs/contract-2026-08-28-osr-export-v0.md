@@ -246,7 +246,7 @@ RTX 上でも同型。更新後のインストール済みアプリ v0.1.32 の 
 - user-data-dir の使い回しは原因ではない（毎回新規でも失敗）。render-cut 経由（cut フェーズの後に起動）は通りやすいが同じ型で落ち得る。
 - 成功した走行の frameHashes / 出力は決定論（§9）。warm-up は出力に影響してはならない。
 
-裁定（実装 = `packages/osr-export/src/paint-bitmap.mjs` / `electron-main.mjs` / `receipt.mjs`）:
+裁定（実装 = `packages/osr-export/src/paint-bitmap.mjs` / `electron-main.mjs` / `receipt.mjs` / `index.mjs`）:
 
 1. **warm-up 段**: export / capture の両経路で `settleWindowViewport` の直後・frame 0 の seek の前に、`capturePaint` → `readPaintBitmap` を非空 bitmap が
    1 枚取れるまで繰り返す（間に `settle`）。予算 `OSR_WARM_UP_BUDGET_MS = 5000`。結果を run.json `warm_up: { attempts, empty_attempts, elapsed_ms, satisfied }`
@@ -258,8 +258,8 @@ RTX 上でも同型。更新後のインストール済みアプリ v0.1.32 の 
    run.json `gpu.devices` の active（`gpu-adapters.mjs` の `summarizeGpuAdapters`）から electron-main が文字列で渡す（`paint-bitmap.mjs` は electron 非依存のまま）。
 3. **記録**: `emptyPaints` の要素を `{ frame, attempts, elapsed_ms }` に拡張（既存 `attempts` の意味は不変・`elapsed_ms` は capture 呼び出しの開始からの経過で、
    同じ frame の stamp / hash 再試行は足し込む）。receipt（`buildOsrReceipt({ warmUp })`）に `warm_up`（snake_case・無ければ null）を載せる。
-   `exportWithOsr`（`index.mjs`）が run.json の `warm_up` を `buildOsrReceipt` へ渡す配線は本タスク（所有 = 上記 3 ファイル）の境界外で未実施 — 2026-09-02 時点の receipt は
-   `warm_up: null`・run.json / `.akari/osr-run.json` には入っている。
+   `exportWithOsr`（`index.mjs`）が run.json の `warm_up` を `buildOsrReceipt` へ渡し、`captureFramesWithOsr` の receipt（`provenance` ブロック無し）にも正規化した
+   `warm_up` キーを並べる（2026-09-02 r1・feedback-r1 で所有欄に `index.mjs` / `test/index.test.mjs` を追加）。render-cut の `.akari/render.json` では `provenance.osr.warm_up`。
 4. **決定論**: warm-up は seek 前に終わるので frameHashes / 出力に影響しない。受け入れで「warm-up の `empty_attempts > 0` の走行」と「`0` の走行」（無ければ同じ GPU の
    複数走行）の frameHashes 同一を要求する（§9）。iGPU ↔ dGPU の間は GPU 依存の丸め差で一致しない（下表 L1-e）ので比較は同じ GPU 内で行う。
 5. **時計は注入可能**（`now = () => performance.now()`）にして単体テストで進める。`settle` / `capture` も従来どおり注入。
@@ -271,7 +271,7 @@ RTX 上でも同型。更新後のインストール済みアプリ v0.1.32 の 
 | L1-a `exportWithOsr` 直接呼び 5 走 | 修正前（main 82bbcb99 と同じ paint 経路） | Intel UHD（auto） | **5/5 失敗**・`emptyPaints [{ frame: 0, attempts: 8 }]`・1.0〜1.3 s で終了（同日追加の直接呼び 12 走・render-cut 6 走も全敗） |
 | L1-b 直接呼び 10 走連続 | 修正後 | Intel UHD（auto） | **10/10 完走**・`warm_up` attempts 14〜16 / empty_attempts 13〜15 / elapsed_ms 461〜510 / satisfied・frame ループ `emptyPaints []`・所要 17.6〜23.5 s |
 | L1-c 直接呼び 5 走連続 | 修正後 | NVIDIA RTX 5060（`AKARI_EXPORT_GPU_PREFERENCE=force`） | **5/5 完走**・attempts 13〜15 / empty_attempts 12〜14 / elapsed_ms 399〜469・`emptyPaints []`・16.9〜19.7 s・実行後 HKCU 値なし |
-| L1-d render-cut `--engine osr` 3 走 | 修正後 | Intel UHD（auto） | **3/3** exit 0・所要 22 / 18 / 20 s・ffprobe 1280×720 / 30 fps / 300 コマ / 10.000 s・`.akari/osr-run.json` の `warm_up` empty_attempts 12〜13 / 418〜434 ms・`emptyPaints []`・receipt `provenance.osr.warm_up` は null（裁定 3 の配線が境界外） |
+| L1-d render-cut `--engine osr` 3 走 | 修正後 | Intel UHD（auto） | **3/3** exit 0・所要 22 / 18 / 20 s・ffprobe 1280×720 / 30 fps / 300 コマ / 10.000 s・`.akari/osr-run.json` の `warm_up` empty_attempts 12〜13 / 418〜434 ms・`emptyPaints []`・receipt `provenance.osr.warm_up` は r0 では null（配線が境界外）→ r1 で配線後の 1 走（exit 0・21 s・300 コマ / 10.000 s）は `{ attempts: 12, empty_attempts: 11, elapsed_ms: 366, satisfied: true }` で `.akari/osr-run.json` と一致 |
 | L1-e 決定論 | 修正後 | Intel 13 走 / RTX 5 走 | 同じ GPU では全 300 コマ SHA-256 が一致（Intel = 直接呼び 10 + render-cut 3・empty_attempts 12〜15、RTX = 5 走・12〜14）。`empty_attempts = 0` の走行は本機では出ない。Intel ↔ RTX は全コマ不一致だが PSNR 平均 48.2 dB（min 46.8）・MSE 0.2〜0.7 の GPU 依存の丸め差で、seek 前に捨てる warm-up は原因ではない |
 
 範囲外: 空 paint の根本原因（合成器の起動過渡）の解明、gpu-export 側、paint timeout（10 s）の変更、render-cut 側のリトライ追加。
