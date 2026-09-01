@@ -6939,7 +6939,11 @@ body { display: grid; place-items: center; padding: 32px; }
                             totalDuration,
                             playAnchorPosition + (performance.now() - playAnchorMs) / 1000
                         );
-                        position = audioSupply.position(fallbackPosition);
+                        // playbackTime() は position() と同じ値を返すが、音声が止まっていれば
+                        // startFrom を張り直す（空の予定表 / 失敗の直後は 500 ms 空ける）。以前は
+                        // 読むだけの position() だったため、startFrom が黙って降りた後は映像だけ
+                        // 進み、タブを作り直すまで無音だった。watchdog は pauseWatchdogMs:false で無効のまま。
+                        position = audioSupply.playbackTime(fallbackPosition);
                         position = renderPlayback(position);
                         if (position >= totalDuration) setPlaying(false, totalDuration);
                         return position;
