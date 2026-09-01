@@ -25,7 +25,6 @@ import {
     AkariAnnotationsService,
     Annotation,
     AudioEnvelopeKeyframePayload,
-    AudioEnvelopeWriteRequest,
     CaptionWritePayload,
     EditMigrationProposal,
     ClipFilmstripChunk,
@@ -367,12 +366,6 @@ type EditAudioSfxWithFade = EditAudioSfx & AudioEnvelopeFields & {
 
 type EditAudioNarrationWithEnvelope = EditAudioNarration & AudioEnvelopeFields;
 type EditAudioBgmWithEnvelope = EditAudioBgm & AudioEnvelopeFields;
-type AudioAutoLevelWriteRequest = {
-    kind: 'audio-auto-level';
-    id: string;
-    audioKind: 'bgm' | 'sfx' | 'narration';
-};
-type AudioInspectorWriteRequest = InspectorWriteRequest | AudioEnvelopeWriteRequest | AudioAutoLevelWriteRequest;
 type AudioSelectionSnapshot = TimelineAudioSelection & AudioEnvelopeFields & {
     keyframeFrames?: boolean;
     fps?: number;
@@ -1781,9 +1774,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.renderStrip();
             void this.requestSeek(time);
         }));
-        const requestWrite = (request: AudioInspectorWriteRequest): Promise<InspectorWriteResult> =>
+        const requestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
             this.handleInspectorWrite(request);
-        this.selectionModel.requestWrite = requestWrite as (request: InspectorWriteRequest) => Promise<InspectorWriteResult>;
+        this.selectionModel.requestWrite = requestWrite;
         const requestLivePreview = (request: LivePreviewRequest): void => {
             this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
                 target: request.target,
@@ -2188,7 +2181,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
     }
 
-    protected async handleInspectorWrite(request: AudioInspectorWriteRequest): Promise<InspectorWriteResult> {
+    protected async handleInspectorWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
         const location = this.location;
         if (!location) {
             return { ok: false, message: 'プロジェクトの場所を特定できません。' };
@@ -2196,9 +2189,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (request.kind === 'audio-auto-level') {
             return this.handleAudioAutoLevelWrite(request);
         }
-        const v2Result = await this.handleInspectorWriteV2(
-            request as InspectorWriteRequest | AudioEnvelopeWriteRequest
-        );
+        const v2Result = await this.handleInspectorWriteV2(request);
         if (v2Result) return v2Result;
         try {
             switch (request.kind) {
@@ -2404,7 +2395,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         const before = current.keyframes ?? null;
                         const apply = async (keyframes: AudioEnvelopeKeyframePayload[] | null): Promise<void> => {
                             await this.annotationsService.setAudioKeyframes({
-                                editUri, projectRootUri, target, keyframes
+                                editUri, projectRootUri, target,
+                                keyframes: keyframes?.map(point => ({
+                                    t: point.t,
+                                    gain_db: point.gain_db ?? 0,
+                                    ...(typeof point.easing === 'string' ? { easing: point.easing } : {})
+                                })) ?? null
                             });
                         };
                         await apply(request.value);
@@ -2521,7 +2517,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async handleAudioAutoLevelWrite(
-        request: AudioAutoLevelWriteRequest
+        request: Extract<InspectorWriteRequest, { kind: 'audio-auto-level' }>
     ): Promise<InspectorWriteResult> {
         const location = this.location;
         if (!location?.editUri) return { ok: false, message: 'edit.json がありません。' };
@@ -2590,8 +2586,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async handleInspectorWriteV2(
-        request: InspectorWriteRequest | AudioEnvelopeWriteRequest
+        request: InspectorWriteRequest
     ): Promise<InspectorWriteResult | undefined> {
+        if (request.kind === 'audio-auto-level') return undefined;
         const cutKinds = new Set([
             'cut-speed', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
             'cut-opacity', 'cut-source-in', 'cut-source-out'
@@ -4175,9 +4172,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? declaration.keyframes.flatMap(point => {
                 if (!point || typeof point !== 'object' || Array.isArray(point)) return [];
                 const raw = point as Record<string, unknown>;
-                return typeof raw.t === 'number' && Number.isFinite(raw.t)
-                    && typeof raw.gain_db === 'number' && Number.isFinite(raw.gain_db)
-                    ? [{ ...raw, t: raw.t, gain_db: raw.gain_db } as AudioEnvelopeKeyframePayload] : [];
+                if (typeof raw.t !== 'number' || !Number.isFinite(raw.t)) return [];
+                const normalized: AudioEnvelopeKeyframePayload = { t: raw.t };
+                if (typeof raw.gain_db === 'number' && Number.isFinite(raw.gain_db)) {
+                    normalized.gain_db = raw.gain_db;
+                }
+                if (typeof raw.easing === 'string') normalized.easing = raw.easing;
+                return [normalized];
             }).sort((left, right) => left.t - right.t)
             : undefined;
         return {
@@ -8660,7 +8661,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (itemHeightPx < MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX || !audio.keyframes?.length) return;
         const points = keyframePolyline(audio.keyframes.map(point => ({
             t: frameTimebase ? point.t / this.fps : point.t,
-            gainDb: point.gain_db
+            gainDb: point.gain_db ?? 0
         })), { duration: durationSeconds, width: 100, height: itemHeightPx });
         if (points.length === 0) return;
         const namespace = 'http://www.w3.org/2000/svg';

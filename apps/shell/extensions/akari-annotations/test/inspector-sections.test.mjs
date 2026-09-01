@@ -235,7 +235,10 @@ test('音量キーフレーム節は追加・時刻・gain・easing・削除を�
   assert.match(inspectorWidgetSource, /actionLabel: '再生ヘッド位置に追加'/u);
   assert.match(inspectorWidgetSource, /AUDIO_KEYFRAME_EASING_OPTIONS = \['linear', 'hold', 'ease-in-out'\]/u);
   assert.match(inspectorWidgetSource, /actionLabel: '削除'/u);
-  assert.match(inspectorWidgetSource, /kind: 'audio-keyframes'[\s\S]{0,180}sort\(\(left, right\) => left\.t - right\.t\)/u);
+  const requestStart = inspectorWidgetSource.indexOf("kind: 'audio-keyframes'");
+  const requestBlock = inspectorWidgetSource.slice(requestStart, requestStart + 420);
+  assert.match(requestBlock, /gain_db: point\.gain_db \?\? 0/u);
+  assert.match(requestBlock, /sort\(\(left, right\) => left\.t - right\.t\)/u);
 });
 
 test('キーフレーム時刻は v2 の frame と表示秒を fps で往復する', () => {
