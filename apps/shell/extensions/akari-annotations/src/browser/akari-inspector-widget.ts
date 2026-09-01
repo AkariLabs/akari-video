@@ -40,17 +40,10 @@ import {
 } from './inspector/knob-resolver';
 import { chromaControlValue, telopParamControlKind } from './inspector/field-mappings';
 import type {
-    AudioEnvelopeKeyframePayload,
-    AudioEnvelopeWriteRequest
+    AudioEnvelopeKeyframePayload
 } from '../common/akari-annotations-protocol';
 
 type InspectorSnapshot = TimelineItemSelectionSnapshot;
-
-type AudioAutoLevelWriteRequest = {
-    kind: 'audio-auto-level';
-    id: string;
-    audioKind: 'bgm' | 'sfx' | 'narration';
-};
 
 type AudioInspectorSnapshot = TimelineAudioSelection & {
     duckDb?: number;
@@ -805,10 +798,21 @@ const AUDIO_KEYFRAME_EASING_OPTIONS = ['linear', 'hold', 'ease-in-out'] as const
 
 function duckingFields(
     snapshot: AudioInspectorSnapshot,
-    requestWrite: (request: InspectorWriteRequest | AudioEnvelopeWriteRequest) => Promise<InspectorWriteResult>
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorFieldDef[] {
-    const requestKind = (field: 'duck-db' | 'duck-attack' | 'duck-release') =>
-        `${snapshot.audioKind}-${field}` as AudioEnvelopeWriteRequest['kind'];
+    const duckWriteRequest = (
+        field: 'duck-db' | 'duck-attack' | 'duck-release',
+        value: number
+    ): InspectorWriteRequest => {
+        if (snapshot.audioKind === 'bgm') {
+            if (field === 'duck-db') return { kind: 'bgm-duck-db', value };
+            if (field === 'duck-attack') return { kind: 'bgm-duck-attack', value };
+            return { kind: 'bgm-duck-release', value };
+        }
+        if (field === 'duck-db') return { kind: 'sfx-duck-db', id: snapshot.id, value };
+        if (field === 'duck-attack') return { kind: 'sfx-duck-attack', id: snapshot.id, value };
+        return { kind: 'sfx-duck-release', id: snapshot.id, value };
+    };
     const numberField = (
         name: string, label: string, field: 'duck-db' | 'duck-attack' | 'duck-release',
         raw: number | undefined, fallback: number, min: number, max: number, step: number, unit: string
@@ -822,10 +826,7 @@ function duckingFields(
             if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
                 return { ok: false, message: `${label} は ${min}〜${max} の範囲で入力してください。` };
             }
-            const request = snapshot.audioKind === 'bgm'
-                ? { kind: requestKind(field), value: parsed }
-                : { kind: requestKind(field), id: snapshot.id, value: parsed };
-            return requestWrite(request as AudioEnvelopeWriteRequest);
+            return requestWrite(duckWriteRequest(field, parsed));
         }
     });
     const duckDb = numberField(
@@ -864,10 +865,12 @@ function duckingFields(
 function audioKeyframeRequest(
     snapshot: AudioInspectorSnapshot,
     points: readonly AudioEnvelopeKeyframePayload[]
-): AudioEnvelopeWriteRequest {
+): InspectorWriteRequest {
     return {
         kind: 'audio-keyframes', id: snapshot.id, audioKind: snapshot.audioKind,
-        value: points.length === 0 ? null : [...points].sort((left, right) => left.t - right.t)
+        value: points.length === 0 ? null : points
+            .map(point => ({ ...point, gain_db: point.gain_db ?? 0 }))
+            .sort((left, right) => left.t - right.t)
     };
 }
 
@@ -883,7 +886,7 @@ function keyframeRawTime(snapshot: AudioInspectorSnapshot, seconds: number): num
 
 function audioKeyframeFields(
     snapshot: AudioInspectorSnapshot,
-    requestWrite: (request: InspectorWriteRequest | AudioEnvelopeWriteRequest) => Promise<InspectorWriteResult>
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
 ): InspectorFieldDef[] {
     const points = [...(snapshot.keyframes ?? [])].sort((left, right) => left.t - right.t);
     const replace = (index: number, point: AudioEnvelopeKeyframePayload): Promise<InspectorWriteResult> => {
@@ -907,7 +910,7 @@ function audioKeyframeFields(
     }];
     points.forEach((point, index) => {
         const prefix = `audio-keyframe-${index}`;
-        const easing = point.easing ?? 'linear';
+        const easing = typeof point.easing === 'string' ? point.easing : 'linear';
         const easingOptions = AUDIO_KEYFRAME_EASING_OPTIONS.includes(
             easing as typeof AUDIO_KEYFRAME_EASING_OPTIONS[number]
         ) ? AUDIO_KEYFRAME_EASING_OPTIONS : [...AUDIO_KEYFRAME_EASING_OPTIONS, easing];
@@ -930,7 +933,7 @@ function audioKeyframeFields(
             }
         }, {
             name: `${prefix}-gain-db`, label: `#${index + 1} gain_db`, unit: 'dB',
-            getValue: () => String(point.gain_db), getEditValue: () => String(point.gain_db),
+            getValue: () => String(point.gain_db ?? 0), getEditValue: () => String(point.gain_db ?? 0),
             inputKind: 'scrub-number', scrubStep: 0.5, min: -60, max: 12,
             write: async (_snapshot, nextValue) => {
                 const gainDb = Number(nextValue);
@@ -956,7 +959,7 @@ function audioKeyframeFields(
 function AUDIO_SECTIONS(
     snapshot: AudioInspectorSnapshot,
     requestWrite: (
-        request: InspectorWriteRequest | AudioEnvelopeWriteRequest | AudioAutoLevelWriteRequest
+        request: InspectorWriteRequest
     ) => Promise<InspectorWriteResult>
 ): InspectorSection[] {
     const autoLevelField: InspectorFieldDef = {
@@ -1841,7 +1844,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected async commitWrite(
-        request: InspectorWriteRequest | AudioEnvelopeWriteRequest | AudioAutoLevelWriteRequest
+        request: InspectorWriteRequest
     ): Promise<InspectorWriteResult> {
         if (!this.model.requestWrite) {
             return { ok: false, message: '書き込み機能が利用できません。' };

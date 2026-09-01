@@ -1,4 +1,4 @@
-import type { TransitionType } from '@akari-video/edit-store';
+import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
@@ -625,12 +625,12 @@ export interface AkariAnnotationsService {
     revertEditMigration(proposal: EditMigrationProposal): Promise<void>;
 }
 
-export interface AudioEnvelopeKeyframePayload {
-    t: number;
+export type AudioEnvelopeKeyframePayload = EditAudioKeyframe;
+
+export type NormalizedAudioEnvelopeKeyframePayload = Omit<EditAudioKeyframe, 'gain_db' | 'easing'> & {
     gain_db: number;
     easing?: string;
-    [key: string]: unknown;
-}
+};
 
 export type AudioEnvelopeWriteRequest =
     | { kind: 'bgm-duck-db'; value: number | null }
@@ -663,7 +663,7 @@ export interface SetAudioKeyframesRequest {
     editUri: string;
     projectRootUri: string;
     target: { kind: 'bgm' } | { kind: 'sfx' | 'narration'; index: number };
-    keyframes: AudioEnvelopeKeyframePayload[] | null;
+    keyframes: NormalizedAudioEnvelopeKeyframePayload[] | null;
 }
 
 export interface AkariAnnotationsService {

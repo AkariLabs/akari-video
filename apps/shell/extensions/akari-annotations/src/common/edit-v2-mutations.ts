@@ -269,8 +269,10 @@ export function prepareV2KeyframeDistribution(doc: EditV2Document): {
 } {
     const document = cloneDocument(doc);
     const writes: KeyframeMotionWrite[] = [];
-    const visit = (item: UnknownRecord, ancestors: UnknownRecord[]): void => {
-        if (Array.isArray(item.keyframes) && item.keyframes.length >= 9 && typeof item.id === 'string') {
+    const visit = (item: UnknownRecord, ancestors: UnknownRecord[], audioLane: boolean): void => {
+        const audioItem = audioLane || typeof item.role === 'string';
+        if (!audioItem && Array.isArray(item.keyframes) && item.keyframes.length >= 9
+            && typeof item.id === 'string') {
             const nearest = ancestors[ancestors.length - 1];
             const group = typeof nearest?.id === 'string' ? nearest.id : item.id;
             const path = `motion/${group}.json`;
@@ -278,12 +280,13 @@ export function prepareV2KeyframeDistribution(doc: EditV2Document): {
             item.keyframes = { path, count: item.keyframes.length };
         }
         if (Array.isArray(item.items)) {
-            for (const child of item.items) if (isRecord(child)) visit(child, [...ancestors, item]);
+            for (const child of item.items) if (isRecord(child)) visit(child, [...ancestors, item], audioLane);
         }
     };
     for (const track of tracksOf(document)) {
         if (!Array.isArray(track.items)) continue;
-        for (const item of track.items) if (isRecord(item)) visit(item, []);
+        const audioLane = track.lane === 'audio';
+        for (const item of track.items) if (isRecord(item)) visit(item, [], audioLane);
     }
     return { document, writes };
 }

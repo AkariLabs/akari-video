@@ -34,9 +34,13 @@ test('shell と Web UI は edit-store の同一 ducking kernel だけを使う',
     /import\s*\{[^}]*\bcomputeDuckEnvelope\b[^}]*\bcomputeDuckIntervals\b[^}]*\bevaluateEnvelopeDb\b[^}]*\}\s*from '\/edit-kernel\.bundle\.js';/u);
   assert.doesNotMatch(webConsumer, /computeBgmDuckGainDb/u);
   assert.match(shellConsumer,
-    /import\s*\{[^}]*\bcomputeDuckIntervals\b[^}]*\bisWithinDuckInterval\b[^}]*\bSTATIC_DUCK_GAIN_DB\b[^}]*\}\s*from '@akari-video\/edit-store';/u);
-  assert.match(shellConsumer, /computeDuckIntervals\.toString\(\)/u);
-  assert.match(shellConsumer, /isWithinDuckInterval\.toString\(\)/u);
-  assert.match(shellConsumer, /JSON\.stringify\(STATIC_DUCK_GAIN_DB\)/u);
+    /import\s*\{[^}]*\bcomputeDuckEnvelope\b[^}]*\bevaluateEnvelopeDb\b[^}]*\}\s*from '@akari-video\/edit-store';/u);
+  assert.match(shellConsumer, /computeDuckEnvelope\.toString\(\)/u);
+  assert.match(shellConsumer, /evaluateEnvelopeDb\.toString\(\)/u);
+  assert.doesNotMatch(shellConsumer, /\b(?:computeDuckIntervals|isWithinDuckInterval|STATIC_DUCK_GAIN_DB)\b/u);
+  assert.match(shellConsumer, /duckDb:\s*item\.duckDb/u);
+  assert.match(shellConsumer, /attackSec:\s*item\.duckAttack/u);
+  assert.match(shellConsumer, /releaseSec:\s*item\.duckRelease/u);
+  assert.match(shellConsumer, /evaluateEnvelopeDbFn\(item\.keyframes \|\| \[\], localSec\)/u);
   assert.match(bundle, /\.\.\/edit-store\/src\/ducking\.ts/u);
 });
