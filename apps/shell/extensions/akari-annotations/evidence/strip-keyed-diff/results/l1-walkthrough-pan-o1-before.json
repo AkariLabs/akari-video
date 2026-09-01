@@ -1,0 +1,807 @@
+{
+  "status": "completed-with-failures",
+  "n": 200,
+  "startedAt": "2026-09-01T08:46:25.396Z",
+  "loadAverageAtStart": [
+    603.40185546875,
+    374.65478515625,
+    264.6083984375
+  ],
+  "shell": null,
+  "steps": [
+    {
+      "step": "00 タイムラインを開く",
+      "status": "ok",
+      "open": {
+        "attempts": 1,
+        "mountedItems": 200
+      },
+      "detail": {
+        "mounted": 200,
+        "byKind": {
+          "layer": 33,
+          "audio": 33,
+          "cut": 134
+        },
+        "selected": [],
+        "scrollTop": 794,
+        "scrollLeft": 0,
+        "imgs": 0,
+        "canvases": 0,
+        "stripChildren": 206
+      },
+      "elapsedMs": 14891
+    },
+    {
+      "step": "01 identity 計器を仕掛ける",
+      "status": "ok",
+      "detail": {
+        "tagged": 200,
+        "taggedMedia": 0
+      },
+      "elapsedMs": 2
+    },
+    {
+      "step": "02 ズーム（ctrl+wheel 上下 各 5 回）",
+      "status": "ok",
+      "zoomedIn": {
+        "mounted": 200,
+        "byKind": {
+          "layer": 33,
+          "audio": 33,
+          "cut": 134
+        },
+        "selected": [],
+        "scrollTop": 794,
+        "scrollLeft": 0,
+        "imgs": 0,
+        "canvases": 0,
+        "stripChildren": 206
+      },
+      "identityAcrossZoom": {
+        "initialMounted": 200,
+        "stillMountedFromInitial": 200,
+        "survivedWithSameNode": 200,
+        "recreatedNodeCount": 0,
+        "recreatedSample": [],
+        "unmountedSinceArm": 0,
+        "enteredRangeSinceArm": 0,
+        "mutationAddedItemNodes": 0,
+        "mutationRemovedItemNodes": 0,
+        "mutationAddedThatWereExistingNodes": 0,
+        "mutationAddedThatWereNewNodes": 0,
+        "distinctAddedKeys": 0,
+        "distinctRemovedKeys": 0,
+        "mediaNodesNow": 0,
+        "mediaNodesReused": 0,
+        "mediaNodesRecreated": 0
+      },
+      "detail": {
+        "mounted": 200,
+        "byKind": {
+          "layer": 33,
+          "audio": 33,
+          "cut": 134
+        },
+        "selected": [],
+        "scrollTop": 794,
+        "scrollLeft": 0,
+        "imgs": 0,
+        "canvases": 0,
+        "stripChildren": 206
+      },
+      "elapsedMs": 1837
+    },
+    {
+      "step": "03 パン 20 回",
+      "status": "ok",
+      "armed": {
+        "tagged": 200,
+        "taggedMedia": 0
+      },
+      "before": {
+        "mounted": 200,
+        "byKind": {
+          "layer": 33,
+          "audio": 33,
+          "cut": 134
+        },
+        "selected": [],
+        "scrollTop": 794,
+        "scrollLeft": 0,
+        "imgs": 0,
+        "canvases": 0,
+        "stripChildren": 206
+      },
+      "after": {
+        "mounted": 200,
+        "byKind": {
+          "layer": 33,
+          "audio": 33,
+          "cut": 134
+        },
+        "selected": [],
+        "scrollTop": 794,
+        "scrollLeft": 0,
+        "imgs": 0,
+        "canvases": 0,
+        "stripChildren": 206
+      },
+      "detail": {
+        "panSteps": 20
+      },
+      "elapsedMs": 3276
+    },
+    {
+      "step": "04 ノード identity を判定（パン 20 回ぶんだけ）",
+      "status": "ok",
+      "detail": {
+        "initialMounted": 200,
+        "stillMountedFromInitial": 200,
+        "survivedWithSameNode": 200,
+        "recreatedNodeCount": 0,
+        "recreatedSample": [],
+        "unmountedSinceArm": 0,
+        "enteredRangeSinceArm": 0,
+        "mutationAddedItemNodes": 0,
+        "mutationRemovedItemNodes": 0,
+        "mutationAddedThatWereExistingNodes": 0,
+        "mutationAddedThatWereNewNodes": 0,
+        "distinctAddedKeys": 0,
+        "distinctRemovedKeys": 0,
+        "mediaNodesNow": 0,
+        "mediaNodesReused": 0,
+        "mediaNodesRecreated": 0
+      },
+      "elapsedMs": 1
+    },
+    {
+      "step": "04b 操作対象を視野へ戻す（パン戻し + ズームイン + 縦スクロール）",
+      "status": "ok",
+      "scrollSteps": [],
+      "scroll": {
+        "converged": true,
+        "iterations": 0,
+        "candidates": 33
+      },
+      "visibleCuts": 33,
+      "geometry": {
+        "win": {
+          "innerWidth": 1800,
+          "innerHeight": 1150
+        },
+        "strip": {
+          "x": 356,
+          "y": -16,
+          "w": 935,
+          "h": 4048
+        },
+        "parent": {
+          "tag": "DIV",
+          "cls": "",
+          "rect": {
+            "x": 356,
+            "y": 778,
+            "w": 945,
+            "h": 322
+          },
+          "clientHeight": 322,
+          "scrollHeight": 4048,
+          "scrollTop": 794,
+          "overflowY": "auto"
+        },
+        "cutCount": 134,
+        "cutsFullyInsideWindow": 0,
+        "sampleCuts": [
+          {
+            "x": 357,
+            "y": 3185,
+            "w": 13,
+            "h": 816
+          },
+          {
+            "x": 382,
+            "y": 3185,
+            "w": 13,
+            "h": 816
+          },
+          {
+            "x": 408,
+            "y": 3185,
+            "w": 13,
+            "h": 816
+          },
+          {
+            "x": 433,
+            "y": 3185,
+            "w": 13,
+            "h": 816
+          },
+          {
+            "x": 458,
+            "y": 3185,
+            "w": 13,
+            "h": 816
+          },
+          {
+            "x": 484,
+            "y": 3185,
+            "w": 13,
+            "h": 816
+          }
+        ],
+        "widestCuts": [
+          {
+            "x": 357,
+            "y": 3185,
+            "w": 13,
+            "h": 816
+          },
+          {
+            "x": 382,
+            "y": 3185,
+            "w": 13,
+            "h": 816
+          },
+          {
+            "x": 408,
+            "y": 3185,
+            "w": 13,
+            "h": 816
+          }
+        ]
+      },
+      "detail": {
+        "scroll": {
+          "converged": true,
+          "iterations": 0,
+          "candidates": 33
+        },
+        "visibleCuts": 33,
+        "mounted": 200,
+        "geometry": {
+          "win": {
+            "innerWidth": 1800,
+            "innerHeight": 1150
+          },
+          "strip": {
+            "x": 356,
+            "y": -16,
+            "w": 935,
+            "h": 4048
+          },
+          "parent": {
+            "tag": "DIV",
+            "cls": "",
+            "rect": {
+              "x": 356,
+              "y": 778,
+              "w": 945,
+              "h": 322
+            },
+            "clientHeight": 322,
+            "scrollHeight": 4048,
+            "scrollTop": 794,
+            "overflowY": "auto"
+          },
+          "cutCount": 134,
+          "cutsFullyInsideWindow": 0,
+          "sampleCuts": [
+            {
+              "x": 357,
+              "y": 3185,
+              "w": 13,
+              "h": 816
+            },
+            {
+              "x": 382,
+              "y": 3185,
+              "w": 13,
+              "h": 816
+            },
+            {
+              "x": 408,
+              "y": 3185,
+              "w": 13,
+              "h": 816
+            },
+            {
+              "x": 433,
+              "y": 3185,
+              "w": 13,
+              "h": 816
+            },
+            {
+              "x": 458,
+              "y": 3185,
+              "w": 13,
+              "h": 816
+            },
+            {
+              "x": 484,
+              "y": 3185,
+              "w": 13,
+              "h": 816
+            }
+          ],
+          "widestCuts": [
+            {
+              "x": 357,
+              "y": 3185,
+              "w": 13,
+              "h": 816
+            },
+            {
+              "x": 382,
+              "y": 3185,
+              "w": 13,
+              "h": 816
+            },
+            {
+              "x": 408,
+              "y": 3185,
+              "w": 13,
+              "h": 816
+            }
+          ]
+        }
+      },
+      "elapsedMs": 4132
+    },
+    {
+      "step": "05 ドラッグ移動（クリップ中央から +60px）",
+      "status": "ok",
+      "candidates": 33,
+      "target": {
+        "id": "133",
+        "x": 1173.4453125,
+        "y": 939.546875,
+        "w": 12.65625,
+        "left": 1167.1171875,
+        "right": 1179.7734375,
+        "visibleHeight": 320.890625,
+        "rightGap": 400
+      },
+      "dragBy": -831,
+      "editWrite": {
+        "changed": true,
+        "bytes": 26461,
+        "waitedMs": 202
+      },
+      "detail": {
+        "editWrite": {
+          "changed": true,
+          "bytes": 26461,
+          "waitedMs": 202
+        },
+        "mounted": 200,
+        "selected": []
+      },
+      "elapsedMs": 733
+    },
+    {
+      "step": "06 トリム（右端を -30px）",
+      "status": "failed",
+      "candidates": 0,
+      "reason": "Error: no visible cut clip wide enough to trim\n    at file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:326:21\n    at async step (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:30:20)\n    at async main (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:321:5)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/l1-walkthrough.mjs:564:1",
+      "elapsedMs": 2
+    },
+    {
+      "step": "07 右クリックメニュー",
+      "status": "ok",
+      "candidates": 33,
+      "target": {
+        "id": "101",
+        "x": 363.2421875,
+        "y": 950.6484375,
+        "w": 12.65625,
+        "left": 356.9140625,
+        "right": 369.5703125,
+        "visibleHeight": 235.09375
+      },
+      "detail": {
+        "count": 1,
+        "items": [
+          "コピー",
+          "分割",
+          "削除"
+        ]
+      },
+      "elapsedMs": 1535
+    },
+    {
+      "step": "08 マーキー選択（矩形ドラッグ）",
+      "status": "ok",
+      "candidates": 33,
+      "targets": [
+        {
+          "id": "101",
+          "x": 363.2421875,
+          "y": 950.6484375,
+          "w": 12.65625,
+          "left": 356.9140625,
+          "right": 369.5703125,
+          "visibleHeight": 235.09375
+        },
+        {
+          "id": "102",
+          "x": 388.5546875,
+          "y": 950.6484375,
+          "w": 12.65625,
+          "left": 382.2265625,
+          "right": 394.8828125,
+          "visibleHeight": 235.09375
+        },
+        {
+          "id": "103",
+          "x": 413.875,
+          "y": 950.6484375,
+          "w": 12.65625,
+          "left": 407.546875,
+          "right": 420.203125,
+          "visibleHeight": 235.09375
+        }
+      ],
+      "plan": {
+        "startX": 375.8984375,
+        "startY": 910.6484375,
+        "endX": 418.203125,
+        "endY": 910.6484375,
+        "empty": true,
+        "tried": [
+          {
+            "x": 376,
+            "y": 911,
+            "ok": true,
+            "hit": {
+              "tag": "DIV",
+              "cls": "akari-annotations-strip",
+              "inStrip": true,
+              "pe": "auto"
+            }
+          },
+          {
+            "x": 401,
+            "y": 911,
+            "ok": true,
+            "hit": {
+              "tag": "DIV",
+              "cls": "akari-annotations-strip",
+              "inStrip": true,
+              "pe": "auto"
+            }
+          },
+          {
+            "x": 376,
+            "y": 951,
+            "ok": false,
+            "hit": {
+              "tag": "DIV",
+              "cls": "",
+              "inStrip": false,
+              "pe": "auto"
+            }
+          },
+          {
+            "x": 401,
+            "y": 951,
+            "ok": false,
+            "hit": {
+              "tag": "DIV",
+              "cls": "",
+              "inStrip": false,
+              "pe": "auto"
+            }
+          },
+          {
+            "x": 376,
+            "y": 991,
+            "ok": false,
+            "hit": {
+              "tag": "DIV",
+              "cls": "",
+              "inStrip": false,
+              "pe": "auto"
+            }
+          },
+          {
+            "x": 401,
+            "y": 991,
+            "ok": false,
+            "hit": {
+              "tag": "BUTTON",
+              "cls": "theia-button secondary",
+              "inStrip": false,
+              "pe": "auto"
+            }
+          }
+        ]
+      },
+      "detail": {
+        "marquee": {
+          "selected": [
+            "cut:102",
+            "cut:103"
+          ],
+          "selectedCount": 2,
+          "pointerTrace": {
+            "events": [
+              {
+                "type": "pointerdown",
+                "tag": "DIV",
+                "cls": "akari-annotations-strip",
+                "inStrip": true,
+                "isItem": false
+              },
+              {
+                "type": "pointerup",
+                "tag": "DIV",
+                "cls": "akari-annotations-strip",
+                "inStrip": true,
+                "isItem": false
+              }
+            ]
+          }
+        },
+        "shiftClick": {
+          "clicked": 3,
+          "selected": [
+            "cut:101",
+            "cut:102",
+            "cut:103"
+          ],
+          "selectedCount": 3
+        }
+      },
+      "elapsedMs": 4419
+    },
+    {
+      "step": "09 素材 D&D（assets/testsrc2-10s.mp4 を帯へ）",
+      "status": "ok",
+      "attempts": [
+        {
+          "point": [
+            0.5,
+            0.25
+          ],
+          "x": 828,
+          "y": 851,
+          "localY": 73,
+          "scrollTop": 0,
+          "typesSeen": [
+            "application/x-akari-material"
+          ],
+          "dragoverPrevented": true,
+          "dropPrevented": true,
+          "footerBefore": ".akari-annotations-widget .akari-annotations-strip-clip {\n        background: #27272a;\n        border: 1px solid #3f3f46",
+          "footerAfter": ".akari-annotations-widget .akari-annotations-strip-clip {\n        background: #27272a;\n        border: 1px solid #3f3f46;\n        border-right-width: 2px;\n     ",
+          "write": {
+            "changed": true,
+            "bytes": 26586,
+            "waitedMs": 87
+          }
+        }
+      ],
+      "editWrite": {
+        "changed": true,
+        "bytes": 26586,
+        "waitedMs": 87
+      },
+      "dispatch": {
+        "x": 828,
+        "y": 851,
+        "localY": 73,
+        "scrollTop": 0,
+        "typesSeen": [
+          "application/x-akari-material"
+        ],
+        "dragoverPrevented": true,
+        "dropPrevented": true,
+        "footerBefore": ".akari-annotations-widget .akari-annotations-strip-clip {\n        background: #27272a;\n        border: 1px solid #3f3f46",
+        "footerAfter": ".akari-annotations-widget .akari-annotations-strip-clip {\n        background: #27272a;\n        border: 1px solid #3f3f46;\n        border-right-width: 2px;\n     "
+      },
+      "notice": {
+        "text": "V5 を追加しました",
+        "visible": true
+      },
+      "detail": {
+        "before": {
+          "mounted": 200,
+          "byKind": {
+            "layer": 33,
+            "audio": 33,
+            "cut": 134
+          }
+        },
+        "after": {
+          "mounted": 201,
+          "byKind": {
+            "layer": 33,
+            "audio": 33,
+            "cut": 135
+          }
+        },
+        "editWrite": {
+          "changed": true,
+          "bytes": 26586,
+          "waitedMs": 87
+        },
+        "acceptedPoint": {
+          "x": 828,
+          "y": 851,
+          "localY": 73,
+          "scrollTop": 0,
+          "typesSeen": [
+            "application/x-akari-material"
+          ],
+          "dragoverPrevented": true,
+          "dropPrevented": true,
+          "footerBefore": ".akari-annotations-widget .akari-annotations-strip-clip {\n        background: #27272a;\n        border: 1px solid #3f3f46",
+          "footerAfter": ".akari-annotations-widget .akari-annotations-strip-clip {\n        background: #27272a;\n        border: 1px solid #3f3f46;\n        border-right-width: 2px;\n     "
+        },
+        "attempts": 1,
+        "notice": {
+          "text": "V5 を追加しました",
+          "visible": true
+        }
+      },
+      "elapsedMs": 6217
+    },
+    {
+      "step": "10 undo（⌘Z）",
+      "status": "ok",
+      "editWrite": {
+        "changed": false,
+        "bytes": 26586,
+        "waitedMs": 12000
+      },
+      "editJsonBytes": {
+        "before": 26586,
+        "after": 26586
+      },
+      "detail": {
+        "mountedBefore": 201,
+        "mountedAfter": 201,
+        "editChanged": false,
+        "editWrite": {
+          "changed": false,
+          "bytes": 26586,
+          "waitedMs": 12000
+        }
+      },
+      "elapsedMs": 17307
+    },
+    {
+      "step": "11 折りたたみトグル（data-akari-tree-toggle）",
+      "status": "ok",
+      "toggleCensus": {
+        "total": 201,
+        "withGlyph": 0,
+        "visible": 0,
+        "sample": [
+          {
+            "id": "第1章 検証",
+            "glyph": "",
+            "w": 16,
+            "h": 0,
+            "y": 791
+          },
+          {
+            "id": "第2章 検証",
+            "glyph": "",
+            "w": 16,
+            "h": 0,
+            "y": 815
+          },
+          {
+            "id": "第3章 検証",
+            "glyph": "",
+            "w": 16,
+            "h": 0,
+            "y": 839
+          },
+          {
+            "id": "第4章 検証",
+            "glyph": "",
+            "w": 16,
+            "h": 0,
+            "y": 863
+          },
+          {
+            "id": "第5章 検証",
+            "glyph": "",
+            "w": 16,
+            "h": 0,
+            "y": 887
+          }
+        ]
+      },
+      "note": "no expandable tree row in this fixture",
+      "detail": {
+        "skipped": true,
+        "reason": "data-akari-tree-toggle with children not present"
+      },
+      "elapsedMs": 134
+    },
+    {
+      "step": "12 選択・スクロール保持の確認（unmount → remount 往復）",
+      "status": "ok",
+      "candidates": 1,
+      "detail": {
+        "selectionBeforePan": [
+          "cut:134"
+        ],
+        "selectionWhileUnmounted": [
+          "cut:134"
+        ],
+        "selectionAfterReturn": [
+          "cut:134"
+        ],
+        "selectionPreserved": true,
+        "mountedBefore": 201,
+        "mountedWhileAway": 201,
+        "mountedAfterReturn": 201,
+        "scrollTopBefore": 80,
+        "scrollTopAfter": 80,
+        "scrollPreserved": true
+      },
+      "elapsedMs": 11675
+    },
+    {
+      "step": "13 実 DOM の data-akari-* 属性集合",
+      "status": "ok",
+      "detail": [
+        "data-akari-item-id",
+        "data-akari-item-kind",
+        "data-akari-kind",
+        "data-akari-lane",
+        "data-akari-notice-close",
+        "data-akari-notice-text",
+        "data-akari-source-id",
+        "data-akari-timeline-notice",
+        "data-akari-timeline-track-id",
+        "data-akari-track",
+        "data-akari-tree-row-id",
+        "data-akari-tree-toggle",
+        "data-akari-tree-track",
+        "data-akari-ui",
+        "data-akari-ui-label"
+      ],
+      "elapsedMs": 146
+    }
+  ],
+  "identity": {
+    "initialMounted": 200,
+    "stillMountedFromInitial": 200,
+    "survivedWithSameNode": 200,
+    "recreatedNodeCount": 0,
+    "recreatedSample": [],
+    "unmountedSinceArm": 0,
+    "enteredRangeSinceArm": 0,
+    "mutationAddedItemNodes": 0,
+    "mutationRemovedItemNodes": 0,
+    "mutationAddedThatWereExistingNodes": 0,
+    "mutationAddedThatWereNewNodes": 0,
+    "distinctAddedKeys": 0,
+    "distinctRemovedKeys": 0,
+    "mediaNodesNow": 0,
+    "mediaNodesReused": 0,
+    "mediaNodesRecreated": 0
+  },
+  "notes": [],
+  "electronPid": 20884,
+  "stripRect": {
+    "x": 823.4140625,
+    "y": 184.1015625,
+    "left": 355.9140625,
+    "top": -15.8984375,
+    "w": 935,
+    "h": 4048
+  },
+  "finishedAt": "2026-09-01T08:47:38.166Z",
+  "loadAverageAtEnd": [
+    590.1455078125,
+    395.06494140625,
+    280.033203125
+  ]
+}
