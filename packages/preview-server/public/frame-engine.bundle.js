@@ -1502,13 +1502,13 @@ var require_caption_store = __commonJS({
     var JSON_NUMBER = "-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?";
     function parseCaptions(source) {
       const root = JSON.parse(source);
-      const values = Array.isArray(root) ? root : isRecord(root) && Array.isArray(root.captions) ? root.captions : void 0;
+      const values = Array.isArray(root) ? root : isRecord2(root) && Array.isArray(root.captions) ? root.captions : void 0;
       if (!values) {
         throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
       }
       const warnings = [];
-      const defaultTextStyle = !Array.isArray(root) && isRecord(root) && root.default_text_style !== void 0 ? normalizeTextStyle(root.default_text_style, (keys) => warnings.push(`\u5B57\u5E55\u306E\u65E2\u5B9A\u30B9\u30BF\u30A4\u30EB\u306B\u672A\u77E5\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\uFF08${keys.join(", ")}\uFF09\u304C\u3042\u308B\u305F\u3081\u7121\u8996\u3057\u307E\u3057\u305F\u3002`)) : void 0;
-      if (!Array.isArray(root) && isRecord(root) && root.default_text_style !== void 0 && defaultTextStyle === void 0) {
+      const defaultTextStyle = !Array.isArray(root) && isRecord2(root) && root.default_text_style !== void 0 ? normalizeTextStyle(root.default_text_style, (keys) => warnings.push(`\u5B57\u5E55\u306E\u65E2\u5B9A\u30B9\u30BF\u30A4\u30EB\u306B\u672A\u77E5\u306E\u30D5\u30A3\u30FC\u30EB\u30C9\uFF08${keys.join(", ")}\uFF09\u304C\u3042\u308B\u305F\u3081\u7121\u8996\u3057\u307E\u3057\u305F\u3002`)) : void 0;
+      if (!Array.isArray(root) && isRecord2(root) && root.default_text_style !== void 0 && defaultTextStyle === void 0) {
         throw new Error("\u5B57\u5E55\u306E\u65E2\u5B9A\u30B9\u30BF\u30A4\u30EB\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
       }
       const captions = [];
@@ -1763,7 +1763,7 @@ var require_caption_store = __commonJS({
       let openIndex;
       if (Array.isArray(value) && source[rootStart] === "[") {
         openIndex = rootStart;
-      } else if (isRecord(value) && Array.isArray(value.captions) && source[rootStart] === "{") {
+      } else if (isRecord2(value) && Array.isArray(value.captions) && source[rootStart] === "{") {
         const rootClose = (0, edit_store_1.findMatchingBracket)(source, rootStart);
         if (source.slice(rootClose + 1).trim()) {
           throw new Error("\u5B57\u5E55\u30C7\u30FC\u30BF\u306E\u5F62\u5F0F\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002");
@@ -1909,7 +1909,7 @@ var require_caption_store = __commonJS({
       const textStyle = caption.textStyle === void 0 ? "" : `, "text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`;
       return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${timeDomain}${textStyle} }`;
     }
-    function isRecord(value) {
+    function isRecord2(value) {
       return Boolean(value) && typeof value === "object" && !Array.isArray(value);
     }
     function isFiniteNumber(value) {
@@ -1927,6 +1927,7 @@ var require_caption_store = __commonJS({
     var TEXT_STYLE_KEYS = /* @__PURE__ */ new Set([
       "color",
       "size_px",
+      "reference_height_px",
       "font_family",
       "font_weight",
       "weight",
@@ -1952,7 +1953,7 @@ var require_caption_store = __commonJS({
     var TEXT_TRANSFORM_VALUES = /* @__PURE__ */ new Set(["upper", "uppercase", "lower", "lowercase", "title", "capitalize", "none"]);
     var TEXT_ANCHOR_VALUES = /* @__PURE__ */ new Set(["tl", "tc", "tr", "ml", "mc", "mr", "bl", "bc", "br"]);
     function normalizeTextStyle(value, onUnknownKeys) {
-      if (!isRecord(value)) {
+      if (!isRecord2(value)) {
         return void 0;
       }
       const unknownKeys = Object.keys(value).filter((key) => !TEXT_STYLE_KEYS.has(key));
@@ -1965,6 +1966,9 @@ var require_caption_store = __commonJS({
       }
       if (isFinitePositive(value.size_px)) {
         style.sizePx = value.size_px;
+      }
+      if (Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1) {
+        style.referenceHeightPx = value.reference_height_px;
       }
       if (typeof value.font_family === "string" && value.font_family !== "") {
         style.fontFamily = value.font_family;
@@ -2021,7 +2025,7 @@ var require_caption_store = __commonJS({
       if (animation) {
         style.animation = animation;
       }
-      if (isRecord(value.stroke)) {
+      if (isRecord2(value.stroke)) {
         const stroke = {};
         if (value.stroke.method === "webkit-outline") {
           stroke.method = "webkit-outline";
@@ -2036,7 +2040,7 @@ var require_caption_store = __commonJS({
           style.stroke = stroke;
         }
       }
-      if (isRecord(value.background)) {
+      if (isRecord2(value.background)) {
         const background = {};
         if (isHexColor(value.background.color)) {
           background.color = value.background.color;
@@ -2072,13 +2076,13 @@ var require_caption_store = __commonJS({
       const layout = normalizeCaptionLayout(value.layout);
       if (value.zone !== void 0 && exports.CAPTION_ZONES.includes(value.zone)) {
         style.zone = value.zone;
-      } else if (layout) {
+      } else if (layout && style.referenceHeightPx === void 0) {
         style.layout = layout;
       }
       return style;
     }
     function normalizeCaptionPosition(value) {
-      if (!isRecord(value)) {
+      if (!isRecord2(value)) {
         return void 0;
       }
       const position = {};
@@ -2091,7 +2095,7 @@ var require_caption_store = __commonJS({
       return Object.keys(position).length > 0 ? position : void 0;
     }
     function normalizeCaptionShadow(value) {
-      if (!isRecord(value) || !isHexColor(value.color)) {
+      if (!isRecord2(value) || !isHexColor(value.color)) {
         return void 0;
       }
       const shadow = { color: value.color };
@@ -2110,7 +2114,7 @@ var require_caption_store = __commonJS({
       return shadow;
     }
     function normalizeCaptionGlow(value) {
-      if (!isRecord(value) || !isHexColor(value.color)) {
+      if (!isRecord2(value) || !isHexColor(value.color)) {
         return void 0;
       }
       const glow = { color: value.color };
@@ -2129,7 +2133,7 @@ var require_caption_store = __commonJS({
       return glow;
     }
     function normalizeCaptionAnimationSlot(value) {
-      if (!isRecord(value) || typeof value.id !== "string" || value.id === "") {
+      if (!isRecord2(value) || typeof value.id !== "string" || value.id === "") {
         return void 0;
       }
       const slot = { id: value.id };
@@ -2145,7 +2149,7 @@ var require_caption_store = __commonJS({
       return slot;
     }
     function normalizeCaptionAnimation(value) {
-      if (!isRecord(value)) {
+      if (!isRecord2(value)) {
         return void 0;
       }
       const animation = {};
@@ -2164,7 +2168,7 @@ var require_caption_store = __commonJS({
       return Object.keys(animation).length > 0 ? animation : void 0;
     }
     function normalizeCaptionLayout(value) {
-      if (!isRecord(value)) {
+      if (!isRecord2(value)) {
         return void 0;
       }
       const validReferenceWidth = Number.isInteger(value.reference_width_px) && value.reference_width_px >= 1;
@@ -2188,6 +2192,7 @@ var require_caption_store = __commonJS({
       return {
         ...style.color !== void 0 ? { color: style.color } : {},
         ...style.sizePx !== void 0 ? { size_px: style.sizePx } : {},
+        ...style.referenceHeightPx !== void 0 ? { reference_height_px: style.referenceHeightPx } : {},
         ...style.fontFamily !== void 0 ? { font_family: style.fontFamily } : {},
         ...style.fontWeight !== void 0 ? { font_weight: style.fontWeight } : {},
         ...style.weight !== void 0 ? { weight: style.weight } : {},
@@ -2704,6 +2709,8 @@ var require_caption_display = __commonJS({
     exports.splitCaptionFragments = splitCaptionFragments;
     exports.scheduleCaptionFragments = scheduleCaptionFragments;
     exports.mergeCaptionDisplayStyles = mergeCaptionDisplayStyles;
+    exports.resolveCaptionReferenceScale = resolveCaptionReferenceScale;
+    exports.scaleCaptionPx = scaleCaptionPx;
     exports.captionAnchorPositionVars = captionAnchorPositionVars;
     exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
     exports.formatCssNumber = formatCssNumber;
@@ -2734,7 +2741,8 @@ var require_caption_display = __commonJS({
       "position",
       "shadow",
       "glow",
-      "animation"
+      "animation",
+      "reference_height_px"
     ]);
     var CAPTION_STROKE_KEYS = /* @__PURE__ */ new Set(["method", "color", "width_px"]);
     var CAPTION_BACKGROUND_KEYS = /* @__PURE__ */ new Set([
@@ -2801,7 +2809,7 @@ var require_caption_display = __commonJS({
       return Array.from(text).reduce((total, character) => total + (/^[\x00-\x7F]$/u.test(character) ? 0.5 : 1), 0);
     }
     function validateCaptionDisplayPolicy(value) {
-      if (!isRecord(value))
+      if (!isRecord2(value))
         fail("INVALID_POLICY", "display_policy must be an object");
       const allowed = /* @__PURE__ */ new Set([
         "mode",
@@ -2838,7 +2846,7 @@ var require_caption_display = __commonJS({
       };
     }
     function validateBreakHints(value) {
-      if (!isRecord(value))
+      if (!isRecord2(value))
         fail("INVALID_POLICY", "display_policy.break_hints must be an object");
       rejectUnknown(value, /* @__PURE__ */ new Set(["preferred_second_starts", "preferred_first_ends", "protected_terms"]), "display_policy.break_hints");
       const result = {};
@@ -2853,7 +2861,7 @@ var require_caption_display = __commonJS({
       return result;
     }
     function resolveCaptionDisplay(captionsRoot, edit, options = {}) {
-      if (Array.isArray(captionsRoot) || !isRecord(captionsRoot) || captionsRoot.display_policy === void 0) {
+      if (Array.isArray(captionsRoot) || !isRecord2(captionsRoot) || captionsRoot.display_policy === void 0) {
         return null;
       }
       const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
@@ -2951,13 +2959,16 @@ var require_caption_display = __commonJS({
       };
     }
     function validateCaptionTextStyle(value, label = "text_style") {
-      if (!isRecord(value))
+      if (!isRecord2(value))
         fail("INVALID_TEXT_STYLE", `${label} must be an object`);
       rejectStyleUnknown(value, CAPTION_STYLE_KEYS, label);
       if (Object.prototype.hasOwnProperty.call(value, "color"))
         validateHexColor(value.color, `${label}.color`);
       if (Object.prototype.hasOwnProperty.call(value, "size_px") && !finitePositive3(value.size_px)) {
         fail("INVALID_TEXT_STYLE", `${label}.size_px must be a positive finite number`);
+      }
+      if (Object.prototype.hasOwnProperty.call(value, "reference_height_px") && !positiveInteger(value.reference_height_px)) {
+        fail("INVALID_TEXT_STYLE", `${label}.reference_height_px must be an integer >= 1`);
       }
       if (Object.prototype.hasOwnProperty.call(value, "font_weight") && (!Number.isInteger(value.font_weight) || value.font_weight < 1 || value.font_weight > 1e3)) {
         fail("INVALID_TEXT_STYLE", `${label}.font_weight must be an integer within [1, 1000]`);
@@ -2978,10 +2989,13 @@ var require_caption_display = __commonJS({
       if (Object.prototype.hasOwnProperty.call(value, "zone") && Object.prototype.hasOwnProperty.call(value, "layout")) {
         fail("STYLE_LAYOUT_CONFLICT", `${label} cannot contain both zone and layout`);
       }
+      if (Object.prototype.hasOwnProperty.call(value, "layout") && Object.prototype.hasOwnProperty.call(value, "reference_height_px")) {
+        fail("STYLE_LAYOUT_CONFLICT", `${label} cannot contain both layout and reference_height_px`);
+      }
       return value;
     }
     function validateCaptionStroke(value, label) {
-      if (!isRecord(value))
+      if (!isRecord2(value))
         fail("INVALID_TEXT_STYLE", `${label} must be an object`);
       rejectStyleUnknown(value, CAPTION_STROKE_KEYS, label);
       if (Object.prototype.hasOwnProperty.call(value, "method") && value.method !== "webkit-outline") {
@@ -2994,7 +3008,7 @@ var require_caption_display = __commonJS({
       }
     }
     function validateCaptionBackground(value, label) {
-      if (!isRecord(value))
+      if (!isRecord2(value))
         fail("INVALID_TEXT_STYLE", `${label} must be an object`);
       rejectStyleUnknown(value, CAPTION_BACKGROUND_KEYS, label);
       if (Object.prototype.hasOwnProperty.call(value, "color"))
@@ -3020,7 +3034,7 @@ var require_caption_display = __commonJS({
       }
     }
     function validateCaptionLayout(value, label) {
-      if (!isRecord(value))
+      if (!isRecord2(value))
         fail("INVALID_TEXT_STYLE", `${label} must be an object`);
       rejectStyleUnknown(value, CAPTION_LAYOUT_KEYS, label);
       for (const key of CAPTION_LAYOUT_REQUIRED_KEYS) {
@@ -3061,7 +3075,7 @@ var require_caption_display = __commonJS({
       failIf(has("max_width_pct") && (!finiteNumber(value.max_width_pct) || value.max_width_pct <= 0 || value.max_width_pct >= 100), "max_width_pct must be a finite number within (0, 100)");
       failIf(has("text_anchor") && !CAPTION_TEXT_ANCHOR_VALUES.has(value.text_anchor), "text_anchor must be one of the nine anchor codes");
       if (has("position")) {
-        if (!isRecord(value.position))
+        if (!isRecord2(value.position))
           fail("INVALID_TEXT_STYLE", `${label}.position must be an object`);
         rejectStyleUnknown(value.position, CAPTION_POSITION_KEYS, `${label}.position`);
         for (const axis of ["x", "y"]) {
@@ -3075,7 +3089,7 @@ var require_caption_display = __commonJS({
       if (has("glow"))
         validateShadowLike(value.glow, CAPTION_GLOW_KEYS, `${label}.glow`);
       if (has("animation")) {
-        if (!isRecord(value.animation))
+        if (!isRecord2(value.animation))
           fail("INVALID_TEXT_STYLE", `${label}.animation must be an object`);
         rejectStyleUnknown(value.animation, CAPTION_ANIMATION_SLOTS, `${label}.animation`);
         for (const slot of CAPTION_ANIMATION_SLOTS) {
@@ -3083,7 +3097,7 @@ var require_caption_display = __commonJS({
             continue;
           const entry = value.animation[slot];
           const slotLabel = `${label}.animation.${slot}`;
-          if (!isRecord(entry))
+          if (!isRecord2(entry))
             fail("INVALID_TEXT_STYLE", `${slotLabel} must be an object`);
           rejectStyleUnknown(entry, CAPTION_ANIMATION_SLOT_KEYS, slotLabel);
           if (typeof entry.id !== "string" || entry.id === "") {
@@ -3102,7 +3116,7 @@ var require_caption_display = __commonJS({
       }
     }
     function validateShadowLike(value, allowed, label) {
-      if (!isRecord(value))
+      if (!isRecord2(value))
         fail("INVALID_TEXT_STYLE", `${label} must be an object`);
       rejectStyleUnknown(value, allowed, label);
       if (!Object.prototype.hasOwnProperty.call(value, "color")) {
@@ -3132,7 +3146,7 @@ var require_caption_display = __commonJS({
       }
       const sourceIds = /* @__PURE__ */ new Set();
       edit.sources.forEach((source, index) => {
-        if (!isRecord(source) || !strictText(source.id)) {
+        if (!isRecord2(source) || !strictText(source.id)) {
           fail("INVALID_SOURCE_ID", `edit.json sources[${index}].id must be a non-empty NFC trimmed string`);
         }
         if (sourceIds.has(source.id))
@@ -3159,7 +3173,7 @@ var require_caption_display = __commonJS({
     }
     function validateLinearCuts(cuts, edit) {
       cuts.forEach((cut, index) => {
-        if (!isRecord(cut) || !finiteNonNegative2(cut.in) || !finitePositive3(cut.out) || cut.out <= cut.in) {
+        if (!isRecord2(cut) || !finiteNonNegative2(cut.in) || !finitePositive3(cut.out) || cut.out <= cut.in) {
           fail("INVALID_CUT", `edit.json cuts[${index}] must satisfy 0 <= in < out`);
         }
         if (Object.prototype.hasOwnProperty.call(cut, "at") || Object.prototype.hasOwnProperty.call(cut, "track") || Object.prototype.hasOwnProperty.call(cut, "transition_out") || Object.prototype.hasOwnProperty.call(cut, "transitionOut")) {
@@ -3184,7 +3198,7 @@ var require_caption_display = __commonJS({
       });
       const timelineEnd = cursor;
       captions.forEach((caption, captionInputIndex) => {
-        if (!isRecord(caption) || caption.time_domain !== "output")
+        if (!isRecord2(caption) || caption.time_domain !== "output")
           return;
         const clampedEnd = Math.min(caption.end, timelineEnd);
         if (!(clampedEnd > caption.start))
@@ -3208,7 +3222,7 @@ var require_caption_display = __commonJS({
           if (caption?.time_domain === "output")
             return;
           const text = caption?.display_text ?? caption?.text;
-          if (isRecord(caption) && finiteNonNegative2(caption.start) && finitePositive3(caption.end) && caption.end > caption.start && typeof text === "string") {
+          if (isRecord2(caption) && finiteNonNegative2(caption.start) && finitePositive3(caption.end) && caption.end > caption.start && typeof text === "string") {
             occurrences.push({
               source_cue_id: caption.id,
               src: typeof caption.src === "string" ? caption.src : null,
@@ -3227,7 +3241,7 @@ var require_caption_display = __commonJS({
         return occurrences;
       }
       captions.forEach((caption, captionInputIndex) => {
-        if (!isRecord(caption))
+        if (!isRecord2(caption))
           return;
         if (caption.time_domain === "output")
           return;
@@ -3260,7 +3274,7 @@ var require_caption_display = __commonJS({
       return occurrences;
     }
     function validateSourceCaption(caption, index, policy) {
-      if (!isRecord(caption) || !strictText(caption.id))
+      if (!isRecord2(caption) || !strictText(caption.id))
         fail("INVALID_CAPTION", `captions[${index}].id must be a non-empty string`);
       if (!finiteNonNegative2(caption.start) || !finitePositive3(caption.end) || caption.end <= caption.start) {
         fail("INVALID_CAPTION", `captions[${index}] must satisfy 0 <= start < end`);
@@ -3290,7 +3304,7 @@ var require_caption_display = __commonJS({
       captions.forEach((caption, index) => {
         if (caption.time_domain === "output")
           return;
-        const conflict = emphasisValue.some((value) => isRecord(value) && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src) && finiteNonNegative2(value.t_start) && finitePositive3(value.t_end) && value.t_end > caption.start && value.t_start < caption.end);
+        const conflict = emphasisValue.some((value) => isRecord2(value) && (!strictText(value.src) || !strictText(caption.src) || value.src === caption.src) && finiteNonNegative2(value.t_start) && finitePositive3(value.t_end) && value.t_end > caption.start && value.t_start < caption.end);
         if (conflict)
           fail("EMPHASIS_CONFLICT", `edit.emphasis_words cannot act on captions[${index}] under display_policy`);
       });
@@ -3388,22 +3402,42 @@ var require_caption_display = __commonJS({
       });
     }
     function mergeCaptionDisplayStyles(base, override) {
-      const left = isRecord(base) ? base : {};
-      const right = isRecord(override) ? override : {};
+      const left = isRecord2(base) ? base : {};
+      const right = isRecord2(override) ? override : {};
       const merged = { ...left, ...right };
       for (const key of ["stroke", "background", "layout"]) {
-        if (isRecord(left[key]) || isRecord(right[key]))
-          merged[key] = { ...isRecord(left[key]) ? left[key] : {}, ...isRecord(right[key]) ? right[key] : {} };
+        if (isRecord2(left[key]) || isRecord2(right[key]))
+          merged[key] = { ...isRecord2(left[key]) ? left[key] : {}, ...isRecord2(right[key]) ? right[key] : {} };
       }
       if (Object.keys(merged).length === 0)
         return void 0;
       if (merged.zone !== void 0 && merged.layout !== void 0)
         fail("STYLE_LAYOUT_CONFLICT", "merged caption text style cannot contain both zone and layout");
+      if (merged.reference_height_px !== void 0 && merged.layout !== void 0) {
+        fail("STYLE_LAYOUT_CONFLICT", "merged caption text style cannot contain both layout and reference_height_px");
+      }
       return merged;
+    }
+    function resolveCaptionReferenceScale(style, output) {
+      if (!isRecord2(style) || style.reference_height_px === void 0)
+        return 1;
+      if (style.layout !== void 0) {
+        fail("STYLE_LAYOUT_CONFLICT", "caption text style cannot contain both layout and reference_height_px");
+      }
+      if (!positiveInteger(style.reference_height_px)) {
+        fail("INVALID_TEXT_STYLE", "text_style.reference_height_px must be an integer >= 1");
+      }
+      if (!output || !finitePositive3(output.height)) {
+        fail("INVALID_OUTPUT_GEOMETRY", "output height is required for reference_height_px caption text style");
+      }
+      return output.height / style.reference_height_px;
+    }
+    function scaleCaptionPx(value, scale) {
+      return scale === 1 ? value : Number((value * scale).toFixed(6));
     }
     function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
       const anchor = typeof anchorValue === "string" && CAPTION_TEXT_ANCHOR_VALUES.has(anchorValue) ? anchorValue : void 0;
-      const position = isRecord(positionValue) ? positionValue : void 0;
+      const position = isRecord2(positionValue) ? positionValue : void 0;
       const verticalAlign = typeof verticalAlignValue === "string" && CAPTION_VERTICAL_ALIGN_VALUES.has(verticalAlignValue) ? verticalAlignValue : void 0;
       if (!anchor && !position && !verticalAlign)
         return {};
@@ -3448,6 +3482,9 @@ var require_caption_display = __commonJS({
       const vars = {};
       let layout;
       let scale = 1;
+      if (style.layout !== void 0 && style.reference_height_px !== void 0) {
+        fail("STYLE_LAYOUT_CONFLICT", "caption text style cannot contain both layout and reference_height_px");
+      }
       if (style.layout !== void 0) {
         if (!output || !finitePositive3(output.width) || !finitePositive3(output.height))
           fail("INVALID_OUTPUT_GEOMETRY", "output width/height are required for reference-pixel caption layout");
@@ -3458,6 +3495,8 @@ var require_caption_display = __commonJS({
         vars["--caption-bottom"] = `${formatCssNumber(layout.bottom_px)}px`;
         vars["--caption-width"] = `${formatCssNumber(layout.width_px)}px`;
         vars["--caption-text-align"] = "center";
+      } else if (style.reference_height_px !== void 0) {
+        scale = resolveCaptionReferenceScale(style, output);
       }
       if (typeof style.color === "string")
         vars["--caption-color"] = style.color;
@@ -3470,7 +3509,7 @@ var require_caption_display = __commonJS({
       }
       if (finitePositive3(style.line_height))
         vars["--caption-line-height"] = formatCssNumber(style.line_height);
-      if (isRecord(style.stroke)) {
+      if (isRecord2(style.stroke)) {
         const color = typeof style.stroke.color === "string" ? style.stroke.color : "rgba(0,0,0,.85)";
         const width = finiteNonNegative2(style.stroke.width_px) ? style.stroke.width_px * scale : 1.5;
         if (style.stroke.method === "webkit-outline") {
@@ -3478,10 +3517,10 @@ var require_caption_display = __commonJS({
           vars["--caption-paint-order"] = "stroke fill";
           vars["--caption-text-shadow"] = "none";
         } else {
-          vars["--caption-text-shadow"] = strokeShadow(color, width, layout !== void 0);
+          vars["--caption-text-shadow"] = strokeShadow(color, width, layout !== void 0 || scale !== 1);
         }
       }
-      if (isRecord(style.background) && finiteNonNegative2(style.background.radius_px)) {
+      if (isRecord2(style.background) && finiteNonNegative2(style.background.radius_px)) {
         vars["--plate-radius"] = `${formatCssNumber(style.background.radius_px * scale)}px`;
         vars["--plate-block-radius"] = `${formatCssNumber(style.background.radius_px * scale)}px`;
       }
@@ -3491,7 +3530,7 @@ var require_caption_display = __commonJS({
       return { vars, ...layout ? { layout } : {} };
     }
     function resolveReferencePixelLayout(value, output) {
-      if (!isRecord(value) || value.mode !== "reference-pixel")
+      if (!isRecord2(value) || value.mode !== "reference-pixel")
         fail("INVALID_LAYOUT", "caption layout.mode must be reference-pixel");
       const required = ["reference_width_px", "reference_height_px", "left_px", "width_px", "bottom_px", "text_align", "max_lines"];
       for (const key of required)
@@ -3548,7 +3587,10 @@ var require_caption_display = __commonJS({
     function finiteNonNegative2(value) {
       return typeof value === "number" && Number.isFinite(value) && value >= 0;
     }
-    function isRecord(value) {
+    function positiveInteger(value) {
+      return Number.isInteger(value) && value >= 1;
+    }
+    function isRecord2(value) {
       return value !== null && typeof value === "object" && !Array.isArray(value);
     }
     function rejectUnknown(value, allowed, label) {
@@ -4180,13 +4222,13 @@ var require_edit_v2_item_write = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.resolvePreviewItemWrite = resolvePreviewItemWrite;
     var edit_v2_1 = require_edit_v2();
-    var isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
-    var recordOf = (value) => isRecord(value) ? value : {};
+    var isRecord2 = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+    var recordOf = (value) => isRecord2(value) ? value : {};
     var stringifyEdit = (value) => `${JSON.stringify(value, void 0, 2)}
 `;
     function resolvePreviewItemWrite(editText, command) {
       const parsed = JSON.parse(editText);
-      if (!isRecord(parsed)) {
+      if (!isRecord2(parsed)) {
         throw new Error("edit.json \u304C object \u3067\u306F\u3042\u308A\u307E\u305B\u3093");
       }
       return parsed.version === 2 ? resolveV2Write(parsed, command) : resolveLegacyWrite(parsed, command);
@@ -4276,8 +4318,8 @@ var require_edit_v2_item_write = __commonJS({
         if (!Array.isArray(edit.overlays)) {
           throw new Error("edit.json \u306E overlays \u304C\u914D\u5217\u3067\u306F\u3042\u308A\u307E\u305B\u3093");
         }
-        const overlay = edit.overlays.find((value) => isRecord(value) && String(value.id) === command.itemId);
-        if (!isRecord(overlay)) {
+        const overlay = edit.overlays.find((value) => isRecord2(value) && String(value.id) === command.itemId);
+        if (!isRecord2(overlay)) {
           throw new Error(`\u30AA\u30FC\u30D0\u30FC\u30EC\u30A4\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${command.itemId}`);
         }
         const htmlPath = typeof command.patch.html === "string" ? typeof overlay.html === "string" ? overlay.html : void 0 : void 0;
@@ -4305,8 +4347,8 @@ var require_edit_v2_item_write = __commonJS({
         if (!Array.isArray(edit.layers)) {
           throw new Error("edit.json \u306E layers \u304C\u914D\u5217\u3067\u306F\u3042\u308A\u307E\u305B\u3093");
         }
-        const layer = edit.layers.find((value) => isRecord(value) && String(value.id) === command.itemId);
-        if (!isRecord(layer)) {
+        const layer = edit.layers.find((value) => isRecord2(value) && String(value.id) === command.itemId);
+        if (!isRecord2(layer)) {
           throw new Error(`\u7D20\u6750\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: ${command.itemId}`);
         }
         if (command.patch.transform) {
@@ -4330,7 +4372,7 @@ var require_edit_v2_item_write = __commonJS({
         throw new Error("edit.json \u306E cuts \u304C\u914D\u5217\u3067\u306F\u3042\u308A\u307E\u305B\u3093");
       }
       const cut = edit.cuts[command.legacyIndex];
-      if (!isRecord(cut)) {
+      if (!isRecord2(cut)) {
         throw new Error(`\u30AB\u30C3\u30C8\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093: index ${command.legacyIndex}`);
       }
       if (command.patch.transform) {
@@ -4430,7 +4472,7 @@ var require_internal_model = __commonJS({
           return void 0;
         }
         const parsed = JSON.parse(text);
-        return isRecord(parsed) ? parsed : void 0;
+        return isRecord2(parsed) ? parsed : void 0;
       } catch {
         return void 0;
       }
@@ -4538,7 +4580,7 @@ var require_internal_model = __commonJS({
           if ((0, cut_adjacency_1.cutOverlapFrames)({ tlEnd: outgoing.at + outgoing.duration }, { tlStart: incoming.at }, fps) !== 0)
             continue;
           const transition = outgoing.declaration.transition_out;
-          if (!isRecord(transition) || typeof transition.duration !== "number" || !Number.isFinite(transition.duration) || transition.duration <= 0)
+          if (!isRecord2(transition) || typeof transition.duration !== "number" || !Number.isFinite(transition.duration) || transition.duration <= 0)
             continue;
           const incomingSpeed = speedOf(incoming);
           const incomingStill = (0, cut_adjacency_1.isStillImageSourcePath)(incoming.source.path);
@@ -4750,7 +4792,7 @@ var require_internal_model = __commonJS({
             out: item.source.out
           };
           const span = item.source.out - item.source.in;
-          const freezeSeconds = isRecord(item.source.freeze) && typeof item.source.freeze.duration_sec === "number" && Number.isFinite(item.source.freeze.duration_sec) ? Math.max(0, item.source.freeze.duration_sec) : 0;
+          const freezeSeconds = isRecord2(item.source.freeze) && typeof item.source.freeze.duration_sec === "number" && Number.isFinite(item.source.freeze.duration_sec) ? Math.max(0, item.source.freeze.duration_sec) : 0;
           const playbackDuration = Math.max(0, duration - freezeSeconds);
           const alignsDuration = Math.abs(span - playbackDuration) <= 1 / fps + 1e-9;
           const cutOut = durationFrames === 0 ? item.source.in : alignsDuration ? item.source.in + playbackDuration : item.source.out;
@@ -5093,7 +5135,7 @@ var require_internal_model = __commonJS({
       };
     }
     function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
-      const audio = isRecord(audioValue) ? audioValue : void 0;
+      const audio = isRecord2(audioValue) ? audioValue : void 0;
       if (!audio)
         return;
       const ensureTrack = (ref) => {
@@ -5113,7 +5155,7 @@ var require_internal_model = __commonJS({
       };
       const sfx = Array.isArray(audio.sfx) ? audio.sfx : [];
       sfx.forEach((entry, index) => {
-        if (!isRecord(entry) || typeof entry.path !== "string" || !entry.path.trim() || typeof entry.t !== "number")
+        if (!isRecord2(entry) || typeof entry.path !== "string" || !entry.path.trim() || typeof entry.t !== "number")
           return;
         const ref = normalizeTrackNumber(entry.track);
         const start = typeof entry.in === "number" ? entry.in : 0;
@@ -5143,7 +5185,7 @@ var require_internal_model = __commonJS({
       });
       const narration = Array.isArray(audio.narration) ? audio.narration : [];
       narration.forEach((entry, index) => {
-        if (!isRecord(entry) || typeof entry.path !== "string" || typeof entry.t !== "number")
+        if (!isRecord2(entry) || typeof entry.path !== "string" || typeof entry.t !== "number")
           return;
         const start = typeof entry.in === "number" ? entry.in : 0;
         const end = typeof entry.out === "number" ? entry.out : start;
@@ -5157,7 +5199,7 @@ var require_internal_model = __commonJS({
           ...typeof entry.out === "number" ? { out: entry.out } : {},
           ...typeof entry.script === "string" ? { script: entry.script } : {},
           ...typeof entry.reading === "string" ? { reading: entry.reading } : {},
-          ...isRecord(entry.provenance) ? { provenance: structuredClone(entry.provenance) } : {}
+          ...isRecord2(entry.provenance) ? { provenance: structuredClone(entry.provenance) } : {}
         };
         ensureTrack(0).items.push({
           id: value.id,
@@ -5171,7 +5213,7 @@ var require_internal_model = __commonJS({
           legacy: { collection: "narration", index: nextLegacyIndex(legacyIndexCounters, "narration"), value }
         });
       });
-      if (isRecord(audio.bgm) && typeof audio.bgm.path === "string") {
+      if (isRecord2(audio.bgm) && typeof audio.bgm.path === "string") {
         const entry = audio.bgm;
         const value = {
           id: "bgm",
@@ -5279,7 +5321,7 @@ var require_internal_model = __commonJS({
     function byDeclarationOrder(entries) {
       return [...entries].sort((left, right) => left.index - right.index).map((entry) => entry.value);
     }
-    function isRecord(value) {
+    function isRecord2(value) {
       return value !== null && typeof value === "object" && !Array.isArray(value);
     }
     function normalizeTrackNumber(value) {
@@ -5325,19 +5367,19 @@ var require_legacy_audio_view = __commonJS({
     }
     function projectAudioDeclaration(item) {
       const value = item.legacy.value;
-      if (item.source.kind === "media" && item.source.sourceId === void 0 && isRecord(item.declaration)) {
+      if (item.source.kind === "media" && item.source.sourceId === void 0 && isRecord2(item.declaration)) {
         return {
           ...item.declaration,
           ...value.gainDb !== void 0 ? { gain_db: value.gainDb } : {}
         };
       }
       return {
-        ...isRecord(item.declaration) ? item.declaration : {},
+        ...isRecord2(item.declaration) ? item.declaration : {},
         ...value,
         ...value.gainDb !== void 0 ? { gain_db: value.gainDb } : {}
       };
     }
-    function isRecord(value) {
+    function isRecord2(value) {
       return value !== null && typeof value === "object" && !Array.isArray(value);
     }
   }
@@ -5496,7 +5538,7 @@ var require_track_transition_compatibility = __commonJS({
       ["captions", 3],
       ["audio", 4]
     ]);
-    function isRecord(value) {
+    function isRecord2(value) {
       return value !== null && typeof value === "object" && !Array.isArray(value);
     }
     function usesDefaultCompatibilityTrackOrder(tracks) {
@@ -5520,20 +5562,20 @@ var require_track_transition_compatibility = __commonJS({
         return void 0;
       if (!Number.isInteger(cutIndex) || cutIndex < 0 || cutIndex >= cuts.length)
         return void 0;
-      const declaredCutTracks = tracks.filter((track) => isRecord(track) && track.kind === "cuts" && Number.isInteger(track.ref) && track.ref >= 0);
+      const declaredCutTracks = tracks.filter((track) => isRecord2(track) && track.kind === "cuts" && Number.isInteger(track.ref) && track.ref >= 0);
       if (usesDefaultCompatibilityTrackOrder(tracks) && declaredCutTracks.length <= 1)
         return void 0;
       const cut = cuts[cutIndex];
-      if (!isRecord(cut))
+      if (!isRecord2(cut))
         return void 0;
       const ref = cut.track ?? 0;
       if (!Number.isInteger(ref) || ref < 0)
         return void 0;
       const trackRef = ref;
-      const declared = declaredCutTracks.some((track) => isRecord(track) && track.ref === trackRef);
+      const declared = declaredCutTracks.some((track) => isRecord2(track) && track.ref === trackRef);
       if (!declared)
         return void 0;
-      const hasFollowingCutOnTrack = cuts.slice(cutIndex + 1).some((candidate) => isRecord(candidate) && (candidate.track ?? 0) === trackRef);
+      const hasFollowingCutOnTrack = cuts.slice(cutIndex + 1).some((candidate) => isRecord2(candidate) && (candidate.track ?? 0) === trackRef);
       return hasFollowingCutOnTrack ? trackRef : void 0;
     }
     function findUnsupportedDeclaredTrackTransitions(cuts, tracks) {
@@ -5541,7 +5583,7 @@ var require_track_transition_compatibility = __commonJS({
         return [];
       const unsupported = [];
       cuts.forEach((cut, cutIndex) => {
-        if (!isRecord(cut) || !cut.transition_out)
+        if (!isRecord2(cut) || !cut.transition_out)
           return;
         const trackRef = unsupportedTrackTransitionTarget(cuts, tracks, cutIndex);
         if (trackRef !== void 0)
@@ -6506,7 +6548,7 @@ var require_canonical = __commonJS({
     function serializeMotion(doc) {
       const motion2 = requireRecord(doc, "motion/*.json");
       return `${serializeTopObject(motion2, edit_v2_keys_1.MOTION_FILE_V0_KEYS, (key, value, indent) => {
-        if (key !== "items" || !isRecord(value))
+        if (key !== "items" || !isRecord2(value))
           return serializeTopValue(value, indent);
         const entries = Object.entries(value);
         if (entries.length === 0)
@@ -6553,7 +6595,7 @@ var require_canonical = __commonJS({
           return "[]";
         return serializeStructuredArray(value, indent);
       }
-      if (isRecord(value) && hasNonEmptyArray(value)) {
+      if (isRecord2(value) && hasNonEmptyArray(value)) {
         return serializeStructuredObject(value, indent);
       }
       return inline(value);
@@ -6627,7 +6669,7 @@ var require_canonical = __commonJS({
       return lines.join("\n");
     }
     function inlineField(key, value, item) {
-      if (item && key === "source" && isRecord(value))
+      if (item && key === "source" && isRecord2(value))
         return inlineObject(value, ["kind"]);
       if (item && key === "keyframes" && Array.isArray(value)) {
         return `[${value.map((point) => inlineOrdered(point, edit_v2_keys_1.KEYFRAME_V2_KEYS)).join(", ")}]`;
@@ -6635,7 +6677,7 @@ var require_canonical = __commonJS({
       return inline(value);
     }
     function inlineOrdered(value, preferred) {
-      return isRecord(value) ? inlineObject(value, preferred) : inline(value);
+      return isRecord2(value) ? inlineObject(value, preferred) : inline(value);
     }
     function inlineObject(value, preferred, item = false) {
       const keys = orderedKeys(value, preferred);
@@ -6646,7 +6688,7 @@ var require_canonical = __commonJS({
     function inline(value) {
       if (Array.isArray(value))
         return `[${value.map((entry) => inline(entry)).join(", ")}]`;
-      if (isRecord(value))
+      if (isRecord2(value))
         return inlineObject(value, Object.keys(value));
       const serialized = JSON.stringify(value);
       return serialized === void 0 ? "null" : serialized;
@@ -6662,14 +6704,14 @@ var require_canonical = __commonJS({
       return lines;
     }
     function frameOf(value) {
-      return isRecord(value) && typeof value.t === "number" ? value.t : Number.POSITIVE_INFINITY;
+      return isRecord2(value) && typeof value.t === "number" ? value.t : Number.POSITIVE_INFINITY;
     }
     function requireRecord(value, label) {
-      if (!isRecord(value))
+      if (!isRecord2(value))
         throw new Error(`${label} \u306F object \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059\u3002`);
       return value;
     }
-    function isRecord(value) {
+    function isRecord2(value) {
       return value !== null && typeof value === "object" && !Array.isArray(value);
     }
   }
@@ -6757,7 +6799,7 @@ var require_tree_ops = __commonJS({
     function updateItem(edit, id, patch) {
       const location2 = requireLocation(edit, id);
       for (const [key, value] of Object.entries(patch)) {
-        if (key === "source" && isRecord(value) && isRecord(location2.item.source)) {
+        if (key === "source" && isRecord2(value) && isRecord2(location2.item.source)) {
           location2.item.source = mergePatch(location2.item.source, value);
         } else if (value === null || value === void 0) {
           delete location2.item[key];
@@ -6836,7 +6878,7 @@ var require_tree_ops = __commonJS({
         point.easing = easing;
       } else {
         const previous = typeof point.easing === "string" ? point.easing : "linear";
-        const perProperty = isRecord(point.easing) ? clone(point.easing) : {};
+        const perProperty = isRecord2(point.easing) ? clone(point.easing) : {};
         for (const declaredProperty of declared) {
           if (!(declaredProperty in perProperty))
             perProperty[declaredProperty] = previous;
@@ -6991,10 +7033,10 @@ var require_tree_ops = __commonJS({
     function collectExcludedCaptionIds(edit) {
       const result = /* @__PURE__ */ new Set();
       const visit = (value) => {
-        if (!isRecord(value))
+        if (!isRecord2(value))
           return;
         const source = value.source;
-        if (isRecord(source) && source.kind === "captions" && Array.isArray(source.exclude)) {
+        if (isRecord2(source) && source.kind === "captions" && Array.isArray(source.exclude)) {
           for (const id of source.exclude)
             if (typeof id === "string")
               result.add(id);
@@ -7006,9 +7048,9 @@ var require_tree_ops = __commonJS({
               visit(child);
         }
       };
-      if (isRecord(edit) && Array.isArray(edit.tracks)) {
+      if (isRecord2(edit) && Array.isArray(edit.tracks)) {
         for (const track of edit.tracks) {
-          if (!isRecord(track))
+          if (!isRecord2(track))
             continue;
           for (const key of ["items", "children"]) {
             const items = track[key];
@@ -7021,10 +7063,10 @@ var require_tree_ops = __commonJS({
       return result;
     }
     function filterCaptionRootByExcludedIds(root, excluded) {
-      const filter = (captions) => captions.filter((caption) => !isRecord(caption) || typeof caption.id !== "string" || !excluded.has(caption.id));
+      const filter = (captions) => captions.filter((caption) => !isRecord2(caption) || typeof caption.id !== "string" || !excluded.has(caption.id));
       if (Array.isArray(root))
         return filter(root);
-      if (isRecord(root) && Array.isArray(root.captions)) {
+      if (isRecord2(root) && Array.isArray(root.captions)) {
         return { ...root, captions: filter(root.captions) };
       }
       return root;
@@ -7285,7 +7327,7 @@ var require_tree_ops = __commonJS({
       } else {
         delete point[property];
       }
-      if (isRecord(point.easing)) {
+      if (isRecord2(point.easing)) {
         delete point.easing[property];
         if (Object.keys(point.easing).length === 0)
           delete point.easing;
@@ -7382,7 +7424,7 @@ var require_tree_ops = __commonJS({
       const hash = itemId.lastIndexOf("#");
       return hash >= 0 ? itemId.slice(hash + 1) : itemId;
     }
-    function isRecord(value) {
+    function isRecord2(value) {
       return value !== null && typeof value === "object" && !Array.isArray(value);
     }
   }
@@ -15062,7 +15104,9 @@ function computeLayerKeyframesVisual(keyframes, layerLocalSeconds) {
       ]
     )
   } : null;
-  return { transform, crop, perspective };
+  const opacityPoints = points.filter((point) => finite(point.opacity));
+  const opacity = opacityPoints.length ? Math.max(0, Math.min(1, valueAt(opacityPoints, (point) => point.opacity, t))) : null;
+  return { transform, crop, perspective, opacity };
 }
 function cornersToHomography(corners) {
   const [p0, p1, p3, p2] = corners;
@@ -15330,6 +15374,12 @@ uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
 uniform int rotation0;
 uniform int rotation1;
+uniform int layerStyle0;
+uniform int layerStyle1;
+uniform vec4 crop0;
+uniform vec4 crop1;
+uniform vec2 box0;
+uniform vec2 box1;
 uniform float transitionProgress;
 ${type === "dissolve" ? "uniform sampler2D dissolveNoise;" : ""}
 ${YUV_GLSL}
@@ -15340,6 +15390,14 @@ vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
   pixel /= transform.z;
   vec2 local = pixel / outputSize + 0.5;
   return framing.xy + local * framing.zw;
+}
+// issue #39 layer-style cut: the inverse of the layer program's Translate(center + x/y) \xB7 Rot \xB7 B(box)
+// (forwardInverse without the corner pin), returning crop-local (u, v); box is crop \xD7 source \xD7 scale in px.
+vec2 inverseBox(vec2 p, vec4 transform, vec2 box) {
+  vec2 pixel = (p - 0.5) * outputSize - transform.xy;
+  float angle = transform.w;
+  pixel = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * pixel;
+  return pixel / box + 0.5;
 }
 vec2 canvasToSource(vec2 canvasPoint, vec2 sourceSize) {
   float fit = min(outputSize.x / sourceSize.x, outputSize.y / sourceSize.y);
@@ -15354,20 +15412,34 @@ vec2 unrotate(vec2 q, int rotation) {
   return vec2(q.y, 1.0 - q.x);
 }
 vec4 sample0(vec2 p) {
-  vec2 canvasPoint = inverseVisual(p, transform0, framing0);
-  if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
-  vec2 q = canvasToSource(canvasPoint, sourceSize0);
-  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  vec2 q;
+  if (layerStyle0 == 1) {
+    vec2 local = inverseBox(p, transform0, box0);
+    if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
+    q = crop0.xy + local * crop0.zw;
+  } else {
+    vec2 canvasPoint = inverseVisual(p, transform0, framing0);
+    if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
+    q = canvasToSource(canvasPoint, sourceSize0);
+    if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  }
   q = unrotate(q, rotation0);
   if (format0 == 2) return vec4(texture(rgba0, q).rgb, opacity0);
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
   return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
 }
 vec4 sample1(vec2 p) {
-  vec2 canvasPoint = inverseVisual(p, transform1, framing1);
-  if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
-  vec2 q = canvasToSource(canvasPoint, sourceSize1);
-  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  vec2 q;
+  if (layerStyle1 == 1) {
+    vec2 local = inverseBox(p, transform1, box1);
+    if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
+    q = crop1.xy + local * crop1.zw;
+  } else {
+    vec2 canvasPoint = inverseVisual(p, transform1, framing1);
+    if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
+    q = canvasToSource(canvasPoint, sourceSize1);
+    if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  }
   q = unrotate(q, rotation1);
   if (format1 == 2) return vec4(texture(rgba1, q).rgb, opacity1);
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
@@ -15769,6 +15841,14 @@ function forwardInverse(visual, srcW, srcH, outW, outH) {
     inv[8]
   ]);
 }
+var FULL_CROP = Object.freeze({ x: 0, y: 0, width: 1, height: 1 });
+function cutLayerStyleBox(visual, srcW, srcH) {
+  const crop = visual.layerStyle?.crop ?? FULL_CROP;
+  return {
+    width: crop.width * srcW * visual.transform.scale,
+    height: crop.height * srcH * visual.transform.scale
+  };
+}
 function rotationQuarterTurns(frame) {
   const value = Number(frame.rotationDeg ?? 0);
   if (!Number.isFinite(value)) return 0;
@@ -15936,7 +16016,10 @@ var WebGL2Compositor = class {
       opacity: gl.getUniformLocation(program, `opacity${index}`),
       format: gl.getUniformLocation(program, `format${index}`),
       sourceSize: gl.getUniformLocation(program, `sourceSize${index}`),
-      rotation: gl.getUniformLocation(program, `rotation${index}`)
+      rotation: gl.getUniformLocation(program, `rotation${index}`),
+      layerStyle: gl.getUniformLocation(program, `layerStyle${index}`),
+      crop: gl.getUniformLocation(program, `crop${index}`),
+      box: gl.getUniformLocation(program, `box${index}`)
     }));
     const state = {
       program,
@@ -16137,7 +16220,7 @@ var WebGL2Compositor = class {
     for (let i2 = 0; i2 < 3; i2++) this.bind(unitBase + i2, textures[i2]);
     return logical;
   }
-  setCut(u2, v2) {
+  setCut(u2, v2, source) {
     this.gl.uniform4f(
       u2.framing,
       v2.framing.x,
@@ -16153,6 +16236,22 @@ var WebGL2Compositor = class {
       v2.transform.rotateDegrees * Math.PI / 180
     );
     this.gl.uniform1f(u2.opacity, v2.opacity);
+    if (v2.layerStyle) {
+      const box2 = cutLayerStyleBox(v2, source.width, source.height);
+      this.gl.uniform1i(u2.layerStyle, 1);
+      this.gl.uniform4f(
+        u2.crop,
+        v2.layerStyle.crop.x,
+        v2.layerStyle.crop.y,
+        v2.layerStyle.crop.width,
+        v2.layerStyle.crop.height
+      );
+      this.gl.uniform2f(u2.box, Math.max(box2.width, 1e-6), Math.max(box2.height, 1e-6));
+    } else {
+      this.gl.uniform1i(u2.layerStyle, 0);
+      this.gl.uniform4f(u2.crop, 0, 0, 1, 1);
+      this.gl.uniform2f(u2.box, 1, 1);
+    }
   }
   ensureFbos(w, h) {
     const shape = `${w}x${h}`;
@@ -16226,24 +16325,26 @@ var WebGL2Compositor = class {
       this.gl.uniform2f(uniforms.sourceSize, value.width, value.height);
       this.gl.uniform1i(uniforms.rotation, 0);
     }
+    return { width: value.width, height: value.height };
   }
   prepareBase(frames, plan, output, baseProgram) {
     const gl = this.gl;
     gl.useProgram(baseProgram.program);
     gl.uniform2f(baseProgram.output, output.width, output.height);
     const started = performance.now();
+    const sizes = [];
     frames.forEach((frame, index) => {
       if ("bitmap" in frame) {
-        this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[index], baseProgram.cutUniforms[index]);
+        sizes[index] = this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[index], baseProgram.cutUniforms[index]);
       } else if (isVideoFrame(frame)) {
-        this.uploadVideoFrameTexture(
+        sizes[index] = this.uploadVideoFrameTexture(
           this.baseRgbaTextures[index],
           BASE_RGBA_UNITS[index],
           frame,
           baseProgram.cutUniforms[index]
         );
       } else {
-        this.uploadYuv(
+        sizes[index] = this.uploadYuv(
           frame,
           this.baseTextures.slice(index * 3, index * 3 + 3),
           index * 3,
@@ -16282,10 +16383,10 @@ var WebGL2Compositor = class {
     }
     const elapsed = performance.now() - started;
     frames.forEach(
-      (_frame, index) => this.setCut(baseProgram.cutUniforms[index], plan.base[index].visual)
+      (_frame, index) => this.setCut(baseProgram.cutUniforms[index], plan.base[index].visual, sizes[index])
     );
     if (frames.length === 1)
-      this.setCut(baseProgram.cutUniforms[1], plan.base[0].visual);
+      this.setCut(baseProgram.cutUniforms[1], plan.base[0].visual, sizes[0]);
     return elapsed;
   }
   configureBaseDraw(plan, target, baseProgram) {
@@ -16743,6 +16844,18 @@ function clamp(value, minimum, maximum) {
 function normalizeTransition(cut) {
   return cut.transition_out ?? cut.transitionOut;
 }
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object";
+}
+function usableKeyframeCount(keyframes) {
+  return Array.isArray(keyframes) ? keyframes.filter((point) => Boolean(point) && typeof point === "object" && Number.isFinite(point.t) && point.t >= 0).length : 0;
+}
+function hasCutLayerStyleVisual(cut) {
+  return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2;
+}
+function cutDeclaresPerspective(cut) {
+  return isRecord(cut.perspective) || Array.isArray(cut.keyframes) && cut.keyframes.some((point) => Boolean(point) && typeof point === "object" && isRecord(point.perspective));
+}
 function buildResolvedTimelinePlan(cuts, options = {}) {
   if (cuts.some((cut) => cut.freeze && (cut.at !== void 0 || cut.track !== void 0))) {
     throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
@@ -16782,6 +16895,10 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
     warned.add(message);
     onWarning?.(message);
   };
+  cuts.forEach((cut, index) => {
+    if (!cutDeclaresPerspective(cut)) return;
+    warn(`cut ${cut.id ?? `cut-${index}`}: perspective is not applied by the frame-engine base path yet (issue #39)`);
+  });
   const maskSources = /* @__PURE__ */ new Map();
   for (const layer of visibleLayers) {
     if (layer.kind === "filter" || !layer.src || layer.mask !== void 0 || maskSources.has(layer.src)) continue;
@@ -16855,7 +16972,39 @@ function interpolateFraming(keyframes, playbackSeconds) {
     centerY: clamp(lerp(finite2(left.cy, 0.5), finite2(right.cy, 0.5)), 0, 1)
   };
 }
-function visualAt(cut, playbackSeconds) {
+function layerStyleVisualAt(cut, localSeconds) {
+  const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds);
+  const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
+  const crop = animated?.crop ?? {
+    x: finite2(staticCrop.x, 0),
+    y: finite2(staticCrop.y, 0),
+    width: finite2(staticCrop.w, 1),
+    height: finite2(staticCrop.h, 1)
+  };
+  const width = clamp(crop.width, Number.EPSILON, 1);
+  const height = clamp(crop.height, Number.EPSILON, 1);
+  const transform = animated?.transform ?? {
+    x: finite2(cut.transform?.x, 0),
+    y: finite2(cut.transform?.y, 0),
+    scale: finite2(cut.transform?.scale, 1),
+    rotateDegrees: finite2(cut.transform?.rotate, 0)
+  };
+  return {
+    framing: DEFAULT_VISUAL.framing,
+    transform: {
+      x: transform.x,
+      y: transform.y,
+      scale: Math.max(Number.EPSILON, transform.scale),
+      rotateDegrees: transform.rotateDegrees
+    },
+    opacity: clamp(animated?.opacity ?? finite2(cut.opacity, 1), 0, 1),
+    layerStyle: {
+      crop: { x: clamp(crop.x, 0, 1 - width), y: clamp(crop.y, 0, 1 - height), width, height }
+    }
+  };
+}
+function visualAt(cut, playbackSeconds, localSeconds) {
+  if (hasCutLayerStyleVisual(cut)) return layerStyleVisualAt(cut, localSeconds);
   let framing = DEFAULT_VISUAL.framing;
   const keyframes = cut.framing?.keyframes;
   if (keyframes && keyframes.length > 0) {
@@ -16899,7 +17048,9 @@ function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
   if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
   const source = sources.get(cut.src);
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
-  const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visualAt(cut, playbackSeconds));
+  const localSeconds = Math.max(0, outputSeconds - placement.at);
+  const visual = visualAt(cut, playbackSeconds, localSeconds);
+  const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
   if (image) return image;
   if (!source || !("decode" in source)) throw new Error(`no video frame source registered for ${cut.src}`);
   const speed = finite2(cut.speed, 1) > 0 ? finite2(cut.speed, 1) : 1;
@@ -16907,7 +17058,7 @@ function layerFromPlacement(placement, cutIndex, outputSeconds, sources) {
     id: `cut-${cutIndex}`,
     source,
     sourceTimeUs: Math.round((cut.in + playbackSeconds * speed) * 1e6),
-    visual: visualAt(cut, playbackSeconds)
+    visual
   };
 }
 function stillImageBaseLayer(source, src, id, visual) {
@@ -17019,7 +17170,7 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
       id,
       visual,
       blend,
-      opacity: clamp(finite2(layer.opacity, 1), 0, 1)
+      opacity: clamp(animated?.opacity ?? finite2(layer.opacity, 1), 0, 1)
     };
     if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
       if (layer.mask || layer.kind === "matte") timeline.warn(`mask ignored for still image layer ${id}`);
@@ -21918,15 +22069,23 @@ var LookaheadCache = class {
     this.entries.set(frameNumber, entry);
     return { frame: cloneWithRotation(entry.frame), decodeMs: entry.decodeMs };
   }
+  /**
+   * Frees one slot *before* a decode starts. Cached frames are decoder-backed clones that share
+   * the decoder's output surface, so holding a full cache while the next decode is pending can
+   * starve the decoder of surfaces (issue #28). Callers on the cache-miss path must call this
+   * before awaiting the underlying decode, never only after it resolves.
+   */
+  makeRoom() {
+    while (this.entries.size >= this.capacity) {
+      if (!this.evictOldest()) break;
+    }
+  }
   put(frameNumber, frame, decodeMs) {
     this.entries.get(frameNumber)?.frame.close();
     this.entries.delete(frameNumber);
     this.entries.set(frameNumber, { frame, decodeMs });
     while (this.entries.size > this.capacity) {
-      const oldest = this.entries.keys().next().value;
-      if (oldest == null) break;
-      this.entries.get(oldest)?.frame.close();
-      this.entries.delete(oldest);
+      if (!this.evictOldest()) break;
     }
   }
   has(frameNumber) {
@@ -21938,6 +22097,13 @@ var LookaheadCache = class {
   clear() {
     for (const entry of this.entries.values()) entry.frame.close();
     this.entries.clear();
+  }
+  evictOldest() {
+    const oldest = this.entries.keys().next().value;
+    if (oldest == null) return false;
+    this.entries.get(oldest)?.frame.close();
+    this.entries.delete(oldest);
+    return true;
   }
 };
 
@@ -21968,6 +22134,7 @@ var LookaheadFrameSource = class {
       this.options.onAccess?.({ streamId, frameNumber, hit: true, decodeMs: cached.decodeMs });
       return cached.frame;
     }
+    cache.makeRoom();
     const started = performance.now();
     const frame = await this.source.decode(timeUs, metrics, request);
     const decodeMs = performance.now() - started;
@@ -21984,6 +22151,7 @@ var LookaheadFrameSource = class {
     const existing = this.inFlight.get(key);
     if (existing) return existing;
     const operation = (async () => {
+      cache.makeRoom();
       const started = performance.now();
       const frame = await this.source.decode(timeUs, void 0, request);
       cache.put(frameNumber, frame, performance.now() - started);

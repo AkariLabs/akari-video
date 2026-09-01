@@ -1935,6 +1935,7 @@ ${indent}`);
       var TEXT_STYLE_KEYS = /* @__PURE__ */ new Set([
         "color",
         "size_px",
+        "reference_height_px",
         "font_family",
         "font_weight",
         "weight",
@@ -1973,6 +1974,9 @@ ${indent}`);
         }
         if (isFinitePositive(value.size_px)) {
           style.sizePx = value.size_px;
+        }
+        if (Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1) {
+          style.referenceHeightPx = value.reference_height_px;
         }
         if (typeof value.font_family === "string" && value.font_family !== "") {
           style.fontFamily = value.font_family;
@@ -2080,7 +2084,7 @@ ${indent}`);
         const layout = normalizeCaptionLayout(value.layout);
         if (value.zone !== void 0 && exports.CAPTION_ZONES.includes(value.zone)) {
           style.zone = value.zone;
-        } else if (layout) {
+        } else if (layout && style.referenceHeightPx === void 0) {
           style.layout = layout;
         }
         return style;
@@ -2196,6 +2200,7 @@ ${indent}`);
         return {
           ...style.color !== void 0 ? { color: style.color } : {},
           ...style.sizePx !== void 0 ? { size_px: style.sizePx } : {},
+          ...style.referenceHeightPx !== void 0 ? { reference_height_px: style.referenceHeightPx } : {},
           ...style.fontFamily !== void 0 ? { font_family: style.fontFamily } : {},
           ...style.fontWeight !== void 0 ? { font_weight: style.fontWeight } : {},
           ...style.weight !== void 0 ? { weight: style.weight } : {},
@@ -2712,6 +2717,8 @@ ${indent}`);
       exports.splitCaptionFragments = splitCaptionFragments;
       exports.scheduleCaptionFragments = scheduleCaptionFragments;
       exports.mergeCaptionDisplayStyles = mergeCaptionDisplayStyles;
+      exports.resolveCaptionReferenceScale = resolveCaptionReferenceScale;
+      exports.scaleCaptionPx = scaleCaptionPx;
       exports.captionAnchorPositionVars = captionAnchorPositionVars;
       exports.resolveCaptionStyleForOutput = resolveCaptionStyleForOutput;
       exports.formatCssNumber = formatCssNumber;
@@ -2742,7 +2749,8 @@ ${indent}`);
         "position",
         "shadow",
         "glow",
-        "animation"
+        "animation",
+        "reference_height_px"
       ]);
       var CAPTION_STROKE_KEYS = /* @__PURE__ */ new Set(["method", "color", "width_px"]);
       var CAPTION_BACKGROUND_KEYS = /* @__PURE__ */ new Set([
@@ -2967,6 +2975,9 @@ ${indent}`);
         if (Object.prototype.hasOwnProperty.call(value, "size_px") && !finitePositive3(value.size_px)) {
           fail("INVALID_TEXT_STYLE", `${label}.size_px must be a positive finite number`);
         }
+        if (Object.prototype.hasOwnProperty.call(value, "reference_height_px") && !positiveInteger(value.reference_height_px)) {
+          fail("INVALID_TEXT_STYLE", `${label}.reference_height_px must be an integer >= 1`);
+        }
         if (Object.prototype.hasOwnProperty.call(value, "font_weight") && (!Number.isInteger(value.font_weight) || value.font_weight < 1 || value.font_weight > 1e3)) {
           fail("INVALID_TEXT_STYLE", `${label}.font_weight must be an integer within [1, 1000]`);
         }
@@ -2985,6 +2996,9 @@ ${indent}`);
           validateCaptionLayout(value.layout, `${label}.layout`);
         if (Object.prototype.hasOwnProperty.call(value, "zone") && Object.prototype.hasOwnProperty.call(value, "layout")) {
           fail("STYLE_LAYOUT_CONFLICT", `${label} cannot contain both zone and layout`);
+        }
+        if (Object.prototype.hasOwnProperty.call(value, "layout") && Object.prototype.hasOwnProperty.call(value, "reference_height_px")) {
+          fail("STYLE_LAYOUT_CONFLICT", `${label} cannot contain both layout and reference_height_px`);
         }
         return value;
       }
@@ -3407,7 +3421,27 @@ ${indent}`);
           return void 0;
         if (merged.zone !== void 0 && merged.layout !== void 0)
           fail("STYLE_LAYOUT_CONFLICT", "merged caption text style cannot contain both zone and layout");
+        if (merged.reference_height_px !== void 0 && merged.layout !== void 0) {
+          fail("STYLE_LAYOUT_CONFLICT", "merged caption text style cannot contain both layout and reference_height_px");
+        }
         return merged;
+      }
+      function resolveCaptionReferenceScale(style, output) {
+        if (!isRecord2(style) || style.reference_height_px === void 0)
+          return 1;
+        if (style.layout !== void 0) {
+          fail("STYLE_LAYOUT_CONFLICT", "caption text style cannot contain both layout and reference_height_px");
+        }
+        if (!positiveInteger(style.reference_height_px)) {
+          fail("INVALID_TEXT_STYLE", "text_style.reference_height_px must be an integer >= 1");
+        }
+        if (!output || !finitePositive3(output.height)) {
+          fail("INVALID_OUTPUT_GEOMETRY", "output height is required for reference_height_px caption text style");
+        }
+        return output.height / style.reference_height_px;
+      }
+      function scaleCaptionPx(value, scale) {
+        return scale === 1 ? value : Number((value * scale).toFixed(6));
       }
       function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
         const anchor = typeof anchorValue === "string" && CAPTION_TEXT_ANCHOR_VALUES.has(anchorValue) ? anchorValue : void 0;
@@ -3456,6 +3490,9 @@ ${indent}`);
         const vars = {};
         let layout;
         let scale = 1;
+        if (style.layout !== void 0 && style.reference_height_px !== void 0) {
+          fail("STYLE_LAYOUT_CONFLICT", "caption text style cannot contain both layout and reference_height_px");
+        }
         if (style.layout !== void 0) {
           if (!output || !finitePositive3(output.width) || !finitePositive3(output.height))
             fail("INVALID_OUTPUT_GEOMETRY", "output width/height are required for reference-pixel caption layout");
@@ -3466,6 +3503,8 @@ ${indent}`);
           vars["--caption-bottom"] = `${formatCssNumber(layout.bottom_px)}px`;
           vars["--caption-width"] = `${formatCssNumber(layout.width_px)}px`;
           vars["--caption-text-align"] = "center";
+        } else if (style.reference_height_px !== void 0) {
+          scale = resolveCaptionReferenceScale(style, output);
         }
         if (typeof style.color === "string")
           vars["--caption-color"] = style.color;
@@ -3486,7 +3525,7 @@ ${indent}`);
             vars["--caption-paint-order"] = "stroke fill";
             vars["--caption-text-shadow"] = "none";
           } else {
-            vars["--caption-text-shadow"] = strokeShadow(color, width, layout !== void 0);
+            vars["--caption-text-shadow"] = strokeShadow(color, width, layout !== void 0 || scale !== 1);
           }
         }
         if (isRecord2(style.background) && finiteNonNegative2(style.background.radius_px)) {
@@ -3555,6 +3594,9 @@ ${indent}`);
       }
       function finiteNonNegative2(value) {
         return typeof value === "number" && Number.isFinite(value) && value >= 0;
+      }
+      function positiveInteger(value) {
+        return Number.isInteger(value) && value >= 1;
       }
       function isRecord2(value) {
         return value !== null && typeof value === "object" && !Array.isArray(value);
