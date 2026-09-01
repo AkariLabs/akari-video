@@ -43,6 +43,11 @@ import {
   projectRendererCompatibilityEdit,
   readRenderEdit,
 } from "./internal-render.mjs";
+import {
+  judgeAudioLevel,
+  judgeMotion,
+  measureAudioLevel,
+} from "./verify-declared.mjs";
 
 const VERSION = 1;
 const packageRequire = createRequire(import.meta.url);
@@ -123,8 +128,7 @@ export async function runCli(argv, io = console) {
       io.log(`PLAN: ${state.plan.output} (${state.plan.predicted_duration_seconds}s)`);
       return 0;
     }
-    io.log(`${state.verify.verdict.toUpperCase()}: ${state.plan.output}`);
-    return state.verify.verdict === "pass" ? 0 : 1;
+    return logVerificationResult(state, io);
   } catch (error) {
     if (error instanceof RefusalError) {
       io.error(`render-cut refused: ${error.message}`);
@@ -400,6 +404,8 @@ export async function renderProject(input, options = {}, io = console) {
       const failedVerification = verifyArtifact({
         outputPath: failedArtifactPath,
         plan,
+        inputs: state.provenance.sources,
+        edit,
         ffprobeCommand: capabilities.ffprobeCommand,
         ffmpegCommand: capabilities.ffmpegCommand,
       });
@@ -455,6 +461,8 @@ export async function renderProject(input, options = {}, io = console) {
     const verification = verifyArtifact({
       outputPath,
       plan,
+      inputs: state.provenance.sources,
+      edit,
       ffprobeCommand: capabilities.ffprobeCommand,
       ffmpegCommand: capabilities.ffmpegCommand,
     });
@@ -943,8 +951,16 @@ async function cleanupStaleRunDirectories(renderTmpRoot) {
   );
 }
 
-export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfprobe(), ffmpegCommand = resolveFfmpeg() }) {
-  const measured = probeMedia(ffprobeCommand, outputPath);
+export function verifyArtifact({
+  outputPath,
+  plan,
+  inputs = [],
+  edit = null,
+  ffprobeCommand = resolveFfprobe(),
+  ffmpegCommand = resolveFfmpeg(),
+  spawnSyncImpl = spawnSync,
+}) {
+  const measured = probeMedia(ffprobeCommand, outputPath, spawnSyncImpl);
   const video = measured.streams.find((stream) => stream.codec_type === "video");
   const audio = measured.streams.find((stream) => stream.codec_type === "audio");
   const actualDuration = Number(measured.format?.duration ?? video?.duration);
@@ -963,7 +979,7 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
   // 検査 1 + 2（task 2026-08-04-render-verify-media-checks）: 1 パスの全デコードで
   // (a) 実フレーム数と (b) デコードエラーの有無を同時に測る。ffprobe -count_frames も同じだけ
   // デコードが要るので、長尺で二重にコストを払わないよう ffmpeg 側 1 回に統合する。
-  const decodePass = decodeAllFramesAndCount(ffmpegCommand, outputPath);
+  const decodePass = decodeAllFramesAndCount(ffmpegCommand, outputPath, spawnSyncImpl);
   const expectedFrameCount = Math.round(plan.predicted_duration_seconds * expected.fps);
   const frameTolerance = Math.round(plan.duration_tolerance_seconds * expected.fps);
   compare(
@@ -1015,6 +1031,34 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
     decodePass.ok,
     decodePass.ok ? "all frames decoded without error" : `decode error: ${decodePass.errorExcerpt}`,
   );
+  const audioReasons = declaredAudioReasons({ plan, inputs, edit });
+  const declaredAudio = plan.commands.audio_mix?.hasAudibleAudio === true
+    || inputs.some((input) => input?.has_audio === true || input?.hasAudio === true);
+  const audioMeasurement = audio
+    ? measureAudioLevel({
+        outputPath,
+        durationSeconds: actualDuration,
+        ffmpegCommand,
+        spawnSyncImpl,
+      })
+    : null;
+  const audioLevel = judgeAudioLevel({
+    declared: declaredAudio,
+    reasons: audioReasons,
+    hasAudioStream: Boolean(audio),
+    measurement: audioMeasurement,
+  });
+  if (audioLevel.finding) findings.push(audioLevel.finding);
+
+  const motion = judgeMotion({
+    outputPath,
+    cuts: edit?.cuts ?? [],
+    fps: expected.fps,
+    durationSeconds: actualDuration,
+    ffmpegCommand,
+    spawnSyncImpl,
+  });
+  findings.push(...motion.findings);
   return {
     verdict: findings.some((finding) => finding.severity === "error") ? "fail" : "pass",
     findings,
@@ -1030,6 +1074,10 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
       audio_codec: audio?.codec_name ?? null,
       frame_count: decodePass.frameCount,
     },
+    declared: {
+      audio_level: audioLevel.record,
+      motion: motion.records,
+    },
   };
 }
 
@@ -1038,8 +1086,8 @@ export function verifyArtifact({ outputPath, plan, ffprobeCommand = resolveFfpro
 // `-progress pipe:1` を足し、stdout に構造化された frame=N の進捗行（常に映像フレーム数）を
 // 吐かせつつ stderr は `-v error` のみ（デコードエラーだけが載る）にすることで、1 回の全デコード
 // から実フレーム数とデコード成否の両方を取り出す（検査 1 + 2 の統合。task 契約が許容する範囲）。
-function decodeAllFramesAndCount(ffmpegCommand, outputPath) {
-  const result = spawnSync(
+function decodeAllFramesAndCount(ffmpegCommand, outputPath, spawnSyncImpl = spawnSync) {
+  const result = spawnSyncImpl(
     ffmpegCommand,
     [
       "-hide_banner",
@@ -1150,8 +1198,8 @@ function validateEditShape(edit) {
   if (!Array.isArray(edit.overlays)) throw new ExecutionError("edit.json cuts and overlays must be arrays");
 }
 
-function probeMedia(command, path) {
-  const result = spawnSync(command, ["-v", "error", "-show_streams", "-show_format", "-of", "json", path], { encoding: "utf8" });
+function probeMedia(command, path, spawnSyncImpl = spawnSync) {
+  const result = spawnSyncImpl(command, ["-v", "error", "-show_streams", "-show_format", "-of", "json", path], { encoding: "utf8" });
   if (result.error) throw new ExecutionError(messageOf(result.error));
   if (result.status !== 0) throw new ExecutionError(`ffprobe failed for ${basename(path)}: ${result.stderr.trim()}`);
   return parseJson(result.stdout, `ffprobe ${basename(path)}`);
@@ -1177,6 +1225,14 @@ export function ffmpegInstallHint(platform = process.platform) {
 function addWarning(state, warning) {
   state.warnings ??= [];
   if (!state.warnings.includes(warning)) state.warnings.push(warning);
+}
+
+export function logVerificationResult(state, io = console) {
+  for (const finding of state.verify?.findings ?? []) {
+    if (finding.severity === "warning") io.log(`WARN ${finding.check}: ${finding.message}`);
+  }
+  io.log(`${state.verify.verdict.toUpperCase()}: ${state.plan.output}`);
+  return state.verify.verdict === "pass" ? 0 : 1;
 }
 
 async function appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state }) {
@@ -1334,6 +1390,22 @@ function ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath) {
 function usedSources(edit) {
   const referencedIds = new Set(edit.cuts.map((cut) => cut.src));
   return edit.sources.filter((source) => referencedIds.has(source.id));
+}
+
+function declaredAudioReasons({ plan, inputs, edit }) {
+  const reasons = [];
+  const audioPlan = plan.commands.audio_mix ?? {};
+  if (audioPlan.hasAudibleAudio === true) {
+    if (edit?.audio?.bgm) reasons.push("bgm");
+    if (Array.isArray(edit?.audio?.sfx) && edit.audio.sfx.length > 0) reasons.push("sfx");
+    if (audioPlan.hasNarration === true) reasons.push("narration");
+    if (edit?.audio?.master && typeof edit.audio.master === "object") reasons.push("master");
+    if (reasons.length === 0) reasons.push("audio_mix");
+  }
+  if (inputs.some((input) => input?.has_audio === true || input?.hasAudio === true)) {
+    reasons.push("素材音声");
+  }
+  return [...new Set(reasons)];
 }
 
 function compare(findings, check, passed, message) {

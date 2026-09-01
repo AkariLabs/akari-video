@@ -20,12 +20,12 @@ import {
 const ffmpegAvailable = spawnSync("ffmpeg", ["-version"]).status === 0;
 const ffprobeAvailable = spawnSync("ffprobe", ["-version"]).status === 0;
 
-function makePlan({ durationSeconds, fps, width = 320, height = 180, hasNarration = false }) {
+function makePlan({ durationSeconds, fps, width = 320, height = 180, hasNarration = false, hasAudibleAudio = true }) {
   return {
     predicted_duration_seconds: durationSeconds,
     duration_tolerance_seconds: Math.max(0.1, 2 / fps),
     preset: { video_codec: "h264", profile: "high", pixel_format: "yuv420p", audio_codec: "aac", width, height, fps },
-    commands: { audio_mix: { hasNarration } },
+    commands: { audio_mix: { hasNarration, hasAudibleAudio } },
   };
 }
 
