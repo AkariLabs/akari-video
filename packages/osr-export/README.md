@@ -57,7 +57,7 @@ npm run assert-no-intermediates -- /path/to/project
 
 CI・検収用の環境変数として`AKARI_OSR_SOFT=1`、`AKARI_OSR_VERIFY=stamp|hash|off`、`AKARI_OSR_QUEUE_DEPTH=<n>`、`AKARI_OSR_DUMP_FRAMES=0,150,359`を使用できる。Electron 子プロセスには親の環境をそのまま渡すが、`ELECTRON_RUN_AS_NODE` だけは外して起動する（`electronChildEnvironment`）。shell 配布の `akari` shim やアプリ内書き出しは同梱 Electron を node として使うためにこの変数を立てており、継承すると子の AKARI Video / npm Electron が Node モードで起動して書き出しが失敗する（#27）。frame dumpは出力と同じディレクトリの`raw/frame-<n>.bgra`へ、スタンプ行を除いたBGRAとして保存する。
 
-メモリ予算はGPUが警戒768 MiB / hard stop 1,024 MiB、1080pのSwiftShaderが警戒1,536 MiB / hard stop 2,048 MiBです。`AKARI_OSR_MEMORY_WARN_MIB`と`AKARI_OSR_MEMORY_HARD_STOP_MIB`で正の整数MiBへ上書きできます。1 worker = 1 GiBの並列予算はGPU前提です。
+メモリ予算は 1080p 基準で GPU が警戒 768 MiB / hard stop 1,024 MiB、SwiftShader が警戒 1,536 MiB / hard stop 2,048 MiB です。出力ピクセル数が 1080p を超えるときはその比で増やし（4K = 4 倍: GPU 3,072 / 4,096 MiB）、ただしスケール後の hard stop は物理メモリの 50% を超えません（超えるときは切り詰め、warning は hard stop の 75%。receipt の `memory.machine_capped` に記録）。`AKARI_OSR_MEMORY_WARN_MIB` と `AKARI_OSR_MEMORY_HARD_STOP_MIB` は絶対値で上書きでき、スケールも上限も受けません（GPU 出口も同じ変数を読みます）。1 worker = 1 GiB の並列予算は 1080p GPU 前提です。4K の係数は未較正（初回の peak を calibration に残すこと）。
 
 検収は次の順に行います。
 

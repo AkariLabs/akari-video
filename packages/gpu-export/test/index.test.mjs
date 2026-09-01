@@ -125,3 +125,9 @@ test("GPU export preserves a failed run and attaches its closed reason to the er
     await rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+test("GPU runtime options scale the preset bitrate by output size when width/height are known", () => {
+  assert.equal(resolveGpuRuntimeOptions({ width: 3840, height: 2160 }).bitrate, 48_000_000);
+  assert.equal(resolveGpuRuntimeOptions({ width: 1920, height: 1080 }).bitrate, 12_000_000);
+  assert.equal(resolveGpuRuntimeOptions({ width: 3840, height: 2160, env: { AKARI_GPU_BITRATE: "9000" } }).bitrate, 9000);
+});

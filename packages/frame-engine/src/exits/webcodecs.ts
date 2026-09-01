@@ -11,6 +11,87 @@ export interface WebCodecsH264Options {
   bitrate?: number;
   keyframeIntervalFrames?: number;
   hardwareAcceleration?: HardwarePreference;
+  /** 明示の codec 文字列（例 'avc1.640033'）。省略時は解像度・fps・ビットレートから level を導出する。 */
+  codec?: string;
+}
+
+/**
+ * H.264 High profile の level 表（ITU-T H.264 Table A-1: MaxFS = 最大マクロブロック数/フレーム、
+ * MaxMBPS = 最大マクロブロック数/秒、MaxBR = 最大ビットレート kbit/s。High profile は MaxBR × 1.25）。
+ *
+ * Blink の VerifyCodecSupportStatic は coded_area > MaxFS(level) × 256 を isConfigSupported=false にするため、
+ * 固定 'avc1.640028'（Level 4.0 = MaxFS 8192 MB）では 2560×1440（14400 MB）/ 3840×2160（32400 MB）が
+ * HW / SW を問わず全 OS で拒否され「unsupported: prefer-hardware」と誤読されていた（2026-08-29 調査 §5-4、
+ * Mac / Electron 39 で 'avc1.640033' なら 1440p / 4K とも true を実測）。
+ * 下限を 4.0 に置くので 1080p30 以下は従来どおり 'avc1.640028'（バイト同一）。
+ */
+const H264_HIGH_PROFILE_BR_FACTOR = 1.25;
+const H264_LEVELS: ReadonlyArray<{ level: string; idc: number; maxFs: number; maxMbps: number; maxBrKbps: number }> = [
+  { level: '4.0', idc: 0x28, maxFs: 8192, maxMbps: 245_760, maxBrKbps: 20_000 },
+  { level: '4.1', idc: 0x29, maxFs: 8192, maxMbps: 245_760, maxBrKbps: 50_000 },
+  { level: '4.2', idc: 0x2a, maxFs: 8704, maxMbps: 522_240, maxBrKbps: 50_000 },
+  { level: '5.0', idc: 0x32, maxFs: 22_080, maxMbps: 589_824, maxBrKbps: 135_000 },
+  { level: '5.1', idc: 0x33, maxFs: 36_864, maxMbps: 983_040, maxBrKbps: 240_000 },
+  { level: '5.2', idc: 0x34, maxFs: 36_864, maxMbps: 2_073_600, maxBrKbps: 240_000 },
+  { level: '6.0', idc: 0x3c, maxFs: 139_264, maxMbps: 4_177_920, maxBrKbps: 240_000 },
+  { level: '6.1', idc: 0x3d, maxFs: 139_264, maxMbps: 8_355_840, maxBrKbps: 480_000 },
+  { level: '6.2', idc: 0x3e, maxFs: 139_264, maxMbps: 16_711_680, maxBrKbps: 800_000 }
+];
+
+export interface H264LevelSelection {
+  level: string;
+  idc: number;
+  codec: string;
+  macroblocks: number;
+  macroblocksPerSecond: number;
+}
+
+/** 解像度・fps・ビットレートを満たす最小の High profile level を選ぶ（下限 4.0、上限 6.2 を超えれば throw）。 */
+export function selectH264Level({ width, height, fps, bitrate }: { width: number; height: number; fps: number; bitrate?: number }): H264LevelSelection {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    throw new Error(`H.264 level selection needs a positive frame size, got ${width}x${height}`);
+  }
+  if (!Number.isFinite(fps) || fps <= 0) throw new Error(`H.264 level selection needs a positive frame rate, got ${fps}`);
+  const macroblocks = Math.ceil(width / 16) * Math.ceil(height / 16);
+  const macroblocksPerSecond = macroblocks * fps;
+  const kbps = bitrate !== undefined && bitrate > 0 ? bitrate / 1000 : 0;
+  for (const entry of H264_LEVELS) {
+    if (macroblocks <= entry.maxFs && macroblocksPerSecond <= entry.maxMbps && kbps <= entry.maxBrKbps * H264_HIGH_PROFILE_BR_FACTOR) {
+      return {
+        level: entry.level,
+        idc: entry.idc,
+        codec: `avc1.6400${entry.idc.toString(16).padStart(2, '0')}`,
+        macroblocks,
+        macroblocksPerSecond
+      };
+    }
+  }
+  throw new Error(
+    `no H.264 High profile level fits ${width}x${height}@${fps}fps${kbps > 0 ? ` ${Math.round(kbps)}kbps` : ''} (max is Level 6.2)`
+  );
+}
+
+/** エンコーダに渡す codec 文字列。`codec` 明示があれば形式だけ検証してそのまま使う。 */
+export function h264CodecString(options: Pick<WebCodecsH264Options, 'width' | 'height' | 'fps' | 'bitrate' | 'codec'>): string {
+  if (options.codec !== undefined) {
+    if (!/^avc[1-4]\.[0-9a-f]{6}$/i.test(options.codec)) throw new Error(`invalid H.264 codec string: ${options.codec}`);
+    return options.codec;
+  }
+  return selectH264Level(options).codec;
+}
+
+function buildEncoderConfig(options: WebCodecsH264Options): VideoEncoderConfig & { avc: { format: 'annexb' } } {
+  const bitrate = options.bitrate ?? 8_000_000;
+  return {
+    codec: h264CodecString({ width: options.width, height: options.height, fps: options.fps, bitrate, codec: options.codec }),
+    width: options.width,
+    height: options.height,
+    bitrate,
+    framerate: options.fps,
+    hardwareAcceleration: options.hardwareAcceleration ?? 'prefer-hardware',
+    latencyMode: 'realtime',
+    avc: { format: 'annexb' }
+  };
 }
 
 /**
@@ -30,16 +111,7 @@ export class WebCodecsH264Encoder {
     private readonly sink: EncodedVideoChunkSink,
     private readonly options: WebCodecsH264Options
   ) {
-    this.config = {
-      codec: 'avc1.640028',
-      width: options.width,
-      height: options.height,
-      bitrate: options.bitrate ?? 8_000_000,
-      framerate: options.fps,
-      hardwareAcceleration: options.hardwareAcceleration ?? 'prefer-hardware',
-      latencyMode: 'realtime',
-      avc: { format: 'annexb' }
-    };
+    this.config = buildEncoderConfig(options);
     this.encoder = new VideoEncoder({
       output: chunk => {
         const bytes = new Uint8Array(chunk.byteLength);
@@ -60,16 +132,7 @@ export class WebCodecsH264Encoder {
 
   static async isSupported(options: WebCodecsH264Options): Promise<boolean> {
     if (typeof VideoEncoder === 'undefined') return false;
-    const config: VideoEncoderConfig & { avc: { format: 'annexb' } } = {
-      codec: 'avc1.640028',
-      width: options.width,
-      height: options.height,
-      bitrate: options.bitrate ?? 8_000_000,
-      framerate: options.fps,
-      hardwareAcceleration: options.hardwareAcceleration ?? 'prefer-hardware',
-      latencyMode: 'realtime',
-      avc: { format: 'annexb' }
-    };
+    const config = buildEncoderConfig(options);
     return (await VideoEncoder.isConfigSupported(config)).supported === true;
   }
 

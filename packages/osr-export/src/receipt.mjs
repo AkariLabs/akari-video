@@ -13,6 +13,8 @@ export function buildOsrReceipt({ tier, verify = "stamp", memory = {}, run = nul
       warning_bytes: memory.warningBytes ?? fallbackBudget.warningBytes,
       hard_stop_bytes: memory.hardStopBytes ?? fallbackBudget.hardStopBytes,
       worker_budget_bytes: memory.workerBudgetBytes ?? fallbackBudget.workerBudgetBytes,
+      budget_scale: memory.budgetScale ?? fallbackBudget.scale,
+      machine_capped: memory.machineCapped ?? fallbackBudget.machineCapped,
       peak_bytes: memory.peakBytes ?? null,
       warning_exceeded: memory.warningExceeded ?? false,
       hard_stop_exceeded: memory.hardStopExceeded ?? false,

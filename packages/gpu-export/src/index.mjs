@@ -50,6 +50,8 @@ export async function exportWithGpu({
   const encoding = resolveGpuEncoding({
     quality,
     bitrate: bitrate ?? env.AKARI_GPU_BITRATE,
+    width,
+    height,
   });
   const launcher = suppliedLauncher ?? await launcherResolver({ env });
   if (launcher?.tier === 3) throw new Error(`GPU export unavailable: ${launcher.reason ?? "Electron unavailable"}`);
@@ -208,10 +210,12 @@ export async function captureFramesWithGpu({
   };
 }
 
-export function resolveGpuRuntimeOptions({ env = process.env, soft = false, queueDepth = 4, quality = "high", bitrate = undefined, trapReadback = false, verifyFrames = false } = {}) {
+export function resolveGpuRuntimeOptions({ env = process.env, soft = false, queueDepth = 4, quality = "high", bitrate = undefined, width = undefined, height = undefined, trapReadback = false, verifyFrames = false } = {}) {
   const encoding = resolveGpuEncoding({
     quality,
     bitrate: bitrate ?? env.AKARI_GPU_BITRATE,
+    width,
+    height,
   });
   const resolved = {
     soft: soft || env.AKARI_GPU_SOFT === "1",

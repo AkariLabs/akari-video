@@ -25,7 +25,7 @@ export async function resolveGpuLauncher(options = {}) {
 }
 
 export function buildGpuElectronArguments(launcher, options) {
-  const encoding = resolveGpuEncoding({ quality: options.quality ?? "high", bitrate: options.bitrate });
+  const encoding = resolveGpuEncoding({ quality: options.quality ?? "high", bitrate: options.bitrate, width: options.width, height: options.height });
   const extraArgs = [
     "--bitrate", String(encoding.bitrate),
     ...(options.editPath ? ["--edit", options.editPath] : []),

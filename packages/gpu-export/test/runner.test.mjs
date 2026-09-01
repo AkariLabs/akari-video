@@ -107,3 +107,16 @@ test("GPU launcher strips ELECTRON_RUN_AS_NODE from the Electron child on tier 1
 test("tier 3 is fail-closed", async () => {
   await assert.rejects(launchGpuExport({ tier: 3, reason: "missing" }, {}), /unavailable/);
 });
+
+test("runner scales the quality preset bitrate for 4K output and leaves explicit bitrates alone", () => {
+  const scaled = buildGpuElectronArguments({ tier: 2 }, {
+    projectRoot: "/project", out: "/out.mp4", fps: 30, width: 3840, height: 2160,
+    duration: 1, frames: 30, quality: "high",
+  });
+  assert.equal(scaled[scaled.indexOf("--bitrate") + 1], "48000000");
+  const explicit = buildGpuElectronArguments({ tier: 2 }, {
+    projectRoot: "/project", out: "/out.mp4", fps: 30, width: 3840, height: 2160,
+    duration: 1, frames: 30, quality: "high", bitrate: 9_000_000,
+  });
+  assert.equal(explicit[explicit.indexOf("--bitrate") + 1], "9000000");
+});
