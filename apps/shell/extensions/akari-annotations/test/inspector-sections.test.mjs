@@ -215,3 +215,51 @@ test('前後移動は重なり時も拒否せず新しい段を通知し、legac
   assert.match(widgetSource, /を追加しました/);
   assert.match(widgetSource, /この項目の編集は edit\.json v2 のみ対応です。/);
 });
+
+test('BGM と音声クリップは共通のフェード・ダッキング節と固定既定値を使う', () => {
+  assert.match(inspectorWidgetSource, /const AUDIO_DUCK_DEFAULTS = \{ duckDb: -12, duckAttack: 0\.05, duckRelease: 0\.3 \}/u);
+  assert.equal((inspectorWidgetSource.match(/label: 'フェード・ダッキング'/gu) ?? []).length, 2);
+  assert.match(inspectorWidgetSource, /function duckingFields\(/u);
+  assert.match(inspectorWidgetSource, /'audio-duck-preset'[\s\S]{0,300}options: \['-3', '-6', '-12'\]/u);
+});
+
+test('ダッキング数値 UI は契約範囲と step を固定する', () => {
+  assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS\.duckDb, -40, 0, 0\.5, 'dB'/u);
+  assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS\.duckAttack, 0, 2, 0\.01, 's'/u);
+  assert.match(inspectorWidgetSource, /AUDIO_DUCK_DEFAULTS\.duckRelease, 0, 5, 0\.05, 's'/u);
+  assert.match(inspectorWidgetSource, /gain_db は -60〜12 の範囲/u);
+});
+
+test('音量キーフレーム節は追加・時刻・gain・easing・削除を配列 write へ戻す', () => {
+  assert.match(inspectorWidgetSource, /id: 'audio:keyframes', label: '音量キーフレーム'/u);
+  assert.match(inspectorWidgetSource, /actionLabel: '再生ヘッド位置に追加'/u);
+  assert.match(inspectorWidgetSource, /AUDIO_KEYFRAME_EASING_OPTIONS = \['linear', 'hold', 'ease-in-out'\]/u);
+  assert.match(inspectorWidgetSource, /actionLabel: '削除'/u);
+  assert.match(inspectorWidgetSource, /kind: 'audio-keyframes'[\s\S]{0,180}sort\(\(left, right\) => left\.t - right\.t\)/u);
+});
+
+test('キーフレーム時刻は v2 の frame と表示秒を fps で往復する', () => {
+  assert.match(inspectorWidgetSource, /point\.t \/ Math\.max\(1, snapshot\.fps \?\? 30\)/u);
+  assert.match(inspectorWidgetSource, /Math\.round\(seconds \* Math\.max\(1, snapshot\.fps \?\? 30\)\)/u);
+  assert.match(inspectorWidgetSource, /Math\.abs\(candidate\.t - t\) < 1e-3/u);
+  assert.match(widgetSource, /keyframeFrames: this\.rawV2Item\(sfx\.id\) !== undefined/u);
+});
+
+test('snapshot と write 配線は duck 値・keyframes・再生ヘッドを往復する', () => {
+  assert.match(widgetSource, /audioEnvelopeFieldsForSnapshot\(sfx\)/u);
+  assert.match(widgetSource, /playheadSeconds: this\.playheadT/u);
+  assert.match(widgetSource, /case 'sfx-ducking':[\s\S]{0,300}case 'audio-keyframes':/u);
+  assert.match(widgetSource, /updateAudioItemEnvelope\(doc, \{ itemId, patch \}\)/u);
+  assert.match(widgetSource, /setAudioKeyframes\(\{[\s\S]{0,120}keyframes/u);
+});
+
+test('タイムラインは音声 keyframes だけを折れ線描画し、波形高さを dB 変換する', () => {
+  assert.match(widgetSource, /appendAudioKeyframePolyline\(/u);
+  assert.match(widgetSource, /itemHeightPx < MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX/u);
+  assert.match(widgetSource, /waveformHeightForPeak\(peaks\[bucket\]\) \* WAVEFORM_BAND_HEIGHT_PX/u);
+  const drawing = widgetSource.slice(
+    widgetSource.indexOf('protected appendAudioKeyframePolyline'),
+    widgetSource.indexOf('protected renderSfxWaveform')
+  );
+  assert.doesNotMatch(drawing, /ducking/u);
+});

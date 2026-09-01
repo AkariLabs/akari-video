@@ -24,6 +24,8 @@ import { scanHtmlParts } from 'akari-preview/lib/common/preview-parts';
 import {
     AkariAnnotationsService,
     Annotation,
+    AudioEnvelopeKeyframePayload,
+    AudioEnvelopeWriteRequest,
     CaptionWritePayload,
     EditMigrationProposal,
     ClipFilmstripChunk,
@@ -31,7 +33,12 @@ import {
 } from '../common/akari-annotations-protocol';
 import { parseReview } from '../common/annotation-store';
 import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../common/edit-load-failure';
-import { filmstripChunkIndexFor, waveformBucketForLocalPx } from '../common/filmstrip-geometry';
+import {
+    filmstripChunkIndexFor,
+    keyframePolyline,
+    waveformBucketForLocalPx,
+    waveformHeightForPeak
+} from '../common/filmstrip-geometry';
 import { isRangeMounted as rangeIsMounted, planKeyedReconciliation } from './timeline-strip-reconciler';
 import {
     layoutPercent as anchoredLayoutPercent,
@@ -102,6 +109,8 @@ import {
     ungroupTreeV2Item,
     updateAudioSfxPreferV2,
     updateAudioNarrationGainPreferV2,
+    updateAudioNarrationPreferV2,
+    updateAudioItemEnvelope,
     updateTreeV2Item,
     updateItem as updateV2Item
 } from '../common/edit-v2-mutations';
@@ -190,6 +199,7 @@ import {
     InspectorWriteResult,
     KeyframeControlRequest,
     LivePreviewRequest,
+    TimelineAudioSelection,
     TimelineItemSelectionSnapshot,
     TimelineTreeItemSelection,
     TimelineTreeItemSnapshot,
@@ -340,9 +350,26 @@ interface ResolvedEditSource {
  * fade_in/fade_out を直接読み、id の "sfx-N" インデックスで対応する parsed.audioSfx へこの
  * 拡張フィールドとして足し込む。
  */
-type EditAudioSfxWithFade = EditAudioSfx & {
+type AudioEnvelopeFields = {
+    ducking?: boolean;
+    duckDb?: number;
+    duckAttack?: number;
+    duckRelease?: number;
+    keyframes?: AudioEnvelopeKeyframePayload[];
+};
+
+type EditAudioSfxWithFade = EditAudioSfx & AudioEnvelopeFields & {
     fadeIn?: number;
     fadeOut?: number;
+};
+
+type EditAudioNarrationWithEnvelope = EditAudioNarration & AudioEnvelopeFields;
+type EditAudioBgmWithEnvelope = EditAudioBgm & AudioEnvelopeFields;
+type AudioInspectorWriteRequest = InspectorWriteRequest | AudioEnvelopeWriteRequest;
+type AudioSelectionSnapshot = TimelineAudioSelection & AudioEnvelopeFields & {
+    keyframeFrames?: boolean;
+    fps?: number;
+    playheadSeconds?: number;
 };
 
 type ToolMode = 'select' | 'razor';
@@ -625,8 +652,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     /** layers へ退避され transition_out が無効になった v2 item id → 日本語理由。 */
     protected readonly layerTransitionWarnings = new Map<string, string>();
     protected audioSfx: EditAudioSfxWithFade[] = [];
-    protected audioNarration: EditAudioNarration[] = [];
-    protected audioBgm: EditAudioBgm | undefined;
+    protected audioNarration: EditAudioNarrationWithEnvelope[] = [];
+    protected audioBgm: EditAudioBgmWithEnvelope | undefined;
     protected timelineTracks: EditTimelineTrack[] = [];
     protected timelineTreeRows: TimelineTreeRow[] = [];
     protected expandedTimelineTreeRows: TimelineTreeRow[] = [];
@@ -1747,9 +1774,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.renderStrip();
             void this.requestSeek(time);
         }));
-        const requestWrite = (request: InspectorWriteRequest): Promise<InspectorWriteResult> =>
+        const requestWrite = (request: AudioInspectorWriteRequest): Promise<InspectorWriteResult> =>
             this.handleInspectorWrite(request);
-        this.selectionModel.requestWrite = requestWrite;
+        this.selectionModel.requestWrite = requestWrite as (request: InspectorWriteRequest) => Promise<InspectorWriteResult>;
         const requestLivePreview = (request: LivePreviewRequest): void => {
             this.dispatchPreviewEvent(TIMELINE_LIVE_TRANSFORM_EVENT, {
                 target: request.target,
@@ -1764,7 +1791,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.selectionModel.requestKeyframe = requestKeyframe;
         this.toDispose.push(this.selectionModel.onChanged(() => this.syncRightPane()));
         this.toDispose.push(Disposable.create(() => {
-            if (this.selectionModel.requestWrite === requestWrite) {
+            if (this.selectionModel.requestWrite === requestWrite as (request: InspectorWriteRequest) => Promise<InspectorWriteResult>) {
                 this.selectionModel.requestWrite = undefined;
                 this.selectionModel.snapshot = undefined;
             }
@@ -2154,7 +2181,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         });
     }
 
-    protected async handleInspectorWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
+    protected async handleInspectorWrite(request: AudioInspectorWriteRequest): Promise<InspectorWriteResult> {
         const location = this.location;
         if (!location) {
             return { ok: false, message: 'プロジェクトの場所を特定できません。' };
@@ -2336,6 +2363,70 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.footer.textContent = '字幕のスタイルを更新しました。';
                     return { ok: true };
                 }
+                case 'bgm-duck-db':
+                case 'bgm-duck-attack':
+                case 'bgm-duck-release':
+                case 'sfx-ducking':
+                case 'sfx-duck-db':
+                case 'sfx-duck-attack':
+                case 'sfx-duck-release':
+                case 'audio-keyframes': {
+                    if (!location.editUri) throw new Error('edit.json がありません。');
+                    const editUri = location.editUri.toString();
+                    const projectRootUri = location.root.toString();
+                    const audioKind = request.kind === 'audio-keyframes'
+                        ? request.audioKind : request.kind.startsWith('bgm-') ? 'bgm' : 'sfx';
+                    const index = audioKind === 'sfx'
+                        ? this.audioSfx.findIndex(item => item.id === ('id' in request ? request.id : ''))
+                        : audioKind === 'narration'
+                            ? this.audioNarration.findIndex(item => item.id === ('id' in request ? request.id : ''))
+                            : -1;
+                    if (audioKind !== 'bgm' && index < 0) throw new Error('音声クリップが見つかりません。');
+                    const target = audioKind === 'bgm'
+                        ? { kind: 'bgm' as const }
+                        : { kind: audioKind, index } as { kind: 'sfx' | 'narration'; index: number };
+                    const current = audioKind === 'bgm' ? this.audioBgm
+                        : audioKind === 'sfx' ? this.audioSfx[index] : this.audioNarration[index];
+                    if (!current) throw new Error('音声クリップが見つかりません。');
+                    if (request.kind === 'audio-keyframes') {
+                        const before = current.keyframes ?? null;
+                        const apply = async (keyframes: AudioEnvelopeKeyframePayload[] | null): Promise<void> => {
+                            await this.annotationsService.setAudioKeyframes({
+                                editUri, projectRootUri, target, keyframes
+                            });
+                        };
+                        await apply(request.value);
+                        this.pushHistory({
+                            label: '音量キーフレームを変更',
+                            undo: async () => { await apply(before); await this.reloadEdit(); },
+                            redo: async () => { await apply(request.value); await this.reloadEdit(); }
+                        });
+                    } else {
+                        const field = request.kind.endsWith('duck-db') ? 'duckDb'
+                            : request.kind.endsWith('duck-attack') ? 'duckAttack'
+                                : request.kind.endsWith('duck-release') ? 'duckRelease' : 'ducking';
+                        const beforeValue = current[field as 'ducking' | 'duckDb' | 'duckAttack' | 'duckRelease'] ?? null;
+                        const updates = { [field]: request.value };
+                        const beforeUpdates = { [field]: beforeValue };
+                        const duckTarget = target as { kind: 'bgm' } | { kind: 'sfx'; index: number };
+                        const apply = async (value: typeof updates): Promise<void> => {
+                            await this.annotationsService.setAudioDuck({
+                                editUri, projectRootUri, target: duckTarget, updates: value
+                            });
+                        };
+                        await apply(updates);
+                        this.pushHistory({
+                            label: '音声のダッキングを変更',
+                            undo: async () => { await apply(beforeUpdates); await this.reloadEdit(); },
+                            redo: async () => { await apply(updates); await this.reloadEdit(); }
+                        });
+                    }
+                    await this.reloadEdit();
+                    this.hideNotice();
+                    this.footer.textContent = request.kind === 'audio-keyframes'
+                        ? '音量キーフレームを変更しました。' : 'ダッキングを変更しました。';
+                    return { ok: true };
+                }
                 case 'bgm-gain':
                 case 'bgm-fade-in':
                 case 'bgm-fade-out':
@@ -2429,7 +2520,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async handleInspectorWriteV2(
-        request: InspectorWriteRequest
+        request: AudioInspectorWriteRequest
     ): Promise<InspectorWriteResult | undefined> {
         const cutKinds = new Set([
             'cut-speed', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
@@ -2439,13 +2530,25 @@ export class AkariAnnotationsWidget extends BaseWidget {
             'layer-transform-x', 'layer-transform-y', 'layer-scale', 'layer-rotate',
             'layer-opacity', 'layer-blend'
         ]);
+        const envelopeKinds = new Set([
+            'bgm-duck-db', 'bgm-duck-attack', 'bgm-duck-release',
+            'sfx-ducking', 'sfx-duck-db', 'sfx-duck-attack', 'sfx-duck-release',
+            'audio-keyframes'
+        ]);
         if (!cutKinds.has(request.kind) && !layerKinds.has(request.kind)
             && request.kind !== 'sfx-gain' && request.kind !== 'sfx-fade-in'
             && request.kind !== 'sfx-fade-out' && request.kind !== 'narration-gain'
-            && request.kind !== 'overlay-var' && request.kind !== 'item-field') {
+            && request.kind !== 'overlay-var' && request.kind !== 'item-field'
+            && !envelopeKinds.has(request.kind)) {
             return undefined;
         }
         const legacyDocument = this.legacyReadOnly || !Array.isArray(this.editDocument?.tracks);
+        if (envelopeKinds.has(request.kind)) {
+            if (legacyDocument || this.editDocument?.version !== 2) return undefined;
+            const bgmRequest = request.kind.startsWith('bgm-')
+                || (request.kind === 'audio-keyframes' && request.audioKind === 'bgm');
+            if (bgmRequest && !findAudioItemIdByRole(this.editDocument, 'bgm')) return undefined;
+        }
         if (request.kind === 'item-field' && legacyDocument) {
             const cutIndex = this.cutItemIds.indexOf(request.id);
             const mappedKind = legacyTransformOpFor(request.path, cutIndex >= 0 ? 'cut' : 'layer');
@@ -2469,8 +2572,32 @@ export class AkariAnnotationsWidget extends BaseWidget {
             let itemId: string;
             let patch: Record<string, unknown>;
             let audioPatch = false;
+            let audioEnvelopeRole: 'bgm' | 'sfx' | 'narration' | undefined;
             let needsTelopRebake = false;
-            if (request.kind === 'item-field') {
+            if (request.kind === 'audio-keyframes') {
+                audioEnvelopeRole = request.audioKind;
+                itemId = request.audioKind === 'bgm'
+                    ? findAudioItemIdByRole(this.editDocument!, 'bgm')! : request.id;
+                patch = { keyframes: request.value };
+                label = '音量キーフレームを変更';
+            } else if (request.kind === 'bgm-duck-db' || request.kind === 'bgm-duck-attack'
+                || request.kind === 'bgm-duck-release') {
+                audioEnvelopeRole = 'bgm';
+                itemId = findAudioItemIdByRole(this.editDocument!, 'bgm')!;
+                const field = request.kind === 'bgm-duck-db' ? 'duck_db'
+                    : request.kind === 'bgm-duck-attack' ? 'duck_attack' : 'duck_release';
+                patch = { [field]: request.value };
+                label = 'BGM のダッキングを変更';
+            } else if (request.kind === 'sfx-ducking' || request.kind === 'sfx-duck-db'
+                || request.kind === 'sfx-duck-attack' || request.kind === 'sfx-duck-release') {
+                audioEnvelopeRole = 'sfx';
+                itemId = request.id;
+                const field = request.kind === 'sfx-ducking' ? 'ducking'
+                    : request.kind === 'sfx-duck-db' ? 'duck_db'
+                        : request.kind === 'sfx-duck-attack' ? 'duck_attack' : 'duck_release';
+                patch = { [field]: request.value };
+                label = '音声クリップのダッキングを変更';
+            } else if (request.kind === 'item-field') {
                 itemId = request.id;
                 const raw = this.rawKeyframeItem(itemId);
                 if (!raw) throw new Error(`クリップが見つかりません: ${itemId}`);
@@ -2575,7 +2702,15 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 audioPatch = true;
                 label = '音声クリップの設定を変更';
             }
-            await this.commitEditMutation(label, doc => request.kind === 'narration-gain'
+            await this.commitEditMutation(label, doc => audioEnvelopeRole === 'narration'
+                ? updateAudioNarrationPreferV2(doc, {
+                    narrationId: itemId, itemPatch: patch, legacyPatch: patch
+                })
+                : audioEnvelopeRole === 'sfx'
+                    ? updateAudioSfxPreferV2(doc, { sfxId: itemId, itemPatch: patch, legacyPatch: patch })
+                    : audioEnvelopeRole === 'bgm'
+                        ? updateAudioItemEnvelope(doc, { itemId, patch })
+                        : request.kind === 'narration-gain'
                 ? updateAudioNarrationGainPreferV2(doc, {
                     narrationId: itemId, gainDb: request.value
                 })
@@ -2872,18 +3007,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         const sfx = this.audioSfx.find(candidate => candidate.id === selection.id);
         if (sfx) {
-            return {
+            const snapshot: AudioSelectionSnapshot = {
                 kind: 'audio', id: sfx.id, audioKind: 'sfx', label: this.pathBaseName(sfx.path),
                 trackName: this.trackDisplayNameForItem(sfx.id), clipName: this.pathBaseName(sfx.path) || sfx.id,
                 outputStart: sfx.t, duration: sfx.duration,
                 ...(sfx.gainDb !== undefined ? { gainDb: sfx.gainDb } : {}),
                 ...(sfx.fadeIn !== undefined ? { fadeIn: sfx.fadeIn } : {}),
-                ...(sfx.fadeOut !== undefined ? { fadeOut: sfx.fadeOut } : {})
+                ...(sfx.fadeOut !== undefined ? { fadeOut: sfx.fadeOut } : {}),
+                ...this.audioEnvelopeFieldsForSnapshot(sfx),
+                keyframeFrames: this.rawV2Item(sfx.id) !== undefined,
+                fps: this.fps,
+                playheadSeconds: this.playheadT
             };
+            return snapshot;
         }
         const narration = this.audioNarration.find(candidate => candidate.id === selection.id);
         if (narration) {
-            return {
+            const snapshot: AudioSelectionSnapshot = {
                 kind: 'audio', id: narration.id, audioKind: 'narration',
                 label: this.pathBaseName(narration.path),
                 trackName: this.trackDisplayNameForAudioRef(this.narrationDisplayTrack(narration)),
@@ -2891,11 +3031,17 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 outputStart: narration.t,
                 duration: this.narrationDisplayDuration(narration),
                 ...(narration.gainDb !== undefined ? { gainDb: narration.gainDb } : {}),
-                ...(narration.script !== undefined ? { script: narration.script } : {})
+                ...(narration.script !== undefined ? { script: narration.script } : {}),
+                ...this.audioEnvelopeFieldsForSnapshot(narration),
+                keyframeFrames: this.rawV2Item(narration.id) !== undefined,
+                fps: this.fps,
+                playheadSeconds: this.playheadT
             };
+            return snapshot;
         }
         if (selection.id === 'bgm' && this.audioBgm) {
-            return {
+            const bgmItemId = this.editDocument ? findAudioItemIdByRole(this.editDocument, 'bgm') : undefined;
+            const snapshot: AudioSelectionSnapshot = {
                 kind: 'audio', id: this.audioBgm.id, audioKind: 'bgm', label: this.pathBaseName(this.audioBgm.path),
                 trackName: this.trackDisplayNameForAudioRef(this.bgmDisplayTrack(this.audioBgm)),
                 clipName: this.pathBaseName(this.audioBgm.path) || this.audioBgm.id,
@@ -2903,10 +3049,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(this.audioBgm.gainDb !== undefined ? { gainDb: this.audioBgm.gainDb } : {}),
                 ...(this.audioBgm.fadeIn !== undefined ? { fadeIn: this.audioBgm.fadeIn } : {}),
                 ...(this.audioBgm.fadeOut !== undefined ? { fadeOut: this.audioBgm.fadeOut } : {}),
-                ...(this.audioBgm.ducking !== undefined ? { ducking: this.audioBgm.ducking } : {})
+                ...this.audioEnvelopeFieldsForSnapshot(this.audioBgm),
+                keyframeFrames: bgmItemId !== undefined,
+                fps: this.fps,
+                playheadSeconds: this.playheadT
             };
+            return snapshot;
         }
         return undefined;
+    }
+
+    protected audioEnvelopeFieldsForSnapshot(value: AudioEnvelopeFields): AudioEnvelopeFields {
+        return {
+            ...(value.ducking !== undefined ? { ducking: value.ducking } : {}),
+            ...(value.duckDb !== undefined ? { duckDb: value.duckDb } : {}),
+            ...(value.duckAttack !== undefined ? { duckAttack: value.duckAttack } : {}),
+            ...(value.duckRelease !== undefined ? { duckRelease: value.duckRelease } : {}),
+            ...(value.keyframes !== undefined ? { keyframes: value.keyframes } : {})
+        };
     }
 
     protected trackDisplayNameForItem(itemId: string): string {
@@ -3876,11 +4036,60 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 items.push({
                     ...(item.legacy.value as EditAudioSfx),
                     ...(fadeIn !== undefined ? { fadeIn } : {}),
-                    ...(fadeOut !== undefined ? { fadeOut } : {})
+                    ...(fadeOut !== undefined ? { fadeOut } : {}),
+                    ...this.audioEnvelopeFields(item.declaration)
                 });
             }
         }
         return items.sort((left, right) => Number(left.id.slice(4)) - Number(right.id.slice(4)));
+    }
+
+    protected audioEnvelopeFields(declaration: Record<string, unknown>): AudioEnvelopeFields {
+        const number = (key: string, min: number, max: number): number | undefined => {
+            const value = declaration[key];
+            return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max
+                ? value : undefined;
+        };
+        const keyframes = Array.isArray(declaration.keyframes)
+            ? declaration.keyframes.flatMap(point => {
+                if (!point || typeof point !== 'object' || Array.isArray(point)) return [];
+                const raw = point as Record<string, unknown>;
+                return typeof raw.t === 'number' && Number.isFinite(raw.t)
+                    && typeof raw.gain_db === 'number' && Number.isFinite(raw.gain_db)
+                    ? [{ ...raw, t: raw.t, gain_db: raw.gain_db } as AudioEnvelopeKeyframePayload] : [];
+            }).sort((left, right) => left.t - right.t)
+            : undefined;
+        return {
+            ...(typeof declaration.ducking === 'boolean' ? { ducking: declaration.ducking } : {}),
+            ...(number('duck_db', -40, 0) !== undefined ? { duckDb: number('duck_db', -40, 0) } : {}),
+            ...(number('duck_attack', 0, 2) !== undefined ? { duckAttack: number('duck_attack', 0, 2) } : {}),
+            ...(number('duck_release', 0, 5) !== undefined ? { duckRelease: number('duck_release', 0, 5) } : {}),
+            ...(keyframes !== undefined ? { keyframes } : {})
+        };
+    }
+
+    protected withNarrationEnvelope(
+        narration: EditAudioNarration[], internal: InternalEdit
+    ): EditAudioNarrationWithEnvelope[] {
+        const declarations = new Map<number, Record<string, unknown>>();
+        for (const track of internal.tracks) for (const item of track.items) {
+            if (item.legacy.collection === 'narration') declarations.set(item.legacy.index, item.declaration);
+        }
+        return narration.map((item, index) => ({
+            ...item, ...this.audioEnvelopeFields(declarations.get(index) ?? {})
+        }));
+    }
+
+    protected withBgmEnvelope(
+        bgm: EditAudioBgm | undefined, internal: InternalEdit
+    ): EditAudioBgmWithEnvelope | undefined {
+        if (!bgm) return undefined;
+        for (const track of internal.tracks) for (const item of track.items) {
+            if (item.legacy.collection === 'bgm') {
+                return { ...bgm, ...this.audioEnvelopeFields(item.declaration) };
+            }
+        }
+        return bgm;
     }
 
     /** edit.json（版を問わない）を内部表現へ読む。版を知る呼び出しはこの 1 メソッドに閉じる。 */
@@ -3995,8 +4204,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.beats = view.beats ?? [];
                 this.layers = view.layers;
                 this.audioSfx = this.withSfxFade(internal);
-                this.audioNarration = view.audioNarration;
-                this.audioBgm = view.audioBgm;
+                this.audioNarration = this.withNarrationEnvelope(view.audioNarration, internal);
+                this.audioBgm = this.withBgmEnvelope(view.audioBgm, internal);
                 this.compatibilityTimelineTracks = view.timeline?.tracks
                     ?? sortDefaultTimelineTracks(derivedLegacyTracks(internal));
                 this.timelineTracks = this.pinAudioGroupToBottom(this.compatibilityTimelineTracks);
@@ -5299,6 +5508,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.style.opacity = this.audioVisible ? '' : '.28';
             if (created) {
                 element.appendChild(this.segmentLabel(label));
+                this.appendAudioKeyframePolyline(
+                    element, bgm, end, bgmItemHeight,
+                    this.editDocument !== undefined
+                        && findAudioItemIdByRole(this.editDocument, 'bgm') !== undefined
+                );
                 element.addEventListener('click', event => {
                     event.stopPropagation();
                     this.applySelection({ kind: 'audio', id: bgm.id });
@@ -5334,7 +5548,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariLane = layout.id ?? 'audio';
             element.style.pointerEvents = 'auto';
             element.style.opacity = this.audioVisible ? '' : '.28';
-            if (created) element.appendChild(this.segmentLabel(label));
+            if (created) {
+                element.appendChild(this.segmentLabel(label));
+                this.appendAudioKeyframePolyline(
+                    element, narration, durationSeconds, itemHeight,
+                    this.rawV2Item(narration.id) !== undefined
+                );
+            }
             if (narration.script) {
                 element.title = narration.script;
             }
@@ -5452,6 +5672,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
                         originalDuration: durationSeconds
                     };
                 });
+            }
+            if (created) {
+                this.appendAudioKeyframePolyline(
+                    element, sfx, durationSeconds, itemHeight,
+                    this.rawV2Item(sfx.id) !== undefined
+                );
             }
         });
         // ソーストリマー（R6c2r2）: レンダーパス開始時点の trimmerItemId を固定で使い回す
@@ -8303,6 +8529,47 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * キャッシュし、トリム（in/out）変更時は取得済みの全域 peaks をクライアント側で
      * 再スライスするだけで窓を追随させる（バックエンドの再生成は発生しない）。
      */
+    protected appendAudioKeyframePolyline(
+        element: HTMLElement,
+        audio: AudioEnvelopeFields,
+        durationSeconds: number,
+        itemHeightPx: number,
+        frameTimebase: boolean
+    ): void {
+        if (itemHeightPx < MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX || !audio.keyframes?.length) return;
+        const points = keyframePolyline(audio.keyframes.map(point => ({
+            t: frameTimebase ? point.t / this.fps : point.t,
+            gainDb: point.gain_db
+        })), { duration: durationSeconds, width: 100, height: itemHeightPx });
+        if (points.length === 0) return;
+        const namespace = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(namespace, 'svg');
+        svg.setAttribute('viewBox', `0 0 100 ${itemHeightPx}`);
+        svg.setAttribute('preserveAspectRatio', 'none');
+        svg.setAttribute('aria-hidden', 'true');
+        Object.assign(svg.style, {
+            position: 'absolute', inset: '0', width: '100%', height: '100%',
+            overflow: 'visible', pointerEvents: 'none', zIndex: '4'
+        });
+        const line = document.createElementNS(namespace, 'polyline');
+        line.setAttribute('points', points.map(point => `${point.x},${point.y}`).join(' '));
+        line.setAttribute('fill', 'none');
+        line.setAttribute('stroke', '#22d3ee');
+        line.setAttribute('stroke-width', '1.5');
+        line.setAttribute('vector-effect', 'non-scaling-stroke');
+        svg.appendChild(line);
+        for (const point of points) {
+            const circle = document.createElementNS(namespace, 'circle');
+            circle.setAttribute('cx', String(point.x));
+            circle.setAttribute('cy', String(point.y));
+            circle.setAttribute('r', '1.8');
+            circle.setAttribute('fill', '#67e8f9');
+            circle.setAttribute('vector-effect', 'non-scaling-stroke');
+            svg.appendChild(circle);
+        }
+        element.appendChild(svg);
+    }
+
     protected renderSfxWaveform(
         element: HTMLDivElement, sfx: EditAudioSfx, barWidthPx: number, itemHeightPx: number,
         inSeconds: number, outSeconds: number, actualDuration: number | undefined
@@ -8389,7 +8656,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             context.fillStyle = '#fff';
             for (let x = 0; x < visibleWidthPx; x++) {
                 const bucket = Math.min(bucketCount - 1, Math.floor(x / visibleWidthPx * bucketCount));
-                const barHeight = Math.max(1, peaks[bucket] * WAVEFORM_BAND_HEIGHT_PX);
+                const barHeight = waveformHeightForPeak(peaks[bucket]) * WAVEFORM_BAND_HEIGHT_PX;
                 context.fillRect(x, (WAVEFORM_BAND_HEIGHT_PX - barHeight) / 2, 1, barHeight);
             }
         }
@@ -8545,7 +8812,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             for (let x = 0; x < visibleWidthPx; x++) {
                 const localPx = geometry.clipLocalOffsetPx + x;
                 const bucket = waveformBucketForLocalPx(localPx, geometry.fullClipWidthPx, bucketCount);
-                const barHeight = Math.max(1, peaks[bucket] * WAVEFORM_BAND_HEIGHT_PX);
+                const barHeight = waveformHeightForPeak(peaks[bucket]) * WAVEFORM_BAND_HEIGHT_PX;
                 context.fillRect(x, (WAVEFORM_BAND_HEIGHT_PX - barHeight) / 2, 1, barHeight);
             }
         }
@@ -10460,6 +10727,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         this.playheadT = Math.max(0, request.time!);
+        const inspectorSnapshot = this.selectionModel.snapshot;
+        if (inspectorSnapshot?.kind === 'audio') {
+            (inspectorSnapshot as AudioSelectionSnapshot).playheadSeconds = this.playheadT;
+        }
         const visibleDuration = this.visibleDuration();
         const followEdge = this.viewStart + visibleDuration * PLAYHEAD_FOLLOW_THRESHOLD;
         if (this.viewDuration !== undefined && Date.now() - this.lastManualScrollAt >= 3000) {

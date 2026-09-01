@@ -42,3 +42,35 @@ export function waveformBucketForLocalPx(localPx: number, fullClipWidthPx: numbe
     }
     return Math.min(bucketCount - 1, Math.max(0, Math.floor(localPx / fullClipWidthPx * bucketCount)));
 }
+
+/** -48 dB を床にした固定対数スケールへ peak (0..1) を写す。 */
+export function waveformHeightForPeak(peak: number): number {
+    if (!Number.isFinite(peak) || peak <= 0) return 0;
+    return Math.max(0, Math.min(1, 1 + 20 * Math.log10(Math.max(peak, 1e-4)) / 48));
+}
+
+export interface AudioKeyframeGeometryPoint {
+    t: number;
+    gainDb: number;
+}
+
+export interface AudioKeyframeBand {
+    duration: number;
+    width: number;
+    height: number;
+}
+
+/** 音声キーフレームを -24..+12 dB の帯座標へ写し、時刻順の折れ線点を返す。 */
+export function keyframePolyline(
+    points: readonly AudioKeyframeGeometryPoint[],
+    band: AudioKeyframeBand
+): Array<{ x: number; y: number }> {
+    if (!(band.duration > 0) || !(band.width > 0) || !(band.height > 0)) return [];
+    return points
+        .filter(point => Number.isFinite(point.t) && Number.isFinite(point.gainDb))
+        .map(point => ({
+            x: Math.max(0, Math.min(band.width, point.t / band.duration * band.width)),
+            y: (12 - Math.max(-24, Math.min(12, point.gainDb))) / 36 * band.height
+        }))
+        .sort((left, right) => left.x - right.x);
+}
