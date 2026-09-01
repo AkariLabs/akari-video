@@ -27,7 +27,7 @@
       "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.29 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
       "jsVersion": "14.2.231.22"
     },
-    "shell": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell",
+    "shell": "<worktree>/apps/shell",
     "selector": "#akari-annotations-widget .akari-annotations-strip",
     "frontendBundle": {
       "mtime": "2026-08-30T23:03:07.154Z",
@@ -1863,7 +1863,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   },
                   {
                     "run": 7,
@@ -2032,7 +2032,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   },
                   {
                     "run": 9,
@@ -2112,7 +2112,7 @@
                         "bottom": 1068.203125
                       }
                     },
-                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   }
                 ],
                 "performance": {
@@ -4138,7 +4138,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   },
                   {
                     "run": 2,
@@ -4218,7 +4218,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   },
                   {
                     "run": 3,
@@ -5500,11 +5500,11 @@
             "operations": {
               "1": {
                 "status": "not-reached",
-                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
+                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
               },
               "2": {
                 "status": "not-reached",
-                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   454.79150390625,
                   388.130859375,
@@ -5513,7 +5513,7 @@
               },
               "3": {
                 "status": "not-reached",
-                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   454.79150390625,
                   388.130859375,
@@ -5522,7 +5522,7 @@
               },
               "4": {
                 "status": "not-reached",
-                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   454.79150390625,
                   388.130859375,
@@ -5531,7 +5531,7 @@
               },
               "5": {
                 "status": "not-reached",
-                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   454.79150390625,
                   388.130859375,
@@ -5551,7 +5551,7 @@
                 305.93701171875
               ]
             },
-            "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+            "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
             "cacheTimedOut": false
           }
         ],
@@ -5598,7 +5598,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
+                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
               }
             ],
             "load": {
@@ -6675,7 +6675,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   454.79150390625,
                   388.130859375,
@@ -7770,7 +7770,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   454.79150390625,
                   388.130859375,
@@ -8547,7 +8547,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   },
                   {
                     "run": 7,
@@ -8716,7 +8716,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   },
                   {
                     "run": 9,
@@ -8796,7 +8796,7 @@
                         "bottom": 1068.203125
                       }
                     },
-                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   }
                 ],
                 "performance": {
@@ -9072,7 +9072,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   },
                   {
                     "run": 2,
@@ -9152,7 +9152,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-up input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   },
                   {
                     "run": 3,
@@ -9790,7 +9790,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   454.79150390625,
                   388.130859375,
@@ -11152,7 +11152,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: Theia workbench ready not reached: Error: Theia workbench ready timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:68:9)\n    at async openProject (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:90:3)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:266:23)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   454.79150390625,
                   388.130859375,

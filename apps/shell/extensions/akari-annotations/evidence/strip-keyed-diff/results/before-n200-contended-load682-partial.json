@@ -27,7 +27,7 @@
       "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.29 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
       "jsVersion": "14.2.231.22"
     },
-    "shell": "/Users/ryoma/_edit/30_products/akari-video-wt/t6-before/apps/shell",
+    "shell": "<worktree-before>/apps/shell",
     "selector": "#akari-annotations-widget .akari-annotations-strip",
     "frontendBundle": {
       "mtime": "2026-08-31T11:53:58.160Z",
@@ -1146,7 +1146,7 @@
               },
               "4": {
                 "status": "not-reached",
-                "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15",
+                "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15",
                 "move": {
                   "samplesMs": []
                 },
@@ -1184,7 +1184,7 @@
                       "candidateCount": 46,
                       "visibleCount": 13
                     },
-                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
+                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
                   },
                   {
                     "run": 1,
@@ -1200,7 +1200,7 @@
                       "candidateCount": 46,
                       "visibleCount": 13
                     },
-                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
+                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
                   },
                   {
                     "run": 2,
@@ -1216,7 +1216,7 @@
                       "candidateCount": 46,
                       "visibleCount": 13
                     },
-                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
+                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
                   },
                   {
                     "run": 3,
@@ -1232,7 +1232,7 @@
                       "candidateCount": 46,
                       "visibleCount": 13
                     },
-                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at process.processTimers (node:internal/timers:538:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
+                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at process.processTimers (node:internal/timers:538:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
                   },
                   {
                     "run": 4,
@@ -1248,7 +1248,7 @@
                       "candidateCount": 46,
                       "visibleCount": 13
                     },
-                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at process.processTimers (node:internal/timers:538:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
+                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at process.processTimers (node:internal/timers:538:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
                   },
                   {
                     "run": 5,
@@ -1264,7 +1264,7 @@
                       "candidateCount": 46,
                       "visibleCount": 13
                     },
-                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at process.processTimers (node:internal/timers:538:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
+                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at runNextTicks (node:internal/process/task_queues:65:5)\n    at process.processTimers (node:internal/timers:538:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
                   },
                   {
                     "run": 6,
@@ -1280,7 +1280,7 @@
                       "candidateCount": 46,
                       "visibleCount": 13
                     },
-                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
+                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
                   },
                   {
                     "run": 7,
@@ -1296,7 +1296,7 @@
                       "candidateCount": 46,
                       "visibleCount": 13
                     },
-                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
+                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
                   },
                   {
                     "run": 8,
@@ -1312,7 +1312,7 @@
                       "candidateCount": 46,
                       "visibleCount": 13
                     },
-                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
+                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
                   },
                   {
                     "run": 9,
@@ -1328,7 +1328,7 @@
                       "candidateCount": 46,
                       "visibleCount": 13
                     },
-                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
+                    "reason": "Error: visible cut drag target not reached: undefined\n    at waitEval (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:73:9)\n    at async dragOperation (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:209:20)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:277:149)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:294:15"
                   }
                 ],
                 "performance": {
@@ -3023,7 +3023,7 @@
               },
               "4": {
                 "status": "not-reached",
-                "reason": "Error: CDP Performance.getMetrics timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+                "reason": "Error: CDP Performance.getMetrics timed out after 60000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
                 "loadAverage": [
                   17.4267578125,
                   59.3544921875,
@@ -3032,7 +3032,7 @@
               },
               "5": {
                 "status": "not-reached",
-                "reason": "Error: CDP Performance.getMetrics timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+                "reason": "Error: CDP Performance.getMetrics timed out after 60000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
                 "loadAverage": [
                   17.4267578125,
                   59.3544921875,
@@ -3052,7 +3052,7 @@
                 124.7265625
               ]
             },
-            "reason": "Error: CDP Performance.getMetrics timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+            "reason": "Error: CDP Performance.getMetrics timed out after 60000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
             "cacheTimedOut": false
           }
         ],

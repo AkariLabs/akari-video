@@ -7,7 +7,7 @@
     15.59619140625,
     22.9140625
   ],
-  "shell": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell",
+  "shell": "<worktree>/apps/shell",
   "panSteps": 20,
   "zoomNotches": 5,
   "steps": [
@@ -1036,39 +1036,39 @@
     },
     {
       "kind": "console.error",
-      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file://<worktree>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file://<worktree>"
     },
     {
       "kind": "console.error",
-      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file://<worktree>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file://<worktree>"
     },
     {
       "kind": "console.error",
-      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file://<worktree>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file://<worktree>"
     },
     {
       "kind": "console.error",
-      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file://<worktree>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file://<worktree>"
     },
     {
       "kind": "console.error",
-      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file://<worktree>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file://<worktree>"
     },
     {
       "kind": "console.error",
-      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-d"
+      "text": "RangeError: Maximum call stack size exceeded\n    at Vgr (file://<worktree>/apps/shell/lib/frontend/bundle.js:5:12899)\n    at Jbr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9216)\n    at Zbr (file://<worktree>"
     },
     {
       "kind": "console.error",
-      "text": "Error: You are attempting to construct Symbol(WindowTitleAddOnContribution) in a synchronous way but it has asynchronous dependencies.\n    at n._getButThrowIfAsync (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:36252)\n    at n.getAll (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/f"
+      "text": "Error: You are attempting to construct Symbol(WindowTitleAddOnContribution) in a synchronous way but it has asynchronous dependencies.\n    at n._getButThrowIfAsync (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:36252)\n    at n.getAll (file://<worktree>/apps/shell/lib/f"
     },
     {
       "kind": "exception",
-      "text": "RangeError: Maximum call stack size exceeded\n    at kvn (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:6503)\n    at jbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:6452)\n    at zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:7705)\n    at Zbr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9650)\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9869\n    at evr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9802)\n    at tvr (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9850)\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:9111\n    at Bbr.n.reduce.constructorInjections (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/lib/frontend/bundle.js:11:6055)\n    at Array.reduce (<anonymous>)"
+      "text": "RangeError: Maximum call stack size exceeded\n    at kvn (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:6503)\n    at jbr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:6452)\n    at zbr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:7705)\n    at Zbr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9650)\n    at file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9869\n    at evr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9802)\n    at tvr (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9850)\n    at file://<worktree>/apps/shell/lib/frontend/bundle.js:11:9111\n    at Bbr.n.reduce.constructorInjections (file://<worktree>/apps/shell/lib/frontend/bundle.js:11:6055)\n    at Array.reduce (<anonymous>)"
     }
   ],
   "notes": [],
-  "project": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/fixtures/real-media",
+  "project": "<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/fixtures/real-media",
   "electronPid": 4454,
   "stripRect": {
     "x": 823.4140625,

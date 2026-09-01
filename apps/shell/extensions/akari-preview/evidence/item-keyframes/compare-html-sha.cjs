@@ -91,7 +91,8 @@ const syntheticCases = [
       duration: 3, track: 1, trackId: 'v2', transform: {}, vars: { '--tone': 'blue' }, params: {},
       part: 'B', parentId: 'card' }] }
 ];
-const fieldtestRoot = '/Users/ryoma/_edit/30_products/akari-video-internal/fieldtest';
+// 内部リポ（akari-video-internal）の fieldtest ディレクトリ。公開リポにローカル配置を書かず環境変数で受ける。
+const fieldtestRoot = process.env.AKARI_FIELDTEST_ROOT ?? '<internal>/fieldtest';
 const fieldtestNames = [
   '2026-08-03-akari-video-pv',
   '2026-08-05-telop-html-board',

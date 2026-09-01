@@ -53,6 +53,9 @@ jobs:
             "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:71|synthetic test path (/Users/fixture/) — identifies no machine"
             "apps/shell/extensions/akari-preview/test/frame-engine-evidence.test.mjs:90|synthetic residual path (file:///Users/another/) — the redactor under test must be handed a /Users/<name>/ shape to prove it collapses one to <path>; identifies no machine"
             "apps/shell/extensions/akari-preview/test/frame-engine-evidence.test.mjs:91|synthetic residual path (/private/tmp/unrelated/) — same test, the /private/tmp/ shape; identifies no machine"
+            "apps/shell/extensions/akari-preview/evidence/item-keyframes/prepare-fixture.mjs:14|realpath guard: asserts the fixture dir is under /private/tmp/ (macOS /tmp symlink breaks the Theia workspace boundary) — generic prefix, identifies no machine"
+            "apps/shell/extensions/akari-preview/evidence/item-keyframes/run-l1.mjs:21|same realpath guard as prepare-fixture.mjs:14 — generic /private/tmp/ prefix, identifies no machine"
+            "apps/shell/extensions/akari-preview/evidence/item-keyframes/compare-html-sha.cjs:146|synthetic source URI (/private/tmp/<name>/source.mp4) fed to prepareHtml for sha comparison — identifies no machine"
           )
 
           is_allowed() {

@@ -27,7 +27,7 @@
       "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.29 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
       "jsVersion": "14.2.231.22"
     },
-    "shell": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell",
+    "shell": "<worktree>/apps/shell",
     "selector": "#akari-annotations-widget .akari-annotations-strip",
     "frontendBundle": {
       "mtime": "2026-08-31T05:57:16.572Z",

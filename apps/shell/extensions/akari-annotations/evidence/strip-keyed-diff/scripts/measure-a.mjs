@@ -11,7 +11,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { CDP, evalOn, keyPress, listTargets, realClick, wheel } from './cdp-lib.mjs';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const SHELL_DIR = process.env.AKARI_SHELL_DIR || '/Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell';
+// apps/shell は <lab>/../../../..（ローカルの worktree 配置は書かない）
+const SHELL_DIR = process.env.AKARI_SHELL_DIR || path.resolve(ROOT, '..', '..', '..', '..');
 const outputArg = process.argv.find(value => value.startsWith('--output='))?.slice(9) || path.join(ROOT, 'evidence', 'runs', 'a.json');
 const requestedNs = (process.argv.find(value => value.startsWith('--n='))?.slice(4) || '5,50,200,800').split(',').map(Number);
 const labelArg = process.argv.find(value => value.startsWith('--label='))?.slice(8) || null;

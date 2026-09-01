@@ -15,7 +15,7 @@ frame-engine クロックの両方について検証する。`run-l1.mjs` は L1
 
 macOS の `/tmp` は `/private/tmp` への symlink である。projectDir に `/tmp/...` を渡すと Theia の
 workspace 境界判定と URI が食い違い、「ワークスペース外の動画はプレビューできません」になって
-プレビューが空になる。fixture、isoDir、ログには必ず `/private/tmp/...` を使う。
+プレビューが空になる。fixture、isoDir、ログには必ず `/private/tmp` 配下の realpath を使う。
 `run-l1.mjs` と `prepare-fixture.mjs` もこの条件を assert する。
 
 ## 両クロックの実行
@@ -24,19 +24,20 @@ workspace 境界判定と URI が食い違い、「ワークスペース外の�
 
 ```sh
 EVIDENCE="$PWD/apps/shell/extensions/akari-preview/evidence/item-keyframes"
+T=/private/tmp   # realpath（上記）
 
-node "$EVIDENCE/prepare-fixture.mjs" /private/tmp/akari-ikf-legacy
+node "$EVIDENCE/prepare-fixture.mjs" "$T/akari-ikf-legacy"
 LEGACY_PID=$("$EVIDENCE/launch-shell.sh" \
-  /private/tmp/akari-ikf-legacy 9811 /private/tmp/akari-ikf-legacy-iso \
-  /private/tmp/akari-ikf-legacy.log 0)
-node "$EVIDENCE/run-l1.mjs" 9811 /private/tmp/akari-ikf-legacy "$EVIDENCE" legacy-clock
+  "$T/akari-ikf-legacy" 9811 "$T/akari-ikf-legacy-iso" \
+  "$T/akari-ikf-legacy.log" 0)
+node "$EVIDENCE/run-l1.mjs" 9811 "$T/akari-ikf-legacy" "$EVIDENCE" legacy-clock
 kill "$LEGACY_PID"
 
-node "$EVIDENCE/prepare-fixture.mjs" /private/tmp/akari-ikf-frame
+node "$EVIDENCE/prepare-fixture.mjs" "$T/akari-ikf-frame"
 FRAME_PID=$("$EVIDENCE/launch-shell.sh" \
-  /private/tmp/akari-ikf-frame 9812 /private/tmp/akari-ikf-frame-iso \
-  /private/tmp/akari-ikf-frame.log 1)
-node "$EVIDENCE/run-l1.mjs" 9812 /private/tmp/akari-ikf-frame "$EVIDENCE" frame-engine-clock
+  "$T/akari-ikf-frame" 9812 "$T/akari-ikf-frame-iso" \
+  "$T/akari-ikf-frame.log" 1)
+node "$EVIDENCE/run-l1.mjs" 9812 "$T/akari-ikf-frame" "$EVIDENCE" frame-engine-clock
 kill "$FRAME_PID"
 ```
 
@@ -50,7 +51,8 @@ kill "$FRAME_PID"
 `runtimeJavaScript` に渡して補間器注入ブロックだけを比較対象から除外する。
 
 ```sh
-BASE=/private/tmp/akari-ikf-base-9387ad3e
+T=/private/tmp   # realpath（上記）
+BASE="$T/akari-ikf-base-9387ad3e"
 mkdir -p "$BASE"
 git archive 9387ad3e | tar -x -C "$BASE"
 node apps/shell/extensions/akari-preview/evidence/item-keyframes/compare-html-sha.cjs \
