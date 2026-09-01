@@ -29,6 +29,7 @@ export function renderReport(state, reportPath, projectRoot) {
     .badge { padding: 8px 12px; border: 1px solid #334066; border-radius: 999px; background: #151d35; }
     .pass { color: #61d99b; }
     .fail, .error { color: #ff798c; }
+    .warning { color: #f5c451; }
     .planned { color: #7fb4ff; }
     table { width: 100%; border-collapse: collapse; background: #11182d; }
     th, td { padding: 11px 12px; border-bottom: 1px solid #293451; text-align: left; vertical-align: top; }

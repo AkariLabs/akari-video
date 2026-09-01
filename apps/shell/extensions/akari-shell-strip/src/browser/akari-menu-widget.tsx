@@ -10,6 +10,7 @@ import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { FileOperationResult, FileStat, toFileOperationResult } from '@theia/filesystem/lib/common/files';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
+import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import {
     DEFAULT_EXPORT_OUTPUT_NAME,
@@ -26,6 +27,8 @@ import {
     QuickExportQuality
 } from '../common/quick-export-cli';
 import { quickExportErrorNotification, quickExportStageLabel, shouldShowRenderJsonProgress } from '../common/quick-export-ui';
+import { AkariPreviewServerService, PreviewServerStatus } from '../common/preview-server-protocol';
+import { buildPreviewOpenUrl, PreviewOpenVariant } from '../common/preview-server-cli';
 import {
     AKARI_EXPORT_ENCODER,
     AKARI_EXPORT_FPS,
@@ -38,6 +41,8 @@ interface MenuAction {
     label: string;
     icon: string;
     run: () => void;
+    disabled?: boolean;
+    title?: string;
 }
 
 interface SkillEntry {
@@ -65,6 +70,10 @@ const RENDER_JSON_RELATIVE_PATH = '.akari/render.json';
 const EDIT_JSON_MISSING_TOOLTIP = 'edit.json がまだありません。編集を進めてから書き出してください。';
 const QUICK_EXPORT_RUNNING_TOOLTIP = '書き出しを実行中です。完了までお待ちください。';
 const QUICK_EXPORT_POLL_INTERVAL_MS = 500;
+/** ブラウザプレビュー（preview-server）の状態ポーリング間隔（裁定 1-f: 1,000 ms）。 */
+const PREVIEW_SERVER_POLL_INTERVAL_MS = 1000;
+const PREVIEW_EDIT_JSON_MISSING_TOOLTIP = 'edit.json がまだありません。編集を進めてからプレビューしてください。';
+const PREVIEW_WORKSPACE_MISSING_TOOLTIP = 'プロジェクトを開くとブラウザプレビューを起動できます。';
 /** render-cut CLI に解像度を渡す引数は存在しない（出力解像度は edit.json の
  *  output.width/height 由来 — packages/render-cut/src/plan.mjs 参照）。
  *  「この場で書き出す」では正直にこの設定を使わないことを利用者に明示する
@@ -135,6 +144,10 @@ export class AkariMenuWidget extends ReactWidget {
     protected readonly openers!: OpenerService;
     @inject(AkariQuickExportService)
     protected readonly quickExportService!: AkariQuickExportService;
+    @inject(AkariPreviewServerService)
+    protected readonly previewServerService!: AkariPreviewServerService;
+    @inject(WindowService)
+    protected readonly windowService!: WindowService;
     @inject(FileDialogService)
     protected readonly fileDialogs!: FileDialogService;
     @inject(MessageService)
@@ -157,6 +170,13 @@ export class AkariMenuWidget extends ReactWidget {
     protected readonly renderEngineWarningSignatures = new Set<string>();
     /** 「ログを表示」の開閉状態（task 2026-07-25-export-options #5）。 */
     protected quickExportLogExpanded = false;
+    /** ワークスペースが開いているか（ブラウザプレビューの tooltip 分岐に使う）。 */
+    protected workspaceOpened = false;
+    /** ブラウザプレビュー（preview-server）のバックエンド状態のミラー。 */
+    protected previewServerStatus: PreviewServerStatus = { phase: 'idle', logTail: '' };
+    protected previewServerPollHandle: number | undefined;
+    /** start / stop の RPC が返るまでボタンを二重押しさせないガード。 */
+    protected previewServerBusy = false;
 
     @postConstruct()
     protected init(): void {
@@ -169,11 +189,16 @@ export class AkariMenuWidget extends ReactWidget {
             void this.loadSkills();
             void this.watchEditJson();
             void this.watchRenderProgress();
+            void this.resetPreviewServerOnWorkspaceChange();
         }));
         this.toDispose.push(Disposable.create(() => this.stopQuickExportPolling()));
+        // widget dispose ではポーリングだけ止める（サーバーは止めない —
+        // メニューを閉じても生かす。裁定 1-f）。
+        this.toDispose.push(Disposable.create(() => this.stopPreviewServerPolling()));
         void this.loadSkills();
         void this.watchEditJson();
         void this.watchRenderProgress();
+        void this.syncPreviewServerStatus();
         this.update();
     }
 
@@ -187,8 +212,32 @@ export class AkariMenuWidget extends ReactWidget {
             { id: OPEN_ANNOTATIONS_COMMAND, label: 'タイムライン', icon: 'codicon codicon-comment', run: () => this.runCommand(OPEN_ANNOTATIONS_COMMAND) },
             { id: OPEN_TRANSCRIPT_COMMAND, label: '文字起こし', icon: 'codicon codicon-comment-discussion', run: () => this.runCommand(OPEN_TRANSCRIPT_COMMAND) },
             { id: 'akari.menu.openOverview', label: 'ホーム', icon: 'codicon codicon-home', run: () => void this.openOverview() },
-            { id: SHOW_CHANGES_COMMAND, label: '変更を見る', icon: 'codicon codicon-diff', run: () => this.runCommand(SHOW_CHANGES_COMMAND) }
+            { id: SHOW_CHANGES_COMMAND, label: '変更を見る', icon: 'codicon codicon-diff', run: () => this.runCommand(SHOW_CHANGES_COMMAND) },
+            this.browserPreviewAction()
         ];
+    }
+
+    /**
+     * 5 番目「ブラウザプレビュー」（裁定 1-a〜c）。ゲートは書き出しボタンと同じ
+     * editJsonExists（シェル側で edit.json は作らない）。starting 中は disabled +
+     * ラベル「起動中…」。
+     */
+    protected browserPreviewAction(): MenuAction {
+        const starting = this.previewServerStatus.phase === 'starting';
+        let title: string | undefined;
+        if (!this.workspaceOpened) {
+            title = PREVIEW_WORKSPACE_MISSING_TOOLTIP;
+        } else if (!this.editJsonExists) {
+            title = PREVIEW_EDIT_JSON_MISSING_TOOLTIP;
+        }
+        return {
+            id: 'akari.menu.browserPreview',
+            label: starting ? '起動中…' : 'ブラウザプレビュー',
+            icon: 'codicon codicon-globe',
+            disabled: !this.workspaceOpened || !this.editJsonExists || starting || this.previewServerBusy,
+            title,
+            run: () => void this.openBrowserPreview()
+        };
     }
 
     protected runCommand(commandId: string): void {
@@ -291,10 +340,12 @@ export class AkariMenuWidget extends ReactWidget {
         const roots = await this.workspace.roots;
         const root = roots[0]?.resource;
         if (!root) {
+            this.workspaceOpened = false;
             this.editJsonExists = false;
             this.update();
             return;
         }
+        this.workspaceOpened = true;
         const editJsonUri = root.resolve(EDIT_JSON_RELATIVE_PATH);
         await this.refreshEditJsonExists(editJsonUri);
         try {
@@ -771,6 +822,246 @@ export class AkariMenuWidget extends ReactWidget {
         this.update();
     }
 
+    // --- ブラウザプレビュー（preview-server 起動・URL 表示・最新 / 従来切替） ----
+
+    /** 押下の意味（裁定 1-b）: idle / failed なら起動して最新版を開く。running なら開くだけ。 */
+    protected async openBrowserPreview(): Promise<void> {
+        const status = this.previewServerStatus;
+        if (status.phase === 'running' && status.url) {
+            this.openPreviewInBrowser('latest');
+            return;
+        }
+        if (status.phase === 'starting' || this.previewServerBusy || !this.editJsonExists) {
+            return;
+        }
+        await this.startPreviewServer();
+    }
+
+    /** start() を running / failed まで待ち、running になったら最新版 URL を外部ブラウザで開く。 */
+    protected async startPreviewServer(): Promise<void> {
+        if (this.previewServerBusy) {
+            return;
+        }
+        let roots: FileStat[];
+        try {
+            roots = await this.workspace.roots;
+        } catch (error) {
+            this.applyPreviewServerStatus({
+                phase: 'failed',
+                logTail: '',
+                failureSummary: describeUnexpectedQuickExportFailure(error, 'プロジェクトルートを取得できませんでした')
+            });
+            return;
+        }
+        const root = roots[0]?.resource;
+        if (!root) {
+            this.applyPreviewServerStatus({
+                phase: 'failed',
+                logTail: '',
+                failureSummary: 'プロジェクトルートを取得できないため、ブラウザプレビューを起動できませんでした'
+            });
+            return;
+        }
+        this.previewServerBusy = true;
+        this.previewServerStatus = { phase: 'starting', projectRootUri: root.toString(), logTail: '' };
+        this.update();
+        this.beginPreviewServerPolling();
+        let status: PreviewServerStatus;
+        try {
+            status = await this.previewServerService.start({ projectRootUri: root.toString() });
+        } catch (error) {
+            status = {
+                phase: 'failed',
+                logTail: '',
+                failureSummary: describeUnexpectedQuickExportFailure(error, 'プレビューサーバーに接続できませんでした')
+            };
+        }
+        this.previewServerBusy = false;
+        this.applyPreviewServerStatus(status);
+        if (status.phase === 'running' && status.url) {
+            this.openPreviewInBrowser('latest');
+        }
+    }
+
+    protected async stopPreviewServer(): Promise<void> {
+        if (this.previewServerBusy) {
+            return;
+        }
+        this.previewServerBusy = true;
+        this.update();
+        let status: PreviewServerStatus;
+        try {
+            status = await this.previewServerService.stop();
+        } catch (error) {
+            status = {
+                phase: 'failed',
+                logTail: '',
+                failureSummary: describeUnexpectedQuickExportFailure(error, 'プレビューサーバーを停止できませんでした')
+            };
+        }
+        this.previewServerBusy = false;
+        this.applyPreviewServerStatus(status);
+    }
+
+    /** 裁定 1-g: ワークスペースが替わったら stop() を呼び、別プロジェクトのサーバーを残さない。 */
+    protected async resetPreviewServerOnWorkspaceChange(): Promise<void> {
+        this.stopPreviewServerPolling();
+        this.previewServerStatus = { phase: 'idle', logTail: '' };
+        this.update();
+        try {
+            await this.previewServerService.stop();
+        } catch (error) {
+            console.warn('[akari-shell-strip] preview server stop on workspace change failed:', error);
+        }
+    }
+
+    /** widget 再生成時に、生かしてあるサーバー（メニューを閉じても止めない）の状態を拾う。 */
+    protected async syncPreviewServerStatus(): Promise<void> {
+        try {
+            this.applyPreviewServerStatus(await this.previewServerService.getStatus());
+        } catch (error) {
+            console.info('[akari-shell-strip] preview server status unavailable:', error);
+        }
+    }
+
+    protected applyPreviewServerStatus(status: PreviewServerStatus): void {
+        this.previewServerStatus = status;
+        if (status.phase === 'starting' || status.phase === 'running') {
+            this.beginPreviewServerPolling();
+        } else {
+            this.stopPreviewServerPolling();
+        }
+        this.update();
+    }
+
+    /** 裁定 1-f: starting / running の間だけ 1,000 ms 間隔で getStatus() を呼ぶ。 */
+    protected beginPreviewServerPolling(): void {
+        if (this.previewServerPollHandle !== undefined) {
+            return;
+        }
+        this.previewServerPollHandle = window.setInterval(
+            () => void this.pollPreviewServerStatus(),
+            PREVIEW_SERVER_POLL_INTERVAL_MS
+        );
+    }
+
+    protected stopPreviewServerPolling(): void {
+        if (this.previewServerPollHandle !== undefined) {
+            window.clearInterval(this.previewServerPollHandle);
+            this.previewServerPollHandle = undefined;
+        }
+    }
+
+    protected async pollPreviewServerStatus(): Promise<void> {
+        let status: PreviewServerStatus;
+        try {
+            status = await this.previewServerService.getStatus();
+        } catch (error) {
+            console.warn('[akari-shell-strip] preview server status poll failed:', error);
+            return;
+        }
+        // start / stop の RPC が返るまでは、その戻り値を正とする（直前の phase を
+        // 拾って idle / failed へ巻き戻さない）。
+        if (this.previewServerBusy && status.phase !== 'starting') {
+            return;
+        }
+        this.applyPreviewServerStatus(status);
+    }
+
+    protected openPreviewInBrowser(variant: PreviewOpenVariant): void {
+        const base = this.previewServerStatus.url;
+        if (!base) {
+            return;
+        }
+        // {external: true} が無いと Electron 版 WindowService は内蔵ウィンドウで開いてしまう
+        // （akari-home-widget.tsx の checkVersionNotice と同じ注記）。
+        this.windowService.openNewWindow(buildPreviewOpenUrl(base, variant), { external: true });
+    }
+
+    protected async copyPreviewServerUrl(url: string): Promise<void> {
+        try {
+            await navigator.clipboard.writeText(url);
+            void this.messages.info('URL をコピーしました');
+        } catch (error) {
+            console.warn('[akari-shell-strip] clipboard write failed:', error);
+        }
+    }
+
+    /** 裁定 1-d: 「ひらく」節の直下・phase が idle 以外のときだけ描く状態ブロック。 */
+    protected renderPreviewServerStatus(): React.ReactNode {
+        const status = this.previewServerStatus;
+        if (status.phase === 'idle') {
+            return undefined;
+        }
+        return (
+            <div
+                data-akari-preview-server-status={status.phase}
+                style={{ marginTop: '10px', border: '1px solid var(--theia-widget-border)', borderRadius: '6px', padding: '8px 10px' }}
+            >
+                {status.phase === 'starting' && (
+                    <div style={{ fontSize: '0.85em' }}>プレビューサーバーを起動しています…</div>
+                )}
+                {status.phase === 'running' && status.url && (
+                    <>
+                        <div style={{ fontSize: '0.85em' }}>
+                            <code
+                                data-akari-preview-server-url={status.url}
+                                title='クリックで URL をコピー'
+                                style={{ cursor: 'pointer', userSelect: 'all' }}
+                                onClick={() => void this.copyPreviewServerUrl(status.url!)}
+                            >{status.url}</code>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                            <button
+                                className='theia-button secondary'
+                                style={{ padding: '4px 8px', fontSize: '0.85em' }}
+                                title={buildPreviewOpenUrl(status.url, 'latest')}
+                                onClick={() => this.openPreviewInBrowser('latest')}
+                            >
+                                最新版で開く
+                            </button>
+                            <button
+                                className='theia-button secondary'
+                                style={{ padding: '4px 8px', fontSize: '0.85em' }}
+                                title={buildPreviewOpenUrl(status.url, 'legacy')}
+                                onClick={() => this.openPreviewInBrowser('legacy')}
+                            >
+                                従来版で開く（frameEngine=0）
+                            </button>
+                            <button
+                                className='theia-button secondary'
+                                style={{ padding: '4px 8px', fontSize: '0.85em' }}
+                                disabled={this.previewServerBusy}
+                                onClick={() => void this.stopPreviewServer()}
+                            >
+                                停止
+                            </button>
+                        </div>
+                    </>
+                )}
+                {status.phase === 'failed' && (
+                    <>
+                        <div style={{ fontSize: '0.85em' }}>ブラウザプレビューを起動できませんでした</div>
+                        {status.failureSummary && (
+                            <pre style={{
+                                fontSize: '0.8em', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                                margin: '6px 0 0', opacity: 0.85, maxHeight: '120px', overflow: 'auto'
+                            }}>{status.failureSummary}</pre>
+                        )}
+                        <button
+                            className='theia-button secondary'
+                            style={{ marginTop: '6px', padding: '4px 8px', fontSize: '0.85em' }}
+                            disabled={this.previewServerBusy}
+                            onClick={() => void this.startPreviewServer()}
+                        >
+                            再試行
+                        </button>
+                    </>
+                )}
+            </div>
+        );
+    }
+
     protected renderQuickExportStatus(): React.ReactNode {
         const status = this.quickExportStatus;
         if (!status || status.phase === 'idle') {
@@ -967,6 +1258,8 @@ export class AkariMenuWidget extends ReactWidget {
                                 key={action.id}
                                 className='theia-button secondary'
                                 style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px' }}
+                                disabled={action.disabled}
+                                title={action.title}
                                 onClick={action.run}
                             >
                                 <span className={action.icon} aria-hidden='true' />
@@ -974,6 +1267,7 @@ export class AkariMenuWidget extends ReactWidget {
                             </button>
                         ))}
                     </div>
+                    {this.renderPreviewServerStatus()}
                 </section>
                 {this.renderExportSection()}
                 <section>

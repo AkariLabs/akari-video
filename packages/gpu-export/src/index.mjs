@@ -1,5 +1,5 @@
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { summarizeGpuAdapters } from "../../osr-export/src/gpu-adapters.mjs";
@@ -97,15 +97,29 @@ export async function exportWithGpu({
     }
     if (run.status !== "completed") throw new Error(`GPU encoder unavailable: ${run.status}`);
     const resolvedFfprobe = ffprobeCommand ?? resolveFfprobe({ env });
-    await audioMuxer({
-      ffmpegCommand: ffmpegCommand ?? resolveFfmpeg({ env }),
-      ffprobeCommand: resolvedFfprobe,
-      videoPath: videoOnlyPath,
-      audioPath: audioSourcePath ?? videoOnlyPath,
-      outputPath: out,
-      frames,
-      fps,
-    });
+    let audio;
+    if (audioSourcePath === null || audioSourcePath === undefined) {
+      await copyFile(videoOnlyPath, out);
+      audio = { mode: "none", source: null, source_has_audio: null };
+    } else {
+      const sourceHasAudio = await audioMuxer({
+        ffmpegCommand: ffmpegCommand ?? resolveFfmpeg({ env }),
+        ffprobeCommand: resolvedFfprobe,
+        videoPath: videoOnlyPath,
+        audioPath: audioSourcePath,
+        outputPath: out,
+        frames,
+        fps,
+      });
+      audio = {
+        mode: sourceHasAudio ? "copy" : "silent-carrier",
+        source: basename(audioSourcePath),
+        source_has_audio: Boolean(sourceHasAudio),
+      };
+      if (!sourceHasAudio) {
+        io.error?.(`gpu-export: 音声ソースに音声ストリームが無いため無音トラック（契約 §5 の carrier）を付けました: ${audio.source}`);
+      }
+    }
     const finalVerify = await finalVerifier({
       command: resolvedFfprobe,
       path: out,
@@ -113,7 +127,7 @@ export async function exportWithGpu({
       fps,
       width,
       height,
-      requireAudio: true,
+      requireAudio: audio.mode !== "none",
     });
     finalVerify.avTermination = measureAvTermination(finalVerify, fps);
     finalVerify.checks = { ...finalVerify.checks, avTermination: finalVerify.avTermination.matched };
@@ -123,7 +137,7 @@ export async function exportWithGpu({
     }
     const persistentRunPath = join(projectRoot, ".akari", "gpu-run.json");
     await mkdir(dirname(persistentRunPath), { recursive: true });
-    const persistentRun = { ...run, finalVerify };
+    const persistentRun = { ...run, audio, finalVerify };
     await writeFile(runPath, `${JSON.stringify(persistentRun, null, 2)}\n`);
     await copyFile(runPath, persistentRunPath);
     persistentRun.persistentPath = relative(projectRoot, persistentRunPath).split("\\").join("/");
@@ -136,6 +150,7 @@ export async function exportWithGpu({
         run: persistentRun,
         eligibility,
         finalVerify,
+        audio,
         profile: soft ? "soft" : "gpu",
         gpuPreference: gpuPreferenceRecord,
       }),
@@ -271,6 +286,7 @@ function measureAvTermination(finalVerify, fps) {
   const streams = finalVerify?.measured?.streams ?? [];
   const video = streams.find((stream) => stream.codec_type === "video");
   const audio = streams.find((stream) => stream.codec_type === "audio");
+  if (!audio) return { matched: true, skipped: "no-audio" };
   const videoDuration = Number(video?.duration ?? finalVerify?.measured?.format?.duration);
   const audioDuration = Number(audio?.duration);
   const deltaSeconds = Number.isFinite(videoDuration) && Number.isFinite(audioDuration)

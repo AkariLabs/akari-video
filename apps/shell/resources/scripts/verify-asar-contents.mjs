@@ -331,7 +331,12 @@ for (const application of applications.sort((a, b) => a.displayPath.localeCompar
     path.join('packages', 'decision-log-report', 'render-decision-log-report.mjs'),
     path.join('packages', 'decision-log-report', 'template.html'),
     path.join('packages', 'schemas', 'bin', 'validate-interpretation.mjs'),
-    path.join('packages', 'schemas', 'interpretation.schema.json')
+    path.join('packages', 'schemas', 'interpretation.schema.json'),
+    // ブラウザプレビュー（メニュー「ひらく」）が起動する preview-server も extraResources（asar 外）。
+    path.join('packages', 'preview-server', 'src', 'server.mjs'),
+    path.join('packages', 'preview-server', 'public', 'index.html'),
+    path.join('packages', 'preview-server', 'public', 'app.js'),
+    path.join('packages', 'preview-server', 'public', 'frame-engine.bundle.js')
   ];
   for (const relative of analysisReportRuntimeFiles) {
     const exists = await stat(path.join(resourcesDir, relative)).then(s => s.isFile(), () => false);

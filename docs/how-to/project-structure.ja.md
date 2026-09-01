@@ -27,6 +27,7 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 | `assets/` | 素材置き場（`assets/<カテゴリ>/<id>/` + meta.json） |
 | `planning/` | 企画・計画文書（research-plan.json / plan.json） |
 | `exports/` | 書き出し先 |
+| `motion/` | edit.json から参照するキーフレーム曲線の**正本**（再生成不可） |
 
 ## .akari/ 配下
 
@@ -39,16 +40,25 @@ AKARI Video のプロジェクトは「ファイル契約」で動きます。�
 | `.akari/events/` | 節目の記録（1 件ずつ追記。「続きから」の合図） |
 | `.akari/lint.json` | edit-lint の検査結果の正本 |
 | `.akari/render.json` | 書き出しの計画・実行結果の正本 |
-| `.akari/diffs/` | 人間 → AI の差分協調の置き場 |
-| `.akari/work/` | エージェントの中間物（**削除安全** — 再生成できる） |
+| `.akari/diffs/` | 「変更を見る」で生成される比較用スナップショット |
+| `.akari/render-tmp/` | 書き出し中に使う一時作業領域 |
+| `.akari/work/` | エージェントの作業領域。使い捨ては `tmp/`、作り直せないものは `keep/` に置く |
 | `.akari/reports/` | 検証証跡・レポート HTML（**削除しない** — 人間確認の記録） |
 | `.akari/cache/` | サムネ・プロキシ等のキャッシュ（削除安全） |
 
 ## 削除していいもの・いけないもの
 
-- `.akari/work/`・`.akari/cache/` — 消しても再生成されます
-- `.akari/reports/` — 「人間が何を確認したか」の証跡なので消さない
-- `edit.json`・`.akari/events/` — プロジェクトの記憶そのもの。git 管理を推奨
+`akari clean [project-dir]` を実行すると、削除可能・保持・判断保留を容量付きで一覧できます。
+既定は一覧のみです。`--yes`（または対話での承認）の後も削除可能なものだけを削除し、直近に
+更新された候補とシンボリックリンクは判断保留のまま残します。
+
+- `.akari/cache/`・`.akari/render-tmp/`・生成された差分・書き出し中間物は、実行中でなければ
+  削除可能として一覧されます
+- `.akari/work/` では、使い捨てを `tmp/`、計画・生成器・手編集ファイル等を `keep/` に置きます。
+  空の目印 `.akari-disposable` / `.akari-keep` は置いたディレクトリ配下に効き、keep が優先です。
+  目印のない既存内容は判断保留になります
+- `.akari/reports/`・`motion/`・`assets/`・`edit.json`・`.akari/events/` は、証跡・原本・
+  プロジェクトの記憶なので保持します。git 管理を推奨します
 
 ## プロジェクトの外にあるもの
 

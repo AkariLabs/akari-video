@@ -93,6 +93,7 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
   CLI 自身が使う `.akari/render-tmp/` とは別に、確認用の一時スクリプトや実験的な中間生成物を
   人が作る場合は `<project>/.akari/work/` へ置く
   （[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）。
+  `.akari/work/` では、使い捨てを `tmp/`、作り直せないものを `keep/` に分ける。
   いずれもプロジェクトルート直下には置かない。
 
 ## 公開契約

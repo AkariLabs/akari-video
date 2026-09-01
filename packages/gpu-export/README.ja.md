@@ -164,6 +164,43 @@ macOS / Linux（`reason: platform`）と `--soft`（`reason: soft`）では何�
 
 失敗した run は `.akari/gpu-run-failed.json` に `gpu.renderer` / `gpu.encoder_support` / `gpu.devices` 付きで残ります。
 
+## CLI（`akari-gpu-export`）
+
+低レベル CLI は、適格なプロジェクト 1 件を直接書き出します。`--audio` 未指定時は音声トラックのない
+映像のみの MP4 を書き出し、その選択を stderr に表示します。`--audio <path>` 指定時は、書き出し前に
+ファイルの実在と音声ストリームの有無を確認し、その音声ストリームを最終 MP4 へ copy します。ファイルが
+無い場合または音声ストリームが無い場合は、無音トラックを作らず、出力作成前に exit code 2 で終了します。
+
+```sh
+node packages/gpu-export/bin/akari-gpu-export.mjs <project-dir> --out <output.mp4> --duration <seconds> [options]
+```
+
+| フラグ | 説明 |
+|---|---|
+| `--out <path>` | 出力 MP4 のパス（必須）。 |
+| `--fps <number>` | フレームレート。既定は 30。 |
+| `--width <pixels>` | 出力幅。既定は 1920。 |
+| `--height <pixels>` | 出力高さ。既定は 1080。 |
+| `--duration <seconds>` | 出力尺（必須）。 |
+| `--frames <count>` | 出力フレーム数。既定は `duration × fps`。 |
+| `--queue-depth <count>` | エンコードキュー深度。既定は 4。 |
+| `--quality <name>` | 品質プリセット。既定は `high`。 |
+| `--bitrate <bps>` | 映像ビットレートの明示値。 |
+| `--audio <path>` | copy する音声ストリームのソース。 |
+| `--soft` | software encoder preference を要求。 |
+| `--trap-readback` | 製品経路の pixel readback を拒否。 |
+| `--verify-frames` | 検証専用の生フレーム hash を有効化。 |
+| `--help`, `-h` | usage を表示。 |
+
+| exit code | 意味 |
+|---|---|
+| `0` | 書き出しまたは help が正常終了。 |
+| `1` | 書き出し失敗。 |
+| `2` | 引数または入力の前提条件が不正。 |
+
+製品経路は `render-cut --engine gpu` です。`edit.json` で宣言した音声を先に混ぜてから GPU 書き出しを
+呼び出します。低レベルの `akari-gpu-export` CLI は `edit.json` の音声を読み取り・合成しません。
+
 ## 開発
 
 ```sh

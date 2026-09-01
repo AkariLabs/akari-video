@@ -182,6 +182,44 @@ parentheses (`（原因: WebCodecs H.264 config is unsupported: ... renderer=<UN
 The failed run is kept at `.akari/gpu-run-failed.json` with `gpu.renderer`, `gpu.encoder_support`, and
 `gpu.devices` filled in.
 
+## CLI (`akari-gpu-export`)
+
+The low-level CLI exports one eligible project directly. Without `--audio`, it writes a video-only
+MP4 with no audio track and reports that choice on stderr. With `--audio <path>`, it checks that the
+file exists and contains an audio stream before export, then copies that stream into the final MP4.
+An absent or audio-less source exits with code 2 before creating output; it does not create a silent
+track.
+
+```sh
+node packages/gpu-export/bin/akari-gpu-export.mjs <project-dir> --out <output.mp4> --duration <seconds> [options]
+```
+
+| Flag | Description |
+|---|---|
+| `--out <path>` | Output MP4 path (required). |
+| `--fps <number>` | Frame rate; default 30. |
+| `--width <pixels>` | Output width; default 1920. |
+| `--height <pixels>` | Output height; default 1080. |
+| `--duration <seconds>` | Output duration (required). |
+| `--frames <count>` | Frame count; defaults to `duration × fps`. |
+| `--queue-depth <count>` | Encoder queue depth; default 4. |
+| `--quality <name>` | Quality preset; default `high`. |
+| `--bitrate <bps>` | Explicit video bitrate. |
+| `--audio <path>` | Source whose audio stream is copied. |
+| `--soft` | Request the software encoder preference. |
+| `--trap-readback` | Reject product-path pixel readback. |
+| `--verify-frames` | Enable verification-only raw-frame hashing. |
+| `--help`, `-h` | Print usage. |
+
+| Exit code | Meaning |
+|---|---|
+| `0` | Export or help completed successfully. |
+| `1` | Export failed. |
+| `2` | Arguments or an input precondition were invalid. |
+
+The product path is `render-cut --engine gpu`: it mixes the audio declared by `edit.json` before
+calling GPU export. The low-level `akari-gpu-export` CLI does not read or mix `edit.json` audio.
+
 ## Development
 
 ```sh

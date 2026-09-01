@@ -287,6 +287,9 @@ await p.save();                         // 正規直列化 → lint ゲート �
 | `v2.caption-overlap` | warning | 分離した字幕行と袋の写しが同時刻に重なる |
 | `v2.keyframes-ref` | error | `keyframes: { path, count }` の袋が無い / `count` が実数と違う |
 | `v2.empty-track` | info | 空の段（保存時に自動削除される旨）|
+| `engine.unsupported-field` | error | 選択した GPU / OSR 出口が `ignored` とするフィールドを item が宣言している |
+| `engine.partial-field` | warning | 選択した出口でフィールドが近似・部分対応（`partial`）になる |
+| `engine.capability-unknown` | warning | 正準キーに対応する `path` / `applies_to` がエンジン適合性表に無い |
 
 ## 8. 版管理・移行
 

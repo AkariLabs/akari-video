@@ -42,3 +42,33 @@ are skipped with a reason.
 
 `timeline.items.order` is a default-path warning when a track's `items[]` are not stored in
 non-decreasing `at` order. It does not change the render meaning or fail lint.
+
+## Engine compatibility (`--engine`)
+
+Before export, check v2 projects against the selected renderer. Use `auto` when engine selection is
+also automatic.
+
+```sh
+node packages/edit-lint/bin/edit-lint.mjs <project-root> --engine gpu
+node packages/edit-lint/bin/edit-lint.mjs <project-root> --engine auto
+```
+
+The field-level source of truth is
+[`packages/schemas/engine-capabilities.json`](../schemas/engine-capabilities.json). Its statuses mean:
+
+- `consumed`: the selected engine consumes the field.
+- `partial`: support is approximate or limited; `engine.partial-field` emits a warning.
+- `ignored`: the field is not rendered; `engine.unsupported-field` emits an error.
+- `other-subsystem`: a subsystem outside the visual engine consumes the field.
+
+If a canonical field has no matching row for an item's projection, `engine.capability-unknown` emits
+a warning so table drift is visible. With `--engine auto`, identical GPU and OSR conclusions are
+collapsed under a `gpu/osr:` prefix; different conclusions are reported separately.
+
+```text
+engine.unsupported-field [error] gpu/osr: tracks[].items[].perspective is not consumed
+  (tracks[0].items[1]; it will not affect rendering). hint: move it to the layers path or remove it
+```
+
+Without `--engine`, the capability table is not read and the default findings, skipped checks, and
+`.akari/lint.json` remain on the existing compatibility path.
