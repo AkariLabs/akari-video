@@ -56,9 +56,10 @@ export function collectItems(
                 case 'filter':
                     resolved = 'layers';
                     break;
+                case 'caption':
                 case 'captions':
                 case 'group':
-                    // captions は専用描画、group は現行の各 projection が子を扱う。
+                    // caption / captions は専用描画、group は現行の各 projection が子を扱う。
                     resolved = undefined;
                     break;
                 default:

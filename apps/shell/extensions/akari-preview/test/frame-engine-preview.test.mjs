@@ -156,7 +156,7 @@ test('glue は宣言された source 種別で frame source registry を構築�
     assert.match(bootstrap, /for \(const image of images\.values\(\)\) image\.destroy\(\)/);
 });
 
-test('glue は src の無い layer を frame-engine 評価前に fail-open で除外する', () => {
+test('glue は不正な非 object layer だけを frame-engine 評価前に fail-open で除外する', () => {
     assert.match(sourceHandler, /filterRenderableFrameEngineLayers\.toString\(\)/u);
     assert.match(sourceHandler, /filterRenderableFrameEngineLayersFn\([\s\S]*?summary\.layers/u);
 });
