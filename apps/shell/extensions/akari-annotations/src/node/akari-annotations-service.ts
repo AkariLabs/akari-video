@@ -2,6 +2,9 @@ import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
+import { applyCutRanges as applyCutRangesToSource, detectEditVersion } from '@akari-video/edit-store/lib/cut-ranges';
+import { refreshItemAnchors, type EditableEditV2 } from '@akari-video/edit-store/lib/tree-ops';
+import type { AnchorCaption } from '@akari-video/edit-store/lib/item-anchor';
 import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
@@ -11,6 +14,8 @@ import { promisify } from 'util';
 import {
     AkariAnnotationsClient,
     AkariAnnotationsService,
+    ApplyCutRangesRequest,
+    ApplyCutRangesResult,
     Annotation,
     CreateAnnotationRequest,
     CreateAnnotationResult,
@@ -746,6 +751,43 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = insertCutInSource(source, request.cutIndex, request.elementText);
         await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), 'クリップを挿入') };
+    }
+
+    async applyCutRanges(request: ApplyCutRangesRequest): Promise<ApplyCutRangesResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const beforeSource = await fs.readFile(editPath, 'utf8');
+        const applied = applyCutRangesToSource(beforeSource, request.ranges, {});
+        let updated = applied.source;
+        if (detectEditVersion(updated) === 2) {
+            try {
+                const captionsRaw = JSON.parse(await fs.readFile(join(dirname(editPath), 'captions.json'), 'utf8')) as unknown;
+                const rows = Array.isArray(captionsRaw)
+                    ? captionsRaw
+                    : captionsRaw && typeof captionsRaw === 'object' && Array.isArray((captionsRaw as { captions?: unknown }).captions)
+                        ? (captionsRaw as { captions: unknown[] }).captions : [];
+                const captions = rows.filter((row): row is AnchorCaption => Boolean(row)
+                    && typeof row === 'object'
+                    && typeof (row as AnchorCaption).id === 'string'
+                    && typeof (row as AnchorCaption).start === 'number'
+                    && typeof (row as AnchorCaption).end === 'number');
+                const refreshed = refreshItemAnchors(JSON.parse(updated) as EditableEditV2, captions);
+                for (const warning of refreshed.warnings) {
+                    console.warn(`[akari-annotations] item anchor ${warning.id}: ${warning.reason}`);
+                }
+                updated = `${JSON.stringify(refreshed.edit, null, 2)}\n`;
+            } catch (error) {
+                const code = error && typeof error === 'object' ? (error as NodeJS.ErrnoException).code : undefined;
+                if (code !== 'ENOENT') console.warn('[akari-annotations] captions.json のアンカー更新をスキップしました。', error);
+            }
+        }
+        for (const warning of applied.warnings) console.warn(`[akari-annotations] ${warning}`);
+        await this.writeProjectFileGuarded(editPath, updated);
+        const projectRoot = this.fsPath(request.projectRootUri);
+        const committedByStandardPath = await this.commitWrite(projectRoot, request.label);
+        const committed = committedByStandardPath
+            || await this.commitIfOwnRoot(projectRoot, request.label, [editPath]);
+        return { committed, removedFrames: applied.removedFrames, beforeSource };
     }
 
     async insertOverlay(request: InsertOverlayRequest): Promise<WriteBackResult> {

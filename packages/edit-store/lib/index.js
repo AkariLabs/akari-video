@@ -44,6 +44,7 @@ __exportStar(require("./audio-schedule"), exports);
 __exportStar(require("./canonical"), exports);
 __exportStar(require("./tree-ops"), exports);
 __exportStar(require("./item-anchor"), exports);
+__exportStar(require("./cut-ranges"), exports);
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps
 // text-surgery consumers source-compatible while preventing legacy knowledge from returning
 // to edit-store.ts.

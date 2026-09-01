@@ -275,6 +275,26 @@ export interface InsertCutRequest {
     elementText: string;
 }
 
+export interface CutRangeInput {
+    in: number;
+    out: number;
+    kind: 'row' | 'filler' | 'silence';
+    captionId?: string;
+    label?: string;
+}
+
+export interface ApplyCutRangesRequest {
+    editUri: string;
+    projectRootUri: string;
+    ranges: CutRangeInput[];
+    label: string;
+}
+
+export interface ApplyCutRangesResult extends WriteBackResult {
+    removedFrames: number;
+    beforeSource: string;
+}
+
 export interface CaptionWritePayload {
     id: string;
     start: number;
@@ -597,6 +617,7 @@ export interface AkariAnnotationsService {
     splitCut(request: SplitCutRequest): Promise<WriteBackResult>;
     deleteCut(request: DeleteCutRequest): Promise<DeleteCutResult>;
     insertCut(request: InsertCutRequest): Promise<WriteBackResult>;
+    applyCutRanges(request: ApplyCutRangesRequest): Promise<ApplyCutRangesResult>;
     insertOverlay(request: InsertOverlayRequest): Promise<WriteBackResult>;
     removeOverlay(request: RemoveOverlayRequest): Promise<WriteBackResult>;
     moveLayer(request: MoveLayerRequest): Promise<WriteBackResult>;

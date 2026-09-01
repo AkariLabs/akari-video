@@ -18,6 +18,7 @@ const expectedSources = [
   'caption-window.ts',
   'caption-words-rederive.ts',
   'cut-adjacency.ts',
+  'cut-ranges.ts',
   'ducking.ts',
   'edit-store.ts',
   'edit-v2-item-write.ts',
