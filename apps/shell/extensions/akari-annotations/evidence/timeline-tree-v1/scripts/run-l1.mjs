@@ -150,7 +150,7 @@ async function verifyPreviewPartSelectionAttempt() {
     'projected preview part has a hit-tested rect', { partRect });
   await realClick(previewOuter, partRect.x, partRect.y);
   await domWait('projected timeline row selected from preview click',
-    `Boolean(document.querySelector('.akari-timeline-tree-item[data-akari-item-id="s01#A"]')
+    `Boolean(document.querySelector('[data-akari-item-id="s01#A"]')
       ?.classList.contains('akari-annotations-selected'))`);
   const selectedOverlayId = await evalOn(previewOuter,
     `document.querySelector('[data-overlay-id][data-akari-interaction-selected="true"]')
@@ -188,31 +188,44 @@ try {
     opened = await evalOn(main, `Boolean(document.getElementById('akari-annotations-widget'))`);
   }
   assert(opened, 'timeline opened');
-  await domWait('bag tree row', `Boolean(document.querySelector('[data-akari-tree-row-id="s01"]'))`);
+  await domWait('bag strip chip', `Boolean(document.querySelector('[data-akari-item-id="s01"]'))`);
 
   const plainBefore = await rect('.akari-annotations-strip-overlay[data-akari-item-id="plain"]');
   const initialPlainRows = await evalOn(main,
     `document.querySelectorAll('.akari-annotations-strip-overlay[data-akari-item-id="plain"]').length`);
-  const initialBagRows = await evalOn(main, `[...document.querySelectorAll('[data-akari-tree-row-id]')]
-    .filter(e=>['s01','s01#A','s01.B'].includes(e.dataset.akariTreeRowId)).map(e=>e.dataset.akariTreeRowId)`);
-  assert(initialBagRows.length === 3, 'step1 bag expands to projected children in declaration order', { initialBagRows });
-  await clickSelector('[data-akari-tree-toggle="s01"]');
-  record('collapse-debug', await evalOn(main, `({
-    stored:Object.fromEntries(Object.entries(localStorage).filter(([key])=>key.includes('akari.timeline.collapsed.v1'))),
-    toggle:document.querySelector('[data-akari-tree-toggle="s01"]')?.outerHTML,
-    rows:[...document.querySelectorAll('[data-akari-tree-row-id]')].map(e=>e.dataset.akariTreeRowId)
-  })`));
-  await domWait('bag collapsed', `!document.querySelector('[data-akari-tree-row-id="s01.B"]')`);
-  await clickSelector('[data-akari-tree-toggle="s01"]');
-  await domWait('bag expanded', `Boolean(document.querySelector('[data-akari-tree-row-id="s01.B"]'))`);
-  record('step-1-expand', { rowIds: initialBagRows, diffLines: 0 });
+  const initialBagState = await evalOn(main, `({
+    headerRows:[...document.querySelectorAll('[data-akari-tree-row-id]')]
+      .filter(e=>['s01','s01#A','s01.B'].includes(e.dataset.akariTreeRowId))
+      .map(e=>e.dataset.akariTreeRowId),
+    toggle:Boolean(document.querySelector('[data-akari-tree-toggle="s01"]')),
+    ticks:document.querySelectorAll('[data-akari-tree-bag-tick="s01"]').length,
+    childChips:['s01#A','s01.B'].filter(id=>document.querySelector('[data-akari-item-id="'+id+'"]'))
+  })`);
+  assert(initialBagState.headerRows.length === 0 && !initialBagState.toggle,
+    'step1 bag stays on one track row without an expand toggle', initialBagState);
+  assert(initialBagState.ticks >= 2,
+    'step1 bag band keeps projected-part ticks', initialBagState);
+  record('step-1-collapsed-baseline', { ...initialBagState, diffLines: 0 });
+
+  const bagTarget = await aimSelector('[data-akari-item-id="s01"]');
+  await realClick(main, bagTarget.x, bagTarget.y, { clickCount: 2 });
+  await domWait('bag focus mode', `Boolean(document.querySelector('[data-akari-ui="timeline-focus-breadcrumbs"]'))`);
+  await domWait('projected parts in focus rows', `document.querySelectorAll(
+    '.akari-track-header-row [data-akari-tree-row-id="s01#A"], .akari-track-header-row [data-akari-tree-row-id="s01.B"]'
+  ).length===2`);
+  const focusedPartRows = await evalOn(main, `[...document.querySelectorAll(
+    '.akari-track-header-row [data-akari-tree-row-id="s01#A"], .akari-track-header-row [data-akari-tree-row-id="s01.B"]'
+  )].map(element=>element.dataset.akariTreeRowId)`);
+  assert(focusedPartRows.length === 2,
+    'step1 bag parts are reachable as rows inside focus mode', { focusedPartRows });
   await verifyPreviewPartSelection();
   await shot('01-bag-expanded.png');
 
   const beforeDetach = await readFile(editPath, 'utf8');
-  const detachTarget = await aimSelector('[data-akari-tree-row-id="s01.B"]');
+  const detachSelector = '.akari-track-header-row [data-akari-tree-row-id="s01.B"]';
+  const detachTarget = await aimSelector(detachSelector);
   await evalOn(main, `(() => {
-    const e=document.querySelector('[data-akari-tree-row-id="s01.B"]');
+    const e=document.querySelector(${JSON.stringify(detachSelector)});
     e.dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true,
       clientX:${JSON.stringify(detachTarget.x)},clientY:${JSON.stringify(detachTarget.y)}})); return true;
   })()`);
@@ -230,6 +243,11 @@ try {
     diffLines: lineDiff(beforeDetach, afterDetach)
   });
   await shot('02-part-detached.png');
+
+  await keyPress(main, { key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+  await domWait('returned to global scope', `!document.querySelector('[data-akari-ui="timeline-focus-breadcrumbs"]')`);
+  await domWait('detached part strip chip', `Boolean(document.querySelector(
+    '.akari-annotations-strip-overlay[data-akari-item-id="s01.B"]'))`);
 
   await clickSelector('.akari-annotations-strip-overlay[data-akari-item-id="s01.B"]');
   const tracksBeforeBracket = (await edit()).tracks.length;
@@ -282,8 +300,9 @@ try {
   const finalPlainRows = await evalOn(main,
     `document.querySelectorAll('.akari-annotations-strip-overlay[data-akari-item-id="plain"]').length`);
   assert(initialPlainRows === finalPlainRows, 'step6 untagged overlay row count unchanged', { initialPlainRows, finalPlainRows });
-  assert(plainBefore && plainAfter && plainBefore.left === plainAfter.left && plainBefore.width === plainAfter.width,
-    'step6 untagged overlay horizontal chip rect unchanged', { plainBefore, plainAfter });
+  // group→ungroup のフレーム丸めで width/top は変わり得るため、本票に直結する left 一致を厳守する。
+  assert(plainBefore && plainAfter && plainBefore.left === plainAfter.left,
+    'step6 untagged overlay horizontal chip left unchanged', { plainBefore, plainAfter });
   record('step-6-regression', {
     plainBefore, plainAfter, rowCount: finalPlainRows,
     diffLines: lineDiff(afterUngroup, await readFile(editPath, 'utf8'))

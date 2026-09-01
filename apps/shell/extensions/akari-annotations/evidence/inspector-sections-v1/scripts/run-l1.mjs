@@ -450,6 +450,25 @@ async function main_() {
     return;
   }
 
+  const collapsedBaseline = await evalOn(main, `(() => ({
+    headerCount: document.querySelectorAll('.akari-track-header-row').length,
+    headerTreeRowCount: document.querySelectorAll('.akari-track-header-row [data-akari-tree-row-id]').length,
+    childTreeRowCount: [...document.querySelectorAll('.akari-track-header-row [data-akari-tree-row-id]')]
+      .filter(element=>Number.parseFloat(element.style.paddingLeft||'0')>4).length,
+    disabledTreeToggleCount: document.querySelectorAll('[data-akari-tree-toggle]:disabled').length,
+    trackIds: [...document.querySelectorAll('.akari-track-header-row[data-akari-timeline-track-id]')]
+      .map(element=>element.dataset.akariTimelineTrackId)
+  }))()`);
+  const uniqueTrackIds = [...new Set(collapsedBaseline.trackIds)];
+  assert(collapsedBaseline.headerCount === uniqueTrackIds.length
+    && collapsedBaseline.trackIds.length === uniqueTrackIds.length,
+  'startup has exactly one header for each actually rendered track id', { uniqueTrackIds, collapsedBaseline });
+  assert(collapsedBaseline.childTreeRowCount === 0,
+    'startup has no depth>0 tree child rows', collapsedBaseline);
+  assert(collapsedBaseline.disabledTreeToggleCount === 0,
+    'startup has no disabled leaf or bag expand toggles', collapsedBaseline);
+  record('collapsed-startup-baseline', { uniqueTrackIds, ...collapsedBaseline });
+
   // 1. Real scrub drag: one persisted revision and at least one live-preview event.
   await evalOn(main, `(() => {
     window.__akariInspectorLiveCount = 0;

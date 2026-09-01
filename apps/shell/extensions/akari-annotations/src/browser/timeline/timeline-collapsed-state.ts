@@ -11,15 +11,15 @@ export class TimelineCollapsedState {
     ) {}
 
     key(itemId: string): string {
-        return `akari.timeline.collapsed.v1:${this.projectId}:${itemId}`;
+        return `akari.timeline.expanded.v1:${this.projectId}:${itemId}`;
     }
 
     has(itemId: string): boolean {
         return this.storage.getItem(this.key(itemId)) === '1';
     }
 
-    set(itemId: string, collapsed: boolean): void {
-        if (collapsed) this.storage.setItem(this.key(itemId), '1');
+    set(itemId: string, expanded: boolean): void {
+        if (expanded) this.storage.setItem(this.key(itemId), '1');
         else this.storage.removeItem(this.key(itemId));
     }
 
