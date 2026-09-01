@@ -1,0 +1,670 @@
+{
+  "status": "PASS",
+  "finishedAt": "2026-09-01T10:11:23.535Z",
+  "records": [
+    {
+      "t": "2026-09-01T10:11:18.331Z",
+      "step": "assertion-ok",
+      "message": "timeline opened"
+    },
+    {
+      "t": "2026-09-01T10:11:18.338Z",
+      "step": "assertion-ok",
+      "message": "cut-a and cut-b are time-adjacent on the same lane",
+      "cutA": {
+        "left": 356.9140625,
+        "top": 1016,
+        "width": 467.6015625,
+        "height": 52,
+        "right": 824.515625,
+        "bottom": 1068,
+        "x": 590.71484375,
+        "y": 1042
+      },
+      "cutB": {
+        "left": 824.515625,
+        "top": 1016,
+        "width": 389.6640625,
+        "height": 52,
+        "right": 1214.1796875,
+        "bottom": 1068,
+        "x": 1019.34765625,
+        "y": 1042
+      }
+    },
+    {
+      "t": "2026-09-01T10:11:18.339Z",
+      "step": "clip-style-after",
+      "borderLeft": "1px rgba(250, 250, 250, 0.55)",
+      "borderRight": "2px rgb(9, 9, 11)",
+      "borderTop": "1px rgb(63, 63, 70)",
+      "hasFilmstrip": true
+    },
+    {
+      "t": "2026-09-01T10:11:18.744Z",
+      "step": "clip-style-before",
+      "borderLeft": "1px rgb(63, 63, 70)",
+      "borderRight": "2px rgb(63, 63, 70)"
+    },
+    {
+      "t": "2026-09-01T10:11:18.890Z",
+      "step": "screenshot",
+      "name": "01-before.png"
+    },
+    {
+      "t": "2026-09-01T10:11:18.917Z",
+      "step": "screenshot-clip",
+      "name": "03-seam-before.png",
+      "clip": {
+        "x": 817,
+        "y": 1017,
+        "width": 16,
+        "height": 50
+      }
+    },
+    {
+      "t": "2026-09-01T10:11:19.471Z",
+      "step": "screenshot",
+      "name": "02-after.png"
+    },
+    {
+      "t": "2026-09-01T10:11:19.500Z",
+      "step": "screenshot-clip",
+      "name": "04-seam-after.png",
+      "clip": {
+        "x": 817,
+        "y": 1017,
+        "width": 16,
+        "height": 50
+      }
+    },
+    {
+      "t": "2026-09-01T10:11:19.583Z",
+      "step": "screenshot-clip",
+      "name": "05-control-inside-cut-a.png",
+      "clip": {
+        "x": 567,
+        "y": 1017,
+        "width": 16,
+        "height": 50
+      }
+    },
+    {
+      "t": "2026-09-01T10:11:19.640Z",
+      "step": "seam-metric",
+      "seamClip": {
+        "x": 817,
+        "y": 1017,
+        "width": 16,
+        "height": 50
+      },
+      "controlClip": {
+        "x": 567,
+        "y": 1017,
+        "width": 16,
+        "height": 50
+      },
+      "before": {
+        "min": 58.76,
+        "max": 159.52,
+        "maxAdjacentDelta": 58.75,
+        "maxAt": 8,
+        "columns": [
+          89.07,
+          86.99,
+          79.18,
+          82.63,
+          81.49,
+          70.56,
+          70.31,
+          58.76,
+          117.51,
+          159.1,
+          159.52,
+          142.3,
+          130.54,
+          121.96,
+          107.1,
+          101.39
+        ]
+      },
+      "after": {
+        "min": 17.59,
+        "max": 159.52,
+        "maxAdjacentDelta": 77.82,
+        "maxAt": 7,
+        "columns": [
+          89.07,
+          86.99,
+          79.18,
+          82.63,
+          81.49,
+          60.15,
+          17.59,
+          95.41,
+          135.44,
+          159.1,
+          159.52,
+          142.3,
+          130.54,
+          121.96,
+          107.1,
+          101.39
+        ]
+      },
+      "controlAfter": {
+        "min": 70.14,
+        "max": 194.65,
+        "maxAdjacentDelta": 27.83,
+        "maxAt": 4,
+        "columns": [
+          70.14,
+          75.83,
+          73.97,
+          78.67,
+          106.5,
+          123.79,
+          124.65,
+          152.06,
+          156.29,
+          165.71,
+          185.97,
+          192.83,
+          193.47,
+          194.62,
+          194.46,
+          194.65
+        ]
+      }
+    },
+    {
+      "t": "2026-09-01T10:11:19.640Z",
+      "step": "assertion-ok",
+      "message": "AFTER seam contains a near-black designed valley",
+      "afterMin": 17.59,
+      "beforeMin": 58.76
+    },
+    {
+      "t": "2026-09-01T10:11:19.640Z",
+      "step": "assertion-ok",
+      "message": "the designed valley is new: the BEFORE seam never gets that dark",
+      "beforeMin": 58.76,
+      "afterMin": 17.59
+    },
+    {
+      "t": "2026-09-01T10:11:19.640Z",
+      "step": "assertion-ok",
+      "message": "AFTER seam shows at least 60/255 of luminance step between neighbouring columns",
+      "after": 77.82,
+      "before": 58.75
+    },
+    {
+      "t": "2026-09-01T10:11:19.640Z",
+      "step": "assertion-ok",
+      "message": "the AFTER seam step is at least double the ordinary column-to-column variation inside one clip",
+      "seam": 77.82,
+      "controlInsideClip": 27.83
+    },
+    {
+      "t": "2026-09-01T10:11:19.642Z",
+      "step": "tick-vocabulary",
+      "caption": {
+        "count": 6,
+        "className": "akari-annotations-tree-tick",
+        "width": "2px",
+        "height": "5px",
+        "borderRadius": "1px",
+        "background": "rgba(255, 255, 255, 0.78)",
+        "position": "absolute",
+        "allSameClass": true
+      },
+      "html": {
+        "count": 3,
+        "className": "akari-annotations-tree-tick",
+        "width": "2px",
+        "height": "5px",
+        "borderRadius": "1px",
+        "background": "rgba(255, 255, 255, 0.78)",
+        "position": "absolute",
+        "allSameClass": true
+      }
+    },
+    {
+      "t": "2026-09-01T10:11:19.642Z",
+      "step": "assertion-ok",
+      "message": "both the captions bag and the HTML bag render tick bands",
+      "caption": {
+        "count": 6,
+        "className": "akari-annotations-tree-tick",
+        "width": "2px",
+        "height": "5px",
+        "borderRadius": "1px",
+        "background": "rgba(255, 255, 255, 0.78)",
+        "position": "absolute",
+        "allSameClass": true
+      },
+      "html": {
+        "count": 3,
+        "className": "akari-annotations-tree-tick",
+        "width": "2px",
+        "height": "5px",
+        "borderRadius": "1px",
+        "background": "rgba(255, 255, 255, 0.78)",
+        "position": "absolute",
+        "allSameClass": true
+      }
+    },
+    {
+      "t": "2026-09-01T10:11:19.642Z",
+      "step": "assertion-ok",
+      "message": "captions and HTML bag ticks share one design class",
+      "caption": {
+        "count": 6,
+        "className": "akari-annotations-tree-tick",
+        "width": "2px",
+        "height": "5px",
+        "borderRadius": "1px",
+        "background": "rgba(255, 255, 255, 0.78)",
+        "position": "absolute",
+        "allSameClass": true
+      },
+      "html": {
+        "count": 3,
+        "className": "akari-annotations-tree-tick",
+        "width": "2px",
+        "height": "5px",
+        "borderRadius": "1px",
+        "background": "rgba(255, 255, 255, 0.78)",
+        "position": "absolute",
+        "allSameClass": true
+      }
+    },
+    {
+      "t": "2026-09-01T10:11:19.642Z",
+      "step": "assertion-ok",
+      "message": "captions and HTML bag ticks share height / tone / corner radius",
+      "caption": {
+        "count": 6,
+        "className": "akari-annotations-tree-tick",
+        "width": "2px",
+        "height": "5px",
+        "borderRadius": "1px",
+        "background": "rgba(255, 255, 255, 0.78)",
+        "position": "absolute",
+        "allSameClass": true
+      },
+      "html": {
+        "count": 3,
+        "className": "akari-annotations-tree-tick",
+        "width": "2px",
+        "height": "5px",
+        "borderRadius": "1px",
+        "background": "rgba(255, 255, 255, 0.78)",
+        "position": "absolute",
+        "allSameClass": true
+      }
+    },
+    {
+      "t": "2026-09-01T10:11:19.643Z",
+      "step": "track-line",
+      "kind": "layers",
+      "hasTrackLine": true,
+      "icon": true,
+      "name": "V5",
+      "eye": true,
+      "speaker": true,
+      "resizeHandleStaysOnHeader": true,
+      "trackLineTopOffset": 1,
+      "groupRowTopOffset": 25,
+      "headerHeight": 48
+    },
+    {
+      "t": "2026-09-01T10:11:19.643Z",
+      "step": "assertion-ok",
+      "message": "pure-group track header keeps icon / name / eye / speaker on its top line",
+      "kind": "layers",
+      "hasTrackLine": true,
+      "icon": true,
+      "name": "V5",
+      "eye": true,
+      "speaker": true,
+      "resizeHandleStaysOnHeader": true,
+      "trackLineTopOffset": 1,
+      "groupRowTopOffset": 25,
+      "headerHeight": 48
+    },
+    {
+      "t": "2026-09-01T10:11:19.643Z",
+      "step": "assertion-ok",
+      "message": "the track line is the top row and the tree rows start one stride below",
+      "kind": "layers",
+      "hasTrackLine": true,
+      "icon": true,
+      "name": "V5",
+      "eye": true,
+      "speaker": true,
+      "resizeHandleStaysOnHeader": true,
+      "trackLineTopOffset": 1,
+      "groupRowTopOffset": 25,
+      "headerHeight": 48
+    },
+    {
+      "t": "2026-09-01T10:11:19.643Z",
+      "step": "assertion-ok",
+      "message": "the resize handle is not swallowed by the track line",
+      "kind": "layers",
+      "hasTrackLine": true,
+      "icon": true,
+      "name": "V5",
+      "eye": true,
+      "speaker": true,
+      "resizeHandleStaysOnHeader": true,
+      "trackLineTopOffset": 1,
+      "groupRowTopOffset": 25,
+      "headerHeight": 48
+    },
+    {
+      "t": "2026-09-01T10:11:19.643Z",
+      "step": "row-alignment-collapsed",
+      "headerTop": 887,
+      "chipTop": 886,
+      "diff": 1
+    },
+    {
+      "t": "2026-09-01T10:11:19.643Z",
+      "step": "assertion-ok",
+      "message": "header tree row and strip chip stay on the same row after the track line is inserted",
+      "headerTop": 887,
+      "chipTop": 886,
+      "diff": 1
+    },
+    {
+      "t": "2026-09-01T10:11:19.768Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": ".akari-track-header-row[data-akari-timeline-track-id=\"v-deco\"] button[data-akari-toggle=\"visibility\"]",
+      "target": {
+        "left": 318.9140625,
+        "top": 865,
+        "width": 18,
+        "height": 18,
+        "right": 336.9140625,
+        "bottom": 883,
+        "x": 327.9140625,
+        "y": 874
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:20.611Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": ".akari-track-header-row[data-akari-timeline-track-id=\"v-deco\"] button[data-akari-toggle=\"visibility\"]",
+      "target": {
+        "left": 318.9140625,
+        "top": 865,
+        "width": 18,
+        "height": 18,
+        "right": 336.9140625,
+        "bottom": 883,
+        "x": 327.9140625,
+        "y": 874
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:21.319Z",
+      "step": "eye-toggle",
+      "beforeToggle": {
+        "pressed": "true",
+        "bandHidden": false,
+        "bandOpacity": "1"
+      },
+      "afterToggle": {
+        "pressed": "false",
+        "bandHidden": false,
+        "bandOpacity": "0.28"
+      },
+      "restoredToggle": "true"
+    },
+    {
+      "t": "2026-09-01T10:11:21.319Z",
+      "step": "assertion-ok",
+      "message": "the eye on a pure-group track toggles and restores",
+      "beforeToggle": {
+        "pressed": "true",
+        "bandHidden": false,
+        "bandOpacity": "1"
+      },
+      "afterToggle": {
+        "pressed": "false",
+        "bandHidden": false,
+        "bandOpacity": "0.28"
+      },
+      "restoredToggle": "true"
+    },
+    {
+      "t": "2026-09-01T10:11:21.445Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": ".akari-track-header-row[data-akari-timeline-track-id=\"v-deco\"] button[data-akari-toggle=\"mute\"]",
+      "target": {
+        "left": 337.9140625,
+        "top": 865,
+        "width": 18,
+        "height": 18,
+        "right": 355.9140625,
+        "bottom": 883,
+        "x": 346.9140625,
+        "y": 874
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:22.293Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": ".akari-track-header-row[data-akari-timeline-track-id=\"v-deco\"] button[data-akari-toggle=\"mute\"]",
+      "target": {
+        "left": 337.9140625,
+        "top": 865,
+        "width": 18,
+        "height": 18,
+        "right": 355.9140625,
+        "bottom": 883,
+        "x": 346.9140625,
+        "y": 874
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:23.002Z",
+      "step": "speaker-toggle",
+      "mutePressed": "true",
+      "muteAfter": "false",
+      "muteRestored": "true"
+    },
+    {
+      "t": "2026-09-01T10:11:23.003Z",
+      "step": "assertion-ok",
+      "message": "the speaker on a pure-group track toggles and restores",
+      "mutePressed": "true",
+      "muteAfter": "false",
+      "muteRestored": "true"
+    },
+    {
+      "t": "2026-09-01T10:11:23.129Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-tree-toggle=\"g-deco\"]",
+      "target": {
+        "left": 223.9140625,
+        "top": 889.75,
+        "width": 16,
+        "height": 16.5,
+        "right": 239.9140625,
+        "bottom": 906.25,
+        "x": 231.9140625,
+        "y": 898
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:23.440Z",
+      "step": "expanded-rows",
+      "rows": [
+        {
+          "id": "g-deco",
+          "topOffset": 24,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-title",
+          "topOffset": 48,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-badge",
+          "topOffset": 72,
+          "rowChipDiff": 1
+        }
+      ],
+      "headerHeight": 96,
+      "laneHeight": 97,
+      "topDiff": 0,
+      "trackLineVisible": true
+    },
+    {
+      "t": "2026-09-01T10:11:23.440Z",
+      "step": "assertion-ok",
+      "message": "expanding the pure group stacks child rows under the surviving track line",
+      "rows": [
+        {
+          "id": "g-deco",
+          "topOffset": 24,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-title",
+          "topOffset": 48,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-badge",
+          "topOffset": 72,
+          "rowChipDiff": 1
+        }
+      ],
+      "headerHeight": 96,
+      "laneHeight": 97,
+      "topDiff": 0,
+      "trackLineVisible": true
+    },
+    {
+      "t": "2026-09-01T10:11:23.440Z",
+      "step": "assertion-ok",
+      "message": "tree rows are stacked one stride apart below the track line",
+      "rows": [
+        {
+          "id": "g-deco",
+          "topOffset": 24,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-title",
+          "topOffset": 48,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-badge",
+          "topOffset": 72,
+          "rowChipDiff": 1
+        }
+      ],
+      "headerHeight": 96,
+      "laneHeight": 97,
+      "topDiff": 0,
+      "trackLineVisible": true
+    },
+    {
+      "t": "2026-09-01T10:11:23.440Z",
+      "step": "assertion-ok",
+      "message": "every rendered strip chip sits on the same row as its header row",
+      "misaligned": [],
+      "rows": [
+        {
+          "id": "g-deco",
+          "topOffset": 24,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-title",
+          "topOffset": 48,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-badge",
+          "topOffset": 72,
+          "rowChipDiff": 1
+        }
+      ]
+    },
+    {
+      "t": "2026-09-01T10:11:23.440Z",
+      "step": "assertion-ok",
+      "message": "header column and strip lane keep the same top and height for the taller track",
+      "rows": [
+        {
+          "id": "g-deco",
+          "topOffset": 24,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-title",
+          "topOffset": 48,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-badge",
+          "topOffset": 72,
+          "rowChipDiff": 1
+        }
+      ],
+      "headerHeight": 96,
+      "laneHeight": 97,
+      "topDiff": 0,
+      "trackLineVisible": true
+    },
+    {
+      "t": "2026-09-01T10:11:23.440Z",
+      "step": "assertion-ok",
+      "message": "track height grew by the extra track line row",
+      "rows": [
+        {
+          "id": "g-deco",
+          "topOffset": 24,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-title",
+          "topOffset": 48,
+          "rowChipDiff": 1
+        },
+        {
+          "id": "g-badge",
+          "topOffset": 72,
+          "rowChipDiff": 1
+        }
+      ],
+      "headerHeight": 96,
+      "laneHeight": 97,
+      "topDiff": 0,
+      "trackLineVisible": true
+    },
+    {
+      "t": "2026-09-01T10:11:23.535Z",
+      "step": "screenshot",
+      "name": "06-track-line-expanded.png"
+    }
+  ]
+}
