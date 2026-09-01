@@ -9,6 +9,7 @@ import test from "node:test";
 
 import {
   INTAKE_ROOT_FIELDS,
+  lintProject,
   validateCaptionTrackDeclaration,
   validateTrackTransitionOutCompatibility,
 } from "../src/edit-lint.mjs";
@@ -171,6 +172,51 @@ test("output-domain caption beyond the cuts duration warns about render clamping
     assert.equal(warning.severity, "warning");
     assert.match(warning.message, /動画総尺 10\.0s/u);
     assert.match(warning.message, /10\.0s までにクランプして表示/u);
+  });
+});
+
+test("既知の caption style_preset は finding を出さない", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕",
+      speaker: null, sourceRef: null, edited: true, style_preset: "subtitle-standard",
+    }])}\n`, "utf8");
+    const result = parseResult(run(project));
+    assert.ok(!result.findings.some(finding => finding.check === "captions.style-preset-unknown"));
+    assert.ok(!result.findings.some(finding => finding.check === "captions.schema"));
+  });
+});
+
+test("未知の caption style_preset は warning 1 件と候補最大 5 件を出す", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕",
+      speaker: null, sourceRef: null, edited: true, style_preset: "missing-style",
+    }])}\n`, "utf8");
+    const result = parseResult(run(project));
+    const findings = result.findings.filter(finding => finding.check === "captions.style-preset-unknown");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "warning");
+    assert.match(findings[0].message, /missing-style/u);
+    const candidates = findings[0].message.split("candidates: ")[1]?.split(", ") ?? [];
+    assert.ok(candidates.length <= 5);
+  });
+});
+
+test("presets が無い bundled CLI 相当では存在検査をスキップする", async () => {
+  await withFixtures(async (fixtures, root) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕",
+      speaker: null, sourceRef: null, edited: true, style_preset: "missing-style",
+    }])}\n`, "utf8");
+    const result = await lintProject(project, {
+      writeReports: false,
+      textstyleRepositoryRoot: join(root, "bundle-without-presets"),
+    });
+    assert.ok(!result.findings.some(finding => finding.check === "captions.style-preset-unknown"));
   });
 });
 

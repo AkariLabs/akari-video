@@ -21,10 +21,12 @@ var AkariEditKernel = (() => {
   var webview_kernel_exports = {};
   __export(webview_kernel_exports, {
     STATIC_DUCK_GAIN_DB: () => STATIC_DUCK_GAIN_DB,
+    TEXTSTYLE_CATALOG: () => TEXTSTYLE_CATALOG,
     TRANSITION_BY_ID: () => TRANSITION_BY_ID,
     TRANSITION_CATEGORIES: () => TRANSITION_CATEGORIES,
     TRANSITION_TYPE_IDS: () => TRANSITION_TYPE_IDS,
     TRANSITION_VOCABULARY: () => TRANSITION_VOCABULARY,
+    applyCaptionStylePresets: () => applyCaptionStylePresets,
     buildTimelineMap: () => buildTimelineMap,
     buildWebAudioSchedule: () => buildWebAudioSchedule,
     captionAnchorPositionVars: () => captionAnchorPositionVars,
@@ -36,8 +38,10 @@ var AkariEditKernel = (() => {
     findActiveResolvedCaption: () => findActiveResolvedCaption,
     isTransitionType: () => isTransitionType,
     isWithinDuckInterval: () => isWithinDuckInterval,
+    mergePresetTextStyle: () => mergePresetTextStyle,
     outputToSource: () => outputToSource,
     projectSpeechDeclarations: () => projectSpeechDeclarations,
+    resolveCaptionStylePreset: () => resolveCaptionStylePreset,
     transitionProgressAt: () => transitionProgressAt
   });
 
@@ -311,6 +315,321 @@ var AkariEditKernel = (() => {
       return window.start <= sourceSeconds && sourceSeconds < window.end;
     });
   }
+
+  // src/caption-style-preset.ts
+  var NESTED_STYLE_FIELDS = [
+    "stroke",
+    "background",
+    "shadow",
+    "glow",
+    "position",
+    "animation"
+  ];
+  function mergePresetTextStyle(presetStyle, recordStyle) {
+    const override = isRecord(recordStyle) ? recordStyle : {};
+    const merged = {
+      ...presetStyle,
+      ...override
+    };
+    for (const field of NESTED_STYLE_FIELDS) {
+      const base = isRecord(presetStyle[field]) ? presetStyle[field] : void 0;
+      const nestedOverride = isRecord(override[field]) ? override[field] : void 0;
+      if (base || nestedOverride) {
+        const nested = { ...base, ...nestedOverride };
+        if (Object.keys(nested).length > 0) merged[field] = nested;
+        else delete merged[field];
+      }
+    }
+    return merged;
+  }
+  function resolveCaptionStylePreset(record, catalog) {
+    const presetId = record.style_preset;
+    if (typeof presetId !== "string") return { record, resolved: false };
+    const preset = catalog instanceof Map ? catalog.get(presetId) : Object.prototype.hasOwnProperty.call(catalog, presetId) ? catalog[presetId] : void 0;
+    if (!preset) return { record, resolved: false };
+    return {
+      record: {
+        ...record,
+        text_style: mergePresetTextStyle(preset.style, record.text_style)
+      },
+      resolved: true
+    };
+  }
+  function applyCaptionStylePresets(root, catalog) {
+    const values = Array.isArray(root) ? root : isRecord(root) && Array.isArray(root.captions) ? root.captions : null;
+    if (!values) return { root, unresolved: [] };
+    let sawPreset = false;
+    let changed = false;
+    const unresolved = /* @__PURE__ */ new Set();
+    const captions = values.map((value) => {
+      if (!isRecord(value) || !Object.prototype.hasOwnProperty.call(value, "style_preset")) {
+        return value;
+      }
+      sawPreset = true;
+      const result = resolveCaptionStylePreset(value, catalog);
+      if (result.resolved) changed = true;
+      else if (typeof value.style_preset === "string") unresolved.add(value.style_preset);
+      return result.record;
+    });
+    if (!sawPreset || !changed) {
+      return { root, unresolved: [...unresolved] };
+    }
+    return {
+      root: Array.isArray(root) ? captions : { ...root, captions },
+      unresolved: [...unresolved]
+    };
+  }
+  function isRecord(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
+
+  // src/generated/textstyle-catalog.ts
+  var TEXTSTYLE_CATALOG = {
+    "discount-text": {
+      "id": "discount-text",
+      "name": "\u5272\u5F15\u30D0\u30C3\u30B8\u30C6\u30AD\u30B9\u30C8",
+      "category": "price",
+      "style": {
+        "size_px": 72,
+        "weight": 400,
+        "color": "#FF2D55",
+        "letter_spacing_em": 0.04,
+        "stroke": {
+          "color": "#ffffff",
+          "width_px": 3
+        }
+      }
+    },
+    "emphasis-red": {
+      "id": "emphasis-red",
+      "name": "\u5F37\u8ABF",
+      "category": "emphasis",
+      "style": {
+        "size_px": 92,
+        "weight": 700,
+        "color": "#ff1744",
+        "stroke": {
+          "color": "#ffffff",
+          "width_px": 6
+        },
+        "animation": {
+          "in": {
+            "id": "pop"
+          }
+        }
+      }
+    },
+    "glitch": {
+      "id": "glitch",
+      "name": "\u30B0\u30EA\u30C3\u30C1\u98A8",
+      "category": "decorative",
+      "style": {
+        "size_px": 116,
+        "weight": 700,
+        "color": "#f5f5f5",
+        "letter_spacing_em": 0.06,
+        "text_transform": "uppercase",
+        "shadow": {
+          "color": "#ff0066",
+          "opacity": 0.9,
+          "blur_px": 0,
+          "distance_px": 8,
+          "angle_deg": 0
+        },
+        "animation": {
+          "in": {
+            "id": "glitch"
+          }
+        }
+      }
+    },
+    "narration-caption": {
+      "id": "narration-caption",
+      "name": "\u30CA\u30EC\u30FC\u30B7\u30E7\u30F3\u5B57\u5E55",
+      "category": "subtitle",
+      "style": {
+        "font_family": "'Noto Serif JP', serif",
+        "size_px": 28,
+        "weight": 400,
+        "letter_spacing_em": 0.06,
+        "shadow": {
+          "color": "#000000",
+          "opacity": 0.55,
+          "blur_px": 6,
+          "distance_px": 1,
+          "angle_deg": 90
+        }
+      }
+    },
+    "neon": {
+      "id": "neon",
+      "name": "\u30CD\u30AA\u30F3",
+      "category": "decorative",
+      "style": {
+        "size_px": 120,
+        "weight": 700,
+        "color": "#aefcff",
+        "letter_spacing_em": 0.12,
+        "text_transform": "uppercase",
+        "shadow": {
+          "color": "#00e5ff",
+          "opacity": 0.9,
+          "blur_px": 24,
+          "distance_px": 0,
+          "angle_deg": 90
+        },
+        "glow": {
+          "color": "#00e5ff",
+          "density": 80,
+          "spread": 60
+        },
+        "animation": {
+          "in": {
+            "id": "soft-fade"
+          },
+          "loop": {
+            "id": "neon-flicker"
+          },
+          "out": {
+            "id": "soft-fade"
+          }
+        }
+      }
+    },
+    "subtitle-commentary": {
+      "id": "subtitle-commentary",
+      "name": "\u5B9F\u6CC1\u30C6\u30ED\u30C3\u30D7",
+      "category": "subtitle",
+      "style": {
+        "size_px": 60,
+        "weight": 700,
+        "color": "#00e676",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 7
+        },
+        "animation": {
+          "in": {
+            "id": "caption-rise"
+          }
+        }
+      }
+    },
+    "subtitle-interview": {
+      "id": "subtitle-interview",
+      "name": "\u30A4\u30F3\u30BF\u30D3\u30E5\u30FC\u5B57\u5E55",
+      "category": "subtitle",
+      "style": {
+        "size_px": 56,
+        "weight": 700,
+        "color": "#fffde7",
+        "stroke": {
+          "color": "#33691e",
+          "width_px": 6
+        },
+        "shadow": {
+          "color": "#000000",
+          "opacity": 0.5,
+          "blur_px": 6,
+          "distance_px": 4,
+          "angle_deg": 90
+        }
+      }
+    },
+    "subtitle-news": {
+      "id": "subtitle-news",
+      "name": "\u30CB\u30E5\u30FC\u30B9\u98A8",
+      "category": "subtitle",
+      "style": {
+        "size_px": 56,
+        "weight": 700,
+        "color": "#ffffff",
+        "background": {
+          "color": "#c62828",
+          "opacity": 1,
+          "padding_px": 16,
+          "radius_px": 0
+        }
+      }
+    },
+    "subtitle-standard": {
+      "id": "subtitle-standard",
+      "name": "\u6A19\u6E96\u5B57\u5E55",
+      "category": "subtitle",
+      "style": {
+        "size_px": 56,
+        "weight": 700,
+        "color": "#ffffff",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 4
+        }
+      }
+    },
+    "subtitle-variety": {
+      "id": "subtitle-variety",
+      "name": "\u30D0\u30E9\u30A8\u30C6\u30A3",
+      "category": "subtitle",
+      "style": {
+        "size_px": 80,
+        "weight": 700,
+        "color": "#fff200",
+        "stroke": {
+          "color": "#1a1a1a",
+          "width_px": 9
+        },
+        "shadow": {
+          "color": "#000000",
+          "opacity": 0.6,
+          "blur_px": 6,
+          "distance_px": 6,
+          "angle_deg": 90
+        }
+      }
+    },
+    "title-impact": {
+      "id": "title-impact",
+      "name": "\u30A4\u30F3\u30D1\u30AF\u30C8",
+      "category": "title",
+      "style": {
+        "size_px": 168,
+        "weight": 700,
+        "color": "#ffeb3b",
+        "stroke": {
+          "color": "#000000",
+          "width_px": 10
+        },
+        "shadow": {
+          "color": "#000000",
+          "opacity": 0.7,
+          "blur_px": 14,
+          "distance_px": 8,
+          "angle_deg": 90
+        }
+      }
+    },
+    "verdict-badge": {
+      "id": "verdict-badge",
+      "name": "\u5224\u5B9A\u30D0\u30C3\u30B8",
+      "category": "emphasis",
+      "style": {
+        "size_px": 80,
+        "weight": 400,
+        "letter_spacing_em": -0.02,
+        "stroke": {
+          "color": "#E53935",
+          "width_px": 4
+        },
+        "shadow": {
+          "color": "rgba(229,57,53,0.6)",
+          "opacity": 0.6,
+          "blur_px": 16,
+          "distance_px": 0,
+          "angle_deg": 90
+        }
+      }
+    }
+  };
 
   // src/transition-visual.ts
   function computeTransitionVisual(previewKind, rawProgress, fallbackName = "") {
@@ -975,7 +1294,7 @@ var AkariEditKernel = (() => {
   var CAPTION_LAYOUT_REQUIRED_KEYS = [...CAPTION_LAYOUT_KEYS];
   function captionAnchorPositionVars(anchorValue, positionValue, verticalAlignValue) {
     const anchor = typeof anchorValue === "string" && CAPTION_TEXT_ANCHOR_VALUES.has(anchorValue) ? anchorValue : void 0;
-    const position = isRecord(positionValue) ? positionValue : void 0;
+    const position = isRecord2(positionValue) ? positionValue : void 0;
     const verticalAlign = typeof verticalAlignValue === "string" && CAPTION_VERTICAL_ALIGN_VALUES.has(verticalAlignValue) ? verticalAlignValue : void 0;
     if (!anchor && !position && !verticalAlign) return {};
     const vars = {};
@@ -1014,7 +1333,7 @@ var AkariEditKernel = (() => {
     }
     return vars;
   }
-  function isRecord(value) {
+  function isRecord2(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
   }
 

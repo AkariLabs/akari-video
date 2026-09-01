@@ -15,11 +15,13 @@ import { parseThreeEntrance } from "./three-entrance.mjs";
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const {
+  applyCaptionStylePresets,
   collectTrackZByItemId,
   collectExcludedCaptionIds,
   filterCaptionRootByExcludedIds,
   resolveCaptionTrackZ,
   resolveRecordTrackZ,
+  TEXTSTYLE_CATALOG,
 } = require("../../edit-store/lib/index.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
@@ -278,7 +280,7 @@ export async function loadAndBuildGpuPage({
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
   const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
   const captions = filterCaptionRootByExcludedIds(
-    await readJsonIfPresent(join(projectRoot, "captions.json"), []),
+    applyCaptionStylePresets(await readJsonIfPresent(join(projectRoot, "captions.json"), []), TEXTSTYLE_CATALOG).root,
     collectExcludedCaptionIds(prepared.edit),
   );
   const overlays = await Promise.all((prepared.edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false).map(async (overlay) => ({

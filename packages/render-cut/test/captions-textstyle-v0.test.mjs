@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 import {
   buildCaptionAnimation,
@@ -17,6 +18,8 @@ import {
 } from "../src/captions.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const require = createRequire(import.meta.url);
+const { applyCaptionStylePresets, TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
 const CAPTIONS = [{ id: "c-0001", text: "テスト字幕です", start: 0, end: 3 }];
 const CUTS = [];
 
@@ -193,6 +196,17 @@ test("presets/textstyle の全プリセットが default_text_style としてそ
     assert.equal(overlays.length, 1, preset.id);
     // スタイルが 1 つ以上の CSS 変数へ実際に変換されていること（語彙の取りこぼし検知）
     assert.ok(Object.keys(overlays[0].vars).length > 0, `${preset.id} produced no vars`);
+  }
+});
+
+test("style_preset 参照と値焼き込みは全 textstyle で同じ caption overlay を生成する", () => {
+  assert.equal(Object.keys(TEXTSTYLE_CATALOG).length, 12);
+  for (const [id, preset] of Object.entries(TEXTSTYLE_CATALOG)) {
+    const record = { id: "c-0001", text: "比較字幕", start: 0, end: 2 };
+    const resolved = applyCaptionStylePresets([{ ...record, style_preset: id }], TEXTSTYLE_CATALOG).root;
+    const referenced = generateCaptionOverlays(resolved, CUTS);
+    const burned = generateCaptionOverlays([{ ...record, text_style: preset.style }], CUTS);
+    assert.deepEqual(referenced, burned, id);
   }
 });
 

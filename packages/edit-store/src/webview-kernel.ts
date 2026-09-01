@@ -8,6 +8,8 @@
  */
 export * from './timeline-map';
 export * from './caption-window';
+export * from './caption-style-preset';
+export * from './generated/textstyle-catalog';
 export * from './transition-vocabulary';
 export * from './transition-visual';
 export * from './ducking';

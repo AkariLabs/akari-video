@@ -12,6 +12,7 @@ const { parsePreviewCaptions, parseResolvedPreviewCaptions } = require('../lib/b
 const { AkariPreviewServiceImpl } = require('../lib/node/akari-preview-service.js');
 const shellVisualContract = require('../lib/common/caption-visual-contract.js');
 const { captionAnchorPositionVars, resolveCaptionDisplay } = require('../../../../../packages/edit-store/lib/index.js');
+const { TEXTSTYLE_CATALOG } = require('../../../../../packages/edit-store/lib/index.js');
 const extensionRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const repositoryRoot = join(extensionRoot, '../../../..');
 const styleParity = JSON.parse(await readFile(join(
@@ -141,6 +142,19 @@ test('object ルートを読み default と caption をネストもフィール�
     assert.equal(parsed.textStyleVars['--caption-bottom'], 'auto');
     assert.equal(parsed.textStyleVars['--caption-align-items'], 'flex-end');
     assert.equal(parsed.textStyleVars['--caption-text-align'], 'right');
+});
+
+test('preview の captionTextStyleVars は style_preset 参照と値焼き込みで一致する', () => {
+    assert.equal(Object.keys(TEXTSTYLE_CATALOG).length, 12);
+    for (const [id, preset] of Object.entries(TEXTSTYLE_CATALOG)) {
+        const [referenced] = parsePreviewCaptions(JSON.stringify({
+            captions: [{ ...caption, style_preset: id }]
+        }));
+        const [burned] = parsePreviewCaptions(JSON.stringify({
+            captions: [{ ...caption, text_style: preset.style }]
+        }));
+        assert.deepEqual(referenced.textStyleVars ?? {}, burned.textStyleVars ?? {}, id);
+    }
 });
 
 test('8桁hexのアルファは opacity 未指定時だけ使う', () => {

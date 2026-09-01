@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { createRequire } from "node:module";
 
 import { parseElectronArguments } from "../src/electron-main.mjs";
 import { buildOsrPage, loadAndBuildOsrPage } from "../src/page-builder.mjs";
+
+const require = createRequire(import.meta.url);
+const { TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
 
 const edit = {
   version: 2,
@@ -87,6 +91,57 @@ test("page builder は4層、字幕生成器、H+1、canvas 内 LUT を宣言す
   assert.match(result.html, /TITLE warm/);
   assert.doesNotMatch(result.html, /filter:\s*url|filter:\s*lut/i);
   assert.match(result.overlaySheetHtml, /data-overlay-id="c1-01"/);
+});
+
+test("OSR 実読込点の caption overlays は style_preset 参照と値焼き込みで一致する", async () => {
+  const temporary = await mkdtemp(join(tmpdir(), "osr-style-preset-parity-"));
+  try {
+    const entries = Object.entries(TEXTSTYLE_CATALOG);
+    const records = entries.map(([id], index) => ({
+      id: `c-${String(index + 1).padStart(4, "0")}`,
+      start: 0,
+      end: 1,
+      text: id,
+      time_domain: "output",
+    }));
+    const editRoot = {
+      version: 2,
+      output: { width: 320, height: 180, fps: 30 },
+      sources: [],
+      tracks: [{
+        id: "captions",
+        lane: "visual",
+        items: [{
+          id: "captions-bag",
+          at: 0,
+          duration: 30,
+          source: { kind: "captions", path: "captions.json", exclude: [] },
+          items: [],
+        }],
+      }],
+    };
+    const writeProject = async (name, captionsRoot) => {
+      const project = join(temporary, name);
+      await mkdir(project);
+      await Promise.all([
+        writeFile(join(project, "edit.json"), JSON.stringify(editRoot)),
+        writeFile(join(project, "captions.json"), JSON.stringify(captionsRoot)),
+      ]);
+      return project;
+    };
+    const referencedProject = await writeProject("referenced", {
+      captions: records.map((record, index) => ({ ...record, style_preset: entries[index][0] })),
+    });
+    const burnedProject = await writeProject("burned", {
+      captions: records.map((record, index) => ({ ...record, text_style: entries[index][1].style })),
+    });
+    const options = { duration: 1, fps: 30, width: 320, height: 180 };
+    const referenced = await loadAndBuildOsrPage({ ...options, projectRoot: referencedProject });
+    const burned = await loadAndBuildOsrPage({ ...options, projectRoot: burnedProject });
+    assert.equal(referenced.overlaySheetHtml, burned.overlaySheetHtml);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 });
 
 test("OSR page builder は字幕段の最下・中間・最上を overlays 2 段と同じ z 軸へ載せる", async () => {

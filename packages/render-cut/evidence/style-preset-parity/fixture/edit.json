@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "output": { "width": 640, "height": 360, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "assets/source.mp4", "proxy": null }
+  ],
+  "tracks": [
+    {
+      "id": "video",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "cut-1",
+          "at": 0,
+          "duration": 90,
+          "source": { "kind": "media", "src": "main", "in": 0, "out": 3 }
+        }
+      ]
+    },
+    {
+      "id": "captions",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "captions-bag",
+          "at": 0,
+          "duration": 90,
+          "source": { "kind": "captions", "path": "captions.json", "exclude": [] },
+          "items": []
+        }
+      ]
+    }
+  ]
+}

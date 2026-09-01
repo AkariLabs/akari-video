@@ -1,5 +1,9 @@
 import URI from '@theia/core/lib/common/uri';
-import { captionAnchorPositionVars } from '@akari-video/edit-store';
+import {
+    applyCaptionStylePresets,
+    captionAnchorPositionVars,
+    TEXTSTYLE_CATALOG
+} from '@akari-video/edit-store';
 import { ResolvedCaptionDisplayPayload } from '../common/akari-preview-protocol';
 
 export const PREVIEW_CAPTION_ZONES = [
@@ -50,7 +54,8 @@ export function locatePreviewCaptions(editUri: URI | undefined, workspaceRoot: U
 }
 
 export function parsePreviewCaptions(source: string): PreviewCaption[] {
-    const root: unknown = JSON.parse(source);
+    let root: unknown = JSON.parse(source);
+    root = applyCaptionStylePresets(root, TEXTSTYLE_CATALOG).root;
     const values = Array.isArray(root)
         ? root
         : isRecord(root) && Array.isArray(root.captions)

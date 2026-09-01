@@ -277,3 +277,17 @@ test("text_style.reference_height_px は integer >= 1 を受理し、layout と�
   assert.equal(merged.status, 1, merged.stdout);
   assert.match(merged.stderr, /layout と reference_height_px を併用できません/u);
 });
+
+test("caption record の style_preset は正しい id 形式を受理する", () => {
+  const executed = runValue([{ ...caption, style_preset: "subtitle-standard" }]);
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /u);
+});
+
+test("caption record の style_preset は文字列型と id 形式を検査する", () => {
+  for (const style_preset of ["Subtitle Standard", "-subtitle", "subtitle_1", 42]) {
+    const executed = runValue([{ ...caption, style_preset }]);
+    assert.equal(executed.status, 1, `${String(style_preset)}: ${executed.stdout}`);
+    assert.match(executed.stderr, /style_preset/u);
+  }
+});

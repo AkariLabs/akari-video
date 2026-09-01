@@ -12,6 +12,7 @@ import {
 import os from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 import { renderLintReport } from "./report.mjs";
 import { deriveTracks } from "./derive-tracks.mjs";
@@ -38,6 +39,7 @@ const { captionsHaveRenderableCues } = createRequire(import.meta.url)(
 
 const VERSION = 1;
 const EPSILON = 1e-6;
+const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const CAPTIONS_SCHEMA = JSON.parse(readFileSync(
   new URL("../../schemas/captions.schema.json", import.meta.url),
   "utf8",
@@ -63,6 +65,21 @@ const USAGE = `Usage: edit-lint <project-root|edit.json path> [--media] [--json]
        [--declarations PATH] [--ffprobe PATH]
 
 Exit codes: 0 PASS, 1 FAIL, 2 execution error`;
+
+export function loadTextstylePresetIds(repoRoot) {
+  try {
+    return new Set(
+      readFileSync(join(repoRoot, "presets/textstyle/index.jsonl"), "utf8")
+        .split(/\r?\n/u)
+        .filter((line) => line.trim())
+        .map((line) => JSON.parse(line).id)
+        .filter((id) => typeof id === "string"),
+    );
+  } catch (error) {
+    if (error?.code === "ENOENT" || error?.code === "ENOTDIR") return null;
+    throw error;
+  }
+}
 
 export class ExecutionError extends Error {}
 
@@ -317,6 +334,7 @@ export async function lintProject(input, options = {}) {
       findings,
       paths,
       cutsEndSeconds,
+      loadTextstylePresetIds(options.textstyleRepositoryRoot ?? REPOSITORY_ROOT),
     );
   }
 
@@ -2671,7 +2689,7 @@ async function validateReferences(edit, findings, paths, ignoredSourceIds = new 
   return { sourceExists };
 }
 
-function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeconds) {
+function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeconds, textstylePresetIds) {
   const captionPath = relativePath(paths.projectRoot, paths.captionsPath);
   const captionsRoot = captions;
   let displayPolicy;
@@ -2742,7 +2760,7 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "time_domain", "words", "style", "display_text", "display_fragments", "text_style"];
+    const optional = ["src", "time_domain", "words", "style", "display_text", "display_fragments", "style_preset", "text_style"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -2835,6 +2853,25 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
     }
     if (Object.hasOwn(caption, "display_fragments") && !Array.isArray(caption.display_fragments)) {
       captionFinding(findings, "captions.schema", "display_fragments must be an array when present", itemPath);
+    }
+    if (Object.hasOwn(caption, "style_preset")) {
+      if (typeof caption.style_preset !== "string"
+        || !/^[a-z0-9][a-z0-9-]*$/.test(caption.style_preset)) {
+        captionFinding(
+          findings,
+          "captions.schema",
+          "style_preset must match ^[a-z0-9][a-z0-9-]*$ when present",
+          itemPath,
+        );
+      } else if (textstylePresetIds && !textstylePresetIds.has(caption.style_preset)) {
+        const candidates = [...textstylePresetIds].sort().slice(0, 5);
+        addFinding(findings, {
+          severity: "warning",
+          check: "captions.style-preset-unknown",
+          message: `unknown style_preset id: ${caption.style_preset}${candidates.length > 0 ? `; candidates: ${candidates.join(", ")}` : ""}`,
+          path: itemPath,
+        });
+      }
     }
     if (Object.hasOwn(caption, "text_style")) {
       validateTextStyle(caption.text_style, "text_style", findings, itemPath);

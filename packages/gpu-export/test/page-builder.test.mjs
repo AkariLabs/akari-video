@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 
 import { extractCaptionMeasureDiffs, gpuRawFramePath, parseElectronArguments } from "../src/electron-main.mjs";
 import { buildGpuPage, loadAndBuildGpuPage } from "../src/page-builder.mjs";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const { TEXTSTYLE_CATALOG } = require("../../edit-store/lib/index.js");
 
 const edit = {
   version: 2,
@@ -368,4 +372,55 @@ test("GPU page emPx follows reference_height_px through the render-cut vars (720
   // size_px 未宣言は従来の既定（横長 38 / 縦長 幅 6%）
   assert.equal(build(3840, 2160, { captions: captions.captions }).emPx, 38);
   assert.equal(build(1080, 1920, { captions: captions.captions }).emPx, 65);
+});
+
+test("GPU 実読込点の captionOverlays は style_preset 参照と値焼き込みで一致する", async () => {
+  const temporary = await mkdtemp(join(tmpdir(), "gpu-style-preset-parity-"));
+  try {
+    const entries = Object.entries(TEXTSTYLE_CATALOG);
+    const records = entries.map(([id], index) => ({
+      id: `c-${String(index + 1).padStart(4, "0")}`,
+      start: 0,
+      end: 1,
+      text: id,
+      time_domain: "output",
+    }));
+    const editRoot = {
+      version: 2,
+      output: { width: 320, height: 180, fps: 30 },
+      sources: [],
+      tracks: [{
+        id: "captions",
+        lane: "visual",
+        items: [{
+          id: "captions-bag",
+          at: 0,
+          duration: 30,
+          source: { kind: "captions", path: "captions.json", exclude: [] },
+          items: [],
+        }],
+      }],
+    };
+    const writeProject = async (name, captionsRoot) => {
+      const project = join(temporary, name);
+      await mkdir(project);
+      await Promise.all([
+        writeFile(join(project, "edit.json"), JSON.stringify(editRoot)),
+        writeFile(join(project, "captions.json"), JSON.stringify(captionsRoot)),
+      ]);
+      return project;
+    };
+    const referencedProject = await writeProject("referenced", {
+      captions: records.map((record, index) => ({ ...record, style_preset: entries[index][0] })),
+    });
+    const burnedProject = await writeProject("burned", {
+      captions: records.map((record, index) => ({ ...record, text_style: entries[index][1].style })),
+    });
+    const options = { duration: 1, fps: 30, width: 320, height: 180 };
+    const referenced = await loadAndBuildGpuPage({ ...options, projectRoot: referencedProject });
+    const burned = await loadAndBuildGpuPage({ ...options, projectRoot: burnedProject });
+    assert.deepEqual(referenced.spriteManifest.captions, burned.spriteManifest.captions);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 });

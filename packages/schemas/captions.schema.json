@@ -304,6 +304,11 @@
           "maxItems": 2,
           "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
         },
+        "style_preset": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "$comment": "解決順は default_text_style < style_preset の style < 同じレコードの text_style。未知 id は値を適用せず、edit-lint が warning を出す。"
+        },
         "text_style": { "$ref": "#/$defs/textStyle" }
       },
       "$comment": "end > start、ID 一意性、words[].end >= start は JSON Schema 標準だけでは兄弟値を比較できないため validate-captions.mjs でも検証する。time_domain 省略時は source。style は既存の単語リビール演出、text_style は見た目のスタイルであり別契約。"

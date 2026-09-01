@@ -1,0 +1,22 @@
+{
+  "format": "akari-textstyle",
+  "version": "0.1",
+  "id": "subtitle-standard",
+  "name": "標準字幕",
+  "category": "subtitle",
+  "sample_text": "読みやすい標準字幕",
+  "style": {
+    "size_px": 56,
+    "weight": 700,
+    "color": "#ffffff",
+    "stroke": {
+      "color": "#000000",
+      "width_px": 4
+    }
+  },
+  "source": {
+    "repo": "akari-video",
+    "path": "docs/contract-2026-09-02-captions-style-preset-v0.md",
+    "original_id": "subtitle-standard"
+  }
+}
