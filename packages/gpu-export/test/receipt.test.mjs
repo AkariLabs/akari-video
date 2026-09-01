@@ -64,6 +64,23 @@ test("GPU receipt keeps unavailable renderer and encoder support explicit", () =
   assert.equal(receipt.gpu.encoder_support, null);
 });
 
+test("GPU receipt records each normalized audio mode", () => {
+  for (const audio of [
+    { mode: "copy", source: "cut-audio.mp4", source_has_audio: true },
+    { mode: "silent-carrier", source: "mute.mp4", source_has_audio: false },
+    { mode: "none", source: null, source_has_audio: null },
+  ]) {
+    assert.deepEqual(buildGpuReceipt({ audio }).audio, audio);
+  }
+});
+
+test("GPU receipt normalizes missing or malformed audio records to null", () => {
+  assert.equal(buildGpuReceipt().audio, null);
+  assert.equal(buildGpuReceipt({ audio: { mode: "other", source: null, source_has_audio: null } }).audio, null);
+  assert.equal(buildGpuReceipt({ audio: { mode: "copy", source: 42, source_has_audio: true } }).audio, null);
+  assert.equal(buildGpuReceipt({ audio: { mode: "copy", source: "cut.mp4", source_has_audio: "yes" } }).audio, null);
+});
+
 test("GPU receipt carries caption measurement and raster batch diagnostics", () => {
   const receipt = buildGpuReceipt({
     run: { gpu: {
