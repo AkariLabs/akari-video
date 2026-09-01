@@ -143,9 +143,11 @@ raw frame 読み戻しではない。
 `isConfigSupported=false` になっていた — 2026-08-29 調査 §5-4）。
 2 秒ごとの keyframe とし、製品は hardware preference、
 `--soft` は software preference を指定する。ビットレートは render-cut の quality プリセットにある
-GPU ビットレート値（mac では VideoToolbox 用の値と共用）を正本とし、`high = 12 Mbps`、
-`standard = 8 Mbps`、`light = 5 Mbps` とする。
-`--bitrate` の明示値は quality より優先する。`master` は VideoToolbox ビットレートを宣言しないため、
+GPU ビットレート値（mac では VideoToolbox 用の値と共用）を正本とし、**1080p（1920×1080）基準**で
+`high = 12 Mbps`、`standard = 8 Mbps`、`light = 5 Mbps` とする。出力ピクセル数が 1080p を超えるときは
+その比で増やし（4K = 4 倍で `high = 48 Mbps`、1440p ≈ 1.78 倍、100 kbps 単位に丸め）、基準未満は 1 倍に
+留める（2026-09-01 改訂。receipt の `bitrateSource` は `quality-preset-scaled`）。
+`--bitrate` の明示値は quality より優先し、スケールしない。`master` は VideoToolbox ビットレートを宣言しないため、
 GPU 出口では `--bitrate` が無ければ理由付きで fail-closed にする。
 
 エンコード済み Annex B sample を main process へ渡し、逐次 muxer が SPS/PPS または decoder config から

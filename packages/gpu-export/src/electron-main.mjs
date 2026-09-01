@@ -58,7 +58,7 @@ export async function runGpuExport(options) {
   if (trapReadback && (verifyFrames || requestedDumpFrames.length > 0)) {
     throw new Error("--trap-readback cannot be combined with --verify-frames or --dump-frames");
   }
-  const encoding = resolveGpuEncoding({ quality, bitrate });
+  const encoding = resolveGpuEncoding({ quality, bitrate, width, height });
   if (soft && !app.isReady()) app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("force-color-profile", "srgb");
   app.commandLine.appendSwitch("force-device-scale-factor", "1");

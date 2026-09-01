@@ -1,6 +1,17 @@
 import { QUALITY_LEVELS, QUALITY_PRESETS } from "../../render-cut/src/encode-preset.mjs";
 
-export function resolveGpuEncoding({ quality = "high", bitrate = undefined } = {}) {
+// quality プリセットのビットレートは 1080p（1920×1080 = 2,073,600 px）を基準に決めた値。
+// 出力ピクセル数が基準を超えるぶんだけ比例で増やす（4K = 4 倍: high 12 → 48 Mbps、1440p ≈ 1.78 倍）。
+// 基準未満は 1 倍に留めて既存出力（720p / 縦型 1080p 等）を変えない。--bitrate 明示は無変換。
+export const GPU_BITRATE_REFERENCE_PIXELS = 1920 * 1080;
+export const GPU_BITRATE_ROUNDING_BPS = 100_000;
+
+export function gpuBitrateScale({ width = undefined, height = undefined } = {}) {
+  if (!(Number(width) > 0) || !(Number(height) > 0)) return 1;
+  return Math.max(1, (Number(width) * Number(height)) / GPU_BITRATE_REFERENCE_PIXELS);
+}
+
+export function resolveGpuEncoding({ quality = "high", bitrate = undefined, width = undefined, height = undefined } = {}) {
   if (!QUALITY_LEVELS.includes(quality)) {
     throw new Error(`GPU quality must be one of ${QUALITY_LEVELS.join("|")}, got: ${quality}`);
   }
@@ -11,7 +22,17 @@ export function resolveGpuEncoding({ quality = "high", bitrate = undefined } = {
   if (preset === null) {
     throw new Error("master は GPU 出口では --bitrate の明示が必要です");
   }
-  return { quality, bitrate: parsePresetBitrate(preset), bitrateSource: "quality-preset" };
+  const baseBitrate = parsePresetBitrate(preset);
+  const scale = gpuBitrateScale({ width, height });
+  if (scale === 1) return { quality, bitrate: baseBitrate, bitrateSource: "quality-preset" };
+  const scaled = Math.round((baseBitrate * scale) / GPU_BITRATE_ROUNDING_BPS) * GPU_BITRATE_ROUNDING_BPS;
+  return {
+    quality,
+    bitrate: positiveBitrate(scaled, "GPU scaled bitrate"),
+    bitrateSource: "quality-preset-scaled",
+    baseBitrate,
+    bitrateScale: Number(scale.toFixed(4)),
+  };
 }
 
 export function parsePresetBitrate(value) {
