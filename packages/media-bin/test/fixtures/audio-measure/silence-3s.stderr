@@ -1,0 +1,12 @@
+Input #0, lavfi, from 'anullsrc=r=48000:cl=stereo:d=3':
+[Parsed_ebur128_0 @ 0000000000000000] Summary:
+  Integrated loudness:
+    I:         -70.0 LUFS
+    Threshold:   0.0 LUFS
+  Loudness range:
+    LRA:         0.0 LU
+  True peak:
+    Peak:       -inf dBFS
+[Parsed_astats_1 @ 0000000000000000] Overall
+[Parsed_astats_1 @ 0000000000000000] Peak level dB: -inf
+[Parsed_astats_1 @ 0000000000000000] RMS level dB: -inf
