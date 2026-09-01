@@ -6,6 +6,8 @@
  * 更新する（task.md 「自前の進捗テキスト + 不確定バーで可」）。
  */
 
+import { QuickExportStage } from './quick-export-progress';
+
 export const AKARI_QUICK_EXPORT_SERVICE_PATH = '/services/akari-quick-export';
 export const AkariQuickExportService = Symbol('AkariQuickExportService');
 
@@ -67,6 +69,14 @@ export interface QuickExportStatus {
      * まだ 1 行も届いていない、または % の分母が無く残り時間を外挿できないうちは undefined。
      */
     readonly progressPercent?: number;
+    /** render-cut が現在実行している工程。 */
+    readonly progressStage?: QuickExportStage;
+    /** render 工程で処理済みのコマ数。 */
+    readonly progressFrame?: number;
+    /** render 工程の総コマ数。 */
+    readonly progressTotalFrames?: number;
+    /** render 工程を実行しているエンジン。 */
+    readonly progressEngine?: 'gpu' | 'osr';
     readonly progressElapsedMs?: number;
     readonly progressRemainingMs?: number;
 }

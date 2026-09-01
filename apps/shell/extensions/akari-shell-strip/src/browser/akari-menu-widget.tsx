@@ -26,7 +26,7 @@ import {
     QuickExportEncoder,
     QuickExportQuality
 } from '../common/quick-export-cli';
-import { quickExportErrorNotification, shouldShowRenderJsonProgress } from '../common/quick-export-ui';
+import { quickExportErrorNotification, quickExportStageLabel, shouldShowRenderJsonProgress } from '../common/quick-export-ui';
 import { AkariPreviewServerService, PreviewServerStatus } from '../common/preview-server-protocol';
 import { buildPreviewOpenUrl, PreviewOpenVariant } from '../common/preview-server-cli';
 import {
@@ -1081,7 +1081,17 @@ export class AkariMenuWidget extends ReactWidget {
                     }
                 `}</style>
                 <div style={{ fontSize: '0.85em', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>{this.quickExportPhaseLabel(status)}{hasDetailedProgress && `（${status.progressPercent}%）`}</span>
+                    <span>
+                        {this.quickExportPhaseLabel(status)}
+                        {hasDetailedProgress && `（${status.progressPercent}%）`}
+                        {hasDetailedProgress && quickExportStageLabel(status.progressStage) && ` · ${quickExportStageLabel(status.progressStage)}`}
+                        {hasDetailedProgress
+                            && status.progressStage === 'render'
+                            && status.progressFrame !== undefined
+                            && status.progressTotalFrames !== undefined
+                            && ` ${status.progressFrame} / ${status.progressTotalFrames} コマ`}
+                        {hasDetailedProgress && status.progressEngine && `（${status.progressEngine.toUpperCase()}）`}
+                    </span>
                     {status.lintIssueCount !== undefined && (
                         <span style={{
                             padding: '1px 7px', borderRadius: '10px', fontSize: '0.85em',

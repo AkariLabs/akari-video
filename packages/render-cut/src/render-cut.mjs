@@ -29,6 +29,7 @@ import { buildPlan, selectDefaultOutput } from "./plan.mjs";
 import { isImageLayerSource } from "./layers.mjs";
 import { runChecked, runCheckedWithProgress } from "./rasterize.mjs";
 import { renderReport } from "./report.mjs";
+import { createProgressReporter } from "./progress.mjs";
 import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs } from "./render-inputs.mjs";
 import { createImmutableRenderReceipt, prepareContainedReportDirectory } from "./render-receipt.mjs";
 import { buildAudioQc, measurementErrorAudioQc, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
@@ -72,8 +73,8 @@ const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
 when explicitly passed as (or defaulted to) "standard"/"x264"; --fps defaults to edit.json's
-output.fps; --progress emits "PROGRESS out_time_ms=<n> total_ms=<n>" lines to stdout while
-encoding, followed by "PROGRESS done total_ms=<n>".
+output.fps; --progress emits stage lines, engine-originated "PROGRESS frame=<n> total=<n>" lines,
+audio-cut "PROGRESS out_time_ms=<n> total_ms=<n>" lines, then "PROGRESS done total_ms=<n>".
 --engine defaults to auto; eligible projects use gpu and ineligible projects use osr on every platform.
 --gpu-preference (Windows hybrid GPU only) controls the temporary per-app GPU setting written for the
 export child process: auto (default; gpu engine only, skipped when the user pinned a preference), off,
@@ -286,21 +287,19 @@ export async function renderProject(input, options = {}, io = console) {
   }
   assertOsrLauncherAvailable(osrLauncher);
   const progressEnabled = options.progress === true;
-  const progressPhases = ["cut", "composite"];
-  const progressPhaseDurationMs = Math.max(0, Math.round(plan.predicted_duration_seconds * 1000));
-  const progressTotalMs = progressPhases.length * progressPhaseDurationMs;
-  const emitProgress = (phaseName, elapsedSeconds) => {
-    if (!progressEnabled) return;
-    const phaseIndex = progressPhases.indexOf(phaseName);
-    if (phaseIndex === -1) return;
-    const clampedMs = Math.min(progressPhaseDurationMs, Math.max(0, Math.round(elapsedSeconds * 1000)));
-    io.log(`PROGRESS out_time_ms=${phaseIndex * progressPhaseDurationMs + clampedMs} total_ms=${progressTotalMs}`);
-  };
+  const reporter = createProgressReporter({
+    enabled: progressEnabled,
+    io,
+    totalMs: plan.predicted_duration_seconds * 2 * 1000,
+  });
 
   try {
+    reporter.stageStart("prepare");
     for (const command of plan.commands.telops ?? []) {
       runChecked(command.command, command.args, { cwd: projectRoot });
     }
+    reporter.stageEnd("prepare");
+    reporter.stageStart("audio-cut");
     const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");
     const cutCommand = plan.commands.cut_audio;
     for (const warning of cutCommand.warnings ?? []) addWarning(state, warning);
@@ -313,7 +312,7 @@ export async function renderProject(input, options = {}, io = console) {
     if (progressEnabled) {
       await runCheckedWithProgress(capabilities.ffmpegCommand, cutCommand.args, {
         cwd: projectRoot,
-        onProgress: (seconds) => emitProgress("cut", seconds),
+        onProgress: (seconds) => reporter.cutTime(seconds, plan.predicted_duration_seconds),
       });
     } else {
       runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
@@ -324,6 +323,7 @@ export async function renderProject(input, options = {}, io = console) {
       runChecked(plan.commands.tail_pad_audio.command, plan.commands.tail_pad_audio.args, { cwd: projectRoot });
     }
     const audioSourcePath = plan.commands.tail_pad_audio ? tailPaddedAudioPath : cutAudioPath;
+    reporter.stageEnd("audio-cut");
     const compositePath = join(temporaryDirectory, "composite.mp4");
     const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
     for (const warning of alphaLayers.warnings) addWarning(state, warning);
@@ -344,6 +344,7 @@ export async function renderProject(input, options = {}, io = console) {
       io,
     };
 
+    reporter.stageStart("render", { engine: resolvedEngine });
     if (resolvedEngine === "gpu") {
       const execution = await runGpuWithRuntimeFallback({
         engineRequested,
@@ -355,6 +356,7 @@ export async function renderProject(input, options = {}, io = console) {
         runOsr: async () => {
           osrLauncher = await resolveOsrLauncher();
           assertOsrLauncherAvailable(osrLauncher);
+          reporter.stageStart("render", { engine: "osr" });
           return exportWithOsr({
             ...commonV2Options,
             encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
@@ -387,8 +389,9 @@ export async function renderProject(input, options = {}, io = console) {
       state.provenance.rasterizer.adopted = "osr";
       state.provenance.rasterizer.attempts.push({ method: "osr", status: "adopted", reason: null });
     }
-    emitProgress("composite", plan.predicted_duration_seconds);
+    reporter.stageEnd("render");
 
+    reporter.stageStart("audio-mix");
     const finalPath = join(temporaryDirectory, "final.mp4");
     const audioExecution = await executeAudioPlan(plan.commands.audio_mix);
     const audioMaster = edit.audio?.master && typeof edit.audio.master === "object" ? edit.audio.master : null;
@@ -458,6 +461,8 @@ export async function renderProject(input, options = {}, io = console) {
         addWarning(state, "audio_qc is INCONCLUSIVE and requires human acceptance review");
       }
     }
+    reporter.stageEnd("audio-mix");
+    reporter.stageStart("verify");
     const verification = verifyArtifact({
       outputPath,
       plan,
@@ -467,6 +472,7 @@ export async function renderProject(input, options = {}, io = console) {
       ffmpegCommand: capabilities.ffmpegCommand,
     });
     state.verify = verification;
+    reporter.stageEnd("verify");
     state.artifacts = [
       {
         path: relativeOrAbsolute(projectRoot, outputPath),
@@ -536,7 +542,7 @@ export async function renderProject(input, options = {}, io = console) {
     if (verification.verdict === "pass") {
       await rm(temporaryDirectory, { recursive: true, force: true });
     }
-    if (progressEnabled) io.log(`PROGRESS done total_ms=${progressTotalMs}`);
+    reporter.done();
     return state;
   } catch (error) {
     state.phase = "error";

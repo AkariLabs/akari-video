@@ -21,7 +21,11 @@ import {
     QuickExportRenderSettings,
     summarizeStderrTail
 } from '../common/quick-export-cli';
-import { estimateElapsedAndRemaining, latestQuickExportProgress } from '../common/quick-export-progress';
+import {
+    createQuickExportProgressTracker,
+    estimateElapsedAndRemaining,
+    QuickExportProgressTracker
+} from '../common/quick-export-progress';
 import { packagedCliCandidates } from './packaged-cli-candidates';
 import { childNodeEnvironment, electronResourcesPath } from './child-node-process';
 
@@ -48,6 +52,8 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
     protected logBuffer = '';
     /** render-cut フェーズ開始時刻（--progress の経過/残り時間見積もりに使う）。 */
     protected renderStartedAt: number | undefined;
+    protected progressTracker: QuickExportProgressTracker = createQuickExportProgressTracker();
+    protected renderStageStartedAt: number | undefined;
     /** テストからの上書き用（実 CLI を起動しない）。 */
     protected readonly fsImpl: typeof fs = fs;
 
@@ -57,6 +63,8 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
         }
         this.running = true;
         this.logBuffer = '';
+        this.progressTracker = createQuickExportProgressTracker();
+        this.renderStageStartedAt = undefined;
         this.status = { phase: request.rerunLint ? 'linting' : 'rendering', logTail: '' };
         void this.run(request)
             .catch(error => {
@@ -219,21 +227,40 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
     /**
      * render-cut フェーズ専用の onChunk（edit-lint フェーズは appendLog のみを使う —
      * lint の stdout に PROGRESS 行が混じることはないため、進捗解析はここだけで十分）。
-     * ログ蓄積は appendLog に委ね、そのうえで直近の PROGRESS 行から % と経過/残り
-     * 時間を見積もって status に反映する。
+     * ログ蓄積は appendLog に委ね、状態つきトラッカーへチャンクを逐次渡して % と
+     * 経過/残り時間を見積もり、status に反映する。
      */
     protected appendRenderLog(chunk: string): void {
         this.appendLog(chunk);
-        const snapshot = latestQuickExportProgress(this.logBuffer);
+        const previousSnapshot = this.progressTracker.snapshot();
+        this.progressTracker.push(chunk);
+        const snapshot = this.progressTracker.snapshot();
         if (!snapshot || this.renderStartedAt === undefined) {
             return;
         }
-        const elapsedMs = Date.now() - this.renderStartedAt;
-        const { remainingMs } = estimateElapsedAndRemaining(snapshot, elapsedMs);
+        const nowMs = Date.now();
+        const renderRestarted = snapshot.stage === 'render'
+            && previousSnapshot?.stage === 'render'
+            && (
+                (snapshot.frame === 0 && previousSnapshot.frame !== 0)
+                || snapshot.engine !== previousSnapshot.engine
+            );
+        if (snapshot.stage === 'render' && (this.renderStageStartedAt === undefined || renderRestarted)) {
+            this.renderStageStartedAt = nowMs;
+        }
+        const elapsedMs = nowMs - this.renderStartedAt;
+        const renderStage = snapshot.stage === 'render' && this.renderStageStartedAt !== undefined
+            ? { startedAtMs: this.renderStageStartedAt, nowMs }
+            : undefined;
+        const { remainingMs } = estimateElapsedAndRemaining(snapshot, elapsedMs, renderStage);
         this.updateStatus({
             progressPercent: snapshot.percent,
             progressElapsedMs: elapsedMs,
-            progressRemainingMs: remainingMs
+            progressRemainingMs: remainingMs,
+            progressStage: snapshot.stage,
+            progressFrame: snapshot.frame,
+            progressTotalFrames: snapshot.totalFrames,
+            progressEngine: snapshot.engine
         });
     }
 
