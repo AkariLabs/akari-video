@@ -32,6 +32,7 @@ __exportStar(require("./internal-model"), exports);
 __exportStar(require("./legacy-audio-view"), exports);
 __exportStar(require("./retime"), exports);
 __exportStar(require("./track-order"), exports);
+__exportStar(require("./track-z"), exports);
 __exportStar(require("./track-transition-compatibility"), exports);
 __exportStar(require("./cut-adjacency"), exports);
 __exportStar(require("./transition-vocabulary"), exports);

@@ -15,6 +15,7 @@ export * from './internal-model';
 export * from './legacy-audio-view';
 export * from './retime';
 export * from './track-order';
+export * from './track-z';
 export * from './track-transition-compatibility';
 export * from './cut-adjacency';
 export * from './transition-vocabulary';

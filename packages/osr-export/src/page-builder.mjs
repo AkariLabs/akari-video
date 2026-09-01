@@ -13,7 +13,13 @@ import { stampFunctionSource } from "./stamp.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const { collectExcludedCaptionIds, filterCaptionRootByExcludedIds } = require("../../edit-store/lib/index.js");
+const {
+  collectTrackZByItemId,
+  collectExcludedCaptionIds,
+  filterCaptionRootByExcludedIds,
+  resolveCaptionTrackZ,
+  resolveRecordTrackZ,
+} = require("../../edit-store/lib/index.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 
@@ -27,12 +33,17 @@ export function buildOsrPage({
   width = edit?.output?.width ?? 1920,
   height = edit?.output?.height ?? 1080,
   duration = plan?.predicted_duration_seconds ?? 0,
+  captionTrackZ = null,
   stampRow = true,
   frameEngineBundle = readFileSync(FRAME_ENGINE_BUNDLE, "utf8"),
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
   lutCubeText = null,
   layerLutCubeTexts = [],
 } = {}) {
+  // 直接呼びで段が分からない場合は、暗黙字幕トラックの既定どおり最前面へ置く。
+  const captionZ = Number.isInteger(captionTrackZ) && captionTrackZ >= 0
+    ? captionTrackZ
+    : Number.MAX_SAFE_INTEGER;
   const enabledOverlays = overlays.filter((overlay) => overlay?.enabled !== false);
   const captionRoot = Array.isArray(captions) ? captions : captions?.captions ?? [];
   const captionOverlays = generateCaptionOverlays(captionRoot, edit.cuts ?? [], {
@@ -40,7 +51,7 @@ export function buildOsrPage({
     sourceCount: Array.isArray(edit.sources) ? edit.sources.length : 1,
     defaultTextStyle: Array.isArray(captions) ? undefined : captions?.default_text_style,
     emphasisWords: Array.isArray(captions) ? edit.emphasis_words : captions?.emphasis_words ?? edit.emphasis_words,
-  });
+  }).map((overlay) => ({ ...overlay, z: captionZ }));
   const allOverlays = [...enabledOverlays, ...captionOverlays];
   const projectedEdit = {
     ...edit,
@@ -113,15 +124,18 @@ export async function loadAndBuildOsrPage({
 }) {
   const resolvedEditPath = editPath ?? join(projectRoot, "edit.json");
   const editText = await readFile(resolvedEditPath, "utf8");
-  const projectedEdit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "osr-page")).edit;
+  const renderEdit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "osr-page"));
+  const projectedEdit = renderEdit.edit;
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
   const edit = prepared.edit;
+  const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
   const captions = filterCaptionRootByExcludedIds(
     await readJsonIfPresent(join(projectRoot, "captions.json"), []),
     collectExcludedCaptionIds(edit),
   );
   const overlays = await Promise.all((edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false).map(async (overlay) => ({
     ...overlay,
+    z: resolveRecordTrackZ(trackZByItemId, overlay),
     html: typeof overlay.html === "string" && overlay.html.trimStart().startsWith("<")
       ? overlay.html
       : await readFile(resolve(projectRoot, overlay.html), "utf8"),
@@ -150,6 +164,7 @@ export async function loadAndBuildOsrPage({
     width: width ?? edit.output.width,
     height: height ?? edit.output.height,
     duration: duration ?? plan?.predicted_duration_seconds ?? inferDuration(edit),
+    captionTrackZ: resolveCaptionTrackZ(renderEdit.internal.tracks),
     stampRow,
     lutCubeText,
     layerLutCubeTexts,

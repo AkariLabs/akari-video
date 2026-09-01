@@ -169,8 +169,8 @@ test("ordered draws add entrance state only to entrance-enabled 3D sprites", asy
   };
   const draws = internals.orderedSpriteDraws(manifest, 1, { activeAt() { return false; } });
   assert.deepEqual(JSON.parse(JSON.stringify(draws)), [
-    { id: "animated", opacity: 0, translateX: -380, translateY: 140, scaleX: 0.817, scaleY: 0.817 },
-    { id: "direct", opacity: 1 },
-    { id: "static", opacity: 1 },
+    { z: 0, index: 0, id: "animated", opacity: 0, translateX: -380, translateY: 140, scaleX: 0.817, scaleY: 0.817 },
+    { z: 0, index: 1, id: "direct", opacity: 1 },
+    { z: 0, index: 2, id: "static", opacity: 1 },
   ]);
 });

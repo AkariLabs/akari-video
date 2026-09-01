@@ -22,7 +22,12 @@ test("OSR page keeps the detached caption item window and renders its inline HTM
   assert.equal(overlay.start, 61 / 30);
   assert.equal(overlay.duration, 1);
   assert.equal(overlay.transform.y, -200);
+  assert.equal(Object.hasOwn(overlay, "z"), false);
   assert.equal((result.overlaySheetHtml.match(/data-overlay-id="c2-out"/gu) ?? []).length, 1);
+  const order = ["c1-01", "c3-01", "c2-out", "order-html"]
+    .map(id => result.overlaySheetHtml.indexOf(`data-overlay-id="${id}"`));
+  assert.ok(order.every(position => position >= 0));
+  assert.ok(order.every((position, index) => index === 0 || order[index - 1] < position));
   const detachedStart = result.overlaySheetHtml.indexOf('data-overlay-id="c2-out"');
   const nextOverlay = result.overlaySheetHtml.indexOf("data-overlay-id=", detachedStart + 1);
   const detachedBlock = result.overlaySheetHtml.slice(

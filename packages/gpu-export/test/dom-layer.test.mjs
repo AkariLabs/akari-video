@@ -30,18 +30,19 @@ test("DOM settle policy follows requestPaint availability", async () => {
   assert.equal(value.chooseSettlePolicy({}), "sync-layout");
 });
 
-test("DOM activity and cross-kind draw order use declaration indexes", async () => {
+test("DOM activity and cross-kind draw order use track z then declaration indexes", async () => {
   const value = await internals();
-  const run = { runId: "dom-0", index: 1, entries: [{ start: 1, duration: 2 }] };
+  const run = { runId: "dom-0", z: 1, index: 1, entries: [{ start: 1, duration: 2 }] };
   assert.equal(value.runActiveAt(run, 0.5), false);
   assert.equal(value.runActiveAt(run, 1), true);
   assert.equal(value.runActiveAt(run, 3), false);
   const draws = value.orderedSpriteDraws({
-    statics: [{ id: "static", index: 2, start: 0, duration: 4 }],
-    three: [{ id: "three", index: 0, start: 0, duration: 4 }],
+    statics: [{ id: "static", z: 0, index: 2, start: 0, duration: 4 }],
+    three: [{ id: "three", z: 2, index: 0, start: 0, duration: 4 }],
     dom: [run],
   }, 1.5, { activeAt: value.runActiveAt });
-  assert.deepEqual(Array.from(draws, (draw) => draw.id), ["three", "dom-0", "static"]);
+  assert.deepEqual(Array.from(draws, (draw) => draw.id), ["static", "dom-0", "three"]);
+  assert.deepEqual(Array.from(draws, ({ z, index }) => [z, index]), [[0, 2], [1, 1], [2, 0]]);
 });
 
 test("GPU Electron applies one ordered DOM flag source and the receipt reads it", async () => {

@@ -448,12 +448,10 @@ function orderOverlaysByTrack(overlays) {
   return overlays
     .map((overlay, index) => ({ overlay, index }))
     .sort((left, right) => {
-      const leftIsCaption = left.overlay.generatedFrom !== undefined;
-      const rightIsCaption = right.overlay.generatedFrom !== undefined;
-      if (leftIsCaption !== rightIsCaption) return leftIsCaption ? 1 : -1;
-      const leftTrack = Number.isInteger(left.overlay.track) && left.overlay.track >= 0 ? left.overlay.track : 0;
-      const rightTrack = Number.isInteger(right.overlay.track) && right.overlay.track >= 0 ? right.overlay.track : 0;
-      return leftTrack - rightTrack || left.index - right.index;
+      // 契約 §2-5: 字幕を含む全種別を段の z だけで並べ、種別固有の特別規則を置かない。
+      const leftZ = Number.isInteger(left.overlay.z) && left.overlay.z >= 0 ? left.overlay.z : 0;
+      const rightZ = Number.isInteger(right.overlay.z) && right.overlay.z >= 0 ? right.overlay.z : 0;
+      return leftZ - rightZ || left.index - right.index;
     })
     .map(({ overlay }) => overlay);
 }

@@ -1220,20 +1220,22 @@
   function orderedSpriteDraws(manifest, seconds, domRuntime) {
     const values = [];
     for (const value of manifest.statics) {
-      if (activeAt(value, seconds)) values.push({ index: value.index, id: value.id, opacity: 1 });
+      const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
+      if (activeAt(value, seconds)) values.push({ z, index: value.index, id: value.id, opacity: 1 });
     }
     for (const value of manifest.three) {
       if (!activeAt(value, seconds)) continue;
       const state = value.entrance
         ? threeEntranceStateAt(value.entrance, seconds - value.start)
         : { opacity: 1 };
-      values.push({ index: value.index, id: value.id, ...state });
+      const z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
+      values.push({ z, index: value.index, id: value.id, ...state });
     }
     for (const run of manifest.dom ?? []) {
-      if (domRuntime.activeAt(run, seconds)) values.push({ index: run.index, id: run.runId, opacity: 1 });
+      const z = Number.isInteger(run.z) && run.z >= 0 ? run.z : 0;
+      if (domRuntime.activeAt(run, seconds)) values.push({ z, index: run.index, id: run.runId, opacity: 1 });
     }
-    return values.sort((left, right) => left.index - right.index)
-      .map(({ index, ...draw }) => draw);
+    return values.sort((left, right) => (left.z - right.z) || (left.index - right.index));
   }
 
   function styleVariables(element, vars) {
@@ -1578,6 +1580,8 @@
         let words = 0;
         let degradedUnits = 0;
         for (const unit of built.units) {
+          unit.z = Number.isInteger(value.z) && value.z >= 0 ? value.z : 0;
+          unit.index = Number.isInteger(value.index) && value.index >= 0 ? value.index : 0;
           rasters += unit.bandCss.length;
           tiles += unit.tiles?.length ?? 0;
           words += unit.wordCount;
@@ -1772,7 +1776,7 @@
               : FE.captionMotionAt(unit.motion, localSeconds, unit.cueDuration, unit.emPx);
             if (state.opacity <= 0) continue;
             if (unit.tiles === null) {
-              draws.push({ id: unit.id, textureRect: unit.textureRect, ...state });
+              draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect, ...state });
               continue;
             }
             const tiles = unit.tiles.map((tile) => {
@@ -1790,10 +1794,12 @@
               };
             });
             if (unit.mode === "geometry") {
-              draws.push({ id: unit.id, textureRect: unit.textureRect, ...state });
-              draws.push({ id: unit.secondaryId, textureRect: unit.textureRect, tiles, ...state });
+              draws.push({ z: unit.z, index: unit.index, id: unit.id, textureRect: unit.textureRect, ...state });
+              draws.push({ z: unit.z, index: unit.index, id: unit.secondaryId, textureRect: unit.textureRect, tiles, ...state });
             } else {
               draws.push({
+                z: unit.z,
+                index: unit.index,
                 id: unit.id,
                 secondaryId: unit.secondaryId,
                 textureRect: unit.textureRect,
@@ -1803,7 +1809,10 @@
             }
           }
           const compositeStarted = performance.now();
-          spriteCompositor.compose(frame.surface.canvas, draws);
+          const orderedDraws = draws
+            .sort((left, right) => (left.z - right.z) || (left.index - right.index))
+            .map(({ z, index, ...draw }) => draw);
+          spriteCompositor.compose(frame.surface.canvas, orderedDraws);
           stages.composite.push(performance.now() - compositeStarted);
           if (captionUnits.length > 0) stages.captions.push(compositeStarted - captionStarted);
           if (hashFrame) frameHashes.push(await hashFrame(finalCanvas));
