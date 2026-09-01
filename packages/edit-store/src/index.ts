@@ -25,6 +25,7 @@ export * from './audio-schedule';
 export * from './canonical';
 export * from './tree-ops';
 export * from './item-anchor';
+export * from './cut-ranges';
 // Legacy parser implementation lives in the frozen migration unit. This re-export keeps
 // text-surgery consumers source-compatible while preventing legacy knowledge from returning
 // to edit-store.ts.

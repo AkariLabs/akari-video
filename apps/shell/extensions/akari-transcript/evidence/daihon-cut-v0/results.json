@@ -1,0 +1,189 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "fixture": "v2",
+      "name": "1. フィラーを字幕だけから消す",
+      "pass": true,
+      "detail": {
+        "choices": 2,
+        "popCountAfterOutside": 0,
+        "beforeWordCount": 3,
+        "afterWordCount": 2,
+        "beforeTextLength": 8,
+        "afterTextLength": 6,
+        "remainingWordBytesEqual": true,
+        "editBytesEqual": true
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "2. フィラーを映像ごとカット",
+      "pass": true,
+      "detail": {
+        "cell": "✂ 「えー」を映像ごとカット↩ 戻す",
+        "commitDelta": 1,
+        "beforeMetrics": {
+          "itemCount": 1,
+          "totalDurationFrames": 9150,
+          "firstAtFrames": 0,
+          "secondAtFrames": null,
+          "originalEndFrames": 9150
+        },
+        "afterMetrics": {
+          "itemCount": 2,
+          "totalDurationFrames": 9145,
+          "firstAtFrames": 0,
+          "secondAtFrames": 36,
+          "originalEndFrames": null
+        },
+        "durationDelta": 5,
+        "narrationAtBefore": 45,
+        "narrationAtAfter": 45
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "3. 行をカット",
+      "pass": true,
+      "detail": {
+        "targetIsCut": true,
+        "previousIsCut": false,
+        "nextIsCut": false,
+        "cells": 2,
+        "captionsBytesEqual": true,
+        "beforeDurationFrames": 9145,
+        "afterDurationFrames": 9126,
+        "removedFrames": 19,
+        "removedSeconds": 0.6333333333333333,
+        "maximumSeconds": 1.0899999999999999
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "4. 無音レンジをドラッグして詰める",
+      "pass": true,
+      "detail": {
+        "meta": "詰める 0.34 秒 / 残す 前 0.21・後 0.10",
+        "selectedSeconds": 0.34,
+        "beforeDurationFrames": 9126,
+        "afterDurationFrames": 9115,
+        "removedFrames": 11,
+        "expectedFrames": 10,
+        "frameDelta": 1
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "5. 無音を一括短縮",
+      "pass": true,
+      "detail": {
+        "beforeCells": 3,
+        "afterCells": 8,
+        "addedCells": 5,
+        "commitDelta": 1,
+        "newCellCount": 5,
+        "newOperationCount": 1,
+        "newOperationId": 4
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "6. LIFO で全カットを戻す",
+      "pass": true,
+      "detail": {
+        "disabledBefore": 3,
+        "activationOperationId": 3,
+        "disabledBecameEnabled": true,
+        "restored": 4,
+        "editBytesEqual": true
+      }
+    },
+    {
+      "fixture": "v1",
+      "name": "2. フィラーを映像ごとカット",
+      "pass": true,
+      "detail": {
+        "cell": "✂ 「えー」を映像ごとカット↩ 戻す",
+        "commitDelta": 1,
+        "beforeMetrics": {
+          "itemCount": 1,
+          "totalDurationSeconds": 29,
+          "intervals": [
+            [
+              0,
+              29
+            ]
+          ]
+        },
+        "afterMetrics": {
+          "itemCount": 2,
+          "totalDurationSeconds": 28.817,
+          "intervals": [
+            [
+              0,
+              1.2
+            ],
+            [
+              1.383,
+              29
+            ]
+          ]
+        },
+        "durationDelta": 0.18299999999999983,
+        "narrationAtBefore": null,
+        "narrationAtAfter": null
+      }
+    },
+    {
+      "fixture": "v1",
+      "name": "5. 無音を一括短縮",
+      "pass": true,
+      "detail": {
+        "beforeCells": 1,
+        "afterCells": 6,
+        "addedCells": 5,
+        "commitDelta": 1,
+        "newCellCount": 5,
+        "newOperationCount": 1,
+        "newOperationId": 2
+      }
+    },
+    {
+      "fixture": "v1",
+      "name": "6. LIFO で全カットを戻す",
+      "pass": true,
+      "detail": {
+        "disabledBefore": 1,
+        "activationOperationId": 1,
+        "disabledBecameEnabled": true,
+        "restored": 2,
+        "editBytesEqual": true
+      }
+    }
+  ],
+  "screenshots": [
+    "v2-01-filler-caption-only.png",
+    "v2-02-filler-cut.png",
+    "v2-03-row-cut.png",
+    "v2-04-gap-range.png",
+    "v2-05-silence-batch.png",
+    "v2-06-restored.png",
+    "v1-02-filler-cut.png",
+    "v1-05-silence-batch.png",
+    "v1-06-restored.png"
+  ],
+  "fixtures": {
+    "v2": {
+      "version": 2,
+      "preloadOverlay": "removed",
+      "editBytesEqual": true
+    },
+    "v1": {
+      "version": 1,
+      "preloadOverlay": "removed",
+      "editBytesEqual": true
+    }
+  },
+  "pass": true
+}

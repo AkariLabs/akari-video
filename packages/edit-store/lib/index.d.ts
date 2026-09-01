@@ -25,5 +25,6 @@ export * from './audio-schedule';
 export * from './canonical';
 export * from './tree-ops';
 export * from './item-anchor';
+export * from './cut-ranges';
 export { parseEdit } from './migrate/legacy-parse';
 export { LegacyEditVersionError } from './migrate/error';
