@@ -5489,6 +5489,55 @@ ${indent}`);
     }
   });
 
+  // packages/edit-store/lib/track-z.js
+  var require_track_z = __commonJS({
+    "packages/edit-store/lib/track-z.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      exports.collectTrackZByItemId = collectTrackZByItemId;
+      exports.resolveRecordTrackZ = resolveRecordTrackZ;
+      exports.resolveDeclaredCaptionTrackZ = resolveDeclaredCaptionTrackZ;
+      exports.resolveCaptionTrackZ = resolveCaptionTrackZ;
+      function collectTrackZByItemId(tracks) {
+        const resolved = /* @__PURE__ */ new Map();
+        const visit = (item, z3) => {
+          if (item?.id !== void 0) {
+            const id = String(item.id);
+            if (!resolved.has(id))
+              resolved.set(id, z3);
+          }
+          const children = Array.isArray(item?.children) ? item.children : Array.isArray(item?.items) ? item.items : [];
+          for (const child of children)
+            visit(child, z3);
+        };
+        for (const [z3, track] of (Array.isArray(tracks) ? tracks : []).entries()) {
+          for (const item of Array.isArray(track?.items) ? track.items : [])
+            visit(item, z3);
+        }
+        return resolved;
+      }
+      function resolveRecordTrackZ(trackZByItemId, record) {
+        const id = String(record?.id ?? "");
+        const hashIndex = id.lastIndexOf("#");
+        return trackZByItemId.get(id) ?? trackZByItemId.get(String(record?.parentId ?? "")) ?? (hashIndex > 0 ? trackZByItemId.get(id.slice(0, hashIndex)) : void 0) ?? 0;
+      }
+      function resolveDeclaredCaptionTrackZ(tracks) {
+        const declared = Array.isArray(tracks) ? tracks : [];
+        for (let z3 = 0; z3 < declared.length; z3 += 1) {
+          const track = declared[z3];
+          const hasCaptionBag = (Array.isArray(track?.items) ? track.items : []).some((item) => item?.source?.kind === "captions");
+          if (hasCaptionBag || track?.content?.from === "captions.json" || track?.legacy?.kind === "captions")
+            return z3;
+        }
+        return null;
+      }
+      function resolveCaptionTrackZ(tracks) {
+        const declared = Array.isArray(tracks) ? tracks : [];
+        return resolveDeclaredCaptionTrackZ(declared) ?? declared.length;
+      }
+    }
+  });
+
   // packages/edit-store/lib/track-transition-compatibility.js
   var require_track_transition_compatibility = __commonJS({
     "packages/edit-store/lib/track-transition-compatibility.js"(exports) {
@@ -7905,6 +7954,7 @@ ${indent}`);
       __exportStar(require_legacy_audio_view(), exports);
       __exportStar(require_retime(), exports);
       __exportStar(require_track_order(), exports);
+      __exportStar(require_track_z(), exports);
       __exportStar(require_track_transition_compatibility(), exports);
       __exportStar(require_cut_adjacency(), exports);
       __exportStar(require_transition_vocabulary(), exports);
