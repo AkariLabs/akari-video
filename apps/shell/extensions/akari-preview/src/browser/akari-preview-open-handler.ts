@@ -111,6 +111,7 @@ import type { PreviewModelDiffInput } from '../common/preview-model-diff';
 import { summarizePreviewError } from '../common/preview-error-summary';
 import { resolvePreferredVideoUri } from '../common/video-proxy-resolution';
 import { createRafThrottle } from '../common/raf-throttle';
+import { createSharedDurationProbe } from '../common/sfx-duration-probe';
 import { normalizeRectFromPoints } from '../common/rect-tool-visual';
 import {
     readCaptionsEmphasisWords,
@@ -5636,14 +5637,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 // (the real decoded duration) is only known post-decode, so in/out clamping happens
                 // here, via the shared resolveSfxTrimWindowFn/resolveBgmSourceOffsetFn -- mirrors
                 // packages/render-cut/src/plan.mjs's resolveSfxTrim/resolveBgmInSeconds.
-                const decodeOne = async (kind, spec) => {
-                    try {
-                        const response = await fetch(spec.src);
+                // 2026-09-02 preview-perf: 同じ URL の fetch + decodeAudioData は load() ごとに 1 回だけ
+                // （159 挿入 / 37 ユニークなら 37 回）。AudioBuffer は不変なので spec 間で共有できる。
+                // in/out の切り出し（resolveSfxTrimWindowFn）は従来どおり spec ごと。updateConfig の
+                // 再読込では load() が Map を作り直すので、差し替わった素材を古い buffer で鳴らさない。
+                let decodedBufferBySrc = new Map();
+                const fetchDecodedBuffer = src => {
+                    const shared = decodedBufferBySrc.get(src);
+                    if (shared) return shared;
+                    const pending = (async () => {
+                        const response = await fetch(src);
                         if (!response.ok) throw new Error('fetch status=' + response.status);
                         const buffer = await context.decodeAudioData(await response.arrayBuffer());
                         if (!Number.isFinite(buffer.duration) || buffer.duration <= 0) {
                             throw new Error('decoded audio duration is invalid');
                         }
+                        return buffer;
+                    })();
+                    decodedBufferBySrc.set(src, pending);
+                    return pending;
+                };
+                const decodeOne = async (kind, spec) => {
+                    try {
+                        const buffer = await fetchDecodedBuffer(spec.src);
                         if (kind === 'sfx' && (spec.in !== undefined || spec.out !== undefined)) {
                             const trimWindow = resolveSfxTrimWindowFn(spec.in, spec.out, buffer.duration, 'sfx ' + spec.id);
                             if (trimWindow.warning) console.warn('[akari-preview] ' + trimWindow.warning);
@@ -5667,6 +5683,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (Number.isFinite(duration) && duration > 0) timelineDuration = duration;
                     if (loadPromise || timelineDuration <= 0) return loadPromise || Promise.resolve();
                     loadPromise = (async () => {
+                        decodedBufferBySrc = new Map();
                         const timed = async (kind, specs) => {
                             const valid = [];
                             for (const spec of Array.isArray(specs) ? specs : []) {
@@ -7134,6 +7151,8 @@ body { display: grid; place-items: center; padding: 32px; }
             // RAF スロットリング（2026-08-09 raf-throttle）: ハンドルドラッグ中の pointermove は
             // 毎回来るが、フル layout 再計算（updateStageScale）は1フレームに1回で十分。
             const createRafThrottleFn = (${createRafThrottle.toString()});
+            // SFX 尺プローブの共有（2026-09-02 preview-perf）: URL 単位で 1 本・同時 4 本・8 s で打ち切り。
+            const createSharedDurationProbeFn = (${createSharedDurationProbe.toString()});
             // freeze の一時停止ホールド（近似実装。尺は伸ばさない — 詳細はコメント参照）。
             let freezeHoldUntilMs = 0;
             let freezeHoldConsumedForSegmentIndex = null;
@@ -7154,12 +7173,29 @@ body { display: grid; place-items: center; padding: 32px; }
                 probe.src = src;
             });
             let resolvedSfxTails = [];
+            // 2026-09-02 preview-perf: 尺プローブは URL 単位で共有（159 挿入 / 37 ユニークなら 37 本）・
+            // 同時 4 本まで・1 本 8 s で打ち切り（null = 尺不明として従来どおり無視）。挿入ごとに
+            // new Audio() を作っていたうえ、loadedmetadata が永久に来ないプローブが 1 本あるだけで
+            // 初回描画（下の Promise.all の sfxDurationsReady）が永久に待たされていた。共有するのは
+            // 素材の実尺だけで、挿入ごとの [in, out) 切り出し計算は従来どおり item ごとに行う。
+            const SFX_PROBE_TIMEOUT_MS = 8000;
+            let sfxProbeTimeoutWarned = false;
             const probeSfxDurations = async () => {
                 const items = Array.isArray(summary.audio && summary.audio.sfx) ? summary.audio.sfx : [];
+                const probeSharedDuration = createSharedDurationProbeFn(probeMediaDurationSeconds, {
+                    maxInFlight: 4,
+                    timeoutMs: SFX_PROBE_TIMEOUT_MS,
+                    onTimeout: src => {
+                        if (sfxProbeTimeoutWarned) return;
+                        sfxProbeTimeoutWarned = true;
+                        console.warn('[akari-preview] sfx の尺プローブが ' + (SFX_PROBE_TIMEOUT_MS / 1000)
+                            + ' s 以内に終わらないため尺不明として続行します（以降の同種警告は省略）', src);
+                    }
+                });
                 const results = await Promise.all(items.map(async item => {
                     if (typeof item.t !== 'number' || !Number.isFinite(item.t) || item.t < 0) return null;
                     if (typeof item.src !== 'string' || !item.src) return null;
-                    const materialDuration = await probeMediaDurationSeconds(item.src);
+                    const materialDuration = await probeSharedDuration(item.src);
                     if (materialDuration === null) return null;
                     // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: the audible span is
                     // [in, out), not the whole material -- mirrors createPreviewAudio's decodeOne /
@@ -12036,13 +12072,56 @@ body { display: grid; place-items: center; padding: 32px; }
                     drawWaveform();
                 }, 300);
             }).observe(waveformRow);
+            // シークバー / 波形スクラブ / host からの seek の間引き（2026-09-02 preview-perf）。
+            // range の input と波形の pointermove はポインタ移動ごと（60〜120 回/s）に届き、その都度
+            // seekTimelineTime（frame-engine では clock.seek → 再生中なら audioSupply.seek が Web Audio
+            // グラフを丸ごと作り直す）+ フル tick()（可視の全 Three.js シーン・字幕・レイヤー）を同期
+            // 実行していた。createRafThrottleFn で「1 フレームに最大 1 回・最後の値が勝つ」へ折りたたみ、
+            // 確定（change / pointerup）では flush() で即時反映する。値は input 時に変数へ退避する
+            // （実行時に seek.value を読むと、間に走った updateTransport() がフレーム量子化済みの旧位置を
+            // 書き戻していることがある）。
+            let pendingScrubTime = null;
+            const scrubThrottle = createRafThrottleFn(() => {
+                if (pendingScrubTime === null) return;
+                const target = pendingScrubTime;
+                pendingScrubTime = null;
+                seekTimelineTime(target);
+                tick();
+            });
+            const requestScrub = timelineValue => {
+                pendingScrubTime = timelineValue;
+                scrubThrottle.call();
+            };
+            // ドラッグ中の音声: 再生中にドラッグを始めたら canonical な togglePlayback() で 1 回だけ
+            // 一時停止し（frame-engine: clock.pause → audioSupply.pause / 従来: previewAudio.pause +
+            // video.pause）、ドラッグ中の各フレームは clock.seek(t, isPlaying=false) = audioSupply は
+            // stopSources() だけで音声グラフを作り直さない。離した時点で最終位置を flush してから
+            // togglePlayback() で再開する（clock.play(outputTime) → audioSupply.playFrom = 音声グラフの
+            // 構築はドラッグ全体で 1 回）。isPlaying 自体を倒すのは、tick() → clock.tick(outputTime,
+            // isPlaying) が isPlaying=true のままだと毎フレーム setPlaying(true) で音声を復活させて
+            // しまうため（clock 側は frameEngineBootstrapScript の管轄で、ここからは呼ぶだけ）。
+            let scrubDragActive = false;
+            let scrubDragResumePlaying = false;
+            const beginScrubDrag = () => {
+                if (scrubDragActive) return;
+                scrubDragActive = true;
+                scrubDragResumePlaying = isPlaying;
+                if (isPlaying) togglePlayback();
+            };
+            const endScrubDrag = () => {
+                if (!scrubDragActive) return;
+                scrubThrottle.flush();
+                scrubDragActive = false;
+                const resume = scrubDragResumePlaying && !isPlaying;
+                scrubDragResumePlaying = false;
+                if (resume) togglePlayback();
+            };
             const seekFromWaveformPointer = event => {
                 const rect = waveformCanvas.getBoundingClientRect();
                 const duration = segments.length > 0 ? totalTimelineDuration : videoDuration();
                 if (rect.width <= 0 || duration <= 0) return;
                 const fraction = clamp((event.clientX - rect.left) / rect.width, 0, 1);
-                seekTimelineTime(fraction * duration);
-                tick();
+                requestScrub(fraction * duration);
             };
             waveformCanvas.addEventListener('pointerdown', event => {
                 if (event.button !== 0) return;
@@ -12050,7 +12129,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 clearStaticAnnotationStrokes();
                 waveformDragPointer = event.pointerId;
                 waveformCanvas.setPointerCapture(event.pointerId);
+                beginScrubDrag();
                 seekFromWaveformPointer(event);
+                // 押下位置は従来どおり即時反映（間引くのはドラッグ中の pointermove だけ）。
+                scrubThrottle.flush();
             });
             waveformCanvas.addEventListener('pointermove', event => {
                 if (waveformDragPointer !== event.pointerId) return;
@@ -12064,11 +12146,13 @@ body { display: grid; place-items: center; padding: 32px; }
                 if (waveformCanvas.hasPointerCapture(event.pointerId)) {
                     waveformCanvas.releasePointerCapture(event.pointerId);
                 }
+                endScrubDrag();
             };
             waveformCanvas.addEventListener('pointerup', finishWaveformSeek);
             waveformCanvas.addEventListener('pointercancel', event => {
                 if (waveformDragPointer !== event.pointerId) return;
                 waveformDragPointer = null;
+                endScrubDrag();
             });
             zoomToggle.addEventListener('click', () => {
                 zoomPopup.hidden = !zoomPopup.hidden;
@@ -12208,10 +12292,39 @@ body { display: grid; place-items: center; padding: 32px; }
                 clearStaticAnnotationStrokes();
                 togglePlayback();
             });
+            // range の input はポインタ押下中にもキー操作でも届くため、pointerdown 〜 pointerup /
+            // pointercancel（要素外で離した場合は window 側で拾う）の間だけ「ドラッグ」として扱い、
+            // キー操作（矢印キー等）は従来どおり 1 回ごとに即時反映する。
+            let seekPointerHeld = false;
+            seek.addEventListener('pointerdown', () => {
+                seekPointerHeld = true;
+            });
+            const releaseSeekPointer = () => {
+                if (!seekPointerHeld) return;
+                seekPointerHeld = false;
+                endScrubDrag();
+            };
+            seek.addEventListener('pointerup', releaseSeekPointer);
+            seek.addEventListener('pointercancel', releaseSeekPointer);
+            seek.addEventListener('lostpointercapture', releaseSeekPointer);
+            window.addEventListener('pointerup', releaseSeekPointer, true);
+            window.addEventListener('pointercancel', releaseSeekPointer, true);
             seek.addEventListener('input', () => {
+                // beginScrubDrag() → togglePlayback() → stopAnimation() → tick() → updateTransport() が
+                // seek.value を旧位置で書き戻すので、その前に読む。
+                const value = Number(seek.value);
                 clearStaticAnnotationStrokes();
-                seekTimelineTime(Number(seek.value));
-                tick();
+                const startingDrag = seekPointerHeld && !scrubDragActive;
+                if (startingDrag) beginScrubDrag();
+                requestScrub(value);
+                // ドラッグ開始フレームとキー操作は即時反映（間引くのはドラッグ中の連続 input だけ）。
+                if (startingDrag || !seekPointerHeld) scrubThrottle.flush();
+            });
+            seek.addEventListener('change', () => {
+                // change = ポインタを離した時 / キー操作の確定時。保留中の位置を即反映し、ドラッグなら
+                // 再生を戻す（pointerup 側と二重に呼ばれても endScrubDrag は冪等）。
+                scrubThrottle.flush();
+                endScrubDrag();
             });
             let requestedOverlayId;
             const applyRequestedOverlaySelection = () => {
@@ -12442,6 +12555,10 @@ body { display: grid; place-items: center; padding: 32px; }
             };
             window.addEventListener('message', event => {
                 const message = event.data;
+                // 2026-09-02 preview-perf: host からの seek は rAF で間引く（下の akari-preview-seek）。
+                // seek 以外のメッセージは「直前の seek が反映済み」という従来の順序を保つため、保留中の
+                // seek を先に flush してから処理する（間引かれるのは連続する seek 同士だけ）。
+                if (!(message && message.type === 'akari-preview-seek')) scrubThrottle.flush();
                 if (message && message.type === 'akari-preview-set-review-recording'
                     && typeof message.active === 'boolean') {
                     const wasRecordingActive = reviewRecordingActive;
@@ -12559,8 +12676,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     return;
                 }
                 if (message && message.type === 'akari-preview-seek' && Number.isFinite(message.time)) {
-                    seekTimelineTime(message.time);
-                    tick();
+                    requestScrub(message.time);
                     return;
                 }
                 if (message && message.type === 'akari-preview-loop-range') {
