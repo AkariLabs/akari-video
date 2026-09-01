@@ -400,6 +400,7 @@ export class AkariTranscriptWidget extends BaseWidget {
             }
             this.recentWrite = Date.now();
             await this.writeCaptionsGuarded(source);
+            const persistedCaptions = new Map(parseCaptions(source).captions.map(caption => [caption.id, caption]));
             for (const change of changed) {
                 const caption = this.captions[change.index];
                 if (this.showingDisplayText.has(caption.id) && caption.displayText !== undefined) {
@@ -407,6 +408,7 @@ export class AkariTranscriptWidget extends BaseWidget {
                 } else {
                     caption.text = change.text;
                     caption.edited = true;
+                    caption.words = persistedCaptions.get(caption.id)?.words;
                 }
                 this.baselineLines[change.index] = change.text;
             }

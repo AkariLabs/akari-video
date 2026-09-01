@@ -10,6 +10,7 @@ exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
 exports.insertCaptionLine = insertCaptionLine;
 exports.removeCaptionLine = removeCaptionLine;
 const edit_store_1 = require("./edit-store");
+const caption_words_rederive_1 = require("./caption-words-rederive");
 exports.CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
     'left', 'center', 'right',
@@ -161,12 +162,20 @@ function updateCaptionFieldsInSource(source, captionId, updates) {
     const element = findCaptionElement(array.elements, captionId);
     let nextElement = element.text;
     if (updates.text !== undefined) {
-        nextElement = replaceCaptionProperty(nextElement, 'text', updates.text, captionId);
+        const parsed = JSON.parse(nextElement);
+        const applied = (0, caption_words_rederive_1.applyCaptionTextEdit)(parsed, updates.text);
+        if (applied.record !== parsed) {
+            nextElement = replaceCaptionJsonProperty(nextElement, 'text', applied.record.text, captionId);
+            nextElement = replaceCaptionJsonProperty(nextElement, 'edited', applied.record.edited, captionId);
+            nextElement = syncOptionalCaptionProperty(nextElement, 'words', applied.record.words, captionId);
+            nextElement = syncOptionalCaptionProperty(nextElement, 'display_text', applied.record.display_text, captionId);
+            nextElement = syncOptionalCaptionProperty(nextElement, 'display_fragments', applied.record.display_fragments, captionId);
+        }
     }
     if (updates.speaker !== undefined) {
         nextElement = replaceCaptionProperty(nextElement, 'speaker', updates.speaker, captionId);
+        nextElement = replaceCaptionProperty(nextElement, 'edited', true, captionId);
     }
-    nextElement = replaceCaptionProperty(nextElement, 'edited', true, captionId);
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
 function updateCaptionTextStyleInSource(source, captionId, updates) {
@@ -408,6 +417,25 @@ function replaceCaptionProperty(source, property, value, captionId) {
     }
     const nextProperty = located.text.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
     return source.slice(0, located.start) + nextProperty + source.slice(located.end);
+}
+function replaceCaptionJsonProperty(source, property, value, captionId) {
+    const located = locateCaptionProperty(source, property, captionId);
+    const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^("${escapedProperty}"\\s*:\\s*)[\\s\\S]*$`);
+    if (!pattern.test(located.text)) {
+        throw new Error(`字幕 ${captionId} の ${property} プロパティを特定できません。`);
+    }
+    const nextProperty = located.text.replace(pattern, (_match, prefix) => `${prefix}${JSON.stringify(value)}`);
+    return source.slice(0, located.start) + nextProperty + source.slice(located.end);
+}
+function syncOptionalCaptionProperty(source, property, value, captionId) {
+    const exists = locateTopLevelProperty(source, property) !== undefined;
+    if (value === undefined) {
+        return exists ? removeObjectProperty(source, property) : source;
+    }
+    return exists
+        ? replaceCaptionJsonProperty(source, property, value, captionId)
+        : appendJsonProperty(source, property, value);
 }
 function readCaptionNumberProperty(source, property, captionId) {
     const located = locateCaptionProperty(source, property, captionId);

@@ -123,6 +123,7 @@ for (const rootShape of ['array', 'object']) {
         const expected = structuredClone(root);
         const expectedCues = Array.isArray(expected) ? expected : expected.captions;
         expectedCues[0].text = 'Café';
+        expectedCues[0].edited = true;
         delete expectedCues[0].words;
         delete expectedCues[0].display_text;
         delete expectedCues[0].display_fragments;
@@ -142,6 +143,26 @@ for (const rootShape of ['array', 'object']) {
         if (!Array.isArray(reloaded)) assert.deepEqual(reloaded.default_text_style, root.default_text_style);
     });
 }
+
+test('caption text の 1 語置換は未編集語の words を温存する', () => {
+    const source = JSON.stringify([{
+        id: 'c-0001', start: 0, end: 3, text: 'alpha beta gamma', speaker: null,
+        sourceRef: null, edited: false, style: 'karaoke',
+        words: [
+            { start: 0.1, end: 0.7, text: 'alpha' },
+            { start: 0.8, end: 1.6, text: 'beta' },
+            { start: 1.7, end: 2.9, text: 'gamma' }
+        ]
+    }]);
+    const updated = JSON.parse(updateCaptionTextSource(source, 'c-0001', 'alpha delta gamma'))[0];
+    assert.deepEqual(updated.words[0], { start: 0.1, end: 0.7, text: 'alpha' });
+    assert.deepEqual(updated.words[2], { start: 1.7, end: 2.9, text: 'gamma' });
+    assert.equal(updated.words[1].text, 'delta');
+
+    const degraded = JSON.parse(updateCaptionTextSource(source, 'c-0001', 'entirely different meaning'))[0];
+    assert.equal(Object.hasOwn(degraded, 'words'), false);
+    assert.equal(degraded.style, 'karaoke');
+});
 
 test('successful caption write refreshes the webview instead of suppressing its own watcher only', () => {
     const start = handlerSource.indexOf('protected async handleCaptionWrite');
@@ -303,7 +324,7 @@ test('caption text passes the project lint gate and preserves timing, style, and
         });
         assert.equal(result.pass, true, result.errors.join('\n'));
         const saved = JSON.parse(await readFile(captionsPath, 'utf8'));
-        assert.deepEqual(saved, [{ ...original[0], text: '編集後' }, original[1]]);
+        assert.deepEqual(saved, [{ ...original[0], text: '編集後', edited: true }, original[1]]);
     } finally {
         await rm(root, { recursive: true, force: true });
     }

@@ -9,6 +9,7 @@ import {
   mergeCaptionTextStyles,
   parseCaptions,
   setCaptionTimingLine,
+  updateCaptionFieldsInSource,
   updateCaptionTextStyleInSource,
 } from '../lib/caption-store.js';
 
@@ -29,6 +30,55 @@ const caption = (id, start, text, extra = {}) => ({
   sourceRef: { segment: 0 },
   edited: false,
   ...extra
+});
+
+test('text 更新は対象 1 物理行だけを書き換え words を再導出する', () => {
+  const rows = [
+    caption('c-0001', 0, 'alpha beta gamma', {
+      end: 3,
+      words: [
+        { start: 0.1, end: 0.7, text: 'alpha' },
+        { start: 0.8, end: 1.6, text: 'beta' },
+        { start: 1.7, end: 2.9, text: 'gamma' },
+      ],
+      display_text: 'old',
+      display_fragments: ['o', 'ld'],
+      style: 'karaoke',
+    }),
+    caption('c-0002', 3, 'unchanged'),
+  ];
+  const source = `[\n  ${JSON.stringify(rows[0])},\n  ${JSON.stringify(rows[1])}\n]\n`;
+  const updated = updateCaptionFieldsInSource(source, 'c-0001', { text: 'alpha delta gamma' });
+  const beforeLines = source.split('\n');
+  const afterLines = updated.split('\n');
+  const record = JSON.parse(afterLines[1].trim().replace(/,$/, ''));
+
+  assert.equal(afterLines.length, beforeLines.length);
+  assert.equal(afterLines[2], beforeLines[2]);
+  assert.deepEqual(record.words[0], rows[0].words[0]);
+  assert.deepEqual(record.words[2], rows[0].words[2]);
+  assert.equal(record.words[1].text, 'delta');
+  assert.equal(record.edited, true);
+  assert.equal(Object.hasOwn(record, 'display_text'), false);
+  assert.equal(Object.hasOwn(record, 'display_fragments'), false);
+  assert.equal(record.style, 'karaoke');
+  assert.doesNotThrow(() => parseCaptions(updated));
+});
+
+test('speaker だけの更新は words をバイト単位で変えない', () => {
+  const row = caption('c-0001', 0, 'alpha beta', {
+    end: 2,
+    words: [{ start: 0, end: 1, text: 'alpha' }, { start: 1, end: 2, text: 'beta' }],
+  });
+  const source = `[\n  ${JSON.stringify(row)}\n]\n`;
+  const updated = updateCaptionFieldsInSource(source, 'c-0001', { speaker: 'speaker-2' });
+  assert.deepEqual(JSON.parse(updated)[0].words, row.words);
+});
+
+test('words 無し行の text 更新では words を追加しない', () => {
+  const source = `[\n  ${JSON.stringify(caption('c-0001', 0, 'before'))}\n]\n`;
+  const updated = updateCaptionFieldsInSource(source, 'c-0001', { text: 'after' });
+  assert.equal(Object.hasOwn(JSON.parse(updated)[0], 'words'), false);
 });
 
 test('time_domain を読み、絶対時刻更新で output 変換と未宣言への undo を往復できる', () => {
