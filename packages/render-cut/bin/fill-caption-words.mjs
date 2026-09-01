@@ -25,32 +25,63 @@ export async function runCli(args, io = console) {
     const transcriptWords = analysis.transcript.flatMap((segment) =>
       Array.isArray(segment?.words) ? segment.words.filter(isCaptionWord) : [],
     );
-    if (transcriptWords.length === 0) {
+    const transcriptUnrecognized = analysis.transcript.flatMap((segment) =>
+      Array.isArray(segment?.unrecognized) ? segment.unrecognized.filter(isUnrecognizedSpan) : [],
+    );
+    if (transcriptWords.length === 0 && transcriptUnrecognized.length === 0) {
       io.log("words 0 件・充填対象なし");
+      io.log("未認識 0 区間を 0 字幕へ充填");
       return 0;
     }
 
-    let filled = 0;
-    let skipped = 0;
+    let wordsFilled = 0;
+    let wordsSkipped = 0;
     let copiedWords = 0;
+    let unrecognizedFilled = 0;
+    let unrecognizedSkipped = 0;
+    let copiedUnrecognized = 0;
     const updated = captions.map((caption) => {
       if (!isCaptionRange(caption)) return caption;
-      const hasExistingWords = Array.isArray(caption.words) && caption.words.length > 0;
-      if (!options.force && hasExistingWords) {
-        skipped += 1;
-        return caption;
+      let next = caption;
+      if (transcriptWords.length > 0) {
+        const hasExistingWords = Array.isArray(caption.words) && caption.words.length > 0;
+        if (!options.force && hasExistingWords) {
+          wordsSkipped += 1;
+        } else {
+          const words = transcriptWords
+            .filter((word) => word.start < caption.end && word.end > caption.start)
+            .map((word) => ({ ...word }));
+          if (words.length > 0) {
+            wordsFilled += 1;
+            copiedWords += words.length;
+            next = { ...next, words };
+          }
+        }
       }
-      const words = transcriptWords
-        .filter((word) => word.start < caption.end && word.end > caption.start)
-        .map((word) => ({ ...word }));
-      if (words.length === 0) return caption;
-      filled += 1;
-      copiedWords += words.length;
-      return { ...caption, words };
+      if (transcriptUnrecognized.length > 0) {
+        const hasExistingUnrecognized = Array.isArray(caption.unrecognized)
+          && caption.unrecognized.length > 0;
+        if (!options.force && hasExistingUnrecognized) {
+          unrecognizedSkipped += 1;
+        } else {
+          const unrecognized = clipSpansToRange(
+            transcriptUnrecognized.filter((span) => span.start < caption.end && span.end > caption.start),
+            caption.start,
+            caption.end,
+          );
+          if (unrecognized.length > 0) {
+            unrecognizedFilled += 1;
+            copiedUnrecognized += unrecognized.length;
+            next = { ...next, unrecognized };
+          }
+        }
+      }
+      return next;
     });
 
-    if (filled === 0) {
-      io.log(`words ${transcriptWords.length} 件・充填対象なし・既存 words ${skipped} 件をスキップ`);
+    if (wordsFilled === 0 && unrecognizedFilled === 0) {
+      io.log(`words ${transcriptWords.length} 件・充填対象なし・既存 words ${wordsSkipped} 件をスキップ`);
+      io.log(`未認識 0 区間を 0 字幕へ充填・既存 unrecognized ${unrecognizedSkipped} 件をスキップ`);
       return 0;
     }
 
@@ -61,7 +92,10 @@ export async function runCli(args, io = console) {
       await writeFile(captionsPath, updatedSource, "utf8");
     }
     io.log(
-      `words ${transcriptWords.length} 件・${copiedWords} 件を ${filled} 字幕へ充填・既存 words ${skipped} 件をスキップ${options.dryRun ? "（dry-run）" : ""}`,
+      `words ${transcriptWords.length} 件・${copiedWords} 件を ${wordsFilled} 字幕へ充填・既存 words ${wordsSkipped} 件をスキップ${options.dryRun ? "（dry-run）" : ""}`,
+    );
+    io.log(
+      `未認識 ${copiedUnrecognized} 区間を ${unrecognizedFilled} 字幕へ充填・既存 unrecognized ${unrecognizedSkipped} 件をスキップ${options.dryRun ? "（dry-run）" : ""}`,
     );
     return 0;
   } catch (error) {
@@ -82,6 +116,9 @@ function serializeCaptionLine(caption) {
   const words = caption.words === undefined
     ? ""
     : `,"words":${JSON.stringify(caption.words)}`;
+  const unrecognized = caption.unrecognized === undefined
+    ? ""
+    : `,"unrecognized":${JSON.stringify(caption.unrecognized)}`;
   const style = caption.style === undefined
     ? ""
     : `,"style":${JSON.stringify(caption.style)}`;
@@ -91,7 +128,7 @@ function serializeCaptionLine(caption) {
   return `{"id":${JSON.stringify(caption.id)},"start":${JSON.stringify(caption.start)},`
     + `"end":${JSON.stringify(caption.end)},"text":${JSON.stringify(caption.text)},`
     + `"speaker":${caption.speaker === null ? "null" : JSON.stringify(caption.speaker)},`
-    + `"sourceRef":${sourceRef},"edited":${caption.edited ? "true" : "false"}${words}${style}${displayText}}`;
+    + `"sourceRef":${sourceRef},"edited":${caption.edited ? "true" : "false"}${words}${unrecognized}${style}${displayText}}`;
 }
 
 function parseArguments(args) {
@@ -147,6 +184,43 @@ function isCaptionRange(caption) {
     && typeof caption.end === "number"
     && Number.isFinite(caption.end)
     && caption.end > caption.start;
+}
+
+function isUnrecognizedSpan(span) {
+  return span !== null
+    && typeof span === "object"
+    && typeof span.start === "number"
+    && Number.isFinite(span.start)
+    && typeof span.end === "number"
+    && Number.isFinite(span.end)
+    && span.end > span.start;
+}
+
+function clipSpansToRange(spans, start, end) {
+  const rangeStart = roundMs(Number(start));
+  const rangeEnd = roundMs(Number(end));
+  if (!Number.isFinite(rangeStart) || !Number.isFinite(rangeEnd) || rangeEnd <= rangeStart) return [];
+  const clipped = (Array.isArray(spans) ? spans : []).flatMap((span) => {
+    const clippedStart = roundMs(Math.max(rangeStart, Number(span?.start)));
+    const clippedEnd = roundMs(Math.min(rangeEnd, Number(span?.end)));
+    return Number.isFinite(clippedStart) && Number.isFinite(clippedEnd) && clippedEnd > clippedStart
+      ? [{ start: clippedStart, end: clippedEnd }]
+      : [];
+  }).sort((left, right) => left.start - right.start || left.end - right.end);
+  const merged = [];
+  for (const span of clipped) {
+    const previous = merged.at(-1);
+    if (previous && span.start <= previous.end) {
+      previous.end = roundMs(Math.max(previous.end, span.end));
+    } else {
+      merged.push({ ...span });
+    }
+  }
+  return merged;
+}
+
+function roundMs(value) {
+  return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : value;
 }
 
 function renderDifference(before, after, captionsPath) {

@@ -1,0 +1,148 @@
+{
+  "task": "2026-09-02-transcript-unrecognized-spans",
+  "layer": "L1",
+  "generator": "packages/akari-tools/evidence/unrecognized-spans/run.mjs",
+  "status": "PASS",
+  "notes": [
+    "書き出しは変種ごとにプロジェクトを複製して行う（render-cut は成功後に出力を edit.json の sources[] へ追記するため、同じ作業場で続けて描くと 2 回目以降の条件が変わる）。",
+    "既定の出口は gpu。osr 出口は検証機で frame stamp verify が通らず（origin/main でも実書き出しテスト 31 件が同じ理由で失敗）、AKARI_OSR_VERIFY=off で回避すると描画がビット再現しなくなるため framemd5 比較には使えない。"
+  ],
+  "blocked": [],
+  "checks": [
+    {
+      "name": "transcribe unrecognized = [{2.0±0.05, 2.6±0.05}]",
+      "status": "PASS",
+      "ok": true,
+      "detail": "[{\"start\":2,\"end\":2.6}]"
+    },
+    {
+      "name": "analysis.json transcript[0].unrecognized が同一",
+      "status": "PASS",
+      "ok": true,
+      "detail": "[{\"start\":2,\"end\":2.6}]"
+    },
+    {
+      "name": "fill-caption-words が unrecognized を 1 字幕へ持ち越す",
+      "status": "PASS",
+      "ok": true,
+      "detail": "[{\"start\":2,\"end\":2.6}]"
+    },
+    {
+      "name": "words も従来どおり充填される（2 語）",
+      "status": "PASS",
+      "ok": true,
+      "detail": "[{\"start\":0,\"end\":1,\"text\":\"あ\"},{\"start\":3.4,\"end\":4.4,\"text\":\"い\"}]"
+    },
+    {
+      "name": "validate-captions.mjs exit 0",
+      "status": "PASS",
+      "ok": true,
+      "detail": "OK"
+    },
+    {
+      "name": "edit-lint findings 0（warning 含む）",
+      "status": "PASS",
+      "ok": true,
+      "detail": "[]"
+    },
+    {
+      "name": "描画計画（--plan-only の render.json、captions.json / lint.json のハッシュを除く）が unrecognized の有無で同一",
+      "status": "PASS",
+      "ok": true,
+      "detail": "1892 bytes 一致"
+    },
+    {
+      "name": "実書き出しの ffprobe（frames / duration / size / fps）が unrecognized の有無で一致",
+      "status": "PASS",
+      "ok": true,
+      "detail": "150"
+    },
+    {
+      "name": "対照: 同一入力を 2 回描いて framemd5 が再現する（この機体の描画再現性の測定）",
+      "status": "PASS",
+      "ok": true,
+      "detail": "reproducible"
+    },
+    {
+      "name": "unrecognized 有無で framemd5 一致",
+      "status": "PASS",
+      "ok": true,
+      "detail": "150 frames"
+    }
+  ],
+  "measured": {
+    "transcribe_unrecognized": [
+      {
+        "start": 2,
+        "end": 2.6
+      }
+    ],
+    "analysis_unrecognized": [
+      {
+        "start": 2,
+        "end": 2.6
+      }
+    ],
+    "fill_log": [
+      "words 2 件・2 件を 1 字幕へ充填・既存 words 0 件をスキップ",
+      "未認識 1 区間を 1 字幕へ充填・既存 unrecognized 0 件をスキップ"
+    ],
+    "caption_unrecognized": [
+      {
+        "start": 2,
+        "end": 2.6
+      }
+    ],
+    "caption_words": [
+      {
+        "start": 0,
+        "end": 1,
+        "text": "あ"
+      },
+      {
+        "start": 3.4,
+        "end": 4.4,
+        "text": "い"
+      }
+    ],
+    "validate_exit": 0,
+    "lint_exit": 0,
+    "lint_findings": [],
+    "render_engine": "gpu",
+    "osr_verify": "stamp",
+    "plan_diff": [],
+    "framemd5_frames": 150,
+    "framemd5_reproducible_same_input": true,
+    "framemd5_equal_with_without": true,
+    "ffprobe_with": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "width": 640,
+          "height": 360,
+          "avg_frame_rate": "30/1",
+          "nb_read_frames": "150"
+        }
+      ],
+      "format": {
+        "duration": "5.000000"
+      }
+    },
+    "ffprobe_without": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "width": 640,
+          "height": 360,
+          "avg_frame_rate": "30/1",
+          "nb_read_frames": "150"
+        }
+      ],
+      "format": {
+        "duration": "5.000000"
+      }
+    }
+  }
+}

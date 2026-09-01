@@ -737,6 +737,57 @@ test("captions-word-out-of-range fixture warns without failing", async () => {
   });
 });
 
+test("malformed caption unrecognized[] is a captions.schema error", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕", speaker: null,
+      sourceRef: null, edited: false, unrecognized: [{ start: 2.2, end: "2.5" }],
+    }])}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 1, executed.stderr);
+    const result = parseResult(executed);
+    assert.ok(result.findings.some((finding) =>
+      finding.check === "captions.schema" && /unrecognized span/.test(finding.message)));
+  });
+});
+
+test("caption 範囲外の unrecognized は warning だけを出す", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕", speaker: null,
+      sourceRef: null, edited: false, unrecognized: [{ start: 1.8, end: 2.2 }],
+    }])}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    const finding = result.findings.find((item) => item.check === "captions.unrecognized-range");
+    assert.equal(finding?.severity, "warning");
+    assert.deepEqual(finding?.range, { start: 1.8, end: 2.2 });
+  });
+});
+
+test("word と重なる unrecognized は warning だけを出す", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v1-valid");
+    await writeFile(join(project, "captions.json"), `${JSON.stringify([{
+      id: "c-0001", src: "s1", start: 2, end: 3, text: "字幕", speaker: null,
+      sourceRef: null, edited: false,
+      words: [{ start: 2.1, end: 2.5, text: "字幕" }],
+      unrecognized: [{ start: 2.4, end: 2.7 }],
+    }])}\n`, "utf8");
+    const executed = run(project);
+    assert.equal(executed.status, 0, executed.stderr);
+    const result = parseResult(executed);
+    const finding = result.findings.find(
+      (item) => item.check === "captions.unrecognized-overlaps-word",
+    );
+    assert.equal(finding?.severity, "warning");
+    assert.deepEqual(finding?.range, { start: 2.4, end: 2.7 });
+  });
+});
+
 test("captions-short-duration fixture warns only below the 1.0s readability floor", async () => {
   await withFixtures(async (fixtures) => {
     const executed = run(join(fixtures, "captions-short-duration"));

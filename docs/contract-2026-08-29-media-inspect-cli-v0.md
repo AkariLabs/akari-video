@@ -126,7 +126,7 @@ ffmpeg / ffprobe / whisper.cpp を直接叩いている。本契約はそれを 
   transcribe の要否を決めるゲートに使い、字幕の根拠にはしない
 - 目安コスト: 秒。帳面には `tracks.waveform` として追記（§3）
 
-### 2.5 `akari media transcribe <target> [--in <time> --out <time>] [--backend <name>] [--lang <code>]`
+### 2.5 `akari media transcribe <target> [--in <time> --out <time>] [--backend <name>] [--lang <code>] [--no-unrecognized] [--unrecognized-min-gap <sec>] [--unrecognized-min-voiced <sec>]`
 
 何を喋っているかを、語ごとの時刻つきで返す。
 
@@ -143,6 +143,7 @@ ffmpeg / ffprobe / whisper.cpp を直接叩いている。本契約はそれを 
 ```
 
 - `segments[]` の形は analysis.json v0 の `transcript[]` と同一（そのまま写せる）。時刻は **source 秒**
+- 各 segment は任意の `unrecognized: [{ start, end }]` に「音はあるが文字にできなかった区間」を持てる。既定は語の隙間 0.45 秒以上から無音を引いた残り 0.3 秒以上を採用し、`--unrecognized-min-gap` / `--unrecognized-min-voiced` で閾値を変え、`--no-unrecognized` で検出を止める。キャッシュ key は従来どおりで、古い cache hit に `unrecognized` が無い場合は仕様どおりそのまま返し、再 transcribe で付与する
 - バックエンドは analyze-footage の 3 層と同じ優先順: macOS SpeechAnalyzer（26+・swiftc 可）→ whisper.cpp → クラウド。
   **クラウドは `--backend cloud:<connection-id>` を明示したときだけ**で、`.akari/connections.json` に doctor `ok` で
   登録済みの接続に限る。既定で外部に音声を送らない。キーの値を stdout / stderr / 出力ファイルに出さない

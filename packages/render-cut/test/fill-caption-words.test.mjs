@@ -12,11 +12,17 @@ const writeFile = createMigratingWriteFile(rawWriteFile);
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cliPath = join(packageRoot, "bin", "fill-caption-words.mjs");
 
-function analysisWith(words) {
+function analysisWith(words, unrecognized) {
   return {
     version: 0,
     source: "source.mp4",
-    transcript: [{ start: 0, end: 4, text: "境界をまたぐ字幕です", ...(words === undefined ? {} : { words }) }],
+    transcript: [{
+      start: 0,
+      end: 4,
+      text: "境界をまたぐ字幕です",
+      ...(words === undefined ? {} : { words }),
+      ...(unrecognized === undefined ? {} : { unrecognized }),
+    }],
     keyframes: [],
     events: [],
     tracks: { speakers: [], faces: [], person_matte: null },
@@ -209,5 +215,58 @@ test("fills an explicitly empty words array without --force", async () => {
     assert.equal(result.status, 0, result.stderr);
     const [updated] = JSON.parse(await readFile(captionsPath, "utf8"));
     assert.deepEqual(updated.words, [WORDS[1], WORDS[2], WORDS[3]]);
+  });
+});
+
+test("unrecognized を字幕範囲へ切り詰めて words と独立に持ち越す", async () => {
+  const spans = [{ start: 0.8, end: 1.2 }, { start: 1.8, end: 2.2 }];
+  const captions = [{
+    id: "c-1", start: 1, end: 2, text: "字幕", speaker: null, sourceRef: null, edited: false,
+  }];
+  await withFixture(analysisWith(undefined, spans), captions, async ({ analysisPath, captionsPath }) => {
+    const result = run(analysisPath, captionsPath);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /未認識 2 区間を 1 字幕へ充填/u);
+    const [updated] = JSON.parse(await readFile(captionsPath, "utf8"));
+    assert.deepEqual(updated.unrecognized, [
+      { start: 1, end: 1.2 }, { start: 1.8, end: 2 },
+    ]);
+    assert.equal(Object.hasOwn(updated, "words"), false);
+  });
+});
+
+test("既存 unrecognized は既定で保持し --force のときだけ上書きする", async () => {
+  const existing = [{ start: 1.3, end: 1.4 }];
+  const incoming = [{ start: 1.6, end: 1.8 }];
+  const captions = [{
+    id: "c-1", start: 1, end: 2, text: "字幕", speaker: null, sourceRef: null, edited: false,
+    unrecognized: existing,
+  }];
+  await withFixture(analysisWith(undefined, incoming), captions, async ({ analysisPath, captionsPath }) => {
+    const skipped = run(analysisPath, captionsPath);
+    assert.equal(skipped.status, 0, skipped.stderr);
+    assert.match(skipped.stdout, /既存 unrecognized 1 件をスキップ/u);
+    assert.deepEqual(JSON.parse(await readFile(captionsPath, "utf8"))[0].unrecognized, existing);
+
+    const forced = run(analysisPath, captionsPath, ["--force"]);
+    assert.equal(forced.status, 0, forced.stderr);
+    assert.deepEqual(JSON.parse(await readFile(captionsPath, "utf8"))[0].unrecognized, incoming);
+  });
+});
+
+test("1 行直列化では unrecognized を words の直後に置く", async () => {
+  const spans = [{ start: 1.4, end: 1.6 }];
+  const captions = [{
+    id: "c-1", start: 1, end: 2, text: "字幕", speaker: null, sourceRef: null, edited: false,
+  }];
+  await withFixture(analysisWith(WORDS, spans), captions, async ({ analysisPath, captionsPath }) => {
+    const result = run(analysisPath, captionsPath);
+    assert.equal(result.status, 0, result.stderr);
+    const source = await readFile(captionsPath, "utf8");
+    const [line] = source.split("\n").slice(1, 2);
+    assert.ok(line.indexOf('"words"') < line.indexOf('"unrecognized"'));
+    assert.deepEqual(Object.keys(JSON.parse(line.trim())), [
+      "id", "start", "end", "text", "speaker", "sourceRef", "edited", "words", "unrecognized",
+    ]);
   });
 });
