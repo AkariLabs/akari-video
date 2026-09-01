@@ -1,0 +1,48 @@
+{
+  "note": "OSR tier 2 (npm electron in the repo under test, soft profile). BEFORE = git archive of the lane's base commit, AFTER = this branch. Same captions.json bytes for both.",
+  "captions_json_sha256": "1fc1c81c15d2b9223393d72d93f57229ac485803f70fc45d2035b0d599d692e2",
+  "frames": {
+    "t0.5": {
+      "before": "de968f655ba23c2abfa0efde39e79ac9585cb1095902f4df39d16119b558ca0b",
+      "after": "de968f655ba23c2abfa0efde39e79ac9585cb1095902f4df39d16119b558ca0b"
+    },
+    "t1.0": {
+      "before": "ba32393e7feba8fb05537fc193e4f9ce082a34b77a5c941bd69462a7307f107a",
+      "after": "ba32393e7feba8fb05537fc193e4f9ce082a34b77a5c941bd69462a7307f107a"
+    },
+    "t1.4": {
+      "before": "4e86230fc85401b76220fd6ec769017149648b679c7b65f999337c5b54c33c84",
+      "after": "4e86230fc85401b76220fd6ec769017149648b679c7b65f999337c5b54c33c84"
+    }
+  },
+  "negative_control": {
+    "note": "same tree, captions default_text_style changed to tc/y=0.2 - the frame sha must differ, proving the comparison is sensitive",
+    "after_t1.0": "ba32393e7feba8fb05537fc193e4f9ce082a34b77a5c941bd69462a7307f107a",
+    "neg_t1.0": "3e3cc44a2d9b07d8da860275309631184ea70a937e55203b152b11a993cb808b"
+  },
+  "frames_identical": true,
+  "launcher": {
+    "before": {
+      "tier": 2,
+      "reason": "package optionalDependency",
+      "fellBackToLegacy": false,
+      "provenance": {
+        "engine": "osr",
+        "launcher_tier": 2,
+        "verify": "off"
+      },
+      "profile": "soft"
+    },
+    "after": {
+      "tier": 2,
+      "reason": "package optionalDependency",
+      "fellBackToLegacy": false,
+      "provenance": {
+        "engine": "osr",
+        "launcher_tier": 2,
+        "verify": "off"
+      },
+      "profile": "soft"
+    }
+  }
+}

@@ -58,6 +58,15 @@ test('木 item snapshot がインスペクターへ時間・変形・外観を�
   assert.match(inspectorWidgetSource, /id: 'transform', label: '変形'/u);
 });
 
+test('字幕位置は 3x3 grid から preview 所有の hover/preset イベントへ流す', () => {
+  assert.match(inspectorWidgetSource, /inputKind: 'zone-grid'/u);
+  assert.match(inspectorWidgetSource, /akari-caption-zone-grid/u);
+  assert.match(inspectorWidgetSource, /akari\.caption\.zoneHover/u);
+  assert.match(inspectorWidgetSource, /akari\.caption\.zonePreset/u);
+  assert.match(inspectorWidgetSource, /saved\.textContent = '保存中'/u);
+  assert.doesNotMatch(inspectorWidgetSource, /name: 'caption-zone'[\s\S]{0,500}kind: 'caption-style-zone'/u);
+});
+
 test('イージングは選択点の実値を表示し、DOM プリセット hover を既存 throttle へ流す', () => {
   assert.match(inspectorWidgetSource, /selectedKeyframe\.easing \?\? 'linear'/u);
   assert.match(inspectorWidgetSource, /INSPECTOR_LIVE_PREVIEW_THROTTLE_MS/u);

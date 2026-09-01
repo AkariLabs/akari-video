@@ -8,8 +8,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+    captionGroupPositionFromRects,
+    persistCaptionGroupPosition,
     persistCaptionText,
     persistCaptionZone,
+    updateCaptionGroupPositionSource,
+    updateCaptionGroupZoneSource,
     updateCaptionTextSource,
     updateCaptionZoneSource
 } from '../lib/common/caption-zone-write.js';
@@ -18,6 +22,73 @@ const here = dirname(fileURLToPath(import.meta.url));
 const handlerSource = readFileSync(join(here, '..', 'src', 'browser', 'akari-preview-open-handler.ts'), 'utf8');
 const require = createRequire(import.meta.url);
 const { lintProjectCandidates } = require('../../../../../packages/edit-store/lib/write-gate.js');
+
+test('caption group landing switches bc/tc, omits centered x, and snaps the lower edge to 93%', () => {
+    const frame = { x: 100, y: 50, width: 1000, height: 500 };
+    assert.deepEqual(captionGroupPositionFromRects({
+        left: 510, right: 690, top: 400, bottom: 519
+    }, frame), {
+        anchor: 'bc',
+        position: { y: 0.93 }
+    });
+    assert.deepEqual(captionGroupPositionFromRects({
+        left: 180, right: 360, top: 100, bottom: 180
+    }, frame), {
+        anchor: 'tc',
+        position: { x: 0.08, y: 0.1 }
+    });
+});
+
+test('caption group landing clamps and rounds deterministically to four decimal places', () => {
+    const input = {
+        plate: { left: 223.45678, right: 423.45678, top: -20, bottom: 333.33333 },
+        frame: { x: 100, y: 50, width: 777, height: 333 }
+    };
+    const first = captionGroupPositionFromRects(input.plate, input.frame);
+    const second = captionGroupPositionFromRects(input.plate, input.frame);
+    assert.deepEqual(first, { anchor: 'tc', position: { x: 0.1589, y: 0 } });
+    assert.deepEqual(second, first);
+});
+
+test('group position normalizes an array root and changes only default_text_style', () => {
+    const cues = [{
+        id: 'c-0001', start: 0, end: 1, text: '一', speaker: null,
+        text_style: { zone: 'top-left', color: '#fff', position: { x: 0.2, y: 0.3 } }
+    }, {
+        id: 'c-0002', start: 1, end: 2, text: '二', speaker: null,
+        text_style: { text_anchor: 'tr', zone: 'right' }
+    }];
+    const result = JSON.parse(updateCaptionGroupPositionSource(JSON.stringify(cues), {
+        anchor: 'bc', position: { y: 0.93 }
+    }));
+    assert.deepEqual(result, {
+        captions: cues,
+        default_text_style: { text_anchor: 'bc', position: { y: 0.93 } }
+    });
+});
+
+test('group position deletes default zone while group zone deletes position and text_anchor', () => {
+    const root = {
+        default_text_style: {
+            color: '#fff', zone: 'bottom-right', text_anchor: 'tc', position: { x: 0.2, y: 0.1 }
+        },
+        captions: [{
+            id: 'c-0001', start: 0, end: 1, text: '字幕', speaker: null,
+            text_style: { zone: 'left', text_anchor: 'bc', position: { y: 0.8 } }
+        }]
+    };
+    const positioned = JSON.parse(updateCaptionGroupPositionSource(JSON.stringify(root), {
+        anchor: 'tc', position: { x: 0.1234, y: 0.2345 }
+    }));
+    assert.deepEqual(positioned.default_text_style, {
+        color: '#fff', text_anchor: 'tc', position: { x: 0.1234, y: 0.2345 }
+    });
+    assert.deepEqual(positioned.captions, root.captions);
+
+    const zoned = JSON.parse(updateCaptionGroupZoneSource(JSON.stringify(positioned), 'top-right'));
+    assert.deepEqual(zoned.default_text_style, { color: '#fff', zone: 'top-right' });
+    assert.deepEqual(zoned.captions, root.captions);
+});
 
 for (const rootShape of ['array', 'object']) {
     test(`caption zone persists after serialization and reload (${rootShape} root)`, () => {
@@ -80,6 +151,35 @@ test('successful caption write refreshes the webview instead of suppressing its 
     assert.match(handler, /this\.queueCaptionsUpdate\(widget\)/);
 });
 
+test('caption drag follows the visual plate and writes one group position on release', () => {
+    assert.match(handlerSource, /captionPlate\.style\.translate = outputDx \+ 'px ' \+ outputDy \+ 'px'/);
+    assert.match(handlerSource, /Math\.abs\(centerRatio - 0\.5\) < 0\.03/);
+    assert.match(handlerSource, /Math\.abs\(bottomRatio - 0\.93\) < 0\.02/);
+    assert.match(handlerSource, /const captionVisualRect =/);
+    assert.match(handlerSource, /querySelectorAll\('\.akari-caption__line'\)/);
+    assert.match(handlerSource, /\{ groupPosition \}/);
+    assert.match(handlerSource, /pendingCaptionDragReload = true/);
+    assert.match(handlerSource, /akari-preview-captions-update'[\s\S]*captionPlate\.style\.translate = ''/);
+    assert.doesNotMatch(handlerSource, /zoneFromFraction/);
+});
+
+test('caption drag converts client geometry to output pixels and display pixels only at the selection box', () => {
+    assert.match(handlerSource, /interaction\?\.stageLocalPoint\?\.\(clientX, clientY\)/);
+    assert.match(handlerSource, /const topLeft = captionOutputPoint\(clientRect\.left, clientRect\.top\)/);
+    assert.match(handlerSource, /left: frameRect\.x \+ rect\.left \* frameScale/);
+    assert.match(handlerSource, /const outputFrame = captionOutputFrame\(\)/);
+    assert.match(handlerSource, /captionGroupPositionFromRects\([\s\S]{0,120}captionVisualRect\(\),[\s\S]{0,40}outputFrame/);
+    assert.doesNotMatch(handlerSource, /captionGroupPositionFromRects\([\s\S]{0,120}captionVisualRect\(\),[\s\S]{0,40}frameRect/);
+});
+
+test('caption group badge, drag guides, and inspector zone highlight are wired', () => {
+    assert.match(handlerSource, /字幕グループ — 動かすと全字幕が動く/);
+    assert.match(handlerSource, /caption-drag-guide-center/);
+    assert.match(handlerSource, /caption-drag-guide-bottom/);
+    assert.match(handlerSource, /akari-preview-caption-zone-hover/);
+    assert.match(handlerSource, /persistCaptionGroupZoneForWidget/);
+});
+
 test('caption inline edit wiring pauses playback, supports commit/cancel, and guards rerender', () => {
     assert.match(handlerSource, /captionPlate\.addEventListener\('dblclick'/);
     assert.match(handlerSource, /element\.setAttribute\('contenteditable', 'true'\)/);
@@ -125,6 +225,43 @@ test('caption zone passes the project lint gate and is written to captions.json'
         assert.equal(result.pass, true, result.errors.join('\n'));
         const [saved] = JSON.parse(await readFile(captionsPath, 'utf8'));
         assert.equal(saved.text_style.zone, 'top-right');
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('caption group position passes the project lint gate and is written to default_text_style', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'caption-group-position-write-'));
+    const captionsPath = join(root, 'captions.json');
+    try {
+        await mkdir(join(root, 'assets'));
+        await writeFile(join(root, 'assets', 'a.mp4'), 'fixture');
+        await writeFile(join(root, 'edit.json'), JSON.stringify({
+            version: 2,
+            output: { width: 1920, height: 1080, fps: 30 },
+            sources: [{ id: 'a', path: 'assets/a.mp4' }],
+            tracks: [{
+                id: 'v-main', lane: 'visual', items: [
+                    { id: 'cut-a', at: 0, duration: 180, source: { kind: 'media', src: 'a', in: 0, out: 6 } }
+                ]
+            }]
+        }, null, 2));
+        await writeFile(captionsPath, JSON.stringify([{
+            id: 'c-0001', start: 0.3, end: 2, text: '字幕', speaker: null,
+            sourceRef: null, edited: false, src: 'a', text_style: { color: '#ffffff' }
+        }], null, 2));
+        const result = await persistCaptionGroupPosition({
+            source: await readFile(captionsPath, 'utf8'),
+            value: { anchor: 'tc', position: { x: 0.125, y: 0.2 } },
+            lint: candidate => lintProjectCandidates(root, { 'captions.json': candidate }),
+            write: candidate => writeFile(captionsPath, candidate, 'utf8')
+        });
+        assert.equal(result.pass, true, result.errors.join('\n'));
+        const saved = JSON.parse(await readFile(captionsPath, 'utf8'));
+        assert.deepEqual(saved.default_text_style, {
+            text_anchor: 'tc', position: { x: 0.125, y: 0.2 }
+        });
+        assert.equal(saved.captions[0].text_style.color, '#ffffff');
     } finally {
         await rm(root, { recursive: true, force: true });
     }
