@@ -201,10 +201,13 @@ test('insertCutIntoEdit: insertIndex の位置へ割り込む（末尾 append �
         source: { path: 'media/source.mov', proxy: null },
         cuts: [{ in: 0, out: 4 }, { in: 10, out: 13 }], overlays: []
     });
-    const result = insertCutIntoEdit(
-        edit, 'media/source.mov', { mode: 'sequential', at: 4, insertIndex: 1 }, 2, 0
-    );
-    assert.deepEqual(readLegacyView(result.value).cuts.map(cut => cut.out), [4, 2, 13]);
+    const plan = planCutDrop(readLegacyView(edit).cuts, 0, 3, 2);
+    // v2 で既存 item と at を衝突させると、重なった item は legacy 投影で layers へ振り分けられる。
+    // 本番経路の planCutDrop が返す空き位置を使い、宣言配列への割り込みを検証する。
+    const result = insertCutIntoEdit(edit, 'media/source.mov', plan, 2, 0);
+    const cuts = readLegacyView(result.value).cuts;
+    assert.deepEqual(cuts.map(cut => cut.out), [4, 2, 13]);
+    assert.deepEqual(cuts.map(cut => cut.at), [0, 7, 4]);
 });
 
 test('insertCutIntoEdit: v2 で同じ path の source があれば再利用して増やさない', () => {
