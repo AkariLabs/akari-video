@@ -157,7 +157,7 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 | 時刻 `T`、cuts、gap、track | ✅ 評価 | ✅ 呼び出し・提示 | ✅ 呼び出し・提示 | ✅ 連番駆動 | ✅ 連番駆動 |
 | framing / transform / opacity / freeze | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | layers / perspective / keyframes | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
-| cuts の crop / transform / opacity keyframes（v2 media item・layer-style） | ✅ 評価（2026-09-01） | ✅ 完成 frame を提示 | ✅ DOM 層（`applyLayerStyleMediaLayout`） | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
+| cuts の crop / transform / opacity keyframes（v2 media item・layer-style） | ✅ 評価（2026-09-01） | 🟡 `public/frame-engine.bundle.js` の再生成待ち | ✅ DOM 層（`applyLayerStyleMediaLayout`） | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | cuts の perspective | 🟡 未適用・warning のみ（issue #39） | 🟡 同左 | ✅ DOM 層 | 🟡 warning を run.json へ | 🟡 warning を run.json へ |
 | 5 transitions | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | matte / chroma key | ✅ 評価 | ✅ stamp 同期 | ✅ stamp 同期 | ✅ stamp 同期・捕捉 | ✅ 同一 frame 評価 |
