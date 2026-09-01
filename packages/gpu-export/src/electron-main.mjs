@@ -124,6 +124,7 @@ export async function runGpuExport(options) {
   let windowRef = null;
   let chunkState = null;
   let rendererFailure = null;
+  let viewport = null;
   const channels = [
     "gpu:config", "gpu:log", "gpu:checkpoint", "gpu:chunks-start", "gpu:chunk", "gpu:chunks-finish",
     "gpu:capture-frame",
@@ -144,6 +145,7 @@ export async function runGpuExport(options) {
       },
       memory: memorySampler.snapshot(),
       eligibility: built.eligibility,
+      viewport,
     };
     await writeFile(runPath, `${JSON.stringify(running, null, 2)}\n`);
     if (Number.isInteger(value?.framesCompleted)) {
@@ -216,6 +218,12 @@ export async function runGpuExport(options) {
     });
     await windowRef.loadURL(server.url);
     if (rendererFailure) throw rendererFailure;
+    // Windows clamps a BrowserWindow to the physical display, so an output larger than the screen
+    // (issue #40 §1: 3840x2160 on a 1920x1080 display) resolves vw / vh against the clamped
+    // window. Measure the page viewport, pin it to the output size with device emulation when it
+    // differs, and fail closed when the page still disagrees with the requested output.
+    viewport = await settleWindowViewport(windowRef.webContents, { width, height });
+    if (rendererFailure) throw rendererFailure;
     const result = await executeWithTimeout(
       windowRef.webContents.executeJavaScript("window.__akariGpuRun()"),
       processTimeoutMs,
@@ -240,6 +248,7 @@ export async function runGpuExport(options) {
       },
       memory: { ...memory, warnings: memoryWarnings },
       eligibility: built.eligibility,
+      viewport,
       ffprobe: result?.mux?.ffprobe ?? null,
     };
     await writeFile(runPath, `${JSON.stringify(run, null, 2)}\n`);
@@ -262,6 +271,7 @@ export async function runGpuExport(options) {
       },
       memory: memorySampler.stop("failed"),
       eligibility: built.eligibility,
+      viewport: viewport ?? error?.viewport ?? null,
     };
     await writeFile(runPath, `${JSON.stringify(failed, null, 2)}\n`).catch(() => {});
     throw error;
@@ -291,6 +301,98 @@ export function extractCaptionMeasureDiffs(error) {
   const encoded = message.slice(start + CAPTION_MEASURE_DIFF_MARKER.length).split(/\s/u, 1)[0];
   try { return JSON.parse(decodeURIComponent(encoded)); }
   catch { return null; }
+}
+
+/**
+ * Viewport pinning for outputs larger than the physical display (issue #40 §1).
+ *
+ * The pure helpers below take plain numbers so they can be unit-tested without Electron:
+ * - `viewportMatches` compares the measured page viewport with the requested output.
+ * - `deviceEmulationParameters` builds the `webContents.enableDeviceEmulation` argument.
+ * - `planViewport` decides whether emulation is needed.
+ * - `verifyViewport` builds the run.json / receipt `viewport` record and throws (fail closed)
+ *   when the page still does not match the requested output.
+ */
+export function viewportMatches(requested, measured) {
+  return Number(measured?.width) === Number(requested?.width)
+    && Number(measured?.height) === Number(requested?.height)
+    && Number(measured?.devicePixelRatio ?? 1) === 1;
+}
+
+export function deviceEmulationParameters({ width, height }) {
+  return {
+    screenPosition: "desktop",
+    screenSize: { width, height },
+    viewPosition: { x: 0, y: 0 },
+    viewSize: { width, height },
+    deviceScaleFactor: 1,
+    scale: 1,
+  };
+}
+
+export function planViewport({ requested, measured }) {
+  return viewportMatches(requested, measured)
+    ? { emulate: false, parameters: null }
+    : { emulate: true, parameters: deviceEmulationParameters(requested) };
+}
+
+export function viewportRecord({ requested, measured, emulated, display }) {
+  return {
+    requested: { width: Number(requested?.width), height: Number(requested?.height) },
+    measured: { width: Number(measured?.width), height: Number(measured?.height) },
+    emulated: Boolean(emulated),
+    display: { width: Number(display?.width), height: Number(display?.height) },
+  };
+}
+
+export function verifyViewport({ requested, measured, emulated = false, display = {} }) {
+  const record = viewportRecord({ requested, measured, emulated, display });
+  if (viewportMatches(requested, measured)) return record;
+  const error = new Error(
+    `GPU viewport mismatch${emulated ? " after device emulation" : ""}: `
+    + `requested ${record.requested.width}x${record.requested.height} (devicePixelRatio 1), `
+    + `measured ${record.measured.width}x${record.measured.height} `
+    + `(devicePixelRatio ${Number(measured?.devicePixelRatio ?? 1)}), `
+    + `primary display ${record.display.width}x${record.display.height}; `
+    + "vw / vh in the DOM layer would resolve against the wrong size, so the export fails closed",
+  );
+  error.viewport = record;
+  throw error;
+}
+
+const VIEWPORT_SETTLE_TIMEOUT_MS = 2_000;
+
+// Runs inside the page. Device emulation reaches the renderer asynchronously, so the re-measurement
+// waits for the viewport to reach the expected size (or for the timeout) before reporting.
+const PAGE_VIEWPORT_PROBE = String((expected, timeoutMs) => new Promise((resolve) => {
+  const read = () => [window.innerWidth, window.innerHeight, window.devicePixelRatio];
+  const matches = () => expected !== null
+    && window.innerWidth === expected.width && window.innerHeight === expected.height && window.devicePixelRatio === 1;
+  if (expected === null || timeoutMs <= 0 || matches()) { resolve(read()); return; }
+  const started = performance.now();
+  let timer = null;
+  const finish = () => { window.removeEventListener("resize", check); clearInterval(timer); resolve(read()); };
+  const check = () => { if (matches() || performance.now() - started >= timeoutMs) finish(); };
+  window.addEventListener("resize", check);
+  timer = setInterval(check, 50);
+}));
+
+async function measurePageViewport(webContents, { expected = null, timeoutMs = 0 } = {}) {
+  const [width, height, devicePixelRatio] = await webContents.executeJavaScript(
+    `(${PAGE_VIEWPORT_PROBE})(${JSON.stringify(expected)}, ${Number(timeoutMs)})`,
+  );
+  return { width, height, devicePixelRatio };
+}
+
+async function settleWindowViewport(webContents, requested) {
+  const display = electron.screen.getPrimaryDisplay().size;
+  let measured = await measurePageViewport(webContents);
+  const plan = planViewport({ requested, measured });
+  if (plan.emulate) {
+    webContents.enableDeviceEmulation(plan.parameters);
+    measured = await measurePageViewport(webContents, { expected: requested, timeoutMs: VIEWPORT_SETTLE_TIMEOUT_MS });
+  }
+  return verifyViewport({ requested, measured, emulated: plan.emulate, display });
 }
 
 export function gpuRawFramePath(out, frameNumber) {

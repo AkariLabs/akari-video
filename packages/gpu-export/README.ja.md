@@ -69,6 +69,14 @@ MP4 SHA が一致しましたが、大きな文字 overlay を多数含む 5,400
 アンチエイリアスが確率的に変化しました（MAD 0.0001〜0.0003、差分画素 11〜41 個）。sentinel は全て一致し、
 ラスタライズ関連フラグでも揺れは解消しませんでした。
 
+出力解像度が物理ディスプレイより大きい場合（例: 1920×1080 の画面で 3840×2160 を書き出す）、OS は
+非表示の `BrowserWindow` をディスプレイに切り詰めるため、DOM 層 overlay の `vw` / `vh` / `vmin` /
+`vmax` が出力ではなく切り詰められた窓に対して解決されてしまいます。Electron main はページ読み込み後に
+`innerWidth` / `innerHeight` / `devicePixelRatio` を実測し、要求した出力寸法と一致しなければ
+`webContents.enableDeviceEmulation` で viewport を出力解像度へ固定して再実測します。それでも固定
+できない環境は fail-closed で失敗し、エラーに requested / measured / primary display の寸法を含めます。
+run.json と receipt には `viewport: { requested, measured, emulated, display }` を記録します。
+
 毎コマの合成は土台 1 draw と、連続するスプライト種別ごとのインスタンス draw になり、字幕・DOM 層・
 3D スプライトの本数が増えても draw 呼び出し回数は増えません。字幕 3 cue 同時では、字幕なしに対する
 追加 GPU 時間が +1.65 ms/コマまで縮小し、`drawArrays` の合計 GPU 時間は字幕あり 3.12 ms/コマ、
