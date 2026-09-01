@@ -160,6 +160,10 @@ import {
 } from './timeline/timeline-tree-model';
 import { calculateTimelineTrackHeight, timelineTreeRowOffset } from './timeline/timeline-track-height';
 import {
+    assignDetachedCaptionChipSubRows,
+    detachedCaptionChipRows
+} from './timeline/detached-caption-chip-layout';
+import {
     enterFocusScope,
     exitFocusScope,
     focusScopeAtBreadcrumb,
@@ -632,6 +636,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly extraKeyframeProperties = new Map<string, Set<KeyframeProperty>>();
     protected readonly timelineCollapsedIds = new Set<string>();
     protected treeRowsByTrack = new Map<string, TimelineTreeRow[]>();
+    /** ヘッダ列へ行を生やさず、帯のチップだけに描くトップレベル caption 葉。 */
+    protected detachedCaptionChipRows: TimelineTreeRow[] = [];
     protected timelineCollapsedState: TimelineCollapsedState | undefined;
     /** pinAudioGroupToBottom 前の射影順。edit-lint が検査する timeline.tracks と同じ値。 */
     protected compatibilityTimelineTracks: EditTimelineTrack[] = [];
@@ -4544,6 +4550,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ? visibleTimelineTreeRows(this.timelineTreeRows)
             : this.timelineTreeRows;
         this.treeRowsByTrack = rowsByTrack(headerRows);
+        this.detachedCaptionChipRows = detachedCaptionChipRows(this.timelineTreeRows, headerRows);
         this.keyframeRowsByItem.clear();
         if (this.focusScope.rootId !== null) {
             for (const row of headerRows) {
@@ -4586,21 +4593,35 @@ export class AkariAnnotationsWidget extends BaseWidget {
         for (const timelineTrack of [...this.displayTimelineTracks].reverse()) {
             if (this.focusScope.rootId !== null && !(this.treeRowsByTrack.get(timelineTrack.id)?.length)) continue;
             const ref = timelineTrack.ref ?? 0;
+            const captionRows = this.detachedCaptionChipRows.filter(row => row.trackId === timelineTrack.id);
+            let captionRowsMixedWithItems = false;
             let height = SUBROW_STRIDE;
             if (timelineTrack.kind === 'cuts') {
                 height = this.trackHeightFor(timelineTrack);
             } else if (timelineTrack.kind === 'layers') {
                 const items = this.layers.filter(layer => (layer.track ?? 0) === ref && isTopLevelItem(layer.id));
-                const rows = assignSubRows(items.map(layer => ({ start: layer.t, end: layer.t + layer.duration })));
-                items.forEach((layer, index) => this.layerRows.set(layer.id, rows[index] ?? 0));
-                height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
+                const chipLayout = assignDetachedCaptionChipSubRows(
+                    items.map(layer => ({ id: layer.id, start: layer.t, end: layer.t + layer.duration })),
+                    captionRows,
+                    { placement: 'mix', baseHeight: SUBROW_STRIDE, subrowStride: SUBROW_STRIDE }
+                );
+                items.forEach(layer => this.layerRows.set(layer.id, chipLayout.rowById.get(layer.id) ?? 0));
+                captionRows.forEach(row => this.overlayRows.set(row.id, chipLayout.rowById.get(row.id) ?? 0));
+                height = chipLayout.height;
+                captionRowsMixedWithItems = true;
             } else if (timelineTrack.kind === 'overlays') {
                 const items = this.overlays.filter(overlay => overlay.track === ref && isTopLevelItem(overlay.id));
-                const rows = assignSubRows(items.map(overlay => ({
-                    start: overlay.start, end: overlay.start + overlay.duration
-                })));
-                items.forEach((overlay, index) => this.overlayRows.set(overlay.id, rows[index] ?? 0));
-                height = (rows.length ? Math.max(...rows) + 1 : 1) * SUBROW_STRIDE;
+                const chipLayout = assignDetachedCaptionChipSubRows(
+                    items.map(overlay => ({
+                        id: overlay.id, start: overlay.start, end: overlay.start + overlay.duration
+                    })),
+                    captionRows,
+                    { placement: 'mix', baseHeight: SUBROW_STRIDE, subrowStride: SUBROW_STRIDE }
+                );
+                items.forEach(overlay => this.overlayRows.set(overlay.id, chipLayout.rowById.get(overlay.id) ?? 0));
+                captionRows.forEach(row => this.overlayRows.set(row.id, chipLayout.rowById.get(row.id) ?? 0));
+                height = chipLayout.height;
+                captionRowsMixedWithItems = true;
             } else if (timelineTrack.kind === 'captions') {
                 height = SUBROW_STRIDE;
             } else {
@@ -4656,6 +4677,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 propertyRowCount,
                 subrowStride: SUBROW_STRIDE
             });
+            if (!captionRowsMixedWithItems && captionRows.length > 0) {
+                const chipLayout = assignDetachedCaptionChipSubRows([], captionRows, {
+                    placement: 'append', baseHeight: height, subrowStride: SUBROW_STRIDE
+                });
+                captionRows.forEach(row => this.overlayRows.set(row.id, chipLayout.rowById.get(row.id) ?? 0));
+                height = chipLayout.height;
+            }
             const layout = {
                 id: timelineTrack.id, kind: timelineTrack.kind, track: ref, top: nextTop, height,
                 hidden: !!timelineTrack.hidden, muted: !!timelineTrack.muted
@@ -5062,16 +5090,24 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 }
             });
         }
-        for (const row of [...this.treeRowsByTrack.values()].flat()) {
+        for (const row of [
+            ...this.treeRowsByTrack.values(),
+            this.detachedCaptionChipRows
+        ].flat()) {
             const layout = this.laneLayout.tracks.find(candidate => candidate.id === row.trackId);
             const rowIndex = this.overlayRows.get(row.id) ?? -1;
             if (layout && rowIndex >= 0) this.renderKeyframePropertyRows(row, layout.top, rowIndex);
             if (renderedItemIds.has(row.id)) continue;
             if (!layout || rowIndex < 0 || !this.isRangeMounted(row.at, row.at + row.duration)) continue;
+            const raw = row.sourceKind === 'caption' ? this.rawKeyframeItem(row.id) : undefined;
+            const captionId = raw?.source?.kind === 'caption' ? raw.source.id : undefined;
+            const label = typeof captionId === 'string'
+                ? this.captions.find(caption => caption.id === captionId)?.text ?? row.label
+                : row.label;
             const { element, created } = this.keyedStripSegment(
-                `tree:${row.id}`, JSON.stringify(row), row.at, row.at + row.duration,
+                `tree:${row.id}`, JSON.stringify({ row, label }), row.at, row.at + row.duration,
                 layout.top + rowIndex * SUBROW_STRIDE, SUBROW_HEIGHT,
-                'akari-annotations-strip-overlay akari-timeline-tree-item', row.label
+                'akari-annotations-strip-overlay akari-timeline-tree-item', label
             );
             element.dataset.akariItemKind = 'item';
             element.dataset.akariItemId = row.id;
@@ -5080,7 +5116,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             element.dataset.akariTreeTrackId = row.trackId;
             element.style.pointerEvents = 'auto';
             if (created) {
-                element.appendChild(this.segmentLabel(row.label));
+                element.appendChild(this.segmentLabel(label));
                 this.appendMotionMarks(element, this.rawKeyframeItem(row.id)?.motion);
                 this.appendAggregateDiamonds(element, row);
                 for (const tick of row.ticks) {

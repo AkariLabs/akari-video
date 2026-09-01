@@ -1,0 +1,1042 @@
+{
+  "status": "PASS",
+  "finishedAt": "2026-09-01T12:17:51.119Z",
+  "records": [
+    {
+      "t": "2026-09-01T12:17:49.804Z",
+      "step": "assertion-ok",
+      "message": "timeline opened"
+    },
+    {
+      "t": "2026-09-01T12:17:49.814Z",
+      "step": "assertion-ok",
+      "message": "all remaining caption chips have BEFORE rectangles",
+      "remainingCueIds": [
+        "c-0001",
+        "c-0002",
+        "c-0004",
+        "c-0005",
+        "c-0006"
+      ],
+      "beforeRemaining": [
+        {
+          "id": "c-0001",
+          "rect": {
+            "left": 380.2890625,
+            "top": 990,
+            "width": 132.484375,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0002",
+          "rect": {
+            "left": 536.15625,
+            "top": 990,
+            "width": 124.6875,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0004",
+          "rect": {
+            "left": 863.4765625,
+            "top": 990,
+            "width": 109.1015625,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0005",
+          "rect": {
+            "left": 995.96875,
+            "top": 990,
+            "width": 101.3125,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0006",
+          "rect": {
+            "left": 1120.6640625,
+            "top": 990,
+            "width": 77.9296875,
+            "height": 22
+          }
+        }
+      ]
+    },
+    {
+      "t": "2026-09-01T12:17:49.814Z",
+      "step": "assertion-ok",
+      "message": "unrelated control chips have BEFORE rectangles",
+      "beforeControls": [
+        {
+          "id": "cut-0",
+          "selector": "[data-akari-item-kind=\"cut\"][data-akari-item-id=\"0\"]",
+          "rect": {
+            "left": 356.9140625,
+            "top": 1016,
+            "width": 467.6015625,
+            "height": 52
+          }
+        },
+        {
+          "id": "pip-b",
+          "selector": "[data-akari-item-kind=\"layer\"][data-akari-item-id=\"pip-b\"]",
+          "rect": {
+            "left": 434.84375,
+            "top": 964,
+            "width": 311.734375,
+            "height": 22
+          }
+        }
+      ]
+    },
+    {
+      "t": "2026-09-01T12:17:49.814Z",
+      "step": "before",
+      "allItemRects": [
+        {
+          "index": 0,
+          "id": "g-deco",
+          "kind": "item",
+          "className": "",
+          "rect": {
+            "left": 220.9140625,
+            "top": 887,
+            "width": 136,
+            "height": 22
+          }
+        },
+        {
+          "index": 1,
+          "id": "caps",
+          "kind": "item",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-bag akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 356.9140625,
+            "top": 990,
+            "width": 857.265625,
+            "height": 22
+          }
+        },
+        {
+          "index": 2,
+          "id": "g-deco",
+          "kind": "item",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 512.78125,
+            "top": 886,
+            "width": 311.734375,
+            "height": 22
+          }
+        },
+        {
+          "index": 3,
+          "id": "c-0001",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 380.2890625,
+            "top": 990,
+            "width": 132.484375,
+            "height": 22
+          }
+        },
+        {
+          "index": 4,
+          "id": "c-0002",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 536.15625,
+            "top": 990,
+            "width": 124.6875,
+            "height": 22
+          }
+        },
+        {
+          "index": 5,
+          "id": "c-0003",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 684.234375,
+            "top": 990,
+            "width": 124.6875,
+            "height": 22
+          }
+        },
+        {
+          "index": 6,
+          "id": "c-0004",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 863.4765625,
+            "top": 990,
+            "width": 109.1015625,
+            "height": 22
+          }
+        },
+        {
+          "index": 7,
+          "id": "c-0005",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 995.96875,
+            "top": 990,
+            "width": 101.3125,
+            "height": 22
+          }
+        },
+        {
+          "index": 8,
+          "id": "c-0006",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 1120.6640625,
+            "top": 990,
+            "width": 77.9296875,
+            "height": 22
+          }
+        },
+        {
+          "index": 9,
+          "id": "intro",
+          "kind": "overlay",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 356.9140625,
+            "top": 912,
+            "width": 389.6640625,
+            "height": 22
+          }
+        },
+        {
+          "index": 10,
+          "id": "pip-b",
+          "kind": "layer",
+          "className": "akari-annotations-strip-layer akari-annotations-strip-layer-video akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 434.84375,
+            "top": 964,
+            "width": 311.734375,
+            "height": 22
+          }
+        },
+        {
+          "index": 11,
+          "id": "telop-chapter",
+          "kind": "layer",
+          "className": "akari-annotations-strip-layer akari-annotations-strip-layer-baked akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 434.84375,
+            "top": 938,
+            "width": 233.796875,
+            "height": 22
+          }
+        },
+        {
+          "index": 12,
+          "id": "bgm",
+          "kind": "audio",
+          "className": "akari-annotations-strip-audio akari-annotations-strip-audio-bgm akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 356.9140625,
+            "top": 1070,
+            "width": 857.265625,
+            "height": 28
+          }
+        },
+        {
+          "index": 13,
+          "id": "0",
+          "kind": "cut",
+          "className": "akari-annotations-strip-clip akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 356.9140625,
+            "top": 1016,
+            "width": 467.6015625,
+            "height": 52
+          }
+        },
+        {
+          "index": 14,
+          "id": "1",
+          "kind": "cut",
+          "className": "akari-annotations-strip-clip akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 824.515625,
+            "top": 1016,
+            "width": 389.6640625,
+            "height": 52
+          }
+        }
+      ],
+      "remainingCaptionRects": [
+        {
+          "id": "c-0001",
+          "rect": {
+            "left": 380.2890625,
+            "top": 990,
+            "width": 132.484375,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0002",
+          "rect": {
+            "left": 536.15625,
+            "top": 990,
+            "width": 124.6875,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0004",
+          "rect": {
+            "left": 863.4765625,
+            "top": 990,
+            "width": 109.1015625,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0005",
+          "rect": {
+            "left": 995.96875,
+            "top": 990,
+            "width": 101.3125,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0006",
+          "rect": {
+            "left": 1120.6640625,
+            "top": 990,
+            "width": 77.9296875,
+            "height": 22
+          }
+        }
+      ],
+      "controlChipRects": [
+        {
+          "id": "cut-0",
+          "selector": "[data-akari-item-kind=\"cut\"][data-akari-item-id=\"0\"]",
+          "rect": {
+            "left": 356.9140625,
+            "top": 1016,
+            "width": 467.6015625,
+            "height": 52
+          }
+        },
+        {
+          "id": "pip-b",
+          "selector": "[data-akari-item-kind=\"layer\"][data-akari-item-id=\"pip-b\"]",
+          "rect": {
+            "left": 434.84375,
+            "top": 964,
+            "width": 311.734375,
+            "height": 22
+          }
+        }
+      ]
+    },
+    {
+      "t": "2026-09-01T12:17:49.955Z",
+      "step": "assertion-ok",
+      "message": "caption bag child is visible for context menu",
+      "sourceTarget": {
+        "x": 746.578125,
+        "y": 1001,
+        "width": 124.6875,
+        "height": 22
+      }
+    },
+    {
+      "t": "2026-09-01T12:17:50.064Z",
+      "step": "assertion-ok",
+      "message": "detached caption is exactly one strip chip and not a header row",
+      "count": 1,
+      "label": "この行を「出す」対象にする",
+      "itemKind": "item",
+      "treeItemKind": "caption",
+      "headerCount": 0
+    },
+    {
+      "t": "2026-09-01T12:17:50.064Z",
+      "step": "assertion-ok",
+      "message": "detached caption label comes from captions.json",
+      "count": 1,
+      "label": "この行を「出す」対象にする",
+      "itemKind": "item",
+      "treeItemKind": "caption",
+      "headerCount": 0
+    },
+    {
+      "t": "2026-09-01T12:17:50.065Z",
+      "step": "remaining-caption-geometry",
+      "beforeRemaining": [
+        {
+          "id": "c-0001",
+          "rect": {
+            "left": 380.2890625,
+            "top": 990,
+            "width": 132.484375,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0002",
+          "rect": {
+            "left": 536.15625,
+            "top": 990,
+            "width": 124.6875,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0004",
+          "rect": {
+            "left": 863.4765625,
+            "top": 990,
+            "width": 109.1015625,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0005",
+          "rect": {
+            "left": 995.96875,
+            "top": 990,
+            "width": 101.3125,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0006",
+          "rect": {
+            "left": 1120.6640625,
+            "top": 990,
+            "width": 77.9296875,
+            "height": 22
+          }
+        }
+      ],
+      "afterRemaining": [
+        {
+          "id": "c-0001",
+          "rect": {
+            "left": 380.2890625,
+            "top": 987,
+            "width": 132.484375,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0002",
+          "rect": {
+            "left": 536.15625,
+            "top": 987,
+            "width": 124.6875,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0004",
+          "rect": {
+            "left": 863.4765625,
+            "top": 987,
+            "width": 109.1015625,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0005",
+          "rect": {
+            "left": 995.96875,
+            "top": 987,
+            "width": 101.3125,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0006",
+          "rect": {
+            "left": 1120.6640625,
+            "top": 987,
+            "width": 77.9296875,
+            "height": 22
+          }
+        }
+      ],
+      "deltaTop": -3,
+      "controlDeltas": [
+        {
+          "id": "cut-0",
+          "before": {
+            "left": 356.9140625,
+            "top": 1016,
+            "width": 467.6015625,
+            "height": 52
+          },
+          "after": {
+            "left": 356.9140625,
+            "top": 1013,
+            "width": 467.6015625,
+            "height": 52
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "pip-b",
+          "before": {
+            "left": 434.84375,
+            "top": 964,
+            "width": 311.734375,
+            "height": 22
+          },
+          "after": {
+            "left": 434.84375,
+            "top": 935,
+            "width": 311.734375,
+            "height": 22
+          },
+          "deltaTop": -29
+        }
+      ]
+    },
+    {
+      "t": "2026-09-01T12:17:50.066Z",
+      "step": "assertion-ok",
+      "message": "remaining caption chips keep identical left, width, and height",
+      "remainingGeometry": [
+        {
+          "id": "c-0001",
+          "before": {
+            "left": 380.2890625,
+            "top": 990,
+            "width": 132.484375,
+            "height": 22
+          },
+          "after": {
+            "left": 380.2890625,
+            "top": 987,
+            "width": 132.484375,
+            "height": 22
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "c-0002",
+          "before": {
+            "left": 536.15625,
+            "top": 990,
+            "width": 124.6875,
+            "height": 22
+          },
+          "after": {
+            "left": 536.15625,
+            "top": 987,
+            "width": 124.6875,
+            "height": 22
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "c-0004",
+          "before": {
+            "left": 863.4765625,
+            "top": 990,
+            "width": 109.1015625,
+            "height": 22
+          },
+          "after": {
+            "left": 863.4765625,
+            "top": 987,
+            "width": 109.1015625,
+            "height": 22
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "c-0005",
+          "before": {
+            "left": 995.96875,
+            "top": 990,
+            "width": 101.3125,
+            "height": 22
+          },
+          "after": {
+            "left": 995.96875,
+            "top": 987,
+            "width": 101.3125,
+            "height": 22
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "c-0006",
+          "before": {
+            "left": 1120.6640625,
+            "top": 990,
+            "width": 77.9296875,
+            "height": 22
+          },
+          "after": {
+            "left": 1120.6640625,
+            "top": 987,
+            "width": 77.9296875,
+            "height": 22
+          },
+          "deltaTop": -3
+        }
+      ]
+    },
+    {
+      "t": "2026-09-01T12:17:50.066Z",
+      "step": "assertion-ok",
+      "message": "remaining caption chips share one top delta",
+      "remainingGeometry": [
+        {
+          "id": "c-0001",
+          "before": {
+            "left": 380.2890625,
+            "top": 990,
+            "width": 132.484375,
+            "height": 22
+          },
+          "after": {
+            "left": 380.2890625,
+            "top": 987,
+            "width": 132.484375,
+            "height": 22
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "c-0002",
+          "before": {
+            "left": 536.15625,
+            "top": 990,
+            "width": 124.6875,
+            "height": 22
+          },
+          "after": {
+            "left": 536.15625,
+            "top": 987,
+            "width": 124.6875,
+            "height": 22
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "c-0004",
+          "before": {
+            "left": 863.4765625,
+            "top": 990,
+            "width": 109.1015625,
+            "height": 22
+          },
+          "after": {
+            "left": 863.4765625,
+            "top": 987,
+            "width": 109.1015625,
+            "height": 22
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "c-0005",
+          "before": {
+            "left": 995.96875,
+            "top": 990,
+            "width": 101.3125,
+            "height": 22
+          },
+          "after": {
+            "left": 995.96875,
+            "top": 987,
+            "width": 101.3125,
+            "height": 22
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "c-0006",
+          "before": {
+            "left": 1120.6640625,
+            "top": 990,
+            "width": 77.9296875,
+            "height": 22
+          },
+          "after": {
+            "left": 1120.6640625,
+            "top": 987,
+            "width": 77.9296875,
+            "height": 22
+          },
+          "deltaTop": -3
+        }
+      ],
+      "remainingDeltaTops": [
+        -3
+      ]
+    },
+    {
+      "t": "2026-09-01T12:17:50.066Z",
+      "step": "assertion-ok",
+      "message": "remaining caption top delta matches an unrelated control chip",
+      "deltaTop": -3,
+      "controlDeltas": [
+        {
+          "id": "cut-0",
+          "before": {
+            "left": 356.9140625,
+            "top": 1016,
+            "width": 467.6015625,
+            "height": 52
+          },
+          "after": {
+            "left": 356.9140625,
+            "top": 1013,
+            "width": 467.6015625,
+            "height": 52
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "pip-b",
+          "before": {
+            "left": 434.84375,
+            "top": 964,
+            "width": 311.734375,
+            "height": 22
+          },
+          "after": {
+            "left": 434.84375,
+            "top": 935,
+            "width": 311.734375,
+            "height": 22
+          },
+          "deltaTop": -29
+        }
+      ]
+    },
+    {
+      "t": "2026-09-01T12:17:50.066Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-item-id=\"cap-c-0003\"]",
+      "target": {
+        "x": 746.578125,
+        "y": 972,
+        "width": 124.6875,
+        "height": 22
+      }
+    },
+    {
+      "t": "2026-09-01T12:17:50.895Z",
+      "step": "assertion-ok",
+      "message": "detached caption selection is reflected in the inspector",
+      "selected": true,
+      "captionId": "c-0003",
+      "visible": true
+    },
+    {
+      "t": "2026-09-01T12:17:51.021Z",
+      "step": "assertion-ok",
+      "message": "Alt+ArrowDown writes transform.y on the detached caption item",
+      "beforeY": null,
+      "afterY": 1
+    },
+    {
+      "t": "2026-09-01T12:17:51.023Z",
+      "step": "after",
+      "detachedItemId": "cap-c-0003",
+      "detachedState": {
+        "count": 1,
+        "label": "この行を「出す」対象にする",
+        "itemKind": "item",
+        "treeItemKind": "caption",
+        "headerCount": 0
+      },
+      "inspector": {
+        "selected": true,
+        "captionId": "c-0003",
+        "visible": true
+      },
+      "transformY": 1,
+      "allItemRects": [
+        {
+          "index": 0,
+          "id": "g-deco",
+          "kind": "item",
+          "className": "",
+          "rect": {
+            "left": 220.9140625,
+            "top": 874,
+            "width": 136,
+            "height": 22
+          }
+        },
+        {
+          "index": 1,
+          "id": "caps",
+          "kind": "item",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-bag akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 356.9140625,
+            "top": 1003,
+            "width": 857.265625,
+            "height": 22
+          }
+        },
+        {
+          "index": 2,
+          "id": "g-deco",
+          "kind": "item",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 512.78125,
+            "top": 873,
+            "width": 311.734375,
+            "height": 22
+          }
+        },
+        {
+          "index": 3,
+          "id": "cap-c-0003",
+          "kind": "item",
+          "className": "akari-annotations-strip-overlay akari-timeline-tree-item akari-annotations-strip-hit-target akari-annotations-selected",
+          "rect": {
+            "left": 684.234375,
+            "top": 977,
+            "width": 124.6875,
+            "height": 22
+          }
+        },
+        {
+          "index": 4,
+          "id": "c-0001",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 380.2890625,
+            "top": 1003,
+            "width": 132.484375,
+            "height": 22
+          }
+        },
+        {
+          "index": 5,
+          "id": "c-0002",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 536.15625,
+            "top": 1003,
+            "width": 124.6875,
+            "height": 22
+          }
+        },
+        {
+          "index": 6,
+          "id": "c-0004",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 863.4765625,
+            "top": 1003,
+            "width": 109.1015625,
+            "height": 22
+          }
+        },
+        {
+          "index": 7,
+          "id": "c-0005",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 995.96875,
+            "top": 1003,
+            "width": 101.3125,
+            "height": 22
+          }
+        },
+        {
+          "index": 8,
+          "id": "c-0006",
+          "kind": "caption",
+          "className": "akari-annotations-strip-caption akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 1120.6640625,
+            "top": 1003,
+            "width": 77.9296875,
+            "height": 22
+          }
+        },
+        {
+          "index": 9,
+          "id": "intro",
+          "kind": "overlay",
+          "className": "akari-annotations-strip-overlay akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 356.9140625,
+            "top": 899,
+            "width": 389.6640625,
+            "height": 22
+          }
+        },
+        {
+          "index": 10,
+          "id": "pip-b",
+          "kind": "layer",
+          "className": "akari-annotations-strip-layer akari-annotations-strip-layer-video akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 434.84375,
+            "top": 951,
+            "width": 311.734375,
+            "height": 22
+          }
+        },
+        {
+          "index": 11,
+          "id": "telop-chapter",
+          "kind": "layer",
+          "className": "akari-annotations-strip-layer akari-annotations-strip-layer-baked akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 434.84375,
+            "top": 925,
+            "width": 233.796875,
+            "height": 22
+          }
+        },
+        {
+          "index": 12,
+          "id": "bgm",
+          "kind": "audio",
+          "className": "akari-annotations-strip-audio akari-annotations-strip-audio-bgm akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 356.9140625,
+            "top": 1083,
+            "width": 857.265625,
+            "height": 28
+          }
+        },
+        {
+          "index": 13,
+          "id": "0",
+          "kind": "cut",
+          "className": "akari-annotations-strip-clip akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 356.9140625,
+            "top": 1029,
+            "width": 467.6015625,
+            "height": 52
+          }
+        },
+        {
+          "index": 14,
+          "id": "1",
+          "kind": "cut",
+          "className": "akari-annotations-strip-clip akari-annotations-strip-hit-target",
+          "rect": {
+            "left": 824.515625,
+            "top": 1029,
+            "width": 389.6640625,
+            "height": 52
+          }
+        }
+      ],
+      "remainingCaptionRects": [
+        {
+          "id": "c-0001",
+          "rect": {
+            "left": 380.2890625,
+            "top": 987,
+            "width": 132.484375,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0002",
+          "rect": {
+            "left": 536.15625,
+            "top": 987,
+            "width": 124.6875,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0004",
+          "rect": {
+            "left": 863.4765625,
+            "top": 987,
+            "width": 109.1015625,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0005",
+          "rect": {
+            "left": 995.96875,
+            "top": 987,
+            "width": 101.3125,
+            "height": 22
+          }
+        },
+        {
+          "id": "c-0006",
+          "rect": {
+            "left": 1120.6640625,
+            "top": 987,
+            "width": 77.9296875,
+            "height": 22
+          }
+        }
+      ],
+      "deltaTop": -3,
+      "controlDeltas": [
+        {
+          "id": "cut-0",
+          "before": {
+            "left": 356.9140625,
+            "top": 1016,
+            "width": 467.6015625,
+            "height": 52
+          },
+          "after": {
+            "left": 356.9140625,
+            "top": 1013,
+            "width": 467.6015625,
+            "height": 52
+          },
+          "deltaTop": -3
+        },
+        {
+          "id": "pip-b",
+          "before": {
+            "left": 434.84375,
+            "top": 964,
+            "width": 311.734375,
+            "height": 22
+          },
+          "after": {
+            "left": 434.84375,
+            "top": 935,
+            "width": 311.734375,
+            "height": 22
+          },
+          "deltaTop": -29
+        }
+      ]
+    }
+  ]
+}
