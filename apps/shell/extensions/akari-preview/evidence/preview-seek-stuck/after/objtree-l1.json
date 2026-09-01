@@ -4,163 +4,199 @@
     "frameEngineActive": "true",
     "hasClock": true,
     "seekMax": 11,
-    "playAdvanceSeconds": 2.266,
+    "playAdvanceSeconds": 2.133,
     "playPass": true,
     "seekTimeA": 1,
     "seekTimeB": 4.5,
-    "seekShaA": "0eeb8695abb87a71e50f25af272be505694aaa5e0afd1a39432d768a7f302ddd",
-    "seekShaB": "1babe2477b981e7c759146115837fe2b4ba112a50a0b2ea9cd331d9f4f2b0315",
+    "seekShaA": "bb48ea70f94fbce5b722453a060cd144fd95aa876e888f8a9c3805291dfeb765",
+    "seekShaB": "47af1096ac11f1b96fa003143776d02a1bd60d5eeb64224ed3b950427914e617",
     "seekShotsDiffer": true,
     "seekPass": true,
     "consoleErrors": 0,
-    "unhandledExceptions": 0
+    "unhandledExceptions": 0,
+    "executableScriptParseErrors": [],
+    "nonJsScriptsSkipped": 0
   },
   "records": [
     {
-      "t": "2026-08-31T01:06:41.582Z",
+      "t": "2026-09-01T04:32:23.780Z",
       "step": "main-attached",
-      "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=59317#<SCRATCH>/proj-objtree"
+      "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=52465#<SCRATCH>/objtree"
     },
     {
-      "t": "2026-08-31T01:06:43.443Z",
+      "t": "2026-09-01T04:32:25.312Z",
       "step": "viewport-override",
       "w": 1680,
       "h": 1000,
       "dpr": 1
     },
     {
-      "t": "2026-08-31T01:06:43.462Z",
+      "t": "2026-09-01T04:32:25.314Z",
       "step": "edit-card",
       "x": 125.45703125,
       "y": 616.296875,
-      "text": "編集データ2026-08-31 08:07 · edit.json"
+      "text": "編集データ2026-09-01 13:09 · edit.json"
     },
     {
-      "t": "2026-08-31T01:06:44.056Z",
+      "t": "2026-09-01T04:32:25.512Z",
       "step": "opened-edit-json"
     },
     {
-      "t": "2026-08-31T01:06:47.749Z",
+      "t": "2026-09-01T04:32:28.983Z",
       "step": "collapse-left",
       "done": true
     },
     {
-      "t": "2026-08-31T01:06:48.839Z",
+      "t": "2026-09-01T04:32:29.964Z",
       "step": "collapse-right",
       "done": true
     },
     {
-      "t": "2026-08-31T01:07:03.782Z",
+      "t": "2026-09-01T04:32:32.290Z",
       "step": "preview-attached",
-      "previewTargetId": "4B834B4A7C832F280F3CC623C5EC91D4"
+      "previewTargetId": "B9EA0365F6A5B9E052B8A5DB3D85C4C7"
     },
     {
-      "t": "2026-08-31T01:07:04.032Z",
+      "t": "2026-09-01T04:32:32.346Z",
       "step": "inline-script-parse-check",
       "scripts": [
         {
           "i": 0,
+          "type": "",
           "len": 2159,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 1,
-          "len": 5530,
+          "type": "",
+          "len": 5715,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 2,
+          "type": "",
           "len": 270,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 3,
-          "len": 54022,
+          "type": "",
+          "len": 54151,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 4,
+          "type": "",
           "len": 776523,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 5,
+          "type": "",
           "len": 92968,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 6,
+          "type": "",
           "len": 26085,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 7,
-          "len": 19571,
+          "type": "",
+          "len": 28433,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 8,
-          "len": 66945,
+          "type": "",
+          "len": 64204,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 9,
+          "type": "",
           "len": 48749,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 10,
-          "len": 337416,
+          "type": "",
+          "len": 343274,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 11,
-          "len": 1042234,
+          "type": "",
+          "len": 5939,
+          "executable": true,
           "isBootstrap": true,
           "parse": "ok"
         },
         {
           "i": 12,
+          "type": "",
+          "len": 1049731,
+          "executable": true,
+          "isBootstrap": true,
+          "parse": "ok"
+        },
+        {
+          "i": 13,
+          "type": "",
           "len": 30581,
+          "executable": true,
           "isBootstrap": true,
           "parse": "ok"
         }
       ]
     },
     {
-      "t": "2026-08-31T01:07:04.199Z",
+      "t": "2026-09-01T04:32:32.348Z",
       "step": "webview-offsets",
       "outer": [
         {
           "id": "",
           "cls": "webview",
-          "src": "http://9ccf4607-491e-59c0-ba07-b490c1b0167a.webview.localhost:59317/webview/index.html?id=akari-output-preview-1ckj74v",
+          "src": "http://613a811a-943d-509f-a81f-7533637619aa.webview.localhost:52465/webview/index.html?id=akari-output-preview-sl9p40",
           "x": 49,
           "y": 35,
-          "w": 1138,
+          "w": 1582,
           "h": 569.3984375
         }
       ],
       "inner": {
         "x": 0,
         "y": 0,
-        "w": 1138,
+        "w": 1582,
         "h": 570
       }
     },
     {
-      "t": "2026-08-31T01:07:08.365Z",
+      "t": "2026-09-01T04:32:36.358Z",
       "step": "state-before-play",
       "seekValue": 0,
       "seekMax": 11,
@@ -171,18 +207,18 @@
       "timeText": "0:00 / 0:11"
     },
     {
-      "t": "2026-08-31T01:07:08.421Z",
+      "t": "2026-09-01T04:32:36.366Z",
       "step": "play-button-abs",
-      "left": 602,
+      "left": 824,
       "top": 563,
       "width": 32,
       "height": 32
     },
     {
-      "t": "2026-08-31T01:07:08.539Z",
+      "t": "2026-09-01T04:32:36.371Z",
       "step": "play-hit-test",
       "rect": {
-        "l": 553,
+        "l": 775,
         "t": 528,
         "w": 32,
         "h": 32
@@ -193,68 +229,68 @@
       "siblings": [
         {
           "id": "skip-back",
-          "l": 473,
+          "l": 695,
           "t": 528,
           "w": 32,
           "h": 32
         },
         {
           "id": "frame-back",
-          "l": 513,
+          "l": 735,
           "t": 528,
           "w": 32,
           "h": 32
         },
         {
           "id": "play-toggle",
-          "l": 553,
+          "l": 775,
           "t": 528,
           "w": 32,
           "h": 32
         },
         {
           "id": "frame-forward",
-          "l": 593,
+          "l": 815,
           "t": 528,
           "w": 32,
           "h": 32
         },
         {
           "id": "skip-forward",
-          "l": 633,
+          "l": 855,
           "t": 528,
           "w": 32,
           "h": 32
         }
       ],
-      "vw": 1138
+      "vw": 1582
     },
     {
-      "t": "2026-08-31T01:07:09.148Z",
+      "t": "2026-09-01T04:32:36.865Z",
       "step": "play-probe-events",
       "events": [
         {
           "type": "pointerdown",
           "target": "path",
-          "x": 569,
+          "x": 791,
           "y": 544
         },
         {
           "type": "mousedown",
           "target": "path",
-          "x": 569,
+          "x": 791,
           "y": 544
         },
         {
           "type": "click",
           "target": "path",
-          "x": 569,
+          "x": 791,
           "y": 544
         }
       ]
     },
     {
-      "t": "2026-08-31T01:07:09.181Z",
+      "t": "2026-09-01T04:32:36.873Z",
       "step": "state-after-play-click",
       "seekValue": 0.267,
       "seekMax": 11,
@@ -265,23 +301,23 @@
       "timeText": "0:00 / 0:11"
     },
     {
-      "t": "2026-08-31T01:07:11.294Z",
+      "t": "2026-09-01T04:32:38.881Z",
       "step": "play-measurement",
-      "elapsedMs": 2111,
+      "elapsedMs": 2007,
       "from": 0.267,
-      "to": 2.533,
-      "advance": 2.266,
+      "to": 2.4,
+      "advance": 2.133,
       "playLabel": "一時停止"
     },
     {
-      "t": "2026-08-31T01:07:16.615Z",
+      "t": "2026-09-01T04:32:43.257Z",
       "step": "seek-a",
       "requested": 1,
-      "x": 188.45454545454544,
+      "x": 228.8181818181818,
       "rect": {
         "left": 85,
         "top": 537,
-        "width": 1066,
+        "width": 1510,
         "height": 16
       },
       "max": 11,
@@ -296,19 +332,19 @@
       },
       "shot": {
         "file": "objtree-seek-a.png",
-        "sha256": "0eeb8695abb87a71e50f25af272be505694aaa5e0afd1a39432d768a7f302ddd",
-        "bytes": 88270
+        "sha256": "bb48ea70f94fbce5b722453a060cd144fd95aa876e888f8a9c3805291dfeb765",
+        "bytes": 88239
       }
     },
     {
-      "t": "2026-08-31T01:07:20.910Z",
+      "t": "2026-09-01T04:32:46.909Z",
       "step": "seek-b",
       "requested": 4.5,
-      "x": 522.5454545454545,
+      "x": 704.1818181818182,
       "rect": {
         "left": 85,
         "top": 537,
-        "width": 1066,
+        "width": 1510,
         "height": 16
       },
       "max": 11,
@@ -323,46 +359,48 @@
       },
       "shot": {
         "file": "objtree-seek-b.png",
-        "sha256": "1babe2477b981e7c759146115837fe2b4ba112a50a0b2ea9cd331d9f4f2b0315",
-        "bytes": 96236
+        "sha256": "47af1096ac11f1b96fa003143776d02a1bd60d5eeb64224ed3b950427914e617",
+        "bytes": 95088
       }
     },
     {
-      "t": "2026-08-31T01:07:20.932Z",
+      "t": "2026-09-01T04:32:46.909Z",
       "step": "console-summary",
       "count": 0,
       "errors": [],
       "warnings": []
     },
     {
-      "t": "2026-08-31T01:07:20.933Z",
+      "t": "2026-09-01T04:32:46.910Z",
       "step": "exceptions",
       "count": 0,
       "items": []
     },
     {
-      "t": "2026-08-31T01:07:20.933Z",
+      "t": "2026-09-01T04:32:46.910Z",
       "step": "log-entries",
       "count": 0,
       "items": []
     },
     {
-      "t": "2026-08-31T01:07:20.933Z",
+      "t": "2026-09-01T04:32:46.910Z",
       "step": "VERDICT",
       "label": "objtree",
       "frameEngineActive": "true",
       "hasClock": true,
       "seekMax": 11,
-      "playAdvanceSeconds": 2.266,
+      "playAdvanceSeconds": 2.133,
       "playPass": true,
       "seekTimeA": 1,
       "seekTimeB": 4.5,
-      "seekShaA": "0eeb8695abb87a71e50f25af272be505694aaa5e0afd1a39432d768a7f302ddd",
-      "seekShaB": "1babe2477b981e7c759146115837fe2b4ba112a50a0b2ea9cd331d9f4f2b0315",
+      "seekShaA": "bb48ea70f94fbce5b722453a060cd144fd95aa876e888f8a9c3805291dfeb765",
+      "seekShaB": "47af1096ac11f1b96fa003143776d02a1bd60d5eeb64224ed3b950427914e617",
       "seekShotsDiffer": true,
       "seekPass": true,
       "consoleErrors": 0,
-      "unhandledExceptions": 0
+      "unhandledExceptions": 0,
+      "executableScriptParseErrors": [],
+      "nonJsScriptsSkipped": 0
     }
   ],
   "consoleLines": [],

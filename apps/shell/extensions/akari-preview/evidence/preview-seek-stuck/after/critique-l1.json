@@ -4,169 +4,206 @@
     "frameEngineActive": "true",
     "hasClock": true,
     "seekMax": 11,
-    "playAdvanceSeconds": 2.1,
+    "playAdvanceSeconds": 2,
     "playPass": true,
     "seekTimeA": 1,
     "seekTimeB": 4.5,
-    "seekShaA": "606c1cae113cf6e11ebe4f11abf08f1f22a6635041f0ef7a12eb1738e2f94c46",
-    "seekShaB": "92798481f8eac88ba635ca5daca351464f4b27f6067ab6c3b11d09727f10f3dd",
+    "seekShaA": "a912e98e72f4a79d8dafcc00d83113d8b30ecdc6fc3f80b695cf320e3c2e3c83",
+    "seekShaB": "81f585e8e79460474fbd3ba3b170f2eeaa0820785566a8445198990590ec81ae",
     "seekShotsDiffer": true,
     "seekPass": true,
     "consoleErrors": 0,
-    "unhandledExceptions": 0
+    "unhandledExceptions": 0,
+    "executableScriptParseErrors": [],
+    "nonJsScriptsSkipped": 1
   },
   "records": [
     {
-      "t": "2026-08-31T01:05:02.126Z",
+      "t": "2026-09-01T04:32:56.582Z",
       "step": "main-attached",
-      "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=59210#<SCRATCH>/proj-critique"
+      "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=52573#<SCRATCH>/critique"
     },
     {
-      "t": "2026-08-31T01:05:04.039Z",
+      "t": "2026-09-01T04:32:58.126Z",
       "step": "viewport-override",
       "w": 1680,
       "h": 1000,
       "dpr": 1
     },
     {
-      "t": "2026-08-31T01:05:04.100Z",
+      "t": "2026-09-01T04:32:58.133Z",
       "step": "edit-card",
       "x": 125.45703125,
       "y": 616.296875,
-      "text": "編集データ2026-08-31 08:07 · edit.json"
+      "text": "編集データ2026-09-01 13:09 · edit.json"
     },
     {
-      "t": "2026-08-31T01:05:04.715Z",
+      "t": "2026-09-01T04:32:58.351Z",
       "step": "opened-edit-json"
     },
     {
-      "t": "2026-08-31T01:05:08.395Z",
+      "t": "2026-09-01T04:33:01.841Z",
       "step": "collapse-left",
       "done": true
     },
     {
-      "t": "2026-08-31T01:05:09.436Z",
+      "t": "2026-09-01T04:33:02.824Z",
       "step": "collapse-right",
       "done": true
     },
     {
-      "t": "2026-08-31T01:05:21.930Z",
+      "t": "2026-09-01T04:33:05.137Z",
       "step": "preview-attached",
-      "previewTargetId": "7F12A606AA2D6D444D7AD237CEC3D757"
+      "previewTargetId": "5DDC1B5D02EFC2D98A00E04E071141F0"
     },
     {
-      "t": "2026-08-31T01:05:22.168Z",
+      "t": "2026-09-01T04:33:05.200Z",
       "step": "inline-script-parse-check",
       "scripts": [
         {
           "i": 0,
+          "type": "",
           "len": 2159,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 1,
+          "type": "application/json",
           "len": 658,
-          "isBootstrap": false,
-          "parse": "Unexpected token ':'"
+          "executable": false,
+          "parse": "skipped (not javascript)"
         },
         {
           "i": 2,
-          "len": 1012954,
+          "type": "",
+          "len": 1013042,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 3,
+          "type": "",
           "len": 270,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 4,
-          "len": 54022,
+          "type": "",
+          "len": 54151,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 5,
+          "type": "",
           "len": 776523,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 6,
+          "type": "",
           "len": 92968,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 7,
+          "type": "",
           "len": 26085,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 8,
-          "len": 19571,
+          "type": "",
+          "len": 28433,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 9,
-          "len": 66945,
+          "type": "",
+          "len": 64204,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 10,
+          "type": "",
           "len": 48749,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 11,
-          "len": 337416,
+          "type": "",
+          "len": 343274,
+          "executable": true,
           "isBootstrap": false,
           "parse": "ok"
         },
         {
           "i": 12,
-          "len": 1042234,
+          "type": "",
+          "len": 5939,
+          "executable": true,
           "isBootstrap": true,
           "parse": "ok"
         },
         {
           "i": 13,
+          "type": "",
+          "len": 1049731,
+          "executable": true,
+          "isBootstrap": true,
+          "parse": "ok"
+        },
+        {
+          "i": 14,
+          "type": "",
           "len": 30581,
+          "executable": true,
           "isBootstrap": true,
           "parse": "ok"
         }
       ]
     },
     {
-      "t": "2026-08-31T01:05:22.228Z",
+      "t": "2026-09-01T04:33:05.205Z",
       "step": "webview-offsets",
       "outer": [
         {
           "id": "",
           "cls": "webview",
-          "src": "http://9b390d07-c806-5e29-8f2f-f67dad1e7330.webview.localhost:59210/webview/index.html?id=akari-output-preview-o94jp0",
+          "src": "http://dd9161c0-ec02-5f8e-b70c-e1b0fafa278c.webview.localhost:52573/webview/index.html?id=akari-output-preview-xomqmp",
           "x": 49,
           "y": 35,
-          "w": 1138,
+          "w": 1582,
           "h": 569.3984375
         }
       ],
       "inner": {
         "x": 0,
         "y": 0,
-        "w": 1138,
+        "w": 1582,
         "h": 570
       }
     },
     {
-      "t": "2026-08-31T01:05:26.485Z",
+      "t": "2026-09-01T04:33:09.210Z",
       "step": "state-before-play",
       "seekValue": 0,
       "seekMax": 11,
@@ -177,18 +214,18 @@
       "timeText": "0:00 / 0:11"
     },
     {
-      "t": "2026-08-31T01:05:26.529Z",
+      "t": "2026-09-01T04:33:09.212Z",
       "step": "play-button-abs",
-      "left": 602,
+      "left": 824,
       "top": 563,
       "width": 32,
       "height": 32
     },
     {
-      "t": "2026-08-31T01:05:26.543Z",
+      "t": "2026-09-01T04:33:09.214Z",
       "step": "play-hit-test",
       "rect": {
-        "l": 553,
+        "l": 775,
         "t": 528,
         "w": 32,
         "h": 32
@@ -199,70 +236,70 @@
       "siblings": [
         {
           "id": "skip-back",
-          "l": 473,
+          "l": 695,
           "t": 528,
           "w": 32,
           "h": 32
         },
         {
           "id": "frame-back",
-          "l": 513,
+          "l": 735,
           "t": 528,
           "w": 32,
           "h": 32
         },
         {
           "id": "play-toggle",
-          "l": 553,
+          "l": 775,
           "t": 528,
           "w": 32,
           "h": 32
         },
         {
           "id": "frame-forward",
-          "l": 593,
+          "l": 815,
           "t": 528,
           "w": 32,
           "h": 32
         },
         {
           "id": "skip-forward",
-          "l": 633,
+          "l": 855,
           "t": 528,
           "w": 32,
           "h": 32
         }
       ],
-      "vw": 1138
+      "vw": 1582
     },
     {
-      "t": "2026-08-31T01:05:27.070Z",
+      "t": "2026-09-01T04:33:09.700Z",
       "step": "play-probe-events",
       "events": [
         {
           "type": "pointerdown",
           "target": "path",
-          "x": 569,
+          "x": 791,
           "y": 544
         },
         {
           "type": "mousedown",
           "target": "path",
-          "x": 569,
+          "x": 791,
           "y": 544
         },
         {
           "type": "click",
           "target": "path",
-          "x": 569,
+          "x": 791,
           "y": 544
         }
       ]
     },
     {
-      "t": "2026-08-31T01:05:27.088Z",
+      "t": "2026-09-01T04:33:09.705Z",
       "step": "state-after-play-click",
-      "seekValue": 0.4,
+      "seekValue": 0.367,
       "seekMax": 11,
       "playDisabled": false,
       "playLabel": "一時停止",
@@ -271,23 +308,23 @@
       "timeText": "0:00 / 0:11"
     },
     {
-      "t": "2026-08-31T01:05:29.228Z",
+      "t": "2026-09-01T04:33:11.707Z",
       "step": "play-measurement",
-      "elapsedMs": 2140,
-      "from": 0.4,
-      "to": 2.5,
-      "advance": 2.1,
+      "elapsedMs": 2002,
+      "from": 0.367,
+      "to": 2.367,
+      "advance": 2,
       "playLabel": "一時停止"
     },
     {
-      "t": "2026-08-31T01:05:34.566Z",
+      "t": "2026-09-01T04:33:16.070Z",
       "step": "seek-a",
       "requested": 1,
-      "x": 188.45454545454544,
+      "x": 228.8181818181818,
       "rect": {
         "left": 85,
         "top": 537,
-        "width": 1066,
+        "width": 1510,
         "height": 16
       },
       "max": 11,
@@ -302,19 +339,19 @@
       },
       "shot": {
         "file": "critique-seek-a.png",
-        "sha256": "606c1cae113cf6e11ebe4f11abf08f1f22a6635041f0ef7a12eb1738e2f94c46",
-        "bytes": 92430
+        "sha256": "a912e98e72f4a79d8dafcc00d83113d8b30ecdc6fc3f80b695cf320e3c2e3c83",
+        "bytes": 92661
       }
     },
     {
-      "t": "2026-08-31T01:05:39.705Z",
+      "t": "2026-09-01T04:33:19.832Z",
       "step": "seek-b",
       "requested": 4.5,
-      "x": 522.5454545454545,
+      "x": 704.1818181818182,
       "rect": {
         "left": 85,
         "top": 537,
-        "width": 1066,
+        "width": 1510,
         "height": 16
       },
       "max": 11,
@@ -329,46 +366,48 @@
       },
       "shot": {
         "file": "critique-seek-b.png",
-        "sha256": "92798481f8eac88ba635ca5daca351464f4b27f6067ab6c3b11d09727f10f3dd",
-        "bytes": 79757
+        "sha256": "81f585e8e79460474fbd3ba3b170f2eeaa0820785566a8445198990590ec81ae",
+        "bytes": 79758
       }
     },
     {
-      "t": "2026-08-31T01:05:39.707Z",
+      "t": "2026-09-01T04:33:19.832Z",
       "step": "console-summary",
       "count": 0,
       "errors": [],
       "warnings": []
     },
     {
-      "t": "2026-08-31T01:05:39.707Z",
+      "t": "2026-09-01T04:33:19.832Z",
       "step": "exceptions",
       "count": 0,
       "items": []
     },
     {
-      "t": "2026-08-31T01:05:39.707Z",
+      "t": "2026-09-01T04:33:19.832Z",
       "step": "log-entries",
       "count": 0,
       "items": []
     },
     {
-      "t": "2026-08-31T01:05:39.707Z",
+      "t": "2026-09-01T04:33:19.832Z",
       "step": "VERDICT",
       "label": "critique",
       "frameEngineActive": "true",
       "hasClock": true,
       "seekMax": 11,
-      "playAdvanceSeconds": 2.1,
+      "playAdvanceSeconds": 2,
       "playPass": true,
       "seekTimeA": 1,
       "seekTimeB": 4.5,
-      "seekShaA": "606c1cae113cf6e11ebe4f11abf08f1f22a6635041f0ef7a12eb1738e2f94c46",
-      "seekShaB": "92798481f8eac88ba635ca5daca351464f4b27f6067ab6c3b11d09727f10f3dd",
+      "seekShaA": "a912e98e72f4a79d8dafcc00d83113d8b30ecdc6fc3f80b695cf320e3c2e3c83",
+      "seekShaB": "81f585e8e79460474fbd3ba3b170f2eeaa0820785566a8445198990590ec81ae",
       "seekShotsDiffer": true,
       "seekPass": true,
       "consoleErrors": 0,
-      "unhandledExceptions": 0
+      "unhandledExceptions": 0,
+      "executableScriptParseErrors": [],
+      "nonJsScriptsSkipped": 1
     }
   ],
   "consoleLines": [],

@@ -165,12 +165,18 @@ try { await preview.send('Log.enable'); preview.on('Log.entryAdded', p => logEnt
 // Parse-check every inline <script> of the preview document (a TS type predicate that leaked into
 // the webview string makes the frame-engine bootstrap a SyntaxError -> no clock -> dead transport).
 const scriptCheck = await evalOn(preview, `(() => {
+  // 実行される script だけを構文検査する。<script type="application/json" data-akari-3d-scene>
+  // のようなデータ島は JS ではないので new Function に通すと必ず "Unexpected token ':'" になり、
+  // 本物の SyntaxError（= 本件の根因の形）と見分けが付かなくなる。
+  const JS_TYPES = new Set(['', 'text/javascript', 'application/javascript', 'module']);
   return [...document.querySelectorAll('script')].map((s, i) => {
     const text = s.textContent || '';
-    if (!text) return { i, external: s.src ? s.src.slice(0, 60) : null, len: 0 };
+    const type = (s.getAttribute('type') || '').toLowerCase();
+    if (!text) return { i, type, external: s.src ? s.src.slice(0, 60) : null, len: 0 };
+    if (!JS_TYPES.has(type)) return { i, type, len: text.length, executable: false, parse: 'skipped (not javascript)' };
     let parse = 'ok';
     try { new Function(text); } catch (e) { parse = String(e && e.message).slice(0, 200); }
-    return { i, len: text.length, isBootstrap: /AkariFrameEngine/.test(text), parse };
+    return { i, type, len: text.length, executable: true, isBootstrap: /AkariFrameEngine/.test(text), parse };
   }).filter(e => e.len > 0);
 })()`, ctx);
 record('inline-script-parse-check', { scripts: scriptCheck });
@@ -319,7 +325,12 @@ const verdict = {
   seekShotsDiffer: shotA.sha256 !== shotB.sha256,
   seekPass: shotA.sha256 !== shotB.sha256 && Math.abs((stateB.seekValue ?? 0) - (stateA.seekValue ?? 0)) > 0.5,
   consoleErrors: consoleLines.filter(l => l.type === 'error').length,
-  unhandledExceptions: exceptions.length
+  unhandledExceptions: exceptions.length,
+  // 実行される script のうち構文が壊れているもの（本件の根因はここが非空になる形だった）
+  executableScriptParseErrors: scriptCheck
+    .filter(e => e.executable && e.parse !== 'ok')
+    .map(e => ({ i: e.i, isBootstrap: e.isBootstrap, parse: e.parse })),
+  nonJsScriptsSkipped: scriptCheck.filter(e => e.executable === false).length
 };
 record('VERDICT', verdict);
 await writeFile(path.join(outDir, `${label}-l1.json`), JSON.stringify({ verdict, records, consoleLines, exceptions, logEntries }, null, 2));
