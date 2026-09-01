@@ -90,6 +90,15 @@ run.json と receipt には `viewport: { requested, measured, emulated, display 
 高負荷下の dynamic fixture は GPU 71.1〜80.7 秒 / OSR 93.6〜97.8 秒（1.2〜1.3 倍）、RSS は
 531〜914 MB 以内で、`--trap-readback` の読み戻しは 0 でした。
 
+書き出しは全 Electron プロセスの working set を 10 秒ごとに採り、OSR と同じメモリ予算
+（`packages/osr-export/src/memory.mjs`）を使います。1080p 基準で GPU プロファイルは警戒 768 MiB / hard stop
+1,024 MiB（`--soft` は 1,536 / 2,048 MiB）です。既定の hard stop は「解像度スケール + 物理メモリ 25% 下限 / 50% 上限」で
+決まります。基準値は出力ピクセル数が 1080p を超える比で増え（4K = 4 倍）、hard stop は物理メモリの 25% を下回らず
+（16 GiB 機なら 720p / 1080p 出力でも 4,096 MiB。4K HEVC 長尺素材のような入力の大きさで、出力解像度に関係なく RSS が
+膨らむため — issue #28。下限が効いたときの warning は hard stop の 75%）、物理メモリの 50% を超えません。
+`AKARI_OSR_MEMORY_WARN_MIB` / `AKARI_OSR_MEMORY_HARD_STOP_MIB` は絶対値の上書きで、スケールも下限 / 上限も受けません。
+run.json と receipt には `memory.budget_scale`、`machine_floor`、`machine_capped`、`total_memory_bytes` を記録します。
+
 ## Windows でのセットアップ
 
 Windows での計測には npm Electron launcher（tier 2）を使います。

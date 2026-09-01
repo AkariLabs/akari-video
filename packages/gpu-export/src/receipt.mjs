@@ -46,6 +46,8 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       worker_budget_bytes: memory.workerBudgetBytes ?? fallbackBudget.workerBudgetBytes,
       budget_scale: memory.budgetScale ?? fallbackBudget.scale,
       machine_capped: memory.machineCapped ?? fallbackBudget.machineCapped,
+      machine_floor: memory.machineFloor ?? fallbackBudget.machineFloor,
+      total_memory_bytes: memory.totalMemoryBytes ?? fallbackBudget.totalMemoryBytes,
       peak_bytes: memory.peakBytes ?? null,
       warning_exceeded: memory.warningExceeded ?? false,
       hard_stop_exceeded: memory.hardStopExceeded ?? false,

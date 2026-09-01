@@ -163,3 +163,30 @@ test("GPU receipt rejects caption modes outside sprite and words-native", () => 
     run: { gpu: { captions: [{ id: "c-0001-01", mode: "karaoke", units: 1, words: 1, rasters: 2, tiles: 3 }] } },
   }), /sprite\|words-native/u);
 });
+
+test("GPU receipt carries machine_floor and total_memory_bytes from the run memory snapshot and falls back to this machine's default budget", async () => {
+  const { resolveMemoryBudget } = await import("../../osr-export/src/memory.mjs");
+  const sixteenGiB = 16 * 1024 * 1024 * 1024;
+  const receipt = buildGpuReceipt({ tier: 2, run: { memory: {
+    profile: "gpu",
+    warningBytes: 3072 * 1024 * 1024,
+    hardStopBytes: 4096 * 1024 * 1024,
+    workerBudgetBytes: 4096 * 1024 * 1024,
+    budgetScale: 1,
+    machineFloor: true,
+    machineCapped: false,
+    totalMemoryBytes: sixteenGiB,
+    peakBytes: 99,
+  } } });
+  assert.equal(receipt.memory.machine_floor, true);
+  assert.equal(receipt.memory.machine_capped, false);
+  assert.equal(receipt.memory.total_memory_bytes, sixteenGiB);
+  assert.equal(receipt.memory.hard_stop_bytes, 4096 * 1024 * 1024);
+  assert.equal(receipt.gpu.rss_peak, 99);
+  const machine = resolveMemoryBudget({ env: {} });
+  const fallback = buildGpuReceipt({ tier: 2 });
+  assert.equal(fallback.memory.machine_floor, machine.machineFloor);
+  assert.equal(fallback.memory.machine_capped, machine.machineCapped);
+  assert.equal(fallback.memory.total_memory_bytes, machine.totalMemoryBytes);
+  assert.equal(fallback.memory.hard_stop_bytes, machine.hardStopBytes);
+});
