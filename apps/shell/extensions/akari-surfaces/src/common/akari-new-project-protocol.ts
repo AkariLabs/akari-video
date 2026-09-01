@@ -27,7 +27,7 @@
 export const AKARI_NEW_PROJECT_SERVICE_PATH = '/services/akari-surfaces-new-project';
 export const AkariNewProjectService = Symbol('AkariNewProjectService');
 
-export type AkariToolId = 'ffmpeg' | 'whisper' | 'chrome' | 'yt-dlp' | 'voicevox' | 'blender' | 'xcode-clt';
+export type AkariToolId = 'ffmpeg' | 'whisper' | 'yt-dlp' | 'voicevox' | 'blender' | 'xcode-clt';
 export type AkariToolTier = 'required' | 'advanced' | 'recommended';
 
 export interface AkariToolCheckResult {

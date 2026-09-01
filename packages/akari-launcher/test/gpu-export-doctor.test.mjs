@@ -40,7 +40,6 @@ test('doctor text includes the GPU export row without changing verdict', () => {
     edit_lint: { origin: 'monorepo', path: '/edit-lint' },
     ffmpeg: { origin: 'path', path: '/ffmpeg' },
     ffprobe: { origin: 'path', path: '/ffprobe' },
-    chrome: { found: true, path: '/chrome' },
     gpu_export: { available: true, reason: 'tier 2', launcher_tier: 2 },
     path: { on_path: true, cli_shim_dir: '/bin' },
     verdict: 'ok',

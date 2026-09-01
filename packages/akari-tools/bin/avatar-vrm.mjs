@@ -24,8 +24,8 @@ function availability() {
   let ffmpeg;
   try { ffmpeg = resolveFfmpeg(); }
   catch (error) { return { available: false, reason: summary(error.message, "ffmpeg not found") }; }
-  const chrome = process.env.PUPPETEER_EXECUTABLE_PATH?.trim() || findChrome();
-  if (!chrome || !existsSync(chrome)) return { available: false, reason: "Chrome for Testing が見つかりません" };
+  const chrome = process.env.AKARI_CHROME_BIN?.trim() || process.env.PUPPETEER_EXECUTABLE_PATH?.trim() || findChrome();
+  if (!chrome || !existsSync(chrome)) return { available: false, reason: "この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）" };
   return { available: true, ffmpeg, chrome };
 }
 

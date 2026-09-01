@@ -91,7 +91,7 @@ test('Windows app bundle は NSIS 既定を従来導入先より先に探索す�
   }).path, legacyCandidate);
 });
 
-test('media-bin と puppeteer が import 不能でも PATH / cache 探索へ安全に縮退する', async () => {
+test('media-bin が import 不能でも PATH 探索へ安全に縮退する', async () => {
   await withFixture(async (root) => {
     const binDirectory = join(root, 'bin');
     const launcherDirectory = join(root, 'checkout', 'packages', 'akari-launcher', 'src');
@@ -104,14 +104,11 @@ test('media-bin と puppeteer が import 不能でも PATH / cache 探索へ安�
       env: { AKARI_HOME: join(root, 'home'), PATH: binDirectory },
       launcherDirectory,
       defaultAppResources: [],
-      chromeCacheDir: join(root, 'chrome-cache'),
       loadMediaBin: async () => { throw new Error('fixture unavailable'); },
-      loadBrowsers: async () => { throw new Error('fixture unavailable'); },
       entryPath: 'akari.mjs',
     });
     assert.deepEqual(report.ffmpeg, { path: join(binDirectory, 'ffmpeg'), origin: 'path' });
     assert.deepEqual(report.ffprobe, { path: join(binDirectory, 'ffprobe'), origin: 'path' });
-    assert.equal(report.chrome.found, false);
     assert.equal(report.verdict, 'ok');
   });
 });
@@ -135,7 +132,7 @@ test('verdict と exit code は ok/degraded=0、broken=1', async () => {
     const output = [];
     const result = await runDoctorCommand(['--json'], {
       log: (line) => output.push(line),
-      report: { ...base, cli: {}, app_bundle: {}, chrome: {}, verdict, next_steps: [] },
+      report: { ...base, cli: {}, app_bundle: {}, verdict, next_steps: [] },
     });
     assert.equal(result.exitCode, exitCode);
     assert.equal(output.length, 1);

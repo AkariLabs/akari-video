@@ -4,18 +4,20 @@
 
 この契約は `render-cut --engine osr` が生成する映像ページと、そのページを Electron オフスクリーン描画で駆動するプロトコルを定める。
 
-**2026-08-28 改訂:** `--engine` の既定は `auto` とし、次のように解決する。従来経路へ戻す場合は
-プラットフォームを問わず `--engine legacy` を明示する。
+**2026-09-01 改訂:** `--engine` の既定は `auto` とし、全 platform で同じ規則に解決する。
+`legacy` は廃止済みで、OSR launcher の tier 3 は明示エラーになる。
 
 | platform | `auto` の解決 | 備考 |
 |---|---|---|
-| darwin | `osr` | v2 を既定とする |
-| win32 | 適格なら `gpu`、不適格なら `osr` | GPU / OSR launcher が利用不能なら順に `legacy` へフォールバック |
-| linux | `legacy` | OSR は opt-in |
+| darwin | 適格なら `gpu`、不適格なら `osr` | GPU 実行体なしは OSR、OSR 実行体なしはエラー |
+| win32 | 適格なら `gpu`、不適格なら `osr` | GPU 実行体なしは OSR、OSR 実行体なしはエラー |
+| linux | 適格なら `gpu`、不適格なら `osr` | GPU 実行体なしは OSR、OSR 実行体なしはエラー |
 
 `.akari/render.json` の provenance は、指定値を `engine_requested`、解決後の実走値を `engine` に
-記録する。OSR launcher が tier 3 へフォールバックした場合、`engine` は `legacy` とし、
-`engine_fallback: { from: "osr", reason: <launcher.reason> }` を追加する。
+記録する。OSR launcher が tier 3 の場合は、Electron の入手方法（アプリ同梱 / `npm install electron` /
+`AKARI_OSR_ELECTRON`）を示して exit 2 で停止し、render.json や `engine_fallback` は書かない。
+`engine_fallback` は gpu → osr の 1 種だけで、`auto` が `gpu` に解決した後、その launcher が
+tier 3 の場合に `{ from: "gpu", reason: <launcher.reason> }` を記録する。
 
 ## 2. ページ契約
 

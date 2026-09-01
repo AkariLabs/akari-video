@@ -1,6 +1,3 @@
-import { closeSync, mkdirSync, openSync, writeSync } from "node:fs";
-import { dirname } from "node:path";
-
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -87,39 +84,4 @@ export function rasterizeQuadMaskFrame(corners, maskWidth, maskHeight) {
   }
 
   return frame;
-}
-
-export function writeFilterMaskFile({
-  layer,
-  layerT,
-  windowStartT,
-  windowDuration,
-  fps,
-  width,
-  height,
-  outputPath,
-  scale = 0.5,
-}) {
-  if (!isFiniteNumber(fps) || fps <= 0) throw new Error("filter mask fps must be a positive finite number");
-  const maskWidth = Math.max(2, Math.round((width * scale) / 2) * 2);
-  const maskHeight = Math.max(2, Math.round((height * scale) / 2) * 2);
-  const frameCount = Math.max(1, Math.round(windowDuration * fps));
-  mkdirSync(dirname(outputPath), { recursive: true });
-
-  const file = openSync(outputPath, "w");
-  try {
-    for (let index = 0; index < frameCount; index += 1) {
-      const localT = (windowStartT - layerT) + index / fps;
-      const corners = filterQuadCornersAt(layer, localT);
-      const frame = rasterizeQuadMaskFrame(corners, maskWidth, maskHeight);
-      let offset = 0;
-      while (offset < frame.length) {
-        offset += writeSync(file, frame, offset, frame.length - offset);
-      }
-    }
-  } finally {
-    closeSync(file);
-  }
-
-  return { path: outputPath, width: maskWidth, height: maskHeight, frameCount, fps };
 }

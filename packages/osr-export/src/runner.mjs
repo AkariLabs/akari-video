@@ -6,7 +6,6 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const FALLBACK_WARNING = "osr-export warning: Electron が見つからないため現行の書き出し経路（PNG 連番）へフォールバックします";
 export const CHROMIUM_SWITCHES = Object.freeze([
   "--force-device-scale-factor=1",
   "--force-color-profile=srgb",
@@ -57,15 +56,14 @@ export async function resolveElectronLauncher({
   if (executable && await probeElectronDist(executable, probe, platform)) {
     return { tier: 2, kind: "npm-electron", executable, reason: "package optionalDependency" };
   }
-  const reason = platform === "linux" ? "Linux uses the compatibility path in v0" : "Electron unavailable";
+  const reason = "Electron unavailable";
   if (skippedInstalledDesktop) {
     return {
-      tier: 3, kind: "legacy", executable: null, skippedInstalledDesktop: true,
+      tier: 3, executable: null, skippedInstalledDesktop: true,
       reason: `${reason}; the installed desktop app is skipped because its --render entry crashes (osr contract §11.5)`,
-      warning: `${FALLBACK_WARNING}（インストール済みデスクトップアプリ経由は修正中のため候補から外しています）`,
     };
   }
-  return { tier: 3, kind: "legacy", executable: null, reason, warning: FALLBACK_WARNING };
+  return { tier: 3, executable: null, reason };
 }
 
 export function electronChildEnvironment(env = process.env) {
@@ -82,7 +80,9 @@ export async function launchElectronExport(launcher, options, {
   argumentBuilder = buildElectronArguments,
   env = process.env,
 } = {}) {
-  if (launcher.tier === 3) return { fellBackToLegacy: true, launcher };
+  if (launcher.tier === 3) {
+    throw new Error(`osr-export error: Electron launcher unavailable: ${launcher.reason ?? "Electron unavailable"}`);
+  }
   const args = argumentBuilder(launcher, options);
   let progressLines = 0;
   let pendingStdout = "";
@@ -99,7 +99,7 @@ export async function launchElectronExport(launcher, options, {
   if (!output || output.size === 0) {
     throw new Error(`osr-export error: OSR Electron は exit 0 で終了しましたが出力がありません（PROGRESS 行 ${progressLines}）。起動中の AKARI Video デスクトップアプリの単一インスタンスロックに弾かれた可能性があります（--user-data-dir の伝播を確認）: ${options.out}`);
   }
-  return { fellBackToLegacy: false, launcher };
+  return { launcher };
 }
 
 export function buildElectronArguments(launcher, options) {

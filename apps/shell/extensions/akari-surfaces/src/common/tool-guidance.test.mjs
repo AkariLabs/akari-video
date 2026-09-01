@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TOOL_UI } from '../../lib/common/tool-guidance.js';
 
-const ALL_TOOL_IDS = ['ffmpeg', 'whisper', 'chrome', 'yt-dlp', 'voicevox', 'blender', 'xcode-clt'];
+const ALL_TOOL_IDS = ['ffmpeg', 'whisper', 'yt-dlp', 'voicevox', 'blender', 'xcode-clt'];
 
 test('CLT 未導入向けに推奨表示・非必須説明を持つ', () => {
     const clt = TOOL_UI['xcode-clt'];

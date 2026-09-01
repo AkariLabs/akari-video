@@ -1,11 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { basename, dirname, extname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { basename, extname, join, relative, resolve } from "node:path";
 
 import {
-  computeCutTimelineOffsets,
-  computeVideoRuns,
   cutSpeed,
   effectiveTransitionDurations,
   needsGapAwareCutTimeline,
@@ -13,88 +10,32 @@ import {
   segmentDuration,
 } from "./cut-timeline.mjs";
 import {
-  appendCutLayerStyleVisual,
-  appendCutVisualTransform,
-  hasCutLayerStyleVisual,
-  hasCutVisualTransform,
-} from "./cut-transform.mjs";
-import { hasCutFraming } from "./cut-framing.mjs";
-import {
-  appendFreezeAwareAudioTrim,
   appendFreezeAwareRelativeAudioTrim,
-  appendFreezeAwareVideoTrim,
   hasCutFreeze,
 } from "./cut-freeze.mjs";
-import { buildAudioTailPadCommand, buildTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
-import { appendCutFxChain, hasCutFx } from "./fx.mjs";
-import { resolveEncodingPolicy } from "./encode-preset.mjs";
-import { buildLayersCompositeCommand, hasLayers, isImageLayerSource, resolveDecoderForLayer } from "./layers.mjs";
-import { resolveLutPath } from "./render-inputs.mjs";
-import {
-  buildCutTrackCompositeCommand,
-  buildTrackBaseCommand,
-  resolveCutTrackRanges,
-} from "./track-compose.mjs";
+import { buildAudioTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { buildAtempoChain } from "../../media-bin/src/speech-atempo.mjs";
-import { enableWindowExpr } from "./enable-window.mjs";
 import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
-import {
-  buildTelopRasterCommands,
-  internalTrackZ,
-  readRenderEdit,
-  renderItemDeclaration,
-  renderItemKind,
-} from "./internal-render.mjs";
+import { buildTelopRasterCommands, readRenderEdit } from "./internal-render.mjs";
 
-// docs/contract-2026-07-14-edit-json-v1-audio.md §4: sidechaincompress threshold ~-24dB (linear 0.063), ratio 8, attack 5ms, release 300ms.
 const DUCKING_SIDECHAIN_ARGS = "threshold=0.063:ratio=8:attack=5:release=300";
-// docs/contract-2026-07-20-edit-json-v1-narration.md §1: gain_db clamp range, shared with bgm/sfx.
 const GAIN_DB_MIN = -60;
 const GAIN_DB_MAX = 12;
-// Cut intermediates favor independent frames: keyint=1 removes x264's expensive temporal search
-// while retaining the resolved preset and CRF verbatim. At a fixed CRF, all-intra frames are not
-// visually coarser (short A/B renders measure higher SSIM/PSNR); the trade-off is a larger cut.mp4.
-// Apply this only to an explicitly resolved libx264 policy. The null legacy path and hardware
-// encoders must keep their exact argument arrays.
-const CUT_X264_PERFORMANCE_PARAMS = "keyint=1";
-const IMPLIED_CAPTION_TRACK_ID = "t-captions-implied";
 export const MAX_AUDIO_INPUTS_PER_COMMAND = 200;
-// The first AAC frame after an input-side seek lacks overlap-add history, so start before the
-// cut and discard this preroll in the filter graph.
 export const AUDIO_SEEK_PREROLL_SECONDS = 0.5;
 
-function tuneCutVideoEncodeArgs(videoEncodeArgs) {
-  if (!Array.isArray(videoEncodeArgs)) return videoEncodeArgs;
-  const codecIndex = videoEncodeArgs.indexOf("-c:v");
-  if (codecIndex < 0 || videoEncodeArgs[codecIndex + 1] !== "libx264") return videoEncodeArgs;
-  if (videoEncodeArgs.includes("-x264-params")) return videoEncodeArgs;
-  return [...videoEncodeArgs, "-x264-params", CUT_X264_PERFORMANCE_PARAMS];
-}
 export function buildPlan({
   edit,
   internalEdit,
   projectRoot,
   outputPath,
   capabilities,
-  hasSourceAudio,
-  renderOverlays = edit.overlays,
   captionOverlays = [],
-  hasThreeDimensionalOverlay = false,
-  // Execution-unique subdirectory for intermediates (see render-cut.mjs's per-run isolation).
-  // Defaults to the flat, deterministic path so direct callers (unit tests, --plan-only preview)
-  // keep producing byte-identical command plans across repeated calls.
   temporaryDirectory = join(projectRoot, ".akari", "render-tmp"),
-  // --quality/--encoder/--fps (task 2026-07-25-export-options). All three default to undefined,
-  // under which buildVideoEncodeArgs/resolveEncoderChoice below resolve to exactly today's
-  // literal command args (no -crf/-preset/-b:v added, fps taken from edit.json unchanged) — the
-  // backward-compat guarantee this task requires.
-  quality,
-  encoder,
   encodingPolicy,
   fpsOverride,
-  captureWorkers = 1,
-  captureWorkersSource = "auto",
+  resolvedEngine = "osr",
 }) {
   const normalizedInternalEdit = internalEdit ?? readRenderEdit(edit, temporaryDirectory).internal;
   if (isPositiveNumber(fpsOverride) && fpsOverride !== edit.output.fps) {
@@ -102,16 +43,12 @@ export function buildPlan({
       "v2 の出力 fps は宣言が正本です。fps を変えるときは retime（全体再スケール）を通してください。",
     );
   }
-  const width = edit.output.width;
-  const height = edit.output.height;
   const fps = isPositiveNumber(fpsOverride) ? fpsOverride : edit.output.fps;
-  const resolvedEncodingPolicy = encodingPolicy === undefined
-    ? resolveEncodingPolicy({ cli: { quality, encoder }, edit, capabilities })
-    : encodingPolicy;
-  const videoEncodeArgs = resolvedEncodingPolicy?.video_encode_args ?? null;
-  const cutVideoEncodeArgs = tuneCutVideoEncodeArgs(videoEncodeArgs);
+  const cutsEndSeconds = predictedDuration(
+    edit.cuts,
+    Math.max(0, ...capabilities.sourceInputs.map((source) => Number(source.duration) || 0)),
+  );
   const sourceAudioDurationCache = new Map();
-  const cutsEndSeconds = predictedDuration(edit.cuts);
   const finalDurationSeconds = computeContentDurationSeconds({
     edit,
     cutsEndSeconds,
@@ -121,54 +58,10 @@ export function buildPlan({
     probeAudioDurationSeconds,
     ffprobeCommand: capabilities.ffprobeCommand,
   });
-  const temporary = temporaryDirectory;
-  const cutPath = join(temporary, "cut.mp4");
-  const cutAudioPath = join(temporary, "cut-audio.mp4");
-  const tailPaddedPath = join(temporary, "cut-tail-padded.mp4");
-  const tailPaddedAudioPath = join(temporary, "cut-audio-tail-padded.mp4");
-  const layeredPath = join(temporary, "layered.mp4");
-  const overlayMovPath = join(temporary, "overlay.mov");
-  const compositePath = join(temporary, "composite.mp4");
-  const finalPath = join(temporary, "final.mp4");
-  const sheetPath = join(temporary, "overlay-sheet.html");
-  const rasterizer = selectRasterizer(capabilities, hasThreeDimensionalOverlay);
-  const telopRasterCommands = buildTelopRasterCommands(normalizedInternalEdit, temporary);
-  const cut = needsGapAwareCutTimeline(edit.cuts)
-    // docs/contract-2026-08-18-v1-render-parity.md §2: cuts[].at / cuts[].track only get a
-    // compositing effect when the removed flat default-order path is false (a custom timeline.tracks declaration
-    // routes through buildTrackStackPlan below). Under the default order -- which is what a plain
-    // UI drag onto an explicit position or a PiP track actually writes -- this is the only dispatch
-    // that ever sees the declaration, so it must itself be gap-aware or the declaration silently
-    // renders as a same-length concat instead (the exact bug this contract fixes).
-      ? buildGapAwareMultiSourceCutCommand({
-          sourceInputs: capabilities.sourceInputs,
-          cutPath,
-          cuts: edit.cuts,
-          width,
-          height,
-          fps,
-          duration: cutsEndSeconds,
-          ffmpegCommand: capabilities.ffmpegCommand,
-          ffprobeCommand: capabilities.ffprobeCommand,
-          projectRoot,
-          look: edit.output.look,
-          videoEncodeArgs: cutVideoEncodeArgs,
-          audioDurationCache: sourceAudioDurationCache,
-        })
-      : buildMultiSourceCutCommand({
-          sourceInputs: capabilities.sourceInputs,
-          cutPath,
-          cuts: edit.cuts,
-          width,
-          height,
-          fps,
-          ffmpegCommand: capabilities.ffmpegCommand,
-          ffprobeCommand: capabilities.ffprobeCommand,
-          projectRoot,
-          look: edit.output.look,
-          videoEncodeArgs: cutVideoEncodeArgs,
-          audioDurationCache: sourceAudioDurationCache,
-        });
+  const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");
+  const tailPaddedAudioPath = join(temporaryDirectory, "cut-audio-tail-padded.mp4");
+  const compositePath = join(temporaryDirectory, "composite.mp4");
+  const finalPath = join(temporaryDirectory, "final.mp4");
   const cutAudio = needsGapAwareCutTimeline(edit.cuts)
     ? buildGapAwareMultiSourceAudioCutCommand({
         sourceInputs: capabilities.sourceInputs,
@@ -187,17 +80,7 @@ export function buildPlan({
         ffprobeCommand: capabilities.ffprobeCommand,
         audioDurationCache: sourceAudioDurationCache,
       });
-  const tailPad = finalDurationSeconds > cutsEndSeconds + 0.001
-    ? buildTailPadCommand({
-        ffmpegCommand: capabilities.ffmpegCommand,
-        inputPath: cutPath,
-        outputPath: tailPaddedPath,
-        cutsEndSeconds,
-      finalDurationSeconds,
-      videoEncodeArgs,
-      })
-    : null;
-  const tailPadAudio = tailPad
+  const tailPadAudio = finalDurationSeconds > cutsEndSeconds + 0.001
     ? buildAudioTailPadCommand({
         ffmpegCommand: capabilities.ffmpegCommand,
         inputPath: cutAudioPath,
@@ -205,45 +88,7 @@ export function buildPlan({
         finalDurationSeconds,
       })
     : null;
-  const cutOutputPath = tailPad ? tailPaddedPath : cutPath;
-  // layers[] is additive-only (contract-2026-07-22-prerender-rail-and-assets.md §1.2): an edit.json
-  // without it produces no `layers` command and render-cut.mjs skips this stage entirely, so
-  // existing projects keep their byte-identical cut.mp4 -> composite pipeline (zero regression).
-  const defaultTrackOrder = usesDefaultInternalTrackOrder(normalizedInternalEdit);
-  const layers = defaultTrackOrder && hasLayers(edit)
-    ? buildLayersCompositeCommand({
-        layers: edit.layers,
-        projectRoot,
-        ffmpegCommand: capabilities.ffmpegCommand,
-        ffprobeCommand: capabilities.ffprobeCommand,
-        inputPath: cutOutputPath,
-        outputPath: layeredPath,
-        duration: finalDurationSeconds,
-        width,
-        height,
-        fps,
-        videoEncodeArgs,
-      })
-    : null;
-  const trackStack = defaultTrackOrder ? null : buildTrackStackPlan({
-        edit,
-        internalEdit: normalizedInternalEdit,
-        projectRoot,
-        capabilities,
-        cutPath: cutOutputPath,
-        layeredPath,
-        temporary,
-        duration: finalDurationSeconds,
-        cutsEndSeconds,
-        width,
-        height,
-        fps,
-        hasSourceAudio,
-        videoEncodeArgs,
-        captionOverlays,
-        audioDurationCache: sourceAudioDurationCache,
-      });
-  const baseVideoPath = trackStack ? trackStack.outputPath : (layers ? layeredPath : cutOutputPath);
+  const telopRasterCommands = buildTelopRasterCommands(normalizedInternalEdit, temporaryDirectory);
 
   return {
     predicted_duration_seconds: finalDurationSeconds,
@@ -255,113 +100,24 @@ export function buildPlan({
       pixel_format: "yuv420p",
       color_range: "tv",
       audio_codec: "aac",
-      width,
-      height,
+      width: edit.output.width,
+      height: edit.output.height,
       fps,
     },
-    ...(resolvedEncodingPolicy ? { encoding: resolvedEncodingPolicy } : {}),
-    rasterizer: {
-      selected: rasterizer,
-      // 3D scenes cannot degrade to a still image: execution rejects HyperFrames and requires
-      // puppeteer-core, while ordinary overlays follow this same full fallback order.
-      order: hasThreeDimensionalOverlay
-        ? ["puppeteer-core"]
-        : ["hyperframes", "puppeteer-core", "static-screenshot"],
-    },
+    ...(encodingPolicy ? { encoding: encodingPolicy } : {}),
+    rasterizer: { selected: resolvedEngine, order: [resolvedEngine] },
     intermediates: [
-      cutPath,
       cutAudioPath,
       ...(cutAudio.intermediates ?? []),
-      ...(tailPad ? [tailPaddedPath, tailPaddedAudioPath] : []),
-      ...(layers ? [layeredPath] : []),
-      ...(trackStack ? trackStack.intermediates : []),
-      ...telopRasterCommands.map(command => command.output),
-      sheetPath,
-      overlayMovPath,
-      join(temporary, "frames", "frame-%08d.png"),
-      ...renderOverlays.flatMap((_, index) => {
-        const stem = `static-${String(index + 1).padStart(4, "0")}`;
-        return [join(temporary, `${stem}.html`), join(temporary, `${stem}.png`)];
-      }),
+      ...(tailPadAudio ? [tailPaddedAudioPath] : []),
+      ...telopRasterCommands.map((command) => command.output),
       compositePath,
       finalPath,
     ].map((value) => relative(projectRoot, value)),
     commands: {
-      cut,
       cut_audio: cutAudio,
       telops: telopRasterCommands,
-      tail_pad: tailPad,
       tail_pad_audio: tailPadAudio,
-      rasterize: {
-        hyperframes: {
-          command: process.execPath,
-          cwd: projectRoot,
-          env: {
-            HYPERFRAMES_BROWSER_PATH: capabilities.chromePath,
-            DO_NOT_TRACK: "1",
-          },
-          args: [
-            hyperframesEntry(),
-            "render",
-            ".",
-            "--composition",
-            relative(projectRoot, sheetPath),
-            "--format",
-            "mov",
-            "--fps",
-            String(fps),
-            "--workers",
-            "1",
-            "--no-browser-gpu",
-            "--no-best-effort",
-            "-o",
-            relative(projectRoot, overlayMovPath),
-          ],
-        },
-        "puppeteer-core": {
-          operation: "capture-transparent-png-sequence",
-          driver: "puppeteer-core",
-          input: relative(projectRoot, sheetPath),
-          output_pattern: relative(projectRoot, join(temporary, "frames", "frame-%08d.png")),
-          workers: captureWorkers,
-          workers_source: captureWorkersSource,
-        },
-        "static-screenshot": {
-          operation: "capture-one-transparent-png-per-overlay",
-          driver: capabilities.chromePath ?? "chrome",
-          outputs: renderOverlays.map((_, index) =>
-            relative(projectRoot, join(temporary, `static-${String(index + 1).padStart(4, "0")}.png`)),
-          ),
-        },
-      },
-      composite: {
-        hyperframes: buildAnimatedCompositeCommand(
-          capabilities.ffmpegCommand,
-          baseVideoPath,
-          overlayMovPath,
-          compositePath,
-          videoEncodeArgs,
-        ),
-        "puppeteer-core": buildAnimatedCompositeCommand(
-          capabilities.ffmpegCommand,
-          baseVideoPath,
-          overlayMovPath,
-          compositePath,
-          videoEncodeArgs,
-        ),
-        "static-screenshot": buildStaticCompositeCommand(
-          capabilities.ffmpegCommand,
-          baseVideoPath,
-          compositePath,
-          temporary,
-          renderOverlays,
-          finalDurationSeconds,
-          fps,
-          videoEncodeArgs,
-        ),
-      },
-      layers,
-      track_stack: trackStack,
       audio_mix: buildAudioMixCommand({
         edit,
         projectRoot,
@@ -377,303 +133,6 @@ export function buildPlan({
       },
     },
   };
-}
-
-/**
- * v2 の正規化済みトラック列が、従来のフラット合成順
- * cuts -> layers -> overlays -> captions -> audio（同種は ref 昇順）かを判定する。
- * edit.json の版や生の timeline 宣言には依存しない。
- */
-function isDeclaredCaptionTrack(track) {
-  return track?.content?.from === "captions.json"
-    || (track?.items ?? []).some(item => item?.source?.kind === "captions");
-}
-
-export function usesDefaultInternalTrackOrder(internalEdit) {
-  const rank = new Map([
-    ["cuts", 0],
-    ["layers", 1],
-    ["overlays", 2],
-    ["captions", 3],
-    ["audio", 4],
-  ]);
-  // 中身の無い declared visual トラック（段を新設してクリップを移した後の空トラック等）は旧種別が
-  // 名目上のものでしかなく、実際の描画には何も寄与しない。並び順判定の対象から外すことで、
-  // 空トラックの存在・位置が「既定順かどうか」を左右しないようにする
-  // （P0 2026-08-20 track-identity-and-duration）。
-  const keys = (internalEdit?.tracks ?? [])
-    .filter(track => isDeclaredCaptionTrack(track) || (track?.items?.length ?? 0) > 0)
-    .map((track, index) => ({
-      kind: track?.legacy?.kind,
-      ref: Number.isInteger(track?.legacy?.ref) ? track.legacy.ref : -1,
-      index,
-    }));
-  if (keys.some(key => !rank.has(key.kind))) return false;
-  // P0 2026-08-21 render-path-unification: source.kind:'media' now always maps to 'cuts'
-  // (packages/edit-store/src/internal-model.ts no longer branches on track position), so a
-  // project with more than one real visual track (e.g. a base track + a PiP track, both plain
-  // media) can legitimately have more than one 'cuts'-kind track today. The flat/default dispatch
-  // below feeds every 'cuts'-kind track's items into ONE combined array
-  // (buildGapAwareMultiSourceCutCommand's computeVideoRuns), which resolves overlapping tracks by
-  // winner-take-all, not alpha compositing (verified: no real fieldtest/ project exercises this,
-  // but fieldtest/2026-08-06-pip-perspective-crop-check does have a genuine base+PiP pair that
-  // needs real compositing). More than one 'cuts'-kind visual track must always route through
-  // buildTrackStackPlan below, which composites each track's own canvas in z-order with a real
-  // alpha overlay -- so "default order" only ever holds for at most one 'cuts' track.
-  if (keys.filter(key => key.kind === "cuts").length > 1) return false;
-  const expected = [...keys].sort((left, right) =>
-    rank.get(left.kind) - rank.get(right.kind)
-      || left.ref - right.ref
-      || left.index - right.index);
-  return keys.every((key, index) => key.index === expected[index].index);
-}
-
-function buildTrackStackPlan({
-  edit,
-  internalEdit,
-  projectRoot,
-  capabilities,
-  cutPath,
-  layeredPath,
-  temporary,
-  duration,
-  cutsEndSeconds,
-  width,
-  height,
-  fps,
-  hasSourceAudio,
-  videoEncodeArgs,
-  captionOverlays,
-  audioDurationCache,
-}) {
-  const cutVideoEncodeArgs = tuneCutVideoEncodeArgs(videoEncodeArgs);
-  const ordered = [];
-  let hasDeclaredCaptionTrack = false;
-  for (const track of internalEdit.tracks) {
-    const orderIndex = internalTrackZ(internalEdit, track);
-    if (isDeclaredCaptionTrack(track)) {
-      hasDeclaredCaptionTrack = true;
-      if (captionOverlays.length > 0) {
-        ordered.push({
-          kind: "captions",
-          ref: null,
-          orderIndex,
-          items: captionOverlays,
-          overlayIds: captionOverlays.map(item => String(item.id)),
-        });
-      }
-    }
-    let current = null;
-    for (const item of track.items) {
-      const route = renderItemKind(item);
-      const kind = route === "cut" ? "cuts"
-        : route === "layer" ? "layers"
-          : (route === "html" || item?.source?.kind === "group") ? "overlays" : null;
-      if (!kind) continue;
-      if (!current || current.kind !== kind) {
-        current = {
-          kind,
-          ref: track.legacy.ref ?? null,
-          orderIndex,
-          items: [],
-          overlayIds: [],
-          sequence: ordered.length,
-        };
-        ordered.push(current);
-      }
-      current.items.push(renderItemDeclaration(item, temporary));
-      current.overlayIds.push(...overlayIdsForTrackItem(item));
-    }
-  }
-
-  // Keep export stacking identical to the timeline/preview display-only completion rule: when
-  // captions.json has renderable cues but tracks[] has no captions declaration, synthesize the
-  // same implied lane at the top. An explicit captions track remains authoritative at its declared
-  // position, including positions below opaque visual tracks.
-  if (!hasDeclaredCaptionTrack && captionOverlays.length > 0) {
-    ordered.push({
-      kind: "captions",
-      ref: null,
-      orderIndex: internalEdit.tracks.length,
-      items: captionOverlays,
-      overlayIds: captionOverlays.map(item => String(item.id)),
-      impliedTrackId: IMPLIED_CAPTION_TRACK_ID,
-    });
-  }
-
-  // task 2026-08-07-track-transition-lint-guard (edit-lint's cuts.track-transition-unsupported
-  // check is the primary guard; this is the defensive backstop for direct render-cut invocations
-  // that skip lint). See that check's comment in edit-lint.mjs for the full rationale: gap-aware
-  // track compositing (this function) is built on resolveCutSegments/computeVideoRuns, which
-  // treat same-track adjacent cuts as separate non-overlapping windows and so cannot represent an
-  // xfade's intentional overlap -- verified with a real render to silently show the base track's
-  // background leaking through partway into what should still be the dissolved clip.
-  for (const track of ordered) {
-      if (track.kind !== "cuts") continue;
-      for (const cut of track.items.slice(0, -1)) {
-        if (!cut.transition_out) continue;
-        throw new Error(
-          `cuts[].transition_out is declared on track ${track.ref}, which timeline.tracks composites through `
-            + "the gap-aware track engine. That engine treats adjacent same-track cuts as separate, "
-            + "non-overlapping windows, so it cannot represent an xfade's intentional overlap -- the composited "
-            + "window and the actually-shrunk clip diverge, and content disappears early. Remove transition_out "
-            + "from this track's cuts, or drop the custom timeline.tracks order for this track so it renders "
-            + "through the plain sequential path instead.",
-        );
-      }
-  }
-
-  const basePath = join(temporary, "track-base.mp4");
-  const base = buildTrackBaseCommand({
-    ffmpegCommand: capabilities.ffmpegCommand,
-    inputPath: cutPath,
-    outputPath: basePath,
-    duration,
-    width,
-    height,
-    fps,
-    videoEncodeArgs,
-  });
-  const cutTracks = [];
-  const stages = [];
-  let previousPath = basePath;
-
-  ordered.forEach((track, stageIndex) => {
-    const isLast = stageIndex === ordered.length - 1;
-    const outputPath = isLast ? layeredPath : join(temporary, `track-stage-${stageIndex}.mp4`);
-    const stageBase = {
-      kind: track.kind,
-      ref: track.ref,
-      orderIndex: track.orderIndex,
-      stageIndex,
-      inputPath: previousPath,
-      outputPath,
-      ...(track.impliedTrackId ? { trackId: track.impliedTrackId } : {}),
-    };
-    if (track.kind === "cuts") {
-      const duplicateCutGroup = ordered.filter(candidate => candidate.kind === "cuts"
-        && candidate.ref === track.ref && candidate.orderIndex === track.orderIndex).length > 1;
-      // .mov, not .mp4: this track's own canvas needs an alpha channel to composite correctly
-      // onto whatever is below it (transparentBackground: true below), and qtrle -- the alpha-
-      // capable intermediate codec that survives the round trip -- wants a MOV-family container.
-      const trackPath = join(
-        temporary,
-        `cut-track-${track.ref}-${track.orderIndex}${duplicateCutGroup ? `-${stageIndex}` : ""}.mov`,
-      );
-      const command = buildMultiSourceCutCommand({
-            sourceInputs: capabilities.sourceInputs,
-            cutPath: trackPath,
-            cuts: track.items,
-            width,
-            height,
-            fps,
-            ffmpegCommand: capabilities.ffmpegCommand,
-            ffprobeCommand: capabilities.ffprobeCommand,
-            projectRoot,
-            look: edit.output.look,
-            videoEncodeArgs: cutVideoEncodeArgs,
-            audioDurationCache,
-            // This track's own canvas is about to be overlaid onto `previous` below
-            // (buildCutTrackCompositeCommand) -- it needs to stay see-through wherever an item
-            // does not cover the full frame. `previous` (or basePath for the first stage) is
-            // always itself opaque, so a fractional opacity still fades toward whatever is below
-            // exactly like the flat/default dispatch fades toward black (verified: this is the
-            // same math with "below" generalized from hardcoded black to the real stack).
-            // Left unconditionally true (byte-identical to before r4) -- see canvasBasisTransform
-            // just below for the stageIndex-0 fix this comment used to describe here. Keeping
-            // transparentBackground itself untouched matters for a reason UNRELATED to alpha
-            // compositing: buildMultiSourceCommandResult also reads it to choose this stage's own
-            // intermediate codec (qtrle, lossless, vs. the requested quality preset) specifically
-            // to avoid an AVOIDABLE extra generation of lossy compression before this stage's
-            // output gets decoded and recomposited again by whatever stage sits above it in the
-            // stack (verified: real-master-render-encoding-boundaries.test.mjs's own "identical
-            // encoding policy at every boundary" assertion -- stageIndex 0 still has stages above
-            // it whenever the stack has more than one, so it benefits from staying lossless the
-            // same as every other stage, independent of whether ITS OWN canvas happens to need
-            // alpha for compositing purposes).
-            transparentBackground: true,
-            // P0 2026-08-21 render-path-unification (r4 fix, Codex re-review): a SEPARATE signal
-            // from transparentBackground, scoped to ONLY the canvas-fit-vs-native-basis transform
-            // question inside appendCutVisualTransform (cut-transform.mjs) -- see that function's
-            // own comment for the full rationale (r3). transparentBackground alone was the wrong
-            // proxy for "is this stage genuinely the bottom of the whole composite, with nothing
-            // real below it": buildTrackStackPlan passed transparentBackground: true unconditionally
-            // to every cuts-kind stage including stageIndex 0, which meant (a) moving an item from
-            // an upper stage down to the true bottom didn't switch its transform.scale back to
-            // canvas-basis the way the flat/default (no-stack) dispatch does for the identical
-            // declaration, and (b) merely adding a second, non-overlapping-in-time 'cuts' track
-            // flipped an EXISTING bottom-stage transform/opacity clip's own rendered geometry with
-            // zero change to its own declaration (the "adding a PiP track changed my main content's
-            // zoom" shape Codex's r3 re-review flagged as still reachable). stageIndex 0's `previous`
-            // is always basePath, which buildTrackBaseCommand (track-compose.mjs) renders as a plain
-            // `color=c=black` canvas with cutPath's own visual content fully discarded -- so
-            // stageIndex 0 is the one stage that is genuinely "the bottom, nothing real below it",
-            // exactly like the flat/default dispatch. Every stage above it has a REAL prior stage's
-            // content as `previous` and keeps canvasBasisTransform: false (native-basis), unchanged
-            // from r3.
-            canvasBasisTransform: stageIndex === 0,
-          });
-      cutTracks.push({ ref: track.ref, path: trackPath, command });
-      stages.push({
-        ...stageBase,
-        command: buildCutTrackCompositeCommand({
-          ffmpegCommand: capabilities.ffmpegCommand,
-          inputPath: previousPath,
-          trackPath,
-          outputPath,
-          ranges: resolveCutTrackRanges(track.items),
-          duration,
-          fps,
-          videoEncodeArgs,
-        }),
-      });
-    } else if (track.kind === "layers") {
-      stages.push({
-        ...stageBase,
-        command: buildLayersCompositeCommand({
-          layers: track.items,
-          projectRoot,
-          ffmpegCommand: capabilities.ffmpegCommand,
-          ffprobeCommand: capabilities.ffprobeCommand,
-          inputPath: previousPath,
-          outputPath,
-          duration,
-          width,
-          height,
-          fps,
-          videoEncodeArgs,
-        }),
-      });
-    } else {
-      stages.push({
-        ...stageBase,
-        command: null,
-        overlayIds: track.overlayIds,
-      });
-    }
-    previousPath = outputPath;
-  });
-
-  return {
-    base,
-    cutTracks,
-    stages,
-    outputPath: ordered.length > 0 ? layeredPath : basePath,
-    intermediates: [
-      basePath,
-      ...cutTracks.map(track => track.path),
-      ...stages.map(stage => stage.outputPath),
-    ],
-  };
-}
-
-function overlayIdsForTrackItem(item) {
-  const ids = [String(item.id)];
-  if (item?.source?.kind !== "group") return ids;
-  for (const child of item.children ?? []) {
-    ids.push(...overlayIdsForTrackItem(child));
-  }
-  return ids;
 }
 
 export function buildAudioMixCommand({
@@ -990,106 +449,6 @@ export function probeAudioDurationSeconds(ffprobeCommand, path) {
   }
 }
 
-export function buildAnimatedCompositeArgs({
-  cutPath,
-  overlayPath,
-  outputPath,
-  hasAudio = true,
-  videoEncodeArgs = null,
-}) {
-  return [
-    "-hide_banner",
-    "-loglevel",
-    "error",
-    "-nostdin",
-    "-y",
-    "-i",
-    cutPath,
-    "-i",
-    overlayPath,
-    "-filter_complex",
-    "[0:v][1:v]overlay=0:0:format=auto:shortest=1[composited];[composited]scale=out_range=tv[outv]",
-    "-map",
-    "[outv]",
-    ...(hasAudio ? ["-map", "0:a:0"] : []),
-    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
-    "-pix_fmt",
-    "yuv420p",
-    ...(hasAudio ? ["-c:a", "copy"] : ["-an"]),
-    outputPath,
-  ];
-}
-
-function buildAnimatedCompositeCommand(command, cutPath, overlayPath, outputPath, videoEncodeArgs = null) {
-  return {
-    command,
-    args: buildAnimatedCompositeArgs({ cutPath, overlayPath, outputPath, videoEncodeArgs }),
-  };
-}
-
-function buildStaticCompositeCommand(command, cutPath, outputPath, temporary, overlays, duration, fps, videoEncodeArgs = null) {
-  const args = ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", cutPath];
-  const filters = [];
-  let previous = "[0:v]";
-  for (const [index, overlay] of overlays.entries()) {
-    const png = join(temporary, `static-${String(index + 1).padStart(4, "0")}.png`);
-    args.push("-loop", "1", "-i", png);
-    const next = `[overlay${index}]`;
-    filters.push(
-      `${previous}[${index + 1}:v]overlay=0:0:format=auto:enable='${enableWindowExpr(overlay.start, overlay.start + overlay.duration, fps)}'${next}`,
-    );
-    previous = next;
-  }
-  filters.push(`${previous}scale=out_range=tv[outv]`);
-  args.push(
-    "-filter_complex",
-    filters.join(";"),
-    "-map",
-    "[outv]",
-    "-map",
-    "0:a:0",
-    "-t",
-    formatNumber(duration),
-    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
-    "-pix_fmt",
-    "yuv420p",
-    "-c:a",
-    "copy",
-    outputPath,
-  );
-  return { command, args };
-}
-
-// docs/contract-2026-07-22-render-basics.md #4: "lut(プリセット参照 or パス)" — a bare name (no
-// path separator) resolves against presets/luts/<name>/<name>.cube; anything else is treated as a
-// path relative to the project root (same regel as source.path / audio.bgm.path elsewhere).
-// ffmpeg filter option values split on ':' and quote-related characters; escape both before
-// wrapping the value in single quotes (lut3d's file= option; same convention as chromakey's color=).
-function escapeFilterPath(path) {
-  return path.replace(/\\/gu, "\\\\").replace(/:/gu, "\\:").replace(/'/gu, "\\'");
-}
-
-const CSS_COLOR_KEYWORDS = new Set([
-  "black",
-  "white",
-  "red",
-  "green",
-  "blue",
-  "yellow",
-  "cyan",
-  "magenta",
-  "gray",
-  "grey",
-  "orange",
-  "purple",
-  "pink",
-  "brown",
-]);
-
-function isColorLike(value) {
-  return value.startsWith("#") || /^0x/iu.test(value) || CSS_COLOR_KEYWORDS.has(value.toLowerCase());
-}
-
 function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -1252,217 +611,6 @@ function buildSfxFadeSuffix({ fadeIn, fadeOut }, effectiveDuration) {
   return parts.length > 0 ? `,${parts.join(",")}` : "";
 }
 
-export function buildMultiSourceCutCommand({
-  sourceInputs,
-  cutPath,
-  cuts,
-  width,
-  height,
-  fps,
-  ffmpegCommand = resolveFfmpeg(),
-  ffprobeCommand = resolveFfprobe(),
-  projectRoot,
-  look,
-  videoEncodeArgs = null,
-  // P0 2026-08-21 render-path-unification: true only for a buildTrackStackPlan stage that
-  // overlays this track's own canvas onto real content below it. Every pre-existing caller
-  // (the flat/default dispatch) omits this, keeping the opaque background byte-identical to
-  // before this task -- see cut-transform.mjs's appendCutVisualTransform for why an
-  // unconditionally transparent background would silently break fractional opacity there.
-  transparentBackground = false,
-  // P0 2026-08-21 render-path-unification (r4 fix, Codex re-review): whether transform.scale in
-  // appendCutVisualTransform uses canvas-fit basis (true, the r1/main-content convention) or
-  // native-source basis (false, the PiP-overlay convention) -- see that function's own comment.
-  // Defaults true (every pre-existing caller: the flat/default dispatch, and any direct
-  // unit-test caller). buildTrackStackPlan (plan.mjs) is the only caller that ever passes false,
-  // and only for stages above stageIndex 0 -- deliberately independent of transparentBackground
-  // (see that call site's own comment for why the two questions don't share one flag).
-  canvasBasisTransform = true,
-  audioDurationCache = new Map(),
-}) {
-  const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
-  const filters = [];
-  const extraInputArgs = [];
-  const concatInputs = [];
-  // P0 2026-08-21 render-path-unification: a cuts[] item can now sit on any track, including one
-  // that used to be layers-only, so a VP9/VP8 alpha-side-channel source (previously only reachable
-  // through layers.mjs) can now arrive here too. Reuse the same ffprobe-based decoder selection so
-  // the cuts pipeline doesn't silently composite such a source as opaque -- see layers.mjs's
-  // SIDE_CHANNEL_ALPHA_DECODERS comment for the underlying ffmpeg decoder gap this works around.
-  const warnings = [];
-  const transformCuts = hasCutVisualTransform(cuts) || hasCutFraming(cuts);
-  // docs/contract-2026-08-05-fx-v0.md (cuts[].fx). v1's per-cut branch is already always
-  // full-WxH-framed (both the transform and plain branches below produce a complete frame), so
-  // fx only needs one extra hop after whichever branch ran — no change to the branch selection.
-  const fxCuts = hasCutFx(cuts);
-  // docs/contract-2026-07-22-render-basics.md #3 (cuts[].transition_out), extended to the v1
-  // (multi-source) path by task 2026-08-07-v1-transition-out. Same residual decision as
-  // the removed single-source path: only boundaries that explicitly declare transition_out take the xfade path,
-  // so a v1 project with zero transition_out keeps today's exact single
-  // concat=n=${cuts.length} call byte-for-byte (verified in verify-fps-tolerance.test.mjs's
-  // sibling suite v1-transition-out.test.mjs, "no transition_out keeps the exact legacy call").
-  const hasAnyTransition = cuts.slice(0, -1).some((cut) => cut.transition_out);
-
-  for (const [index, cut] of cuts.entries()) {
-    const source = inputsById.get(cut.src);
-    const speed = cutSpeed(cut);
-    // Unlike the removed single-source path (which only ever scales/paces once, after concat), v1 always scales
-    // + fps-resamples per cut (sources[] entries can have different native size/rate). That
-    // per-cut fps= filter -- and appendCutVisualTransform's own internal fps= filter, in the
-    // transformCuts branch -- resets whatever timebase an earlier settb=AVTB had set (verified
-    // empirically: baking settb=AVTB into the trim's own postSuffixFilter, ahead of fps=, still
-    // left concat's own output on a different timebase than a sibling xfade input and ffmpeg
-    // refused to join them). So every branch below writes into `preConcatLabel` first, and
-    // settb=AVTB -- when a transition is present -- is applied as one unconditional LAST step
-    // onto `[v${index}]` (the label concat/xfade actually consume), after fx/transform/scale/fps
-    // have all already run.
-    const preRangeLabel = `[vrange${index}]`;
-    const preConcatLabel = hasAnyTransition ? `[vpre${index}]` : `[v${index}]`;
-    const chromaKey = cut.chroma_key ?? source.chromaKey;
-    const chromaInputLabel = chromaKey ? `[vchromain${index}]` : preRangeLabel;
-    const shapedLabel = fxCuts ? `[vshaped1_${index}]` : chromaInputLabel;
-    if (transformCuts) {
-      const trimmedLabel = `[vraw${index}]`;
-      appendFreezeAwareVideoTrim({
-        filters,
-        inputLabel: `[${source.inputIndex}:v]`,
-        outputLabel: trimmedLabel,
-        sourceIn: cut.in,
-        sourceOut: cut.out,
-        speed,
-        freeze: cut.freeze,
-        id: `v1_${index}`,
-        fps,
-      });
-      if (hasCutLayerStyleVisual(cut)) {
-        appendCutLayerStyleVisual({
-          filters,
-          inputLabel: trimmedLabel,
-          outputLabel: shapedLabel,
-          cut,
-          id: `v1_${index}`,
-          width,
-          height,
-          fps,
-          duration: segmentDuration(cut),
-          sourceWidth: source.width,
-          sourceHeight: source.height,
-          transparentBackground,
-        });
-      } else {
-        appendCutVisualTransform({
-          filters,
-          inputLabel: trimmedLabel,
-          outputLabel: shapedLabel,
-          cut,
-          id: `v1_${index}`,
-          width,
-          height,
-          fps,
-          duration: segmentDuration(cut),
-          transparentBackground,
-          canvasBasisTransform,
-        });
-      }
-    } else {
-      appendFreezeAwareVideoTrim({
-        filters,
-        inputLabel: `[${source.inputIndex}:v]`,
-        outputLabel: shapedLabel,
-        sourceIn: cut.in,
-        sourceOut: cut.out,
-        speed,
-        freeze: cut.freeze,
-        id: `v1_${index}`,
-        fps,
-        postSuffixFilter: `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1`,
-      });
-    }
-    if (fxCuts) {
-      appendCutFxChain({
-        filters,
-        inputLabel: shapedLabel,
-        outputLabel: chromaInputLabel,
-        fx: cut.fx,
-        id: `v1_${index}`,
-        width,
-        height,
-        fps,
-        duration: segmentDuration(cut),
-      });
-    }
-    if (chromaKey) {
-      appendMultiSourceChromaKey({
-        filters,
-        extraInputArgs,
-        inputLabel: chromaInputLabel,
-        outputLabel: preRangeLabel,
-        key: chromaKey,
-        id: index,
-        width,
-        height,
-        fps,
-        duration: segmentDuration(cut),
-        projectRoot,
-        firstExtraInputIndex: sourceInputs.length,
-      });
-    }
-    filters.push(`${preRangeLabel}scale=out_range=tv${preConcatLabel}`);
-    if (hasAnyTransition) {
-      filters.push(`${preConcatLabel}settb=AVTB[v${index}]`);
-    }
-    concatInputs.push(`[v${index}]`);
-
-    appendMultiSourceCutAudioFilter({
-      filters, warnings, cut, source, index, ffprobeCommand, audioDurationCache,
-    });
-    concatInputs.push(`[a${index}]`);
-  }
-
-  if (!hasAnyTransition) {
-    filters.push(`${concatInputs.join("")}concat=n=${cuts.length}:v=1:a=1[joinedv][joineda]`);
-  } else {
-    // v1's per-cut audio label always exists (real audio or anullsrc-generated silence above),
-    // unlike the removed single-source path's single hasAudio flag for the whole source -- so this join never
-    // needs the removed single-source path's "no audio at all" fallback branch.
-    const cutOffsets = computeCutTimelineOffsets(cuts);
-    // MAJOR-3 fix (Codex review, see cut-timeline.mjs's effectiveTransitionDurations): use the
-    // same possibly-clamped-to-actual-overlap duration cutOffsets itself was built from, not the
-    // raw declared cuts[index-1].transition_out.duration -- xfade/acrossfade must be told exactly
-    // how much overlap really exists, or the filter graph and the timeline math it was placed
-    // against (cutOffsets) would silently disagree again the same way the routing decision used to.
-    const transitionDurations = effectiveTransitionDurations(cuts);
-    let videoAcc = "[v0]";
-    let audioAcc = "[a0]";
-    for (let index = 1; index < cuts.length; index += 1) {
-      const boundary = cuts[index - 1].transition_out;
-      const isLastBoundary = index === cuts.length - 1;
-      const nextVideoLabel = isLastBoundary ? "[joinedv]" : `[vacc${index}]`;
-      const nextAudioLabel = isLastBoundary ? "[joineda]" : `[aacc${index}]`;
-      if (boundary) {
-        const transitionName = XFADE_TRANSITION_NAMES[boundary.type] ?? "fade";
-        const transitionDuration = transitionDurations[index - 1];
-        const offset = Math.max(0, cutOffsets[index].start);
-        filters.push(
-          `${videoAcc}[v${index}]xfade=transition=${transitionName}:duration=${formatNumber(transitionDuration)}:offset=${formatNumber(offset)}${nextVideoLabel}`,
-        );
-        filters.push(`${audioAcc}[a${index}]acrossfade=d=${formatNumber(transitionDuration)}${nextAudioLabel}`);
-      } else {
-        filters.push(`${videoAcc}${audioAcc}[v${index}][a${index}]concat=n=2:v=1:a=1${nextVideoLabel}${nextAudioLabel}`);
-      }
-      videoAcc = nextVideoLabel;
-      audioAcc = nextAudioLabel;
-    }
-  }
-
-  appendMultiSourceLookFilters(filters, "[joinedv]", { look, projectRoot, alreadyNormalized: true });
-
-  return buildMultiSourceCommandResult({
-    ffmpegCommand, ffprobeCommand, sourceInputs, extraInputArgs, filters, videoEncodeArgs, cutPath,
-    fps, transparentBackground, warnings,
-  });
-}
-
 export function buildMultiSourceAudioCutCommand({
   sourceInputs,
   cutPath,
@@ -1585,147 +733,6 @@ function appendInputSeekedCutAudioFilter({
       `anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(segmentDuration(cut))},asetpts=PTS-STARTPTS[a${index}]`,
     );
   }
-}
-
-function appendMultiSourceCutAudioFilter({
-  filters, warnings, cut, source, index, ffprobeCommand, audioDurationCache,
-}) {
-  const speed = cutSpeed(cut);
-  if (source.hasAudio) {
-    appendAudioEndPaddingWarning({ warnings, cut, source, index, ffprobeCommand, audioDurationCache });
-    const atempoSuffix = buildAtempoChain(speed)
-      .map((factor) => `,atempo=${formatNumber(factor)}`)
-      .join("");
-    appendFreezeAwareAudioTrim({
-      filters,
-      inputLabel: `[${source.inputIndex}:a]`,
-      outputLabel: `[a${index}]`,
-      sourceIn: cut.in,
-      sourceOut: cut.out,
-      speed,
-      atempoSuffix,
-      freeze: cut.freeze,
-      id: `v1_${index}`,
-      normalize: true,
-      padToSeconds: segmentDuration(cut),
-    });
-  } else {
-    filters.push(
-      `anullsrc=r=48000:cl=stereo,atrim=duration=${formatNumber(segmentDuration(cut))},asetpts=PTS-STARTPTS[a${index}]`,
-    );
-  }
-}
-
-function appendMultiSourceChromaKey({
-  filters, extraInputArgs, inputLabel, outputLabel, key, id, width, height, fps, duration,
-  projectRoot, firstExtraInputIndex,
-}) {
-  const color = isNonEmptyString(key.color) ? key.color : "0x00FF00";
-  const similarity = isFiniteNumber(key.similarity) ? key.similarity : 0.2;
-  const blend = isFiniteNumber(key.blend) ? key.blend : 0.1;
-  const keyed = `[vkeyed${id}]`;
-  const background = key.background;
-  let backgroundLabel;
-  if (!isNonEmptyString(background) || isColorLike(background)) {
-    const bgColor = isNonEmptyString(background) ? background : "0x000000";
-    backgroundLabel = `[vkeybg${id}]`;
-    filters.push(
-      `color=c=${bgColor}:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(duration)}${backgroundLabel}`,
-    );
-  } else {
-    const backgroundPath = resolve(projectRoot, background);
-    const inputIndex = firstExtraInputIndex + extraInputArgs.filter(value => value === "-i").length;
-    extraInputArgs.push(...(isImageLayerSource(backgroundPath) ? ["-loop", "1"] : []), "-i", backgroundPath);
-    backgroundLabel = `[${inputIndex}:v]`;
-  }
-  const scaledBackground = `[vkeybgscaled${id}]`;
-  filters.push(
-    `${inputLabel}format=yuva420p,chromakey=color=${color}:similarity=${formatNumber(similarity)}:blend=${formatNumber(blend)}${keyed}`,
-  );
-  filters.push(
-    `${backgroundLabel}scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},fps=${formatNumber(fps)},setsar=1${scaledBackground}`,
-  );
-  filters.push(`${scaledBackground}${keyed}overlay=shortest=1:format=auto${outputLabel}`);
-}
-
-// docs/contract-2026-08-18-v1-render-parity.md §2: shared tail for both v1 cut-command builders
-// (the plain concat path above and buildGapAwareMultiSourceCutCommand below) -- identical LUT/look
-// blend + tv-range clamp logic, factored out once instead of duplicated a second time.
-function appendMultiSourceLookFilters(filters, videoLabel, { look, projectRoot, alreadyNormalized }) {
-  if (look) {
-    const lutPath = resolveLutPath(projectRoot, look.lut);
-    const intensity = isFiniteNumber(look.intensity) ? Math.max(0, Math.min(1, look.intensity)) : 1;
-    if (intensity <= 0) {
-      filters.push(`${videoLabel}null[outv]`);
-    } else if (intensity >= 1) {
-      filters.push(`${videoLabel}lut3d=file='${escapeFilterPath(lutPath)}':interp=trilinear[outv]`);
-    } else {
-      filters.push(`${videoLabel}split=2[lutbase][luttop]`);
-      filters.push(`[luttop]lut3d=file='${escapeFilterPath(lutPath)}':interp=trilinear[lutapplied]`);
-      filters.push(`[lutapplied][lutbase]blend=all_mode=normal:all_opacity=${formatNumber(intensity)}[outv]`);
-    }
-    filters.push("[outv]scale=out_range=tv[outv_tv]");
-  } else {
-    // Every multi-source cut was normalized to tv before concat. Applying scale=out_range=tv
-    // again here compresses full-range input twice, so the no-look path only renames the label.
-    filters.push(alreadyNormalized
-      ? `${videoLabel}null[outv_tv]`
-      : `${videoLabel}scale=out_range=tv[outv_tv]`);
-  }
-}
-
-function buildMultiSourceCommandResult({
-  ffmpegCommand, ffprobeCommand, sourceInputs, extraInputArgs = [], filters, videoEncodeArgs, cutPath,
-  fps, transparentBackground = false, warnings = [],
-}) {
-  return {
-    command: ffmpegCommand,
-    warnings,
-    args: [
-      "-hide_banner",
-      "-loglevel",
-      "error",
-      "-nostdin",
-      "-y",
-      // docs/contract-2026-08-12-still-image-cut-source-v0.md 裁定2: same `-loop 1` recipe as
-      // the removed single-source path, applied per-source here since v1 mixes video and still-image sources.
-      // image2 loop inputs otherwise default to 25fps, leaving trim boundaries on the wrong frame grid.
-      // P0 2026-08-21 render-path-unification: a VP9/VP8 alpha-side-channel source needs an
-      // explicit libvpx decoder or its alpha plane silently comes back opaque (layers.mjs's
-      // resolveDecoderForLayer / SIDE_CHANNEL_ALPHA_DECODERS) -- reused here now that cuts[] items
-      // can carry the same alpha-carrying sources layers[] items always could.
-      ...sourceInputs.flatMap((source) => [
-        ...(ffprobeCommand ? resolveDecoderForLayer(ffprobeCommand, source.path, warnings) : []),
-        ...(isImageLayerSource(source.path)
-          ? ["-framerate", formatNumber(fps), "-loop", "1", "-i", source.path]
-          : ["-i", source.path]),
-      ]),
-      ...extraInputArgs,
-      "-filter_complex",
-      filters.join(";"),
-      "-map",
-      "[outv_tv]",
-      "-map",
-      "[joineda]",
-      // P0 2026-08-21 render-path-unification: an alpha channel built up inside filter_complex
-      // (transparentBackground) is worthless if the intermediate file itself can't carry it --
-      // libx264/yuv420p have no alpha plane, so every bit of it would be silently discarded the
-      // instant this file hits disk, and buildCutTrackCompositeCommand's later overlay of that
-      // now-fully-opaque file would paint over whatever was supposed to show through (verified:
-      // this was exactly why the first version of this change still failed real-pixel tests).
-      // qtrle (a lossless, alpha-capable intra codec long supported by ffmpeg) keeps it intact
-      // through the round trip -- verified empirically (packages/render-cut/test/*, report.md).
-      // videoEncodeArgs is ignored in this branch: this is a decode-again intermediate, never the
-      // final delivered artifact, so quality/size tuning is moot and codec choice is what matters.
-      ...(transparentBackground ? ["-c:v", "qtrle"] : (videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"])),
-      ...(transparentBackground ? [] : ["-pix_fmt", "yuv420p"]),
-      "-c:a",
-      "aac",
-      "-ar",
-      "48000",
-      cutPath,
-    ],
-  };
 }
 
 function buildMultiSourceAudioCommandResult({
@@ -1855,140 +862,6 @@ function escapeConcatListPath(path) {
 // cut's audio and the base track's audio both stay audible through the overlap even though only one
 // track's picture shows at a time -- again mirroring the removed single-source gap-aware path exactly, just resolving
 // each segment's source via cut.src instead of a single implicit v0 source.
-export function buildGapAwareMultiSourceCutCommand({
-  sourceInputs,
-  cutPath,
-  cuts,
-  width,
-  height,
-  fps,
-  duration,
-  ffmpegCommand = resolveFfmpeg(),
-  ffprobeCommand = resolveFfprobe(),
-  projectRoot,
-  look,
-  videoEncodeArgs = null,
-  // See buildMultiSourceCutCommand's own comment. Every pre-existing caller omits this.
-  transparentBackground = false,
-  // See buildMultiSourceCutCommand's own comment. This function is only ever reached from the
-  // flat/default (non-stack) dispatch (see plan.mjs's buildPlan) -- never as a buildTrackStackPlan
-  // stage -- so canvasBasisTransform is always its true default in practice; threaded through for
-  // API symmetry with buildMultiSourceCutCommand and any direct unit-test caller.
-  canvasBasisTransform = true,
-  audioDurationCache = new Map(),
-}) {
-  // See buildMultiSourceCutCommand's own comment on the same line.
-  const warnings = [];
-  // Same restriction as v0's the removed single-source path dispatch (see its own comment): computeVideoRuns maps
-  // output time back to source time with a single linear speed factor per run, which cannot represent
-  // a freeze hold's non-linear pause. Reject loudly rather than silently render the wrong frames.
-  if (hasCutFreeze(cuts)) {
-    throw new Error(
-      "cuts[].freeze is not supported together with a gap-aware cut timeline (explicit at/track placement) in "
-        + "v1 (sources[]) either -- same restriction as v0 (docs/contract-2026-07-22-render-basics.md #7). Remove "
-        + "freeze from this cut, or drop its at/track placement so the whole cuts[] array renders through the "
-        + "default sequential path instead.",
-    );
-  }
-
-  const inputsById = new Map(sourceInputs.map((source, index) => [source.id, { ...source, inputIndex: index }]));
-  const segments = resolveCutSegments(cuts);
-  const runs = computeVideoRuns(segments, duration);
-  const filters = [];
-  const videoLabels = [];
-  const transformCuts = hasCutVisualTransform(cuts) || hasCutFraming(cuts);
-  const fxCuts = hasCutFx(cuts);
-
-  for (const [index, run] of runs.entries()) {
-    const label = `[gv1_${index}]`;
-    if (run.kind === "gap") {
-      // P0 2026-08-21 render-path-unification: transparent, not opaque black, only when the
-      // caller actually needs alpha (transparentBackground -- this track overlays onto real
-      // content below it) AND the other segments in this same concat are already alpha-carrying
-      // (transformCuts -- concat requires every input to share one pixel format). Every
-      // pre-existing caller passes transparentBackground=false, so this stays byte-identical
-      // opaque black exactly as before this task.
-      filters.push(
-        transformCuts && transparentBackground
-          ? `color=c=black@0:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(run.outEnd - run.outStart)},format=yuva420p${label}`
-          : `color=c=black:s=${width}x${height}:r=${formatNumber(fps)}:d=${formatNumber(run.outEnd - run.outStart)}${label}`,
-      );
-    } else {
-      const cut = run.cut;
-      const source = inputsById.get(cut.src);
-      const speed = cutSpeed(cut);
-      const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
-      const rawLabel = `[gv1raw${index}]`;
-      const shapedLabel = fxCuts ? `[gv1shaped${index}]` : label;
-      filters.push(
-        `[${source.inputIndex}:v]trim=start=${formatNumber(run.srcIn)}:end=${formatNumber(run.srcOut)},setpts=${ptsExpr}${rawLabel}`,
-      );
-      if (transformCuts) {
-        if (hasCutLayerStyleVisual(cut)) {
-          appendCutLayerStyleVisual({
-            filters,
-            inputLabel: rawLabel,
-            outputLabel: shapedLabel,
-            cut,
-            id: `gap1_${index}`,
-            width,
-            height,
-            fps,
-            duration: run.outEnd - run.outStart,
-            sourceWidth: source.width,
-            sourceHeight: source.height,
-            transparentBackground,
-          });
-        } else {
-          appendCutVisualTransform({
-            filters,
-            inputLabel: rawLabel,
-            outputLabel: shapedLabel,
-            cut,
-            id: `gap1_${index}`,
-            width,
-            height,
-            fps,
-            duration: run.outEnd - run.outStart,
-            transparentBackground,
-            canvasBasisTransform,
-          });
-        }
-      } else {
-        filters.push(
-          `${rawLabel}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,fps=${formatNumber(fps)},setsar=1${shapedLabel}`,
-        );
-      }
-      if (fxCuts) {
-        appendCutFxChain({
-          filters,
-          inputLabel: shapedLabel,
-          outputLabel: label,
-          fx: cut.fx,
-          id: `gap1_${index}`,
-          width,
-          height,
-          fps,
-          duration: run.outEnd - run.outStart,
-        });
-      }
-    }
-    videoLabels.push(label);
-  }
-  filters.push(`${videoLabels.join("")}concat=n=${runs.length}:v=1:a=0[joinedv]`);
-
-  appendGapAwareAudioFilters({
-    filters, warnings, segments, inputsById, duration, ffprobeCommand, audioDurationCache,
-  });
-
-  appendMultiSourceLookFilters(filters, "[joinedv]", { look, projectRoot, alreadyNormalized: false });
-
-  return buildMultiSourceCommandResult({
-    ffmpegCommand, ffprobeCommand, sourceInputs, filters, videoEncodeArgs, cutPath, fps,
-    transparentBackground, warnings,
-  });
-}
-
 export function buildGapAwareMultiSourceAudioCutCommand({
   sourceInputs,
   cutPath,
@@ -2206,7 +1079,7 @@ function probeAudioStreamDurationSeconds(ffprobeCommand, path) {
   }
 }
 
-export function predictedDuration(cuts) {
+export function predictedDuration(cuts, sourceDuration = 0) {
   // docs/contract-2026-08-18-v1-render-parity.md §2: gap-awareness (explicit at/track) is checked
   // before the version branch now, for both v0 and v1 -- an at-gap or a track>=1 cut shifts the
   // real end of the timeline (the removed single-source gap-aware path / buildGapAwareMultiSourceCutCommand both
@@ -2241,44 +1114,6 @@ function isPositiveNumber(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-// docs/contract-2026-07-22-render-basics.md #3: schema enum values map 1:1 onto ffmpeg's xfade
-// transition names (dissolve/fadeblack/fadewhite all exist natively — verified via `ffmpeg -filters`).
-const XFADE_TRANSITION_NAMES = {
-  dissolve: "dissolve",
-  fade: "fade",
-  "fade-black": "fadeblack",
-  "fade-white": "fadewhite",
-  "fade-grays": "fadegrays",
-  "wipe-left": "wipeleft",
-  "wipe-right": "wiperight",
-  "wipe-up": "wipeup",
-  "wipe-down": "wipedown",
-  radial: "radial",
-  "slide-left": "slideleft",
-  "slide-right": "slideright",
-  "slide-up": "slideup",
-  "slide-down": "slidedown",
-  "cover-left": "coverleft",
-  "cover-right": "coverright",
-  "cover-up": "coverup",
-  "cover-down": "coverdown",
-  "reveal-left": "revealleft",
-  "reveal-right": "revealright",
-  // reveal-down / reveal-up: 前カットが丸ごとその方向へ動いて画面外へ抜け、空いた側から
-  // 次カットが現れる（前カットは動きながら画面端でクロップされる）。ディゾルブのように
-  // 混ざらないので、同じ構図が続くトークシーンでも「場面が入れ替わった」ことが読める。
-  // 2026-08-14 追加（テンプレの基本トランジションとしてオーナー指定）。
-  "reveal-down": "revealdown",
-  "reveal-up": "revealup",
-  "circle-open": "circleopen",
-  "circle-close": "circleclose",
-  "zoom-in": "zoomin",
-  "squeeze-h": "squeezeh",
-  "squeeze-v": "squeezev",
-  blur: "hblur",
-  pixelize: "pixelize",
-};
-
 export function selectDefaultOutput(projectRoot, edit, exists) {
   const configured = typeof edit.name === "string" && edit.name.trim() !== "" ? edit.name : null;
   const namingSource = edit.sources[0]?.path;
@@ -2292,19 +1127,6 @@ export function selectDefaultOutput(projectRoot, edit, exists) {
     candidate = join(directory, `${stem}-${index}.mp4`);
   }
   return candidate;
-}
-
-function selectRasterizer(capabilities, hasThreeDimensionalOverlay) {
-  if (hasThreeDimensionalOverlay) return "puppeteer-core";
-  if (capabilities.hyperframesAvailable) return "hyperframes";
-  if (capabilities.puppeteerAvailable && capabilities.chromePath) return "puppeteer-core";
-  return "static-screenshot";
-}
-
-// The npm .bin shim is not spawnable on Windows, so the plan advertises the same
-// node + package-entry invocation that execution uses (see rasterizeAndComposite).
-function hyperframesEntry() {
-  return fileURLToPath(new URL("../node_modules/hyperframes/bin/hyperframes.mjs", import.meta.url));
 }
 
 function relativeOrAbsolute(root, value) {

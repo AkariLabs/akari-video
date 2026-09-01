@@ -259,7 +259,6 @@ test them):
 | Package | External dependencies | Needed for |
 |---|---|---|
 | `packages/template-render` | `puppeteer-core` | rendering overlay HTML into frames |
-| `packages/render-cut` | `puppeteer-core`, `hyperframes` | the final MP4 export |
 | `packages/bake-layer` | `puppeteer`, `esbuild` | baking overlay layers |
 | `packages/preview-server` | `esbuild` | the browser preview server |
 | `packages/media-bin` | none — but its `postinstall` downloads ffmpeg/ffprobe (sha256-verified) | ffmpeg for every media step |

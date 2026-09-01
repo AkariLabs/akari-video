@@ -2,65 +2,46 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  assertOsrLauncherAvailable,
   buildEngineProvenance,
   parseArguments,
+  RefusalError,
   resolveEngineChoice,
-  selectRenderEngineExecution,
 } from "../../render-cut/src/render-cut.mjs";
 
-test("render-cut --engine は未指定を auto とし明示値も解釈する", () => {
-  assert.equal(parseArguments(["proj"]).engine, "auto");
-  assert.equal(parseArguments(["proj", "--engine", "auto"]).engine, "auto");
-  assert.equal(parseArguments(["proj", "--engine", "legacy"]).engine, "legacy");
-  assert.equal(parseArguments(["proj", "--engine", "osr"]).engine, "osr");
-  assert.throws(() => parseArguments(["proj", "--engine", "bogus"]), /--engine/);
-});
-
-test("resolveEngineChoice は platform × requested の 9 通りを解決する", () => {
-  const expected = {
-    darwin: { auto: "osr", legacy: "legacy", osr: "osr" },
-    win32: { auto: "osr", legacy: "legacy", osr: "osr" },
-    linux: { auto: "legacy", legacy: "legacy", osr: "osr" },
-  };
-  for (const [platform, choices] of Object.entries(expected)) {
-    for (const [requested, resolved] of Object.entries(choices)) {
-      assert.equal(resolveEngineChoice(requested, platform), resolved, `${platform}/${requested}`);
-    }
+test("render-cut --engine accepts auto/gpu/osr and rejects the retired value", () => {
+  for (const engine of ["auto", "gpu", "osr"]) {
+    assert.equal(parseArguments(["proj", "--engine", engine]).engine, engine);
   }
-  assert.deepEqual(buildEngineProvenance("auto", "darwin"), {
-    engine_requested: "auto",
-    engine: "osr",
-  });
-  const win32Provenance = buildEngineProvenance("auto", "win32");
-  assert.deepEqual(win32Provenance, { engine_requested: "auto", engine: "osr" });
-  assert.equal(selectRenderEngineExecution(win32Provenance.engine, null).engineFallback, undefined);
-
-  const linuxProvenance = buildEngineProvenance("auto", "linux");
-  assert.deepEqual(linuxProvenance, { engine_requested: "auto", engine: "legacy" });
-  assert.equal(selectRenderEngineExecution(linuxProvenance.engine, null).engineFallback, undefined);
+  assert.throws(
+    () => parseArguments(["proj", "--engine", "legacy"]),
+    (error) => error instanceof RefusalError && error.exitCode === 2 && /廃止/.test(error.message),
+  );
 });
 
-test("tier 3 は legacy 実走と fallback provenance を選ぶ", () => {
+test("three platforms resolve auto/gpu/osr identically", () => {
+  for (const platform of ["darwin", "win32", "linux"]) {
+    assert.equal(resolveEngineChoice("auto", platform, { eligible: true }), "gpu");
+    assert.equal(resolveEngineChoice("auto", platform, { eligible: false }), "osr");
+    assert.equal(resolveEngineChoice("gpu", platform, { eligible: false }), "gpu");
+    assert.equal(resolveEngineChoice("osr", platform, { eligible: true }), "osr");
+  }
+});
+
+test("provenance has no OSR fallback form", () => {
   assert.deepEqual(
-    selectRenderEngineExecution("osr", { tier: 3, reason: "Electron launcher unavailable" }),
-    {
-      useOsr: false,
-      engine: "legacy",
-      engineFallback: { from: "osr", reason: "Electron launcher unavailable" },
-      runLegacyTrackStack: true,
-      runLegacyLayers: true,
-      runLegacyRasterize: true,
-    },
+    buildEngineProvenance("auto", "linux", undefined, { eligible: false }),
+    { engine_requested: "auto", engine: "osr" },
   );
-  assert.deepEqual(
-    buildEngineProvenance("auto", "darwin", {
-      tier: 3,
-      reason: "Electron launcher unavailable",
-    }),
-    {
-      engine_requested: "auto",
-      engine: "legacy",
-      engine_fallback: { from: "osr", reason: "Electron launcher unavailable" },
-    },
+});
+
+test("tier 3 refusal names all three Electron acquisition paths", () => {
+  assert.throws(
+    () => assertOsrLauncherAvailable({ tier: 3, reason: "missing" }),
+    (error) => error instanceof RefusalError
+      && error.exitCode === 2
+      && /インストール済み AKARI Video/.test(error.message)
+      && /npm install electron/.test(error.message)
+      && /AKARI_OSR_ELECTRON=<path>/.test(error.message),
   );
 });

@@ -49,72 +49,6 @@ function resolveFreezeSplit({ freeze, sourceIn, sourceOut, speed }) {
 //
 // `fps` is only used for the "freeze at the very start of the cut" branch (see below) -- every
 // other branch is duration-based and does not need it.
-export function appendFreezeAwareVideoTrim({
-  filters,
-  inputLabel,
-  outputLabel,
-  sourceIn,
-  sourceOut,
-  speed,
-  freeze,
-  id,
-  fps,
-  postSuffixFilter = "",
-}) {
-  const ptsExpr = speed === 1 ? "PTS-STARTPTS" : `(PTS-STARTPTS)/${formatNumber(speed)}`;
-  const split = resolveFreezeSplit({ freeze, sourceIn, sourceOut, speed });
-  if (!split) {
-    const suffix = postSuffixFilter ? `,${postSuffixFilter}` : "";
-    filters.push(`${inputLabel}trim=start=${formatNumber(sourceIn)}:end=${formatNumber(sourceOut)},setpts=${ptsExpr}${suffix}${outputLabel}`);
-    return;
-  }
-  const finalLabel = postSuffixFilter ? `[fz_${id}_pre_tb]` : outputLabel;
-  if (split.mode === "start") {
-    // tpad's `start_mode=clone` has an empirically-verified bug on this ffmpeg build: any `fps`
-    // filter downstream of it (however many steps later) silently drops the segment's very last
-    // frame. `stop_mode=clone` does not have this problem. So instead of padding at the start,
-    // this pulls a 1-frame seed out of the (already time-rebased) whole segment via a
-    // frame-index trim -- exact regardless of the segment's frame rate -- pads *that* seed at
-    // its stop with `stop_mode=clone`, and concats it in front of the untouched whole segment.
-    // `stop` (an integer clone-frame count, not `stop_duration`) is used so the total held span
-    // is an exact frame count instead of depending on sub-frame duration rounding.
-    const holdFrames = Math.max(1, Math.round(split.hold * fps));
-    const whole = `[fzv_${id}_whole]`;
-    const wholeSeed = `[fzv_${id}_seed]`;
-    const wholeRest = `[fzv_${id}_rest]`;
-    const seedHeld = `[fzv_${id}_seedheld]`;
-    filters.push(`${inputLabel}trim=start=${formatNumber(sourceIn)}:end=${formatNumber(sourceOut)},setpts=${ptsExpr}${whole}`);
-    filters.push(`${whole}split=2${wholeSeed}${wholeRest}`);
-    filters.push(`${wholeSeed}trim=start_frame=0:end_frame=1,setpts=PTS-STARTPTS,tpad=stop_mode=clone:stop=${holdFrames - 1}${seedHeld}`);
-    filters.push(`${seedHeld}${wholeRest}concat=n=2:v=1:a=0${finalLabel}`);
-  } else if (split.mode === "end") {
-    filters.push(
-      `${inputLabel}trim=start=${formatNumber(sourceIn)}:end=${formatNumber(sourceOut)},setpts=${ptsExpr},tpad=stop_mode=clone:stop_duration=${formatNumber(split.hold)}${finalLabel}`,
-    );
-  } else {
-    const partA = `[fzv_${id}_a]`;
-    const partAHeld = `[fzv_${id}_ah]`;
-    const partB = `[fzv_${id}_b]`;
-    filters.push(`${inputLabel}trim=start=${formatNumber(sourceIn)}:end=${formatNumber(split.freezeSourceIn)},setpts=${ptsExpr}${partA}`);
-    filters.push(`${partA}tpad=stop_mode=clone:stop_duration=${formatNumber(split.hold)}${partAHeld}`);
-    filters.push(`${inputLabel}trim=start=${formatNumber(split.freezeSourceIn)}:end=${formatNumber(sourceOut)},setpts=${ptsExpr}${partB}`);
-    filters.push(`${partAHeld}${partB}concat=n=2:v=1:a=0${finalLabel}`);
-  }
-  if (postSuffixFilter) {
-    filters.push(`${finalLabel}${postSuffixFilter}${outputLabel}`);
-  }
-}
-
-// Audio counterpart: inserts silence (anullsrc) for the frozen span instead of the source's
-// own audio, keeping the cut's audio content in sync with the (now longer) video.
-//
-// `normalize` controls only the NO-freeze fallback line's format: it exists so this shared
-// helper can reproduce each of the three call sites' pre-existing byte-identical behavior when
-// freeze is absent (buildMultiSourceCutCommand already unconditionally resamples to
-// 48k/stereo; the historical single-source paths did not). Whenever freeze *is* present,
-// the resample+format step is applied unconditionally regardless of `normalize` -- concat-ing
-// real audio with anullsrc-generated silence needs a matching sample format on both sides, and
-// that requirement doesn't depend on which call site is asking.
 export function appendFreezeAwareAudioTrim({
   filters,
   inputLabel,
@@ -161,7 +95,7 @@ export function appendFreezeAwareAudioTrim({
 }
 
 // Input-seeked audio discards its preroll, so filter timestamps use cut-relative time plus
-// preroll. Keep the legacy helper above source-relative and adapt only the audio-only path here.
+// preroll. Keep the retired helper above source-relative and adapt only the audio-only path here.
 export function appendFreezeAwareRelativeAudioTrim({
   sourceIn,
   sourceOut,

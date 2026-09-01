@@ -4,7 +4,7 @@ import { dirname, parse, resolve } from "node:path";
 import { CONTACT_SHEET_MAX_FRAMES } from "../../../render-cut/src/contact-sheet.mjs";
 
 export const CAPTURE_USAGE = `Usage: akari capture [-p <project>] (-t <time...> | --auto)
-  [--engine auto|osr|gpu|legacy] [--separate] [--full]
+  [--engine auto|gpu|osr] [--separate] [--full]
   [--per-sheet <1-12>] [--out <dir>] [--edit <path>]
 
 Times are timeline seconds or MM:SS(.fff).`;
@@ -83,8 +83,8 @@ function parsePerSheet(value) {
 }
 
 function parseEngine(value) {
-  if (!["auto", "osr", "gpu", "legacy"].includes(value)) {
-    throw new Error(`--engine must be auto|osr|gpu|legacy, got: ${value}`);
+  if (!["auto", "gpu", "osr"].includes(value)) {
+    throw new Error(`--engine must be auto|gpu|osr, got: ${value}`);
   }
   return value;
 }

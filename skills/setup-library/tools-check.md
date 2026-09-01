@@ -98,19 +98,6 @@ done
 
 用途: 取得した audio 素材のナレーション・歌詞有無の確認、fetch 後の内容チェック補助。素材ライブラリの主経路ではないため、無くても致命的ではない。
 
-## headless Chrome
-
-[overlay-authoring/thumbnail.md](../overlay-authoring/thumbnail.md) と同じ既定パスを使う。
-
-```sh
-CHROME="${AKARI_CHROME_BIN:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
-test -x "$CHROME" && echo "OK: $CHROME"
-```
-
-用途: 取得した telop / motion / 3d 系素材の `fragment.html` を実際にレンダーして preview.png を作る、または見た目を検品する。
-
-なければ: 実体確認済みの preview 画像がカタログ側の `source.preview_url` にも無い限り、HTML 系素材の見た目確認を保留し理由を報告する。実物と違う mock を preview として作らない（[harvest-asset](../harvest-asset/SKILL.md) のよくある間違いを継承する）。
-
 ## Blender（条件付き — 3D ベイクレシピを扱うときだけ）
 
 ```sh

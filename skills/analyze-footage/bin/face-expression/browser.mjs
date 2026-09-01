@@ -45,14 +45,14 @@ function systemCandidates() {
 }
 
 export function findChrome(env = process.env) {
-  const overridden = env.PUPPETEER_EXECUTABLE_PATH?.trim();
+  const overridden = env.AKARI_CHROME_BIN?.trim() || env.PUPPETEER_EXECUTABLE_PATH?.trim();
   if (overridden) return existsSync(overridden) ? overridden : null;
   return [...cachedCandidates(), ...systemCandidates()].find((candidate) => existsSync(candidate)) ?? null;
 }
 
 export async function launchBrowser(env = process.env) {
   const executablePath = findChrome(env);
-  if (!executablePath) throw new Error("Chrome for Testing が見つかりません");
+  if (!executablePath) throw new Error("この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）");
   const { default: puppeteer } = await import("puppeteer-core");
   return puppeteer.launch({
     executablePath,

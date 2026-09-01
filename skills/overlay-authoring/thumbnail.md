@@ -85,30 +85,13 @@
 
 ## `examples/` の HTML → スクショ手順
 
-現在はサムネ専用 CLI がないため、既存 `scripts/render-overlays.mjs` の static Chrome と同じ方式を使う。`render-overlays.mjs` 自体は manifest 必須の overlay renderer であり、サムネ用 CLI として直接呼ばない。
+現在はサムネ専用 CLI がないため、frame-engine のプレビューを指定サイズで開いて静止画を取得する。
 
 1. `examples/local/thumbnails/<slug>/index.html` を作る。`examples/local/` は gitignore 対象の試作場所である。
 2. `html, body` と単一 sheet を 1280×720、margin 0、overflow hidden にする。背景を明示し、画像・font は同ディレクトリ以下のローカル相対 URL にする。
 3. 文字、色、crop、accent を CSS 変数化する。日本語は HTML text として置く。
-4. font と画像が load 済みになる構造にし、headless Chrome の virtual time 内で安定するようにする。
-5. 次の実装済み flags で単発 PNG を撮る。
-
-```sh
-CHROME="${AKARI_CHROME_BIN:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
-test -x "$CHROME"
-"$CHROME" --headless \
-  --allow-file-access-from-files \
-  --disable-background-networking \
-  --force-device-scale-factor=1 \
-  --hide-scrollbars \
-  --no-first-run \
-  --no-default-browser-check \
-  --window-size=1280,720 \
-  --virtual-time-budget=10000 \
-  --run-all-compositor-stages-before-draw \
-  --screenshot="$PWD/examples/local/thumbnails/<slug>/thumbnail.png" \
-  "file://$PWD/examples/local/thumbnails/<slug>/index.html"
-```
+4. font と画像が load 済みになる構造にし、プレビューの固定時刻で安定するようにする。
+5. アプリのプレビューを 1280×720・固定時刻で表示し、単発 PNG を撮る。
 
 6. `sips -g pixelWidth -g pixelHeight .../thumbnail.png` で **1280×720** を確認する。
 7. PNG を実見し、文字欠け、font fallback、crop、コントラスト、誤字、safe zone を確認する。採用 PNG は gitignore 外の案件成果物へ移す。

@@ -1,6 +1,6 @@
 ---
 name: setup-library
-description: AKARI Video を初めてセットアップするとき、または現在のプロジェクトに使える素材が足りず新しく揃えたいときに発動する。ffmpeg / whisper-cli / headless Chrome の道具チェック（承認を得れば導入まで代行）、catalog/ を読んだスターターパック提案、人間の明示承認、取得・配置・検証・INDEX 更新までを一気通貫で行う first-run スキル。
+description: AKARI Video を初めてセットアップするとき、または現在のプロジェクトに使える素材が足りず新しく揃えたいときに発動する。ffmpeg / whisper-cli の道具チェック（承認を得れば導入まで代行）、catalog/ を読んだスターターパック提案、人間の明示承認、取得・配置・検証・INDEX 更新までを一気通貫で行う first-run スキル。
 ---
 
 # FORBIDDEN 級ハードルール
@@ -20,7 +20,7 @@ description: AKARI Video を初めてセットアップするとき、または�
 
 # 実行順リーフ
 
-1. [tools-check.md](tools-check.md) — ffmpeg / whisper-cli / headless Chrome の実在確認
+1. [tools-check.md](tools-check.md) — ffmpeg / whisper-cli の実在確認
 2. [starter-pack.md](starter-pack.md) — `catalog/INDEX.md` を読み、用途を聞き、スターターパックを提案して承認を得る
 3. [fetch-and-validate.md](fetch-and-validate.md) — 承認された素材だけを取得し、`assets/` へ配置、検証、`INDEX.md` 更新
 

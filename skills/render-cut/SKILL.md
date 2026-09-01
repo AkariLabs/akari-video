@@ -22,9 +22,8 @@ description: 承認済み edit.json と edit-lint PASS を入力に、最終 MP4
 9. **既存成果物の silent 上書き禁止**
 10. カット連結・合成・verify の ffmpeg / ffprobe は**本体直叩き**（ラッパーライブラリ
     禁止。分析・書き出し・検証の各工程で共通の方針）。
-    **例外は HTML ラスタライズ段の HyperFrames のみ**（依存は
-    `packages/render-cut/` 内に隔離し、リポの他所へ波及させない）
-11. **3D overlay は puppeteer-core 経路で焼かれる**（HyperFrames より速度差があり得る点に注意）
+    映像は GPU / OSR のいずれかで描画する。
+11. **3D overlay も GPU / OSR 経路で描画される**
 
 ## 実行手順
 
@@ -72,7 +71,7 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
    reveal / reveal-word と対応済み `emphasis_words` は GPU-native 適格。宣言型 3D のルート 1 要素だけにある
    opacity + 2D translate / scale の 2 点登場 animation も GPU-native 適格。不適格な字幕・HTML があれば
    理由付きで fail-closed になる。Windows / Linux は `--engine gpu` 明示時だけ GPU を評価し、
-   `--engine auto` が GPU を候補にするのは macOS だけ（適格時は GPU、不適格時は OSR）。
+   `--engine auto` は全 platform で適格時は GPU、不適格時は OSR。
 6. exit code と `.akari/render.json` を確認する。`0` は完走して verify PASS、`1` は拒否または verify FAIL、`2` は実行エラーを表す。`provenance.rasterizer` で採用手段と上位候補を落とした理由を確認する。`verify.findings` には
    尺・フレーム数厳密一致（`verify.frame-count`）・全フレームデコード成功（`verify.decode`）・解像度・fps・コーデック等が並ぶ。
 7. verify PASS 後、CLI が `<project>/.akari/reports/contact-sheet.png` へ自動生成したコンタクトシート（plan から決定論導出した代表時刻 — 冒頭・各カット境界の直後・各オーバーレイ/字幕区間の中点・終盤 — をタイル結合した静止画。`render.json` の `contact_sheet.timestamps_seconds` に時刻列を記録）をキーフレーム視認の起点にする。これで足りない区間（コンタクトシートの上限枚数を超えて間引かれた箇所など）だけ追加でフレーム抽出して視認する。カット元時刻、文字、位置、欠落、透明合成を確認する。

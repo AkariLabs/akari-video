@@ -26,10 +26,6 @@ export const TOOL_UI: Record<AkariToolId, ToolUiInfo> = {
         name: 'Whisper（whisper.cpp）', badge: '基本', purpose: '素材の文字起こしに使います。モデルは実行ファイルとは別に必要です。',
         sizeLabel: '約 20MB（+ モデル別途）'
     },
-    chrome: {
-        name: 'Chrome', badge: '基本', purpose: '字幕・オーバーレイ・サムネイルの描画確認に使います。',
-        sizeLabel: '約 400MB'
-    },
     'yt-dlp': {
         name: 'yt-dlp', badge: 'アドバンス · 既定 ON', purpose: '許可された動画素材の取得に使います。',
         sizeLabel: '約 35MB'

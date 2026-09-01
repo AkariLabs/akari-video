@@ -61,14 +61,6 @@ const EXECUTABLE_SPECS: ExecutableSpec[] = [
         paths: NO_PATHS, versionArgs: ['--help'], bundledExeName: 'whisper-cli'
     },
     {
-        id: 'chrome', tier: 'required',
-        envNames: ['AKARI_CHROME_BIN', 'AKARI_CHROME_PATH', 'PUPPETEER_EXECUTABLE_PATH'],
-        commands: platform => platform === 'win32'
-            ? ['chrome', 'msedge']
-            : ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge'],
-        paths: chromePaths, versionArgs: ['--version']
-    },
-    {
         id: 'yt-dlp', tier: 'advanced', envNames: ['AKARI_YTDLP_BIN'], commands: command('yt-dlp'),
         paths: NO_PATHS, versionArgs: ['--version']
     },
@@ -312,28 +304,6 @@ async function defaultListDir(path: string): Promise<string[]> {
 
 function electronResourcesPath(): string | undefined {
     return (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
-}
-
-function chromePaths(platform: NodeJS.Platform, homeDir: string, env: NodeJS.ProcessEnv): string[] {
-    if (platform === 'darwin') {
-        return [
-            '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-            '/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary',
-            '/Applications/Chromium.app/Contents/MacOS/Chromium',
-            '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-            '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser'
-        ];
-    }
-    if (platform === 'win32') {
-        const localAppData = env.LOCALAPPDATA ?? join(homeDir, 'AppData', 'Local');
-        return [
-            'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-            'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-            join(localAppData, 'Google', 'Chrome', 'Application', 'chrome.exe'),
-            'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
-        ];
-    }
-    return ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge', '/snap/bin/chromium'];
 }
 
 function blenderPaths(platform: NodeJS.Platform): string[] {

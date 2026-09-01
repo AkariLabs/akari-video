@@ -38,8 +38,8 @@
 | 症状 | 原因 | 対処 |
 |---|---|---|
 | `execution error: capturing frame N timeout` | 1 フレームの既定タイムアウト 60 秒。マシンが混むと超える | `RENDER_CUT_CAPTURE_TIMEOUT_MS=300000` + 空くまで待つ |
-| `3D overlay requires puppeteer-core` と出る | 実際は上記タイムアウト。表面のメッセージは経路の話 | レポート HTML の **Rasterizer attempts** に本当の理由が出る |
-| ラスタライズが 10〜20 倍遅い | 別セッションの Chrome / ffmpeg と CPU を取り合っている | 同時実行を避ける（待つほうが速い） |
+| 3D 書き出しがタイムアウトする | GPU / OSR 実行体が混雑している | レポート HTML の実行記録を確認する |
+| 書き出しが遅い | 別セッションの ffmpeg と CPU を取り合っている | 同時実行を避ける（待つほうが速い） |
 
 ## 検証そのもの
 

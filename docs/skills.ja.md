@@ -19,7 +19,7 @@ AKARI Video のエージェント側ワークフローは **23 のスキル**に
 | スキル | 担当 | 外部ツール・接続 |
 |---|---|---|
 | [create-project](../skills/create-project/SKILL.md) | 新規プロジェクトの headless 作成（雛形コピー・作成レポート） | git（安全な場合のみ初期化） |
-| [setup-library](../skills/setup-library/SKILL.md) | 初回セットアップ。道具チェック → スターターパック提案 → 取得・配置・検証 | ffmpeg / whisper-cli / headless Chrome（存在検査） |
+| [setup-library](../skills/setup-library/SKILL.md) | 初回セットアップ。道具チェック → スターターパック提案 → 取得・配置・検証 | ffmpeg / whisper-cli |
 | [setup-audio-library](../skills/setup-audio-library/SKILL.md) | BGM・SFX の半自動入庫（候補リスト → 手動 DL 照合 → 試聴 keep/drop） | フリー音源配布元（ダウンロードは人間） |
 | [declare-audio](../skills/declare-audio/SKILL.md) | 手元の音源に「サビ・キメ・拍」を自分の耳で付ける宣言づけ（ブラウザのタイムライン画面 → `declarations.json`）。付けた宣言は BGM 自動提案がサビ頭出し付きで読む | ブラウザ（宣言を決めるのは人間） |
 | [setup-remote](../skills/setup-remote/SKILL.md) | 遠隔セットアップ。Tailscale doctor → 導入ガイド（人間手番）→ プレビューサーバーの tailnet 限定 HTTPS 化 → Taildrop 受信を作業場 inbox/ へ接続 → 疎通確認。公開インターネットへは既定で一切出さない | Tailscale / Taildrop（導入・ログインは人間） |
