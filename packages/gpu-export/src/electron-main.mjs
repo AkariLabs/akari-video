@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import electron from "electron";
 
 import { verifyEncodedVideo } from "../../osr-export/src/ffprobe.mjs";
+import { collectGpuDevices } from "../../osr-export/src/gpu-adapters.mjs";
 import { createMemorySampler, resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
 import { encodeRgbaPng } from "../../osr-export/src/png.mjs";
 import { startStaticServer } from "../../osr-export/src/static-server.mjs";
@@ -13,6 +14,7 @@ import { loadAndBuildGpuPage } from "./page-builder.mjs";
 import { createIncrementalMp4Writer } from "./mp4-mux.mjs";
 import { resolveGpuEncoding } from "./bitrate.mjs";
 import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
+import { extractGpuDiagnostics, stripGpuDiagnosticsMarker } from "./gpu-diagnostics.mjs";
 
 const { app, BrowserWindow, ipcMain } = electron;
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
@@ -72,6 +74,8 @@ export async function runGpuExport(options) {
   app.commandLine.appendSwitch("disable-renderer-backgrounding");
   app.on("window-all-closed", () => {});
   if (!app.isReady()) await app.whenReady();
+  // どの GPU に載ったか（Windows ハイブリッド機の診断・gpu 契約 §8.1）。3 秒で打ち切り、completed / failed の両方の run.json に残す。
+  const gpuDevices = await collectGpuDevices(app);
 
   const built = await loadAndBuildGpuPage({
     projectRoot,
@@ -142,6 +146,7 @@ export async function runGpuExport(options) {
         ...value?.gpu,
         platform: process.platform,
         chromium: process.versions.chrome,
+        devices: gpuDevices,
       },
       memory: memorySampler.snapshot(),
       eligibility: built.eligibility,
@@ -245,6 +250,7 @@ export async function runGpuExport(options) {
         ...result?.gpu,
         platform: process.platform,
         chromium: process.versions.chrome,
+        devices: gpuDevices,
       },
       memory: { ...memory, warnings: memoryWarnings },
       eligibility: built.eligibility,
@@ -256,17 +262,25 @@ export async function runGpuExport(options) {
   } catch (error) {
     const reasonCode = gpuFailureReasonCode(error);
     const captionMeasureDiffs = extractCaptionMeasureDiffs(error);
+    // page-runtime の unsupported throw が添えた renderer / encoder_support（プロパティ、または message 末尾の marker）を
+    // 失敗の run.json に残し、記録と再 throw する error からは marker を外す。
+    const gpuDiagnostics = extractGpuDiagnostics(error);
+    if (error instanceof Error) {
+      error.message = stripGpuDiagnosticsMarker(error.message);
+      if (typeof error.stack === "string") error.stack = stripGpuDiagnosticsMarker(error.stack);
+    }
     const failed = {
       version: 1,
       status: "failed",
-      error: String(error?.stack ?? error),
+      error: stripGpuDiagnosticsMarker(String(error?.stack ?? error)),
       ...(reasonCode ? { reasonCode, warnings: [`${reasonCode}: GPU export failed closed`] } : {}),
       framesRequested: frames,
       gpu: {
         platform: process.platform,
         chromium: process.versions.chrome,
-        renderer: null,
-        encoder_support: null,
+        renderer: gpuDiagnostics?.renderer ?? null,
+        encoder_support: gpuDiagnostics?.encoder_support ?? null,
+        devices: gpuDevices,
         ...(captionMeasureDiffs ? { captionMeasureDiffs } : {}),
       },
       memory: memorySampler.stop("failed"),

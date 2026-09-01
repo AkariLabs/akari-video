@@ -59,9 +59,10 @@ const RETIRED_ENGINE = "legacy";
 const ENGINE_CHOICES = ["auto", "gpu", "osr"];
 const RETIRED_ENGINE_MESSAGE = "--engine legacy は廃止されました（書き出しは gpu / osr の 2 出口。ffmpeg フィルタグラフ合成は v0.1.3x で終了）";
 const OSR_ELECTRON_REFUSAL = "OSR 書き出しに必要な Electron が見つかりません。インストール済み AKARI Video の同梱 Electron を使うか、`npm install electron` を実行するか、`AKARI_OSR_ELECTRON=<path>` を指定してください。";
+const GPU_PREFERENCE_CHOICES = ["auto", "off", "force"];
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
-  [--fps <number>] [--engine auto|gpu|osr] [--progress]
+  [--fps <number>] [--engine auto|gpu|osr] [--gpu-preference auto|off|force] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
@@ -69,6 +70,9 @@ when explicitly passed as (or defaulted to) "standard"/"x264"; --fps defaults to
 output.fps; --progress emits "PROGRESS out_time_ms=<n> total_ms=<n>" lines to stdout while
 encoding, followed by "PROGRESS done total_ms=<n>".
 --engine defaults to auto; eligible projects use gpu and ineligible projects use osr on every platform.
+--gpu-preference (Windows hybrid GPU only) controls the temporary per-app GPU setting written for the
+export child process: auto (default; skipped when the user pinned a preference), off, or force.
+Omitting it defers to AKARI_EXPORT_GPU_PREFERENCE, then auto. Other platforms ignore it.
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
 
@@ -328,6 +332,8 @@ export async function renderProject(input, options = {}, io = console) {
       duration: plan.predicted_duration_seconds,
       frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
       quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
+      // --gpu-preference auto|off|force（省略時 undefined → env AKARI_EXPORT_GPU_PREFERENCE → auto）。Windows 以外は no-op。
+      gpuPreference: options.gpuPreference,
       ffmpegCommand: capabilities.ffmpegCommand,
       ffprobeCommand: capabilities.ffprobeCommand,
       io,
@@ -549,6 +555,8 @@ export function parseArguments(argv, env = process.env) {
     quality: undefined,
     encoder: undefined,
     engine: "auto",
+    // undefined のまま exportWithGpu / exportWithOsr → launchElectronExport へ渡すと env AKARI_EXPORT_GPU_PREFERENCE → auto に落ちる。
+    gpuPreference: undefined,
     fps: undefined,
     progress: false,
   };
@@ -562,6 +570,10 @@ export function parseArguments(argv, env = process.env) {
       if (index + 1 >= argv.length) throw new Error("--engine requires a value");
       options.engine = parseEngineValue(argv[++index]);
     } else if (argument.startsWith("--engine=")) options.engine = parseEngineValue(argument.slice(9));
+    else if (argument === "--gpu-preference") {
+      if (index + 1 >= argv.length) throw new Error("--gpu-preference requires a value");
+      options.gpuPreference = parseGpuPreferenceValue(argv[++index]);
+    } else if (argument.startsWith("--gpu-preference=")) options.gpuPreference = parseGpuPreferenceValue(argument.slice(17));
     else if (argument === "--out") {
       if (index + 1 >= argv.length) throw new Error("--out requires a path");
       options.out = argv[++index];
@@ -619,6 +631,13 @@ function parseEngineValue(value) {
   if (value === RETIRED_ENGINE) throw new RefusalError(RETIRED_ENGINE_MESSAGE, 2);
   if (!ENGINE_CHOICES.includes(value)) {
     throw new Error(`--engine must be one of ${ENGINE_CHOICES.join("|")}, got: ${value}`);
+  }
+  return value;
+}
+
+function parseGpuPreferenceValue(value) {
+  if (!GPU_PREFERENCE_CHOICES.includes(value)) {
+    throw new Error(`--gpu-preference must be one of ${GPU_PREFERENCE_CHOICES.join("|")}, got: ${value}`);
   }
   return value;
 }

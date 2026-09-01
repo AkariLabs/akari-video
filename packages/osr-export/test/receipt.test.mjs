@@ -25,3 +25,17 @@ test("OSR receipt は実走で適用した soft 予算を保存する", () => {
   assert.equal(receipt.memory.warning_bytes, 1200 * 1024 * 1024);
   assert.equal(receipt.memory.hard_stop_bytes, 1800 * 1024 * 1024);
 });
+
+test("OSR receipt は provenance.gpu_preference に Windows の GPU 設定一時上書きの記録を snake_case で載せる", () => {
+  const applied = buildOsrReceipt({ tier: 2, gpuPreference: {
+    platform: "win32", policy: "auto", executable: "C:\\x\\electron.exe", applied: true, previous: null, restored: true, reason: "unset", recovered_stale: true,
+  } });
+  assert.deepEqual(applied.provenance.gpu_preference, {
+    policy: "auto", applied: true, previous: null, restored: true, reason: "unset", recovered_stale: true,
+  });
+  const skipped = buildOsrReceipt({ tier: 1, gpuPreference: { platform: "darwin", policy: "auto", reason: "platform", applied: false, restored: null } });
+  assert.deepEqual(skipped.provenance.gpu_preference, {
+    policy: "auto", applied: false, previous: null, restored: null, reason: "platform", recovered_stale: false,
+  });
+  assert.equal(buildOsrReceipt({ tier: 2 }).provenance.gpu_preference, null);
+});

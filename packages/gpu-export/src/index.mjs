@@ -2,10 +2,13 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
+import { summarizeGpuAdapters } from "../../osr-export/src/gpu-adapters.mjs";
+import { normalizeGpuPreferenceRecord } from "../../osr-export/src/gpu-preference.mjs";
 import { muxSourceAudio } from "../../osr-export/src/index.mjs";
 import { verifyFinalVideo } from "../../osr-export/src/ffprobe.mjs";
 import { resolveGpuEncoding } from "./bitrate.mjs";
 import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
+import { describeHardwareEncoderFailure, firstLine, HARDWARE_ENCODER_UNSUPPORTED_MARKER } from "./gpu-diagnostics.mjs";
 import { buildGpuReceipt } from "./receipt.mjs";
 import { launchGpuExport, resolveGpuLauncher } from "./runner.mjs";
 
@@ -33,6 +36,8 @@ export async function exportWithGpu({
   trapReadback = false,
   verifyFrames = false,
   dumpFrames = [],
+  // Windows のアプリ別 GPU 設定の一時上書き方針（auto | off | force）。undefined なら env AKARI_EXPORT_GPU_PREFERENCE → auto。
+  gpuPreference = undefined,
   eligibility,
   ffmpegCommand = null,
   ffprobeCommand = null,
@@ -58,7 +63,7 @@ export async function exportWithGpu({
   const videoOnlyPath = `${out}.gpu-video.mp4`;
   const runPath = join(dirname(videoOnlyPath), "run.json");
   try {
-    await launcherRunner(launcher, {
+    const launched = await launcherRunner(launcher, {
       projectRoot,
       out: videoOnlyPath,
       fps,
@@ -73,9 +78,11 @@ export async function exportWithGpu({
       trapReadback,
       verifyFrames,
       dumpFrames,
+      gpuPreference,
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
+    const gpuPreferenceRecord = launched?.gpuPreference ?? null;
     const run = JSON.parse(await readFile(runPath, "utf8"));
     if (run.status === "unsupported" && verifyFrames) {
       const persistentRunPath = join(projectRoot, ".akari", "gpu-run.json");
@@ -85,7 +92,7 @@ export async function exportWithGpu({
       return {
         launcher,
         run,
-        receipt: buildGpuReceipt({ tier: launcher.tier, launcher, run, eligibility, finalVerify: null, profile: soft ? "soft" : "gpu" }),
+        receipt: buildGpuReceipt({ tier: launcher.tier, launcher, run, eligibility, finalVerify: null, profile: soft ? "soft" : "gpu", gpuPreference: gpuPreferenceRecord }),
       };
     }
     if (run.status !== "completed") throw new Error(`GPU encoder unavailable: ${run.status}`);
@@ -130,6 +137,7 @@ export async function exportWithGpu({
         eligibility,
         finalVerify,
         profile: soft ? "soft" : "gpu",
+        gpuPreference: gpuPreferenceRecord,
       }),
     };
   } catch (error) {
@@ -152,6 +160,7 @@ export async function captureFramesWithGpu({
   frames = Math.round(duration * fps),
   eligibility,
   soft = false,
+  gpuPreference = undefined,
   env = process.env,
   io = console,
   launcher: suppliedLauncher = null,
@@ -171,8 +180,9 @@ export async function captureFramesWithGpu({
   }
   await mkdir(outputDirectory, { recursive: true });
   const runPath = join(outputDirectory, "capture-run.json");
+  let launched;
   try {
-    await launcherRunner(launcher, {
+    launched = await launcherRunner(launcher, {
       projectRoot,
       editPath,
       out: runPath,
@@ -185,6 +195,7 @@ export async function captureFramesWithGpu({
       quality: "high",
       captureFrames: requestedFrames,
       captureOutputDirectory: outputDirectory,
+      gpuPreference,
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
@@ -207,6 +218,7 @@ export async function captureFramesWithGpu({
       viewport: run.viewport ?? null,
       eligibility: run.eligibility,
       elapsedMs: run.elapsedMs,
+      gpu_preference: normalizeGpuPreferenceRecord(launched?.gpuPreference),
     },
   };
 }
@@ -268,7 +280,7 @@ function measureAvTermination(finalVerify, fps) {
   return { matched: deltaSeconds <= toleranceSeconds, deltaSeconds, toleranceSeconds, videoDuration, audioDuration };
 }
 
-async function attachGpuFailureContext(error, runPath, projectRoot) {
+export async function attachGpuFailureContext(error, runPath, projectRoot) {
   const run = await readFile(runPath, "utf8").then(JSON.parse).catch(() => null);
   if (run?.status !== "failed") return;
   const persistentRunPath = join(projectRoot, ".akari", "gpu-run-failed.json");
@@ -277,4 +289,15 @@ async function attachGpuFailureContext(error, runPath, projectRoot) {
   error.reasonCode = run.reasonCode ?? gpuRuntimeFallbackReason(error);
   error.gpuFailureRunPath = relative(projectRoot, persistentRunPath).split("\\").join("/");
   error.gpuFailureRun = run;
+  // ハードウェア H.264 エンコーダが使えなかったときだけ、message を「どの GPU に載ったか・なぜ切り替えなかったか・次に何をするか」の
+  // 日本語 1 行に置き換える（元の message は originalMessage に保持）。render-cut はこれを stderr の最終行に出す。
+  if (typeof run.error === "string" && run.error.includes(HARDWARE_ENCODER_UNSUPPORTED_MARKER)) {
+    error.originalMessage = error.message;
+    error.message = describeHardwareEncoderFailure({
+      adapters: summarizeGpuAdapters(run.gpu?.devices ?? null),
+      renderer: run.gpu?.renderer ?? null,
+      gpuPreference: error.gpuPreference ?? null,
+      cause: firstLine(run.error),
+    });
+  }
 }

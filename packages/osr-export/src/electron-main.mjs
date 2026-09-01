@@ -8,6 +8,7 @@ import electron from "electron";
 
 import { startRawVideoEncoder } from "./encode.mjs";
 import { verifyEncodedVideo } from "./ffprobe.mjs";
+import { collectGpuDevices } from "./gpu-adapters.mjs";
 import { createMemorySampler, resolveMemoryBudget } from "./memory.mjs";
 import { captureNonEmptyBitmap, deviceEmulationParameters, osrPageSize, viewportMatches, viewportRecord } from "./paint-bitmap.mjs";
 import { loadAndBuildOsrPage } from "./page-builder.mjs";
@@ -52,6 +53,8 @@ export async function runOsrExport(options) {
   app.commandLine.appendSwitch("disable-renderer-backgrounding");
   app.on("window-all-closed", () => {});
   if (!app.isReady()) await app.whenReady();
+  // どの GPU に載ったか（Windows ハイブリッド機の診断・契約 §11.7）。3 秒で打ち切り、running / completed / failed の run.json に残す。
+  const gpu = { platform: process.platform, chromium: process.versions.chrome, devices: await collectGpuDevices(app) };
 
   const built = await loadAndBuildOsrPage({
     projectRoot,
@@ -130,6 +133,7 @@ export async function runOsrExport(options) {
       framesRequested: frames,
       framesCompleted: 0,
       width, height, fps, duration,
+      gpu,
       viewport,
     }, null, 2)}\n`).catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
@@ -209,6 +213,7 @@ export async function runOsrExport(options) {
       framesRequested: frames,
       framesCompleted: frames,
       width, height, fps, duration,
+      gpu,
       verify: { mode: verify, retriesTotal, retryHistogram, hashPolicyAmbiguous, preVerifyDeltaHistogram },
       frameHashes,
       stages: Object.fromEntries(Object.entries(stages).map(([name, values]) => [name, summarize(values)])),
@@ -231,6 +236,7 @@ export async function runOsrExport(options) {
       status: "failed",
       error: String(error?.stack ?? error),
       framesRequested: frames,
+      gpu,
       verify: { mode: verify, retriesTotal, retryHistogram, hashPolicyAmbiguous, preVerifyDeltaHistogram },
       frameHashes,
       paintTimeouts,
@@ -278,6 +284,7 @@ export async function runOsrCapture(options) {
   app.commandLine.appendSwitch("disable-renderer-backgrounding");
   app.on("window-all-closed", () => {});
   if (!app.isReady()) await app.whenReady();
+  const gpu = { platform: process.platform, chromium: process.versions.chrome, devices: await collectGpuDevices(app) };
 
   await mkdir(outputDirectory, { recursive: true });
   await mkdir(dirname(out), { recursive: true });
@@ -336,6 +343,7 @@ export async function runOsrCapture(options) {
       framesRequested: requestedFrames,
       framesCompleted: 0,
       width, height, fps, duration,
+      gpu,
       viewport,
     }, null, 2)}\n`, "utf8").catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
@@ -380,6 +388,7 @@ export async function runOsrCapture(options) {
       height,
       fps,
       duration,
+      gpu,
       verify: {
         mode: "stamp",
         matched: verifyFrames.every((entry) => entry.matched),
@@ -401,6 +410,7 @@ export async function runOsrCapture(options) {
       operation: "capture",
       error: String(error?.stack ?? error),
       framesRequested: requestedFrames,
+      gpu,
       verify: { mode: "stamp", matched: false, frames: verifyFrames },
       paintTimeouts,
       emptyPaints,

@@ -83,6 +83,8 @@ seek → ready → invalidate → paint → verify → write
 
 第1段・第2段とも`--user-data-dir=<run 一時ディレクトリ>/electron-user-data`を渡し、本体アプリの単一インスタンスロック（userData単位）と分離する。これによりアプリ起動中でも書き出せる。子がexit 0で終了して出力を作らなかった場合は、launcherが失敗として扱う。
 
+**Windows のアプリ別 GPU 設定の一時上書き（2026-09-01 追記・§11.7）**: `platform === "win32"` かつソフト描画でないとき、第1段・第2段とも launcher（`launchElectronExport`・gpu / osr 共通の spawn 点）は spawn の直前に `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` へ「値名 = 実行体のフルパス（`path.win32.resolve` で正規化）・REG_SZ `GpuPreference=2;`」を書き、子の `close` 後（exit code に関わらず・spawn エラーでも）に `finally` で必ず 1 回復元する（無かったなら削除・あったなら元の値へ）。方針は呼び出し側の `gpuPreference` → env `AKARI_EXPORT_GPU_PREFERENCE` → `auto` の順に解決し、`auto` は利用者が明示した値（`GpuPreference=1;` 等）を黙って上書きしない（`force` だけが上書き + 復元する）。書く前に sidecar `<AKARI_HOME ?? ~/.akari>/gpu-preference-override.json` を置き、復元後に削除する。`launchElectronExport` は毎回冒頭で sidecar があれば先に復元する。記録は戻り値の `gpuPreference` と receipt の `provenance.gpu_preference`。他 OS はバイト同一の no-op（記録に `reason: platform` だけ残す）。開発用に `AKARI_EXPORT_ALLOW_DESKTOP=0` で第1段（インストール済みアプリ）を候補から外せる（明示引数 `allowDesktop` が env より優先）。
+
 `--render`は`package.json`の`main`（`electron-entry.js`）がTheiaより前に捕捉する。backend fork・初期ウィンドウ・contribution・単一インスタンスロックを起動せず、`--akari-main`で指定したランタイム（既定はosr-export、gpu-exportも指定可能）へ直行するため、スプラッシュは表示されない。通常起動で`--render`が無い場合は従来どおりTheiaを起動する。
 
 Linux v0は第3段を使用する。将来の差し替え席として、Chrome headlessと`HeadlessExperimental.beginFrame`を使うlauncherを第1段と第2段の間へ追加できるものとする。この契約では実装しない。
@@ -187,6 +189,36 @@ Chromium スイッチを `bad option` で拒否して exit 9、tier 2 の npm El
 （`ELECTRON_CHILD_ENV_BLOCKLIST = ["ELECTRON_RUN_AS_NODE"]`、名前は Windows に合わせ大文字小文字非区別で比較）。
 他の変数（`AKARI_OSR_*` / `AKARI_FFMPEG_BIN` / `PATH` 等）は従来どおり継承する。shim 側で変数を外す案は採らない
 （shim の外で立てられた変数には効かず、書き出し側で一律に守るのが唯一の境界）。
+
+### 11.7 Windows のハイブリッド GPU 機では書き出し子プロセスが iGPU に載る（2026-09-01 追記）
+
+RTX 5060 Laptop + Intel UHD の Windows 11 機で、HKCU の値が無い tier 2 `electron.exe`（Electron 39.8.7 / Chromium 142）を
+非表示 BrowserWindow + `file://` ページで起動し、`app.getGPUInfo("complete")` と `VideoEncoder.isConfigSupported` を取った実測:
+
+| 起動 | active adapter（`gpuPreference`） | `prefer-hardware` 4K `avc1.640033` 3840×2160@30 45 Mbps / 1080p `avc1.640028` 12 Mbps | `prefer-software` |
+|---|---|---|---|
+| 既定（スイッチなし） | Intel UHD Graphics（2） | **false / false** | true / true |
+| `--force_high_performance_gpu` | NVIDIA GeForce RTX 5060 Laptop GPU（3） | **false / false** | true / true |
+| `--use-adapter-luid=<RTX の LUID・10 進>` | RTX（3） | **false / false** | true / true |
+| HKCU `Software\Microsoft\DirectX\UserGpuPreferences` に値名 = exe フルパス・`GpuPreference=2;` を spawn 直前に書き、終了後に削除 | RTX（2） | **true / true** | true / true |
+
+事実: Chromium のスイッチは ANGLE / WebGL を dGPU に載せるが Media Foundation の H.264 エンコーダは iGPU 側のまま → プロセス内の切替は不可。
+OS のアプリ別 GPU 設定だけが効き、プロセス生成時に評価されるので spawn 直前に書けば再起動・管理者権限とも不要。削除すれば元のまま。
+製品の Windows では書き出し子プロセス = `AKARI Video.exe` 自身（tier 1）で、値は exe 単位なので残すとアプリ本体まで次回起動から dGPU
+（ノート PC のバッテリー）になる → 一時上書き + 復元が筋。`gpuDevice[]`（`vendorId / deviceId / deviceString / active / gpuPreference`）で
+「どの GPU に載ったか」は子プロセス内で判る。Intel UHD（ドライバ 32.0.101.5972）は 1080p でも `prefer-hardware` が false。
+
+裁定（実装 = `packages/osr-export/src/gpu-preference.mjs` / `gpu-adapters.mjs`、`packages/gpu-export/src/gpu-diagnostics.mjs`）:
+
+1. **適用点**: `launchElectronExport`（gpu / osr 共通の spawn 点）。`platform === "win32"` かつ `options.soft` でないときだけ動く。他 OS / soft は no-op（記録に理由だけ残す）。
+2. **方針値 `gpuPreference`**: `"auto"`（既定）| `"off"` | `"force"`。解決順 = 呼び出し側の `options.gpuPreference` → env `AKARI_EXPORT_GPU_PREFERENCE` → `"auto"`。不正値は許容値を含むメッセージで throw。render-cut は `--gpu-preference auto|off|force`。
+3. **対象 exe** = `launcher.executable` を `path.win32.resolve` で正規化（`/` → `\`、Windows 設定アプリが書く形式）。レジストリは `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`、値名 = exe フルパス、REG_SZ `GpuPreference=2;`。読み書きは `%SystemRoot%\System32\reg.exe`（`query` / `add ... /f` / `delete ... /f`）を `spawnSync` で叩く。ネイティブモジュール禁止・管理者権限不要・`reg query` は値の部分（ASCII）だけ parse する。`registry` 依存 `{ read, write, remove }` は注入可能。
+4. **判定は純関数** `planGpuPreference({ platform, policy, soft, current })` → `{ action: "write" | "skip", value, restore, reason }`: platform ≠ win32 → skip `platform` / soft → skip `soft` / off → skip `policy-off` / current === `GpuPreference=2;` → skip `already-high-performance` / current === null → write + 終了後 remove / current がそれ以外（`GpuPreference=1;` 等）: `auto` → skip `user-preference-respected`（利用者の明示設定を黙って上書きしない）、`force` → write + 終了後 current へ戻す。
+5. **順序と復元**: write → spawn → 子の `close`（exit code に関わらず・spawn エラーでも）→ `finally` で restore を必ず 1 回。復元に失敗したら stderr に `[gpu-preference] restore failed: ...` を出し記録に `restored: false` を残す（throw しない）。
+6. **クラッシュ耐性**: write の直前に sidecar `<AKARI_HOME ?? ~/.akari>/gpu-preference-override.json`（`{ version: 1, executable, previous, written_at }`）を書き、restore 完了後に削除。`launchElectronExport` は毎回冒頭で sidecar があれば先に復元（previous null → remove、else write previous）してから進む（記録に `recovered_stale: true`）。`AKARI_HOME` の解決は `env.AKARI_HOME || ~/.akari` を自前で持つ（akari-launcher は import しない）。
+7. **記録**: `launchElectronExport` の戻り値に `gpuPreference: { platform, policy, executable, applied, previous, restored, reason, recovered_stale }`。gpu / osr の receipt に `provenance.gpu_preference`（snake_case: `applied / previous / restored / reason / recovered_stale / policy`）。子プロセスは `app.whenReady()` 後に `app.getGPUInfo("complete")` を 3 秒で打ち切って `gpuDevice` を run.json `gpu.devices`（`vendor_id / device_id / device_string / active / gpu_preference`）に記録する（completed / failed とも・export / capture の 4 経路）。失敗時の日本語 1 行（GPU 出口）は GPU 契約 §8.1 を正とする。
+
+範囲外: Theia の設定 UI、`akari doctor` の行、hardware 不可のときの OSR 自動フォールバック（GPU 契約 §12.3 の fail-closed を維持）、値の永続化（利用者の設定は常に元へ戻す）。
 
 ## 12. GPU 直結出口との共有境界（2026-08-28 追記）
 
