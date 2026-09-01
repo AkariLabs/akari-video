@@ -117,3 +117,58 @@ test('種別ごとの分岐は source.kind 1 箇所（v2 の 4 種別が同じ 3
     assert.deepEqual(collectItems(internal, 'overlays').map(item => item.id), ['o1']);
     assert.deepEqual(collectItems(internal, 'layers').map(item => item.id), ['l1', 'f1']);
 });
+
+test('v2 internal の既知 source.kind 7 種は警告しない', () => {
+    const internal = readInternalEdit(JSON.stringify({
+        version: 2,
+        output: { width: 1920, height: 1080, fps: 30 },
+        sources: [{ id: 'hero', path: 'footage/hero.mp4' }],
+        tracks: [
+            { id: 'v1', lane: 'visual', items: [
+                { id: 'known', at: 0, duration: 30, source: { kind: 'html', path: 'overlays/a.html' } }
+            ] }
+        ]
+    }));
+    const template = internal.tracks[0].items[0];
+    internal.tracks[0].items = [
+        'media', 'html', 'telop', 'filter', 'group', 'captions', 'caption'
+    ].map((kind, index) => ({
+        ...template,
+        id: `known-${kind}`,
+        legacy: { ...template.legacy, index },
+        source: { kind }
+    }));
+    const warnings = [];
+    const warningState = { warnedKinds: new Set(), warn: message => warnings.push(message) };
+
+    collectItems(internal, 'cuts', warningState);
+    collectItems(internal, 'overlays', warningState);
+    collectItems(internal, 'layers', warningState);
+    assert.deepEqual(warnings, []);
+});
+
+test('本当に未知の source.kind だけを全バケットでスキップし、同じ読込では 1 回だけ警告する', () => {
+    const internal = readInternalEdit(JSON.stringify({
+        version: 2,
+        output: { width: 1920, height: 1080, fps: 30 },
+        sources: [{ id: 'hero', path: 'footage/hero.mp4' }],
+        tracks: [
+            { id: 'v1', lane: 'visual', items: [
+                { id: 'known', at: 0, duration: 30, source: { kind: 'html', path: 'overlays/a.html' } }
+            ] }
+        ]
+    }));
+    internal.tracks[0].items.push({
+        ...internal.tracks[0].items[0],
+        id: 'future',
+        source: { kind: 'future-visual' }
+    });
+    const warnings = [];
+    const warningState = { warnedKinds: new Set(), warn: message => warnings.push(message) };
+
+    assert.deepEqual(collectItems(internal, 'cuts', warningState), []);
+    assert.deepEqual(collectItems(internal, 'overlays', warningState).map(item => item.id), ['known']);
+    assert.deepEqual(collectItems(internal, 'layers', warningState), []);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /future-visual/u);
+});

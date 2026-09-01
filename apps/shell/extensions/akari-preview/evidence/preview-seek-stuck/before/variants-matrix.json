@@ -1,0 +1,83 @@
+{
+  "note": "起点 d24071be のビルドで新語彙を 1 種ずつ抜いた変種。全変種で同じ症状（0:00 のまま・bootstrap は SyntaxError）",
+  "rows": [
+    {
+      "variant": "v0-original",
+      "playAdvanceSeconds": 0,
+      "seekTimeA": 0,
+      "seekTimeB": 0,
+      "seekShotsDiffer": false,
+      "frameEngineActive": null,
+      "hasClock": false,
+      "bootstrapParse": [
+        "ok",
+        "missing ) after argument list"
+      ]
+    },
+    {
+      "variant": "v1-no-captions",
+      "playAdvanceSeconds": 0,
+      "seekTimeA": 0,
+      "seekTimeB": 0,
+      "seekShotsDiffer": false,
+      "frameEngineActive": null,
+      "hasClock": false,
+      "bootstrapParse": [
+        "ok",
+        "missing ) after argument list"
+      ]
+    },
+    {
+      "variant": "v2-no-group",
+      "playAdvanceSeconds": 0,
+      "seekTimeA": 0,
+      "seekTimeB": 0,
+      "seekShotsDiffer": false,
+      "frameEngineActive": null,
+      "hasClock": false,
+      "bootstrapParse": [
+        "ok",
+        "missing ) after argument list"
+      ]
+    },
+    {
+      "variant": "v3-no-html-bag",
+      "playAdvanceSeconds": 0,
+      "seekTimeA": 0,
+      "seekTimeB": 0,
+      "seekShotsDiffer": false,
+      "frameEngineActive": null,
+      "hasClock": false,
+      "bootstrapParse": [
+        "ok",
+        "missing ) after argument list"
+      ]
+    },
+    {
+      "variant": "v4-no-keyframes",
+      "playAdvanceSeconds": 0,
+      "seekTimeA": 0,
+      "seekTimeB": 0,
+      "seekShotsDiffer": false,
+      "frameEngineActive": null,
+      "hasClock": false,
+      "bootstrapParse": [
+        "ok",
+        "missing ) after argument list"
+      ]
+    },
+    {
+      "variant": "v5-no-telop",
+      "playAdvanceSeconds": 0,
+      "seekTimeA": 0,
+      "seekTimeB": 0,
+      "seekShotsDiffer": false,
+      "frameEngineActive": null,
+      "hasClock": false,
+      "bootstrapParse": [
+        "ok",
+        "missing ) after argument list"
+      ]
+    }
+  ]
+}

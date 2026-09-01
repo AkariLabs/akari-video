@@ -1,0 +1,33 @@
+{
+  "note": "対照群: main（31b4ac4d）の src のみ（本レーンの 3 ファイル分の差分を外した状態）でビルドし、critique-cut-v2 複製へ同じ L1 を当てた走。本レーンの差分が絵と transport に影響しないこと、および [akari-three] の 3D 読込エラーが本レーンの持ち込みでないことを示す。",
+  "controlVerdict": {
+    "label": "critique-control",
+    "frameEngineActive": "true",
+    "hasClock": true,
+    "seekMax": 11,
+    "playAdvanceSeconds": 2,
+    "playPass": true,
+    "seekTimeA": 1,
+    "seekTimeB": 4.5,
+    "seekShaA": "a912e98e72f4a79d8dafcc00d83113d8b30ecdc6fc3f80b695cf320e3c2e3c83",
+    "seekShaB": "81f585e8e79460474fbd3ba3b170f2eeaa0820785566a8445198990590ec81ae",
+    "seekShotsDiffer": true,
+    "seekPass": true,
+    "consoleErrors": 0,
+    "unhandledExceptions": 0,
+    "executableScriptParseErrors": [],
+    "nonJsScriptsSkipped": 1
+  },
+  "comparisonWithLane": {
+    "seekShaA_control": "a912e98e72f4a79d8dafcc00d83113d8b30ecdc6fc3f80b695cf320e3c2e3c83",
+    "seekShaB_control": "81f585e8e79460474fbd3ba3b170f2eeaa0820785566a8445198990590ec81ae",
+    "seekShaA_lane": "a912e98e72f4a79d8dafcc00d83113d8b30ecdc6fc3f80b695cf320e3c2e3c83",
+    "seekShaB_lane": "81f585e8e79460474fbd3ba3b170f2eeaa0820785566a8445198990590ec81ae",
+    "shasIdentical": true
+  },
+  "akariThree3dLoadError": {
+    "presentInControl": true,
+    "line": "root ERROR [webview: akari-output-preview-*] [akari-three] 3D scene の読み込みに失敗しました { isTrusted: true }",
+    "conclusion": "main 単体でも出る = 本レーンの導入ではない。捕捉済みエラーで unhandledExceptions は 0、再生・シークは継続（fail-open が成立している側の例）。別票候補として申し送る。"
+  }
+}

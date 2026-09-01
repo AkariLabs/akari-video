@@ -62,6 +62,7 @@ import {
     persistCaptionZone
 } from '../common/caption-zone-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
+import { filterRenderableFrameEngineLayers } from '../common/frame-engine-layer-supply';
 import { expandBagOverlays } from '../common/preview-parts';
 import {
     buildItemKeyframeSummaryFields,
@@ -3325,7 +3326,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             // 代表ソース（字幕の探索・ファイル監視・タイトル・単一ソース時の従来経路）は
             // 先頭カットが参照するソース。無ければ宣言順の先頭。
-            const cutItems = collectItems(internal, 'cuts');
+            const itemWarningState = {
+                warnedKinds: new Set<string>(),
+                warn: (message: string): void => console.warn(message)
+            };
+            const cutItems = collectItems(internal, 'cuts', itemWarningState);
             const firstCutSourceId = cutItems
                 .map(item => item.declaration.src)
                 .find((id: unknown) => typeof id === 'string' && sourcesById.has(id)) as string | undefined;
@@ -3574,7 +3579,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const filters: EditSummaryFilter[] = [];
             const deferredTelops: DeferredTelopPreview[] = [];
             let unsupportedBlendCount = 0;
-            const layerItems = collectItems(internal, 'layers');
+            const layerItems = collectItems(internal, 'layers', itemWarningState);
             const deferTelop = (item: typeof layerItems[number]): void => {
                 if (item.source.kind !== 'telop') return;
                 const request: RasterizeTelopPreviewRequest = {
@@ -6387,6 +6392,7 @@ body { display: grid; place-items: center; padding: 32px; }
             const initial = window.__akariPreview || {};
             const summary = initial.summary || {};
             const engine = window.AkariFrameEngine;
+            const filterRenderableFrameEngineLayersFn = (${filterRenderableFrameEngineLayers.toString()});
             const stage = document.getElementById('preview-stage');
             const layersStage = document.getElementById('preview-layers');
             if (!engine || !stage || !layersStage) {
@@ -6653,7 +6659,10 @@ body { display: grid; place-items: center; padding: 32px; }
                     if (typeof url !== 'string' || !url) continue;
                     images.set(id, new engine.CachedStillImageSource(url));
                 }
-                const engineLayers = (Array.isArray(summary.layers) ? summary.layers : [])
+                const engineLayers = filterRenderableFrameEngineLayersFn(
+                    Array.isArray(summary.layers) ? summary.layers : [],
+                    message => console.warn('[frame-engine] ' + message)
+                )
                     .map((layer, index) => {
                         if (!layer || typeof layer.src !== 'string' || !layer.src) return layer;
                         if (layer.isImage === true) {
