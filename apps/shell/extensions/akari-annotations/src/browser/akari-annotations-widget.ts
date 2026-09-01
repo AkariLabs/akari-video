@@ -158,7 +158,7 @@ import {
     TimelineTreeRow,
     visibleTimelineTreeRows,
 } from './timeline/timeline-tree-model';
-import { calculateTimelineTrackHeight } from './timeline/timeline-track-height';
+import { calculateTimelineTrackHeight, timelineTreeRowOffset } from './timeline/timeline-track-height';
 import {
     enterFocusScope,
     exitFocusScope,
@@ -1064,8 +1064,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         style.textContent = `
     .akari-annotations-widget .akari-annotations-strip-clip {
         background: #27272a;
-        border: 1px solid #3f3f46;
-        border-right-width: 2px;
+        border-top: 1px solid #3f3f46;
+        border-bottom: 1px solid #3f3f46;
+        border-left: 1px solid rgba(250, 250, 250, .55);
+        border-right: 2px solid #09090b;
         border-radius: 0;
         box-shadow: none;
         box-sizing: border-box;
@@ -1121,6 +1123,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         background: var(--theia-charts-purple, #b180d7);
         opacity: .68;
         border-radius: 2px;
+    }
+    .akari-annotations-widget .akari-annotations-tree-tick {
+        position: absolute;
+        width: 2px;
+        height: 5px;
+        border-radius: 1px;
+        background: rgba(255, 255, 255, .78);
+        pointer-events: none;
     }
     .akari-annotations-widget .akari-annotations-strip-overlay {
         background: var(--theia-charts-orange, #d19a66);
@@ -1217,6 +1227,18 @@ export class AkariAnnotationsWidget extends BaseWidget {
         box-sizing: border-box;
         cursor: grab;
         user-select: none;
+    }
+    .akari-annotations-widget .akari-track-header-trackline {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: ${SUBROW_HEIGHT}px;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        min-width: 0;
+        box-sizing: border-box;
     }
     .akari-annotations-widget .akari-track-header-resize-handle {
         position: absolute;
@@ -4619,12 +4641,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 height = Math.max(subrowCount * SUBROW_STRIDE, this.trackHeightFor(timelineTrack));
             }
             const treeRows = this.treeRowsByTrack.get(timelineTrack.id) ?? [];
+            const treeRowOffset = timelineTreeRowOffset(treeRows.length);
             let propertyRowCount = 0;
             treeRows.forEach((row, visualRow) => {
-                this.overlayRows.set(row.id, visualRow + propertyRowCount);
-                this.layerRows.set(row.id, visualRow + propertyRowCount);
-                this.audioSfxRows.set(row.id, visualRow + propertyRowCount);
-                this.audioNarrationRows.set(row.id, visualRow + propertyRowCount);
+                this.overlayRows.set(row.id, treeRowOffset + visualRow + propertyRowCount);
+                this.layerRows.set(row.id, treeRowOffset + visualRow + propertyRowCount);
+                this.audioSfxRows.set(row.id, treeRowOffset + visualRow + propertyRowCount);
+                this.audioNarrationRows.set(row.id, treeRowOffset + visualRow + propertyRowCount);
                 propertyRowCount += this.keyframeRowsByItem.get(row.id)?.length ?? 0;
             });
             height = calculateTimelineTrackHeight({
@@ -5005,15 +5028,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ))) marker.remove();
             for (const tick of bag.ticks) {
                 const marker = document.createElement('span');
+                marker.className = 'akari-annotations-tree-tick';
                 marker.dataset.akariTreeTick = tick.id;
                 marker.dataset.akariTreeBagTick = bag.id;
                 Object.assign(marker.style, {
-                    position: 'absolute',
                     left: usesTrackBand
                         ? `${this.percent(bag.at + tick.position * bag.duration)}%`
                         : `${tick.position * 100}%`,
-                    top: `${2 + tick.row * 5}px`,
-                    width: '1px', height: '4px', background: 'rgba(255,255,255,.72)', pointerEvents: 'none'
+                    top: `${2 + tick.row * 5}px`
                 });
                 element.appendChild(marker);
             }
@@ -5063,10 +5085,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.appendAggregateDiamonds(element, row);
                 for (const tick of row.ticks) {
                     const marker = document.createElement('span');
+                    marker.className = 'akari-annotations-tree-tick';
                     marker.dataset.akariTreeTick = tick.id;
                     Object.assign(marker.style, {
-                        position: 'absolute', left: `${tick.position * 100}%`, top: `${2 + tick.row * 5}px`,
-                        width: '1px', height: '4px', background: 'rgba(255,255,255,.72)', pointerEvents: 'none'
+                        left: `${tick.position * 100}%`, top: `${2 + tick.row * 5}px`
                     });
                     element.appendChild(marker);
                 }
@@ -6598,9 +6620,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected decorateTreeTrackHeader(header: HTMLDivElement, rows: readonly TimelineTreeRow[]): void {
-        while (header.firstChild) header.firstChild.remove();
+        const trackLine = document.createElement('div');
+        trackLine.className = 'akari-track-header-trackline';
+        for (const child of Array.from(header.childNodes)) {
+            if (child instanceof HTMLElement
+                && child.classList.contains('akari-track-header-resize-handle')) continue;
+            trackLine.appendChild(child);
+        }
+        header.insertBefore(trackLine, header.firstChild);
         header.dataset.akariTreeTrack = 'true';
-        let visualIndex = 0;
+        let visualIndex = timelineTreeRowOffset(rows.length);
         rows.forEach(treeRow => {
             const row = document.createElement('div');
             row.dataset.akariTreeRowId = treeRow.id;
