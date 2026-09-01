@@ -62,7 +62,10 @@ test('移行可能な実 fixture の全 visual item が内部表現の 3 バケ�
         } catch {
             continue;
         }
-        const visual = internal.tracks.filter(track => track.lane === 'visual').flatMap(track => track.items);
+        // captions content track は内部表現では描画用の袋 item を持つが、この bridge の
+        // cuts / overlays / layers ではなく専用 captions 経路が消費する。
+        const visual = internal.tracks.filter(track => track.lane === 'visual').flatMap(track => track.items)
+            .filter(item => ['media', 'html', 'telop', 'filter'].includes(item.source.kind));
         const collected = ['cuts', 'overlays', 'layers'].flatMap(bucket => collectItems(internal, bucket));
         assert.equal(collected.length, visual.length, `${file} の visual item 数が一致しません`);
         assert.deepEqual(

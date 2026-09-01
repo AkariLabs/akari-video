@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { classifyPreviewModelUpdate } from '../lib/common/preview-model-diff.js';
+import {
+    classifyPreviewModelUpdate,
+    isOverlayOnlyPreviewModelUpdate,
+    isPreviewModelResourceChange
+} from '../lib/common/preview-model-diff.js';
 
 const base = () => ({
     sourceUris: ['main=file:///project/source.mp4'],
@@ -60,10 +64,9 @@ test('ソース URI の増減、fps、解像度、overlay runtime 資産は全�
     }
 });
 
-test('参照資産、overlay 内容、cut source、layer DOM 構造の変更は全再構築になる', () => {
+test('参照資産、cut source、layer DOM 構造の変更は全再構築になる', () => {
     for (const mutate of [
         model => model.assetUris.push('file:///project/new.wav'),
-        model => { model.summary.overlays[0].html = '<div>changed</div>'; },
         model => { model.captions[0].text = 'after'; },
         model => { model.summary.cuts[0].src = 'alternate'; },
         model => { model.summary.layers[0].id = 'replacement'; }
@@ -73,4 +76,53 @@ test('参照資産、overlay 内容、cut source、layer DOM 構造の変更は�
         mutate(next);
         assert.equal(classifyPreviewModelUpdate(previous, next), 'rebuild');
     }
+});
+
+test('overlay の html / transform / keyframes / opacity 変更は再 mount 用の差分更新になる', () => {
+    for (const mutate of [
+        model => { model.summary.overlays[0].html = '<div>changed</div>'; },
+        model => { model.summary.overlays[0].transform = { x: 40 }; },
+        model => { model.summary.overlays[0].keyframes = [{ t: 0 }, { t: 30, transform: { x: 100 } }]; },
+        model => { model.summary.overlays[0].opacity = 0.5; }
+    ]) {
+        const previous = base();
+        const next = structuredClone(previous);
+        mutate(next);
+        assert.equal(classifyPreviewModelUpdate(previous, next), 'incremental');
+        assert.equal(isOverlayOnlyPreviewModelUpdate(previous, next), true);
+    }
+});
+
+test('overlay と media summary が同時に変わる更新は frame-engine の overlay-only 更新ではない', () => {
+    const previous = base();
+    const next = structuredClone(previous);
+    next.summary.overlays[0].keyframes = [{ t: 0 }, { t: 30 }];
+    next.summary.cuts[0].at = 2;
+    assert.equal(classifyPreviewModelUpdate(previous, next), 'incremental');
+    assert.equal(isOverlayOnlyPreviewModelUpdate(previous, next), false);
+});
+
+test('overlay と audio の揮発計測値だけが変わる更新は frame-engine でも差分適用できる', () => {
+    const previous = base();
+    previous.summary.audio.speech = [{
+        id: 'voice', sidecar: { path: 'stream://voice', durationSec: 5, bytes: 1024, generatedMs: 71 }
+    }];
+    const next = structuredClone(previous);
+    next.summary.overlays[0].keyframes = [{ t: 0 }, { t: 30, transform: { x: 200 } }];
+    next.summary.audio.speech[0].sidecar.generatedMs = 159;
+    assert.equal(classifyPreviewModelUpdate(previous, next), 'incremental');
+    assert.equal(isOverlayOnlyPreviewModelUpdate(previous, next), true);
+});
+
+test('motion 袋 URI はモデル資源として forceRebuild 対象から除外する', () => {
+    const motionKeys = new Set(['file:///project/motion/s01.json']);
+    const motionSuffixes = new Set(['/motion/s01.json']);
+    assert.equal(isPreviewModelResourceChange(
+        'file:///project/motion/s01.json', '/motion/s01.json',
+        'file:///project/edit.json', '/edit.json', motionKeys, motionSuffixes
+    ), true);
+    assert.equal(isPreviewModelResourceChange(
+        'file:///project/overlays/card.html', '/overlays/card.html',
+        'file:///project/edit.json', '/edit.json', motionKeys, motionSuffixes
+    ), false);
 });
