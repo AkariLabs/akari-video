@@ -27,6 +27,7 @@ Everything else has its own designated place (a no-clutter convention).
 | `assets/` | Source material (`assets/<category>/<id>/` + meta.json) |
 | `planning/` | Planning documents (research-plan.json / plan.json) |
 | `exports/` | Render output |
+| `motion/` | **Canonical** keyframe curves referenced by edit.json (not regenerable) |
 
 ## Inside .akari/
 
@@ -39,17 +40,25 @@ Everything else has its own designated place (a no-clutter convention).
 | `.akari/events/` | Milestone records (appended one at a time — the "resume from here" signal) |
 | `.akari/lint.json` | The canonical record of edit-lint check results |
 | `.akari/render.json` | The canonical record of export plans and run results |
-| `.akari/diffs/` | Where human-to-AI diff collaboration lives |
-| `.akari/work/` | Agent intermediates (**safe to delete** — regenerable) |
+| `.akari/diffs/` | Generated snapshots used by the "View changes" workflow |
+| `.akari/render-tmp/` | Temporary workspace used during rendering |
+| `.akari/work/` | Agent work area. Put disposable work in `tmp/` and work that cannot be recreated in `keep/` |
 | `.akari/reports/` | Verification evidence and report HTML (**do not delete** — the record of human review) |
 | `.akari/cache/` | Thumbnail/proxy cache and the like (safe to delete) |
 
 ## What's safe to delete, and what isn't
 
-- `.akari/work/` and `.akari/cache/` — regenerate automatically if deleted
-- `.akari/reports/` — evidence of what a human reviewed, so don't delete it
-- `edit.json` and `.akari/events/` — the project's memory itself. Git tracking is
-  recommended
+Run `akari clean [project-dir]` to list disposable, retained, and undecided entries with their
+sizes. It only lists by default. After `--yes` (or interactive approval), it deletes disposable
+entries only; recently updated candidates and symbolic links remain undecided.
+
+- `.akari/cache/`, `.akari/render-tmp/`, generated diffs, and render intermediates are listed as
+  disposable when they are not currently active
+- Under `.akari/work/`, use `tmp/` for disposable work and `keep/` for plans, generators, or
+  hand-edited files. An empty `.akari-disposable` or `.akari-keep` marker applies to its directory
+  tree, with keep taking priority. Unmarked legacy contents remain undecided
+- `.akari/reports/`, `motion/`, `assets/`, `edit.json`, and `.akari/events/` are retained. They are
+  evidence, source material, or the project's memory itself; Git tracking is recommended
 
 ## Outside the project
 

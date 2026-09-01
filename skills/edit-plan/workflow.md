@@ -134,6 +134,7 @@ Checkpoint 1 の提示に着手する前に、[recipe.md](recipe.md) の recall 
 ad-hoc な検証スクリプトや、統合判断のための一時的な比較・実験生成物は、プロジェクトルート
 直下や `<plan-dir>/` 直下に書かず、`.akari/work/` へ置く
 （[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）。
+使い捨ての中間物は `.akari/work/tmp/`、計画・生成器・手編集ファイル等の作り直せないものは `.akari/work/keep/` へ置く。
 `decision-log.md`・`edit.json`・`overlays/` 等、正式な生成物の出力先（§1）は変わらない。
 生成した静止画等の原本の出力先は `<project>/assets/generated/`（2026-08-12 改訂。§1 参照）。
 

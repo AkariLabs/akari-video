@@ -11,6 +11,7 @@ import { runCapabilityCommand } from '../src/capability-command.mjs';
 import { runStoreCommand } from '../src/store-command.mjs';
 import { runAssetsCommand } from '../src/assets-command.mjs';
 import { runMigrateCommand } from '../src/migrate-command.mjs';
+import { runCleanCommand } from '../src/clean-command.mjs';
 import { runDoctorCommand } from '../src/doctor-command.mjs';
 import { resolveRuntimePaths } from '../src/runtime-diagnostics.mjs';
 import { maybeApplyPendingUpdateOnLaunch, resolveInstalledVersionInfo } from '../src/update-check.mjs';
@@ -59,7 +60,7 @@ try {
 
 // `akari update` / `akari init` / `akari new` / `akari narration` / `akari internal` /
 // `akari sounds` / `akari status` / `akari accept` / `akari capability` / `akari store` /
-// `akari assets` は claude へ転送せず、専用のサブコマンドとして扱う（契約 §4-1 /
+// `akari assets` / `akari clean` は claude へ転送せず、専用のサブコマンドとして扱う（契約 §4-1 /
 // タスク契約 launcher-init（内部リポ）/ 音源カタログ既定化のオーナー裁定 2026-08-03 /
 // AKARI Store 連携 / タスク契約 2026-08-09-agent-assets-discovery）。
 // それ以外の引数はすべて従来どおり claude へ転送する。
@@ -78,6 +79,7 @@ const invoke = (argv[0] === '--version' || argv[0] === '-v') ? printVersion()
   : argv[0] === 'store' ? runStoreCommand(argv.slice(1))
   : argv[0] === 'assets' ? runAssetsCommand(argv.slice(1))
   : argv[0] === 'migrate' ? runMigrateCommand(argv.slice(1))
+  : argv[0] === 'clean' ? runCleanCommand(argv.slice(1))
   : run(argv);
 
 const result = await invoke.catch((error) => {
