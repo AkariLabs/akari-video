@@ -28,6 +28,22 @@ test('宣言済み字幕トラックの位置と ID は変更しない', () => {
     assert.equal(result.captionTrackId, 'captions');
 });
 
+test('袋形の字幕トラックを宣言済みとして解決する', () => {
+    const result = resolvePreviewCaptionTrackOrder([
+        { id: 'v-main' },
+        {
+            id: 'caption-bag',
+            items: [
+                { source: { kind: 'html' } },
+                { source: { kind: 'captions' } }
+            ]
+        },
+        { id: 'v-front' }
+    ], true);
+    assert.deepEqual(result.tracks.map(track => track.id), ['v-main', 'caption-bag', 'v-front']);
+    assert.equal(result.captionTrackId, 'caption-bag');
+});
+
 test('字幕が無ければ未宣言トラックを補完しない', () => {
     const result = resolvePreviewCaptionTrackOrder([{ id: 'v-main' }], false);
     assert.deepEqual(result, { tracks: [{ id: 'v-main', z: 0 }] });

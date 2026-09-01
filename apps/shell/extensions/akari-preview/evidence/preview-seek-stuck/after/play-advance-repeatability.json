@@ -1,0 +1,30 @@
+{
+  "note": "merge 後 HEAD で objtree 複製に対し L1 (a) 再生 2 秒の進みを 10 走。判定境界は contract の >= 1.5 s。マシンは他レーン（別 worktree の Electron）と共用のため load average が変動する。",
+  "method": "scripts/launch-l1.sh <objtree 複製> <out> objtree <port> を連続実行。load は uptime の 1 分平均（実行直前）",
+  "contendedWindow": {
+    "note": "Spotlight 再索引 + 並走レーンの Electron で飽和していた窓",
+    "reps": [
+      { "rep": 1, "playAdvanceSeconds": 2.133, "playPass": true, "seekPass": true, "unhandledExceptions": 0 },
+      { "rep": 2, "playAdvanceSeconds": 1.233, "playPass": false, "seekPass": true, "unhandledExceptions": 0 },
+      { "rep": 3, "playAdvanceSeconds": 1.2, "playPass": false, "seekPass": true, "unhandledExceptions": 0 },
+      { "rep": 4, "playAdvanceSeconds": 2.133, "playPass": true, "seekPass": true, "unhandledExceptions": 0 },
+      { "rep": 5, "playAdvanceSeconds": 1.233, "playPass": false, "seekPass": true, "unhandledExceptions": 0 }
+    ],
+    "playPassRate": "2/5",
+    "aliveRate": "5/5"
+  },
+  "settledWindow": {
+    "note": "並走レーンの Electron が落ち着いた窓（1 分 load average 6.61 から開始）",
+    "reps": [
+      { "rep": 1, "playAdvanceSeconds": 2.2, "playPass": true, "seekPass": true, "unhandledExceptions": 0 },
+      { "rep": 2, "playAdvanceSeconds": 2.1, "playPass": true, "seekPass": true, "unhandledExceptions": 0 },
+      { "rep": 3, "playAdvanceSeconds": 2.1, "playPass": true, "seekPass": true, "unhandledExceptions": 0 },
+      { "rep": 4, "playAdvanceSeconds": 2.1, "playPass": true, "seekPass": true, "unhandledExceptions": 0 },
+      { "rep": 5, "playAdvanceSeconds": 2.267, "playPass": true, "seekPass": true, "unhandledExceptions": 0 }
+    ],
+    "playPassRate": "5/5",
+    "aliveRate": "5/5"
+  },
+  "interpretation": "10/10 で transport は生きている（起点 d24071be の 0.000 s とは非連続）。値は 2.1-2.267 s と 1.2-1.233 s の二峰で、差の約 0.9 s は electron.log の '[frame-engine] a:cut-0: target 300000us was not produced; reseeking from sync once'（実時間デコードの再同期 1 回）に対応する。飽和窓でのみ再同期が起きるため、>= 1.5 s の判定は静穏窓で 5/5 成立・飽和窓で 2/5。",
+  "canonicalRun": { "playAdvanceSeconds": 2.133, "playPass": true, "file": "objtree-l1.json" }
+}

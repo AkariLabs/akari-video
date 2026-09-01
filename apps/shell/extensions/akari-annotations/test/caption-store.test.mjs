@@ -23,28 +23,33 @@ const caption = (id, start, text) => ({
     edited: false
 });
 
-test('pretty-print と語タイミング付きレコードの top-level text/speaker だけを更新する', () => {
-    const source = JSON.stringify([
-        {
-            ...caption('c-0001', 0, '更新前'),
-            words: [
-                { text: '内部 text は不変', speaker: '内部 speaker も不変', start: 0, end: 0.5 }
-            ]
-        },
-        caption('c-0002', 2, '対象外')
-    ], null, 2) + '\n';
+test('pretty-print と語タイミング付きレコードの top-level text/speaker を更新し words を再導出する', () => {
+    const target = {
+        ...caption('c-0001', 0, 'alpha beta gamma'),
+        end: 3,
+        words: [
+            { start: 0.1, end: 0.7, text: 'alpha' },
+            { start: 0.8, end: 1.6, text: 'beta' },
+            { start: 1.7, end: 2.9, text: 'gamma' }
+        ]
+    };
+    const source = JSON.stringify([target, caption('c-0002', 2, '対象外')], null, 2) + '\n';
     const untouchedStart = source.indexOf('  {\n    "id": "c-0002"');
 
     const updated = updateCaptionFieldsInSource(source, 'c-0001', {
-        text: '更新後',
+        text: 'alpha delta gamma',
         speaker: '話者A'
     });
+    const record = JSON.parse(updated)[0];
 
-    assert.equal(JSON.parse(updated)[0].text, '更新後');
-    assert.equal(JSON.parse(updated)[0].speaker, '話者A');
-    assert.equal(JSON.parse(updated)[0].edited, true);
-    assert.equal(JSON.parse(updated)[0].words[0].text, '内部 text は不変');
-    assert.equal(JSON.parse(updated)[0].words[0].speaker, '内部 speaker も不変');
+    assert.equal(record.text, 'alpha delta gamma');
+    assert.equal(record.speaker, '話者A');
+    assert.equal(record.edited, true);
+    // 268ec9bb 以降、text 更新はカラオケ再導出カーネルを通り、
+    // 一致する語の時刻を温存しつつ words を更新する。
+    assert.deepEqual(record.words[0], target.words[0]);
+    assert.equal(record.words[1].text, 'delta');
+    assert.deepEqual(record.words[2], target.words[2]);
     assert.equal(updated.slice(updated.indexOf('  {\n    "id": "c-0002"')), source.slice(untouchedStart));
 });
 

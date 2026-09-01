@@ -1,0 +1,363 @@
+{
+  "status": "PASS",
+  "finishedAt": "2026-09-01T10:11:47.689Z",
+  "records": [
+    {
+      "t": "2026-09-01T10:11:41.790Z",
+      "step": "assertion-ok",
+      "message": "timeline opened"
+    },
+    {
+      "t": "2026-09-01T10:11:41.803Z",
+      "step": "assertion-ok",
+      "message": "startup header count equals track count and 30 SFX keep one audio header",
+      "declaredTracks": 12,
+      "startup": {
+        "headerCount": 12,
+        "treeHeaderCount": 3,
+        "audioHeaderCount": 1,
+        "audioTreeRows": 0,
+        "group1Toggle": "▸",
+        "disabledToggles": 0
+      }
+    },
+    {
+      "t": "2026-09-01T10:11:41.803Z",
+      "step": "assertion-ok",
+      "message": "pure groups start collapsed and no disabled leaf toggles remain",
+      "headerCount": 12,
+      "treeHeaderCount": 3,
+      "audioHeaderCount": 1,
+      "audioTreeRows": 0,
+      "group1Toggle": "▸",
+      "disabledToggles": 0
+    },
+    {
+      "t": "2026-09-01T10:11:41.953Z",
+      "step": "screenshot",
+      "name": "01-before.png"
+    },
+    {
+      "t": "2026-09-01T10:11:41.954Z",
+      "step": "assertion-ok",
+      "message": "captions and HTML bags have no toggle or header child rows",
+      "captionToggle": false,
+      "captionTicks": 30,
+      "htmlToggles": 0,
+      "htmlTicks": [
+        5,
+        5,
+        5
+      ],
+      "bagHeaderRows": 0
+    },
+    {
+      "t": "2026-09-01T10:11:41.954Z",
+      "step": "assertion-ok",
+      "message": "captions and HTML bags remain one-row tick bands",
+      "captionToggle": false,
+      "captionTicks": 30,
+      "htmlToggles": 0,
+      "htmlTicks": [
+        5,
+        5,
+        5
+      ],
+      "bagHeaderRows": 0
+    },
+    {
+      "t": "2026-09-01T10:11:42.079Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-item-kind=\"caption\"][data-akari-item-id=\"collapse-caption-01\"]",
+      "target": {
+        "left": 356.9140625,
+        "top": 1403.203125,
+        "width": 21.8203125,
+        "height": 22,
+        "right": 378.734375,
+        "bottom": 1425.203125,
+        "x": 367.82421875,
+        "y": 1414.203125
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:42.411Z",
+      "step": "assertion-ok",
+      "message": "caption bag child chip is directly selectable"
+    },
+    {
+      "t": "2026-09-01T10:11:42.535Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-item-id=\"collapse-html-bag-1\"]",
+      "target": {
+        "left": 356.9140625,
+        "top": 1249.203125,
+        "width": 233.796875,
+        "height": 22,
+        "right": 590.7109375,
+        "bottom": 1271.203125,
+        "x": 473.8125,
+        "y": 1260.203125
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:42.860Z",
+      "step": "assertion-ok",
+      "message": "HTML bag chip selects the bag itself"
+    },
+    {
+      "t": "2026-09-01T10:11:43.437Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-item-id=\"collapse-html-bag-1\"]",
+      "target": {
+        "left": 356.9140625,
+        "top": 1249.203125,
+        "width": 233.796875,
+        "height": 22,
+        "right": 590.7109375,
+        "bottom": 1271.203125,
+        "x": 473.8125,
+        "y": 1260.203125
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:43.864Z",
+      "step": "assertion-ok",
+      "message": "HTML bag exposes its five parts as rows only inside focus mode",
+      "focusedHtmlPartRows": [
+        "collapse-html-bag-1#p1",
+        "collapse-html-bag-1#p2",
+        "collapse-html-bag-1#p3",
+        "collapse-html-bag-1#p4",
+        "collapse-html-bag-1#p5"
+      ]
+    },
+    {
+      "t": "2026-09-01T10:11:43.865Z",
+      "step": "bag-focus",
+      "entered": true,
+      "focusedHtmlPartRows": [
+        "collapse-html-bag-1#p1",
+        "collapse-html-bag-1#p2",
+        "collapse-html-bag-1#p3",
+        "collapse-html-bag-1#p4",
+        "collapse-html-bag-1#p5"
+      ]
+    },
+    {
+      "t": "2026-09-01T10:11:44.021Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-tree-toggle=\"collapse-group-1\"]",
+      "target": {
+        "left": 224.9140625,
+        "top": 1174.953125,
+        "width": 16,
+        "height": 16.5,
+        "right": 240.9140625,
+        "bottom": 1191.453125,
+        "x": 232.9140625,
+        "y": 1183.203125
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:44.341Z",
+      "step": "assertion-ok",
+      "message": "expanded group header and strip lane align, allowing only the lane border pixel",
+      "header": {
+        "top": 1107.203125,
+        "height": 168
+      },
+      "lane": {
+        "top": 1107.203125,
+        "height": 169
+      },
+      "topDiff": 0,
+      "heightDiff": -1
+    },
+    {
+      "t": "2026-09-01T10:11:44.583Z",
+      "step": "screenshot",
+      "name": "02-after.png"
+    },
+    {
+      "t": "2026-09-01T10:11:44.706Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-tree-toggle=\"collapse-group-1\"]",
+      "target": {
+        "left": 224.9140625,
+        "top": 1134.953125,
+        "width": 16,
+        "height": 16.5,
+        "right": 240.9140625,
+        "bottom": 1151.453125,
+        "x": 232.9140625,
+        "y": 1143.203125
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:45.007Z",
+      "step": "collapse-again",
+      "toggle": "▸"
+    },
+    {
+      "t": "2026-09-01T10:11:45.129Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-tree-toggle=\"collapse-group-1\"]",
+      "target": {
+        "left": 224.9140625,
+        "top": 1174.953125,
+        "width": 16,
+        "height": 16.5,
+        "right": 240.9140625,
+        "bottom": 1191.453125,
+        "x": 232.9140625,
+        "y": 1183.203125
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:45.435Z",
+      "step": "assertion-ok",
+      "message": "timeline opened"
+    },
+    {
+      "t": "2026-09-01T10:11:45.439Z",
+      "step": "assertion-ok",
+      "message": "reload preserves only explicitly expanded pure groups",
+      "group1": "▾",
+      "group2": "▸",
+      "expandedKeys": [
+        "akari.timeline.expanded.v1:file:///private<workspace>/project:collapse-group-1"
+      ],
+      "oldKeys": []
+    },
+    {
+      "t": "2026-09-01T10:11:45.564Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-tree-toggle=\"collapse-group-2\"]",
+      "target": {
+        "left": 224.9140625,
+        "top": 1084.953125,
+        "width": 16,
+        "height": 16.5,
+        "right": 240.9140625,
+        "bottom": 1101.453125,
+        "x": 232.9140625,
+        "y": 1093.203125
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:45.877Z",
+      "step": "assertion-ok",
+      "message": "last audio track remains reachable after two groups expand",
+      "last": {
+        "top": 1521.203125,
+        "bottom": 1549.203125,
+        "height": 28
+      },
+      "viewport": {
+        "top": 1056.203125,
+        "bottom": 1549.9921875
+      },
+      "visible": true,
+      "scrollTop": 162,
+      "scrollHeight": 656
+    },
+    {
+      "t": "2026-09-01T10:11:46.002Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-item-id=\"collapse-sfx-01\"]",
+      "target": {
+        "left": 356.9140625,
+        "top": 1520.203125,
+        "width": 12.84375,
+        "height": 28,
+        "right": 369.7578125,
+        "bottom": 1548.203125,
+        "x": 363.3359375,
+        "y": 1534.203125
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:46.310Z",
+      "step": "sfx-click-retry",
+      "reason": "first click after programmatic scroll was swallowed"
+    },
+    {
+      "t": "2026-09-01T10:11:46.434Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-item-id=\"collapse-sfx-01\"]",
+      "target": {
+        "left": 356.9140625,
+        "top": 1520.203125,
+        "width": 12.84375,
+        "height": 28,
+        "right": 369.7578125,
+        "bottom": 1548.203125,
+        "x": 363.3359375,
+        "y": 1534.203125
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:46.733Z",
+      "step": "assertion-ok",
+      "message": "SFX leaf chip click selection still works"
+    },
+    {
+      "t": "2026-09-01T10:11:47.160Z",
+      "step": "assertion-ok",
+      "message": "SFX leaf D&D still writes through",
+      "sfxBefore": 0,
+      "sfxAfter": 15
+    },
+    {
+      "t": "2026-09-01T10:11:47.343Z",
+      "step": "assertion-ok",
+      "message": "click target is visible",
+      "selector": "[data-akari-item-id=\"telop-chapter\"]",
+      "target": {
+        "left": 434.015625,
+        "top": 1388.203125,
+        "width": 231.3203125,
+        "height": 22,
+        "right": 665.3359375,
+        "bottom": 1410.203125,
+        "x": 549.67578125,
+        "y": 1399.203125
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T10:11:47.689Z",
+      "step": "assertion-ok",
+      "message": "overlay leaf ] move still works",
+      "overlayTrackBefore": "v-telop",
+      "overlayTrackAfter": "v1"
+    },
+    {
+      "t": "2026-09-01T10:11:47.689Z",
+      "step": "leaf-regression",
+      "sfxBefore": 0,
+      "sfxAfter": 15,
+      "overlayTrackBefore": "v-telop",
+      "overlayTrackAfter": "v1"
+    }
+  ]
+}

@@ -1,0 +1,377 @@
+{
+  "verdict": {
+    "label": "critique",
+    "frameEngineActive": null,
+    "hasClock": false,
+    "seekMax": 11,
+    "playAdvanceSeconds": 0,
+    "playPass": false,
+    "seekTimeA": 0,
+    "seekTimeB": 0,
+    "seekShaA": "7dab1149b9f7bbae12810f1bc4aee4e94c4c4eb4f772cc6c56f90f4c2ee06798",
+    "seekShaB": "7dab1149b9f7bbae12810f1bc4aee4e94c4c4eb4f772cc6c56f90f4c2ee06798",
+    "seekShotsDiffer": false,
+    "seekPass": false,
+    "consoleErrors": 0,
+    "unhandledExceptions": 0
+  },
+  "records": [
+    {
+      "t": "2026-08-30T23:42:50.106Z",
+      "step": "main-attached",
+      "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=52580#<SCRATCH>/proj-critique"
+    },
+    {
+      "t": "2026-08-30T23:42:51.759Z",
+      "step": "viewport-override",
+      "w": 1680,
+      "h": 1000,
+      "dpr": 1
+    },
+    {
+      "t": "2026-08-30T23:42:51.767Z",
+      "step": "edit-card",
+      "x": 125.45703125,
+      "y": 616.296875,
+      "text": "編集データ2026-08-31 08:07 · edit.json"
+    },
+    {
+      "t": "2026-08-30T23:42:52.150Z",
+      "step": "opened-edit-json"
+    },
+    {
+      "t": "2026-08-30T23:42:55.779Z",
+      "step": "collapse-left",
+      "done": true
+    },
+    {
+      "t": "2026-08-30T23:42:57.078Z",
+      "step": "collapse-right",
+      "done": true
+    },
+    {
+      "t": "2026-08-30T23:43:02.645Z",
+      "step": "preview-attached",
+      "previewTargetId": "115BD028C1AF1AB8FAB7DB9A942DC772"
+    },
+    {
+      "t": "2026-08-30T23:43:02.727Z",
+      "step": "inline-script-parse-check",
+      "scripts": [
+        {
+          "i": 0,
+          "len": 2159,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 1,
+          "len": 658,
+          "isBootstrap": false,
+          "parse": "Unexpected token ':'"
+        },
+        {
+          "i": 2,
+          "len": 1012954,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 3,
+          "len": 270,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 4,
+          "len": 54022,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 5,
+          "len": 776523,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 6,
+          "len": 92968,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 7,
+          "len": 26085,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 8,
+          "len": 19571,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 9,
+          "len": 66945,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 10,
+          "len": 48749,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 11,
+          "len": 337416,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 12,
+          "len": 1042234,
+          "isBootstrap": true,
+          "parse": "ok"
+        },
+        {
+          "i": 13,
+          "len": 30214,
+          "isBootstrap": true,
+          "parse": "missing ) after argument list"
+        }
+      ]
+    },
+    {
+      "t": "2026-08-30T23:43:02.731Z",
+      "step": "webview-offsets",
+      "outer": [
+        {
+          "id": "",
+          "cls": "webview",
+          "src": "http://9b390d07-c806-5e29-8f2f-f67dad1e7330.webview.localhost:52580/webview/index.html?id=akari-output-preview-o94jp0",
+          "x": 49,
+          "y": 35,
+          "w": 1138,
+          "h": 569.3984375
+        }
+      ],
+      "inner": {
+        "x": 0,
+        "y": 0,
+        "w": 1138,
+        "h": 570
+      }
+    },
+    {
+      "t": "2026-08-30T23:43:06.740Z",
+      "step": "state-before-play",
+      "seekValue": 0,
+      "seekMax": 11,
+      "playDisabled": false,
+      "playLabel": "再生",
+      "frameEngineActive": null,
+      "hasClock": false,
+      "timeText": "0:00 / 0:11"
+    },
+    {
+      "t": "2026-08-30T23:43:06.750Z",
+      "step": "play-button-abs",
+      "left": 602,
+      "top": 563,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "t": "2026-08-30T23:43:06.759Z",
+      "step": "play-hit-test",
+      "rect": {
+        "l": 553,
+        "t": 528,
+        "w": 32,
+        "h": 32
+      },
+      "topEl": "path",
+      "isPlay": true,
+      "bar": "transport-center",
+      "siblings": [
+        {
+          "id": "skip-back",
+          "l": 473,
+          "t": 528,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "id": "frame-back",
+          "l": 513,
+          "t": 528,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "id": "play-toggle",
+          "l": 553,
+          "t": 528,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "id": "frame-forward",
+          "l": 593,
+          "t": 528,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "id": "skip-forward",
+          "l": 633,
+          "t": 528,
+          "w": 32,
+          "h": 32
+        }
+      ],
+      "vw": 1138
+    },
+    {
+      "t": "2026-08-30T23:43:07.268Z",
+      "step": "play-probe-events",
+      "events": [
+        {
+          "type": "pointerdown",
+          "target": "path",
+          "x": 569,
+          "y": 544
+        },
+        {
+          "type": "mousedown",
+          "target": "path",
+          "x": 569,
+          "y": 544
+        },
+        {
+          "type": "click",
+          "target": "path",
+          "x": 569,
+          "y": 544
+        }
+      ]
+    },
+    {
+      "t": "2026-08-30T23:43:07.273Z",
+      "step": "state-after-play-click",
+      "seekValue": 0,
+      "seekMax": 11,
+      "playDisabled": false,
+      "playLabel": "一時停止",
+      "frameEngineActive": null,
+      "hasClock": false,
+      "timeText": "0:00 / 0:11"
+    },
+    {
+      "t": "2026-08-30T23:43:09.292Z",
+      "step": "play-measurement",
+      "elapsedMs": 2015,
+      "from": 0,
+      "to": 0,
+      "advance": 0,
+      "playLabel": "一時停止"
+    },
+    {
+      "t": "2026-08-30T23:43:14.514Z",
+      "step": "seek-a",
+      "requested": 1,
+      "x": 188.45454545454544,
+      "rect": {
+        "left": 85,
+        "top": 537,
+        "width": 1066,
+        "height": 16
+      },
+      "max": 11,
+      "state": {
+        "seekValue": 0,
+        "seekMax": 11,
+        "playDisabled": false,
+        "playLabel": "再生",
+        "frameEngineActive": null,
+        "hasClock": false,
+        "timeText": "0:00 / 0:11"
+      },
+      "shot": {
+        "file": "critique-seek-a.png",
+        "sha256": "7dab1149b9f7bbae12810f1bc4aee4e94c4c4eb4f772cc6c56f90f4c2ee06798",
+        "bytes": 2416
+      }
+    },
+    {
+      "t": "2026-08-30T23:43:18.826Z",
+      "step": "seek-b",
+      "requested": 4.5,
+      "x": 522.5454545454545,
+      "rect": {
+        "left": 85,
+        "top": 537,
+        "width": 1066,
+        "height": 16
+      },
+      "max": 11,
+      "state": {
+        "seekValue": 0,
+        "seekMax": 11,
+        "playDisabled": false,
+        "playLabel": "再生",
+        "frameEngineActive": null,
+        "hasClock": false,
+        "timeText": "0:00 / 0:11"
+      },
+      "shot": {
+        "file": "critique-seek-b.png",
+        "sha256": "7dab1149b9f7bbae12810f1bc4aee4e94c4c4eb4f772cc6c56f90f4c2ee06798",
+        "bytes": 2416
+      }
+    },
+    {
+      "t": "2026-08-30T23:43:18.830Z",
+      "step": "console-summary",
+      "count": 0,
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "t": "2026-08-30T23:43:18.830Z",
+      "step": "exceptions",
+      "count": 0,
+      "items": []
+    },
+    {
+      "t": "2026-08-30T23:43:18.831Z",
+      "step": "log-entries",
+      "count": 0,
+      "items": []
+    },
+    {
+      "t": "2026-08-30T23:43:18.831Z",
+      "step": "VERDICT",
+      "label": "critique",
+      "frameEngineActive": null,
+      "hasClock": false,
+      "seekMax": 11,
+      "playAdvanceSeconds": 0,
+      "playPass": false,
+      "seekTimeA": 0,
+      "seekTimeB": 0,
+      "seekShaA": "7dab1149b9f7bbae12810f1bc4aee4e94c4c4eb4f772cc6c56f90f4c2ee06798",
+      "seekShaB": "7dab1149b9f7bbae12810f1bc4aee4e94c4c4eb4f772cc6c56f90f4c2ee06798",
+      "seekShotsDiffer": false,
+      "seekPass": false,
+      "consoleErrors": 0,
+      "unhandledExceptions": 0
+    }
+  ],
+  "consoleLines": [],
+  "exceptions": [],
+  "logEntries": []
+}

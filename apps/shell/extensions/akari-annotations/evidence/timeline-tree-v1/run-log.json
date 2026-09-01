@@ -1,104 +1,91 @@
 {
   "status": "PASS",
-  "finishedAt": "2026-08-30T10:36:10.624Z",
+  "finishedAt": "2026-09-01T08:55:00.564Z",
   "records": [
     {
-      "t": "2026-08-30T10:36:06.140Z",
+      "t": "2026-09-01T08:54:57.583Z",
       "step": "assertion-ok",
       "message": "timeline opened"
     },
     {
-      "t": "2026-08-30T10:36:06.174Z",
+      "t": "2026-09-01T08:54:57.590Z",
       "step": "assertion-ok",
-      "message": "step1 bag expands to projected children in declaration order",
-      "initialBagRows": [
-        "s01",
-        "s01#A",
-        "s01.B"
-      ]
+      "message": "step1 bag stays on one track row without an expand toggle",
+      "headerRows": [],
+      "toggle": false,
+      "ticks": 2,
+      "childChips": []
     },
     {
-      "t": "2026-08-30T10:36:06.334Z",
+      "t": "2026-09-01T08:54:57.590Z",
       "step": "assertion-ok",
-      "message": "click target visible",
-      "selector": "[data-akari-tree-toggle=\"s01\"]",
-      "value": {
-        "left": 224.9140625,
-        "top": 546.9765625,
-        "width": 16,
-        "height": 16.5,
-        "x": 232.9140625,
-        "y": 555.2265625
-      },
-      "attempt": 0
+      "message": "step1 bag band keeps projected-part ticks",
+      "headerRows": [],
+      "toggle": false,
+      "ticks": 2,
+      "childChips": []
     },
     {
-      "t": "2026-08-30T10:36:06.710Z",
-      "step": "collapse-debug",
-      "stored": {
-        "akari.timeline.collapsed.v1:file://<SCRATCH>/project:s01": "1"
-      },
-      "toggle": "<button type=\"button\" data-akari-tree-toggle=\"s01\" style=\"width: 16px; min-width: 16px; padding: 0px; border: 0px; background: transparent; color: inherit; cursor: pointer;\">▸</button>",
-      "rows": [
-        "g1",
-        "g1.first",
-        "g1.second",
-        "s01"
-      ]
-    },
-    {
-      "t": "2026-08-30T10:36:06.850Z",
-      "step": "assertion-ok",
-      "message": "click target visible",
-      "selector": "[data-akari-tree-toggle=\"s01\"]",
-      "value": {
-        "left": 224.9140625,
-        "top": 594.9765625,
-        "width": 16,
-        "height": 16.5,
-        "x": 232.9140625,
-        "y": 603.2265625
-      },
-      "attempt": 0
-    },
-    {
-      "t": "2026-08-30T10:36:07.177Z",
-      "step": "step-1-expand",
-      "rowIds": [
-        "s01",
-        "s01#A",
-        "s01.B"
-      ],
+      "t": "2026-09-01T08:54:57.590Z",
+      "step": "step-1-collapsed-baseline",
+      "headerRows": [],
+      "toggle": false,
+      "ticks": 2,
+      "childChips": [],
       "diffLines": 0
     },
     {
-      "t": "2026-08-30T10:36:07.179Z",
+      "t": "2026-09-01T08:54:57.715Z",
+      "step": "assertion-ok",
+      "message": "click target visible",
+      "selector": "[data-akari-item-id=\"s01\"]",
+      "value": {
+        "left": 356.9140625,
+        "top": 577.2265625,
+        "width": 95.6328125,
+        "height": 22,
+        "x": 404.73046875,
+        "y": 588.2265625
+      },
+      "attempt": 0
+    },
+    {
+      "t": "2026-09-01T08:54:57.929Z",
+      "step": "assertion-ok",
+      "message": "step1 bag parts are reachable as rows inside focus mode",
+      "focusedPartRows": [
+        "s01#A",
+        "s01.B"
+      ]
+    },
+    {
+      "t": "2026-09-01T08:54:57.932Z",
       "step": "preview-part-selection",
       "status": "skipped",
       "reason": "Explorer icon not found"
     },
     {
-      "t": "2026-08-30T10:36:07.384Z",
+      "t": "2026-09-01T08:54:58.040Z",
       "step": "screenshot",
       "name": "01-bag-expanded.png"
     },
     {
-      "t": "2026-08-30T10:36:07.541Z",
+      "t": "2026-09-01T08:54:58.164Z",
       "step": "assertion-ok",
       "message": "click target visible",
-      "selector": "[data-akari-tree-row-id=\"s01.B\"]",
+      "selector": ".akari-track-header-row [data-akari-tree-row-id=\"s01.B\"]",
       "value": {
         "left": 220.9140625,
-        "top": 592.2265625,
+        "top": 527.2265625,
         "width": 136,
         "height": 22,
         "x": 288.9140625,
-        "y": 603.2265625
+        "y": 538.2265625
       },
       "attempt": 0
     },
     {
-      "t": "2026-08-30T10:36:07.672Z",
+      "t": "2026-09-01T08:54:58.292Z",
       "step": "step-2-detach",
       "trackCount": 5,
       "exclude": [
@@ -108,27 +95,27 @@
       "diffLines": 20
     },
     {
-      "t": "2026-08-30T10:36:07.867Z",
+      "t": "2026-09-01T08:54:58.383Z",
       "step": "screenshot",
       "name": "02-part-detached.png"
     },
     {
-      "t": "2026-08-30T10:36:07.991Z",
+      "t": "2026-09-01T08:54:58.531Z",
       "step": "assertion-ok",
       "message": "click target visible",
       "selector": ".akari-annotations-strip-overlay[data-akari-item-id=\"s01.B\"]",
       "value": {
         "left": 361.5078125,
-        "top": 522.2265625,
+        "top": 534.2265625,
         "width": 87.3984375,
         "height": 22,
         "x": 405.20703125,
-        "y": 533.2265625
+        "y": 545.2265625
       },
       "attempt": 0
     },
     {
-      "t": "2026-08-30T10:36:08.341Z",
+      "t": "2026-09-01T08:54:58.848Z",
       "step": "step-3-bracket",
       "tracksBefore": 5,
       "tracksAfter": 5,
@@ -136,12 +123,12 @@
       "diffLines": 8
     },
     {
-      "t": "2026-08-30T10:36:08.526Z",
+      "t": "2026-09-01T08:54:58.957Z",
       "step": "screenshot",
       "name": "03-bracket-new-track.png"
     },
     {
-      "t": "2026-08-30T10:36:08.652Z",
+      "t": "2026-09-01T08:54:59.079Z",
       "step": "assertion-ok",
       "message": "click target visible",
       "selector": ".akari-annotations-strip-overlay[data-akari-item-id=\"s01.B\"]",
@@ -156,7 +143,7 @@
       "attempt": 0
     },
     {
-      "t": "2026-08-30T10:36:09.104Z",
+      "t": "2026-09-01T08:54:59.497Z",
       "step": "assertion-ok",
       "message": "click target visible",
       "selector": ".akari-annotations-strip-overlay[data-akari-item-id=\"plain\"]",
@@ -171,13 +158,13 @@
       "attempt": 0
     },
     {
-      "t": "2026-08-30T10:36:09.527Z",
+      "t": "2026-09-01T08:54:59.830Z",
       "step": "assertion-ok",
       "message": "step4 children use parent-relative at",
       "groupId": "g-1"
     },
     {
-      "t": "2026-08-30T10:36:09.527Z",
+      "t": "2026-09-01T08:54:59.830Z",
       "step": "step-4-group",
       "groupId": "g-1",
       "childAt": [
@@ -193,27 +180,27 @@
       "diffLines": 5
     },
     {
-      "t": "2026-08-30T10:36:09.729Z",
+      "t": "2026-09-01T08:54:59.944Z",
       "step": "screenshot",
       "name": "04-grouped.png"
     },
     {
-      "t": "2026-08-30T10:36:09.854Z",
+      "t": "2026-09-01T08:55:00.065Z",
       "step": "assertion-ok",
       "message": "click target visible",
       "selector": "[data-akari-tree-row-id=\"g-1\"]",
       "value": {
         "left": 220.9140625,
-        "top": 508.2265625,
+        "top": 510.2265625,
         "width": 136,
         "height": 22,
         "x": 288.9140625,
-        "y": 519.2265625
+        "y": 521.2265625
       },
       "attempt": 0
     },
     {
-      "t": "2026-08-30T10:36:10.190Z",
+      "t": "2026-09-01T08:55:00.379Z",
       "step": "step-5-ungroup",
       "trackCount": 5,
       "childTracks": [
@@ -229,28 +216,28 @@
       "diffLines": 4
     },
     {
-      "t": "2026-08-30T10:36:10.391Z",
+      "t": "2026-09-01T08:55:00.490Z",
       "step": "screenshot",
       "name": "05-ungrouped.png"
     },
     {
-      "t": "2026-08-30T10:36:10.393Z",
+      "t": "2026-09-01T08:55:00.491Z",
       "step": "assertion-ok",
       "message": "step6 untagged overlay row count unchanged",
       "initialPlainRows": 1,
       "finalPlainRows": 1
     },
     {
-      "t": "2026-08-30T10:36:10.393Z",
+      "t": "2026-09-01T08:55:00.491Z",
       "step": "assertion-ok",
-      "message": "step6 untagged overlay horizontal chip rect unchanged",
+      "message": "step6 untagged overlay horizontal chip left unchanged",
       "plainBefore": {
         "left": 356.9140625,
-        "top": 507.2265625,
-        "width": 92,
+        "top": 525.2265625,
+        "width": 95.6328125,
         "height": 22,
-        "x": 402.9140625,
-        "y": 518.2265625
+        "x": 404.73046875,
+        "y": 536.2265625
       },
       "plainAfter": {
         "left": 356.9140625,
@@ -262,15 +249,15 @@
       }
     },
     {
-      "t": "2026-08-30T10:36:10.393Z",
+      "t": "2026-09-01T08:55:00.492Z",
       "step": "step-6-regression",
       "plainBefore": {
         "left": 356.9140625,
-        "top": 507.2265625,
-        "width": 92,
+        "top": 525.2265625,
+        "width": 95.6328125,
         "height": 22,
-        "x": 402.9140625,
-        "y": 518.2265625
+        "x": 404.73046875,
+        "y": 536.2265625
       },
       "plainAfter": {
         "left": 356.9140625,
@@ -284,7 +271,7 @@
       "diffLines": 0
     },
     {
-      "t": "2026-08-30T10:36:10.623Z",
+      "t": "2026-09-01T08:55:00.563Z",
       "step": "screenshot",
       "name": "06-plain-regression.png"
     }

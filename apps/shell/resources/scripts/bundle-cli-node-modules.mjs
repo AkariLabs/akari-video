@@ -5,8 +5,9 @@
 // なぜ必要か: extraResources で `packages/<cli>` を配っても、その CLI が import する
 // npm 依存はモノレポルートの node_modules にしか無い。パッケージ版の Resources 配下には
 // node_modules が一切無いため、Node の上方探索がどこにも当たらず
-//   - render-cut: puppeteer-core 不在 → オーバーレイのラスタライザが静止画
-//     （static-screenshot）へ黙って縮退する。3D オーバーレイは実行時エラー
+//   - render-cut: #130d（legacy 合成経路の全撤去）以降は gpu / osr の 2 出口だけで
+//     puppeteer を使わない（かつては puppeteer-core 不在で静止画へ縮退していた）
+//   - gpu-export: @webav/mp4box.js 不在で --engine gpu が落ちる（v0.1.25 で実測）
 //   - bake-layer: `import puppeteer` / `import { build } from "esbuild"` が
 //     トップレベルで落ち、CLI が起動すらしない
 // になる。

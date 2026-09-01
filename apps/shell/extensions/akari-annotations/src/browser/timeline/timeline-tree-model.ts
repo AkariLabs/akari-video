@@ -29,6 +29,8 @@ export interface TimelineTreeRow {
 
 export interface TimelineTreeModelOptions {
     collapsed?: ReadonlySet<string>;
+    /** フォーカス・チップ操作用の全 item 索引。通常表示では使わない。 */
+    includeAllItems?: boolean;
     partsByHtml?: ReadonlyMap<string, readonly { id: string; order: number }[]>;
     captionsByPath?: ReadonlyMap<string, readonly { id: string; at: number; duration: number }[]>;
 }
@@ -39,10 +41,16 @@ export function buildTimelineTreeRows(
 ): TimelineTreeRow[] {
     const rows: TimelineTreeRow[] = [];
     const collapsed = options.collapsed ?? new Set<string>();
-    const visit = (item: InternalItem, trackId: string, depth: number, inheritedParentId?: string): void => {
+    const append = (item: InternalItem, trackId: string, depth: number, inheritedParentId?: string): {
+        children: InternalItem[];
+        collapsed: boolean;
+    } => {
         const children = projectedChildren(item, options);
         const itemKind = kindOf(item, children.length > 0);
-        const isCollapsed = children.length > 0 && collapsed.has(item.id);
+        const isPureGroup = item.source.kind === 'group';
+        const isCollapsed = isPureGroup && children.length > 0 && collapsed.has(item.id);
+        const isBag = (item.source.kind === 'captions'
+            || item.source.kind === 'html' && typeof item.source.part !== 'string') && children.length > 0;
         rows.push({
             id: item.id,
             label: labelOf(item),
@@ -55,14 +63,29 @@ export function buildTimelineTreeRows(
             collapsed: isCollapsed,
             at: item.at,
             duration: item.duration,
-            ticks: isCollapsed ? ticksOf(item, children) : [],
+            ticks: isCollapsed || isBag ? ticksOf(item, children) : [],
             sourceKind: item.source.kind,
         });
-        if (!isCollapsed) {
-            for (const child of children) visit(child as InternalItem, trackId, depth + 1, item.id);
-        }
+        return { children, collapsed: isCollapsed };
     };
-    for (const track of tracks) for (const item of track.items) visit(item, track.id, 0);
+    const visitAll = (item: InternalItem, trackId: string, depth: number, inheritedParentId?: string): void => {
+        const state = append(item, trackId, depth, inheritedParentId);
+        if (state.collapsed) return;
+        for (const child of state.children) visitAll(child, trackId, depth + 1, item.id);
+    };
+    const visitHeader = (item: InternalItem, trackId: string, depth: number, inheritedParentId?: string): void => {
+        const children = projectedChildren(item, options);
+        if (depth === 0 && (item.source.kind !== 'group' || children.length === 0)) return;
+        const state = append(item, trackId, depth, inheritedParentId);
+        if (state.collapsed || item.source.kind !== 'group') return;
+        for (const child of state.children) visitHeader(child, trackId, depth + 1, item.id);
+    };
+    for (const track of tracks) {
+        for (const item of track.items) {
+            if (options.includeAllItems) visitAll(item, track.id, 0);
+            else visitHeader(item, track.id, 0);
+        }
+    }
     return rows;
 }
 
@@ -72,9 +95,19 @@ export function rowsByTrack(rows: readonly TimelineTreeRow[]): Map<string, Timel
     return result;
 }
 
-/** captions 袋の写しは操作モデルに残すが、タイムラインの表示段としては数えない。 */
+/** 全 item 索引を通常表示のヘッダ行（純グループと、その展開中の子）へ射影する。 */
 export function visibleTimelineTreeRows(rows: readonly TimelineTreeRow[]): TimelineTreeRow[] {
-    return rows.filter(row => !(row.itemKind === 'caption' && row.parentId !== undefined));
+    const byId = new Map(rows.map(row => [row.id, row]));
+    return rows.filter(row => {
+        if (row.depth === 0) return row.sourceKind === 'group' && row.hasChildren;
+        let parent = row.parentId ? byId.get(row.parentId) : undefined;
+        while (parent) {
+            if (parent.sourceKind !== 'group') return false;
+            if (parent.depth === 0) return parent.hasChildren;
+            parent = parent.parentId ? byId.get(parent.parentId) : undefined;
+        }
+        return false;
+    });
 }
 
 /** 展開済みの深さ優先行列へ折りたたみ集合を適用する。ファイル再読込は不要。 */
@@ -86,19 +119,24 @@ export function applyTimelineCollapsedRows(
     const hiddenByCollapsedAncestor = (row: TimelineTreeRow): boolean => {
         let parentId = row.parentId;
         while (parentId) {
-            if (collapsedIds.has(parentId)) return true;
-            parentId = byId.get(parentId)?.parentId;
+            const parent = byId.get(parentId);
+            if (parent?.sourceKind === 'group' && collapsedIds.has(parentId)) return true;
+            parentId = parent?.parentId;
         }
         return false;
     };
     return expandedRows.flatMap(row => {
         if (hiddenByCollapsedAncestor(row)) return [];
-        const collapsed = row.hasChildren && collapsedIds.has(row.id);
+        const collapsed = row.sourceKind === 'group' && row.hasChildren && collapsedIds.has(row.id);
         const children = collapsed ? expandedRows.filter(candidate => candidate.parentId === row.id) : [];
         return [{
             ...row,
             collapsed,
-            ticks: collapsed ? ticksOfRows(row, children) : []
+            ticks: collapsed || row.sourceKind === 'captions'
+                || row.sourceKind === 'html' && row.hasChildren
+                ? ticksOfRows(row, children.length > 0
+                    ? children : expandedRows.filter(candidate => candidate.parentId === row.id))
+                : []
         }];
     });
 }

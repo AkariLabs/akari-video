@@ -1,0 +1,371 @@
+{
+  "verdict": {
+    "label": "objtree",
+    "frameEngineActive": null,
+    "hasClock": false,
+    "seekMax": 11,
+    "playAdvanceSeconds": 0,
+    "playPass": false,
+    "seekTimeA": 0,
+    "seekTimeB": 0,
+    "seekShaA": "e677593e80eb5b602f3d26442b63947e51163f12d1aef9c72bc3671166d5c62e",
+    "seekShaB": "e677593e80eb5b602f3d26442b63947e51163f12d1aef9c72bc3671166d5c62e",
+    "seekShotsDiffer": false,
+    "seekPass": false,
+    "consoleErrors": 0,
+    "unhandledExceptions": 0
+  },
+  "records": [
+    {
+      "t": "2026-08-30T23:36:02.377Z",
+      "step": "main-attached",
+      "url": "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=51740#<SCRATCH>/proj-objtree"
+    },
+    {
+      "t": "2026-08-30T23:36:04.194Z",
+      "step": "viewport-override",
+      "w": 1680,
+      "h": 1000,
+      "dpr": 1
+    },
+    {
+      "t": "2026-08-30T23:36:04.206Z",
+      "step": "edit-card",
+      "x": 125.45703125,
+      "y": 616.296875,
+      "text": "編集データ2026-08-31 08:07 · edit.json"
+    },
+    {
+      "t": "2026-08-30T23:36:04.504Z",
+      "step": "opened-edit-json"
+    },
+    {
+      "t": "2026-08-30T23:36:08.005Z",
+      "step": "collapse-left",
+      "done": true
+    },
+    {
+      "t": "2026-08-30T23:36:09.177Z",
+      "step": "collapse-right",
+      "done": true
+    },
+    {
+      "t": "2026-08-30T23:36:13.720Z",
+      "step": "preview-attached",
+      "previewTargetId": "66CC95144AF0E46917724FF5EC5EBB69"
+    },
+    {
+      "t": "2026-08-30T23:36:13.849Z",
+      "step": "inline-script-parse-check",
+      "scripts": [
+        {
+          "i": 0,
+          "len": 2159,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 1,
+          "len": 5531,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 2,
+          "len": 270,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 3,
+          "len": 54022,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 4,
+          "len": 776523,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 5,
+          "len": 92968,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 6,
+          "len": 26085,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 7,
+          "len": 19571,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 8,
+          "len": 66945,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 9,
+          "len": 48749,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 10,
+          "len": 337416,
+          "isBootstrap": false,
+          "parse": "ok"
+        },
+        {
+          "i": 11,
+          "len": 1042234,
+          "isBootstrap": true,
+          "parse": "ok"
+        },
+        {
+          "i": 12,
+          "len": 30214,
+          "isBootstrap": true,
+          "parse": "missing ) after argument list"
+        }
+      ]
+    },
+    {
+      "t": "2026-08-30T23:36:13.877Z",
+      "step": "webview-offsets",
+      "outer": [
+        {
+          "id": "",
+          "cls": "webview",
+          "src": "http://9ccf4607-491e-59c0-ba07-b490c1b0167a.webview.localhost:51740/webview/index.html?id=akari-output-preview-1ckj74v",
+          "x": 49,
+          "y": 35,
+          "w": 1138,
+          "h": 569.3984375
+        }
+      ],
+      "inner": {
+        "x": 0,
+        "y": 0,
+        "w": 1138,
+        "h": 570
+      }
+    },
+    {
+      "t": "2026-08-30T23:36:17.985Z",
+      "step": "state-before-play",
+      "seekValue": 0,
+      "seekMax": 11,
+      "playDisabled": false,
+      "playLabel": "再生",
+      "frameEngineActive": null,
+      "hasClock": false,
+      "timeText": "0:00 / 0:11"
+    },
+    {
+      "t": "2026-08-30T23:36:18.059Z",
+      "step": "play-button-abs",
+      "left": 602,
+      "top": 563,
+      "width": 32,
+      "height": 32
+    },
+    {
+      "t": "2026-08-30T23:36:18.127Z",
+      "step": "play-hit-test",
+      "rect": {
+        "l": 553,
+        "t": 528,
+        "w": 32,
+        "h": 32
+      },
+      "topEl": "path",
+      "isPlay": true,
+      "bar": "transport-center",
+      "siblings": [
+        {
+          "id": "skip-back",
+          "l": 473,
+          "t": 528,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "id": "frame-back",
+          "l": 513,
+          "t": 528,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "id": "play-toggle",
+          "l": 553,
+          "t": 528,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "id": "frame-forward",
+          "l": 593,
+          "t": 528,
+          "w": 32,
+          "h": 32
+        },
+        {
+          "id": "skip-forward",
+          "l": 633,
+          "t": 528,
+          "w": 32,
+          "h": 32
+        }
+      ],
+      "vw": 1138
+    },
+    {
+      "t": "2026-08-30T23:36:18.633Z",
+      "step": "play-probe-events",
+      "events": [
+        {
+          "type": "pointerdown",
+          "target": "path",
+          "x": 569,
+          "y": 544
+        },
+        {
+          "type": "mousedown",
+          "target": "path",
+          "x": 569,
+          "y": 544
+        },
+        {
+          "type": "click",
+          "target": "path",
+          "x": 569,
+          "y": 544
+        }
+      ]
+    },
+    {
+      "t": "2026-08-30T23:36:18.635Z",
+      "step": "state-after-play-click",
+      "seekValue": 0,
+      "seekMax": 11,
+      "playDisabled": false,
+      "playLabel": "一時停止",
+      "frameEngineActive": null,
+      "hasClock": false,
+      "timeText": "0:00 / 0:11"
+    },
+    {
+      "t": "2026-08-30T23:36:20.793Z",
+      "step": "play-measurement",
+      "elapsedMs": 2158,
+      "from": 0,
+      "to": 0,
+      "advance": 0,
+      "playLabel": "一時停止"
+    },
+    {
+      "t": "2026-08-30T23:36:25.669Z",
+      "step": "seek-a",
+      "requested": 1,
+      "x": 188.45454545454544,
+      "rect": {
+        "left": 85,
+        "top": 537,
+        "width": 1066,
+        "height": 16
+      },
+      "max": 11,
+      "state": {
+        "seekValue": 0,
+        "seekMax": 11,
+        "playDisabled": false,
+        "playLabel": "再生",
+        "frameEngineActive": null,
+        "hasClock": false,
+        "timeText": "0:00 / 0:11"
+      },
+      "shot": {
+        "file": "objtree-seek-a.png",
+        "sha256": "e677593e80eb5b602f3d26442b63947e51163f12d1aef9c72bc3671166d5c62e",
+        "bytes": 25471
+      }
+    },
+    {
+      "t": "2026-08-30T23:36:30.142Z",
+      "step": "seek-b",
+      "requested": 4.5,
+      "x": 522.5454545454545,
+      "rect": {
+        "left": 85,
+        "top": 537,
+        "width": 1066,
+        "height": 16
+      },
+      "max": 11,
+      "state": {
+        "seekValue": 0,
+        "seekMax": 11,
+        "playDisabled": false,
+        "playLabel": "再生",
+        "frameEngineActive": null,
+        "hasClock": false,
+        "timeText": "0:00 / 0:11"
+      },
+      "shot": {
+        "file": "objtree-seek-b.png",
+        "sha256": "e677593e80eb5b602f3d26442b63947e51163f12d1aef9c72bc3671166d5c62e",
+        "bytes": 25471
+      }
+    },
+    {
+      "t": "2026-08-30T23:36:30.153Z",
+      "step": "console-summary",
+      "count": 0,
+      "errors": [],
+      "warnings": []
+    },
+    {
+      "t": "2026-08-30T23:36:30.157Z",
+      "step": "exceptions",
+      "count": 0,
+      "items": []
+    },
+    {
+      "t": "2026-08-30T23:36:30.157Z",
+      "step": "log-entries",
+      "count": 0,
+      "items": []
+    },
+    {
+      "t": "2026-08-30T23:36:30.160Z",
+      "step": "VERDICT",
+      "label": "objtree",
+      "frameEngineActive": null,
+      "hasClock": false,
+      "seekMax": 11,
+      "playAdvanceSeconds": 0,
+      "playPass": false,
+      "seekTimeA": 0,
+      "seekTimeB": 0,
+      "seekShaA": "e677593e80eb5b602f3d26442b63947e51163f12d1aef9c72bc3671166d5c62e",
+      "seekShaB": "e677593e80eb5b602f3d26442b63947e51163f12d1aef9c72bc3671166d5c62e",
+      "seekShotsDiffer": false,
+      "seekPass": false,
+      "consoleErrors": 0,
+      "unhandledExceptions": 0
+    }
+  ],
+  "consoleLines": [],
+  "exceptions": [],
+  "logEntries": []
+}
