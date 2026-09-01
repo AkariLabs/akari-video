@@ -10,7 +10,7 @@
   ],
   "shell": null,
   "build": {
-    "bundle": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/lib/frontend/bundle.js",
+    "bundle": "<worktree>/apps/shell/lib/frontend/bundle.js",
     "bytes": 16036492,
     "mtime": "2026-09-01T05:28:15.392Z"
   },
@@ -146,7 +146,7 @@
     {
       "step": "04 チップ中央から CDP 実ドラッグ（全体表示のまま）",
       "status": "failed",
-      "reason": "Error: no cut chip to drag\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:348:26\n    at step (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:49:26)\n    at main (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:335:11)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:525:1",
+      "reason": "Error: no cut chip to drag\n    at file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:348:26\n    at step (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:49:26)\n    at main (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:335:11)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:525:1",
       "elapsedMs": 0
     },
     {
@@ -163,7 +163,7 @@
     {
       "step": "05 右トリムハンドルを掴んで実トリム（拡張チップ）",
       "status": "failed",
-      "reason": "Error: no chip to trim\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:414:21\n    at async step (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:49:20)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:411:5)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:525:1",
+      "reason": "Error: no chip to trim\n    at file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:414:21\n    at async step (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:49:20)\n    at async main (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:411:5)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:525:1",
       "elapsedMs": 1
     },
     {
@@ -181,7 +181,7 @@
     {
       "step": "06 回帰: 細いチップの右クリックメニュー",
       "status": "failed",
-      "reason": "Error: no chip for contextmenu\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:468:21\n    at async step (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:49:20)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:465:5)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:525:1",
+      "reason": "Error: no chip for contextmenu\n    at file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:468:21\n    at async step (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:49:20)\n    at async main (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:465:5)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:525:1",
       "elapsedMs": 1
     },
     {

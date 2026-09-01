@@ -10,7 +10,7 @@
   ],
   "shell": null,
   "build": {
-    "bundle": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/lib/frontend/bundle.js",
+    "bundle": "<worktree>/apps/shell/lib/frontend/bundle.js",
     "bytes": 16039872,
     "mtime": "2026-09-01T04:50:00.009Z"
   },

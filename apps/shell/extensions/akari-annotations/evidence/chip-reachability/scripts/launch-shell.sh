@@ -3,7 +3,8 @@
 # この worktree（timeline-chip-reachability）へ向け直している。Electron 実体は worktree ルートの hoist 済み node_modules。
 # Usage: launch-shell.sh <projectDir> <cdpPort> <isoDir> <logFile> [keep]
 set -eu
-WT=${AKARI_WT_DIR:-/Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability}
+# リポジトリ直下はこのスクリプトの位置（<repo>/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/）から導く。
+WT=${AKARI_WT_DIR:-${0:A:h:h:h:h:h:h:h:h}}
 SHELL_DIR=${AKARI_SHELL_DIR:-$WT/apps/shell}
 ELECTRON=${AKARI_ELECTRON:-$WT/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron}
 LAB_ROOT=$WT/apps/shell/extensions/akari-annotations/evidence/chip-reachability
