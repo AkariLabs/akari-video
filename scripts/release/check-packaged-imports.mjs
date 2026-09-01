@@ -181,6 +181,7 @@ export function defaultEntries(resourcesRoot) {
   for (const runtime of ['osr-export', 'gpu-export']) {
     entries.push(join(packagesDir, runtime, 'src', 'electron-main.mjs'));
   }
+  entries.push(join(packagesDir, 'preview-server', 'src', 'server.mjs'));
   return entries.sort();
 }
 

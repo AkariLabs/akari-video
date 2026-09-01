@@ -2,6 +2,7 @@ import { ContainerModule } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, WidgetFactory, FrontendApplication, WebSocketConnectionProvider } from '@theia/core/lib/browser';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import { AkariQuickExportService, AKARI_QUICK_EXPORT_SERVICE_PATH } from '../common/quick-export-protocol';
+import { AkariPreviewServerService, AKARI_PREVIEW_SERVER_SERVICE_PATH } from '../common/preview-server-protocol';
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
 import { AkariSettingsWidget } from './akari-settings-widget';
 import { AkariSettingsContribution } from './akari-settings-contribution';
@@ -21,6 +22,11 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     // 「この場で書き出す」バックエンド（edit-lint / render-cut CLI 直接実行）。
     bind(AkariQuickExportService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_QUICK_EXPORT_SERVICE_PATH)
+    ).inSingletonScope();
+
+    // 「ブラウザプレビュー」バックエンド（preview-server 子プロセス起動・URL 表示）。
+    bind(AkariPreviewServerService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_PREVIEW_SERVER_SERVICE_PATH)
     ).inSingletonScope();
 
     // S15: activity bar curation（起動時一括 + onDidAddWidget 常時フィルタ）

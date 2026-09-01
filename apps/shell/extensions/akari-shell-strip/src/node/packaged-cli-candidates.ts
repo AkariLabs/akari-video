@@ -26,6 +26,8 @@ const ANCESTOR_SEARCH_MAX_DEPTH = 10;
 
 /**
  * `packages/<packageName>/bin/<entryName>` の探索候補（先頭が最優先）。
+ * packagedPackageEntryCandidates への委譲（期待配列はバイト同一のまま —
+ * test/packaged-cli-candidates.test.mjs が固定する）。
  * @param packageName モノレポの `packages/` 直下の名前（例 `render-cut`）
  * @param entryName `bin/` 配下の実行エントリ名（例 `render-cut.mjs`）
  */
@@ -35,7 +37,22 @@ export function packagedCliCandidates(
     dirnameValue: string,
     resourcesPath?: string
 ): string[] {
-    const relativePath = `packages/${packageName}/bin/${entryName}`;
+    return packagedPackageEntryCandidates(packageName, `bin/${entryName}`, dirnameValue, resourcesPath);
+}
+
+/**
+ * `packages/<packageName>/<relativeEntry>` の探索候補（先頭が最優先）。
+ * preview-server のように入口が `bin/` に無いパッケージ（`src/server.mjs`）向けの一般形。
+ * @param packageName モノレポの `packages/` 直下の名前（例 `preview-server`）
+ * @param relativeEntry パッケージ相対の入口（例 `src/server.mjs`・`bin/render-cut.mjs`）
+ */
+export function packagedPackageEntryCandidates(
+    packageName: string,
+    relativeEntry: string,
+    dirnameValue: string,
+    resourcesPath?: string
+): string[] {
+    const relativePath = `packages/${packageName}/${relativeEntry}`;
     const candidates: string[] = [];
     if (resourcesPath) {
         candidates.push(resolve(resourcesPath, relativePath));
@@ -43,7 +60,7 @@ export function packagedCliCandidates(
     for (const ancestor of ancestorDirectories(dirnameValue)) {
         candidates.push(resolve(ancestor, relativePath));
     }
-    candidates.push(resolve(dirnameValue, '..', packageName, 'bin', entryName));
+    candidates.push(resolve(dirnameValue, '..', packageName, relativeEntry));
     return dedupe(candidates);
 }
 

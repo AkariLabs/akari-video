@@ -12,6 +12,9 @@
       "backend": "lib/node/akari-quick-export-backend-module"
     },
     {
+      "backend": "lib/node/akari-preview-server-backend-module"
+    },
+    {
       "electronMain": "lib/electron-main/akari-window-selfheal-module"
     }
   ],
