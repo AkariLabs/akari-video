@@ -2,7 +2,7 @@ import { normalizeGpuPreferenceRecord } from "../../osr-export/src/gpu-preferenc
 import { resolveMemoryBudget } from "../../osr-export/src/memory.mjs";
 import { normalizeGpuCaptionReceiptEntries } from "../../render-cut/src/render-receipt.mjs";
 
-export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility = { entries: [] }, finalVerify = null, profile = "gpu", gpuPreference = null } = {}) {
+export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility = { entries: [] }, finalVerify = null, audio = null, profile = "gpu", gpuPreference = null } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
   const memory = run?.memory ?? {};
   return {
@@ -57,7 +57,16 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
     },
     run: run?.persistentPath ?? null,
     finalVerify,
+    audio: normalizeGpuAudioRecord(audio),
   };
+}
+
+function normalizeGpuAudioRecord(value) {
+  if (!value || typeof value !== "object") return null;
+  if (!["copy", "silent-carrier", "none"].includes(value.mode)) return null;
+  if (!(typeof value.source === "string" || value.source === null)) return null;
+  if (!(typeof value.source_has_audio === "boolean" || value.source_has_audio === null)) return null;
+  return { mode: value.mode, source: value.source, source_has_audio: value.source_has_audio };
 }
 
 function normalizeViewport(value) {
