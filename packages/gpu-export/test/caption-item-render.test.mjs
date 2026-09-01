@@ -21,6 +21,10 @@ test("GPU page classifies the detached caption item without dropping it", async 
   const overlay = result.edit.overlays.find(candidate => candidate.id === "c2-out");
   assert.equal(overlay.start, 61 / 30);
   assert.equal(overlay.duration, 1);
+  assert.equal(overlay.z, 2);
+  assert.deepEqual(result.spriteManifest.statics.map(({ id, z }) => ({ id, z })), [
+    { id: "order-html", z: 3 },
+  ]);
   const classification = result.eligibility.entries.find(entry =>
     entry.kind === "overlay" && entry.id === "c2-out");
   assert.ok(classification);

@@ -14,7 +14,13 @@ import { parseThreeEntrance } from "./three-entrance.mjs";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
-const { collectExcludedCaptionIds, filterCaptionRootByExcludedIds } = require("../../edit-store/lib/index.js");
+const {
+  collectTrackZByItemId,
+  collectExcludedCaptionIds,
+  filterCaptionRootByExcludedIds,
+  resolveCaptionTrackZ,
+  resolveRecordTrackZ,
+} = require("../../edit-store/lib/index.js");
 const FRAME_ENGINE_BUNDLE = join(PACKAGE_ROOT, "generated", "frame-engine.js");
 const PAGE_RUNTIME = join(PACKAGE_ROOT, "src", "page-runtime.js");
 // data-akari-slot への文言注入。legacy（render-cut rasterize）・プレビュー（overlay-runtime）と同じ
@@ -31,6 +37,7 @@ export function buildGpuPage({
   width = edit?.output?.width ?? 1920,
   height = edit?.output?.height ?? 1080,
   duration = 0,
+  captionTrackZ = null,
   lutCubeText = null,
   layerLutCubeTexts = [],
   eligibility = null,
@@ -39,6 +46,10 @@ export function buildGpuPage({
   slotParamsRuntime = readFileSync(SLOT_PARAMS_RUNTIME, "utf8"),
   itemKeyframesRuntime = readFileSync(ITEM_KEYFRAMES_RUNTIME, "utf8"),
 } = {}) {
+  // 直接呼びで段が分からない場合は、暗黙字幕トラックの既定どおり最前面へ置く。
+  const captionZ = Number.isInteger(captionTrackZ) && captionTrackZ >= 0
+    ? captionTrackZ
+    : Number.MAX_SAFE_INTEGER;
   const enabledOverlays = overlays.filter((overlay) => overlay?.enabled !== false);
   const textSlotOverlayCount = enabledOverlays.filter((overlay) => overlayTextSlotParams(overlay) !== null).length;
   const projectedEdit = {
@@ -77,7 +88,7 @@ export function buildGpuPage({
     ? edit.emphasis_words ?? []
     : captions?.emphasis_words ?? edit.emphasis_words ?? [];
   const spriteManifest = {
-    captions: captionOverlays.map((overlay) => {
+    captions: captionOverlays.map((overlay, index) => {
       const cue = cueById.get(String(overlay.generatedFrom)) ?? {};
       const textStyle = mergeTextStyle(defaultTextStyle, cue.text_style);
       const word = classifyCaptionWordMode({
@@ -88,6 +99,8 @@ export function buildGpuPage({
       });
       return {
         id: String(overlay.id),
+        z: captionZ,
+        index,
         start: Number(overlay.start),
         duration: Number(overlay.duration),
         html: overlay.html.replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf"),
@@ -103,6 +116,7 @@ export function buildGpuPage({
     statics: statics.map(({ overlay, index }) => ({
       id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration),
       html: overlay.html, vars: resolveOverlayVars(overlay), index,
+      z: Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0,
       params: overlayTextSlotParams(overlay),
     })),
     three: three.map(({ overlay, index }) => {
@@ -113,6 +127,7 @@ export function buildGpuPage({
       });
       return {
         id: String(overlay.id), start: Number(overlay.start ?? 0), duration: Number(overlay.duration ?? duration), index,
+        z: Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0,
         ...(parsed.ok ? { entrance: parsed.entrance } : {}),
       };
     }),
@@ -200,12 +215,13 @@ function buildDomRuns(indexedOverlays, classifications, duration) {
   const runs = [];
   let current = null;
   for (const { overlay, index } of indexedOverlays) {
+    const z = Number.isInteger(overlay.z) && overlay.z >= 0 ? overlay.z : 0;
     if (classifications.get(String(overlay.id)) !== "dom") {
       current = null;
       continue;
     }
-    if (current === null) {
-      current = { runId: `dom-${runs.length}`, index, entries: [] };
+    if (current === null || current.z !== z) {
+      current = { runId: `dom-${runs.length}`, index, z, entries: [] };
       runs.push(current);
     }
     current.entries.push({
@@ -254,14 +270,17 @@ export async function loadAndBuildGpuPage({
 }) {
   const resolvedEditPath = editPath ?? join(projectRoot, "edit.json");
   const editText = await readFile(resolvedEditPath, "utf8");
-  const projectedEdit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "gpu-page")).edit;
+  const renderEdit = readRenderEdit(editText, join(projectRoot, ".akari", "render-tmp", "gpu-page"));
+  const projectedEdit = renderEdit.edit;
   const prepared = await prepareAlphaLayers(projectedEdit, { projectRoot });
+  const trackZByItemId = collectTrackZByItemId(renderEdit.internal.tracks);
   const captions = filterCaptionRootByExcludedIds(
     await readJsonIfPresent(join(projectRoot, "captions.json"), []),
     collectExcludedCaptionIds(prepared.edit),
   );
   const overlays = await Promise.all((prepared.edit.overlays ?? []).filter((overlay) => overlay?.enabled !== false).map(async (overlay) => ({
     ...overlay,
+    z: resolveRecordTrackZ(trackZByItemId, overlay),
     html: typeof overlay.html === "string" && overlay.html.trimStart().startsWith("<")
       ? overlay.html
       : await readFile(resolve(projectRoot, overlay.html), "utf8"),
@@ -295,6 +314,7 @@ export async function loadAndBuildGpuPage({
     width: width ?? edit.output.width,
     height: height ?? edit.output.height,
     duration: duration ?? inferDuration(edit),
+    captionTrackZ: resolveCaptionTrackZ(renderEdit.internal.tracks),
     lutCubeText,
     layerLutCubeTexts,
     eligibility,

@@ -15,6 +15,29 @@ const edit = {
   overlays: [],
 };
 
+function zAxisEdit(order) {
+  const tracks = {
+    low: { id: "low-track", lane: "visual", items: [{ id: "low", at: 0, duration: 30, source: { kind: "html", path: "low.html" } }] },
+    captions: { id: "caption-track", lane: "visual", items: [{ id: "captions", at: 0, duration: 30, source: { kind: "captions", path: "captions.json", exclude: [] }, items: [] }] },
+    high: { id: "high-track", lane: "visual", items: [{ id: "high", at: 0, duration: 30, source: { kind: "html", path: "high.html" } }] },
+  };
+  return {
+    version: 2,
+    output: { width: 64, height: 36, fps: 30 },
+    sources: [],
+    tracks: order.map((id) => tracks[id]),
+  };
+}
+
+async function writeZAxisProject(projectRoot, order) {
+  await Promise.all([
+    writeFile(join(projectRoot, "edit.json"), JSON.stringify(zAxisEdit(order))),
+    writeFile(join(projectRoot, "captions.json"), JSON.stringify([{ id: "c1", start: 0, end: 1, text: "caption" }])),
+    writeFile(join(projectRoot, "low.html"), "<div>low</div>"),
+    writeFile(join(projectRoot, "high.html"), "<div>high</div>"),
+  ]);
+}
+
 function regionFilterEdit(lutId) {
   return {
     version:2, output:{width:64,height:36,fps:30},
@@ -67,6 +90,30 @@ test("GPU page omits the 3D sheet and exposes sprite/LUT declarations", () => {
   assert.match(result.html, /id="akari-final"/);
   assert.doesNotMatch(result.html, /akari-stamp/);
   assert.doesNotMatch(result.html, /\/Users\//);
+});
+
+test("GPU page builder は字幕段の最下・中間・最上を overlays 2 段と同じ z 軸へ載せる", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "gpu-track-z-"));
+  try {
+    for (const order of [
+      ["captions", "low", "high"],
+      ["low", "captions", "high"],
+      ["low", "high", "captions"],
+    ]) {
+      await writeZAxisProject(projectRoot, order);
+      const result = await loadAndBuildGpuPage({ projectRoot, duration: 1 });
+      const zById = new Map([
+        ...result.spriteManifest.statics.map((value) => [value.id, value.z]),
+        ...result.spriteManifest.captions.map((value) => [value.id, value.z]),
+      ]);
+      assert.deepEqual(order.map((id) => id === "captions" ? zById.get("c1-01") : zById.get(id)), [0, 1, 2]);
+      assert.deepEqual(result.spriteManifest.captions.map(({ z, index }) => ({ z, index })), [
+        { z: order.indexOf("captions"), index: 0 },
+      ]);
+    }
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
 });
 
 test("--edit 未指定の Electron 引数は null のままでも projectRoot/edit.json を読む", async () => {
@@ -172,6 +219,7 @@ test("GPU page groups consecutive DOM overlays and preserves declaration z-order
     ["dom-1", 3, ["dom-c"]],
   ]);
   assert.equal(result.spriteManifest.statics[0].index, 2);
+  assert.equal(result.spriteManifest.dom[0].z, 0);
   assert.deepEqual(result.spriteManifest.dom[0].entries[0].vars, {
     "--x": "2px", "--y": "3px", "--scale": "1.2", "--rotate": "4deg",
   });
@@ -182,6 +230,21 @@ test("GPU page groups consecutive DOM overlays and preserves declaration z-order
   assert.equal(result.manifest.domOverlayCount, 3);
   assert.match(result.html, /id="akari-dom-stage"/);
   assert.doesNotMatch(result.html, /<canvas[^>]+layoutsubtree/iu);
+});
+
+test("GPU page cuts a DOM run when the track z changes", () => {
+  const overlays = [
+    { id: "dom-back", z: 0, start: 0, duration: 1, html: "<style>.x{animation:x 1s}</style><div>back</div>" },
+    { id: "dom-front", z: 1, start: 0, duration: 1, html: "<style>.y{animation:y 1s}</style><div>front</div>" },
+  ];
+  const result = buildGpuPage({
+    edit: { ...edit, overlays }, overlays, projectRoot: "/unused", duration: 1,
+    frameEngineBundle: "window.AkariFrameEngine={};", pageRuntime: "void 0;",
+  });
+  assert.deepEqual(result.spriteManifest.dom.map(({ z, entries }) => [z, entries.map((entry) => entry.id)]), [
+    [0, ["dom-back"]],
+    [1, ["dom-front"]],
+  ]);
 });
 
 test("GPU page adds the parsed entrance only to animated 3D manifest entries", () => {
@@ -208,7 +271,7 @@ test("GPU page adds the parsed entrance only to animated 3D manifest entries", (
     frameEngineBundle: "window.AkariFrameEngine={};", pageRuntime: "void 0;",
   });
   assert.deepEqual(result.spriteManifest.three[0], {
-    id: "animated", start: 1, duration: 2, index: 0,
+    id: "animated", start: 1, duration: 2, index: 0, z: 0,
     entrance: {
       durationSec: 1.1,
       delaySec: 0.05,
@@ -219,7 +282,7 @@ test("GPU page adds the parsed entrance only to animated 3D manifest entries", (
     },
   });
   assert.deepEqual(result.spriteManifest.three[1], {
-    id: "direct", start: 0, duration: 3, index: 1,
+    id: "direct", start: 0, duration: 3, index: 1, z: 0,
   });
   assert.equal(result.eligibility.entries[0].reason, "three-scene-entrance-curve");
   assert.equal(result.eligibility.entries[1].reason, "three-scene-canvas-direct");

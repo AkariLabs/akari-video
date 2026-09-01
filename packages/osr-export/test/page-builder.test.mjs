@@ -17,6 +17,29 @@ const edit = {
 const captions = [{ id: "c1", start: 0, end: 1, text: "字幕", time_domain: "output" }];
 const overlays = [{ id: "o1", start: 0, duration: 1, html: "<div>HTML</div>", transform: {}, vars: {} }];
 
+function zAxisEdit(order) {
+  const tracks = {
+    low: { id: "low-track", lane: "visual", items: [{ id: "low", at: 0, duration: 30, source: { kind: "html", path: "low.html" } }] },
+    captions: { id: "caption-track", lane: "visual", items: [{ id: "captions", at: 0, duration: 30, source: { kind: "captions", path: "captions.json", exclude: [] }, items: [] }] },
+    high: { id: "high-track", lane: "visual", items: [{ id: "high", at: 0, duration: 30, source: { kind: "html", path: "high.html" } }] },
+  };
+  return {
+    version: 2,
+    output: { width: 64, height: 36, fps: 30 },
+    sources: [],
+    tracks: order.map((id) => tracks[id]),
+  };
+}
+
+async function writeZAxisProject(projectRoot, order) {
+  await Promise.all([
+    writeFile(join(projectRoot, "edit.json"), JSON.stringify(zAxisEdit(order))),
+    writeFile(join(projectRoot, "captions.json"), JSON.stringify([{ id: "c1", start: 0, end: 1, text: "caption" }])),
+    writeFile(join(projectRoot, "low.html"), "<div>low</div>"),
+    writeFile(join(projectRoot, "high.html"), "<div>high</div>"),
+  ]);
+}
+
 function regionFilterEdit(lutId) {
   return {
     version:2, output:{width:64,height:36,fps:30},
@@ -64,6 +87,23 @@ test("page builder は4層、字幕生成器、H+1、canvas 内 LUT を宣言す
   assert.match(result.html, /TITLE warm/);
   assert.doesNotMatch(result.html, /filter:\s*url|filter:\s*lut/i);
   assert.match(result.overlaySheetHtml, /data-overlay-id="c1-01"/);
+});
+
+test("OSR page builder は字幕段の最下・中間・最上を overlays 2 段と同じ z 軸へ載せる", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "osr-track-z-"));
+  try {
+    for (const [order, expected] of [
+      [["captions", "low", "high"], ["c1-01", "low", "high"]],
+      [["low", "captions", "high"], ["low", "c1-01", "high"]],
+      [["low", "high", "captions"], ["low", "high", "c1-01"]],
+    ]) {
+      await writeZAxisProject(projectRoot, order);
+      const result = await loadAndBuildOsrPage({ projectRoot, duration: 1 });
+      assert.deepEqual([...result.overlaySheetHtml.matchAll(/data-overlay-id="([^"]+)"/gu)].map((match) => match[1]), expected);
+    }
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
 });
 
 test("--edit 未指定の Electron 引数は null のままでも projectRoot/edit.json を読む", async () => {
