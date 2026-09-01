@@ -1,0 +1,269 @@
+{
+  "status": "completed",
+  "label": "after",
+  "requestedN": 200,
+  "startedAt": "2026-09-01T08:53:46.520Z",
+  "environment": {
+    "loadAverageAtStart": [
+      20.7099609375,
+      191.30029296875,
+      233.861328125
+    ],
+    "shell": "<worktree>/apps/shell",
+    "loadAverageAtEnd": [
+      16.80419921875,
+      176.63916015625,
+      227.3388671875
+    ]
+  },
+  "phases": {
+    "fullLengthPan": {
+      "viewBefore": {
+        "itemCount": 201,
+        "stripWidth": 933,
+        "sampleId": "第1章 検証",
+        "stripNodes": 818,
+        "widgetNodes": 1517,
+        "outsideStripNodes": 699,
+        "sampleLeft": 356.9140625,
+        "sampleWidth": 12.65625,
+        "akariAttributes": [
+          "data-akari-item-id",
+          "data-akari-item-kind",
+          "data-akari-kind",
+          "data-akari-lane",
+          "data-akari-source-id",
+          "data-akari-track",
+          "data-akari-ui",
+          "data-akari-ui-label"
+        ],
+        "akariAttributeCount": 8
+      },
+      "sampleId": "第1章 検証",
+      "events": 40,
+      "panEventsRequested": 40,
+      "eventsOnStrip": 40,
+      "eventTargets": [
+        "DIV."
+      ],
+      "eventsWithMutation": 0,
+      "totalMutations": 0,
+      "mutationsPerEvent": 0,
+      "work": {
+        "samplesMs": []
+      },
+      "latency": {
+        "samplesMs": []
+      },
+      "performance": {
+        "LayoutDuration": 0,
+        "RecalcStyleDuration": 0,
+        "ScriptDuration": 0.04144700000000001,
+        "LayoutCount": 0
+      },
+      "performancePerEvent": {
+        "LayoutDuration": 0,
+        "RecalcStyleDuration": 0,
+        "ScriptDuration": 0.0010361750000000003,
+        "LayoutCount": 0
+      },
+      "loadAverage": [
+        16.5263671875,
+        179.28369140625,
+        228.56103515625
+      ],
+      "identity": {
+        "count": 201,
+        "retained": 201
+      },
+      "viewAfter": {
+        "itemCount": 201,
+        "stripWidth": 933,
+        "sampleId": "第1章 検証",
+        "stripNodes": 818,
+        "widgetNodes": 1517,
+        "outsideStripNodes": 699,
+        "sampleLeft": 356.9140625,
+        "sampleWidth": 12.65625,
+        "akariAttributes": [
+          "data-akari-item-id",
+          "data-akari-item-kind",
+          "data-akari-kind",
+          "data-akari-lane",
+          "data-akari-source-id",
+          "data-akari-track",
+          "data-akari-ui",
+          "data-akari-ui-label"
+        ],
+        "akariAttributeCount": 8
+      }
+    },
+    "zoomedPan": {
+      "zoomStep": {
+        "deltaY": -100,
+        "ctrlKey": true
+      },
+      "viewBefore": {
+        "itemCount": 201,
+        "stripWidth": 933,
+        "sampleId": "第1章 検証",
+        "stripNodes": 819,
+        "widgetNodes": 1520,
+        "outsideStripNodes": 701,
+        "sampleLeft": 123.875,
+        "sampleWidth": 18.984375,
+        "akariAttributes": [
+          "data-akari-item-id",
+          "data-akari-item-kind",
+          "data-akari-kind",
+          "data-akari-lane",
+          "data-akari-source-id",
+          "data-akari-track",
+          "data-akari-ui",
+          "data-akari-ui-label"
+        ],
+        "akariAttributeCount": 8
+      },
+      "events": 40,
+      "panEventsRequested": 40,
+      "eventsOnStrip": 40,
+      "eventTargets": [
+        "DIV."
+      ],
+      "eventsWithMutation": 24,
+      "totalMutations": 8449,
+      "mutationsPerEvent": 211.225,
+      "work": {
+        "samplesMs": [
+          0.300048828125,
+          0.199951171875,
+          0.10009765625,
+          11.39990234375,
+          0.199951171875,
+          0.199951171875,
+          0,
+          12.599853515625,
+          0.10009765625,
+          0.199951171875,
+          0.10009765625,
+          0.10009765625,
+          0.099853515625,
+          0.099853515625,
+          0,
+          14.39990234375,
+          0.10009765625,
+          0.099853515625,
+          0.2001953125,
+          11,
+          0.10009765625,
+          0,
+          0.099853515625,
+          0.10009765625
+        ],
+        "count": 24,
+        "medianMs": 0.10009765625,
+        "p95Ms": 12.599853515625,
+        "maxMs": 14.39990234375,
+        "over16_7": 0,
+        "over33": 0
+      },
+      "latency": {
+        "samplesMs": [
+          15.699951171875,
+          16.300048828125,
+          16,
+          19.89990234375,
+          16.199951171875,
+          16.300048828125,
+          16.10009765625,
+          19.599853515625,
+          16.400146484375,
+          16.300048828125,
+          16.699951171875,
+          16.2001953125,
+          16.2998046875,
+          16.199951171875,
+          15.89990234375,
+          23.89990234375,
+          16.199951171875,
+          16.099853515625,
+          16.10009765625,
+          19.60009765625,
+          16.300048828125,
+          16.300048828125,
+          16.099853515625,
+          15.10009765625
+        ],
+        "count": 24,
+        "medianMs": 16.2001953125,
+        "p95Ms": 19.89990234375,
+        "maxMs": 23.89990234375,
+        "over16_7": 4,
+        "over33": 0
+      },
+      "performance": {
+        "LayoutDuration": 0.021045999999999995,
+        "RecalcStyleDuration": 0.017416,
+        "ScriptDuration": 0.03979899999999997,
+        "LayoutCount": 29
+      },
+      "performancePerEvent": {
+        "LayoutDuration": 0.0005261499999999999,
+        "RecalcStyleDuration": 0.0004354,
+        "ScriptDuration": 0.0009949749999999993,
+        "LayoutCount": 0.725
+      },
+      "loadAverage": [
+        16.80419921875,
+        176.63916015625,
+        227.3388671875
+      ],
+      "identity": {
+        "count": 201,
+        "retained": 164
+      },
+      "viewAfter": {
+        "itemCount": 201,
+        "stripWidth": 933,
+        "sampleId": "第1章 検証",
+        "stripNodes": 819,
+        "widgetNodes": 1518,
+        "outsideStripNodes": 699,
+        "sampleLeft": 356.91552734375,
+        "sampleWidth": 18.984375,
+        "akariAttributes": [
+          "data-akari-item-id",
+          "data-akari-item-kind",
+          "data-akari-kind",
+          "data-akari-lane",
+          "data-akari-source-id",
+          "data-akari-track",
+          "data-akari-ui",
+          "data-akari-ui-label"
+        ],
+        "akariAttributeCount": 8
+      }
+    }
+  },
+  "notes": [],
+  "open": {
+    "visibleItemCount": 201,
+    "attempts": 1,
+    "route": "メニュー→タイムライン"
+  },
+  "point": {
+    "x": 823.4140625,
+    "y": 818.1015625,
+    "hit": "DIV.",
+    "inStrip": true,
+    "stripRect": {
+      "left": 355.9140625,
+      "top": -39.8984375,
+      "width": 935,
+      "height": 4102
+    },
+    "innerWidth": 1800,
+    "innerHeight": 1150
+  },
+  "finishedAt": "2026-09-01T08:54:10.106Z"
+}
