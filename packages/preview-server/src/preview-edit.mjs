@@ -113,10 +113,20 @@ export function projectPreviewEdit(source, temporaryDirectory, projectRoot = pat
     }
   }
   const hasLayerChroma = (edit.layers ?? []).some(layer => layer?.chroma_key);
+  const projectedLayers = (edit.layers ?? []).map(layer => {
+    if (layer?.kind !== 'filter' || layer?.filter?.type !== 'lut') return layer;
+    const id = layer.filter.id;
+    try {
+      return { ...layer, filter: { ...layer.filter, cubeText: resolveVideoFxLut(projectRoot, id) } };
+    } catch (error) {
+      throw new Error(`filter layer LUT ${id} could not be resolved: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
   const hasVideoFx = Boolean(look || Object.keys(sourceVideoFx).length > 0 || hasLayerChroma);
 
   return {
     ...edit,
+    layers: projectedLayers,
     overlays: (edit.overlays ?? []).map(overlay => ({
       ...overlay,
       ...(overlay.vars?.role === 'background' ? { role: 'background' } : {}),

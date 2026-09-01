@@ -182,7 +182,17 @@ function resolvedEngineLayers(edit: any): any[] {
       const key = String(layer?.id ?? layer?.src ?? index);
       if (skippedLayers.has(key)) return null;
       const prepared = frameEngineIntake[key];
-      return prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+      const resolved = prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+      if (resolved?.kind !== 'filter' || resolved?.filter?.type !== 'lut'
+        || typeof resolved.filter.cubeText !== 'string') return resolved;
+      return {
+        ...resolved,
+        filter: {
+          type: 'lut',
+          lut: parseCube(resolved.filter.cubeText),
+          intensity: Math.max(0, Math.min(1, Number(resolved.filter.intensity ?? 1))),
+        },
+      };
     })
     .filter(Boolean);
 }

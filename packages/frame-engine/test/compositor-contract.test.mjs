@@ -79,6 +79,16 @@ test('transition vocabulary is generated from the shared table and look is a fin
   assert.match(source, /configureBaseDraw\(plan, this\.fbos\[0\]!, baseProgram\);\s+draw\(\);\s+this\.recordGlErrors\(synchronization\)/u);
 });
 
+test('filter compositor uses an analytic quad and the cached sampler3D path', () => {
+  assert.match(source, /const FILTER_FRAGMENT/u);
+  assert.match(source, /smoothstep\(-edgePx \* 0\.5, edgePx \* 0\.5, distancePx\)/u);
+  assert.match(source, /edgeDistance\(corners\[0\], corners\[1\], p\)/u);
+  assert.match(source, /vec3 saturation709/u);
+  assert.match(source, /this\.lookTexture\(layer\.filter\.lut\)/u);
+  assert.match(source, /if \(input\.kind === 'filter'\)/u);
+  assert.match(source, /edgePx'\), 2\)/u);
+});
+
 test('base shaders are lazily compiled and cached per transition type', () => {
   assert.match(source, /basePrograms = new Map<ResolvedTransition\['type'\], BaseProgramState>/u);
   assert.match(source, /const cached = this\.basePrograms\.get\(type\)/u);

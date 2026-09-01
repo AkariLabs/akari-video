@@ -1,0 +1,27 @@
+{
+  "version": 0,
+  "source": { "path": "source.mp4" },
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "cuts": [{ "src": "frame-engine://fixture/source.mp4", "in": 0, "out": 8 }],
+  "layers": [
+    {
+      "id": "invert", "kind": "filter", "t": 0, "duration": 2.5,
+      "filter": { "type": "invert" },
+      "perspective": { "corners": [[0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]] }
+    },
+    {
+      "id": "saturation", "kind": "filter", "t": 2.5, "duration": 2.5,
+      "filter": { "type": "saturation", "value": 1.6 },
+      "keyframes": [
+        { "t": 0, "perspective": { "corners": [[0.15, 0.15], [0.7, 0.2], [0.2, 0.8], [0.75, 0.75]] } },
+        { "t": 2.5, "perspective": { "corners": [[0.25, 0.2], [0.85, 0.15], [0.15, 0.85], [0.8, 0.8]] } }
+      ]
+    },
+    {
+      "id": "lut", "kind": "filter", "t": 5, "duration": 2.5,
+      "filter": { "type": "lut", "id": "mono", "intensity": 0.5 },
+      "perspective": { "corners": [[0.2, 0.2], [0.9, 0.15], [0.25, 0.8], [0.8, 0.85]] }
+    }
+  ],
+  "overlays": []
+}

@@ -149,6 +149,35 @@ export interface ResolvedCompositeLayer {
   opacity: number;
 }
 
+export type ResolvedFilter =
+  | { type: 'invert' }
+  | { type: 'saturation'; value: number }
+  | { type: 'lut'; lut: ParsedCubeLut; intensity?: number };
+
+export interface ResolvedFilterLayer {
+  id: string;
+  kind: 'filter';
+  filter: ResolvedFilter;
+  /** TL, TR, BL, BR in normalized output coordinates. */
+  corners: readonly [
+    readonly [number, number],
+    readonly [number, number],
+    readonly [number, number],
+    readonly [number, number]
+  ];
+  opacity: number;
+}
+
+export type ResolvedEvaluationLayer = ResolvedCompositeLayer | ResolvedFilterLayer;
+
+export type CompositorLayerInput =
+  | {
+      kind?: 'media';
+      color: NativeYuvFrame | StillImageBitmap | VideoFrame;
+      mask?: NativeYuvFrame | VideoFrame | null;
+    }
+  | { kind: 'filter' };
+
 export interface ResolvedTransition {
   type: 'hard-cut' | TransitionType;
   progress: number;
@@ -162,7 +191,7 @@ export interface ResolvedLook {
 export interface EvaluationPlan {
   timeUs: TimelineTimeUs;
   base: readonly ResolvedBaseLayer[];
-  layers: readonly ResolvedCompositeLayer[];
+  layers: readonly ResolvedEvaluationLayer[];
   transition?: ResolvedTransition;
   output: {
     width: number;
@@ -204,10 +233,7 @@ export interface CompositorBackend {
   readonly uploadPath?: UploadPath;
   compose(
     base: readonly (NativeYuvFrame | StillImageBitmap | VideoFrame)[],
-    layers: readonly {
-      color: NativeYuvFrame | StillImageBitmap | VideoFrame;
-      mask?: NativeYuvFrame | VideoFrame | null;
-    }[],
+    layers: readonly CompositorLayerInput[],
     output: EvaluationPlan['output'],
     metrics: FrameMetricsRecorder,
     plan: EvaluationPlan

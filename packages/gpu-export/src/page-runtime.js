@@ -121,7 +121,19 @@
       } else if (config.edit.source && config.edit.source.path) {
         urls.set("default", mediaUrl(config.edit.source.path));
       }
-      for (const layer of Array.isArray(config.edit.layers) ? config.edit.layers : []) {
+      const engineLayers = (Array.isArray(config.edit.layers) ? config.edit.layers : []).map((layer) => {
+        if (layer?.kind !== "filter" || layer?.filter?.type !== "lut") return layer;
+        if (typeof layer.filter.cubeText !== "string") return layer;
+        return {
+          ...layer,
+          filter: {
+            type: "lut",
+            lut: FE.parseCube(layer.filter.cubeText),
+            intensity: Math.max(0, Math.min(1, Number(layer.filter.intensity ?? 1))),
+          },
+        };
+      });
+      for (const layer of engineLayers) {
         if (!layer || !layer.src) continue;
         if (!urls.has(String(layer.src))) urls.set(String(layer.src), mediaUrl(layer.src));
         if (layer.mask && !urls.has(String(layer.mask))) urls.set(String(layer.mask), mediaUrl(layer.mask));
@@ -142,7 +154,7 @@
       this.sources = new Map([...videoSources, ...images]);
       this.timeline = FE.buildResolvedTimelinePlan(normalizedCuts(config.edit), {
         fps: config.fps,
-        layers: Array.isArray(config.edit.layers) ? config.edit.layers : [],
+        layers: engineLayers,
         onWarning: warn,
       });
       const look = config.look && typeof config.look.cubeText === "string"
