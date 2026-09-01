@@ -55,6 +55,21 @@ export interface PersistCaptionGroupPositionOptions {
     write: (candidate: string) => Promise<void>;
 }
 
+export interface PersistCaptionCuePositionOptions {
+    source: string;
+    captionId: string;
+    value: CaptionGroupPosition;
+    lint: (candidate: string) => Promise<CaptionZoneLintResult>;
+    write: (candidate: string) => Promise<void>;
+}
+
+export interface PersistCaptionCuePositionResetOptions {
+    source: string;
+    captionId: string;
+    lint: (candidate: string) => Promise<CaptionZoneLintResult>;
+    write: (candidate: string) => Promise<void>;
+}
+
 export interface PersistCaptionGroupZoneOptions {
     source: string;
     zone: PreviewCaptionZone;
@@ -130,6 +145,50 @@ export function captionGroupPositionFromRects(
     return { anchor, position };
 }
 
+/** Resolve one cue position represented by a dragged caption plate. */
+export function captionCuePositionFromRects(
+    plate: CaptionPlateRect,
+    frame: CaptionFrameRect,
+    options: { clamp: boolean }
+): CaptionGroupPosition {
+    if (!(frame.width > 0) || !(frame.height > 0)) {
+        throw new Error('出力フレームの幅と高さは正数である必要があります');
+    }
+    const centerRatio = ((plate.left + plate.right) / 2 - frame.x) / frame.width;
+    const centered = Math.abs(centerRatio - 0.5) < 0.03;
+    let bottomRatio = (plate.bottom - frame.y) / frame.height;
+    if (Math.abs(bottomRatio - 0.93) < 0.02) bottomRatio = 0.93;
+    const topRatio = (plate.top - frame.y) / frame.height;
+    const anchor = topRatio < 1 / 3 ? 'tc' : 'bc';
+    let x = (plate.left - frame.x) / frame.width;
+    let y = anchor === 'tc' ? topRatio : bottomRatio;
+    let forceX = false;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        throw new Error('字幕位置は有限数である必要があります');
+    }
+    if (options.clamp) {
+        const plateW = plate.right - plate.left;
+        const plateH = plate.bottom - plate.top;
+        const maxX = 1 - plateW / frame.width;
+        if (maxX < 0) {
+            x = 0;
+            forceX = true;
+        } else {
+            x = Math.min(maxX, Math.max(0, x));
+        }
+        if (anchor === 'bc') {
+            const minY = plateH / frame.height;
+            y = minY > 1 ? 1 : Math.min(1, Math.max(minY, y));
+        } else {
+            const maxY = 1 - plateH / frame.height;
+            y = maxY < 0 ? 0 : Math.min(maxY, Math.max(0, y));
+        }
+    }
+    const position: CaptionGroupPosition['position'] = { y: round4(y) };
+    if (!centered || forceX) position.x = round4(x);
+    return { anchor, position };
+}
+
 /** Replace the group default zone with an anchor/position without touching cue styles. */
 export function updateCaptionGroupPositionSource(source: string, value: CaptionGroupPosition): string {
     const root = captionObjectRoot(source);
@@ -139,6 +198,41 @@ export function updateCaptionGroupPositionSource(source: string, value: CaptionG
         ? { y: value.position.y }
         : { x: value.position.x, y: value.position.y };
     delete style.zone;
+    return `${JSON.stringify(root, undefined, 2)}\n`;
+}
+
+/** Replace one cue's zone with an anchor/position without touching group defaults or other cues. */
+export function updateCaptionCuePositionSource(
+    source: string,
+    captionId: string,
+    value: CaptionGroupPosition
+): string {
+    const root: unknown = JSON.parse(source);
+    const list = captionList(root);
+    const caption = list[captionIndex(list, captionId)] as Record<string, unknown>;
+    const currentStyle = caption.text_style && typeof caption.text_style === 'object'
+        && !Array.isArray(caption.text_style) ? caption.text_style as Record<string, unknown> : {};
+    currentStyle.text_anchor = value.anchor;
+    currentStyle.position = value.position.x === undefined
+        ? { y: value.position.y }
+        : { x: value.position.x, y: value.position.y };
+    delete currentStyle.zone;
+    caption.text_style = currentStyle;
+    return `${JSON.stringify(root, undefined, 2)}\n`;
+}
+
+/** Remove one cue's explicit anchor/position, retaining any unrelated cue style fields. */
+export function clearCaptionCuePositionSource(source: string, captionId: string): string {
+    const root: unknown = JSON.parse(source);
+    const list = captionList(root);
+    const caption = list[captionIndex(list, captionId)] as Record<string, unknown>;
+    const currentStyle = caption.text_style && typeof caption.text_style === 'object'
+        && !Array.isArray(caption.text_style) ? caption.text_style as Record<string, unknown> : undefined;
+    if (currentStyle) {
+        delete currentStyle.text_anchor;
+        delete currentStyle.position;
+        if (Object.keys(currentStyle).length === 0) delete caption.text_style;
+    }
     return `${JSON.stringify(root, undefined, 2)}\n`;
 }
 
@@ -205,6 +299,28 @@ export async function persistCaptionGroupPosition(
     options: PersistCaptionGroupPositionOptions
 ): Promise<CaptionZoneLintResult> {
     const candidate = updateCaptionGroupPositionSource(options.source, options.value);
+    const lintResult = await options.lint(candidate);
+    if (!lintResult.pass) return lintResult;
+    await options.write(candidate);
+    return lintResult;
+}
+
+/** Lint and persist one cue anchor/position as the same candidate bytes. */
+export async function persistCaptionCuePosition(
+    options: PersistCaptionCuePositionOptions
+): Promise<CaptionZoneLintResult> {
+    const candidate = updateCaptionCuePositionSource(options.source, options.captionId, options.value);
+    const lintResult = await options.lint(candidate);
+    if (!lintResult.pass) return lintResult;
+    await options.write(candidate);
+    return lintResult;
+}
+
+/** Lint and persist removal of one cue's explicit anchor/position. */
+export async function persistCaptionCuePositionReset(
+    options: PersistCaptionCuePositionResetOptions
+): Promise<CaptionZoneLintResult> {
+    const candidate = clearCaptionCuePositionSource(options.source, options.captionId);
     const lintResult = await options.lint(candidate);
     if (!lintResult.pass) return lintResult;
     await options.write(candidate);

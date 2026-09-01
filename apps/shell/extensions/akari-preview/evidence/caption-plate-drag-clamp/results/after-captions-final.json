@@ -1,0 +1,236 @@
+{
+  "default_text_style": {
+    "text_anchor": "bc",
+    "position": {
+      "x": 0.8759,
+      "y": 0.564
+    }
+  },
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0.5,
+      "end": 2,
+      "text": "一行目の字幕",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a",
+      "words": [
+        {
+          "start": 0.5,
+          "end": 0.75,
+          "text": "一"
+        },
+        {
+          "start": 0.75,
+          "end": 1,
+          "text": "行"
+        },
+        {
+          "start": 1,
+          "end": 1.25,
+          "text": "目"
+        },
+        {
+          "start": 1.25,
+          "end": 1.5,
+          "text": "の"
+        },
+        {
+          "start": 1.5,
+          "end": 1.75,
+          "text": "字"
+        },
+        {
+          "start": 1.75,
+          "end": 2,
+          "text": "幕"
+        }
+      ]
+    },
+    {
+      "id": "c-0002",
+      "start": 2.5,
+      "end": 4,
+      "text": "二行目だけを動かす",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a",
+      "words": [
+        {
+          "start": 2.5,
+          "end": 2.667,
+          "text": "二"
+        },
+        {
+          "start": 2.667,
+          "end": 2.833,
+          "text": "行"
+        },
+        {
+          "start": 2.833,
+          "end": 3,
+          "text": "目"
+        },
+        {
+          "start": 3,
+          "end": 3.167,
+          "text": "だ"
+        },
+        {
+          "start": 3.167,
+          "end": 3.333,
+          "text": "け"
+        },
+        {
+          "start": 3.333,
+          "end": 3.5,
+          "text": "を"
+        },
+        {
+          "start": 3.5,
+          "end": 3.667,
+          "text": "動"
+        },
+        {
+          "start": 3.667,
+          "end": 3.833,
+          "text": "か"
+        },
+        {
+          "start": 3.833,
+          "end": 4,
+          "text": "す"
+        }
+      ]
+    },
+    {
+      "id": "c-0003",
+      "start": 4.5,
+      "end": 6,
+      "text": "三行目の字幕",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a",
+      "words": [
+        {
+          "start": 4.5,
+          "end": 4.75,
+          "text": "三"
+        },
+        {
+          "start": 4.75,
+          "end": 5,
+          "text": "行"
+        },
+        {
+          "start": 5,
+          "end": 5.25,
+          "text": "目"
+        },
+        {
+          "start": 5.25,
+          "end": 5.5,
+          "text": "の"
+        },
+        {
+          "start": 5.5,
+          "end": 5.75,
+          "text": "字"
+        },
+        {
+          "start": 5.75,
+          "end": 6,
+          "text": "幕"
+        }
+      ]
+    },
+    {
+      "id": "c-0004",
+      "start": 6.5,
+      "end": 8,
+      "text": "四行目の字幕",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a",
+      "words": [
+        {
+          "start": 6.5,
+          "end": 6.75,
+          "text": "四"
+        },
+        {
+          "start": 6.75,
+          "end": 7,
+          "text": "行"
+        },
+        {
+          "start": 7,
+          "end": 7.25,
+          "text": "目"
+        },
+        {
+          "start": 7.25,
+          "end": 7.5,
+          "text": "の"
+        },
+        {
+          "start": 7.5,
+          "end": 7.75,
+          "text": "字"
+        },
+        {
+          "start": 7.75,
+          "end": 8,
+          "text": "幕"
+        }
+      ]
+    },
+    {
+      "id": "c-0005",
+      "start": 8.5,
+      "end": 9.8,
+      "text": "五行目の字幕",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a",
+      "words": [
+        {
+          "start": 8.5,
+          "end": 8.717,
+          "text": "五"
+        },
+        {
+          "start": 8.717,
+          "end": 8.933,
+          "text": "行"
+        },
+        {
+          "start": 8.933,
+          "end": 9.15,
+          "text": "目"
+        },
+        {
+          "start": 9.15,
+          "end": 9.367,
+          "text": "の"
+        },
+        {
+          "start": 9.367,
+          "end": 9.583,
+          "text": "字"
+        },
+        {
+          "start": 9.583,
+          "end": 9.8,
+          "text": "幕"
+        }
+      ]
+    }
+  ]
+}
