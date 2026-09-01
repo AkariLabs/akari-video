@@ -55,7 +55,12 @@ import {
 } from '../common/three-scene-assets';
 import { resolvePreviewCaptionTrackOrder } from '../common/caption-track-order';
 import { captionEntryAnimationsSettled } from '../common/caption-hit-region';
-import { persistCaptionText, persistCaptionZone } from '../common/caption-zone-write';
+import {
+    persistCaptionGroupPosition,
+    persistCaptionGroupZone,
+    persistCaptionText,
+    persistCaptionZone
+} from '../common/caption-zone-write';
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import { expandBagOverlays } from '../common/preview-parts';
 import {
@@ -541,11 +546,6 @@ interface CutWriteRequest {
     };
 }
 
-// ㉓ 字幕クリック選択+移動（v0 スコープ = 選択 + 位置移動の最小）。captions.json は
-// zone が固定 9 値の enum（3x3 配置ゾーン、schemas/captions.schema.json）で自由座標が
-// 無いため、書き戻しは「ドラッグ位置→最近傍 zone への吸着」で表現する（schema 追加なし。
-// zone 語彙で表現できない自由配置が必要になった場合は実装せず report へ設計提案を書く
-// 契約 §のとおり）。
 const CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
     'left', 'center', 'right',
@@ -557,7 +557,10 @@ interface CaptionWriteRequest {
     type: 'akari-preview-caption-write';
     requestId: string;
     captionId: string;
-    patch: { zone: CaptionZoneValue; text?: never } | { text: string; zone?: never };
+    patch: { zone: CaptionZoneValue }
+        | { text: string }
+        | { groupZone: CaptionZoneValue }
+        | { groupPosition: { anchor: 'bc' | 'tc'; position: { x?: number; y: number } } };
 }
 
 interface PreviewCaptionSelectedRequest {
@@ -672,6 +675,8 @@ const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 // outer window の専用イベントで渡す。録音セッションの transport には合流させない。
 const RAW_PREVIEW_ANNOTATION_STATE_EVENT = 'akari.preview.rawAnnotationState';
 const TIMELINE_OVERLAY_SELECTED_EVENT = 'akari.timeline.overlaySelected';
+const CAPTION_ZONE_HOVER_EVENT = 'akari.caption.zoneHover';
+const CAPTION_ZONE_PRESET_EVENT = 'akari.caption.zonePreset';
 // CF-select: overlay 選択同期チャンネルの layers 版（akari-annotations 側と文字列のみミラー）。
 const TIMELINE_LAYER_SELECTED_EVENT = 'akari.timeline.layerSelected';
 // 書き込み完了の直接通知。edit-store の atomic rename 完了 → akari-annotations backend →
@@ -1008,6 +1013,40 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         window.addEventListener(TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected);
         this.lifecycleDisposables.push({
             dispose: () => window.removeEventListener(TIMELINE_OVERLAY_SELECTED_EVENT, onTimelineOverlaySelected)
+        });
+        const outputPreviewForEdit = (editUri: string): PreviewWidgetMarker | undefined => {
+            try {
+                return this.openOutputPreviews.get(new URI(editUri).normalizePath().toString());
+            } catch {
+                return undefined;
+            }
+        };
+        const onCaptionZoneHover = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; zone?: string | null }>).detail;
+            if (!detail?.editUri || (detail.zone !== null && !(CAPTION_ZONES as readonly string[]).includes(detail.zone ?? ''))) {
+                return;
+            }
+            const widget = outputPreviewForEdit(detail.editUri);
+            if (widget?.isAttached) {
+                widget.sendMessage({ type: 'akari-preview-caption-zone-hover', zone: detail.zone });
+            }
+        };
+        const onCaptionZonePreset = (event: Event): void => {
+            const detail = (event as CustomEvent<{ editUri?: string; zone?: string }>).detail;
+            if (!detail?.editUri || !(CAPTION_ZONES as readonly string[]).includes(detail.zone ?? '')) return;
+            const widget = outputPreviewForEdit(detail.editUri);
+            if (!widget?.isAttached) return;
+            this.captionWriteTail = this.captionWriteTail.then(() =>
+                this.persistCaptionGroupZoneForWidget(widget, detail.zone as CaptionZoneValue)
+            );
+        };
+        window.addEventListener(CAPTION_ZONE_HOVER_EVENT, onCaptionZoneHover);
+        window.addEventListener(CAPTION_ZONE_PRESET_EVENT, onCaptionZonePreset);
+        this.lifecycleDisposables.push({
+            dispose: () => {
+                window.removeEventListener(CAPTION_ZONE_HOVER_EVENT, onCaptionZoneHover);
+                window.removeEventListener(CAPTION_ZONE_PRESET_EVENT, onCaptionZonePreset);
+            }
         });
         // CF-select: タイムラインでレイヤーを選択 → 出力プレビュー側もハイライト（overlay と同型）。
         const onTimelineLayerSelected = (event: Event): void => {
@@ -4596,9 +4635,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             respond(false, '字幕ファイル（captions.json）がありません');
             return;
         }
-        if (typeof request.patch.zone === 'string'
-            && !(CAPTION_ZONES as readonly string[]).includes(request.patch.zone)) {
-            respond(false, `不正な zone です: ${request.patch.zone}`);
+        const requestedZone = 'zone' in request.patch ? request.patch.zone
+            : 'groupZone' in request.patch ? request.patch.groupZone : undefined;
+        if (typeof requestedZone === 'string'
+            && !(CAPTION_ZONES as readonly string[]).includes(requestedZone)) {
+            respond(false, `不正な zone です: ${requestedZone}`);
             return;
         }
         try {
@@ -4615,12 +4656,26 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
                 }
             };
-            const lintResult = typeof request.patch.text === 'string'
+            const lintResult = 'text' in request.patch
                 ? await persistCaptionText({ ...persistOptions, text: request.patch.text })
-                : await persistCaptionZone({
-                    ...persistOptions,
-                    zone: request.patch.zone as Parameters<typeof persistCaptionZone>[0]['zone']
-                });
+                : 'groupPosition' in request.patch
+                    ? await persistCaptionGroupPosition({
+                        source: originalText,
+                        value: request.patch.groupPosition,
+                        lint: persistOptions.lint,
+                        write: persistOptions.write
+                    })
+                    : 'groupZone' in request.patch
+                        ? await persistCaptionGroupZone({
+                            source: originalText,
+                            zone: request.patch.groupZone,
+                            lint: persistOptions.lint,
+                            write: persistOptions.write
+                        })
+                        : await persistCaptionZone({
+                            ...persistOptions,
+                            zone: request.patch.zone
+                        });
             if (!lintResult.pass) {
                 respond(false, lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
                 return;
@@ -4635,12 +4690,49 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected isCaptionWriteRequest(message: any): message is CaptionWriteRequest {
         const hasZone = typeof message?.patch?.zone === 'string';
         const hasText = typeof message?.patch?.text === 'string';
+        const hasGroupZone = typeof message?.patch?.groupZone === 'string';
+        const groupPosition = message?.patch?.groupPosition;
+        const hasGroupPosition = groupPosition
+            && (groupPosition.anchor === 'bc' || groupPosition.anchor === 'tc')
+            && groupPosition.position && typeof groupPosition.position === 'object'
+            && Number.isFinite(groupPosition.position.y)
+            && groupPosition.position.y >= 0 && groupPosition.position.y <= 1
+            && (groupPosition.position.x === undefined
+                || (Number.isFinite(groupPosition.position.x)
+                    && groupPosition.position.x >= 0 && groupPosition.position.x <= 1));
         return message?.type === 'akari-preview-caption-write'
             && typeof message.requestId === 'string'
             && typeof message.captionId === 'string'
             && message.patch
             && typeof message.patch === 'object'
-            && hasZone !== hasText;
+            && [hasZone, hasText, hasGroupZone, !!hasGroupPosition].filter(Boolean).length === 1;
+    }
+
+    protected async persistCaptionGroupZoneForWidget(
+        widget: PreviewWidgetMarker,
+        zone: CaptionZoneValue
+    ): Promise<void> {
+        const captionsUri = widget.akariPreviewCaptionsUri;
+        if (!captionsUri) return;
+        try {
+            const source = await this.readText(captionsUri);
+            const lintResult = await persistCaptionGroupZone({
+                source,
+                zone,
+                lint: candidateText => this.previewService.lintEditCandidate({
+                    editUri: captionsUri.toString(),
+                    candidateText
+                }),
+                write: async candidateText => {
+                    this.markRecentWrite(captionsUri);
+                    await this.fileService.writeFile(captionsUri, BinaryBuffer.fromString(candidateText));
+                }
+            });
+            if (!lintResult.pass) throw new Error(lintResult.errors[0] ?? 'edit-lint が変更を拒否しました');
+            this.queueCaptionsUpdate(widget);
+        } catch (error) {
+            this.messages.error(error instanceof Error ? error.message : String(error));
+        }
     }
 
     protected isLayerWriteRequest(message: any): message is LayerWriteRequest {
@@ -5069,6 +5161,16 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #cut-select-box .akari-cut-handle-se { top: 100%; left: 100%; cursor: nwse-resize; }
 #caption-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px dashed #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #caption-select-box.is-active { display: block; }
+#caption-select-box .akari-caption-group-badge { position: absolute; left: -1px; bottom: calc(100% + 6px); display: inline-flex; align-items: center; min-height: 20px; padding: 2px 8px; border: 1px solid #4da3ff; border-radius: 999px; background: var(--vscode-editor-background, rgba(20,20,20,.92)); color: var(--vscode-textLink-foreground, #75beff); font-size: 10px; font-weight: 600; line-height: 1.3; white-space: nowrap; pointer-events: none; }
+.akari-caption-drag-guide { position: absolute; z-index: 1890; display: none; box-sizing: border-box; border-color: var(--vscode-editorWarning-foreground, #cca700); color: var(--vscode-editorWarning-foreground, #cca700); pointer-events: none; }
+.akari-caption-drag-guide.is-active { display: block; }
+.akari-caption-drag-guide--center { width: 1px; border-left: 1px solid currentColor; }
+.akari-caption-drag-guide--bottom { height: 1px; border-top: 1px solid currentColor; }
+.akari-caption-drag-guide__label { position: absolute; padding: 1px 4px; border-radius: 3px; background: var(--vscode-editor-background, rgba(20,20,20,.92)); font-size: 9px; line-height: 1.3; white-space: nowrap; }
+.akari-caption-drag-guide--center .akari-caption-drag-guide__label { top: 2px; left: 4px; }
+.akari-caption-drag-guide--bottom .akari-caption-drag-guide__label { right: 2px; bottom: 4px; }
+#caption-zone-highlight { position: absolute; z-index: 1880; display: none; box-sizing: border-box; border: 1px dashed #4da3ff; background: rgba(77,163,255,.14); pointer-events: none; }
+#caption-zone-highlight.is-active { display: block; }
 #overlay-stage { position: absolute; top: 0; left: 0; width: ${width}px; height: ${height}px; overflow: hidden; pointer-events: none; }
 #pen-layer { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; }
 #pen-layer.is-active { pointer-events: auto; cursor: crosshair; touch-action: none; }
@@ -5176,7 +5278,10 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
             <button type="button" class="akari-perspective-clear" data-akari-perspective-clear>パースを解除</button>
           </div>
           <div id="cut-select-box"><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div></div>
-          <div id="caption-select-box"></div>
+          <div id="caption-zone-highlight"></div>
+          <div id="caption-drag-guide-center" class="akari-caption-drag-guide akari-caption-drag-guide--center"><span class="akari-caption-drag-guide__label">中央</span></div>
+          <div id="caption-drag-guide-bottom" class="akari-caption-drag-guide akari-caption-drag-guide--bottom"><span class="akari-caption-drag-guide__label">下段 7%</span></div>
+          <div id="caption-select-box"><div class="akari-caption-group-badge">字幕グループ — 動かすと全字幕が動く</div></div>
           <canvas id="pen-layer" aria-hidden="true"></canvas>
         </div>
       </div>
@@ -9079,21 +9184,16 @@ body { display: grid; place-items: center; padding: 32px; }
             }
             new ResizeObserver(() => updateCutSelectBox()).observe(wrapper);
 
-            // ㉓ 字幕クリック選択+移動（v0: 選択+位置移動の最小）。captions.json の zone は
-            // 3x3 固定 enum（schemas/captions.schema.json、自由座標なし・schema 追加禁止）
-            // のため、ドラッグ位置は最近傍 zone へ量子化し pointerup 確定時のみ
-            // captionWrite で書き戻す（overlay/layer/cut と同じ「確定時のみ書き込み」規約）。
-            // captionZoneVars() は akari-preview-captions.ts の zoneVars()（render-cut/src/
-            // captions.mjs にも同型の複製が既にある——このファイル間ミラー方式が既存の
-            // 設計判断）を webview 内 JS として最小限に複製したもの。
-            // 制約: プレーン字幕（text_style 無し）は #caption-plate 自体が bottom-center に
-            // ハードコードされ zone を無視する。zone を書き込むと次の captions.json リロード
-            // （既存の handleFilesChanged → queueCaptionsUpdate 経路）で「styled」扱いに昇格し
-            // 新位置に反映される——ドラッグ中のリアルタイム追従はスキーマの都合上できない
-            // （#caption-select-box の概算矩形でドロップ先ゾーンだけ示す）。report に明記する。
+            // 字幕は default_text_style に位置を 1 つだけ持つ特殊グループ。ドラッグ中は
+            // CSS translate で見た目だけ追従し、pointerup で anchor/position を 1 回書く。
+            // captionGroupPositionFromRects は common/caption-zone-write.ts の純関数と同じ規則を
+            // webview 内へ最小複製する（既存の caption style 変数ミラーと同じ方式）。
             let selectedCaptionId = null;
-            let selectedCaptionZone = 'bottom';
+            let pendingCaptionDragReload = false;
             const captionSelectBox = document.getElementById('caption-select-box');
+            const captionZoneHighlight = document.getElementById('caption-zone-highlight');
+            const captionCenterGuide = document.getElementById('caption-drag-guide-center');
+            const captionBottomGuide = document.getElementById('caption-drag-guide-bottom');
             const ZONE_ROW_RANGES = { top: [0, 1 / 3], middle: [1 / 3, 2 / 3], bottom: [2 / 3, 1] };
             const ZONE_COL_RANGES = { left: [0, 1 / 3], center: [1 / 3, 2 / 3], right: [2 / 3, 1] };
             const zoneParts = zone => {
@@ -9104,28 +9204,106 @@ body { display: grid; place-items: center; padding: 32px; }
                 const [row, col] = zone.split('-');
                 return { row, col };
             };
-            const zoneFromFraction = (fx, fy) => {
-                const col = fx < 1 / 3 ? 'left' : fx < 2 / 3 ? 'center' : 'right';
-                const row = fy < 1 / 3 ? 'top' : fy < 2 / 3 ? 'middle' : 'bottom';
-                if (row === 'middle' && col === 'center') return 'center';
-                if (row === 'middle') return col;
-                if (col === 'center') return row;
-                return row + '-' + col;
+            const captionOutputFrame = () => ({
+                x: 0,
+                y: 0,
+                width: Number(summary.output && summary.output.width) || 1280,
+                height: Number(summary.output && summary.output.height) || 720
+            });
+            const captionOutputPoint = (clientX, clientY) => {
+                const point = window.akari.interaction?.stageLocalPoint?.(clientX, clientY);
+                if (point) return point;
+                const stageRect = stage.getBoundingClientRect();
+                const displayScale = (window.akari.stageScale() || 1) * zoom;
+                return {
+                    x: (clientX - stageRect.left) / displayScale,
+                    y: (clientY - stageRect.top) / displayScale
+                };
             };
-            const updateCaptionSelectBoxForZone = zone => {
+            const captionVisualRect = () => {
+                const block = captionPlate.querySelector('.akari-caption__block');
+                const elements = block ? [block] : [...captionPlate.querySelectorAll('.akari-caption__line')];
+                const rects = (elements.length > 0 ? elements : [captionPlate])
+                    .map(element => element.getBoundingClientRect());
+                const clientRect = {
+                    left: Math.min(...rects.map(rect => rect.left)),
+                    right: Math.max(...rects.map(rect => rect.right)),
+                    top: Math.min(...rects.map(rect => rect.top)),
+                    bottom: Math.max(...rects.map(rect => rect.bottom))
+                };
+                const topLeft = captionOutputPoint(clientRect.left, clientRect.top);
+                const bottomRight = captionOutputPoint(clientRect.right, clientRect.bottom);
+                return {
+                    left: topLeft.x,
+                    right: bottomRight.x,
+                    top: topLeft.y,
+                    bottom: bottomRight.y
+                };
+            };
+            const setRectStyle = (element, rect) => {
+                element.style.left = rect.left + 'px';
+                element.style.top = rect.top + 'px';
+                element.style.width = Math.max(0, rect.right - rect.left) + 'px';
+                element.style.height = Math.max(0, rect.bottom - rect.top) + 'px';
+            };
+            const updateCaptionSelectBoxForRect = rect => {
                 if (!selectedCaptionId) {
                     captionSelectBox.classList.remove('is-active');
+                    return;
+                }
+                const frameRect = window.akari.computeOutputFrameRect();
+                const frameScale = window.akari.stageScale() || 1;
+                setRectStyle(captionSelectBox, {
+                    left: frameRect.x + rect.left * frameScale,
+                    right: frameRect.x + rect.right * frameScale,
+                    top: frameRect.y + rect.top * frameScale,
+                    bottom: frameRect.y + rect.bottom * frameScale
+                });
+                captionSelectBox.classList.add('is-active');
+            };
+            const updateCaptionZoneHighlight = zone => {
+                if (!zone) {
+                    captionZoneHighlight.classList.remove('is-active');
                     return;
                 }
                 const frameRect = window.akari.computeOutputFrameRect();
                 const { row, col } = zoneParts(zone);
                 const rowRange = ZONE_ROW_RANGES[row] || ZONE_ROW_RANGES.bottom;
                 const colRange = ZONE_COL_RANGES[col] || ZONE_COL_RANGES.center;
-                captionSelectBox.style.left = (frameRect.x + frameRect.width * colRange[0]) + 'px';
-                captionSelectBox.style.top = (frameRect.y + frameRect.height * rowRange[0]) + 'px';
-                captionSelectBox.style.width = (frameRect.width * (colRange[1] - colRange[0])) + 'px';
-                captionSelectBox.style.height = (frameRect.height * (rowRange[1] - rowRange[0])) + 'px';
-                captionSelectBox.classList.add('is-active');
+                setRectStyle(captionZoneHighlight, {
+                    left: frameRect.x + frameRect.width * colRange[0],
+                    right: frameRect.x + frameRect.width * colRange[1],
+                    top: frameRect.y + frameRect.height * rowRange[0],
+                    bottom: frameRect.y + frameRect.height * rowRange[1]
+                });
+                captionZoneHighlight.classList.add('is-active');
+            };
+            const setCaptionDragGuides = (active, frameRect) => {
+                captionCenterGuide.classList.toggle('is-active', active);
+                captionBottomGuide.classList.toggle('is-active', active);
+                if (!active) return;
+                Object.assign(captionCenterGuide.style, {
+                    left: (frameRect.x + frameRect.width * 0.5) + 'px',
+                    top: frameRect.y + 'px',
+                    height: frameRect.height + 'px'
+                });
+                Object.assign(captionBottomGuide.style, {
+                    left: frameRect.x + 'px',
+                    top: (frameRect.y + frameRect.height * 0.93) + 'px',
+                    width: frameRect.width + 'px'
+                });
+            };
+            const roundCaptionRatio = value => Math.round(Math.min(1, Math.max(0, value)) * 10000) / 10000;
+            const captionGroupPositionFromRects = (plateRect, frameRect) => {
+                const centerRatio = ((plateRect.left + plateRect.right) / 2 - frameRect.x) / frameRect.width;
+                const centered = Math.abs(centerRatio - 0.5) < 0.03;
+                let bottomRatio = (plateRect.bottom - frameRect.y) / frameRect.height;
+                if (Math.abs(bottomRatio - 0.93) < 0.02) bottomRatio = 0.93;
+                const topRatio = (plateRect.top - frameRect.y) / frameRect.height;
+                const anchor = topRatio < 1 / 3 ? 'tc' : 'bc';
+                const position = { y: roundCaptionRatio(anchor === 'tc' ? topRatio : bottomRatio) };
+                if (!centered) position.x = roundCaptionRatio((plateRect.left - frameRect.x) / frameRect.width);
+                return { anchor, position };
             };
             const updateCaptionSelectBox = () => {
                 if (!selectedCaptionId) {
@@ -9138,8 +9316,8 @@ body { display: grid; place-items: center; padding: 32px; }
                     captionSelectBox.classList.remove('is-active');
                     return;
                 }
-                selectedCaptionZone = (caption.textStyle && caption.textStyle.zone) || 'bottom';
-                updateCaptionSelectBoxForZone(selectedCaptionZone);
+                const rect = captionVisualRect();
+                updateCaptionSelectBoxForRect(rect);
             };
             const selectCaption = (captionId, options) => {
                 const report = !options || options.report !== false;
@@ -9283,11 +9461,12 @@ body { display: grid; place-items: center; padding: 32px; }
                 const pointerId = event.pointerId;
                 const startClientX = event.clientX;
                 const startClientY = event.clientY;
-                const originalZone = selectedCaptionZone;
-                let candidateZone = originalZone;
+                const startPlateRect = captionVisualRect();
+                const startOutputPoint = captionOutputPoint(startClientX, startClientY);
                 let moved = false;
                 try { captionPlate.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
                 const frameRect = window.akari.computeOutputFrameRect();
+                const outputFrame = captionOutputFrame();
                 const cleanup = () => {
                     window.removeEventListener('pointermove', onMove);
                     window.removeEventListener('pointerup', onUp);
@@ -9302,25 +9481,49 @@ body { display: grid; place-items: center; padding: 32px; }
                     const dx = moveEvent.clientX - startClientX;
                     const dy = moveEvent.clientY - startClientY;
                     if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
-                    if (!moved || !(frameRect.width > 0) || !(frameRect.height > 0)) return;
-                    const fx = (moveEvent.clientX - frameRect.x) / frameRect.width;
-                    const fy = (moveEvent.clientY - frameRect.y) / frameRect.height;
-                    candidateZone = zoneFromFraction(fx, fy);
-                    updateCaptionSelectBoxForZone(candidateZone);
+                    if (!moved || !(outputFrame.width > 0) || !(outputFrame.height > 0)) return;
+                    const nowOutputPoint = captionOutputPoint(moveEvent.clientX, moveEvent.clientY);
+                    let outputDx = nowOutputPoint.x - startOutputPoint.x;
+                    let outputDy = nowOutputPoint.y - startOutputPoint.y;
+                    const movedCenter = (startPlateRect.left + startPlateRect.right) / 2 + outputDx;
+                    const centerRatio = (movedCenter - outputFrame.x) / outputFrame.width;
+                    if (Math.abs(centerRatio - 0.5) < 0.03) {
+                        outputDx += outputFrame.x + outputFrame.width * 0.5 - movedCenter;
+                    }
+                    const movedBottom = startPlateRect.bottom + outputDy;
+                    const bottomRatio = (movedBottom - outputFrame.y) / outputFrame.height;
+                    if (Math.abs(bottomRatio - 0.93) < 0.02) {
+                        outputDy += outputFrame.y + outputFrame.height * 0.93 - movedBottom;
+                    }
+                    captionPlate.style.translate = outputDx + 'px ' + outputDy + 'px';
+                    setCaptionDragGuides(true, frameRect);
+                    updateCaptionSelectBoxForRect(captionVisualRect());
                 };
                 const finish = async cancelled => {
                     cleanup();
-                    if (cancelled || !moved || candidateZone === originalZone) {
+                    setCaptionDragGuides(false, frameRect);
+                    if (cancelled || !moved) {
+                        captionPlate.style.translate = '';
                         updateCaptionSelectBox();
                         return;
                     }
+                    const groupPosition = captionGroupPositionFromRects(
+                        captionVisualRect(),
+                        outputFrame
+                    );
+                    pendingCaptionDragReload = true;
                     try {
-                        await window.akari.engine.captionWrite(caption.sourceCueId || caption.id, { zone: candidateZone });
-                        selectedCaptionZone = candidateZone;
+                        await window.akari.engine.captionWrite(
+                            caption.sourceCueId || caption.id,
+                            { groupPosition }
+                        );
                     } catch (error) {
-                        console.warn('[akari-preview] caption zone write rejected; reverting', error);
+                        pendingCaptionDragReload = false;
+                        captionPlate.style.translate = '';
+                        console.warn('[akari-preview] caption group position write rejected; reverting', error);
+                        window.akari.showWriteError(error);
                     }
-                    updateCaptionSelectBoxForZone(selectedCaptionZone);
+                    updateCaptionSelectBox();
                 };
                 const onUp = upEvent => {
                     if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
@@ -12080,9 +12283,18 @@ body { display: grid; place-items: center; padding: 32px; }
                     recomposite();
                     return;
                 }
+                if (message && message.type === 'akari-preview-caption-zone-hover') {
+                    updateCaptionZoneHighlight(typeof message.zone === 'string' ? message.zone : null);
+                    return;
+                }
                 if (message && message.type === 'akari-preview-captions-update') {
                     captions = Array.isArray(message.captions) ? message.captions : [];
                     renderCaption();
+                    if (pendingCaptionDragReload) {
+                        pendingCaptionDragReload = false;
+                        captionPlate.style.translate = '';
+                    }
+                    updateCaptionSelectBox();
                     return;
                 }
                 if (message && message.type === 'akari-preview-model-update') {

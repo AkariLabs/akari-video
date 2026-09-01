@@ -1,0 +1,561 @@
+{
+  "failures": [],
+  "results": [
+    {
+      "step": "open-preview",
+      "result": "opened"
+    },
+    {
+      "step": "0.001",
+      "max": "4",
+      "value": "0",
+      "frameEngine": "true"
+    },
+    {
+      "step": "baseline",
+      "cue1": {
+        "left": 0.38212892111849117,
+        "right": 0.6178710788815088,
+        "top": 0.8377169610231425,
+        "bottom": 0.9050058046589525,
+        "centerX": 0.5
+      },
+      "cue2": {
+        "left": 0.32223306300433924,
+        "right": 0.6777669369956608,
+        "top": 0.8377169610231425,
+        "bottom": 0.9050058046589525,
+        "centerX": 0.5
+      },
+      "frame": {
+        "x": 0,
+        "y": 0,
+        "width": 821,
+        "height": 461.8125
+      },
+      "stage": {
+        "left": 36,
+        "top": 250.59375,
+        "width": 821,
+        "height": 461.8125
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "baseline: 2 つの時刻の cue が同じ下端比で描かれる（グループ位置）",
+      "cue1Bottom": 0.9050058046589525,
+      "cue2Bottom": 0.9050058046589525
+    },
+    {
+      "step": "screenshot",
+      "name": "after-00-baseline.png"
+    },
+    {
+      "step": "selection",
+      "active": true,
+      "ratio": {
+        "left": 0.3821273599269184,
+        "top": 0.8377148463932873,
+        "width": 0.23573576431181487,
+        "height": 0.06727906347272973
+      },
+      "badgeText": "字幕グループ — 動かすと全字幕が動く",
+      "badgeVisible": true
+    },
+    {
+      "step": "PASS",
+      "message": "字幕クリックで #caption-select-box が出る"
+    },
+    {
+      "step": "PASS",
+      "message": "バッジ文言が契約どおり",
+      "badgeText": "字幕グループ — 動かすと全字幕が動く"
+    },
+    {
+      "step": "PASS",
+      "message": "バッジが実寸を持って表示される"
+    },
+    {
+      "step": "PASS",
+      "message": "選択枠がプレート実寸に一致する（1/3 ゾーン枠ではない）",
+      "box": {
+        "left": 0.3821273599269184,
+        "top": 0.8377148463932873,
+        "width": 0.23573576431181487,
+        "height": 0.06727906347272973
+      },
+      "ink": {
+        "left": 0.38212892111849117,
+        "right": 0.6178710788815088,
+        "top": 0.8377169610231425,
+        "bottom": 0.9050058046589525,
+        "centerX": 0.5
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "非ドラッグ時は吸着ガイドが出ない"
+    },
+    {
+      "step": "screenshot",
+      "name": "after-01-selected.png"
+    },
+    {
+      "step": "dragA-mid",
+      "guides": {
+        "center": true,
+        "bottom": true
+      },
+      "inkRatio": {
+        "left": 0.5821289359869823,
+        "right": 0.81787109375,
+        "top": 0.7327113149614292,
+        "bottom": 0.8000000264328732,
+        "centerX": 0.7000000148684912
+      },
+      "translate": "384px -113.406px"
+    },
+    {
+      "step": "PASS",
+      "message": "ドラッグ中に吸着ガイドが表示される",
+      "guides": {
+        "center": true,
+        "bottom": true
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "ドラッグ中のプレートがポインタへ 1:1 で追従する",
+      "midCenterX": 0.7000000148684912,
+      "midBottom": 0.8000000264328732,
+      "want": {
+        "centerX": 0.7,
+        "bottom": 0.8
+      }
+    },
+    {
+      "step": "dragA-written",
+      "default_text_style": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.5821,
+          "y": 0.8
+        },
+        "size_px": 46,
+        "max_width_pct": 82
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "下段着地 → text_anchor = bc",
+      "anchor": "bc"
+    },
+    {
+      "step": "PASS",
+      "message": "下段着地 → position.y ≈ プレート下端比 0.80",
+      "y": 0.8
+    },
+    {
+      "step": "PASS",
+      "message": "中央スナップ外 → position.x を書く",
+      "x": 0.5821
+    },
+    {
+      "step": "PASS",
+      "message": "position を書いたとき zone は消える"
+    },
+    {
+      "step": "PASS",
+      "message": "cue 個別 text_style は作られない"
+    },
+    {
+      "step": "dragA-rendered",
+      "left": 0.5820963739913215,
+      "right": 0.8178385317543392,
+      "top": 0.7327113149614292,
+      "bottom": 0.8000000264328732,
+      "centerX": 0.6999674528728304
+    },
+    {
+      "step": "PASS",
+      "message": "書き込み値と再読込後の描画下端が一致する",
+      "rendered": 0.8000000264328732,
+      "written": 0.8
+    },
+    {
+      "step": "PASS",
+      "message": "書き込み値と再読込後の描画左端が一致する",
+      "rendered": 0.5820963739913215,
+      "written": 0.5821
+    },
+    {
+      "step": "PASS",
+      "message": "ドラッグ後も別時刻の cue が同じ位置に描かれる（グループ一括）",
+      "cue1": 0.8000000264328732,
+      "cue2": 0.8000000264328732
+    },
+    {
+      "step": "screenshot",
+      "name": "after-02-after-drag-lower-right.png"
+    },
+    {
+      "step": "determinism",
+      "first": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.5821,
+          "y": 0.8
+        },
+        "size_px": 46,
+        "max_width_pct": 82
+      },
+      "second": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.5821,
+          "y": 0.8
+        },
+        "size_px": 46,
+        "max_width_pct": 82
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "決定論: 同じ着地座標 → 同じ書き込み値",
+      "first": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.5821,
+          "y": 0.8
+        },
+        "size_px": 46,
+        "max_width_pct": 82
+      },
+      "second": {
+        "text_anchor": "bc",
+        "position": {
+          "x": 0.5821,
+          "y": 0.8
+        },
+        "size_px": 46,
+        "max_width_pct": 82
+      }
+    },
+    {
+      "step": "dragSnap-mid",
+      "guides": {
+        "center": true,
+        "bottom": true
+      },
+      "inkRatio": {
+        "left": 0.38212892111849117,
+        "right": 0.6178710788815088,
+        "top": 0.8627112250896604,
+        "bottom": 0.9299999365611044,
+        "centerX": 0.5
+      }
+    },
+    {
+      "step": "dragSnap-written",
+      "default_text_style": {
+        "text_anchor": "bc",
+        "position": {
+          "y": 0.93
+        },
+        "size_px": 46,
+        "max_width_pct": 82
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "中央 ±0.03 → position.x を書かない（中央吸着）"
+    },
+    {
+      "step": "PASS",
+      "message": "下段 7% 近傍 → プレート下端 0.93 へ吸着",
+      "y": 0.93
+    },
+    {
+      "step": "PASS",
+      "message": "両方の吸着が効いている間ガイドが出る",
+      "guides": {
+        "center": true,
+        "bottom": true
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "吸着後の描画下端が 0.93",
+      "bottom": 0.9300057517932061
+    },
+    {
+      "step": "PASS",
+      "message": "中央吸着後の描画が横中央",
+      "centerX": 0.5
+    },
+    {
+      "step": "screenshot",
+      "name": "after-03-after-snap.png"
+    },
+    {
+      "step": "dragTop-written",
+      "default_text_style": {
+        "text_anchor": "tc",
+        "position": {
+          "y": 0.2
+        },
+        "size_px": 46,
+        "max_width_pct": 82
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "上 1/3 着地 → text_anchor = tc",
+      "anchor": "tc"
+    },
+    {
+      "step": "PASS",
+      "message": "上 1/3 着地 → position.y ≈ プレート上端比 0.20",
+      "y": 0.2
+    },
+    {
+      "step": "PASS",
+      "message": "tc 書き込み時も zone は消える"
+    },
+    {
+      "step": "PASS",
+      "message": "tc 書き込み値と再読込後の描画上端が一致する",
+      "rendered": 0.19999997356712682,
+      "written": 0.2
+    },
+    {
+      "step": "screenshot",
+      "name": "after-04-after-top-drag.png"
+    },
+    {
+      "step": "zone-hover-on",
+      "active": true,
+      "ratio": {
+        "left": 0,
+        "top": 0,
+        "width": 0.33333016138855054,
+        "height": 0.3333333333333333
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "ゾーン hover でプレビューにハイライトが出る"
+    },
+    {
+      "step": "PASS",
+      "message": "ハイライトが該当 1/3 領域に一致する",
+      "left": 0,
+      "top": 0,
+      "width": 0.33333016138855054,
+      "height": 0.3333333333333333
+    },
+    {
+      "step": "screenshot",
+      "name": "after-05-zone-hover.png"
+    },
+    {
+      "step": "PASS",
+      "message": "hover 解除でハイライトが消える"
+    },
+    {
+      "step": "screenshot",
+      "name": "after-06-zone-hover-off.png"
+    },
+    {
+      "step": "inspector-open",
+      "result": "opened"
+    },
+    {
+      "step": "inspector-grid",
+      "count": 9,
+      "zones": [
+        "top-left",
+        "top",
+        "top-right",
+        "left",
+        "center",
+        "right",
+        "bottom-left",
+        "bottom",
+        "bottom-right"
+      ],
+      "saved": [],
+      "savedBadges": []
+    },
+    {
+      "step": "PASS",
+      "message": "実インスペクターに 3x3 のゾーンセルが 9 個出る",
+      "probe": {
+        "count": 9,
+        "zones": [
+          "top-left",
+          "top",
+          "top-right",
+          "left",
+          "center",
+          "right",
+          "bottom-left",
+          "bottom",
+          "bottom-right"
+        ],
+        "saved": [],
+        "savedBadges": []
+      }
+    },
+    {
+      "step": "screenshot",
+      "name": "after-06b-inspector-grid.png"
+    },
+    {
+      "step": "inspector-hover-on",
+      "hovered": true,
+      "highlight": {
+        "active": true,
+        "ratio": {
+          "left": 0,
+          "top": 0.6666666666666666,
+          "width": 0.33333016138855054,
+          "height": 0.3333333333333333
+        }
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "実セルの mouseenter でプレビューの該当 1/3 がハイライトされる",
+      "left": 0,
+      "top": 0.6666666666666666,
+      "width": 0.33333016138855054,
+      "height": 0.3333333333333333
+    },
+    {
+      "step": "screenshot",
+      "name": "after-06c-inspector-hover.png"
+    },
+    {
+      "step": "PASS",
+      "message": "実セルの mouseleave でハイライトが消える"
+    },
+    {
+      "step": "zonePreset-source",
+      "via": "inspector-cell-click"
+    },
+    {
+      "step": "zonePreset-written",
+      "default_text_style": {
+        "size_px": 46,
+        "max_width_pct": 82,
+        "zone": "top-right"
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "ゾーンクリックで zone が書かれる",
+      "zone": "top-right"
+    },
+    {
+      "step": "PASS",
+      "message": "ゾーンクリックで position が消える"
+    },
+    {
+      "step": "PASS",
+      "message": "ゾーンクリックで text_anchor が消える"
+    },
+    {
+      "step": "zonePreset-rendered",
+      "left": 0.7242594450603304,
+      "right": 0.960001602823348,
+      "top": 0.06999424820679388,
+      "bottom": 0.13728295967823792,
+      "centerX": 0.8421305239418392
+    },
+    {
+      "step": "PASS",
+      "message": "zone=top-right の描画が右上へ移る",
+      "left": 0.7242594450603304,
+      "right": 0.960001602823348,
+      "top": 0.06999424820679388,
+      "bottom": 0.13728295967823792,
+      "centerX": 0.8421305239418392
+    },
+    {
+      "step": "screenshot",
+      "name": "after-07-after-zone-preset.png"
+    },
+    {
+      "step": "inspector-saved-mark",
+      "count": 9,
+      "zones": [
+        "top-left",
+        "top",
+        "top-right",
+        "left",
+        "center",
+        "right",
+        "bottom-left",
+        "bottom",
+        "bottom-right"
+      ],
+      "saved": [
+        "top-right"
+      ],
+      "savedBadges": [
+        "保存中"
+      ]
+    },
+    {
+      "step": "PASS",
+      "message": "保存済みゾーンのセルに「保存中」マークが出る",
+      "saved": [
+        "top-right"
+      ],
+      "badges": [
+        "保存中"
+      ]
+    },
+    {
+      "step": "screenshot",
+      "name": "after-07b-inspector-saved.png"
+    },
+    {
+      "step": "overlay-drag",
+      "ok": true,
+      "id": "extracted-line",
+      "rect": {
+        "left": 36,
+        "top": 250.59375
+      }
+    },
+    {
+      "step": "overlay-transform",
+      "transform": {
+        "x": 280.6333739342265,
+        "y": -140.3166869671133,
+        "scale": 1,
+        "rotate": 0
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "出した行（テロップ overlay）の transform ドラッグが従来どおり効く",
+      "transform": {
+        "x": 280.6333739342265,
+        "y": -140.3166869671133,
+        "scale": 1,
+        "rotate": 0
+      }
+    },
+    {
+      "step": "PASS",
+      "message": "出した行のドラッグは captions.json を変えない"
+    },
+    {
+      "step": "screenshot",
+      "name": "after-08-after-overlay-drag.png"
+    }
+  ]
+}
