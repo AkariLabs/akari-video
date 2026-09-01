@@ -45,7 +45,8 @@ export function buildGpuElectronArguments(launcher, options) {
 
 export async function launchGpuExport(launcher, options, dependencies = {}) {
   if (launcher?.tier === 3) throw new Error(`GPU export unavailable: ${launcher.reason ?? "Electron unavailable"}`);
-  return launchElectronExport(launcher, options, {
+  // exit: "gpu" — Windows のアプリ別 GPU 設定の一時上書き（auto）は GPU 出口だけに適用する（osr 契約 §11.7 裁定 1 改訂）。
+  return launchElectronExport(launcher, { ...options, exit: "gpu" }, {
     ...dependencies,
     argumentBuilder: dependencies.argumentBuilder ?? buildGpuElectronArguments,
   });

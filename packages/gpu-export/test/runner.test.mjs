@@ -120,3 +120,29 @@ test("runner scales the quality preset bitrate for 4K output and leaves explicit
   });
   assert.equal(explicit[explicit.indexOf("--bitrate") + 1], "9000000");
 });
+
+test("launchGpuExport passes exit: \"gpu\" to launchElectronExport (observed through the injected argumentBuilder; o, r1 revision of ruling 1)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gpu-runner-exit-"));
+  try {
+    const out = join(root, "video.mp4");
+    let observed = null;
+    const spawnImpl = () => {
+      const child = new EventEmitter();
+      child.stdout = new PassThrough();
+      child.stderr = new PassThrough();
+      setImmediate(async () => { child.stdout.end(); child.stderr.end(); await writeFile(out, "video"); child.emit("close", 0, null); });
+      return child;
+    };
+    const result = await launchGpuExport({ tier: 2, executable: "/npm/electron" }, {
+      projectRoot: "/p", out, fps: 30, width: 16, height: 16, duration: 1, frames: 30, quality: "high",
+    }, {
+      spawnImpl, env: {}, platform: "linux",
+      argumentBuilder: (launcher, options) => { observed = options; return buildGpuElectronArguments(launcher, options); },
+    });
+    assert.equal(observed.exit, "gpu");
+    assert.equal(result.gpuPreference.exit, "gpu");
+    assert.equal(result.gpuPreference.reason, "platform");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

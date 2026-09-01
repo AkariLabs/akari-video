@@ -71,8 +71,9 @@ output.fps; --progress emits "PROGRESS out_time_ms=<n> total_ms=<n>" lines to st
 encoding, followed by "PROGRESS done total_ms=<n>".
 --engine defaults to auto; eligible projects use gpu and ineligible projects use osr on every platform.
 --gpu-preference (Windows hybrid GPU only) controls the temporary per-app GPU setting written for the
-export child process: auto (default; skipped when the user pinned a preference), off, or force.
-Omitting it defers to AKARI_EXPORT_GPU_PREFERENCE, then auto. Other platforms ignore it.
+export child process: auto (default; gpu engine only, skipped when the user pinned a preference), off,
+or force (gpu and osr engines). Omitting it defers to AKARI_EXPORT_GPU_PREFERENCE, then auto. Other
+platforms ignore it.
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
 

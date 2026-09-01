@@ -164,12 +164,12 @@ test("GPU receipt rejects caption modes outside sprite and words-native", () => 
   }), /sprite\|words-native/u);
 });
 
-test("GPU receipt carries provenance.gpu_preference (Windows per-app GPU override record) in snake_case", () => {
+test("GPU receipt carries provenance.gpu_preference (Windows per-app GPU override record, exit included: q) in snake_case", () => {
   const forced = buildGpuReceipt({ tier: 2, gpuPreference: {
-    platform: "win32", policy: "force", executable: "C:\\x\\electron.exe", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
+    platform: "win32", policy: "force", exit: "gpu", executable: "C:\\x\\electron.exe", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
   } });
   assert.deepEqual(forced.provenance.gpu_preference, {
-    policy: "force", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
+    policy: "force", exit: "gpu", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
   });
   const respected = buildGpuReceipt({ tier: 2, gpuPreference: { platform: "win32", policy: "auto", applied: false, previous: "GpuPreference=1;", restored: null, reason: "user-preference-respected" } });
   assert.equal(respected.provenance.gpu_preference.applied, false);

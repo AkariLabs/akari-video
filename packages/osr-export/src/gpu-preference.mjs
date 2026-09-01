@@ -6,6 +6,8 @@
 // `GpuPreference=2;`）だけで、プロセス生成時に評価されるので spawn 直前に書けば再起動も管理者権限も要らない。
 // 値は exe 単位で残るとアプリ本体まで次回起動から dGPU になるため、書き出しの間だけ一時上書きして終了後に元へ戻す。
 // 親が途中で死んでも戻せるよう sidecar（<AKARI_HOME ?? ~/.akari>/gpu-preference-override.json）を書き、次回起動時に先に復元する。
+// auto は GPU 出口（gpu-export の electron-main = options.exit "gpu"）だけに適用する。OSR 出口は ffmpeg で符号化するので dGPU を
+// 要さず、RTX 上では起動直後の offscreen paint が空 bitmap を返す過渡で frame 0 が落ち得る（§11.7）ため、force のときだけ書く。
 import { spawnSync as defaultSpawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -30,11 +32,18 @@ export function resolveGpuPreferencePolicy(options = {}, env = process.env) {
   return policy;
 }
 
-// 判定表（osr 契約 §11.7 裁定 4）。純関数。
-export function planGpuPreference({ platform, policy, soft = false, current = null }) {
+// 出口: "gpu"（gpu-export の electron-main）| "osr"（osr-export）。未指定は保守的に "osr" 扱い（auto では書かない）。
+export function normalizeGpuPreferenceExit(exit) {
+  return exit === "gpu" ? "gpu" : "osr";
+}
+
+// 判定表（osr 契約 §11.7 裁定 4・裁定 1 改訂）。純関数。
+export function planGpuPreference({ platform, policy, soft = false, current = null, exit = "osr" }) {
   if (platform !== "win32") return skip("platform");
   if (soft) return skip("soft");
   if (policy === "off") return skip("policy-off");
+  // auto は GPU 出口だけ。OSR 出口は force のときだけ書く（裁定 1 改訂・feedback-r1）。
+  if (policy === "auto" && normalizeGpuPreferenceExit(exit) !== "gpu") return skip("not-gpu-exit");
   const value = current === undefined ? null : current;
   if (value === HIGH_PERFORMANCE_GPU_PREFERENCE) return skip("already-high-performance");
   if (value === null) {
@@ -172,9 +181,11 @@ export async function withGpuPreference(launcher, options, run, {
   now = () => new Date().toISOString(),
 } = {}) {
   const policy = resolveGpuPreferencePolicy(options, env);
+  const exit = normalizeGpuPreferenceExit(options?.exit);
   const record = {
     platform,
     policy,
+    exit,
     executable: null,
     applied: false,
     previous: null,
@@ -201,6 +212,11 @@ export async function withGpuPreference(launcher, options, run, {
     record.reason = "policy-off";
     return finish();
   }
+  // auto は GPU 出口だけ（裁定 1 改訂）。OSR 出口はレジストリを読まずに spawn する。
+  if (policy === "auto" && exit !== "gpu") {
+    record.reason = "not-gpu-exit";
+    return finish();
+  }
   // 実在しない exe（テストのダミー等）へ値を書かない安全弁。実プロセスは起動時に必ず存在する。
   if (!executableExists(executable)) {
     record.reason = "executable-missing";
@@ -215,7 +231,7 @@ export async function withGpuPreference(launcher, options, run, {
     return finish();
   }
   record.previous = current;
-  const plan = planGpuPreference({ platform, policy, soft, current });
+  const plan = planGpuPreference({ platform, policy, soft, current, exit });
   record.reason = plan.reason;
   if (plan.action !== "write") return finish();
   try {
@@ -280,6 +296,7 @@ export function normalizeGpuPreferenceRecord(value) {
   if (!value || typeof value !== "object") return null;
   return {
     policy: typeof value.policy === "string" ? value.policy : null,
+    exit: value.exit === "gpu" || value.exit === "osr" ? value.exit : null,
     applied: value.applied === true,
     previous: typeof value.previous === "string" ? value.previous : null,
     restored: typeof value.restored === "boolean" ? value.restored : null,

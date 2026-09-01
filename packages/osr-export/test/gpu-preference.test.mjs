@@ -74,14 +74,14 @@ test("policy は options → env → auto の順に解決し、不正値は許�
   assert.throws(() => resolveGpuPreferencePolicy({}, { AKARI_EXPORT_GPU_PREFERENCE: "1" }), /auto\|off\|force.*got: 1/u);
 });
 
-test("判定表: 未設定 + auto は書いて終了後に削除する（a）", () => {
-  assert.deepEqual(planGpuPreference({ platform: "win32", policy: "auto", soft: false, current: null }), {
+test("判定表: 未設定 + auto は GPU 出口なら書いて終了後に削除する（a・r1: auto は exit gpu だけに適用）", () => {
+  assert.deepEqual(planGpuPreference({ platform: "win32", policy: "auto", soft: false, current: null, exit: "gpu" }), {
     action: "write", value: HIGH, restore: { kind: "remove" }, reason: "unset",
   });
 });
 
-test("判定表: 利用者の明示設定（省電力）は auto では上書きしない（b）", () => {
-  assert.deepEqual(planGpuPreference({ platform: "win32", policy: "auto", soft: false, current: POWER_SAVING }), {
+test("判定表: 利用者の明示設定（省電力）は GPU 出口の auto でも上書きしない（b・r1: exit gpu を明示）", () => {
+  assert.deepEqual(planGpuPreference({ platform: "win32", policy: "auto", soft: false, current: POWER_SAVING, exit: "gpu" }), {
     action: "skip", value: null, restore: null, reason: "user-preference-respected",
   });
 });
@@ -92,9 +92,9 @@ test("判定表: force は書いて終了後に元の値へ戻す（c）", () =>
   });
 });
 
-test("判定表: 既に高パフォーマンスなら auto / force とも触らない（d）", () => {
+test("判定表: 既に高パフォーマンスなら auto / force とも触らない（d・r1: GPU 出口で判定）", () => {
   for (const policy of ["auto", "force"]) {
-    assert.deepEqual(planGpuPreference({ platform: "win32", policy, soft: false, current: HIGH }), {
+    assert.deepEqual(planGpuPreference({ platform: "win32", policy, soft: false, current: HIGH, exit: "gpu" }), {
       action: "skip", value: null, restore: null, reason: "already-high-performance",
     });
   }
@@ -108,11 +108,11 @@ test("判定表: off / 他 OS / soft は理由付きで skip する（e・f・g�
   assert.equal(planGpuPreference({ platform: "win32", policy: "force", soft: true, current: POWER_SAVING }).action, "skip");
 });
 
-test("withGpuPreference: win32・未設定・auto は write → run → remove の順で、記録は applied / previous null / restored（a）", async () => {
+test("withGpuPreference: win32・未設定・auto・GPU 出口は write → run → remove の順で、記録は applied / previous null / restored（a・r1: exit gpu）", async () => {
   const log = [];
   const registry = fakeRegistry({}, { log });
   const sidecar = fakeSidecar({ log });
-  const { result, gpuPreference } = await withGpuPreference({ executable: EXE }, {}, async () => {
+  const { result, gpuPreference } = await withGpuPreference({ executable: EXE }, { exit: "gpu" }, async () => {
     log.push(["spawn"]);
     return "ran";
   }, deps({ registry, sidecar }));
@@ -127,16 +127,16 @@ test("withGpuPreference: win32・未設定・auto は write → run → remove �
     ["sidecar.remove"],
   ]);
   assert.deepEqual(gpuPreference, {
-    platform: "win32", policy: "auto", executable: EXE, applied: true, previous: null, restored: true, reason: "unset", recovered_stale: false,
+    platform: "win32", policy: "auto", exit: "gpu", executable: EXE, applied: true, previous: null, restored: true, reason: "unset", recovered_stale: false,
   });
   assert.deepEqual(registry.values, {});
   assert.equal(sidecar.state.record, null);
 });
 
-test("withGpuPreference: GpuPreference=1; + auto は 0 回書き込みで user-preference-respected（b）", async () => {
+test("withGpuPreference: GpuPreference=1; + auto（GPU 出口）は 0 回書き込みで user-preference-respected（b・r1: exit gpu）", async () => {
   const log = [];
   const registry = fakeRegistry({ [EXE]: POWER_SAVING }, { log });
-  const { gpuPreference } = await withGpuPreference({ executable: EXE }, {}, async () => "ran", deps({ registry, sidecar: fakeSidecar({ log }) }));
+  const { gpuPreference } = await withGpuPreference({ executable: EXE }, { exit: "gpu" }, async () => "ran", deps({ registry, sidecar: fakeSidecar({ log }) }));
   assert.equal(log.filter(([name]) => name === "write" || name === "remove").length, 0);
   assert.equal(gpuPreference.applied, false);
   assert.equal(gpuPreference.previous, POWER_SAVING);
@@ -185,7 +185,7 @@ test("withGpuPreference: darwin / linux は registry にも sidecar にも触ら
     assert.equal(result, "ran");
     assert.deepEqual(log, []);
     assert.deepEqual(gpuPreference, {
-      platform, policy: "auto", executable: null, applied: false, previous: null, restored: null, reason: "platform", recovered_stale: false,
+      platform, policy: "auto", exit: "osr", executable: null, applied: false, previous: null, restored: null, reason: "platform", recovered_stale: false,
     });
   }
 });
@@ -204,7 +204,7 @@ test("withGpuPreference: run が reject しても restore は 1 回走り、erro
   const sidecar = fakeSidecar({ log });
   const failure = new Error("OSR Electron exited 1 (no signal)");
   await assert.rejects(
-    withGpuPreference({ executable: EXE }, {}, async () => { throw failure; }, deps({ registry, sidecar })),
+    withGpuPreference({ executable: EXE }, { exit: "gpu" }, async () => { throw failure; }, deps({ registry, sidecar })),
     (error) => {
       assert.equal(error, failure);
       assert.equal(error.gpuPreference.applied, true);
@@ -222,7 +222,7 @@ test("withGpuPreference: 復元に失敗しても throw せず warning + restore
   const warnings = [];
   const registry = fakeRegistry({}, { log, failRemove: true });
   const sidecar = fakeSidecar({ log });
-  const { gpuPreference } = await withGpuPreference({ executable: EXE }, {}, async () => "ran", deps({ registry, sidecar, stderr: { write: (text) => warnings.push(text) } }));
+  const { gpuPreference } = await withGpuPreference({ executable: EXE }, { exit: "gpu" }, async () => "ran", deps({ registry, sidecar, stderr: { write: (text) => warnings.push(text) } }));
   assert.equal(gpuPreference.applied, true);
   assert.equal(gpuPreference.restored, false);
   assert.match(warnings.join(""), /^\[gpu-preference\] restore failed: /u);
@@ -233,7 +233,7 @@ test("withGpuPreference: 冒頭の stale sidecar（previous null）は先に削�
   const log = [];
   const registry = fakeRegistry({ [EXE]: HIGH }, { log });
   const sidecar = fakeSidecar({ log, record: { version: 1, executable: EXE, previous: null, written_at: "2026-08-31T00:00:00.000Z" } });
-  const { gpuPreference } = await withGpuPreference({ executable: EXE }, {}, async () => { log.push(["spawn"]); }, deps({ registry, sidecar }));
+  const { gpuPreference } = await withGpuPreference({ executable: EXE }, { exit: "gpu" }, async () => { log.push(["spawn"]); }, deps({ registry, sidecar }));
   assert.deepEqual(log.slice(0, 4), [["sidecar.read"], ["read", EXE], ["remove", EXE], ["sidecar.remove"]]);
   assert.ok(log.some(([name]) => name === "spawn"));
   assert.equal(gpuPreference.recovered_stale, true);
@@ -247,7 +247,7 @@ test("withGpuPreference: stale sidecar（previous あり）は元の値を書き
   const log = [];
   const registry = fakeRegistry({ [EXE]: HIGH }, { log });
   const sidecar = fakeSidecar({ log, record: { version: 1, executable: EXE, previous: POWER_SAVING, written_at: "2026-08-31T00:00:00.000Z" } });
-  const { gpuPreference } = await withGpuPreference({ executable: EXE }, {}, async () => "ran", deps({ registry, sidecar }));
+  const { gpuPreference } = await withGpuPreference({ executable: EXE }, { exit: "gpu" }, async () => "ran", deps({ registry, sidecar }));
   assert.deepEqual(log.slice(0, 4), [["sidecar.read"], ["read", EXE], ["write", EXE, POWER_SAVING], ["sidecar.remove"]]);
   assert.equal(gpuPreference.recovered_stale, true);
   assert.equal(gpuPreference.reason, "user-preference-respected");
@@ -334,13 +334,68 @@ test("sidecar は <AKARI_HOME ?? ~/.akari>/gpu-preference-override.json に vers
   }
 });
 
-test("receipt 用の正規化は snake_case 6 項目だけを残し、記録が無ければ null", () => {
+test("receipt 用の正規化は snake_case 7 項目（exit 込み・q）だけを残し、記録が無ければ null", () => {
   assert.equal(normalizeGpuPreferenceRecord(undefined), null);
   assert.equal(normalizeGpuPreferenceRecord(null), null);
   assert.deepEqual(normalizeGpuPreferenceRecord({
-    platform: "win32", policy: "auto", executable: EXE, applied: true, previous: null, restored: true, reason: "unset", recovered_stale: false,
-  }), { policy: "auto", applied: true, previous: null, restored: true, reason: "unset", recovered_stale: false });
+    platform: "win32", policy: "auto", exit: "gpu", executable: EXE, applied: true, previous: null, restored: true, reason: "unset", recovered_stale: false,
+  }), { policy: "auto", exit: "gpu", applied: true, previous: null, restored: true, reason: "unset", recovered_stale: false });
   assert.deepEqual(normalizeGpuPreferenceRecord({ policy: "off", reason: "policy-off" }), {
-    policy: "off", applied: false, previous: null, restored: null, reason: "policy-off", recovered_stale: false,
+    policy: "off", exit: null, applied: false, previous: null, restored: null, reason: "policy-off", recovered_stale: false,
   });
+  assert.equal(normalizeGpuPreferenceRecord({ policy: "auto", exit: "unknown" }).exit, null);
+});
+
+import { normalizeGpuPreferenceExit } from "../src/gpu-preference.mjs";
+
+test("判定表: OSR 出口は auto では書かず（not-gpu-exit）、force なら書いて元へ戻す（m・r1 裁定 1 改訂）", () => {
+  assert.deepEqual(planGpuPreference({ platform: "win32", policy: "auto", soft: false, current: null, exit: "osr" }), {
+    action: "skip", value: null, restore: null, reason: "not-gpu-exit",
+  });
+  assert.equal(planGpuPreference({ platform: "win32", policy: "auto", soft: false, current: POWER_SAVING, exit: "osr" }).reason, "not-gpu-exit");
+  assert.equal(planGpuPreference({ platform: "win32", policy: "auto", soft: false, current: HIGH, exit: "osr" }).reason, "not-gpu-exit");
+  // exit 未指定 / 不明は保守的に osr 扱い
+  assert.equal(planGpuPreference({ platform: "win32", policy: "auto", soft: false, current: null }).reason, "not-gpu-exit");
+  assert.equal(planGpuPreference({ platform: "win32", policy: "auto", soft: false, current: null, exit: "unknown" }).reason, "not-gpu-exit");
+  // force は出口に関係なく write + 復元（restore は current に応じて remove / write）
+  assert.deepEqual(planGpuPreference({ platform: "win32", policy: "force", soft: false, current: null, exit: "osr" }), {
+    action: "write", value: HIGH, restore: { kind: "remove" }, reason: "unset",
+  });
+  assert.deepEqual(planGpuPreference({ platform: "win32", policy: "force", soft: false, current: POWER_SAVING, exit: "osr" }), {
+    action: "write", value: HIGH, restore: { kind: "write", value: POWER_SAVING }, reason: "forced",
+  });
+  assert.equal(planGpuPreference({ platform: "win32", policy: "force", soft: false, current: HIGH, exit: "osr" }).reason, "already-high-performance");
+  // GPU 出口の auto + 未設定は従来どおり write
+  assert.equal(planGpuPreference({ platform: "win32", policy: "auto", soft: false, current: null, exit: "gpu" }).action, "write");
+  // off / platform / soft は not-gpu-exit より先に判定される
+  assert.equal(planGpuPreference({ platform: "win32", policy: "off", soft: false, current: null, exit: "osr" }).reason, "policy-off");
+  assert.equal(planGpuPreference({ platform: "darwin", policy: "auto", soft: false, current: null, exit: "osr" }).reason, "platform");
+  assert.equal(planGpuPreference({ platform: "win32", policy: "auto", soft: true, current: null, exit: "osr" }).reason, "soft");
+  assert.equal(normalizeGpuPreferenceExit(undefined), "osr");
+  assert.equal(normalizeGpuPreferenceExit("gpu"), "gpu");
+});
+
+test("withGpuPreference: OSR 出口の auto は registry に書かず not-gpu-exit・exit osr を記録、force なら write → run → 復元（n・r1）", async () => {
+  const log = [];
+  const registry = fakeRegistry({}, { log });
+  const sidecar = fakeSidecar({ log });
+  const { result, gpuPreference } = await withGpuPreference({ executable: EXE }, { exit: "osr" }, async () => "ran", deps({ registry, sidecar }));
+  assert.equal(result, "ran");
+  assert.equal(log.filter(([name]) => name === "write" || name === "remove").length, 0);
+  assert.deepEqual(gpuPreference, {
+    platform: "win32", policy: "auto", exit: "osr", executable: EXE, applied: false, previous: null, restored: null, reason: "not-gpu-exit", recovered_stale: false,
+  });
+  // exit 未指定も同じ
+  const unspecified = await withGpuPreference({ executable: EXE }, {}, async () => "ran", deps({ registry, sidecar }));
+  assert.equal(unspecified.gpuPreference.reason, "not-gpu-exit");
+  assert.equal(unspecified.gpuPreference.exit, "osr");
+  // force は OSR 出口でも write → spawn → remove
+  log.length = 0;
+  const forced = await withGpuPreference({ executable: EXE }, { exit: "osr", gpuPreference: "force" }, async () => { log.push(["spawn"]); }, deps({ registry, sidecar }));
+  assert.deepEqual(log.filter(([name]) => ["write", "spawn", "remove"].includes(name)), [["write", EXE, HIGH], ["spawn"], ["remove", EXE]]);
+  assert.deepEqual(
+    { exit: forced.gpuPreference.exit, applied: forced.gpuPreference.applied, restored: forced.gpuPreference.restored, reason: forced.gpuPreference.reason },
+    { exit: "osr", applied: true, restored: true, reason: "unset" },
+  );
+  assert.deepEqual(registry.values, {});
 });

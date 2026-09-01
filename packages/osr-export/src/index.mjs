@@ -44,6 +44,8 @@ export async function exportWithOsr({
       queueDepth: runtime.queueDepth,
       dumpFrames: runtime.dumpFrames,
       gpuPreference,
+      // OSR 出口: auto では Windows の GPU 設定を書かない（force のときだけ・契約 §11.7 裁定 1 改訂）
+      exit: "osr",
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
@@ -138,6 +140,7 @@ export async function captureFramesWithOsr({
     verify: "stamp",
     queueDepth: runtime.queueDepth,
     gpuPreference,
+    exit: "osr",
     extraArgs: [
       ...(editPath ? ["--edit", editPath] : []),
       "--capture-frames", requestedFrames.join(","),

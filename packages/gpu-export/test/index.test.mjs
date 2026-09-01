@@ -156,7 +156,7 @@ test("GPU export forwards gpuPreference to the launcher and records its return v
         await writeFile(options.out, "encoded-video");
         await writeFile(join(renderDirectory, "run.json"), JSON.stringify({ status: "completed", gpu: { uploadPath: "direct" }, memory: { peakBytes: 10 } }));
         return { launcher, gpuPreference: {
-          platform: "win32", policy: "force", executable: "C:\\x\\electron.exe", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
+          platform: "win32", policy: "force", exit: "gpu", executable: "C:\\x\\electron.exe", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
         } };
       },
       audioMuxer: async (options) => { await writeFile(options.outputPath, "final"); return true; },
@@ -164,7 +164,7 @@ test("GPU export forwards gpuPreference to the launcher and records its return v
     });
     assert.equal(launchOptions.gpuPreference, "force");
     assert.deepEqual(result.receipt.provenance.gpu_preference, {
-      policy: "force", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
+      policy: "force", exit: "gpu", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
     });
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
