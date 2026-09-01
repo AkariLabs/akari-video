@@ -1,6 +1,7 @@
 export interface PreviewTrackOrderInput {
     id: string;
     content?: { from?: string };
+    items?: { source?: { kind?: string } }[];
 }
 
 export interface PreviewTrackOrderEntry {
@@ -24,7 +25,10 @@ export function resolvePreviewCaptionTrackOrder(
     hasCaptions: boolean
 ): PreviewCaptionTrackOrder {
     const resolved = tracks.map((track, z) => ({ id: track.id, z }));
-    const declaredCaption = tracks.find(track => track.content?.from === 'captions.json');
+    const declaredCaption = tracks.find(track =>
+        track.content?.from === 'captions.json'
+        || track.items?.some(item => item.source?.kind === 'captions')
+    );
     if (declaredCaption) {
         return { tracks: resolved, captionTrackId: declaredCaption.id };
     }
