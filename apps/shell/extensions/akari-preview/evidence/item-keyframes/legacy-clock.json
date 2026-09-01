@@ -1,0 +1,341 @@
+{
+  "status": "PASS",
+  "label": "legacy-clock",
+  "projectDir": "/private/tmp/akari-ikf-legacy",
+  "observations": [
+    {
+      "step": "seek-samples",
+      "first": {
+        "timeOrigin": 1788232788580.1,
+        "seek": 1.1,
+        "stageReady": true,
+        "frameEngineActive": "false",
+        "playLabel": "再生",
+        "video": {
+          "paused": true,
+          "currentTime": 1.1
+        },
+        "plain": {
+          "x": "110px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "bag": {
+          "x": "114.39px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "group": {
+          "x": "33px",
+          "opacity": "0.275",
+          "inlineOpacity": "0.275",
+          "visible": "visible"
+        },
+        "control": {
+          "x": "0px",
+          "opacity": "1",
+          "inlineOpacity": "",
+          "visible": "visible"
+        }
+      },
+      "second": {
+        "timeOrigin": 1788232788580.1,
+        "seek": 2.4,
+        "stageReady": true,
+        "frameEngineActive": "false",
+        "playLabel": "再生",
+        "video": {
+          "paused": true,
+          "currentTime": 2.4
+        },
+        "plain": {
+          "x": "240px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "bag": {
+          "x": "267.84px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "group": {
+          "x": "72px",
+          "opacity": "0.6",
+          "inlineOpacity": "0.6",
+          "visible": "visible"
+        },
+        "control": {
+          "x": "0px",
+          "opacity": "1",
+          "inlineOpacity": "",
+          "visible": "visible"
+        }
+      }
+    },
+    {
+      "step": "playback",
+      "playBefore": {
+        "timeOrigin": 1788232788580.1,
+        "seek": 1,
+        "stageReady": true,
+        "frameEngineActive": "false",
+        "playLabel": "再生",
+        "video": {
+          "paused": true,
+          "currentTime": 1
+        },
+        "plain": {
+          "x": "100px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "bag": {
+          "x": "90px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "group": {
+          "x": "30px",
+          "opacity": "0.25",
+          "inlineOpacity": "0.25",
+          "visible": "visible"
+        },
+        "control": {
+          "x": "0px",
+          "opacity": "1",
+          "inlineOpacity": "",
+          "visible": "visible"
+        }
+      },
+      "playStarted": {
+        "timeOrigin": 1788232788580.1,
+        "seek": 1.021,
+        "stageReady": true,
+        "frameEngineActive": "false",
+        "playLabel": "一時停止",
+        "video": {
+          "paused": false,
+          "currentTime": 1.021006
+        },
+        "plain": {
+          "x": "102.1006px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "bag": {
+          "x": "95.553316155px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "group": {
+          "x": "30.63018px",
+          "opacity": "0.255251",
+          "inlineOpacity": "0.255252",
+          "visible": "visible"
+        },
+        "control": {
+          "x": "0px",
+          "opacity": "1",
+          "inlineOpacity": "",
+          "visible": "visible"
+        }
+      },
+      "playAdvanced": {
+        "timeOrigin": 1788232788580.1,
+        "seek": 1.66,
+        "stageReady": true,
+        "frameEngineActive": "false",
+        "playLabel": "一時停止",
+        "video": {
+          "paused": false,
+          "currentTime": 1.672096
+        },
+        "plain": {
+          "x": "166.008px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "bag": {
+          "x": "176.465136373px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "group": {
+          "x": "49.8024px",
+          "opacity": "0.41502",
+          "inlineOpacity": "0.41502",
+          "visible": "visible"
+        },
+        "control": {
+          "x": "0px",
+          "opacity": "1",
+          "inlineOpacity": "",
+          "visible": "visible"
+        }
+      },
+      "playStopped": {
+        "timeOrigin": 1788232788580.1,
+        "seek": 1.782,
+        "stageReady": true,
+        "frameEngineActive": "false",
+        "playLabel": "再生",
+        "video": {
+          "paused": true,
+          "currentTime": 1.782017
+        },
+        "plain": {
+          "x": "178.2017px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "bag": {
+          "x": "179.067797238px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "group": {
+          "x": "53.46051px",
+          "opacity": "0.445504",
+          "inlineOpacity": "0.445504",
+          "visible": "visible"
+        },
+        "control": {
+          "x": "0px",
+          "opacity": "1",
+          "inlineOpacity": "",
+          "visible": "visible"
+        }
+      }
+    },
+    {
+      "step": "inline-update",
+      "inlineUpdated": {
+        "timeOrigin": 1788232788580.1,
+        "seek": 2.4,
+        "stageReady": true,
+        "frameEngineActive": "false",
+        "playLabel": "再生",
+        "video": {
+          "paused": true,
+          "currentTime": 2.4
+        },
+        "plain": {
+          "x": "480px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "bag": {
+          "x": "267.84px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "group": {
+          "x": "72px",
+          "opacity": "0.6",
+          "inlineOpacity": "0.6",
+          "visible": "visible"
+        },
+        "control": {
+          "x": "0px",
+          "opacity": "1",
+          "inlineOpacity": "",
+          "visible": "visible"
+        }
+      }
+    },
+    {
+      "step": "bag-update",
+      "bagBefore": "267.84px",
+      "bagUpdated": {
+        "timeOrigin": 1788232788580.1,
+        "seek": 2.4,
+        "stageReady": true,
+        "frameEngineActive": "false",
+        "playLabel": "再生",
+        "video": {
+          "paused": true,
+          "currentTime": 2.4
+        },
+        "plain": {
+          "x": "480px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "bag": {
+          "x": "443.52px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "group": {
+          "x": "72px",
+          "opacity": "0.6",
+          "inlineOpacity": "0.6",
+          "visible": "visible"
+        },
+        "control": {
+          "x": "0px",
+          "opacity": "1",
+          "inlineOpacity": "",
+          "visible": "visible"
+        }
+      }
+    },
+    {
+      "step": "bag-missing",
+      "bagMissing": {
+        "timeOrigin": 1788232788580.1,
+        "seek": 2.4,
+        "stageReady": true,
+        "frameEngineActive": "false",
+        "playLabel": "再生",
+        "video": {
+          "paused": true,
+          "currentTime": 2.4
+        },
+        "plain": {
+          "x": "480px",
+          "opacity": "1",
+          "inlineOpacity": "1",
+          "visible": "visible"
+        },
+        "bag": {
+          "x": "0px",
+          "opacity": "1",
+          "inlineOpacity": "",
+          "visible": "visible"
+        },
+        "group": {
+          "x": "72px",
+          "opacity": "0.6",
+          "inlineOpacity": "0.6",
+          "visible": "visible"
+        },
+        "control": {
+          "x": "0px",
+          "opacity": "1",
+          "inlineOpacity": "",
+          "visible": "visible"
+        }
+      },
+      "warnings": [
+        "2026-09-01T03:19:51.346Z root WARN [akari-preview] motion bag motion/s01.json could not be read; referenced items stay static Error: Unable to read file 'motion/s01.json' (EntryNotFound (FileSystemError): Error: ENOENT: no such file or directory, open '/private/tmp/akari-ikf-legacy/motion/s01.json')\n    at oP.asFileOperationError (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:1662:64603)\n    at oP.rethrowAsFileOperationError (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:1662:64537)\n    at oP.doReadAsFileStream (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:1662:63884)\n    at async oP.readFile (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:1662:63024)\n    at async r (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:2563:4087)\n    at async r (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:2563:4290)\n    at async q1a (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:2563:4345)\n    at async ZE.loadPreviewModel (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:2564:34586)\n    at async Promise.all (index 0)\n    at async ZE.refreshPreview (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:2564:19255)\nCaused by: Error: Request 'readFile' failed\n    at Proxy.<anonymous> (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:432:49242)\n    at IJe.readFile (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:1894:93057)\n    at oP.readFileUnbuffered (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:1663:72)\n    at oP.doReadAsFileStream (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:1662:63639)\n    at oP.readFile (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:1662:63035)\n    at async r (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:2563:4087)\n    at async r (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:2563:4290)\n    at async q1a (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:2563:4345)\n    at async ZE.loadPreviewModel (file:///Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/frontend/bundle.js:2564:34586)\n    at async Promise.all (index 0)\nCaused by: EntryNotFound (FileSystemError): Error: ENOENT: no such file or directory, open '/private/tmp/akari-ikf-legacy/motion/s01.json'\n    at gOt (/Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/backend/main.js:1634:78575)\n    at tI.toFileSystemProviderError (/Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/backend/main.js:1676:18941)\n    at tI.readFile (/Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/backend/main.js:1676:11038)\n    at async g6e.onRequest (/Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/backend/main.js:538:55258)\n    at async t.handleRequest (/Users/ryoma/_edit/30_products/akari-video-wt/shell-preview-item-keyframes/apps/shell/lib/backend/main.js:538:50658)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "base": "9387ad3e",
+  "injection": "excluded by identical sentinel",
+  "fieldtests": {
+    "requested": [
+      "2026-08-03-akari-video-pv",
+      "2026-08-05-telop-html-board",
+      "2026-08-11-tomosu-pv-remake"
+    ],
+    "used": [
+      "2026-08-03-akari-video-pv",
+      "2026-08-05-telop-html-board",
+      "2026-08-11-tomosu-pv-remake"
+    ],
+    "fallbackToSynthetic": false
+  },
+  "comparisons": [
+    {
+      "name": "empty",
+      "kind": "synthetic",
+      "before": "9d11b7a166aced63fbeeea336aa07bab76183135bda7e2eb427737942c3d6d26",
+      "after": "9d11b7a166aced63fbeeea336aa07bab76183135bda7e2eb427737942c3d6d26",
+      "equal": true
+    },
+    {
+      "name": "inline-html-static",
+      "kind": "synthetic",
+      "before": "a8a99ed70c4fd861ba170605cf6b38f10aca19e98c3ed7ca905210d39ba35f70",
+      "after": "a8a99ed70c4fd861ba170605cf6b38f10aca19e98c3ed7ca905210d39ba35f70",
+      "equal": true
+    },
+    {
+      "name": "bag-child-static",
+      "kind": "synthetic",
+      "before": "05535be191352ea1553e635ad44e48b1cefc08f3fd5d2a95188e5fab9af374a1",
+      "after": "05535be191352ea1553e635ad44e48b1cefc08f3fd5d2a95188e5fab9af374a1",
+      "equal": true
+    },
+    {
+      "name": "2026-08-03-akari-video-pv",
+      "kind": "fieldtest",
+      "before": "b767574d284126537b29de2ff943ef3e7a191dc3cf2cee28d2dce85521329fc6",
+      "after": "b767574d284126537b29de2ff943ef3e7a191dc3cf2cee28d2dce85521329fc6",
+      "equal": true
+    },
+    {
+      "name": "2026-08-05-telop-html-board",
+      "kind": "fieldtest",
+      "before": "3caa4ffdd9fa8842dac442deba4692c8c6ee0d169fc953d7cbf301c88bb8a568",
+      "after": "3caa4ffdd9fa8842dac442deba4692c8c6ee0d169fc953d7cbf301c88bb8a568",
+      "equal": true
+    },
+    {
+      "name": "2026-08-11-tomosu-pv-remake",
+      "kind": "fieldtest",
+      "before": "690e1cec6495c4fc2a3f780214a07b0aa027deb661559d186ba197484eaf67bb",
+      "after": "690e1cec6495c4fc2a3f780214a07b0aa027deb661559d186ba197484eaf67bb",
+      "equal": true
+    }
+  ]
+}

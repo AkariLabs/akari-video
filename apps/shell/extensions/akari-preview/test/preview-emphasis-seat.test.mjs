@@ -65,7 +65,7 @@ test('席の優先順ヘルパーが RPC・直接読取・loadPreviewModel ま�
     assert.match(handlerSource, /const emphasisWords = this\.normalizeEmphasisWords\(resolvePreviewEmphasisWords\(\s*loadedCaptions\.emphasisWords,\s*legacyEmphasisWords/u);
     assert.match(handlerSource, /const emphasisWords = readCaptionsEmphasisWords\(root\)/u);
     assert.match(handlerSource, /emphasisWords:\s*resolved\.emphasisWords/u);
-    assert.match(handlerSource, /captions:\s*outputCaptions,\s*emphasisWords,\s*summary:/u);
+    assert.match(handlerSource, /captions:\s*outputCaptions,\s*excludedCaptionIds:[^,]+,\s*emphasisWords,\s*summary:/u);
     assert.doesNotMatch(handlerSource, /normalizeEmphasisWords\(internal\.declaration\.emphasisWords\)/u);
 
     assert.match(serviceSource, /const captionsEmphasisWords = readCaptionsEmphasisWords\(captionsRoot\)/u);

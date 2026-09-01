@@ -9,6 +9,7 @@ export interface PreviewModelDiffInput {
     summary: {
         cuts?: unknown[];
         layers?: unknown[];
+        overlays?: unknown[];
         audio?: unknown;
         tracks?: unknown;
         timelineTracks?: unknown;
@@ -23,7 +24,7 @@ const stableJson = (value: unknown): string => JSON.stringify(value) ?? 'undefin
 const sameJson = (left: unknown, right: unknown): boolean => stableJson(left) === stableJson(right);
 
 const withoutIncrementalFields = (summary: PreviewModelDiffInput['summary']): Record<string, unknown> => {
-    const incrementalKeys = new Set(['cuts', 'layers', 'audio', 'tracks', 'timelineTracks']);
+    const incrementalKeys = new Set(['cuts', 'layers', 'overlays', 'audio', 'tracks', 'timelineTracks']);
     const stable: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(summary)) {
         if (!incrementalKeys.has(key)) stable[key] = value;
@@ -85,6 +86,7 @@ export const classifyPreviewModelUpdate = (
     const incrementalFields = (value: PreviewModelDiffInput['summary']): unknown => ({
         cuts: value.cuts,
         layers: value.layers,
+        overlays: value.overlays,
         audio: value.audio,
         tracks: value.tracks,
         timelineTracks: value.timelineTracks
@@ -92,3 +94,33 @@ export const classifyPreviewModelUpdate = (
     return sameJson(incrementalFields(previous.summary), incrementalFields(next.summary))
         ? 'none' : 'incremental';
 };
+
+/**
+ * frame-engine の映像評価入力を変えず、webview が model-update で読み直せる
+ * overlay / audio だけが変わった更新かを判定する。
+ */
+export const isOverlayOnlyPreviewModelUpdate = (
+    previous: PreviewModelDiffInput | undefined,
+    next: PreviewModelDiffInput
+): boolean => {
+    if (!previous || classifyPreviewModelUpdate(previous, next) !== 'incremental') return false;
+    const withoutWebviewFields = (value: PreviewModelDiffInput): unknown => ({
+        ...value,
+        summary: Object.fromEntries(Object.entries(value.summary)
+            .filter(([key]) => key !== 'overlays' && key !== 'audio'))
+    });
+    return sameJson(withoutWebviewFields(previous), withoutWebviewFields(next));
+};
+
+/** edit.json と motion 袋は summary を再生成できるモデル資源であり、HTML 資源とは区別する。 */
+export const isPreviewModelResourceChange = (
+    resourceKey: string,
+    resourceSuffix: string,
+    editKey: string | undefined,
+    editSuffix: string | undefined,
+    motionBagKeys: ReadonlySet<string>,
+    motionBagSuffixes: ReadonlySet<string>
+): boolean => resourceKey === editKey
+    || resourceSuffix === editSuffix
+    || motionBagKeys.has(resourceKey)
+    || motionBagSuffixes.has(resourceSuffix);

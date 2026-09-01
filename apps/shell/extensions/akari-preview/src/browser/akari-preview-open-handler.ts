@@ -64,6 +64,11 @@ import {
 import { collectItems, hasInlineCaptions, readPreviewInternalEdit } from '../common/preview-items';
 import { expandBagOverlays } from '../common/preview-parts';
 import {
+    buildItemKeyframeSummaryFields,
+    ItemKeyframe,
+    resolvePreviewItemKeyframes
+} from '../common/item-keyframes-summary';
+import {
     CAPTION_FONT_FAMILY,
     CAPTION_FONT_LOAD_DESCRIPTOR,
     captionFontFaceCss,
@@ -94,7 +99,11 @@ import {
 import { normalizePersistentStrokeItems, PEN_TUNING } from '../common/pen-canvas-visuals';
 import { fitPreviewCompositeRect } from '../common/preview-composite-layout';
 import { outputTimeForSourceClock, resolveSourceClockPosition } from '../common/preview-playback-clock';
-import { classifyPreviewModelUpdate } from '../common/preview-model-diff';
+import {
+    classifyPreviewModelUpdate,
+    isOverlayOnlyPreviewModelUpdate,
+    isPreviewModelResourceChange
+} from '../common/preview-model-diff';
 import type { PreviewModelDiffInput } from '../common/preview-model-diff';
 import { summarizePreviewError } from '../common/preview-error-summary';
 import { resolvePreferredVideoUri } from '../common/video-proxy-resolution';
@@ -147,6 +156,8 @@ interface EditSummaryOverlay {
     transform: OverlayTransform;
     vars: Record<string, string>;
     params: Record<string, string>;
+    keyframes?: readonly ItemKeyframe[];
+    opacity?: number;
     part?: string;
     parentId?: string;
 }
@@ -458,6 +469,7 @@ interface PreviewModel {
     /** ソース id → 実体 URI（v0 は既定 id ひとつ・v1/v2 は sources[] 全件） */
     sourcesById?: Map<string, { uri: URI; proxyUri?: URI }>;
     overlayUris: URI[];
+    motionBagUris?: URI[];
     assetUris: URI[];
     assetStreamIds: string[];
     compositeError?: string;
@@ -639,6 +651,8 @@ interface PreviewWidgetMarker extends WebviewWidget {
     akariPreviewExcludedCaptionIds?: Set<string>;
     akariPreviewTrackedResources?: Set<string>;
     akariPreviewTrackedSuffixes?: Set<string>;
+    akariPreviewMotionBagResources?: Set<string>;
+    akariPreviewMotionBagSuffixes?: Set<string>;
     akariPreviewStreamId?: string;
     /** v1 マルチソースで代表ソース以外に開いた動画ストリーム id（代表は akariPreviewStreamId） */
     akariPreviewExtraStreamIds?: string[];
@@ -2144,6 +2158,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         const handleFilesChanged = (event: FileChangesEvent): void => {
             const tracked = widget.akariPreviewTrackedResources ?? new Set<string>();
             const trackedSuffixes = widget.akariPreviewTrackedSuffixes ?? new Set<string>();
+            const motionBagResources = widget.akariPreviewMotionBagResources ?? new Set<string>();
+            const motionBagSuffixes = widget.akariPreviewMotionBagSuffixes ?? new Set<string>();
             const captionsUri = widget.akariPreviewCaptionsUri;
             const captionsKey = captionsUri?.toString();
             const captionsSuffix = captionsUri ? this.resourceSuffix(captionsUri) : undefined;
@@ -2169,7 +2185,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 if (tracked.has(key) || trackedSuffixes.has(suffix)) {
                     const externalChange = Date.now() - writtenAt > RECENT_WRITE_WINDOW_MS;
                     previewChanged ||= externalChange;
-                    if (externalChange && key !== editKey && suffix !== editSuffix) {
+                    if (externalChange && !isPreviewModelResourceChange(
+                        key, suffix, editKey, editSuffix, motionBagResources, motionBagSuffixes
+                    )) {
                         nonModelResourceChanged = true;
                     }
                     continue;
@@ -2793,11 +2811,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             this.getOverlayRuntimeAssets(frameEngineEnabled)
         ]);
         const nextSnapshot = this.previewModelSnapshot(model, assets);
-        // frame-engine 評価台は host からの model-update メッセージを読まないため、
-        // 差分更新では古い絵が残る。有効時は必ず新しい summary で HTML を組み直す。
-        if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot && !frameEngineEnabled) {
+        // frame-engine の media 評価台は model-update を読まないが、overlay runtime は両クロックで
+        // 同じ summary と tick を消費する。frame-engine 有効時は overlay-only 更新だけを通す。
+        if (!forceRebuild && kind === 'output' && widget.akariPreviewModelSnapshot) {
             const updateKind = classifyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot);
-            if (updateKind === 'none') {
+            if (updateKind === 'none' && !frameEngineEnabled) {
                 widget.sendMessage({
                     type: 'akari-preview-refresh-ok',
                     compositeError: model.compositeError ?? null
@@ -2806,7 +2824,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 await this.disposeAssetStreams(model.assetStreamIds);
                 return;
             }
-            if (updateKind === 'incremental') {
+            if (updateKind === 'incremental'
+                && (!frameEngineEnabled
+                    || isOverlayOnlyPreviewModelUpdate(widget.akariPreviewModelSnapshot, nextSnapshot))) {
                 const summary = this.summaryWithPreviousAssetUrls(widget, model);
                 widget.akariPreviewModelSnapshot = nextSnapshot;
                 widget.akariPreviewSummary = summary;
@@ -2986,6 +3006,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         ];
         widget.akariPreviewTrackedResources = new Set(trackedUris.map(uri => uri.toString()));
         widget.akariPreviewTrackedSuffixes = new Set(trackedUris.map(uri => this.resourceSuffix(uri)));
+        widget.akariPreviewMotionBagResources = new Set(
+            (model.motionBagUris ?? []).map(uri => uri.toString())
+        );
+        widget.akariPreviewMotionBagSuffixes = new Set(
+            (model.motionBagUris ?? []).map(uri => this.resourceSuffix(uri))
+        );
         widget.viewType = 'akari.preview';
         widget.title.label = kind === 'output' ? '出力プレビュー' : videoUri.path.base;
         widget.title.caption = kind === 'output' ? identityUri.toString() : videoUri.toString();
@@ -3466,22 +3492,31 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }));
             const overlays: EditSummaryOverlay[] = [];
             const overlayUris: URI[] = [];
+            const motionBagUris: URI[] = [];
             const unsupportedGltfWarnings: string[] = [];
             // 宣言レコードは読み込み層が版差を吸収済み。フィールドの検証は従来どおりここで行う。
             const overlayHtml = new Map<string, string>();
             const overlayTrackIds = new Map<string, string>();
             const seenOverlayUris = new Set<string>();
+            const registerOverlayUri = (uri: URI): void => {
+                const uriKey = uri.toString();
+                if (seenOverlayUris.has(uriKey)) return;
+                overlayUris.push(uri);
+                seenOverlayUris.add(uriKey);
+            };
+            const registerMotionBagUri = (uri: URI): void => {
+                registerOverlayUri(uri);
+                if (!motionBagUris.some(value => value.toString() === uri.toString())) {
+                    motionBagUris.push(uri);
+                }
+            };
             const loadOverlayTree = async (item: typeof internal.tracks[number]['items'][number], trackId: string): Promise<void> => {
                 overlayTrackIds.set(item.id, trackId);
                 if (item.source.kind === 'html') {
                     const rawHtml = item.source.html;
                     if (rawHtml && !rawHtml.trimStart().startsWith('<') && !overlayHtml.has(rawHtml)) {
                         const fragmentUri = editUri.parent.resolve(rawHtml);
-                        const uriKey = fragmentUri.toString();
-                        if (!seenOverlayUris.has(uriKey)) {
-                            overlayUris.push(fragmentUri);
-                            seenOverlayUris.add(uriKey);
-                        }
+                        registerOverlayUri(fragmentUri);
                         try {
                             overlayHtml.set(rawHtml, await this.readText(fragmentUri));
                         } catch (error) {
@@ -3497,6 +3532,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             for (const track of internal.tracks) {
                 for (const item of track.items) await loadOverlayTree(item, track.id);
             }
+            await resolvePreviewItemKeyframes(internal, {
+                readText: async path => {
+                    const bagUri = editUri.parent.resolve(path);
+                    registerMotionBagUri(bagUri);
+                    return this.readText(bagUri);
+                },
+                onWarning: (message, error) => console.warn(message, error)
+            });
             const projectedOverlays = expandBagOverlays(
                 internal,
                 reference => overlayHtml.get(reference) ?? reference
@@ -3522,6 +3565,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     transform: this.transform(value?.transform),
                     vars: this.stringRecord(value?.vars),
                     params: this.stringRecord(value?.params),
+                    ...buildItemKeyframeSummaryFields(value as Record<string, unknown>),
                     ...(typeof value?.part === 'string' ? { part: value.part } : {}),
                     ...(typeof value?.parentId === 'string' ? { parentId: value.parentId } : {})
                 });
@@ -3748,6 +3792,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 sourceUri,
                 sourcesById,
                 overlayUris,
+                motionBagUris,
                 assetUris,
                 assetStreamIds: [...assetStreams.values()].map(stream => stream.id),
                 ...(deferredTelops.length > 0 ? { deferredTelops } : {}),
