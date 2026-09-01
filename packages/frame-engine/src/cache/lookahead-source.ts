@@ -52,6 +52,10 @@ export class LookaheadFrameSource implements NativeFrameSource {
       return cached.frame;
     }
 
+    // Free the slot before the decode is awaited: a cached decoder-backed clone must never be
+    // held while the next decode is pending, or the decoder can run out of output surfaces
+    // (issue #28). put() below still evicts as a safety net, but must not be the only path.
+    cache.makeRoom();
     const started = performance.now();
     const frame = await this.source.decode(timeUs, metrics, request);
     const decodeMs = performance.now() - started;
@@ -69,6 +73,8 @@ export class LookaheadFrameSource implements NativeFrameSource {
     const existing = this.inFlight.get(key);
     if (existing) return existing;
     const operation = (async () => {
+      // Same ordering as decode(): release the oldest cached clone before awaiting the decode.
+      cache.makeRoom();
       const started = performance.now();
       const frame = await this.source.decode(timeUs, undefined, request);
       cache.put(frameNumber, frame, performance.now() - started);

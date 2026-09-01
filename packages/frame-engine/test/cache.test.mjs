@@ -99,3 +99,106 @@ test('prime coverage serves a long first frame, then advances to shorter frames'
   assert.equal(cache.cloneAt(133_333), null);
   cache.clear();
 });
+
+// issue #28: cached frames are decoder-backed clones that pin the decoder's output surface.
+// The cache-miss path must release the oldest entry *before* the next decode is awaited, not
+// only after it resolves, or a full cache can starve the decoder and stall the export.
+function trackedFrame(id, clones) {
+  return {
+    id,
+    closed: false,
+    clone() {
+      const clone = trackedFrame(`${id}:clone`, clones);
+      clones.push(clone);
+      return clone;
+    },
+    close() { this.closed = true; }
+  };
+}
+
+test('LookaheadCache.makeRoom evicts the oldest master until one slot is free', () => {
+  const cache = new LookaheadCache(2);
+  const first = { id: 'first', closed: false, clone() { return this; }, close() { this.closed = true; } };
+  const second = { id: 'second', closed: false, clone() { return this; }, close() { this.closed = true; } };
+  cache.put(1, first, 1);
+  cache.put(2, second, 1);
+  assert.equal(cache.size, 2);
+  cache.makeRoom();
+  assert.equal(first.closed, true);
+  assert.equal(second.closed, false);
+  assert.equal(cache.has(1), false);
+  assert.equal(cache.size, 1);
+  cache.makeRoom();
+  assert.equal(second.closed, false, 'makeRoom is a no-op while a slot is already free');
+  assert.equal(cache.size, 1);
+  cache.clear();
+});
+
+test('LookaheadFrameSource.decode closes the cached clone before the next decode resolves', async () => {
+  const clones = [];
+  const closedAtDecodeCall = [];
+  let resolveSecond;
+  const deferredSecond = new Promise(resolve => { resolveSecond = resolve; });
+  const source = new LookaheadFrameSource({
+    decode(timeUs) {
+      closedAtDecodeCall.push(clones.map(clone => clone.closed));
+      if (timeUs === 0) return Promise.resolve(trackedFrame('A', clones));
+      return deferredSecond;
+    },
+  }, { fps: 30, capacity: 1 });
+
+  const first = await source.decode(0, undefined, { streamId: 'cut-1' });
+  assert.equal(first.id, 'A');
+  assert.equal(clones.length, 1, 'the cache holds exactly one clone of A');
+  const cachedA = clones[0];
+  assert.equal(cachedA.closed, false);
+
+  const pendingSecond = source.decode(33_333, undefined, { streamId: 'cut-1' });
+  // B's decode is still deferred, yet A's cached clone is already closed.
+  assert.equal(cachedA.closed, true, 'A must be released before B resolves');
+  assert.deepEqual(closedAtDecodeCall, [[], [true]], 'A was already closed when the decode for B was invoked');
+
+  resolveSecond(trackedFrame('B', clones));
+  const second = await pendingSecond;
+  assert.equal(second.id, 'B');
+  assert.equal(clones.length, 2);
+  assert.equal(clones[1].closed, false, 'the cache now holds B');
+  first.close();
+  second.close();
+  source.clear();
+  assert.equal(clones[1].closed, true);
+});
+
+test('LookaheadFrameSource.prefetch closes the cached clone before the deferred decode resolves', async () => {
+  const clones = [];
+  const closedAtDecodeCall = [];
+  let resolveSecond;
+  const deferredSecond = new Promise(resolve => { resolveSecond = resolve; });
+  const source = new LookaheadFrameSource({
+    decode(timeUs) {
+      closedAtDecodeCall.push(clones.map(clone => clone.closed));
+      if (timeUs === 0) return Promise.resolve(trackedFrame('A', clones));
+      return deferredSecond;
+    },
+  }, { fps: 30, capacity: 1 });
+
+  const first = await source.decode(0, undefined, { streamId: 'cut-1' });
+  const cachedA = clones[0];
+  assert.equal(cachedA.closed, false);
+
+  const pending = source.prefetch(33_333, { streamId: 'cut-1' });
+  assert.equal(cachedA.closed, true, 'A must be released before the prefetched decode resolves');
+  assert.deepEqual(closedAtDecodeCall, [[], [true]]);
+
+  const second = trackedFrame('B', clones);
+  resolveSecond(second);
+  await pending;
+  assert.equal(second.closed, false, 'the prefetched master is now the only cached frame');
+  const hit = await source.decode(33_333, undefined, { streamId: 'cut-1' });
+  assert.equal(hit.id, 'B:clone');
+  assert.equal(closedAtDecodeCall.length, 2, 'the prefetched frame is served from cache');
+  hit.close();
+  first.close();
+  source.clear();
+  assert.equal(second.closed, true);
+});

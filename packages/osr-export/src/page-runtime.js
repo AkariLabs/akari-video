@@ -85,7 +85,10 @@
           continue;
         }
         const pool = new FE.ClipSessionPool(id, url, { onWarning: warn });
-        const source = new FE.LookaheadFrameSource(pool, { fps: config.fps, capacity: 12 });
+        // capacity 1: sequential export never re-reads past frames, and every cached frame is a
+        // decoder-backed clone that pins a decoder output surface; holding 12 starved the decoder
+        // (10 s watchdog -> decoder recreate, 0.73 fps; issue #28). 1 keeps an LRU hit for freezes.
+        const source = new FE.LookaheadFrameSource(pool, { fps: config.fps, capacity: 1 });
         pools.set(id, pool);
         lookahead.set(id, source);
         videoSources.set(id, source);
