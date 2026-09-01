@@ -6,7 +6,7 @@
 //
 // 出力: <project>/.akari/probe/t-<秒>.png（既定はアルファ保持）
 //       --flatten を付けると指定色で合成した PNG も出す（目視用）
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { execFileSync } from 'node:child_process';
@@ -45,7 +45,10 @@ writeFileSync(sheetPath, renderOverlaySheet({ overlays, edit, projectRoot, durat
 
 const require = createRequire(join(RENDER_CUT_SRC, 'render-cut.mjs'));
 const puppeteer = require('puppeteer-core');
-const chromePath = process.env.AKARI_CHROME_BIN?.trim() || findChrome();
+const configuredChromePath = process.env.AKARI_CHROME_BIN?.trim();
+const chromePath = configuredChromePath
+  ? (existsSync(configuredChromePath) ? configuredChromePath : null)
+  : findChrome();
 if (!chromePath) {
   console.error('この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）');
   process.exit(1);
