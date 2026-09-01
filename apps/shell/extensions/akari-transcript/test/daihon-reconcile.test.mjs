@@ -7,6 +7,7 @@ const { planDaihonUpdate, planHighlight } = require('../lib/common/daihon-reconc
 
 const row = (id, text = id) => ({
     id, start: 0, end: 1, outStart: 0, outEnd: 1, text,
+    style: null,
     words: [{ text, start: 0, end: 1 }], fragmentBreakWordIndex: null,
     edited: false, timeDomain: 'source'
 });
@@ -31,6 +32,12 @@ test('planDaihonUpdate は words・edited・出力窓の変化を検出する', 
         { ...row('window'), outStart: null, outEnd: null }
     ];
     assert.deepEqual(planDaihonUpdate(before, after).update.map(item => item.id), ['words', 'edited', 'window']);
+});
+
+test('planDaihonUpdate は style だけが変わった行を update に入れる', () => {
+    const before = row('style');
+    const after = { ...before, style: 'karaoke' };
+    assert.deepEqual(planDaihonUpdate([before], [after]).update.map(item => item.id), ['style']);
 });
 
 test('planHighlight は同じ語なら空、語が変われば該当語だけ返す', () => {
