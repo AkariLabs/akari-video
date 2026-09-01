@@ -5,6 +5,7 @@
  */
 export * from './edit-store';
 export * from './caption-store';
+export * from './caption-words-rederive';
 export * from './caption-window';
 export * from './timeline-map';
 export * from './caption-display';

@@ -1,3 +1,5 @@
+import { applyCaptionTextEdit, type CaptionTextEditRecord } from '@akari-video/edit-store';
+
 export const PREVIEW_CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
     'left', 'center', 'right',
@@ -171,10 +173,7 @@ export function updateCaptionTextSource(source: string, captionId: string, text:
         list.splice(index, 1);
     } else {
         const caption = list[index] as Record<string, unknown>;
-        caption.text = normalizedText;
-        delete caption.words;
-        delete caption.display_text;
-        delete caption.display_fragments;
+        list[index] = applyCaptionTextEdit(caption as CaptionTextEditRecord, normalizedText).record;
     }
     return `${JSON.stringify(root, undefined, 2)}\n`;
 }

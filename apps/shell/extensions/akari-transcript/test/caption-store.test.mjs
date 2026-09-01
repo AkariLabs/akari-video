@@ -71,15 +71,41 @@ test('replaceCaptionDisplayTextLine は display_text だけを書き換える', 
     assert.equal(updatedLines[2], sourceLines[2]);
 });
 
-test('replaceCaptionLine は display_text を変更しない', () => {
+test('replaceCaptionLine は text 由来の display_text を削除する', () => {
     const source = serializeCaptions(mixedCaptions);
     const updated = replaceCaptionLine(source, 'c-0001', '本文だけを書き換えます。');
     const target = parseCaptions(updated).captions.find(caption => caption.id === 'c-0001');
 
     assert.ok(target);
     assert.equal(target.text, '本文だけを書き換えます。');
-    assert.equal(target.displayText, mixedCaptions[0].displayText);
+    assert.equal(target.displayText, undefined);
     assert.equal(target.edited, true);
+});
+
+test('replaceCaptionLine は words を再導出し 1 行形式と他行 bytes を保つ', () => {
+    const captions = [
+        {
+            id: 'c-1001', start: 0, end: 3, text: 'alpha beta gamma', speaker: null,
+            sourceRef: null, edited: false, style: 'karaoke',
+            words: [
+                { start: 0.1, end: 0.7, text: 'alpha' },
+                { start: 0.8, end: 1.6, text: 'beta' },
+                { start: 1.7, end: 2.9, text: 'gamma' }
+            ]
+        },
+        { id: 'c-1002', start: 3, end: 4, text: 'untouched', speaker: null, sourceRef: null, edited: false }
+    ];
+    const source = serializeCaptions(captions);
+    const updated = replaceCaptionLine(source, 'c-1001', 'alpha delta gamma');
+    const beforeLines = source.split('\n');
+    const afterLines = updated.split('\n');
+    const target = parseCaptions(updated).captions[0];
+
+    assert.equal(afterLines.length, beforeLines.length);
+    assert.equal(afterLines[2], beforeLines[2]);
+    assert.deepEqual(target.words[0], captions[0].words[0]);
+    assert.deepEqual(target.words[2], captions[0].words[2]);
+    assert.equal(target.words[1].text, 'delta');
 });
 
 test('display_text が無い行は replaceCaptionDisplayTextLine で編集できない', () => {
