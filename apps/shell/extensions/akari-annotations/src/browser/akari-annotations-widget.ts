@@ -132,6 +132,8 @@ import {
 } from '../common/caption-source-map';
 import { clampSfxFadeToEffectiveDuration, slipAudioWindow } from '../common/audio-clip-trimmer';
 import { computeAudioOverlapLayout } from '../common/audio-overlap-layout';
+import { setSfxGainDbInSource } from '../common/edit-store';
+import { setSfxFadeInSource } from '../common/sfx-fade-store';
 import {
     hitTestTimelineTrackDrop,
     TimelineTrackDropLayout
@@ -365,7 +367,12 @@ type EditAudioSfxWithFade = EditAudioSfx & AudioEnvelopeFields & {
 
 type EditAudioNarrationWithEnvelope = EditAudioNarration & AudioEnvelopeFields;
 type EditAudioBgmWithEnvelope = EditAudioBgm & AudioEnvelopeFields;
-type AudioInspectorWriteRequest = InspectorWriteRequest | AudioEnvelopeWriteRequest;
+type AudioAutoLevelWriteRequest = {
+    kind: 'audio-auto-level';
+    id: string;
+    audioKind: 'bgm' | 'sfx' | 'narration';
+};
+type AudioInspectorWriteRequest = InspectorWriteRequest | AudioEnvelopeWriteRequest | AudioAutoLevelWriteRequest;
 type AudioSelectionSnapshot = TimelineAudioSelection & AudioEnvelopeFields & {
     keyframeFrames?: boolean;
     fps?: number;
@@ -2186,7 +2193,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (!location) {
             return { ok: false, message: 'プロジェクトの場所を特定できません。' };
         }
-        const v2Result = await this.handleInspectorWriteV2(request);
+        if (request.kind === 'audio-auto-level') {
+            return this.handleAudioAutoLevelWrite(request);
+        }
+        const v2Result = await this.handleInspectorWriteV2(
+            request as InspectorWriteRequest | AudioEnvelopeWriteRequest
+        );
         if (v2Result) return v2Result;
         try {
             switch (request.kind) {
@@ -2508,6 +2520,64 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected async handleAudioAutoLevelWrite(
+        request: AudioAutoLevelWriteRequest
+    ): Promise<InspectorWriteResult> {
+        const location = this.location;
+        if (!location?.editUri) return { ok: false, message: 'edit.json がありません。' };
+        try {
+            const current = request.audioKind === 'bgm' ? this.audioBgm
+                : request.audioKind === 'narration'
+                    ? this.audioNarration.find(item => item.id === request.id)
+                    : this.audioSfx.find(item => item.id === request.id);
+            if (!current) throw new Error('音声クリップが見つかりません。');
+            const rawItemId = request.audioKind === 'bgm' && this.editDocument
+                ? findAudioItemIdByRole(this.editDocument, 'bgm') : request.id;
+            const raw = rawItemId ? this.rawV2Item(rawItemId) : undefined;
+            const measured = await this.annotationsService.measureAudioForLevel({
+                projectRoot: location.root.path.fsPath(),
+                audioPath: this.resolveEditMediaUri(current.path, location.editUri).path.fsPath(),
+                ...(typeof raw?.role === 'string' ? { role: raw.role } : {}),
+                collection: request.audioKind,
+                durationSec: request.audioKind === 'bgm'
+                    ? this.contentEndDuration()
+                    : request.audioKind === 'narration'
+                        ? this.narrationDisplayDuration(current as EditAudioNarrationWithEnvelope)
+                        : (current as EditAudioSfxWithFade).duration
+            });
+            if ('reason' in measured) {
+                const message = `自動レベルを適用できませんでした（${measured.reason}）。gain は手動で調整してください`;
+                this.footer.textContent = message;
+                return { ok: false, message };
+            }
+            await this.commitEditMutation('自動レベル', doc => {
+                if (request.audioKind === 'bgm') {
+                    const itemId = findAudioItemIdByRole(doc, 'bgm');
+                    if (itemId) return updateV2Item(doc, { itemId, patch: { gain_db: measured.gain_db } });
+                    const value = { ...doc } as Record<string, any>;
+                    const audio = value.audio && typeof value.audio === 'object' ? { ...value.audio } : {};
+                    audio.bgm = { ...(audio.bgm ?? {}), gain_db: measured.gain_db };
+                    return { ...value, audio };
+                }
+                return request.audioKind === 'narration'
+                    ? updateAudioNarrationGainPreferV2(doc, {
+                        narrationId: request.id, gainDb: measured.gain_db
+                    })
+                    : updateAudioSfxPreferV2(doc, {
+                        sfxId: request.id,
+                        itemPatch: { gain_db: measured.gain_db },
+                        legacyPatch: { gain_db: measured.gain_db }
+                    });
+            });
+            this.hideNotice();
+            this.footer.textContent = `自動レベル: ${measured.gain_db.toFixed(1)} dB（${measured.basis}・${measured.role}）`;
+            return { ok: true };
+        } catch (error) {
+            const message = this.errorMessage(error);
+            return { ok: false, message };
+        }
+    }
+
     protected rawV2Item(itemId: string): Record<string, any> | undefined {
         if (!Array.isArray(this.editDocument?.tracks)) return undefined;
         for (const track of this.editDocument!.tracks as Array<Record<string, any>>) {
@@ -2520,7 +2590,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected async handleInspectorWriteV2(
-        request: AudioInspectorWriteRequest
+        request: InspectorWriteRequest | AudioEnvelopeWriteRequest
     ): Promise<InspectorWriteResult | undefined> {
         const cutKinds = new Set([
             'cut-speed', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
@@ -3440,7 +3510,58 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     },
                     legacyItem: { id: itemId, path: relativePath, t: Math.max(0, t), track }
                 });
-                const editAfter = stringifyEditV2(value);
+                const insertedLocation = indexEditV2Items(value).get(itemId);
+                const insertedV2Item = insertedLocation
+                    ? ((value.tracks as Array<Record<string, any>>)[insertedLocation.trackIndex]
+                        ?.items as Array<Record<string, unknown>> | undefined)?.[insertedLocation.itemIndex]
+                    : undefined;
+                const insertedLegacyItems = Array.isArray((value.audio as Record<string, unknown> | undefined)?.sfx)
+                    ? (value.audio as { sfx: Array<Record<string, unknown>> }).sfx : [];
+                const insertedLegacyIndex = insertedLegacyItems.findIndex((entry, index) =>
+                    (typeof entry.id === 'string' ? entry.id : `sfx-${index}`) === itemId);
+                const insertedItem = insertedV2Item ?? insertedLegacyItems[insertedLegacyIndex];
+                let autoLevelNotice = '';
+                let editAfter: string | undefined;
+                if (insertedItem && !Object.prototype.hasOwnProperty.call(insertedItem, 'gain_db')) {
+                    const measured = await this.annotationsService.measureAudioForLevel({
+                        projectRoot: location.root.path.fsPath(),
+                        audioPath: this.resolveEditMediaUri(relativePath, location.editUri).path.fsPath(),
+                        role: 'sfx',
+                        collection: 'sfx',
+                        durationSec: durationSeconds
+                    });
+                    if (measured.ok) {
+                        if (insertedV2Item) {
+                            value = updateV2Item(value, {
+                                itemId,
+                                patch: {
+                                    gain_db: measured.gain_db,
+                                    ...(!Object.prototype.hasOwnProperty.call(insertedV2Item, 'fade_in')
+                                        ? { fade_in: measured.fade_in } : {}),
+                                    ...(!Object.prototype.hasOwnProperty.call(insertedV2Item, 'fade_out')
+                                        ? { fade_out: measured.fade_out } : {})
+                                }
+                            });
+                        } else if (insertedLegacyIndex >= 0) {
+                            editAfter = setSfxGainDbInSource(
+                                stringifyEditV2(value), insertedLegacyIndex, measured.gain_db
+                            );
+                            const fadeUpdates = {
+                                ...(!Object.prototype.hasOwnProperty.call(insertedItem, 'fade_in')
+                                    ? { fadeIn: measured.fade_in } : {}),
+                                ...(!Object.prototype.hasOwnProperty.call(insertedItem, 'fade_out')
+                                    ? { fadeOut: measured.fade_out } : {})
+                            };
+                            if (Object.keys(fadeUpdates).length > 0) {
+                                editAfter = setSfxFadeInSource(editAfter, insertedLegacyIndex, fadeUpdates);
+                            }
+                        }
+                        autoLevelNotice = `自動レベル: ${measured.gain_db.toFixed(1)} dB（${measured.basis}・${measured.role}）`;
+                    } else if ('reason' in measured) {
+                        autoLevelNotice = `自動レベルを適用できませんでした（${measured.reason}）。gain は手動で調整してください`;
+                    }
+                }
+                editAfter ??= stringifyEditV2(value);
                 await this.writeTimelineSnapshots(editAfter);
                 await this.reloadEdit();
                 this.pushHistory({
@@ -3455,7 +3576,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     }
                 });
                 this.hideNotice();
-                this.footer.textContent = `${successNote}${fallbackNote}`;
+                this.footer.textContent = autoLevelNotice || `${successNote}${fallbackNote}`;
                 this.revealOutputPreview();
                 return;
             }

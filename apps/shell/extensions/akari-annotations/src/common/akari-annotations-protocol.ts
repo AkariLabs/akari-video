@@ -670,3 +670,28 @@ export interface AkariAnnotationsService {
     setAudioDuck(request: SetAudioDuckRequest): Promise<WriteBackResult>;
     setAudioKeyframes(request: SetAudioKeyframesRequest): Promise<WriteBackResult>;
 }
+
+export interface MeasureAudioForLevelRequest {
+    projectRoot: string;
+    audioPath: string;
+    role?: string;
+    collection?: 'bgm' | 'sfx' | 'narration';
+    durationSec?: number;
+}
+
+export type MeasureAudioForLevelResult = {
+    ok: true;
+    measured: Record<string, unknown>;
+    role: string;
+    gain_db: number;
+    fade_in: number;
+    fade_out: number;
+    basis: string;
+} | {
+    ok: false;
+    reason: string;
+};
+
+export interface AkariAnnotationsService {
+    measureAudioForLevel(request: MeasureAudioForLevelRequest): Promise<MeasureAudioForLevelResult>;
+}

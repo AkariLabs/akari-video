@@ -46,6 +46,12 @@ import type {
 
 type InspectorSnapshot = TimelineItemSelectionSnapshot;
 
+type AudioAutoLevelWriteRequest = {
+    kind: 'audio-auto-level';
+    id: string;
+    audioKind: 'bgm' | 'sfx' | 'narration';
+};
+
 type AudioInspectorSnapshot = TimelineAudioSelection & {
     duckDb?: number;
     duckAttack?: number;
@@ -949,8 +955,16 @@ function audioKeyframeFields(
 
 function AUDIO_SECTIONS(
     snapshot: AudioInspectorSnapshot,
-    requestWrite: (request: InspectorWriteRequest | AudioEnvelopeWriteRequest) => Promise<InspectorWriteResult>
+    requestWrite: (
+        request: InspectorWriteRequest | AudioEnvelopeWriteRequest | AudioAutoLevelWriteRequest
+    ) => Promise<InspectorWriteResult>
 ): InspectorSection[] {
+    const autoLevelField: InspectorFieldDef = {
+        name: 'audio-auto-level', label: 'レベル', actionLabel: '自動レベル', getValue: () => '',
+        action: async () => requestWrite({
+            kind: 'audio-auto-level', id: snapshot.id, audioKind: snapshot.audioKind
+        })
+    };
     const basicFields: InspectorFieldDef[] = [
         {
             name: 'gain-db', label: 'gain_db', unit: 'dB',
@@ -971,7 +985,8 @@ function AUDIO_SECTIONS(
                         ? requestWrite({ kind: 'narration-gain', id: snapshot.id, value: parsed })
                         : requestWrite({ kind: 'sfx-gain', id: snapshot.id, value: parsed });
             }
-        }
+        },
+        ...(snapshot.audioKind === 'narration' ? [autoLevelField] : [])
     ];
     const tabs: InspectorSection[] = [
         {
@@ -986,6 +1001,7 @@ function AUDIO_SECTIONS(
         tabs.push({
             id: 'audio:fades', label: 'フェード・ダッキング',
             fields: [
+                autoLevelField,
                 {
                     name: 'audio-fade-in', label: 'fadeIn', unit: 's',
                     getValue: () => withDefaultNumber(snapshot.fadeIn, 0, formatDurationSeconds),
@@ -1023,6 +1039,7 @@ function AUDIO_SECTIONS(
         tabs.push({
             id: 'audio:fades', label: 'フェード・ダッキング',
             fields: [
+                autoLevelField,
                 {
                     name: 'audio-fade-in', label: 'fadeIn', unit: 's',
                     getValue: () => withDefaultNumber(snapshot.fadeIn, 0, formatDurationSeconds),
@@ -1824,7 +1841,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected async commitWrite(
-        request: InspectorWriteRequest | AudioEnvelopeWriteRequest
+        request: InspectorWriteRequest | AudioEnvelopeWriteRequest | AudioAutoLevelWriteRequest
     ): Promise<InspectorWriteResult> {
         if (!this.model.requestWrite) {
             return { ok: false, message: '書き込み機能が利用できません。' };
