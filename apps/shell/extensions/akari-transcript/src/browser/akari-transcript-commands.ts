@@ -8,3 +8,8 @@ export const OPEN_AKARI_TRANSCRIPT: Command = {
 export const AKARI_TRANSCRIPT_SEEK_REQUESTED: Command = {
     id: 'akari.transcript.seekRequested'
 };
+
+export const OPEN_AKARI_DAIHON: Command = {
+    id: 'akari.daihon.open',
+    label: '台本を開く'
+};

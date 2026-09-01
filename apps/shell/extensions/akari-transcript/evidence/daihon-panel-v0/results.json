@@ -1,0 +1,171 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. right dock order survives restart",
+      "pass": true,
+      "detail": {
+        "first": {
+          "source": "tabBar.titles",
+          "ids": [
+            "akari-partner-onboarding",
+            "akari-review-panel-widget",
+            "akari-daihon-widget",
+            "akari-inspector-widget"
+          ]
+        },
+        "automatic": {
+          "source": "tabBar.titles",
+          "ids": [
+            "akari-partner-onboarding",
+            "akari-review-panel-widget",
+            "akari-daihon-widget"
+          ]
+        },
+        "second": {
+          "source": "tabBar.titles",
+          "ids": [
+            "akari-partner-onboarding",
+            "akari-review-panel-widget",
+            "akari-daihon-widget",
+            "akari-inspector-widget"
+          ]
+        }
+      }
+    },
+    {
+      "name": "2. 500 rows render with fixture text and cut styling",
+      "pass": true,
+      "detail": {
+        "count": 500,
+        "first": [
+          {
+            "id": "c-0001",
+            "time": "0:00.00 – 0:00.06",
+            "text": "台本0001字幕"
+          },
+          {
+            "id": "c-0002",
+            "time": "0:00.06 – 0:00.12",
+            "text": "台本0002字幕"
+          },
+          {
+            "id": "c-0003",
+            "time": "0:00.12 – 0:00.18",
+            "text": "台本0003字幕"
+          }
+        ],
+        "cutIds": [
+          "c-0100",
+          "c-0101",
+          "c-0102",
+          "c-0103",
+          "c-0104",
+          "c-0105",
+          "c-0106",
+          "c-0107",
+          "c-0108",
+          "c-0109",
+          "c-0110"
+        ]
+      }
+    },
+    {
+      "name": "3. playback follows rows without replacing DOM",
+      "pass": true,
+      "detail": {
+        "before": null,
+        "afterThreeSeconds": {
+          "row": "c-0001",
+          "word": "2",
+          "ticks": 1
+        },
+        "ticks": 103,
+        "metrics": {
+          "count": 103,
+          "totalMs": 10.699999999254942,
+          "maxMs": 1.1000000014901161,
+          "averageMs": 0.1038834951383975
+        },
+        "referencesStable": true,
+        "currentRow": "c-0010",
+        "currentWord": "2"
+      }
+    },
+    {
+      "name": "4. row 300 seeks to its output position",
+      "pass": true,
+      "detail": {
+        "targetId": "c-0300",
+        "expected": 172.8,
+        "observed": 172.8,
+        "delta": 0
+      }
+    },
+    {
+      "name": "5. edit preserves other word times and 499 DOM nodes",
+      "pass": true,
+      "detail": {
+        "captionId": "c-0005",
+        "edited": true,
+        "beforeWords": [
+          {
+            "start": 0.24,
+            "end": 0.26,
+            "text": "台本"
+          },
+          {
+            "start": 0.26,
+            "end": 0.28,
+            "text": "0005"
+          },
+          {
+            "start": 0.28,
+            "end": 0.3,
+            "text": "字幕"
+          }
+        ],
+        "afterWords": [
+          {
+            "start": 0.24,
+            "end": 0.26,
+            "text": "台本"
+          },
+          {
+            "start": 0.26,
+            "end": 0.28,
+            "text": "変更"
+          },
+          {
+            "start": 0.28,
+            "end": 0.3,
+            "text": "字幕"
+          }
+        ],
+        "preservedWords": [
+          0,
+          2
+        ],
+        "unchanged": 499,
+        "targetReplaced": true,
+        "footer": "字幕を更新しました。"
+      }
+    },
+    {
+      "name": "6. workspace without edit.json shows the empty state",
+      "pass": true,
+      "detail": {
+        "text": "edit.json のあるプロジェクトを開くと字幕がここに並びます"
+      }
+    }
+  ],
+  "screenshots": [
+    "01-right-dock-order.png",
+    "02-five-hundred-rows.png",
+    "03-playback-follow.png",
+    "04-seek-row-300.png",
+    "05-inline-edit.png",
+    "06-empty-state.png"
+  ],
+  "pass": true
+}
