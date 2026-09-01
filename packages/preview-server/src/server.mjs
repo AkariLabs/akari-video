@@ -27,7 +27,7 @@ import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import {
   ensurePreviewAudioSidecar,
-  probePreviewAudioSource,
+  probePreviewAudioSourceAsync,
   sweepPreviewAudioSidecars,
 } from '../../media-bin/src/preview-audio-sidecar.mjs';
 import {
@@ -441,7 +441,8 @@ async function readFrameEnginePreviewEdit(filePath) {
     let stat;
     try { stat = fs.statSync(sourcePath); } catch { return raw; }
     if (path.extname(sourcePath).toLowerCase() !== '.wav' || stat.size <= 8 * 1024 * 1024) return raw;
-    const probe = probePreviewAudioSource(sourcePath);
+    // Awaited (spawn) so this single-threaded server keeps serving media while ffprobe runs.
+    const probe = await probePreviewAudioSourceAsync(sourcePath);
     if (!probe.ok) {
       const warning = `${label} sidecar unavailable; using source: ${probe.reason}`;
       speechWarnings.push(warning);
