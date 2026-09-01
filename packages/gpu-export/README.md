@@ -75,6 +75,15 @@ but a 5,400-frame export with many large-text overlays showed probabilistic anti
 within about 180 frames of one overlay (MAD 0.0001–0.0003, 11–41 differing pixels); every sentinel
 still matched, and rasterization flags did not remove the variance.
 
+When the output resolution is larger than the physical display (for example 3840×2160 on a
+1920×1080 screen), the operating system clamps the hidden `BrowserWindow` to the display, so
+`vw` / `vh` / `vmin` / `vmax` in DOM-layer overlays would resolve against the clamped window instead of
+the output. After the page loads, the Electron main measures `innerWidth` / `innerHeight` /
+`devicePixelRatio`, and when they differ from the requested output it pins the viewport to the output
+resolution with `webContents.enableDeviceEmulation` and measures again. An environment where the
+viewport still cannot be pinned fails closed with the requested / measured / primary display sizes in
+the error. run.json and the receipt record `viewport: { requested, measured, emulated, display }`.
+
 Per-frame composition now uses one base draw plus instanced draws for contiguous sprite kinds, so the
 draw-call count does not grow with the number of captions, DOM layers, or 3D sprites. With three
 simultaneous caption cues, incremental GPU time over no captions fell to +1.65 ms/frame: total draw GPU
