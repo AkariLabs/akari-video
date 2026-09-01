@@ -31,6 +31,7 @@ export function buildOsrPage({
   frameEngineBundle = readFileSync(FRAME_ENGINE_BUNDLE, "utf8"),
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
   lutCubeText = null,
+  layerLutCubeTexts = [],
 } = {}) {
   const enabledOverlays = overlays.filter((overlay) => overlay?.enabled !== false);
   const captionRoot = Array.isArray(captions) ? captions : captions?.captions ?? [];
@@ -41,7 +42,13 @@ export function buildOsrPage({
     emphasisWords: Array.isArray(captions) ? edit.emphasis_words : captions?.emphasis_words ?? edit.emphasis_words,
   });
   const allOverlays = [...enabledOverlays, ...captionOverlays];
-  const projectedEdit = { ...edit, output: { ...edit.output, width, height, fps } };
+  const projectedEdit = {
+    ...edit,
+    layers: (edit.layers ?? []).map((layer, index) => layer?.kind === "filter" && layer?.filter?.type === "lut"
+      ? { ...layer, filter: { ...layer.filter, cubeText: layerLutCubeTexts[index] } }
+      : layer),
+    output: { ...edit.output, width, height, fps },
+  };
   const overlaySheetHtml = renderOverlaySheet({ overlays: allOverlays, edit: projectedEdit, projectRoot, duration })
     .replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf");
   const lookDeclaration = lutCubeText === null ? null : {
@@ -124,6 +131,15 @@ export async function loadAndBuildOsrPage({
   if (typeof lutRef === "string" && lutRef !== "") {
     lutCubeText = await readFile(resolveLutPath(projectRoot, lutRef), "utf8");
   }
+  const layerLutCubeTexts = await Promise.all((edit.layers ?? []).map(async (layer) => {
+    if (layer?.kind !== "filter" || layer?.filter?.type !== "lut") return null;
+    const id = layer.filter.id;
+    try {
+      return await readFile(resolveLutPath(projectRoot, id), "utf8");
+    } catch (error) {
+      throw new Error(`filter layer LUT ${id} could not be resolved: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }));
   const page = buildOsrPage({
     edit,
     captions,
@@ -136,6 +152,7 @@ export async function loadAndBuildOsrPage({
     duration: duration ?? plan?.predicted_duration_seconds ?? inferDuration(edit),
     stampRow,
     lutCubeText,
+    layerLutCubeTexts,
   });
   return { ...page, warnings: prepared.warnings };
 }

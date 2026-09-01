@@ -82,6 +82,8 @@ assert.equal(results.lookIntensity.length, 3);
 assert.equal(results.lookIntensity.every(sample => sample.pass), true);
 assert.equal(results.lookIntensity.find(sample => sample.intensity === 0).baselineDifferingPixels, 0);
 assert.equal(results.lookStats.glErrors, 0);
+assert.equal(results.filterParity.length, 3);
+assert.equal(results.filterParity.every(sample => sample.pass), true);
 assert.equal(results.gopTail.rows.length, 9);
 assert.equal(results.gopTail.rows.every(row => row.pass), true);
 assert.equal(results.gopTail.rows.every(row => row.decodedFrameNumber === row.frameNumber), true);
@@ -143,4 +145,16 @@ assert.ok(results.matteStats.h264Decodes > 0);
 assert.equal(results.matteStats.glErrors, 0);
 assert.ok(Math.abs(results.encoded.durationSeconds - results.fixture.durationSeconds) <= 1 / 30);
 
-process.stdout.write(`golden PASS: ${results.parity.length} base + ${results.layerParity.length} layer + ${results.matteParity.length} matte + ${results.transitionParity.length} transition + ${results.lookParity.length} LUT parity frames, matte sync=${results.matteSync.frames - results.matteSync.mismatches}/${results.matteSync.frames}, negative differingPixels=${results.negative.differingPixels}, encoded distinct hashes=${results.encoded.distinctExtractedHashes}\n`);
+execFileSync(process.execPath, [resolve(goldenDirectory, 'filter-compare.mjs')], {
+  cwd: packageDirectory,
+  stdio: 'inherit',
+});
+const filterComparison = JSON.parse(readFileSync(resolve(generated, 'filter-compare.json'), 'utf8'));
+assert.equal(filterComparison.rows.length, 3);
+assert.equal(filterComparison.rows.every(row => row.mathMAD <= 1), true);
+assert.equal(filterComparison.rows.every(row => row.legacyMAD <= 8), true);
+assert.equal(filterComparison.rows.every(row => row.legacyDelta <= 2), true);
+assert.equal(filterComparison.rows.every(row => row.outsideDifferingPixels === 0), true);
+assert.equal(filterComparison.rows.every(row => row.firstSha256 === row.secondSha256), true);
+
+process.stdout.write(`golden PASS: ${results.parity.length} base + ${results.layerParity.length} layer + ${results.matteParity.length} matte + ${results.transitionParity.length} transition + ${results.lookParity.length} LUT + ${results.filterParity.length} region-filter parity frames, matte sync=${results.matteSync.frames - results.matteSync.mismatches}/${results.matteSync.frames}, negative differingPixels=${results.negative.differingPixels}, encoded distinct hashes=${results.encoded.distinctExtractedHashes}\n`);

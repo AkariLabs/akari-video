@@ -15,6 +15,36 @@ const edit = {
   overlays: [],
 };
 
+function regionFilterEdit(lutId) {
+  return {
+    version:2, output:{width:64,height:36,fps:30},
+    sources:[{id:'main',path:'assets/main.mp4'}],
+    tracks:[
+      { id:'v-main', lane:'visual', items:[{id:'cut',at:0,duration:30,source:{kind:'media',src:'main',in:0,out:1}}] },
+      { id:'v-filter', lane:'visual', items:[{id:'region',at:0,duration:30,source:{kind:'filter',filter:{type:'lut',id:lutId,intensity:.5}}}] },
+    ],
+  };
+}
+
+test('GPU page builder resolves region-filter LUT cube text into page config', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'gpu-filter-lut-'));
+  try {
+    await writeFile(join(projectRoot, 'edit.json'), JSON.stringify(regionFilterEdit('mono')));
+    const built = await loadAndBuildGpuPage({ projectRoot, duration:1 });
+    assert.equal(built.edit.layers[0].filter.type, 'lut');
+    assert.match(built.edit.layers[0].filter.cubeText, /LUT_3D_SIZE/u);
+    assert.match(built.html, /filter layer LUT|cubeText/u);
+  } finally { await rm(projectRoot, {recursive:true,force:true}); }
+});
+
+test('GPU page builder fails closed with the missing region-filter LUT id', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'gpu-filter-missing-'));
+  try {
+    await writeFile(join(projectRoot, 'edit.json'), JSON.stringify(regionFilterEdit('missing-region-lut')));
+    await assert.rejects(() => loadAndBuildGpuPage({ projectRoot, duration:1 }), /missing-region-lut/u);
+  } finally { await rm(projectRoot, {recursive:true,force:true}); }
+});
+
 test("GPU page omits the 3D sheet and exposes sprite/LUT declarations", () => {
   const overlays = [{ id: "static", start: 0, duration: 1, html: "<div>Static</div>", vars: {} }];
   const captions = [{ id: "c1", start: 0, end: 1, text: "Caption", time_domain: "output" }];

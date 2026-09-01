@@ -33,6 +33,7 @@ import edit from './edit.json';
 import layersEdit from './layers.edit.json';
 import matteEdit from './matte.edit.json';
 import transitionsEdit from './transitions.edit.json';
+import filterEdit from './filter.edit.json';
 
 interface GoldenBridge {
   fixtureUrl: string;
@@ -1509,7 +1510,8 @@ async function run(): Promise<void> {
       maxDeltaUs = Math.max(maxDeltaUs, delta);
       maxFrameLag = Math.max(maxFrameLag, Math.abs(colorLag), Math.abs(maskLag));
       if (colorLag !== 0 || maskLag !== 0) frameLagged = true;
-      if (delta !== 0 || pair.requestedUs !== plan.layers[0]?.sourceTimeUs) mismatches += 1;
+      const firstLayer = plan.layers[0];
+      if (delta !== 0 || firstLayer?.kind === 'filter' || pair.requestedUs !== firstLayer?.sourceTimeUs) mismatches += 1;
     }
     if (frameLagged) laggedFrames += 1;
     frame.close();
@@ -1557,6 +1559,9 @@ async function run(): Promise<void> {
     layerSources,
     output,
   );
+  const animatedLayer = animatedPlan.layers[0];
+  const screenLayer = screenPlan.layers[0];
+  const multiplyLayer = multiplyPlan.layers[0];
   const layerSemantic = {
     pass:
       boundaryBefore.layers.length === 3 &&
@@ -1565,15 +1570,15 @@ async function run(): Promise<void> {
       boundaryLayerPresent.differingPixels > 0 &&
       boundaryBare.differingPixels === 0 &&
       animatedPlan.layers.length === 1 &&
-      Math.abs(animatedPlan.layers[0]!.visual.transform.x - -2) < 1e-9 &&
-      screenPlan.layers[0]!.blend === 'screen' &&
-      multiplyPlan.layers[0]!.blend === 'multiply',
+      animatedLayer?.kind !== 'filter' && Math.abs(animatedLayer!.visual.transform.x - -2) < 1e-9 &&
+      screenLayer?.kind !== 'filter' && screenLayer!.blend === 'screen' &&
+      multiplyLayer?.kind !== 'filter' && multiplyLayer!.blend === 'multiply',
     boundaryBeforeCount: boundaryBefore.layers.length,
     boundaryAtCount: boundaryAt.layers.length,
     boundaryChangedPixels: boundaryChanged.differingPixels,
     boundaryLayerPresentPixels: boundaryLayerPresent.differingPixels,
     boundaryBareDifferingPixels: boundaryBare.differingPixels,
-    animatedVisual: animatedPlan.layers[0]?.visual,
+    animatedVisual: animatedLayer?.kind !== 'filter' ? animatedLayer?.visual : null,
   };
 
   const recreationCanvas = document.createElement('canvas');
@@ -1724,6 +1729,57 @@ async function run(): Promise<void> {
   const lookStats = {
     glErrors: compositor.stats.glErrors - lookGlErrorsBefore,
   };
+  const filterLayers = await Promise.all((filterEdit.layers as any[]).map(async layer => {
+    if (layer.filter?.type !== 'lut') return layer;
+    return {
+      ...layer,
+      filter: {
+        type: 'lut',
+        lut: parseCube(await window.goldenHarness.loadLut(layer.filter.id)),
+        intensity: layer.filter.intensity ?? 1,
+      },
+    };
+  }));
+  const filterTimeline = buildResolvedTimelinePlan(filterEdit.cuts as FrameEngineCut[], {
+    fps: FPS,
+    layers: filterLayers as FrameEngineLayer[],
+  });
+  const filterBareTimeline = buildResolvedTimelinePlan(filterEdit.cuts as FrameEngineCut[], { fps: FPS });
+  const filterParity: Array<Record<string, unknown>> = [];
+  const signedDistance = (corners: readonly (readonly [number, number])[], x: number, y: number) => {
+    const circular = [corners[0]!, corners[1]!, corners[3]!, corners[2]!]
+      .map(corner => [corner[0] * WIDTH, corner[1] * HEIGHT] as const);
+    return Math.min(...circular.map((a, index) => {
+      const b = circular[(index + 1) % circular.length]!;
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      return (dx * (y - a[1]) - dy * (x - a[0])) / Math.max(Math.hypot(dx, dy), 1e-9);
+    }));
+  };
+  for (const [id, timeUs] of [['invert', 1_250_000], ['saturation', 3_750_000], ['lut', 6_250_000]] as const) {
+    const plan = evaluationPlanFromResolvedTimeline(filterTimeline, timeUs, sources, output);
+    const barePlan = evaluationPlanFromResolvedTimeline(filterBareTimeline, timeUs, sources, output);
+    const first = await renderRgba(plan);
+    const bare = await renderRgba(barePlan);
+    const second = await renderRgba(plan);
+    const corners = plan.layers[0]?.kind === 'filter' ? plan.layers[0].corners : null;
+    if (!corners) throw new Error(`filter golden ${id} did not resolve a filter layer`);
+    let outsideDifferingPixels = 0;
+    for (let y = 0; y < HEIGHT; y += 1) for (let x = 0; x < WIDTH; x += 1) {
+      if (signedDistance(corners, x + 0.5, y + 0.5) >= -2) continue;
+      const offset = (y * WIDTH + x) * 4;
+      if (first.subarray(offset, offset + 4).some((value, channel) => value !== bare[offset + channel])) {
+        outsideDifferingPixels += 1;
+      }
+    }
+    const firstPng = await rgbaToPng(first);
+    const secondPng = await rgbaToPng(second);
+    const firstSha256 = await sha256(firstPng);
+    const secondSha256 = await sha256(secondPng);
+    await window.goldenHarness.writeArtifact(`filter/${id}.png`, firstPng);
+    await window.goldenHarness.writeArtifact(`filter/${id}-bare.png`, await rgbaToPng(bare));
+    filterParity.push({ id, timeUs, corners, outsideDifferingPixels, firstSha256, secondSha256,
+      pass: outsideDifferingPixels === 0 && firstSha256 === secondSha256 });
+  }
   const gopTail = await inspectGopTailGolden({
     baseUrl: SOURCE_URL,
     layerUrl: SOURCE_B_URL,
@@ -1910,6 +1966,7 @@ async function run(): Promise<void> {
     transitionStats.glErrors === 0 &&
     lookParity.pass &&
     lookStats.glErrors === 0 &&
+    filterParity.length === 3 && filterParity.every(row => row.pass === true) &&
     gopTail.pass &&
     bFrame.pass &&
     bFrameTail.pass &&
@@ -1972,6 +2029,7 @@ async function run(): Promise<void> {
     lookParity: lookParity.rows,
     lookIntensity: lookParity.intensityRows,
     lookStats,
+    filterParity,
     gopTail,
     bFrame,
     bFrameTail,

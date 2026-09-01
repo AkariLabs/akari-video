@@ -8,6 +8,15 @@ function evaluate(overlays, captions = [], extra = {}) {
   return evaluateGpuEligibility({ edit: { overlays, output: {} }, captions, ...extra });
 }
 
+test('region filter layers remain GPU eligible', () => {
+  const result = evaluateGpuEligibility({
+    edit: { output:{}, overlays:[], layers:[{ id:'region', kind:'filter', t:0, duration:1, filter:{type:'invert'} }] },
+    captions:[],
+  });
+  assert.equal(result.eligible, true);
+  assert.equal(result.summary.unsupported, 0);
+});
+
 test("static HTML is same and eligible", () => {
   const result = evaluate([{ id: "static", html: "<div>hello</div>" }]);
   assert.equal(result.eligible, true);

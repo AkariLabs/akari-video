@@ -224,7 +224,7 @@ test('total duration covers layers that outlast or replace the cuts (issue #31)'
   });
   assert.equal(outlasting.totalDuration, 2.5);
   const filterOnly = buildResolvedTimelinePlan([{ src: 'a.mp4', in: 0, out: 1 }], {
-    fps: 30, layers: [{ id: 'f', t: 0, duration: 5, kind: 'filter' }],
+    fps: 30, layers: [{ id: 'f', t: 0, duration: 5, kind: 'filter', filter: { type: 'invert' } }],
   });
-  assert.equal(filterOnly.totalDuration, 1);
+  assert.equal(filterOnly.totalDuration, 5);
 });

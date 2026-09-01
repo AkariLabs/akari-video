@@ -2,6 +2,7 @@ import { copyNativeYuvFrame } from './decode/native-yuv.js';
 import { DirectUploadFallbackError } from './compositor/webgl2.js';
 import type {
   CompositedFrame,
+  CompositorLayerInput,
   CompositorBackend,
   EvaluationPlan,
   FrameMetricsRecorder,
@@ -32,10 +33,10 @@ export async function evaluateFrame(
 ): Promise<CompositedFrame> {
   const decoded: VideoFrame[] = [];
   const baseFrames: Array<VideoFrame | StillImageBitmap> = [];
-  const layerFrames: Array<{
-    color: VideoFrame | StillImageBitmap;
-    mask?: VideoFrame | null;
-  }> = [];
+  const layerFrames: Array<
+    | { kind?: 'media'; color: VideoFrame | StillImageBitmap; mask?: VideoFrame | null }
+    | { kind: 'filter' }
+  > = [];
   const maskSync: Array<{
     layerId: string;
     colorTimestamp: number;
@@ -56,6 +57,10 @@ export async function evaluateFrame(
       baseFrames.push(frame);
     }
     for (const layer of plan.layers) {
+      if (layer.kind === 'filter') {
+        layerFrames.push({ kind: 'filter' });
+        continue;
+      }
       if (layer.kind === 'image') {
         if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
         layerFrames.push({ color: await layer.image.load() });
@@ -99,11 +104,12 @@ export async function evaluateFrame(
       if (path === 'direct') return { base: baseFrames, layers: layerFrames };
       const base: Array<NativeYuvFrame | StillImageBitmap | VideoFrame> = [];
       for (const frame of baseFrames) base.push('bitmap' in frame ? frame : await copyFrame(frame));
-      const layers: Array<{
-        color: NativeYuvFrame | StillImageBitmap | VideoFrame;
-        mask?: NativeYuvFrame | VideoFrame | null;
-      }> = [];
+      const layers: CompositorLayerInput[] = [];
       for (const input of layerFrames) {
+        if (input.kind === 'filter') {
+          layers.push(input);
+          continue;
+        }
         const color = 'bitmap' in input.color
           ? input.color
           : await copyFrame(input.color);

@@ -1,10 +1,12 @@
 import type {
   CompositorBackend,
+  CompositorLayerInput,
   EvaluationPlan,
   FrameMetricsRecorder,
   GPUFrameSurface,
   NativeYuvFrame,
   ResolvedCutVisual,
+  ResolvedFilterLayer,
   ResolvedLayerVisual,
   ResolvedTransition,
   StillImageBitmap,
@@ -596,6 +598,59 @@ void main() {
   vec3 lutted = texture(lut, coord).rgb;
   color = vec4(mix(src.rgb, lutted, lutIntensity), src.a);
 }`;
+const FILTER_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp sampler3D;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D backdrop;
+uniform sampler3D lut;
+uniform int filterType;
+uniform float value;
+uniform float lutIntensity;
+uniform vec3 lutDomainMin;
+uniform vec3 lutDomainMax;
+uniform float lutSize;
+uniform vec2 corners[4];
+uniform float opacity;
+uniform float edgePx;
+uniform vec2 outputSize;
+vec3 saturation709(vec3 rgb, float amount) {
+  float y = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+  float cb = (rgb.b - y) / 1.8556;
+  float cr = (rgb.r - y) / 1.5748;
+  cb *= amount;
+  cr *= amount;
+  return clamp(vec3(
+    y + 1.5748 * cr,
+    y - 0.187324 * cb - 0.468124 * cr,
+    y + 1.8556 * cb
+  ), 0.0, 1.0);
+}
+float edgeDistance(vec2 a, vec2 b, vec2 p) {
+  vec2 edge = b - a;
+  return (edge.x * (p.y - a.y) - edge.y * (p.x - a.x)) / max(length(edge), 0.000001);
+}
+void main() {
+  vec4 src = texture(backdrop, uv);
+  vec3 graded;
+  if (filterType == 0) {
+    graded = 1.0 - src.rgb;
+  } else if (filterType == 1) {
+    graded = saturation709(src.rgb, value);
+  } else {
+    vec3 unit = clamp((src.rgb - lutDomainMin) / (lutDomainMax - lutDomainMin), 0.0, 1.0);
+    vec3 coord = (unit * (lutSize - 1.0) + 0.5) / lutSize;
+    graded = mix(src.rgb, texture(lut, coord).rgb, lutIntensity);
+  }
+  vec2 p = vec2(uv.x, 1.0 - uv.y) * outputSize;
+  float distancePx = min(
+    min(edgeDistance(corners[0], corners[1], p), edgeDistance(corners[1], corners[3], p)),
+    min(edgeDistance(corners[3], corners[2], p), edgeDistance(corners[2], corners[0], p))
+  );
+  float mask = smoothstep(-edgePx * 0.5, edgePx * 0.5, distancePx);
+  color = vec4(mix(src.rgb, graded, mask * opacity), src.a);
+}`;
 
 const FBO_SCRATCH_UNIT = 9;
 const BASE_RGBA_UNITS = [6, 7] as const;
@@ -737,6 +792,7 @@ export class WebGL2Compositor implements CompositorBackend {
   private readonly gl: WebGL2RenderingContext;
   private readonly basePrograms = new Map<ResolvedTransition['type'], BaseProgramState>();
   private readonly layerProgram: WebGLProgram;
+  private readonly filterProgram: WebGLProgram;
   private readonly copyProgram: WebGLProgram;
   private readonly lookProgram: WebGLProgram;
   private readonly vertices: WebGLBuffer;
@@ -779,6 +835,7 @@ export class WebGL2Compositor implements CompositorBackend {
         `requires ${REQUIRED_TEXTURE_UNITS} texture units`;
     }
     this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
+    this.filterProgram = createProgram(gl, FILTER_FRAGMENT);
     this.copyProgram = createProgram(gl, COPY_FRAGMENT);
     this.lookProgram = createProgram(gl, LOOK_FRAGMENT);
     const vertices = gl.createBuffer();
@@ -792,6 +849,7 @@ export class WebGL2Compositor implements CompositorBackend {
     );
     for (const program of [
       this.layerProgram,
+      this.filterProgram,
       this.copyProgram,
       this.lookProgram,
     ]) {
@@ -859,6 +917,9 @@ export class WebGL2Compositor implements CompositorBackend {
     this.bind(5, this.layerTextures[3]!);
     this.bind(LAYER_RGBA_UNIT, this.layerRgbaTextures[0]!);
     this.bind(MASK_RGBA_UNIT, this.layerRgbaTextures[1]!);
+    gl.useProgram(this.filterProgram);
+    gl.uniform1i(uniform(gl, this.filterProgram, 'backdrop'), 0);
+    gl.uniform1i(uniform(gl, this.filterProgram, 'lut'), LUT_UNIT);
     gl.useProgram(this.copyProgram);
     gl.uniform1i(uniform(gl, this.copyProgram, 'source'), 0);
     gl.useProgram(this.lookProgram);
@@ -1293,10 +1354,7 @@ export class WebGL2Compositor implements CompositorBackend {
 
   async compose(
     base: readonly (NativeYuvFrame | StillImageBitmap | VideoFrame)[],
-    layers: readonly {
-      color: NativeYuvFrame | StillImageBitmap | VideoFrame;
-      mask?: NativeYuvFrame | VideoFrame | null;
-    }[],
+    layers: readonly CompositorLayerInput[],
     output: EvaluationPlan['output'],
     metrics: FrameMetricsRecorder,
     plan: EvaluationPlan,
@@ -1315,9 +1373,9 @@ export class WebGL2Compositor implements CompositorBackend {
       throw new Error('cannot compose an empty plan');
     const hasBlockedDirectInput = base.some(frame =>
       isVideoFrame(frame) && !isCopyToPassthroughVideoFormat(frame.format)) || layers.some(input =>
-      (isVideoFrame(input.color) && !isCopyToPassthroughVideoFormat(input.color.format))
+      input.kind !== 'filter' && ((isVideoFrame(input.color) && !isCopyToPassthroughVideoFormat(input.color.format))
       || Boolean(input.mask && isVideoFrame(input.mask)
-        && !isCopyToPassthroughVideoFormat(input.mask.format)));
+        && !isCopyToPassthroughVideoFormat(input.mask.format))));
     if (hasBlockedDirectInput && this.directUploadDisabled)
       this.failDirectUpload('direct upload is disabled for this session');
     if (this.canvas.width !== output.width) this.canvas.width = output.width;
@@ -1419,10 +1477,19 @@ export class WebGL2Compositor implements CompositorBackend {
     let current = 0;
     for (let index = 0; index < layers.length; index += 1) {
       const input = layers[index]!;
-      const color = input.color;
       const layer = plan.layers[index]!;
       const next = 1 - current;
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[next]!);
+      if (input.kind === 'filter') {
+        if (layer.kind !== 'filter') throw new Error(`filter input ${index} does not match plan layer`);
+        this.configureFilterDraw(layer, output, current);
+        draw();
+        this.recordGlErrors(synchronization);
+        current = next;
+        continue;
+      }
+      if (layer.kind === 'filter') throw new Error(`media input ${index} does not match filter plan layer`);
+      const color = input.color;
       gl.useProgram(this.layerProgram);
       this.bind(0, this.fboTextures[current]!);
       let width: number;
@@ -1536,6 +1603,43 @@ export class WebGL2Compositor implements CompositorBackend {
     );
   }
 
+  private configureFilterDraw(
+    layer: ResolvedFilterLayer,
+    output: EvaluationPlan['output'],
+    backdropIndex: number,
+  ): void {
+    const gl = this.gl;
+    gl.useProgram(this.filterProgram);
+    this.bind(0, this.fboTextures[backdropIndex]!);
+    const filterType = layer.filter.type === 'invert' ? 0 : layer.filter.type === 'saturation' ? 1 : 2;
+    gl.uniform1i(uniform(gl, this.filterProgram, 'filterType'), filterType);
+    gl.uniform1f(
+      uniform(gl, this.filterProgram, 'value'),
+      layer.filter.type === 'saturation' ? layer.filter.value : 1,
+    );
+    gl.uniform1f(uniform(gl, this.filterProgram, 'opacity'), layer.opacity);
+    gl.uniform1f(uniform(gl, this.filterProgram, 'edgePx'), 2);
+    gl.uniform2f(uniform(gl, this.filterProgram, 'outputSize'), output.width, output.height);
+    gl.uniform2fv(
+      uniform(gl, this.filterProgram, 'corners[0]'),
+      new Float32Array(layer.corners.flatMap(corner => [corner[0] * output.width, corner[1] * output.height])),
+    );
+    if (layer.filter.type === 'lut') {
+      const intensity = Math.max(0, Math.min(1,
+        Number.isFinite(layer.filter.intensity) ? Number(layer.filter.intensity) : 1));
+      this.bind3d(LUT_UNIT, this.lookTexture(layer.filter.lut));
+      gl.uniform3fv(uniform(gl, this.filterProgram, 'lutDomainMin'), layer.filter.lut.domainMin);
+      gl.uniform3fv(uniform(gl, this.filterProgram, 'lutDomainMax'), layer.filter.lut.domainMax);
+      gl.uniform1f(uniform(gl, this.filterProgram, 'lutSize'), layer.filter.lut.size);
+      gl.uniform1f(uniform(gl, this.filterProgram, 'lutIntensity'), intensity);
+    } else {
+      gl.uniform3f(uniform(gl, this.filterProgram, 'lutDomainMin'), 0, 0, 0);
+      gl.uniform3f(uniform(gl, this.filterProgram, 'lutDomainMax'), 1, 1, 1);
+      gl.uniform1f(uniform(gl, this.filterProgram, 'lutSize'), 2);
+      gl.uniform1f(uniform(gl, this.filterProgram, 'lutIntensity'), 0);
+    }
+  }
+
   private finishFrame(
     metrics: FrameMetricsRecorder,
     shaderSubmissionMs: number,
@@ -1593,6 +1697,7 @@ export class WebGL2Compositor implements CompositorBackend {
     this.basePrograms.clear();
     this.dissolveNoiseTextures.clear();
     this.gl.deleteProgram(this.layerProgram);
+    this.gl.deleteProgram(this.filterProgram);
     this.gl.deleteProgram(this.copyProgram);
     this.gl.deleteProgram(this.lookProgram);
   }
