@@ -36,6 +36,16 @@ export interface FrameEngineCut extends Omit<EditCut, 'transitionOut'> {
     keyframes?: readonly CutFramingKeyframe[];
   };
   freeze?: { at_sec: number; duration_sec: number } | null;
+  id?: string;
+  /**
+   * layer-style visual of a v2 media item (issue #39). edit-store's buildV2VisualItem projects
+   * items[].crop / perspective / keyframes onto the cut declaration; keyframes[].t is already in seconds
+   * and is read as **output-local seconds** (outputSeconds − placement.at — it keeps advancing while a
+   * freeze holds the picture, the same clock as the legacy trimmed stream `t`).
+   */
+  crop?: { x: number; y: number; w: number; h: number };
+  keyframes?: readonly LayerKeyframe[];
+  perspective?: { corners: readonly (readonly [number, number])[] };
 }
 
 export interface FrameEngineLayer {
@@ -111,6 +121,31 @@ function normalizeTransition(cut: FrameEngineCut): EditCut['transitionOut'] {
   return cut.transition_out ?? cut.transitionOut;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object';
+}
+
+function usableKeyframeCount(keyframes: FrameEngineCut['keyframes']): number {
+  return Array.isArray(keyframes)
+    ? keyframes.filter(point => Boolean(point) && typeof point === 'object' && Number.isFinite(point.t) && point.t >= 0).length
+    : 0;
+}
+
+/**
+ * issue #39: a cut declaring `crop`, `perspective`, or two or more usable keyframes is drawn with the
+ * layer-style geometry (natural source size × scale, crop window, box-centered rotate) — the same rule
+ * the shell preview (`cutHasLayerStyleVisual`) and legacy render-cut (`hasCutLayerStyleVisual`) use.
+ * transform / opacity alone keep the fit-basis path untouched.
+ */
+export function hasCutLayerStyleVisual(cut: Pick<FrameEngineCut, 'crop' | 'perspective' | 'keyframes'>): boolean {
+  return isRecord(cut.crop) || isRecord(cut.perspective) || usableKeyframeCount(cut.keyframes) >= 2;
+}
+
+function cutDeclaresPerspective(cut: FrameEngineCut): boolean {
+  return isRecord(cut.perspective) || (Array.isArray(cut.keyframes)
+    && cut.keyframes.some(point => Boolean(point) && typeof point === 'object' && isRecord(point.perspective)));
+}
+
 /**
  * Extends edit-store's resolved timeline with the non-linear freeze mapping.
  * The virtual source range expands the edit-store cursor before transitions are resolved;
@@ -160,6 +195,11 @@ export function buildResolvedTimelinePlan(
     warned.add(message);
     onWarning?.(message);
   };
+  // issue #39: perspective is out of scope for the base path; never drop it silently.
+  cuts.forEach((cut, index) => {
+    if (!cutDeclaresPerspective(cut)) return;
+    warn(`cut ${cut.id ?? `cut-${index}`}: perspective is not applied by the frame-engine base path yet (issue #39)`);
+  });
   const maskSources = new Map<string, string | null>();
   for (const layer of visibleLayers) {
     if (layer.kind === 'filter' || !layer.src || layer.mask !== undefined || maskSources.has(layer.src)) continue;
@@ -246,7 +286,44 @@ function interpolateFraming(
   };
 }
 
-function visualAt(cut: FrameEngineCut, playbackSeconds: number): ResolvedCutVisual {
+/**
+ * layer-style（issue #39）: keyframes を出力ローカル秒で評価し、宣言のある property だけ静的値
+ * （cut.crop / cut.transform / cut.opacity）へ上書きする。perspective は読まない（build 時に warn 済み）。
+ */
+function layerStyleVisualAt(cut: FrameEngineCut, localSeconds: number): ResolvedCutVisual {
+  const animated = computeLayerKeyframesVisual(cut.keyframes, localSeconds);
+  const staticCrop = cut.crop ?? { x: 0, y: 0, w: 1, h: 1 };
+  const crop = animated?.crop ?? {
+    x: finite(staticCrop.x, 0),
+    y: finite(staticCrop.y, 0),
+    width: finite(staticCrop.w, 1),
+    height: finite(staticCrop.h, 1)
+  };
+  const width = clamp(crop.width, Number.EPSILON, 1);
+  const height = clamp(crop.height, Number.EPSILON, 1);
+  const transform = animated?.transform ?? {
+    x: finite(cut.transform?.x, 0),
+    y: finite(cut.transform?.y, 0),
+    scale: finite(cut.transform?.scale, 1),
+    rotateDegrees: finite(cut.transform?.rotate, 0)
+  };
+  return {
+    framing: DEFAULT_VISUAL.framing,
+    transform: {
+      x: transform.x,
+      y: transform.y,
+      scale: Math.max(Number.EPSILON, transform.scale),
+      rotateDegrees: transform.rotateDegrees
+    },
+    opacity: clamp(animated?.opacity ?? finite(cut.opacity, 1), 0, 1),
+    layerStyle: {
+      crop: { x: clamp(crop.x, 0, 1 - width), y: clamp(crop.y, 0, 1 - height), width, height }
+    }
+  };
+}
+
+function visualAt(cut: FrameEngineCut, playbackSeconds: number, localSeconds: number): ResolvedCutVisual {
+  if (hasCutLayerStyleVisual(cut)) return layerStyleVisualAt(cut, localSeconds);
   let framing = DEFAULT_VISUAL.framing;
   const keyframes = cut.framing?.keyframes;
   if (keyframes && keyframes.length > 0) {
@@ -296,7 +373,10 @@ function layerFromPlacement(
   if (!cut.src) throw new Error(`resolved cut ${cutIndex} has no src`);
   const source = sources.get(cut.src);
   const playbackSeconds = playbackSecondsAt(placement, outputSeconds);
-  const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visualAt(cut, playbackSeconds));
+  // 出力ローカル秒: freeze で絵が止まっている間も進む（layer-style keyframes の時計）。
+  const localSeconds = Math.max(0, outputSeconds - placement.at);
+  const visual = visualAt(cut, playbackSeconds, localSeconds);
+  const image = stillImageBaseLayer(source, cut.src, `cut-${cutIndex}`, visual);
   if (image) return image;
   if (!source || !('decode' in source)) throw new Error(`no video frame source registered for ${cut.src}`);
   const speed = finite(cut.speed, 1) > 0 ? finite(cut.speed, 1) : 1;
@@ -304,7 +384,7 @@ function layerFromPlacement(
     id: `cut-${cutIndex}`,
     source,
     sourceTimeUs: Math.round((cut.in + playbackSeconds * speed) * 1e6),
-    visual: visualAt(cut, playbackSeconds)
+    visual
   };
 }
 
@@ -441,7 +521,7 @@ function resolvedCompositeLayers(
     const blend = BLENDS.has(layer.blend ?? 'normal') ? (layer.blend ?? 'normal') : 'normal';
     const common = {
       id, visual,
-      blend, opacity: clamp(finite(layer.opacity, 1), 0, 1)
+      blend, opacity: clamp(animated?.opacity ?? finite(layer.opacity, 1), 0, 1)
     };
     if (isStillImageSourcePath(layer.src)) {
       if (layer.mask || layer.kind === 'matte') timeline.warn(`mask ignored for still image layer ${id}`);

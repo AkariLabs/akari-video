@@ -75,6 +75,9 @@ updated: 2026-08-30
 - 参照形は `path`（プロジェクト相対）+ `count`（袋の中のその item の点数。lint が突き合わせる）。読み込み層は参照を解決して inline と同じ配列を消費者へ渡す（消費者は形を区別しない）
 - `<group-id>` = そのアイテムが属する**最も近いグループ**の id（段直下のアイテムは自分の id）。フォーカスモードの単位 = 袋の単位
 
+media item（cuts）での適用先 = frame-engine base 経路（2026-09-01・issue #39）: edit-store が cut へ投影した `crop` /
+`keyframes[]`（`transform` / `crop` / `opacity`）を GPU / OSR 書き出しが layer-style の幾何で評価する。`perspective` は未適用で warning。
+
 ## 3. `motion/<group-id>.json` 袋
 
 ```jsonc

@@ -167,6 +167,10 @@ interface CutUniforms {
   format: WebGLUniformLocation | null;
   sourceSize: WebGLUniformLocation | null;
   rotation: WebGLUniformLocation | null;
+  /** issue #39 layer-style cut: 1 = sample through crop / box instead of framing / fit. */
+  layerStyle: WebGLUniformLocation | null;
+  crop: WebGLUniformLocation | null;
+  box: WebGLUniformLocation | null;
 }
 
 interface BaseProgramState {
@@ -263,6 +267,12 @@ uniform vec2 sourceSize0;
 uniform vec2 sourceSize1;
 uniform int rotation0;
 uniform int rotation1;
+uniform int layerStyle0;
+uniform int layerStyle1;
+uniform vec4 crop0;
+uniform vec4 crop1;
+uniform vec2 box0;
+uniform vec2 box1;
 uniform float transitionProgress;
 ${type === 'dissolve' ? 'uniform sampler2D dissolveNoise;' : ''}
 ${YUV_GLSL}
@@ -273,6 +283,14 @@ vec2 inverseVisual(vec2 p, vec4 transform, vec4 framing) {
   pixel /= transform.z;
   vec2 local = pixel / outputSize + 0.5;
   return framing.xy + local * framing.zw;
+}
+// issue #39 layer-style cut: the inverse of the layer program's Translate(center + x/y) · Rot · B(box)
+// (forwardInverse without the corner pin), returning crop-local (u, v); box is crop × source × scale in px.
+vec2 inverseBox(vec2 p, vec4 transform, vec2 box) {
+  vec2 pixel = (p - 0.5) * outputSize - transform.xy;
+  float angle = transform.w;
+  pixel = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)) * pixel;
+  return pixel / box + 0.5;
 }
 vec2 canvasToSource(vec2 canvasPoint, vec2 sourceSize) {
   float fit = min(outputSize.x / sourceSize.x, outputSize.y / sourceSize.y);
@@ -287,20 +305,34 @@ vec2 unrotate(vec2 q, int rotation) {
   return vec2(q.y, 1.0 - q.x);
 }
 vec4 sample0(vec2 p) {
-  vec2 canvasPoint = inverseVisual(p, transform0, framing0);
-  if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
-  vec2 q = canvasToSource(canvasPoint, sourceSize0);
-  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  vec2 q;
+  if (layerStyle0 == 1) {
+    vec2 local = inverseBox(p, transform0, box0);
+    if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
+    q = crop0.xy + local * crop0.zw;
+  } else {
+    vec2 canvasPoint = inverseVisual(p, transform0, framing0);
+    if (canvasPoint.x < framing0.x || canvasPoint.x > framing0.x + framing0.z || canvasPoint.y < framing0.y || canvasPoint.y > framing0.y + framing0.w) return vec4(0.0);
+    q = canvasToSource(canvasPoint, sourceSize0);
+    if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  }
   q = unrotate(q, rotation0);
   if (format0 == 2) return vec4(texture(rgba0, q).rgb, opacity0);
   vec2 chroma = format0 == 1 ? texture(u0, q).rg : vec2(texture(u0, q).r, texture(v0, q).r);
   return vec4(yuv709(texture(y0, q).r, chroma), opacity0);
 }
 vec4 sample1(vec2 p) {
-  vec2 canvasPoint = inverseVisual(p, transform1, framing1);
-  if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
-  vec2 q = canvasToSource(canvasPoint, sourceSize1);
-  if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  vec2 q;
+  if (layerStyle1 == 1) {
+    vec2 local = inverseBox(p, transform1, box1);
+    if (local.x < 0.0 || local.x > 1.0 || local.y < 0.0 || local.y > 1.0) return vec4(0.0);
+    q = crop1.xy + local * crop1.zw;
+  } else {
+    vec2 canvasPoint = inverseVisual(p, transform1, framing1);
+    if (canvasPoint.x < framing1.x || canvasPoint.x > framing1.x + framing1.z || canvasPoint.y < framing1.y || canvasPoint.y > framing1.y + framing1.w) return vec4(0.0);
+    q = canvasToSource(canvasPoint, sourceSize1);
+    if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0) return vec4(0.0);
+  }
   q = unrotate(q, rotation1);
   if (format1 == 2) return vec4(texture(rgba1, q).rgb, opacity1);
   vec2 chroma = format1 == 1 ? texture(u1, q).rg : vec2(texture(u1, q).r, texture(v1, q).r);
@@ -707,7 +739,8 @@ function packLutRgba16f(lut: ParsedCubeLut): Uint16Array {
 // Translate(output center + x/y) · Rot(rotate) · B(post-crop pixel box) · H(corner pin).
 // The fragment shader owns output pixels, so it receives the inverse of that 3x3 and divides by
 // homogeneous w to recover crop-local (u,v), then expands that pair into source texture UVs.
-function forwardInverse(
+// Exported so the compositor contract test can compare the base path's layer-style mapping against it.
+export function forwardInverse(
   visual: ResolvedLayerVisual,
   srcW: number,
   srcH: number,
@@ -747,6 +780,51 @@ function forwardInverse(
     inv[5]!,
     inv[8]!,
   ]);
+}
+
+const FULL_CROP = Object.freeze({ x: 0, y: 0, width: 1, height: 1 });
+
+/**
+ * issue #39: pixel box of a layer-style cut — the same expression the layer program's forwardInverse
+ * uses (crop × source logical size × transform.scale). srcW / srcH are the display-rotated sizes.
+ */
+export function cutLayerStyleBox(
+  visual: ResolvedCutVisual,
+  srcW: number,
+  srcH: number,
+): { width: number; height: number } {
+  const crop = visual.layerStyle?.crop ?? FULL_CROP;
+  return {
+    width: crop.width * srcW * visual.transform.scale,
+    height: crop.height * srcH * visual.transform.scale,
+  };
+}
+
+/**
+ * JS mirror of the base shader's layer-style sampling (`inverseBox` followed by the crop expansion):
+ * output pixel (px, py) → normalized source UV, or null outside the box. The compositor contract test
+ * evaluates this against forwardInverse on identical inputs; keep the arithmetic in the same order.
+ */
+export function cutLayerStyleSourceUv(
+  visual: ResolvedCutVisual,
+  srcW: number,
+  srcH: number,
+  outW: number,
+  outH: number,
+  px: number,
+  py: number,
+): readonly [number, number] | null {
+  const crop = visual.layerStyle?.crop ?? FULL_CROP;
+  const box = cutLayerStyleBox(visual, srcW, srcH);
+  const dx = px - outW / 2 - visual.transform.x;
+  const dy = py - outH / 2 - visual.transform.y;
+  const angle = (visual.transform.rotateDegrees * Math.PI) / 180;
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const u = (c * dx + s * dy) / box.width + 0.5;
+  const v = (-s * dx + c * dy) / box.height + 0.5;
+  if (u < 0 || u > 1 || v < 0 || v > 1) return null;
+  return [crop.x + u * crop.width, crop.y + v * crop.height];
 }
 
 function rotationQuarterTurns(frame: NativeYuvFrame | VideoFrame): number {
@@ -947,6 +1025,9 @@ export class WebGL2Compositor implements CompositorBackend {
       format: gl.getUniformLocation(program, `format${index}`),
       sourceSize: gl.getUniformLocation(program, `sourceSize${index}`),
       rotation: gl.getUniformLocation(program, `rotation${index}`),
+      layerStyle: gl.getUniformLocation(program, `layerStyle${index}`),
+      crop: gl.getUniformLocation(program, `crop${index}`),
+      box: gl.getUniformLocation(program, `box${index}`),
     }));
     const state: BaseProgramState = {
       program,
@@ -1171,7 +1252,11 @@ export class WebGL2Compositor implements CompositorBackend {
     for (let i = 0; i < 3; i++) this.bind(unitBase + i, textures[i]!);
     return logical;
   }
-  private setCut(u: CutUniforms, v: ResolvedCutVisual) {
+  private setCut(
+    u: CutUniforms,
+    v: ResolvedCutVisual,
+    source: { width: number; height: number },
+  ) {
     this.gl.uniform4f(
       u.framing,
       v.framing.x,
@@ -1187,6 +1272,24 @@ export class WebGL2Compositor implements CompositorBackend {
       (v.transform.rotateDegrees * Math.PI) / 180,
     );
     this.gl.uniform1f(u.opacity, v.opacity);
+    // issue #39: layer-style cuts sample through crop / box (layer program geometry); others keep
+    // framing / fit untouched. The extra uniforms are inert when layerStyle is 0.
+    if (v.layerStyle) {
+      const box = cutLayerStyleBox(v, source.width, source.height);
+      this.gl.uniform1i(u.layerStyle, 1);
+      this.gl.uniform4f(
+        u.crop,
+        v.layerStyle.crop.x,
+        v.layerStyle.crop.y,
+        v.layerStyle.crop.width,
+        v.layerStyle.crop.height,
+      );
+      this.gl.uniform2f(u.box, Math.max(box.width, 1e-6), Math.max(box.height, 1e-6));
+    } else {
+      this.gl.uniform1i(u.layerStyle, 0);
+      this.gl.uniform4f(u.crop, 0, 0, 1, 1);
+      this.gl.uniform2f(u.box, 1, 1);
+    }
   }
   private ensureFbos(w: number, h: number) {
     const shape = `${w}x${h}`;
@@ -1259,7 +1362,7 @@ export class WebGL2Compositor implements CompositorBackend {
     value: StillImageBitmap,
     unit: number,
     uniforms?: CutUniforms,
-  ): void {
+  ): { width: number; height: number } {
     const texture = this.stillTexture(value);
     this.bind(unit, texture);
     if (uniforms) {
@@ -1267,6 +1370,7 @@ export class WebGL2Compositor implements CompositorBackend {
       this.gl.uniform2f(uniforms.sourceSize, value.width, value.height);
       this.gl.uniform1i(uniforms.rotation, 0);
     }
+    return { width: value.width, height: value.height };
   }
   private prepareBase(
     frames: readonly (NativeYuvFrame | StillImageBitmap | VideoFrame)[],
@@ -1278,18 +1382,20 @@ export class WebGL2Compositor implements CompositorBackend {
     gl.useProgram(baseProgram.program);
     gl.uniform2f(baseProgram.output, output.width, output.height);
     const started = performance.now();
+    // Logical (display-rotated) source sizes per slot: the layer-style box (issue #39) is crop × size × scale.
+    const sizes: { width: number; height: number }[] = [];
     frames.forEach((frame, index) => {
       if ('bitmap' in frame) {
-        this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[index]!, baseProgram.cutUniforms[index]);
+        sizes[index] = this.uploadStillBaseTexture(frame, BASE_RGBA_UNITS[index]!, baseProgram.cutUniforms[index]);
       } else if (isVideoFrame(frame)) {
-        this.uploadVideoFrameTexture(
+        sizes[index] = this.uploadVideoFrameTexture(
           this.baseRgbaTextures[index]!,
           BASE_RGBA_UNITS[index]!,
           frame,
           baseProgram.cutUniforms[index],
         );
       } else {
-        this.uploadYuv(
+        sizes[index] = this.uploadYuv(
           frame,
           this.baseTextures.slice(index * 3, index * 3 + 3),
           index * 3,
@@ -1328,10 +1434,10 @@ export class WebGL2Compositor implements CompositorBackend {
     }
     const elapsed = performance.now() - started;
     frames.forEach((_frame, index) =>
-      this.setCut(baseProgram.cutUniforms[index]!, plan.base[index]!.visual),
+      this.setCut(baseProgram.cutUniforms[index]!, plan.base[index]!.visual, sizes[index]!),
     );
     if (frames.length === 1)
-      this.setCut(baseProgram.cutUniforms[1]!, plan.base[0]!.visual);
+      this.setCut(baseProgram.cutUniforms[1]!, plan.base[0]!.visual, sizes[0]!);
     return elapsed;
   }
 
