@@ -23,6 +23,7 @@ description: edit.json と任意の analysis.json / captions.json / メディア
 8. **視認に使うキーフレーム静止画・QA 生成物、ad-hoc な一時検証スクリプトはプロジェクトルート
    直下に書かない**。前者は `.akari/reports/`、後者は `.akari/work/` へ置く
    （[project-structure-v0 契約](../../docs/contract-2026-07-25-project-structure-v0.md) §1）
+   `.akari/work/` では、使い捨てを `tmp/`、作り直せないものを `keep/` に分ける。
 
 ## 実行手順
 
