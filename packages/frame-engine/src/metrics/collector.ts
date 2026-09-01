@@ -35,6 +35,19 @@ const STAGES: readonly FrameMetricStage[] = [
   'ffmpegClose'
 ];
 
+// Math.max(...values) passes one argument per sample and overflows the stack past roughly 125k
+// arguments (measured on Node 22). record() appends once per frame per stage, so any export longer
+// than about 69 minutes at 30fps crosses that line -- and toJSON() runs after every frame is
+// already encoded, so the throw would discard a finished export at the last step. A loop has no
+// such ceiling. percentile's [...values] is an array spread, which is not argument-bound.
+function maxOf(values: readonly number[]): number {
+  let max = -Infinity;
+  for (const value of values) {
+    if (value > max) max = value;
+  }
+  return max;
+}
+
 function percentile(values: readonly number[], value: number): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((left, right) => left - right);
@@ -72,7 +85,7 @@ export class FrameMetrics implements FrameMetricsRecorder {
         count: values.length,
         p50Ms: percentile(values, 50),
         p95Ms: percentile(values, 95),
-        maxMs: values.length > 0 ? Math.max(...values) : null
+        maxMs: values.length > 0 ? maxOf(values) : null
       }];
       })),
       uploadPath: this.uploadPath,
