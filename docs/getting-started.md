@@ -358,6 +358,8 @@ Say **"I want to start a new video project"** in Agent chat, or point the agent 
 skill (for example `skills/edit-plan/SKILL.md`).
 
 Preview while editing: run `./akari.sh --preview` in a terminal and open http://localhost:4567.
+The desktop app can start the same server from its menu (Open → Browser preview); the URL is
+shown in the menu, and appending `?frameEngine=0` switches to the legacy view.
 
 ### D. From the app
 

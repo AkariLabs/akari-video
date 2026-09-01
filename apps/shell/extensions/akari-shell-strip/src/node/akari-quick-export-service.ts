@@ -1,7 +1,7 @@
 import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from 'child_process';
-import { existsSync, promises as fs } from 'fs';
+import { type ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { promises as fs } from 'fs';
 import { join, resolve } from 'path';
 import {
     AkariQuickExportService,
@@ -22,7 +22,8 @@ import {
     summarizeStderrTail
 } from '../common/quick-export-cli';
 import { estimateElapsedAndRemaining, latestQuickExportProgress } from '../common/quick-export-progress';
-import { bundledMediaBinCandidate, packagedCliCandidates } from './packaged-cli-candidates';
+import { packagedCliCandidates } from './packaged-cli-candidates';
+import { childNodeEnvironment, electronResourcesPath } from './child-node-process';
 
 const LOG_TAIL_MAX_CHARS = 4000;
 const EDIT_LINT_REPORT_RELATIVE_PATH = join('.akari', 'reports', 'edit-lint-report.html');
@@ -259,7 +260,7 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
 
     /** Electron が packaged 時のみ設定する `Contents/Resources`（開発起動では undefined）。 */
     protected resourcesPath(): string | undefined {
-        return (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+        return electronResourcesPath();
     }
 
     /**
@@ -285,48 +286,11 @@ export class AkariQuickExportServiceImpl implements AkariQuickExportService {
 
     /**
      * 子プロセス（edit-lint / render-cut。render-cut はさらに bake-layer を spawn する）へ渡す環境。
-     *
-     * `AKARI_FFMPEG_BIN` / `AKARI_FFPROBE_BIN` を明示的に載せるのが要点。Finder / Dock から
-     * 起動されたアプリの PATH は launchd 既定（`/usr/bin:/bin:/usr/sbin:/sbin`）で、
-     * Homebrew 等の ffmpeg は載っていない。packages/media-bin の探索順は
-     * 「明示指定 env → PATH → 同梱バイナリ」だが、同梱バイナリの置き場は
-     * `packages/media-bin/vendor/`（npm install の postinstall が作る開発配置）であって
-     * パッケージ版の `Contents/Resources/media-bin/` ではないため、env を渡さないと
-     * どの段にも当たらず `ffmpeg が見つかりませんでした` で書き出しが落ちる。
-     * 優先順位は media-bin / akari-partner-server の resolveMediaBinPath と同一。
+     * `AKARI_FFMPEG_BIN` / `AKARI_FFPROBE_BIN` を明示的に載せる理由と優先順位は
+     * child-node-process.ts（preview-server バックエンドと共有）のコメント参照。
      */
     protected childEnvironment(): NodeJS.ProcessEnv {
-        const env: NodeJS.ProcessEnv = { ...process.env, ELECTRON_RUN_AS_NODE: '1' };
-        for (const [name, variable] of [['ffmpeg', 'AKARI_FFMPEG_BIN'], ['ffprobe', 'AKARI_FFPROBE_BIN']] as const) {
-            const resolved = this.resolveMediaBinPath(name, variable);
-            if (resolved !== undefined) {
-                env[variable] = resolved;
-            }
-        }
-        return env;
-    }
-
-    protected resolveMediaBinPath(
-        name: 'ffmpeg' | 'ffprobe',
-        explicitEnvVariable: 'AKARI_FFMPEG_BIN' | 'AKARI_FFPROBE_BIN'
-    ): string | undefined {
-        const explicit = process.env[explicitEnvVariable];
-        if (explicit) {
-            return explicit;
-        }
-        if (this.canRunOnPath(name)) {
-            return name;
-        }
-        const bundled = bundledMediaBinCandidate(name, this.resourcesPath());
-        return bundled !== undefined && existsSync(bundled) ? bundled : undefined;
-    }
-
-    protected canRunOnPath(command: string): boolean {
-        try {
-            return spawnSync(command, ['-version'], { stdio: 'ignore' }).status === 0;
-        } catch {
-            return false;
-        }
+        return childNodeEnvironment(this.resourcesPath());
     }
 
     /**

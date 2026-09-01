@@ -219,6 +219,15 @@
         ]
       },
       {
+        "from": "../../packages/preview-server",
+        "to": "packages/preview-server",
+        "filter": [
+          "package.json",
+          "src/**/*",
+          "public/**/*"
+        ]
+      },
+      {
         "from": "resources/cli-node-modules",
         "to": "packages/node_modules"
       },
