@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // L1 fixture for the caption group drag lane.
-// Duplicates tasks/2026-08-31-issue-35-caption-anchor-bottom/fixture (2 cues +
+// Duplicates the internal issue-35 caption-anchor-bottom fixture (2026-08-31; 2 cues +
 // default_text_style = bc + position.y) onto a 4 s H.264 clip so the shell preview
 // runs its normal video path, and adds one HTML overlay that stands for a line that
 // was taken out of the caption group ("テロップに変換") for the regression check.

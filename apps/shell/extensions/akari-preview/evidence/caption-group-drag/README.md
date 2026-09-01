@@ -8,7 +8,7 @@ L1 = 実 Electron（production build）+ 生 CDP。`scripts/` はラッパーが
 ```sh
 # L1（shell 実機・39 検査）
 AKARI_REPO=<repo> \
-AKARI_FIXTURE=<internal>/tasks/2026-08-31-issue-35-caption-anchor-bottom/fixture \
+AKARI_FIXTURE=<internal issue-35 caption-anchor-bottom fixture dir> \
 AKARI_OUT=<out> AKARI_CDP_PORT=9656 \
 bash scripts/run-l1.sh after
 

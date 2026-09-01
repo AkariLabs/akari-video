@@ -1,6 +1,6 @@
 # タイムライン帯 keyed 差分化 性能検収ハーネス
 
-内部 lab `/Users/ryoma/_edit/30_products/akari-video-internal/lab/timeline-dom-vs-canvas-bench/scripts/` の `gen-fixture.mjs`、`measure-a.mjs`、`launch-shell.sh`、`cdp-lib.mjs` をコピーしたハーネスです。内部 lab は読み取り専用の原本として変更しません。
+内部リポ（`akari-video-internal`）の timeline-dom-vs-canvas-bench lab にある `gen-fixture.mjs`、`measure-a.mjs`、`launch-shell.sh`、`cdp-lib.mjs` をコピーしたハーネスです。内部 lab は読み取り専用の原本として変更しません。
 
 この worktree 向けに次の 5 点を変更しています。
 
@@ -15,7 +15,7 @@
 コマンドはこのディレクトリをカレントディレクトリにして実行します。N=200 と N=800 の fixture を用意したあと、起点 main のビルド成果物で BEFORE、本実装のビルド成果物で AFTER をそれぞれ 3 走ずつ計測します。
 
 ```sh
-cd /Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff
+cd "$(git rev-parse --show-toplevel)/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff"
 
 node scripts/gen-fixture.mjs --n=200
 node scripts/gen-fixture.mjs --n=800

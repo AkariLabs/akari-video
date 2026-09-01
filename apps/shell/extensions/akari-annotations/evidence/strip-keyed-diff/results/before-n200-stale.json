@@ -27,7 +27,7 @@
       "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.29 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
       "jsVersion": "14.2.231.22"
     },
-    "shell": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell",
+    "shell": "<worktree>/apps/shell",
     "selector": "#akari-annotations-widget .akari-annotations-strip",
     "frontendBundle": {
       "mtime": "2026-08-31T02:33:57.282Z",
@@ -1801,7 +1801,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-move input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-move input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   },
                   {
                     "run": 7,
@@ -2282,11 +2282,11 @@
             "operations": {
               "1": {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
               },
               "2": {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   308.3740234375,
                   887.39794921875,
@@ -2295,7 +2295,7 @@
               },
               "3": {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   308.3740234375,
                   887.39794921875,
@@ -2304,7 +2304,7 @@
               },
               "4": {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   308.3740234375,
                   887.39794921875,
@@ -2313,7 +2313,7 @@
               },
               "5": {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   308.3740234375,
                   887.39794921875,
@@ -2333,7 +2333,7 @@
                 548.07421875
               ]
             },
-            "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+            "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
             "cacheTimedOut": false
           },
           {
@@ -2348,11 +2348,11 @@
             "operations": {
               "1": {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
               },
               "2": {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   751.4326171875,
                   951.1201171875,
@@ -2361,7 +2361,7 @@
               },
               "3": {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   751.4326171875,
                   951.1201171875,
@@ -2370,7 +2370,7 @@
               },
               "4": {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   751.4326171875,
                   951.1201171875,
@@ -2379,7 +2379,7 @@
               },
               "5": {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   751.4326171875,
                   951.1201171875,
@@ -2399,7 +2399,7 @@
                 578.8212890625
               ]
             },
-            "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+            "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
             "cacheTimedOut": false
           }
         ],
@@ -2428,11 +2428,11 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
               },
               {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56"
               }
             ],
             "load": {
@@ -2991,7 +2991,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   308.3740234375,
                   887.39794921875,
@@ -3000,7 +3000,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   751.4326171875,
                   951.1201171875,
@@ -3577,7 +3577,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   308.3740234375,
                   887.39794921875,
@@ -3586,7 +3586,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   751.4326171875,
                   951.1201171875,
@@ -4301,7 +4301,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-move input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+                    "reason": "Error: drag-move input timed out after 2000ms\n    at Timeout._onTimeout (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:22:119)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
                   },
                   {
                     "run": 7,
@@ -4584,7 +4584,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   308.3740234375,
                   887.39794921875,
@@ -4593,7 +4593,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   751.4326171875,
                   951.1201171875,
@@ -4873,7 +4873,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   308.3740234375,
                   887.39794921875,
@@ -4882,7 +4882,7 @@
               },
               {
                 "status": "not-reached",
-                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-strip-keyed-diff/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
+                "reason": "Error: launch-shell failed: timeout 15000ms\n    at launch (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:51:25)\n    at async oneRun (file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:263:16)\n    at async file://<worktree>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:292:56",
                 "loadAverage": [
                   751.4326171875,
                   951.1201171875,

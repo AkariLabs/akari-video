@@ -7,9 +7,12 @@
 import { spawn, execSync } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { evalMain, realClick, connectMain, screenshot } from './cdp-lib.mjs';
 
-export const REPO = '/Users/ryoma/_edit/30_products/akari-video-wt/quick-export-one-click';
+// リポジトリ直下。このファイルは apps/shell/extensions/akari-shell-strip/evidence/quick-export-one-click/ にあるので
+// 6 階層上。ローカルの worktree 配置は書かず、AKARI_REPO か import.meta.url から導く。
+export const REPO = process.env.AKARI_REPO || fileURLToPath(new URL('../../../../../../', import.meta.url)).replace(/\/$/u, '');
 export const SHELL_APP = `${REPO}/apps/shell`;
 export const ELECTRON_BIN = `${REPO}/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron`;
 
