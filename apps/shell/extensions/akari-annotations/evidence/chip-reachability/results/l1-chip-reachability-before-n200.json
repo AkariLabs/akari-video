@@ -1,0 +1,352 @@
+{
+  "status": "completed-with-failures",
+  "label": "before",
+  "n": 200,
+  "startedAt": "2026-09-01T05:30:48.875Z",
+  "loadAverageAtStart": [
+    6.83984375,
+    65.17431640625,
+    78.1298828125
+  ],
+  "shell": null,
+  "build": {
+    "bundle": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/lib/frontend/bundle.js",
+    "bytes": 16036492,
+    "mtime": "2026-09-01T05:28:15.392Z"
+  },
+  "steps": [
+    {
+      "step": "00 タイムラインを開く（初回・縦スクロール未操作）",
+      "status": "ok",
+      "open": {
+        "attempts": 1,
+        "mountedItems": 200
+      },
+      "detail": {
+        "scrollTop": 0,
+        "scrollHeight": 4048,
+        "clientHeight": 322,
+        "overflowing": true,
+        "viewport": {
+          "x": 355.9,
+          "y": 778.1,
+          "w": 945,
+          "h": 321.9,
+          "bottom": 1100,
+          "right": 1300.9
+        },
+        "stripHeight": 4048,
+        "cutCount": 134,
+        "cutLaneTop": 1573.1,
+        "cutLaneBottom": 4795.1,
+        "cutLaneFullyVisible": false,
+        "cutChipsVisible": 0,
+        "bandCount": 6,
+        "bands": [
+          {
+            "lane": "v5",
+            "x": 356.9,
+            "y": 779.1,
+            "w": 933,
+            "h": 793,
+            "bottom": 1572.1,
+            "right": 1289.9
+          },
+          {
+            "lane": "v4",
+            "x": 356.9,
+            "y": 1573.1,
+            "w": 933,
+            "h": 793,
+            "bottom": 2366.1,
+            "right": 1289.9
+          },
+          {
+            "lane": "v3",
+            "x": 356.9,
+            "y": 2367.1,
+            "w": 933,
+            "h": 793,
+            "bottom": 3160.1,
+            "right": 1289.9
+          },
+          {
+            "lane": "v2",
+            "x": 356.9,
+            "y": 3161.1,
+            "w": 933,
+            "h": 817,
+            "bottom": 3978.1,
+            "right": 1289.9
+          },
+          {
+            "lane": "v1",
+            "x": 356.9,
+            "y": 3979.1,
+            "w": 933,
+            "h": 817,
+            "bottom": 4796.1,
+            "right": 1289.9
+          },
+          {
+            "lane": "a1",
+            "x": 356.9,
+            "y": 4797.1,
+            "w": 933,
+            "h": 29,
+            "bottom": 4826.1,
+            "right": 1289.9
+          }
+        ]
+      },
+      "elapsedMs": 14467
+    },
+    {
+      "step": "01 実効当たり幅を走査（elementFromPoint 0.5px 刻み）",
+      "status": "ok",
+      "sample": [],
+      "detail": {
+        "scanned": 0,
+        "centerOwned": 0,
+        "centerMissed": 0,
+        "cssWidthMin": null,
+        "cssWidthMedian": null,
+        "hitWidthMin": null,
+        "hitWidthMedian": null,
+        "hitWidthMax": null,
+        "atLeast8px": 0,
+        "below8px": 0
+      },
+      "elapsedMs": 2
+    },
+    {
+      "step": "02 隣接チップの掴み分け（中点規約）",
+      "status": "ok",
+      "detail": {
+        "total": 0,
+        "violations": 0,
+        "sample": [],
+        "badSample": []
+      },
+      "elapsedMs": 0
+    },
+    {
+      "step": "03 当たり領域のゾーン幅（左トリム / 移動 / 右トリム）",
+      "status": "ok",
+      "scans": [],
+      "detail": {
+        "chips": 0,
+        "moveZoneMin": null,
+        "trimLeftMin": null,
+        "trimRightMin": null,
+        "scans": []
+      },
+      "elapsedMs": 0
+    },
+    {
+      "step": "04 チップ中央から CDP 実ドラッグ（全体表示のまま）",
+      "status": "failed",
+      "reason": "Error: no cut chip to drag\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:348:26\n    at step (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:49:26)\n    at main (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:335:11)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:525:1",
+      "elapsedMs": 0
+    },
+    {
+      "step": "04b 中心から ±2px / ±4px の押下点で move / trim / 無反応を実測",
+      "status": "ok",
+      "results": [],
+      "detail": {
+        "probes": 0,
+        "moved": 0,
+        "results": []
+      },
+      "elapsedMs": 1
+    },
+    {
+      "step": "05 右トリムハンドルを掴んで実トリム（拡張チップ）",
+      "status": "failed",
+      "reason": "Error: no chip to trim\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:414:21\n    at async step (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:49:20)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:411:5)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:525:1",
+      "elapsedMs": 1
+    },
+    {
+      "step": "05b 回帰: 通常幅チップ（ズームイン）の右トリム",
+      "status": "ok",
+      "widest": [],
+      "skipped": true,
+      "detail": {
+        "skipped": true,
+        "reason": "no chip wider than 24px after zoom",
+        "widest": []
+      },
+      "elapsedMs": 3449
+    },
+    {
+      "step": "06 回帰: 細いチップの右クリックメニュー",
+      "status": "failed",
+      "reason": "Error: no chip for contextmenu\n    at file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:468:21\n    at async step (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:49:20)\n    at async main (file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:465:5)\n    at async file:///Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/extensions/akari-annotations/evidence/chip-reachability/scripts/l1-chip-reachability.mjs:525:1",
+      "elapsedMs": 1
+    },
+    {
+      "step": "07 回帰: 空き点の判定とマーキー開始",
+      "status": "ok",
+      "plan": {
+        "empty": false
+      },
+      "detail": {
+        "marqueeStarted": false,
+        "plan": {
+          "empty": false
+        }
+      },
+      "elapsedMs": 2
+    },
+    {
+      "step": "08 回帰: 手動縦スクロールの保持（パン往復後）",
+      "status": "ok",
+      "centre": {
+        "x": 828.4140625,
+        "y": 928.046875
+      },
+      "detail": {
+        "scrollTopSet": 60,
+        "scrollTopAfterSet": 60,
+        "scrollTopMidPan": 60,
+        "scrollTopAfterPan": 60,
+        "preserved": true
+      },
+      "elapsedMs": 2800
+    },
+    {
+      "step": "09 data-akari-* 属性集合",
+      "status": "ok",
+      "detail": {
+        "count": 15
+      },
+      "elapsedMs": 2
+    }
+  ],
+  "notes": [],
+  "electronPid": 38589,
+  "openGeometry": {
+    "scrollTop": 0,
+    "scrollHeight": 4048,
+    "clientHeight": 322,
+    "overflowing": true,
+    "viewport": {
+      "x": 355.9,
+      "y": 778.1,
+      "w": 945,
+      "h": 321.9,
+      "bottom": 1100,
+      "right": 1300.9
+    },
+    "stripHeight": 4048,
+    "cutCount": 134,
+    "cutLaneTop": 1573.1,
+    "cutLaneBottom": 4795.1,
+    "cutLaneFullyVisible": false,
+    "cutChipsVisible": 0,
+    "bandCount": 6,
+    "bands": [
+      {
+        "lane": "v5",
+        "x": 356.9,
+        "y": 779.1,
+        "w": 933,
+        "h": 793,
+        "bottom": 1572.1,
+        "right": 1289.9
+      },
+      {
+        "lane": "v4",
+        "x": 356.9,
+        "y": 1573.1,
+        "w": 933,
+        "h": 793,
+        "bottom": 2366.1,
+        "right": 1289.9
+      },
+      {
+        "lane": "v3",
+        "x": 356.9,
+        "y": 2367.1,
+        "w": 933,
+        "h": 793,
+        "bottom": 3160.1,
+        "right": 1289.9
+      },
+      {
+        "lane": "v2",
+        "x": 356.9,
+        "y": 3161.1,
+        "w": 933,
+        "h": 817,
+        "bottom": 3978.1,
+        "right": 1289.9
+      },
+      {
+        "lane": "v1",
+        "x": 356.9,
+        "y": 3979.1,
+        "w": 933,
+        "h": 817,
+        "bottom": 4796.1,
+        "right": 1289.9
+      },
+      {
+        "lane": "a1",
+        "x": 356.9,
+        "y": 4797.1,
+        "w": 933,
+        "h": 29,
+        "bottom": 4826.1,
+        "right": 1289.9
+      }
+    ]
+  },
+  "attrSetAtOpen": [
+    "data-akari-item-id",
+    "data-akari-item-kind",
+    "data-akari-kind",
+    "data-akari-lane",
+    "data-akari-notice-close",
+    "data-akari-notice-text",
+    "data-akari-source-id",
+    "data-akari-timeline-notice",
+    "data-akari-timeline-track-id",
+    "data-akari-track",
+    "data-akari-tree-row-id",
+    "data-akari-tree-toggle",
+    "data-akari-tree-track",
+    "data-akari-ui",
+    "data-akari-ui-label"
+  ],
+  "hitRows": [],
+  "midpointPairs": {
+    "total": 0,
+    "violations": 0,
+    "sample": [],
+    "badSample": []
+  },
+  "attrSet": [
+    "data-akari-item-id",
+    "data-akari-item-kind",
+    "data-akari-kind",
+    "data-akari-lane",
+    "data-akari-notice-close",
+    "data-akari-notice-text",
+    "data-akari-source-id",
+    "data-akari-timeline-notice",
+    "data-akari-timeline-track-id",
+    "data-akari-track",
+    "data-akari-tree-row-id",
+    "data-akari-tree-toggle",
+    "data-akari-tree-track",
+    "data-akari-ui",
+    "data-akari-ui-label"
+  ],
+  "finishedAt": "2026-09-01T05:31:11.327Z",
+  "loadAverageAtEnd": [
+    6.03173828125,
+    61.21142578125,
+    76.40625
+  ]
+}

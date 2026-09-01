@@ -1,0 +1,1550 @@
+{
+  "status": "completed",
+  "label": "after",
+  "n": 200,
+  "startedAt": "2026-09-01T05:23:27.907Z",
+  "loadAverageAtStart": [
+    3.97265625,
+    48.54541015625,
+    62.71875
+  ],
+  "shell": null,
+  "build": {
+    "bundle": "/Users/ryoma/_edit/30_products/akari-video-wt/timeline-chip-reachability/apps/shell/lib/frontend/bundle.js",
+    "bytes": 16039872,
+    "mtime": "2026-09-01T04:50:00.009Z"
+  },
+  "steps": [
+    {
+      "step": "00 タイムラインを開く（初回・縦スクロール未操作）",
+      "status": "ok",
+      "open": {
+        "attempts": 1,
+        "mountedItems": 200
+      },
+      "detail": {
+        "scrollTop": 794,
+        "scrollHeight": 4048,
+        "clientHeight": 322,
+        "overflowing": true,
+        "viewport": {
+          "x": 355.9,
+          "y": 778.1,
+          "w": 945,
+          "h": 321.9,
+          "bottom": 1100,
+          "right": 1300.9
+        },
+        "stripHeight": 4048,
+        "cutCount": 134,
+        "cutLaneTop": 779.1,
+        "cutLaneBottom": 4001.1,
+        "cutLaneFullyVisible": false,
+        "cutChipsVisible": 33,
+        "bandCount": 6,
+        "bands": [
+          {
+            "lane": "v5",
+            "x": 356.9,
+            "y": -14.9,
+            "w": 933,
+            "h": 793,
+            "bottom": 778.1,
+            "right": 1289.9
+          },
+          {
+            "lane": "v4",
+            "x": 356.9,
+            "y": 779.1,
+            "w": 933,
+            "h": 793,
+            "bottom": 1572.1,
+            "right": 1289.9
+          },
+          {
+            "lane": "v3",
+            "x": 356.9,
+            "y": 1573.1,
+            "w": 933,
+            "h": 793,
+            "bottom": 2366.1,
+            "right": 1289.9
+          },
+          {
+            "lane": "v2",
+            "x": 356.9,
+            "y": 2367.1,
+            "w": 933,
+            "h": 817,
+            "bottom": 3184.1,
+            "right": 1289.9
+          },
+          {
+            "lane": "v1",
+            "x": 356.9,
+            "y": 3185.1,
+            "w": 933,
+            "h": 817,
+            "bottom": 4002.1,
+            "right": 1289.9
+          },
+          {
+            "lane": "a1",
+            "x": 356.9,
+            "y": 4003.1,
+            "w": 933,
+            "h": 29,
+            "bottom": 4032.1,
+            "right": 1289.9
+          }
+        ]
+      },
+      "elapsedMs": 14442
+    },
+    {
+      "step": "01 実効当たり幅を走査（elementFromPoint 0.5px 刻み）",
+      "status": "ok",
+      "sample": [
+        {
+          "id": "101",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 12.66,
+          "left": 356.91,
+          "right": 369.57,
+          "y": 939.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "centerOwned": true,
+          "hitLeft": 356.74,
+          "hitRight": 372.74,
+          "hitWidth": 16
+        },
+        {
+          "id": "102",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 12.66,
+          "left": 382.23,
+          "right": 394.88,
+          "y": 939.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "centerOwned": true,
+          "hitLeft": 377.55,
+          "hitRight": 398.05,
+          "hitWidth": 20.5
+        },
+        {
+          "id": "103",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 12.66,
+          "left": 407.55,
+          "right": 420.2,
+          "y": 939.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "centerOwned": true,
+          "hitLeft": 402.88,
+          "hitRight": 423.38,
+          "hitWidth": 20.5
+        },
+        {
+          "id": "104",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 12.66,
+          "left": 432.87,
+          "right": 445.52,
+          "y": 939.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "centerOwned": true,
+          "hitLeft": 428.2,
+          "hitRight": 448.7,
+          "hitWidth": 20.5
+        },
+        {
+          "id": "105",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 12.66,
+          "left": 458.19,
+          "right": 470.84,
+          "y": 939.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "centerOwned": true,
+          "hitLeft": 453.52,
+          "hitRight": 474.02,
+          "hitWidth": 20.5
+        },
+        {
+          "id": "106",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 12.66,
+          "left": 483.51,
+          "right": 496.16,
+          "y": 939.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "centerOwned": true,
+          "hitLeft": 478.84,
+          "hitRight": 499.34,
+          "hitWidth": 20.5
+        },
+        {
+          "id": "107",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 12.66,
+          "left": 508.82,
+          "right": 521.48,
+          "y": 939.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "centerOwned": true,
+          "hitLeft": 504.15,
+          "hitRight": 524.65,
+          "hitWidth": 20.5
+        },
+        {
+          "id": "108",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 12.66,
+          "left": 534.14,
+          "right": 546.8,
+          "y": 939.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "centerOwned": true,
+          "hitLeft": 529.47,
+          "hitRight": 549.97,
+          "hitWidth": 20.5
+        }
+      ],
+      "detail": {
+        "scanned": 33,
+        "centerOwned": 33,
+        "centerMissed": 0,
+        "cssWidthMin": 12.66,
+        "cssWidthMedian": 12.66,
+        "hitWidthMin": 16,
+        "hitWidthMedian": 20.5,
+        "hitWidthMax": 20.5,
+        "atLeast8px": 33,
+        "below8px": 0
+      },
+      "elapsedMs": 93
+    },
+    {
+      "step": "02 隣接チップの掴み分け（中点規約）",
+      "status": "ok",
+      "detail": {
+        "total": 32,
+        "violations": 0,
+        "sample": [
+          {
+            "left": "101",
+            "right": "102",
+            "gap": 12.66,
+            "midpoint": 375.9,
+            "leftHitRight": 372.74,
+            "rightHitLeft": 377.55,
+            "disjoint": true,
+            "leftStopsAtMidpoint": true,
+            "rightStartsAtMidpoint": true
+          },
+          {
+            "left": "102",
+            "right": "103",
+            "gap": 12.67,
+            "midpoint": 401.22,
+            "leftHitRight": 398.05,
+            "rightHitLeft": 402.88,
+            "disjoint": true,
+            "leftStopsAtMidpoint": true,
+            "rightStartsAtMidpoint": true
+          },
+          {
+            "left": "103",
+            "right": "104",
+            "gap": 12.67,
+            "midpoint": 426.53,
+            "leftHitRight": 423.38,
+            "rightHitLeft": 428.2,
+            "disjoint": true,
+            "leftStopsAtMidpoint": true,
+            "rightStartsAtMidpoint": true
+          },
+          {
+            "left": "104",
+            "right": "105",
+            "gap": 12.67,
+            "midpoint": 451.86,
+            "leftHitRight": 448.7,
+            "rightHitLeft": 453.52,
+            "disjoint": true,
+            "leftStopsAtMidpoint": true,
+            "rightStartsAtMidpoint": true
+          },
+          {
+            "left": "105",
+            "right": "106",
+            "gap": 12.67,
+            "midpoint": 477.17,
+            "leftHitRight": 474.02,
+            "rightHitLeft": 478.84,
+            "disjoint": true,
+            "leftStopsAtMidpoint": true,
+            "rightStartsAtMidpoint": true
+          }
+        ],
+        "badSample": []
+      },
+      "elapsedMs": 0
+    },
+    {
+      "step": "03 当たり領域のゾーン幅（左トリム / 移動 / 右トリム）",
+      "status": "ok",
+      "scans": [
+        {
+          "id": "101",
+          "cssWidth": 12.66,
+          "hitWidth": 16,
+          "ownedWidth": 16.5,
+          "moveZoneWidth": 10,
+          "trimLeftWidth": 2,
+          "trimRightWidth": 4.5,
+          "cursorsSeen": [
+            "ew-resize",
+            "default"
+          ]
+        },
+        {
+          "id": "117",
+          "cssWidth": 12.66,
+          "hitWidth": 20.5,
+          "ownedWidth": 21,
+          "moveZoneWidth": 10,
+          "trimLeftWidth": 6.5,
+          "trimRightWidth": 4.5,
+          "cursorsSeen": [
+            "ew-resize",
+            "default"
+          ]
+        },
+        {
+          "id": "133",
+          "cssWidth": 12.66,
+          "hitWidth": 20.5,
+          "ownedWidth": 21,
+          "moveZoneWidth": 10,
+          "trimLeftWidth": 6,
+          "trimRightWidth": 5,
+          "cursorsSeen": [
+            "ew-resize",
+            "default"
+          ]
+        }
+      ],
+      "detail": {
+        "chips": 3,
+        "moveZoneMin": 10,
+        "trimLeftMin": 2,
+        "trimRightMin": 4.5,
+        "scans": [
+          {
+            "id": "101",
+            "cssWidth": 12.66,
+            "hitWidth": 16,
+            "ownedWidth": 16.5,
+            "moveZoneWidth": 10,
+            "trimLeftWidth": 2,
+            "trimRightWidth": 4.5,
+            "cursorsSeen": [
+              "ew-resize",
+              "default"
+            ]
+          },
+          {
+            "id": "117",
+            "cssWidth": 12.66,
+            "hitWidth": 20.5,
+            "ownedWidth": 21,
+            "moveZoneWidth": 10,
+            "trimLeftWidth": 6.5,
+            "trimRightWidth": 4.5,
+            "cursorsSeen": [
+              "ew-resize",
+              "default"
+            ]
+          },
+          {
+            "id": "133",
+            "cssWidth": 12.66,
+            "hitWidth": 20.5,
+            "ownedWidth": 21,
+            "moveZoneWidth": 10,
+            "trimLeftWidth": 6,
+            "trimRightWidth": 5,
+            "cursorsSeen": [
+              "ew-resize",
+              "default"
+            ]
+          }
+        ]
+      },
+      "elapsedMs": 10091
+    },
+    {
+      "step": "04 チップ中央から CDP 実ドラッグ（全体表示のまま）",
+      "status": "ok",
+      "target": {
+        "id": "115",
+        "lane": "v4",
+        "row": "794px",
+        "cssWidth": 12.66,
+        "left": 711.38,
+        "right": 724.03,
+        "y": 939.5,
+        "padLeft": 5.67,
+        "padRight": 5.67,
+        "centerOwned": true,
+        "hitLeft": 706.7,
+        "hitRight": 727.2,
+        "hitWidth": 20.5,
+        "gap": 12.670000000000073
+      },
+      "attempts": [
+        {
+          "dx": 13,
+          "wrote": {
+            "changed": true,
+            "bytes": 26409
+          }
+        }
+      ],
+      "detail": {
+        "target": {
+          "id": "115",
+          "cssWidth": 12.66,
+          "hitWidth": 20.5,
+          "gap": 12.670000000000073
+        },
+        "attempts": [
+          {
+            "dx": 13,
+            "wrote": {
+              "changed": true,
+              "bytes": 26409
+            }
+          }
+        ],
+        "changedItems": 1,
+        "changed": [
+          {
+            "key": "v4/item-0088",
+            "fields": [
+              "at"
+            ],
+            "before": {
+              "at": 1680
+            },
+            "after": {
+              "at": 1740
+            }
+          }
+        ],
+        "movedByAt": true,
+        "trimmedInstead": false
+      },
+      "elapsedMs": 901
+    },
+    {
+      "step": "04b 中心から ±2px / ±4px の押下点で move / trim / 無反応を実測",
+      "status": "ok",
+      "results": [
+        {
+          "offset": -4,
+          "dx": 7,
+          "chip": "106",
+          "selectionBefore": 0,
+          "cssWidth": 12.66,
+          "hitWidth": 20.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "expandedChipsInView": 33,
+          "chipsInView": 33,
+          "pressOwnedBy": "106",
+          "cursor": "default",
+          "wrote": false,
+          "outcome": "moved",
+          "changed": [
+            {
+              "key": "v4/item-0034",
+              "fields": [
+                "at"
+              ],
+              "before": {
+                "at": 600
+              },
+              "after": {
+                "at": 660
+              }
+            }
+          ]
+        },
+        {
+          "offset": -2,
+          "dx": 7,
+          "chip": "109",
+          "selectionBefore": 0,
+          "cssWidth": 12.66,
+          "hitWidth": 20.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "expandedChipsInView": 33,
+          "chipsInView": 33,
+          "pressOwnedBy": "109",
+          "cursor": "default",
+          "wrote": false,
+          "outcome": "none",
+          "changed": []
+        },
+        {
+          "offset": 2,
+          "dx": 7,
+          "chip": "112",
+          "selectionBefore": 0,
+          "cssWidth": 12.66,
+          "hitWidth": 20.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "expandedChipsInView": 33,
+          "chipsInView": 33,
+          "pressOwnedBy": "112",
+          "cursor": "default",
+          "wrote": false,
+          "outcome": "none",
+          "changed": []
+        },
+        {
+          "offset": 4,
+          "dx": 7,
+          "chip": "115",
+          "selectionBefore": 0,
+          "cssWidth": 12.66,
+          "hitWidth": 20.5,
+          "padLeft": 5.67,
+          "padRight": 5.67,
+          "expandedChipsInView": 33,
+          "chipsInView": 33,
+          "pressOwnedBy": "115",
+          "cursor": "default",
+          "wrote": false,
+          "outcome": "none",
+          "changed": []
+        }
+      ],
+      "detail": {
+        "probes": 4,
+        "moved": 1,
+        "results": [
+          {
+            "offset": -4,
+            "dx": 7,
+            "chip": "106",
+            "selectionBefore": 0,
+            "cssWidth": 12.66,
+            "hitWidth": 20.5,
+            "padLeft": 5.67,
+            "padRight": 5.67,
+            "expandedChipsInView": 33,
+            "chipsInView": 33,
+            "pressOwnedBy": "106",
+            "cursor": "default",
+            "wrote": false,
+            "outcome": "moved",
+            "changed": [
+              {
+                "key": "v4/item-0034",
+                "fields": [
+                  "at"
+                ],
+                "before": {
+                  "at": 600
+                },
+                "after": {
+                  "at": 660
+                }
+              }
+            ]
+          },
+          {
+            "offset": -2,
+            "dx": 7,
+            "chip": "109",
+            "selectionBefore": 0,
+            "cssWidth": 12.66,
+            "hitWidth": 20.5,
+            "padLeft": 5.67,
+            "padRight": 5.67,
+            "expandedChipsInView": 33,
+            "chipsInView": 33,
+            "pressOwnedBy": "109",
+            "cursor": "default",
+            "wrote": false,
+            "outcome": "none",
+            "changed": []
+          },
+          {
+            "offset": 2,
+            "dx": 7,
+            "chip": "112",
+            "selectionBefore": 0,
+            "cssWidth": 12.66,
+            "hitWidth": 20.5,
+            "padLeft": 5.67,
+            "padRight": 5.67,
+            "expandedChipsInView": 33,
+            "chipsInView": 33,
+            "pressOwnedBy": "112",
+            "cursor": "default",
+            "wrote": false,
+            "outcome": "none",
+            "changed": []
+          },
+          {
+            "offset": 4,
+            "dx": 7,
+            "chip": "115",
+            "selectionBefore": 0,
+            "cssWidth": 12.66,
+            "hitWidth": 20.5,
+            "padLeft": 5.67,
+            "padRight": 5.67,
+            "expandedChipsInView": 33,
+            "chipsInView": 33,
+            "pressOwnedBy": "115",
+            "cursor": "default",
+            "wrote": false,
+            "outcome": "none",
+            "changed": []
+          }
+        ]
+      },
+      "elapsedMs": 38017
+    },
+    {
+      "step": "05 右トリムハンドルを掴んで実トリム（拡張チップ）",
+      "status": "ok",
+      "target": {
+        "id": "102",
+        "lane": "v4",
+        "row": "794px",
+        "cssWidth": 12.66,
+        "left": 382.23,
+        "right": 394.88,
+        "y": 939.5,
+        "padLeft": 5.67,
+        "padRight": 5.67,
+        "centerOwned": true,
+        "hitLeft": 377.55,
+        "hitRight": 398.05,
+        "hitWidth": 20.5
+      },
+      "detail": {
+        "target": {
+          "id": "102",
+          "cssWidth": 12.66,
+          "hitWidth": 20.5,
+          "hitRight": 398.05
+        },
+        "cursorAtHandle": {
+          "cursor": "ew-resize",
+          "id": "102"
+        },
+        "handleReachableOutsideChipBox": true,
+        "attempts": [
+          {
+            "dx": -3,
+            "wrote": false
+          },
+          {
+            "dx": -6,
+            "wrote": false
+          },
+          {
+            "dx": -12,
+            "wrote": false
+          }
+        ],
+        "changed": [
+          {
+            "key": "v4/item-0076",
+            "fields": [
+              "at"
+            ],
+            "before": {
+              "at": 1440
+            },
+            "after": {
+              "at": 1500
+            }
+          }
+        ],
+        "trimmed": false
+      },
+      "elapsedMs": 25690
+    },
+    {
+      "step": "05b 回帰: 通常幅チップ（ズームイン）の右トリム",
+      "status": "ok",
+      "widest": [
+        {
+          "id": "115",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 144.2,
+          "left": 364.9,
+          "right": 509.09,
+          "y": 912.6,
+          "padLeft": 0,
+          "padRight": 0,
+          "centerOwned": true,
+          "hitLeft": 377,
+          "hitRight": 497,
+          "hitWidth": 120
+        },
+        {
+          "id": "116",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 144.2,
+          "left": 653.29,
+          "right": 797.48,
+          "y": 912.6,
+          "padLeft": 0,
+          "padRight": 0,
+          "centerOwned": true,
+          "hitLeft": 665.39,
+          "hitRight": 785.39,
+          "hitWidth": 120
+        },
+        {
+          "id": "117",
+          "lane": "v4",
+          "row": "794px",
+          "cssWidth": 144.2,
+          "left": 941.69,
+          "right": 1085.88,
+          "y": 912.6,
+          "padLeft": 0,
+          "padRight": 0,
+          "centerOwned": true,
+          "hitLeft": 953.79,
+          "hitRight": 1073.79,
+          "hitWidth": 120
+        }
+      ],
+      "detail": {
+        "chip": {
+          "id": "115",
+          "cssWidth": 144.2,
+          "hitWidth": 120,
+          "padLeft": 0,
+          "padRight": 0
+        },
+        "noPaddingOnWideChip": true,
+        "hitEqualsCssWidth": false,
+        "cursorAtEdge": "ew-resize",
+        "cursorAtCentre": "default",
+        "wrote": true,
+        "changed": [
+          {
+            "key": "v4/item-0106",
+            "fields": [
+              "duration",
+              "out"
+            ],
+            "before": {
+              "duration": 60,
+              "out": 6
+            },
+            "after": {
+              "duration": 45,
+              "out": 5.5
+            }
+          }
+        ],
+        "trimmed": true
+      },
+      "elapsedMs": 33163
+    },
+    {
+      "step": "06 回帰: 細いチップの右クリックメニュー",
+      "status": "ok",
+      "target": {
+        "id": "101",
+        "lane": "v4",
+        "row": "794px",
+        "cssWidth": 12.66,
+        "left": 356.91,
+        "right": 369.57,
+        "y": 928.5,
+        "padLeft": 5.67,
+        "padRight": 5.67,
+        "centerOwned": true,
+        "hitLeft": 356.74,
+        "hitRight": 372.74,
+        "hitWidth": 16
+      },
+      "detail": {
+        "count": 1,
+        "items": [
+          "コピー",
+          "分割",
+          "削除"
+        ]
+      },
+      "elapsedMs": 1563
+    },
+    {
+      "step": "07 回帰: 空き点の判定とマーキー開始",
+      "status": "ok",
+      "plan": {
+        "empty": true,
+        "startX": 553.12890625,
+        "startY": 928.546875,
+        "endX": 673.12890625
+      },
+      "detail": {
+        "marqueeStarted": true,
+        "selectedBefore": 0,
+        "selectedAfter": 4,
+        "gapPointIsEmpty": true
+      },
+      "elapsedMs": 985
+    },
+    {
+      "step": "08 回帰: 手動縦スクロールの保持（パン往復後）",
+      "status": "ok",
+      "centre": {
+        "x": 828.4140625,
+        "y": 928.046875
+      },
+      "detail": {
+        "scrollTopSet": 60,
+        "scrollTopAfterSet": 60,
+        "scrollTopMidPan": 60,
+        "scrollTopAfterPan": 60,
+        "preserved": true
+      },
+      "elapsedMs": 6154
+    },
+    {
+      "step": "09 data-akari-* 属性集合",
+      "status": "ok",
+      "detail": {
+        "count": 15
+      },
+      "elapsedMs": 29
+    }
+  ],
+  "notes": [],
+  "electronPid": 30530,
+  "openGeometry": {
+    "scrollTop": 794,
+    "scrollHeight": 4048,
+    "clientHeight": 322,
+    "overflowing": true,
+    "viewport": {
+      "x": 355.9,
+      "y": 778.1,
+      "w": 945,
+      "h": 321.9,
+      "bottom": 1100,
+      "right": 1300.9
+    },
+    "stripHeight": 4048,
+    "cutCount": 134,
+    "cutLaneTop": 779.1,
+    "cutLaneBottom": 4001.1,
+    "cutLaneFullyVisible": false,
+    "cutChipsVisible": 33,
+    "bandCount": 6,
+    "bands": [
+      {
+        "lane": "v5",
+        "x": 356.9,
+        "y": -14.9,
+        "w": 933,
+        "h": 793,
+        "bottom": 778.1,
+        "right": 1289.9
+      },
+      {
+        "lane": "v4",
+        "x": 356.9,
+        "y": 779.1,
+        "w": 933,
+        "h": 793,
+        "bottom": 1572.1,
+        "right": 1289.9
+      },
+      {
+        "lane": "v3",
+        "x": 356.9,
+        "y": 1573.1,
+        "w": 933,
+        "h": 793,
+        "bottom": 2366.1,
+        "right": 1289.9
+      },
+      {
+        "lane": "v2",
+        "x": 356.9,
+        "y": 2367.1,
+        "w": 933,
+        "h": 817,
+        "bottom": 3184.1,
+        "right": 1289.9
+      },
+      {
+        "lane": "v1",
+        "x": 356.9,
+        "y": 3185.1,
+        "w": 933,
+        "h": 817,
+        "bottom": 4002.1,
+        "right": 1289.9
+      },
+      {
+        "lane": "a1",
+        "x": 356.9,
+        "y": 4003.1,
+        "w": 933,
+        "h": 29,
+        "bottom": 4032.1,
+        "right": 1289.9
+      }
+    ]
+  },
+  "attrSetAtOpen": [
+    "data-akari-item-id",
+    "data-akari-item-kind",
+    "data-akari-kind",
+    "data-akari-lane",
+    "data-akari-notice-close",
+    "data-akari-notice-text",
+    "data-akari-source-id",
+    "data-akari-timeline-notice",
+    "data-akari-timeline-track-id",
+    "data-akari-track",
+    "data-akari-tree-row-id",
+    "data-akari-tree-toggle",
+    "data-akari-tree-track",
+    "data-akari-ui",
+    "data-akari-ui-label"
+  ],
+  "hitRows": [
+    {
+      "id": "101",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 356.91,
+      "right": 369.57,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 356.74,
+      "hitRight": 372.74,
+      "hitWidth": 16
+    },
+    {
+      "id": "102",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 382.23,
+      "right": 394.88,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 377.55,
+      "hitRight": 398.05,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "103",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 407.55,
+      "right": 420.2,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 402.88,
+      "hitRight": 423.38,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "104",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 432.87,
+      "right": 445.52,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 428.2,
+      "hitRight": 448.7,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "105",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 458.19,
+      "right": 470.84,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 453.52,
+      "hitRight": 474.02,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "106",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 483.51,
+      "right": 496.16,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 478.84,
+      "hitRight": 499.34,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "107",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 508.82,
+      "right": 521.48,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 504.15,
+      "hitRight": 524.65,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "108",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 534.14,
+      "right": 546.8,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 529.47,
+      "hitRight": 549.97,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "109",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 559.46,
+      "right": 572.12,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 554.79,
+      "hitRight": 575.29,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "110",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 584.78,
+      "right": 597.44,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 580.11,
+      "hitRight": 600.61,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "111",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 610.1,
+      "right": 622.76,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 605.43,
+      "hitRight": 625.93,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "112",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 635.41,
+      "right": 648.07,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 630.74,
+      "hitRight": 651.24,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "113",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 660.73,
+      "right": 673.39,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 656.06,
+      "hitRight": 676.56,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "114",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 686.05,
+      "right": 698.71,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 681.38,
+      "hitRight": 701.88,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "115",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 711.38,
+      "right": 724.03,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 706.7,
+      "hitRight": 727.2,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "116",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 736.7,
+      "right": 749.35,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 732.02,
+      "hitRight": 752.52,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "117",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 762.02,
+      "right": 774.67,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 757.34,
+      "hitRight": 777.84,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "118",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 787.33,
+      "right": 799.98,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 782.66,
+      "hitRight": 803.16,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "119",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 812.65,
+      "right": 825.3,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 807.98,
+      "hitRight": 828.48,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "120",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 837.97,
+      "right": 850.63,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 833.3,
+      "hitRight": 853.8,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "121",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 863.29,
+      "right": 875.95,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 858.62,
+      "hitRight": 879.12,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "122",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 888.61,
+      "right": 901.27,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 883.94,
+      "hitRight": 904.44,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "123",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 913.92,
+      "right": 926.58,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 909.25,
+      "hitRight": 929.75,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "124",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 939.24,
+      "right": 951.9,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 934.57,
+      "hitRight": 955.07,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "125",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 964.56,
+      "right": 977.22,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 959.89,
+      "hitRight": 980.39,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "126",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 989.88,
+      "right": 1002.54,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 985.21,
+      "hitRight": 1005.71,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "127",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 1015.2,
+      "right": 1027.86,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 1010.53,
+      "hitRight": 1031.03,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "128",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 1040.52,
+      "right": 1053.17,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 1035.84,
+      "hitRight": 1056.34,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "129",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 1065.84,
+      "right": 1078.49,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 1061.16,
+      "hitRight": 1081.66,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "130",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 1091.16,
+      "right": 1103.81,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 1086.48,
+      "hitRight": 1106.98,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "131",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 1116.48,
+      "right": 1129.13,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 1111.8,
+      "hitRight": 1132.3,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "132",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 1141.8,
+      "right": 1154.45,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 1137.13,
+      "hitRight": 1157.63,
+      "hitWidth": 20.5
+    },
+    {
+      "id": "133",
+      "lane": "v4",
+      "row": "794px",
+      "cssWidth": 12.66,
+      "left": 1167.12,
+      "right": 1179.77,
+      "y": 939.5,
+      "padLeft": 5.67,
+      "padRight": 5.67,
+      "centerOwned": true,
+      "hitLeft": 1162.45,
+      "hitRight": 1182.95,
+      "hitWidth": 20.5
+    }
+  ],
+  "midpointPairs": {
+    "total": 32,
+    "violations": 0,
+    "sample": [
+      {
+        "left": "101",
+        "right": "102",
+        "gap": 12.66,
+        "midpoint": 375.9,
+        "leftHitRight": 372.74,
+        "rightHitLeft": 377.55,
+        "disjoint": true,
+        "leftStopsAtMidpoint": true,
+        "rightStartsAtMidpoint": true
+      },
+      {
+        "left": "102",
+        "right": "103",
+        "gap": 12.67,
+        "midpoint": 401.22,
+        "leftHitRight": 398.05,
+        "rightHitLeft": 402.88,
+        "disjoint": true,
+        "leftStopsAtMidpoint": true,
+        "rightStartsAtMidpoint": true
+      },
+      {
+        "left": "103",
+        "right": "104",
+        "gap": 12.67,
+        "midpoint": 426.53,
+        "leftHitRight": 423.38,
+        "rightHitLeft": 428.2,
+        "disjoint": true,
+        "leftStopsAtMidpoint": true,
+        "rightStartsAtMidpoint": true
+      },
+      {
+        "left": "104",
+        "right": "105",
+        "gap": 12.67,
+        "midpoint": 451.86,
+        "leftHitRight": 448.7,
+        "rightHitLeft": 453.52,
+        "disjoint": true,
+        "leftStopsAtMidpoint": true,
+        "rightStartsAtMidpoint": true
+      },
+      {
+        "left": "105",
+        "right": "106",
+        "gap": 12.67,
+        "midpoint": 477.17,
+        "leftHitRight": 474.02,
+        "rightHitLeft": 478.84,
+        "disjoint": true,
+        "leftStopsAtMidpoint": true,
+        "rightStartsAtMidpoint": true
+      }
+    ],
+    "badSample": []
+  },
+  "dragDiff": [
+    {
+      "key": "v4/item-0088",
+      "fields": [
+        "at"
+      ],
+      "before": {
+        "at": 1680
+      },
+      "after": {
+        "at": 1740
+      }
+    }
+  ],
+  "attrSet": [
+    "data-akari-item-id",
+    "data-akari-item-kind",
+    "data-akari-kind",
+    "data-akari-lane",
+    "data-akari-notice-close",
+    "data-akari-notice-text",
+    "data-akari-source-id",
+    "data-akari-timeline-notice",
+    "data-akari-timeline-track-id",
+    "data-akari-track",
+    "data-akari-tree-row-id",
+    "data-akari-tree-toggle",
+    "data-akari-tree-track",
+    "data-akari-ui",
+    "data-akari-ui-label"
+  ],
+  "finishedAt": "2026-09-01T05:25:41.885Z",
+  "loadAverageAtEnd": [
+    340.72119140625,
+    165.97998046875,
+    107.20947265625
+  ]
+}
