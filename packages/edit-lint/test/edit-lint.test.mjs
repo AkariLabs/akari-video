@@ -203,6 +203,96 @@ test("valid v2 fixture passes the Phase 0 track checks", async () => {
   });
 });
 
+async function writeAnchorCaptions(project, overrides = {}) {
+  const row = {
+    id: "c-0001", start: 13, end: 14, text: "アンカー字幕",
+    speaker: null, sourceRef: null, edited: false, ...overrides,
+  };
+  await writeFile(join(project, "captions.json"), `${JSON.stringify([row])}\n`, "utf8");
+}
+
+function anchoredHtml(edit, anchor, cache = { at: 30, duration: 60 }) {
+  const item = edit.tracks.find(track => track.id === "v-html").items[0];
+  Object.assign(item, cache, { anchor });
+  return item;
+}
+
+test("v2.item-anchor-ref errors when anchor.caption is absent from captions.json", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    anchoredHtml(edit, { caption: "c-9999" });
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project);
+    const result = parseResult(run(project));
+    assert.ok(result.findings.some(finding => finding.check === "v2.item-anchor-ref"
+      && finding.severity === "error"), JSON.stringify(result.findings, null, 2));
+  });
+});
+
+test("v2.item-anchor-range rejects an interval outside the caption", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    anchoredHtml(edit, { caption: "c-0001", range: { start: 12.5, end: 13.5 } });
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project);
+    const result = parseResult(run(project));
+    assert.ok(result.findings.some(finding => finding.check === "v2.item-anchor-range"
+      && finding.severity === "error"), JSON.stringify(result.findings, null, 2));
+  });
+});
+
+test("v2.item-anchor-kind rejects anchor on a captions item", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    const item = anchoredHtml(edit, { caption: "c-0001" });
+    item.source = { kind: "captions", path: "captions.json" };
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project);
+    const result = parseResult(run(project));
+    assert.ok(result.findings.some(finding => finding.check === "v2.item-anchor-kind"
+      && finding.severity === "error"), JSON.stringify(result.findings, null, 2));
+  });
+});
+
+test("v2.item-anchor-stale warns with resolved and cached values", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    anchoredHtml(edit, { caption: "c-0001" }, { at: 1, duration: 2 });
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project);
+    const result = parseResult(run(project));
+    const finding = result.findings.find(entry => entry.check === "v2.item-anchor-stale");
+    assert.equal(finding.severity, "warning", JSON.stringify(result.findings, null, 2));
+    assert.match(finding.message, /resolves to at=30, duration=30; cached at=1, duration=2/u);
+  });
+});
+
+test("v2.item-anchor-unresolvable warns when the whole interval is cut", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "v2-valid");
+    const editPath = join(project, "edit.json");
+    const edit = JSON.parse(await readFile(editPath, "utf8"));
+    edit.tracks.find(track => track.id === "v-main").items = [
+      { id: "clip-1", at: 0, duration: 30, source: { kind: "media", src: "main", in: 12, out: 13 } },
+      { id: "clip-2", at: 30, duration: 210, source: { kind: "media", src: "main", in: 15, out: 22 } },
+    ];
+    anchoredHtml(edit, { caption: "c-0001" }, { at: 30, duration: 30 });
+    await writeFile(editPath, `${JSON.stringify(edit)}\n`, "utf8");
+    await writeAnchorCaptions(project, { start: 13.5, end: 14.5 });
+    const result = parseResult(run(project));
+    assert.ok(result.findings.some(finding => finding.check === "v2.item-anchor-unresolvable"
+      && finding.severity === "warning"), JSON.stringify(result.findings, null, 2));
+  });
+});
+
 test("v2 captions track warning covers undeclared, declared, empty cues, and v1 branches", async () => {
   await withFixtures(async (fixtures) => {
     const project = join(fixtures, "v2-valid");

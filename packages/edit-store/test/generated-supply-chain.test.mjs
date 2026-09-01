@@ -23,6 +23,7 @@ const expectedSources = [
   'edit-v2.ts',
   'index.ts',
   'internal-model.ts',
+  'item-anchor.ts',
   'legacy-audio-view.ts',
   'project.ts',
   'retime.ts',

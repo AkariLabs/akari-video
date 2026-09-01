@@ -28,9 +28,11 @@ const {
   planTransitionHandleWindow,
   projectLegacyEdit,
   readInternalEdit,
+  resolveItemAnchors,
   resolveCaptionDisplay,
   visualContentEndSeconds,
   TRANSITION_TYPE_IDS,
+  withoutItemAnchors,
 } = createRequire(import.meta.url)("../../edit-store/lib/index.js");
 const { captionsHaveRenderableCues } = createRequire(import.meta.url)(
   "../../edit-store/lib/migrate/index.js",
@@ -207,6 +209,9 @@ export async function lintProject(input, options = {}) {
     }
   } else {
     addSkipped(skipped, "captions", "captions.json is absent");
+  }
+  if (isRecord(rawEdit) && rawEdit.version === 2) {
+    validateV2ItemAnchors(rawEdit, captionsState, findings);
   }
   validateCaptionTrackDeclaration(rawEdit, captionsState.value, findings);
 
@@ -403,7 +408,7 @@ function validateTransitionAdjacency(cuts, segments, sources, fps, findings) {
 function validateTransitionLayerEvacuations(rawEdit, internalEdit, findings) {
   if (!isRecord(rawEdit) || rawEdit.version !== 2) return;
   const crossTrackCauses = new Map();
-  for (const cause of findCrossTrackLayerEvacuations(rawEdit)) {
+  for (const cause of findCrossTrackLayerEvacuations(withoutItemAnchors(rawEdit))) {
     if (!crossTrackCauses.has(cause.itemId)) crossTrackCauses.set(cause.itemId, cause);
   }
   const rawLocations = new Map();
@@ -1025,6 +1030,98 @@ function validateEditV2(edit, findings) {
       }
       if (!furthest || interval.end > furthest.end) furthest = interval;
     }
+  }
+}
+
+function validateV2ItemAnchors(edit, captionsState, findings) {
+  const rows = Array.isArray(captionsState.value)
+    ? captionsState.value
+    : isRecord(captionsState.value) && Array.isArray(captionsState.value.captions)
+      ? captionsState.value.captions : [];
+  const captions = rows.filter(caption => isRecord(caption)
+    && isNonEmptyString(caption.id)
+    && isFiniteNumber(caption.start)
+    && isFiniteNumber(caption.end))
+    .map(caption => ({
+      id: caption.id,
+      start: caption.start,
+      end: caption.end,
+      ...(caption.time_domain === "output" ? { timeDomain: "output" } : {}),
+    }));
+  const captionById = new Map(captions.map(caption => [caption.id, caption]));
+  const entries = [];
+  const visit = (items, parentPath) => {
+    if (!Array.isArray(items)) return;
+    for (const [index, item] of items.entries()) {
+      if (!isRecord(item)) continue;
+      const path = `${parentPath}[${index}]`;
+      if (Object.hasOwn(item, "anchor")) entries.push({ item, path });
+      visit(item.items, `${path}.items`);
+    }
+  };
+  for (const [trackIndex, track] of (Array.isArray(edit.tracks) ? edit.tracks : []).entries()) {
+    if (isRecord(track)) visit(track.items, `edit.json#tracks[${trackIndex}].items`);
+  }
+
+  for (const { item, path } of entries) {
+    const kind = isRecord(item.source) ? item.source.kind : undefined;
+    if (kind === "captions" || kind === "caption") {
+      addFinding(findings, {
+        severity: "error",
+        check: "v2.item-anchor-kind",
+        message: `source kind ${String(kind)} cannot declare anchor`,
+        path: `${path}.anchor`,
+      });
+      continue;
+    }
+    const anchor = isRecord(item.anchor) ? item.anchor : {};
+    const caption = captionById.get(anchor.caption);
+    if (!caption) {
+      addFinding(findings, {
+        severity: captionsState.exists ? "error" : "warning",
+        check: "v2.item-anchor-ref",
+        message: captionsState.exists
+          ? `anchor.caption does not reference captions.json: ${String(anchor.caption)}`
+          : `captions.json is absent; anchor.caption cannot be resolved: ${String(anchor.caption)}`,
+        path: `${path}.anchor.caption`,
+      });
+      continue;
+    }
+    if (Object.hasOwn(anchor, "range")) {
+      const range = isRecord(anchor.range) ? anchor.range : {};
+      if (!isFiniteNumber(range.start) || !isFiniteNumber(range.end)
+        || range.start < caption.start - EPSILON
+        || range.end > caption.end + EPSILON
+        || range.end <= range.start) {
+        addFinding(findings, {
+          severity: "error",
+          check: "v2.item-anchor-range",
+          message: `anchor range [${String(range.start)}, ${String(range.end)}] must satisfy ${caption.start} <= start < end <= ${caption.end}`,
+          path: `${path}.anchor.range`,
+        });
+      }
+    }
+  }
+
+  if (entries.length === 0) return;
+  const resolved = resolveItemAnchors(edit, captions);
+  const pathById = new Map(entries.map(entry => [entry.item.id, entry.path]));
+  for (const change of resolved.changes) {
+    addFinding(findings, {
+      severity: "warning",
+      check: "v2.item-anchor-stale",
+      message: `anchor resolves to at=${change.after.at}, duration=${change.after.duration}; cached at=${change.before.at}, duration=${change.before.duration}`,
+      path: `${pathById.get(change.id) ?? "edit.json#tracks"}.anchor`,
+    });
+  }
+  for (const warning of resolved.warnings) {
+    if (warning.reason !== "removed-range" && warning.reason !== "no-source-segments") continue;
+    addFinding(findings, {
+      severity: "warning",
+      check: "v2.item-anchor-unresolvable",
+      message: `anchor interval is not visible on the output timeline (${warning.reason})`,
+      path: `${pathById.get(warning.id) ?? "edit.json#tracks"}.anchor`,
+    });
   }
 }
 

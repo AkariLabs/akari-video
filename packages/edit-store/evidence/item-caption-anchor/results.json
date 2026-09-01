@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "all_pass": true,
+  "fixture": "fixture",
+  "launcher": {
+    "kind": "npm-electron-via-akari-osr-electron-shim",
+    "resolver_tier": 1,
+    "runtime": "worktree-osr-export",
+    "installed_app_used": false,
+    "installed_app_skip_reason": "bundled-edit-store-missing-item-anchor"
+  },
+  "expected_cache": {
+    "at": 156,
+    "duration": 15
+  },
+  "checks": {
+    "initial_stale_warning": true,
+    "refresh_expected_cache": true,
+    "refreshed_lint_findings": 0,
+    "anchored_render_frames": 270,
+    "manual_render_frames": 270,
+    "render_cut_full_exports": 2,
+    "framemd5_match": true,
+    "caption_shift_frames": 15,
+    "expected_shift_frames": 15
+  },
+  "artifacts": {
+    "source": "fixture/assets/source.mp4",
+    "anchored_mp4": "outputs/anchored.mp4",
+    "manual_mp4": "outputs/manual.mp4",
+    "anchored_framemd5": "outputs/anchored.framemd5",
+    "manual_framemd5": "outputs/manual.framemd5",
+    "anchored_sha256": "d44e663d86d6547ffd4282fc1740db0680cc83c787ce8559f69d299af5298661",
+    "manual_sha256": "d44e663d86d6547ffd4282fc1740db0680cc83c787ce8559f69d299af5298661"
+  }
+}

@@ -133,6 +133,7 @@
 | [contract-2026-08-29-media-inspect-cli-v0.md](./contract-2026-08-29-media-inspect-cli-v0.md) | `akari media` 観察コマンド契約 v0 — probe / grab / filmstrip / waveform / transcribe（分析をプル駆動に: 見たいときに見る・見た結果はディスクに残る） |
 | [contract-2026-08-29-capture-v0.md](./contract-2026-08-29-capture-v0.md) | `akari capture` 契約 v0 — 今の edit.json の完成フレームを、書き出さずに見る |
 | [contract-2026-08-30-edit-json-v2-object-tree-v0.md](./contract-2026-08-30-edit-json-v2-object-tree-v0.md) | edit.json v2 オブジェクトツリー v0 — 再帰 `items`（group）・タグで写す袋グループ（HTML 部品 / captions.json）・部品アイテム（`source.part`）・段の不変条件・1 レコード 1 行の正規直列化・edit-store スクリプト API・AI の読み方（`version: 2` 据え置き） |
+| [contract-2026-09-02-item-caption-anchor-v0.md](./contract-2026-09-02-item-caption-anchor-v0.md) | edit.json v2 アイテムの行アンカー — 字幕行 / source 秒区間への時刻従属・at / duration は解決キャッシュ・親相対の解決・mutation・lint 規則 |
 | [contract-2026-08-30-motion-and-keyframes-v0.md](./contract-2026-08-30-motion-and-keyframes-v0.md) | 動きとキーフレーム v0 — 4 段階（L0 プリセット `motion` / L1 `keyframes` inline または `motion/<group-id>.json` 袋 / L2 範囲セレクタ `animator` / L3 コード）・easing 語彙・「キーフレームに展開」・タイムライン / インスペクターの表示規則 |
 | [contract-2026-09-02-transcript-unrecognized-spans-v0.md](./contract-2026-09-02-transcript-unrecognized-spans-v0.md) | 文字起こしできなかった音声区間の `unrecognized[]` — analysis.json から captions.json へ持ち越し、`words[]` は不変 |
 | [contract-2026-08-09-transform-keyframes-v0.md](./contract-2026-08-09-transform-keyframes-v0.md) | transform キーフレーム v0（2026-08-30 にスキーマ `$comment` から復元。motion-and-keyframes v0 §2 が後継） |

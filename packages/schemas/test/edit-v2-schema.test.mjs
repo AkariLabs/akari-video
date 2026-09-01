@@ -145,6 +145,43 @@ test("HTML source params accepts arbitrary slot names but only string values", (
   ), JSON.stringify(validate.errors, null, 2));
 });
 
+test("visual item accepts a caption anchor with a source-second range", () => {
+  const value = fixture("edit-v2-valid");
+  const item = value.tracks.find(track => track.items?.some(candidate => candidate.source.kind === "html"))
+    .items.find(candidate => candidate.source.kind === "html");
+  item.anchor = {
+    caption: "c-0002",
+    range: { start: 1.2, end: 1.8 },
+    offset: -3,
+    duration: "caption",
+  };
+  assert.equal(validate(value), true, JSON.stringify(validate.errors, null, 2));
+});
+
+test("item anchor stays closed to additional properties", () => {
+  const value = fixture("edit-v2-valid");
+  const item = value.tracks.find(track => track.items?.some(candidate => candidate.source.kind === "html"))
+    .items.find(candidate => candidate.source.kind === "html");
+  item.anchor = { caption: "c-0002", index: 1 };
+  assert.equal(validate(value), false);
+  assert.ok(validate.errors?.some(error => error.instancePath.endsWith("/anchor")
+    && error.keyword === "additionalProperties"), JSON.stringify(validate.errors, null, 2));
+});
+
+test("captions item cannot declare an anchor", () => {
+  const value = fixture("edit-v2-minimal-valid");
+  value.tracks.push({
+    id: "captions", lane: "visual", items: [{
+      id: "captions", at: 0, duration: 30,
+      source: { kind: "captions", path: "captions.json" },
+      anchor: { caption: "c-0001" },
+    }],
+  });
+  assert.equal(validate(value), false);
+  assert.ok(validate.errors?.some(error => error.instancePath === "/tracks/0/items/0"
+    && error.keyword === "additionalProperties"), JSON.stringify(validate.errors, null, 2));
+});
+
 test("editV2 rejects removed top-level vocabulary as additional properties", () => {
   for (const [key, extension] of [
     ["beats", []],

@@ -24,5 +24,6 @@ export * from './ducking';
 export * from './audio-schedule';
 export * from './canonical';
 export * from './tree-ops';
+export * from './item-anchor';
 export { parseEdit } from './migrate/legacy-parse';
 export { LegacyEditVersionError } from './migrate/error';
