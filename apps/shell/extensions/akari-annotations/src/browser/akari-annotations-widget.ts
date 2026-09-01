@@ -34,6 +34,11 @@ import { classifyEditLoadFailure, ReportedEditLoadFailure } from '../common/edit
 import { filmstripChunkIndexFor, waveformBucketForLocalPx } from '../common/filmstrip-geometry';
 import { isRangeMounted as rangeIsMounted, planKeyedReconciliation } from './timeline-strip-reconciler';
 import {
+    layoutPercent as anchoredLayoutPercent,
+    panTranslatePx,
+    shouldReanchorPan
+} from './timeline-pan-transform';
+import {
     ChipHitAreaEntry,
     clipEdgeZonePx,
     planChipHitPadding,
@@ -217,6 +222,10 @@ const ZOOM_SLIDER_RESOLUTION = 1000;
 const ZOOM_WHEEL_SENSITIVITY = 0.01;
 const ZOOM_EVENT_FACTOR_MIN = 1 / 1.5;
 const ZOOM_EVENT_FACTOR_MAX = 1.5;
+const PAN_TRANSFORM_LIMIT_RATIO = 0.25;
+const PAN_SETTLE_RATIO = 0.25;
+const LAYOUT_PERCENT_MIN = -60;
+const LAYOUT_PERCENT_MAX = 160;
 const MIN_CLIP_WIDTH_FOR_MEDIA_PX = 40;
 const PLAYHEAD_COLOR = '#3b82f6';
 const MICRO_CLIP_WIDTH_PX = 28;
@@ -557,11 +566,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected readonly trackHeaders = document.createElement('div');
     protected readonly timelineBody = document.createElement('div');
     protected readonly rulerBar = document.createElement('div');
+    protected readonly rulerContent = document.createElement('div');
     protected readonly stripScroll = document.createElement('div');
     protected readonly timelineOverlay = document.createElement('div');
     protected readonly hScrollbarTrack = document.createElement('div');
     protected readonly hScrollbarThumb = document.createElement('div');
     protected readonly strip = document.createElement('div');
+    protected readonly stripContent = document.createElement('div');
     protected readonly playhead = document.createElement('div');
     protected readonly playheadHandle = document.createElement('div');
     protected readonly snapGuide = document.createElement('div');
@@ -700,6 +711,11 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected deferredLintFooterMessage: HTMLSpanElement | undefined;
     protected viewStart = 0;
     protected viewDuration: number | undefined;
+    protected stripLayoutWidthPx = 0;
+    protected layoutViewStart = 0;
+    protected layoutViewDuration = 0;
+    protected panOffsetPx = 0;
+    protected panSettleHandle: number | undefined;
     protected fps = 30;
     /** 出力秒（アウトプットタイムライン軸）。cuts が無ければ source 秒と一致する。 */
     protected playheadT = 0;
@@ -909,12 +925,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             border: `1px solid ${STRIP_BORDER_COLOR}`, borderBottom: '0', borderRadius: '0 4px 0 0',
             boxSizing: 'border-box', cursor: 'pointer'
         });
+        Object.assign(this.rulerContent.style, {
+            position: 'absolute', top: '0', left: '0', right: '0', bottom: '0'
+        });
         this.strip.classList.add('akari-annotations-strip');
         Object.assign(this.strip.style, {
             position: 'relative', width: '100%', minWidth: '100%',
             border: `1px solid ${STRIP_BORDER_COLOR}`, borderRadius: '0 0 4px 0', boxSizing: 'border-box',
             background: STRIP_BACKGROUND, cursor: 'pointer', overflow: 'hidden'
         });
+        Object.assign(this.stripContent.style, {
+            position: 'absolute', top: '0', left: '0', right: '0', bottom: '0'
+        });
+        this.rulerBar.appendChild(this.rulerContent);
+        this.strip.appendChild(this.stripContent);
         Object.assign(this.timelineOverlay.style, {
             position: 'absolute', inset: '0', overflow: 'hidden', pointerEvents: 'none', zIndex: '9'
         });
@@ -974,6 +998,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // アイテム要素は自前の click ハンドラで stopPropagation 済みのため、ここまで
         // バブってくる click は「クリップ・ハンドル・バッジの外側」に限られる。
         this.stripScroll.addEventListener('click', event => this.onStripClick(event));
+        this.strip.addEventListener('pointerdown', () => this.settlePan(), true);
         this.strip.addEventListener('pointerdown', event => this.onStripPointerDown(event));
         this.strip.addEventListener('wheel', event => this.onWheelZoom(event), { passive: false });
         this.strip.addEventListener('contextmenu', event => {
@@ -4775,7 +4800,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected finishKeyedRender(scope: 'strip' | 'ruler' | 'header'): void {
-        const parent = scope === 'strip' ? this.strip : scope === 'ruler' ? this.rulerBar : this.trackHeaders;
+        const parent = scope === 'strip' ? this.stripContent
+            : scope === 'ruler' ? this.rulerContent : this.trackHeaders;
         const nodes = scope === 'strip' ? this.stripKeyedNodes
             : scope === 'ruler' ? this.rulerKeyedNodes : this.headerKeyedNodes;
         const signatures = scope === 'strip' ? this.stripKeyedSignatures
@@ -4807,7 +4833,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         element.title = title ?? '';
         Object.assign(element.style, {
             position: 'absolute', top: `${top}px`, height: `${height}px`,
-            left: `${this.percent(start)}%`, width: `${Math.max(this.percent(end) - this.percent(start), 0.3)}%`,
+            left: `${this.layoutPercent(start)}%`,
+            width: `${Math.max(this.layoutPercent(end) - this.layoutPercent(start), 0.3)}%`,
             pointerEvents: 'none'
         });
         return result;
@@ -4829,6 +4856,21 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 this.viewStart = Math.min(Math.max(0, this.viewStart), Math.max(0, maxDuration - this.viewDuration));
             }
         }
+        // DOM 書き込みと交互に読むとアイテム数ぶん同期レイアウトが走るため、描画寸法は冒頭で 1 回だけ読む。
+        const stripLayoutWidthPx = this.strip.clientWidth;
+        const viewportHeight = this.stripScroll.clientHeight;
+        const stripScrollOffsetWidth = this.stripScroll.offsetWidth;
+        const stripScrollClientWidth = this.stripScroll.clientWidth;
+        this.stripLayoutWidthPx = stripLayoutWidthPx;
+        this.layoutViewStart = this.viewStart;
+        this.layoutViewDuration = this.visibleDuration();
+        this.panOffsetPx = 0;
+        if (this.panSettleHandle !== undefined) {
+            cancelAnimationFrame(this.panSettleHandle);
+            this.panSettleHandle = undefined;
+        }
+        this.stripContent.style.transform = 'none';
+        this.rulerContent.style.transform = 'none';
         this.beginKeyedRender('strip');
         this.beginKeyedRender('ruler');
         this.renderRuler();
@@ -4848,7 +4890,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         // 対称にするには、この固定パディングを除いた「純粋な積み上げ高さ」を基準に測る必要が
         // ある（そのまま使うと下側だけ +STRIP_BOTTOM_MARGIN 分ずれて上下差が 1px を超える）。
         const stackHeight = Math.max(0, stripHeight - STRIP_BOTTOM_MARGIN);
-        const viewportHeight = this.stripScroll.clientHeight;
         const centerGapPx = viewportHeight > 0 ? Math.max(0, Math.floor((viewportHeight - stackHeight) / 2)) : 0;
         if (centerGapPx > 0) {
             this.calculateLaneLayout(centerGapPx);
@@ -5189,11 +5230,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             }
             const subrowCount = this.audioTrackSubrowCounts.get(layout.id) ?? 1;
             const itemHeight = subrowCount <= 1 ? layout.height : SUBROW_HEIGHT;
-            const barWidthPercent = Math.max(this.percent(end) - this.percent(sfx.t), 0.3);
-            const barWidthPx = this.strip.clientWidth * barWidthPercent / 100;
+            const barWidthPercent = Math.max(this.layoutPercent(end) - this.layoutPercent(sfx.t), 0.3);
+            const barWidthPx = stripLayoutWidthPx * barWidthPercent / 100;
             const sfxWaveform = this.waveformCache.get(`sfxwave:${sfx.path}`);
             const audioSignature = JSON.stringify([
-                sfx, actualDuration, this.trimmerAudioId === sfx.id, itemHeight, this.visibleDuration(), this.strip.clientWidth,
+                sfx, actualDuration, this.trimmerAudioId === sfx.id, itemHeight,
+                this.layoutViewDuration, stripLayoutWidthPx,
                 Array.isArray(sfxWaveform) ? `ready:${sfxWaveform.length}` : sfxWaveform,
                 barWidthPx >= MIN_CLIP_WIDTH_FOR_MEDIA_PX && itemHeight >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX
             ]);
@@ -5286,12 +5328,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 return;
             }
             const cut = this.cuts[segment.index];
-            const widthPercent = Math.max(this.percent(segment.tlEnd) - this.percent(segment.tlStart), 0.3);
-            const clipWidth = this.strip.clientWidth * widthPercent / 100;
+            const widthPercent = Math.max(
+                this.layoutPercent(segment.tlEnd) - this.layoutPercent(segment.tlStart), 0.3
+            );
+            const clipWidth = stripLayoutWidthPx * widthPercent / 100;
             const cutWaveform = this.waveformCache.get(`${cut.src ?? ''}:${cut.in}:${cut.out}`);
             const cutSignature = JSON.stringify([
                 cut, segment, cutLayout.height, this.trimmerItemId === segment.index,
-                this.visibleDuration(), this.strip.clientWidth,
+                this.layoutViewDuration, stripLayoutWidthPx,
                 Array.isArray(cutWaveform) ? `ready:${cutWaveform.length}` : cutWaveform,
                 unsupportedDeclaredTransitions.has(segment.index), this.filmstripContentRevision,
                 clipWidth >= MIN_CLIP_WIDTH_FOR_MEDIA_PX && cutLayout.height >= MIN_TRACK_HEIGHT_FOR_MEDIA_PX
@@ -5426,7 +5470,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.updateChipHitAreas();
         this.finishKeyedRender('ruler');
         this.playhead.style.left = `${this.percent(this.playheadT)}%`;
-        const scrollbarWidth = Math.max(0, this.stripScroll.offsetWidth - this.stripScroll.clientWidth);
+        const scrollbarWidth = Math.max(0, stripScrollOffsetWidth - stripScrollClientWidth);
         this.rulerBar.style.marginRight = `${scrollbarWidth}px`;
         this.timelineOverlay.style.right = `${scrollbarWidth}px`;
         this.applySelectionClass();
@@ -5435,7 +5479,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateChipHitAreas(): void {
-        const elements = Array.from(this.strip.children).filter((child): child is HTMLDivElement => {
+        const elements = Array.from(this.stripContent.children).filter((child): child is HTMLDivElement => {
             if (!(child instanceof HTMLDivElement) || child.dataset.akariItemKind === undefined) {
                 return false;
             }
@@ -5448,7 +5492,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             widthPercent: Number.parseFloat(element.style.width) || 0
         }));
         const plans = planChipHitPadding(entries, {
-            containerWidthPx: this.strip.clientWidth,
+            containerWidthPx: this.stripLayoutWidthPx,
             minHitWidthPx: MIN_CLIP_HIT_WIDTH_PX
         });
         elements.forEach((element, index) => {
@@ -5567,7 +5611,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     ...(beat.basis !== undefined ? [`basis: ${beat.basis}`] : [])
                 ].join('\n');
                 const size = 7 + beat.strength * 6;
-                marker.style.left = `${this.percent(outputRanges[occurrence][0])}%`;
+                marker.style.left = `${this.layoutPercent(outputRanges[occurrence][0])}%`;
                 marker.style.top = `${top + (height - size) / 2}px`;
                 marker.style.width = `${size}px`;
                 marker.style.height = `${size}px`;
@@ -5603,7 +5647,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             badge.type = 'button';
             Object.assign(badge.style, {
                 position: 'absolute',
-                left: `${this.percent(boundary.boundaryT)}%`,
+                left: `${this.layoutPercent(boundary.boundaryT)}%`,
                 top: `${cutLayout.top + cutLayout.height / 2}px`,
                 transform: 'translate(-50%, -50%)',
                 width: `${TRANSITION_BADGE_SIZE_PX}px`,
@@ -7198,7 +7242,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected renderRuler(): void {
         const ticks = this.computeRulerTicks(this.viewStart, this.visibleDuration(), this.fps);
         for (const tick of ticks) {
-            const percent = this.percent(tick.time);
+            const percent = this.layoutPercent(tick.time);
             const tickKey = Number(tick.time.toFixed(9));
             const { element: tickLine } = this.keyedNode(
                 'ruler', `tick:${tickKey}:line`, tick.label, () => document.createElement('div')
@@ -7227,8 +7271,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * 最小の刻みを採用する。1 フレームが 4px 以上に見える高ズームではフレームモード（MM:SS:FF）に切り替える。
      */
     protected computeRulerTicks(viewStart: number, duration: number, fps: number): Array<{ time: number; label: string }> {
-        const rect = this.strip.getBoundingClientRect();
-        const pxPerSecond = duration > 0 && rect.width > 0 ? rect.width / duration : 0;
+        const pxPerSecond = duration > 0 && this.stripLayoutWidthPx > 0
+            ? this.stripLayoutWidthPx / duration : 0;
         if (duration <= 0 || pxPerSecond <= 0) {
             return [{ time: viewStart, label: this.formatRulerTimestamp(Math.max(0, viewStart)) }];
         }
@@ -7237,9 +7281,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const step = frameMode
             ? this.niceStepFromCandidates(RULER_STEP_MULTIPLIERS_FRAMES.map(frames => frames * frameDuration), pxPerSecond)
             : this.niceStepFromCandidates(RULER_STEP_SECONDS, pxPerSecond);
-        const viewEnd = viewStart + duration;
-        const startIndex = Math.ceil((viewStart - step * 1e-6) / step);
-        const endIndex = Math.floor((viewEnd + step * 1e-6) / step);
+        const tickRangeStart = viewStart - duration * 0.6;
+        const tickRangeEnd = viewStart + duration * 1.6;
+        const startIndex = Math.ceil((tickRangeStart - step * 1e-6) / step);
+        const endIndex = Math.floor((tickRangeEnd + step * 1e-6) / step);
         const ticks: Array<{ time: number; label: string }> = [];
         for (let index = startIndex; index <= endIndex; index++) {
             const time = index * step;
@@ -7289,7 +7334,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             pin.title = `${this.formatTimestamp(annotation.sourceT)} ${annotation.text}`;
             pin.setAttribute('data-annotation-id', annotation.id);
             pin.setAttribute('data-annotation-status', annotation.status);
-            pin.style.left = `${this.percent(this.sourceToOutput(annotation.sourceT))}%`;
+            pin.style.left = `${this.layoutPercent(this.sourceToOutput(annotation.sourceT))}%`;
             pin.style.background = STATUS_COLORS[annotation.status];
             if (created) pin.addEventListener('click', event => {
                 event.stopPropagation();
@@ -7308,7 +7353,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected isRangeMounted(start: number, end: number): boolean {
-        return rangeIsMounted(start, end, this.viewStart, this.visibleDuration());
+        // 描画ループでアイテム数ぶん totalDuration を再計算しないため、確定済みのアンカー窓を使う。
+        const duration = this.layoutViewDuration > 0 ? this.layoutViewDuration : this.visibleDuration();
+        const viewStart = this.layoutViewDuration > 0 ? this.layoutViewStart : this.viewStart;
+        return rangeIsMounted(start, end, viewStart, duration);
     }
 
     protected captionLabel(text: string): HTMLDivElement {
@@ -7415,7 +7463,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
      * strip 自体が viewStart/viewDuration の「窓」でズームを表現する構成のため
      * （絶対キャンバス + ネイティブ横スクロールではない）clip の「画面上の見かけの全幅」
      * （fullClipWidthPx）はビューの外まで含めた理論値になりうる。可視部分だけが
-     * clipWidth（呼び出し側で percent() によって [0,100]% にクランプ済み）として渡って
+     * clipWidth（呼び出し側で layoutPercent() によって [-60,160]% にクランプ済み）として渡って
      * くるため、画面外に切れている「まだ見えていない先頭部分」の量が clipLocalOffsetPx。
      * フィルムストリップのセル・波形の両方がこれを使って同じ位置合わせをする。
      */
@@ -7423,15 +7471,19 @@ export class AkariAnnotationsWidget extends BaseWidget {
         segment: OutputSegment
     ): { fullClipWidthPx: number; clipLocalOffsetPx: number } | undefined {
         const outputDuration = segment.tlEnd - segment.tlStart;
-        const stripWidth = this.strip.clientWidth;
-        const viewDuration = this.visibleDuration();
+        const stripWidth = this.stripLayoutWidthPx > 0 ? this.stripLayoutWidthPx : this.strip.clientWidth;
+        const viewDuration = this.layoutViewDuration > 0 ? this.layoutViewDuration : this.visibleDuration();
+        const layoutStart = this.layoutViewDuration > 0 ? this.layoutViewStart : this.viewStart;
         if (!(outputDuration > 0) || !(stripWidth > 0) || !(viewDuration > 0)) {
             return undefined;
         }
         const pxPerSecond = stripWidth / viewDuration;
         return {
             fullClipWidthPx: outputDuration * pxPerSecond,
-            clipLocalOffsetPx: Math.max(0, this.viewStart - segment.tlStart) * pxPerSecond
+            clipLocalOffsetPx: Math.max(
+                0,
+                (layoutStart - 0.6 * viewDuration) - segment.tlStart
+            ) * pxPerSecond
         };
     }
 
@@ -7653,7 +7705,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return;
         }
         const winDuration = outSeconds - inSeconds;
-        const pxPerSourceSecond = this.strip.clientWidth / this.visibleDuration();
+        const stripWidth = this.stripLayoutWidthPx > 0 ? this.stripLayoutWidthPx : this.strip.clientWidth;
+        const viewDuration = this.layoutViewDuration > 0 ? this.layoutViewDuration : this.visibleDuration();
+        const pxPerSourceSecond = viewDuration > 0 ? stripWidth / viewDuration : 0;
         if (!(pxPerSourceSecond > 0) || !(winDuration > 0)) {
             return;
         }
@@ -9817,6 +9871,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return duration > 0 ? Math.min(100, Math.max(0, (value - this.viewStart) / duration * 100)) : 0;
     }
 
+    protected layoutPercent(value: number): number {
+        const duration = this.layoutViewDuration > 0 ? this.layoutViewDuration : this.visibleDuration();
+        const start = this.layoutViewDuration > 0 ? this.layoutViewStart : this.viewStart;
+        return anchoredLayoutPercent(value, start, duration, LAYOUT_PERCENT_MIN, LAYOUT_PERCENT_MAX);
+    }
+
     protected zoomPercent(): number {
         const duration = this.visibleDuration();
         return duration > 0 ? this.totalDuration() / duration * 100 : 100;
@@ -9874,7 +9934,64 @@ export class AkariAnnotationsWidget extends BaseWidget {
 
     protected setViewStart(candidate: number): void {
         const maxStart = Math.max(0, this.totalDuration() - this.visibleDuration());
-        this.viewStart = Math.min(Math.max(0, candidate), maxStart);
+        const next = Math.min(Math.max(0, candidate), maxStart);
+        if (next === this.viewStart && this.panOffsetPx === 0) {
+            return;
+        }
+        this.viewStart = next;
+        const visibleDuration = this.visibleDuration();
+        if (!this.dragState
+            && this.layoutViewDuration > 0
+            && Math.abs(visibleDuration - this.layoutViewDuration) < 1e-9
+            && Math.abs(next - this.layoutViewStart) <= PAN_TRANSFORM_LIMIT_RATIO * this.layoutViewDuration) {
+            // 細いチップも掴める個別ノードのまま保ち、パン中は全チップの幾何更新から外す。
+            this.applyPanTransform();
+            this.schedulePanSettle();
+            return;
+        }
+        this.renderStrip();
+    }
+
+    protected applyPanTransform(): void {
+        this.panOffsetPx = panTranslatePx(
+            this.viewStart, this.layoutViewStart, this.layoutViewDuration, this.stripLayoutWidthPx
+        );
+        const value = `translateX(${this.panOffsetPx}px)`;
+        this.stripContent.style.transform = value;
+        this.rulerContent.style.transform = value;
+        this.playhead.style.left = `${this.percent(this.playheadT)}%`;
+        this.updateScrollbar();
+    }
+
+    protected schedulePanSettle(): void {
+        if (this.panSettleHandle !== undefined) {
+            return;
+        }
+        this.panSettleHandle = requestAnimationFrame(() => {
+            this.panSettleHandle = undefined;
+            this.settlePanWindow();
+        });
+    }
+
+    protected settlePanWindow(): void {
+        if (this.panOffsetPx === 0) {
+            return;
+        }
+        if (shouldReanchorPan(
+            this.viewStart - this.layoutViewStart, this.layoutViewDuration, PAN_SETTLE_RATIO
+        )) {
+            this.renderStrip();
+        }
+    }
+
+    protected settlePan(): void {
+        if (this.panOffsetPx === 0) {
+            return;
+        }
+        if (this.panSettleHandle !== undefined) {
+            cancelAnimationFrame(this.panSettleHandle);
+            this.panSettleHandle = undefined;
+        }
         this.renderStrip();
     }
 
