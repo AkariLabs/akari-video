@@ -1,5 +1,14 @@
 name: CI
 
+# レーン構成（2026-09-02 オーナー裁定「本体とテストを 1 対 1 に」）:
+#   required（赤なら main へ合流させない）: packaged-imports / skills-index / unit / L0
+#   参考（continue-on-error。結果は見えるが止めない）: unit-quarantine / unit-media
+# ユニットテストのレーン定義（どのパッケージがどこに属し、何を載せていないか・その理由）の正本は
+# scripts/ci/run-unit-tests.mjs（`npm run test:lanes` で一覧）。required に載せるのは「どの環境でも
+# 同じ結果になる」テストだけ。環境依存を required にすると常時赤になって赤が情報でなくなる
+# （engine-v2.yml の required / 参考の二分と同じ流儀）。frame-engine / osr-export / gpu-export は
+# engine-v2.yml（Electron 実機付き）が担当し、ここには載せない。
+
 on:
   push:
     branches: [main]
@@ -43,8 +52,73 @@ jobs:
       - run: node scripts/gen-skills-index.mjs --check --strict
       - run: node scripts/check-docs-sync.mjs
 
+  # packages/* + scripts/test + skills/* のユニットテストのうち、外部ツール（ffmpeg / Chrome / Electron /
+  # ネイティブモジュール）を一切要さず、どの OS でも同じ結果になるもの。2026-09-02 の実測で main が緑の集合。
+  unit:
+    name: unit (packages/* + scripts/test + skills/* — 外部ツール不要・required)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+          cache: npm
+      # root の package-lock.json は packages/* と apps/shell を含む workspace lock（lockfileVersion 3）。
+      # --ignore-scripts で node-gyp / electron / puppeteer / onnxruntime の install script を全部止める
+      # （pure レーンのテストはどれもネイティブ実体を要さない。要るものは unit-media レーン）。
+      # ローカル実測 2026-09-02（macOS arm64・Node 26.3.0）: added 1480 packages / 7 s（キャッシュ有）。
+      - name: Install workspace dependencies (repo root, npm ci --ignore-scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: unit tests (lane pure)
+        run: node scripts/ci/run-unit-tests.mjs --lane pure
+
+  # 参考: main で既に赤いパッケージ（理由はレーン定義のコメント参照）。required に入れると初日から赤で
+  # 止まるので隔離し、修正タスクで緑になったら pure へ移す。
+  unit-quarantine:
+    name: unit-quarantine (main で既に赤・修正待ち — 参考)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+          cache: npm
+      - name: Install workspace dependencies (repo root, npm ci --ignore-scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: unit tests (lane quarantine)
+        run: node scripts/ci/run-unit-tests.mjs --lane quarantine
+
+  # 参考: ffmpeg / ffprobe / Chrome が要るパッケージ。Linux ランナーで通る保証は無い（symlink 権限・
+  # GPU・フォントの差）。緑が安定したら required 化を検討する。
+  unit-media:
+    name: unit-media (ffmpeg / Chrome が要る — 参考)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26.3.0'
+          cache: npm
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install workspace dependencies (repo root, npm ci --ignore-scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      # preview-server は @playwright/test（root devDependency）の chromium を、overlay-runtime は
+      # puppeteer-core + CHROME_PATH（ubuntu-latest 同梱の Google Chrome）を使う
+      - name: Install Playwright chromium
+        run: npx playwright install --with-deps chromium
+      - name: unit tests (lane media)
+        run: node scripts/ci/run-unit-tests.mjs --lane media
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+
   l0:
-    name: L0 (build:ext + lint)
+    name: L0 (build:ext + lint + shell unit tests)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -55,40 +129,43 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '26.3.0'
+          cache: npm
+          cache-dependency-path: apps/shell/package-lock.json
 
-      # apps/shell/package-lock.json is intentionally gitignored (apps/shell/.gitignore),
-      # so this cannot use `npm ci`. --no-workspaces keeps the install isolated to
+      # apps/shell/package-lock.json は 2026-08-19 から追跡対象（apps/shell/.gitignore 参照）なので
+      # `npm ci` を使う（2026-09-02 に `npm install` から切替。`npm install` はその日のレジストリで
+      # lock を書き換えるドリフトの入口）。--no-workspaces keeps the install isolated to
       # apps/shell/node_modules instead of hoisting into the repo-root workspace tree
       # (confirmed: plain `npm install` from apps/shell hoists ~800 packages to the repo
       # root and takes ~2x longer).
       #
-      # --ignore-scripts skips every node-gyp build. This job only type-checks (tsc -b)
-      # and lints (eslint), and neither needs a compiled native module — only the
-      # packages' .d.ts and JS, which arrive in the tarballs regardless of scripts.
-      # Without it the install dies on native-keymap, which needs X11 headers absent
-      # from ubuntu-latest ("Package 'x11', required by 'virtual:world', not found").
+      # --ignore-scripts skips every node-gyp build. This job type-checks (tsc -b), lints
+      # (eslint) and runs the shell unit tests, and none of them needs a compiled native
+      # module — only the packages' .d.ts and JS, which arrive in the tarballs regardless
+      # of scripts. Without it the install dies on native-keymap, which needs X11 headers
+      # absent from ubuntu-latest ("Package 'x11', required by 'virtual:world', not found").
       # Installing those headers would only move the failure to the next of the five
       # node-gyp packages (node-pty / drivelist / native-keymap / msgpackr-extract /
       # keytar), so skip the builds instead of chasing system deps.
       #
       # The tradeoff: this job cannot run `npm run build` (theia build needs a real
-      # unpacked Electron) or `npm run package`. The app is macOS-only — electron-builder
-      # targets mac alone — so a Linux runner could never verify the .app anyway.
-      # Covering the real build requires a macOS runner (10x billing); deferred by owner
-      # decision 2026-07-16.
-      - name: Install dependencies
-        run: npm install --no-workspaces --ignore-scripts
+      # unpacked Electron) or `npm run package`. Those live in windows-build.yml (manual)
+      # and release.yml, not here.
+      - name: Install dependencies (npm ci --no-workspaces --ignore-scripts)
+        run: npm ci --no-workspaces --ignore-scripts --no-audit --no-fund
 
-      # akari-video は workspace パッケージ（packages/akari-launcher）の公開名。
-      # --no-workspaces install は npm registry の公開版を持ってくるため、未リリースの
-      # モジュールを import する拡張（akari-project → store-device-connect）が TS2307 で
-      # 落ちる。tsc の前に registry 版をローカル実体へ張り替える（ローカル開発は
-      # repo-root の workspace link で同じ解決になっている — 挙動を CI が再現するだけ）。
-      - name: Link workspace akari-video (launcher) over the registry copy
-        run: rm -rf node_modules/akari-video && ln -s ../../../packages/akari-launcher node_modules/akari-video
+      # akari-video（packages/akari-launcher の公開名）は apps/shell/package-lock.json に
+      # "link": true（../../packages/akari-launcher）で記録されているので、npm ci が workspace 実体への
+      # symlink を張る（2026-09-02 ローカル実測）。旧「registry 版をローカル実体へ張り替える」ステップは
+      # lock 追跡で不要になった。
 
-      - name: build:ext (tsc -b, 6 extensions)
+      - name: build:ext (tsc -b, 9 extensions)
         run: npm run build:ext
 
       - name: lint (eslint)
         run: npm run lint
+
+      # apps/shell/test + 拡張 6 本 + akari-preview（実 Chrome を要する 1 ファイルを除外。理由と一覧は
+      # scripts/ci/run-unit-tests.mjs の NOT_COVERED）。build:ext 済みなので拡張側の tsc -b は増分で数秒。
+      - name: unit tests (lane shell)
+        run: node ../../scripts/ci/run-unit-tests.mjs --lane shell
