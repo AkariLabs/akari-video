@@ -3,6 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEFAULT_CAPTION_TELOP_PRESET = void 0;
 exports.attachEditHelpers = attachEditHelpers;
 exports.updateItem = updateItem;
+exports.setItemAnchor = setItemAnchor;
+exports.clearItemAnchor = clearItemAnchor;
+exports.refreshItemAnchors = refreshItemAnchors;
 exports.setKeyframe = setKeyframe;
 exports.removeKeyframe = removeKeyframe;
 exports.moveKeyframe = moveKeyframe;
@@ -34,6 +37,7 @@ exports.composeTransforms = composeTransforms;
 exports.relativeTransform = relativeTransform;
 exports.ensureChildren = ensureChildren;
 exports.clone = clone;
+const item_anchor_1 = require("./item-anchor");
 const SEGMENT_EASINGS = new Set([
     'linear', 'ease-in-out', 'in-quad', 'out-quad', 'in-out-quad',
     'in-cubic', 'out-cubic', 'in-out-cubic', 'in-quart', 'out-quart', 'in-out-quart',
@@ -73,6 +77,25 @@ function updateItem(edit, id, patch) {
         }
     }
     return location.item;
+}
+function setItemAnchor(edit, id, anchor, captions) {
+    const item = requireLocation(edit, id).item;
+    item.anchor = clone(anchor);
+    const refreshed = (0, item_anchor_1.resolveItemAnchors)(edit, captions);
+    for (const change of refreshed.changes) {
+        const changedItem = requireLocation(edit, change.id).item;
+        changedItem.at = change.after.at;
+        changedItem.duration = change.after.duration;
+    }
+    return { edit, item, changes: refreshed.changes, warnings: refreshed.warnings };
+}
+function clearItemAnchor(edit, id) {
+    const item = requireLocation(edit, id).item;
+    delete item.anchor;
+    return item;
+}
+function refreshItemAnchors(edit, captions) {
+    return (0, item_anchor_1.resolveItemAnchors)(edit, captions);
 }
 /** inline 点列へ値を打つ。最初の点では反対側の端にも同じ値を置き minItems:2 を守る。 */
 function setKeyframe(edit, id, property, t, value) {

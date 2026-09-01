@@ -265,3 +265,29 @@ export function outputToSource(
     }
     return { segment: null, sourceT: null };
 }
+
+/**
+ * ソース秒 → 出力秒。削除区間は次の保持区間の先頭へスナップし、素材末尾を
+ * 超えた時刻は最終セグメントの終端へクランプする。
+ */
+export function sourceToOutput(
+    segments: readonly TimelineSegment[],
+    sourceT: number
+): number | null {
+    const sources = segments.filter(segment => segment.kind === 'src'
+        && typeof segment.in === 'number'
+        && typeof segment.out === 'number');
+    if (sources.length === 0 || !Number.isFinite(sourceT)) {
+        return null;
+    }
+    for (const segment of sources) {
+        const start = segment.in!;
+        const end = segment.out!;
+        if (start <= sourceT && sourceT < end) {
+            const speed = typeof segment.speed === 'number' && segment.speed > 0 ? segment.speed : 1;
+            return segment.outStart + (sourceT - start) / speed;
+        }
+    }
+    const next = sources.find(segment => segment.in! > sourceT);
+    return next?.outStart ?? sources[sources.length - 1].outEnd;
+}

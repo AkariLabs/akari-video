@@ -71,3 +71,8 @@ export declare function outputToSource(segments: readonly TimelineSegment[], out
     segment: TimelineSegment | null;
     sourceT: number | null;
 };
+/**
+ * ソース秒 → 出力秒。削除区間は次の保持区間の先頭へスナップし、素材末尾を
+ * 超えた時刻は最終セグメントの終端へクランプする。
+ */
+export declare function sourceToOutput(segments: readonly TimelineSegment[], sourceT: number): number | null;

@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "output": { "width": 320, "height": 180, "fps": 30 },
+  "sources": [
+    { "id": "main", "path": "assets/source.mp4" }
+  ],
+  "tracks": [
+    {
+      "id": "v-main",
+      "lane": "visual",
+      "items": [
+        { "id": "cut-a", "at": 0, "duration": 120, "source": { "kind": "media", "src": "main", "in": 0, "out": 4 } },
+        { "id": "cut-b", "at": 120, "duration": 150, "source": { "kind": "media", "src": "main", "in": 5, "out": 10 } }
+      ]
+    },
+    {
+      "id": "v-captions",
+      "lane": "visual",
+      "items": [
+        { "id": "captions", "at": 0, "duration": 270, "source": { "kind": "captions", "path": "captions.json" }, "items": [] }
+      ]
+    },
+    {
+      "id": "v-overlay",
+      "lane": "visual",
+      "items": [
+        {
+          "id": "word-box",
+          "at": 0,
+          "duration": 1,
+          "anchor": { "caption": "c-0002", "range": { "start": 6.2, "end": 6.7 } },
+          "source": { "kind": "html", "path": "overlays/box.html" }
+        }
+      ]
+    }
+  ]
+}

@@ -138,6 +138,7 @@ export interface ItemV2Base {
     at: number;
     /** 表示・再生尺（整数フレーム）。 */
     duration: number;
+    anchor?: { caption: string; range?: { start: number; end: number }; offset?: number; duration?: 'caption' | 'own' };
     transform?: TransformV2;
     opacity?: number;
     blend?: BlendModeV2;

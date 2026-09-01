@@ -16,7 +16,8 @@ import {
     LayerBlendMode,
     TimelineTrackKind,
 } from './edit-store';
-import { AudioMediaItemV2, ItemV2, KeyframesReferenceV2, TrackV2, readEditV2 } from './edit-v2';
+import { AudioMediaItemV2, EditV2, ItemV2, KeyframesReferenceV2, TrackV2, readEditV2 } from './edit-v2';
+import { AnchorCaption, resolveItemAnchors, withoutItemAnchors } from './item-anchor';
 import { cutOverlapFrames, isStillImageSourcePath, planTransitionHandleWindow } from './cut-adjacency';
 import { LegacyEditVersionError } from './migrate/error';
 
@@ -197,6 +198,8 @@ export interface InternalEdit {
 export interface InternalReadOptions {
     /** captions.json に字幕があるか（字幕トラックの導出条件。既定 false）。 */
     hasCaptions?: boolean;
+    /** 行アンカーを再解決するときの字幕。省略時はキャッシュ済み at / duration をそのまま読む。 */
+    captions?: AnchorCaption[];
 }
 
 /**
@@ -216,7 +219,10 @@ export function readInternalEdit(source: string | unknown, options?: InternalRea
     if (record.version !== 2) {
         throw new LegacyEditVersionError(typeof record.version === 'number' ? record.version : -1);
     }
-    return readV2Internal(record);
+    const resolved = options?.captions === undefined
+        ? record
+        : resolveItemAnchors(record as unknown as EditV2, options.captions).edit;
+    return readV2Internal(withoutItemAnchors(resolved) as Record<string, unknown>);
 }
 
 /**

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTimelineMap, outputToSource, transitionProgressAt } from '../lib/timeline-map.js';
+import { buildTimelineMap, outputToSource, sourceToOutput, transitionProgressAt } from '../lib/timeline-map.js';
 import { TRANSITION_TYPE_IDS } from '../lib/transition-vocabulary.js';
 
 function approx(actual, expected, eps = 1e-9) {
@@ -215,4 +215,31 @@ test('outputToSource: src 写像 / gap は null / 末尾超えはクランプ / 
   const after = outputToSource(overlap.segments, 4.5);
   assert.equal(after.segment.cutIndex, 1);
   approx(after.sourceT, 11.5);
+});
+
+test('sourceToOutput は保持区間内で単調かつ outputToSource と往復する', () => {
+  const segments = buildTimelineMap([
+    { in: 1, out: 5, speed: 2 },
+    { in: 5, out: 8 },
+  ]).segments;
+  const outputs = [1, 2, 3, 4.5, 5, 6.5].map(sourceT => sourceToOutput(segments, sourceT));
+  assert.deepEqual(outputs, [...outputs].sort((left, right) => left - right));
+  for (const sourceT of [1, 2, 4.5, 5, 6.5]) {
+    approx(outputToSource(segments, sourceToOutput(segments, sourceT)).sourceT, sourceT);
+  }
+});
+
+test('sourceToOutput はカット内を次の保持区間の先頭へスナップする', () => {
+  const segments = buildTimelineMap([
+    { in: 0, out: 2 },
+    { in: 4, out: 8 },
+  ]).segments;
+  approx(sourceToOutput(segments, 3), 2);
+  approx(sourceToOutput(segments, 4), 2);
+});
+
+test('sourceToOutput は末尾超えを最終 outEnd へクランプし空列は null', () => {
+  const segments = buildTimelineMap([{ in: 2, out: 5, at: 1 }]).segments;
+  approx(sourceToOutput(segments, 99), 4);
+  assert.equal(sourceToOutput([], 1), null);
 });
