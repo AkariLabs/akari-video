@@ -47,6 +47,62 @@ positive `duration_sec`, a non-empty CSS `ease`, and a positive `amp`; `ease` an
 selected recipe, and `loop` repeats it for the caption lifetime. The single-line sequential policy
 continues to disable caption animation as specified above.
 
+### 1.2 Reference-height scaling for zone captions (2026-09-01, issue #40 §2)
+
+The shared `textStyle` contract accepts an optional `reference_height_px` (integer >= 1) in both
+`default_text_style` and `captions[].text_style`; the cue-level value overrides the default field by
+field like every other text-style field. It declares that the pixel fields of that text style were
+written for an output whose height is `reference_height_px`. The kernel resolves
+
+`scale = output.height / reference_height_px` (omitted: `scale = 1`)
+
+and multiplies every declared pixel field by it. The reference is the output *height* because type
+size is a vertical quantity, so the same declaration stays natural for portrait outputs. Without a
+declaration nothing changes: an existing project renders byte-identical CSS variables (the zone path
+kept `scale = 1` before this contract, which is why a 720p `size_px: 36` came out at one third of the
+frame height on a 4K export).
+
+`reference_height_px` and `layout` (reference-pixel) are mutually exclusive. The exclusion is enforced
+three times in the same shape as `zone` + `layout`: `captions.schema.json`
+(`allOf: [{ not: { required: ["layout", "reference_height_px"] } }]`), the kernel
+(`STYLE_LAYOUT_CONFLICT` from `validateCaptionTextStyle`, `mergeCaptionDisplayStyles`, and
+`resolveCaptionStyleForOutput`), and edit-lint (`captions.text-style`). `layout` keeps its own
+`output.width / reference_width_px` scale unchanged. When `reference_height_px` is present and
+`output.height` is unknown, the kernel fails with `INVALID_OUTPUT_GEOMETRY`, the same code the
+reference-pixel path uses.
+
+Scaled fields are exactly the fields that produce CSS `px`. Fields declared in `em`, `%` / `pct`,
+frame ratios, or unitless factors are untouched. Renderer defaults that stand in for an omitted field
+(the 1.5px stroke, the 40px glow spread, the 38px default font size) are not declarations and are not
+scaled, matching the reference-pixel path.
+
+| Field | CSS variable | Scaled |
+|---|---|---|
+| `size_px` | `--caption-font-size` | yes |
+| `stroke.width_px` | `--caption-webkit-text-stroke` / `--caption-text-shadow` (kernel), `--caption-stroke` (render-cut) | yes |
+| `shadow.blur_px`, `shadow.distance_px` | `--caption-text-shadow` | yes |
+| `glow.spread`, `glow.offset_x`, `glow.offset_y` | `--caption-text-shadow` | yes |
+| `background.radius_px` | `--plate-radius` / `--plate-block-radius` / `--plate-ext-radius` | yes |
+| `background.padding_px` | `--plate-pad-x` / `--plate-pad-y` / `--plate-ext-width` / `--plate-ext-height` | yes |
+| `background.offset_x`, `background.offset_y` | `--plate-offset-x` / `--plate-offset-y` | yes |
+| `letter_spacing_em` | `--caption-letter-spacing` (`em`) | no |
+| `max_width_pct`, `background.width_pct`, `background.height_pct` | `--caption-line-max-width` / `--plate-ext-*` (`%`) | no |
+| `line_height`, `shadow.opacity`, `shadow.angle_deg`, `glow.density`, `background.opacity` | unitless | no |
+| `position.x`, `position.y` | frame ratio 0..1 | no |
+
+The scale has one definition, `resolveCaptionReferenceScale` in
+`packages/edit-store/src/caption-display.ts` (with `scaleCaptionPx`, which rounds a scaled value to
+six decimals and returns the input untouched at `scale = 1`). `resolveCaptionStyleForOutput` applies
+it to the fields the kernel emits (`size_px`, `stroke.width_px`, `background.radius_px`);
+`packages/render-cut/src/captions.mjs` `captionTextStyleVars(style, output)` applies the same scale
+to every field in the table for the zone rail that both the GPU page builder and the OSR page builder
+consume through `generateCaptionOverlays`, so both export engines see the same effective pixels; the
+GPU sprite manifest's `emPx` is read back from that `--caption-font-size`, not from the raw `size_px`.
+Real-render evidence (task 2026-09-01-caption-style-reference-scale): one caption declared with
+`size_px: 36` / `reference_height_px: 720` measures the same 4.72% of the frame height at 1280×720 and
+at 3840×2160 (34 px and 102 px), while the same caption without the declaration measures 1.57% at
+3840×2160 (the pre-contract behaviour).
+
 ## 2. Encoding resolution
 
 `output.encoding` accepts `quality: master|high|standard|light` and

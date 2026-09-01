@@ -262,3 +262,47 @@ test("GPU page carries text slot params to static sprites and DOM runs and inlin
   assert.equal(without.manifest.textSlotOverlayCount, 0);
   assert.doesNotMatch(without.html, /SLOT-RUNTIME/u);
 });
+
+// issue #40 §2（2026-09-01）: emPx（page-runtime の字幕計測）と CSS の --caption-font-size は同じ実効 px。
+test("GPU page emPx follows reference_height_px through the render-cut vars (720p 36px, 4K 108px)", () => {
+  const captions = {
+    default_text_style: {
+      zone: "bottom", size_px: 36, reference_height_px: 720,
+      stroke: { color: "#000000", width_px: 3 }, background: { radius_px: 8 },
+    },
+    captions: [{ id: "c-ref", start: 0, end: 1, text: "字幕", time_domain: "output" }],
+  };
+  const build = (width, height, root = captions) => buildGpuPage({
+    edit: { ...edit, output: { ...edit.output, width, height } },
+    overlays: [],
+    captions: root,
+    projectRoot: "/unused",
+    width,
+    height,
+    duration: 1,
+    frameEngineBundle: "window.AkariFrameEngine={};",
+    pageRuntime: "void 0;",
+  }).spriteManifest.captions[0];
+  const hd = build(1280, 720);
+  assert.equal(hd.emPx, 36);
+  assert.equal(hd.vars["--caption-font-size"], "36px");
+  const uhd = build(3840, 2160);
+  assert.equal(uhd.emPx, 108);
+  assert.equal(uhd.vars["--caption-font-size"], "108px");
+  assert.equal(uhd.vars["--caption-stroke"], "18px #000000");
+  assert.equal(uhd.vars["--plate-radius"], "24px");
+  // cue 側の上書き（フィールド単位マージ）
+  const overridden = build(3840, 2160, {
+    ...captions,
+    captions: [{ ...captions.captions[0], text_style: { reference_height_px: 1080 } }],
+  });
+  assert.equal(overridden.emPx, 72);
+  assert.equal(overridden.vars["--caption-font-size"], "72px");
+  // 宣言なしは従来どおり size_px そのまま（4K でも 36）
+  const legacy = build(3840, 2160, { ...captions, default_text_style: { zone: "bottom", size_px: 36 } });
+  assert.equal(legacy.emPx, 36);
+  assert.equal(legacy.vars["--caption-font-size"], "36px");
+  // size_px 未宣言は従来の既定（横長 38 / 縦長 幅 6%）
+  assert.equal(build(3840, 2160, { captions: captions.captions }).emPx, 38);
+  assert.equal(build(1080, 1920, { captions: captions.captions }).emPx, 65);
+});

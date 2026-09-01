@@ -9,7 +9,13 @@ import { predictedDuration } from "./plan.mjs";
 // text_anchor / position → CSS 変数は共有カーネル単一定義（プレビューと同じ式で描く —
 // packages/edit-store/src/caption-display.ts captionAnchorPositionVars 参照）。
 const require = createRequire(import.meta.url);
-const { captionAnchorPositionVars } = require("../../edit-store/lib/index.js");
+// reference_height_px → scale（issue #40 §2）も同カーネル単一定義。GPU（gpu-export page-builder）と
+// OSR（osr-export page-builder）は両方この generateCaptionOverlays の vars を使うので実効 px が揃う。
+const {
+  captionAnchorPositionVars,
+  resolveCaptionReferenceScale,
+  scaleCaptionPx,
+} = require("../../edit-store/lib/index.js");
 
 const DEFAULT_MAX_CHARACTERS = 20;
 // 縦長（output.height > output.width）の既定。横長より 1 行を短く・文字を大きくする
@@ -152,7 +158,7 @@ export function generateCaptionOverlays(captions, cuts, options = {}) {
     const maximum = textStyle?.max_characters
       ?? options.maxCharacters
       ?? (portrait ? PORTRAIT_MAX_CHARACTERS : DEFAULT_MAX_CHARACTERS);
-    const textStyleVars = captionTextStyleVars(textStyle);
+    const textStyleVars = captionTextStyleVars(textStyle, output);
     const allWords = clipWordsToRange(caption.words, caption.start, caption.end);
     // 縦長の既定: 複数行へ折り返す長さの字幕は全行を一度に出さず、既存 reveal 機構で
     // 行単位に順送り表示する（words[] のタイミングが無い字幕は従来どおり静的表示）。
@@ -332,16 +338,26 @@ export function mergeCaptionTextStyles(defaultStyle, captionStyle) {
   return Object.keys(merged).length > 0 ? merged : null;
 }
 
-export function captionTextStyleVars(style) {
+/**
+ * text_style → CSS 変数。`output`（{width,height}）を渡すと `reference_height_px`（issue #40 §2）
+ * の scale = output.height / reference_height_px を宣言済みの px 系フィールド全部に掛ける
+ * （size_px / stroke.width_px / shadow.blur_px / shadow.distance_px / glow.spread / glow.offset_x /
+ * glow.offset_y / background.radius_px / padding_px / offset_x / offset_y）。宣言が無ければ scale = 1 で
+ * 出力バイトは従来と同一。既定値（stroke 1.5 / glow spread 40 等）は宣言値ではないため掛けない
+ * （カーネル resolveCaptionStyleForOutput の layout 経路と同じ扱い）。
+ */
+export function captionTextStyleVars(style, output) {
   if (!style || typeof style !== "object") return {};
   const vars = {};
+  const scale = resolveCaptionReferenceScale(style, output);
+  const px = (value) => scaleCaptionPx(value, scale);
   const extendedBackground = usesExtendedPerLineBackground(style.background);
   const percentageBackground = usesPercentageBackground(style.background);
   if (typeof style.color === "string") {
     vars["--caption-color"] = style.color;
   }
   if (typeof style.size_px === "number" && Number.isFinite(style.size_px)) {
-    vars["--caption-font-size"] = `${style.size_px}px`;
+    vars["--caption-font-size"] = `${px(style.size_px)}px`;
   }
   if (style.stroke && (typeof style.stroke.color === "string"
     || (typeof style.stroke.width_px === "number" && Number.isFinite(style.stroke.width_px)))) {
@@ -349,7 +365,7 @@ export function captionTextStyleVars(style) {
     // （paint-order: stroke fill で塗りが上に乗り、内側半分は隠れる）。
     const strokeWidth = typeof style.stroke.width_px === "number"
       && Number.isFinite(style.stroke.width_px)
-      ? style.stroke.width_px : 1.5;
+      ? px(style.stroke.width_px) : 1.5;
     const strokeColor = typeof style.stroke.color === "string"
       ? style.stroke.color : "rgba(0,0,0,.9)";
     vars["--caption-stroke"] = `${strokeWidth * 2}px ${strokeColor}`;
@@ -368,7 +384,7 @@ export function captionTextStyleVars(style) {
     && Number.isFinite(style.background.radius_px)) {
     const radiusVariable = style.background.mode === "block"
       ? "--plate-block-radius" : extendedBackground ? "--plate-ext-radius" : "--plate-radius";
-    vars[radiusVariable] = `${style.background.radius_px}px`;
+    vars[radiusVariable] = `${px(style.background.radius_px)}px`;
   }
   // --- 2026-08-03 textstyle v0 拡張 ---
   if (typeof style.font_family === "string") {
@@ -395,23 +411,23 @@ export function captionTextStyleVars(style) {
   if (extendedBackground) {
     const horizontalExpansion = percentageBackground
       ? `${style.background.width_pct ?? 0}%`
-      : `${style.background.padding_px ?? 0}px`;
+      : `${px(style.background.padding_px ?? 0)}px`;
     const verticalExpansion = percentageBackground
       ? `${style.background.height_pct ?? 0}%`
-      : `${style.background.padding_px ?? 0}px`;
+      : `${px(style.background.padding_px ?? 0)}px`;
     vars["--plate-ext-width"] = horizontalExpansion;
     vars["--plate-ext-height"] = verticalExpansion;
     if (typeof style.background.offset_x === "number") {
-      vars["--plate-offset-x"] = `${style.background.offset_x}px`;
+      vars["--plate-offset-x"] = `${px(style.background.offset_x)}px`;
     }
     if (typeof style.background.offset_y === "number") {
-      vars["--plate-offset-y"] = `${style.background.offset_y}px`;
+      vars["--plate-offset-y"] = `${px(style.background.offset_y)}px`;
     }
   } else if (typeof style.background?.padding_px === "number") {
-    vars["--plate-pad-y"] = `${style.background.padding_px}px`;
-    vars["--plate-pad-x"] = `${style.background.padding_px}px`;
+    vars["--plate-pad-y"] = `${px(style.background.padding_px)}px`;
+    vars["--plate-pad-x"] = `${px(style.background.padding_px)}px`;
   }
-  const textShadow = captionTextShadowValue(style.shadow, style.glow);
+  const textShadow = captionTextShadowValue(style.shadow, style.glow, scale);
   if (textShadow !== null) {
     vars["--caption-text-shadow"] = textShadow;
   }
@@ -428,20 +444,21 @@ export function captionTextStyleVars(style) {
 
 // shadow（角度 + 距離 → オフセット）と glow（発光 = ぼかしのみの多重影）を
 // 1 本の text-shadow 値へ合成する。どちらも無ければ null（既定の薄影を維持）。
-function captionTextShadowValue(shadow, glow) {
+// scale（reference_height_px 由来・既定 1）は宣言済みの px フィールドだけに掛ける。
+function captionTextShadowValue(shadow, glow, scale = 1) {
   const parts = [];
   if (shadow && typeof shadow.color === "string") {
     const angle = ((shadow.angle_deg ?? 90) * Math.PI) / 180;
-    const distance = shadow.distance_px ?? 0;
+    const distance = scaleCaptionPx(shadow.distance_px ?? 0, scale);
     const dx = Math.round(Math.cos(angle) * distance * 100) / 100;
     const dy = Math.round(Math.sin(angle) * distance * 100) / 100;
-    parts.push(`${dx}px ${dy}px ${shadow.blur_px ?? 0}px ${colorWithOpacity(shadow.color, shadow.opacity)}`);
+    parts.push(`${dx}px ${dy}px ${scaleCaptionPx(shadow.blur_px ?? 0, scale)}px ${colorWithOpacity(shadow.color, shadow.opacity)}`);
   }
   if (glow && typeof glow.color === "string") {
-    const spread = glow.spread ?? 40;
+    const spread = glow.spread === undefined ? 40 : scaleCaptionPx(glow.spread, scale);
     const alpha = Math.min(1, (glow.density ?? 50) / 60);
-    const offsetX = glow.offset_x ?? 0;
-    const offsetY = glow.offset_y ?? 0;
+    const offsetX = scaleCaptionPx(glow.offset_x ?? 0, scale);
+    const offsetY = scaleCaptionPx(glow.offset_y ?? 0, scale);
     parts.push(
       `${offsetX}px ${offsetY}px ${spread}px ${colorWithOpacity(glow.color, alpha)}`,
       `${offsetX}px ${offsetY}px ${spread * 2}px ${colorWithOpacity(glow.color, Number((alpha * 0.7).toFixed(4)))}`,
@@ -490,6 +507,9 @@ function normalizeTextStyle(value) {
   return {
     ...(typeof value.color === "string" ? { color: value.color } : {}),
     ...(finiteNumber(value.size_px) ? { size_px: value.size_px } : {}),
+    // zone 方式の px 系フィールドの基準出力高さ（issue #40 §2）。integer ≥ 1 だけ受理する。
+    ...(Number.isInteger(value.reference_height_px) && value.reference_height_px >= 1
+      ? { reference_height_px: value.reference_height_px } : {}),
     // --- 2026-08-03 textstyle v0 拡張（presets/textstyle と同語彙） ---
     ...(typeof value.font_family === "string" && value.font_family !== ""
       ? { font_family: value.font_family } : {}),

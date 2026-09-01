@@ -92,7 +92,10 @@ export function buildGpuPage({
         duration: Number(overlay.duration),
         html: overlay.html.replace(/file:[^"')]+NotoSansJP-Variable\.ttf/gu, "/caption-font.ttf"),
         vars: overlay.vars ?? {},
-        emPx: Number(textStyle?.size_px ?? (portrait ? Math.round(width * 0.06) : 38)),
+        // 実効フォント px は render-cut の vars（--caption-font-size = size_px × reference_height_px
+        // の scale）から取る。size_px 未宣言なら vars に無いので従来の既定（縦長 = 幅 6% / 横長 = 38）。
+        // page-runtime の caption 計測（emPx）と CSS の font-size が同じ実効 px を指すための単一経路。
+        emPx: captionFontSizePx(overlay.vars) ?? Number(textStyle?.size_px ?? (portrait ? Math.round(width * 0.06) : 38)),
         motion: textStyle?.animation ?? null,
         wordMode: word.wordMode,
         styleId: word.effectiveStyle,
@@ -300,6 +303,17 @@ export async function loadAndBuildGpuPage({
     eligibility,
   });
   return { ...page, warnings: [...prepared.warnings, ...page.warnings] };
+}
+
+// render-cut captionTextStyleVars が書いた `<number>px` の --caption-font-size を数値へ戻す。
+// 変数が無い / px 以外なら null（呼び出し側が従来の既定へ落とす）。
+function captionFontSizePx(vars) {
+  const value = vars?.["--caption-font-size"];
+  if (typeof value !== "string") return null;
+  const match = /^(\d+(?:\.\d+)?)px$/u.exec(value.trim());
+  if (match === null) return null;
+  const px = Number(match[1]);
+  return Number.isFinite(px) && px > 0 ? px : null;
 }
 
 function mergeTextStyle(base, override) {
