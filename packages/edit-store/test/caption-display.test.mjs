@@ -7,8 +7,12 @@ import { fileURLToPath } from 'node:url';
 import {
   captionAnchorPositionVars,
   measureCaptionUnits,
+  mergeCaptionDisplayStyles,
   resolveCaptionDisplay,
+  resolveCaptionReferenceScale,
   resolveCaptionStyleForOutput,
+  scaleCaptionPx,
+  validateCaptionTextStyle,
 } from '../lib/caption-display.js';
 
 const testRoot = dirname(fileURLToPath(import.meta.url));
@@ -423,3 +427,94 @@ function styleRootForCase(item) {
   if (Object.hasOwn(item, 'caption_text_style')) root.captions[0].text_style = item.caption_text_style;
   return root;
 }
+
+// issue #40 §2（2026-09-01）: zone 方式の px 系フィールドは reference_height_px を宣言すると
+// output.height / reference_height_px で自動追随する。宣言なしは従来値バイト同一。
+const REFERENCE_PIXEL_LAYOUT = {
+  mode: 'reference-pixel', reference_width_px: 1920, reference_height_px: 1080,
+  left_px: 261, width_px: 1120, bottom_px: 29, text_align: 'center', max_lines: 1,
+};
+
+test('reference_height_px scales zone-style px fields by output height and leaves undeclared styles byte-identical', () => {
+  const style = {
+    zone: 'bottom', size_px: 36, reference_height_px: 720,
+    stroke: { color: '#000000', width_px: 3 }, background: { radius_px: 8 },
+  };
+  const hd = resolveCaptionStyleForOutput(style, { width: 1280, height: 720 });
+  assert.equal(hd.vars['--caption-font-size'], '36px');
+  assert.equal(hd.vars['--plate-radius'], '8px');
+  assert.match(hd.vars['--caption-text-shadow'], /^-3px -3px 0 #000000, 3px -3px 0 #000000/u);
+  const uhd = resolveCaptionStyleForOutput(style, { width: 3840, height: 2160 });
+  assert.equal(uhd.vars['--caption-font-size'], '108px');
+  assert.equal(uhd.vars['--plate-radius'], '24px');
+  assert.equal(uhd.vars['--plate-block-radius'], '24px');
+  assert.match(uhd.vars['--caption-text-shadow'], /^-9px -9px 0 #000000, 9px -9px 0 #000000/u);
+  assert.equal(uhd.layout, undefined, 'zone 方式なので reference-pixel layout は生まれない');
+  const outline = resolveCaptionStyleForOutput(
+    { ...style, stroke: { method: 'webkit-outline', color: '#000000', width_px: 3 } },
+    { width: 3840, height: 2160 },
+  );
+  assert.equal(outline.vars['--caption-webkit-text-stroke'], '9px #000000');
+  // 基準は高さ: 縦型 1080×1920 でも scale = 1920 / 720
+  assert.equal(resolveCaptionStyleForOutput(style, { width: 1080, height: 1920 }).vars['--caption-font-size'], '96px');
+  // 宣言なしは 4K でも従来値（720p の vars と同一 = 従来どおり追随しない）
+  const { reference_height_px: _omitted, ...plain } = style;
+  assert.deepEqual(resolveCaptionStyleForOutput(plain, { width: 3840, height: 2160 }).vars, hd.vars);
+  assert.deepEqual(resolveCaptionStyleForOutput(plain, undefined).vars, hd.vars);
+});
+
+test('reference_height_px requires output height, an integer >= 1, and no reference-pixel layout', () => {
+  const style = { size_px: 36, reference_height_px: 720 };
+  assert.throws(() => resolveCaptionStyleForOutput(style, undefined), error => error.code === 'INVALID_OUTPUT_GEOMETRY');
+  assert.throws(() => resolveCaptionStyleForOutput(style, { width: 1920 }), error => error.code === 'INVALID_OUTPUT_GEOMETRY');
+  assert.equal(resolveCaptionReferenceScale({ size_px: 36 }, undefined), 1);
+  assert.equal(resolveCaptionReferenceScale(style, { width: 3840, height: 2160 }), 3);
+  assert.equal(resolveCaptionReferenceScale(style, { width: 1280, height: 720 }), 1);
+  for (const value of [0, -1, 1.5, '720', Number.NaN, Number.POSITIVE_INFINITY, null, true]) {
+    assert.throws(() => validateCaptionTextStyle({ reference_height_px: value }), error => error.code === 'INVALID_TEXT_STYLE', String(value));
+    assert.throws(() => resolveCaptionReferenceScale({ reference_height_px: value }, { width: 1920, height: 1080 }), error => error.code === 'INVALID_TEXT_STYLE', String(value));
+  }
+  assert.deepEqual(validateCaptionTextStyle({ reference_height_px: 1 }), { reference_height_px: 1 });
+  // layout（reference-pixel）との併用は kernel の 3 入口（validate / merge / resolve）全てで拒否
+  assert.throws(() => validateCaptionTextStyle({ reference_height_px: 720, layout: REFERENCE_PIXEL_LAYOUT }), error => error.code === 'STYLE_LAYOUT_CONFLICT');
+  assert.throws(() => mergeCaptionDisplayStyles({ layout: REFERENCE_PIXEL_LAYOUT }, { reference_height_px: 720 }), error => error.code === 'STYLE_LAYOUT_CONFLICT');
+  assert.throws(() => mergeCaptionDisplayStyles({ reference_height_px: 720 }, { layout: REFERENCE_PIXEL_LAYOUT }), error => error.code === 'STYLE_LAYOUT_CONFLICT');
+  assert.throws(() => resolveCaptionStyleForOutput({ reference_height_px: 720, layout: REFERENCE_PIXEL_LAYOUT }, { width: 1920, height: 1080 }), error => error.code === 'STYLE_LAYOUT_CONFLICT');
+  assert.throws(() => resolveCaptionReferenceScale({ reference_height_px: 720, layout: REFERENCE_PIXEL_LAYOUT }, { width: 1920, height: 1080 }), error => error.code === 'STYLE_LAYOUT_CONFLICT');
+  assert.throws(() => resolveCaptionDisplay({
+    display_policy: policy,
+    default_text_style: { layout: REFERENCE_PIXEL_LAYOUT },
+    captions: [caption('c-0001', 0, 1, '併用です', { text_style: { reference_height_px: 720 } })],
+  }, { output: { width: 1920, height: 1080 }, cuts: [] }), error => error.code === 'STYLE_LAYOUT_CONFLICT');
+  // layout 経路は従来どおり output.width / reference_width_px
+  const layoutOnly = resolveCaptionStyleForOutput({ size_px: 82, layout: REFERENCE_PIXEL_LAYOUT }, { width: 3840, height: 2160 });
+  assert.equal(layoutOnly.vars['--caption-font-size'], '164px');
+  assert.equal(layoutOnly.layout.scale, 2);
+});
+
+test('cue-level reference_height_px overrides default_text_style field by field through the display kernel', () => {
+  const result = resolveCaptionDisplay({
+    display_policy: policy,
+    default_text_style: { size_px: 36, reference_height_px: 720, stroke: { color: '#000000', width_px: 3 } },
+    captions: [
+      caption('c-0001', 0, 1, '既定です'),
+      caption('c-0002', 1, 2, '上書きです', { text_style: { reference_height_px: 1080 } }),
+      caption('c-0003', 2, 3, '色だけです', { text_style: { color: '#FFF4D6' } }),
+    ],
+  }, { output: { width: 3840, height: 2160 }, cuts: [] });
+  const [byDefault, overridden, colorOnly] = result.display_cues;
+  assert.equal(byDefault.style_vars['--caption-font-size'], '108px');
+  assert.match(byDefault.style_vars['--caption-text-shadow'], /^-9px -9px 0 #000000/u);
+  assert.equal(overridden.style_vars['--caption-font-size'], '72px');
+  assert.match(overridden.style_vars['--caption-text-shadow'], /^-6px -6px 0 #000000/u);
+  assert.deepEqual(overridden.text_style, { size_px: 36, reference_height_px: 1080, stroke: { color: '#000000', width_px: 3 } });
+  assert.equal(colorOnly.style_vars['--caption-font-size'], '108px', 'cue が reference_height_px を持たなければ default を継承する');
+  assert.equal(colorOnly.style_vars['--caption-color'], '#FFF4D6');
+});
+
+test('scaleCaptionPx keeps scale 1 values untouched and rounds scaled values to six places', () => {
+  assert.equal(scaleCaptionPx(1.23456789, 1), 1.23456789);
+  assert.equal(scaleCaptionPx(0.1, 3), 0.3);
+  assert.equal(scaleCaptionPx(36, 1.5), 54);
+  assert.equal(scaleCaptionPx(1.23456789, 0.5), 0.617284);
+});

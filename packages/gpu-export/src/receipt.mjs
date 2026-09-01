@@ -36,6 +36,7 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
       captionRasterBatches: normalizeBatchSummary(run?.gpu?.captionRasterBatches),
       captionStartup: normalizeCaptionStartup(run?.gpu?.captionStartup),
       domLayer: run?.domLayer ?? null,
+      viewport: normalizeViewport(run?.viewport),
       eligibility: [...(eligibility?.entries ?? [])],
     },
     memory: {
@@ -52,6 +53,23 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
     run: run?.persistentPath ?? null,
     finalVerify,
   };
+}
+
+function normalizeViewport(value) {
+  if (!value || typeof value !== "object") return null;
+  const requested = normalizeSize(value.requested);
+  const measured = normalizeSize(value.measured);
+  const display = normalizeSize(value.display);
+  return requested === null || measured === null || display === null || typeof value.emulated !== "boolean"
+    ? null
+    : { requested, measured, emulated: value.emulated, display };
+}
+
+function normalizeSize(value) {
+  if (!value || typeof value !== "object") return null;
+  const width = Number(value.width);
+  const height = Number(value.height);
+  return Number.isInteger(width) && width > 0 && Number.isInteger(height) && height > 0 ? { width, height } : null;
 }
 
 function normalizeRenderer(value) {

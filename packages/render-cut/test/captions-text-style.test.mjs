@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { generateCaptionOverlays } from "../src/captions.mjs";
+import { captionTextStyleVars, generateCaptionOverlays } from "../src/captions.mjs";
 
 const caption = (textStyle) => ({
   id: "c-0001",
@@ -126,4 +126,85 @@ test("word-level 字幕も background.mode block の単一 wrapper を使う", (
   assert.match(overlay.html, /akari-caption__block/);
   assert.match(overlay.html, /akari-caption__tok--karaoke/);
   assert.equal(overlay.vars["--plate-block-bg"], "rgba(0,0,0,0.8)");
+});
+
+// issue #40 §2（2026-09-01）: zone 方式の px 系フィールドは reference_height_px を宣言すると
+// output.height / reference_height_px で追随する（GPU / OSR 両 page-builder が使う vars）。
+test("reference_height_px は output.height 基準の scale を宣言済み px フィールド全部に掛け、宣言なしはバイト同一", () => {
+  const style = {
+    zone: "bottom", size_px: 36, reference_height_px: 720,
+    stroke: { color: "#000000", width_px: 3 },
+    shadow: { color: "#000000", blur_px: 6, distance_px: 2 },
+    glow: { color: "#00E5FF", spread: 10, offset_x: 1, offset_y: 2 },
+    background: { color: "#000000", radius_px: 8, padding_px: 4 },
+  };
+  const [hd] = generateCaptionOverlays([caption(style)], [], { output: { width: 1280, height: 720 } });
+  assert.equal(hd.vars["--caption-font-size"], "36px");
+  assert.equal(hd.vars["--caption-stroke"], "6px #000000");
+  assert.equal(hd.vars["--plate-radius"], "8px");
+  assert.equal(hd.vars["--plate-pad-x"], "4px");
+  assert.equal(hd.vars["--caption-text-shadow"],
+    "0px 2px 6px rgba(0,0,0,1), 1px 2px 10px rgba(0,229,255,0.8333), 1px 2px 20px rgba(0,229,255,0.5833)");
+
+  const [uhd] = generateCaptionOverlays([caption(style)], [], { output: { width: 3840, height: 2160 } });
+  assert.equal(uhd.vars["--caption-font-size"], "108px");
+  assert.equal(uhd.vars["--caption-stroke"], "18px #000000");
+  assert.equal(uhd.vars["--plate-radius"], "24px");
+  assert.equal(uhd.vars["--plate-pad-x"], "12px");
+  assert.equal(uhd.vars["--plate-pad-y"], "12px");
+  assert.equal(uhd.vars["--caption-text-shadow"],
+    "0px 6px 18px rgba(0,0,0,1), 3px 6px 30px rgba(0,229,255,0.8333), 3px 6px 60px rgba(0,229,255,0.5833)");
+
+  // 拡張座布団（offset_x / offset_y / padding_px → --plate-ext-* / --plate-offset-*）と block 角丸も同じ scale
+  const [block] = generateCaptionOverlays([caption({
+    size_px: 36, reference_height_px: 720,
+    background: { color: "#000000", radius_px: 8, mode: "block" },
+  })], [], { output: { width: 3840, height: 2160 } });
+  assert.equal(block.vars["--plate-block-radius"], "24px");
+  const [extended] = generateCaptionOverlays([caption({
+    size_px: 36, reference_height_px: 720,
+    background: { color: "#000000", radius_px: 8, padding_px: 4, offset_x: 2, offset_y: -1 },
+  })], [], { output: { width: 3840, height: 2160 } });
+  assert.equal(extended.vars["--plate-ext-radius"], "24px");
+  assert.equal(extended.vars["--plate-ext-width"], "12px");
+  assert.equal(extended.vars["--plate-ext-height"], "12px");
+  assert.equal(extended.vars["--plate-offset-x"], "6px");
+  assert.equal(extended.vars["--plate-offset-y"], "-3px");
+
+  // em / % / 比率系（letter_spacing_em / max_width_pct / width_pct / height_pct）は対象外
+  const [unitless] = generateCaptionOverlays([caption({
+    size_px: 36, reference_height_px: 720, letter_spacing_em: 0.1, max_width_pct: 80,
+    background: { color: "#000000", width_pct: 20, height_pct: 10 },
+  })], [], { output: { width: 3840, height: 2160 } });
+  assert.equal(unitless.vars["--caption-letter-spacing"], "0.1em");
+  assert.equal(unitless.vars["--caption-line-max-width"], "80%");
+  assert.equal(unitless.vars["--plate-ext-width"], "20%");
+  assert.equal(unitless.vars["--plate-ext-height"], "10%");
+
+  // 宣言なしは 4K でも従来値（= 720p の vars とバイト同一）・output 無しでも同じ
+  const { reference_height_px: _omitted, ...plain } = style;
+  const [legacy] = generateCaptionOverlays([caption(plain)], [], { output: { width: 3840, height: 2160 } });
+  assert.deepEqual(legacy.vars, hd.vars);
+  const [legacyNoOutput] = generateCaptionOverlays([caption(plain)], []);
+  assert.deepEqual(legacyNoOutput.vars, hd.vars);
+
+  // default_text_style と cue のフィールド単位マージ（cue 側の reference_height_px が勝つ）
+  const [merged] = generateCaptionOverlays([caption({ reference_height_px: 1080 })], [], {
+    defaultTextStyle: { size_px: 36, reference_height_px: 720 },
+    output: { width: 3840, height: 2160 },
+  });
+  assert.equal(merged.vars["--caption-font-size"], "72px");
+  const [inherited] = generateCaptionOverlays([caption({ color: "#FFFFFF" })], [], {
+    defaultTextStyle: { size_px: 36, reference_height_px: 720 },
+    output: { width: 3840, height: 2160 },
+  });
+  assert.equal(inherited.vars["--caption-font-size"], "108px");
+
+  // 基準は高さ: 縦型出力でも自然
+  assert.equal(captionTextStyleVars({ size_px: 36, reference_height_px: 720 }, { width: 1080, height: 1920 })["--caption-font-size"], "96px");
+  // output.height が無いと kernel と同型で fail
+  assert.throws(() => generateCaptionOverlays([caption(style)], []), (error) => error.code === "INVALID_OUTPUT_GEOMETRY");
+  // integer >= 1 以外の宣言は normalizeTextStyle が落とす（scale = 1）
+  const [ignored] = generateCaptionOverlays([caption({ size_px: 36, reference_height_px: 720.5 })], [], { output: { width: 3840, height: 2160 } });
+  assert.equal(ignored.vars["--caption-font-size"], "36px");
 });

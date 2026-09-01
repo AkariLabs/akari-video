@@ -48,6 +48,8 @@ export interface CaptionLayout {
 export interface CaptionTextStyle {
     color?: string;
     sizePx?: number;
+    /** zone 方式の px 系フィールドの基準出力高さ（issue #40 §2）。integer ≥ 1。layout と排他。 */
+    referenceHeightPx?: number;
     fontFamily?: string;
     fontWeight?: number;
     weight?: number;

@@ -245,6 +245,11 @@ function validateCaptionsArray(captions, optInDefaultTextStyle = null) {
         if (mergedHasZone && mergedHasLayout) {
           fail(`${label}.text_style は default_text_style とのマージ後に zone と layout を併用できません`);
         }
+        const mergedHasReferenceHeight = hasOwn(caption.text_style, "reference_height_px")
+          || hasOwn(optInDefaultTextStyle, "reference_height_px");
+        if (mergedHasReferenceHeight && mergedHasLayout) {
+          fail(`${label}.text_style は default_text_style とのマージ後に layout と reference_height_px を併用できません`);
+        }
       }
     }
   });
@@ -303,7 +308,7 @@ function validateTextStyle(value, label) {
     "color", "size_px", "font_weight", "line_height", "stroke", "background", "zone", "layout",
     "font_family", "weight", "italic", "underline", "letter_spacing_em", "align",
     "vertical_align", "vertical", "text_transform", "max_width_pct", "text_anchor",
-    "position", "shadow", "glow", "animation",
+    "position", "shadow", "glow", "animation", "reference_height_px",
   ]);
   for (const key of Object.keys(value)) {
     if (!allowedKeys.has(key)) fail(`${label} に未知のキーがあります: ${key}`);
@@ -312,6 +317,11 @@ function validateTextStyle(value, label) {
   if (hasOwn(value, "color")) validateHexColor(value.color, `${label}.color`);
   if (hasOwn(value, "size_px") && (!isFiniteNumber(value.size_px) || value.size_px <= 0)) {
     fail(`${label}.size_px は 0 より大きい有限数である必要があります`);
+  }
+  // zone 方式の px 系フィールドの基準出力高さ（issue #40 §2）。integer >= 1・layout と排他。
+  if (hasOwn(value, "reference_height_px")
+    && (!Number.isInteger(value.reference_height_px) || value.reference_height_px < 1)) {
+    fail(`${label}.reference_height_px は 1 以上の整数である必要があります`);
   }
   if (hasOwn(value, "font_weight") && (!Number.isInteger(value.font_weight) || value.font_weight < 1 || value.font_weight > 1000)) {
     fail(`${label}.font_weight は 1 から 1000 の整数である必要があります`);
@@ -329,6 +339,9 @@ function validateTextStyle(value, label) {
   if (hasOwn(value, "layout")) validateReferencePixelLayout(value.layout, `${label}.layout`);
   if (hasOwn(value, "zone") && hasOwn(value, "layout")) {
     fail(`${label} では zone と layout を併用できません`);
+  }
+  if (hasOwn(value, "layout") && hasOwn(value, "reference_height_px")) {
+    fail(`${label} では layout と reference_height_px を併用できません`);
   }
 }
 

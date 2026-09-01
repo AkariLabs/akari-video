@@ -5,6 +5,8 @@ export interface LayerKeyframe {
   transform?: { x?: number; y?: number; scale?: number; rotate?: number };
   crop?: { x: number; y: number; w: number; h: number };
   perspective?: { corners: readonly (readonly [number, number])[] };
+  /** contract-2026-08-30-motion-and-keyframes-v0.md §2.1 (a): opacity is a keyframe-able leaf. */
+  opacity?: number;
   easing?: 'linear' | 'ease-in-out';
 }
 
@@ -48,6 +50,8 @@ export function computeLayerKeyframesVisual(
   transform: ResolvedLayerVisual['transform'] | null;
   crop: ResolvedLayerVisual['crop'] | null;
   perspective: ResolvedLayerVisual['perspective'];
+  /** null when no point declares a finite `opacity`; otherwise the interpolation clamped to [0, 1]. */
+  opacity: number | null;
 } | null {
   const points = (keyframes ?? [])
     .filter((point) => finite(point?.t) && point.t >= 0)
@@ -122,7 +126,11 @@ export function computeLayerKeyframesVisual(
         ),
       }
     : null;
-  return { transform, crop, perspective };
+  const opacityPoints = points.filter((point) => finite(point.opacity));
+  const opacity = opacityPoints.length
+    ? Math.max(0, Math.min(1, valueAt(opacityPoints, (point) => point.opacity!, t)))
+    : null;
+  return { transform, crop, perspective, opacity };
 }
 
 /** Heckbert unit-square to [TL,TR,BL,BR] quadrilateral matrix, row-major. */

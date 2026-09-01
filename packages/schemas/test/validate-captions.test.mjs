@@ -239,3 +239,41 @@ function styleRootForCase(item) {
   if (Object.hasOwn(item, "caption_text_style")) root.captions[0].text_style = item.caption_text_style;
   return root;
 }
+
+// issue #40 §2（2026-09-01）: zone 方式の基準出力高さ reference_height_px。
+test("text_style.reference_height_px は integer >= 1 を受理し、layout との併用と不正値を拒否する", () => {
+  const layout = {
+    mode: "reference-pixel", reference_width_px: 1920, reference_height_px: 1080,
+    left_px: 261, width_px: 1120, bottom_px: 29, text_align: "center", max_lines: 1,
+  };
+  const valid = runValue({
+    default_text_style: { zone: "bottom", size_px: 36, reference_height_px: 720 },
+    captions: [{ ...caption, text_style: { reference_height_px: 1080, size_px: 54 } }],
+  });
+  assert.equal(valid.status, 0, valid.stderr);
+  assert.match(valid.stdout, /^OK: /u);
+  const arrayRoot = runValue([{ ...caption, text_style: { zone: "top", size_px: 36, reference_height_px: 1 } }]);
+  assert.equal(arrayRoot.status, 0, arrayRoot.stderr);
+
+  for (const [id, text_style, message] of [
+    ["layout-conflict", { reference_height_px: 720, layout }, /reference_height_px/u],
+    ["zero", { reference_height_px: 0 }, /reference_height_px/u],
+    ["negative", { reference_height_px: -720 }, /reference_height_px/u],
+    ["fraction", { reference_height_px: 720.5 }, /reference_height_px/u],
+    ["string", { reference_height_px: "720" }, /reference_height_px/u],
+  ]) {
+    const executed = runValue([{ ...caption, text_style }]);
+    assert.equal(executed.status, 1, `${id}: ${executed.stdout}`);
+    assert.match(executed.stderr, /^NG: /u, id);
+    assert.match(executed.stderr, message, id);
+  }
+  // マージ後の併用（default に layout・cue に reference_height_px）は zone/layout と同じく
+  // display_policy 経路（opt-in）で検証器が弾く。
+  const merged = runValue({
+    display_policy: displayPolicy,
+    default_text_style: { layout },
+    captions: [{ ...caption, text_style: { reference_height_px: 720 } }],
+  });
+  assert.equal(merged.status, 1, merged.stdout);
+  assert.match(merged.stderr, /layout と reference_height_px を併用できません/u);
+});

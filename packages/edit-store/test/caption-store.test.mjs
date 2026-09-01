@@ -378,3 +378,58 @@ test('新規挿入した字幕行も拡張フィールドを含めてラウン�
     maxLines: 1
   });
 });
+
+// issue #40 §2（2026-09-01）: zone 方式の基準出力高さ reference_height_px は保存・読み戻しで落ちない。
+test('reference_height_px は camelCase で読み取り、外科編集・新規挿入のラウンドトリップで剥がれ落ちない', () => {
+  const source = JSON.stringify({
+    default_text_style: { size_px: 36, reference_height_px: 720, zone: 'bottom' },
+    captions: [
+      caption('c-0001', 0, '基準高さ', { text_style: { reference_height_px: 1080, size_px: 54 } }),
+      caption('c-0002', 2, '対象外')
+    ]
+  }, null, 2) + '\n';
+  const parsed = parseCaptions(source);
+  assert.equal(parsed.warnings.length, 0, '未知フィールド警告は出ない');
+  assert.equal(parsed.defaultTextStyle.referenceHeightPx, 720);
+  assert.equal(parsed.captions[0].textStyle.referenceHeightPx, 1080);
+  assert.equal(parsed.captions[0].textStyle.sizePx, 54);
+
+  const updated = updateCaptionTextStyleInSource(source, 'c-0001', { color: '#FFFFFF' });
+  const reparsed = parseCaptions(updated);
+  assert.equal(reparsed.captions[0].textStyle.color, '#FFFFFF', '変更したフィールドは反映される');
+  assert.equal(reparsed.captions[0].textStyle.referenceHeightPx, 1080, 'cue 側の reference_height_px は剥がれ落ちない');
+  assert.equal(reparsed.defaultTextStyle.referenceHeightPx, 720, 'default 側の reference_height_px は剥がれ落ちない');
+  assert.match(updated, /"reference_height_px":\s*1080/);
+  assert.match(updated, /"reference_height_px":\s*720/);
+
+  // textStyleToJson 経路（新規挿入）でも snake_case で書き出される
+  const inserted = insertCaptionLine('[]', {
+    id: 'c-0001', start: 0, end: 1, text: '新規', speaker: null, sourceRef: null, edited: false,
+    textStyle: { sizePx: 36, referenceHeightPx: 720 }
+  });
+  assert.match(inserted, /"reference_height_px":\s*720/);
+  assert.equal(parseCaptions(inserted).captions[0].textStyle.referenceHeightPx, 720);
+});
+
+test('reference_height_px は integer >= 1 だけを取り込み、cue 側がフィールド単位で上書きし、layout との併用は layout を落とす', () => {
+  for (const value of [0, -1, 0.5, '720', null]) {
+    const parsed = parseCaptions(JSON.stringify([
+      caption('c-0001', 0, '不正値', { text_style: { color: '#FFFFFF', reference_height_px: value } })
+    ]));
+    assert.equal(parsed.captions.length, 1, `${String(value)}: 行は捨てない`);
+    assert.equal('referenceHeightPx' in parsed.captions[0].textStyle, false, `${String(value)}: 不正値は無視する`);
+    assert.equal(parsed.captions[0].textStyle.color, '#FFFFFF');
+  }
+  assert.equal(mergeCaptionTextStyles({ sizePx: 36, referenceHeightPx: 720 }, { referenceHeightPx: 1080 }).referenceHeightPx, 1080);
+  assert.equal(mergeCaptionTextStyles({ sizePx: 36, referenceHeightPx: 720 }, { color: '#FFFFFF' }).referenceHeightPx, 720);
+
+  const layout = {
+    mode: 'reference-pixel', reference_width_px: 1920, reference_height_px: 1080,
+    left_px: 261, width_px: 1120, bottom_px: 29, text_align: 'center', max_lines: 1
+  };
+  const both = parseCaptions(JSON.stringify([
+    caption('c-0001', 0, 'reference-and-layout', { text_style: { reference_height_px: 720, layout } })
+  ]));
+  assert.equal(both.captions[0].textStyle.referenceHeightPx, 720);
+  assert.equal('layout' in both.captions[0].textStyle, false, 'schema の併用禁止: zone と同じ向きで layout を落とす');
+});

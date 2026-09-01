@@ -2,12 +2,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
+import vm from 'node:vm';
 import { buildTimelineMap } from '@akari-video/edit-store';
 import { TRANSITION_VOCABULARY } from '@akari-video/edit-store';
 import {
   buildResolvedTimelinePlan,
+  computeLayerKeyframesVisual,
+  cutLayerStyleBox,
+  cutLayerStyleSourceUv,
   evaluationPlanFromResolvedTimeline,
-  evaluationPlanFromTimelineMap
+  evaluationPlanFromTimelineMap,
+  hasCutLayerStyleVisual
 } from '../dist/index.js';
 
 const transitionFixture = JSON.parse(readFileSync(
@@ -228,3 +233,221 @@ test('total duration covers layers that outlast or replace the cuts (issue #31)'
   });
   assert.equal(filterOnly.totalDuration, 5);
 });
+
+// ---- issue #39: v2 media item (cuts) crop / transform / opacity keyframes on the base path ----------
+
+const hd = { width: 1920, height: 1080, colorSpace: 'bt709-limited' };
+const videoSource = () => ({ decode: async () => { throw new Error('not used'); } });
+const baseAt = (timeline, seconds, sources, output = hd) =>
+  evaluationPlanFromResolvedTimeline(timeline, Math.round(seconds * 1e6), sources, output).base;
+
+test('layer-style cut (a): static crop + scale 2 draws the crop window at natural size × scale (issue #39)', () => {
+  const sources = new Map([['fixture.mp4', videoSource()]]);
+  const timeline = buildResolvedTimelinePlan([
+    { id: 'c', src: 'fixture.mp4', in: 0, out: 10, crop: { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }, transform: { scale: 2 } }
+  ], { fps: 30 });
+  const [base] = baseAt(timeline, 1, sources);
+  assert.equal(hasCutLayerStyleVisual(timeline.cuts[0].cut), true);
+  assert.deepEqual(base.visual.layerStyle, { crop: { x: 0.5, y: 0.5, width: 0.5, height: 0.5 } });
+  assert.deepEqual(base.visual.transform, { x: 0, y: 0, scale: 2, rotateDegrees: 0 });
+  assert.equal(base.visual.opacity, 1);
+  // box = crop.w × 1920 × 2 by crop.h × 1080 × 2 = the full 1920×1080 output, centred on the output centre
+  assert.deepEqual(cutLayerStyleBox(base.visual, 1920, 1080), { width: 1920, height: 1080 });
+  const uv = (px, py) => cutLayerStyleSourceUv(base.visual, 1920, 1080, 1920, 1080, px, py);
+  assert.deepEqual(uv(960, 540), [0.75, 0.75]);
+  assert.deepEqual(uv(0, 0), [0.5, 0.5]);
+  assert.deepEqual(uv(1920, 1080), [1, 1]);
+  assert.equal(uv(-1, 540), null);
+  assert.equal(uv(960, 1081), null);
+});
+
+test('layer-style cut (b): two crop keyframes interpolate linearly at the midpoint (issue #39)', () => {
+  const sources = new Map([['fixture.mp4', videoSource()]]);
+  const timeline = buildResolvedTimelinePlan([
+    { id: 'c', src: 'fixture.mp4', in: 0, out: 10, keyframes: [
+      { t: 0, crop: { x: 0, y: 0, w: 0.5, h: 0.5 }, transform: { scale: 2 } },
+      { t: 2, crop: { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }, transform: { scale: 2 } }
+    ] }
+  ], { fps: 30 });
+  assert.deepEqual(baseAt(timeline, 1, sources)[0].visual.layerStyle.crop, { x: 0.25, y: 0.25, width: 0.5, height: 0.5 });
+  assert.deepEqual(baseAt(timeline, 0, sources)[0].visual.layerStyle.crop, { x: 0, y: 0, width: 0.5, height: 0.5 });
+  assert.deepEqual(baseAt(timeline, 5, sources)[0].visual.layerStyle.crop, { x: 0.5, y: 0.5, width: 0.5, height: 0.5 });
+  assert.equal(baseAt(timeline, 1, sources)[0].visual.transform.scale, 2);
+  // crop stays inside the source: x ∈ [0, 1 − w]
+  const overflow = buildResolvedTimelinePlan([
+    { id: 'o', src: 'fixture.mp4', in: 0, out: 10, crop: { x: 0.8, y: -0.5, w: 0.5, h: 0.5 } }
+  ], { fps: 30 });
+  assert.deepEqual(baseAt(overflow, 1, sources)[0].visual.layerStyle.crop, { x: 0.5, y: 0, width: 0.5, height: 0.5 });
+});
+
+test('layer-style cut (c): keyframe t is output-local seconds — at ≠ 0 and freeze keep the clock running (issue #39)', () => {
+  const sources = new Map([['base.mp4', videoSource()], ['broll.mp4', videoSource()]]);
+  const keyframes = [
+    { t: 0, crop: { x: 0, y: 0, w: 0.5, h: 0.5 } },
+    { t: 4, crop: { x: 0.4, y: 0, w: 0.5, h: 0.5 } }
+  ];
+  const placed = buildResolvedTimelinePlan([
+    { id: 'bg', src: 'base.mp4', in: 0, out: 20 },
+    { id: 'b1', src: 'broll.mp4', in: 0, out: 4, at: 5, track: 1, keyframes }
+  ], { fps: 30 });
+  const [placedBase] = baseAt(placed, 7, sources);
+  assert.equal(placedBase.source, sources.get('broll.mp4'));
+  assert.equal(placedBase.sourceTimeUs, 2_000_000);
+  assert.equal(placedBase.visual.layerStyle.crop.x, 0.2);
+  const frozen = buildResolvedTimelinePlan([
+    { id: 'f', src: 'base.mp4', in: 0, out: 4, freeze: { at_sec: 1, duration_sec: 2 }, keyframes }
+  ], { fps: 30 });
+  assert.equal(frozen.totalDuration, 6);
+  const [held] = baseAt(frozen, 2.5, sources);
+  assert.equal(held.sourceTimeUs, 1_000_000);
+  assert.ok(Math.abs(held.visual.layerStyle.crop.x - 0.25) < 1e-12);
+  const [afterHold] = baseAt(frozen, 4, sources);
+  assert.equal(afterHold.sourceTimeUs, 2_000_000);
+  assert.ok(Math.abs(afterHold.visual.layerStyle.crop.x - 0.4) < 1e-12);
+});
+
+test('layer-style cut (d): opacity keyframes interpolate and fall back to the static opacity (issue #39)', () => {
+  const sources = new Map([['fixture.mp4', videoSource()]]);
+  const animated = buildResolvedTimelinePlan([
+    { id: 'a', src: 'fixture.mp4', in: 0, out: 10, opacity: 0.3, keyframes: [
+      { t: 0, opacity: 0, crop: { x: 0, y: 0, w: 1, h: 1 } },
+      { t: 2, opacity: 1 }
+    ] }
+  ], { fps: 30 });
+  assert.equal(baseAt(animated, 1, sources)[0].visual.opacity, 0.5);
+  assert.equal(baseAt(animated, 0, sources)[0].visual.opacity, 0);
+  assert.equal(baseAt(animated, 3, sources)[0].visual.opacity, 1);
+  const held = buildResolvedTimelinePlan([
+    { id: 'h', src: 'fixture.mp4', in: 0, out: 10, opacity: 0.3, keyframes: [
+      { t: 0, crop: { x: 0, y: 0, w: 1, h: 1 } },
+      { t: 2, crop: { x: 0.5, y: 0, w: 0.5, h: 1 } }
+    ] }
+  ], { fps: 30 });
+  assert.equal(baseAt(held, 1, sources)[0].visual.opacity, 0.3);
+  assert.equal(computeLayerKeyframesVisual([{ t: 0, opacity: 1 }, { t: 1, opacity: 0, easing: 'ease-in-out' }], 0.25).opacity, 1 - 4 * 0.25 ** 3);
+  assert.equal(computeLayerKeyframesVisual([{ t: 0, transform: { x: 1 } }, { t: 1, transform: { x: 2 } }], 0.5).opacity, null);
+});
+
+test('layer-style cut (e): perspective warns exactly once and everything else still applies (issue #39)', () => {
+  const sources = new Map([['fixture.mp4', videoSource()]]);
+  const warnings = [];
+  const timeline = buildResolvedTimelinePlan([
+    { id: 'v-885', src: 'fixture.mp4', in: 0, out: 10, crop: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 },
+      perspective: { corners: [[0.1, 0.1], [0.9, 0], [0, 1], [1, 0.8]] } },
+    { id: 'plain', src: 'fixture.mp4', in: 0, out: 1 }
+  ], { fps: 30, onWarning: message => warnings.push(message) });
+  for (const seconds of [0, 1, 2.5, 9]) baseAt(timeline, seconds, sources);
+  assert.deepEqual(warnings, ['cut v-885: perspective is not applied by the frame-engine base path yet (issue #39)']);
+  const [base] = baseAt(timeline, 1, sources);
+  assert.deepEqual(base.visual.layerStyle, { crop: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } });
+  // keyframed perspective warns the same way, with the index-based fallback id
+  const animatedWarnings = [];
+  buildResolvedTimelinePlan([
+    { src: 'fixture.mp4', in: 0, out: 10, keyframes: [
+      { t: 0, perspective: { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] } },
+      { t: 1, perspective: { corners: [[0.1, 0], [1, 0], [0, 1], [1, 1]] } }
+    ] }
+  ], { fps: 30, onWarning: message => animatedWarnings.push(message) });
+  assert.deepEqual(animatedWarnings, ['cut cut-0: perspective is not applied by the frame-engine base path yet (issue #39)']);
+});
+
+test('layer-style cut (f): cuts without crop / keyframes / perspective keep the exact fit-basis visual (issue #39)', () => {
+  const sources = new Map([['fixture.mp4', videoSource()], ['still.png', { load: async () => { throw new Error('not used'); }, destroy() {} }]]);
+  const timeline = buildResolvedTimelinePlan([
+    { id: 'plain', src: 'fixture.mp4', in: 0, out: 2 },
+    { id: 'transform-only', src: 'fixture.mp4', in: 0, out: 2, transform: { x: 12, y: -8, scale: 0.8, rotate: 15 }, opacity: 0.6 },
+    { id: 'framing', src: 'fixture.mp4', in: 0, out: 2, framing: { crop: { x: 0.2, y: 0.1, w: 0.6, h: 0.6 } } },
+    { id: 'one-point', src: 'fixture.mp4', in: 0, out: 2, keyframes: [{ t: 0, crop: { x: 0, y: 0, w: 0.5, h: 0.5 } }] },
+    { id: 'still', src: 'still.png', in: 0, out: 2, transform: { x: 10, scale: 1.5 } }
+  ], { fps: 30 });
+  const fullFraming = { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 };
+  assert.deepEqual(baseAt(timeline, 1, sources)[0].visual, {
+    framing: fullFraming, transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 }, opacity: 1
+  });
+  assert.deepEqual(baseAt(timeline, 3, sources)[0].visual, {
+    framing: fullFraming, transform: { x: 12, y: -8, scale: 0.8, rotateDegrees: 15 }, opacity: 0.6
+  });
+  assert.deepEqual(baseAt(timeline, 5, sources)[0].visual, {
+    framing: { x: 0.2, y: 0.1, width: 0.6, height: 0.6, scale: 1 / 0.6, centerX: 0.5, centerY: 0.4 },
+    transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 }, opacity: 1
+  });
+  assert.deepEqual(baseAt(timeline, 7, sources)[0].visual, {
+    framing: fullFraming, transform: { x: 0, y: 0, scale: 1, rotateDegrees: 0 }, opacity: 1
+  });
+  assert.deepEqual(baseAt(timeline, 9, sources)[0].visual, {
+    framing: fullFraming, transform: { x: 10, y: 0, scale: 1.5, rotateDegrees: 0 }, opacity: 1
+  });
+  for (const placement of timeline.cuts) assert.equal(hasCutLayerStyleVisual(placement.cut), false, placement.cut.id);
+});
+
+test('layer-style cuts resolve independently inside a transition and on still image base layers (issue #39)', () => {
+  const image = { load: async () => { throw new Error('not used'); }, destroy() {} };
+  const sources = new Map([['fixture.mp4', videoSource()], ['still.png', image]]);
+  const timeline = buildResolvedTimelinePlan([
+    { id: 'out', src: 'fixture.mp4', in: 0, out: 2, transition_out: { type: 'dissolve', duration: 0.5 },
+      crop: { x: 0, y: 0, w: 0.5, h: 0.5 }, transform: { scale: 2 } },
+    { id: 'in', src: 'still.png', in: 0, out: 2, keyframes: [
+      { t: 0, crop: { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }, transform: { scale: 2, rotate: 0 } },
+      { t: 2, crop: { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }, transform: { scale: 2, rotate: 90 } }
+    ] }
+  ], { fps: 30 });
+  const plan = evaluationPlanFromResolvedTimeline(timeline, 1_750_000, sources, hd);
+  assert.equal(plan.transition?.type, 'dissolve');
+  assert.equal(plan.base.length, 2);
+  assert.deepEqual(plan.base[0].visual.layerStyle.crop, { x: 0, y: 0, width: 0.5, height: 0.5 });
+  assert.equal(plan.base[1].kind, 'image');
+  assert.equal(plan.base[1].image, image);
+  assert.deepEqual(plan.base[1].visual.layerStyle.crop, { x: 0.5, y: 0.5, width: 0.5, height: 0.5 });
+  // incoming cut is 0.25 s into its own clock (1.75 − 1.5): rotate 90 × 0.125
+  assert.ok(Math.abs(plan.base[1].visual.transform.rotateDegrees - 11.25) < 1e-9);
+  assert.equal(plan.base[0].visual.transform.rotateDegrees, 0);
+});
+
+// page-runtime.js（gpu-export / osr-export）は編集禁止。normalizedCuts が cut のキーをそのまま写すので
+// crop / keyframes / perspective / opacity が buildResolvedTimelinePlan まで落ちずに届くことを確認する。
+async function loadNormalizedCuts(url) {
+  const source = readFileSync(url, 'utf8');
+  const start = source.indexOf('  function normalizedCuts(edit) {');
+  assert.ok(start >= 0, `${url}: normalizedCuts not found`);
+  const end = source.indexOf('\n  }\n', start);
+  assert.ok(end > start, `${url}: normalizedCuts end not found`);
+  return vm.runInNewContext(`${source.slice(start, end + '\n  }\n'.length)}; normalizedCuts`, {});
+}
+
+for (const [name, url] of [
+  ['gpu-export', new URL('../../gpu-export/src/page-runtime.js', import.meta.url)],
+  ['osr-export', new URL('../../osr-export/src/page-runtime.js', import.meta.url)],
+]) {
+  test(`${name} normalizedCuts carries crop / keyframes / perspective / opacity into the resolved timeline (issue #39)`, async () => {
+    const normalizedCuts = await loadNormalizedCuts(url);
+    const keyframes = [
+      { t: 0, crop: { x: 0, y: 0, w: 0.5, h: 0.5 }, transform: { scale: 2 }, opacity: 0 },
+      { t: 5, crop: { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }, transform: { scale: 2 }, opacity: 1 },
+      { t: 9.966666666666667, crop: { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }, transform: { scale: 2 } }
+    ];
+    const cuts = normalizedCuts({
+      sources: [{ id: 'o885', path: 'assets/quadrants.mp4' }],
+      cuts: [
+        { id: 'v-885', src: 'o885', in: 0, out: 10, at: 0, track: 0, keyframes, opacity: 0.5 },
+        { id: 'v-886', src: 'o885', in: 0, out: 10, at: 10, track: 0, crop: { x: 0.34, y: 0.165, w: 0.66, h: 0.66 },
+          perspective: { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] } }
+      ]
+    });
+    assert.deepEqual(cuts[0].keyframes, keyframes);
+    assert.equal(cuts[0].opacity, 0.5);
+    assert.deepEqual(cuts[1].crop, { x: 0.34, y: 0.165, w: 0.66, h: 0.66 });
+    assert.deepEqual(cuts[1].perspective, { corners: [[0, 0], [1, 0], [0, 1], [1, 1]] });
+    const warnings = [];
+    const sources = new Map([['o885', videoSource()]]);
+    const timeline = buildResolvedTimelinePlan(cuts, { fps: 30, onWarning: message => warnings.push(message) });
+    const [mid] = baseAt(timeline, 2.5, sources);
+    assert.deepEqual(mid.visual.layerStyle.crop, { x: 0.125, y: 0.125, width: 0.5, height: 0.5 });
+    assert.equal(mid.visual.transform.scale, 2);
+    assert.equal(mid.visual.opacity, 0.5);
+    const [second] = baseAt(timeline, 12, sources);
+    // x + w = 1 exactly; the [0, 1 − w] clamp may move x by one ulp
+    assert.ok(Math.abs(second.visual.layerStyle.crop.x - 0.34) < 1e-12);
+    assert.deepEqual([second.visual.layerStyle.crop.y, second.visual.layerStyle.crop.width, second.visual.layerStyle.crop.height], [0.165, 0.66, 0.66]);
+    assert.deepEqual(warnings, ['cut v-886: perspective is not applied by the frame-engine base path yet (issue #39)']);
+  });
+}

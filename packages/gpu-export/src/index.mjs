@@ -204,6 +204,7 @@ export async function captureFramesWithGpu({
       operation: "capture",
       verify: run.verify,
       gpu: run.gpu,
+      viewport: run.viewport ?? null,
       eligibility: run.eligibility,
       elapsedMs: run.elapsedMs,
     },

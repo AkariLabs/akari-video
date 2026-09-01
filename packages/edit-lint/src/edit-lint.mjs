@@ -3126,6 +3126,17 @@ function validateTextStyle(value, label, findings, path) {
       path,
     );
   }
+  if (
+    Object.hasOwn(value, "reference_height_px")
+    && (!Number.isInteger(value.reference_height_px) || value.reference_height_px < 1)
+  ) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label}.reference_height_px must be an integer greater than or equal to one`,
+      path,
+    );
+  }
   if (Object.hasOwn(value, "font_weight") && (!Number.isInteger(value.font_weight) || value.font_weight < 1 || value.font_weight > 1000)) {
     captionFinding(findings, "captions.text-style", `${label}.font_weight must be an integer within [1, 1000]`, path);
   }
@@ -3155,6 +3166,14 @@ function validateTextStyle(value, label, findings, path) {
       findings,
       "captions.text-style",
       `${label} cannot contain both zone and layout`,
+      path,
+    );
+  }
+  if (Object.hasOwn(value, "layout") && Object.hasOwn(value, "reference_height_px")) {
+    captionFinding(
+      findings,
+      "captions.text-style",
+      `${label} cannot contain both layout and reference_height_px`,
       path,
     );
   }

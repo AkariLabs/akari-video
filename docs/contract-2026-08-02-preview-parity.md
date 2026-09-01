@@ -61,6 +61,12 @@ cut 境界の選択は宣言順ではなく解決済みタイムラインと z-o
   指定補間を使う。
 - `cuts[].transform` は出力中央を基準に scale、rotate、x / y を適用し、`opacity` は合成前の alpha に掛ける。
 - framing と transform は一つの評価グラフで順序を固定する。器の CSS pivot や要素箱へ意味論を委ねない。
+- v2 media item（edit-store が `cuts` へ投影するもの）の `crop`（静的）と `keyframes[]` の `transform` / `crop` /
+  `opacity` は **layer-style**（ソース実寸 × scale の box、crop 窓、box 中心の rotate。§2.3 の layer と同じ幾何）で
+  評価し、frame-engine の base 経路が GPU / OSR 書き出しへそのまま描く（issue #39・2026-09-01）。`keyframes[].t` は
+  cut の出力ローカル秒（freeze 中も進む）。`crop` / `perspective` / 2 点以上の `keyframes` を持たない cut は従来の
+  fit 基準のままバイト同一。`perspective` は base 経路では未適用で、
+  `cut <id>: perspective is not applied by the frame-engine base path yet (issue #39)` を warning に出す（無警告で捨てない）。
 - `freeze = {at_sec, duration_sec}` は指定 frame を保持し、cut の出力尺を `duration_sec` だけ伸ばして
   後続の逐次 cut を移動する。freeze の画と独立音声予定表を混同しない。
 
@@ -151,6 +157,8 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 | 時刻 `T`、cuts、gap、track | ✅ 評価 | ✅ 呼び出し・提示 | ✅ 呼び出し・提示 | ✅ 連番駆動 | ✅ 連番駆動 |
 | framing / transform / opacity / freeze | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | layers / perspective / keyframes | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
+| cuts の crop / transform / opacity keyframes（v2 media item・layer-style） | ✅ 評価（2026-09-01） | 🟡 `public/frame-engine.bundle.js` の再生成待ち | ✅ DOM 層（`applyLayerStyleMediaLayout`） | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
+| cuts の perspective | 🟡 未適用・warning のみ（issue #39） | 🟡 同左 | ✅ DOM 層 | 🟡 warning を run.json へ | 🟡 warning を run.json へ |
 | 5 transitions | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | matte / chroma key | ✅ 評価 | ✅ stamp 同期 | ✅ stamp 同期 | ✅ stamp 同期・捕捉 | ✅ 同一 frame 評価 |
 | LUT / `bt709-limited` | ✅ 評価 | ✅ 提示 | ✅ 提示 | ✅ 捕捉・encode | ✅ LUT 後 canvas を直結 |
