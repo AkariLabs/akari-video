@@ -51,6 +51,8 @@ jobs:
             "apps/shell/extensions/akari-surfaces/src/node/tool-install.test.mjs:340|synthetic test path (/Users/fixture) — identifies no machine"
             "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:65|synthetic test path (/Users/fixture/) — identifies no machine"
             "apps/shell/extensions/akari-surfaces/src/common/tool-install-ui.test.mjs:71|synthetic test path (/Users/fixture/) — identifies no machine"
+            "apps/shell/extensions/akari-preview/test/frame-engine-evidence.test.mjs:90|synthetic residual path (file:///Users/another/) — the redactor under test must be handed a /Users/<name>/ shape to prove it collapses one to <path>; identifies no machine"
+            "apps/shell/extensions/akari-preview/test/frame-engine-evidence.test.mjs:91|synthetic residual path (/private/tmp/unrelated/) — same test, the /private/tmp/ shape; identifies no machine"
           )
 
           is_allowed() {

@@ -7,7 +7,7 @@
       "step": "assertion-ok",
       "message": "found electron page target",
       "targets": [
-        "file:///Users/ryoma/_edit/30_products/akari-video-wt/focus-mode-keyframes/apps/shell/lib/frontend/index.html?port=54455#/private/tmp/akari-inspector-l1-v2-workspace.QdGlbg/project"
+        "file://<WORKTREE>/apps/shell/lib/frontend/index.html?port=54455#<SCRATCH>/project"
       ]
     },
     {
