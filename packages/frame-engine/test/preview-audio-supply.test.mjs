@@ -5,9 +5,14 @@ import { createPreviewAudioSupply } from '../dist/index.js';
 
 class FakeParam {
   value = 1;
+  calls = [];
   cancelScheduledValues() {}
-  setValueAtTime(value) { this.value = value; }
-  linearRampToValueAtTime(value) { this.value = value; }
+  setValueAtTime(value, at) { this.value = value; this.calls.push(['set', value, at]); }
+  linearRampToValueAtTime(value, at) { this.value = value; this.calls.push(['linear', value, at]); }
+  exponentialRampToValueAtTime(value, at) {
+    this.value = value;
+    this.calls.push(['exponential', value, at]);
+  }
 }
 
 class FakeSource {
@@ -33,6 +38,7 @@ class FakeContext {
   state = 'suspended';
   destination = {};
   sources = [];
+  gains = [];
   decodeCalls = 0;
   constructor(buffers) { this.buffers = buffers; }
   async decodeAudioData(data) {
@@ -47,7 +53,7 @@ class FakeContext {
     this.sources.push(source);
     return source;
   }
-  createGain() { return new FakeGain(); }
+  createGain() { const gain = new FakeGain(); this.gains.push(gain); return gain; }
   async resume() { this.state = 'running'; }
   async close() { this.state = 'closed'; }
 }
@@ -89,7 +95,7 @@ function scheduleBuilder({ timelineDurationSec, startAtSec, audio = {} }) {
       sourceOffsetSec: sourceOffsetSec + elapsed * playbackRate,
       durationSec: available, playbackRate, sourceDurationSec: available * playbackRate,
       loop: kind === 'bgm', gainDb: 0,
-      gainEvents: [{ offsetSec: 0, value: 1, method: 'set' }], duckingEvents: [],
+      gainEvents: [{ offsetSec: 0, value: 1, method: 'set' }], envelopeEvents: [],
     });
   };
   if (audio.bgm) append('bgm', audio.bgm.id ?? 'bgm', 0, timelineDurationSec, 0);
@@ -340,5 +346,44 @@ test('sidecar 失敗時も 64 MB 以上の speech source 全体は arrayBuffer �
   assert.equal(supply.debug().scheduled.speech, 0);
   assert.equal(warnings.length, 1);
   assert.match(warnings[0], /speech sidecar large unavailable/u);
+  supply.dispose();
+});
+
+test('SFX も第 2 GainNode で exponential envelopeEvents を適用する', async () => {
+  const context = new FakeContext(new Map([[1, buffer(1)]]));
+  const envelopeEvents = [
+    { offsetSec: 0, value: 1, method: 'set' },
+    { offsetSec: 0.5, value: 0.25, method: 'exponential' },
+  ];
+  const supply = createPreviewAudioSupply({
+    timelineDurationSec: 1,
+    scheduleBuilder: () => ({
+      startAtSec: 0,
+      warnings: [],
+      items: [{
+        kind: 'sfx', id: 'hit', track: 0,
+        timelineStartSec: 0, timelineEndSec: 1, delaySec: 0,
+        sourceOffsetSec: 0, durationSec: 1, playbackRate: 1,
+        sourceDurationSec: 1, loop: false, gainDb: 0,
+        gainEvents: [{ offsetSec: 0, value: 1, method: 'set' }],
+        envelopeEvents,
+      }],
+    }),
+    contextFactory: () => context,
+    fetchImpl: async () => response(1),
+    declarations: [{
+      kind: 'sfx', id: 'hit', url: '/hit.wav',
+      spec: { id: 'hit', t: 0, durationSec: 1 },
+    }],
+  });
+  supply.playFrom(0);
+  await settle();
+
+  assert.equal(context.gains.length, 2);
+  assert.deepEqual(context.gains[1].gain.calls.map(call => call.slice(0, 2)), [
+    ['set', 1],
+    ['exponential', 0.25],
+  ]);
+  assert.equal(context.gains[1].gain.calls[1][2] - context.gains[1].gain.calls[0][2], 0.5);
   supply.dispose();
 });

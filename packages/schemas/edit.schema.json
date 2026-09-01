@@ -153,6 +153,21 @@
       },
       "$comment": "provider は voicevox/fal/elevenlabs/human を契約文書で例示するのみで enum 強制はしない。provider === voicevox のときの credit 必須は validate-edit.mjs で検証する（兄弟値比較のため）。"
     },
+    "audioKeyframeLegacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "gain_db"],
+      "properties": {
+        "t": { "$ref": "#/$defs/seconds" },
+        "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "easing": { "$ref": "#/$defs/keyframeV2/properties/easing" }
+      }
+    },
+    "audioKeyframesLegacy": {
+      "type": "array",
+      "minItems": 2,
+      "items": { "$ref": "#/$defs/audioKeyframeLegacy" }
+    },
     "narrationItem": {
       "type": "object",
       "additionalProperties": true,
@@ -164,6 +179,11 @@
         "in": { "$ref": "#/$defs/seconds" },
         "out": { "$ref": "#/$defs/positiveNumber" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "keyframes": { "$ref": "#/$defs/audioKeyframesLegacy" },
+        "ducking": { "type": "boolean" },
+        "duck_db": { "type": "number", "minimum": -40, "maximum": 0, "default": -12 },
+        "duck_attack": { "type": "number", "minimum": 0, "maximum": 2, "default": 0.05 },
+        "duck_release": { "type": "number", "minimum": 0, "maximum": 5, "default": 0.3 },
         "script": { "type": "string" },
         "reading": { "type": "string" },
         "provenance": { "$ref": "#/$defs/narrationProvenance" }
@@ -178,6 +198,10 @@
         "path": { "type": "string", "minLength": 1, "pattern": "\\S" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
         "ducking": { "type": "boolean" },
+        "keyframes": { "$ref": "#/$defs/audioKeyframesLegacy" },
+        "duck_db": { "type": "number", "minimum": -40, "maximum": 0, "default": -12 },
+        "duck_attack": { "type": "number", "minimum": 0, "maximum": 2, "default": 0.05 },
+        "duck_release": { "type": "number", "minimum": 0, "maximum": 5, "default": 0.3 },
         "in": { "$ref": "#/$defs/seconds" },
         "fadeIn": { "$ref": "#/$defs/seconds" },
         "fadeOut": { "$ref": "#/$defs/seconds" }
@@ -196,7 +220,12 @@
         "out": { "$ref": "#/$defs/positiveNumber" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
         "fade_in": { "$ref": "#/$defs/seconds" },
-        "fade_out": { "$ref": "#/$defs/seconds" }
+        "fade_out": { "$ref": "#/$defs/seconds" },
+        "keyframes": { "$ref": "#/$defs/audioKeyframesLegacy" },
+        "ducking": { "type": "boolean" },
+        "duck_db": { "type": "number", "minimum": -40, "maximum": 0, "default": -12 },
+        "duck_attack": { "type": "number", "minimum": 0, "maximum": 2, "default": 0.05 },
+        "duck_release": { "type": "number", "minimum": 0, "maximum": 5, "default": 0.3 }
       },
       "$comment": "再生区間 = 素材の [in, out)。in は素材秒・省略時 0（素材頭から）。out は素材秒・省略時 素材末尾まで。タイムライン上の開始は従来どおり t（timeline 秒）・表示尺 = out − in。out > in が必須（edit-lint が検証）。実尺越えは消費側（render-cut / preview）が素材末尾へクランプする。fade_in/fade_out は秒・省略時 0（フェードなし。docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 追記、audio-clip-fades task）。フェード対象はこのクリップの実効再生窓 [t, t + 実効尺)（実効尺 = out − in、in/out 省略時は素材尺）。audio.bgm.fadeIn/fadeOutと同じ『実効尺の半分まで』クランプ規則を適用する（render-cut が実装、edit-lint がクランプ発生時に warning を出す）。"
     },
@@ -226,7 +255,13 @@
             { "type": "array", "items": { "$ref": "#/$defs/sfxItem" } }
           ]
         },
-        "master": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/audioMaster" }] }
+        "master": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/audioMaster" }] },
+        "duck_keys": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["narration", "speech"] },
+          "default": ["narration", "speech"]
+        }
       }
     },
     "inlineCaptions": {
@@ -502,6 +537,7 @@
         "crop": { "$ref": "#/$defs/layerCrop" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
         "animator": {
           "type": "object",
           "additionalProperties": {
@@ -1014,9 +1050,22 @@
         "role": { "enum": ["sfx", "narration", "bgm"] },
         "source": { "$ref": "#/$defs/itemSourceAudioMediaV2" },
         "gain_db": { "type": "number", "minimum": -60, "maximum": 12 },
+        "keyframes": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/keyframeV2" },
+              { "required": ["gain_db"] }
+            ]
+          }
+        },
         "fade_in": { "$ref": "#/$defs/seconds" },
         "fade_out": { "$ref": "#/$defs/seconds" },
         "ducking": { "type": "boolean" },
+        "duck_db": { "type": "number", "minimum": -40, "maximum": 0, "default": -12 },
+        "duck_attack": { "type": "number", "minimum": 0, "maximum": 2, "default": 0.05 },
+        "duck_release": { "type": "number", "minimum": 0, "maximum": 5, "default": 0.3 },
         "script": { "type": "string" },
         "reading": { "type": "string" },
         "provenance": { "$ref": "#/$defs/narrationProvenance" }

@@ -11,6 +11,7 @@ export * from './caption-window';
 export * from './transition-vocabulary';
 export * from './transition-visual';
 export * from './ducking';
+export * from './envelope';
 export * from './audio-schedule';
 export { captionAnchorPositionVars } from './caption-display';
 /** Browser selection is timeline-domain only. Segmentation stays in the Node caller. */

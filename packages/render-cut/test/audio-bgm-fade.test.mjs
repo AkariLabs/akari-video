@@ -203,25 +203,15 @@ test("bgm.fadeIn exceeding half the timeline duration is clamped at render time 
   }
 });
 
-// Design question from the task brief: should afade sit before or after ducking's sidechaincompress
-// in the filtergraph? Implemented as "before" (baked into the [bgm] label prior to the ducking
-// step). This test empirically checks whether that choice matters: sidechaincompress's gain
-// reduction is driven purely by the narration (key/sidechain) input's level, never by bgm's own
-// amplitude, so multiplying in a fixed fade envelope before or after it should be commutative.
-// Two hand-built filtergraphs -- fade-then-duck (current) and duck-then-fade (the alternative) --
-// are rendered from the same inputs and their levels compared directly.
-test("afade before vs after sidechaincompress measure the same (confirms the chosen order is not audibly different)", async (t) => {
+// 決定論 envelope は乗算なので fade と可換だが、実装契約は volume / afade 後に amultiply。
+// ここでは同じ -12 dB 乗算を前後へ置き、順序変更が音量を変えないことを実測する。
+test("sidechain 廃止後の duck envelope 乗算は afade の前後で同じ音量になる", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const root = await mkdtemp(join(tmpdir(), "render-cut-bgm-fade-order-test-"));
   try {
     const duration = 8;
     await mkdir(join(root, "audio"));
     makeTone(join(root, "audio", "bgm.wav"), { frequency: 440, duration });
-    // Narration present for the *entire* clip (including the whole fade-in window) so ducking is
-    // actively engaged throughout the ramp -- the scenario where order could plausibly matter.
-    makeTone(join(root, "audio", "narration.wav"), { frequency: 880, duration, gainDb: 24 });
-
-    const sidechainArgs = "threshold=0.063:ratio=8:attack=5:release=300";
     const fadeIn = 3;
 
     function render(order) {
@@ -229,14 +219,10 @@ test("afade before vs after sidechaincompress measure the same (confirms the cho
       const filters =
         order === "fade-then-duck"
           ? [
-              `[1:a]volume=0dB,atrim=duration=${duration},${fadeStep}[bgm]`,
-              `[2:a]volume=0dB,adelay=0:all=1[nar]`,
-              `[bgm][nar]sidechaincompress=${sidechainArgs}[out]`,
+              `[1:a]volume=0dB,atrim=duration=${duration},${fadeStep},volume=-12dB[out]`,
             ]
           : [
-              `[1:a]volume=0dB,atrim=duration=${duration}[bgm]`,
-              `[2:a]volume=0dB,adelay=0:all=1[nar]`,
-              `[bgm][nar]sidechaincompress=${sidechainArgs},${fadeStep}[out]`,
+              `[1:a]volume=0dB,atrim=duration=${duration},volume=-12dB,${fadeStep}[out]`,
             ];
       const outPath = join(root, `${order}.wav`);
       const result = spawnSync(
@@ -253,8 +239,6 @@ test("afade before vs after sidechaincompress measure the same (confirms the cho
           `anullsrc=r=48000:cl=stereo:d=${duration}`,
           "-i",
           join(root, "audio", "bgm.wav"),
-          "-i",
-          join(root, "audio", "narration.wav"),
           "-filter_complex",
           filters.join(";"),
           "-map",

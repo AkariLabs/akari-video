@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildWebAudioSchedule = buildWebAudioSchedule;
 exports.projectSpeechDeclarations = projectSpeechDeclarations;
 const ducking_1 = require("./ducking");
+const envelope_1 = require("./envelope");
 const timeline_map_1 = require("./timeline-map");
 /**
  * 解決済みタイムライン尺・正規化済み audio 宣言・デコード実尺を、Web Audio がそのまま
@@ -19,10 +20,16 @@ function buildWebAudioSchedule(input) {
     }
     const narration = resolveTimedItems('narration', audio.narration, timelineDurationSec, warnings);
     const sfx = resolveTimedItems('sfx', audio.sfx, timelineDurationSec, warnings);
-    const duckIntervals = (0, ducking_1.computeDuckIntervals)(narration.map(item => ({
+    const narrationIntervals = (0, ducking_1.computeDuckIntervals)(narration.map(item => ({
         t: item.t,
         durationSec: item.itemDurationSec
     })));
+    const duckKeys = normalizedDuckKeys(audio.duck_keys);
+    const speechIntervals = input.duckKeyIntervals ?? input.speechKeyIntervals ?? [];
+    const duckIntervals = mergeDuckIntervals([
+        ...(duckKeys.includes('narration') ? narrationIntervals : []),
+        ...(duckKeys.includes('speech') ? speechIntervals : [])
+    ]);
     const items = [];
     const bgm = audio.bgm;
     if (bgm) {
@@ -31,12 +38,12 @@ function buildWebAudioSchedule(input) {
             items.push(scheduled);
     }
     for (const item of sfx) {
-        const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec);
+        const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);
         if (scheduled)
             items.push(scheduled);
     }
     for (const item of narration) {
-        const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec);
+        const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);
         if (scheduled)
             items.push(scheduled);
     }
@@ -112,7 +119,7 @@ function resolveTrim(kind, spec, label, warnings) {
     }
     return { sourceOffsetSec, durationSec: outSec - sourceOffsetSec };
 }
-function scheduleTimed(item, timelineDurationSec, startAtSec) {
+function scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals) {
     const itemEndSec = item.t + item.itemDurationSec;
     if (itemEndSec <= startAtSec)
         return null;
@@ -140,7 +147,7 @@ function scheduleTimed(item, timelineDurationSec, startAtSec) {
         loop: false,
         gainDb: item.gainDb,
         gainEvents,
-        duckingEvents: []
+        envelopeEvents: scheduledEnvelopeEvents(item.spec, item.t, item.itemDurationSec, elapsedIntoItemSec, durationSec, item.kind === 'sfx' ? duckIntervals : [])
     };
 }
 function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warnings) {
@@ -193,7 +200,7 @@ function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warni
         loop,
         gainDb,
         gainEvents: bgmFadeGainEvents(spec.fadeIn, spec.fadeOut, timelineDurationSec, timelineStartSec, durationSec, baseGain),
-        duckingEvents: rectangularDuckEvents(duckIntervals, spec.ducking === true, timelineStartSec, durationSec)
+        envelopeEvents: scheduledEnvelopeEvents(spec, timelineT, timelineDurationSec - timelineT, elapsedSec, durationSec, duckIntervals)
     };
 }
 function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
@@ -261,7 +268,7 @@ function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
         loop: false,
         gainDb,
         gainEvents,
-        duckingEvents: []
+        envelopeEvents: []
     };
 }
 /**
@@ -485,21 +492,71 @@ function bgmFadeGainEvents(rawFadeIn, rawFadeOut, timelineDurationSec, timelineS
         method: index === 0 ? 'set' : 'linear'
     }));
 }
-function rectangularDuckEvents(intervals, enabled, timelineStartSec, availableSec) {
-    const timelineEndSec = timelineStartSec + availableSec;
-    const points = uniqueSorted([
-        timelineStartSec,
-        ...intervals.flatMap(interval => [interval.startSec, interval.endSec])
-            .filter(point => point > timelineStartSec && point < timelineEndSec)
-    ]);
-    const events = [];
-    for (const point of points) {
-        const value = dbToLinear((0, ducking_1.computeBgmDuckGainDb)(intervals, enabled, point));
-        if (events.length === 0 || events[events.length - 1].value !== value) {
-            events.push({ offsetSec: point - timelineStartSec, value, method: 'set' });
-        }
+function scheduledEnvelopeEvents(spec, clipStartSec, clipDurationSec, elapsedIntoClipSec, availableSec, intervals) {
+    const keyframes = audioKeyframeEnvelope(spec.keyframes);
+    const duck = spec.ducking === true ? (0, envelope_1.computeDuckEnvelope)(intervals, {
+        duckDb: finiteRange(spec.duck_db, -40, 0),
+        attackSec: finiteRange(spec.duck_attack, 0, 2),
+        releaseSec: finiteRange(spec.duck_release, 0, 5),
+        clipStartSec,
+        clipDurationSec
+    }) : [];
+    const composed = (0, envelope_1.composeEnvelopesDb)(keyframes, duck);
+    if (composed.length === 0 || composed.every(point => Math.abs(point.gainDb) <= 1e-12))
+        return [];
+    return (0, envelope_1.envelopeToGainEvents)(sliceEnvelope(composed, elapsedIntoClipSec, availableSec));
+}
+function audioKeyframeEnvelope(value) {
+    if (!Array.isArray(value))
+        return [];
+    return value.flatMap(entry => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry))
+            return [];
+        const point = entry;
+        if (!finiteNonNegative(point.t) || typeof point.gain_db !== 'number' || !Number.isFinite(point.gain_db))
+            return [];
+        return [{
+                t: point.t,
+                gainDb: point.gain_db,
+                ...(typeof point.easing === 'string' ? { easing: point.easing } : {})
+            }];
+    }).sort((left, right) => left.t - right.t);
+}
+function sliceEnvelope(points, startSec, durationSec) {
+    if (points.length === 0 || !(durationSec > 0))
+        return [];
+    const endSec = startSec + durationSec;
+    return [
+        { t: 0, gainDb: (0, envelope_1.evaluateEnvelopeDb)(points, startSec) },
+        ...points.filter(point => point.t > startSec && point.t < endSec).map(point => ({
+            ...point,
+            t: point.t - startSec
+        })),
+        { t: durationSec, gainDb: (0, envelope_1.evaluateEnvelopeDb)(points, endSec) }
+    ];
+}
+function normalizedDuckKeys(value) {
+    if (!Array.isArray(value))
+        return [...envelope_1.DEFAULT_DUCK_KEYS];
+    return [...new Set(value.filter((entry) => entry === 'narration' || entry === 'speech'))];
+}
+function mergeDuckIntervals(intervals) {
+    const sorted = intervals.filter(interval => interval && finiteNonNegative(interval.startSec)
+        && finitePositive(interval.endSec) && interval.endSec > interval.startSec)
+        .map(interval => ({ ...interval })).sort((a, b) => a.startSec - b.startSec || a.endSec - b.endSec);
+    const result = [];
+    for (const interval of sorted) {
+        const last = result[result.length - 1];
+        if (last && interval.startSec <= last.endSec)
+            last.endSec = Math.max(last.endSec, interval.endSec);
+        else
+            result.push(interval);
     }
-    return events;
+    return result;
+}
+function finiteRange(value, minimum, maximum) {
+    return typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
+        ? value : undefined;
 }
 function normalizedTrack(value) {
     return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : 0;

@@ -18,7 +18,6 @@ test('shell と Web UI は edit-store の同一 ducking kernel だけを使う',
 
   for (const definition of [
     /export const STATIC_DUCK_GAIN_DB\s*=/gu,
-    /export function computeBgmDuckGainDb\(/gu,
     /export function computeDuckIntervals\(/gu,
     /export function isWithinDuckInterval\(/gu,
   ]) {
@@ -32,7 +31,8 @@ test('shell と Web UI は edit-store の同一 ducking kernel だけを使う',
   assert.doesNotMatch(shellConsumer, /decoded\.narration\.some\s*\([\s\S]{0,180}?item\.durationSec/u);
 
   assert.match(webConsumer,
-    /import\s*\{[^}]*\bcomputeBgmDuckGainDb\b[^}]*\bcomputeDuckIntervals\b[^}]*\}\s*from '\/edit-kernel\.bundle\.js';/u);
+    /import\s*\{[^}]*\bcomputeDuckEnvelope\b[^}]*\bcomputeDuckIntervals\b[^}]*\bevaluateEnvelopeDb\b[^}]*\}\s*from '\/edit-kernel\.bundle\.js';/u);
+  assert.doesNotMatch(webConsumer, /computeBgmDuckGainDb/u);
   assert.match(shellConsumer,
     /import\s*\{[^}]*\bcomputeDuckIntervals\b[^}]*\bisWithinDuckInterval\b[^}]*\bSTATIC_DUCK_GAIN_DB\b[^}]*\}\s*from '@akari-video\/edit-store';/u);
   assert.match(shellConsumer, /computeDuckIntervals\.toString\(\)/u);

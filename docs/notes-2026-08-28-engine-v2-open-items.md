@@ -95,9 +95,8 @@
 
 ### ducking 共通エンベロープ
 
-- G3 で残した -12 dB 矩形を変更する場合だけ着手する。
-- narration の実レベル、attack 5 ms、release 300 ms をどこまで予定表へ含めるかを先に裁定し、
-  即時プレビューと納品マスターの役割差は維持する。
+- 2026-09-02 契約で実施した。固定矩形と `sidechaincompress` を廃止し、深さ、対象、
+  narration / speech 鍵、attack / release を共通決定論エンベロープへ統合した。
 
 ## 6. legacy 退役（#100b）
 

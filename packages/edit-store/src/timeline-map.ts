@@ -63,6 +63,56 @@ export interface TimelineMapResult {
     usesGapsOrTracks: boolean;
 }
 
+export interface SpeechTranscriptInterval {
+    start: number;
+    end: number;
+}
+
+export interface SpeechKeyProjectionResult {
+    intervals: Array<{ startSec: number; endSec: number }>;
+    droppedShortIntervals: number;
+}
+
+/** analysis transcript の source 秒を、cuts と同じ speed/境界規則で timeline 秒へ写す。 */
+export function projectSpeechKeyIntervals(
+    cuts: readonly EditCut[],
+    transcript: readonly SpeechTranscriptInterval[],
+    options: { fps?: number; sourceId?: string } = {}
+): SpeechKeyProjectionResult {
+    const normalizedCuts = cuts.map(cut => ({
+        ...cut,
+        transitionOut: cut.transitionOut ?? (cut as EditCut & { transition_out?: EditCut['transitionOut'] }).transition_out
+    }));
+    const hasExplicitSources = normalizedCuts.some(cut => typeof cut.src === 'string' && cut.src.length > 0);
+    if (hasExplicitSources && !options.sourceId) return { intervals: [], droppedShortIntervals: 0 };
+    const map = buildTimelineMap(normalizedCuts, { fps: options.fps });
+    const projected: Array<{ startSec: number; endSec: number }> = [];
+    for (const segment of map.segments) {
+        if (segment.kind !== 'src' || typeof segment.in !== 'number' || typeof segment.out !== 'number') continue;
+        if (hasExplicitSources && segment.src !== options.sourceId) continue;
+        const speed = typeof segment.speed === 'number' && segment.speed > 0 ? segment.speed : 1;
+        for (const entry of transcript) {
+            if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start) continue;
+            const sourceStart = Math.max(segment.in, entry.start);
+            const sourceEnd = Math.min(segment.out, entry.end);
+            if (!(sourceEnd > sourceStart)) continue;
+            projected.push({
+                startSec: segment.outStart + (sourceStart - segment.in) / speed,
+                endSec: segment.outStart + (sourceEnd - segment.in) / speed
+            });
+        }
+    }
+    projected.sort((left, right) => left.startSec - right.startSec || left.endSec - right.endSec);
+    const merged: typeof projected = [];
+    for (const interval of projected) {
+        const last = merged[merged.length - 1];
+        if (last && interval.startSec - last.endSec < 0.35) last.endSec = Math.max(last.endSec, interval.endSec);
+        else merged.push({ ...interval });
+    }
+    const intervals = merged.filter(interval => interval.endSec - interval.startSec >= 0.15);
+    return { intervals, droppedShortIntervals: merged.length - intervals.length };
+}
+
 export function transitionProgressAt(window: TimelineTransitionWindow, outputT: number): number {
     if (!(window.duration > 0)) return 0;
     return Math.max(0, Math.min(1, (outputT - window.start) / window.duration));

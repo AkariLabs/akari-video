@@ -87,6 +87,10 @@ edit.json の親ディレクトリを基準にした相対パス（絶対パス�
 
 ## 4. ducking の v1 定義
 
+> 2026-09-02 更新: `sidechaincompress` 方式は廃止した。現在は narration と speech の宣言区間を鍵に、
+> attack / release を持つ共通決定論エンベロープをプレビューと書き出しの両方で使う。
+> 以下は当初 v1 の設計記録として残す。
+
 **採用: `sidechaincompress`（書き出し側のみ、ffmpeg 標準フィルタ）。**
 「字幕/発話区間ベースの単純 gain」は不採用。
 

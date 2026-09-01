@@ -38,9 +38,10 @@ const LAYER_KEYS = new Set([
     'id', 't', 'duration', 'kind', 'src', 'transform', 'crop', 'perspective', 'opacity',
     'keyframes', 'preset', 'params', 'track', 'blend', 'chroma_key', 'filter', 'mask'
 ]);
-const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out']);
-const NARRATION_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'script', 'reading', 'provenance']);
-const BGM_KEYS = new Set(['id', 'path', 'in', 'fadeIn', 'fadeOut', 'gain_db', 'ducking']);
+const AUDIO_ENVELOPE_KEYS = ['keyframes', 'ducking', 'duck_db', 'duck_attack', 'duck_release'];
+const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out', ...AUDIO_ENVELOPE_KEYS]);
+const NARRATION_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'script', 'reading', 'provenance', ...AUDIO_ENVELOPE_KEYS]);
+const BGM_KEYS = new Set(['id', 'path', 'in', 'fadeIn', 'fadeOut', 'gain_db', ...AUDIO_ENVELOPE_KEYS]);
 function detectEditVersion(raw) {
     return isRecord(raw) && typeof raw.version === 'number' && Number.isFinite(raw.version)
         ? raw.version : undefined;
@@ -274,6 +275,11 @@ function migrateEditToV2(raw, options = {}) {
     if (raw.audio !== undefined && !audio) {
         blockers.push('edit.json.audio が object ではありません。');
     }
+    if (audio?.duck_keys !== undefined && (!Array.isArray(audio.duck_keys)
+        || audio.duck_keys.some(key => key !== 'narration' && key !== 'speech')
+        || new Set(audio.duck_keys).size !== audio.duck_keys.length)) {
+        blockers.push('edit.json.audio.duck_keys は narration / speech の重複しない配列である必要があります。');
+    }
     const audioTrackRefs = legacyAudioTrackRefs(audio);
     let audioSourceSerial = 1;
     const audioSourceId = (path) => {
@@ -302,7 +308,8 @@ function migrateEditToV2(raw, options = {}) {
             || (value.out !== undefined && (!positive(value.out) || value.out <= inSeconds))
             || (value.gain_db !== undefined && !gainDb(value.gain_db))
             || (value.fade_in !== undefined && !nonNegative(value.fade_in))
-            || (value.fade_out !== undefined && !nonNegative(value.fade_out))) {
+            || (value.fade_out !== undefined && !nonNegative(value.fade_out))
+            || !validAudioEnvelopeDeclaration(value)) {
             blockers.push(`${itemPath} の path / t / in / out / gain_db / fade_in / fade_out が不正です。`);
             return;
         }
@@ -319,7 +326,8 @@ function migrateEditToV2(raw, options = {}) {
             source,
             ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {}),
             ...(value.fade_in !== undefined ? { fade_in: value.fade_in } : {}),
-            ...(value.fade_out !== undefined ? { fade_out: value.fade_out } : {})
+            ...(value.fade_out !== undefined ? { fade_out: value.fade_out } : {}),
+            ...migrateAudioEnvelopeDeclaration(value, frameRate)
         };
         pending.push({ kind: 'audio', ref: trackOf(value.track), item });
     });
@@ -337,6 +345,7 @@ function migrateEditToV2(raw, options = {}) {
             || (value.gain_db !== undefined && !gainDb(value.gain_db))
             || (value.script !== undefined && typeof value.script !== 'string')
             || (value.reading !== undefined && typeof value.reading !== 'string')
+            || !validAudioEnvelopeDeclaration(value)
             || !validNarrationProvenance(value.provenance)) {
             blockers.push(`${itemPath} の path / t / in / out / gain_db / script / reading / provenance が不正です。`);
             return;
@@ -355,6 +364,7 @@ function migrateEditToV2(raw, options = {}) {
             ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {}),
             ...(value.script !== undefined ? { script: value.script } : {}),
             ...(value.reading !== undefined ? { reading: value.reading } : {}),
+            ...migrateAudioEnvelopeDeclaration(value, frameRate),
             provenance: clone(value.provenance)
         };
         pending.push({
@@ -375,7 +385,7 @@ function migrateEditToV2(raw, options = {}) {
                 || (value.fadeIn !== undefined && !nonNegative(value.fadeIn))
                 || (value.fadeOut !== undefined && !nonNegative(value.fadeOut))
                 || (value.gain_db !== undefined && !gainDb(value.gain_db))
-                || (value.ducking !== undefined && typeof value.ducking !== 'boolean')) {
+                || !validAudioEnvelopeDeclaration(value)) {
                 blockers.push('edit.json.audio.bgm の path / in / fadeIn / fadeOut / gain_db / ducking が不正です。');
             }
             else if (usedItemIds.has('bgm')) {
@@ -391,7 +401,7 @@ function migrateEditToV2(raw, options = {}) {
                         ...(value.fadeIn !== undefined ? { fade_in: value.fadeIn } : {}),
                         ...(value.fadeOut !== undefined ? { fade_out: value.fadeOut } : {}),
                         ...(value.gain_db !== undefined ? { gain_db: value.gain_db } : {}),
-                        ...(value.ducking !== undefined ? { ducking: value.ducking } : {})
+                        ...migrateAudioEnvelopeDeclaration(value, frameRate)
                     }
                 });
             }
@@ -427,7 +437,10 @@ function migrateEditToV2(raw, options = {}) {
         output: clone(output),
         sources: sources,
         tracks,
-        ...(audio?.master !== undefined ? { audio: { master: clone(audio.master) } } : {}),
+        ...(audio?.master !== undefined || audio?.duck_keys !== undefined ? { audio: {
+                ...(audio.master !== undefined ? { master: clone(audio.master) } : {}),
+                ...(audio.duck_keys !== undefined ? { duck_keys: clone(audio.duck_keys) } : {})
+            } } : {}),
         ...(raw.captions !== undefined ? { captions: clone(raw.captions) } : {}),
         ...(raw.thumbnail !== undefined ? { thumbnail: clone(raw.thumbnail) } : {})
     };
@@ -893,6 +906,35 @@ function nonNegative(value) {
 }
 function gainDb(value) {
     return typeof value === 'number' && Number.isFinite(value) && value >= -60 && value <= 12;
+}
+function validAudioEnvelopeDeclaration(value) {
+    if (value.ducking !== undefined && typeof value.ducking !== 'boolean')
+        return false;
+    if (value.duck_db !== undefined && !(typeof value.duck_db === 'number' && Number.isFinite(value.duck_db)
+        && value.duck_db >= -40 && value.duck_db <= 0))
+        return false;
+    if (value.duck_attack !== undefined && !(typeof value.duck_attack === 'number' && Number.isFinite(value.duck_attack)
+        && value.duck_attack >= 0 && value.duck_attack <= 2))
+        return false;
+    if (value.duck_release !== undefined && !(typeof value.duck_release === 'number' && Number.isFinite(value.duck_release)
+        && value.duck_release >= 0 && value.duck_release <= 5))
+        return false;
+    if (value.keyframes === undefined)
+        return true;
+    return Array.isArray(value.keyframes) && value.keyframes.length >= 2 && value.keyframes.every(point => isRecord(point) && nonNegative(point.t) && gainDb(point.gain_db)
+        && (point.easing === undefined || typeof point.easing === 'string'));
+}
+function migrateAudioEnvelopeDeclaration(value, frameRate) {
+    return {
+        ...(Array.isArray(value.keyframes) ? { keyframes: value.keyframes.map(point => ({
+                ...clone(point),
+                t: Math.round(point.t * frameRate)
+            })) } : {}),
+        ...(typeof value.ducking === 'boolean' ? { ducking: value.ducking } : {}),
+        ...(typeof value.duck_db === 'number' ? { duck_db: value.duck_db } : {}),
+        ...(typeof value.duck_attack === 'number' ? { duck_attack: value.duck_attack } : {}),
+        ...(typeof value.duck_release === 'number' ? { duck_release: value.duck_release } : {})
+    };
 }
 function validNarrationProvenance(value) {
     if (!isRecord(value) || !nonEmpty(value.provider))
