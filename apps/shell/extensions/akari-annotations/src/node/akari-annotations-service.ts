@@ -72,7 +72,9 @@ import {
     WriteEditSnapshotRequest
 } from '../common/akari-annotations-protocol';
 import type { SetAudioDuckRequest, SetAudioKeyframesRequest } from '../common/akari-annotations-protocol';
+import type { MeasureAudioForLevelRequest, MeasureAudioForLevelResult } from '../common/akari-annotations-protocol';
 import * as mediaCache from './media-cache';
+import { measureAudioForLevel } from './audio-level-resolver';
 import { setSfxFadeInSource } from '../common/sfx-fade-store';
 import { setAudioDuckInSource, setAudioKeyframesInSource } from '../common/audio-envelope-store';
 import {
@@ -1000,5 +1002,9 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = setAudioKeyframesInSource(source, request.target, request.keyframes);
         await this.writeProjectFileGuarded(editPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '音量キーフレームを変更') };
+    }
+
+    async measureAudioForLevel(request: MeasureAudioForLevelRequest): Promise<MeasureAudioForLevelResult> {
+        return measureAudioForLevel(request);
     }
 }
