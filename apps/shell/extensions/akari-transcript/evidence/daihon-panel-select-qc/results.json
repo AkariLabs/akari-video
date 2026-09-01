@@ -1,0 +1,190 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "name": "1. initial selection and QC state",
+      "pass": true,
+      "detail": {
+        "selectionBarHidden": true,
+        "qc": "QC ⚠ 4",
+        "badges": {
+          "c-0010": [
+            "⚡ 速い 30.0 字/秒"
+          ],
+          "c-0020": [
+            "表示 0.6 秒未満"
+          ],
+          "c-0030": [
+            "カラオケ不整合"
+          ],
+          "c-0040": [
+            "カラオケなし"
+          ]
+        },
+        "badgeRowCount": 4
+      }
+    },
+    {
+      "name": "2. click, Shift, Command toggle, and Escape selection",
+      "pass": true,
+      "detail": {
+        "preloadOverlay": "removed",
+        "transitions": [
+          {
+            "ids": [
+              "c-0005"
+            ],
+            "hidden": false,
+            "text": "1 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）"
+          },
+          {
+            "ids": [
+              "c-0005",
+              "c-0006",
+              "c-0007",
+              "c-0008",
+              "c-0009",
+              "c-0010",
+              "c-0011",
+              "c-0012"
+            ],
+            "hidden": false,
+            "text": "8 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）"
+          },
+          {
+            "ids": [
+              "c-0005",
+              "c-0006",
+              "c-0007",
+              "c-0008",
+              "c-0009",
+              "c-0010",
+              "c-0011",
+              "c-0012",
+              "c-0020"
+            ],
+            "hidden": false,
+            "text": "9 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）"
+          },
+          {
+            "ids": [
+              "c-0005",
+              "c-0006",
+              "c-0007",
+              "c-0008",
+              "c-0009",
+              "c-0010",
+              "c-0011",
+              "c-0012"
+            ],
+            "hidden": false,
+            "text": "8 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）"
+          },
+          {
+            "ids": [],
+            "hidden": true,
+            "text": "0 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）"
+          }
+        ]
+      }
+    },
+    {
+      "name": "3. vertical drag selects a range and consumes the click",
+      "pass": true,
+      "detail": {
+        "ids": [
+          "c-0030",
+          "c-0031",
+          "c-0032",
+          "c-0033",
+          "c-0034",
+          "c-0035",
+          "c-0036"
+        ],
+        "hidden": false,
+        "text": "7 行選択（Shift=範囲 / ⌘=追加 / ドラッグ=まとめて）",
+        "clickEventsDispatched": 1,
+        "clickConsumed": true
+      }
+    },
+    {
+      "name": "4. QC chip filters to four issue rows and restores all rows",
+      "pass": true,
+      "detail": {
+        "filtered": {
+          "visibleIds": [
+            "c-0010",
+            "c-0020",
+            "c-0030",
+            "c-0040"
+          ],
+          "hidden": 196,
+          "count": "4 / 200 行"
+        },
+        "restored": {
+          "visible": 200,
+          "count": "200 行"
+        }
+      }
+    },
+    {
+      "name": "5. playback keeps DOM references and selection through 100 ticks",
+      "pass": true,
+      "detail": {
+        "playbackAttempts": 1,
+        "ticks": 105,
+        "metrics": {
+          "count": 105,
+          "totalMs": 17.49999998509884,
+          "maxMs": 4.5,
+          "averageMs": 0.16666666652475084
+        },
+        "referencesStable": true,
+        "selected": [
+          "c-0005",
+          "c-0006",
+          "c-0007",
+          "c-0008",
+          "c-0009",
+          "c-0010",
+          "c-0011",
+          "c-0012"
+        ]
+      }
+    },
+    {
+      "name": "6. editing row 10 clears its QC issue without replacing other rows",
+      "pass": true,
+      "detail": {
+        "qc": "QC ⚠ 3",
+        "selected": [
+          "c-0005",
+          "c-0006",
+          "c-0007",
+          "c-0008",
+          "c-0009",
+          "c-0010",
+          "c-0011",
+          "c-0012"
+        ],
+        "row10Selected": true,
+        "row10Replaced": true,
+        "unchanged": 199,
+        "edited": {
+          "id": "c-0010",
+          "text": "台本短字幕",
+          "edited": true
+        }
+      }
+    }
+  ],
+  "screenshots": [
+    "01-initial-qc.png",
+    "02-click-selection.png",
+    "03-drag-selection.png",
+    "04-qc-filter.png",
+    "05-playback-selection.png",
+    "06-edit-clears-qc.png"
+  ],
+  "pass": true
+}
