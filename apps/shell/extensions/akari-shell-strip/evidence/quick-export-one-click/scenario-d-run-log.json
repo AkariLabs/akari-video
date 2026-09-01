@@ -1,0 +1,142 @@
+{
+  "scenario": "d",
+  "steps": [
+    {
+      "step": "quick-pick-sequence",
+      "detail": [
+        {
+          "placeholder": "画質を選択",
+          "rows": [
+            "標準（standard・既定）",
+            "高画質（high・crf 18 相当）",
+            "軽量（light・crf 26 相当）"
+          ]
+        },
+        {
+          "placeholder": "エンコーダ（自動/ハードウェア/ソフトウェア）を選択",
+          "rows": [
+            "自動（既定・ハードウェアが使えれば優先）",
+            "ハードウェア（VideoToolbox）",
+            "ソフトウェア（x264）"
+          ]
+        },
+        {
+          "placeholder": "フレームレートを選択",
+          "rows": [
+            "そのまま（既定・編集設定に従う）",
+            "24fps",
+            "30fps",
+            "60fps"
+          ]
+        },
+        {
+          "placeholder": "出力先を選択",
+          "rows": [
+            "プロジェクトの exports/ 直下",
+            "フォルダを選ぶ…"
+          ]
+        },
+        {
+          "placeholder": "実行方法を選択",
+          "rows": [
+            "この場で書き出す（推奨）",
+            "エージェントに任せる"
+          ]
+        },
+        {
+          "placeholder": "この設定を既定にしますか",
+          "rows": [
+            "はい、この設定を既定にする",
+            "いいえ、今回だけ使う"
+          ]
+        }
+      ]
+    },
+    {
+      "step": "quick-input-after-chain",
+      "detail": {
+        "present": true,
+        "visible": false,
+        "placeholder": null
+      }
+    },
+    {
+      "step": "forbidden-words-in-detailed-flow",
+      "detail": []
+    },
+    {
+      "step": "agent-path",
+      "detail": {
+        "toasts": [
+          "パートナー未接続。右側の「パートナーを追加」パネルから接続してください"
+        ],
+        "exportSection": "書き出し書き出し詳細設定で書き出す…"
+      }
+    },
+    {
+      "step": "settings-json",
+      "detail": {
+        "path": "/tmp/qeoc/theia-d/settings.json",
+        "content": {
+          "akari.export.quality": "light",
+          "akari.export.encoder": "videotoolbox",
+          "akari.export.fps": 30,
+          "akari.export.outputDirectory": ""
+        }
+      }
+    },
+    {
+      "step": "main-button-after-prefs-quick-input",
+      "detail": [
+        {
+          "present": true,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": true,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": true,
+          "visible": false,
+          "placeholder": null
+        }
+      ]
+    },
+    {
+      "step": "main-button-after-prefs-done",
+      "detail": {
+        "labels": [
+          "書き出し完了（GPU）",
+          "書き出し完了（GPU）（100%）成果物を開く（exports/final.mp4）",
+          "書き出し完了（GPU）（100%）"
+        ],
+        "provenanceEngine": "gpu",
+        "artifacts": [
+          {
+            "path": "exports/final.mp4",
+            "ffprobe": {
+              "duration_seconds": 11,
+              "width": 1920,
+              "height": 1080,
+              "fps": 30,
+              "video_codec": "h264",
+              "video_profile": "High",
+              "pixel_format": "yuv420p",
+              "color_range": "tv",
+              "audio_codec": "aac",
+              "frame_count": 330
+            }
+          }
+        ]
+      }
+    },
+    {
+      "step": "console-errors",
+      "detail": []
+    }
+  ],
+  "result": "PASS"
+}

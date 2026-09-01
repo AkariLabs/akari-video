@@ -1,0 +1,148 @@
+{
+  "scenario": "a+c",
+  "steps": [
+    {
+      "step": "menu-opened",
+      "detail": {
+        "exportButton": {
+          "found": true,
+          "disabled": false,
+          "title": ""
+        },
+        "detailButton": {
+          "found": true,
+          "disabled": false,
+          "title": ""
+        }
+      }
+    },
+    {
+      "step": "exports-before-run1",
+      "detail": [
+        ".gitkeep",
+        "packaged-verify.mp4"
+      ]
+    },
+    {
+      "step": "quick-input-probes(5x1s)",
+      "detail": [
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        }
+      ]
+    },
+    {
+      "step": "labels-seen-run1",
+      "detail": [
+        "書き出し中（planned）（GPU で書き出し中）",
+        "書き出し中（planned）（GPU で書き出し中）（50%）",
+        "書き出し中（planned）（GPU で書き出し中）（100%）",
+        "書き出し完了（GPU）",
+        "書き出し完了（GPU）（100%）成果物を開く（exports/final.mp4）",
+        "書き出し完了（GPU）（100%）"
+      ]
+    },
+    {
+      "step": "run1-done",
+      "detail": {
+        "sectionTextHasGpuLabel": true,
+        "sectionText": "書き出し書き出し詳細設定で書き出す…\n                    @keyframes akariQuickExportIndeterminate {\n                        0% { left: -40%; }\n                        100% { left: 100%; }\n                    }\n                書き出し完了（GPU）解像度は edit.json の出力設定に従います。ログを表示成果物を開く（exports/final.mp4）レポートを開く書き出し完了（GPU）（100%）成果物を開く（exports/final.mp4）",
+        "provenanceEngine": "gpu",
+        "warnings": [],
+        "artifacts": [
+          {
+            "path": "exports/final.mp4",
+            "sha256": "d99bac1119e2ab74d96d0428b0bf32196f5ee098bf905dcb24acd07c51f69914"
+          }
+        ],
+        "exports": [
+          ".gitkeep",
+          "final.mp4",
+          "packaged-verify.mp4"
+        ],
+        "toasts": []
+      }
+    },
+    {
+      "step": "run2-before",
+      "detail": {
+        "exports": [
+          ".gitkeep",
+          "final.mp4",
+          "packaged-verify.mp4"
+        ],
+        "finalSha": "d99bac1119e2ab74d96d0428b0bf32196f5ee098bf905dcb24acd07c51f69914"
+      }
+    },
+    {
+      "step": "run2-quick-input-probes",
+      "detail": [
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        }
+      ]
+    },
+    {
+      "step": "run2-done",
+      "detail": {
+        "sectionText": "書き出し書き出し詳細設定で書き出す…\n                    @keyframes akariQuickExportIndeterminate {\n                        0% { left: -40%; }\n                        100% { left: 100%; }\n                    }\n                書き出し完了（GPU）解像度は edit.json の出力設定に従います。ログを表示成果物を開く（exports/final-2.mp4）レポートを開く書き出し完了（GPU）（100%）成果物を開く（exports/final-2.mp4）",
+        "provenanceEngine": "gpu",
+        "artifacts": [
+          {
+            "path": "exports/final-2.mp4",
+            "sha256": "d99bac1119e2ab74d96d0428b0bf32196f5ee098bf905dcb24acd07c51f69914"
+          }
+        ],
+        "exports": [
+          ".gitkeep",
+          "final-2.mp4",
+          "final.mp4",
+          "packaged-verify.mp4"
+        ],
+        "finalShaAfter": "d99bac1119e2ab74d96d0428b0bf32196f5ee098bf905dcb24acd07c51f69914",
+        "finalShaUnchanged": true,
+        "final2Exists": true,
+        "final2Sha": "d99bac1119e2ab74d96d0428b0bf32196f5ee098bf905dcb24acd07c51f69914"
+      }
+    },
+    {
+      "step": "console-errors",
+      "detail": []
+    }
+  ],
+  "result": "PASS"
+}

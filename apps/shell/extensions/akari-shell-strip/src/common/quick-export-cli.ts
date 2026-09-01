@@ -21,16 +21,8 @@ import { DEFAULT_EXPORT_OUTPUT_NAME } from './export-request-packet';
 export const QUICK_EXPORT_OUTPUT_DIRECTORY = 'exports';
 
 export type QuickExportQuality = 'high' | 'standard' | 'light';
-export type QuickExportEngine = 'auto' | 'osr' | 'legacy';
+export type QuickExportEngine = 'auto' | 'gpu' | 'osr';
 export type QuickExportEncoder = 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
-
-export function buildQuickExportEngineChoices(): Array<{ label: string; value: QuickExportEngine }> {
-    return [
-        { label: '自動（既定・mac は v2）', value: 'auto' },
-        { label: 'v2（OSR）', value: 'osr' },
-        { label: '現行（legacy・互換）', value: 'legacy' }
-    ];
-}
 
 export function buildQuickExportEncoderChoices(
     platform: 'darwin' | 'win32' | 'linux'
@@ -90,6 +82,28 @@ export function sanitizeQuickExportOutputName(outputName: string): string {
     const segments = trimmed.split(/[\\/]+/).filter(segment => segment !== '' && segment !== '.' && segment !== '..');
     const lastSegment = segments[segments.length - 1]?.trim();
     return lastSegment || DEFAULT_EXPORT_OUTPUT_NAME;
+}
+
+/**
+ * 同名の成果物を上書きしないため、既存名と衝突した場合だけ `-2`, `-3`, ... を
+ * 拡張子の直前へ付ける。番号に欠番があれば最初の空きを使う。
+ */
+export function nextAvailableOutputName(baseName: string, existingNames: readonly string[]): string {
+    const sanitizedName = sanitizeQuickExportOutputName(baseName);
+    const existing = new Set(existingNames);
+    if (!existing.has(sanitizedName)) {
+        return sanitizedName;
+    }
+    const extensionIndex = sanitizedName.lastIndexOf('.');
+    const hasExtension = extensionIndex > 0;
+    const stem = hasExtension ? sanitizedName.slice(0, extensionIndex) : sanitizedName;
+    const extension = hasExtension ? sanitizedName.slice(extensionIndex) : '';
+    for (let suffix = 2; ; suffix++) {
+        const candidate = `${stem}-${suffix}${extension}`;
+        if (!existing.has(candidate)) {
+            return candidate;
+        }
+    }
 }
 
 /**
