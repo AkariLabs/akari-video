@@ -81,7 +81,7 @@ export async function exportWithOsr({
     return {
       launcher,
       run,
-      receipt: buildOsrReceipt({ tier: launcher.tier, verify: runtime.verify, memory: run?.memory, run: receiptRunPath, finalVerify, profile: runtime.soft ? "soft" : "gpu" }),
+      receipt: buildOsrReceipt({ tier: launcher.tier, verify: runtime.verify, memory: run?.memory, viewport: run?.viewport ?? null, run: receiptRunPath, finalVerify, profile: runtime.soft ? "soft" : "gpu" }),
     };
   } finally {
     await rm(videoOnlyPath, { force: true }).catch(() => {});
@@ -149,6 +149,7 @@ export async function captureFramesWithOsr({
       operation: "capture",
       page: run.page,
       verify: run.verify,
+      viewport: run.viewport ?? null,
       elapsedMs: run.elapsedMs,
     },
   };
