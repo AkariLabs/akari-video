@@ -624,3 +624,49 @@ export interface AkariAnnotationsService {
     applyEditMigration(proposal: EditMigrationProposal): Promise<void>;
     revertEditMigration(proposal: EditMigrationProposal): Promise<void>;
 }
+
+export interface AudioEnvelopeKeyframePayload {
+    t: number;
+    gain_db: number;
+    easing?: string;
+    [key: string]: unknown;
+}
+
+export type AudioEnvelopeWriteRequest =
+    | { kind: 'bgm-duck-db'; value: number | null }
+    | { kind: 'bgm-duck-attack'; value: number | null }
+    | { kind: 'bgm-duck-release'; value: number | null }
+    | { kind: 'sfx-ducking'; id: string; value: boolean | null }
+    | { kind: 'sfx-duck-db'; id: string; value: number | null }
+    | { kind: 'sfx-duck-attack'; id: string; value: number | null }
+    | { kind: 'sfx-duck-release'; id: string; value: number | null }
+    | {
+        kind: 'audio-keyframes';
+        id: string;
+        audioKind: 'bgm' | 'sfx' | 'narration';
+        value: AudioEnvelopeKeyframePayload[] | null;
+    };
+
+export interface SetAudioDuckRequest {
+    editUri: string;
+    projectRootUri: string;
+    target: { kind: 'bgm' } | { kind: 'sfx'; index: number };
+    updates: {
+        ducking?: boolean | null;
+        duckDb?: number | null;
+        duckAttack?: number | null;
+        duckRelease?: number | null;
+    };
+}
+
+export interface SetAudioKeyframesRequest {
+    editUri: string;
+    projectRootUri: string;
+    target: { kind: 'bgm' } | { kind: 'sfx' | 'narration'; index: number };
+    keyframes: AudioEnvelopeKeyframePayload[] | null;
+}
+
+export interface AkariAnnotationsService {
+    setAudioDuck(request: SetAudioDuckRequest): Promise<WriteBackResult>;
+    setAudioKeyframes(request: SetAudioKeyframesRequest): Promise<WriteBackResult>;
+}

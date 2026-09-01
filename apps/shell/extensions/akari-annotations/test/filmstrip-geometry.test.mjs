@@ -3,8 +3,10 @@ import test from "node:test";
 
 import {
   filmstripChunkIndexFor,
+  keyframePolyline,
   planFilmstripChunk,
   waveformBucketForLocalPx,
+  waveformHeightForPeak,
 } from "../lib/common/filmstrip-geometry.js";
 import { FILMSTRIP_CHUNK_SECONDS } from "../lib/common/akari-annotations-protocol.js";
 
@@ -64,4 +66,34 @@ test("waveformBucketForLocalPx は境界外・不正入力を安全にクラン�
   assert.equal(waveformBucketForLocalPx(10000, 400, 200), 199);
   assert.equal(waveformBucketForLocalPx(100, 0, 200), 0);
   assert.equal(waveformBucketForLocalPx(100, 400, 0), 0);
+});
+
+test('waveformHeightForPeak は -48 dB 床の固定対数スケールを使う', () => {
+  assert.equal(waveformHeightForPeak(1), 1);
+  assert.ok(Math.abs(waveformHeightForPeak(0.5) - 0.8745708351) < 1e-9);
+  assert.equal(waveformHeightForPeak(0.001), 0);
+  assert.equal(waveformHeightForPeak(0), 0);
+});
+
+test('keyframePolyline は -24..+12 dB を帯の上下へ写す', () => {
+  assert.deepEqual(keyframePolyline([
+    { t: 0, gainDb: 12 }, { t: 5, gainDb: -6 }, { t: 10, gainDb: -24 }
+  ], { duration: 10, width: 100, height: 36 }), [
+    { x: 0, y: 0 }, { x: 50, y: 18 }, { x: 100, y: 36 }
+  ]);
+});
+
+test('keyframePolyline は時刻と dB の範囲外をクランプして時刻順にする', () => {
+  assert.deepEqual(keyframePolyline([
+    { t: 12, gainDb: -60 }, { t: -2, gainDb: 20 }
+  ], { duration: 10, width: 100, height: 36 }), [
+    { x: 0, y: 0 }, { x: 100, y: 36 }
+  ]);
+});
+
+test('keyframePolyline は描画不能な帯では空配列を返す', () => {
+  const point = [{ t: 0, gainDb: 0 }];
+  assert.deepEqual(keyframePolyline(point, { duration: 0, width: 100, height: 20 }), []);
+  assert.deepEqual(keyframePolyline(point, { duration: 1, width: 0, height: 20 }), []);
+  assert.deepEqual(keyframePolyline(point, { duration: 1, width: 100, height: 0 }), []);
 });
