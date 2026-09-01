@@ -4,6 +4,18 @@ import {
     UiLintFinding
 } from 'akari-annotations/lib/common/lint-message-ja';
 import { QuickExportLintFinding, QuickExportPhase, QuickExportStatus } from './quick-export-protocol';
+import { QuickExportStage } from './quick-export-progress';
+
+export function quickExportStageLabel(stage: QuickExportStage | undefined): string | undefined {
+    switch (stage) {
+        case 'prepare': return '準備';
+        case 'audio-cut': return '音を切り出す';
+        case 'render': return '映像を描いて圧縮する';
+        case 'audio-mix': return '音と合わせて仕上げる';
+        case 'verify': return '確認';
+        default: return undefined;
+    }
+}
 
 /**
  * render.json は前回実行の成功結果を保持し得るため、今回の quick export が

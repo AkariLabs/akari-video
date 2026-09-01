@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     quickExportErrorNotification,
+    quickExportStageLabel,
     shouldShowRenderJsonProgress
 } from '../lib/common/quick-export-ui.js';
 
@@ -94,4 +95,22 @@ test('quickExportErrorNotification: failed の既存通知と非終端 phase を
     );
     assert.equal(quickExportErrorNotification({ phase: 'rendering', logTail: '' }, false), undefined);
     assert.equal(quickExportErrorNotification({ phase: 'done', logTail: '' }, false), undefined);
+});
+
+test('quickExportStageLabel: 固定 5 工程を日本語へ変換し undefined は維持する', () => {
+    assert.deepEqual([
+        quickExportStageLabel('prepare'),
+        quickExportStageLabel('audio-cut'),
+        quickExportStageLabel('render'),
+        quickExportStageLabel('audio-mix'),
+        quickExportStageLabel('verify'),
+        quickExportStageLabel(undefined)
+    ], [
+        '準備',
+        '音を切り出す',
+        '映像を描いて圧縮する',
+        '音と合わせて仕上げる',
+        '確認',
+        undefined
+    ]);
 });

@@ -100,3 +100,32 @@ test('start: lint-failed に error / warning 件数とレポートを載せる',
         reportPath: '.akari/reports/edit-lint-report.html'
     });
 });
+
+test('start: render-cut の stage / frame 出力を status の詳細進捗へ載せる', async () => {
+    class ProgressService extends AkariQuickExportServiceImpl {
+        fsPath() { return '/project'; }
+        async findRenderCutCli() { return '/cli/render-cut.mjs'; }
+        async spawnNodeScript(_scriptPath, _args, onChunk) {
+            onChunk('PROGRESS stage=prepare status=start\nPROGRESS stage=prepare status=end\n');
+            onChunk('PROGRESS stage=audio-cut status=start\nPROGRESS stage=audio-cut status=end\n');
+            onChunk('PROGRESS stage=render status=start engine=gpu\nPROGRESS frame=3 total=10\n');
+            return { exitCode: 2, stdout: '', stderr: 'test stop' };
+        }
+        async statOrUndefined() { return undefined; }
+    }
+
+    const service = new ProgressService();
+    assert.deepEqual(await service.start({
+        projectRootUri: 'file:///project',
+        outputName: 'final.mp4',
+        rerunLint: false
+    }), { accepted: true });
+    await waitForImmediate();
+
+    const status = await service.getStatus();
+    assert.equal(status.progressStage, 'render');
+    assert.equal(status.progressFrame, 3);
+    assert.equal(status.progressTotalFrames, 10);
+    assert.equal(status.progressEngine, 'gpu');
+    assert.equal(status.progressPercent, 33);
+});
