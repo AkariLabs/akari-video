@@ -2,28 +2,31 @@
   "status": "completed",
   "label": "after",
   "requestedN": 200,
-  "startedAt": "2026-09-01T08:13:55.367Z",
+  "startedAt": "2026-09-01T08:53:46.520Z",
   "environment": {
     "loadAverageAtStart": [
-      25.36962890625,
-      31.7451171875,
-      123.76953125
+      20.7099609375,
+      191.30029296875,
+      233.861328125
     ],
     "shell": "<worktree>/apps/shell",
     "loadAverageAtEnd": [
-      21.177734375,
-      30.22802734375,
-      120.55615234375
+      16.80419921875,
+      176.63916015625,
+      227.3388671875
     ]
   },
   "phases": {
     "fullLengthPan": {
       "viewBefore": {
-        "itemCount": 200,
+        "itemCount": 201,
         "stripWidth": 933,
         "sampleId": "第1章 検証",
+        "stripNodes": 818,
+        "widgetNodes": 1517,
+        "outsideStripNodes": 699,
         "sampleLeft": 356.9140625,
-        "sampleWidth": 11.6328125,
+        "sampleWidth": 12.65625,
         "akariAttributes": [
           "data-akari-item-id",
           "data-akari-item-kind",
@@ -41,7 +44,7 @@
       "panEventsRequested": 40,
       "eventsOnStrip": 40,
       "eventTargets": [
-        "DIV.akari-annotations-strip-clip akari-annot"
+        "DIV."
       ],
       "eventsWithMutation": 0,
       "totalMutations": 0,
@@ -55,30 +58,33 @@
       "performance": {
         "LayoutDuration": 0,
         "RecalcStyleDuration": 0,
-        "ScriptDuration": 0.039379,
+        "ScriptDuration": 0.04144700000000001,
         "LayoutCount": 0
       },
       "performancePerEvent": {
         "LayoutDuration": 0,
         "RecalcStyleDuration": 0,
-        "ScriptDuration": 0.0009844749999999998,
+        "ScriptDuration": 0.0010361750000000003,
         "LayoutCount": 0
       },
       "loadAverage": [
-        22.76025390625,
-        30.68798828125,
-        121.2490234375
+        16.5263671875,
+        179.28369140625,
+        228.56103515625
       ],
       "identity": {
-        "count": 200,
-        "retained": 200
+        "count": 201,
+        "retained": 201
       },
       "viewAfter": {
-        "itemCount": 200,
+        "itemCount": 201,
         "stripWidth": 933,
         "sampleId": "第1章 検証",
+        "stripNodes": 818,
+        "widgetNodes": 1517,
+        "outsideStripNodes": 699,
         "sampleLeft": 356.9140625,
-        "sampleWidth": 11.6328125,
+        "sampleWidth": 12.65625,
         "akariAttributes": [
           "data-akari-item-id",
           "data-akari-item-kind",
@@ -98,11 +104,14 @@
         "ctrlKey": true
       },
       "viewBefore": {
-        "itemCount": 200,
+        "itemCount": 201,
         "stripWidth": 933,
         "sampleId": "第1章 検証",
+        "stripNodes": 819,
+        "widgetNodes": 1520,
+        "outsideStripNodes": 701,
         "sampleLeft": 123.875,
-        "sampleWidth": 17.453125,
+        "sampleWidth": 18.984375,
         "akariAttributes": [
           "data-akari-item-id",
           "data-akari-item-kind",
@@ -119,107 +128,109 @@
       "panEventsRequested": 40,
       "eventsOnStrip": 40,
       "eventTargets": [
-        "DIV.akari-annotations-strip-clip akari-annot",
         "DIV."
       ],
       "eventsWithMutation": 24,
-      "totalMutations": 8315,
-      "mutationsPerEvent": 207.875,
+      "totalMutations": 8449,
+      "mutationsPerEvent": 211.225,
       "work": {
         "samplesMs": [
-          0.89990234375,
           0.300048828125,
-          0.099853515625,
-          13.300048828125,
+          0.199951171875,
           0.10009765625,
-          0.099853515625,
+          11.39990234375,
           0.199951171875,
-          24.800048828125,
-          0.2001953125,
-          0.199951171875,
-          0.2001953125,
-          0.39990234375,
-          0.2001953125,
-          0.400146484375,
-          0.300048828125,
-          18,
-          0.099853515625,
           0.199951171875,
           0,
-          12.699951171875,
+          12.599853515625,
           0.10009765625,
           0.199951171875,
-          0.199951171875,
+          0.10009765625,
+          0.10009765625,
+          0.099853515625,
+          0.099853515625,
+          0,
+          14.39990234375,
+          0.10009765625,
+          0.099853515625,
+          0.2001953125,
+          11,
+          0.10009765625,
+          0,
+          0.099853515625,
           0.10009765625
         ],
         "count": 24,
-        "medianMs": 0.199951171875,
-        "p95Ms": 18,
-        "maxMs": 24.800048828125,
-        "over16_7": 2,
+        "medianMs": 0.10009765625,
+        "p95Ms": 12.599853515625,
+        "maxMs": 14.39990234375,
+        "over16_7": 0,
         "over33": 0
       },
       "latency": {
         "samplesMs": [
-          16.10009765625,
-          15.300048828125,
-          15.39990234375,
-          20.5,
-          15.800048828125,
-          15.099853515625,
-          16.199951171875,
-          35.5,
-          15.5,
-          14.900146484375,
-          16.60009765625,
-          15.199951171875,
-          15.2001953125,
           15.699951171875,
-          15.400146484375,
-          31.39990234375,
+          16.300048828125,
+          16,
+          19.89990234375,
           16.199951171875,
-          16.199951171875,
-          16.2001953125,
-          21.300048828125,
+          16.300048828125,
+          16.10009765625,
+          19.599853515625,
           16.400146484375,
-          16,
-          16,
-          16.2001953125
+          16.300048828125,
+          16.699951171875,
+          16.2001953125,
+          16.2998046875,
+          16.199951171875,
+          15.89990234375,
+          23.89990234375,
+          16.199951171875,
+          16.099853515625,
+          16.10009765625,
+          19.60009765625,
+          16.300048828125,
+          16.300048828125,
+          16.099853515625,
+          15.10009765625
         ],
         "count": 24,
-        "medianMs": 16,
-        "p95Ms": 31.39990234375,
-        "maxMs": 35.5,
+        "medianMs": 16.2001953125,
+        "p95Ms": 19.89990234375,
+        "maxMs": 23.89990234375,
         "over16_7": 4,
-        "over33": 1
+        "over33": 0
       },
       "performance": {
-        "LayoutDuration": 0.03216899999999999,
-        "RecalcStyleDuration": 0.02513900000000001,
-        "ScriptDuration": 0.05913499999999999,
-        "LayoutCount": 56
+        "LayoutDuration": 0.021045999999999995,
+        "RecalcStyleDuration": 0.017416,
+        "ScriptDuration": 0.03979899999999997,
+        "LayoutCount": 29
       },
       "performancePerEvent": {
-        "LayoutDuration": 0.0008042249999999998,
-        "RecalcStyleDuration": 0.0006284750000000002,
-        "ScriptDuration": 0.0014783749999999999,
-        "LayoutCount": 1.4
+        "LayoutDuration": 0.0005261499999999999,
+        "RecalcStyleDuration": 0.0004354,
+        "ScriptDuration": 0.0009949749999999993,
+        "LayoutCount": 0.725
       },
       "loadAverage": [
-        21.177734375,
-        30.22802734375,
-        120.55615234375
+        16.80419921875,
+        176.63916015625,
+        227.3388671875
       ],
       "identity": {
-        "count": 200,
-        "retained": 158
+        "count": 201,
+        "retained": 164
       },
       "viewAfter": {
-        "itemCount": 200,
+        "itemCount": 201,
         "stripWidth": 933,
         "sampleId": "第1章 検証",
+        "stripNodes": 819,
+        "widgetNodes": 1518,
+        "outsideStripNodes": 699,
         "sampleLeft": 356.91552734375,
-        "sampleWidth": 17.453125,
+        "sampleWidth": 18.984375,
         "akariAttributes": [
           "data-akari-item-id",
           "data-akari-item-kind",
@@ -236,23 +247,23 @@
   },
   "notes": [],
   "open": {
-    "visibleItemCount": 200,
+    "visibleItemCount": 201,
     "attempts": 1,
     "route": "メニュー→タイムライン"
   },
   "point": {
     "x": 823.4140625,
     "y": 818.1015625,
-    "hit": "DIV.akari-annotations-strip-clip akari-annotations-strip-clip-mi",
+    "hit": "DIV.",
     "inStrip": true,
     "stripRect": {
       "left": 355.9140625,
-      "top": -15.8984375,
+      "top": -39.8984375,
       "width": 935,
-      "height": 4048
+      "height": 4102
     },
     "innerWidth": 1800,
     "innerHeight": 1150
   },
-  "finishedAt": "2026-09-01T08:14:20.706Z"
+  "finishedAt": "2026-09-01T08:54:10.106Z"
 }

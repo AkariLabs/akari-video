@@ -130,7 +130,11 @@ const viewProbe = sampleId => `(() => {
   const el=id?strip.querySelector('[data-akari-item-id="'+id+'"]'):null;
   const r=el?el.getBoundingClientRect():null;
   const attrs=[...new Set([...strip.querySelectorAll('*')].flatMap(e=>[...e.attributes].map(a=>a.name)).filter(n=>n.startsWith('data-akari-')))].sort();
+  const widget=document.querySelector('#akari-annotations-widget');
   return {itemCount:items.length, stripWidth:strip.clientWidth, sampleId:id,
+    stripNodes:strip.querySelectorAll('*').length,
+    widgetNodes:widget?widget.querySelectorAll('*').length:null,
+    outsideStripNodes:widget?widget.querySelectorAll('*').length-strip.querySelectorAll('*').length:null,
     sampleLeft:r?r.left:null, sampleWidth:r?r.width:null, akariAttributes:attrs, akariAttributeCount:attrs.length};
 })()`;
 const TAG = `(() => {const strip=document.querySelector(${S});const items=[...strip.querySelectorAll(${I})];items.forEach(e=>{e.__panO1Tag=1});return items.length})()`;
