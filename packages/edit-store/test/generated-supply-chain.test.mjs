@@ -15,6 +15,7 @@ const expectedSources = [
   'caption-display.ts',
   'caption-store.ts',
   'caption-window.ts',
+  'caption-words-rederive.ts',
   'cut-adjacency.ts',
   'ducking.ts',
   'edit-store.ts',
