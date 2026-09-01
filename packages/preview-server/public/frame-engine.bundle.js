@@ -2526,6 +2526,7 @@ var require_timeline_map = __commonJS({
     exports.transitionProgressAt = transitionProgressAt2;
     exports.buildTimelineMap = buildTimelineMap2;
     exports.outputToSource = outputToSource2;
+    exports.sourceToOutput = sourceToOutput;
     var edit_store_1 = require_edit_store();
     var cut_adjacency_1 = require_cut_adjacency();
     function transitionProgressAt2(window2, outputT) {
@@ -2692,6 +2693,22 @@ var require_timeline_map = __commonJS({
         }
       }
       return { segment: null, sourceT: null };
+    }
+    function sourceToOutput(segments, sourceT) {
+      const sources = segments.filter((segment) => segment.kind === "src" && typeof segment.in === "number" && typeof segment.out === "number");
+      if (sources.length === 0 || !Number.isFinite(sourceT)) {
+        return null;
+      }
+      for (const segment of sources) {
+        const start = segment.in;
+        const end = segment.out;
+        if (start <= sourceT && sourceT < end) {
+          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+          return segment.outStart + (sourceT - start) / speed;
+        }
+      }
+      const next = sources.find((segment) => segment.in > sourceT);
+      return next?.outStart ?? sources[sources.length - 1].outEnd;
     }
   }
 });
@@ -4383,6 +4400,155 @@ var require_edit_v2_item_write = __commonJS({
   }
 });
 
+// ../edit-store/lib/item-anchor.js
+var require_item_anchor = __commonJS({
+  "../edit-store/lib/item-anchor.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.resolveItemAnchor = resolveItemAnchor;
+    exports.withoutItemAnchors = withoutItemAnchors;
+    exports.resolveItemAnchors = resolveItemAnchors;
+    var internal_model_1 = require_internal_model();
+    var timeline_map_1 = require_timeline_map();
+    function resolveItemAnchor(item, context) {
+      const start = item.anchor.range?.start ?? context.caption.start;
+      const end = item.anchor.range?.end ?? context.caption.end;
+      const startOut = context.caption.timeDomain === "output" ? start : (0, timeline_map_1.sourceToOutput)(context.segments, start);
+      const endOut = context.caption.timeDomain === "output" ? end : (0, timeline_map_1.sourceToOutput)(context.segments, end);
+      if (startOut === null || endOut === null) {
+        return { unresolvable: "no-source-segments" };
+      }
+      if (startOut === endOut) {
+        return { unresolvable: "removed-range" };
+      }
+      const startFrames = Math.round(startOut * context.fps);
+      const endFrames = Math.round(endOut * context.fps);
+      return {
+        at: startFrames + (item.anchor.offset ?? 0) - context.parentAtFrames,
+        duration: (item.anchor.duration ?? "caption") === "caption" ? Math.max(1, endFrames - startFrames) : item.duration
+      };
+    }
+    function withoutItemAnchors(edit) {
+      if (!isRecord2(edit) || !Array.isArray(edit.tracks))
+        return edit;
+      let tracksChanged = false;
+      const tracks = edit.tracks.map((track) => {
+        if (!isRecord2(track) || !Array.isArray(track.items))
+          return track;
+        const items = stripItems(track.items);
+        if (items === track.items)
+          return track;
+        tracksChanged = true;
+        return { ...track, items };
+      });
+      return tracksChanged ? { ...edit, tracks } : edit;
+    }
+    function resolveItemAnchors(edit, captions, options) {
+      if (!hasItemAnchor(edit))
+        return { edit, changes: [], warnings: [] };
+      const fps = validFps(options?.fps) ?? validFps(edit.output?.fps) ?? 30;
+      const anchorFreeEdit = withoutItemAnchors(edit);
+      const internal = (0, internal_model_1.readInternalEdit)(anchorFreeEdit);
+      const legacy = (0, internal_model_1.projectLegacyEdit)(internal);
+      const segments = (0, timeline_map_1.buildTimelineMap)(legacy.cuts, { fps: legacy.fps }).segments;
+      const captionById = new Map(captions.map((caption) => [caption.id, caption]));
+      const changes = [];
+      const warnings = [];
+      let tracksChanged = false;
+      const tracks = edit.tracks.map((track) => {
+        if (!("items" in track) || !Array.isArray(track.items) || track.lane !== "visual")
+          return track;
+        const items = resolveItems(track.items, 0, captionById, segments, fps, changes, warnings);
+        if (items === track.items)
+          return track;
+        tracksChanged = true;
+        return { ...track, items };
+      });
+      return {
+        edit: tracksChanged ? { ...edit, tracks } : edit,
+        changes,
+        warnings
+      };
+    }
+    function resolveItems(items, parentAtFrames, captionById, segments, fps, changes, warnings) {
+      let changed = false;
+      const result = items.map((item) => {
+        let next = item;
+        if (item.anchor) {
+          if (item.source.kind === "captions" || item.source.kind === "caption") {
+            warnings.push({ id: item.id, reason: "unsupported-kind" });
+          } else {
+            const caption = captionById.get(item.anchor.caption);
+            if (!caption) {
+              warnings.push({ id: item.id, reason: "caption-not-found" });
+            } else {
+              const resolution = resolveItemAnchor(item, {
+                caption,
+                segments,
+                fps,
+                parentAtFrames
+              });
+              if ("unresolvable" in resolution) {
+                warnings.push({ id: item.id, reason: resolution.unresolvable });
+              } else if (item.at !== resolution.at || item.duration !== resolution.duration) {
+                changes.push({
+                  id: item.id,
+                  before: { at: item.at, duration: item.duration },
+                  after: resolution
+                });
+                next = { ...item, ...resolution };
+                changed = true;
+              }
+            }
+          }
+        }
+        const absoluteAtFrames = parentAtFrames + next.at;
+        if (Array.isArray(next.items)) {
+          const children = resolveItems(next.items, absoluteAtFrames, captionById, segments, fps, changes, warnings);
+          if (children !== next.items) {
+            next = { ...next, items: children };
+            changed = true;
+          }
+        }
+        return next;
+      });
+      return changed ? result : items;
+    }
+    function stripItems(items) {
+      let changed = false;
+      const result = items.map((item) => {
+        if (!isRecord2(item))
+          return item;
+        let next = item;
+        if (Object.prototype.hasOwnProperty.call(item, "anchor")) {
+          const { anchor: _anchor, ...rest } = item;
+          next = rest;
+          changed = true;
+        }
+        if (Array.isArray(next.items)) {
+          const children = stripItems(next.items);
+          if (children !== next.items) {
+            next = { ...next, items: children };
+            changed = true;
+          }
+        }
+        return next;
+      });
+      return changed ? result : items;
+    }
+    function hasItemAnchor(edit) {
+      const visit = (items) => items.some((item) => item.anchor !== void 0 || Array.isArray(item.items) && visit(item.items));
+      return edit.tracks.some((track) => "items" in track && track.lane === "visual" && visit(track.items));
+    }
+    function validFps(value) {
+      return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : void 0;
+    }
+    function isRecord2(value) {
+      return value !== null && typeof value === "object" && !Array.isArray(value);
+    }
+  }
+});
+
 // ../edit-store/lib/migrate/error.js
 var require_error = __commonJS({
   "../edit-store/lib/migrate/error.js"(exports) {
@@ -4414,6 +4580,7 @@ var require_internal_model = __commonJS({
     exports.toLegacyTrack = toLegacyTrack;
     exports.derivedLegacyTracks = derivedLegacyTracks;
     var edit_v2_1 = require_edit_v2();
+    var item_anchor_1 = require_item_anchor();
     var cut_adjacency_1 = require_cut_adjacency();
     var error_1 = require_error();
     function readInternalEdit(source, options) {
@@ -4429,7 +4596,8 @@ var require_internal_model = __commonJS({
       if (record.version !== 2) {
         throw new error_1.LegacyEditVersionError(typeof record.version === "number" ? record.version : -1);
       }
-      return readV2Internal(record);
+      const resolved = options?.captions === void 0 ? record : (0, item_anchor_1.resolveItemAnchors)(record, options.captions).edit;
+      return readV2Internal((0, item_anchor_1.withoutItemAnchors)(resolved));
     }
     function readInternalSources(source) {
       const raw = toRecord(source);
@@ -6322,7 +6490,7 @@ var require_edit_v2_keys = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "transform", "opacity", "blend", "crop", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "fade_in", "fade_out", "ducking", "script", "reading", "provenance"];
+    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "anchor", "transform", "opacity", "blend", "crop", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "fade_in", "fade_out", "ducking", "script", "reading", "provenance"];
     exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "preset", "baked", "from", "filter", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
@@ -6337,6 +6505,7 @@ var require_edit_v2_keys = __commonJS({
         "locked",
         "at",
         "duration",
+        "anchor",
         "transform",
         "opacity",
         "blend",
@@ -6356,6 +6525,7 @@ var require_edit_v2_keys = __commonJS({
         "locked",
         "at",
         "duration",
+        "anchor",
         "transform",
         "opacity",
         "blend",
@@ -6374,6 +6544,7 @@ var require_edit_v2_keys = __commonJS({
         "locked",
         "at",
         "duration",
+        "anchor",
         "transform",
         "opacity",
         "blend",
@@ -6392,6 +6563,7 @@ var require_edit_v2_keys = __commonJS({
         "locked",
         "at",
         "duration",
+        "anchor",
         "transform",
         "opacity",
         "blend",
@@ -6410,6 +6582,7 @@ var require_edit_v2_keys = __commonJS({
         "locked",
         "at",
         "duration",
+        "anchor",
         "transform",
         "opacity",
         "blend",
@@ -6774,6 +6947,9 @@ var require_tree_ops = __commonJS({
     exports.DEFAULT_CAPTION_TELOP_PRESET = void 0;
     exports.attachEditHelpers = attachEditHelpers;
     exports.updateItem = updateItem;
+    exports.setItemAnchor = setItemAnchor;
+    exports.clearItemAnchor = clearItemAnchor;
+    exports.refreshItemAnchors = refreshItemAnchors;
     exports.setKeyframe = setKeyframe;
     exports.removeKeyframe = removeKeyframe;
     exports.moveKeyframe = moveKeyframe;
@@ -6805,6 +6981,7 @@ var require_tree_ops = __commonJS({
     exports.relativeTransform = relativeTransform;
     exports.ensureChildren = ensureChildren;
     exports.clone = clone;
+    var item_anchor_1 = require_item_anchor();
     var SEGMENT_EASINGS = /* @__PURE__ */ new Set([
       "linear",
       "ease-in-out",
@@ -6857,6 +7034,25 @@ var require_tree_ops = __commonJS({
         }
       }
       return location2.item;
+    }
+    function setItemAnchor(edit, id, anchor, captions) {
+      const item = requireLocation(edit, id).item;
+      item.anchor = clone(anchor);
+      const refreshed = (0, item_anchor_1.resolveItemAnchors)(edit, captions);
+      for (const change of refreshed.changes) {
+        const changedItem = requireLocation(edit, change.id).item;
+        changedItem.at = change.after.at;
+        changedItem.duration = change.after.duration;
+      }
+      return { edit, item, changes: refreshed.changes, warnings: refreshed.warnings };
+    }
+    function clearItemAnchor(edit, id) {
+      const item = requireLocation(edit, id).item;
+      delete item.anchor;
+      return item;
+    }
+    function refreshItemAnchors(edit, captions) {
+      return (0, item_anchor_1.resolveItemAnchors)(edit, captions);
     }
     function setKeyframe(edit, id, property, t, value) {
       const item = requireLocation(edit, id).item;
@@ -7997,6 +8193,7 @@ var require_lib = __commonJS({
     __exportStar(require_audio_schedule(), exports);
     __exportStar(require_canonical(), exports);
     __exportStar(require_tree_ops(), exports);
+    __exportStar(require_item_anchor(), exports);
     var legacy_parse_1 = require_legacy_parse();
     Object.defineProperty(exports, "parseEdit", { enumerable: true, get: function() {
       return legacy_parse_1.parseEdit;
