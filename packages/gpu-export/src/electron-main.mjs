@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from "node:fs";
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,7 +10,7 @@ import { createMemorySampler, resolveMemoryBudget } from "../../osr-export/src/m
 import { encodeRgbaPng } from "../../osr-export/src/png.mjs";
 import { startStaticServer } from "../../osr-export/src/static-server.mjs";
 import { loadAndBuildGpuPage } from "./page-builder.mjs";
-import { muxEncodedVideo } from "./mp4-mux.mjs";
+import { createIncrementalMp4Writer } from "./mp4-mux.mjs";
 import { resolveGpuEncoding } from "./bitrate.mjs";
 import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
 
@@ -45,7 +45,6 @@ export async function runGpuExport(options) {
     captureOutputDirectory = null,
     processTimeoutMs = Math.max(300_000, frames * 1_000),
     ffprobeCommand = process.env.FFPROBE ?? process.env.AKARI_FFPROBE_BIN ?? "ffprobe",
-    ffmpegCommand = process.env.FFMPEG ?? process.env.AKARI_FFMPEG_BIN ?? "ffmpeg",
   } = options;
   const captureMode = captureFrames !== null;
   if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(frames) || frames <= 0) {
@@ -104,7 +103,6 @@ export async function runGpuExport(options) {
     onHardStop: (bytes) => { fatalMemoryError = new Error(`RSS hard stop: ${bytes} bytes`); },
   });
   const runPath = captureMode ? out : join(dirname(out), "run.json");
-  const annexBPath = join(dirname(out), "encoded.h264");
   const runtimeConfig = {
     frames,
     queueDepth,
@@ -156,42 +154,22 @@ export async function runGpuExport(options) {
   });
   register("gpu:chunks-start", async () => {
     if (chunkState) throw new Error("chunk sink is already running");
-    await mkdir(dirname(annexBPath), { recursive: true });
-    await writeFile(annexBPath, Buffer.alloc(0));
-    chunkState = { samples: [], offset: 0, writeChain: Promise.resolve() };
+    await mkdir(dirname(out), { recursive: true });
+    const writer = await createIncrementalMp4Writer({ outputPath: out, width, height, fps, frames });
+    chunkState = { writer };
     return true;
   });
   register("gpu:chunk", async (_event, value) => {
     if (!chunkState) throw new Error("chunk sink is not running");
-    const bytes = Buffer.from(value.bytes);
-    const sample = {
-      offset: chunkState.offset,
-      length: bytes.length,
-      type: value.type,
-      timestamp: value.timestamp,
-      duration: value.duration,
-    };
-    chunkState.offset += bytes.length;
-    chunkState.samples.push(sample);
-    chunkState.writeChain = chunkState.writeChain.then(() => appendFile(annexBPath, bytes));
-    await chunkState.writeChain;
-    return chunkState.samples.length;
+    return chunkState.writer.write(value);
   });
   register("gpu:chunks-finish", async () => {
     if (!chunkState) throw new Error("chunk sink is not running");
     const state = chunkState;
-    chunkState = null;
-    await state.writeChain;
-    const mux = await muxEncodedVideo({
-      samples: state.samples,
-      annexBPath,
-      outputPath: out,
-      fps,
-      frames,
-      ffmpegCommand,
-    });
+    const mux = await state.writer.finish();
     const ffprobe = await verifyEncodedVideo({ command: ffprobeCommand, path: out, frames, fps, width, height });
     if (!ffprobe.matched) throw new Error(`GPU ffprobe verification failed: ${JSON.stringify(ffprobe.checks)}`);
+    chunkState = null;
     return { ...mux, ffprobe };
   });
   register("gpu:capture-frame", async (_event, value) => {
@@ -289,6 +267,10 @@ export async function runGpuExport(options) {
     throw error;
   } finally {
     for (const channel of channels) ipcMain.removeHandler(channel);
+    if (chunkState) {
+      await chunkState.writer.abort().catch(() => {});
+      chunkState = null;
+    }
     if (windowRef && !windowRef.isDestroyed()) await destroyWindow(windowRef);
     await server.close().catch(() => {});
   }

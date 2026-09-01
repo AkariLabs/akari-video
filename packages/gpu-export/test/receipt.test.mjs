@@ -4,8 +4,8 @@ import test from "node:test";
 import { buildGpuReceipt } from "../src/receipt.mjs";
 
 test("GPU receipt reports the mux method the run actually used", () => {
-  const remuxed = buildGpuReceipt({ tier: 2, run: { mux: { method: "ffmpeg-remux", samples: 3 } } });
-  assert.equal(remuxed.provenance.mux, "ffmpeg-remux");
+  const incremental = buildGpuReceipt({ tier: 2, run: { mux: { method: "incremental-mp4", samples: 3 } } });
+  assert.equal(incremental.provenance.mux, "incremental-mp4");
 });
 
 test("a run recorded before the ffmpeg remux keeps reading as mp4box-direct", () => {
