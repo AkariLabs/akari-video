@@ -254,7 +254,6 @@ Error: puppeteer-core を読み込めませんでした。パッケージの依�
 | パッケージ | 外部依存 | 何に必要か |
 |---|---|---|
 | `packages/template-render` | `puppeteer-core` | オーバーレイ HTML の連番フレーム焼き |
-| `packages/render-cut` | `puppeteer-core`・`hyperframes` | 最終 MP4 の書き出し |
 | `packages/bake-layer` | `puppeteer`・`esbuild` | オーバーレイのベイク |
 | `packages/preview-server` | `esbuild` | ブラウザプレビューサーバー |
 | `packages/media-bin` | なし — ただし `postinstall` が ffmpeg/ffprobe を取得（sha256 検証付き） | すべてのメディア処理で使う ffmpeg |

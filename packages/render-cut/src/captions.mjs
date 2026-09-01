@@ -24,7 +24,7 @@ const DEFAULT_FONT_SIZE_PX = 38;
 // （win2-fonts-assets、assets/font/noto-sans-jp/、可変フォント 1 本）を @font-face で固定する。
 // captions.mjs から見て ../../../ が repo root（packages/render-cut/src/ → render-cut → packages
 // → repo root）。resolved caption は OS の同名フォントへ fall back しない固有 family alias を使う。
-// legacy caption は既存スナップショットのバイト互換性を保つため従来 family 名を維持する。
+// compatibility caption は既存スナップショットのバイト互換性を保つため従来 family 名を維持する。
 const CAPTION_FONT_STACK = '"Noto Sans JP", sans-serif';
 const RESOLVED_CAPTION_FONT_STACK = '"AKARI Noto Sans JP", sans-serif';
 const CAPTION_FONT_DIR = resolve(
@@ -494,7 +494,7 @@ function normalizeTextStyle(value) {
     ...(typeof value.font_family === "string" && value.font_family !== ""
       ? { font_family: value.font_family } : {}),
     // weight（textstyle v0 の正式名・100..900）と font_weight（display_policy 経路からの
-    // 既存名・1..1000）は同じ CSS font-weight を指す。legacy レールは weight しか読んで
+    // 既存名・1..1000）は同じ CSS font-weight を指す。compatibility レールは weight しか読んで
     // いなかったため、contract 上は有効な font_weight が無言で捨てられていた。両方あるときは
     // weight を優先する（captions.schema.json $defs/textStyle の $comment と同じ順序）。
     ...(finiteNumber(value.weight) && value.weight >= 100 && value.weight <= 900

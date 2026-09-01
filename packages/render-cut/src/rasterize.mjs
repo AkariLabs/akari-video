@@ -1,12 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, extname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { launchBrowser } from "./browser-launch.mjs";
-import { buildAnimatedCompositeArgs } from "./plan.mjs";
-import { enableWindowExpr } from "./enable-window.mjs";
-
+import { dirname, extname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CAPTURE_TIMEOUT_MS = 60_000;
 // タイムアウト診断で持ち回る量。多すぎるとログが埋まるので直近だけ残す。
@@ -191,14 +186,14 @@ ${nodes}${slotRuntimeScripts}
   </div>
   <script>
     // Overlay fragments author entrance animations as plain CSS keyframes, but plain CSS
-    // animations cannot survive a HyperFrames render: its producer free-runs this sheet on
+    // animations cannot survive a the retired renderer render: its producer free-runs this sheet on
     // a virtual clock (so they finish during page setup), and its deterministic CSS adapter
     // re-seeks them to composition time with no clip offset right before every frame
     // capture, baking the fill end state (issue #3). Convert each authored CSS animation
     // into a paused WAAPI clone whose delay absorbs the container's start instead: a write
     // of currentTime = composition time then lands every clone on the correct local frame
-    // no matter which writer runs last — __akariSeek (puppeteer-core), the transport hold
-    // loop below (HyperFrames), or HyperFrames' own WAAPI adapter. Disabling animation-name
+    // no matter which writer runs last — __akariSeek (the retired browser writer), the transport hold
+    // loop below (the retired renderer), or the retired renderer' own WAAPI adapter. Disabling animation-name
     // afterwards cancels the originals so nothing free-runs or double-drives the elements.
     (function() {
       for (const container of document.querySelectorAll('.akari-overlay-container')) {
@@ -247,8 +242,8 @@ ${nodes}${slotRuntimeScripts}
         }
       }
     };
-    // HyperFrames never calls __akariSeek, so follow its transport clock instead. Only the
-    // HyperFrames runtime defines window.__player; the puppeteer-core and static-screenshot
+    // the retired renderer never calls __akariSeek, so follow its transport clock instead. Only the
+    // the retired renderer runtime defines window.__player; the the retired browser writer and static-screenshot
     // rasterizers never do, so for them the loop stays an idle poll for the life of the
     // page. It must never give up waiting for the player: setup burns virtual-clock rAF
     // ticks at an unpredictable rate, so any finite tick budget can die before the player
@@ -366,543 +361,6 @@ ${nodes}${slotRuntimeScripts}
 `;
 }
 
-export async function captureWithPuppeteer({
-  sheetPath,
-  chromePath,
-  framesDirectory,
-  overlayMovPath,
-  width,
-  height,
-  fps,
-  duration,
-  ffmpegCommand,
-  workers = 1,
-  timeoutMs = captureTimeoutMs(),
-  puppeteerModule = null,
-  browserLauncher = launchBrowser,
-  onWarning = null,
-  onMetrics = null,
-}) {
-  const imported = puppeteerModule ?? await import("puppeteer-core");
-  const puppeteer = imported.default ?? imported;
-  await mkdir(framesDirectory, { recursive: true });
-  const frameCount = overlayFrameCount(duration, fps);
-  const ranges = splitFrameRanges(frameCount, workers);
-  const captureStarted = performance.now();
-  let browserLaunched = captureStarted;
-  let pageReady = captureStarted;
-  let frameLoopFinished = captureStarted;
-  let browserClosed = captureStarted;
-  let watchdogExpired = false;
-  const workerStates = ranges.map(([start, end], index) => ({
-    index,
-    start,
-    end,
-    page: null,
-    messages: [],
-    recentFrameMilliseconds: [],
-    frameLoopStarted: null,
-    frameLoopFinished: null,
-    seekWaitMilliseconds: 0,
-    screenshotMilliseconds: 0,
-    timeoutWarningReported: false,
-    browserSession: null,
-  }));
-  try {
-    await Promise.all(workerStates.map(async (worker) => {
-      const label = captureWorkerLabel(worker, workers);
-      try {
-        worker.browserSession = await browserLauncher({
-          puppeteer,
-          chromePath,
-          profileParent: framesDirectory,
-          profilePrefix: `chrome-profile-${worker.index + 1}-`,
-          failureMarkerPath: join(
-            dirname(framesDirectory),
-            workers === 1 ? ".browser-launch-failed" : `.browser-launch-failed-${worker.index + 1}`,
-          ),
-          timeoutMs,
-          onWarning: workers > 1 && onWarning
-            ? (warning) => onWarning(`${label}: ${warning}`)
-            : (onWarning ?? undefined),
-          // Existing tests can inject a launch-only Puppeteer stub without pretending to implement
-          // the macOS connect path. Production puppeteer-core always exposes both methods.
-          platform: puppeteerModule && typeof puppeteer.connect !== "function"
-            ? "linux"
-            : process.platform,
-          args: [
-            "--no-sandbox",
-            "--disable-gpu",
-            "--enable-unsafe-swiftshader",
-            "--use-angle=swiftshader",
-            "--disable-dev-shm-usage",
-            "--no-first-run",
-            "--no-default-browser-check",
-          ],
-        });
-      } catch (error) {
-        if (isTimeoutError(error)) {
-          watchdogExpired = true;
-          reportWorkerTimeout({ worker, workers, sheetPath, onWarning });
-        }
-        throw error;
-      }
-    }));
-    browserLaunched = performance.now();
-    await Promise.all(workerStates.map(async (worker) => {
-      const label = captureWorkerLabel(worker, workers);
-      try {
-        const page = await withTimeout(
-          worker.browserSession.browser.newPage(),
-          timeoutMs,
-          `${label}: opening a Puppeteer page`,
-        );
-        worker.page = page;
-        attachPageDiagnostics(page, worker.messages);
-        page.setDefaultTimeout(timeoutMs);
-        page.setDefaultNavigationTimeout(timeoutMs);
-        await withTimeout(
-          page.setViewport({ width, height, deviceScaleFactor: 1 }),
-          timeoutMs,
-          `${label}: setting the Puppeteer viewport`,
-        );
-        await withTimeout(
-          page.goto(pathToFileURL(sheetPath).href, {
-            waitUntil: "networkidle0",
-            timeout: timeoutMs,
-          }),
-          timeoutMs,
-          `${label}: loading the overlay sheet`,
-        );
-        await withTimeout(
-          page.evaluate(() => window.__akariReady),
-          timeoutMs,
-          `${label}: waiting for the overlay sheet`,
-        );
-      } catch (error) {
-        if (isTimeoutError(error)) {
-          watchdogExpired = true;
-          reportWorkerTimeout({ worker, workers, sheetPath, onWarning });
-        }
-        throw error;
-      }
-    }));
-    pageReady = performance.now();
-    await Promise.all(workerStates.map(async (worker) => {
-      const label = captureWorkerLabel(worker, workers);
-      worker.frameLoopStarted = performance.now();
-      try {
-        // Chrome's first screenshots of a newly-visible text layer can use a different antialiasing
-        // cache state than a page that rendered the overlay from its entrance. Prime only overlays
-        // already active at this chunk boundary with their first two states. These discarded frames
-        // stay inside the measured frame loop; assigned output filenames remain strictly disjoint.
-        const warmupSeconds = worker.start === 0
-          ? []
-          : await withTimeout(
-              worker.page.evaluate((startSeconds, frameRate) => {
-                const times = new Set();
-                for (const container of document.querySelectorAll('.akari-overlay-container')) {
-                  const start = Number(container.dataset.start);
-                  const duration = Number(container.dataset.duration);
-                  if (!(start < startSeconds && startSeconds < start + duration)) continue;
-                  times.add(start);
-                  const secondFrame = start + 1 / frameRate;
-                  if (secondFrame < startSeconds && secondFrame < start + duration) {
-                    times.add(secondFrame);
-                  }
-                }
-                return [...times].sort((left, right) => left - right);
-              }, worker.start / fps, fps),
-              timeoutMs,
-              `${label}: finding deterministic raster warmup frames`,
-            );
-        for (const seconds of Array.isArray(warmupSeconds) ? warmupSeconds : []) {
-          const seekStarted = performance.now();
-          const seekResult = await withTimeout(
-            worker.page.evaluate((value) => window.__akariSeek(value), seconds),
-            timeoutMs,
-            `${label}: seeking deterministic raster warmup at ${formatNumber(seconds)}s`,
-          );
-          worker.seekWaitMilliseconds += performance.now() - seekStarted;
-          for (const warning of seekResult?.warnings ?? []) {
-            onWarning?.(`${label}: raster warmup at ${formatNumber(seconds)}s: ${warning}`);
-          }
-          const screenshotStarted = performance.now();
-          await withTimeout(
-            worker.page.screenshot({ omitBackground: true, optimizeForSpeed: true }),
-            timeoutMs,
-            `${label}: capturing deterministic raster warmup at ${formatNumber(seconds)}s`,
-          );
-          worker.screenshotMilliseconds += performance.now() - screenshotStarted;
-        }
-        for (let frame = worker.start; frame < worker.end; frame += 1) {
-          const seekStarted = performance.now();
-          const seekResult = await withTimeout(
-            worker.page.evaluate((seconds) => window.__akariSeek(seconds), frame / fps),
-            timeoutMs,
-            `${label}: seeking frame ${frame + 1}`,
-          );
-          worker.seekWaitMilliseconds += performance.now() - seekStarted;
-          for (const warning of seekResult?.warnings ?? []) {
-            const workerPrefix = workers > 1 ? `${label}: ` : "";
-            onWarning?.(
-              `${workerPrefix}frame ${frame + 1}/${frameCount} at ${formatNumber(frame / fps)}s: ${warning}`,
-            );
-          }
-          const screenshotStarted = performance.now();
-          await withTimeout(
-            worker.page.screenshot({
-              path: join(framesDirectory, `frame-${String(frame + 1).padStart(8, "0")}.png`),
-              omitBackground: true,
-              optimizeForSpeed: true,
-            }),
-            timeoutMs,
-            `${label}: capturing frame ${frame + 1}`,
-          );
-          worker.screenshotMilliseconds += performance.now() - screenshotStarted;
-          worker.recentFrameMilliseconds.push(Math.round(performance.now() - seekStarted));
-          if (worker.recentFrameMilliseconds.length > RECENT_FRAME_LIMIT) {
-            worker.recentFrameMilliseconds.shift();
-          }
-        }
-        worker.frameLoopFinished = performance.now();
-      } catch (error) {
-        worker.frameLoopFinished = performance.now();
-        if (isTimeoutError(error)) {
-          watchdogExpired = true;
-          reportWorkerTimeout({ worker, workers, sheetPath, onWarning });
-        }
-        throw error;
-      }
-    }));
-    frameLoopFinished = performance.now();
-  } catch (error) {
-    watchdogExpired ||= isTimeoutError(error);
-    throw error;
-  } finally {
-    await Promise.all(workerStates.map((worker) =>
-      worker.browserSession?.close({ force: watchdogExpired })));
-    browserClosed = performance.now();
-  }
-
-  const encodeStarted = performance.now();
-  runChecked(ffmpegCommand, [
-    "-hide_banner",
-    "-loglevel",
-    "error",
-    "-nostdin",
-    "-y",
-    "-framerate",
-    String(fps),
-    "-i",
-    join(framesDirectory, "frame-%08d.png"),
-    "-c:v",
-    "qtrle",
-    "-pix_fmt",
-    "argb",
-    overlayMovPath,
-  ]);
-  const captureFinished = performance.now();
-  const seekWaitMilliseconds = workerStates.reduce(
-    (total, worker) => total + worker.seekWaitMilliseconds,
-    0,
-  );
-  const screenshotMilliseconds = workerStates.reduce(
-    (total, worker) => total + worker.screenshotMilliseconds,
-    0,
-  );
-  onMetrics?.({
-    browser_launch_ms: roundMilliseconds(browserLaunched - captureStarted),
-    page_setup_ms: roundMilliseconds(pageReady - browserLaunched),
-    frame_loop_ms: roundMilliseconds(frameLoopFinished - pageReady),
-    seek_wait_ms: roundMilliseconds(seekWaitMilliseconds),
-    screenshot_ms: roundMilliseconds(screenshotMilliseconds),
-    browser_close_ms: roundMilliseconds(browserClosed - frameLoopFinished),
-    encode_ms: roundMilliseconds(captureFinished - encodeStarted),
-    total_ms: roundMilliseconds(captureFinished - captureStarted),
-    workers,
-    per_worker: workerStates.map((worker) => ({
-      range: [worker.start, worker.end],
-      frame_loop_ms: roundMilliseconds(worker.frameLoopFinished - worker.frameLoopStarted),
-      seek_wait_ms: roundMilliseconds(worker.seekWaitMilliseconds),
-      screenshot_ms: roundMilliseconds(worker.screenshotMilliseconds),
-    })),
-  });
-  return overlayMovPath;
-}
-
-export function splitFrameRanges(frameCount, workers) {
-  if (!Number.isInteger(workers) || workers < 1) {
-    throw new TypeError(`workers must be a positive integer, got: ${workers}`);
-  }
-  const baseSize = Math.floor(frameCount / workers);
-  const remainder = frameCount % workers;
-  let cursor = 0;
-  return Array.from({ length: workers }, (_, index) => {
-    const size = baseSize + (index < remainder ? 1 : 0);
-    const range = [cursor, cursor + size];
-    cursor += size;
-    return range;
-  });
-}
-
-function captureWorkerLabel(worker, workers) {
-  const range = worker.end > worker.start
-    ? `${worker.start + 1}\u2013${worker.end}`
-    : "empty";
-  return `worker ${worker.index + 1}/${workers} (frames ${range})`;
-}
-
-function attachPageDiagnostics(page, messages) {
-  if (typeof page.on !== "function") return;
-  page.on("pageerror", (error) => {
-    messages.push(`pageerror: ${String(error).slice(0, 200)}`);
-    if (messages.length > PAGE_MESSAGE_LIMIT) messages.shift();
-  });
-  page.on("console", (message) => {
-    const type = message.type();
-    if (type !== "error" && type !== "warning") return;
-    messages.push(`console.${type}: ${message.text().slice(0, 200)}`);
-    if (messages.length > PAGE_MESSAGE_LIMIT) messages.shift();
-  });
-}
-
-function reportWorkerTimeout({ worker, workers, sheetPath, onWarning }) {
-  if (worker.timeoutWarningReported) return;
-  worker.timeoutWarningReported = true;
-  const trend = worker.recentFrameMilliseconds.length > 0
-    ? `recent frame times: ${worker.recentFrameMilliseconds.join("ms, ")}ms`
-    : "no frame completed before the timeout";
-  const voices = worker.messages.length > 0
-    ? `; page said: ${worker.messages.slice(-3).join(" | ")}`
-    : "; the page reported no errors or warnings";
-  onWarning?.(
-    `${captureWorkerLabel(worker, workers)} rasterizer timed out `
-      + `(${trend}; 3D scenes: ${countThreeDimensionalScenes(sheetPath)}${voices}). `
-      + "Rising frame times mean the composition is too heavy for this machine's software WebGL \u2014 "
-      + "reduce simultaneous 3D scenes or the output resolution.",
-  );
-}
-
-/** 格子上の出力秒からフレーム数を復元し、浮動小数誤差による +1 を防ぐ。 */
-export function overlayFrameCount(duration, fps) {
-  return Math.max(0, Math.ceil(duration * fps - 1e-6));
-}
-
-export async function captureStaticOverlays({
-  overlays,
-  edit,
-  projectRoot,
-  temporaryDirectory,
-  chromePath,
-  timeoutMs = captureTimeoutMs(),
-  puppeteerModule = null,
-  browserLauncher = launchBrowser,
-}) {
-  const imported = puppeteerModule ?? await import("puppeteer-core");
-  const puppeteer = imported.default ?? imported;
-  const captures = [];
-  let browserSession = null;
-  try {
-    browserSession = await browserLauncher({
-      puppeteer,
-      chromePath,
-      profileParent: temporaryDirectory,
-      profilePrefix: "static-chrome-profile-",
-      failureMarkerPath: join(temporaryDirectory, ".browser-launch-failed"),
-      timeoutMs,
-      args: [
-        "--no-sandbox",
-        "--disable-gpu",
-        "--enable-unsafe-swiftshader",
-        "--use-angle=swiftshader",
-        "--disable-dev-shm-usage",
-        "--hide-scrollbars",
-        "--run-all-compositor-stages-before-draw",
-        `--window-size=${edit.output.width},${edit.output.height}`,
-      ],
-    });
-    for (const [index, overlay] of orderOverlaysByTrack(overlays).entries()) {
-      const stem = `static-${String(index + 1).padStart(4, "0")}`;
-      const htmlPath = join(temporaryDirectory, `${stem}.html`);
-      const pngPath = join(temporaryDirectory, `${stem}.png`);
-      const sampleTime = Math.min(0.25, overlay.duration / 2);
-      const shifted = {
-        ...overlay,
-        start: -sampleTime,
-        duration: Math.max(overlay.duration, sampleTime + 0.001),
-      };
-      await writeFile(
-        htmlPath,
-        renderOverlaySheet({
-          overlays: [shifted],
-          edit,
-          projectRoot,
-          duration: shifted.duration,
-        }),
-        "utf8",
-      );
-      const page = await withTimeout(
-        browserSession.browser.newPage(),
-        timeoutMs,
-        "opening a static overlay page",
-      );
-      try {
-        page.setDefaultTimeout(timeoutMs);
-        page.setDefaultNavigationTimeout(timeoutMs);
-        await withTimeout(
-          page.setViewport({
-            width: edit.output.width,
-            height: edit.output.height,
-            deviceScaleFactor: 1,
-          }),
-          timeoutMs,
-          "setting the static overlay viewport",
-        );
-        await withTimeout(
-          page.goto(pathToFileURL(htmlPath).href, {
-            waitUntil: "networkidle0",
-            timeout: timeoutMs,
-          }),
-          timeoutMs,
-          "loading a static overlay sheet",
-        );
-        await withTimeout(
-          page.evaluate(() => window.__akariReady),
-          timeoutMs,
-          "waiting for a static overlay sheet",
-        );
-        await withTimeout(
-          page.screenshot({ path: pngPath, omitBackground: true, optimizeForSpeed: true }),
-          timeoutMs,
-          "capturing a static overlay",
-        );
-      } finally {
-        await withTimeout(
-          page.close(),
-          Math.min(timeoutMs, 2_000),
-          "closing a static overlay page",
-        ).catch(() => {});
-      }
-      captures.push({ path: pngPath, start: overlay.start, duration: overlay.duration });
-    }
-  } finally {
-    await browserSession?.close();
-  }
-  return captures;
-}
-
-function captureTimeoutMs() {
-  const configured = Number(process.env.RENDER_CUT_CAPTURE_TIMEOUT_MS);
-  return Number.isFinite(configured) && configured > 0
-    ? Math.floor(configured)
-    : DEFAULT_CAPTURE_TIMEOUT_MS;
-}
-
-function withTimeout(promise, timeoutMs, operation) {
-  let timer;
-  const timeout = new Promise((_, rejectPromise) => {
-    timer = setTimeout(() => {
-      const error = new Error(`${operation} timeout after ${timeoutMs}ms`);
-      error.code = "ETIMEDOUT";
-      rejectPromise(error);
-    }, timeoutMs);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
-function isTimeoutError(error) {
-  return error?.code === "ETIMEDOUT" || /timeout/iu.test(error?.message ?? "");
-}
-
-function orderOverlaysByTrack(overlays) {
-  return overlays
-    .map((overlay, index) => ({ overlay, index }))
-    .sort((left, right) => {
-      const leftIsCaption = left.overlay.generatedFrom !== undefined;
-      const rightIsCaption = right.overlay.generatedFrom !== undefined;
-      if (leftIsCaption !== rightIsCaption) return leftIsCaption ? 1 : -1;
-      const leftTrack = Number.isInteger(left.overlay.track) && left.overlay.track >= 0
-        ? left.overlay.track
-        : 0;
-      const rightTrack = Number.isInteger(right.overlay.track) && right.overlay.track >= 0
-        ? right.overlay.track
-        : 0;
-      return leftTrack - rightTrack || left.index - right.index;
-    })
-    .map(({ overlay }) => overlay);
-}
-
-export async function compositeAnimatedOverlay({
-  ffmpegCommand,
-  cutPath,
-  overlayPath,
-  outputPath,
-  hasAudio,
-  videoEncodeArgs = null,
-  onProgress,
-}) {
-  const args = buildAnimatedCompositeArgs({
-    cutPath,
-    overlayPath,
-    outputPath,
-    hasAudio,
-    videoEncodeArgs,
-  });
-  if (onProgress) {
-    await runCheckedWithProgress(ffmpegCommand, args, { onProgress });
-  } else {
-    runChecked(ffmpegCommand, args);
-  }
-}
-
-export async function compositeStaticOverlays({
-  ffmpegCommand,
-  cutPath,
-  captures,
-  outputPath,
-  hasAudio,
-  duration,
-  fps,
-  videoEncodeArgs = null,
-  onProgress,
-}) {
-  const args = ["-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", cutPath];
-  for (const capture of captures) {
-    args.push("-loop", "1", "-i", capture.path);
-  }
-  const filters = [];
-  let previous = "[0:v]";
-  for (const [index, capture] of captures.entries()) {
-    const next = `[overlay${index}]`;
-    const end = capture.start + capture.duration;
-    filters.push(
-      `${previous}[${index + 1}:v]overlay=0:0:format=auto:enable='${enableWindowExpr(capture.start, end, fps)}'${next}`,
-    );
-    previous = next;
-  }
-  filters.push(`${previous}scale=out_range=tv[outv]`);
-  args.push(
-    "-filter_complex",
-    filters.join(";"),
-    "-map",
-    "[outv]",
-    ...(hasAudio ? ["-map", "0:a:0"] : []),
-    "-t",
-    formatNumber(duration),
-    ...(videoEncodeArgs ?? ["-c:v", "libx264", "-profile:v", "high", "-color_range", "tv"]),
-    "-pix_fmt",
-    "yuv420p",
-    ...(hasAudio ? ["-c:a", "copy"] : ["-an"]),
-    outputPath,
-  );
-  if (onProgress) {
-    await runCheckedWithProgress(ffmpegCommand, args, { onProgress });
-  } else {
-    runChecked(ffmpegCommand, args);
-  }
-}
-
 export function probeHasAlpha(ffprobeCommand, path) {
   const result = spawnSync(
     ffprobeCommand,
@@ -975,7 +433,7 @@ export function runCheckedWithProgress(command, args, { cwd, env, onProgress } =
 }
 
 // ffmpeg -progress の "out_time=HH:MM:SS.ffffff" を秒に変換する。形式外・非有限値は
-// 進捗欠落として無視する（誤表示より欠落を選ぶ — legacy parse_ffmpeg_timestamp と同じ判断）。
+// 進捗欠落として無視する（誤表示より欠落を選ぶ — retired parse_ffmpeg_timestamp と同じ判断）。
 export function parseFfmpegOutTime(value) {
   const trimmed = value.trim();
   const parts = trimmed.split(":");
@@ -984,6 +442,20 @@ export function parseFfmpegOutTime(value) {
   if (![hours, minutes, seconds].every(Number.isFinite)) return null;
   const total = hours * 3600 + minutes * 60 + seconds;
   return Number.isFinite(total) ? total : null;
+}
+
+function orderOverlaysByTrack(overlays) {
+  return overlays
+    .map((overlay, index) => ({ overlay, index }))
+    .sort((left, right) => {
+      const leftIsCaption = left.overlay.generatedFrom !== undefined;
+      const rightIsCaption = right.overlay.generatedFrom !== undefined;
+      if (leftIsCaption !== rightIsCaption) return leftIsCaption ? 1 : -1;
+      const leftTrack = Number.isInteger(left.overlay.track) && left.overlay.track >= 0 ? left.overlay.track : 0;
+      const rightTrack = Number.isInteger(right.overlay.track) && right.overlay.track >= 0 ? right.overlay.track : 0;
+      return leftTrack - rightTrack || left.index - right.index;
+    })
+    .map(({ overlay }) => overlay);
 }
 
 function renderOverlayNode(overlay, index, fps) {

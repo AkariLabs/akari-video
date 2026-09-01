@@ -10,7 +10,7 @@ import {
 test('初回チェック（previous 無し）は未導入の道具を全部 既定 ON にする', () => {
     const tools = [
         { id: 'ffmpeg', available: false },
-        { id: 'chrome', available: true },
+        { id: 'blender', available: true },
         { id: 'yt-dlp', available: false }
     ];
     const selection = deriveToolSelection(tools);
@@ -57,7 +57,7 @@ test('結果 3 値のマッピング: message があればそのまま使う', (
 
 test('結果 3 値のマッピング: message 無しは outcome からフォールバック文言を組み立てる', () => {
     assert.match(describeToolInstallOutcome({ id: 'ffmpeg', outcome: 'installed' }, 'FFmpeg'), /導入しました/);
-    assert.match(describeToolInstallOutcome({ id: 'chrome', outcome: 'external-installer-opened' }, 'Chrome'), /開きました/);
+    assert.match(describeToolInstallOutcome({ id: 'blender', outcome: 'external-installer-opened' }, 'Blender'), /開きました/);
     assert.match(describeToolInstallOutcome({ id: 'blender', outcome: 'failed' }, 'Blender'), /失敗/);
 });
 

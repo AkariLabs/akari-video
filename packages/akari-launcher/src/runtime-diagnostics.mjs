@@ -1,9 +1,7 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import path, { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { resolveChromeCacheDir } from './chrome-command.mjs';
 import { findExecutable } from './path-lookup.mjs';
 import { readInstalledAppVersionInfo, readOwnVersion, resolveAkariHome } from './update-check.mjs';
 
@@ -133,7 +131,6 @@ export async function resolveDoctorReport(options = {}) {
   const pathExt = env.PATHEXT ?? process.env.PATHEXT;
   const runtime = resolveRuntimePaths(options);
   const mediaBin = await resolveMediaTools({ ...options, env, platform, pathEnv, pathExt });
-  const chrome = await resolveChromeInstallation({ ...options, env });
   const gpuExport = await resolveGpuExportAvailability({ ...options, env, platform });
   const akariHome = resolveAkariHome(env);
   const cliShimDir = join(akariHome, 'cli', 'bin');
@@ -150,7 +147,6 @@ export async function resolveDoctorReport(options = {}) {
     ...runtime,
     ffmpeg: mediaBin.ffmpeg,
     ffprobe: mediaBin.ffprobe,
-    chrome,
     gpu_export: gpuExport,
     path: {
       cli_shim_dir: cliShimDir,
@@ -234,48 +230,6 @@ function resolveMediaTool(name, resolver, options) {
   return executable ? { path: executable, origin: 'path' } : { path: null, origin: 'none' };
 }
 
-async function resolveChromeInstallation(options) {
-  const cacheDir = resolveChromeCacheDir(options.homeDirectory ?? homedir(), options.chromeCacheDir);
-  try {
-    const browsers = options.loadBrowsers
-      ? await options.loadBrowsers()
-      : await import('@puppeteer/browsers');
-    if (typeof browsers.Cache === 'function') {
-      const installed = new browsers.Cache(cacheDir).getInstalledBrowsers();
-      const chrome = installed.find((entry) => entry.browser === 'chrome' && existsSync(entry.executablePath));
-      if (chrome) return { found: true, path: resolve(chrome.executablePath), cache_dir: cacheDir };
-    }
-  } catch {
-    // optional dependency が無くても既定キャッシュ規約の直接探索で診断を続ける。
-  }
-  const executable = findChromeExecutable(cacheDir);
-  return { found: executable !== null, path: executable, cache_dir: cacheDir };
-}
-
-function findChromeExecutable(cacheDir) {
-  const executableNames = new Set(['chrome', 'chrome.exe', 'Google Chrome for Testing']);
-  const walk = (directory, depth) => {
-    if (depth > 7) return null;
-    let entries;
-    try {
-      entries = readdirSync(directory, { withFileTypes: true });
-    } catch {
-      return null;
-    }
-    for (const entry of entries) {
-      const candidate = join(directory, entry.name);
-      if (entry.isFile() && executableNames.has(entry.name)) return resolve(candidate);
-    }
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const found = walk(join(directory, entry.name), depth + 1);
-      if (found) return found;
-    }
-    return null;
-  };
-  return walk(cacheDir, 0);
-}
-
 function pathContains(pathEnv, directory, platform) {
   const delimiter = platform === 'win32' ? ';' : path.delimiter;
   const normalize = (value) => {
@@ -308,7 +262,6 @@ function doctorNextSteps(report) {
   }
   if (report.ffmpeg.origin === 'none') steps.push('ffmpeg を導入し、PATH または AKARI_FFMPEG_BIN で参照できるようにしてください。');
   if (report.ffprobe.origin === 'none') steps.push('ffprobe を導入し、PATH または AKARI_FFPROBE_BIN で参照できるようにしてください。');
-  if (!report.chrome.found) steps.push('Chrome が未導入です。`akari chrome install` を実行してください。');
   if (!report.path.on_path && report.render_cut.origin !== 'monorepo') {
     steps.push('`~/.akari/cli/bin` を PATH に追加してください。');
   }

@@ -118,7 +118,7 @@ test("caption item keeps tree z-order and is projected when bag expansion is dis
   assert.ok(unexpanded.indexOf(caption) < unexpanded.findIndex(overlay => overlay.id === "order-html"));
 });
 
-test("legacy plan-only receipts include captions.json for an inline detached caption", { timeout: 60_000 }, async t => {
+test("v2 plan-only receipts include captions.json for an inline detached caption", { timeout: 60_000 }, async t => {
   if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status !== 0) {
     return t.skip("ffmpeg is unavailable");
   }
@@ -130,7 +130,7 @@ test("legacy plan-only receipts include captions.json for an inline detached cap
     const state = await renderProject(root, {
       planOnly: true,
       force: true,
-      engine: "legacy",
+      engine: "osr",
       writeState: false,
     });
     assert.match(state.inputs["captions.json"]?.sha256 ?? "", /^[a-f0-9]{64}$/u);

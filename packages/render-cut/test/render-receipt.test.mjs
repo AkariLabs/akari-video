@@ -127,9 +127,7 @@ async function fakeCaptionFontRepository(root, contents = "font-v1") {
 // layers.mjs's own comment next to its chroma_key step). fixtureEdit()'s v1 layers[] "layer" item
 // (a plain baked clip, no distinguishing feature) migrates to plain source.kind:'media', which
 // also lands on 'cuts' now (same rule: no blend / chroma_key / keyframed perspective). Both items
-// end up in the legacy-projected edit.cuts[], and edit.layers[] is empty -- so "chroma-background:
-// main"/"source:main" stay exactly as before, and the former layers[] clip is now declared as
-// "source:l-1" (it is used by a cut now) instead of "layer:layer".
+// The normalized v2 declaration keeps the extra media item in the layer role.
 test("declared-input enumerator covers every path-backed render input", async () => {
   await withProject(async (root) => {
     const edit = await prepareInputs(root, fixtureEdit());
@@ -141,12 +139,12 @@ test("declared-input enumerator covers every path-backed render input", async ()
       "caption",
       "chroma-background:main",
       "edit",
+      "layer:layer",
       "lut",
       "overlay:hero",
       "overlay:hero:environment",
       "overlay:hero:model",
       "overlay:hero:texture:Screen",
-      "source:l-1",
       "source:main",
       "thumbnail",
     ]);

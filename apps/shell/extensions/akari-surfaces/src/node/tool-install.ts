@@ -64,8 +64,6 @@ export const WHISPER_MODEL_SHA256 = '394221709cd5ad1f40c46e6031ca61bce88931e6e08
 export const OFFICIAL_SOURCES = {
     ytDlpMacBinary: 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp',
     ytDlpWindowsBinary: 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe',
-    chromeDmg: 'https://dl.google.com/chrome/mac/universal/stable/GGRO/googlechrome.dmg',
-    chromeWindowsInstaller: 'https://dl.google.com/chrome/install/latest/chrome_installer.exe',
     voicevoxDownloadPage: 'https://voicevox.hiroshiba.jp/',
     blenderDownloadPage: 'https://www.blender.org/download/',
     /** ggerganov/whisper.cpp の Hugging Face 配布（MIT）。バージョンはコミット固定ではなく
@@ -81,7 +79,6 @@ const BREW_FORMULA: Partial<Record<AkariToolId, string>> = {
 };
 
 const BREW_CASK: Partial<Record<AkariToolId, string>> = {
-    chrome: 'google-chrome',
     voicevox: 'voicevox',
     blender: 'blender'
 };
@@ -89,7 +86,6 @@ const BREW_CASK: Partial<Record<AkariToolId, string>> = {
 const WINGET_ID: Partial<Record<AkariToolId, string>> = {
     ffmpeg: 'Gyan.FFmpeg',
     'yt-dlp': 'yt-dlp.yt-dlp',
-    chrome: 'Google.Chrome',
     blender: 'BlenderFoundation.Blender'
 };
 
@@ -208,8 +204,6 @@ async function installWithoutBrew(ctx: InstallContext): Promise<AkariToolInstall
     switch (ctx.id) {
         case 'yt-dlp':
             return installYtDlpBinary(ctx);
-        case 'chrome':
-            return downloadAndOpenInstaller(ctx, OFFICIAL_SOURCES.chromeDmg, 'Chrome', 'dmg');
         case 'voicevox':
             return openOfficialDownloadPage(ctx, OFFICIAL_SOURCES.voicevoxDownloadPage, 'VOICEVOX');
         case 'blender':
@@ -247,31 +241,10 @@ async function installYtDlpBinary(ctx: InstallContext): Promise<AkariToolInstall
     }
 }
 
-async function downloadAndOpenInstaller(
-    ctx: InstallContext, url: string, label: string, extension: string
-): Promise<AkariToolInstallResult> {
-    const destination = join(ctx.homeDir, 'Downloads', `${label}-installer.${extension}`);
-    try {
-        await ctx.ensureDir(join(ctx.homeDir, 'Downloads'));
-        await downloadTo(ctx, url, destination, reportDownloadProgress(ctx));
-        await ctx.openPath(destination);
-        return {
-            id: ctx.id, outcome: 'external-installer-opened',
-            message: `${label} の公式インストーラーを開きました。画面の案内に沿って導入し、完了したら再チェックしてください。`
-        };
-    } catch (error) {
-        return {
-            id: ctx.id, outcome: 'failed',
-            message: `${label} のダウンロードに失敗しました（${describeError(error)}）。もう一度お試しください。`
-        };
-    }
-}
-
 /**
  * VOICEVOX / Blender は brew 不在時、公式サイトを開いて導線を渡す（正本 task.md §6
  * 「VOICEVOX: 公式サイトを開く現行 mac 挙動と同じでよい」どおりの既存動作 — この
- * タスクでは変更していない。Chrome のような「公式 dmg を DL して自動で開く」対象では
- * ない）。
+ * タスクでは変更していない）。
  */
 async function openOfficialDownloadPage(ctx: InstallContext, url: string, label: string): Promise<AkariToolInstallResult> {
     try {
@@ -289,13 +262,9 @@ async function openOfficialDownloadPage(ctx: InstallContext, url: string, label:
 }
 
 async function installOnWindows(ctx: InstallContext): Promise<AkariToolInstallResult> {
-    // yt-dlp / Chrome は公式配布の直 DL を第一経路にする（winget が無い/塞がれている
-    // 環境があるため）。それ以外は現行どおり winget（task.md §6）。
+    // yt-dlp は公式配布の直 DL を第一経路にする（winget が無い/塞がれている環境があるため）。
     if (ctx.id === 'yt-dlp') {
         return installYtDlpWindowsBinary(ctx);
-    }
-    if (ctx.id === 'chrome') {
-        return downloadAndOpenWindowsChromeInstaller(ctx);
     }
     return installWithWinget(ctx);
 }
@@ -308,21 +277,6 @@ async function installYtDlpWindowsBinary(ctx: InstallContext): Promise<AkariTool
         return { id: 'yt-dlp', outcome: 'installed', message: 'yt-dlp を導入しました。' };
     } catch {
         // 公式 GitHub releases への到達性が無い環境向けのフォールバック。
-        return installWithWinget(ctx);
-    }
-}
-
-async function downloadAndOpenWindowsChromeInstaller(ctx: InstallContext): Promise<AkariToolInstallResult> {
-    const destination = join(ctx.homeDir, 'Downloads', 'Chrome-installer.exe');
-    try {
-        await ctx.ensureDir(join(ctx.homeDir, 'Downloads'));
-        await downloadTo(ctx, OFFICIAL_SOURCES.chromeWindowsInstaller, destination, reportDownloadProgress(ctx));
-        await ctx.openPath(destination);
-        return {
-            id: 'chrome', outcome: 'external-installer-opened',
-            message: 'Chrome の公式インストーラーを開きました。画面の案内に沿って導入し、完了したら再チェックしてください。'
-        };
-    } catch {
         return installWithWinget(ctx);
     }
 }

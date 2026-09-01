@@ -18,7 +18,7 @@ export const BAKE_LAYER_ENTRY = join(REPOSITORY_ROOT, "packages", "bake-layer", 
 
 /**
  * edit.json の版差を読み込み層で吸収し、renderer が消費する組を作る。
- * expandParts は既定 true。legacy / osr / gpu / preview の全経路で同じ袋展開を使い、
+ * expandParts は既定 true。compatibility / osr / gpu / preview の全経路で同じ袋展開を使い、
  * 非展開は互換性を明示的に調べる呼び出しだけが `{ expandParts: false }` で選ぶ。
  */
 export function readRenderEdit(source, temporaryDirectory, { projectRoot, expandParts, onWarning } = {}) {
@@ -333,12 +333,12 @@ function resolveReferencedItemKeyframes(internal, projectRoot, onWarning = conso
   }
 }
 
-// Internal legacy values use edit-store's camelCase display model. The renderer compatibility
+// Internal compatibility values use edit-store's camelCase display model. The renderer compatibility
 // shape retains the historical JSON spelling consumed by plan.mjs for gain_db.
 function projectAudioDeclaration(item) {
   const value = item.legacy.value;
   if (item.source?.sourceId === undefined && isRecord(item.declaration)) {
-    // Legacy top-level audio receives provisional display-only in/out/duration in edit-store.
+    // Compatibility top-level audio receives provisional display-only in/out/duration in edit-store.
     // Rendering must retain the original declaration so an omitted trim still means full material.
     return {
       ...item.declaration,

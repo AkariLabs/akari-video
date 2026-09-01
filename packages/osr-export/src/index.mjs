@@ -5,7 +5,7 @@ import { dirname, join, relative } from "node:path";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { verifyFinalVideo } from "./ffprobe.mjs";
 import { buildOsrReceipt } from "./receipt.mjs";
-import { FALLBACK_WARNING, launchElectronExport, resolveElectronLauncher } from "./runner.mjs";
+import { launchElectronExport, resolveElectronLauncher } from "./runner.mjs";
 
 export async function exportWithOsr({
   projectRoot,
@@ -31,8 +31,7 @@ export async function exportWithOsr({
   const runtime = resolveOsrRuntimeOptions({ env, soft, verify });
   const launcher = suppliedLauncher ?? await launcherResolver({ env });
   if (launcher.tier === 3) {
-    io.error?.(launcher.warning ?? FALLBACK_WARNING);
-    return { fellBackToLegacy: true, launcher, receipt: buildOsrReceipt({ tier: 3, verify: runtime.verify, profile: runtime.soft ? "soft" : "gpu" }) };
+    throw new Error(`OSR export unavailable: ${launcher.reason ?? "Electron unavailable"}`);
   }
   const videoOnlyPath = `${out}.osr-video.mp4`;
   try {
@@ -80,7 +79,6 @@ export async function exportWithOsr({
     }
     const receiptRunPath = relative(projectRoot, persistentRunPath).split("\\").join("/");
     return {
-      fellBackToLegacy: false,
       launcher,
       run,
       receipt: buildOsrReceipt({ tier: launcher.tier, verify: runtime.verify, memory: run?.memory, run: receiptRunPath, finalVerify, profile: runtime.soft ? "soft" : "gpu" }),
@@ -144,7 +142,6 @@ export async function captureFramesWithOsr({
     throw new Error(`OSR capture failed verification: ${run.status ?? "unknown"}`);
   }
   return {
-    fellBackToLegacy: false,
     launcher,
     run,
     receipt: {

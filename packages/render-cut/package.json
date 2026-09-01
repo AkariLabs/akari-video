@@ -9,10 +9,6 @@
     "akari-apply-textstyle": "bin/akari-apply-textstyle.mjs"
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs"
-  },
-  "dependencies": {
-    "hyperframes": "0.7.61",
-    "puppeteer-core": "25.2.1"
+    "test": "node --test --test-concurrency=1 test/*.test.mjs"
   }
 }

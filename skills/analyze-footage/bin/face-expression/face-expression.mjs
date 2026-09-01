@@ -91,7 +91,7 @@ async function checkAvailability(env = process.env) {
     if (!commandAvailable(command)) reasons.push(`${command} が利用できません`);
   }
   const chrome = findChrome(env);
-  if (!chrome) reasons.push("Chrome for Testing / Chrome / Chromium が見つかりません");
+  if (!chrome) reasons.push("この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）");
   try {
     import.meta.resolve("puppeteer-core");
   } catch {

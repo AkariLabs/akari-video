@@ -1,7 +1,6 @@
-// Real-render regression suites measure the legacy composition path. Default engine resolution
-// remains observable in plan-only and dedicated engine tests.
-// Real renders receive the literal CLI option --engine legacy.
-const LEGACY_ENGINE_ARGS = ["--engine", "legacy"];
+// Real-render regression suites use the software-drawing v2 path for CI stability.
+const LEGACY_ENGINE_ARGS = ["--engine", "osr"];
+process.env.AKARI_OSR_SOFT ??= "1";
 
 export function legacyRenderArgs(args = []) {
   const plansOnly = args.includes("--plan-only");

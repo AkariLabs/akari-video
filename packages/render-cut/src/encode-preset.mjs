@@ -5,7 +5,7 @@ import { resolveFfmpeg } from "../../media-bin/src/index.mjs";
 // Ported from akari-video-tauri/src-tauri/src/export/ffmpeg.rs (videotoolbox_available /
 // append_encode_args) — read-only reference, task 2026-07-25-export-options. This render-cut
 // (Node) pipeline does not split intermediate/final into two differently-tuned stages the way the
-// legacy Rust one did; instead the same resolved preset is applied to every video-encoding ffmpeg
+// compatibility Rust one did; instead the same resolved preset is applied to every video-encoding ffmpeg
 // call a given render performs, so an overlay-composited intermediate is never coarser than the
 // final output ("中間生成物は最終より劣化させない").
 export const QUALITY_LEVELS = ["master", "high", "standard", "light"];
@@ -51,7 +51,7 @@ export const QUALITY_PRESETS = {
   },
 };
 
-/** Resolve CLI/edit/legacy precedence once. Null means the byte-identical legacy path. */
+/** Resolve CLI/edit/compatibility precedence once. Null means the byte-identical compatibility path. */
 export function resolveEncodingPolicy({
   cli = {},
   edit = {},
@@ -68,12 +68,12 @@ export function resolveEncodingPolicy({
   const encoderRequested = fieldRequest(cli.encoder, editEncoding.encoder, "x264");
   if (!QUALITY_LEVELS.includes(qualityRequested.value)) throw new RangeError(`Unknown quality value: ${qualityRequested.value}`);
   if (!ENCODER_CHOICES.includes(encoderRequested.value)) throw new RangeError(`Unknown encoder value: ${encoderRequested.value}`);
-  if (qualityRequested.value === "master" && encoderRequested.origin !== "legacy-default"
+  if (qualityRequested.value === "master" && encoderRequested.origin !== "compatibility-default"
       && encoderRequested.value !== "x264") {
     throw new RangeError("master quality requires x264; explicit auto/hardware encoders are not allowed");
   }
   const effectiveEncoder = qualityRequested.value === "master"
-    ? { value: "x264", origin: encoderRequested.origin === "legacy-default" ? "master-required" : encoderRequested.origin }
+    ? { value: "x264", origin: encoderRequested.origin === "compatibility-default" ? "master-required" : encoderRequested.origin }
     : {
         value: resolveEncoderChoice({
           requested: encoderRequested.value,
@@ -103,10 +103,10 @@ export function resolveEncodingPolicy({
   };
 }
 
-function fieldRequest(cliValue, editValue, legacyValue) {
+function fieldRequest(cliValue, editValue, compatibilityValue) {
   if (cliValue !== undefined) return { value: cliValue, origin: "cli" };
   if (editValue !== undefined) return { value: editValue, origin: "edit" };
-  return { value: legacyValue, origin: "legacy-default" };
+  return { value: compatibilityValue, origin: "compatibility-default" };
 }
 
 const HARDWARE_ENCODERS = {
@@ -118,7 +118,7 @@ const HARDWARE_ENCODERS = {
 };
 
 // Process-wide cache keyed by ffmpeg binary and encoder name. A nested map avoids ambiguous
-// string concatenation while preserving the legacy once-per-binary VideoToolbox behavior.
+// string concatenation while preserving the compatibility once-per-binary VideoToolbox behavior.
 const encoderProbeCache = new Map();
 
 export function resetVideotoolboxCacheForTests() {
@@ -136,7 +136,7 @@ export function resetEncoderProbeCacheForTests() {
  * `h264_videotoolbox` の可否判定。`AKARI_EXPORT_FORCE_X264=1` は無条件で false。
  * それ以外は `-encoders` 一覧に存在するか確認したうえで、実際に 1 フレームだけ
  * エンコードしてみるスモークテストが通るかまで確かめる（一覧にあっても実行時に
- * 失敗する環境があり得るため — legacy videotoolbox_available の移植）。
+ * 失敗する環境があり得るため — compatibility videotoolbox_available の移植）。
  */
 export function isVideotoolboxAvailable({
   ffmpegCommand,
@@ -203,7 +203,7 @@ function hasEncoder(ffmpegCommand, encoder, spawnSyncImpl) {
 }
 
 // Encodes a single lavfi-generated 64x64 frame straight to /dev/null: no intermediate file, done
-// in tens of milliseconds (legacy videotoolbox_smoke_test).
+// in tens of milliseconds (compatibility videotoolbox_smoke_test).
 function videotoolboxSmokeTest(ffmpegCommand, spawnSyncImpl) {
   const result = spawnSyncImpl(
     ffmpegCommand,

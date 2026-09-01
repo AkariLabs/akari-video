@@ -22,7 +22,6 @@ import {
   triggerBackgroundRefresh
 } from './update-check.mjs';
 import { applySelfUpdate, isRunningFromAppDir, rollbackSelfUpdate } from './self-update.mjs';
-import { runChromeCommand } from './chrome-command.mjs';
 import { runCaptureCommand } from './capture-command.mjs';
 import { runMediaCommand } from './media-command.mjs';
 import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
@@ -37,7 +36,12 @@ import { resolveRuntimePaths } from './runtime-diagnostics.mjs';
  * options 経由で差し替え可能にしてあり、node --test から実プロセスを起動せずに分岐を検証できる。
  */
 export async function run(args, options = {}) {
-  if (args[0] === 'chrome') return runChromeCommand(args.slice(1), options);
+  const retiredBrowserCommand = 'chrome';
+  if (args[0] === retiredBrowserCommand) {
+    const error = options.error ?? ((line) => console.error(line));
+    error(`akari ${retiredBrowserCommand} は廃止されました（Chrome は不要になりました）`);
+    return { exitCode: 1 };
+  }
   if (args[0] === 'capture') return runCaptureCommand(args.slice(1), options);
   if (args[0] === 'media') return runMediaCommand(args.slice(1), options);
 

@@ -16,9 +16,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { availableParallelism, homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { generateCaptionOverlays, generateResolvedCaptionOverlays } from "./captions.mjs";
 import { deriveContactSheetTimestamps, renderContactSheet } from "./contact-sheet.mjs";
@@ -29,16 +27,7 @@ import {
 } from "./encode-preset.mjs";
 import { buildPlan, selectDefaultOutput } from "./plan.mjs";
 import { isImageLayerSource } from "./layers.mjs";
-import {
-  captureStaticOverlays,
-  captureWithPuppeteer,
-  compositeAnimatedOverlay,
-  compositeStaticOverlays,
-  probeHasAlpha,
-  renderOverlaySheet,
-  runChecked,
-  runCheckedWithProgress,
-} from "./rasterize.mjs";
+import { runChecked, runCheckedWithProgress } from "./rasterize.mjs";
 import { renderReport } from "./report.mjs";
 import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs } from "./render-inputs.mjs";
 import { createImmutableRenderReceipt, prepareContainedReportDirectory } from "./render-receipt.mjs";
@@ -56,7 +45,6 @@ import {
 } from "./internal-render.mjs";
 
 const VERSION = 1;
-const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRequire = createRequire(import.meta.url);
 const {
   collectExcludedCaptionIds,
@@ -67,22 +55,29 @@ const {
 // itself. 24h gives ample time for a same-day retry/inspection before we reclaim the space, while
 // never touching a directory an active concurrent run still owns (see createRunTemporaryDirectory).
 const STALE_RUN_DIRECTORY_MS = 24 * 60 * 60 * 1000;
-const ENGINE_CHOICES = ["auto", "legacy", "osr", "gpu"];
+const RETIRED_ENGINE = "legacy";
+const ENGINE_CHOICES = ["auto", "gpu", "osr"];
+const RETIRED_ENGINE_MESSAGE = "--engine legacy は廃止されました（書き出しは gpu / osr の 2 出口。ffmpeg フィルタグラフ合成は v0.1.3x で終了）";
+const OSR_ELECTRON_REFUSAL = "OSR 書き出しに必要な Electron が見つかりません。インストール済み AKARI Video の同梱 Electron を使うか、`npm install electron` を実行するか、`AKARI_OSR_ELECTRON=<path>` を指定してください。";
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
-  [--fps <number>] [--capture-workers <n>] [--engine auto|legacy|osr|gpu] [--progress]
+  [--fps <number>] [--engine auto|gpu|osr] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
 when explicitly passed as (or defaulted to) "standard"/"x264"; --fps defaults to edit.json's
 output.fps; --progress emits "PROGRESS out_time_ms=<n> total_ms=<n>" lines to stdout while
 encoding, followed by "PROGRESS done total_ms=<n>".
---engine defaults to auto; --engine gpu requests hardware export on every platform.
-Auto considers gpu on macOS and Windows; Linux stays legacy until the v2 default switch.
+--engine defaults to auto; eligible projects use gpu and ineligible projects use osr on every platform.
 
 Exit codes: 0 verified pass (or plan complete), 1 refusal/verify fail, 2 execution error`;
 
-export class RefusalError extends Error {}
+export class RefusalError extends Error {
+  constructor(message, exitCode = 1) {
+    super(message);
+    this.exitCode = exitCode;
+  }
+}
 export class ExecutionError extends Error {}
 
 export async function runGpuWithRuntimeFallback({ engineRequested, runGpu, runOsr }) {
@@ -128,7 +123,7 @@ export async function runCli(argv, io = console) {
   } catch (error) {
     if (error instanceof RefusalError) {
       io.error(`render-cut refused: ${error.message}`);
-      return 1;
+      return error.exitCode;
     }
     io.error(`render-cut execution error: ${messageOf(error)}`);
     return 2;
@@ -176,8 +171,7 @@ export async function renderProject(input, options = {}, io = console) {
     ? await persistCaptionLayout(projectRoot, plannedCaptions.layout, capabilities)
     : null;
   const loadedOverlays = await loadOverlays(projectRoot, edit);
-  const shouldEvaluateGpu = engineRequested === "gpu"
-    || (engineRequested === "auto" && autoConsidersGpu(process.platform));
+  const shouldEvaluateGpu = engineRequested === "gpu" || engineRequested === "auto";
   const gpuEligibility = shouldEvaluateGpu
     ? evaluateGpuEligibility({
         edit: { ...edit, overlays: loadedOverlays },
@@ -188,14 +182,6 @@ export async function renderProject(input, options = {}, io = console) {
     : null;
   assertGpuEligibility(engineRequested, gpuEligibility);
   resolvedEngine = resolveEngineChoice(engineRequested, process.platform, gpuEligibility);
-  const hasThreeDimensionalOverlay = loadedOverlays.some((overlay) =>
-    overlay.html.includes("data-akari-3d-scene"),
-  );
-  const captureWorkerResolution = resolveCaptureWorkers({
-    requestedWorkers: options.captureWorkers,
-    requestedSource: options.captureWorkersSource,
-    hasThreeDimensionalOverlay,
-  });
   const explicitOutput = options.out ? resolveOutput(projectRoot, options.out) : null;
   const outputPath = explicitOutput ?? selectDefaultOutput(projectRoot, edit, existsSync);
   ensureOutputDoesNotReplaceInput(projectRoot, edit, outputPath);
@@ -221,14 +207,10 @@ export async function renderProject(input, options = {}, io = console) {
     hasSourceAudio: capabilities.sourceHasAudio,
     renderOverlays: [...edit.overlays, ...captionOverlays],
     captionOverlays,
-    hasThreeDimensionalOverlay,
     temporaryDirectory,
-    quality: options.quality,
-    encoder: options.encoder,
     encodingPolicy,
     fpsOverride: options.fps,
-    captureWorkers: captureWorkerResolution.workers,
-    captureWorkersSource: captureWorkerResolution.source,
+    resolvedEngine,
   });
   const state = {
     version: VERSION,
@@ -243,9 +225,6 @@ export async function renderProject(input, options = {}, io = console) {
         node: capabilities.nodeVersion,
         ffmpeg: capabilities.ffmpegVersion,
         ffprobe: capabilities.ffprobeVersion,
-        chrome: capabilities.chromeVersion,
-        hyperframes: capabilities.hyperframesVersion,
-        puppeteer_core: capabilities.puppeteerVersion,
       },
     },
     plan,
@@ -268,9 +247,6 @@ export async function renderProject(input, options = {}, io = console) {
         node: capabilities.nodeVersion,
         ffmpeg: capabilities.ffmpegVersion,
         ffprobe: capabilities.ffprobeVersion,
-        chrome: capabilities.chromeVersion,
-        hyperframes: capabilities.hyperframesVersion,
-        puppeteer_core: capabilities.puppeteerVersion,
       },
       ...buildEngineProvenance(engineRequested, process.platform, undefined, gpuEligibility),
     },
@@ -278,7 +254,7 @@ export async function renderProject(input, options = {}, io = console) {
     verify: null,
     ...(captionLayout ? { caption_layout: captionLayout } : {}),
   };
-  if (engineRequested === "auto" && autoConsidersGpu(process.platform) && gpuEligibility?.eligible === false) {
+  if (engineRequested === "auto" && gpuEligibility?.eligible === false) {
     addWarning(state, `GPU export is ineligible; using OSR: ${formatGpuEligibilityFailures(gpuEligibility)}`);
   }
   for (const warning of plannedCaptions.warnings) addWarning(state, warning);
@@ -299,30 +275,9 @@ export async function renderProject(input, options = {}, io = console) {
     state.provenance.engine = "osr";
     state.provenance.engine_fallback = { from: "gpu", reason: "GPU Electron launcher unavailable" };
   }
-  const activeLauncher = resolvedEngine === "gpu" ? gpuLauncher : osrLauncher;
-  const engineExecution = selectRenderEngineExecution(resolvedEngine, activeLauncher);
-  const useOsr = engineExecution.useOsr;
-  const useGpu = engineExecution.useGpu;
-  if (osrLauncher?.tier === 3) {
-    Object.assign(state.provenance, buildEngineProvenance(engineRequested, process.platform, osrLauncher, gpuEligibility));
-    addWarning(state, osrLauncher.warning);
-  }
-  const usesV2Export = useOsr || useGpu;
-  state.plan.intermediates = selectExecutionIntermediates({
-    intermediates: state.plan.intermediates,
-    projectRoot,
-    temporaryDirectory,
-    usesV2Export,
-  });
-
-  // --progress (task 2026-07-25-export-options): "cut" always runs; "composite" only exists when
-  // there is overlay/caption HTML to rasterize onto the base video (mirrors the allOverlays.length
-  // check below, decided before entering the try block since both loadedOverlays and
-  // captionOverlays are already resolved here). Each phase remains weighted equally by the
-  // timeline's predicted duration for progress compatibility; v2's audio-only cut is expected to
-  // finish much earlier than the engine export, but both phases stay monotonic.
+  assertOsrLauncherAvailable(osrLauncher);
   const progressEnabled = options.progress === true;
-  const progressPhases = loadedOverlays.length + captionOverlays.length > 0 ? ["cut", "composite"] : ["cut"];
+  const progressPhases = ["cut", "composite"];
   const progressPhaseDurationMs = Math.max(0, Math.round(plan.predicted_duration_seconds * 1000));
   const progressTotalMs = progressPhases.length * progressPhaseDurationMs;
   const emitProgress = (phaseName, elapsedSeconds) => {
@@ -337,21 +292,14 @@ export async function renderProject(input, options = {}, io = console) {
     for (const command of plan.commands.telops ?? []) {
       runChecked(command.command, command.args, { cwd: projectRoot });
     }
-    const cutPath = join(temporaryDirectory, "cut.mp4");
     const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");
-    const cutCommand = usesV2Export ? plan.commands.cut_audio : plan.commands.cut;
-    // P0 2026-08-21 render-path-unification: cuts[] can now hit a VP9/VP8 alpha-side-channel
-    // source that needs an explicit libvpx decoder (buildMultiSourceCutCommand /
-    // buildMultiSourceCommandResult); surface the same "composited fully opaque" warning
-    // layers[] already surfaces instead of silently hiding whatever was supposed to show through.
+    const cutCommand = plan.commands.cut_audio;
     for (const warning of cutCommand.warnings ?? []) addWarning(state, warning);
-    if (usesV2Export && cutCommand.concat_list) {
+    if (cutCommand.concat_list) {
       await writeFile(cutCommand.concat_list.path, cutCommand.concat_list.content, "utf8");
     }
-    if (usesV2Export) {
-      for (const chunk of cutCommand.chunks ?? []) {
-        runChecked(capabilities.ffmpegCommand, chunk.args, { cwd: projectRoot });
-      }
+    for (const chunk of cutCommand.chunks ?? []) {
+      runChecked(capabilities.ffmpegCommand, chunk.args, { cwd: projectRoot });
     }
     if (progressEnabled) {
       await runCheckedWithProgress(capabilities.ffmpegCommand, cutCommand.args, {
@@ -362,89 +310,30 @@ export async function renderProject(input, options = {}, io = console) {
       runChecked(capabilities.ffmpegCommand, cutCommand.args, { cwd: projectRoot });
     }
 
-    const tailPadCommand = usesV2Export ? plan.commands.tail_pad_audio : plan.commands.tail_pad;
-    const tailPaddedPath = join(temporaryDirectory, "cut-tail-padded.mp4");
     const tailPaddedAudioPath = join(temporaryDirectory, "cut-audio-tail-padded.mp4");
-    if (tailPadCommand) {
-      runChecked(tailPadCommand.command, tailPadCommand.args, { cwd: projectRoot });
+    if (plan.commands.tail_pad_audio) {
+      runChecked(plan.commands.tail_pad_audio.command, plan.commands.tail_pad_audio.args, { cwd: projectRoot });
     }
-
-    const trackStack = plan.commands.track_stack;
-    const overlays = loadedOverlays;
-    const captions = captionOverlays;
-    const allOverlays = [...overlays, ...captions];
-    if (trackStack && engineExecution.runLegacyTrackStack) {
-      runChecked(trackStack.base.command, trackStack.base.args, { cwd: projectRoot });
-      for (const track of trackStack.cutTracks) {
-        for (const warning of track.command.warnings ?? []) addWarning(state, warning);
-        runChecked(track.command.command, track.command.args, { cwd: projectRoot });
-      }
-      for (const stage of trackStack.stages) {
-        if (stage.command) {
-          for (const warning of stage.command.warnings ?? []) addWarning(state, warning);
-          runChecked(stage.command.command, stage.command.args, { cwd: projectRoot });
-          continue;
-        }
-        const stageOverlays = selectTrackStackStageOverlays(stage, overlays, captions);
-        if (stageOverlays.length === 0) {
-          await copyFile(stage.inputPath, stage.outputPath);
-          continue;
-        }
-        const stageTemporaryDirectory = join(
-          temporaryDirectory,
-          `track-overlay-${stage.orderIndex}-${stage.stageIndex}`,
-        );
-        await mkdir(stageTemporaryDirectory, { recursive: true });
-        await rasterizeAndComposite({
-          state,
-          allOverlays: stageOverlays,
-          edit,
-          projectRoot,
-          temporaryDirectory: stageTemporaryDirectory,
-          cutPath: stage.inputPath,
-          compositePath: stage.outputPath,
-          capabilities,
-          duration: plan.predicted_duration_seconds,
-          // Keep one rasterizer contract for the whole render. If any declared overlay is 3D,
-          // every split track stage stays on puppeteer-core just like the legacy single sheet.
-          hasThreeDimensionalOverlay,
-          fps: plan.preset.fps,
-          videoEncodeArgs: encodingPolicy?.video_encode_args ?? null,
-          captureWorkers: plan.commands.rasterize["puppeteer-core"].workers,
-        });
-      }
-    }
-
-    // layers[] (contract-2026-07-22-prerender-rail-and-assets.md §1.2) composites onto the
-    // cuts-joined base before overlays/captions are rasterized on top. plan.commands.layers is
-    // null whenever edit.layers is absent/empty, so a layers-less edit.json never runs this
-    // command and always feeds the original cut.mp4 onward unchanged (byte-identical output).
-    const layersCommand = plan.commands.layers;
-    const layeredPath = join(temporaryDirectory, "layered.mp4");
-    if (layersCommand && engineExecution.runLegacyLayers) {
-      // A layer whose declared alpha cannot be decoded composites as an opaque rectangle over the
-      // base video. That used to happen silently; surface it as a warning next to the render.
-      for (const warning of layersCommand.warnings ?? []) addWarning(state, warning);
-      runChecked(layersCommand.command, layersCommand.args, { cwd: projectRoot });
-    }
-    const cutOutputPath = plan.commands.tail_pad ? tailPaddedPath : cutPath;
-    const audioSourcePath = usesV2Export
-      ? (plan.commands.tail_pad_audio ? tailPaddedAudioPath : cutAudioPath)
-      : cutOutputPath;
-    const baseVideoPath = trackStack?.outputPath ?? (layersCommand ? layeredPath : cutOutputPath);
-
+    const audioSourcePath = plan.commands.tail_pad_audio ? tailPaddedAudioPath : cutAudioPath;
     const compositePath = join(temporaryDirectory, "composite.mp4");
-    if (useGpu) {
-      const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
-      for (const warning of alphaLayers.warnings) addWarning(state, warning);
-      const commonV2Options = {
-        projectRoot, out: compositePath, audioSourcePath,
-        fps: plan.preset.fps, width: edit.output.width, height: edit.output.height,
-        duration: plan.predicted_duration_seconds,
-        frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
-        quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
-        ffmpegCommand: capabilities.ffmpegCommand, ffprobeCommand: capabilities.ffprobeCommand, io,
-      };
+    const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
+    for (const warning of alphaLayers.warnings) addWarning(state, warning);
+    const commonV2Options = {
+      projectRoot,
+      out: compositePath,
+      audioSourcePath,
+      fps: plan.preset.fps,
+      width: edit.output.width,
+      height: edit.output.height,
+      duration: plan.predicted_duration_seconds,
+      frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
+      quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
+      ffmpegCommand: capabilities.ffmpegCommand,
+      ffprobeCommand: capabilities.ffprobeCommand,
+      io,
+    };
+
+    if (resolvedEngine === "gpu") {
       const execution = await runGpuWithRuntimeFallback({
         engineRequested,
         runGpu: () => exportWithGpu({
@@ -454,9 +343,7 @@ export async function renderProject(input, options = {}, io = console) {
         }),
         runOsr: async () => {
           osrLauncher = await resolveOsrLauncher();
-          if (osrLauncher?.tier === 3) {
-            throw new Error(`OSR export unavailable after GPU fallback: ${osrLauncher.reason ?? "Electron unavailable"}`);
-          }
+          assertOsrLauncherAvailable(osrLauncher);
           return exportWithOsr({
             ...commonV2Options,
             encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
@@ -479,67 +366,17 @@ export async function renderProject(input, options = {}, io = console) {
         state.provenance.rasterizer.attempts.push({ method: "osr", status: "adopted", reason: null });
         addWarning(state, `GPU export failed closed; using OSR: ${execution.fallback.reason}`);
       }
-      emitProgress("composite", plan.predicted_duration_seconds);
-    } else if (useOsr) {
-      const alphaLayers = await prepareAlphaLayers(edit, { projectRoot });
-      for (const warning of alphaLayers.warnings) addWarning(state, warning);
+    } else {
       const osr = await exportWithOsr({
-        projectRoot,
-        out: compositePath,
-        audioSourcePath,
-        fps: plan.preset.fps,
-        width: edit.output.width,
-        height: edit.output.height,
-        duration: plan.predicted_duration_seconds,
-        frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
-        quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
+        ...commonV2Options,
         encoder: options.encoder ?? encodingPolicy?.effective.encoder.value ?? "x264",
-        ffmpegCommand: capabilities.ffmpegCommand,
-        ffprobeCommand: capabilities.ffprobeCommand,
-        io,
         launcher: osrLauncher,
       });
       state.provenance.osr = osr.receipt;
       state.provenance.rasterizer.adopted = "osr";
       state.provenance.rasterizer.attempts.push({ method: "osr", status: "adopted", reason: null });
-      emitProgress("composite", plan.predicted_duration_seconds);
-    } else if (trackStack) {
-      await copyFile(trackStack.outputPath, compositePath);
-      if (allOverlays.length === 0) {
-        state.provenance.rasterizer.adopted = "skip";
-        state.provenance.rasterizer.attempts.push({
-          method: "skip",
-          status: "adopted",
-          reason: "no overlay HTML or captions.json",
-        });
-      }
-      emitProgress("composite", plan.predicted_duration_seconds);
-    } else if (allOverlays.length === 0) {
-      await copyFile(baseVideoPath, compositePath);
-      state.provenance.rasterizer.adopted = "skip";
-      state.provenance.rasterizer.attempts.push({
-        method: "skip",
-        status: "adopted",
-        reason: "no overlay HTML or captions.json",
-      });
-    } else {
-      await rasterizeAndComposite({
-        state,
-        allOverlays,
-        edit,
-        projectRoot,
-        temporaryDirectory,
-        cutPath: baseVideoPath,
-        compositePath,
-        capabilities,
-        duration: plan.predicted_duration_seconds,
-        hasThreeDimensionalOverlay,
-        fps: plan.preset.fps,
-        videoEncodeArgs: encodingPolicy?.video_encode_args ?? null,
-        captureWorkers: plan.commands.rasterize["puppeteer-core"].workers,
-        onProgress: progressEnabled ? (seconds) => emitProgress("composite", seconds) : undefined,
-      });
     }
+    emitProgress("composite", plan.predicted_duration_seconds);
 
     const finalPath = join(temporaryDirectory, "final.mp4");
     const audioExecution = await executeAudioPlan(plan.commands.audio_mix);
@@ -626,7 +463,7 @@ export async function renderProject(input, options = {}, io = console) {
     if (verification.verdict === "pass") {
       const contactSheetTimestamps = deriveContactSheetTimestamps({
         cuts: edit.cuts,
-        overlays: allOverlays,
+        overlays: [...loadedOverlays, ...captionOverlays],
         durationSeconds: plan.predicted_duration_seconds,
         fps: plan.preset.fps,
       });
@@ -713,8 +550,6 @@ export function parseArguments(argv, env = process.env) {
     encoder: undefined,
     engine: "auto",
     fps: undefined,
-    captureWorkers: undefined,
-    captureWorkersSource: undefined,
     progress: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -743,83 +578,35 @@ export function parseArguments(argv, env = process.env) {
       if (index + 1 >= argv.length) throw new Error("--fps requires a number");
       options.fps = parseFpsValue(argv[++index]);
     } else if (argument.startsWith("--fps=")) options.fps = parseFpsValue(argument.slice(6));
-    else if (argument === "--capture-workers") {
-      if (index + 1 >= argv.length) throw new Error("--capture-workers requires a value");
-      options.captureWorkers = parseCaptureWorkersValue(argv[++index]);
-      options.captureWorkersSource = "cli";
-    } else if (argument.startsWith("--capture-workers=")) {
-      options.captureWorkers = parseCaptureWorkersValue(argument.slice(18));
-      options.captureWorkersSource = "cli";
-    } else if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
+    else if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
     else if (options.projectRoot === null) options.projectRoot = argument;
     else throw new Error("Only one project root may be provided");
-  }
-  if (options.captureWorkers === undefined && env.AKARI_CAPTURE_WORKERS !== undefined) {
-    options.captureWorkers = parseCaptureWorkersValue(env.AKARI_CAPTURE_WORKERS);
-    options.captureWorkersSource = "env";
   }
   if (!options.help && options.projectRoot === null) throw new Error("A project root is required");
   return options;
 }
 
-export function selectRenderEngineExecution(engine, launcher) {
-  const useOsr = engine === "osr" && launcher !== null && launcher?.tier !== 3;
-  const useGpu = engine === "gpu" && launcher !== null && launcher?.tier !== 3;
-  const engineFallback = (engine === "osr" || engine === "gpu") && launcher?.tier === 3
-    ? { from: engine, reason: launcher.reason }
-    : undefined;
-  const execution = {
-    useOsr,
-    engine: useGpu ? "gpu" : useOsr ? "osr" : "legacy",
-    engineFallback,
-    runLegacyTrackStack: !useOsr && !useGpu,
-    runLegacyLayers: !useOsr && !useGpu,
-    runLegacyRasterize: !useOsr && !useGpu,
-  };
-  if (engine === "gpu") execution.useGpu = useGpu;
-  return execution;
-}
-
-export function selectExecutionIntermediates({
-  intermediates,
-  projectRoot,
-  temporaryDirectory,
-  usesV2Export,
-}) {
-  if (!usesV2Export) return intermediates;
-  const videoCutIntermediates = new Set([
-    relative(projectRoot, join(temporaryDirectory, "cut.mp4")),
-    relative(projectRoot, join(temporaryDirectory, "cut-tail-padded.mp4")),
-  ]);
-  return intermediates.filter((path) => !videoCutIntermediates.has(path));
-}
-
 export function resolveEngineChoice(requested, platform, eligibility = null) {
+  if (requested === RETIRED_ENGINE) throw new RefusalError(RETIRED_ENGINE_MESSAGE, 2);
   if (requested !== "auto") return requested;
-  if (!autoConsidersGpu(platform)) return "legacy";
   return eligibility?.eligible === true ? "gpu" : "osr";
 }
 
-export function autoConsidersGpu(platform) {
-  return platform === "darwin" || platform === "win32";
-}
-
 export function buildEngineProvenance(requested, platform, launcher = undefined, eligibility = null) {
-  const resolvedEngine = resolveEngineChoice(requested, platform, eligibility);
-  if (launcher === undefined) {
-    return { engine_requested: requested, engine: resolvedEngine };
-  }
-  const execution = selectRenderEngineExecution(resolvedEngine, launcher);
   return {
     engine_requested: requested,
-    engine: execution.engine,
-    ...(execution.engineFallback ? { engine_fallback: execution.engineFallback } : {}),
+    engine: resolveEngineChoice(requested, platform, eligibility),
   };
 }
 
 export function assertGpuEligibility(requested, eligibility) {
   if (requested !== "gpu" || eligibility?.eligible === true) return;
   throw new RefusalError(`GPU export is ineligible: ${formatGpuEligibilityFailures(eligibility)}`);
+}
+
+export function assertOsrLauncherAvailable(launcher) {
+  if (launcher?.tier !== 3) return;
+  throw new RefusalError(`${OSR_ELECTRON_REFUSAL} (${launcher.reason ?? "Electron unavailable"})`, 2);
 }
 
 function formatGpuEligibilityFailures(eligibility) {
@@ -829,6 +616,7 @@ function formatGpuEligibilityFailures(eligibility) {
 }
 
 function parseEngineValue(value) {
+  if (value === RETIRED_ENGINE) throw new RefusalError(RETIRED_ENGINE_MESSAGE, 2);
   if (!ENGINE_CHOICES.includes(value)) {
     throw new Error(`--engine must be one of ${ENGINE_CHOICES.join("|")}, got: ${value}`);
   }
@@ -857,30 +645,6 @@ function parseFpsValue(value) {
   return parsed;
 }
 
-function parseCaptureWorkersValue(value) {
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`--capture-workers must be a positive integer, got: ${value}`);
-  }
-  return parsed;
-}
-
-export function resolveCaptureWorkers({
-  requestedWorkers,
-  requestedSource,
-  hasThreeDimensionalOverlay,
-  parallelism = availableParallelism(),
-}) {
-  if (requestedWorkers !== undefined) {
-    return { workers: requestedWorkers, source: requestedSource === "env" ? "env" : "cli" };
-  }
-  if (hasThreeDimensionalOverlay) return { workers: 1, source: "auto" };
-  return {
-    workers: Math.max(1, Math.min(4, parallelism - 2)),
-    source: "auto",
-  };
-}
-
 async function validateLint(projectRoot, force) {
   const lintPath = join(projectRoot, ".akari", "lint.json");
   let lint = null;
@@ -905,25 +669,12 @@ async function measureCapabilities(projectRoot, edit) {
   const ffprobeCommand = process.env.FFPROBE ?? resolveFfprobe();
   const ffmpegVersion = commandVersion(ffmpegCommand, ["-version"]);
   const ffprobeVersion = commandVersion(ffprobeCommand, ["-version"]);
-  const chromePath = await findChromePath();
-  const chromeVersion = chromePath ? commandVersion(chromePath, ["--version"]) : null;
-  if (!chromePath) throw new ExecutionError(await describeChromeNotFound());
-  const hyperframesPath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "bin", "hyperframes.mjs");
-  const hyperframesPackagePath = join(PACKAGE_ROOT, "node_modules", "hyperframes", "package.json");
-  const puppeteerPath = resolvePuppeteerPackagePath();
   const shared = {
     ffmpegCommand,
     ffprobeCommand,
     ffmpegVersion,
     ffprobeVersion,
     nodeVersion: process.version,
-    chromePath,
-    chromeVersion,
-    hyperframesPath,
-    hyperframesAvailable: await isReadable(hyperframesPath),
-    hyperframesVersion: await readPackageVersion(hyperframesPackagePath),
-    puppeteerAvailable: puppeteerPath !== null,
-    puppeteerVersion: puppeteerPath ? await readPackageVersion(puppeteerPath) : null,
   };
   const sourceInputs = usedSources(edit).map((source) => {
     const path = resolve(projectRoot, source.path);
@@ -998,13 +749,6 @@ export async function loadOverlays(projectRoot, edit) {
 }
 
 /** 袋 id の stage 宣言を、展開後の写し（parentId = 袋 id）まで含めて解決する。 */
-export function selectTrackStackStageOverlays(stage, overlays, captions) {
-  const ids = new Set(stage?.overlayIds ?? []);
-  return (stage?.kind === "captions" ? captions : overlays).filter(overlay =>
-    ids.has(String(overlay?.id)) || ids.has(String(overlay?.parentId ?? "")),
-  );
-}
-
 export async function loadCaptions(projectRoot, edit) {
   const captionsPath = join(projectRoot, "captions.json");
   if (!(await isRegularFile(captionsPath))) {
@@ -1096,169 +840,6 @@ async function persistCaptionLayout(projectRoot, result, capabilities) {
       boundary_projection_sha256: boundaryProjectionSha256,
     },
   };
-}
-
-export async function rasterizeAndComposite(context) {
-  const {
-    state,
-    allOverlays,
-    edit,
-    projectRoot,
-    temporaryDirectory,
-    cutPath,
-    compositePath,
-    capabilities,
-    duration,
-    hasThreeDimensionalOverlay,
-    captureTimeoutMs,
-    // Falls back to edit.json's own fps for callers that predate --fps (task
-    // 2026-07-25-export-options); the overlay rasterizer must always match the base video's actual
-    // output fps, which may differ from edit.output.fps when --fps overrides it.
-    fps = edit.output.fps,
-    videoEncodeArgs = null,
-    captureWorkers = state.plan.commands?.rasterize?.["puppeteer-core"]?.workers ?? 1,
-    onProgress,
-    staticPuppeteerModule = null,
-  } = context;
-  const sheetPath = join(temporaryDirectory, "overlay-sheet.html");
-  await writeFile(
-    sheetPath,
-    renderOverlaySheet({ overlays: allOverlays, edit, projectRoot, duration }),
-    "utf8",
-  );
-
-  if (hasThreeDimensionalOverlay) {
-    rejectRasterizer(
-      state,
-      "hyperframes",
-      "3D overlay requires the puppeteer-core path",
-    );
-  } else if (capabilities.hyperframesAvailable) {
-    // mov (ProRes 4444), not webm: on Windows HyperFrames emits webm as vp9/yuv420p with no
-    // alpha channel, which the alpha probe below would reject on every run (issue #2).
-    const overlayPath = join(temporaryDirectory, "overlay.mov");
-    try {
-      // The npm .bin shim is not spawnable on Windows (extensionless sh script; Node 22 also
-      // refuses .cmd without a shell), so launch the package entry through the node executable.
-      runChecked(
-        process.execPath,
-        [
-          capabilities.hyperframesPath,
-          "render",
-          projectRoot,
-          "--composition",
-          relative(projectRoot, sheetPath),
-          "--format",
-          "mov",
-          "--fps",
-          String(fps),
-          "--workers",
-          "1",
-          "--no-browser-gpu",
-          "--no-best-effort",
-          "-o",
-          overlayPath,
-        ],
-        {
-          cwd: projectRoot,
-          env: {
-            ...process.env,
-            CHROME_PATH: capabilities.chromePath,
-            PUPPETEER_EXECUTABLE_PATH: capabilities.chromePath,
-            HYPERFRAMES_BROWSER_PATH: capabilities.chromePath,
-            DO_NOT_TRACK: "1",
-          },
-        },
-      );
-      if (!probeHasAlpha(capabilities.ffprobeCommand, overlayPath)) {
-        throw new Error("rendered video has no detectable alpha channel");
-      }
-      await compositeAnimatedOverlay({
-        ffmpegCommand: capabilities.ffmpegCommand,
-        cutPath,
-        overlayPath,
-        outputPath: compositePath,
-        hasAudio: true,
-        videoEncodeArgs,
-        onProgress,
-      });
-      adoptRasterizer(state, "hyperframes");
-      return;
-    } catch (error) {
-      rejectRasterizer(state, "hyperframes", messageOf(error));
-    }
-  } else {
-    rejectRasterizer(state, "hyperframes", "package-local HyperFrames executable is not installed");
-  }
-
-  if (capabilities.puppeteerAvailable) {
-    try {
-      const overlayPath = join(temporaryDirectory, "overlay.mov");
-      await captureWithPuppeteer({
-        sheetPath,
-        chromePath: capabilities.chromePath,
-        framesDirectory: join(temporaryDirectory, "frames"),
-        overlayMovPath: overlayPath,
-        width: edit.output.width,
-        height: edit.output.height,
-        fps,
-        duration,
-        ffmpegCommand: capabilities.ffmpegCommand,
-        workers: captureWorkers,
-        timeoutMs: captureTimeoutMs,
-        onWarning: (warning) => addWarning(state, `puppeteer-core: ${warning}`),
-      });
-      if (!probeHasAlpha(capabilities.ffprobeCommand, overlayPath)) {
-        throw new Error("captured video has no detectable alpha channel");
-      }
-      await compositeAnimatedOverlay({
-        ffmpegCommand: capabilities.ffmpegCommand,
-        cutPath,
-        overlayPath,
-        outputPath: compositePath,
-        hasAudio: true,
-        videoEncodeArgs,
-        onProgress,
-      });
-      adoptRasterizer(state, "puppeteer-core");
-      return;
-    } catch (error) {
-      rejectRasterizer(state, "puppeteer-core", messageOf(error));
-    }
-  } else {
-    rejectRasterizer(state, "puppeteer-core", "puppeteer-core is not installed or resolvable");
-  }
-
-  if (hasThreeDimensionalOverlay) {
-    throw new ExecutionError("3D overlay requires puppeteer-core; static screenshot fallback is not permitted");
-  }
-
-  try {
-    const captures = await captureStaticOverlays({
-      overlays: allOverlays,
-      edit,
-      projectRoot,
-      temporaryDirectory,
-      chromePath: capabilities.chromePath,
-      timeoutMs: captureTimeoutMs,
-      puppeteerModule: staticPuppeteerModule,
-    });
-    await compositeStaticOverlays({
-      ffmpegCommand: capabilities.ffmpegCommand,
-      cutPath,
-      captures,
-      outputPath: compositePath,
-      hasAudio: true,
-      duration,
-      fps,
-      videoEncodeArgs,
-      onProgress,
-    });
-    adoptRasterizer(state, "static-screenshot");
-  } catch (error) {
-    rejectRasterizer(state, "static-screenshot", messageOf(error));
-    throw new ExecutionError("all overlay rasterizers failed");
-  }
 }
 
 async function executeAudioPlan(audioPlan) {
@@ -1568,160 +1149,6 @@ export function ffmpegInstallHint(platform = process.platform) {
   return `set the FFMPEG environment variable to its path, or install it (${install})`;
 }
 
-// darwin/linux candidates are unchanged from before win32 support was added, so behavior on those
-// platforms stays byte-identical (win32 gets its own list instead of being merged into this one).
-function defaultChromeSystemCandidates({ env, platform }) {
-  if (platform === "win32") {
-    const programFiles = env.ProgramFiles || "C:\\Program Files";
-    const programFilesX86 = env["ProgramFiles(x86)"] || "C:\\Program Files (x86)";
-    const localAppData = env.LOCALAPPDATA;
-    const candidates = [
-      join(programFiles, "Google", "Chrome", "Application", "chrome.exe"),
-      join(programFilesX86, "Google", "Chrome", "Application", "chrome.exe"),
-    ];
-    if (localAppData) candidates.push(join(localAppData, "Google", "Chrome", "Application", "chrome.exe"));
-    return candidates;
-  }
-  return [
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/google-chrome",
-    "/usr/bin/chromium",
-  ];
-}
-
-export async function findChromePath({
-  env = process.env,
-  homeDirectory = homedir(),
-  platform = process.platform,
-  systemCandidates = defaultChromeSystemCandidates({ env, platform }),
-  executable = isExecutable,
-} = {}) {
-  const candidates = await chromePathCandidates({
-    env,
-    homeDirectory,
-    platform,
-    systemCandidates,
-  });
-  for (const candidate of candidates) {
-    if (await executable(candidate)) return candidate;
-  }
-  return null;
-}
-
-export async function chromePathCandidates({
-  env = process.env,
-  homeDirectory = homedir(),
-  platform = process.platform,
-  systemCandidates = defaultChromeSystemCandidates({ env, platform }),
-} = {}) {
-  const playwrightRoot = platform === "win32"
-    ? join(env.LOCALAPPDATA || join(homeDirectory, "AppData", "Local"), "ms-playwright")
-    : platform === "darwin"
-      ? join(homeDirectory, "Library", "Caches", "ms-playwright")
-      : join(homeDirectory, ".cache", "ms-playwright");
-  const playwright = await versionedNestedCandidates({
-    roots: [playwrightRoot],
-    versionPrefix: "chromium_headless_shell-",
-    binaryPaths: platform === "win32"
-      ? [[/^chrome-headless-shell-win/u, "chrome-headless-shell.exe"]]
-      : platform === "darwin"
-        ? [[/^chrome-headless-shell-mac-/u, "chrome-headless-shell"]]
-        : [[/^chrome-headless-shell-linux/u, "chrome-headless-shell"]],
-  });
-  const puppeteerRoots = [join(homeDirectory, ".cache", "puppeteer", "chrome")];
-  if (platform === "darwin") {
-    puppeteerRoots.push(join(homeDirectory, "Library", "Caches", "puppeteer", "chrome"));
-  }
-  const puppeteer = await versionedNestedCandidates({
-    roots: puppeteerRoots,
-    binaryPaths: platform === "darwin"
-      ? [[/^chrome-mac-/u, "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"]]
-      : [[/^chrome-linux/u, "chrome"]],
-  });
-  return [
-    env.CHROME_PATH,
-    env.PUPPETEER_EXECUTABLE_PATH,
-    ...playwright,
-    ...puppeteer,
-    ...systemCandidates,
-  ].filter(Boolean);
-}
-
-export async function describeChromeNotFound(options = {}) {
-  const candidates = await chromePathCandidates(options);
-  return [
-    "Chrome for Testing / Chromium / システム Chrome のいずれも見つかりません。",
-    "以下を探しましたが見つかりませんでした:",
-    ...(candidates.length > 0 ? candidates.map((candidate) => `  - ${candidate}`) : ["  - (候補なし)"]),
-    "`akari chrome install` を実行するか、システムに Google Chrome をインストールしてください。",
-    "システムの node がある場合は `npx puppeteer browsers install chrome` でも導入できます。",
-  ].join("\n");
-}
-
-async function versionedNestedCandidates({ roots, versionPrefix = "", binaryPaths }) {
-  const versions = [];
-  for (const root of roots) {
-    for (const name of await directoryNames(root, (entry) => entry.startsWith(versionPrefix))) {
-      versions.push({ root, name });
-    }
-  }
-  const candidates = [];
-  for (const version of versions.sort((left, right) => right.name.localeCompare(left.name))) {
-    const versionPath = join(version.root, version.name);
-    for (const [directoryPattern, ...binaryPath] of binaryPaths) {
-      const directories = await directoryNames(versionPath, (entry) => directoryPattern.test(entry));
-      for (const directory of directories.sort((left, right) => right.localeCompare(left))) {
-        candidates.push(join(versionPath, directory, ...binaryPath));
-      }
-    }
-  }
-  return candidates;
-}
-
-async function directoryNames(path, matches) {
-  try {
-    return (await readdir(path, { withFileTypes: true }))
-      .filter((entry) => entry.isDirectory() && matches(entry.name))
-      .map((entry) => entry.name);
-  } catch {
-    return [];
-  }
-}
-
-export function resolvePuppeteerPackagePath(
-  resolvePackage = (specifier) => packageRequire.resolve(specifier),
-) {
-  try {
-    return resolvePackage("puppeteer-core/package.json");
-  } catch {
-    return null;
-  }
-}
-
-function adoptRasterizer(state, method) {
-  state.provenance.rasterizer.adopted = method;
-  state.provenance.rasterizer.attempts.push({ method, status: "adopted", reason: null });
-  addRasterizerDowngradeWarning(state);
-}
-
-export function addRasterizerDowngradeWarning(state) {
-  const rasterizer = state.provenance?.rasterizer;
-  const planned = rasterizer?.planned;
-  const adopted = rasterizer?.adopted;
-  const order = state.plan?.rasterizer?.order ?? [];
-  if (!planned || !adopted || order.indexOf(adopted) <= order.indexOf(planned)) return;
-  const reason = rasterizer.attempts.find(
-    (attempt) => attempt.method === planned && attempt.status === "rejected",
-  )?.reason ?? "higher-priority rasterizer failed";
-  const warning = `rasterizer downgraded: ${planned} -> ${adopted} (${reason})`;
-  addWarning(state, warning);
-}
-
-function rejectRasterizer(state, method, reason) {
-  state.provenance.rasterizer.attempts.push({ method, status: "rejected", reason });
-}
-
 function addWarning(state, warning) {
   state.warnings ??= [];
   if (!state.warnings.includes(warning)) state.warnings.push(warning);
@@ -1935,33 +1362,16 @@ async function isRegularFile(path) {
   }
 }
 
-async function isExecutable(path) {
-  try {
-    await access(path, fsConstants.X_OK);
-    return true;
-  } catch {
-    return false;
-  }
+function messageOf(error) {
+  return error instanceof Error ? error.message : String(error);
 }
 
-// For files launched via process.execPath: X_OK is meaningless on Windows (any existing file
-// passes), and the script only needs to be readable by node.
-async function isReadable(path) {
-  try {
-    await access(path, fsConstants.R_OK);
-    return true;
-  } catch {
-    return false;
-  }
+function positive(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-async function readPackageVersion(path) {
-  if (!(await isRegularFile(path))) return null;
-  try {
-    return JSON.parse(await readFile(path, "utf8")).version ?? null;
-  } catch {
-    return null;
-  }
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
 }
 
 async function sha256File(path) {
@@ -1982,16 +1392,4 @@ function sha256(value) {
 function relativeOrAbsolute(root, value) {
   const result = relative(root, value);
   return result.startsWith("..") ? value : result;
-}
-
-function positive(value) {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
-}
-
-function isNonEmptyString(value) {
-  return typeof value === "string" && value.trim() !== "";
-}
-
-function messageOf(error) {
-  return error instanceof Error ? error.message : String(error);
 }

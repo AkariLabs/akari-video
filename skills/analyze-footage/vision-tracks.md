@@ -171,7 +171,8 @@ Apache-2.0 の `@mediapipe/tasks-vision@0.10.17`（vendored JS/WASM）を既存 
 node bin/face-expression/face-expression.mjs --check
 ```
 
-Chrome for Testing（または Chrome/Chromium）、既存 workspace 依存の `puppeteer-core`、同梱の
+この任意機能には Chrome と既存 workspace 依存の `puppeteer-core` が必要。未検出時は
+「この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）」と明示して停止する。同梱の
 decoder / prober、vendored runtime の全 SHA-256 を確認する。モデルが未取得でも runtime が揃っていれば
 利用可能と判定し、初回生成時だけ公式の versioned URL から取得する。
 

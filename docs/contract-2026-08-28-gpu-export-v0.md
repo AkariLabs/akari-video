@@ -105,8 +105,8 @@ SVG の入力は data URL に固定する。Blob URL と同一オリジン HTTP 
 2 走一致、製品経路の読み戻し 0 を要求する。性能 gate は cue ラスタ p50 500 ms 以下、karaoke 44 cue の
 akari-video-pv 18 ms/コマ以下、小 fixture（360 コマ・3 cue）の RSS peak 900 MB 以下とする。
 
-`--engine auto` は macOS / Windows で全件適格なら `gpu`、不適格なら `osr` を選ぶ。Linux の `auto` は
-`legacy` を維持する。明示 `--engine gpu` と不適格の組み合わせは理由を全件表示して fail-closed とし、
+`--engine auto` は全 platform で全件適格なら `gpu`、不適格なら `osr` を選ぶ。明示
+`--engine gpu` と不適格の組み合わせは理由を全件表示して fail-closed とし、
 黙って OSR へ変更しない。GPU launcher が利用できない明示指定も fail-closed とする。
 
 ## 3. 合成順と LUT
@@ -211,8 +211,7 @@ OSR receipt と同じ warning/hard-stop 語彙を使う。`--engine osr` と `--
 
 - 語矩形で表せない演出、色補間と幾何変形が同居する cue、縦書きの語単位字幕は glyph atlas 等の次段が必要。
 - 動的自由 HTML は OSR または事前ベイクが必要。
-- Windows は launcher tier 1 / 2 があれば `auto` で適格時に GPU、不適格時に OSR を使う。Linux は
-  `--engine gpu` 明示時だけ GPU を利用でき、`auto` は legacy を維持する。
+- 全 platform で launcher tier 1 / 2 があれば `auto` で適格時に GPU、不適格時に OSR を使う。
 - 長尺の区間並列、複数 process 並列は非対応。
 - ~~インストール済みデスクトップアプリ経由（launcher tier 1）の GPU 書き出しは未配線~~ **2026-08-29 解消**: shell の `electron-entry.js` が `--akari-main packages/gpu-export/src/electron-main.mjs` を受け、`buildElectronArguments` が tier 1 にそれを渡す（osr 契約 §6）。`resolveGpuLauncher` の fail-closed（allowDesktop 既定 false）は v0.1.28 で解除。以下は v0.1.26〜v0.1.27 の記録: （v0.1.25 で判明）。shell の `--render` は OSR ランタイムしか読まず、`buildElectronArguments` は tier 2 にしか mainScript を渡さない。v0.1.26 から `resolveGpuLauncher` は tier 1 を候補から外す（fail-closed）: `auto` は OSR へ（provenance に `engine_fallback` と理由）、`--engine gpu` 明示は拒否。tier 1 の配線（shell contribution に GPU ランタイム選択を足す）は別票。
 
@@ -222,7 +221,7 @@ OSR receipt と同じ warning/hard-stop 語彙を使う。`--engine osr` と `--
 |---|---|---|---|
 | macOS | 明示利用可 | 適格なら GPU、不適格なら OSR | tier 1 / 2（ただし tier 1 は現状未配線で fail-closed） |
 | Windows | 明示利用可 | 適格なら GPU、不適格なら OSR | tier 1 / 2（同上） |
-| Linux | 明示利用可 | legacy のまま | tier 1 / 2（同上） |
+| Linux | 明示利用可 | 適格なら GPU、不適格なら OSR | tier 1 / 2（同上） |
 
 npm Electron の tier 2 は `node_modules/electron/path.txt` を必須とする。値は win32 が
 `electron.exe`、darwin が `Electron.app/Contents/MacOS/Electron`、linux が `electron` である。

@@ -11,10 +11,8 @@ import {
   deriveContactSheetTimestamps,
   splitContactSheetCounts,
 } from "../../../render-cut/src/contact-sheet.mjs";
-import { renderFrameAt } from "../../../render-cut/src/frame-at.mjs";
 import { projectRendererCompatibilityEdit, readRenderEdit } from "../../../render-cut/src/internal-render.mjs";
 import {
-  findChromePath,
   loadCaptions,
   loadOverlays,
   renderProject,
@@ -30,7 +28,6 @@ import {
   timecodeFor,
 } from "./output.mjs";
 
-const RENDER_PACKAGE_PATH = new URL("../../../render-cut/package.json", import.meta.url);
 const OSR_PACKAGE_PATH = new URL("../../../osr-export/package.json", import.meta.url);
 const GPU_PACKAGE_PATH = new URL("../../../gpu-export/package.json", import.meta.url);
 
@@ -95,8 +92,7 @@ export async function runCapture(argv, options = {}) {
     );
     if (times.length === 0) throw new Error("capture did not resolve any timeline frames");
     const frameNumbers = times.map((time) => Math.round(time * fps));
-    const shouldEvaluateGpu = parsed.engine === "gpu"
-      || (parsed.engine === "auto" && ["darwin", "win32"].includes(process.platform));
+    const shouldEvaluateGpu = parsed.engine === "gpu" || parsed.engine === "auto";
     const gpuEligibility = shouldEvaluateGpu
       ? evaluateGpuEligibility({
           edit: { ...edit, overlays },
@@ -118,8 +114,7 @@ export async function runCapture(argv, options = {}) {
     const fullFrames = [];
     let engineReceipt;
 
-    if (engine.resolved === "osr" || engine.resolved === "gpu") {
-      const commonCaptureOptions = {
+    const commonCaptureOptions = {
         projectRoot,
         editPath: parsed.edit,
         frameNumbers,
@@ -153,50 +148,20 @@ export async function runCapture(argv, options = {}) {
             launcher,
             launcherRunner: options.osrLauncherRunner,
           });
-          if (captured.fellBackToLegacy) throw new Error("OSR launcher changed after engine resolution");
           return { captured, launcher };
         },
       });
-      engine = execution.engine;
-      const captured = execution.result.captured ?? execution.result;
-      engineReceipt = captured.receipt;
-      const outputs = new Map(captured.run.outputs.map((entry) => [entry.frameNumber, entry.path]));
-      for (const [index, frameNumber] of frameNumbers.entries()) {
-        fullFrames.push({
-          path: outputs.get(frameNumber),
-          timeS: times[index],
-          timecode: timecodeFor(times[index], fps),
-          frameNumber,
-        });
-      }
-    } else {
-      const chromePath = options.chromePath ?? await findChromePath();
-      if (!chromePath) throw new Error("Chrome が見つかりません（render-cut と同じ探索を使用）。");
-      const verifyFrames = [];
-      for (let index = 0; index < times.length; index += 1) {
-        const frameDirectory = join(work, `capture-${String(index + 1).padStart(3, "0")}`);
-        const fullPath = join(work, `full-${String(index + 1).padStart(3, "0")}.png`);
-        const result = await renderFrameAt({
-          plan: state.plan,
-          timeS: times[index],
-          outputPath: fullPath,
-          edit,
-          projectRoot,
-          overlays,
-          captions: captions.overlays,
-          chromePath,
-          ffmpegCommand,
-          temporaryDirectory: frameDirectory,
-        });
-        fullFrames.push({
-          path: fullPath,
-          timeS: result.timeS,
-          timecode: timecodeFor(result.timeS, fps),
-          frameNumber: result.frameIndex,
-        });
-        verifyFrames.push({ frameNumber: result.frameIndex, matched: true });
-      }
-      engineReceipt = { operation: "capture", verify: { mode: "legacy", matched: true, frames: verifyFrames } };
+    engine = execution.engine;
+    const captured = execution.result.captured ?? execution.result;
+    engineReceipt = captured.receipt;
+    const outputs = new Map(captured.run.outputs.map((entry) => [entry.frameNumber, entry.path]));
+    for (const [index, frameNumber] of frameNumbers.entries()) {
+      fullFrames.push({
+        path: outputs.get(frameNumber),
+        timeS: times[index],
+        timecode: timecodeFor(times[index], fps),
+        frameNumber,
+      });
     }
 
     if (fullFrames.some((frame) => !frame.path)) {
@@ -264,11 +229,7 @@ export async function runCapture(argv, options = {}) {
       }
     }
 
-    const rendererPackagePath = engine.resolved === "osr"
-      ? OSR_PACKAGE_PATH
-      : engine.resolved === "gpu"
-        ? GPU_PACKAGE_PATH
-        : RENDER_PACKAGE_PATH;
+    const rendererPackagePath = engine.resolved === "osr" ? OSR_PACKAGE_PATH : GPU_PACKAGE_PATH;
     const rendererPackage = JSON.parse(await readFile(rendererPackagePath, "utf8"));
     const captionsPath = join(projectRoot, "captions.json");
     const editSha256 = await sha256File(parsed.edit);
@@ -307,8 +268,7 @@ export async function resolveCaptureEngine({
   resolveOsr = resolveOsrLauncher,
 }) {
   let resolved = resolveEngineChoice(requested, platform, eligibility);
-  let fallback = requested === "auto" && ["darwin", "win32"].includes(platform)
-    && eligibility?.eligible === false
+  let fallback = requested === "auto" && eligibility?.eligible === false
     ? { from: "gpu", reason: "GPU ineligible" }
     : null;
   let launcher = null;
@@ -355,9 +315,8 @@ export async function runCaptureV2WithRuntimeFallback({ requested, engine, runGp
 }
 
 export function assertCaptureEngineParity(resolvedEngine, renderProvenance) {
-  // render-cut records the engine it finished on. When it fell back (launcher tier 3 or a closed
-  // runtime reason code) the recorded engine is the fallback target while capture still resolves the
-  // engine render-cut started from, so accept that pair too and let capture re-derive the fallback.
+  // Runtime GPU failure records the fallback target while capture initially resolves the requested
+  // GPU candidate, so accept that pair and let capture re-derive the same closed fallback.
   if (renderProvenance?.engine === resolvedEngine) return;
   if (renderProvenance?.engine_fallback?.from === resolvedEngine) return;
   throw new Error(

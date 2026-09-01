@@ -11,7 +11,6 @@ import {
   desktopCandidates,
   ELECTRON_CHILD_ENV_BLOCKLIST,
   electronChildEnvironment,
-  FALLBACK_WARNING,
   launchElectronExport,
   resolveElectronLauncher,
 } from "../src/runner.mjs";
@@ -57,7 +56,7 @@ test("器は desktop を npm electron より優先する", async () => {
   assert.equal(result.tier, 1);
 });
 
-test("allowInstalledDesktop:false はインストール済みアプリ候補を飛ばし、tier 3 に理由と警告を残す", async () => {
+test("allowInstalledDesktop:false はインストール済みアプリ候補を飛ばし、tier 3 に理由を残す", async () => {
   const result = await resolveElectronLauncher({
     allowInstalledDesktop: false,
     env: {}, platform: "darwin", homeDirectory: "/opt/akari-test",
@@ -66,7 +65,7 @@ test("allowInstalledDesktop:false はインストール済みアプリ候補を�
   assert.equal(result.tier, 3);
   assert.equal(result.skippedInstalledDesktop, true);
   assert.match(result.reason, /installed desktop app is skipped/);
-  assert.match(result.warning, /候補から外しています/);
+  assert.equal(Object.hasOwn(result, "warning"), false);
 });
 
 test("allowInstalledDesktop:false でも AKARI_OSR_ELECTRON の明示指定は tier 1 になる", async () => {
@@ -88,13 +87,13 @@ test("器は健全な npm electron dist を tier 2 にする", async () => {
   assert.equal(result.tier, 2);
 });
 
-test("dist 4 エントリの欠損は警告付き tier 3 へ落ちる", async () => {
+test("dist 4 エントリの欠損は理由付き tier 3 になる", async () => {
   const result = await resolveElectronLauncher({
     env: {}, platform: "linux", homeDirectory: "/home/test",
     probe: async (path) => path !== "/npm/version" && path.startsWith("/npm/"), resolveElectron: () => "/npm/electron",
   });
   assert.equal(result.tier, 3);
-  assert.equal(result.warning, FALLBACK_WARNING);
+  assert.equal(result.reason, "Electron unavailable");
 });
 
 test("tier 2 は script を argv[1] に保ち Chromium スイッチを後置する", () => {
@@ -220,7 +219,7 @@ test("exit 0 で空でない出力を作れば成功する", async () => {
     const result = await launchElectronExport({ tier: 1, executable: "/electron" }, exportOptions(out), {
       spawnImpl: spawnMock({ beforeClose: () => writeFile(out, "video") }),
     });
-    assert.equal(result.fellBackToLegacy, false);
+    assert.equal(Object.hasOwn(result, "fellBackToLegacy"), false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

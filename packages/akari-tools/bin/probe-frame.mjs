@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RENDER_CUT_SRC = resolve(HERE, '../../render-cut/src');
 const { renderOverlaySheet } = await import(join(RENDER_CUT_SRC, 'rasterize.mjs'));
-const { findChromePath } = await import(join(RENDER_CUT_SRC, 'render-cut.mjs'));
+const { findChrome } = await import('./avatar-vrm/find-chrome.mjs');
 
 const args = process.argv.slice(2);
 const flattenIndex = args.indexOf('--flatten');
@@ -45,9 +45,9 @@ writeFileSync(sheetPath, renderOverlaySheet({ overlays, edit, projectRoot, durat
 
 const require = createRequire(join(RENDER_CUT_SRC, 'render-cut.mjs'));
 const puppeteer = require('puppeteer-core');
-const chromePath = await findChromePath();
+const chromePath = process.env.AKARI_CHROME_BIN?.trim() || findChrome();
 if (!chromePath) {
-  console.error('Chrome が見つかりません（render-cut と同じ探索を使用）。');
+  console.error('この機能には Chrome が必要です（`AKARI_CHROME_BIN` で指定）');
   process.exit(1);
 }
 

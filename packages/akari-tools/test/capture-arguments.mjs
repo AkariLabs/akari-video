@@ -51,7 +51,7 @@ test("capture discovers the project ancestor and unions -t/--auto on the frame g
 test("capture rejects missing times and per-sheet values outside 1..12", () => {
   assert.throws(() => parseCaptureArguments(["-p", "/tmp/project"], { cwd: "/tmp" }), /-t.*--auto/u);
   assert.throws(() => parseCaptureArguments(["-p", "/tmp/project", "--auto", "--per-sheet", "13"]), /1 to 12/u);
-  assert.throws(() => parseCaptureArguments(["-p", "/tmp/project", "--auto", "--engine", "other"]), /auto\|osr\|gpu\|legacy/u);
+  assert.throws(() => parseCaptureArguments(["-p", "/tmp/project", "--auto", "--engine", "other"]), /auto\|gpu\|osr/u);
 });
 
 test("capture resolves auto with render-cut order and falls back from unavailable GPU to OSR", async () => {
@@ -75,8 +75,8 @@ test("capture resolves auto with render-cut order and falls back from unavailabl
     resolveGpu: async () => { calls.push("gpu"); },
     resolveOsr: async () => { calls.push("osr"); },
   });
-  assert.equal(linux.resolved, "legacy");
-  assert.deepEqual(calls, []);
+  assert.equal(linux.resolved, "osr");
+  assert.deepEqual(calls, ["osr"]);
 
   await assert.rejects(resolveCaptureEngine({
     requested: "osr",
