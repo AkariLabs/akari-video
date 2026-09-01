@@ -87,6 +87,17 @@ export interface ResolvedFraming {
   centerY: number;
 }
 
+/**
+ * layer-style の cut（issue #39）: v2 media item が `crop` / `perspective` / `keyframes`（2 点以上）を
+ * 持つとき、base 経路は fit 基準の `framing` ではなく layer program と同じ幾何で描く —
+ * box = crop.width × srcW × transform.scale, crop.height × srcH × transform.scale（srcW/H は表示回転後の
+ * 実寸）を出力中心 + (x, y) に置き、rotate は box 中心まわり、crop 窓の外は透明。
+ */
+export interface ResolvedCutLayerStyle {
+  /** Normalized crop window of the source (layer semantics; the source keeps its natural pixel size). */
+  crop: { x: number; y: number; width: number; height: number };
+}
+
 export interface ResolvedCutVisual {
   framing: ResolvedFraming;
   transform: {
@@ -96,6 +107,11 @@ export interface ResolvedCutVisual {
     rotateDegrees: number;
   };
   opacity: number;
+  /**
+   * Present only for layer-style cuts (see ResolvedCutLayerStyle). Absent — not `undefined` — for every
+   * other cut so the fit-basis visual stays deep-equal to the pre-issue-#39 shape.
+   */
+  layerStyle?: ResolvedCutLayerStyle;
 }
 
 export interface ResolvedVideoLayer {
