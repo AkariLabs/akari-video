@@ -321,3 +321,82 @@ test("exportWithOsr / captureFramesWithOsr は launcherRunner に exit: \"osr\" 
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("exportWithOsr は run.json の warm_up（起動直後の空 paint の warm-up 記録・契約 §11.8 裁定 3）を receipt warm_up に載せ、無ければ null", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "osr-index-warm-up-"));
+  const ffmpeg = resolveFfmpeg();
+  const ffprobe = resolveFfprobe();
+  const width = 64;
+  const height = 64;
+  const fps = 30;
+  const frames = 30;
+  const warmUp = { attempts: 16, empty_attempts: 15, elapsed_ms: 491, satisfied: true };
+  const runCase = async (name, runExtra) => {
+    const renderDirectory = join(projectRoot, `render-${name}`);
+    const out = join(renderDirectory, "composite.mp4");
+    await mkdir(renderDirectory, { recursive: true });
+    return exportWithOsr({
+      projectRoot, out, fps, width, height, duration: frames / fps, frames,
+      env: { ...process.env, AKARI_OSR_SOFT: "1" },
+      ffmpegCommand: ffmpeg,
+      ffprobeCommand: ffprobe,
+      io: { log() {}, error() {} },
+      launcher: { tier: 2, kind: "npm-electron", executable: "/electron" },
+      launcherRunner: async (_launcher, options) => {
+        await execFileAsync(ffmpeg, [
+          "-hide_banner", "-loglevel", "error", "-y",
+          "-f", "lavfi", "-i", `testsrc=size=${width}x${height}:rate=${fps}`,
+          "-frames:v", String(frames), "-c:v", "libx264", "-pix_fmt", "yuv420p", options.out,
+        ]);
+        await writeFile(join(renderDirectory, "run.json"), JSON.stringify({
+          status: "completed", framesRequested: frames, framesCompleted: frames, memory: { peakBytes: 10 }, emptyPaints: [], ...runExtra,
+        }));
+      },
+    });
+  };
+  try {
+    const recorded = await runCase("recorded", { warm_up: warmUp });
+    assert.deepEqual(recorded.receipt.warm_up, warmUp);
+    assert.deepEqual(recorded.run.warm_up, warmUp);
+    const persistentRun = JSON.parse(await readFile(join(projectRoot, ".akari", "osr-run.json"), "utf8"));
+    assert.deepEqual(persistentRun.warm_up, warmUp);
+    const absent = await runCase("absent", {});
+    assert.equal(absent.receipt.warm_up, null);
+    assert.equal("warm_up" in absent.receipt, true);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+test("captureFramesWithOsr は capture-run.json の warm_up を正規化して receipt warm_up に並べ、無ければ・不正なら null", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-index-capture-warm-up-"));
+  const runCase = async (name, warmUp) => {
+    const outputDirectory = join(root, name);
+    return captureFramesWithOsr({
+      projectRoot: root, outputDirectory, frameNumbers: [0], fps: 30, width: 16, height: 16, duration: 1, frames: 30,
+      env: {}, io: { log() {}, error() {} },
+      launcher: { tier: 2, kind: "npm-electron", executable: "/npm/electron" },
+      launcherRunner: async (_launcher, options) => {
+        await writeFile(options.out, JSON.stringify({
+          version: 1, status: "completed", operation: "capture", framesRequested: [0], framesCompleted: 1,
+          verify: { mode: "stamp", matched: true, frames: [{ frameNumber: 0, matched: true }] },
+          outputs: [], page: { manifest: true }, viewport: null, elapsedMs: 12,
+          ...(warmUp === undefined ? {} : { warm_up: warmUp }),
+        }));
+      },
+    });
+  };
+  try {
+    const recorded = await runCase("recorded", { attempts: 13, emptyAttempts: 12, elapsedMs: 399, satisfied: true });
+    assert.deepEqual(recorded.receipt.warm_up, { attempts: 13, empty_attempts: 12, elapsed_ms: 399, satisfied: true });
+    assert.equal(recorded.receipt.operation, "capture");
+    assert.equal(recorded.receipt.elapsedMs, 12);
+    const absent = await runCase("absent", undefined);
+    assert.equal(absent.receipt.warm_up, null);
+    assert.equal("warm_up" in absent.receipt, true);
+    const invalid = await runCase("invalid", { attempts: 1, empty_attempts: 0, elapsed_ms: 5, satisfied: "yes" });
+    assert.equal(invalid.receipt.warm_up, null);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
