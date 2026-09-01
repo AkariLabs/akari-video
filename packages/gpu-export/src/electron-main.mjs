@@ -10,7 +10,7 @@ import { createMemorySampler, resolveMemoryBudget } from "../../osr-export/src/m
 import { encodeRgbaPng } from "../../osr-export/src/png.mjs";
 import { startStaticServer } from "../../osr-export/src/static-server.mjs";
 import { loadAndBuildGpuPage } from "./page-builder.mjs";
-import { muxMp4boxDirect } from "./mp4-mux.mjs";
+import { muxEncodedVideo } from "./mp4-mux.mjs";
 import { resolveGpuEncoding } from "./bitrate.mjs";
 import { CAPTION_MEASURE_UNSTABLE_REASON } from "./eligibility.mjs";
 
@@ -45,6 +45,7 @@ export async function runGpuExport(options) {
     captureOutputDirectory = null,
     processTimeoutMs = Math.max(300_000, frames * 1_000),
     ffprobeCommand = process.env.FFPROBE ?? process.env.AKARI_FFPROBE_BIN ?? "ffprobe",
+    ffmpegCommand = process.env.FFMPEG ?? process.env.AKARI_FFMPEG_BIN ?? "ffmpeg",
   } = options;
   const captureMode = captureFrames !== null;
   if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(frames) || frames <= 0) {
@@ -181,14 +182,13 @@ export async function runGpuExport(options) {
     const state = chunkState;
     chunkState = null;
     await state.writeChain;
-    const mux = await muxMp4boxDirect({
+    const mux = await muxEncodedVideo({
       samples: state.samples,
       annexBPath,
       outputPath: out,
-      width,
-      height,
       fps,
       frames,
+      ffmpegCommand,
     });
     const ffprobe = await verifyEncodedVideo({ command: ffprobeCommand, path: out, frames, fps, width, height });
     if (!ffprobe.matched) throw new Error(`GPU ffprobe verification failed: ${JSON.stringify(ffprobe.checks)}`);

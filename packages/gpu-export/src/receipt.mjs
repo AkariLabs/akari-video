@@ -8,7 +8,10 @@ export function buildGpuReceipt({ tier, launcher = null, run = {}, eligibility =
     provenance: {
       engine: "gpu",
       launcher_tier: tier ?? launcher?.tier ?? null,
-      mux: "mp4box-direct",
+      // The mux result rides on the renderer's checkpoint payload as run.mux (page-runtime.js), so
+      // the receipt reports the method actually used rather than a literal that silently goes stale
+      // the next time this path changes. Runs recorded before the ffmpeg remux carry no mux block.
+      mux: run?.mux?.method ?? "mp4box-direct",
       video_reencode: false,
     },
     gpu: {
