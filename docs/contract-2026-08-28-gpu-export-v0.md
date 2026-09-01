@@ -135,7 +135,13 @@ raw frame 読み戻しではない。
 
 ## 5. エンコード、mux、音声
 
-映像は H.264 `avc1.640028`、2 秒ごとの keyframe とし、製品は hardware preference、
+映像は H.264 High profile とし、level は解像度・fps・ビットレートを満たす最小値を H.264 Table A-1
+（MaxFS / MaxMBPS / MaxBR × 1.25）から導出する。下限は Level 4.0 で、1080p30 = `avc1.640028`（従来と
+バイト同一）、1080p60 = `avc1.64002a`、1440p30 = `avc1.640032`、4K30 = `avc1.640033`、4K60 = `avc1.640034`。
+`codec` オプションで明示の文字列に上書きできる（2026-09-01 改訂。固定 `avc1.640028` は Blink の
+`VerifyCodecSupportStatic` が MaxFS 8192 MB 超を拒否するため、1440p / 4K が HW / SW を問わず全 OS で
+`isConfigSupported=false` になっていた — 2026-08-29 調査 §5-4）。
+2 秒ごとの keyframe とし、製品は hardware preference、
 `--soft` は software preference を指定する。ビットレートは render-cut の quality プリセットにある
 GPU ビットレート値（mac では VideoToolbox 用の値と共用）を正本とし、`high = 12 Mbps`、
 `standard = 8 Mbps`、`light = 5 Mbps` とする。

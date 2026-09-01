@@ -60,6 +60,20 @@
     }
   }
 
+  // unsupported の診断用: 実際に probe した codec 文字列（level 導出後）と解像度・fps・ビットレートを添える。
+  // level 導出が throw する寸法（Level 6.2 超）でもここは診断文なので落とさない。
+  function describeEncoderTarget(config) {
+    let codec = "avc1.?";
+    try {
+      if (typeof FE.h264CodecString === "function") {
+        codec = FE.h264CodecString({ width: config.width, height: config.height, fps: config.fps, bitrate: config.bitrate });
+      }
+    } catch (error) {
+      codec = `no-level: ${error?.message ?? error}`;
+    }
+    return `${codec} ${config.width}x${config.height}@${config.fps}fps ${config.bitrate}bps`;
+  }
+
   async function collectEncoderSupport(config) {
     const base = { width: config.width, height: config.height, fps: config.fps, bitrate: config.bitrate };
     const probe = async (hardwareAcceleration) => {
@@ -1671,7 +1685,7 @@
           hardwareAcceleration,
         });
       } else if (!captureMode && !config.verifyFrames) {
-        throw new Error(`WebCodecs H.264 config is unsupported: ${hardwareAcceleration}`);
+        throw new Error(`WebCodecs H.264 config is unsupported: ${hardwareAcceleration} (${describeEncoderTarget(config)})`);
       }
       for (let sequenceIndex = 0; sequenceIndex < sequenceLength; sequenceIndex += 1) {
         const frameNumber = captureMode ? frameSequence[sequenceIndex] : sequenceIndex;
