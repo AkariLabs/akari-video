@@ -22499,6 +22499,13 @@ var STAGES = [
   "ffmpegDrain",
   "ffmpegClose"
 ];
+function maxOf(values) {
+  let max = -Infinity;
+  for (const value of values) {
+    if (value > max) max = value;
+  }
+  return max;
+}
 function percentile(values, value) {
   if (values.length === 0) return null;
   const sorted = [...values].sort((left, right) => left - right);
@@ -22532,7 +22539,7 @@ var FrameMetrics = class {
           count: values.length,
           p50Ms: percentile(values, 50),
           p95Ms: percentile(values, 95),
-          maxMs: values.length > 0 ? Math.max(...values) : null
+          maxMs: values.length > 0 ? maxOf(values) : null
         }];
       })),
       uploadPath: this.uploadPath,
