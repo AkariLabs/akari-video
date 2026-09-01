@@ -11,7 +11,12 @@
     "check:status-core": "node scripts/gen-status-core-mirror.mjs --check",
     "gen:skills-index": "node scripts/gen-skills-index.mjs --strict",
     "check:skills-index": "node scripts/gen-skills-index.mjs --check --strict",
-    "check:docs-sync": "node scripts/check-docs-sync.mjs"
+    "check:docs-sync": "node scripts/check-docs-sync.mjs",
+    "test:unit": "node scripts/ci/run-unit-tests.mjs --lane pure",
+    "test:shell": "node scripts/ci/run-unit-tests.mjs --lane shell",
+    "test:quarantine": "node scripts/ci/run-unit-tests.mjs --lane quarantine",
+    "test:media": "node scripts/ci/run-unit-tests.mjs --lane media",
+    "test:lanes": "node scripts/ci/run-unit-tests.mjs --list"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",
