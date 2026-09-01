@@ -18,7 +18,7 @@ const CAPTION_STYLE_KEYS = new Set([
     'color', 'size_px', 'font_weight', 'line_height', 'stroke', 'background', 'zone', 'layout',
     'font_family', 'weight', 'italic', 'underline', 'letter_spacing_em', 'align',
     'vertical_align', 'vertical', 'text_transform', 'max_width_pct', 'text_anchor',
-    'position', 'shadow', 'glow', 'animation'
+    'position', 'shadow', 'glow', 'animation', 'reference_height_px'
 ]);
 const CAPTION_STROKE_KEYS = new Set(['method', 'color', 'width_px']);
 const CAPTION_BACKGROUND_KEYS = new Set([
@@ -304,6 +304,10 @@ export function validateCaptionTextStyle(value: unknown, label = 'text_style'): 
     if (Object.prototype.hasOwnProperty.call(value, 'size_px') && !finitePositive(value.size_px)) {
         fail('INVALID_TEXT_STYLE', `${label}.size_px must be a positive finite number`);
     }
+    if (Object.prototype.hasOwnProperty.call(value, 'reference_height_px')
+        && !positiveInteger(value.reference_height_px)) {
+        fail('INVALID_TEXT_STYLE', `${label}.reference_height_px must be an integer >= 1`);
+    }
     if (Object.prototype.hasOwnProperty.call(value, 'font_weight')
         && (!Number.isInteger(value.font_weight) || value.font_weight < 1 || value.font_weight > 1000)) {
         fail('INVALID_TEXT_STYLE', `${label}.font_weight must be an integer within [1, 1000]`);
@@ -320,6 +324,10 @@ export function validateCaptionTextStyle(value: unknown, label = 'text_style'): 
     if (Object.prototype.hasOwnProperty.call(value, 'layout')) validateCaptionLayout(value.layout, `${label}.layout`);
     if (Object.prototype.hasOwnProperty.call(value, 'zone') && Object.prototype.hasOwnProperty.call(value, 'layout')) {
         fail('STYLE_LAYOUT_CONFLICT', `${label} cannot contain both zone and layout`);
+    }
+    if (Object.prototype.hasOwnProperty.call(value, 'layout')
+        && Object.prototype.hasOwnProperty.call(value, 'reference_height_px')) {
+        fail('STYLE_LAYOUT_CONFLICT', `${label} cannot contain both layout and reference_height_px`);
     }
     return value;
 }
@@ -765,7 +773,39 @@ export function mergeCaptionDisplayStyles(base: unknown, override: unknown): Unk
     }
     if (Object.keys(merged).length === 0) return undefined;
     if (merged.zone !== undefined && merged.layout !== undefined) fail('STYLE_LAYOUT_CONFLICT', 'merged caption text style cannot contain both zone and layout');
+    if (merged.reference_height_px !== undefined && merged.layout !== undefined) {
+        fail('STYLE_LAYOUT_CONFLICT', 'merged caption text style cannot contain both layout and reference_height_px');
+    }
     return merged;
+}
+
+/**
+ * zone 方式の px 系フィールドに掛ける scale（issue #40 §2）。`reference_height_px` が無ければ 1
+ * （既存出力はバイト同一）。あれば output.height / reference_height_px — 基準は高さ（文字サイズは
+ * 縦方向の量。縦型出力でも自然）。`layout`（reference-pixel）との併用は禁止。output.height が無いと
+ * layout 経路の INVALID_OUTPUT_GEOMETRY と同型で fail する。render-cut の captionTextStyleVars と
+ * gpu-export page-builder はこの単一定義を使い、GPU / OSR の両経路で同じ実効 px になる。
+ */
+export function resolveCaptionReferenceScale(style: unknown, output: { width?: number; height?: number } | undefined): number {
+    if (!isRecord(style) || style.reference_height_px === undefined) return 1;
+    if (style.layout !== undefined) {
+        fail('STYLE_LAYOUT_CONFLICT', 'caption text style cannot contain both layout and reference_height_px');
+    }
+    if (!positiveInteger(style.reference_height_px)) {
+        fail('INVALID_TEXT_STYLE', 'text_style.reference_height_px must be an integer >= 1');
+    }
+    if (!output || !finitePositive(output.height)) {
+        fail('INVALID_OUTPUT_GEOMETRY', 'output height is required for reference_height_px caption text style');
+    }
+    return output.height / style.reference_height_px;
+}
+
+/**
+ * 宣言 px × scale。scale === 1 なら値をそのまま返す（`${value}` の文字列が従来とバイト同一）。
+ * それ以外は小数 6 桁へ丸めて浮動小数の端数（0.1 × 3 = 0.30000000000000004）を CSS に漏らさない。
+ */
+export function scaleCaptionPx(value: number, scale: number): number {
+    return scale === 1 ? value : Number((value * scale).toFixed(6));
 }
 
 /**
@@ -832,6 +872,9 @@ export function resolveCaptionStyleForOutput(style: UnknownRecord, output: { wid
     const vars: Record<string, string> = {};
     let layout: ResolvedCaptionLayout | undefined;
     let scale = 1;
+    if (style.layout !== undefined && style.reference_height_px !== undefined) {
+        fail('STYLE_LAYOUT_CONFLICT', 'caption text style cannot contain both layout and reference_height_px');
+    }
     if (style.layout !== undefined) {
         if (!output || !finitePositive(output.width) || !finitePositive(output.height)) fail('INVALID_OUTPUT_GEOMETRY', 'output width/height are required for reference-pixel caption layout');
         layout = resolveReferencePixelLayout(style.layout, output);
@@ -841,6 +884,9 @@ export function resolveCaptionStyleForOutput(style: UnknownRecord, output: { wid
         vars['--caption-bottom'] = `${formatCssNumber(layout.bottom_px)}px`;
         vars['--caption-width'] = `${formatCssNumber(layout.width_px)}px`;
         vars['--caption-text-align'] = 'center';
+    } else if (style.reference_height_px !== undefined) {
+        // zone 方式（issue #40 §2）: 高さ基準の scale を layout 経路と同じ px フィールドに掛ける。
+        scale = resolveCaptionReferenceScale(style, output);
     }
     if (typeof style.color === 'string') vars['--caption-color'] = style.color;
     if (finitePositive(style.size_px)) vars['--caption-font-size'] = `${formatCssNumber(style.size_px * scale)}px`;
@@ -860,7 +906,7 @@ export function resolveCaptionStyleForOutput(style: UnknownRecord, output: { wid
             vars['--caption-paint-order'] = 'stroke fill';
             vars['--caption-text-shadow'] = 'none';
         } else {
-            vars['--caption-text-shadow'] = strokeShadow(color, width, layout !== undefined);
+            vars['--caption-text-shadow'] = strokeShadow(color, width, layout !== undefined || scale !== 1);
         }
     }
     if (isRecord(style.background) && finiteNonNegative(style.background.radius_px)) {
@@ -949,6 +995,10 @@ function finitePositive(value: unknown): value is number {
 
 function finiteNonNegative(value: unknown): value is number {
     return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function positiveInteger(value: unknown): value is number {
+    return Number.isInteger(value) && (value as number) >= 1;
 }
 
 function isRecord(value: unknown): value is UnknownRecord {

@@ -63,6 +63,8 @@ export interface CaptionLayout {
 export interface CaptionTextStyle {
     color?: string;
     sizePx?: number;
+    /** zone 方式の px 系フィールドの基準出力高さ（issue #40 §2）。integer ≥ 1。layout と排他。 */
+    referenceHeightPx?: number;
     fontFamily?: string;
     fontWeight?: number;
     weight?: number;
@@ -728,7 +730,7 @@ function isFiniteInRange(value: unknown, min: number, max: number): value is num
 // captions.schema.json の $defs/textStyle が受理する全プロパティ名（2026-08-10 拡張）。
 // これ以外のキーは「未知」として個別に無視する（行やスタイル全体は破棄しない）。
 const TEXT_STYLE_KEYS = new Set([
-    'color', 'size_px', 'font_family', 'font_weight', 'weight', 'italic', 'underline',
+    'color', 'size_px', 'reference_height_px', 'font_family', 'font_weight', 'weight', 'italic', 'underline',
     'letter_spacing_em', 'line_height', 'align', 'vertical_align', 'vertical',
     'text_transform', 'max_width_pct', 'text_anchor', 'position', 'shadow', 'glow',
     'animation', 'stroke', 'background', 'zone', 'layout'
@@ -759,6 +761,9 @@ function normalizeTextStyle(
     }
     if (isFinitePositive(value.size_px)) {
         style.sizePx = value.size_px;
+    }
+    if (Number.isInteger(value.reference_height_px) && (value.reference_height_px as number) >= 1) {
+        style.referenceHeightPx = value.reference_height_px as number;
     }
     if (typeof value.font_family === 'string' && value.font_family !== '') {
         style.fontFamily = value.font_family;
@@ -865,10 +870,12 @@ function normalizeTextStyle(
     }
     // schema は zone と layout の併用を禁じる（$defs/textStyle の allOf/not）。両方有効なら
     // 既定 5 フィールドの一員として先に対応していた zone を優先し layout を落とす。
+    // reference_height_px（zone 方式の基準高さ）と layout の併用も同じく禁止で、同じ向き
+    // （zone 方式側を残し layout を落とす）に揃える。
     const layout = normalizeCaptionLayout(value.layout);
     if (value.zone !== undefined && CAPTION_ZONES.includes(value.zone as CaptionZone)) {
         style.zone = value.zone as CaptionZone;
-    } else if (layout) {
+    } else if (layout && style.referenceHeightPx === undefined) {
         style.layout = layout;
     }
     return style;
@@ -1004,6 +1011,7 @@ function textStyleToJson(style: CaptionTextStyle): Record<string, unknown> {
     return {
         ...(style.color !== undefined ? { color: style.color } : {}),
         ...(style.sizePx !== undefined ? { size_px: style.sizePx } : {}),
+        ...(style.referenceHeightPx !== undefined ? { reference_height_px: style.referenceHeightPx } : {}),
         ...(style.fontFamily !== undefined ? { font_family: style.fontFamily } : {}),
         ...(style.fontWeight !== undefined ? { font_weight: style.fontWeight } : {}),
         ...(style.weight !== undefined ? { weight: style.weight } : {}),

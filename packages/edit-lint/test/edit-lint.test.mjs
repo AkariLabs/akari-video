@@ -1790,3 +1790,35 @@ test("captions.overlay-link は発火しない（撤去済み・字幕は消費�
     }
   });
 });
+
+// issue #40 §2（2026-09-01）: zone 方式の基準出力高さ reference_height_px。
+test("text_style.reference_height_px lints as an integer >= 1 and cannot combine with layout", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "valid");
+    const captionsPath = join(project, "captions.json");
+    const baseCaption = { ...styleParity.caption, start: 5, end: 7 };
+    await writeFile(captionsPath, `${JSON.stringify({
+      default_text_style: { zone: "bottom", size_px: 36, reference_height_px: 720 },
+      captions: [{ ...baseCaption, text_style: { reference_height_px: 1080, size_px: 54 } }],
+    }, null, 2)}\n`, "utf8");
+    const valid = run(project);
+    assert.equal(valid.status, 0, valid.stderr || valid.stdout);
+    assert.ok(!parseResult(valid).findings.some((finding) => finding.check === "captions.text-style"));
+
+    const message = /reference_height_px must be an integer greater than or equal to one/u;
+    for (const [id, text_style, expected] of [
+      ["zero", { reference_height_px: 0 }, message],
+      ["negative", { reference_height_px: -720 }, message],
+      ["fraction", { reference_height_px: 720.5 }, message],
+      ["string", { reference_height_px: "720" }, message],
+      ["layout-conflict", { reference_height_px: 720, layout: styleParity.valid_default_style.layout }, /cannot contain both layout and reference_height_px/u],
+    ]) {
+      await writeFile(captionsPath, `${JSON.stringify([{ ...baseCaption, text_style }], null, 2)}\n`, "utf8");
+      const executed = run(project);
+      assert.equal(executed.status, 1, `${id}: ${executed.stderr}`);
+      assert.ok(parseResult(executed).findings.some((finding) =>
+        finding.check === "captions.text-style" && expected.test(finding.message)
+      ), `${id}: ${executed.stdout}`);
+    }
+  });
+});

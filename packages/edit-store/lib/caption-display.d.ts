@@ -97,6 +97,22 @@ export declare function scheduleCaptionFragments(start: number, end: number, fra
 }>;
 export declare function mergeCaptionDisplayStyles(base: unknown, override: unknown): UnknownRecord | undefined;
 /**
+ * zone 方式の px 系フィールドに掛ける scale（issue #40 §2）。`reference_height_px` が無ければ 1
+ * （既存出力はバイト同一）。あれば output.height / reference_height_px — 基準は高さ（文字サイズは
+ * 縦方向の量。縦型出力でも自然）。`layout`（reference-pixel）との併用は禁止。output.height が無いと
+ * layout 経路の INVALID_OUTPUT_GEOMETRY と同型で fail する。render-cut の captionTextStyleVars と
+ * gpu-export page-builder はこの単一定義を使い、GPU / OSR の両経路で同じ実効 px になる。
+ */
+export declare function resolveCaptionReferenceScale(style: unknown, output: {
+    width?: number;
+    height?: number;
+} | undefined): number;
+/**
+ * 宣言 px × scale。scale === 1 なら値をそのまま返す（`${value}` の文字列が従来とバイト同一）。
+ * それ以外は小数 6 桁へ丸めて浮動小数の端数（0.1 × 3 = 0.30000000000000004）を CSS に漏らさない。
+ */
+export declare function scaleCaptionPx(value: number, scale: number): number;
+/**
  * text_anchor（9 点）+ position（0..1 相対）→ プレート配置の CSS 変数。単一定義
  * （プレビュー = shell captionTextStyleVars / 書き出し = render-cut captions.mjs の両消費者が
  * これを使う — 2026-08-26 akari-reel 実機: プレビュー側だけ text_anchor/position を落として

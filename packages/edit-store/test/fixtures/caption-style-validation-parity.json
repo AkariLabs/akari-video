@@ -67,6 +67,7 @@
     { "id": "empty-background", "style": { "background": {} } },
     { "id": "zero-deep-values", "style": { "stroke": { "width_px": 0 }, "background": { "opacity": 0, "radius_px": 0 } } },
     { "id": "legacy-zone", "style": { "zone": "top-left" } },
+    { "id": "reference-height", "style": { "zone": "bottom", "size_px": 36, "reference_height_px": 720, "stroke": { "color": "#000000", "width_px": 3 }, "background": { "radius_px": 8 } } },
     {
       "id": "reference-layout",
       "style": {
@@ -178,6 +179,29 @@
     {
       "id": "merged-zone-layout-conflict",
       "default_text_style": { "zone": "bottom" },
+      "caption_text_style": {
+        "layout": {
+          "mode": "reference-pixel", "reference_width_px": 1920, "reference_height_px": 1080,
+          "left_px": 261, "width_px": 1120, "bottom_px": 29, "text_align": "center", "max_lines": 1
+        }
+      }
+    },
+    { "id": "reference-height-zero", "caption_text_style": { "reference_height_px": 0 } },
+    { "id": "reference-height-fraction", "caption_text_style": { "reference_height_px": 720.5 } },
+    { "id": "reference-height-type", "caption_text_style": { "reference_height_px": "720" } },
+    {
+      "id": "same-input-layout-reference-height-conflict",
+      "caption_text_style": {
+        "reference_height_px": 720,
+        "layout": {
+          "mode": "reference-pixel", "reference_width_px": 1920, "reference_height_px": 1080,
+          "left_px": 261, "width_px": 1120, "bottom_px": 29, "text_align": "center", "max_lines": 1
+        }
+      }
+    },
+    {
+      "id": "merged-layout-reference-height-conflict",
+      "default_text_style": { "reference_height_px": 720 },
       "caption_text_style": {
         "layout": {
           "mode": "reference-pixel", "reference_width_px": 1920, "reference_height_px": 1080,
