@@ -53,6 +53,22 @@ export interface TimelineMapResult {
     transitionWindows: TimelineTransitionWindow[];
     usesGapsOrTracks: boolean;
 }
+export interface SpeechTranscriptInterval {
+    start: number;
+    end: number;
+}
+export interface SpeechKeyProjectionResult {
+    intervals: Array<{
+        startSec: number;
+        endSec: number;
+    }>;
+    droppedShortIntervals: number;
+}
+/** analysis transcript の source 秒を、cuts と同じ speed/境界規則で timeline 秒へ写す。 */
+export declare function projectSpeechKeyIntervals(cuts: readonly EditCut[], transcript: readonly SpeechTranscriptInterval[], options?: {
+    fps?: number;
+    sourceId?: string;
+}): SpeechKeyProjectionResult;
 export declare function transitionProgressAt(window: TimelineTransitionWindow, outputT: number): number;
 export declare function buildTimelineMap(cuts: readonly EditCut[], options?: {
     trackZ?: (track: number) => number;

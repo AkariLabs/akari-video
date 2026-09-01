@@ -234,6 +234,7 @@ export async function renderProject(input, options = {}, io = console) {
     },
     plan,
     provenance: {
+      audio: { envelope: plan.commands.audio_mix.envelope },
       sources: capabilities.sourceInputs.map((source) => ({
         id: source.id,
         path: relativeOrAbsolute(projectRoot, source.path),
@@ -424,6 +425,7 @@ export async function renderProject(input, options = {}, io = console) {
           },
           captionLayout,
           audioQc: state.audio_qc,
+          provenance: state.provenance,
           createdAt: options.receiptCreatedAt,
         });
         state.render_receipt = { path: receipt.path, sha256: receipt.sha256 };
@@ -514,6 +516,7 @@ export async function renderProject(input, options = {}, io = console) {
         },
         captionLayout,
         audioQc: state.audio_qc ?? null,
+        provenance: state.provenance,
         createdAt: options.receiptCreatedAt,
       });
       state.render_receipt = {

@@ -1,5 +1,7 @@
-/** プレビュー側の静的ダッキング近似量（契約 §3 表: 「固定の追加減衰（例: -12dB）」） */
-export const STATIC_DUCK_GAIN_DB = -12;
+import { DEFAULT_DUCK_DB } from './envelope';
+
+/** @deprecated 新規コードは DEFAULT_DUCK_DB を使用する。shell 互換のため当面残す。 */
+export const STATIC_DUCK_GAIN_DB = DEFAULT_DUCK_DB;
 
 export interface DuckInterval {
     startSec: number;
@@ -29,17 +31,4 @@ export function computeDuckIntervals(sources: DuckIntervalSource[]): DuckInterva
 /** atSec がいずれかの区間内か（区間は開始点を含み終了点を含まない半開区間として扱う） */
 export function isWithinDuckInterval(intervals: DuckInterval[], atSec: number): boolean {
     return intervals.some((iv) => atSec >= iv.startSec && atSec < iv.endSec);
-}
-
-/**
- * bgm.ducking:true のときに、タイムライン上の atSec 時点で BGM へ追加すべき静的ダッキング量(dB)を返す。
- * 区間外・ducking 無効時は 0（= 元のゲインのまま。契約 §3「区間外は元に戻す」）。
- */
-export function computeBgmDuckGainDb(
-    intervals: DuckInterval[],
-    duckingEnabled: boolean,
-    atSec: number
-): number {
-    if (!duckingEnabled) return 0;
-    return isWithinDuckInterval(intervals, atSec) ? STATIC_DUCK_GAIN_DB : 0;
 }

@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTimelineMap, outputToSource, transitionProgressAt } from '../lib/timeline-map.js';
+import {
+  buildTimelineMap,
+  outputToSource,
+  projectSpeechKeyIntervals,
+  transitionProgressAt,
+} from '../lib/timeline-map.js';
 import { TRANSITION_TYPE_IDS } from '../lib/transition-vocabulary.js';
 
 function approx(actual, expected, eps = 1e-9) {
@@ -21,6 +26,51 @@ test('v2 単一モード: speed 込みの出力区間と総尺', () => {
   approx(map.totalDuration, 7.5);
   assert.equal(map.transitionPlates.length, 0);
   assert.equal(map.transitionWindows.length, 0);
+});
+
+test('projectSpeechKeyIntervals は speed を反映して source 秒を timeline 秒へ写像する', () => {
+  assert.deepEqual(projectSpeechKeyIntervals(
+    [{ src: 'camera-a', in: 10, out: 20, speed: 2 }],
+    [{ start: 12, end: 16 }],
+    { sourceId: 'camera-a' },
+  ).intervals, [{ startSec: 1, endSec: 3 }]);
+});
+
+test('projectSpeechKeyIntervals は同一 source の複数 cut へ発話を投影する', () => {
+  assert.deepEqual(projectSpeechKeyIntervals(
+    [
+      { src: 'camera-a', in: 0, out: 2 },
+      { src: 'camera-a', in: 5, out: 7 },
+    ],
+    [{ start: 1, end: 6 }],
+    { sourceId: 'camera-a' },
+  ).intervals, [{ startSec: 1, endSec: 3 }]);
+});
+
+test('projectSpeechKeyIntervals は異なる source の cut を無視する', () => {
+  assert.deepEqual(projectSpeechKeyIntervals(
+    [{ src: 'camera-b', in: 0, out: 2 }],
+    [{ start: 0, end: 2 }],
+    { sourceId: 'camera-a' },
+  ).intervals, []);
+});
+
+test('projectSpeechKeyIntervals は 350ms 未満の空白を統合する', () => {
+  assert.deepEqual(projectSpeechKeyIntervals(
+    [{ src: 'camera-a', in: 0, out: 5 }],
+    [{ start: 1, end: 2 }, { start: 2.349, end: 3 }],
+    { sourceId: 'camera-a' },
+  ).intervals, [{ startSec: 1, endSec: 3 }]);
+});
+
+test('projectSpeechKeyIntervals は 150ms 未満の発話を捨てて件数を返す', () => {
+  const result = projectSpeechKeyIntervals(
+    [{ src: 'camera-a', in: 0, out: 5 }],
+    [{ start: 1, end: 1.149 }],
+    { sourceId: 'camera-a' },
+  );
+  assert.deepEqual(result.intervals, []);
+  assert.equal(result.droppedShortIntervals, 1);
 });
 
 test('トランジション窓は前後 2 cut・source 時刻・0→1 の進行度を保持する', () => {

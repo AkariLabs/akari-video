@@ -57,6 +57,12 @@ export interface EditLayer {
     chromaKey?: { color: string; similarity?: number; blend?: number };
 }
 
+export interface EditAudioKeyframe {
+    t: number;
+    gain_db?: number;
+    easing?: string | Record<string, string>;
+}
+
 export interface EditAudioSfx {
     id: string;
     t: number;
@@ -66,6 +72,11 @@ export interface EditAudioSfx {
     gainDb?: number;
     in?: number;
     out?: number;
+    keyframes?: EditAudioKeyframe[];
+    ducking?: boolean;
+    duck_db?: number;
+    duck_attack?: number;
+    duck_release?: number;
 }
 
 export interface EditAudioNarrationProvenance {
@@ -86,6 +97,11 @@ export interface EditAudioNarration {
     gainDb?: number;
     in?: number;
     out?: number;
+    keyframes?: EditAudioKeyframe[];
+    ducking?: boolean;
+    duck_db?: number;
+    duck_attack?: number;
+    duck_release?: number;
     script?: string;
     reading?: string;
     provenance?: EditAudioNarrationProvenance;
@@ -107,6 +123,10 @@ export interface EditAudioBgm {
     fadeOut?: number;
     gainDb?: number;
     ducking?: boolean;
+    keyframes?: EditAudioKeyframe[];
+    duck_db?: number;
+    duck_attack?: number;
+    duck_release?: number;
 }
 
 export type TimelineTrackKind = 'cuts' | 'layers' | 'overlays' | 'captions' | 'audio';

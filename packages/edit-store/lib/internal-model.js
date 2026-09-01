@@ -764,6 +764,11 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
             path: resolvedPath,
             track: ref,
             ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
+            ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
+            ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+            ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+            ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+            ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {}),
             ...(item.source.in !== undefined ? { in: item.source.in } : {}),
             ...(item.source.out !== undefined ? { out: item.source.out } : {}),
             ...(item.script !== undefined ? { script: item.script } : {}),
@@ -776,6 +781,11 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
                 declaration: {
                     id: item.id, t: at, path: resolvedPath,
                     ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                    ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
+                    ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+                    ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+                    ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+                    ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {}),
                     ...(item.source.in !== undefined ? { in: item.source.in } : {}),
                     ...(item.source.out !== undefined ? { out: item.source.out } : {}),
                     ...(item.script !== undefined ? { script: item.script } : {}),
@@ -798,7 +808,11 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
             ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
             ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),
             ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
-            ...(item.ducking !== undefined ? { ducking: item.ducking } : {})
+            ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+            ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
+            ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+            ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+            ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {})
         };
         return {
             item: {
@@ -809,7 +823,11 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
                     ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
                     ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),
                     ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
-                    ...(item.ducking !== undefined ? { ducking: item.ducking } : {})
+                    ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+                    ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
+                    ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+                    ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+                    ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {})
                 },
                 legacy: { collection: 'bgm', index: 0, value }
             }
@@ -823,7 +841,12 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
         track: ref,
         in: inSeconds,
         ...(item.source.out !== undefined ? { out: item.source.out } : {}),
-        ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {})
+        ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
+        ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
+        ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+        ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+        ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+        ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {})
     };
     return {
         item: {
@@ -833,8 +856,13 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
                 in: inSeconds,
                 ...(item.source.out !== undefined ? { out: item.source.out } : {}),
                 ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
                 ...(item.fade_in !== undefined ? { fade_in: item.fade_in } : {}),
-                ...(item.fade_out !== undefined ? { fade_out: item.fade_out } : {})
+                ...(item.fade_out !== undefined ? { fade_out: item.fade_out } : {}),
+                ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+                ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+                ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+                ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {})
             },
             legacy: { collection: 'sfx', index: nextLegacyIndex(legacyIndexCounters, 'sfx'), value }
         }
@@ -888,7 +916,12 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
             id: typeof entry.id === 'string' ? entry.id : `sfx-${index}`,
             t: entry.t, duration, path: entry.path, track: ref, in: start,
             ...(end > start ? { out: end } : {}),
-            ...(typeof entry.gain_db === 'number' ? { gainDb: entry.gain_db } : {})
+            ...(typeof entry.gain_db === 'number' ? { gainDb: entry.gain_db } : {}),
+            ...(Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {}),
+            ...(typeof entry.ducking === 'boolean' ? { ducking: entry.ducking } : {}),
+            ...(typeof entry.duck_db === 'number' ? { duck_db: entry.duck_db } : {}),
+            ...(typeof entry.duck_attack === 'number' ? { duck_attack: entry.duck_attack } : {}),
+            ...(typeof entry.duck_release === 'number' ? { duck_release: entry.duck_release } : {})
         };
         ensureTrack(ref).items.push({
             id: value.id,
@@ -910,6 +943,11 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
             id: typeof entry.id === 'string' ? entry.id : `n-${String(index + 1).padStart(4, '0')}`,
             t: entry.t, path: entry.path,
             ...(typeof entry.gain_db === 'number' ? { gainDb: entry.gain_db } : {}),
+            ...(Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {}),
+            ...(typeof entry.ducking === 'boolean' ? { ducking: entry.ducking } : {}),
+            ...(typeof entry.duck_db === 'number' ? { duck_db: entry.duck_db } : {}),
+            ...(typeof entry.duck_attack === 'number' ? { duck_attack: entry.duck_attack } : {}),
+            ...(typeof entry.duck_release === 'number' ? { duck_release: entry.duck_release } : {}),
             ...(typeof entry.in === 'number' ? { in: entry.in } : {}),
             ...(typeof entry.out === 'number' ? { out: entry.out } : {}),
             ...(typeof entry.script === 'string' ? { script: entry.script } : {}),
@@ -932,7 +970,11 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
             ...(typeof entry.fadeIn === 'number' ? { fadeIn: entry.fadeIn } : {}),
             ...(typeof entry.fadeOut === 'number' ? { fadeOut: entry.fadeOut } : {}),
             ...(typeof entry.gain_db === 'number' ? { gainDb: entry.gain_db } : {}),
-            ...(typeof entry.ducking === 'boolean' ? { ducking: entry.ducking } : {})
+            ...(typeof entry.ducking === 'boolean' ? { ducking: entry.ducking } : {}),
+            ...(Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {}),
+            ...(typeof entry.duck_db === 'number' ? { duck_db: entry.duck_db } : {}),
+            ...(typeof entry.duck_attack === 'number' ? { duck_attack: entry.duck_attack } : {}),
+            ...(typeof entry.duck_release === 'number' ? { duck_release: entry.duck_release } : {})
         };
         ensureTrack(0).items.push({
             id: 'bgm', atFrames: 0, durationFrames: 0, at: 0, duration: 0,

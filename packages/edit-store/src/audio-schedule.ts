@@ -1,4 +1,12 @@
-import { computeBgmDuckGainDb, computeDuckIntervals, DuckInterval } from './ducking';
+import { computeDuckIntervals, DuckInterval } from './ducking';
+import {
+    composeEnvelopesDb,
+    computeDuckEnvelope,
+    DEFAULT_DUCK_KEYS,
+    envelopeToGainEvents,
+    evaluateEnvelopeDb,
+    type EnvelopePoint
+} from './envelope';
 import { buildTimelineMap } from './timeline-map';
 import type { EditCut } from './edit-store';
 
@@ -19,6 +27,10 @@ export interface WebAudioDecodedItem {
     fade_in?: unknown;
     fade_out?: unknown;
     ducking?: unknown;
+    duck_db?: unknown;
+    duck_attack?: unknown;
+    duck_release?: unknown;
+    keyframes?: unknown;
     /** 重い WAV の trim 済み FLAC。存在すると in/out はサイドカー生成時に適用済み。 */
     sidecar?: WebAudioSidecar;
 }
@@ -38,6 +50,7 @@ export interface WebAudioScheduleDeclaration {
     sfx?: WebAudioDecodedItem[];
     narration?: WebAudioDecodedItem[];
     speech?: WebAudioSpeechDeclaration[];
+    duck_keys?: unknown;
 }
 
 export interface WebAudioSpeechDeclaration {
@@ -80,7 +93,7 @@ export interface WebAudioGainEvent {
     /** AudioBufferSourceNode の start 時刻からの相対秒。 */
     offsetSec: number;
     value: number;
-    method: 'set' | 'linear';
+    method: 'set' | 'linear' | 'exponential';
 }
 
 export interface WebAudioScheduledItem {
@@ -99,14 +112,18 @@ export interface WebAudioScheduledItem {
     loop: boolean;
     gainDb: number;
     gainEvents: WebAudioGainEvent[];
-    /** BGM 専用。base gain/fade と別 GainNode に適用する矩形ダッキング。 */
-    duckingEvents: WebAudioGainEvent[];
+    /** base gain/fade と別 GainNode に適用する keyframe + ducking エンベロープ。 */
+    envelopeEvents: WebAudioGainEvent[];
 }
 
 export interface WebAudioScheduleInput {
     timelineDurationSec: number;
     startAtSec: number;
     audio?: WebAudioScheduleDeclaration;
+    /** narration 以外から得たタイムライン上の duck 鍵区間。 */
+    duckKeyIntervals?: DuckInterval[];
+    /** duckKeyIntervals の互換別名。 */
+    speechKeyIntervals?: DuckInterval[];
 }
 
 export interface WebAudioScheduleResult {
@@ -148,10 +165,16 @@ export function buildWebAudioSchedule(input: WebAudioScheduleInput): WebAudioSch
 
     const narration = resolveTimedItems('narration', audio.narration, timelineDurationSec, warnings);
     const sfx = resolveTimedItems('sfx', audio.sfx, timelineDurationSec, warnings);
-    const duckIntervals = computeDuckIntervals(narration.map(item => ({
+    const narrationIntervals = computeDuckIntervals(narration.map(item => ({
         t: item.t,
         durationSec: item.itemDurationSec
     })));
+    const duckKeys = normalizedDuckKeys(audio.duck_keys);
+    const speechIntervals = input.duckKeyIntervals ?? input.speechKeyIntervals ?? [];
+    const duckIntervals = mergeDuckIntervals([
+        ...(duckKeys.includes('narration') ? narrationIntervals : []),
+        ...(duckKeys.includes('speech') ? speechIntervals : [])
+    ]);
     const items: WebAudioScheduledItem[] = [];
 
     const bgm = audio.bgm;
@@ -160,11 +183,11 @@ export function buildWebAudioSchedule(input: WebAudioScheduleInput): WebAudioSch
         if (scheduled) items.push(scheduled);
     }
     for (const item of sfx) {
-        const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec);
+        const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);
         if (scheduled) items.push(scheduled);
     }
     for (const item of narration) {
-        const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec);
+        const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);
         if (scheduled) items.push(scheduled);
     }
     for (const speech of audio.speech ?? []) {
@@ -251,7 +274,8 @@ function resolveTrim(
 function scheduleTimed(
     item: ResolvedTimedItem,
     timelineDurationSec: number,
-    startAtSec: number
+    startAtSec: number,
+    duckIntervals: DuckInterval[]
 ): WebAudioScheduledItem | null {
     const itemEndSec = item.t + item.itemDurationSec;
     if (itemEndSec <= startAtSec) return null;
@@ -288,7 +312,14 @@ function scheduleTimed(
         loop: false,
         gainDb: item.gainDb,
         gainEvents,
-        duckingEvents: []
+        envelopeEvents: scheduledEnvelopeEvents(
+            item.spec,
+            item.t,
+            item.itemDurationSec,
+            elapsedIntoItemSec,
+            durationSec,
+            item.kind === 'sfx' ? duckIntervals : []
+        )
     };
 }
 
@@ -353,11 +384,13 @@ function scheduleBgm(
             durationSec,
             baseGain
         ),
-        duckingEvents: rectangularDuckEvents(
-            duckIntervals,
-            spec.ducking === true,
-            timelineStartSec,
-            durationSec
+        envelopeEvents: scheduledEnvelopeEvents(
+            spec,
+            timelineT,
+            timelineDurationSec - timelineT,
+            elapsedSec,
+            durationSec,
+            duckIntervals
         )
     };
 }
@@ -436,7 +469,7 @@ function scheduleSpeech(
         loop: false,
         gainDb,
         gainEvents,
-        duckingEvents: []
+        envelopeEvents: []
     };
 }
 
@@ -703,26 +736,76 @@ function bgmFadeGainEvents(
     }));
 }
 
-function rectangularDuckEvents(
-    intervals: DuckInterval[],
-    enabled: boolean,
-    timelineStartSec: number,
-    availableSec: number
+function scheduledEnvelopeEvents(
+    spec: WebAudioDecodedItem,
+    clipStartSec: number,
+    clipDurationSec: number,
+    elapsedIntoClipSec: number,
+    availableSec: number,
+    intervals: DuckInterval[]
 ): WebAudioGainEvent[] {
-    const timelineEndSec = timelineStartSec + availableSec;
-    const points = uniqueSorted([
-        timelineStartSec,
-        ...intervals.flatMap(interval => [interval.startSec, interval.endSec])
-            .filter(point => point > timelineStartSec && point < timelineEndSec)
-    ]);
-    const events: WebAudioGainEvent[] = [];
-    for (const point of points) {
-        const value = dbToLinear(computeBgmDuckGainDb(intervals, enabled, point));
-        if (events.length === 0 || events[events.length - 1].value !== value) {
-            events.push({ offsetSec: point - timelineStartSec, value, method: 'set' });
-        }
+    const keyframes = audioKeyframeEnvelope(spec.keyframes);
+    const duck = spec.ducking === true ? computeDuckEnvelope(intervals, {
+        duckDb: finiteRange(spec.duck_db, -40, 0),
+        attackSec: finiteRange(spec.duck_attack, 0, 2),
+        releaseSec: finiteRange(spec.duck_release, 0, 5),
+        clipStartSec,
+        clipDurationSec
+    }) : [];
+    const composed = composeEnvelopesDb(keyframes, duck);
+    if (composed.length === 0 || composed.every(point => Math.abs(point.gainDb) <= 1e-12)) return [];
+    return envelopeToGainEvents(sliceEnvelope(composed, elapsedIntoClipSec, availableSec));
+}
+
+function audioKeyframeEnvelope(value: unknown): EnvelopePoint[] {
+    if (!Array.isArray(value)) return [];
+    return value.flatMap(entry => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+        const point = entry as Record<string, unknown>;
+        if (!finiteNonNegative(point.t) || typeof point.gain_db !== 'number' || !Number.isFinite(point.gain_db)) return [];
+        return [{
+            t: point.t as number,
+            gainDb: point.gain_db,
+            ...(typeof point.easing === 'string' ? { easing: point.easing } : {})
+        }];
+    }).sort((left, right) => left.t - right.t);
+}
+
+function sliceEnvelope(points: EnvelopePoint[], startSec: number, durationSec: number): EnvelopePoint[] {
+    if (points.length === 0 || !(durationSec > 0)) return [];
+    const endSec = startSec + durationSec;
+    return [
+        { t: 0, gainDb: evaluateEnvelopeDb(points, startSec) },
+        ...points.filter(point => point.t > startSec && point.t < endSec).map(point => ({
+            ...point,
+            t: point.t - startSec
+        })),
+        { t: durationSec, gainDb: evaluateEnvelopeDb(points, endSec) }
+    ];
+}
+
+function normalizedDuckKeys(value: unknown): Array<'narration' | 'speech'> {
+    if (!Array.isArray(value)) return [...DEFAULT_DUCK_KEYS];
+    return [...new Set(value.filter((entry): entry is 'narration' | 'speech' =>
+        entry === 'narration' || entry === 'speech'))];
+}
+
+function mergeDuckIntervals(intervals: DuckInterval[]): DuckInterval[] {
+    const sorted = intervals.filter(interval => interval && finiteNonNegative(interval.startSec)
+        && finitePositive(interval.endSec) && interval.endSec > interval.startSec)
+        .map(interval => ({ ...interval })).sort((a, b) => a.startSec - b.startSec || a.endSec - b.endSec);
+    const result: DuckInterval[] = [];
+    for (const interval of sorted) {
+        const last = result[result.length - 1];
+        if (last && interval.startSec <= last.endSec) last.endSec = Math.max(last.endSec, interval.endSec);
+        else result.push(interval);
     }
-    return events;
+    return result;
+}
+
+function finiteRange(value: unknown, minimum: number, maximum: number): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) && value >= minimum && value <= maximum
+        ? value : undefined;
 }
 
 function normalizedTrack(value: unknown): number {

@@ -30,7 +30,7 @@ export const projectSpeechDeclarations = (EditStoreKernel as unknown as {
 interface PreviewGainEvent {
   offsetSec: number;
   value: number;
-  method: 'set' | 'linear';
+  method: 'set' | 'linear' | 'exponential';
 }
 
 interface PreviewScheduledItem {
@@ -47,7 +47,7 @@ interface PreviewScheduledItem {
   loop: boolean;
   gainDb: number;
   gainEvents: PreviewGainEvent[];
-  duckingEvents: PreviewGainEvent[];
+  envelopeEvents: PreviewGainEvent[];
 }
 
 interface PreviewScheduleDeclaration {
@@ -420,6 +420,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     for (const event of events) {
       const at = startTime + event.offsetSec;
       if (event.method === 'linear') param.linearRampToValueAtTime(event.value, at);
+      else if (event.method === 'exponential') param.exponentialRampToValueAtTime(event.value, at);
       else param.setValueAtTime(event.value, at);
     }
   };
@@ -440,12 +441,12 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       source.playbackRate.value = item.playbackRate;
       source.connect(baseGain);
       let tail: AudioNode = baseGain;
-      if (item.kind === 'bgm') {
-        const duckGain = context.createGain();
-        baseGain.connect(duckGain);
-        tail = duckGain;
-        gains.push(duckGain);
-        applyGainEvents(duckGain.gain, item.duckingEvents, contextStart + item.delaySec);
+      if (item.envelopeEvents.length > 0) {
+        const envelopeGain = context.createGain();
+        baseGain.connect(envelopeGain);
+        tail = envelopeGain;
+        gains.push(envelopeGain);
+        applyGainEvents(envelopeGain.gain, item.envelopeEvents, contextStart + item.delaySec);
       }
       tail.connect(context.destination);
       applyGainEvents(baseGain.gain, item.gainEvents, contextStart + item.delaySec);

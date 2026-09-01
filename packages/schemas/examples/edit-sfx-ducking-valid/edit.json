@@ -1,0 +1,19 @@
+{
+  "version": 0,
+  "output": { "width": 1280, "height": 720, "fps": 30 },
+  "source": { "path": "sample.mp4", "proxy": null },
+  "cuts": [{ "in": 0, "out": 5 }],
+  "overlays": [],
+  "audio": {
+    "sfx": [{
+      "id": "impact",
+      "path": "impact.wav",
+      "t": 0,
+      "ducking": true,
+      "duck_db": -9,
+      "duck_attack": 0.1,
+      "duck_release": 0.5
+    }],
+    "duck_keys": ["speech"]
+  }
+}
