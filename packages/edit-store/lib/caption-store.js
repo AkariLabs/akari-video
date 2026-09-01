@@ -11,6 +11,8 @@ exports.insertCaptionLine = insertCaptionLine;
 exports.removeCaptionLine = removeCaptionLine;
 const edit_store_1 = require("./edit-store");
 const caption_words_rederive_1 = require("./caption-words-rederive");
+const caption_style_preset_1 = require("./caption-style-preset");
+const textstyle_catalog_1 = require("./generated/textstyle-catalog");
 exports.CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
     'left', 'center', 'right',
@@ -18,7 +20,8 @@ exports.CAPTION_ZONES = [
 ];
 const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
 function parseCaptions(source) {
-    const root = JSON.parse(source);
+    let root = JSON.parse(source);
+    root = (0, caption_style_preset_1.applyCaptionStylePresets)(root, textstyle_catalog_1.TEXTSTYLE_CATALOG).root;
     const values = Array.isArray(root)
         ? root
         : isRecord(root) && Array.isArray(root.captions)

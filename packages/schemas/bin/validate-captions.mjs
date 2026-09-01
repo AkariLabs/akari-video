@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 const HEX_COLOR = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 const CAPTION_ID = /^c-\d{4}$/;
 const LEGACY_CAPTION_ID = /^caption-[A-Za-z0-9][A-Za-z0-9_-]*$/;
+const TEXTSTYLE_PRESET_ID = /^[a-z0-9][a-z0-9-]*$/;
 const CAPTION_STYLES = new Set(["karaoke", "pop", "reveal", "reveal-word"]);
 const TEXT_ALIGN_VALUES = new Set(["left", "center", "right"]);
 const VERTICAL_ALIGN_VALUES = new Set(["top", "middle", "bottom"]);
@@ -48,6 +49,7 @@ const CAPTION_FIELDS = new Set([
   "style",
   "display_text",
   "display_fragments",
+  "style_preset",
   "text_style",
 ]);
 const REQUIRED_CAPTION_FIELDS = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
@@ -240,6 +242,10 @@ function validateCaptionsArray(captions, optInDefaultTextStyle = null) {
     }
     if (hasOwn(caption, "display_fragments") && !Array.isArray(caption.display_fragments)) {
       fail(`${label}.display_fragments は配列である必要があります`);
+    }
+    if (hasOwn(caption, "style_preset")
+      && (typeof caption.style_preset !== "string" || !TEXTSTYLE_PRESET_ID.test(caption.style_preset))) {
+      fail(`${label}.style_preset は小文字英数字で始まる小文字英数字・ハイフンの id である必要があります`);
     }
     if (hasOwn(caption, "text_style")) {
       validateTextStyle(caption.text_style, `${label}.text_style`);

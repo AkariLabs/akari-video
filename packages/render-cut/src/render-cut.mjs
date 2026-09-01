@@ -770,12 +770,15 @@ export async function loadOverlays(projectRoot, edit) {
 
 /** 袋 id の stage 宣言を、展開後の写し（parentId = 袋 id）まで含めて解決する。 */
 export async function loadCaptions(projectRoot, edit) {
+  const { applyCaptionStylePresets, TEXTSTYLE_CATALOG } = packageRequire("../../edit-store/lib/index.js");
   const captionsPath = join(projectRoot, "captions.json");
   if (!(await isRegularFile(captionsPath))) {
     return { overlays: [], warnings: [], layout: null, captions: [], defaultTextStyle: null, emphasisWords: [] };
   }
+  const parsedCaptionsRoot = parseJson(await readFile(captionsPath, "utf8"), "captions.json");
+  const presetResolution = applyCaptionStylePresets(parsedCaptionsRoot, TEXTSTYLE_CATALOG);
   const captionsRoot = filterCaptionRootByExcludedIds(
-    parseJson(await readFile(captionsPath, "utf8"), "captions.json"),
+    presetResolution.root,
     collectExcludedCaptionIds(edit),
   );
   const captions = Array.isArray(captionsRoot)
@@ -789,7 +792,9 @@ export async function loadCaptions(projectRoot, edit) {
   const resolved = resolveCaptionDisplay(captionsRoot, captionDisplayEdit(edit), { output: edit.output });
   if (resolved) {
     return {
-      overlays: generateResolvedCaptionOverlays(resolved), warnings: [], layout: resolved,
+      overlays: generateResolvedCaptionOverlays(resolved),
+      warnings: presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`),
+      layout: resolved,
       captions, defaultTextStyle: Array.isArray(captionsRoot) ? null : captionsRoot.default_text_style ?? null,
       emphasisWords: Array.isArray(captionsRoot) ? edit.emphasis_words ?? [] : captionsRoot.emphasis_words ?? edit.emphasis_words ?? [],
     };
@@ -801,7 +806,7 @@ export async function loadCaptions(projectRoot, edit) {
     && Object.prototype.hasOwnProperty.call(captionsRoot, "emphasis_words")
     ? captionsRoot.emphasis_words
     : edit.emphasis_words;
-  const warnings = [];
+  const warnings = presetResolution.unresolved.map(id => `unknown caption style_preset ignored: ${id}`);
   const overlays = generateCaptionOverlays(captions, edit.cuts, {
     emphasisWords,
     defaultTextStyle,

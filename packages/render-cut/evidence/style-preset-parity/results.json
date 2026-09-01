@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "fixture": {
+    "duration_seconds": 3,
+    "dimensions": {
+      "width": 640,
+      "height": 360
+    },
+    "fps": 30,
+    "presets": [
+      "subtitle-standard",
+      "subtitle-variety",
+      "subtitle-news"
+    ],
+    "record_override": {
+      "id": "c-0002",
+      "field": "text_style.color",
+      "value": "#00ffff"
+    }
+  },
+  "commands": {
+    "render": "node packages/render-cut/bin/render-cut.mjs <project> --out exports/render.mp4 --engine osr",
+    "render_environment": "AKARI_OSR_ELECTRON=<temporary-tier2-adapter>",
+    "lint": "node packages/edit-lint/bin/edit-lint.mjs <project> --json",
+    "framemd5": "ffmpeg -v error -i <render.mp4> -f framemd5 -"
+  },
+  "checks": {
+    "render_reference": {
+      "pass": true,
+      "exit_code": 0,
+      "output_bytes": 29982,
+      "diagnostic": "PROGRESS frame=72 total=90 / PROGRESS frame=73 total=90 / PROGRESS frame=74 total=90 / PROGRESS frame=75 total=90 / PROGRESS frame=76 total=90 / PROGRESS frame=77 total=90 / PROGRESS frame=78 total=90 / PROGRESS frame=79 total=90 / PROGRESS frame=80 total=90 / PROGRESS frame=81 total=90 / PROGRESS frame=82 total=90 / PROGRESS frame=83 total=90 / PROGRESS frame=84 total=90 / PROGRESS frame=85 total=90 / PROGRESS frame=86 total=90 / PROGRESS frame=87 total=90 / PROGRESS frame=88 total=90 / PROGRESS frame=89 total=90 / PROGRESS frame=90 total=90 / PASS: exports/render.mp4"
+    },
+    "render_burned": {
+      "pass": true,
+      "exit_code": 0,
+      "output_bytes": 29982,
+      "diagnostic": "PROGRESS frame=72 total=90 / PROGRESS frame=73 total=90 / PROGRESS frame=74 total=90 / PROGRESS frame=75 total=90 / PROGRESS frame=76 total=90 / PROGRESS frame=77 total=90 / PROGRESS frame=78 total=90 / PROGRESS frame=79 total=90 / PROGRESS frame=80 total=90 / PROGRESS frame=81 total=90 / PROGRESS frame=82 total=90 / PROGRESS frame=83 total=90 / PROGRESS frame=84 total=90 / PROGRESS frame=85 total=90 / PROGRESS frame=86 total=90 / PROGRESS frame=87 total=90 / PROGRESS frame=88 total=90 / PROGRESS frame=89 total=90 / PROGRESS frame=90 total=90 / PASS: exports/render.mp4"
+    },
+    "framemd5": {
+      "pass": true,
+      "reference_sha256": "68ea5d456dd5dd09b4c60340eb9a8774da2590dc5bfdf654c8fbd0a7322b6c3b",
+      "burned_sha256": "68ea5d456dd5dd09b4c60340eb9a8774da2590dc5bfdf654c8fbd0a7322b6c3b"
+    },
+    "unknown_lint": {
+      "pass": true,
+      "warning_count": 1,
+      "error_count": 0,
+      "checks": [
+        "captions.style-preset-unknown"
+      ]
+    },
+    "unknown_render": {
+      "pass": true,
+      "exit_code": 0,
+      "output_bytes": 28045,
+      "diagnostic": "PROGRESS frame=72 total=90 / PROGRESS frame=73 total=90 / PROGRESS frame=74 total=90 / PROGRESS frame=75 total=90 / PROGRESS frame=76 total=90 / PROGRESS frame=77 total=90 / PROGRESS frame=78 total=90 / PROGRESS frame=79 total=90 / PROGRESS frame=80 total=90 / PROGRESS frame=81 total=90 / PROGRESS frame=82 total=90 / PROGRESS frame=83 total=90 / PROGRESS frame=84 total=90 / PROGRESS frame=85 total=90 / PROGRESS frame=86 total=90 / PROGRESS frame=87 total=90 / PROGRESS frame=88 total=90 / PROGRESS frame=89 total=90 / PROGRESS frame=90 total=90 / PASS: exports/render.mp4"
+    }
+  },
+  "verdict": "pass"
+}

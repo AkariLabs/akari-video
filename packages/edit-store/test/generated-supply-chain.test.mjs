@@ -14,6 +14,7 @@ const expectedSources = [
   'canonical.ts',
   'caption-display.ts',
   'caption-store.ts',
+  'caption-style-preset.ts',
   'caption-window.ts',
   'caption-words-rederive.ts',
   'cut-adjacency.ts',

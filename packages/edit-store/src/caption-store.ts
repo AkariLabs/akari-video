@@ -1,5 +1,7 @@
 import { findMatchingBracket, splitTopLevelElements, type SourceElement } from './edit-store';
 import { applyCaptionTextEdit, type CaptionTextEditRecord } from './caption-words-rederive';
+import { applyCaptionStylePresets } from './caption-style-preset';
+import { TEXTSTYLE_CATALOG } from './generated/textstyle-catalog';
 
 export const CAPTION_ZONES = [
     'top-left', 'top', 'top-right',
@@ -144,7 +146,8 @@ export function parseCaptions(source: string): {
     defaultTextStyle?: CaptionTextStyle;
     warnings: string[];
 } {
-    const root = JSON.parse(source) as unknown;
+    let root = JSON.parse(source) as unknown;
+    root = applyCaptionStylePresets(root, TEXTSTYLE_CATALOG).root;
     const values = Array.isArray(root)
         ? root
         : isRecord(root) && Array.isArray(root.captions)

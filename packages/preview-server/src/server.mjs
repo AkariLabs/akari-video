@@ -18,7 +18,11 @@ import {
 } from '../../edit-store/lib/write-gate.js';
 import { serializeCaptions, serializeEdit } from '../../edit-store/lib/canonical.js';
 import { openProject } from '../../edit-store/lib/project.js';
-import { projectSpeechDeclarations } from '../../edit-store/lib/index.js';
+import {
+  applyCaptionStylePresets,
+  projectSpeechDeclarations,
+  TEXTSTYLE_CATALOG,
+} from '../../edit-store/lib/index.js';
 import { resolveFfmpeg, resolveFfprobe } from '../../media-bin/src/index.mjs';
 import { prepareAlphaLayers } from '../../media-bin/src/alpha-intake.mjs';
 import {
@@ -553,7 +557,7 @@ function addOutputRoutes(routes) {
     const cf = captionsFile();
     const r = outReadJson(fs.existsSync(cf) ? cf : null);
     if (!r || r.error) return respond(res, 200, []);
-    respond(res, 200, r.data);
+    respond(res, 200, applyCaptionStylePresets(r.data, TEXTSTYLE_CATALOG).root);
   };
 }
 
@@ -658,13 +662,14 @@ const router = {
   'GET /api/captions.json': (req, res) => {
     const r = readJson(path.join(projectRoot, 'captions.json'));
     if (r.error) return respond(res, 200, []);
-    if (Array.isArray(r.data) || !r.data || typeof r.data !== 'object' || r.data.display_policy === undefined) {
-      return respond(res, 200, r.data);
+    const captionsRoot = applyCaptionStylePresets(r.data, TEXTSTYLE_CATALOG).root;
+    if (Array.isArray(captionsRoot) || !captionsRoot || typeof captionsRoot !== 'object' || captionsRoot.display_policy === undefined) {
+      return respond(res, 200, captionsRoot);
     }
     const edit = readJson(path.join(projectRoot, 'edit.json'));
     if (edit.error) return respond(res, 422, { error: 'edit.json is required to resolve caption display policy' });
     try {
-      respond(res, 200, resolveCaptionApiPayload(r.data, edit.data));
+      respond(res, 200, resolveCaptionApiPayload(captionsRoot, edit.data));
     } catch (error) {
       respond(res, 422, { error: error instanceof Error ? error.message : String(error) });
     }
