@@ -23,3 +23,22 @@ test("parseArguments rejects the retired engine", () => {
     (error) => error instanceof RefusalError && error.exitCode === 2,
   );
 });
+
+test("parseArguments accepts --gpu-preference auto|off|force in both spellings", () => {
+  assert.equal(parseArguments(["/project", "--gpu-preference", "auto"]).gpuPreference, "auto");
+  assert.equal(parseArguments(["/project", "--gpu-preference", "off"]).gpuPreference, "off");
+  assert.equal(parseArguments(["/project", "--gpu-preference=force"]).gpuPreference, "force");
+  assert.equal(parseArguments(["/project", "--engine", "gpu", "--gpu-preference", "force"]).engine, "gpu");
+});
+
+test("parseArguments rejects an unknown --gpu-preference value and a missing value", () => {
+  assert.throws(() => parseArguments(["/project", "--gpu-preference", "always"]), /--gpu-preference must be one of auto\|off\|force, got: always/u);
+  assert.throws(() => parseArguments(["/project", "--gpu-preference=1"]), /--gpu-preference must be one of auto\|off\|force, got: 1/u);
+  assert.throws(() => parseArguments(["/project", "--gpu-preference"]), /--gpu-preference requires a value/u);
+});
+
+test("parseArguments leaves gpuPreference undefined when the flag is omitted (env → auto downstream)", () => {
+  const options = parseArguments(["/project", "--engine", "gpu"]);
+  assert.equal(Object.hasOwn(options, "gpuPreference"), true);
+  assert.equal(options.gpuPreference, undefined);
+});

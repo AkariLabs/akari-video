@@ -15,6 +15,7 @@
   const CAPTION_MEASURE_UNSTABLE_REASON = "caption-measure-unstable";
   const CAPTION_MEASURE_DIFF_LIMIT = 20;
   const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";
+  const GPU_DIAGNOSTICS_MARKER = "AKARI_GPU_DIAGNOSTICS:";
   const CAPTION_RECT_KEYS = ["x", "y", "width", "height", "right", "bottom"];
   const CAPTION_BATCH_MAX_UNITS = 8;
   const CAPTION_BATCH_MAX_HEIGHT_PX = 4096;
@@ -1692,7 +1693,17 @@
           hardwareAcceleration,
         });
       } else if (!captureMode && !config.verifyFrames) {
-        throw new Error(`WebCodecs H.264 config is unsupported: ${hardwareAcceleration} (${describeEncoderTarget(config)})`);
+        // 失敗時の run.json が renderer を捨てないよう、診断（renderer / encoder_support）を error に添える。
+        // executeJavaScript の reject で main へ渡るとき Error の付随プロパティは落ちるため、captionMeasureDiffs と同じく
+        // メッセージ末尾に marker + encodeURIComponent(JSON) も付ける（main 側 extractGpuDiagnostics が両方を見る）。
+        const gpuDiagnostics = { renderer, encoder_support: encoderSupport };
+        const unsupported = new Error(
+          `WebCodecs H.264 config is unsupported: ${hardwareAcceleration} (${describeEncoderTarget(config)})`
+          + ` renderer=${renderer?.renderer ?? "unknown"}`
+          + ` ${GPU_DIAGNOSTICS_MARKER}${encodeURIComponent(JSON.stringify(gpuDiagnostics))}`,
+        );
+        unsupported.gpuDiagnostics = gpuDiagnostics;
+        throw unsupported;
       }
       for (let sequenceIndex = 0; sequenceIndex < sequenceLength; sequenceIndex += 1) {
         const frameNumber = captureMode ? frameSequence[sequenceIndex] : sequenceIndex;

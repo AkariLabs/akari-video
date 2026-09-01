@@ -294,3 +294,30 @@ test("resolveOsrLauncher はインストール済みデスクトップアプリ�
   assert.equal(skipped.tier, 3);
   assert.equal(skipped.skippedInstalledDesktop, true);
 });
+
+import { captureFramesWithOsr } from "../src/index.mjs";
+
+test("exportWithOsr / captureFramesWithOsr は launcherRunner に exit: \"osr\" を渡す（p・r1 裁定 1 改訂: OSR 出口の auto は GPU 設定を書かない）", async () => {
+  const root = await mkdtemp(join(tmpdir(), "osr-index-exit-"));
+  try {
+    let exportOptions = null;
+    await assert.rejects(exportWithOsr({
+      projectRoot: root, out: join(root, "out.mp4"), fps: 30, width: 16, height: 16, duration: 1, frames: 30, quality: "high", encoder: "x264",
+      env: {}, io: { log() {}, error() {} },
+      launcher: { tier: 2, kind: "npm-electron", executable: "/npm/electron" },
+      launcherRunner: async (_launcher, options) => { exportOptions = options; throw new Error("stop after launch"); },
+    }), /stop after launch/u);
+    assert.equal(exportOptions.exit, "osr");
+    let captureOptions = null;
+    await assert.rejects(captureFramesWithOsr({
+      projectRoot: root, outputDirectory: join(root, "frames"), frameNumbers: [0], fps: 30, width: 16, height: 16, duration: 1, frames: 30,
+      env: {}, io: { log() {}, error() {} },
+      launcher: { tier: 2, kind: "npm-electron", executable: "/npm/electron" },
+      launcherRunner: async (_launcher, options) => { captureOptions = options; throw new Error("stop after launch"); },
+    }), /stop after launch/u);
+    assert.equal(captureOptions.exit, "osr");
+    assert.ok(captureOptions.extraArgs.includes("--capture-frames"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

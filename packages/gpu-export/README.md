@@ -130,6 +130,58 @@ The installed desktop app launcher (tier 1) is currently excluded fail-closed; s
 bundled through the shell's `extraResources`. Starting with v0.1.29, Windows `--engine auto` uses GPU
 when eligible and OSR otherwise; Linux still requires explicit `--engine gpu` selection.
 
+### Hybrid GPU laptops (Intel iGPU + NVIDIA / AMD dGPU)
+
+Facts (measured 2026-09-01 on an RTX 5060 Laptop + Intel UHD machine, Electron 39): Windows starts the
+export child process — the npm `electron.exe` (tier 2) and the installed `AKARI Video.exe` (tier 1)
+alike — on the power-saving iGPU by default, and the Media Foundation H.264 encoder that WebCodecs
+`prefer-hardware` needs is then unavailable at every resolution (4K and 1080p both report
+`unsupported`). Chromium switches such as `--force_high_performance_gpu` or `--use-adapter-luid` move
+only ANGLE / WebGL to the dGPU; the encoder stays on the iGPU. The only setting that works is the
+per-app GPU preference Windows keeps under `HKCU\Software\Microsoft\DirectX\UserGpuPreferences`
+(value name = full executable path, data `GpuPreference=2;`), which is evaluated when the process is
+created.
+
+The launcher (`packages/osr-export/src/gpu-preference.mjs`, shared by the GPU and OSR exits) therefore
+writes that value for the export executable right before `spawn` and restores it after the child
+closes — deletes it when there was none, or writes the previous value back — on every exit code and
+even when the spawn itself fails. No restart, no administrator rights, and nothing is left behind, so
+the app keeps its previous GPU assignment. With the default `auto` this happens for the **GPU exit only**
+(`--engine gpu`, and capture through the GPU runtime): the OSR exit encodes with ffmpeg, gains nothing from
+the dGPU, and on the RTX its offscreen paint returned an empty frame 0 in a share of runs (current code 1 of 4,
+pre-T5 code 3 of 4, never on the iGPU), so it keeps the default adapter (`reason: not-gpu-exit`) unless
+`force` is given. Before the registry write a sidecar
+`<AKARI_HOME or ~/.akari>/gpu-preference-override.json` (`{ version, executable, previous, written_at }`)
+is written and it is deleted after the restore; if the parent dies in between, the next export restores
+from the sidecar first (`recovered_stale: true`). The receipt records the decision under
+`provenance.gpu_preference` (`policy / exit / applied / previous / restored / reason / recovered_stale`) and the
+child's `run.json` records the adapter it actually ran on under `gpu.devices`
+(`vendor_id / device_id / device_string / active / gpu_preference` from `app.getGPUInfo("complete")`,
+cut off after 3 seconds).
+
+| Setting | Value | Effect |
+|---|---|---|
+| `AKARI_EXPORT_GPU_PREFERENCE` / `render-cut --gpu-preference` | `auto` (default) | GPU exit only. Write `GpuPreference=2;` only when the executable has no per-app value. A value the user pinned in Windows "Graphics settings" (for example power saving, `GpuPreference=1;`) is respected and left alone (`reason: user-preference-respected`). The OSR exit is skipped (`reason: not-gpu-exit`). |
+| | `off` | Never touch the registry (`reason: policy-off`). |
+| | `force` | Write `GpuPreference=2;` even over a pinned value and write the pinned value back afterwards — on both exits (the only way to put the OSR exit on the dGPU). |
+| `AKARI_EXPORT_ALLOW_DESKTOP=0` | | Development escape hatch: skip the installed desktop app (tier 1) so the repository's runtime runs through the npm `electron.exe` (tier 2). An explicit `allowDesktop` argument wins over the variable. |
+
+The override is a no-op on macOS and Linux (`reason: platform`) and on `--soft` runs (`reason: soft`).
+
+Reading the failure line: when the hardware encoder is still unavailable, render-cut prints one
+Japanese line as its last stderr line (`render-cut execution error: ...`) that names the adapter the
+export ran on, why no switch happened, and what to do next, ending with the original English error in
+parentheses (`（原因: WebCodecs H.264 config is unsupported: ... renderer=<UNMASKED_RENDERER>）`):
+
+- `内蔵 GPU（<iGPU>）で動作しています ... 省電力に固定されているため自動切り替えしませんでした` — the user pinned power saving; change it in Graphics settings or rerun with `--gpu-preference force`.
+- `... 高パフォーマンス GPU（<dGPU>）への自動切り替えが off です` — rerun with `AKARI_EXPORT_GPU_PREFERENCE=auto`.
+- `GPU 設定（<executable>）を書き込みましたが反映されませんでした` — the value was written but Windows still chose the iGPU; set that executable to high performance in Graphics settings.
+- `高パフォーマンス GPU（<dGPU>）で動作していますが ... 応答しません` — the dGPU was used but its encoder does not answer; update the driver or use `--engine osr`.
+- `この GPU（<adapter>）にはハードウェア H.264 エンコーダがありません` — not a hybrid machine; use `--engine osr` (`GPU 情報は取得できませんでした` is appended when `app.getGPUInfo` timed out).
+
+The failed run is kept at `.akari/gpu-run-failed.json` with `gpu.renderer`, `gpu.encoder_support`, and
+`gpu.devices` filled in.
+
 ## Development
 
 ```sh

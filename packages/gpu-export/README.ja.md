@@ -121,6 +121,49 @@ doctor の期待行は `gpu_export ok (npm-electron launcher tier 2)` です。
 `packages/gpu-export` が同梱されることも前提です。v0.1.29 以降、Windows の `--engine auto` は適格なら
 GPU、不適格なら OSR を使います。Linux は引き続き `--engine gpu` の明示が必要です。
 
+### ハイブリッド GPU のノート PC（Intel iGPU + NVIDIA / AMD dGPU）
+
+事実（2026-09-01・RTX 5060 Laptop + Intel UHD 機・Electron 39 で実測）: Windows は書き出しの子プロセス
+（npm の `electron.exe` = tier 2 も、インストール済み `AKARI Video.exe` = tier 1 も）を既定で省電力側の iGPU に
+載せ、WebCodecs `prefer-hardware` が必要とする Media Foundation の H.264 エンコーダは解像度に関係なく使えません
+（4K / 1080p とも `unsupported`）。Chromium のスイッチ（`--force_high_performance_gpu` / `--use-adapter-luid`）は
+ANGLE / WebGL を dGPU に移すだけで、エンコーダは iGPU 側のままです。効くのは Windows のアプリ別 GPU 設定
+（`HKCU\Software\Microsoft\DirectX\UserGpuPreferences`・値名 = exe のフルパス・データ `GpuPreference=2;`）だけで、
+これはプロセス生成時に評価されます。
+
+そこで launcher（`packages/osr-export/src/gpu-preference.mjs`・GPU / OSR 両出口で共通）は、`spawn` の直前に書き出し
+実行ファイルの値を書き、子プロセスの終了後（exit code に関わらず・spawn 自体の失敗時も）に元へ戻します — 値が無かったなら
+削除、あったなら元の値を書き戻します。再起動も管理者権限も不要で、何も残らないのでアプリ本体の GPU 割り当ては変わりません。
+既定の `auto` で書くのは **GPU 出口だけ**（`--engine gpu`・GPU ランタイム経由の capture）です。OSR 出口は ffmpeg で符号化するので dGPU の利点が無く、
+RTX 上では frame 0 の offscreen paint が空になる走行がある（現行コード 4 走中 1 敗・pre-T5 コード 4 走中 3 敗・iGPU では 0）ため、`force` を
+指定しない限り既定の GPU のまま（`reason: not-gpu-exit`）です。
+レジストリを書く前に sidecar `<AKARI_HOME または ~/.akari>/gpu-preference-override.json`
+（`{ version, executable, previous, written_at }`）を書き、復元後に削除します。途中で親プロセスが死んだ場合は次回の
+書き出しが先に sidecar から復元します（`recovered_stale: true`）。判断は receipt の `provenance.gpu_preference`
+（`policy / exit / applied / previous / restored / reason / recovered_stale`）に、子プロセスが実際に載った GPU は run.json の
+`gpu.devices`（`app.getGPUInfo("complete")` の `vendor_id / device_id / device_string / active / gpu_preference`・3 秒で打ち切り）に残ります。
+
+| 設定 | 値 | 効果 |
+|---|---|---|
+| `AKARI_EXPORT_GPU_PREFERENCE` / `render-cut --gpu-preference` | `auto`（既定） | GPU 出口だけ。実行ファイルにアプリ別の値が無いときだけ `GpuPreference=2;` を書く。利用者が Windows の「グラフィックスの設定」で固定した値（省電力 = `GpuPreference=1;` など）は尊重して触らない（`reason: user-preference-respected`）。OSR 出口は skip（`reason: not-gpu-exit`）。 |
+| | `off` | レジストリに触らない（`reason: policy-off`）。 |
+| | `force` | 固定値があっても `GpuPreference=2;` を書き、終了後に固定値へ戻す。両出口に効く（OSR 出口を dGPU に載せる唯一の手段）。 |
+| `AKARI_EXPORT_ALLOW_DESKTOP=0` | | 開発用の脱出口。インストール済みアプリ（tier 1）を候補から外し、リポジトリ側のランタイムを npm の `electron.exe`（tier 2）で走らせる。明示引数 `allowDesktop` が env より優先。 |
+
+macOS / Linux（`reason: platform`）と `--soft`（`reason: soft`）では何もしません。
+
+失敗文の読み方: それでもハードウェアエンコーダが使えないとき、render-cut は stderr の最終行に日本語 1 行
+（`render-cut execution error: ...`）を出します。どの GPU に載ったか・なぜ切り替えなかったか・次に何をするかを述べ、
+末尾に元の英語エラーを添えます（`（原因: WebCodecs H.264 config is unsupported: ... renderer=<UNMASKED_RENDERER>）`）。
+
+- `内蔵 GPU（<iGPU>）で動作しています ... 省電力に固定されているため自動切り替えしませんでした` — 利用者が省電力に固定している。「グラフィックスの設定」で変更するか `--gpu-preference force` で再実行。
+- `... 高パフォーマンス GPU（<dGPU>）への自動切り替えが off です` — `AKARI_EXPORT_GPU_PREFERENCE=auto` で再実行。
+- `GPU 設定（<実行ファイル>）を書き込みましたが反映されませんでした` — 値は書けたが Windows が iGPU を選んだ。「グラフィックスの設定」でその実行ファイルを高パフォーマンスに。
+- `高パフォーマンス GPU（<dGPU>）で動作していますが ... 応答しません` — dGPU に載ったがエンコーダが応答しない。ドライバ更新か `--engine osr`。
+- `この GPU（<adapter>）にはハードウェア H.264 エンコーダがありません` — ハイブリッド機ではない。`--engine osr` で再実行（`app.getGPUInfo` が取れなかったときは `GPU 情報は取得できませんでした` が付く）。
+
+失敗した run は `.akari/gpu-run-failed.json` に `gpu.renderer` / `gpu.encoder_support` / `gpu.devices` 付きで残ります。
+
 ## 開発
 
 ```sh

@@ -1,12 +1,15 @@
+import { normalizeGpuPreferenceRecord } from "./gpu-preference.mjs";
 import { resolveMemoryBudget } from "./memory.mjs";
 
-export function buildOsrReceipt({ tier, verify = "stamp", memory = {}, run = null, finalVerify = null, profile = "gpu", viewport = null } = {}) {
+export function buildOsrReceipt({ tier, verify = "stamp", memory = {}, run = null, finalVerify = null, profile = "gpu", viewport = null, gpuPreference = null } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
   return {
     provenance: {
       engine: "osr",
       launcher_tier: tier ?? null,
       verify,
+      // Windows のアプリ別 GPU 設定の一時上書き（launchElectronExport の gpuPreference 記録・契約 §11.7）。他 OS は理由だけ。
+      gpu_preference: normalizeGpuPreferenceRecord(gpuPreference),
     },
     memory: {
       profile: memory.profile ?? fallbackBudget.profile,

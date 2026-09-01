@@ -6,6 +6,8 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { withGpuPreference } from "./gpu-preference.mjs";
+
 export const CHROMIUM_SWITCHES = Object.freeze([
   "--force-device-scale-factor=1",
   "--force-color-profile=srgb",
@@ -23,6 +25,10 @@ export const SOFT_CHROMIUM_SWITCHES = Object.freeze([
 // 子の AKARI Video / npm Electron も Node モードで起動する（tier 1 は Chromium スイッチを bad option で拒否して exit 9、
 // tier 2 は electron-main.mjs が素の Node で走り app が undefined）。名前の比較は Windows の大文字小文字非区別に合わせる。
 export const ELECTRON_CHILD_ENV_BLOCKLIST = Object.freeze(["ELECTRON_RUN_AS_NODE"]);
+// 開発用の脱出口: allowDesktop が未指定のとき AKARI_EXPORT_ALLOW_DESKTOP=0 で tier 1（インストール済みアプリ）を候補から外す。
+// インストール済みアプリは --akari-main を resourcesPath 優先で解決するため、リポジトリ側の変更が実機に乗らない。
+// 明示引数（allowDesktop: true / false）は env より優先する。
+export const EXPORT_ALLOW_DESKTOP_ENV = "AKARI_EXPORT_ALLOW_DESKTOP";
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRequire = createRequire(import.meta.url);
 
@@ -35,14 +41,16 @@ export async function resolveElectronLauncher({
   runtimePathResolver = desktopRuntimePath,
   // false のとき tier 1（インストール済みデスクトップアプリ）を候補から外す。
   // gpu-export が使う: shell の --render は OSR ランタイムしか読まないため、GPU 用 main を tier 1 に渡せない（v0.1.25 で判明）。
-  allowDesktop = true,
+  // 未指定（undefined）なら env AKARI_EXPORT_ALLOW_DESKTOP=0 で false、それ以外は従来どおり true。
+  allowDesktop = undefined,
   // false のとき「インストール済みデスクトップアプリ」（/Applications 等の既定候補）だけを候補から外す。
   // env.AKARI_OSR_ELECTRON の明示指定は尊重する。resolveOsrLauncher（製品入口）が使う:
   // インストール済みアプリの --render は Theia の起動処理と競合して落ちる（v0.1.26 実ビルドで実証・osr 契約 §11.5）。
   allowInstalledDesktop = true,
 } = {}) {
   let skippedInstalledDesktop = false;
-  for (const executable of allowDesktop ? desktopCandidates({ env, platform, homeDirectory }) : []) {
+  const desktopAllowed = allowDesktop === undefined ? env[EXPORT_ALLOW_DESKTOP_ENV] !== "0" : Boolean(allowDesktop);
+  for (const executable of desktopAllowed ? desktopCandidates({ env, platform, homeDirectory }) : []) {
     const explicit = executable === env.AKARI_OSR_ELECTRON;
     if (!allowInstalledDesktop && !explicit) { skippedInstalledDesktop = true; continue; }
     const runtime = runtimePathResolver(executable, platform);
@@ -79,6 +87,12 @@ export async function launchElectronExport(launcher, options, {
   spawnImpl = spawn,
   argumentBuilder = buildElectronArguments,
   env = process.env,
+  // Windows のアプリ別 GPU 設定の一時上書き（gpu-preference.mjs・osr 契約 §11.7）。テストは registry / sidecar を注入する。
+  platform = process.platform,
+  registry = undefined,
+  sidecar = undefined,
+  executableExists = undefined,
+  stderr = undefined,
 } = {}) {
   if (launcher.tier === 3) {
     throw new Error(`osr-export error: Electron launcher unavailable: ${launcher.reason ?? "Electron unavailable"}`);
@@ -93,13 +107,21 @@ export async function launchElectronExport(launcher, options, {
     progressLines += lines.filter((line) => line.startsWith("PROGRESS frame=")).length;
     options.onStdout?.(text);
   };
-  await spawnAndWait(launcher.executable, args, { spawnImpl, env, onStdout, onStderr: options.onStderr });
+  // write（HKCU）→ spawn → 子の close → finally で restore。他 OS / soft / off は記録に理由だけ残して spawn する。
+  const { gpuPreference } = await withGpuPreference(
+    launcher,
+    options,
+    () => spawnAndWait(launcher.executable, args, { spawnImpl, env, onStdout, onStderr: options.onStderr }),
+    { env, platform, registry, sidecar, executableExists, stderr },
+  );
   if (pendingStdout.startsWith("PROGRESS frame=")) progressLines += 1;
   const output = await stat(options.out).catch(() => null);
   if (!output || output.size === 0) {
-    throw new Error(`osr-export error: OSR Electron は exit 0 で終了しましたが出力がありません（PROGRESS 行 ${progressLines}）。起動中の AKARI Video デスクトップアプリの単一インスタンスロックに弾かれた可能性があります（--user-data-dir の伝播を確認）: ${options.out}`);
+    const error = new Error(`osr-export error: OSR Electron は exit 0 で終了しましたが出力がありません（PROGRESS 行 ${progressLines}）。起動中の AKARI Video デスクトップアプリの単一インスタンスロックに弾かれた可能性があります（--user-data-dir の伝播を確認）: ${options.out}`);
+    error.gpuPreference = gpuPreference;
+    throw error;
   }
-  return { launcher };
+  return { launcher, gpuPreference };
 }
 
 export function buildElectronArguments(launcher, options) {

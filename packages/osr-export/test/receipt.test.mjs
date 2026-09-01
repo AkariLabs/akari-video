@@ -52,3 +52,21 @@ test("OSR receipt は machine_floor と total_memory_bytes を snapshot から s
   assert.equal(fallback.memory.total_memory_bytes, machine.totalMemoryBytes);
   assert.equal(typeof fallback.memory.total_memory_bytes, "number");
 });
+
+test("OSR receipt は provenance.gpu_preference に Windows の GPU 設定一時上書きの記録（exit 込み・q）を snake_case で載せる", () => {
+  const applied = buildOsrReceipt({ tier: 2, gpuPreference: {
+    platform: "win32", policy: "auto", exit: "osr", executable: "C:\\x\\electron.exe", applied: true, previous: null, restored: true, reason: "unset", recovered_stale: true,
+  } });
+  assert.deepEqual(applied.provenance.gpu_preference, {
+    policy: "auto", exit: "osr", applied: true, previous: null, restored: true, reason: "unset", recovered_stale: true,
+  });
+  const skipped = buildOsrReceipt({ tier: 1, gpuPreference: { platform: "darwin", policy: "auto", reason: "platform", applied: false, restored: null } });
+  assert.deepEqual(skipped.provenance.gpu_preference, {
+    policy: "auto", exit: null, applied: false, previous: null, restored: null, reason: "platform", recovered_stale: false,
+  });
+  const osrAuto = buildOsrReceipt({ tier: 2, gpuPreference: { platform: "win32", policy: "auto", exit: "osr", applied: false, reason: "not-gpu-exit" } });
+  assert.deepEqual(osrAuto.provenance.gpu_preference, {
+    policy: "auto", exit: "osr", applied: false, previous: null, restored: null, reason: "not-gpu-exit", recovered_stale: false,
+  });
+  assert.equal(buildOsrReceipt({ tier: 2 }).provenance.gpu_preference, null);
+});

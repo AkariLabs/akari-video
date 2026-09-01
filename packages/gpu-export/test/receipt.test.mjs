@@ -190,3 +190,17 @@ test("GPU receipt carries machine_floor and total_memory_bytes from the run memo
   assert.equal(fallback.memory.total_memory_bytes, machine.totalMemoryBytes);
   assert.equal(fallback.memory.hard_stop_bytes, machine.hardStopBytes);
 });
+
+test("GPU receipt carries provenance.gpu_preference (Windows per-app GPU override record, exit included: q) in snake_case", () => {
+  const forced = buildGpuReceipt({ tier: 2, gpuPreference: {
+    platform: "win32", policy: "force", exit: "gpu", executable: "C:\\x\\electron.exe", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
+  } });
+  assert.deepEqual(forced.provenance.gpu_preference, {
+    policy: "force", exit: "gpu", applied: true, previous: "GpuPreference=1;", restored: true, reason: "forced", recovered_stale: false,
+  });
+  const respected = buildGpuReceipt({ tier: 2, gpuPreference: { platform: "win32", policy: "auto", applied: false, previous: "GpuPreference=1;", restored: null, reason: "user-preference-respected" } });
+  assert.equal(respected.provenance.gpu_preference.applied, false);
+  assert.equal(respected.provenance.gpu_preference.reason, "user-preference-respected");
+  assert.equal(buildGpuReceipt({ tier: 2 }).provenance.gpu_preference, null);
+  assert.equal(buildGpuReceipt({ tier: 2, run: { status: "completed" } }).provenance.mux, "mp4box-direct");
+});

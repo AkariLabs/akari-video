@@ -20,6 +20,8 @@ export async function exportWithOsr({
   encoder,
   soft = false,
   verify = "stamp",
+  // Windows のアプリ別 GPU 設定の一時上書き方針（auto | off | force）。undefined なら env AKARI_EXPORT_GPU_PREFERENCE → auto。
+  gpuPreference = undefined,
   ffmpegCommand = null,
   ffprobeCommand = null,
   env = process.env,
@@ -35,12 +37,15 @@ export async function exportWithOsr({
   }
   const videoOnlyPath = `${out}.osr-video.mp4`;
   try {
-    await launcherRunner(launcher, {
+    const launched = await launcherRunner(launcher, {
       projectRoot, out: videoOnlyPath, fps, width, height, duration, frames, quality, encoder,
       soft: runtime.soft,
       verify: runtime.verify,
       queueDepth: runtime.queueDepth,
       dumpFrames: runtime.dumpFrames,
+      gpuPreference,
+      // OSR 出口: auto では Windows の GPU 設定を書かない（force のときだけ・契約 §11.7 裁定 1 改訂）
+      exit: "osr",
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
@@ -81,7 +86,11 @@ export async function exportWithOsr({
     return {
       launcher,
       run,
-      receipt: buildOsrReceipt({ tier: launcher.tier, verify: runtime.verify, memory: run?.memory, viewport: run?.viewport ?? null, run: receiptRunPath, finalVerify, profile: runtime.soft ? "soft" : "gpu" }),
+      receipt: buildOsrReceipt({
+        tier: launcher.tier, verify: runtime.verify, memory: run?.memory, viewport: run?.viewport ?? null, run: receiptRunPath, finalVerify,
+        profile: runtime.soft ? "soft" : "gpu",
+        gpuPreference: launched?.gpuPreference ?? null,
+      }),
     };
   } finally {
     await rm(videoOnlyPath, { force: true }).catch(() => {});
@@ -99,6 +108,7 @@ export async function captureFramesWithOsr({
   duration,
   frames = Math.round(duration * fps),
   soft = false,
+  gpuPreference = undefined,
   env = process.env,
   io = console,
   launcherResolver = resolveElectronLauncher,
@@ -129,6 +139,8 @@ export async function captureFramesWithOsr({
     soft: runtime.soft,
     verify: "stamp",
     queueDepth: runtime.queueDepth,
+    gpuPreference,
+    exit: "osr",
     extraArgs: [
       ...(editPath ? ["--edit", editPath] : []),
       "--capture-frames", requestedFrames.join(","),
