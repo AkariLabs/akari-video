@@ -1,0 +1,5 @@
+fixtures/
+runs/
+evidence/
+console*.log
+*.png

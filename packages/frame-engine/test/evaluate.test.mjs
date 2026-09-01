@@ -253,6 +253,20 @@ test('evaluateFrame decodes matte color and mask at one time on independent stre
   frame.close();
 });
 
+test('evaluateFrame preserves filter slots without decoding them', async () => {
+  const surface = { canvas:{}, width:2, height:2, async readRgba(){ return new Uint8Array(16); }, recordSink(){}, close(){} };
+  let received;
+  const compositor = { kind:'webgl2', async compose(_base, layers){ received = layers; return surface; }, dispose(){} };
+  const frame = await evaluateFrame({
+    timeUs:0, base:[],
+    layers:[{ id:'f', kind:'filter', filter:{type:'invert'}, corners:[[0,0],[1,0],[0,1],[1,1]], opacity:1 }],
+    output:{ width:2,height:2,colorSpace:'bt709-limited' },
+  }, { compositor, metrics:new FrameMetrics() });
+  assert.deepEqual(received, [{ kind:'filter' }]);
+  assert.deepEqual(frame.nativeFormats, []);
+  frame.close();
+});
+
 test('evaluateFrame loads a still image base without decoding and passes the bitmap through both upload paths (issue #30)', async () => {
   const bitmap = { bitmap: { close() {} }, width: 2, height: 2 };
   let loads = 0;

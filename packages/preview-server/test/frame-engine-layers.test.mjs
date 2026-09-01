@@ -5,6 +5,8 @@ import test from 'node:test';
 
 const source = await readFile(path.resolve(import.meta.dirname, '../src/frame-engine-client.ts'), 'utf8');
 const serverSource = await readFile(path.resolve(import.meta.dirname, '../src/server.mjs'), 'utf8');
+const appSource = await readFile(path.resolve(import.meta.dirname, '../public/app.js'), 'utf8');
+const projectionSource = await readFile(path.resolve(import.meta.dirname, '../src/preview-edit.mjs'), 'utf8');
 const browserTestSource = await readFile(
   path.resolve(import.meta.dirname, 'frame-engine-preview-browser.l1.mjs'),
   'utf8',
@@ -30,6 +32,15 @@ test('frame engine evaluation table supplies edit layers without an unsupported 
   assert.doesNotMatch(source, /private prefetch\(|private scheduleWarmup\(/u);
   assert.match(serverSource, /frameEngine:\s*\{ intake, skipped, warnings: prepared\.warnings \}/u);
   assert.doesNotMatch(serverSource, /engine_src|engine_skip|frameEngineWarnings/u);
+});
+
+test('frame-engine mode parses filter LUTs and suppresses the DOM approximation', () => {
+  assert.match(source, /resolved\.filter\.cubeText/u);
+  assert.match(source, /lut:\s*parseCube\(resolved\.filter\.cubeText\)/u);
+  assert.match(projectionSource, /filter layer LUT \$\{id\} could not be resolved/u);
+  assert.match(projectionSource, /cubeText:\s*resolveVideoFxLut\(projectRoot, id\)/u);
+  assert.match(appSource, /if \(layer\.kind === 'filter'\) \{\s+if \(frameEngineEnabled\) continue;/u);
+  assert.match(appSource, /el\.dataset\.layerKind = 'filter'/u);
 });
 
 test('frame engine browser L1 covers default direct and forced copyTo upload paths', () => {

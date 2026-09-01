@@ -1,0 +1,102 @@
+{
+  "note": "issue-36 fixture の複製を akari capture --engine osr -t 2.0 --separate --full で書き出し、BEFORE(HEAD)/AFTER(本ブランチ) の PNG sha256 を比較した。AKARI_OSR_SOFT=1（この機材の offscreen GPU が空ビットマップを返すため）。",
+  "before": {
+    "engine": {
+      "requested": "osr",
+      "resolved": "osr"
+    },
+    "renderer": "osr-export@0.0.0",
+    "verify": {
+      "mode": "stamp",
+      "matched": true,
+      "frames": [
+        {
+          "frameNumber": 60,
+          "matched": true,
+          "decodedFrameNumber": 60,
+          "expectedFrameNumber": 60,
+          "retries": 6
+        }
+      ]
+    },
+    "edit_sha256": "4357498137bd78817a9a78b1a71101dc95f826cca0b06f9c9830dabb47e7744a",
+    "materials": [
+      {
+        "path": "overlays/scene-issue-36.html",
+        "sha256": "c471629d032767980b288700f7cac4abfd9011acb9214ff069b81be103af2ee4"
+      },
+      {
+        "path": "assets/base.png",
+        "sha256": "64c095670c5206ad7adb7513a45d6017f39538c192c32d916cb56ff6874421eb"
+      }
+    ],
+    "images": [
+      {
+        "kind": "frame",
+        "timecode": "2s",
+        "width": 1280,
+        "height": 720
+      },
+      {
+        "kind": "frame",
+        "timecode": "2s",
+        "width": 1920,
+        "height": 1080
+      }
+    ],
+    "sha256": {
+      "2s.png": "ebef8a1058436dd6627e3bbf5061d71ff68a78e942f957e15680c9bf946e1857",
+      "2s-full.png": "50ad7b20003c96773e14ed60c3334f50588028d914d111a0d02e770a71413077"
+    }
+  },
+  "after": {
+    "engine": {
+      "requested": "osr",
+      "resolved": "osr"
+    },
+    "renderer": "osr-export@0.0.0",
+    "verify": {
+      "mode": "stamp",
+      "matched": true,
+      "frames": [
+        {
+          "frameNumber": 60,
+          "matched": true,
+          "decodedFrameNumber": 60,
+          "expectedFrameNumber": 60,
+          "retries": 7
+        }
+      ]
+    },
+    "edit_sha256": "4357498137bd78817a9a78b1a71101dc95f826cca0b06f9c9830dabb47e7744a",
+    "materials": [
+      {
+        "path": "overlays/scene-issue-36.html",
+        "sha256": "c471629d032767980b288700f7cac4abfd9011acb9214ff069b81be103af2ee4"
+      },
+      {
+        "path": "assets/base.png",
+        "sha256": "64c095670c5206ad7adb7513a45d6017f39538c192c32d916cb56ff6874421eb"
+      }
+    ],
+    "images": [
+      {
+        "kind": "frame",
+        "timecode": "2s",
+        "width": 1280,
+        "height": 720
+      },
+      {
+        "kind": "frame",
+        "timecode": "2s",
+        "width": 1920,
+        "height": 1080
+      }
+    ],
+    "sha256": {
+      "2s.png": "ebef8a1058436dd6627e3bbf5061d71ff68a78e942f957e15680c9bf946e1857",
+      "2s-full.png": "50ad7b20003c96773e14ed60c3334f50588028d914d111a0d02e770a71413077"
+    }
+  },
+  "identical": true
+}

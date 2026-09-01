@@ -3,6 +3,16 @@ import test from "node:test";
 
 import { buildGpuReceipt } from "../src/receipt.mjs";
 
+test("GPU receipt reports the mux method the run actually used", () => {
+  const incremental = buildGpuReceipt({ tier: 2, run: { mux: { method: "incremental-mp4", samples: 3 } } });
+  assert.equal(incremental.provenance.mux, "incremental-mp4");
+});
+
+test("a run recorded before the ffmpeg remux keeps reading as mp4box-direct", () => {
+  assert.equal(buildGpuReceipt({ tier: 2, run: { status: "completed" } }).provenance.mux, "mp4box-direct");
+  assert.equal(buildGpuReceipt({ tier: 2 }).provenance.mux, "mp4box-direct");
+});
+
 test("GPU receipt records direct mux, no re-encode, and every eligibility row", () => {
   const entries = [
     { kind: "overlay", id: "a", classification: "same", reason: "static", conditions: [] },

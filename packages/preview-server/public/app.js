@@ -591,6 +591,7 @@ function setupLayers() {
   const layers = summary?.layers ?? [];
   for (const [index, layer] of layers.entries()) {
     if (layer.kind === 'filter') {
+      if (frameEngineEnabled) continue;
       const el = document.createElement('div');
       el.dataset.layerId = String(layer.id);
       el.dataset.layerKind = 'filter';

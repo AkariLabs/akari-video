@@ -186,11 +186,18 @@
         `ではなく実寸 bbox（実測 ${frameRect.width.toFixed(0)}x${frameRect.height.toFixed(0)}）になっている`
     );
 
-    // clip-path によりネイティブ当たり判定も実寸へ絞られている（"none" のままなら
-    // フルコンテナ当たり判定のバグが残っている）。
+    const emptyHit = document.elementFromPoint(emptyClientX, emptyClientY);
     assert(
-      capFull.style.clipPath !== "" && capFull.style.clipPath !== "none",
-      `cap-full-wrapper のヒット領域が clip-path で実寸に絞られている（実測: ${capFull.style.clipPath}）`
+      !emptyHit?.closest?.('[data-overlay-id="cap-full-wrapper"]'),
+      "透明ラッパーの空白部は pointer-events 規約だけで素通しする"
+    );
+    const plateHit = document.elementFromPoint(
+      plateRect.left + plateRect.width / 2,
+      plateRect.top + plateRect.height / 2
+    );
+    assert(
+      plateHit && capFull.contains(plateHit),
+      "描画する plate は pointer-events 規約だけでネイティブ当たり判定に入る"
     );
     assert(
       capFull.style.pointerEvents === "none" &&

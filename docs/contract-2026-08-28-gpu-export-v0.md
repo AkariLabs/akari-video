@@ -142,11 +142,13 @@ GPU ビットレート値（mac では VideoToolbox 用の値と共用）を正�
 `--bitrate` の明示値は quality より優先する。`master` は VideoToolbox ビットレートを宣言しないため、
 GPU 出口では `--bitrate` が無ければ理由付きで fail-closed にする。
 
-エンコード済み Annex B sample を main process へ渡し、
-SPS/PPS または decoder config から avcC を作って mp4box へ直接格納する。追加の映像 process は起動しない。
-MP4 の時刻は timescale 1,000,000 上で各境界を `round(frameIndex × timescale / fps)` として求め、
-各 sample duration を隣接境界の差にする。track の `duration` / `media_duration` は全 sample duration の
-総和、すなわち `round(frames × timescale / fps)` と一致させ、1 コマ尺の丸めを累積してはならない。
+エンコード済み Annex B sample を main process へ渡し、逐次 muxer が SPS/PPS または decoder config から
+avcC を作って `out.mp4` へ直接書き足す。映像の仮ファイルも追加の映像 process も作らない。
+MP4 の timescale は `frameRateRational(fps)` が返すレート分子、1 コマは同じ関数が返す分母ティックとし、
+track duration は `frames × frameTicks` にする。dts = cts とし、ctts は持たない。
+`frames` から計算した上界の `free` 箱を `ftyp` の直後に予約し、finish で moov をその先頭へ上書きして
+余りを `free` として残す。mdat は先頭から 64-bit largesize、サンプル位置は co64 で表し、本文を移動せず
+moov を mdat より前に置く。2026-09-01 改訂。#37（ffmpeg remux・2026-08-31〜09-01）を経てこの形へ移行した。
 
 GPU 映像は video-only である。現行の正典 audio filtergraph が入力 0 の音声を読めるよう、元の cut 音声を
 copy し、音声がない場合は `frames / fps` 秒の無音 carrier を付ける。以後の mux は `-c:v copy` と
@@ -175,7 +177,7 @@ GPU と OSR の decode 比較は、engine-only 区間の per-frame MAD 1.0 以�
   "provenance": {
     "engine": "gpu",
     "launcher_tier": 2,
-    "mux": "mp4box-direct",
+    "mux": "incremental-mp4",
     "video_reencode": false
   },
   "gpu": {

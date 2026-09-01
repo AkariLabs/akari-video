@@ -1,0 +1,29 @@
+{
+  "default_text_style": {
+    "size_px": 46,
+    "max_width_pct": 82,
+    "zone": "top-right"
+  },
+  "captions": [
+    {
+      "id": "c-0001",
+      "start": 0.2,
+      "end": 1.8,
+      "text": "一行の字幕は収まる",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a"
+    },
+    {
+      "id": "c-0002",
+      "start": 2,
+      "end": 3.8,
+      "text": "二本目の字幕も同じ位置に出る",
+      "speaker": null,
+      "sourceRef": null,
+      "edited": false,
+      "src": "a"
+    }
+  ]
+}

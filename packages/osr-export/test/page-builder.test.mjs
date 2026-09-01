@@ -17,6 +17,35 @@ const edit = {
 const captions = [{ id: "c1", start: 0, end: 1, text: "字幕", time_domain: "output" }];
 const overlays = [{ id: "o1", start: 0, duration: 1, html: "<div>HTML</div>", transform: {}, vars: {} }];
 
+function regionFilterEdit(lutId) {
+  return {
+    version:2, output:{width:64,height:36,fps:30},
+    sources:[{id:'main',path:'assets/main.mp4'}],
+    tracks:[
+      { id:'v-main', lane:'visual', items:[{id:'cut',at:0,duration:30,source:{kind:'media',src:'main',in:0,out:1}}] },
+      { id:'v-filter', lane:'visual', items:[{id:'region',at:0,duration:30,source:{kind:'filter',filter:{type:'lut',id:lutId,intensity:.5}}}] },
+    ],
+  };
+}
+
+test('OSR page builder resolves region-filter LUT cube text into page config', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'osr-filter-lut-'));
+  try {
+    await writeFile(join(projectRoot, 'edit.json'), JSON.stringify(regionFilterEdit('mono')));
+    const built = await loadAndBuildOsrPage({ projectRoot, duration:1 });
+    assert.equal(built.edit.layers[0].filter.type, 'lut');
+    assert.match(built.edit.layers[0].filter.cubeText, /LUT_3D_SIZE/u);
+  } finally { await rm(projectRoot, {recursive:true,force:true}); }
+});
+
+test('OSR page builder fails closed with the missing region-filter LUT id', async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), 'osr-filter-missing-'));
+  try {
+    await writeFile(join(projectRoot, 'edit.json'), JSON.stringify(regionFilterEdit('missing-region-lut')));
+    await assert.rejects(() => loadAndBuildOsrPage({ projectRoot, duration:1 }), /missing-region-lut/u);
+  } finally { await rm(projectRoot, {recursive:true,force:true}); }
+});
+
 test("page builder は同じ入力から同一バイトを生成する", () => {
   const input = { edit, captions, overlays, projectRoot: "/unused", duration: 2, frameEngineBundle: "window.AkariFrameEngine={};", pageRuntime: "void 0;", lutCubeText: "TITLE warm\nLUT_3D_SIZE 2\n" };
   assert.equal(buildOsrPage(input).html, buildOsrPage(input).html);

@@ -32,6 +32,7 @@ export function buildGpuPage({
   height = edit?.output?.height ?? 1080,
   duration = 0,
   lutCubeText = null,
+  layerLutCubeTexts = [],
   eligibility = null,
   frameEngineBundle = readFileSync(FRAME_ENGINE_BUNDLE, "utf8"),
   pageRuntime = readFileSync(PAGE_RUNTIME, "utf8"),
@@ -40,7 +41,14 @@ export function buildGpuPage({
 } = {}) {
   const enabledOverlays = overlays.filter((overlay) => overlay?.enabled !== false);
   const textSlotOverlayCount = enabledOverlays.filter((overlay) => overlayTextSlotParams(overlay) !== null).length;
-  const projectedEdit = { ...edit, overlays: enabledOverlays, output: { ...edit.output, width, height, fps } };
+  const projectedEdit = {
+    ...edit,
+    layers: (edit.layers ?? []).map((layer, index) => layer?.kind === "filter" && layer?.filter?.type === "lut"
+      ? { ...layer, filter: { ...layer.filter, cubeText: layerLutCubeTexts[index] } }
+      : layer),
+    overlays: enabledOverlays,
+    output: { ...edit.output, width, height, fps },
+  };
   const captionRoot = Array.isArray(captions) ? captions : captions?.captions ?? [];
   const defaultTextStyle = Array.isArray(captions) ? null : captions?.default_text_style ?? null;
   const captionOverlays = generateCaptionOverlays(captionRoot, edit.cuts ?? [], {
@@ -263,6 +271,15 @@ export async function loadAndBuildGpuPage({
   if (typeof edit?.output?.look?.lut === "string" && edit.output.look.lut !== "") {
     lutCubeText = await readFile(resolveLutPath(projectRoot, edit.output.look.lut), "utf8");
   }
+  const layerLutCubeTexts = await Promise.all((edit.layers ?? []).map(async (layer) => {
+    if (layer?.kind !== "filter" || layer?.filter?.type !== "lut") return null;
+    const id = layer.filter.id;
+    try {
+      return await readFile(resolveLutPath(projectRoot, id), "utf8");
+    } catch (error) {
+      throw new Error(`filter layer LUT ${id} could not be resolved: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }));
   const eligibility = evaluateGpuEligibility({
     edit,
     captions,
@@ -279,6 +296,7 @@ export async function loadAndBuildGpuPage({
     height: height ?? edit.output.height,
     duration: duration ?? inferDuration(edit),
     lutCubeText,
+    layerLutCubeTexts,
     eligibility,
   });
   return { ...page, warnings: [...prepared.warnings, ...page.warnings] };

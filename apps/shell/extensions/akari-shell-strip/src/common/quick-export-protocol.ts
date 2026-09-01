@@ -16,7 +16,7 @@ export interface QuickExportStartRequest {
     /** 既定（'standard'）なら render-cut に --quality を渡さない。 */
     readonly quality?: 'high' | 'standard' | 'light';
     /** 未指定でも render-cut に --engine auto を明示送信する。 */
-    readonly engine?: 'auto' | 'osr' | 'legacy';
+    readonly engine?: 'auto' | 'gpu' | 'osr';
     /** 未指定でも render-cut に --encoder auto を明示送信する。 */
     readonly encoder?: 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
     /** 未指定（そのまま）なら render-cut に --fps を渡さない。 */

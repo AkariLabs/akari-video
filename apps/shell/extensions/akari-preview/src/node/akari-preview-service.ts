@@ -93,6 +93,61 @@ interface PrepareSpeechAtempoResult {
     stream?: VideoStreamReference;
 }
 
+// model-update は既存 webview bootstrap が window.akari.state.summary を差し替えてから tick する。
+// runtimeJavaScript 内で overlays の署名を監視すれば、webview HTML 本体を変えずに overlay だけを
+// soft remount できる。これにより keyframes の追加・変更・除去と html/transform 更新を、
+// keyframes 無しプロジェクトの HTML バイト等価を保ったまま差分適用する。
+const ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT = `(() => {
+  const runtime = window.akari && window.akari.runtime;
+  if (!runtime || runtime.__akariItemKeyframesSoftReload) return;
+  const mount = runtime.mount.bind(runtime);
+  const tick = runtime.tick.bind(runtime);
+  const signature = summary => JSON.stringify(Array.isArray(summary?.overlays) ? summary.overlays : []);
+  let mountedSignature;
+  let remounting = null;
+  const snapshotPresentation = () => new Map([...document.querySelectorAll('[data-overlay-id]')].map(element => [
+    element.getAttribute('data-overlay-id') || '',
+    {
+      track: element.getAttribute('data-akari-track'),
+      zIndex: element.style.zIndex,
+      display: element.style.display,
+      selected: element.getAttribute('data-akari-interaction-selected')
+    }
+  ]));
+  const restorePresentation = snapshot => {
+    for (const element of document.querySelectorAll('[data-overlay-id]')) {
+      const state = snapshot.get(element.getAttribute('data-overlay-id') || '');
+      if (!state) continue;
+      if (state.track === null) element.removeAttribute('data-akari-track');
+      else element.setAttribute('data-akari-track', state.track);
+      element.style.zIndex = state.zIndex;
+      element.style.display = state.display;
+      if (state.selected === null) element.removeAttribute('data-akari-interaction-selected');
+      else element.setAttribute('data-akari-interaction-selected', state.selected);
+    }
+  };
+  runtime.mount = summary => {
+    mountedSignature = signature(summary);
+    return mount(summary);
+  };
+  runtime.tick = (timelineTime, isPlaying) => {
+    const summary = window.akari?.state?.summary;
+    const nextSignature = signature(summary);
+    if (nextSignature !== mountedSignature && !remounting) {
+      mountedSignature = nextSignature;
+      const presentation = snapshotPresentation();
+      remounting = Promise.resolve(mount(summary)).then(() => {
+        restorePresentation(presentation);
+        tick(timelineTime, isPlaying);
+      }).catch(error => console.error('[akari-preview] overlay remount failed', error))
+        .finally(() => { remounting = null; });
+      return;
+    }
+    if (!remounting) return tick(timelineTime, isPlaying);
+  };
+  Object.defineProperty(runtime, '__akariItemKeyframesSoftReload', { value: true });
+})();`;
+
 type SpeechAtempoModule = {
     ensurePreviewAudioSidecar(options: {
         sourcePath: string;
@@ -222,12 +277,18 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 videoFxJavaScript: readFileSync(resolve(directory, 'video-fx.js'), 'utf8'),
                 // slot-params.js は preview mount と render-cut rasterize が共有する唯一の注入実装。
                 // viewport-units.js は断片 CSS の vw/vh 系単位をステージ（出力サイズ）基準で解決する
-                // 書き換え（overlay-runtime.js の mount が使う）。どちらも runtimeJavaScript の先頭へ
+                // 書き換え（overlay-runtime.js の mount が使う）。keyframes.mjs は export 行だけを
+                // 除いて browser global を自己登録する。いずれも runtimeJavaScript の先頭へ
                 // 同梱し、公開プロトコルの資産フィールドは増やさない。
                 runtimeJavaScript: `${readFileSync(resolve(directory, 'slot-params.js'), 'utf8')}\n${
                     readFileSync(resolve(directory, 'viewport-units.js'), 'utf8')
                 }\n${
+                    readFileSync(resolve(directory, 'keyframes.mjs'), 'utf8')
+                        .replace(/\nexport \{ interpolateKeyframes \};\s*$/u, '\n')
+                }\n${
                     readFileSync(resolve(directory, 'overlay-runtime.js'), 'utf8')
+                }\n${
+                    ITEM_KEYFRAMES_SOFT_RELOAD_SCRIPT
                 }`,
                 interactionJavaScript: readFileSync(resolve(directory, 'interaction.js'), 'utf8'),
                 interactionCss: readFileSync(resolve(directory, 'interaction.css'), 'utf8'),
@@ -1359,6 +1420,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
     protected isOverlayRuntimeDirectory(candidate: string): boolean {
         try {
             return statSync(resolve(candidate, 'overlay-runtime.js')).isFile()
+                && statSync(resolve(candidate, 'keyframes.mjs')).isFile()
                 && statSync(resolve(candidate, 'three-runtime.js')).isFile()
                 && statSync(resolve(candidate, 'video-fx.js')).isFile()
                 && statSync(resolve(candidate, 'vendor/three-bundle.js')).isFile()

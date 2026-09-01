@@ -7,26 +7,31 @@ import { ApplicationShell, OpenerService, QuickInputService, WidgetManager, open
 import URI from '@theia/core/lib/common/uri';
 import { OS } from '@theia/core/lib/common/os';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
-import { FileStat } from '@theia/filesystem/lib/common/files';
+import { FileOperationResult, FileStat, toFileOperationResult } from '@theia/filesystem/lib/common/files';
 import { FileDialogService } from '@theia/filesystem/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
+import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import {
     DEFAULT_EXPORT_OUTPUT_NAME,
-    EXPORT_RESOLUTION_PRESETS,
     composeExportRequestPacket
 } from '../common/export-request-packet';
 import { RenderProgressState, parseRenderProgress, RENDER_PROGRESS_UNKNOWN_LABEL } from '../common/render-progress';
 import { AkariQuickExportService, QuickExportStartOutcome, QuickExportStatus } from '../common/quick-export-protocol';
 import {
-    buildQuickExportEngineChoices,
     buildQuickExportEncoderChoices,
     describeUnexpectedQuickExportFailure,
+    nextAvailableOutputName,
     QUICK_EXPORT_OUTPUT_DIRECTORY,
-    QuickExportEngine,
     QuickExportEncoder,
     QuickExportQuality
 } from '../common/quick-export-cli';
 import { quickExportErrorNotification, shouldShowRenderJsonProgress } from '../common/quick-export-ui';
+import {
+    AKARI_EXPORT_ENCODER,
+    AKARI_EXPORT_FPS,
+    AKARI_EXPORT_OUTPUT_DIRECTORY,
+    AKARI_EXPORT_QUALITY
+} from './akari-export-preferences';
 
 interface MenuAction {
     id: string;
@@ -65,16 +70,13 @@ const QUICK_EXPORT_POLL_INTERVAL_MS = 500;
  *  「この場で書き出す」では正直にこの設定を使わないことを利用者に明示する
  *  （task 2026-07-25-export-options #4: 表現を「解像度は edit.json の出力設定に
  *  従います」へ整えた）。 */
-const QUICK_EXPORT_RESOLUTION_NOTE = '解像度は edit.json の出力設定に従います（このプリセットはこの実行方法には反映されません）。';
+const QUICK_EXPORT_RESOLUTION_NOTE = '解像度は edit.json の出力設定に従います。';
 
 const QUICK_EXPORT_QUALITY_CHOICES: Array<{ label: string; value: QuickExportQuality }> = [
     { label: '標準（standard・既定）', value: 'standard' },
     { label: '高画質（high・crf 18 相当）', value: 'high' },
     { label: '軽量（light・crf 26 相当）', value: 'light' }
 ];
-
-const QUICK_EXPORT_ENGINE_CHOICES: Array<{ label: string; value: QuickExportEngine }> =
-    buildQuickExportEngineChoices();
 
 const QUICK_EXPORT_ENCODER_CHOICES: Array<{ label: string; value: QuickExportEncoder }> =
     buildQuickExportEncoderChoices(OS.type() === OS.Type.OSX ? 'darwin' : OS.type() === OS.Type.Windows ? 'win32' : 'linux');
@@ -86,6 +88,13 @@ const QUICK_EXPORT_FPS_CHOICES: Array<{ label: string; value: number | undefined
     { label: '60fps', value: 60 }
 ];
 
+interface ExportPreferences {
+    readonly quality: QuickExportQuality;
+    readonly encoder: QuickExportEncoder;
+    readonly fps: number | undefined;
+    readonly outputDirectoryUri: string | undefined;
+}
+
 /**
  * アクティビティバー5番目のアイコン「メニュー」。
  *
@@ -95,9 +104,9 @@ const QUICK_EXPORT_FPS_CHOICES: Array<{ label: string; value: number | undefined
  * - 「やらせる（スキル）」: 開いているプロジェクトの `.claude/skills/<name>/SKILL.md`
  *   の frontmatter（name / description）を列挙する v0 実装。ワンクリック実行は
  *   スコープ外 — パートナーペインでの依頼を促す文言のみ添える。
- * - 「書き出し」: ワンクリック書き出し（輸入リスト③・2026-07-25 両モード制へ
- *   改訂）。解像度・出力名・lint・画質・エンジン・エンコーダ・fps・出力先と
- *   「実行方法」を quick-pick 連鎖で確定させる。「エージェントに
+ * - 「書き出し」: 保存済み設定で質問せずローカル書き出しを開始する。
+ *   「詳細設定で書き出す…」だけが画質・エンコーダ・fps・出力先・実行方法を
+ *   quick-pick で確定させる。「エージェントに
  *   任せる」は依頼パケットを `akari.partner.injectPrompt`（ID 文字列呼び出し。
  *   ④と同じ疎結合規律）へ注入するのみ（実行はしない）。「この場で書き出す」
  *   は akari-shell-strip 自身のバックエンド（AkariQuickExportService）が
@@ -130,6 +139,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected readonly fileDialogs!: FileDialogService;
     @inject(MessageService)
     protected readonly messages!: MessageService;
+    @inject(PreferenceService)
+    protected readonly preferences!: PreferenceService;
 
     protected skills: SkillEntry[] = [];
     protected skillsNotice = '';
@@ -142,6 +153,8 @@ export class AkariMenuWidget extends ReactWidget {
     protected quickExportPollHandle: number | undefined;
     /** 同じ終端失敗をポーリングのたびに通知しないためのガード。 */
     protected quickExportFailureNotified = false;
+    /** 同じ成果物の engine fallback / 不適格警告を一度だけ通知するための署名。 */
+    protected readonly renderEngineWarningSignatures = new Set<string>();
     /** 「ログを表示」の開閉状態（task 2026-07-25-export-options #5）。 */
     protected quickExportLogExpanded = false;
 
@@ -310,87 +323,84 @@ export class AkariMenuWidget extends ReactWidget {
         this.update();
     }
 
-    /**
-     * 設定 3 項目（解像度プリセット・出力ファイル名・lint 再実行）+ 4 項目目
-     * 「実行方法」（この場で書き出す／エージェントに任せる）を quick-pick 連鎖で
-     * 確定させる。「エージェントに任せる」は既存どおり依頼パケットを
-     * `akari.partner.injectPrompt` へ ID 文字列呼び出しで注入する（無改造）。
-     * 「この場で書き出す」は akari-shell-strip 自身のバックエンド
-     * （AkariQuickExportService）が edit-lint / render-cut CLI を直接実行する
-     * （オーナー裁定 2026-07-25 — 両モード制）。途中でキャンセルした場合は
-     * 何もしない（askAgent と同じ規律）。パートナー未接続時のトーストは
-     * INJECT_PROMPT コマンド自身が出す。
-     */
+    /** 主ボタンは質問を出さず、保存済み設定と安全な固定値で直ちに開始する。 */
     protected async startExportFlow(): Promise<void> {
         if (!this.editJsonExists || this.quickExportRunning) {
             return;
         }
-        const resolution = await this.quickInputService.showQuickPick(
-            EXPORT_RESOLUTION_PRESETS.map(preset => ({ label: preset.label, preset })),
-            { placeholder: '解像度プリセットを選択' }
-        );
-        if (!resolution) {
-            return;
-        }
-        const outputNameInput = await this.quickInputService.input({
-            placeHolder: '出力ファイル名',
-            value: DEFAULT_EXPORT_OUTPUT_NAME
+        const settings = this.readExportPreferences();
+        await this.startLocalQuickExport({
+            outputName: DEFAULT_EXPORT_OUTPUT_NAME,
+            rerunLint: true,
+            ...settings
         });
-        if (outputNameInput === undefined) {
+    }
+
+    /** 画質・エンコーダ・fps・出力先・実行方法だけを選ぶ詳細導線。 */
+    protected async startDetailedExportFlow(): Promise<void> {
+        if (!this.editJsonExists || this.quickExportRunning) {
             return;
         }
-        const outputName = outputNameInput.trim() || DEFAULT_EXPORT_OUTPUT_NAME;
-        const lintChoice = await this.quickInputService.showQuickPick(
-            [
-                { label: 'lint を先に再実行する（既定）', rerunLint: true },
-                { label: 'lint を再実行しない', rerunLint: false }
-            ],
-            { placeholder: 'lint を先に再実行しますか' }
-        );
-        if (!lintChoice) {
-            return;
-        }
-        // 画質・エンジン・fps・出力先（task 2026-07-25-export-options #4）。
-        // 「エージェントに任せる」を選んだ場合は使わない（既存の依頼パケットは無改造のまま）。
+        const current = this.readExportPreferences();
+        const qualityItems = QUICK_EXPORT_QUALITY_CHOICES.map(choice => ({ ...choice }));
         const qualityChoice = await this.quickInputService.showQuickPick(
-            QUICK_EXPORT_QUALITY_CHOICES,
-            { placeholder: '画質を選択' }
+            qualityItems,
+            {
+                placeholder: '画質を選択',
+                activeItem: qualityItems.find(choice => choice.value === current.quality)
+            }
         );
         if (!qualityChoice) {
             return;
         }
-        const engineChoice = await this.quickInputService.showQuickPick(
-            QUICK_EXPORT_ENGINE_CHOICES,
-            { placeholder: '書き出しエンジンを選択' }
-        );
-        if (!engineChoice) {
-            return;
-        }
+        const encoderItems = QUICK_EXPORT_ENCODER_CHOICES.map(choice => ({ ...choice }));
         const encoderChoice = await this.quickInputService.showQuickPick(
-            QUICK_EXPORT_ENCODER_CHOICES,
-            { placeholder: 'エンコーダ（自動/ハードウェア/ソフトウェア）を選択' }
+            encoderItems,
+            {
+                placeholder: 'エンコーダ（自動/ハードウェア/ソフトウェア）を選択',
+                activeItem: encoderItems.find(choice => choice.value === current.encoder)
+            }
         );
         if (!encoderChoice) {
             return;
         }
+        const fpsItems = QUICK_EXPORT_FPS_CHOICES.map(choice => ({ ...choice }));
         const fpsChoice = await this.quickInputService.showQuickPick(
-            QUICK_EXPORT_FPS_CHOICES,
-            { placeholder: 'フレームレートを選択' }
+            fpsItems,
+            {
+                placeholder: 'フレームレートを選択',
+                activeItem: fpsItems.find(choice => choice.value === current.fps)
+            }
         );
         if (!fpsChoice) {
             return;
         }
+        const outputDestinationItems = [
+            ...(current.outputDirectoryUri ? [{
+                    label: `現在の既定（${current.outputDirectoryUri}）`,
+                    choice: 'current' as const
+                }] : []),
+            {
+                label: `プロジェクトの ${QUICK_EXPORT_OUTPUT_DIRECTORY}/ 直下`,
+                choice: 'default' as const
+            },
+            { label: 'フォルダを選ぶ…', choice: 'choose' as const }
+        ];
         const outputDestinationChoice = await this.quickInputService.showQuickPick(
-            [
-                { label: `既定（${QUICK_EXPORT_OUTPUT_DIRECTORY}/ 直下）`, choice: 'default' as const },
-                { label: 'フォルダを選ぶ…', choice: 'choose' as const }
-            ],
-            { placeholder: '出力先を選択' }
+            outputDestinationItems,
+            {
+                placeholder: '出力先を選択',
+                activeItem: outputDestinationItems.find(item => item.choice === (
+                    current.outputDirectoryUri ? 'current' : 'default'
+                ))
+            }
         );
         if (!outputDestinationChoice) {
             return;
         }
-        let outputDirectoryUri: string | undefined;
+        let outputDirectoryUri = outputDestinationChoice.choice === 'current'
+            ? current.outputDirectoryUri
+            : undefined;
         if (outputDestinationChoice.choice === 'choose') {
             const destination = await this.fileDialogs.showOpenDialog({
                 title: '書き出し先フォルダを選ぶ',
@@ -402,35 +412,78 @@ export class AkariMenuWidget extends ReactWidget {
             }
             outputDirectoryUri = destination.toString();
         }
+        const executionItems = [
+            { label: 'この場で書き出す（推奨）', mode: 'local' as const },
+            { label: 'エージェントに任せる', mode: 'agent' as const }
+        ];
         const executionMethod = await this.quickInputService.showQuickPick(
-            [
-                { label: 'この場で書き出す（推奨）', mode: 'local' as const },
-                { label: 'エージェントに任せる', mode: 'agent' as const }
-            ],
-            { placeholder: '実行方法を選択' }
+            executionItems,
+            { placeholder: '実行方法を選択', activeItem: executionItems[0] }
         );
         if (!executionMethod) {
             return;
         }
+        const saveItems = [
+            { label: 'はい、この設定を既定にする', save: true },
+            { label: 'いいえ、今回だけ使う', save: false }
+        ];
+        const saveChoice = await this.quickInputService.showQuickPick(
+            saveItems,
+            { placeholder: 'この設定を既定にしますか', activeItem: saveItems[1] }
+        );
+        if (!saveChoice) {
+            return;
+        }
+        const selected: ExportPreferences = {
+            quality: qualityChoice.value,
+            encoder: encoderChoice.value,
+            fps: fpsChoice.value,
+            outputDirectoryUri
+        };
+        if (saveChoice.save) {
+            await this.saveExportPreferences(selected);
+        }
         if (executionMethod.mode === 'agent') {
+            let outputName: string;
+            try {
+                outputName = await this.chooseAvailableOutputName(DEFAULT_EXPORT_OUTPUT_NAME, outputDirectoryUri);
+            } catch (error) {
+                void this.messages.error(describeUnexpectedQuickExportFailure(error, '書き出し先を確認できませんでした'));
+                return;
+            }
             const packet = composeExportRequestPacket({
-                resolutionLabel: resolution.preset.label,
+                resolutionLabel: 'edit.json のまま',
                 outputName,
-                rerunLint: lintChoice.rerunLint,
-                engine: engineChoice.value
+                rerunLint: true
             });
             await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
             return;
         }
         await this.startLocalQuickExport({
-            outputName,
-            rerunLint: lintChoice.rerunLint,
-            quality: qualityChoice.value,
-            engine: engineChoice.value,
-            encoder: encoderChoice.value,
-            fps: fpsChoice.value,
-            outputDirectoryUri
+            outputName: DEFAULT_EXPORT_OUTPUT_NAME,
+            rerunLint: true,
+            ...selected
         });
+    }
+
+    protected readExportPreferences(): ExportPreferences {
+        const quality = this.preferences.get<QuickExportQuality>(AKARI_EXPORT_QUALITY, 'standard');
+        const encoder = this.preferences.get<QuickExportEncoder>(AKARI_EXPORT_ENCODER, 'auto');
+        const fps = this.preferences.get<number | undefined>(AKARI_EXPORT_FPS);
+        const outputDirectory = this.preferences.get<string>(AKARI_EXPORT_OUTPUT_DIRECTORY, '').trim();
+        return {
+            quality: QUICK_EXPORT_QUALITY_CHOICES.some(choice => choice.value === quality) ? quality : 'standard',
+            encoder: QUICK_EXPORT_ENCODER_CHOICES.some(choice => choice.value === encoder) ? encoder : 'auto',
+            fps: QUICK_EXPORT_FPS_CHOICES.some(choice => choice.value === fps) ? fps : undefined,
+            outputDirectoryUri: outputDirectory || undefined
+        };
+    }
+
+    protected async saveExportPreferences(settings: ExportPreferences): Promise<void> {
+        await this.preferences.set(AKARI_EXPORT_QUALITY, settings.quality, PreferenceScope.User);
+        await this.preferences.set(AKARI_EXPORT_ENCODER, settings.encoder, PreferenceScope.User);
+        await this.preferences.set(AKARI_EXPORT_FPS, settings.fps, PreferenceScope.User);
+        await this.preferences.set(AKARI_EXPORT_OUTPUT_DIRECTORY, settings.outputDirectoryUri ?? '', PreferenceScope.User);
     }
 
     // --- 「この場で書き出す」バックエンド呼び出し（edit-lint / render-cut CLI 直接実行） ----
@@ -439,7 +492,6 @@ export class AkariMenuWidget extends ReactWidget {
         outputName: string;
         rerunLint: boolean;
         quality: QuickExportQuality;
-        engine: QuickExportEngine;
         encoder: QuickExportEncoder;
         fps: number | undefined;
         outputDirectoryUri: string | undefined;
@@ -460,14 +512,22 @@ export class AkariMenuWidget extends ReactWidget {
             this.failLocalQuickExport('プロジェクトルートを取得できないため、書き出しを開始できませんでした');
             return;
         }
+        let outputName: string;
+        try {
+            outputName = await this.chooseAvailableOutputName(settings.outputName, settings.outputDirectoryUri, root);
+        } catch (error) {
+            this.failLocalQuickExport(describeUnexpectedQuickExportFailure(error, '書き出し先を確認できませんでした'));
+            return;
+        }
+        this.renderProgress = undefined;
         let outcome: QuickExportStartOutcome;
         try {
             outcome = await this.quickExportService.start({
                 projectRootUri: root.toString(),
-                outputName: settings.outputName,
+                outputName,
                 rerunLint: settings.rerunLint,
                 quality: settings.quality,
-                engine: settings.engine,
+                engine: 'auto',
                 encoder: settings.encoder,
                 fps: settings.fps,
                 outputDirectoryUri: settings.outputDirectoryUri
@@ -491,6 +551,37 @@ export class AkariMenuWidget extends ReactWidget {
         this.quickExportFailureNotified = false;
         this.update();
         this.beginQuickExportPolling();
+    }
+
+    protected async chooseAvailableOutputName(
+        baseName: string,
+        outputDirectoryUri: string | undefined,
+        knownRoot?: URI
+    ): Promise<string> {
+        let root = knownRoot;
+        if (!root) {
+            const roots = await this.workspace.roots;
+            root = roots[0]?.resource;
+        }
+        if (!root) {
+            return nextAvailableOutputName(baseName, []);
+        }
+        const directory = outputDirectoryUri
+            ? new URI(outputDirectoryUri)
+            : root.resolve(QUICK_EXPORT_OUTPUT_DIRECTORY);
+        let stat: FileStat;
+        try {
+            stat = await this.files.resolve(directory);
+        } catch (error) {
+            if (error instanceof Error && toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND) {
+                return nextAvailableOutputName(baseName, []);
+            }
+            throw error;
+        }
+        const existingNames = (stat.children ?? [])
+            .filter(child => !child.isDirectory)
+            .map(child => child.resource.path.base);
+        return nextAvailableOutputName(baseName, existingNames);
     }
 
     protected beginQuickExportPolling(): void {
@@ -519,6 +610,13 @@ export class AkariMenuWidget extends ReactWidget {
             this.quickExportRunning = false;
             this.stopQuickExportPolling();
         }
+        if (status.phase === 'done') {
+            const roots = await this.workspace.roots;
+            const root = roots[0]?.resource;
+            if (root) {
+                await this.refreshRenderProgress(root.resolve(RENDER_JSON_RELATIVE_PATH));
+            }
+        }
         this.notifyQuickExportError(status);
         this.update();
     }
@@ -544,8 +642,12 @@ export class AkariMenuWidget extends ReactWidget {
         switch (status.phase) {
             case 'linting': return 'lint 確認中…';
             case 'lint-failed': return 'lint NG — 書き出しを中断しました';
-            case 'rendering': return 'この場で書き出し中…';
-            case 'done': return 'この場での書き出しが完了しました';
+            case 'rendering': return this.renderProgress?.kind === 'in-progress'
+                ? this.renderProgress.label
+                : 'この場で書き出し中…';
+            case 'done': return this.renderProgress?.kind === 'done'
+                ? this.renderProgress.label
+                : '書き出し完了';
             case 'failed': return 'この場での書き出しに失敗しました';
             default: return '';
         }
@@ -599,11 +701,28 @@ export class AkariMenuWidget extends ReactWidget {
             const content = await this.files.readFile(renderJsonUri);
             const parsed: unknown = JSON.parse(content.value.toString());
             this.renderProgress = parseRenderProgress(parsed);
+            this.notifyRenderEngineWarning(this.renderProgress);
         } catch (error) {
             console.info('[akari-shell-strip] render.json unreadable — showing fallback:', error);
             this.renderProgress = { kind: 'unknown', label: RENDER_PROGRESS_UNKNOWN_LABEL };
         }
         this.update();
+    }
+
+    protected notifyRenderEngineWarning(progress: RenderProgressState): void {
+        if (progress.kind !== 'done' || !progress.engine
+            || (!progress.engine.fallbackReason && !progress.engine.ineligible?.length)) {
+            return;
+        }
+        const signature = `${progress.artifactPath}\n${progress.label}`;
+        if (this.renderEngineWarningSignatures.has(signature)) {
+            return;
+        }
+        this.renderEngineWarningSignatures.add(signature);
+        if (progress.engine.ineligible?.length) {
+            console.info('[akari-shell-strip] gpu ineligible', progress.engine.ineligible);
+        }
+        void this.messages.warn(progress.label);
     }
 
     protected async openExportedArtifact(artifactPath: string): Promise<void> {
@@ -783,6 +902,16 @@ export class AkariMenuWidget extends ReactWidget {
                 >
                     <span className='codicon codicon-desktop-download' aria-hidden='true' />
                     <span>書き出し</span>
+                </button>
+                <button
+                    className='theia-button secondary'
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'flex-start', padding: '8px 10px', width: '100%', marginTop: '6px' }}
+                    disabled={!this.editJsonExists || this.quickExportRunning}
+                    title={!this.editJsonExists ? EDIT_JSON_MISSING_TOOLTIP : (this.quickExportRunning ? QUICK_EXPORT_RUNNING_TOOLTIP : undefined)}
+                    onClick={() => void this.startDetailedExportFlow()}
+                >
+                    <span className='codicon codicon-settings-gear' aria-hidden='true' />
+                    <span>詳細設定で書き出す…</span>
                 </button>
                 {!this.editJsonExists && (
                     <p style={{ opacity: 0.6, fontSize: '0.85em', margin: '6px 0 0' }}>{EDIT_JSON_MISSING_TOOLTIP}</p>

@@ -49,7 +49,7 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     /** 編集用入力欄の初期値。省略時は getValue の戻り値を使う。 */
     getEditValue?: (snapshot: TSnapshot) => string;
     /** フィールドの値型に対応した入力 UI。 */
-    inputKind?: 'boolean-select' | 'select' | 'scrub-number' | 'color' | 'text' | 'media';
+    inputKind?: 'boolean-select' | 'select' | 'zone-grid' | 'scrub-number' | 'color' | 'text' | 'media';
     options?: readonly string[];
     scrubStep?: number;
     min?: number;
@@ -66,7 +66,12 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
      */
     liveField?: LivePreviewRequest['field'];
     previewOption?: (value: string) => void;
+    zoneHover?: (value: string | null) => void;
+    zonePreset?: (value: string) => void;
 }
+
+const CAPTION_ZONE_HOVER_EVENT = 'akari.caption.zoneHover';
+const CAPTION_ZONE_PRESET_EVENT = 'akari.caption.zonePreset';
 
 const KEYFRAME_EASING_OPTIONS = [
     'linear', 'ease-in-out',
@@ -449,6 +454,8 @@ function CAPTION_SECTIONS(
     options: {
         mixedFields?: ReadonlySet<CaptionStyleFieldKey>;
         targets?: readonly TimelineSelectionTarget[];
+        zoneHover?: (zone: string | null) => void;
+        zonePreset?: (zone: string) => void;
     } = {}
 ): InspectorSection[] {
     const raw = snapshot.textStyle;
@@ -657,20 +664,12 @@ function CAPTION_SECTIONS(
                             CAPTION_STYLE_DEFAULTS.zone
                         ),
                     getEditValue: () => options.mixedFields?.has('zone')
-                        ? '—' : effective?.zone ?? CAPTION_STYLE_DEFAULTS.zone,
-                    inputKind: 'select',
+                        ? '—' : effective?.zone ?? '',
+                    inputKind: 'zone-grid',
                     options: CAPTION_ZONES,
-                    write: async (_snapshot, nextValue) => {
-                        if (!CAPTION_ZONES.includes(nextValue as typeof CAPTION_ZONES[number])) {
-                            return { ok: false, message: '位置を9つの候補から選んでください。' };
-                        }
-                        return requestWrite({
-                            kind: 'caption-style-zone',
-                            id: snapshot.id,
-                            value: nextValue as typeof CAPTION_ZONES[number],
-                            ...requestOptions
-                        });
-                    }
+                    write: async () => ({ ok: true }),
+                    zoneHover: options.zoneHover,
+                    zonePreset: options.zonePreset
                 }
             ]
         },
@@ -714,7 +713,11 @@ function commonCaptionValue<T>(
 
 function MULTI_CAPTION_SECTIONS(
     snapshots: readonly TimelineCaptionSelection[],
-    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
+    zoneActions: {
+        zoneHover: (zone: string | null) => void;
+        zonePreset: (zone: string) => void;
+    }
 ): InspectorSection[] {
     const mixedFields = new Set<CaptionStyleFieldKey>();
     const common = <T>(
@@ -760,7 +763,7 @@ function MULTI_CAPTION_SECTIONS(
         kind: 'caption',
         id: snapshot.id
     }));
-    const styleTab = CAPTION_SECTIONS(aggregate, requestWrite, { mixedFields, targets })
+    const styleTab = CAPTION_SECTIONS(aggregate, requestWrite, { mixedFields, targets, ...zoneActions })
         .find(tab => tab.label === 'スタイル')!;
     return [
         {
@@ -1156,6 +1159,41 @@ export class AkariInspectorWidget extends BaseWidget {
 
         const style = document.createElement('style');
         style.textContent = `
+    .akari-inspector-widget button,
+    .akari-inspector-popover-menu button,
+    .akari-inspector-row-menu button {
+        appearance: none;
+        border: none;
+        border-radius: 3px;
+        background: transparent;
+        color: var(--theia-foreground);
+        font: inherit;
+        cursor: pointer;
+    }
+    .akari-inspector-widget button:hover,
+    .akari-inspector-popover-menu button:hover,
+    .akari-inspector-row-menu button:hover {
+        background: var(--theia-toolbar-hoverBackground);
+    }
+    .akari-inspector-widget button:active,
+    .akari-inspector-popover-menu button:active,
+    .akari-inspector-row-menu button:active {
+        background: var(--theia-button-background);
+        color: var(--theia-button-foreground);
+    }
+    .akari-inspector-widget button:focus-visible,
+    .akari-inspector-popover-menu button:focus-visible,
+    .akari-inspector-row-menu button:focus-visible {
+        outline: 1px solid var(--theia-focusBorder);
+        outline-offset: -1px;
+    }
+    .akari-inspector-widget button:disabled {
+        color: var(--theia-disabledForeground);
+        cursor: default;
+    }
+    .akari-inspector-widget button:disabled:hover {
+        background: transparent;
+    }
     .akari-inspector-widget .akari-inspector-row {
         display: grid;
         grid-template-columns: 84px 1fr;
@@ -1180,6 +1218,47 @@ export class AkariInspectorWidget extends BaseWidget {
         border-radius: 2px;
         width: 100%;
         box-sizing: border-box;
+    }
+    .akari-inspector-widget .akari-caption-zone-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(30px, 1fr));
+        gap: 4px;
+        min-width: 0;
+    }
+    .akari-inspector-widget .akari-caption-zone-cell {
+        position: relative;
+        min-width: 0;
+        height: 34px;
+        padding: 0;
+        border: 1px solid var(--theia-input-border, #454545);
+        border-radius: 4px;
+        background: var(--theia-input-background);
+        color: var(--theia-descriptionForeground);
+        font-size: 15px;
+        text-align: center;
+    }
+    .akari-inspector-widget .akari-caption-zone-cell:hover,
+    .akari-inspector-widget .akari-caption-zone-cell:focus-visible {
+        border-color: var(--theia-focusBorder);
+        background: var(--theia-list-hoverBackground, var(--theia-toolbar-hoverBackground));
+        color: var(--theia-foreground);
+    }
+    .akari-inspector-widget .akari-caption-zone-cell.is-saved {
+        border-color: var(--theia-focusBorder);
+        color: var(--theia-textLink-foreground);
+        box-shadow: inset 0 0 0 1px var(--theia-focusBorder);
+    }
+    .akari-inspector-widget .akari-caption-zone-saved {
+        position: absolute;
+        right: 2px;
+        bottom: 1px;
+        padding: 0 3px;
+        border-radius: 999px;
+        background: var(--theia-button-background);
+        color: var(--theia-button-foreground);
+        font-size: 8px;
+        line-height: 1.35;
+        pointer-events: none;
     }
     .akari-inspector-widget .akari-inspector-color-field {
         display: grid;
@@ -1230,7 +1309,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-inspector-number-field {
         display: grid;
-        grid-template-columns: 24px minmax(42px, 1fr) auto 18px 20px;
+        grid-template-columns: 24px minmax(42px, 1fr) auto 18px 54px;
         align-items: center;
         gap: 3px;
     }
@@ -1263,16 +1342,34 @@ export class AkariInspectorWidget extends BaseWidget {
         color: var(--theia-descriptionForeground);
         background: transparent;
     }
-    .akari-inspector-widget .akari-inspector-kf-seat {
-        border: 0;
-        color: var(--theia-disabledForeground);
-        background: transparent;
+    .akari-inspector-widget .akari-inspector-kf-controls {
+        display: grid;
+        grid-template-columns: repeat(3, 18px);
+        align-items: center;
+    }
+    .akari-inspector-widget .akari-inspector-kf-controls button {
+        appearance: none;
+        min-width: 0;
         padding: 0;
+        border: none;
+        background: transparent;
+        color: var(--theia-descriptionForeground);
+    }
+    .akari-inspector-widget .akari-inspector-kf-controls button:hover {
+        background: var(--theia-toolbar-hoverBackground);
+        color: var(--theia-foreground);
+    }
+    .akari-inspector-widget .akari-inspector-kf-controls button:active {
+        background: var(--theia-button-background);
+        color: var(--theia-button-foreground);
+    }
+    .akari-inspector-widget .akari-inspector-kf-seat {
+        color: var(--theia-textLink-foreground);
     }
     .akari-inspector-widget .akari-inspector-slider-field {
         position: relative;
         display: grid;
-        grid-template-columns: minmax(80px, 1fr) auto 20px;
+        grid-template-columns: minmax(80px, 1fr) auto 54px;
         align-items: center;
         gap: 3px;
     }
@@ -1282,9 +1379,30 @@ export class AkariInspectorWidget extends BaseWidget {
         width: 100%;
         height: 22px;
         margin: 0;
+        -webkit-appearance: none;
         appearance: none;
         border-radius: 3px;
         background: linear-gradient(90deg, var(--theia-focusBorder) 0 var(--akari-slider-fill), var(--theia-input-background) var(--akari-slider-fill) 100%);
+        cursor: pointer;
+    }
+    .akari-inspector-widget .akari-inspector-slider-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--theia-input-background);
+        border-radius: 50%;
+        background: var(--theia-focusBorder);
+        box-shadow: 0 0 0 1px var(--theia-panel-border);
+        cursor: grab;
+    }
+    .akari-inspector-widget .akari-inspector-slider-range:active::-webkit-slider-thumb {
+        background: var(--theia-button-background);
+        cursor: grabbing;
+    }
+    .akari-inspector-widget .akari-inspector-slider-range:focus-visible {
+        outline: 1px solid var(--theia-focusBorder);
+        outline-offset: -1px;
     }
     .akari-inspector-widget .akari-inspector-slider-number {
         grid-column: 1;
@@ -1292,14 +1410,33 @@ export class AkariInspectorWidget extends BaseWidget {
         z-index: 1;
         justify-self: center;
         width: 54px;
-        background: color-mix(in srgb, var(--theia-input-background) 80%, transparent);
+        border: none;
+        background: transparent;
+        outline: none;
+        color: var(--theia-input-foreground);
+        text-shadow: 0 1px 2px var(--theia-input-background);
         pointer-events: auto;
+    }
+    .akari-inspector-widget .akari-inspector-slider-number:focus {
+        box-shadow: inset 0 -1px 0 var(--theia-focusBorder);
     }
     .akari-inspector-widget .akari-inspector-slider-unit {
         grid-column: 2;
         grid-row: 1;
         z-index: 1;
         pointer-events: none;
+    }
+    .akari-inspector-widget [data-akari-easing-preview] button,
+    .akari-inspector-popover-menu button,
+    .akari-inspector-row-menu button {
+        padding: 2px 4px;
+        text-align: left;
+    }
+    .akari-inspector-widget .akari-inspector-row-input:focus-visible,
+    .akari-inspector-widget .akari-inspector-number-input:focus-visible,
+    .akari-inspector-widget .akari-inspector-color-picker:focus-visible {
+        outline: 1px solid var(--theia-focusBorder);
+        outline-offset: -1px;
     }
     .akari-inspector-widget .akari-inspector-empty {
         color: var(--theia-descriptionForeground);
@@ -1313,6 +1450,7 @@ export class AkariInspectorWidget extends BaseWidget {
     }
 
     protected render(): void {
+        this.dispatchCaptionZoneEvent(CAPTION_ZONE_HOVER_EVENT, null);
         this.body.replaceChildren();
         this.hideFieldNotice();
         const snapshot = this.model.snapshot;
@@ -1337,7 +1475,10 @@ export class AkariInspectorWidget extends BaseWidget {
             if (captions.length !== snapshot.items.length || captions.length === 0) {
                 return;
             }
-            sections = MULTI_CAPTION_SECTIONS(captions, requestWrite);
+            sections = MULTI_CAPTION_SECTIONS(captions, requestWrite, {
+                zoneHover: zone => this.dispatchCaptionZoneEvent(CAPTION_ZONE_HOVER_EVENT, zone),
+                zonePreset: zone => this.dispatchCaptionZoneEvent(CAPTION_ZONE_PRESET_EVENT, zone)
+            });
             rowSnapshot = captions[0];
             sectionKind = 'caption';
         } else {
@@ -1351,7 +1492,10 @@ export class AkariInspectorWidget extends BaseWidget {
                     sections = LAYER_SECTIONS(snapshot, requestWrite);
                     break;
                 case 'caption':
-                    sections = CAPTION_SECTIONS(snapshot, requestWrite);
+                    sections = CAPTION_SECTIONS(snapshot, requestWrite, {
+                        zoneHover: zone => this.dispatchCaptionZoneEvent(CAPTION_ZONE_HOVER_EVENT, zone),
+                        zonePreset: zone => this.dispatchCaptionZoneEvent(CAPTION_ZONE_PRESET_EVENT, zone)
+                    });
                     break;
                 case 'audio':
                     sections = AUDIO_SECTIONS(snapshot, requestWrite);
@@ -1463,6 +1607,7 @@ export class AkariInspectorWidget extends BaseWidget {
                 const hidden = section.optionalFields!.filter(field => !this.isOptionalFieldVisible(kind, field, snapshot));
                 if (hidden.length === 0) return;
                 const menu = document.createElement('div');
+                menu.className = 'akari-inspector-popover-menu';
                 Object.assign(menu.style, {
                     position: 'fixed', left: `${event.clientX}px`, top: `${event.clientY}px`, zIndex: '10000',
                     display: 'grid', padding: '4px', background: 'var(--theia-menu-background)',
@@ -1523,6 +1668,14 @@ export class AkariInspectorWidget extends BaseWidget {
         } catch (error) {
             return { ok: false, message: error instanceof Error ? error.message : String(error) };
         }
+    }
+
+    protected dispatchCaptionZoneEvent(type: string, zone: string | null): void {
+        const root = this.workspaceService.tryGetRoots()[0];
+        if (!root) return;
+        window.dispatchEvent(new CustomEvent(type, {
+            detail: { editUri: root.resource.resolve('edit.json').toString(), zone }
+        }));
     }
 
     protected previewEasing(
@@ -1663,6 +1816,41 @@ export class AkariInspectorWidget extends BaseWidget {
 
         if (field.inputKind === 'color') {
             this.appendColorInput(row, fieldName, editValue, commitValue);
+            parent.appendChild(row);
+            return;
+        }
+
+        if (field.inputKind === 'zone-grid') {
+            const grid = document.createElement('div');
+            grid.className = 'akari-caption-zone-grid';
+            grid.setAttribute('data-akari-ui', `field:inspector-${fieldName}`);
+            const glyphs = ['↖', '↑', '↗', '←', '•', '→', '↙', '↓', '↘'];
+            (field.options ?? []).forEach((zone, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'akari-caption-zone-cell';
+                button.dataset.akariCaptionZone = zone;
+                button.textContent = glyphs[index] ?? '•';
+                button.title = zone;
+                button.setAttribute('aria-label', `字幕位置: ${zone}`);
+                if (zone === editValue) {
+                    button.classList.add('is-saved');
+                    button.setAttribute('aria-pressed', 'true');
+                    const saved = document.createElement('span');
+                    saved.className = 'akari-caption-zone-saved';
+                    saved.textContent = '保存中';
+                    button.appendChild(saved);
+                } else {
+                    button.setAttribute('aria-pressed', 'false');
+                }
+                button.addEventListener('mouseenter', () => field.zoneHover?.(zone));
+                button.addEventListener('mouseleave', () => field.zoneHover?.(null));
+                button.addEventListener('focus', () => field.zoneHover?.(zone));
+                button.addEventListener('blur', () => field.zoneHover?.(null));
+                button.addEventListener('click', () => field.zonePreset?.(zone));
+                grid.appendChild(button);
+            });
+            row.appendChild(grid);
             parent.appendChild(row);
             return;
         }

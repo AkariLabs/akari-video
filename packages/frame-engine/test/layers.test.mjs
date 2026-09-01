@@ -3,16 +3,88 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { applyHomography as referenceApply, cornersToHomography as referenceHomography } from '../../render-cut/src/perspective-homography.mjs';
+import { filterQuadCornersAt as legacyFilterQuadCornersAt } from '../../render-cut/src/filter-mask.mjs';
 import { computeLayerKeyframesVisual as previewVisual } from '../../preview-server/public/layer-keyframes-visual.js';
 import {
   applyHomography, buildResolvedTimelinePlan, computeLayerKeyframesVisual, cornersToHomography,
-  evaluationPlanFromResolvedTimeline, invertMat3, isLayerActiveAt
+  evaluationPlanFromResolvedTimeline, filterQuadCornersAt, invertMat3, isLayerActiveAt
 } from '../dist/index.js';
 
 const keyframes = [
   { t: 0, transform: { x: 10, scale: 1 }, crop: { x: 0, y: 0, w: 1, h: 1 }, perspective: { corners: [[0,0],[1,0],[0,1],[1,1]] } },
   { t: 2, transform: { y: 20, rotate: 30 }, crop: { x: .2, y: .1, w: .6, h: .8 }, perspective: { corners: [[.1,.1],[.9,0],[0,1],[1,.8]] }, easing: 'ease-in-out' }
 ];
+
+const fullCorners = [[0,0],[1,0],[0,1],[1,1]];
+const movedCorners = [[.2,.1],[.9,.2],[.1,.8],[.8,.9]];
+
+test('filter corners default to the full frame', () => {
+  assert.deepEqual(filterQuadCornersAt({}, 0.5), fullCorners);
+});
+
+test('filter corners use static perspective without keyframes', () => {
+  const layer = { perspective: { corners: movedCorners } };
+  assert.deepEqual(filterQuadCornersAt(layer, 0.5), movedCorners);
+  assert.deepEqual(filterQuadCornersAt(layer, 0.5), legacyFilterQuadCornersAt(layer, 0.5));
+});
+
+test('one usable filter corner keyframe holds its value', () => {
+  const layer = { perspective: { corners: fullCorners }, keyframes: [{ t: 2, perspective: { corners: movedCorners } }] };
+  assert.deepEqual(filterQuadCornersAt(layer, -1), movedCorners);
+  assert.deepEqual(filterQuadCornersAt(layer, 99), legacyFilterQuadCornersAt(layer, 99));
+});
+
+test('two filter corner keyframes interpolate linearly and ignore easing', () => {
+  const layer = { keyframes: [
+    { t: 1, perspective: { corners: fullCorners }, easing: 'ease-in' },
+    { t: 3, perspective: { corners: movedCorners }, easing: 'ease-out' },
+  ] };
+  assert.deepEqual(filterQuadCornersAt(layer, 2), legacyFilterQuadCornersAt(layer, 2));
+  assert.deepEqual(filterQuadCornersAt(layer, 2), [[.1,.05],[.95,.1],[.05,.9],[.9,.95]]);
+});
+
+test('filter corner keyframes hold both endpoints', () => {
+  const layer = { keyframes: [
+    { t: 1, perspective: { corners: fullCorners } },
+    { t: 3, perspective: { corners: movedCorners } },
+  ] };
+  assert.deepEqual(filterQuadCornersAt(layer, 0), fullCorners);
+  assert.deepEqual(filterQuadCornersAt(layer, 4), movedCorners);
+});
+
+test('filter layers resolve in z order without a source', () => {
+  const base = { decode: async () => { throw new Error('unused'); } };
+  const timeline = buildResolvedTimelinePlan([{ src:'base', in:0, out:2 }], { layers: [
+    { id:'invert', kind:'filter', t:0, duration:2, filter:{ type:'invert' }, perspective:{ corners:movedCorners }, opacity:.4 },
+    { id:'media', kind:'video', t:0, duration:2, src:'base' },
+  ] });
+  const plan = evaluationPlanFromResolvedTimeline(timeline, 1e6, new Map([['base', base]]), { width:320,height:180,colorSpace:'bt709-limited' });
+  assert.deepEqual(plan.layers.map(layer => layer.kind), ['filter', 'video']);
+  assert.deepEqual(plan.layers[0].corners, movedCorners);
+  assert.equal(plan.layers[0].opacity, .4);
+});
+
+test('missing filter warns once and skips instead of throwing', () => {
+  const warnings = [];
+  const base = { decode: async () => { throw new Error('unused'); } };
+  const timeline = buildResolvedTimelinePlan([{ src:'base', in:0, out:2 }], {
+    layers:[{ id:'missing', kind:'filter', t:0, duration:2 }], onWarning:value => warnings.push(value),
+  });
+  const plan = evaluationPlanFromResolvedTimeline(timeline, 1e6, new Map([['base',base]]), { width:320,height:180,colorSpace:'bt709-limited' });
+  assert.deepEqual(plan.layers, []);
+  assert.deepEqual(warnings, ['filter layer missing has no supported filter; skipping']);
+});
+
+test('unknown filter type warns and skips', () => {
+  const warnings = [];
+  const base = { decode: async () => { throw new Error('unused'); } };
+  const timeline = buildResolvedTimelinePlan([{ src:'base', in:0, out:2 }], {
+    layers:[{ id:'future', kind:'filter', t:0, duration:2, filter:{type:'blur'} }], onWarning:value => warnings.push(value),
+  });
+  const plan = evaluationPlanFromResolvedTimeline(timeline, 1e6, new Map([['base',base]]), { width:320,height:180,colorSpace:'bt709-limited' });
+  assert.deepEqual(plan.layers, []);
+  assert.equal(warnings.length, 1);
+});
 
 test('layer window uses render-cut half-open frame quantization', () => {
   const layer = { t: 0.101, duration: 0.099 };

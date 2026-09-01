@@ -12,6 +12,7 @@ import type {
   EvaluationPlan,
   NativeFrameSource,
   ResolvedCutVisual,
+  ResolvedFilter,
   ResolvedLayerBlendMode,
   StillImageSource,
   TimelineTimeUs
@@ -50,6 +51,10 @@ export interface FrameEngineLayer {
   keyframes?: readonly LayerKeyframe[];
   opacity?: number;
   blend?: ResolvedLayerBlendMode;
+  filter?:
+    | { type: 'invert' }
+    | { type: 'saturation'; value: number }
+    | { type: 'lut'; lut: import('../look/cube.js').ParsedCubeLut; intensity?: number };
 }
 
 export interface BuildResolvedTimelinePlanOptions extends NonNullable<Parameters<typeof buildTimelineMap>[1]> {
@@ -148,7 +153,7 @@ export function buildResolvedTimelinePlan(
       freezeDuration
     };
   });
-  const visibleLayers = layers.filter(layer => layer.kind !== 'filter');
+  const visibleLayers = layers;
   const warned = new Set<string>();
   const warn = (message: string) => {
     if (warned.has(message)) return;
@@ -157,7 +162,7 @@ export function buildResolvedTimelinePlan(
   };
   const maskSources = new Map<string, string | null>();
   for (const layer of visibleLayers) {
-    if (!layer.src || layer.mask !== undefined || maskSources.has(layer.src)) continue;
+    if (layer.kind === 'filter' || !layer.src || layer.mask !== undefined || maskSources.has(layer.src)) continue;
     if (isStillImageSourcePath(layer.src)) {
       if (layer.kind === 'matte') warn(`mask ignored for still image layer ${layer.id ?? layer.src}`);
       maskSources.set(layer.src, null);
@@ -323,6 +328,67 @@ const BLENDS = new Set<ResolvedLayerBlendMode>([
   'normal', 'screen', 'multiply', 'add', 'difference', 'darken', 'lighten', 'overlay', 'hardlight', 'softlight'
 ]);
 
+const FULL_FRAME_CORNERS = Object.freeze([
+  Object.freeze([0, 0]), Object.freeze([1, 0]),
+  Object.freeze([0, 1]), Object.freeze([1, 1])
+]) as unknown as readonly [
+  readonly [number, number], readonly [number, number],
+  readonly [number, number], readonly [number, number]
+];
+
+type FilterCorners = ReturnType<typeof filterQuadCornersAt>;
+
+function cornersOf(value: unknown): FilterCorners | null {
+  if (!value || typeof value !== 'object') return null;
+  const corners = (value as { corners?: unknown }).corners;
+  return Array.isArray(corners) && corners.length === 4 && corners.every(corner =>
+    Array.isArray(corner) && corner.length === 2 && corner.every(Number.isFinite))
+    ? corners as unknown as FilterCorners : null;
+}
+
+/** Region-filter v0 intentionally ignores easing and matches legacy filterQuadCornersAt. */
+export function filterQuadCornersAt(
+  layer: Pick<FrameEngineLayer, 'perspective' | 'keyframes'>,
+  localT: number
+): readonly [
+  readonly [number, number], readonly [number, number],
+  readonly [number, number], readonly [number, number]
+] {
+  const points = Array.isArray(layer.keyframes)
+    ? layer.keyframes.filter(point => point && Number.isFinite(point.t) && point.t >= 0
+      && cornersOf(point.perspective)).slice().sort((a, b) => a.t - b.t)
+    : [];
+  if (points.length === 0) return cornersOf(layer.perspective) ?? FULL_FRAME_CORNERS;
+  if (points.length === 1) return cornersOf(points[0]!.perspective)!;
+  if (localT <= points[0]!.t) return cornersOf(points[0]!.perspective)!;
+  const last = points[points.length - 1]!;
+  if (localT >= last.t) return cornersOf(last.perspective)!;
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index]!;
+    const end = points[index + 1]!;
+    if (localT < start.t || localT > end.t) continue;
+    const span = end.t - start.t;
+    if (!(span > 0)) return cornersOf(end.perspective)!;
+    const u = (localT - start.t) / span;
+    const startCorners = cornersOf(start.perspective)!;
+    const endCorners = cornersOf(end.perspective)!;
+    return startCorners.map((corner, cornerIndex) => [
+      corner[0] + (endCorners[cornerIndex]![0] - corner[0]) * u,
+      corner[1] + (endCorners[cornerIndex]![1] - corner[1]) * u
+    ]) as unknown as FilterCorners;
+  }
+  return cornersOf(last.perspective)!;
+}
+
+function validFilter(value: FrameEngineLayer['filter']): value is ResolvedFilter {
+  if (!value || typeof value !== 'object') return false;
+  if (value.type === 'invert') return true;
+  if (value.type === 'saturation') return Number.isFinite(value.value) && value.value >= 0 && value.value <= 3;
+  if (value.type === 'lut') return Boolean(value.lut && typeof value.lut === 'object')
+    && (value.intensity === undefined || Number.isFinite(value.intensity));
+  return false;
+}
+
 function resolvedCompositeLayers(
   timeline: ResolvedTimelinePlan,
   timeUs: TimelineTimeUs,
@@ -331,10 +397,26 @@ function resolvedCompositeLayers(
   const seconds = timeUs / 1e6;
   const resolved: EvaluationPlan['layers'][number][] = [];
   timeline.layers.forEach((layer, index) => {
-    if (!isLayerActiveAt(layer, timeUs, timeline.fps) || !layer.src) return;
+    if (!isLayerActiveAt(layer, timeUs, timeline.fps)) return;
+    const localSeconds = Math.max(0, seconds - finite(layer.t, 0));
+    const id = String(layer.id ?? `layer-${index}`);
+    if (layer.kind === 'filter') {
+      if (!validFilter(layer.filter)) {
+        timeline.warn(`filter layer ${id} has no supported filter; skipping`);
+        return;
+      }
+      resolved.push({
+        id,
+        kind: 'filter',
+        filter: layer.filter,
+        corners: filterQuadCornersAt(layer, localSeconds),
+        opacity: clamp(finite(layer.opacity, 1), 0, 1)
+      });
+      return;
+    }
+    if (!layer.src) return;
     const source = sources.get(layer.src);
     if (!source) throw new Error(`no layer source registered for ${layer.src}`);
-    const localSeconds = Math.max(0, seconds - finite(layer.t, 0));
     const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds);
     const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
     const staticTransform = layer.transform ?? {};
@@ -357,7 +439,6 @@ function resolvedCompositeLayers(
     visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
     visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
     const blend = BLENDS.has(layer.blend ?? 'normal') ? (layer.blend ?? 'normal') : 'normal';
-    const id = String(layer.id ?? `layer-${index}`);
     const common = {
       id, visual,
       blend, opacity: clamp(finite(layer.opacity, 1), 0, 1)

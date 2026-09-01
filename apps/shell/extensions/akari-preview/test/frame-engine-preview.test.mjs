@@ -96,11 +96,9 @@ test('AKARI_FRAME_ENGINE の backend RPC はインスタンスで 1 回だけキ
     assert.match(compiledHandler, /preferences\.get\('akari\.preview\.frameEngine', true\)/);
 });
 
-test('frame-engine 有効時は差分更新を使わず最新 summary で HTML を再構築する', () => {
-    assert.match(
-        compiledHandler,
-        /kind === 'output' && widget\.akariPreviewModelSnapshot && !frameEngineEnabled/
-    );
+test('frame-engine 有効時も overlay-only 更新は同じ runtime へ差分適用する', () => {
+    assert.match(compiledHandler,
+        /isOverlayOnlyPreviewModelUpdate\)\(widget\.akariPreviewModelSnapshot, nextSnapshot\)/);
 });
 
 test('追跡済み frame-engine IIFE は必要な engine 部品を含む', () => {

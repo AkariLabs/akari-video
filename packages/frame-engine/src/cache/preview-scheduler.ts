@@ -222,7 +222,7 @@ export function createPreviewScheduler({
       append(timeline.cuts[cutIndex]?.cut.src, base.id, base.sourceTimeUs, 'base');
     }
     for (const layer of plan.layers) {
-      if (layer.kind === 'image') continue;
+      if (layer.kind === 'image' || layer.kind === 'filter') continue;
       const declared = layerSources.get(layer.id);
       append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0, 'layer');
       if (layer.mask) {

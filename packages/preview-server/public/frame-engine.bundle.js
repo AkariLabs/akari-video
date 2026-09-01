@@ -15424,6 +15424,59 @@ void main() {
   vec3 lutted = texture(lut, coord).rgb;
   color = vec4(mix(src.rgb, lutted, lutIntensity), src.a);
 }`;
+var FILTER_FRAGMENT = `#version 300 es
+precision highp float;
+precision highp sampler3D;
+in vec2 uv;
+out vec4 color;
+uniform sampler2D backdrop;
+uniform sampler3D lut;
+uniform int filterType;
+uniform float value;
+uniform float lutIntensity;
+uniform vec3 lutDomainMin;
+uniform vec3 lutDomainMax;
+uniform float lutSize;
+uniform vec2 corners[4];
+uniform float opacity;
+uniform float edgePx;
+uniform vec2 outputSize;
+vec3 saturation709(vec3 rgb, float amount) {
+  float y = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+  float cb = (rgb.b - y) / 1.8556;
+  float cr = (rgb.r - y) / 1.5748;
+  cb *= amount;
+  cr *= amount;
+  return clamp(vec3(
+    y + 1.5748 * cr,
+    y - 0.187324 * cb - 0.468124 * cr,
+    y + 1.8556 * cb
+  ), 0.0, 1.0);
+}
+float edgeDistance(vec2 a, vec2 b, vec2 p) {
+  vec2 edge = b - a;
+  return (edge.x * (p.y - a.y) - edge.y * (p.x - a.x)) / max(length(edge), 0.000001);
+}
+void main() {
+  vec4 src = texture(backdrop, uv);
+  vec3 graded;
+  if (filterType == 0) {
+    graded = 1.0 - src.rgb;
+  } else if (filterType == 1) {
+    graded = saturation709(src.rgb, value);
+  } else {
+    vec3 unit = clamp((src.rgb - lutDomainMin) / (lutDomainMax - lutDomainMin), 0.0, 1.0);
+    vec3 coord = (unit * (lutSize - 1.0) + 0.5) / lutSize;
+    graded = mix(src.rgb, texture(lut, coord).rgb, lutIntensity);
+  }
+  vec2 p = vec2(uv.x, 1.0 - uv.y) * outputSize;
+  float distancePx = min(
+    min(edgeDistance(corners[0], corners[1], p), edgeDistance(corners[1], corners[3], p)),
+    min(edgeDistance(corners[3], corners[2], p), edgeDistance(corners[2], corners[0], p))
+  );
+  float mask = smoothstep(-edgePx * 0.5, edgePx * 0.5, distancePx);
+  color = vec4(mix(src.rgb, graded, mask * opacity), src.a);
+}`;
 var FBO_SCRATCH_UNIT = 9;
 var BASE_RGBA_UNITS = [6, 7];
 var LAYER_RGBA_UNIT = 8;
@@ -15520,6 +15573,7 @@ var WebGL2Compositor = class {
       this.stats.directUploadFallbackReason = `requires ${REQUIRED_TEXTURE_UNITS} texture units`;
     }
     this.layerProgram = createProgram(gl, LAYER_FRAGMENT);
+    this.filterProgram = createProgram(gl, FILTER_FRAGMENT);
     this.copyProgram = createProgram(gl, COPY_FRAGMENT);
     this.lookProgram = createProgram(gl, LOOK_FRAGMENT);
     const vertices = gl.createBuffer();
@@ -15533,6 +15587,7 @@ var WebGL2Compositor = class {
     );
     for (const program of [
       this.layerProgram,
+      this.filterProgram,
       this.copyProgram,
       this.lookProgram
     ]) {
@@ -15600,6 +15655,9 @@ var WebGL2Compositor = class {
     this.bind(5, this.layerTextures[3]);
     this.bind(LAYER_RGBA_UNIT, this.layerRgbaTextures[0]);
     this.bind(MASK_RGBA_UNIT, this.layerRgbaTextures[1]);
+    gl.useProgram(this.filterProgram);
+    gl.uniform1i(uniform(gl, this.filterProgram, "backdrop"), 0);
+    gl.uniform1i(uniform(gl, this.filterProgram, "lut"), LUT_UNIT);
     gl.useProgram(this.copyProgram);
     gl.uniform1i(uniform(gl, this.copyProgram, "source"), 0);
     gl.useProgram(this.lookProgram);
@@ -15618,6 +15676,7 @@ var WebGL2Compositor = class {
   gl;
   basePrograms = /* @__PURE__ */ new Map();
   layerProgram;
+  filterProgram;
   copyProgram;
   lookProgram;
   vertices;
@@ -16032,7 +16091,7 @@ var WebGL2Compositor = class {
       throw new Error("layer inputs must match plan.layers");
     if (base.length === 0 && layers.length === 0)
       throw new Error("cannot compose an empty plan");
-    const hasBlockedDirectInput = base.some((frame) => isVideoFrame(frame) && !isCopyToPassthroughVideoFormat(frame.format)) || layers.some((input) => isVideoFrame(input.color) && !isCopyToPassthroughVideoFormat(input.color.format) || Boolean(input.mask && isVideoFrame(input.mask) && !isCopyToPassthroughVideoFormat(input.mask.format)));
+    const hasBlockedDirectInput = base.some((frame) => isVideoFrame(frame) && !isCopyToPassthroughVideoFormat(frame.format)) || layers.some((input) => input.kind !== "filter" && (isVideoFrame(input.color) && !isCopyToPassthroughVideoFormat(input.color.format) || Boolean(input.mask && isVideoFrame(input.mask) && !isCopyToPassthroughVideoFormat(input.mask.format))));
     if (hasBlockedDirectInput && this.directUploadDisabled)
       this.failDirectUpload("direct upload is disabled for this session");
     if (this.canvas.width !== output.width) this.canvas.width = output.width;
@@ -16116,10 +16175,19 @@ var WebGL2Compositor = class {
     let current = 0;
     for (let index = 0; index < layers.length; index += 1) {
       const input = layers[index];
-      const color = input.color;
       const layer = plan.layers[index];
       const next = 1 - current;
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbos[next]);
+      if (input.kind === "filter") {
+        if (layer.kind !== "filter") throw new Error(`filter input ${index} does not match plan layer`);
+        this.configureFilterDraw(layer, output, current);
+        draw();
+        this.recordGlErrors(synchronization);
+        current = next;
+        continue;
+      }
+      if (layer.kind === "filter") throw new Error(`media input ${index} does not match filter plan layer`);
+      const color = input.color;
       gl.useProgram(this.layerProgram);
       this.bind(0, this.fboTextures[current]);
       let width;
@@ -16228,6 +16296,40 @@ var WebGL2Compositor = class {
       metrics
     );
   }
+  configureFilterDraw(layer, output, backdropIndex) {
+    const gl = this.gl;
+    gl.useProgram(this.filterProgram);
+    this.bind(0, this.fboTextures[backdropIndex]);
+    const filterType = layer.filter.type === "invert" ? 0 : layer.filter.type === "saturation" ? 1 : 2;
+    gl.uniform1i(uniform(gl, this.filterProgram, "filterType"), filterType);
+    gl.uniform1f(
+      uniform(gl, this.filterProgram, "value"),
+      layer.filter.type === "saturation" ? layer.filter.value : 1
+    );
+    gl.uniform1f(uniform(gl, this.filterProgram, "opacity"), layer.opacity);
+    gl.uniform1f(uniform(gl, this.filterProgram, "edgePx"), 2);
+    gl.uniform2f(uniform(gl, this.filterProgram, "outputSize"), output.width, output.height);
+    gl.uniform2fv(
+      uniform(gl, this.filterProgram, "corners[0]"),
+      new Float32Array(layer.corners.flatMap((corner) => [corner[0] * output.width, corner[1] * output.height]))
+    );
+    if (layer.filter.type === "lut") {
+      const intensity = Math.max(0, Math.min(
+        1,
+        Number.isFinite(layer.filter.intensity) ? Number(layer.filter.intensity) : 1
+      ));
+      this.bind3d(LUT_UNIT, this.lookTexture(layer.filter.lut));
+      gl.uniform3fv(uniform(gl, this.filterProgram, "lutDomainMin"), layer.filter.lut.domainMin);
+      gl.uniform3fv(uniform(gl, this.filterProgram, "lutDomainMax"), layer.filter.lut.domainMax);
+      gl.uniform1f(uniform(gl, this.filterProgram, "lutSize"), layer.filter.lut.size);
+      gl.uniform1f(uniform(gl, this.filterProgram, "lutIntensity"), intensity);
+    } else {
+      gl.uniform3f(uniform(gl, this.filterProgram, "lutDomainMin"), 0, 0, 0);
+      gl.uniform3f(uniform(gl, this.filterProgram, "lutDomainMax"), 1, 1, 1);
+      gl.uniform1f(uniform(gl, this.filterProgram, "lutSize"), 2);
+      gl.uniform1f(uniform(gl, this.filterProgram, "lutIntensity"), 0);
+    }
+  }
   finishFrame(metrics, shaderSubmissionMs, synchronization, timer, queries) {
     const syncStarted = performance.now();
     if (synchronization === "finish") this.gl.finish();
@@ -16272,6 +16374,7 @@ var WebGL2Compositor = class {
     this.basePrograms.clear();
     this.dissolveNoiseTextures.clear();
     this.gl.deleteProgram(this.layerProgram);
+    this.gl.deleteProgram(this.filterProgram);
     this.gl.deleteProgram(this.copyProgram);
     this.gl.deleteProgram(this.lookProgram);
   }
@@ -16296,6 +16399,10 @@ async function evaluateFrame(plan, context) {
       baseFrames.push(frame);
     }
     for (const layer of plan.layers) {
+      if (layer.kind === "filter") {
+        layerFrames.push({ kind: "filter" });
+        continue;
+      }
       if (layer.kind === "image") {
         if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
         layerFrames.push({ color: await layer.image.load() });
@@ -16340,6 +16447,10 @@ async function evaluateFrame(plan, context) {
       for (const frame of baseFrames) base.push("bitmap" in frame ? frame : await copyFrame(frame));
       const layers = [];
       for (const input of layerFrames) {
+        if (input.kind === "filter") {
+          layers.push(input);
+          continue;
+        }
         const color = "bitmap" in input.color ? input.color : await copyFrame(input.color);
         const mask = input.mask ? await copyFrame(input.mask) : input.mask;
         layers.push({ color, mask });
@@ -16442,7 +16553,7 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
       freezeDuration
     };
   });
-  const visibleLayers = layers.filter((layer) => layer.kind !== "filter");
+  const visibleLayers = layers;
   const warned = /* @__PURE__ */ new Set();
   const warn = (message) => {
     if (warned.has(message)) return;
@@ -16451,7 +16562,7 @@ function buildResolvedTimelinePlan(cuts, options = {}) {
   };
   const maskSources = /* @__PURE__ */ new Map();
   for (const layer of visibleLayers) {
-    if (!layer.src || layer.mask !== void 0 || maskSources.has(layer.src)) continue;
+    if (layer.kind === "filter" || !layer.src || layer.mask !== void 0 || maskSources.has(layer.src)) continue;
     if ((0, import_edit_store2.isStillImageSourcePath)(layer.src)) {
       if (layer.kind === "matte") warn(`mask ignored for still image layer ${layer.id ?? layer.src}`);
       maskSources.set(layer.src, null);
@@ -16594,14 +16705,71 @@ var BLENDS = /* @__PURE__ */ new Set([
   "hardlight",
   "softlight"
 ]);
+var FULL_FRAME_CORNERS = Object.freeze([
+  Object.freeze([0, 0]),
+  Object.freeze([1, 0]),
+  Object.freeze([0, 1]),
+  Object.freeze([1, 1])
+]);
+function cornersOf(value) {
+  if (!value || typeof value !== "object") return null;
+  const corners = value.corners;
+  return Array.isArray(corners) && corners.length === 4 && corners.every((corner) => Array.isArray(corner) && corner.length === 2 && corner.every(Number.isFinite)) ? corners : null;
+}
+function filterQuadCornersAt(layer, localT) {
+  const points = Array.isArray(layer.keyframes) ? layer.keyframes.filter((point) => point && Number.isFinite(point.t) && point.t >= 0 && cornersOf(point.perspective)).slice().sort((a, b) => a.t - b.t) : [];
+  if (points.length === 0) return cornersOf(layer.perspective) ?? FULL_FRAME_CORNERS;
+  if (points.length === 1) return cornersOf(points[0].perspective);
+  if (localT <= points[0].t) return cornersOf(points[0].perspective);
+  const last = points[points.length - 1];
+  if (localT >= last.t) return cornersOf(last.perspective);
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const start = points[index];
+    const end = points[index + 1];
+    if (localT < start.t || localT > end.t) continue;
+    const span = end.t - start.t;
+    if (!(span > 0)) return cornersOf(end.perspective);
+    const u2 = (localT - start.t) / span;
+    const startCorners = cornersOf(start.perspective);
+    const endCorners = cornersOf(end.perspective);
+    return startCorners.map((corner, cornerIndex) => [
+      corner[0] + (endCorners[cornerIndex][0] - corner[0]) * u2,
+      corner[1] + (endCorners[cornerIndex][1] - corner[1]) * u2
+    ]);
+  }
+  return cornersOf(last.perspective);
+}
+function validFilter(value) {
+  if (!value || typeof value !== "object") return false;
+  if (value.type === "invert") return true;
+  if (value.type === "saturation") return Number.isFinite(value.value) && value.value >= 0 && value.value <= 3;
+  if (value.type === "lut") return Boolean(value.lut && typeof value.lut === "object") && (value.intensity === void 0 || Number.isFinite(value.intensity));
+  return false;
+}
 function resolvedCompositeLayers(timeline, timeUs, sources) {
   const seconds = timeUs / 1e6;
   const resolved = [];
   timeline.layers.forEach((layer, index) => {
-    if (!isLayerActiveAt(layer, timeUs, timeline.fps) || !layer.src) return;
+    if (!isLayerActiveAt(layer, timeUs, timeline.fps)) return;
+    const localSeconds = Math.max(0, seconds - finite2(layer.t, 0));
+    const id = String(layer.id ?? `layer-${index}`);
+    if (layer.kind === "filter") {
+      if (!validFilter(layer.filter)) {
+        timeline.warn(`filter layer ${id} has no supported filter; skipping`);
+        return;
+      }
+      resolved.push({
+        id,
+        kind: "filter",
+        filter: layer.filter,
+        corners: filterQuadCornersAt(layer, localSeconds),
+        opacity: clamp(finite2(layer.opacity, 1), 0, 1)
+      });
+      return;
+    }
+    if (!layer.src) return;
     const source = sources.get(layer.src);
     if (!source) throw new Error(`no layer source registered for ${layer.src}`);
-    const localSeconds = Math.max(0, seconds - finite2(layer.t, 0));
     const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds);
     const staticCrop = layer.crop ?? { x: 0, y: 0, w: 1, h: 1 };
     const staticTransform = layer.transform ?? {};
@@ -16625,7 +16793,6 @@ function resolvedCompositeLayers(timeline, timeUs, sources) {
     visual.crop.x = clamp(visual.crop.x, 0, 1 - visual.crop.width);
     visual.crop.y = clamp(visual.crop.y, 0, 1 - visual.crop.height);
     const blend = BLENDS.has(layer.blend ?? "normal") ? layer.blend ?? "normal" : "normal";
-    const id = String(layer.id ?? `layer-${index}`);
     const common = {
       id,
       visual,
@@ -21736,7 +21903,7 @@ function createPreviewScheduler({
       append(timeline.cuts[cutIndex]?.cut.src, base.id, base.sourceTimeUs, "base");
     }
     for (const layer of plan.layers) {
-      if (layer.kind === "image") continue;
+      if (layer.kind === "image" || layer.kind === "filter") continue;
       const declared = layerSources.get(layer.id);
       append(declared?.src, `layer-${layer.id}`, layer.sourceTimeUs ?? 0, "layer");
       if (layer.mask) {
@@ -22499,6 +22666,13 @@ var STAGES = [
   "ffmpegDrain",
   "ffmpegClose"
 ];
+function maxOf(values) {
+  let max = -Infinity;
+  for (const value of values) {
+    if (value > max) max = value;
+  }
+  return max;
+}
 function percentile(values, value) {
   if (values.length === 0) return null;
   const sorted = [...values].sort((left, right) => left - right);
@@ -22532,7 +22706,7 @@ var FrameMetrics = class {
           count: values.length,
           p50Ms: percentile(values, 50),
           p95Ms: percentile(values, 95),
-          maxMs: values.length > 0 ? Math.max(...values) : null
+          maxMs: values.length > 0 ? maxOf(values) : null
         }];
       })),
       uploadPath: this.uploadPath,
@@ -22795,7 +22969,16 @@ function resolvedEngineLayers(edit) {
     const key = String(layer?.id ?? layer?.src ?? index);
     if (skippedLayers.has(key)) return null;
     const prepared = frameEngineIntake[key];
-    return prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+    const resolved = prepared ? { ...layer, src: prepared.src, mask: prepared.mask } : layer;
+    if (resolved?.kind !== "filter" || resolved?.filter?.type !== "lut" || typeof resolved.filter.cubeText !== "string") return resolved;
+    return {
+      ...resolved,
+      filter: {
+        type: "lut",
+        lut: parseCube(resolved.filter.cubeText),
+        intensity: Math.max(0, Math.min(1, Number(resolved.filter.intensity ?? 1)))
+      }
+    };
   }).filter(Boolean);
 }
 function sourceCandidates(edit, timelineData, cuts, engineLayers = []) {
