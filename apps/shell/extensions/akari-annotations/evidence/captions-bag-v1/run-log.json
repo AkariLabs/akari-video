@@ -1,16 +1,17 @@
 {
-  "status": "PASS",
+  "status": "FAIL",
   "mode": "all",
+  "error": "Error: ENOENT: no such file or directory, open '<WORKSPACE>/project/overlays/lower-third.html'\n    at async open (node:internal/fs/promises:1287:25)\n    at async readFile (node:internal/fs/promises:1935:14)\n    at async file://<REPO>/packages/osr-export/src/page-builder.mjs:127:9\n    at async Promise.all (index 0)\n    at async loadAndBuildOsrPage (file://<REPO>/packages/osr-export/src/page-builder.mjs:123:20)\n    at async runCapture (file://<EVIDENCE>/scripts/run-l1.mjs:196:19)\n    at async file://<EVIDENCE>/scripts/run-l1.mjs:255:45",
   "records": [
     {
-      "t": "2026-08-30T13:09:58.666Z",
+      "t": "2026-09-01T09:06:11.029Z",
       "step": "assertion-ok",
-      "message": "step1 captions bag header and projected caption chips are bound to tree ids",
+      "message": "step1 captions bag has no header child rows or expand toggle",
       "bindings": [
         {
           "id": "captions-bag",
           "itemId": "captions-bag",
-          "inStrip": false
+          "inStrip": true
         },
         {
           "id": "captions-bag#c-0001",
@@ -27,11 +28,48 @@
           "itemId": "c-0003",
           "inStrip": true
         }
-      ]
+      ],
+      "bagPresentation": {
+        "toggle": false,
+        "ticks": 3,
+        "headerRows": 0
+      }
     },
     {
-      "t": "2026-08-30T13:09:58.668Z",
-      "step": "step-1-expand",
+      "t": "2026-09-01T09:06:11.031Z",
+      "step": "assertion-ok",
+      "message": "step1 caption chips stay directly reachable on the one-row tick band",
+      "bindings": [
+        {
+          "id": "captions-bag",
+          "itemId": "captions-bag",
+          "inStrip": true
+        },
+        {
+          "id": "captions-bag#c-0001",
+          "itemId": "c-0001",
+          "inStrip": true
+        },
+        {
+          "id": "captions-bag#c-0002",
+          "itemId": "c-0002",
+          "inStrip": true
+        },
+        {
+          "id": "captions-bag#c-0003",
+          "itemId": "c-0003",
+          "inStrip": true
+        }
+      ],
+      "bagPresentation": {
+        "toggle": false,
+        "ticks": 3,
+        "headerRows": 0
+      }
+    },
+    {
+      "t": "2026-09-01T09:06:11.031Z",
+      "step": "step-1-collapsed-baseline",
       "rows": [
         "captions-bag",
         "captions-bag#c-0001",
@@ -42,7 +80,7 @@
         {
           "id": "captions-bag",
           "itemId": "captions-bag",
-          "inStrip": false
+          "inStrip": true
         },
         {
           "id": "captions-bag#c-0001",
@@ -59,25 +97,33 @@
           "itemId": "c-0003",
           "inStrip": true
         }
-      ]
+      ],
+      "bagPresentation": {
+        "toggle": false,
+        "ticks": 3,
+        "headerRows": 0
+      }
     },
     {
-      "t": "2026-08-30T13:09:58.884Z",
+      "t": "2026-09-01T09:06:11.264Z",
       "step": "step-2-detach",
       "trackId": "v2"
     },
     {
-      "t": "2026-08-30T13:09:59.102Z",
+      "t": "2026-09-01T09:06:11.355Z",
       "step": "assertion-ok",
-      "message": "step3 detached caption is selected before nudge"
+      "message": "step3 detached leaf caption does not add a startup/header row",
+      "detachedHeaderRows": 0
     },
     {
-      "t": "2026-08-30T13:09:59.229Z",
-      "step": "step-3-transform-y",
-      "y": 10
+      "t": "2026-09-01T09:06:11.356Z",
+      "step": "step-3-detached-leaf",
+      "detachedHeaderRows": 0,
+      "detachedChips": 0,
+      "knownGap": "出した字幕にチップが描かれない（main 6c1b9a06 でも同一・本票の範囲外）"
     },
     {
-      "t": "2026-08-30T13:09:59.426Z",
+      "t": "2026-09-01T09:06:11.552Z",
       "step": "step-4-convert",
       "source": {
         "kind": "telop",
@@ -89,22 +135,19 @@
       }
     },
     {
-      "t": "2026-08-30T13:09:59.522Z",
+      "t": "2026-09-01T09:06:11.631Z",
       "step": "assertion-ok",
       "message": "captions.json bytes stay unchanged",
       "sha256": "d42d30d450f5bbe31777754667244aef89ec7d3fcf4e277bb8105085dbd18a3f"
     },
     {
-      "t": "2026-08-30T13:09:59.524Z",
+      "t": "2026-09-01T09:06:11.633Z",
       "step": "assertion-ok",
       "message": "step5 detached caption item exists",
       "item": {
         "id": "cap-c-0001",
         "at": 9,
         "duration": 51,
-        "transform": {
-          "y": 10
-        },
         "source": {
           "kind": "caption",
           "path": "captions.json",
@@ -113,7 +156,7 @@
       }
     },
     {
-      "t": "2026-08-30T13:09:59.524Z",
+      "t": "2026-09-01T09:06:11.633Z",
       "step": "assertion-ok",
       "message": "step5 converted telop item exists",
       "item": {
@@ -128,117 +171,6 @@
           },
           "from": "captions.json#c-0002"
         }
-      }
-    },
-    {
-      "t": "2026-08-30T13:09:59.608Z",
-      "step": "assertion-ok",
-      "message": "step5 c-0001 text exists"
-    },
-    {
-      "t": "2026-08-30T13:09:59.609Z",
-      "step": "assertion-ok",
-      "message": "step5 c-0002 text exists"
-    },
-    {
-      "t": "2026-08-30T13:09:59.612Z",
-      "step": "assertion-ok",
-      "message": "step5 c-0003 text exists"
-    },
-    {
-      "t": "2026-08-30T13:09:59.613Z",
-      "step": "assertion-ok",
-      "message": "step5 excluded c-0001 has no caption plate",
-      "excludedCaptionAbsent": true,
-      "convertedCaptionAbsent": true,
-      "convertedTelopPresent": true,
-      "remainingCaptionPresent": true
-    },
-    {
-      "t": "2026-08-30T13:09:59.613Z",
-      "step": "assertion-ok",
-      "message": "step5 c-0002 is a telop rather than a caption plate",
-      "excludedCaptionAbsent": true,
-      "convertedCaptionAbsent": true,
-      "convertedTelopPresent": true,
-      "remainingCaptionPresent": true
-    },
-    {
-      "t": "2026-08-30T13:09:59.613Z",
-      "step": "assertion-ok",
-      "message": "step5 c-0003 remains a caption plate",
-      "excludedCaptionAbsent": true,
-      "convertedCaptionAbsent": true,
-      "convertedTelopPresent": true,
-      "remainingCaptionPresent": true
-    },
-    {
-      "t": "2026-08-30T13:09:59.613Z",
-      "step": "step-5-osr-page",
-      "excludedCaptionAbsent": true,
-      "convertedCaptionAbsent": true,
-      "convertedTelopPresent": true,
-      "remainingCaptionPresent": true
-    },
-    {
-      "t": "2026-08-30T13:10:02.501Z",
-      "step": "assertion-ok",
-      "message": "step5 osr capture writes PNG",
-      "files": [
-        "1s-1s.png",
-        "capture.json"
-      ]
-    },
-    {
-      "t": "2026-08-30T13:10:02.501Z",
-      "step": "assertion-ok",
-      "message": "step5 osr capture writes capture.json",
-      "files": [
-        "1s-1s.png",
-        "capture.json"
-      ]
-    },
-    {
-      "t": "2026-08-30T13:10:02.503Z",
-      "step": "assertion-ok",
-      "message": "step5 capture stays on the osr engine",
-      "engine": {
-        "requested": "osr",
-        "resolved": "osr"
-      },
-      "renderer": "osr-export@0.0.0"
-    },
-    {
-      "t": "2026-08-30T13:10:02.503Z",
-      "step": "step-5-osr-capture",
-      "files": [
-        "1s-1s.png",
-        "capture.json"
-      ],
-      "stdout": "{\"kind\":\"sheet\",\"timecode\":\"1s-1s\",\"times_s\":[1],\"path\":\"<EVIDENCE>/capture/1s-1s.png\"}",
-      "stderr": "sysctlbyname for kern.hv_vmm_present failed with status -1",
-      "launcherTier": null,
-      "manifest": {
-        "engine": {
-          "requested": "osr",
-          "resolved": "osr"
-        },
-        "renderer": "osr-export@0.0.0",
-        "verify": {
-          "mode": "stamp",
-          "matched": true,
-          "frames": [
-            {
-              "frameNumber": 30,
-              "matched": true,
-              "decodedFrameNumber": 30,
-              "expectedFrameNumber": 30,
-              "retries": 0
-            }
-          ]
-        },
-        "provenance": null,
-        "receipt": null
       }
     }
   ]
