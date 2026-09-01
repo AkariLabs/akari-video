@@ -8,9 +8,20 @@ import electron from "electron";
 
 import { startRawVideoEncoder } from "./encode.mjs";
 import { verifyEncodedVideo } from "./ffprobe.mjs";
-import { collectGpuDevices } from "./gpu-adapters.mjs";
+import { collectGpuDevices, summarizeGpuAdapters } from "./gpu-adapters.mjs";
 import { createMemorySampler, resolveMemoryBudget } from "./memory.mjs";
-import { captureNonEmptyBitmap, deviceEmulationParameters, osrPageSize, viewportMatches, viewportRecord } from "./paint-bitmap.mjs";
+import {
+  OSR_WARM_UP_BUDGET_MS,
+  captureNonEmptyBitmap,
+  createEmptyPaintRecorder,
+  deviceEmulationParameters,
+  osrPageSize,
+  readPaintBitmap,
+  viewportMatches,
+  viewportRecord,
+  warmUpFailureMessage,
+  warmUpOffscreenPaint,
+} from "./paint-bitmap.mjs";
 import { loadAndBuildOsrPage } from "./page-builder.mjs";
 import { encodeBgraPng } from "./png.mjs";
 import { startStaticServer } from "./static-server.mjs";
@@ -55,6 +66,8 @@ export async function runOsrExport(options) {
   if (!app.isReady()) await app.whenReady();
   // どの GPU に載ったか（Windows ハイブリッド機の診断・契約 §11.7）。3 秒で打ち切り、running / completed / failed の run.json に残す。
   const gpu = { platform: process.platform, chromium: process.versions.chrome, devices: await collectGpuDevices(app) };
+  // 空 paint の失敗文に載せる「どの GPU に載ったか」（gpu.devices の active・無ければ unknown）。
+  const activeDevice = summarizeGpuAdapters(gpu.devices)?.active_device ?? null;
 
   const built = await loadAndBuildOsrPage({
     projectRoot,
@@ -96,6 +109,7 @@ export async function runOsrExport(options) {
   let lastAcceptedHash = null;
   let viewport = null;
   let viewportContext = null;
+  let warmUp = null;
   const captureStarted = performance.now();
 
   try {
@@ -126,6 +140,11 @@ export async function runOsrExport(options) {
     // window to the output size before the page renders; the frame loop fails closed if the paint
     // bitmap still disagrees (readPaintBitmap).
     ({ record: viewport, context: viewportContext } = await settleWindowViewport(windowRef, { width, height, paintTimeoutMs }));
+    // Right after start-up the compositor answers paints with an empty bitmap (0x0 / 0 bytes) for a
+    // while on Intel iGPU and RTX alike (contract §11.8). Wait for one non-empty paint before the
+    // frame 0 seek (budget OSR_WARM_UP_BUDGET_MS) and discard it; fail closed past the budget.
+    warmUp = await warmUpWindowPaint(windowRef, { width, height, paintTimeoutMs, paintTimeouts, viewport: viewportContext });
+    if (!warmUp.satisfied) throw new Error(warmUpFailureMessage({ ...warmUp, activeDevice }));
     await writeFile(join(dirname(out), "run.json"), `${JSON.stringify({
       version: 1,
       status: "running",
@@ -135,6 +154,7 @@ export async function runOsrExport(options) {
       width, height, fps, duration,
       gpu,
       viewport,
+      warm_up: warmUp,
     }, null, 2)}\n`).catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
     encoderSession = startRawVideoEncoder({ ffmpegCommand, outputPath: out, width, height, fps, quality, encoder, edit: built.edit, queueDepth });
@@ -153,6 +173,7 @@ export async function runOsrExport(options) {
         paintTimeouts,
         emptyPaints,
         viewport: viewportContext,
+        activeDevice,
       });
       stages.seek.push(capturedFrame.seekMs);
       stages.paint.push(capturedFrame.paintMs);
@@ -167,12 +188,8 @@ export async function runOsrExport(options) {
         let hash = sha256(stripStampRow(bitmap, width, height));
         while (lastAcceptedHash !== null && hash === lastAcceptedHash && retries < 8) {
           await settle(windowRef);
-          const retryCapture = await captureNonEmptyBitmap({
-            frame, width, height,
-            capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
-            settle: () => settle(windowRef),
-            onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
-            viewport: viewportContext,
+          const retryCapture = await captureFrameNonEmpty({
+            windowRef, frame, width, height, paintTimeoutMs, paintTimeouts, emptyPaints, viewport: viewportContext, activeDevice,
           });
           bitmap = retryCapture.bitmap;
           hash = sha256(stripStampRow(bitmap, width, height));
@@ -225,6 +242,7 @@ export async function runOsrExport(options) {
       emptyPaints,
       memory: { ...memory, afterDestroyBytes: afterDestroyMemory, warnings: memoryWarnings },
       viewport,
+      warm_up: warmUp,
       ffprobe,
     };
     await writeFile(join(dirname(out), "run.json"), `${JSON.stringify(run, null, 2)}\n`);
@@ -243,6 +261,7 @@ export async function runOsrExport(options) {
       emptyPaints,
       memory: memorySampler.stop("failed"),
       viewport,
+      warm_up: warmUp,
     };
     await writeFile(join(dirname(out), "run.json"), `${JSON.stringify(failed, null, 2)}\n`).catch(() => {});
     throw error;
@@ -285,6 +304,7 @@ export async function runOsrCapture(options) {
   app.on("window-all-closed", () => {});
   if (!app.isReady()) await app.whenReady();
   const gpu = { platform: process.platform, chromium: process.versions.chrome, devices: await collectGpuDevices(app) };
+  const activeDevice = summarizeGpuAdapters(gpu.devices)?.active_device ?? null;
 
   await mkdir(outputDirectory, { recursive: true });
   await mkdir(dirname(out), { recursive: true });
@@ -310,6 +330,7 @@ export async function runOsrCapture(options) {
   let windowRef = null;
   let viewport = null;
   let viewportContext = null;
+  let warmUp = null;
   const started = performance.now();
   try {
     windowRef = new BrowserWindow({
@@ -335,6 +356,9 @@ export async function runOsrCapture(options) {
     await windowRef.loadURL(server.url);
     if (rendererFailure) throw rendererFailure;
     ({ record: viewport, context: viewportContext } = await settleWindowViewport(windowRef, { width, height, paintTimeoutMs }));
+    // Same start-up warm-up as the export path (contract §11.8): one non-empty paint before the first seek.
+    warmUp = await warmUpWindowPaint(windowRef, { width, height, paintTimeoutMs, paintTimeouts, viewport: viewportContext });
+    if (!warmUp.satisfied) throw new Error(warmUpFailureMessage({ ...warmUp, activeDevice }));
     await writeFile(out, `${JSON.stringify({
       version: 1,
       status: "running",
@@ -345,6 +369,7 @@ export async function runOsrCapture(options) {
       width, height, fps, duration,
       gpu,
       viewport,
+      warm_up: warmUp,
     }, null, 2)}\n`, "utf8").catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
     for (const [index, frame] of requestedFrames.entries()) {
@@ -360,6 +385,7 @@ export async function runOsrCapture(options) {
         paintTimeouts,
         emptyPaints,
         viewport: viewportContext,
+        activeDevice,
       });
       const pixels = stripStampRow(captured.bitmap, width, height);
       const outputPath = join(outputDirectory, `frame-${frame}.png`);
@@ -399,6 +425,7 @@ export async function runOsrCapture(options) {
       emptyPaints,
       page: built.manifest,
       viewport,
+      warm_up: warmUp,
       elapsedMs: performance.now() - started,
     };
     await writeFile(out, `${JSON.stringify(run, null, 2)}\n`, "utf8");
@@ -415,6 +442,7 @@ export async function runOsrCapture(options) {
       paintTimeouts,
       emptyPaints,
       viewport,
+      warm_up: warmUp,
     }, null, 2)}\n`, "utf8").catch(() => {});
     throw error;
   } finally {
@@ -471,19 +499,13 @@ async function captureFrameBitmap({
   paintTimeouts,
   emptyPaints,
   viewport = null,
+  activeDevice = null,
 }) {
   const seekStarted = performance.now();
   await windowRef.webContents.executeJavaScript(`window.__akariSeek(${JSON.stringify(frame / fps)},${frame})`);
   const seekMs = performance.now() - seekStarted;
-  let captured = await captureNonEmptyBitmap({
-    frame,
-    width,
-    height,
-    capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
-    settle: () => settle(windowRef),
-    onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
-    viewport,
-  });
+  const nonEmpty = { windowRef, frame, width, height, paintTimeoutMs, paintTimeouts, emptyPaints, viewport, activeDevice };
+  let captured = await captureFrameNonEmpty(nonEmpty);
   let bitmap = captured.bitmap;
   const paintMs = captured.paintMs;
   const toBitmapMs = captured.toBitmapMs;
@@ -493,15 +515,7 @@ async function captureFrameBitmap({
   if (verify === "stamp") {
     while (!verifyStamp(bitmap, width, height, frame).exact && retries < 8) {
       await settle(windowRef);
-      captured = await captureNonEmptyBitmap({
-        frame,
-        width,
-        height,
-        capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
-        settle: () => settle(windowRef),
-        onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
-        viewport,
-      });
+      captured = await captureFrameNonEmpty(nonEmpty);
       bitmap = captured.bitmap;
       retries += 1;
     }
@@ -518,6 +532,34 @@ async function captureFrameBitmap({
     toBitmapMs,
     verifyMs: performance.now() - verifyStarted,
   };
+}
+
+// One frame's non-empty bitmap. Empty paints go to run.json emptyPaints[] as { frame, attempts, elapsed_ms }
+// (elapsed counted from the start of this call; repeated calls for the same frame add up). The time /
+// count budget and the failure line (attempts, ms, active GPU) live in paint-bitmap.mjs (contract §11.8).
+function captureFrameNonEmpty({ windowRef, frame, width, height, paintTimeoutMs, paintTimeouts, emptyPaints, viewport, activeDevice }) {
+  return captureNonEmptyBitmap({
+    frame,
+    width,
+    height,
+    capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
+    settle: () => settle(windowRef),
+    onEmpty: createEmptyPaintRecorder(emptyPaints, frame),
+    viewport,
+    activeDevice,
+  });
+}
+
+// Start-up warm-up (contract §11.8 ruling 1): right after settleWindowViewport and before the frame 0 seek,
+// keep requesting paints (settle in between) until one non-empty bitmap arrives or OSR_WARM_UP_BUDGET_MS
+// passes. The bitmap is discarded; the caller fails closed on `satisfied: false` and records the result.
+function warmUpWindowPaint(windowRef, { width, height, paintTimeoutMs, paintTimeouts, viewport }) {
+  return warmUpOffscreenPaint({
+    capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, "warm-up", paintTimeouts),
+    settle: () => settle(windowRef),
+    readBitmap: (image) => readPaintBitmap(image, width, height, "warm-up", viewport),
+    budgetMs: OSR_WARM_UP_BUDGET_MS,
+  });
 }
 
 async function capturePaint(webContents, timeoutMs, frame, paintTimeouts) {
@@ -624,13 +666,6 @@ async function settleWindowViewport(windowRef, { width, height, paintTimeoutMs }
   }
   const record = viewportRecord({ requested, measured, emulated, display: primary.size, workArea: primary.workAreaSize });
   return { record, context: { ...record, devicePixelRatio: measured.devicePixelRatio, resized } };
-}
-
-function recordEmptyPaints(records, frame, attempts) {
-  if (attempts === 0) return;
-  const existing = records.find((record) => record.frame === frame);
-  if (existing) existing.attempts += attempts;
-  else records.push({ frame, attempts });
 }
 
 function summarize(values) {
