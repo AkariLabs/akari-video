@@ -61,6 +61,10 @@ function parseOptions(subcommand, argv) {
       options.noRecord = true;
       continue;
     }
+    if (subcommand === "transcribe" && argument === "--no-unrecognized") {
+      options.unrecognized = false;
+      continue;
+    }
     if (subcommand === "grab" && argument === "-t") {
       options.times ??= [];
       let consumed = 0;
@@ -116,6 +120,8 @@ function allowedValueOptions(subcommand) {
     "--out": ["out", parseTime],
     "--backend": ["backend", String],
     "--lang": ["lang", String],
+    "--unrecognized-min-gap": ["unrecognizedMinGap", numberValue],
+    "--unrecognized-min-voiced": ["unrecognizedMinVoiced", numberValue],
   };
   return {};
 }

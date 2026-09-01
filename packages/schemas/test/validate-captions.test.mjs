@@ -143,6 +143,38 @@ test("time_domain は source/output を受理し、省略時も後方互換で�
   assert.match(invalid.stderr, /time_domain は source または output/u);
 });
 
+test("unrecognized は字幕範囲外も含めて妥当な昇順・非重複区間を受理する", () => {
+  const executed = runValue([{
+    ...caption,
+    unrecognized: [{ start: 0.5, end: 0.8 }, { start: 2.1, end: 2.4 }],
+  }]);
+  assert.equal(executed.status, 0, executed.stderr);
+  assert.match(executed.stdout, /^OK: /u);
+});
+
+test("unrecognized は配列と start/end の有限数形を要求する", () => {
+  const notArray = runValue([{ ...caption, unrecognized: "unknown" }]);
+  assert.equal(notArray.status, 1, notArray.stdout);
+  assert.match(notArray.stderr, /unrecognized は配列/u);
+
+  const malformed = runValue([{
+    ...caption,
+    unrecognized: [{ start: 1, end: "1.2", extra: true }],
+  }]);
+  assert.equal(malformed.status, 1, malformed.stdout);
+  assert.match(malformed.stderr, /未知のキーがあります: extra/u);
+  assert.match(malformed.stderr, /0 <= start <= end/u);
+});
+
+test("unrecognized は start 昇順かつ非重複を要求する", () => {
+  const executed = runValue([{
+    ...caption,
+    unrecognized: [{ start: 1.2, end: 1.7 }, { start: 1.6, end: 1.9 }],
+  }]);
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /start 昇順かつ前の区間と非重複/u);
+});
+
 test("display policy, manual fragments, and reference-pixel style pass together", () => {
   const executed = runValue({
     display_policy: displayPolicy,

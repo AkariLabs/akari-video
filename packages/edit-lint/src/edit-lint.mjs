@@ -2742,7 +2742,7 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
       continue;
     }
     const required = ["id", "start", "end", "text", "speaker", "sourceRef", "edited"];
-    const optional = ["src", "time_domain", "words", "style", "display_text", "display_fragments", "text_style"];
+    const optional = ["src", "time_domain", "words", "unrecognized", "style", "display_text", "display_fragments", "text_style"];
     for (const field of required) {
       if (!Object.hasOwn(caption, field)) {
         captionFinding(findings, "captions.schema", `${field} is required`, itemPath);
@@ -2841,6 +2841,9 @@ function validateCaptions(captions, edit, analysis, findings, paths, cutsEndSeco
     }
     if (Object.hasOwn(caption, "words")) {
       validateCaptionWords(caption.words, caption, findings, itemPath);
+    }
+    if (Object.hasOwn(caption, "unrecognized")) {
+      validateCaptionUnrecognized(caption.unrecognized, caption, findings, itemPath);
     }
     const timesValid =
       isFiniteNumber(caption.start) &&
@@ -3079,6 +3082,85 @@ function validateCaptionWords(words, caption, findings, itemPath) {
     }
     if (!isNonEmptyString(word.text)) {
       captionFinding(findings, "captions.schema", "text must be a non-empty string", wordPath);
+    }
+  });
+}
+
+const CAPTION_UNRECOGNIZED_FIELDS = ["start", "end"];
+
+function validateCaptionUnrecognized(spans, caption, findings, itemPath) {
+  if (!Array.isArray(spans)) {
+    captionFinding(findings, "captions.schema", "unrecognized must be an array", itemPath);
+    return;
+  }
+  const hasCaptionRange = isFiniteNumber(caption.start) && isFiniteNumber(caption.end);
+  let previous = null;
+  spans.forEach((span, spanIndex) => {
+    const spanPath = `${itemPath}.unrecognized[${spanIndex}]`;
+    if (!isRecord(span)) {
+      captionFinding(findings, "captions.schema", "unrecognized span must be an object", spanPath);
+      return;
+    }
+    for (const field of CAPTION_UNRECOGNIZED_FIELDS) {
+      if (!Object.hasOwn(span, field)) {
+        captionFinding(findings, "captions.schema", `${field} is required`, spanPath);
+      }
+    }
+    for (const field of Object.keys(span)) {
+      if (!CAPTION_UNRECOGNIZED_FIELDS.includes(field)) {
+        captionFinding(
+          findings,
+          "captions.schema",
+          `${field} is not defined by captions v0 unrecognized[]`,
+          spanPath,
+        );
+      }
+    }
+    const spanTimesValid = isFiniteNumber(span.start)
+      && isFiniteNumber(span.end)
+      && span.start >= 0
+      && span.end >= span.start;
+    if (!spanTimesValid) {
+      captionFinding(
+        findings,
+        "captions.schema",
+        "unrecognized span must satisfy 0 <= start <= end",
+        spanPath,
+      );
+      return;
+    }
+    if (previous && span.start < previous.end) {
+      captionFinding(
+        findings,
+        "captions.schema",
+        "unrecognized spans must be sorted by start and not overlap",
+        spanPath,
+      );
+    }
+    previous = span;
+    if (hasCaptionRange
+      && (span.start < caption.start - EPSILON || span.end > caption.end + EPSILON)) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "captions.unrecognized-range",
+        message: "unrecognized span falls outside the caption's [start, end] range",
+        path: spanPath,
+        range: { start: span.start, end: span.end },
+      });
+    }
+    if (Array.isArray(caption.words) && caption.words.some((word) =>
+      isRecord(word)
+      && isFiniteNumber(word.start)
+      && isFiniteNumber(word.end)
+      && span.start < word.end
+      && span.end > word.start)) {
+      addFinding(findings, {
+        severity: "warning",
+        check: "captions.unrecognized-overlaps-word",
+        message: "unrecognized span overlaps a caption word",
+        path: spanPath,
+        range: { start: span.start, end: span.end },
+      });
     }
   });
 }
