@@ -8,10 +8,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+    captionCuePositionFromRects,
     captionGroupPositionFromRects,
+    clearCaptionCuePositionSource,
+    persistCaptionCuePosition,
     persistCaptionGroupPosition,
     persistCaptionText,
     persistCaptionZone,
+    updateCaptionCuePositionSource,
     updateCaptionGroupPositionSource,
     updateCaptionGroupZoneSource,
     updateCaptionTextSource,
@@ -48,6 +52,78 @@ test('caption group landing clamps and rounds deterministically to four decimal 
     const second = captionGroupPositionFromRects(input.plate, input.frame);
     assert.deepEqual(first, { anchor: 'tc', position: { x: 0.1589, y: 0 } });
     assert.deepEqual(second, first);
+});
+
+test('caption cue landing uses a bottom-center anchor below the top third', () => {
+    assert.deepEqual(captionCuePositionFromRects(
+        { left: 100, right: 300, top: 300, bottom: 400 },
+        { x: 0, y: 0, width: 1000, height: 500 },
+        { clamp: false }
+    ), { anchor: 'bc', position: { x: 0.1, y: 0.8 } });
+});
+
+test('caption cue landing uses a top-center anchor inside the top third', () => {
+    assert.deepEqual(captionCuePositionFromRects(
+        { left: 100, right: 300, top: 50, bottom: 100 },
+        { x: 0, y: 0, width: 1000, height: 500 },
+        { clamp: false }
+    ), { anchor: 'tc', position: { x: 0.1, y: 0.1 } });
+});
+
+test('caption cue landing omits x when the plate is centered', () => {
+    assert.deepEqual(captionCuePositionFromRects(
+        { left: 400, right: 600, top: 300, bottom: 400 },
+        { x: 0, y: 0, width: 1000, height: 500 },
+        { clamp: true }
+    ), { anchor: 'bc', position: { y: 0.8 } });
+});
+
+test('caption cue landing snaps its lower edge to 93%', () => {
+    assert.deepEqual(captionCuePositionFromRects(
+        { left: 100, right: 300, top: 365, bottom: 465 },
+        { x: 0, y: 0, width: 1000, height: 500 },
+        { clamp: false }
+    ), { anchor: 'bc', position: { x: 0.1, y: 0.93 } });
+});
+
+test('caption cue clamp pins a right-overflowing plate to its exact maximum x', () => {
+    assert.deepEqual(captionCuePositionFromRects(
+        { left: 950, right: 1150, top: 300, bottom: 400 },
+        { x: 0, y: 0, width: 1000, height: 500 },
+        { clamp: true }
+    ), { anchor: 'bc', position: { x: 0.8, y: 0.8 } });
+});
+
+test('caption cue clamp pins an over-wide plate to x = 0', () => {
+    assert.deepEqual(captionCuePositionFromRects(
+        { left: -10, right: 1010, top: 300, bottom: 400 },
+        { x: 0, y: 0, width: 1000, height: 500 },
+        { clamp: true }
+    ), { anchor: 'bc', position: { x: 0, y: 0.8 } });
+});
+
+test('caption cue clamp pins a bottom-overflowing bc plate to y = 1', () => {
+    assert.deepEqual(captionCuePositionFromRects(
+        { left: 100, right: 300, top: 450, bottom: 550 },
+        { x: 0, y: 0, width: 1000, height: 500 },
+        { clamp: true }
+    ), { anchor: 'bc', position: { x: 0.1, y: 1 } });
+});
+
+test('caption cue clamp pins a top-overflowing tc plate to y = 0', () => {
+    assert.deepEqual(captionCuePositionFromRects(
+        { left: 100, right: 300, top: -50, bottom: 50 },
+        { x: 0, y: 0, width: 1000, height: 500 },
+        { clamp: true }
+    ), { anchor: 'tc', position: { x: 0.1, y: 0 } });
+});
+
+test('caption cue landing preserves out-of-frame ratios when clamp is off', () => {
+    assert.deepEqual(captionCuePositionFromRects(
+        { left: 1200, right: 1400, top: -100, bottom: -50 },
+        { x: 0, y: 0, width: 1000, height: 500 },
+        { clamp: false }
+    ), { anchor: 'tc', position: { x: 1.2, y: -0.2 } });
 });
 
 test('group position normalizes an array root and changes only default_text_style', () => {
@@ -88,6 +164,93 @@ test('group position deletes default zone while group zone deletes position and 
     const zoned = JSON.parse(updateCaptionGroupZoneSource(JSON.stringify(positioned), 'top-right'));
     assert.deepEqual(zoned.default_text_style, { color: '#fff', zone: 'top-right' });
     assert.deepEqual(zoned.captions, root.captions);
+});
+
+test('caption cue position writes an array-root cue', () => {
+    const source = JSON.stringify([
+        { id: 'c-0001', start: 0, end: 1, text: '一', speaker: null },
+        { id: 'c-0002', start: 1, end: 2, text: '二', speaker: null }
+    ]);
+    const saved = JSON.parse(updateCaptionCuePositionSource(source, 'c-0002', {
+        anchor: 'tc', position: { x: 0.2, y: 0.1 }
+    }));
+    assert.deepEqual(saved[1].text_style, {
+        text_anchor: 'tc', position: { x: 0.2, y: 0.1 }
+    });
+});
+
+test('caption cue position writes an object-root cue', () => {
+    const source = JSON.stringify({
+        default_text_style: { zone: 'bottom' },
+        captions: [{ id: 'c-0001', start: 0, end: 1, text: '一', speaker: null }]
+    });
+    const saved = JSON.parse(updateCaptionCuePositionSource(source, 'c-0001', {
+        anchor: 'bc', position: { y: 0.9 }
+    }));
+    assert.deepEqual(saved.captions[0].text_style, {
+        text_anchor: 'bc', position: { y: 0.9 }
+    });
+});
+
+test('caption cue position preserves the default style and every other cue byte-for-byte', () => {
+    const root = {
+        default_text_style: { color: '#eee', zone: 'bottom' },
+        captions: [
+            { id: 'c-0001', start: 0, end: 1, text: '一', speaker: null, text_style: { color: '#fff' } },
+            { id: 'c-0002', start: 1, end: 2, text: '二', speaker: null, words: [{ start: 1, end: 2, text: '二' }] }
+        ]
+    };
+    const defaultBefore = JSON.stringify(root.default_text_style);
+    const otherBefore = JSON.stringify(root.captions[1]);
+    const saved = JSON.parse(updateCaptionCuePositionSource(JSON.stringify(root), 'c-0001', {
+        anchor: 'bc', position: { x: 0.3, y: 0.8 }
+    }));
+    assert.equal(JSON.stringify(saved.default_text_style), defaultBefore);
+    assert.equal(JSON.stringify(saved.captions[1]), otherBefore);
+});
+
+test('caption cue position removes zone while retaining unrelated cue style fields', () => {
+    const source = JSON.stringify([{
+        id: 'c-0001', start: 0, end: 1, text: '一', speaker: null,
+        text_style: { zone: 'top', color: '#fff', size_px: 32 }
+    }]);
+    const [saved] = JSON.parse(updateCaptionCuePositionSource(source, 'c-0001', {
+        anchor: 'bc', position: { x: 0.2, y: 0.8 }
+    }));
+    assert.deepEqual(saved.text_style, {
+        color: '#fff', size_px: 32, text_anchor: 'bc', position: { x: 0.2, y: 0.8 }
+    });
+});
+
+test('caption cue position reset removes an empty text_style object', () => {
+    const source = JSON.stringify([{
+        id: 'c-0001', start: 0, end: 1, text: '一', speaker: null,
+        text_style: { text_anchor: 'bc', position: { y: 0.8 } }
+    }]);
+    const [saved] = JSON.parse(clearCaptionCuePositionSource(source, 'c-0001'));
+    assert.equal(Object.hasOwn(saved, 'text_style'), false);
+});
+
+test('caption cue position reset retains unrelated text_style fields', () => {
+    const source = JSON.stringify([{
+        id: 'c-0001', start: 0, end: 1, text: '一', speaker: null,
+        text_style: { color: '#fff', text_anchor: 'tc', position: { x: 0.2, y: 0.1 } }
+    }]);
+    const [saved] = JSON.parse(clearCaptionCuePositionSource(source, 'c-0001'));
+    assert.deepEqual(saved.text_style, { color: '#fff' });
+});
+
+test('caption cue position does not write when lint rejects the candidate', async () => {
+    let writes = 0;
+    const result = await persistCaptionCuePosition({
+        source: JSON.stringify([{ id: 'c-0001', start: 0, end: 1, text: '一', speaker: null }]),
+        captionId: 'c-0001',
+        value: { anchor: 'bc', position: { y: 0.8 } },
+        lint: async () => ({ pass: false, errors: ['rejected'] }),
+        write: async () => { writes += 1; }
+    });
+    assert.equal(result.pass, false);
+    assert.equal(writes, 0);
 });
 
 for (const rootShape of ['array', 'object']) {
@@ -194,11 +357,20 @@ test('caption drag converts client geometry to output pixels and display pixels 
 });
 
 test('caption group badge, drag guides, and inspector zone highlight are wired', () => {
-    assert.match(handlerSource, /字幕グループ — 動かすと全字幕が動く/);
+    assert.match(handlerSource, /この字幕だけ動く — ⌥ドラッグで全字幕/);
     assert.match(handlerSource, /caption-drag-guide-center/);
     assert.match(handlerSource, /caption-drag-guide-bottom/);
     assert.match(handlerSource, /akari-preview-caption-zone-hover/);
     assert.match(handlerSource, /persistCaptionGroupZoneForWidget/);
+});
+
+test('caption cue drag clamp, reset, and Alt group mode are wired', () => {
+    assert.match(handlerSource, /captionClampOff/);
+    assert.match(handlerSource, /akari-caption-clamp-chip/);
+    assert.match(handlerSource, /akari-caption-position-reset/);
+    assert.match(handlerSource, /\{ cuePosition \}/);
+    assert.match(handlerSource, /cuePositionReset: true/);
+    assert.match(handlerSource, /event\.altKey/);
 });
 
 test('caption inline edit wiring pauses playback, supports commit/cancel, and guards rerender', () => {
@@ -283,6 +455,47 @@ test('caption group position passes the project lint gate and is written to defa
             text_anchor: 'tc', position: { x: 0.125, y: 0.2 }
         });
         assert.equal(saved.captions[0].text_style.color, '#ffffff');
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('out-of-frame caption cue position passes lint and is written to the selected cue', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'caption-cue-position-write-'));
+    const captionsPath = join(root, 'captions.json');
+    try {
+        await mkdir(join(root, 'assets'));
+        await writeFile(join(root, 'assets', 'a.mp4'), 'fixture');
+        await writeFile(join(root, 'edit.json'), JSON.stringify({
+            version: 2,
+            output: { width: 1920, height: 1080, fps: 30 },
+            sources: [{ id: 'a', path: 'assets/a.mp4' }],
+            tracks: [{
+                id: 'v-main', lane: 'visual', items: [
+                    { id: 'cut-a', at: 0, duration: 180, source: { kind: 'media', src: 'a', in: 0, out: 6 } }
+                ]
+            }]
+        }, null, 2));
+        await writeFile(captionsPath, JSON.stringify({
+            default_text_style: { zone: 'bottom', color: '#ffffff' },
+            captions: [{
+                id: 'c-0001', start: 0.3, end: 2, text: '字幕', speaker: null,
+                sourceRef: null, edited: false, src: 'a'
+            }]
+        }, null, 2));
+        const result = await persistCaptionCuePosition({
+            source: await readFile(captionsPath, 'utf8'),
+            captionId: 'c-0001',
+            value: { anchor: 'bc', position: { x: 1.2, y: -0.1 } },
+            lint: candidate => lintProjectCandidates(root, { 'captions.json': candidate }),
+            write: candidate => writeFile(captionsPath, candidate, 'utf8')
+        });
+        assert.equal(result.pass, true, result.errors.join('\n'));
+        const saved = JSON.parse(await readFile(captionsPath, 'utf8'));
+        assert.deepEqual(saved.captions[0].text_style, {
+            text_anchor: 'bc', position: { x: 1.2, y: -0.1 }
+        });
+        assert.deepEqual(saved.default_text_style, { zone: 'bottom', color: '#ffffff' });
     } finally {
         await rm(root, { recursive: true, force: true });
     }
