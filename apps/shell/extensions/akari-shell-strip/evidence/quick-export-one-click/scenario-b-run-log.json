@@ -1,0 +1,61 @@
+{
+  "scenario": "b",
+  "steps": [
+    {
+      "step": "quick-input-probes",
+      "detail": [
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        },
+        {
+          "present": false,
+          "visible": false,
+          "placeholder": null
+        }
+      ]
+    },
+    {
+      "step": "labels-seen",
+      "detail": [
+        "書き出し中（planned）（OSR で書き出し中）",
+        "書き出し中（planned）（OSR で書き出し中）（50%）",
+        "書き出し中（planned）（OSR で書き出し中）（100%）",
+        "書き出し完了（OSR — GPU 不適格: ineligible-frame: embedded-context）",
+        "書き出し完了（OSR — GPU 不適格: ineligible-frame: embedded-context）（100%）成果物を開く（exports/final.mp4）",
+        "書き出し完了（OSR — GPU 不適格: ineligible-frame: embedded-context）（100%）"
+      ]
+    },
+    {
+      "step": "done",
+      "detail": {
+        "doneLabels": [
+          "書き出し完了（OSR — GPU 不適格: ineligible-frame: embedded-context）",
+          "書き出し完了（OSR — GPU 不適格: ineligible-frame: embedded-context）（100%）成果物を開く（exports/final.mp4）",
+          "書き出し完了（OSR — GPU 不適格: ineligible-frame: embedded-context）（100%）"
+        ],
+        "labelHasIneligible": true,
+        "provenanceEngine": "osr",
+        "osrLauncherTier": 1,
+        "warnings": [
+          "GPU export is ineligible; using OSR: overlay:ineligible-frame:embedded-context"
+        ],
+        "toasts": [
+          "書き出し完了（OSR — GPU 不適格: ineligible-frame: embedded-context）"
+        ],
+        "toastCountMatching": 1
+      }
+    },
+    {
+      "step": "console-errors",
+      "detail": []
+    }
+  ],
+  "result": "PASS"
+}

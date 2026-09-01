@@ -1,5 +1,6 @@
 import { ContainerModule } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, WidgetFactory, FrontendApplication, WebSocketConnectionProvider } from '@theia/core/lib/browser';
+import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import { AkariQuickExportService, AKARI_QUICK_EXPORT_SERVICE_PATH } from '../common/quick-export-protocol';
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
 import { AkariSettingsWidget } from './akari-settings-widget';
@@ -11,8 +12,12 @@ import { AkariFrontendApplication } from './akari-frontend-application';
 import { AkariDeveloperModeService } from './akari-developer-mode-service';
 import { AkariTerminalMenuCuration } from './akari-terminal-menu-curation';
 import { AkariRightPanelCuration } from './akari-right-panel-curation';
+import { AkariExportPreferenceContribution } from './akari-export-preferences';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
+    bind(AkariExportPreferenceContribution).toSelf().inSingletonScope();
+    bind(PreferenceContribution).toService(AkariExportPreferenceContribution);
+
     // 「この場で書き出す」バックエンド（edit-lint / render-cut CLI 直接実行）。
     bind(AkariQuickExportService).toDynamicValue(ctx =>
         WebSocketConnectionProvider.createProxy(ctx.container, AKARI_QUICK_EXPORT_SERVICE_PATH)

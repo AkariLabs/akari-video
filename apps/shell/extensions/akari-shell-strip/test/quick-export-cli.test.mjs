@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     buildEditLintArgs,
-    buildQuickExportEngineChoices,
     buildQuickExportEncoderChoices,
     buildRenderCutArgs,
     buildRenderCutOutputPath,
@@ -11,17 +10,10 @@ import {
     describeUnexpectedQuickExportFailure,
     determineLintOutcome,
     determineRenderOutcome,
+    nextAvailableOutputName,
     sanitizeQuickExportOutputName,
     summarizeStderrTail
 } from '../lib/common/quick-export-cli.js';
-
-test('buildQuickExportEngineChoices: auto / osr / legacy を表示順に返す', () => {
-    assert.deepEqual(buildQuickExportEngineChoices(), [
-        { label: '自動（既定・mac は v2）', value: 'auto' },
-        { label: 'v2（OSR）', value: 'osr' },
-        { label: '現行（legacy・互換）', value: 'legacy' }
-    ]);
-});
 
 test('buildQuickExportEncoderChoices: OS ごとに対応エンコーダだけを順序どおり返す', () => {
     assert.deepEqual(buildQuickExportEncoderChoices('darwin'), [
@@ -65,6 +57,29 @@ test('sanitizeQuickExportOutputName: 空・空白のみ・..のみは既定名�
     assert.equal(sanitizeQuickExportOutputName('../..'), 'final.mp4');
 });
 
+test('nextAvailableOutputName: 既存名が空なら既定名を返す', () => {
+    assert.equal(nextAvailableOutputName('final.mp4', []), 'final.mp4');
+});
+
+test('nextAvailableOutputName: 無関係な既存名だけなら衝突しない', () => {
+    assert.equal(nextAvailableOutputName('final.mp4', ['draft.mp4']), 'final.mp4');
+});
+
+test('nextAvailableOutputName: 1 件衝突すると -2 を付ける', () => {
+    assert.equal(nextAvailableOutputName('final.mp4', ['final.mp4']), 'final-2.mp4');
+});
+
+test('nextAvailableOutputName: 連番の欠番を最初に使う', () => {
+    assert.equal(
+        nextAvailableOutputName('final.mp4', ['final.mp4', 'final-2.mp4', 'final-4.mp4']),
+        'final-3.mp4'
+    );
+});
+
+test('nextAvailableOutputName: 拡張子なしでも末尾へ連番を付ける', () => {
+    assert.equal(nextAvailableOutputName('final', ['final', 'final-2']), 'final-3');
+});
+
 test('buildRenderCutOutputRelativePath (後方互換ラッパー): 常に exports/ 直下', () => {
     assert.equal(buildRenderCutOutputRelativePath('final.mp4'), 'exports/final.mp4');
     assert.equal(buildRenderCutOutputRelativePath('../evil.mp4'), 'exports/evil.mp4');
@@ -101,13 +116,23 @@ test('buildRenderCutArgs: encoder 未指定と auto 明示は同じ引数列に�
     );
 });
 
-test('buildRenderCutArgs: engine 未指定と auto 明示は同じ引数列で legacy 選択も明示する', () => {
+test('buildRenderCutArgs: engine 未指定と auto 明示は同じ引数列になる', () => {
     const engineUnspecified = buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4' });
     const autoExplicit = buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', engine: 'auto' });
     assert.deepEqual(engineUnspecified, autoExplicit);
+});
+
+test('buildRenderCutArgs: gpu 明示時は --engine gpu を渡す', () => {
     assert.deepEqual(
-        buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', engine: 'legacy' }),
-        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'legacy', '--encoder', 'auto', '--progress']
+        buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', engine: 'gpu' }),
+        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'gpu', '--encoder', 'auto', '--progress']
+    );
+});
+
+test('buildRenderCutArgs: osr 明示時は --engine osr を渡す', () => {
+    assert.deepEqual(
+        buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', engine: 'osr' }),
+        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'osr', '--encoder', 'auto', '--progress']
     );
 });
 
