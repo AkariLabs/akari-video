@@ -73,6 +73,7 @@ const INSPECTOR_PANEL_RANK = 200;
 const RIGHT_PANEL_FIXED_ORDER: readonly string[] = [
     PARTNER_WIDGET_ID,
     AkariReviewPanelWidget.FACTORY_ID,
+    'akari-daihon-widget',
     AkariInspectorWidget.FACTORY_ID
 ];
 
