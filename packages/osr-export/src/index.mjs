@@ -4,7 +4,7 @@ import { dirname, join, relative } from "node:path";
 
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { verifyFinalVideo } from "./ffprobe.mjs";
-import { buildOsrReceipt } from "./receipt.mjs";
+import { buildOsrReceipt, normalizeOsrWarmUp } from "./receipt.mjs";
 import { launchElectronExport, resolveElectronLauncher } from "./runner.mjs";
 
 export async function exportWithOsr({
@@ -88,6 +88,8 @@ export async function exportWithOsr({
       run,
       receipt: buildOsrReceipt({
         tier: launcher.tier, verify: runtime.verify, memory: run?.memory, viewport: run?.viewport ?? null, run: receiptRunPath, finalVerify,
+        // 起動直後の空 paint の warm-up 記録（run.json warm_up → receipt warm_up・契約 §11.8 裁定 3）
+        warmUp: run?.warm_up ?? null,
         profile: runtime.soft ? "soft" : "gpu",
         gpuPreference: launched?.gpuPreference ?? null,
       }),
@@ -162,6 +164,8 @@ export async function captureFramesWithOsr({
       page: run.page,
       verify: run.verify,
       viewport: run.viewport ?? null,
+      // capture の receipt には provenance ブロックが無いので warm_up キーで並べる（契約 §11.8 裁定 3・r1）
+      warm_up: normalizeOsrWarmUp(run.warm_up ?? null),
       elapsedMs: run.elapsedMs,
     },
   };
