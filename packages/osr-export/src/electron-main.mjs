@@ -9,13 +9,13 @@ import electron from "electron";
 import { startRawVideoEncoder } from "./encode.mjs";
 import { verifyEncodedVideo } from "./ffprobe.mjs";
 import { createMemorySampler, resolveMemoryBudget } from "./memory.mjs";
-import { captureNonEmptyBitmap } from "./paint-bitmap.mjs";
+import { captureNonEmptyBitmap, deviceEmulationParameters, osrPageSize, viewportMatches, viewportRecord } from "./paint-bitmap.mjs";
 import { loadAndBuildOsrPage } from "./page-builder.mjs";
 import { encodeBgraPng } from "./png.mjs";
 import { startStaticServer } from "./static-server.mjs";
 import { stripStampRow, verifyStamp } from "./stamp.mjs";
 
-const { app, BrowserWindow } = electron;
+const { app, BrowserWindow, screen } = electron;
 const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 
 export async function runOsrExport(options) {
@@ -91,6 +91,8 @@ export async function runOsrExport(options) {
   let hashPolicyAmbiguous = 0;
   let retriesTotal = 0;
   let lastAcceptedHash = null;
+  let viewport = null;
+  let viewportContext = null;
   const captureStarted = performance.now();
 
   try {
@@ -115,6 +117,21 @@ export async function runOsrExport(options) {
       rendererFailure = new Error(`renderer process gone: ${details.reason}`);
     });
     await windowRef.loadURL(server.url);
+    if (rendererFailure) throw rendererFailure;
+    // Windows clamps the hidden window to the display work area when it is created (1920x1081 ->
+    // 1920x1032 next to a 48 px taskbar) and the offscreen paint follows the content size. Pin the
+    // window to the output size before the page renders; the frame loop fails closed if the paint
+    // bitmap still disagrees (readPaintBitmap).
+    ({ record: viewport, context: viewportContext } = await settleWindowViewport(windowRef, { width, height, paintTimeoutMs }));
+    await writeFile(join(dirname(out), "run.json"), `${JSON.stringify({
+      version: 1,
+      status: "running",
+      mode: soft ? "soft" : "gpu",
+      framesRequested: frames,
+      framesCompleted: 0,
+      width, height, fps, duration,
+      viewport,
+    }, null, 2)}\n`).catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
     encoderSession = startRawVideoEncoder({ ffmpegCommand, outputPath: out, width, height, fps, quality, encoder, edit: built.edit, queueDepth });
 
@@ -131,6 +148,7 @@ export async function runOsrExport(options) {
         paintTimeoutMs,
         paintTimeouts,
         emptyPaints,
+        viewport: viewportContext,
       });
       stages.seek.push(capturedFrame.seekMs);
       stages.paint.push(capturedFrame.paintMs);
@@ -150,6 +168,7 @@ export async function runOsrExport(options) {
             capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
             settle: () => settle(windowRef),
             onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
+            viewport: viewportContext,
           });
           bitmap = retryCapture.bitmap;
           hash = sha256(stripStampRow(bitmap, width, height));
@@ -200,6 +219,7 @@ export async function runOsrExport(options) {
       paintTimeouts,
       emptyPaints,
       memory: { ...memory, afterDestroyBytes: afterDestroyMemory, warnings: memoryWarnings },
+      viewport,
       ffprobe,
     };
     await writeFile(join(dirname(out), "run.json"), `${JSON.stringify(run, null, 2)}\n`);
@@ -216,6 +236,7 @@ export async function runOsrExport(options) {
       paintTimeouts,
       emptyPaints,
       memory: memorySampler.stop("failed"),
+      viewport,
     };
     await writeFile(join(dirname(out), "run.json"), `${JSON.stringify(failed, null, 2)}\n`).catch(() => {});
     throw error;
@@ -280,6 +301,8 @@ export async function runOsrCapture(options) {
   const verifyFrames = [];
   const outputs = [];
   let windowRef = null;
+  let viewport = null;
+  let viewportContext = null;
   const started = performance.now();
   try {
     windowRef = new BrowserWindow({
@@ -303,6 +326,18 @@ export async function runOsrCapture(options) {
       rendererFailure = new Error(`renderer process gone: ${details.reason}`);
     });
     await windowRef.loadURL(server.url);
+    if (rendererFailure) throw rendererFailure;
+    ({ record: viewport, context: viewportContext } = await settleWindowViewport(windowRef, { width, height, paintTimeoutMs }));
+    await writeFile(out, `${JSON.stringify({
+      version: 1,
+      status: "running",
+      operation: "capture",
+      mode: soft ? "soft" : "gpu",
+      framesRequested: requestedFrames,
+      framesCompleted: 0,
+      width, height, fps, duration,
+      viewport,
+    }, null, 2)}\n`, "utf8").catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
     for (const [index, frame] of requestedFrames.entries()) {
       if (rendererFailure) throw rendererFailure;
@@ -316,6 +351,7 @@ export async function runOsrCapture(options) {
         paintTimeoutMs,
         paintTimeouts,
         emptyPaints,
+        viewport: viewportContext,
       });
       const pixels = stripStampRow(captured.bitmap, width, height);
       const outputPath = join(outputDirectory, `frame-${frame}.png`);
@@ -353,6 +389,7 @@ export async function runOsrCapture(options) {
       paintTimeouts,
       emptyPaints,
       page: built.manifest,
+      viewport,
       elapsedMs: performance.now() - started,
     };
     await writeFile(out, `${JSON.stringify(run, null, 2)}\n`, "utf8");
@@ -367,6 +404,7 @@ export async function runOsrCapture(options) {
       verify: { mode: "stamp", matched: false, frames: verifyFrames },
       paintTimeouts,
       emptyPaints,
+      viewport,
     }, null, 2)}\n`, "utf8").catch(() => {});
     throw error;
   } finally {
@@ -422,6 +460,7 @@ async function captureFrameBitmap({
   paintTimeoutMs,
   paintTimeouts,
   emptyPaints,
+  viewport = null,
 }) {
   const seekStarted = performance.now();
   await windowRef.webContents.executeJavaScript(`window.__akariSeek(${JSON.stringify(frame / fps)},${frame})`);
@@ -433,6 +472,7 @@ async function captureFrameBitmap({
     capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
     settle: () => settle(windowRef),
     onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
+    viewport,
   });
   let bitmap = captured.bitmap;
   const paintMs = captured.paintMs;
@@ -450,6 +490,7 @@ async function captureFrameBitmap({
         capture: () => capturePaint(windowRef.webContents, paintTimeoutMs, frame, paintTimeouts),
         settle: () => settle(windowRef),
         onEmpty: () => recordEmptyPaints(emptyPaints, frame, 1),
+        viewport,
       });
       bitmap = captured.bitmap;
       retries += 1;
@@ -485,6 +526,94 @@ async function capturePaint(webContents, timeoutMs, frame, paintTimeouts) {
 
 async function settle(windowRef) {
   await windowRef.webContents.executeJavaScript("window.__akariSettle()");
+}
+
+/**
+ * Offscreen window viewport pinning (task 2026-09-01-osr-window-workarea-clamp).
+ *
+ * Measured on Windows 11 / Electron 39 (1920x1080 display, 1920x1032 work area):
+ * - `new BrowserWindow({ show: false, width: 1920, height: 1081, useContentSize: true, offscreen })`
+ *   already reports getContentSize() 1920x1032 before loadURL; the page viewport and the paint
+ *   bitmap follow (1920x1032). 1280x721 is untouched.
+ * - `setContentSize(1920, 1081)` fixes content size and page viewport synchronously, but the paint
+ *   bitmap catches up a few frames later (~2 rAF at 1080p, ~400 ms at 3840x2161), so the
+ *   re-measurement keeps requesting paints until one has the expected size or the timeout passes.
+ * - `enableDeviceEmulation` alone changes innerWidth / innerHeight but not the paint size, so it is
+ *   only the fallback after setContentSize; the frame loop (readPaintBitmap) is the final guard.
+ */
+const VIEWPORT_SETTLE_TIMEOUT_MS = 2_000;
+const VIEWPORT_SETTLE_POLL_MS = 50;
+
+// Runs inside the page. setContentSize / device emulation reach the renderer asynchronously, so the
+// re-measurement waits for the viewport to reach the expected size (resize event + 50 ms polling,
+// up to the timeout) before reporting.
+const PAGE_VIEWPORT_PROBE = String((expected, timeoutMs) => new Promise((resolve) => {
+  const read = () => [window.innerWidth, window.innerHeight, window.devicePixelRatio];
+  const matches = () => expected !== null
+    && window.innerWidth === expected.width && window.innerHeight === expected.height && window.devicePixelRatio === 1;
+  if (expected === null || timeoutMs <= 0 || matches()) { resolve(read()); return; }
+  const started = performance.now();
+  let timer = null;
+  const finish = () => { window.removeEventListener("resize", check); clearInterval(timer); resolve(read()); };
+  const check = () => { if (matches() || performance.now() - started >= timeoutMs) finish(); };
+  window.addEventListener("resize", check);
+  timer = setInterval(check, 50);
+}));
+const PAGE_SETTLE_FRAMES = "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))";
+
+async function measurePageViewport(webContents, { expected = null, timeoutMs = 0 } = {}) {
+  const [width, height, devicePixelRatio] = await webContents.executeJavaScript(
+    `(${PAGE_VIEWPORT_PROBE})(${JSON.stringify(expected)}, ${Number(timeoutMs)})`,
+  );
+  return { width, height, devicePixelRatio };
+}
+
+function contentSizeOf(windowRef) {
+  const [width, height] = windowRef.getContentSize();
+  return { width, height };
+}
+
+// Keeps requesting paints (2 rAF + 50 ms between attempts) until one is non-empty and has the
+// expected size, or the timeout passes. Returns the last non-empty paint size (null when none).
+async function waitForPaintSize(windowRef, expected, { timeoutMs, paintTimeoutMs }) {
+  const started = performance.now();
+  let last = null;
+  for (;;) {
+    const image = await capturePaint(windowRef.webContents, paintTimeoutMs, "viewport", []).catch(() => null);
+    const size = image?.getSize() ?? null;
+    if (size && size.width > 0 && size.height > 0) last = size;
+    if (last && last.width === expected.width && last.height === expected.height) return last;
+    if (performance.now() - started >= timeoutMs) return last;
+    await windowRef.webContents.executeJavaScript(PAGE_SETTLE_FRAMES).catch(() => {});
+    await new Promise((resolvePromise) => setTimeout(resolvePromise, VIEWPORT_SETTLE_POLL_MS));
+  }
+}
+
+async function measureSettledViewport(windowRef, requested, paintTimeoutMs) {
+  const page = await measurePageViewport(windowRef.webContents, { expected: requested, timeoutMs: VIEWPORT_SETTLE_TIMEOUT_MS });
+  const paint = await waitForPaintSize(windowRef, requested, { timeoutMs: VIEWPORT_SETTLE_TIMEOUT_MS, paintTimeoutMs });
+  return { width: paint?.width ?? page.width, height: paint?.height ?? page.height, devicePixelRatio: page.devicePixelRatio };
+}
+
+async function settleWindowViewport(windowRef, { width, height, paintTimeoutMs }) {
+  const requested = osrPageSize(width, height);
+  const primary = screen.getPrimaryDisplay();
+  const content = contentSizeOf(windowRef);
+  let measured = await measurePageViewport(windowRef.webContents);
+  let resized = false;
+  let emulated = false;
+  if (content.width !== requested.width || content.height !== requested.height || !viewportMatches(requested, measured)) {
+    resized = true;
+    windowRef.setContentSize(requested.width, requested.height);
+    measured = await measureSettledViewport(windowRef, requested, paintTimeoutMs);
+  }
+  if (!viewportMatches(requested, measured)) {
+    emulated = true;
+    windowRef.webContents.enableDeviceEmulation(deviceEmulationParameters(requested));
+    measured = await measureSettledViewport(windowRef, requested, paintTimeoutMs);
+  }
+  const record = viewportRecord({ requested, measured, emulated, display: primary.size, workArea: primary.workAreaSize });
+  return { record, context: { ...record, devicePixelRatio: measured.devicePixelRatio, resized } };
 }
 
 function recordEmptyPaints(records, frame, attempts) {

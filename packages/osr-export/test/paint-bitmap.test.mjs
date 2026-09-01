@@ -39,8 +39,10 @@ test("8 回連続の空 paint は明示エラーになる", async () => {
   assert.equal(empties, 8);
 });
 
-test("空ではないサイズ不一致は device scale factor の案内で即失敗する", () => {
-  assert.throws(() => readPaintBitmap(image(8, 8), 4, 3, 1), /--force-device-scale-factor=1/);
+test("空ではないサイズ不一致は requested / measured を含む文言で即失敗し、DPR 1 では device scale factor を案内しない", () => {
+  assert.throws(() => readPaintBitmap(image(8, 8), 4, 3, 1), /^Error: frame 1 bitmap size 8x8, expected 4x4; requested 4x4, measured 8x8/u);
+  assert.throws(() => readPaintBitmap(image(8, 8), 4, 3, 1), (error) => !/--force-device-scale-factor/u.test(error.message));
+  assert.throws(() => readPaintBitmap(image(8, 8), 4, 3, 1, { devicePixelRatio: 2 }), /--force-device-scale-factor=1/u);
 });
 
 test("寸法が正しくても bitmap 長 0 は空 paint として扱う", () => {
