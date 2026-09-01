@@ -59,8 +59,10 @@ node の解決順は `AKARI_NODE_BIN` → PATH の node（20 以上）→ 同梱
 2. exit code と `<project>/.akari/lint.json` を確認する。`0` は PASS、`1` は FAIL、`2` は入力や実行環境のエラーを表す。
 3. FAIL なら `findings[]` を上から読み、指摘された edit.json、参照ファイル、overlay HTML、captions.json を該当行の Edit か edit-store のスクリプト API で修正する。CLI に自動修正させない。
 4. 同じコマンドを再実行し、error finding がなく `verdict: "pass"` になるまで繰り返す。analysis.json または captions.json が無い検査は `skipped[]` で確認する。
-5. PASS 後に、カット境界と overlay の開始・終了フレームを実際に視認する。機械検査の PASS を意味的な品質確認の代わりにしない。
-6. `<project>/.akari/reports/edit-lint-report.html` とフレーム視認結果を編集レポートへ反映し、checkpoint 状態と provenance を実態に合わせて閉じる。
+5. 書き出し前は、使う出口に合わせて `--engine gpu` または `--engine osr` を追加して再実行する。
+   書き出し側が出口を自動選択する場合は `--engine auto` を使い、エンジン適合性も PASS させる。
+6. PASS 後に、カット境界と overlay の開始・終了フレームを実際に視認する。機械検査の PASS を意味的な品質確認の代わりにしない。
+7. `<project>/.akari/reports/edit-lint-report.html` とフレーム視認結果を編集レポートへ反映し、checkpoint 状態と provenance を実態に合わせて閉じる。
 
 音声も確認するときだけ `--media` を追加する。無音区間と音量値は既定で warning になり、次の明示閾値を指定した検査だけが FAIL になり得る。
 
@@ -114,3 +116,6 @@ edit.json の検査対象は次の公開契約が定めるフィールドであ�
   — id 形式と一意性、`t_end > t_start`（source 秒）、`src` の参照整合（`src` は v1 のみ）
 - [字幕とカット編集](../../docs/notes-2026-07-14-captions-and-cut-editing.md)
 - [QA lint の方向性](../../docs/notes-2026-07-16-qa-lint-and-transcript-ui.md)
+- エンジンのフィールド単位の適合性は
+  [`packages/schemas/engine-capabilities.json`](../../packages/schemas/engine-capabilities.json) を正本とし、
+  `--engine gpu|osr|auto` が `ignored` / `partial` / 対応表の欠落を検査する

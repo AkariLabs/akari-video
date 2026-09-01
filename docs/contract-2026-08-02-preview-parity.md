@@ -158,7 +158,7 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 | framing / transform / opacity / freeze | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | layers / perspective / keyframes | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | cuts の crop / transform / opacity keyframes（v2 media item・layer-style） | ✅ 評価（2026-09-01） | 🟡 `public/frame-engine.bundle.js` の再生成待ち | ✅ DOM 層（`applyLayerStyleMediaLayout`） | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
-| cuts の perspective | 🟡 未適用・warning のみ（issue #39） | 🟡 同左 | ✅ DOM 層 | 🟡 warning を run.json へ | 🟡 warning を run.json へ |
+| cuts の perspective | 🟡 未適用・warning のみ（issue #39） | 🟡 同左 | ✅ DOM 層 | 🟡 warning を run.json へ（seek の warning を回収） | 🟡 warning を run.json へ |
 | 5 transitions | ✅ 評価 | ✅ 完成 frame を提示 | ✅ 完成 frame を提示 | ✅ 完成 frame を捕捉 | ✅ canvas を直結 |
 | matte / chroma key | ✅ 評価 | ✅ stamp 同期 | ✅ stamp 同期 | ✅ stamp 同期・捕捉 | ✅ 同一 frame 評価 |
 | LUT / `bt709-limited` | ✅ 評価 | ✅ 提示 | ✅ 提示 | ✅ 捕捉・encode | ✅ LUT 後 canvas を直結 |
@@ -169,6 +169,7 @@ SHA-256 一致を要求する。GPU は同一マシン一致率を診断値と�
 
 未完項目の移管先は [エンジン v2 残課題](./notes-2026-08-28-engine-v2-open-items.md)、近似の判定正本は
 [エンジン v2 恒久近似清算表](./contract-2026-08-28-v2-approximation-ledger.md) とする。
+フィールド単位の適合性の正本は `packages/schemas/engine-capabilities.json` とし、`edit-lint --engine` が読む。
 
 ## 4. 検収と退役
 

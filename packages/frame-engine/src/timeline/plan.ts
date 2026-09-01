@@ -67,6 +67,34 @@ export interface FrameEngineLayer {
     | { type: 'lut'; lut: import('../look/cube.js').ParsedCubeLut; intensity?: number };
 }
 
+const KNOWN_CUT_KEY_LIST = [
+  'in', 'out', 'src', 'transform', 'opacity', 'speed', 'transitionOut', 'at', 'track',
+  'transition_out', 'framing', 'freeze', 'id', 'crop', 'keyframes', 'perspective'
+] as const;
+
+const KNOWN_LAYER_KEY_LIST = [
+  'id', 't', 'duration', 'kind', 'src', 'mask', 'transform', 'crop', 'perspective',
+  'keyframes', 'opacity', 'blend', 'filter'
+] as const;
+
+const KNOWN_KEYFRAME_KEY_LIST = [
+  't', 'transform', 'crop', 'perspective', 'opacity', 'easing'
+] as const;
+
+/** Runtime key inventories are kept exact with the declarations above by the type assertions below. */
+export const KNOWN_CUT_KEYS: ReadonlySet<keyof FrameEngineCut> = new Set(KNOWN_CUT_KEY_LIST);
+export const KNOWN_LAYER_KEYS: ReadonlySet<keyof FrameEngineLayer> = new Set(KNOWN_LAYER_KEY_LIST);
+export const KNOWN_KEYFRAME_KEYS: ReadonlySet<keyof LayerKeyframe> = new Set(KNOWN_KEYFRAME_KEY_LIST);
+
+type ExactKeys<T, Keys extends PropertyKey> =
+  Exclude<keyof T, Keys> extends never
+    ? Exclude<Keys, keyof T> extends never ? true : false
+    : false;
+type Assert<T extends true> = T;
+type _KnownCutKeysAreExact = Assert<ExactKeys<FrameEngineCut, typeof KNOWN_CUT_KEY_LIST[number]>>;
+type _KnownLayerKeysAreExact = Assert<ExactKeys<FrameEngineLayer, typeof KNOWN_LAYER_KEY_LIST[number]>>;
+type _KnownKeyframeKeysAreExact = Assert<ExactKeys<LayerKeyframe, typeof KNOWN_KEYFRAME_KEY_LIST[number]>>;
+
 export interface BuildResolvedTimelinePlanOptions extends NonNullable<Parameters<typeof buildTimelineMap>[1]> {
   layers?: readonly FrameEngineLayer[];
   maskResolver?: (colorSrc: string) => string | null | undefined;
@@ -146,6 +174,30 @@ function cutDeclaresPerspective(cut: FrameEngineCut): boolean {
     && cut.keyframes.some(point => Boolean(point) && typeof point === 'object' && isRecord(point.perspective)));
 }
 
+function warnUnknownFields(
+  value: object,
+  label: string,
+  knownKeys: ReadonlySet<PropertyKey>,
+  warn: (message: string) => void
+): void {
+  for (const key of Object.keys(value)) {
+    if (knownKeys.has(key)) continue;
+    warn(`${label}: field "${key}" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)`);
+  }
+}
+
+function warnUnknownKeyframes(
+  keyframes: readonly LayerKeyframe[] | undefined,
+  owner: string,
+  warn: (message: string) => void
+): void {
+  if (!Array.isArray(keyframes)) return;
+  keyframes.forEach((keyframe, index) => {
+    if (!keyframe || typeof keyframe !== 'object') return;
+    warnUnknownFields(keyframe, `${owner} keyframe ${index}`, KNOWN_KEYFRAME_KEYS, warn);
+  });
+}
+
 /**
  * Extends edit-store's resolved timeline with the non-linear freeze mapping.
  * The virtual source range expands the edit-store cursor before transitions are resolved;
@@ -155,6 +207,23 @@ export function buildResolvedTimelinePlan(
   cuts: readonly FrameEngineCut[],
   options: BuildResolvedTimelinePlanOptions = {}
 ): ResolvedTimelinePlan {
+  const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
+  const warned = new Set<string>();
+  const warn = (message: string) => {
+    if (warned.has(message)) return;
+    warned.add(message);
+    onWarning?.(message);
+  };
+  cuts.forEach((cut, index) => {
+    const id = String(cut.id ?? `cut-${index}`);
+    warnUnknownFields(cut, `cut ${id}`, KNOWN_CUT_KEYS, warn);
+    warnUnknownKeyframes(cut.keyframes, `cut ${id}`, warn);
+  });
+  layers.forEach((layer, index) => {
+    const id = String(layer.id ?? `layer-${index}`);
+    warnUnknownFields(layer, `layer ${id}`, KNOWN_LAYER_KEYS, warn);
+    warnUnknownKeyframes(layer.keyframes, `layer ${id}`, warn);
+  });
   if (cuts.some(cut => cut.freeze && (cut.at !== undefined || cut.track !== undefined))) {
     throw new Error('freeze with explicit at/track is not supported by the sequential cuts timeline');
   }
@@ -167,7 +236,6 @@ export function buildResolvedTimelinePlan(
       transitionOut: normalizeTransition(cut)
     };
   });
-  const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
   const map = buildTimelineMap(virtualCuts, { trackZ: DEFAULT_TRACK_Z, ...timelineOptions });
   const trackSegments = computeCutTrackSegments(virtualCuts);
   const placements = cuts.map((cut, index): ResolvedCutPlacement => {
@@ -189,12 +257,6 @@ export function buildResolvedTimelinePlan(
     };
   });
   const visibleLayers = layers;
-  const warned = new Set<string>();
-  const warn = (message: string) => {
-    if (warned.has(message)) return;
-    warned.add(message);
-    onWarning?.(message);
-  };
   // issue #39: perspective is out of scope for the base path; never drop it silently.
   cuts.forEach((cut, index) => {
     if (!cutDeclaresPerspective(cut)) return;
@@ -494,7 +556,10 @@ function resolvedCompositeLayers(
       });
       return;
     }
-    if (!layer.src) return;
+    if (!layer.src) {
+      timeline.warn(`layer ${id}: src is missing; skipping`);
+      return;
+    }
     const source = sources.get(layer.src);
     if (!source) throw new Error(`no layer source registered for ${layer.src}`);
     const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds);

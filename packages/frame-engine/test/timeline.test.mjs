@@ -12,7 +12,10 @@ import {
   cutLayerStyleSourceUv,
   evaluationPlanFromResolvedTimeline,
   evaluationPlanFromTimelineMap,
-  hasCutLayerStyleVisual
+  hasCutLayerStyleVisual,
+  KNOWN_CUT_KEYS,
+  KNOWN_KEYFRAME_KEYS,
+  KNOWN_LAYER_KEYS
 } from '../dist/index.js';
 
 const transitionFixture = JSON.parse(readFileSync(
@@ -451,3 +454,80 @@ for (const [name, url] of [
     assert.deepEqual(warnings, ['cut v-886: perspective is not applied by the frame-engine base path yet (issue #39)']);
   });
 }
+
+test('unknown cut and keyframe fields warn once without changing the evaluation plan', () => {
+  const warnings = [];
+  const cut = {
+    id: 'unknown-cut', src: 'fixture.mp4', in: 0, out: 1,
+    frobnicate: 1,
+    keyframes: [
+      { t: 0, transform: { x: 0 }, animator: { letters: { offset: 0 } } },
+      { t: 1, transform: { x: 10 } },
+    ],
+  };
+  const source = videoSource();
+  const sources = new Map([['fixture.mp4', source]]);
+  const timeline = buildResolvedTimelinePlan([cut], { fps: 30, onWarning: message => warnings.push(message) });
+  const actual = evaluationPlanFromResolvedTimeline(timeline, 500_000, sources, stillOutput);
+  const { frobnicate: _frobnicate, ...knownCut } = cut;
+  const baseline = evaluationPlanFromResolvedTimeline(
+    buildResolvedTimelinePlan([{ ...knownCut, keyframes: cut.keyframes.map(({ animator: _animator, ...point }) => point) }]),
+    500_000,
+    sources,
+    stillOutput,
+  );
+  assert.deepEqual(actual, baseline);
+  assert.deepEqual(warnings, [
+    'cut unknown-cut: field "frobnicate" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)',
+    'cut unknown-cut keyframe 0: field "animator" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)',
+  ]);
+});
+
+test('unknown layer fields warn at resolved timeline construction', () => {
+  const warnings = [];
+  buildResolvedTimelinePlan([], {
+    layers: [{ id: 'layer-unknown', t: 0, duration: 1, src: 'fixture.mp4', speed: 2 }],
+    onWarning: message => warnings.push(message),
+  });
+  assert.deepEqual(warnings, [
+    'layer layer-unknown: field "speed" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)',
+  ]);
+});
+
+test('known cut, layer, and keyframe fields produce no generic capability warnings', () => {
+  const warnings = [];
+  buildResolvedTimelinePlan([
+    { id: 'known-cut', src: 'fixture.mp4', in: 0, out: 1, crop: { x: 0, y: 0, w: 1, h: 1 },
+      keyframes: [{ t: 0, opacity: 0 }, { t: 1, opacity: 1, easing: 'ease-in-out' }] },
+  ], {
+    layers: [{ id: 'known-layer', t: 0, duration: 1, kind: 'video', src: 'fixture.mp4', opacity: 0.5 }],
+    onWarning: message => warnings.push(message),
+  });
+  assert.deepEqual(warnings, []);
+});
+
+test('active non-filter layer without src warns before preserving the existing skip', () => {
+  const warnings = [];
+  const timeline = buildResolvedTimelinePlan([{ src: 'fixture.mp4', in: 0, out: 1 }], {
+    layers: [{ id: 'missing-src', t: 0, duration: 1, kind: 'video' }],
+    onWarning: message => warnings.push(message),
+  });
+  const sources = new Map([['fixture.mp4', videoSource()]]);
+  const evaluated = evaluationPlanFromResolvedTimeline(timeline, 0, sources, stillOutput);
+  assert.equal(evaluated.layers.length, 0);
+  assert.deepEqual(warnings, ['layer missing-src: src is missing; skipping']);
+});
+
+test('runtime known-key inventories exactly expose the declared frame-engine shapes', () => {
+  assert.deepEqual([...KNOWN_CUT_KEYS].sort(), [
+    'at', 'crop', 'framing', 'freeze', 'id', 'in', 'keyframes', 'opacity', 'out', 'perspective',
+    'speed', 'src', 'track', 'transform', 'transitionOut', 'transition_out',
+  ]);
+  assert.deepEqual([...KNOWN_LAYER_KEYS].sort(), [
+    'blend', 'crop', 'duration', 'filter', 'id', 'keyframes', 'kind', 'mask', 'opacity',
+    'perspective', 'src', 't', 'transform',
+  ]);
+  assert.deepEqual([...KNOWN_KEYFRAME_KEYS].sort(), [
+    'crop', 'easing', 'opacity', 'perspective', 't', 'transform',
+  ]);
+});
