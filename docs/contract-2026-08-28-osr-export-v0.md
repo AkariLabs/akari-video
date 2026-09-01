@@ -97,11 +97,18 @@ ffprobe timeoutは `max(120000, frames × 100)` msとする。尺、フレーム
 
 - GPU描画の警戒線: 768 MiB / export、hard stop: 1,024 MiB / export（1080p 基準）。
 - ソフト描画（SwiftShader）は1080pで1.1 GiB台に達するため、警戒線1,536 MiB / hard stop 2,048 MiBの別枠を使う。
-- 出力ピクセル数が 1080p（1920×1080）を超えるときは既定値をその比で増やす（4K = 4 倍、MiB 切り上げ）。
-  ただしスケール後の hard stop は物理メモリの 50% を上限とし、超えるときは切り詰めて warning を hard stop の
-  75% に置く（`memory.machine_capped` を receipt に残す）。1080p 以下の既定値は機種に関係なく変えない
-  （2026-09-01 改訂。4K の係数は予測値で未較正 — 初回の実測 peak で較正する）。
-- `AKARI_OSR_MEMORY_WARN_MIB` / `AKARI_OSR_MEMORY_HARD_STOP_MIB`で正の整数MiBへ上書きでき（絶対値・スケールと上限を受けない）、
+- 既定の hard stop は「解像度スケール + 物理メモリ 25% 下限 / 50% 上限」で決める（gpu / soft 共用の式）:
+  `hard stop = min(max(基準値 × ピクセル比, floor(totalmem × 0.25)), floor(totalmem × 0.5))`（MiB 単位。ピクセル比は切り上げ、下限 / 上限は切り捨て）。
+  - 出力ピクセル数が 1080p（1920×1080）を超えるときは基準値をその比で増やす（4K = 4 倍）。warning も同じ比で増やす。
+  - 物理メモリの 25% を下限とする（解像度に関係なく常に適用。15.7 GB 機 → 4,021 MiB、8 GB 機 → 2,048 MiB、7 GB runner → 1,792 MiB）。
+    下限が効いたときは warning を hard stop の 75% に置き、`memory.machine_floor: true` を receipt に残す。基準値と同値のときは false。
+  - 物理メモリの 50% を上限とし、超えるときは切り詰めて warning を hard stop の 75% に置く（`memory.machine_capped`）。
+    下限 < 上限は比率上つねに成立し、上限で切り詰まるのはスケール側だけである。
+  - receipt / run.json の `memory` に `budget_scale`、`machine_floor`、`machine_capped`、`total_memory_bytes`（物理メモリ）を記録する。
+  - 2026-09-01 改訂（解像度スケール + 50% 上限）。同日追補: 720p / 1080p 出力でも入力素材（4K HEVC 長尺 × 複数本）の大きさで RSS が膨らみ
+    1 GiB 固定に当たった実機報告（issue #28）を受け、「1080p 以下の既定値は機種に関係なく変えない」を撤回して下限を入れた。
+    4K の係数は予測値で未較正 — 初回の実測 peak で較正する。
+- `AKARI_OSR_MEMORY_WARN_MIB` / `AKARI_OSR_MEMORY_HARD_STOP_MIB`で正の整数MiBへ上書きでき（絶対値・スケールも下限も上限も受けない）、
   適用値はwarning < hard stopを必須とする。hard stop だけを上書きし既定 warning がそれ以上になるときは warning を hard stop の 75% に追従させる。
   同じ変数を GPU 直結出口（gpu-export）も読む。
 - 並列予算1 worker = 1 GiBはGPU前提の値である。v0のworker数は1。

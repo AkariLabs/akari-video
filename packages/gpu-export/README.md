@@ -97,6 +97,17 @@ Absolute export speed under a quiet load remains unverified: the 2026-08-30 runs
 required one-minute load below 20. Under high load, the dynamic fixture measured GPU 71.1–80.7 seconds
 versus OSR 93.6–97.8 seconds (1.2–1.3 times), RSS stayed within 531–914 MB, and trapped readbacks were zero.
 
+The export samples the working set of every Electron process every 10 seconds and shares the OSR
+memory budget (`packages/osr-export/src/memory.mjs`): warning 768 MiB / hard stop 1,024 MiB at 1080p on
+the GPU profile (`--soft`: 1,536 / 2,048 MiB). The default hard stop is "resolution scale + physical-memory
+25% floor / 50% cap": the base values scale with the output pixel count above 1080p (4K = 4×), the hard stop
+is never below 25% of physical memory (a 16 GiB machine gets 4,096 MiB even at 720p / 1080p, because large
+inputs such as long 4K HEVC sources grow RSS regardless of the output size — issue #28; the warning is then
+75% of the hard stop), and it never exceeds 50% of physical memory. `AKARI_OSR_MEMORY_WARN_MIB` /
+`AKARI_OSR_MEMORY_HARD_STOP_MIB` override both as absolute MiB values that receive neither the scale nor
+the floor / cap. run.json and the receipt record `memory.budget_scale`, `machine_floor`, `machine_capped`, and
+`total_memory_bytes`.
+
 ## Windows setup
 
 The npm Electron launcher (tier 2) is the supported measurement path on Windows:
