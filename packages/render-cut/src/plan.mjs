@@ -155,7 +155,7 @@ export function buildAudioMixCommand({
   const master = normalizeMasterPlan(edit.audio?.master);
 
   if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master) {
-    return { operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration };
+    return { operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration, hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || Boolean(master) };
   }
 
   const args = [
@@ -299,7 +299,7 @@ export function buildAudioMixCommand({
     "48000",
     outputPath,
   );
-  return { operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration };
+  return { operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration, hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || Boolean(master) };
 }
 
 // docs/contract-2026-07-22-render-basics.md #5: denoise has an explicit off value; loudnorm does

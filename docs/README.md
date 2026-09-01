@@ -139,6 +139,7 @@ All contracts follow the
 | [contract-2026-08-30-edit-json-v2-object-tree-v0.md](./contract-2026-08-30-edit-json-v2-object-tree-v0.md) | edit.json v2 object tree v0 — recursive `items` (groups), bag groups (HTML parts / captions.json) projected by tags, part items (`source.part`), track invariants, canonical one-record-per-line serialization, edit-store script API, AI read rules (`version: 2` unchanged) |
 | [contract-2026-08-30-motion-and-keyframes-v0.md](./contract-2026-08-30-motion-and-keyframes-v0.md) | Motion & keyframes v0 — four levels (L0 presets `motion` / L1 `keyframes` inline or `motion/<group-id>.json` bag / L2 range-selector `animator` / L3 code), easing vocabulary, "expand to keyframes", timeline / inspector display rules |
 | [contract-2026-08-09-transform-keyframes-v0.md](./contract-2026-08-09-transform-keyframes-v0.md) | Transform keyframes v0 (restored 2026-08-30 from schema `$comment`s; superseded by motion-and-keyframes v0 §2) |
+| [contract-2026-09-02-export-verify-declared-vs-measured-v0.md](./contract-2026-09-02-export-verify-declared-vs-measured-v0.md) | Post-export declared-vs-measured verification v0 — sampled audio level fails closed; static camera-work correlation warns (Japanese) |
 
 ### Direction notes
 
