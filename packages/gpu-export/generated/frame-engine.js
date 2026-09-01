@@ -15038,6 +15038,9 @@ ${indent}`);
     DirectUploadFallbackError: () => DirectUploadFallbackError,
     FrameEvaluator: () => FrameEvaluator,
     FrameMetrics: () => FrameMetrics,
+    KNOWN_CUT_KEYS: () => KNOWN_CUT_KEYS,
+    KNOWN_KEYFRAME_KEYS: () => KNOWN_KEYFRAME_KEYS,
+    KNOWN_LAYER_KEYS: () => KNOWN_LAYER_KEYS,
     LookaheadCache: () => LookaheadCache,
     LookaheadFrameSource: () => LookaheadFrameSource,
     RangeMp4Source: () => RangeMp4Source,
@@ -17021,6 +17024,50 @@ void main() {
   // packages/frame-engine/src/timeline/plan.ts
   var import_edit_store2 = __toESM(require_lib(), 1);
   var import_edit_store3 = __toESM(require_lib(), 1);
+  var KNOWN_CUT_KEY_LIST = [
+    "in",
+    "out",
+    "src",
+    "transform",
+    "opacity",
+    "speed",
+    "transitionOut",
+    "at",
+    "track",
+    "transition_out",
+    "framing",
+    "freeze",
+    "id",
+    "crop",
+    "keyframes",
+    "perspective"
+  ];
+  var KNOWN_LAYER_KEY_LIST = [
+    "id",
+    "t",
+    "duration",
+    "kind",
+    "src",
+    "mask",
+    "transform",
+    "crop",
+    "perspective",
+    "keyframes",
+    "opacity",
+    "blend",
+    "filter"
+  ];
+  var KNOWN_KEYFRAME_KEY_LIST = [
+    "t",
+    "transform",
+    "crop",
+    "perspective",
+    "opacity",
+    "easing"
+  ];
+  var KNOWN_CUT_KEYS = new Set(KNOWN_CUT_KEY_LIST);
+  var KNOWN_LAYER_KEYS = new Set(KNOWN_LAYER_KEY_LIST);
+  var KNOWN_KEYFRAME_KEYS = new Set(KNOWN_KEYFRAME_KEY_LIST);
   var DEFAULT_TRACK_Z = (track) => track;
   var DEFAULT_VISUAL = {
     framing: { x: 0, y: 0, width: 1, height: 1, scale: 1, centerX: 0.5, centerY: 0.5 },
@@ -17048,7 +17095,37 @@ void main() {
   function cutDeclaresPerspective(cut) {
     return isRecord(cut.perspective) || Array.isArray(cut.keyframes) && cut.keyframes.some((point) => Boolean(point) && typeof point === "object" && isRecord(point.perspective));
   }
+  function warnUnknownFields(value, label, knownKeys, warn) {
+    for (const key of Object.keys(value)) {
+      if (knownKeys.has(key)) continue;
+      warn(`${label}: field "${key}" is not consumed by the frame-engine (see packages/schemas/engine-capabilities.json)`);
+    }
+  }
+  function warnUnknownKeyframes(keyframes, owner, warn) {
+    if (!Array.isArray(keyframes)) return;
+    keyframes.forEach((keyframe, index) => {
+      if (!keyframe || typeof keyframe !== "object") return;
+      warnUnknownFields(keyframe, `${owner} keyframe ${index}`, KNOWN_KEYFRAME_KEYS, warn);
+    });
+  }
   function buildResolvedTimelinePlan(cuts, options = {}) {
+    const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
+    const warned = /* @__PURE__ */ new Set();
+    const warn = (message) => {
+      if (warned.has(message)) return;
+      warned.add(message);
+      onWarning?.(message);
+    };
+    cuts.forEach((cut, index) => {
+      const id = String(cut.id ?? `cut-${index}`);
+      warnUnknownFields(cut, `cut ${id}`, KNOWN_CUT_KEYS, warn);
+      warnUnknownKeyframes(cut.keyframes, `cut ${id}`, warn);
+    });
+    layers.forEach((layer, index) => {
+      const id = String(layer.id ?? `layer-${index}`);
+      warnUnknownFields(layer, `layer ${id}`, KNOWN_LAYER_KEYS, warn);
+      warnUnknownKeyframes(layer.keyframes, `layer ${id}`, warn);
+    });
     if (cuts.some((cut) => cut.freeze && (cut.at !== void 0 || cut.track !== void 0))) {
       throw new Error("freeze with explicit at/track is not supported by the sequential cuts timeline");
     }
@@ -17061,7 +17138,6 @@ void main() {
         transitionOut: normalizeTransition(cut)
       };
     });
-    const { layers = [], maskResolver, onWarning, ...timelineOptions } = options;
     const map = (0, import_edit_store2.buildTimelineMap)(virtualCuts, { trackZ: DEFAULT_TRACK_Z, ...timelineOptions });
     const trackSegments = (0, import_edit_store2.computeCutTrackSegments)(virtualCuts);
     const placements = cuts.map((cut, index) => {
@@ -17081,12 +17157,6 @@ void main() {
       };
     });
     const visibleLayers = layers;
-    const warned = /* @__PURE__ */ new Set();
-    const warn = (message) => {
-      if (warned.has(message)) return;
-      warned.add(message);
-      onWarning?.(message);
-    };
     cuts.forEach((cut, index) => {
       if (!cutDeclaresPerspective(cut)) return;
       warn(`cut ${cut.id ?? `cut-${index}`}: perspective is not applied by the frame-engine base path yet (issue #39)`);
@@ -17332,7 +17402,10 @@ void main() {
         });
         return;
       }
-      if (!layer.src) return;
+      if (!layer.src) {
+        timeline.warn(`layer ${id}: src is missing; skipping`);
+        return;
+      }
       const source = sources.get(layer.src);
       if (!source) throw new Error(`no layer source registered for ${layer.src}`);
       const animated = computeLayerKeyframesVisual(layer.keyframes, localSeconds);
