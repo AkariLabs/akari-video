@@ -26,6 +26,7 @@ __exportStar(require("./caption-style-preset"), exports);
 __exportStar(require("./generated/textstyle-catalog"), exports);
 __exportStar(require("./caption-words-rederive"), exports);
 __exportStar(require("./caption-window"), exports);
+__exportStar(require("./caption-clock"), exports);
 __exportStar(require("./timeline-map"), exports);
 __exportStar(require("./caption-display"), exports);
 __exportStar(require("./edit-v2"), exports);

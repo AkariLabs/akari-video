@@ -220,6 +220,8 @@ CSS animation の総数にほぼ比例する（`overlay-runtime.js` の注記）
 コメント。フォールバック `1vw` は `--akari-*` を定義しない別ホストで従来挙動へ退避するため
 のもので、本番のプレビュー（shell / Web）では必ず定義される。shell は `viewport-units.js` を
 `runtimeJavaScript`（`slot-params.js` + `overlay-runtime.js` の連結）へ同梱して注入する。
+Web UI（preview-server）は `slot-params.js` を `/slot-params.js` で配り、`app.js` の mount が
+同じ `renderTextSlots` を通す（2026-09-02 以降。それまでは Web UI だけ差し込みが効かなかった）。
 
 ## ディレクトリ
 
