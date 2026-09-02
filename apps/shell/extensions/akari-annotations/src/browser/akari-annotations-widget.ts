@@ -138,6 +138,7 @@ import {
     updateAudioNarrationPreferV2,
     updateAudioItemEnvelope,
     updateTreeV2Item,
+    updateItemDurationAndShiftFollowing as updateV2ItemDurationAndShiftFollowing,
     updateItem as updateV2Item
 } from '../common/edit-v2-mutations';
 import {
@@ -3175,6 +3176,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     sfxId: itemId, itemPatch: patch, legacyPatch: patch
                 })
                 : request.kind === 'item-field' ? updateTreeV2Item(doc, itemId, patch)
+                    : request.kind === 'cut-freeze-duration'
+                        ? updateV2ItemDurationAndShiftFollowing(doc, { itemId, patch })
                     : updateV2Item(doc, { itemId, patch }));
             this.hideNotice();
             if (needsTelopRebake) {

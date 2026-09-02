@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 import { readEditV2 } from '@akari-video/edit-store/lib/edit-v2.js';
-import { updateItem } from '../lib/common/edit-v2-mutations.js';
+import {
+  updateItem,
+  updateItemDurationAndShiftFollowing
+} from '../lib/common/edit-v2-mutations.js';
 import { toV2Edit } from './helpers/v2-fixture.mjs';
 import {
   createCutFreezeWriteRequest,
@@ -26,6 +29,50 @@ const timelineSource = readFileSync(
 const selectionModelSource = readFileSync(
   new URL('../src/browser/timeline-selection-model.ts', import.meta.url), 'utf8'
 );
+
+function adjacentCutsDocument() {
+  const document = toV2Edit({
+    cuts: [
+      { in: 0, out: 5 },
+      { in: 5, out: 10 },
+      { in: 10, out: 15 }
+    ]
+  });
+  document.tracks.push(
+    {
+      id: 'v-pip', lane: 'visual', items: [{
+        id: 'pip-1', at: 150, duration: 60,
+        source: { kind: 'html', path: 'pip.html' }
+      }]
+    },
+    {
+      id: 'a-voice', lane: 'audio', items: [{
+        id: 'voice-1', at: 150, duration: 60,
+        source: { kind: 'media', src: 'main', in: 0, out: 2 }
+      }]
+    }
+  );
+  return document;
+}
+
+function writeFreezeDuration(document, value) {
+  const item = document.tracks[0].items.find(candidate => candidate.id === 'cut-1');
+  const freeze = updateCutFreeze(item.source.freeze, {
+    kind: 'cut-freeze-duration', index: 0, value
+  }, 1.5, 5);
+  return updateItemDurationAndShiftFollowing(document, {
+    itemId: item.id,
+    patch: {
+      duration: (5 + (freeze?.duration_sec ?? 0)) * 30,
+      source: { freeze }
+    }
+  });
+}
+
+function itemById(document, id) {
+  return document.tracks.flatMap(track => track.items ?? [])
+    .find(candidate => candidate.id === id);
+}
 
 test('静止時刻と静止尺の行は index ベースの専用 write kind へ対応する', () => {
   assert.deepEqual([
@@ -123,6 +170,60 @@ test('v2 は media item の source.freeze と item 尺を更新し、null で fi
   assert.match(timelineSource, /raw\?\.source\?\.freeze/u);
   assert.match(timelineSource, /source: \{ freeze \}/u);
   assert.match(timelineSource, /playbackDuration \+ \(freeze\?\.duration_sec \?\? 0\)/u);
+});
+
+test('隣接 cut の v2 実書き込みは freeze 設定時に同一トラックの全後続 at を Δ シフトして重複を作らない', () => {
+  const written = readEditV2(writeFreezeDuration(adjacentCutsDocument(), 2));
+  const main = written.tracks.find(track => track.id === 't1');
+
+  assert.deepEqual(main.items.map(item => [item.id, item.at, item.duration]), [
+    ['cut-1', 0, 210],
+    ['cut-2', 210, 150],
+    ['cut-3', 360, 150]
+  ]);
+  assert.deepEqual(itemById(written, 'cut-1').source.freeze, {
+    at_sec: 1.5, duration_sec: 2
+  });
+  for (let index = 1; index < main.items.length; index++) {
+    assert.ok(
+      main.items[index - 1].at + main.items[index - 1].duration <= main.items[index].at,
+      `${main.items[index - 1].id} と ${main.items[index].id} が重複している`
+    );
+  }
+});
+
+test('隣接 cut の v2 実書き込みは freeze 除去時に同一トラックの後続 at を復帰する', () => {
+  const frozen = writeFreezeDuration(adjacentCutsDocument(), 2);
+  const removed = readEditV2(writeFreezeDuration(frozen, 0));
+  const main = removed.tracks.find(track => track.id === 't1');
+
+  assert.deepEqual(main.items.map(item => [item.id, item.at, item.duration]), [
+    ['cut-1', 0, 150],
+    ['cut-2', 150, 150],
+    ['cut-3', 300, 150]
+  ]);
+  assert.equal(Object.hasOwn(itemById(removed, 'cut-1').source, 'freeze'), false);
+});
+
+test('freeze 尺の v2 実書き込みは他トラックの PiP と音声 item をシフトしない', () => {
+  const original = adjacentCutsDocument();
+  const frozenDocument = writeFreezeDuration(original, 2);
+  const frozen = readEditV2(frozenDocument);
+  const removed = readEditV2(writeFreezeDuration(frozenDocument, null));
+
+  for (const document of [frozen, removed]) {
+    assert.equal(itemById(document, 'pip-1').at, 150);
+    assert.equal(itemById(document, 'voice-1').at, 150);
+  }
+});
+
+test('freeze 尺と後続シフトは 1 回の全文 mutation として履歴へ積まれる', () => {
+  const start = timelineSource.indexOf('protected async handleInspectorWriteV2');
+  const end = timelineSource.indexOf('protected selectionKey', start);
+  const handler = timelineSource.slice(start, end);
+
+  assert.equal((handler.match(/await this\.commitEditMutation\(/gu) ?? []).length, 1);
+  assert.match(handler, /request\.kind === 'cut-freeze-duration'[\s\S]*updateV2ItemDurationAndShiftFollowing/u);
 });
 
 test('生成した v1 freeze は packages/schemas validate-edit を通る', t => {
