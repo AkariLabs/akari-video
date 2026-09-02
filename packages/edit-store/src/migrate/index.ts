@@ -114,9 +114,10 @@ const LAYER_KEYS = new Set([
     'keyframes', 'preset', 'params', 'track', 'blend', 'chroma_key', 'filter', 'mask'
 ]);
 const AUDIO_ENVELOPE_KEYS = ['keyframes', 'ducking', 'duck_db', 'duck_attack', 'duck_release'];
-const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out', ...AUDIO_ENVELOPE_KEYS]);
-const NARRATION_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'script', 'reading', 'provenance', ...AUDIO_ENVELOPE_KEYS]);
-const BGM_KEYS = new Set(['id', 'path', 'in', 'fadeIn', 'fadeOut', 'gain_db', ...AUDIO_ENVELOPE_KEYS]);
+const AUDIO_CLIP_FX_KEYS = ['speed', 'pitch_semitones', 'formant', 'denoise', 'lowcut_hz'];
+const SFX_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'fade_in', 'fade_out', ...AUDIO_ENVELOPE_KEYS, ...AUDIO_CLIP_FX_KEYS]);
+const NARRATION_KEYS = new Set(['id', 't', 'path', 'track', 'gain_db', 'in', 'out', 'script', 'reading', 'provenance', ...AUDIO_ENVELOPE_KEYS, ...AUDIO_CLIP_FX_KEYS]);
+const BGM_KEYS = new Set(['id', 'path', 'in', 'fadeIn', 'fadeOut', 'gain_db', ...AUDIO_ENVELOPE_KEYS, ...AUDIO_CLIP_FX_KEYS]);
 
 export function detectEditVersion(raw: unknown): number | undefined {
     return isRecord(raw) && typeof raw.version === 'number' && Number.isFinite(raw.version)
@@ -379,24 +380,28 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
             || (value.gain_db !== undefined && !gainDb(value.gain_db))
             || (value.fade_in !== undefined && !nonNegative(value.fade_in))
             || (value.fade_out !== undefined && !nonNegative(value.fade_out))
+            || !validAudioClipFxDeclaration(value)
             || !validAudioEnvelopeDeclaration(value)) {
             blockers.push(`${itemPath} の path / t / in / out / gain_db / fade_in / fade_out が不正です。`);
             return;
         }
         const source: AudioMediaItemV2['source'] = {
             kind: 'media', src: audioSourceId(value.path), in: inSeconds,
-            ...(value.out !== undefined ? { out: value.out as number } : {})
+            ...(value.out !== undefined ? { out: value.out as number } : {}),
+            ...migrateAudioClipSource(value)
         };
         const item: AudioMediaItemV2 = {
             id: uniqueId(nonEmpty(value.id) ? value.id : `sfx-${index}`, usedItemIds),
             at: Math.round(value.t * frameRate),
             duration: value.out !== undefined
-                ? Math.round(((value.out as number) - (inSeconds as number)) * frameRate)
+                ? Math.round((((value.out as number) - (inSeconds as number))
+                    / (typeof value.speed === 'number' ? value.speed : 1)) * frameRate)
                 : 0,
             source,
             ...(value.gain_db !== undefined ? { gain_db: value.gain_db as number } : {}),
             ...(value.fade_in !== undefined ? { fade_in: value.fade_in as number } : {}),
             ...(value.fade_out !== undefined ? { fade_out: value.fade_out as number } : {}),
+            ...migrateAudioClipItem(value),
             ...migrateAudioEnvelopeDeclaration(value, frameRate)
         };
         pending.push({ kind: 'audio', ref: trackOf(value.track), item });
@@ -416,6 +421,7 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
             || (value.gain_db !== undefined && !gainDb(value.gain_db))
             || (value.script !== undefined && typeof value.script !== 'string')
             || (value.reading !== undefined && typeof value.reading !== 'string')
+            || !validAudioClipFxDeclaration(value)
             || !validAudioEnvelopeDeclaration(value)
             || !validNarrationProvenance(value.provenance)) {
             blockers.push(`${itemPath} の path / t / in / out / gain_db / script / reading / provenance が不正です。`);
@@ -430,11 +436,13 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
             role: 'narration',
             source: {
                 kind: 'media', src: audioSourceId(value.path), in: inSeconds as number,
-                ...(value.out !== undefined ? { out: value.out as number } : {})
+                ...(value.out !== undefined ? { out: value.out as number } : {}),
+                ...migrateAudioClipSource(value)
             },
             ...(value.gain_db !== undefined ? { gain_db: value.gain_db as number } : {}),
             ...(value.script !== undefined ? { script: value.script as string } : {}),
             ...(value.reading !== undefined ? { reading: value.reading as string } : {}),
+            ...migrateAudioClipItem(value),
             ...migrateAudioEnvelopeDeclaration(value, frameRate),
             provenance: clone(value.provenance) as AudioMediaItemV2['provenance']
         };
@@ -456,6 +464,7 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
                 || (value.fadeIn !== undefined && !nonNegative(value.fadeIn))
                 || (value.fadeOut !== undefined && !nonNegative(value.fadeOut))
                 || (value.gain_db !== undefined && !gainDb(value.gain_db))
+                || !validAudioClipFxDeclaration(value)
                 || !validAudioEnvelopeDeclaration(value)) {
                 blockers.push('edit.json.audio.bgm の path / in / fadeIn / fadeOut / gain_db / ducking が不正です。');
             } else if (usedItemIds.has('bgm')) {
@@ -466,10 +475,11 @@ export function migrateEditToV2(raw: unknown, options: { hasCaptions?: boolean }
                     kind: 'audio', ref: audioTrackRefs.bgm as number,
                     item: {
                         id: 'bgm', at: 0, duration: 0, role: 'bgm',
-                        source: { kind: 'media', src: audioSourceId(value.path), in: value.in ?? 0 },
+                        source: { kind: 'media', src: audioSourceId(value.path), in: value.in ?? 0, ...migrateAudioClipSource(value) },
                         ...(value.fadeIn !== undefined ? { fade_in: value.fadeIn as number } : {}),
                         ...(value.fadeOut !== undefined ? { fade_out: value.fadeOut as number } : {}),
                         ...(value.gain_db !== undefined ? { gain_db: value.gain_db as number } : {}),
+                        ...migrateAudioClipItem(value),
                         ...migrateAudioEnvelopeDeclaration(value, frameRate)
                     } as AudioMediaItemV2
                 });
@@ -988,6 +998,36 @@ function nonNegative(value: unknown): value is number {
 
 function gainDb(value: unknown): value is number {
     return typeof value === 'number' && Number.isFinite(value) && value >= -60 && value <= 12;
+}
+
+function validAudioClipFxDeclaration(value: RecordValue): boolean {
+    if (value.speed !== undefined && !(typeof value.speed === 'number' && Number.isFinite(value.speed)
+        && value.speed > 0.25 && value.speed <= 4)) return false;
+    if (value.pitch_semitones !== undefined && !(typeof value.pitch_semitones === 'number'
+        && Number.isFinite(value.pitch_semitones) && value.pitch_semitones >= -24 && value.pitch_semitones <= 24)) return false;
+    if (value.formant !== undefined && value.formant !== 'preserve' && value.formant !== 'shift') return false;
+    if (value.lowcut_hz !== undefined && !(typeof value.lowcut_hz === 'number'
+        && Number.isFinite(value.lowcut_hz) && value.lowcut_hz >= 0 && value.lowcut_hz <= 400)) return false;
+    if (value.denoise === undefined) return true;
+    return isRecord(value.denoise)
+        && (value.denoise.method === 'fft' || value.denoise.method === 'nlm')
+        && typeof value.denoise.strength === 'number' && Number.isFinite(value.denoise.strength)
+        && value.denoise.strength >= 0 && value.denoise.strength <= 1;
+}
+
+function migrateAudioClipSource(value: RecordValue): Partial<AudioMediaItemV2['source']> {
+    return {
+        ...(typeof value.speed === 'number' ? { speed: value.speed } : {}),
+        ...(typeof value.pitch_semitones === 'number' ? { pitch_semitones: value.pitch_semitones } : {}),
+        ...(value.formant === 'preserve' || value.formant === 'shift' ? { formant: value.formant } : {})
+    };
+}
+
+function migrateAudioClipItem(value: RecordValue): Partial<AudioMediaItemV2> {
+    return {
+        ...(isRecord(value.denoise) ? { denoise: clone(value.denoise) as AudioMediaItemV2['denoise'] } : {}),
+        ...(typeof value.lowcut_hz === 'number' ? { lowcut_hz: value.lowcut_hz } : {})
+    };
 }
 
 function validAudioEnvelopeDeclaration(value: RecordValue): boolean {

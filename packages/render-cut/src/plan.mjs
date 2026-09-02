@@ -17,6 +17,7 @@ import {
 import { buildAudioTailPadCommand, computeContentDurationSeconds } from "./content-duration.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { buildAtempoChain } from "../../media-bin/src/speech-atempo.mjs";
+import { buildAudioClipFxFilters } from "../../media-bin/src/preview-audio-sidecar.mjs";
 import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
 import { buildTelopRasterCommands, readRenderEdit } from "./internal-render.mjs";
 
@@ -188,11 +189,28 @@ export function buildAudioMixCommand({
     ducked_items: [...duckedItems],
     keyframed_items: [...keyframedItems],
   });
+  const clipFxProcessedItems = new Set();
+  const clipFxFilterCounts = { highpass: 0, afftdn: 0, anlmdn: 0, rubberband: 0 };
+  const clipFxProvenance = () => ({
+    processed_items: [...clipFxProcessedItems],
+    filters: { ...clipFxFilterCounts },
+  });
+  const clipFxPrefix = (item, id, { narration = false } = {}) => {
+    const declaration = narration ? { denoise: item?.denoise, lowcut_hz: item?.lowcut_hz } : item;
+    const clipFilters = buildAudioClipFxFilters(declaration);
+    if (clipFilters.length === 0) return "";
+    clipFxProcessedItems.add(id);
+    for (const filter of clipFilters) {
+      const kind = Object.keys(clipFxFilterCounts).find(candidate => filter.startsWith(candidate));
+      if (kind) clipFxFilterCounts[kind] += 1;
+    }
+    return `${clipFilters.join(",")},`;
+  };
 
   if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master) {
     return {
       operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration,
-      envelopes, envelope: envelopeProvenance(),
+      envelopes, envelope: envelopeProvenance(), clip_fx: clipFxProvenance(),
     };
   }
   const args = [
@@ -220,6 +238,7 @@ export function buildAudioMixCommand({
       const delay = Math.max(0, Math.round(track.t * 1000));
       const rawLabel = `nar_raw${index}`;
       const baseLabel = `nar_base${index}`;
+      const narrationClipFx = clipFxPrefix(track.declaration, track.id, { narration: true });
       const envelope = createClipEnvelope({
         item: track.declaration,
         intervals: [],
@@ -234,12 +253,12 @@ export function buildAudioMixCommand({
         });
         inputIndex += 1;
         if (envelope.keyframed) keyframedItems.add(track.id);
-        filters.push(`[${narrationInputIndex}:a]${track.trimFilter}volume=${formatNumber(track.gain_db)}dB,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[${baseLabel}]`);
+        filters.push(`[${narrationInputIndex}:a]${track.trimFilter}${narrationClipFx}volume=${formatNumber(track.gain_db)}dB,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[${baseLabel}]`);
         filters.push(`[${envelopeInput}:a]aformat=sample_fmts=fltp:sample_rates=48000,pan=stereo|c0=c0|c1=c0[env_nar${index}]`);
         filters.push(`[${baseLabel}][env_nar${index}]amultiply,adelay=${delay}:all=1[${rawLabel}]`);
       } else {
         filters.push(
-          `[${narrationInputIndex}:a]${track.trimFilter}volume=${formatNumber(track.gain_db)}dB,adelay=${delay}:all=1[${rawLabel}]`,
+          `[${narrationInputIndex}:a]${track.trimFilter}${narrationClipFx}volume=${formatNumber(track.gain_db)}dB,adelay=${delay}:all=1[${rawLabel}]`,
         );
       }
       rawLabels.push(`[${rawLabel}]`);
@@ -266,6 +285,7 @@ export function buildAudioMixCommand({
     // afade は volume/atrim に直結し、その後に決定論 envelope を amultiply する。
     // 乗算同士なので可換だが、この順序を契約として固定する。
     const bgmInputIndex = inputIndex++;
+    const bgmClipFx = clipFxPrefix(audio.bgm, audio.bgm.id ?? "bgm");
     const bgmEnvelope = createClipEnvelope({
       item: audio.bgm,
       intervals: audio.bgm.ducking === true ? duckIntervals : [],
@@ -281,14 +301,14 @@ export function buildAudioMixCommand({
       if (bgmEnvelope.keyframed) keyframedItems.add(audio.bgm.id ?? "bgm");
       if (bgmEnvelope.ducked) duckedItems.add(audio.bgm.id ?? "bgm");
       filters.push(
-        `[${bgmInputIndex}:a]volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(duration)}${buildBgmFadeSuffix(bgmFade, duration)},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bgm_base]`,
+        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(duration)}${buildBgmFadeSuffix(bgmFade, duration)},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[bgm_base]`,
       );
       filters.push(`[${envelopeInput}:a]aformat=sample_fmts=fltp:sample_rates=48000,pan=stereo|c0=c0|c1=c0[env_bgm]`);
       filters.push(`[bgm_base][env_bgm]amultiply[bgm_env]`);
       bgmLabel = "[bgm_env]";
     } else {
       filters.push(
-        `[${bgmInputIndex}:a]volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(duration)}${buildBgmFadeSuffix(bgmFade, duration)}[bgm]`,
+        `[${bgmInputIndex}:a]${bgmClipFx}volume=${formatNumber(audio.bgm.gain_db ?? 0)}dB,atrim=duration=${formatNumber(duration)}${buildBgmFadeSuffix(bgmFade, duration)}[bgm]`,
       );
       bgmLabel = "[bgm]";
     }
@@ -297,11 +317,13 @@ export function buildAudioMixCommand({
   for (const [index, sfx] of audio.sfx.entries()) {
     const sfxSourcePath = resolve(projectRoot, sfx.path);
     const needsEnvelopeDuration = Array.isArray(sfx.keyframes) || sfx.ducking === true;
-    const trim = resolveSfxTrim(sfx, ffprobeCommand, sfxSourcePath, index, needsEnvelopeDuration);
+    const clipSpeed = isFiniteNumber(sfx.speed) && sfx.speed > 0 ? sfx.speed : 1;
+    const trim = resolveSfxTrim(sfx, ffprobeCommand, sfxSourcePath, index, needsEnvelopeDuration, clipSpeed);
     warnings.push(...trim.warnings);
     if (trim.skip) continue;
     args.push("-i", sfxSourcePath);
     const sfxInputIndex = inputIndex++;
+    const sfxClipFx = clipFxPrefix(sfx, sfx.id ?? `sfx-${index}`);
     const delay = Math.max(0, Math.round((sfx.t ?? 0) * 1000));
     let fadeSuffix = "";
     if (trim.effectiveDuration !== null) {
@@ -332,13 +354,13 @@ export function buildAudioMixCommand({
       if (sfxEnvelope.keyframed) keyframedItems.add(sfx.id ?? `sfx-${index}`);
       if (sfxEnvelope.ducked) duckedItems.add(sfx.id ?? `sfx-${index}`);
       filters.push(
-        `[${sfxInputIndex}:a]${trim.trimFilter}volume=${formatNumber(sfx.gain_db ?? 0)}dB${fadeSuffix},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[sfx_base${index}]`,
+        `[${sfxInputIndex}:a]${trim.trimFilter}${sfxClipFx}volume=${formatNumber(sfx.gain_db ?? 0)}dB${fadeSuffix},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[sfx_base${index}]`,
       );
       filters.push(`[${envelopeInput}:a]aformat=sample_fmts=fltp:sample_rates=48000,pan=stereo|c0=c0|c1=c0[env_sfx${index}]`);
       filters.push(`[sfx_base${index}][env_sfx${index}]amultiply,adelay=${delay}:all=1[sfx${index}]`);
     } else {
       filters.push(
-        `[${sfxInputIndex}:a]${trim.trimFilter}volume=${formatNumber(sfx.gain_db ?? 0)}dB${fadeSuffix},adelay=${delay}:all=1[sfx${index}]`,
+        `[${sfxInputIndex}:a]${trim.trimFilter}${sfxClipFx}volume=${formatNumber(sfx.gain_db ?? 0)}dB${fadeSuffix},adelay=${delay}:all=1[sfx${index}]`,
       );
     }
     labels.push(`[sfx${index}]`);
@@ -387,6 +409,7 @@ export function buildAudioMixCommand({
     operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration,
     envelopes,
     envelope: envelopeProvenance(),
+    clip_fx: clipFxProvenance(),
   };
 }
 
@@ -685,7 +708,7 @@ function resolveBgmInSeconds(bgm, ffprobeCommand, resolvedPath) {
 // effectiveDuration (the [in,out) window's own length, once knowable) is what audio-clip-fades'
 // resolveSfxFadeSeconds clamps fade_in/fade_out against -- null means "not knowable without a
 // probe that didn't happen" and the caller skips fade application rather than guessing.
-function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index, needsEnvelopeDuration = false) {
+function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index, needsEnvelopeDuration = false, speed = 1) {
   const hasIn = sfx.in !== undefined;
   const hasOut = sfx.out !== undefined;
   const hasFade = sfx.fade_in !== undefined || sfx.fade_out !== undefined;
@@ -729,7 +752,7 @@ function resolveSfxTrim(sfx, ffprobeCommand, resolvedPath, index, needsEnvelopeD
   const end = outSeconds === null ? "" : `:end=${formatNumber(outSeconds)}`;
   const trimFilter =
     inSeconds > 0 || end !== "" ? `atrim=start=${formatNumber(inSeconds)}${end},asetpts=PTS-STARTPTS,` : "";
-  const effectiveDuration = outSeconds === null ? null : outSeconds - inSeconds;
+  const effectiveDuration = outSeconds === null ? null : (outSeconds - inSeconds) / speed;
   return { skip: false, trimFilter, effectiveDuration, warnings };
 }
 

@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 
 import { resolveFfmpeg, resolveFfprobe } from './index.mjs';
 
-export const PREVIEW_AUDIO_RECIPE = 'preview-audio-flac-v1';
+export const PREVIEW_AUDIO_RECIPE = 'preview-audio-flac-v2';
 
 const inFlight = new Map();
 const LOCK_STALE_MS = 30 * 60 * 1000;
@@ -27,6 +27,68 @@ function summarize(value, fallback) {
 function formatNumber(value) {
   if (Object.is(value, -0)) return '0';
   return Number(value).toFixed(9).replace(/(?:\.0+|(\.\d*?)0+)$/u, '$1');
+}
+
+export function normalizeAudioClipFx(value = {}) {
+  const denoise = value?.denoise && typeof value.denoise === 'object'
+    && (value.denoise.method === 'fft' || value.denoise.method === 'nlm')
+    && finiteNonNegative(value.denoise.strength) && value.denoise.strength <= 1
+    ? { method: value.denoise.method, strength: value.denoise.strength }
+    : null;
+  return {
+    speed: finitePositive(value?.speed) ? value.speed : 1,
+    pitchSemitones: typeof value?.pitch_semitones === 'number' && Number.isFinite(value.pitch_semitones)
+      ? value.pitch_semitones : 0,
+    formant: value?.formant === 'shift' ? 'shift' : 'preserve',
+    denoise,
+    lowcutHz: finiteNonNegative(value?.lowcut_hz) ? value.lowcut_hz : 0,
+  };
+}
+
+export function hasAudioClipFx(value = {}) {
+  const normalized = normalizeAudioClipFx(value);
+  return normalized.speed !== 1 || normalized.pitchSemitones !== 0
+    || normalized.denoise !== null || normalized.lowcutHz > 0;
+}
+
+// Single canonical clip-FX chain shared by render-cut and preview sidecars.
+export function buildAudioClipFxFilters(value = {}) {
+  const normalized = normalizeAudioClipFx(value);
+  const filters = [];
+  if (normalized.lowcutHz > 0) {
+    const highpass = `highpass=f=${formatNumber(normalized.lowcutHz)}:p=2`;
+    filters.push(highpass, highpass);
+  }
+  if (normalized.denoise?.method === 'fft') {
+    filters.push(`afftdn=nr=${formatNumber(12 + normalized.denoise.strength * 76)}:nf=-30`);
+  } else if (normalized.denoise?.method === 'nlm') {
+    filters.push(`anlmdn=s=${formatNumber(0.00001 + normalized.denoise.strength * 0.0002)}`);
+  }
+  if (normalized.speed !== 1 || normalized.pitchSemitones !== 0) {
+    filters.push([
+      `rubberband=tempo=${formatNumber(normalized.speed)}`,
+      `pitch=${formatNumber(2 ** (normalized.pitchSemitones / 12))}`,
+      `formant=${normalized.formant === 'shift' ? 'shifted' : 'preserved'}`,
+      'pitchq=quality',
+    ].join(':'));
+  }
+  return filters;
+}
+
+export function buildPreviewAudioFilterChain(options) {
+  const padBeforeSec = options?.padBeforeSec ?? 0;
+  const padAfterSec = options?.padAfterSec ?? 0;
+  if (options?.clipFx) {
+    return [
+      `atrim=start=${formatNumber(Math.max(0, options.inSec - padBeforeSec))}:end=${formatNumber(options.outSec + padAfterSec)}`,
+      'asetpts=PTS-STARTPTS',
+      ...buildAudioClipFxFilters(options.clipFx),
+    ];
+  }
+  return [
+    'asetpts=PTS-STARTPTS',
+    ...buildAtempoChain(options?.speed ?? 1).map(factor => `atempo=${formatNumber(factor)}`),
+  ];
 }
 
 // ffmpeg atempo accepts factors in [0.5, 2.0]. This remains the single definition shared
@@ -83,11 +145,24 @@ function keyFor(sourcePath, stat, values) {
     stat.mtimeMs,
     formatNumber(values.inSec),
     formatNumber(values.outSec),
-    formatNumber(values.speed),
     formatNumber(values.padBeforeSec),
     formatNumber(values.padAfterSec),
+    values.filters.join(','),
     PREVIEW_AUDIO_RECIPE,
   ].join('|')).digest('hex');
+}
+
+export function previewAudioSidecarKey(options) {
+  return keyFor(path.resolve(options.sourcePath), {
+    size: options.size,
+    mtimeMs: options.mtimeMs,
+  }, {
+    inSec: options.inSec,
+    outSec: options.outSec,
+    padBeforeSec: options.padBeforeSec ?? 0,
+    padAfterSec: options.padAfterSec ?? 0,
+    filters: buildPreviewAudioFilterChain(options),
+  });
 }
 
 function probeAudio(filePath, ffprobe = resolveFfprobe()) {
@@ -145,6 +220,7 @@ function ensureSync(options) {
       || !finiteNonNegative(padBeforeSec) || !finiteNonNegative(padAfterSec)) {
       throw new Error('inSec, outSec, speed, and pads must describe a positive source range');
     }
+    if (options.clipFx) validateAudioClipFx(options.clipFx);
     if (typeof options.cacheDir !== 'string' || !options.cacheDir) {
       throw new Error('cacheDir is required');
     }
@@ -157,13 +233,15 @@ function ensureSync(options) {
       speed: options.speed,
       padBeforeSec,
       padAfterSec,
+      filters: buildPreviewAudioFilterChain({ ...options, padBeforeSec, padAfterSec }),
     };
     key = keyFor(sourcePath, stat, values);
     const outputDirectory = path.resolve(options.cacheDir, 'preview-audio');
     outputPath = path.join(outputDirectory, `${key}.flac`);
     fs.mkdirSync(outputDirectory, { recursive: true });
+    const inspectAudio = typeof options.probeAudio === 'function' ? options.probeAudio : probeAudio;
     const fromExisting = () => {
-      const metadata = probeAudio(outputPath, options.ffprobe ?? resolveFfprobe());
+      const metadata = inspectAudio(outputPath, options.ffprobe ?? resolveFfprobe());
       return {
         ok: true, skipped: true, path: outputPath, key,
         durationSec: metadata.durationSec,
@@ -183,13 +261,10 @@ function ensureSync(options) {
       try {
         const startSec = Math.max(0, options.inSec - padBeforeSec);
         const endSec = options.outSec + padAfterSec;
-        const filters = [
-          'asetpts=PTS-STARTPTS',
-          ...buildAtempoChain(options.speed).map(factor => `atempo=${formatNumber(factor)}`),
-        ];
+        const filters = values.filters;
         const result = spawnSync(options.ffmpeg ?? resolveFfmpeg(), [
           '-hide_banner', '-nostdin', '-loglevel', 'error',
-          '-ss', formatNumber(startSec), '-to', formatNumber(endSec),
+          ...(!options.clipFx ? ['-ss', formatNumber(startSec), '-to', formatNumber(endSec)] : []),
           '-i', sourcePath,
           '-map', '0:a:0', '-vn',
           '-af', filters.join(','),
@@ -204,7 +279,7 @@ function ensureSync(options) {
         if (!outputStat.isFile() || outputStat.size <= 42) {
           throw new Error('ffmpeg created an empty preview audio sidecar');
         }
-        const metadata = probeAudio(temporary, options.ffprobe ?? resolveFfprobe());
+        const metadata = inspectAudio(temporary, options.ffprobe ?? resolveFfprobe());
         if (metadata.sampleRate !== 48000) throw new Error('preview audio sidecar is not 48 kHz');
         fs.renameSync(temporary, outputPath);
         return {
@@ -234,9 +309,15 @@ function ensureSync(options) {
 }
 
 export function ensurePreviewAudioSidecar(options) {
+  const filters = options?.clipFx
+    ? buildAudioClipFxFilters(options.clipFx)
+    : finitePositive(options?.speed)
+      ? buildAtempoChain(options.speed).map(factor => `atempo=${formatNumber(factor)}`)
+      : [];
   const identity = options && typeof options.sourcePath === 'string'
     ? [path.resolve(options.sourcePath), options.inSec, options.outSec, options.speed,
       options.padBeforeSec ?? 0, options.padAfterSec ?? 0,
+      filters.join(','),
       path.resolve(String(options.cacheDir ?? '')), PREVIEW_AUDIO_RECIPE].join('\0')
     : JSON.stringify(options);
   if (inFlight.has(identity)) return inFlight.get(identity);
@@ -244,6 +325,28 @@ export function ensurePreviewAudioSidecar(options) {
   inFlight.set(identity, pending);
   void pending.finally(() => inFlight.delete(identity));
   return pending;
+}
+
+function validateAudioClipFx(value) {
+  if (!value || typeof value !== 'object') throw new Error('clipFx must be an object');
+  if (value.speed !== undefined && (!finitePositive(value.speed) || value.speed <= 0.25 || value.speed > 4)) {
+    throw new Error('clipFx.speed must be within (0.25, 4]');
+  }
+  if (value.pitch_semitones !== undefined && (typeof value.pitch_semitones !== 'number'
+      || !Number.isFinite(value.pitch_semitones) || value.pitch_semitones < -24 || value.pitch_semitones > 24)) {
+    throw new Error('clipFx.pitch_semitones must be within [-24, 24]');
+  }
+  if (value.formant !== undefined && value.formant !== 'preserve' && value.formant !== 'shift') {
+    throw new Error('clipFx.formant must be preserve or shift');
+  }
+  if (value.lowcut_hz !== undefined && (!finiteNonNegative(value.lowcut_hz) || value.lowcut_hz > 400)) {
+    throw new Error('clipFx.lowcut_hz must be within [0, 400]');
+  }
+  if (value.denoise !== undefined && (!value.denoise || typeof value.denoise !== 'object'
+      || (value.denoise.method !== 'fft' && value.denoise.method !== 'nlm')
+      || !finiteNonNegative(value.denoise.strength) || value.denoise.strength > 1)) {
+    throw new Error('clipFx.denoise must contain fft|nlm and strength within [0, 1]');
+  }
 }
 
 export function sweepPreviewAudioSidecars({ cacheDir, keepKeys }) {

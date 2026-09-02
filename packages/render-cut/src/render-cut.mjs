@@ -234,7 +234,10 @@ export async function renderProject(input, options = {}, io = console) {
     },
     plan,
     provenance: {
-      audio: { envelope: plan.commands.audio_mix.envelope },
+      audio: {
+        envelope: plan.commands.audio_mix.envelope,
+        clip_fx: plan.commands.audio_mix.clip_fx,
+      },
       sources: capabilities.sourceInputs.map((source) => ({
         id: source.id,
         path: relativeOrAbsolute(projectRoot, source.path),

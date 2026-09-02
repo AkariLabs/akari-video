@@ -100,6 +100,9 @@ export interface AudioMediaSourceV2 {
     in?: number;
     /** 素材ファイル内のトリム終端（秒）。省略時はファイル末尾。 */
     out?: number;
+    speed?: number;
+    pitch_semitones?: number;
+    formant?: 'preserve' | 'shift';
 }
 export interface HtmlSourceV2 {
     kind: 'html';
@@ -207,6 +210,11 @@ export interface AudioMediaItemV2 {
     role?: AudioRoleV2;
     source: AudioMediaSourceV2;
     gain_db?: number;
+    denoise?: {
+        method: 'fft' | 'nlm';
+        strength: number;
+    };
+    lowcut_hz?: number;
     keyframes?: KeyframeV2[];
     fade_in?: number;
     fade_out?: number;

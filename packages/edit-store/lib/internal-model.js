@@ -747,13 +747,23 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
     const at = atFrames / fps;
     const duration = durationFrames / fps;
     const inSeconds = item.source.in ?? 0;
+    const sourceClipFx = {
+        ...(item.source.speed !== undefined ? { speed: item.source.speed } : {}),
+        ...(item.source.pitch_semitones !== undefined ? { pitch_semitones: item.source.pitch_semitones } : {}),
+        ...(item.source.formant !== undefined ? { formant: item.source.formant } : {})
+    };
+    const itemClipFx = {
+        ...(item.denoise !== undefined ? { denoise: structuredClone(item.denoise) } : {}),
+        ...(item.lowcut_hz !== undefined ? { lowcut_hz: item.lowcut_hz } : {})
+    };
     const path = pathOf(item.source.src);
     const source = {
         kind: 'media',
         sourceId: item.source.src,
         ...(path !== undefined ? { path } : {}),
         in: inSeconds,
-        out: item.source.out ?? inSeconds
+        out: item.source.out ?? inSeconds,
+        ...sourceClipFx
     };
     const resolvedPath = path ?? item.source.src;
     const role = item.role ?? 'sfx';
@@ -764,6 +774,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
             path: resolvedPath,
             track: ref,
             ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
+            ...sourceClipFx,
+            ...itemClipFx,
             ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
             ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
             ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
@@ -781,6 +793,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
                 declaration: {
                     id: item.id, t: at, path: resolvedPath,
                     ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                    ...sourceClipFx,
+                    ...itemClipFx,
                     ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
                     ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
                     ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
@@ -808,6 +822,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
             ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
             ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),
             ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
+            ...sourceClipFx,
+            ...itemClipFx,
             ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
             ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
             ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
@@ -823,6 +839,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
                     ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
                     ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),
                     ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                    ...sourceClipFx,
+                    ...itemClipFx,
                     ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
                     ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
                     ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
@@ -842,6 +860,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
         in: inSeconds,
         ...(item.source.out !== undefined ? { out: item.source.out } : {}),
         ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
+        ...sourceClipFx,
+        ...itemClipFx,
         ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
         ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
         ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
@@ -856,6 +876,8 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
                 in: inSeconds,
                 ...(item.source.out !== undefined ? { out: item.source.out } : {}),
                 ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                ...sourceClipFx,
+                ...itemClipFx,
                 ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
                 ...(item.fade_in !== undefined ? { fade_in: item.fade_in } : {}),
                 ...(item.fade_out !== undefined ? { fade_out: item.fade_out } : {}),

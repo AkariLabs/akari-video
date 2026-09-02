@@ -3700,6 +3700,8 @@ var require_edit_v2 = __commonJS({
       "duck_db",
       "duck_attack",
       "duck_release",
+      "denoise",
+      "lowcut_hz",
       "script",
       "reading",
       "provenance"
@@ -3850,6 +3852,10 @@ var require_edit_v2 = __commonJS({
       }
       if (hasOwn(value, "gain_db"))
         requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+      if (hasOwn(value, "denoise"))
+        validateAudioClipDenoise(value.denoise, `${path}.denoise`);
+      if (hasOwn(value, "lowcut_hz"))
+        requireRange(value.lowcut_hz, 0, 400, `${path}.lowcut_hz`);
       if (hasOwn(value, "keyframes"))
         validateKeyframes(value.keyframes, `${path}.keyframes`, true);
       if (hasOwn(value, "fade_in"))
@@ -3889,7 +3895,7 @@ var require_edit_v2 = __commonJS({
     }
     function validateAudioMediaSource(value, path, sourceIds) {
       requireRecord(value, path);
-      requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "src", "in", "out"]), path);
+      requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "src", "in", "out", "speed", "pitch_semitones", "formant"]), path);
       if (value.kind !== "media")
         throw invalid(`${path}.kind`, "media \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
       requireText(value.src, `${path}.src`);
@@ -3903,6 +3909,24 @@ var require_edit_v2 = __commonJS({
         if (value.out <= inSeconds)
           throw invalid(path, "audio media source \u306F out > in \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
       }
+      if (hasOwn(value, "speed")) {
+        requireRange(value.speed, 0.25, 4, `${path}.speed`);
+        if (value.speed === 0.25)
+          throw invalid(`${path}.speed`, "0.25 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
+      if (hasOwn(value, "pitch_semitones"))
+        requireRange(value.pitch_semitones, -24, 24, `${path}.pitch_semitones`);
+      if (hasOwn(value, "formant") && value.formant !== "preserve" && value.formant !== "shift") {
+        throw invalid(`${path}.formant`, "preserve/shift \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
+    }
+    function validateAudioClipDenoise(value, path) {
+      requireRecord(value, path);
+      requireExactKeys(value, /* @__PURE__ */ new Set(["method", "strength"]), path);
+      if (value.method !== "fft" && value.method !== "nlm") {
+        throw invalid(`${path}.method`, "fft/nlm \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      }
+      requireRange(value.strength, 0, 1, `${path}.strength`);
     }
     function validateItem(value, path, ids, sourceIds) {
       requireRecord(value, path);
@@ -5077,13 +5101,23 @@ var require_internal_model = __commonJS({
       const at2 = atFrames / fps;
       const duration = durationFrames / fps;
       const inSeconds = item.source.in ?? 0;
+      const sourceClipFx = {
+        ...item.source.speed !== void 0 ? { speed: item.source.speed } : {},
+        ...item.source.pitch_semitones !== void 0 ? { pitch_semitones: item.source.pitch_semitones } : {},
+        ...item.source.formant !== void 0 ? { formant: item.source.formant } : {}
+      };
+      const itemClipFx = {
+        ...item.denoise !== void 0 ? { denoise: structuredClone(item.denoise) } : {},
+        ...item.lowcut_hz !== void 0 ? { lowcut_hz: item.lowcut_hz } : {}
+      };
       const path = pathOf(item.source.src);
       const source = {
         kind: "media",
         sourceId: item.source.src,
         ...path !== void 0 ? { path } : {},
         in: inSeconds,
-        out: item.source.out ?? inSeconds
+        out: item.source.out ?? inSeconds,
+        ...sourceClipFx
       };
       const resolvedPath = path ?? item.source.src;
       const role = item.role ?? "sfx";
@@ -5094,6 +5128,8 @@ var require_internal_model = __commonJS({
           path: resolvedPath,
           track: ref,
           ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
+          ...sourceClipFx,
+          ...itemClipFx,
           ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
           ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
           ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
@@ -5119,6 +5155,8 @@ var require_internal_model = __commonJS({
               t: at2,
               path: resolvedPath,
               ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
+              ...sourceClipFx,
+              ...itemClipFx,
               ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
               ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
               ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
@@ -5146,6 +5184,8 @@ var require_internal_model = __commonJS({
           ...item.fade_in !== void 0 ? { fadeIn: item.fade_in } : {},
           ...item.fade_out !== void 0 ? { fadeOut: item.fade_out } : {},
           ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
+          ...sourceClipFx,
+          ...itemClipFx,
           ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
           ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
           ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
@@ -5167,6 +5207,8 @@ var require_internal_model = __commonJS({
               ...item.fade_in !== void 0 ? { fadeIn: item.fade_in } : {},
               ...item.fade_out !== void 0 ? { fadeOut: item.fade_out } : {},
               ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
+              ...sourceClipFx,
+              ...itemClipFx,
               ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
               ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
               ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
@@ -5186,6 +5228,8 @@ var require_internal_model = __commonJS({
         in: inSeconds,
         ...item.source.out !== void 0 ? { out: item.source.out } : {},
         ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
+        ...sourceClipFx,
+        ...itemClipFx,
         ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
         ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
         ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
@@ -5210,6 +5254,8 @@ var require_internal_model = __commonJS({
             in: inSeconds,
             ...item.source.out !== void 0 ? { out: item.source.out } : {},
             ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
+            ...sourceClipFx,
+            ...itemClipFx,
             ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
             ...item.fade_in !== void 0 ? { fade_in: item.fade_in } : {},
             ...item.fade_out !== void 0 ? { fade_out: item.fade_out } : {},
@@ -6293,7 +6339,8 @@ var require_audio_schedule = __commonJS({
         const sidecar = validSidecar2(spec.sidecar);
         if (spec.sidecar && !sidecar)
           warnings.push(`${label}: sidecar declaration is invalid; using source`);
-        const trim = sidecar ? { sourceOffsetSec: 0, durationSec: Math.min(spec.durationSec, sidecar.durationSec) } : resolveTrim(kind, spec, label, warnings);
+        const playbackRate = kind === "sfx" && !sidecar && finiteClipSpeed(spec.speed) ? spec.speed : 1;
+        const trim = sidecar ? { sourceOffsetSec: 0, durationSec: sidecar.durationSec } : resolveTrim(kind, spec, label, warnings);
         if (!trim)
           continue;
         resolved.push({
@@ -6304,7 +6351,8 @@ var require_audio_schedule = __commonJS({
           track: normalizedTrack(spec.track),
           materialDurationSec: spec.durationSec,
           sourceOffsetSec: trim.sourceOffsetSec,
-          itemDurationSec: trim.durationSec,
+          itemDurationSec: sidecar ? trim.durationSec : trim.durationSec / playbackRate,
+          playbackRate,
           gainDb
         });
       }
@@ -6351,10 +6399,10 @@ var require_audio_schedule = __commonJS({
         timelineStartSec,
         timelineEndSec: timelineStartSec + durationSec,
         delaySec,
-        sourceOffsetSec: item.sourceOffsetSec + elapsedIntoItemSec,
+        sourceOffsetSec: item.sourceOffsetSec + elapsedIntoItemSec * item.playbackRate,
         durationSec,
-        playbackRate: 1,
-        sourceDurationSec: durationSec,
+        playbackRate: item.playbackRate,
+        sourceDurationSec: durationSec * item.playbackRate,
         loop: false,
         gainDb: item.gainDb,
         gainEvents,
@@ -6376,23 +6424,25 @@ var require_audio_schedule = __commonJS({
       const sidecar = validSidecar2(spec.sidecar);
       if (spec.sidecar && !sidecar)
         warnings.push(`${label}: sidecar declaration is invalid; using source`);
+      const materialDurationSec = sidecar ? sidecar.durationSec : spec.durationSec;
+      const playbackRate = sidecar ? 1 : finiteClipSpeed(spec.speed) ? spec.speed : 1;
       let materialInSec = sidecar ? 0 : finiteNonNegative2(spec.in) ? spec.in : 0;
-      if (materialInSec >= spec.durationSec) {
+      if (materialInSec >= materialDurationSec) {
         warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
         materialInSec = 0;
       }
       const loop = spec.loop !== false;
       const delaySec = Math.max(0, timelineT - startAtSec);
       const elapsedSec = Math.max(0, startAtSec - timelineT);
-      let sourceOffsetSec = materialInSec + elapsedSec;
+      let sourceOffsetSec = materialInSec + elapsedSec * playbackRate;
       if (loop) {
-        sourceOffsetSec = positiveModulo(sourceOffsetSec, spec.durationSec);
-      } else if (sourceOffsetSec >= spec.durationSec) {
+        sourceOffsetSec = positiveModulo(sourceOffsetSec, materialDurationSec);
+      } else if (sourceOffsetSec >= materialDurationSec) {
         return null;
       }
       const timelineStartSec = startAtSec + delaySec;
       const timelineAvailableSec = timelineDurationSec - timelineStartSec;
-      const durationSec = Math.min(timelineAvailableSec, loop ? timelineAvailableSec : spec.durationSec - sourceOffsetSec);
+      const durationSec = Math.min(timelineAvailableSec, loop ? timelineAvailableSec : (materialDurationSec - sourceOffsetSec) / playbackRate);
       if (!(durationSec > 0))
         return null;
       const baseGain = dbToLinear(gainDb);
@@ -6405,8 +6455,8 @@ var require_audio_schedule = __commonJS({
         delaySec,
         sourceOffsetSec,
         durationSec,
-        playbackRate: 1,
-        sourceDurationSec: durationSec,
+        playbackRate,
+        sourceDurationSec: durationSec * playbackRate,
         loop,
         gainDb,
         gainEvents: bgmFadeGainEvents(spec.fadeIn, spec.fadeOut, timelineDurationSec, timelineStartSec, durationSec, baseGain),
@@ -6760,6 +6810,9 @@ var require_audio_schedule = __commonJS({
     function finitePositive3(value) {
       return typeof value === "number" && Number.isFinite(value) && value > 0;
     }
+    function finiteClipSpeed(value) {
+      return typeof value === "number" && Number.isFinite(value) && value > 0.25 && value <= 4;
+    }
     function finiteNonNegative2(value) {
       return typeof value === "number" && Number.isFinite(value) && value >= 0;
     }
@@ -6781,8 +6834,8 @@ var require_edit_v2_keys = __commonJS({
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.ITEM_SOURCE_V2_KEYS_BY_DEFINITION = exports.ITEM_V2_KEYS_BY_DEFINITION = exports.SOURCE_KIND_V2 = exports.MOTION_FILE_V0_KEYS = exports.ANIMATOR_V0_KEYS = exports.MOTION_V0_KEYS = exports.KEYFRAME_V2_KEYS = exports.ITEM_SOURCE_V2_KEYS = exports.ITEM_V2_KEYS = void 0;
-    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "transform", "opacity", "blend", "crop", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
-    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "preset", "baked", "from", "filter", "id"];
+    exports.ITEM_V2_KEYS = ["id", "name", "hidden", "locked", "at", "duration", "transform", "opacity", "blend", "crop", "perspective", "motion", "animator", "keyframes", "items", "mask", "source", "role", "gain_db", "denoise", "lowcut_hz", "fade_in", "fade_out", "ducking", "duck_db", "duck_attack", "duck_release", "script", "reading", "provenance"];
+    exports.ITEM_SOURCE_V2_KEYS = ["kind", "src", "in", "out", "framing", "transition_out", "freeze", "fx", "speed", "chroma_key", "pitch_semitones", "formant", "path", "part", "style", "text", "exclude", "derivedFrom", "vars", "params", "preset", "baked", "from", "filter", "id"];
     exports.KEYFRAME_V2_KEYS = ["t", "transform", "crop", "perspective", "opacity", "gain_db", "animator", "easing"];
     exports.MOTION_V0_KEYS = ["in", "out", "loop"];
     exports.ANIMATOR_V0_KEYS = ["id", "basis", "shape", "start", "end", "offset", "randomize", "amount", "ease"];
@@ -6926,6 +6979,8 @@ var require_edit_v2_keys = __commonJS({
         "role",
         "source",
         "gain_db",
+        "denoise",
+        "lowcut_hz",
         "keyframes",
         "fade_in",
         "fade_out",
@@ -6955,7 +7010,10 @@ var require_edit_v2_keys = __commonJS({
         "kind",
         "src",
         "in",
-        "out"
+        "out",
+        "speed",
+        "pitch_semitones",
+        "formant"
       ],
       "itemSourceHtmlV2": [
         "kind",

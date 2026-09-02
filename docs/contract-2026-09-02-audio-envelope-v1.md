@@ -65,6 +65,10 @@ narration 鍵だけで動作し、共通カーネル自体と render-cut の spe
 これにより `amultiply` は素材のチャンネル数によらず常に stereo×stereo になる。挿入位置は `volume` と
 `afade` の後、`adelay` の前とする。全区間 0 dB なら envelope 入力を作らず、従来 filtergraph を維持する。
 
+音声クリップ FX v1 を持つ入力では、チェーンを `atrim` → `highpass` → `afftdn` / `anlmdn` →
+`rubberband` → `volume` → `afade` → envelope `amultiply` → `adelay` の順に固定する。したがって
+clip FX は envelope の前段に入り、speed 適用後の実効尺を envelope と duck のクリップ窓に使う。
+
 run / receipt の provenance は `audio.envelope` に `duck_keys`、`speech_intervals`、`ducked_items`、
 `keyframed_items` を記録する。plan は配列そのものを保持せず、path と点数だけを JSON 化する。
 
