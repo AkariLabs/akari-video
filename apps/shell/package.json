@@ -228,6 +228,22 @@
         ]
       },
       {
+        "from": "../../packages/word-book",
+        "to": "packages/word-book",
+        "filter": [
+          "package.json",
+          "src/**/*"
+        ]
+      },
+      {
+        "from": "../../packages/creator-root",
+        "to": "packages/creator-root",
+        "filter": [
+          "package.json",
+          "src/**/*"
+        ]
+      },
+      {
         "from": "resources/cli-node-modules",
         "to": "packages/node_modules"
       },
@@ -263,7 +279,9 @@
           "captions.schema.json",
           "interpretation.schema.json",
           "bin/validate-asset.mjs",
-          "bin/validate-interpretation.mjs"
+          "bin/validate-interpretation.mjs",
+          "bin/validate-word-book.mjs",
+          "word-book.schema.json"
         ]
       },
       {
@@ -280,6 +298,10 @@
       {
         "from": "../../presets/luts",
         "to": "presets/luts"
+      },
+      {
+        "from": "../../presets/word-book",
+        "to": "presets/word-book"
       }
     ],
     "mac": {
