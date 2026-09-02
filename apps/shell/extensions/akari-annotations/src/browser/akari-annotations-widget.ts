@@ -2788,6 +2788,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             ...(raw.perspective && typeof raw.perspective === 'object' && !Array.isArray(raw.perspective)
                 ? { perspective: raw.perspective } : {}),
             ...(Array.isArray(raw.keyframes) ? { keyframes: raw.keyframes } : {}),
+            ...(typeof raw.source?.src === 'string' && raw.source.src.length > 0 ? { src: raw.source.src } : {}),
             sourceKind: typeof raw.source?.kind === 'string' ? raw.source.kind : selection.itemKind,
             trackName: this.trackDisplayNameForItem(selection.id),
             clipName: typeof raw.name === 'string' && raw.name.trim() ? raw.name : selection.id

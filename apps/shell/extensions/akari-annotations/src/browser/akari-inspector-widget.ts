@@ -32,6 +32,13 @@ import {
     InspectorSectionState
 } from './inspector/section-model';
 import {
+    assignSectionToTab,
+    COMING_SOON_ADJUST_SECTIONS,
+    type InspectorTabDef,
+    InspectorTabState,
+    tabsForKind
+} from './inspector/tab-model';
+import {
     findKnobForVar,
     InspectorKnob,
     knobControlKind,
@@ -1122,6 +1129,7 @@ export class AkariInspectorWidget extends BaseWidget {
     protected readonly fieldNotice = document.createElement('div');
     protected fieldNoticeTimer: number | undefined;
     protected readonly sectionState = new InspectorSectionState(window.localStorage);
+    protected readonly tabState = new InspectorTabState(window.localStorage);
     protected readonly knobCache = new Map<string, readonly InspectorKnob[] | null>();
     protected lastEasingPreviewAt = -Infinity;
 
@@ -1193,6 +1201,27 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget button:disabled:hover {
         background: transparent;
+    }
+    .akari-inspector-widget .akari-inspector-tab-strip {
+        display: flex;
+        min-width: 0;
+        border-bottom: 1px solid var(--theia-panel-border);
+    }
+    .akari-inspector-widget .akari-inspector-tab {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 6px 4px 5px;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        color: var(--theia-descriptionForeground);
+        text-align: center;
+    }
+    .akari-inspector-widget .akari-inspector-tab.is-active {
+        border-bottom-color: var(--theia-focusBorder);
+        color: var(--theia-foreground);
+    }
+    .akari-inspector-widget .akari-inspector-tab:disabled {
+        color: var(--theia-disabledForeground);
     }
     .akari-inspector-widget .akari-inspector-row {
         display: grid;
@@ -1299,6 +1328,23 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-inspector-section-body {
         display: grid;
         gap: 5px;
+    }
+    .akari-inspector-widget .akari-inspector-section-soon,
+    .akari-inspector-widget .akari-inspector-section-soon .akari-inspector-section-header {
+        color: var(--theia-disabledForeground);
+    }
+    .akari-inspector-widget .akari-inspector-section-soon-title {
+        flex: 1;
+        padding: 4px 0;
+        font-weight: 600;
+    }
+    .akari-inspector-widget .akari-inspector-section-soon-chip {
+        padding: 1px 6px;
+        border: 1px solid var(--theia-panel-border);
+        border-radius: 999px;
+        color: var(--theia-disabledForeground);
+        font-size: 10px;
+        line-height: 1.4;
     }
     .akari-inspector-widget .akari-inspector-section-add {
         border: 0;
@@ -1508,12 +1554,17 @@ export class AkariInspectorWidget extends BaseWidget {
                     break;
             }
         }
+        const tabs = tabsForKind(sectionKind, { src: this.tabSourceHint(rowSnapshot) });
+        const activeTab = this.tabState.activeTab(sectionKind, tabs);
+        this.appendTabStrip(sectionKind, tabs, activeTab);
+
+        let keyframeSection: InspectorSection | undefined;
         const selectedKeyframe = this.model.keyframeSelection;
         if (selectedKeyframe) {
             const easing = selectedKeyframe.easing ?? 'linear';
             const easingOptions = KEYFRAME_EASING_OPTIONS.includes(easing as typeof KEYFRAME_EASING_OPTIONS[number])
                 ? KEYFRAME_EASING_OPTIONS : [...KEYFRAME_EASING_OPTIONS, easing];
-            sections = composeInspectorSections([...sections, {
+            keyframeSection = {
                 id: 'easing', label: 'イージング', fields: [{
                     name: 'segment-easing', label: 'プリセット', getValue: () => easing,
                     getEditValue: () => easing, inputKind: 'select', options: easingOptions,
@@ -1534,9 +1585,73 @@ export class AkariInspectorWidget extends BaseWidget {
                         }) ?? { ok: false, message: 'キーフレーム編集を利用できません。' }
                         : { ok: false, message: 'cubic-bezier(x1,y1,x2,y2) の形で入力してください。' }
                 }]
-            }]);
+            };
         }
-        sections.forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
+        if (keyframeSection) {
+            this.appendSection(keyframeSection, rowSnapshot, sectionKind);
+        }
+        if (activeTab === 'adjust') {
+            COMING_SOON_ADJUST_SECTIONS.forEach(label => this.appendComingSoonSection(label));
+            return;
+        }
+        sections
+            .filter(section => assignSectionToTab(sectionKind, section.id) === activeTab)
+            .forEach(section => this.appendSection(section, rowSnapshot, sectionKind));
+    }
+
+    protected tabSourceHint(snapshot: InspectorSnapshot): unknown {
+        return snapshot.kind === 'overlay' ? snapshot.payload.src
+            : snapshot.kind === 'cut' || snapshot.kind === 'layer' || snapshot.kind === 'item'
+                ? snapshot.src : undefined;
+    }
+
+    protected appendTabStrip(
+        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item',
+        tabs: readonly InspectorTabDef[],
+        activeTab: string
+    ): void {
+        const strip = document.createElement('div');
+        strip.className = 'akari-inspector-tab-strip';
+        strip.setAttribute('role', 'tablist');
+        strip.setAttribute('aria-label', 'インスペクター');
+        strip.setAttribute('data-akari-ui', 'tabs:inspector');
+        for (const tab of tabs) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'akari-inspector-tab';
+            button.textContent = tab.label;
+            button.disabled = !tab.enabled;
+            button.setAttribute('role', 'tab');
+            button.setAttribute('aria-selected', String(tab.id === activeTab));
+            button.setAttribute('aria-disabled', String(!tab.enabled));
+            button.setAttribute('data-akari-ui', `tab:inspector-${tab.id}`);
+            if (tab.id === activeTab) button.classList.add('is-active');
+            if (!tab.enabled) button.title = '近日';
+            button.addEventListener('click', () => {
+                if (!tab.enabled || tab.id === activeTab) return;
+                this.tabState.setActiveTab(kind, tab.id);
+                this.render();
+            });
+            strip.appendChild(button);
+        }
+        this.body.appendChild(strip);
+    }
+
+    protected appendComingSoonSection(label: string): void {
+        const container = document.createElement('section');
+        container.className = 'akari-inspector-section akari-inspector-section-soon';
+        container.setAttribute('aria-disabled', 'true');
+        const header = document.createElement('div');
+        header.className = 'akari-inspector-section-header';
+        const title = document.createElement('div');
+        title.className = 'akari-inspector-section-soon-title';
+        title.textContent = label;
+        const chip = document.createElement('span');
+        chip.className = 'akari-inspector-section-soon-chip';
+        chip.textContent = '近日';
+        header.append(title, chip);
+        container.appendChild(header);
+        this.body.appendChild(container);
     }
 
     protected overlayKnobs(snapshot: TimelineOverlaySelection): readonly InspectorKnob[] {
