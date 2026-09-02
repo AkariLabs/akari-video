@@ -64,19 +64,26 @@
   // unsupported の診断用: 実際に probe した codec 文字列（level 導出後）と解像度・fps・ビットレートを添える。
   // level 導出が throw する寸法（Level 6.2 超）でもここは診断文なので落とさない。
   function describeEncoderTarget(config) {
+    const width = config.outputWidth ?? config.width;
+    const height = config.outputHeight ?? config.height;
     let codec = "avc1.?";
     try {
       if (typeof FE.h264CodecString === "function") {
-        codec = FE.h264CodecString({ width: config.width, height: config.height, fps: config.fps, bitrate: config.bitrate });
+        codec = FE.h264CodecString({ width, height, fps: config.fps, bitrate: config.bitrate });
       }
     } catch (error) {
       codec = `no-level: ${error?.message ?? error}`;
     }
-    return `${codec} ${config.width}x${config.height}@${config.fps}fps ${config.bitrate}bps`;
+    return `${codec} ${width}x${height}@${config.fps}fps ${config.bitrate}bps`;
   }
 
   async function collectEncoderSupport(config) {
-    const base = { width: config.width, height: config.height, fps: config.fps, bitrate: config.bitrate };
+    const base = {
+      width: config.outputWidth ?? config.width,
+      height: config.outputHeight ?? config.height,
+      fps: config.fps,
+      bitrate: config.bitrate,
+    };
     const probe = async (hardwareAcceleration) => {
       try {
         return await FE.WebCodecsH264Encoder.isSupported({ ...base, hardwareAcceleration });
@@ -89,6 +96,22 @@
       probe("prefer-software"),
     ]);
     return { "prefer-hardware": hardware, "prefer-software": software };
+  }
+
+  function scaleSurfaceForEncode(finalCanvas, config, reusableCanvas = null) {
+    const width = config.outputWidth ?? config.width;
+    const height = config.outputHeight ?? config.height;
+    if (width === config.width && height === config.height) return finalCanvas;
+    const scaled = reusableCanvas ?? new OffscreenCanvas(width, height);
+    if (scaled.width !== width) scaled.width = width;
+    if (scaled.height !== height) scaled.height = height;
+    const context = scaled.getContext("2d");
+    if (!context) throw new Error("GPU output scale requires an OffscreenCanvas 2D context");
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.clearRect(0, 0, width, height);
+    context.drawImage(finalCanvas, 0, 0, width, height);
+    return scaled;
   }
 
   function mediaUrl(value) {
@@ -1556,6 +1579,7 @@
     let threeRuntime = null;
     let queueWaits = 0;
     let encoder = null;
+    let encodeCanvas = null;
     let supported = false;
     let hashFrame = null;
     let captureFrame = null;
@@ -1681,12 +1705,14 @@
       encoderSupport = captureMode ? null : await collectEncoderSupport(config);
       supported = captureMode || encoderSupport[hardwareAcceleration];
       if (!captureMode && supported) {
-        await bridge.startChunks({ width: config.width, height: config.height, fps: config.fps, frames: config.frames });
+        const encodeWidth = config.outputWidth ?? config.width;
+        const encodeHeight = config.outputHeight ?? config.height;
+        await bridge.startChunks({ width: encodeWidth, height: encodeHeight, fps: config.fps, frames: config.frames });
         encoder = new FE.WebCodecsH264Encoder({
           write: (bytes, chunk) => bridge.writeChunk({ bytes, ...chunk }),
         }, {
-          width: config.width,
-          height: config.height,
+          width: encodeWidth,
+          height: encodeHeight,
           fps: config.fps,
           bitrate: config.bitrate,
           keyframeIntervalFrames: config.fps * 2,
@@ -1843,7 +1869,8 @@
               await bridge.writeDumpFrame({ frameNumber, rgba });
             }
             const encodeStarted = performance.now();
-            encoder.encode({ ...frame, surface: { ...frame.surface, canvas: finalCanvas } });
+            encodeCanvas = scaleSurfaceForEncode(finalCanvas, config, encodeCanvas);
+            encoder.encode({ ...frame, surface: { ...frame.surface, canvas: encodeCanvas } });
             stages.encode.push(performance.now() - encodeStarted);
             const backpressureStarted = performance.now();
             if (encoder.encodeQueueSize > config.queueDepth) {

@@ -69,7 +69,8 @@ const OSR_ELECTRON_REFUSAL = "OSR 書き出しに必要な Electron が見つか
 const GPU_PREFERENCE_CHOICES = ["auto", "off", "force"];
 const USAGE = `Usage: render-cut <project-root> [--plan-only] [--out <path>] [--force]
   [--quality master|high|standard|light] [--encoder auto|videotoolbox|nvenc|qsv|amf|mf|x264]
-  [--fps <number>] [--engine auto|gpu|osr] [--gpu-preference auto|off|force] [--progress]
+  [--fps <number>] [--scale-to <width>x<height>] [--engine auto|gpu|osr]
+  [--gpu-preference auto|off|force] [--progress]
 
 Omitting --quality/--encoder/--fps/--progress reproduces the exact ffmpeg command lines from
 before this flag set existed. --quality/--encoder default to today's plain libx264 encode only
@@ -225,6 +226,7 @@ export async function renderProject(input, options = {}, io = console) {
     fpsOverride: options.fps,
     resolvedEngine,
   });
+  applyOutputScaleToPlan(plan, edit.output, options.scaleTo);
   const state = {
     version: VERSION,
     phase: "planned",
@@ -341,6 +343,8 @@ export async function renderProject(input, options = {}, io = console) {
       fps: plan.preset.fps,
       width: edit.output.width,
       height: edit.output.height,
+      outputWidth: plan.preset.width,
+      outputHeight: plan.preset.height,
       duration: plan.predicted_duration_seconds,
       frames: Math.round(plan.predicted_duration_seconds * plan.preset.fps),
       quality: options.quality ?? encodingPolicy?.effective.quality.value ?? "standard",
@@ -582,6 +586,7 @@ export function parseArguments(argv, env = process.env) {
     // undefined のまま exportWithGpu / exportWithOsr → launchElectronExport へ渡すと env AKARI_EXPORT_GPU_PREFERENCE → auto に落ちる。
     gpuPreference: undefined,
     fps: undefined,
+    scaleTo: undefined,
     progress: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -614,6 +619,10 @@ export function parseArguments(argv, env = process.env) {
       if (index + 1 >= argv.length) throw new Error("--fps requires a number");
       options.fps = parseFpsValue(argv[++index]);
     } else if (argument.startsWith("--fps=")) options.fps = parseFpsValue(argument.slice(6));
+    else if (argument === "--scale-to") {
+      if (index + 1 >= argv.length) throw new Error("--scale-to requires a value");
+      options.scaleTo = parseScaleToValue(argv[++index]);
+    } else if (argument.startsWith("--scale-to=")) options.scaleTo = parseScaleToValue(argument.slice(11));
     else if (argument.startsWith("-")) throw new Error(`Unknown option: ${argument}`);
     else if (options.projectRoot === null) options.projectRoot = argument;
     else throw new Error("Only one project root may be provided");
@@ -686,6 +695,49 @@ function parseFpsValue(value) {
     throw new Error(`--fps must be a positive number, got: ${value}`);
   }
   return parsed;
+}
+
+export function parseScaleToValue(value) {
+  const match = /^(\d+)x(\d+)$/iu.exec(String(value).trim());
+  if (!match) throw new Error(`--scale-to must be <width>x<height>, got: ${value}`);
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+    throw new Error(`--scale-to dimensions must be positive integers, got: ${value}`);
+  }
+  if (width % 2 !== 0 || height % 2 !== 0) {
+    throw new Error(`--scale-to dimensions must be even, got: ${value}`);
+  }
+  return { width, height };
+}
+
+export function applyOutputScaleToPlan(plan, editOutput, scaleTo) {
+  if (!scaleTo) return plan;
+  const fromWidth = Number(editOutput?.width);
+  const fromHeight = Number(editOutput?.height);
+  const toWidth = Number(scaleTo.width);
+  const toHeight = Number(scaleTo.height);
+  const fromRatio = fromWidth / fromHeight;
+  const toRatio = toWidth / toHeight;
+  const ratioDifference = Math.abs(toRatio - fromRatio) / fromRatio;
+  if (![fromWidth, fromHeight, toWidth, toHeight, fromRatio, toRatio].every(Number.isFinite)
+    || [fromWidth, fromHeight, toWidth, toHeight].some(value => value <= 0)) {
+    throw new RefusalError("--scale-to requires valid positive source and target dimensions");
+  }
+  if (ratioDifference > 0.01) {
+    throw new RefusalError(
+      `--scale-to must preserve edit.output aspect ratio within 1%: ${fromWidth}x${fromHeight} -> ${toWidth}x${toHeight}`,
+    );
+  }
+  const fromPixels = fromWidth * fromHeight;
+  const toPixels = toWidth * toHeight;
+  plan.preset = { ...plan.preset, width: toWidth, height: toHeight };
+  plan.output_scale = {
+    from: [fromWidth, fromHeight],
+    to: [toWidth, toHeight],
+    mode: toPixels > fromPixels ? "up" : toPixels < fromPixels ? "down" : "none",
+  };
+  return plan;
 }
 
 async function validateLint(projectRoot, force) {

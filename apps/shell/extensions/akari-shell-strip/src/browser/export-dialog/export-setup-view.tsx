@@ -8,7 +8,8 @@ import {
     EXPORT_QUALITY_CHOICES,
     EXPORT_RESOLUTION_SEATS,
     ExportSettings,
-    isMasterSelectable
+    isMasterSelectable,
+    resolveOutputResolution
 } from '../../common/export-settings';
 import { QuickExportEncoder, QuickExportEngine, QuickExportQuality } from '../../common/quick-export-cli';
 import { AkariExportSessionService, ExportSessionSnapshot } from '../akari-export-session-service';
@@ -68,6 +69,10 @@ export function ExportSetupView(props: {
     const rightRef = React.useRef<HTMLDivElement>(null);
     const selected = qualityMeta(snapshot.settings.quality);
     const descriptions = describeOutput(snapshot.settings, snapshot.editJson);
+    const outputResolution = resolveOutputResolution(snapshot.video, snapshot.settings);
+    const sourceShortEdge = snapshot.video.width && snapshot.video.height
+        ? Math.min(snapshot.video.width, snapshot.video.height)
+        : 1080;
 
     const checkMore = React.useCallback(() => {
         const node = rightRef.current;
@@ -192,13 +197,32 @@ export function ExportSetupView(props: {
                                 <div className='pg'>
                                     <div className='sec'><span>画素数</span><span className='r'>画角はそのまま・大きさだけ</span></div>
                                     <div className='seg'>
-                                        {EXPORT_RESOLUTION_SEATS.map(seat => (
-                                            <SegButton key={seat.id} selected={seat.available} disabled={!seat.available} soon={!seat.available} title={seat.tooltip}>
+                                        {EXPORT_RESOLUTION_SEATS.map(seat => {
+                                            const resolution = seat.id === 'source' ? 'native' : seat.id;
+                                            const selectable = resolution !== 'unlock-aspect';
+                                            return <SegButton key={seat.id} selected={selectable && snapshot.settings.resolution === resolution} disabled={!seat.available} soon={!seat.available} title={seat.tooltip} onClick={selectable ? () => update({ resolution: resolution as ExportSettings['resolution'] }) : undefined}>
                                                 {seat.id === 'source' && snapshot.video.width && snapshot.video.height ? `そのまま ${snapshot.video.width}×${snapshot.video.height}` : seat.label}
-                                            </SegButton>
-                                        ))}
+                                            </SegButton>;
+                                        })}
                                     </div>
-                                    <p className='fine'>720p / 1440p / 4K / 自由指定は画角を保ちます。画角を外す場合は余白か切り取りが必要です。</p>
+                                    {snapshot.settings.resolution === 'custom' && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
+                                            <label className='fine' htmlFor='akari-export-custom-width' style={{ margin: 0 }}>幅</label>
+                                            <input
+                                                id='akari-export-custom-width'
+                                                type='number'
+                                                min={320}
+                                                max={7680}
+                                                step={2}
+                                                value={outputResolution.width}
+                                                onChange={event => update({ customWidth: Number(event.currentTarget.value) })}
+                                                style={{ width: '92px' }}
+                                            />
+                                            <span className='fine' style={{ margin: 0 }}>× {outputResolution.height}</span>
+                                        </div>
+                                    )}
+                                    {outputResolution.mode === 'up' && <p className='fine'>{sourceShortEdge}p から補間します</p>}
+                                    <p className='fine'>720p / 1440p / 4K / 自由指定は画角を保ちます。「画角を外す」は近日対応です。</p>
                                 </div>
 
                                 <div className='pg'>

@@ -23,6 +23,8 @@ export interface QuickExportStartRequest {
     readonly encoder?: 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
     /** 未指定（そのまま）なら render-cut に --fps を渡さない。 */
     readonly fps?: number;
+    /** 未指定なら edit.json の画素数を維持する。 */
+    readonly scaleTo?: { readonly width: number; readonly height: number };
     /** フォルダ選択ダイアログで得た絶対パスの URI 文字列。未指定なら既定の exports/ を使う。 */
     readonly outputDirectoryUri?: string;
 }

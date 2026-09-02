@@ -38,6 +38,8 @@ export async function runOsrExport(options) {
     fps = 30,
     width = 1920,
     height = 1080,
+    outputWidth = width,
+    outputHeight = height,
     duration,
     frames = Math.round(duration * fps),
     quality = "high",
@@ -54,6 +56,13 @@ export async function runOsrExport(options) {
   if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(frames) || frames <= 0) {
     throw new Error("OSR duration and frame count must be positive");
   }
+  const fromPixels = width * height;
+  const toPixels = outputWidth * outputHeight;
+  const outputScale = {
+    from: [width, height],
+    to: [outputWidth, outputHeight],
+    mode: toPixels > fromPixels ? "up" : toPixels < fromPixels ? "down" : "none",
+  };
   const memoryBudget = resolveMemoryBudget({ soft, env: process.env, width, height });
 
   if (soft && !app.isReady()) app.disableHardwareAcceleration();
@@ -153,13 +162,16 @@ export async function runOsrExport(options) {
       framesRequested: frames,
       framesCompleted: 0,
       width, height, fps, duration,
+      output_scale: outputScale,
       gpu,
       viewport,
       warm_up: warmUp,
       warnings: [...rendererWarnings],
     }, null, 2)}\n`).catch(() => {});
     await windowRef.webContents.executeJavaScript("window.__akariReady");
-    encoderSession = startRawVideoEncoder({ ffmpegCommand, outputPath: out, width, height, fps, quality, encoder, edit: built.edit, queueDepth });
+    encoderSession = startRawVideoEncoder({
+      ffmpegCommand, outputPath: out, width, height, outputWidth, outputHeight, fps, quality, encoder, edit: built.edit, queueDepth,
+    });
 
     for (let frame = 0; frame < frames; frame += 1) {
       if (fatalMemoryError) throw fatalMemoryError;
@@ -220,7 +232,9 @@ export async function runOsrExport(options) {
 
     const encoded = await encoderSession.finish();
     encoderSession = null;
-    const ffprobe = await verifyEncodedVideo({ command: ffprobeCommand, path: out, frames, fps, width, height });
+    const ffprobe = await verifyEncodedVideo({
+      command: ffprobeCommand, path: out, frames, fps, width: outputWidth, height: outputHeight,
+    });
     if (!ffprobe.matched) throw new Error(`ffprobe verification failed: ${JSON.stringify(ffprobe.checks)}`);
     await destroyWindow(windowRef);
     windowRef = null;
@@ -233,6 +247,7 @@ export async function runOsrExport(options) {
       framesRequested: frames,
       framesCompleted: frames,
       width, height, fps, duration,
+      output_scale: outputScale,
       gpu,
       verify: { mode: verify, retriesTotal, retryHistogram, hashPolicyAmbiguous, preVerifyDeltaHistogram },
       frameHashes,
@@ -258,6 +273,7 @@ export async function runOsrExport(options) {
       status: "failed",
       error: String(error?.stack ?? error),
       framesRequested: frames,
+      output_scale: outputScale,
       gpu,
       verify: { mode: verify, retriesTotal, retryHistogram, hashPolicyAmbiguous, preVerifyDeltaHistogram },
       frameHashes,
@@ -478,6 +494,8 @@ export function parseElectronArguments(argv) {
     else if (argument === "--fps") options.fps = positiveNumber(required(argv, ++index, "--fps"), "--fps");
     else if (argument === "--width") options.width = positiveInteger(required(argv, ++index, "--width"), "--width");
     else if (argument === "--height") options.height = positiveInteger(required(argv, ++index, "--height"), "--height");
+    else if (argument === "--output-width") options.outputWidth = positiveInteger(required(argv, ++index, "--output-width"), "--output-width");
+    else if (argument === "--output-height") options.outputHeight = positiveInteger(required(argv, ++index, "--output-height"), "--output-height");
     else if (argument === "--duration") options.duration = positiveNumber(required(argv, ++index, "--duration"), "--duration");
     else if (argument === "--frames") options.frames = positiveInteger(required(argv, ++index, "--frames"), "--frames");
     else if (argument === "--quality") options.quality = required(argv, ++index, "--quality");

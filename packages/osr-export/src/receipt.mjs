@@ -2,7 +2,8 @@ import { normalizeGpuPreferenceRecord } from "./gpu-preference.mjs";
 import { resolveMemoryBudget } from "./memory.mjs";
 
 export function buildOsrReceipt({
-  tier, verify = "stamp", memory = {}, run = null, finalVerify = null, profile = "gpu", viewport = null, gpuPreference = null, warmUp = null,
+  tier, verify = "stamp", memory = {}, run = null, finalVerify = null, profile = "gpu", viewport = null,
+  gpuPreference = null, warmUp = null, outputScale = null,
 } = {}) {
   const fallbackBudget = resolveMemoryBudget({ soft: profile === "soft", env: {} });
   return {
@@ -29,9 +30,19 @@ export function buildOsrReceipt({
     viewport: normalizeOsrViewport(viewport),
     // 起動直後の空 paint の warm-up（run.json warm_up・契約 §11.8）。無ければ null。
     warm_up: normalizeOsrWarmUp(warmUp),
+    output_scale: normalizeOutputScale(outputScale),
     run,
     finalVerify,
   };
+}
+
+function normalizeOutputScale(value) {
+  if (!value || typeof value !== "object" || !["up", "down", "none"].includes(value.mode)) return null;
+  const from = Array.isArray(value.from) ? value.from.map(Number) : [];
+  const to = Array.isArray(value.to) ? value.to.map(Number) : [];
+  return from.length === 2 && to.length === 2 && [...from, ...to].every(entry => Number.isInteger(entry) && entry > 0)
+    ? { from, to, mode: value.mode }
+    : null;
 }
 
 // run.json の viewport（offscreen 窓を出力寸法 + stamp 行 1 px に固定した記録）を receipt の snake_case に揃える。

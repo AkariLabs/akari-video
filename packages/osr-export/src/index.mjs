@@ -14,6 +14,8 @@ export async function exportWithOsr({
   fps,
   width,
   height,
+  outputWidth = width,
+  outputHeight = height,
   duration,
   frames = Math.round(duration * fps),
   quality,
@@ -38,7 +40,7 @@ export async function exportWithOsr({
   const videoOnlyPath = `${out}.osr-video.mp4`;
   try {
     const launched = await launcherRunner(launcher, {
-      projectRoot, out: videoOnlyPath, fps, width, height, duration, frames, quality, encoder,
+      projectRoot, out: videoOnlyPath, fps, width, height, outputWidth, outputHeight, duration, frames, quality, encoder,
       soft: runtime.soft,
       verify: runtime.verify,
       queueDepth: runtime.queueDepth,
@@ -46,6 +48,7 @@ export async function exportWithOsr({
       gpuPreference,
       // OSR 出口: auto では Windows の GPU 設定を書かない（force のときだけ・契約 §11.7 裁定 1 改訂）
       exit: "osr",
+      extraArgs: ["--output-width", String(outputWidth), "--output-height", String(outputHeight)],
       onStdout: (text) => io.log?.(text.trimEnd()),
       onStderr: (text) => io.error?.(text.trimEnd()),
     });
@@ -69,8 +72,8 @@ export async function exportWithOsr({
       path: out,
       frames,
       fps,
-      width,
-      height,
+      width: outputWidth,
+      height: outputHeight,
       requireAudio: sourceHasAudio,
     });
     const runPath = join(dirname(videoOnlyPath), "run.json");
@@ -92,11 +95,22 @@ export async function exportWithOsr({
         warmUp: run?.warm_up ?? null,
         profile: runtime.soft ? "soft" : "gpu",
         gpuPreference: launched?.gpuPreference ?? null,
+        outputScale: outputScaleRecord(width, height, outputWidth, outputHeight),
       }),
     };
   } finally {
     await rm(videoOnlyPath, { force: true }).catch(() => {});
   }
+}
+
+function outputScaleRecord(width, height, outputWidth, outputHeight) {
+  const fromPixels = width * height;
+  const toPixels = outputWidth * outputHeight;
+  return {
+    from: [width, height],
+    to: [outputWidth, outputHeight],
+    mode: toPixels > fromPixels ? "up" : toPixels < fromPixels ? "down" : "none",
+  };
 }
 
 export async function captureFramesWithOsr({

@@ -158,6 +158,13 @@ test('buildRenderCutArgs: fps 指定時のみ --fps が付く', () => {
     );
 });
 
+test('buildRenderCutArgs: scaleTo 指定時だけ --scale-to WxH が付く', () => {
+    assert.deepEqual(
+        buildRenderCutArgs('/tmp/project', { outputName: 'x.mp4', scaleTo: { width: 1280, height: 720 } }),
+        ['/tmp/project', '--out', 'exports/x.mp4', '--engine', 'auto', '--encoder', 'auto', '--scale-to', '1280x720', '--progress']
+    );
+});
+
 test('buildRenderCutArgs: --progress は全オプションの末尾に付く', () => {
     const args = buildRenderCutArgs('/tmp/project', {
         outputName: 'x.mp4',

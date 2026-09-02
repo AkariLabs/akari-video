@@ -1,5 +1,6 @@
 import * as React from '@theia/core/shared/react';
 import { EXPORT_SHARE_TARGETS } from '../../common/export-share';
+import { resolveOutputResolution } from '../../common/export-settings';
 import { AkariExportSessionService, ExportSessionSnapshot } from '../akari-export-session-service';
 import { ExportFrame, formatBytes, formatClock, formatDuration, ratioLabel, VideoFacts } from './export-view-shared';
 
@@ -21,6 +22,7 @@ export function ExportDoneView(props: {
 }): React.ReactNode {
     const { session, snapshot } = props;
     const status = snapshot.status;
+    const outputResolution = resolveOutputResolution(snapshot.video, snapshot.settings);
     const [copied, setCopied] = React.useState(false);
     const copyResetTimer = React.useRef<number | undefined>(undefined);
     React.useEffect(() => () => {
@@ -58,7 +60,7 @@ export function ExportDoneView(props: {
                             <div className='facts'>
                                 <div><small>容量</small><b>{formatBytes(status.artifactSize)}</b></div>
                                 <div><small>長さ</small><b>{formatDuration(snapshot.video.durationSeconds, true)}</b></div>
-                                <div><small>画角</small><b>{ratioLabel(snapshot.video)} · {snapshot.video.width ?? '—'}×{snapshot.video.height ?? '—'}</b></div>
+                                <div><small>画角</small><b>{ratioLabel(snapshot.video)} · {outputResolution.width}×{outputResolution.height}</b></div>
                                 <div><small>fps</small><b>{snapshot.settings.fps ?? snapshot.video.fps ?? '—'}</b></div>
                                 <div><small>映像 / 音声</small><b>H.264 / AAC</b></div>
                                 <div><small>エンジン</small><b>{engineLabel(snapshot)}</b></div>

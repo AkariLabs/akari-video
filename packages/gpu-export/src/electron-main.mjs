@@ -34,6 +34,8 @@ export async function runGpuExport(options) {
     fps = 30,
     width = 1920,
     height = 1080,
+    outputWidth = width,
+    outputHeight = height,
     duration,
     frames = Math.round(duration * fps),
     queueDepth = 4,
@@ -60,7 +62,14 @@ export async function runGpuExport(options) {
   if (trapReadback && (verifyFrames || requestedDumpFrames.length > 0)) {
     throw new Error("--trap-readback cannot be combined with --verify-frames or --dump-frames");
   }
-  const encoding = resolveGpuEncoding({ quality, bitrate, width, height });
+  const encoding = resolveGpuEncoding({ quality, bitrate, width: outputWidth, height: outputHeight });
+  const outputScale = {
+    from: [width, height],
+    to: [outputWidth, outputHeight],
+    mode: outputWidth * outputHeight > width * height
+      ? "up"
+      : outputWidth * outputHeight < width * height ? "down" : "none",
+  };
   if (soft && !app.isReady()) app.disableHardwareAcceleration();
   app.commandLine.appendSwitch("force-color-profile", "srgb");
   app.commandLine.appendSwitch("force-device-scale-factor", "1");
@@ -112,6 +121,8 @@ export async function runGpuExport(options) {
     queueDepth,
     quality: encoding.quality,
     bitrate: encoding.bitrate,
+    outputWidth,
+    outputHeight,
     soft,
     trapReadback,
     verifyFrames,
@@ -151,6 +162,7 @@ export async function runGpuExport(options) {
       memory: memorySampler.snapshot(),
       eligibility: built.eligibility,
       viewport,
+      output_scale: outputScale,
     };
     await writeFile(runPath, `${JSON.stringify(running, null, 2)}\n`);
     if (Number.isInteger(value?.framesCompleted)) {
@@ -162,7 +174,9 @@ export async function runGpuExport(options) {
   register("gpu:chunks-start", async () => {
     if (chunkState) throw new Error("chunk sink is already running");
     await mkdir(dirname(out), { recursive: true });
-    const writer = await createIncrementalMp4Writer({ outputPath: out, width, height, fps, frames });
+    const writer = await createIncrementalMp4Writer({
+      outputPath: out, width: outputWidth, height: outputHeight, fps, frames,
+    });
     chunkState = { writer };
     return true;
   });
@@ -174,7 +188,9 @@ export async function runGpuExport(options) {
     if (!chunkState) throw new Error("chunk sink is not running");
     const state = chunkState;
     const mux = await state.writer.finish();
-    const ffprobe = await verifyEncodedVideo({ command: ffprobeCommand, path: out, frames, fps, width, height });
+    const ffprobe = await verifyEncodedVideo({
+      command: ffprobeCommand, path: out, frames, fps, width: outputWidth, height: outputHeight,
+    });
     if (!ffprobe.matched) throw new Error(`GPU ffprobe verification failed: ${JSON.stringify(ffprobe.checks)}`);
     chunkState = null;
     return { ...mux, ffprobe };
@@ -244,6 +260,7 @@ export async function runGpuExport(options) {
       mode: soft ? "soft" : "gpu",
       width,
       height,
+      output_scale: outputScale,
       fps,
       duration,
       gpu: {
@@ -286,6 +303,7 @@ export async function runGpuExport(options) {
       memory: memorySampler.stop("failed"),
       eligibility: built.eligibility,
       viewport: viewport ?? error?.viewport ?? null,
+      output_scale: outputScale,
     };
     await writeFile(runPath, `${JSON.stringify(failed, null, 2)}\n`).catch(() => {});
     throw error;
@@ -421,6 +439,8 @@ export function parseElectronArguments(argv) {
     fps: 30,
     width: 1920,
     height: 1080,
+    outputWidth: null,
+    outputHeight: null,
     duration: null,
     frames: null,
     queueDepth: 4,
@@ -441,6 +461,8 @@ export function parseElectronArguments(argv) {
     else if (argument === "--fps") options.fps = positiveNumber(required(argv, ++index, "--fps"), "--fps");
     else if (argument === "--width") options.width = positiveInteger(required(argv, ++index, "--width"), "--width");
     else if (argument === "--height") options.height = positiveInteger(required(argv, ++index, "--height"), "--height");
+    else if (argument === "--output-width") options.outputWidth = positiveInteger(required(argv, ++index, "--output-width"), "--output-width");
+    else if (argument === "--output-height") options.outputHeight = positiveInteger(required(argv, ++index, "--output-height"), "--output-height");
     else if (argument === "--duration") options.duration = positiveNumber(required(argv, ++index, "--duration"), "--duration");
     else if (argument === "--frames") options.frames = positiveInteger(required(argv, ++index, "--frames"), "--frames");
     else if (argument === "--queue-depth") options.queueDepth = positiveInteger(required(argv, ++index, "--queue-depth"), "--queue-depth");
@@ -454,6 +476,8 @@ export function parseElectronArguments(argv) {
     else if (argument === "--capture-output-dir") options.captureOutputDirectory = required(argv, ++index, "--capture-output-dir");
   }
   if (!options.projectRoot || !options.out) throw new Error("--render and --out are required");
+  options.outputWidth ??= options.width;
+  options.outputHeight ??= options.height;
   if (options.duration === null && options.frames !== null) options.duration = options.frames / options.fps;
   if (options.frames === null && options.duration !== null) options.frames = Math.round(options.duration * options.fps);
   if (options.trapReadback && (options.verifyFrames || options.dumpFrames.length > 0)) {
