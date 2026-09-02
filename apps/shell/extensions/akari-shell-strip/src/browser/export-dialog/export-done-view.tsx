@@ -1,4 +1,5 @@
 import * as React from '@theia/core/shared/react';
+import { EXPORT_SHARE_TARGETS } from '../../common/export-share';
 import { AkariExportSessionService, ExportSessionSnapshot } from '../akari-export-session-service';
 import { ExportFrame, formatBytes, formatClock, formatDuration, ratioLabel, VideoFacts } from './export-view-shared';
 
@@ -20,6 +21,26 @@ export function ExportDoneView(props: {
 }): React.ReactNode {
     const { session, snapshot } = props;
     const status = snapshot.status;
+    const [copied, setCopied] = React.useState(false);
+    const copyResetTimer = React.useRef<number | undefined>(undefined);
+    React.useEffect(() => () => {
+        if (copyResetTimer.current !== undefined) {
+            window.clearTimeout(copyResetTimer.current);
+        }
+    }, []);
+    const copyArtifact = async (): Promise<void> => {
+        if (!await session.copyArtifact()) {
+            return;
+        }
+        setCopied(true);
+        if (copyResetTimer.current !== undefined) {
+            window.clearTimeout(copyResetTimer.current);
+        }
+        copyResetTimer.current = window.setTimeout(() => {
+            setCopied(false);
+            copyResetTimer.current = undefined;
+        }, 2000);
+    };
     return (
         <>
             <div className='pb'>
@@ -48,6 +69,24 @@ export function ExportDoneView(props: {
                             <button type='button' className='btn primary' disabled={!status.artifactPath} onClick={() => void session.openArtifact(status.artifactPath)}>動画を開く</button>
                             <button type='button' className='btn' disabled={!status.artifactPath} onClick={() => void session.revealArtifact()}>Finder で表示</button>
                             {status.reportPath && <button type='button' className='btn ghost' onClick={() => void session.openArtifact(status.reportPath)}>レポートを開く</button>}
+                        </div>
+                        <div className='acts' style={{ alignItems: 'center' }}>
+                            <button type='button' className='btn' disabled={!status.artifactPath} onClick={() => void copyArtifact()}>{copied ? 'コピーしました' : 'コピー'}</button>
+                            <span style={{ fontSize: '11px', fontWeight: 600 }}>SNS に投稿</span>
+                            {EXPORT_SHARE_TARGETS.map(target => (
+                                <button
+                                    key={target.id}
+                                    type='button'
+                                    className='btn'
+                                    title={`${target.label} の投稿 / アップロード画面を外部ブラウザで開く`}
+                                    onClick={() => session.openShareTarget(target.id)}
+                                >{target.label}</button>
+                            ))}
+                            <span className='fine' style={{ margin: 0 }}>先にコピーしてから貼り付けできます</span>
+                        </div>
+                        <div className='acts' style={{ alignItems: 'center', marginTop: '12px' }}>
+                            <button type='button' className='btn ghost' disabled={!status.artifactPath} onClick={() => void session.handOffFinished()}>パートナーに渡す</button>
+                            <span className='fine' style={{ margin: 0 }}>AI チャットに入ります</span>
                         </div>
                     </div>
                 </div>

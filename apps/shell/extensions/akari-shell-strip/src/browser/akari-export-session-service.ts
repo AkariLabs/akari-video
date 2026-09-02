@@ -1,4 +1,5 @@
 import { open, OpenerService, StorageService } from '@theia/core/lib/browser';
+import { WindowService } from '@theia/core/lib/browser/window/window-service';
 import { FileUri } from '@theia/core/lib/common/file-uri';
 import { PreferenceScope, PreferenceService } from '@theia/core/lib/common/preferences';
 import URI from '@theia/core/lib/common/uri';
@@ -12,6 +13,11 @@ import {
     DEFAULT_EXPORT_OUTPUT_NAME,
     composeExportRequestPacket
 } from '../common/export-request-packet';
+import {
+    composeExportHandOffPacket,
+    EXPORT_SHARE_TARGETS,
+    ExportShareTargetId
+} from '../common/export-share';
 import { estimateExport, ExportLastRun, formatEstimate, FormattedExportEstimate } from '../common/export-estimate';
 import { ExportSettings, isMasterSelectable } from '../common/export-settings';
 import { describeThisVideo, ThisVideoDescription } from '../common/export-this-video';
@@ -98,6 +104,8 @@ export class AkariExportSessionService implements Disposable {
     protected readonly openers!: OpenerService;
     @inject(MessageService)
     protected readonly messages!: MessageService;
+    @inject(WindowService)
+    protected readonly windows!: WindowService;
 
     protected readonly changeEmitter = new Emitter<void>();
     readonly onDidChange: Event<void> = this.changeEmitter.event;
@@ -277,6 +285,21 @@ export class AkariExportSessionService implements Disposable {
         }
     }
 
+    async copyArtifact(): Promise<boolean> {
+        const result = await this.quickExportService.copyArtifact();
+        if (!result.copied) {
+            void this.messages.error(result.reason ?? 'コピーできませんでした');
+        }
+        return result.copied;
+    }
+
+    openShareTarget(id: ExportShareTargetId): void {
+        const target = EXPORT_SHARE_TARGETS.find(candidate => candidate.id === id);
+        if (target) {
+            this.windows.openNewWindow(target.url, { external: true });
+        }
+    }
+
     async openArtifact(path: string | undefined): Promise<void> {
         if (!path || !this.projectRoot) {
             return;
@@ -297,6 +320,30 @@ export class AkariExportSessionService implements Disposable {
             resolutionLabel: 'edit.json のまま',
             outputName,
             rerunLint: this.settings.rerunLint
+        });
+        await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
+    }
+
+    async handOffFinished(): Promise<void> {
+        const artifactPath = this.status.artifactPath;
+        if (!artifactPath) {
+            return;
+        }
+        let absoluteArtifactPath = artifactPath;
+        if (!/^(?:\/|[A-Za-z]:[\\/])/u.test(artifactPath)) {
+            if (!this.projectRoot) {
+                return;
+            }
+            absoluteArtifactPath = this.projectRoot.resolve(artifactPath).path.fsPath();
+        }
+        const packet = composeExportHandOffPacket({
+            artifactPath: absoluteArtifactPath,
+            durationSeconds: this.video.durationSeconds,
+            width: this.video.width,
+            height: this.video.height,
+            fps: this.settings.fps ?? this.video.fps,
+            bytes: this.status.artifactSize,
+            engine: this.status.progressEngine
         });
         await this.commands.executeCommand(PARTNER_INJECT_PROMPT_COMMAND_ID, packet);
     }
