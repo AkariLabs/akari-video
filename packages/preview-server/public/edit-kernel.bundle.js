@@ -90,6 +90,40 @@ function isStillImageSourcePath(path) {
 }
 
 // ../edit-store/src/timeline-map.ts
+function projectSpeechKeyIntervals(cuts, transcript, options = {}) {
+  const normalizedCuts = cuts.map((cut) => ({
+    ...cut,
+    transitionOut: cut.transitionOut ?? cut.transition_out
+  }));
+  const hasExplicitSources = normalizedCuts.some((cut) => typeof cut.src === "string" && cut.src.length > 0);
+  if (hasExplicitSources && !options.sourceId) return { intervals: [], droppedShortIntervals: 0 };
+  const map = buildTimelineMap(normalizedCuts, { fps: options.fps });
+  const projected = [];
+  for (const segment of map.segments) {
+    if (segment.kind !== "src" || typeof segment.in !== "number" || typeof segment.out !== "number") continue;
+    if (hasExplicitSources && segment.src !== options.sourceId) continue;
+    const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+    for (const entry of transcript) {
+      if (!entry || !Number.isFinite(entry.start) || !Number.isFinite(entry.end) || entry.end <= entry.start) continue;
+      const sourceStart = Math.max(segment.in, entry.start);
+      const sourceEnd = Math.min(segment.out, entry.end);
+      if (!(sourceEnd > sourceStart)) continue;
+      projected.push({
+        startSec: segment.outStart + (sourceStart - segment.in) / speed,
+        endSec: segment.outStart + (sourceEnd - segment.in) / speed
+      });
+    }
+  }
+  projected.sort((left, right) => left.startSec - right.startSec || left.endSec - right.endSec);
+  const merged = [];
+  for (const interval of projected) {
+    const last = merged[merged.length - 1];
+    if (last && interval.startSec - last.endSec < 0.35) last.endSec = Math.max(last.endSec, interval.endSec);
+    else merged.push({ ...interval });
+  }
+  const intervals = merged.filter((interval) => interval.endSec - interval.startSec >= 0.15);
+  return { intervals, droppedShortIntervals: merged.length - intervals.length };
+}
 function transitionProgressAt(window, outputT) {
   if (!(window.duration > 0)) return 0;
   return Math.max(0, Math.min(1, (outputT - window.start) / window.duration));
@@ -784,8 +818,258 @@ function computeTransitionVisual(previewKind, rawProgress, fallbackName = "") {
   };
 }
 
+// ../edit-store/src/envelope.ts
+var DEFAULT_DUCK_DB = -12;
+var DEFAULT_DUCK_ATTACK_SEC = 0.3;
+var DEFAULT_DUCK_RELEASE_SEC = 0.8;
+var DEFAULT_DUCK_KEYS = ["narration", "speech"];
+var SAMPLE_STEP_SEC = 0.02;
+var MIN_LINEAR_GAIN = 1e-4;
+var CUBIC_BEZIER_PATTERN = /^cubic-bezier\(\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*,\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?)\s*\)$/iu;
+function easingProgress(easing, progress) {
+  const value = clamp(progress);
+  switch (easing ?? "linear") {
+    case "hold":
+      return 0;
+    case "ease-in-out":
+    case "in-out-cubic":
+      return value < 0.5 ? 4 * value * value * value : 1 - (-2 * value + 2) ** 3 / 2;
+    case "in-quad":
+      return value * value;
+    case "out-quad":
+      return 1 - (1 - value) ** 2;
+    case "in-out-quad":
+      return value < 0.5 ? 2 * value * value : 1 - (-2 * value + 2) ** 2 / 2;
+    case "in-cubic":
+      return value ** 3;
+    case "out-cubic":
+      return 1 - (1 - value) ** 3;
+    case "in-quart":
+      return value ** 4;
+    case "out-quart":
+      return 1 - (1 - value) ** 4;
+    case "in-out-quart":
+      return value < 0.5 ? 8 * value ** 4 : 1 - (-2 * value + 2) ** 4 / 2;
+    case "in-expo":
+      return value === 0 ? 0 : 2 ** (10 * value - 10);
+    case "out-expo":
+      return value === 1 ? 1 : 1 - 2 ** (-10 * value);
+    case "in-out-expo":
+      if (value === 0 || value === 1) return value;
+      return value < 0.5 ? 2 ** (20 * value - 10) / 2 : (2 - 2 ** (-20 * value + 10)) / 2;
+    case "in-back": {
+      const c1 = 1.70158;
+      return (c1 + 1) * value ** 3 - c1 * value ** 2;
+    }
+    case "out-back": {
+      const c1 = 1.70158;
+      return 1 + (c1 + 1) * (value - 1) ** 3 + c1 * (value - 1) ** 2;
+    }
+    case "in-out-back": {
+      const c2 = 1.70158 * 1.525;
+      return value < 0.5 ? (2 * value) ** 2 * ((c2 + 1) * 2 * value - c2) / 2 : ((2 * value - 2) ** 2 * ((c2 + 1) * (value * 2 - 2) + c2) + 2) / 2;
+    }
+    case "out-bounce": {
+      const n1 = 7.5625;
+      const d1 = 2.75;
+      if (value < 1 / d1) return n1 * value * value;
+      if (value < 2 / d1) {
+        const shifted2 = value - 1.5 / d1;
+        return n1 * shifted2 * shifted2 + 0.75;
+      }
+      if (value < 2.5 / d1) {
+        const shifted2 = value - 2.25 / d1;
+        return n1 * shifted2 * shifted2 + 0.9375;
+      }
+      const shifted = value - 2.625 / d1;
+      return n1 * shifted * shifted + 0.984375;
+    }
+    case "out-elastic":
+      if (value === 0 || value === 1) return value;
+      return 2 ** (-10 * value) * Math.sin((value * 10 - 0.75) * (2 * Math.PI / 3)) + 1;
+    case "linear":
+      return value;
+    default: {
+      const match = typeof easing === "string" ? easing.match(CUBIC_BEZIER_PATTERN) : null;
+      if (!match) return value;
+      return cubicBezierAt(value, ...match.slice(1).map(Number));
+    }
+  }
+}
+function evaluateEnvelopeDb(points, t) {
+  const usable = normalizedPoints(points);
+  if (usable.length === 0) return 0;
+  if (t <= usable[0].t) return usable[0].gainDb;
+  const last = usable[usable.length - 1];
+  if (t >= last.t) return last.gainDb;
+  for (let index = 1; index < usable.length; index += 1) {
+    const end = usable[index];
+    if (t >= end.t) continue;
+    const start = usable[index - 1];
+    const span = end.t - start.t;
+    if (!(span > 0)) return end.gainDb;
+    const coefficient = easingProgress(end.easing, (t - start.t) / span);
+    return start.gainDb + (end.gainDb - start.gainDb) * coefficient;
+  }
+  return last.gainDb;
+}
+function composeEnvelopesDb(a, b) {
+  const left = normalizedPoints(a);
+  const right = normalizedPoints(b);
+  if (left.length === 0) return right;
+  if (right.length === 0) return left;
+  const boundaries = [...new Set([...left, ...right].map((point) => point.t))].sort((x, y) => x - y);
+  const times = new Set(boundaries);
+  for (let index = 1; index < boundaries.length; index += 1) {
+    const start = boundaries[index - 1];
+    const end = boundaries[index];
+    if (!isNonLinearAt(left, (start + end) / 2) && !isNonLinearAt(right, (start + end) / 2)) continue;
+    for (let at = start + SAMPLE_STEP_SEC; at < end - 1e-9; at += SAMPLE_STEP_SEC) {
+      times.add(Number(at.toFixed(9)));
+    }
+  }
+  return [...times].sort((x, y) => x - y).map((t) => ({
+    t,
+    gainDb: evaluateEnvelopeDb(left, t) + evaluateEnvelopeDb(right, t)
+  }));
+}
+function envelopeToGainEvents(points) {
+  const usable = normalizedPoints(points);
+  if (usable.length === 0) return [];
+  const events = [{
+    offsetSec: usable[0].t,
+    value: dbToLinear(usable[0].gainDb),
+    method: "set"
+  }];
+  for (let index = 1; index < usable.length; index += 1) {
+    const start = usable[index - 1];
+    const end = usable[index];
+    const easing = end.easing ?? "linear";
+    if (easing === "hold") {
+      events.push({ offsetSec: end.t, value: dbToLinear(end.gainDb), method: "set" });
+      continue;
+    }
+    if (easing === "linear") {
+      events.push({ offsetSec: end.t, value: dbToLinear(end.gainDb), method: "exponential" });
+      continue;
+    }
+    for (let at = start.t + SAMPLE_STEP_SEC; at < end.t - 1e-9; at += SAMPLE_STEP_SEC) {
+      events.push({
+        offsetSec: Number(at.toFixed(9)),
+        value: dbToLinear(evaluateEnvelopeDb(usable, at)),
+        method: "exponential"
+      });
+    }
+    events.push({ offsetSec: end.t, value: dbToLinear(end.gainDb), method: "exponential" });
+  }
+  return events;
+}
+function sampleEnvelopeLinear(points, options) {
+  const sampleRate = Number.isFinite(options.sampleRate) && options.sampleRate > 0 ? options.sampleRate : 48e3;
+  const durationSec = Number.isFinite(options.durationSec) && options.durationSec > 0 ? options.durationSec : 0;
+  const samples = new Float32Array(Math.ceil(sampleRate * durationSec));
+  for (let index = 0; index < samples.length; index += 1) {
+    samples[index] = dbToLinear(evaluateEnvelopeDb(points, index / sampleRate));
+  }
+  return samples;
+}
+function computeDuckEnvelope(intervals, options) {
+  const duckDb = finiteInRange(options.duckDb, -40, 0, DEFAULT_DUCK_DB);
+  const attackSec = finiteInRange(options.attackSec, 0, 2, DEFAULT_DUCK_ATTACK_SEC);
+  const releaseSec = finiteInRange(options.releaseSec, 0, 5, DEFAULT_DUCK_RELEASE_SEC);
+  const clipStartSec = Number.isFinite(options.clipStartSec) ? Math.max(0, options.clipStartSec) : 0;
+  const clipDurationSec = Number.isFinite(options.clipDurationSec) ? Math.max(0, options.clipDurationSec) : 0;
+  if (!(clipDurationSec > 0)) return [];
+  const merged = mergeIntervals(intervals, attackSec + releaseSec);
+  if (merged.length === 0) return [];
+  const absolute = [];
+  for (const interval of merged) {
+    const rampStart = Math.max(0, interval.startSec - attackSec);
+    if (rampStart < interval.startSec) absolute.push({ t: rampStart, gainDb: 0 });
+    absolute.push({ t: interval.startSec, gainDb: duckDb, easing: rampStart < interval.startSec ? "linear" : "hold" });
+    if (releaseSec > 0) {
+      absolute.push({ t: interval.endSec, gainDb: duckDb, easing: "hold" });
+      absolute.push({ t: interval.endSec + releaseSec, gainDb: 0, easing: "linear" });
+    } else {
+      absolute.push({ t: interval.endSec, gainDb: 0, easing: "hold" });
+    }
+  }
+  const normalized = normalizedPoints(absolute);
+  const clipEndSec = clipStartSec + clipDurationSec;
+  const active = merged.some((interval) => interval.startSec < clipEndSec + releaseSec && interval.endSec > Math.max(0, clipStartSec - attackSec));
+  if (!active) return [];
+  const clippedTimes = [
+    clipStartSec,
+    ...normalized.filter((point) => point.t > clipStartSec && point.t < clipEndSec).map((point) => point.t),
+    clipEndSec
+  ];
+  return [...new Set(clippedTimes)].sort((a, b) => a - b).map((t) => ({
+    t: t - clipStartSec,
+    gainDb: evaluateEnvelopeDb(normalized, t),
+    ...easingAtExactPoint(normalized, t)
+  }));
+}
+function normalizedPoints(points) {
+  const sorted = points.filter((point) => point && Number.isFinite(point.t) && point.t >= 0 && Number.isFinite(point.gainDb)).map((point) => ({ ...point })).sort((a, b) => a.t - b.t);
+  const result = [];
+  for (const point of sorted) {
+    if (result.length > 0 && Math.abs(result[result.length - 1].t - point.t) <= 1e-9) result[result.length - 1] = point;
+    else result.push(point);
+  }
+  return result;
+}
+function isNonLinearAt(points, t) {
+  for (let index = 1; index < points.length; index += 1) {
+    if (t < points[index].t) {
+      const easing = points[index].easing ?? "linear";
+      return easing !== "linear" && easing !== "hold";
+    }
+  }
+  return false;
+}
+function mergeIntervals(intervals, maximumGapSec) {
+  const sorted = intervals.filter((interval) => interval && Number.isFinite(interval.startSec) && Number.isFinite(interval.endSec) && interval.startSec >= 0 && interval.endSec > interval.startSec).map((interval) => ({ ...interval })).sort((a, b) => a.startSec - b.startSec || a.endSec - b.endSec);
+  const merged = [];
+  for (const interval of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && interval.startSec - last.endSec < maximumGapSec) last.endSec = Math.max(last.endSec, interval.endSec);
+    else if (last && interval.startSec <= last.endSec) last.endSec = Math.max(last.endSec, interval.endSec);
+    else merged.push(interval);
+  }
+  return merged;
+}
+function easingAtExactPoint(points, t) {
+  const point = points.find((candidate) => Math.abs(candidate.t - t) <= 1e-9);
+  return point?.easing ? { easing: point.easing } : {};
+}
+function dbToLinear(db) {
+  return Math.max(MIN_LINEAR_GAIN, 10 ** (db / 20));
+}
+function finiteInRange(value, minimum, maximum, fallback) {
+  return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum ? value : fallback;
+}
+function clamp(value, minimum = 0, maximum = 1) {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+function cubicCoordinateAt(parameter, first, second) {
+  const inverse = 1 - parameter;
+  return 3 * inverse * inverse * parameter * first + 3 * inverse * parameter * parameter * second + parameter * parameter * parameter;
+}
+function cubicBezierAt(progress, x1, y1, x2, y2) {
+  if (![x1, y1, x2, y2].every(Number.isFinite) || x1 < 0 || x1 > 1 || x2 < 0 || x2 > 1) return progress;
+  if (x1 === y1 && x2 === y2) return progress;
+  let lower = 0;
+  let upper = 1;
+  for (let index = 0; index < 32; index += 1) {
+    const parameter = (lower + upper) / 2;
+    if (cubicCoordinateAt(parameter, x1, x2) < progress) lower = parameter;
+    else upper = parameter;
+  }
+  return cubicCoordinateAt((lower + upper) / 2, y1, y2);
+}
+
 // ../edit-store/src/ducking.ts
-var STATIC_DUCK_GAIN_DB = -12;
+var STATIC_DUCK_GAIN_DB = DEFAULT_DUCK_DB;
 function computeDuckIntervals(sources) {
   return sources.filter(
     (s) => Number.isFinite(s.t) && s.t >= 0 && Number.isFinite(s.durationSec) && s.durationSec > 0
@@ -793,10 +1077,6 @@ function computeDuckIntervals(sources) {
 }
 function isWithinDuckInterval(intervals, atSec) {
   return intervals.some((iv) => atSec >= iv.startSec && atSec < iv.endSec);
-}
-function computeBgmDuckGainDb(intervals, duckingEnabled, atSec) {
-  if (!duckingEnabled) return 0;
-  return isWithinDuckInterval(intervals, atSec) ? STATIC_DUCK_GAIN_DB : 0;
 }
 
 // ../edit-store/src/audio-schedule.ts
@@ -813,10 +1093,16 @@ function buildWebAudioSchedule(input) {
   }
   const narration = resolveTimedItems("narration", audio.narration, timelineDurationSec, warnings);
   const sfx = resolveTimedItems("sfx", audio.sfx, timelineDurationSec, warnings);
-  const duckIntervals = computeDuckIntervals(narration.map((item) => ({
+  const narrationIntervals = computeDuckIntervals(narration.map((item) => ({
     t: item.t,
     durationSec: item.itemDurationSec
   })));
+  const duckKeys = normalizedDuckKeys(audio.duck_keys);
+  const speechIntervals = input.duckKeyIntervals ?? input.speechKeyIntervals ?? [];
+  const duckIntervals = mergeDuckIntervals([
+    ...duckKeys.includes("narration") ? narrationIntervals : [],
+    ...duckKeys.includes("speech") ? speechIntervals : []
+  ]);
   const items = [];
   const bgm = audio.bgm;
   if (bgm) {
@@ -824,11 +1110,11 @@ function buildWebAudioSchedule(input) {
     if (scheduled) items.push(scheduled);
   }
   for (const item of sfx) {
-    const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec);
+    const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);
     if (scheduled) items.push(scheduled);
   }
   for (const item of narration) {
-    const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec);
+    const scheduled = scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals);
     if (scheduled) items.push(scheduled);
   }
   for (const speech of audio.speech ?? []) {
@@ -856,7 +1142,8 @@ function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
     if (gainDb === null) continue;
     const sidecar = validSidecar(spec.sidecar);
     if (spec.sidecar && !sidecar) warnings.push(`${label}: sidecar declaration is invalid; using source`);
-    const trim = sidecar ? { sourceOffsetSec: 0, durationSec: Math.min(spec.durationSec, sidecar.durationSec) } : resolveTrim(kind, spec, label, warnings);
+    const playbackRate = kind === "sfx" && !sidecar && finiteClipSpeed(spec.speed) ? spec.speed : 1;
+    const trim = sidecar ? { sourceOffsetSec: 0, durationSec: sidecar.durationSec } : resolveTrim(kind, spec, label, warnings);
     if (!trim) continue;
     resolved.push({
       spec,
@@ -866,7 +1153,8 @@ function resolveTimedItems(kind, specs, timelineDurationSec, warnings) {
       track: normalizedTrack(spec.track),
       materialDurationSec: spec.durationSec,
       sourceOffsetSec: trim.sourceOffsetSec,
-      itemDurationSec: trim.durationSec,
+      itemDurationSec: sidecar ? trim.durationSec : trim.durationSec / playbackRate,
+      playbackRate,
       gainDb
     });
   }
@@ -894,7 +1182,7 @@ function resolveTrim(kind, spec, label, warnings) {
   }
   return { sourceOffsetSec, durationSec: outSec - sourceOffsetSec };
 }
-function scheduleTimed(item, timelineDurationSec, startAtSec) {
+function scheduleTimed(item, timelineDurationSec, startAtSec, duckIntervals) {
   const itemEndSec = item.t + item.itemDurationSec;
   if (itemEndSec <= startAtSec) return null;
   const delaySec = Math.max(0, item.t - startAtSec);
@@ -905,7 +1193,7 @@ function scheduleTimed(item, timelineDurationSec, startAtSec) {
   );
   if (!(durationSec > 0)) return null;
   const timelineStartSec = startAtSec + delaySec;
-  const baseGain = dbToLinear(item.gainDb);
+  const baseGain = dbToLinear2(item.gainDb);
   const gainEvents = item.kind === "sfx" ? fadeGainEvents(
     item.spec.fade_in ?? item.spec.fadeIn,
     item.spec.fade_out ?? item.spec.fadeOut,
@@ -921,14 +1209,21 @@ function scheduleTimed(item, timelineDurationSec, startAtSec) {
     timelineStartSec,
     timelineEndSec: timelineStartSec + durationSec,
     delaySec,
-    sourceOffsetSec: item.sourceOffsetSec + elapsedIntoItemSec,
+    sourceOffsetSec: item.sourceOffsetSec + elapsedIntoItemSec * item.playbackRate,
     durationSec,
-    playbackRate: 1,
-    sourceDurationSec: durationSec,
+    playbackRate: item.playbackRate,
+    sourceDurationSec: durationSec * item.playbackRate,
     loop: false,
     gainDb: item.gainDb,
     gainEvents,
-    duckingEvents: []
+    envelopeEvents: scheduledEnvelopeEvents(
+      item.spec,
+      item.t,
+      item.itemDurationSec,
+      elapsedIntoItemSec,
+      durationSec,
+      item.kind === "sfx" ? duckIntervals : []
+    )
   };
 }
 function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warnings) {
@@ -943,28 +1238,30 @@ function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warni
   if (timelineT >= timelineDurationSec) return null;
   const sidecar = validSidecar(spec.sidecar);
   if (spec.sidecar && !sidecar) warnings.push(`${label}: sidecar declaration is invalid; using source`);
+  const materialDurationSec = sidecar ? sidecar.durationSec : spec.durationSec;
+  const playbackRate = sidecar ? 1 : finiteClipSpeed(spec.speed) ? spec.speed : 1;
   let materialInSec = sidecar ? 0 : finiteNonNegative(spec.in) ? spec.in : 0;
-  if (materialInSec >= spec.durationSec) {
+  if (materialInSec >= materialDurationSec) {
     warnings.push(`${label}: in is at or beyond decoded duration; clamped to 0s`);
     materialInSec = 0;
   }
   const loop = spec.loop !== false;
   const delaySec = Math.max(0, timelineT - startAtSec);
   const elapsedSec = Math.max(0, startAtSec - timelineT);
-  let sourceOffsetSec = materialInSec + elapsedSec;
+  let sourceOffsetSec = materialInSec + elapsedSec * playbackRate;
   if (loop) {
-    sourceOffsetSec = positiveModulo(sourceOffsetSec, spec.durationSec);
-  } else if (sourceOffsetSec >= spec.durationSec) {
+    sourceOffsetSec = positiveModulo(sourceOffsetSec, materialDurationSec);
+  } else if (sourceOffsetSec >= materialDurationSec) {
     return null;
   }
   const timelineStartSec = startAtSec + delaySec;
   const timelineAvailableSec = timelineDurationSec - timelineStartSec;
   const durationSec = Math.min(
     timelineAvailableSec,
-    loop ? timelineAvailableSec : spec.durationSec - sourceOffsetSec
+    loop ? timelineAvailableSec : (materialDurationSec - sourceOffsetSec) / playbackRate
   );
   if (!(durationSec > 0)) return null;
-  const baseGain = dbToLinear(gainDb);
+  const baseGain = dbToLinear2(gainDb);
   return {
     kind: "bgm",
     id: typeof spec.id === "string" && spec.id ? spec.id : "bgm",
@@ -974,8 +1271,8 @@ function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warni
     delaySec,
     sourceOffsetSec,
     durationSec,
-    playbackRate: 1,
-    sourceDurationSec: durationSec,
+    playbackRate,
+    sourceDurationSec: durationSec * playbackRate,
     loop,
     gainDb,
     gainEvents: bgmFadeGainEvents(
@@ -986,11 +1283,13 @@ function scheduleBgm(spec, timelineDurationSec, startAtSec, duckIntervals, warni
       durationSec,
       baseGain
     ),
-    duckingEvents: rectangularDuckEvents(
-      duckIntervals,
-      spec.ducking === true,
-      timelineStartSec,
-      durationSec
+    envelopeEvents: scheduledEnvelopeEvents(
+      spec,
+      timelineT,
+      timelineDurationSec - timelineT,
+      elapsedSec,
+      durationSec,
+      duckIntervals
     )
   };
 }
@@ -1030,7 +1329,7 @@ function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
     sourceAvailableSec / playbackRate
   );
   if (!(durationSec > 0)) return null;
-  const baseGain = dbToLinear(gainDb);
+  const baseGain = dbToLinear2(gainDb);
   const gainEvents = speechCrossfadeGainEvents(
     effectiveDurationSec,
     elapsedIntoItemSec,
@@ -1053,7 +1352,7 @@ function scheduleSpeech(spec, timelineDurationSec, startAtSec, warnings) {
     loop: false,
     gainDb,
     gainEvents,
-    duckingEvents: []
+    envelopeEvents: []
   };
 }
 function projectSpeechDeclarations(cuts, options) {
@@ -1267,20 +1566,60 @@ function bgmFadeGainEvents(rawFadeIn, rawFadeOut, timelineDurationSec, timelineS
     method: index === 0 ? "set" : "linear"
   }));
 }
-function rectangularDuckEvents(intervals, enabled, timelineStartSec, availableSec) {
-  const timelineEndSec = timelineStartSec + availableSec;
-  const points = uniqueSorted([
-    timelineStartSec,
-    ...intervals.flatMap((interval) => [interval.startSec, interval.endSec]).filter((point) => point > timelineStartSec && point < timelineEndSec)
-  ]);
-  const events = [];
-  for (const point of points) {
-    const value = dbToLinear(computeBgmDuckGainDb(intervals, enabled, point));
-    if (events.length === 0 || events[events.length - 1].value !== value) {
-      events.push({ offsetSec: point - timelineStartSec, value, method: "set" });
-    }
+function scheduledEnvelopeEvents(spec, clipStartSec, clipDurationSec, elapsedIntoClipSec, availableSec, intervals) {
+  const keyframes = audioKeyframeEnvelope(spec.keyframes);
+  const duck = spec.ducking === true ? computeDuckEnvelope(intervals, {
+    duckDb: finiteRange(spec.duck_db, -40, 0),
+    attackSec: finiteRange(spec.duck_attack, 0, 2),
+    releaseSec: finiteRange(spec.duck_release, 0, 5),
+    clipStartSec,
+    clipDurationSec
+  }) : [];
+  const composed = composeEnvelopesDb(keyframes, duck);
+  if (composed.length === 0 || composed.every((point) => Math.abs(point.gainDb) <= 1e-12)) return [];
+  return envelopeToGainEvents(sliceEnvelope(composed, elapsedIntoClipSec, availableSec));
+}
+function audioKeyframeEnvelope(value) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const point = entry;
+    if (!finiteNonNegative(point.t) || typeof point.gain_db !== "number" || !Number.isFinite(point.gain_db)) return [];
+    return [{
+      t: point.t,
+      gainDb: point.gain_db,
+      ...typeof point.easing === "string" ? { easing: point.easing } : {}
+    }];
+  }).sort((left, right) => left.t - right.t);
+}
+function sliceEnvelope(points, startSec, durationSec) {
+  if (points.length === 0 || !(durationSec > 0)) return [];
+  const endSec = startSec + durationSec;
+  return [
+    { t: 0, gainDb: evaluateEnvelopeDb(points, startSec) },
+    ...points.filter((point) => point.t > startSec && point.t < endSec).map((point) => ({
+      ...point,
+      t: point.t - startSec
+    })),
+    { t: durationSec, gainDb: evaluateEnvelopeDb(points, endSec) }
+  ];
+}
+function normalizedDuckKeys(value) {
+  if (!Array.isArray(value)) return [...DEFAULT_DUCK_KEYS];
+  return [...new Set(value.filter((entry) => entry === "narration" || entry === "speech"))];
+}
+function mergeDuckIntervals(intervals) {
+  const sorted = intervals.filter((interval) => interval && finiteNonNegative(interval.startSec) && finitePositive(interval.endSec) && interval.endSec > interval.startSec).map((interval) => ({ ...interval })).sort((a, b) => a.startSec - b.startSec || a.endSec - b.endSec);
+  const result = [];
+  for (const interval of sorted) {
+    const last = result[result.length - 1];
+    if (last && interval.startSec <= last.endSec) last.endSec = Math.max(last.endSec, interval.endSec);
+    else result.push(interval);
   }
-  return events;
+  return result;
+}
+function finiteRange(value, minimum, maximum) {
+  return typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum ? value : void 0;
 }
 function normalizedTrack(value) {
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
@@ -1288,13 +1627,16 @@ function normalizedTrack(value) {
 function finitePositive(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
+function finiteClipSpeed(value) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0.25 && value <= 4;
+}
 function finiteNonNegative(value) {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 function positiveModulo(value, modulus) {
   return (value % modulus + modulus) % modulus;
 }
-function dbToLinear(value) {
+function dbToLinear2(value) {
   return Math.pow(10, value / 20);
 }
 function uniqueSorted(values) {
@@ -1343,9 +1685,15 @@ var AUDIO_ITEM_KEYS = /* @__PURE__ */ new Set([
   "role",
   "source",
   "gain_db",
+  "keyframes",
   "fade_in",
   "fade_out",
   "ducking",
+  "duck_db",
+  "duck_attack",
+  "duck_release",
+  "denoise",
+  "lowcut_hz",
   "script",
   "reading",
   "provenance"
@@ -1364,7 +1712,17 @@ function readEditV2(json) {
   if (!Array.isArray(parsed.tracks)) {
     throw invalid("edit.json.tracks", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
-  if (hasOwn(parsed, "audio")) requireRecord(parsed.audio, "edit.json.audio");
+  if (hasOwn(parsed, "audio")) {
+    requireRecord(parsed.audio, "edit.json.audio");
+    if (hasOwn(parsed.audio, "duck_keys")) {
+      if (!Array.isArray(parsed.audio.duck_keys)) throw invalid("edit.json.audio.duck_keys", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+      const keys = parsed.audio.duck_keys;
+      if (keys.some((key) => key !== "narration" && key !== "speech")) {
+        throw invalid("edit.json.audio.duck_keys", "narration/speech \u306E\u307F\u6307\u5B9A\u3067\u304D\u307E\u3059");
+      }
+      if (new Set(keys).size !== keys.length) throw invalid("edit.json.audio.duck_keys", "\u91CD\u8907\u3067\u304D\u307E\u305B\u3093");
+    }
+  }
   if (hasOwn(parsed, "captions") && !Array.isArray(parsed.captions)) {
     throw invalid("edit.json.captions", "\u914D\u5217\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
@@ -1474,11 +1832,17 @@ function validateAudioItem(value, path, ids, sourceIds) {
     throw invalid(`${path}.role`, "sfx/narration/bgm \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
   if (hasOwn(value, "gain_db")) requireRange(value.gain_db, -60, 12, `${path}.gain_db`);
+  if (hasOwn(value, "denoise")) validateAudioClipDenoise(value.denoise, `${path}.denoise`);
+  if (hasOwn(value, "lowcut_hz")) requireRange(value.lowcut_hz, 0, 400, `${path}.lowcut_hz`);
+  if (hasOwn(value, "keyframes")) validateKeyframes(value.keyframes, `${path}.keyframes`, true);
   if (hasOwn(value, "fade_in")) requireNonNegativeNumber(value.fade_in, `${path}.fade_in`);
   if (hasOwn(value, "fade_out")) requireNonNegativeNumber(value.fade_out, `${path}.fade_out`);
   if (hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
     throw invalid(`${path}.ducking`, "boolean \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
+  if (hasOwn(value, "duck_db")) requireRange(value.duck_db, -40, 0, `${path}.duck_db`);
+  if (hasOwn(value, "duck_attack")) requireRange(value.duck_attack, 0, 2, `${path}.duck_attack`);
+  if (hasOwn(value, "duck_release")) requireRange(value.duck_release, 0, 5, `${path}.duck_release`);
   if (hasOwn(value, "script") && typeof value.script !== "string") {
     throw invalid(`${path}.script`, "string \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
@@ -1502,7 +1866,7 @@ function validateNarrationProvenance(value, path) {
 }
 function validateAudioMediaSource(value, path, sourceIds) {
   requireRecord(value, path);
-  requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "src", "in", "out"]), path);
+  requireExactKeys(value, /* @__PURE__ */ new Set(["kind", "src", "in", "out", "speed", "pitch_semitones", "formant"]), path);
   if (value.kind !== "media") throw invalid(`${path}.kind`, "media \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   requireText(value.src, `${path}.src`);
   if (!sourceIds.has(value.src)) throw invalid(`${path}.src`, `sources[].id \u306B\u5B58\u5728\u3057\u307E\u305B\u3093: ${value.src}`);
@@ -1512,6 +1876,22 @@ function validateAudioMediaSource(value, path, sourceIds) {
     const inSeconds = hasOwn(value, "in") ? value.in : 0;
     if (value.out <= inSeconds) throw invalid(path, "audio media source \u306F out > in \u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
   }
+  if (hasOwn(value, "speed")) {
+    requireRange(value.speed, 0.25, 4, `${path}.speed`);
+    if (value.speed === 0.25) throw invalid(`${path}.speed`, "0.25 \u3088\u308A\u5927\u304D\u3044\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+  if (hasOwn(value, "pitch_semitones")) requireRange(value.pitch_semitones, -24, 24, `${path}.pitch_semitones`);
+  if (hasOwn(value, "formant") && value.formant !== "preserve" && value.formant !== "shift") {
+    throw invalid(`${path}.formant`, "preserve/shift \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+}
+function validateAudioClipDenoise(value, path) {
+  requireRecord(value, path);
+  requireExactKeys(value, /* @__PURE__ */ new Set(["method", "strength"]), path);
+  if (value.method !== "fft" && value.method !== "nlm") {
+    throw invalid(`${path}.method`, "fft/nlm \u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059");
+  }
+  requireRange(value.strength, 0, 1, `${path}.strength`);
 }
 function validateItem(value, path, ids, sourceIds) {
   requireRecord(value, path);
@@ -1702,7 +2082,7 @@ function validateEasing(value, path) {
   requireRecord(value, path);
   for (const [key, entry] of Object.entries(value)) validateOne(entry, `${path}.${key}`);
 }
-function validateKeyframes(value, path) {
+function validateKeyframes(value, path, audio = false) {
   if (!Array.isArray(value)) {
     requireRecord(value, path);
     requireExactKeys(value, /* @__PURE__ */ new Set(["path", "count"]), path);
@@ -1716,6 +2096,10 @@ function validateKeyframes(value, path) {
     const itemPath = `${path}[${index}]`;
     requireRecord(entry, itemPath);
     requireInteger(entry.t, 0, `${itemPath}.t`);
+    if (audio) {
+      if (!hasOwn(entry, "gain_db")) throw invalid(`${itemPath}.gain_db`, "audio keyframe \u306B\u5FC5\u8981\u3067\u3059");
+      requireRange(entry.gain_db, -60, 12, `${itemPath}.gain_db`);
+    }
     if (hasOwn(entry, "transform")) validateTransform(entry.transform, `${itemPath}.transform`);
     if (hasOwn(entry, "crop")) validateCrop(entry.crop, `${itemPath}.crop`);
     if (hasOwn(entry, "perspective")) requireRecord(entry.perspective, `${itemPath}.perspective`);
@@ -2405,13 +2789,23 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
   const at = atFrames / fps;
   const duration = durationFrames / fps;
   const inSeconds = item.source.in ?? 0;
+  const sourceClipFx = {
+    ...item.source.speed !== void 0 ? { speed: item.source.speed } : {},
+    ...item.source.pitch_semitones !== void 0 ? { pitch_semitones: item.source.pitch_semitones } : {},
+    ...item.source.formant !== void 0 ? { formant: item.source.formant } : {}
+  };
+  const itemClipFx = {
+    ...item.denoise !== void 0 ? { denoise: structuredClone(item.denoise) } : {},
+    ...item.lowcut_hz !== void 0 ? { lowcut_hz: item.lowcut_hz } : {}
+  };
   const path = pathOf(item.source.src);
   const source = {
     kind: "media",
     sourceId: item.source.src,
     ...path !== void 0 ? { path } : {},
     in: inSeconds,
-    out: item.source.out ?? inSeconds
+    out: item.source.out ?? inSeconds,
+    ...sourceClipFx
   };
   const resolvedPath = path ?? item.source.src;
   const role = item.role ?? "sfx";
@@ -2422,6 +2816,13 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
       path: resolvedPath,
       track: ref,
       ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
+      ...sourceClipFx,
+      ...itemClipFx,
+      ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+      ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+      ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+      ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+      ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {},
       ...item.source.in !== void 0 ? { in: item.source.in } : {},
       ...item.source.out !== void 0 ? { out: item.source.out } : {},
       ...item.script !== void 0 ? { script: item.script } : {},
@@ -2442,6 +2843,13 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
           t: at,
           path: resolvedPath,
           ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
+          ...sourceClipFx,
+          ...itemClipFx,
+          ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+          ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+          ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+          ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+          ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {},
           ...item.source.in !== void 0 ? { in: item.source.in } : {},
           ...item.source.out !== void 0 ? { out: item.source.out } : {},
           ...item.script !== void 0 ? { script: item.script } : {},
@@ -2464,7 +2872,13 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
       ...item.fade_in !== void 0 ? { fadeIn: item.fade_in } : {},
       ...item.fade_out !== void 0 ? { fadeOut: item.fade_out } : {},
       ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
-      ...item.ducking !== void 0 ? { ducking: item.ducking } : {}
+      ...sourceClipFx,
+      ...itemClipFx,
+      ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+      ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+      ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+      ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+      ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {}
     };
     return {
       item: {
@@ -2481,7 +2895,13 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
           ...item.fade_in !== void 0 ? { fadeIn: item.fade_in } : {},
           ...item.fade_out !== void 0 ? { fadeOut: item.fade_out } : {},
           ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
-          ...item.ducking !== void 0 ? { ducking: item.ducking } : {}
+          ...sourceClipFx,
+          ...itemClipFx,
+          ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+          ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+          ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+          ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+          ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {}
         },
         legacy: { collection: "bgm", index: 0, value: value2 }
       }
@@ -2495,7 +2915,14 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
     track: ref,
     in: inSeconds,
     ...item.source.out !== void 0 ? { out: item.source.out } : {},
-    ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {}
+    ...item.gain_db !== void 0 ? { gainDb: item.gain_db } : {},
+    ...sourceClipFx,
+    ...itemClipFx,
+    ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
+    ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+    ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+    ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+    ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {}
   };
   return {
     item: {
@@ -2515,8 +2942,15 @@ function buildV2AudioItem(item, fps, ref, pathOf, legacyIndexCounters) {
         in: inSeconds,
         ...item.source.out !== void 0 ? { out: item.source.out } : {},
         ...item.gain_db !== void 0 ? { gain_db: item.gain_db } : {},
+        ...sourceClipFx,
+        ...itemClipFx,
+        ...item.keyframes !== void 0 ? { keyframes: structuredClone(item.keyframes) } : {},
         ...item.fade_in !== void 0 ? { fade_in: item.fade_in } : {},
-        ...item.fade_out !== void 0 ? { fade_out: item.fade_out } : {}
+        ...item.fade_out !== void 0 ? { fade_out: item.fade_out } : {},
+        ...item.ducking !== void 0 ? { ducking: item.ducking } : {},
+        ...item.duck_db !== void 0 ? { duck_db: item.duck_db } : {},
+        ...item.duck_attack !== void 0 ? { duck_attack: item.duck_attack } : {},
+        ...item.duck_release !== void 0 ? { duck_release: item.duck_release } : {}
       },
       legacy: { collection: "sfx", index: nextLegacyIndex(legacyIndexCounters, "sfx"), value }
     }
@@ -2565,7 +2999,12 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
       track: ref,
       in: start,
       ...end > start ? { out: end } : {},
-      ...typeof entry.gain_db === "number" ? { gainDb: entry.gain_db } : {}
+      ...typeof entry.gain_db === "number" ? { gainDb: entry.gain_db } : {},
+      ...Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {},
+      ...typeof entry.ducking === "boolean" ? { ducking: entry.ducking } : {},
+      ...typeof entry.duck_db === "number" ? { duck_db: entry.duck_db } : {},
+      ...typeof entry.duck_attack === "number" ? { duck_attack: entry.duck_attack } : {},
+      ...typeof entry.duck_release === "number" ? { duck_release: entry.duck_release } : {}
     };
     ensureTrack(ref).items.push({
       id: value.id,
@@ -2590,6 +3029,11 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
       t: entry.t,
       path: entry.path,
       ...typeof entry.gain_db === "number" ? { gainDb: entry.gain_db } : {},
+      ...Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {},
+      ...typeof entry.ducking === "boolean" ? { ducking: entry.ducking } : {},
+      ...typeof entry.duck_db === "number" ? { duck_db: entry.duck_db } : {},
+      ...typeof entry.duck_attack === "number" ? { duck_attack: entry.duck_attack } : {},
+      ...typeof entry.duck_release === "number" ? { duck_release: entry.duck_release } : {},
       ...typeof entry.in === "number" ? { in: entry.in } : {},
       ...typeof entry.out === "number" ? { out: entry.out } : {},
       ...typeof entry.script === "string" ? { script: entry.script } : {},
@@ -2616,7 +3060,11 @@ function addV2AudioItems(tracks, audioValue, fps, legacyIndexCounters) {
       ...typeof entry.fadeIn === "number" ? { fadeIn: entry.fadeIn } : {},
       ...typeof entry.fadeOut === "number" ? { fadeOut: entry.fadeOut } : {},
       ...typeof entry.gain_db === "number" ? { gainDb: entry.gain_db } : {},
-      ...typeof entry.ducking === "boolean" ? { ducking: entry.ducking } : {}
+      ...typeof entry.ducking === "boolean" ? { ducking: entry.ducking } : {},
+      ...Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {},
+      ...typeof entry.duck_db === "number" ? { duck_db: entry.duck_db } : {},
+      ...typeof entry.duck_attack === "number" ? { duck_attack: entry.duck_attack } : {},
+      ...typeof entry.duck_release === "number" ? { duck_release: entry.duck_release } : {}
     };
     ensureTrack(0).items.push({
       id: "bgm",
@@ -2925,6 +3373,10 @@ function findActiveResolvedCaption(cues, outputTime) {
   return cues.find((cue) => cue.start <= outputTime && outputTime < cue.end);
 }
 export {
+  DEFAULT_DUCK_ATTACK_SEC,
+  DEFAULT_DUCK_DB,
+  DEFAULT_DUCK_KEYS,
+  DEFAULT_DUCK_RELEASE_SEC,
   STATIC_DUCK_GAIN_DB,
   TEXTSTYLE_CATALOG,
   TRANSITION_BY_ID,
@@ -2937,9 +3389,13 @@ export {
   captionAnchorPositionVars,
   captionClockDomainOf,
   captionWindowSeconds,
-  computeBgmDuckGainDb,
+  composeEnvelopesDb,
+  computeDuckEnvelope,
   computeDuckIntervals,
   computeTransitionVisual,
+  easingProgress,
+  envelopeToGainEvents,
+  evaluateEnvelopeDb,
   findActiveCaption,
   findActiveResolvedCaption,
   isTransitionType,
@@ -2948,9 +3404,11 @@ export {
   normalizeCaptionClock,
   outputToSource,
   projectSpeechDeclarations,
+  projectSpeechKeyIntervals,
   resolveCaptionStylePreset,
   resolveItemAnchor,
   resolveItemAnchors,
+  sampleEnvelopeLinear,
   sourceToOutput,
   transitionProgressAt,
   withoutItemAnchors

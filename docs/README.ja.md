@@ -140,6 +140,9 @@
 | [contract-2026-09-02-word-book-v0.md](./contract-2026-09-02-word-book-v0.md) | 単語帳 v0 — 語彙項目（`surface` / `variants` / `reading` / `kind`）を project < channel < workspace < builtin の 4 層で解決し、STT 直後に `words[]` 語境界で `text` と `words[]` を同時に直す。`edited: true` は不可侵・`protected_terms` への軟らかい供給・edit-lint 規則（ドラフト・要オーナーレビュー） |
 | [contract-2026-08-09-transform-keyframes-v0.md](./contract-2026-08-09-transform-keyframes-v0.md) | transform キーフレーム v0（2026-08-30 にスキーマ `$comment` から復元。motion-and-keyframes v0 §2 が後継） |
 | [contract-2026-09-02-export-verify-declared-vs-measured-v0.md](./contract-2026-09-02-export-verify-declared-vs-measured-v0.md) | 書き出し後の宣言 vs 実測検証 v0 — 区間音量は fail closed、カメラワーク静止相関は warning |
+| [contract-2026-09-02-audio-envelope-v1.md](./contract-2026-09-02-audio-envelope-v1.md) | 音声エンベロープ・カーネル v1 — 決定論ダッキング（duck_db / attack / release・鍵 = narration ∪ transcript 台詞区間・sidechaincompress 廃止 → amultiply）とクリップ所有の音量キーフレームをプレビュー / 書き出しで共有 |
+| [contract-2026-09-02-audio-insert-level-v1.md](./contract-2026-09-02-audio-insert-level-v1.md) | 挿入時の自動レベル合わせ v1 — ebur128 計測（sha1 キャッシュ）・役割別 LUFS 目標 + true peak ガード・`akari-media audio-level --write` が gain_db / 既定フェードを決定論で書き込む |
+| [contract-2026-09-02-audio-clip-fx-v1.md](./contract-2026-09-02-audio-clip-fx-v1.md) | 音声クリップ FX v1 — speed（rubberband・ピッチ保持）・pitch_semitones・denoise（fft / nlm）・lowcut_hz。プレビューは FLAC サイドカー（recipe v2）で書き出しと一致 |
 
 ### 方向性メモ
 

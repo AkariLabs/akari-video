@@ -24,6 +24,12 @@ const LAYER_BLEND_MODES = new Set([
   "softlight",
 ]);
 const LAYER_KEYFRAME_EASINGS = new Set(["linear", "ease-in-out"]);
+const AUDIO_KEYFRAME_EASINGS = new Set([
+  "linear", "ease-in-out", "in-quad", "out-quad", "in-out-quad", "in-cubic", "out-cubic",
+  "in-out-cubic", "in-quart", "out-quart", "in-out-quart", "in-expo", "out-expo", "in-out-expo",
+  "in-back", "out-back", "in-out-back", "out-bounce", "out-elastic", "hold",
+]);
+const CUBIC_BEZIER = /^cubic-bezier\(\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*,\s*-?(?:\d+(?:\.\d+)?|\.\d+)\s*\)$/;
 
 const usage = "使い方: node packages/schemas/bin/validate-edit.mjs <edit.json>";
 const editArgument = process.argv[2];
@@ -622,6 +628,13 @@ function validateAudio(value) {
   validateBgm(value.bgm);
   validateSfx(value.sfx);
   validateMaster(value.master);
+  if (hasOwn(value, "duck_keys")) {
+    if (!Array.isArray(value.duck_keys)
+        || value.duck_keys.some(key => key !== "narration" && key !== "speech")
+        || new Set(value.duck_keys).size !== value.duck_keys.length) {
+      fail("audio.duck_keys は narration / speech の重複しない配列である必要があります");
+    }
+  }
 }
 
 function validateMaster(value) {
@@ -671,6 +684,8 @@ function validateBgm(value) {
       }
     }
   }
+  validateAudioEnvelope(value, "audio.bgm");
+  validateAudioClipFx(value, "audio.bgm");
 }
 
 function validateSfx(value) {
@@ -716,6 +731,8 @@ function validateSfx(value) {
         }
       }
     }
+    validateAudioEnvelope(item, label);
+    validateAudioClipFx(item, label);
   }
 }
 
@@ -748,8 +765,76 @@ function validateNarration(value) {
         fail(`${label}.gain_db は -60 から 12 の範囲の有限数である必要があります`);
       }
     }
+    validateAudioEnvelope(item, label);
+    validateAudioClipFx(item, label);
     validateNarrationProvenance(item.provenance, `${label}.provenance`);
   }
+}
+
+function validateAudioClipFx(value, label) {
+  if (hasOwn(value, "speed") && (!isFiniteNumber(value.speed) || value.speed <= 0.25 || value.speed > 4)) {
+    fail(`${label}.speed は 0.25 より大きく 4 以下の有限数である必要があります`);
+  }
+  if (hasOwn(value, "pitch_semitones") && (!isFiniteNumber(value.pitch_semitones)
+      || value.pitch_semitones < -24 || value.pitch_semitones > 24)) {
+    fail(`${label}.pitch_semitones は -24 から 24 の範囲の有限数である必要があります`);
+  }
+  if (hasOwn(value, "formant") && value.formant !== "preserve" && value.formant !== "shift") {
+    fail(`${label}.formant は preserve/shift のいずれかである必要があります`);
+  }
+  if (hasOwn(value, "lowcut_hz") && (!isFiniteNumber(value.lowcut_hz)
+      || value.lowcut_hz < 0 || value.lowcut_hz > 400)) {
+    fail(`${label}.lowcut_hz は 0 から 400 の範囲の有限数である必要があります`);
+  }
+  if (!hasOwn(value, "denoise")) return;
+  if (!isPlainObject(value.denoise)) {
+    fail(`${label}.denoise は object である必要があります`);
+    return;
+  }
+  if (value.denoise.method !== "fft" && value.denoise.method !== "nlm") {
+    fail(`${label}.denoise.method は fft/nlm のいずれかである必要があります`);
+  }
+  if (!isFiniteNumber(value.denoise.strength)
+      || value.denoise.strength < 0 || value.denoise.strength > 1) {
+    fail(`${label}.denoise.strength は 0 から 1 の範囲の有限数である必要があります`);
+  }
+}
+
+function validateAudioEnvelope(value, label) {
+  if (hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
+    fail(`${label}.ducking は boolean である必要があります`);
+  }
+  for (const [field, minimum, maximum] of [
+    ["duck_db", -40, 0], ["duck_attack", 0, 2], ["duck_release", 0, 5],
+  ]) {
+    if (hasOwn(value, field) && (!isFiniteNumber(value[field])
+        || value[field] < minimum || value[field] > maximum)) {
+      fail(`${label}.${field} は ${minimum} から ${maximum} の範囲の有限数である必要があります`);
+    }
+  }
+  if (!hasOwn(value, "keyframes")) return;
+  if (!Array.isArray(value.keyframes) || value.keyframes.length < 2) {
+    fail(`${label}.keyframes は 2 件以上の配列である必要があります`);
+    return;
+  }
+  let previous = null;
+  value.keyframes.forEach((point, index) => {
+    const pointLabel = `${label}.keyframes[${index}]`;
+    if (!isPlainObject(point)) {
+      fail(`${pointLabel} は object である必要があります`);
+      return;
+    }
+    if (!isFiniteNumber(point.t) || point.t < 0) fail(`${pointLabel}.t は 0 以上の有限数である必要があります`);
+    else if (previous !== null && point.t <= previous) fail(`${label}.keyframes[].t は単調増加かつ重複禁止です`);
+    if (isFiniteNumber(point.t)) previous = point.t;
+    if (!isFiniteNumber(point.gain_db) || point.gain_db < -60 || point.gain_db > 12) {
+      fail(`${pointLabel}.gain_db は -60 から 12 の範囲の有限数である必要があります`);
+    }
+    if (hasOwn(point, "easing") && (typeof point.easing !== "string"
+        || (!AUDIO_KEYFRAME_EASINGS.has(point.easing) && !CUBIC_BEZIER.test(point.easing)))) {
+      fail(`${pointLabel}.easing は対応する easing 語彙である必要があります`);
+    }
+  });
 }
 
 function validateNarrationProvenance(value, label) {

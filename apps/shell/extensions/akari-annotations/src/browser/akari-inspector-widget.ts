@@ -39,8 +39,21 @@ import {
     parseInspectorKnobs
 } from './inspector/knob-resolver';
 import { chromaControlValue, telopParamControlKind } from './inspector/field-mappings';
+import type {
+    AudioEnvelopeKeyframePayload
+} from '../common/akari-annotations-protocol';
 
 type InspectorSnapshot = TimelineItemSelectionSnapshot;
+
+type AudioInspectorSnapshot = TimelineAudioSelection & {
+    duckDb?: number;
+    duckAttack?: number;
+    duckRelease?: number;
+    keyframes?: AudioEnvelopeKeyframePayload[];
+    keyframeFrames?: boolean;
+    fps?: number;
+    playheadSeconds?: number;
+};
 
 interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     name?: string;
@@ -57,6 +70,8 @@ interface InspectorFieldDef<TSnapshot = InspectorSnapshot> {
     unit?: string;
     displayScale?: number;
     removable?: boolean;
+    actionLabel?: string;
+    action?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
     reset?: (snapshot: TSnapshot) => Promise<InspectorWriteResult>;
     /** 文字列の型変換と検証を行い、妥当な値だけを書き込みブリッジへ渡す。 */
     write?: (snapshot: TSnapshot, nextValue: string) => Promise<InspectorWriteResult>;
@@ -778,10 +793,181 @@ function MULTI_CAPTION_SECTIONS(
     ];
 }
 
-function AUDIO_SECTIONS(
-    snapshot: TimelineAudioSelection,
+const AUDIO_DUCK_DEFAULTS = { duckDb: -12, duckAttack: 0.3, duckRelease: 0.8 } as const;
+const AUDIO_KEYFRAME_EASING_OPTIONS = ['linear', 'hold', 'ease-in-out'] as const;
+
+function duckingFields(
+    snapshot: AudioInspectorSnapshot,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef[] {
+    const duckWriteRequest = (
+        field: 'duck-db' | 'duck-attack' | 'duck-release',
+        value: number
+    ): InspectorWriteRequest => {
+        if (snapshot.audioKind === 'bgm') {
+            if (field === 'duck-db') return { kind: 'bgm-duck-db', value };
+            if (field === 'duck-attack') return { kind: 'bgm-duck-attack', value };
+            return { kind: 'bgm-duck-release', value };
+        }
+        if (field === 'duck-db') return { kind: 'sfx-duck-db', id: snapshot.id, value };
+        if (field === 'duck-attack') return { kind: 'sfx-duck-attack', id: snapshot.id, value };
+        return { kind: 'sfx-duck-release', id: snapshot.id, value };
+    };
+    const numberField = (
+        name: string, label: string, field: 'duck-db' | 'duck-attack' | 'duck-release',
+        raw: number | undefined, fallback: number, min: number, max: number, step: number, unit: string
+    ): InspectorFieldDef => ({
+        name, label, unit,
+        getValue: () => withDefaultNumber(raw, fallback, value => String(value)),
+        getEditValue: () => String(raw ?? fallback),
+        inputKind: 'scrub-number', scrubStep: step, min, max,
+        write: async (_snapshot, nextValue) => {
+            const parsed = Number(nextValue);
+            if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+                return { ok: false, message: `${label} は ${min}〜${max} の範囲で入力してください。` };
+            }
+            return requestWrite(duckWriteRequest(field, parsed));
+        }
+    });
+    const duckDb = numberField(
+        'audio-duck-db', 'duck_db', 'duck-db', snapshot.duckDb,
+        AUDIO_DUCK_DEFAULTS.duckDb, -40, 0, 0.5, 'dB'
+    );
+    return [
+        {
+            name: 'audio-ducking', label: 'ducking',
+            getValue: () => withDefaultBoolean(snapshot.ducking, false),
+            getEditValue: () => String(snapshot.ducking ?? false),
+            inputKind: 'boolean-select',
+            write: async (_snapshot, nextValue) => requestWrite(snapshot.audioKind === 'bgm'
+                ? { kind: 'bgm-ducking', value: nextValue === 'true' }
+                : { kind: 'sfx-ducking', id: snapshot.id, value: nextValue === 'true' })
+        },
+        duckDb,
+        {
+            name: 'audio-duck-preset', label: 'プリセット',
+            getValue: () => String(snapshot.duckDb ?? AUDIO_DUCK_DEFAULTS.duckDb),
+            getEditValue: () => String(snapshot.duckDb ?? AUDIO_DUCK_DEFAULTS.duckDb),
+            inputKind: 'select', options: ['-3', '-6', '-12'],
+            write: duckDb.write
+        },
+        numberField(
+            'audio-duck-attack', 'duck_attack（詳細）', 'duck-attack', snapshot.duckAttack,
+            AUDIO_DUCK_DEFAULTS.duckAttack, 0, 2, 0.01, 's'
+        ),
+        numberField(
+            'audio-duck-release', 'duck_release（詳細）', 'duck-release', snapshot.duckRelease,
+            AUDIO_DUCK_DEFAULTS.duckRelease, 0, 5, 0.05, 's'
+        )
+    ];
+}
+
+function audioKeyframeRequest(
+    snapshot: AudioInspectorSnapshot,
+    points: readonly AudioEnvelopeKeyframePayload[]
+): InspectorWriteRequest {
+    return {
+        kind: 'audio-keyframes', id: snapshot.id, audioKind: snapshot.audioKind,
+        value: points.length === 0 ? null : points
+            .map(point => ({ ...point, gain_db: point.gain_db ?? 0 }))
+            .sort((left, right) => left.t - right.t)
+    };
+}
+
+function keyframeSeconds(snapshot: AudioInspectorSnapshot, point: AudioEnvelopeKeyframePayload): number {
+    return snapshot.keyframeFrames ? point.t / Math.max(1, snapshot.fps ?? 30) : point.t;
+}
+
+function keyframeRawTime(snapshot: AudioInspectorSnapshot, seconds: number): number {
+    return snapshot.keyframeFrames
+        ? Math.round(seconds * Math.max(1, snapshot.fps ?? 30))
+        : Math.round(seconds * 1000) / 1000;
+}
+
+function audioKeyframeFields(
+    snapshot: AudioInspectorSnapshot,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef[] {
+    const points = [...(snapshot.keyframes ?? [])].sort((left, right) => left.t - right.t);
+    const replace = (index: number, point: AudioEnvelopeKeyframePayload): Promise<InspectorWriteResult> => {
+        const next = points.map((candidate, candidateIndex) => candidateIndex === index ? point : candidate);
+        return requestWrite(audioKeyframeRequest(snapshot, next));
+    };
+    const fields: InspectorFieldDef[] = [{
+        name: 'audio-keyframe-add', label: '追加', actionLabel: '再生ヘッド位置に追加',
+        getValue: () => '',
+        action: async () => {
+            const relative = Math.max(0, Math.min(
+                snapshot.duration,
+                (snapshot.playheadSeconds ?? snapshot.outputStart) - snapshot.outputStart
+            ));
+            const t = keyframeRawTime(snapshot, relative);
+            const duplicate = points.some(point => snapshot.keyframeFrames
+                ? point.t === t : Math.abs(point.t - t) < 1e-3);
+            if (duplicate) return { ok: false, message: 'この位置には既に音量キーフレームがあります。' };
+            return requestWrite(audioKeyframeRequest(snapshot, [...points, { t, gain_db: 0 }]));
+        }
+    }];
+    points.forEach((point, index) => {
+        const prefix = `audio-keyframe-${index}`;
+        const easing = typeof point.easing === 'string' ? point.easing : 'linear';
+        const easingOptions = AUDIO_KEYFRAME_EASING_OPTIONS.includes(
+            easing as typeof AUDIO_KEYFRAME_EASING_OPTIONS[number]
+        ) ? AUDIO_KEYFRAME_EASING_OPTIONS : [...AUDIO_KEYFRAME_EASING_OPTIONS, easing];
+        fields.push({
+            name: `${prefix}-t`, label: `#${index + 1} t`, unit: 's',
+            getValue: () => String(keyframeSeconds(snapshot, point)),
+            getEditValue: () => String(keyframeSeconds(snapshot, point)),
+            inputKind: 'scrub-number', scrubStep: snapshot.keyframeFrames ? 1 / Math.max(1, snapshot.fps ?? 30) : 0.001,
+            min: 0, max: snapshot.duration,
+            write: async (_snapshot, nextValue) => {
+                const seconds = Number(nextValue);
+                if (!Number.isFinite(seconds) || seconds < 0 || seconds > snapshot.duration) {
+                    return { ok: false, message: `t は 0〜${snapshot.duration} 秒の範囲で入力してください。` };
+                }
+                const t = keyframeRawTime(snapshot, seconds);
+                const duplicate = points.some((candidate, candidateIndex) => candidateIndex !== index
+                    && (snapshot.keyframeFrames ? candidate.t === t : Math.abs(candidate.t - t) < 1e-3));
+                if (duplicate) return { ok: false, message: 'この位置には既に音量キーフレームがあります。' };
+                return replace(index, { ...point, t });
+            }
+        }, {
+            name: `${prefix}-gain-db`, label: `#${index + 1} gain_db`, unit: 'dB',
+            getValue: () => String(point.gain_db ?? 0), getEditValue: () => String(point.gain_db ?? 0),
+            inputKind: 'scrub-number', scrubStep: 0.5, min: -60, max: 12,
+            write: async (_snapshot, nextValue) => {
+                const gainDb = Number(nextValue);
+                return !Number.isFinite(gainDb) || gainDb < -60 || gainDb > 12
+                    ? { ok: false, message: 'gain_db は -60〜12 の範囲で入力してください。' }
+                    : replace(index, { ...point, gain_db: gainDb });
+            }
+        }, {
+            name: `${prefix}-easing`, label: `#${index + 1} easing`,
+            getValue: () => easing, getEditValue: () => easing,
+            inputKind: 'select', options: easingOptions,
+            write: async (_snapshot, nextValue) => replace(index, { ...point, easing: nextValue })
+        }, {
+            name: `${prefix}-delete`, label: `#${index + 1}`, actionLabel: '削除', getValue: () => '',
+            action: async () => requestWrite(audioKeyframeRequest(
+                snapshot, points.filter((_candidate, candidateIndex) => candidateIndex !== index)
+            ))
+        });
+    });
+    return fields;
+}
+
+function AUDIO_SECTIONS(
+    snapshot: AudioInspectorSnapshot,
+    requestWrite: (
+        request: InspectorWriteRequest
+    ) => Promise<InspectorWriteResult>
 ): InspectorSection[] {
+    const autoLevelField: InspectorFieldDef = {
+        name: 'audio-auto-level', label: 'レベル', actionLabel: '自動レベル', getValue: () => '',
+        action: async () => requestWrite({
+            kind: 'audio-auto-level', id: snapshot.id, audioKind: snapshot.audioKind
+        })
+    };
     const basicFields: InspectorFieldDef[] = [
         {
             name: 'gain-db', label: 'gain_db', unit: 'dB',
@@ -802,7 +988,8 @@ function AUDIO_SECTIONS(
                         ? requestWrite({ kind: 'narration-gain', id: snapshot.id, value: parsed })
                         : requestWrite({ kind: 'sfx-gain', id: snapshot.id, value: parsed });
             }
-        }
+        },
+        ...(snapshot.audioKind === 'narration' ? [autoLevelField] : [])
     ];
     const tabs: InspectorSection[] = [
         {
@@ -817,6 +1004,7 @@ function AUDIO_SECTIONS(
         tabs.push({
             id: 'audio:fades', label: 'フェード・ダッキング',
             fields: [
+                autoLevelField,
                 {
                     name: 'audio-fade-in', label: 'fadeIn', unit: 's',
                     getValue: () => withDefaultNumber(snapshot.fadeIn, 0, formatDurationSeconds),
@@ -847,23 +1035,14 @@ function AUDIO_SECTIONS(
                         return requestWrite({ kind: 'bgm-fade-out', value: parsed });
                     }
                 },
-                {
-                    name: 'audio-ducking', label: 'ducking',
-                    getValue: () => withDefaultBoolean(snapshot.ducking, false),
-                    getEditValue: () => String(snapshot.ducking ?? false),
-                    inputKind: 'boolean-select',
-                    write: async (_snapshot, nextValue) =>
-                        requestWrite({ kind: 'bgm-ducking', value: nextValue === 'true' })
-                }
+                ...duckingFields(snapshot, requestWrite)
             ]
         });
     } else if (snapshot.audioKind === 'sfx') {
-        // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum (audio-clip-fades,
-        // 2026-08-18): same fadeIn/fadeOut knob shape as bgm's above, minus ducking (sfx-only;
-        // ducking is a bgm concept), writing sfx-fade-in/sfx-fade-out scoped to this item's id.
         tabs.push({
-            id: 'audio:fades', label: 'フェード',
+            id: 'audio:fades', label: 'フェード・ダッキング',
             fields: [
+                autoLevelField,
                 {
                     name: 'audio-fade-in', label: 'fadeIn', unit: 's',
                     getValue: () => withDefaultNumber(snapshot.fadeIn, 0, formatDurationSeconds),
@@ -893,10 +1072,15 @@ function AUDIO_SECTIONS(
                         }
                         return requestWrite({ kind: 'sfx-fade-out', id: snapshot.id, value: parsed });
                     }
-                }
+                },
+                ...duckingFields(snapshot, requestWrite)
             ]
         });
     }
+    tabs.push({
+        id: 'audio:keyframes', label: '音量キーフレーム',
+        fields: audioKeyframeFields(snapshot, requestWrite)
+    });
     tabs.push({
         id: 'info', label: '情報', collapsedByDefault: true,
         fields: [
@@ -1498,7 +1682,7 @@ export class AkariInspectorWidget extends BaseWidget {
                     });
                     break;
                 case 'audio':
-                    sections = AUDIO_SECTIONS(snapshot, requestWrite);
+                    sections = AUDIO_SECTIONS(snapshot as AudioInspectorSnapshot, request => this.commitWrite(request));
                     break;
                 case 'overlay':
                     sections = OVERLAY_SECTIONS(snapshot, requestWrite, this.overlayKnobs(snapshot));
@@ -1659,12 +1843,14 @@ export class AkariInspectorWidget extends BaseWidget {
         window.localStorage.setItem(`akari.inspector.optional.v1:${kind}:${fieldName}`, String(visible));
     }
 
-    protected async commitWrite(request: InspectorWriteRequest): Promise<InspectorWriteResult> {
+    protected async commitWrite(
+        request: InspectorWriteRequest
+    ): Promise<InspectorWriteResult> {
         if (!this.model.requestWrite) {
             return { ok: false, message: '書き込み機能が利用できません。' };
         }
         try {
-            return await this.model.requestWrite(request);
+            return await this.model.requestWrite(request as InspectorWriteRequest);
         } catch (error) {
             return { ok: false, message: error instanceof Error ? error.message : String(error) };
         }
@@ -1748,6 +1934,20 @@ export class AkariInspectorWidget extends BaseWidget {
         labelElement.className = 'akari-inspector-row-label';
         labelElement.textContent = field.label;
         row.appendChild(labelElement);
+
+        if (field.action) {
+            const action = document.createElement('button');
+            action.type = 'button';
+            action.className = 'akari-inspector-row-input';
+            action.textContent = field.actionLabel ?? field.label;
+            action.setAttribute('data-akari-ui', `action:inspector-${fieldName}`);
+            action.addEventListener('click', () => void field.action!(snapshot).then(result => {
+                if (!result.ok) this.showFieldNotice(result.message ?? '操作に失敗しました。');
+            }));
+            row.appendChild(action);
+            parent.appendChild(row);
+            return;
+        }
 
         if (!field.write) {
             const valueElement = document.createElement('div');

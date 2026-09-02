@@ -144,6 +144,9 @@ All contracts follow the
 | [contract-2026-09-02-word-book-v0.md](./contract-2026-09-02-word-book-v0.md) | Word book v0 — vocabulary entries (`surface` / `variants` / `reading` / `kind`) layered project < channel < workspace < builtin, word-boundary STT post-pass that rewrites `text` and `words[]` together, `edited: true` untouched, soft supply into `protected_terms`, edit-lint rules (Japanese; draft, owner review) |
 | [contract-2026-08-09-transform-keyframes-v0.md](./contract-2026-08-09-transform-keyframes-v0.md) | Transform keyframes v0 (restored 2026-08-30 from schema `$comment`s; superseded by motion-and-keyframes v0 §2) |
 | [contract-2026-09-02-export-verify-declared-vs-measured-v0.md](./contract-2026-09-02-export-verify-declared-vs-measured-v0.md) | Post-export declared-vs-measured verification v0 — sampled audio level fails closed; static camera-work correlation warns (Japanese) |
+| [contract-2026-09-02-audio-envelope-v1.md](./contract-2026-09-02-audio-envelope-v1.md) | Audio envelope kernel v1 — deterministic ducking (duck_db / attack / release, narration ∪ transcript speech keys, sidechaincompress retired for amultiply) and clip-owned volume keyframes shared by preview and export |
+| [contract-2026-09-02-audio-insert-level-v1.md](./contract-2026-09-02-audio-insert-level-v1.md) | Insert-time auto level v1 — ebur128 measurement with sha1 cache, per-role LUFS targets with true-peak guard, `akari-media audio-level --write` writing gain_db / default fades deterministically |
+| [contract-2026-09-02-audio-clip-fx-v1.md](./contract-2026-09-02-audio-clip-fx-v1.md) | Audio clip FX v1 — speed (rubberband, pitch-preserving), pitch_semitones, denoise (fft / nlm), lowcut_hz; preview matches export via the FLAC sidecar (recipe v2) |
 
 ### Direction notes
 

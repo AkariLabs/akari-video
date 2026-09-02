@@ -25,6 +25,11 @@ export type FrameMetricStage =
 export interface FrameMetricsRecorder {
   record(stage: FrameMetricStage, elapsedMs: number): void;
   recordUploadPath?(path: UploadPath): void;
+  /**
+   * 合成層 1 枚の準備（image load / decode / mask decode）が失敗してその層を抜いたときに、抜いた層ごと
+   * 1 回呼ばれる（フレームをまたいで累積する）。additive: 実装しない recorder は数えないだけ。
+   */
+  recordSkippedLayer?(layerId: string): void;
 }
 
 export interface NativeNv12Frame {

@@ -9,8 +9,9 @@ import { parseTime } from "../src/media/common.mjs";
 import { probeMedia } from "../src/media/probe.mjs";
 import { transcribeMedia } from "../src/media/transcribe.mjs";
 import { waveformMedia } from "../src/media/waveform.mjs";
+import { audioLevelProject, formatAudioLevelTable } from "../src/audio-level.mjs";
 
-const commands = ["probe", "grab", "filmstrip", "waveform", "transcribe"];
+const commands = ["probe", "grab", "filmstrip", "waveform", "transcribe", "audio-level"];
 const usage = [
   "使い方: akari media <subcommand> <target> [options]",
   "",
@@ -38,6 +39,13 @@ export async function runMediaCli(argv, options = {}) {
   try {
     const parsed = parseOptions(subcommand, rest);
     const commandOptions = { ...options, ...parsed };
+    if (subcommand === "audio-level") {
+      const result = await audioLevelProject(target, commandOptions);
+      for (const warning of result.warnings) stderr(warning);
+      if (commandOptions.json) stdout(JSON.stringify(result.rows));
+      else for (const line of formatAudioLevelTable(result)) stdout(line);
+      return 0;
+    }
     const result = await ({
       probe: probeMedia,
       grab: grabMedia,
@@ -59,6 +67,18 @@ function parseOptions(subcommand, argv) {
     const argument = argv[index];
     if (argument === "--no-record") {
       options.noRecord = true;
+      continue;
+    }
+    if (subcommand === "audio-level" && argument === "--write") {
+      options.write = true;
+      continue;
+    }
+    if (subcommand === "audio-level" && argument === "--json") {
+      options.json = true;
+      continue;
+    }
+    if (subcommand === "audio-level" && argument === "--no-cache") {
+      options.useCache = false;
       continue;
     }
     if (subcommand === "transcribe" && argument === "--no-unrecognized") {
@@ -128,7 +148,24 @@ function allowedValueOptions(subcommand) {
     "--unrecognized-min-gap": ["unrecognizedMinGap", numberValue],
     "--unrecognized-min-voiced": ["unrecognizedMinVoiced", numberValue],
   };
+  if (subcommand === "audio-level") return {
+    "--targets": ["targets", jsonObjectValue],
+    "--ceiling": ["ceilingDbtp", numberValue],
+  };
   return {};
+}
+
+function jsonObjectValue(value, label) {
+  let parsed;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error(`${label} は JSON object で指定してください`);
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${label} は JSON object で指定してください`);
+  }
+  return parsed;
 }
 
 function integerValue(value, label) {
@@ -164,4 +201,3 @@ function isMainModule() {
 if (isMainModule()) {
   process.exitCode = await runMediaCli(process.argv.slice(2));
 }
-

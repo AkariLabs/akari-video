@@ -76,8 +76,12 @@ import {
     WriteBackResult,
     WriteEditSnapshotRequest
 } from '../common/akari-annotations-protocol';
+import type { SetAudioDuckRequest, SetAudioKeyframesRequest } from '../common/akari-annotations-protocol';
+import type { MeasureAudioForLevelRequest, MeasureAudioForLevelResult } from '../common/akari-annotations-protocol';
 import * as mediaCache from './media-cache';
+import { measureAudioForLevel } from './audio-level-resolver';
 import { setSfxFadeInSource } from '../common/sfx-fade-store';
+import { setAudioDuckInSource, setAudioKeyframesInSource } from '../common/audio-envelope-store';
 import {
     appendAnnotationLine,
     emptyReviewSource,
@@ -191,6 +195,12 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
     async getClipWaveform(request: GetClipWaveformRequest): Promise<GetClipWaveformResult> {
         if (!request?.projectRootUri || !request?.videoUri) {
             return { status: 'unavailable', reason: 'source-missing' };
+        }
+        if (request.bucketCount !== undefined) {
+            return mediaCache.getClipWaveform(
+                this.fsPath(request.projectRootUri), this.fsPath(request.videoUri),
+                request.startSeconds, request.endSeconds, request.bucketCount
+            );
         }
         return mediaCache.getClipWaveform(
             this.fsPath(request.projectRootUri), this.fsPath(request.videoUri),
@@ -1022,5 +1032,27 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
 
     protected fsPath(uri: string): string {
         return new URI(uri).path.fsPath();
+    }
+
+    async setAudioDuck(request: SetAudioDuckRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = setAudioDuckInSource(source, request.target, request.updates);
+        await this.writeProjectFileGuarded(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '音声のダッキングを変更') };
+    }
+
+    async setAudioKeyframes(request: SetAudioKeyframesRequest): Promise<WriteBackResult> {
+        this.requireWriteRequest(request?.editUri, request?.projectRootUri);
+        const editPath = this.fsPath(request.editUri);
+        const source = await fs.readFile(editPath, 'utf8');
+        const updated = setAudioKeyframesInSource(source, request.target, request.keyframes);
+        await this.writeProjectFileGuarded(editPath, updated);
+        return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '音量キーフレームを変更') };
+    }
+
+    async measureAudioForLevel(request: MeasureAudioForLevelRequest): Promise<MeasureAudioForLevelResult> {
+        return measureAudioForLevel(request);
     }
 }

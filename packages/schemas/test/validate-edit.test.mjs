@@ -110,6 +110,28 @@ test("bgm.ducking must be a boolean", () => {
   assert.match(executed.stderr, /audio\.bgm\.ducking は boolean である必要があります/);
 });
 
+test("audio keyframes and duck_keys example passes", () => {
+  const executed = run("edit-audio-keyframes-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("audio keyframe times must be strictly ascending", () => {
+  const executed = run("edit-audio-keyframes-t-order-invalid");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /keyframes\[\]\.t は単調増加かつ重複禁止/u);
+});
+
+test("SFX ducking controls example passes", () => {
+  const executed = run("edit-sfx-ducking-valid");
+  assert.equal(executed.status, 0, executed.stderr);
+});
+
+test("duck_db rejects values outside [-40, 0]", () => {
+  const executed = run("edit-duck-db-out-of-range");
+  assert.equal(executed.status, 1, executed.stdout);
+  assert.match(executed.stderr, /duck_db は -40 から 0/u);
+});
+
 test("bgm.fadeIn/fadeOut (reserved seat opened) pass validation", () => {
   const executed = run("edit-bgm-fade-valid");
   assert.equal(executed.status, 0, executed.stderr);

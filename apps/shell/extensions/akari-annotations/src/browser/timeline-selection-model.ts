@@ -1,6 +1,6 @@
 import { Emitter, Event } from '@theia/core/lib/common';
 import { injectable } from '@theia/core/shared/inversify';
-import type { ReadableTransitionType } from '@akari-video/edit-store';
+import type { EditAudioKeyframe, ReadableTransitionType } from '@akari-video/edit-store';
 import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
 
 export interface TimelineCutSelection {
@@ -223,6 +223,24 @@ type InspectorWriteOperation =
     | { kind: 'bgm-fade-in'; value: number | null }
     | { kind: 'bgm-fade-out'; value: number | null }
     | { kind: 'bgm-ducking'; value: boolean | null }
+    | { kind: 'bgm-duck-db'; value: number | null }
+    | { kind: 'bgm-duck-attack'; value: number | null }
+    | { kind: 'bgm-duck-release'; value: number | null }
+    | { kind: 'sfx-ducking'; id: string; value: boolean | null }
+    | { kind: 'sfx-duck-db'; id: string; value: number | null }
+    | { kind: 'sfx-duck-attack'; id: string; value: number | null }
+    | { kind: 'sfx-duck-release'; id: string; value: number | null }
+    | {
+        kind: 'audio-keyframes';
+        id: string;
+        audioKind: 'bgm' | 'sfx' | 'narration';
+        value: EditAudioKeyframe[] | null;
+    }
+    | {
+        kind: 'audio-auto-level';
+        id: string;
+        audioKind: 'bgm' | 'sfx' | 'narration';
+    }
     | { kind: 'overlay-var'; id: string; name: string; value: string };
 
 /**

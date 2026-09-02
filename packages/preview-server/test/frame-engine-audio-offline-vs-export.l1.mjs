@@ -188,6 +188,7 @@ async function offlineRender(chromium, schedule, encodedAudio) {
         for (const event of events) {
           const at = startTime + event.offsetSec;
           if (event.method === 'linear') param.linearRampToValueAtTime(event.value, at);
+          else if (event.method === 'exponential') param.exponentialRampToValueAtTime(event.value, at);
           else param.setValueAtTime(event.value, at);
         }
       };
@@ -198,11 +199,11 @@ async function offlineRender(chromium, schedule, encodedAudio) {
         source.loop = item.loop;
         source.connect(baseGain);
         let tail = baseGain;
-        if (item.kind === 'bgm') {
-          const duckGain = offline.createGain();
-          baseGain.connect(duckGain);
-          tail = duckGain;
-          apply(duckGain.gain, item.duckingEvents, item.delaySec);
+        if (item.envelopeEvents.length > 0) {
+          const envelopeGain = offline.createGain();
+          baseGain.connect(envelopeGain);
+          tail = envelopeGain;
+          apply(envelopeGain.gain, item.envelopeEvents, item.delaySec);
         }
         tail.connect(offline.destination);
         apply(baseGain.gain, item.gainEvents, item.delaySec);

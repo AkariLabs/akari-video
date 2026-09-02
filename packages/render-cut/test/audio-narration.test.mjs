@@ -190,7 +190,7 @@ test("narration gain_db is honored: -20dB output is measurably quieter than 0dB 
   }
 });
 
-test("ducking measurably lowers the BGM level during the narration window when narration is the sidechain trigger", async (t) => {
+test("決定論 envelope 化により narration 区間だけ BGM が下がり sidechain は存在しない", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const root = await mkdtemp(join(tmpdir(), "render-cut-ducking-test-"));
   try {
@@ -223,28 +223,23 @@ test("ducking measurably lowers the BGM level during the narration window when n
       assert.equal(command.operation, "ffmpeg");
       assert.equal(command.hasNarration, true);
       assert.equal(command.hasAudibleAudio, true);
-      assert.equal(command.args.join(" ").includes("sidechaincompress"), ducking, `sidechaincompress should only appear when ducking is true (ducking=${ducking})`);
+      assert.doesNotMatch(command.args.join(" "), /sidechaincompress|asplit/u);
+      assert.equal(command.args.join(" ").includes("amultiply"), ducking,
+        `amultiply should only appear when ducking is true (ducking=${ducking})`);
 
-      // Re-map the same real filter graph render-cut would use, but output only the (possibly
-      // ducked) BGM branch with narration excluded from the audible signal, so its measurement
-      // is not contaminated by narration's own tone. This mirrors the audio contract's suggested
-      // "narration muted for listening" measurement approach while still exercising the exact
-      // sidechaincompress wiring buildAudioMixCommand produces.
+      // 実 filtergraph の BGM branch だけを別出力へ写し、narration の音そのものを測定から除く。
       const filterComplexIndex = command.args.indexOf("-filter_complex");
       const filterComplex = command.args[filterComplexIndex + 1];
-      const bgmLabel = filterComplex.includes("sidechaincompress") ? "[bgm_ducked]" : "[bgm]";
+      const bgmLabel = filterComplex.includes("[bgm_env]") ? "[bgm_env]" : "[bgm]";
       // Drop the trailing "...amix=...[mixed]" statement (always the last ";"-separated step):
       // it already consumes the bgm/bgm_ducked pad, and a pad can only be mapped to output XOR
       // consumed by another filter, not both.
       const filterStepsWithoutFinalMix = filterComplex.split(";").slice(0, -1).join(";");
       const inputArgs = command.args.slice(0, filterComplexIndex);
       const listeningPath = join(root, `listening-${ducking}.wav`);
-      const listeningArgs = [...inputArgs, "-filter_complex", filterStepsWithoutFinalMix, "-map", bgmLabel, "-c:a", "pcm_s16le", "-ar", "48000", listeningPath];
-      // Dropping the trailing amix step leaves whichever narration-derived pad it alone consumed
-      // dangling: [nar_mix] when ducking split narration via asplit (its sibling [nar_sc] is
-      // consumed by sidechaincompress), or plain [narration] when ducking is off. Give it a
-      // throwaway second output so the filtergraph stays fully connected.
-      const danglingNarrationLabel = ducking ? "[nar_mix]" : "[narration]";
+      const listeningArgs = [...inputArgs, "-filter_complex", filterStepsWithoutFinalMix, "-map", bgmLabel, "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2", listeningPath];
+      // 最終 amix を外すと narration pad が未接続になるため、捨て出力へ接続する。
+      const danglingNarrationLabel = "[narration]";
       listeningArgs.push("-map", danglingNarrationLabel, "-c:a", "pcm_s16le", "-ar", "48000", join(root, `discard-narration-${ducking}.wav`));
       const listening = spawnSync(command.command, listeningArgs, { encoding: "utf8" });
       assert.equal(listening.status, 0, listening.stderr);
@@ -273,14 +268,8 @@ test("ducking measurably lowers the BGM level during the narration window when n
   }
 });
 
-// Regression for the T5 incident (2026-07-21): [narration] was referenced twice in the ducking
-// filter graph (once by sidechaincompress, once by the final amix) without an asplit. ffmpeg 8.1.1
-// accepts that without error but silently leaves the second reference unconnected, so narration
-// disappeared from the real, produced output whenever bgm.ducking was true — a combination the
-// earlier tests never rendered end-to-end (the audibility test used ducking:false, and the ducking
-// test measured a narration-excluded "listening" derivative). This test renders the real CLI output
-// with both bgm.ducking:true and narration present, and checks narration is actually audible in it.
-test("narration remains audible in the real output when ducking is on (asplit regression)", async (t) => {
+// 2026-07-21 の narration 消失事故を、新しい envelope 経路でも再発させない実出力回帰。
+test("asplit 廃止後も ducking:true で narration は実出力に可聴のまま", async (t) => {
   if (spawnSync("ffmpeg", ["-version"]).status !== 0) return t.skip("ffmpeg unavailable");
   const project = await makeProject({
     duration: 6,
@@ -292,7 +281,8 @@ test("narration remains audible in the real output when ducking is on (asplit re
     assert.equal(executed.status, 0, executed.stderr);
     const state = JSON.parse(await readFile(join(project, ".akari", "render.json"), "utf8"));
     assert.equal(state.verify.verdict, "pass");
-    assert.match(state.plan.commands.audio_mix.args.join(" "), /asplit=2\[nar_sc\]\[nar_mix\]/);
+    assert.doesNotMatch(state.plan.commands.audio_mix.args.join(" "), /asplit|sidechaincompress/u);
+    assert.match(state.plan.commands.audio_mix.args.join(" "), /amultiply/u);
 
     const outputPath = join(project, state.artifacts[0].path);
     const narrationWindowMax = measureMaxVolume(outputPath, 2, 2);

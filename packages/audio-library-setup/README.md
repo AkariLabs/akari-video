@@ -16,6 +16,7 @@
 | `shared/bgm-suggest.mjs` | BGM 自動提案の純粋ロジック — tone 語彙（表現選定と同じ 8 語）× 系統対応表 `FAMILY_TONE_RULES` × 体感 BPM で決定論ランキング |
 | `bin/suggest-bgm.mjs` | BGM 自動提案 CLI。導入済みスナップショット（`.origin-catalog.json`）を読み、`--tone`（複数可）`--tempo` から候補 + ローカル実体パスを提示（`--json` あり）。`--declarations`（または env `AKARI_SOUNDS_DECLARATIONS`）で耳検証済み宣言を合流 — 実測 BPM 置換・耳検証ボーナス・**サビ頭出し（`audio.bgm.in` の推奨値）**・構成表示が付く。ネットワーク不使用 |
 | `shared/beat-grid.mjs` | 宣言（bpm / 頭拍 / キメ / 構成）を timeline へ写す純粋ロジック。`musicGrid()` の秒グリッドは検査用の内部計算として維持し、`toFrameGrid()` / `snapToGrid()` / `cutCandidates()` が出力 fps 上の整数フレームを返す。`audio.bgm.in` とループ（**1 周目は in から・2 周目以降はファイル先頭から**。2026-08-04 に ffmpeg 実測で確定）を反映する |
+| `shared/insert-level.mjs` | 挿入素材の計測値から役割別の `gain_db` と既定 fade を決める純関数。1 秒未満または LUFS 不明は sample peak、それ以外は integrated LUFS を基準にし、true peak ceiling と `[-60, 12]` dB の安全域を適用する |
 | `bin/beat-grid.mjs` | 音楽グリッド CLI（`--edit` / `--track` + `--timeline`・`--fps`・`--snap`・`--json`）。`--edit` では `output.fps` を使い、拍・小節頭・キメ・スナップ・カット候補を整数フレームで返す。edit-plan の [beat-sync](../../skills/edit-plan/beat-sync.md) が発火位置を拍へ寄せるのに使う |
 | `shared/sfx-suggest.mjs` | SFX / ジングル自動提案の純粋ロジック — 「場面の意味」14 語 × 宣言表 `MEANING_RULES`（候補順 = 優先順・外部補完の参照つき） |
 | `bin/suggest-sfx.mjs` | SFX / ジングル自動提案 CLI（`--meaning` / `--list` / `--json`）。suggest-bgm の姉妹 |
@@ -72,6 +73,16 @@ node packages/audio-library-setup/bin/declare-helper.mjs
 ```sh
 node --test packages/audio-library-setup/test/*.mjs
 ```
+
+## 挿入時レベル計算
+
+`computeInsertLevel()` は計測済みの I / true peak / sample peak / duration と役割を受け取り、
+`gain_db`、`fade_in`、`fade_out`、採用基準（`lufs` / `peak` / `none`）を返す。
+ファイルアクセスやネットワークアクセスは行わない。既定目標は narration -16 LUFS、SFX / jingle
+-18 LUFS、music -20 LUFS、ambience / BGM -26 LUFS、true peak ceiling は -1 dBTP である。
+role が narration / bgm / jingle / music / ambience なら明示値を使い、sfx・未知・未指定は
+collection の bgm / narration を確認してからファイル名と尺による SFX ヒューリスティクスへ流す。
+詳細は [挿入時レベル契約](../../docs/contract-2026-09-02-audio-insert-level-v1.md) を参照。
 
 ## 実装ノート
 

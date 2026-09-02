@@ -140,7 +140,7 @@ export async function resolveFfmpegPath(): Promise<string | undefined> {
     return ffmpegPathPromise;
 }
 
-async function resolveFfprobePath(): Promise<string | undefined> {
+export async function resolveFfprobePath(): Promise<string | undefined> {
     if (!ffprobePathPromise) {
         ffprobePathPromise = (async () => {
             if (process.env.AKARI_FFPROBE_BIN) {

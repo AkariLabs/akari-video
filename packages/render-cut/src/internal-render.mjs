@@ -66,9 +66,9 @@ export function projectRendererCompatibilityEdit(
   for (const item of ordered) {
     if (item.legacy.value !== undefined) {
       switch (item.legacy.collection) {
-        case "sfx": sfx.push(projectAudioDeclaration(item)); break;
-        case "narration": narration.push(projectAudioDeclaration(item)); break;
-        case "bgm": bgm = projectAudioDeclaration(item); break;
+        case "sfx": sfx.push(projectAudioDeclaration(item, internal.output.fps)); break;
+        case "narration": narration.push(projectAudioDeclaration(item, internal.output.fps)); break;
+        case "bgm": bgm = projectAudioDeclaration(item, internal.output.fps); break;
         default: break;
       }
     }
@@ -97,11 +97,14 @@ export function projectRendererCompatibilityEdit(
     }));
   const master = isRecord(raw?.audio) && raw.audio.master !== undefined
     ? raw.audio.master : undefined;
+  const duckKeys = isRecord(raw?.audio) && raw.audio.duck_keys !== undefined
+    ? raw.audio.duck_keys : undefined;
   const audio = {
     sfx,
     narration,
     ...(bgm !== undefined ? { bgm } : {}),
     ...(master !== undefined ? { master } : {}),
+    ...(duckKeys !== undefined ? { duck_keys: duckKeys } : {}),
   };
   const captionOverlays = captionItemOverlays(internal, projectRoot, {
     cuts,
@@ -335,14 +338,20 @@ function resolveReferencedItemKeyframes(internal, projectRoot, onWarning = conso
 
 // Internal compatibility values use edit-store's camelCase display model. The renderer compatibility
 // shape retains the historical JSON spelling consumed by plan.mjs for gain_db.
-function projectAudioDeclaration(item) {
+function projectAudioDeclaration(item, fps) {
   const value = item.legacy.value;
+  const keyframes = item.source?.sourceId !== undefined && Array.isArray(value.keyframes)
+    ? value.keyframes.map(point => isRecord(point) && typeof point.t === "number"
+      ? { ...point, t: point.t / fps }
+      : point)
+    : undefined;
   if (item.source?.sourceId === undefined && isRecord(item.declaration)) {
     // Compatibility top-level audio receives provisional display-only in/out/duration in edit-store.
     // Rendering must retain the original declaration so an omitted trim still means full material.
     return {
       ...item.declaration,
       ...(value.gainDb !== undefined ? { gain_db: value.gainDb } : {}),
+      ...(keyframes ? { keyframes } : {}),
     };
   }
   return {
@@ -351,6 +360,7 @@ function projectAudioDeclaration(item) {
     ...(isRecord(item.declaration) ? item.declaration : {}),
     ...value,
     ...(value.gainDb !== undefined ? { gain_db: value.gainDb } : {}),
+    ...(keyframes ? { keyframes } : {}),
   };
 }
 

@@ -24,6 +24,7 @@ export * from './cut-adjacency';
 export * from './transition-vocabulary';
 export * from './transition-visual';
 export * from './ducking';
+export * from './envelope';
 export * from './audio-schedule';
 export * from './canonical';
 export * from './tree-ops';

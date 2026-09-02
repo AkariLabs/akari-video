@@ -15,6 +15,20 @@ export interface OpenTimelineContextMenuOptions {
     readonly onSelect: (id: string) => void;
 }
 
+/** 所有外の共通項目列を変えず、SFX 専用トリマー入口を削除の直前へ合成する。 */
+export function withAudioTrimMenuItem(
+    items: readonly TimelineClipMenuItem[], enabled: boolean
+): TimelineClipMenuItem[] {
+    if (!enabled) return [...items];
+    const deleteIndex = items.findIndex(item => item.id === 'delete');
+    const insertAt = deleteIndex >= 0 ? deleteIndex : items.length;
+    return [
+        ...items.slice(0, insertAt),
+        { id: 'audio-trim', label: 'トリム（in/out）' },
+        ...items.slice(insertAt)
+    ];
+}
+
 let activePopup: HTMLDivElement | undefined;
 
 export function closeTimelineContextMenu(): void {

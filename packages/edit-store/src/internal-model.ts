@@ -33,6 +33,9 @@ export interface InternalMediaSource {
     /** 素材内の再生区間（秒）。素材側は秒のまま（notes §10-1）。 */
     in: number;
     out: number;
+    speed?: number;
+    pitch_semitones?: number;
+    formant?: 'preserve' | 'shift';
 }
 
 export interface InternalHtmlSource {
@@ -1030,13 +1033,23 @@ function buildV2AudioItem(
     const at = atFrames / fps;
     const duration = durationFrames / fps;
     const inSeconds = item.source.in ?? 0;
+    const sourceClipFx = {
+        ...(item.source.speed !== undefined ? { speed: item.source.speed } : {}),
+        ...(item.source.pitch_semitones !== undefined ? { pitch_semitones: item.source.pitch_semitones } : {}),
+        ...(item.source.formant !== undefined ? { formant: item.source.formant } : {})
+    };
+    const itemClipFx = {
+        ...(item.denoise !== undefined ? { denoise: structuredClone(item.denoise) } : {}),
+        ...(item.lowcut_hz !== undefined ? { lowcut_hz: item.lowcut_hz } : {})
+    };
     const path = pathOf(item.source.src);
     const source: InternalMediaSource = {
         kind: 'media',
         sourceId: item.source.src,
         ...(path !== undefined ? { path } : {}),
         in: inSeconds,
-        out: item.source.out ?? inSeconds
+        out: item.source.out ?? inSeconds,
+        ...sourceClipFx
     };
     const resolvedPath = path ?? item.source.src;
     const role = item.role ?? 'sfx';
@@ -1048,6 +1061,13 @@ function buildV2AudioItem(
             path: resolvedPath,
             track: ref,
             ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
+            ...sourceClipFx,
+            ...itemClipFx,
+            ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
+            ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+            ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+            ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+            ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {}),
             ...(item.source.in !== undefined ? { in: item.source.in } : {}),
             ...(item.source.out !== undefined ? { out: item.source.out } : {}),
             ...(item.script !== undefined ? { script: item.script } : {}),
@@ -1060,6 +1080,13 @@ function buildV2AudioItem(
                 declaration: {
                     id: item.id, t: at, path: resolvedPath,
                     ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                    ...sourceClipFx,
+                    ...itemClipFx,
+                    ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
+                    ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+                    ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+                    ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+                    ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {}),
                     ...(item.source.in !== undefined ? { in: item.source.in } : {}),
                     ...(item.source.out !== undefined ? { out: item.source.out } : {}),
                     ...(item.script !== undefined ? { script: item.script } : {}),
@@ -1083,7 +1110,13 @@ function buildV2AudioItem(
             ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
             ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),
             ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
-            ...(item.ducking !== undefined ? { ducking: item.ducking } : {})
+            ...sourceClipFx,
+            ...itemClipFx,
+            ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+            ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
+            ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+            ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+            ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {})
         };
         return {
             item: {
@@ -1094,7 +1127,13 @@ function buildV2AudioItem(
                     ...(item.fade_in !== undefined ? { fadeIn: item.fade_in } : {}),
                     ...(item.fade_out !== undefined ? { fadeOut: item.fade_out } : {}),
                     ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
-                    ...(item.ducking !== undefined ? { ducking: item.ducking } : {})
+                    ...sourceClipFx,
+                    ...itemClipFx,
+                    ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+                    ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
+                    ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+                    ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+                    ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {})
                 },
                 legacy: { collection: 'bgm', index: 0, value }
             }
@@ -1109,7 +1148,14 @@ function buildV2AudioItem(
         track: ref,
         in: inSeconds,
         ...(item.source.out !== undefined ? { out: item.source.out } : {}),
-        ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {})
+        ...(item.gain_db !== undefined ? { gainDb: item.gain_db } : {}),
+        ...sourceClipFx,
+        ...itemClipFx,
+        ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
+        ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+        ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+        ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+        ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {})
     };
     return {
         item: {
@@ -1119,8 +1165,15 @@ function buildV2AudioItem(
                 in: inSeconds,
                 ...(item.source.out !== undefined ? { out: item.source.out } : {}),
                 ...(item.gain_db !== undefined ? { gain_db: item.gain_db } : {}),
+                ...sourceClipFx,
+                ...itemClipFx,
+                ...(item.keyframes !== undefined ? { keyframes: structuredClone(item.keyframes) } : {}),
                 ...(item.fade_in !== undefined ? { fade_in: item.fade_in } : {}),
-                ...(item.fade_out !== undefined ? { fade_out: item.fade_out } : {})
+                ...(item.fade_out !== undefined ? { fade_out: item.fade_out } : {}),
+                ...(item.ducking !== undefined ? { ducking: item.ducking } : {}),
+                ...(item.duck_db !== undefined ? { duck_db: item.duck_db } : {}),
+                ...(item.duck_attack !== undefined ? { duck_attack: item.duck_attack } : {}),
+                ...(item.duck_release !== undefined ? { duck_release: item.duck_release } : {})
             },
             legacy: { collection: 'sfx', index: nextLegacyIndex(legacyIndexCounters, 'sfx'), value }
         }
@@ -1176,7 +1229,12 @@ function addV2AudioItems(
             id: typeof entry.id === 'string' ? entry.id : `sfx-${index}`,
             t: entry.t, duration, path: entry.path, track: ref, in: start,
             ...(end > start ? { out: end } : {}),
-            ...(typeof entry.gain_db === 'number' ? { gainDb: entry.gain_db } : {})
+            ...(typeof entry.gain_db === 'number' ? { gainDb: entry.gain_db } : {}),
+            ...(Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {}),
+            ...(typeof entry.ducking === 'boolean' ? { ducking: entry.ducking } : {}),
+            ...(typeof entry.duck_db === 'number' ? { duck_db: entry.duck_db } : {}),
+            ...(typeof entry.duck_attack === 'number' ? { duck_attack: entry.duck_attack } : {}),
+            ...(typeof entry.duck_release === 'number' ? { duck_release: entry.duck_release } : {})
         };
         ensureTrack(ref).items.push({
             id: value.id,
@@ -1197,6 +1255,11 @@ function addV2AudioItems(
             id: typeof entry.id === 'string' ? entry.id : `n-${String(index + 1).padStart(4, '0')}`,
             t: entry.t, path: entry.path,
             ...(typeof entry.gain_db === 'number' ? { gainDb: entry.gain_db } : {}),
+            ...(Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {}),
+            ...(typeof entry.ducking === 'boolean' ? { ducking: entry.ducking } : {}),
+            ...(typeof entry.duck_db === 'number' ? { duck_db: entry.duck_db } : {}),
+            ...(typeof entry.duck_attack === 'number' ? { duck_attack: entry.duck_attack } : {}),
+            ...(typeof entry.duck_release === 'number' ? { duck_release: entry.duck_release } : {}),
             ...(typeof entry.in === 'number' ? { in: entry.in } : {}),
             ...(typeof entry.out === 'number' ? { out: entry.out } : {}),
             ...(typeof entry.script === 'string' ? { script: entry.script } : {}),
@@ -1219,7 +1282,11 @@ function addV2AudioItems(
             ...(typeof entry.fadeIn === 'number' ? { fadeIn: entry.fadeIn } : {}),
             ...(typeof entry.fadeOut === 'number' ? { fadeOut: entry.fadeOut } : {}),
             ...(typeof entry.gain_db === 'number' ? { gainDb: entry.gain_db } : {}),
-            ...(typeof entry.ducking === 'boolean' ? { ducking: entry.ducking } : {})
+            ...(typeof entry.ducking === 'boolean' ? { ducking: entry.ducking } : {}),
+            ...(Array.isArray(entry.keyframes) ? { keyframes: structuredClone(entry.keyframes) } : {}),
+            ...(typeof entry.duck_db === 'number' ? { duck_db: entry.duck_db } : {}),
+            ...(typeof entry.duck_attack === 'number' ? { duck_attack: entry.duck_attack } : {}),
+            ...(typeof entry.duck_release === 'number' ? { duck_release: entry.duck_release } : {})
         };
         ensureTrack(0).items.push({
             id: 'bgm', atFrames: 0, durationFrames: 0, at: 0, duration: 0,
