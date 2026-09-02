@@ -34,6 +34,19 @@ test('readInternalEdit accepts v2 and keeps integer frames authoritative', () =>
   assert.equal(internal.tracks[0].items[0].duration, 2);
 });
 
+test('readInternalEdit projects clip adjust into the visual item declaration', () => {
+  const edit = base();
+  const adjust = {
+    basic: { exposure: 0.5, temperature: -0.25 },
+    lut: { lut: 'cinematic-warm', intensity: 0.75 },
+    sections: { basic: true, lut: false },
+  };
+  edit.tracks[0].items[0].adjust = adjust;
+  const internal = readInternalEdit(edit);
+  assert.deepEqual(internal.tracks[0].items[0].declaration.adjust, adjust);
+  assert.notEqual(internal.tracks[0].items[0].declaration.adjust, adjust);
+});
+
 test('shape items lower to inline HTML overlays and keep shared visual item behavior', () => {
   const source = {
     kind: 'shape',

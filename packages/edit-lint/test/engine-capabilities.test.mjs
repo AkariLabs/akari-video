@@ -79,6 +79,46 @@ test("--engine auto collapses matching gpu/osr perspective errors", async () => 
   }
 });
 
+test("valid clip adjust is structurally accepted and reported as one unsupported field", async () => {
+  const root = await createProject(mediaEdit({
+    adjust: {
+      basic: { exposure: 0.5, temperature: -0.25, saturation: 0.1 },
+      lut: { lut: "cinematic-warm", intensity: 0.75 },
+      sections: { basic: true, lut: false },
+    },
+  }));
+  try {
+    const result = await lintProject(root, { engine: "auto", writeReports: false });
+    const structural = result.findings.filter((finding) => finding.check.startsWith("adjust."));
+    assert.deepEqual(structural, []);
+    const unsupported = engineFindings(result).filter((finding) => finding.path.endsWith(".adjust"));
+    assert.equal(unsupported.length, 1);
+    assert.equal(unsupported[0].check, "engine.unsupported-field");
+    assert.equal(unsupported[0].severity, "error");
+    assert.match(unsupported[0].message, /^gpu\/osr: .*tracks\[\]\.items\[\]\.adjust/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("clip adjust structural violations fail before engine capability checks", async () => {
+  for (const [adjust, check] of [
+    [{ basic: { exposure: 3.01 } }, "adjust.basic.exposure"],
+    [{ basic: { gamma: 0.2 } }, "adjust.unknown-key"],
+    [{ lut: { lut: "" } }, "adjust.lut.lut"],
+    [{ sections: { lut: "off" } }, "adjust.sections.lut"],
+  ]) {
+    const root = await createProject(mediaEdit({ adjust }));
+    try {
+      const result = await lintProject(root, { writeReports: false });
+      assert.equal(result.verdict, "fail", check);
+      assert.ok(result.findings.some((finding) => finding.check === check), JSON.stringify(result.findings));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
 test("the same perspective field is consumed after mask projects the media item to layers", async () => {
   const root = await createProject(mediaEdit({
     mask: "mask",

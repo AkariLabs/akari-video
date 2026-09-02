@@ -60,6 +60,48 @@
       },
       "$comment": "docs/contract-2026-07-22-render-basics.md #4。lut はプリセット参照名（presets/luts/ 配下）または .cube への相対パス。intensity 省略時 1.0。"
     },
+    "adjustBasicV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "exposure": { "type": "number", "minimum": -3, "maximum": 3 },
+        "contrast": { "type": "number", "minimum": -1, "maximum": 1 },
+        "highlights": { "type": "number", "minimum": -1, "maximum": 1 },
+        "shadows": { "type": "number", "minimum": -1, "maximum": 1 },
+        "blacks": { "type": "number", "minimum": -1, "maximum": 1 },
+        "whites": { "type": "number", "minimum": -1, "maximum": 1 },
+        "temperature": { "type": "number", "minimum": -1, "maximum": 1 },
+        "tint": { "type": "number", "minimum": -1, "maximum": 1 },
+        "vibrance": { "type": "number", "minimum": -1, "maximum": 1 },
+        "saturation": { "type": "number", "minimum": -1, "maximum": 1 }
+      }
+    },
+    "adjustLutV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lut"],
+      "properties": {
+        "lut": { "type": "string", "minLength": 1, "pattern": "\\S" },
+        "intensity": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "adjustV0": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "basic": { "$ref": "#/$defs/adjustBasicV0" },
+        "lut": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/adjustLutV0" }] },
+        "sections": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "basic": { "type": "boolean" },
+            "lut": { "type": "boolean" }
+          }
+        }
+      },
+      "$comment": "正本は docs/contract-2026-09-03-clip-adjust-v0.md。v2 visual item の per-clip 補正で、未指定の値は中立、sections は false のときだけ該当段をバイパスする。"
+    },
     "output": {
       "type": "object",
       "additionalProperties": true,
@@ -971,6 +1013,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "adjust": { "$ref": "#/$defs/adjustV0" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -997,6 +1040,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "adjust": { "$ref": "#/$defs/adjustV0" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1045,6 +1089,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "adjust": { "$ref": "#/$defs/adjustV0" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1069,6 +1114,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "adjust": { "$ref": "#/$defs/adjustV0" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1093,6 +1139,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "adjust": { "$ref": "#/$defs/adjustV0" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1116,6 +1163,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "adjust": { "$ref": "#/$defs/adjustV0" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },
@@ -1139,6 +1187,7 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
         "blend": { "$ref": "#/$defs/layerBlendMode" },
         "crop": { "$ref": "#/$defs/layerCrop" },
+        "adjust": { "$ref": "#/$defs/adjustV0" },
         "perspective": { "$ref": "#/$defs/layerPerspective" },
         "motion": { "$ref": "#/$defs/motionV0" },
         "animator": { "type": "array", "items": { "$ref": "#/$defs/animatorV0" } },

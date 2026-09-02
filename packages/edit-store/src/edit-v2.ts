@@ -152,6 +152,30 @@ export interface CaptionSourceV2 { kind: 'caption'; path: 'captions.json'; id: s
 export type SourceV2 = MediaSourceV2 | HtmlSourceV2 | ShapeSourceV2 | TelopSourceV2 | FilterSourceV2
     | GroupSourceV2 | CaptionsSourceV2 | CaptionSourceV2;
 
+export interface AdjustBasicV0 {
+    exposure?: number;
+    contrast?: number;
+    highlights?: number;
+    shadows?: number;
+    blacks?: number;
+    whites?: number;
+    temperature?: number;
+    tint?: number;
+    vibrance?: number;
+    saturation?: number;
+}
+
+export interface AdjustLutV0 {
+    lut: string;
+    intensity?: number;
+}
+
+export interface AdjustV0 {
+    basic?: AdjustBasicV0;
+    lut?: AdjustLutV0 | null;
+    sections?: { basic?: boolean; lut?: boolean };
+}
+
 export interface ItemV2Base {
     id: string;
     name?: string;
@@ -166,6 +190,7 @@ export interface ItemV2Base {
     opacity?: number;
     blend?: BlendModeV2;
     crop?: CropV2;
+    adjust?: AdjustV0;
     perspective?: Record<string, unknown>;
     motion?: MotionV0;
     animator?: AnimatorV0[];
@@ -298,7 +323,7 @@ const SHAPE_KINDS = new Set<ShapeKindV0>([
     'rect', 'rounded-rect', 'ellipse', 'line', 'arrow', 'speech-bubble'
 ]);
 const ITEM_KEYS = new Set([
-    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'perspective',
+    'id', 'name', 'hidden', 'locked', 'at', 'duration', 'transform', 'opacity', 'blend', 'crop', 'adjust', 'perspective',
     'motion', 'animator', 'keyframes', 'items', 'mask', 'source'
 ]);
 const AUDIO_ITEM_KEYS = new Set([
@@ -552,6 +577,7 @@ function validateItem(
         throw invalid(`${path}.blend`, '未対応の blend mode です');
     }
     if (hasOwn(value, 'crop')) validateCrop(value.crop, `${path}.crop`);
+    if (hasOwn(value, 'adjust')) validateAdjust(value.adjust, `${path}.adjust`);
     if (hasOwn(value, 'perspective')) requireRecord(value.perspective, `${path}.perspective`);
     if (hasOwn(value, 'motion')) validateMotion(value.motion, `${path}.motion`);
     if (hasOwn(value, 'animator')) validateAnimators(value.animator, `${path}.animator`);
@@ -712,6 +738,40 @@ function validateCrop(value: unknown, path: string): asserts value is CropV2 {
     for (const key of ['w', 'h']) {
         requireRange(value[key], 0, 1, `${path}.${key}`);
         if (value[key] === 0) throw invalid(`${path}.${key}`, '0 より大きい必要があります');
+    }
+}
+
+function validateAdjust(value: unknown, path: string): asserts value is AdjustV0 {
+    requireRecord(value, path);
+    requireExactKeys(value, new Set(['basic', 'lut', 'sections']), path);
+    if (hasOwn(value, 'basic')) {
+        requireRecord(value.basic, `${path}.basic`);
+        const basicKeys = new Set([
+            'exposure', 'contrast', 'highlights', 'shadows', 'blacks', 'whites',
+            'temperature', 'tint', 'vibrance', 'saturation'
+        ]);
+        requireExactKeys(value.basic, basicKeys, `${path}.basic`);
+        for (const key of basicKeys) {
+            if (!hasOwn(value.basic, key)) continue;
+            const [minimum, maximum] = key === 'exposure' ? [-3, 3] : [-1, 1];
+            requireRange(value.basic[key], minimum, maximum, `${path}.basic.${key}`);
+        }
+    }
+    if (hasOwn(value, 'lut') && value.lut !== null) {
+        requireRecord(value.lut, `${path}.lut`);
+        requireExactKeys(value.lut, new Set(['lut', 'intensity']), `${path}.lut`);
+        requireText(value.lut.lut, `${path}.lut.lut`);
+        if (hasOwn(value.lut, 'intensity')) requireRange(value.lut.intensity, 0, 1, `${path}.lut.intensity`);
+    }
+    if (hasOwn(value, 'sections')) {
+        requireRecord(value.sections, `${path}.sections`);
+        const sectionKeys = new Set(['basic', 'lut']);
+        requireExactKeys(value.sections, sectionKeys, `${path}.sections`);
+        for (const key of sectionKeys) {
+            if (hasOwn(value.sections, key) && typeof value.sections[key] !== 'boolean') {
+                throw invalid(`${path}.sections.${key}`, 'boolean である必要があります');
+            }
+        }
     }
 }
 

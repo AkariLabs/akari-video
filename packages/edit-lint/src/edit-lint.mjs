@@ -1079,6 +1079,9 @@ function validateEditV2(edit, findings) {
             });
           }
         }
+        if (Object.hasOwn(item, "adjust")) {
+          validateAdjust(item.adjust, findings, `${itemPath}.adjust`);
+        }
         if (Array.isArray(item.items)) visit(item.items, item, `${itemPath}.items`);
       }
     };
@@ -1541,6 +1544,104 @@ function validateLook(value, findings, path) {
     (!isFiniteNumber(value.intensity) || value.intensity < 0 || value.intensity > 1)
   ) {
     addFinding(findings, { severity: "error", check: "output.look.intensity", message: "intensity must be a finite number within [0, 1]", path });
+  }
+}
+
+// docs/contract-2026-09-03-clip-adjust-v0.md。edit-lint は依存ゼロを保つため、schema と
+// validate-edit.mjs の閉じた adjust 語彙をここでも独立に検証する。
+function validateAdjust(value, findings, path) {
+  if (!isRecord(value)) {
+    addFinding(findings, {
+      severity: "error", check: "adjust.structure", message: "adjust must be an object", path,
+    });
+    return;
+  }
+  const reportUnknownKeys = (record, allowed, ownerPath) => {
+    for (const key of Object.keys(record)) {
+      if (allowed.has(key)) continue;
+      addFinding(findings, {
+        severity: "error",
+        check: "adjust.unknown-key",
+        message: `${key} is not defined by clip adjust v0`,
+        path: `${ownerPath}.${key}`,
+      });
+    }
+  };
+  reportUnknownKeys(value, new Set(["basic", "lut", "sections"]), path);
+
+  if (Object.hasOwn(value, "basic")) {
+    const basicPath = `${path}.basic`;
+    if (!isRecord(value.basic)) {
+      addFinding(findings, {
+        severity: "error", check: "adjust.basic.structure", message: "basic must be an object", path: basicPath,
+      });
+    } else {
+      const basicKeys = new Set([
+        "exposure", "contrast", "highlights", "shadows", "blacks", "whites",
+        "temperature", "tint", "vibrance", "saturation",
+      ]);
+      reportUnknownKeys(value.basic, basicKeys, basicPath);
+      for (const key of basicKeys) {
+        if (!Object.hasOwn(value.basic, key)) continue;
+        const minimum = key === "exposure" ? -3 : -1;
+        const maximum = key === "exposure" ? 3 : 1;
+        if (!isFiniteNumber(value.basic[key]) || value.basic[key] < minimum || value.basic[key] > maximum) {
+          addFinding(findings, {
+            severity: "error",
+            check: `adjust.basic.${key}`,
+            message: `${key} must be a finite number within [${minimum}, ${maximum}]`,
+            path: `${basicPath}.${key}`,
+          });
+        }
+      }
+    }
+  }
+
+  if (Object.hasOwn(value, "lut") && value.lut !== null) {
+    const lutPath = `${path}.lut`;
+    if (!isRecord(value.lut)) {
+      addFinding(findings, {
+        severity: "error", check: "adjust.lut.structure", message: "lut must be null or an object", path: lutPath,
+      });
+    } else {
+      reportUnknownKeys(value.lut, new Set(["lut", "intensity"]), lutPath);
+      if (!isNonEmptyString(value.lut.lut)) {
+        addFinding(findings, {
+          severity: "error", check: "adjust.lut.lut", message: "lut must be a non-empty string", path: `${lutPath}.lut`,
+        });
+      }
+      if (Object.hasOwn(value.lut, "intensity")
+        && (!isFiniteNumber(value.lut.intensity) || value.lut.intensity < 0 || value.lut.intensity > 1)) {
+        addFinding(findings, {
+          severity: "error",
+          check: "adjust.lut.intensity",
+          message: "intensity must be a finite number within [0, 1]",
+          path: `${lutPath}.intensity`,
+        });
+      }
+    }
+  }
+
+  if (Object.hasOwn(value, "sections")) {
+    const sectionsPath = `${path}.sections`;
+    if (!isRecord(value.sections)) {
+      addFinding(findings, {
+        severity: "error", check: "adjust.sections.structure", message: "sections must be an object", path: sectionsPath,
+      });
+    } else {
+      const sectionKeys = new Set(["basic", "lut"]);
+      reportUnknownKeys(value.sections, sectionKeys, sectionsPath);
+      for (const key of sectionKeys) {
+        if (Object.hasOwn(value.sections, key) && typeof value.sections[key] !== "boolean") {
+          addFinding(findings, {
+            severity: "error",
+            check: `adjust.sections.${key}`,
+            message: `${key} must be a boolean`,
+            path: `${sectionsPath}.${key}`,
+          });
+        }
+      }
+    }
   }
 }
 
