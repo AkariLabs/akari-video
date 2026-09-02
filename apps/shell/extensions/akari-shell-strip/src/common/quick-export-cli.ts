@@ -20,7 +20,7 @@ import { DEFAULT_EXPORT_OUTPUT_NAME } from './export-request-packet';
 
 export const QUICK_EXPORT_OUTPUT_DIRECTORY = 'exports';
 
-export type QuickExportQuality = 'high' | 'standard' | 'light';
+export type QuickExportQuality = 'master' | 'high' | 'standard' | 'light';
 export type QuickExportEngine = 'auto' | 'gpu' | 'osr';
 export type QuickExportEncoder = 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
 

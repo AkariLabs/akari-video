@@ -16,7 +16,7 @@ export interface QuickExportStartRequest {
     readonly outputName: string;
     readonly rerunLint: boolean;
     /** 既定（'standard'）なら render-cut に --quality を渡さない。 */
-    readonly quality?: 'high' | 'standard' | 'light';
+    readonly quality?: 'master' | 'high' | 'standard' | 'light';
     /** 未指定でも render-cut に --engine auto を明示送信する。 */
     readonly engine?: 'auto' | 'gpu' | 'osr';
     /** 未指定でも render-cut に --encoder auto を明示送信する。 */
@@ -37,6 +37,7 @@ export type QuickExportPhase =
     | 'lint-failed'
     | 'rendering'
     | 'done'
+    | 'cancelled'
     | 'failed';
 
 export interface QuickExportLintFinding {
@@ -84,4 +85,6 @@ export interface QuickExportStatus {
 export interface AkariQuickExportService {
     start(request: QuickExportStartRequest): Promise<QuickExportStartOutcome>;
     getStatus(): Promise<QuickExportStatus>;
+    cancel(): Promise<{ cancelled: boolean }>;
+    revealArtifact(): Promise<{ revealed: boolean }>;
 }
