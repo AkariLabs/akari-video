@@ -77,6 +77,13 @@ interface PrepareSpeechAtempoRequest {
     padBeforeSec?: number;
     padAfterSec?: number;
     heavyWavOnly?: boolean;
+    clipFx?: {
+        speed?: number;
+        pitch_semitones?: number;
+        formant?: 'preserve' | 'shift';
+        denoise?: { method: 'fft' | 'nlm'; strength: number };
+        lowcut_hz?: number;
+    };
     workspaceRoots?: string[];
 }
 
@@ -566,7 +573,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
             }
             const module = await this.loadSpeechAtempoModule();
             const sourceStat = await stat(sourcePath);
-            if (request.heavyWavOnly === true
+            if (request.heavyWavOnly === true && request.clipFx === undefined
                 && (extname(sourcePath).toLowerCase() !== '.wav' || sourceStat.size <= 8 * 1024 * 1024)) {
                 return {
                     ok: false, skipped: false, eligible: false,
@@ -587,6 +594,7 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 speed: request.speed,
                 padBeforeSec: request.padBeforeSec ?? 0,
                 padAfterSec: request.padAfterSec ?? 0,
+                ...(request.clipFx !== undefined ? { clipFx: request.clipFx } : {}),
                 ffmpeg: await resolveFfmpegPath(),
                 cacheDir: join(projectRoot, '.akari', 'cache')
             });
@@ -598,7 +606,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                     durationSec: 0,
                     generatedMs,
                     eligible: true,
-                    reason: result.reason ?? 'preview audio sidecar generation failed'
+                    reason: `${request.clipFx !== undefined
+                        ? 'preview approximation will differ from export: ' : ''}${
+                        result.reason ?? 'preview audio sidecar generation failed'}`
                 };
             }
             const stream = await this.createAssetStream({
@@ -623,7 +633,9 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                 skipped: false,
                 durationSec: 0,
                 generatedMs: Date.now() - startedAt,
-                reason: error instanceof Error ? error.message : String(error)
+                reason: `${request?.clipFx !== undefined
+                    ? 'preview approximation will differ from export: ' : ''}${
+                    error instanceof Error ? error.message : String(error)}`
             };
         }
     }

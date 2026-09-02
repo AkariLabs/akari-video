@@ -652,3 +652,30 @@ test('migrateEditToV2 の最終自己検証の根拠: readEditV2 は item.crop: 
   };
   assert.throws(() => readEditV2(brokenDoc), /crop.*object である必要があります/s);
 });
+
+test('legacy audio envelope は秒からフレームへ変換し duck 設定と鍵を保持する', () => {
+  const doc = base(1);
+  doc.audio = {
+    bgm: {
+      path: 'music.wav', ducking: true, duck_db: -9, duck_attack: 0.2, duck_release: 0.7,
+      keyframes: [{ t: 0, gain_db: 0 }, { t: 2, gain_db: -12 }],
+    },
+    sfx: [{
+      id: 'hit', path: 'hit.wav', t: 0.5, ducking: true,
+      keyframes: [{ t: 0, gain_db: 0 }, { t: 0.25, gain_db: -6 }],
+    }],
+    duck_keys: ['speech'],
+  };
+  const result = migrateEditToV2(doc);
+  assert.equal(result.ok, true, result.blockers?.join('\n'));
+  const items = result.doc.tracks.flatMap(track => track.items ?? []);
+  const bgm = items.find(item => item.role === 'bgm');
+  const sfx = items.find(item => item.id === 'hit');
+  assert.deepEqual(bgm.keyframes.map(point => point.t), [0, 60]);
+  assert.deepEqual(sfx.keyframes.map(point => point.t), [0, 8]);
+  assert.deepEqual(
+    [bgm.ducking, bgm.duck_db, bgm.duck_attack, bgm.duck_release],
+    [true, -9, 0.2, 0.7],
+  );
+  assert.deepEqual(result.doc.audio.duck_keys, ['speech']);
+});

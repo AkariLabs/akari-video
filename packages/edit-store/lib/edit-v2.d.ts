@@ -26,6 +26,7 @@ export interface CropV2 {
     h: number;
     [key: string]: unknown;
 }
+export type EasingV2 = string;
 export interface KeyframeV2 {
     /** アイテム内のローカル時間（整数フレーム、item.at を 0 とする）。 */
     t: number;
@@ -33,12 +34,13 @@ export interface KeyframeV2 {
     crop?: CropV2;
     perspective?: Record<string, unknown>;
     opacity?: number;
+    gain_db?: number;
     animator?: Record<string, {
         offset?: number;
         start?: number;
         end?: number;
     }>;
-    easing?: string | Record<string, string>;
+    easing?: EasingV2 | Record<string, EasingV2>;
     [key: string]: unknown;
 }
 export interface KeyframesReferenceV2 {
@@ -98,6 +100,9 @@ export interface AudioMediaSourceV2 {
     in?: number;
     /** 素材ファイル内のトリム終端（秒）。省略時はファイル末尾。 */
     out?: number;
+    speed?: number;
+    pitch_semitones?: number;
+    formant?: 'preserve' | 'shift';
 }
 export interface HtmlSourceV2 {
     kind: 'html';
@@ -214,9 +219,18 @@ export interface AudioMediaItemV2 {
     role?: AudioRoleV2;
     source: AudioMediaSourceV2;
     gain_db?: number;
+    denoise?: {
+        method: 'fft' | 'nlm';
+        strength: number;
+    };
+    lowcut_hz?: number;
+    keyframes?: KeyframeV2[];
     fade_in?: number;
     fade_out?: number;
     ducking?: boolean;
+    duck_db?: number;
+    duck_attack?: number;
+    duck_release?: number;
     script?: string;
     reading?: string;
     provenance?: NarrationProvenanceV2;

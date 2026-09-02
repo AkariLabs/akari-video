@@ -21,7 +21,7 @@ test('frame-engine Web UI は共有 audio schedule を Web Audio ノードへ供
   assert.match(supplySource, /createGain\(\)/u);
   assert.match(supplySource, /source\.playbackRate\.value = item\.playbackRate/u);
   assert.match(supplySource, /item\.sourceDurationSec/u);
-  assert.match(supplySource, /item\.duckingEvents/u);
+  assert.match(supplySource, /item\.envelopeEvents/u);
   assert.match(supplySource, /DEFAULT_DECODE_CACHE_BYTES = 256 \* 1024 \* 1024/u);
   assert.match(supplySource, /await Promise\.all\(\[worker\(\), worker\(\)\]\)/u);
   assert.match(source, /this\.audio\.prime\(\)/u);

@@ -1,0 +1,15 @@
+Input #0, lavfi, from 'sine=f=1000:r=48000:d=5':
+[Parsed_astats_3 @ 0000000000000000] Overall
+[Parsed_astats_3 @ 0000000000000000] Peak level dB: -20.002121
+[Parsed_astats_3 @ 0000000000000000] RMS level dB: -23.012265
+[Parsed_ebur128_2 @ 0000000000000000] Summary:
+  Integrated loudness:
+    I:         -23.0 LUFS
+    Threshold: -33.0 LUFS
+  Loudness range:
+    LRA:         0.0 LU
+    Threshold: -43.0 LUFS
+    LRA low:   -23.0 LUFS
+    LRA high:  -23.0 LUFS
+  True peak:
+    Peak:      -20.0 dBFS

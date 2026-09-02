@@ -323,6 +323,7 @@ export async function lintProject(input, options = {}) {
   validateOverlayBackgroundRole(edit.overlays, findings);
   await validateNarration(edit?.audio?.narration, timeline, findings, paths);
   await validateBgmSfx(edit?.audio?.bgm, edit?.audio?.sfx, timeline, findings, paths);
+  validateAudioDuckKeys(edit?.audio?.duck_keys, findings);
   await validateMusicGrid(
     edit?.audio?.bgm,
     edit?.audio?.sfx,
@@ -972,6 +973,7 @@ function validateEditStructure(edit, findings, paths) {
 // notes-2026-08-18-timeline-latency-and-track-model.md §9 / §10-1。
 // v2 Phase 0 は既存 v0/v1 の検証パイプラインへ混ぜず、トラック正本の最小不変条件だけを検査する。
 function validateEditV2(edit, findings) {
+  validateAudioDuckKeys(edit?.audio?.duck_keys, findings);
   if (!Array.isArray(edit.tracks)) {
     addFinding(findings, {
       severity: "error",
@@ -1196,6 +1198,16 @@ function validateEditV2(edit, findings) {
             path: `${itemPath}.gain_db`,
           });
         }
+        validateAudioEnvelopeDeclaration(item, role, item.duration, findings, itemPath, {
+          v2: true,
+          timeScale: edit.output?.fps,
+        });
+        if (isRecord(item.source)) {
+          validateAudioClipFxDeclaration(item.source, role, findings, itemPath, {
+            sourcePath: `${itemPath}.source`,
+          });
+        }
+        validateAudioClipFxDeclaration(item, role, findings, itemPath);
         for (const [field, bgmField] of [["fade_in", "fadeIn"], ["fade_out", "fadeOut"]]) {
           if (!Object.hasOwn(item, field) || (isFiniteNumber(item[field]) && item[field] >= 0)) continue;
           addFinding(findings, {
@@ -2550,6 +2562,14 @@ async function validateNarration(narration, timeline, findings, paths) {
         path: itemPath,
       });
     }
+    validateAudioEnvelopeDeclaration(
+      item,
+      "narration",
+      isFiniteNumber(item.in) && isFiniteNumber(item.out) && item.out > item.in ? item.out - item.in : null,
+      findings,
+      itemPath,
+    );
+    validateAudioClipFxDeclaration(item, "narration", findings, itemPath);
 
   }
 }
@@ -2607,6 +2627,8 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
           path: "edit.json#audio.bgm",
         });
       }
+      validateAudioEnvelopeDeclaration(bgm, "bgm", timeline, findings, "edit.json#audio.bgm");
+      validateAudioClipFxDeclaration(bgm, "bgm", findings, "edit.json#audio.bgm");
       // audio.bgm.fadeIn/fadeOut clamp rule: render-cut trims/loops bgm to the full timeline, so
       // fadeIn/fadeOut are each independently clamped there at timeline/2 -- warn here so the same
       // overshoot is visible before rendering.
@@ -2697,6 +2719,14 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
         path: itemPath,
       });
     }
+    validateAudioEnvelopeDeclaration(
+      item,
+      "sfx",
+      isFiniteNumber(item.in) && isFiniteNumber(item.out) && item.out > item.in ? item.out - item.in : null,
+      findings,
+      itemPath,
+    );
+    validateAudioClipFxDeclaration(item, "sfx", findings, itemPath);
     // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: in/out はどちらも省略可（片方のみの
     // 指定は valid）で、型不正（負値・非数値）は schema 側（edit.schema.json + validate-edit.mjs）が
     // 拒否する。edit-lint はスキーマ単体では表せない兄弟値の関係（out > in）だけをここで検証する
@@ -2762,6 +2792,182 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
       }
     }
   }
+}
+
+function validateAudioDuckKeys(value, findings) {
+  if (value === undefined) return;
+  if (!Array.isArray(value) || value.some(key => key !== "narration" && key !== "speech")
+      || new Set(value).size !== value.length) {
+    addFinding(findings, {
+      severity: "error",
+      check: "audio.duck-keys",
+      message: "duck_keys must contain unique narration/speech values",
+      path: "edit.json#audio.duck_keys",
+    });
+  }
+}
+
+function validateAudioClipFxDeclaration(value, role, findings, path, options = {}) {
+  if (!isRecord(value)) return;
+  const sourcePath = options.sourcePath ?? path;
+  if (Object.hasOwn(value, "speed")) {
+    if (!isFiniteNumber(value.speed) || value.speed <= 0.25 || value.speed > 4) {
+      addFinding(findings, {
+        severity: "error", check: `audio.${role}.speed`,
+        message: "speed must be a finite number within (0.25, 4]", path: `${sourcePath}.speed`,
+      });
+    }
+    if (role === "narration") {
+      addFinding(findings, {
+        severity: "warning", check: "audio.narration.speed-ignored",
+        message: "narration speed is owned by TTS and will be ignored", path: `${sourcePath}.speed`,
+      });
+    }
+  }
+  if (Object.hasOwn(value, "pitch_semitones")) {
+    if (!isFiniteNumber(value.pitch_semitones)
+        || value.pitch_semitones < -24 || value.pitch_semitones > 24) {
+      addFinding(findings, {
+        severity: "error", check: `audio.${role}.pitch-semitones`,
+        message: "pitch_semitones must be a finite number within [-24, 24]",
+        path: `${sourcePath}.pitch_semitones`,
+      });
+    }
+    if (role === "narration") {
+      addFinding(findings, {
+        severity: "warning", check: "audio.narration.pitch-ignored",
+        message: "narration pitch_semitones is owned by TTS and will be ignored",
+        path: `${sourcePath}.pitch_semitones`,
+      });
+    }
+  }
+  if (Object.hasOwn(value, "formant") && value.formant !== "preserve" && value.formant !== "shift") {
+    addFinding(findings, {
+      severity: "error", check: `audio.${role}.formant`,
+      message: "formant must be preserve or shift", path: `${sourcePath}.formant`,
+    });
+  }
+  if (Object.hasOwn(value, "lowcut_hz")
+      && (!isFiniteNumber(value.lowcut_hz) || value.lowcut_hz < 0 || value.lowcut_hz > 400)) {
+    addFinding(findings, {
+      severity: "error", check: `audio.${role}.lowcut-hz`,
+      message: "lowcut_hz must be a finite number within [0, 400]", path: `${path}.lowcut_hz`,
+    });
+  }
+  if (!Object.hasOwn(value, "denoise")) return;
+  if (!isRecord(value.denoise)) {
+    addFinding(findings, {
+      severity: "error", check: `audio.${role}.denoise`,
+      message: "denoise must be an object", path: `${path}.denoise`,
+    });
+    return;
+  }
+  if (value.denoise.method !== "fft" && value.denoise.method !== "nlm") {
+    addFinding(findings, {
+      severity: "error", check: `audio.${role}.denoise-method`,
+      message: "denoise.method must be fft or nlm", path: `${path}.denoise.method`,
+    });
+  }
+  if (!isFiniteNumber(value.denoise.strength)
+      || value.denoise.strength < 0 || value.denoise.strength > 1) {
+    addFinding(findings, {
+      severity: "error", check: `audio.${role}.denoise-strength`,
+      message: "denoise.strength must be a finite number within [0, 1]",
+      path: `${path}.denoise.strength`,
+    });
+  }
+}
+
+function validateAudioEnvelopeDeclaration(value, role, effectiveDuration, findings, path, options = {}) {
+  if (!isRecord(value)) return;
+  if (Object.hasOwn(value, "ducking") && typeof value.ducking !== "boolean") {
+    addFinding(findings, {
+      severity: "error",
+      check: `audio.${role}.ducking`,
+      message: "ducking must be a boolean",
+      path: `${path}.ducking`,
+    });
+  }
+  if (role === "narration" && value.ducking === true) {
+    addFinding(findings, {
+      severity: "warning",
+      check: "audio.narration.ducking-target",
+      message: "narration is a duck key and ignores ducking:true as a target",
+      path: `${path}.ducking`,
+    });
+  }
+  for (const [field, minimum, maximum] of [
+    ["duck_db", -40, 0], ["duck_attack", 0, 2], ["duck_release", 0, 5],
+  ]) {
+    if (!Object.hasOwn(value, field)) continue;
+    if (!isFiniteNumber(value[field]) || value[field] < minimum || value[field] > maximum) {
+      addFinding(findings, {
+        severity: "error",
+        check: `audio.${role}.${field}`,
+        message: `${field} must be a finite number within [${minimum}, ${maximum}]`,
+        path: `${path}.${field}`,
+      });
+    }
+  }
+  if (!Object.hasOwn(value, "keyframes")) return;
+  if (!Array.isArray(value.keyframes) || value.keyframes.length < 2) {
+    addFinding(findings, {
+      severity: "error",
+      check: "audio.keyframes.structure",
+      message: "audio keyframes must contain at least two points",
+      path: `${path}.keyframes`,
+    });
+    return;
+  }
+  let previousT = null;
+  value.keyframes.forEach((point, index) => {
+    const pointPath = `${path}.keyframes[${index}]`;
+    if (!isRecord(point)) {
+      addFinding(findings, { severity: "error", check: "audio.keyframes.structure", message: "keyframe must be an object", path: pointPath });
+      return;
+    }
+    if (!isFiniteNumber(point.t) || point.t < 0) {
+      addFinding(findings, { severity: "error", check: "audio.keyframes.t", message: "t must be a non-negative finite number", path: `${pointPath}.t` });
+    } else {
+      if (previousT !== null && point.t <= previousT) {
+        addFinding(findings, {
+          severity: "error",
+          check: "audio.keyframes.t-order",
+          message: "audio keyframe t values must be strictly increasing",
+          path: `${pointPath}.t`,
+        });
+      }
+      previousT = point.t;
+      if (isFiniteNumber(effectiveDuration) && point.t > effectiveDuration + EPSILON) {
+        const unit = options.v2 ? "frames" : "s";
+        addFinding(findings, {
+          severity: "warning",
+          check: "audio.keyframes.duration",
+          message: `keyframe t ${formatNumber(point.t)}${unit} exceeds effective duration ${formatNumber(effectiveDuration)}${unit}`,
+          path: `${pointPath}.t`,
+        });
+      }
+    }
+    if (!isFiniteNumber(point.gain_db) || point.gain_db < -60 || point.gain_db > 12) {
+      addFinding(findings, {
+        severity: "error",
+        check: "audio.keyframes.gain-db",
+        message: "gain_db must be a finite number within [-60, 12]",
+        path: `${pointPath}.gain_db`,
+      });
+    }
+    if (options.v2) {
+      for (const key of Object.keys(point)) {
+        if (["t", "gain_db", "easing"].includes(key)) continue;
+        addFinding(findings, {
+          severity: "warning",
+          check: "v2.audio-keyframe-ignored-key",
+          message: `${key} is ignored on audio keyframes`,
+          path: `${pointPath}.${key}`,
+        });
+      }
+    }
+  });
 }
 
 async function validateMusicGrid(bgm, sfx, timeline, findings, skipped, paths, options) {

@@ -41,6 +41,7 @@ __exportStar(require("./cut-adjacency"), exports);
 __exportStar(require("./transition-vocabulary"), exports);
 __exportStar(require("./transition-visual"), exports);
 __exportStar(require("./ducking"), exports);
+__exportStar(require("./envelope"), exports);
 __exportStar(require("./audio-schedule"), exports);
 __exportStar(require("./canonical"), exports);
 __exportStar(require("./tree-ops"), exports);

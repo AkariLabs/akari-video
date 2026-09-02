@@ -20,13 +20,12 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import {
     buildTimelineMap,
     collectExcludedCaptionIds,
-    computeDuckIntervals,
-    isWithinDuckInterval,
+    computeDuckEnvelope,
+    evaluateEnvelopeDb,
     projectLegacyAudioView,
     projectSpeechDeclarations,
     resolveInternalTrackZ,
     resolvePreviewItemWrite,
-    STATIC_DUCK_GAIN_DB,
     TRANSITION_VOCABULARY,
     TimelineSegment
 } from '@akari-video/edit-store';
@@ -386,12 +385,16 @@ interface EditSummaryVideoFx {
 interface EditSummaryAudioSource {
     src: string;
     gainDb: number;
+    keyframes?: Array<{ t: number; gainDb: number; easing?: string }>;
     sidecar?: PreviewAudioSidecarSummary;
 }
 
 interface EditSummaryBgm extends EditSummaryAudioSource {
     track?: number;
     ducking: boolean;
+    duckDb?: number;
+    duckAttack?: number;
+    duckRelease?: number;
     fadeIn?: number;
     fadeOut?: number;
     // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2: file-internal start offset (素材秒).
@@ -413,6 +416,10 @@ interface EditSummaryTimedAudio extends EditSummaryAudioSource {
     // file's own TS field-naming convention for every other JSON-sourced audio field.
     fadeIn?: number;
     fadeOut?: number;
+    ducking?: boolean;
+    duckDb?: number;
+    duckAttack?: number;
+    duckRelease?: number;
 }
 
 interface EditSummaryAudio {
@@ -4025,6 +4032,62 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             }
             return clamped;
         };
+        const keyframes = (
+            value: unknown,
+            label: string
+        ): Array<{ t: number; gainDb: number; easing?: string }> | undefined => {
+            if (value === undefined) return undefined;
+            if (!Array.isArray(value)) {
+                console.warn(`[akari-preview] ${label}.keyframes を無視しました（array ではありません）`);
+                return undefined;
+            }
+            return value.flatMap((point, index) => {
+                if (!point || typeof point !== 'object' || Array.isArray(point)) {
+                    console.warn(`[akari-preview] ${label}.keyframes[${index}] を無視しました（object ではありません）`);
+                    return [];
+                }
+                const raw = point as { t?: unknown; gain_db?: unknown; easing?: unknown };
+                if (typeof raw.t !== 'number' || !Number.isFinite(raw.t) || raw.t < 0) {
+                    console.warn(`[akari-preview] ${label}.keyframes[${index}] を無視しました（t 不正）`);
+                    return [];
+                }
+                const normalizedGain = raw.gain_db === undefined ? 0 : gainDb(raw.gain_db, `${label}.keyframes[${index}]`);
+                if (normalizedGain === undefined) return [];
+                return [{
+                    t: raw.t,
+                    gainDb: normalizedGain,
+                    ...(typeof raw.easing === 'string' ? { easing: raw.easing } : {})
+                }];
+            }).sort((left, right) => left.t - right.t);
+        };
+        const duckOptions = (
+            value: {
+                ducking?: unknown;
+                duck_db?: unknown;
+                duckDb?: unknown;
+                duck_attack?: unknown;
+                duckAttack?: unknown;
+                duck_release?: unknown;
+                duckRelease?: unknown;
+            },
+            label: string
+        ): Pick<EditSummaryTimedAudio, 'ducking' | 'duckDb' | 'duckAttack' | 'duckRelease'> => {
+            const ranged = (raw: unknown, minimum: number, maximum: number, field: string): number | undefined => {
+                if (raw === undefined) return undefined;
+                if (typeof raw === 'number' && Number.isFinite(raw) && raw >= minimum && raw <= maximum) return raw;
+                console.warn(`[akari-preview] ${label}.${field} を無視しました（${minimum}..${maximum} の有限 number ではありません）`, raw);
+                return undefined;
+            };
+            const duckDb = ranged(value.duck_db ?? value.duckDb, -40, 0, 'duck_db');
+            const duckAttack = ranged(value.duck_attack ?? value.duckAttack, 0, 2, 'duck_attack');
+            const duckRelease = ranged(value.duck_release ?? value.duckRelease, 0, 5, 'duck_release');
+            return {
+                ...(typeof value.ducking === 'boolean' ? { ducking: value.ducking } : {}),
+                ...(duckDb !== undefined ? { duckDb } : {}),
+                ...(duckAttack !== undefined ? { duckAttack } : {}),
+                ...(duckRelease !== undefined ? { duckRelease } : {})
+            };
+        };
         const timed = async (items: unknown, kind: 'sfx' | 'narration'): Promise<EditSummaryTimedAudio[]> => {
             if (items === undefined) {
                 return [];
@@ -4046,6 +4109,14 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     out?: unknown;
                     fade_in?: unknown;
                     fade_out?: unknown;
+                    keyframes?: unknown;
+                    ducking?: unknown;
+                    duck_db?: unknown;
+                    duckDb?: unknown;
+                    duck_attack?: unknown;
+                    duckAttack?: unknown;
+                    duck_release?: unknown;
+                    duckRelease?: unknown;
                 } | undefined;
                 const label = kind === 'narration' && typeof item?.id === 'string' && item.id
                     ? `audio.narration ${item.id}`
@@ -4094,6 +4165,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(trimOut !== undefined ? { outSec: trimOut } : {})
                 });
                 if (!source) return undefined;
+                const normalizedKeyframes = keyframes(item.keyframes, label);
                 // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
                 // (audio-clip-fades, 2026-08-18; sfx only): fade_in/fade_out. Same
                 // warned-and-ignored tolerance as bgm's fadeIn/fadeOut parsing above (this
@@ -4122,9 +4194,11 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                     ...(source.sidecar ? { sidecar: source.sidecar } : {}),
                     t: item.t,
                     gainDb: normalizedGain,
+                    ...(normalizedKeyframes !== undefined ? { keyframes: normalizedKeyframes } : {}),
                     track: Number.isInteger(item.track) && (item.track as number) >= 0 ? item.track as number : 0,
                     ...(kind === 'sfx'
                         ? {
+                            ...duckOptions(item, label),
                             ...(trimIn !== undefined ? { in: trimIn } : {}),
                             ...(trimOut !== undefined ? { out: trimOut } : {}),
                             ...(fadeIn !== undefined ? { fadeIn } : {}),
@@ -4146,6 +4220,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 path?: unknown;
                 gain_db?: unknown;
                 ducking?: unknown;
+                duck_db?: unknown;
+                duckDb?: unknown;
+                duck_attack?: unknown;
+                duckAttack?: unknown;
+                duck_release?: unknown;
+                duckRelease?: unknown;
+                keyframes?: unknown;
                 fadeIn?: unknown;
                 fadeOut?: unknown;
                 in?: unknown;
@@ -4179,14 +4260,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                         }
                     }
                     const source = await resolveSource(rawBgm.path, 'audio.bgm', { inSec: bgmIn ?? 0 });
+                    const normalizedKeyframes = keyframes(rawBgm.keyframes, 'audio.bgm');
                     if (source) {
                         bgm = {
                             src: source.src,
                             ...(source.sidecar ? { sidecar: source.sidecar } : {}),
                             gainDb: normalizedGain,
+                            ...(normalizedKeyframes !== undefined ? { keyframes: normalizedKeyframes } : {}),
                             track: Number.isInteger(rawBgm.track) && (rawBgm.track as number) >= 0
                                 ? rawBgm.track as number : 0,
                             ducking: rawBgm.ducking === true,
+                            ...duckOptions(rawBgm, 'audio.bgm'),
                             ...fades,
                             ...(bgmIn !== undefined ? { in: bgmIn } : {})
                         };
@@ -5702,16 +5786,16 @@ body { display: grid; place-items: center; padding: 32px; }
                 const bgmLoopOffsetSecondsFn = (${bgmLoopOffsetSeconds.toString()});
                 const resolveTimedScheduleWindowFn = (${resolveTimedScheduleWindow.toString()});
                 const sfxFadeGainScheduleFn = (${sfxFadeGainSchedule.toString()});
-                // BGM ducking の正本は packages/edit-store/src/ducking.ts。
-                const computeDuckIntervalsFn = (${computeDuckIntervals.toString()});
-                const isWithinDuckIntervalFn = (${isWithinDuckInterval.toString()});
-                const STATIC_DUCK_GAIN_DB_VALUE = ${JSON.stringify(STATIC_DUCK_GAIN_DB)};
+                // 音声エンベロープの正本は packages/edit-store/src/envelope.ts。
+                const computeDuckEnvelopeFn = (${computeDuckEnvelope.toString()});
+                const evaluateEnvelopeDbFn = (${evaluateEnvelopeDb.toString()});
                 const decoded = { bgm: null, sfx: [], narration: [] };
                 let timelineDuration = 0;
                 let loadPromise = null;
                 let generation = 0;
                 let active = [];
                 let bgmGain = null;
+                let bgmEnvelopeGain = null;
                 let lastDuckGainDb = null;
                 let mutedAudioTracks = new Set();
                 let allAudioMuted = false;
@@ -5819,32 +5903,49 @@ body { display: grid; place-items: center; padding: 32px; }
                     active = active.filter(candidate => candidate !== item);
                     try { item.source.disconnect(); } catch (_error) { /* already detached */ }
                     try { item.gain.disconnect(); } catch (_error) { /* already detached */ }
+                    try { item.envelopeGain.disconnect(); } catch (_error) { /* already detached */ }
                 };
                 const stopSources = () => {
                     const sources = active;
                     active = [];
                     bgmGain = null;
+                    bgmEnvelopeGain = null;
                     lastDuckGainDb = null;
                     for (const item of sources) {
                         item.source.onended = null;
                         try { item.source.stop(); } catch (_error) { /* already stopped */ }
                         try { item.source.disconnect(); } catch (_error) { /* already detached */ }
                         try { item.gain.disconnect(); } catch (_error) { /* already detached */ }
+                        try { item.envelopeGain.disconnect(); } catch (_error) { /* already detached */ }
                     }
                 };
-                const registerSource = (source, gain, kind, id, track, baseGainLinear, hasFade = false) => {
-                    const item = { source, gain, kind, id, track, baseGainLinear, hasFade };
+                const registerSource = (
+                    source, gain, envelopeGain, kind, id, track, spec, baseGainLinear, hasFade = false
+                ) => {
+                    const item = { source, gain, envelopeGain, kind, id, track, spec, baseGainLinear, hasFade };
                     active.push(item);
                     source.onended = () => detachActive(item);
                     return item;
                 };
-                const duckGainDbAt = timelineTime => {
-                    if (!decoded.bgm || decoded.bgm.ducking !== true) return 0;
-                    const intervals = computeDuckIntervalsFn(decoded.narration.map(item => ({
-                        t: item.t,
-                        durationSec: item.durationSec
-                    })));
-                    return isWithinDuckIntervalFn(intervals, timelineTime) ? STATIC_DUCK_GAIN_DB_VALUE : 0;
+                const narrationDuckIntervals = () => decoded.narration.map(item => ({
+                    startSec: item.t,
+                    endSec: item.t + item.durationSec
+                }));
+                const envelopeDbAt = (item, timelineTime, clipStartSec, clipDurationSec) => {
+                    const localSec = Math.max(0, timelineTime - clipStartSec);
+                    const keyframeGainDb = evaluateEnvelopeDbFn(item.keyframes || [], localSec);
+                    if (item.ducking !== true) return { keyframeGainDb, duckGainDb: 0 };
+                    const duckEnvelope = computeDuckEnvelopeFn(narrationDuckIntervals(), {
+                        duckDb: item.duckDb,
+                        attackSec: item.duckAttack,
+                        releaseSec: item.duckRelease,
+                        clipStartSec,
+                        clipDurationSec
+                    });
+                    return {
+                        keyframeGainDb,
+                        duckGainDb: evaluateEnvelopeDbFn(duckEnvelope, localSec)
+                    };
                 };
                 const fadeMultiplierAt = timelineTime => {
                     if (!decoded.bgm) return 1;
@@ -5860,24 +5961,28 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                     return Math.max(0, Math.min(1, multiplier));
                 };
-                const applyBgmDuck = timelineTime => {
+                const applyBgmEnvelope = timelineTime => {
                     if (!decoded.bgm) return;
-                    const duckGainDb = duckGainDbAt(timelineTime);
+                    const { keyframeGainDb, duckGainDb } = envelopeDbAt(
+                        decoded.bgm, timelineTime, 0, timelineDuration
+                    );
                     const fadeMultiplier = fadeMultiplierAt(timelineTime);
                     if (bgmGain) {
                         bgmGain.gain.value = allAudioMuted || mutedAudioTracks.has(decoded.bgm.track ?? 0)
-                            ? 0 : dbToLinear(decoded.bgm.gainDb + duckGainDb) * fadeMultiplier;
+                            ? 0 : dbToLinear(decoded.bgm.gainDb) * fadeMultiplier;
                     }
+                    if (bgmEnvelopeGain) bgmEnvelopeGain.gain.value = dbToLinear(keyframeGainDb + duckGainDb);
                     if (duckGainDb !== lastDuckGainDb) {
                         lastDuckGainDb = duckGainDb;
                         console.info('[akari-preview] bgm duck gain', {
                             timelineTime,
                             baseGainDb: decoded.bgm ? decoded.bgm.gainDb : null,
                             duckGainDb,
-                            appliedGainDb: decoded.bgm ? decoded.bgm.gainDb + duckGainDb : null,
+                            keyframeGainDb,
+                            appliedGainDb: decoded.bgm ? decoded.bgm.gainDb + keyframeGainDb + duckGainDb : null,
                             fadeMultiplier,
                             appliedLinear: decoded.bgm
-                                ? dbToLinear(decoded.bgm.gainDb + duckGainDb) * fadeMultiplier
+                                ? dbToLinear(decoded.bgm.gainDb + keyframeGainDb + duckGainDb) * fadeMultiplier
                                 : null
                         });
                     }
@@ -5897,14 +6002,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         try {
                             const source = context.createBufferSource();
                             const gain = context.createGain();
+                            const envelopeGain = context.createGain();
                             source.buffer = decoded.bgm.buffer;
                             source.loop = true;
                             source.connect(gain);
-                            gain.connect(masterGain);
+                            gain.connect(envelopeGain);
+                            envelopeGain.connect(masterGain);
                             bgmGain = gain;
-                            applyBgmDuck(startAt);
+                            bgmEnvelopeGain = envelopeGain;
+                            applyBgmEnvelope(startAt);
                             registerSource(
-                                source, gain, 'bgm', 'bgm', decoded.bgm.track ?? 0,
+                                source, gain, envelopeGain, 'bgm', 'bgm', decoded.bgm.track ?? 0, decoded.bgm,
                                 dbToLinear(decoded.bgm.gainDb)
                             );
                             // audio.bgm.in: file-internal start offset, composed with the existing
@@ -5933,11 +6041,17 @@ body { display: grid; place-items: center; padding: 32px; }
                         try {
                             const source = context.createBufferSource();
                             const gain = context.createGain();
+                            const envelopeGain = context.createGain();
                             const baseGainLinear = dbToLinear(item.gainDb);
                             source.buffer = item.buffer;
                             gain.gain.value = baseGainLinear;
                             source.connect(gain);
-                            gain.connect(masterGain);
+                            gain.connect(envelopeGain);
+                            envelopeGain.connect(masterGain);
+                            const envelope = envelopeDbAt(
+                                item, Math.max(startAt, item.t), item.t, item.durationSec
+                            );
+                            envelopeGain.gain.value = dbToLinear(envelope.keyframeGainDb + envelope.duckGainDb);
                             // docs/contract-2026-07-25-r6-audio-tracks-and-trim.md §2 addendum
                             // (audio-clip-fades, 2026-08-18; sfx only): fade_in/fade_out, applied as
                             // AudioParam automation over the clip's own scheduled window (not a
@@ -5961,7 +6075,10 @@ body { display: grid; place-items: center; padding: 32px; }
                                     }
                                 }
                             }
-                            registerSource(source, gain, kind, item.id, item.track, baseGainLinear, hasFade);
+                            registerSource(
+                                source, gain, envelopeGain, kind, item.id, item.track, item,
+                                baseGainLinear, hasFade
+                            );
                             source.start(contextStart + delay, offset, available);
                             return true;
                         } catch (error) {
@@ -6017,12 +6134,18 @@ body { display: grid; place-items: center; padding: 32px; }
                             } else if (!item.hasFade) {
                                 item.gain.gain.value = item.baseGainLinear;
                             }
+                            const envelope = envelopeDbAt(
+                                item.spec, timelineTime, item.spec.t, item.spec.durationSec
+                            );
+                            item.envelopeGain.gain.value = dbToLinear(
+                                envelope.keyframeGainDb + envelope.duckGainDb
+                            );
                             // else: fade_in/fade_out already drives gain.gain via the scheduled
                             // AudioParam ramp (audio-clip-fades) -- writing item.gain.gain.value here
                             // (even to its own current value) would insert a new automation event
                             // and cut the ramp short, so this 30Hz poll leaves it alone while unmuted.
                         }
-                        if (playing) applyBgmDuck(timelineTime);
+                        if (playing) applyBgmEnvelope(timelineTime);
                     },
                     debugState: () => ({
                         contextState: context.state,

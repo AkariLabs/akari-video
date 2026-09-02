@@ -494,21 +494,47 @@ test('shell キーフレーム委譲器は 1 点目を両端 2 点へする', ()
   ]);
 });
 
-test('shell 分配計画は 9 点を最寄り親の motion 袋へ出す', () => {
+test('shell 分配計画は visual item の 10 点を最寄り親の motion 袋へ出す', () => {
   const source = structuredClone(fixture);
   const nested = {
     id: 'g', at: 0, duration: 90, source: { kind: 'group' }, items: [{
       id: 'child', at: 0, duration: 90, source: { kind: 'filter', filter: { type: 'invert' } },
-      keyframes: Array.from({ length: 9 }, (_, t) => ({ t: t * 10, opacity: t / 8 }))
+      keyframes: Array.from({ length: 10 }, (_, t) => ({ t: t * 10, opacity: t / 9 }))
     }]
   };
   source.tracks.find(track => track.lane === 'visual').items.push(nested);
   const distributed = prepareV2KeyframeDistribution(source);
   assert.deepEqual(distributed.document.tracks.flatMap(track => track.items)
-    .find(item => item.id === 'g').items[0].keyframes, { path: 'motion/g.json', count: 9 });
+    .find(item => item.id === 'g').items[0].keyframes, { path: 'motion/g.json', count: 10 });
   assert.deepEqual(distributed.writes.map(write => [write.path, write.group, write.itemId, write.points.length]), [
-    ['motion/g.json', 'g', 'child', 9]
+    ['motion/g.json', 'g', 'child', 10]
   ]);
+});
+
+test('shell 分配計画は audio lane の 10 点を inline のまま保つ', () => {
+  const source = structuredClone(fixture);
+  const track = source.tracks.find(candidate => candidate.lane === 'audio');
+  const item = track.items[0];
+  item.keyframes = Array.from({ length: 10 }, (_, t) => ({ t: t * 3, gain_db: t - 5 }));
+  const distributed = prepareV2KeyframeDistribution(source);
+  const actual = distributed.document.tracks.find(candidate => candidate.id === track.id).items[0];
+  assert.deepEqual(actual.keyframes, item.keyframes);
+  assert.deepEqual(distributed.writes, []);
+});
+
+test('shell 分配計画は role を持つ audio item を visual track 上でも袋化しない', () => {
+  const source = structuredClone(fixture);
+  const item = {
+    id: 'role-audio', role: 'sfx', at: 0, duration: 30,
+    source: { kind: 'media', src: 'main', in: 0, out: 1 },
+    keyframes: Array.from({ length: 10 }, (_, t) => ({ t: t * 3, gain_db: 0 }))
+  };
+  source.tracks.find(track => track.lane === 'visual').items.push(item);
+  const distributed = prepareV2KeyframeDistribution(source);
+  const actual = distributed.document.tracks.flatMap(track => track.items)
+    .find(candidate => candidate.id === item.id);
+  assert.deepEqual(actual.keyframes, item.keyframes);
+  assert.deepEqual(distributed.writes, []);
 });
 
 test('木 item の数値 write は tree-ops updateItem で入れ子を更新する', () => {

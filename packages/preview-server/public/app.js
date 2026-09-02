@@ -5,10 +5,11 @@
 import {
   buildTimelineMap,
   captionAnchorPositionVars,
+  computeDuckEnvelope,
   captionClockDomainOf,
-  computeBgmDuckGainDb,
   computeDuckIntervals,
   computeTransitionVisual,
+  evaluateEnvelopeDb,
   findActiveCaption,
   normalizeCaptionClock,
   outputToSource,
@@ -2011,6 +2012,8 @@ function setupAudioGraph() {
       const node = {
         gain, src: sUrl, t: s.t ?? 0, gain_db: s.gain_db,
         fadeIn: s.fade_in, fadeOut: s.fade_out,
+        keyframes: s.keyframes, ducking: s.ducking,
+        duck_db: s.duck_db, duck_attack: s.duck_attack, duck_release: s.duck_release,
       };
       sfxNodes.push(node);
       loadAudioBuffer(sUrl).then((buf) => {
@@ -2187,6 +2190,11 @@ function resyncAudioAfterSeek(t) {
 
 function syncAudio(t) {
   if (!audioCtx) return;
+  const audio = summary?.audio;
+  const duckKeys = Array.isArray(audio?.duck_keys) ? audio.duck_keys : ['narration', 'speech'];
+  const duckIntervals = duckKeys.includes('narration') ? computeDuckIntervals(narrationNodes
+    .filter(n => n._buffer)
+    .map(n => ({ t: n.t, durationSec: n._buffer.duration }))) : [];
   if (isPlaying) for (const n of narrationNodes) {
     if (!n._buffer) continue;
     const should = t >= n.t && t < n.t + n._buffer.duration;
@@ -2223,26 +2231,38 @@ function syncAudio(t) {
       let sfxFadeMul = 1;
       if (sfxFadeIn > 0 && localT < sfxFadeIn) sfxFadeMul = Math.min(sfxFadeMul, localT / sfxFadeIn);
       if (sfxFadeOut > 0 && localT > clipDuration - sfxFadeOut) sfxFadeMul = Math.min(sfxFadeMul, (clipDuration - localT) / sfxFadeOut);
-      s.gain.gain.value = dbToGain(s.gain_db ?? 0) * sfxFadeMul;
+      const envelopeDb = audioEnvelopeDb(s, s.t, clipDuration, localT, duckIntervals);
+      s.gain.gain.value = dbToGain((s.gain_db ?? 0) + envelopeDb) * sfxFadeMul;
     }
   }
   // BGM ducking + fade in/out
   if (bgmNode) {
-    const audio = summary?.audio;
-    const ducking = audio?.bgm?.ducking === true;
-    const duckIntervals = computeDuckIntervals(narrationNodes
-      .filter(n => n._buffer)
-      .map(n => ({ t: n.t, durationSec: n._buffer.duration })));
-    const duckDb = computeBgmDuckGainDb(duckIntervals, ducking, t);
+    const envelopeDb = audioEnvelopeDb(audio?.bgm, 0, totalDuration, t, duckIntervals);
     const fadeIn = Number.isFinite(audio?.bgm?.fadeIn) && audio.bgm.fadeIn > 0 ? Math.min(audio.bgm.fadeIn, totalDuration / 2) : 0;
     const fadeOut = Number.isFinite(audio?.bgm?.fadeOut) && audio.bgm.fadeOut > 0 ? Math.min(audio.bgm.fadeOut, totalDuration / 2) : 0;
     let fadeMul = 1;
     if (fadeIn > 0 && t < fadeIn) fadeMul = Math.min(fadeMul, t / fadeIn);
     if (fadeOut > 0 && t > totalDuration - fadeOut) fadeMul = Math.min(fadeMul, (totalDuration - t) / fadeOut);
     const baseGain = dbToGain(audio?.bgm?.gain_db ?? 0);
-    const targetGain = baseGain * Math.pow(10, duckDb / 20) * fadeMul;
+    const targetGain = baseGain * Math.pow(10, envelopeDb / 20) * fadeMul;
     bgmNode.gain.value = targetGain;
   }
+}
+
+function audioEnvelopeDb(item, clipStartSec, clipDurationSec, localSec, duckIntervals) {
+  if (!item) return 0;
+  const keyframes = Array.isArray(item.keyframes) ? item.keyframes.flatMap(point =>
+    point && Number.isFinite(point.t) && Number.isFinite(point.gain_db)
+      ? [{ t: point.t, gainDb: point.gain_db, ...(typeof point.easing === 'string' ? { easing: point.easing } : {}) }]
+      : []) : [];
+  const duck = item.ducking === true ? computeDuckEnvelope(duckIntervals, {
+    duckDb: item.duck_db,
+    attackSec: item.duck_attack,
+    releaseSec: item.duck_release,
+    clipStartSec,
+    clipDurationSec,
+  }) : [];
+  return evaluateEnvelopeDb(keyframes, localSec) + evaluateEnvelopeDb(duck, localSec);
 }
 
 // --- Waveform ---

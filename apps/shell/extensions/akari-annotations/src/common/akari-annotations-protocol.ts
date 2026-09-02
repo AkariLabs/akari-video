@@ -1,4 +1,4 @@
-import type { TransitionType } from '@akari-video/edit-store';
+import type { EditAudioKeyframe, TransitionType } from '@akari-video/edit-store';
 
 export const AKARI_ANNOTATIONS_SERVICE_PATH = '/services/akari-annotations';
 export const AkariAnnotationsService = Symbol('AkariAnnotationsService');
@@ -74,6 +74,7 @@ export interface GetClipWaveformRequest {
     videoUri: string;
     startSeconds: number;
     endSeconds: number;
+    bucketCount?: number;
 }
 
 export interface GetClipWaveformResult {
@@ -644,4 +645,75 @@ export interface AkariAnnotationsService {
     planEditMigration(request: EditMigrationRequest): Promise<EditMigrationPlanResult>;
     applyEditMigration(proposal: EditMigrationProposal): Promise<void>;
     revertEditMigration(proposal: EditMigrationProposal): Promise<void>;
+}
+
+export type AudioEnvelopeKeyframePayload = EditAudioKeyframe;
+
+export type NormalizedAudioEnvelopeKeyframePayload = Omit<EditAudioKeyframe, 'gain_db' | 'easing'> & {
+    gain_db: number;
+    easing?: string;
+};
+
+export type AudioEnvelopeWriteRequest =
+    | { kind: 'bgm-duck-db'; value: number | null }
+    | { kind: 'bgm-duck-attack'; value: number | null }
+    | { kind: 'bgm-duck-release'; value: number | null }
+    | { kind: 'sfx-ducking'; id: string; value: boolean | null }
+    | { kind: 'sfx-duck-db'; id: string; value: number | null }
+    | { kind: 'sfx-duck-attack'; id: string; value: number | null }
+    | { kind: 'sfx-duck-release'; id: string; value: number | null }
+    | {
+        kind: 'audio-keyframes';
+        id: string;
+        audioKind: 'bgm' | 'sfx' | 'narration';
+        value: AudioEnvelopeKeyframePayload[] | null;
+    };
+
+export interface SetAudioDuckRequest {
+    editUri: string;
+    projectRootUri: string;
+    target: { kind: 'bgm' } | { kind: 'sfx'; index: number };
+    updates: {
+        ducking?: boolean | null;
+        duckDb?: number | null;
+        duckAttack?: number | null;
+        duckRelease?: number | null;
+    };
+}
+
+export interface SetAudioKeyframesRequest {
+    editUri: string;
+    projectRootUri: string;
+    target: { kind: 'bgm' } | { kind: 'sfx' | 'narration'; index: number };
+    keyframes: NormalizedAudioEnvelopeKeyframePayload[] | null;
+}
+
+export interface AkariAnnotationsService {
+    setAudioDuck(request: SetAudioDuckRequest): Promise<WriteBackResult>;
+    setAudioKeyframes(request: SetAudioKeyframesRequest): Promise<WriteBackResult>;
+}
+
+export interface MeasureAudioForLevelRequest {
+    projectRoot: string;
+    audioPath: string;
+    role?: string;
+    collection?: 'bgm' | 'sfx' | 'narration';
+    durationSec?: number;
+}
+
+export type MeasureAudioForLevelResult = {
+    ok: true;
+    measured: Record<string, unknown>;
+    role: string;
+    gain_db: number;
+    fade_in: number;
+    fade_out: number;
+    basis: string;
+} | {
+    ok: false;
+    reason: string;
+};
+
+export interface AkariAnnotationsService {
+    measureAudioForLevel(request: MeasureAudioForLevelRequest): Promise<MeasureAudioForLevelResult>;
 }
