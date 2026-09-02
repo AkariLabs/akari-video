@@ -22,7 +22,7 @@ export interface QuickExportStartRequest {
     /** 未指定でも render-cut に --encoder auto を明示送信する。 */
     readonly encoder?: 'auto' | 'videotoolbox' | 'nvenc' | 'qsv' | 'amf' | 'mf' | 'x264';
     /** 書き出し映像コーデック。未指定なら h264。 */
-    readonly codec?: 'h264' | 'hevc';
+    readonly codec?: 'h264' | 'hevc' | 'prores422' | 'png';
     /** 未指定（そのまま）なら render-cut に --fps を渡さない。 */
     readonly fps?: number;
     /** 未指定なら edit.json の画素数を維持する。 */

@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -145,7 +145,10 @@ export async function launchElectronExport(launcher, options, {
   );
   if (pendingStdout.startsWith("PROGRESS frame=")) progressLines += 1;
   const output = await stat(options.out).catch(() => null);
-  if (!output || output.size === 0) {
+  const outputMissing = !output || (output.isDirectory()
+    ? (await readdir(options.out).catch(() => [])).length === 0
+    : output.size === 0);
+  if (outputMissing) {
     const error = new Error(`osr-export error: OSR Electron は exit 0 で終了しましたが出力がありません（PROGRESS 行 ${progressLines}）。起動中の AKARI Video デスクトップアプリの単一インスタンスロックに弾かれた可能性があります（--user-data-dir の伝播を確認）: ${options.out}`);
     error.gpuPreference = gpuPreference;
     throw error;

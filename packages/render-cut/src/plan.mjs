@@ -20,6 +20,7 @@ import { buildAtempoChain } from "../../media-bin/src/speech-atempo.mjs";
 import { buildAudioClipFxFilters } from "../../media-bin/src/preview-audio-sidecar.mjs";
 import { appliedTruePeakDbtp, hasExplicitTruePeakDbtp } from "./audio-qc.mjs";
 import { buildTelopRasterCommands, readRenderEdit } from "./internal-render.mjs";
+import { audioArgsForCodec, containerForCodec } from "./encode-preset.mjs";
 
 const require = createRequire(import.meta.url);
 const {
@@ -71,8 +72,9 @@ export function buildPlan({
   });
   const cutAudioPath = join(temporaryDirectory, "cut-audio.mp4");
   const tailPaddedAudioPath = join(temporaryDirectory, "cut-audio-tail-padded.mp4");
-  const compositePath = join(temporaryDirectory, "composite.mp4");
-  const finalPath = join(temporaryDirectory, "final.mp4");
+  const container = containerForCodec(codec);
+  const compositePath = join(temporaryDirectory, container.kind === "directory" ? "composite" : `composite.${container.ext}`);
+  const finalPath = container.kind === "directory" ? compositePath : join(temporaryDirectory, `final.${container.ext}`);
   const cutAudio = needsGapAwareCutTimeline(edit.cuts)
     ? buildGapAwareMultiSourceAudioCutCommand({
         sourceInputs: capabilities.sourceInputs,
@@ -103,12 +105,13 @@ export function buildPlan({
   const audioMix = buildAudioMixCommand({
     edit,
     projectRoot,
-    inputPath: compositePath,
-    outputPath: finalPath,
+    inputPath: codec === "png" ? join(compositePath, "audio.wav") : compositePath,
+    outputPath: codec === "png" ? join(temporaryDirectory, "final-audio.wav") : finalPath,
     duration: finalDurationSeconds,
     ffmpegCommand: capabilities.ffmpegCommand,
     ffprobeCommand: capabilities.ffprobeCommand,
     workDirectory: temporaryDirectory,
+    codec,
   });
 
   return {
@@ -124,7 +127,8 @@ export function buildPlan({
       ...(tailPadAudio ? [tailPaddedAudioPath] : []),
       ...telopRasterCommands.map((command) => command.output),
       compositePath,
-      finalPath,
+      ...(container.kind === "directory" ? [join(temporaryDirectory, "final-audio.wav")] : []),
+      ...(container.kind === "directory" ? [] : [finalPath]),
     ].map((value) => relative(projectRoot, value)),
     commands: {
       cut_audio: cutAudio,
@@ -140,13 +144,15 @@ export function buildPlan({
 }
 
 export function buildVideoPreset({ codec = "h264", width, height, fps }) {
-  if (!["h264", "hevc"].includes(codec)) throw new RangeError(`Unknown codec value: ${codec}`);
+  if (!["h264", "hevc", "prores422", "png"].includes(codec)) throw new RangeError(`Unknown codec value: ${codec}`);
+  const container = containerForCodec(codec);
   return {
-    video_codec: codec,
-    profile: codec === "hevc" ? "main" : "high",
-    pixel_format: "yuv420p",
+    video_codec: codec === "prores422" ? "prores" : codec,
+    profile: codec === "hevc" ? "main" : codec === "prores422" ? 3 : codec === "png" ? null : "high",
+    pixel_format: codec === "prores422" ? "yuv422p10le" : codec === "png" ? "rgba" : "yuv420p",
     color_range: "tv",
-    audio_codec: "aac",
+    ...(codec === "h264" || codec === "hevc" ? {} : { container: container.ext ?? "directory" }),
+    audio_codec: codec === "prores422" || codec === "png" ? "pcm_s16le" : "aac",
     width,
     height,
     fps,
@@ -162,6 +168,7 @@ export function buildAudioMixCommand({
   ffmpegCommand = resolveFfmpeg(),
   ffprobeCommand = resolveFfprobe(),
   workDirectory = dirname(outputPath),
+  codec = "h264",
 }) {
   const audio = normalizeAudioPlan(edit.audio);
   const { tracks: narrationTracks, warnings } = resolveNarrationTracks({
@@ -213,7 +220,7 @@ export function buildAudioMixCommand({
     return `${clipFilters.join(",")},`;
   };
 
-  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master) {
+  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master && codec !== "prores422") {
     return {
       operation: "copy", input: inputPath, output: outputPath, warnings, hasNarration,
       hasAudibleAudio: Boolean(audio.bgm) || audio.sfx.length > 0 || hasNarration || Boolean(master),
@@ -230,6 +237,16 @@ export function buildAudioMixCommand({
     "-i",
     inputPath,
   ];
+  if (!audio.bgm && audio.sfx.length === 0 && !hasNarration && !master) {
+    args.push(
+      "-map", "0:v:0", "-map", "0:a:0", "-t", formatNumber(duration),
+      "-c:v", "copy", ...audioArgsForCodec(codec), outputPath,
+    );
+    return {
+      operation: "ffmpeg", command: ffmpegCommand, args, warnings, hasNarration,
+      hasAudibleAudio: false, envelopes, envelope: envelopeProvenance(), clip_fx: clipFxProvenance(),
+    };
+  }
   const labels = ["[0:a]"];
   const filters = [];
   let inputIndex = 1;
@@ -398,18 +415,13 @@ export function buildAudioMixCommand({
   args.push(
     "-filter_complex",
     filters.join(";"),
-    "-map",
-    "0:v:0",
+    ...(codec === "png" ? [] : ["-map", "0:v:0"]),
     "-map",
     finalLabel,
     "-t",
     formatNumber(duration),
-    "-c:v",
-    "copy",
-    "-c:a",
-    "aac",
-    "-ar",
-    "48000",
+    ...(codec === "png" ? [] : ["-c:v", "copy"]),
+    ...audioArgsForCodec(codec),
     outputPath,
   );
   return {
@@ -1334,17 +1346,19 @@ function isPositiveNumber(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-export function selectDefaultOutput(projectRoot, edit, exists) {
+export function selectDefaultOutput(projectRoot, edit, exists, codec = "h264") {
   const configured = typeof edit.name === "string" && edit.name.trim() !== "" ? edit.name : null;
   const namingSource = edit.sources[0]?.path;
   const sourceName = basename(namingSource, extname(namingSource));
   const stem = sanitizeName(configured ?? sourceName ?? "render");
   const directory = join(projectRoot, "exports");
+  const container = containerForCodec(codec);
+  const suffix = container.ext ? `.${container.ext}` : "";
   let index = 1;
-  let candidate = join(directory, `${stem}.mp4`);
+  let candidate = join(directory, `${stem}${suffix}`);
   while (exists(candidate)) {
     index += 1;
-    candidate = join(directory, `${stem}-${index}.mp4`);
+    candidate = join(directory, `${stem}-${index}${suffix}`);
   }
   return candidate;
 }

@@ -45,6 +45,17 @@ export interface OutputDescriptionLine {
     readonly value: string;
 }
 
+const CONTAINERS = Object.freeze({
+    h264: Object.freeze({ ext: 'mp4' as const, kind: 'file' as const }),
+    hevc: Object.freeze({ ext: 'mp4' as const, kind: 'file' as const }),
+    prores422: Object.freeze({ ext: 'mov' as const, kind: 'file' as const }),
+    png: Object.freeze({ ext: null, kind: 'directory' as const })
+});
+
+export function containerForCodec(codec: QuickExportCodec): { ext: 'mp4' | 'mov' | null; kind: 'file' | 'directory' } {
+    return { ...CONTAINERS[codec] };
+}
+
 export const EXPORT_QUALITY_CHOICES: readonly ExportQualityChoice[] = Object.freeze([
     {
         id: 'standard', label: '標準', recommended: true,
@@ -63,10 +74,10 @@ export const EXPORT_QUALITY_CHOICES: readonly ExportQualityChoice[] = Object.fre
 export const EXPORT_FORMAT_SEATS: readonly ExportSettingSeat[] = Object.freeze([
     { id: 'h264', label: 'MP4 · H.264', description: 'SNS・Web・ふつうの納品', available: true, exit: 'GPU 直結' },
     { id: 'hevc', label: 'MP4 · H.265（HEVC）', description: '容量ほぼ半分。X は非対応', available: true, exit: 'GPU 直結のまま', tooltip: 'H.265: GPU 直結のまま容量を約半分に。X は非対応です。' },
-    { id: 'prores422', label: 'MOV · ProRes 422 HQ', description: '制作会社・TV への納品マスター', available: false, exit: 'GPU で描く → ffmpeg で包む', tooltip: 'ProRes 422 HQ: 制作会社向けの高品質な納品形式。近日' },
+    { id: 'prores422', label: 'MOV · ProRes 422 HQ', description: '制作会社・TV への納品マスター', available: true, exit: 'GPU で描く → ffmpeg で包む', tooltip: 'ProRes 422 HQ: 制作会社向けの高品質な納品形式。' },
     { id: 'prores4444', label: 'MOV · ProRes 4444（透過）', description: '透過つきのテロップ素材', available: false, exit: 'GPU で描く → ffmpeg で包む', tooltip: 'ProRes 4444: 透過つきの動画を書き出します。近日' },
     { id: 'vp9', label: 'WebM · VP9（透過）', description: 'Web で使う透過動画', available: false, exit: 'GPU で描く → ffmpeg で包む', tooltip: 'WebM VP9: Web 向けの透過動画を書き出します。近日' },
-    { id: 'png', label: '連番 PNG', description: 'VFX・After Effects へ渡す', available: false, exit: 'OSR', tooltip: '連番 PNG: 1 コマずつ画像として書き出します。近日' }
+    { id: 'png', label: '連番 PNG', description: 'VFX・After Effects へ渡す', available: true, exit: 'OSR', tooltip: '連番 PNG: 1 コマずつ画像として書き出します。' }
 ]);
 
 export const EXPORT_RESOLUTION_SEATS: readonly ExportSettingSeat[] = Object.freeze([
@@ -111,7 +122,7 @@ export function isMasterSelectable(encoder: QuickExportEncoder): boolean {
 }
 
 export function isFormatSelectable(id: string): id is QuickExportCodec {
-    return (id === 'h264' || id === 'hevc')
+    return (id === 'h264' || id === 'hevc' || id === 'prores422' || id === 'png')
         && EXPORT_FORMAT_SEATS.some(seat => seat.id === id && seat.available);
 }
 
@@ -179,10 +190,16 @@ export function describeOutput(settings: ExportSettings, edit: unknown): readonl
     const pixelValue = (settings.resolution ?? 'native') === 'native'
         ? `そのまま（${dimensions}${fps ? ` · ${fps} fps` : ''}）`
         : `${resolved.width} × ${resolved.height}（${resolutionLabel[settings.resolution]}・${modeLabel[resolved.mode]}${fps ? ` · ${fps} fps` : ''}）`;
+    const formatValue: Readonly<Record<QuickExportCodec, string>> = {
+        h264: 'MP4 · H.264 / AAC 48 kHz',
+        hevc: 'MP4 · H.265（HEVC） / AAC 48 kHz',
+        prores422: 'MOV · ProRes 422 HQ / PCM 48 kHz',
+        png: '連番 PNG / WAV 48 kHz'
+    };
     return [
-        { label: '形式', value: settings.codec === 'hevc' ? 'MP4 · H.265（HEVC） / AAC 48 kHz' : 'MP4 · H.264 / AAC 48 kHz' },
+        { label: '形式', value: formatValue[settings.codec] },
         { label: '画素数', value: pixelValue },
-        { label: '音', value: 'ラウドネス −14 LUFS（既定）' },
-        { label: '色', value: '8-bit · Rec.709' }
+        { label: '音', value: `${settings.codec === 'h264' || settings.codec === 'hevc' ? 'AAC' : settings.codec === 'png' ? 'WAV' : 'PCM'} 48 kHz · ラウドネス −14 LUFS（既定）` },
+        { label: '色', value: settings.codec === 'prores422' ? '10-bit · Rec.709' : '8-bit · Rec.709' }
     ];
 }

@@ -30,9 +30,9 @@ const AKARI_EXPORT_PREFERENCE_SCHEMA: PreferenceSchema = {
         },
         [AKARI_EXPORT_CODEC]: {
             type: 'string',
-            enum: ['h264', 'hevc'],
+            enum: ['h264', 'hevc', 'prores422', 'png'],
             default: 'h264',
-            description: '書き出し映像コーデック。H.264 または H.265（HEVC）を選びます。'
+            description: '書き出し形式。H.264、H.265（HEVC）、ProRes 422 HQ、連番 PNG から選びます。'
         },
         [AKARI_EXPORT_FPS]: {
             type: 'number',
