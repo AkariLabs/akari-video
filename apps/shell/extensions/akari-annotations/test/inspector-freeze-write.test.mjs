@@ -1,0 +1,153 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import test from 'node:test';
+
+import { readEditV2 } from '@akari-video/edit-store/lib/edit-v2.js';
+import { updateItem } from '../lib/common/edit-v2-mutations.js';
+import { toV2Edit } from './helpers/v2-fixture.mjs';
+import {
+  createCutFreezeWriteRequest,
+  cutPlaybackDuration,
+  isExplicitV0CutTimeline,
+  resolveCutFreezeDisplayAt,
+  updateCutFreeze
+} from '../lib/browser/inspector/freeze-fields.js';
+
+const inspectorSource = readFileSync(
+  new URL('../src/browser/akari-inspector-widget.ts', import.meta.url), 'utf8'
+);
+const timelineSource = readFileSync(
+  new URL('../src/browser/akari-annotations-widget.ts', import.meta.url), 'utf8'
+);
+const selectionModelSource = readFileSync(
+  new URL('../src/browser/timeline-selection-model.ts', import.meta.url), 'utf8'
+);
+
+test('静止時刻と静止尺の行は index ベースの専用 write kind へ対応する', () => {
+  assert.deepEqual([
+    createCutFreezeWriteRequest(3, 'at', 1.25),
+    createCutFreezeWriteRequest(3, 'duration', 2)
+  ], [
+    { kind: 'cut-freeze-at', index: 3, value: 1.25 },
+    { kind: 'cut-freeze-duration', index: 3, value: 2 }
+  ]);
+  for (const kind of ['cut-freeze-at', 'cut-freeze-duration']) {
+    assert.match(selectionModelSource, new RegExp(`kind: '${kind}'`, 'u'));
+  }
+});
+
+test('未設定の静止時刻はカット内 playhead を表示し、カット外なら 0 にする', () => {
+  assert.equal(resolveCutFreezeDisplayAt(undefined, 12.5, 10, 5), 2.5);
+  assert.equal(resolveCutFreezeDisplayAt(undefined, 9.99, 10, 5), 0);
+  assert.equal(resolveCutFreezeDisplayAt(undefined, 15.01, 10, 5), 0);
+  assert.equal(resolveCutFreezeDisplayAt({ at_sec: 8, duration_sec: 2 }, 12, 10, 5), 5);
+});
+
+test('静止尺 > 0 で表示時刻を使った freeze を生成し、at_sec を再生尺内へ clamp する', () => {
+  const duration = cutPlaybackDuration({ in: 2, out: 12, speed: 2 });
+  assert.equal(duration, 5);
+  assert.deepEqual(updateCutFreeze(undefined, {
+    kind: 'cut-freeze-duration', index: 0, value: 2
+  }, 9, duration), { at_sec: 5, duration_sec: 2 });
+  assert.deepEqual(updateCutFreeze({ at_sec: 2, duration_sec: 2 }, {
+    kind: 'cut-freeze-at', index: 0, value: 99
+  }, 2, duration), { at_sec: 5, duration_sec: 2 });
+});
+
+test('静止尺 0 / null は freeze 全体を除去する', () => {
+  const current = { at_sec: 1, duration_sec: 2 };
+  assert.equal(updateCutFreeze(current, {
+    kind: 'cut-freeze-duration', index: 0, value: 0
+  }, 1, 5), null);
+  assert.equal(updateCutFreeze(current, {
+    kind: 'cut-freeze-duration', index: 0, value: null
+  }, 1, 5), null);
+});
+
+test('freeze 不在時の静止時刻書き込みを案内文付きで拒否する', () => {
+  assert.throws(() => updateCutFreeze(undefined, {
+    kind: 'cut-freeze-at', index: 0, value: 1
+  }, 1, 5), /先に静止尺を設定してください。/u);
+});
+
+test('v0 の明示 at / track はフリーズ対象として拒否する', () => {
+  assert.equal(isExplicitV0CutTimeline({ in: 0, out: 5, at: 2 }, 0), true);
+  assert.equal(isExplicitV0CutTimeline({ in: 0, out: 5, track: 0 }, 0), true);
+  assert.equal(isExplicitV0CutTimeline({ in: 0, out: 5 }, 0), false);
+  assert.equal(isExplicitV0CutTimeline({ in: 0, out: 5, at: 2 }, 1), false);
+  assert.match(timelineSource, /明示 at\/track を使う edit\.json v0 ではフリーズを設定できません。/u);
+});
+
+test('v1 書き込みは cuts[].freeze を生成・除去する専用経路を持つ', () => {
+  assert.match(timelineSource, /handleLegacyCutFreezeWrite\(/u);
+  assert.match(timelineSource, /if \(freeze\) cut\.freeze = freeze;\s+else delete cut\.freeze;/u);
+  assert.match(timelineSource, /return \{ ok: false, message: detail \};/u);
+});
+
+test('UI は 2 数値行の単位・step・範囲・リセットを配線する', () => {
+  assert.match(inspectorSource, /name: 'freeze-at', label: '静止時刻', unit: '秒'/u);
+  assert.match(inspectorSource, /name: 'freeze-duration', label: '静止尺', unit: '秒', removable: true/u);
+  assert.match(inspectorSource, /scrubStep: 0\.01, min: 0, max: duration/u);
+  assert.match(inspectorSource, /scrubStep: 0\.01, min: 0/u);
+  assert.match(inspectorSource, /createCutFreezeWriteRequest\(snapshot\.index, 'duration', null\)/u);
+});
+
+test('v2 は media item の source.freeze と item 尺を更新し、null で field を除去する', () => {
+  const document = toV2Edit({ cuts: [{ in: 0, out: 5 }] });
+  const item = document.tracks.flatMap(track => track.items)
+    .find(candidate => candidate.source?.kind === 'media');
+  const freeze = updateCutFreeze(undefined, {
+    kind: 'cut-freeze-duration', index: 0, value: 2
+  }, 1.5, 5);
+  const written = updateItem(document, {
+    itemId: item.id,
+    patch: { duration: 7 * 30, source: { freeze } }
+  });
+  const writtenItem = readEditV2(written).tracks.flatMap(track => track.items)
+    .find(candidate => candidate.id === item.id);
+  assert.deepEqual(writtenItem.source.freeze, { at_sec: 1.5, duration_sec: 2 });
+  assert.equal(writtenItem.duration, 210);
+
+  const removed = updateItem(written, {
+    itemId: item.id,
+    patch: { duration: 5 * 30, source: { freeze: null } }
+  });
+  const removedItem = readEditV2(removed).tracks.flatMap(track => track.items)
+    .find(candidate => candidate.id === item.id);
+  assert.equal(Object.hasOwn(removedItem.source, 'freeze'), false);
+  assert.equal(removedItem.duration, 150);
+  assert.match(timelineSource, /raw\?\.source\?\.freeze/u);
+  assert.match(timelineSource, /source: \{ freeze \}/u);
+  assert.match(timelineSource, /playbackDuration \+ \(freeze\?\.duration_sec \?\? 0\)/u);
+});
+
+test('生成した v1 freeze は packages/schemas validate-edit を通る', t => {
+  const schemaRoot = dirname(fileURLToPath(
+    new URL('../../../../../packages/schemas/package.json', import.meta.url)
+  ));
+  const value = JSON.parse(readFileSync(
+    join(schemaRoot, 'examples', 'edit-v0-sample', 'edit.json'), 'utf8'
+  ));
+  value.version = 1;
+  value.sources = [{ id: 'main', path: value.source.path, proxy: null }];
+  delete value.source;
+  value.cuts.forEach(cut => { cut.src = 'main'; });
+  value.cuts[0].freeze = updateCutFreeze(undefined, {
+    kind: 'cut-freeze-duration', index: 0, value: 2
+  }, 1, cutPlaybackDuration(value.cuts[0]));
+  const directory = mkdtempSync(join(tmpdir(), 'akari-inspector-freeze-'));
+  const editPath = join(directory, 'edit.json');
+  writeFileSync(editPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+  const executed = spawnSync(process.execPath, [join(schemaRoot, 'bin', 'validate-edit.mjs'), editPath], {
+    encoding: 'utf8'
+  });
+  if (executed.error?.code === 'EPERM') {
+    t.skip('この Windows sandbox はテスト内の子プロセス起動を許可しない');
+    return;
+  }
+  assert.equal(executed.status, 0, executed.stderr);
+});

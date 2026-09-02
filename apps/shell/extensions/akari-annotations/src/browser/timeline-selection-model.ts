@@ -3,6 +3,7 @@ import { injectable } from '@theia/core/shared/inversify';
 import type { EditAudioKeyframe, ReadableTransitionType } from '@akari-video/edit-store';
 import type { CaptionBackgroundMode, CaptionTextStyle, CaptionZone } from '../common/caption-store';
 import type { CutFraming, CutFramingKeyframe } from './inspector/framing-fields';
+import type { CutFreeze } from './inspector/freeze-fields';
 
 export interface TimelineCutSelection {
     kind: 'cut';
@@ -18,6 +19,7 @@ export interface TimelineCutSelection {
     playheadSeconds?: number;
     transform?: { x?: number; y?: number; scale?: number; rotate?: number };
     framing?: CutFraming;
+    freeze?: CutFreeze;
     opacity?: number;
     speed?: number;
     transitionOut?: {
@@ -215,6 +217,8 @@ type InspectorWriteOperation =
     | { kind: 'cut-framing-crop-w'; index: number; value: number | null }
     | { kind: 'cut-framing-crop-h'; index: number; value: number | null }
     | { kind: 'cut-framing-keyframes'; index: number; value: CutFramingKeyframe[] | null }
+    | { kind: 'cut-freeze-at'; index: number; value: number | null }
+    | { kind: 'cut-freeze-duration'; index: number; value: number | null }
     | { kind: 'cut-source-in'; index: number; value: number }
     | { kind: 'cut-source-out'; index: number; value: number }
     | { kind: 'layer-transform-x'; id: string; value: number | null }

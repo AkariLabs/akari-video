@@ -240,6 +240,15 @@ import {
     updateCutFraming,
     type CutFramingWriteRequest
 } from './inspector/framing-fields';
+import {
+    cutPlaybackDuration,
+    isCutFreezeWriteRequest,
+    isExplicitV0CutTimeline,
+    readCutFreeze,
+    resolveCutFreezeDisplayAt,
+    updateCutFreeze,
+    type CutFreezeWriteRequest
+} from './inspector/freeze-fields';
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
@@ -2374,11 +2383,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (request.kind === 'audio-auto-level') {
             return this.handleAudioAutoLevelWrite(request);
         }
-        if (isCutFramingWriteRequest(request) && this.legacyReadOnly) {
+        if ((isCutFramingWriteRequest(request) || isCutFreezeWriteRequest(request)) && this.legacyReadOnly) {
             return { ok: false, message: '古い edit.json を読み取り専用で開いているため変更できません。' };
         }
         if (isCutFramingWriteRequest(request) && !Array.isArray(this.editDocument?.tracks)) {
             return this.handleLegacyCutFramingWrite(request);
+        }
+        if (isCutFreezeWriteRequest(request) && !Array.isArray(this.editDocument?.tracks)) {
+            return this.handleLegacyCutFreezeWrite(request);
         }
         const v2Result = await this.handleInspectorWriteV2(request);
         if (v2Result) return v2Result;
@@ -2820,6 +2832,59 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
     }
 
+    protected async handleLegacyCutFreezeWrite(
+        request: CutFreezeWriteRequest
+    ): Promise<InspectorWriteResult> {
+        const editUri = this.location?.editUri;
+        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
+        try {
+            const before = (await this.fileService.readFile(editUri)).value.toString();
+            const document = JSON.parse(before) as Record<string, any>;
+            const cut = Array.isArray(document.cuts) ? document.cuts[request.index] : undefined;
+            if (!cut || typeof cut !== 'object' || Array.isArray(cut)) {
+                throw new Error(`クリップ ${request.index + 1} が見つかりません。`);
+            }
+            const playbackDuration = cutPlaybackDuration(cut);
+            const displayedAt = resolveCutFreezeDisplayAt(
+                cut.freeze,
+                this.playheadT,
+                this.segments[request.index]?.tlStart ?? 0,
+                playbackDuration
+            );
+            const freeze = updateCutFreeze(cut.freeze, request, displayedAt, playbackDuration);
+            if (freeze && isExplicitV0CutTimeline(cut, document.version)) {
+                throw new Error('明示 at/track を使う edit.json v0 ではフリーズを設定できません。');
+            }
+            if (JSON.stringify(cut.freeze ?? null) === JSON.stringify(freeze)) {
+                return { ok: true };
+            }
+            if (freeze) cut.freeze = freeze;
+            else delete cut.freeze;
+            const after = `${JSON.stringify(document, null, 2)}\n`;
+            await this.writeEditSnapshotGuarded(after);
+            const label = 'フリーズを変更';
+            this.pushHistory({
+                label,
+                undo: async () => {
+                    await this.writeEditSnapshotGuarded(before);
+                    await this.reloadEdit();
+                },
+                redo: async () => {
+                    await this.writeEditSnapshotGuarded(after);
+                    await this.reloadEdit();
+                }
+            });
+            await this.reloadEdit();
+            this.hideNotice();
+            this.footer.textContent = `${label}しました。`;
+            return { ok: true };
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`変更できません: ${detail}`);
+            return { ok: false, message: detail };
+        }
+    }
+
     protected async handleInspectorWriteV2(
         request: InspectorWriteRequest
     ): Promise<InspectorWriteResult | undefined> {
@@ -2828,7 +2893,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
             'cut-speed', 'cut-transform-x', 'cut-transform-y', 'cut-scale', 'cut-rotate',
             'cut-opacity', 'cut-source-in', 'cut-source-out',
             'cut-framing-crop-x', 'cut-framing-crop-y',
-            'cut-framing-crop-w', 'cut-framing-crop-h', 'cut-framing-keyframes'
+            'cut-framing-crop-w', 'cut-framing-crop-h', 'cut-framing-keyframes',
+            'cut-freeze-at', 'cut-freeze-duration'
         ]);
         const layerKinds = new Set([
             'layer-transform-x', 'layer-transform-y', 'layer-scale', 'layer-rotate',
@@ -2848,7 +2914,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             return undefined;
         }
         const legacyDocument = this.legacyReadOnly || !Array.isArray(this.editDocument?.tracks);
-        if (legacyDocument && isCutFramingWriteRequest(request)) return undefined;
+        if (legacyDocument && (isCutFramingWriteRequest(request) || isCutFreezeWriteRequest(request))) return undefined;
         if (envelopeKinds.has(request.kind)) {
             if (legacyDocument || this.editDocument?.version !== 2) return undefined;
             const bgmRequest = request.kind.startsWith('bgm-')
@@ -2964,6 +3030,30 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     patch = { source: { framing } };
                     label = request.kind === 'cut-framing-keyframes'
                         ? 'ズーム KF を変更' : 'フレーミング窓を変更';
+                } else if (isCutFreezeWriteRequest(request)) {
+                    const raw = this.rawV2Item(itemId);
+                    const playbackDuration = cutPlaybackDuration(cut);
+                    const displayedAt = resolveCutFreezeDisplayAt(
+                        raw?.source?.freeze,
+                        this.playheadT,
+                        this.segments[indexed.index]?.tlStart ?? 0,
+                        playbackDuration
+                    );
+                    const freeze = updateCutFreeze(
+                        raw?.source?.freeze,
+                        request,
+                        displayedAt,
+                        playbackDuration
+                    );
+                    patch = {
+                        ...(request.kind === 'cut-freeze-duration' ? {
+                            duration: Math.max(1, this.frameAt(
+                                playbackDuration + (freeze?.duration_sec ?? 0)
+                            ))
+                        } : {}),
+                        source: { freeze }
+                    };
+                    label = 'フリーズを変更';
                 } else if (request.kind === 'cut-source-in' || request.kind === 'cut-source-out') {
                     const input = request.kind === 'cut-source-in' ? request.value : cut.in;
                     const output = request.kind === 'cut-source-out' ? request.value : cut.out;
@@ -3256,6 +3346,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (!segment || !cut) {
                 return undefined;
             }
+            const freeze = readCutFreeze((cut as EditCut & { freeze?: unknown }).freeze);
             return {
                 kind: 'cut', index: selection.index, label: `C${selection.index + 1}`,
                 trackName: this.trackDisplayNameForItem(this.cutItemId(selection.index)),
@@ -3270,6 +3361,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 ...(cut.transform !== undefined ? { transform: cut.transform } : {}),
                 ...((cut as EditCut & { framing?: unknown }).framing !== undefined
                     ? { framing: readCutFraming((cut as EditCut & { framing?: unknown }).framing) } : {}),
+                ...(freeze ? { freeze } : {}),
                 ...(cut.opacity !== undefined ? { opacity: cut.opacity } : {}),
                 ...(cut.speed !== undefined ? { speed: cut.speed } : {}),
                 ...(cut.transitionOut !== undefined ? { transitionOut: cut.transitionOut } : {}),

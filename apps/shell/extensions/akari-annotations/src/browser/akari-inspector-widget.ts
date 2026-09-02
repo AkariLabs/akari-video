@@ -41,6 +41,11 @@ import {
     replaceCutFramingKeyframe,
     type CutFramingKeyframe
 } from './inspector/framing-fields';
+import {
+    createCutFreezeWriteRequest,
+    cutPlaybackDuration,
+    resolveCutFreezeDisplayAt
+} from './inspector/freeze-fields';
 import { ADJUST_PREVIEW_SECTIONS, type AdjustPreviewSection } from './inspector/adjust-preview';
 import {
     AUDIO_ITEM_PREVIEW_SECTIONS,
@@ -404,6 +409,44 @@ function cutFramingFields(
     return fields;
 }
 
+function cutFreezeFields(
+    snapshot: TimelineCutSelection,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<TimelineCutSelection>[] {
+    const duration = cutPlaybackDuration({
+        in: snapshot.sourceIn,
+        out: snapshot.sourceOut,
+        ...(snapshot.speed !== undefined ? { speed: snapshot.speed } : {})
+    });
+    const at = resolveCutFreezeDisplayAt(
+        snapshot.freeze,
+        snapshot.playheadSeconds,
+        snapshot.outputStart,
+        duration
+    );
+    return [{
+        name: 'freeze-at', label: '静止時刻', unit: '秒',
+        getValue: () => String(at), getEditValue: () => String(at),
+        inputKind: 'scrub-number', scrubStep: 0.01, min: 0, max: duration,
+        write: async (_snapshot, value) => {
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed)) return { ok: false, message: '静止時刻は有限数で入力してください。' };
+            return requestWrite(createCutFreezeWriteRequest(snapshot.index, 'at', parsed));
+        }
+    }, {
+        name: 'freeze-duration', label: '静止尺', unit: '秒', removable: true,
+        getValue: () => String(snapshot.freeze?.duration_sec ?? 0),
+        getEditValue: () => String(snapshot.freeze?.duration_sec ?? 0),
+        inputKind: 'scrub-number', scrubStep: 0.01, min: 0,
+        write: async (_snapshot, value) => {
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed) || parsed < 0) return { ok: false, message: '静止尺は 0 以上の有限数で入力してください。' };
+            return requestWrite(createCutFreezeWriteRequest(snapshot.index, 'duration', parsed));
+        },
+        reset: () => requestWrite(createCutFreezeWriteRequest(snapshot.index, 'duration', null))
+    }];
+}
+
 function CUT_SECTIONS(
     snapshot: TimelineCutSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
@@ -467,6 +510,7 @@ function CUT_SECTIONS(
         },
         { id: 'transform', label: '変形', fields: transformFields },
         { id: 'framing', label: 'フレーミング', fields: cutFramingFields(snapshot, requestWrite) },
+        { id: 'freeze', label: 'フリーズ', fields: cutFreezeFields(snapshot, requestWrite) },
         {
             id: 'appearance', label: '外観', fields: [
                 {

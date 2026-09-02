@@ -156,6 +156,26 @@ test('cut の動画タブだけにフレーミングがクロップの直後へ�
   }
 });
 
+test('cut の動画タブだけにフリーズがフレーミングの直後へ出る', () => {
+  assert.deepEqual(composeInspectorSections([
+    { id: 'appearance' }, { id: 'freeze' }, { id: 'framing' }, { id: 'transform' }
+  ]).map(section => section.id), ['transform', 'framing', 'freeze', 'appearance']);
+  assert.equal(assignSectionToTab('cut', 'freeze'), 'video');
+
+  const cutFactory = sourceBetween('function CUT_SECTIONS(', 'const LAYER_BLEND_OPTIONS');
+  assert.match(cutFactory, /id: 'framing', label: 'フレーミング'[\s\S]{0,180}id: 'freeze', label: 'フリーズ'/u);
+  assert.match(cutFactory, /cutFreezeFields\(snapshot, requestWrite\)/u);
+  for (const [start, end] of [
+    ['function LAYER_SECTIONS(', 'function CAPTION_SECTIONS('],
+    ['function CAPTION_SECTIONS(', 'function MULTI_CAPTION_SECTIONS('],
+    ['function AUDIO_SECTIONS(', 'function OVERLAY_SECTIONS('],
+    ['function OVERLAY_SECTIONS(', 'function TREE_ITEM_SECTIONS('],
+    ['function TREE_ITEM_SECTIONS(', '@injectable()']
+  ]) {
+    assert.doesNotMatch(sourceBetween(start, end), /label: 'フリーズ'/u);
+  }
+});
+
 test('ズーム KF がある間はフレーミング窓 4 行を disabled + title にする', () => {
   const framingFields = sourceBetween('function cutFramingFields(', 'function CUT_SECTIONS(');
   assert.match(framingFields, /const cropDisabled = keyframes\.length > 0/u);
