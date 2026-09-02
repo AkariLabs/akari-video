@@ -5,6 +5,9 @@ import path from 'node:path';
 
 const REFERENCES_FILE = path.join('.akari', 'asset-references.json');
 
+// 参照台帳（.akari/asset-references.json）のスキーマ版数。edit.json の version とは無関係。
+const REFERENCES_SCHEMA_VERSION = 0;
+
 function compareReferences(left, right) {
   if (left.category !== right.category) return left.category < right.category ? -1 : 1;
   if (left.id !== right.id) return left.id < right.id ? -1 : 1;
@@ -47,7 +50,7 @@ async function writeProjectReferences(projectDir, references) {
   const target = referencesPath(projectDir);
   await mkdir(path.dirname(target), { recursive: true });
   const temp = `${target}.${process.pid}.${randomUUID()}.tmp`;
-  const body = `${JSON.stringify({ version: 0, references: normalizeReferences(references) }, null, 2)}\n`;
+  const body = `${JSON.stringify({ version: REFERENCES_SCHEMA_VERSION, references: normalizeReferences(references) }, null, 2)}\n`;
   try {
     await writeFile(temp, body, { encoding: 'utf8', flag: 'wx' });
     await rename(temp, target);
@@ -59,7 +62,7 @@ async function writeProjectReferences(projectDir, references) {
 export async function readProjectReferences(projectDir) {
   try {
     const parsed = JSON.parse(await readFile(referencesPath(projectDir), 'utf8'));
-    if (parsed?.version !== 0) return [];
+    if (parsed?.version !== REFERENCES_SCHEMA_VERSION) return [];
     return normalizeReferences(parsed);
   } catch {
     return [];

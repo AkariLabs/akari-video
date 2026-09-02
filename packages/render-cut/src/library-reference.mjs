@@ -2,13 +2,16 @@ import { lstatSync, readFileSync, realpathSync } from "node:fs";
 import os from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
+// 参照台帳（.akari/asset-references.json）のスキーマ版数。edit.json の version とは無関係。
+const REFERENCES_SCHEMA_VERSION = 0;
+
 export function readProjectReferences(projectRoot) {
   try {
     const parsed = JSON.parse(readFileSync(
       join(projectRoot, ".akari", "asset-references.json"),
       "utf8",
     ));
-    if (parsed?.version !== 0 || !Array.isArray(parsed.references)) return [];
+    if (parsed?.version !== REFERENCES_SCHEMA_VERSION || !Array.isArray(parsed.references)) return [];
     return parsed.references.filter((entry) => entry !== null
       && typeof entry === "object"
       && !Array.isArray(entry)
