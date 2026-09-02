@@ -8,6 +8,7 @@ import {
     audioKeyframePxToDb,
     audioKeyframePxToTime,
     audioKeyframeTimeToPx,
+    normalizeAudioKeyframeGainDb,
     snapAudioKeyframeTime,
     validateAudioKeyframeTime
 } from '../common/audio-keyframe-editor-geometry';
@@ -48,12 +49,18 @@ export interface AkariAudioKeyframeDialogProps extends DialogProps {
     readonly fullPeaks: readonly number[];
 }
 
+export interface AkariAudioKeyframeDialogValue {
+    readonly keyframes: AudioEnvelopeKeyframePayload[];
+    readonly gainDb: number;
+}
+
 /** 波形の上で音量エンベロープだけを編集する、通常 DOM の Theia ダイアログ。 */
-export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyframePayload[]> {
+export class AkariAudioKeyframeDialog extends AbstractDialog<AkariAudioKeyframeDialogValue> {
 
     protected readonly stage = document.createElement('div');
     protected readonly canvas = document.createElement('canvas');
     protected readonly editorRow = document.createElement('div');
+    protected readonly overallGainInput = document.createElement('input');
     protected readonly timeInput = document.createElement('input');
     protected readonly gainInput = document.createElement('input');
     protected readonly easingInput = document.createElement('select');
@@ -62,6 +69,7 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
     protected readonly ctx: CanvasRenderingContext2D;
     protected readonly points: EditableAudioKeyframe[];
 
+    protected overallGainDb: number;
     protected selectedIndex: number | undefined;
     protected activePointerId: number | undefined;
     protected canvasWidth = EDITOR_WIDTH_PX;
@@ -84,6 +92,7 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
     constructor(protected readonly props: AkariAudioKeyframeDialogProps) {
         super(props);
         this.ctx = this.canvas.getContext('2d')!;
+        this.overallGainDb = normalizeAudioKeyframeGainDb(props.gainDb);
         this.points = (props.keyframes ?? [])
             .filter(point => Number.isFinite(point.t))
             .map(point => {
@@ -122,11 +131,15 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
         this.contentNode.appendChild(this.stage);
 
         Object.assign(this.editorRow.style, {
-            display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr auto',
+            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.2fr auto',
             alignItems: 'end', gap: '8px', marginTop: '10px'
         });
+        this.configureNumberInput(this.overallGainInput, '全体ゲイン', '0.5');
         this.configureNumberInput(this.timeInput, 't 秒', '0.001');
         this.configureNumberInput(this.gainInput, 'gain_db', '0.1');
+        this.overallGainInput.min = String(AUDIO_KEYFRAME_MIN_DB);
+        this.overallGainInput.max = String(AUDIO_KEYFRAME_MAX_DB);
+        this.overallGainInput.value = String(this.overallGainDb);
         this.timeInput.min = '0';
         this.timeInput.max = String(this.props.durationSeconds);
         this.gainInput.min = String(AUDIO_KEYFRAME_MIN_DB);
@@ -143,6 +156,7 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
         this.deleteButton.textContent = '選択点を削除';
         this.deleteButton.addEventListener('click', () => this.deleteSelectedPoint());
         this.editorRow.append(
+            this.labeledControl('全体ゲイン (dB)', this.overallGainInput),
             this.labeledControl('t 秒', this.timeInput),
             this.labeledControl('gain_db', this.gainInput),
             this.labeledControl('easing', this.easingInput),
@@ -157,6 +171,7 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
         this.notice.setAttribute('role', 'alert');
         this.contentNode.appendChild(this.notice);
 
+        this.overallGainInput.addEventListener('input', () => this.commitOverallGainInput());
         this.timeInput.addEventListener('change', () => this.commitTimeInput());
         this.gainInput.addEventListener('change', () => this.commitGainInput());
         this.easingInput.addEventListener('change', () => this.commitEasingInput());
@@ -214,7 +229,7 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
             }
             this.points.push({
                 t,
-                gainDb: this.roundDb(audioKeyframePxToDb(point.y, this.canvasHeight)),
+                gainDb: this.editableGainDbAtY(point.y),
                 easing: 'linear'
             });
             this.points.sort((left, right) => left.t - right.t);
@@ -238,7 +253,7 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
             }
             const selected = this.points[this.selectedIndex];
             selected.t = t;
-            selected.gainDb = this.roundDb(audioKeyframePxToDb(point.y, this.canvasHeight));
+            selected.gainDb = this.editableGainDbAtY(point.y);
             this.points.sort((left, right) => left.t - right.t);
             this.selectedIndex = this.points.indexOf(selected);
             this.hideNotice();
@@ -271,7 +286,7 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
         const centerY = this.canvasHeight / 2;
         const maxHalfHeight = Math.min(WAVEFORM_HEIGHT_PX, this.canvasHeight) / 2;
         const colors = audioLoudnessBucketColors(peaks, {
-            gainDb: this.props.gainDb,
+            gainDb: this.overallGainDb,
             keyframes: this.points,
             fadeInSeconds: this.props.fadeIn,
             fadeOutSeconds: this.props.fadeOut,
@@ -310,15 +325,15 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
             const first = this.points[0];
             this.ctx.moveTo(
                 audioKeyframeTimeToPx(first.t, this.props.durationSeconds, this.canvasWidth),
-                audioKeyframeDbToPx(first.gainDb, this.canvasHeight)
+                audioKeyframeDbToPx(this.displayGainDb(first), this.canvasHeight)
             );
             for (let index = 1; index < this.points.length; index += 1) {
                 const previous = this.points[index - 1];
                 const current = this.points[index];
                 const x = audioKeyframeTimeToPx(current.t, this.props.durationSeconds, this.canvasWidth);
-                const y = audioKeyframeDbToPx(current.gainDb, this.canvasHeight);
+                const y = audioKeyframeDbToPx(this.displayGainDb(current), this.canvasHeight);
                 if (previous.easing === 'hold') {
-                    this.ctx.lineTo(x, audioKeyframeDbToPx(previous.gainDb, this.canvasHeight));
+                    this.ctx.lineTo(x, audioKeyframeDbToPx(this.displayGainDb(previous), this.canvasHeight));
                 }
                 this.ctx.lineTo(x, y);
             }
@@ -326,7 +341,7 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
         }
         this.points.forEach((point, index) => {
             const x = audioKeyframeTimeToPx(point.t, this.props.durationSeconds, this.canvasWidth);
-            const y = audioKeyframeDbToPx(point.gainDb, this.canvasHeight);
+            const y = audioKeyframeDbToPx(this.displayGainDb(point), this.canvasHeight);
             this.ctx.beginPath();
             this.ctx.arc(x, y, index === this.selectedIndex ? 6 : 4.5, 0, Math.PI * 2);
             this.ctx.fillStyle = index === this.selectedIndex ? '#f59e0b' : '#eafcff';
@@ -368,7 +383,7 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
         let closest: { index: number; distance: number } | undefined;
         this.points.forEach((point, index) => {
             const dx = audioKeyframeTimeToPx(point.t, this.props.durationSeconds, this.canvasWidth) - x;
-            const dy = audioKeyframeDbToPx(point.gainDb, this.canvasHeight) - y;
+            const dy = audioKeyframeDbToPx(this.displayGainDb(point), this.canvasHeight) - y;
             const distance = Math.hypot(dx, dy);
             if (distance <= POINT_HIT_RADIUS_PX && (!closest || distance < closest.distance)) {
                 closest = { index, distance };
@@ -389,6 +404,14 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
         this.selectedIndex = undefined;
         this.hideNotice();
         this.syncSelectedControls();
+        this.redraw();
+    }
+
+    protected commitOverallGainInput(): void {
+        const value = Number(this.overallGainInput.value);
+        if (!Number.isFinite(value)) return;
+        this.overallGainDb = normalizeAudioKeyframeGainDb(value);
+        this.overallGainInput.value = String(this.overallGainDb);
         this.redraw();
     }
 
@@ -425,6 +448,16 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
         if (this.selectedIndex === undefined) return;
         this.points[this.selectedIndex].easing = this.validEasing(this.easingInput.value);
         this.redraw();
+    }
+
+    protected displayGainDb(point: EditableAudioKeyframe): number {
+        return point.gainDb + this.overallGainDb;
+    }
+
+    protected editableGainDbAtY(y: number): number {
+        return this.roundDb(normalizeAudioKeyframeGainDb(
+            audioKeyframePxToDb(y, this.canvasHeight) - this.overallGainDb
+        ));
     }
 
     protected syncSelectedControls(): void {
@@ -492,18 +525,19 @@ export class AkariAudioKeyframeDialog extends AbstractDialog<AudioEnvelopeKeyfra
     }
 
     protected override async isValid(
-        _value: AudioEnvelopeKeyframePayload[], _mode: DialogMode
+        _value: AkariAudioKeyframeDialogValue, _mode: DialogMode
     ): Promise<DialogError> {
         return true;
     }
 
-    get value(): AudioEnvelopeKeyframePayload[] {
-        return [...this.points]
+    get value(): AkariAudioKeyframeDialogValue {
+        const keyframes = [...this.points]
             .sort((left, right) => left.t - right.t)
             .map(point => ({
                 t: this.props.keyframeFrames ? Math.round(point.t * this.props.fps) : point.t,
                 gain_db: point.gainDb,
                 easing: point.easing
             }));
+        return { keyframes, gainDb: this.overallGainDb };
     }
 }

@@ -37,6 +37,7 @@ import {
     AudioLoudnessEnvelope,
     AudioWaveformDebounceGate,
     AudioWaveformPaintState,
+    AudioWaveformT1RetryGate,
     AudioWaveformTier,
     AudioWaveformTierLru,
     AudioWaveformWindow,
@@ -47,11 +48,14 @@ import {
     audioLoopTilePeaks,
     audioSourceSliceWindow,
     audioWaveformBandLayout,
+    AudioWaveformCanvasPlacement,
+    audioWaveformCanvasPlacement,
     audioWaveformMasterKey,
     audioWaveformRepaintNeeded,
     audioWaveformSourceRect,
     audioWaveformTierBucketCount,
     audioWaveformTierCacheKey,
+    audioWaveformViewKey,
     audioWaveformVisibleSourceWindow,
     filmstripChunkIndexFor,
     nextAudioWaveformTier,
@@ -361,8 +365,8 @@ interface AudioWaveformDetailSource {
     readonly fullPeaks: readonly number[];
     readonly sliceKey: string;
     readonly peaksFactory: () => readonly number[];
-    readonly clipStartSec: number;
-    readonly displayDurationSec: number;
+    readonly waveformStartSec: number;
+    readonly waveformDisplayDurationSec: number;
 }
 
 interface AudioWaveformDetailMapping {
@@ -814,6 +818,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         number[] | 'pending' | 'unavailable'
     >(200);
     protected readonly waveformT1Requested = new Set<string>();
+    protected readonly waveformT1RetryGate = new AudioWaveformT1RetryGate();
     protected readonly waveformT2DebounceGates = new Map<string, AudioWaveformDebounceGate>();
     protected readonly waveformT2DebounceTimers = new Map<string, { key: string; handle: number }>();
     protected readonly audioWaveformMasterCache = new Map<string, HTMLCanvasElement>();
@@ -2264,14 +2269,38 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 fadeOut: 'fadeOut' in audio ? audio.fadeOut : undefined,
                 fullPeaks: Array.isArray(fullPeaks) ? fullPeaks : []
             });
-            const keyframes = await dialog.open();
-            if (keyframes === undefined) return;
-            const result = await this.handleInspectorWrite({
-                kind: 'audio-keyframes', id, audioKind,
-                value: keyframes.length > 0 ? keyframes : null
-            });
-            if (!result.ok) {
-                this.showNotice(`音量キーフレームを変更できません: ${result.message ?? '不明なエラー'}`);
+            const dialogValue = await dialog.open();
+            if (dialogValue === undefined) return;
+            let keyframeResult: InspectorWriteResult;
+            try {
+                keyframeResult = await this.handleInspectorWrite({
+                    kind: 'audio-keyframes', id, audioKind,
+                    value: dialogValue.keyframes.length > 0 ? dialogValue.keyframes : null
+                });
+            } catch (error) {
+                this.showNotice(`音量キーフレームの書き込みに失敗しました: ${this.errorMessage(error)}`);
+                return;
+            }
+            if (!keyframeResult.ok) {
+                this.showNotice(`音量キーフレームの書き込みに失敗しました: ${keyframeResult.message ?? '不明なエラー'}`);
+                return;
+            }
+            if (dialogValue.gainDb === (audio.gainDb ?? 0)) return;
+            let gainResult: InspectorWriteResult;
+            try {
+                gainResult = audioKind === 'bgm'
+                    ? await this.handleInspectorWrite({ kind: 'bgm-gain', value: dialogValue.gainDb })
+                    : audioKind === 'narration'
+                        ? await this.handleInspectorWrite({
+                            kind: 'narration-gain', id, value: dialogValue.gainDb
+                        })
+                        : await this.handleInspectorWrite({ kind: 'sfx-gain', id, value: dialogValue.gainDb });
+            } catch (error) {
+                this.showNotice(`全体ゲインの書き込みに失敗しました: ${this.errorMessage(error)}`);
+                return;
+            }
+            if (!gainResult.ok) {
+                this.showNotice(`全体ゲインの書き込みに失敗しました: ${gainResult.message ?? '不明なエラー'}`);
             }
         } catch (error) {
             this.showNotice(`音量キーフレームを開けません: ${this.errorMessage(error)}`);
@@ -8461,8 +8490,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.updateAudioWaveformCanvas(
                         wing, fullPeaks, `wing:${sfx.path}:${startSec}:${inSeconds}:${sourceDuration}`,
                         () => this.sfxWaveformSlice(fullPeaks, startSec, inSeconds, sourceDuration),
-                        wingWidthPx, itemHeightPx,
-                        { fullClipWidthPx: wingWidthPx, clipLocalOffsetPx: 0 }
+                        itemHeightPx, {
+                            canvasLeftPx: 0, canvasWidthPx: wingWidthPx,
+                            waveformFullWidthPx: wingWidthPx, waveformOffsetPx: 0
+                        }
                     );
                 }
                 content.appendChild(wing);
@@ -8480,8 +8511,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     this.updateAudioWaveformCanvas(
                         wing, fullPeaks, `wing:${sfx.path}:${outSeconds}:${endSec}:${sourceDuration}`,
                         () => this.sfxWaveformSlice(fullPeaks, outSeconds, endSec, sourceDuration),
-                        wingWidthPx, itemHeightPx,
-                        { fullClipWidthPx: wingWidthPx, clipLocalOffsetPx: 0 }
+                        itemHeightPx, {
+                            canvasLeftPx: 0, canvasWidthPx: wingWidthPx,
+                            waveformFullWidthPx: wingWidthPx, waveformOffsetPx: 0
+                        }
                     );
                 }
                 content.appendChild(wing);
@@ -8929,7 +8962,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const t0DisplayPeaks = displayPeaks(t0Peaks);
         let selected: AudioWaveformDetailSource = {
             tier: 'T0', fullPeaks: t0Peaks, sliceKey: baseSliceKey,
-            peaksFactory: () => t0DisplayPeaks, clipStartSec, displayDurationSec
+            peaksFactory: () => t0DisplayPeaks,
+            waveformStartSec: clipStartSec, waveformDisplayDurationSec: displayDurationSec
         };
         if (nextAudioWaveformTier('T0', visibleWidthPx, t0DisplayPeaks.length) !== 'T1') {
             return selected;
@@ -8939,9 +8973,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const t1BucketCount = audioWaveformTierBucketCount('T1', fullDurationSeconds);
         const t1Key = audioWaveformTierCacheKey(path, 'T1', fullWindow, t1BucketCount);
         let t1 = this.waveformTierCache.get(t1Key);
-        if (t1 === undefined && !this.waveformT1Requested.has(path)) {
+        const t1ViewKey = audioWaveformViewKey(this.viewStart, this.visibleDuration());
+        const retryT1 = t1 === 'unavailable' && this.waveformT1RetryGate.shouldRetry(path, t1ViewKey);
+        if ((t1 === undefined || retryT1) && !this.waveformT1Requested.has(path)) {
+            if (retryT1) this.waveformTierCache.delete(t1Key);
             this.waveformT1Requested.add(path);
-            this.fetchAudioWaveformTier(t1Key, 'T1', audioUri, fullWindow, t1BucketCount);
+            this.fetchAudioWaveformTier(t1Key, 'T1', audioUri, fullWindow, t1BucketCount, path);
             t1 = 'pending';
         }
         if (!Array.isArray(t1)) return selected;
@@ -8950,7 +8987,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (t1DisplayPeaks.length > t0DisplayPeaks.length) {
             selected = {
                 tier: 'T1', fullPeaks: t1, sliceKey: `${baseSliceKey}:${t1Key}`,
-                peaksFactory: () => t1DisplayPeaks, clipStartSec, displayDurationSec
+                peaksFactory: () => t1DisplayPeaks,
+                waveformStartSec: clipStartSec, waveformDisplayDurationSec: displayDurationSec
             };
         }
         const selectedBucketCount = Math.max(t0DisplayPeaks.length, t1DisplayPeaks.length);
@@ -8997,8 +9035,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         return {
             tier: 'T2', fullPeaks: t2, sliceKey: `${baseSliceKey}:${t2Key}`,
             peaksFactory: () => t2,
-            clipStartSec: coverageClipStart,
-            displayDurationSec: coverageDisplayDuration
+            waveformStartSec: coverageClipStart,
+            waveformDisplayDurationSec: coverageDisplayDuration
         };
     }
 
@@ -9008,7 +9046,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         audioUri: string,
         sourceWindow: AudioWaveformWindow,
         bucketCount: number,
-        debouncePath?: string
+        requestPath?: string
     ): void {
         if (!this.location) return;
         this.waveformTierCache.set(key, tier, 'pending');
@@ -9021,15 +9059,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }).then(result => {
             if (result.status === 'ready' && result.peaks) {
                 this.waveformTierCache.set(key, tier, result.peaks);
+                if (tier === 'T1' && requestPath) this.waveformT1RetryGate.recordSuccess(requestPath);
             } else {
                 this.waveformTierCache.set(key, tier, 'unavailable');
+                if (tier === 'T1' && requestPath) {
+                    this.waveformT1RetryGate.recordFailure(
+                        requestPath, audioWaveformViewKey(this.viewStart, this.visibleDuration())
+                    );
+                }
                 this.showFfmpegMissingNotice(result.reason);
             }
-            if (debouncePath) this.waveformT2DebounceGates.get(debouncePath)?.release(key);
-            this.renderStrip();
         }).catch(() => {
             this.waveformTierCache.set(key, tier, 'unavailable');
-            if (debouncePath) this.waveformT2DebounceGates.get(debouncePath)?.release(key);
+            if (tier === 'T1' && requestPath) {
+                this.waveformT1RetryGate.recordFailure(
+                    requestPath, audioWaveformViewKey(this.viewStart, this.visibleDuration())
+                );
+            }
+        }).finally(() => {
+            if (tier === 'T1' && requestPath) this.waveformT1Requested.delete(requestPath);
+            if (tier === 'T2' && requestPath) this.waveformT2DebounceGates.get(requestPath)?.release(key);
             this.renderStrip();
         });
     }
@@ -9095,14 +9144,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             this.updateAudioClipWaveform(
                 element, detail.fullPeaks, detail.sliceKey, detail.peaksFactory,
-                detail.clipStartSec, detail.displayDurationSec, barWidthPx, itemHeightPx, {
+                0, timelineDurationSec,
+                detail.waveformStartSec, detail.waveformDisplayDurationSec,
+                barWidthPx, itemHeightPx, {
                     gainDb: bgm.gainDb,
                     keyframes: bgm.keyframes,
                     fadeInSeconds: bgm.fadeIn,
                     fadeOutSeconds: bgm.fadeOut,
                     durationSeconds: timelineDurationSec,
-                    bucketStartSeconds: detail.clipStartSec,
-                    bucketDurationSeconds: detail.displayDurationSec,
+                    bucketStartSeconds: detail.waveformStartSec,
+                    bucketDurationSeconds: detail.waveformDisplayDurationSec,
                     keyframeFrames: this.editDocument !== undefined
                         && findAudioItemIdByRole(this.editDocument, 'bgm') !== undefined,
                     fps: this.fps
@@ -9144,12 +9195,14 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             this.updateAudioClipWaveform(
                 element, detail.fullPeaks, detail.sliceKey, detail.peaksFactory,
-                detail.clipStartSec, detail.displayDurationSec, barWidthPx, itemHeightPx, {
+                narration.t, displayDurationSec,
+                detail.waveformStartSec, detail.waveformDisplayDurationSec,
+                barWidthPx, itemHeightPx, {
                     gainDb: narration.gainDb,
                     keyframes: narration.keyframes,
                     durationSeconds: displayDurationSec,
-                    bucketStartSeconds: detail.clipStartSec - narration.t,
-                    bucketDurationSeconds: detail.displayDurationSec,
+                    bucketStartSeconds: detail.waveformStartSec - narration.t,
+                    bucketDurationSeconds: detail.waveformDisplayDurationSec,
                     keyframeFrames: this.rawV2Item(narration.id) !== undefined,
                     fps: this.fps
                 }
@@ -9185,14 +9238,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
             );
             this.updateAudioClipWaveform(
                 element, detail.fullPeaks, detail.sliceKey, detail.peaksFactory,
-                detail.clipStartSec, detail.displayDurationSec, barWidthPx, itemHeightPx, {
+                sfx.t, displayDurationSec,
+                detail.waveformStartSec, detail.waveformDisplayDurationSec,
+                barWidthPx, itemHeightPx, {
                     gainDb: sfx.gainDb,
                     keyframes: sfx.keyframes,
                     fadeInSeconds: sfx.fadeIn,
                     fadeOutSeconds: sfx.fadeOut,
                     durationSeconds: displayDurationSec,
-                    bucketStartSeconds: detail.clipStartSec - sfx.t,
-                    bucketDurationSeconds: detail.displayDurationSec,
+                    bucketStartSeconds: detail.waveformStartSec - sfx.t,
+                    bucketDurationSeconds: detail.waveformDisplayDurationSec,
                     keyframeFrames: this.rawV2Item(sfx.id) !== undefined,
                     fps: this.fps
                 }
@@ -9255,7 +9310,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         sliceKey: string,
         peaksFactory: () => readonly number[],
         clipStartSec: number,
-        displayDurationSec: number,
+        clipDisplayDurationSec: number,
+        waveformStartSec: number,
+        waveformDisplayDurationSec: number,
         visibleWidthPx: number,
         itemHeightPx: number,
         envelope: AudioLoudnessEnvelope
@@ -9270,7 +9327,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const layoutViewStartSec = this.layoutViewDuration > 0 ? this.layoutViewStart : this.viewStart;
         const geometry = audioClipLocalGeometry({
             clipStartSec,
-            displayDurationSec,
+            displayDurationSec: clipDisplayDurationSec,
             layoutViewStartSec,
             viewDurationSec,
             stripWidthPx
@@ -9279,8 +9336,20 @@ export class AkariAnnotationsWidget extends BaseWidget {
             this.removeAudioWaveformCanvas(element);
             return;
         }
+        const placement = audioWaveformCanvasPlacement({
+            clipStartSec,
+            clipDisplayDurationSec,
+            waveformStartSec,
+            waveformDisplayDurationSec,
+            visibleWidthPx,
+            ...geometry
+        });
+        if (!placement) {
+            this.removeAudioWaveformCanvas(element);
+            return;
+        }
         this.updateAudioWaveformCanvas(
-            element, fullPeaks, sliceKey, peaksFactory, visibleWidthPx, itemHeightPx, geometry, envelope
+            element, fullPeaks, sliceKey, peaksFactory, itemHeightPx, placement, envelope
         );
     }
 
@@ -9289,9 +9358,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         fullPeaks: readonly number[],
         sliceKey: string,
         peaksFactory: () => readonly number[],
-        visibleWidth: number,
         itemHeightPx: number,
-        geometry: { fullClipWidthPx: number; clipLocalOffsetPx: number },
+        placement: AudioWaveformCanvasPlacement,
         envelope: AudioLoudnessEnvelope = { durationSeconds: 0 }
     ): void {
         const band = audioWaveformBandLayout(itemHeightPx, CLIP_HEADER_HEIGHT);
@@ -9311,11 +9379,13 @@ export class AkariAnnotationsWidget extends BaseWidget {
             canvas.className = 'akari-annotations-strip-audio-waveform';
             element.appendChild(canvas);
         }
-        const visibleWidthPx = Math.max(1, Math.round(visibleWidth));
+        const visibleWidthPx = Math.max(1, Math.round(placement.canvasWidthPx));
+        const canvasLeftPx = Math.round(placement.canvasLeftPx * 1000) / 1000;
         const next: AudioWaveformPaintState = {
             sliceKey: masterKey,
             visibleWidth: visibleWidthPx,
-            offset: Math.round(geometry.clipLocalOffsetPx * 1000) / 1000,
+            offset: Math.round(placement.waveformOffsetPx * 1000) / 1000,
+            left: canvasLeftPx,
             bandTop: band.topPx,
             bandHeight: band.heightPx
         };
@@ -9325,7 +9395,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         canvas.height = band.heightPx;
         Object.assign(canvas.style, {
             position: 'absolute',
-            left: '0',
+            left: `${canvasLeftPx}px`,
             top: `${band.topPx}px`,
             width: `${visibleWidthPx}px`,
             height: `${band.heightPx}px`,
@@ -9335,9 +9405,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
         const context = canvas.getContext('2d');
         const sourceRect = audioWaveformSourceRect({
             masterWidthPx: master.width,
-            fullClipWidthPx: geometry.fullClipWidthPx,
-            clipLocalOffsetPx: geometry.clipLocalOffsetPx,
-            visibleWidthPx
+            fullClipWidthPx: placement.waveformFullWidthPx,
+            clipLocalOffsetPx: placement.waveformOffsetPx,
+            visibleWidthPx: placement.canvasWidthPx
         });
         if (context && sourceRect) {
             context.drawImage(

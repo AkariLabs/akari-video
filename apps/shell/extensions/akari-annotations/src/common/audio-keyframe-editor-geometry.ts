@@ -17,6 +17,11 @@ function clamp(value: number, minimum: number, maximum: number): number {
     return Math.max(minimum, Math.min(maximum, value));
 }
 
+/** 全体ゲイン入力をエディタの表示範囲へ収め、未設定・不正値は 0 dB にする。 */
+export function normalizeAudioKeyframeGainDb(value: number | undefined): number {
+    return clamp(finiteOr(value ?? 0, 0), AUDIO_KEYFRAME_MIN_DB, AUDIO_KEYFRAME_MAX_DB);
+}
+
 /** クリップの実効再生窓 [0, durationSeconds] を fit-to-width の px へ写す。 */
 export function audioKeyframeTimeToPx(t: number, durationSeconds: number, widthPx: number): number {
     if (!(durationSeconds > 0) || !Number.isFinite(durationSeconds)

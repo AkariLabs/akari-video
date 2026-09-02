@@ -7,6 +7,7 @@ import {
   AUDIO_LOUDNESS_RED,
   AUDIO_LOUDNESS_YELLOW,
   AudioWaveformDebounceGate,
+  AudioWaveformT1RetryGate,
   AudioWaveformTierLru,
   audioLoudnessBucketColors,
   audioLoopWaveformVisibleWindowPlan,
@@ -15,6 +16,7 @@ import {
   audioWaveformTierBucketCount,
   audioWaveformTierCacheKey,
   audioWaveformVisibleSourceWindow,
+  audioWaveformViewKey,
   clampWaveformBucketCount,
   nextAudioWaveformTier,
   quantizeAudioWaveformWindow,
@@ -287,4 +289,59 @@ test('裁定4: 同一窓の連続ズームは量子化+debounce+LRUでT2取得1�
   }
   assert.equal(fetchCount, 1);
   assert.equal(lru.size, 1);
+});
+
+test('T1失敗は同じ可視窓の再描画では再試行しない', () => {
+  const gate = new AudioWaveformT1RetryGate();
+  gate.recordFailure('audio/se.wav', audioWaveformViewKey(10, 5));
+  assert.equal(gate.shouldRetry('audio/se.wav', audioWaveformViewKey(10, 5)), false);
+});
+
+test('T1失敗後はパンまたはズームで可視窓が変わると再試行できる', () => {
+  const gate = new AudioWaveformT1RetryGate();
+  gate.recordFailure('audio/se.wav', audioWaveformViewKey(10, 5));
+  assert.equal(gate.shouldRetry('audio/se.wav', audioWaveformViewKey(10.5, 5)), true);
+  assert.equal(gate.shouldRetry('audio/se.wav', audioWaveformViewKey(10, 4)), true);
+});
+
+test('T1成功は失敗ビューの再試行制限を解除する', () => {
+  const gate = new AudioWaveformT1RetryGate();
+  gate.recordFailure('audio/se.wav', audioWaveformViewKey(10, 5));
+  gate.recordSuccess('audio/se.wav');
+  assert.equal(gate.shouldRetry('audio/se.wav', audioWaveformViewKey(11, 5)), false);
+});
+
+test('容疑ii: T2がLRU破棄されてもdebounce release後の同一キーを再取得できる', () => {
+  const lru = new AudioWaveformTierLru(1);
+  const gate = new AudioWaveformDebounceGate(200);
+  assert.equal(gate.consider('window-a', 0).shouldFetch, false);
+  assert.equal(gate.consider('window-a', 200).shouldFetch, true);
+  lru.set('window-a', 'T2', 'pending');
+  gate.release('window-a');
+  lru.set('t1-new', 'T1', [1]);
+  assert.equal(lru.has('window-a'), false);
+  assert.equal(gate.consider('window-a', 201).shouldFetch, false);
+  assert.equal(gate.consider('window-a', 401).shouldFetch, true);
+  assert.match(widgetSource, /if \(!this\.waveformTierCache\.has\(key\)\) \{\s*this\.scheduleAudioWaveformT2/u);
+});
+
+test('容疑iii: T0がT1表示より細かい場合は手持ち最良のバケット数でT2を判定する', () => {
+  const selectedBucketCount = Math.max(200, 100);
+  assert.equal(nextAudioWaveformTier('T1', 600, selectedBucketCount), 'T1');
+  assert.equal(nextAudioWaveformTier('T1', 600.01, selectedBucketCount), 'T2');
+  assert.match(widgetSource, /const selectedBucketCount = Math\.max\(t0DisplayPeaks\.length, t1DisplayPeaks\.length\)/u);
+});
+
+test('T1要求は成否にかかわらずin-flight集合からfinallyで解除される', () => {
+  assert.match(widgetSource, /\.finally\(\(\) => \{[\s\S]*waveformT1Requested\.delete\(requestPath\)/u);
+  assert.match(widgetSource, /recordFailure\([\s\S]*audioWaveformViewKey\(this\.viewStart, this\.visibleDuration\(\)\)/u);
+});
+
+test('T2取得待ちは手持ちのT0またはT1を選択状態のまま返す', () => {
+  const start = widgetSource.indexOf('const t2 = this.waveformTierCache.get(t2Key);');
+  const end = widgetSource.indexOf('const coverageClipStart', start);
+  assert.ok(start >= 0 && end > start);
+  const pendingBranch = widgetSource.slice(start, end);
+  assert.match(pendingBranch, /if \(!Array\.isArray\(t2\)\)/u);
+  assert.match(pendingBranch, /return selected;/u);
 });

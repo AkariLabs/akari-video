@@ -14,7 +14,7 @@ function section(source, startNeedle, endNeedle) {
 }
 
 test('専用画面は既存流儀どおり AbstractDialog を継承し適用・キャンセルを持つ', () => {
-  assert.match(dialog, /extends AbstractDialog<AudioEnvelopeKeyframePayload\[\]>/u);
+  assert.match(dialog, /extends AbstractDialog<AkariAudioKeyframeDialogValue>/u);
   assert.match(dialog, /this\.appendAcceptButton\('適用'\)/u);
   assert.match(dialog, /this\.appendCloseButton\('キャンセル'\)/u);
 });
@@ -64,7 +64,7 @@ test('Delete キーと削除ボタンは同じ選択点削除経路へ配線さ�
 test('折れ線プレビューは hold の水平線と段差を描く', () => {
   const envelope = section(dialog, 'protected paintEnvelope()', 'protected displayPeaks()');
   assert.match(envelope, /if \(previous\.easing === 'hold'\)/u);
-  assert.match(envelope, /this\.ctx\.lineTo\(x, audioKeyframeDbToPx\(previous\.gainDb/u);
+  assert.match(envelope, /this\.ctx\.lineTo\(x, audioKeyframeDbToPx\(this\.displayGainDb\(previous\)/u);
   assert.match(envelope, /this\.ctx\.lineTo\(x, y\)/u);
 });
 
@@ -85,7 +85,55 @@ test('呼び出し側はダイアログ結果を既存 audio-keyframes write へ
   assert.match(open, /await dialog\.open\(\)/u);
   assert.match(open, /this\.handleInspectorWrite\(\{/u);
   assert.match(open, /kind: 'audio-keyframes'/u);
-  assert.match(open, /value: keyframes\.length > 0 \? keyframes : null/u);
+  assert.match(open, /value: dialogValue\.keyframes\.length > 0 \? dialogValue\.keyframes : null/u);
+});
+
+test('全体ゲイン欄はdB範囲と0.5刻みを持ち未設定を0表示する', () => {
+  assert.match(dialog, /configureNumberInput\(this\.overallGainInput, '全体ゲイン', '0\.5'\)/u);
+  assert.match(dialog, /this\.overallGainInput\.min = String\(AUDIO_KEYFRAME_MIN_DB\)/u);
+  assert.match(dialog, /this\.overallGainInput\.max = String\(AUDIO_KEYFRAME_MAX_DB\)/u);
+  assert.match(dialog, /this\.overallGainDb = normalizeAudioKeyframeGainDb\(props\.gainDb\)/u);
+  assert.match(dialog, /this\.labeledControl\('全体ゲイン \(dB\)', this\.overallGainInput\)/u);
+});
+
+test('全体ゲイン入力はinputイベントごとに波形を即時再描画する', () => {
+  assert.match(dialog, /overallGainInput\.addEventListener\('input', \(\) => this\.commitOverallGainInput\(\)\)/u);
+  const commit = section(dialog, 'protected commitOverallGainInput()', 'protected commitTimeInput()');
+  assert.match(commit, /this\.overallGainDb = normalizeAudioKeyframeGainDb\(value\)/u);
+  assert.match(commit, /this\.redraw\(\)/u);
+  assert.match(dialog, /audioLoudnessBucketColors\(peaks, \{\s*gainDb: this\.overallGainDb/u);
+});
+
+test('全体ゲイン変更はエンベロープ曲線と点位置にも即時反映する', () => {
+  const envelope = section(dialog, 'protected paintEnvelope()', 'protected displayPeaks()');
+  assert.match(envelope, /audioKeyframeDbToPx\(this\.displayGainDb\(first\)/u);
+  assert.match(envelope, /audioKeyframeDbToPx\(this\.displayGainDb\(current\)/u);
+  assert.match(dialog, /return point\.gainDb \+ this\.overallGainDb;/u);
+});
+
+test('ダイアログの適用値はkeyframesとgainDbを同時に返す', () => {
+  const value = section(dialog, 'get value()', '\n    }\n}');
+  assert.match(value, /const keyframes = \[\.\.\.this\.points\]/u);
+  assert.match(value, /return \{ keyframes, gainDb: this\.overallGainDb \};/u);
+});
+
+test('widgetはkeyframes成功後に変更された全体ゲインだけを書き込む', () => {
+  const open = section(widget, 'protected async openAudioKeyframeEditor(', 'protected exitAudioTrimmerMode(');
+  const keyframeWrite = open.indexOf("kind: 'audio-keyframes'");
+  const gainWrite = open.indexOf("kind: 'bgm-gain'");
+  assert.ok(keyframeWrite >= 0 && gainWrite > keyframeWrite);
+  assert.match(open, /if \(dialogValue\.gainDb === \(audio\.gainDb \?\? 0\)\) return;/u);
+  assert.match(open, /kind: 'bgm-gain', value: dialogValue\.gainDb/u);
+  assert.match(open, /kind: 'narration-gain', id, value: dialogValue\.gainDb/u);
+  assert.match(open, /kind: 'sfx-gain', id, value: dialogValue\.gainDb/u);
+  assert.doesNotMatch(open, /value: dialogValue\.gainDb \|\| null/u);
+});
+
+test('widgetはkeyframesと全体ゲインの失敗を別々の通知で示す', () => {
+  const open = section(widget, 'protected async openAudioKeyframeEditor(', 'protected exitAudioTrimmerMode(');
+  assert.match(open, /音量キーフレームの書き込みに失敗しました:/u);
+  assert.match(open, /全体ゲインの書き込みに失敗しました:/u);
+  assert.match(open, /if \(!keyframeResult\.ok\) \{[\s\S]*return;/u);
 });
 
 test('SFX の pointerup ダブルクリックはトリマーではなく専用エディタを開く', () => {
