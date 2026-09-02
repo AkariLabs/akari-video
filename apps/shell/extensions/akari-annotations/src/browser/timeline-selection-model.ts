@@ -199,6 +199,14 @@ export type TimelineSelectionSnapshot =
     | TimelineMultiSelectionSnapshot
     | undefined;
 
+/** edit.json の文書レベル audio.master をインスペクターへ運ぶスナップショット。 */
+export interface TimelineAudioMasterSnapshot {
+    enabled: boolean;
+    denoise?: 'off' | 'std' | 'strong';
+    loudnorm?: number;
+    truePeakDbtp?: number;
+}
+
 type InspectorWriteOperation =
     | {
         kind: 'item-field';
@@ -271,7 +279,16 @@ type InspectorWriteOperation =
         id: string;
         audioKind: 'bgm' | 'sfx' | 'narration';
     }
+    | { kind: 'audio-master-enabled'; value: boolean }
+    | { kind: 'audio-master-denoise'; value: 'off' | 'std' | 'strong' | null }
+    | { kind: 'audio-master-loudnorm' | 'audio-master-true-peak'; value: number | null }
     | { kind: 'overlay-var'; id: string; name: string; value: string };
+
+export type AudioMasterWriteRequest = Extract<
+    InspectorWriteOperation,
+    { kind: 'audio-master-enabled' | 'audio-master-denoise'
+        | 'audio-master-loudnorm' | 'audio-master-true-peak' }
+>;
 
 /**
  * targets は複数選択の kind 非依存な一括 write 器。未指定なら各 operation の id/index が対象。
@@ -330,6 +347,7 @@ export class TimelineSelectionModel {
     readonly onChanged: Event<void> = this.onChangedEmitter.event;
 
     protected _snapshot: TimelineSelectionSnapshot;
+    protected _audioMaster: TimelineAudioMasterSnapshot = { enabled: false };
     protected _treeSelection: TimelineTreeItemSelection | undefined;
     protected _keyframeSelection: TimelineKeyframeSelection | undefined;
     protected _fps = 30;
@@ -354,6 +372,15 @@ export class TimelineSelectionModel {
 
     set snapshot(value: TimelineSelectionSnapshot) {
         this._snapshot = value;
+        this.onChangedEmitter.fire();
+    }
+
+    get audioMaster(): TimelineAudioMasterSnapshot {
+        return this._audioMaster;
+    }
+
+    set audioMaster(value: TimelineAudioMasterSnapshot) {
+        this._audioMaster = value;
         this.onChangedEmitter.fire();
     }
 

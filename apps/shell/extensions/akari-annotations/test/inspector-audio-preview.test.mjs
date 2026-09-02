@@ -69,7 +69,7 @@ test('各音声プレビューは裁定どおりの行数を表示する', () =>
   const expectedRows = new Map([
     ['volume', 2],
     ['fades', 2],
-    ['enhancement', 4],
+    ['enhancement', 2],
     ['ducking', 2],
     ['av-link', 3],
     ['pitch-time', 2]
@@ -79,6 +79,14 @@ test('各音声プレビューは裁定どおりの行数を表示する', () =>
       .filter(element => hasClass(element, 'akari-audio-preview-row'));
     assert.equal(rows.length, count, id);
   }
+}));
+
+test('音声強調の近日行はクリップ単位ノイズ除去とボイス分離だけを残す', () => withFakeDocument(() => {
+  const rows = descendants(buildSection('enhancement'))
+    .filter(element => hasClass(element, 'akari-audio-preview-row'));
+  assert.deepEqual(rows.map(row => row.children[0].textContent), [
+    'ノイズ除去（クリップ単位）', 'ボイス分離'
+  ]);
 }));
 
 test('各音声プレビューは pointer event を受けず、活性 button / input を含まない', () => withFakeDocument(() => {

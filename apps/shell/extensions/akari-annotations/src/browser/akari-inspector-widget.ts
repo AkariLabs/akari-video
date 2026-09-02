@@ -16,6 +16,7 @@ import {
     TimelineItemSelectionSnapshot,
     TimelineKeyframeSelection,
     TimelineOverlaySelection,
+    TimelineAudioMasterSnapshot,
     TimelineSelectionModel,
     TimelineSelectionTarget,
     TimelineTreeItemSnapshot
@@ -54,6 +55,10 @@ import {
     AUDIO_PREVIEW_SECTIONS,
     type AudioPreviewSection
 } from './inspector/audio-preview';
+import {
+    AUDIO_MASTER_DEFAULT_LOUDNORM,
+    AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP
+} from './inspector/audio-master';
 import {
     composeInspectorSections,
     InspectorSectionDef,
@@ -1329,6 +1334,65 @@ function AUDIO_SECTIONS(
     return composeInspectorSections(tabs);
 }
 
+function AUDIO_MASTER_SECTION(
+    snapshot: TimelineAudioMasterSnapshot,
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorSection {
+    const denoiseLabel = snapshot.denoise === 'strong' ? '強'
+        : snapshot.denoise === 'std' ? '標準' : 'オフ';
+    const disabledTitle = snapshot.enabled ? undefined : 'マスタリングをオンにすると変更できます。';
+    return {
+        id: 'audio:master',
+        label: 'マスター（書き出し全体）',
+        caption: 'プロジェクト全体に適用・プレビューは未対応（書き出し時のみ）',
+        fields: [{
+            name: 'audio-master-enabled', label: 'マスタリング',
+            getValue: () => snapshot.enabled ? 'オン' : 'オフ',
+            getEditValue: () => snapshot.enabled ? 'オン' : 'オフ',
+            inputKind: 'select', options: ['オフ', 'オン'],
+            write: async (_rowSnapshot, value) => requestWrite({
+                kind: 'audio-master-enabled', value: value === 'オン'
+            })
+        }, {
+            name: 'audio-master-denoise', label: 'ノイズ除去',
+            getValue: () => denoiseLabel, getEditValue: () => denoiseLabel,
+            inputKind: 'select', options: ['オフ', '標準', '強'],
+            disabled: !snapshot.enabled, title: disabledTitle,
+            reset: () => requestWrite({ kind: 'audio-master-denoise', value: null }),
+            write: async (_rowSnapshot, value) => requestWrite({
+                kind: 'audio-master-denoise',
+                value: value === '強' ? 'strong' : value === '標準' ? 'std' : 'off'
+            })
+        }, {
+            name: 'audio-master-loudnorm', label: 'ラウドネス目標', unit: 'LUFS',
+            getValue: () => String(snapshot.loudnorm ?? AUDIO_MASTER_DEFAULT_LOUDNORM),
+            getEditValue: () => String(snapshot.loudnorm ?? AUDIO_MASTER_DEFAULT_LOUDNORM),
+            inputKind: 'scrub-number', scrubStep: 0.5, min: -70, max: 0,
+            disabled: !snapshot.enabled, title: disabledTitle,
+            reset: () => requestWrite({ kind: 'audio-master-loudnorm', value: null }),
+            write: async (_rowSnapshot, value) => {
+                const parsed = Number(value);
+                return !Number.isFinite(parsed) || parsed < -70 || parsed > 0
+                    ? { ok: false, message: 'ラウドネス目標は -70〜0 の範囲で入力してください。' }
+                    : requestWrite({ kind: 'audio-master-loudnorm', value: parsed });
+            }
+        }, {
+            name: 'audio-master-true-peak', label: 'True Peak 上限', unit: 'dBTP',
+            getValue: () => String(snapshot.truePeakDbtp ?? AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP),
+            getEditValue: () => String(snapshot.truePeakDbtp ?? AUDIO_MASTER_DEFAULT_TRUE_PEAK_DBTP),
+            inputKind: 'scrub-number', scrubStep: 0.1, min: -9, max: 0,
+            disabled: !snapshot.enabled, title: disabledTitle,
+            reset: () => requestWrite({ kind: 'audio-master-true-peak', value: null }),
+            write: async (_rowSnapshot, value) => {
+                const parsed = Number(value);
+                return !Number.isFinite(parsed) || parsed < -9 || parsed > 0
+                    ? { ok: false, message: 'True Peak 上限は -9〜0 の範囲で入力してください。' }
+                    : requestWrite({ kind: 'audio-master-true-peak', value: parsed });
+            }
+        }]
+    };
+}
+
 function OVERLAY_SECTIONS(
     snapshot: TimelineOverlaySelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>,
@@ -1739,6 +1803,12 @@ export class AkariInspectorWidget extends BaseWidget {
         display: grid;
         gap: 5px;
     }
+    .akari-inspector-widget .akari-inspector-section-caption {
+        margin: 0;
+        color: var(--theia-descriptionForeground);
+        font-size: 11px;
+        line-height: 1.4;
+    }
     .akari-inspector-widget .akari-inspector-section-soon,
     .akari-inspector-widget .akari-inspector-section-soon .akari-inspector-section-header {
         color: var(--theia-disabledForeground);
@@ -2104,6 +2174,7 @@ export class AkariInspectorWidget extends BaseWidget {
             AUDIO_PREVIEW_SECTIONS.forEach(section =>
                 this.appendAdjustPreviewSection(section, sectionKind, 'audio')
             );
+            this.appendSection(AUDIO_MASTER_SECTION(this.model.audioMaster, requestWrite), rowSnapshot, sectionKind);
             return;
         }
         sections
@@ -2113,6 +2184,7 @@ export class AkariInspectorWidget extends BaseWidget {
             AUDIO_ITEM_PREVIEW_SECTIONS.forEach(section =>
                 this.appendAdjustPreviewSection(section, sectionKind, 'audio-item')
             );
+            this.appendSection(AUDIO_MASTER_SECTION(this.model.audioMaster, requestWrite), rowSnapshot, sectionKind);
         }
     }
 
@@ -2244,6 +2316,12 @@ export class AkariInspectorWidget extends BaseWidget {
             this.sectionState.setCollapsed(kind, section.id, next);
         });
         header.appendChild(toggle);
+        if (section.caption) {
+            const caption = document.createElement('p');
+            caption.className = 'akari-inspector-section-caption';
+            caption.textContent = section.caption;
+            body.appendChild(caption);
+        }
         const fields = [...section.fields];
         if (section.optionalFields) {
             const visible = section.optionalFields.filter(field => this.isOptionalFieldVisible(kind, field, snapshot));

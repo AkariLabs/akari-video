@@ -1,6 +1,7 @@
 export interface InspectorSectionDef<TField> {
     id: string;
     label: string;
+    caption?: string;
     fields: ReadonlyArray<TField>;
     collapsedByDefault?: boolean;
     optionalFields?: ReadonlyArray<TField & { name: string }>;

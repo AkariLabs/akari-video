@@ -199,6 +199,17 @@ test('木 item snapshot がインスペクターへ時間・変形・外観を�
   assert.match(inspectorWidgetSource, /id: 'transform', label: '変形'/u);
 });
 
+test('音声タブ末尾のマスターは cut と audio アイテムの両方へ出る', () => {
+  const masterFactory = sourceBetween('function AUDIO_MASTER_SECTION(', 'function OVERLAY_SECTIONS(');
+  assert.match(masterFactory, /label: 'マスター（書き出し全体）'/u);
+  assert.match(masterFactory, /プロジェクト全体に適用・プレビューは未対応（書き出し時のみ）/u);
+  assert.equal((masterFactory.match(/name: 'audio-master-/gu) ?? []).length, 4);
+
+  const render = sourceBetween('protected render(): void', 'protected tabSourceHint(');
+  assert.match(render, /sectionKind !== 'audio'[\s\S]*AUDIO_PREVIEW_SECTIONS[\s\S]*appendSection\(AUDIO_MASTER_SECTION/u);
+  assert.match(render, /sectionKind === 'audio'[\s\S]*AUDIO_ITEM_PREVIEW_SECTIONS[\s\S]*appendSection\(AUDIO_MASTER_SECTION/u);
+});
+
 test('字幕位置は 3x3 grid から preview 所有の hover/preset イベントへ流す', () => {
   assert.match(inspectorWidgetSource, /inputKind: 'zone-grid'/u);
   assert.match(inspectorWidgetSource, /akari-caption-zone-grid/u);

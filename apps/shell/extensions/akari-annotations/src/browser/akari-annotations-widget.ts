@@ -234,6 +234,7 @@ import { createAkariNoticeBanner } from './akari-notice-banner';
 import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/keyboard-shortcuts';
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { updateInspectorCrop, type InspectorCropAxis } from './inspector/crop-fields';
+import { readAudioMasterSnapshot, updateAudioMasterDocument } from './inspector/audio-master';
 import {
     isCutFramingWriteRequest,
     readCutFraming,
@@ -254,6 +255,7 @@ import { AkariAnnotationsClientImpl } from './akari-annotations-client';
 import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
 import { ReviewModel } from './review-model';
 import {
+    AudioMasterWriteRequest,
     InspectorWriteRequest,
     InspectorWriteResult,
     KeyframeControlRequest,
@@ -2389,6 +2391,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if (request.kind === 'audio-auto-level') {
             return this.handleAudioAutoLevelWrite(request);
         }
+        if (request.kind === 'audio-master-enabled' || request.kind === 'audio-master-denoise'
+            || request.kind === 'audio-master-loudnorm' || request.kind === 'audio-master-true-peak') {
+            return this.handleAudioMasterWrite(request);
+        }
         if ((isCutFramingWriteRequest(request) || isCutFreezeWriteRequest(request)) && this.legacyReadOnly) {
             return { ok: false, message: '古い edit.json を読み取り専用で開いているため変更できません。' };
         }
@@ -2883,6 +2889,39 @@ export class AkariAnnotationsWidget extends BaseWidget {
             await this.reloadEdit();
             this.hideNotice();
             this.footer.textContent = `${label}しました。`;
+            return { ok: true };
+        } catch (error) {
+            const detail = this.errorMessage(error);
+            this.showNotice(`変更できません: ${detail}`);
+            return { ok: false, message: detail };
+        }
+    }
+
+    protected async handleAudioMasterWrite(request: AudioMasterWriteRequest): Promise<InspectorWriteResult> {
+        const editUri = this.location?.editUri;
+        if (!editUri) return { ok: false, message: 'edit.json がありません。' };
+        try {
+            const before = (await this.fileService.readFile(editUri)).value.toString();
+            const document = JSON.parse(before) as Record<string, unknown>;
+            const updated = updateAudioMasterDocument(document, request);
+            const after = `${JSON.stringify(updated, null, 2)}\n`;
+            if (after !== before) {
+                await this.writeEditSnapshotGuarded(after);
+                this.pushHistory({
+                    label: '音声マスターを変更',
+                    undo: async () => {
+                        await this.writeEditSnapshotGuarded(before);
+                        await this.reloadEdit();
+                    },
+                    redo: async () => {
+                        await this.writeEditSnapshotGuarded(after);
+                        await this.reloadEdit();
+                    }
+                });
+                await this.reloadEdit();
+            }
+            this.hideNotice();
+            this.footer.textContent = '音声マスターを変更しました。';
             return { ok: true };
         } catch (error) {
             const detail = this.errorMessage(error);
@@ -4730,6 +4769,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
         }
         this.rebuildSegments();
         this.notifyCaptionSourceMappingWarning();
+        this.selectionModel.audioMaster = readAudioMasterSnapshot(this.editDocument);
         this.selectionModel.fps = this.fps;
         this.pushSelectionSnapshot();
         await this.applyStoredTrackFlags();
