@@ -2,7 +2,11 @@ import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
-import { applyCutRanges as applyCutRangesToSource, detectEditVersion } from '@akari-video/edit-store/lib/cut-ranges';
+import {
+    applyCutRanges as applyCutRangesToSource,
+    detectEditVersion,
+    type CutRange
+} from '@akari-video/edit-store/lib/cut-ranges';
 import { refreshItemAnchors, type EditableEditV2 } from '@akari-video/edit-store/lib/tree-ops';
 import type { AnchorCaption } from '@akari-video/edit-store/lib/item-anchor';
 import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
@@ -617,7 +621,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = updateCaptionFieldsInSource(source, request.captionId, {
             text: request.text,
-            speaker: request.speaker
+            speaker: request.speaker,
+            unrecognized: request.unrecognized
         });
         await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更') };
@@ -757,7 +762,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         this.requireWriteRequest(request?.editUri, request?.projectRootUri);
         const editPath = this.fsPath(request.editUri);
         const beforeSource = await fs.readFile(editPath, 'utf8');
-        const applied = applyCutRangesToSource(beforeSource, request.ranges, {});
+        // edit-store の読み取り専用 CutRange 型は kind を消費しないため、サービス境界だけで吸収する。
+        const applied = applyCutRangesToSource(beforeSource, request.ranges as unknown as CutRange[], {});
         let updated = applied.source;
         if (detectEditVersion(updated) === 2) {
             try {

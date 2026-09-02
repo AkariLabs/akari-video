@@ -1956,7 +1956,7 @@ var require_caption_store = __commonJS({
       if (!captionId) {
         throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       }
-      if (updates.text === void 0 && updates.speaker === void 0) {
+      if (updates.text === void 0 && updates.speaker === void 0 && updates.unrecognized === void 0) {
         throw new Error("\u5909\u66F4\u3059\u308B\u5B57\u5E55\u30D5\u30A3\u30FC\u30EB\u30C9\u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
       }
       if (updates.text !== void 0 && (typeof updates.text !== "string" || !updates.text.trim())) {
@@ -1964,6 +1964,18 @@ var require_caption_store = __commonJS({
       }
       if (updates.speaker !== void 0 && updates.speaker !== null && typeof updates.speaker !== "string") {
         throw new Error("\u5B57\u5E55\u306E\u8A71\u8005\u306F\u6587\u5B57\u5217\u307E\u305F\u306F null \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+      }
+      let unrecognized;
+      if (updates.unrecognized !== void 0 && updates.unrecognized !== null) {
+        if (!Array.isArray(updates.unrecognized)) {
+          throw new Error("\u5B57\u5E55\u306E\u672A\u8A8D\u8B58\u533A\u9593\u306F\u914D\u5217\u307E\u305F\u306F null \u3067\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+        unrecognized = updates.unrecognized.map((span) => {
+          if (!span || typeof span !== "object" || typeof span.start !== "number" || !Number.isFinite(span.start) || typeof span.end !== "number" || !Number.isFinite(span.end) || span.end <= span.start) {
+            throw new Error("\u5B57\u5E55\u306E\u672A\u8A8D\u8B58\u533A\u9593\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+          }
+          return { start: span.start, end: span.end };
+        }).sort((left, right) => left.start - right.start || left.end - right.end);
       }
       const array = locateCaptionArray(source);
       const element = findCaptionElement(array.elements, captionId);
@@ -1982,6 +1994,9 @@ var require_caption_store = __commonJS({
       if (updates.speaker !== void 0) {
         nextElement = replaceCaptionProperty(nextElement, "speaker", updates.speaker, captionId);
         nextElement = replaceCaptionProperty(nextElement, "edited", true, captionId);
+      }
+      if (updates.unrecognized !== void 0) {
+        nextElement = syncOptionalCaptionProperty(nextElement, "unrecognized", updates.unrecognized === null || unrecognized?.length === 0 ? void 0 : unrecognized, captionId);
       }
       return replaceElement(source, array.openIndex + 1, element, nextElement);
     }
@@ -2083,6 +2098,7 @@ var require_caption_store = __commonJS({
       if (sourceRef === void 0 || value.speaker !== null && typeof value.speaker !== "string" || value.text_style !== void 0 && textStyle === void 0) {
         return void 0;
       }
+      const unrecognized = normalizeUnrecognized(value.unrecognized);
       return {
         id: value.id,
         start,
@@ -2091,6 +2107,7 @@ var require_caption_store = __commonJS({
         speaker: value.speaker,
         sourceRef,
         edited: value.edited,
+        ...unrecognized !== void 0 ? { unrecognized } : {},
         ...value.time_domain === "source" || value.time_domain === "output" ? { timeDomain: value.time_domain } : {},
         ...textStyle !== void 0 ? { textStyle } : {}
       };
@@ -2246,9 +2263,23 @@ var require_caption_store = __commonJS({
       return `${beforeClosingIndent}${closingIndent}  ${serialized}${lineEnding}${closingIndent}`;
     }
     function serializeCaption(caption) {
+      const normalizedUnrecognized = normalizeUnrecognized(caption.unrecognized);
+      const unrecognized = normalizedUnrecognized === void 0 ? "" : `, "unrecognized": ${JSON.stringify(normalizedUnrecognized)}`;
       const timeDomain = caption.timeDomain === void 0 ? "" : `, "time_domain": ${JSON.stringify(caption.timeDomain)}`;
       const textStyle = caption.textStyle === void 0 ? "" : `, "text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`;
-      return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${timeDomain}${textStyle} }`;
+      return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${unrecognized}${timeDomain}${textStyle} }`;
+    }
+    function normalizeUnrecognized(value) {
+      if (!Array.isArray(value))
+        return void 0;
+      if (!value.every((span) => isRecord2(span) && isFiniteNumber(span.start) && isFiniteNumber(span.end) && span.end > span.start)) {
+        return void 0;
+      }
+      const spans = value.map((span) => {
+        const record = span;
+        return { start: record.start, end: record.end };
+      });
+      return spans.length > 0 ? spans : void 0;
     }
     function isRecord2(value) {
       return Boolean(value) && typeof value === "object" && !Array.isArray(value);

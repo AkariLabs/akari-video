@@ -1,4 +1,5 @@
 import { applyCaptionTextEdit, type CaptionTextEditRecord } from '@akari-video/edit-store';
+import { clipUnrecognizedToRange } from '../common/daihon-unrecognized';
 
 export interface CaptionSourceRef {
     segment: number;
@@ -19,6 +20,7 @@ export interface Caption {
     sourceRef: CaptionSourceRef | null;
     edited: boolean;
     words?: CaptionWord[];
+    unrecognized?: { start: number; end: number }[];
     style?: string;
     displayText?: string;
 }
@@ -27,6 +29,7 @@ export interface AnalysisSegment {
     start: number;
     end: number;
     text: string;
+    unrecognized?: { start: number; end: number }[];
 }
 
 export interface RegenerationResult {
@@ -227,17 +230,26 @@ export function regenerateCaptions(analysisSource: string, existingSource?: stri
         const current = bySegment.get(segmentIndex);
         if (current) {
             bySegment.delete(segmentIndex);
-            captions.push(current.edited ? current : {
-                ...current,
-                id: current.id,
-                start: segment.start,
-                end: segment.end,
-                text: segment.text,
-                speaker: null,
-                sourceRef: { segment: segmentIndex },
-                edited: false
-            });
+            if (current.edited) {
+                captions.push(current);
+            } else {
+                const preserved = { ...current };
+                delete preserved.unrecognized;
+                const unrecognized = clipUnrecognizedToRange(segment.unrecognized, segment.start, segment.end);
+                captions.push({
+                    ...preserved,
+                    id: current.id,
+                    start: segment.start,
+                    end: segment.end,
+                    text: segment.text,
+                    speaker: null,
+                    sourceRef: { segment: segmentIndex },
+                    edited: false,
+                    ...(unrecognized.length > 0 ? { unrecognized } : {})
+                });
+            }
         } else {
+            const unrecognized = clipUnrecognizedToRange(segment.unrecognized, segment.start, segment.end);
             captions.push({
                 id: nextId(),
                 start: segment.start,
@@ -245,7 +257,8 @@ export function regenerateCaptions(analysisSource: string, existingSource?: stri
                 text: segment.text,
                 speaker: null,
                 sourceRef: { segment: segmentIndex },
-                edited: false
+                edited: false,
+                ...(unrecognized.length > 0 ? { unrecognized } : {})
             });
         }
     }
@@ -304,6 +317,9 @@ function serializeCaption(caption: Caption): string {
     const words = caption.words === undefined
         ? ''
         : `,"words":${JSON.stringify(caption.words)}`;
+    const unrecognized = caption.unrecognized?.length
+        ? `,"unrecognized":${JSON.stringify(caption.unrecognized)}`
+        : '';
     const style = caption.style === undefined
         ? ''
         : `,"style":${JSON.stringify(caption.style)}`;
@@ -313,7 +329,7 @@ function serializeCaption(caption: Caption): string {
     return `{"id":${JSON.stringify(caption.id)},"start":${JSON.stringify(caption.start)},` +
         `"end":${JSON.stringify(caption.end)},"text":${JSON.stringify(caption.text)},` +
         `"speaker":${caption.speaker === null ? 'null' : JSON.stringify(caption.speaker)},` +
-        `"sourceRef":${sourceRef},"edited":${caption.edited ? 'true' : 'false'}${words}${style}${displayText}}`;
+        `"sourceRef":${sourceRef},"edited":${caption.edited ? 'true' : 'false'}${words}${unrecognized}${style}${displayText}}`;
 }
 
 function normalizeSegment(value: any): AnalysisSegment | undefined {
@@ -324,7 +340,8 @@ function normalizeSegment(value: any): AnalysisSegment | undefined {
         || typeof value?.text !== 'string' || value.text.length === 0) {
         return undefined;
     }
-    return { start, end, text: value.text };
+    const unrecognized = normalizeUnrecognized(value.unrecognized);
+    return { start, end, text: value.text, ...(unrecognized === undefined ? {} : { unrecognized }) };
 }
 
 function normalizeCaption(value: any): Caption | undefined {
@@ -351,6 +368,7 @@ function normalizeCaptionForRegeneration(value: any): Caption | undefined {
         return undefined;
     }
     const words = normalizeCaptionWords(value.words);
+    const unrecognized = normalizeUnrecognized(value.unrecognized);
     const style = typeof value.style === 'string' ? value.style : undefined;
     const displayText = typeof value.display_text === 'string' ? value.display_text : undefined;
     return {
@@ -362,6 +380,7 @@ function normalizeCaptionForRegeneration(value: any): Caption | undefined {
         sourceRef: segment,
         edited: value.edited,
         ...(words === undefined ? {} : { words }),
+        ...(unrecognized === undefined ? {} : { unrecognized }),
         ...(style === undefined ? {} : { style }),
         ...(displayText === undefined ? {} : { displayText })
     };
@@ -380,6 +399,17 @@ function normalizeCaptionWords(value: any): CaptionWord[] | undefined {
             : []
     );
     return words.length > 0 ? words : undefined;
+}
+
+function normalizeUnrecognized(value: any): { start: number; end: number }[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const spans = value.flatMap((span: any) => span && typeof span === 'object'
+        && typeof span.start === 'number' && Number.isFinite(span.start)
+        && typeof span.end === 'number' && Number.isFinite(span.end)
+        && span.end > span.start
+        ? [{ start: span.start, end: span.end }]
+        : []);
+    return spans.length > 0 ? spans : undefined;
 }
 
 function decodeJsonString(value: string): string {

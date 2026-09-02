@@ -14,6 +14,7 @@ export interface DaihonCaptionLike {
     text: string;
     style: string | null;
     words?: readonly DaihonCaptionWord[];
+    unrecognized?: readonly { start: number; end: number }[];
     displayFragments?: readonly string[];
     display_fragments?: readonly string[];
     edited?: boolean;
@@ -30,6 +31,7 @@ export interface DaihonRow {
     text: string;
     style: string | null;
     words: DaihonCaptionWord[] | null;
+    unrecognized: { start: number; end: number }[];
     fragmentBreakWordIndex: number | null;
     edited: boolean;
     timeDomain: 'source' | 'output';
@@ -68,6 +70,7 @@ export function buildDaihonRows(
 ): DaihonRow[] {
     return captions.map(caption => {
         const words = caption.words?.length ? caption.words.map(word => ({ ...word })) : null;
+        const unrecognized = caption.unrecognized?.map(span => ({ ...span })) ?? [];
         const timeDomain = caption.timeDomain ?? caption.time_domain ?? 'source';
         let outStart: number | null;
         let outEnd: number | null;
@@ -97,6 +100,7 @@ export function buildDaihonRows(
             text: caption.text,
             style: caption.style ?? null,
             words,
+            unrecognized,
             fragmentBreakWordIndex: fragmentBreak(caption, words),
             edited: caption.edited === true,
             timeDomain

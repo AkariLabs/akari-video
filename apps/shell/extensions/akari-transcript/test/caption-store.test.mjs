@@ -221,3 +221,78 @@ test('regenerateCaptions: 保持した既存字幕を含めて start 順に並�
     assert.deepEqual(captions.map(caption => caption.text),
         ['gen-line-1', 'manual-mid', 'gen-line-2', 'manual-late']);
 });
+
+test('unrecognized は parse → serialize で words の直後に残る', () => {
+    const caption = {
+        id: 'c-2001', start: 0, end: 2, text: '前後', speaker: null, sourceRef: null, edited: false,
+        words: [{ start: 0, end: 0.8, text: '前' }, { start: 1.2, end: 2, text: '後' }],
+        unrecognized: [{ start: 0.8, end: 1.2 }]
+    };
+    const source = serializeCaptions([caption]);
+    const roundTrip = serializeCaptions(parseCaptions(source).captions);
+    assert.equal(roundTrip, source);
+    assert.match(source, /"words":\[[^\n]+\],"unrecognized":\[\{"start":0\.8,"end":1\.2\}\]/u);
+});
+
+test('unrecognized の不正要素だけを捨てて妥当要素を保つ', () => {
+    const source = JSON.stringify([{
+        id: 'c-2002', start: 0, end: 2, text: '本文', speaker: null, sourceRef: null, edited: false,
+        unrecognized: [{ start: 0.4, end: 0.6 }, { start: 1, end: 1 }, { start: 'bad', end: 1.2 }]
+    }]);
+    assert.deepEqual(parseCaptions(source).captions[0].unrecognized, [{ start: 0.4, end: 0.6 }]);
+});
+
+test('unrecognized 空配列は直列化しない', () => {
+    const source = serializeCaptions([{
+        id: 'c-2003', start: 0, end: 1, text: '本文', speaker: null, sourceRef: null,
+        edited: false, unrecognized: []
+    }]);
+    assert.equal(source.includes('"unrecognized"'), false);
+});
+
+test('再生成の edited:false 行は segment の unrecognized を範囲へ切り詰めて持ち越す', () => {
+    const analysis = JSON.stringify({ transcript: [{
+        start: 1, end: 3, text: '再生成', unrecognized: [
+            { start: 0.8, end: 1.2 }, { start: 1.2, end: 1.4 }, { start: 2.8, end: 3.3 }
+        ]
+    }] });
+    const existing = JSON.stringify([{
+        id: 'c-2004', start: 0, end: 4, text: '旧本文', speaker: null,
+        sourceRef: { segment: 0 }, edited: false, unrecognized: [{ start: 3.5, end: 3.7 }]
+    }]);
+    const regenerated = regenerateCaptions(analysis, existing).captions[0];
+    assert.deepEqual(regenerated.unrecognized, [{ start: 1, end: 1.4 }, { start: 2.8, end: 3 }]);
+});
+
+test('再生成の新規行も segment の unrecognized を持ち越す', () => {
+    const analysis = JSON.stringify({ transcript: [{
+        start: 4, end: 5, text: '新規', unrecognized: [{ start: 4.2, end: 4.4 }]
+    }] });
+    assert.deepEqual(regenerateCaptions(analysis, '[]').captions[0].unrecognized, [
+        { start: 4.2, end: 4.4 }
+    ]);
+});
+
+test('再生成の edited:true 行は既存 unrecognized をそのまま温存する', () => {
+    const kept = [{ start: 6.2, end: 6.4 }];
+    const analysis = JSON.stringify({ transcript: [{
+        start: 1, end: 2, text: 'segment', unrecognized: [{ start: 1.2, end: 1.4 }]
+    }] });
+    const existing = JSON.stringify([{
+        id: 'c-2005', start: 6, end: 7, text: '手編集', speaker: null,
+        sourceRef: { segment: 0 }, edited: true, unrecognized: kept
+    }]);
+    assert.deepEqual(regenerateCaptions(analysis, existing).captions[0].unrecognized, kept);
+});
+
+test('再生成の unpaired 行は既存 unrecognized を保つ', () => {
+    const kept = [{ start: 8.2, end: 8.4 }];
+    const analysis = JSON.stringify({ transcript: [] });
+    const existing = JSON.stringify([{
+        id: 'c-2006', start: 8, end: 9, text: '対応なし', speaker: null,
+        sourceRef: { segment: 9 }, edited: false, unrecognized: kept
+    }]);
+    const regenerated = regenerateCaptions(analysis, existing).captions[0];
+    assert.deepEqual(regenerated.unrecognized, kept);
+    assert.equal(regenerated.sourceRef, null);
+});

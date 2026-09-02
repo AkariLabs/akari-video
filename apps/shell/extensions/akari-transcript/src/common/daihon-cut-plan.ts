@@ -3,7 +3,7 @@ import type { DaihonRow } from './daihon-row-model';
 export interface DaihonCutRange {
     in: number;
     out: number;
-    kind: 'row' | 'filler' | 'silence';
+    kind: 'row' | 'filler' | 'silence' | 'unrecognized';
     captionId?: string;
     label?: string;
 }

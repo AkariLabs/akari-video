@@ -55,3 +55,24 @@ schema と validator は配列、要素の exact keys、有限・非負の `star
 
 confidence、低確信の認識語を示すマーカー、未認識区間の自動置換・自動カットは本契約に含めない。
 SpeechAnalyzer や cloud バックエンド固有の非発話マーカー解釈も追加せず、語間隙からの検出だけを共通適用する。
+
+## 7. パネル側の約束（T5b）
+
+台本パネルは各未認識区間を `??` 固定で時刻順に表示する。表示位置は `span.start >= words[i].end` を
+満たす最後の語の直後とし、該当語が無ければ行頭、最後の語より後なら行末へ置く。`words[]` が無い行では
+本文の末尾へ並べる。`??` は字幕語やカラオケの語 index には含めない。
+
+聞き取った文字への置換は、`setCaptionFields` の `text` と `unrecognized` を 1 回の書き戻しで更新する。
+本文では `??` の直前にある語の直後へ文字を挿入し、対象区間だけを `unrecognized[]` から除く。新しい語の
+時刻は共通カーネル `rederiveCaptionWords` が前後の保持語の間へ配分し、既存の他語は変更しない。
+
+映像ごとのカットは対象の `[start, end]` をパディングせず、`kind: 'unrecognized'` として
+`applyCutRanges` へ渡す。カット成功後に対象区間を `unrecognized[]` から除き、字幕側の更新に失敗した場合は
+カット前の edit.json を復元する。
+
+文字起こしタブの再生成直列化器と edit-store の `insertCaptionLine` 直列化器は、どちらも非空の
+`unrecognized[]` を保全する。再生成では `edited: true` の行と対応 segment が無い行の既存値をそのまま保ち、
+`edited: false` の再生成行と新規行は analysis segment の区間を字幕の `[start, end]` へミリ秒単位で
+切り詰め、時刻順に並べて隣接・重複区間を結合して持ち越す。空になった配列は書かない。
+
+低確信の認識語を示すマーカー、1 個の `?`、および `???` の使い分けは T5b の非スコープとする。

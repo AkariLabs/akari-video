@@ -278,7 +278,7 @@ export interface InsertCutRequest {
 export interface CutRangeInput {
     in: number;
     out: number;
-    kind: 'row' | 'filler' | 'silence';
+    kind: 'row' | 'filler' | 'silence' | 'unrecognized';
     captionId?: string;
     label?: string;
 }
@@ -491,6 +491,7 @@ export interface SetCaptionFieldsRequest {
     captionId: string;
     text?: string;
     speaker?: string | null;
+    unrecognized?: ReadonlyArray<{ start: number; end: number }> | null;
 }
 
 export interface SetCaptionTextStyleRequest {

@@ -1,0 +1,142 @@
+#!/usr/bin/env node
+import { spawn } from 'node:child_process';
+import { mkdir, rename, stat, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+const FIXTURE = path.join(ROOT, 'fixture');
+const FFMPEG = process.env.FFMPEG || 'ffmpeg';
+const FPS = 30;
+const exists = async file => { try { await stat(file); return true; } catch { return false; } };
+const round = value => Math.round(value * 1000) / 1000;
+const atomicWrite = async (file, value) => {
+  await mkdir(path.dirname(file), { recursive: true });
+  const temporary = `${file}.tmp-${process.pid}`;
+  await writeFile(temporary, value);
+  await rename(temporary, file);
+};
+const run = (command, args, cwd) => new Promise((resolve, reject) => {
+  const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+  let stderr = '';
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  child.once('error', reject);
+  child.once('close', code => code === 0 ? resolve() : reject(new Error(`${command} failed (${code}): ${stderr.slice(-1600)}`)));
+});
+
+function unrecognizedFor(version, number, start) {
+  const between = { start: round(start + 0.32), end: round(start + 0.38) };
+  if (version === 2) {
+    if ([2, 3, 4, 5].includes(number)) return [between];
+    if (number === 6) return [{ start: round(start + 0.01), end: round(start + 0.04) }];
+    if (number === 7) return [{ start: round(start + 1.16), end: round(start + 1.19) }];
+    if (number === 8) return [
+      { start: round(start + 0.12), end: round(start + 0.2) },
+      { start: round(start + 0.62), end: round(start + 0.7) }
+    ];
+  } else {
+    // legacy(v1) の applyCutRanges は LEGACY_EDGE_SECONDS = 0.15 を下限に 2 段分割する。
+    // 0.06 秒の語間 span では後半分割が失敗するため、v1 だけ語間と span を広げる。
+    // 制約元 packages/edit-store/src/cut-ranges.ts は読み取り専用なので無改修とする。
+    const legacyBetween = { start: round(start + 0.3), end: round(start + 0.47) };
+    if ([2, 3].includes(number)) return [legacyBetween];
+    if (number === 4) return [
+      { start: round(start + 0.12), end: round(start + 0.2) },
+      { start: round(start + 0.62), end: round(start + 0.7) }
+    ];
+  }
+  return undefined;
+}
+
+function captions(count, version) {
+  let cursor = 0;
+  return Array.from({ length: count }, (_, index) => {
+    const number = index + 1;
+    const serial = String(number).padStart(4, '0');
+    const start = round(cursor);
+    const end = round(start + 1.2);
+    const noWords = version === 2 ? number === 8 : number === 4;
+    const parts = noWords ? ['聞き取れない音'] : ['台本', serial, 'です'];
+    const words = noWords ? undefined : version === 1 ? [
+      { start: round(start + 0.05), end: round(start + 0.25), text: parts[0] },
+      { start: round(start + 0.55), end: round(start + 0.8), text: parts[1] },
+      { start: round(start + 0.9), end: round(start + 1.15), text: parts[2] }
+    ] : [
+      { start: round(start + 0.05), end: round(start + 0.3), text: parts[0] },
+      { start: round(start + 0.4), end: round(start + 0.75), text: parts[1] },
+      { start: round(start + 0.85), end: round(start + 1.15), text: parts[2] }
+    ];
+    const unrecognized = unrecognizedFor(version, number, start);
+    cursor = end + 0.05;
+    return {
+      id: `c-${serial}`, start, end, text: parts.join(''), speaker: null,
+      sourceRef: { segment: index }, edited: false,
+      ...(words ? { words } : {}),
+      ...(unrecognized ? { unrecognized } : {})
+    };
+  });
+}
+
+async function prepareProject(name, rowCount, version) {
+  const project = path.join(FIXTURE, name);
+  const rows = captions(rowCount, version);
+  const mediaSeconds = Math.ceil(rows.at(-1).end + 1);
+  const media = path.join(project, 'assets', 'base.mp4');
+  await mkdir(path.dirname(media), { recursive: true });
+  if (!await exists(media)) {
+    await run(FFMPEG, [
+      '-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=#27313f:s=320x180:r=30',
+      '-t', String(mediaSeconds), '-an', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '42',
+      '-pix_fmt', 'yuv420p', '-movflags', '+faststart', media
+    ], project);
+  }
+  const edit = version === 2 ? {
+    version: 2,
+    output: { width: 320, height: 180, fps: FPS },
+    sources: [{ id: 'main', path: 'assets/base.mp4' }],
+    tracks: [
+      { id: 'v-main', lane: 'visual', items: [{
+        id: 'main-clip', at: 0, duration: mediaSeconds * FPS,
+        source: { kind: 'media', src: 'main', in: 0, out: mediaSeconds }
+      }] },
+      { id: 'captions', lane: 'visual', content: { from: 'captions.json' } }
+    ]
+  } : {
+    version: 1,
+    fps: FPS,
+    source: 'assets/base.mp4',
+    cuts: [{ src: 'base', in: 0, out: mediaSeconds }],
+    overlays: [],
+    audio: { sfx: [], narration: [] }
+  };
+  const analysis = {
+    source: '../../../../assets/base.mp4',
+    transcript: rows.map(row => ({
+      start: row.start, end: row.end, text: row.text,
+      ...(row.unrecognized ? { unrecognized: row.unrecognized } : {})
+    }))
+  };
+  const analysisPath = path.join(project, '.akari', 'sidecars', 'assets', 'base.mp4.analysis', 'analysis.json');
+  await atomicWrite(path.join(project, 'captions.json'), `${JSON.stringify(rows, null, 2)}\n`);
+  await atomicWrite(path.join(project, 'edit.json'), `${JSON.stringify(edit, null, 2)}\n`);
+  await atomicWrite(analysisPath, `${JSON.stringify(analysis, null, 2)}\n`);
+  if (!await exists(path.join(project, '.git'))) {
+    await run('/usr/bin/git', ['init'], project);
+    await run('/usr/bin/git', ['config', 'user.email', 'daihon-unrecognized-fixture@localhost'], project);
+    await run('/usr/bin/git', ['config', 'user.name', 'Daihon Unrecognized Fixture'], project);
+  }
+  await run('/usr/bin/git', ['add', 'captions.json', 'edit.json', path.relative(project, analysisPath)], project);
+  const dirty = await new Promise(resolve => {
+    const child = spawn('/usr/bin/git', ['diff', '--cached', '--quiet'], { cwd: project });
+    child.once('close', code => resolve(code !== 0));
+  });
+  if (dirty) await run('/usr/bin/git', ['commit', '-m', `台本未認識 ${name} fixture`], project);
+  return {
+    name, version, rows: rows.length, mediaSeconds,
+    unrecognized: rows.reduce((total, row) => total + (row.unrecognized?.length ?? 0), 0)
+  };
+}
+
+await mkdir(FIXTURE, { recursive: true });
+const generated = [await prepareProject('v2', 500, 2), await prepareProject('v1', 40, 1)];
+process.stdout.write(`${JSON.stringify({ ok: true, fixtures: generated })}\n`);
