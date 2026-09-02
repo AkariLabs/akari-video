@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:akari-video:schema:word-book:v0",
+  "title": "AKARI Video word book v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "entries"],
+  "properties": {
+    "version": { "const": 0 },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["surface", "kind"],
+        "properties": {
+          "surface": { "type": "string", "minLength": 1, "pattern": "\\S" },
+          "variants": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "pattern": "\\S" }
+          },
+          "reading": { "type": "string", "pattern": "^[ぁ-ゖァ-ヺー]+$" },
+          "kind": { "enum": ["term", "notation", "ng", "reading-only"] },
+          "protect_break": { "type": "boolean" },
+          "source": { "type": "string" },
+          "added_at": { "type": "string", "format": "date-time" },
+          "hits": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}

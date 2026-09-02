@@ -58,6 +58,31 @@ export async function recordObservation({ target, kind, result, args = {}, outpu
   }
 }
 
+export async function updateAnalysisTranscript(target, update) {
+  const analysisPath = analysisPathForTarget(target);
+  if (!analysisPath) return null;
+  const analysisDirectory = path.dirname(analysisPath);
+  await mkdir(analysisDirectory, { recursive: true });
+  const lockPath = `${analysisPath}.lock`;
+  const lock = await acquireLock(lockPath);
+  try {
+    if (!existsSync(analysisPath)) throw new Error(`analysis.json が見つかりません: ${analysisPath}`);
+    const analysis = JSON.parse(readFileSync(analysisPath, "utf8"));
+    const before = Array.isArray(analysis.transcript) ? analysis.transcript : [];
+    const transcript = await update(before, analysis);
+    if (!Array.isArray(transcript)) throw new Error("analysis.json の transcript 更新結果は配列である必要があります");
+    if (JSON.stringify(before) === JSON.stringify(transcript)) return { path: analysisPath, changed: false };
+    analysis.transcript = transcript;
+    const temporaryPath = `${analysisPath}.tmp-${process.pid}-${Math.random().toString(16).slice(2)}`;
+    await writeFile(temporaryPath, `${JSON.stringify(analysis, null, 2)}\n`, "utf8");
+    await rename(temporaryPath, analysisPath);
+    return { path: analysisPath, changed: true };
+  } finally {
+    await lock.close();
+    await unlink(lockPath).catch(() => {});
+  }
+}
+
 async function acquireLock(lockPath) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     try {

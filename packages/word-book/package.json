@@ -1,0 +1,11 @@
+{
+  "name": "@akari-video/word-book",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AKARI Video の単語帳を層解決し、語境界で決定論的に適用する依存ゼロの共有モジュール。",
+  "type": "module",
+  "main": "src/index.mjs",
+  "scripts": {
+    "test": "node --test \"test/*.mjs\""
+  }
+}
