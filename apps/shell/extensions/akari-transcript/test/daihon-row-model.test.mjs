@@ -18,6 +18,18 @@ test('caption の style を行へ写す', () => {
     assert.equal(row.style, 'karaoke');
 });
 
+test('caption の stylePreset を演出 style と分けて行へ写す', () => {
+    const [row] = buildDaihonRows([{
+        ...base, style: 'karaoke', stylePreset: 'subtitle-news'
+    }], null);
+    assert.equal(row.stylePreset, 'subtitle-news');
+    assert.equal(row.style, 'karaoke');
+});
+
+test('stylePreset 無しは null に正規化する', () => {
+    assert.equal(buildDaihonRows([base], null)[0].stylePreset, null);
+});
+
 test('2断片の切れ目を単語 index に変換する', () => {
     const [row] = buildDaihonRows([{ ...base, display_fragments: ['こんにちは', '世界'] }], null);
     assert.equal(row.fragmentBreakWordIndex, 1);

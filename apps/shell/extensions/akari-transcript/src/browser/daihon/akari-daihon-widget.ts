@@ -10,6 +10,7 @@ import {
     buildTimelineMap,
     projectLegacyEdit,
     readInternalEdit,
+    TEXTSTYLE_CATALOG,
     type TimelineSegment
 } from '@akari-video/edit-store';
 import { AkariAnnotationsService } from 'akari-annotations/lib/common/akari-annotations-protocol';
@@ -36,6 +37,7 @@ import {
 import { isFillerWord, normalizeFillerWord } from '../../common/daihon-filler';
 import { clampRowCutRange, normalizeCutRanges, type DaihonCutRange } from '../../common/daihon-cut-plan';
 import { DAIHON_SILENCE_DEFAULTS, findRowGaps, type DaihonRowGap } from '../../common/daihon-silence';
+import { orderPresetsForPicker, presetCardStyle } from '../../common/daihon-preset-card';
 import {
     placeUnrecognized,
     type DaihonUnrecognizedSpan,
@@ -46,7 +48,7 @@ const PREVIEW_PLAYBACK_TICK_EVENT = 'akari.preview.playbackTick';
 const DAIHON_SELECTION_CHANGED_EVENT = 'akari.daihon.selectionChanged';
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
-const INTERACTIVE_SELECTOR = 'button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, .akari-daihon-cutcell, .akari-daihon-pop, .akari-daihon-minitl';
+const INTERACTIVE_SELECTOR = 'button.akari-daihon-tc, .akari-daihon-word, .akari-daihon-word-unk, input, .akari-daihon-badge-qc, .akari-daihon-gapchip, button.akari-daihon-cut, .akari-daihon-word-filler, button.akari-daihon-silence, button.akari-daihon-selcut, button.akari-daihon-tpl, button.akari-daihon-seltpl, .akari-daihon-tplcard, .akari-daihon-cutcell, .akari-daihon-pop, .akari-daihon-minitl';
 
 interface PreviewPlaybackTick {
     videoUri?: string;
@@ -77,6 +79,7 @@ interface CaptionExtras {
     displayFragments?: string[];
     timeDomain?: 'source' | 'output';
     unrecognized?: DaihonUnrecognizedSpan[];
+    stylePreset?: string;
 }
 
 interface CutEntry {
@@ -116,6 +119,7 @@ const STYLE = `
 .akari-daihon-tc { font-family:"JetBrains Mono",ui-monospace,monospace; font-size:8.5px; letter-spacing:-.02em; color:#5b6472; background:none; border:none; padding:0 1px; cursor:pointer; font-variant-numeric:tabular-nums; line-height:1.3; white-space:nowrap; }
 .akari-daihon-tc:hover { color:#53d1bc; }
 .akari-daihon-badge-edited { font-size:9.5px; font-weight:700; color:#7fe7d3; border:1px solid rgba(83,209,188,.4); border-radius:4px; padding:0 5px; white-space:nowrap; }
+.akari-daihon-badge-tpl { font-size:9px; font-weight:700; color:#c9b8ff; border:1px solid rgba(183,165,255,.4); border-radius:4px; padding:0 5px; }
 .akari-daihon-badge-qc { font-size:9.5px; font-weight:700; color:#f0b45a; border:1px solid rgba(240,180,90,.45); border-radius:4px; padding:0 5px; white-space:nowrap; }
 .akari-daihon-row-text { font-size:13px; line-height:1.55; letter-spacing:.005em; cursor:text; }
 .akari-daihon-word { border-radius:4px; padding:1px 1px; cursor:pointer; color:#7b8496; transition:color .1s,background .1s; }
@@ -140,8 +144,8 @@ const STYLE = `
 .akari-daihon-cutcell .akari-daihon-rbtn { margin-left:auto; background:none; border:1px solid rgba(255,143,115,.35); color:#d9927f; border-radius:4px; font-size:9.5px; padding:0 6px; cursor:pointer; white-space:nowrap; }
 .akari-daihon-cutcell .akari-daihon-rbtn:hover:not(:disabled) { color:#ffb39e; border-color:rgba(255,143,115,.7); }
 .akari-daihon-cutcell .akari-daihon-rbtn:disabled { opacity:.42; cursor:not-allowed; }
-.akari-daihon-cut,.akari-daihon-selcut,.akari-daihon-silence { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
-.akari-daihon-cut:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover { color:#e9ecf2; border-color:#445068; }
+.akari-daihon-cut,.akari-daihon-selcut,.akari-daihon-silence,.akari-daihon-tpl,.akari-daihon-seltpl { background:#262c37; border:1px solid #333b48; color:#b9c1cf; border-radius:4px; font-size:10px; padding:1px 6px; cursor:pointer; white-space:nowrap; }
+.akari-daihon-cut:hover,.akari-daihon-selcut:hover,.akari-daihon-silence:hover,.akari-daihon-tpl:hover,.akari-daihon-seltpl:hover { color:#e9ecf2; border-color:#445068; }
 .akari-daihon-cut:hover { color:#ff8f73; border-color:rgba(255,143,115,.5); }
 .akari-daihon-pop { position:fixed; z-index:40; background:#20252e; border:1px solid #3a4356; border-radius:8px; padding:6px; display:flex; flex-direction:column; gap:4px; box-shadow:0 10px 30px rgba(0,0,0,.5); min-width:168px; }
 .akari-daihon-pop .akari-daihon-pttl { font-size:10.5px; color:#6b7480; padding:2px 6px; }
@@ -151,6 +155,15 @@ const STYLE = `
 .akari-daihon-pop button.primary { background:#223832; border:1px solid #2f5348; color:#7fe7d3; border-radius:5px; }
 .akari-daihon-pop .akari-daihon-fieldrow { display:flex; gap:6px; align-items:center; font-size:12px; padding:2px 6px; color:#b9c1cf; }
 .akari-daihon-pop .akari-daihon-fieldrow input { width:52px; font:inherit; font-size:12px; text-align:right; background:#12151a; color:#e9ecf2; border:1px solid #333b48; border-radius:5px; padding:2px 6px; }
+.akari-daihon-tplgrid { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:4px 6px; }
+.akari-daihon-tplcard { border:1px solid #333b48; border-radius:7px; padding:6px 8px 5px; cursor:pointer; text-align:center; position:relative; background:#171b21; }
+.akari-daihon-tplcard:hover,.akari-daihon-tplcard.selected { border-color:#53d1bc; }
+.akari-daihon-tplcard .tprev { display:block; font-size:15px; line-height:1.5; border-radius:4px; padding:2px 4px; }
+.akari-daihon-tplcard .tname { display:block; font-size:10px; color:#98a2b3; margin-top:3px; }
+.akari-daihon-tplcard .crown { position:absolute; top:3px; right:5px; font-size:10px; }
+.akari-daihon-tplcard.premium { opacity:.75; }
+.akari-daihon-pop .akari-daihon-tplfoot { font-size:10.5px; color:#6b7480; padding:4px 8px 2px; display:flex; }
+.akari-daihon-pop .akari-daihon-tplfoot button { width:100%; text-align:center; }
 .akari-daihon-minitl { position:relative; height:30px; margin-top:5px; background:#12151a; border:1px solid #2a303a; border-radius:5px; overflow:hidden; }
 .akari-daihon-minitl .range { position:absolute; top:0; bottom:0; background:rgba(255,143,115,.15); }
 .akari-daihon-minitl .hnd { position:absolute; top:0; bottom:0; width:8px; cursor:ew-resize; background:rgba(255,223,77,.75); border-radius:2px; touch-action:none; }
@@ -186,6 +199,7 @@ export class AkariDaihonWidget extends BaseWidget {
     protected readonly annotationsService!: AkariAnnotationsService;
 
     protected readonly count = document.createElement('span');
+    protected readonly tplButton = document.createElement('button');
     protected readonly qcButton = document.createElement('button');
     protected readonly silenceButton = document.createElement('button');
     protected readonly rowsNode = document.createElement('div');
@@ -242,6 +256,14 @@ export class AkariDaihonWidget extends BaseWidget {
             this.qcFilter = !this.qcFilter;
             this.applyQcFilter();
         });
+        this.tplButton.type = 'button';
+        this.tplButton.className = 'akari-daihon-tpl';
+        this.tplButton.textContent = '🎨 テンプレ';
+        this.tplButton.title = '字幕テンプレを適用（選択中の行、なければ全行）';
+        this.tplButton.addEventListener('click', event => {
+            event.stopPropagation();
+            this.openTplPicker(event.currentTarget as HTMLElement);
+        });
         this.silenceButton.type = 'button';
         this.silenceButton.className = 'akari-daihon-silence';
         this.silenceButton.textContent = '無音短縮…';
@@ -249,7 +271,7 @@ export class AkariDaihonWidget extends BaseWidget {
             event.stopPropagation();
             this.openSilenceBatch(event.currentTarget as HTMLElement);
         });
-        header.append(title, this.count, spacer, this.qcButton, this.silenceButton);
+        header.append(title, this.count, spacer, this.tplButton, this.qcButton, this.silenceButton);
 
         this.rowsNode.className = 'akari-daihon-rows';
         this.rowsNode.tabIndex = 0;
@@ -280,7 +302,15 @@ export class AkariDaihonWidget extends BaseWidget {
         selectionCut.className = 'akari-daihon-selcut';
         selectionCut.textContent = '✂ 選択行をカット';
         selectionCut.addEventListener('click', () => void this.cutSelectedRows());
-        this.selectionBar.append(this.selectionCount, selectionSpacer, selectionCut, selectionClear);
+        const selectionTpl = document.createElement('button');
+        selectionTpl.type = 'button';
+        selectionTpl.className = 'akari-daihon-seltpl';
+        selectionTpl.textContent = '🎨 テンプレ適用';
+        selectionTpl.addEventListener('click', event => {
+            event.stopPropagation();
+            this.openTplPicker(event.currentTarget as HTMLElement);
+        });
+        this.selectionBar.append(this.selectionCount, selectionSpacer, selectionTpl, selectionCut, selectionClear);
 
         this.footer.className = 'akari-daihon-footer';
         this.footer.textContent = '秒数や語をクリックするとプレビューへシークします。';
@@ -404,7 +434,8 @@ export class AkariDaihonWidget extends BaseWidget {
             ...(caption.words ? { words: caption.words } : {}),
             ...(extras?.displayFragments ? { displayFragments: extras.displayFragments } : {}),
             ...(extras?.timeDomain ? { timeDomain: extras.timeDomain } : {}),
-            ...(extras?.unrecognized ? { unrecognized: extras.unrecognized } : {})
+            ...(extras?.unrecognized ? { unrecognized: extras.unrecognized } : {}),
+            ...(extras?.stylePreset ? { stylePreset: extras.stylePreset } : {})
         };
     }
 
@@ -433,10 +464,12 @@ export class AkariDaihonWidget extends BaseWidget {
                         && span.start <= span.end
                         ? [{ start: span.start, end: span.end }] : [];
                 }) : undefined;
+            const stylePreset = typeof record.style_preset === 'string' ? record.style_preset : undefined;
             result.set(record.id, {
                 ...(displayFragments ? { displayFragments } : {}),
                 ...(timeDomain ? { timeDomain } : {}),
-                ...(unrecognized?.length ? { unrecognized } : {})
+                ...(unrecognized?.length ? { unrecognized } : {}),
+                ...(stylePreset ? { stylePreset } : {})
             });
         }
         return result;
@@ -514,6 +547,14 @@ export class AkariDaihonWidget extends BaseWidget {
             const badge = document.createElement('span');
             badge.className = 'akari-daihon-badge-edited';
             badge.textContent = '編集済';
+            head.appendChild(badge);
+        }
+        if (row.stylePreset) {
+            const preset = TEXTSTYLE_CATALOG[row.stylePreset];
+            const badge = document.createElement('span');
+            badge.className = 'akari-daihon-badge-tpl';
+            badge.textContent = `🎨 ${preset?.name ?? `${row.stylePreset}?`}`;
+            if (!preset) badge.title = 'カタログに無いテンプレ id（edit-lint warning）';
             head.appendChild(badge);
         }
         for (const issue of rowIssues(row)) {
@@ -955,6 +996,92 @@ export class AkariDaihonWidget extends BaseWidget {
             void this.applyAndRemember(entries, '無音を一括短縮');
         }, 'primary');
         pop.append(title, row1, row2, apply);
+    }
+
+    protected openTplPicker(anchor: HTMLElement): void {
+        const selectedIds = [...this.selection.selected];
+        const selected = selectedIds.length > 0;
+        const targetCount = selected ? selectedIds.length : this.rows.length;
+        const label = selected ? `選択 ${targetCount} 行` : `全 ${targetCount} 行`;
+        const pop = this.openPop(anchor, 270);
+        const title = document.createElement('div');
+        title.className = 'akari-daihon-pttl';
+        title.textContent = `字幕テンプレ — 適用先: ${label}`;
+        const grid = document.createElement('div');
+        grid.className = 'akari-daihon-tplgrid';
+        const cards: Array<{ presetId: string | null; name: string; label: string; style: Record<string, unknown> }> = [
+            { presetId: null, name: 'テンプレなし', label: 'テンプレなし', style: {} },
+            ...orderPresetsForPicker(TEXTSTYLE_CATALOG).map(preset => ({
+                presetId: preset.id,
+                name: preset.name,
+                label: preset.id === 'subtitle-standard' ? '標準'
+                    : preset.id === 'subtitle-variety' ? 'ポップ'
+                        : preset.id === 'subtitle-news' ? 'ニュース帯' : preset.name,
+                style: preset.style
+            }))
+        ];
+        let pending: typeof cards[number] | undefined;
+        const foot = document.createElement('div');
+        foot.className = 'akari-daihon-tplfoot';
+        for (const item of cards) {
+            const card = document.createElement('div');
+            card.className = 'akari-daihon-tplcard';
+            card.dataset.presetId = item.presetId ?? '';
+            const preview = document.createElement('span');
+            preview.className = 'tprev';
+            preview.textContent = 'あア12';
+            Object.assign(preview.style, presetCardStyle(item.style));
+            const name = document.createElement('span');
+            name.className = 'tname';
+            name.textContent = item.label;
+            card.append(preview, name);
+            card.addEventListener('click', event => {
+                event.stopPropagation();
+                if (selected) {
+                    this.closePop();
+                    void this.applyPreset(selectedIds, item.presetId, item.name, true);
+                    return;
+                }
+                pending = item;
+                grid.querySelectorAll('.akari-daihon-tplcard').forEach(node => node.classList.remove('selected'));
+                card.classList.add('selected');
+                foot.replaceChildren(this.popButton(`全 ${this.rows.length} 行に適用`, () => {
+                    if (!pending) return;
+                    const current = pending;
+                    this.closePop();
+                    void this.applyPreset(this.rowOrder(), current.presetId, current.name, false);
+                }, 'primary'));
+            });
+            grid.appendChild(card);
+        }
+        pop.append(title, grid);
+        if (!selected) pop.appendChild(foot);
+    }
+
+    protected async applyPreset(
+        captionIds: string[],
+        presetId: string | null,
+        name: string,
+        selected: boolean
+    ): Promise<void> {
+        if (!this.captionsUri || !this.rootUri || captionIds.length === 0) return;
+        try {
+            const result = await this.annotationsService.setCaptionStylePreset({
+                captionsUri: this.captionsUri.toString(),
+                projectRootUri: this.rootUri.toString(),
+                captionIds,
+                presetId
+            });
+            if (result.changed === 0) {
+                this.notify('変更はありません（changed: 0）');
+            } else if (presetId === null) {
+                this.notify(`テンプレを解除（${result.changed} 行）`);
+            } else {
+                this.notify(`「${name}」を${selected ? '選択' : '全'} ${result.changed} 行に適用`);
+            }
+        } catch (error) {
+            this.notify(this.errorMessage(error));
+        }
     }
 
     protected fieldRow(prefix: string, input: HTMLInputElement, suffix: string): HTMLDivElement {

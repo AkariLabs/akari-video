@@ -153,5 +153,9 @@ export declare function updateCaptionFieldsInSource(source: string, captionId: s
 }): string;
 export declare function applyWordBookToCaptionsInSource(source: string, changes: WordBookCaptionChange[]): string;
 export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch): string;
+export declare function updateCaptionStylePresetInSource(source: string, captionIds: readonly string[], presetId: string | null): {
+    source: string;
+    changed: number;
+};
 export declare function insertCaptionLine(source: string, caption: CaptionRecord): string;
 export declare function removeCaptionLine(source: string, captionId: string): string;
