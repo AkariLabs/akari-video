@@ -210,6 +210,10 @@ test('future-frame eviction never drops frames at or after the active target', (
   assert.deepEqual(futureFrameTimestampsToEvict([110, 120, 130], 2, 100), []);
   assert.deepEqual(futureFrameTimestampsToEvict([90, 110, 120], 2, 100), [90]);
   assert.deepEqual(futureFrameTimestampsToEvict([70, 80, 110, 120], 2, 100), [70, 80]);
+  // futureLimit: target より先は近い順に futureLimit 枚だけ残し、遠いものから落とす
+  assert.deepEqual(futureFrameTimestampsToEvict([110, 120, 130, 140, 150], 4, 100, 3), [140, 150]);
+  assert.deepEqual(futureFrameTimestampsToEvict([90, 110, 120, 130, 140], 2, 100, 2), [90, 130, 140]);
+  assert.deepEqual(futureFrameTimestampsToEvict([110, 120], 4, 100, 16), []);
 });
 
 test('sample timing summary handles 200,000 samples without argument spreading', () => {
@@ -279,11 +283,14 @@ test('shared codec probe selects hardware/software support once and range select
   }
 });
 
-test('range decoder config requests low-latency output in hardware and software modes', async () => {
+test('range decoder config leaves optimizeForLatency off by default and honours the option / env override', async () => {
   const original = globalThis.VideoDecoder;
   globalThis.VideoDecoder = class {
     static async isConfigSupported(config) { return { supported: true, config }; }
   };
+  const originalEnv = process.env.AKARI_FRAME_ENGINE_LOW_LATENCY;
+  delete process.env.AKARI_FRAME_ENGINE_LOW_LATENCY;
+  delete globalThis.__AKARI_FRAME_ENGINE_LOW_LATENCY__;
   try {
     resetCodecProbeCache();
     const table = {
@@ -292,13 +299,26 @@ test('range decoder config requests low-latency output in hardware and software 
       codedWidth: 1920,
       codedHeight: 1080,
     };
+    // 2026-09-02: true だと macOS VideoToolbox が負荷時にフレームを落とし、毎フレーム再シークの連鎖を起こす
     const hardware = await selectSupportedDecoderConfig(table, 'prefer-hardware');
     const software = await selectSupportedDecoderConfig(table, 'prefer-software');
     assert.equal(hardware.acceleration, 'prefer-hardware');
-    assert.equal(hardware.config.optimizeForLatency, true);
+    assert.equal(hardware.config.optimizeForLatency, false);
     assert.equal(software.acceleration, 'prefer-software');
-    assert.equal(software.config.optimizeForLatency, true);
+    assert.equal(software.config.optimizeForLatency, false);
+    const explicit = await selectSupportedDecoderConfig(table, 'prefer-hardware', null, { optimizeForLatency: true });
+    assert.equal(explicit.config.optimizeForLatency, true, 'option wins');
+    process.env.AKARI_FRAME_ENGINE_LOW_LATENCY = '1';
+    const viaEnv = await selectSupportedDecoderConfig(table, 'prefer-hardware');
+    assert.equal(viaEnv.config.optimizeForLatency, true, 'env override');
+    delete process.env.AKARI_FRAME_ENGINE_LOW_LATENCY;
+    globalThis.__AKARI_FRAME_ENGINE_LOW_LATENCY__ = 'true';
+    const viaGlobal = await selectSupportedDecoderConfig(table, 'prefer-hardware');
+    assert.equal(viaGlobal.config.optimizeForLatency, true, 'global override');
   } finally {
+    delete globalThis.__AKARI_FRAME_ENGINE_LOW_LATENCY__;
+    if (originalEnv === undefined) delete process.env.AKARI_FRAME_ENGINE_LOW_LATENCY;
+    else process.env.AKARI_FRAME_ENGINE_LOW_LATENCY = originalEnv;
     resetCodecProbeCache();
     if (original === undefined) delete globalThis.VideoDecoder;
     else globalThis.VideoDecoder = original;
@@ -662,6 +682,15 @@ test('Range source waits for delayed output after dequeue across all seek orders
     static outputBatches = [];
     static deliverySequence = 0;
     static withheldTimestamp = null;
+    // droppedTimestamp: そのフレームを一度も出力しない（macOS VideoToolbox が負荷時に落とす挙動の模擬）。
+    // dropOnce なら最初に落とした時点で解除する（作り直したデコーダは正常に出す）。
+    static droppedTimestamp = null;
+    static dropOnce = false;
+    static shouldDrop(chunk) {
+      if (chunk.timestamp !== DelayedVideoDecoder.droppedTimestamp) return false;
+      if (DelayedVideoDecoder.dropOnce) DelayedVideoDecoder.droppedTimestamp = null;
+      return true;
+    }
     static async isConfigSupported(config) { return { supported: true, config }; }
     constructor(init) {
       this.init = init;
@@ -693,8 +722,14 @@ test('Range source waits for delayed output after dequeue across all seek orders
         if (this.closed) return;
         const sorted = this.pending.splice(0).sort((left, right) => left.timestamp - right.timestamp);
         const batch = [];
+        // 出力は提示順: withheld に当たったらそれ以降はまとめて保留する（flush でまとめて出す）。
+        // 後の PTS を先に出すデコーダは存在しないため、保留は「詰まり」であって「追い越し」ではない。
+        let holding = false;
         for (const chunk of sorted) {
-          if (chunk.timestamp === DelayedVideoDecoder.withheldTimestamp) this.pending.push(chunk);
+          if (holding || chunk.timestamp === DelayedVideoDecoder.withheldTimestamp) {
+            holding = true;
+            this.pending.push(chunk);
+          } else if (DelayedVideoDecoder.shouldDrop(chunk)) continue;
           else batch.push(chunk);
         }
         DelayedVideoDecoder.outputBatches.push(batch.map(chunk => chunk.timestamp));
@@ -707,7 +742,8 @@ test('Range source waits for delayed output after dequeue across all seek orders
       DelayedVideoDecoder.flushCalls += 1;
       if (this.deliveryTimer) clearTimeout(this.deliveryTimer);
       this.deliveryTimer = null;
-      const batch = this.pending.splice(0).sort((left, right) => left.timestamp - right.timestamp);
+      const batch = this.pending.splice(0).sort((left, right) => left.timestamp - right.timestamp)
+        .filter(chunk => !DelayedVideoDecoder.shouldDrop(chunk));
       DelayedVideoDecoder.outputBatches.push(batch.map(chunk => chunk.timestamp));
       for (const chunk of batch) {
         this.init.output(new DelayedFrame(chunk.timestamp, chunk.duration));
@@ -795,6 +831,64 @@ test('Range source waits for delayed output after dequeue across all seek orders
     assert.ok(DelayedVideoDecoder.instances.length > instancesBeforeContinuation,
       'a flushed source reseeks and submits again from sync on the next decode');
     flushSession.destroy();
+
+    // 落とされたフレーム（2026-09-02 実機: 投入済みの target だけ二度と出ず、後続は出る）。
+    // (1) 後続フレームが出た時点で 250 ms の猶予も flush も待たずに再シークする（fail-fast）
+    // (2) 再シーク時にそれまでに出た後続フレームを捨てない → 次のフレームでデコーダを作り直さない
+    //     （捨てると次のフレームも「投入済みなのに手元に無い」になり、毎フレーム同じ失敗を繰り返していた）
+    // GOP 序盤のフレームを落とす: 後続が並べ替え窓（maxReorderFrames）を超える数だけ出た時点で
+    // 猶予（250 ms）も flush も待たずに再シークへ進む
+    const dropTarget = presentation[2];
+    const afterDropTarget = presentation[3];
+    DelayedVideoDecoder.droppedTimestamp = dropTarget;
+    DelayedVideoDecoder.dropOnce = true;
+    const dropSession = await source.fork('delayed-output:dropped-frame');
+    const primeFrame = await dropSession.decode(presentation[0]);
+    primeFrame.close();
+    const statsBeforeDrop = dropSession.stats;
+    const instancesBeforeDrop = DelayedVideoDecoder.instances.length;
+    const recovered = await dropSession.decode(dropTarget);
+    assert.equal(recovered.timestamp, dropTarget);
+    recovered.close();
+    assert.equal(DelayedVideoDecoder.droppedTimestamp, null, 'the first decoder really dropped the frame');
+    assert.ok(DelayedVideoDecoder.instances.length > instancesBeforeDrop,
+      'a dropped target is recovered by reseeking from sync');
+    const statsAfterDrop = dropSession.stats;
+    // この模擬デコーダはキューが空になってから 50〜150 ms 後にまとめて出すので、実機と違い「供給し切って
+    // から出力が来る」形になり猶予には入る。ここで固定するのは再シークが 1 回で済むことと、
+    // 後続フレームが出た時点で target を諦める（targetSkips）か flush へ即進む（猶予 2 回目を踏まない）こと。
+    assert.equal(statsAfterDrop.droppedTargets, statsBeforeDrop.droppedTargets + 1, 'one reseek for the dropped target');
+    assert.ok(statsAfterDrop.graceWaits - statsBeforeDrop.graceWaits <= 2,
+      `at most one grace per attempt (grace waits +${statsAfterDrop.graceWaits - statsBeforeDrop.graceWaits})`);
+    const instancesAfterRecovery = DelayedVideoDecoder.instances.length;
+    const next = await dropSession.decode(afterDropTarget);
+    assert.equal(next.timestamp, afterDropTarget);
+    next.close();
+    assert.equal(DelayedVideoDecoder.instances.length, instancesAfterRecovery,
+      'frames emitted before the reseek stay usable as future frames');
+
+    // GOP 末尾寄りを落とした場合: 後続が窓を超える前に GOP を供給し切るので、猶予を飛ばして
+    // 即 flush → 失敗 → 再シーク。flush は 1 回だけ増え、復旧後の次フレームはデコーダを作り直さない
+    const tailDropTarget = presentation[9];
+    DelayedVideoDecoder.droppedTimestamp = tailDropTarget;
+    DelayedVideoDecoder.dropOnce = true;
+    const tailSession = await source.fork('delayed-output:dropped-tail-frame');
+    (await tailSession.decode(presentation[6])).close();
+    const statsBeforeTail = tailSession.stats;
+    const tailRecovered = await tailSession.decode(tailDropTarget);
+    assert.equal(tailRecovered.timestamp, tailDropTarget);
+    tailRecovered.close();
+    const statsAfterTail = tailSession.stats;
+    assert.equal(statsAfterTail.droppedTargets, statsBeforeTail.droppedTargets + 1, 'one reseek for the dropped tail target');
+    assert.ok(statsAfterTail.graceWaits - statsBeforeTail.graceWaits <= 2,
+      `at most one grace per attempt (grace waits +${statsAfterTail.graceWaits - statsBeforeTail.graceWaits})`);
+    const tailInstances = DelayedVideoDecoder.instances.length;
+    (await tailSession.decode(presentation[10])).close();
+    assert.equal(DelayedVideoDecoder.instances.length, tailInstances, 'flushed later frames stay usable after the reseek');
+    tailSession.destroy();
+    DelayedVideoDecoder.droppedTimestamp = null;
+    DelayedVideoDecoder.dropOnce = false;
+    dropSession.destroy();
 
     const directOutputs = [];
     const direct = new DelayedVideoDecoder({

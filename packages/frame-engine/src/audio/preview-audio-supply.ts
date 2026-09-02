@@ -118,7 +118,23 @@ export interface PreviewAudioSupplyOptions {
   contextFactory?: () => AudioContext;
   fetchImpl?: typeof fetch;
   onWarning?: (message: string, reason?: unknown) => void;
+  /**
+   * デコード済み PCM の予算（bytes）。超えても buffer は捨てない（予定表から音源が消えて
+   * 無音になるより、警告一行でメモリを使う方を取る）。超過は debug().prefetch と警告で見える。
+   */
   decodeCacheBytes?: number;
+  /**
+   * 展開後のサイズがこの値を超えると見積もられる音源は、OfflineAudioContext で
+   * compactSampleRate に落として decode し、モノラルへ畳んで保持する（長尺 BGM / ナレーション向け。
+   * 48 kHz ステレオ float32 は 1 分 23 MB、24 kHz モノは 1 分 5.8 MB）。既定 64 MiB ≒ 48 kHz ステレオ 2.9 分。
+   */
+  compactDecodeThresholdBytes?: number;
+  /** compact decode のサンプルレート。既定 24000。 */
+  compactSampleRate?: number;
+  /** テスト用。既定は globalThis.OfflineAudioContext。null を返すと compact decode を諦めて等倍で decode する。 */
+  offlineContextFactory?: (sampleRate: number) => BaseAudioContext | null;
+  /** テスト用の時計。 */
+  nowImpl?: () => number;
   /** 決定論テスト用。製品経路は edit-store の共有予定表を使う。 */
   scheduleBuilder?: PreviewScheduleBuilder;
   /** false で shell の明示 pause/playFrom 経路、数値で Web UI の watchdog を使う。 */
@@ -138,8 +154,21 @@ export interface PreviewAudioSupplyDebug {
     sfx: number;
     narration: number;
     speech: number;
+    /** 予定表にあるのに decode 済み buffer が無く鳴らせなかった item（kind:id）。常に空が正常。 */
+    skipped: string[];
   };
-  prefetch: { items: number; decodedBytes: number; elapsedMs: number; pending: number };
+  prefetch: {
+    items: number;
+    decodedBytes: number;
+    elapsedMs: number;
+    pending: number;
+    /** decode に失敗した task（kind:id）。次の startFrom で再試行する。 */
+    failed: string[];
+    /** compact（低レート・モノ）で保持している音源数。 */
+    compact: number;
+    /** decodedBytes が予算を超えているか。超えても捨てない。 */
+    overBudget: boolean;
+  };
   sidecars: { generated: number; skipped: number; bytes: number };
   crossfades: Array<{ id: string; startSec: number; durationSec: number }>;
   speechDecode: {
@@ -182,13 +211,28 @@ interface ResolvedSpeechBuffer {
 interface DecodeCacheEntry {
   promise: Promise<AudioBuffer | null>;
   bytes: number;
-  nextUseSec: number;
+  compact: boolean;
+}
+
+interface PrefetchTask {
+  key: string;
+  at: number;
+  run: () => Promise<void>;
+  resolved: () => boolean;
+  failedAtMs: number | null;
 }
 
 interface ActiveSource { source: AudioBufferSourceNode; gains: GainNode[] }
 
 const DEFAULT_DECODE_CACHE_BYTES = 256 * 1024 * 1024;
 const MAX_SPEECH_SOURCE_FALLBACK_BYTES = 64 * 1024 * 1024;
+const DEFAULT_COMPACT_DECODE_THRESHOLD_BYTES = 64 * 1024 * 1024;
+const DEFAULT_COMPACT_SAMPLE_RATE = 24000;
+/** 失敗した decode を次に再試行するまでの間隔。再生ボタンごとに 404 を叩き直さない。 */
+const FAILED_DECODE_RETRY_MS = 5000;
+/** 空の予定表 / 失敗の直後に playbackTime() が startFrom を叩き直すまでの間隔。 */
+const RESTART_BACKOFF_MS = 500;
+const MIB = 1024 * 1024;
 
 export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): PreviewAudioSupply {
   const timelineDurationSec = finitePositive(options.timelineDurationSec) ? options.timelineDurationSec : 0;
@@ -201,6 +245,12 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   const warn = options.onWarning ?? ((message: string, reason?: unknown) => console.warn(message, reason));
   const cacheLimit = finitePositive(options.decodeCacheBytes)
     ? options.decodeCacheBytes as number : DEFAULT_DECODE_CACHE_BYTES;
+  const compactThreshold = finitePositive(options.compactDecodeThresholdBytes)
+    ? options.compactDecodeThresholdBytes as number : DEFAULT_COMPACT_DECODE_THRESHOLD_BYTES;
+  const compactSampleRate = finitePositive(options.compactSampleRate)
+    ? options.compactSampleRate as number : DEFAULT_COMPACT_SAMPLE_RATE;
+  const offlineContextFactory = options.offlineContextFactory ?? defaultOfflineContextFactory;
+  const now = options.nowImpl ?? nowMs;
   const watchdogMs = options.pauseWatchdogMs === false
     ? false : finitePositive(options.pauseWatchdogMs) ? options.pauseWatchdogMs as number : false;
   let context: AudioContext | null = null;
@@ -221,10 +271,15 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     src: string; ms: number; durationSec: number; bytes: number; ok: boolean;
   }>();
   let decodedBytes = 0;
-  let prefetchPromise: Promise<void> | null = null;
+  let overBudgetWarned = false;
+  let prefetchInFlight: Promise<void> | null = null;
+  let prefetchEverRan = false;
   let prefetchStartedAt = 0;
   let prefetchElapsedMs = 0;
   let prefetchPending = 0;
+  let lastStartAttemptMs = 0;
+  let lastStartOutcome: 'started' | 'empty' | 'failed' | null = null;
+  let skippedAtSchedule: string[] = [];
   let regularDecoded: DecodedRegular[] = [];
   let speechDecoded = new Map<string, ResolvedSpeechBuffer>();
   let active: ActiveSource[] = [];
@@ -271,20 +326,32 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     }
   };
 
-  const evictFarthest = (): void => {
-    while (decodedBytes > cacheLimit) {
-      const candidate = [...decoded.entries()]
-        .filter(([, entry]) => entry.bytes > 0)
-        .sort((left, right) => right[1].nextUseSec - left[1].nextUseSec)[0];
-      if (!candidate) return;
-      decoded.delete(candidate[0]);
-      decodedBytes -= candidate[1].bytes;
+  // 予算超過でも buffer は捨てない。以前は「次の使用時刻が最も遠い buffer」を黙って evict し、
+  // 予定表からもその音源が消えていた（48 kHz ステレオ 11.6 分の WAV 1 本で 256 MiB を超え、
+  // 一度も鳴らない）。捨てる代わりに、長尺は compact（低レート・モノ）で持ち、超過は警告で見せる。
+  const noteDecodedBytes = (entry: DecodeCacheEntry, buffer: AudioBuffer): void => {
+    entry.bytes = buffer.length * buffer.numberOfChannels * 4;
+    decodedBytes += entry.bytes;
+    if (decodedBytes > cacheLimit && !overBudgetWarned) {
+      overBudgetWarned = true;
+      warn(`[frame-engine] preview audio holds ${(decodedBytes / MIB).toFixed(0)} MiB of decoded PCM, `
+        + `over the ${(cacheLimit / MIB).toFixed(0)} MiB budget; keeping every buffer so playback stays complete`);
     }
+  };
+
+  // 長尺音源は OfflineAudioContext（compactSampleRate）で decode し、モノラルへ畳んで保持する。
+  // decodeAudioData は context のレートへ resample して返すため、低レートの context で decode すれば
+  // 展開後の float32 がそのぶん小さくなる。AudioBufferSourceNode は buffer のレートが context と
+  // 違っても再生時に resample するので、予定表・gain・ducking の扱いは等倍 decode と同じ。
+  const decodeCompact = async (encoded: ArrayBuffer): Promise<AudioBuffer | null> => {
+    const offline = offlineContextFactory(compactSampleRate);
+    if (!offline) return null;
+    const full = await offline.decodeAudioData(encoded);
+    return downmixToMono(full, context!);
   };
 
   const decodeUrl = (
     url: string,
-    nextUseSec: number,
     label: string,
     restrictSpeechSource = false,
     suppressWarning = false,
@@ -292,11 +359,8 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     if (!context || !fetchImpl) return Promise.resolve(null);
     const cacheKey = decodeCacheKey(url, restrictSpeechSource);
     const cached = decoded.get(cacheKey);
-    if (cached) {
-      cached.nextUseSec = Math.min(cached.nextUseSec, nextUseSec);
-      return cached.promise;
-    }
-    const entry: DecodeCacheEntry = { bytes: 0, nextUseSec, promise: Promise.resolve(null) };
+    if (cached) return cached.promise;
+    const entry: DecodeCacheEntry = { bytes: 0, compact: false, promise: Promise.resolve(null) };
     entry.promise = (async () => {
       try {
         const response = await fetchImpl(url);
@@ -312,11 +376,18 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         if (restrictSpeechSource && encoded.byteLength >= MAX_SPEECH_SOURCE_FALLBACK_BYTES) {
           throw new Error(`source is ${encoded.byteLength} bytes (64 MB fallback limit)`);
         }
-        const buffer = await context!.decodeAudioData(encoded);
+        let buffer: AudioBuffer | null = null;
+        if (estimateDecodedBytes(encoded, context!.sampleRate) > compactThreshold) {
+          try {
+            buffer = await decodeCompact(encoded);
+            entry.compact = buffer !== null;
+          } catch (reason) {
+            warn(`[frame-engine] ${label}: compact decode failed; decoding at full rate`, reason);
+          }
+        }
+        if (!buffer) buffer = await context!.decodeAudioData(encoded);
         if (!(buffer.duration > 0)) throw new Error('decoded duration is invalid');
-        entry.bytes = buffer.length * buffer.numberOfChannels * 4;
-        decodedBytes += entry.bytes;
-        evictFarthest();
+        noteDecodedBytes(entry, buffer);
         return buffer;
       } catch (reason) {
         decoded.delete(cacheKey);
@@ -333,12 +404,11 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
 
   const resolveRegular = async (declaration: PreviewAudioDeclaration): Promise<void> => {
     const sidecar = validSidecar(declaration.spec.sidecar);
-    let buffer = await decodeUrl(declaration.url, firstUseRegular(declaration),
+    let buffer = await decodeUrl(declaration.url,
       `${declaration.kind} ${declaration.id}${sidecar ? ' sidecar' : ''}`);
     let usedSidecar = Boolean(sidecar && buffer);
     if (!buffer && sidecar && declaration.sourceUrl) {
-      buffer = await decodeUrl(declaration.sourceUrl, firstUseRegular(declaration),
-        `${declaration.kind} ${declaration.id}`);
+      buffer = await decodeUrl(declaration.sourceUrl, `${declaration.kind} ${declaration.id}`);
       usedSidecar = false;
     }
     if (!buffer) return;
@@ -355,11 +425,11 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     const legacy = declaration.atempo;
     const bakedPath = sidecar?.path ?? legacy?.path;
     let buffer = bakedPath
-      ? await decodeUrl(bakedPath, firstUseSpeech(declaration), `speech sidecar ${declaration.id}`)
+      ? await decodeUrl(bakedPath, `speech sidecar ${declaration.id}`)
       : null;
     let usedSidecar = Boolean(bakedPath && buffer);
     if (!buffer) {
-      buffer = await decodeUrl(declaration.url, firstUseSpeech(declaration),
+      buffer = await decodeUrl(declaration.url,
         `speech ${declaration.src}`, true, Boolean(bakedPath || declaration.sidecarWarningEmitted));
       usedSidecar = false;
     }
@@ -379,36 +449,63 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     });
   };
 
-  const tasks = [
-    ...declarations.map(item => ({ at: firstUseRegular(item), run: () => resolveRegular(item) })),
-    ...speech.map(item => ({ at: firstUseSpeech(item), run: () => resolveSpeech(item) })),
+  const regularResolved = (item: PreviewAudioDeclaration): boolean =>
+    regularDecoded.some(candidate => candidate.kind === item.kind && candidate.id === item.id);
+  const tasks: PrefetchTask[] = [
+    ...declarations.map((item): PrefetchTask => ({
+      key: `${item.kind}:${item.id}`, at: firstUseRegular(item), failedAtMs: null,
+      run: () => resolveRegular(item), resolved: () => regularResolved(item),
+    })),
+    ...speech.map((item): PrefetchTask => ({
+      key: `speech:${item.id}`, at: firstUseSpeech(item), failedAtMs: null,
+      run: () => resolveSpeech(item), resolved: () => speechDecoded.has(item.id),
+    })),
   ].sort((left, right) => left.at - right.at);
 
-  const runPrefetch = async (): Promise<void> => {
-    regularDecoded = [];
-    speechDecoded = new Map();
-    prefetchPending = tasks.length;
+  const pendingTasks = (): PrefetchTask[] => {
+    const at = now();
+    return tasks.filter(task => !task.resolved()
+      && (task.failedAtMs === null || at - task.failedAtMs >= FAILED_DECODE_RETRY_MS));
+  };
+
+  const runPrefetch = async (queue: PrefetchTask[]): Promise<void> => {
+    prefetchPending = queue.length;
     let cursor = 0;
     const worker = async (): Promise<void> => {
-      while (cursor < tasks.length) {
-        const task = tasks[cursor++];
+      while (cursor < queue.length) {
+        const task = queue[cursor++];
         if (!task) break;
-        try { await task.run(); } finally { prefetchPending -= 1; }
+        try {
+          await task.run();
+          task.failedAtMs = task.resolved() ? null : now();
+        } catch (reason) {
+          task.failedAtMs = now();
+          warn(`[frame-engine] ${task.key} prefetch failed`, reason);
+        } finally {
+          prefetchPending -= 1;
+        }
       }
     };
     await Promise.all([worker(), worker()]);
-    regularDecoded = regularDecoded.filter(item => decoded.has(item.cacheKey));
-    speechDecoded = new Map([...speechDecoded].filter(([, item]) => decoded.has(item.cacheKey)));
   };
 
-  const ensurePrefetch = (): Promise<void> => {
-    if (prefetchPromise) return prefetchPromise;
-    prefetchStartedAt = nowMs();
-    prefetchPromise = runPrefetch().finally(() => {
-      prefetchElapsedMs = nowMs() - prefetchStartedAt;
+  // 未解決の task だけを同時 2 本で decode する。以前は毎回 regularDecoded / speechDecoded を空にして
+  // 全 task を再 decode し（欠けが 1 つでもあると再生ボタンのたびに全音源を fetch + decode）、
+  // 再入ガードも無かったので prefetch 中の seek が同じ配列を取り合っていた。
+  // 解決済みは触らず、同時呼び出しは 1 本に合流する。失敗した task は 5 秒空けてから再試行する。
+  const ensureDecoded = (): Promise<void> => {
+    if (prefetchInFlight) return prefetchInFlight;
+    const queue = pendingTasks();
+    if (queue.length === 0) return Promise.resolve();
+    const first = !prefetchEverRan;
+    prefetchEverRan = true;
+    if (first) prefetchStartedAt = now();
+    prefetchInFlight = runPrefetch(queue).finally(() => {
+      if (first) prefetchElapsedMs = now() - prefetchStartedAt;
       prefetchPending = 0;
+      prefetchInFlight = null;
     });
-    return prefetchPromise;
+    return prefetchInFlight;
   };
 
   const applyGainEvents = (param: AudioParam, events: PreviewGainEvent[], startTime: number): void => {
@@ -424,13 +521,14 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     }
   };
 
-  const startItem = (item: PreviewScheduledItem, contextStart: number): void => {
-    if (!context) return;
+  /** 予定表の 1 item を鳴らす。buffer が無い / 失敗した場合は false（呼び手が警告にまとめる）。 */
+  const startItem = (item: PreviewScheduledItem, contextStart: number): boolean => {
+    if (!context) return false;
     const regular = item.kind === 'speech' ? undefined
       : regularDecoded.find(candidate => candidate.id === item.id && candidate.kind === item.kind);
     const buffer = regular?.buffer
       ?? (item.kind === 'speech' ? speechDecoded.get(item.id)?.buffer : undefined);
-    if (!buffer) return;
+    if (!buffer) return false;
     try {
       const source = context.createBufferSource();
       const baseGain = context.createGain();
@@ -457,8 +555,10 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         try { source.disconnect(); } catch {}
         for (const gain of gains) try { gain.disconnect(); } catch {}
       };
+      return true;
     } catch (reason) {
       warn(`[frame-engine] ${item.kind} ${item.id} could not be scheduled`, reason);
+      return false;
     }
   };
 
@@ -477,57 +577,90 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
     };
   };
 
+  // 途中で seek / pause が世代を進めたら黙って降りる（新しい startFrom が starting を持っている）。
+  // 自分が最新世代のときだけ starting を戻す。以前は superseded な呼び出しも starting=false を
+  // 書いていたため、進行中の新しい startFrom と並んで 3 本目が走れた。
   const startFrom = async (seconds: number): Promise<void> => {
     if (!context) return;
     const thisGeneration = ++generation;
     starting = true;
-    const alreadyPrefetched = prefetchPromise !== null;
-    await ensurePrefetch();
-    if (alreadyPrefetched && regularDecoded.length + speechDecoded.size < tasks.length) {
-      await runPrefetch();
-    }
-    if (thisGeneration !== generation) { starting = false; return; }
+    lastStartAttemptMs = now();
+    let outcome: 'started' | 'empty' | 'failed' = 'failed';
     try {
-      await context.resume();
-    } catch (reason) {
-      warn('[frame-engine] AudioContext resume failed; keeping wall-clock playback', reason);
-      starting = false;
-      return;
+      await ensureDecoded();
+      if (thisGeneration !== generation) return;
+      try {
+        await context.resume();
+      } catch (reason) {
+        warn('[frame-engine] AudioContext resume failed; keeping wall-clock playback', reason);
+        return;
+      }
+      if (thisGeneration !== generation) return;
+      const speechForSchedule = speech.flatMap(item => {
+        const resolved = speechDecoded.get(item.id);
+        if (!resolved) return [];
+        return [{
+          ...item,
+          ...(!resolved.sidecar ? { sidecar: undefined, atempo: undefined } : {}),
+          materialDurationSec: resolved.buffer.duration,
+        }];
+      });
+      const plan = scheduleBuilder({
+        timelineDurationSec,
+        startAtSec: clamp(latestRequestedSec || seconds),
+        audio: { ...regularScheduleDeclaration(), speech: speechForSchedule },
+      });
+      for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
+      if (plan.items.length === 0) {
+        outcome = 'empty';
+        return;
+      }
+      stopSources();
+      const contextStart = context.currentTime + 0.02;
+      anchorTimelineSec = plan.startAtSec;
+      anchorContextSec = contextStart;
+      lastSchedule = plan.items;
+      lastSidecarSpeechIds = new Set(speechForSchedule
+        .filter(item => item.sidecar || item.atempo).map(item => item.id));
+      const skipped: string[] = [];
+      for (const item of lastSchedule) {
+        if (!startItem(item, contextStart)) skipped.push(`${item.kind}:${item.id}`);
+      }
+      skippedAtSchedule = skipped;
+      if (skipped.length > 0) {
+        warn(`[frame-engine] audio: ${skipped.length} scheduled item(s) have no decoded buffer and stay silent: ${
+          skipped.join(', ')}`);
+      }
+      playing = true;
+      outcome = 'started';
+    } finally {
+      if (thisGeneration === generation) {
+        starting = false;
+        lastStartOutcome = outcome;
+      }
     }
-    if (thisGeneration !== generation) { starting = false; return; }
-    const speechForSchedule = speech.flatMap(item => {
-      const resolved = speechDecoded.get(item.id);
-      if (!resolved) return [];
-      return [{
-        ...item,
-        ...(!resolved.sidecar ? { sidecar: undefined, atempo: undefined } : {}),
-        materialDurationSec: resolved.buffer.duration,
-      }];
-    });
-    const plan = scheduleBuilder({
-      timelineDurationSec,
-      startAtSec: clamp(latestRequestedSec || seconds),
-      audio: { ...regularScheduleDeclaration(), speech: speechForSchedule },
-    });
-    for (const warning of plan.warnings) warn(`[frame-engine] audio: ${warning}`);
-    if (plan.items.length === 0) { starting = false; return; }
-    stopSources();
-    const contextStart = context.currentTime + 0.02;
-    anchorTimelineSec = plan.startAtSec;
-    anchorContextSec = contextStart;
-    lastSchedule = plan.items;
-    lastSidecarSpeechIds = new Set(speechForSchedule
-      .filter(item => item.sidecar || item.atempo).map(item => item.id));
-    for (const item of lastSchedule) startItem(item, contextStart);
-    playing = true;
-    starting = false;
   };
+
+  // startFrom の例外で starting が立ったままになると、以後の playFrom / playbackTime が
+  // 全部捨てられて document を作り直すまで無音になる。必ず catch して警告にする。
+  const launch = (seconds: number): void => {
+    lastStartOutcome = null;
+    startFrom(seconds).catch(reason => {
+      warn('[frame-engine] audio start failed', reason);
+    });
+  };
+
+  // 空の予定表（その位置に音源が無い）や失敗の直後は、playbackTime() からの再試行を 500 ms 空ける。
+  // seek / pause / playFrom は outcome を消すので、位置が変わればすぐ再開する。
+  const restartAllowed = (): boolean =>
+    lastStartOutcome === null || now() - lastStartAttemptMs >= RESTART_BACKOFF_MS;
 
   const pause = (): void => {
     if (playing) latestRequestedSec = audioPosition();
     generation += 1;
     playing = false;
     starting = false;
+    lastStartOutcome = null;
     stopSources();
   };
 
@@ -557,12 +690,16 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
         sfx: lastSchedule.filter(item => item.kind === 'sfx').length,
         narration: lastSchedule.filter(item => item.kind === 'narration').length,
         speech: lastSchedule.filter(item => item.kind === 'speech').length,
+        skipped: [...skippedAtSchedule],
       },
       prefetch: {
         items: tasks.length,
         decodedBytes,
-        elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? nowMs() - prefetchStartedAt : 0),
+        elapsedMs: prefetchElapsedMs || (prefetchStartedAt ? now() - prefetchStartedAt : 0),
         pending: prefetchPending,
+        failed: tasks.filter(task => task.failedAtMs !== null && !task.resolved()).map(task => task.key),
+        compact: [...decoded.values()].filter(entry => entry.compact).length,
+        overBudget: decodedBytes > cacheLimit,
       },
       sidecars: {
         generated: uniqueSidecars.filter(item => item.skipped === false).length,
@@ -591,10 +728,14 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
   };
 
   return {
-    prime() { void ensurePrefetch(); },
+    prime() {
+      ensureDecoded().catch(reason => {
+        warn('[frame-engine] audio prefetch failed', reason);
+      });
+    },
     playFrom(seconds) {
       latestRequestedSec = clamp(seconds);
-      if (context && !playing && !starting) void startFrom(latestRequestedSec);
+      if (context && !playing && !starting) launch(latestRequestedSec);
     },
     position(fallbackSeconds) {
       latestRequestedSec = clamp(fallbackSeconds);
@@ -604,7 +745,7 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       latestRequestedSec = clamp(fallbackSeconds);
       if (!context) return latestRequestedSec;
       armPauseWatchdog();
-      if (!playing && !starting) void startFrom(latestRequestedSec);
+      if (!playing && !starting && restartAllowed()) launch(latestRequestedSec);
       return playing ? audioPosition() : latestRequestedSec;
     },
     seek(seconds, continuePlaying = false) {
@@ -612,8 +753,9 @@ export function createPreviewAudioSupply(options: PreviewAudioSupplyOptions): Pr
       generation += 1;
       playing = false;
       starting = false;
+      lastStartOutcome = null;
       stopSources();
-      if (continuePlaying && context) void startFrom(latestRequestedSec);
+      if (continuePlaying && context) launch(latestRequestedSec);
     },
     pause,
     noteRendered(seconds) {
@@ -663,4 +805,101 @@ function finiteNonNegative(value: unknown): boolean {
 
 function nowMs(): number {
   return typeof performance !== 'undefined' ? performance.now() : Date.now();
+}
+
+function defaultOfflineContextFactory(sampleRate: number): BaseAudioContext | null {
+  const scope = globalThis as typeof globalThis & { webkitOfflineAudioContext?: typeof OfflineAudioContext };
+  const Ctor = scope.OfflineAudioContext ?? scope.webkitOfflineAudioContext;
+  if (typeof Ctor !== 'function') return null;
+  try {
+    return new Ctor(1, 1, sampleRate);
+  } catch {
+    return null;
+  }
+}
+
+/** 圧縮音声（mp3 / AAC 等）の展開倍率の粗い上限。128 kbps を 48 kHz ステレオ float32 にすると約 24 倍。長尺判定にだけ使う。 */
+const COMPRESSED_DECODE_EXPANSION = 16;
+
+/**
+ * decodeAudioData 後の float32 PCM サイズ（context のレートへ resample 後）を decode 前に見積もる。
+ * WAV / FLAC はヘッダから正確に、それ以外は圧縮率の粗い上限で。長尺を compact で decode するかの判定用。
+ */
+export function estimateDecodedBytes(encoded: ArrayBuffer, contextSampleRate: number): number {
+  const view = new DataView(encoded);
+  const ratio = (sourceRate: number): number =>
+    finitePositive(contextSampleRate) && finitePositive(sourceRate) ? contextSampleRate / sourceRate : 1;
+  const wav = parseWavHeader(view);
+  if (wav) return wav.frames * ratio(wav.sampleRate) * wav.channels * 4;
+  const flac = parseFlacStreamInfo(view);
+  if (flac) return flac.frames * ratio(flac.sampleRate) * flac.channels * 4;
+  return encoded.byteLength * COMPRESSED_DECODE_EXPANSION;
+}
+
+interface PcmShape { sampleRate: number; channels: number; frames: number }
+
+function readAscii(view: DataView, offset: number, length: number): string {
+  if (offset + length > view.byteLength) return '';
+  let text = '';
+  for (let index = 0; index < length; index += 1) text += String.fromCharCode(view.getUint8(offset + index));
+  return text;
+}
+
+/** RIFF/WAVE: fmt チャンクのレート・ch・blockAlign と data チャンクの実バイト数からフレーム数を得る。 */
+export function parseWavHeader(view: DataView): PcmShape | null {
+  if (view.byteLength < 12 || readAscii(view, 0, 4) !== 'RIFF' || readAscii(view, 8, 4) !== 'WAVE') return null;
+  let offset = 12;
+  let format: { sampleRate: number; channels: number; blockAlign: number } | null = null;
+  while (offset + 8 <= view.byteLength) {
+    const id = readAscii(view, offset, 4);
+    const size = view.getUint32(offset + 4, true);
+    const body = offset + 8;
+    if (id === 'fmt ' && body + 16 <= view.byteLength) {
+      const channels = view.getUint16(body + 2, true);
+      const sampleRate = view.getUint32(body + 4, true);
+      const blockAlign = view.getUint16(body + 12, true);
+      if (channels > 0 && sampleRate > 0 && blockAlign > 0) format = { sampleRate, channels, blockAlign };
+    } else if (id === 'data') {
+      if (!format) return null;
+      // 実ファイル全体を持っているので、宣言サイズ（ストリーミング WAV の 0xFFFFFFFF 等）より実バイト数を信じる
+      const dataBytes = Math.min(size, Math.max(0, view.byteLength - body));
+      return {
+        sampleRate: format.sampleRate,
+        channels: format.channels,
+        frames: Math.floor(dataBytes / format.blockAlign),
+      };
+    }
+    offset = body + size + (size % 2);
+  }
+  return null;
+}
+
+/** FLAC: 先頭 STREAMINFO（sample rate 20 bit / channels 3 bit / total samples 36 bit）。 */
+export function parseFlacStreamInfo(view: DataView): PcmShape | null {
+  if (view.byteLength < 42 || readAscii(view, 0, 4) !== 'fLaC') return null;
+  if ((view.getUint8(4) & 0x7f) !== 0) return null;
+  const base = 8;
+  const b10 = view.getUint8(base + 10);
+  const b11 = view.getUint8(base + 11);
+  const b12 = view.getUint8(base + 12);
+  const b13 = view.getUint8(base + 13);
+  const sampleRate = (b10 << 12) | (b11 << 4) | (b12 >> 4);
+  const channels = ((b12 >> 1) & 0x07) + 1;
+  const frames = (b13 & 0x0f) * 4294967296 + view.getUint32(base + 14, false);
+  if (!(sampleRate > 0) || !(frames > 0)) return null;
+  return { sampleRate, channels, frames };
+}
+
+/** 多チャンネル buffer を平均でモノラルへ畳む。畳めない環境（createBuffer 無し）ではそのまま返す。 */
+export function downmixToMono(buffer: AudioBuffer, context: BaseAudioContext): AudioBuffer {
+  if (buffer.numberOfChannels <= 1) return buffer;
+  if (typeof context.createBuffer !== 'function' || typeof buffer.getChannelData !== 'function') return buffer;
+  const mono = context.createBuffer(1, buffer.length, buffer.sampleRate);
+  const out = mono.getChannelData(0);
+  const scale = 1 / buffer.numberOfChannels;
+  for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+    const data = buffer.getChannelData(channel);
+    for (let index = 0; index < out.length; index += 1) out[index] = (out[index] ?? 0) + (data[index] ?? 0) * scale;
+  }
+  return mono;
 }

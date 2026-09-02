@@ -537,7 +537,10 @@ class FrameEngineRuntime {
       timelineDurationSec: this.totalDuration,
       declarations: audioDeclarations(edit),
       speech,
-      pauseWatchdogMs: 150,
+      // playbackTime() が rAF ループからしか呼ばれないため、1 フレームがこの時間を超えると
+      // 音声が pause → 次フレームで再開になる。150 ms では 3D / 字幕の重いフレームで
+      // 途切れが慢性化していたので、タブ非表示の検知が少し遅れるのを受け入れて広げる。
+      pauseWatchdogMs: 600,
     });
     this.segments = (this.timeline as any).cuts.map((placement: any, index: number) => {
       const cut = placement.cut ?? cuts[index] ?? {};

@@ -173,6 +173,11 @@ type SpeechAtempoModule = {
         durationSec: number;
         reason?: string;
     };
+    probePreviewAudioSourceAsync(sourcePath: string): Promise<{
+        ok: boolean;
+        durationSec: number;
+        reason?: string;
+    }>;
     sweepPreviewAudioSidecars(options: { cacheDir: string; keepKeys: string[] }): {
         removed: number;
         bytes: number;
@@ -482,7 +487,10 @@ export class AkariPreviewServiceImpl implements AkariPreviewService {
                     reason: 'source is not a WAV over 8 MB'
                 };
             }
-            const probe = request.outSec === undefined ? module.probePreviewAudioSource(sourcePath) : undefined;
+            // This process also serves media bytes to the preview (HTTP Range server), so the probe
+            // and the transcode below are awaited (spawn), never run through spawnSync.
+            const probe = request.outSec === undefined
+                ? await module.probePreviewAudioSourceAsync(sourcePath) : undefined;
             if (probe && !probe.ok) throw new Error(probe.reason ?? 'audio duration probe failed');
             const outSec = request.outSec ?? probe!.durationSec;
             const result = await module.ensurePreviewAudioSidecar({

@@ -7,6 +7,23 @@ window.akari = window.akari || {};
 // 既定 auto は #overlay-stage があるホストで有効。明示的に切る場合は premount:false を渡す。
 const PREMOUNT_DEFAULTS = { leadSeconds: 2.0, maxInstances: 4 };
 
+// プレビューの 3D 描画バッファ上限（長辺 px。preview-server/public/app.js の
+// PREVIEW_3D_MAX_RENDER_SIZE と同値）。プレビュー専用 — 書き出し / rasterize は
+// three-runtime.render を直接呼び、この option を渡さないので出力画素は不変。
+const PREVIEW_3D_MAX_RENDER_SIZE = 720;
+
+// getAnimations() 一覧のキャッシュ寿命（ms。app.js と同値）。詳細は tick() の注記。
+const ANIMATIONS_CACHE_MS = 250;
+
+// maxRenderSize の正規化: 未指定 → 既定 720 / null・0・false → 無効（等倍） /
+// 正の有限数 → その値。それ以外の不正値（負数・NaN・文字列）は既定へ戻す。
+function resolveMaxRenderSize(value) {
+  if (value === undefined) return PREVIEW_3D_MAX_RENDER_SIZE;
+  if (value === null || value === false || value === 0) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : PREVIEW_3D_MAX_RENDER_SIZE;
+}
+
 function resolvePremount(value) {
   if (value === false || value === null) return null;
   if (value === true || value === undefined) {
@@ -24,6 +41,7 @@ function createOverlayRuntime(options = {}) {
   let mountedStage = null;
   let premount = resolvePremount(options.premount);
   let premountConfigured = false;
+  let maxRenderSize = resolveMaxRenderSize(options.maxRenderSize);
 
   // packages/overlay-runtime/package.json の version と同期させる。ブラウザに
   // <script> で直接読み込まれるホスト（npm 解決を経ない）が、mount 済みの
@@ -54,7 +72,10 @@ function createOverlayRuntime(options = {}) {
       window.akari.threeRuntime?.configurePremount?.(premount);
       premountConfigured = typeof window.akari.threeRuntime?.configurePremount === "function";
     }
-    return { premount: premount ? { ...premount } : null };
+    if (Object.prototype.hasOwnProperty.call(next, "maxRenderSize")) {
+      maxRenderSize = resolveMaxRenderSize(next.maxRenderSize);
+    }
+    return { premount: premount ? { ...premount } : null, maxRenderSize };
   }
 
   // 入場アニメが現在時刻で確定姿勢に達したか。装飾用の無限ループ（spark 等）は
@@ -83,8 +104,13 @@ function createOverlayRuntime(options = {}) {
     mountedStage = null;
   }
 
-  async function mount(summary) {
+  async function mount(summary, options = {}) {
     unmount();
+    // プレビューの 3D 描画バッファ上限（tick() の render 呼び出し参照）。キー未指定なら runtime に
+    // 保持した値を引き継ぐ（シェルは summary 更新のたびに mount(summary) を呼び直すため）。
+    if (options && Object.prototype.hasOwnProperty.call(options, "maxRenderSize")) {
+      maxRenderSize = resolveMaxRenderSize(options.maxRenderSize);
+    }
 
     const stage = document.getElementById("overlay-stage");
     if (!stage) throw new Error("#overlay-stage が見つかりません");
@@ -168,6 +194,9 @@ function createOverlayRuntime(options = {}) {
         duration,
         visible: false,
         hitPolicyPending: false,
+        // getAnimations({ subtree: true }) の 250ms キャッシュ（tick() 参照）
+        animations: undefined,
+        animationsAt: 0,
         ...(Array.isArray(overlay.keyframes) ? {
           keyframes: overlay.keyframes,
           fps: finiteNumber(summary?.output?.fps, 30),
@@ -216,6 +245,11 @@ function createOverlayRuntime(options = {}) {
         // 抑え、この地雷を踏まない。
         overlay.container.toggleAttribute("data-akari-active", visible);
         overlay.hitPolicyPending = visible;
+        // getAnimations() のキャッシュ（下記）は可視化フリップで必ず捨てる。ゲート属性の付け外しで
+        // CSS animation の顔ぶれが変わるため、可視化直後の tick は引き直す。非表示化でも捨て、
+        // 非可視の間 Animation 参照を持ち越さない。
+        overlay.animations = undefined;
+        overlay.animationsAt = 0;
         if (!visible && overlay.isThreeDimensional && !premount) {
           window.akari.threeRuntime?.dispose(overlay.container);
         }
@@ -251,6 +285,10 @@ function createOverlayRuntime(options = {}) {
         // フレーム精度シークを済ませるため、この指定を渡さない = 決定性を崩さない）
         window.akari.threeRuntime?.render(overlay.container, localTimeMs / 1000, {
           syncVideos: true,
+          // maxRenderSize: プレビュー専用の描画バッファ上限（長辺 px、既定 720）。null なら等倍
+          // （three-runtime の rendererSize は 0 以下を「上限なし」と扱う）。書き出しは
+          // この tick を通らず render() を直接呼ぶため渡らない = 出力画素は不変
+          maxRenderSize,
         });
         // clip-path は可視な間、入場アニメが終わるまで毎 tick 測り直す。可視化フリップの
         // 1 tick だけで確定すると、通常再生では localTimeMs がほぼ 0 のため、0% の遠方姿勢の
@@ -268,7 +306,21 @@ function createOverlayRuntime(options = {}) {
         }
         continue;
       }
-      const animations = overlay.container.getAnimations({ subtree: true });
+      // getAnimations({ subtree: true }) のコストは「ドキュメント全体に現存する CSS animation の
+      // 総数」にほぼ比例する（上の注記）。断片のアニメは `[data-akari-active]` ゲートで宣言する
+      // 規約なので、可視の間は顔ぶれが変わらない。毎 tick 引き直さず、可視化フリップ直後の
+      // tick と 250ms ごとだけ引き直す（遅れて生える animation も拾える。app.js と同じ）。
+      // Animation オブジェクトはライブなので、キャッシュ済みでも pause / currentTime の書き込みと
+      // 下の entryAnimationsSettled() の読み取りは現在値で動く。
+      const nowMs = performance.now();
+      if (
+        overlay.animations === undefined ||
+        nowMs - overlay.animationsAt > ANIMATIONS_CACHE_MS
+      ) {
+        overlay.animations = overlay.container.getAnimations({ subtree: true });
+        overlay.animationsAt = nowMs;
+      }
+      const animations = overlay.animations;
       for (const animation of animations) {
         animation.pause();
         animation.currentTime = localTimeMs;
