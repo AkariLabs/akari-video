@@ -45,7 +45,11 @@ export type PreviewItemWriteCommand =
         /** v2 の安定 identity。legacy では legacyIndex だけを使う。 */
         itemId?: string;
         legacyIndex: number;
-        patch: { transform?: PreviewItemTransformPatch };
+        patch: {
+            transform?: PreviewItemTransformPatch;
+            /** 出力プレビューの辺バークロップ。cuts[] に crop の席があるのは v2 だけ。 */
+            crop?: PreviewItemCropPatch;
+        };
     };
 
 export interface PreviewItemWriteResolution {
@@ -157,6 +161,10 @@ function resolveV2Write(
             item.transform = { ...recordOf(item.transform), ...command.patch.transform };
             editChanged = true;
         }
+        if (command.patch.crop) {
+            item.crop = { ...command.patch.crop };
+            editChanged = true;
+        }
     }
     return {
         ...(editChanged ? { candidateText: stringifyEdit(edit) } : {}),
@@ -234,6 +242,10 @@ function resolveLegacyWrite(
     const cut = edit.cuts[command.legacyIndex];
     if (!isRecord(cut)) {
         throw new Error(`カットが見つかりません: index ${command.legacyIndex}`);
+    }
+    // cutV0 / cutV1 schema に crop の席が無いので、legacy 文書へは書けない（黙って捨てない）。
+    if (command.patch.crop) {
+        throw new Error('カットの crop 書き戻しには edit.json version 2 が必要です');
     }
     if (command.patch.transform) {
         cut.transform = { ...recordOf(cut.transform), ...command.patch.transform };

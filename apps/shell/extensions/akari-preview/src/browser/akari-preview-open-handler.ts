@@ -88,6 +88,8 @@ import { computeLayerPerspectiveVisual } from '../common/layer-perspective-visua
 import { resolveDeferredTelopPlayback } from '../common/deferred-telop-playback';
 import { computeTransitionVisual } from '../common/transition-visual';
 import { cropAnchorCorrectedTransform } from '../common/layer-crop-anchor';
+import { cropRectAfterEdgeDrag } from '../common/crop-edge-drag';
+import { cutLayerStyleBoxPx, cutLayerStyleEntryTransform } from '../common/cut-layer-style-entry';
 import { resolveLayerHitRegionClip } from '../common/layer-hit-region';
 import { computeLayerKeyframesVisual } from '../common/layer-keyframes-visual';
 import { layerResizeCornerPoint } from '../common/layer-resize-anchor';
@@ -468,7 +470,10 @@ interface EditSummaryTimelineTrack {
 }
 
 interface EditSummary {
-    output: { width: number; height: number; fps?: number };
+    /** geometry は幾何統一（別票）が入れる出力座標系マーカー。'source' = ソース実寸基準へ移行済み。 */
+    output: { width: number; height: number; fps?: number; geometry?: string };
+    /** 生 edit.json の version。cuts[].crop の書き戻しは v2 のみ（legacy schema に席が無い）。 */
+    editVersion?: number;
     overlays: EditSummaryOverlay[];
     layers: EditSummaryLayer[];
     filters: EditSummaryFilter[];
@@ -569,7 +574,8 @@ interface LayerWriteRequest {
 
 // CF-write: layerWrite と同型の cuts[] 版（akari-preview-open-handler.ts:2780 layerWrite に倣う。
 // ㉓ 本編ビデオのクリック選択+transform）。追加/削除・in/out はタイムライン側の既存経路の
-// 対象のため扱わない。transform のみ。
+// 対象のため扱わない。transform と（辺バークロップの）crop のみ。crop は cuts[] の
+// layer-style 経路（ソース実寸基準）へ入るので、書けるのは edit.json version 2 だけ。
 interface CutWriteRequest {
     type: 'akari-preview-cut-write';
     requestId: string;
@@ -577,6 +583,7 @@ interface CutWriteRequest {
     cutId?: string;
     patch: {
         transform?: OverlayTransform;
+        crop?: LayerCropPatch;
     };
 }
 
@@ -3301,6 +3308,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             const rawVersion = rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
                 ? (rawEdit as { version?: unknown }).version
                 : undefined;
+            // 幾何統一マーカー（別票）は内部表現の InternalOutput にまだ席が無いため、生 JSON から読む。
+            // 未宣言（undefined）は従来どおりの「出力キャンバスへ contain fit」を意味する。
+            const rawOutputGeometry = (() => {
+                const output = rawEdit && typeof rawEdit === 'object' && !Array.isArray(rawEdit)
+                    ? (rawEdit as { output?: unknown }).output
+                    : undefined;
+                const declared = output && typeof output === 'object' && !Array.isArray(output)
+                    ? (output as { geometry?: unknown }).geometry
+                    : undefined;
+                return typeof declared === 'string' && declared ? declared : undefined;
+            })();
             const editKey = editUri.normalizePath().toString();
             const previousRawVersion = this.lastRawEditVersionByUri.get(editKey);
             if (rawVersion === 0 || rawVersion === 1 || rawVersion === 2) {
@@ -3948,7 +3966,13 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
                 excludedCaptionIds: [...excludedCaptionIds],
                 emphasisWords,
                 summary: {
-                    output: { width, height, fps: this.positiveNumber(internal.output.fps, 30) },
+                    output: {
+                        width,
+                        height,
+                        fps: this.positiveNumber(internal.output.fps, 30),
+                        ...(rawOutputGeometry ? { geometry: rawOutputGeometry } : {})
+                    },
+                    ...(rawVersion === 2 ? { editVersion: 2 } : {}),
                     overlays,
                     layers,
                     filters,
@@ -4877,7 +4901,8 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             respond(false, '編集中の edit.json がありません');
             return;
         }
-        const validationError = this.validateLayerTransformPatch(request.patch.transform);
+        const validationError = this.validateLayerTransformPatch(request.patch.transform)
+            ?? this.validateLayerCropPatch(request.patch.crop);
         if (validationError) {
             respond(false, validationError);
             return;
@@ -5433,12 +5458,25 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #layer-select-box .akari-layer-handle-se { top: 100%; left: 100%; cursor: nwse-resize; }
 #layer-select-box .akari-layer-handle-rotate { top: 0; left: 50%; margin-top: -34px; border-radius: 50%; cursor: grab; }
 #layer-select-box .akari-layer-rotate-stem { position: absolute; top: -28px; left: 50%; width: 1.5px; height: 28px; background: #4da3ff; transform: translateX(-50%); pointer-events: none; }
+/* 四辺中央の辺バー（クロップ）。cut / layer で同じ見た目・同じ操作にするため両 select box 共通で、
+   角点の pointerdown ループ（[data-akari-handle]）へ紛れ込まないよう属性もクラスも別立てにする。
+   枠の当該軸が 44px 未満のときは角点と衝突するので JS 側がクラスで隠す。 */
+#layer-select-box .akari-crop-edge, #cut-select-box .akari-crop-edge { position: absolute; box-sizing: border-box; border: 1.5px solid #4da3ff; border-radius: 3px; background: #fff; pointer-events: auto; }
+#layer-select-box .akari-crop-edge-n, #cut-select-box .akari-crop-edge-n { top: 0; left: 50%; width: 28px; height: 5px; margin: -2.5px 0 0 -14px; cursor: ns-resize; }
+#layer-select-box .akari-crop-edge-s, #cut-select-box .akari-crop-edge-s { top: 100%; left: 50%; width: 28px; height: 5px; margin: -2.5px 0 0 -14px; cursor: ns-resize; }
+#layer-select-box .akari-crop-edge-e, #cut-select-box .akari-crop-edge-e { top: 50%; left: 100%; width: 5px; height: 28px; margin: -14px 0 0 -2.5px; cursor: ew-resize; }
+#layer-select-box .akari-crop-edge-w, #cut-select-box .akari-crop-edge-w { top: 50%; left: 0; width: 5px; height: 28px; margin: -14px 0 0 -2.5px; cursor: ew-resize; }
+.akari-crop-edges-off .akari-crop-edge { display: none; }
+.akari-crop-edges-hide-x .akari-crop-edge-n, .akari-crop-edges-hide-x .akari-crop-edge-s { display: none; }
+.akari-crop-edges-hide-y .akari-crop-edge-e, .akari-crop-edges-hide-y .akari-crop-edge-w { display: none; }
 #preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active { pointer-events: none; }
+#preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active .akari-crop-edge,
 #preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active .akari-layer-handle,
 #preview-stage[data-frame-engine-active="true"] #layer-select-box.is-active .akari-layer-rotate-stem { pointer-events: auto; }
 /* クロップモード: 移動/リサイズ/回転ハンドルと衝突しないよう select box 側の操作系だけ隠す
    （枠自体は #layer-crop-box が別枠として表示する）。 */
 #layer-select-box.akari-crop-mode-hide-handles .akari-layer-handle,
+#layer-select-box.akari-crop-mode-hide-handles .akari-crop-edge,
 #layer-select-box.akari-crop-mode-hide-handles .akari-layer-rotate-stem { display: none; }
 /* クロップ編集オーバーレイ: 外枠はレイヤーの「クロップ無しなら見えていたはずの」全面フレーム
    （transform.rotate を outer 自身の中心まわりに適用 — pivot はソースフレーム中心固定。crop の
@@ -5484,6 +5522,8 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 #cut-select-box .akari-cut-handle-ne { top: 0; left: 100%; cursor: nesw-resize; }
 #cut-select-box .akari-cut-handle-sw { top: 100%; left: 0; cursor: nesw-resize; }
 #cut-select-box .akari-cut-handle-se { top: 100%; left: 100%; cursor: nwse-resize; }
+#cut-select-box .akari-cut-handle-rotate { top: 0; left: 50%; margin-top: -34px; border-radius: 50%; cursor: grab; }
+#cut-select-box .akari-cut-rotate-stem { position: absolute; top: -28px; left: 50%; width: 1.5px; height: 28px; background: #4da3ff; transform: translateX(-50%); pointer-events: none; }
 #caption-select-box { position: absolute; z-index: 1900; box-sizing: border-box; border: 1.5px dashed #4da3ff; box-shadow: 0 0 0 1px rgba(0,0,0,0.35); pointer-events: none; display: none; }
 #caption-select-box.is-active { display: block; }
 #caption-select-box .akari-caption-select-tools { position: absolute; left: -1px; bottom: calc(100% + 6px); display: flex; align-items: center; gap: 5px; white-space: nowrap; pointer-events: none; }
@@ -5589,7 +5629,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
             <img id="transition-still" data-akari-transition-role="incoming-still" alt="" draggable="false">
             <div id="overlay-stage"><div id="transition-plate"></div><div id="transition-fallback-label"></div><div id="caption-plate"></div></div>
           </div>
-          <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div></div>
+          <div id="layer-select-box"><div class="akari-layer-rotate-stem"></div><div class="akari-layer-handle akari-layer-handle-nw" data-akari-handle="nw"></div><div class="akari-layer-handle akari-layer-handle-ne" data-akari-handle="ne"></div><div class="akari-layer-handle akari-layer-handle-sw" data-akari-handle="sw"></div><div class="akari-layer-handle akari-layer-handle-se" data-akari-handle="se"></div><div class="akari-layer-handle akari-layer-handle-rotate" data-akari-handle="rotate"></div><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
           <div id="layer-crop-box"><div class="akari-layer-crop-rect"><div class="akari-layer-crop-handle akari-layer-crop-handle-nw" data-akari-crop-handle="nw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-n" data-akari-crop-handle="n"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-ne" data-akari-crop-handle="ne"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-e" data-akari-crop-handle="e"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-se" data-akari-crop-handle="se"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-s" data-akari-crop-handle="s"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-sw" data-akari-crop-handle="sw"></div><div class="akari-layer-crop-handle akari-layer-crop-handle-w" data-akari-crop-handle="w"></div></div></div>
           <div id="layer-crop-toggle" title="クロップモード切替 (Esc で終了)">⛶</div>
           <div id="layer-perspective-toggle" title="パース変形パネル">◈</div>
@@ -5607,7 +5647,7 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
             </div>
             <button type="button" class="akari-perspective-clear" data-akari-perspective-clear>パースを解除</button>
           </div>
-          <div id="cut-select-box"><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div></div>
+          <div id="cut-select-box"><div class="akari-cut-rotate-stem"></div><div class="akari-cut-handle akari-cut-handle-nw" data-akari-handle="nw"></div><div class="akari-cut-handle akari-cut-handle-ne" data-akari-handle="ne"></div><div class="akari-cut-handle akari-cut-handle-sw" data-akari-handle="sw"></div><div class="akari-cut-handle akari-cut-handle-se" data-akari-handle="se"></div><div class="akari-cut-handle akari-cut-handle-rotate" data-akari-handle="rotate"></div><div class="akari-crop-edge akari-crop-edge-n" data-akari-crop-edge="n"></div><div class="akari-crop-edge akari-crop-edge-e" data-akari-crop-edge="e"></div><div class="akari-crop-edge akari-crop-edge-s" data-akari-crop-edge="s"></div><div class="akari-crop-edge akari-crop-edge-w" data-akari-crop-edge="w"></div></div>
           <div id="caption-zone-highlight"></div>
           <div id="caption-drag-guide-center" class="akari-caption-drag-guide akari-caption-drag-guide--center"><span class="akari-caption-drag-guide__label">中央</span></div>
           <div id="caption-drag-guide-bottom" class="akari-caption-drag-guide akari-caption-drag-guide--bottom"><span class="akari-caption-drag-guide__label">下段 7%</span></div>
@@ -7585,6 +7625,11 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉗ layers[].crop の錨補正（contract-2026-08-02-preview-parity.md §2.4.1・
             // 2026-08-06 crop-handle-anchor-fix）。
             const cropAnchorCorrectedTransformFn = (${cropAnchorCorrectedTransform.toString()});
+            // 辺バー / ⛶ の 8 方向ハンドルが共有する「掴んだ辺だけ動かす」規則（cut / layer 共通）。
+            const cropRectAfterEdgeDragFn = (${cropRectAfterEdgeDrag.toString()});
+            // 本編 cut の contain fit 基準 → layer-style（ソース実寸基準）の等価変換と box 寸法。
+            const cutLayerStyleEntryTransformFn = (${cutLayerStyleEntryTransform.toString()});
+            const cutLayerStyleBoxPxFn = (${cutLayerStyleBoxPx.toString()});
             // ㉘ layers[].keyframes（contract-2026-08-09-transform-keyframes-v0.md）。renderLayers
             // が毎フレーム呼び、layer.keyframes があれば dataset.akariTransformX/Y/Scale/Rotate・
             // akariCropX/Y/W/H・akariPerspectiveCorners を上書きしてから updateLayerLayout を叩く
@@ -8223,6 +8268,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     video.style.opacity = '';
                     video.dataset.akariCutIndex = '';
                     video.dataset.akariCutId = '';
+                    video.dataset.akariCutFraming = '';
                     // ㉓ ギャップ等クリック選択の対象外へ移った場合は選択を外す
                     // （deselectCut は後段で定義される const だが、実際の呼び出しは
                     // 常にトップレベルスクリプト完了後の非同期経路のため安全）。
@@ -8252,6 +8298,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 stillImage.style.opacity = video.style.opacity;
                 video.dataset.akariCutIndex = Number.isInteger(segment.cutIndex) ? String(segment.cutIndex) : '';
                 video.dataset.akariCutId = typeof segment.id === 'string' ? segment.id : '';
+                // ㉕ cuts[].framing は layer-style（crop）と共存できない（layerStyleVisualAt が
+                // framing を捨てる）ため、framing 持ちの cut では辺バーを出さない（裁定 6）。
+                video.dataset.akariCutFraming = segment.framing && typeof segment.framing === 'object'
+                    && !Array.isArray(segment.framing) ? 'true' : '';
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
                 if (typeof updateCutSelectBox === 'function') updateCutSelectBox();
             };
@@ -8576,6 +8626,10 @@ body { display: grid; place-items: center; padding: 32px; }
             // ㉔ クロップモード（2026-08-06 オーナー裁定: shell/Web 両面）。移動/リサイズ/回転と
             // 操作が衝突しないための排他モード切替。選択が変わったら自動的に抜ける。
             let cropModeActive = false;
+            // 裁定 3: 辺バーのドラッグ中だけ #layer-crop-box（全面の破線外枠 + 窓外の暗転）を
+            // ゴーストとして出す。⛶ モードと違い、離せば元の選択枠だけに戻る。
+            let edgeCropDragActive = false;
+            let edgeCropDragTarget = null;
             const layerCropBox = document.getElementById('layer-crop-box');
             const layerCropRect = layerCropBox.querySelector('.akari-layer-crop-rect');
             const layerCropHandleElements = Array.from(layerCropBox.querySelectorAll('[data-akari-crop-handle]'));
@@ -8620,6 +8674,14 @@ body { display: grid; place-items: center; padding: 32px; }
             // クランプと同じ意味論をプレビュー側で独立実装したもの（パリティ契約が明記する意図的な
             // コード重複の方針に倣う — 2.2 節の描画既定などと同型）。
             const CROP_MIN = 0.02;
+            // 裁定 1: 辺バーは 28px の棒。枠の当該軸が 44px 未満だと角点（12px）と衝突するので隠す。
+            // allowed=false は「この対象では辺バーそのものを出さない」（v2 でない cut / framing 持ち）。
+            const CROP_EDGE_MIN_BOX_PX = 44;
+            const applyCropEdgeVisibility = (box, widthPx, heightPx, allowed) => {
+                box.classList.toggle('akari-crop-edges-off', !allowed);
+                box.classList.toggle('akari-crop-edges-hide-x', !(widthPx >= CROP_EDGE_MIN_BOX_PX));
+                box.classList.toggle('akari-crop-edges-hide-y', !(heightPx >= CROP_EDGE_MIN_BOX_PX));
+            };
             const clampCrop = (x, y, w, h) => {
                 const cw = Math.min(1, Math.max(CROP_MIN, Number.isFinite(w) ? w : 1));
                 const ch = Math.min(1, Math.max(CROP_MIN, Number.isFinite(h) ? h : 1));
@@ -8639,8 +8701,8 @@ body { display: grid; place-items: center; padding: 32px; }
             // （同時に両方から呼ばれることはない = ドラッグは常に単一ジェスチャー）。
             const layerCropVisualThrottle = createRafThrottleFn(() => {
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
-                if (cropModeActive) updateLayerCropBox();
-                else updateLayerSelectBox();
+                if (cropModeActive || edgeCropDragActive) updateLayerCropBox();
+                if (!cropModeActive) updateLayerSelectBox();
             });
             const applyLayerCropNow = (entry, crop) => {
                 const c = clampCrop(crop.x, crop.y, crop.w, crop.h);
@@ -8666,6 +8728,28 @@ body { display: grid; place-items: center; padding: 32px; }
                 entry.video.dataset.akariTransformRotate = String(transform.rotate);
                 layerCropVisualThrottle.call();
             };
+            // 裁定 0（cut と layer の操作系を統一）: 選択枠の幾何計算・角点 / 回転 / 辺バーの
+            // ドラッグ・確定書き戻しを 1 組の関数へ寄せ、対象の違いだけをこの記述子で渡す。
+            // layer は entry（media 実体 + spec）、cut は #preview-video / #preview-still。
+            const layerDragTarget = entry => ({
+                kind: 'layer',
+                entry,
+                media: entry.video,
+                visible: () => entry.video.style.display !== 'none',
+                naturalSize: () => ({ width: entry.video.videoWidth, height: entry.video.videoHeight }),
+                transformNow: () => layerTransformNow(entry),
+                cropNow: () => layerCropNow(entry),
+                // layers[] は最初からソース実寸基準（layer-style）なので fit の焼き込みは無い。
+                cropEntryTransform: transform => ({ ...transform }),
+                applyTransform: transform => applyLayerTransformNow(entry, transform),
+                applyCropAndTransform: (crop, transform) => applyLayerCropAndTransformNow(entry, crop, transform),
+                cropRestorePoint: () => ({ crop: layerCropNow(entry), transform: layerTransformNow(entry) }),
+                restoreCrop: point => applyLayerCropAndTransformNow(entry, point.crop, point.transform),
+                flushTransform: () => layerTransformVisualThrottle.flush(),
+                flushCrop: () => layerCropVisualThrottle.flush(),
+                canWrite: () => true,
+                write: patch => window.akari.engine.layerWrite(entry.spec.id, patch)
+            });
             // ベイクテロップは全面サイズの透明動画なので、要素の箱で選択枠を描くと画面いっぱいに
             // なり分かりにくい。現フレームのアルファを実測し、不透明領域（コンテンツ）へ枠を
             // フィットさせ、透明部分のクリックは下へ素通しする。計測不能（CORS 等）時は従来挙動
@@ -8674,7 +8758,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // 基準点、ソース px 空間）を外から渡せるようにし、通常のヒットテスト（pivot=クロップ中心 =
             // 実際の合成基準点）とクロップモードの編集（pivot=全面中心 = 常に自分の中心で回る素直な
             // 参照系）の両方から共有する。
-            const layerVideoPointForPivot = (entry, transform, pivotPx, clientX, clientY) => {
+            const layerVideoPointForPivot = (transform, pivotPx, clientX, clientY) => {
                 const p = window.akari.interaction && window.akari.interaction.stageLocalPoint
                     ? window.akari.interaction.stageLocalPoint(clientX, clientY) : null;
                 if (!p) return null;
@@ -8694,7 +8778,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     x: (crop.x + crop.w / 2) * entry.video.videoWidth,
                     y: (crop.y + crop.h / 2) * entry.video.videoHeight
                 };
-                const point = layerVideoPointForPivot(entry, t, pivotPx, clientX, clientY);
+                const point = layerVideoPointForPivot(t, pivotPx, clientX, clientY);
                 if (!point) return null;
                 const { x: vx, y: vy } = point;
                 if (!(vx >= 0) || !(vy >= 0) || vx >= entry.video.videoWidth || vy >= entry.video.videoHeight) return null;
@@ -8710,7 +8794,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     x: (crop.x + crop.w / 2) * width,
                     y: (crop.y + crop.h / 2) * height
                 };
-                const point = layerVideoPointForPivot(entry, transform, pivotPx, clientX, clientY);
+                const point = layerVideoPointForPivot(transform, pivotPx, clientX, clientY);
                 if (!point) return false;
                 return point.x >= crop.x * width
                     && point.x < (crop.x + crop.w) * width
@@ -8721,7 +8805,7 @@ body { display: grid; place-items: center; padding: 32px; }
             // （全面フレーム or クロップ矩形）、pivotPx は回転・平行移動の基準点（同じくソース px）。
             // updateLayerSelectBox（pivot=クロップ中心）とクロップモードの外枠/内枠描画
             // （pivot=全面中心）の両方から共有する。
-            const layerScreenRectForVideoRect = (entry, transform, videoRect, pivotPx) => {
+            const layerScreenRectForVideoRect = (transform, videoRect, pivotPx) => {
                 const frameRect = window.akari.computeOutputFrameRect();
                 const frameScale = window.akari.stageScale() || 1;
                 const outputWidth = Number(summary.output && summary.output.width) || 1280;
@@ -8881,7 +8965,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     x: (crop.x + crop.w / 2) * entry.video.videoWidth,
                     y: (crop.y + crop.h / 2) * entry.video.videoHeight
                 };
-                const box = layerScreenRectForVideoRect(entry, transform, cb, pivotPx);
+                const box = layerScreenRectForVideoRect(transform, cb, pivotPx);
                 layerSelectBox.style.left = box.left + 'px';
                 layerSelectBox.style.top = box.top + 'px';
                 layerSelectBox.style.width = box.width + 'px';
@@ -8891,6 +8975,7 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerSelectBox.dataset.akariPivotOffX = String(box.rotOffX);
                 layerSelectBox.dataset.akariPivotOffY = String(box.rotOffY);
                 layerSelectBox.classList.add('is-active');
+                applyCropEdgeVisibility(layerSelectBox, box.width, box.height, true);
                 if (!cropModeActive) positionLayerCropToggle(box);
                 if (!cropModeActive) positionLayerPerspectiveToggle(box);
                 layerPerspectiveToggle.classList.toggle('is-declared', !!layerPerspectiveNow(entry));
@@ -8913,19 +8998,26 @@ body { display: grid; place-items: center; padding: 32px; }
             // （2026-08-06 crop-handle-anchor-fix 以前は全面中心固定の近似だったが、それだと錨補正
             // 後の transform.x/y と噛み合わず外枠が編集中にドリフトして見えるため、実際の合成 pivot
             // と統一した — layerScreenRectForVideoRect の呼び手（updateLayerSelectBox）と同型）。
-            const updateLayerCropBox = () => {
+            const cropGhostTarget = () => {
+                if (edgeCropDragActive && edgeCropDragTarget) return edgeCropDragTarget;
                 const entry = selectedLayerId ? findLayerEntry(selectedLayerId) : undefined;
-                if (!cropModeActive || !entry || entry.video.style.display === 'none' || !(entry.video.videoWidth > 0)) {
+                return entry ? layerDragTarget(entry) : null;
+            };
+            const updateLayerCropBox = () => {
+                const target = cropGhostTarget();
+                const natural = target ? target.naturalSize() : null;
+                if ((!cropModeActive && !edgeCropDragActive) || !target || !target.visible()
+                    || !(natural.width > 0) || !(natural.height > 0)) {
                     layerCropBox.classList.remove('is-active');
                     return;
                 }
-                const transform = layerTransformNow(entry);
-                const crop = layerCropNow(entry);
-                const vw = entry.video.videoWidth;
-                const vh = entry.video.videoHeight;
+                const transform = target.transformNow();
+                const crop = target.cropNow();
+                const vw = natural.width;
+                const vh = natural.height;
                 const pivotPx = { x: (crop.x + crop.w / 2) * vw, y: (crop.y + crop.h / 2) * vh };
-                const outer = layerScreenRectForVideoRect(entry, transform, { x: 0, y: 0, w: vw, h: vh }, pivotPx);
-                const inner = layerScreenRectForVideoRect(entry, transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, pivotPx);
+                const outer = layerScreenRectForVideoRect(transform, { x: 0, y: 0, w: vw, h: vh }, pivotPx);
+                const inner = layerScreenRectForVideoRect(transform, { x: crop.x * vw, y: crop.y * vh, w: crop.w * vw, h: crop.h * vh }, pivotPx);
                 layerCropBox.style.left = outer.left + 'px';
                 layerCropBox.style.top = outer.top + 'px';
                 layerCropBox.style.width = outer.width + 'px';
@@ -8936,7 +9028,8 @@ body { display: grid; place-items: center; padding: 32px; }
                 layerCropRect.style.width = inner.width + 'px';
                 layerCropRect.style.height = inner.height + 'px';
                 layerCropBox.classList.add('is-active');
-                positionLayerCropToggle(outer);
+                // ⛶ トグルは layers[] 専用（cut には出さない）。
+                if (target.kind === 'layer') positionLayerCropToggle(outer);
             };
             const setCropMode = active => {
                 cropModeActive = !!(active && selectedLayerId);
@@ -9141,12 +9234,14 @@ body { display: grid; place-items: center; padding: 32px; }
                     (entry.video.videoHeight || 0) * crop.h * transform.scale
                 );
             };
-            // CF-write: layerWrite 確定 → 失敗時は元の値へ視覚的に巻き戻す（既存 overlay 編集と同じ規約）。
-            const beginLayerTransformDrag = (entry, startEvent, computeTransform) => {
+            // 裁定 0: 移動 / 角点 / 回転の確定書き戻しは cut と layer で 1 本。対象の違い
+            // （dataset の読み書き先・layerWrite / cutWrite・RAF throttle）は記述子が持つ。
+            // CF-write: 確定 → 失敗時は元の値へ視覚的に巻き戻す（既存 overlay 編集と同じ規約）。
+            const beginMediaTransformDrag = (target, startEvent, computeTransform) => {
                 startEvent.preventDefault();
                 startEvent.stopPropagation();
                 const pointerId = startEvent.pointerId;
-                const original = layerTransformNow(entry);
+                const original = target.transformNow();
                 const captureTarget = startEvent.currentTarget;
                 let moved = false;
                 let cancelled = false;
@@ -9167,25 +9262,31 @@ body { display: grid; place-items: center; padding: 32px; }
                     const dy = moveEvent.clientY - startEvent.clientY;
                     if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
                     if (!moved) return;
-                    applyLayerTransformNow(entry, computeTransform(moveEvent, original));
+                    target.applyTransform(computeTransform(moveEvent, original));
                 };
                 const finish = async () => {
                     cleanup();
                     if (cancelled) {
-                        applyLayerTransformNow(entry, original);
+                        target.applyTransform(original);
                         // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
-                        layerTransformVisualThrottle.flush();
+                        target.flushTransform();
                         return;
                     }
                     if (!moved) return;
-                    layerTransformVisualThrottle.flush();
-                    const finalTransform = layerTransformNow(entry);
+                    target.flushTransform();
+                    // 書き戻し先を特定できない対象（cutIndex 未確定の cut）は静かに元へ戻す。
+                    if (!target.canWrite()) {
+                        target.applyTransform(original);
+                        target.flushTransform();
+                        return;
+                    }
+                    const finalTransform = target.transformNow();
                     try {
-                        await window.akari.engine.layerWrite(entry.spec.id, { transform: finalTransform });
+                        await target.write({ transform: finalTransform });
                     } catch (error) {
                         window.akari.showWriteError(error);
-                        applyLayerTransformNow(entry, original);
-                        layerTransformVisualThrottle.flush();
+                        target.applyTransform(original);
+                        target.flushTransform();
                     }
                 };
                 const onUp = upEvent => {
@@ -9208,7 +9309,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     startEvent.clientY
                 );
                 let dragSnap = { x: null, y: null };
-                beginLayerTransformDrag(entry, startEvent, (moveEvent, original) => {
+                beginMediaTransformDrag(layerDragTarget(entry), startEvent, (moveEvent, original) => {
                     const nowPoint = window.akari.interaction?.stageLocalPoint?.(
                         moveEvent.clientX,
                         moveEvent.clientY
@@ -9302,7 +9403,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     selectCut();
                     const startPoint = window.akari.interaction?.stageLocalPoint?.(event.clientX, event.clientY);
                     let dragSnap = { x: null, y: null };
-                    beginCutTransformDrag(event, (moveEvent, original) => {
+                    beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {
                         const nowPoint = window.akari.interaction?.stageLocalPoint?.(moveEvent.clientX, moveEvent.clientY);
                         const displayScale = (window.akari.stageScale() || 1) * zoom;
                         let nextX = original.x;
@@ -9366,7 +9467,7 @@ body { display: grid; place-items: center; padding: 32px; }
                     };
                     if (kind === 'rotate') {
                         const startAngle = Math.atan2(event.clientY - center.y, event.clientX - center.x) * 180 / Math.PI;
-                        beginLayerTransformDrag(entry, event, (moveEvent, original) => {
+                        beginMediaTransformDrag(layerDragTarget(entry), event, (moveEvent, original) => {
                             const angle = Math.atan2(moveEvent.clientY - center.y, moveEvent.clientX - center.x) * 180 / Math.PI;
                             return { ...original, rotate: original.rotate + (angle - startAngle) };
                         });
@@ -9387,7 +9488,7 @@ body { display: grid; place-items: center; padding: 32px; }
                         if (!anchor || !dragged || !window.akari.interaction?.anchorPreservingTranslate) return;
                         const startDistance = Math.max(1, Math.hypot(dragged.x - anchor.x, dragged.y - anchor.y));
                         let dragSnap = { x: null, y: null };
-                        beginLayerTransformDrag(entry, event, (moveEvent, original) => {
+                        beginMediaTransformDrag(layerDragTarget(entry), event, (moveEvent, original) => {
                             const point = window.akari.interaction.stageLocalPoint(moveEvent.clientX, moveEvent.clientY);
                             if (!point) return original;
                             const distance = Math.hypot(point.x - anchor.x, point.y - anchor.y);
@@ -9424,110 +9525,134 @@ body { display: grid; place-items: center; padding: 32px; }
                     }
                 });
             }
-            // ㉔ クロップモードの 8 方向ハンドル（n/ne/e/se/s/sw/w/nw）。対辺（動かさない側）を
-            // アンカーに固定し、ドラッグ中の点（ソースフレーム正規化座標）で動かした側の辺を
-            // 更新する — CapCut 等の切り抜きハンドルと同型の挙動。確定(pointerup)時のみ
-            // layerWrite({crop, transform}) で書き戻す（既存 transform ハンドルと同じ確定
-            // タイミング）。
+            // 裁定 2: クロップのドラッグ本体（⛶ モードの 8 方向ハンドルと四辺中央の辺バー、
+            // cut と layer の両方）は 1 本の関数に寄せる。対辺（動かさない側）をアンカーに固定し、
+            // ドラッグ中の点（ソースフレーム正規化座標）で動かした側の辺だけを更新する —
+            // CapCut / Canva 等の切り抜きハンドルと同型の挙動。確定(pointerup)時のみ
+            // {crop, transform} を 1 回書き戻す（既存 transform ハンドルと同じ確定タイミング）。
             // ㉗ 錨補正（2026-08-06 crop-handle-anchor-fix）: crop の中心が実際の配置基準点
             // （layerScreenRectForVideoRect 参照）なので、crop 変更だけを書き戻すと基準点自体が
             // 動いて絵全体がずれる。cropAnchorCorrectedTransformFn が「ドラッグした辺以外は画面上
             // 不動」になる transform.x/y を返し、crop と同一 patch で書く（ドラッグ中のライブ表示も
             // 同じ補正を適用 — 確定時だけだと commit 瞬間にジャンプする）。pointer→ソース座標の
-            // マッピング（computeNext 内の layerVideoPointForPivot 呼び出し）はドラッグ開始時点の
-            // startTransform を最後まで使い続ける（ライブ補正で変わる transform.x/y を混ぜない）ため、
-            // この錨補正の追加はハンドル自体の追従性に影響しない。
+            // マッピングはドラッグ開始時点の startTransform を最後まで使い続ける（ライブ補正で
+            // 変わる transform.x/y を混ぜない）ため、この錨補正はハンドル自体の追従性に影響しない。
+            const beginMediaCropDrag = (target, dir, event) => {
+                const natural = target.naturalSize();
+                if (!(natural.width > 0) || !(natural.height > 0)) return;
+                const restorePoint = target.cropRestorePoint();
+                // 裁定 5: crop の無い cut は出力キャンバスへ contain fit されてから transform が
+                // 掛かる。初めて crop を書く瞬間に fit を scale へ焼き込み、layer-style（ソース
+                // 実寸 × scale）へ移っても画面上の位置・大きさが変わらないようにする。
+                const startTransform = target.cropEntryTransform(target.transformNow(), natural);
+                const pivotPx = { x: natural.width / 2, y: natural.height / 2 };
+                const original = target.cropNow();
+                event.preventDefault();
+                event.stopPropagation();
+                const pointerId = event.pointerId;
+                const captureTarget = event.currentTarget;
+                let moved = false;
+                let cancelled = false;
+                try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
+                // 裁定 3: ⛶ モード外（= 辺バー）のときだけ、ドラッグ中の間だけゴースト枠を出す。
+                const ghosted = !cropModeActive;
+                if (ghosted) {
+                    edgeCropDragActive = true;
+                    edgeCropDragTarget = target;
+                    updateLayerCropBox();
+                }
+                const cleanup = () => {
+                    window.removeEventListener('pointermove', onMove);
+                    window.removeEventListener('pointerup', onUp);
+                    window.removeEventListener('pointercancel', onUp);
+                    window.removeEventListener('keydown', onKeyDown, true);
+                    if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
+                        captureTarget.releasePointerCapture(pointerId);
+                    }
+                    if (ghosted) {
+                        edgeCropDragActive = false;
+                        edgeCropDragTarget = null;
+                        layerCropBox.classList.remove('is-active');
+                    }
+                };
+                const computeNext = moveEvent => {
+                    const point = layerVideoPointForPivot(startTransform, pivotPx, moveEvent.clientX, moveEvent.clientY);
+                    if (!point) return original;
+                    return cropRectAfterEdgeDragFn(
+                        original,
+                        dir,
+                        { x: point.x / natural.width, y: point.y / natural.height },
+                        CROP_MIN
+                    );
+                };
+                // cropAnchorCorrectedTransformFn は x/y のみを返す（scale/rotate は補正で
+                // 動かさない）ため、書き戻し用の完全な transform には startTransform の
+                // scale/rotate を必ずマージする（欠けると dataset に "undefined" が書かれ
+                // NaN → 既定値 1/0 へフォールバックし、スケール/回転が消し飛ぶ）。
+                const correctedTransformFor = nextCrop => ({
+                    ...startTransform,
+                    ...cropAnchorCorrectedTransformFn(
+                        original, nextCrop, startTransform, natural.width, natural.height
+                    )
+                });
+                const onMove = moveEvent => {
+                    if (moveEvent.pointerId !== pointerId) return;
+                    moved = true;
+                    const nextCrop = computeNext(moveEvent);
+                    target.applyCropAndTransform(nextCrop, correctedTransformFor(nextCrop));
+                };
+                const finish = async () => {
+                    cleanup();
+                    if (cancelled || !moved) {
+                        if (moved) {
+                            target.restoreCrop(restorePoint);
+                            // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
+                            target.flushCrop();
+                        }
+                        return;
+                    }
+                    target.flushCrop();
+                    const finalCrop = target.cropNow();
+                    const finalTransform = target.transformNow();
+                    if (!target.canWrite()) {
+                        target.restoreCrop(restorePoint);
+                        target.flushCrop();
+                        return;
+                    }
+                    try {
+                        await target.write({ crop: finalCrop, transform: finalTransform });
+                    } catch (error) {
+                        window.akari.showWriteError(error);
+                        target.restoreCrop(restorePoint);
+                        target.flushCrop();
+                    }
+                };
+                const onUp = upEvent => {
+                    if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
+                    void finish();
+                };
+                const onKeyDown = keyEvent => {
+                    if (keyEvent.key !== 'Escape') return;
+                    cancelled = true;
+                    void finish();
+                };
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+                window.addEventListener('pointercancel', onUp);
+                window.addEventListener('keydown', onKeyDown, true);
+            };
+            // ㉔ ⛶ クロップモードの 8 方向ハンドル（n/ne/e/se/s/sw/w/nw）。辺バーと同じ
+            // beginMediaCropDrag へ入る（挙動は従来どおり）。
             for (const handle of layerCropHandleElements) {
                 handle.addEventListener('pointerdown', event => {
                     if (event.button !== 0 || !selectedLayerId || !cropModeActive) return;
                     const entry = findLayerEntry(selectedLayerId);
-                    if (!entry || !(entry.video.videoWidth > 0)) return;
-                    const dir = handle.getAttribute('data-akari-crop-handle');
-                    const startTransform = layerTransformNow(entry);
-                    const pivotPx = { x: entry.video.videoWidth / 2, y: entry.video.videoHeight / 2 };
-                    const original = layerCropNow(entry);
-                    const anchorRight = original.x + original.w;
-                    const anchorBottom = original.y + original.h;
-                    event.preventDefault();
-                    event.stopPropagation();
-                    const pointerId = event.pointerId;
-                    const captureTarget = event.currentTarget;
-                    let moved = false;
-                    let cancelled = false;
-                    try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
-                    const cleanup = () => {
-                        window.removeEventListener('pointermove', onMove);
-                        window.removeEventListener('pointerup', onUp);
-                        window.removeEventListener('pointercancel', onUp);
-                        window.removeEventListener('keydown', onKeyDown, true);
-                        if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
-                            captureTarget.releasePointerCapture(pointerId);
-                        }
-                    };
-                    const computeNext = moveEvent => {
-                        const point = layerVideoPointForPivot(entry, startTransform, pivotPx, moveEvent.clientX, moveEvent.clientY);
-                        if (!point) return original;
-                        const fx = point.x / entry.video.videoWidth;
-                        const fy = point.y / entry.video.videoHeight;
-                        let nextX = original.x;
-                        let nextY = original.y;
-                        let nextRight = anchorRight;
-                        let nextBottom = anchorBottom;
-                        if (dir.indexOf('w') >= 0) nextX = Math.min(fx, anchorRight - CROP_MIN);
-                        if (dir.indexOf('e') >= 0) nextRight = Math.max(fx, original.x + CROP_MIN);
-                        if (dir.indexOf('n') >= 0) nextY = Math.min(fy, anchorBottom - CROP_MIN);
-                        if (dir.indexOf('s') >= 0) nextBottom = Math.max(fy, original.y + CROP_MIN);
-                        return clampCrop(nextX, nextY, nextRight - nextX, nextBottom - nextY);
-                    };
-                    // cropAnchorCorrectedTransformFn は x/y のみを返す（scale/rotate は補正で
-                    // 動かさない）ため、書き戻し用の完全な transform には startTransform の
-                    // scale/rotate を必ずマージする（欠けると dataset に "undefined" が書かれ
-                    // NaN → 既定値 1/0 へフォールバックし、スケール/回転が消し飛ぶ）。
-                    const correctedTransformFor = nextCrop => ({
-                        ...startTransform,
-                        ...cropAnchorCorrectedTransformFn(
-                            original, nextCrop, startTransform, entry.video.videoWidth, entry.video.videoHeight
-                        )
-                    });
-                    const onMove = moveEvent => {
-                        if (moveEvent.pointerId !== pointerId) return;
-                        moved = true;
-                        const nextCrop = computeNext(moveEvent);
-                        applyLayerCropAndTransformNow(entry, nextCrop, correctedTransformFor(nextCrop));
-                    };
-                    const finish = async () => {
-                        cleanup();
-                        if (cancelled) {
-                            applyLayerCropAndTransformNow(entry, original, startTransform);
-                            // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
-                            layerCropVisualThrottle.flush();
-                            return;
-                        }
-                        if (!moved) return;
-                        layerCropVisualThrottle.flush();
-                        const finalCrop = layerCropNow(entry);
-                        const finalTransform = layerTransformNow(entry);
-                        try {
-                            await window.akari.engine.layerWrite(entry.spec.id, { crop: finalCrop, transform: finalTransform });
-                        } catch (error) {
-                            window.akari.showWriteError(error);
-                            applyLayerCropAndTransformNow(entry, original, startTransform);
-                            layerCropVisualThrottle.flush();
-                        }
-                    };
-                    const onUp = upEvent => {
-                        if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
-                        void finish();
-                    };
-                    const onKeyDown = keyEvent => {
-                        if (keyEvent.key !== 'Escape') return;
-                        cancelled = true;
-                        void finish();
-                    };
-                    window.addEventListener('pointermove', onMove);
-                    window.addEventListener('pointerup', onUp);
-                    window.addEventListener('pointercancel', onUp);
-                    window.addEventListener('keydown', onKeyDown, true);
+                    if (!entry) return;
+                    beginMediaCropDrag(
+                        layerDragTarget(entry),
+                        handle.getAttribute('data-akari-crop-handle'),
+                        event
+                    );
                 });
             }
             new ResizeObserver(() => updateLayerCropBox()).observe(wrapper);
@@ -9564,8 +9689,10 @@ body { display: grid; place-items: center; padding: 32px; }
                 rotate: Number(video.dataset.akariTransformRotate) || 0
             });
             // RAF スロットリング（2026-08-09 raf-throttle）: layer 側と同じ規律。
+            // 裁定 3: 辺バードラッグ中はゴースト枠（#layer-crop-box）も同じフレームで測り直す。
             const cutTransformVisualThrottle = createRafThrottleFn(() => {
                 if (window.akari.updateLayerLayout) window.akari.updateLayerLayout();
+                if (cropModeActive || edgeCropDragActive) updateLayerCropBox();
                 updateCutSelectBox();
             });
             const applyCutTransformNow = transform => {
@@ -9575,6 +9702,136 @@ body { display: grid; place-items: center; padding: 32px; }
                 video.dataset.akariTransformScale = String(transform.scale);
                 video.dataset.akariTransformRotate = String(transform.rotate);
                 cutTransformVisualThrottle.call();
+            };
+            const mediaNaturalSizeOf = media => ({
+                width: (media && media.tagName === 'IMG' ? media.naturalWidth : media && media.videoWidth) || 0,
+                height: (media && media.tagName === 'IMG' ? media.naturalHeight : media && media.videoHeight) || 0
+            });
+            // 静止画セグメント中は #preview-still が本編の見た目を担う（video は hidden のまま）。
+            const cutMediaNow = () => (stillImage.style.display !== 'none' ? stillImage : video);
+            const cutCropNow = () => clampCrop(
+                Number(video.dataset.akariCropX),
+                Number(video.dataset.akariCropY),
+                Number(video.dataset.akariCropW),
+                Number(video.dataset.akariCropH)
+            );
+            // 幾何統一（別票）の移行済みマーカー。'source' = cut も最初からソース実寸基準なので、
+            // fit の焼き込み（裁定 5）も framing 除外（裁定 6）も要らなくなる。未宣言なら従来どおり。
+            const outputGeometry = summary.output && typeof summary.output.geometry === 'string'
+                ? summary.output.geometry : undefined;
+            const outputGeometryIsSource = outputGeometry === 'source';
+            // 裁定 7: crop / perspective / keyframes を持つ cut は「ソース実寸 × scale」の
+            // layer-style で描かれる（出力寸法 × scale ではない）。選択枠と角ドラッグの基準 box は
+            // どちらもこの 1 関数から取る。
+            const cutUsesLayerStyleBox = () => video.dataset.akariCutLayerStyleActive === 'true'
+                || outputGeometryIsSource;
+            const cutSelectBoxGeometry = () => {
+                const outputWidth = Number(summary.output && summary.output.width) || 1280;
+                const outputHeight = Number(summary.output && summary.output.height) || 720;
+                const transform = cutTransformNow();
+                const natural = mediaNaturalSizeOf(cutMediaNow());
+                const useLayerStyle = cutUsesLayerStyleBox() && natural.width > 0 && natural.height > 0;
+                const size = useLayerStyle
+                    ? cutLayerStyleBoxPxFn(natural, cutCropNow(), transform.scale)
+                    : { width: outputWidth * transform.scale, height: outputHeight * transform.scale };
+                return {
+                    width: size.width,
+                    height: size.height,
+                    centerX: outputWidth / 2 + transform.x,
+                    centerY: outputHeight / 2 + transform.y,
+                    rotate: transform.rotate
+                };
+            };
+            // 裁定 4・6: cut の crop 書き戻しは v2 の item id を持つ cut だけ（legacy schema に
+            // cuts[].crop の席が無い）。framing を持つ cut は layer-style が framing を捨てるので
+            // 辺バーを出さない（幾何統一済みの文書では両立するため除外しない）。
+            const cutCropEditable = () => Boolean(video.dataset.akariCutId)
+                && Number(summary.editVersion) === 2
+                && (outputGeometryIsSource || video.dataset.akariCutFraming !== 'true');
+            const applyCutCropAndTransformNow = (crop, transform) => {
+                const c = clampCrop(crop.x, crop.y, crop.w, crop.h);
+                // cutHasLayerStyleVisual は segment を見るので、ドラッグ中のモデルにも同じ crop を
+                // 置いて描画レール（applyCutFramingVisual / applyCutLayerStyleLayout）を揃える。
+                const segment = segments[activeSegmentIndex];
+                if (segment && segment.kind === 'src') segment.crop = { x: c.x, y: c.y, w: c.w, h: c.h };
+                video.dataset.akariCutTransformActive = 'true';
+                for (const media of [video, stillImage]) {
+                    media.dataset.akariCutLayerStyleActive = 'true';
+                    media.dataset.akariCropX = String(c.x);
+                    media.dataset.akariCropY = String(c.y);
+                    media.dataset.akariCropW = String(c.w);
+                    media.dataset.akariCropH = String(c.h);
+                    media.dataset.akariTransformX = String(transform.x);
+                    media.dataset.akariTransformY = String(transform.y);
+                    media.dataset.akariTransformScale = String(transform.scale);
+                    media.dataset.akariTransformRotate = String(transform.rotate);
+                }
+                cutTransformVisualThrottle.call();
+            };
+            // Esc / 書き込み失敗の巻き戻しは、ドラッグ開始時点の segment.crop と両 media の
+            // dataset をまるごと戻す（fit 焼き込みで layer-style へ移った分も含めて元に戻す）。
+            const cutVisualSnapshot = () => {
+                const segment = segments[activeSegmentIndex];
+                return {
+                    segment,
+                    crop: segment && segment.crop ? { ...segment.crop } : null,
+                    media: [video, stillImage].map(media => ({ media, dataset: { ...media.dataset } }))
+                };
+            };
+            const restoreCutVisual = snapshot => {
+                if (!snapshot) return;
+                const segment = snapshot.segment;
+                if (segment && segment.kind === 'src') {
+                    if (snapshot.crop) segment.crop = { ...snapshot.crop };
+                    else delete segment.crop;
+                }
+                for (const record of snapshot.media) {
+                    for (const key of Object.keys(record.media.dataset)) {
+                        if (!(key in record.dataset)) delete record.media.dataset[key];
+                    }
+                    for (const key of Object.keys(record.dataset)) {
+                        record.media.dataset[key] = record.dataset[key];
+                    }
+                }
+                cutTransformVisualThrottle.call();
+            };
+            // 裁定 0: layerDragTarget と同型の cut 版。角点 / 回転 / 辺バーの全てがこれを通る。
+            const cutDragTarget = () => {
+                const media = cutMediaNow();
+                const outputWidth = Number(summary.output && summary.output.width) || 1280;
+                const outputHeight = Number(summary.output && summary.output.height) || 720;
+                return {
+                    kind: 'cut',
+                    entry: null,
+                    media,
+                    visible: () => !(video.style.visibility === 'hidden' && stillImage.style.display === 'none'),
+                    naturalSize: () => mediaNaturalSizeOf(media),
+                    transformNow: cutTransformNow,
+                    cropNow: cutCropNow,
+                    // 裁定 5: layer-style へ入っていない cut に初めて crop を書くときだけ fit を焼く。
+                    cropEntryTransform: (transform, natural) => (
+                        video.dataset.akariCutLayerStyleActive !== 'true'
+                            ? cutLayerStyleEntryTransformFn(
+                                transform, natural.width, natural.height, outputWidth, outputHeight, outputGeometry
+                            )
+                            : { ...transform }
+                    ),
+                    applyTransform: applyCutTransformNow,
+                    applyCropAndTransform: applyCutCropAndTransformNow,
+                    cropRestorePoint: cutVisualSnapshot,
+                    restoreCrop: restoreCutVisual,
+                    flushTransform: () => cutTransformVisualThrottle.flush(),
+                    flushCrop: () => cutTransformVisualThrottle.flush(),
+                    canWrite: () => {
+                        const cutIndex = Number(video.dataset.akariCutIndex);
+                        return Number.isInteger(cutIndex) && cutIndex >= 0;
+                    },
+                    write: patch => window.akari.engine.cutWrite(
+                        Number(video.dataset.akariCutIndex),
+                        video.dataset.akariCutId || undefined,
+                        patch
+                    )
+                };
             };
             const updateCutSelectBox = () => {
                 const hasCut = video.dataset.akariCutIndex !== '' && video.dataset.akariCutIndex !== undefined;
@@ -9588,23 +9845,18 @@ body { display: grid; place-items: center; padding: 32px; }
                 }
                 const frameRect = window.akari.computeOutputFrameRect();
                 const frameScale = window.akari.stageScale() || 1;
-                const outputWidth = Number(summary.output && summary.output.width) || 1280;
-                const outputHeight = Number(summary.output && summary.output.height) || 720;
-                const transform = cutTransformNow();
-                const outputW = outputWidth * transform.scale;
-                const outputH = outputHeight * transform.scale;
-                const outputCenterX = outputWidth / 2 + transform.x;
-                const outputCenterY = outputHeight / 2 + transform.y;
-                const screenW = outputW * frameScale;
-                const screenH = outputH * frameScale;
-                const screenCenterX = frameRect.x + outputCenterX * frameScale;
-                const screenCenterY = frameRect.y + outputCenterY * frameScale;
+                const box = cutSelectBoxGeometry();
+                const screenW = box.width * frameScale;
+                const screenH = box.height * frameScale;
+                const screenCenterX = frameRect.x + box.centerX * frameScale;
+                const screenCenterY = frameRect.y + box.centerY * frameScale;
                 cutSelectBox.style.left = (screenCenterX - screenW / 2) + 'px';
                 cutSelectBox.style.top = (screenCenterY - screenH / 2) + 'px';
                 cutSelectBox.style.width = screenW + 'px';
                 cutSelectBox.style.height = screenH + 'px';
-                cutSelectBox.style.transform = 'rotate(' + transform.rotate + 'deg)';
+                cutSelectBox.style.transform = 'rotate(' + box.rotate + 'deg)';
                 cutSelectBox.classList.add('is-active');
+                applyCropEdgeVisibility(cutSelectBox, screenW, screenH, cutCropEditable());
             };
             const selectCut = options => {
                 const report = !options || options.report !== false;
@@ -9629,99 +9881,36 @@ body { display: grid; place-items: center; padding: 32px; }
                 updateCutSelectBox();
                 if (report) window.akari.reportCutSelection(null);
             };
-            const beginCutTransformDrag = (startEvent, computeTransform) => {
-                startEvent.preventDefault();
-                startEvent.stopPropagation();
-                const pointerId = startEvent.pointerId;
-                const original = cutTransformNow();
-                const captureTarget = startEvent.currentTarget;
-                let moved = false;
-                let cancelled = false;
-                try { captureTarget.setPointerCapture(pointerId); } catch (_error) { /* not capturable */ }
-                const cleanup = () => {
-                    window.removeEventListener('pointermove', onMove);
-                    window.removeEventListener('pointerup', onUp);
-                    window.removeEventListener('pointercancel', onUp);
-                    window.removeEventListener('keydown', onKeyDown, true);
-                    if (captureTarget.hasPointerCapture && captureTarget.hasPointerCapture(pointerId)) {
-                        captureTarget.releasePointerCapture(pointerId);
-                    }
-                    window.akari.interaction?.hideSnapGuides?.();
-                };
-                const onMove = moveEvent => {
-                    if (moveEvent.pointerId !== pointerId) return;
-                    const dx = moveEvent.clientX - startEvent.clientX;
-                    const dy = moveEvent.clientY - startEvent.clientY;
-                    if (!moved && Math.hypot(dx, dy) > CLICK_THRESHOLD_PX) moved = true;
-                    if (!moved) return;
-                    applyCutTransformNow(computeTransform(moveEvent, original));
-                };
-                const finish = async () => {
-                    cleanup();
-                    if (cancelled) {
-                        applyCutTransformNow(original);
-                        // ドラッグ終了時に最終値が必ず反映されるよう、次の RAF を待たず今すぐ描画する。
-                        cutTransformVisualThrottle.flush();
-                        return;
-                    }
-                    if (!moved) return;
-                    cutTransformVisualThrottle.flush();
-                    const cutIndex = Number(video.dataset.akariCutIndex);
-                    if (!Number.isInteger(cutIndex) || cutIndex < 0) {
-                        applyCutTransformNow(original);
-                        cutTransformVisualThrottle.flush();
-                        return;
-                    }
-                    const finalTransform = cutTransformNow();
-                    try {
-                        await window.akari.engine.cutWrite(
-                            cutIndex,
-                            video.dataset.akariCutId || undefined,
-                            { transform: finalTransform }
-                        );
-                    } catch (error) {
-                        window.akari.showWriteError(error);
-                        applyCutTransformNow(original);
-                        cutTransformVisualThrottle.flush();
-                    }
-                };
-                const onUp = upEvent => {
-                    if (upEvent.pointerId !== undefined && upEvent.pointerId !== pointerId) return;
-                    void finish();
-                };
-                const onKeyDown = keyEvent => {
-                    if (keyEvent.key !== 'Escape') return;
-                    cancelled = true;
-                    void finish();
-                };
-                window.addEventListener('pointermove', onMove);
-                window.addEventListener('pointerup', onUp);
-                window.addEventListener('pointercancel', onUp);
-                window.addEventListener('keydown', onKeyDown, true);
-            };
             for (const handle of cutHandleElements) {
                 handle.addEventListener('pointerdown', event => {
                     if (event.button !== 0 || !cutSelected) return;
                     const corner = handle.dataset.akariHandle;
+                    const boxRect = cutSelectBox.getBoundingClientRect();
+                    const center = { x: boxRect.left + boxRect.width / 2, y: boxRect.top + boxRect.height / 2 };
+                    // 裁定 0: cut の枠にも layer と同じ回転ハンドル + ステムを出す。cut は箱の中心
+                    // （出力中心 + transform.x/y）がそのまま回転ピボットなのでオフセット補正は要らない。
+                    if (corner === 'rotate') {
+                        const startAngle = Math.atan2(event.clientY - center.y, event.clientX - center.x) * 180 / Math.PI;
+                        beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {
+                            const angle = Math.atan2(moveEvent.clientY - center.y, moveEvent.clientX - center.x) * 180 / Math.PI;
+                            return { ...original, rotate: original.rotate + (angle - startAngle) };
+                        });
+                        return;
+                    }
                     if (!['nw', 'ne', 'se', 'sw'].includes(corner)) return;
-                    const outputWidth = Number(summary.output && summary.output.width) || 1280;
-                    const outputHeight = Number(summary.output && summary.output.height) || 720;
-                    const startTransform = cutTransformNow();
-                    const anchor = {
-                        x: outputWidth / 2 + startTransform.x,
-                        y: outputHeight / 2 + startTransform.y
-                    };
+                    // 裁定 7: crop を持つ cut は「ソース実寸 × crop × scale」の箱で描かれる。
+                    // 角ドラッグの基準 box も選択枠と同じ cutSelectBoxGeometry から取る。
+                    const startBox = cutSelectBoxGeometry();
+                    const anchor = { x: startBox.centerX, y: startBox.centerY };
                     // ハンドル装飾の client 矩形ではなく、出力幾何からドラッグ中の
                     // 角を固定する。これが computeAnchorResizeSnap の pointerdown 基準になる。
                     const dragged = {
-                        x: anchor.x + (corner.includes('w') ? -1 : 1) * outputWidth * startTransform.scale / 2,
-                        y: anchor.y + (corner.includes('n') ? -1 : 1) * outputHeight * startTransform.scale / 2
+                        x: anchor.x + (corner.includes('w') ? -1 : 1) * startBox.width / 2,
+                        y: anchor.y + (corner.includes('n') ? -1 : 1) * startBox.height / 2
                     };
-                    const boxRect = cutSelectBox.getBoundingClientRect();
-                    const center = { x: boxRect.left + boxRect.width / 2, y: boxRect.top + boxRect.height / 2 };
                     const startDistance = Math.max(1, Math.hypot(event.clientX - center.x, event.clientY - center.y));
                     let dragSnap = { x: null, y: null };
-                    beginCutTransformDrag(event, (moveEvent, original) => {
+                    beginMediaTransformDrag(cutDragTarget(), event, (moveEvent, original) => {
                         const distance = Math.hypot(moveEvent.clientX - center.x, moveEvent.clientY - center.y);
                         const factor = distance / startDistance;
                         let nextScale = Math.max(0.01, original.scale * factor);
@@ -9749,6 +9938,30 @@ body { display: grid; place-items: center; padding: 32px; }
                 });
             }
             new ResizeObserver(() => updateCutSelectBox()).observe(wrapper);
+            // 裁定 1・2: 四辺中央の辺バー。cut と layer の両方が同じ beginMediaCropDrag へ入る
+            // （モード切替は無く、選択直後からそのまま掴める）。
+            const cropEdgeHandleElements = [
+                ...Array.from(layerSelectBox.querySelectorAll('[data-akari-crop-edge]'))
+                    .map(element => ({ element, kind: 'layer' })),
+                ...Array.from(cutSelectBox.querySelectorAll('[data-akari-crop-edge]'))
+                    .map(element => ({ element, kind: 'cut' }))
+            ];
+            for (const edge of cropEdgeHandleElements) {
+                edge.element.addEventListener('pointerdown', event => {
+                    if (event.button !== 0) return;
+                    let target = null;
+                    if (edge.kind === 'cut') {
+                        if (!cutSelected || !cutCropEditable()) return;
+                        target = cutDragTarget();
+                    } else {
+                        if (!selectedLayerId || cropModeActive) return;
+                        const entry = findLayerEntry(selectedLayerId);
+                        if (!entry) return;
+                        target = layerDragTarget(entry);
+                    }
+                    beginMediaCropDrag(target, edge.element.getAttribute('data-akari-crop-edge'), event);
+                });
+            }
 
             // 通常ドラッグは cue 固有位置、Alt ドラッグは default_text_style のグループ位置を書く。
             // positionFromRects は common/caption-zone-write.ts の純関数と同じ規則を webview 内へ
