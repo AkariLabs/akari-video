@@ -25,7 +25,7 @@ import {
     INSPECTOR_LIVE_PREVIEW_THROTTLE_MS,
     type KeyframeSeatOptions
 } from './inspector/number-field';
-import { createSliderField } from './inspector/slider-field';
+import { ADJUST_PREVIEW_SECTIONS, type AdjustPreviewSection } from './inspector/adjust-preview';
 import {
     composeInspectorSections,
     InspectorSectionDef,
@@ -33,7 +33,6 @@ import {
 } from './inspector/section-model';
 import {
     assignSectionToTab,
-    COMING_SOON_ADJUST_SECTIONS,
     type InspectorTabDef,
     InspectorTabState,
     tabsForKind
@@ -1328,6 +1327,7 @@ export class AkariInspectorWidget extends BaseWidget {
     .akari-inspector-widget .akari-inspector-section-soon-title {
         flex: 1;
         padding: 4px 0;
+        color: var(--theia-disabledForeground);
         font-weight: 600;
     }
     .akari-inspector-widget .akari-inspector-section-soon-chip {
@@ -1337,6 +1337,157 @@ export class AkariInspectorWidget extends BaseWidget {
         color: var(--theia-disabledForeground);
         font-size: 10px;
         line-height: 1.4;
+    }
+    .akari-inspector-widget .akari-adjust-preview {
+        display: grid;
+        gap: 5px;
+        padding: 0 0 4px 18px;
+        color: var(--theia-disabledForeground);
+        pointer-events: none;
+        user-select: none;
+    }
+    .akari-inspector-widget .akari-adjust-preview-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 72px;
+        align-items: center;
+        gap: 8px;
+        min-height: 24px;
+        opacity: 0.68;
+    }
+    .akari-inspector-widget .akari-adjust-preview-value {
+        box-sizing: border-box;
+        min-width: 0;
+        padding: 2px 6px;
+        border: 1px solid var(--theia-input-border, #454545);
+        border-radius: 2px;
+        background: var(--theia-input-background);
+        color: var(--theia-disabledForeground);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+    .akari-inspector-widget .akari-adjust-preview-channels {
+        display: flex;
+        gap: 5px;
+    }
+    .akari-inspector-widget .akari-adjust-preview-channel {
+        min-width: 24px;
+        padding: 1px 5px;
+        border: 1px solid var(--theia-panel-border);
+        border-radius: 999px;
+        text-align: center;
+        opacity: 0.65;
+    }
+    .akari-inspector-widget .akari-adjust-preview-channel.is-active {
+        border-color: var(--theia-focusBorder);
+        color: var(--theia-foreground);
+    }
+    .akari-inspector-widget .akari-adjust-preview-channel-r { color: #e78585; }
+    .akari-inspector-widget .akari-adjust-preview-channel-g { color: #7fcb8b; }
+    .akari-inspector-widget .akari-adjust-preview-channel-b { color: #80a9e8; }
+    .akari-inspector-widget .akari-adjust-preview-curve {
+        width: min(100%, 180px);
+        height: 140px;
+        justify-self: center;
+        border: 1px solid var(--theia-panel-border);
+        border-radius: 3px;
+        background: var(--theia-input-background);
+        opacity: 0.68;
+    }
+    .akari-inspector-widget .akari-adjust-preview-curve-grid {
+        fill: none;
+        stroke: var(--theia-panel-border);
+        stroke-width: 1;
+    }
+    .akari-inspector-widget .akari-adjust-preview-curve-identity {
+        fill: none;
+        stroke: var(--theia-descriptionForeground);
+        stroke-width: 1.5;
+        stroke-dasharray: 5 4;
+    }
+    .akari-inspector-widget .akari-adjust-preview-wheel-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px 10px;
+    }
+    .akari-inspector-widget .akari-adjust-preview-wheel-item {
+        display: grid;
+        justify-items: center;
+        gap: 4px;
+    }
+    .akari-inspector-widget .akari-adjust-preview-wheel-label {
+        font-size: 10px;
+        opacity: 0.7;
+    }
+    .akari-inspector-widget .akari-adjust-preview-wheel {
+        position: relative;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: conic-gradient(#ef6d6d, #e8d86b, #72cf81, #6fd3d5, #739be7, #c87bd5, #ef6d6d);
+        opacity: 0.65;
+    }
+    .akari-inspector-widget .akari-adjust-preview-wheel::after {
+        position: absolute;
+        inset: 8px;
+        border: 1px solid color-mix(in srgb, var(--theia-panel-border) 70%, transparent);
+        border-radius: 50%;
+        background: color-mix(in srgb, var(--theia-input-background) 88%, #808080);
+        content: '';
+    }
+    .akari-inspector-widget .akari-adjust-preview-wheel-center {
+        position: absolute;
+        z-index: 1;
+        left: 50%;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        border: 1px solid var(--theia-foreground);
+        border-radius: 50%;
+        background: var(--theia-input-background);
+        transform: translate(-50%, -50%);
+    }
+    .akari-inspector-widget .akari-adjust-preview-luminance {
+        width: 70px;
+        height: 5px;
+        border: 1px solid var(--theia-panel-border);
+        border-radius: 999px;
+        background: linear-gradient(90deg, #181818, #d0d0d0);
+        opacity: 0.65;
+    }
+    .akari-inspector-widget .akari-adjust-preview-hue-curve {
+        position: relative;
+        height: 74px;
+        overflow: hidden;
+        border: 1px solid var(--theia-panel-border);
+        border-radius: 3px;
+        background: var(--theia-input-background);
+        opacity: 0.65;
+    }
+    .akari-inspector-widget .akari-adjust-preview-hue-band {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, #ed6666, #e8dc67, #6dcc7a, #68ccd2, #718fdd, #c475d3, #ed6666);
+        opacity: 0.68;
+    }
+    .akari-inspector-widget .akari-adjust-preview-hue-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 50%;
+        border-top: 1px solid var(--theia-foreground);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--theia-input-background) 65%, transparent);
+    }
+    .akari-inspector-widget .akari-adjust-preview-lut-row {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+    .akari-inspector-widget .akari-adjust-preview-ghost-button {
+        padding: 4px 7px;
+        border: 1px dashed var(--theia-input-border, #454545);
+        border-radius: 3px;
+        color: var(--theia-disabledForeground);
+        text-align: center;
+        opacity: 0.68;
     }
     .akari-inspector-widget .akari-inspector-section-add {
         border: 0;
@@ -1357,8 +1508,7 @@ export class AkariInspectorWidget extends BaseWidget {
         color: var(--theia-textLink-foreground);
         background: transparent;
     }
-    .akari-inspector-widget .akari-inspector-number-input,
-    .akari-inspector-widget .akari-inspector-slider-number {
+    .akari-inspector-widget .akari-inspector-number-input {
         min-width: 0;
         width: 100%;
         box-sizing: border-box;
@@ -1403,49 +1553,6 @@ export class AkariInspectorWidget extends BaseWidget {
     }
     .akari-inspector-widget .akari-inspector-kf-seat {
         color: var(--theia-textLink-foreground);
-    }
-    .akari-inspector-widget .akari-inspector-slider-field {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 48px auto 54px;
-        align-items: center;
-        gap: 3px;
-    }
-    .akari-inspector-widget .akari-inspector-slider-range {
-        min-width: 0;
-        width: 100%;
-        height: 22px;
-        margin: 0;
-        -webkit-appearance: none;
-        appearance: none;
-        border-radius: 3px;
-        background: linear-gradient(90deg, var(--theia-focusBorder) 0 var(--akari-slider-fill), var(--theia-input-background) var(--akari-slider-fill) 100%);
-        cursor: pointer;
-    }
-    .akari-inspector-widget .akari-inspector-slider-range::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 18px;
-        height: 18px;
-        border: 2px solid var(--theia-input-background);
-        border-radius: 50%;
-        background: var(--theia-focusBorder);
-        box-shadow: 0 0 0 1px var(--theia-panel-border);
-        cursor: grab;
-    }
-    .akari-inspector-widget .akari-inspector-slider-range:active::-webkit-slider-thumb {
-        background: var(--theia-button-background);
-        cursor: grabbing;
-    }
-    .akari-inspector-widget .akari-inspector-slider-range:focus-visible {
-        outline: 1px solid var(--theia-focusBorder);
-        outline-offset: -1px;
-    }
-    .akari-inspector-widget .akari-inspector-slider-number {
-        width: 48px;
-    }
-    .akari-inspector-widget .akari-inspector-slider-unit {
-        color: var(--theia-descriptionForeground);
-        font-size: 10px;
     }
     .akari-inspector-widget [data-akari-easing-preview] button,
     .akari-inspector-popover-menu button,
@@ -1566,7 +1673,7 @@ export class AkariInspectorWidget extends BaseWidget {
             this.appendSection(keyframeSection, rowSnapshot, sectionKind);
         }
         if (activeTab === 'adjust') {
-            COMING_SOON_ADJUST_SECTIONS.forEach(label => this.appendComingSoonSection(label));
+            ADJUST_PREVIEW_SECTIONS.forEach(section => this.appendAdjustPreviewSection(section, sectionKind));
             return;
         }
         sections
@@ -1612,20 +1719,38 @@ export class AkariInspectorWidget extends BaseWidget {
         this.body.appendChild(strip);
     }
 
-    protected appendComingSoonSection(label: string): void {
+    protected appendAdjustPreviewSection(
+        section: AdjustPreviewSection,
+        kind: 'cut' | 'layer' | 'caption' | 'audio' | 'overlay' | 'item'
+    ): void {
         const container = document.createElement('section');
         container.className = 'akari-inspector-section akari-inspector-section-soon';
-        container.setAttribute('aria-disabled', 'true');
+        container.setAttribute('data-akari-ui', `section:inspector-adjust-${section.id}`);
         const header = document.createElement('div');
         header.className = 'akari-inspector-section-header';
-        const title = document.createElement('div');
-        title.className = 'akari-inspector-section-soon-title';
-        title.textContent = label;
+        const stateId = `adjust:${section.id}`;
+        const collapsed = this.sectionState.isCollapsed(kind, { id: stateId });
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'akari-inspector-section-toggle akari-inspector-section-soon-title';
+        toggle.textContent = `${collapsed ? '▸' : '▾'} ${section.label}`;
+        toggle.setAttribute('aria-expanded', String(!collapsed));
         const chip = document.createElement('span');
         chip.className = 'akari-inspector-section-soon-chip';
         chip.textContent = '近日';
-        header.append(title, chip);
-        container.appendChild(header);
+        const body = document.createElement('div');
+        body.className = 'akari-inspector-section-body';
+        body.hidden = collapsed;
+        body.appendChild(section.build());
+        toggle.addEventListener('click', () => {
+            const next = !body.hidden;
+            body.hidden = next;
+            toggle.textContent = `${next ? '▸' : '▾'} ${section.label}`;
+            toggle.setAttribute('aria-expanded', String(!next));
+            this.sectionState.setCollapsed(kind, stateId, next);
+        });
+        header.append(toggle, chip);
+        container.append(header, body);
         this.body.appendChild(container);
     }
 
@@ -1881,19 +2006,11 @@ export class AkariInspectorWidget extends BaseWidget {
                 }
             }
             const numericValue = Number(editValue);
-            if (field.min !== undefined && field.max !== undefined && Number.isFinite(numericValue)) {
-                row.appendChild(createSliderField({
-                    name: fieldName, label: field.label, value: numericValue,
-                    min: field.min, max: field.max, step: field.scrubStep ?? 0.1,
-                    unit: field.unit, displayScale: field.displayScale,
-                    onPreview: sendLive,
-                    onCommit: value => commitValue(String(value), () => undefined),
-                    keyframe: this.keyframeSeatOptions(snapshot, fieldName, numericValue)
-                }));
-            } else if (Number.isFinite(numericValue)) {
+            if (Number.isFinite(numericValue)) {
                 row.appendChild(createNumberField({
                     name: fieldName, label: field.label, value: numericValue,
                     step: field.scrubStep ?? 0.1, min: field.min, max: field.max, unit: field.unit,
+                    displayScale: field.displayScale,
                     onPreview: sendLive,
                     onCommit: value => commitValue(String(value), () => undefined),
                     keyframe: this.keyframeSeatOptions(snapshot, fieldName, numericValue)

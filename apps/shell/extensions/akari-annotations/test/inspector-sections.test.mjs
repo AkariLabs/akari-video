@@ -8,15 +8,11 @@ import {
 } from '../lib/browser/inspector/section-model.js';
 import {
   clampNumber,
+  createNumberField,
   createKeyframeSeat,
   INSPECTOR_LIVE_PREVIEW_THROTTLE_MS,
   numericStep
 } from '../lib/browser/inspector/number-field.js';
-import {
-  createSliderField,
-  sliderFromDisplay,
-  sliderToDisplay
-} from '../lib/browser/inspector/slider-field.js';
 import {
   knobControlKind,
   parseInspectorKnobs
@@ -41,6 +37,7 @@ class FakeElement {
     this.children = [];
     this.parentElement = null;
     this.attributes = new Map();
+    this.listeners = new Map();
     this.style = {
       values: new Map(),
       setProperty: (name, value) => this.style.values.set(name, value)
@@ -51,7 +48,15 @@ class FakeElement {
     this.attributes.set(name, value);
   }
 
-  addEventListener() {}
+  addEventListener(type, listener) {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  emit(type, event = {}) {
+    for (const listener of this.listeners.get(type) ?? []) listener(event);
+  }
 
   append(...children) {
     children.forEach(child => this.appendChild(child));
@@ -64,6 +69,38 @@ class FakeElement {
   }
 
   blur() {}
+
+  setPointerCapture(pointerId) {
+    this.pointerId = pointerId;
+  }
+
+  hasPointerCapture(pointerId) {
+    return this.pointerId === pointerId;
+  }
+
+  releasePointerCapture(pointerId) {
+    if (this.pointerId === pointerId) this.pointerId = undefined;
+  }
+}
+
+class FakeWindow {
+  constructor() {
+    this.listeners = new Map();
+  }
+
+  addEventListener(type, listener) {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type, listener) {
+    this.listeners.set(type, (this.listeners.get(type) ?? []).filter(candidate => candidate !== listener));
+  }
+
+  emit(type, event = {}) {
+    for (const listener of [...(this.listeners.get(type) ?? [])]) listener(event);
+  }
 }
 
 function withFakeDocument(callback) {
@@ -160,12 +197,6 @@ test('数値部品は step・Shift 10倍・min/max clamp を適用する', () =>
   assert.equal(clampNumber(-2, 0, 1), 0);
 });
 
-test('不透明度スライダーは内部 0..1 と表示 0..100% を往復する', () => {
-  assert.equal(sliderToDisplay(0.5, 100), 50);
-  assert.equal(sliderFromDisplay(50, 100), 0.5);
-  assert.equal(INSPECTOR_LIVE_PREVIEW_THROTTLE_MS, 30);
-});
-
 test('KF 席の前後ナビは ‹ / › で、席本体の ◇ / ◆ と区別する', () => withFakeDocument(() => {
   const inactive = createKeyframeSeat('opacity');
   assert.deepEqual(inactive.children.map(child => child.textContent), ['‹', '◇', '›']);
@@ -180,37 +211,79 @@ test('KF 席の前後ナビは ‹ / › で、席本体の ◇ / ◆ と区別�
   assert.deepEqual(active.children.map(child => child.textContent), ['‹', '◆', '›']);
 }));
 
-test('スライダー数値はトラックの兄弟要素で、overlay 用クラスを持たない', () => withFakeDocument(() => {
-  const field = createSliderField({
+test('不透明度は表示 0..100% のドラッグ数値行と KF 席を使う', async () => {
+  const previews = [];
+  const commits = [];
+  const field = withFakeDocument(() => createNumberField({
     name: 'opacity', label: '不透明度', value: 1,
     min: 0, max: 1, step: 0.01, unit: '%', displayScale: 100,
-    onCommit: async () => true
-  });
-  const [range, number, unit, seat] = field.children;
-  assert.equal(range.className, 'akari-inspector-slider-range');
+    onPreview: value => previews.push(value),
+    onCommit: async value => {
+      commits.push(value);
+      return true;
+    }
+  }));
+  const [handle, number, unit, steps, seat] = field.children;
+  assert.equal(field.className, 'akari-inspector-number-field');
+  assert.equal(handle.className, 'akari-inspector-number-handle');
   assert.equal(number.parentElement, field);
-  assert.equal(range.parentElement, field);
   assert.match(number.className, /(?:^| )akari-inspector-number-input(?: |$)/u);
-  assert.doesNotMatch(number.className, /overlay/u);
-  assert.equal(unit.className, 'akari-inspector-slider-unit');
+  assert.equal(number.value, '100');
+  assert.equal(number.attributes.get('aria-valuemin'), '0');
+  assert.equal(number.attributes.get('aria-valuemax'), '100');
+  assert.equal(unit.className, 'akari-inspector-number-unit');
+  assert.equal(unit.textContent, '%');
+  assert.equal(steps.className, 'akari-inspector-number-steps');
   assert.equal(seat.className, 'akari-inspector-kf-controls');
 
-  const sliderCss = sourceBetween(
-    '.akari-inspector-widget .akari-inspector-slider-field {',
-    '.akari-inspector-widget [data-akari-easing-preview] button'
+  number.value = '150';
+  number.emit('blur');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(previews, [1]);
+  assert.deepEqual(commits, [1]);
+  assert.equal(number.value, '100');
+  assert.equal(INSPECTOR_LIVE_PREVIEW_THROTTLE_MS, 30);
+
+  const scrubBranch = sourceBetween(
+    "if (field.inputKind === 'scrub-number') {",
+    "if (field.inputKind === 'color') {"
   );
-  assert.match(sliderCss, /grid-template-columns: minmax\(0, 1fr\) 48px auto 54px/u);
-  const numberCssStart = inspectorWidgetSource.lastIndexOf(
-    '.akari-inspector-widget .akari-inspector-slider-number {'
-  );
-  const numberCssEnd = inspectorWidgetSource.indexOf(
-    '.akari-inspector-widget .akari-inspector-slider-unit {', numberCssStart
-  );
-  assert.notEqual(numberCssStart, -1);
-  assert.notEqual(numberCssEnd, -1);
-  const numberCss = inspectorWidgetSource.slice(numberCssStart, numberCssEnd);
-  assert.doesNotMatch(numberCss, /grid-column|z-index|justify-self|text-shadow|background:\s*transparent/u);
-}));
+  assert.match(scrubBranch, /createNumberField\(\{/u);
+  assert.match(scrubBranch, /displayScale: field\.displayScale/u);
+  assert.match(scrubBranch, /onPreview: sendLive/u);
+});
+
+test('displayScale 付き数値行はドラッグを内部値へ戻して preview と commit へ渡す', async () => {
+  const fakeWindow = new FakeWindow();
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: fakeWindow });
+  const previews = [];
+  const commits = [];
+  try {
+    const field = withFakeDocument(() => createNumberField({
+      name: 'opacity', label: '不透明度', value: 0.5,
+      min: 0, max: 1, step: 0.01, displayScale: 100,
+      onPreview: value => previews.push(value),
+      onCommit: async value => {
+        commits.push(value);
+        return true;
+      }
+    }));
+    const [handle, input] = field.children;
+    handle.emit('pointerdown', {
+      button: 0, pointerId: 7, clientX: 100, preventDefault() {}
+    });
+    fakeWindow.emit('pointermove', { pointerId: 7, clientX: 125, shiftKey: false });
+    assert.equal(input.value, '75');
+    assert.deepEqual(previews, [0.75]);
+    fakeWindow.emit('pointerup', { pointerId: 7 });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(commits, [0.75]);
+  } finally {
+    if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow);
+    else delete globalThis.window;
+  }
+});
 
 test('cut / layer / overlay / item の変形節は拡縮・回転を既定 fields に含む', () => {
   const factories = [
@@ -242,11 +315,11 @@ test('chroma は内部 0..1 と表示 0..100% を往復し、宣言の無い lay
     const value = chromaControlValue(row.chromaKey, row.field, row.fallback);
     return {
       value,
-      display: value === undefined ? undefined : sliderToDisplay(value, 100),
+      display: value === undefined ? undefined : value * 100,
       editable: value !== undefined
     };
   }), rows.map(({ value, display, editable }) => ({ value, display, editable })));
-  assert.equal(sliderFromDisplay(30, 100), 0.3);
+  assert.equal(30 / 100, 0.3);
 });
 
 test('layer snapshot の chromaKey は item 自身の raw source.chroma_key だけから補完する', () => {
