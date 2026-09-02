@@ -26,6 +26,11 @@ export interface ClampCaptionRangeInput {
     neighbors: readonly CaptionNeighborRange[];
     /** 端トリムで下回らない最小尺（秒）。 */
     minDuration: number;
+    /**
+     * クランプしても正当な位置（0 秒以上・どの隣とも重ならない）が作れないときに戻す区間
+     * （通常はドラッグ前の区間）。省略時はクランプ結果をそのまま返す。
+     */
+    fallback?: { start: number; end: number };
 }
 
 export interface ClampCaptionRangeResult {
@@ -109,5 +114,21 @@ export function clampCaptionRangeToNeighbors(input: ClampCaptionRangeInput): Cla
     }
 
     const clamped = Math.abs(start - input.start) > EPSILON || Math.abs(end - input.end) > EPSILON;
+    // クランプ後も 0 秒未満・隣と重なる（尺が入らない・0 秒側に押し出された等）なら、fallback へ戻す。
+    // 2026-09-02 実機: 0 秒に字幕がある状態で別の字幕を 0 秒へ寄せると start が負（-0:00 表示）になった。
+    if (input.fallback && !isValidCaptionRange(start, end, neighbors)) {
+        const fallback = input.fallback;
+        return { start: fallback.start, end: fallback.end, clamped: true, ...(blockedBy ? { blockedBy } : {}) };
+    }
     return clamped ? { start, end, clamped, blockedBy } : { start: input.start, end: input.end, clamped: false };
+}
+
+/** 0 秒以上で、どの隣とも重ならない（接触は可）なら true。 */
+export function isValidCaptionRange(
+    start: number,
+    end: number,
+    neighbors: readonly CaptionNeighborRange[]
+): boolean {
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start < -EPSILON || end <= start) return false;
+    return neighbors.every(neighbor => end <= neighbor.start + EPSILON || start >= neighbor.end - EPSILON);
 }

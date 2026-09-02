@@ -94,3 +94,38 @@ test('不正な区間（end <= start・非有限）はそのまま返す', () =>
     assert.equal(clampCaptionRangeToNeighbors({ id: 'b', start: 3, end: 3, mode: 'move', neighbors, minDuration: MIN }).clamped, false);
     assert.equal(clampCaptionRangeToNeighbors({ id: 'b', start: Number.NaN, end: 3, mode: 'move', neighbors, minDuration: MIN }).clamped, false);
 });
+
+// ---- task 2026-09-02-timeline-followups-3: 0 秒側へ押し出さない / 正当な位置が無ければ元へ戻す ----
+import { isValidCaptionRange } from '../lib/common/caption-overlap-guard.js';
+
+test('0 秒に字幕がある状態で別の字幕を 0 秒へ寄せても start は負にならず、ドラッグ前の区間へ戻る', () => {
+    // 実機 2026-09-02: 0:00 へずらすと -0:00 になった
+    const result = clampCaptionRangeToNeighbors({
+        id: 'b', start: -0.5, end: 1.5, mode: 'move',
+        neighbors: [{ id: 'a', start: 0, end: 2 }], minDuration: MIN,
+        fallback: { start: 2.2, end: 4.2 }
+    });
+    assert.equal(result.clamped, true);
+    assert.deepEqual([result.start, result.end], [2.2, 4.2]);
+    assert.equal(result.blockedBy?.id, 'a');
+});
+
+test('fallback が無ければ従来どおりクランプ結果を返す（互換）', () => {
+    const result = clampCaptionRangeToNeighbors({ id: 'b', start: -0.5, end: 1.5, mode: 'move', neighbors: [{ id: 'a', start: 0, end: 2 }], minDuration: MIN });
+    assert.equal(result.clamped, true);
+    near(result.start, -2);
+});
+
+test('正当な位置へクランプできたときは fallback を使わない', () => {
+    const result = clampCaptionRangeToNeighbors({ id: 'b', start: 2.007, end: 4.007, mode: 'move', neighbors, minDuration: MIN, fallback: { start: 9, end: 11 } });
+    assert.equal(result.clamped, true);
+    near(result.start, 2);
+    near(result.end, 4);
+});
+
+test('isValidCaptionRange: 0 秒以上・隣と重ならない（接触は可）', () => {
+    assert.equal(isValidCaptionRange(2, 4, neighbors.filter(n => n.id !== 'b')), true);
+    assert.equal(isValidCaptionRange(-0.01, 2, []), false);
+    assert.equal(isValidCaptionRange(1.9, 3.9, neighbors.filter(n => n.id !== 'b')), false);
+    assert.equal(isValidCaptionRange(3, 3, []), false);
+});
