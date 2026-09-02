@@ -39,6 +39,7 @@ import {
   PROXY_RECIPE_VERSION,
 } from '../../media-bin/src/proxy-recipe.mjs';
 import { resolveCaptionApiPayload } from './caption-api.mjs';
+import { protectedTermsFrom, resolveWordBookSync } from '../../word-book/src/index.mjs';
 
 const args = process.argv.slice(2);
 let port = 3000;
@@ -701,7 +702,10 @@ const router = {
     const edit = readJson(path.join(projectRoot, 'edit.json'));
     if (edit.error) return respond(res, 422, { error: 'edit.json is required to resolve caption display policy' });
     try {
-      respond(res, 200, resolveCaptionApiPayload(captionsRoot, edit.data));
+      const wordBook = resolveWordBookSync({ projectRoot });
+      respond(res, 200, resolveCaptionApiPayload(captionsRoot, edit.data, {
+        extra_protected_terms: protectedTermsFrom(wordBook.entries),
+      }));
     } catch (error) {
       respond(res, 422, { error: error instanceof Error ? error.message : String(error) });
     }

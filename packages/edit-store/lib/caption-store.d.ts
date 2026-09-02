@@ -127,6 +127,13 @@ export interface CaptionRecord {
     textStyle?: CaptionTextStyle;
     extra?: Record<string, unknown>;
 }
+export interface WordBookCaptionChange {
+    id: string;
+    text: string;
+    words?: CaptionWordTiming[];
+    display_text?: string;
+    display_fragments?: string[];
+}
 export declare function parseCaptions(source: string): {
     captions: CaptionRecord[];
     defaultTextStyle?: CaptionTextStyle;
@@ -144,6 +151,7 @@ export declare function updateCaptionFieldsInSource(source: string, captionId: s
         end: number;
     }> | null;
 }): string;
+export declare function applyWordBookToCaptionsInSource(source: string, changes: WordBookCaptionChange[]): string;
 export declare function updateCaptionTextStyleInSource(source: string, captionId: string, updates: CaptionTextStylePatch): string;
 export declare function insertCaptionLine(source: string, caption: CaptionRecord): string;
 export declare function removeCaptionLine(source: string, captionId: string): string;

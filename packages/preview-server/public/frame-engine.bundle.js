@@ -1821,6 +1821,7 @@ var require_caption_store = __commonJS({
     exports.shiftCaptionLine = shiftCaptionLine;
     exports.setCaptionTimingLine = setCaptionTimingLine;
     exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
+    exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
     exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
     exports.insertCaptionLine = insertCaptionLine;
     exports.removeCaptionLine = removeCaptionLine;
@@ -1999,6 +2000,23 @@ var require_caption_store = __commonJS({
         nextElement = syncOptionalCaptionProperty(nextElement, "unrecognized", updates.unrecognized === null || unrecognized?.length === 0 ? void 0 : unrecognized, captionId);
       }
       return replaceElement(source, array.openIndex + 1, element, nextElement);
+    }
+    function applyWordBookToCaptionsInSource(source, changes) {
+      if (changes.length === 0) {
+        return source;
+      }
+      let output = source;
+      for (const change of changes) {
+        const array = locateCaptionArray(output);
+        const element = findCaptionElement(array.elements, change.id);
+        let nextElement = element.text;
+        nextElement = replaceCaptionJsonProperty(nextElement, "text", change.text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, "words", change.words, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, "display_text", change.display_text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, "display_fragments", change.display_fragments, change.id);
+        output = replaceElement(output, array.openIndex + 1, element, nextElement);
+      }
+      return output;
     }
     function updateCaptionTextStyleInSource(source, captionId, updates) {
       if (!captionId) {
@@ -3411,6 +3429,19 @@ var require_caption_display = __commonJS({
         return null;
       }
       const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
+      if (options.extra_protected_terms !== void 0 && (!Array.isArray(options.extra_protected_terms) || options.extra_protected_terms.some((entry) => !strictText(entry)))) {
+        fail("INVALID_POLICY", "extra_protected_terms must contain only non-empty NFC trimmed strings");
+      }
+      const extraProtectedTerms = [...new Set(options.extra_protected_terms ?? [])];
+      const policyProtectedTerms = policy.break_hints?.protected_terms ?? [];
+      const incrementalProtectedTerms = extraProtectedTerms.filter((term) => !policyProtectedTerms.includes(term));
+      const policyWithExtraTerms = incrementalProtectedTerms.length === 0 ? policy : {
+        ...policy,
+        break_hints: {
+          ...policy.break_hints,
+          protected_terms: [...policyProtectedTerms, ...incrementalProtectedTerms]
+        }
+      };
       if (!Array.isArray(captionsRoot.captions))
         fail("INVALID_CAPTIONS", "captions.json object root must contain captions[]");
       const captions = captionsRoot.captions;
@@ -3443,6 +3474,7 @@ var require_caption_display = __commonJS({
         });
       }
       const boundaryProjection = [];
+      const wordBookFallbacks = [];
       const fragmentsByCaption = /* @__PURE__ */ new Map();
       captions.forEach((caption, index) => {
         const text = caption.display_text ?? caption.text;
@@ -3453,7 +3485,19 @@ var require_caption_display = __commonJS({
           manual = true;
           boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: [] });
         } else {
-          const split = splitCaptionFragments(text, policy);
+          let split;
+          try {
+            split = splitCaptionFragments(text, policyWithExtraTerms);
+          } catch (error) {
+            if (!(error instanceof CaptionDisplayError) || error.code !== "NO_WORD_BOUNDARY_SPLIT" || incrementalProtectedTerms.length === 0) {
+              throw error;
+            }
+            split = splitCaptionFragments(text, policy);
+            wordBookFallbacks.push({
+              caption_id: caption.id,
+              dropped_terms: incrementalProtectedTerms.filter((term) => text.includes(term))
+            });
+          }
           fragments = split.fragments;
           boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: split.boundaries });
         }
@@ -3501,7 +3545,8 @@ var require_caption_display = __commonJS({
         display_cue_count: displayCues.length,
         split_source_cue_count: splitCueIds.size,
         boundary_projection: boundaryProjection,
-        display_cues: displayCues
+        display_cues: displayCues,
+        word_book_fallbacks: wordBookFallbacks
       };
     }
     function validateCaptionTextStyle(value, label = "text_style") {

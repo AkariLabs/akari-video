@@ -2,6 +2,7 @@
 
 import { realpathSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,10 +13,16 @@ import {
   buildMatcher,
   layerPathFor,
   resolveWordBook,
-  scanRecord,
 } from "../../word-book/src/index.mjs";
 import { runValidateWordBookCli } from "../../schemas/bin/validate-word-book.mjs";
 import { updateAnalysisTranscript } from "../src/media/record.mjs";
+
+const {
+  applyWordBookToCaptionsInSource,
+} = createRequire(import.meta.url)("../../edit-store/lib/caption-store.js");
+const {
+  writeProjectFilesGuarded,
+} = createRequire(import.meta.url)("../../edit-store/lib/write-gate.js");
 
 const usage = [
   "使い方: akari-word-book <subcommand> [options]",
@@ -143,18 +150,26 @@ async function runApply(argv, { stdout, env }) {
   }
 
   const captions = await inspectCaptions(projectRoot, matcher);
+  if (!parsed.dryRun && captions.records_written > 0) {
+    await writeProjectFilesGuarded(projectRoot, { "captions.json": captions.source });
+  }
+  const captionResult = {
+    replaced: captions.replaced,
+    skipped_edited: captions.skipped_edited,
+    skipped_text_mismatch: captions.skipped_text_mismatch,
+    skipped_fragment_boundary: captions.skipped_fragment_boundary,
+    records_written: captions.records_written,
+  };
   const result = {
     dry_run: parsed.dryRun === true,
     analysis: { files: analysisPaths.length, changed_files: changedFiles, stats: total },
-    captions,
+    captions: captionResult,
   };
   if (parsed.json) {
     stdout(JSON.stringify(result));
   } else {
     stdout(`analysis.json: ${total.replaced} 語を置換（${changedFiles}/${analysisPaths.length} ファイル${parsed.dryRun ? "・dry-run" : ""}）`);
-    if (captions.exists) {
-      stdout(`captions.json: 非 edited ${captions.unedited_matches} 行 / edited ${captions.edited_matches} 行に一致（本票では書かない。WB-b で apply）`);
-    }
+    stdout(`captions.json: ${captionResult.replaced} 語を置換（${captionResult.records_written} 行${parsed.dryRun ? "・dry-run" : ""}）`);
   }
   return 0;
 }
@@ -211,23 +226,34 @@ function targetForAnalysisPath(projectRoot, analysisPath) {
 
 async function inspectCaptions(projectRoot, matcher) {
   const captionsPath = path.join(projectRoot, "captions.json");
+  let source;
   let root;
   try {
-    root = JSON.parse(await readFile(captionsPath, "utf8"));
+    source = await readFile(captionsPath, "utf8");
+    root = JSON.parse(source);
   } catch (error) {
-    if (error?.code === "ENOENT") return { exists: false, unedited_matches: 0, edited_matches: 0 };
+    if (error?.code === "ENOENT") return { ...emptyStats(), records_written: 0, source: null };
     throw error;
   }
   const records = Array.isArray(root) ? root : Array.isArray(root?.captions) ? root.captions : [];
-  let uneditedMatches = 0;
-  let editedMatches = 0;
-  for (const record of records) {
-    const matches = scanRecord(record, matcher).filter((match) => match.kind === "term" && match.matched !== match.surface);
-    if (matches.length === 0) continue;
-    if (record.edited === true) editedMatches += 1;
-    else uneditedMatches += 1;
+  const applied = applyWordBook(records, matcher, { mode: "captions" });
+  const changes = [];
+  for (let index = 0; index < records.length; index += 1) {
+    if (JSON.stringify(records[index]) === JSON.stringify(applied.records[index])) continue;
+    const record = applied.records[index];
+    changes.push({
+      id: record.id,
+      text: record.text,
+      words: record.words,
+      display_text: record.display_text,
+      display_fragments: record.display_fragments,
+    });
   }
-  return { exists: true, unedited_matches: uneditedMatches, edited_matches: editedMatches };
+  return {
+    ...applied.stats,
+    records_written: changes.length,
+    source: changes.length === 0 ? source : applyWordBookToCaptionsInSource(source, changes),
+  };
 }
 
 function emptyStats() {

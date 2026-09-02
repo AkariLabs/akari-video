@@ -147,6 +147,14 @@ export interface CaptionRecord {
     extra?: Record<string, unknown>;
 }
 
+export interface WordBookCaptionChange {
+    id: string;
+    text: string;
+    words?: CaptionWordTiming[];
+    display_text?: string;
+    display_fragments?: string[];
+}
+
 const JSON_NUMBER = '-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?';
 
 export function parseCaptions(source: string): {
@@ -376,6 +384,27 @@ export function updateCaptionFieldsInSource(
         );
     }
     return replaceElement(source, array.openIndex + 1, element, nextElement);
+}
+
+export function applyWordBookToCaptionsInSource(
+    source: string,
+    changes: WordBookCaptionChange[]
+): string {
+    if (changes.length === 0) {
+        return source;
+    }
+    let output = source;
+    for (const change of changes) {
+        const array = locateCaptionArray(output);
+        const element = findCaptionElement(array.elements, change.id);
+        let nextElement = element.text;
+        nextElement = replaceCaptionJsonProperty(nextElement, 'text', change.text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'words', change.words, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'display_text', change.display_text, change.id);
+        nextElement = syncOptionalCaptionProperty(nextElement, 'display_fragments', change.display_fragments, change.id);
+        output = replaceElement(output, array.openIndex + 1, element, nextElement);
+    }
+    return output;
 }
 
 export function updateCaptionTextStyleInSource(

@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile, mkdir, rename, unlink, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -66,17 +68,7 @@ export async function resolveWordBook({ projectRoot, env = process.env, extraPat
     }
   }
 
-  const definitions = [];
-  const resolvedExtra = extraPath ?? env.AKARI_WORD_BOOK;
-  if (resolvedExtra) definitions.push({ scope: "extra", path: path.resolve(resolvedProject ?? process.cwd(), resolvedExtra) });
-  if (resolvedProject) {
-    definitions.push({ scope: "project", path: layerPathFor({ scope: "project", projectRoot: resolvedProject, creatorRoot }) });
-    const channelPath = layerPathFor({ scope: "channel", projectRoot: resolvedProject, creatorRoot });
-    if (channelPath) definitions.push({ scope: "channel", path: channelPath });
-    const workspacePath = layerPathFor({ scope: "workspace", projectRoot: resolvedProject, creatorRoot });
-    if (workspacePath) definitions.push({ scope: "workspace", path: workspacePath });
-  }
-  definitions.push({ scope: "builtin", path: builtinPath });
+  const definitions = wordBookLayerDefinitions({ resolvedProject, creatorRoot, env, extraPath });
 
   const layers = [];
   const books = [];
@@ -91,19 +83,32 @@ export async function resolveWordBook({ projectRoot, env = process.env, extraPat
     if (exists) books.push({ scope: definition.scope, book: loaded.book });
   }
 
-  const seen = new Set();
-  const entries = [];
-  const sources = {};
-  for (const layer of books) {
-    for (const entry of layer.book.entries) {
-      const key = normalizeKey(entry.surface);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      entries.push({ ...entry, scope: layer.scope });
-      sources[entry.surface] = layer.scope;
+  return resolvedWordBookResult(layers, books);
+}
+
+export function resolveWordBookSync({ projectRoot, env = process.env, extraPath } = {}) {
+  const resolvedProject = projectRoot ? path.resolve(projectRoot) : null;
+  const creatorRoot = resolvedProject ? resolveCreatorRootSync(resolvedProject, env) : null;
+  const definitions = wordBookLayerDefinitions({ resolvedProject, creatorRoot, env, extraPath });
+  const layers = [];
+  const books = [];
+  for (const definition of definitions) {
+    const loaded = loadWordBookFileSync(definition.path);
+    if (!loaded.ok) {
+      layers.push({ ...definition, exists: true, error: loaded.error });
+      continue;
     }
+    const exists = loaded.book !== null;
+    layers.push({ ...definition, exists });
+    if (exists) books.push({ scope: definition.scope, book: loaded.book });
   }
-  return { entries, layers, sources };
+  return resolvedWordBookResult(layers, books);
+}
+
+export function protectedTermsFrom(entries) {
+  return [...new Set((Array.isArray(entries) ? entries : [])
+    .filter((entry) => entry?.protect_break === true && typeof entry.surface === "string")
+    .map((entry) => entry.surface))];
 }
 
 export function buildMatcher(entries) {
@@ -234,6 +239,130 @@ function channelForProject(projectRoot, creatorRoot) {
   return parts.length === 4 && parts[0] === "channels" && parts[2] === "videos" && parts[1] && parts[3]
     ? parts[1]
     : null;
+}
+
+function wordBookLayerDefinitions({ resolvedProject, creatorRoot, env, extraPath }) {
+  const definitions = [];
+  const resolvedExtra = extraPath ?? env.AKARI_WORD_BOOK;
+  if (resolvedExtra) definitions.push({ scope: "extra", path: path.resolve(resolvedProject ?? process.cwd(), resolvedExtra) });
+  if (resolvedProject) {
+    definitions.push({ scope: "project", path: layerPathFor({ scope: "project", projectRoot: resolvedProject, creatorRoot }) });
+    const channelPath = layerPathFor({ scope: "channel", projectRoot: resolvedProject, creatorRoot });
+    if (channelPath) definitions.push({ scope: "channel", path: channelPath });
+    const workspacePath = layerPathFor({ scope: "workspace", projectRoot: resolvedProject, creatorRoot });
+    if (workspacePath) definitions.push({ scope: "workspace", path: workspacePath });
+  }
+  definitions.push({ scope: "builtin", path: builtinPath });
+  return definitions;
+}
+
+function resolvedWordBookResult(layers, books) {
+  const seen = new Set();
+  const entries = [];
+  const sources = {};
+  for (const layer of books) {
+    for (const entry of layer.book.entries) {
+      const key = normalizeKey(entry.surface);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      entries.push({ ...entry, scope: layer.scope });
+      sources[entry.surface] = layer.scope;
+    }
+  }
+  return { entries, layers, sources, conflicts: collectLayerConflicts(books) };
+}
+
+function collectLayerConflicts(books) {
+  const owners = new Map();
+  const conflicts = new Map();
+  for (const layer of books) {
+    for (const entry of layer.book.entries) {
+      const surfaceKey = normalizeKey(entry.surface);
+      for (const [literal, role] of [[entry.surface, "surface"], ...(entry.variants ?? []).map(value => [value, "variant"])]) {
+        const variantKey = normalizeKey(literal);
+        if (!variantKey) continue;
+        const owner = owners.get(variantKey);
+        const candidate = { surface: entry.surface, scope: layer.scope, surfaceKey, role };
+        if (!owner) {
+          owners.set(variantKey, candidate);
+          continue;
+        }
+        if (owner.surfaceKey === surfaceKey || owner.scope === layer.scope) continue;
+        if (owner.role !== "variant" && role !== "variant") continue;
+        const conflict = conflicts.get(variantKey) ?? {
+          variant_key: variantKey,
+          winner: { surface: owner.surface, scope: owner.scope },
+          shadowed: [],
+        };
+        if (!conflict.shadowed.some(item => item.surface === entry.surface && item.scope === layer.scope)) {
+          conflict.shadowed.push({ surface: entry.surface, scope: layer.scope });
+        }
+        conflicts.set(variantKey, conflict);
+      }
+    }
+  }
+  return [...conflicts.values()];
+}
+
+function loadWordBookFileSync(filePath) {
+  let raw;
+  try {
+    raw = readFileSync(filePath, "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return { ok: true, book: null };
+    return { ok: false, error: { code: "parse", message: messageOf(error) } };
+  }
+  let book;
+  try {
+    book = JSON.parse(raw);
+  } catch (error) {
+    return { ok: false, error: { code: "parse", message: messageOf(error) } };
+  }
+  const validation = validateWordBook(book);
+  if (!validation.valid) {
+    return {
+      ok: false,
+      error: {
+        code: validation.tooNew ? "too-new" : "schema",
+        message: validation.errors.join("; "),
+      },
+    };
+  }
+  return { ok: true, book };
+}
+
+function resolveCreatorRootSync(projectRoot, env) {
+  if (env.AKARI_CREATOR_ROOT) {
+    return validCreatorRoot(path.resolve(projectRoot, env.AKARI_CREATOR_ROOT));
+  }
+  let current = path.resolve(projectRoot);
+  while (true) {
+    if (existsSync(path.join(current, ".akari", "root.json"))) return validCreatorRoot(current);
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  const home = process.platform === "win32"
+    ? env.USERPROFILE || (env.HOMEDRIVE && env.HOMEPATH ? `${env.HOMEDRIVE}${env.HOMEPATH}` : os.homedir())
+    : env.HOME || os.homedir();
+  const pointerPath = path.join(env.AKARI_HOME || path.join(home, ".akari"), "creator-root.json");
+  try {
+    const pointer = JSON.parse(readFileSync(pointerPath, "utf8"));
+    return typeof pointer?.lastRoot === "string" && pointer.lastRoot && existsSync(pointer.lastRoot)
+      ? validCreatorRoot(pointer.lastRoot)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function validCreatorRoot(rootDir) {
+  try {
+    const manifest = JSON.parse(readFileSync(path.join(rootDir, ".akari", "root.json"), "utf8"));
+    return manifest?.schema === "creator-root/v1" ? { rootDir, manifest } : null;
+  } catch {
+    return null;
+  }
 }
 
 function tokensForRecord(record, locale) {

@@ -36,6 +36,7 @@ for (const [name, args, expected] of [
   ['narration', ['narration', '--help'], 'akari narration generate'],
   ['internal', ['internal', '--help'], 'beat-sync-render-when-idle'],
   ['assets', ['assets', '--help'], 'akari-assets <list\\|fetch\\|sync\\|browse>'],
+  ['word-book', ['word-book', '--help'], 'akari-word-book <subcommand>'],
   ['clean', ['clean', '--help'], 'akari clean'],
 ]) {
   test(`bin/akari.mjs: ${name} 分岐が help を表示する`, () => {
