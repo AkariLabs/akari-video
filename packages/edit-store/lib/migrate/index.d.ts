@@ -6,9 +6,12 @@
  * ファイル変換の意味論はこの 1 ファイルに閉じる。
  */
 import type { EditV2 } from '../edit-v2';
+import { type DimensionsOf, type GeometryChange } from './geometry';
 export { LegacyEditVersionError } from './error';
 export { parseEdit } from './legacy-parse';
 export type { EditParseOrigins } from './legacy-parse';
+export { collectFitBasisCandidates, GEOMETRY_SOURCE, hasCutLayerStyleVisual, normalizeGeometry, round6 } from './geometry';
+export type { DimensionsOf, FitBasisCandidate, GeometryChange, GeometryNormalizationResult, MediaDimensions } from './geometry';
 export type LegacyVersion = 0 | 1;
 export interface MigrateChange {
     path: string;
@@ -66,6 +69,13 @@ export interface MigrationNoop extends V2NormalizationProposal {
     noop: true;
     version: 2;
 }
+/** 幾何の統一 G1 の提案。`changes` は表示用の要約、`geometry` は焼き込みの実測値。 */
+export interface GeometryNormalizationProposal extends V2NormalizationProposal {
+    geometry: GeometryChange[];
+}
+export interface GeometryNormalizationNoop extends MigrationNoop {
+    geometry: GeometryChange[];
+}
 export interface MigrationBlocked {
     ok: false;
     version: number;
@@ -88,3 +98,12 @@ export declare function revertMigration(proposal: MigrationProposal | V2Normaliz
 export declare function planV2Normalization(projectRoot: string, editPath: string, previousText: string, options?: {
     now?: Date;
 }): V2NormalizationProposal | MigrationBlocked | MigrationNoop;
+/**
+ * 幾何の統一 G1: `scale × fit` の一度きりの焼き込みと `output.geometry: "source"` の付与を
+ * `planV2Normalization` と同じ形（backup パス付き提案・`applyMigration` / `revertMigration` で扱える）
+ * で提案する。素材の寸法は呼び出し側が `dimensionsOf` で渡す（I/O はこの層に持ち込まない）。
+ */
+export declare function planGeometryNormalization(projectRoot: string, editPath: string, previousText: string, options: {
+    dimensionsOf: DimensionsOf;
+    now?: Date;
+}): GeometryNormalizationProposal | MigrationBlocked | GeometryNormalizationNoop;

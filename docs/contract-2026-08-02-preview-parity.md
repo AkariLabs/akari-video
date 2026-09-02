@@ -70,6 +70,13 @@ cut 境界の選択は宣言順ではなく解決済みタイムラインと z-o
   `cut <id>: perspective is not applied by the frame-engine base path yet (issue #39)` を warning に出す（無警告で捨てない）。
 - `freeze = {at_sec, duration_sec}` は指定 frame を保持し、cut の出力尺を `duration_sec` だけ伸ばして
   後続の逐次 cut を移動する。freeze の画と独立音声予定表を混同しない。
+- **`output.geometry`（幾何の基準。2026-09-02 追記）**: 未指定 = **fit 互換**（cut は出力へ contain fit した後に
+  transform。上記の従来どおり）、`"source"` = **実寸基準**（ソース実寸 × scale の box。layer・layer-style cut と同じ幾何）。
+  語彙は `"source"` の 1 つだけで、マーカーが立つのは「今 fit 基準で描かれている全 media item に `scale × fit`
+  （`fit = min(outputW / srcW, outputH / srcH)`・srcW / srcH は表示回転後）を一度だけ焼き込んだ」ことを意味する
+  （部分適用は禁止。移行は `packages/edit-store/bin/normalize-geometry.mjs`）。x / y / rotate は両基準で同じ意味なので触らない。
+  **G1（マーカー・移行・lint の warning `geometry.fit-compat`）ではエンジンはこのマーカーを読まず、描画は 1 バイトも変わらない。
+  描画へ反映するのは G2**。cross ref: `docs/contract-2026-07-22-render-basics.md` §4-1（#6 画角操作）。
 
 **検収:** framing / transform / opacity / freeze を含む base parity **28 点**、freeze をまたぐ
 frame lifetime **1000 コマ**、故意の **1 px** 差分を必ず FAIL させる否定点で判定する。
