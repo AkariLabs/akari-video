@@ -4,6 +4,10 @@ import { inject, injectable } from '@theia/core/shared/inversify';
 import { computeExportChipState, ExportChipState } from '../../common/export-chip-state';
 import { AkariExportSessionService } from '../akari-export-session-service';
 import { AkariExportDialog } from './akari-export-dialog';
+import {
+    AkariExportThumbnailStripStore,
+    exportThumbnailStripStore
+} from './export-thumbnail-strip';
 import { formatClock } from './export-view-shared';
 
 @injectable()
@@ -12,6 +16,8 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
     protected readonly session!: AkariExportSessionService;
     @inject(AkariExportDialog)
     protected readonly dialog!: AkariExportDialog;
+    @inject(AkariExportThumbnailStripStore)
+    protected readonly thumbnailStripStore!: AkariExportThumbnailStripStore;
 
     protected readonly toDispose = new DisposableCollection();
     protected element: HTMLDivElement | undefined;
@@ -25,6 +31,7 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
     protected openButton: HTMLButtonElement | undefined;
     protected dialogVisible = false;
     protected dismissed = false;
+    protected thumbnailStoreSubscribed = false;
 
     onStart(): void {
         if (this.element) {
@@ -32,6 +39,7 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
         }
         this.dialogVisible = this.dialog.isAttached;
         this.createElement();
+        this.ensureThumbnailStoreSubscription();
         this.toDispose.push(this.session.onDidChange(() => this.render()));
         this.toDispose.push(this.dialog.onDidChangeVisibility(visible => {
             this.dialogVisible = visible;
@@ -193,6 +201,7 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
     }
 
     protected applyState(state: ExportChipState): void {
+        const thumbnailStore = this.ensureThumbnailStoreSubscription();
         const element = this.element;
         if (!element || !this.label || !this.progressText || !this.progressTrack || !this.progressFill
             || !this.cancelButton || !this.dismissButton || !this.openButton) {
@@ -223,8 +232,26 @@ export class AkariExportBackgroundChip implements FrontendApplicationContributio
         if (running) {
             this.progressFill.style.width = `${state.percent}%`;
         }
+        if (this.preview) {
+            const frameIndex = running ? thumbnailStore.currentIndex(state.percent) : -1;
+            const dataUrl = frameIndex >= 0 ? thumbnailStore.strip?.frames[frameIndex]?.dataUrl : undefined;
+            this.preview.style.backgroundImage = dataUrl ? `url("${dataUrl}")` : '';
+            if (running) {
+                this.preview.style.backgroundSize = 'cover';
+                this.preview.style.backgroundPosition = 'center';
+            }
+        }
         this.cancelButton.hidden = !running;
         this.dismissButton.hidden = running;
         this.openButton.hidden = false;
+    }
+
+    protected ensureThumbnailStoreSubscription(): AkariExportThumbnailStripStore {
+        const store = exportThumbnailStripStore() ?? this.thumbnailStripStore;
+        if (!this.thumbnailStoreSubscribed) {
+            this.thumbnailStoreSubscribed = true;
+            this.toDispose.push(store.onDidChange(() => this.render()));
+        }
+        return store;
     }
 }

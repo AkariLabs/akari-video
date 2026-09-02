@@ -2,6 +2,7 @@ import { ContainerModule } from '@theia/core/shared/inversify';
 import { FrontendApplicationContribution, WidgetFactory, FrontendApplication, WebSocketConnectionProvider } from '@theia/core/lib/browser';
 import { PreferenceContribution } from '@theia/core/lib/common/preferences';
 import { AkariQuickExportService, AKARI_QUICK_EXPORT_SERVICE_PATH } from '../common/quick-export-protocol';
+import { AkariExportThumbnailService, AKARI_EXPORT_THUMBNAIL_SERVICE_PATH } from '../common/export-thumbnail-protocol';
 import { AkariPreviewServerService, AKARI_PREVIEW_SERVER_SERVICE_PATH } from '../common/preview-server-protocol';
 import { AkariActivityBarCuration } from './akari-activity-bar-curation';
 import { AkariSettingsWidget } from './akari-settings-widget';
@@ -17,11 +18,16 @@ import { AkariExportPreferenceContribution } from './akari-export-preferences';
 import { AkariExportSessionService } from './akari-export-session-service';
 import { AkariExportDialog } from './export-dialog/akari-export-dialog';
 import { AkariExportBackgroundChip } from './export-dialog/export-background-chip';
+import { AkariExportThumbnailStripStore } from './export-dialog/export-thumbnail-strip';
 
 export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(AkariExportPreferenceContribution).toSelf().inSingletonScope();
     bind(PreferenceContribution).toService(AkariExportPreferenceContribution);
     bind(AkariExportSessionService).toSelf().inSingletonScope();
+    bind(AkariExportThumbnailService).toDynamicValue(ctx =>
+        WebSocketConnectionProvider.createProxy(ctx.container, AKARI_EXPORT_THUMBNAIL_SERVICE_PATH)
+    ).inSingletonScope();
+    bind(AkariExportThumbnailStripStore).toSelf().inSingletonScope();
     // ReactDialog 自身の DialogProps コンストラクタ注入を通さず、必要な依存を明示して生成する。
     bind(AkariExportDialog).toDynamicValue(ctx =>
         new AkariExportDialog(ctx.container.get(AkariExportSessionService))
