@@ -1829,7 +1829,9 @@ ${indent}`);
       exports.shiftCaptionLine = shiftCaptionLine;
       exports.setCaptionTimingLine = setCaptionTimingLine;
       exports.updateCaptionFieldsInSource = updateCaptionFieldsInSource;
+      exports.applyWordBookToCaptionsInSource = applyWordBookToCaptionsInSource;
       exports.updateCaptionTextStyleInSource = updateCaptionTextStyleInSource;
+      exports.updateCaptionStylePresetInSource = updateCaptionStylePresetInSource;
       exports.insertCaptionLine = insertCaptionLine;
       exports.removeCaptionLine = removeCaptionLine;
       var edit_store_1 = require_edit_store();
@@ -2008,6 +2010,23 @@ ${indent}`);
         }
         return replaceElement(source, array.openIndex + 1, element, nextElement);
       }
+      function applyWordBookToCaptionsInSource(source, changes) {
+        if (changes.length === 0) {
+          return source;
+        }
+        let output = source;
+        for (const change of changes) {
+          const array = locateCaptionArray(output);
+          const element = findCaptionElement(array.elements, change.id);
+          let nextElement = element.text;
+          nextElement = replaceCaptionJsonProperty(nextElement, "text", change.text, change.id);
+          nextElement = syncOptionalCaptionProperty(nextElement, "words", change.words, change.id);
+          nextElement = syncOptionalCaptionProperty(nextElement, "display_text", change.display_text, change.id);
+          nextElement = syncOptionalCaptionProperty(nextElement, "display_fragments", change.display_fragments, change.id);
+          output = replaceElement(output, array.openIndex + 1, element, nextElement);
+        }
+        return output;
+      }
       function updateCaptionTextStyleInSource(source, captionId, updates) {
         if (!captionId) {
           throw new Error("\u5B57\u5E55 ID \u3092\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
@@ -2042,6 +2061,64 @@ ${indent}`);
           nextElement = Object.keys(JSON.parse(textStyle)).length === 0 ? removeObjectProperty(nextElement, "text_style") : nextElement.slice(0, located.start) + textStyle + nextElement.slice(located.end);
         }
         return replaceElement(source, array.openIndex + 1, element, nextElement);
+      }
+      function updateCaptionStylePresetInSource(source, captionIds, presetId) {
+        if (captionIds.length === 0) {
+          throw new Error("\u5B57\u5E55 ID \u3092 1 \u4EF6\u4EE5\u4E0A\u6307\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
+        }
+        if (presetId !== null && !/^[a-z0-9][a-z0-9-]*$/.test(presetId)) {
+          throw new Error("\u5B57\u5E55\u30C6\u30F3\u30D7\u30EC ID \u306E\u5F62\u5F0F\u304C\u4E0D\u6B63\u3067\u3059\u3002");
+        }
+        const ids = [...new Set(captionIds)];
+        const array = locateCaptionArray(source);
+        const elementsById = /* @__PURE__ */ new Map();
+        for (const entry of captionElementEntries(array.elements)) {
+          if (!entry.id)
+            continue;
+          const matches = elementsById.get(entry.id) ?? [];
+          matches.push(entry.element);
+          elementsById.set(entry.id, matches);
+        }
+        const targets = [];
+        for (const captionId of ids) {
+          const matches = elementsById.get(captionId) ?? [];
+          if (matches.length !== 1) {
+            throw new Error(matches.length === 0 ? `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u3042\u308A\u307E\u305B\u3093\u3002` : `\u5B57\u5E55 ${captionId} \u304C\u5B57\u5E55\u30C7\u30FC\u30BF\u306B\u8907\u6570\u3042\u308A\u307E\u3059\u3002`);
+          }
+          targets.push({ captionId, element: matches[0] });
+        }
+        let output = source;
+        let changed = 0;
+        for (const { captionId, element } of targets.sort((left, right) => right.element.start - left.element.start)) {
+          const record = JSON.parse(element.text);
+          const hasPreset = Object.prototype.hasOwnProperty.call(record, "style_preset");
+          if (presetId === null) {
+            if (!hasPreset)
+              continue;
+            const nextElement2 = removeObjectProperty(element.text, "style_preset");
+            output = replaceElement(output, array.openIndex + 1, element, nextElement2);
+            changed++;
+            continue;
+          }
+          if (hasPreset && record.style_preset === presetId)
+            continue;
+          let nextElement;
+          if (hasPreset) {
+            nextElement = replaceCaptionJsonProperty(element.text, "style_preset", presetId, captionId);
+          } else {
+            const textStyle = locateTopLevelProperty(element.text, "text_style");
+            if (!textStyle) {
+              nextElement = appendJsonProperty(element.text, "style_preset", presetId);
+            } else {
+              const lineStart = Math.max(element.text.lastIndexOf("\n", textStyle.start - 1), element.text.lastIndexOf("\r", textStyle.start - 1));
+              const separator = lineStart >= 0 ? `${element.text.includes("\r\n") ? "\r\n" : "\n"}${element.text.slice(lineStart + 1, textStyle.start)}` : " ";
+              nextElement = element.text.slice(0, textStyle.start) + `"style_preset": ${JSON.stringify(presetId)},${separator}` + element.text.slice(textStyle.start);
+            }
+          }
+          output = replaceElement(output, array.openIndex + 1, element, nextElement);
+          changed++;
+        }
+        return { source: output, changed };
       }
       function insertCaptionLine(source, caption) {
         const parsed = parseCaptions(source);
@@ -3419,6 +3496,19 @@ ${indent}`);
           return null;
         }
         const policy = validateCaptionDisplayPolicy(captionsRoot.display_policy);
+        if (options.extra_protected_terms !== void 0 && (!Array.isArray(options.extra_protected_terms) || options.extra_protected_terms.some((entry) => !strictText(entry)))) {
+          fail("INVALID_POLICY", "extra_protected_terms must contain only non-empty NFC trimmed strings");
+        }
+        const extraProtectedTerms = [...new Set(options.extra_protected_terms ?? [])];
+        const policyProtectedTerms = policy.break_hints?.protected_terms ?? [];
+        const incrementalProtectedTerms = extraProtectedTerms.filter((term) => !policyProtectedTerms.includes(term));
+        const policyWithExtraTerms = incrementalProtectedTerms.length === 0 ? policy : {
+          ...policy,
+          break_hints: {
+            ...policy.break_hints,
+            protected_terms: [...policyProtectedTerms, ...incrementalProtectedTerms]
+          }
+        };
         if (!Array.isArray(captionsRoot.captions))
           fail("INVALID_CAPTIONS", "captions.json object root must contain captions[]");
         const captions = captionsRoot.captions;
@@ -3451,6 +3541,7 @@ ${indent}`);
           });
         }
         const boundaryProjection = [];
+        const wordBookFallbacks = [];
         const fragmentsByCaption = /* @__PURE__ */ new Map();
         captions.forEach((caption, index) => {
           const text = caption.display_text ?? caption.text;
@@ -3461,7 +3552,19 @@ ${indent}`);
             manual = true;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: [] });
           } else {
-            const split = splitCaptionFragments(text, policy);
+            let split;
+            try {
+              split = splitCaptionFragments(text, policyWithExtraTerms);
+            } catch (error) {
+              if (!(error instanceof CaptionDisplayError) || error.code !== "NO_WORD_BOUNDARY_SPLIT" || incrementalProtectedTerms.length === 0) {
+                throw error;
+              }
+              split = splitCaptionFragments(text, policy);
+              wordBookFallbacks.push({
+                caption_id: caption.id,
+                dropped_terms: incrementalProtectedTerms.filter((term) => text.includes(term))
+              });
+            }
             fragments = split.fragments;
             boundaryProjection.push({ source_cue_id: caption.id, text, boundaries: split.boundaries });
           }
@@ -3509,7 +3612,8 @@ ${indent}`);
           display_cue_count: displayCues.length,
           split_source_cue_count: splitCueIds.size,
           boundary_projection: boundaryProjection,
-          display_cues: displayCues
+          display_cues: displayCues,
+          word_book_fallbacks: wordBookFallbacks
         };
       }
       function validateCaptionTextStyle(value, label = "text_style") {
@@ -16506,6 +16610,7 @@ ${indent}`);
     cutLayerStyleBox: () => cutLayerStyleBox,
     cutLayerStyleSourceUv: () => cutLayerStyleSourceUv,
     decodeEndForPresentationSample: () => decodeEndForPresentationSample,
+    describeMissingFrames: () => describeMissingFrames,
     describeUnusableDecoder: () => describeUnusableDecoder,
     dissolveNoiseField: () => dissolveNoiseField,
     downmixToMono: () => downmixToMono,
@@ -25303,7 +25408,8 @@ void main() {
         bitrate,
         framerate: options.fps,
         hardwareAcceleration: options.hardwareAcceleration ?? "prefer-hardware",
-        latencyMode: "realtime",
+        // 'quality' の理由は下の H.264 側と同じ（realtime は VideoToolbox 共有時にフレームを捨てる）。
+        latencyMode: "quality",
         hevc: { format: "hevc" }
       };
     }
@@ -25315,9 +25421,24 @@ void main() {
       bitrate,
       framerate: options.fps,
       hardwareAcceleration: options.hardwareAcceleration ?? "prefer-hardware",
-      latencyMode: "realtime",
+      // ファイル書き出しなので 'quality'。'realtime' は仕様上フレーム落ちを許し、実際に macOS の VideoToolbox を
+      // 他セッション（プレビューの H.264 デコード・別のエンコード等）と共有すると黙ってチャンクを捨てた
+      // （2026-09-02 実測 M1: 1464 中 809 欠落、同条件の 'quality' は 0 欠落、単独でも 'quality' が 26% 速い）。
+      // 落ちた分は finish() の欠落検出と mp4-mux の sample count mismatch で fail closed になる。
+      latencyMode: "quality",
       avc: { format: "annexb" }
     };
+  }
+  var MISSING_FRAME_LIST_LIMIT = 20;
+  function describeMissingFrames(frames, fps, outputTimestamps) {
+    const missing = [];
+    let omitted = 0;
+    for (let frame = 0; frame < frames; frame += 1) {
+      if (outputTimestamps.has(Math.round(frame / fps * 1e6))) continue;
+      if (missing.length < MISSING_FRAME_LIST_LIMIT) missing.push(frame);
+      else omitted += 1;
+    }
+    return omitted > 0 ? `${missing.join(", ")}, \u2026 and ${omitted} more` : missing.join(", ");
   }
   var WebCodecsH264Encoder = class {
     constructor(sink, options) {
@@ -25330,6 +25451,7 @@ void main() {
           chunk.copyTo(bytes);
           const description = this.options.codec === "hevc" && !this.decoderConfigSent && chunk.type === "key" ? copyDescription(metadata?.decoderConfig?.description) : void 0;
           if (description) this.decoderConfigSent = true;
+          this.outputTimestamps.add(chunk.timestamp);
           this.writes.push(Promise.resolve(this.sink.write(bytes, {
             type: chunk.type,
             timestamp: chunk.timestamp,
@@ -25347,6 +25469,8 @@ void main() {
     config;
     encoder;
     writes = [];
+    // 出力チャンクの timestamp。encode() した frame と突き合わせ、エンコーダが黙って捨てた frame を finish() で名指しする。
+    outputTimestamps = /* @__PURE__ */ new Set();
     failure = null;
     frameNumber = 0;
     closed = false;
@@ -25409,10 +25533,16 @@ void main() {
       await this.encoder.flush();
       await Promise.all(this.writes);
       if (this.failure) throw this.failure;
+      const dropped = this.frameNumber - this.writes.length;
+      if (dropped > 0) {
+        throw new Error(
+          `WebCodecs encoder dropped ${dropped} of ${this.frameNumber} frames (missing frame numbers: ${describeMissingFrames(this.frameNumber, this.options.fps, this.outputTimestamps)})`
+        );
+      }
       this.encoder.close();
       this.closed = true;
       this.notifyQueueWaiters();
-      return { frames: this.frameNumber };
+      return { frames: this.frameNumber, outputs: this.writes.length };
     }
     close() {
       if (this.closed) return;

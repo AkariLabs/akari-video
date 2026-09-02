@@ -4,6 +4,7 @@ import { quickExportStageLabel } from '../../common/quick-export-ui';
 import { AkariExportSessionService, ExportSessionSnapshot } from '../akari-export-session-service';
 import { ExportThumbnailStrip } from './export-thumbnail-strip';
 import { ExportFrame, formatClock, VideoFacts } from './export-view-shared';
+import { ExportLiveFramePainter, useExportLiveFrame } from './export-live-frame';
 
 const STAGES: readonly QuickExportStage[] = ['prepare', 'audio-cut', 'render', 'audio-mix', 'verify'];
 
@@ -28,6 +29,7 @@ export function ExportRunningView(props: {
 }): React.ReactNode {
     const { session, snapshot } = props;
     const status = snapshot.status;
+    const liveFrame = useExportLiveFrame();
     const activeIndex = status.phase === 'linting'
         ? 0
         : Math.max(0, STAGES.indexOf(status.progressStage ?? 'prepare'));
@@ -41,9 +43,12 @@ export function ExportRunningView(props: {
                 <div className='left'>
                     <div className='sec'><span>今描いている絵</span><span className='r'>書き出し中の画角</span></div>
                     <ExportFrame video={snapshot.video} previewSlot />
+                    <ExportLiveFramePainter />
                     <ExportThumbnailStrip percent={percent} />
                     <VideoFacts video={snapshot.video} />
-                    <p className='fine'>素材の帯です。テロップ・効果は乗りません。</p>
+                    <p className='fine'>{liveFrame
+                        ? '合成後の絵です（1 秒に 1 枚）。'
+                        : '素材の帯です。テロップ・効果は乗りません。'}</p>
                 </div>
                 <div className='rwrap'>
                     <div className='right'>

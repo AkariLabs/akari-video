@@ -36,6 +36,7 @@ function equalUnrecognized(left: DaihonRow['unrecognized'], right: DaihonRow['un
 
 function needsUpdate(left: DaihonRow, right: DaihonRow): boolean {
     return left.text !== right.text
+        || left.stylePreset !== right.stylePreset
         || left.style !== right.style
         || !equalWords(left.words, right.words)
         || !equalUnrecognized(left.unrecognized, right.unrecognized)

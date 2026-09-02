@@ -53,6 +53,20 @@ test('policy payload is resolved in Node and returns timeline-domain display cue
   assert.throws(() => resolveCaptionApiPayload(policyRoot, null), /edit\.json is required/u);
 });
 
+test('policy payload passes word-book terms and exposes fallback metadata', () => {
+  const root = {
+    display_policy: {
+      mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
+      unit_metric: 'ascii-half-other-one-v1', max_line_units: 3,
+      minimum_fragment_duration_seconds: 0.1, locale: 'en',
+    },
+    captions: [{ ...caption, text: 'alpha beta', sourceRef: null }],
+  };
+  const payload = resolveCaptionApiPayload(root, edit, { extra_protected_terms: ['alpha beta'] });
+  assert.deepEqual(payload.captions.map(cue => cue.text), ['alpha', ' beta']);
+  assert.deepEqual(payload.word_book_fallbacks, [{ caption_id: 'c-0001', dropped_terms: ['alpha beta'] }]);
+});
+
 test('policy API fails closed for malformed cues and version 1 source-reference mismatches', () => {
   const multiEdit = {
     version: 1,

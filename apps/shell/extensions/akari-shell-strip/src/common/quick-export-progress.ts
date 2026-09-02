@@ -17,6 +17,10 @@ export interface QuickExportProgressSnapshot {
     readonly frame?: number;
     readonly totalFrames?: number;
     readonly engine?: 'gpu' | 'osr';
+    /** GPU 直結の書き出しが最後に書いた実フレーム JPEG のコマ番号。 */
+    readonly previewFrame?: number;
+    /** 同 JPEG の絶対パス。 */
+    readonly previewPath?: string;
 }
 
 export interface QuickExportProgressTracker {
@@ -36,6 +40,7 @@ const PROGRESS_LINE_PATTERN = /^PROGRESS out_time_ms=(\d+) total_ms=(\d+)$/;
 const PROGRESS_DONE_PATTERN = /^PROGRESS done total_ms=(\d+)$/;
 const PROGRESS_STAGE_PATTERN = /^PROGRESS stage=(prepare|audio-cut|render|audio-mix|verify) status=(start|end)(?: engine=(gpu|osr))?$/;
 const PROGRESS_FRAME_PATTERN = /^PROGRESS frame=(\d+) total=(\d+)$/;
+const PROGRESS_PREVIEW_PATTERN = /^PROGRESS preview=(\d+) path=(.+)$/;
 
 /** 1行だけを解釈する。一致しなければ undefined（無視してよい行）。 */
 export function parseQuickExportProgressLine(line: string): QuickExportProgressSnapshot | undefined {
@@ -64,12 +69,19 @@ export function createQuickExportProgressTracker(): QuickExportProgressTracker {
     let frame: number | undefined;
     let totalFrames: number | undefined;
     let engine: 'gpu' | 'osr' | undefined;
+    let previewFrame: number | undefined;
+    let previewPath: string | undefined;
     const completedStages = new Set<QuickExportStage>();
 
     const publish = (next: QuickExportProgressSnapshot, stageWeighted: boolean): void => {
         const cappedPercent = stageWeighted && !next.done ? Math.min(99, next.percent) : next.percent;
         const percent = Math.max(latest?.percent ?? 0, cappedPercent);
-        latest = { ...next, percent };
+        latest = {
+            ...next,
+            percent,
+            ...(previewFrame !== undefined ? { previewFrame } : {}),
+            ...(previewPath !== undefined ? { previewPath } : {})
+        };
     };
 
     const stagePercent = (): number => {
@@ -99,6 +111,15 @@ export function createQuickExportProgressTracker(): QuickExportProgressTracker {
 
     const interpret = (line: string): void => {
         const trimmed = line.trim();
+        const previewMatch = PROGRESS_PREVIEW_PATTERN.exec(trimmed);
+        if (previewMatch) {
+            previewFrame = Number(previewMatch[1]);
+            previewPath = previewMatch[2];
+            latest = latest
+                ? { ...latest, previewFrame, previewPath }
+                : { percent: 0, outTimeMs: 0, totalMs: 0, done: false, previewFrame, previewPath };
+            return;
+        }
         const stageMatch = PROGRESS_STAGE_PATTERN.exec(trimmed);
         if (stageMatch) {
             sawStageLine = true;

@@ -1,0 +1,152 @@
+{
+  "status": "pass",
+  "steps": [
+    {
+      "fixture": "v2",
+      "name": "1. ヘッダピッカー 13 カードとプレビュー",
+      "pass": true,
+      "detail": {
+        "count": 13,
+        "names": [
+          "テンプレなし",
+          "標準",
+          "ポップ",
+          "ニュース帯"
+        ],
+        "samples": [
+          {
+            "color": "rgb(255, 255, 255)",
+            "expected": "rgb(255, 255, 255)"
+          },
+          {
+            "color": "rgb(255, 242, 0)",
+            "expected": "rgb(255, 242, 0)"
+          },
+          {
+            "color": "rgb(255, 255, 255)",
+            "expected": "rgb(255, 255, 255)"
+          }
+        ]
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "5. 未知 id のバッジ・ lint warning・validator",
+      "pass": true,
+      "detail": {
+        "badge": {
+          "text": "🎨 nope-x?",
+          "title": "カタログに無いテンプレ id（edit-lint warning）"
+        },
+        "warningCount": 1,
+        "validateCaptionsExit": 0
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "2. 選択 3 行へニュース風を 1 commit で適用",
+      "pass": true,
+      "detail": {
+        "changedRows": 3,
+        "unchangedRows": 497,
+        "unchangedOthers": true,
+        "targetFieldsEqual": true,
+        "commitDelta": 1,
+        "badges": 4,
+        "previewPlateBackground": "rgb(198, 40, 40)"
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "3. 全 500 行へ適用・ 1 commit・未知キー保全",
+      "pass": true,
+      "detail": {
+        "changedRows": 500,
+        "commitDelta": 1,
+        "elapsedMs": 374.8923340000001,
+        "badges": 500,
+        "xNoteBytesEqual": true
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "3b. 同値の全行再適用は no-op",
+      "pass": true,
+      "detail": {
+        "captionsBytesEqual": true,
+        "commitDelta": 0,
+        "notification": "changed: 0"
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "4. テンプレなしは style_preset だけを削除",
+      "pass": true,
+      "detail": {
+        "remainingPresetKeys": 0,
+        "textStyleRows": 5,
+        "textStyleBytesEqual": true,
+        "commitDelta": 1
+      }
+    },
+    {
+      "fixture": "v2",
+      "name": "6. tick 100 回で行 DOM 参照不変・ handler 2ms 未満",
+      "pass": true,
+      "detail": {
+        "metrics": {
+          "count": 100,
+          "totalMs": 1.3999999910593033,
+          "maxMs": 0.20000000298023224,
+          "averageMs": 0.013999999910593032
+        },
+        "referencesStable": true
+      }
+    },
+    {
+      "fixture": "v1",
+      "name": "2. 選択 3 行へニュース風を 1 commit で適用",
+      "pass": true,
+      "detail": {
+        "changedRows": 3,
+        "unchangedRows": 37,
+        "unchangedOthers": true,
+        "targetFieldsEqual": true,
+        "commitDelta": 1,
+        "badges": 4,
+        "previewPlateBackground": null
+      }
+    },
+    {
+      "fixture": "v1",
+      "name": "4. テンプレなしは style_preset だけを削除",
+      "pass": true,
+      "detail": {
+        "remainingPresetKeys": 0,
+        "textStyleRows": 5,
+        "textStyleBytesEqual": true,
+        "commitDelta": 1
+      }
+    }
+  ],
+  "screenshots": [
+    "v2-01-picker.png",
+    "v2-02-selected-news.png",
+    "v2-03-all-standard.png",
+    "v2-04-preset-none.png",
+    "v1-02-selected-news.png",
+    "v1-04-preset-none.png"
+  ],
+  "fixtures": {
+    "v2": {
+      "version": 2,
+      "rows": 500,
+      "preloadOverlay": "removed"
+    },
+    "v1": {
+      "version": 1,
+      "rows": 40,
+      "preloadOverlay": "removed"
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -389,6 +389,40 @@ test('kernel, render, preview API, and shell return the exact same complete disp
     assert.deepEqual(shell.captions, kernel.display_cues);
     assert.ok(kernel.display_cues.every(cue => cue.text_style && cue.style_vars && cue.layout));
     await rm(root, { recursive: true, force: true });
+});
+
+test('shell backend supplies protect_break terms and matches soft-fallback fragments', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'akari-shell-word-book-caption-'));
+    try {
+        const captionsPath = join(root, 'captions.json');
+        const editPath = join(root, 'edit.json');
+        const memory = join(root, '.akari', 'memory');
+        await mkdir(memory, { recursive: true });
+        const captionsRoot = {
+            display_policy: {
+                mode: 'single_line_sequential', algorithm: 'a4-ja-two-fragment-v1',
+                unit_metric: 'ascii-half-other-one-v1', max_line_units: 3,
+                minimum_fragment_duration_seconds: 0.1, locale: 'en'
+            },
+            captions: [{ ...caption, text: 'alpha beta', sourceRef: null }]
+        };
+        const edit = {
+            version: 0, source: { path: 'source.mp4' }, cuts: [{ in: 0, out: 2 }],
+            output: { width: 1920, height: 1080, fps: 30 }
+        };
+        await writeFile(captionsPath, JSON.stringify(captionsRoot));
+        await writeFile(editPath, JSON.stringify(toV2Edit(edit)));
+        await writeFile(join(memory, 'word-book.json'), JSON.stringify({
+            version: 0,
+            entries: [{ surface: 'alpha beta', variants: [], kind: 'term', protect_break: true }]
+        }));
+        const shell = await resolveFrom(captionService(root), captionsPath, editPath);
+        const kernel = resolveCaptionDisplay(captionsRoot, edit, { extra_protected_terms: ['alpha beta'] });
+        assert.deepEqual(shell.captions.map(cue => cue.text), kernel.display_cues.map(cue => cue.text));
+        assert.deepEqual(shell.captions.map(cue => cue.text), ['alpha', ' beta']);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
 });
 
 test('caption display rejects static symlinks for both captions and edit inputs', async () => {

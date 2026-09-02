@@ -61,6 +61,8 @@ import {
     SlipCutRequest,
     SetBgmFieldsRequest,
     SetCaptionFieldsRequest,
+    SetCaptionStylePresetRequest,
+    SetCaptionStylePresetResult,
     SetCaptionTimingRequest,
     SetCaptionTextStyleRequest,
     SetCutAtValuesRequest,
@@ -105,6 +107,7 @@ import {
     shiftCaptionLine,
     setCaptionTimingLine,
     updateCaptionFieldsInSource,
+    updateCaptionStylePresetInSource,
     updateCaptionTextStyleInSource
 } from '../common/caption-store';
 import {
@@ -645,6 +648,21 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const updated = updateCaptionTextStyleInSource(source, request.captionId, request.textStyle ?? {});
         await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕のスタイルを変更') };
+    }
+
+    async setCaptionStylePreset(request: SetCaptionStylePresetRequest): Promise<SetCaptionStylePresetResult> {
+        this.requireWriteRequest(request?.captionsUri, request?.projectRootUri);
+        const captionsPath = this.fsPath(request.captionsUri);
+        const beforeSource = await fs.readFile(captionsPath, 'utf8');
+        const updated = updateCaptionStylePresetInSource(beforeSource, request.captionIds, request.presetId);
+        if (updated.changed === 0) {
+            return { committed: false, changed: 0, beforeSource };
+        }
+        await this.writeProjectFileGuarded(captionsPath, updated.source);
+        const projectRoot = this.fsPath(request.projectRootUri);
+        const committed = this.commitWrite(projectRoot, '字幕テンプレを適用')
+            || await this.commitIfOwnRoot(projectRoot, '字幕テンプレを適用', [captionsPath]);
+        return { committed, changed: updated.changed, beforeSource };
     }
 
     async reorderCuts(request: ReorderCutsRequest): Promise<WriteBackResult> {

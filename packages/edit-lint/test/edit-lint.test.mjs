@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
-import { chmod, cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -127,6 +127,178 @@ test("valid fixture passes and writes both reports", async () => {
     );
     assert.match(report, /edit-lint report/);
     assert.doesNotMatch(report, /https?:\/\//);
+  });
+});
+
+const WORD_BOOK_FIXTURE = {
+  edit: {
+    version: 0,
+    output: { width: 1280, height: 720, fps: 30 },
+    source: { path: "../valid/sample.mp4", proxy: null },
+    cuts: [{ in: 0, out: 8 }],
+    overlays: [],
+  },
+  captions: {
+    display_policy: {
+      mode: "single_line_sequential",
+      algorithm: "a4-ja-two-fragment-v1",
+      unit_metric: "ascii-half-other-one-v1",
+      max_line_units: 3,
+      minimum_fragment_duration_seconds: 0.1,
+      locale: "ja",
+    },
+    captions: [
+      {
+        id: "c-0001", start: 0, end: 2, text: "あかりビデオ",
+        speaker: null, sourceRef: null, edited: false,
+        words: [{ start: 0, end: 2, text: "あかりビデオ" }],
+        display_fragments: ["あかり", "ビデオ"],
+      },
+      {
+        id: "c-0002", start: 2, end: 4, text: "あかりビデオ",
+        speaker: null, sourceRef: null, edited: true,
+        words: [{ start: 2, end: 4, text: "あかりビデオ" }],
+        display_fragments: ["あかり", "ビデオ"],
+      },
+      {
+        id: "c-0003", start: 4, end: 6, text: "ムービー",
+        speaker: null, sourceRef: null, edited: false,
+        words: [{ start: 4, end: 6, text: "ムービー" }],
+        display_fragments: ["ムー", "ビー"],
+      },
+      {
+        id: "c-0004", start: 6, end: 8, text: "alpha beta",
+        speaker: null, sourceRef: null, edited: false,
+        words: [{ start: 6, end: 7, text: "alpha" }, { start: 7, end: 8, text: "beta" }],
+      },
+    ],
+  },
+  extraWordBook: {
+    version: 0,
+    entries: [
+      { surface: "AKARI Video", variants: ["あかりビデオ"], kind: "term" },
+      { surface: "動画", variants: ["ムービー"], kind: "notation" },
+      { surface: "alpha beta", variants: [], kind: "term", protect_break: true },
+      { surface: "ExtraName", variants: ["shadow"], kind: "term" },
+    ],
+  },
+  projectWordBook: {
+    version: 0,
+    entries: [{ surface: "ProjectName", variants: ["shadow"], kind: "term" }],
+  },
+  invalidWordBook: { version: 1, entries: [] },
+};
+
+async function materializeWordBookFixture(fixtures) {
+  const fixture = WORD_BOOK_FIXTURE;
+  const project = join(fixtures, "word-book-runtime");
+  const memory = join(project, ".akari", "memory");
+  await mkdir(memory, { recursive: true });
+  await writeFile(join(project, "edit.json"), `${JSON.stringify(fixture.edit, null, 2)}\n`);
+  await writeFile(join(project, "captions.json"), `${JSON.stringify(fixture.captions, null, 2)}\n`);
+  await writeFile(join(project, "extra-word-book.json"), `${JSON.stringify(fixture.extraWordBook, null, 2)}\n`);
+  await writeFile(join(project, "invalid-word-book.json"), `${JSON.stringify(fixture.invalidWordBook)}\n`);
+  await writeFile(join(memory, "word-book.json"), `${JSON.stringify(fixture.projectWordBook, null, 2)}\n`);
+  await migrateFixtureTree(project);
+  return project;
+}
+
+async function runWordBookFixture(fixtures, wordBook = "extra-word-book.json") {
+  const project = await materializeWordBookFixture(fixtures);
+  return run(project, [], {
+    AKARI_WORD_BOOK: join(project, wordBook),
+    AKARI_HOME: join(fixtures, "isolated-machine"),
+    HOME: join(fixtures, "isolated-home"),
+  });
+}
+
+test("word-book.invalid は壊れた層の code と path を warning にする", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = await materializeWordBookFixture(fixtures);
+    const executed = run(project, [], {
+      AKARI_WORD_BOOK: join(project, "invalid-word-book.json"),
+      AKARI_HOME: join(fixtures, "isolated-machine"), HOME: join(fixtures, "isolated-home"),
+    });
+    const findings = parseResult(executed).findings.filter(finding => finding.check === "word-book.invalid");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "warning");
+    assert.match(findings[0].message, /too-new/u);
+    assert.match(findings[0].path, /invalid-word-book/u);
+  });
+});
+
+test("word-book.variant-shadowed は層間 variant 衝突を info にする", async () => {
+  await withFixtures(async (fixtures) => {
+    const findings = parseResult(await runWordBookFixture(fixtures)).findings
+      .filter(finding => finding.check === "word-book.variant-shadowed");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "info");
+    assert.match(findings[0].message, /ExtraName.*ProjectName/u);
+  });
+});
+
+test("captions.word-book-term は未適用 term を warning にする", async () => {
+  await withFixtures(async (fixtures) => {
+    const findings = parseResult(await runWordBookFixture(fixtures)).findings
+      .filter(finding => finding.check === "captions.word-book-term" && finding.path === "captions.json#[0]");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "warning");
+    assert.match(findings[0].message, /words\[0\].*あかりビデオ.*AKARI Video/u);
+  });
+});
+
+test("edited 行の captions.word-book-term は info に下がる", async () => {
+  await withFixtures(async (fixtures) => {
+    const findings = parseResult(await runWordBookFixture(fixtures)).findings
+      .filter(finding => finding.check === "captions.word-book-term" && finding.path === "captions.json#[1]");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "info");
+  });
+});
+
+test("captions.word-book-notation は notation variant を warning にする", async () => {
+  await withFixtures(async (fixtures) => {
+    const findings = parseResult(await runWordBookFixture(fixtures)).findings
+      .filter(finding => finding.check === "captions.word-book-notation");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "warning");
+    assert.match(findings[0].message, /ムービー.*動画/u);
+  });
+});
+
+test("captions.word-book-break-fallback は dropped_terms を warning にする", async () => {
+  await withFixtures(async (fixtures) => {
+    const findings = parseResult(await runWordBookFixture(fixtures)).findings
+      .filter(finding => finding.check === "captions.word-book-break-fallback");
+    assert.equal(findings.length, 1);
+    assert.equal(findings[0].severity, "warning");
+    assert.equal(findings[0].path, "captions.json#[3]");
+    assert.match(findings[0].message, /alpha beta/u);
+  });
+});
+
+test("単語帳が無ければ word-book 規則は静か", async () => {
+  await withFixtures(async (fixtures) => {
+    const project = join(fixtures, "captions-words-valid");
+    const result = parseResult(run(project, [], {
+      AKARI_WORD_BOOK: join(fixtures, "missing-word-book.json"),
+      AKARI_HOME: join(fixtures, "isolated-machine"), HOME: join(fixtures, "isolated-home"),
+    }));
+    assert.equal(result.findings.filter(finding => finding.check.includes("word-book")).length, 0);
+  });
+});
+
+test("既定 valid fixture では新規 5 規則が 1 件も鳴らない", async () => {
+  await withFixtures(async (fixtures) => {
+    const result = parseResult(run(join(fixtures, "valid"), [], {
+      AKARI_WORD_BOOK: join(fixtures, "missing-word-book.json"),
+      AKARI_HOME: join(fixtures, "isolated-machine"), HOME: join(fixtures, "isolated-home"),
+    }));
+    const checks = new Set([
+      "word-book.invalid", "word-book.variant-shadowed", "captions.word-book-term",
+      "captions.word-book-notation", "captions.word-book-break-fallback",
+    ]);
+    assert.equal(result.findings.filter(finding => checks.has(finding.check)).length, 0);
   });
 });
 test("v1 accepts multiple sources, array-order cuts, and captions src", async () => {

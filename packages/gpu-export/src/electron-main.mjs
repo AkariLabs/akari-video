@@ -21,11 +21,20 @@ const SOURCE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const VERIFY_READBACK_PATH = join(SOURCE_DIRECTORY, "verify-readback.js");
 const CAPTION_MEASURE_DIFF_MARKER = "AKARI_CAPTION_MEASURE_DIFFS:";
 const HEVC_UNSUPPORTED_REASON = "hevc-unsupported";
+const PREVIEW_BASE_PIXELS = 1920 * 1080;
+export const PREVIEW_WIDTH = 320;
 const DOM_LAYER_SWITCHES = Object.freeze([
   ["enable-features", "CanvasDrawElement"],
   ["disable-gpu-vsync", null],
   ["disable-frame-rate-limit", null],
 ]);
+
+/** 1 秒に 1 枚を上限に、出力画素数に比例して間引く（内部固定・ユーザーに開放しない）。 */
+export function resolvePreviewEvery({ fps, width, height }) {
+  const safeFps = Number.isFinite(fps) && fps > 0 ? fps : 30;
+  const pixels = Math.max(1, Math.round(width) * Math.round(height));
+  return Math.max(Math.ceil(safeFps), Math.ceil(safeFps * (pixels / PREVIEW_BASE_PIXELS)));
+}
 
 export async function runGpuExport(options) {
   const {
@@ -49,10 +58,21 @@ export async function runGpuExport(options) {
     dumpFrames = [],
     captureFrames = null,
     captureOutputDirectory = null,
+    preview = "auto",
+    previewOutputDirectory = null,
     processTimeoutMs = Math.max(300_000, frames * 1_000),
     ffprobeCommand = process.env.FFPROBE ?? process.env.AKARI_FFPROBE_BIN ?? "ffprobe",
   } = options;
   const captureMode = captureFrames !== null;
+  const previewMode = preview === "off" ? "off" : "auto";
+  const resolvedPreviewDirectory = previewOutputDirectory ?? join(dirname(out), "previews");
+  let previewDisabledReason = null;
+  if (previewMode === "off") previewDisabledReason = "requested-off";
+  else if (trapReadback) previewDisabledReason = "trap-readback";
+  else if (captureMode) previewDisabledReason = "capture";
+  const previewEvery = previewDisabledReason === null
+    ? resolvePreviewEvery({ fps, width: outputWidth, height: outputHeight })
+    : 0;
   if (!Number.isFinite(duration) || duration <= 0 || !Number.isInteger(frames) || frames <= 0) {
     throw new Error("GPU duration and frame count must be positive");
   }
@@ -132,6 +152,8 @@ export async function runGpuExport(options) {
     verifyFrames,
     dumpFrames: requestedDumpFrames,
     captureFrames: requestedCaptureFrames,
+    previewEvery,
+    previewWidth: PREVIEW_WIDTH,
     domLayerFlags,
     ...(process.env.AKARI_GPU_CAPTION_MEASURE_FAULT
       ? { captionMeasureFault: process.env.AKARI_GPU_CAPTION_MEASURE_FAULT }
@@ -144,10 +166,12 @@ export async function runGpuExport(options) {
   let chunkState = null;
   let rendererFailure = null;
   let viewport = null;
+  let previewFramesWritten = 0;
   const channels = [
     "gpu:config", "gpu:log", "gpu:checkpoint", "gpu:chunks-start", "gpu:chunk", "gpu:chunks-finish",
     "gpu:capture-frame",
     "gpu:dump-frame",
+    "gpu:preview-frame",
   ];
 
   const register = (channel, handler) => ipcMain.handle(channel, handler);
@@ -213,7 +237,22 @@ export async function runGpuExport(options) {
     await writeFile(outputPath, encodeRgbaPng(rgba, width, height));
     return { frameNumber, path: outputPath, bytes: rgba.length };
   });
+  const writePreviewFrame = async (value) => {
+    const frameNumber = Number(value?.frameNumber);
+    if (!Number.isInteger(frameNumber) || frameNumber < 0 || frameNumber >= frames) {
+      throw new Error(`unexpected GPU preview frame: ${value?.frameNumber}`);
+    }
+    const jpeg = Buffer.from(value?.jpeg?.buffer ?? value?.jpeg ?? []);
+    const outputPath = join(resolvedPreviewDirectory, `${frameNumber}.jpg`);
+    await mkdir(resolvedPreviewDirectory, { recursive: true });
+    await writeFile(outputPath, jpeg);
+    previewFramesWritten += 1;
+    process.stdout.write(`PROGRESS preview=${frameNumber} path=${outputPath}\n`);
+    return { frameNumber, path: outputPath, bytes: jpeg.length };
+  };
+  register("gpu:preview-frame", async (_event, value) => writePreviewFrame(value));
   register("gpu:dump-frame", async (_event, value) => {
+    if (value?.kind === "preview") return writePreviewFrame(value);
     const frameNumber = Number(value?.frameNumber);
     if (!requestedDumpFrames.includes(frameNumber)) {
       throw new Error(`unexpected GPU dump frame: ${value?.frameNumber}`);
@@ -276,6 +315,13 @@ export async function runGpuExport(options) {
         chromium: process.versions.chrome,
         devices: gpuDevices,
       },
+      preview: {
+        mode: previewMode,
+        frames: previewFramesWritten,
+        ...(previewDisabledReason || result?.gpu?.previewDisabledReason
+          ? { disabledReason: previewDisabledReason ?? result.gpu.previewDisabledReason }
+          : {}),
+      },
       memory: { ...memory, warnings: memoryWarnings },
       eligibility: built.eligibility,
       viewport,
@@ -307,6 +353,11 @@ export async function runGpuExport(options) {
         encoder_support: gpuDiagnostics?.encoder_support ?? null,
         devices: gpuDevices,
         ...(captionMeasureDiffs ? { captionMeasureDiffs } : {}),
+      },
+      preview: {
+        mode: previewMode,
+        frames: previewFramesWritten,
+        ...(previewDisabledReason ? { disabledReason: previewDisabledReason } : {}),
       },
       memory: memorySampler.stop("failed"),
       eligibility: built.eligibility,
@@ -469,6 +520,8 @@ export function parseElectronArguments(argv) {
     dumpFrames: [],
     captureFrames: null,
     captureOutputDirectory: null,
+    preview: "auto",
+    previewOutputDirectory: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -492,6 +545,12 @@ export function parseElectronArguments(argv) {
     else if (argument === "--dump-frames") options.dumpFrames = parseFrameList(required(argv, ++index, "--dump-frames"), "--dump-frames");
     else if (argument === "--capture-frames") options.captureFrames = parseFrameList(required(argv, ++index, "--capture-frames"));
     else if (argument === "--capture-output-dir") options.captureOutputDirectory = required(argv, ++index, "--capture-output-dir");
+    else if (argument === "--preview") {
+      const value = required(argv, ++index, "--preview");
+      if (value !== "auto" && value !== "off") throw new Error('--preview must be auto|off');
+      options.preview = value;
+    }
+    else if (argument === "--preview-dir") options.previewOutputDirectory = required(argv, ++index, "--preview-dir");
   }
   if (!options.projectRoot || !options.out) throw new Error("--render and --out are required");
   options.outputWidth ??= options.width;
