@@ -424,6 +424,31 @@ export class AudioWaveformDebounceGate {
     }
 }
 
+/** T1 失敗直後の同一ビュー再描画では再試行せず、可視窓が変わった場合だけ許可する。 */
+export class AudioWaveformT1RetryGate {
+    protected readonly failedViewKeys = new Map<string, string>();
+
+    shouldRetry(path: string, viewKey: string): boolean {
+        const failedViewKey = this.failedViewKeys.get(path);
+        return failedViewKey !== undefined && failedViewKey !== viewKey;
+    }
+
+    recordFailure(path: string, viewKey: string): void {
+        this.failedViewKeys.set(path, viewKey);
+    }
+
+    recordSuccess(path: string): void {
+        this.failedViewKeys.delete(path);
+    }
+}
+
+/** パン／ズームによる可視窓の明示的な変化を T1 再試行キーへ正規化する。 */
+export function audioWaveformViewKey(viewStartSeconds: number, viewDurationSeconds: number): string {
+    const start = Number.isFinite(viewStartSeconds) ? viewStartSeconds : 0;
+    const duration = Number.isFinite(viewDurationSeconds) ? Math.max(0, viewDurationSeconds) : 0;
+    return `${start.toFixed(6)}:${duration.toFixed(6)}`;
+}
+
 export interface AudioKeyframeTimePoint {
     t: number;
 }
@@ -550,6 +575,55 @@ export function audioClipLocalGeometry(
     };
 }
 
+export interface AudioWaveformCanvasPlacementInput {
+    clipStartSec: number;
+    clipDisplayDurationSec: number;
+    waveformStartSec: number;
+    waveformDisplayDurationSec: number;
+    fullClipWidthPx: number;
+    clipLocalOffsetPx: number;
+    visibleWidthPx: number;
+}
+
+export interface AudioWaveformCanvasPlacement {
+    canvasLeftPx: number;
+    canvasWidthPx: number;
+    waveformFullWidthPx: number;
+    waveformOffsetPx: number;
+}
+
+/**
+ * クリップ DOM のローカル原点と、取得済み波形 coverage の時刻原点を別々に扱い、
+ * 両者の交差だけを canvas の配置とマスター転送範囲へ写す。
+ */
+export function audioWaveformCanvasPlacement(
+    input: AudioWaveformCanvasPlacementInput
+): AudioWaveformCanvasPlacement | undefined {
+    if (!Number.isFinite(input.clipStartSec)
+        || !(input.clipDisplayDurationSec > 0) || !Number.isFinite(input.clipDisplayDurationSec)
+        || !Number.isFinite(input.waveformStartSec)
+        || !(input.waveformDisplayDurationSec > 0) || !Number.isFinite(input.waveformDisplayDurationSec)
+        || !(input.fullClipWidthPx > 0) || !Number.isFinite(input.fullClipWidthPx)
+        || !Number.isFinite(input.clipLocalOffsetPx)
+        || !(input.visibleWidthPx > 0) || !Number.isFinite(input.visibleWidthPx)) {
+        return undefined;
+    }
+    const pxPerSecond = input.fullClipWidthPx / input.clipDisplayDurationSec;
+    const clipEndSec = input.clipStartSec + input.clipDisplayDurationSec;
+    const elementStartSec = input.clipStartSec + Math.max(0, input.clipLocalOffsetPx) / pxPerSecond;
+    const elementEndSec = Math.min(clipEndSec, elementStartSec + input.visibleWidthPx / pxPerSecond);
+    const waveformEndSec = input.waveformStartSec + input.waveformDisplayDurationSec;
+    const drawStartSec = Math.max(input.clipStartSec, elementStartSec, input.waveformStartSec);
+    const drawEndSec = Math.min(clipEndSec, elementEndSec, waveformEndSec);
+    if (!(drawEndSec > drawStartSec)) return undefined;
+    return {
+        canvasLeftPx: (drawStartSec - elementStartSec) * pxPerSecond,
+        canvasWidthPx: (drawEndSec - drawStartSec) * pxPerSecond,
+        waveformFullWidthPx: input.waveformDisplayDurationSec * pxPerSecond,
+        waveformOffsetPx: (drawStartSec - input.waveformStartSec) * pxPerSecond
+    };
+}
+
 export interface AudioWaveformSourceRectInput {
     masterWidthPx: number;
     fullClipWidthPx: number;
@@ -580,6 +654,7 @@ export interface AudioWaveformPaintState {
     sliceKey: string;
     visibleWidth: number;
     offset: number;
+    left?: number;
     bandTop: number;
     bandHeight: number;
 }
@@ -592,6 +667,7 @@ export function audioWaveformRepaintNeeded(
         || previous.sliceKey !== next.sliceKey
         || previous.visibleWidth !== next.visibleWidth
         || previous.offset !== next.offset
+        || previous.left !== next.left
         || previous.bandTop !== next.bandTop
         || previous.bandHeight !== next.bandHeight;
 }

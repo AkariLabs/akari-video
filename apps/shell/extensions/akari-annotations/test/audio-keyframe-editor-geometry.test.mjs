@@ -8,6 +8,7 @@ import {
   audioKeyframePxToDb,
   audioKeyframePxToTime,
   audioKeyframeTimeToPx,
+  normalizeAudioKeyframeGainDb,
   snapAudioKeyframeTime,
   validateAudioKeyframeTime,
 } from '../lib/common/audio-keyframe-editor-geometry.js';
@@ -92,4 +93,15 @@ test('移動元 index 自身だけは同一 t 衝突判定から除外する', (
 
 test('既存点と異なる t への追加・移動は許可する', () => {
   assert.deepEqual(validateAudioKeyframeTime([{ t: 1 }, { t: 2 }], 1.5), { ok: true });
+});
+
+test('全体ゲインは未設定を0 dBにして表示範囲へクランプする', () => {
+  assert.equal(normalizeAudioKeyframeGainDb(undefined), 0);
+  assert.equal(normalizeAudioKeyframeGainDb(-100), AUDIO_KEYFRAME_MIN_DB);
+  assert.equal(normalizeAudioKeyframeGainDb(100), AUDIO_KEYFRAME_MAX_DB);
+});
+
+test('全体ゲインは範囲内の0 dBと0.5 dB刻み値を保つ', () => {
+  assert.equal(normalizeAudioKeyframeGainDb(0), 0);
+  assert.equal(normalizeAudioKeyframeGainDb(-4.5), -4.5);
 });
