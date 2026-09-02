@@ -35,7 +35,7 @@ import type { ReadableTransitionType } from '@akari-video/edit-store';
 import {
     AssetStreamRequest,
     AkariPreviewService,
-    OverlayRuntimeAssets,
+    OverlayRuntimeAssetUrls,
     RasterizeTelopPreviewRequest,
     ReviewStrokeFrame,
     VideoStreamReference,
@@ -931,9 +931,9 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     protected captionWriteTail = Promise.resolve();
     protected readonly lifecycleDisposables = new DisposableCollection();
     /** バックエンドでプロセス寿命中不変の約 13MB ランタイム資産を、frontend でも RPC 1 回に畳む。 */
-    protected overlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssets> | undefined;
+    protected overlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssetUrls> | undefined;
     /** frame-engine 込みは巨大なので、legacy 用の通常資産とは別の RPC キャッシュにする。 */
-    protected frameEngineOverlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssets> | undefined;
+    protected frameEngineOverlayRuntimeAssetsPromise: Promise<OverlayRuntimeAssetUrls> | undefined;
     /** 環境変数はセッション中に変わらないため、backend RPC は最初の 1 回だけにする。 */
     protected frameEngineEnvOverridePromise: Promise<string | undefined> | undefined;
     protected frameEngineReadyTimeoutMsPromise: Promise<number | undefined> | undefined;
@@ -2699,7 +2699,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return true;
     }
 
-    protected previewModelSnapshot(model: PreviewModel, assets: OverlayRuntimeAssets): PreviewModelDiffInput {
+    protected previewModelSnapshot(model: PreviewModel, assets: OverlayRuntimeAssetUrls): PreviewModelDiffInput {
         const assetUrlByUri = model.assetUrlByUri ?? new Map<string, string>();
         const replacements = [...assetUrlByUri.entries()].map(([uri, url]) => [url, `akari-asset:${uri}`] as const);
         return {
@@ -2708,16 +2708,17 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             assetUris: model.assetUris.map(uri => uri.toString()),
             overlayUris: model.overlayUris.map(uri => uri.toString()),
             output: { ...model.summary.output },
+            // URL は内容ハッシュ付きなので、資産の中身が変わればここも変わる（旧: 本文そのもの）。
             overlayRuntimeAssets: [
-                assets.threeJavaScript,
-                assets.threeTextJavaScript,
-                assets.threeRuntimeJavaScript,
-                assets.videoFxJavaScript,
-                assets.runtimeJavaScript,
-                assets.interactionJavaScript,
+                assets.threeJavaScriptUrl,
+                assets.threeTextJavaScriptUrl,
+                assets.threeRuntimeJavaScriptUrl,
+                assets.videoFxJavaScriptUrl,
+                assets.runtimeJavaScriptUrl,
+                assets.interactionJavaScriptUrl,
                 assets.interactionCss,
-                assets.webviewKernelJavaScript,
-                assets.captionFontDataUri
+                assets.webviewKernelJavaScriptUrl,
+                assets.captionFontUrl
             ],
             captions: model.captions,
             emphasisWords: model.emphasisWords ?? [],
@@ -2753,10 +2754,12 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         return this.replacePreviewAssetUrls(model.summary, replacements) as EditSummary;
     }
 
-    protected getOverlayRuntimeAssets(includeFrameEngine = false): Promise<OverlayRuntimeAssets> {
+    // 資産は URL で受ける（OverlayRuntimeAssetUrls）。本文を RPC で運んで HTML に埋めていた頃は
+    // 開くたびに約 15 MB の setHTML になっていた（task/2026-09-02-preview-perf）。
+    protected getOverlayRuntimeAssets(includeFrameEngine = false): Promise<OverlayRuntimeAssetUrls> {
         if (includeFrameEngine) {
             if (!this.frameEngineOverlayRuntimeAssetsPromise) {
-                const cached = this.previewService.getOverlayRuntimeAssets({ includeFrameEngine: true }).catch(error => {
+                const cached = this.previewService.getOverlayRuntimeAssetUrls({ includeFrameEngine: true }).catch(error => {
                     if (this.frameEngineOverlayRuntimeAssetsPromise === cached) {
                         this.frameEngineOverlayRuntimeAssetsPromise = undefined;
                     }
@@ -2767,7 +2770,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
             return this.frameEngineOverlayRuntimeAssetsPromise;
         }
         if (!this.overlayRuntimeAssetsPromise) {
-            const cached = this.previewService.getOverlayRuntimeAssets().catch(error => {
+            const cached = this.previewService.getOverlayRuntimeAssetUrls().catch(error => {
                 if (this.overlayRuntimeAssetsPromise === cached) {
                     this.overlayRuntimeAssetsPromise = undefined;
                 }
@@ -5041,7 +5044,7 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
         videoUri: URI,
         videoSource: string,
         model: PreviewModel,
-        assets: OverlayRuntimeAssets,
+        assets: OverlayRuntimeAssetUrls,
         initialSeekTime?: number,
         sourceUrlById: Record<string, string> = {},
         hasSourceAudio?: boolean,
@@ -5058,11 +5061,15 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
     ): string {
         const { width, height } = model.summary.output;
         const threeTextRuntimeScript = hasThreeDimensionalTextOverlay(model.summary.overlays)
-            ? `<script>${this.inlineScript(assets.threeTextJavaScript)}</script>\n`
+            ? `${this.externalScriptTag(assets.threeTextJavaScriptUrl)}\n`
             : '';
-        const frameEngineScripts = frameEngineEnabled && assets.frameEngineJavaScript
-            ? `<script>${this.frameEngineWatchdogScript()}</script>\n<script>${this.inlineScript(assets.frameEngineJavaScript)}</script>\n<script>${this.frameEngineBootstrapScript()}</script>\n`
+        const frameEngineScripts = frameEngineEnabled && assets.frameEngineJavaScriptUrl
+            ? `<script>${this.frameEngineWatchdogScript()}</script>\n${this.externalScriptTag(assets.frameEngineJavaScriptUrl)}\n<script>${this.frameEngineBootstrapScript()}</script>\n`
             : '';
+        // 資産（three / runtime / kernel / frame-engine / 字幕フォント）は素材配信サーバーと同じ
+        // 127.0.0.1 オリジンから URL で読む。script-src / font-src にそのオリジンを足す。
+        const streamOrigin = this.escapeHtml(this.streamOrigin(videoSource));
+        const assetOrigin = this.escapeHtml(assets.origin);
         // frame-engine の素材デコード（av-cliper / MP4Clip）は OPFS ファイルストアと
         // タイマーを blob / data URL の Worker で動かす。既定 CSP では生成を拒否されるため、
         // 評価台を有効にしたときだけ worker-src を開ける。
@@ -5118,10 +5125,10 @@ export class AkariPreviewOpenHandler implements OpenHandler, FrontendApplication
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${this.escapeHtml(this.streamOrigin(videoSource))}; connect-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob:; img-src ${this.escapeHtml(this.streamOrigin(videoSource))} blob: data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:${frameEngineCsp}">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; media-src ${streamOrigin}; connect-src ${streamOrigin} blob:; img-src ${streamOrigin} blob: data:; script-src 'unsafe-inline' ${assetOrigin}; style-src 'unsafe-inline'; font-src ${assetOrigin} data:${frameEngineCsp}">
 <style>
 ${this.inlineStyle(assets.interactionCss)}
-${captionFontFaceCss(assets.captionFontDataUri)}
+${captionFontFaceCss(assets.captionFontUrl)}
 :root {
   color-scheme: light dark;
   font-family: "${CAPTION_FONT_FAMILY}", sans-serif;
@@ -5431,12 +5438,12 @@ body { display: grid; grid-template-rows: minmax(0, 1fr) auto; }
 <script>window.__akariPreview = ${initialState};</script>
 <script>window.__akariCaptionFontReady = (async () => { await document.fonts.load(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)}); await document.fonts.ready; if (!document.fonts.check(${JSON.stringify(CAPTION_FONT_LOAD_DESCRIPTOR)})) throw new Error('AKARI caption font did not load'); return true; })();</script>
 <script>${this.hostAdapterScript()}</script>
-<script>${this.inlineScript(assets.threeJavaScript)}</script>
-${threeTextRuntimeScript}<script>${this.inlineScript(assets.threeRuntimeJavaScript)}</script>
-<script>${this.inlineScript(assets.videoFxJavaScript)}</script>
-<script>${this.inlineScript(assets.runtimeJavaScript)}</script>
-<script>${this.inlineScript(assets.interactionJavaScript)}</script>
-<script>${this.inlineScript(assets.webviewKernelJavaScript)}</script>
+${this.externalScriptTag(assets.threeJavaScriptUrl)}
+${threeTextRuntimeScript}${this.externalScriptTag(assets.threeRuntimeJavaScriptUrl)}
+${this.externalScriptTag(assets.videoFxJavaScriptUrl)}
+${this.externalScriptTag(assets.runtimeJavaScriptUrl)}
+${this.externalScriptTag(assets.interactionJavaScriptUrl)}
+${this.externalScriptTag(assets.webviewKernelJavaScriptUrl)}
 <script>${this.previewBootstrapScript()}</script>
 ${frameEngineScripts}</body>
 </html>`;
@@ -12984,6 +12991,12 @@ body { display: grid; place-items: center; padding: 32px; }
 
     protected inlineScript(value: string): string {
         return value.replace(/<\/script/gi, '<\\/script');
+    }
+
+    // src 付き <script> は同期実行（async / defer なし）なので、インライン <script> と混在しても
+    // 文書順で実行される。three → runtime → kernel → bootstrap の順序はそのまま保たれる。
+    protected externalScriptTag(url: string): string {
+        return `<script src="${this.escapeHtml(url)}"></script>`;
     }
 
     protected inlineStyle(value: string): string {
