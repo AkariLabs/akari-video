@@ -642,6 +642,35 @@ export function updateItem(
     return value;
 }
 
+/**
+ * 尺の変更で sequential な並びを保つ必要がある操作向け。
+ * 対象の旧終端以降に始まる同一トラックの item だけを、尺の差分だけまとめて移動する。
+ */
+export function updateItemDurationAndShiftFollowing(
+    doc: EditV2Document,
+    options: { itemId: string; patch: UnknownRecord }
+): EditV2Document {
+    if (!Object.prototype.hasOwnProperty.call(options.patch, 'duration')) {
+        throw new Error('duration の更新値がありません。');
+    }
+    requireFrame(options.patch.duration, 'duration');
+    const original = findItem(tracksOf(doc), options.itemId);
+    requireFrame(original.item.at, '対象クリップの at');
+    requireFrame(original.item.duration, '対象クリップの duration');
+    const oldEnd = original.item.at + original.item.duration;
+    const delta = options.patch.duration - original.item.duration;
+    const value = updateItem(doc, options);
+    if (delta === 0) return value;
+
+    const updated = findItem(tracksOf(value), options.itemId);
+    for (const item of updated.track.items) {
+        if (item.id === options.itemId) continue;
+        requireFrame(item.at, `クリップ ${String(item.id ?? '')} の at`);
+        if (item.at >= oldEnd) item.at += delta;
+    }
+    return value;
+}
+
 export function removeItem(doc: EditV2Document, itemId: string): EditV2Document {
     const value = cloneDocument(doc);
     const found = findItem(tracksOf(value), itemId);
