@@ -149,6 +149,7 @@ import {
 import { assignSubRows } from '../common/lane-layout';
 import { CaptionSubrowLayout, computeCaptionSubrowLayout } from '../common/caption-subrow-layout';
 import { clampCaptionOutputRange, resolveSourceCaptionEdgeDrag } from '../common/caption-output-domain';
+import { clampCaptionRangeToNeighbors, CaptionNeighborRange } from '../common/caption-overlap-guard';
 import {
     CaptionSourceForMapping,
     computeCaptionSourceMappingWarning,
@@ -5006,6 +5007,23 @@ export class AkariAnnotationsWidget extends BaseWidget {
         if ((ensureVisible || shouldNotify) && warning !== undefined) {
             this.showNotice(warning);
         }
+    }
+
+    /**
+     * lint（captions.overlap）と同じ時間群の字幕を返す: output 時間軸は output 同士、
+     * source 時間軸は同じ src（captionSourceForMapping）同士。自分は含めない。
+     */
+    protected captionOverlapNeighbors(captionId: string, timeDomain: 'source' | 'output'): CaptionNeighborRange[] {
+        if (timeDomain === 'output') {
+            return this.captions
+                .filter(candidate => candidate.id !== captionId && candidate.timeDomain === 'output')
+                .map(candidate => ({ id: candidate.id, start: candidate.start, end: candidate.end }));
+        }
+        const source = this.captionSourceForMapping(captionId);
+        return this.captions
+            .filter(candidate => candidate.id !== captionId && candidate.timeDomain !== 'output'
+                && this.captionSourceForMapping(candidate.id) === source)
+            .map(candidate => ({ id: candidate.id, start: candidate.start, end: candidate.end }));
     }
 
     protected captionRangeToOutputRanges(
@@ -10044,6 +10062,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 outputStart = start;
                 outputEnd = end;
             }
+            // 同じ時間群の隣の字幕へ食い込まない位置で止める（拒否はしない）。lint captions.overlap が
+            // error にする重なりを、書き込む前に作らない（task 2026-09-02-timeline-caption-overlap-guard）。
+            const guard = clampCaptionRangeToNeighbors({
+                id: state.id, start, end, mode: state.mode,
+                neighbors: this.captionOverlapNeighbors(state.id, timeDomain),
+                minDuration: MINIMUM_ITEM_DURATION
+            });
+            const blockedByNeighbor = guard.clamped;
+            if (guard.clamped) {
+                start = guard.start;
+                end = guard.end;
+                if (timeDomain === 'output') {
+                    outputStart = start;
+                    outputEnd = end;
+                } else {
+                    // source 時間軸はクランプ後の区間を出力秒へ写し直す
+                    outputStart = undefined;
+                    outputEnd = undefined;
+                }
+            }
             if (outputStart === undefined || outputEnd === undefined) {
                 const ranges = timeDomain === 'output'
                     ? [[start, end] as [number, number]]
@@ -10054,11 +10092,12 @@ export class AkariAnnotationsWidget extends BaseWidget {
             if (outputStart !== undefined && outputEnd !== undefined) {
                 this.setGhostRange(state.ghost, outputStart, outputEnd);
             }
-            this.setGhostSnapped(state.ghost, snapped);
+            this.setGhostSnapped(state.ghost, snapped && !blockedByNeighbor);
             this.setGhostOutputDomain(state.ghost, timeDomain === 'output');
-            this.updateDragFeedback(state, timeDomain === 'output' && state.originalTimeDomain !== 'output'
+            const rangeText = timeDomain === 'output' && state.originalTimeDomain !== 'output'
                 ? `出力時間の字幕に変換 ${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`
-                : `${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`);
+                : `${this.formatTimestamp(start)} – ${this.formatTimestamp(end)}`;
+            this.updateDragFeedback(state, blockedByNeighbor ? `${rangeText}（隣の字幕で止まりました）` : rangeText);
             return {
                 kind: 'caption', id: state.id,
                 start, end, timeDomain,
