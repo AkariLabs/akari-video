@@ -2816,6 +2816,65 @@ var require_caption_window = __commonJS({
   }
 });
 
+// ../edit-store/lib/caption-clock.js
+var require_caption_clock = __commonJS({
+  "../edit-store/lib/caption-clock.js"(exports) {
+    "use strict";
+    Object.defineProperty(exports, "__esModule", { value: true });
+    exports.normalizeCaptionClock = normalizeCaptionClock;
+    exports.captionClockDomainOf = captionClockDomainOf;
+    var EPSILON = 1e-6;
+    function normalizeCaptionClock(captions, segments) {
+      const output = [];
+      for (const caption of captions) {
+        const legacyOutputCue = caption.clockDomain === "legacy" && segments.some((segment) => segment.kind === "gap" && caption.start >= segment.outStart - EPSILON && caption.end <= segment.outEnd + EPSILON);
+        const domain = caption.clockDomain === "legacy" ? legacyOutputCue ? "output" : "source" : caption.clockDomain;
+        if (domain === "output" || segments.length === 0) {
+          output.push({ ...caption, clockDomain: "output" });
+          continue;
+        }
+        let occurrence = 0;
+        for (const segment of segments) {
+          if (segment.kind !== "src" || segment.in === void 0 || segment.out === void 0)
+            continue;
+          if (caption.clockSourceId !== void 0 && segment.src !== caption.clockSourceId)
+            continue;
+          const sourceStart = Math.max(caption.start, segment.in);
+          const sourceEnd = Math.min(caption.end, segment.out);
+          if (!(sourceEnd - sourceStart > EPSILON))
+            continue;
+          const speed = typeof segment.speed === "number" && segment.speed > 0 ? segment.speed : 1;
+          const projectTime = (sourceTime) => segment.outStart + (sourceTime - (segment.in ?? 0)) / speed;
+          occurrence += 1;
+          const sourceCueId = caption.sourceCueId ?? caption.id;
+          const words = caption.words?.flatMap((word) => {
+            const wordStart = Math.max(word.start, sourceStart);
+            const wordEnd = Math.min(word.end, sourceEnd);
+            return wordEnd - wordStart > EPSILON ? [{ ...word, start: projectTime(wordStart), end: projectTime(wordEnd) }] : [];
+          });
+          output.push({
+            ...caption,
+            ...caption.id ? { id: `${caption.id}-output-${occurrence}` } : {},
+            ...sourceCueId ? { sourceCueId } : {},
+            start: projectTime(sourceStart),
+            end: projectTime(sourceEnd),
+            ...words && words.length > 0 ? { words } : { words: void 0 },
+            clockDomain: "output"
+          });
+        }
+      }
+      return output.sort((left, right) => left.start - right.start || left.end - right.end);
+    }
+    function captionClockDomainOf(raw) {
+      const clockDomain = raw?.time_domain === "source" || raw?.time_domain === "output" ? raw.time_domain : "legacy";
+      return {
+        clockDomain,
+        ...typeof raw?.src === "string" && raw.src ? { clockSourceId: raw.src } : {}
+      };
+    }
+  }
+});
+
 // ../edit-store/lib/cut-adjacency.js
 var require_cut_adjacency = __commonJS({
   "../edit-store/lib/cut-adjacency.js"(exports) {
@@ -8718,6 +8777,7 @@ var require_lib = __commonJS({
     __exportStar(require_textstyle_catalog(), exports);
     __exportStar(require_caption_words_rederive(), exports);
     __exportStar(require_caption_window(), exports);
+    __exportStar(require_caption_clock(), exports);
     __exportStar(require_timeline_map(), exports);
     __exportStar(require_caption_display(), exports);
     __exportStar(require_edit_v2(), exports);
@@ -24368,9 +24428,11 @@ function audioDeclarations(edit) {
 }
 function normalizedCuts(edit) {
   const cuts = Array.isArray(edit?.cuts) ? edit.cuts : [];
+  const declaredTracks = cuts.map((cut) => cut?.track).filter((value) => Number.isInteger(value) && value >= 0);
+  const baseTrack = declaredTracks.length > 0 ? Math.min(...declaredTracks) : 0;
   return cuts.map((cut, index) => {
     const { at: _derivedAt, track: _derivedTrack, ...sequential } = cut;
-    const track = Number.isInteger(cut.track) && cut.track > 0 ? Number(cut.track) : 0;
+    const track = Number.isInteger(cut.track) && cut.track > baseTrack ? Number(cut.track) : 0;
     const placement = track > 0 ? { track, ...Number.isFinite(cut.at) && cut.at >= 0 ? { at: Number(cut.at) } : {} } : {};
     return {
       ...sequential,

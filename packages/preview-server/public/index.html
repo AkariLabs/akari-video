@@ -226,6 +226,9 @@ input[type=range] { width: 100%; }
 <!-- ビューポート単位（vw/vh 系）のステージ基準化。app.js が mount 時に断片へ適用する
      （packages/overlay-runtime/src/viewport-units.js。shell は同じ物を webview へインライン注入） -->
 <script src="/viewport-units.js"></script>
+<!-- params + data-akari-slot の差し込み（packages/overlay-runtime/src/slot-params.js。shell は runtimeJavaScript に
+     同梱して注入する）。app.js が mount 時に window.akari.slotParams.renderTextSlots を通す -->
+<script src="/slot-params.js"></script>
 <script type="module" src="/app.js"></script>
 </body>
 </html>

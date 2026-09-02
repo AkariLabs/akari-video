@@ -93,7 +93,7 @@ function executeWatchdog({ error, rejection, engine = {}, root = null, engineErr
 test('frame-engine scripts は watchdog、bundle、bootstrap の順で注入する', () => {
     assert.match(
         compiledHandler,
-        /\? `<script>\$\{this\.frameEngineWatchdogScript\(\)\}<\/script>\\n<script>\$\{this\.inlineScript\(assets\.frameEngineJavaScript\)\}<\/script>\\n<script>\$\{this\.frameEngineBootstrapScript\(\)\}<\/script>\\n`\s*: '';/u
+        /\? `<script>\$\{this\.frameEngineWatchdogScript\(\)\}<\/script>\\n\$\{this\.externalScriptTag\(assets\.frameEngineJavaScriptUrl\)\}\\n<script>\$\{this\.frameEngineBootstrapScript\(\)\}<\/script>\\n`\s*: '';/u
     );
 });
 

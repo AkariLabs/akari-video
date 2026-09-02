@@ -5,10 +5,12 @@
 import {
   buildTimelineMap,
   captionAnchorPositionVars,
+  captionClockDomainOf,
   computeBgmDuckGainDb,
   computeDuckIntervals,
   computeTransitionVisual,
   findActiveCaption,
+  normalizeCaptionClock,
   outputToSource,
   TRANSITION_BY_ID,
   transitionProgressAt,
@@ -176,6 +178,24 @@ let frameEngineRequestedTime = 0;
 const cutFx = createCutFxController(() => ({ summary, segment: getActiveSegment(outputTime), outputTime }));
 let captionsResolvedTimeline = false;
 let captionStylesInjected = false;
+// 字幕時計: 表示判定に使う cue は全件「出力秒」。shell と同じ共有カーネル normalizeCaptionClock
+// （packages/edit-store/src/caption-clock.ts）で source 秒の cue を cut map で射影する
+// （contract-2026-08-02-preview-parity §2.8。以前は source 秒で判定していて、削除区間をまたぐ cue の
+// 分割と gap 内の出力秒 cue が shell と食い違っていた — task/2026-09-02-preview-perf）。
+// caption-layout/v1（resolved timeline）は既に出力秒なのでそのまま。
+let captionsOutputClock = [];
+function refreshCaptionClock() {
+  const caps = getActiveCaptions();
+  if (captionsResolvedTimeline || !caps.length) {
+    captionsOutputClock = caps;
+    return;
+  }
+  const segs = Array.isArray(timelineMap?.segments) ? timelineMap.segments : [];
+  captionsOutputClock = normalizeCaptionClock(
+    caps.map(cue => ({ ...cue, ...captionClockDomainOf(cue) })),
+    segs
+  );
+}
 
 function applyCaptionApiPayload(body) {
   captionsData = Array.isArray(body) ? body : (body?.captions ?? []);
@@ -186,6 +206,7 @@ function applyCaptionApiPayload(body) {
     && Object.prototype.hasOwnProperty.call(body, 'default_text_style')) {
     summary = { ...summary, default_text_style: body.default_text_style };
   }
+  refreshCaptionClock();
 }
 
 // All geometry/capture paths await the exact repository-owned variable font.
@@ -470,6 +491,7 @@ function buildSegments() {
   }));
   const built = buildTimelineMap(kernelCuts, { trackZ: track => track });
   timelineMap = built;
+  refreshCaptionClock();
   segments = built.segments.map(s => s.kind === 'gap'
     ? { index: -1, isGap: true, durationSec: s.outEnd - s.outStart, outStart: s.outStart, outEnd: s.outEnd }
     : {
@@ -2847,6 +2869,7 @@ async function applySoftReload() {
   } else {
     captionsData = [];
     captionsResolvedTimeline = false;
+    refreshCaptionClock();
   }
   fps = timelineData.fps || 30;
   if (summary?.overlays?.some(o => Array.isArray(o?.keyframes))) {
@@ -3449,6 +3472,19 @@ function createOverlayRuntime() {
   function applyViewportUnits(el) {
     window.akari?.viewportUnits?.applyAll(el);
   }
+  // 断片 HTML の流し込み。params + data-akari-slot の差し込み（/slot-params.js —
+  // shell の runtimeJavaScript・render-cut の rasterize と同じ唯一の注入実装）と、
+  // data-mirror="text" 層の aria-hidden（overlay-runtime.js の mount と同じ）をここで揃える
+  // （task/2026-09-02-preview-perf: パリティ。以前は placeholder 文字がそのまま出ていた）。
+  function setOverlayFragmentHtml(container, html, params) {
+    const template = document.createElement('template');
+    template.innerHTML = html || '';
+    const rendered = window.akari?.slotParams?.renderTextSlots?.(template.content, params);
+    container.replaceChildren(rendered ?? template.content.cloneNode(true));
+    for (const mirror of container.querySelectorAll('[data-mirror="text"]')) {
+      mirror.setAttribute('aria-hidden', 'true');
+    }
+  }
   function mount(s) {
     unmount();
     if (!Array.isArray(s?.overlays)) return;
@@ -3514,7 +3550,7 @@ function createOverlayRuntime() {
           .then(r => (r.ok ? r.text() : ''))
           .then(html => {
             if (generation !== mountGeneration) return;
-            c.innerHTML = html || '';
+            setOverlayFragmentHtml(c, html || '', o.params);
             applyViewportUnits(c);
             markThreeOverlay(rec);
             window.akari.interaction?.invalidateOverlayHitPolicy?.(c);
@@ -3523,7 +3559,7 @@ function createOverlayRuntime() {
           .catch(() => {});
         fragmentLoads.push(load);
       } else {
-        c.innerHTML = rawHtml;
+        setOverlayFragmentHtml(c, rawHtml, o.params);
         applyViewportUnits(c);
         markThreeOverlay(rec);
       }
@@ -4154,7 +4190,7 @@ function injectCaptionStyles() {
   50%  { transform: scale(1.25); }
   100% { transform: scale(1); }
 }
-.akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); -webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9)); paint-order:stroke fill; text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35)); font-family:"Noto Sans JP",sans-serif; font-size:var(--caption-font-size,38px); font-weight:700; line-height:1.42; text-align:center; }
+.akari-caption { position:absolute; inset:0; pointer-events:none; color:var(--caption-color,#fff); -webkit-text-stroke:var(--caption-stroke,0.14em rgba(0,0,0,.9)); paint-order:stroke fill; text-shadow:var(--caption-text-shadow,0 2px 8px rgba(0,0,0,.35)); font-family:"AKARI Noto Sans JP","Noto Sans JP",sans-serif; font-size:var(--caption-font-size,38px); font-weight:700; line-height:1.42; text-align:center; }
 .akari-caption__plate { position:absolute; top:var(--caption-top,auto); translate:var(--caption-translate,none); left:var(--caption-left,0); right:var(--caption-right,0); bottom:var(--caption-bottom,7%); display:flex; flex-direction:column; justify-content:var(--caption-justify-content,flex-start); align-items:var(--caption-align-items,stretch); gap:4px; }
 .akari-caption__line { width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); padding:0.08em 0.42em; border-radius:10px; background:var(--plate-bg,transparent); text-align:var(--caption-text-align,center); white-space:pre; }
 .akari-caption__block { display:flex; flex-direction:column; width:max-content; max-width:var(--caption-line-max-width,92%); margin:var(--caption-line-margin,0 auto); gap:var(--plate-gap,4px); padding:var(--plate-pad-y,0.08em) var(--plate-pad-x,0.42em); border-radius:var(--plate-block-radius,10px); background:var(--plate-block-bg,transparent); }
@@ -4216,10 +4252,10 @@ let _lastCaptionId = null;
 // 字幕ウィンドウ判定（start/end はソース秒・duration は end 不在時のみ）は
 // 共有カーネル findActiveCaption（edit-kernel.bundle.js — packages/edit-store/src/caption-window.ts）
 function updateCaption() {
-  const caps = getActiveCaptions();
+  const caps = captionsOutputClock;
   if (!caps.length) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
-  const srcT = getVideoTimeForOutput(outputTime);
-  const active = findActiveCaption(caps, captionsResolvedTimeline ? outputTime : srcT);
+  // 判定は出力秒だけ（refreshCaptionClock 参照）。source 秒への写像はここでは行わない。
+  const active = findActiveCaption(caps, outputTime);
   if (!active) { captionPlate.textContent = ''; _lastCaptionId = null; return; }
   if (active.id === _lastCaptionId) return;
   _lastCaptionId = active.id;
@@ -4284,7 +4320,8 @@ function updateCaption() {
 function syncCaptionAnimations() {
   const start = Number(captionPlate.dataset.captionStart);
   if (!Number.isFinite(start)) return;
-  const localMs = Math.max(0, (getVideoTimeForOutput(outputTime) - start) * 1000);
+  // cue の start は出力秒（normalizeCaptionClock 済み）なので、アニメ時刻も出力秒で取る。
+  const localMs = Math.max(0, (outputTime - start) * 1000);
   for (const a of captionPlate.getAnimations({ subtree: true })) {
     a.pause();
     a.currentTime = localMs;

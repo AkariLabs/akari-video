@@ -97,6 +97,6 @@ test('webview script order is three bundle, conditional text vendor, then three 
     );
     assert.match(
         source,
-        /assets\.threeJavaScript\)[\s\S]*threeTextRuntimeScript[\s\S]*assets\.threeRuntimeJavaScript\)/
+        /assets\.threeJavaScriptUrl\)[\s\S]*threeTextRuntimeScript[\s\S]*assets\.threeRuntimeJavaScriptUrl\)/
     );
 });
