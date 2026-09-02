@@ -17494,10 +17494,50 @@ var WebGL2Compositor = class {
 };
 
 // ../frame-engine/src/evaluate.ts
+var notifiedLayerFailures = /* @__PURE__ */ new WeakMap();
+function noteLayerFailure(context, layerId, error) {
+  context.metrics.recordSkippedLayer?.(layerId);
+  if (!context.onLayerFailure) return;
+  let notified = notifiedLayerFailures.get(context.metrics);
+  if (!notified) {
+    notified = /* @__PURE__ */ new Set();
+    notifiedLayerFailures.set(context.metrics, notified);
+  }
+  if (notified.has(layerId)) return;
+  notified.add(layerId);
+  context.onLayerFailure(layerId, error);
+}
+async function prepareCompositeLayer(layer, metrics) {
+  if (layer.kind === "image") {
+    if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
+    return { color: await layer.image.load() };
+  }
+  if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
+  const decodeStarted = performance.now();
+  const frame = await layer.source.decode(layer.sourceTimeUs, metrics, { streamId: `layer-${layer.id}` });
+  metrics.record("decode", performance.now() - decodeStarted);
+  const sourceTimeUs = layer.sourceTimeUs;
+  if (!(layer.kind === "matte" && layer.mask)) return { color: frame, mask: null, sourceTimeUs };
+  let maskFrame;
+  try {
+    const maskDecodeStarted = performance.now();
+    maskFrame = await layer.mask.source.decode(
+      layer.mask.sourceTimeUs,
+      metrics,
+      { streamId: `layer-${layer.id}-mask` }
+    );
+    metrics.record("decode", performance.now() - maskDecodeStarted);
+  } catch (error) {
+    frame.close();
+    throw error;
+  }
+  return { color: frame, mask: maskFrame, sourceTimeUs };
+}
 async function evaluateFrame(plan, context) {
   const decoded = [];
   const baseFrames = [];
   const layerFrames = [];
+  const composedLayers = [];
   const maskSync = [];
   try {
     for (const layer of plan.base) {
@@ -17514,38 +17554,37 @@ async function evaluateFrame(plan, context) {
     for (const layer of plan.layers) {
       if (layer.kind === "filter") {
         layerFrames.push({ kind: "filter" });
+        composedLayers.push(layer);
         continue;
       }
-      if (layer.kind === "image") {
-        if (!layer.image) throw new Error(`image layer ${layer.id} has no image source`);
-        layerFrames.push({ color: await layer.image.load() });
+      let prepared;
+      try {
+        prepared = await prepareCompositeLayer(layer, context.metrics);
+      } catch (error) {
+        noteLayerFailure(context, layer.id, error);
         continue;
       }
-      if (!layer.source || layer.sourceTimeUs == null) throw new Error(`video layer ${layer.id} has no source`);
-      const decodeStarted = performance.now();
-      const frame = await layer.source.decode(layer.sourceTimeUs, context.metrics, { streamId: `layer-${layer.id}` });
-      context.metrics.record("decode", performance.now() - decodeStarted);
+      if ("bitmap" in prepared.color) {
+        layerFrames.push({ color: prepared.color });
+        composedLayers.push(layer);
+        continue;
+      }
+      const frame = prepared.color;
       decoded.push(frame);
-      let mask = null;
-      if (layer.kind === "matte" && layer.mask) {
-        const maskDecodeStarted = performance.now();
-        const maskFrame = await layer.mask.source.decode(
-          layer.mask.sourceTimeUs,
-          context.metrics,
-          { streamId: `layer-${layer.id}-mask` }
-        );
-        context.metrics.record("decode", performance.now() - maskDecodeStarted);
-        decoded.push(maskFrame);
-        mask = maskFrame;
+      const mask = prepared.mask;
+      if (mask) {
+        decoded.push(mask);
         maskSync.push({
           layerId: layer.id,
           colorTimestamp: Number(frame.timestamp ?? 0),
-          maskTimestamp: Number(maskFrame.timestamp ?? 0),
-          requestedUs: layer.sourceTimeUs
+          maskTimestamp: Number(mask.timestamp ?? 0),
+          requestedUs: prepared.sourceTimeUs
         });
       }
       layerFrames.push({ color: frame, mask });
+      composedLayers.push(layer);
     }
+    const composePlan = composedLayers.length === plan.layers.length ? plan : { ...plan, layers: composedLayers };
     const copyFrame = async (frame) => {
       if (frame.format !== "NV12" && frame.format !== "I420") return frame;
       const started = performance.now();
@@ -17579,7 +17618,7 @@ async function evaluateFrame(plan, context) {
         inputs.layers,
         plan.output,
         context.metrics,
-        plan
+        composePlan
       );
       usedPath = context.compositor.uploadPath ?? usedPath;
     } catch (error) {
@@ -17593,7 +17632,7 @@ async function evaluateFrame(plan, context) {
         inputs.layers,
         plan.output,
         context.metrics,
-        plan
+        composePlan
       );
     }
     context.metrics.recordUploadPath?.(usedPath);
@@ -23938,6 +23977,7 @@ var FrameMetrics = class {
     direct: 0,
     copyTo: 0
   };
+  skippedLayers = 0;
   record(stage, elapsedMs) {
     if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
       throw new Error(`invalid ${stage} metric: ${elapsedMs}`);
@@ -23947,6 +23987,9 @@ var FrameMetrics = class {
   recordUploadPath(path) {
     this.uploadPath = path;
     this.uploadPathCounts[path] += 1;
+  }
+  recordSkippedLayer(_layerId) {
+    this.skippedLayers += 1;
   }
   toJSON() {
     return {
@@ -23960,7 +24003,8 @@ var FrameMetrics = class {
         }];
       })),
       uploadPath: this.uploadPath,
-      uploadPathCounts: { ...this.uploadPathCounts }
+      uploadPathCounts: { ...this.uploadPathCounts },
+      skippedLayers: this.skippedLayers
     };
   }
 };

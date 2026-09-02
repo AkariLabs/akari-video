@@ -14,6 +14,8 @@ export interface MetricSummary {
 export type FrameMetricsJson = Record<FrameMetricStage, MetricSummary> & {
   uploadPath: UploadPath | null;
   uploadPathCounts: Record<UploadPath, number>;
+  /** 準備に失敗して抜いた合成層の累積数（層 × フレーム）。既存キーは変えず additive に足す。 */
+  skippedLayers: number;
 };
 
 const STAGES: readonly FrameMetricStage[] = [
@@ -64,6 +66,7 @@ export class FrameMetrics implements FrameMetricsRecorder {
     direct: 0,
     copyTo: 0,
   };
+  private skippedLayers = 0;
 
   record(stage: FrameMetricStage, elapsedMs: number): void {
     if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
@@ -75,6 +78,10 @@ export class FrameMetrics implements FrameMetricsRecorder {
   recordUploadPath(path: UploadPath): void {
     this.uploadPath = path;
     this.uploadPathCounts[path] += 1;
+  }
+
+  recordSkippedLayer(_layerId: string): void {
+    this.skippedLayers += 1;
   }
 
   toJSON(): FrameMetricsJson {
@@ -90,6 +97,7 @@ export class FrameMetrics implements FrameMetricsRecorder {
       })),
       uploadPath: this.uploadPath,
       uploadPathCounts: { ...this.uploadPathCounts },
+      skippedLayers: this.skippedLayers,
     } as FrameMetricsJson;
   }
 }
