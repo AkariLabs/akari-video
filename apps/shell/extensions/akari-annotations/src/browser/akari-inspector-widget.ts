@@ -25,6 +25,14 @@ import {
     INSPECTOR_LIVE_PREVIEW_THROTTLE_MS,
     type KeyframeSeatOptions
 } from './inspector/number-field';
+import {
+    createInspectorCropWriteRequest,
+    INSPECTOR_CROP_DISPLAY_SCALE,
+    INSPECTOR_CROP_SCRUB_STEP,
+    inspectorCropAxisMaximum,
+    normalizeInspectorCrop,
+    type InspectorCropAxis
+} from './inspector/crop-fields';
 import { ADJUST_PREVIEW_SECTIONS, type AdjustPreviewSection } from './inspector/adjust-preview';
 import {
     AUDIO_ITEM_PREVIEW_SECTIONS,
@@ -227,6 +235,39 @@ function deriveOverlayType(payload: Record<string, unknown>): string {
     return fileName.replace(/\.[^./]+$/, '');
 }
 
+function CROP_FIELDS<TSnapshot extends { id: string; crop?: unknown }>(
+    snapshot: TSnapshot,
+    targetKind: 'layer' | 'item',
+    requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
+): InspectorFieldDef<TSnapshot>[] {
+    const crop = normalizeInspectorCrop(snapshot.crop);
+    const rows: ReadonlyArray<{ axis: InspectorCropAxis; label: string }> = [
+        { axis: 'x', label: '左' },
+        { axis: 'y', label: '上' },
+        { axis: 'w', label: '幅' },
+        { axis: 'h', label: '高さ' }
+    ];
+    return rows.map(({ axis, label }) => ({
+        name: `crop-${axis}`,
+        label,
+        unit: '%',
+        displayScale: INSPECTOR_CROP_DISPLAY_SCALE,
+        getValue: () => String(crop[axis]),
+        getEditValue: () => String(crop[axis]),
+        inputKind: 'scrub-number',
+        scrubStep: INSPECTOR_CROP_SCRUB_STEP,
+        min: 0,
+        max: inspectorCropAxisMaximum(crop, axis),
+        removable: true,
+        write: async (_snapshot, value) => requestWrite(createInspectorCropWriteRequest(
+            { kind: targetKind, id: snapshot.id }, axis, Number(value)
+        )),
+        reset: () => requestWrite(createInspectorCropWriteRequest(
+            { kind: targetKind, id: snapshot.id }, axis, null
+        ))
+    }));
+}
+
 function CUT_SECTIONS(
     snapshot: TimelineCutSelection,
     requestWrite: (request: InspectorWriteRequest) => Promise<InspectorWriteResult>
@@ -343,6 +384,7 @@ function LAYER_SECTIONS(
 ): InspectorSection[] {
     const chromaSimilarity = chromaControlValue(snapshot.chromaKey, 'similarity', 0.1);
     const chromaBlend = chromaControlValue(snapshot.chromaKey, 'blend', 0);
+    const cropFields = CROP_FIELDS(snapshot, 'layer', requestWrite);
     const transformFields: InspectorFieldDef<TimelineLayerSelection>[] = [
         {
             name: 'transform-x', label: 'X', unit: 'px', getValue: () => String(snapshot.transform?.x ?? 0),
@@ -398,6 +440,7 @@ function LAYER_SECTIONS(
             ]
         },
         { id: 'transform', label: '変形', fields: transformFields },
+        { id: 'crop', label: 'クロップ', fields: cropFields },
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -1113,6 +1156,7 @@ function OVERLAY_SECTIONS(
         ? snapshot.payload.transform as Record<string, unknown> : {};
     const number = (key: string, fallback: number): number =>
         typeof transform[key] === 'number' ? transform[key] as number : fallback;
+    const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
     const transformFields: InspectorFieldDef<TimelineOverlaySelection>[] = [
         {
             name: 'transform-x', label: 'X', unit: 'px', getValue: () => String(number('x', 0)),
@@ -1199,6 +1243,7 @@ function OVERLAY_SECTIONS(
             ]
         },
         { id: 'transform', label: '変形', fields: transformFields },
+        { id: 'crop', label: 'クロップ', fields: cropFields },
         {
             id: 'appearance', label: '外観', fields: [
                 {
@@ -1233,6 +1278,7 @@ function TREE_ITEM_SECTIONS(
 ): InspectorSection[] {
     const number = (key: 'x' | 'y' | 'scale' | 'rotate', fallback: number): number =>
         typeof snapshot.transform?.[key] === 'number' ? snapshot.transform[key]! : fallback;
+    const cropFields = CROP_FIELDS(snapshot, 'item', requestWrite);
     const transformFields: InspectorFieldDef<TimelineTreeItemSnapshot>[] = [
         {
             name: 'transform-x', label: 'X', unit: 'px', getValue: () => String(number('x', 0)),
@@ -1272,6 +1318,7 @@ function TREE_ITEM_SECTIONS(
             { name: 'item-duration', label: '尺', getValue: () => formatDurationSeconds(snapshot.duration) }
         ] },
         { id: 'transform', label: '変形', fields: transformFields },
+        { id: 'crop', label: 'クロップ', fields: cropFields },
         { id: 'appearance', label: '外観', fields: [{
             name: 'opacity', label: '不透明度', unit: '%', displayScale: 100,
             getValue: () => String(opacity), getEditValue: () => String(opacity),
