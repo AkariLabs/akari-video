@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  audioClipLocalGeometry,
+  audioKeyframeMarkerPositions,
+  audioLoopTilePeaks,
+  audioSourceSliceWindow,
+  audioWaveformBandLayout,
+  audioWaveformRepaintNeeded,
+  audioWaveformSourceRect,
   filmstripChunkIndexFor,
-  keyframePolyline,
   planFilmstripChunk,
   waveformBucketForLocalPx,
   waveformHeightForPeak,
@@ -75,25 +81,153 @@ test('waveformHeightForPeak は -48 dB 床の固定対数スケールを使う',
   assert.equal(waveformHeightForPeak(0), 0);
 });
 
-test('keyframePolyline は -24..+12 dB を帯の上下へ写す', () => {
-  assert.deepEqual(keyframePolyline([
-    { t: 0, gainDb: 12 }, { t: 5, gainDb: -6 }, { t: 10, gainDb: -24 }
-  ], { duration: 10, width: 100, height: 36 }), [
-    { x: 0, y: 0 }, { x: 50, y: 18 }, { x: 100, y: 36 }
-  ]);
+test('audioSourceSliceWindow は speed 2 の表示4秒を source [1,9) へ換算する', () => {
+  assert.deepEqual(audioSourceSliceWindow({ inSec: 1, displayDurationSec: 4, speed: 2 }), {
+    startSec: 1,
+    endSec: 9,
+  });
 });
 
-test('keyframePolyline は時刻と dB の範囲外をクランプして時刻順にする', () => {
-  assert.deepEqual(keyframePolyline([
-    { t: 12, gainDb: -60 }, { t: -2, gainDb: 20 }
-  ], { duration: 10, width: 100, height: 36 }), [
-    { x: 0, y: 0 }, { x: 100, y: 36 }
-  ]);
+test('audioSourceSliceWindow は speed 省略・不正値を1倍として扱う', () => {
+  assert.deepEqual(audioSourceSliceWindow({ inSec: 1, displayDurationSec: 4 }), { startSec: 1, endSec: 5 });
+  assert.deepEqual(audioSourceSliceWindow({ inSec: 1, displayDurationSec: 4, speed: 0 }), {
+    startSec: 1,
+    endSec: 5,
+  });
 });
 
-test('keyframePolyline は描画不能な帯では空配列を返す', () => {
-  const point = [{ t: 0, gainDb: 0 }];
-  assert.deepEqual(keyframePolyline(point, { duration: 0, width: 100, height: 20 }), []);
-  assert.deepEqual(keyframePolyline(point, { duration: 1, width: 0, height: 20 }), []);
-  assert.deepEqual(keyframePolyline(point, { duration: 1, width: 100, height: 0 }), []);
+test('audioLoopTilePeaks は1周目だけ in から始め2周目以降は素材先頭へ戻る', () => {
+  const tiled = audioLoopTilePeaks([0, 1, 2, 3, 4, 5], {
+    trackDurationSec: 6,
+    timelineDurationSec: 12,
+    inSec: 3,
+  });
+  assert.equal(tiled[0], 3);
+  assert.equal(tiled[3], 0);
+  assert.equal(tiled[9], 0);
+});
+
+test('audioLoopTilePeaks は timeline 1秒を source speed秒で進める', () => {
+  assert.deepEqual(audioLoopTilePeaks([0, 1, 2, 3], {
+    trackDurationSec: 4,
+    timelineDurationSec: 4,
+    speed: 2,
+  }), [0, 2, 0, 2]);
+});
+
+test('audioLoopTilePeaks は長尺出力を maxBuckets で制限する', () => {
+  assert.equal(audioLoopTilePeaks([0, 1, 2, 3], {
+    trackDurationSec: 4,
+    timelineDurationSec: 400,
+    maxBuckets: 7,
+  }).length, 7);
+});
+
+test('audioLoopTilePeaks は空波形・不正尺を空配列にする', () => {
+  assert.deepEqual(audioLoopTilePeaks([], { trackDurationSec: 4, timelineDurationSec: 4 }), []);
+  assert.deepEqual(audioLoopTilePeaks([1], { trackDurationSec: 0, timelineDurationSec: 4 }), []);
+  assert.deepEqual(audioLoopTilePeaks([1], { trackDurationSec: 4, timelineDurationSec: 0 }), []);
+});
+
+test('audioClipLocalGeometry は完全可視クリップの offset を0にする', () => {
+  assert.deepEqual(audioClipLocalGeometry({
+    clipStartSec: 2,
+    displayDurationSec: 4,
+    layoutViewStartSec: 0,
+    viewDurationSec: 10,
+    stripWidthPx: 1000,
+  }), { fullClipWidthPx: 400, clipLocalOffsetPx: 0 });
+});
+
+test('audioClipLocalGeometry は左端が -60% 窓より外なら隠れた幅を返す', () => {
+  assert.deepEqual(audioClipLocalGeometry({
+    clipStartSec: 2,
+    displayDurationSec: 4,
+    layoutViewStartSec: 10,
+    viewDurationSec: 10,
+    stripWidthPx: 1000,
+  }), { fullClipWidthPx: 400, clipLocalOffsetPx: 200 });
+});
+
+test('audioClipLocalGeometry は不正入力を undefined にする', () => {
+  const base = {
+    clipStartSec: 0,
+    displayDurationSec: 1,
+    layoutViewStartSec: 0,
+    viewDurationSec: 1,
+    stripWidthPx: 100,
+  };
+  assert.equal(audioClipLocalGeometry({ ...base, displayDurationSec: 0 }), undefined);
+  assert.equal(audioClipLocalGeometry({ ...base, viewDurationSec: 0 }), undefined);
+  assert.equal(audioClipLocalGeometry({ ...base, stripWidthPx: Number.NaN }), undefined);
+});
+
+test('audioWaveformBandLayout はラベル後の残り領域中央へ60%高で置く', () => {
+  assert.deepEqual(audioWaveformBandLayout(52, 18), { topPx: 25, heightPx: 20 });
+});
+
+test('audioWaveformBandLayout は高さを12pxで下限クランプする', () => {
+  assert.deepEqual(audioWaveformBandLayout(28, 18), { topPx: 16, heightPx: 12 });
+});
+
+test('audioWaveformBandLayout は高さを28pxで上限クランプする', () => {
+  assert.deepEqual(audioWaveformBandLayout(100, 18), { topPx: 45, heightPx: 28 });
+});
+
+test('audioWaveformBandLayout は帯が収まらない高さでも要素外へ出さない', () => {
+  assert.deepEqual(audioWaveformBandLayout(10, 18), { topPx: 0, heightPx: 12 });
+});
+
+test('audioKeyframeMarkerPositions は範囲外をクランプし非有限を除いて時刻順にする', () => {
+  assert.deepEqual(audioKeyframeMarkerPositions([
+    { t: 12 }, { t: Number.NaN }, { t: 5 }, { t: -2 },
+  ], 10), [0, 0.5, 1]);
+});
+
+test('audioKeyframeMarkerPositions は不正な尺で空配列を返す', () => {
+  assert.deepEqual(audioKeyframeMarkerPositions([{ t: 1 }], 0), []);
+  assert.deepEqual(audioKeyframeMarkerPositions([{ t: 1 }], Number.NaN), []);
+});
+
+test('audioWaveformSourceRect は可視位置と幅をマスター座標へ写す', () => {
+  assert.deepEqual(audioWaveformSourceRect({
+    masterWidthPx: 100,
+    fullClipWidthPx: 400,
+    clipLocalOffsetPx: 100,
+    visibleWidthPx: 200,
+  }), { sourceXPx: 25, sourceWidthPx: 50 });
+});
+
+test('audioWaveformSourceRect はマスター末尾で source 幅をクランプする', () => {
+  assert.deepEqual(audioWaveformSourceRect({
+    masterWidthPx: 100,
+    fullClipWidthPx: 400,
+    clipLocalOffsetPx: 300,
+    visibleWidthPx: 200,
+  }), { sourceXPx: 75, sourceWidthPx: 25 });
+  assert.equal(audioWaveformSourceRect({
+    masterWidthPx: 0,
+    fullClipWidthPx: 400,
+    clipLocalOffsetPx: 0,
+    visibleWidthPx: 200,
+  }), undefined);
+});
+
+test('audioWaveformRepaintNeeded は5要素が同じなら再描画しない', () => {
+  const state = { sliceKey: 'a', visibleWidth: 100, offset: 0, bandTop: 20, bandHeight: 12 };
+  assert.equal(audioWaveformRepaintNeeded(state, { ...state }), false);
+});
+
+test('audioWaveformRepaintNeeded は初回またはいずれかの要素変更で再描画する', () => {
+  const state = { sliceKey: 'a', visibleWidth: 100, offset: 0, bandTop: 20, bandHeight: 12 };
+  assert.equal(audioWaveformRepaintNeeded(undefined, state), true);
+  for (const next of [
+    { ...state, sliceKey: 'b' },
+    { ...state, visibleWidth: 101 },
+    { ...state, offset: 1 },
+    { ...state, bandTop: 21 },
+    { ...state, bandHeight: 13 },
+  ]) {
+    assert.equal(audioWaveformRepaintNeeded(state, next), true);
+  }
 });

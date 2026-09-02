@@ -262,13 +262,14 @@ test('snapshot と write 配線は duck 値・keyframes・再生ヘッドを往�
   assert.match(widgetSource, /setAudioKeyframes\(\{[\s\S]{0,120}keyframes/u);
 });
 
-test('タイムラインは音声 keyframes だけを折れ線描画し、波形高さを dB 変換する', () => {
-  assert.match(widgetSource, /appendAudioKeyframePolyline\(/u);
-  assert.match(widgetSource, /itemHeightPx < MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX/u);
-  assert.match(widgetSource, /waveformHeightForPeak\(peaks\[bucket\]\) \* WAVEFORM_BAND_HEIGHT_PX/u);
+test('タイムラインは音声 keyframes を固定pxのひし形で示し、波形高さを dB 変換する', () => {
+  assert.match(widgetSource, /appendAudioKeyframeMarkers\(/u);
+  assert.match(widgetSource, /audioKeyframeMarkerPositions\(/u);
+  assert.match(widgetSource, /waveformHeightForPeak\(peaks\[bucket\]\) \* heightPx/u);
   const drawing = widgetSource.slice(
-    widgetSource.indexOf('protected appendAudioKeyframePolyline'),
-    widgetSource.indexOf('protected renderSfxWaveform')
+    widgetSource.indexOf('protected appendAudioKeyframeMarkers'),
+    widgetSource.indexOf('protected updateBgmWaveform')
   );
+  assert.doesNotMatch(drawing, /MIN_TRACK_HEIGHT_FOR_AUDIO_WAVEFORM_PX/u);
   assert.doesNotMatch(drawing, /ducking/u);
 });
