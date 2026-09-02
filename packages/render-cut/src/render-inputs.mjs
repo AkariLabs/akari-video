@@ -5,6 +5,10 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { CAPTION_FONT_REPOSITORY_RELATIVE_PATH, CAPTION_FONT_ROLE } from "./caption-font.mjs";
+import {
+  resolveAkariAssetsDir,
+  resolveLibraryFallback,
+} from "./library-reference.mjs";
 
 const PRESETS_LUTS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "presets", "luts");
 const THREE_SCENE_SCRIPT_PATTERN = /<script\b(?=[^>]*\btype\s*=\s*(?:"application\/json"|'application\/json'))(?=[^>]*\bdata-akari-3d-scene\b)[^>]*>([\s\S]*?)<\/script\s*>/giu;
@@ -19,43 +23,58 @@ export async function enumerateDeclaredRenderInputs({
   editText = null,
   captionFontAsset = null,
   internalEdit = null,
+  env = process.env,
 }) {
   const root = realpathSync(resolve(projectRoot));
   const inputs = [];
-  addProjectInput(inputs, root, "edit", "edit.json", { text: editText });
+  const addInput = (role, value, options = {}) => addProjectInput(
+    inputs,
+    root,
+    role,
+    value,
+    { ...options, env },
+  );
+  const addOptionalInput = (role, value) => addOptionalProjectInput(
+    inputs,
+    root,
+    role,
+    value,
+    env,
+  );
+  addInput("edit", "edit.json", { text: editText });
 
   const used = new Set((edit.cuts ?? []).map((cut) => cut?.src));
   for (const source of (edit.sources ?? []).filter((value) => used.has(value.id))) {
-    addProjectInput(inputs, root, `source:${source.id}`, source.path);
+    addInput(`source:${source.id}`, source.path);
     const chromaBackground = source?.chroma_key?.background;
     if (isPathBackedChromaBackground(chromaBackground)) {
-      addProjectInput(inputs, root, `chroma-background:${source.id}`, chromaBackground);
+      addInput(`chroma-background:${source.id}`, chromaBackground);
     }
   }
 
   const captionsPath = join(root, "captions.json");
-  if (existsSync(captionsPath)) addProjectInput(inputs, root, "caption", "captions.json");
+  if (existsSync(captionsPath)) addInput("caption", "captions.json");
   if (captionFontAsset !== null) addBoundCaptionFontInput(inputs, captionFontAsset);
 
   for (const [index, overlay] of (edit.overlays ?? []).entries()) {
     const role = `overlay:${overlay.id ?? index}`;
-    const entry = addProjectInput(inputs, root, role, overlaySourcePath(overlay));
+    const entry = addInput(role, overlaySourcePath(overlay));
     const html = readFileSync(entry.absolute_path, "utf8");
     for (const reference of extractThreeSceneAssetReferences(html, role)) {
-      addProjectInput(inputs, root, `${role}:${reference.role}`, reference.path);
+      addInput(`${role}:${reference.role}`, reference.path);
     }
     assertNoUndeclaredHtmlAssets(html, role);
   }
 
   const bgm = audioPath(edit.audio?.bgm);
-  if (bgm) addProjectInput(inputs, root, "audio:bgm", bgm);
+  if (bgm) addInput("audio:bgm", bgm);
   for (const [index, sfx] of (edit.audio?.sfx ?? []).entries()) {
     const path = audioPath(sfx);
-    if (path) addProjectInput(inputs, root, `audio:sfx:${index}`, path);
+    if (path) addInput(`audio:sfx:${index}`, path);
   }
   for (const [index, narration] of (edit.audio?.narration ?? []).entries()) {
     const path = audioPath(narration);
-    if (path) addOptionalProjectInput(inputs, root, `audio:narration:${narration?.id ?? index}`, path);
+    if (path) addOptionalInput(`audio:narration:${narration?.id ?? index}`, path);
   }
   const generatedTelopIds = new Set();
   for (const track of internalEdit?.tracks ?? []) {
@@ -72,15 +91,15 @@ export async function enumerateDeclaredRenderInputs({
   for (const [index, layer] of (edit.layers ?? []).entries()) {
     if (generatedTelopIds.has(String(layer?.id))) continue;
     if (typeof layer?.src !== "string" || layer.src === "") continue;
-    addProjectInput(inputs, root, `layer:${layer?.id ?? index}`, layer?.src);
+    addInput(`layer:${layer?.id ?? index}`, layer?.src);
   }
-  if (edit.thumbnail?.path) addProjectInput(inputs, root, "thumbnail", edit.thumbnail.path);
+  if (edit.thumbnail?.path) addInput("thumbnail", edit.thumbnail.path);
 
   const lut = edit.output?.look?.lut;
   if (typeof lut === "string" && lut !== "") {
     const absolute = resolveLutPath(root, lut);
     if (isWithin(root, absolute)) {
-      addProjectInput(inputs, root, "lut", absolute);
+      addInput("lut", absolute);
     } else {
       addAkariInput(inputs, "lut", absolute);
     }
@@ -146,7 +165,7 @@ export async function hashDeclaredRenderInputs(inputs, { useConsumedText = false
     result.push({
       role: input.role,
       path: input.path,
-      ...(input.scope === "akari" ? { scope: "akari" } : {}),
+      ...(input.scope === "akari" || input.scope === "library" ? { scope: input.scope } : {}),
       bytes: consumedText === null ? info.size : Buffer.byteLength(consumedText),
       sha256: consumedText === null ? await sha256File(currentPath) : sha256(consumedText),
     });
@@ -154,7 +173,16 @@ export async function hashDeclaredRenderInputs(inputs, { useConsumedText = false
   return result;
 }
 
-export function resolveDeclaredProjectInput(projectRoot, value, label = "render input") {
+export function resolveDeclaredProjectInput(
+  projectRoot,
+  value,
+  label = "render input",
+  env = process.env,
+) {
+  return resolveDeclaredProjectInputBinding(projectRoot, value, label, env).absolute;
+}
+
+function resolveDeclaredProjectInputBinding(projectRoot, value, label, env) {
   const root = realpathSync(resolve(projectRoot));
   if (typeof value !== "string" || value.trim() === "") throw new RenderInputError(`${label} path is required`);
   const lexical = isAbsolute(value) ? resolve(value) : resolve(root, value);
@@ -163,12 +191,27 @@ export function resolveDeclaredProjectInput(projectRoot, value, label = "render 
   try {
     actual = realpathSync(lexical);
   } catch (error) {
+    if (error?.code === "ENOENT" || error?.code === "ENOTDIR") {
+      const fallback = resolveLibraryFallback({
+        projectRoot: root,
+        declaredPath: lexical,
+        akariAssetsDir: resolveAkariAssetsDir(env),
+      });
+      if (fallback.path !== null) {
+        return {
+          absolute: fallback.path,
+          lexical: fallback.path,
+          libraryRoot: fallback.libraryRoot,
+          scope: "library",
+        };
+      }
+    }
     throw new RenderInputError(`${label} could not be resolved: ${messageOf(error)}`);
   }
   if (!isWithin(root, actual) || !lstatSync(lexical).isFile()) {
     throw new RenderInputError(`${label} is not a regular project file`);
   }
-  return actual;
+  return { absolute: actual, lexical, libraryRoot: null, scope: "project" };
 }
 
 export function resolveLutPath(projectRoot, lutRef) {
@@ -236,27 +279,34 @@ export function extractThreeSceneAssetReferences(html, overlayLabel = "overlay")
   return references;
 }
 
-function addProjectInput(inputs, root, role, value, { text = null } = {}) {
+function addProjectInput(inputs, root, role, value, { text = null, env = process.env } = {}) {
   const lexical = resolveProjectLexicalPath(root, value, role);
-  const absolute = resolveDeclaredProjectInput(root, lexical, role);
+  const binding = resolveDeclaredProjectInputBinding(root, value, role, env);
   const entry = {
     role,
     path: relative(root, lexical),
-    lexical_path: lexical,
-    absolute_path: absolute,
+    lexical_path: binding.lexical,
+    absolute_path: binding.absolute,
     project_root: root,
-    scope: "project",
+    scope: binding.scope,
     text,
+    ...(binding.scope === "library" ? { library_root: binding.libraryRoot } : {}),
   };
   inputs.push(entry);
   return entry;
 }
 
-function addOptionalProjectInput(inputs, root, role, value) {
+function addOptionalProjectInput(inputs, root, role, value, env = process.env) {
   if (typeof value !== "string" || value.trim() === "") return null;
   const lexical = isAbsolute(value) ? resolve(value) : resolve(root, value);
   if (!isWithin(root, lexical)) throw new RenderInputError(`${role} escapes the project root`);
-  if (existsSync(lexical)) return addProjectInput(inputs, root, role, lexical);
+  if (existsSync(lexical)) return addProjectInput(inputs, root, role, lexical, { env });
+  const fallback = resolveLibraryFallback({
+    projectRoot: root,
+    declaredPath: value,
+    akariAssetsDir: resolveAkariAssetsDir(env),
+  });
+  if (fallback.path !== null) return addProjectInput(inputs, root, role, lexical, { env });
   const parentBinding = resolveNearestExistingParentBinding(root, lexical, role);
   const entry = {
     role,
@@ -367,6 +417,9 @@ function assertCurrentInputBinding(input) {
   }
   if (input.scope === "akari" && (!input.repository_root || !isWithin(input.repository_root, actual))) {
     throw new RenderInputError(`${input.role} lexical input binding escapes the AKARI root`);
+  }
+  if (input.scope === "library" && (!input.library_root || !isWithin(input.library_root, actual))) {
+    throw new RenderInputError(`${input.role} lexical input binding escapes the AKARI library root`);
   }
   return lexical;
 }

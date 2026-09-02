@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { constants as fsConstants, readFileSync } from "node:fs";
+import { constants as fsConstants, readFileSync, statSync } from "node:fs";
 import {
   access,
   mkdir,
@@ -21,6 +21,11 @@ import { musicGrid } from "../../audio-library-setup/shared/beat-grid.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
 import { buildMatcher, protectedTermsFrom } from "../../word-book/src/index.mjs";
 import { resolveWordBookSync, scanRecord } from "../../word-book/src/index.mjs";
+import {
+  readProjectReferences,
+  resolveAkariAssetsDir,
+  resolveLibraryFallback,
+} from "./library-reference.mjs";
 
 const {
   areCutsAdjacent,
@@ -945,6 +950,8 @@ async function resolveInput(input, options = {}) {
     captionsPath: join(projectRoot, "captions.json"),
     reviewPath: join(projectRoot, "review.json"),
     intakePath: join(projectRoot, ".akari", "intake.json"),
+    assetReferences: readProjectReferences(projectRoot),
+    akariAssetsDir: resolveAkariAssetsDir(options.env ?? process.env),
   };
 }
 
@@ -2283,7 +2290,7 @@ async function validateOverlays(overlays, timeline, findings, paths) {
       });
     }
     if (!isNonEmptyString(overlay.html)) continue;
-    const htmlPath = resolveReference(paths.editPath, overlay.html);
+    const htmlPath = resolveReference(paths.editPath, overlay.html, paths);
     const isHtmlFile = await isRegularFile(htmlPath);
     // overlay.html は file 参照（相対パス）とインライン HTML の両方をとりうる。参照でなければ
     // フィールドの値そのものを断片本文として扱う（inspectHtmlFragment 以降のルート要素検証は
@@ -2520,12 +2527,13 @@ async function validateNarration(narration, timeline, findings, paths) {
         path: itemPath,
       });
     } else {
-      const filePath = resolveReference(paths.editPath, item.path);
+      const binding = resolveReferenceBinding(paths.editPath, item.path, paths);
+      const filePath = binding.path;
       if (!(await isRegularFile(filePath))) {
         addFinding(findings, {
           severity: "warning",
           check: "audio.narration.file",
-          message: `narration path does not resolve to a regular file: ${item.path}`,
+          message: `narration path does not resolve to a regular file: ${item.path}${unfetchedLibraryNote(binding)}`,
           path: relativePath(paths.projectRoot, filePath),
         });
       }
@@ -2606,12 +2614,13 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
           path: "edit.json#audio.bgm",
         });
       } else {
-        const filePath = resolveReference(paths.editPath, bgm.path);
+        const binding = resolveReferenceBinding(paths.editPath, bgm.path, paths);
+        const filePath = binding.path;
         if (!(await isRegularFile(filePath))) {
           addFinding(findings, {
             severity: "warning",
             check: "audio.bgm.file",
-            message: `bgm path does not resolve to a regular file: ${bgm.path}`,
+            message: `bgm path does not resolve to a regular file: ${bgm.path}${unfetchedLibraryNote(binding)}`,
             path: relativePath(paths.projectRoot, filePath),
           });
         }
@@ -2690,12 +2699,13 @@ async function validateBgmSfx(bgm, sfx, timeline, findings, paths) {
         path: itemPath,
       });
     } else {
-      const filePath = resolveReference(paths.editPath, item.path);
+      const binding = resolveReferenceBinding(paths.editPath, item.path, paths);
+      const filePath = binding.path;
       if (!(await isRegularFile(filePath))) {
         addFinding(findings, {
           severity: "warning",
           check: "audio.sfx.file",
-          message: `sfx path does not resolve to a regular file: ${item.path}`,
+          message: `sfx path does not resolve to a regular file: ${item.path}${unfetchedLibraryNote(binding)}`,
           path: relativePath(paths.projectRoot, filePath),
         });
       }
@@ -3034,7 +3044,7 @@ async function validateMusicGrid(bgm, sfx, timeline, findings, skipped, paths, o
     return;
   }
 
-  const filePath = resolveReference(paths.editPath, bgm.path);
+  const filePath = resolveReference(paths.editPath, bgm.path, paths);
   const probed = await probeAudioDuration(filePath, options.ffprobeCommand);
   if (probed.duration === null) {
     addSkipped(
@@ -3212,14 +3222,15 @@ async function validateReferences(edit, findings, paths, ignoredSourceIds = new 
       });
       continue;
     }
-    const filePath = resolveReference(paths.editPath, reference.value);
+    const binding = resolveReferenceBinding(paths.editPath, reference.value, paths);
+    const filePath = binding.path;
     const exists = await isRegularFile(filePath);
     if (reference.source) sourceExists = exists;
     if (!exists) {
       addFinding(findings, {
         severity: "error",
         check: "references.files",
-        message: `${reference.label} does not resolve to a regular file`,
+        message: `${reference.label} does not resolve to a regular file${unfetchedLibraryNote(binding)}`,
         path: relativePath(paths.projectRoot, filePath),
       });
     }
@@ -4586,13 +4597,14 @@ async function validateReviewRefs(refs, edit, sourceIds, findings, paths, itemPa
       reviewFinding(findings, "review.schema", "ref path must be a non-empty string", refPath);
       valid = false;
     } else {
-      const filePath = resolveReference(paths.editPath, ref.path);
+      const binding = resolveReferenceBinding(paths.editPath, ref.path, paths);
+      const filePath = binding.path;
       if (!(await isRegularFile(filePath))) {
         // 注釈は助言データのため、参照先の実体欠落は warning に留める（契約 §4 劣化規約）
         reviewFinding(
           findings,
           "review.refs-file",
-          `ref path does not resolve to a regular file: ${ref.path}`,
+          `ref path does not resolve to a regular file: ${ref.path}${unfetchedLibraryNote(binding)}`,
           refPath,
           "warning",
         );
@@ -4893,7 +4905,7 @@ function runReferencedMediaChecks(rawEdit, projectedEdit, findings, skipped, pat
       addSkipped(skipped, "media", `source ${sourceId}: source path is unavailable`);
       continue;
     }
-    const sourcePath = resolveReference(paths.editPath, source.path);
+    const sourcePath = resolveReference(paths.editPath, source.path, paths);
     const probe = probeForPath(sourcePath);
     probeBySourceId.set(sourceId, probe);
     runMediaChecks(
@@ -4920,7 +4932,7 @@ function runReferencedMediaChecks(rawEdit, projectedEdit, findings, skipped, pat
     for (const [index, item] of rawEdit.audio.narration.entries()) {
       if (!isRecord(item) || !isNonEmptyString(item.path) || !isFiniteNumber(item.in)
         || item.in < 0) continue;
-      const filePath = resolveReference(paths.editPath, item.path);
+      const filePath = resolveReference(paths.editPath, item.path, paths);
       const probe = probeForPath(filePath);
       addNarrationStartWarning(
         item.id ?? `narration-${index + 1}`,
@@ -5265,7 +5277,7 @@ async function validateProxyGops(rawEdit, findings, paths, options) {
   const probeByPath = new Map();
 
   for (const declaration of declarations) {
-    const filePath = resolveReference(paths.editPath, declaration.value);
+    const filePath = resolveReference(paths.editPath, declaration.value, paths);
     let fileStat;
     try {
       fileStat = await stat(filePath);
@@ -5597,8 +5609,37 @@ async function readOptionalJson(filePath, label, override) {
   }
 }
 
-function resolveReference(editPath, reference) {
-  return isAbsolute(reference) ? reference : resolve(dirname(editPath), reference);
+function resolveReference(editPath, reference, paths = null) {
+  return resolveReferenceBinding(editPath, reference, paths).path;
+}
+
+function resolveReferenceBinding(editPath, reference, paths = null) {
+  const projectPath = isAbsolute(reference) ? resolve(reference) : resolve(dirname(editPath), reference);
+  if (paths === null || isRegularFileSync(projectPath)) {
+    return { path: projectPath, libraryReference: false, scope: "project" };
+  }
+  const fallback = resolveLibraryFallback({
+    projectRoot: paths.projectRoot,
+    declaredPath: reference,
+    references: paths.assetReferences,
+    akariAssetsDir: paths.akariAssetsDir,
+  });
+  if (fallback.path !== null) {
+    return { path: fallback.path, libraryReference: true, scope: "library" };
+  }
+  return { path: projectPath, libraryReference: fallback.matched, scope: "project" };
+}
+
+function unfetchedLibraryNote(binding) {
+  return binding.libraryReference ? "（共有ライブラリ参照（未取得））" : "";
+}
+
+function isRegularFileSync(filePath) {
+  try {
+    return statSync(filePath).isFile();
+  } catch {
+    return false;
+  }
 }
 
 async function isRegularFile(filePath) {

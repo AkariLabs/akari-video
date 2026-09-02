@@ -23,6 +23,7 @@ import { materialize, resolveFileLocation } from './fetch-file.mjs';
 import { sha256File } from './hash.mjs';
 import { isAssetCached, localAssetDir } from './library.mjs';
 import { downloadPaidZip, extractZip, verifyPaidZipContents } from './paid-zip.mjs';
+import { recordProjectReference } from './project-references.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // src/ の 1 つ上（パッケージ root）のさらに 2 つ上（packages/）のさらに 1 つ上（リポ root）。
@@ -32,7 +33,7 @@ const VALIDATE_ASSET_SCRIPT = path.join(repoRoot, 'packages', 'schemas', 'bin', 
 
 export { AssetResolverError };
 
-async function copyIntoProject(sourceDir, projectDir, category, id) {
+export async function copyIntoProject(sourceDir, projectDir, category, id) {
   // ライブラリ（~/.akari/assets/<category>/<id>/）と同型に揃える（2026-08-04 決定）。
   // 素材箱側が「meta.json を含むディレクトリ = 1 カード」でグルーピングする際、
   // 深さではなくディレクトリ形で判定するため、置き場の形をライブラリと合わせておく必要はないが、
@@ -80,9 +81,12 @@ async function moveIntoLibrary(tempDir, destDir) {
 
 /**
  * @param {string} id カタログの素材 id
- * @param {{ env?: object, fetchImpl?: Function, project?: string|null, force?: boolean }} options
+ * @param {{ env?: object, fetchImpl?: Function, project?: string|null, force?: boolean, reference?: boolean }} options
  */
-export async function resolve(id, { env = process.env, fetchImpl = fetch, project = null, force = false } = {}) {
+export async function resolve(
+  id,
+  { env = process.env, fetchImpl = fetch, project = null, force = false, reference = false } = {},
+) {
   const home = resolveAkariHome(env);
   const catalog = await loadCatalog({ env, fetchImpl });
   const item = catalog.items.find((entry) => entry.id === id);
@@ -96,7 +100,12 @@ export async function resolve(id, { env = process.env, fetchImpl = fetch, projec
   // ゲートは「新規に取得するとき」だけにかける）
   if (!force && isAssetCached(home, item.category, item.id)) {
     const result = { id: item.id, category: item.category, dir: destDir, cached: true };
-    if (project) result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+    if (project && reference) {
+      await recordProjectReference(project, item);
+      result.referenced = true;
+    } else if (project) {
+      result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+    }
     return result;
   }
 
@@ -113,7 +122,7 @@ export async function resolve(id, { env = process.env, fetchImpl = fetch, projec
     // 有料カタログ item は files[] を持たない設計（実体は非公開 R2 のまま。tools/publish-free.mjs
     // 側の掲載規律の裏返し）。entitled 済みなら zip ダウンロード経路（契約 §6/§8）で取得する。
     if (!hasFiles) {
-      return resolvePaidZip(item, { env, fetchImpl, project, home, destDir });
+      return resolvePaidZip(item, { env, fetchImpl, project, reference, home, destDir });
     }
   }
 
@@ -168,7 +177,12 @@ export async function resolve(id, { env = process.env, fetchImpl = fetch, projec
   }
 
   const result = { id: item.id, category: item.category, dir: destDir, cached: false };
-  if (project) result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+  if (project && reference) {
+    await recordProjectReference(project, item);
+    result.referenced = true;
+  } else if (project) {
+    result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+  }
   return result;
 }
 
@@ -178,7 +192,7 @@ export async function resolve(id, { env = process.env, fetchImpl = fetch, projec
  * コピー → （meta.json があれば）validate-asset → 全部通ってから登録先へ原子的に move する。
  * 無料経路（files[] ベース）と同じ fail-closed・一時ディレクトリ破棄の規律を踏襲する。
  */
-async function resolvePaidZip(item, { env, fetchImpl, project, home, destDir }) {
+async function resolvePaidZip(item, { env, fetchImpl, project, reference, home, destDir }) {
   const credentials = await readStoreCredentials(env);
   if (!credentials) {
     // entitled 判定（fetchEntitlements）が通った直後にここへ来るので通常は発生しないが、
@@ -243,6 +257,11 @@ async function resolvePaidZip(item, { env, fetchImpl, project, home, destDir }) 
   }
 
   const result = { id: item.id, category: item.category, dir: destDir, cached: false };
-  if (project) result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+  if (project && reference) {
+    await recordProjectReference(project, item);
+    result.referenced = true;
+  } else if (project) {
+    result.projectDir = await copyIntoProject(destDir, project, item.category, item.id);
+  }
   return result;
 }

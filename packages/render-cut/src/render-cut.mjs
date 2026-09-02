@@ -30,7 +30,12 @@ import { isImageLayerSource } from "./layers.mjs";
 import { runChecked, runCheckedWithProgress } from "./rasterize.mjs";
 import { renderReport } from "./report.mjs";
 import { createProgressReporter } from "./progress.mjs";
-import { enumerateDeclaredRenderInputs, hashDeclaredRenderInputs } from "./render-inputs.mjs";
+import {
+  enumerateDeclaredRenderInputs,
+  hashDeclaredRenderInputs,
+  RenderInputError,
+  resolveDeclaredProjectInput,
+} from "./render-inputs.mjs";
 import { createImmutableRenderReceipt, prepareContainedReportDirectory } from "./render-receipt.mjs";
 import { buildAudioQc, measurementErrorAudioQc, AUDIO_QC_CAPTURE_LIMIT_BYTES } from "./audio-qc.mjs";
 import { resolveFfmpeg, resolveFfprobe } from "../../media-bin/src/index.mjs";
@@ -149,6 +154,7 @@ export async function runCli(argv, io = console) {
 export async function renderProject(input, options = {}, io = console) {
   const engineRequested = options.engine ?? "auto";
   const codec = options.codec ?? "h264";
+  const env = options.env ?? process.env;
   let resolvedEngine = resolveEngineChoice(engineRequested, process.platform);
   const projectRoot = resolve(input);
   const editPath = options.editPath ? resolve(projectRoot, options.editPath) : join(projectRoot, "edit.json");
@@ -163,7 +169,12 @@ export async function renderProject(input, options = {}, io = console) {
   validateEditShape(edit);
 
   const lint = await validateLint(projectRoot, options.force === true);
-  const capabilities = await measureCapabilities(projectRoot, edit);
+  const capabilities = await measureCapabilities(
+    projectRoot,
+    edit,
+    env,
+    options.probeMediaImpl,
+  );
   const encodingPolicy = options.encodingPolicy ?? resolveEncodingPolicy({
     cli: { quality: options.quality, encoder: options.encoder, ...(codec === "hevc" ? { codec } : {}) },
     edit,
@@ -176,13 +187,14 @@ export async function renderProject(input, options = {}, io = console) {
     ? resolveCanonicalCaptionFontAsset()
     : null;
   const declaredInputs = await enumerateDeclaredRenderInputs({
-    projectRoot, edit, editText, captionFontAsset, internalEdit,
+    projectRoot, edit, editText, captionFontAsset, internalEdit, env,
   });
   const inputSnapshot = await hashDeclaredRenderInputs(declaredInputs, { useConsumedText: true });
   const inputs = Object.fromEntries(
     inputSnapshot.map((input) => [input.path, {
       sha256: input.sha256,
       bytes: input.bytes,
+      ...(input.scope === "library" ? { scope: "library" } : {}),
     }]),
   );
   const captionOverlays = plannedCaptions.overlays;
@@ -533,7 +545,7 @@ export async function renderProject(input, options = {}, io = console) {
       await appendRenderedSourceToEdit({ editPath, outputPath, projectRoot, state });
       const receiptEditText = await readFile(editPath, "utf8");
       receiptDeclaredInputs = await enumerateDeclaredRenderInputs({
-        projectRoot, edit, editText: receiptEditText, captionFontAsset, internalEdit,
+        projectRoot, edit, editText: receiptEditText, captionFontAsset, internalEdit, env,
       });
       receiptInputSnapshot = await hashDeclaredRenderInputs(receiptDeclaredInputs, { useConsumedText: true });
       const receipt = await createImmutableRenderReceipt({
@@ -801,9 +813,14 @@ async function validateLint(projectRoot, force) {
   };
 }
 
-async function measureCapabilities(projectRoot, edit) {
-  const ffmpegCommand = process.env.FFMPEG ?? resolveFfmpeg();
-  const ffprobeCommand = process.env.FFPROBE ?? resolveFfprobe();
+async function measureCapabilities(
+  projectRoot,
+  edit,
+  env = process.env,
+  probeMediaImpl = probeMedia,
+) {
+  const ffmpegCommand = env.FFMPEG ?? resolveFfmpeg();
+  const ffprobeCommand = env.FFPROBE ?? resolveFfprobe();
   const ffmpegVersion = commandVersion(ffmpegCommand, ["-version"]);
   const ffprobeVersion = commandVersion(ffprobeCommand, ["-version"]);
   const shared = {
@@ -814,8 +831,28 @@ async function measureCapabilities(projectRoot, edit) {
     nodeVersion: process.version,
   };
   const sourceInputs = usedSources(edit).map((source) => {
-    const path = resolve(projectRoot, source.path);
-    const probe = probeMedia(ffprobeCommand, path);
+    const declaredPath = resolve(projectRoot, source.path);
+    let path;
+    try {
+      path = resolveDeclaredProjectInput(
+        projectRoot,
+        source.path,
+        `source:${source.id}`,
+        env,
+      );
+    } catch (error) {
+      // Keep the established CLI error for an absent declared source. The resolver still owns
+      // containment and library fallback; after both permitted bindings fail, reproduce the old
+      // ffprobe diagnostic without opening the unresolved path.
+      if (!(error instanceof RenderInputError)
+          || !error.message.startsWith(`source:${source.id} could not be resolved:`)) {
+        throw error;
+      }
+      throw new ExecutionError(
+        `ffprobe failed for ${basename(declaredPath)}: ${declaredPath}: No such file or directory`,
+      );
+    }
+    const probe = probeMediaImpl(ffprobeCommand, path);
     const video = probe.streams.find((stream) => stream.codec_type === "video");
     // docs/contract-2026-08-12-still-image-cut-source-v0.md: same still-image duration exemption
     // as the v0 branch above, per source.
