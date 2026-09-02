@@ -20,6 +20,11 @@ import {
   UNRECOGNIZED_DEFAULTS,
 } from "./unrecognized-spans.mjs";
 import { parseSilences } from "./waveform.mjs";
+import {
+  applyWordBook,
+  buildMatcher,
+  resolveWordBook,
+} from "../../../word-book/src/index.mjs";
 
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDirectory, "../../../..");
@@ -43,7 +48,8 @@ export async function transcribeMedia(targetArgument, options = {}) {
 
   if (existsSync(cachePath)) {
     const cached = JSON.parse(await readFile(cachePath, "utf8"));
-    const result = { ...cached, cache: { hit: true, key } };
+    const rawResult = { ...cached, cache: { hit: true, key } };
+    const result = await applyResolvedWordBook(rawResult, target, options);
     await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
     return result;
   }
@@ -63,7 +69,8 @@ export async function transcribeMedia(targetArgument, options = {}) {
       ({ key, cachePath } = cacheIdentity({ sha256, range, backend, lang, cacheDirectory }));
       if (existsSync(cachePath)) {
         const cached = JSON.parse(await readFile(cachePath, "utf8"));
-        const result = { ...cached, cache: { hit: true, key } };
+        const rawResult = { ...cached, cache: { hit: true, key } };
+        const result = await applyResolvedWordBook(rawResult, target, options);
         await recordTranscribe(target, { ...result, generated_at: generatedAt(options) }, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
         return result;
       }
@@ -74,7 +81,7 @@ export async function transcribeMedia(targetArgument, options = {}) {
   }
   segments = normalizeSegments(segments, range);
   segments = await attachUnrecognizedSpans(segments, target.inputPath, range, ffmpeg, options);
-  const result = {
+  const rawResult = {
     path: target.displayPath,
     range,
     backend,
@@ -83,9 +90,33 @@ export async function transcribeMedia(targetArgument, options = {}) {
     cache: { hit: false, key },
     generated_at: generatedAt(options),
   };
-  await writeFile(cachePath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
+  await writeFile(cachePath, `${JSON.stringify(rawResult, null, 2)}\n`, "utf8");
+  const result = await applyResolvedWordBook(rawResult, target, options);
   await recordTranscribe(target, result, options.in === undefined && options.out === undefined ? undefined : range, backend, lang, options.noRecord);
   return result;
+}
+
+async function applyResolvedWordBook(result, target, options) {
+  if (options.wordBook === false) return result;
+  const resolved = await resolveWordBook({
+    projectRoot: target.projectRoot,
+    extraPath: options.wordBookPath,
+    env: options.env ?? process.env,
+  });
+  for (const layer of resolved.layers) {
+    if (!layer.error) continue;
+    writeWordBookLog(options, `単語帳: ${layer.scope} を読めません（${layer.error.message}）`);
+  }
+  const applied = applyWordBook(result.segments, buildMatcher(resolved.entries), { mode: "transcript" });
+  if (applied.stats.replaced > 0) {
+    writeWordBookLog(options, `単語帳: ${applied.stats.replaced} 語を置換（layers: ${resolved.layers.map((layer) => layer.scope).join(", ")}）`);
+  }
+  return { ...result, segments: applied.records };
+}
+
+function writeWordBookLog(options, message) {
+  if (typeof options.stderr === "function") options.stderr(message);
+  else process.stderr.write(`${message}\n`);
 }
 
 function normalizeRange(input, output, duration) {

@@ -184,6 +184,7 @@ import { NudgeCommitSession, planAdjacentVisualTrackMove } from './inspector/key
 import { layerSnapshotChromaKey, legacyTransformOpFor } from './inspector/field-mappings';
 import { ProjectLocation } from './project-location';
 import { AkariAnnotationsClientImpl } from './akari-annotations-client';
+import { AkariEditHistoryService, HistoryEntry, HistoryExecution } from './akari-edit-history-service';
 import { ReviewModel } from './review-model';
 import {
     InspectorWriteRequest,
@@ -201,7 +202,6 @@ import {
 const ENSURE_PREVIEW_VISIBLE_COMMAND_ID = 'akari.preview.ensureVisible';
 const SEEK_OUTPUT_PREVIEW_COMMAND_ID = 'akari.preview.seekOutput';
 const TOGGLE_OUTPUT_PREVIEW_PLAYBACK_COMMAND_ID = 'akari.preview.togglePlayback';
-const HISTORY_LIMIT = 50;
 const PLAYHEAD_FOLLOW_THRESHOLD = 0.78;
 const MINIMUM_ITEM_DURATION = 0.15;
 const MINIMUM_SFX_TRIM_DURATION = 0.1;
@@ -372,12 +372,6 @@ export interface PreviewPlaybackTick {
     videoUri?: string;
     time?: number;
     playing?: boolean;
-}
-
-interface HistoryEntry {
-    undo: () => Promise<void>;
-    redo: () => Promise<void>;
-    label: string;
 }
 
 type TimelineClipboard =
@@ -595,6 +589,9 @@ export class AkariAnnotationsWidget extends BaseWidget {
     @inject(TimelineSelectionModel)
     protected readonly selectionModel!: TimelineSelectionModel;
 
+    @inject(AkariEditHistoryService)
+    protected readonly historyService!: AkariEditHistoryService;
+
     @inject(AkariAnnotationsClientImpl)
     protected readonly annotationsClient!: AkariAnnotationsClientImpl;
 
@@ -712,8 +709,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
         source: TimelineTreeRow; rows: readonly TimelineTreeRow[];
     }>();
     protected readonly treeRowDragInstalled = new WeakSet<HTMLDivElement>();
-    protected past: HistoryEntry[] = [];
-    protected future: HistoryEntry[] = [];
     protected contextPopup: HTMLDivElement | undefined;
     protected deferredLintFooterMessage: HTMLSpanElement | undefined;
     protected viewStart = 0;
@@ -866,6 +861,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
         );
         this.updateToolModeButtons();
         this.updateSnapButton();
+        this.toDispose.push(this.historyService.onDidChange(() => this.updateHistoryButtons()));
+        this.toDispose.push(this.historyService.onDidExecute(execution => this.applyHistoryExecution(execution)));
         Object.assign(this.zoomHud.style, {
             display: 'flex', alignItems: 'center', gap: '4px', marginLeft: 'auto'
         });
@@ -1680,16 +1677,6 @@ export class AkariAnnotationsWidget extends BaseWidget {
                 event.preventDefault();
                 event.stopPropagation();
                 void this.pasteClipboard();
-                return;
-            }
-            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
-                event.preventDefault();
-                event.stopPropagation();
-                if (event.shiftKey) {
-                    void this.performRedo();
-                } else {
-                    void this.performUndo();
-                }
                 return;
             }
             if (!event.metaKey && !event.ctrlKey && !event.altKey) {
@@ -3788,7 +3775,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const undo = document.createElement('button');
             undo.type = 'button';
             undo.textContent = '直前の編集を元に戻す';
-            undo.disabled = this.past.length === 0;
+            undo.disabled = this.historyService.canUndo === false;
             undo.addEventListener('click', () => void this.performUndo());
             this.footer.append(message, document.createTextNode(' '), undo);
             this.deferredLintFooterMessage = message;
@@ -3809,7 +3796,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
             const undo = document.createElement('button');
             undo.type = 'button';
             undo.textContent = '直前の編集を元に戻す';
-            undo.disabled = this.past.length === 0;
+            undo.disabled = this.historyService.canUndo === false;
             undo.addEventListener('click', () => void this.performUndo());
             this.footer.append(message, document.createTextNode(' '), undo);
             this.messages.warn(message.textContent);
@@ -9770,9 +9757,7 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected pushHistory(entry: HistoryEntry): void {
-        this.past = [...this.past, entry].slice(-HISTORY_LIMIT);
-        this.future = [];
-        this.updateHistoryButtons();
+        this.historyService.push(entry);
     }
 
     protected overlayTrackState(): Record<string, number | null> {
@@ -9840,50 +9825,52 @@ export class AkariAnnotationsWidget extends BaseWidget {
     }
 
     protected updateHistoryButtons(): void {
-        this.undoButton.disabled = this.past.length === 0;
-        this.redoButton.disabled = this.future.length === 0;
+        this.undoButton.disabled = this.historyService.canUndo === false;
+        this.redoButton.disabled = this.historyService.canRedo === false;
     }
 
     protected async performUndo(): Promise<void> {
-        const entry = this.past.pop();
-        if (!entry) {
+        if (!this.historyService.canUndo) {
             return;
         }
         this.undoButton.disabled = true;
         this.redoButton.disabled = true;
         try {
-            await entry.undo();
-            this.future = [...this.future, entry].slice(-HISTORY_LIMIT);
-            this.hideNotice();
-            this.revealOutputPreview();
-            this.footer.textContent = `${entry.label}を元に戻しました。`;
+            await this.historyService.undo();
         } catch (error) {
             console.warn('[akari-annotations] undo entry is no longer applicable', error);
-            this.footer.textContent = '元に戻せませんでした（対象が変更されています）';
         } finally {
             this.updateHistoryButtons();
         }
     }
 
     protected async performRedo(): Promise<void> {
-        const entry = this.future.pop();
-        if (!entry) {
+        if (!this.historyService.canRedo) {
             return;
         }
         this.undoButton.disabled = true;
         this.redoButton.disabled = true;
         try {
-            await entry.redo();
-            this.past = [...this.past, entry].slice(-HISTORY_LIMIT);
-            this.hideNotice();
-            this.revealOutputPreview();
-            this.footer.textContent = `${entry.label}をやり直しました。`;
+            await this.historyService.redo();
         } catch (error) {
             console.warn('[akari-annotations] redo entry is no longer applicable', error);
-            this.footer.textContent = 'やり直せませんでした（対象が変更されています）';
         } finally {
             this.updateHistoryButtons();
         }
+    }
+
+    protected applyHistoryExecution(execution: HistoryExecution): void {
+        if ('error' in execution) {
+            this.footer.textContent = execution.kind === 'undo'
+                ? '元に戻せませんでした（対象が変更されています）'
+                : 'やり直せませんでした（対象が変更されています）';
+            return;
+        }
+        this.hideNotice();
+        this.revealOutputPreview();
+        this.footer.textContent = execution.kind === 'undo'
+            ? `${execution.entry.label}を元に戻しました。`
+            : `${execution.entry.label}をやり直しました。`;
     }
 
     protected copySelectedItem(): boolean {
