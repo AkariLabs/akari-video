@@ -190,10 +190,10 @@ export async function runGpuExport(options) {
     if (value?.description?.length > 0) chunkState.writer.setDecoderConfig(value.description, codec);
     return chunkState.writer.write(value);
   });
-  register("gpu:chunks-finish", async () => {
+  register("gpu:chunks-finish", async (_event, value) => {
     if (!chunkState) throw new Error("chunk sink is not running");
     const state = chunkState;
-    const mux = await state.writer.finish();
+    const mux = await state.writer.finish({ encoderFrames: value?.encoderFinish?.frames });
     const ffprobe = normalizeCodecVerification(await verifyEncodedVideo({
       command: ffprobeCommand, path: out, frames, fps, width: outputWidth, height: outputHeight,
     }), codec);

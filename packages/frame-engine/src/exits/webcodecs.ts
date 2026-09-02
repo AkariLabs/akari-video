@@ -127,7 +127,8 @@ function buildEncoderConfig(options: WebCodecsH264Options): AkariVideoEncoderCon
       bitrate,
       framerate: options.fps,
       hardwareAcceleration: options.hardwareAcceleration ?? 'prefer-hardware',
-      latencyMode: 'realtime',
+      // 'quality' の理由は下の H.264 側と同じ（realtime は VideoToolbox 共有時にフレームを捨てる）。
+      latencyMode: 'quality',
       hevc: { format: 'hevc' }
     };
   }
@@ -141,9 +142,27 @@ function buildEncoderConfig(options: WebCodecsH264Options): AkariVideoEncoderCon
     bitrate,
     framerate: options.fps,
     hardwareAcceleration: options.hardwareAcceleration ?? 'prefer-hardware',
-    latencyMode: 'realtime',
+    // ファイル書き出しなので 'quality'。'realtime' は仕様上フレーム落ちを許し、実際に macOS の VideoToolbox を
+    // 他セッション（プレビューの H.264 デコード・別のエンコード等）と共有すると黙ってチャンクを捨てた
+    // （2026-09-02 実測 M1: 1464 中 809 欠落、同条件の 'quality' は 0 欠落、単独でも 'quality' が 26% 速い）。
+    // 落ちた分は finish() の欠落検出と mp4-mux の sample count mismatch で fail closed になる。
+    latencyMode: 'quality',
     avc: { format: 'annexb' }
   };
+}
+
+const MISSING_FRAME_LIST_LIMIT = 20;
+
+/** encode() した frame 番号のうち出力 timestamp が無いものを列挙する（timestamp は encode() と同じ丸め）。 */
+export function describeMissingFrames(frames: number, fps: number, outputTimestamps: ReadonlySet<number>): string {
+  const missing: number[] = [];
+  let omitted = 0;
+  for (let frame = 0; frame < frames; frame += 1) {
+    if (outputTimestamps.has(Math.round(frame / fps * 1e6))) continue;
+    if (missing.length < MISSING_FRAME_LIST_LIMIT) missing.push(frame);
+    else omitted += 1;
+  }
+  return omitted > 0 ? `${missing.join(', ')}, … and ${omitted} more` : missing.join(', ');
 }
 
 /**
@@ -154,6 +173,8 @@ export class WebCodecsH264Encoder {
   readonly config: AkariVideoEncoderConfig;
   private readonly encoder: VideoEncoder;
   private readonly writes: Promise<void>[] = [];
+  // 出力チャンクの timestamp。encode() した frame と突き合わせ、エンコーダが黙って捨てた frame を finish() で名指しする。
+  private readonly outputTimestamps = new Set<number>();
   private failure: Error | null = null;
   private frameNumber = 0;
   private closed = false;
@@ -173,6 +194,7 @@ export class WebCodecsH264Encoder {
           ? copyDescription(metadata?.decoderConfig?.description)
           : undefined;
         if (description) this.decoderConfigSent = true;
+        this.outputTimestamps.add(chunk.timestamp);
         this.writes.push(Promise.resolve(this.sink.write(bytes, {
           type: chunk.type,
           timestamp: chunk.timestamp,
@@ -244,15 +266,24 @@ export class WebCodecsH264Encoder {
     }
   }
 
-  async finish(): Promise<{ frames: number }> {
+  async finish(): Promise<{ frames: number; outputs: number }> {
     this.assertOpen();
     await this.encoder.flush();
     await Promise.all(this.writes);
     if (this.failure) throw this.failure;
+    // flush() 後に出力が encode() 回数へ届かなければエンコーダがフレームを捨てている。書き出しは全フレームが
+    // 必要なので、どの frame が欠けたかを添えて fail closed にする（後段の mp4-mux の検算より先に原因を名指しする）。
+    const dropped = this.frameNumber - this.writes.length;
+    if (dropped > 0) {
+      throw new Error(
+        `WebCodecs encoder dropped ${dropped} of ${this.frameNumber} frames`
+        + ` (missing frame numbers: ${describeMissingFrames(this.frameNumber, this.options.fps, this.outputTimestamps)})`
+      );
+    }
     this.encoder.close();
     this.closed = true;
     this.notifyQueueWaiters();
-    return { frames: this.frameNumber };
+    return { frames: this.frameNumber, outputs: this.writes.length };
   }
 
   close(): void {
