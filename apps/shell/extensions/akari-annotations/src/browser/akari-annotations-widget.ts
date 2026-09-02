@@ -205,6 +205,13 @@ import {
 import { OPEN_AKARI_INSPECTOR_ID, OPEN_AKARI_REVIEW_PANEL_ID } from './akari-annotations-commands';
 import { openTimelineContextMenu, withAudioTrimMenuItem } from './akari-timeline-context-menu';
 import { AkariAudioKeyframeDialog } from './akari-audio-keyframe-dialog';
+import {
+    filterSupportedTransitionBoundaries,
+    hitTestTransitionBoundary,
+    LibraryTransitionDragPayload,
+    parseLibraryTransitionDragPayload,
+    TransitionBoundaryHitCandidate
+} from './library-drop-model';
 import { TimelineCollapsedState } from './timeline/timeline-collapsed-state';
 import {
     applyTimelineCollapsedRows,
@@ -347,6 +354,8 @@ const TRANSITION_BADGE_ACCENT_COLOR = '#a855f7';
 const TRANSITION_BADGE_WARNING_COLOR = '#f97316';
 const TRANSITION_BADGE_NEUTRAL_BORDER_COLOR = 'rgba(255,255,255,.4)';
 const TRANSITION_DEFAULT_DURATION_SECONDS = 0.5;
+const TRANSITION_DROP_TARGET_SIZE_PX = 36;
+const TRANSITION_DROP_HIT_TOLERANCE_PX = 24;
 const NON_ADJACENT_TRANSITION_MESSAGE = 'このトランジションは次のクリップとの間にすき間があるため書き出されません。'
     + 'すき間を詰めるか、トランジションを削除してください。';
 const ZERO_OVERLAP_TRANSITION_MESSAGE = 'このトランジションは効きません: 素材に余りがありません。'
@@ -503,6 +512,10 @@ const SHORTCUTS_HELP_TEXT = [
 const MATERIAL_DRAG_MIME = 'application/x-akari-material';
 const MATERIAL_DRAG_START_EVENT = 'akari.material.dragStart';
 const MATERIAL_DRAG_END_EVENT = 'akari.material.dragEnd';
+// ライブラリ D&D は送信側 extension と依存を結ばず、素材 D&D と同じ文字列ミラー契約で受ける。
+const LIBRARY_DRAG_MIME = 'application/x-akari-library-item';
+const LIBRARY_DRAG_START_EVENT = 'akari.library.dragStart';
+const LIBRARY_DRAG_END_EVENT = 'akari.library.dragEnd';
 /** ゴースト・ドロップ挿入で使う D&D 中の素材ペイロード（送信側 dataTransfer/CustomEvent の共通形）。 */
 interface MaterialDragPayload {
     relativePath: string;
@@ -769,6 +782,8 @@ export class AkariAnnotationsWidget extends BaseWidget {
     protected dragState: DragState | undefined;
     /** 素材カード D&D 中（受け側）: 直近 dragStart イベントで受け取ったペイロード。dragEnd/drop でクリアする。 */
     protected materialDragPayload: MaterialDragPayload | undefined;
+    /** ライブラリの transition D&D 中だけ保持し、適用可能なカット境界の受け皿描画を有効にする。 */
+    protected libraryDragPayload: LibraryTransitionDragPayload | undefined;
     protected materialDragLastClientX = 0;
     protected materialDragLastClientY = 0;
     /** relativePath → getAudioDuration で解決済みの実尺（司令塔裁定6）。video/audio のみ使う。 */
@@ -1176,6 +1191,10 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.stripScroll.addEventListener('dragover', event => this.handleMaterialDragOver(event));
         this.stripScroll.addEventListener('dragleave', event => this.handleMaterialDragLeave(event));
         this.stripScroll.addEventListener('drop', event => this.handleMaterialDrop(event));
+        this.stripScroll.addEventListener('dragenter', event => this.handleLibraryTransitionDragEnter(event));
+        this.stripScroll.addEventListener('dragover', event => this.handleLibraryTransitionDragOver(event));
+        this.stripScroll.addEventListener('dragleave', event => this.handleLibraryTransitionDragLeave(event));
+        this.stripScroll.addEventListener('drop', event => this.handleLibraryTransitionDrop(event));
         // ㉕/㉗ 中央寄せギャップはビューポート高（stripScroll.clientHeight）に依存するため、
         // パネルのリサイズ（分割線ドラッグ等）でも再計算されるよう監視する。
         const stripScrollResizeObserver = new ResizeObserver(() => this.renderStrip());
@@ -1606,6 +1625,27 @@ export class AkariAnnotationsWidget extends BaseWidget {
         border-color: #a855f7 !important;
         background: rgba(168, 85, 247, .3) !important;
     }
+    .akari-annotations-widget .akari-annotations-transition-drop-target {
+        position: absolute;
+        width: ${TRANSITION_DROP_TARGET_SIZE_PX}px;
+        height: ${TRANSITION_DROP_TARGET_SIZE_PX}px;
+        transform: translate(-50%, -50%);
+        border: 2px dashed ${TRANSITION_BADGE_WARNING_COLOR};
+        border-radius: 50%;
+        background: rgba(249, 115, 22, .18);
+        box-shadow: 0 0 0 4px rgba(249, 115, 22, .10);
+        box-sizing: border-box;
+        cursor: copy;
+        pointer-events: auto;
+        z-index: 7;
+        transition: transform 80ms ease, background 80ms ease, box-shadow 80ms ease;
+    }
+    .akari-annotations-widget .akari-annotations-transition-drop-target[data-akari-transition-drop-hover="true"] {
+        transform: translate(-50%, -50%) scale(1.16);
+        border-style: solid;
+        background: rgba(249, 115, 22, .42);
+        box-shadow: 0 0 0 6px rgba(249, 115, 22, .22), 0 0 16px rgba(249, 115, 22, .65);
+    }
     .akari-annotations-widget .akari-annotations-strip-clip-trimmer-active {
         outline: 2px solid #f97316;
         outline-offset: -2px;
@@ -1932,6 +1972,43 @@ export class AkariAnnotationsWidget extends BaseWidget {
         this.toDispose.push(Disposable.create(
             () => window.removeEventListener(MATERIAL_DRAG_END_EVENT, onMaterialDragEnd)
         ));
+
+        // ライブラリ D&D のミラー受信。未知 kind / 未知 transition id は純ロジック側で fail-soft に拒否し、
+        // 以前の有効ドラッグ状態も残さない。受理時だけ境界受け皿を keyed 描画へ加える。
+        const onLibraryDragStart = (event: Event): void => {
+            const payload = parseLibraryTransitionDragPayload((event as CustomEvent<unknown>).detail);
+            this.setHoveredTransitionDropTarget(undefined);
+            if (!payload) {
+                this.clearLibraryTransitionDragState();
+                return;
+            }
+            this.libraryDragPayload = payload;
+            this.renderStrip();
+        };
+        const onLibraryDragEnd = (): void => this.clearLibraryTransitionDragState();
+        const onWindowLibraryDrop = (): void => {
+            if (this.libraryDragPayload) queueMicrotask(() => this.clearLibraryTransitionDragState());
+        };
+        const onWindowLibraryDragLeave = (event: DragEvent): void => {
+            if (!this.libraryDragPayload || event.relatedTarget !== null) return;
+            const outsideViewport = event.clientX <= 0 || event.clientY <= 0
+                || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight;
+            if (outsideViewport) this.clearLibraryTransitionDragState();
+        };
+        const onWindowBlur = (): void => this.clearLibraryTransitionDragState();
+        window.addEventListener(LIBRARY_DRAG_START_EVENT, onLibraryDragStart);
+        window.addEventListener(LIBRARY_DRAG_END_EVENT, onLibraryDragEnd);
+        window.addEventListener('drop', onWindowLibraryDrop, true);
+        window.addEventListener('dragleave', onWindowLibraryDragLeave, true);
+        window.addEventListener('blur', onWindowBlur);
+        this.toDispose.push(Disposable.create(() => {
+            window.removeEventListener(LIBRARY_DRAG_START_EVENT, onLibraryDragStart);
+            window.removeEventListener(LIBRARY_DRAG_END_EVENT, onLibraryDragEnd);
+            window.removeEventListener('drop', onWindowLibraryDrop, true);
+            window.removeEventListener('dragleave', onWindowLibraryDragLeave, true);
+            window.removeEventListener('blur', onWindowBlur);
+            this.libraryDragPayload = undefined;
+        }));
     }
 
     protected configureIconButton(button: HTMLButtonElement, icon: string, ariaLabel: string, title: string): void {
@@ -4032,6 +4109,116 @@ export class AkariAnnotationsWidget extends BaseWidget {
         } catch {
             return undefined;
         }
+    }
+
+    protected isLibraryTransitionDragTransfer(transfer: DataTransfer | null): boolean {
+        return !!transfer && transfer.types.includes(LIBRARY_DRAG_MIME);
+    }
+
+    protected handleLibraryTransitionDragEnter(event: DragEvent): void {
+        if (!this.isLibraryTransitionDragTransfer(event.dataTransfer)) return;
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    protected handleLibraryTransitionDragOver(event: DragEvent): void {
+        if (!this.isLibraryTransitionDragTransfer(event.dataTransfer)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const hit = this.libraryDragPayload
+            ? this.hitLibraryTransitionDropTarget(event.clientX, event.clientY)
+            : undefined;
+        this.setHoveredTransitionDropTarget(hit);
+        if (event.dataTransfer) event.dataTransfer.dropEffect = hit ? 'copy' : 'none';
+    }
+
+    protected handleLibraryTransitionDragLeave(event: DragEvent): void {
+        if (!this.isLibraryTransitionDragTransfer(event.dataTransfer)) return;
+        const next = event.relatedTarget;
+        if (next instanceof Node && this.stripScroll.contains(next)) return;
+        this.setHoveredTransitionDropTarget(undefined);
+    }
+
+    protected handleLibraryTransitionDrop(event: DragEvent): void {
+        if (!this.isLibraryTransitionDragTransfer(event.dataTransfer)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const payload = this.readLibraryTransitionDropPayload(event.dataTransfer);
+        const hit = payload ? this.hitLibraryTransitionDropTarget(event.clientX, event.clientY) : undefined;
+        this.clearLibraryTransitionDragState();
+        if (!payload || !hit) return;
+        void this.applyLibraryTransitionDrop(payload, hit.earlierIndex);
+    }
+
+    protected readLibraryTransitionDropPayload(
+        transfer: DataTransfer | null
+    ): LibraryTransitionDragPayload | undefined {
+        const raw = transfer?.getData(LIBRARY_DRAG_MIME);
+        // drop 時に MIME の本文が存在する場合はそれを正とし、不正値をミラー状態で救済しない。
+        // 本文が空の環境だけ dragStart の CustomEvent ミラーへフォールバックする。
+        return raw ? parseLibraryTransitionDragPayload(raw) : this.libraryDragPayload;
+    }
+
+    protected transitionDropHitCandidates(): TransitionBoundaryHitCandidate[] {
+        const candidates: TransitionBoundaryHitCandidate[] = [];
+        for (const element of Array.from(this.stripContent.querySelectorAll<HTMLElement>(
+            '[data-akari-transition-drop-target]'
+        ))) {
+            const earlierIndex = Number(element.dataset.akariTransitionEarlierIndex);
+            const laterIndex = Number(element.dataset.akariTransitionLaterIndex);
+            if (!Number.isInteger(earlierIndex) || !Number.isInteger(laterIndex)) continue;
+            const rect = element.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) continue;
+            candidates.push({
+                earlierIndex, laterIndex,
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            });
+        }
+        return candidates;
+    }
+
+    protected hitLibraryTransitionDropTarget(
+        clientX: number,
+        clientY: number
+    ): TransitionBoundaryHitCandidate | undefined {
+        return hitTestTransitionBoundary(
+            { x: clientX, y: clientY },
+            this.transitionDropHitCandidates(),
+            TRANSITION_DROP_HIT_TOLERANCE_PX
+        );
+    }
+
+    protected setHoveredTransitionDropTarget(hit: TransitionBoundaryHitCandidate | undefined): void {
+        const key = hit ? `${hit.earlierIndex}-${hit.laterIndex}` : undefined;
+        for (const element of Array.from(this.stripContent.querySelectorAll<HTMLElement>(
+            '[data-akari-transition-drop-target]'
+        ))) {
+            element.dataset.akariTransitionDropHover = String(
+                key !== undefined && element.dataset.akariTransitionDropTarget === key
+            );
+        }
+    }
+
+    protected clearLibraryTransitionDragState(): void {
+        const hadPayload = this.libraryDragPayload !== undefined;
+        this.libraryDragPayload = undefined;
+        this.setHoveredTransitionDropTarget(undefined);
+        if (hadPayload) this.renderStrip();
+    }
+
+    protected async applyLibraryTransitionDrop(
+        payload: LibraryTransitionDragPayload,
+        earlierIndex: number
+    ): Promise<void> {
+        if (!this.location?.editUri || this.unsupportedTransitionTrack(earlierIndex) !== undefined) return;
+        const currentDuration = this.cuts[earlierIndex]?.transitionOut?.duration;
+        await this.applyTransitionOut(earlierIndex, {
+            type: payload.id,
+            duration: typeof currentDuration === 'number' && currentDuration > 0
+                ? currentDuration : TRANSITION_DEFAULT_DURATION_SECONDS
+        });
+        this.footer.textContent = `トランジション「${payload.name}」を適用しました`;
     }
 
     /**
@@ -6438,6 +6625,16 @@ export class AkariAnnotationsWidget extends BaseWidget {
      */
     protected renderTransitionBoundaries(unsupported: ReadonlySet<number>): void {
         const boundaries = computeCutBoundaries(this.segments, this.fps);
+        const unsupportedDropEarlierIndexes = new Set(unsupported);
+        for (const cutIndex of this.unsupportedTrackTransitionByCutIndex.keys()) {
+            unsupportedDropEarlierIndexes.add(cutIndex);
+        }
+        const supportedDropEarlierIndexes = new Set((this.libraryDragPayload
+            ? filterSupportedTransitionBoundaries(
+                boundaries,
+                unsupportedDropEarlierIndexes
+            )
+            : []).map(boundary => boundary.earlierIndex));
         for (const boundary of boundaries) {
             const itemTrackId = this.itemLocations.get(this.cutItemIds[boundary.earlierIndex] ?? '')?.trackId;
             const cutLayout = resolveItemRowLayout(
@@ -6504,6 +6701,26 @@ export class AkariAnnotationsWidget extends BaseWidget {
                     event.preventDefault();
                     event.stopPropagation();
                     this.openTransitionPopup(event.clientX, event.clientY, boundary.earlierIndex, boundary.laterIndex);
+                });
+            }
+            if (supportedDropEarlierIndexes.has(boundary.earlierIndex)) {
+                const { element: dropTarget } = this.keyedNode(
+                    'strip', `transition-drop:${boundary.earlierIndex}-${boundary.laterIndex}`,
+                    JSON.stringify([boundary, cutLayout.hidden]),
+                    () => document.createElement('div')
+                );
+                dropTarget.className = 'akari-annotations-transition-drop-target';
+                dropTarget.dataset.akariTransitionDropTarget = `${boundary.earlierIndex}-${boundary.laterIndex}`;
+                dropTarget.dataset.akariTransitionEarlierIndex = String(boundary.earlierIndex);
+                dropTarget.dataset.akariTransitionLaterIndex = String(boundary.laterIndex);
+                dropTarget.dataset.akariTransitionDropHover = 'false';
+                dropTarget.setAttribute('role', 'button');
+                dropTarget.setAttribute('aria-label', `C${boundary.earlierIndex + 1} と C${boundary.laterIndex + 1} の境界へ適用`);
+                dropTarget.title = 'ここにトランジションを適用';
+                Object.assign(dropTarget.style, {
+                    left: `${this.layoutPercent(boundary.boundaryT)}%`,
+                    top: `${cutLayout.top + cutLayout.height / 2}px`,
+                    opacity: cutLayout.hidden ? '.45' : '1'
                 });
             }
         }
