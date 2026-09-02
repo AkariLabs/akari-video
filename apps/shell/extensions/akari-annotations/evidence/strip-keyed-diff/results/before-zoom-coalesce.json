@@ -27,7 +27,7 @@
       "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) @akari-video/shell/0.1.32 Chrome/142.0.7444.265 Electron/39.8.7 Safari/537.36",
       "jsVersion": "14.2.231.22"
     },
-    "shell": "/Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell",
+    "shell": "<repo>/apps/shell",
     "selector": "#akari-annotations-widget .akari-annotations-strip",
     "frontendBundle": {
       "mtime": "2026-09-02T01:12:38.540Z",
@@ -2035,7 +2035,7 @@
                         "bottom": 1100
                       }
                     },
-                    "reason": "Error: drag-move input timed out after 2000ms\n    at Timeout._onTimeout (file:///Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:25:119)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)"
+                    "reason": "Error: drag-move input timed out after 2000ms\n    at Timeout._onTimeout (file://<repo>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/measure-a.mjs:25:119)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)"
                   }
                 ],
                 "performance": {
@@ -2883,7 +2883,7 @@
               },
               "3": {
                 "status": "not-reached",
-                "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
+                "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file://<repo>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
                 "loadAverage": [
                   243.53369140625,
                   397.29736328125,
@@ -2892,7 +2892,7 @@
               },
               "4": {
                 "status": "not-reached",
-                "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
+                "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file://<repo>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
                 "loadAverage": [
                   243.53369140625,
                   397.29736328125,
@@ -2901,7 +2901,7 @@
               },
               "5": {
                 "status": "not-reached",
-                "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
+                "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file://<repo>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
                 "loadAverage": [
                   243.53369140625,
                   397.29736328125,
@@ -2921,7 +2921,7 @@
                 182.2783203125
               ]
             },
-            "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file:///Users/test/Desktop/Akari_DEV/preview-perf-fixture/.claude/worktrees/agent-aadf16c9002c6cdcf/akari-video/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
+            "reason": "Error: CDP Runtime.evaluate timed out after 60000ms\n    at Timeout._onTimeout (file://<repo>/apps/shell/extensions/akari-annotations/evidence/strip-keyed-diff/scripts/cdp-lib.mjs:19:164)\n    at listOnTimeout (node:internal/timers:581:17)\n    at process.processTimers (node:internal/timers:519:7)",
             "cacheTimedOut": false
           }
         ],
