@@ -9,7 +9,7 @@ const row = (id, text = id) => ({
     id, start: 0, end: 1, outStart: 0, outEnd: 1, text,
     style: null,
     words: [{ text, start: 0, end: 1 }], fragmentBreakWordIndex: null,
-    edited: false, timeDomain: 'source'
+    unrecognized: [], edited: false, timeDomain: 'source'
 });
 
 test('planDaihonUpdate は生成・削除・順序を key で計画する', () => {
@@ -38,6 +38,12 @@ test('planDaihonUpdate は style だけが変わった行を update に入れる
     const before = row('style');
     const after = { ...before, style: 'karaoke' };
     assert.deepEqual(planDaihonUpdate([before], [after]).update.map(item => item.id), ['style']);
+});
+
+test('planDaihonUpdate は unrecognized の内容変更を検出する', () => {
+    const before = row('unknown');
+    const after = { ...before, unrecognized: [{ start: 0.4, end: 0.5 }] };
+    assert.deepEqual(planDaihonUpdate([before], [after]).update.map(item => item.id), ['unknown']);
 });
 
 test('planHighlight は同じ語なら空、語が変われば該当語だけ返す', () => {

@@ -27,10 +27,18 @@ function equalWords(left: DaihonRow['words'], right: DaihonRow['words']): boolea
     });
 }
 
+function equalUnrecognized(left: DaihonRow['unrecognized'], right: DaihonRow['unrecognized']): boolean {
+    return left.length === right.length && left.every((span, index) => {
+        const other = right[index];
+        return span.start === other.start && span.end === other.end;
+    });
+}
+
 function needsUpdate(left: DaihonRow, right: DaihonRow): boolean {
     return left.text !== right.text
         || left.style !== right.style
         || !equalWords(left.words, right.words)
+        || !equalUnrecognized(left.unrecognized, right.unrecognized)
         || left.edited !== right.edited
         || left.outStart !== right.outStart
         || left.outEnd !== right.outEnd

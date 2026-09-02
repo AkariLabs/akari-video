@@ -48,3 +48,23 @@ test('output 時間の行は timeline map を適用しない', () => {
     assert.equal(row.outEnd, 6);
     assert.equal(row.timeDomain, 'output');
 });
+
+test('unrecognized を複製して行モデルへ通す', () => {
+    const spans = [{ start: 0.7, end: 0.8 }];
+    const [row] = buildDaihonRows([{ ...base, unrecognized: spans }], null);
+    assert.deepEqual(row.unrecognized, spans);
+    assert.notEqual(row.unrecognized, spans);
+});
+
+test('output 時間の unrecognized は変換せず保持する', () => {
+    const spans = [{ start: 5.7, end: 5.8 }];
+    const segments = [{ kind: 'src', outStart: 0, outEnd: 1, cutIndex: 0, in: 5, out: 7, speed: 2 }];
+    const [row] = buildDaihonRows([{
+        ...base, start: 5, end: 6, time_domain: 'output', unrecognized: spans
+    }], segments);
+    assert.deepEqual(row.unrecognized, spans);
+});
+
+test('unrecognized 無しは空配列になる', () => {
+    assert.deepEqual(buildDaihonRows([base], null)[0].unrecognized, []);
+});

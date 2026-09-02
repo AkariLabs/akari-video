@@ -134,6 +134,7 @@ export interface CaptionRecord {
     speaker: string | null;
     sourceRef: { segment: number } | null;
     edited: boolean;
+    unrecognized?: { start: number; end: number }[];
     /** 省略時は source。output は edit.json の出力時間軸を直接参照する。 */
     timeDomain?: 'source' | 'output';
     textStyle?: CaptionTextStyle;
@@ -298,12 +299,16 @@ export function setCaptionTimingLine(
 export function updateCaptionFieldsInSource(
     source: string,
     captionId: string,
-    updates: { text?: string; speaker?: string | null }
+    updates: {
+        text?: string;
+        speaker?: string | null;
+        unrecognized?: ReadonlyArray<{ start: number; end: number }> | null;
+    }
 ): string {
     if (!captionId) {
         throw new Error('字幕 ID を指定してください。');
     }
-    if (updates.text === undefined && updates.speaker === undefined) {
+    if (updates.text === undefined && updates.speaker === undefined && updates.unrecognized === undefined) {
         throw new Error('変更する字幕フィールドを指定してください。');
     }
     if (updates.text !== undefined && (typeof updates.text !== 'string' || !updates.text.trim())) {
@@ -311,6 +316,21 @@ export function updateCaptionFieldsInSource(
     }
     if (updates.speaker !== undefined && updates.speaker !== null && typeof updates.speaker !== 'string') {
         throw new Error('字幕の話者は文字列または null で指定してください。');
+    }
+    let unrecognized: { start: number; end: number }[] | undefined;
+    if (updates.unrecognized !== undefined && updates.unrecognized !== null) {
+        if (!Array.isArray(updates.unrecognized)) {
+            throw new Error('字幕の未認識区間は配列または null で指定してください。');
+        }
+        unrecognized = updates.unrecognized.map(span => {
+            if (!span || typeof span !== 'object'
+                || typeof span.start !== 'number' || !Number.isFinite(span.start)
+                || typeof span.end !== 'number' || !Number.isFinite(span.end)
+                || span.end <= span.start) {
+                throw new Error('字幕の未認識区間が不正です。');
+            }
+            return { start: span.start, end: span.end };
+        }).sort((left, right) => left.start - right.start || left.end - right.end);
     }
     const array = locateCaptionArray(source);
     const element = findCaptionElement(array.elements, captionId);
@@ -339,6 +359,14 @@ export function updateCaptionFieldsInSource(
     if (updates.speaker !== undefined) {
         nextElement = replaceCaptionProperty(nextElement, 'speaker', updates.speaker, captionId);
         nextElement = replaceCaptionProperty(nextElement, 'edited', true, captionId);
+    }
+    if (updates.unrecognized !== undefined) {
+        nextElement = syncOptionalCaptionProperty(
+            nextElement,
+            'unrecognized',
+            updates.unrecognized === null || unrecognized?.length === 0 ? undefined : unrecognized,
+            captionId
+        );
     }
     return replaceElement(source, array.openIndex + 1, element, nextElement);
 }
@@ -479,6 +507,7 @@ function normalizeCaption(
         || (value.text_style !== undefined && textStyle === undefined)) {
         return undefined;
     }
+    const unrecognized = normalizeUnrecognized(value.unrecognized);
     return {
         id: value.id,
         start,
@@ -487,6 +516,7 @@ function normalizeCaption(
         speaker: value.speaker,
         sourceRef,
         edited: value.edited,
+        ...(unrecognized !== undefined ? { unrecognized } : {}),
         ...(value.time_domain === 'source' || value.time_domain === 'output'
             ? { timeDomain: value.time_domain } : {}),
         ...(textStyle !== undefined ? { textStyle } : {})
@@ -701,13 +731,30 @@ function insertIntoEmptyArray(inner: string, serialized: string, lineEnding: str
 }
 
 function serializeCaption(caption: CaptionRecord): string {
+    const normalizedUnrecognized = normalizeUnrecognized(caption.unrecognized);
+    const unrecognized = normalizedUnrecognized === undefined
+        ? ''
+        : `, "unrecognized": ${JSON.stringify(normalizedUnrecognized)}`;
     const timeDomain = caption.timeDomain === undefined
         ? ''
         : `, "time_domain": ${JSON.stringify(caption.timeDomain)}`;
     const textStyle = caption.textStyle === undefined
         ? ''
         : `, "text_style": ${JSON.stringify(textStyleToJson(caption.textStyle))}`;
-    return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${timeDomain}${textStyle} }`;
+    return `{ "id": ${JSON.stringify(caption.id)}, "start": ${JSON.stringify(caption.start)}, "end": ${JSON.stringify(caption.end)}, "text": ${JSON.stringify(caption.text)}, "speaker": ${JSON.stringify(caption.speaker)}, "sourceRef": ${JSON.stringify(caption.sourceRef)}, "edited": ${JSON.stringify(caption.edited)}${unrecognized}${timeDomain}${textStyle} }`;
+}
+
+function normalizeUnrecognized(value: unknown): { start: number; end: number }[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    if (!value.every(span => isRecord(span)
+        && isFiniteNumber(span.start) && isFiniteNumber(span.end) && span.end > span.start)) {
+        return undefined;
+    }
+    const spans = value.map(span => {
+        const record = span as Record<string, number>;
+        return { start: record.start, end: record.end };
+    });
+    return spans.length > 0 ? spans : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, any> {

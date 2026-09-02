@@ -2,7 +2,11 @@ import { injectable } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
 import { writeAtomic, writeProjectFilesGuarded } from '@akari-video/edit-store/lib/write-gate';
 import { readInternalSources } from '@akari-video/edit-store/lib/internal-model';
-import { applyCutRanges as applyCutRangesToSource, detectEditVersion } from '@akari-video/edit-store/lib/cut-ranges';
+import {
+    applyCutRanges as applyCutRangesToSource,
+    detectEditVersion,
+    type CutRange
+} from '@akari-video/edit-store/lib/cut-ranges';
 import { refreshItemAnchors, type EditableEditV2 } from '@akari-video/edit-store/lib/tree-ops';
 import { toAnchorCaptions, withoutItemAnchors } from '@akari-video/edit-store/lib/item-anchor';
 import { applyMigration, planMigration, revertMigration } from '@akari-video/edit-store/lib/migrate';
@@ -627,7 +631,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
         const source = await fs.readFile(captionsPath, 'utf8');
         const updated = updateCaptionFieldsInSource(source, request.captionId, {
             text: request.text,
-            speaker: request.speaker
+            speaker: request.speaker,
+            unrecognized: request.unrecognized
         });
         await this.writeProjectFileGuarded(captionsPath, updated);
         return { committed: await this.commitWrite(this.fsPath(request.projectRootUri), '字幕の内容を変更') };
@@ -793,7 +798,8 @@ export class AkariAnnotationsServiceImpl implements AkariAnnotationsService {
                 cutInput = `${JSON.stringify(anchorFree, null, 2)}\n`;
             }
         }
-        const applied = applyCutRangesToSource(cutInput, request.ranges, {});
+        // edit-store の読み取り専用 CutRange 型は kind を消費しないため、サービス境界だけで吸収する。
+        const applied = applyCutRangesToSource(cutInput, request.ranges as unknown as CutRange[], {});
         if (anchors.size > 0) {
             const cutEdit = JSON.parse(applied.source) as { tracks?: Array<{ items?: unknown[] }> };
             const restore = (items: unknown[]): void => {
